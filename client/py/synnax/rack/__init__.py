@@ -13,7 +13,6 @@ from synnax.rack.types_gen import (
     Key,
     Rack,
     Status,
-    StatusDetails,
     resource_id,
 )
 
@@ -23,6 +22,5 @@ __all__ = [
     "Key",
     "Rack",
     "Status",
-    "StatusDetails",
     "resource_id",
 ]

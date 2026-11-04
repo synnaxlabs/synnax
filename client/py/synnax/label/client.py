@@ -9,7 +9,7 @@
 
 from typing import overload
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 
 from freighter import Empty, UnaryClient
 from synnax.exceptions import MultipleFoundError, NotFoundError, ValidationError
@@ -17,13 +17,6 @@ from synnax.label.types_gen import Key, Label
 from synnax.resource import ID, CrudeID
 from x import color as color_
 from x.lists import normalize
-
-TYPE_RESOURCE_ID = ID(type="label")
-
-
-def resource_id(key: Key) -> ID:
-    """Returns the resource ID of the label with the given key."""
-    return ID(key=str(key), type="label")
 
 
 class _CreateRequest(BaseModel):
@@ -35,12 +28,9 @@ class _CreateResponse(BaseModel):
 
 
 class _RetrieveRequest(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
-
     keys: list[Key] | None = None
     names: list[str] | None = None
     search_term: str | None = None
-    for_: ID | None = Field(default=None, alias="for")
     limit: int | None = None
     offset: int | None = None
 
@@ -121,7 +111,6 @@ class Client:
         keys: list[Key] | None = None,
         names: list[str] | None = None,
         search_term: str | None = None,
-        for_: CrudeID | None = None,
         limit: int | None = None,
         offset: int | None = None,
     ) -> list[Label]: ...
@@ -134,7 +123,6 @@ class Client:
         keys: list[Key] | None = None,
         names: list[str] | None = None,
         search_term: str | None = None,
-        for_: CrudeID | None = None,
         limit: int | None = None,
         offset: int | None = None,
     ) -> Label | list[Label]:
@@ -145,8 +133,6 @@ class Client:
         :param keys: The keys of the labels to retrieve.
         :param names: The names of the labels to retrieve.
         :param search_term: A fuzzy search term matched against label names.
-        :param for_: The resource ID of a resource. Retrieves the labels on that
-            resource and ignores every other filter.
         :param limit: The maximum number of labels to retrieve.
         :param offset: The number of labels to skip.
         :returns: The label when ``key`` or ``name`` is provided, otherwise a list of
@@ -160,7 +146,6 @@ class Client:
             keys=normalize(key, keys) or None,
             names=normalize(name, names) or None,
             search_term=search_term,
-            for_=None if for_ is None else ID(for_),
             limit=limit,
             offset=offset,
         )
@@ -174,8 +159,8 @@ class Client:
         return res.labels[0]
 
     def delete(self, keys: Key | list[Key]) -> None:
-        """Deletes one or more labels and removes them from every resource. Deleting
-        a label that does not exist is not an error.
+        """Deletes one or more labels and removes them from every range and status.
+        Deleting a label that does not exist is not an error.
 
         :param keys: A single label key or a list of keys to delete.
         """
@@ -184,20 +169,24 @@ class Client:
     def label(
         self, id: CrudeID, labels: Key | list[Key], *, replace: bool = False
     ) -> None:
-        """Adds labels to a resource.
+        """Adds labels to a range or a status.
 
-        :param id: The resource ID of the resource to label.
+        :param id: The resource ID of the range or status to label.
         :param labels: A single label key or a list of keys to add.
-        :param replace: If true, removes every other label from the resource.
+        :param replace: If true, removes every other label from the range or status.
+        :raises ValidationError: If ``id`` names a resource that is not a range or a
+            status.
         """
         req = _SetRequest(id=ID(id), labels=normalize(labels), replace=replace)
         self._client.send("/label/set", req, Empty)
 
     def remove(self, id: CrudeID, labels: Key | list[Key]) -> None:
-        """Removes labels from a resource.
+        """Removes labels from a range or a status.
 
-        :param id: The resource ID of the resource.
+        :param id: The resource ID of the range or status.
         :param labels: A single label key or a list of keys to remove.
+        :raises ValidationError: If ``id`` names a resource that is not a range or a
+            status.
         """
         req = _RemoveRequest(id=ID(id), labels=normalize(labels))
         self._client.send("/label/remove", req, Empty)

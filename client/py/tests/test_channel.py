@@ -785,10 +785,10 @@ class TestChannelRetrieveFilters:
         virt = create_channels[2]
         client.statuses.set(
             sy.Status(
-                key=str(virt.resource_id),
                 name=virt.name,
                 variant=sy.status.VARIANT_SUCCESS,
                 message="ok",
+                owner=virt.resource_id,
             )
         )
         res = client.channels.retrieve(virt.key, include_status=True)

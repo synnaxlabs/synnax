@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -276,23 +276,45 @@ class TestStatusClient:
 
         assert created.description == "Detailed description"
 
-    def test_set_with_parent(self, client: sy.Synnax) -> None:
-        """Should create status with a parent resource ID."""
-        parent_group = client.groups.create(
-            parent=sy.ontology.ROOT_ID, name="Status Parent Group"
+    def test_set_assigns_key(self, client: sy.Synnax) -> None:
+        """Should assign a UUID key to a status set with an empty key."""
+        created = client.statuses.set(
+            sy.Status(key="", variant=sy.status.VARIANT_INFO, message="No key")
         )
-        parent_id = sy.group.resource_id(parent_group.key)
+        assert str(UUID(created.key)) == created.key
 
-        status: sy.Status[None] = sy.Status(
-            variant=sy.status.VARIANT_INFO, message="Child status"
+    def test_set_merges_labels(self, client: sy.Synnax) -> None:
+        """Should keep the stored labels of a status and add the carried ones."""
+        a = client.labels.create(name=str(uuid4()), color="#FF0000")
+        b = client.labels.create(name=str(uuid4()), color="#FF0000")
+        created = client.statuses.set(
+            sy.Status(variant=sy.status.VARIANT_INFO, message="Labeled", labels=[a.key])
         )
-        created = client.statuses.set(status, parent=parent_id)
+        updated = client.statuses.set(
+            sy.Status(
+                key=created.key,
+                variant=sy.status.VARIANT_INFO,
+                message="Labeled",
+                labels=[b.key],
+            )
+        )
+        assert set(updated.labels) == {a.key, b.key}
+        retrieved = client.statuses.retrieve(key=created.key)
+        assert set(retrieved.labels) == {a.key, b.key}
 
-        assert created.key is not None
-
-        parent_id_str = f"group:{parent_group.key!s}"
-        children = client.ontology.retrieve_children(parent_id_str)
-        assert any(r.key == created.key for r in children)
+    def test_retrieve_has_labels(self, client: sy.Synnax) -> None:
+        """Should keep only the statuses that have one of the labels."""
+        lbl = client.labels.create(name=str(uuid4()), color="#FF0000")
+        labeled = client.statuses.set(
+            sy.Status(
+                variant=sy.status.VARIANT_INFO, message="Labeled", labels=[lbl.key]
+            )
+        )
+        client.statuses.set(
+            sy.Status(variant=sy.status.VARIANT_INFO, message="Unlabeled")
+        )
+        res = client.statuses.retrieve(has_labels=[lbl.key])
+        assert [s.key for s in res] == [labeled.key]
 
     def test_resource_id_helper(self) -> None:
         """Should create proper resource ID."""
@@ -329,3 +351,87 @@ class TestStatusClient:
         final = client.statuses.retrieve(key=created.key)
         assert final.variant == sy.status.VARIANT_ERROR
         assert final.message == "Updated persistent status"
+
+
+@pytest.mark.status
+class TestStatusOwner:
+    """Tests for statuses that a resource owns."""
+
+    def test_set_with_owner(
+        self, client: sy.Synnax, virtual_channel: sy.Channel
+    ) -> None:
+        """Should store the owner of a status."""
+        created = client.statuses.set(
+            sy.Status(
+                variant=sy.status.VARIANT_INFO,
+                message="Owned",
+                owner=virtual_channel.resource_id,
+            )
+        )
+        assert created.owner == virtual_channel.resource_id
+        assert client.statuses.retrieve(key=created.key).owner == (
+            virtual_channel.resource_id
+        )
+
+    def test_set_updates_owned_status(
+        self, client: sy.Synnax, virtual_channel: sy.Channel
+    ) -> None:
+        """Should write to the status the owner holds, whatever key the set carries."""
+        first = client.statuses.set(
+            sy.Status(
+                variant=sy.status.VARIANT_INFO,
+                message="First",
+                owner=virtual_channel.resource_id,
+            )
+        )
+        second = client.statuses.set(
+            sy.Status(
+                key=str(uuid4()),
+                variant=sy.status.VARIANT_ERROR,
+                message="Second",
+                owner=virtual_channel.resource_id,
+            )
+        )
+        assert second.key == first.key
+        res = client.statuses.retrieve(owners=[virtual_channel.resource_id])
+        assert len(res) == 1
+        assert res[0].key == first.key
+        assert res[0].message == "Second"
+
+    def test_retrieve_by_owners(self, client: sy.Synnax) -> None:
+        """Should keep only the statuses the given resources own."""
+        channels = [
+            client.channels.create(
+                name=f"test_{uuid4()}",
+                virtual=True,
+                data_type=sy.DataType.FLOAT64,
+            )
+            for _ in range(3)
+        ]
+        created = client.statuses.set(
+            [
+                sy.Status(
+                    variant=sy.status.VARIANT_INFO,
+                    message="Owned",
+                    owner=ch.resource_id,
+                )
+                for ch in channels
+            ]
+        )
+        res = client.statuses.retrieve(
+            owners=[channels[0].resource_id, str(channels[1].resource_id)]
+        )
+        assert {s.key for s in res} == {created[0].key, created[1].key}
+
+    def test_delete_owner(self, client: sy.Synnax, virtual_channel: sy.Channel) -> None:
+        """Should delete the status of a deleted owner."""
+        created = client.statuses.set(
+            sy.Status(
+                variant=sy.status.VARIANT_INFO,
+                message="Owned",
+                owner=virtual_channel.resource_id,
+            )
+        )
+        client.channels.delete(virtual_channel.key)
+        with pytest.raises(sy.NotFoundError):
+            client.statuses.retrieve(key=created.key)

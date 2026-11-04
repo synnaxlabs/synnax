@@ -242,9 +242,8 @@ class Task:
                     try:
                         status = Status.model_validate(sample)
                     except ValidationError:
-                        # The status channel carries statuses for all tasks and
-                        # racks. Rack statuses have a different schema, so
-                        # validation failures are expected and should be skipped.
+                        # The channel carries every status in the cluster, and a status
+                        # that no task owns can carry other details.
                         continue
                     if status.details is not None and status.details.cmd == key:
                         return status

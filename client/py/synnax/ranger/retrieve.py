@@ -24,10 +24,9 @@ class Request(BaseModel):
     search_term: str | None = None
     overlaps_with: TimeRange | None = None
     has_labels: list[label.Key] | None = None
+    parents: list[Key] | None = None
     limit: int | None = None
     offset: int | None = None
-    include_labels: bool | None = None
-    include_parent: bool | None = None
 
 
 class _Response(BaseModel):

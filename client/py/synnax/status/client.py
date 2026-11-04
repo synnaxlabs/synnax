@@ -8,12 +8,12 @@
 #  included in the file licenses/APL.txt.
 
 from typing import Generic, TypeVar, overload
-from uuid import UUID
 
 from pydantic import BaseModel, Field, JsonValue
 
 from freighter import Empty, UnaryClient
-from synnax.resource import ID
+from synnax import label
+from synnax.resource import ID, CrudeID
 from synnax.status.types_gen import Key, Status, Variant
 from x.lists import normalize
 from x.params import require_named_params
@@ -22,7 +22,6 @@ D = TypeVar("D")
 
 
 class _SetRequest(BaseModel, Generic[D]):
-    parent: ID | None = None
     statuses: list[Status[D]]
 
 
@@ -32,11 +31,11 @@ class _SetResponse(BaseModel):
 
 class _RetrieveRequest(BaseModel):
     keys: list[str] | None = None
+    owners: list[ID] | None = None
     search_term: str | None = None
     offset: int | None = None
     limit: int | None = None
-    include_labels: bool | None = None
-    has_labels: list[UUID] | None = None
+    has_labels: list[label.Key] | None = None
     variants: list[Variant] | None = None
 
 
@@ -66,7 +65,7 @@ class Client:
 
     Statuses are standardized messages used to communicate state across the Synnax
     platform. They support different variants (success, info, warning, error, loading,
-    disabled) and can be organized hierarchically using the ontology system.
+    disabled), and a rack, task, device, or channel can own one.
     """
 
     client: UnaryClient
@@ -80,67 +79,33 @@ class Client:
         self.client = transport
 
     @overload
-    def set(
-        self,
-        status: Status[D],
-        *,
-        parent: ID | None = None,
-    ) -> Status[JsonValue]: ...
+    def set(self, status: Status[D]) -> Status[JsonValue]: ...
 
     @overload
-    def set(
-        self,
-        status: list[Status[D]],
-        *,
-        parent: ID | None = None,
-    ) -> list[Status[JsonValue]]: ...
+    def set(self, status: list[Status[D]]) -> list[Status[JsonValue]]: ...
 
     def set(
-        self,
-        status: Status[D] | list[Status[D]] | None = None,
-        *,
-        parent: ID | None = None,
+        self, status: Status[D] | list[Status[D]] | None = None
     ) -> Status[JsonValue] | list[Status[JsonValue]]:
-        """Create or update a status.
+        """Creates or updates one or more statuses. A status with an owner updates the
+        status that owner already holds, whatever its key. A set keeps the labels of the
+        stored status and adds the labels it carries.
 
-        Args:
-            status: A single status or list of statuses to create or update.
-            parent: Optional parent resource ID for organizing the status.
+        :param status: A single status or a list of statuses to set.
+        :returns: Each status as stored, with its key resolved and its labels merged. A
+            single status when ``status`` is a single status.
 
-        Returns:
-            The created/updated status or list of statuses.
+        Create a status that a task owns:
 
-        Examples:
-            Create a single status:
-                >>> status = client.statuses.set(
-                ...     Status(
-                ...         variant="warning",
-                ...         name="Tank pressure",
-                ...         message="Above 600 psi",
-                ...         description="Vent the tank before you continue.",
-                ...     )
-                ... )
-
-            Create multiple statuses:
-                >>> statuses = client.statuses.set([
-                ...     Status(
-                ...         variant="success", name="Pump 1", message="Started pump"
-                ...     ),
-                ...     Status(
-                ...         variant="error",
-                ...         name="Pump 2",
-                ...         message="Failed to start pump",
-                ...         description="The motor controller did not respond.",
-                ...     ),
-                ... ])
-
-            Create with parent:
-                >>> from synnax.status import resource_id
-                >>> parent_id = resource_id("parent-key")
-                >>> status = client.statuses.set(
-                ...     Status(variant="info", name="Valve 3", message="Opened valve"),
-                ...     parent=parent_id
-                ... )
+        >>> status = client.statuses.set(
+        ...     Status(
+        ...         variant="warning",
+        ...         name="Tank pressure",
+        ...         message="Above 600 psi",
+        ...         description="Vent the tank before you continue.",
+        ...         owner=task.resource_id,
+        ...     )
+        ... )
         """
         if status is None:
             raise ValueError("status parameter is required")
@@ -149,7 +114,7 @@ class Client:
         statuses = status if isinstance(status, list) else [status]
 
         res = self.client.send(
-            _SET_ENDPOINT, _SetRequest(statuses=statuses, parent=parent), _SetResponse
+            _SET_ENDPOINT, _SetRequest(statuses=statuses), _SetResponse
         ).statuses
 
         if single:
@@ -157,20 +122,18 @@ class Client:
         return res
 
     @overload
-    def retrieve(
-        self, *, key: str, include_labels: bool = False
-    ) -> Status[JsonValue]: ...
+    def retrieve(self, *, key: str) -> Status[JsonValue]: ...
 
     @overload
     def retrieve(
         self,
         *,
         keys: list[str] | None = None,
+        owners: list[CrudeID] | None = None,
         search_term: str | None = None,
         offset: int | None = None,
         limit: int | None = None,
-        include_labels: bool = False,
-        has_labels: list[UUID] | None = None,
+        has_labels: list[label.Key] | None = None,
         variants: list[Variant] | None = None,
     ) -> list[Status[JsonValue]]: ...
 
@@ -180,50 +143,30 @@ class Client:
         *,
         key: str | None = None,
         keys: list[str] | None = None,
+        owners: list[CrudeID] | None = None,
         search_term: str | None = None,
         offset: int | None = None,
         limit: int | None = None,
-        include_labels: bool = False,
-        has_labels: list[UUID] | None = None,
+        has_labels: list[label.Key] | None = None,
         variants: list[Variant] | None = None,
     ) -> Status[JsonValue] | list[Status[JsonValue]]:
-        """Retrieve statuses from the cluster.
+        """Retrieves one status by key, or a list of the statuses that match the given
+        filters. A filter left as None does not filter.
 
-        Args:
-            key: Retrieve a single status by key.
-            keys: Retrieve multiple statuses by keys.
-            search_term: Search for statuses by name or message.
-            offset: Pagination offset.
-            limit: Pagination limit.
-            include_labels: Whether to include labels in the response.
-            has_labels: Filter statuses that have all of these labels.
-            variants: Filter statuses by variant (e.g. "success", "error").
+        :param key: The key of one status to retrieve.
+        :param keys: Keeps statuses with one of these keys.
+        :param owners: Keeps the statuses these resources own.
+        :param search_term: Fuzzy matches status names and messages.
+        :param offset: The number of matching statuses to skip.
+        :param limit: The maximum number of statuses to return.
+        :param has_labels: Keeps statuses that have one of these labels.
+        :param variants: Keeps statuses with one of these variants.
+        :returns: The status for a key, else a list of the matching statuses.
+        :raises NotFoundError: If no status has a requested key.
 
-        Returns:
-            A single status, or a list of statuses.
+        Retrieve the status of a task:
 
-        Examples:
-            Retrieve by key:
-                >>> status = client.statuses.retrieve(key="my-status")
-
-            Retrieve multiple:
-                >>> statuses = client.statuses.retrieve(
-                ...     keys=["status-1", "status-2"]
-                ... )
-
-            Search with pagination:
-                >>> statuses = client.statuses.retrieve(
-                ...     search_term="error",
-                ...     limit=10,
-                ...     offset=0
-                ... )
-
-            Filter by labels:
-                >>> from uuid import UUID
-                >>> statuses = client.statuses.retrieve(
-                ...     has_labels=[UUID("label-uuid")],
-                ...     include_labels=True
-                ... )
+        >>> statuses = client.statuses.retrieve(owners=[task.resource_id])
         """
         single = key is not None
         if single and key is not None:
@@ -233,10 +176,10 @@ class Client:
             _RETRIEVE_ENDPOINT,
             _RetrieveRequest(
                 keys=keys,
+                owners=None if owners is None else [ID(o) for o in owners],
                 search_term=search_term,
                 offset=offset,
                 limit=limit,
-                include_labels=include_labels,
                 has_labels=has_labels,
                 variants=variants,
             ),
@@ -275,10 +218,3 @@ class Client:
                 >>> client.statuses.delete(["status-1", "status-2", "status-3"])
         """
         self.client.send(_DELETE_ENDPOINT, _DeleteRequest(keys=normalize(keys)), Empty)
-
-
-TYPE_RESOURCE_ID = ID(type="status")
-
-
-def resource_id(key: str) -> ID:
-    return ID(type="status", key=str(key))

@@ -7,14 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from synnax.status.client import (
-    DELETE_CHANNEL,
-    SET_CHANNEL,
-    TYPE_RESOURCE_ID,
-    Client,
-    resource_id,
-)
+from synnax.status.client import DELETE_CHANNEL, SET_CHANNEL, Client
 from synnax.status.types_gen import (
+    TYPE_RESOURCE_ID,
     VARIANT_DISABLED,
     VARIANT_ERROR,
     VARIANT_INFO,
@@ -24,12 +19,13 @@ from synnax.status.types_gen import (
     Key,
     Status,
     Variant,
+    resource_id,
 )
 
 __all__ = [
     "DELETE_CHANNEL",
-    "SET_CHANNEL",
     "TYPE_RESOURCE_ID",
+    "SET_CHANNEL",
     "VARIANT_DISABLED",
     "VARIANT_ERROR",
     "VARIANT_INFO",

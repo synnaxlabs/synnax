@@ -15,7 +15,7 @@ Drives the Arc program + task lifecycle directly through the Synnax Python clien
 with no Console UI or Playwright involved.
 
 Deployment note: the Arc runtime reports task status without echoing the triggering
-command's key (only ``details.task`` / ``details.running``), so the client's blocking
+command's key (only ``owner`` / ``details.running``), so the client's blocking
 ``task.start()`` never resolves and hangs. We send the start command asynchronously and
 wait for a status that reports the task running.
 """
@@ -149,13 +149,13 @@ class ArcCase(SimDaqCase, TestCase):
                         status = sy.task.Status.model_validate(raw)
                     except ValidationError:
                         continue
-                    if status.details is None or status.details.task != task.key:
+                    if status.owner != task.resource_id:
                         continue
                     if status.variant == "error":
                         raise AssertionError(
                             f"Arc task '{task.name}' failed to start: {status.message}"
                         )
-                    if status.details.running:
+                    if status.details is not None and status.details.running:
                         return
         raise TimeoutError(f"timed out waiting for Arc task '{task.name}' to start")
 

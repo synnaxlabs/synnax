@@ -206,7 +206,7 @@ class ModbusUnits(SimulatorCase):
                     status = sy.task.Status.model_validate(raw)
                 except ValidationError:
                     continue
-                if status.details is None or status.details.task != task_key:
+                if status.owner != sy.task.resource_id(task_key):
                     continue
                 if status.variant in ("warning", "error"):
                     last = f"{status.message}: {status.description}"
