@@ -38,7 +38,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REF: ${{ github.event.repository.default_branch }}
         run: |
-          gh pr list --state open --limit 200 \
+          gh pr list --state open --limit 5000 \
             --json number,isCrossRepository,author \
             --jq '.[] | select(.isCrossRepository or .author.login == "app/dependabot")
               | .number' |
