@@ -21,7 +21,7 @@ std::pair<ID, x::errors::Error> ID::parse(const std::string &s) {
             ID{},
             x::errors::Error(
                 x::errors::VALIDATION,
-                "[ontology] - cannot parse empty id"
+                "[resource] - cannot parse empty id"
             )
         };
     const auto colon_pos = s.find(':');
@@ -30,7 +30,7 @@ std::pair<ID, x::errors::Error> ID::parse(const std::string &s) {
             ID{},
             x::errors::Error(
                 x::errors::VALIDATION,
-                "[ontology] - failed to parse id '" + s +
+                "[resource] - failed to parse id '" + s +
                     "': expected format 'type:key'"
             )
         };
@@ -39,7 +39,7 @@ std::pair<ID, x::errors::Error> ID::parse(const std::string &s) {
             ID{},
             x::errors::Error(
                 x::errors::VALIDATION,
-                "[ontology] - failed to parse id '" + s + "': type is empty"
+                "[resource] - failed to parse id '" + s + "': type is empty"
             )
         };
     return {

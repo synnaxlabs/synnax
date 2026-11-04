@@ -45,24 +45,6 @@ using DeleteClient = freighter::
 /// @brief An alias for the type of rack's key.
 using Key = std::uint32_t;
 
-/// @brief Converts a rack key to a resource ID.
-/// @param key The rack key.
-/// @returns A resource ID with type "rack" and the given key.
-inline resource::ID rack_resource_id(const Key key) {
-    return resource::ID("rack", std::to_string(key));
-}
-
-/// @brief Converts a vector of rack keys to a vector of resource IDs.
-/// @param keys The rack keys.
-/// @returns A vector of resource IDs.
-inline std::vector<resource::ID> rack_resource_ids(const std::vector<Key> &keys) {
-    std::vector<resource::ID> ids;
-    ids.reserve(keys.size());
-    for (const auto &key: keys)
-        ids.push_back(rack_resource_id(key));
-    return ids;
-}
-
 /// @brief Extracts the node ID from a rack key.
 /// @param key The rack key.
 /// @returns The node ID portion of the rack key.

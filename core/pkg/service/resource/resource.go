@@ -25,14 +25,14 @@ func ParseID(key string) (ID, error) {
 	if len(split) != 2 {
 		return ID{}, errors.Wrapf(
 			validate.ErrValidation,
-			"[ontology.resource] - failed to parse id: %s",
+			"[resource] - failed to parse id: %s",
 			key,
 		)
 	}
 	if split[0] == "" {
 		return ID{}, errors.Wrapf(
 			validate.ErrValidation,
-			"[ontology.resource] - failed to parse id: %s (empty type)",
+			"[resource] - failed to parse id: %s (empty type)",
 			key,
 		)
 	}

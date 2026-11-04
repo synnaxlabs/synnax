@@ -57,7 +57,7 @@ export interface IDToString {
 
 /** Renders an {@link ID} as `"type:key"`, the form used as a map key. */
 export const idToString = ((id: ID | string | (ID | string)[]) => {
-  if (typeof id === "string") id = zod.parse(stringIDZ, id, { label: "ontology ID" });
+  if (typeof id === "string") id = zod.parse(stringIDZ, id, { label: "resource ID" });
   if (Array.isArray(id)) return id.map((id) => idToString(id));
   return `${id.type}:${id.key}`;
 }) as IDToString;
@@ -70,4 +70,4 @@ export const idsEqual = (a: ID, b: ID) => a.type === b.type && a.key === b.key;
  * @throws {zod.ParseError} if the value is not a valid resource ID.
  */
 export const parseID = (id: unknown): ID =>
-  zod.parse(idZ, id, { label: "ontology ID" });
+  zod.parse(idZ, id, { label: "resource ID" });

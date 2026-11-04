@@ -30,7 +30,7 @@ var _ = Describe("ID", func() {
 					MatchError(validate.ErrValidation),
 					MatchError(
 						ContainSubstring(
-							"[ontology.resource] - failed to parse id: foo",
+							"[resource] - failed to parse id: foo",
 						),
 					),
 				))
@@ -40,7 +40,7 @@ var _ = Describe("ID", func() {
 				To(And(
 					MatchError(validate.ErrValidation),
 					MatchError(
-						ContainSubstring("[ontology.resource] - failed to parse id: "),
+						ContainSubstring("[resource] - failed to parse id: "),
 					),
 				))
 		})
@@ -52,7 +52,7 @@ var _ = Describe("ID", func() {
 						MatchError(validate.ErrValidation),
 						MatchError(
 							ContainSubstring(
-								"[ontology.resource] - failed to parse id: :bar (empty type)",
+								"[resource] - failed to parse id: :bar (empty type)",
 							),
 						),
 					))
@@ -66,7 +66,7 @@ var _ = Describe("ID", func() {
 						MatchError(validate.ErrValidation),
 						MatchError(
 							ContainSubstring(
-								"[ontology.resource] - failed to parse id: :word1:word2 (empty type)",
+								"[resource] - failed to parse id: :word1:word2 (empty type)",
 							),
 						),
 					))
@@ -80,7 +80,7 @@ var _ = Describe("ID", func() {
 						MatchError(validate.ErrValidation),
 						MatchError(
 							ContainSubstring(
-								"[ontology.resource] - failed to parse id: ::word1 (empty type)",
+								"[resource] - failed to parse id: ::word1 (empty type)",
 							),
 						),
 					))
@@ -111,7 +111,7 @@ var _ = Describe("ID", func() {
 						MatchError(validate.ErrValidation),
 						MatchError(
 							ContainSubstring(
-								"[ontology.resource] - failed to parse id: foo",
+								"[resource] - failed to parse id: foo",
 							),
 						),
 					))
