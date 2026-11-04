@@ -81,6 +81,14 @@ describe("Editable", () => {
       expect(window.getSelection()?.focusOffset).toBe(1);
     });
 
+    it("should find the caret inside pasted markup", () => {
+      const text = renderField(3);
+      text.innerHTML = "a<b>XY</b>bc";
+      window.getSelection()?.collapse(text.querySelector("b")?.firstChild ?? null, 2);
+      fireEvent.input(text);
+      expect(text.textContent).toBe("abc");
+    });
+
     it("should keep the start of text pasted over the limit", () => {
       const text = renderField(3);
       text.textContent = "abcdefgh";

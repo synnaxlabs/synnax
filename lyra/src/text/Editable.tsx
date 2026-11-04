@@ -119,8 +119,14 @@ const dropOverflow = (el: HTMLElement, maxLength: number): void => {
   const overflow = text.length - maxLength;
   if (overflow <= 0) return;
   const selection = window.getSelection();
-  const caret =
-    selection?.focusNode === el.firstChild ? selection.focusOffset : text.length;
+  let caret = text.length;
+  if (selection?.focusNode != null && el.contains(selection.focusNode)) {
+    // Pasted markup can split the text, so the caret's offset spans every child node.
+    const before = document.createRange();
+    before.selectNodeContents(el);
+    before.setEnd(selection.focusNode, selection.focusOffset);
+    caret = before.toString().length;
+  }
   const kept = Math.max(caret - overflow, 0);
   el.textContent = text.slice(0, kept) + text.slice(kept + overflow);
   if (el.firstChild != null) selection?.collapse(el.firstChild, kept);
