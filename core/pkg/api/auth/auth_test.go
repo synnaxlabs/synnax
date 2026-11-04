@@ -11,6 +11,7 @@ package auth_test
 
 import (
 	"context"
+	"time"
 
 	"github.com/gofiber/fiber/v3"
 	. "github.com/onsi/ginkgo/v2"
@@ -155,5 +156,28 @@ var _ = Describe("Middleware", func() {
 				},
 			),
 		)).To(MatchError(errBoom))
+	})
+})
+
+var _ = Describe("Deliver", func() {
+	const token = "session-token"
+	It("Should return the token unchanged", func(ctx SpecContext) {
+		fctx := requestCtx(ctx)
+		Expect(apiauth.Deliver(fctx, authSvc, token, false)).To(Equal(token))
+		Expect(fctx.Params).ToNot(HaveKey(apiauth.SessionCookieParam))
+	})
+	It("Should put the token in the session cookie", func(ctx SpecContext) {
+		svc := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
+			DB: node.DB,
+			Authenticators: map[auth.Method]auth.Authenticator{
+				auth.MethodPassword: passwordSvc,
+			},
+			IdleTimeout: time.Hour,
+		}))
+		fctx := requestCtx(ctx)
+		Expect(apiauth.Deliver(fctx, svc, token, true)).To(BeEmpty())
+		Expect(MustBeOk(fctx.Get(apiauth.SessionCookieParam))).To(Equal(
+			apiauth.SessionCookie{Token: token, Lifetime: time.Hour},
+		))
 	})
 })
