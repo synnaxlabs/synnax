@@ -1056,6 +1056,17 @@ TEST(testConfig, testMapWithAlternativePaths) {
     ASSERT_EQ(servers.at("host2"), 8081);
 }
 
+/// @brief it should write string keys as they are.
+TEST(testMapKey, testString) {
+    ASSERT_EQ(map_key(std::string("host")), "host");
+}
+
+/// @brief it should write integer keys as their decimal form.
+TEST(testMapKey, testInteger) {
+    ASSERT_EQ(map_key(8080), "8080");
+    ASSERT_EQ(map_key(std::uint64_t{18446744073709551615U}), "18446744073709551615");
+}
+
 /// @brief it should parse maps with numeric string keys as integer keys.
 TEST(testConfig, testMapWithIntKeys) {
     const json j = {{"ports", {{"8080", "http"}, {"8443", "https"}, {"3000", "dev"}}}};
