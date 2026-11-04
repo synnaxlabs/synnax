@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { access, ontology, user } from "@synnaxlabs/client";
-import { array, verbs } from "@synnaxlabs/x";
+import { array, deep, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
@@ -83,6 +83,8 @@ export const formSchema = z
       });
   });
 
+export const formPath = deep.path<z.infer<typeof formSchema>>();
+
 export type FormQuery = {
   key: user.Key;
 };
@@ -115,7 +117,7 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
         if (!registered) await client.users.delete(created.key);
       }
     }
-    set("key", created.key);
+    set(formPath.key, created.key);
     if (role == null) return;
     await client.access.roles.assign({ user: created.key, role });
   },

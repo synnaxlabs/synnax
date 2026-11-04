@@ -12,14 +12,15 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Channel } from "@synnaxlabs/pluto";
-import { DataType } from "@synnaxlabs/x";
+import { DataType, deep } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode } from "react";
 
+import { type Form as PlatformForm } from "@/platform/form";
 import { DataTypeField } from "@/platform/task/payload/DataTypeField";
 import { EnumMappingSection } from "@/platform/task/payload/EnumMappingSection";
 import { JSON_TYPE_ITEMS } from "@/platform/task/payload/JSONTypeItems";
 import { TimeFormatField } from "@/platform/task/payload/TimeFormatField";
-import { type JSONType } from "@/platform/task/payload/types";
+import { type JSONType, type TimeFormat } from "@/platform/task/payload/types";
 
 const renderSelectJSONType = Component.renderProp(
   (p: Omit<Select.SingleSimpleProps<JSONType>, "children" | "resourceName">) => (
@@ -29,9 +30,18 @@ const renderSelectJSONType = Component.renderProp(
   ),
 );
 
+interface CommandField {
+  channel: channel.Key;
+  dataType: string;
+  pointer: string;
+  jsonType: JSONType;
+  timeFormat?: TimeFormat;
+  enumValues: PlatformForm.Entry<"label", number>[];
+}
+
 export interface ChannelSectionsProps {
   /** The path of the command channel field of a write target. */
-  path: string;
+  path: deep.Target<CommandField>;
   /** Says what an empty pointer sends. */
   pointerPlaceholder: string;
   /** Leads the channel section, such as a field that names the channel. */
@@ -47,29 +57,30 @@ export const ChannelSections = ({
   pointerPlaceholder,
   children,
 }: ChannelSectionsProps): ReactElement => {
-  const key = Form.useFieldValue<channel.Key>(`${path}.channel`);
-  const jsonType = Form.useFieldValue<JSONType>(`${path}.jsonType`);
+  const field = deep.widen(path);
+  const key = Form.useFieldValue(field.channel);
+  const jsonType = Form.useFieldValue(field.jsonType);
   const query = key === 0 ? null : { key };
   const { data: dataType } = Channel.useResultDataType(query);
   const { set } = Form.useContext();
   // The Driver rejects enum values on any JSON type but string.
   const handleJSONTypeChange = (value: JSONType) => {
-    if (value !== "string") set(`${path}.enumValues`, []);
+    if (value !== "string") set(field.enumValues, []);
   };
   const pointerInputProps = { placeholder: pointerPlaceholder };
   return (
     <>
       <Form.Section title="Channel">
         {children}
-        <DataTypeField path={`${path}.dataType`} channel={key} hideVariableDensity />
+        <DataTypeField path={field.dataType} channel={key} hideVariableDensity />
         <Form.TextField
-          path={`${path}.pointer`}
+          path={field.pointer}
           label="Pointer"
           padHelpText={false}
           inputProps={pointerInputProps}
         />
-        <Form.Field<JSONType>
-          path={`${path}.jsonType`}
+        <Form.Field
+          path={field.jsonType}
           label="JSON type"
           padHelpText={false}
           onChange={handleJSONTypeChange}
@@ -77,11 +88,11 @@ export const ChannelSections = ({
           {renderSelectJSONType}
         </Form.Field>
         {dataType != null && DataType.TIMESTAMP.equals(dataType) && (
-          <TimeFormatField path={`${path}.timeFormat`} label="Time format" />
+          <TimeFormatField path={field.timeFormat} label="Time format" />
         )}
       </Form.Section>
       {jsonType === "string" && (
-        <EnumMappingSection path={`${path}.enumValues`} valueFirst />
+        <EnumMappingSection path={field.enumValues} valueFirst />
       )}
     </>
   );

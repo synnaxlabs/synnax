@@ -30,8 +30,8 @@ Shared task bases in `/driver/task/common/`: `sample_clock.h` (hardware/software
 ## Integrations
 
 - **LabJack** (`/driver/labjack/`) — LJM wrapper + device manager. ReadTask has two
-  modes: `StreamSource` (high-performance LJM streaming) and `UnarySource`
-  (thermocouples, with CJC config). Transform chain for scaling.
+  modes: `StreamSource` (high-performance LJM streaming) and `UnarySource` (polled T7
+  thermocouples). The Driver converts thermocouples with `LJM_TCVoltsToTemp`.
 - **NI** (`/driver/ni/`) — DAQmx + NISysCfg wrappers. Analog/digital read/write +
   scanner. Scanner discovers CompactDAQ chassis/modules via link properties
   (`ConnectsToLinkName`/`ProvidesLinkName`) in a two-pass algorithm (collect devices +

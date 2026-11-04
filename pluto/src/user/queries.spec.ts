@@ -30,6 +30,8 @@ import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax";
 import { User } from "@/user";
 
+const path = User.formPath;
+
 describe("User queries", () => {
   let controller: AbortController;
   const client = createTestClient();
@@ -227,10 +229,10 @@ describe("User queries", () => {
         const username = `test-form-${Date.now()}`;
         const role = await viewerRole();
         act(() => {
-          result.current.form.set("username", username);
-          result.current.form.set("name", "Form Test");
-          result.current.form.set("password", "password123");
-          result.current.form.set("role", role);
+          result.current.form.set(path.username, username);
+          result.current.form.set(path.name, "Form Test");
+          result.current.form.set(path.password, "password123");
+          result.current.form.set(path.role, role);
         });
 
         await act(async () => {
@@ -256,10 +258,10 @@ describe("User queries", () => {
         const name = `taken-${Date.now()}`;
         const role = await viewerRole();
         act(() => {
-          result.current.form.set("username", username);
-          result.current.form.set("name", name);
-          result.current.form.set("password", "password123");
-          result.current.form.set("role", role);
+          result.current.form.set(path.username, username);
+          result.current.form.set(path.name, name);
+          result.current.form.set(path.password, "password123");
+          result.current.form.set(path.role, role);
         });
         await act(async () => {
           result.current.save();
@@ -276,8 +278,8 @@ describe("User queries", () => {
         await waitFor(() => expect(result.current.variant).toBe("success"));
         const role = await viewerRole();
         act(() => {
-          result.current.form.set("name", "No Password");
-          result.current.form.set("role", role);
+          result.current.form.set(path.name, "No Password");
+          result.current.form.set(path.role, role);
         });
         await act(async () => {
           result.current.save();
@@ -303,10 +305,10 @@ describe("User queries", () => {
           result.current.save();
         });
 
-        expect(result.current.form.get("name").status.variant).toBe("error");
-        expect(result.current.form.get("role").status.variant).toBe("error");
-        expect(result.current.form.get("username").status.variant).toBe("success");
-        expect(result.current.form.get("password").status.variant).toBe("success");
+        expect(result.current.form.get(path.name).status.variant).toBe("error");
+        expect(result.current.form.get(path.role).status.variant).toBe("error");
+        expect(result.current.form.get(path.username).status.variant).toBe("success");
+        expect(result.current.form.get(path.password).status.variant).toBe("success");
       });
     });
   });
