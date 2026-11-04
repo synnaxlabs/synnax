@@ -9,12 +9,18 @@
  * included in the file licenses/APL.txt.
  */
 
+/* A line between devices, halfway down the space between them. */
 .console-ni-ports {
     flex: 1 1 0;
-    gap: 5rem;
+    gap: 2.5rem;
     min-height: 0;
     padding: 2rem 3rem 3rem;
     overflow-y: auto;
+
+    > * + *:not(.console-ni-ports__add) {
+        padding-top: 2.5rem;
+        border-top: var(--pluto-border);
+    }
 }
 
 .console-ni-ports__usage {
@@ -31,24 +37,19 @@
     color: var(--pluto-gray-l9);
 }
 
-.console-ni-ports__port {
-    flex: none;
-    width: 6.5rem;
-    font-variant-numeric: tabular-nums;
-}
-
 .console-ni-ports--compact {
     flex: none;
     padding: 1.5rem 3rem 2rem;
     overflow: visible;
 }
 
-.console-ni-ports__title {
+.console-ni-ports__location {
     flex: none;
-    min-width: 18rem;
-    white-space: nowrap;
-}
-
-.console-ni-ports__lines {
-    gap: 1rem 3rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: var(--pluto-border-radius-tiny);
+    background: var(--pluto-gray-l3);
+    color: var(--pluto-gray-l10);
+    font-family: var(--pluto-code-font-family);
+    font-size: var(--pluto-small-size);
+    line-height: 1.2;
 }

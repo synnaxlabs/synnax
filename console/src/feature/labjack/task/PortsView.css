@@ -9,12 +9,18 @@
  * included in the file licenses/APL.txt.
  */
 
+/* A line between sections, halfway down the space between them. */
 .console-labjack-ports {
     flex: 1 1 0;
-    gap: 5rem;
+    gap: 2.5rem;
     min-height: 0;
     padding: 2rem 3rem 3rem;
     overflow-y: auto;
+
+    > * + * {
+        padding-top: 2.5rem;
+        border-top: var(--pluto-border);
+    }
 }
 
 .console-labjack-ports__usage {
@@ -26,10 +32,8 @@
     gap: 1.5rem;
     padding: 1.5rem 3rem 2rem;
     overflow: visible;
-}
 
-.console-labjack-ports__title {
-    flex: none;
-    min-width: 18rem;
-    white-space: nowrap;
+    > * + * {
+        padding-top: 1.5rem;
+    }
 }

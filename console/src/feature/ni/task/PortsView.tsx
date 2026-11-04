@@ -47,7 +47,7 @@ interface DeviceSectionProps {
   /** Adds a channel on the free cell with the key, or on the lowest free port. */
   onAdd: (cell?: string) => void;
   onRemove?: () => void;
-  /** The title beside the grid instead of over it. */
+  /** The title on one line, for a map above a list. */
   compact?: boolean;
   /** The device's grid, given the handler that opens the menu of a free cell. */
   children: (onContextMenu?: (e: MouseEvent) => void) => ReactNode;
@@ -90,27 +90,34 @@ const DeviceSection = ({
   const open = editable ? menu.open : undefined;
   return (
     <Menu.ContextMenu {...menu} menu={renderMenu}>
-      <Flex.Box
-        direction={compact ? "x" : "y"}
-        align={compact ? "center" : undefined}
-        gap={compact ? "large" : "medium"}
-      >
+      <Flex.Box y gap={compact ? "small" : "medium"}>
         <Flex.Box
-          y
-          gap="tiny"
-          className={CSS.cls(
-            Menu.CONTEXT_TARGET,
-            compact && CSS.BE("ni-ports", "title"),
-          )}
+          x
+          justify="between"
+          align={compact ? "center" : "start"}
+          gap="small"
+          className={Menu.CONTEXT_TARGET}
           data-menu-key={DEVICE_MENU_KEY}
           onContextMenu={open}
         >
-          <Text.Text level="p" weight={500} color={11}>
-            {device.model}
-          </Text.Text>
-          <Text.Text level="small" color={9} className={CSS.BE("ni-ports", "usage")}>
-            {`${device.location} · ${usage}`}
-          </Text.Text>
+          <Flex.Box
+            direction={compact ? "x" : "y"}
+            wrap={compact}
+            align={compact ? "center" : undefined}
+            gap={compact ? "small" : "tiny"}
+          >
+            <Text.Text
+              level={compact ? "small" : "p"}
+              weight={500}
+              color={compact ? 10 : 11}
+            >
+              {device.model}
+            </Text.Text>
+            <Text.Text level="small" color={9} className={CSS.BE("ni-ports", "usage")}>
+              {usage}
+            </Text.Text>
+          </Flex.Box>
+          <span className={CSS.BE("ni-ports", "location")}>{device.location}</span>
         </Flex.Box>
         {children(open)}
       </Flex.Box>
@@ -328,7 +335,7 @@ export const LinesView = <C extends DigitalChannel>({
     Task.Port.cell({
       key: lineKey(port, line),
       labels: [String(line)],
-      row: 1,
+      row: Math.floor(line / LINES_PER_ROW) + 1,
       column: (line % LINES_PER_ROW) + 1,
       ports: [lineName(port, line)],
       claims,
@@ -360,39 +367,25 @@ export const LinesView = <C extends DigitalChannel>({
         onAdd={(c) => add(c == null ? undefined : parse(c))}
       >
         {(onContextMenu) => (
-          <Flex.Box x wrap className={CSS.BE("ni-ports", "lines")}>
+          <Task.Port.Rows>
             {ports.map(({ port, lines: n }) => (
-              <Flex.Box key={port} x align="center" gap="medium">
-                <Text.Text
-                  level="small"
-                  color={9}
-                  className={CSS.BE("ni-ports", "port")}
-                >
-                  {`port${port}`}
-                </Text.Text>
+              <Task.Port.Row key={port} label={`port${port}`}>
                 <Task.Port.Grid
                   label={`port${port} lines`}
-                  groups={Array.from(
-                    { length: Math.ceil(n / LINES_PER_ROW) },
-                    (_, g) => {
-                      const first = g * LINES_PER_ROW;
-                      const count = Math.min(LINES_PER_ROW, n - first);
-                      return {
-                        key: String(first),
-                        columns: count,
-                        cells: Array.from({ length: count }, (_, i) =>
-                          cell(port, first + i),
-                        ),
-                      };
+                  groups={[
+                    {
+                      key: String(port),
+                      columns: Math.min(LINES_PER_ROW, n),
+                      cells: Array.from({ length: n }, (_, line) => cell(port, line)),
                     },
-                  )}
+                  ]}
                   onClick={handleClick}
                   onAdd={editable ? ({ key }) => add(parse(key)) : undefined}
                   onContextMenu={onContextMenu}
                 />
-              </Flex.Box>
+              </Task.Port.Row>
             ))}
-          </Flex.Box>
+          </Task.Port.Rows>
         )}
       </DeviceSection>
     </Flex.Box>

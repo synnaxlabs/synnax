@@ -88,23 +88,25 @@ const Section = <P extends Port>({
   return (
     <Menu.ContextMenu {...menu} menu={renderMenu}>
       <Flex.Box
-        direction={compact ? "x" : "y"}
-        align={compact ? "center" : undefined}
-        gap={compact ? "large" : "medium"}
+        y
+        gap={compact ? "small" : "medium"}
         role="group"
         aria-label={TITLES[type]}
       >
         <Flex.Box
-          y
-          gap="tiny"
-          className={CSS.cls(
-            compact && CSS.BE("labjack-ports", "title"),
-            free != null && Menu.CONTEXT_TARGET,
-          )}
+          direction={compact ? "x" : "y"}
+          wrap={compact}
+          align={compact ? "center" : undefined}
+          gap={compact ? "small" : "tiny"}
+          className={CSS.cls(free != null && Menu.CONTEXT_TARGET)}
           data-menu-key={free?.key}
           onContextMenu={free == null ? undefined : open}
         >
-          <Text.Text level="p" weight={500} color={11}>
+          <Text.Text
+            level={compact ? "small" : "p"}
+            weight={500}
+            color={compact ? 10 : 11}
+          >
             {TITLES[type]}
           </Text.Text>
           <Text.Text

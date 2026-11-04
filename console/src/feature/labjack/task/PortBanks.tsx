@@ -56,37 +56,39 @@ const Grid = ({
 
 export interface PortBanksProps extends Omit<GridProps, "bank"> {
   ports: Port[];
-  /** Each bank's title beside its grid, and the banks in a line. */
+  /** Each bank's title beside its grid, for a map above a list. */
   compact?: boolean;
 }
 
-/** The ports as a grid for each bank, each under its title. */
+/** The ports as a grid for each bank, each under or, when compact, beside its title. */
 export const PortBanks = ({
   ports,
   compact = false,
   ...rest
-}: PortBanksProps): ReactElement => (
-  <div
-    className={CSS.cls(
-      CSS.B("labjack-port-banks"),
-      compact && CSS.BM("labjack-port-banks", "compact"),
-    )}
-  >
-    {banks(ports).map((bank) => (
-      <Flex.Box
-        key={bank.ports[0].key}
-        direction={compact ? "x" : "y"}
-        align={compact ? "center" : undefined}
-        gap={compact ? "small" : "tiny"}
-      >
-        <Text.Text level="small" color={9}>
-          {bank.title}
-        </Text.Text>
-        <Grid bank={bank} {...rest} />
-      </Flex.Box>
-    ))}
-  </div>
-);
+}: PortBanksProps): ReactElement => {
+  if (compact)
+    return (
+      <Task.Port.Rows>
+        {banks(ports).map((bank) => (
+          <Task.Port.Row key={bank.ports[0].key} label={bank.title}>
+            <Grid bank={bank} {...rest} />
+          </Task.Port.Row>
+        ))}
+      </Task.Port.Rows>
+    );
+  return (
+    <div className={CSS.B("labjack-port-banks")}>
+      {banks(ports).map((bank) => (
+        <Flex.Box key={bank.ports[0].key} y gap="tiny">
+          <Text.Text level="small" color={9}>
+            {bank.title}
+          </Text.Text>
+          <Grid bank={bank} {...rest} />
+        </Flex.Box>
+      ))}
+    </div>
+  );
+};
 
 export interface BankTabsProps extends Omit<PortBanksProps, "compact"> {
   /** The key of the channel's port. The tabs open on its bank. */
