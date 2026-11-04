@@ -36,6 +36,7 @@ const (
 	ResourceTypeRole            ResourceType = "role"
 	ResourceTypeSchematic       ResourceType = "schematic"
 	ResourceTypeSchematicSymbol ResourceType = "schematic_symbol"
+	ResourceTypeSecret          ResourceType = "secret"
 	ResourceTypeStatus          ResourceType = "status"
 	ResourceTypeTable           ResourceType = "table"
 	ResourceTypeTask            ResourceType = "task"
@@ -47,7 +48,7 @@ const (
 // values.
 func (r ResourceType) IsValid() bool {
 	switch r {
-	case ResourceTypeArc, ResourceTypeBuiltin, ResourceTypeChannel, ResourceTypeDevice, ResourceTypeFramer, ResourceTypeGroup, ResourceTypeLabel, ResourceTypeLineplot, ResourceTypeLog, ResourceTypeNode, ResourceTypePanel, ResourceTypePolicy, ResourceTypeProject, ResourceTypeRack, ResourceTypeRange, ResourceTypeRangeAlias, ResourceTypeRole, ResourceTypeSchematic, ResourceTypeSchematicSymbol, ResourceTypeStatus, ResourceTypeTable, ResourceTypeTask, ResourceTypeUser, ResourceTypeView:
+	case ResourceTypeArc, ResourceTypeBuiltin, ResourceTypeChannel, ResourceTypeDevice, ResourceTypeFramer, ResourceTypeGroup, ResourceTypeLabel, ResourceTypeLineplot, ResourceTypeLog, ResourceTypeNode, ResourceTypePanel, ResourceTypePolicy, ResourceTypeProject, ResourceTypeRack, ResourceTypeRange, ResourceTypeRangeAlias, ResourceTypeRole, ResourceTypeSchematic, ResourceTypeSchematicSymbol, ResourceTypeSecret, ResourceTypeStatus, ResourceTypeTable, ResourceTypeTask, ResourceTypeUser, ResourceTypeView:
 		return true
 	default:
 		return false

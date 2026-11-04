@@ -128,6 +128,9 @@ func GetSubject(ctx context.Context) ontology.ID {
 	return s.(ontology.ID)
 }
 
+// GetSessionKey returns the key of the request's session.
+func GetSessionKey(ctx context.Context) auth.SessionKey { return getSession(ctx).Key }
+
 func getSession(ctx context.Context) auth.Session {
 	s, ok := freighter.MDFromContext(ctx).Get(sessionKey)
 	if !ok {

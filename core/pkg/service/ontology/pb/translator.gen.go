@@ -111,6 +111,8 @@ func ResourceTypeToPB(v ontology.ResourceType) (ResourceType, error) {
 		return ResourceType_RESOURCE_TYPE_SCHEMATIC, nil
 	case ontology.ResourceTypeSchematicSymbol:
 		return ResourceType_RESOURCE_TYPE_SCHEMATIC_SYMBOL, nil
+	case ontology.ResourceTypeSecret:
+		return ResourceType_RESOURCE_TYPE_SECRET, nil
 	case ontology.ResourceTypeStatus:
 		return ResourceType_RESOURCE_TYPE_STATUS, nil
 	case ontology.ResourceTypeTable:
@@ -167,6 +169,8 @@ func ResourceTypeFromPB(v ResourceType) (ontology.ResourceType, error) {
 		return ontology.ResourceTypeSchematic, nil
 	case ResourceType_RESOURCE_TYPE_SCHEMATIC_SYMBOL:
 		return ontology.ResourceTypeSchematicSymbol, nil
+	case ResourceType_RESOURCE_TYPE_SECRET:
+		return ontology.ResourceTypeSecret, nil
 	case ResourceType_RESOURCE_TYPE_STATUS:
 		return ontology.ResourceTypeStatus, nil
 	case ResourceType_RESOURCE_TYPE_TABLE:

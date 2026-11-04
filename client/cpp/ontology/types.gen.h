@@ -32,6 +32,7 @@ constexpr const char *RESOURCE_TYPE_RANGE_ALIAS = "range-alias";
 constexpr const char *RESOURCE_TYPE_ROLE = "role";
 constexpr const char *RESOURCE_TYPE_SCHEMATIC = "schematic";
 constexpr const char *RESOURCE_TYPE_SCHEMATIC_SYMBOL = "schematic_symbol";
+constexpr const char *RESOURCE_TYPE_SECRET = "secret";
 constexpr const char *RESOURCE_TYPE_STATUS = "status";
 constexpr const char *RESOURCE_TYPE_TABLE = "table";
 constexpr const char *RESOURCE_TYPE_TASK = "task";

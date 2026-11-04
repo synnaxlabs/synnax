@@ -31,6 +31,7 @@ export const RESOURCE_TYPES = [
   "role",
   "schematic",
   "schematic_symbol",
+  "secret",
   "status",
   "table",
   "task",

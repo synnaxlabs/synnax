@@ -36,6 +36,7 @@ const (
 	ResourceTypeRole            ResourceType = v0.ResourceTypeRole
 	ResourceTypeSchematic       ResourceType = v0.ResourceTypeSchematic
 	ResourceTypeSchematicSymbol ResourceType = v0.ResourceTypeSchematicSymbol
+	ResourceTypeSecret          ResourceType = v0.ResourceTypeSecret
 	ResourceTypeStatus          ResourceType = v0.ResourceTypeStatus
 	ResourceTypeTable           ResourceType = v0.ResourceTypeTable
 	ResourceTypeTask            ResourceType = v0.ResourceTypeTask

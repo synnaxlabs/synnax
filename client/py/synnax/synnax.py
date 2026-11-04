@@ -30,6 +30,7 @@ from synnax import (
     rack,
     ranger,
     schematic,
+    secret,
     status,
     table,
     task,
@@ -94,6 +95,7 @@ class Synnax(framer.Client):
     groups: group.Client
     labels: label.Client
     views: view.Client
+    secrets: secret.Client
     imex: ImexClient
     projects: project.Client
     tables: table.Client
@@ -229,6 +231,7 @@ class Synnax(framer.Client):
         self.racks = rack.Client(client=self._transport.unary)
         self.devices = device.Client(client=self._transport.unary)
         self.views = view.Client(client=self._transport.unary)
+        self.secrets = secret.Client(client=self._transport.unary)
         self.imex = ImexClient(file_transport=self._transport.file_transport)
         self.projects = project.Client(
             client=self._transport.unary,

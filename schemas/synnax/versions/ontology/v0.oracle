@@ -27,6 +27,7 @@ ResourceType enum {
     role             = "role"
     schematic        = "schematic"
     schematic_symbol = "schematic_symbol"
+    secret           = "secret"
     status           = "status"
     table            = "table"
     task             = "task"
