@@ -12,6 +12,7 @@ export * from "@/platform/tree/createUseDelete";
 export * from "@/platform/tree/createUseRename";
 export * from "@/platform/tree/item";
 export * from "@/platform/tree/Provider";
+export * from "@/platform/tree/search";
 export * from "@/platform/tree/Tree";
 export * from "@/platform/tree/types";
 export * from "@/platform/tree/useResource";
