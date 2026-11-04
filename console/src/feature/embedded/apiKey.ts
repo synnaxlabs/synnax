@@ -14,9 +14,9 @@ import { retrieveAPIKey, saveAPIKey } from "@/feature/embedded/supervisor";
 
 const NAME = "Scripts on this computer";
 
-const recordKey = (token: string): auth.APIKeyKey | null => {
+const recordKey = (token: string): auth.apiKey.Key | null => {
   try {
-    return auth.apiKeyID(token);
+    return auth.apiKey.keyOf(token);
   } catch (e) {
     // The file sits in the home directory, where a person can edit it.
     if (InvalidTokenError.matches(e)) return null;
@@ -27,7 +27,7 @@ const recordKey = (token: string): auth.APIKeyKey | null => {
 const known = async (client: Synnax, token: string): Promise<boolean> => {
   const key = recordKey(token);
   if (key == null) return false;
-  const keys = await client.auth.retrieveAPIKeys();
+  const keys = await client.auth.apiKeys.retrieve();
   return keys.some((k) => k.key === key);
 };
 
@@ -36,16 +36,16 @@ const create = async (
   client: Synnax,
   replaces: string | null,
 ): Promise<string | null> => {
-  const { token, key } = await client.auth.createAPIKey({ name: NAME });
+  const { token, key } = await client.auth.apiKeys.create({ name: NAME });
   let saved: boolean;
   try {
     saved = await saveAPIKey(token, replaces);
   } catch (e) {
-    await client.auth.deleteAPIKeys(key.key).catch(console.error);
+    await client.auth.apiKeys.delete(key.key).catch(console.error);
     throw errors.fromUnknown(e);
   }
   if (saved) return token;
-  await client.auth.deleteAPIKeys(key.key);
+  await client.auth.apiKeys.delete(key.key);
   return null;
 };
 
@@ -75,7 +75,7 @@ export const replace = async (client: Synnax): Promise<string> => {
   const saved = await retrieveAPIKey();
   const old = saved == null ? null : recordKey(saved);
   // The delete comes first, so a reset that fails never leaves the old key working.
-  if (old != null) await client.auth.deleteAPIKeys(old);
+  if (old != null) await client.auth.apiKeys.delete(old);
   // Another window reset the key first, so its new key is the one to use.
   return (await create(client, saved)) ?? (await ensure(client));
 };

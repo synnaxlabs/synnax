@@ -13,5 +13,5 @@ import synnax as sy
 def create_user(client: sy.Synnax, username: str, password: str) -> sy.user.User:
     """Creates a user named after the username that can log in with the password."""
     user = client.users.create(name=username)
-    client.auth.create_password(username, password, subject=user.ontology_id)
+    client.auth.passwords.create(username, password, subject=user.ontology_id)
     return user

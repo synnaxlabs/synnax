@@ -54,8 +54,7 @@ the root user.
 
 In the **Users** toolbar, right-click the user and select **Rename**. This changes the
 name the Console shows, not the username the user logs in with. To change the username,
-call `client.auth.rename_password` in Python or `client.auth.renamePassword` in
-TypeScript.
+call `client.auth.passwords.rename` in Python or TypeScript.
 
 <Divider.Divider x />
 
@@ -96,7 +95,7 @@ Create a user, give it a password, then give it a role:
 
 ```python
 user = client.users.create(name="Jane Doe")
-client.auth.create_password("jdoe", "secret", subject=user.ontology_id)
+client.auth.passwords.create("jdoe", "secret", subject=user.ontology_id)
 engineer = next(r for r in client.access.roles.retrieve() if r.name == "Engineer")
 client.access.roles.assign(user=user.key, role=engineer.key)
 ```
@@ -107,7 +106,7 @@ client.access.roles.assign(user=user.key, role=engineer.key)
 
 ```typescript
 const jane = await client.users.create({ name: "Jane Doe" });
-await client.auth.createPassword({
+await client.auth.passwords.create({
   subject: user.ontologyID(jane.key),
   username: "jdoe",
   password: "secret",

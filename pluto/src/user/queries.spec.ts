@@ -158,7 +158,7 @@ describe("User queries", () => {
 
       expect(result.current).not.toBeNull();
       const { username } = TEST_CREDENTIALS;
-      const [p] = await client.auth.retrievePasswords({ usernames: [username] });
+      const [p] = await client.auth.passwords.retrieve({ usernames: [username] });
       expect(result.current?.key).toEqual(p.subject.key);
     });
 
@@ -244,7 +244,7 @@ describe("User queries", () => {
           expect(result.current.variant).toBe("success");
         });
         await waitFor(async () => {
-          const [p] = await client.auth.retrievePasswords({ usernames: [username] });
+          const [p] = await client.auth.passwords.retrieve({ usernames: [username] });
           const created = await client.users.retrieve(p.subject.key);
           expect(created.name).toBe("Form Test");
         });

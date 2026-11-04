@@ -160,7 +160,7 @@ describe("Core.TokenKeeper", () => {
     );
     await waitFor(() => expect(calls).toHaveLength(1));
     await act(async () => {
-      await grabbed.client?.auth.setPassword({ password: "new" });
+      await grabbed.client?.auth.passwords.set({ password: "new" });
     });
     await waitFor(() => expect(calls).toHaveLength(2));
     expect(calls[1]).toMatchObject({

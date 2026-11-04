@@ -102,14 +102,14 @@ describe("Embedded.Guard API key for scripts", () => {
       return file.apiKey;
     });
     const script = createScriptClient(apiKey);
-    await script.auth.retrieveSessions();
+    await script.auth.sessions.retrieve();
     expect(script.auth.subject).toEqual(client.auth.subject);
   });
 
   it("should keep a saved key that the Core accepts", async () => {
     await deleteKeysCreatedByTest(client);
-    const { token } = await client.auth.createAPIKey({ name: "saved" });
-    const keys = (await client.auth.retrieveAPIKeys()).length;
+    const { token } = await client.auth.apiKeys.create({ name: "saved" });
+    const keys = (await client.auth.apiKeys.retrieve()).length;
     const { file, handlers } = createDiscoveryFile(token);
     const { commands } = mockSupervisor(() => LIVE, handlers);
     await renderGuard();
@@ -117,7 +117,7 @@ describe("Embedded.Guard API key for scripts", () => {
       expect(commands).toHaveBeenCalledWith("supervisor_save_api_key"),
     );
     expect(file.apiKey).toBe(token);
-    expect(await client.auth.retrieveAPIKeys()).toHaveLength(keys);
+    expect(await client.auth.apiKeys.retrieve()).toHaveLength(keys);
   });
 
   it("should delete the new key when the save fails", async () => {
@@ -139,7 +139,7 @@ describe("Embedded.Guard API key for scripts", () => {
 
   it("should use the key that another window saved first", async () => {
     await deleteKeysCreatedByTest(client);
-    const { token: other } = await client.auth.createAPIKey({ name: "other window" });
+    const { token: other } = await client.auth.apiKeys.create({ name: "other window" });
     const before = await retrieveKeyIDs(client);
     const { file, handlers } = createDiscoveryFile(null, (f) => {
       f.apiKey ??= other;
@@ -152,8 +152,8 @@ describe("Embedded.Guard API key for scripts", () => {
 
   it("should replace a saved key that the Core no longer accepts", async () => {
     await deleteKeysCreatedByTest(client);
-    const { token, key } = await client.auth.createAPIKey({ name: "deleted" });
-    await client.auth.deleteAPIKeys(key.key);
+    const { token, key } = await client.auth.apiKeys.create({ name: "deleted" });
+    await client.auth.apiKeys.delete(key.key);
     const { file, handlers } = createDiscoveryFile(token);
     mockSupervisor(() => LIVE, handlers);
     await renderGuard();
@@ -162,7 +162,7 @@ describe("Embedded.Guard API key for scripts", () => {
         throw new Error("saved key not replaced");
       return file.apiKey;
     });
-    await createScriptClient(apiKey).auth.retrieveSessions();
+    await createScriptClient(apiKey).auth.sessions.retrieve();
   });
 
   it("should replace a saved key that is not an API key", async () => {
@@ -175,6 +175,6 @@ describe("Embedded.Guard API key for scripts", () => {
         throw new Error("saved key not replaced");
       return file.apiKey;
     });
-    await createScriptClient(apiKey).auth.retrieveSessions();
+    await createScriptClient(apiKey).auth.sessions.retrieve();
   });
 });

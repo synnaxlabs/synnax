@@ -29,7 +29,7 @@ describe("useCreateModal", () => {
     const [created] = (await client.racks.retrieve({ names: [name] })).filter(
       (r) => r.name === name,
     );
-    const keys = await client.auth.retrieveAPIKeys([rack.ontologyID(created.key)]);
+    const keys = await client.auth.apiKeys.retrieve([rack.ontologyID(created.key)]);
     expect(keys).toHaveLength(1);
     expect(shown.getAttribute("value")?.startsWith("syk_")).toBe(true);
     expect(findButton("Create").getAttribute("aria-disabled")).toBe("true");
@@ -37,11 +37,11 @@ describe("useCreateModal", () => {
 
   it("should block closing while the key is being created", async () => {
     const client = createTestClient();
-    const create = client.auth.createAPIKey.bind(client.auth);
+    const create = client.auth.apiKeys.create.bind(client.auth.apiKeys);
     let release = (): void => {};
     const gate = new Promise<void>((resolve) => (release = resolve));
     const createKey = vi
-      .spyOn(client.auth, "createAPIKey")
+      .spyOn(client.auth.apiKeys, "create")
       .mockImplementation(async (params) => {
         await gate;
         return await create(params);

@@ -82,7 +82,7 @@ describe("Embedded connect from code dialog", () => {
     await deleteKeysCreatedByTest(client);
     const { file } = await openConnect();
     const apiKey = savedKey(file);
-    await createScriptClient(apiKey).auth.retrieveSessions();
+    await createScriptClient(apiKey).auth.sessions.retrieve();
     expect(screen.getByLabelText("Python code").textContent).not.toContain(apiKey);
   });
 
@@ -121,20 +121,20 @@ describe("Embedded connect from code dialog", () => {
 
   it("should count the sessions of the key", async () => {
     await deleteKeysCreatedByTest(client);
-    const { token } = await client.auth.createAPIKey({ name: "counted" });
-    await createScriptClient(token).auth.retrieveSessions();
+    const { token } = await client.auth.apiKeys.create({ name: "counted" });
+    await createScriptClient(token).auth.sessions.retrieve();
     await openConnect(token);
     expect(await screen.findByText("1 session")).toBeTruthy();
   });
 
   it("should count sessions opened since the dialog last closed", async () => {
     await deleteKeysCreatedByTest(client);
-    const { token } = await client.auth.createAPIKey({ name: "reopened" });
+    const { token } = await client.auth.apiKeys.create({ name: "reopened" });
     await openConnect(token);
     await screen.findByText("0 sessions");
     fireEvent.click(findDismissButton());
     await waitFor(() => expect(screen.queryByLabelText("Python code")).toBeNull());
-    await createScriptClient(token).auth.retrieveSessions();
+    await createScriptClient(token).auth.sessions.retrieve();
     await act(async () => {
       fireEvent.click(screen.getByText("Connect from code"), { detail: 1 });
     });
@@ -143,8 +143,8 @@ describe("Embedded connect from code dialog", () => {
 
   it("should show the key of a reset that another window saved first", async () => {
     await deleteKeysCreatedByTest(client);
-    const { token, key } = await client.auth.createAPIKey({ name: "replaced" });
-    const { token: other } = await client.auth.createAPIKey({ name: "other window" });
+    const { token, key } = await client.auth.apiKeys.create({ name: "replaced" });
+    const { token: other } = await client.auth.apiKeys.create({ name: "other window" });
     const before = (await retrieveKeyIDs(client)).filter((k) => k !== key.key);
     const writeText = stubClipboardWriteText();
     const { file, statuses } = await openConnect(token, (f, apiKey) => {
@@ -166,7 +166,7 @@ describe("Embedded connect from code dialog", () => {
 
   it("should end the old key before it saves the new one", async () => {
     await deleteKeysCreatedByTest(client);
-    const { token, key } = await client.auth.createAPIKey({ name: "replaced" });
+    const { token, key } = await client.auth.apiKeys.create({ name: "replaced" });
     let oldKeyAtSave: boolean | null = null;
     const { file } = await openConnect(token, async (_, apiKey) => {
       if (apiKey === token) return;
@@ -179,9 +179,9 @@ describe("Embedded connect from code dialog", () => {
 
   it("should replace the key after asking and end the sessions of the old one", async () => {
     await deleteKeysCreatedByTest(client);
-    const { token } = await client.auth.createAPIKey({ name: "replaced" });
+    const { token } = await client.auth.apiKeys.create({ name: "replaced" });
     const script = createScriptClient(token);
-    await script.auth.retrieveSessions();
+    await script.auth.sessions.retrieve();
     const { file, statuses } = await openConnect(token);
     await screen.findByText("1 session");
     await resetKey();
@@ -190,7 +190,7 @@ describe("Embedded connect from code dialog", () => {
       expect(statuses().map((s) => s.message)).toContain("Reset API key"),
     );
     expect(await screen.findByText("0 sessions")).toBeTruthy();
-    await expect(script.auth.retrieveSessions()).rejects.toThrow(AuthError);
-    await createScriptClient(savedKey(file)).auth.retrieveSessions();
+    await expect(script.auth.sessions.retrieve()).rejects.toThrow(AuthError);
+    await createScriptClient(savedKey(file)).auth.sessions.retrieve();
   });
 });
