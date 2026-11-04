@@ -1889,6 +1889,7 @@ func (va VacuumPumpNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// BurstDiscNodeConfig is the configuration for burst disc symbols.
 type BurstDiscNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -1908,6 +1909,7 @@ func (b BurstDiscNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlameArrestorNodeConfig is the configuration for flame arrestor symbols.
 type FlameArrestorNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -1927,6 +1929,8 @@ func (f FlameArrestorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlameArrestorDetonationNodeConfig is the configuration for detonation-proof flame
+// arrestor symbols.
 type FlameArrestorDetonationNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -1946,6 +1950,8 @@ func (f FlameArrestorDetonationNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlameArrestorExplosionNodeConfig is the configuration for explosion-proof flame
+// arrestor symbols.
 type FlameArrestorExplosionNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -1965,6 +1971,8 @@ func (f FlameArrestorExplosionNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlameArrestorFireResNodeConfig is the configuration for fire resistant flame arrestor
+// symbols.
 type FlameArrestorFireResNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -1984,6 +1992,8 @@ func (f FlameArrestorFireResNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlameArrestorFireResDetonationNodeConfig is the configuration for fire resistant and
+// detonation-proof flame arrestor symbols.
 type FlameArrestorFireResDetonationNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -2003,6 +2013,7 @@ func (f FlameArrestorFireResDetonationNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// IsoBurstDiscNodeConfig is the configuration for ISO burst disc symbols.
 type IsoBurstDiscNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -2022,6 +2033,7 @@ func (i IsoBurstDiscNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// AngledValveNodeConfig is the configuration for angled valve symbols.
 type AngledValveNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2041,6 +2053,7 @@ func (a AngledValveNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// AngledReliefValveNodeConfig is the configuration for angled relief valve symbols.
 type AngledReliefValveNodeConfig struct {
 	DummyToggleSymbolConfig
 }
@@ -2060,6 +2073,8 @@ func (a AngledReliefValveNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// AngledSpringLoadedReliefValveNodeConfig is the configuration for angled spring loaded
+// relief valve symbols.
 type AngledSpringLoadedReliefValveNodeConfig struct {
 	DummyToggleSymbolConfig
 }
@@ -2079,6 +2094,7 @@ func (a AngledSpringLoadedReliefValveNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// BallValveNodeConfig is the configuration for ball valve symbols.
 type BallValveNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2098,6 +2114,7 @@ func (b BallValveNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// BreatherValveNodeConfig is the configuration for breather valve symbols.
 type BreatherValveNodeConfig struct {
 	DummyToggleSymbolConfig
 }
@@ -2117,6 +2134,7 @@ func (b BreatherValveNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// ButterflyValveOneNodeConfig is the configuration for remote butterfly valve symbols.
 type ButterflyValveOneNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2136,6 +2154,7 @@ func (b ButterflyValveOneNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// ButterflyValveTwoNodeConfig is the configuration for manual butterfly valve symbols.
 type ButterflyValveTwoNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2155,6 +2174,7 @@ func (b ButterflyValveTwoNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// CheckValveNodeConfig is the configuration for check valve symbols.
 type CheckValveNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -2174,6 +2194,8 @@ func (c CheckValveNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// CheckValveWithArrowNodeConfig is the configuration for check valve symbols drawn with
+// an arrow.
 type CheckValveWithArrowNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -2193,6 +2215,7 @@ func (c CheckValveWithArrowNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// ElectricRegulatorNodeConfig is the configuration for electric regulator symbols.
 type ElectricRegulatorNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -2212,6 +2235,8 @@ func (e ElectricRegulatorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// ElectricRegulatorMotorizedNodeConfig is the configuration for motorized electric
+// regulator symbols.
 type ElectricRegulatorMotorizedNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -2231,6 +2256,7 @@ func (e ElectricRegulatorMotorizedNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FourWayValveNodeConfig is the configuration for four way valve symbols.
 type FourWayValveNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2250,6 +2276,7 @@ func (f FourWayValveNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// GateValveNodeConfig is the configuration for gate valve symbols.
 type GateValveNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2269,6 +2296,7 @@ func (g GateValveNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// IsoCheckValveNodeConfig is the configuration for ISO check valve symbols.
 type IsoCheckValveNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -2288,6 +2316,7 @@ func (i IsoCheckValveNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// ManualValveNodeConfig is the configuration for manual valve symbols.
 type ManualValveNodeConfig struct {
 	DummyToggleSymbolConfig
 }
@@ -2307,6 +2336,7 @@ func (m ManualValveNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// NeedleValveNodeConfig is the configuration for needle valve symbols.
 type NeedleValveNodeConfig struct {
 	DummyToggleSymbolConfig
 }
@@ -2326,6 +2356,7 @@ func (n NeedleValveNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// RegulatorNodeConfig is the configuration for regulator symbols.
 type RegulatorNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -2345,6 +2376,7 @@ func (r RegulatorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// RegulatorManualNodeConfig is the configuration for manual regulator symbols.
 type RegulatorManualNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -2364,6 +2396,7 @@ func (r RegulatorManualNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// ReliefValveNodeConfig is the configuration for relief valve symbols.
 type ReliefValveNodeConfig struct {
 	DummyToggleSymbolConfig
 }
@@ -2405,6 +2438,8 @@ func (s SolenoidValveNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// SpringLoadedReliefValveNodeConfig is the configuration for spring loaded relief valve
+// symbols.
 type SpringLoadedReliefValveNodeConfig struct {
 	DummyToggleSymbolConfig
 }
@@ -2424,6 +2459,7 @@ func (s SpringLoadedReliefValveNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// ThreeWayValveNodeConfig is the configuration for three way valve symbols.
 type ThreeWayValveNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2443,6 +2479,7 @@ func (t ThreeWayValveNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// ThreeWayBallValveNodeConfig is the configuration for three-way ball valve symbols.
 type ThreeWayBallValveNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2462,6 +2499,7 @@ func (t ThreeWayBallValveNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// ValveNodeConfig is the configuration for generic valve symbols.
 type ValveNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2481,6 +2519,7 @@ func (va ValveNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// CrossJunctionNodeConfig is the configuration for cross junction symbols.
 type CrossJunctionNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -2657,6 +2696,7 @@ func (t TankNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// TJunctionNodeConfig is the configuration for T junction symbols.
 type TJunctionNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -6533,6 +6573,7 @@ func (va VacuumPumpElementConfig) Validate() error {
 	return v.Error()
 }
 
+// BurstDiscElementConfig is the configuration for burst disc symbols.
 type BurstDiscElementConfig struct {
 	StaticSymbolConfig
 }
@@ -6552,6 +6593,7 @@ func (b BurstDiscElementConfig) Validate() error {
 	return v.Error()
 }
 
+// FlameArrestorElementConfig is the configuration for flame arrestor symbols.
 type FlameArrestorElementConfig struct {
 	StaticSymbolConfig
 }
@@ -6571,6 +6613,8 @@ func (f FlameArrestorElementConfig) Validate() error {
 	return v.Error()
 }
 
+// FlameArrestorDetonationElementConfig is the configuration for detonation-proof flame
+// arrestor symbols.
 type FlameArrestorDetonationElementConfig struct {
 	StaticSymbolConfig
 }
@@ -6590,6 +6634,8 @@ func (f FlameArrestorDetonationElementConfig) Validate() error {
 	return v.Error()
 }
 
+// FlameArrestorExplosionElementConfig is the configuration for explosion-proof flame
+// arrestor symbols.
 type FlameArrestorExplosionElementConfig struct {
 	StaticSymbolConfig
 }
@@ -6609,6 +6655,8 @@ func (f FlameArrestorExplosionElementConfig) Validate() error {
 	return v.Error()
 }
 
+// FlameArrestorFireResElementConfig is the configuration for fire resistant flame
+// arrestor symbols.
 type FlameArrestorFireResElementConfig struct {
 	StaticSymbolConfig
 }
@@ -6628,6 +6676,8 @@ func (f FlameArrestorFireResElementConfig) Validate() error {
 	return v.Error()
 }
 
+// FlameArrestorFireResDetonationElementConfig is the configuration for fire resistant
+// and detonation-proof flame arrestor symbols.
 type FlameArrestorFireResDetonationElementConfig struct {
 	StaticSymbolConfig
 }
@@ -6647,6 +6697,7 @@ func (f FlameArrestorFireResDetonationElementConfig) Validate() error {
 	return v.Error()
 }
 
+// IsoBurstDiscElementConfig is the configuration for ISO burst disc symbols.
 type IsoBurstDiscElementConfig struct {
 	StaticSymbolConfig
 }
@@ -6666,6 +6717,7 @@ func (i IsoBurstDiscElementConfig) Validate() error {
 	return v.Error()
 }
 
+// AngledValveElementConfig is the configuration for angled valve symbols.
 type AngledValveElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6685,6 +6737,7 @@ func (a AngledValveElementConfig) Validate() error {
 	return v.Error()
 }
 
+// AngledReliefValveElementConfig is the configuration for angled relief valve symbols.
 type AngledReliefValveElementConfig struct {
 	DummyToggleSymbolConfig
 }
@@ -6704,6 +6757,8 @@ func (a AngledReliefValveElementConfig) Validate() error {
 	return v.Error()
 }
 
+// AngledSpringLoadedReliefValveElementConfig is the configuration for angled spring
+// loaded relief valve symbols.
 type AngledSpringLoadedReliefValveElementConfig struct {
 	DummyToggleSymbolConfig
 }
@@ -6723,6 +6778,7 @@ func (a AngledSpringLoadedReliefValveElementConfig) Validate() error {
 	return v.Error()
 }
 
+// BallValveElementConfig is the configuration for ball valve symbols.
 type BallValveElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6742,6 +6798,7 @@ func (b BallValveElementConfig) Validate() error {
 	return v.Error()
 }
 
+// BreatherValveElementConfig is the configuration for breather valve symbols.
 type BreatherValveElementConfig struct {
 	DummyToggleSymbolConfig
 }
@@ -6761,6 +6818,8 @@ func (b BreatherValveElementConfig) Validate() error {
 	return v.Error()
 }
 
+// ButterflyValveOneElementConfig is the configuration for remote butterfly valve
+// symbols.
 type ButterflyValveOneElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6780,6 +6839,8 @@ func (b ButterflyValveOneElementConfig) Validate() error {
 	return v.Error()
 }
 
+// ButterflyValveTwoElementConfig is the configuration for manual butterfly valve
+// symbols.
 type ButterflyValveTwoElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6799,6 +6860,7 @@ func (b ButterflyValveTwoElementConfig) Validate() error {
 	return v.Error()
 }
 
+// CheckValveElementConfig is the configuration for check valve symbols.
 type CheckValveElementConfig struct {
 	StaticSymbolConfig
 }
@@ -6818,6 +6880,8 @@ func (c CheckValveElementConfig) Validate() error {
 	return v.Error()
 }
 
+// CheckValveWithArrowElementConfig is the configuration for check valve symbols drawn
+// with an arrow.
 type CheckValveWithArrowElementConfig struct {
 	StaticSymbolConfig
 }
@@ -6837,6 +6901,7 @@ func (c CheckValveWithArrowElementConfig) Validate() error {
 	return v.Error()
 }
 
+// ElectricRegulatorElementConfig is the configuration for electric regulator symbols.
 type ElectricRegulatorElementConfig struct {
 	StaticSymbolConfig
 }
@@ -6856,6 +6921,8 @@ func (e ElectricRegulatorElementConfig) Validate() error {
 	return v.Error()
 }
 
+// ElectricRegulatorMotorizedElementConfig is the configuration for motorized electric
+// regulator symbols.
 type ElectricRegulatorMotorizedElementConfig struct {
 	StaticSymbolConfig
 }
@@ -6875,6 +6942,7 @@ func (e ElectricRegulatorMotorizedElementConfig) Validate() error {
 	return v.Error()
 }
 
+// FourWayValveElementConfig is the configuration for four way valve symbols.
 type FourWayValveElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6894,6 +6962,7 @@ func (f FourWayValveElementConfig) Validate() error {
 	return v.Error()
 }
 
+// GateValveElementConfig is the configuration for gate valve symbols.
 type GateValveElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6913,6 +6982,7 @@ func (g GateValveElementConfig) Validate() error {
 	return v.Error()
 }
 
+// IsoCheckValveElementConfig is the configuration for ISO check valve symbols.
 type IsoCheckValveElementConfig struct {
 	StaticSymbolConfig
 }
@@ -6932,6 +7002,7 @@ func (i IsoCheckValveElementConfig) Validate() error {
 	return v.Error()
 }
 
+// ManualValveElementConfig is the configuration for manual valve symbols.
 type ManualValveElementConfig struct {
 	DummyToggleSymbolConfig
 }
@@ -6951,6 +7022,7 @@ func (m ManualValveElementConfig) Validate() error {
 	return v.Error()
 }
 
+// NeedleValveElementConfig is the configuration for needle valve symbols.
 type NeedleValveElementConfig struct {
 	DummyToggleSymbolConfig
 }
@@ -6970,6 +7042,7 @@ func (n NeedleValveElementConfig) Validate() error {
 	return v.Error()
 }
 
+// RegulatorElementConfig is the configuration for regulator symbols.
 type RegulatorElementConfig struct {
 	StaticSymbolConfig
 }
@@ -6989,6 +7062,7 @@ func (r RegulatorElementConfig) Validate() error {
 	return v.Error()
 }
 
+// RegulatorManualElementConfig is the configuration for manual regulator symbols.
 type RegulatorManualElementConfig struct {
 	StaticSymbolConfig
 }
@@ -7008,6 +7082,7 @@ func (r RegulatorManualElementConfig) Validate() error {
 	return v.Error()
 }
 
+// ReliefValveElementConfig is the configuration for relief valve symbols.
 type ReliefValveElementConfig struct {
 	DummyToggleSymbolConfig
 }
@@ -7049,6 +7124,8 @@ func (s SolenoidValveElementConfig) Validate() error {
 	return v.Error()
 }
 
+// SpringLoadedReliefValveElementConfig is the configuration for spring loaded relief
+// valve symbols.
 type SpringLoadedReliefValveElementConfig struct {
 	DummyToggleSymbolConfig
 }
@@ -7068,6 +7145,7 @@ func (s SpringLoadedReliefValveElementConfig) Validate() error {
 	return v.Error()
 }
 
+// ThreeWayValveElementConfig is the configuration for three way valve symbols.
 type ThreeWayValveElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -7087,6 +7165,7 @@ func (t ThreeWayValveElementConfig) Validate() error {
 	return v.Error()
 }
 
+// ThreeWayBallValveElementConfig is the configuration for three-way ball valve symbols.
 type ThreeWayBallValveElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -7106,6 +7185,7 @@ func (t ThreeWayBallValveElementConfig) Validate() error {
 	return v.Error()
 }
 
+// ValveElementConfig is the configuration for generic valve symbols.
 type ValveElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -7125,6 +7205,7 @@ func (va ValveElementConfig) Validate() error {
 	return v.Error()
 }
 
+// CrossJunctionElementConfig is the configuration for cross junction symbols.
 type CrossJunctionElementConfig struct {
 	StaticSymbolConfig
 }
@@ -7301,6 +7382,7 @@ func (t TankElementConfig) Validate() error {
 	return v.Error()
 }
 
+// TJunctionElementConfig is the configuration for T junction symbols.
 type TJunctionElementConfig struct {
 	StaticSymbolConfig
 }
