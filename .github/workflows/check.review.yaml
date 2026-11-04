@@ -76,11 +76,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # The check_run and workflow_run triggers run this file from main for a pull
-      # request into a release branch, which may lack gh_api.sh.
+      # request into a release branch, which may lack gh_api.sh. A merge group takes the
+      # script from its own commit, since it can hold the first change that adds one.
       - name: Checkout the main scripts
         uses: actions/checkout@v7
         with:
-          ref: main
+          ref: ${{ github.event.merge_group.head_sha || 'main' }}
           persist-credentials: false
           sparse-checkout: .github/scripts
 
