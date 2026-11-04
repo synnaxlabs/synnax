@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { query, rack, type resource, type Synnax, task } from "@synnaxlabs/client";
+import { query, rack, type ranger, type Synnax, task } from "@synnaxlabs/client";
 import { array, type optional, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -184,21 +184,23 @@ export interface SnapshotPair extends Pick<task.Payload, "key" | "name"> {}
 
 export interface SnapshotParams {
   tasks: SnapshotPair | SnapshotPair[];
-  parentID: resource.ID;
+  /** The range the snapshots sit in. */
+  range: ranger.Key;
 }
 
 export const { useUpdate: useCreateSnapshot } = Flux.createUpdate<SnapshotParams>({
   name: RESOURCE_NAME,
   verbs: verbs.SNAPSHOT,
   update: async ({ client, data }) => {
-    const { tasks: taskPairs, parentID } = data;
-    const tasks = await Promise.all(
+    const { tasks, range } = data;
+    await Promise.all(
       array
-        .toArray(taskPairs)
-        .map(({ key, name }) => client.tasks.copy(key, `${name} (Snapshot)`, true)),
+        .toArray(tasks)
+        .map(
+          async ({ key, name }) =>
+            await client.tasks.copy(key, `${name} (Snapshot)`, true, range),
+        ),
     );
-    const otgIDs = tasks.map(({ resourceID }) => resourceID);
-    await client.ontology.addChildren(parentID, ...otgIDs);
     return data;
   },
 });

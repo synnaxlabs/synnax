@@ -159,9 +159,8 @@ export const listTreeRoot = (client: Synnax): Tree.Source[] => [
   ),
 ];
 
-// A device lists its chassis modules through the ontology.
 const children: Tree.Children = ({ client, id }) => [
-  Tree.createOntologySource(client, id),
+  Tree.createSource(client.devices, { parents: [id.key] }, Tree.toResource("device")),
 ];
 
 const TreeItem = Tree.createItem({

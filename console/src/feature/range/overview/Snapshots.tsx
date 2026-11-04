@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, ranger } from "@synnaxlabs/client";
+import { type ontology, ranger, resource, task } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -16,13 +16,14 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Ontology, Synnax } from "@synnaxlabs/pluto";
-import { type FC } from "react";
+import { Ontology, Synnax, Task } from "@synnaxlabs/pluto";
+import { type FC, useRef } from "react";
 
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
+import { Tree } from "@/platform/tree";
 
 const SnapshotsListItem = ({ className, ...rest }: List.ItemProps<string>) => {
   const { itemKey } = rest;
@@ -81,24 +82,72 @@ export interface SnapshotsProps {
   rangeKey: string;
 }
 
+const taskKeyOf = (id: string): task.Key | null => {
+  const parsed = resource.parseID(id);
+  return parsed.type === task.TYPE_RESOURCE_ID.type ? parsed.key : null;
+};
+
+/** Lists the task snapshots in the range as resources, keyed by resource ID. */
+const useTaskSnapshots = (rangeKey: ranger.Key) => {
+  const { data, getItem, subscribe, retrieve, status } = Task.useList({
+    initialQuery: { ranges: [rangeKey], snapshot: true },
+  });
+  // List rows read items through useSyncExternalStore, so each task must map to one
+  // stable resource.
+  const resources = useRef(new WeakMap<task.Task, ontology.Resource>());
+  const toResource = (t: task.Task): ontology.Resource => {
+    const cached = resources.current.get(t);
+    if (cached != null) return cached;
+    const res = Tree.toResource("task")(t.payload);
+    resources.current.set(t, res);
+    return res;
+  };
+  const getOne = (id: string): ontology.Resource | undefined => {
+    const key = taskKeyOf(id);
+    if (key == null) return undefined;
+    const t = getItem(key);
+    return t == null ? undefined : toResource(t);
+  };
+  const getResource = ((id: string | string[]) =>
+    Array.isArray(id)
+      ? id.map(getOne).filter((r) => r != null)
+      : getOne(id)) as List.GetItem<string, ontology.Resource>;
+  return {
+    data: data.map((key) => resource.idToString(task.resourceID(key))),
+    getItem: getResource,
+    subscribe: (callback: () => void, id: string) => {
+      const key = taskKeyOf(id);
+      return key == null ? () => {} : subscribe(callback, key);
+    },
+    retrieve,
+    status,
+  };
+};
+
 export const Snapshots: FC<SnapshotsProps> = ({ rangeKey }) => {
-  const { data, getItem, subscribe, retrieve, status } = Ontology.useListChildren({
+  const tasks = useTaskSnapshots(rangeKey);
+  const others = Ontology.useListChildren({
     initialQuery: { id: ranger.resourceID(rangeKey) },
     filter: (item) => item.data?.snapshot === true,
   });
-  const { fetchMore } = List.usePager({ retrieve });
-  if (status.variant === "error") return null;
+  const { fetchMore: fetchMoreTasks } = List.usePager({ retrieve: tasks.retrieve });
+  const { fetchMore: fetchMoreOthers } = List.usePager({ retrieve: others.retrieve });
+  const combined = List.useCombinedData<string, ontology.Resource>({
+    first: tasks,
+    second: others,
+  });
+  if (tasks.status.variant === "error" || others.status.variant === "error")
+    return null;
+  const handleFetchMore = () => {
+    fetchMoreTasks();
+    fetchMoreOthers();
+  };
   return (
     <Flex.Box y>
       <Header.Header level="h4" borderColor={6}>
         <Header.Title>Snapshots</Header.Title>
       </Header.Header>
-      <List.Frame
-        data={data}
-        getItem={getItem}
-        subscribe={subscribe}
-        onFetchMore={fetchMore}
-      >
+      <List.Frame {...combined} onFetchMore={handleFetchMore}>
         <List.Scroll>
           <List.Items>{snapshotsListItem}</List.Items>
         </List.Scroll>

@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, rack, status, task } from "@synnaxlabs/client";
+import { rack, status, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { deep, id } from "@synnaxlabs/x";
+import { deep, id, TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -526,6 +526,12 @@ describe("queries", () => {
   });
 
   describe("useCreateSnapshot", () => {
+    const createRange = async () =>
+      await client.ranges.create({
+        name: `snapshots-${id.create()}`,
+        timeRange: new TimeRange(TimeStamp.now(), TimeStamp.MAX),
+      });
+
     it("should create a snapshot of a single task", async () => {
       const rack = await client.racks.create({
         name: "snapshotRack",
@@ -536,17 +542,14 @@ describe("queries", () => {
         type: "pagerduty_alert",
         config: { routingKey: "rk-original" },
       });
-      const parentGroup = await client.groups.create({
-        scope: "channel",
-        name: "snapshot_parent",
-      });
+      const rng = await createRange();
 
       const { result } = renderHook(() => Task.useCreateSnapshot(), { wrapper });
 
       await act(async () => {
         await result.current.updateAsync({
           tasks: { key: originalTask.key, name: originalTask.name },
-          parentID: group.resourceID(parentGroup.key),
+          range: rng.key,
         });
       });
 
@@ -576,10 +579,7 @@ describe("queries", () => {
         type: "pagerduty_alert",
         config: { routingKey: "rk-2" },
       });
-      const parentGroup = await client.groups.create({
-        scope: "channel",
-        name: "multi_snapshot_parent",
-      });
+      const rng = await createRange();
 
       const { result } = renderHook(() => Task.useCreateSnapshot(), { wrapper });
 
@@ -589,7 +589,7 @@ describe("queries", () => {
             { key: task1.key, name: task1.name },
             { key: task2.key, name: task2.name },
           ],
-          parentID: group.resourceID(parentGroup.key),
+          range: rng.key,
         });
       });
 
@@ -612,41 +612,31 @@ describe("queries", () => {
       });
     });
 
-    it("should add snapshots to parent ontology group", async () => {
-      const rack = await client.racks.create({
-        name: "ontologyRack",
-      });
-      const originalName = id.create();
+    it("should place each snapshot in the range", async () => {
+      const rack = await client.racks.create({ name: "rangeRack" });
       const originalTask = await rack.createTask({
-        name: originalName,
+        name: id.create(),
         type: "pagerduty_alert",
         config: {},
       });
-      const parentGroup = await client.groups.create({
-        scope: "channel",
-        name: "ontology_parent",
-      });
+      const rng = await createRange();
 
       const { result } = renderHook(() => Task.useCreateSnapshot(), { wrapper });
 
       await act(async () => {
         await result.current.updateAsync({
           tasks: { key: originalTask.key, name: originalTask.name },
-          parentID: group.resourceID(parentGroup.key),
+          range: rng.key,
         });
       });
 
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-      const children = await client.ontology.children.retrieve({
-        ids: group.resourceID(parentGroup.key),
-      });
-      expect(children.length).toBeGreaterThan(0);
-
-      const snapshotChild = children.find(
-        (c) => c.name === `${originalTask.name} (Snapshot)`,
-      );
-      expect(snapshotChild).toBeDefined();
+      const inRange = await client.tasks.retrieve({ ranges: [rng.key] });
+      expect(inRange.map(({ name }) => name)).toEqual([
+        `${originalTask.name} (Snapshot)`,
+      ]);
+      expect(inRange[0].range).toEqual(rng.key);
     });
 
     it("should preserve task configuration in snapshots", async () => {
@@ -664,17 +654,14 @@ describe("queries", () => {
         type: "pagerduty_alert",
         config: complexConfig,
       });
-      const parentGroup = await client.groups.create({
-        scope: "channel",
-        name: "config_parent",
-      });
+      const rng = await createRange();
 
       const { result } = renderHook(() => Task.useCreateSnapshot(), { wrapper });
 
       await act(async () => {
         await result.current.updateAsync({
           tasks: { key: originalTask.key, name: originalTask.name },
-          parentID: group.resourceID(parentGroup.key),
+          range: rng.key,
         });
       });
 

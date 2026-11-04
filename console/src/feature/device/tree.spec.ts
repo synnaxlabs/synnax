@@ -20,6 +20,8 @@ import { findButton } from "@/platform/modals/testutil";
 import {
   createHostItems,
   createResource,
+  expandTreeRow,
+  findTreeRow,
   openTreeRowContextMenu,
   renderOntologyTree,
   renderTreeContextMenu,
@@ -52,6 +54,24 @@ describe("device/ontology", () => {
     await renderDeviceTree(host);
     expect(await screen.findByText(dev.name)).toBeTruthy();
     expect(await screen.findByText("dev1")).toBeTruthy();
+  });
+
+  it("lists the devices that a device holds", async () => {
+    const chassis = await createTestDevice(client);
+    const module = await client.devices.create({
+      key: uniqueName("module"),
+      name: uniqueName("module"),
+      rack: chassis.rack,
+      location: "slot1",
+      make: "make",
+      model: "model",
+      properties: {},
+      parent: chassis.key,
+    });
+    await renderDeviceTree(hostDevices(chassis));
+    await findTreeRow(chassis.name);
+    expandTreeRow(chassis.name);
+    expect(await findTreeRow(module.name)).toBeTruthy();
   });
 
   it("renames a device from the context menu", async () => {

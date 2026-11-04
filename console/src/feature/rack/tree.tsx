@@ -188,7 +188,7 @@ const TreeItem = Tree.createItem({
     Tree.createSource(client.groups, { parents: [id] }, Tree.toResource("group")),
     Tree.createSource(
       client.devices,
-      { racks: [Number(id.key)], grouped: false },
+      { racks: [Number(id.key)], grouped: false, nested: false },
       Tree.toResource("device"),
     ),
   ],

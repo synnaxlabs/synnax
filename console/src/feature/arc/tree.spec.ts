@@ -13,9 +13,11 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Arc } from "@/feature/arc";
+import { Task } from "@/feature/task";
 import { findButton } from "@/platform/modals/testutil";
 import {
   createHostItems,
+  expandTreeRow,
   findTreeRow,
   openTreeRowContextMenu,
   renderOntologyTree,
@@ -57,6 +59,23 @@ describe("arc/ontology", () => {
       const tab = await resolveFocusedTab(store, client);
       if (tab.variant !== "resource") throw new Error("expected a resource tab");
       expect(tab.resource.key).toBe(arc.key);
+    });
+  });
+
+  describe("children", () => {
+    it("should list the task that runs the Arc", async () => {
+      const { arc, items } = await createHostedArc();
+      const rack = await client.racks.create({ name: uniqueName("rack") });
+      await client.arcs.updateTask(arc.key, { rack: rack.key });
+      await renderOntologyTree({
+        client,
+        root: ontology.ROOT_ID,
+        items: { ...items, ...Task.TREE_ITEMS },
+      });
+      await findTreeRow(arc.name);
+      expandTreeRow(arc.name);
+      // The task takes the name of the Arc it runs.
+      await waitFor(() => expect(screen.getAllByText(arc.name)).toHaveLength(2));
     });
   });
 

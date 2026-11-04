@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc } from "@synnaxlabs/client";
+import { arc, query, type task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access, Arc, Task } from "@synnaxlabs/pluto";
@@ -91,9 +91,31 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   );
 };
 
+const toTasks = (tsk: task.Task | null): task.Task[] => (tsk == null ? [] : [tsk]);
+
+/** Lists the task that runs the Arc, if any. */
+const children: Tree.Children = ({ client, id }) => [
+  Tree.createSource(
+    {
+      retrieve: async (key: arc.Key) => toTasks(await client.arcs.task.retrieve(key)),
+      onChange: (key, handler) =>
+        client.arcs.task.onChange(key, (cached) => {
+          if (query.isLive(cached)) handler(toTasks(cached));
+        }),
+      getCached: (key) => {
+        const cached = client.arcs.task.getCached(key);
+        return query.isLive(cached) ? toTasks(cached) : undefined;
+      },
+    },
+    id.key,
+    (tsk) => Tree.toResource("task")(tsk.payload),
+  ),
+];
+
 const TreeItem = Tree.createItem({
   type: "arc",
   icon: <Icon.Arc />,
+  children,
   canDrop: () => true,
   useOnSelect: Panel.useOpenResource,
   ContextMenu: TreeContextMenu,

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { panel, ranger, task } from "@synnaxlabs/client";
+import { panel, ranger } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { TimeRange } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
@@ -34,7 +34,7 @@ describe("ParentRangeButton", () => {
 
     const createTaskWithParentRange = async () => {
       const rack = await client.racks.create({ name: uniqueName("rack") });
-      const tsk = await rack.createTask({
+      const source = await rack.createTask({
         name: uniqueName("tsk"),
         type: "opc_read",
         config: {},
@@ -43,9 +43,11 @@ describe("ParentRangeButton", () => {
         name: uniqueName("rng"),
         timeRange: new TimeRange(1, 2),
       });
-      await client.ontology.addChildren(
-        ranger.resourceID(range.key),
-        task.resourceID(tsk.key),
+      const tsk = await client.tasks.copy(
+        source.key,
+        uniqueName("snap"),
+        true,
+        range.key,
       );
       return { tsk, range };
     };

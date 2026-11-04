@@ -13,6 +13,7 @@ import {
   group,
   ni,
   NotFoundError,
+  ontology,
   rack,
   type resource,
   type Synnax as Client,
@@ -23,11 +24,16 @@ import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { fireEvent, type RenderOptions, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { Device } from "@/feature/device";
 import { NI } from "@/feature/ni";
 import { Rack } from "@/feature/rack";
 import {
+  createHostItems,
   createResource,
+  expandTreeRow,
   findModalButton,
+  findTreeRow,
+  renderOntologyTree,
   renderTreeContextMenu,
 } from "@/platform/tree/testutil";
 import { assertDefined, createTestClientWithGrants, uniqueName } from "@/testutil";
@@ -185,6 +191,38 @@ describe("rack ontology service", () => {
       });
       expect(after.config.disabled).toBe(!scanTask.config.disabled);
     });
+  });
+});
+
+describe("rack children", () => {
+  it("should list only the devices that sit directly on the rack", async () => {
+    const r = await createRack();
+    const make = async (name: string, parent?: device.Key) =>
+      await client.devices.create({
+        key: uniqueName(name),
+        name: uniqueName(name),
+        rack: r.key,
+        location: name,
+        make: "make",
+        model: "model",
+        properties: {},
+        parent,
+      });
+    const chassis = await make("chassis");
+    const module = await make("module", chassis.key);
+    await renderOntologyTree({
+      client,
+      root: ontology.ROOT_ID,
+      items: {
+        ...Rack.TREE_ITEMS,
+        ...Device.TREE_ITEMS,
+        ...createHostItems([rack.resourceID(r.key)]),
+      },
+    });
+    await findTreeRow(r.name);
+    expandTreeRow(r.name);
+    await findTreeRow(chassis.name);
+    expect(screen.queryByText(module.name)).toBeNull();
   });
 });
 
