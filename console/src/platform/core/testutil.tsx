@@ -121,6 +121,22 @@ export interface LocalRedeem {
   cookie?: boolean;
 }
 
+/** A set of requests that a local server holds. */
+export interface Hold {
+  /** The ends of the paths to hold. */
+  endpoints: string[];
+  /** Resolves when the server may answer. */
+  until: Promise<void>;
+  /** Lets the server answer. */
+  release: () => void;
+}
+
+/** Creates a {@link Hold}, for a spec that acts while a request is running. */
+export const createHold = (...endpoints: string[]): Hold => {
+  const { promise, resolve } = Promise.withResolvers<void>();
+  return { endpoints, until: promise, release: resolve };
+};
+
 export interface ServeOIDCParams {
   methods?: string[];
   providers?: auth.OIDCLogin[];
@@ -130,6 +146,10 @@ export interface ServeOIDCParams {
   invites?: LocalInvite[];
   /** Refuses every invite code, as for an unknown, expired, or used one. */
   inviteRefused?: boolean;
+  /** Refuses to renew a session until an invite opens one, as for an expired cookie. */
+  cookieExpired?: boolean;
+  /** Requests to answer only after their release. */
+  hold?: Hold;
   /** What the session's user may do to every user. */
   userActions?: access.Action[];
   /** Called after each methods answer. */
@@ -150,6 +170,8 @@ export interface OIDCServer {
   sessionsCreated: number;
   /** The number of policy requests, which a permission check waits for. */
   policyReads: number;
+  /** The number of requests that reached the hold. */
+  held: number;
 }
 
 /**
@@ -164,6 +186,8 @@ export const serveOIDC = async ({
   linkRefused = false,
   invites = [],
   inviteRefused = false,
+  cookieExpired = false,
+  hold,
   userActions = [],
   onServed,
 }: ServeOIDCParams = {}): Promise<OIDCServer> => {
@@ -174,6 +198,7 @@ export const serveOIDC = async ({
     redeemed: [] as LocalRedeem[],
     sessionsCreated: 0,
     policyReads: 0,
+    held: 0,
   };
   const answerInvite = (path: string, body: string): { body: unknown } | undefined => {
     if (path.endsWith("/auth/oidc/invite/retrieve"))
@@ -199,6 +224,14 @@ export const serveOIDC = async ({
     }
     if (path.endsWith("/auth/session/retrieve"))
       return { body: { sessions: [SESSION] } };
+    if (path.endsWith("/auth/session/renew")) {
+      if (cookieExpired && state.redeemed.length === 0)
+        return {
+          status: 400,
+          body: { type: "sy.auth.invalid-credentials", data: "invalid credentials" },
+        };
+      return { body: { session: SESSION, user: USER } };
+    }
     if (path.endsWith("/access/policy/retrieve")) {
       state.policyReads += 1;
       const policy = {
@@ -252,12 +285,20 @@ export const serveOIDC = async ({
     req.on("data", (chunk: Buffer) => chunks.push(chunk));
     req.on("end", () => {
       const path = req.url ?? "";
-      const { status = 200, body } = answer(path, Buffer.concat(chunks).toString());
-      res.statusCode = status;
-      res.setHeader("Content-Type", "application/json");
-      res.end(JSON.stringify(body), () => {
-        if (path.endsWith("/auth/methods")) onServed?.();
-      });
+      const respond = (): void => {
+        const { status = 200, body } = answer(path, Buffer.concat(chunks).toString());
+        res.statusCode = status;
+        res.setHeader("Content-Type", "application/json");
+        res.end(JSON.stringify(body), () => {
+          if (path.endsWith("/auth/methods")) onServed?.();
+        });
+      };
+      if (hold?.endpoints.some((e) => path.endsWith(e)) !== true) {
+        respond();
+        return;
+      }
+      state.held += 1;
+      void hold.until.then(respond);
     });
   });
   return {
@@ -275,6 +316,9 @@ export const serveOIDC = async ({
     },
     get policyReads() {
       return state.policyReads;
+    },
+    get held() {
+      return state.held;
     },
   };
 };

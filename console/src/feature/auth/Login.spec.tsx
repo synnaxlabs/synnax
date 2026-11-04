@@ -94,13 +94,17 @@ const serveInvites = async (params?: ServeOIDCParams) => {
   return { server, core: { ...ALPHA, ...server.address } };
 };
 
-const enterInviteCode = async (): Promise<void> => {
+const typeInviteCode = async (): Promise<void> => {
   fireEvent.click(await screen.findByText(ALPHA.name));
   fireEvent.click(await screen.findByText(INVITE_CONTROL));
   // a space comes along with a pasted code
   fireEvent.change(await screen.findByPlaceholderText(INVITE_PLACEHOLDER), {
     target: { value: ` ${INVITE_CODE}\n` },
   });
+};
+
+const enterInviteCode = async (): Promise<void> => {
+  await typeInviteCode();
   fireEvent.click(await screen.findByText("Log in with company-sso"));
 };
 
@@ -112,6 +116,7 @@ const USERNAME_PLACEHOLDER = "synnax";
 const renderLogin = async (
   alpha = ALPHA,
   createWrapper = createSessionConsoleWrapper,
+  beta = BETA,
 ) => {
   let statuses: Status.NotificationSpec[] = [];
   const { wrapper, store } = await createWrapper({
@@ -119,7 +124,7 @@ const renderLogin = async (
     preloadedState: {
       [Session.Core.SLICE_NAME]: {
         ...Session.Core.ZERO_SLICE_STATE,
-        cores: { [alpha.key]: alpha, [BETA.key]: BETA },
+        cores: { [alpha.key]: alpha, [beta.key]: beta },
         selected: undefined,
       },
     },
@@ -341,6 +346,23 @@ describe("auth/Login", () => {
       ).toMatchObject({ purpose: "invite", invite: INVITE_CODE, core: core.key }),
     );
     expect(window.location.href).not.toContain(INVITE_CODE);
+  });
+
+  it("should not carry an invite code to another Core", async () => {
+    const { server, core } = await serveInvites();
+    const beta = { ...BETA, ...server.address };
+    const { container } = await renderLogin(core, undefined, beta);
+    onTestFinished(() => sessionStorage.clear());
+    await typeInviteCode();
+    fireEvent.click(getBySelector(container, BACK));
+    fireEvent.click(await screen.findByText(BETA.name));
+    expect(await screen.findByText(INVITE_CONTROL)).toBeTruthy();
+    fireEvent.click(await screen.findByText("Log in with company-sso"));
+    await vi.waitFor(() =>
+      expect(
+        JSON.parse(sessionStorage.getItem("synnax-oidc-login") ?? "{}"),
+      ).toMatchObject({ purpose: "login", core: BETA.key }),
+    );
   });
 
   it("should return to the Core list from the credentials", async () => {

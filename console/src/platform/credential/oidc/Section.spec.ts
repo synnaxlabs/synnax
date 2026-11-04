@@ -43,6 +43,7 @@ vi.mock("@/session/runtime/runtime", async (importOriginal) => {
 });
 
 import {
+  createHold,
   LOCAL_SUBJECT,
   type LocalInvite,
   type OIDCServer,
@@ -280,6 +281,26 @@ describe("OIDC section", () => {
       expect(screen.queryByText(CREATE)).toBeNull();
       await waitFor(() => expect(server.invites[0].key).not.toBe(old.key));
       expect(server.invites).toHaveLength(1);
+    });
+
+    it.each([
+      ["Revoke", REPLACE, "Successfully revoked invite"],
+      [REPLACE, "Revoke", "Successfully created invite"],
+    ])("should keep %s from running with %s", async (first, second, done) => {
+      const hold = createHold("/auth/oidc/invite/create", "/auth/oidc/invite/delete");
+      const { client, server } = await open({
+        userActions: ["update"],
+        invites: [createInvite(OTHER_USER)],
+        hold,
+      });
+      await openLocal(client, OTHER_USER);
+      await screen.findByText(/^Invite expires/);
+      fireEvent.click(await screen.findByText(first));
+      await waitFor(() => expect(server.held).toBe(1));
+      fireEvent.click(screen.getByText(second));
+      await expectAlways(() => expect(server.held).toBe(1));
+      hold.release();
+      expect(await screen.findByText(done)).toBeTruthy();
     });
   });
 

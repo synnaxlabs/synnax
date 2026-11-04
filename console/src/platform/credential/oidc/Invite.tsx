@@ -19,6 +19,7 @@ import { Common } from "@/platform/credential/common";
 interface LiveProps {
   subject: ontology.ID;
   createStatus: status.Variant;
+  changing: boolean;
   onCreate: () => void;
   onRevoke: (key: string) => void;
 }
@@ -26,6 +27,7 @@ interface LiveProps {
 const Live = ({
   subject,
   createStatus,
+  changing,
   onCreate,
   onRevoke,
 }: LiveProps): ReactElement => {
@@ -41,7 +43,11 @@ const Live = ({
           <Text.Text level="small" color={9}>
             {`Invite expires ${live.expiry.toString("dateTime", "local")}`}
           </Text.Text>
-          <Button.Button variant="text" onClick={() => onRevoke(live.key)}>
+          <Button.Button
+            variant="text"
+            disabled={changing}
+            onClick={() => onRevoke(live.key)}
+          >
             Revoke
           </Button.Button>
         </Flex.Box>
@@ -52,6 +58,7 @@ const Live = ({
           full="x"
           justify="center"
           status={status.keepVariants(createStatus, "loading")}
+          disabled={changing}
           onClick={onCreate}
         >
           {live == null ? "Create invite" : "Replace invite"}
@@ -110,6 +117,7 @@ export const Invite = ({ subject, onMessage }: InviteProps): ReactElement => {
         key={generation}
         subject={subject}
         createStatus={create.variant}
+        changing={create.variant === "loading" || revoke.variant === "loading"}
         onCreate={handleCreate}
         onRevoke={handleRevoke}
       />
