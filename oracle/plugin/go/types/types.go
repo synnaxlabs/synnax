@@ -1288,12 +1288,19 @@ type {{$enum.Name}} uint8
 {{- if eq (len $enum.Values) 1}}
 {{- with index $enum.Values 0}}
 
+{{- if .Doc}}
+
+{{formatDoc (printf "%s%s" $enum.Name .Name) .Doc}}
+{{- end}}
 const {{$enum.Name}}{{.Name}} {{$enum.Name}} = {{if $enum.StartsAtOne}}1{{else}}0{{end}}
 {{- end}}
 {{- else}}
 
 const (
 {{- range $i, $v := $enum.Values}}
+{{- if $v.Doc}}
+	{{formatFieldDoc (printf "%s%s" $enum.Name $v.Name) $v.Doc | printf "%s"}}
+{{- end}}
 {{- if eq $i 0}}
 	{{$enum.Name}}{{$v.Name}} {{$enum.Name}} = iota{{if $enum.StartsAtOne}} + 1{{end}}
 {{- else}}

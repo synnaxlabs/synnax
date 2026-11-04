@@ -195,8 +195,18 @@ func (f fieldData) MsgpackTagSuffix() string {
 	return ""
 }
 
+// constDocIndent is the display width of the single tab indenting a constant's doc
+// comment in a const block.
+const constDocIndent = 4
+
 var templateFuncs = template.FuncMap{
 	"formatDoc": doc.FormatGo,
+	"formatFieldDoc": func(name, docStr string) string {
+		return doc.FormatGo(name, docStr, constDocIndent)
+	},
+	"typeDoc": func(name string) string {
+		return "is the Type of an Action that carries " + name + "Payload."
+	},
 }
 
 var fileTemplate = template.Must(
@@ -225,11 +235,13 @@ import (
 
 {{- if eq (len .Actions) 1}}
 {{- with index .Actions 0}}
+{{formatDoc (printf "ActionType%s" .Name) (typeDoc .Name)}}
 const ActionType{{.Name}} = "{{.TypeName}}"
 {{- end}}
 {{- else}}
 const (
 {{- range .Actions}}
+	{{formatFieldDoc (printf "ActionType%s" .Name) (typeDoc .Name)}}
 	ActionType{{.Name}} = "{{.TypeName}}"
 {{- end}}
 )

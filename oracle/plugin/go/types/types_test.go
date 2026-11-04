@@ -2370,6 +2370,40 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 		})
 
 		Context("enum starts-at-one optimization", func() {
+			It("Should render the doc of each int enum value", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/task"
+
+					Status enum {
+						pending = 1 {
+							@doc value "is a task that has not started."
+						}
+						running = 2
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").
+					ToContain("// StatusPending is a task that has not started.\n\tStatusPending")
+			})
+
+			It(
+				"Should render the doc of a single int enum value",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/pkg/service/task"
+
+					Status enum {
+						pending = 1 {
+							@doc value "is a task that has not started."
+						}
+					}
+				`
+					resp := MustGenerate(ctx, source, "task", loader, goPlugin)
+					ExpectContent(resp, "types.gen.go").
+						ToContain("// StatusPending is a task that has not started.\nconst StatusPending")
+				},
+			)
+
 			It(
 				"Should use iota+1 for enums starting at 1 with sequential values",
 				func(ctx SpecContext) {
