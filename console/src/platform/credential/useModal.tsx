@@ -15,8 +15,10 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Status } from "@synnaxlabs/lyra/status";
+import { Synnax } from "@synnaxlabs/pluto";
 import { type ReactElement, useState } from "react";
 
+import { Core } from "@/platform/core";
 import { APIKey } from "@/platform/credential/apikey";
 import { Password } from "@/platform/credential/password";
 import { CSS } from "@/platform/css";
@@ -32,22 +34,24 @@ const Credentials = ({
   subject,
   title,
 }: Modals.ContentProps<ModalParams, void>): ReactElement => {
-  const [passwordChanged, setPasswordChanged] = useState(false);
+  const client = Synnax.use();
+  const { password } = Core.useAcceptedMethods(client?.params);
+  const [message, setMessage] = useState<string | null>(null);
   return (
     <Modal.Frame className={CSS.B("credential")}>
       <Modal.Header icon={<Icon.Lock />}>{title ?? "Credentials"}</Modal.Header>
       <Modal.Body>
         <Flex.Box y gap="large">
           <APIKey.Section subject={subject} />
-          {subject.type === "user" && (
-            <Password.Section subject={subject} onChanged={setPasswordChanged} />
+          {subject.type === "user" && password && (
+            <Password.Section subject={subject} onMessage={setMessage} />
           )}
         </Flex.Box>
       </Modal.Body>
-      {passwordChanged && (
+      {message != null && (
         <Modal.Footer>
           <Nav.Bar.Start>
-            <Status.Summary variant="success" message="Successfully changed password" />
+            <Status.Summary variant="success" message={message} />
           </Nav.Bar.Start>
         </Modal.Footer>
       )}

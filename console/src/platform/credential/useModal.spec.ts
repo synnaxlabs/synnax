@@ -18,6 +18,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { createElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
+import { createClientAccepting } from "@/platform/core/testutil";
 import { Credential } from "@/platform/credential";
 import { findButton, findDismissButton, openModal } from "@/platform/modals/testutil";
 import {
@@ -204,5 +205,80 @@ describe("useModal", () => {
         }
       })
       .toBe(true);
+  });
+
+  it("should keep a typed password when the username changes", async () => {
+    const client = createTestClient();
+    const { user: subject } = await createTestUser(client, {
+      username: uniqueName("user"),
+    });
+    await openModal(Credential.useModal, {
+      client,
+      params: { subject: user.ontologyID(subject.key) },
+    });
+    await type("New password", "changed123");
+    await type("Username", uniqueName("renamed"));
+    fireEvent.click(findButton("Set username"));
+    await screen.findByText("Successfully changed username");
+    expect(screen.getByPlaceholderText("New password")).toHaveProperty(
+      "value",
+      "changed123",
+    );
+  });
+
+  it("should change another user's username", async () => {
+    const client = createTestClient();
+    const { user: subject, password } = await createTestUser(client, {
+      username: uniqueName("user"),
+    });
+    await openModal(Credential.useModal, {
+      client,
+      params: { subject: user.ontologyID(subject.key) },
+    });
+    const username = uniqueName("renamed");
+    await type("Username", username);
+    fireEvent.click(findButton("Set username"));
+    await expect
+      .poll(async () => {
+        try {
+          await createTestClient({ username, password }).auth.sessions.retrieve();
+          return true;
+        } catch {
+          return false;
+        }
+      })
+      .toBe(true);
+  });
+
+  it("should create a password for a user who has none", async () => {
+    const client = createTestClient();
+    const subject = await client.users.create({ name: uniqueName("user") });
+    const id = user.ontologyID(subject.key);
+    await openModal(Credential.useModal, {
+      client,
+      params: { subject: id },
+    });
+    const username = uniqueName("user");
+    await type("Username", username);
+    await type("Password", "created123");
+    fireEvent.click(findButton("Create password"));
+    await screen.findByPlaceholderText("New password");
+    expect(screen.queryByText("Create password")).toBeNull();
+    expect(await screen.findByText("Successfully created password")).toBeTruthy();
+    const [created] = await client.auth.passwords.retrieve({ subjects: [id] });
+    expect(created.username).toEqual(username);
+    await createTestClient({
+      username,
+      password: "created123",
+    }).auth.sessions.retrieve();
+  });
+
+  it("should hide the password when the Core rejects passwords", async () => {
+    const client = await createClientAccepting(["api_key"]);
+    const subject = await client.users.create({ name: uniqueName("user") });
+    const id = user.ontologyID(subject.key);
+    await openModal(Credential.useModal, { client, params: { subject: id } });
+    await screen.findByText("No API keys");
+    await waitFor(() => expect(screen.queryByText("Password")).toBeNull());
   });
 });

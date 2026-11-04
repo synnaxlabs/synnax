@@ -255,6 +255,9 @@ class AccessClient(ResourceClient):
         if self.layout.check_for_errors("user"):
             raise AssertionError(f"Failed to register user {username!r}")
 
+        self.layout.page.get_by_text("No API keys").wait_for(state="visible")
+        self.layout.close_modal(self.layout.MODAL_SELECTOR)
+
     # -------------------------------------------------------------------------
     # Role Assignment (context menu → modal)
     # -------------------------------------------------------------------------

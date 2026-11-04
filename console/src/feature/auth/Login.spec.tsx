@@ -7,9 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createServer } from "node:http";
-import { type AddressInfo } from "node:net";
-
 import { type auth, AuthError, connection } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
@@ -41,6 +38,7 @@ vi.mock("@/session/runtime/runtime", async (importOriginal) => {
 });
 
 import { Login } from "@/feature/auth/Login";
+import { serveAuth } from "@/platform/core/testutil";
 import { Session } from "@/session";
 import { createCore } from "@/session/core/testutil";
 import {
@@ -56,50 +54,12 @@ import {
 const ALPHA = createCore("alpha", { name: "Alpha", port: 9098, username: "ada" });
 const BETA = createCore("beta", { name: "Beta", port: 9099, username: "grace" });
 
-// No test Core turns passwords off or accepts a provider, so a local server answers the
-// methods request. The Console asks once for the methods and again for the providers;
-// null providers fail that second request. A token opens a session for any code, and
-// without one the server rejects every code.
-const serveAuth = async (
-  methods: string[],
-  providers: auth.OIDCLogin[] | null = [],
-  onServed?: () => void,
-  token?: string,
+const serveCore = async (
+  ...args: Parameters<typeof serveAuth>
 ): Promise<Session.Core.Core> => {
   // the local auth server answers outside any act
   disableActEnvironment();
-  let methodsRequests = 0;
-  const server = createServer((req, res) => {
-    req.resume();
-    req.on("end", () => {
-      if (token != null && req.url?.endsWith("/auth/session/create") === true) {
-        res.setHeader("Content-Type", "application/json");
-        res.end(JSON.stringify({ token, session: SESSION }));
-        return;
-      }
-      const isMethods = req.url?.endsWith("/auth/methods") === true;
-      if (isMethods) methodsRequests += 1;
-      if (!isMethods || (providers == null && methodsRequests > 1)) {
-        res.statusCode = 404;
-        res.end();
-        return;
-      }
-      res.setHeader("Content-Type", "application/json");
-      res.end(JSON.stringify({ methods, providers: providers ?? [] }), onServed);
-    });
-  });
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  onTestFinished(
-    async () => await new Promise<void>((resolve) => server.close(() => resolve())),
-  );
-  return { ...ALPHA, host: "127.0.0.1", port: (server.address() as AddressInfo).port };
-};
-
-const SESSION = {
-  key: "8b7c3e52-6f0a-4c1d-9e2b-3a4f5d6e7f80",
-  subject: { type: "user", key: "1c2d3e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f" },
-  credential: "2d3e4f5a-6b7c-4d8e-9f0a-1b2c3d4e5f60",
-  lastActive: 0,
+  return { ...ALPHA, ...(await serveAuth(...args)) };
 };
 
 const PROVIDER: auth.OIDCLogin = {
@@ -210,7 +170,7 @@ describe("auth/Login", () => {
   it("should keep the password form when the Core accepts passwords", async () => {
     let served!: () => void;
     const answered = new Promise<void>((resolve) => (served = resolve));
-    await renderLogin(await serveAuth(["password", "api_key"], [], () => served()));
+    await renderLogin(await serveCore(["password", "api_key"], [], () => served()));
     fireEvent.click(await screen.findByText(ALPHA.name));
     await answered;
     await expectAlways(() => {
@@ -220,14 +180,14 @@ describe("auth/Login", () => {
   });
 
   it("should hide the password form when the Core refuses passwords", async () => {
-    await renderLogin(await serveAuth(["api_key"]));
+    await renderLogin(await serveCore(["api_key"]));
     fireEvent.click(await screen.findByText(ALPHA.name));
     expect(await screen.findByText("Password login is off")).toBeTruthy();
     expect(screen.queryByPlaceholderText(USERNAME_PLACEHOLDER)).toBeNull();
   });
 
   it("should offer each provider the Core accepts", async () => {
-    const core = await serveAuth(
+    const core = await serveCore(
       ["password", "oidc"],
       [
         {
@@ -244,7 +204,7 @@ describe("auth/Login", () => {
   });
 
   it("should show only providers when the Core refuses passwords", async () => {
-    const core = await serveAuth(
+    const core = await serveCore(
       ["oidc"],
       [
         {
@@ -263,7 +223,7 @@ describe("auth/Login", () => {
 
   it("should explain that provider login needs HTTPS", async () => {
     setSecureContext(false);
-    const core = await serveAuth(
+    const core = await serveCore(
       ["oidc"],
       [
         {
@@ -280,7 +240,7 @@ describe("auth/Login", () => {
   });
 
   it("should report a providers request that fails", async () => {
-    const core = await serveAuth(["oidc"], null);
+    const core = await serveCore(["oidc"], null);
     let statuses: Status.NotificationSpec[] = [];
     const { wrapper } = await createSessionConsoleWrapper({
       client: null,
@@ -308,7 +268,7 @@ describe("auth/Login", () => {
   });
 
   it("should start a browser login through a provider", async () => {
-    const core = await serveAuth(
+    const core = await serveCore(
       ["oidc"],
       [
         {
@@ -367,7 +327,7 @@ describe("auth/Login", () => {
     const FAILED = "Failed to log in with company-sso";
 
     it("should save the session and log in through a provider", async () => {
-      const core = await serveAuth(["oidc"], [PROVIDER], undefined, "sys_token");
+      const core = await serveCore(["oidc"], [PROVIDER], undefined, "sys_token");
       const ipc = fakeDesktop();
       const { store } = await renderLogin(core, createConsoleWrapper);
       fireEvent.click(await screen.findByText(ALPHA.name));
@@ -382,7 +342,7 @@ describe("auth/Login", () => {
     });
 
     it("should let the user retry a login the Core rejects", async () => {
-      const core = await serveAuth(["oidc"], [PROVIDER]);
+      const core = await serveCore(["oidc"], [PROVIDER]);
       const ipc = fakeDesktop();
       const { store, statuses } = await renderLogin(core, createConsoleWrapper);
       fireEvent.click(await screen.findByText(ALPHA.name));
@@ -397,7 +357,7 @@ describe("auth/Login", () => {
     });
 
     it("should refuse a login when the Core's address changed during it", async () => {
-      const core = await serveAuth(["oidc"], [PROVIDER], undefined, "sys_token");
+      const core = await serveCore(["oidc"], [PROVIDER], undefined, "sys_token");
       let move = (): void => {};
       fakeDesktop(() => move());
       const { store, statuses } = await renderLogin(core, createConsoleWrapper);

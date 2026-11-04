@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology } from "@synnaxlabs/client";
+import { type ontology, user } from "@synnaxlabs/client";
 import {
   createTestClient,
   createTestUser,
@@ -271,6 +271,29 @@ describe("User queries", () => {
         expect(users.filter((u) => u.name === name)).toHaveLength(0);
       });
 
+      it("should create a user with no password", async () => {
+        const { result } = renderHook(() => User.useForm({ query: null }), {
+          wrapper,
+        });
+        await waitFor(() => expect(result.current.variant).toBe("success"));
+        const role = await viewerRole();
+        act(() => {
+          result.current.form.set(path.name, "No Password");
+          result.current.form.set(path.role, role);
+        });
+        await act(async () => {
+          result.current.save();
+        });
+        await waitFor(() => expect(result.current.form.value().key).toBeDefined());
+        const key = result.current.form.value().key;
+        if (key == null) throw new Error("no user key");
+        const subject = user.ontologyID(key);
+        expect((await client.users.retrieve(key)).name).toBe("No Password");
+        expect(await client.auth.passwords.retrieve({ subjects: [subject] })).toEqual(
+          [],
+        );
+      });
+
       it("should validate required fields", async () => {
         const { result } = renderHook(() => User.useForm({ query: null }), {
           wrapper,
@@ -282,50 +305,45 @@ describe("User queries", () => {
           result.current.save();
         });
 
-        const usernameField = result.current.form.get(path.username);
-        const passwordField = result.current.form.get(path.password);
-        const nameField = result.current.form.get(path.name);
-
-        expect(usernameField.status.variant).toBe("error");
-        expect(passwordField.status.variant).toBe("error");
-        expect(nameField.status.variant).toBe("error");
-      });
-    });
-
-    describe("validation", () => {
-      it("should validate username field", async () => {
-        const { result } = renderHook(() => User.useForm({ query: null }), {
-          wrapper,
-        });
-
-        await waitFor(() => expect(result.current.variant).toBe("success"));
-
-        act(() => {
-          result.current.form.set(path.username, "");
-        });
-
-        const isValid = result.current.form.validate(path.username);
-        expect(isValid).toBe(false);
-
-        const usernameField = result.current.form.get(path.username);
-        expect(usernameField.status.variant).toBe("error");
-        expect(usernameField.status.message).toContain("username is required");
-      });
-
-      it("should validate all required fields", async () => {
-        const { result } = renderHook(() => User.useForm({ query: null }), {
-          wrapper,
-        });
-
-        await waitFor(() => expect(result.current.variant).toBe("success"));
-
-        const isValid = result.current.form.validate();
-        expect(isValid).toBe(false);
-
-        expect(result.current.form.get(path.username).status.variant).toBe("error");
-        expect(result.current.form.get(path.password).status.variant).toBe("error");
         expect(result.current.form.get(path.name).status.variant).toBe("error");
+        expect(result.current.form.get(path.role).status.variant).toBe("error");
+        expect(result.current.form.get(path.username).status.variant).toBe("success");
+        expect(result.current.form.get(path.password).status.variant).toBe("success");
       });
     });
+  });
+});
+
+describe("User.formSchema", () => {
+  const VALUES = {
+    username: "",
+    password: "",
+    name: "Ada",
+    role: "6c4f5e8a-2b3d-4f1a-9c7e-1d2e3f4a5b6c",
+  };
+
+  const errorPaths = (values: Partial<typeof VALUES>) =>
+    User.formSchema
+      .safeParse({ ...VALUES, ...values })
+      .error?.issues.map(({ path }) => path.join("."));
+
+  it("should accept a name and a role alone", () => {
+    expect(errorPaths({})).toBeUndefined();
+  });
+
+  it("should accept a username with a password", () => {
+    expect(errorPaths({ username: "ada", password: "seldon" })).toBeUndefined();
+  });
+
+  it("should require a password with a username", () => {
+    expect(errorPaths({ username: "ada" })).toEqual(["password"]);
+  });
+
+  it("should require a username with a password", () => {
+    expect(errorPaths({ password: "seldon" })).toEqual(["username"]);
+  });
+
+  it("should report the name and the pair together", () => {
+    expect(errorPaths({ name: "", username: "ada" })).toEqual(["name", "password"]);
   });
 });

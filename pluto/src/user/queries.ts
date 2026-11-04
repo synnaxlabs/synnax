@@ -60,12 +60,28 @@ export const { use: useGroupID } = Flux.createRetrieve<
   },
 });
 
-export const formSchema = z.object({
-  username: z.string().min(1, "username is required"),
-  password: z.string().min(1, "Password is required"),
-  name: z.string().min(1, "Name is required"),
-  role: access.role.keyZ,
-});
+export const formSchema = z
+  .object({
+    key: user.keyZ.optional(),
+    username: z.string(),
+    password: z.string(),
+    name: z.string().min(1, "Name is required"),
+    role: access.role.keyZ,
+  })
+  .superRefine(({ username, password }, ctx) => {
+    if (username !== "" && password === "")
+      ctx.addIssue({
+        code: "custom",
+        path: ["password"],
+        message: "Password is required",
+      });
+    if (password !== "" && username === "")
+      ctx.addIssue({
+        code: "custom",
+        path: ["username"],
+        message: "Username is required",
+      });
+  });
 
 export const formPath = deep.path<z.infer<typeof formSchema>>();
 
@@ -84,21 +100,24 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   name: "user",
   schema: formSchema,
   initialValues: ZERO_FORM_VALUES,
-  update: async ({ client, value }) => {
+  update: async ({ client, value, set }) => {
     const { name, username, password, role } = value();
     const created = await client.users.create({ name });
-    let registered = false;
-    try {
-      await client.auth.passwords.create({
-        subject: user.ontologyID(created.key),
-        username,
-        password,
-      });
-      registered = true;
-    } finally {
-      // a user with no password cannot log in, so a failed registration removes it
-      if (!registered) await client.users.delete(created.key);
+    if (password !== "") {
+      let registered = false;
+      try {
+        await client.auth.passwords.create({
+          subject: user.ontologyID(created.key),
+          username,
+          password,
+        });
+        registered = true;
+      } finally {
+        // the caller asked for a login, so a user without it is removed
+        if (!registered) await client.users.delete(created.key);
+      }
     }
+    set(formPath.key, created.key);
     if (role == null) return;
     await client.access.roles.assign({ user: created.key, role });
   },
