@@ -31,6 +31,7 @@ import {
   machineName,
   statusOf,
 } from "@/ui/format";
+import { LabelDialog } from "@/ui/licenses/LabelDialog";
 import { MachineMenu } from "@/ui/licenses/MachineMenu";
 import { StaffActions } from "@/ui/licenses/StaffActions";
 import { StatusTag } from "@/ui/licenses/StatusTag";
@@ -45,6 +46,8 @@ export interface LicenseProps {
   /** actors is the name each Clerk user id in `events` reads as. */
   actors: Record<string, string>;
   staff: boolean;
+  /** admin is true for staff and the admins of the owning team. */
+  admin: boolean;
   now: Date;
 }
 
@@ -58,6 +61,7 @@ export const License = ({
   events,
   actors,
   staff,
+  admin,
   now,
 }: LicenseProps): ReactElement => {
   const status = statusOf(lic, now);
@@ -84,6 +88,7 @@ export const License = ({
       }
       actions={
         <>
+          {admin && lic.edition === "enterprise" && <LabelDialog license={lic} />}
           {staff && (
             <StaffActions
               license={lic}

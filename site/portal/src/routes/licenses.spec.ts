@@ -16,6 +16,7 @@ import { POST as activateRoute } from "@/pages/api/licenses/[key]/activate";
 import { POST as deleteRoute } from "@/pages/api/licenses/[key]/delete";
 import { POST as floatingRoute } from "@/pages/api/licenses/[key]/floating";
 import { POST as amendRoute } from "@/pages/api/licenses/[key]/index";
+import { POST as labelRoute } from "@/pages/api/licenses/[key]/label";
 import { POST as restoreRoute } from "@/pages/api/licenses/[key]/restore";
 import { POST as revokeRoute } from "@/pages/api/licenses/[key]/revoke";
 import { POST as issueRoute } from "@/pages/api/licenses/index";
@@ -544,6 +545,114 @@ describe("license routes", () => {
           },
         }),
       ]);
+    });
+  });
+
+  describe("POST /api/licenses/[key]/label", () => {
+    const ADMIN = "user_admin";
+    let lic: License;
+
+    beforeEach(async () => {
+      addPerson(ADMIN, [ACME_ADMIN]);
+      lic = await createLicense(store, { organization: acme.key });
+    });
+
+    const post = async (label: string, key: string = lic.key): Promise<Response> =>
+      await call(labelRoute, { params: { key }, body: { label } });
+
+    it("should reject a visitor who is not logged in", async () => {
+      await expectError(await post("Renamed rig"), 401, "Log in first");
+    });
+
+    it("should hide the license from a user outside the team", async () => {
+      h.signIn(OUTSIDER);
+      await expectError(await post("Renamed rig"), 404, "License not found");
+    });
+
+    it("should reject a team member who is not an admin", async () => {
+      h.signIn(MEMBER);
+      await expectError(
+        await post("Renamed rig"),
+        403,
+        "Only a team admin can rename a license",
+      );
+    });
+
+    it("should reject the owner of a personal license", async () => {
+      h.signIn(OUTSIDER);
+      const personal = await createOrganization(store, {
+        kind: "personal",
+        ownerUserID: OUTSIDER,
+      });
+      const owned = await createLicense(store, { organization: personal.key });
+      await expectError(
+        await post("Renamed rig", owned.key),
+        403,
+        "Only a team admin can rename a license",
+      );
+    });
+
+    it("should require a label", async () => {
+      h.signIn(ADMIN);
+      await expectError(await post("   "), 400, "Give the license a label");
+    });
+
+    it("should let a team admin rename and record the change", async () => {
+      h.signIn(ADMIN);
+      const res = await post("  Renamed rig  ");
+      expect(res.status).toBe(204);
+      expect(await licenses()).toEqual([{ ...lic, label: "Renamed rig" }]);
+      expect(await events()).toEqual([
+        expect.objectContaining({
+          kind: "amend",
+          actor: ADMIN,
+          organization: acme.key,
+          license: lic.key,
+          detail: { label: { from: "Test rig", to: "Renamed rig" } },
+        }),
+      ]);
+    });
+
+    it("should let staff rename a license on a team they are not on", async () => {
+      h.signIn(STAFF);
+      expect((await post("Renamed rig")).status).toBe(204);
+      expect((await licenses())[0].label).toBe("Renamed rig");
+    });
+
+    it("should record nothing when the label does not change", async () => {
+      h.signIn(ADMIN);
+      expect((await post(lic.label)).status).toBe(204);
+      expect(await events()).toEqual([]);
+    });
+
+    it("should rename an expired license", async () => {
+      h.signIn(ADMIN);
+      const expired = await createLicense(store, {
+        organization: acme.key,
+        expiresAt: new Date("2020-01-01T00:00:00Z"),
+      });
+      expect((await post("Renamed rig", expired.key)).status).toBe(204);
+    });
+
+    it("should refuse a Desktop license", async () => {
+      h.signIn(STAFF);
+      const desktop = await createLicense(store, {
+        organization: acme.key,
+        edition: "desktop",
+      });
+      expect((await post("Renamed rig", desktop.key)).status).toBe(400);
+      expect((await licenses()).find((l) => l.key === desktop.key)?.label).toBe(
+        desktop.label,
+      );
+    });
+
+    it("should rename a revoked license", async () => {
+      h.signIn(ADMIN);
+      const revoked = await createLicense(store, {
+        organization: acme.key,
+        revokedAt: new Date("2026-09-02T00:00:00Z"),
+      });
+      expect((await post("Renamed rig", revoked.key)).status).toBe(204);
     });
   });
 

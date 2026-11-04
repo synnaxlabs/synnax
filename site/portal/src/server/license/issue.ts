@@ -22,7 +22,7 @@ import { badRequest, notFound } from "@/server/errors";
 import { requireEnterprise } from "@/server/license/activate";
 import { build } from "@/server/license/claims";
 import { DENIAL_MESSAGES, deny } from "@/server/license/deny";
-import { VERSION_PATTERN } from "@/server/license/limits";
+import { MAX_NAME_LENGTH, VERSION_PATTERN } from "@/server/license/limits";
 import { sign, type Signer } from "@/server/license/sign";
 
 /** Terms are the fields staff set when issuing a license and may change later. */
@@ -195,6 +195,57 @@ export const amend = async (
       detail: changes(before, after),
     });
     return after;
+  });
+};
+
+/**
+ * readLabel trims a posted license label to its bound.
+ * @throws {HTTPError} 400 when nothing is left of it.
+ */
+export const readLabel = (raw: string | undefined): string => {
+  const label = (raw ?? "").trim().slice(0, MAX_NAME_LENGTH);
+  if (label === "") throw badRequest("Give the license a label");
+  return label;
+};
+
+export interface RenameArgs {
+  licenseKey: string;
+  label: string;
+  actor: string;
+  now: Date;
+}
+
+/**
+ * rename changes a license's label, and works whatever state its terms are in. License
+ * keys do not carry the label, so machines holding a seat need no new one.
+ * @throws {HTTPError} 400 for a Desktop license.
+ */
+export const rename = async (
+  store: Store,
+  { licenseKey, label, actor, now }: RenameArgs,
+): Promise<void> => {
+  await store.transact(async (tx) => {
+    const [before] = await tx
+      .select()
+      .from(license)
+      .where(eq(license.key, licenseKey))
+      .for("update");
+    if (before == null) throw notFound("License");
+    requireEnterprise(before);
+    if (before.label === label) return;
+    const [after] = await tx
+      .update(license)
+      .set({ label })
+      .where(eq(license.key, licenseKey))
+      .returning();
+    await tx.insert(event).values({
+      at: now,
+      kind: "amend",
+      actor,
+      organization: after.organization,
+      license: after.key,
+      detail: changes(before, after),
+    });
   });
 };
 
