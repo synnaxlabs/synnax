@@ -183,10 +183,11 @@ func (c *Controller[R]) LeadingState() *State {
 
 // ResourceAt returns the resource held by the region overlapping tr, reporting false
 // when no region covers it. A bounded region takes precedence over an unbounded region
-// that overlaps it. ResourceAt waits for a region that is opening, so a caller must not
-// hold a lock that the resource's opener needs. The returned resource is safe to read
-// only through fields that are themselves safe for concurrent access, as the
-// controller's lock is released before the caller touches it.
+// that overlaps it. ResourceAt waits for a region that is opening unless an open
+// bounded region covers tr, so a caller must not hold a lock that the resource's opener
+// needs. The returned resource is safe to read only through fields that are themselves
+// safe for concurrent access, as the controller's lock is released before the caller
+// touches it.
 func (c *Controller[R]) ResourceAt(tr telem.TimeRange) (R, bool) {
 	for {
 		res, ok, opening := c.resourceAt(tr)
@@ -207,14 +208,15 @@ func (c *Controller[R]) resourceAt(
 			continue
 		}
 		if reg.opening != nil {
-			return res, false, reg.opening
+			opening = reg.opening
+			continue
 		}
 		res, ok = reg.resource, true
 		if reg.bounded {
-			break
+			return res, ok, nil
 		}
 	}
-	return res, ok, nil
+	return res, ok, opening
 }
 
 // OpenGate opens a new gate for the region occupying the specified time range. If the
