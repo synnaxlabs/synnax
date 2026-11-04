@@ -22,10 +22,18 @@ Key = uuid {
 }
 
 FlexAlignment enum {
-    start   = "start"
-    center  = "center"
-    end     = "end"
-    stretch = "stretch"
+    start   = "start" {
+        @doc value "places content at the start of the cross axis."
+    }
+    center  = "center" {
+        @doc value "places content at the center of the cross axis."
+    }
+    end     = "end" {
+        @doc value "places content at the end of the cross axis."
+    }
+    stretch = "stretch" {
+        @doc value "stretches content across the cross axis."
+    }
 
     @doc value "is a cross-axis flex alignment for laid-out content."
 }

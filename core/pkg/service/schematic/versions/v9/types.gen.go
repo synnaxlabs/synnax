@@ -356,9 +356,13 @@ func (u EdgeConfig) Validate() error {
 type FlexAlignment string
 
 const (
-	FlexAlignmentStart   FlexAlignment = "start"
-	FlexAlignmentCenter  FlexAlignment = "center"
-	FlexAlignmentEnd     FlexAlignment = "end"
+	// FlexAlignmentStart places content at the start of the cross axis.
+	FlexAlignmentStart FlexAlignment = "start"
+	// FlexAlignmentCenter places content at the center of the cross axis.
+	FlexAlignmentCenter FlexAlignment = "center"
+	// FlexAlignmentEnd places content at the end of the cross axis.
+	FlexAlignmentEnd FlexAlignment = "end"
+	// FlexAlignmentStretch stretches content across the cross axis.
 	FlexAlignmentStretch FlexAlignment = "stretch"
 )
 
@@ -377,11 +381,16 @@ func (f FlexAlignment) IsValid() bool {
 type ComponentSize string
 
 const (
-	ComponentSizeTiny   ComponentSize = "tiny"
-	ComponentSizeSmall  ComponentSize = "small"
+	// ComponentSizeTiny is the smallest preset.
+	ComponentSizeTiny ComponentSize = "tiny"
+	// ComponentSizeSmall is the preset between tiny and medium.
+	ComponentSizeSmall ComponentSize = "small"
+	// ComponentSizeMedium is the default preset.
 	ComponentSizeMedium ComponentSize = "medium"
-	ComponentSizeLarge  ComponentSize = "large"
-	ComponentSizeHuge   ComponentSize = "huge"
+	// ComponentSizeLarge is the preset between medium and huge.
+	ComponentSizeLarge ComponentSize = "large"
+	// ComponentSizeHuge is the largest preset.
+	ComponentSizeHuge ComponentSize = "huge"
 )
 
 // IsValid reports whether c is one of the defined ComponentSize
@@ -400,9 +409,12 @@ func (c ComponentSize) IsValid() bool {
 type ButtonMode string
 
 const (
-	ButtonModeFire      ButtonMode = "fire"
+	// ButtonModeFire writes once on click.
+	ButtonModeFire ButtonMode = "fire"
+	// ButtonModeMomentary writes on press and clears on release.
 	ButtonModeMomentary ButtonMode = "momentary"
-	ButtonModePulse     ButtonMode = "pulse"
+	// ButtonModePulse writes a one-cycle pulse.
+	ButtonModePulse ButtonMode = "pulse"
 )
 
 // IsValid reports whether b is one of the defined ButtonMode
@@ -762,10 +774,14 @@ type StateMapping struct {
 type PageType string
 
 const (
+	// PageTypeSchematic is a schematic page.
 	PageTypeSchematic PageType = "schematic"
-	PageTypeLineplot  PageType = "lineplot"
-	PageTypeLog       PageType = "log"
-	PageTypeTable     PageType = "table"
+	// PageTypeLineplot is a line plot page.
+	PageTypeLineplot PageType = "lineplot"
+	// PageTypeLog is a log page.
+	PageTypeLog PageType = "log"
+	// PageTypeTable is a table page.
+	PageTypeTable PageType = "table"
 )
 
 // IsValid reports whether p is one of the defined PageType

@@ -23,9 +23,13 @@ type Key = versions.Key
 type FlexAlignment = versions.FlexAlignment
 
 const (
-	FlexAlignmentStart   FlexAlignment = versions.FlexAlignmentStart
-	FlexAlignmentCenter  FlexAlignment = versions.FlexAlignmentCenter
-	FlexAlignmentEnd     FlexAlignment = versions.FlexAlignmentEnd
+	// FlexAlignmentStart places content at the start of the cross axis.
+	FlexAlignmentStart FlexAlignment = versions.FlexAlignmentStart
+	// FlexAlignmentCenter places content at the center of the cross axis.
+	FlexAlignmentCenter FlexAlignment = versions.FlexAlignmentCenter
+	// FlexAlignmentEnd places content at the end of the cross axis.
+	FlexAlignmentEnd FlexAlignment = versions.FlexAlignmentEnd
+	// FlexAlignmentStretch stretches content across the cross axis.
 	FlexAlignmentStretch FlexAlignment = versions.FlexAlignmentStretch
 )
 

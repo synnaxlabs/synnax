@@ -25,9 +25,13 @@ type Key = v2.Key
 type FlexAlignment = v2.FlexAlignment
 
 const (
-	FlexAlignmentStart   FlexAlignment = v2.FlexAlignmentStart
-	FlexAlignmentCenter  FlexAlignment = v2.FlexAlignmentCenter
-	FlexAlignmentEnd     FlexAlignment = v2.FlexAlignmentEnd
+	// FlexAlignmentStart places content at the start of the cross axis.
+	FlexAlignmentStart FlexAlignment = v2.FlexAlignmentStart
+	// FlexAlignmentCenter places content at the center of the cross axis.
+	FlexAlignmentCenter FlexAlignment = v2.FlexAlignmentCenter
+	// FlexAlignmentEnd places content at the end of the cross axis.
+	FlexAlignmentEnd FlexAlignment = v2.FlexAlignmentEnd
+	// FlexAlignmentStretch stretches content across the cross axis.
 	FlexAlignmentStretch FlexAlignment = v2.FlexAlignmentStretch
 )
 

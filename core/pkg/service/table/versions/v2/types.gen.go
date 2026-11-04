@@ -31,9 +31,13 @@ type Key = v1.Key
 type FlexAlignment string
 
 const (
-	FlexAlignmentStart   FlexAlignment = "start"
-	FlexAlignmentCenter  FlexAlignment = "center"
-	FlexAlignmentEnd     FlexAlignment = "end"
+	// FlexAlignmentStart places content at the start of the cross axis.
+	FlexAlignmentStart FlexAlignment = "start"
+	// FlexAlignmentCenter places content at the center of the cross axis.
+	FlexAlignmentCenter FlexAlignment = "center"
+	// FlexAlignmentEnd places content at the end of the cross axis.
+	FlexAlignmentEnd FlexAlignment = "end"
+	// FlexAlignmentStretch stretches content across the cross axis.
 	FlexAlignmentStretch FlexAlignment = "stretch"
 )
 
