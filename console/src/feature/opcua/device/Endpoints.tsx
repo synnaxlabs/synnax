@@ -26,7 +26,7 @@ import { deep } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { commandTimeout } from "@/feature/opcua/device/commandTimeout";
-import { retrieveScanTask } from "@/feature/opcua/device/retrieveScanTask";
+import { sendScanCommand } from "@/feature/opcua/device/scanCommand";
 import { SECURITY_MODE_NAMES } from "@/feature/opcua/device/SelectSecurityMode";
 import { SECURITY_POLICY_NAMES } from "@/feature/opcua/device/SelectSecurityPolicy";
 import {
@@ -117,8 +117,7 @@ const findEndpoints = async (
   connection: ConnectionConfig,
 ): Promise<Result> => {
   if (client == null) throw new DisconnectedError();
-  const scanTask = await retrieveScanTask(client, rack);
-  const res = await scanTask.executeCommandSync({
+  const res = await sendScanCommand(client, rack, {
     type: GET_ENDPOINTS_COMMAND_TYPE,
     timeout: commandTimeout(connection),
     args: { connection },
@@ -175,6 +174,7 @@ export const Endpoints = ({ rack, onSelect }: EndpointsProps): ReactElement => {
         {options != null && options.length > 0 && (
           <Select.Simple<string>
             resourceName="endpoint"
+            variant="floating"
             allowNone
             value={optionKey(securityMode, securityPolicy)}
             onChange={handleChange}
@@ -186,6 +186,7 @@ export const Endpoints = ({ rack, onSelect }: EndpointsProps): ReactElement => {
                   key={option.key}
                   itemKey={option.key}
                   textValue={name}
+                  justify="between"
                   disabled={!isMode(option.mode) || !isPolicy(option.policy)}
                 >
                   <Text.Text>{name}</Text.Text>

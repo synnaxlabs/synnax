@@ -19,10 +19,10 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Select as PSelect } from "@synnaxlabs/lyra/select";
 import { caseconv, DataType, deep, errors, primitive } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
-import { type HaulItem } from "@/feature/opcua/device/Browser";
 import { Select } from "@/feature/opcua/device/Select";
 import {
   type Device,
@@ -44,6 +44,7 @@ import {
   type ReadChannel,
   type ReadConfig,
   type ReadSchemas,
+  type ScannedNode,
 } from "@/feature/opcua/task/types";
 import { CSS } from "@/platform/css";
 import { Selector } from "@/platform/selector";
@@ -94,15 +95,16 @@ const IsIndexItem = ({ path }: ExtraItemProps<ReadChannel>): ReactElement => {
 
 const isIndexItem = Component.renderProp(IsIndexItem);
 
+type SamplingMode = "scalar" | "array";
+
 const Properties = (): ReactElement => {
   const arrayMode = PForm.useFieldValue(path.config.arrayMode);
   return (
     <>
       <Select />
-      <Flex.Box x>
-        <Task.Fields.SampleRate />
-        <PForm.CheckboxField
-          label="Array sampling"
+      <Flex.Box x wrap>
+        <PForm.Field<boolean>
+          label="Sampling mode"
           path={path.config.arrayMode}
           onChange={(value, { set }) => {
             // always set the array size to 1 for either the default in array mode or an
@@ -110,7 +112,18 @@ const Properties = (): ReactElement => {
             set(path.config.arraySize, 1);
             if (!value) set(path.config.streamRate, 25);
           }}
-        />
+        >
+          {({ value, onChange }) => (
+            <PSelect.Buttons<SamplingMode>
+              value={value ? "array" : "scalar"}
+              onChange={(mode: SamplingMode) => onChange(mode === "array")}
+            >
+              <PSelect.Item itemKey="scalar">Scalar</PSelect.Item>
+              <PSelect.Item itemKey="array">Array</PSelect.Item>
+            </PSelect.Buttons>
+          )}
+        </PForm.Field>
+        <Task.Fields.SampleRate />
         {arrayMode ? (
           <PForm.NumericField
             label="Array size"
@@ -126,15 +139,15 @@ const Properties = (): ReactElement => {
   );
 };
 
-const convertHaulItemToChannel = ({ data }: HaulItem): ReadChannel => ({
-  key: data.field === "" ? data.nodeId : nodeIdentity(data),
-  nodeName: data.name,
-  nodeId: data.nodeId,
-  field: data.field,
+const convertNodeToChannel = (node: ScannedNode): ReadChannel => ({
+  key: node.field === "" ? node.nodeId : nodeIdentity(node),
+  nodeName: node.name,
+  nodeId: node.nodeId,
+  field: node.field,
   channel: 0,
   disabled: false,
   isIndex: false,
-  dataType: data.dataType,
+  dataType: node.dataType,
   name: "",
 });
 
@@ -149,11 +162,12 @@ const resolve = (device: Device, ch: ReadChannel) => ({
 
 const TaskForm: FC = createForm<ReadChannel>({
   path: path.config.channels,
-  convertHaulItemToChannel,
+  convertNodeToChannel,
   getChannelKeyAndID,
   contextMenuItems: Task.readChannelContextMenuItem,
   children: isIndexItem,
   resolve,
+  indexed: true,
 });
 
 const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({

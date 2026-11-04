@@ -55,7 +55,7 @@ const path = deep.path<Task.Values<ReadSchemas>>();
 const Properties = () => (
   <>
     <SelectDevice />
-    <Flex.Box x grow>
+    <Flex.Box x grow wrap>
       <Task.Fields.SampleRate />
       <Task.Fields.StreamRate />
     </Flex.Box>

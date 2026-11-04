@@ -35,6 +35,7 @@ x::errors::Error invalid(const std::string &message) {
 struct Place {
     const UA_DataTypeMember *member = nullptr;
     std::size_t offset = 0;
+    UA_Boolean is_array = false;
 };
 
 /// @returns the member named name of a structure type.
@@ -42,19 +43,51 @@ std::pair<Place, x::errors::Error>
 find_member(const UA_DataType &type, const std::string &name) {
     Place place;
     const UA_DataType *member_type = nullptr;
-    UA_Boolean is_array = false;
     if (!UA_DataType_getStructMember(
             &type,
             name.c_str(),
             &place.offset,
             &member_type,
-            &is_array
+            &place.is_array
         ))
         return {{}, invalid(std::string(type.typeName) + " has no member " + name)};
-    if (is_array) return {{}, invalid(name + " is an array")};
     for (std::size_t i = 0; i < type.membersSize; ++i)
         if (name == type.members[i].memberName) place.member = &type.members[i];
     return {place, x::errors::NIL};
+}
+
+/// @returns one value of a type as JSON text.
+std::pair<std::string, x::errors::Error>
+json(const void *data, const UA_DataType *type) {
+    UA_EncodeJsonOptions options{};
+    options.stringNodeIds = true;
+    UA_ByteString out = UA_BYTESTRING_NULL;
+    if (const auto status = UA_encodeJson(data, type, &out, &options);
+        status != UA_STATUSCODE_GOOD)
+        return {
+            "",
+            invalid(
+                std::string("the value does not encode: ") + UA_StatusCode_name(status)
+            )
+        };
+    std::string text(reinterpret_cast<const char *>(out.data), out.length);
+    UA_ByteString_clear(&out);
+    return {std::move(text), x::errors::NIL};
+}
+
+/// @returns the value as JSON text, where an array is a JSON array of its elements.
+std::pair<std::string, x::errors::Error> json(const UA_Variant &value) {
+    if (value.type == nullptr) return {"null", x::errors::NIL};
+    if (UA_Variant_isScalar(&value)) return json(value.data, value.type);
+    std::string text = "[";
+    const auto *data = static_cast<const char *>(value.data);
+    for (std::size_t i = 0; i < value.arrayLength; ++i) {
+        auto [element, err] = json(data + i * value.type->memSize, value.type);
+        if (err) return {"", err};
+        if (i > 0) text += ", ";
+        text += element;
+    }
+    return {text + "]", x::errors::NIL};
 }
 
 bool contains(const std::vector<types::NodeId> &ids, const UA_NodeId &id) {
@@ -293,7 +326,7 @@ std::vector<Member> Types::members(const UA_DataType &type) {
 }
 
 std::pair<Field, x::errors::Error>
-Types::field(const UA_NodeId &data_type, const Path &path) const {
+Types::locate(const UA_NodeId &data_type, const Path &path) const {
     Field out;
     out.root = this->find(data_type);
     if (out.root == nullptr) {
@@ -311,8 +344,10 @@ Types::field(const UA_NodeId &data_type, const Path &path) const {
     }
     out.member = out.root;
     for (const auto &name: path) {
+        if (out.array) return {{}, invalid(out.steps.back().name + " is an array")};
         auto [place, err] = find_member(*out.member, name);
         if (err) return {{}, err};
+        out.array = place.is_array;
         out.steps.push_back({
             .offset = place.offset,
             .optional = static_cast<bool>(place.member->isOptional),
@@ -321,6 +356,27 @@ Types::field(const UA_NodeId &data_type, const Path &path) const {
         out.member = place.member->memberType;
     }
     return {std::move(out), x::errors::NIL};
+}
+
+std::pair<Field, x::errors::Error>
+Types::field(const UA_NodeId &data_type, const Path &path) const {
+    auto [out, err] = this->locate(data_type, path);
+    if (!err && out.array) return {{}, invalid(path.back() + " is an array")};
+    return {std::move(out), err};
+}
+
+std::pair<Member, x::errors::Error>
+Types::describe(const UA_NodeId &data_type, const Path &path) const {
+    auto [field, err] = this->locate(data_type, path);
+    if (err) return {{}, err};
+    return {
+        {
+            .name = path.empty() ? "" : path.back(),
+            .type = field.member,
+            .is_array = field.array,
+        },
+        x::errors::NIL
+    };
 }
 
 std::pair<types::Variant, x::errors::Error>
@@ -379,29 +435,62 @@ Types::decode(const UA_Variant &value) const {
     return {std::move(out), x::errors::NIL};
 }
 
-std::pair<x::telem::SampleValue, x::errors::Error> Types::sample(
-    const UA_Variant &structure,
-    const Field &field,
-    const x::telem::DataType &dt
-) {
+std::pair<UA_Variant, x::errors::Error>
+Types::member(const UA_Variant &structure, const Field &field) {
+    UA_Variant member{};
     if (!UA_NodeId_equal(&structure.type->typeId, &field.root->typeId))
         return {
-            {},
+            member,
             invalid(
                 std::string("the value is a ") + structure.type->typeName + ", not a " +
                 field.root->typeName
             )
         };
     const auto *data = static_cast<const char *>(structure.data);
-    for (const auto &step: field.steps) {
+    for (std::size_t i = 0; i < field.steps.size(); ++i) {
+        const auto &step = field.steps[i];
         data += step.offset;
-        if (step.optional) {
+        // An optional array holds its length and elements in place, as others do.
+        const bool array = field.array && i + 1 == field.steps.size();
+        if (step.optional && !array) {
             data = *reinterpret_cast<const char *const *>(data);
-            if (data == nullptr) return {{}, invalid("the value has no " + step.name)};
+            if (data == nullptr)
+                return {member, invalid("the value has no " + step.name)};
         }
     }
-    UA_Variant member;
-    UA_Variant_setScalar(&member, const_cast<char *>(data), field.member);
+    if (!field.array) {
+        UA_Variant_setScalar(&member, const_cast<char *>(data), field.member);
+        return {member, x::errors::NIL};
+    }
+    // An array member is its length, then a pointer to its elements.
+    const auto size = *reinterpret_cast<const std::size_t *>(data);
+    auto *elements = *reinterpret_cast<void *const *>(data + sizeof(std::size_t));
+    UA_Variant_setArray(&member, elements, size, field.member);
+    return {member, x::errors::NIL};
+}
+
+std::pair<x::telem::SampleValue, x::errors::Error> Types::sample(
+    const UA_Variant &structure,
+    const Field &field,
+    const x::telem::DataType &dt
+) {
+    const auto [member, err] = Types::member(structure, field);
+    if (err) return {{}, err};
     return telem::to_sample(member, dt);
+}
+
+std::pair<std::string, x::errors::Error>
+Types::print(const UA_Variant &value, const Path &path) const {
+    if (path.empty() && (value.type == nullptr || !UA_Variant_isScalar(&value) ||
+                         value.type->typeKind != UA_DATATYPEKIND_EXTENSIONOBJECT))
+        return json(value);
+    const auto [structure, err] = this->decode(value);
+    if (err) return {"", err};
+    if (path.empty()) return json(structure.get());
+    const auto [field, field_err] = this->locate(structure.get().type->typeId, path);
+    if (field_err) return {"", field_err};
+    const auto [member, member_err] = Types::member(structure.get(), field);
+    if (member_err) return {"", member_err};
+    return json(member);
 }
 }

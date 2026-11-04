@@ -61,6 +61,8 @@ class Field {
     const UA_DataType *root = nullptr;
     std::vector<Step> steps;
     const UA_DataType *member = nullptr;
+    /// @brief whether the member holds an array of its type.
+    bool array = false;
 
 public:
     /// @returns the data type of the member.
@@ -91,6 +93,16 @@ class Types {
 
     [[nodiscard]] const UA_DataTypeArray *head() const;
 
+    /// @returns the member at path, as field does, except that the last member of path
+    /// can be an array.
+    [[nodiscard]] std::pair<Field, x::errors::Error>
+    locate(const UA_NodeId &data_type, const Path &path) const;
+
+    /// @returns the member at field of a structure that decode returned, borrowed from
+    /// it.
+    static std::pair<UA_Variant, x::errors::Error>
+    member(const UA_Variant &structure, const Field &field);
+
 public:
     /// @brief reads the definitions of the data types that the client does not know,
     /// with the types their members use. A type that does not build keeps the reason,
@@ -117,6 +129,12 @@ public:
     [[nodiscard]] std::pair<Field, x::errors::Error>
     field(const UA_NodeId &data_type, const Path &path) const;
 
+    /// @returns the member at path in values of the data type, which can be an array,
+    /// unlike that of field. An empty path names the whole value.
+    /// @returns the errors of field, but for an array.
+    [[nodiscard]] std::pair<Member, x::errors::Error>
+    describe(const UA_NodeId &data_type, const Path &path) const;
+
     /// @returns the structure in value, decoded when the client could not decode it.
     /// The result borrows from value when the client decoded it.
     /// @returns x::errors::VALIDATION if the value is not one structure that decodes.
@@ -132,5 +150,12 @@ public:
         const Field &field,
         const x::telem::DataType &dt
     );
+
+    /// @returns the member at path of a value as JSON text, or the whole value when
+    /// path is empty. An array is a JSON array of its elements.
+    /// @returns x::errors::VALIDATION if the value does not decode or has no such
+    /// member.
+    [[nodiscard]] std::pair<std::string, x::errors::Error>
+    print(const UA_Variant &value, const Path &path) const;
 };
 }

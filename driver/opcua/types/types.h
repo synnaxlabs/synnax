@@ -131,6 +131,25 @@ public:
 
 std::string node_class_to_string(const UA_NodeClass &node_class);
 
+/// @brief a child that a browse found under a node.
+struct Reference {
+    /// @brief the node ID, with the namespace index of the connection that browsed.
+    NodeId node;
+    std::string browse_name;
+    UA_NodeClass node_class = UA_NODECLASS_UNSPECIFIED;
+};
+
+/// @brief the children of one browsed node.
+struct BrowseResult {
+    /// @brief the error of the node's browse, such as BadNodeIdUnknown. The children
+    /// are then empty.
+    x::errors::Error err;
+    std::vector<Reference> references;
+    /// @brief whether the browse stopped at its limit before the server listed every
+    /// child, so references holds only the first ones.
+    bool truncated = false;
+};
+
 class Variant {
     UA_Variant var_{};
 
@@ -162,61 +181,41 @@ public:
     UA_Variant *ptr() { return &var_; }
 };
 
-class ReadResponse {
-    UA_ReadResponse res_{};
+/// @brief owns a response of the client, whose type is UA_TYPES[Index], and clears it
+/// on destruction.
+template<typename T, std::size_t Index>
+class Response {
+    T res_{};
 
 public:
-    ReadResponse() { UA_ReadResponse_init(&res_); }
-    explicit ReadResponse(const UA_ReadResponse &res): res_(res) {}
-    ~ReadResponse() { UA_ReadResponse_clear(&res_); }
+    Response() { UA_init(&res_, &UA_TYPES[Index]); }
+    explicit Response(const T &res): res_(res) {}
+    ~Response() { UA_clear(&res_, &UA_TYPES[Index]); }
 
-    ReadResponse(const ReadResponse &) = delete;
-    ReadResponse &operator=(const ReadResponse &) = delete;
+    Response(const Response &) = delete;
+    Response &operator=(const Response &) = delete;
 
-    ReadResponse(ReadResponse &&other) noexcept: res_(other.res_) {
-        UA_ReadResponse_init(&other.res_);
+    Response(Response &&other) noexcept: res_(other.res_) {
+        UA_init(&other.res_, &UA_TYPES[Index]);
     }
-    ReadResponse &operator=(ReadResponse &&other) noexcept {
+    Response &operator=(Response &&other) noexcept {
         if (this != &other) {
-            UA_ReadResponse_clear(&res_);
+            UA_clear(&res_, &UA_TYPES[Index]);
             res_ = other.res_;
-            UA_ReadResponse_init(&other.res_);
+            UA_init(&other.res_, &UA_TYPES[Index]);
         }
         return *this;
     }
 
-    operator const UA_ReadResponse &() const { return res_; }
-    [[nodiscard]] const UA_ReadResponse &get() const { return res_; }
-    UA_ReadResponse *ptr() { return &res_; }
+    operator const T &() const { return res_; }
+    [[nodiscard]] const T &get() const { return res_; }
+    T *ptr() { return &res_; }
 };
 
-class WriteResponse {
-    UA_WriteResponse res_{};
-
-public:
-    WriteResponse() { UA_WriteResponse_init(&res_); }
-    explicit WriteResponse(const UA_WriteResponse &res): res_(res) {}
-    ~WriteResponse() { UA_WriteResponse_clear(&res_); }
-
-    WriteResponse(const WriteResponse &) = delete;
-    WriteResponse &operator=(const WriteResponse &) = delete;
-
-    WriteResponse(WriteResponse &&other) noexcept: res_(other.res_) {
-        UA_WriteResponse_init(&other.res_);
-    }
-    WriteResponse &operator=(WriteResponse &&other) noexcept {
-        if (this != &other) {
-            UA_WriteResponse_clear(&res_);
-            res_ = other.res_;
-            UA_WriteResponse_init(&other.res_);
-        }
-        return *this;
-    }
-
-    operator const UA_WriteResponse &() const { return res_; }
-    [[nodiscard]] const UA_WriteResponse &get() const { return res_; }
-    UA_WriteResponse *ptr() { return &res_; }
-};
+using ReadResponse = Response<UA_ReadResponse, UA_TYPES_READRESPONSE>;
+using WriteResponse = Response<UA_WriteResponse, UA_TYPES_WRITERESPONSE>;
+using BrowseResponse = Response<UA_BrowseResponse, UA_TYPES_BROWSERESPONSE>;
+using BrowseNextResponse = Response<UA_BrowseNextResponse, UA_TYPES_BROWSENEXTRESPONSE>;
 
 class WriteRequestBuilder {
     std::vector<UA_Variant> owned_variants_;

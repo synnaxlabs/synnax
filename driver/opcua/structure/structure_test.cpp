@@ -67,6 +67,7 @@ protected:
             .running = true,
             .position = {.x = 1.5F, .y = 2.5F},
         };
+        server_cfg.sensor = std::vector<UA_Double>{1.5, 2.5};
         this->server = std::make_unique<testutil::Server>(server_cfg);
         this->server->start();
         ASSERT_TRUE(this->server->wait_until_ready());
@@ -102,6 +103,8 @@ protected:
     connection::Pool::Connection conn{nullptr, nullptr, ""};
     const UA_NodeId motor = UA_NODEID_STRING(1, const_cast<char *>("TestMotor"));
     const UA_NodeId motor_type = type_id(testutil::MOTOR_TYPE_ID);
+    const UA_NodeId sensor = UA_NODEID_STRING(1, const_cast<char *>("TestSensor"));
+    const UA_NodeId sensor_type = type_id(testutil::SENSOR_TYPE_ID);
 };
 
 /// @brief it should define a structure type that the client does not know, with the
@@ -120,6 +123,36 @@ TEST_F(TypesTest, testReadsDefinitions) {
     EXPECT_EQ(members[2].type, types.find(type_id(testutil::POINT_TYPE_ID)));
     const auto y = ASSERT_NIL_P(types.field(this->motor_type, {"Position", "Y"}));
     EXPECT_EQ(&y.type(), &UA_TYPES[UA_TYPES_FLOAT]);
+}
+
+/// @brief it should describe a member that holds an array, which a field cannot read.
+TEST_F(TypesTest, testDescribesArrayMember) {
+    const auto types = ASSERT_NIL_P(Types::read(this->conn, {this->sensor_type}));
+    const auto readings = ASSERT_NIL_P(types.describe(this->sensor_type, {"Readings"}));
+    EXPECT_EQ(readings.name, "Readings");
+    EXPECT_EQ(readings.type, &UA_TYPES[UA_TYPES_DOUBLE]);
+    EXPECT_TRUE(readings.is_array);
+    const auto err = types.field(this->sensor_type, {"Readings"}).second;
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    EXPECT_EQ(err.data, "Readings is an array");
+}
+
+/// @brief it should reject a path through a member that holds an array.
+TEST_F(TypesTest, testRejectsMemberOfArray) {
+    const auto types = ASSERT_NIL_P(Types::read(this->conn, {this->sensor_type}));
+    const auto err = types.describe(this->sensor_type, {"Readings", "X"}).second;
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    EXPECT_EQ(err.data, "Readings is an array");
+}
+
+/// @brief it should print a member that holds an array as a JSON array.
+TEST_F(TypesTest, testPrintsArrayMember) {
+    const auto types = ASSERT_NIL_P(Types::read(this->conn, {this->sensor_type}));
+    const auto res = this->read(this->sensor);
+    const auto text = ASSERT_NIL_P(
+        types.print(res.get().results[0].value, {"Readings"})
+    );
+    EXPECT_EQ(text, "[1.5, 2.5]");
 }
 
 /// @brief it should reject a path to a member that does not exist.
