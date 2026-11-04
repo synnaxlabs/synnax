@@ -9,7 +9,12 @@
 
 import "@/feature/opcua/task/Task.css";
 
-import { channel, NotFoundError, type Synnax } from "@synnaxlabs/client";
+import {
+  channel,
+  device as clientDevice,
+  NotFoundError,
+  type Synnax,
+} from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
@@ -260,7 +265,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (
     ...c,
     channel: getChannelByNodeID(device.properties, c.nodeId),
   }));
-  await client.devices.create(device, SCHEMAS);
+  await client.devices.create(clientDevice.toUpdate(device), SCHEMAS);
   return [config, device.rack];
 };
 

@@ -70,6 +70,40 @@ describe("Device", async () => {
     });
   });
 
+  describe("toUpdate", () => {
+    it("should keep the stored status when a create reply is sent back", async () => {
+      const key = id.create();
+      const reply = await client.devices.create({
+        rack: testRack.key,
+        location: "Dev1",
+        key,
+        name: "reply-sent-back",
+        make: "ni",
+        model: "dog",
+        properties: {},
+      });
+      await client.statuses.set<typeof device.statusDetailsZ>({
+        key: device.statusKey(key),
+        name: reply.name,
+        variant: "success",
+        message: "Device connected",
+        time: TimeStamp.now(),
+        details: { rack: testRack.key, device: key },
+      });
+      await client.devices.create(device.toUpdate(reply));
+      const { status } = await client.devices.retrieve({
+        key,
+        includeStatus: true,
+        schemas: {
+          properties: record.unknownZ(),
+          make: z.string(),
+          model: z.string(),
+        },
+      });
+      expect(status?.message).toBe("Device connected");
+    });
+  });
+
   describe("optimistic create", () => {
     const WRITE_FAILED = new Error("write failed");
     const fail = () => {
