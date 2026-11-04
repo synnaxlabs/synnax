@@ -105,7 +105,7 @@ TEST_F(SchedulerTest, ReactivationAfterResetStampsFromTheNewCycle) {
 TEST_F(SchedulerTest, BuildActivatesRootWithZeroCycle) {
     auto &n = mock("n");
     auto ir = program_of({ir_node("n")}, {}, root_scope({ir::node_member("n")}));
-    alignas(Scheduler) std::array<unsigned char, sizeof(Scheduler)> storage;
+    alignas(Scheduler) std::array<unsigned char, sizeof(Scheduler)> storage{};
     std::memset(storage.data(), 0x7F, storage.size());
     auto *s = new (storage.data()) Scheduler(std::move(ir), this->nodes);
     const auto reset_now = n.reset_now;
