@@ -190,6 +190,7 @@ import {
   PiFileCsv,
   PiMagnifyingGlassBold,
   PiSelectionPlusBold,
+  PiTreeViewBold,
   PiUploadSimple,
   PiWaveSawtoothBold,
   PiWaveSineBold,
@@ -433,6 +434,7 @@ export const Rename = wrapSVGIcon(BiRename, "rename");
 export const Snapshot = wrapSVGIcon(MdPictureInPicture, "snapshot");
 export const Sync = wrapSVGIcon(AiOutlineSync, "sync");
 export const Search = wrapSVGIcon(PiMagnifyingGlassBold, "search");
+export const TreeView = wrapSVGIcon(PiTreeViewBold, "tree-view");
 export const Auto = wrapSVGIcon(MdAutoAwesome, "auto");
 export const Table = wrapSVGIcon(FiTable, "table");
 export const Insert = {

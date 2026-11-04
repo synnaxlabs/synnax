@@ -44,7 +44,7 @@ import { Task } from "@/platform/task";
 const path = deep.path<Task.Values<WriteSchemas>>();
 
 const Properties = () => (
-  <Flex.Box x grow>
+  <Flex.Box x grow wrap>
     <PForm.NumericField
       path={path.config.executionRate}
       label="Execution rate"
