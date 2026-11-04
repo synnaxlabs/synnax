@@ -62,9 +62,8 @@ class ChannelEntry(BaseModel):
 
 
 class Log(BaseModel):
-    """Is a timestamped event and message logging component. Logs display chronological
-    records of events, system messages, and audit trails with filtering and formatting
-    capabilities.
+    """Is a visualization that shows the samples of its channels as text, one line per
+    sample, in time order.
 
     Attributes:
         key: Is the unique identifier for this log.
@@ -72,7 +71,7 @@ class Log(BaseModel):
         channels: Are the channels displayed in this log, in order.
         timestamp_precision: Is the precision of displayed timestamps (0-3).
         channel_names_hidden: Is true when channel names are hidden.
-        receipt_timestamp_hidden: Is true when the receipt timestamp column is hidden.
+        timestamps_hidden: Is true when entry timestamps are hidden.
     """
 
     key: Key = Field(default_factory=uuid4)
@@ -80,7 +79,7 @@ class Log(BaseModel):
     channels: list[ChannelEntry] = Field(default_factory=list)
     timestamp_precision: int = Field(default=0, ge=0, le=3)
     channel_names_hidden: bool = False
-    receipt_timestamp_hidden: bool = False
+    timestamps_hidden: bool = False
 
     @_override
     def __hash__(self) -> int:
