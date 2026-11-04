@@ -78,7 +78,7 @@ func (s *Service) Dispatch(
 	})
 }
 
-// resyncTask rewrites the Arc's task config from its current content. It runs on the
+// resyncTask rewrites the Arc's task configs from its current content. It runs on the
 // task-sync debouncer, so it has no caller to return errors to and logs them instead. A
 // cancelled context (the service closed) and a deleted Arc are not errors.
 func (s *Service) resyncTask(ctx context.Context, key Key) {

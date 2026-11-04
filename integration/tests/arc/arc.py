@@ -201,8 +201,6 @@ class ArcCase(SimDaqCase, TestCase):
 
     def _assert_task_deleted(self, handle: ArcTaskHandle) -> None:
         """Raise AssertionError if the task of a deleted Arc still exists."""
-        if handle.task.key is None:
-            return
         try:
             self.client.tasks.retrieve(handle.task.key)
         except sy.NotFoundError:

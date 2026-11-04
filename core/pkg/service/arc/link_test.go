@@ -162,6 +162,24 @@ var _ = Describe("Task links", func() {
 			c := MustSucceed(taskSvc.NewWriter(tx).Copy(ctx, t.Key, "copy", false))
 			Expect(taskKeys(ctx, tx, a.Key)).To(ConsistOf(t.Key, c.Key))
 		})
+		It(
+			"Should sync the task and its copy after an Arc edit",
+			func(ctx SpecContext) {
+				t := createTask(ctx, tx, a.Key)
+				c := MustSucceed(taskSvc.NewWriter(tx).Copy(ctx, t.Key, "copy", false))
+				a.Text = newText("c -> d")
+				Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
+				hash := MustSucceed(arc.Hash(a))
+				for _, key := range []task.Key{t.Key, c.Key} {
+					var stored task.Task
+					Expect(taskSvc.NewRetrieve().
+						Where(task.MatchKeys(key)).
+						Entry(&stored).
+						Exec(ctx, tx)).To(Succeed())
+					Expect(stored.Config).To(HaveKeyWithValue("hash", hash))
+				}
+			},
+		)
 		It("Should not link a snapshot, so Arc delete keeps it", func(ctx SpecContext) {
 			t := createTask(ctx, tx, a.Key)
 			c := MustSucceed(taskSvc.NewWriter(tx).Copy(ctx, t.Key, "copy", true))

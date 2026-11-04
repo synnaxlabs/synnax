@@ -579,9 +579,13 @@ describe("Task", async () => {
 
     it("should adopt the config the Core stores when it fills a default", async () => {
       await waitForStreamLive(client.connection);
+      const { key: arcKey } = await client.arcs.create({
+        name: `dispatch-default-${id.create()}`,
+        mode: "text",
+      });
       const t = await testRack.createTask({
         name: `dispatch-default-${id.create()}`,
-        config: { arcKey: uuid.create(), performance: "high" },
+        config: { arcKey, performance: "high" },
         type: "arc",
       });
       expect(

@@ -228,18 +228,19 @@ func (w Writer) UpdateTask(
 	if cfg.Hash, err = Hash(a); err != nil {
 		return nil, err
 	}
-	return w.writeTask(ctx, a, tsk.Rack, existing, cfg)
+	return w.writeTask(ctx, a, tsk.Key, tsk.Rack, cfg)
 }
 
-// writeTask creates or overwrites the arc's task on rackKey with cfg, stamping the
-// arc's key into it. cfg.Hash is the arc's semantic hash, so the task's config hash
+// writeTask creates or overwrites the arc's task with the given key on rackKey with
+// cfg, stamping the arc's key into it. A nil key creates a task. cfg.Hash is the arc's
+// semantic hash, so the task's config hash
 // tracks the arc's content and the task drift mechanism reports arc content drift with
 // no extra machinery.
 func (w Writer) writeTask(
 	ctx context.Context,
 	a Arc,
+	key task.Key,
 	rackKey rack.Key,
-	existing []task.Key,
 	cfg taskversions.Config,
 ) (*task.Task, error) {
 	cfg.ArcKey = a.Key
@@ -251,9 +252,12 @@ func (w Writer) writeTask(
 	if err = json.Unmarshal(b, &encoded); err != nil {
 		return nil, err
 	}
-	tsk := task.Task{Rack: rackKey, Name: a.Name, Type: TaskType, Config: encoded}
-	if len(existing) > 0 {
-		tsk.Key = existing[0]
+	tsk := task.Task{
+		Key:    key,
+		Rack:   rackKey,
+		Name:   a.Name,
+		Type:   TaskType,
+		Config: encoded,
 	}
 	if err := w.tasks.NewWriter(w.tx).Create(ctx, &tsk); err != nil {
 		return nil, err
@@ -279,25 +283,32 @@ func (w Writer) retrieveTask(
 	return tsk, cfg, tsk.Config.Unmarshal(&cfg)
 }
 
-// syncTask rewrites the arc's task in place when an edit changed the arc's semantic
-// hash, keeping the task config in step with the arc's content. A no-op for arcs with
-// no rack bound and for edits, like graph layout moves, that hash equally.
+// syncTask rewrites each of the arc's tasks in place when an edit changed the arc's
+// semantic hash, keeping the task configs in step with the arc's content. A no-op for
+// arcs with no tasks and for edits, like graph layout moves, that hash equally.
 func (w Writer) syncTask(ctx context.Context, a Arc) error {
-	existing, err := w.childTaskKeys(ctx, a.Key)
-	if err != nil || len(existing) == 0 {
-		return err
-	}
-	tsk, cfg, err := w.retrieveTask(ctx, existing[0])
-	if err != nil {
+	keys, err := w.childTaskKeys(ctx, a.Key)
+	if err != nil || len(keys) == 0 {
 		return err
 	}
 	hash, err := Hash(a)
-	if err != nil || cfg.Hash == hash {
+	if err != nil {
 		return err
 	}
-	cfg.Hash = hash
-	_, err = w.writeTask(ctx, a, tsk.Rack, existing, cfg)
-	return err
+	for _, key := range keys {
+		tsk, cfg, err := w.retrieveTask(ctx, key)
+		if err != nil {
+			return err
+		}
+		if cfg.Hash == hash {
+			continue
+		}
+		cfg.Hash = hash
+		if _, err = w.writeTask(ctx, a, key, tsk.Rack, cfg); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (w Writer) clearRack(ctx context.Context, taskKeys []task.Key) error {
