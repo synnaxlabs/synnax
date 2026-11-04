@@ -9,7 +9,8 @@
 
 import { describe, expect, it } from "vitest";
 
-import { AuthError } from "@/errors";
+import { apiKey } from "@/auth/apikey";
+import { AuthError, InvalidTokenError } from "@/errors";
 import { createTestAuthClient, createTestClient } from "@/testutil";
 
 describe("apiKey", () => {
@@ -37,5 +38,30 @@ describe("apiKey", () => {
     await keyed.sessions.retrieve();
     await owner.auth.apiKeys.delete(key.key);
     await expect(keyed.sessions.retrieve()).rejects.toThrow(AuthError);
+  });
+
+  it("should read the record key from a token", async () => {
+    const client = createTestClient();
+    const { token, key } = await client.auth.apiKeys.create({ name: "id" });
+    expect(apiKey.keyOf(token)).toEqual(key.key);
+    await client.auth.apiKeys.delete(key.key);
+  });
+
+  it("should refuse a token that is not an API key", () => {
+    expect(() => apiKey.keyOf("sys_abc")).toThrow(
+      new InvalidTokenError("not an API key"),
+    );
+  });
+
+  it("should refuse an API key of the wrong length", () => {
+    expect(() => apiKey.keyOf("syk_c2hvcnQ")).toThrow(
+      new InvalidTokenError("malformed API key"),
+    );
+  });
+
+  it("should refuse an API key that is not base64", () => {
+    expect(() => apiKey.keyOf("syk_!!!")).toThrow(
+      new InvalidTokenError("malformed API key"),
+    );
   });
 });

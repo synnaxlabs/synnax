@@ -27,6 +27,12 @@ func (e *aggregateError) Error() string { return "aggregate" }
 
 func (e *aggregateError) Unwrap() []error { return e.errs }
 
+var _ = Describe("ErrUnsupported", func() {
+	It("Should be the standard library sentinel", func() {
+		Expect(errors.ErrUnsupported).To(MatchError("unsupported operation"))
+	})
+})
+
 var _ = Describe("Is", func() {
 	Describe("ErrUnsupported", func() {
 		It("Should be the standard library sentinel", func() {

@@ -27,7 +27,6 @@ export interface ReadField extends http.ReadField {}
 export interface ReadEndpoint extends http.ReadEndpoint {}
 
 const readMethodZ = z.enum(["GET", "POST"]);
-export type ReadMethod = z.infer<typeof readMethodZ>;
 
 const readConfigZ = http.readConfigZ;
 
@@ -95,7 +94,6 @@ const writeFieldZ = z.discriminatedUnion("type", [
 ]);
 
 const writeMethodZ = z.enum(["POST", "PUT", "PATCH"]);
-export type WriteMethod = z.infer<typeof writeMethodZ>;
 
 export const writeEndpointZ = http.writeEndpointZ.extend({
   fields: writeFieldZ.array().default(() => []),

@@ -9,7 +9,9 @@
 
 #pragma once
 
+#include <algorithm>
 #include <string>
+#include <vector>
 
 #include "client/cpp/labjack/json.gen.h"
 #include "client/cpp/synnax.h"
@@ -30,7 +32,10 @@ const std::vector SCAN_SKIP_ERRORS = {
 /// @brief configuration for the scan task
 struct ScanTaskConfig : ::synnax::labjack::ScanConfig {
     explicit ScanTaskConfig(x::json::Parser &cfg):
-        ::synnax::labjack::ScanConfig(::synnax::labjack::ScanConfig::parse(cfg)) {}
+        ::synnax::labjack::ScanConfig(::synnax::labjack::ScanConfig::parse(cfg)) {
+        if (this->tcp_scan_multiplier <= 0)
+            cfg.field_err("tcp_scan_multiplier", "must be greater than 0");
+    }
 };
 
 class Scanner final : public common::Scanner {
@@ -40,6 +45,19 @@ class Scanner final : public common::Scanner {
     const ScanTaskConfig cfg;
     /// @brief the device manager for handling LabJack connections
     std::shared_ptr<x::lib::Lazy<device::Manager>> device_manager;
+    /// @brief the devices that the last TCP scan found. A scan without TCP reports them
+    /// too, so a network device stays present between TCP scans.
+    std::vector<synnax::device::Device> tcp_devices;
+
+    /// @brief returns true if the device with the key is in devices.
+    static bool contains(
+        const std::vector<synnax::device::Device> &devices,
+        const std::string &key
+    ) {
+        return std::ranges::any_of(devices, [&key](const auto &d) {
+            return d.key == key;
+        });
+    }
 
     [[nodiscard]] common::ScannerConfig config() const override {
         return common::ScannerConfig{.make = MAKE, .log_prefix = SCAN_LOG_PREFIX};
@@ -70,9 +88,15 @@ class Scanner final : public common::Scanner {
 
         for (int i = 0; i < num_found; i++) {
             const auto serial_str = std::to_string(serial_numbers[i]);
-            const auto device_type_str = std::string(
-                NumberToDeviceType(device_types[i])
-            );
+            // A device on two connections, such as Ethernet and Wi-Fi, lists twice.
+            if (contains(devices, serial_str)) continue;
+            const auto model = MODELS.find(device_types[i]);
+            if (model == MODELS.end()) {
+                VLOG(1) << SCAN_LOG_PREFIX << "skipping device " << serial_str
+                        << " with unsupported device type " << device_types[i];
+                continue;
+            }
+            const auto &device_type_str = model->second;
             const auto conn_type_str = std::string(
                 NumberToConnectionType(connection_types[i])
             );
@@ -113,9 +137,19 @@ class Scanner final : public common::Scanner {
         if (err) return {{}, err};
         std::vector<synnax::device::Device> devs;
         if (err = this->scan_for(*manager, LJM_ctUSB, devs); err) return {devs, err};
-        if (ctx.count % this->cfg.tcp_scan_multiplier == 0)
-            err = this->scan_for(*manager, LJM_ctTCP, devs);
-        return {devs, err.skip(SCAN_SKIP_ERRORS)};
+        if (ctx.count % this->cfg.tcp_scan_multiplier == 0) {
+            std::vector<synnax::device::Device> tcp;
+            if (err = this->scan_for(*manager, LJM_ctTCP, tcp).skip(SCAN_SKIP_ERRORS);
+                err)
+                return {devs, err};
+            this->tcp_devices = std::move(tcp);
+        }
+        for (auto dev: this->tcp_devices) {
+            if (contains(devs, dev.key)) continue;
+            if (dev.status) dev.status->time = x::telem::TimeStamp::now();
+            devs.push_back(std::move(dev));
+        }
+        return {devs, x::errors::NIL};
     }
 
 public:

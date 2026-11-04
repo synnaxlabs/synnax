@@ -8,15 +8,17 @@
 #  included in the file licenses/APL.txt.
 
 """
-This script connects a LabJack device by registering it in Synnax.
+This script names the LabJack device that the Synnax Driver found, so that the other
+examples can retrieve it by name.
 
-If the device is already connected, the script exits successfully.
-Otherwise, it prompts to create a new LabJack device connection automatically.
+The Driver scans USB and the network for LabJacks every few seconds. It creates a
+Synnax device for each one it finds, keyed by the device's serial number.
 
 Before running this example:
 1. Start the Synnax Driver (if not already running).
 
-2. Connect your LabJack device via USB, Ethernet, or WiFi.
+2. Connect your LabJack device via USB, Ethernet, or WiFi. If the Driver does not find
+   a network device, add the device's IP address to LJM's ljm_specific_ips.config file.
 
 3. Login to Synnax (if not already logged in):
    uv run sy login
@@ -25,120 +27,48 @@ Before running this example:
    uv run python examples/labjack/connect_device.py
 
 Configuration:
-    Modify the constants below to match your LabJack device configuration.
+    Modify the constants below to match your LabJack device.
 """
+
+import time
 
 import synnax as sy
 
-# Configuration
 DEVICE_NAME = "My LabJack T7"
 MODEL: sy.labjack.SUPPORTED_MODELS = sy.labjack.T7  # Options: T4, T7, T8
-IDENTIFIER = "ANY"  # Options: serial number, IP address, device name, or "ANY"
-CONNECTION_TYPE = "ANY"  # Options: "ANY", "USB", "TCP", "ETHERNET", "WIFI"
+# The serial number on the device label, or None for the first device of MODEL.
+SERIAL_NUMBER: int | None = None
+TIMEOUT = 30 * sy.TimeSpan.SECOND
 
-# Connect to Synnax
 client = sy.Synnax()
 
-print("=" * 70)
-print("LabJack Device Connection Script")
-print("=" * 70)
-print(f"Target Device Name: {DEVICE_NAME}")
-print(f"Model: {MODEL}")
-print(f"Identifier: {IDENTIFIER}")
-print(f"Connection Type: {CONNECTION_TYPE}")
-print()
-
-# Check if device already exists
 existing_device = client.devices.retrieve(name=DEVICE_NAME, ignore_not_found=True)
-
 if existing_device is not None:
-    print("✓ Device already connected!")
-    print(f"- Name: {existing_device.name}")
-    print(f"- Model: {existing_device.model}")
-    print(f"- Key: {existing_device.key}")
-    print(f"- Location: {existing_device.location}")
-    print()
-    print("No action needed - device is ready to use.")
-    print("=" * 70)
+    print(f"✓ {DEVICE_NAME} is already connected (serial {existing_device.key}).")
     exit(0)
 
-# Device not found - prompt user for connection method
-print("Device not found")
-print()
-print("Would you like to connect automatically? [Y/N]: ", end="", flush=True)
 
-try:
-    response = input().strip().lower()
-except (KeyboardInterrupt, EOFError):
-    print("\n")
-    response = "n"
+def find() -> sy.Device | None:
+    if SERIAL_NUMBER is not None:
+        return client.devices.retrieve(key=str(SERIAL_NUMBER), ignore_not_found=True)
+    return client.devices.retrieve(model=MODEL, ignore_not_found=True)
 
-if response in ("", "y", "yes"):
-    print()
-    print("Connecting to LabJack device...")
 
-    try:
-        # Get the embedded rack (local driver rack)
-        rack = client.racks.retrieve_embedded_rack()
-        print(f"Using rack: {rack.name} (key={rack.key})")
+print(f"Waiting up to {TIMEOUT} for the Driver to find the device...")
+deadline = sy.TimeStamp.now() + TIMEOUT
+device = find()
+while device is None and sy.TimeStamp.now() < deadline:
+    time.sleep(1)
+    device = find()
 
-        # Determine location string based on connection type
-        location = CONNECTION_TYPE if IDENTIFIER == "ANY" else IDENTIFIER
-
-        device = sy.labjack.Device(
-            model=MODEL,
-            identifier=IDENTIFIER,
-            name=DEVICE_NAME,
-            location=location,
-            rack=rack.key,
-            connection_type=CONNECTION_TYPE,
-        )
-
-        created_device = client.devices.create(device)
-
-        print("✓ Device connected successfully!")
-        print(f"  - Name: {created_device.name}")
-        print(f"  - Model: {created_device.model}")
-        print(f"  - Key: {created_device.key}")
-        print(f"  - Location: {created_device.location}")
-        print(f"  - Rack: {rack.name}")
-        print()
-        print("Device is ready to use.")
-        print()
-        print("Next steps:")
-        print("  - Run examples/labjack/read_task.py to read data")
-        print("  - Run examples/labjack/write_task.py to control outputs")
-        print("=" * 70)
-        exit(0)
-
-    except Exception as e:
-        print(f"✗ Failed to connect device: {e}")
-        print()
-        print("Please try connecting manually (see instructions below).")
-        response = "n"  # Fall through to manual instructions
-
-if response in ("n", "no") or response not in ("", "y", "yes"):
-    # Manual connection instructions
-    print()
-    print("To connect manually:")
-    print("1. Open Synnax Console")
-    print("2. Go to Resources → Devices")
-    print("3. Add a new LabJack device:")
-    print(f"   - Name: {DEVICE_NAME}")
-    print(f"   - Model: {MODEL}")
-    print(f"   - Identifier: {IDENTIFIER}")
-    print(f"   - Connection Type: {CONNECTION_TYPE}")
-    print()
-    print("Identifier options:")
-    print("  - 'ANY': Connect to any available device")
-    print("  - Serial number (e.g., '470012345')")
-    print("  - IP address (e.g., '192.168.1.100')")
-    print("  - Device name (e.g., 'MyLabJack')")
-    print()
-    print("Connection Type options:")
-    print("  - 'ANY': Use any available connection")
-    print("  - 'USB': Connect via USB only")
-    print("  - 'TCP' or 'ETHERNET': Connect via Ethernet")
-    print("  - 'WIFI': Connect via WiFi")
-    print("=" * 70)
+if device is None:
+    print("✗ The Driver did not find the device. Check that:")
+    print("  - The Synnax Driver is running on this computer.")
+    print("  - The LabJack LJM library is installed.")
+    print("  - No other software (such as Kipling) has the device open.")
     exit(1)
+
+device.name = DEVICE_NAME
+device.configured = True
+device = client.devices.create(device)
+print(f"✓ Connected {device.name} (model {device.model}, serial {device.key}).")

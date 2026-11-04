@@ -67,7 +67,7 @@ class Reader:
             keeping every sample.
         :returns: the samples as a frame.
         """
-        adapter = ReadFrameAdapter(self._retriever)
+        adapter = ReadFrameAdapter(self._retriever, reduction=reduction)
         adapter.update(channels)
         req = _Request(keys=adapter.keys, bounds=tr, reduction=reduction)
         frame = Frame()

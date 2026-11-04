@@ -22,7 +22,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Channel, Synnax } from "@synnaxlabs/pluto";
 import {
   type CrudeTimeRange,
-  type NumericTimeRange,
+  deep,
   numericTimeRangeZ,
   runtime,
   TimeRange,
@@ -33,6 +33,8 @@ import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Runtime } from "@/platform/runtime";
 import { Triggers } from "@/platform/triggers";
+
+const path = deep.path<z.infer<typeof formSchema>>();
 
 export interface DownloadCSVModalParams {
   timeRange: CrudeTimeRange;
@@ -65,11 +67,7 @@ const DownloadCSV = ({
       name,
     },
   });
-  const range = Form.useFieldValue<
-    NumericTimeRange,
-    NumericTimeRange,
-    typeof formSchema
-  >("timeRange", { ctx: form });
+  const range = Form.useFieldValue(path.timeRange, { ctx: form });
   const footer = (
     <Nav.Bar.End x align="center">
       <DownloadButton handleFinish={close} />
@@ -86,7 +84,7 @@ const DownloadCSV = ({
           <Flex.Box y full="x" gap="medium">
             <Flex.Box x gap="medium">
               <Form.DateTimeField
-                path="timeRange.start"
+                path={path.timeRange.start}
                 padHelpText={false}
                 label="From"
                 inputProps={{
@@ -99,7 +97,7 @@ const DownloadCSV = ({
               <Icon.Arrow.Right className={CSS.BE("download-csv", "arrow")} color={9} />
               <Form.DateTimeField
                 padHelpText={false}
-                path="timeRange.end"
+                path={path.timeRange.end}
                 label="To"
                 inputProps={{
                   level: "h4",
@@ -109,7 +107,7 @@ const DownloadCSV = ({
                 }}
               />
             </Flex.Box>
-            <Form.Field<channel.Key[]> path="channels">
+            <Form.Field path={path.channels}>
               {({ value, onChange }) => (
                 <Channel.SelectMultiple
                   value={value}
@@ -120,7 +118,10 @@ const DownloadCSV = ({
                 />
               )}
             </Form.Field>
-            <DownsampleFactorField path="downsampleFactor" label="Downsample factor" />
+            <DownsampleFactorField
+              path={path.downsampleFactor}
+              label="Downsample factor"
+            />
             {runtime.getOS() !== "Windows" && (
               <Text.Text status="warning" weight={450}>
                 Large downloads are faster when the Console runs in Google Chrome or
@@ -151,10 +152,10 @@ const DownloadButton = ({ handleFinish }: DownloadButtonProps) => {
   const download = Runtime.useDownload();
   const { get } = Form.useContext();
   const handleClick = () => {
-    const timeRange = get<TimeRange>("timeRange").value;
-    const channels = get<channel.Key[]>("channels").value;
-    const downsampleFactor = get<number>("downsampleFactor").value;
-    const name = get<string>("name").value;
+    const timeRange = get(path.timeRange).value;
+    const channels = get(path.channels).value;
+    const downsampleFactor = get(path.downsampleFactor).value;
+    const name = get(path.name).value;
     handleError(
       async () => {
         if (client == null) throw new DisconnectedError();
@@ -171,7 +172,7 @@ const DownloadButton = ({ handleFinish }: DownloadButtonProps) => {
       { message: "Failed to download CSV data", name },
     );
   };
-  const channelKeys = Form.useFieldValue<channel.Key[]>("channels");
+  const channelKeys = Form.useFieldValue(path.channels);
   const isDisabled = channelKeys.length === 0;
   return (
     <Button.Button
