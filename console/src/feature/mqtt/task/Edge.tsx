@@ -64,10 +64,8 @@ const Properties = () => (
 
 const AUTHORITY_INPUT_PROPS = { bounds: { lower: 0, upper: 255 } } as const;
 
-const CHANNEL_QUERY: channel.RetrieveOptions = { internal: false };
-
 const renderSelectChannel = Component.renderProp((p: PChannel.SelectSingleProps) => (
-  <PChannel.SelectSingle {...p} initialQuery={CHANNEL_QUERY} location="bottom" />
+  <PChannel.SelectSingle {...p} location="bottom" />
 ));
 
 const TagListItem = (props: Task.ChannelListItemProps) => {
