@@ -34,8 +34,9 @@ func WithIndexObservable(obs observe.Observable[kv.TxReader]) Option {
 	return func(opts *options) { opts.IndexObservable = obs }
 }
 
-// WithMaxDeleteSize sets the most entries that one Delete may remove once references
-// cascade. A larger delete fails before it changes anything. The default is 1 << 20.
+// WithMaxDeleteSize sets the most entries that one Delete may delete or rewrite once
+// references cascade and detach. A larger delete fails before it changes anything. The
+// default is 1 << 20.
 func WithMaxDeleteSize(n int) Option {
 	return func(opts *options) { opts.MaxDeleteSize = n }
 }

@@ -20,6 +20,9 @@ import (
 
 // registeredTable is the part of a Table that references in other tables reach.
 type registeredTable interface {
+	// canonical reports whether k is a key of the table in the text form that
+	// FormatKey returns.
+	canonical(k string) bool
 	// exists reports whether the entry with the text key k exists in tx.
 	exists(ctx context.Context, tx Tx, k string) (bool, error)
 	// deleteKeys deletes the entries with the text keys keys.
@@ -116,8 +119,12 @@ type deletePlan struct {
 	deletes map[string]set.Set[string]
 	// detaches holds the targets to remove from each entry the delete keeps.
 	detaches map[Target][]detachOp
-	size     int
+	// size is the number of entries the plan deletes.
+	size int
 }
+
+// changes returns the number of entries the plan deletes or rewrites.
+func (p *deletePlan) changes() int { return p.size + len(p.detaches) }
 
 func (p *deletePlan) contains(t Target) bool {
 	keys, ok := p.deletes[t.Table]
@@ -142,8 +149,8 @@ func (p *deletePlan) add(t Target) bool {
 // table named table. It walks the references that point at each deleted entry: Cascade
 // adds the referencing entry to the delete, Restrict fails unless the delete removes
 // the referencing entry too, and Detach removes the target from a referencing entry
-// the delete keeps. plan reads only; it changes nothing. It fails when the delete
-// would remove more than limit entries.
+// the delete keeps. plan reads only; it changes nothing. It fails when the delete would
+// delete or rewrite more than limit entries.
 func (r *registry) plan(
 	tx Tx,
 	table string,
@@ -156,12 +163,23 @@ func (r *registry) plan(
 		deletes:  make(map[string]set.Set[string]),
 		detaches: make(map[Target][]detachOp),
 	}
+	tooLarge := func() error {
+		return errors.Newf(
+			"[gorp] - deleting %s %s would change more than %d entries",
+			table,
+			keys[0],
+			limit,
+		)
+	}
 	var queue []Target
 	for _, k := range keys {
 		t := Target{Table: table, Key: k}
 		if p.add(t) {
 			queue = append(queue, t)
 		}
+	}
+	if p.changes() > limit {
+		return nil, tooLarge()
 	}
 	type restriction struct {
 		ref       registeredReference
@@ -184,14 +202,6 @@ func (r *registry) plan(
 					if !p.add(dep) {
 						continue
 					}
-					if p.size > limit {
-						return nil, errors.Newf(
-							"[gorp] - deleting %s %s would delete more than %d entries",
-							table,
-							keys[0],
-							limit,
-						)
-					}
 					queue = append(queue, dep)
 				case Restrict:
 					restrictions = append(
@@ -203,6 +213,9 @@ func (r *registry) plan(
 						p.detaches[dep],
 						detachOp{ref: ref.index(), target: target},
 					)
+				}
+				if p.changes() > limit {
+					return nil, tooLarge()
 				}
 			}
 		}

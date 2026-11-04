@@ -26,7 +26,7 @@ type Multi[S Scope, K, V comparable] struct {
 	// until the load finishes.
 	mu         sync.RWMutex
 	population population
-	forward    map[V]set.Set[K]
+	forward    map[V]holders[K]
 	reverse    map[K][]V
 	overlay    overlay[S, *multiDelta[K, V]]
 	multiAnnouncements[K, V]
@@ -36,7 +36,7 @@ type Multi[S Scope, K, V comparable] struct {
 func NewMulti[S Scope, K, V comparable]() *Multi[S, K, V] {
 	m := &Multi[S, K, V]{
 		population: newPopulation(),
-		forward:    make(map[V]set.Set[K]),
+		forward:    make(map[V]holders[K]),
 		reverse:    make(map[K][]V),
 	}
 	m.overlay.create, m.overlay.flush = newMultiDelta[K, V], m.flush
@@ -109,9 +109,7 @@ func (m *Multi[S, K, V]) Get(scope S, values ...V) ([]K, error) {
 	}
 	committed := set.New[K]()
 	for _, v := range values {
-		for k := range m.forward[v] {
-			committed.Add(k)
-		}
+		m.forward[v].addTo(committed)
 	}
 	if d, ok := m.overlay.get(scope); ok {
 		return d.merge(committed, values), nil
@@ -130,7 +128,7 @@ func (m *Multi[S, K, V]) Committing(values ...V) []K {
 			continue
 		}
 		for _, v := range values {
-			keys = slices.AppendSeq(keys, maps.Keys(d.forward[v]))
+			keys = d.forward[v].appendTo(keys)
 		}
 	}
 	m.overlay.mu.RUnlock()
@@ -145,12 +143,7 @@ func (m *Multi[S, K, V]) put(key K, values []V) {
 	values = slices.Clone(values)
 	m.reverse[key] = values
 	for _, v := range values {
-		bucket, ok := m.forward[v]
-		if !ok {
-			bucket = set.New[K]()
-			m.forward[v] = bucket
-		}
-		bucket.Add(key)
+		addHolder(m.forward, v, key)
 	}
 }
 
@@ -160,7 +153,7 @@ func (m *Multi[S, K, V]) remove(key K) {
 		return
 	}
 	for _, v := range prev {
-		removeKey(m.forward, v, key)
+		removeHolder(m.forward, v, key)
 	}
 	delete(m.reverse, key)
 }
@@ -177,15 +170,83 @@ func (m *Multi[S, K, V]) flush(d *multiDelta[K, V]) {
 	}
 }
 
-func removeKey[K, V comparable](forward map[V]set.Set[K], value V, key K) {
-	bucket, ok := forward[value]
+// holdersSetSize is the number of holders past which holders switches from a slice to
+// a set. Most values have few holders, and a slice costs far less memory than a map.
+const holdersSetSize = 32
+
+// holders is the set of keys that hold one value.
+type holders[K comparable] struct {
+	few  []K
+	many set.Set[K]
+}
+
+func (h *holders[K]) add(key K) {
+	if h.many != nil {
+		h.many.Add(key)
+		return
+	}
+	if slices.Contains(h.few, key) {
+		return
+	}
+	if len(h.few) < holdersSetSize {
+		h.few = append(h.few, key)
+		return
+	}
+	h.many = set.New(append(h.few, key)...)
+	h.few = nil
+}
+
+func (h *holders[K]) remove(key K) {
+	if h.many != nil {
+		h.many.Remove(key)
+		return
+	}
+	if i := slices.Index(h.few, key); i >= 0 {
+		h.few = slices.Delete(h.few, i, i+1)
+	}
+}
+
+func (h holders[K]) len() int {
+	if h.many != nil {
+		return len(h.many)
+	}
+	return len(h.few)
+}
+
+func (h holders[K]) addTo(out set.Set[K]) {
+	if h.many != nil {
+		for k := range h.many {
+			out.Add(k)
+		}
+		return
+	}
+	out.Add(h.few...)
+}
+
+func (h holders[K]) appendTo(keys []K) []K {
+	if h.many != nil {
+		return slices.AppendSeq(keys, maps.Keys(h.many))
+	}
+	return append(keys, h.few...)
+}
+
+func addHolder[K, V comparable](forward map[V]holders[K], value V, key K) {
+	h := forward[value]
+	h.add(key)
+	forward[value] = h
+}
+
+func removeHolder[K, V comparable](forward map[V]holders[K], value V, key K) {
+	h, ok := forward[value]
 	if !ok {
 		return
 	}
-	bucket.Remove(key)
-	if len(bucket) == 0 {
+	h.remove(key)
+	if h.len() == 0 {
 		delete(forward, value)
+		return
 	}
+	forward[value] = h
 }
 
 // multiStaged is the state of one key in a multiDelta.
@@ -200,13 +261,13 @@ type multiDelta[K, V comparable] struct {
 	// state is the staged state of each key. A key in state overrides committed state.
 	state map[K]multiStaged[V]
 	// forward maps each staged value to the keys that hold it.
-	forward map[V]set.Set[K]
+	forward map[V]holders[K]
 }
 
 func newMultiDelta[K, V comparable]() *multiDelta[K, V] {
 	return &multiDelta[K, V]{
 		state:   make(map[K]multiStaged[V]),
-		forward: make(map[V]set.Set[K]),
+		forward: make(map[V]holders[K]),
 	}
 }
 
@@ -217,12 +278,7 @@ func (d *multiDelta[K, V]) set(key K, values []V) {
 	values = slices.Clone(values)
 	d.state[key] = multiStaged[V]{values: values}
 	for _, v := range values {
-		bucket, ok := d.forward[v]
-		if !ok {
-			bucket = set.New[K]()
-			d.forward[v] = bucket
-		}
-		bucket.Add(key)
+		addHolder(d.forward, v, key)
 	}
 }
 
@@ -237,7 +293,7 @@ func (d *multiDelta[K, V]) unstage(key K) {
 		return
 	}
 	for _, v := range prev.values {
-		removeKey(d.forward, v, key)
+		removeHolder(d.forward, v, key)
 	}
 }
 
@@ -251,9 +307,7 @@ func (d *multiDelta[K, V]) merge(committed set.Set[K], values []V) []K {
 		}
 	}
 	for _, v := range values {
-		for k := range d.forward[v] {
-			committed.Add(k)
-		}
+		d.forward[v].addTo(committed)
 	}
 	return committed.Slice()
 }

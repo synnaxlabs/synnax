@@ -239,6 +239,24 @@ var _ = Describe("Reference", func() {
 			},
 		)
 
+		DescribeTable("Should reject a key that is not in its text form",
+			func(ctx SpecContext, k string) {
+				createRack(ctx, 7)
+				Expect(statuses.NewCreate().Entry(&refStatus{
+					Key:   "s1",
+					Owner: &refOwner{Table: "rack", Key: k},
+				}).Exec(ctx, db)).To(And(
+					BeAssignableToTypeOf(validate.PathError{}),
+					MatchError(ContainSubstring(
+						"owner: \""+k+"\" is not a key of rack",
+					)),
+				))
+			},
+			Entry("leading zero", "07"),
+			Entry("sign", "+7"),
+			Entry("not a number", "seven"),
+		)
+
 		It("Should resolve a target by its table name", func(ctx SpecContext) {
 			createRack(ctx, 7)
 			Expect(statuses.NewCreate().Entry(&refStatus{
@@ -475,10 +493,42 @@ var _ = Describe("Reference", func() {
 				Expect(devices.NewDelete().
 					Where(gorp.MatchKeys[string, refDevice]("a")).
 					Exec(ctx, db)).To(MatchError(ContainSubstring(
-					"deleting device a would delete more than 2 entries",
+					"deleting device a would change more than 2 entries",
 				)))
 				Expect(deviceExists(ctx, "a")).To(BeTrue())
 				Expect(deviceExists(ctx, "c")).To(BeTrue())
+			},
+		)
+
+		It("Should count detached dependents toward the limit", func(ctx SpecContext) {
+			createRack(ctx, 1)
+			Expect(labels.NewCreate().Entry(&refLabel{Key: "l"}).Exec(ctx, db)).
+				To(Succeed())
+			for _, k := range []string{"a", "b"} {
+				Expect(createDevice(ctx, refDevice{
+					Key:    k,
+					Rack:   1,
+					Labels: []string{"l"},
+				})).To(Succeed())
+			}
+			Expect(labels.NewDelete().
+				Where(gorp.MatchKeys[string, refLabel]("l")).
+				Exec(ctx, db)).To(MatchError(ContainSubstring(
+				"deleting label l would change more than 2 entries",
+			)))
+		})
+
+		It(
+			"Should count the entries the query names toward the limit",
+			func(ctx SpecContext) {
+				for _, k := range []uint32{1, 2, 3} {
+					createRack(ctx, k)
+				}
+				Expect(racks.NewDelete().
+					Where(gorp.MatchKeys[uint32, refRack](1, 2, 3)).
+					Exec(ctx, db)).To(MatchError(ContainSubstring(
+					"would change more than 2 entries",
+				)))
 			},
 		)
 	})

@@ -48,11 +48,9 @@ func To[K Key](
 }
 
 // FormatKey returns the text form of k: the string itself for a string key, base 10
-// for an integer key, and the 8-4-4-4-12 hex form for a 16-byte key.
+// for an integer key, and the 8-4-4-4-12 lowercase hex form for a 16-byte key. A
+// Target holds a key in this form only.
 func FormatKey[K Key](k K) string { return key.Format(k) }
-
-// ParseKey returns the key whose text form, as FormatKey returns it, is s.
-func ParseKey[K Key](s string) (K, error) { return key.Parse[K](s) }
 
 // ReferenceConfig configures a Reference.
 type ReferenceConfig[K Key, E Entry[K]] struct {

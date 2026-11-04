@@ -59,6 +59,25 @@ var _ = Describe("Multi", func() {
 		Expect(m.Get(nil, "b")).To(ConsistOf(2))
 	})
 
+	It("Should track many holders of one value", func() {
+		for k := 10; k < 110; k++ {
+			m.Set(k, []string{"c"})
+		}
+		Expect(m.Get(nil, "c")).To(HaveLen(100))
+		for k := 10; k < 109; k++ {
+			m.Delete(k)
+		}
+		Expect(m.Get(nil, "c")).To(ConsistOf(109))
+	})
+
+	It("Should drop a staged delete when the scope does not commit", func() {
+		m.StageDelete(txn, 1)
+		Expect(m.Get(txn, "a")).To(BeEmpty())
+		txn.end(false)
+		Expect(m.Get(nil, "a")).To(ConsistOf(1))
+		Expect(m.Get(txn, "a")).To(ConsistOf(1))
+	})
+
 	It("Should return announced keys until they are withdrawn", func() {
 		handle := m.Announce(4, []string{"d", "e"})
 		Expect(m.Committing("e")).To(ConsistOf(4))

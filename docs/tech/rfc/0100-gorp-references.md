@@ -86,8 +86,8 @@ Status struct {
 
 - `on_delete cascade | restrict | detach`: Required. `cascade` deletes the dependent.
   `restrict` refuses the delete while the dependent exists. `detach` keeps the dependent
-  and removes the target: it clears a scalar, which must be optional or have a default,
-  and removes an array element.
+  and removes the target: it clears a scalar, which must be optional, and removes an
+  array element.
 - `types`: Required on a `resource.ID` field, and allowed only there.
 - `unique`: At most one dependent per target. A nil value holds no target.
 - `acyclic`: A chain of references in one table must not come back to its start.
@@ -125,10 +125,11 @@ probe waits for it. A failed fill fails each probe, with no fallback scan.
    closure. `detach` applies only to dependents the delete keeps.
 3. The apply step detaches first, then deletes each entry in the closure.
 
-A closure larger than `gorp.WithMaxDeleteSize` (default `1 << 20`, `gorp/options.go`)
-fails before any change. No service code runs inside a cascade (Ent issue #2031 shows
-hooks and store cascades that disagree). A side effect that is not data, such as freeing
-Cesium storage, follows the table's change stream.
+A delete that would delete or rewrite more entries than `gorp.WithMaxDeleteSize`
+(default `1 << 20`, `gorp/options.go`) fails before any change. Detached dependents
+count. No service code runs inside a cascade (Ent issue #2031 shows hooks and store
+cascades that disagree). A side effect that is not data, such as freeing Cesium storage,
+follows the table's change stream.
 
 **Errors**: A failed write check is a `validate.PathError` on the field, such as
 `rack: rack 1 does not exist`. A refused `restrict` is `validate.ErrValidation` with

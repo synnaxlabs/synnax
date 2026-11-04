@@ -51,6 +51,12 @@ func (t *Table[K, E]) writer(tx Tx, checked bool) Writer[K, E] {
 	return w
 }
 
+// canonical implements registeredTable.
+func (t *Table[K, E]) canonical(k string) bool {
+	pk, err := key.Parse[K](k)
+	return err == nil && key.Format(pk) == k
+}
+
 // exists implements registeredTable.
 func (t *Table[K, E]) exists(ctx context.Context, tx Tx, k string) (bool, error) {
 	pk, err := key.Parse[K](k)
@@ -137,6 +143,9 @@ func (t *Table[K, E]) check(ctx context.Context, tx Tx, e *E) error {
 			table, err := t.db.registry.table(target.Table)
 			if err != nil {
 				return err
+			}
+			if !table.canonical(target.Key) {
+				return r.fieldErr("%q is not a key of %s", target.Key, target.Table)
 			}
 			ok, err := table.exists(ctx, tx, target.Key)
 			if err != nil {
