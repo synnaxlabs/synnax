@@ -145,6 +145,16 @@ var _ = Describe("Service", func() {
 				Expect(file.Details.Subject).To(Equal("CN=plant"))
 			},
 		)
+		It("Should deny a user without create access", func(ctx SpecContext) {
+			u := createUser(ctx)
+			Expect(apiSvc.Create(AuthedCtx(ctx, u), nil,
+				apicertificate.CreateRequest{Certificates: []apicertificate.Input{{
+					Source:          secret.SourceFile,
+					Name:            "Plant",
+					CertificatePath: "/etc/plant/cert.pem",
+				}}},
+			)).Error().To(MatchError(access.ErrDenied))
+		})
 		It("Should require create access on secrets for a private key",
 			func(ctx SpecContext) {
 				u := createUser(ctx)

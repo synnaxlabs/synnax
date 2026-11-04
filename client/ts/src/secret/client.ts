@@ -15,20 +15,19 @@ import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { rack } from "@/rack";
 import {
-  baseZ,
   fileSecretZ,
   type Key,
   keyZ,
   ontologyID,
   type Secret,
   secretZ,
+  storedSecretZ,
 } from "@/secret/types.gen";
 
 export const SET_CHANNEL_NAME = "sy_secret_set";
 export const DELETE_CHANNEL_NAME = "sy_secret_delete";
 
-const newStoredZ = baseZ.omit({ updated: true }).extend({
-  source: z.literal("stored"),
+const newStoredZ = storedSecretZ.omit({ updated: true }).extend({
   /** value is the hidden value. No client can read it back. */
   value: z.string(),
 });
@@ -147,7 +146,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Se
 
   /**
    * Deletes secrets.
-   * @throws if a device or certificate uses one of the secrets.
+   * @throws {ValidationError} if a certificate uses one of the secrets.
    */
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
@@ -172,10 +171,10 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Se
   }
 
   /**
-   * Lets a rack read secrets, and the private keys of certificates, for 60 seconds.
-   * Use it to test a connection before saving the device that uses them.
+   * Lets a rack read secrets, and the private keys of certificates, for 60 seconds. Use
+   * it to test a connection before saving the device that uses them.
    * @returns the grant to send to the rack with the command.
-   * @throws if the caller cannot create devices.
+   * @throws {AccessDeniedError} if the caller cannot create devices.
    */
   async grant(params: GrantParams): Promise<string> {
     const res = await this.cfg.unary.send(

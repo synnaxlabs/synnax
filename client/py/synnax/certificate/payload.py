@@ -16,8 +16,8 @@ from synnax.certificate.types_gen import FileCertificate, Key
 
 
 class NewStored(BaseModel):
-    """A certificate whose contents the Core stores. The Core reads its details from
-    the PEM.
+    """A certificate whose contents the Core stores. The Core reads its details from the
+    PEM.
 
     :param key: Replaces the certificate with this key when it exists.
     :param pem: The certificate chain as PEM, leaf first.

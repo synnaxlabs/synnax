@@ -63,8 +63,8 @@ class Client:
 
         :param certificates: The certificates to create.
         :returns: The saved certificates.
-        :raises ValidationError: If a PEM does not parse, or a private key does not
-            match its certificate.
+        :raises PathError: If a PEM does not parse, or a private key does not match its
+            certificate.
         """
         is_single = not isinstance(certificates, list)
         req = _CreateRequest(certificates=normalize(certificates))
@@ -72,10 +72,9 @@ class Client:
         return res.certificates[0] if is_single else res.certificates
 
     def delete(self, keys: Key | list[Key]) -> None:
-        """Deletes certificates.
+        """Deletes certificates and the secrets that hold their private keys.
 
         :param keys: The keys of the certificates to delete.
-        :raises ValidationError: If a device uses one of the certificates.
         """
         self._client.send(
             "/certificate/delete", _DeleteRequest(keys=normalize(keys)), Empty

@@ -16,8 +16,8 @@ from synnax.secret.types_gen import Key
 
 
 class NewStored(BaseModel):
-    """A secret whose value the Core encrypts and stores. No client can read the
-    value back.
+    """A secret whose value the Core encrypts and stores. No client can read the value
+    back.
 
     :param key: Replaces the secret with this key when it exists.
     """

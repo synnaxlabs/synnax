@@ -40,11 +40,14 @@ func parseChain(text string) (string, *x509.Certificate, error) {
 		if block, rest = pem.Decode(rest); block == nil {
 			break
 		}
-		if block.Type != "CERTIFICATE" {
+		if strings.HasSuffix(block.Type, "PRIVATE KEY") {
 			return "", nil, pemError(
 				"holds a %s block. Send a private key as private_key",
 				block.Type,
 			)
+		}
+		if block.Type != "CERTIFICATE" {
+			return "", nil, pemError("holds a %s block, not a certificate", block.Type)
 		}
 		cert, err := x509.ParseCertificate(block.Bytes)
 		if err != nil {

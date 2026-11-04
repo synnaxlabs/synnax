@@ -56,6 +56,7 @@ func openService(
 	e *env,
 	key secret.EncryptionKey,
 ) (*secret.Service, error) {
+	GinkgoHelper()
 	g := MustOpen(
 		group.OpenService(ctx, group.ServiceConfig{DB: e.db, Ontology: e.otg}),
 	)
@@ -69,11 +70,18 @@ func openService(
 	})
 }
 
-func newEnv(ctx SpecContext) *env {
+// newStore returns an env with a DB and an ontology, and no service.
+func newStore(ctx SpecContext) *env {
 	GinkgoHelper()
 	e := &env{now: telem.SecondTS * 1000}
 	e.db = DeferClose(gorp.Wrap(memkv.New()))
 	e.otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: e.db}))
+	return e
+}
+
+func newEnv(ctx SpecContext) *env {
+	GinkgoHelper()
+	e := newStore(ctx)
 	e.svc = MustOpen(openService(ctx, e, secret.NewEncryptionKey()))
 	return e
 }
@@ -97,19 +105,9 @@ func (e *env) retrieve(ctx SpecContext, key secret.Key) secret.Secret {
 
 var _ = Describe("Service", func() {
 	Describe("OpenService", func() {
-		It("Should open again with the same encryption key", func(ctx SpecContext) {
-			e := &env{}
-			e.db = DeferClose(gorp.Wrap(memkv.New()))
-			e.otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: e.db}))
-			key := secret.NewEncryptionKey()
-			Expect(MustSucceed(openService(ctx, e, key)).Close()).To(Succeed())
-			Expect(MustSucceed(openService(ctx, e, key)).Close()).To(Succeed())
-		})
 		It("Should read values saved before opening again with the same key",
 			func(ctx SpecContext) {
-				e := &env{}
-				e.db = DeferClose(gorp.Wrap(memkv.New()))
-				e.otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: e.db}))
+				e := newStore(ctx)
 				key := secret.NewEncryptionKey()
 				e.svc = MustSucceed(openService(ctx, e, key))
 				s := e.createStored(ctx, "Password", "hunter2")
@@ -124,9 +122,7 @@ var _ = Describe("Service", func() {
 		)
 		It("Should refuse an encryption key that cannot decrypt the stored secrets",
 			func(ctx SpecContext) {
-				e := &env{}
-				e.db = DeferClose(gorp.Wrap(memkv.New()))
-				e.otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: e.db}))
+				e := newStore(ctx)
 				svc := MustSucceed(openService(ctx, e, secret.NewEncryptionKey()))
 				Expect(svc.Close()).To(Succeed())
 				Expect(openService(ctx, e, secret.NewEncryptionKey())).Error().
@@ -136,10 +132,7 @@ var _ = Describe("Service", func() {
 			},
 		)
 		It("Should require an encryption key", func(ctx SpecContext) {
-			e := &env{}
-			e.db = DeferClose(gorp.Wrap(memkv.New()))
-			e.otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: e.db}))
-			Expect(openService(ctx, e, secret.EncryptionKey{})).Error().
+			Expect(openService(ctx, newStore(ctx), secret.EncryptionKey{})).Error().
 				To(MatchError(ContainSubstring("encryption_key: required")))
 		})
 	})

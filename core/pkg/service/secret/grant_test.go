@@ -55,8 +55,9 @@ var _ = Describe("Grants", func() {
 				Type: ontology.ResourceTypeUser,
 				Key:  uuid.New().String(),
 			}
-			Expect(e.svc.Grant(ctx, nil, user, key)).Error().
-				To(MatchError(ContainSubstring("is not a rack")))
+			Expect(e.svc.Grant(ctx, nil, user, key)).Error().To(MatchError(
+				ContainSubstring("rack: " + user.String() + " is not a rack"),
+			))
 		})
 		It("Should reject a grant with no secrets", func(ctx SpecContext) {
 			Expect(e.svc.Grant(ctx, nil, rk)).Error().
@@ -72,7 +73,14 @@ var _ = Describe("Grants", func() {
 					To(Equal(map[secret.Key][]byte{key: []byte("hunter2")}))
 			},
 		)
-		It("Should deny a rack whose rack uses nothing", func(ctx SpecContext) {
+		It("Should ignore the grant for a secret that the rack uses",
+			func(ctx SpecContext) {
+				e.uses = []secret.Use{{Secret: key, Racks: []ontology.ID{rk}}}
+				Expect(e.svc.Resolve(ctx, nil, rk, "abc", key)).
+					To(Equal(map[secret.Key][]byte{key: []byte("hunter2")}))
+			},
+		)
+		It("Should deny a secret that nothing on the rack uses", func(ctx SpecContext) {
 			e.uses = []secret.Use{{Secret: key, Racks: []ontology.ID{rk2}}}
 			Expect(e.svc.Resolve(ctx, nil, rk, "", key)).Error().To(SatisfyAll(
 				MatchError(access.ErrDenied),
@@ -83,7 +91,10 @@ var _ = Describe("Grants", func() {
 			other := e.createStored(ctx, "Token", "t")
 			grant := MustSucceed(e.svc.Grant(ctx, nil, rk, key))
 			Expect(e.svc.Resolve(ctx, nil, rk, grant, other.Base().Key)).Error().
-				To(MatchError(ContainSubstring(`cannot read secret "Token"`)))
+				To(SatisfyAll(
+					MatchError(access.ErrDenied),
+					MatchError(ContainSubstring(`rack:1 cannot read secret "Token"`)),
+				))
 		})
 		It("Should deny a grant for another rack", func(ctx SpecContext) {
 			grant := MustSucceed(e.svc.Grant(ctx, nil, rk2, key))

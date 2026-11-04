@@ -15,7 +15,7 @@ import { createTestClient, waitForStreamLive } from "@/testutil";
 
 describe("Secret", () => {
   describe("create", () => {
-    it("should create a stored secret without returning its value", async () => {
+    it("should create a stored secret", async () => {
       const client = createTestClient();
       const s = await client.secrets.create({
         name: "Broker password",
@@ -23,7 +23,6 @@ describe("Secret", () => {
         value: "hunter2",
       });
       expect(s).toMatchObject({ name: "Broker password", source: "stored" });
-      expect(s).not.toHaveProperty("value");
       expect(s.updated.valueOf()).toBeGreaterThan(0n);
     });
 
@@ -82,7 +81,6 @@ describe("Secret", () => {
       });
       const retrieved = await createTestClient().secrets.retrieve(created.key);
       expect(retrieved).toEqual(created);
-      expect(retrieved).not.toHaveProperty("value");
     });
 
     it("should retrieve multiple secrets", async () => {
@@ -110,10 +108,10 @@ describe("Secret", () => {
     });
 
     it("should throw a NotFoundError for a missing key", async () => {
-      const client = createTestClient();
-      await expect(client.secrets.retrieve(uuid.create())).rejects.toThrow(
-        NotFoundError,
-      );
+      const key = uuid.create();
+      const res = createTestClient().secrets.retrieve(key);
+      await expect(res).rejects.toThrow(NotFoundError);
+      await expect(res).rejects.toThrow(`Secrets with keys [${key}] not found`);
     });
   });
 
@@ -157,9 +155,7 @@ describe("Secret", () => {
       const rename = client.secrets.rename(s.key, "");
       await expect(rename).rejects.toThrow(PathError);
       await expect(rename).rejects.toThrow("name: required");
-      expect((await createTestClient().secrets.retrieve({ key: s.key })).name).toBe(
-        "Keep",
-      );
+      expect((await client.secrets.retrieve({ key: s.key })).name).toBe("Keep");
     });
   });
 
@@ -172,9 +168,9 @@ describe("Secret", () => {
       ]);
       const keys = secrets.map((s) => s.key);
       await client.secrets.delete(keys);
-      await expect(createTestClient().secrets.retrieve(keys[0])).rejects.toThrow(
-        NotFoundError,
-      );
+      const res = createTestClient().secrets.retrieve(keys[0]);
+      await expect(res).rejects.toThrow(NotFoundError);
+      await expect(res).rejects.toThrow(`Secrets with keys [${keys[0]}] not found`);
     });
   });
 

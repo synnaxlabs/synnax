@@ -164,7 +164,7 @@ func (s *Service) checkExpiry(ctx context.Context) error {
 	ticker := time.NewTicker(s.cfg.ExpiryCheckInterval.Duration())
 	defer ticker.Stop()
 	for {
-		if _, err := s.writeExpiry(ctx); err != nil {
+		if err := s.writeExpiry(ctx); err != nil {
 			s.cfg.L.Error("failed to update certificate expiry", zap.Error(err))
 		}
 		select {

@@ -51,6 +51,11 @@ var _ = Describe("Encryption key", func() {
 				"secrets key is 16 bytes, not 32",
 			),
 			Entry("empty", "", "secrets key is 0 bytes, not 32"),
+			Entry(
+				"all zeros",
+				base64.StdEncoding.EncodeToString(make([]byte, 32)),
+				"secrets key is all zeros",
+			),
 		)
 	})
 

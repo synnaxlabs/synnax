@@ -12,6 +12,8 @@
 package start_test
 
 import (
+	"bytes"
+	"encoding/base64"
 	"io"
 	"net"
 	"os"
@@ -93,17 +95,23 @@ var _ = Describe("Start", func() {
 		Expect(session.Out).To(gbytes.Say("Synnax has shut down"))
 	})
 
-	It("Should create the secrets key file it is given and start with it again",
-		func() {
-			path := filepath.Join(GinkgoT().TempDir(), "secrets.key")
-			for range 2 {
-				session, _ := startCore("--secrets-key-file", path)
-				session.Signal(syscall.SIGTERM)
-				Eventually(session, 30*time.Second).Should(gexec.Exit(0))
-			}
+	Describe("Secrets key", func() {
+		var path string
+		BeforeEach(func() {
+			path = filepath.Join(GinkgoT().TempDir(), "secrets.key")
+		})
+
+		It("Should create the secrets key file it is given", func() {
+			startCore("--secrets-key-file", path)
 			Expect(MustSucceed(os.Stat(path)).Mode().Perm()).To(Equal(xfs.UserRW))
-		},
-	)
+		})
+
+		It("Should use the secrets key before the secrets key file", func() {
+			key := base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{1}, 32))
+			startCore("--secrets-key", key, "--secrets-key-file", path)
+			Expect(path).ToNot(BeAnExistingFile())
+		})
+	})
 
 	It("Should exit at once on two signals after the stop keyword", func() {
 		session, stdin := startCore()

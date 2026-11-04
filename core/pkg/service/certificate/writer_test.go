@@ -21,8 +21,10 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Writer", func() {
@@ -106,6 +108,15 @@ var _ = Describe("Writer", func() {
 				},
 				func() []byte { return nil },
 				"pem: holds a PRIVATE KEY block. Send a private key as private_key",
+			),
+			Entry(
+				"a block that is not a certificate",
+				func() string {
+					return newCertificate(newKey(), "a", time.Hour) +
+						string(pem.EncodeToMemory(&pem.Block{Type: "X509 CRL"}))
+				},
+				func() []byte { return nil },
+				"pem: holds a X509 CRL block, not a certificate",
 			),
 			Entry(
 				"a block that does not parse",
@@ -252,6 +263,7 @@ var _ = Describe("Writer", func() {
 				e.svc.NewWriter(nil).Rename(ctx, c.Base().Key, "After"),
 			).To(Succeed())
 			Expect(e.retrieve(ctx, c.Base().Key).Base().Name).To(Equal("After"))
+			Expect(e.expiry(ctx, c.Base().Key).Name).To(Equal("After"))
 		})
 		It("Should reject an empty name", func(ctx SpecContext) {
 			c := e.create(
@@ -289,6 +301,9 @@ var _ = Describe("Writer", func() {
 				Expect(e.otg.NewRetrieve().
 					WhereIDs(c.OntologyID()).
 					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+				Expect(e.status.NewRetrieve[any]().
+					Where(status.MatchKeys[any](c.OntologyID().String())).
+					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 			},
 		)
 		It("Should succeed for a missing certificate", func(ctx SpecContext) {
@@ -303,11 +318,12 @@ var _ = Describe("Writer", func() {
 					encodeKey(key),
 				)
 				secretKey := *c.Variant.(certificate.StoredCertificate).PrivateKey
-				Expect(e.secrets.NewWriter(nil).Delete(ctx, secretKey)).To(MatchError(
-					ContainSubstring(
-						`cannot delete secret "Plant private key" because ` +
+				Expect(e.secrets.NewWriter(nil).Delete(ctx, secretKey)).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(
+						`cannot delete secret "Plant private key" because `+
 							`certificate "Plant" uses it`,
-					),
+					)),
 				))
 			},
 		)

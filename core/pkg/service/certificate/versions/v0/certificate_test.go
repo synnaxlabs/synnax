@@ -71,13 +71,10 @@ var _ = Describe("Certificate", func() {
 				To(Equal(details))
 		})
 		It("Should report no details for a file certificate without them", func() {
-			d, ok := file.Details()
-			Expect(ok).To(BeFalse())
-			Expect(d).To(Equal(v0.Details{}))
+			Expect(file.Details()).To(BeZero())
 		})
 		It("Should report no details for a certificate with no variant", func() {
-			_, ok := v0.Certificate{}.Details()
-			Expect(ok).To(BeFalse())
+			Expect(v0.Certificate{}.Details()).To(BeZero())
 		})
 	})
 

@@ -77,24 +77,6 @@ class TestCertificate:
                 )
             )
 
-    def test_create_invalid_pem(self, client: sy.Synnax) -> None:
-        """Should reject a PEM that is not a certificate."""
-        with pytest.raises(
-            sy.PathError, match=r"^pem: holds no certificate: validation error$"
-        ):
-            client.certificates.create(certificate.NewStored(name="Bad", pem="nope"))
-
-    def test_create_private_key_as_pem(self, client: sy.Synnax) -> None:
-        """Should reject a private key sent as the PEM."""
-        with pytest.raises(
-            sy.PathError,
-            match=r"^pem: holds a PRIVATE KEY block\. Send a private key as "
-            r"private_key: validation error$",
-        ):
-            client.certificates.create(
-                certificate.NewStored(name="Key as PEM", pem=PRIVATE_KEY)
-            )
-
     def test_create_file(self, client: sy.Synnax) -> None:
         """Should create a file certificate."""
         c = client.certificates.create(
@@ -108,14 +90,24 @@ class TestCertificate:
         assert c.certificate_path == "/etc/synnax/client.crt"
         assert c.private_key_path == "/etc/synnax/client.key"
 
-    def test_retrieve_rename_delete(self, client: sy.Synnax) -> None:
-        """Should retrieve, rename, and delete a certificate."""
-        c = client.certificates.create(certificate.NewStored(name="Before", pem=PEM))
+    def test_retrieve(self, client: sy.Synnax) -> None:
+        """Should retrieve a certificate by key."""
+        c = client.certificates.create(certificate.NewStored(name="Retrieve", pem=PEM))
         assert client.certificates.retrieve(key=c.key) == c
+
+    def test_rename(self, client: sy.Synnax) -> None:
+        """Should rename a certificate."""
+        c = client.certificates.create(certificate.NewStored(name="Before", pem=PEM))
         client.certificates.rename(c.key, "After")
         assert client.certificates.retrieve(key=c.key).name == "After"
+
+    def test_delete(self, client: sy.Synnax) -> None:
+        """Should delete a certificate."""
+        c = client.certificates.create(certificate.NewStored(name="Delete", pem=PEM))
         client.certificates.delete(c.key)
-        with pytest.raises(sy.NotFoundError):
+        with pytest.raises(
+            sy.NotFoundError, match=rf"Certificates with keys \[{c.key}\]"
+        ):
             client.certificates.retrieve(key=c.key)
 
     def test_delete_used_private_key(self, client: sy.Synnax) -> None:

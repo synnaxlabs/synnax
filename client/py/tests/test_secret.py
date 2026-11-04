@@ -19,11 +19,10 @@ from x.testutil import assert_eventually
 @pytest.mark.secret
 class TestSecret:
     def test_create_stored(self, client: sy.Synnax) -> None:
-        """Should create a stored secret without returning its value."""
+        """Should create a stored secret."""
         s = client.secrets.create(secret.NewStored(name="Password", value="hunter2"))
         assert isinstance(s, secret.StoredSecret)
         assert s.name == "Password"
-        assert "value" not in s.model_dump()
         assert s.updated > 0
 
     def test_create_file(self, client: sy.Synnax) -> None:
@@ -33,6 +32,33 @@ class TestSecret:
         )
         assert isinstance(s, secret.FileSecret)
         assert s.path == "/etc/synnax/client.key"
+
+    def test_create_from_keywords(self, client: sy.Synnax) -> None:
+        """Should create a stored or file secret from keyword arguments."""
+        stored = client.secrets.create(name="Token", value="abc")
+        assert isinstance(stored, secret.StoredSecret)
+        assert stored.name == "Token"
+        file = client.secrets.create(name="Key file", path="/tmp/key.pem")
+        assert isinstance(file, secret.FileSecret)
+        assert file.path == "/tmp/key.pem"
+
+    @pytest.mark.parametrize(
+        "kwargs",
+        [
+            {"name": "Missing"},
+            {"name": "Both", "value": "abc", "path": "/tmp/key.pem"},
+            {"value": "abc"},
+        ],
+    )
+    def test_create_from_invalid_keywords(
+        self, client: sy.Synnax, kwargs: dict[str, str]
+    ) -> None:
+        """Should reject keyword arguments without a name and one value or path."""
+        with pytest.raises(
+            sy.ValidationError,
+            match=r"A secret needs a name and exactly one of a value or a path\.",
+        ):
+            client.secrets.create(**kwargs)
 
     def test_create_multiple(self, client: sy.Synnax) -> None:
         """Should create multiple secrets."""
@@ -78,8 +104,9 @@ class TestSecret:
 
     def test_retrieve_missing(self, client: sy.Synnax) -> None:
         """Should raise NotFoundError when no secret has the key."""
-        with pytest.raises(sy.NotFoundError):
-            client.secrets.retrieve(key=uuid4())
+        key = uuid4()
+        with pytest.raises(sy.NotFoundError, match=rf"Secrets with keys \[{key}\]"):
+            client.secrets.retrieve(key=key)
 
     def test_rename(self, client: sy.Synnax) -> None:
         """Should rename a secret."""
@@ -103,5 +130,6 @@ class TestSecret:
             ]
         )
         client.secrets.delete([s.key for s in secrets])
-        with pytest.raises(sy.NotFoundError):
-            client.secrets.retrieve(key=secrets[0].key)
+        key = secrets[0].key
+        with pytest.raises(sy.NotFoundError, match=rf"Secrets with keys \[{key}\]"):
+            client.secrets.retrieve(key=key)

@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Writer", func() {
@@ -162,11 +163,12 @@ var _ = Describe("Writer", func() {
 						Name: "Plant certificate",
 					},
 				}
-				Expect(e.svc.NewWriter(nil).Delete(ctx, s.Base().Key)).To(MatchError(
-					ContainSubstring(
-						`cannot delete secret "Plant key" because certificate ` +
+				Expect(e.svc.NewWriter(nil).Delete(ctx, s.Base().Key)).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(
+						`cannot delete secret "Plant key" because certificate `+
 							`"Plant certificate" uses it`,
-					),
+					)),
 				))
 				Expect(e.retrieve(ctx, s.Base().Key).Base().Name).To(Equal("Plant key"))
 			},

@@ -84,7 +84,7 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 }
 
 // Delete deletes the secrets with the given keys. It returns a validation error naming
-// a user when anything uses one of the secrets. Delete is idempotent.
+// the resource that uses a secret when anything uses one. Delete is idempotent.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	uses, err := w.uses(ctx, w.tx, keys)
 	if err != nil {

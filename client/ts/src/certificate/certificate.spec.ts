@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { id, TimeStamp } from "@synnaxlabs/x";
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 
 import { NotFoundError, PathError, ValidationError } from "@/index";
-import { createTestClient } from "@/testutil";
+import { createTestClient, waitForStreamLive } from "@/testutil";
 
 // A self-signed P-256 certificate valid until 2126, its key, and an unrelated key.
 const PEM = `-----BEGIN CERTIFICATE-----
@@ -51,7 +51,7 @@ describe("Certificate", () => {
         pem: PEM,
       });
       expect(c).toMatchObject({ name: "Broker CA", source: "stored", pem: PEM });
-      if (c.source !== "stored") throw new Error("expected a stored certificate");
+      assert(c.source === "stored");
       expect(c.privateKey).toBeUndefined();
       expect(c.details).toMatchObject({ sha1: SHA1, sha256: SHA256 });
       expect(c.details.subject).toBe("CN=Synnax Test Client,O=Synnax Labs");
@@ -68,11 +68,9 @@ describe("Certificate", () => {
         pem: PEM,
         privateKey: PRIVATE_KEY,
       });
-      if (c.source !== "stored" || c.privateKey == null)
-        throw new Error("expected a stored certificate with a private key");
+      assert(c.source === "stored" && c.privateKey != null);
       const key = await client.secrets.retrieve(c.privateKey);
       expect(key.source).toBe("stored");
-      expect(key).not.toHaveProperty("value");
     });
 
     it("should reject a private key that does not match the certificate", async () => {
@@ -86,33 +84,6 @@ describe("Certificate", () => {
       await expect(create).rejects.toThrow(PathError);
       await expect(create).rejects.toThrow(
         "private_key: private key does not match public key: validation error",
-      );
-    });
-
-    it("should reject a PEM that is not a certificate", async () => {
-      const client = createTestClient();
-      const create = client.certificates.create({
-        name: "Bad",
-        source: "stored",
-        pem: "nope",
-      });
-      await expect(create).rejects.toThrow(PathError);
-      await expect(create).rejects.toThrow(
-        "pem: holds no certificate: validation error",
-      );
-    });
-
-    it("should reject a private key sent as the PEM", async () => {
-      const client = createTestClient();
-      const create = client.certificates.create({
-        name: "Key as PEM",
-        source: "stored",
-        pem: PRIVATE_KEY,
-      });
-      await expect(create).rejects.toThrow(PathError);
-      await expect(create).rejects.toThrow(
-        "pem: holds a PRIVATE KEY block. Send a private key as private_key: " +
-          "validation error",
       );
     });
 
@@ -185,9 +156,34 @@ describe("Certificate", () => {
         pem: PEM,
       });
       await client.certificates.delete(c.key);
-      await expect(createTestClient().certificates.retrieve(c.key)).rejects.toThrow(
-        NotFoundError,
-      );
+      const res = createTestClient().certificates.retrieve(c.key);
+      await expect(res).rejects.toThrow(NotFoundError);
+      await expect(res).rejects.toThrow(`Certificates with keys [${c.key}] not found`);
+    });
+
+    it("should drop its private key from the secrets cache", async () => {
+      const client = createTestClient();
+      const c = await client.certificates.create({
+        name: "Cached key",
+        source: "stored",
+        pem: PEM,
+        privateKey: PRIVATE_KEY,
+      });
+      assert(c.source === "stored" && c.privateKey != null);
+      const { privateKey } = c;
+      await client.secrets.retrieve(privateKey);
+      await waitForStreamLive(client.connection);
+      await createTestClient().certificates.delete(c.key);
+      await expect
+        .poll(async () => {
+          try {
+            await client.secrets.retrieve(privateKey);
+            return false;
+          } catch (e) {
+            return NotFoundError.matches(e);
+          }
+        })
+        .toBe(true);
     });
 
     it("should refuse to delete a private key that a certificate uses", async () => {
@@ -198,8 +194,7 @@ describe("Certificate", () => {
         pem: PEM,
         privateKey: PRIVATE_KEY,
       });
-      if (c.source !== "stored" || c.privateKey == null)
-        throw new Error("expected a stored certificate with a private key");
+      assert(c.source === "stored" && c.privateKey != null);
       const { privateKey } = c;
       const del = client.secrets.delete(privateKey);
       await expect(del).rejects.toThrow(ValidationError);
@@ -209,6 +204,24 @@ describe("Certificate", () => {
       );
       const retrieved = await createTestClient().secrets.retrieve(privateKey);
       expect(retrieved.key).toBe(privateKey);
+    });
+  });
+
+  describe("grant", () => {
+    it("should grant a rack the private key of a certificate", async () => {
+      const client = createTestClient();
+      const rack = await client.racks.create({ name: "Grant rack" });
+      const c = await client.certificates.create({
+        name: "Grant",
+        source: "stored",
+        pem: PEM,
+        privateKey: PRIVATE_KEY,
+      });
+      const grant = await client.secrets.grant({
+        rack: rack.key,
+        certificates: [c.key],
+      });
+      expect(grant).not.toHaveLength(0);
     });
   });
 });

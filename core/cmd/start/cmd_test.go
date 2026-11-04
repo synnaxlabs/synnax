@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/cmd/start"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"github.com/synnaxlabs/synnax/pkg/security/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -184,9 +185,8 @@ var _ = Describe("GetCoreConfigFromViper", func() {
 		})
 
 		It("Should accept a base64 key", func() {
-			viper.Set(start.FlagSecretsKey, base64.StdEncoding.EncodeToString(
-				make([]byte, 32),
-			))
+			key := secret.NewEncryptionKey()
+			viper.Set(start.FlagSecretsKey, base64.StdEncoding.EncodeToString(key[:]))
 			MustSucceed(start.GetCoreConfigFromViper(alamos.Instrumentation{}))
 		})
 
@@ -196,7 +196,9 @@ var _ = Describe("GetCoreConfigFromViper", func() {
 				Error().
 				To(And(
 					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring("invalid --secrets-key")),
+					MatchError(ContainSubstring(
+						"invalid --secrets-key: secrets key is not base64",
+					)),
 				))
 		})
 	})

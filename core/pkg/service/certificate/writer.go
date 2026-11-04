@@ -61,8 +61,8 @@ func (w Writer) Create(ctx context.Context, c *Certificate, privateKey []byte) e
 	if errors.Skip(err, query.ErrNotFound) != nil {
 		return err
 	}
-	prevStored, hadKey := prev.Variant.(StoredCertificate)
-	hadKey = hadKey && prevStored.PrivateKey != nil
+	prevStored, _ := prev.Variant.(StoredCertificate)
+	var orphanedKey *secret.Key
 	switch variant := c.Variant.(type) {
 	case StoredCertificate:
 		if variant, err = w.prepareStored(
@@ -85,6 +85,7 @@ func (w Writer) Create(ctx context.Context, c *Certificate, privateKey []byte) e
 		if err = v.Error(); err != nil {
 			return err
 		}
+		orphanedKey = prevStored.PrivateKey
 	default:
 		v := validate.New("certificate")
 		v.Ternary("source", true, "required")
@@ -93,8 +94,8 @@ func (w Writer) Create(ctx context.Context, c *Certificate, privateKey []byte) e
 	if err = w.table.NewCreate().Entry(c).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if _, isFile := c.Variant.(FileCertificate); isFile && hadKey {
-		if err = w.secrets.Delete(ctx, *prevStored.PrivateKey); err != nil {
+	if orphanedKey != nil {
+		if err = w.secrets.Delete(ctx, *orphanedKey); err != nil {
 			return err
 		}
 	}
@@ -110,10 +111,14 @@ func (w Writer) Create(ctx context.Context, c *Certificate, privateKey []byte) e
 	); err != nil {
 		return err
 	}
-	if st, ok := expiryStatus(*c, w.now()); ok {
-		return w.statuses.SetWithParent(ctx, &st, otgID)
+	return w.writeStatus(ctx, *c)
+}
+
+func (w Writer) writeStatus(ctx context.Context, c Certificate) error {
+	if st, ok := expiryStatus(c, w.now()); ok {
+		return w.statuses.SetWithParent(ctx, &st, c.OntologyID())
 	}
-	return w.statuses.Delete(ctx, statusKey(base.Key))
+	return w.statuses.Delete(ctx, statusKey(c.Base().Key))
 }
 
 func (w Writer) prepareStored(
@@ -162,21 +167,23 @@ func (w Writer) prepareStored(
 	return c, nil
 }
 
-// Rename renames the certificate with the given key. It returns query.ErrNotFound if no
-// certificate has the key, and a validation error if name is empty.
+// Rename renames the certificate with the given key and its expiry status. It returns
+// query.ErrNotFound if no certificate has the key, and a validation error if name is
+// empty.
 func (w Writer) Rename(ctx context.Context, key Key, name string) error {
-	return w.table.NewUpdate().
+	var renamed Certificate
+	if err := w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Certificate](key)).
 		ChangeErr(func(_ gorp.Context, c Certificate) (Certificate, error) {
 			base := c.Base()
 			base.Name = name
-			c = c.WithBase(base)
-			if err := c.Validate(); err != nil {
-				return Certificate{}, err
-			}
-			return c, nil
+			renamed = c.WithBase(base)
+			return renamed, renamed.Validate()
 		}).
-		Exec(ctx, w.tx)
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	return w.writeStatus(ctx, renamed)
 }
 
 // Delete deletes the certificates with the given keys, the secrets that hold their

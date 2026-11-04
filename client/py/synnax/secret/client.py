@@ -12,8 +12,8 @@ from typing import overload
 from pydantic import BaseModel, Field
 
 from freighter import Empty, UnaryClient
-from synnax.exceptions import NotFoundError
-from synnax.secret.payload import New
+from synnax.exceptions import NotFoundError, ValidationError
+from synnax.secret.payload import New, NewFile, NewStored
 from synnax.secret.types_gen import Key, Secret
 from x.lists import normalize
 
@@ -53,18 +53,48 @@ class Client:
         self._client = client
 
     @overload
+    def create(self, *, name: str, value: str) -> Secret: ...
+
+    @overload
+    def create(self, *, name: str, path: str) -> Secret: ...
+
+    @overload
     def create(self, secrets: New) -> Secret: ...
 
     @overload
     def create(self, secrets: list[New]) -> list[Secret]: ...
 
-    def create(self, secrets: New | list[New]) -> Secret | list[Secret]:
+    def create(
+        self,
+        secrets: New | list[New] | None = None,
+        *,
+        name: str | None = None,
+        value: str | None = None,
+        path: str | None = None,
+    ) -> Secret | list[Secret]:
         """Creates secrets, or replaces the secrets whose keys exist.
 
-        :param secrets: The secrets to create.
-        :returns: The saved secrets, without their values.
+        :param secrets: A secret or a list of them. When omitted, a stored secret is
+            created from ``name`` and ``value``, or a file secret from ``name`` and
+            ``path``.
+        :param name: The name of the secret when ``secrets`` is omitted.
+        :param value: The value of a stored secret. No client can read it back.
+        :param path: The path of a file secret on the computer that uses it.
+        :returns: The saved secret, or a list when ``secrets`` is a list. Values are
+            never returned.
+        :raises ValidationError: If ``secrets`` is omitted and the keyword arguments do
+            not give a name and exactly one of a value or a path.
         """
         is_single = not isinstance(secrets, list)
+        if secrets is None:
+            if name is not None and value is not None and path is None:
+                secrets = NewStored(name=name, value=value)
+            elif name is not None and path is not None and value is None:
+                secrets = NewFile(name=name, path=path)
+            else:
+                raise ValidationError(
+                    "A secret needs a name and exactly one of a value or a path."
+                )
         req = _CreateRequest(secrets=normalize(secrets))
         res = self._client.send("/secret/create", req, _CreateResponse)
         return res.secrets[0] if is_single else res.secrets
@@ -73,7 +103,7 @@ class Client:
         """Deletes secrets.
 
         :param keys: The keys of the secrets to delete.
-        :raises ValidationError: If a device or certificate uses one of the secrets.
+        :raises ValidationError: If a certificate uses one of the secrets.
         """
         self._client.send("/secret/delete", _DeleteRequest(keys=normalize(keys)), Empty)
 

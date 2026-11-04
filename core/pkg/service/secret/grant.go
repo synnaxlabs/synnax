@@ -47,11 +47,7 @@ func (s *Service) Grant(
 	if err := v.Error(); err != nil {
 		return "", err
 	}
-	var secrets []Secret
-	if err := s.NewRetrieve().
-		Where(MatchKeys(keys...)).
-		Entries(&secrets).
-		Exec(ctx, tx); err != nil {
+	if err := s.NewRetrieve().Where(MatchKeys(keys...)).Exec(ctx, tx); err != nil {
 		return "", err
 	}
 	claims, err := json.Marshal(grantClaims{

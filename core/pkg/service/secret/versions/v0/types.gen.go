@@ -68,7 +68,7 @@ type SecretVariant interface {
 // StoredSecret is a secret whose value the Core stores.
 type StoredSecret struct {
 	Base
-	// Value is the value, encrypted with AES-256-GCM under the Core's secrets key.
+	// Value is the value, encrypted with AES-256-GCM under the data key.
 	Value []byte `json:"-" msgpack:"-"`
 }
 

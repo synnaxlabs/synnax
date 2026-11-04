@@ -12,13 +12,13 @@ import { array, primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
-  baseZ,
   type Certificate,
   certificateZ,
   fileCertificateZ,
   type Key,
   keyZ,
   ontologyID,
+  storedCertificateZ,
 } from "@/certificate/types.gen";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
@@ -26,10 +26,7 @@ import { query } from "@/query";
 export const SET_CHANNEL_NAME = "sy_certificate_set";
 export const DELETE_CHANNEL_NAME = "sy_certificate_delete";
 
-const newStoredZ = baseZ.extend({
-  source: z.literal("stored"),
-  /** pem is the certificate chain as PEM, leaf first. */
-  pem: z.string(),
+const newStoredZ = storedCertificateZ.omit({ details: true }).extend({
   /**
    * privateKey is the private key as PEM. The Core checks that it matches the
    * certificate and saves it as a secret.
@@ -111,7 +108,8 @@ export class Client extends query.Retriever<
 
   /**
    * Creates certificates, or replaces the certificates whose keys exist.
-   * @throws if a PEM does not parse, or a private key does not match its certificate.
+   * @throws {PathError} if a PEM does not parse, or a private key does not match its
+   * certificate.
    */
   async create(certificate: New): Promise<Certificate>;
   async create(certificates: New[]): Promise<Certificate[]>;
@@ -146,10 +144,7 @@ export class Client extends query.Retriever<
     rename();
   }
 
-  /**
-   * Deletes certificates.
-   * @throws if a device uses one of the certificates.
-   */
+  /** Deletes certificates and the secrets that hold their private keys. */
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const ids = ontologyID(keysArr);

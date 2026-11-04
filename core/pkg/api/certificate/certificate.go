@@ -84,9 +84,9 @@ type (
 // Input is a certificate to create or replace.
 type Input struct {
 	// PrivateKeyPath is the path of the private key of a file certificate.
-	PrivateKeyPath *string `json:"private_key_path,omitzero" msgpack:"private_key_path,omitempty"`
+	PrivateKeyPath *string `json:"private_key_path" msgpack:"private_key_path"`
 	// Details describes the leaf of a file certificate, as the file browser read it.
-	Details *certificate.Details `json:"details,omitzero" msgpack:"details,omitempty"`
+	Details *certificate.Details `json:"details" msgpack:"details"`
 	// Source is where the contents live: stored or file.
 	Source secret.Source `json:"source" msgpack:"source"`
 	// Name is the name of the certificate.
@@ -251,7 +251,8 @@ type DeleteRequest struct {
 }
 
 // Delete deletes the certificates and the secrets that hold their private keys. It
-// requires delete access on each certificate.
+// requires delete access on each certificate only, because a private key belongs to
+// its certificate.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,

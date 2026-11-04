@@ -128,6 +128,12 @@ var _ = Describe("HTTP", func() {
 			Entry("unary rack rename", http.MethodPost, "/api/v1/rack/rename"),
 			Entry("unary status rename", http.MethodPost, "/api/v1/status/rename"),
 			Entry("unary view rename", http.MethodPost, "/api/v1/view/rename"),
+			Entry("unary secret resolve", http.MethodPost, "/api/v1/secret/resolve"),
+			Entry(
+				"unary certificate create",
+				http.MethodPost,
+				"/api/v1/certificate/create",
+			),
 		)
 
 		It("Should not register a route for an unknown path", func() {

@@ -39,7 +39,7 @@ func NewEncryptionKey() EncryptionKey {
 }
 
 // ParseEncryptionKey decodes an encryption key from standard base64. It returns a
-// validation error unless s decodes to exactly 32 bytes.
+// validation error unless s decodes to exactly 32 bytes that are not all zeros.
 func ParseEncryptionKey(s string) (EncryptionKey, error) {
 	var k EncryptionKey
 	b, err := base64.StdEncoding.DecodeString(strings.TrimSpace(s))
@@ -55,6 +55,9 @@ func ParseEncryptionKey(s string) (EncryptionKey, error) {
 		)
 	}
 	copy(k[:], b)
+	if k == (EncryptionKey{}) {
+		return k, errors.Wrap(validate.ErrValidation, "secrets key is all zeros")
+	}
 	return k, nil
 }
 

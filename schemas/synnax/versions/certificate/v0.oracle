@@ -65,7 +65,7 @@ Certificate union on source secret.Source extends Base {
 
         @doc value "is a certificate whose contents the Core stores."
     }
-    file   {
+    file {
         certificate_path string   {
             @doc value "is the path of the certificate on the computer that uses it."
         }
