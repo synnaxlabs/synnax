@@ -344,8 +344,8 @@ func (r Retrieve) Exists(ctx context.Context, tx gorp.Tx) (bool, error) {
 }
 
 func canSkipExec(q clause, entriesBound, atLast bool) bool {
-	return !entriesBound && !atLast && q.HasFilterKeys() &&
-		!q.HasFilters() && !q.HasLimit() && !q.HasOffset()
+	return !entriesBound && !atLast && q.IsBareKeys() &&
+		!q.HasPrefix() && !q.HasLimit() && !q.HasOffset()
 }
 
 func (r Retrieve) retrieveEntities(

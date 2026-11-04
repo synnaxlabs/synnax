@@ -17,7 +17,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/encoding/orc"
-	"github.com/synnaxlabs/x/query"
 )
 
 var _ = Describe("Retrieve", func() {
@@ -154,15 +153,16 @@ var _ = Describe("Retrieve", func() {
 			)
 
 			It(
-				"Should return ErrNotFound when traversing children of a non-existent parent",
+				"Should retrieve no children of a non-existent parent",
 				func(ctx SpecContext) {
 					var r []ontology.Resource
-					err := otg.NewRetrieve().
+					Expect(otg.NewRetrieve().
 						WhereIDs(newSampleType("nonexistent")).
 						TraverseTo(ontology.ChildrenTraverser).
 						Entries(&r).
-						Exec(ctx, tx)
-					Expect(err).To(MatchError(query.ErrNotFound))
+						Exec(ctx, tx),
+					).To(Succeed())
+					Expect(r).To(BeEmpty())
 				},
 			)
 
@@ -639,6 +639,42 @@ var _ = Describe("Retrieve", func() {
 			})
 			Expect(ids).To(ContainElements(a, b))
 		})
+
+		It(
+			"Should traverse only from the IDs that match WhereTypes",
+			func(ctx SpecContext) {
+				parent := newSampleType("typed-parent")
+				other := ontology.ID{
+					Type: ontology.ResourceTypeGroup,
+					Key:  "typed-other",
+				}
+				child := newSampleType("typed-child")
+				otherChild := newSampleType("typed-other-child")
+				Expect(w.DefineResources(ctx, parent, other, child, otherChild)).
+					To(Succeed())
+				Expect(w.DefineRelationships(
+					ctx,
+					parent,
+					ontology.RelationshipTypeParentOf,
+					child,
+				)).To(Succeed())
+				Expect(w.DefineRelationships(
+					ctx,
+					other,
+					ontology.RelationshipTypeParentOf,
+					otherChild,
+				)).To(Succeed())
+				var r []ontology.Resource
+				Expect(otg.NewRetrieve().
+					WhereIDs(parent, other).
+					WhereTypes(ontology.ResourceTypeChannel).
+					TraverseTo(ontology.ChildrenTraverser).
+					Entries(&r).
+					Exec(ctx, tx),
+				).To(Succeed())
+				Expect(ontology.ResourceIDs(r)).To(ConsistOf(child))
+			},
+		)
 
 		It(
 			"Should filter out resources when WhereIDs and WhereTypes don't overlap using filter function",

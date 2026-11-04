@@ -95,6 +95,37 @@ var _ = Describe("Retrieve", func() {
 			})
 		})
 
+		Describe("IsBareKeys", func() {
+			It("Should return false when no keys are set", func() {
+				q := gorp.NewRetrieve[int32, entry]()
+				Expect(q.IsBareKeys()).To(BeFalse())
+			})
+			It("Should return true when only keys are set", func() {
+				q := gorp.NewRetrieve[int32, entry]().
+					Where(gorp.MatchKeys[int32, entry](1, 2))
+				Expect(q.IsBareKeys()).To(BeTrue())
+			})
+			It("Should return false when a filter narrows the keys", func() {
+				q := gorp.NewRetrieve[int32, entry]().
+					Where(gorp.MatchKeys[int32, entry](1, 2)).
+					Where(gorp.Match(func(_ gorp.Context, _ *entry) (bool, error) {
+						return true, nil
+					}))
+				Expect(q.IsBareKeys()).To(BeFalse())
+			})
+		})
+
+		Describe("HasPrefix", func() {
+			It("Should return false when no prefix is set", func() {
+				q := gorp.NewRetrieve[int32, entry]()
+				Expect(q.HasPrefix()).To(BeFalse())
+			})
+			It("Should return true when a prefix is set", func() {
+				q := gorp.NewRetrieve[int32, entry]().WherePrefix([]byte("a"))
+				Expect(q.HasPrefix()).To(BeTrue())
+			})
+		})
+
 		Describe("GetEntries", func() {
 			It("Should return an empty entries when none are bound", func() {
 				q := gorp.NewRetrieve[int32, entry]()
