@@ -1,0 +1,28 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+version: 2
+updates:
+  - package-ecosystem: "bazel"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 1
+    groups:
+      bazel:
+        patterns:
+          - "*"
+    # openssl is the only dependency in vendor/boringssl/MODULE.bazel, so this keeps
+    # updates out of vendor/. exclude-paths cannot: Dependabot regenerates the lock from
+    # the files it fetches, and that needs vendor/boringssl and vendor/esi.bzl.
+    ignore:
+      - dependency-name: "openssl"
+    labels:
+      - "dependencies"
+      - "review/bot"
