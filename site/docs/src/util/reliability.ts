@@ -133,7 +133,7 @@ const SUBSYSTEMS: Record<string, [key: string, name: string, match: RegExp][]> =
     ["aspen", "Aspen", /^aspen\//],
     ["cesium", "Cesium", /^cesium\//],
     ["freighter", "Freighter", /^freighter\//],
-    ["x", "X", /^(x|alamos)\/go\//],
+    ["x", "X", /^((x|alamos)\/go|gorp)\//],
   ],
   arc: [
     ["parser", "Parser", /^arc\/go\/(parser|text|literal)\//],
@@ -184,6 +184,7 @@ const SUBSYSTEMS: Record<string, [key: string, name: string, match: RegExp][]> =
     ["scripts", "Repo scripts", /^(scripts|\.github\/scripts)\//],
     ["docs", "Docs site", /^site\/docs\//],
     ["vite", "Vite plugin", /^configs\/vite\//],
+    ["eslint", "Lint rules", /^configs\/eslint\//],
   ],
 };
 
