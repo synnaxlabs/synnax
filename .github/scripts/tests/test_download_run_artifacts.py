@@ -21,6 +21,7 @@ MISSING = "no artifact matches any of the names or patterns provided"
 # does, and gh refuses to extract over one.
 GH = """#!/usr/bin/env bash
 echo "gh $*" >> "$LOG"
+echo $(($(cat "$CLOCK") + DOWNLOAD_SECONDS)) > "$CLOCK"
 if [ -e "$DIR/stale" ]; then
     echo "error extracting: file exists" >&2
     exit 1
@@ -42,15 +43,22 @@ touch "$DIR/binary"
 
 SLEEP = """#!/usr/bin/env bash
 echo "sleep $1" >> "$LOG"
+echo $(($(cat "$CLOCK") + $1)) > "$CLOCK"
+"""
+
+DATE = """#!/usr/bin/env bash
+cat "$CLOCK"
 """
 
 
 def download(
-    tmp_path: Path, errors: list[str]
+    tmp_path: Path, errors: list[str], download_seconds: int = 0
 ) -> tuple[subprocess.CompletedProcess[str], list[str]]:
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
-    for name, body in (("gh", GH), ("sleep", SLEEP)):
+    clock = tmp_path / "clock"
+    clock.write_text("1000\n")
+    for name, body in (("gh", GH), ("sleep", SLEEP), ("date", DATE)):
         tool = bin_dir / name
         tool.write_text(body)
         tool.chmod(0o755)
@@ -66,6 +74,8 @@ def download(
             "LOG": str(log),
             "ERRORS": str(errors_file),
             "DIR": str(directory),
+            "CLOCK": str(clock),
+            "DOWNLOAD_SECONDS": str(download_seconds),
         },
         capture_output=True,
         text=True,
@@ -128,6 +138,15 @@ class TestDownloadRunArtifacts:
         assert max(waits) <= 180
         assert sum(waits) <= 600
         assert sum(waits) >= 420
+        assert "still failing" in result.stdout
+
+    def test_should_count_slow_failed_downloads_toward_the_retry_window(
+        self, tmp_path: Path
+    ) -> None:
+        result, calls = download(tmp_path, [f"always: {EGRESS}"], download_seconds=120)
+        assert result.returncode == 1
+        assert len(sleeps(calls)) == 3
+        assert int((tmp_path / "clock").read_text()) - 1000 <= 720
         assert "still failing" in result.stdout
 
     def test_should_require_three_arguments(self) -> None:

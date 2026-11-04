@@ -33,7 +33,7 @@ transient+='|connection refused|unexpected EOF|stream error|no such host'
 
 download=("$gh_cmd" run download "$run_id" -p "$pattern" --dir "$directory")
 delay=15
-waited=0
+started=$(date +%s)
 while true; do
     rm -rf "$directory"
     if output=$("${download[@]}" 2>&1); then
@@ -47,12 +47,12 @@ while true; do
     fi
     # Jitter keeps the jobs of a throttled merge queue from retrying in step.
     wait_seconds=$((delay + RANDOM % (delay / 2 + 1)))
-    if [ "$((waited + wait_seconds))" -gt "$retry_window" ]; then
-        echo "::error::Download of $pattern still failing after ${waited}s of retries"
+    elapsed=$(($(date +%s) - started))
+    if [ "$((elapsed + wait_seconds))" -gt "$retry_window" ]; then
+        echo "::error::Download of $pattern still failing after ${elapsed}s"
         exit 1
     fi
     echo "::warning::Download of $pattern failed, retrying in ${wait_seconds}s"
     sleep "$wait_seconds"
-    waited=$((waited + wait_seconds))
     delay=$((delay * 2 > max_delay ? max_delay : delay * 2))
 done
