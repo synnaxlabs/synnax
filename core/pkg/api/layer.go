@@ -857,6 +857,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	if l.Project, err = project.NewService(project.ServiceConfig{
 		RBAC:    cfg.Service.RBAC,
 		Project: cfg.Service.Project,
+		Bundle:  cfg.Service.Bundle,
 	}); err != nil {
 		return nil, err
 	}

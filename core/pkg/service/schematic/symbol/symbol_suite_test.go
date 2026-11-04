@@ -55,9 +55,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	projectSvc := MustOpen(project.OpenService(ctx, project.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
-		Group:    groupSvc,
-		ImEx:     imexSvc,
-		Panel:    panelSvc,
 	}))
 	svc = MustOpen(symbol.OpenService(ctx, symbol.ServiceConfig{
 		DB:       db,

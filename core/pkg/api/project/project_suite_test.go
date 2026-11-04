@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/project/bundle"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
@@ -93,13 +94,19 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
+	}))
+	bundleSvc := MustSucceed(bundle.NewService(bundle.Config{
+		DB:       db,
+		Ontology: otg,
+		Project:  projectSvc,
 		Group:    groupSvc,
-		ImEx:     imexSvc,
 		Panel:    panelSvc,
+		ImEx:     imexSvc,
 	}))
 	apiSvc = MustSucceed(apiproject.NewService(apiproject.ServiceConfig{
 		RBAC:    rbacSvc,
 		Project: projectSvc,
+		Bundle:  bundleSvc,
 	}))
 	author = MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
 		Name: "test",

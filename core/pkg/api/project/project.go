@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/project/bundle"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/encoding/zip"
@@ -41,6 +42,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Project *project.Service
+	// Bundle exports and imports projects as bundles.
+	//
+	// [REQUIRED]
+	Bundle *bundle.Service
 }
 
 var (
@@ -53,6 +58,7 @@ var (
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.Project = override.Nil(c.Project, other.Project)
+	c.Bundle = override.Nil(c.Bundle, other.Bundle)
 	return c
 }
 
@@ -61,12 +67,14 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("api.project")
 	v.NotNil("rbac", c.RBAC)
 	v.NotNil("project", c.Project)
+	v.NotNil("bundle", c.Bundle)
 	return v.Error()
 }
 
 type Service struct {
 	access   *rbac.Service
 	internal *project.Service
+	bundle   *bundle.Service
 }
 
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
@@ -77,6 +85,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	return &Service{
 		access:   cfg.RBAC,
 		internal: cfg.Project,
+		bundle:   cfg.Bundle,
 	}, nil
 }
 
@@ -235,7 +244,7 @@ func (s *Service) Export(
 	}); err != nil {
 		return nil, err
 	}
-	files, members, err := s.internal.Export(ctx, req.Key, encoder)
+	files, members, err := s.bundle.Export(ctx, req.Key, encoder)
 	if err != nil {
 		return nil, err
 	}
@@ -272,7 +281,7 @@ func (s *Service) Import(
 	if err != nil {
 		return ImportResponse{}, err
 	}
-	objects, err := s.internal.ImportObjects(ctx, req)
+	objects, err := s.bundle.ImportObjects(ctx, req)
 	if err != nil {
 		return ImportResponse{}, err
 	}
@@ -283,7 +292,7 @@ func (s *Service) Import(
 	}); err != nil {
 		return ImportResponse{}, err
 	}
-	p, err := s.internal.Import(ctx, tx, req, fileName)
+	p, err := s.bundle.Import(ctx, tx, req, fileName)
 	if err != nil {
 		return ImportResponse{}, err
 	}
