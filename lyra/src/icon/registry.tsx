@@ -77,6 +77,7 @@ import {
 } from "react-icons/io5";
 import {
   LuFileBadge,
+  LuKeyRound,
   LuLock,
   LuLockOpen,
   LuPipette,
@@ -364,6 +365,8 @@ export const Ungroup = wrapSVGIcon(LuUngroup, "ungroup");
 export const Lock = wrapSVGIcon(LuLock, "lock");
 export const Unlock = wrapSVGIcon(LuLockOpen, "unlock");
 export const License = wrapSVGIcon(LuFileBadge, "license");
+export const Secret = wrapSVGIcon(LuKeyRound, "secret");
+export const Certificate = wrapSVGIcon(LuFileBadge, "certificate");
 export const Project = wrapSVGIcon(MdWorkspacesFilled, "project");
 export const Box = wrapSVGIcon(AiOutlineBorder, "box");
 export const Boxes = wrapSVGIcon(VscChromeRestore, "boxes");
@@ -634,6 +637,8 @@ const icons = {
   Ungroup,
   Lock,
   Unlock,
+  Secret,
+  Certificate,
   Project,
   Box,
   Boxes,
