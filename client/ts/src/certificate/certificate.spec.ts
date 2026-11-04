@@ -92,6 +92,21 @@ describe("Certificate", () => {
       expect((await client.secrets.retrieve(privateKey)).uses).toBeUndefined();
     });
 
+    it("should be a use of its private key secret retrieved by key", async () => {
+      const client = createTestClient();
+      const c = await client.certificates.create({
+        name: "Used key by key",
+        source: "stored",
+        pem: PEM,
+        privateKey: PRIVATE_KEY,
+      });
+      assert(c.source === "stored" && c.privateKey != null);
+      const { privateKey } = c;
+      const key = await client.secrets.retrieve({ key: privateKey, includeUses: true });
+      expect(key.uses).toEqual([{ type: "certificate", key: c.key }]);
+      expect((await client.secrets.retrieve(privateKey)).uses).toBeUndefined();
+    });
+
     it("should reject a private key that does not match the certificate", async () => {
       const client = createTestClient();
       const create = client.certificates.create({

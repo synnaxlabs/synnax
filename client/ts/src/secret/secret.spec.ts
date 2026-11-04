@@ -109,6 +109,21 @@ describe("Secret", () => {
       expect((await client.secrets.retrieve(s.key)).uses).toBeUndefined();
     });
 
+    it("should retrieve the uses of a secret by key", async () => {
+      const client = createTestClient();
+      const s = await client.secrets.create({
+        name: "Unused by key",
+        source: "stored",
+        value: "abc",
+      });
+      const retrieved = await client.secrets.retrieve({
+        key: s.key,
+        includeUses: true,
+      });
+      expect(retrieved).toEqual({ ...s, uses: [] });
+      expect((await client.secrets.retrieve({ key: s.key })).uses).toBeUndefined();
+    });
+
     it("should search for secrets by name", async () => {
       const client = createTestClient();
       const name = `${id.create()} password`;

@@ -11,6 +11,7 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { NotFoundError } from "@/errors";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { rack } from "@/rack";
@@ -64,10 +65,28 @@ const retrieveRequestZ = z.object({
 });
 const retrieveMultiParamsZ = retrieveRequestZ.or(query.keyListZ(keyZ));
 
-export type RetrieveSingleParams = { key: Key };
+export type RetrieveSingleParams = {
+  key: Key;
+  /** Fills `uses` with the resources that use the secret. */
+  includeUses?: boolean;
+};
 export interface RetrieveMultipleParams extends z.input<typeof retrieveRequestZ> {}
 
 interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
+
+/** Drops includeUses when unset so equivalent queries hash identically. */
+const normalizeSingle = ({
+  key,
+  includeUses,
+}: RetrieveSingleParams): RetrieveSingleParams =>
+  includeUses === true ? { key, includeUses } : { key };
+
+const singleQueryZ = z
+  .union([
+    z.strictObject({ key: keyZ, includeUses: z.boolean().optional() }),
+    keyZ.transform((key) => ({ key })),
+  ])
+  .transform(normalizeSingle);
 
 const retrieveResponseZ = z.object({ secrets: secretZ.array().default(() => []) });
 
@@ -90,7 +109,14 @@ export interface ClientConfig {
   ontology: ontology.Client;
 }
 
-export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Secret> {
+export class Client extends query.Retriever<
+  typeof retrieveMultiParamsZ,
+  Key,
+  Secret,
+  Secret,
+  RetrieveSingleParams,
+  RetrieveSingleParams
+> {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Secret>;
   private readonly usesStore: query.Table<Key, Uses>;
@@ -108,6 +134,21 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Se
     // The secret table never holds uses. No change stream keeps uses current, so only a
     // retrieve that asks for them writes or reads this table.
     const usesStore = cache.createTable<Key, Uses>({ name: "secret.uses" });
+    const usesWatch = query.watch(
+      usesStore,
+      (event, q: RetrieveRequest | RetrieveSingleParams) =>
+        q.includeUses === true ? [event.key] : null,
+    );
+    const single = cache.queries<RetrieveSingleParams, Secret, Key, Secret>({
+      name: "secret",
+      table: store,
+      fetch: async (q) => [await this.fetchSingle(q)],
+      compose: (records, q) => this.compose(records[0], q.includeUses === true),
+      keyOf: (q) => q.key,
+      covers: (_, q) => q.includeUses !== true,
+      watch: [usesWatch],
+      single: true,
+    });
     super(cache, {
       name: "secret",
       table: store,
@@ -116,14 +157,11 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Se
         fetch: async (req) => await this.fetchThrough(req),
         matches: (secret, req) => requestFilter(req)(secret),
         serverFields: SERVER_FIELDS,
-        watch: [
-          query.watch(usesStore, (event, q: RetrieveRequest) =>
-            q.includeUses === true ? [event.key] : null,
-          ),
-        ],
+        watch: [usesWatch],
       },
       compose: (record, q) =>
         this.compose(record, (q as { includeUses?: boolean }).includeUses === true),
+      single: { schema: singleQueryZ, space: single },
     });
     this.cfg = cfg;
     this.store = store;
@@ -245,6 +283,18 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Se
     if (req.includeUses !== true) return secrets;
     this.usesStore.set(secrets.map(({ key, uses }) => ({ key, uses })));
     return secrets.map(stripUses);
+  }
+
+  private async fetchSingle({ key, includeUses }: RetrieveSingleParams): Promise<Key> {
+    if (includeUses === true) {
+      const since = this.store.stamp();
+      const secrets = await this.fetchThrough({ keys: [key], includeUses });
+      this.store.ingest(secrets, { since });
+      return key;
+    }
+    if ((await this.store.retrieve([key])).length === 0)
+      throw new NotFoundError(`secret with key ${key} not found`);
+    return key;
   }
 
   private async execRetrieve(params: RetrieveMultipleParams): Promise<Secret[]> {
