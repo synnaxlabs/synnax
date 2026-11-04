@@ -288,6 +288,16 @@ export class Client extends query.Retriever<
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.fetchRequest(req),
         matches: (resource, req) => requestFilter(req)(resource),
+        // A move changes which resources sit under the root of a search, but it sends
+        // no resource change.
+        watch: [
+          query.watch(relationships, (event, req: NormalizedRequest) => {
+            if (req.root == null || req.searchTerm == null) return null;
+            const rel =
+              event.variant === "set" ? event.value : relationshipZ.parse(event.key);
+            return rel.type === PARENT_OF_RELATIONSHIP_TYPE ? "refetch" : null;
+          }),
+        ],
       },
       single: { schema: singleParamsZ, space: single },
     });

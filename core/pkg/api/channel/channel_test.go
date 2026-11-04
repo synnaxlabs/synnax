@@ -10,9 +10,6 @@
 package channel_test
 
 import (
-	"fmt"
-	"math/rand/v2"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
@@ -156,10 +153,8 @@ var _ = Describe("Service", func() {
 		})
 
 		Describe("SearchTerm", func() {
-			var (
-				term string
-				rng  ranger.Range
-			)
+			const term = "zqsearch"
+			var rng ranger.Range
 			BeforeEach(func(ctx SpecContext) {
 				grantOn(
 					ctx,
@@ -167,9 +162,11 @@ var _ = Describe("Service", func() {
 					[]access.Action{access.ActionRetrieve},
 					ontology.ID{Type: ontology.ResourceTypeChannel},
 				)
-				term = fmt.Sprintf("zq%09d", rand.IntN(999999999))
 				rng = ranger.Range{Name: term, TimeRange: telem.NewRangeSeconds(1, 5)}
 				Expect(rangerSvc.NewWriter(nil).Create(ctx, &rng)).To(Succeed())
+				DeferCleanup(func(ctx SpecContext) {
+					Expect(rangerSvc.NewWriter(nil).Delete(ctx, rng.Key)).To(Succeed())
+				})
 			})
 
 			named := func(ctx SpecContext, name string) channel.Channel {
@@ -180,6 +177,10 @@ var _ = Describe("Service", func() {
 					Virtual:  true,
 				}
 				Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+				DeferCleanup(func(ctx SpecContext) {
+					Expect(channelSvc.NewWriter(nil).Delete(ctx, ch.Key(), false)).
+						To(Succeed())
+				})
 				return ch
 			}
 
@@ -190,6 +191,10 @@ var _ = Describe("Service", func() {
 					aliasSvc.NewWriter(nil).Set(ctx, rng.Key, ch.Key(), term+" feed"),
 				).
 					To(Succeed())
+				DeferCleanup(func(ctx SpecContext) {
+					Expect(aliasSvc.NewWriter(nil).Delete(ctx, rng.Key, ch.Key())).
+						To(Succeed())
+				})
 				return ch
 			}
 
