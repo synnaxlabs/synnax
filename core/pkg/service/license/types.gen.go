@@ -84,7 +84,7 @@ type State string
 const (
 	// StateOk means a license covers the Core.
 	StateOk State = "ok"
-	// StateMissing means the Core has no license.
+	// StateMissing means no license applies to the Core.
 	StateMissing State = "missing"
 	// StateExpired means the license no longer covers the Core.
 	StateExpired State = "expired"
