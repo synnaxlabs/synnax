@@ -54,8 +54,7 @@ var _ = Describe("Pipeline", func() {
 
 	Describe("Shared outlets", func() {
 		// flowOnCanceled flows sources that share one stream on a canceled context,
-		// each
-		// with a value to send, and returns the error of the pipeline.
+		// each with a value to send, and returns the error of the pipeline.
 		flowOnCanceled := func(sources int) error {
 			GinkgoHelper()
 			var (
