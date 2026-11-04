@@ -117,11 +117,22 @@ func newKey() *ecdsa.PrivateKey {
 // lifetime from the start of each spec.
 func newCertificate(key *ecdsa.PrivateKey, name string, lifetime time.Duration) string {
 	GinkgoHelper()
+	return newCertificateBetween(key, name, start.Add(-time.Hour), start.Add(lifetime))
+}
+
+// newCertificateBetween returns a PEM certificate for key, signed by key, that is valid
+// from notBefore to notAfter.
+func newCertificateBetween(
+	key *ecdsa.PrivateKey,
+	name string,
+	notBefore, notAfter time.Time,
+) string {
+	GinkgoHelper()
 	tmpl := &x509.Certificate{
 		SerialNumber: big.NewInt(1),
 		Subject:      pkix.Name{CommonName: name},
-		NotBefore:    start.Add(-time.Hour),
-		NotAfter:     start.Add(lifetime),
+		NotBefore:    notBefore,
+		NotAfter:     notAfter,
 	}
 	der := MustSucceed(
 		x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key),
@@ -294,6 +305,21 @@ var _ = Describe("Service", func() {
 					"Replace it with a new certificate.",
 			),
 		)
+		It("Should report a certificate that is not yet valid", func(ctx SpecContext) {
+			e := newEnv(ctx, telem.Hour)
+			c := e.create(ctx, stored("Plant", newCertificateBetween(
+				newKey(),
+				"a",
+				start.Add(7*24*time.Hour),
+				start.Add(365*24*time.Hour),
+			)), nil)
+			s := e.expiry(ctx, c.Base().Key)
+			Expect(s.Variant).To(Equal(status.VariantWarning))
+			Expect(s.Message).To(Equal("Certificate not yet valid"))
+			Expect(s.Description).To(Equal(
+				"The certificate becomes valid on November 10, 2026.",
+			))
+		})
 		It(
 			"Should update the status on each check after it changes",
 			func(ctx SpecContext) {

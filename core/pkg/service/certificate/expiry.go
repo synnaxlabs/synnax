@@ -28,7 +28,7 @@ func statusKey(key Key) status.Key { return OntologyID(key).String() }
 
 const dateLayout = "January 2, 2006"
 
-// expiryStatus returns the status that reports the expiry of c at now, and false when
+// expiryStatus returns the status that reports the validity of c at now, and false when
 // the expiry of c is unknown.
 func expiryStatus(c Certificate, now telem.TimeStamp) (status.Status[any], bool) {
 	details, ok := c.Details()
@@ -45,7 +45,12 @@ func expiryStatus(c Certificate, now telem.TimeStamp) (status.Status[any], bool)
 		Message:     "Certificate valid",
 		Description: "The certificate expires on " + date + ".",
 	}
-	if now >= details.NotAfter {
+	if now < details.NotBefore {
+		s.Variant = status.VariantWarning
+		s.Message = "Certificate not yet valid"
+		s.Description = "The certificate becomes valid on " +
+			details.NotBefore.Time().UTC().Format(dateLayout) + "."
+	} else if now >= details.NotAfter {
 		s.Variant = status.VariantError
 		s.Message = "Certificate expired"
 		s.Description = "The certificate expired on " + date +

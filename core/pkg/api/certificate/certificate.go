@@ -134,11 +134,13 @@ func (in Input) certificate() (Certificate, error) {
 
 // CreateRequest holds the certificates to create or replace.
 type CreateRequest struct {
+	// Certificates are the certificates to create or replace.
 	Certificates []Input `json:"certificates" msgpack:"certificates"`
 }
 
 // CreateResponse holds the created certificates.
 type CreateResponse struct {
+	// Certificates are the created certificates, with their keys.
 	Certificates []Certificate `json:"certificates" msgpack:"certificates"`
 }
 
@@ -214,6 +216,7 @@ type RetrieveRequest struct {
 
 // RetrieveResponse holds the retrieved certificates.
 type RetrieveResponse struct {
+	// Certificates are the certificates that the request selects.
 	Certificates []Certificate `json:"certificates" msgpack:"certificates"`
 }
 
@@ -273,6 +276,7 @@ func (s *Service) Rename(
 
 // DeleteRequest selects the certificates to delete.
 type DeleteRequest struct {
+	// Keys selects the certificates to delete.
 	Keys []Key `json:"keys" msgpack:"keys"`
 }
 
