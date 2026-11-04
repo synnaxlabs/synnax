@@ -57,14 +57,18 @@ Kind enum {
         @doc value "constrains a type parameter to any numeric type."
     }
     integer_constant             = 16 {
-        @doc value "constrains a type parameter to any integer type."
+        @doc value """
+            constrains a type parameter to an integer literal, which can resolve to any
+            numeric type.
+        """
     }
     float_constant               = 17 {
         @doc value "constrains a type parameter to any floating-point type."
     }
     exact_integer_float_constant = 18 {
         @doc value """
-            constrains a type parameter to float literals that hold exact integers.
+            constrains a type parameter to a float literal that holds an exact integer,
+            which can resolve to any numeric type.
         """
     }
     function                     = 19 {
