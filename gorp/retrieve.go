@@ -12,7 +12,10 @@ package gorp
 
 import (
 	"context"
+	"slices"
+	"strings"
 
+	"github.com/synnaxlabs/gorp/internal/key"
 	"github.com/synnaxlabs/gorp/internal/keyset"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -393,6 +396,10 @@ func (r *Retrieve[K, E]) execKeys(ctx context.Context, tx Tx) ([]K, error) {
 	if r.limit > 0 {
 		capacity = min(capacity, r.limit)
 	}
+	// An index returns its keys in no fixed order, so a page follows storage order.
+	if (r.limit > 0 || r.offset > 0) && !r.isBareKeys() && !r.filter.keys.Ranked() {
+		keys = storageOrder(keys)
+	}
 	r.entries.ensureCap(capacity)
 	for _, k := range keys {
 		if stops && validCount == r.offset+r.limit {
@@ -428,6 +435,28 @@ func (r *Retrieve[K, E]) execKeys(ctx context.Context, tx Tx) ([]K, error) {
 		return notFound, nil
 	}
 	return notFound, r.runValidators(gorpCtx, r.entries.All())
+}
+
+// storageOrder returns a copy of keys in the order a table scan visits them.
+func storageOrder[K Key](keys []K) []K {
+	type encoded struct {
+		key K
+		raw string
+	}
+	codec := key.NewCodec[K](nil)
+	pairs := make([]encoded, len(keys))
+	for i, k := range keys {
+		pairs[i] = encoded{key: k, raw: string(codec.Encode(k))}
+	}
+	slices.SortFunc(
+		pairs,
+		func(a, b encoded) int { return strings.Compare(a.raw, b.raw) },
+	)
+	sorted := make([]K, len(pairs))
+	for i, p := range pairs {
+		sorted[i] = p.key
+	}
+	return sorted
 }
 
 func (r *Retrieve[K, E]) execFilter(ctx context.Context, tx Tx) error {

@@ -16,6 +16,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -338,20 +339,27 @@ var _ = Describe("Reference", func() {
 			open(ctx, gorp.WithIndexObservable(observe.Noop[kv.TxReader]{}))
 		})
 
-		It("Should find an entry from an observer of its commit", func(ctx SpecContext) {
-			createRack(ctx, 1)
-			var found []string
-			DeferCleanup(devices.Observe().OnChange(func(
-				context.Context,
-				iter.Seq[change.Change[string, refDevice]],
-			) {
-				found = MustSucceed(deviceRef[0].Get(nil, gorp.To("rack", uint32(1))))
-			}))
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return devices.NewCreate().Entry(&refDevice{Key: "a", Rack: 1}).Exec(ctx, tx)
-			})).To(Succeed())
-			Expect(found).To(Equal([]string{"a"}))
-		})
+		It(
+			"Should find an entry from an observer of its commit",
+			func(ctx SpecContext) {
+				createRack(ctx, 1)
+				var found []string
+				DeferCleanup(devices.Observe().OnChange(func(
+					context.Context,
+					iter.Seq[change.Change[string, refDevice]],
+				) {
+					found = MustSucceed(
+						deviceRef[0].Get(nil, gorp.To("rack", uint32(1))),
+					)
+				}))
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return devices.NewCreate().
+						Entry(&refDevice{Key: "a", Rack: 1}).
+						Exec(ctx, tx)
+				})).To(Succeed())
+				Expect(found).To(Equal([]string{"a"}))
+			},
+		)
 	})
 
 	Describe("Filter", func() {
@@ -380,6 +388,29 @@ var _ = Describe("Reference", func() {
 			Expect(res).To(HaveLen(1))
 			Expect(res[0].Key).To(Equal("b"))
 		})
+
+		It(
+			"Should page the entries holding a target in storage order",
+			func(ctx SpecContext) {
+				createRack(ctx, 1)
+				keys := []string{"e", "b", "d", "a", "c"}
+				for _, k := range keys {
+					Expect(createDevice(ctx, refDevice{Key: k, Rack: 1})).To(Succeed())
+				}
+				page := func(offset int) []string {
+					var res []refDevice
+					Expect(devices.NewRetrieve().
+						Where(deviceRef[0].Filter(gorp.To("rack", uint32(1)))).
+						Offset(offset).
+						Limit(2).
+						Entries(&res).
+						Exec(ctx, db)).To(Succeed())
+					return lo.Map(res, func(d refDevice, _ int) string { return d.Key })
+				}
+				Expect(slices.Concat(page(0), page(2), page(4))).
+					To(Equal([]string{"a", "b", "c", "d", "e"}))
+			},
+		)
 
 		It("Should see writes staged in the same transaction", func(ctx SpecContext) {
 			createRack(ctx, 1)
