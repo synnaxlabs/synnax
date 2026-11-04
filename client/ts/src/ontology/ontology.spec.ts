@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type UnaryClient } from "@synnaxlabs/freighter";
 import { id } from "@synnaxlabs/x";
-import { beforeAll, describe, expect, it, test, vi } from "vitest";
+import { beforeAll, describe, expect, it, onTestFinished, test, vi } from "vitest";
 
 import { group } from "@/group";
 import { ontology } from "@/ontology";
@@ -201,6 +202,43 @@ describe("Ontology", () => {
           ).map((r) => r.id.key),
         )
         .toEqual([inside.key]);
+    });
+    test("refetch a subscribed search under a root when a parent link changes", async () => {
+      const match: ontology.Resource = {
+        key: "group:match",
+        id: { type: "group", key: "match" },
+        name: "match",
+      };
+      let answer = [match];
+      const unary: UnaryClient = {
+        use: () => {},
+        send: async (_target, _req, _reqZ, resZ) => resZ.parse({ resources: answer }),
+      };
+      const cache = new query.Cache({ openStreamer: null, onError: () => {} });
+      onTestFinished(async () => await cache.close());
+      const ont = new ontology.Client({ unary, cache });
+      const root: ontology.ID = { type: "group", key: "root" };
+      const params = { searchTerm: "match", root, types: ["group" as const] };
+      vi.useFakeTimers();
+      onTestFinished(() => {
+        vi.useRealTimers();
+      });
+      const off = ont.onChange(params, () => {});
+      try {
+        expect(await ont.retrieve(params)).toEqual([match]);
+        await vi.runAllTimersAsync();
+        answer = [];
+        const moved: ontology.Relationship = {
+          from: { type: "group", key: "other" },
+          type: "parent",
+          to: match.id,
+        };
+        ont.cache.relationships.set(ontology.relationshipToString(moved), moved);
+        await vi.runAllTimersAsync();
+        expect(ont.getCached(params)).toEqual([]);
+      } finally {
+        off();
+      }
     });
     test("retrieve by search term for the given types only", async () => {
       const name = randomName();
