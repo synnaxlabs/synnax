@@ -38,11 +38,18 @@ func rangeAccessResourceIDs(ranges []Range) []resource.ID {
 	ids := make([]resource.ID, 0, len(ranges))
 	for _, r := range ranges {
 		ids = append(ids, r.ResourceID())
-		ids = append(ids, label.ResourceIDs(r.Labels)...)
 		if r.Parent == nil {
 			continue
 		}
 		ids = append(ids, ranger.ResourceID(*r.Parent))
+	}
+	return ids
+}
+
+func labelAccessResourceIDs(ranges []Range) []resource.ID {
+	var ids []resource.ID
+	for _, r := range ranges {
+		ids = append(ids, label.ResourceIDs(r.Labels)...)
 	}
 	return ids
 }
@@ -116,7 +123,10 @@ func (s *Service) Create(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: rangeAccessResourceIDs(req.Ranges),
+		Objects: append(
+			rangeAccessResourceIDs(req.Ranges),
+			labelAccessResourceIDs(req.Ranges)...,
+		),
 	}); err != nil {
 		return CreateResponse{}, err
 	}
@@ -214,6 +224,7 @@ func (s *Service) Retrieve(
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
+	// A range holds only the keys of its labels, so reading it needs no access to them.
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
