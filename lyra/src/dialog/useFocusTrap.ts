@@ -49,7 +49,7 @@ export const useFocusTrap = (
   const openerRef = useRef<Element | null>(null);
   const enteredRef = useRef(false);
   const handleFocusCapture = (e: FocusEvent<HTMLElement>): void => {
-    if (enteredRef.current) return;
+    if (!enabled || enteredRef.current) return;
     enteredRef.current = true;
     openerRef.current = e.relatedTarget;
   };
