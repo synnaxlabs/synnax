@@ -209,8 +209,9 @@ describe("useCreateFromSelection", () => {
     const late = await client.groups.create({ parent: subID, name: `${tok} c` });
     await findTreeRow(itemName(late.name));
     const name = uniqueName("grp");
+    const editable = await awaitTextEditingElement();
     await act(async () => {
-      commitTextEdit(await awaitTextEditingElement(), name);
+      commitTextEdit(editable, name);
     });
     let newKey = "";
     await waitFor(async () => {

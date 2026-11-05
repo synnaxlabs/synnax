@@ -83,7 +83,7 @@ describe("Select.Item", () => {
     );
   });
 
-  it("should space outlined buttons apart for the card variant", () => {
+  it("should space card buttons apart for the card variant", () => {
     const c = render(
       <Select.Buttons value={1} onChange={vi.fn()} variant="card">
         <Select.Item itemKey={1}>Option 1</Select.Item>
@@ -94,7 +94,7 @@ describe("Select.Item", () => {
     expect(group?.classList).toContain("lyra-select-btns--card");
     expect(group?.classList).not.toContain("lyra--pack");
     expect(c.getByText("Option 2").closest("button")?.classList).toContain(
-      "lyra-btn--outlined",
+      "lyra-btn--card",
     );
   });
 

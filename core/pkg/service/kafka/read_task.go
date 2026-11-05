@@ -98,6 +98,9 @@ type readTask struct {
 	closer io.Closer
 	// sCtx is the consumer's context. A consumer that fails cancels it.
 	sCtx signal.Context
+	// failed is set before the consumer reports its failure. sCtx only cancels once the
+	// consumer exits, after the report.
+	failed atomic.Bool
 	// skips counts the records of the current run that the task reads and skips.
 	skips *driver.Skips
 	// reassigned is set when the group assigns partitions, which replay from the last
@@ -324,9 +327,11 @@ func (t *readTask) Stop(sendStatus bool) error {
 	return t.stop(context.TODO(), driver.NoCommand, sendStatus)
 }
 
-// isRunning reports whether the consumer is up. A consumer that failed on its own
-// cancels sCtx without releasing the closer.
-func (t *readTask) isRunning() bool { return t.closer != nil && t.sCtx.Err() == nil }
+// isRunning reports whether the consumer is up. A consumer that failed on its own sets
+// failed, and one that panicked cancels sCtx. Neither releases the closer.
+func (t *readTask) isRunning() bool {
+	return t.closer != nil && !t.failed.Load() && t.sCtx.Err() == nil
+}
 
 func (t *readTask) release() error {
 	err := t.closer.Close()
@@ -471,6 +476,7 @@ func (t *readTask) open(ctx context.Context) (err error) {
 	}
 	t.client = cl
 	t.sCtx = sCtx
+	t.failed.Store(false)
 	t.skips = driver.NewSkips("record")
 	t.disconnected = false
 	t.closer = xio.MultiCloser{
@@ -600,15 +606,7 @@ func (t *readTask) consume(ctx context.Context) error {
 			}
 		})
 		if fatal != nil {
-			t.setStatus(
-				ctx,
-				driver.NoCommand,
-				status.VariantError,
-				false,
-				"Failed to fetch records",
-				fatal.Error(),
-			)
-			return fatal
+			return t.fail(ctx, "Failed to fetch records", fatal)
 		}
 		// Recovery is reported before the batch, so a skip in it stays visible.
 		if transient != nil && !t.disconnected {
@@ -634,15 +632,7 @@ func (t *readTask) consume(ctx context.Context) error {
 			)
 		}
 		if err := t.process(ctx, fetches); err != nil {
-			t.setStatus(
-				ctx,
-				driver.NoCommand,
-				status.VariantError,
-				false,
-				"Failed to process records",
-				err.Error(),
-			)
-			return err
+			return t.fail(ctx, "Failed to process records", err)
 		}
 	}
 }
@@ -656,6 +646,14 @@ func (t *readTask) poll(ctx context.Context) kgo.Fetches {
 		defer cancel()
 	}
 	return t.client.PollFetches(ctx)
+}
+
+// fail reports the error that stops the consumer and returns it. A start that follows
+// the status replaces the consumer instead of acknowledging the failure.
+func (t *readTask) fail(ctx context.Context, message string, err error) error {
+	t.failed.Store(true)
+	t.setStatus(ctx, driver.NoCommand, status.VariantError, false, message, err.Error())
+	return err
 }
 
 // unavailable are the broker errors for a broker or coordinator that is down or
