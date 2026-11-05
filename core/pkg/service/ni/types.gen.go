@@ -592,7 +592,9 @@ type AIVoltageWithExcitChannel = versions.AIVoltageWithExcitChannel
 type CIEdge = versions.CIEdge
 
 const (
-	CIEdgeRising  CIEdge = versions.CIEdgeRising
+	// CIEdgeRising is the rising edge.
+	CIEdgeRising CIEdge = versions.CIEdgeRising
+	// CIEdgeFalling is the falling edge.
 	CIEdgeFalling CIEdge = versions.CIEdgeFalling
 )
 
@@ -600,17 +602,25 @@ const (
 type CIMeasMethod = versions.CIMeasMethod
 
 const (
-	CIMeasMethodLowFreq1Ctr  CIMeasMethod = versions.CIMeasMethodLowFreq1Ctr
+	// CIMeasMethodLowFreq1Ctr uses one counter, for low frequency signals.
+	CIMeasMethodLowFreq1Ctr CIMeasMethod = versions.CIMeasMethodLowFreq1Ctr
+	// CIMeasMethodHighFreq2Ctr uses two counters and a measurement time, for high
+	// frequency signals.
 	CIMeasMethodHighFreq2Ctr CIMeasMethod = versions.CIMeasMethodHighFreq2Ctr
+	// CIMeasMethodLargeRng2Ctr uses two counters and divides the input signal by a
+	// divisor.
 	CIMeasMethodLargeRng2Ctr CIMeasMethod = versions.CIMeasMethodLargeRng2Ctr
-	CIMeasMethodDynamicAvg   CIMeasMethod = versions.CIMeasMethodDynamicAvg
+	// CIMeasMethodDynamicAvg uses dynamic averaging.
+	CIMeasMethodDynamicAvg CIMeasMethod = versions.CIMeasMethodDynamicAvg
 )
 
 // CIFreqUnits are the unit options for a counter frequency channel.
 type CIFreqUnits = versions.CIFreqUnits
 
 const (
-	CIFreqUnitsHz    CIFreqUnits = versions.CIFreqUnitsHz
+	// CIFreqUnitsHz is hertz.
+	CIFreqUnitsHz CIFreqUnits = versions.CIFreqUnitsHz
+	// CIFreqUnitsTicks is ticks.
 	CIFreqUnitsTicks CIFreqUnits = versions.CIFreqUnitsTicks
 )
 
@@ -618,16 +628,21 @@ const (
 type CITimeUnits = versions.CITimeUnits
 
 const (
+	// CITimeUnitsSeconds is seconds.
 	CITimeUnitsSeconds CITimeUnits = versions.CITimeUnitsSeconds
-	CITimeUnitsTicks   CITimeUnits = versions.CITimeUnitsTicks
+	// CITimeUnitsTicks is ticks.
+	CITimeUnitsTicks CITimeUnits = versions.CITimeUnitsTicks
 )
 
 // CICountDirection selects the direction an edge counter counts.
 type CICountDirection = versions.CICountDirection
 
 const (
-	CICountDirectionCountUp              CICountDirection = versions.CICountDirectionCountUp
-	CICountDirectionCountDown            CICountDirection = versions.CICountDirectionCountDown
+	// CICountDirectionCountUp increments the count on each edge.
+	CICountDirectionCountUp CICountDirection = versions.CICountDirectionCountUp
+	// CICountDirectionCountDown decrements the count on each edge.
+	CICountDirectionCountDown CICountDirection = versions.CICountDirectionCountDown
+	// CICountDirectionExternallyControlled reads the direction from a digital signal.
 	CICountDirectionExternallyControlled CICountDirection = versions.CICountDirectionExternallyControlled
 )
 
@@ -635,9 +650,13 @@ const (
 type CIDecodingType = versions.CIDecodingType
 
 const (
-	CIDecodingTypeX1       CIDecodingType = versions.CIDecodingTypeX1
-	CIDecodingTypeX2       CIDecodingType = versions.CIDecodingTypeX2
-	CIDecodingTypeX4       CIDecodingType = versions.CIDecodingTypeX4
+	// CIDecodingTypeX1 is X1 decoding, for quadrature encoders.
+	CIDecodingTypeX1 CIDecodingType = versions.CIDecodingTypeX1
+	// CIDecodingTypeX2 is X2 decoding, for quadrature encoders.
+	CIDecodingTypeX2 CIDecodingType = versions.CIDecodingTypeX2
+	// CIDecodingTypeX4 is X4 decoding, for quadrature encoders.
+	CIDecodingTypeX4 CIDecodingType = versions.CIDecodingTypeX4
+	// CIDecodingTypeTwoPulse is two pulse counting, for two pulse encoders.
 	CIDecodingTypeTwoPulse CIDecodingType = versions.CIDecodingTypeTwoPulse
 )
 
@@ -645,7 +664,9 @@ const (
 type CILinearVelocityUnits = versions.CILinearVelocityUnits
 
 const (
-	CILinearVelocityUnitsMPerS  CILinearVelocityUnits = versions.CILinearVelocityUnitsMPerS
+	// CILinearVelocityUnitsMPerS is meters per second.
+	CILinearVelocityUnitsMPerS CILinearVelocityUnits = versions.CILinearVelocityUnitsMPerS
+	// CILinearVelocityUnitsInPerS is inches per second.
 	CILinearVelocityUnitsInPerS CILinearVelocityUnits = versions.CILinearVelocityUnitsInPerS
 )
 
@@ -653,8 +674,11 @@ const (
 type CIAngularVelocityUnits = versions.CIAngularVelocityUnits
 
 const (
-	CIAngularVelocityUnitsRpm              CIAngularVelocityUnits = versions.CIAngularVelocityUnitsRpm
+	// CIAngularVelocityUnitsRpm is revolutions per minute.
+	CIAngularVelocityUnitsRpm CIAngularVelocityUnits = versions.CIAngularVelocityUnitsRpm
+	// CIAngularVelocityUnitsRadiansPerSecond is radians per second.
 	CIAngularVelocityUnitsRadiansPerSecond CIAngularVelocityUnits = versions.CIAngularVelocityUnitsRadiansPerSecond
+	// CIAngularVelocityUnitsDegreesPerSecond is degrees per second.
 	CIAngularVelocityUnitsDegreesPerSecond CIAngularVelocityUnits = versions.CIAngularVelocityUnitsDegreesPerSecond
 )
 
@@ -662,28 +686,38 @@ const (
 type CILinearPositionUnits = versions.CILinearPositionUnits
 
 const (
+	// CILinearPositionUnitsMeters is meters.
 	CILinearPositionUnitsMeters CILinearPositionUnits = versions.CILinearPositionUnitsMeters
+	// CILinearPositionUnitsInches is inches.
 	CILinearPositionUnitsInches CILinearPositionUnits = versions.CILinearPositionUnitsInches
-	CILinearPositionUnitsTicks  CILinearPositionUnits = versions.CILinearPositionUnitsTicks
+	// CILinearPositionUnitsTicks is ticks.
+	CILinearPositionUnitsTicks CILinearPositionUnits = versions.CILinearPositionUnitsTicks
 )
 
 // CIAngularPositionUnits are the units of an angular position measurement.
 type CIAngularPositionUnits = versions.CIAngularPositionUnits
 
 const (
+	// CIAngularPositionUnitsDegrees is degrees.
 	CIAngularPositionUnitsDegrees CIAngularPositionUnits = versions.CIAngularPositionUnitsDegrees
+	// CIAngularPositionUnitsRadians is radians.
 	CIAngularPositionUnitsRadians CIAngularPositionUnits = versions.CIAngularPositionUnitsRadians
-	CIAngularPositionUnitsTicks   CIAngularPositionUnits = versions.CIAngularPositionUnitsTicks
+	// CIAngularPositionUnitsTicks is ticks.
+	CIAngularPositionUnitsTicks CIAngularPositionUnits = versions.CIAngularPositionUnitsTicks
 )
 
 // ZIndexPhase selects the encoder channel states at which the Z index resets the count.
 type ZIndexPhase = versions.ZIndexPhase
 
 const (
+	// ZIndexPhaseAHighBHigh resets when signals A and B are high.
 	ZIndexPhaseAHighBHigh ZIndexPhase = versions.ZIndexPhaseAHighBHigh
-	ZIndexPhaseAHighBLow  ZIndexPhase = versions.ZIndexPhaseAHighBLow
-	ZIndexPhaseALowBHigh  ZIndexPhase = versions.ZIndexPhaseALowBHigh
-	ZIndexPhaseALowBLow   ZIndexPhase = versions.ZIndexPhaseALowBLow
+	// ZIndexPhaseAHighBLow resets when signal A is high and signal B is low.
+	ZIndexPhaseAHighBLow ZIndexPhase = versions.ZIndexPhaseAHighBLow
+	// ZIndexPhaseALowBHigh resets when signal A is low and signal B is high.
+	ZIndexPhaseALowBHigh ZIndexPhase = versions.ZIndexPhaseALowBHigh
+	// ZIndexPhaseALowBLow resets when signals A and B are low.
+	ZIndexPhaseALowBLow ZIndexPhase = versions.ZIndexPhaseALowBLow
 )
 
 // ZIndex configures the Z-index reset behavior of an encoder.
@@ -764,9 +798,13 @@ type CIDutyCycleChannel = versions.CIDutyCycleChannel
 type WaveType = versions.WaveType
 
 const (
-	WaveTypeSine     WaveType = versions.WaveTypeSine
+	// WaveTypeSine is a sine wave.
+	WaveTypeSine WaveType = versions.WaveTypeSine
+	// WaveTypeTriangle is a triangle wave.
 	WaveTypeTriangle WaveType = versions.WaveTypeTriangle
-	WaveTypeSquare   WaveType = versions.WaveTypeSquare
+	// WaveTypeSquare is a square wave.
+	WaveTypeSquare WaveType = versions.WaveTypeSquare
+	// WaveTypeSawtooth is a sawtooth wave.
 	WaveTypeSawtooth WaveType = versions.WaveTypeSawtooth
 )
 

@@ -173,6 +173,8 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
 
   afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
+    // Read before any setState below, which overwrites prevState.
+    const wasVisible = this.prevState.visible;
     i.render = render.Context.use(ctx);
     i.stopListeningRestore?.();
     i.stopListeningRestore = i.render.on2DRestore(() => {
@@ -289,7 +291,7 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
       if (this.state.visible) this.requestRender();
     });
     this.loadOlderNearTop();
-    if (!this.state.visible && !this.prevState.visible) return;
+    if (!this.state.visible && !wasVisible) return;
     this.requestRender();
   }
 

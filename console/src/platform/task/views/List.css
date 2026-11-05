@@ -9,6 +9,10 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-labjack-write-type__ao {
-    border-radius: 0;
+.console-task-list__map {
+    border-bottom: var(--pluto-border);
+
+    &:empty {
+        display: none;
+    }
 }

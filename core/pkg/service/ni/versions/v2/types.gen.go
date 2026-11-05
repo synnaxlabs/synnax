@@ -3239,7 +3239,9 @@ func (u AIChannel) Validate() error {
 type CIEdge string
 
 const (
-	CIEdgeRising  CIEdge = "Rising"
+	// CIEdgeRising is the rising edge.
+	CIEdgeRising CIEdge = "Rising"
+	// CIEdgeFalling is the falling edge.
 	CIEdgeFalling CIEdge = "Falling"
 )
 
@@ -3258,10 +3260,16 @@ func (c CIEdge) IsValid() bool {
 type CIMeasMethod string
 
 const (
-	CIMeasMethodLowFreq1Ctr  CIMeasMethod = "LowFreq1Ctr"
+	// CIMeasMethodLowFreq1Ctr uses one counter, for low frequency signals.
+	CIMeasMethodLowFreq1Ctr CIMeasMethod = "LowFreq1Ctr"
+	// CIMeasMethodHighFreq2Ctr uses two counters and a measurement time, for high
+	// frequency signals.
 	CIMeasMethodHighFreq2Ctr CIMeasMethod = "HighFreq2Ctr"
+	// CIMeasMethodLargeRng2Ctr uses two counters and divides the input signal by a
+	// divisor.
 	CIMeasMethodLargeRng2Ctr CIMeasMethod = "LargeRng2Ctr"
-	CIMeasMethodDynamicAvg   CIMeasMethod = "DynamicAvg"
+	// CIMeasMethodDynamicAvg uses dynamic averaging.
+	CIMeasMethodDynamicAvg CIMeasMethod = "DynamicAvg"
 )
 
 // IsValid reports whether c is one of the defined CIMeasMethod
@@ -3279,7 +3287,9 @@ func (c CIMeasMethod) IsValid() bool {
 type CIFreqUnits string
 
 const (
-	CIFreqUnitsHz    CIFreqUnits = "Hz"
+	// CIFreqUnitsHz is hertz.
+	CIFreqUnitsHz CIFreqUnits = "Hz"
+	// CIFreqUnitsTicks is ticks.
 	CIFreqUnitsTicks CIFreqUnits = "Ticks"
 )
 
@@ -3298,8 +3308,10 @@ func (c CIFreqUnits) IsValid() bool {
 type CITimeUnits string
 
 const (
+	// CITimeUnitsSeconds is seconds.
 	CITimeUnitsSeconds CITimeUnits = "Seconds"
-	CITimeUnitsTicks   CITimeUnits = "Ticks"
+	// CITimeUnitsTicks is ticks.
+	CITimeUnitsTicks CITimeUnits = "Ticks"
 )
 
 // IsValid reports whether c is one of the defined CITimeUnits
@@ -3317,8 +3329,11 @@ func (c CITimeUnits) IsValid() bool {
 type CICountDirection string
 
 const (
-	CICountDirectionCountUp              CICountDirection = "CountUp"
-	CICountDirectionCountDown            CICountDirection = "CountDown"
+	// CICountDirectionCountUp increments the count on each edge.
+	CICountDirectionCountUp CICountDirection = "CountUp"
+	// CICountDirectionCountDown decrements the count on each edge.
+	CICountDirectionCountDown CICountDirection = "CountDown"
+	// CICountDirectionExternallyControlled reads the direction from a digital signal.
 	CICountDirectionExternallyControlled CICountDirection = "ExternallyControlled"
 )
 
@@ -3337,9 +3352,13 @@ func (c CICountDirection) IsValid() bool {
 type CIDecodingType string
 
 const (
-	CIDecodingTypeX1       CIDecodingType = "X1"
-	CIDecodingTypeX2       CIDecodingType = "X2"
-	CIDecodingTypeX4       CIDecodingType = "X4"
+	// CIDecodingTypeX1 is X1 decoding, for quadrature encoders.
+	CIDecodingTypeX1 CIDecodingType = "X1"
+	// CIDecodingTypeX2 is X2 decoding, for quadrature encoders.
+	CIDecodingTypeX2 CIDecodingType = "X2"
+	// CIDecodingTypeX4 is X4 decoding, for quadrature encoders.
+	CIDecodingTypeX4 CIDecodingType = "X4"
+	// CIDecodingTypeTwoPulse is two pulse counting, for two pulse encoders.
 	CIDecodingTypeTwoPulse CIDecodingType = "TwoPulse"
 )
 
@@ -3358,7 +3377,9 @@ func (c CIDecodingType) IsValid() bool {
 type CILinearVelocityUnits string
 
 const (
-	CILinearVelocityUnitsMPerS  CILinearVelocityUnits = "m/s"
+	// CILinearVelocityUnitsMPerS is meters per second.
+	CILinearVelocityUnitsMPerS CILinearVelocityUnits = "m/s"
+	// CILinearVelocityUnitsInPerS is inches per second.
 	CILinearVelocityUnitsInPerS CILinearVelocityUnits = "in/s"
 )
 
@@ -3377,8 +3398,11 @@ func (c CILinearVelocityUnits) IsValid() bool {
 type CIAngularVelocityUnits string
 
 const (
-	CIAngularVelocityUnitsRpm              CIAngularVelocityUnits = "RPM"
+	// CIAngularVelocityUnitsRpm is revolutions per minute.
+	CIAngularVelocityUnitsRpm CIAngularVelocityUnits = "RPM"
+	// CIAngularVelocityUnitsRadiansPerSecond is radians per second.
 	CIAngularVelocityUnitsRadiansPerSecond CIAngularVelocityUnits = "Radians/s"
+	// CIAngularVelocityUnitsDegreesPerSecond is degrees per second.
 	CIAngularVelocityUnitsDegreesPerSecond CIAngularVelocityUnits = "Degrees/s"
 )
 
@@ -3397,9 +3421,12 @@ func (c CIAngularVelocityUnits) IsValid() bool {
 type CILinearPositionUnits string
 
 const (
+	// CILinearPositionUnitsMeters is meters.
 	CILinearPositionUnitsMeters CILinearPositionUnits = "Meters"
+	// CILinearPositionUnitsInches is inches.
 	CILinearPositionUnitsInches CILinearPositionUnits = "Inches"
-	CILinearPositionUnitsTicks  CILinearPositionUnits = "Ticks"
+	// CILinearPositionUnitsTicks is ticks.
+	CILinearPositionUnitsTicks CILinearPositionUnits = "Ticks"
 )
 
 // IsValid reports whether c is one of the defined CILinearPositionUnits
@@ -3417,9 +3444,12 @@ func (c CILinearPositionUnits) IsValid() bool {
 type CIAngularPositionUnits string
 
 const (
+	// CIAngularPositionUnitsDegrees is degrees.
 	CIAngularPositionUnitsDegrees CIAngularPositionUnits = "Degrees"
+	// CIAngularPositionUnitsRadians is radians.
 	CIAngularPositionUnitsRadians CIAngularPositionUnits = "Radians"
-	CIAngularPositionUnitsTicks   CIAngularPositionUnits = "Ticks"
+	// CIAngularPositionUnitsTicks is ticks.
+	CIAngularPositionUnitsTicks CIAngularPositionUnits = "Ticks"
 )
 
 // IsValid reports whether c is one of the defined CIAngularPositionUnits
@@ -3437,10 +3467,14 @@ func (c CIAngularPositionUnits) IsValid() bool {
 type ZIndexPhase string
 
 const (
+	// ZIndexPhaseAHighBHigh resets when signals A and B are high.
 	ZIndexPhaseAHighBHigh ZIndexPhase = "AHighBHigh"
-	ZIndexPhaseAHighBLow  ZIndexPhase = "AHighBLow"
-	ZIndexPhaseALowBHigh  ZIndexPhase = "ALowBHigh"
-	ZIndexPhaseALowBLow   ZIndexPhase = "ALowBLow"
+	// ZIndexPhaseAHighBLow resets when signal A is high and signal B is low.
+	ZIndexPhaseAHighBLow ZIndexPhase = "AHighBLow"
+	// ZIndexPhaseALowBHigh resets when signal A is low and signal B is high.
+	ZIndexPhaseALowBHigh ZIndexPhase = "ALowBHigh"
+	// ZIndexPhaseALowBLow resets when signals A and B are low.
+	ZIndexPhaseALowBLow ZIndexPhase = "ALowBLow"
 )
 
 // IsValid reports whether z is one of the defined ZIndexPhase
@@ -4399,9 +4433,13 @@ func (u *CIChannel) SetBase(base BaseCIChannel) {
 type WaveType string
 
 const (
-	WaveTypeSine     WaveType = "Sine"
+	// WaveTypeSine is a sine wave.
+	WaveTypeSine WaveType = "Sine"
+	// WaveTypeTriangle is a triangle wave.
 	WaveTypeTriangle WaveType = "Triangle"
-	WaveTypeSquare   WaveType = "Square"
+	// WaveTypeSquare is a square wave.
+	WaveTypeSquare WaveType = "Square"
+	// WaveTypeSawtooth is a sawtooth wave.
 	WaveTypeSawtooth WaveType = "Sawtooth"
 )
 
