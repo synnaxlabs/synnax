@@ -9,14 +9,7 @@
 
 import { eq } from "drizzle-orm";
 
-import { type Store } from "@/server/db/db";
-import {
-  type Activation,
-  activation,
-  event,
-  type License,
-  license,
-} from "@/server/db/schema";
+import { schema, type Store } from "@/server/db";
 import { badRequest, notFound } from "@/server/errors";
 import { build } from "@/server/license/claims";
 import { type Denial, DENIAL_MESSAGES, deny } from "@/server/license/deny";
@@ -26,17 +19,17 @@ import { sign, type Signer } from "@/server/license/sign";
  * requireEnterprise throws a 400 when `lic` is a Synnax Desktop license. Only the
  * Desktop app activates, renews, and releases those.
  */
-export const requireEnterprise = (lic: License): void => {
+export const requireEnterprise = (lic: schema.License): void => {
   if (lic.edition === "desktop")
     throw badRequest("A Synnax Desktop license is managed from the Desktop app");
 };
 
 export type Decision =
-  { ok: true; existing?: Activation } | { ok: false; reason: Denial };
+  { ok: true; existing?: schema.Activation } | { ok: false; reason: Denial };
 
 export interface DecideArgs {
-  license: License;
-  activations: Activation[];
+  license: schema.License;
+  activations: schema.Activation[];
   fingerprint: string[];
   now: Date;
 }
@@ -71,7 +64,8 @@ export interface ActivateArgs {
 }
 
 export type Result =
-  { ok: true; activation: Activation; key: string } | { ok: false; reason: Denial };
+  | { ok: true; activation: schema.Activation; key: string }
+  | { ok: false; reason: Denial };
 
 /**
  * activate grants or refreshes a seat for a machine and signs its license key. The seat
@@ -87,18 +81,18 @@ export const activate = async (
   await store.transact(async (tx) => {
     const [lic] = await tx
       .select()
-      .from(license)
-      .where(eq(license.key, licenseKey))
+      .from(schema.license)
+      .where(eq(schema.license.key, licenseKey))
       .for("update");
     if (lic == null) throw notFound("License");
     requireEnterprise(lic);
     const activations = await tx
       .select()
-      .from(activation)
-      .where(eq(activation.license, licenseKey));
+      .from(schema.activation)
+      .where(eq(schema.activation.license, licenseKey));
     const decision = decide({ license: lic, activations, fingerprint, now });
     if (!decision.ok) {
-      await tx.insert(event).values({
+      await tx.insert(schema.event).values({
         at: now,
         kind: "activate_denied",
         actor,
@@ -111,7 +105,7 @@ export const activate = async (
     const [act] =
       decision.existing == null
         ? await tx
-            .insert(activation)
+            .insert(schema.activation)
             .values({
               license: lic.key,
               fingerprint,
@@ -121,11 +115,11 @@ export const activate = async (
             })
             .returning()
         : await tx
-            .update(activation)
+            .update(schema.activation)
             .set({ lastSeen: now, name })
-            .where(eq(activation.key, decision.existing.key))
+            .where(eq(schema.activation.key, decision.existing.key))
             .returning();
-    await tx.insert(event).values({
+    await tx.insert(schema.event).values({
       at: now,
       kind: "activate",
       actor,
@@ -153,12 +147,12 @@ export const reissue = async (
   store: Store,
   signer: Signer,
   { activationKey, actor, now }: ReissueArgs,
-): Promise<{ license: License; key: string }> => {
+): Promise<{ license: schema.License; key: string }> => {
   const [row] = await store.query
-    .select({ activation, license })
-    .from(activation)
-    .innerJoin(license, eq(activation.license, license.key))
-    .where(eq(activation.key, activationKey));
+    .select({ activation: schema.activation, license: schema.license })
+    .from(schema.activation)
+    .innerJoin(schema.license, eq(schema.activation.license, schema.license.key))
+    .where(eq(schema.activation.key, activationKey));
   if (row == null || row.activation.releasedAt != null) throw notFound("Activation");
   requireEnterprise(row.license);
   const decision = decide({
@@ -173,10 +167,10 @@ export const reissue = async (
     build({ license: row.license, fingerprint: row.activation.fingerprint, now }),
   );
   await store.query
-    .update(activation)
+    .update(schema.activation)
     .set({ lastSeen: now })
-    .where(eq(activation.key, activationKey));
-  await store.query.insert(event).values({
+    .where(eq(schema.activation.key, activationKey));
+  await store.query.insert(schema.event).values({
     at: now,
     kind: "download",
     actor,
@@ -200,18 +194,18 @@ export const release = async (
   { activationKey, actor, now }: ReleaseArgs,
 ): Promise<void> => {
   const [row] = await store.query
-    .select({ activation, license })
-    .from(activation)
-    .innerJoin(license, eq(activation.license, license.key))
-    .where(eq(activation.key, activationKey));
+    .select({ activation: schema.activation, license: schema.license })
+    .from(schema.activation)
+    .innerJoin(schema.license, eq(schema.activation.license, schema.license.key))
+    .where(eq(schema.activation.key, activationKey));
   if (row == null) throw notFound("Activation");
   requireEnterprise(row.license);
   if (row.activation.releasedAt != null) return;
   await store.query
-    .update(activation)
+    .update(schema.activation)
     .set({ releasedAt: now })
-    .where(eq(activation.key, activationKey));
-  await store.query.insert(event).values({
+    .where(eq(schema.activation.key, activationKey));
+  await store.query.insert(schema.event).values({
     at: now,
     kind: "release",
     actor,

@@ -10,7 +10,7 @@
 import { eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { activation, event, license, type Organization } from "@/server/db/schema";
+import { schema } from "@/server/db";
 import { failingEvents, type Memory, openMemory } from "@/server/db/testutil";
 import {
   amend,
@@ -133,7 +133,7 @@ describe("issue.changes", () => {
 describe("issue", () => {
   let store: Memory;
   let signer: Signer;
-  let org: Organization;
+  let org: schema.Organization;
   beforeAll(async () => {
     store = await openMemory();
     signer = createHarness(store).portal.signer;
@@ -143,9 +143,12 @@ describe("issue", () => {
     org = await createOrganization(store, { kind: "team", clerkOrgID: "org_a" });
   });
 
-  const events = async () => await store.query.select().from(event);
+  const events = async () => await store.query.select().from(schema.event);
   const stored = async (key: string) => {
-    const [row] = await store.query.select().from(license).where(eq(license.key, key));
+    const [row] = await store.query
+      .select()
+      .from(schema.license)
+      .where(eq(schema.license.key, key));
     return row;
   };
 
@@ -158,7 +161,7 @@ describe("issue", () => {
           async () => await issue(store, { ...base, organization: org.key }),
         ),
       ).rejects.toThrow();
-      expect(await store.query.select().from(license)).toEqual([]);
+      expect(await store.query.select().from(schema.license)).toEqual([]);
     });
 
     it("should record a subscription and its issue event", async () => {
@@ -219,7 +222,7 @@ describe("issue", () => {
         status: 400,
         message: "Nodes must be a whole number of at least 1",
       });
-      expect(await store.query.select().from(license)).toHaveLength(0);
+      expect(await store.query.select().from(schema.license)).toHaveLength(0);
       expect(await events()).toHaveLength(0);
     });
   });
@@ -523,8 +526,8 @@ describe("issue", () => {
       await restore(store, { licenseKey: lic.key, actor: "user_staff", now: NOW });
       const [after] = await store.query
         .select()
-        .from(activation)
-        .where(eq(activation.key, held.key));
+        .from(schema.activation)
+        .where(eq(schema.activation.key, held.key));
       expect(after).toEqual(held);
     });
 

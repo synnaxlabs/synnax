@@ -9,11 +9,11 @@
 
 import { type license as client } from "@synnaxlabs/client";
 
-import { type Activation, type License } from "@/server/db/schema";
+import { type schema } from "@/server/db";
 
 export const NOW = new Date("2026-09-17T12:00:00Z");
 
-export const LICENSE: License = {
+export const LICENSE: schema.License = {
   key: "0f2c6a7e-6b1a-4c1d-9c3e-1f1f0b7a2d11",
   organization: "64156293-6534-416c-99d1-8db73a22ca6a",
   edition: "enterprise",
@@ -34,8 +34,8 @@ export const HASH_C = "c".repeat(64);
 
 export const activationOf = (
   fingerprint: string[],
-  overrides: Partial<Activation> = {},
-): Activation => ({
+  overrides: Partial<schema.Activation> = {},
+): schema.Activation => ({
   key: crypto.randomUUID(),
   license: LICENSE.key,
   fingerprint,

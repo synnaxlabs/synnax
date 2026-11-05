@@ -9,15 +9,7 @@
 
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
 
-import { type Store } from "@/server/db/db";
-import {
-  activation,
-  type Edition,
-  event,
-  type License,
-  license,
-  type Term,
-} from "@/server/db/schema";
+import { schema, type Store } from "@/server/db";
 import { badRequest, notFound } from "@/server/errors";
 import { requireEnterprise } from "@/server/license/activate";
 import { build } from "@/server/license/claims";
@@ -27,7 +19,7 @@ import { sign, type Signer } from "@/server/license/sign";
 
 /** Terms are the fields staff set when issuing a license and may change later. */
 export interface Terms {
-  term: Term;
+  term: schema.Term;
   nodes: number;
   channels: number;
   label: string;
@@ -39,7 +31,7 @@ export interface Terms {
 
 export interface IssueArgs extends Terms {
   organization: string;
-  edition: Edition;
+  edition: schema.Edition;
   actor: string;
   now: Date;
 }
@@ -82,11 +74,11 @@ export const validate = (args: Terms & { now: Date }): void => {
   }
 };
 
-export const issue = async (store: Store, args: IssueArgs): Promise<License> => {
+export const issue = async (store: Store, args: IssueArgs): Promise<schema.License> => {
   validate(args);
   return await store.transact(async (tx) => {
     const [row] = await tx
-      .insert(license)
+      .insert(schema.license)
       .values({
         organization: args.organization,
         edition: args.edition,
@@ -100,7 +92,7 @@ export const issue = async (store: Store, args: IssueArgs): Promise<License> => 
         issuedAt: args.now,
       })
       .returning();
-    await tx.insert(event).values({
+    await tx.insert(schema.event).values({
       at: args.now,
       kind: "issue",
       actor: args.actor,
@@ -132,7 +124,10 @@ const readable = (value: unknown): unknown =>
   value instanceof Date ? value.toISOString() : value;
 
 /** changes lists what an amendment altered, each field as its before and after. */
-export const changes = (before: License, after: License): Record<string, unknown> => {
+export const changes = (
+  before: schema.License,
+  after: schema.License,
+): Record<string, unknown> => {
   const out: Record<string, unknown> = {};
   for (const field of CHANGEABLE) {
     const from = readable(before[field]);
@@ -151,15 +146,15 @@ export const changes = (before: License, after: License): Record<string, unknown
 export const amend = async (
   store: Store,
   { licenseKey, actor, now, ...terms }: AmendArgs,
-): Promise<License> => {
+): Promise<schema.License> => {
   validate({ ...terms, now });
   return await store.transact(async (tx) => {
     // Holds the lock activate takes, so no seat is granted between the count and
     // the update.
     const [before] = await tx
       .select()
-      .from(license)
-      .where(eq(license.key, licenseKey))
+      .from(schema.license)
+      .where(eq(schema.license.key, licenseKey))
       .for("update");
     if (before == null) throw notFound("License");
     requireEnterprise(before);
@@ -167,15 +162,20 @@ export const amend = async (
       throw badRequest("A revoked license cannot be changed");
     const held = await tx
       .select()
-      .from(activation)
-      .where(and(eq(activation.license, licenseKey), isNull(activation.releasedAt)));
+      .from(schema.activation)
+      .where(
+        and(
+          eq(schema.activation.license, licenseKey),
+          isNull(schema.activation.releasedAt),
+        ),
+      );
     if (terms.nodes < held.length)
       throw badRequest(
         `${held.length} machines hold a seat. Release one before lowering the limit ` +
           `to ${terms.nodes}.`,
       );
     const [after] = await tx
-      .update(license)
+      .update(schema.license)
       .set({
         term: terms.term,
         nodes: terms.nodes,
@@ -184,9 +184,9 @@ export const amend = async (
         expiresAt: terms.expiresAt ?? null,
         maxVersion: terms.maxVersion ?? null,
       })
-      .where(eq(license.key, licenseKey))
+      .where(eq(schema.license.key, licenseKey))
       .returning();
-    await tx.insert(event).values({
+    await tx.insert(schema.event).values({
       at: now,
       kind: "amend",
       actor,
@@ -212,22 +212,22 @@ export interface RevokeArgs {
 export const revoke = async (
   store: Store,
   { licenseKey, actor, now }: RevokeArgs,
-): Promise<License> =>
+): Promise<schema.License> =>
   await store.transact(async (tx) => {
     const [row] = await tx
-      .update(license)
+      .update(schema.license)
       .set({ revokedAt: now })
-      .where(and(eq(license.key, licenseKey), isNull(license.revokedAt)))
+      .where(and(eq(schema.license.key, licenseKey), isNull(schema.license.revokedAt)))
       .returning();
     if (row == null) {
       const [existing] = await tx
-        .select({ key: license.key })
-        .from(license)
-        .where(eq(license.key, licenseKey));
+        .select({ key: schema.license.key })
+        .from(schema.license)
+        .where(eq(schema.license.key, licenseKey));
       if (existing == null) throw notFound("License");
       throw badRequest("This license is already revoked");
     }
-    await tx.insert(event).values({
+    await tx.insert(schema.event).values({
       at: now,
       kind: "revoke",
       actor,
@@ -253,29 +253,29 @@ export interface RestoreArgs {
 export const restore = async (
   store: Store,
   { licenseKey, actor, now }: RestoreArgs,
-): Promise<License> =>
+): Promise<schema.License> =>
   await store.transact(async (tx) => {
     const [row] = await tx
-      .update(license)
+      .update(schema.license)
       .set({ revokedAt: null })
       .where(
         and(
-          eq(license.key, licenseKey),
-          eq(license.edition, "enterprise"),
-          isNotNull(license.revokedAt),
+          eq(schema.license.key, licenseKey),
+          eq(schema.license.edition, "enterprise"),
+          isNotNull(schema.license.revokedAt),
         ),
       )
       .returning();
     if (row == null) {
       const [existing] = await tx
         .select()
-        .from(license)
-        .where(eq(license.key, licenseKey));
+        .from(schema.license)
+        .where(eq(schema.license.key, licenseKey));
       if (existing == null) throw notFound("License");
       requireEnterprise(existing);
       throw badRequest("This license is not revoked");
     }
-    await tx.insert(event).values({
+    await tx.insert(schema.event).values({
       at: now,
       kind: "restore",
       actor,
@@ -295,14 +295,14 @@ export const remove = async (store: Store, licenseKey: string): Promise<void> =>
   await store.transact(async (tx) => {
     // Holds the lock activate takes, so no machine takes a seat during the delete.
     const [row] = await tx
-      .select({ key: license.key })
-      .from(license)
-      .where(eq(license.key, licenseKey))
+      .select({ key: schema.license.key })
+      .from(schema.license)
+      .where(eq(schema.license.key, licenseKey))
       .for("update");
     if (row == null) throw notFound("License");
-    await tx.delete(event).where(eq(event.license, licenseKey));
-    await tx.delete(activation).where(eq(activation.license, licenseKey));
-    await tx.delete(license).where(eq(license.key, licenseKey));
+    await tx.delete(schema.event).where(eq(schema.event.license, licenseKey));
+    await tx.delete(schema.activation).where(eq(schema.activation.license, licenseKey));
+    await tx.delete(schema.license).where(eq(schema.license.key, licenseKey));
   });
 
 export interface FloatingArgs {
@@ -322,14 +322,14 @@ export const floating = async (
 ): Promise<string> => {
   const [row] = await store.query
     .select()
-    .from(license)
-    .where(eq(license.key, licenseKey));
+    .from(schema.license)
+    .where(eq(schema.license.key, licenseKey));
   if (row == null) throw notFound("License");
   requireEnterprise(row);
   const denial = deny(row, now);
   if (denial != null) throw badRequest(DENIAL_MESSAGES[denial]);
   const signed = await sign(signer, build({ license: row, fingerprint: [], now }));
-  await store.query.insert(event).values({
+  await store.query.insert(schema.event).values({
     at: now,
     kind: "download",
     actor,
