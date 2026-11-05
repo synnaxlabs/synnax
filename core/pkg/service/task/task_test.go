@@ -57,6 +57,7 @@ var _ = Describe("Task", Ordered, func() {
 		testRack    *rack.Rack
 		stat        *status.Service
 		configs     config.Registry
+		link        func(context.Context, gorp.Tx, task.Task) error
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
@@ -100,6 +101,12 @@ var _ = Describe("Task", Ordered, func() {
 			Status:   stat,
 			ImEx:     imex.NewService(),
 			Configs:  configs,
+			Link: func(ctx context.Context, tx gorp.Tx, t task.Task) error {
+				if link == nil {
+					return nil
+				}
+				return link(ctx, tx, t)
+			},
 		}))
 		testRack = &rack.Rack{Name: "Test Rack"}
 		Expect(rackService.NewWriter(db).Create(ctx, testRack)).To(Succeed())
@@ -560,6 +567,104 @@ var _ = Describe("Task", Ordered, func() {
 				tasks[1].Key,
 			)).Entries(&retrieved).Exec(ctx, tx)).To(Succeed())
 			Expect(retrieved).To(HaveLen(2))
+		})
+	})
+
+	Describe("Link", func() {
+		var (
+			calls   []task.Task
+			linkErr error
+			stored  *task.Task
+		)
+		newTask := func() *task.Task {
+			return &task.Task{
+				Type:   testType,
+				Rack:   testRack.Key,
+				Name:   "Linked",
+				Config: msgpack.EncodedJSON{"routing_key": "rk-1"},
+			}
+		}
+		setRoutingKey := []task.Action{task.NewSetAction(task.SetPayload{
+			Path:  []string{"config", "routing_key"},
+			Value: "rk-2",
+		})}
+		retrieveRoutingKey := func(ctx context.Context) any {
+			GinkgoHelper()
+			var res task.Task
+			Expect(svc.NewRetrieve().
+				Where(task.MatchKeys(stored.Key)).
+				Entry(&res).
+				Exec(ctx, nil)).To(Succeed())
+			return res.Config["routing_key"]
+		}
+		BeforeEach(func(ctx SpecContext) {
+			stored = newTask()
+			Expect(svc.NewWriter(nil).Create(ctx, stored)).To(Succeed())
+			calls, linkErr = nil, nil
+			link = func(_ context.Context, _ gorp.Tx, t task.Task) error {
+				calls = append(calls, t)
+				return linkErr
+			}
+			DeferCleanup(func() { link = nil })
+		})
+		It("Should run with the stored task on a create", func(ctx SpecContext) {
+			t := newTask()
+			Expect(svc.NewWriter(nil).Create(ctx, t)).To(Succeed())
+			Expect(calls).To(HaveLen(1))
+			Expect(calls[0].Key).To(Equal(t.Key))
+			Expect(calls[0].Config).To(HaveKeyWithValue("routing_key", "rk-1"))
+		})
+		It("Should abort a create when it fails", func(ctx SpecContext) {
+			t := newTask()
+			t.Key = uuid.New()
+			linkErr = validate.ErrValidation
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, t)
+			})).To(MatchError(validate.ErrValidation))
+			Expect(svc.NewRetrieve().
+				Where(task.MatchKeys(t.Key)).
+				Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+		})
+		It("Should run with the new config on a dispatch", func(ctx SpecContext) {
+			MustSucceed(svc.Dispatch(ctx, stored.Key, "", setRoutingKey))
+			Expect(calls).To(HaveLen(1))
+			Expect(calls[0].Key).To(Equal(stored.Key))
+			Expect(calls[0].Config).To(HaveKeyWithValue("routing_key", "rk-2"))
+		})
+		It("Should not run on a dispatch that keeps the config", func(ctx SpecContext) {
+			MustSucceed(svc.Dispatch(ctx, stored.Key, "", []task.Action{
+				task.NewSetAction(task.SetPayload{
+					Path:  []string{"name"},
+					Value: "Renamed",
+				}),
+			}))
+			Expect(calls).To(BeEmpty())
+		})
+		It("Should abort a dispatch when it fails", func(ctx SpecContext) {
+			linkErr = validate.ErrValidation
+			Expect(svc.Dispatch(ctx, stored.Key, "", setRoutingKey)).
+				Error().To(MatchError(validate.ErrValidation))
+			Expect(retrieveRoutingKey(ctx)).To(Equal("rk-1"))
+		})
+		It("Should run with the config of a copy", func(ctx SpecContext) {
+			c := MustSucceed(svc.NewWriter(nil).Copy(ctx, stored.Key, "Copy", false))
+			Expect(calls).To(HaveLen(1))
+			Expect(calls[0].Key).To(Equal(c.Key))
+			Expect(calls[0].Config).To(HaveKeyWithValue("routing_key", "rk-1"))
+		})
+		It("Should abort a copy when it fails", func(ctx SpecContext) {
+			const name = "Aborted copy"
+			linkErr = validate.ErrValidation
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				_, err := svc.NewWriter(tx).Copy(ctx, stored.Key, name, false)
+				return err
+			})).To(MatchError(validate.ErrValidation))
+			var copies []task.Task
+			Expect(svc.NewRetrieve().
+				Where(task.MatchNames(name)).
+				Entries(&copies).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(copies).To(BeEmpty())
 		})
 	})
 
