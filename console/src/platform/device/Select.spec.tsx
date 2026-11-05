@@ -31,8 +31,10 @@ const RackProbe = (): ReactElement => {
 };
 RackProbe.displayName = "RackProbe";
 
+const DEVICE_ICON = <Icon.Device />;
+
 const renderSelect = async ({
-  icon = <Icon.Device />,
+  icon = DEVICE_ICON,
   ...props
 }: Omit<Device.SelectProps, "icon"> &
   Partial<Pick<Device.SelectProps, "icon">>): ReturnType<typeof renderWithDeviceForm> =>
