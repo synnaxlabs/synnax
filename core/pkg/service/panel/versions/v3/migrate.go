@@ -25,8 +25,8 @@ func MigratePanel(ctx context.Context, old v2.Panel) (Panel, error) {
 
 var Migration = migrate.NewEntry("v61_add_group", MigratePanel)
 
-// MembersMigration sets the group of each stored panel from the ontology edge
-// that placed it in a group.
+// MembersMigration sets the group of each stored panel from the ontology edge that
+// placed it in a group.
 var MembersMigration = groupv1.NewMembersMigration(groupv1.MembersConfig[Key, Panel]{
 	Name:         "v61_panel_group_membership",
 	Type:         resource.TypePanel,

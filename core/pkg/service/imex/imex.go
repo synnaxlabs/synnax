@@ -384,8 +384,7 @@ func flattenStruct(rv reflect.Value, m map[string]any) {
 }
 
 // ImportOptions carries the per-request settings for an import that arrive out-of-band
-// from the envelope body — transport metadata like the source file's name, the parent
-// resource, and the group.
+// from the envelope body: the source file's name, the parent resource, and the group.
 type ImportOptions struct {
 	// FileName is the name of the file the envelope was read from, possibly carrying
 	// directory segments. When the envelope body has no `name` field, the file's base

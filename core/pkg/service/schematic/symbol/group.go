@@ -48,9 +48,8 @@ func (s *Service) RetrieveGroupSymbols(
 
 // DeleteGroup deletes the symbols that ids names, then the group identified by key.
 // Pass the ids RetrieveGroupSymbols returned under tx, so the symbols removed and the
-// symbols
-// the caller enforced access on come from one snapshot. It returns a validation error
-// when the group still holds anything after the symbols are deleted.
+// symbols the caller enforced access on come from one snapshot. It returns a validation
+// error when the group still holds anything after the symbols are deleted.
 func (s *Service) DeleteGroup(
 	ctx context.Context,
 	tx gorp.Tx,

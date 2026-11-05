@@ -22,4 +22,9 @@ Group struct extends v0.Group {
     parent resource.ID?  {
         @doc value "is the group, project, or rack the group sits in, if any."
     }
+
+    @doc value """
+        is a named folder that holds records of the types its scope allows. A group sits
+        in its parent, or at the top of its tree when it has none.
+    """
 }

@@ -20,8 +20,8 @@ import (
 // Key is a unique identifier for a group, represented as a UUID.
 type Key = v0.Key
 
-// Group is a named collection container for organizing related resources. Groups
-// provide hierarchical organization through the ontology system.
+// Group is a named folder that holds records of the types its scope allows. A group
+// sits in its parent, or at the top of its tree when it has none.
 type Group struct {
 	// Key is the unique identifier for this group.
 	Key Key `json:"key" msgpack:"key"`

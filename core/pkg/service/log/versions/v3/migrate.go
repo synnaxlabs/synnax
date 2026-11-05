@@ -48,8 +48,8 @@ func MigrateChannelEntry(
 // Migration lifts stored logs from v2 to v3.
 var Migration = migrate.NewEntry("v60_optional_channel_precision", MigrateLog)
 
-// MembersMigration sets the group of each stored log from the ontology edge
-// that placed it in a group.
+// MembersMigration sets the group of each stored log from the ontology edge that placed
+// it in a group.
 var MembersMigration = groupv1.NewMembersMigration(groupv1.MembersConfig[Key, Log]{
 	Name:         "v61_log_group_membership",
 	Type:         resource.TypeLog,

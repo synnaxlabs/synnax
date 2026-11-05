@@ -242,7 +242,6 @@ func (w *bundleWalk) children(
 			return nil, err
 		}
 		ids = group.ResourceIDsFromGroups(groups)
-		// PR 6 replaces the ontology read with a project field on each member.
 		var members []ontology.Resource
 		if err := w.svc.cfg.Ontology.NewRetrieve().
 			WhereIDs(parent).

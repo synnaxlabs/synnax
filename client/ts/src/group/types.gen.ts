@@ -17,8 +17,8 @@ export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
 /**
- * Group is a named collection container for organizing related resources. Groups
- * provide hierarchical organization through the ontology system.
+ * Group is a named folder that holds records of the types its scope allows. A group
+ * sits in its parent, or at the top of its tree when it has none.
  */
 export const groupZ = z.object({
   /** key is the unique identifier for this group. */

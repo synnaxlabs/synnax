@@ -265,8 +265,8 @@ var StrokeWidthMigration = migrate.NewEntry(
 	RaiseStrokeWidths,
 )
 
-// MembersMigration sets the group of each stored lineplot from the ontology edge
-// that placed it in a group.
+// MembersMigration sets the group of each stored lineplot from the ontology edge that
+// placed it in a group.
 var MembersMigration = groupv1.NewMembersMigration(groupv1.MembersConfig[Key, LinePlot]{
 	Name:         "v61_lineplot_group_membership",
 	Type:         resource.TypeLineplot,

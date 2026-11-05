@@ -43,8 +43,8 @@ Group struct {
     }
 
     @doc value     """
-        is a named collection container for organizing related resources. Groups provide
-        hierarchical organization through the ontology system.
+        is a named folder that holds records of the types its scope allows. A group sits
+        in its parent, or at the top of its tree when it has none.
     """
     @go marshal
     @go migrate

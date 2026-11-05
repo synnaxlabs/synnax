@@ -17,8 +17,8 @@ import (
 
 var Migration = migrate.NewEntry("v61_add_group", autoMigrateDevice)
 
-// MembersMigration sets the group of each stored device from the ontology edge
-// that placed it in a group.
+// MembersMigration sets the group of each stored device from the ontology edge that
+// placed it in a group.
 var MembersMigration = groupv1.NewMembersMigration(groupv1.MembersConfig[Key, Device]{
 	Name:         "v61_device_group_membership",
 	Type:         resource.TypeDevice,

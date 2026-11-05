@@ -17,8 +17,8 @@ import (
 
 var Migration = migrate.NewEntry("v61_add_group", autoMigrateRack)
 
-// MembersMigration sets the group of each stored rack from the ontology edge
-// that placed it in a group.
+// MembersMigration sets the group of each stored rack from the ontology edge that
+// placed it in a group.
 var MembersMigration = groupv1.NewMembersMigration(groupv1.MembersConfig[Key, Rack]{
 	Name:         "v61_rack_group_membership",
 	Type:         resource.TypeRack,

@@ -17,8 +17,8 @@ import (
 
 var Migration = migrate.NewEntry("v61_add_group", autoMigrateProject)
 
-// MembersMigration sets the group of each stored project from the ontology edge
-// that placed it in a group.
+// MembersMigration sets the group of each stored project from the ontology edge that
+// placed it in a group.
 var MembersMigration = groupv1.NewMembersMigration(groupv1.MembersConfig[Key, Project]{
 	Name:         "v61_project_group_membership",
 	Type:         resource.TypeProject,

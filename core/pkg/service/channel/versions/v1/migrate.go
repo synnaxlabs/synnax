@@ -17,8 +17,8 @@ import (
 
 var Migration = migrate.NewEntry("v61_add_group", autoMigrateChannel)
 
-// MembersMigration sets the group of each stored channel from the ontology edge
-// that placed it in a group.
+// MembersMigration sets the group of each stored channel from the ontology edge that
+// placed it in a group.
 var MembersMigration = groupv1.NewMembersMigration(groupv1.MembersConfig[Key, Channel]{
 	Name:         "v61_channel_group_membership",
 	Type:         resource.TypeChannel,

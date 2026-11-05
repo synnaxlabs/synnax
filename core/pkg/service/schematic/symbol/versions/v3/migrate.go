@@ -26,8 +26,7 @@ func MigrateSymbol(ctx context.Context, old v2.Symbol) (Symbol, error) {
 var Migration = migrate.NewEntry("v61_add_group", MigrateSymbol)
 
 // MembersMigration sets the group of each stored schematic symbol from the ontology
-// edge
-// that placed it in a group.
+// edge that placed it in a group.
 var MembersMigration = groupv1.NewMembersMigration(groupv1.MembersConfig[Key, Symbol]{
 	Name:         "v61_schematic_symbol_group_membership",
 	Type:         resource.TypeSchematicSymbol,

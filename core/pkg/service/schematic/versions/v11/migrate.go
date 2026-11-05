@@ -25,8 +25,8 @@ func MigrateSchematic(ctx context.Context, old v10.Schematic) (Schematic, error)
 
 var Migration = migrate.NewEntry("v61_add_group", MigrateSchematic)
 
-// MembersMigration sets the group of each stored schematic from the ontology edge
-// that placed it in a group.
+// MembersMigration sets the group of each stored schematic from the ontology edge that
+// placed it in a group.
 var MembersMigration = groupv1.NewMembersMigration(
 	groupv1.MembersConfig[Key, Schematic]{
 		Name:         "v61_schematic_group_membership",

@@ -16,6 +16,6 @@ import "github.com/synnaxlabs/synnax/pkg/service/group/versions"
 // Key is a unique identifier for a group, represented as a UUID.
 type Key = versions.Key
 
-// Group is a named collection container for organizing related resources. Groups
-// provide hierarchical organization through the ontology system.
+// Group is a named folder that holds records of the types its scope allows. A group
+// sits in its parent, or at the top of its tree when it has none.
 type Group = versions.Group
