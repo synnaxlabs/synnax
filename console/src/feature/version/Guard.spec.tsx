@@ -8,9 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { connection } from "@synnaxlabs/client";
-import { Synnax } from "@synnaxlabs/pluto";
-import { fireEvent, render, screen } from "@testing-library/react";
-import { type ReactElement } from "react";
+import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Version } from "@/feature/version";
@@ -22,9 +20,9 @@ import {
   createCoreState,
 } from "@/session/core/testutil";
 import {
-  createConsoleWrapper,
   INCOMPATIBLE_UNLICENSED_STATUS,
-  type TestStore,
+  renderWithStatus,
+  type StatusHarness,
 } from "@/testutil";
 
 const WORKSPACE = "workspace";
@@ -52,29 +50,17 @@ const COMPATIBLE_STATUS: connection.Status = {
   },
 };
 
-interface GuardHarness {
-  store: TestStore;
-  setStatus: (status: connection.Status) => void;
-}
-
 const renderGuard = async (
   status: connection.Status,
   secure: boolean = false,
-): Promise<GuardHarness> => {
+): Promise<StatusHarness> => {
   const core = createCore("Local", { secure });
-  const { wrapper, store } = await createConsoleWrapper({
-    client: null,
-    preloadedState: createCoreState([core], core.key),
-  });
-  const ui = (current: connection.Status): ReactElement => (
-    <Synnax.TestProvider client={null} status={current}>
-      <Version.Guard>
-        <span>{WORKSPACE}</span>
-      </Version.Guard>
-    </Synnax.TestProvider>
+  return await renderWithStatus(
+    <Version.Guard>
+      <span>{WORKSPACE}</span>
+    </Version.Guard>,
+    { client: null, status, preloadedState: createCoreState([core], core.key) },
   );
-  const { rerender } = render(ui(status), { wrapper });
-  return { store, setStatus: (next) => rerender(ui(next)) };
 };
 
 const getOpenInBrowserLink = (): string | null =>
