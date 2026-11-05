@@ -51,6 +51,19 @@ var _ = Describe("Service", func() {
 			},
 		)
 
+		It(
+			"Should resolve a data type for each occurrence of a repeated key",
+			func(ctx SpecContext) {
+				ch1 := createChannel(ctx, telem.Float32T)
+				ch2 := createChannel(ctx, telem.Int64T)
+				Expect(apiSvc.RetrieveDataTypes(
+					ctx, channel.Keys{ch1.Key(), ch2.Key(), ch1.Key()},
+				)).To(Equal([]telem.DataType{
+					telem.Float32T, telem.Int64T, telem.Float32T,
+				}))
+			},
+		)
+
 		It("Should resolve the data type of a single channel", func(ctx SpecContext) {
 			ch := createChannel(ctx, telem.Float64T)
 			Expect(apiSvc.RetrieveDataTypes(ctx, channel.Keys{ch.Key()})).

@@ -13,6 +13,7 @@ import (
 	"context"
 	"slices"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp/internal/keyset"
 	"github.com/synnaxlabs/x/errors"
 )
@@ -98,9 +99,13 @@ func MatchRaw[K Key, E Entry[K]](f func(key, value []byte) (bool, error)) Filter
 // primary key is in the given set. Compose with And or Or to intersect
 // or union with other filters (including index-backed ones).
 //
-// An empty keys argument produces a filter bounded by zero keys, which matches
+// A repeated key matches once, so results follow the order in which each key first
+// appears. An empty keys argument produces a filter bounded by zero keys, which matches
 // nothing.
 func MatchKeys[K Key, E Entry[K]](keys ...K) Filter[K, E] {
+	if len(keys) > 1 {
+		keys = lo.Uniq(keys)
+	}
 	return Filter[K, E]{keys: keyset.Of(keys)}
 }
 

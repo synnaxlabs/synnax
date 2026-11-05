@@ -106,7 +106,7 @@ func indexFilter[K Key, E Entry[K], V comparable](
 	extract func(e *E) V,
 	values []V,
 ) Filter[K, E] {
-	captured := append([]V(nil), values...)
+	captured := lo.Uniq(values)
 	return Filter[K, E]{
 		resolve: func(ctx context.Context, tx Tx) (resolved[K, E], error) {
 			if err := store.Wait(ctx); err != nil {
