@@ -13,6 +13,15 @@
     margin: 1rem 0;
 }
 
+.pluto-schematic-tooltip__list {
+    column-gap: 2rem;
+}
+
 .pluto-schematic-tooltip .lyra-icon {
     color: var(--pluto-gray-l9);
+}
+
+/* Wide enough for the longest text, "9m 59s ago", so the box never resizes. */
+.pluto-schematic-tooltip__last-sample {
+    min-width: 10ch;
 }
