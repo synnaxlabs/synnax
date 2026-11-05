@@ -66,16 +66,16 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
           [ -n "$VERCEL_TOKEN" ] || { echo "::error::VERCEL_TOKEN is not set"; exit 1; }
+          set -o pipefail
           log=$(mktemp)
+          deployment=$(mktemp)
           for attempt in 1 2 3; do
-            if deployment=$(npx --yes vercel@63.1.2 deploy --cwd "$GITHUB_WORKSPACE" \
-              --archive=tgz --format=json 2> "$log"); then
-              cat "$log" >&2
-              url=$(jq -er '.deployment.url // .url' <<< "$deployment")
+            if npx --yes vercel@63.1.2 deploy --cwd "$GITHUB_WORKSPACE" \
+              --archive=tgz --format=json 2>&1 > "$deployment" | tee "$log" >&2; then
+              url=$(jq -er '.deployment.url // .url' "$deployment")
               echo "url=$url" >> "$GITHUB_OUTPUT"
               exit 0
             fi
-            cat "$log" >&2
             # A build failure repeats, so only a dropped connection gets a retry.
             grep -q "fetch failed" "$log" || exit 1
             echo "Deploy attempt $attempt lost its connection"
