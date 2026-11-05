@@ -25,21 +25,25 @@ namespace driver::rack {
 /// @brief stands in for an integration that this Driver does not run. A configure of a
 /// task of the integration fails with the reason. A non-empty legacy_scanner_type names
 /// the scanner that a Driver built with the integration left on the rack. The factory
-/// deletes it at boot.
+/// deletes it at boot. A boot configure only logs the failure, unless reported_at_boot
+/// is true: then it writes a stopped error status for the task.
 class UnavailableFactory final : public task::Factory {
     const std::string integration;
     const std::string reason;
     const std::string legacy_scanner_type;
+    const bool reported_at_boot;
 
 public:
     UnavailableFactory(
         std::string integration,
         std::string reason,
-        std::string legacy_scanner_type = ""
+        std::string legacy_scanner_type = "",
+        const bool reported_at_boot = false
     ):
         integration(std::move(integration)),
         reason(std::move(reason)),
-        legacy_scanner_type(std::move(legacy_scanner_type)) {}
+        legacy_scanner_type(std::move(legacy_scanner_type)),
+        reported_at_boot(reported_at_boot) {}
 
     std::vector<std::pair<synnax::task::Task, std::unique_ptr<task::Task>>>
     configure_initial_tasks(
@@ -65,10 +69,11 @@ public:
         if (task.type != this->integration &&
             !task.type.starts_with(this->integration + "_"))
             return {nullptr, false};
+        // A boot configure of a task that auto-starts reports its failure.
         return common::handle_config_err(
             ctx,
             task,
-            {common::ConfigureResult{},
+            {common::ConfigureResult{.auto_start = this->reported_at_boot},
              x::errors::Error(errors::CONFIGURATION_ERROR, this->reason)},
             cmd_key
         );
