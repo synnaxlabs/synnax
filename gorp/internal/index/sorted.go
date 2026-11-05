@@ -15,6 +15,8 @@ import (
 	"slices"
 	"sort"
 	"sync"
+
+	"github.com/synnaxlabs/x/set"
 )
 
 type entry[K comparable, V cmp.Ordered] struct {
@@ -92,7 +94,7 @@ func (s *Sorted[S, K, V]) Stage(scope S, key K, value V) {
 		s.Set(key, value)
 		return
 	}
-	s.overlay.load(scope).set(key, value)
+	s.overlay.load(scope).set(key, []V{value})
 }
 
 // StageDelete removes key in the changes of scope. The removal applies to committed
@@ -118,10 +120,10 @@ func (s *Sorted[S, K, V]) Get(scope S, values ...V) ([]K, error) {
 	if err := s.population.err; err != nil {
 		return nil, err
 	}
-	var committed []K
+	committed := set.New[K]()
 	for _, v := range values {
 		for i, hi := s.lowerBound(v), s.upperBound(v); i < hi; i++ {
-			committed = append(committed, s.entries[i].key)
+			committed.Add(s.entries[i].key)
 		}
 	}
 	return mergeValues(&s.overlay, scope, committed, values), nil
@@ -131,6 +133,12 @@ func (s *Sorted[S, K, V]) Get(scope S, values ...V) ([]K, error) {
 // maps to any of values. See Lookup.Committing for its contract.
 func (s *Sorted[S, K, V]) Committing(values ...V) []K {
 	return s.appendKeys(committingKeys(&s.overlay, values), values)
+}
+
+// Announce makes Committing return key for value until Withdraw of the returned
+// handle. See Lookup.Announce for its contract.
+func (s *Sorted[S, K, V]) Announce(key K, value V) uint64 {
+	return s.announce(key, []V{value})
 }
 
 // Walk returns up to limit committed keys in ascending value order, or in descending
@@ -224,6 +232,6 @@ func (s *Sorted[S, K, V]) flush(d *delta[K, V]) {
 			s.remove(k)
 			continue
 		}
-		s.put(k, st.value)
+		s.put(k, st.values[0])
 	}
 }

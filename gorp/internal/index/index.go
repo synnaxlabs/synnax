@@ -68,8 +68,8 @@ func (p *population) wait(ctx context.Context) error {
 
 // staged is the state of one key in a delta.
 type staged[V comparable] struct {
-	// value is the staged value. Zero when deleted is true.
-	value   V
+	// values is the staged set of values. Nil when deleted is true.
+	values  []V
 	deleted bool
 }
 
@@ -78,64 +78,60 @@ type delta[K, V comparable] struct {
 	// state is the staged state of each key. A key in state overrides committed state.
 	state map[K]staged[V]
 	// forward maps each staged value to the keys that hold it.
-	forward map[V]set.Set[K]
+	forward map[V]holders[K]
 }
 
 func newDelta[K, V comparable]() *delta[K, V] {
 	return &delta[K, V]{
 		state:   make(map[K]staged[V]),
-		forward: make(map[V]set.Set[K]),
+		forward: make(map[V]holders[K]),
 	}
 }
 
 func (d *delta[K, V]) isEmpty() bool { return len(d.state) == 0 }
 
-func (d *delta[K, V]) set(key K, value V) {
-	if prev, ok := d.state[key]; ok && !prev.deleted {
-		d.removeFromForward(key, prev.value)
+// set stages values for key. The delta owns values from then on.
+func (d *delta[K, V]) set(key K, values []V) {
+	d.unstage(key)
+	d.state[key] = staged[V]{values: values}
+	for _, v := range values {
+		addHolder(d.forward, v, key)
 	}
-	d.state[key] = staged[V]{value: value}
-	bucket, ok := d.forward[value]
-	if !ok {
-		bucket = set.New[K]()
-		d.forward[value] = bucket
-	}
-	bucket.Add(key)
 }
 
 func (d *delta[K, V]) delete(key K) {
-	if prev, ok := d.state[key]; ok && !prev.deleted {
-		d.removeFromForward(key, prev.value)
-	}
+	d.unstage(key)
 	d.state[key] = staged[V]{deleted: true}
 }
 
-func (d *delta[K, V]) removeFromForward(key K, value V) {
-	bucket, ok := d.forward[value]
-	if !ok {
+func (d *delta[K, V]) unstage(key K) {
+	prev, ok := d.state[key]
+	if !ok || prev.deleted {
 		return
 	}
-	delete(bucket, key)
-	if len(bucket) == 0 {
-		delete(d.forward, value)
+	for _, v := range prev.values {
+		removeHolder(d.forward, v, key)
 	}
 }
 
-// merge returns the keys mapped to any of values once the delta applies to committed.
-func (d *delta[K, V]) merge(committed []K, values []V) []K {
-	result := set.New(committed...)
-	valueSet := set.New(values...)
+// merge returns the keys holding any of values once the delta applies to committed.
+func (d *delta[K, V]) merge(committed set.Set[K], values []V) []K {
 	for k, s := range d.state {
-		if s.deleted || !valueSet.Contains(s.value) {
-			result.Remove(k)
+		if s.deleted || !holdsAny(s.values, values) {
+			committed.Remove(k)
 		}
 	}
 	for _, v := range values {
-		for k := range d.forward[v] {
-			result.Add(k)
-		}
+		d.forward[v].addTo(committed)
 	}
-	return result.Slice()
+	return committed.Slice()
+}
+
+// holdsAny reports whether held contains any of values.
+func holdsAny[V comparable](held, values []V) bool {
+	return slices.ContainsFunc(held, func(v V) bool {
+		return slices.Contains(values, v)
+	})
 }
 
 // changes is the set of changes that one scope has staged against an index.
@@ -196,23 +192,20 @@ func (o *overlay[S, D]) get(scope S) (D, bool) {
 func mergeValues[S Scope, K, V comparable](
 	o *overlay[S, *delta[K, V]],
 	scope S,
-	committed []K,
+	committed set.Set[K],
 	values []V,
 ) []K {
-	if committed == nil {
-		committed = []K{}
-	}
 	if d, ok := o.get(scope); ok {
 		return d.merge(committed, values)
 	}
-	return committed
+	return committed.Slice()
 }
 
-// announcement is a value that key takes when a write in progress finishes.
+// announcement is the set of values that key takes when a write in progress finishes.
 type announcement[K, V comparable] struct {
 	handle uint64
 	key    K
-	value  V
+	values []V
 }
 
 // announcements holds the writes in progress outside any transaction. Its zero value
@@ -220,20 +213,20 @@ type announcement[K, V comparable] struct {
 type announcements[K, V comparable] struct {
 	mu      sync.RWMutex
 	entries []announcement[K, V]
-	// last is the handle of the latest Announce.
+	// last is the handle of the latest announce.
 	last uint64
 }
 
-// Announce makes Committing return key for value until Withdraw of the returned
-// handle. Committed state does not change, so a read of the current value still finds
-// key.
-func (a *announcements[K, V]) Announce(key K, value V) uint64 {
+// announce makes Committing return key for each of values until withdraw of the
+// returned handle. Committed state does not change, so a read of the current values
+// still finds key.
+func (a *announcements[K, V]) announce(key K, values []V) uint64 {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.last++
 	a.entries = append(
 		a.entries,
-		announcement[K, V]{handle: a.last, key: key, value: value},
+		announcement[K, V]{handle: a.last, key: key, values: values},
 	)
 	return a.last
 }
@@ -254,7 +247,7 @@ func (a *announcements[K, V]) appendKeys(keys []K, values []V) []K {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 	for _, e := range a.entries {
-		if slices.Contains(values, e.value) {
+		if holdsAny(e.values, values) {
 			keys = append(keys, e.key)
 		}
 	}
@@ -274,8 +267,87 @@ func committingKeys[S Scope, K, V comparable](
 			continue
 		}
 		for _, v := range values {
-			keys = slices.AppendSeq(keys, maps.Keys(d.forward[v]))
+			keys = d.forward[v].appendTo(keys)
 		}
 	}
 	return keys
+}
+
+// holdersSetSize is the number of holders past which holders switches from a slice to
+// a set. Most values have few holders, and a slice costs far less memory than a map.
+const holdersSetSize = 32
+
+// holders is the set of keys that hold one value.
+type holders[K comparable] struct {
+	few  []K
+	many set.Set[K]
+}
+
+func (h *holders[K]) add(key K) {
+	if h.many != nil {
+		h.many.Add(key)
+		return
+	}
+	if slices.Contains(h.few, key) {
+		return
+	}
+	if len(h.few) < holdersSetSize {
+		h.few = append(h.few, key)
+		return
+	}
+	h.many = set.New(append(h.few, key)...)
+	h.few = nil
+}
+
+func (h *holders[K]) remove(key K) {
+	if h.many != nil {
+		h.many.Remove(key)
+		return
+	}
+	if i := slices.Index(h.few, key); i >= 0 {
+		h.few = slices.Delete(h.few, i, i+1)
+	}
+}
+
+func (h holders[K]) len() int {
+	if h.many != nil {
+		return len(h.many)
+	}
+	return len(h.few)
+}
+
+func (h holders[K]) addTo(out set.Set[K]) {
+	if h.many != nil {
+		for k := range h.many {
+			out.Add(k)
+		}
+		return
+	}
+	out.Add(h.few...)
+}
+
+func (h holders[K]) appendTo(keys []K) []K {
+	if h.many != nil {
+		return slices.AppendSeq(keys, maps.Keys(h.many))
+	}
+	return append(keys, h.few...)
+}
+
+func addHolder[K, V comparable](forward map[V]holders[K], value V, key K) {
+	h := forward[value]
+	h.add(key)
+	forward[value] = h
+}
+
+func removeHolder[K, V comparable](forward map[V]holders[K], value V, key K) {
+	h, ok := forward[value]
+	if !ok {
+		return
+	}
+	h.remove(key)
+	if h.len() == 0 {
+		delete(forward, value)
+		return
+	}
+	forward[value] = h
 }

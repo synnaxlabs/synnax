@@ -13,6 +13,8 @@ import (
 	"context"
 	"slices"
 	"sync"
+
+	"github.com/synnaxlabs/x/set"
 )
 
 // Lookup is an exact-match index from values of type V to the primary keys of type K
@@ -77,7 +79,7 @@ func (l *Lookup[S, K, V]) Stage(scope S, key K, value V) {
 		l.Set(key, value)
 		return
 	}
-	l.overlay.load(scope).set(key, value)
+	l.overlay.load(scope).set(key, []V{value})
 }
 
 // StageDelete removes key in the changes of scope. The removal applies to committed
@@ -103,9 +105,9 @@ func (l *Lookup[S, K, V]) Get(scope S, values ...V) ([]K, error) {
 	if err := l.population.err; err != nil {
 		return nil, err
 	}
-	var committed []K
+	committed := set.New[K]()
 	for _, v := range values {
-		committed = append(committed, l.forward[v]...)
+		committed.Add(l.forward[v]...)
 	}
 	return mergeValues(&l.overlay, scope, committed, values), nil
 }
@@ -116,6 +118,13 @@ func (l *Lookup[S, K, V]) Get(scope S, values ...V) ([]K, error) {
 // leaves the overlay only after its flush, so the two reads together miss no key.
 func (l *Lookup[S, K, V]) Committing(values ...V) []K {
 	return l.appendKeys(committingKeys(&l.overlay, values), values)
+}
+
+// Announce makes Committing return key for value until Withdraw of the returned
+// handle. Committed state does not change, so a read of the current value still finds
+// key.
+func (l *Lookup[S, K, V]) Announce(key K, value V) uint64 {
+	return l.announce(key, []V{value})
 }
 
 func (l *Lookup[S, K, V]) put(key K, value V) {
@@ -158,6 +167,6 @@ func (l *Lookup[S, K, V]) flush(d *delta[K, V]) {
 			l.remove(k)
 			continue
 		}
-		l.put(k, s.value)
+		l.put(k, s.values[0])
 	}
 }
