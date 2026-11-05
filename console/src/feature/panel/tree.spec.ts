@@ -7,14 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { panel, project } from "@synnaxlabs/client";
+import { lineplot, panel, project } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uuid } from "@synnaxlabs/x";
 import { waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { LinePlot } from "@/feature/lineplot";
 import { Panel } from "@/feature/panel";
 import { Project } from "@/feature/project";
-import { findTreeRow, renderOntologyTree } from "@/platform/tree/testutil";
+import {
+  expandTreeRow,
+  findTreeRow,
+  renderOntologyTree,
+} from "@/platform/tree/testutil";
 import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -63,5 +69,35 @@ describe("panel ontology", () => {
     await writer.panels.retrieve(pan.key);
     await writer.panels.dispatch(pan.key, panel.setIcon({ icon: "valve" }));
     await waitFor(async () => expect(await findRowIcon(pan, "valve")).not.toBeNull());
+  });
+
+  it("should list the visualizations its tabs display", async () => {
+    const { key } = await client.projects.create({ name: uniqueName("project") });
+    // The plot sits in another project, so only the panel lists it.
+    const other = await client.projects.create({ name: uniqueName("project") });
+    const plot = await client.lineplots.create(other.key, { name: uniqueName("plot") });
+    const pan = await client.panels.create({
+      name: uniqueName("panel"),
+      project: key,
+      root: {
+        variant: "leaf",
+        tabs: [
+          {
+            variant: "resource",
+            key: uuid.create(),
+            resource: lineplot.resourceID(plot.key),
+          },
+          { variant: "view", key: uuid.create(), type: "docs" },
+        ],
+      },
+    });
+    await renderOntologyTree({
+      client,
+      root: project.resourceID(key),
+      items: { ...Project.TREE_ITEMS, ...Panel.TREE_ITEMS, ...LinePlot.TREE_ITEMS },
+    });
+    await findTreeRow(pan.name);
+    expandTreeRow(pan.name);
+    expect(await findTreeRow(plot.name)).toBeDefined();
   });
 });
