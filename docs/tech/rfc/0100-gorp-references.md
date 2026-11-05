@@ -86,40 +86,67 @@ Status struct {
 
 - `on_delete cascade | restrict | detach`: Required. `cascade` deletes the dependent.
   `restrict` refuses the delete while the dependent exists. `detach` keeps the dependent
-  and removes the target: it clears a scalar, which must be optional, and removes an
-  array element.
+  and removes the target: it clears an optional scalar, writes zero to a scalar with a
+  zero default, and removes an array element. Oracle refuses `detach` on any other
+  field.
 - `types`: Required on a `resource.ID` field, and allowed only there.
-- `unique`: At most one dependent per target. A nil value holds no target.
+- `unique`: At most one dependent per target. A field that holds no target is exempt.
 - `acyclic`: A chain of references in one table must not come back to its start.
 
-For each `@ref`, Oracle generates a `gorp.Reference` on the table and a `Match<Field>s`
-filter that reads its reverse index. `@ontology type` becomes `@resource type`, and it
-names the table in the Gorp registry. Oracle generates no reference nested in an array
-or a recursive type of a `@retrieve` struct, so `lineplot`, `log`, `panel`, and
-`channel.index` build theirs by hand with `gorp.NewReference`.
+A nil value, an empty array, and a zero scalar with a zero default (`= 0`, `= ""`) hold
+no target. A new reference uses `X?`. The zero rule exists for the stored task configs
+that use zero for "none" (§6).
+
+`@ontology type` becomes `@resource type`. It names the table in the Gorp registry, and
+Oracle emits it as `const tableName`. For each `@ref` of a `@retrieve` type, Oracle
+generates:
+
+- A `gorp.KeyReference`, or a `gorp.TargetReference` for a `resource.ID` field, in the
+  `indexes` struct. `indexes.references()` returns them for `TableConfig.References`.
+- `Match<Field>s(vals...)`, which matches the entries that hold any of `vals`, for a
+  scalar and for an array (`MatchLabels` for a `labels` array).
+- `MatchHas<Field>(has)`, for a field that can hold no target.
+- An unexported `set<Field>(table, v, keys...)` update, for a `detach` scalar. The
+  service writer calls it, so each groupable type writes no move code.
+
+A generic type uses `@retrieve indexes`, which generates the references and no filters.
+This phase generates references on the top-level fields of a `@retrieve` type only.
+References nested in arrays and structs (`lineplot`, `log`, `panel`) come in Phase 9.
 
 ### 4.1 Gorp
 
 **Registry** (`gorp/registry.go`, specified in `gorp/reference_test.go`): Each `gorp.DB`
-holds its open tables by `TableConfig.Name`, which defaults to the entry type name. Two
-open tables cannot share a name. `TableConfig.References` holds one `gorp.NewReference`
-per field, with `Name`, `Tables`, `Targets`, `OnDelete`, `Detach`, `Unique`, and
-`Acyclic`. A `gorp.Target` is a table name and a text key
-(`gorp/internal/key/format.go`), so one delete walk crosses string, integer, and UUID
-keys.
+holds its open tables that have a `TableConfig.Name` or references, by name. The name
+defaults to the entry type name, and two of these tables cannot share one. A table with
+no name and no references stays out of the registry, and nothing can reference it.
+`TableConfig.References` holds one reference per field, with `Name`, its target tables,
+`Targets`, `OnDelete`, `Detach`, `Unique`, and `Acyclic`. A `gorp.NewKeyReference`
+points at one table and holds typed keys. A `gorp.NewTargetReference` points at any of
+several tables and holds `gorp.Target` values: a table name and a key in the text form
+of `gorp.FormatKey` (`gorp/internal/key/format.go`). A write fails when that key is not
+in the text form. The delete walk uses the text form, so one walk crosses string,
+integer, and UUID keys.
 
 **Write checks** (`gorp/table_references.go`): `Create` and `Update` check each
 reference immediately, in the caller's transaction. The target table must be in
 `Tables`, the target must exist, and `unique` and `acyclic` must hold. A target written
-earlier in the same transaction passes. Only queries that a `Table` builds are checked.
-Package-level queries such as `gorp.NewCreate` skip the checks, as they skip indexes.
+earlier in the same transaction passes. A write does not check again a target that the
+stored entry already holds, so a rename reads no targets. Only queries that a `Table`
+builds are checked. Package-level queries such as `gorp.NewCreate` skip the checks, as
+they skip indexes. `Table.NewUncheckedWriter` keeps the indexes current and skips the
+checks and the delete plan. It is for migrations that write before their target tables
+open.
 
 **Reverse index**: Each reference keeps an in-memory index from target to dependents,
-with one entry per array element (`gorp/internal/index/multi.go`). A probe sees the
-writes staged in its own transaction. The index fills in the background at open, and a
-probe waits for it. A failed fill fails each probe, with no fallback scan.
+with one entry per array element, and a set of the entries that hold no target
+(`gorp/internal/index/multi.go`). A probe (`Get`, `Filter`, `FilterHolding`, and
+`Table.Dependents`) sees the writes staged in its own transaction. The index fills in
+the background at open, and a probe waits for it or for its context. After a failed
+fill, `Filter` and `FilterHolding` fall back to a scan, and the other probes fail with
+`gorp.ErrIndexInvalid`.
 
-**Delete**: A `Delete` that a `Table` builds runs in three steps (`gorp/delete.go`):
+**Delete**: A `Delete` that a `Table` builds runs in three steps (`plan` and `apply` in
+`gorp/registry.go`):
 
 1. Guards run on the entries the query matches, never on entries a cascade adds.
 2. The plan reads only. It adds each `cascade` dependent to the closure and repeats
@@ -129,9 +156,11 @@ probe waits for it. A failed fill fails each probe, with no fallback scan.
 
 A delete that would delete or rewrite more entries than `gorp.WithMaxDeleteSize`
 (default `1 << 20`, `gorp/options.go`) fails before any change. Detached dependents
-count. No service code runs inside a cascade (Ent issue #2031 shows hooks and store
-cascades that disagree). So a record whose delete has a side effect outside Gorp, such
-as a channel and its Cesium storage, is never a `cascade` target.
+count. The plan also stops when the dependents that restrict the delete pass the cap, so
+a refused delete reads a bounded set. No service code runs inside a cascade (Ent issue
+#2031 shows hooks and store cascades that disagree). So a record whose delete has a side
+effect outside Gorp, such as a channel and its Cesium storage, is never a `cascade`
+target.
 
 **Errors**: A failed write check is a `validate.PathError` on the field, such as
 `rack: rack 1 does not exist`. A refused `restrict` is `validate.ErrValidation` with
@@ -273,13 +302,13 @@ release that reads the ontology.
 Phase 1 is a mechanical rename, and Phase 2 adds the engine with no Core table on it.
 The ontology serves each domain that has not moved, and Phase 10 deletes it. Phase 9
 adds references inside a record (line plot and log channels, task config keys, panel
-tabs, the PagerDuty `status` key) and `channel.index`. Gorp needs no change for them,
-because `Targets` is a function. Each phase stacks on the one before it.
+tabs, the PagerDuty `status` key) and `channel.index`. Each phase stacks on the one
+before it.
 
 | Phase | Scope                                                     | Touches                                                                                                                                                                                                  | Depends on |
 | ----- | --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
 | 1     | Rename ontology IDs to resource IDs                       | `schemas`, `oracle`, `core/pkg/service`, `client/ts`, `client/py`, `client/cpp`                                                                                                                          | -          |
-| 2     | Add typed references to Gorp and Oracle                   | `gorp`, `oracle`, `docs/tech/rfc`                                                                                                                                                                        | 1          |
+| 2     | Add typed references to Gorp and Oracle                   | `gorp`, `oracle`, `x/go/kv`, `core/pkg/service`, `core/pkg/api`, `core/pkg/distribution`, `docs/tech/rfc`                                                                                                | 1          |
 | 3     | Move labels, statuses, and ranges to references           | `schemas`, `core/pkg/service/label`, `core/pkg/service/status`, `core/pkg/service/ranger`, `driver`, `client/ts`, `client/py`, `client/cpp`, `console`                                                   | 2          |
 | 4     | Move groups, channels, and the Console tree to references | `schemas`, `core/pkg/service/group`, `core/pkg/service/channel`, `core/pkg/api`, `core/pkg/transport`, `client/ts`, `pluto`, `console`                                                                   | 3          |
 | 5     | Move racks, devices, tasks, and Arc to references         | `schemas`, `core/pkg/service/rack`, `core/pkg/service/legacy/device`, `core/pkg/service/task`, `core/pkg/service/arc`, `client/ts`, `client/py`, `console`                                               | 4          |
@@ -318,6 +347,17 @@ because `Targets` is a function. Each phase stacks on the one before it.
     read that comes before that write, and each check reads first. Per-table locks
     deadlock when two transactions take them in opposite orders. Revisit the lock when
     measured lock waits on a busy Core are long.
+12. **Zero means no target**: A scalar `@ref` with a zero default holds no target while
+    it is zero. Stored task configs use channel `0` and device `""` for "none" in about
+    40 fields, so requiring `X?` would migrate each config and the Driver.
+13. **Typed target keys**: A reference to one table holds the key type of that table.
+    Text keys measured about 138 B per entry against 25 B for a typed lookup index, at
+    1M entries. Only the delete walk and `resource.ID` references use the text form.
+14. **A detach or a cascade reaches clients like a normal write**: After commit, each
+    record that a cascade or a detach changed is published on its table's change
+    channel. A table that streams actions publishes a set action from its table observer
+    for each record it did not write itself, never from code in the cascade. Clients
+    keep no copy of an `on_delete` rule.
 
 ## 7 Open questions
 
@@ -332,9 +372,6 @@ because `Targets` is a function. Each phase stacks on the one before it.
 5. Whether `group.scope` can go once each group has a parent or a member.
 6. Whether a task config keeps `restrict` on its channels and devices, or moves to
    `detach` with a binding the task form shows as broken.
-7. How an open editor learns of a detach. A detach writes no service action, so an open
-   line plot keeps a deleted channel until it reloads, and its next edit fails the
-   check.
 
 ## 8 What this RFC does not cover
 
