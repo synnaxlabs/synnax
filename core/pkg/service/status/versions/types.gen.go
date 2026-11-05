@@ -17,11 +17,17 @@ import "github.com/synnaxlabs/synnax/pkg/service/status/versions/v1"
 type Variant = v1.Variant
 
 const (
-	VariantSuccess  Variant = v1.VariantSuccess
-	VariantInfo     Variant = v1.VariantInfo
-	VariantWarning  Variant = v1.VariantWarning
-	VariantError    Variant = v1.VariantError
-	VariantLoading  Variant = v1.VariantLoading
+	// VariantSuccess reports that an operation succeeded.
+	VariantSuccess Variant = v1.VariantSuccess
+	// VariantInfo reports general information.
+	VariantInfo Variant = v1.VariantInfo
+	// VariantWarning reports a condition that needs attention.
+	VariantWarning Variant = v1.VariantWarning
+	// VariantError reports a failure.
+	VariantError Variant = v1.VariantError
+	// VariantLoading reports an operation in progress.
+	VariantLoading Variant = v1.VariantLoading
+	// VariantDisabled reports that the subject is not active.
 	VariantDisabled Variant = v1.VariantDisabled
 )
 

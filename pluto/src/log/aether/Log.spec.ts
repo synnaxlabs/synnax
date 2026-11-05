@@ -140,6 +140,36 @@ describe("log/aether/Log", () => {
       expect(log.state.empty).toBe(false);
     });
 
+    it("should be blank only while loading with no entries", () => {
+      const { log, source } = setup([]);
+      source.status = telem.LOADING_STATUS;
+      source.notify();
+      expect(log.state.blank).toBe(true);
+      source.push(makeEntry(0));
+      source.notify();
+      expect(log.state.blank).toBe(false);
+      expect(log.state.loading).toBe(true);
+    });
+
+    it("should set loading while the source loads", () => {
+      const { log, source } = setup([]);
+      expect(log.state.loading).toBe(false);
+      source.status = telem.LOADING_STATUS;
+      source.notify();
+      expect(log.state.loading).toBe(true);
+      source.status = telem.SUCCESS_STATUS;
+      source.notify();
+      expect(log.state.loading).toBe(false);
+    });
+
+    it("should set loading while it holds entries", () => {
+      const { log, source } = setup([makeEntry(0)]);
+      source.status = telem.LOADING_STATUS;
+      source.notify();
+      expect(log.state.loading).toBe(true);
+      expect(log.state.empty).toBe(false);
+    });
+
     it("should set empty to true when the source loads no entries", () => {
       const { log, source } = setup([]);
       source.status = telem.LOADING_STATUS;
@@ -385,6 +415,15 @@ describe("log/aether/Log", () => {
       source.push(makeEntry(1));
       source.notify();
       expect(recorder.loopCalls.length).toBeGreaterThan(before);
+    });
+
+    // A paused log whose entries all fit clamps its wheel position on every update.
+    it("should request a render to erase a paused log when it hides", () => {
+      const { h, recorder } = setup([makeEntry(0)]);
+      h.setState((s) => ({ ...s, scrolling: true }));
+      recorder.clear();
+      h.setState((s) => ({ ...s, visible: false }));
+      expect(recorder.loopCalls).toHaveLength(1);
     });
   });
 
@@ -649,6 +688,33 @@ describe("log/aether/Log", () => {
       source.setEntries([...entries.slice(0, 11), earlier, ...entries.slice(11)]);
       source.notify();
       expect(log.scrollState.offset).toBe(before + 1);
+    });
+  });
+
+  describe("older entries", () => {
+    const pause = (wheelPos: number) => {
+      const entries = Array.from({ length: 1000 }, (_, i) => makeEntry(i));
+      const { source, updateState } = setup(entries);
+      const base = { region: REGION_500, empty: false, visible: true };
+      updateState({ ...base, wheelPos: 0, scrolling: false });
+      updateState({ ...base, wheelPos: 0, scrolling: true });
+      updateState({ ...base, wheelPos, scrolling: true });
+      return source;
+    };
+
+    it("should not read older entries while the view is far from the oldest", () => {
+      expect(pause(0).loadOlderCalls).toBe(0);
+    });
+
+    it("should read older entries when the paused view nears the oldest", () => {
+      expect(pause(20_000).loadOlderCalls).toBeGreaterThan(0);
+    });
+
+    it("should not read older entries while live", () => {
+      const entries = Array.from({ length: 10 }, (_, i) => makeEntry(i));
+      const { source } = setup(entries);
+      source.notify();
+      expect(source.loadOlderCalls).toBe(0);
     });
   });
 

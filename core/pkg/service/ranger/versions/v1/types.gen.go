@@ -55,13 +55,17 @@ func (r Range) Validate() error {
 	return v.Error()
 }
 
+// RefType is the "variant" value that selects a variant of Ref.
 type RefType string
 
 const (
-	KeyRefType    RefType = "key"
+	// KeyRefType is a range saved in the Core.
+	KeyRefType RefType = "key"
+	// WindowRefType is a window carried inline: rolling or fixed.
 	WindowRefType RefType = "window"
 )
 
+// RefVariant is implemented by every Ref variant.
 type RefVariant interface {
 	isRefVariant()
 }
@@ -147,7 +151,11 @@ func (u *Ref) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.WindowRef
 	default:
-		return errors.Newf("Ref: unknown variant %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Ref: unknown variant %q",
+			disc.Type,
+		)
 	}
 	return nil
 }

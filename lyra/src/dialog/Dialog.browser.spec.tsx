@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type ReactNode } from "react";
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { CSS } from "@/css";
@@ -60,6 +60,31 @@ const onTop = (el: Element): boolean => {
 };
 
 describe("Dialog", () => {
+  describe("shadow trigger", () => {
+    const renderShadow = async (): Promise<Element> => {
+      const { getByText } = await renderThemed(
+        <Dialog.Frame>
+          <Dialog.Trigger variant="shadow">Value</Dialog.Trigger>
+          <Dialog.Dialog>Content</Dialog.Dialog>
+        </Dialog.Frame>,
+      );
+      return getByText("Value").element();
+    };
+
+    it("should draw no box at rest", async () => {
+      const trigger = await renderShadow();
+      expect(computed(trigger, "background-color")).toBe(resolve("transparent"));
+      expect(computed(trigger, "border-top-color")).toBe(resolve("transparent"));
+    });
+
+    it("should hide its caret at rest", async () => {
+      const trigger = await renderShadow();
+      const caret = trigger.querySelector(`.${CSS.B("caret-animated")}`);
+      assert(caret != null);
+      expect(computed(caret, "opacity")).toBe("0");
+    });
+  });
+
   describe("dropdown", () => {
     it("should float on the overlay shadow, over the page", async () => {
       const { dialog } = await openDialog("floating");

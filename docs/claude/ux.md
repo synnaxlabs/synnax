@@ -234,6 +234,24 @@ bound, a log precision, or the line plot X channel.
 - A number never clips, because a clipped number reads as a different valid number.
 - A flex child that holds cut text needs `min-width: 0`.
 
+### Pickers
+
+- A card that creates something shows the item's own icon in a large icon tile, then its
+  name and a short description. Never draw a custom illustration or a preview of the
+  result: line art and colored drawings were both rejected.
+- A card is a Lyra `card` button, alone or in `Select.Buttons`. It rests halfway between
+  gray steps 1 and 2, hovers halfway between steps 2 and 3, and presses to step 3. It
+  has a gray step 6 border and the medium radius. Its icon tile has fill step 3 and
+  border step 5, so the tile stands out from the card. An outlined button's fill is too
+  strong for a card, and its tiny radius too sharp.
+- The header is a quiet title (h4, gray step 10, weight 450) over a huge borderless
+  search across the content width, with a gray step 8 search icon and a gray step 6
+  hairline under it. The hairline takes the primary color while the search has focus,
+  because a picker that is not a dialog loses focus, and typed keys then go elsewhere.
+- A search disables each item that does not match it and leaves it in place, so the
+  layout does not move. The arrow keys and the pointer move one highlight, and Enter
+  picks the highlighted item.
+
 ### Menus and selects
 
 - Context menus use 12 px text in 24 px items.
@@ -252,7 +270,9 @@ bound, a log precision, or the line plot X channel.
 - Explorers and record lists use `Select.Item` with `checkable`. Only the checkbox, a
   Shift click, or a Cmd click selects. A plain click runs `onActivate`, or does nothing.
 - The selection can be empty. The checkbox shows on hover and stays while selected.
-- The checkbox has no gap after it. Its own padding spaces it from the content.
+- The checkbox sits 12 px from the item's left, top, and bottom edges and 6 px before
+  the content (`margin-inline` in `lyra/src/select/Item.css`). The checkbox in a
+  headings band sits the same way. Gaps of 9 and 12 px to the content were rejected.
 - Hover tints the item faintly, and a press does not deepen the tint.
 
 ### Record tables
@@ -264,6 +284,8 @@ bound, a log precision, or the line plot X channel.
 - Declare the columns once with `List.Columns`. Each item lays out its own grid, so give
   each column a width that does not follow its content, such as `30rem` or `1fr`.
 - A heading over a field lines up with the field's text, not its box.
+- A write task names two channel columns, Command and State
+  (`Task.Views.LIST_WRITE_CHANNEL_COLUMNS`). The enabled switch follows the state name.
 - A record table that does not fit its pane scrolls sideways, and the headings scroll
   with it. Fields never shrink to fit: a cut value can read as another value.
 - A field whose glyph shows its value, such as the Modbus byte order, drops its name
@@ -288,6 +310,33 @@ bound, a log precision, or the line plot X channel.
   shows them at its end, before its switch, so the pointers keep one left edge. Neither
   shows an icon or a tooltip for a skipped channel: the tree strikes through the item or
   its group.
+
+### Port maps
+
+- A task whose channels sit on ports shows its port map above its record table, in the
+  `map` slot of `Task.Views.List`, with no switch to a Ports view: LabJack write, NI
+  digital read and write, and the Modbus register map. Other port tasks show the map in
+  the Ports view of the narrow list pane.
+- Above the list, a section's title and its count share one line, with a thin line
+  between sections. Each bank or port is one row, with its label in a 6.5 rem gutter. A
+  port of more than eight lines wraps every eight. The rows fill columns read down, each
+  as wide as a row of eight (`Task.Port.Rows`). Titles beside the rows, rows read
+  across, and a matrix with no cell numbers were rejected.
+- The Ports view keeps each title over its grid, with a thin line between sections or
+  devices and 2.5 rem above and below it. Labels beside or above each bank were
+  rejected.
+- An NI device's location ("Dev3") is a chip at the right end of its title line:
+  monospace, small, on gray step 3. The usage text does not repeat it. Monospace text
+  alone was rejected, because it stands out too little.
+- In a map, a click on a used port selects its channel. A click on a free port adds a
+  channel there: the port shows a + under the pointer, and its tooltip reads "Add a
+  channel on FIO3". The pointer stays an arrow. A used port keeps its tint, and its
+  tooltip names its channels.
+- A port field or picker moves its channel. A click on any port moves the channel there,
+  and a free port's tooltip reads "Move to FIO3". It shows no +.
+- A click on a Modbus register selects its channel, and an add selects the new channel.
+- The pointer on an item marks its port in the map, and the pointer on a port marks its
+  item (`Task.Port.HoverProvider`). A port in conflict darkens on hover.
 
 ### Table input
 
