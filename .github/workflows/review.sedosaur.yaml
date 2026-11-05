@@ -96,7 +96,6 @@ jobs:
           app-id: ${{ secrets.SEDOSAUR_APP_ID }}
           private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
           permission-checks: write
-          permission-issues: write
 
       # The check run shows on the pull request while the runner boots.
       - name: Queue the check run
@@ -111,9 +110,23 @@ jobs:
             -f status=queued -f details_url="$RUN_URL" --jq .id)
           echo "id=$id" >> "$GITHUB_OUTPUT"
 
+  # A job of its own, so a deleted comment cannot stop the review.
+  react:
+    needs: start
+    if: needs.start.outputs.fork == 'false' && inputs.comment != ''
+    name: React to the request
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mint the GitHub App token
+        id: app
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.SEDOSAUR_APP_ID }}
+          private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
+          permission-pull-requests: write
+
       # Greptile reacts with eyes, so Sedosaur reacts with a rocket.
-      - name: React to the request
-        if: steps.pr.outputs.fork == 'false' && inputs.comment != ''
+      - name: React with a rocket
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
           COMMENT: ${{ inputs.comment }}
