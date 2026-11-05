@@ -25,10 +25,10 @@ import (
 // Make is the device make of a Kafka cluster.
 const Make = "kafka"
 
-// decodeProperties parses the connection properties of a Kafka cluster device. It
+// DecodeProperties parses the connection properties of a Kafka cluster device. It
 // returns an error wrapping validate.ErrValidation when dev is not a Kafka cluster or
 // its properties are incomplete.
-func decodeProperties(dev device.Device) (Properties, error) {
+func DecodeProperties(dev device.Device) (Properties, error) {
 	if dev.Make != Make {
 		return Properties{}, errors.Wrapf(
 			validate.ErrValidation, "device %s is not a Kafka cluster", dev.Key,
@@ -75,6 +75,15 @@ func caPool(pem string) *x509.CertPool {
 	return pool
 }
 
+// tlsConfig returns the TLS settings of a client of props.
+func tlsConfig(props Properties) *tls.Config {
+	cfg := &tls.Config{MinVersion: tls.VersionTLS12}
+	if props.CaCertificate != "" {
+		cfg.RootCAs = caPool(props.CaCertificate)
+	}
+	return cfg
+}
+
 // clientOpts translates props into franz-go client options.
 func clientOpts(props Properties) ([]kgo.Opt, error) {
 	if err := validateProperties(props); err != nil {
@@ -82,11 +91,7 @@ func clientOpts(props Properties) ([]kgo.Opt, error) {
 	}
 	opts := []kgo.Opt{kgo.SeedBrokers(props.Brokers...)}
 	if props.TLS {
-		tlsCfg := &tls.Config{MinVersion: tls.VersionTLS12}
-		if props.CaCertificate != "" {
-			tlsCfg.RootCAs = caPool(props.CaCertificate)
-		}
-		opts = append(opts, kgo.DialTLSConfig(tlsCfg))
+		opts = append(opts, kgo.DialTLSConfig(tlsConfig(props)))
 	}
 	switch v := props.Sasl.Variant.(type) {
 	case nil, NoneSASL:

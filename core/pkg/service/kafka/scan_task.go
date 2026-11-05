@@ -40,7 +40,7 @@ var _ driver.Scanner = scanner{}
 
 // Check implements driver.Scanner.
 func (s scanner) Check(ctx context.Context, dev device.Device) error {
-	props, err := decodeProperties(dev)
+	props, err := DecodeProperties(dev)
 	if err != nil {
 		return err
 	}

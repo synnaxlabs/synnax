@@ -220,7 +220,7 @@ func resolveProperties(
 		Exec(ctx, nil); err != nil {
 		return Properties{}, errors.Wrapf(err, "retrieving device %s", key)
 	}
-	return decodeProperties(dev)
+	return DecodeProperties(dev)
 }
 
 // retrieveChannels resolves keys to their channel records. It returns an error
