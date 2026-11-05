@@ -12,6 +12,7 @@ import { color, type destructor, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
+import { synnax } from "@/synnax/aether";
 import { type telem } from "@/telem/aether";
 
 const CONTEXT_KEY = "pluto-vis-staleness";
@@ -111,8 +112,13 @@ export class Provider extends aether.Composite<typeof providerStateZ> {
   private interval?: ReturnType<typeof setInterval>;
   // The interval the running timer was started with. Null until the first sweep starts.
   private sweepInterval: TimeSpan | null = null;
+  // Ages samples with the measured clock skew removed.
+  private now: () => TimeStamp = () => TimeStamp.now();
 
   afterUpdate(ctx: aether.Context): void {
+    const connection = synnax.use(ctx)?.connection;
+    this.now = () =>
+      TimeStamp.now().sub(connection?.status.details.clockSkew ?? TimeSpan.ZERO);
     this.updateSweepInterval();
     ctx.set(CONTEXT_KEY, this, false);
   }
@@ -138,7 +144,7 @@ export class Provider extends aether.Composite<typeof providerStateZ> {
           if (entry.appended != null && appended <= entry.appended) return;
           entry.appended = appended;
         }
-        const elapsed = time == null ? 0n : TimeStamp.now().valueOf() - time.valueOf();
+        const elapsed = time == null ? 0n : this.now().valueOf() - time.valueOf();
         const age = Math.max(0, new TimeSpan(elapsed).milliseconds);
         entry.lastReceived = performance.now() - age;
         setStale(entry, age >= props.timeout() * 1000);

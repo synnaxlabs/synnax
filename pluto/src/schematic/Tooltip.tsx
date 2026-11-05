@@ -22,6 +22,7 @@ import { type ReactElement, type ReactNode, useEffect, useState } from "react";
 import { Channel } from "@/channel";
 import { CSS } from "@/css";
 import { type Node } from "@/schematic/node";
+import { Synnax } from "@/synnax";
 import { LatestSample } from "@/vis/latestSample";
 import { Staleness } from "@/vis/staleness";
 
@@ -90,7 +91,11 @@ interface SampleAgeProps {
 // Mounted only once the tooltip shows, so a mouse sweep creates no worker component.
 const SampleAge = ({ channel }: SampleAgeProps): ReactElement => {
   const time = LatestSample.use({ channel });
-  const since = Telem.Text.useTimeSpanSince(time ?? 0).toString("semantic");
+  // The hook counts on the local clock, so the stamp moves by the measured skew.
+  const { clockSkew } = Synnax.useConnectionStatus().details;
+  const since = Telem.Text.useTimeSpanSince(time?.add(clockSkew) ?? 0).toString(
+    "semantic",
+  );
   return (
     <Description.List level="small" justify="between" className={LIST_CLASS}>
       <Row

@@ -24,6 +24,15 @@ import { telem } from "@/telem/aether";
 import { buildStack } from "@/testutil/providers";
 import { staleness } from "@/vis/staleness/aether";
 
+const { mockUse } = vi.hoisted(() => ({ mockUse: vi.fn() }));
+
+// The stack mounts a synnax provider with no client. Skew specs swap in a client whose
+// connection reports one.
+vi.mock("@/synnax/aether", async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return { synnax: { ...(actual.synnax as object), use: mockUse } };
+});
+
 const createSource = (): telem.Source<unknown> => ({
   value: () => telem.success(null),
   onChange: () => () => {},
@@ -105,8 +114,11 @@ const setup = ({
   sweepInterval = SWEEP_INTERVAL,
   timeouts = [5],
 }: SetupOptions = {}) => {
+  // The leaf's source is a plain object, so no telem provider is needed, and the skew
+  // specs' stub client has no feed for one to open.
   const stack = buildStack({
     registry: { [Leaf.TYPE]: Leaf },
+    telem: false,
     staleness: { sweepInterval },
   });
   const leaves = timeouts.map((stalenessTimeout, i) => {
@@ -138,7 +150,10 @@ const setup = ({
 describe("staleness", () => {
   let teardown: (() => void) | null = null;
 
-  beforeEach(() => vi.useFakeTimers());
+  beforeEach(() => {
+    vi.useFakeTimers();
+    mockUse.mockReturnValue(null);
+  });
   afterEach(() => {
     teardown?.();
     teardown = null;
@@ -457,6 +472,57 @@ describe("staleness", () => {
       leaf.received();
       expect(leaf.transitions).toEqual([true, false]);
       expect(leaf.state.stale).toBe(false);
+    });
+  });
+
+  describe("clock skew", () => {
+    // Mounts a client whose connection reports `skew`.
+    const useSkew = (skew: TimeSpan): void => {
+      mockUse.mockReturnValue({
+        connection: { status: { details: { clockSkew: skew } } },
+      });
+    };
+
+    // Stamps the next sample `offset` from now, with the skew removed.
+    const stampSkewed = (leaf: Leaf, skew: TimeSpan, offset: TimeSpan): void => {
+      leaf.source.value = () =>
+        telem.success(null, TimeStamp.now().sub(skew).add(offset));
+    };
+
+    it("should not age a fresh sample under a positive skew", () => {
+      const skew = TimeSpan.seconds(10);
+      useSkew(skew);
+      const { leaf } = mount({ timeouts: [5] });
+      stampSkewed(leaf, skew, TimeSpan.ZERO);
+      leaf.received();
+      vi.advanceTimersByTime(4750);
+      expect(leaf.transitions).toEqual([]);
+      vi.advanceTimersByTime(500);
+      expect(leaf.transitions).toEqual([true]);
+    });
+
+    it("should age an old sample under a negative skew", () => {
+      const skew = TimeSpan.seconds(-10);
+      useSkew(skew);
+      const { leaf } = mount({ timeouts: [5] });
+      stampSkewed(leaf, skew, TimeSpan.seconds(-3));
+      leaf.received();
+      vi.advanceTimersByTime(1750);
+      expect(leaf.transitions).toEqual([]);
+      vi.advanceTimersByTime(500);
+      expect(leaf.transitions).toEqual([true]);
+    });
+
+    // The connection re-measures the skew on every check, with no provider update.
+    it("should read the skew measured after mount", () => {
+      const status = { details: { clockSkew: TimeSpan.ZERO } };
+      mockUse.mockReturnValue({ connection: { status } });
+      const { leaf } = mount({ timeouts: [5] });
+      const skew = TimeSpan.seconds(10);
+      status.details = { clockSkew: skew };
+      stampSkewed(leaf, skew, TimeSpan.ZERO);
+      leaf.received();
+      expect(leaf.transitions).toEqual([]);
     });
   });
 

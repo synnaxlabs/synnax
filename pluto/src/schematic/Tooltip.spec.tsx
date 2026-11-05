@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, DataType } from "@synnaxlabs/client";
+import { type channel, connection, DataType } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Tooltip as Base } from "@synnaxlabs/lyra/tooltip";
 import { id, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
@@ -325,6 +325,39 @@ describe("Schematic.Tooltip", () => {
       const ch = await createChannel();
       stamps.stamp(ch.key, TimeStamp.now().sub(TimeSpan.hours(2)));
       renderTooltip(Node.createConfig({ variant: "value", channel: ch.key }));
+      const tooltip = await findTooltip();
+      expect(await findRowValue(tooltip)).toEqual("2h");
+    });
+
+    it("should remove the clock skew from the age", async () => {
+      // Ten minutes of skew would otherwise read as "2h 10min".
+      const clockSkew = TimeSpan.minutes(10);
+      const connectionStatus: connection.Status = {
+        ...connection.DEFAULT_STATUS,
+        variant: "success",
+        details: { ...connection.DEFAULT_STATUS.details, clockSkew },
+      };
+      const Skewed = await createAsyncSynnaxWrapper({
+        client,
+        telemFactories: [stamps],
+        additionalRegistry: latestSample.REGISTRY,
+        connectionStatus,
+      });
+      const ch = await createChannel();
+      stamps.stamp(ch.key, TimeStamp.now().sub(clockSkew).sub(TimeSpan.hours(2)));
+      render(
+        <Tooltip
+          anchor={createAnchor()}
+          config={Node.createConfig({ variant: "value", channel: ch.key })}
+        />,
+        {
+          wrapper: ({ children }) => (
+            <Skewed>
+              <Base.Config delay={DELAY}>{children}</Base.Config>
+            </Skewed>
+          ),
+        },
+      );
       const tooltip = await findTooltip();
       expect(await findRowValue(tooltip)).toEqual("2h");
     });
