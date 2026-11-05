@@ -22,7 +22,7 @@ import { Access, Channel as PChannel, Synnax } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
 
 import { use } from "@/feature/mqtt/device/queries";
-import { Select as SelectDevice } from "@/feature/mqtt/device/Select";
+import { Select as SelectDevice, useNoneSelected } from "@/feature/mqtt/device/Select";
 import { MAKE, SCHEMAS } from "@/feature/mqtt/device/types";
 import { useConnectModal } from "@/feature/mqtt/device/useConnectModal";
 import {
@@ -64,10 +64,8 @@ const Properties = () => (
 
 const AUTHORITY_INPUT_PROPS = { bounds: { lower: 0, upper: 255 } } as const;
 
-const CHANNEL_QUERY: channel.RetrieveOptions = { internal: false };
-
 const renderSelectChannel = Component.renderProp((p: PChannel.SelectSingleProps) => (
-  <PChannel.SelectSingle {...p} initialQuery={CHANNEL_QUERY} location="bottom" />
+  <PChannel.SelectSingle {...p} location="bottom" />
 ));
 
 const TagListItem = (props: Task.ChannelListItemProps) => {
@@ -218,6 +216,7 @@ const Content = () => (
 const Form = PlatformDevice.wrapTaskForm({
   use,
   useConfigure: useConnectModal,
+  useNoneSelected,
   Content,
 });
 

@@ -32,6 +32,7 @@ export interface UseProps
         | "selectionStart"
         | "selectionEnd"
         | "visibleStart"
+        | "rowEntries"
         | "selectedText"
         | "selectedLines"
         | "computedLineHeight"
@@ -74,7 +75,7 @@ export const use = ({
     .map((e) => e.channel)
     .filter((ch): ch is number => typeof ch === "number" && ch > 0);
   const { data: retrievedChannels } = Channel.useResultMultiple({
-    keys: numericChannels,
+    where: { key: { in: numericChannels } },
   });
   const names: Record<string, string> = {};
   if (retrievedChannels != null)

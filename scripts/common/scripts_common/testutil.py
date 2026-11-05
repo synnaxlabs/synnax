@@ -18,6 +18,7 @@ from typing import Any
 
 _ROUTES = "routes.json"
 _CALLS = "calls.jsonl"
+_FAILURES = "failures.json"
 
 
 class FakeGH:
@@ -32,6 +33,7 @@ class FakeGH:
         self.bin_dir.mkdir()
         self._routes: dict[str, list[Any]] = {}
         (self.bin_dir / _ROUTES).write_text("{}")
+        (self.bin_dir / _FAILURES).write_text("{}")
         (self.bin_dir / _CALLS).touch()
         gh = self.bin_dir / "gh"
         gh.write_text(
@@ -51,6 +53,13 @@ class FakeGH:
         self._routes[pattern] = list(pages)
         (self.bin_dir / _ROUTES).write_text(json.dumps(self._routes))
 
+    def fail(self, pattern: str, message: str, *, times: int = 1) -> None:
+        """Fails the next `times` calls that match `pattern`, printing `message` to
+        stderr. A failure comes before any served route."""
+        failures = json.loads((self.bin_dir / _FAILURES).read_text())
+        failures[pattern] = [message, times]
+        (self.bin_dir / _FAILURES).write_text(json.dumps(failures))
+
     def calls(self) -> list[list[str]]:
         """Returns the arguments of each call so far, oldest first."""
         lines = (self.bin_dir / _CALLS).read_text().splitlines()
@@ -61,6 +70,12 @@ def _answer(bin_dir: Path, args: list[str]) -> None:
     with (bin_dir / _CALLS).open("a") as calls:
         calls.write(json.dumps(args) + "\n")
     call = " ".join(args[:2])
+    failures = json.loads((bin_dir / _FAILURES).read_text())
+    for pattern, (message, times) in failures.items():
+        if times > 0 and fnmatchcase(call, pattern):
+            failures[pattern][1] = times - 1
+            (bin_dir / _FAILURES).write_text(json.dumps(failures))
+            sys.exit(message)
     for pattern, pages in json.loads((bin_dir / _ROUTES).read_text()).items():
         if fnmatchcase(call, pattern):
             expression = args[args.index("--jq") + 1] if "--jq" in args else "."

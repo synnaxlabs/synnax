@@ -594,6 +594,16 @@ section.portal-auth-page {
     min-height: var(--pluto-height-medium);
 }
 
+/* The basis is 0 so the actions wrap by the width of the window, not of the title. */
+.portal-page__heading {
+    flex: 1 1 0;
+    min-width: 20rem;
+}
+
+.portal-page__title {
+    overflow-wrap: anywhere;
+}
+
 .portal-crumb {
     width: fit-content;
     margin-bottom: 1rem;

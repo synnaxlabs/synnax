@@ -18,6 +18,8 @@
 #include "client/cpp/arc/json.gen.h"
 #include "client/cpp/arc/types.gen.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/filter/json.gen.h"
+#include "x/cpp/filter/proto.gen.h"
 #include "x/cpp/pb/pb.h"
 
 #include "arc/cpp/graph/json.gen.h"
@@ -26,6 +28,7 @@
 #include "arc/cpp/program/proto.gen.h"
 #include "arc/cpp/text/json.gen.h"
 #include "arc/cpp/text/proto.gen.h"
+#include "core/pkg/api/arc/pb/arc.pb.h"
 #include "core/pkg/service/arc/pb/arc.pb.h"
 
 namespace synnax::arc {
@@ -52,6 +55,43 @@ mode_from_pb(::service::arc::pb::Mode pb) {
         default:
             return {"", x::errors::Error("unrecognized Mode protobuf value")};
     }
+}
+
+inline std::pair<::service::arc::pb::UuidSet, x::errors::Error>
+uuid_set_to_proto(const ::x::filter::Set<x::uuid::UUID> &self);
+inline std::pair<::x::filter::Set<x::uuid::UUID>, x::errors::Error>
+uuid_set_from_proto(const ::service::arc::pb::UuidSet &pb);
+
+inline std::pair<::service::arc::pb::UuidSet, x::errors::Error>
+uuid_set_to_proto(const ::x::filter::Set<x::uuid::UUID> &self) {
+    ::service::arc::pb::UuidSet pb;
+    if (self.eq.has_value()) pb.set_eq(self.eq->to_string());
+    if (self.in.has_value()) {
+        auto *wrapper = pb.mutable_in();
+        for (const auto &item: *self.in) {
+            wrapper->add_values(item.to_string());
+        }
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<::x::filter::Set<x::uuid::UUID>, x::errors::Error>
+uuid_set_from_proto(const ::service::arc::pb::UuidSet &pb) {
+    ::x::filter::Set<x::uuid::UUID> cpp;
+    if (!pb.eq().empty()) {
+        auto [v, err] = x::uuid::UUID::parse(pb.eq());
+        if (err) return {{}, err};
+        cpp.eq = v;
+    }
+    if (pb.has_in()) {
+        cpp.in.emplace();
+        for (const auto &item: pb.in().values()) {
+            auto [v, err] = x::uuid::UUID::parse(item);
+            if (err) return {{}, err};
+            cpp.in->push_back(v);
+        }
+    }
+    return {cpp, x::errors::NIL};
 }
 
 inline std::pair<::service::arc::pb::Arc, x::errors::Error> Arc::to_proto() const {
@@ -110,6 +150,122 @@ Arc::from_proto(const ::service::arc::pb::Arc &pb) {
         if (err) return {{}, err};
         cpp.program = v;
     }
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::arc::pb::Where, x::errors::Error> Where::to_proto() const {
+    ::service::arc::pb::Where pb;
+    if (this->and_.has_value()) {
+        auto *wrapper = pb.mutable_and_();
+        for (const auto &item: *this->and_) {
+            auto [v, err] = item.to_proto();
+            if (err) return {{}, err};
+            *wrapper->add_values() = v;
+        }
+    }
+    if (this->or_.has_value()) {
+        auto *wrapper = pb.mutable_or_();
+        for (const auto &item: *this->or_) {
+            auto [v, err] = item.to_proto();
+            if (err) return {{}, err};
+            *wrapper->add_values() = v;
+        }
+    }
+    if (this->not_.has_value()) {
+        auto [v, err] = this->not_->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_not_() = v;
+    }
+    if (this->key.has_value()) {
+        auto [v, err] = uuid_set_to_proto(*this->key);
+        if (err) return {{}, err};
+        *pb.mutable_key() = v;
+    }
+    if (this->name.has_value()) {
+        auto [v, err] = this->name->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_name() = v;
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<Where, x::errors::Error>
+Where::from_proto(const ::service::arc::pb::Where &pb) {
+    Where cpp;
+    if (pb.has_and_()) {
+        cpp.and_.emplace();
+        if (auto err = x::pb::from_proto_repeated<Where>(*cpp.and_, pb.and_().values()))
+            return {{}, err};
+    }
+    if (pb.has_or_()) {
+        cpp.or_.emplace();
+        if (auto err = x::pb::from_proto_repeated<Where>(*cpp.or_, pb.or_().values()))
+            return {{}, err};
+    }
+    if (pb.has_not_()) {
+        auto [v, err] = Where::from_proto(pb.not_());
+        if (err) return {{}, err};
+        cpp.not_ = v;
+    }
+    if (pb.has_key()) {
+        auto [v, err] = uuid_set_from_proto(pb.key());
+        if (err) return {{}, err};
+        cpp.key = v;
+    }
+    if (pb.has_name()) {
+        auto [v, err] = ::x::filter::String::from_proto(pb.name());
+        if (err) return {{}, err};
+        cpp.name = v;
+    }
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::api::arc::pb::RetrieveRequest, x::errors::Error>
+RetrieveRequest::to_proto() const {
+    ::api::arc::pb::RetrieveRequest pb;
+    if (this->where.has_value()) {
+        auto [v, err] = this->where->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_where() = v;
+    }
+    pb.set_search_term(this->search_term);
+    if (this->limit.has_value()) pb.set_limit(*this->limit);
+    pb.set_offset(this->offset);
+    pb.set_include_program(this->include_program);
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<RetrieveRequest, x::errors::Error>
+RetrieveRequest::from_proto(const ::api::arc::pb::RetrieveRequest &pb) {
+    RetrieveRequest cpp;
+    if (pb.has_where()) {
+        auto [v, err] = Where::from_proto(pb.where());
+        if (err) return {{}, err};
+        cpp.where = v;
+    }
+    cpp.search_term = pb.search_term();
+    if (pb.has_limit()) cpp.limit = pb.limit();
+    cpp.offset = pb.offset();
+    cpp.include_program = pb.include_program();
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::api::arc::pb::RetrieveResponse, x::errors::Error>
+RetrieveResponse::to_proto() const {
+    ::api::arc::pb::RetrieveResponse pb;
+    for (const auto &item: this->arcs) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{}, err};
+        *pb.add_arcs() = v;
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<RetrieveResponse, x::errors::Error>
+RetrieveResponse::from_proto(const ::api::arc::pb::RetrieveResponse &pb) {
+    RetrieveResponse cpp;
+    if (auto err = x::pb::from_proto_repeated<Arc>(cpp.arcs, pb.arcs()))
+        return {{}, err};
     return {cpp, x::errors::NIL};
 }
 

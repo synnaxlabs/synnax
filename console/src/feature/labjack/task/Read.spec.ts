@@ -64,9 +64,10 @@ const createDraft = async (
 
 describe("Read", () => {
   it("should prompt for a selection when the form carries no device", async () => {
+    await createLabJackDevice(client);
     const draft = await createDraft(client, createConfig("", []));
     await renderRead({ client, taskKey: draft.key });
-    await waitFor(() => expect(screen.getByText("No device selected")).toBeTruthy());
+    await screen.findByText("No device selected");
   });
 
   it("should prompt to configure an unconfigured device", async () => {
