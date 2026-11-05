@@ -37,10 +37,14 @@ type unionData struct {
 	Doc string
 	// InterfaceName is the sealed variant interface (e.g. "ScaleVariant").
 	InterfaceName string
+	// InterfaceDoc is the documentation comment of InterfaceName.
+	InterfaceDoc string
 	// Marker is the unexported sealing method (e.g. "isScaleVariant").
 	Marker string
 	// DiscType is the discriminator type (e.g. "ScaleType", or the borrowed enum).
 	DiscType string
+	// DiscDoc is the documentation comment of a discriminator type the union declares.
+	DiscDoc string
 	// BorrowsEnum reports that DiscType is a declared enum, so the union emits no
 	// discriminator type or constants of its own.
 	BorrowsEnum bool
@@ -67,6 +71,8 @@ type unionVariantData struct {
 	TypeName string
 	// ConstName is the discriminator constant (e.g. "ScaleTypeLinear").
 	ConstName string
+	// ConstDoc is the documentation comment of ConstName.
+	ConstDoc string
 	// Value is the discriminator string value (e.g. "linear").
 	Value string
 	// Doc is the rendered per-variant documentation comment, if any.
@@ -101,6 +107,29 @@ type unionVariantData struct {
 	NeedsValidate      bool
 }
 
+// interfaceDoc returns the documentation comment of a union's variant interface.
+func interfaceDoc(union string) string {
+	return fmt.Sprintf("is implemented by every %s variant.", union)
+}
+
+// discDoc returns the documentation comment of a union's discriminator type.
+func discDoc(union, discJSONName string) string {
+	return fmt.Sprintf(
+		"is the %q value that selects a variant of %s.",
+		discJSONName,
+		union,
+	)
+}
+
+// constDoc returns the documentation comment of a variant's discriminator constant:
+// the variant's own documentation, or a description of the variant it selects.
+func constDoc(variantDoc, variantType string) string {
+	if variantDoc != "" {
+		return variantDoc
+	}
+	return fmt.Sprintf("selects the %s variant.", variantType)
+}
+
 func processUnion(entry resolution.Type, data *templateData) unionData {
 	form := entry.Form.(resolution.UnionForm)
 	// Use the raw schema name (with @go name override) so the wrapper matches
@@ -112,14 +141,18 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 	data.AddExternal("encoding/json/v2")
 	data.AddExternal("encoding/json/jsontext")
 	data.AddExternal("github.com/synnaxlabs/x/errors")
+	data.AddExternal(validateImportPath)
 
+	discName := casing.FieldSnake(form.Discriminator)
 	ud := unionData{
 		Name:          name,
 		Doc:           doc.Get(entry.Domains),
 		InterfaceName: name + "Variant",
+		InterfaceDoc:  interfaceDoc(name),
 		Marker:        "is" + name + "Variant",
 		DiscType:      name + "Type",
-		DiscJSONName:  casing.FieldSnake(form.Discriminator),
+		DiscDoc:       discDoc(name, discName),
+		DiscJSONName:  discName,
 	}
 	constName := func(v resolution.UnionVariant) string {
 		return casing.VariantConstName(name, v.Name)
@@ -175,6 +208,7 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 			Value:     v.Name,
 			Doc:       doc.Get(v.Domains),
 		}
+		vd.ConstDoc = constDoc(vd.Doc, vd.TypeName)
 		vd.Receiver = receiverName(vd.TypeName)
 		embeds := append([]embeddedType{}, baseEmbeds...)
 		var inlineFields []resolution.Field

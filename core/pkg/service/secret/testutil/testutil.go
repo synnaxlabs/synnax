@@ -15,8 +15,6 @@ import (
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
@@ -25,8 +23,8 @@ import (
 )
 
 // OpenService opens a secret service on db with a new encryption key, along with the
-// API key, auth, and grant services it needs. uses finds the uses of each secret. The
-// services close when the spec or container that opens them ends.
+// grant service it needs. uses finds the uses of each secret. The services close when
+// the spec or container that opens them ends.
 func OpenService(
 	ctx context.Context,
 	db *gorp.DB,
@@ -35,15 +33,7 @@ func OpenService(
 	uses secret.Finder,
 ) *secret.Service {
 	ginkgo.GinkgoHelper()
-	keys := testutil.MustOpen(apikey.OpenService(ctx, apikey.ServiceConfig{DB: db}))
-	authSvc := testutil.MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
-		DB:             db,
-		Authenticators: map[auth.Method]auth.Authenticator{auth.MethodAPIKey: keys},
-	}))
-	grants := testutil.MustOpen(grant.OpenService(ctx, grant.ServiceConfig{
-		DB:   db,
-		Auth: authSvc,
-	}))
+	grants := testutil.MustOpen(grant.OpenService(ctx, grant.ServiceConfig{DB: db}))
 	return testutil.MustOpen(secret.OpenService(ctx, secret.ServiceConfig{
 		DB:            db,
 		Ontology:      otg,

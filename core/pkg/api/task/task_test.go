@@ -425,6 +425,39 @@ var _ = Describe("Delete", func() {
 		Eventually(driver).Should(BeClosed())
 		expectGone(ctx, t.Key)
 	})
+	It("Should stop a batch that never acks within one timeout", func(ctx SpecContext) {
+		const timeout = 300 * time.Millisecond
+		tasks := []task.Task{
+			createRunningTask(ctx, true),
+			createRunningTask(ctx, true),
+			createRunningTask(ctx, true),
+		}
+		keys := make([]task.Key, len(tasks))
+		for i, t := range tasks {
+			keys[i] = t.Key
+			grant(ctx, access.ActionDelete, u.OntologyID(), t.OntologyID())
+		}
+		commands := streamCommands(ctx)
+		start := time.Now()
+		Expect(withTimeout(timeout).Delete(
+			AuthedCtx(ctx, u), nil, apitask.DeleteRequest{Keys: keys},
+		)).Error().ToNot(HaveOccurred())
+		elapsed := time.Since(start)
+		Expect(elapsed).To(BeNumerically(">=", timeout))
+		Expect(elapsed).To(BeNumerically("<", 2*timeout))
+		stopped := make([]task.Key, 0, len(tasks))
+		for range tasks {
+			var cmd task.Command
+			Eventually(commands).Should(Receive(&cmd))
+			Expect(cmd.Type).To(Equal("stop"))
+			stopped = append(stopped, cmd.Task)
+		}
+		Expect(stopped).To(ConsistOf(keys))
+		Consistently(commands, 100*time.Millisecond).ShouldNot(Receive())
+		for _, key := range keys {
+			expectGone(ctx, key)
+		}
+	})
 	It(
 		"Should return within the timeout when a stop cannot be written",
 		func(ctx SpecContext) {
@@ -515,4 +548,13 @@ var _ = Describe("Delete", func() {
 			return t
 		}),
 	)
+	It("Should not stop a task the caller cannot delete", func(ctx SpecContext) {
+		t := createRunningTask(ctx, true)
+		commands := streamCommands(ctx)
+		Expect(apiSvc.Delete(
+			AuthedCtx(ctx, u), nil, apitask.DeleteRequest{Keys: []task.Key{t.Key}},
+		)).Error().To(MatchError(access.ErrDenied))
+		Consistently(commands, 100*time.Millisecond).ShouldNot(Receive())
+		Expect(retrieveTask(ctx, t.Key).Key).To(Equal(t.Key))
+	})
 })

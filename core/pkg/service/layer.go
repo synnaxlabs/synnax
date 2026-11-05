@@ -648,7 +648,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.Grant, err = grant.OpenService(ctx, grant.ServiceConfig{
 		Instrumentation: cfg.Child("grant"),
 		DB:              cfg.Distribution.DB,
-		Auth:            l.Auth,
 	}); !ok(err, l.Grant) {
 		return nil, err
 	}

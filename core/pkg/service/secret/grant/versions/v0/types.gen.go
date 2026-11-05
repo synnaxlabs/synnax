@@ -14,32 +14,32 @@ package v0
 import (
 	"uuid"
 
-	auth "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v3"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	secret "github.com/synnaxlabs/synnax/pkg/service/secret/versions/v0"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 )
 
 // Key is a unique identifier for a grant.
 type Key = uuid.UUID
 
-// Grant lets a rack read secrets that nothing on the rack uses yet, such as to test a
-// connection before the device that uses them is saved.
+// Grant lets a subject read secrets once, such as for a rack to test a connection
+// before the device that uses them is saved.
 type Grant struct {
 	// Key is the unique identifier for this grant.
 	Key Key `json:"key" msgpack:"key"`
-	// Rack is the rack that may read the secrets.
-	Rack ontology.ID `json:"rack" msgpack:"rack"`
-	// Secrets are the secrets the rack may read.
+	// Subject is the subject that may read the secrets.
+	Subject ontology.ID `json:"subject" msgpack:"subject"`
+	// Secrets are the secrets the subject may read.
 	Secrets []secret.Key `json:"secrets" msgpack:"secrets"`
-	// Session is the session that created the grant. The grant ends with it.
-	Session auth.SessionKey `json:"session" msgpack:"session"`
+	// ExpiresAt is when the grant stops working, if no read has used it.
+	ExpiresAt telem.TimeStamp `json:"expires_at" msgpack:"expires_at"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (g Grant) Validate() error {
 	v := validate.New("Grant")
-	v.Exec(func() error { return validate.PathedError(g.Rack.Validate(), "rack") })
+	v.Exec(func() error { return validate.PathedError(g.Subject.Validate(), "subject") })
 	return v.Error()
 }
