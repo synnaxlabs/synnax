@@ -32,6 +32,7 @@ export interface UseProps
         | "selectionStart"
         | "selectionEnd"
         | "visibleStart"
+        | "rowEntries"
         | "selectedText"
         | "selectedLines"
         | "computedLineHeight"

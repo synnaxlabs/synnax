@@ -319,8 +319,8 @@ export abstract class Retriever<
    * cache when the answer is fresh, fetching otherwise. A bare key is shorthand for `{
    * key }`; a bare key list is accepted by domains whose request schema unions in
    * {@link keysRequestZ} or {@link keyListZ}. A bare key list read through
-   * {@link keysRequestZ} returns one record per key, in the order of the keys. A filter
-   * on keys returns the records that exist.
+   * {@link keysRequestZ} returns each record once, in the order its key first appears.
+   * A filter on keys returns the records that exist.
    * @throws {NotFoundError} if a single-record query matches nothing, the record was
    * deleted, or a key in a bare key list has no record.
    * @throws {ValidationError} if params contain `key` (or are a bare key) but fail the
@@ -340,12 +340,13 @@ export abstract class Retriever<
 
   private inKeyOrder(keys: K[], records: D[]): D[] {
     const byKey = new Map<K, D>(records.map((r) => [r.key, r]));
-    const missing = keys.filter((k) => !byKey.has(k));
+    const unique = [...new Set(keys)];
+    const missing = unique.filter((k) => !byKey.has(k));
     if (missing.length === 1)
       throw new NotFoundError(`${this.name} with key ${missing[0]} not found`);
     if (missing.length > 1)
       throw new NotFoundError(`${this.name} with keys ${missing.join(", ")} not found`);
-    return keys.map((k) => byKey.get(k) as D);
+    return unique.map((k) => byKey.get(k) as D);
   }
 
   /**

@@ -11,16 +11,29 @@ import { HARDWARE } from "@/feature/labjack/device/hardware";
 import { MAKE } from "@/feature/labjack/device/types";
 import { Device } from "@/platform/device";
 
+const EMPTY_CONTENT = "No LabJack devices connected";
+
+const useConnect = (): Device.SelectConnect => {
+  const find = Device.useFindModal();
+  return { title: HARDWARE.title, open: () => find({ hardware: HARDWARE }) };
+};
+
+export const useNoneSelected = (): Device.NoneSelectedParams => ({
+  make: MAKE,
+  emptyContent: EMPTY_CONTENT,
+  connect: useConnect(),
+});
+
 export const Select = () => {
   const configure = Device.useConfigureModal();
-  const find = Device.useFindModal();
+  const connect = useConnect();
   return (
     <Device.Select
       onConfigure={(deviceKey) => configure({ deviceKey, hardware: HARDWARE })}
-      emptyContent="No LabJack devices connected"
+      emptyContent={EMPTY_CONTENT}
       make={MAKE}
       icon={HARDWARE.icon}
-      connect={{ title: HARDWARE.title, open: () => find({ hardware: HARDWARE }) }}
+      connect={connect}
     />
   );
 };
