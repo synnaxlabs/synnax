@@ -431,12 +431,15 @@ Add the channel to `read`, or wait for its first value with `wait_until_defined`
 <Problem.Body>
 <Problem.Cause>
 
-`wait_until` returns `False` at the timeout. It raises no error.
+`wait_until` returns `False` at the timeout. It raises no error. It also returns at once
+if a value from before the call satisfies the condition.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Check the return value, and abort when it is `False`.
+Check the return value, and abort when it is `False`. To wait for a new value, wait for
+the state to leave the old value first. See
+[Wait for a new value](/reference/control/python/write-sequences#wait-for-a-new-value).
 
 </Problem.Fix>
 </Problem.Body>

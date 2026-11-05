@@ -487,6 +487,10 @@ var _ = Describe("Task sync", func() {
 				svc.Dispatch(ctx, a.Key, "dk", toInsertActions(client.Insert(0, "x"))),
 			).
 				To(Succeed())
+			// An in-flight sync of the insert can commit after the delete, so wait for
+			// it. Otherwise the edited hash lands during the Consistently below.
+			Eventually(taskConfigHash(ctx, tsk.Key)).
+				ShouldNot(Equal(before.ConfigHash))
 			Expect(
 				svc.Dispatch(ctx, a.Key, "dk", toDeleteActions(client.Delete(0, 1))),
 			).

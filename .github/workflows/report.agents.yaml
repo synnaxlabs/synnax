@@ -40,7 +40,7 @@ jobs:
 
       - name: Post the report to Slack
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_AGENT_REPORT_WEBHOOK_URL }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NIGHTLY_WEBHOOK_URL }}
         run: |
           jq --null-input --rawfile text "$RUNNER_TEMP/report.txt" '{text: $text}' |
             curl --fail --silent --show-error \

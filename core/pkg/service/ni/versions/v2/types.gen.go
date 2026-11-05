@@ -4036,6 +4036,76 @@ func (u CIChannel) Validate() error {
 	return nil
 }
 
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u CIChannel) Base() BaseCIChannel {
+	switch variant := u.Variant.(type) {
+	case CIFrequencyChannel:
+		return variant.BaseCIChannel
+	case CIEdgeCountChannel:
+		return variant.BaseCIChannel
+	case CIPeriodChannel:
+		return variant.BaseCIChannel
+	case CIPulseWidthChannel:
+		return variant.BaseCIChannel
+	case CISemiPeriodChannel:
+		return variant.BaseCIChannel
+	case CITwoEdgeSepChannel:
+		return variant.BaseCIChannel
+	case CIVelocityLinearChannel:
+		return variant.BaseCIChannel
+	case CIVelocityAngularChannel:
+		return variant.BaseCIChannel
+	case CIPositionLinearChannel:
+		return variant.BaseCIChannel
+	case CIPositionAngularChannel:
+		return variant.BaseCIChannel
+	case CIDutyCycleChannel:
+		return variant.BaseCIChannel
+	}
+	return BaseCIChannel{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *CIChannel) SetBase(base BaseCIChannel) {
+	switch variant := u.Variant.(type) {
+	case CIFrequencyChannel:
+		variant.BaseCIChannel = base
+		u.Variant = variant
+	case CIEdgeCountChannel:
+		variant.BaseCIChannel = base
+		u.Variant = variant
+	case CIPeriodChannel:
+		variant.BaseCIChannel = base
+		u.Variant = variant
+	case CIPulseWidthChannel:
+		variant.BaseCIChannel = base
+		u.Variant = variant
+	case CISemiPeriodChannel:
+		variant.BaseCIChannel = base
+		u.Variant = variant
+	case CITwoEdgeSepChannel:
+		variant.BaseCIChannel = base
+		u.Variant = variant
+	case CIVelocityLinearChannel:
+		variant.BaseCIChannel = base
+		u.Variant = variant
+	case CIVelocityAngularChannel:
+		variant.BaseCIChannel = base
+		u.Variant = variant
+	case CIPositionLinearChannel:
+		variant.BaseCIChannel = base
+		u.Variant = variant
+	case CIPositionAngularChannel:
+		variant.BaseCIChannel = base
+		u.Variant = variant
+	case CIDutyCycleChannel:
+		variant.BaseCIChannel = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("CIChannel: cannot set the base of variant %T", variant))
+	}
+}
+
 // WaveType selects the waveform a function generator produces.
 type WaveType string
 
@@ -4275,6 +4345,36 @@ func (u AOChannel) Validate() error {
 		return variant.Validate()
 	}
 	return nil
+}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u AOChannel) Base() BaseAOChannel {
+	switch variant := u.Variant.(type) {
+	case AOCurrentChannel:
+		return variant.BaseAOChannel
+	case AOFuncGenChannel:
+		return variant.BaseAOChannel
+	case AOVoltageChannel:
+		return variant.BaseAOChannel
+	}
+	return BaseAOChannel{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *AOChannel) SetBase(base BaseAOChannel) {
+	switch variant := u.Variant.(type) {
+	case AOCurrentChannel:
+		variant.BaseAOChannel = base
+		u.Variant = variant
+	case AOFuncGenChannel:
+		variant.BaseAOChannel = base
+		u.Variant = variant
+	case AOVoltageChannel:
+		variant.BaseAOChannel = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("AOChannel: cannot set the base of variant %T", variant))
+	}
 }
 
 // DIChannel is a digital input channel the task acquires from.
