@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { act, fireEvent, render, renderHook, screen } from "@testing-library/react";
-import { type KeyboardEvent } from "react";
+import { type KeyboardEvent, type MouseEvent } from "react";
 import { beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { type Haul } from "@/haul";
@@ -283,13 +283,24 @@ describe("Tree keys", () => {
     nodes?: Node[];
     onKeyDown?: (e: KeyboardEvent<HTMLDivElement>) => void;
     onDoubleClick?: (key: string) => void;
+    onContextMenu?: (e: MouseEvent<HTMLDivElement>) => void;
   }
 
-  const Component = ({ nodes = NODES, onKeyDown, onDoubleClick }: ComponentProps) => {
+  const Component = ({
+    nodes = NODES,
+    onKeyDown,
+    onDoubleClick,
+    onContextMenu,
+  }: ComponentProps) => {
     const props = use({ nodes });
     return (
       <Triggers.Provider>
-        <Tree {...props} getItem={getItem} onKeyDown={onKeyDown}>
+        <Tree
+          {...props}
+          getItem={getItem}
+          onKeyDown={onKeyDown}
+          onContextMenu={onContextMenu}
+        >
           {({ key, ...rest }) => (
             <Item key={key} {...rest} onDoubleClick={() => onDoubleClick?.(key)}>
               {key}
@@ -356,6 +367,7 @@ describe("Tree keys", () => {
     });
     render(<Component />);
     fireEvent.keyDown(tree(), { key: "ArrowDown", code: "ArrowDown" });
+    fireEvent.keyDown(tree(), { key: "ArrowDown", code: "ArrowDown", repeat: true });
     act(() => {
       vi.advanceTimersByTime(400);
     });
@@ -412,6 +424,20 @@ describe("Tree keys", () => {
     expect(row("a").getAttribute("aria-expanded")).toBe("true");
   });
 
+  it("should move once on a press whose release comes late", () => {
+    vi.useFakeTimers();
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
+    render(<Component />);
+    fireEvent.keyDown(tree(), { key: "ArrowDown", code: "ArrowDown" });
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    fireEvent.keyUp(tree(), { key: "ArrowDown", code: "ArrowDown" });
+    expect(selected()).toEqual(["a"]);
+  });
+
   it("should stop a held key when the window loses focus", () => {
     vi.useFakeTimers();
     onTestFinished(() => {
@@ -419,6 +445,7 @@ describe("Tree keys", () => {
     });
     render(<Component />);
     fireEvent.keyDown(tree(), { key: "ArrowDown", code: "ArrowDown" });
+    fireEvent.keyDown(tree(), { key: "ArrowDown", code: "ArrowDown", repeat: true });
     fireEvent.blur(window);
     act(() => {
       vi.advanceTimersByTime(1000);
@@ -437,6 +464,35 @@ describe("Tree keys", () => {
     expect(selected()).toEqual(["b"]);
     press("Enter");
     expect(onDoubleClick).toHaveBeenCalledExactlyOnceWith("b");
+  });
+
+  it("should open the context menu of the selected item on Shift+F10", () => {
+    const onContextMenu = vi.fn();
+    render(<Component onContextMenu={onContextMenu} />);
+    fireEvent.click(row("b"));
+    const shiftF10 = { key: "F10", code: "F10", shiftKey: true };
+    expect(fireEvent.keyDown(tree(), shiftF10)).toBe(false);
+    expect(onContextMenu).toHaveBeenCalledOnce();
+    expect(onContextMenu.mock.calls[0][0].target).toBe(row("b"));
+  });
+
+  it("should open the selected item's context menu on the Menu key release", () => {
+    const onContextMenu = vi.fn();
+    render(<Component onContextMenu={onContextMenu} />);
+    fireEvent.click(row("b"));
+    const menuKey = { key: "ContextMenu", code: "ContextMenu" };
+    expect(fireEvent.keyDown(tree(), menuKey)).toBe(false);
+    expect(onContextMenu).not.toHaveBeenCalled();
+    expect(fireEvent.keyUp(tree(), menuKey)).toBe(false);
+    expect(onContextMenu).toHaveBeenCalledOnce();
+    expect(onContextMenu.mock.calls[0][0].target).toBe(row("b"));
+  });
+
+  it("should open no context menu from the keys with nothing selected", () => {
+    const onContextMenu = vi.fn();
+    render(<Component onContextMenu={onContextMenu} />);
+    fireEvent.keyDown(tree(), { key: "F10", code: "F10", shiftKey: true });
+    expect(onContextMenu).not.toHaveBeenCalled();
   });
 
   it("should move from the item clicked last", () => {
@@ -481,6 +537,29 @@ describe("Tree keys", () => {
     expect(screen.queryByText("1", { exact: true })).toBeNull();
     press("Enter");
     expect(onDoubleClick).toHaveBeenCalledExactlyOnceWith("0");
+  });
+
+  it("should open the menu of the selection out of view after a deselect", () => {
+    const onContextMenu = vi.fn();
+    const nodes = Array.from({ length: 300 }, (_, i) => ({ key: `${i}` }));
+    const c = render(<Component nodes={nodes} onContextMenu={onContextMenu} />);
+    fireEvent.click(row("0"));
+    const scroller = c.container.querySelector<HTMLElement>(".lyra-list__scroll");
+    if (scroller == null) throw new Error("scroll container not found");
+    const scrollTo = (index: number) =>
+      act(() => {
+        scroller.scrollTop = index * 27;
+        fireEvent.scroll(scroller);
+      });
+    scrollTo(200);
+    fireEvent.keyDown(window, { code: "Control" });
+    fireEvent.click(row("200"));
+    fireEvent.click(row("200"));
+    fireEvent.keyUp(window, { code: "Control" });
+    scrollTo(201);
+    fireEvent.keyDown(tree(), { key: "F10", code: "F10", shiftKey: true });
+    expect(onContextMenu).toHaveBeenCalledOnce();
+    expect(onContextMenu.mock.calls[0][0].target).toBe(row("0"));
   });
 
   it("should re-render only the two items an arrow key moves between", () => {

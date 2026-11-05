@@ -14,6 +14,7 @@ import { userEvent } from "vitest/browser";
 import { Button } from "@/button";
 import { Icon } from "@/icon";
 import { List } from "@/list";
+import { Menu } from "@/menu";
 import { height, renderThemed, resolve } from "@/styletest";
 import { Tree } from "@/tree";
 
@@ -177,6 +178,33 @@ const ManyComponent = ({ virtual }: { virtual?: boolean }): ReactElement => {
   );
 };
 
+interface MenuComponentProps {
+  onChange: (key: string) => void;
+}
+
+const MenuComponent = ({ onChange }: MenuComponentProps): ReactElement => {
+  const props = Tree.use({ nodes: NODES });
+  const ctx = Menu.useContextMenu();
+  return (
+    <Menu.ContextMenu
+      {...ctx}
+      menu={({ keys }) => (
+        <Menu.Menu onChange={onChange}>
+          <Menu.Item itemKey="open">Open {keys.join(",")}</Menu.Item>
+        </Menu.Menu>
+      )}
+    >
+      <Tree.Tree {...props} getItem={getItem} onContextMenu={ctx.open}>
+        {({ key, ...rest }) => (
+          <Tree.Item key={key} {...rest}>
+            {key}
+          </Tree.Item>
+        )}
+      </Tree.Tree>
+    </Menu.ContextMenu>
+  );
+};
+
 describe("Tree keys", () => {
   const tree = (): HTMLElement => document.querySelector(".lyra-tree")!;
   const selected = (key: string): boolean =>
@@ -234,6 +262,27 @@ describe("Tree keys", () => {
     await expect.poll(() => item.outlineStyle).toBe("solid");
     expect(item.outlineColor).toBe(resolve("var(--pluto-primary-z)"));
     expect(getComputedStyle(tree()).outlineStyle).toBe("none");
+  });
+
+  it("should open one context menu of the selection from either menu key", async () => {
+    const onChange = vi.fn();
+    await renderThemed(<MenuComponent onChange={onChange} />);
+    await userEvent.click(document.getElementById("sibling")!);
+    await userEvent.keyboard("{Shift>}{F10}{/Shift}");
+    await expect.poll(() => document.querySelectorAll('[role="menu"]').length).toBe(1);
+    const item = document.querySelector<HTMLElement>('[role="menuitem"]')!;
+    expect(item.textContent).toBe("Open sibling");
+    await userEvent.keyboard("{ArrowDown}");
+    await expect.poll(() => document.activeElement).toBe(item);
+    await userEvent.keyboard("{Enter}");
+    await expect.poll(() => onChange.mock.calls.length).toBe(1);
+    expect(document.querySelector('[role="menu"]')).toBeNull();
+    expect(document.activeElement).toBe(tree());
+    await userEvent.keyboard("{ContextMenu}");
+    await expect.poll(() => document.querySelectorAll('[role="menu"]').length).toBe(1);
+    expect(document.querySelector('[role="menuitem"]')?.textContent).toBe(
+      "Open sibling",
+    );
   });
 
   it("should open the selection on Enter as a double-click does", async () => {
