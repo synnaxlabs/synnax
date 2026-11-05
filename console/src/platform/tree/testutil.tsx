@@ -122,6 +122,7 @@ export const createSelection = ({
   parentID = rootID,
 }: CreateSelectionParams): Tree.ContextMenuProps["selection"] => ({
   ids: array.toArray(ids),
+  top: array.toArray(ids),
   rootID,
   parentID,
 });

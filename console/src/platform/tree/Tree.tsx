@@ -601,9 +601,10 @@ const Internal = ({
     const ids = keys.map((key) => ontology.parseID(key));
 
     // A selected node's own children do not count, since an action on the node carries
-    // them along.
+    // them along. Flat search results show both at the same depth.
+    const contained = findContainedKeys(nodes, keys, results?.ancestors);
     const top = Base.getAllNodesOfMinDepth(
-      Base.filterShape(shape, (key) => keys.includes(key)),
+      Base.filterShape(shape, (key) => keys.includes(key) && !contained.has(key)),
     );
     const parents = unique.by(
       top.map((key) => parentOf(nodes, key)),
@@ -618,6 +619,7 @@ const Internal = ({
         rootID: root,
         parentID,
         ids,
+        top: top.map((key) => ontology.parseID(key)),
       },
       state,
       ...getBaseProps(client),
