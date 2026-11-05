@@ -66,7 +66,18 @@ const selectorTab = (): panel.Tab => ({
   type: "selector",
 });
 
+// The Core refuses a panel tab whose resource it does not hold.
+const createPlots = async (tabs: panel.Tab[]): Promise<void> => {
+  for (const tab of tabs)
+    if (tab.variant === "resource")
+      await client.lineplots.create(defaultProject, {
+        key: tab.resource.key,
+        name: `mosaic-${tab.resource.key}`,
+      });
+};
+
 const createPanel = async (...tabs: panel.Tab[]): Promise<panel.Panel> => {
+  await createPlots(tabs);
   const created = await client.panels.create({
     name: `mosaic-${uuid.create()}`,
     project: defaultProject,
@@ -811,6 +822,10 @@ describe("Panel.Mosaic", () => {
       await waitFor(() => expect(utils.getByText(contentText(tab))).toBeTruthy());
 
       const resource = { type: "lineplot", key: uuid.create() } as const;
+      await client.lineplots.create(defaultProject, {
+        key: resource.key,
+        name: `mosaic-${resource.key}`,
+      });
       await writer.panels.retrieve(p.key);
       await writer.panels.dispatch(p.key, [
         panel.setTabResource({ key: tab.key, resource }),

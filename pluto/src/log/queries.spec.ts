@@ -26,6 +26,31 @@ import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
 
+// The Core refuses a log entry for a channel it does not hold.
+const CHANNELS = new Map(
+  await Promise.all(
+    [1, 2, 3, 7].map(
+      async (n) =>
+        [
+          n,
+          (
+            await client.channels.create({
+              name: `log_${n}_${uuid.create().replace(/-/g, "_")}`,
+              dataType: "float32",
+              virtual: true,
+            })
+          ).key,
+        ] as const,
+    ),
+  ),
+);
+
+const ch = (n: number): number => {
+  const key = CHANNELS.get(n);
+  if (key == null) throw new Error(`no channel stands for ${n}`);
+  return key;
+};
+
 const entry = (
   channel: number,
   overrides: Partial<log.ChannelEntry> = {},
@@ -86,33 +111,33 @@ describe("log queries", () => {
     });
 
     it("useChannels reads the channel entries", async () => {
-      const created = await createLog({ channels: [entry(1), entry(2)] });
+      const created = await createLog({ channels: [entry(ch(1)), entry(ch(2))] });
       const { result } = await loadAndSelect(created.key, () =>
         Log.useChannels({ key: created.key }),
       );
-      expect(result.current.map((e) => e.channel)).toEqual([1, 2]);
+      expect(result.current.map((e) => e.channel)).toEqual([ch(1), ch(2)]);
     });
 
     it("useChannelKeys reads the ordered keys", async () => {
-      const created = await createLog({ channels: [entry(3), entry(7)] });
+      const created = await createLog({ channels: [entry(ch(3)), entry(ch(7))] });
       const { result } = await loadAndSelect(created.key, () =>
         Log.useChannelKeys({ key: created.key }),
       );
-      expect(result.current).toEqual([3, 7]);
+      expect(result.current).toEqual([ch(3), ch(7)]);
     });
 
     it("useChannelEntry reads a single entry", async () => {
       const created = await createLog({
-        channels: [entry(1), entry(2, { alias: "pressure" })],
+        channels: [entry(ch(1)), entry(ch(2), { alias: "pressure" })],
       });
       const { result } = await loadAndSelect(created.key, () =>
-        Log.useChannelEntry({ key: created.key, channel: 2 }),
+        Log.useChannelEntry({ key: created.key, channel: ch(2) }),
       );
       expect(result.current?.alias).toBe("pressure");
     });
 
     it("useChannelEntry returns null when the channel is absent", async () => {
-      const created = await createLog({ channels: [entry(1)] });
+      const created = await createLog({ channels: [entry(ch(1))] });
       const { result } = await loadAndSelect(created.key, () =>
         Log.useChannelEntry({ key: created.key, channel: 99 }),
       );
@@ -138,7 +163,7 @@ describe("log queries", () => {
 
   describe("memoization / reference stability", () => {
     it("useChannelKeys keeps a stable reference when only config changes", async () => {
-      const created = await createLog({ channels: [entry(1), entry(2)] });
+      const created = await createLog({ channels: [entry(ch(1)), entry(ch(2))] });
       const { result, renderCount } = await loadAndCount(created.key, () => ({
         keys: Log.useChannelKeys({ key: created.key }),
         dispatch: Log.useDispatch(),
@@ -148,7 +173,7 @@ describe("log queries", () => {
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [log.setChannelEntry({ entry: entry(1, { alias: "x" }) })],
+          actions: [log.setChannelEntry({ entry: entry(ch(1), { alias: "x" }) })],
         });
       });
       expect(result.current.keys).toBe(first);
@@ -156,7 +181,7 @@ describe("log queries", () => {
     });
 
     it("useChannelKeys yields a new value when the key set changes", async () => {
-      const created = await createLog({ channels: [entry(1), entry(2)] });
+      const created = await createLog({ channels: [entry(ch(1)), entry(ch(2))] });
       const { result } = await loadAndSelect(created.key, () => ({
         keys: Log.useChannelKeys({ key: created.key }),
         dispatch: Log.useDispatch(),
@@ -165,21 +190,21 @@ describe("log queries", () => {
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [log.addChannel({ channel: 3 })],
+          actions: [log.addChannel({ channel: ch(3) })],
         });
       });
       await waitFor(() => {
         expect(result.current.keys).not.toBe(first);
-        expect(result.current.keys).toEqual([1, 2, 3]);
+        expect(result.current.keys).toEqual([ch(1), ch(2), ch(3)]);
       });
     });
 
     it("useChannelEntry keeps a stable reference when its entry object is unchanged", async () => {
       const created = await createLog({
-        channels: [entry(1), entry(2, { alias: "shared" })],
+        channels: [entry(ch(1)), entry(ch(2), { alias: "shared" })],
       });
       const { result, renderCount } = await loadAndCount(created.key, () => ({
-        entry: Log.useChannelEntry({ key: created.key, channel: 2 }),
+        entry: Log.useChannelEntry({ key: created.key, channel: ch(2) }),
         dispatch: Log.useDispatch(),
       }));
       const first = result.current.entry;
@@ -187,7 +212,7 @@ describe("log queries", () => {
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [log.setChannelEntry({ entry: entry(1, { alias: "y" }) })],
+          actions: [log.setChannelEntry({ entry: entry(ch(1), { alias: "y" }) })],
         });
       });
       expect(result.current.entry).toBe(first);
@@ -331,14 +356,16 @@ describe("log queries", () => {
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [log.addChannel({ channel: 1 })],
+          actions: [log.addChannel({ channel: ch(1) })],
         });
       });
       await waitFor(() =>
-        expect(result.current.retrieve?.channels.map((e) => e.channel)).toContain(1),
+        expect(result.current.retrieve?.channels.map((e) => e.channel)).toContain(
+          ch(1),
+        ),
       );
       const onServer = await client.logs.retrieve(created.key);
-      expect(onServer.channels.map((e) => e.channel)).toContain(1);
+      expect(onServer.channels.map((e) => e.channel)).toContain(ch(1));
     });
   });
 

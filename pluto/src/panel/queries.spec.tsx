@@ -747,7 +747,10 @@ describe("Panel queries", () => {
     it("set_tab_resource swaps a view tab to a resource and persists it", async () => {
       const created = await createPanel();
       const tab = newTab();
-      const resource = { type: "lineplot", key: uuid.create() } as const;
+      const resource = {
+        type: "lineplot",
+        key: (await client.lineplots.create(defaultProject, { name: "plot" })).key,
+      } as const;
       const { result } = await loadAndUse(created.key, () => ({
         retrieve: Panel.use({ key: created.key }),
         dispatch: Panel.useDispatch(),
@@ -1064,7 +1067,11 @@ describe("Panel queries", () => {
     it("useTabType resolves a resource tab to its resource type", async () => {
       const tab = newTab();
       const { created, ops } = await createTab(tab);
-      const resource = { type: "schematic", key: uuid.create() } as const;
+      const resource = {
+        type: "schematic",
+        key: (await client.schematics.create(defaultProject, { name: "schematic" }))
+          .key,
+      } as const;
 
       const type = await loadAndCount(created.key, () =>
         Panel.useTabType({ key: created.key, tabKey: tab.key }),
@@ -1114,7 +1121,10 @@ describe("Panel queries", () => {
     it("useSetCurrentTabResource swaps the scoped tab to the resource", async () => {
       const tab = newTab();
       const { created } = await createTab(tab);
-      const resource = { type: "lineplot", key: uuid.create() } as const;
+      const resource = {
+        type: "lineplot",
+        key: (await client.lineplots.create(defaultProject, { name: "plot" })).key,
+      } as const;
 
       const composed = ({ children }: PropsWithChildren): ReactElement => {
         const Synnax = wrapper;

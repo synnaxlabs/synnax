@@ -24,6 +24,15 @@ import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
 
+const createChannel = async () =>
+  (
+    await client.channels.create({
+      name: `lp_${uuid.create().replace(/-/g, "_")}`,
+      dataType: DataType.FLOAT32,
+      virtual: true,
+    })
+  ).key;
+
 describe("lineplot queries", () => {
   let wrapper: React.FC<PropsWithChildren>;
   beforeEach(async () => {
@@ -569,6 +578,7 @@ describe("lineplot queries", () => {
     });
 
     it("useYAxisChannels returns one axis's channels and updates after setChannels", async () => {
+      const keys = [await createChannel(), await createChannel()];
       const created = await createPlot();
       const { result } = await loadAndUse(created.key, () => ({
         channels: LinePlot.useYAxisChannels({ key: created.key, axisKey: "y1" }),
@@ -578,13 +588,14 @@ describe("lineplot queries", () => {
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [lineplotClient.setChannels({ axisKey: "y1", channels: [1, 2] })],
+          actions: [lineplotClient.setChannels({ axisKey: "y1", channels: keys })],
         });
       });
-      await waitFor(() => expect(result.current.channels).toEqual([1, 2]));
+      await waitFor(() => expect(result.current.channels).toEqual(keys));
     });
 
     it("useXAxisChannel returns the single x channel and updates after setXChannel", async () => {
+      const key = await createChannel();
       const created = await createPlot();
       const { result } = await loadAndUse(created.key, () => ({
         channel: LinePlot.useXAxisChannel({ key: created.key, axisKey: "x1" }),
@@ -594,10 +605,10 @@ describe("lineplot queries", () => {
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [lineplotClient.setXChannel({ axisKey: "x1", channel: 99 })],
+          actions: [lineplotClient.setXChannel({ axisKey: "x1", channel: key })],
         });
       });
-      await waitFor(() => expect(result.current.channel).toEqual(99));
+      await waitFor(() => expect(result.current.channel).toEqual(key));
     });
 
     it("useRanges updates after setRanges replaces a window", async () => {
@@ -620,6 +631,7 @@ describe("lineplot queries", () => {
     });
 
     it("useAxisKeys returns displayed axes and updates as channels appear", async () => {
+      const key = await createChannel();
       const created = await createPlot();
       const { result } = await loadAndUse(created.key, () => ({
         axisKeys: LinePlot.useAxisKeys({ key: created.key }),
@@ -629,7 +641,7 @@ describe("lineplot queries", () => {
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [lineplotClient.setChannels({ axisKey: "y2", channels: [7] })],
+          actions: [lineplotClient.setChannels({ axisKey: "y2", channels: [key] })],
         });
       });
       await waitFor(() => expect(result.current.axisKeys).toEqual(["x1", "y1", "y2"]));
@@ -808,6 +820,7 @@ describe("lineplot queries", () => {
     });
 
     it("useXAxisKeys / useYAxisKeys reflect the displayed axes", async () => {
+      const [x, y] = [await createChannel(), await createChannel()];
       const created = await createPlot();
       const { result } = await loadAndUse(created.key, () => ({
         xKeys: LinePlot.useXAxisKeys({ key: created.key }),
@@ -820,8 +833,8 @@ describe("lineplot queries", () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
           actions: [
-            lineplotClient.setXChannel({ axisKey: "x2", channel: 9 }),
-            lineplotClient.addChannel({ axisKey: "y2", channel: 11 }),
+            lineplotClient.setXChannel({ axisKey: "x2", channel: x }),
+            lineplotClient.addChannel({ axisKey: "y2", channel: y }),
           ],
         });
       });
@@ -877,11 +890,12 @@ describe("lineplot queries", () => {
     });
 
     it("useYAxis returns axis, channels, and lineKeys", async () => {
+      const key = await createChannel();
       const created = await createPlot();
       const lineKey = lineplotClient.lineKey(created.key, {
         yAxis: "y1",
         xChannel: 0,
-        yChannel: 5,
+        yChannel: key,
       });
       const { result } = await loadAndUse(created.key, () => ({
         yAxis: LinePlot.useYAxis({ key: created.key, axisKey: "y1" }),
@@ -894,12 +908,12 @@ describe("lineplot queries", () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
           actions: [
-            lineplotClient.addChannel({ axisKey: "y1", channel: 5 }),
+            lineplotClient.addChannel({ axisKey: "y1", channel: key }),
             lineplotClient.setLine({
               line: {
                 key: lineKey,
                 yAxis: "y1",
-                yChannel: 5,
+                yChannel: key,
                 color: color.construct("#00aaff"),
                 strokeWidth: 2,
                 aggregation: "min_max",
@@ -910,7 +924,7 @@ describe("lineplot queries", () => {
         });
       });
       await waitFor(() => {
-        expect(result.current.yAxis.channels).toEqual([5]);
+        expect(result.current.yAxis.channels).toEqual([key]);
         expect(result.current.yAxis.lineKeys).toEqual([lineKey]);
       });
     });
@@ -975,6 +989,7 @@ describe("lineplot queries", () => {
     };
 
     it("useTitle keeps a stable reference across an unrelated edit", async () => {
+      const key = await createChannel();
       const created = await createPlot();
       const { result, renderCount } = await loadAndCount(created.key, () => ({
         title: LinePlot.useTitle({ key: created.key }),
@@ -985,7 +1000,7 @@ describe("lineplot queries", () => {
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [lineplotClient.addChannel({ axisKey: "y1", channel: 99 })],
+          actions: [lineplotClient.addChannel({ axisKey: "y1", channel: key })],
         });
       });
       expect(result.current.title).toBe(firstTitle);
@@ -993,6 +1008,7 @@ describe("lineplot queries", () => {
     });
 
     it("useYAxisKeys stays stable when a channel is added to an already-displayed axis", async () => {
+      const key = await createChannel();
       const created = await createPlot();
       const { result, renderCount } = await loadAndCount(created.key, () => ({
         yKeys: LinePlot.useYAxisKeys({ key: created.key }),
@@ -1004,7 +1020,7 @@ describe("lineplot queries", () => {
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [lineplotClient.addChannel({ axisKey: "y1", channel: 42 })],
+          actions: [lineplotClient.addChannel({ axisKey: "y1", channel: key })],
         });
       });
       expect(result.current.yKeys).toBe(firstKeys);
@@ -1115,6 +1131,7 @@ describe("lineplot queries", () => {
     });
 
     it("useLegend keeps a stable reference across an unrelated edit", async () => {
+      const key = await createChannel();
       const created = await createPlot();
       const { result, renderCount } = await loadAndCount(created.key, () => ({
         legend: LinePlot.useLegend({ key: created.key }),
@@ -1125,7 +1142,7 @@ describe("lineplot queries", () => {
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [lineplotClient.addChannel({ axisKey: "y1", channel: 7 })],
+          actions: [lineplotClient.addChannel({ axisKey: "y1", channel: key })],
         });
       });
       expect(result.current.legend).toBe(firstLegend);
@@ -1193,6 +1210,7 @@ describe("lineplot queries", () => {
     });
 
     it("useXAxisKeys stays stable when a channel is added to an already-displayed axis", async () => {
+      const key = await createChannel();
       const created = await createPlot();
       const { result, renderCount } = await loadAndCount(created.key, () => ({
         xKeys: LinePlot.useXAxisKeys({ key: created.key }),
@@ -1204,7 +1222,7 @@ describe("lineplot queries", () => {
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [lineplotClient.addChannel({ axisKey: "y1", channel: 42 })],
+          actions: [lineplotClient.addChannel({ axisKey: "y1", channel: key })],
         });
       });
       expect(result.current.xKeys).toBe(firstKeys);
@@ -1212,6 +1230,7 @@ describe("lineplot queries", () => {
     });
 
     it("useXAxis keeps a stable reference across an unrelated edit", async () => {
+      const key = await createChannel();
       const created = await createPlot();
       const { result, renderCount } = await loadAndCount(created.key, () => ({
         xAxis: LinePlot.useXAxis({ key: created.key, axisKey: "x1" }),
@@ -1223,7 +1242,7 @@ describe("lineplot queries", () => {
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [lineplotClient.addChannel({ axisKey: "y1", channel: 42 })],
+          actions: [lineplotClient.addChannel({ axisKey: "y1", channel: key })],
         });
       });
       expect(result.current.xAxis).toBe(firstXAxis);
