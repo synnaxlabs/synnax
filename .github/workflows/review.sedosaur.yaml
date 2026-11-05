@@ -158,13 +158,14 @@ jobs:
           BOT: ${{ steps.app.outputs.app-slug }}
         run: python3 -m review post "$RUNNER_TEMP/review.json"
 
-      - name: Fail the check run
-        if: failure() && steps.check.outputs.id
+      - name: End the check run
+        if: (failure() || cancelled()) && steps.check.outputs.id
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
           CHECK_RUN: ${{ steps.check.outputs.id }}
+          STATUS: ${{ job.status }}
         run: |
           gh api -X PATCH "repos/$GITHUB_REPOSITORY/check-runs/$CHECK_RUN" \
-            -f status=completed -f conclusion=failure \
-            -f "output[title]=The review failed" \
-            -f "output[summary]=See the [run]($RUN_URL) for the error."
+            -f status=completed -f conclusion="$STATUS" \
+            -f "output[title]=The review ended with $STATUS" \
+            -f "output[summary]=See the [run]($RUN_URL)."
