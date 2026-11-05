@@ -31,7 +31,6 @@ func Format(content string) string {
 	if content == "" {
 		return ""
 	}
-	content = HoistDeclarations(content)
 
 	input := antlr.NewInputStream(content)
 	lexer := parser.NewArcLexer(input)
@@ -50,7 +49,8 @@ func Format(content string) string {
 	}
 
 	p := newPrinter()
-	return p.print(tokens)
+	// The printer puts each body item on its own line, which the hoist needs.
+	return HoistDeclarations(p.print(tokens))
 }
 
 func FormatRange(content string, startLine, endLine int) string {

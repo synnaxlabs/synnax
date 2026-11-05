@@ -85,7 +85,23 @@ var _ = Describe("Formatter", func() {
 			"sequence main {\n    stage s {\n    a := 1",
 			"sequence main {\n    stage s {\n    a := 1",
 		),
+		Entry(
+			"leaves a body written on one line alone",
+			"sequence main { 1 -> out, x := 1, y := 2 }",
+			"sequence main { 1 -> out, x := 1, y := 2 }",
+		),
+		Entry(
+			"leaves a declaration that shares a line with a brace alone",
+			"sequence main {\n    stage s {\n        true => next\n    }\n    a := 1 }",
+			"sequence main {\n    stage s {\n        true => next\n    }\n    a := 1 }",
+		),
 	)
+
+	It("hoists a body written on one line after expanding it", func() {
+		Expect(formatter.Format("sequence main { 1 -> out, x := 1, y := 2 }")).To(Equal(
+			"sequence main {\n    x := 1\n    y := 2\n    1 -> out\n}\n",
+		))
+	})
 
 	It("hoists once and then holds", func() {
 		input := "sequence main {\n    stage s {\n        true => next\n    }\n    a := 1\n    stage t {\n        true => next\n    }\n    b := 2\n    stage u {\n        wait(1s)\n    }\n}"

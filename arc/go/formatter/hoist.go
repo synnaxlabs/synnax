@@ -23,7 +23,8 @@ type LineMove struct {
 }
 
 // DeclarationHoists returns the moves that put each late declaration of a sequence
-// or stage body above its first step. Unparsable content yields none.
+// or stage body above its first step. Unparsable content yields none, and so does a
+// body whose items share a line with another item or a brace.
 func DeclarationHoists(content string) []LineMove {
 	program, diags := parser.Parse(content)
 	if program == nil || (diags != nil && !diags.Ok()) {
@@ -33,9 +34,12 @@ func DeclarationHoists(content string) []LineMove {
 	walk(program, func(node antlr.Tree) {
 		switch body := node.(type) {
 		case parser.ISequenceDeclarationContext:
-			moves = append(moves, bodyHoists(bodyItems(body.AllSequenceItem()))...)
+			moves = append(
+				moves,
+				bodyHoists(body, bodyItems(body.AllSequenceItem()))...,
+			)
 		case parser.IStageBodyContext:
-			moves = append(moves, bodyHoists(bodyItems(body.AllStageItem()))...)
+			moves = append(moves, bodyHoists(body, bodyItems(body.AllStageItem()))...)
 		}
 	})
 	return moves
@@ -83,7 +87,10 @@ func bodyItems[I interface {
 }
 
 // bodyHoists returns one move per declaration that follows the body's first step.
-func bodyHoists(items []bodyItem) []LineMove {
+func bodyHoists(body antlr.ParserRuleContext, items []bodyItem) []LineMove {
+	if !onSeparateLines(body, items) {
+		return nil
+	}
 	anchor := -1
 	var moves []LineMove
 	for _, item := range items {
@@ -103,6 +110,19 @@ func bodyHoists(items []bodyItem) []LineMove {
 		})
 	}
 	return moves
+}
+
+// onSeparateLines reports whether no item shares a line with another item or with
+// the body's braces, so whole lines can move.
+func onSeparateLines(body antlr.ParserRuleContext, items []bodyItem) bool {
+	last := body.GetStart().GetLine()
+	for _, item := range items {
+		if item.node.GetStart().GetLine() <= last {
+			return false
+		}
+		last = item.node.GetStop().GetLine()
+	}
+	return len(items) == 0 || last < body.GetStop().GetLine()
 }
 
 func walk(node antlr.Tree, visit func(antlr.Tree)) {
