@@ -359,6 +359,8 @@ export class StreamMultiChannelLog
     // lines of its own before they show. Skipped lines count, since they join in time.
     const kept = this.maxEntries - Math.floor(this.maxEntries * EVICTION_HEADROOM);
     const { skipped } = this;
+    // A pull adds its groups one channel at a time.
+    skipped.sort((a, b) => compareTimes(a[0], b[0]));
     let lines = groups.reduce((total, group) => total + group.length, 0);
     let joined = 0;
     while (
