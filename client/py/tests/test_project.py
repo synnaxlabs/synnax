@@ -156,10 +156,6 @@ class TestProjectExportImport:
         assert imported.key != src.key
         assert imported.name == name
         assert client.projects.retrieve(key=imported.key).name == name
-        children = client.ontology.retrieve_children(
-            sy.project.resource_id(imported.key)
-        )
-        assert [child.type for child in children] == ["log"] * len(log_names)
         reexported = tmp_path / "reexported.zip"
         client.projects.export(imported.key, reexported)
         assert _member_names(reexported) == log_names

@@ -12,14 +12,13 @@ from typing import Literal, overload
 from pydantic import BaseModel, Field
 
 from freighter import Empty, UnaryClient
-from synnax import project
+from synnax import project, ranger
 from synnax.schematic import symbol
 from synnax.schematic.types_gen import Key, Schematic
 from x.lists import normalize
 
 
 class _CreateRequest(BaseModel):
-    project: project.Key
     schematics: list[Schematic]
 
 
@@ -43,6 +42,7 @@ class _CopyRequest(BaseModel):
     key: Key
     name: str
     snapshot: bool
+    range: ranger.Key | None = None
 
 
 class _CopyResponse(BaseModel):
@@ -68,7 +68,7 @@ class Client:
     """Client for creating, retrieving, renaming, copying, and deleting schematics.
 
     A schematic is a diagram of symbols and the connections between them. Every
-    schematic belongs to a project.
+    schematic belongs to a project, or to a range when it is a snapshot.
     """
 
     symbols: symbol.Client
@@ -111,7 +111,12 @@ class Client:
             schematics = Schematic(name=name)
         res = self._client.send(
             "/schematic/create",
-            _CreateRequest(project=project, schematics=normalize(schematics)),
+            _CreateRequest(
+                schematics=[
+                    s.model_copy(update={"project": project})
+                    for s in normalize(schematics)
+                ]
+            ),
             _CreateResponse,
         )
         return res.schematics[0] if is_single else res.schematics
@@ -158,19 +163,28 @@ class Client:
             Empty,
         )
 
-    def copy(self, key: Key, *, name: str, snapshot: bool = False) -> Schematic:
-        """Copies a schematic. A copy that is not a snapshot joins the project of the
-        original.
+    def copy(
+        self,
+        key: Key,
+        *,
+        name: str,
+        snapshot: bool = False,
+        range: ranger.Key | None = None,
+    ) -> Schematic:
+        """Copies a schematic. The copy belongs to the range when one is given, and to
+        the project of the original otherwise.
 
         :param key: The key of the schematic to copy.
         :param name: The name of the copy.
         :param snapshot: True to make the copy an immutable snapshot.
+        :param range: The key of the range that owns the copy.
         :returns: The copy.
-        :raises NotFoundError: If no schematic exists for key.
+        :raises NotFoundError: If no schematic exists for key, or range is given and
+            no range exists for it.
         """
         return self._client.send(
             "/schematic/copy",
-            _CopyRequest(key=key, name=name, snapshot=snapshot),
+            _CopyRequest(key=key, name=name, snapshot=snapshot, range=range),
             _CopyResponse,
         ).schematic
 

@@ -12,9 +12,9 @@ from typing import Literal, overload
 from pydantic import BaseModel, Field
 
 from freighter import Empty, UnaryClient
-from synnax import ontology, resource
+from synnax import project as project_
 from synnax.exceptions import NotFoundError
-from synnax.panel.types_gen import TYPE_RESOURCE_ID, Key, Panel
+from synnax.panel.types_gen import Key, Panel
 from x.lists import normalize
 
 
@@ -47,6 +47,7 @@ class _DispatchRequest(BaseModel):
 
 class _RetrieveRequest(BaseModel):
     keys: list[Key] | None = None
+    projects: list[project_.Key] | None = None
     search_term: str | None = None
     limit: int | None = None
     offset: int | None = None
@@ -58,19 +59,16 @@ class _RetrieveResponse(BaseModel):
 
 class Client:
     """Client for creating, retrieving, renaming, and deleting panels on a Synnax
-    Core. A panel is a tree of visualization tabs owned by a parent resource, such as
-    a project.
+    Core. A panel is a tree of visualization tabs owned by a project.
     """
 
     _client: UnaryClient
-    _ontology: ontology.Client
 
-    def __init__(self, client: UnaryClient, ontology: ontology.Client) -> None:
+    def __init__(self, client: UnaryClient) -> None:
         self._client = client
-        self._ontology = ontology
 
     @overload
-    def create(self, *, name: str, parent: resource.ID) -> Panel: ...
+    def create(self, *, name: str, project: project_.Key) -> Panel: ...
 
     @overload
     def create(self, panels: Panel) -> Panel: ...
@@ -83,22 +81,22 @@ class Client:
         panels: Panel | list[Panel] | None = None,
         *,
         name: str = "",
-        parent: resource.ID | None = None,
+        project: project_.Key | None = None,
     ) -> Panel | list[Panel]:
         """Create one or more panels.
 
         :param panels: A single panel or a list of them. When omitted, a panel is
-            created from the ``name`` and ``parent`` keyword arguments.
+            created from the ``name`` and ``project`` keyword arguments.
         :param name: The name of the panel to create when ``panels`` is omitted.
-        :param parent: The resource ID of the resource that owns the panel, such as a
-            project, when ``panels`` is omitted.
+        :param project: The key of the project that owns the panel when ``panels`` is
+            omitted.
         :returns: The created panel, or a list of created panels when ``panels`` is a
             list.
-        :raises ValidationError: If a panel has no parent.
+        :raises ValidationError: If a panel has no project.
         """
         is_single = not isinstance(panels, list)
         if panels is None:
-            panels = [Panel(name=name, parent=parent)]
+            panels = [Panel(name=name, project=project)]
         req = _CreateRequest(panels=normalize(panels))
         res = self._client.send("/panel/create", req, _CreateResponse)
         return res.panels[0] if is_single else res.panels
@@ -129,7 +127,7 @@ class Client:
         self,
         *,
         keys: list[Key] | None = None,
-        parent: resource.ID | None = None,
+        projects: list[project_.Key] | None = None,
         search_term: str | None = None,
         limit: int | None = None,
         offset: int | None = None,
@@ -140,7 +138,7 @@ class Client:
         *,
         key: Key | None = None,
         keys: list[Key] | None = None,
-        parent: resource.ID | None = None,
+        projects: list[project_.Key] | None = None,
         search_term: str | None = None,
         limit: int | None = None,
         offset: int | None = None,
@@ -150,8 +148,8 @@ class Client:
         :param key: The key of a single panel to retrieve. When provided, a single
             panel is returned and NotFoundError is raised if it does not exist.
         :param keys: The keys of the panels to retrieve.
-        :param parent: The resource ID of a resource, such as a project. Only the
-            panels that are children of this resource are returned. Replaces ``keys``.
+        :param projects: The keys of projects. Only the panels these projects own are
+            returned.
         :param search_term: A fuzzy search term matched against panel names.
         :param limit: The maximum number of panels to return.
         :param offset: The number of panels to skip before returning results.
@@ -162,20 +160,11 @@ class Client:
         is_single = key is not None
         if key is not None:
             keys = [key]
-        if parent is not None:
-            keys = []
-            for child in self._ontology.retrieve_children(parent):
-                if child.type != TYPE_RESOURCE_ID.type:
-                    continue
-                if child.key is None:
-                    raise ValueError(f"panel child of {parent} has no key")
-                keys.append(Key(child.key))
-            if len(keys) == 0:
-                return []
         res = self._client.send(
             "/panel/retrieve",
             _RetrieveRequest(
                 keys=keys,
+                projects=projects,
                 search_term=search_term,
                 limit=limit,
                 offset=offset,

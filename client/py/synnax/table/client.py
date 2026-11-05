@@ -18,7 +18,6 @@ from x.lists import normalize
 
 
 class _CreateRequest(BaseModel):
-    project: project_.Key
     tables: list[Table]
 
 
@@ -89,7 +88,11 @@ class Client:
         is_single = not isinstance(tables, list)
         if tables is None:
             tables = [Table(name=name)]
-        req = _CreateRequest(project=project, tables=normalize(tables))
+        req = _CreateRequest(
+            tables=[
+                r.model_copy(update={"project": project}) for r in normalize(tables)
+            ]
+        )
         res = self._client.send("/table/create", req, _CreateResponse)
         return res.tables[0] if is_single else res.tables
 

@@ -236,7 +236,7 @@ class Synnax(framer.Client):
         )
         self.tables = table.Client(client=self._transport.unary)
         self.line_plots = lineplot.Client(client=self._transport.unary)
-        self.panels = panel.Client(client=self._transport.unary, ontology=self.ontology)
+        self.panels = panel.Client(client=self._transport.unary)
         self.logs = log.Client(self._transport.unary)
         self.schematics = schematic.Client(client=self._transport.unary)
         self.tasks = task.Client(

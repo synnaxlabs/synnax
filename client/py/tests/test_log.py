@@ -56,6 +56,7 @@ class TestClient:
         """Should create a single log with default display configuration."""
         log = client.logs.create(project.key, sy.Log(name="Test Log"))
         assert log.name == "Test Log"
+        assert log.project == project.key
         assert log.channels == []
         assert log.timestamp_precision == 0
         assert not log.channel_names_hidden

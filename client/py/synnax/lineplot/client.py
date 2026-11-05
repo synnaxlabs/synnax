@@ -18,7 +18,6 @@ from x.lists import normalize
 
 
 class _CreateRequest(BaseModel):
-    project: project_.Key
     line_plots: list[LinePlot]
 
 
@@ -94,7 +93,11 @@ class Client:
         is_single = not isinstance(line_plots, list)
         if line_plots is None:
             line_plots = LinePlot(name=name)
-        req = _CreateRequest(project=project, line_plots=normalize(line_plots))
+        req = _CreateRequest(
+            line_plots=[
+                r.model_copy(update={"project": project}) for r in normalize(line_plots)
+            ]
+        )
         res = self._client.send("/lineplot/create", req, _CreateResponse)
         return res.line_plots[0] if is_single else res.line_plots
 

@@ -18,7 +18,6 @@ from x.lists import normalize
 
 
 class _CreateRequest(BaseModel):
-    project: project_.Key
     logs: list[Log]
 
 
@@ -92,7 +91,9 @@ class Client:
         is_single = not isinstance(logs, list)
         if logs is None:
             logs = [Log(name=name)]
-        req = _CreateRequest(project=project, logs=normalize(logs))
+        req = _CreateRequest(
+            logs=[r.model_copy(update={"project": project}) for r in normalize(logs)]
+        )
         res = self._client.send("/log/create", req, _CreateResponse)
         return res.logs[0] if is_single else res.logs
 

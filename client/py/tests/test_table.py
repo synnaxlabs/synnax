@@ -68,6 +68,7 @@ class TestClient:
         """Should create an empty table from a name."""
         t = client.tables.create(project.key, name="Test Table")
         assert t.name == "Test Table"
+        assert t.project == project.key
         assert t.rows == []
 
     def test_create_from_object(self, client: sy.Synnax, project: sy.Project) -> None:

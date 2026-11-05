@@ -115,6 +115,7 @@ class TestClient:
         """Should create a line plot from a name."""
         p = client.line_plots.create(project.key, name="Plot")
         assert p.name == "Plot"
+        assert p.project == project.key
         assert client.line_plots.retrieve(key=p.key).name == "Plot"
 
     def test_create_from_object(self, client: sy.Synnax, project: sy.Project) -> None:

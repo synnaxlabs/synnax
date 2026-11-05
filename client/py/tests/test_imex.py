@@ -103,13 +103,12 @@ class TestImex:
         assert json.loads(out.read_bytes())["name"] == name
 
     def test_import_with_parent(self, client: sy.Synnax, tmp_path: Path) -> None:
-        """The imported resource is parented under the given ontology resource."""
+        """The imported resource belongs to the given project."""
         proj = client.projects.create(name=f"imex-proj-{uuid.uuid4()}")
         path = tmp_path / "in.json"
         path.write_text(_log_envelope_json(f"imex-parent-{uuid.uuid4()}"))
         id = client.imex.import_(path, parent=sy.project.resource_id(proj.key))
-        children = client.ontology.retrieve_children(sy.project.resource_id(proj.key))
-        assert id.key in [child.key for child in children]
+        assert client.logs.retrieve(key=uuid.UUID(id.key)).project == proj.key
 
     def test_import_with_nonexistent_parent(
         self, client: sy.Synnax, tmp_path: Path
@@ -117,7 +116,7 @@ class TestImex:
         """Importing under a parent that does not exist fails."""
         path = tmp_path / "in.json"
         path.write_text(_log_envelope_json(f"imex-orphan-{uuid.uuid4()}"))
-        with pytest.raises(sy.NotFoundError):
+        with pytest.raises(sy.ValidationError, match="does not exist"):
             client.imex.import_(path, parent=sy.project.resource_id(uuid.uuid4()))
 
     def test_export(
