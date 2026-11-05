@@ -824,7 +824,7 @@ describe("StreamMultiChannelLog", () => {
       const held = entriesOf(log).length;
       log.loadOlder();
       await expect.poll(() => log.live, POLL).toBe(false);
-      expect(valuesOf(entriesOf(log), a)[0]).toBe(textOf(core, a, held + 999)[0]);
+      expect(valuesOf(entriesOf(log), a)[0]).toBe(textOf(core, a, held + 1_000)[0]);
       expectRun(core, a, log);
     });
 

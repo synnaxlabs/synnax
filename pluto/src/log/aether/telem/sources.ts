@@ -366,7 +366,12 @@ export class StreamMultiChannelLog
           await readPage(
             client,
             key,
-            new TimeRange(TimeStamp.MIN, new TimeStamp(oldests[i].time + 1n)),
+            new TimeRange(
+              TimeStamp.MIN,
+              // A null alignment excludes the samples at the time, which could fill
+              // the page.
+              new TimeStamp(oldests[i].time + (oldests[i].alignment == null ? 0n : 1n)),
+            ),
             pageSize,
             (p) => before(p, oldests[i]),
             signal,
