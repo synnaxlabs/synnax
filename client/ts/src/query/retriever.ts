@@ -24,19 +24,51 @@ import { type Data, type FetchOptions, type Params } from "@/query/types";
 /** Query fields only the server can evaluate, shared by most request shapes. */
 const DEFAULT_SERVER_FIELDS = ["searchTerm", "limit", "offset"] as const;
 
+const isObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+/** @returns the one member of value that is not nullish, or null. */
+const soleMember = (value: Record<string, unknown>): [string, unknown] | null => {
+  const set = Object.entries(value).filter(([, v]) => v != null);
+  return set.length === 1 ? set[0] : null;
+};
+
+/** @returns the keys of a filter that only matches keys in a list, or null. */
+const whereKeys = (where: unknown): unknown[] | null => {
+  if (!isObject(where)) return null;
+  const line = soleMember(where);
+  if (line?.[0] !== "key" || !isObject(line[1])) return null;
+  const op = soleMember(line[1]);
+  return op?.[0] === "in" && Array.isArray(op[1]) ? op[1] : null;
+};
+
 /**
- * Returns the keys of a request that addresses keys and nothing else: a non-empty
- * `keys` field with every other field nullish. Such requests resolve through the
- * table's fetch primitive instead of the request fetch. Returns null for any other
- * request.
+ * Returns the keys of a request that addresses keys and nothing else: a `where` that
+ * only matches keys in a list, or a non-empty `keys` field, with every other field
+ * nullish. Such requests resolve through the table's fetch primitive instead of the
+ * request fetch. Returns null for any other request.
  */
 const keysOnly = (query: unknown): unknown[] | null => {
-  if (typeof query !== "object" || query === null || Array.isArray(query)) return null;
-  const { keys } = query as { keys?: unknown };
-  if (!Array.isArray(keys) || keys.length === 0) return null;
-  if (!Object.entries(query).every(([k, v]) => k === "keys" || v == null)) return null;
-  return keys;
+  if (!isObject(query)) return null;
+  const field = soleMember(query);
+  if (field?.[0] === "where") return whereKeys(field[1]);
+  if (field?.[0] !== "keys" || !Array.isArray(field[1]) || field[1].length === 0)
+    return null;
+  return field[1];
 };
+
+/**
+ * The params a request schema accepts. A recursive `where` schema infers no input type,
+ * so `where` takes its output type, which the schema also accepts.
+ */
+type RequestInput<Z extends z.ZodType> =
+  z.input<Z> extends infer I
+    ? I extends unknown
+      ? "where" extends keyof I
+        ? Omit<I, "where"> & Pick<Extract<z.output<Z>, { where?: unknown }>, "where">
+        : I
+      : never
+    : never;
 
 /** True for params that are a bare record key rather than a query object. */
 const isBareKey = (params: unknown): params is record.Key =>
@@ -49,6 +81,18 @@ const isBareKey = (params: unknown): params is record.Key =>
  */
 export const keyListZ = <K extends z.ZodType<record.Key>>(key: K) =>
   z.array(key).transform((keys) => ({ keys }));
+
+/** @returns a request whose `where` matches the records with the given keys. */
+export const keysRequest = <K extends record.Key>(keys: K[]) => ({
+  where: { key: { in: keys } },
+});
+
+/**
+ * Request schema arm reading a bare key list as a `where` on the keys. Union it onto a
+ * domain's request schema: `z.union([keysRequestZ(keyZ), retrieveRequestZ])`.
+ */
+export const keysRequestZ = <K extends z.ZodType<record.Key>>(key: K) =>
+  z.array(key).transform(keysRequest);
 
 interface ComposeProp<V, D> {
   /**
@@ -99,6 +143,8 @@ export type RetrieverParams<
     matches?: (record: V, query: z.output<Z>) => boolean;
     /** Overrides {@link DEFAULT_SERVER_FIELDS} for this request shape. */
     serverFields?: readonly string[];
+    /** Rule 3: whether only the server can evaluate the query, such as a regex. */
+    serverComputed?: (query: z.output<Z>) => boolean;
     /** Foreign tables whose events affect this space's answers. */
     watch?: Array<Watch<z.output<Z>, K>>;
   };
@@ -169,6 +215,7 @@ export abstract class Retriever<
       fetch,
       matches,
       serverFields = DEFAULT_SERVER_FIELDS,
+      serverComputed,
       watch,
     } = request;
     this.requestSpace = cache.queries<z.output<Z>, D[], K, V>({
@@ -186,6 +233,7 @@ export abstract class Retriever<
       keysOf: (query) => keysOnly(query) as K[] | null,
       matches,
       serverFields,
+      serverComputed,
       watch,
     }) as Retrieves<Params, D | D[]>;
     this.normalizeRequest = (p) => zod.parse(schema, p, { label: `${name} query` });
@@ -261,16 +309,16 @@ export abstract class Retriever<
    * Reads the record the params address, or every record matching them. Serves the
    * cache when the answer is fresh, fetching otherwise. A bare key is shorthand for `{
    * key }`; a bare key list is accepted by domains whose request schema unions in
-   * {@link keyListZ}.
+   * {@link keysRequestZ} or {@link keyListZ}.
    * @throws {NotFoundError} if a single-record query matches nothing or the record was
    * deleted.
    * @throws {ValidationError} if params contain `key` (or are a bare key) but fail the
    * single-query schema.
    */
   retrieve(params: K | SingleInput, options?: FetchOptions): Promise<D>;
-  retrieve(params: K[] | z.input<Z>, options?: FetchOptions): Promise<D[]>;
+  retrieve(params: K[] | RequestInput<Z>, options?: FetchOptions): Promise<D[]>;
   async retrieve(
-    params: K | K[] | SingleInput | z.input<Z>,
+    params: K | K[] | SingleInput | RequestInput<Z>,
     options?: FetchOptions,
   ): Promise<D | D[]> {
     const [space, query] = this.route(params);
@@ -283,11 +331,11 @@ export abstract class Retriever<
    */
   onChange(params: K | SingleInput, handler: ChangeHandler<D>): destructor.Destructor;
   onChange(
-    params: K[] | z.input<Z>,
+    params: K[] | RequestInput<Z>,
     handler: ChangeHandler<D[]>,
   ): destructor.Destructor;
   onChange(
-    params: K | K[] | SingleInput | z.input<Z>,
+    params: K | K[] | SingleInput | RequestInput<Z>,
     handler: ChangeHandler<D> | ChangeHandler<D[]>,
   ): destructor.Destructor {
     const [space, query] = this.route(params);
@@ -299,9 +347,9 @@ export abstract class Retriever<
    * undefined when nothing is cached. May be stale for unsubscribed queries.
    */
   getCached(params: K | SingleInput): Cached<D> | undefined;
-  getCached(params: K[] | z.input<Z>): Cached<D[]> | undefined;
+  getCached(params: K[] | RequestInput<Z>): Cached<D[]> | undefined;
   getCached(
-    params: K | K[] | SingleInput | z.input<Z>,
+    params: K | K[] | SingleInput | RequestInput<Z>,
   ): Cached<D> | Cached<D[]> | undefined {
     const [space, query] = this.route(params);
     return space.getCached(query) as Cached<D> | Cached<D[]> | undefined;

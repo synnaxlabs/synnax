@@ -58,3 +58,49 @@ message Status {
   // labels contains optional labels for categorization and filtering.
   LabelLabelList labels = 8;
 }
+message WhereList {
+  repeated Where values = 1;
+}
+message StringList {
+  repeated string values = 1;
+}
+
+// StringSet selects values that only compare for equality, such as keys, enum values,
+// and UUIDs. A value must match every operator that is set.
+message StringSet {
+  // eq matches a value equal to eq.
+  optional string eq = 1;
+  // in matches a value equal to an element of in.
+  StringList in = 2;
+}
+message VariantList {
+  repeated Variant values = 1;
+}
+
+// VariantSet selects values that only compare for equality, such as keys, enum values,
+// and UUIDs. A value must match every operator that is set.
+message VariantSet {
+  // eq matches a value equal to eq.
+  optional Variant eq = 1;
+  // in matches a value equal to an element of in.
+  VariantList in = 2;
+}
+message LabelKeyList {
+  repeated string values = 1;
+}
+
+// Where is a filter that selects statuses.
+message Where {
+  // and matches when every child matches.
+  WhereList and = 1;
+  // or matches when any child matches.
+  WhereList or = 2;
+  // not matches when the child does not match.
+  optional Where not = 3;
+  // key selects by key.
+  optional StringSet key = 4;
+  // variant selects by variant.
+  optional VariantSet variant = 5;
+  // labels matches statuses that have any of the given labels.
+  LabelKeyList labels = 6;
+}

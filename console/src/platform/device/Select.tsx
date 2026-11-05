@@ -55,7 +55,7 @@ export interface SelectProps extends Pick<Device.SelectSingleProps, "filter"> {
   make: string;
   model?: string;
   path?: deep.Target<device.Key>;
-  icon?: Icon.ReactElement;
+  icon: Icon.ReactElement;
   /** Adds an action below the list that connects a device and selects it. */
   connect?: SelectConnect;
 }
