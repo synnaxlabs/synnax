@@ -33,6 +33,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/ranger"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger/kv"
+	apiresource "github.com/synnaxlabs/synnax/pkg/api/resource"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/api/status"
@@ -212,6 +213,16 @@ func Bind(layer *api.Layer, router *http.Router) {
 		OntologyMoveChildren: unary[ontology.MoveChildrenRequest, struct{}](
 			router,
 			"/api/v1/ontology/move-children",
+		),
+
+		// RESOURCE
+		ResourceSearch: unary[apiresource.SearchRequest, apiresource.SearchResponse](
+			router,
+			"/api/v1/resource/search",
+		),
+		ResourceRetrieve: unary[apiresource.RetrieveRequest, apiresource.RetrieveResponse](
+			router,
+			"/api/v1/resource/retrieve",
 		),
 
 		// GROUP

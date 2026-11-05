@@ -31,6 +31,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/project"
 	apirack "github.com/synnaxlabs/synnax/pkg/api/rack"
 	apiranger "github.com/synnaxlabs/synnax/pkg/api/ranger"
+	apiresource "github.com/synnaxlabs/synnax/pkg/api/resource"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
 	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
@@ -106,6 +107,10 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.OntologyAddChildren = noop.UnaryServer[ontology.AddChildrenRequest, struct{}]{}
 	t.OntologyRemoveChildren = noop.UnaryServer[ontology.RemoveChildrenRequest, struct{}]{}
 	t.OntologyMoveChildren = noop.UnaryServer[ontology.MoveChildrenRequest, struct{}]{}
+
+	// RESOURCE
+	t.ResourceSearch = noop.UnaryServer[apiresource.SearchRequest, apiresource.SearchResponse]{}
+	t.ResourceRetrieve = noop.UnaryServer[apiresource.RetrieveRequest, apiresource.RetrieveResponse]{}
 
 	// GROUP
 	t.GroupCreate = noop.UnaryServer[group.CreateRequest, group.CreateResponse]{}
