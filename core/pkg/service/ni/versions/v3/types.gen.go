@@ -211,7 +211,11 @@ const (
 // CJC is the cold-junction compensation for a thermocouple. The source selects where
 // the reference temperature comes from.
 type CJC = v2.CJC
+
+// CJCVariant is implemented by every CJC variant.
 type CJCVariant = v2.CJCVariant
+
+// CJCType is the "source" value that selects a variant of CJC.
 type CJCType = v2.CJCType
 
 const (
@@ -259,7 +263,11 @@ const (
 
 // Scale determines how raw sensor values are transformed to engineering units.
 type Scale = v2.Scale
+
+// ScaleVariant is implemented by every Scale variant.
 type ScaleVariant = v2.ScaleVariant
+
+// ScaleType is the "type" value that selects a variant of Scale.
 type ScaleType = v2.ScaleType
 
 const (
@@ -330,7 +338,11 @@ type BaseAIChannel = v2.BaseAIChannel
 // AIChannel is a single NI analog input channel. The type field selects the measurement
 // mode and the fields that accompany it.
 type AIChannel = v2.AIChannel
+
+// AIChannelVariant is implemented by every AIChannel variant.
 type AIChannelVariant = v2.AIChannelVariant
+
+// AIChannelType is the "type" value that selects a variant of AIChannel.
 type AIChannelType = v2.AIChannelType
 
 const (
@@ -608,7 +620,11 @@ type BaseCIChannel = v2.BaseCIChannel
 // CIChannel is a single NI counter input channel. The type field selects the
 // measurement mode and the fields that accompany it.
 type CIChannel = v2.CIChannel
+
+// CIChannelVariant is implemented by every CIChannel variant.
 type CIChannelVariant = v2.CIChannelVariant
+
+// CIChannelType is the "type" value that selects a variant of CIChannel.
 type CIChannelType = v2.CIChannelType
 
 const (
@@ -685,7 +701,11 @@ type BaseAOChannel = v2.BaseAOChannel
 // AOChannel is a single NI analog output channel. The type field selects the output
 // mode and the fields that accompany it.
 type AOChannel = v2.AOChannel
+
+// AOChannelVariant is implemented by every AOChannel variant.
 type AOChannelVariant = v2.AOChannelVariant
+
+// AOChannelType is the "type" value that selects a variant of AOChannel.
 type AOChannelType = v2.AOChannelType
 
 const (

@@ -125,7 +125,11 @@ type BaseWriteField = v2.BaseWriteField
 // WriteField is an additional body field on a write endpoint. The type field selects
 // whether the value is fixed or generated per request.
 type WriteField = v2.WriteField
+
+// WriteFieldVariant is implemented by every WriteField variant.
 type WriteFieldVariant = v2.WriteFieldVariant
+
+// WriteFieldType is the "type" value that selects a variant of WriteField.
 type WriteFieldType = v2.WriteFieldType
 
 const (

@@ -706,7 +706,55 @@ var _ = Describe("Writer", func() {
 				Expect(written.TimeRange.Span()).To(Equal(2 * telem.Nanosecond))
 				Expect(written.TimeRange.Start).To(BeNumerically(">=", before))
 				Expect(written.TimeRange.Start).To(BeNumerically("<=", after))
-				Expect(written.Alignment).To(Equal(telem.Alignment(0)))
+			},
+		)
+
+		It(
+			"Should give the samples of an index-less free channel distinct alignments",
+			func(ctx SpecContext) {
+				s := DeferClose(gatewayOnlyScenario(ctx))
+				ch := channel.Channel{
+					Name:        "free_unindexed_aligned",
+					DataType:    telem.Int64T,
+					Leaseholder: node.KeyFree,
+					Virtual:     true,
+				}
+				ch = MustSucceed(s.dist.Channel.Create(ctx, []channel.Channel{ch}))[0]
+				keys := channel.Keys{ch.Key()}
+				streamer := MustSucceed(s.dist.Framer.NewStreamer(framer.StreamerConfig{
+					Keys:        keys,
+					SendOpenAck: new(true),
+				}))
+				_, out := confluence.Attach(streamer, 10)
+				sCtx, cancel := signal.WithCancel(ctx)
+				defer cancel()
+				streamer.Flow(sCtx)
+				var res framer.StreamerResponse
+				Eventually(out.Outlet()).Should(Receive(&res))
+				s.dist.Framer.SetFreeIndexResolver(indexResolver{})
+				writer := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
+					Keys:  keys,
+					Start: 10 * telem.SecondTS,
+					Sync:  new(true),
+				}))
+				Expect(writer.Write(frame.NewMulti(
+					channel.Keys{ch.Key(), ch.Key()},
+					[]telem.Series{
+						telem.NewSeriesV[int64](1, 2),
+						telem.NewSeriesV[int64](3),
+					},
+				))).To(BeTrue())
+				Eventually(out.Outlet()).Should(Receive(&res))
+				series := res.Frame.Get(ch.Key()).Series
+				Expect(series).To(HaveLen(2))
+				Expect(series[1].Alignment).To(Equal(series[0].Alignment.AddSamples(2)))
+				Expect(writer.Write(frame.NewUnary(
+					ch.Key(),
+					telem.NewSeriesV[int64](4),
+				))).To(BeTrue())
+				Eventually(out.Outlet()).Should(Receive(&res))
+				next := res.Frame.Get(ch.Key()).Series[0]
+				Expect(next.Alignment).To(Equal(series[1].Alignment.AddSamples(1)))
 			},
 		)
 

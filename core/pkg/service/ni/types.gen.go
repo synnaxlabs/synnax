@@ -211,7 +211,11 @@ const (
 // CJC is the cold-junction compensation for a thermocouple. The source selects where
 // the reference temperature comes from.
 type CJC = versions.CJC
+
+// CJCVariant is implemented by every CJC variant.
 type CJCVariant = versions.CJCVariant
+
+// CJCType is the "source" value that selects a variant of CJC.
 type CJCType = versions.CJCType
 
 const (
@@ -259,7 +263,11 @@ const (
 
 // Scale determines how raw sensor values are transformed to engineering units.
 type Scale = versions.Scale
+
+// ScaleVariant is implemented by every Scale variant.
 type ScaleVariant = versions.ScaleVariant
+
+// ScaleType is the "type" value that selects a variant of Scale.
 type ScaleType = versions.ScaleType
 
 const (
@@ -330,7 +338,11 @@ type BaseAIChannel = versions.BaseAIChannel
 // AIChannel is a single NI analog input channel. The type field selects the measurement
 // mode and the fields that accompany it.
 type AIChannel = versions.AIChannel
+
+// AIChannelVariant is implemented by every AIChannel variant.
 type AIChannelVariant = versions.AIChannelVariant
+
+// AIChannelType is the "type" value that selects a variant of AIChannel.
 type AIChannelType = versions.AIChannelType
 
 const (
@@ -608,7 +620,11 @@ type BaseCIChannel = versions.BaseCIChannel
 // CIChannel is a single NI counter input channel. The type field selects the
 // measurement mode and the fields that accompany it.
 type CIChannel = versions.CIChannel
+
+// CIChannelVariant is implemented by every CIChannel variant.
 type CIChannelVariant = versions.CIChannelVariant
+
+// CIChannelType is the "type" value that selects a variant of CIChannel.
 type CIChannelType = versions.CIChannelType
 
 const (
@@ -685,7 +701,11 @@ type BaseAOChannel = versions.BaseAOChannel
 // AOChannel is a single NI analog output channel. The type field selects the output
 // mode and the fields that accompany it.
 type AOChannel = versions.AOChannel
+
+// AOChannelVariant is implemented by every AOChannel variant.
 type AOChannelVariant = versions.AOChannelVariant
+
+// AOChannelType is the "type" value that selects a variant of AOChannel.
 type AOChannelType = versions.AOChannelType
 
 const (

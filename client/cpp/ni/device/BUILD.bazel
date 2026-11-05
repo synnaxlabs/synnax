@@ -33,6 +33,7 @@ cc_test(
     srcs = ["device_test.cpp"],
     deps = [
         ":device",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

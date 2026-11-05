@@ -85,7 +85,11 @@ type BaseWriteField = v3.BaseWriteField
 // WriteField is an additional body field on a write endpoint. The type field selects
 // whether the value is fixed or generated per request.
 type WriteField = v3.WriteField
+
+// WriteFieldVariant is implemented by every WriteField variant.
 type WriteFieldVariant = v3.WriteFieldVariant
+
+// WriteFieldType is the "type" value that selects a variant of WriteField.
 type WriteFieldType = v3.WriteFieldType
 
 const (

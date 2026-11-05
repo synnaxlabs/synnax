@@ -113,7 +113,11 @@ type Channels = v6.Channels
 
 // CustomRange is the window a plot's synthetic "custom" range key resolves to.
 type CustomRange = v6.CustomRange
+
+// CustomRangeVariant is implemented by every CustomRange variant.
 type CustomRangeVariant = v6.CustomRangeVariant
+
+// CustomRangeType is the "variant" value that selects a variant of CustomRange.
 type CustomRangeType = v6.CustomRangeType
 
 const (

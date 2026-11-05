@@ -34,7 +34,7 @@ inline Chassis Chassis::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Chassis::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["key"] = this->key.to_json();
     j["rack"] = this->rack;
     j["name"] = this->name;
@@ -54,7 +54,7 @@ inline StatusDetails StatusDetails::parse(x::json::Parser parser) {
 }
 
 inline x::json::json StatusDetails::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["rack"] = this->rack;
     j["chassis"] = this->chassis.to_json();
     return j;

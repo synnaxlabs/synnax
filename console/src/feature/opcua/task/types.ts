@@ -19,18 +19,31 @@ export interface ReadChannel extends opcua.ReadChannel {}
 export interface WriteChannel extends opcua.WriteChannel {}
 export type Channel = ReadChannel | WriteChannel;
 
+/**
+ * @returns a key for what a channel reads or writes: its node, and the member of the
+ * node's structure value when it has a field.
+ */
+export const nodeIdentity = (ch: Pick<ReadChannel, "nodeId"> & { field?: string }) =>
+  JSON.stringify([ch.nodeId, ch.field ?? ""]);
+
 const validateNodeIDs = ({
   value: channels,
   issues,
 }: z.core.ParsePayload<Channel[]>) => {
-  const nodeIds = new Map<string, number>();
-  channels.forEach(({ nodeId }) => nodeIds.set(nodeId, (nodeIds.get(nodeId) ?? 0) + 1));
-  channels.forEach(({ nodeId }, i) => {
-    if (nodeId.length === 0 || (nodeIds.get(nodeId) ?? 0) < 2) return;
+  const counts = new Map<string, number>();
+  channels.forEach((ch) => {
+    const id = nodeIdentity(ch);
+    counts.set(id, (counts.get(id) ?? 0) + 1);
+  });
+  channels.forEach((ch, i) => {
+    if (ch.nodeId.length === 0 || (counts.get(nodeIdentity(ch)) ?? 0) < 2) return;
     issues.push({
       code: "custom",
       path: [i, "nodeId"],
-      message: "This node ID has already been used elsewhere in the configuration",
+      message:
+        "field" in ch && ch.field !== ""
+          ? "This field has already been used elsewhere in the configuration"
+          : "This node ID has already been used elsewhere in the configuration",
       params: { variant: "warning" },
       input: channels,
     });
@@ -74,8 +87,17 @@ export const deployReadConfigZ = opcua.readConfigZ
   })
   .check((ctx) => {
     const { value, issues } = ctx;
-    const { arrayMode, arraySize, sampleRate, streamRate } = value;
+    const { arrayMode, arraySize, channels, sampleRate, streamRate } = value;
     if (arrayMode) {
+      channels.forEach(({ disabled, field }, i) => {
+        if (disabled || field === "") return;
+        issues.push({
+          code: "custom",
+          message: "Array sampling cannot read structure fields",
+          path: ["channels", i, "nodeId"],
+          input: value,
+        });
+      });
       if (!Number.isInteger(arraySize) || arraySize <= 0)
         issues.push({
           code: "custom",
@@ -148,18 +170,59 @@ export type WriteSchemas = typeof WRITE_SCHEMAS;
 
 export const SCAN_TYPE = `${PREFIX}_scan`;
 
-const scannedNodeZ = z
-  .object({
-    key: z.string().optional(),
-    dataType: z.string(),
-    isArray: z.boolean(),
-    name: z.string(),
-    nodeClass: z.string(),
-    nodeId: z.string(),
-  })
-  .transform(({ key, ...rest }) => ({ ...rest, key: key ?? rest.nodeId }));
+const scannedNodeFieldsZ = z.object({
+  key: z.string().optional(),
+  dataType: z.string(),
+  isArray: z.boolean(),
+  name: z.string(),
+  nodeClass: z.string(),
+  nodeId: z.string(),
+  field: z.string().default(""),
+});
+
+const withKey = <N extends { key?: string; nodeId: string }>({ key, ...rest }: N) => ({
+  ...rest,
+  key: key ?? rest.nodeId,
+});
+
+const scannedNodeZ = scannedNodeFieldsZ.transform(withKey);
 
 export interface ScannedNode extends z.infer<typeof scannedNodeZ> {}
+
+// A variable that a search under a folder found, with its browse path below it.
+const foundNodeZ = scannedNodeFieldsZ
+  .extend({ path: z.array(z.string()) })
+  .transform(withKey);
+
+export const browseVariablesResponseZ = z.object({
+  channels: z.array(foundNodeZ),
+  truncated: z.boolean(),
+  /** Why each object under the folder that failed to browse was skipped. */
+  skipped: z.array(z.string()),
+});
+
+export const nodeDetailsZ = z.object({
+  node: scannedNodeZ,
+  nodeClass: z.string(),
+  browseName: z.string(),
+  displayName: z.string().optional(),
+  description: z.string().optional(),
+  typeName: z.string().optional(),
+  valueRank: z.number().optional(),
+  arrayDimensions: z.array(z.number()).optional(),
+  readable: z.boolean().optional(),
+  writable: z.boolean().optional(),
+  historyReadable: z.boolean().optional(),
+  historizing: z.boolean().optional(),
+  minimumSamplingInterval: z.number().optional(),
+  status: z.string().optional(),
+  sourceTimestamp: z.string().optional(),
+  serverTimestamp: z.string().optional(),
+  value: z.string().optional(),
+});
+
+/** The attributes and the value of one node, as the server reports them. */
+export interface NodeDetails extends z.infer<typeof nodeDetailsZ> {}
 
 const certificateInfoZ = z.object({
   pem: z.string(),
@@ -170,7 +233,13 @@ const certificateInfoZ = z.object({
 
 export interface CertificateInfo extends z.infer<typeof certificateInfoZ> {}
 
-const browseResponseZ = z.object({ channels: z.array(scannedNodeZ) });
+export const browseResponseZ = z.object({
+  channels: z.array(scannedNodeZ),
+  /** Whether the Driver stopped at a limit before it returned every child. */
+  truncated: z.boolean().default(false),
+});
+
+export interface BrowseResponse extends z.infer<typeof browseResponseZ> {}
 
 export const certificatesResponseZ = z.object({
   current: certificateInfoZ,
@@ -179,20 +248,33 @@ export const certificatesResponseZ = z.object({
 
 export interface CertificatesResponse extends z.infer<typeof certificatesResponseZ> {}
 
-const testConnectionResponseZ = z.object({
+export const testConnectionResponseZ = z.object({
   serverCertificate: certificateInfoZ.optional(),
+  clientCertificateRejected: z.boolean().optional(),
 });
 
-// Each command replies with its own shape, and the client drops a reply that fails
-// this schema, so the union must cover every one.
-const scanCommandResponseZ = z
-  .union([browseResponseZ, certificatesResponseZ, testConnectionResponseZ])
-  .nullish()
-  .optional();
+const endpointZ = z.object({
+  url: z.string(),
+  securityMode: z.string(),
+  securityPolicy: z.string(),
+  userTokenTypes: z.array(z.string()),
+  securityLevel: z.number(),
+});
+
+/** A way that a server accepts connections, as the server describes it. */
+export interface Endpoint extends z.infer<typeof endpointZ> {}
+
+export const endpointsResponseZ = z.object({ endpoints: z.array(endpointZ) });
 
 export const TEST_CONNECTION_COMMAND_TYPE = "test_connection";
 
 export const BROWSE_COMMAND_TYPE = "browse";
+
+export const BROWSE_VARIABLES_COMMAND_TYPE = "browse_variables";
+
+export const READ_NODE_COMMAND_TYPE = "read_node";
+
+export const GET_ENDPOINTS_COMMAND_TYPE = "get_endpoints";
 
 export const GET_CERTIFICATE_COMMAND_TYPE = "get_certificate";
 
@@ -201,5 +283,5 @@ export const REGENERATE_CERTIFICATE_COMMAND_TYPE = "regenerate_certificate";
 export const SCAN_SCHEMAS = {
   type: z.literal(SCAN_TYPE),
   config: record.nullishToEmpty(),
-  statusData: scanCommandResponseZ,
+  statusData: z.unknown().optional(),
 } as const satisfies task.Schemas;

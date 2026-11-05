@@ -23,3 +23,22 @@
         outline: none;
     }
 }
+
+/* Fades in only once a read has run for a while, so a fast read shows nothing. */
+.pluto-log__loading {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    pointer-events: none;
+    animation: pluto-log-loading-in 150ms ease-in 300ms both;
+}
+
+@keyframes pluto-log-loading-in {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
