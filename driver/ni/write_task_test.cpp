@@ -17,6 +17,7 @@
 #include "x/cpp/json/json.h"
 #include "x/cpp/testutil/testutil.h"
 
+#include "driver/ni/daqmx/mock.h"
 #include "driver/ni/hardware/hardware.h"
 #include "driver/ni/write_task.h"
 #include "driver/pipeline/testutil/pipeline.h"
@@ -96,7 +97,7 @@ protected:
             {"channels",
              x::json::json::array({
                  {{"type", "ao_voltage"},
-                  {"key", "hCzuNC9glqc"},
+                  {"key", "ao_channel"},
                   {"port", 0},
                   {"disabled", false},
                   {"min_val", 0},
@@ -107,7 +108,7 @@ protected:
                  {
 
                      {"type", "ao_voltage"},
-                     {"key", "hCzuNC9glqc"},
+                     {"key", "ao_channel"},
                      {"port", 1},
                      {"disabled", false},
                      {"min_val", 0},
@@ -322,6 +323,117 @@ TEST_F(SingleChannelAnalogWriteTest, testLastWriteWins) {
 
 /// @brief Test that an invalid channel type in the configuration is properly detected
 /// and reported
+/// @brief creates a function generator channel with no Synnax channels.
+x::json::json func_gen_channel(const int port) {
+    return {
+        {"type", "ao_func_gen"},
+        {"key", "gen" + std::to_string(port)},
+        {"port", port},
+        {"disabled", false},
+        {"wave_type", "Sine"},
+        {"frequency", 100},
+        {"amplitude", 1},
+        {"offset", 0}
+    };
+}
+
+/// @brief a task with only function generators should need no Synnax channels, and
+/// each generator should reach DAQmx.
+TEST(WriteTaskConfigTest, testOnlyFunctionGenerators) {
+    const auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    const auto rack = ASSERT_NIL_P(client->racks.create("cat"));
+    auto dev = synnax::device::Device{
+        .key = "func_gen_only",
+        .rack = rack.key,
+        .location = "dev1",
+        .make = "ni",
+        .model = "ELVIS II",
+        .name = "my_device",
+    };
+    ASSERT_NIL(client->devices.create(dev));
+    const x::json::json j{
+        {"state_rate", 25},
+        {"device", dev.key},
+        {"channels", x::json::json::array({func_gen_channel(0), func_gen_channel(1)})}
+    };
+    auto p = x::json::Parser(j);
+    const WriteTaskConfig cfg(client, p, "ni_analog_write");
+    ASSERT_NIL(p.error());
+    EXPECT_TRUE(cfg.channels.empty());
+    EXPECT_TRUE(cfg.buf_indexes.empty());
+    EXPECT_TRUE(cfg.output_channels().empty());
+
+    auto mock = std::make_shared<daqmx::MockAPI>();
+    const auto dmx = std::make_shared<daqmx::SugaredAPI>(mock);
+    ASSERT_NIL(cfg.apply(dmx, nullptr));
+    const auto calls = mock->calls_to("CreateAOFuncGenChan");
+    ASSERT_EQ(calls.size(), 2);
+    EXPECT_EQ(calls[0]["args"]["physicalChannel"], "dev1/ao0");
+    EXPECT_EQ(calls[1]["args"]["physicalChannel"], "dev1/ao1");
+}
+
+/// @brief a function generator beside a commanded output should get no command or
+/// state channel, and its write slot should stay unused after the commanded value.
+TEST_F(SingleChannelAnalogWriteTest, testFunctionGeneratorIsNotCommanded) {
+    client = std::make_shared<synnax::Synnax>(new_test_client());
+    ASSERT_NIL(client->channels.create(state_idx_ch));
+    state_ch_1.index = state_idx_ch.key;
+    ASSERT_NIL(client->channels.create(state_ch_1));
+    ASSERT_NIL(client->channels.create(cmd_ch_1));
+    const auto rack = ASSERT_NIL_P(client->racks.create("cat"));
+    auto dev = synnax::device::Device{
+        .key = "func_gen_mixed",
+        .rack = rack.key,
+        .location = "dev1",
+        .make = "ni",
+        .model = "ELVIS II",
+        .name = "my_device",
+    };
+    ASSERT_NIL(client->devices.create(dev));
+    const x::json::json j{
+        {"state_rate", 25},
+        {"device", dev.key},
+        {"channels",
+         x::json::json::array(
+             {func_gen_channel(0),
+              {{"type", "ao_voltage"},
+               {"key", "voltage"},
+               {"port", 1},
+               {"disabled", false},
+               {"min_val", 0},
+               {"max_val", 5},
+               {"state_channel", state_ch_1.key},
+               {"cmd_channel", cmd_ch_1.key},
+               {"custom_scale", {{"type", "none"}}}}}
+         )}
+    };
+    auto p = x::json::Parser(j);
+    cfg = std::make_unique<WriteTaskConfig>(client, p, "ni_analog_write");
+    ASSERT_NIL(p.error());
+    ASSERT_EQ(cfg->output_channels().size(), 1);
+    ASSERT_EQ(cfg->buf_indexes.size(), 1);
+    EXPECT_EQ(cfg->buf_indexes.at(cmd_ch_1.key), 0);
+
+    ctx = std::make_shared<driver::task::MockContext>(client);
+    mock_writer_factory = std::make_shared<driver::pipeline::testutil::WriterFactory>();
+    auto reads = std::make_shared<std::vector<x::telem::Frame>>();
+    constexpr double v = 3;
+    reads->emplace_back(cmd_ch_1.key, x::telem::Series(v, x::telem::FLOAT64_T));
+    mock_streamer_factory = pipeline::testutil::simple_streamer_factory(
+        {cmd_ch_1.key},
+        reads
+    );
+    auto written_data = std::make_shared<std::vector<std::vector<double>>>();
+    auto wt = create_task(
+        std::make_unique<hardware::mock::Writer<double>>(written_data)
+    );
+    wt->start("start_cmd");
+    ASSERT_EVENTUALLY_GE(mock_writer_factory->writes->size(), 2);
+    wt->stop("stop_cmd", true);
+    ASSERT_EQ(written_data->size(), 1);
+    EXPECT_EQ(written_data->at(0), (std::vector<double>{3, 0}));
+}
+
 TEST(WriteTaskConfigTest, testInvalidChannelType) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
@@ -364,7 +476,7 @@ TEST(WriteTaskConfigTest, testInvalidChannelType) {
         {"channels",
          x::json::json::array(
              {{{"type", "INVALID_CHANNEL_TYPE"}, // Invalid channel type
-               {"key", "hCzuNC9glqc"},
+               {"key", "ao_channel"},
                {"port", 0},
                {"disabled", false},
                {"min_val", 0},

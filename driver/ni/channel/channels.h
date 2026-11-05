@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <map>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include "client/cpp/ni/json.gen.h"
@@ -2105,6 +2106,9 @@ struct Input {
 struct Output {
     /// @brief whether the channel is enabled for the task.
     bool enabled = true;
+    /// @brief true when the hardware generates the output on its own. The channel
+    /// runs with the task and has no command or state channel.
+    bool free_running = false;
     /// @brief the channel's path within the task config.
     std::string cfg_path;
     /// @brief the key of the Synnax channel commands are read from.
@@ -2180,6 +2184,8 @@ parse_output(x::json::Parser &cfg, const std::string &task_type) {
             out->enabled = !v.disabled;
             out->cmd_ch_key = v.cmd_channel;
             out->state_ch_key = v.state_channel;
+            using Leaf = std::remove_cvref_t<decltype(v)>;
+            out->free_running = std::is_same_v<Leaf, ::synnax::ni::AOFuncGenChannel>;
         },
         out->channel
     );

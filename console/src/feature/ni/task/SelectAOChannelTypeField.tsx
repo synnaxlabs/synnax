@@ -19,7 +19,9 @@ import {
   type AOChannel,
   type AOChannelType,
   createAOChannel,
+  isGenerated,
 } from "@/feature/ni/task/types";
+import { Task } from "@/platform/task";
 
 /** The items of the channel type select, one for each of the types. */
 export const channelTypeItems = (types: readonly AOChannelType[]) =>
@@ -64,6 +66,7 @@ export const SelectAOChannelTypeField = ({
       const schema = AO_CHANNEL_SCHEMAS[value];
       set(path, {
         ...deep.overrideValidItems(next, prevParent, schema),
+        ...(isGenerated(next) ? Task.WRITE_CHANNEL_OVERRIDE : null),
         type: next.type,
       } as AOChannel);
     }}

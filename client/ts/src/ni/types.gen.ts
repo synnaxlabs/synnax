@@ -1705,7 +1705,9 @@ export const aoCurrentChannelZ = baseAOChannelZ
   });
 export interface AOCurrentChannel extends z.infer<typeof aoCurrentChannelZ> {}
 
-/** AOFuncGenChannel drives a function-generator output. */
+/**
+ * AOFuncGenChannel generates a waveform from task start to task stop, with no commands.
+ */
 export const aoFuncGenChannelZ = baseAOChannelZ.extend({
   type: z.literal("ao_func_gen"),
   /** waveType selects the waveform to generate. */

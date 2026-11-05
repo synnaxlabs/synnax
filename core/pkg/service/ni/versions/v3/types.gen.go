@@ -848,7 +848,8 @@ type AOChannelType = v2.AOChannelType
 const (
 	// AOCurrentChannelType drives a current output.
 	AOCurrentChannelType AOChannelType = v2.AOCurrentChannelType
-	// AOFuncGenChannelType drives a function-generator output.
+	// AOFuncGenChannelType generates a waveform from task start to task stop, with no
+	// commands.
 	AOFuncGenChannelType AOChannelType = v2.AOFuncGenChannelType
 	// AOVoltageChannelType drives a voltage output.
 	AOVoltageChannelType AOChannelType = v2.AOVoltageChannelType
@@ -857,7 +858,7 @@ const (
 // AOCurrentChannel drives a current output.
 type AOCurrentChannel = v2.AOCurrentChannel
 
-// AOFuncGenChannel drives a function-generator output.
+// AOFuncGenChannel generates a waveform from task start to task stop, with no commands.
 type AOFuncGenChannel = v2.AOFuncGenChannel
 
 // AOVoltageChannel drives a voltage output.

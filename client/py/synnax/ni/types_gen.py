@@ -1456,7 +1456,7 @@ class AOCurrentChannel(BaseAOChannel, MinMaxVal, CustomScale):
 
 
 class AOFuncGenChannel(BaseAOChannel):
-    """Drives a function-generator output."""
+    """Generates a waveform from task start to task stop, with no commands."""
 
     type: Literal["ao_func_gen"] = "ao_func_gen"
     wave_type: WaveType = "Sine"

@@ -82,7 +82,7 @@ describe("AnalogWrite", () => {
       createConfig(cases.map(([type], i) => createChannel(type, i))),
     );
     for (const [i, [type, distinguishingLabel]] of cases.entries()) {
-      fireEvent.click(await findChannelListItem(`cmd_${type}_${i}`));
+      fireEvent.click(await findChannelListItem(String(i)));
       await waitFor(
         () =>
           expect(
@@ -103,7 +103,7 @@ describe("AnalogWrite", () => {
 
   it("should switch the function generator wave type when a wave button is clicked", async () => {
     await renderAnalogWrite(createConfig([createChannel("ao_func_gen", 0)]));
-    fireEvent.click(await findChannelListItem("cmd_ao_func_gen_0"));
+    fireEvent.click(await findChannelListItem("0"));
     await screen.findByText("Triangle");
     await waitFor(() => expect(isSelectButtonSelected("Sine")).toBe(true));
     expect(isSelectButtonSelected("Triangle")).toBe(false);
@@ -169,6 +169,80 @@ describe("AnalogWrite", () => {
       updated.properties.analogOutput.stateIndex,
     );
     expect(stateIndex.name).toBe(`${identifier}_ao_state_time`);
+  });
+
+  it("should create no channels for a task of function generators", async () => {
+    const dev = await createNIDevice(client);
+    const rendered = await renderAnalogWrite(
+      createConfig([createChannel("ao_func_gen", 0, { cmdChannelName: "" })], dev.key),
+    );
+    await deployAndAwaitTask(client, rendered.container, rendered.draft.key);
+    const created = await client.tasks.retrieve({
+      key: rendered.draft.key,
+      schemas: NI.Task.ANALOG_WRITE_SCHEMAS,
+    });
+    expect(created.config.channels[0].cmdChannel).toBe(0);
+    expect(created.config.channels[0].stateChannel).toBe(0);
+    const updated = await client.devices.retrieve({
+      key: dev.key,
+      schemas: NI.Device.SCHEMAS,
+    });
+    expect(updated.properties.analogOutput.stateIndex).toBe(0);
+    expect(updated.properties.analogOutput.channels).toEqual({});
+  });
+
+  it("should create channels only for the commanded channels of a mixed task", async () => {
+    const dev = await createNIDevice(client);
+    const rendered = await renderAnalogWrite(
+      createConfig(
+        [
+          createChannel("ao_func_gen", 0, { cmdChannelName: "" }),
+          createChannel("ao_voltage", 1, { cmdChannelName: "" }),
+        ],
+        dev.key,
+      ),
+    );
+    await deployAndAwaitTask(client, rendered.container, rendered.draft.key);
+    const created = await client.tasks.retrieve({
+      key: rendered.draft.key,
+      schemas: NI.Task.ANALOG_WRITE_SCHEMAS,
+    });
+    const [generator, voltage] = created.config.channels;
+    expect(generator.cmdChannel).toBe(0);
+    expect(generator.stateChannel).toBe(0);
+    expect(voltage.cmdChannel).not.toBe(0);
+    expect(voltage.stateChannel).not.toBe(0);
+    const updated = await client.devices.retrieve({
+      key: dev.key,
+      schemas: NI.Device.SCHEMAS,
+    });
+    expect(Object.keys(updated.properties.analogOutput.channels)).toEqual(["1"]);
+  });
+
+  it("should detach the Synnax channels of a stored function generator", async () => {
+    const dev = await createNIDevice(client);
+    const rendered = await renderAnalogWrite(
+      createConfig(
+        [
+          createChannel("ao_func_gen", 0, {
+            cmdChannel: 1234,
+            stateChannel: 1235,
+            stateChannelName: "stale_state",
+          }),
+        ],
+        dev.key,
+      ),
+    );
+    await deployAndAwaitTask(client, rendered.container, rendered.draft.key);
+    const created = await client.tasks.retrieve({
+      key: rendered.draft.key,
+      schemas: NI.Task.ANALOG_WRITE_SCHEMAS,
+    });
+    const [generator] = created.config.channels;
+    expect(generator.cmdChannel).toBe(0);
+    expect(generator.stateChannel).toBe(0);
+    expect(generator.cmdChannelName).toBe("");
+    expect(generator.stateChannelName).toBe("");
   });
 
   it("should use custom command and state channel names when provided", async () => {
@@ -279,6 +353,53 @@ describe("AnalogWrite channel names", () => {
     );
     const item = await findChannelListItem(`${identifier}_ao_1_cmd`);
     expect(within(item).getByText(`${identifier}_ao_1_state`)).toBeTruthy();
+  });
+});
+
+describe("AnalogWrite function generators", () => {
+  it("should show no channel names in the list or the details", async () => {
+    const dev = await createNIDevice(client);
+    const { identifier } = dev.properties;
+    await renderAnalogWrite(
+      createConfig(
+        [
+          createChannel("ao_func_gen", 0, { cmdChannelName: "" }),
+          createChannel("ao_voltage", 1, { cmdChannelName: "" }),
+        ],
+        dev.key,
+      ),
+    );
+    await findChannelListItem(`${identifier}_ao_1_cmd`);
+    expect(screen.queryByText(`${identifier}_ao_0_cmd`)).toBeNull();
+    expect(screen.queryByText(`${identifier}_ao_0_state`)).toBeNull();
+  });
+
+  it("should offer no channel renames in the context menu", async () => {
+    await renderAnalogWrite(
+      createConfig([
+        createChannel("ao_func_gen", 0),
+        createChannel("ao_voltage", 1, { cmdChannelName: "named_cmd" }),
+      ]),
+    );
+    fireEvent.contextMenu(await findChannelListItem("named_cmd"));
+    await screen.findByText("Rename command channel");
+    fireEvent.contextMenu(await findChannelListItem("0"));
+    await waitFor(() =>
+      expect(screen.queryByText("Rename command channel")).toBeNull(),
+    );
+  });
+
+  it("should clear the channel names when the type becomes function generator", async () => {
+    await renderAnalogWrite(
+      createConfig([createChannel("ao_voltage", 2, { cmdChannelName: "named_cmd" })]),
+    );
+    fireEvent.click(await findChannelListItem("named_cmd"));
+    await screen.findByText("Custom scaling");
+    await selectFromDropdown("Voltage", "Function generator");
+    await waitFor(() => expect(screen.queryByText("named_cmd")).toBeNull());
+    await selectFromDropdown("Function generator", "Voltage");
+    await screen.findByText("Custom scaling");
+    expect(screen.queryByText("named_cmd")).toBeNull();
   });
 });
 
