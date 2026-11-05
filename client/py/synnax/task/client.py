@@ -54,6 +54,7 @@ class _CopyRequest(BaseModel):
     key: Key
     name: str
     snapshot: bool
+    range: UUID | None = None
 
 
 class _CopyResponse(BaseModel):
@@ -68,6 +69,7 @@ class _RetrieveRequest(BaseModel):
     include_status: bool = False
     internal: bool | None = None
     snapshot: bool | None = None
+    ranges: list[UUID] | None = None
     search_term: str | None = None
     limit: int | None = None
     offset: int | None = None
@@ -482,6 +484,7 @@ class Client:
         rack: int | None = None,
         internal: bool | None = None,
         snapshot: bool | None = None,
+        ranges: list[UUID] | None = None,
         limit: int | None = None,
         offset: int | None = None,
         include_status: bool = False,
@@ -500,6 +503,7 @@ class Client:
         rack: int | None = None,
         internal: bool | None = None,
         snapshot: bool | None = None,
+        ranges: list[UUID] | None = None,
         limit: int | None = None,
         offset: int | None = None,
         include_status: bool = False,
@@ -513,6 +517,7 @@ class Client:
             false.
         :param snapshot: Only return snapshot tasks when true, or only live tasks when
             false.
+        :param ranges: Only return the snapshots in the ranges with these keys.
         :param limit: The maximum number of tasks to return.
         :param offset: The number of tasks to skip.
         :param include_status: Whether to populate each task's status. Tasks come
@@ -524,7 +529,16 @@ class Client:
         if sum(v is not None for v in (key, name, type)) > 1:
             raise ValueError("only one of key, name, and type can be given")
         if is_single and not all_none(
-            keys, names, types, search_term, rack, internal, snapshot, limit, offset
+            keys,
+            names,
+            types,
+            search_term,
+            rack,
+            internal,
+            snapshot,
+            ranges,
+            limit,
+            offset,
         ):
             raise ValueError(
                 "key, name, and type cannot be combined with list filters; use "
@@ -540,6 +554,7 @@ class Client:
                 rack=rack,
                 internal=internal,
                 snapshot=snapshot,
+                ranges=ranges,
                 limit=limit,
                 offset=offset,
                 include_status=include_status,
@@ -600,13 +615,18 @@ class Client:
         self,
         key: Key,
         name: str,
+        *,
+        snapshot: bool = False,
+        range_key: UUID | None = None,
     ) -> Task:
         """Copies an existing task with a new name.
 
         :param key: The key of the task to copy.
         :param name: The name for the new task.
+        :param snapshot: Whether the copy is a snapshot of the task.
+        :param range_key: The key of the range that a snapshot copy sits in.
         :return: The newly created task.
         """
-        req = _CopyRequest(key=key, name=name, snapshot=False)
+        req = _CopyRequest(key=key, name=name, snapshot=snapshot, range=range_key)
         res = self._client.send(_COPY_ENDPOINT, req, _CopyResponse)
         return self.sugar([res.task])[0]

@@ -8,14 +8,15 @@
 #  included in the file licenses/APL.txt.
 
 from typing import Any, Literal, overload
+from uuid import UUID
 
 from pydantic import BaseModel, Field, JsonValue
 from pydantic_core import to_jsonable_python
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
+from synnax import group as group_
 from synnax import rack as rack_
-from synnax import resource
 from synnax.device.types_gen import Device, Key
 from synnax.exceptions import NotFoundError
 from x.lists import all_none, normalize, override
@@ -44,16 +45,24 @@ class _RetrieveRequest(BaseModel):
     models: list[str] | None = None
     locations: list[str] | None = None
     racks: list[int] | None = None
+    parents: list[str] | None = None
+    nested: bool | None = None
+    groups: list[UUID] | None = None
+    grouped: bool | None = None
     search_term: str | None = None
     limit: int | None = None
     offset: int | None = None
     ignore_not_found: bool = False
     include_status: bool = False
-    include_parent: bool = False
 
 
 class _RetrieveResponse(BaseModel):
     devices: list[Device] = Field(default_factory=list)
+
+
+class _SetGroupRequest(BaseModel):
+    keys: list[Key]
+    group: UUID | None = None
 
 
 class Client:
@@ -80,7 +89,8 @@ class Client:
         make: str = "",
         model: str = "",
         configured: bool = False,
-        parent: resource.ID | None = None,
+        parent: Key | None = None,
+        group: group_.Key | None = None,
         properties: dict[str, Any] | None = None,
     ) -> Device: ...
 
@@ -107,7 +117,8 @@ class Client:
         make: str = "",
         model: str = "",
         configured: bool = False,
-        parent: resource.ID | None = None,
+        parent: Key | None = None,
+        group: group_.Key | None = None,
         properties: dict[str, Any] | None = None,
     ) -> Device | list[Device]:
         is_single = not isinstance(devices, list)
@@ -125,6 +136,7 @@ class Client:
                     model=model,
                     configured=configured,
                     parent=parent,
+                    group=group,
                     properties=json_properties,
                 )
             ]
@@ -145,13 +157,22 @@ class Client:
         """
         self._client.send("/device/rename", _RenameRequest(key=key, name=name), Empty)
 
+    def set_group(self, keys: list[Key], group: group_.Key | None = None) -> None:
+        """Moves devices into a group, or out of their group when group is None.
+
+        :param keys: The keys of the devices to move.
+        :param group: The key of the group to move the devices into. The group must
+            sit under the rack of each device.
+        """
+        req = _SetGroupRequest(keys=keys, group=group)
+        self._client.send("/device/set-group", req, Empty)
+
     @overload
     def retrieve(
         self,
         *,
         key: str,
         include_status: bool = False,
-        include_parent: bool = False,
         ignore_not_found: Literal[False] = False,
     ) -> Device: ...
 
@@ -161,7 +182,6 @@ class Client:
         *,
         key: str,
         include_status: bool = False,
-        include_parent: bool = False,
         ignore_not_found: Literal[True],
     ) -> Device | None: ...
 
@@ -171,7 +191,6 @@ class Client:
         *,
         name: str,
         include_status: bool = False,
-        include_parent: bool = False,
         ignore_not_found: Literal[False] = False,
     ) -> Device: ...
 
@@ -181,7 +200,6 @@ class Client:
         *,
         name: str,
         include_status: bool = False,
-        include_parent: bool = False,
         ignore_not_found: Literal[True],
     ) -> Device | None: ...
 
@@ -191,7 +209,6 @@ class Client:
         *,
         make: str,
         include_status: bool = False,
-        include_parent: bool = False,
         ignore_not_found: Literal[False] = False,
     ) -> Device: ...
 
@@ -201,7 +218,6 @@ class Client:
         *,
         make: str,
         include_status: bool = False,
-        include_parent: bool = False,
         ignore_not_found: Literal[True],
     ) -> Device | None: ...
 
@@ -211,7 +227,6 @@ class Client:
         *,
         model: str,
         include_status: bool = False,
-        include_parent: bool = False,
         ignore_not_found: Literal[False] = False,
     ) -> Device: ...
 
@@ -221,7 +236,6 @@ class Client:
         *,
         model: str,
         include_status: bool = False,
-        include_parent: bool = False,
         ignore_not_found: Literal[True],
     ) -> Device | None: ...
 
@@ -231,7 +245,6 @@ class Client:
         *,
         location: str,
         include_status: bool = False,
-        include_parent: bool = False,
         ignore_not_found: Literal[False] = False,
     ) -> Device: ...
 
@@ -241,7 +254,6 @@ class Client:
         *,
         location: str,
         include_status: bool = False,
-        include_parent: bool = False,
         ignore_not_found: Literal[True],
     ) -> Device | None: ...
 
@@ -255,11 +267,14 @@ class Client:
         models: list[str] | None = None,
         locations: list[str] | None = None,
         racks: list[int] | None = None,
+        parents: list[str] | None = None,
+        nested: bool | None = None,
+        groups: list[group_.Key] | None = None,
+        grouped: bool | None = None,
         search_term: str | None = None,
         limit: int | None = None,
         offset: int | None = None,
         include_status: bool = False,
-        include_parent: bool = False,
         ignore_not_found: bool = False,
     ) -> list[Device]: ...
 
@@ -277,22 +292,30 @@ class Client:
         models: list[str] | None = None,
         locations: list[str] | None = None,
         racks: list[int] | None = None,
+        parents: list[str] | None = None,
+        nested: bool | None = None,
+        groups: list[group_.Key] | None = None,
+        grouped: bool | None = None,
         search_term: str | None = None,
         limit: int | None = None,
         offset: int | None = None,
         include_status: bool = False,
-        include_parent: bool = False,
         ignore_not_found: bool = False,
     ) -> list[Device] | Device | None:
         """Retrieves devices matching the given filters. Returns one device when a key,
         name, make, model, or location is given, and a list otherwise.
 
         :param racks: Only return devices on the racks with these keys.
+        :param parents: Only return devices that the devices with these keys hold.
+        :param nested: Only return devices that another device holds when True, and
+            only devices that no device holds when False.
+        :param groups: Only return devices in the groups with these keys.
+        :param grouped: Only return devices in a group when True, and only devices in
+            no group when False.
         :param search_term: A fuzzy search term matched against device names.
         :param limit: The maximum number of devices to return.
         :param offset: The number of devices to skip.
         :param include_status: Whether to populate each device's status.
-        :param include_parent: Whether to populate each device's parent resource ID.
         :param ignore_not_found: Whether to return None instead of raising when a
             single device is requested and none matches.
         :raises ValueError: If two singular selectors are given, or one is
@@ -305,7 +328,19 @@ class Client:
                 "only one of key, name, make, model, and location can be given"
             )
         if is_single and not all_none(
-            keys, names, makes, models, locations, racks, search_term, limit, offset
+            keys,
+            names,
+            makes,
+            models,
+            locations,
+            racks,
+            parents,
+            nested,
+            groups,
+            grouped,
+            search_term,
+            limit,
+            offset,
         ):
             raise ValueError(
                 "key, name, make, model, and location cannot be combined with list "
@@ -320,12 +355,15 @@ class Client:
                 locations=override(location, locations),
                 names=override(name, names),
                 racks=racks,
+                parents=parents,
+                nested=nested,
+                groups=groups,
+                grouped=grouped,
                 search_term=search_term,
                 limit=limit,
                 offset=offset,
                 ignore_not_found=ignore_not_found,
                 include_status=include_status,
-                include_parent=include_parent,
             ),
             _RetrieveResponse,
         )

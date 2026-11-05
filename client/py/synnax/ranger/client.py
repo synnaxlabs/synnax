@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import functools
 from collections.abc import Callable, Iterator, Sequence
-from typing import cast, overload, override
+from typing import TYPE_CHECKING, cast, overload, override
 from uuid import UUID
 
 import numpy as np
@@ -37,8 +37,6 @@ from synnax.ranger.writer import Writer
 from synnax.resource import ID
 from synnax.signals.signals import Registry
 from synnax.state import Latest
-from synnax.task import Client as TaskClient
-from synnax.task import Task
 from synnax.telem import (
     CrudeSeries,
     DataType,
@@ -52,6 +50,11 @@ from x.interop import ArrayOperators
 from x.lists import all_none, normalize
 from x.params import require_named_params
 from x.uuid import NIL
+
+# synnax.task imports this module through its range field.
+if TYPE_CHECKING:
+    from synnax.task import Client as TaskClient
+    from synnax.task import Task
 
 _RANGE_SET_CHANNEL = "sy_range_set"
 
@@ -522,11 +525,8 @@ class Range(Payload):
         self._label_client.remove(self.resource_id, list(labels))
 
     def snapshots(self) -> list[Task]:
-        res = self._ontology.retrieve_children(self.resource_id)
-        tasks = [t for t in res if t.type == "task"]
-        return self._tasks.retrieve(
-            keys=[UUID(t.key) for t in tasks if t.key is not None]
-        )
+        """Returns the task snapshots in this range."""
+        return self._tasks.retrieve(ranges=[self.key])
 
 
 class Client:

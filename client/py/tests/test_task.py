@@ -393,6 +393,34 @@ class TestTaskClient:
         assert copied.type == original.type
         assert copied.config["routing_key"] == original.config["routing_key"]
 
+    def test_copy_snapshot_into_range(self, client: sy.Synnax) -> None:
+        """Should place a snapshot copy in a range and retrieve it by that range."""
+        rng = client.ranges.create(
+            name=str(uuid4()),
+            time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
+        )
+        original = client.tasks.create(name=str(uuid4()), type="pagerduty_alert")
+        snap = client.tasks.copy(
+            original.key, str(uuid4()), snapshot=True, range_key=rng.key
+        )
+        assert snap.snapshot
+        assert [t.key for t in client.tasks.retrieve(ranges=[rng.key])] == [snap.key]
+        assert [t.key for t in rng.snapshots()] == [snap.key]
+
+    def test_delete_range_deletes_snapshots(self, client: sy.Synnax) -> None:
+        """Should delete the snapshots in a range when the range is deleted."""
+        rng = client.ranges.create(
+            name=str(uuid4()),
+            time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
+        )
+        original = client.tasks.create(name=str(uuid4()), type="pagerduty_alert")
+        snap = client.tasks.copy(
+            original.key, str(uuid4()), snapshot=True, range_key=rng.key
+        )
+        client.ranges.delete(rng.key)
+        with pytest.raises(sy.NotFoundError):
+            client.tasks.retrieve(key=snap.key)
+
 
 @pytest.mark.task
 class TestConfigBases:
