@@ -271,15 +271,14 @@ describe("connection guard permissions", () => {
 
   const PASSWORD = "password123";
 
-  const assignRole = async (
+  const roleKey = async (
     client: ReturnType<typeof createTestClient>,
-    user: string,
     roleName: string,
-  ): Promise<void> => {
+  ): Promise<string> => {
     const roles = await client.access.roles.retrieve({});
     const role = roles.find(({ name }) => name === roleName);
     if (role == null) throw new Error(`${roleName} role not provisioned`);
-    await client.access.roles.assign({ user, role: role.key });
+    return role.key;
   };
 
   const createUserWithRole = async (
@@ -287,8 +286,11 @@ describe("connection guard permissions", () => {
     roleName: string,
   ): Promise<{ username: string; key: string }> => {
     const username = uniqueName("role_user");
-    const { key } = await client.users.create({ username, password: PASSWORD });
-    await assignRole(client, key, roleName);
+    const { key } = await client.users.create({
+      username,
+      password: PASSWORD,
+      roles: [await roleKey(client, roleName)],
+    });
     return { username, key };
   };
 
@@ -321,7 +323,7 @@ describe("connection guard permissions", () => {
     // The denial renders the calm surface, not the crash fallback.
     expect(screen.queryByText("Stack trace")).toBeNull();
     expect(screen.queryByText("authenticated content")).toBeNull();
-    await assignRole(client, key, "Operator");
+    await client.users.setRoles(key, [await roleKey(client, "Operator")]);
     await act(async () => fireEvent.click(findButton("Retry")));
     expect(
       await screen.findByText("authenticated content", {}, { timeout: 10000 }),

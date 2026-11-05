@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { user } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -62,10 +61,6 @@ describe("User.useRegisterModal", () => {
 
     const created = await client.users.retrieve({ username });
     expect(created.name).toEqual("Ada Lovelace");
-    const parents = await client.ontology.parents.retrieve({
-      ids: user.resourceID(created.key),
-      types: ["role"],
-    });
-    expect(parents.map((p) => p.id.key)).toContain(role.key);
+    expect(created.roles).toEqual([role.key]);
   });
 });

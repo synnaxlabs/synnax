@@ -50,7 +50,7 @@ describe("Access.PermissionsBoundary", () => {
     const roles = await root.access.roles.retrieve({});
     const operator = roles.find(({ name }) => name === "Operator");
     if (operator == null) throw new Error("no Operator role");
-    await root.access.roles.assign({ user: user.key, role: operator.key });
+    await root.users.setRoles(user.key, [operator.key]);
     await act(async () => {
       fireEvent.click(retry);
     });

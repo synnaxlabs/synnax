@@ -117,14 +117,14 @@ describe("user ontology service", () => {
 
 describe("rename", () => {
   it("should rename the user on the Core and keep its username", async () => {
+    const role = await client.access.roles.create({ name: uniqueName("role") });
     const username = uniqueName("user");
     const u = await client.users.create({
       username,
       name: uniqueName("name"),
       password: "pwd12345",
+      roles: [role.key],
     });
-    const role = await client.access.roles.create({ name: uniqueName("role") });
-    await client.access.roles.assign({ user: u.key, role: role.key });
     await renderOntologyTree({
       client,
       root: access.role.resourceID(role.key),
