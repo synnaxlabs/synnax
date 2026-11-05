@@ -104,8 +104,7 @@ export interface Child extends record.KeyedNamed {
   type: resource.Type;
 }
 
-// Until PR 6, a visualization outside every group finds its project through the
-// ontology.
+// A visualization outside every group finds its project through the ontology.
 const findProjectAncestor = async (
   client: Synnax,
   id: resource.ID,
@@ -138,8 +137,7 @@ export const retrieveChildren = async (
   if (resourceID == null) return [];
   const projectID = await findProjectAncestor(client, resourceID);
   if (projectID == null) return [];
-  // Every visualization keeps its project's ontology edge, in a group or not, until PR
-  // 6.
+  // Every visualization keeps its project's ontology edge, in a group or not.
   const children = await client.ontology.children.retrieve({ ids: projectID, types });
   return children
     .filter(({ id }) => id.key !== resourceID.key)
