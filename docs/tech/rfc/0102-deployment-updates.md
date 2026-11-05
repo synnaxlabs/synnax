@@ -83,12 +83,13 @@ Desktop backup (`console/src-tauri/src/supervisor/backup.rs`) moved into the Cor
 the Desktop copy is deleted.
 
 `synnax restore` runs with the Core stopped. It lists the backups, puts the chosen one
-back, writes its version to `VERSION`, and prints the Core version to run. It moves
-aside the Cesium directory of each channel that has no `meta.json` in the backup. The
-channel key counter lives in `kv/` (`core/pkg/distribution/channel/counter.go:22-38`),
-so it gives out those keys again, and Cesium refuses a duplicate key
-(`cesium/channel.go:157-164`). Telemetry written to known channels after the backup
-stays.
+back, writes its version to `VERSION`, and prints the Core version to run. A restore
+writes a marker first and removes it last. While the marker exists, the Core does not
+start and tells the user to run `synnax restore` again. It moves aside the Cesium
+directory of each channel that has no `meta.json` in the backup. The channel key counter
+lives in `kv/` (`core/pkg/distribution/channel/counter.go:22-38`), so it gives out those
+keys again, and Cesium refuses a duplicate key (`cesium/channel.go:157-164`). Telemetry
+written to known channels after the backup stays.
 
 ### 3.2 `synnax update`
 
@@ -102,8 +103,9 @@ admin rights on the host, which is the access control for a Core update.
 4. Waits for `/connectivity/check` to answer with a license state of `ok`
    (`core/pkg/api/connectivity/connectivity.go:76-89`). That covers the license version
    cap (`core/pkg/service/license/service.go:426-471`).
-5. On a failure, stops the Core, runs the restore of §3.1 on the newest backup, puts the
-   old binary back, and starts it.
+5. On a failure, stops the Core and puts the old binary back. If step 3 made a backup,
+   it first restores that backup (§3.1). With no new backup, the data did not change. It
+   then starts the old Core.
 
 Linux gets `synnax service install|uninstall|start|stop|status`, a systemd unit shaped
 after `core/cmd/service/service_windows.go`. The Windows installer runs the same update
@@ -147,8 +149,10 @@ place of the workspace: "Console 0.61.0 cannot work with Core 0.60.1". The guard
 outside `License.Guard`: on an unlicensed Core, the user opens the matching web Console
 to activate the license. When the Core reports a matching version, the screen lifts by
 itself. The actions are "Update Console" (the §3.3 update, up or down), "Open in
-browser" (the Console that the Core serves, which always matches), and the Core list.
-The mismatch warning, its notification actions
+browser" (the Console that the Core serves, which always matches), and the Core list. In
+a web Console, the browser action loads the Core's Console in the same tab, and the Core
+list opens through `?select-core`, so the login does not pick the same Core again. The
+mismatch warning, its notification actions
 (`console/src/feature/core/notifications.tsx:22-47`), and the "Version mismatch" badge
 are deleted.
 
