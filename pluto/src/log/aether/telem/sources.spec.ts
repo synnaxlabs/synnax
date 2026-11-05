@@ -12,6 +12,7 @@ import {
   DataType,
   framer,
   type status as cstatus,
+  UnsupportedError,
 } from "@synnaxlabs/client";
 import { SyntheticCore, type SyntheticCoreProps } from "@synnaxlabs/client/testutil";
 import { Rate, Series, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
@@ -215,12 +216,12 @@ describe("StreamMultiChannelLog", () => {
     const [a] = core.data.map((c) => c.key);
     const statuses: cstatus.Crude[] = [];
     const client = connect(core, {
-      readLatest: async (keys, count, tr) => {
-        const frame = core.readLatest(keys, count, tr);
-        if (keys.includes(core.index.key) && !keys.includes(a))
-          return new framer.Frame();
-        return frame;
-      },
+      readLatest: async (keys, count, tr) =>
+        core.readLatest(
+          keys.filter((key) => key !== core.index.key),
+          count,
+          tr,
+        ),
     });
     const log = open(
       core,
@@ -341,15 +342,21 @@ describe("StreamMultiChannelLog", () => {
     let calls = 0;
     const client = connect(core, {
       readLatest: async (keys, count, tr) => {
-        // A failed read of both channels reads each alone, so the data lands first.
-        if (calls++ === 0) throw new Error("read each channel alone");
-        if (keys.includes(core.index.key)) await released;
+        calls++;
+        // A read of the samples comes back without the index, so the index reads alone.
+        if (keys.includes(a))
+          return core.readLatest(
+            keys.filter((key) => key !== core.index.key),
+            count,
+            tr,
+          );
+        await released;
         return core.readLatest(keys, count, tr);
       },
     });
     const log = open(core, client, { channels: [a] });
     log.value();
-    await expect.poll(() => calls, POLL).toBe(3);
+    await expect.poll(() => calls, POLL).toBe(2);
     await new Promise((resolve) => setTimeout(resolve, 50));
     const streamed = 1_000;
     core.advance(TimeSpan.seconds(streamed / 10));
@@ -580,6 +587,36 @@ describe("StreamMultiChannelLog", () => {
       expect(entriesOf(log).map((e) => e.value)).toEqual(["a", "b", "c"]);
     });
 
+    it("should keep the newest samples when more than maxEntries share a time", async () => {
+      const core = createCore();
+      const [a] = core.data.map((c) => c.key);
+      const client = connect(core, {
+        readLatest: async (keys, count, tr) => {
+          const frame = core.readLatest(keys, count, tr);
+          const { key } = core.index;
+          const times = frame.get(key).series;
+          if (times.length === 0) return frame;
+          const out = new framer.Frame();
+          frame.get(a).series.forEach((s) => out.push(a, s));
+          times.forEach((s) =>
+            out.push(
+              key,
+              indexSeries(
+                s.alignment,
+                Array.from({ length: s.length }, () => START.valueOf()),
+              ),
+            ),
+          );
+          return out;
+        },
+      });
+      const log = open(core, client, { channels: [a] }, undefined, 100);
+      await expect.poll(() => entriesOf(log).length, POLL).toBeGreaterThan(0);
+      const entries = entriesOf(log);
+      expect(entries.length).toBeLessThanOrEqual(100);
+      expect(entries.at(-1)?.value).toBe(textOf(core, a, 1)[0]);
+    });
+
     it("should evict a tenth of maxEntries beyond the excess", async () => {
       const core = createCore();
       const [a] = core.data.map((c) => c.key);
@@ -590,6 +627,317 @@ describe("StreamMultiChannelLog", () => {
       core.advance(TimeSpan.seconds(1));
       await settle(log, 90);
       expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, 90));
+    });
+  });
+
+  describe("older pages", () => {
+    // More stored samples than a log reads when it opens.
+    const STORED = PAGE + 2_500;
+    const deep = (): SyntheticCore =>
+      createCore({ now: START.add(TimeSpan.seconds(STORED / 10)) });
+
+    // Asks for older entries until the log shows count entries.
+    const page = async (log: StreamMultiChannelLog, count: number): Promise<void> =>
+      await expect
+        .poll(() => {
+          log.loadOlder();
+          return entriesOf(log).length;
+        }, POLL)
+        .toBe(count);
+
+    it("should read older pages until it shows every stored sample", async () => {
+      const core = deep();
+      const [a] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), { channels: [a] });
+      await settle(log, PAGE);
+      log.loadOlder();
+      // The page reads up to and including the oldest sample held.
+      await settle(log, PAGE + 999);
+      await page(log, STORED);
+      const { reads } = core;
+      log.loadOlder();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(core.reads).toBe(reads);
+      expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, STORED));
+      expect(stampsOf(entriesOf(log))).toEqual(timesOf(core, STORED));
+    });
+
+    it("should page every channel back together", async () => {
+      const core = deep();
+      const [a, b] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), { channels: [a, b] });
+      await settle(log, 2 * PAGE);
+      await page(log, 2 * STORED);
+      expect(sorted(entriesOf(log))).toBe(true);
+      expect(valuesOf(entriesOf(log), b)).toEqual(textOf(core, b, STORED));
+    });
+
+    // Returns a client whose reads serve STORED samples of a at the times of time.
+    const served = (core: SyntheticCore, time: (i: number) => bigint) => {
+      const [a] = core.data.map((c) => c.key);
+      return connect(core, {
+        readLatest: async (_, count, tr) => {
+          let hi = STORED;
+          while (hi > 0 && time(hi - 1) >= tr.end.valueOf()) hi--;
+          let lo = Math.max(0, hi - count);
+          while (lo < hi && time(lo) < tr.start.valueOf()) lo++;
+          const frame = new framer.Frame();
+          if (hi <= lo) return frame;
+          const alignment = (1n << 32n) + BigInt(lo);
+          const indices = Array.from({ length: hi - lo }, (_, j) => lo + j);
+          const index = indexSeries(alignment, indices.map(time));
+          const { timeRange } = index;
+          frame.push(
+            a,
+            new Series({ data: new Float32Array(indices), alignment, timeRange }),
+          );
+          frame.push(core.index.key, index);
+          return frame;
+        },
+      });
+    };
+
+    const all = Array.from({ length: STORED }, (_, i) => String(i));
+
+    it("should keep every sample of a time that a page splits", async () => {
+      const core = createCore();
+      const [a] = core.data.map((c) => c.key);
+      // Seven samples share each time, so pages split runs of one time.
+      const time = (i: number): bigint => START.valueOf() + BigInt(Math.floor(i / 7));
+      const log = open(core, served(core, time), { channels: [a] });
+      await settle(log, PAGE);
+      await page(log, STORED);
+      expect(valuesOf(entriesOf(log), a)).toEqual(all);
+    });
+
+    it("should read past more samples at the oldest time than a page holds", async () => {
+      const core = createCore();
+      const [a] = core.data.map((c) => c.key);
+      // Samples 1,000 to 3,999 share one time, and the open read holds 1,500 of them.
+      const time = (i: number): bigint =>
+        START.valueOf() + BigInt(i < 1_000 ? i : i < 4_000 ? 1_000 : i - 3_000);
+      const log = open(core, served(core, time), { channels: [a] });
+      await settle(log, PAGE);
+      await page(log, STORED);
+      expect(valuesOf(entriesOf(log), a)).toEqual(all);
+    });
+
+    it("should page stored channels beside a calculated channel with no history", async () => {
+      const core = createCore({
+        derived: true,
+        now: START.add(TimeSpan.seconds(STORED / 10)),
+      });
+      const [a] = core.data.map((c) => c.key);
+      const calculated = [core.calculated!.key, core.calculatedIndex!.key];
+      const client = connect(core, {
+        readLatest: async (keys, count, tr) => {
+          if (keys.some((k) => calculated.includes(k)))
+            throw new UnsupportedError("cannot open iterator on virtual channel");
+          return core.readLatest(keys, count, tr);
+        },
+      });
+      const log = open(core, client, { channels: [a, calculated[0]] });
+      await settle(log, PAGE);
+      await expect.poll(() => core.streams(calculated[1]), POLL).toBe(true);
+      core.advance(TimeSpan.seconds(1));
+      await settle(log, PAGE + 20);
+      await page(log, STORED + 20);
+    });
+
+    it("should drop a page that an eviction made stale", async () => {
+      const core = deep();
+      const [a] = core.data.map((c) => c.key);
+      let held = false;
+      const { promise: released, resolve: release } = Promise.withResolvers<void>();
+      let waiting = false;
+      const client = connect(core, {
+        readLatest: async (keys, count, tr) => {
+          if (
+            held &&
+            keys.includes(a) &&
+            tr.end.valueOf() !== TimeStamp.MAX.valueOf()
+          ) {
+            waiting = true;
+            await released;
+          }
+          return core.readLatest(keys, count, tr);
+        },
+      });
+      const log = open(core, client, { channels: [a] }, undefined, PAGE + 500);
+      await settle(log, PAGE);
+      held = true;
+      log.loadOlder();
+      await expect.poll(() => waiting, POLL).toBe(true);
+      core.advance(TimeSpan.seconds(60));
+      await expect.poll(() => entriesOf(log).length, POLL).toBeLessThan(PAGE);
+      release();
+      held = false;
+      await expect
+        .poll(() => {
+          log.loadOlder();
+          return entriesOf(log).length;
+        }, POLL)
+        .toBe(PAGE + 500);
+      expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, PAGE + 500));
+    });
+
+    it("should stop reading older pages once a page passes maxEntries", async () => {
+      const core = deep();
+      const [a] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), { channels: [a] }, undefined, PAGE + 1_500);
+      await settle(log, PAGE);
+      await page(log, PAGE + 1_500);
+      const { reads } = core;
+      log.loadOlder();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(core.reads).toBe(reads);
+      expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, PAGE + 1_500));
+    });
+
+    it("should read the samples before the entries it evicted", async () => {
+      const core = deep();
+      const [a] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), { channels: [a] }, undefined, 100);
+      await settle(log, 90);
+      await page(log, 100);
+      expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, 100));
+    });
+
+    it("should report loading while a page reads", async () => {
+      const core = deep();
+      const [a] = core.data.map((c) => c.key);
+      const { promise: released, resolve: release } = Promise.withResolvers<void>();
+      const client = connect(core, {
+        readLatest: async (keys, count, tr) => {
+          if (keys.includes(a) && tr.end.valueOf() !== TimeStamp.MAX.valueOf())
+            await released;
+          return core.readLatest(keys, count, tr);
+        },
+      });
+      const log = open(core, client, { channels: [a] });
+      await settle(log, PAGE);
+      expect(log.value().status.variant).toBe("success");
+      const onChange = vi.fn();
+      closers.push(log.onChange(onChange));
+      log.loadOlder();
+      expect(onChange).toHaveBeenCalledOnce();
+      expect(log.value().status.variant).toBe("loading");
+      release();
+      await settle(log, PAGE + 999);
+      expect(log.value().status.variant).toBe("success");
+    });
+
+    it("should stop reporting loading when a page read fails", async () => {
+      const core = deep();
+      const [a] = core.data.map((c) => c.key);
+      const client = connect(core, {
+        readLatest: async (keys, count, tr) => {
+          if (keys.includes(a) && tr.end.valueOf() !== TimeStamp.MAX.valueOf())
+            throw new Error("page unavailable");
+          return core.readLatest(keys, count, tr);
+        },
+      });
+      const log = open(core, client, { channels: [a] });
+      await settle(log, PAGE);
+      const onChange = vi.fn();
+      closers.push(log.onChange(onChange));
+      log.loadOlder();
+      expect(log.value().status.variant).toBe("loading");
+      await expect.poll(() => onChange.mock.calls.length, POLL).toBe(2);
+      expect(log.value().status.variant).toBe("success");
+    });
+
+    it("should report loading while it reads a failed page again", async () => {
+      const core = deep();
+      const [a] = core.data.map((c) => c.key);
+      const statuses: cstatus.Crude[] = [];
+      const client = connect(core, {
+        readLatest: async (keys, count, tr) => {
+          if (keys.includes(a) && tr.end.valueOf() !== TimeStamp.MAX.valueOf())
+            throw new Error("page unavailable");
+          return core.readLatest(keys, count, tr);
+        },
+      });
+      const log = open(
+        core,
+        client,
+        { channels: [a] },
+        { onStatusChange: (s) => statuses.push(s) },
+      );
+      await settle(log, PAGE);
+      log.loadOlder();
+      await expect.poll(() => statuses.length, POLL).toBe(1);
+      await expect
+        .poll(() => {
+          log.loadOlder();
+          return log.value().status.variant;
+        }, POLL)
+        .toBe("loading");
+    });
+
+    it("should post a failed page read once, then read the page again", async () => {
+      const core = deep();
+      const [a] = core.data.map((c) => c.key);
+      let failed = true;
+      const client = connect(core, {
+        readLatest: async (keys, count, tr) => {
+          if (
+            failed &&
+            keys.includes(a) &&
+            tr.end.valueOf() !== TimeStamp.MAX.valueOf()
+          )
+            throw new Error("page unavailable");
+          return core.readLatest(keys, count, tr);
+        },
+      });
+      const statuses: cstatus.Crude[] = [];
+      const log = open(
+        core,
+        client,
+        { channels: [a] },
+        {
+          onStatusChange: (s) => statuses.push(s),
+        },
+      );
+      await settle(log, PAGE);
+      log.loadOlder();
+      await expect.poll(() => statuses.length, POLL).toBe(1);
+      expect(statuses[0]).toMatchObject({
+        variant: "error",
+        description: "page unavailable",
+      });
+      failed = false;
+      await page(log, STORED);
+      expect(statuses).toHaveLength(1);
+    });
+
+    it("should wait for a page while its stream is down", async () => {
+      const core = deep();
+      const [a] = core.data.map((c) => c.key);
+      const retries: Error[] = [];
+      const client = connect(core, { onRetry: (e) => retries.push(e) });
+      const log = open(core, client, { channels: [a] });
+      await settle(log, PAGE);
+      core.disconnect();
+      await expect.poll(() => log.value().status.variant, POLL).toBe("warning");
+      log.loadOlder();
+      await expect.poll(() => retries.length, POLL).toBeGreaterThan(0);
+      core.reconnect();
+      await page(log, STORED);
+    });
+
+    it("should read no older page of a virtual channel", async () => {
+      const core = createCore({ derived: true });
+      const { key } = core.virtual!;
+      const log = open(core, connect(core), { channels: [key] });
+      log.value();
+      await expect.poll(() => core.streams(key), POLL).toBe(true);
+      core.advance(TimeSpan.seconds(1));
+      await settle(log, 10);
+      const { reads } = core;
+      log.loadOlder();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(core.reads).toBe(reads);
     });
   });
 

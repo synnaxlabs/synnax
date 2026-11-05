@@ -112,6 +112,7 @@ const addField = async (): Promise<void> => {
 
 describe("MQTT Read form", () => {
   it("should ask for a broker before it shows the form body", async () => {
+    await createBroker(client);
     await renderTaskFormTab(MQTT.Task.Read, { task: ZERO_DRAFT });
     await screen.findByText("No device selected");
     expect(screen.queryByText("Entries")).toBeNull();
