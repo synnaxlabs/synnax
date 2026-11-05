@@ -851,6 +851,19 @@ func (p *Plugin) buildMapValueConversion(
 		}
 	}
 
+	if inst, ok := instance.Of(valArg, data.Namespace, data.table); ok {
+		p.addInstance(inst, data)
+		return &mapValueConversionData{
+			GoMapType: fmt.Sprintf(
+				"map[%s]%s", keyType, p.instanceGoType(inst, data),
+			),
+			PBMapType:         fmt.Sprintf("map[%s]*%s", keyType, inst.Name),
+			ForwardValueExpr:  fmt.Sprintf("%sToPB(v)", inst.Name),
+			BackwardValueExpr: fmt.Sprintf("%sFromPB(v)", inst.Name),
+			ForwardHasError:   true,
+			BackwardHasError:  true,
+		}
+	}
 	resolved, _, ok := resolution.Dealias(valArg, data.table)
 	if !ok {
 		return nil
@@ -1463,16 +1476,21 @@ func (p *Plugin) generateStructConversion(
 }
 
 // addInstance adds the translators of inst to the file once.
+// instanceGoType returns the Go type of a generic use, such as filter.Set[uuid.UUID].
+func (p *Plugin) instanceGoType(inst instance.Instance, data *templateData) string {
+	return lo.Must(typemap.GoTypeRefName(
+		inst.Ref,
+		data.table,
+		func(t resolution.Type) (string, error) { return p.goTypeName(t, data), nil },
+	))
+}
+
 func (p *Plugin) addInstance(inst instance.Instance, data *templateData) {
 	if data.instances.Contains(inst.Name) {
 		return
 	}
 	data.instances.Add(inst.Name)
-	goType := lo.Must(typemap.GoTypeRefName(
-		inst.Ref,
-		data.table,
-		func(t resolution.Type) (string, error) { return p.goTypeName(t, data), nil },
-	))
+	goType := p.instanceGoType(inst, data)
 	translator := translatorData{
 		Name:        inst.Name,
 		GoType:      goType,

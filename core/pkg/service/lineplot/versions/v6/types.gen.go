@@ -81,13 +81,17 @@ type Legend = v5.Legend
 // carry zero or more channels each.
 type Channels = v5.Channels
 
+// CustomRangeType is the "variant" value that selects a variant of CustomRange.
 type CustomRangeType string
 
 const (
+	// DynamicCustomRangeType is a rolling window.
 	DynamicCustomRangeType CustomRangeType = "dynamic"
-	StaticCustomRangeType  CustomRangeType = "static"
+	// StaticCustomRangeType is a fixed window.
+	StaticCustomRangeType CustomRangeType = "static"
 )
 
+// CustomRangeVariant is implemented by every CustomRange variant.
 type CustomRangeVariant interface {
 	isCustomRangeVariant()
 }
@@ -174,7 +178,11 @@ func (u *CustomRange) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.StaticCustomRange
 	default:
-		return errors.Newf("CustomRange: unknown variant %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"CustomRange: unknown variant %q",
+			disc.Type,
+		)
 	}
 	return nil
 }
