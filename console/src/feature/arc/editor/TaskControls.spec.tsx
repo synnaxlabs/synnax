@@ -167,10 +167,10 @@ describe("TaskControls", () => {
       await client.arcs.updateTask(a.key, { rack: rck.key, performance: "medium" });
       await renderControls(a.key);
       const trigger = await findDialogTriggerByText("Medium");
-      expect(queryIcon(trigger, "performance-medium")).toBe(trigger.firstElementChild);
+      expect(queryIcon(trigger, "meter-medium")).toBe(trigger.firstElementChild);
     });
 
-    it("should search the levels by name, not by description", async () => {
+    it("should list every level with no search", async () => {
       const rck = await createArcRack();
       const a = await client.arcs.create({ name: uniqueName("arc"), mode: "text" });
       await client.arcs.updateTask(a.key, { rack: rck.key });
@@ -178,15 +178,15 @@ describe("TaskControls", () => {
       const trigger = await findDialogTriggerByText("Auto");
       await waitFor(() => expect(trigger.getAttribute("aria-disabled")).toBeNull());
       fireEvent.click(trigger);
-      const search = await screen.findByPlaceholderText("Search levels...");
-      fireEvent.change(search, { target: { value: "med" } });
       await waitFor(() =>
         expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual([
+          expect.stringMatching(/^Auto/),
+          expect.stringMatching(/^Low/),
           expect.stringMatching(/^Medium/),
+          expect.stringMatching(/^High/),
         ]),
       );
-      fireEvent.change(search, { target: { value: "cpu" } });
-      await waitFor(() => expect(screen.queryAllByRole("option")).toHaveLength(0));
+      expect(screen.queryByPlaceholderText(/Search/)).toBeNull();
     });
 
     it("should name the level in the tooltip of a collapsed trigger", async () => {

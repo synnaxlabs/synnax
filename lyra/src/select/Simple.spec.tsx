@@ -85,6 +85,23 @@ describe("Select.Simple", () => {
     expect(c.getByPlaceholderText("Search Test Items...")).toBeTruthy();
   });
 
+  it("should leave out the search box when the search is hidden", () => {
+    const c = render(
+      <Select.Simple<string>
+        value=""
+        onChange={vi.fn()}
+        resourceName="Level"
+        searchHidden
+      >
+        <Select.Item itemKey="low">Low</Select.Item>
+        <Select.Item itemKey="high">High</Select.Item>
+      </Select.Simple>,
+    );
+    fireEvent.click(c.getByText("Level"));
+    expect(c.getByText("High")).toBeTruthy();
+    expect(c.queryByPlaceholderText("Search levels...")).toBeNull();
+  });
+
   it("should filter the list when the search box is typed into", () => {
     const c = render(<SelectSimple />);
     fireEvent.click(c.getByText("Test Item"));

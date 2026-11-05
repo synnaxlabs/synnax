@@ -41,7 +41,7 @@ export const channelEntryZ = z.object({
    */
   precision: zod.uint8.max(17).optional(),
   /** alias is a human-readable alias displayed in place of the channel name. */
-  alias: z.string().default(""),
+  alias: z.string().check(zod.maxLength(64)).default(""),
   /** timestamp is the per-channel timestamp display configuration. */
   timestamp: timestampConfigZ.prefault({ format: "preciseDate", tz: "local" }),
 });
