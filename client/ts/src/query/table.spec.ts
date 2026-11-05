@@ -1926,6 +1926,16 @@ describe("Tombstones", () => {
       expect(table.status("k1")).toBe("tombstoned");
     });
 
+    it("should keep a key deleted after the stamp when a later set rolls back", () => {
+      const table = newRevivable();
+      const since = table.stamp();
+      table.delete("k1");
+      const rollback = table.set("k1", { key: "k1", name: "c" });
+      rollback();
+      table.ingest(fetched, { since });
+      expect(table.status("k1")).toBe("tombstoned");
+    });
+
     it("should keep the tombstone on an ingest without a stamp", () => {
       const table = newRevivable();
       table.delete("k1");
