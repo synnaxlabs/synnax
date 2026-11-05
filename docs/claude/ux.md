@@ -86,6 +86,17 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
 - An icon-only button has a tooltip that names the action in a word ("Close"), then
   shows its keys.
 
+### Toolbar search
+
+- A search action in a resource toolbar header turns the title into a field. The search
+  glyph sits where the title icon was, and the term starts at the title text.
+- While the field is open, the header holds a toggle that shows the results in their
+  groups, and a close button. Esc or the close button ends the search, and the tree
+  comes back as it was.
+- In the flat layout, each match shows the name of its group at gray step 8. The start
+  of each word that the term matches takes the primary color.
+- At most 100 matches show. A closing line says when more exist.
+
 ### Keycaps
 
 - Tooltips and buttons show a shortcut as one chip: 18 px tall, a faint fill, a faint
@@ -142,8 +153,18 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
   a number or a duration. Wide later fields squeeze the first control.
 - A number or a duration field is 144 px (24 rem) wide wherever it sits. A form can set
   another width when its values need one.
+- A row of three fits the dialog with no overflow into its padding, so its labels are
+  short ("Channel lifetime", not "Secure channel lifetime").
+- Two text fields on one line, such as a username and a password, are equally wide. The
+  second sits in the control of the first, not in the later field columns. An empty
+  field shows what empty means: "Anonymous" for the username, "None" for the password.
 - A dialog shows its settings in sections, not tabs, while they fit with no scroll. The
   Modbus connect dialog has no tabs.
+- A section holds a whole topic, so a short topic joins its neighbor: the OPC UA login
+  sits in Connection, and its certificates sit in Security. An action that fills a field
+  sits beside that field ("Find endpoints" beside Mode), not on a line of its own.
+- A value in a dialog field, such as a thumbprint, sits on one line with its actions as
+  icon buttons at the end. Each icon button has a tooltip that names it.
 - A field in a row, or beside another field, has no help text. Its control shows the
   error, and the message shows on hover. A control with a border gets a red border. A
   control with no border, such as a text select or a button group, gets red text.
@@ -186,6 +207,12 @@ bound, a log precision, or the line plot X channel.
   the way to enable the channel again.
 - A new task takes the only device of its make. With two or more, the device stays
   empty.
+- A task body without a device names the next step. With no device of its make, it says
+  so and offers to connect one ("Connect MQTT broker"), then selects the new device.
+  Otherwise it says "No device selected" and offers "Select device", which opens the
+  device select.
+- A task form is at most 1000 px wide. A task whose channel table needs more room sets
+  `--console-task-form-max-width`. Modbus uses 1200 px.
 - Port banks sit side by side in columns eight ports wide, each under its title. They
   wrap to one column in a narrow pane.
 - A port field that lists an accessory's ports, such as the 80 that a Mux80 adds to a
@@ -211,6 +238,24 @@ bound, a log precision, or the line plot X channel.
 - A number never clips, because a clipped number reads as a different valid number.
 - A flex child that holds cut text needs `min-width: 0`.
 
+### Pickers
+
+- A card that creates something shows the item's own icon in a large icon tile, then its
+  name and a short description. Never draw a custom illustration or a preview of the
+  result: line art and colored drawings were both rejected.
+- A card is a Lyra `card` button, alone or in `Select.Buttons`. It rests halfway between
+  gray steps 1 and 2, hovers halfway between steps 2 and 3, and presses to step 3. It
+  has a gray step 6 border and the medium radius. Its icon tile has fill step 3 and
+  border step 5, so the tile stands out from the card. An outlined button's fill is too
+  strong for a card, and its tiny radius too sharp.
+- The header is a quiet title (h4, gray step 10, weight 450) over a huge borderless
+  search across the content width, with a gray step 8 search icon and a gray step 6
+  hairline under it. The hairline takes the primary color while the search has focus,
+  because a picker that is not a dialog loses focus, and typed keys then go elsewhere.
+- A search disables each item that does not match it and leaves it in place, so the
+  layout does not move. The arrow keys and the pointer move one highlight, and Enter
+  picks the highlighted item.
+
 ### Menus and selects
 
 - Context menus use 12 px text in 24 px items.
@@ -222,6 +267,8 @@ bound, a log precision, or the line plot X channel.
 - An option with a description shows the icon beside the name and the description under
   the name. The dropdown is wide enough for each description on one line. Only a narrow
   window wraps it, and it is never cut.
+- A select with a few described options, such as the Arc performance level and the plot
+  line sampling, has no search. A user reads the options instead.
 - A select that shows only its icon is a square button, never a wide box.
 
 ### Lists with checkboxes
@@ -229,7 +276,9 @@ bound, a log precision, or the line plot X channel.
 - Explorers and record lists use `Select.Item` with `checkable`. Only the checkbox, a
   Shift click, or a Cmd click selects. A plain click runs `onActivate`, or does nothing.
 - The selection can be empty. The checkbox shows on hover and stays while selected.
-- The checkbox has no gap after it. Its own padding spaces it from the content.
+- The checkbox sits 12 px from the item's left, top, and bottom edges and 6 px before
+  the content (`margin-inline` in `lyra/src/select/Item.css`). The checkbox in a
+  headings band sits the same way. Gaps of 9 and 12 px to the content were rejected.
 - Hover tints the item faintly, and a press does not deepen the tint.
 
 ### Record tables
@@ -241,8 +290,59 @@ bound, a log precision, or the line plot X channel.
 - Declare the columns once with `List.Columns`. Each item lays out its own grid, so give
   each column a width that does not follow its content, such as `30rem` or `1fr`.
 - A heading over a field lines up with the field's text, not its box.
+- A write task names two channel columns, Command and State
+  (`Task.Views.LIST_WRITE_CHANNEL_COLUMNS`). The enabled switch follows the state name.
 - A record table that does not fit its pane scrolls sideways, and the headings scroll
   with it. Fields never shrink to fit: a cut value can read as another value.
+- A field whose glyph shows its value, such as the Modbus byte order, drops its name
+  when the form is below its maximum width. Its menu still names each option.
+- A task channel's icon shows its state, in place of the flow arrow in a record table:
+  the arrow for a channel that exists, a green `Icon.New` for one that deploying will
+  create, and an amber `Icon.None` for one that is missing, with its name in gray. The
+  two state circles look the same size: the tinted `Icon.New` disc is drawn a little
+  wider than the dashed ring, because a faint fill looks smaller. Each state but the
+  first has a tooltip that says what deploying does, below the name at its left edge.
+  The name never takes a state color.
+- A channel that deploying will create shows the name deploying gives it, from the
+  function that deploy uses. "No channel" in gray is only for a channel whose name
+  cannot be known yet.
+- A channel that deploying skips, such as a disabled one, shows no `Icon.New`. In a
+  list, its tooltip says that deploying skips it.
+- A missing channel shows the name deploying will use, and a rename edits that name. Its
+  data type unlocks too, because deploying creates a new channel.
+- A channel that the form picks, as in Kafka write, is never new. It reads "No channel"
+  before a pick and "Channel not found" after its channel is deleted.
+- A channel name input shows the same state icons at its start. An item in a group tree
+  shows them at its end, before its switch, so the pointers keep one left edge. Neither
+  shows an icon or a tooltip for a skipped channel: the tree strikes through the item or
+  its group.
+
+### Port maps
+
+- A task whose channels sit on ports shows its port map above its record table, in the
+  `map` slot of `Task.Views.List`, with no switch to a Ports view: LabJack write, NI
+  digital read and write, and the Modbus register map. Other port tasks show the map in
+  the Ports view of the narrow list pane.
+- Above the list, a section's title and its count share one line, with a thin line
+  between sections. Each bank or port is one row, with its label in a 6.5 rem gutter. A
+  port of more than eight lines wraps every eight. The rows fill columns read down, each
+  as wide as a row of eight (`Task.Port.Rows`). Titles beside the rows, rows read
+  across, and a matrix with no cell numbers were rejected.
+- The Ports view keeps each title over its grid, with a thin line between sections or
+  devices and 2.5 rem above and below it. Labels beside or above each bank were
+  rejected.
+- An NI device's location ("Dev3") is a chip at the right end of its title line:
+  monospace, small, on gray step 3. The usage text does not repeat it. Monospace text
+  alone was rejected, because it stands out too little.
+- In a map, a click on a used port selects its channel. A click on a free port adds a
+  channel there: the port shows a + under the pointer, and its tooltip reads "Add a
+  channel on FIO3". The pointer stays an arrow. A used port keeps its tint, and its
+  tooltip names its channels.
+- A port field or picker moves its channel. A click on any port moves the channel there,
+  and a free port's tooltip reads "Move to FIO3". It shows no +.
+- A click on a Modbus register selects its channel, and an add selects the new channel.
+- The pointer on an item marks its port in the map, and the pointer on a port marks its
+  item (`Task.Port.HoverProvider`). A port in conflict darkens on hover.
 
 ### Table input
 
@@ -310,6 +410,21 @@ says why in a sentence, then gives the raw error.
   edge. X1, the field people change least, sits at the end of the Ranges row, as both
   set the x axis. Below a toolbar width of 144rem it takes its own row at the bottom.
 - The X1 dialog floats, so it can be wider than its trigger.
+
+### Plot lines tab
+
+- The aggregation and detail of a line are compact selects, not rows of buttons. The
+  trigger shows an icon and a label that says what it sets ("Min/max", "Medium detail").
+  Each option says what it does to the plot in a few words ("Keeps spikes visible"), not
+  how it works, so the dropdown stays narrow.
+- A waveform marks min/max, a sine wave marks average, and `Icon.Meter` marks the
+  detail.
+- Icon buttons alone were rejected: a user must hover each one to learn it.
+
+### Plot legend
+
+- A padded Lyra `Divider` separates the axis groups: the shared border, with 0.5rem
+  above and below. A 1 px line with no space was too heavy.
 
 ## Interaction
 

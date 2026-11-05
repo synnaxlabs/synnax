@@ -65,6 +65,7 @@
     "jsdom": "catalog:",
     "stylelint": "catalog:",
     "typescript": "catalog:",
+    "undici": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:",
     "ws": "catalog:"
