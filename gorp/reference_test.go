@@ -16,6 +16,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -311,6 +313,21 @@ var _ = Describe("Reference", func() {
 					Exec(ctx, db)).To(Succeed())
 			},
 		)
+	})
+
+	Describe("NewWriter", func() {
+		BeforeEach(func(ctx SpecContext) {
+			open(ctx, gorp.WithIndexObservable(observe.Noop[kv.TxReader]{}))
+		})
+
+		It("Should keep the indexes current without checks", func(ctx SpecContext) {
+			Expect(devices.NewWriter(db).Set(ctx, refDevice{Key: "a", Rack: 9})).
+				To(Succeed())
+			Expect(gorp.WrapWriter[string, refDevice](db).
+				Set(ctx, refDevice{Key: "b", Rack: 9})).To(Succeed())
+			Expect(deviceRef[0].Get(db, gorp.To("rack", uint32(9)))).
+				To(ConsistOf("a"))
+		})
 	})
 
 	Describe("Filter", func() {

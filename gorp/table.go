@@ -238,6 +238,14 @@ func (t *Table[K, E]) NewCreate() Create[K, E] {
 	return c
 }
 
+// NewWriter returns a Writer that keeps the table's indexes current and skips its
+// reference checks. Use it only in a migration that runs before a target of the
+// table's references opens, when a checked write fails.
+func (t *Table[K, E]) NewWriter(tx Tx) *Writer[K, E] {
+	w := t.writer(tx, false)
+	return &w
+}
+
 // NewRetrieve returns a Retrieve query builder bound to this Table.
 func (t *Table[K, E]) NewRetrieve() Retrieve[K, E] {
 	r := NewRetrieve[K, E]()
