@@ -30,8 +30,8 @@ export const baseZ = z.object({
   /** updated is when the value or path of the secret last changed. */
   updated: telem.timeStampZ,
   /**
-   * uses are the resources that use the secret, filled only when a retrieve request
-   * asks for them.
+   * uses are the resources that use the secret and that the caller can read, filled
+   * only when a retrieve request asks for them.
    */
   uses: zod.nullToUndefined(ontology.idZ.array()),
 });
