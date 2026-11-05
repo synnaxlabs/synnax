@@ -1,0 +1,65 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Deploys a Vercel preview of a site for each pull request with the site's preview
+# label, and again on each push while the label stays. Fork pull requests never deploy:
+# their code must not reach the Vercel token.
+
+name: Preview - Sites
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+
+permissions: {}
+
+jobs:
+  docs:
+    permissions:
+      contents: read
+      pull-requests: write
+    uses: ./.github/workflows/preview.site.yaml
+    with:
+      label: preview/docs
+      project: prj_G9x2ZoIrsFQym5DqbqZIM8jUsSer
+      title: Docs
+    secrets: inherit
+
+  foundation:
+    permissions:
+      contents: read
+      pull-requests: write
+    uses: ./.github/workflows/preview.site.yaml
+    with:
+      label: preview/foundation
+      project: prj_plE67kbtkjRiCik08iGvDTcValXJ
+      title: Foundation
+    secrets: inherit
+
+  landing:
+    permissions:
+      contents: read
+      pull-requests: write
+    uses: ./.github/workflows/preview.site.yaml
+    with:
+      label: preview/landing
+      project: prj_WYVMLkCJBhccVrmuYikwgc9QzW46
+      title: Landing
+    secrets: inherit
+
+  portal:
+    permissions:
+      contents: read
+      pull-requests: write
+    uses: ./.github/workflows/preview.site.yaml
+    with:
+      label: preview/portal
+      project: prj_inpbFHTjJgWYTZrPYJ0p7QgpMMyl
+      title: Portal
+    secrets: inherit

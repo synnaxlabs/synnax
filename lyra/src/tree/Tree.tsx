@@ -7,8 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type compare, type record, type state as xstate, unique } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import {
+  type compare,
+  type location,
+  type record,
+  type state as xstate,
+  unique,
+} from "@synnaxlabs/x";
+import { type FocusEvent, type KeyboardEvent, type ReactElement } from "react";
 
 import { type Component } from "@/component";
 import { CSS } from "@/css";
@@ -154,7 +160,7 @@ export interface TreeProps<K extends record.Key, E extends record.Keyed<K>>
   extends
     Omit<
       Select.FrameProps<K, E>,
-      "children" | "ref" | "virtualizer" | "data" | "onChange"
+      "children" | "ref" | "virtualizer" | "data" | "onChange" | "cursor" | "moveX"
     >,
     Omit<List.ScrollProps, "children" | "onSelect">,
     Pick<List.ItemsProps<K>, "emptyContent">,
@@ -166,6 +172,43 @@ export interface TreeProps<K extends record.Key, E extends record.Keyed<K>>
 
 const ITEM_HEIGHT = 27;
 
+// A consumer's handlers run first, so its preventDefault keeps a key from the tree.
+const Scroll = ({
+  onKeyDown,
+  onKeyUp,
+  onBlur,
+  ...rest
+}: List.ScrollProps): ReactElement => {
+  const keyboard = Select.useKeyboard();
+  const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    onKeyDown?.(e);
+    keyboard.onKeyDown(e);
+  };
+  const handleKeyUp = (e: KeyboardEvent<HTMLDivElement>) => {
+    onKeyUp?.(e);
+    keyboard.onKeyUp(e);
+  };
+  const handleBlur = (e: FocusEvent<HTMLDivElement>) => {
+    onBlur?.(e);
+    keyboard.onBlur();
+  };
+  return (
+    <List.Scroll
+      tabIndex={0}
+      {...rest}
+      onKeyDown={handleKeyDown}
+      onKeyUp={handleKeyUp}
+      onBlur={handleBlur}
+    />
+  );
+};
+
+/**
+ * Renders the nodes of a {@link Shape}. The tree takes focus for its items, and its
+ * keys move the selection as in any `Select.Frame` whose `cursor` is `"selection"`.
+ * Right also expands a node or moves into it, and Left collapses a node or moves to its
+ * parent.
+ */
 export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
   shape,
   children,
@@ -197,6 +240,22 @@ export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
   const keysRef = useSyncedRef(keys);
   const toggleAt = (index: number) => toggle(keysRef.current[index]);
   const contextValue = { nodes, toggle: toggleOn === "caret" ? toggleAt : undefined };
+  const moveX = (key: K, direction: location.X): K | undefined => {
+    const at = keys.indexOf(key);
+    if (at === -1) return undefined;
+    const { depth, expanded, hasChildren } = nodes[at];
+    const opens = direction === "right";
+    if (hasChildren && expanded !== opens) {
+      toggle(key);
+      return undefined;
+    }
+    if (opens)
+      return at < keys.length - 1 && nodes[at + 1].depth > depth
+        ? keys[at + 1]
+        : undefined;
+    for (let i = at - 1; i >= 0; i--) if (nodes[i].depth < depth) return keys[i];
+    return undefined;
+  };
   return (
     <Context value={contextValue}>
       <Select.Frame
@@ -214,8 +273,10 @@ export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
         pinned={pinned}
         allowNone={allowNone}
         autoSelectOnNone={autoSelectOnNone}
+        cursor="selection"
+        moveX={moveX}
       >
-        <List.Scroll
+        <Scroll
           full="y"
           role="tree"
           className={CSS.cls(
@@ -226,7 +287,7 @@ export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
           {...rest}
         >
           <List.Items<K, E> emptyContent={emptyContent}>{children}</List.Items>
-        </List.Scroll>
+        </Scroll>
       </Select.Frame>
     </Context>
   );

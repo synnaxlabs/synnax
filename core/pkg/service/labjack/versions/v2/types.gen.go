@@ -28,9 +28,12 @@ import (
 type TemperatureUnits string
 
 const (
-	TemperatureUnitsCelsius    TemperatureUnits = "C"
+	// TemperatureUnitsCelsius is degrees Celsius.
+	TemperatureUnitsCelsius TemperatureUnits = "C"
+	// TemperatureUnitsFahrenheit is degrees Fahrenheit.
 	TemperatureUnitsFahrenheit TemperatureUnits = "F"
-	TemperatureUnitsKelvin     TemperatureUnits = "K"
+	// TemperatureUnitsKelvin is kelvins.
+	TemperatureUnitsKelvin TemperatureUnits = "K"
 )
 
 // IsValid reports whether t is one of the defined TemperatureUnits
@@ -70,14 +73,19 @@ func (t ThermocoupleType) IsValid() bool {
 	}
 }
 
+// ScaleType is the "type" value that selects a variant of Scale.
 type ScaleType string
 
 const (
+	// LinearScaleType maps raw values to engineering units with a slope and offset.
 	LinearScaleType ScaleType = "linear"
-	MapScaleType    ScaleType = "map"
-	NoneScaleType   ScaleType = "none"
+	// MapScaleType maps a raw range linearly onto a scaled range.
+	MapScaleType ScaleType = "map"
+	// NoneScaleType applies no scaling; the raw value is used directly.
+	NoneScaleType ScaleType = "none"
 )
 
+// ScaleVariant is implemented by every Scale variant.
 type ScaleVariant interface {
 	isScaleVariant()
 }
@@ -207,7 +215,11 @@ func (u *Scale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.NoneScale
 	default:
-		return errors.Newf("Scale: unknown type %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Scale: unknown type %q",
+			disc.Type,
+		)
 	}
 	return nil
 }
@@ -252,14 +264,19 @@ type BaseReadChannel struct {
 	Port string `json:"port" msgpack:"port"`
 }
 
+// ReadChannelType is the "type" value that selects a variant of ReadChannel.
 type ReadChannelType string
 
 const (
-	AnalogReadChannelType       ReadChannelType = "analog"
-	DigitalReadChannelType      ReadChannelType = "digital"
+	// AnalogReadChannelType reads a voltage from an analog input port.
+	AnalogReadChannelType ReadChannelType = "analog"
+	// DigitalReadChannelType reads a digital input line.
+	DigitalReadChannelType ReadChannelType = "digital"
+	// ThermocoupleReadChannelType reads temperature from a thermocouple.
 	ThermocoupleReadChannelType ReadChannelType = "thermocouple"
 )
 
+// ReadChannelVariant is implemented by every ReadChannel variant.
 type ReadChannelVariant interface {
 	isReadChannelVariant()
 }
@@ -449,7 +466,11 @@ func (u *ReadChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.ThermocoupleReadChannel
 	default:
-		return errors.Newf("ReadChannel: unknown type %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"ReadChannel: unknown type %q",
+			disc.Type,
+		)
 	}
 	return nil
 }
@@ -541,13 +562,17 @@ type BaseWriteChannel struct {
 	Port string `json:"port" msgpack:"port"`
 }
 
+// WriteChannelType is the "type" value that selects a variant of WriteChannel.
 type WriteChannelType string
 
 const (
-	AnalogWriteChannelType  WriteChannelType = "analog"
+	// AnalogWriteChannelType drives an analog output on a DAC port.
+	AnalogWriteChannelType WriteChannelType = "analog"
+	// DigitalWriteChannelType drives a digital output line on a DIO port.
 	DigitalWriteChannelType WriteChannelType = "digital"
 )
 
+// WriteChannelVariant is implemented by every WriteChannel variant.
 type WriteChannelVariant interface {
 	isWriteChannelVariant()
 }
@@ -645,7 +670,11 @@ func (u *WriteChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.DigitalWriteChannel
 	default:
-		return errors.Newf("WriteChannel: unknown type %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"WriteChannel: unknown type %q",
+			disc.Type,
+		)
 	}
 	return nil
 }
