@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { Dialog } from "@/dialog";
@@ -104,7 +104,65 @@ const renderFooter = async (): Promise<Element> => {
   return document.getElementById("footer") as Element;
 };
 
+const renderSearchless = async (
+  multiple: boolean,
+): Promise<ReturnType<typeof vi.fn>> => {
+  const onChange = vi.fn();
+  const items = ["low", "medium", "high"].map((key) => (
+    <Select.Item key={key} itemKey={key}>
+      {key}
+    </Select.Item>
+  ));
+  const { getByRole } = await renderThemed(
+    <Triggers.Provider>
+      {multiple ? (
+        <Select.Simple<string>
+          resourceName="level"
+          multiple
+          value={["low"]}
+          onChange={onChange}
+          searchHidden
+        >
+          {items}
+        </Select.Simple>
+      ) : (
+        <Select.Simple<string>
+          resourceName="level"
+          value="low"
+          onChange={onChange}
+          allowNone={false}
+          searchHidden
+        >
+          {items}
+        </Select.Simple>
+      )}
+    </Triggers.Provider>,
+  );
+  await userEvent.click(getByRole("button", { name: multiple ? "Levels" : /^Level/ }));
+  const dialog = getByRole("dialog").element();
+  await expect.poll(() => computed(dialog, "opacity")).toBe("1");
+  await userEvent.keyboard("{ArrowDown}{ArrowDown}{Enter}");
+  await expect.poll(() => onChange).toHaveBeenCalledOnce();
+  return onChange;
+};
+
 describe("Select", () => {
+  describe("searchless options", () => {
+    it("should close and stay closed when Enter picks an option", async () => {
+      const onChange = await renderSearchless(false);
+      expect(onChange.mock.calls[0][0]).toBe("medium");
+      await expect
+        .element(page.getByRole("button", { name: /^Level/ }))
+        .toHaveAttribute("aria-expanded", "false");
+    });
+
+    it("should stay open when Enter adds one of many options", async () => {
+      const onChange = await renderSearchless(true);
+      expect(onChange.mock.calls[0][0]).toEqual(["low", "medium"]);
+      await expect.element(page.getByRole("dialog")).toBeVisible();
+    });
+  });
+
   describe("footer", () => {
     it("should keep its height when the list overflows the dialog", async () => {
       const footer = await renderFooter();
