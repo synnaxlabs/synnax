@@ -25,6 +25,13 @@
 }
 
 /* Fades in only once a read has run for a while, so a fast read shows nothing. */
+.pluto-log__blank {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    container-type: size;
+}
+
 .pluto-log__loading {
     position: absolute;
     top: 1rem;

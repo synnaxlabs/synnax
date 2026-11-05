@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Handle is a reference to a specific parameter on a specific node in the dataflow
@@ -29,8 +30,11 @@ type Handle = versions.Handle
 type EdgeKind = versions.EdgeKind
 
 const (
+	// EdgeKindUnspecified has no kind set.
 	EdgeKindUnspecified EdgeKind = versions.EdgeKindUnspecified
-	EdgeKindContinuous  EdgeKind = versions.EdgeKindContinuous
+	// EdgeKindContinuous fires on every output of the source.
+	EdgeKindContinuous EdgeKind = versions.EdgeKindContinuous
+	// EdgeKindConditional fires only when the source output is truthy.
 	EdgeKindConditional EdgeKind = versions.EdgeKindConditional
 )
 
@@ -72,14 +76,19 @@ const (
 	LivenessGated
 )
 
+// TargetType is the "type" value that selects a variant of Target.
 type TargetType string
 
 const (
-	ExitTargetType  TargetType = "exit"
-	StepTargetType  TargetType = "step"
+	// ExitTargetType leaves the scope and yields to its parent.
+	ExitTargetType TargetType = "exit"
+	// StepTargetType activates a sibling step of the same scope.
+	StepTargetType TargetType = "step"
+	// ScopeTargetType leaves the scope, then activates a top-level scope.
 	ScopeTargetType TargetType = "scope"
 )
 
+// TargetVariant is implemented by every Target variant.
 type TargetVariant interface {
 	isTargetVariant()
 }
@@ -184,9 +193,26 @@ func (u *Target) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.ScopeTarget
 	default:
-		return errors.Newf("Target: unknown type %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Target: unknown type %q",
+			disc.Type,
+		)
 	}
 	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u Target) Type() TargetType {
+	switch u.Variant.(type) {
+	case ExitTarget:
+		return ExitTargetType
+	case StepTarget:
+		return StepTargetType
+	case ScopeTarget:
+		return ScopeTargetType
+	}
+	return ""
 }
 
 // Transition is a declarative state-transition rule on a sequential Scope, or an exit

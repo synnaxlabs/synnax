@@ -22,7 +22,7 @@ import { Access, Channel as PChannel, Synnax } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
 
 import { use } from "@/feature/mqtt/device/queries";
-import { Select as SelectDevice } from "@/feature/mqtt/device/Select";
+import { Select as SelectDevice, useNoneSelected } from "@/feature/mqtt/device/Select";
 import { MAKE, SCHEMAS } from "@/feature/mqtt/device/types";
 import { useConnectModal } from "@/feature/mqtt/device/useConnectModal";
 import {
@@ -42,7 +42,7 @@ import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 import { Empty } from "@/platform/empty";
-import { Selector } from "@/platform/selector";
+import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const root = deep.path<Task.Values<EdgeSchemas>>();
@@ -218,6 +218,7 @@ const Content = () => (
 const Form = PlatformDevice.wrapTaskForm({
   use,
   useConfigure: useConnectModal,
+  useNoneSelected,
   Content,
 });
 
@@ -273,9 +274,9 @@ export const useCreateEdge = Task.createUseCreate({
   deviceMake: MAKE,
 });
 
-export const EdgeSelectable = Selector.createSelectable({
+export const EdgeSelectable: Selector.Selectable = {
   type: EDGE_TYPE,
   title: "Sparkplug edge node",
   icon: <Icon.Logo.MQTT />,
   useOnSelect: useCreateEdge,
-});
+};

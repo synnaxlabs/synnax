@@ -28,11 +28,17 @@ on:
       - unlabeled
       - ready_for_review
       - converted_to_draft
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: Pull request number
+        required: true
+        type: string
 
 permissions: {}
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || inputs.pr }}
   cancel-in-progress: false
 
 jobs:
@@ -46,6 +52,8 @@ jobs:
         with:
           app-id: ${{ secrets.CLAUDE_CODE_APP_ID }}
           private-key: ${{ secrets.CLAUDE_CODE_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
 
       # A pull_request_target checkout takes the base branch, so a pull request cannot
       # edit the script that decides its auto-merge.
@@ -59,5 +67,5 @@ jobs:
       - name: Turn auto-merge on or off
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
-          PR: ${{ github.event.pull_request.number }}
+          PR: ${{ github.event.pull_request.number || inputs.pr }}
         run: .github/scripts/auto_merge.sh "$PR"

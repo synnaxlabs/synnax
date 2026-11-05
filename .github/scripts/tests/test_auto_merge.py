@@ -152,3 +152,12 @@ class TestAutoMerge:
         )
         assert out.returncode != 0
         assert out.stdout == ""
+
+    def test_retries_an_empty_read(
+        self, gh: FakeGH, env: dict[str, str], run: Run
+    ) -> None:
+        """Should decide from the retry when GitHub answers the read with nothing."""
+        env["GH_API_RETRY_DELAY"] = "0"
+        gh.fail("api */pulls/7", "unexpected end of JSON input")
+        decision, _ = run(pull(["review/bot"]))
+        assert decision == "enabled"

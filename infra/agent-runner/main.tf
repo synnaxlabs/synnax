@@ -135,19 +135,20 @@ resource "aws_instance" "seat" {
   subnet_id = local.subnets[
     parseint(substr(md5(each.key), 0, 6), 16) % length(local.subnets)
   ]
-  instance_type                        = var.instance_type
+  instance_type                        = var.pools[each.value.pool].instance_type
   vpc_security_group_ids               = [aws_security_group.runner.id]
   iam_instance_profile                 = aws_iam_instance_profile.runner.name
   instance_initiated_shutdown_behavior = "stop"
   user_data = templatefile("${path.module}/provision.sh", {
-    idle_minutes = var.idle_minutes
+    idle_minutes = var.pools[each.value.pool].idle_minutes
     seat         = each.key
     agent        = each.value.agent
     runners      = each.value.runners
+    pool         = each.value.pool
   })
   root_block_device {
     volume_type = "gp3"
-    volume_size = var.disk_gb
+    volume_size = var.pools[each.value.pool].disk_gb
     encrypted   = true
   }
   metadata_options {
@@ -155,7 +156,7 @@ resource "aws_instance" "seat" {
   }
   tags = {
     Name  = "synnax-agent-${each.key}"
-    pool  = "agent"
+    pool  = each.value.pool
     agent = each.value.agent
     seat  = each.key
   }
@@ -209,7 +210,7 @@ resource "aws_iam_role_policy" "start" {
         Condition = {
           StringEquals = {
             "aws:ResourceTag/project" = "synnax-agents"
-            "aws:ResourceTag/pool"    = "agent"
+            "aws:ResourceTag/pool"    = keys(var.pools)
           }
         }
       },

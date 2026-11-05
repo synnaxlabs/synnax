@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "schemas/synnax/label"
+import "schemas/synnax/versions/label/v0"
+import "schemas/x/versions/filter/v0"
 import "schemas/x/versions/telem/v0"
 
 Variant = v0.Variant
@@ -66,5 +67,16 @@ Status struct<Details?, V extends Variant = Variant> {
         details. A status is uniquely identified by a key and may carry a human-readable
         name and labels for categorization and filtering.
     """
+    @go marshal
+}
+
+Where filter Status {
+    key
+    variant
+    labels  label.Key[] {
+        @doc value "matches statuses that have any of the given labels."
+    }
+
+    @doc value  "is a filter that selects statuses."
     @go marshal
 }
