@@ -24,11 +24,14 @@ import (
 	"github.com/synnaxlabs/cesium/internal/resource"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+const gateTimeout = 30 * time.Second
 
 var domainDataFile = regexp.MustCompile(`^\d+\.domain$`)
 
@@ -75,7 +78,11 @@ func (g *gatedFS) Open(name string, flag int) (fs.File, error) {
 		case g.gate.entered <- struct{}{}:
 		default:
 		}
-		<-g.gate.release
+		select {
+		case <-g.gate.release:
+		case <-time.After(gateTimeout):
+			return nil, errors.New("file gate was not released")
+		}
 	}
 	return g.FS.Open(name, flag)
 }
@@ -397,7 +404,7 @@ var _ = Describe("Writer open", func() {
 						ctx,
 						[]cesium.ChannelKey{idxKey},
 						telem.TimeRangeMax,
-					)).To(HaveOccurred())
+					)).To(MatchError(ContainSubstring("cannot delete index channel")))
 				}
 			})
 			wg.Wait()

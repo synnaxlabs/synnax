@@ -385,7 +385,7 @@ func (db *DB) startOpen(cfg WriterConfig) (WriterConfig, channelDBs, func(), err
 		}
 		u, ok := db.mu.dbs.unary[key]
 		if !ok {
-			return cfg, dbs, nil, channel.NewNotFoundError(key)
+			return WriterConfig{}, channelDBs{}, nil, channel.NewNotFoundError(key)
 		}
 		dbs.unary[key] = u
 		idxKey := u.Channel().Index
