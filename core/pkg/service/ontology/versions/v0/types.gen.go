@@ -41,13 +41,21 @@ const (
 	ResourceTypeTask            ResourceType = "task"
 	ResourceTypeUser            ResourceType = "user"
 	ResourceTypeView            ResourceType = "view"
+	ResourceTypeEthercatMaster  ResourceType = "ethercat_master"
+	ResourceTypeEthercatSlave   ResourceType = "ethercat_slave"
+	ResourceTypeHTTPServer      ResourceType = "http_server"
+	ResourceTypeLabjackDevice   ResourceType = "labjack_device"
+	ResourceTypeModbusServer    ResourceType = "modbus_server"
+	ResourceTypeNiChassis       ResourceType = "ni_chassis"
+	ResourceTypeNiDevice        ResourceType = "ni_device"
+	ResourceTypeOpcuaServer     ResourceType = "opcua_server"
 )
 
 // IsValid reports whether r is one of the defined ResourceType
 // values.
 func (r ResourceType) IsValid() bool {
 	switch r {
-	case ResourceTypeArc, ResourceTypeBuiltin, ResourceTypeChannel, ResourceTypeDevice, ResourceTypeFramer, ResourceTypeGroup, ResourceTypeLabel, ResourceTypeLineplot, ResourceTypeLog, ResourceTypeNode, ResourceTypePanel, ResourceTypePolicy, ResourceTypeProject, ResourceTypeRack, ResourceTypeRange, ResourceTypeRangeAlias, ResourceTypeRole, ResourceTypeSchematic, ResourceTypeSchematicSymbol, ResourceTypeStatus, ResourceTypeTable, ResourceTypeTask, ResourceTypeUser, ResourceTypeView:
+	case ResourceTypeArc, ResourceTypeBuiltin, ResourceTypeChannel, ResourceTypeDevice, ResourceTypeFramer, ResourceTypeGroup, ResourceTypeLabel, ResourceTypeLineplot, ResourceTypeLog, ResourceTypeNode, ResourceTypePanel, ResourceTypePolicy, ResourceTypeProject, ResourceTypeRack, ResourceTypeRange, ResourceTypeRangeAlias, ResourceTypeRole, ResourceTypeSchematic, ResourceTypeSchematicSymbol, ResourceTypeStatus, ResourceTypeTable, ResourceTypeTask, ResourceTypeUser, ResourceTypeView, ResourceTypeEthercatMaster, ResourceTypeEthercatSlave, ResourceTypeHTTPServer, ResourceTypeLabjackDevice, ResourceTypeModbusServer, ResourceTypeNiChassis, ResourceTypeNiDevice, ResourceTypeOpcuaServer:
 		return true
 	default:
 		return false
