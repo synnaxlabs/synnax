@@ -47,6 +47,7 @@
         }
 
         > .lyra-select__label,
+        > .lyra-select-single-trigger__end,
         &:has(> .lyra-icon:first-child, > .lyra-select-single-trigger__icon:first-child)
             > .lyra-caret-animated {
             display: none;
@@ -99,4 +100,17 @@
     > .lyra-select-single-trigger__icon
     > .lyra-icon {
     visibility: hidden;
+}
+
+/* End content takes the free space, so the caret follows it at the trailing edge. */
+.lyra-dialog__trigger > .lyra-select-single-trigger__end {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    margin-left: auto;
+
+    ~ .lyra-caret-animated,
+    ~ .lyra-select-single-trigger__icon {
+        margin-left: 0;
+    }
 }
