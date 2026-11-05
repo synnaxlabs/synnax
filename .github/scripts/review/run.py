@@ -27,6 +27,10 @@ REST = "rest.diff"
 _HUNK = re.compile(r"@@ -\d+(?:,\d+)? \+(\d+)")
 _FILE = re.compile(r"^diff --git a/.* b/(.*)$", re.M)
 _GLOB = {"**/": "(?:.*/)?", "**": ".*", "*": "[^/]*", "?": "[^/]"}
+# Reviewers write these blocks into the body. A review must not see another review.
+_REVIEWS = re.compile(
+    r"<!-- (greptile|sedosaur)_comment -->.*?<!-- /\1_comment -->", re.S
+)
 
 
 def _matches(path: str, glob: str) -> bool:
@@ -152,7 +156,7 @@ def _prompt(config: Config, pr: PullRequest, shown: str, rest: str) -> str:
     parts = [
         config.prompt.strip(),
         f"# Pull request #{pr.number}: {pr.title}",
-        pr.body.strip() or "No description.",
+        _REVIEWS.sub("", pr.body).strip() or "No description.",
     ]
     if pr.open:
         parts += [

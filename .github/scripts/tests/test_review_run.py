@@ -189,6 +189,21 @@ class TestPrompt:
         stdin = review(pr=pull(open={("core/a.go", "Old bug")})).stdin
         assert "# Earlier findings still open\n\n- `core/a.go`: Old bug" in stdin
 
+    def test_should_hide_every_review_in_the_body(self) -> None:
+        body = (
+            "Fixes A.\n<!-- greptile_comment -->\nConfidence Score: 2/5\n"
+            "<!-- /greptile_comment -->\n<!-- sedosaur_comment -->\nOld summary\n"
+            "<!-- /sedosaur_comment -->\nCloses #1."
+        )
+        stdin = review(pr=pull(body=body)).stdin
+        assert "# Pull request #7: Fix A\n\nFixes A.\n\n\nCloses #1." in stdin
+        assert "Confidence Score" not in stdin
+        assert "Old summary" not in stdin
+
+    def test_should_say_when_only_a_review_is_in_the_body(self) -> None:
+        body = "<!-- greptile_comment -->\nSummary\n<!-- /greptile_comment -->"
+        assert "Fix A\n\nNo description." in review(pr=pull(body=body)).stdin
+
     def test_should_cut_the_diff_at_a_file(self, tmp_path: Path) -> None:
         claude = review(config(diff_chars=200), workdir=tmp_path)
         assert claude.cwd == tmp_path
