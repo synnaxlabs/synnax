@@ -10,6 +10,7 @@
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Errors } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { type ReactElement } from "react";
@@ -47,12 +48,14 @@ const renderNoneSelected = async ({
   await renderWithDeviceForm(
     <>
       <Device.Select make={make} icon={<Icon.Device />} onConfigure={vi.fn()} />
-      <Device.NoneSelected
-        make={make}
-        emptyContent="No test devices connected"
-        connect={connect}
-        onConfigure={onConfigure}
-      />
+      <Errors.SuspenseBoundary>
+        <Device.NoneSelected
+          make={make}
+          emptyContent="No test devices connected"
+          connect={connect}
+          onConfigure={onConfigure}
+        />
+      </Errors.SuspenseBoundary>
       <FormProbe />
     </>,
     { deviceKey: "", client, mode },
@@ -115,6 +118,24 @@ describe("device empty states", () => {
       const message = await screen.findByText("No device selected");
       fireEvent.click(within(message).getByText("Select device"));
       await screen.findByText(dev.name);
+    });
+
+    it("should show a failed device query in the error boundary", async () => {
+      const Fallback = ({ error }: Errors.FallbackProps): ReactElement => (
+        <p>{`failed: ${error.message}`}</p>
+      );
+      await renderWithDeviceForm(
+        <Errors.SuspenseBoundary FallbackComponent={Fallback}>
+          <Device.NoneSelected
+            make={uniqueName("make")}
+            emptyContent="No test devices connected"
+            connect={{ title: "test hardware", open: vi.fn() }}
+            onConfigure={vi.fn()}
+          />
+        </Errors.SuspenseBoundary>,
+        { deviceKey: "", client: null, onCaughtError: () => {} },
+      );
+      await screen.findByText("failed: Cannot retrieve devices: no Core connected.");
     });
 
     it("should not offer to connect a device in a read-only form", async () => {

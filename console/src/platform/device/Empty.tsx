@@ -43,14 +43,13 @@ export const NoneSelected = ({
   emptyContent,
   connect,
   onConfigure,
-}: NoneSelectedProps): ReactElement | null => {
+}: NoneSelectedProps): ReactElement => {
   const ctx = Form.useContext();
   const isPreview = Task.useIsPreview(ctx);
   const canConnect = Access.useCreateGranted(device.TYPE_ONTOLOGY_ID);
   const handleChange = useHandleChange(onConfigure);
-  const { data } = Device.useResultMultiple({ makes: [make], limit: 1 });
-  if (data == null) return null;
-  if (data.length > 0)
+  const devices = Device.useMultiple({ makes: [make], limit: 1 });
+  if (devices.length > 0)
     return (
       <Empty.Action
         message="No device selected"
