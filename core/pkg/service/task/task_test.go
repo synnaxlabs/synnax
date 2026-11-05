@@ -1265,16 +1265,45 @@ var _ = Describe("Task", Ordered, func() {
 		It("Should refuse a range that does not exist", func(ctx SpecContext) {
 			missing := uuid.New()
 			t := &task.Task{
-				Type:  testType,
-				Rack:  testRack.Key,
-				Name:  "Lost Snapshot",
-				Range: &missing,
+				Type:     testType,
+				Rack:     testRack.Key,
+				Name:     "Lost Snapshot",
+				Snapshot: true,
+				Range:    &missing,
 			}
 			Expect(w.Create(ctx, t)).To(MatchError(fmt.Sprintf(
 				"range: range %s does not exist: validation error",
 				missing,
 			)))
 		})
+
+		It(
+			"Should refuse a range on a task that is not a snapshot",
+			func(ctx SpecContext) {
+				r := createRange(ctx, tx)
+				t := &task.Task{
+					Type:  testType,
+					Rack:  testRack.Key,
+					Name:  "Not a Snapshot",
+					Range: &r.Key,
+				}
+				Expect(w.Create(ctx, t)).To(MatchError(
+					"range: only a snapshot can sit in a range: validation error",
+				))
+			},
+		)
+
+		It(
+			"Should refuse a range on a copy that is not a snapshot",
+			func(ctx SpecContext) {
+				r := createRange(ctx, tx)
+				m := &task.Task{Type: testType, Rack: testRack.Key, Name: "Source"}
+				Expect(w.Create(ctx, m)).To(Succeed())
+				Expect(w.Copy(ctx, m.Key, "Copy", false, &r.Key)).Error().To(MatchError(
+					"range: only a snapshot can sit in a range: validation error",
+				))
+			},
+		)
 	})
 
 	Describe("Status", func() {

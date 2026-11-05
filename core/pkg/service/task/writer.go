@@ -104,7 +104,8 @@ func (w Writer) healStatus(ctx context.Context, stat *Status) (*Status, error) {
 
 // Create creates or updates a task. The task's config is stored as a record keyed by
 // the task's key in its type's config store; the task row itself carries only the
-// config hash. An existing snapshot keeps its config and range. A provided status is
+// config hash. An existing snapshot keeps its config and range. Create returns a
+// validation error when a task that is not a snapshot has a range. A provided status is
 // persisted as given. Without one, a new task gets a "not deployed" placeholder, and an
 // existing task keeps its reported status (healed to "status unknown" if the row is
 // missing). After the transaction commits, Create broadcasts a create action that
@@ -114,6 +115,9 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 		t.Key = uuid.New()
 	}
 	if err := t.Validate(); err != nil {
+		return err
+	}
+	if err := validateRange(t.Snapshot, t.Range); err != nil {
 		return err
 	}
 	store, ok := w.configs.Store(t.Type)
@@ -316,6 +320,16 @@ func (w Writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
 	return w.otgWriter.DeleteResources(ctx, ResourceID(key))
 }
 
+func validateRange(snapshot bool, rng *ranger.Key) error {
+	if rng == nil || snapshot {
+		return nil
+	}
+	return validate.PathedError(errors.Wrap(
+		validate.ErrValidation,
+		"only a snapshot can sit in a range",
+	), "range")
+}
+
 // DeleteRacks deletes the racks with keys, their statuses, and the internal tasks they
 // hold. It returns a validation error when a rack is embedded, holds a device, or holds
 // a task that is not internal.
@@ -326,7 +340,8 @@ func (w Writer) DeleteRacks(ctx context.Context, keys ...rack.Key) error {
 // Copy stores a copy of the task with the given key under a new key and name, with its
 // config. A snapshot copy sits in rng, or in no range when rng is nil. After the
 // transaction commits, Copy broadcasts a create action that carries the copy. It
-// returns query.ErrNotFound if no task with the key exists.
+// returns query.ErrNotFound if no task with the key exists, and a validation error when
+// rng is set for a copy that is not a snapshot.
 func (w Writer) Copy(
 	ctx context.Context,
 	key Key,
@@ -334,6 +349,9 @@ func (w Writer) Copy(
 	snapshot bool,
 	rng *ranger.Key,
 ) (Task, error) {
+	if err := validateRange(snapshot, rng); err != nil {
+		return Task{}, err
+	}
 	newKey := uuid.New()
 	var res Task
 	if err := w.table.NewUpdate().

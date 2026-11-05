@@ -667,8 +667,11 @@ export class Client extends query.Retriever<
 
   /**
    * Copies the task with the given key under a new key and name. A snapshot copy sits
-   * in the range with key range, or in no range when range is undefined.
+   * in the range with key range, or in no range when range is undefined. Only a
+   * snapshot copy can sit in a range.
    */
+  async copy(key: Key, name: string, snapshot: false): Promise<Task>;
+  async copy(key: Key, name: string, snapshot: true, range?: ranger.Key): Promise<Task>;
   async copy(
     key: Key,
     name: string,

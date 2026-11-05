@@ -12,8 +12,8 @@ from __future__ import annotations
 import warnings
 from collections.abc import Generator, Iterable, Mapping, Sequence
 from contextlib import contextmanager
+from typing import Literal, TypeVar, overload, override
 from typing import Protocol as BaseProtocol
-from typing import TypeVar, overload, override
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field, JsonValue, ValidationError
@@ -611,6 +611,21 @@ class Client:
         )
         return self.sugar(res.tasks)
 
+    @overload
+    def copy(
+        self, key: Key, name: str, *, snapshot: Literal[False] = False
+    ) -> Task: ...
+
+    @overload
+    def copy(
+        self,
+        key: Key,
+        name: str,
+        *,
+        snapshot: Literal[True],
+        range_key: UUID | None = None,
+    ) -> Task: ...
+
     def copy(
         self,
         key: Key,
@@ -624,7 +639,8 @@ class Client:
         :param key: The key of the task to copy.
         :param name: The name for the new task.
         :param snapshot: Whether the copy is a snapshot of the task.
-        :param range_key: The key of the range that a snapshot copy sits in.
+        :param range_key: The key of the range that a snapshot copy sits in. Only a
+            snapshot copy can sit in a range.
         :return: The newly created task.
         """
         req = _CopyRequest(key=key, name=name, snapshot=snapshot, range=range_key)
