@@ -92,20 +92,20 @@ var _ = Describe("@ref", func() {
 		`), "device", loader, p)
 			ExpectContent(resp, "retrieve.gen.go").
 				ToContain(
-					"rack *gorp.Reference[Key, Device]",
-					"rack: gorp.NewReference(gorp.ReferenceConfig[Key, Device]{",
+					"rack *gorp.KeyReference[Key, Device, rack.Key]",
+					"rack: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Device, rack.Key]{",
 					`Name:     "rack",`,
-					`Tables:   []string{"rack"},`,
+					`Table:    "rack",`,
 					"OnDelete: gorp.Restrict,",
-					`return []gorp.Target{gorp.To("rack", e.Rack)}`,
-					"func (i indexes) references() []*gorp.Reference[Key, Device]",
+					"Targets: func(e *Device) []rack.Key {",
+					"return []rack.Key{e.Rack}",
+					"func (i indexes) references() []gorp.Reference[Key, Device]",
 					`const tableName = "device"`,
 					`"github.com/synnaxlabs/synnax/core/pkg/service/rack"`,
 					"func MatchRacks(vals ...rack.Key) Filter",
-					`targets[i] = gorp.To("rack", v)`,
-					"return r.indexes.rack.Filter(targets...)",
+					"return r.indexes.rack.Filter(vals...)",
 				).
-				ToNotContain("Detach:", "resourceTarget", `"slices"`)
+				ToNotContain("Detach:", "resourceTarget", `"slices"`, "gorp.Target")
 		},
 	)
 
@@ -120,11 +120,11 @@ var _ = Describe("@ref", func() {
 		`), "device", loader, p)
 		ExpectContent(resp, "retrieve.gen.go").
 			ToContain(
-				`Tables:   []string{"device"},`,
+				`Table:    "device",`,
 				"OnDelete: gorp.Cascade,",
 				"Acyclic:  true,",
 				"if e.Parent == nil {",
-				`return []gorp.Target{gorp.To("device", *e.Parent)}`,
+				"return []Key{*e.Parent}",
 			)
 	})
 
@@ -135,12 +135,13 @@ var _ = Describe("@ref", func() {
 		ExpectContent(resp, "retrieve.gen.go").
 			ToContain(
 				`"slices"`,
-				"targets := make([]gorp.Target, len(e.Labels))",
-				"Detach: func(e *Device, t gorp.Target) {",
+				"Targets: func(e *Device) []label.Key {",
+				"return e.Labels",
+				"Detach: func(e *Device, t label.Key) {",
 				"e.Labels = slices.DeleteFunc(e.Labels, func(v label.Key) bool {",
-				`return gorp.To("label", v) == t`,
+				"return v == t",
 				"func MatchLabel(v label.Key) Filter",
-				`return r.indexes.labels.Filter(gorp.To("label", v))`,
+				"return r.indexes.labels.Filter(v)",
 			)
 	})
 
@@ -158,6 +159,8 @@ var _ = Describe("@ref", func() {
 		`), "device", loader, p)
 			ExpectContent(resp, "retrieve.gen.go").
 				ToContain(
+					"owner *gorp.TargetReference[Key, Device]",
+					"owner: gorp.NewTargetReference(gorp.TargetReferenceConfig[Key, Device]{",
 					`Tables:   []string{"rack", "device"},`,
 					"Unique:   true,",
 					"return []gorp.Target{resourceTarget(*e.Owner)}",
@@ -324,11 +327,12 @@ var _ = Describe("@ref", func() {
 			`, "@retrieve indexes"), "status", loader, p)
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
-						"labels *gorp.Reference[Key, Status[any]]",
-						"owner *gorp.Reference[Key, Status[any]]",
+						"labels *gorp.KeyReference[Key, Status[any], label.Key]",
+						"owner *gorp.TargetReference[Key, Status[any]]",
+						"Targets: func(e *Status[any]) []label.Key {",
+						"Detach: func(e *Status[any], t label.Key) {",
 						"Targets: func(e *Status[any]) []gorp.Target {",
-						"Detach: func(e *Status[any], t gorp.Target) {",
-						"func (i indexes) references() []*gorp.Reference[Key, Status[any]]",
+						"func (i indexes) references() []gorp.Reference[Key, Status[any]]",
 						"func resourceTarget(id resource.ID) gorp.Target {",
 					).
 					ToNotContain(
@@ -355,8 +359,10 @@ var _ = Describe("@ref", func() {
 				}
 			`, "alias", loader, p)
 			ExpectContent(resp, "retrieve.gen.go").
-				ToContain("tag *gorp.Reference[string, Alias]").
-				ToNotContain(`"github.com/synnaxlabs/synnax/core/pkg/service/label"`)
+				ToContain(
+					"tag *gorp.KeyReference[string, Alias, label.Key]",
+					`"github.com/synnaxlabs/synnax/core/pkg/service/label"`,
+				)
 		})
 
 		DescribeTable(

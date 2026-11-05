@@ -456,7 +456,7 @@ func extractRetrieveInfo(
 					field.Name,
 				)
 			}
-			info, err := extractRef(typ, field, ownTable, rt, indexesOnly, r, ctx)
+			info, err := extractRef(typ, field, ownTable, rt, r, ctx)
 			if err != nil {
 				return nil, err
 			}
@@ -724,7 +724,7 @@ type indexes struct {
 	{{$idx.StructField}} *gorp.{{if $idx.IsSorted}}SortedIndex{{else}}LookupIndex{{end}}[{{$ret.KeyType}}, {{$ret.EntryType}}, {{$idx.GoType}}]
 {{- end}}
 {{- range $ref := $ret.Refs}}
-	{{$ref.StructField}} *gorp.Reference[{{$ret.KeyType}}, {{$ret.EntryType}}]
+	{{$ref.StructField}} *{{$ref.GorpType $ret.KeyType $ret.EntryType}}
 {{- end}}
 {{- if $ret.HasSearch}}
 	search *gorp.SearchIndex[{{$ret.KeyType}}, {{$ret.EntryType}}]
@@ -743,9 +743,9 @@ func newIndexes() indexes {
 		),
 {{- end}}
 {{- range $ref := $ret.Refs}}
-		{{$ref.StructField}}: gorp.NewReference(gorp.ReferenceConfig[{{$ret.KeyType}}, {{$ret.EntryType}}]{
+		{{$ref.StructField}}: {{$ref.Constructor $ret.KeyType $ret.EntryType}}{
 			Name:     "{{$ref.FieldName}}",
-			Tables:   []string{ {{- $ref.QuotedTables -}} },
+			{{$ref.TablesField}}
 			OnDelete: gorp.{{$ref.OnDelete}},
 {{- if $ref.Unique}}
 			Unique:   true,
@@ -753,8 +753,10 @@ func newIndexes() indexes {
 {{- if $ref.Acyclic}}
 			Acyclic:  true,
 {{- end}}
-			Targets: func(e *{{$ret.EntryType}}) []gorp.Target {
-{{- if $ref.IsSlice}}
+			Targets: func(e *{{$ret.EntryType}}) []{{$ref.TargetType}} {
+{{- if and $ref.IsSlice (not $ref.IsID)}}
+				return e.{{$ref.GoName}}
+{{- else if $ref.IsSlice}}
 				targets := make([]gorp.Target, len(e.{{$ref.GoName}}))
 				for i, v := range e.{{$ref.GoName}} {
 					targets[i] = {{$ref.TargetOf "v"}}
@@ -764,20 +766,20 @@ func newIndexes() indexes {
 				if e.{{$ref.GoName}} == nil {
 					return nil
 				}
-				return []gorp.Target{ {{- $ref.TargetOf (printf "*e.%s" $ref.GoName) -}} }
+				return []{{$ref.TargetType}}{ {{- $ref.TargetOf (printf "*e.%s" $ref.GoName) -}} }
 {{- else}}
-				return []gorp.Target{ {{- $ref.TargetOf (printf "e.%s" $ref.GoName) -}} }
+				return []{{$ref.TargetType}}{ {{- $ref.TargetOf (printf "e.%s" $ref.GoName) -}} }
 {{- end}}
 			},
 {{- if eq $ref.OnDelete "Detach"}}
 {{- if $ref.IsSlice}}
-			Detach: func(e *{{$ret.EntryType}}, t gorp.Target) {
+			Detach: func(e *{{$ret.EntryType}}, t {{$ref.TargetType}}) {
 				e.{{$ref.GoName}} = slices.DeleteFunc(e.{{$ref.GoName}}, func(v {{$ref.ElemGoType}}) bool {
 					return {{$ref.TargetOf "v"}} == t
 				})
 			},
 {{- else}}
-			Detach: func(e *{{$ret.EntryType}}, _ gorp.Target) { e.{{$ref.GoName}} = nil },
+			Detach: func(e *{{$ret.EntryType}}, _ {{$ref.TargetType}}) { e.{{$ref.GoName}} = nil },
 {{- end}}
 {{- end}}
 		}),
@@ -811,8 +813,8 @@ func (i indexes) all() []gorp.Index[{{$ret.KeyType}}, {{$ret.EntryType}}] {
 
 // references returns the references packaged for registration via
 // gorp.TableConfig.References when opening the underlying table.
-func (i indexes) references() []*gorp.Reference[{{$ret.KeyType}}, {{$ret.EntryType}}] {
-	return []*gorp.Reference[{{$ret.KeyType}}, {{$ret.EntryType}}]{
+func (i indexes) references() []gorp.Reference[{{$ret.KeyType}}, {{$ret.EntryType}}] {
+	return []gorp.Reference[{{$ret.KeyType}}, {{$ret.EntryType}}]{
 {{- range $ref := $ret.Refs}}
 		i.{{$ref.StructField}},
 {{- end}}
@@ -970,12 +972,14 @@ func Match{{.GoName}}(v {{.GoType}}) Filter {
 // provided values.
 func Match{{.GoName | pluralize}}(vals ...{{.GoType}}) Filter {
 	return func({{if or .IndexFieldName .Ref}}r {{end}}Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
-{{- if .Ref}}
+{{- if and .Ref .Ref.IsID}}
 		targets := make([]gorp.Target, len(vals))
 		for i, v := range vals {
 			targets[i] = {{.Ref.TargetOf "v"}}
 		}
 		return r.indexes.{{.Ref.StructField}}.Filter(targets...)
+{{- else if .Ref}}
+		return r.indexes.{{.Ref.StructField}}.Filter(vals...)
 {{- else if .IndexFieldName}}
 		return r.indexes.{{.IndexFieldName}}.Filter(vals...)
 {{- else}}

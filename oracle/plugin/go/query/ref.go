@@ -57,13 +57,58 @@ type refInfo struct {
 	IsID bool
 }
 
+// TargetType returns the Go type of one target: the key type for a reference to one
+// table, or gorp.Target for a reference to resource IDs.
+func (r refInfo) TargetType() string {
+	if r.IsID {
+		return "gorp.Target"
+	}
+	return r.ElemGoType
+}
+
 // TargetOf returns the Go expression that converts expr, one value of the field, to a
-// gorp.Target.
+// target of TargetType.
 func (r refInfo) TargetOf(expr string) string {
 	if r.IsID {
 		return fmt.Sprintf("resourceTarget(%s)", expr)
 	}
-	return fmt.Sprintf("gorp.To(%q, %s)", r.Tables[0], expr)
+	return expr
+}
+
+// GorpType returns the Go type of the reference on a table of entries entry with keys
+// of type key.
+func (r refInfo) GorpType(key, entry string) string {
+	if r.IsID {
+		return fmt.Sprintf("gorp.TargetReference[%s, %s]", key, entry)
+	}
+	return fmt.Sprintf("gorp.KeyReference[%s, %s, %s]", key, entry, r.ElemGoType)
+}
+
+// Constructor returns the Go expression that opens the config literal of the reference
+// on a table of entries entry with keys of type key.
+func (r refInfo) Constructor(key, entry string) string {
+	if r.IsID {
+		return fmt.Sprintf(
+			"gorp.NewTargetReference(gorp.TargetReferenceConfig[%s, %s]",
+			key,
+			entry,
+		)
+	}
+	return fmt.Sprintf(
+		"gorp.NewKeyReference(gorp.KeyReferenceConfig[%s, %s, %s]",
+		key,
+		entry,
+		r.ElemGoType,
+	)
+}
+
+// TablesField returns the config field and Go literal that name the reference's
+// target tables.
+func (r refInfo) TablesField() string {
+	if r.IsID {
+		return fmt.Sprintf("Tables:   []string{%s},", r.QuotedTables())
+	}
+	return fmt.Sprintf("Table:    %q,", r.Tables[0])
 }
 
 // QuotedTables returns Tables as a comma-separated list of Go string literals.
@@ -125,7 +170,6 @@ func extractRef(
 	field resolution.Field,
 	ownTable string,
 	rt resourceTypes,
-	indexesOnly bool,
 	r *resolver.Resolver,
 	ctx *resolver.Context,
 ) (refInfo, error) {
@@ -171,11 +215,7 @@ func extractRef(
 		IsSlice:     isSlice,
 		IsID:        elem.Name == resourceIDType,
 	}
-	// Resolving the type adds its import, which only filters, detach, and resource
-	// targets use.
-	if !indexesOnly || isSlice || info.IsID {
-		info.ElemGoType = r.ResolveTypeRef(elem, ctx)
-	}
+	info.ElemGoType = r.ResolveTypeRef(elem, ctx)
 	if info.IsID {
 		if len(types) == 0 {
 			return fail("needs types to name the resource types it may reference")

@@ -98,6 +98,23 @@ func scopeOf(tx Tx) *txState {
 	return tx.txIdentity()
 }
 
+// probe returns the keys that store maps to any of values, with the changes staged
+// against tx applied. Observers run before a commit returns, so probe also includes
+// the keys of each commit in flight. Such a commit can fail, so a caller checks each
+// key against storage.
+func probe[K Key, V comparable](
+	store indexStore[K, V],
+	tx Tx,
+	values []V,
+) ([]K, error) {
+	committing := store.Committing(values...)
+	keys, err := store.Get(scopeOf(tx), values...)
+	if err != nil || len(committing) == 0 {
+		return keys, err
+	}
+	return lo.Uniq(append(keys, committing...)), nil
+}
+
 // indexFilter returns a Filter matching entries that hold any of values. The filter
 // resolves its keys through store at Exec time and carries holds as the eval predicate
 // for the sequential-scan fallback.
@@ -112,15 +129,10 @@ func indexFilter[K Key, E Entry[K], V comparable](
 			if err := store.Wait(ctx); err != nil {
 				return resolved[K, E]{}, err
 			}
-			// Observers run before a commit returns, so Get alone misses the entries
-			// that notified them. eval drops the keys of a commit that fails.
-			committing := store.Committing(captured...)
-			keys, err := store.Get(scopeOf(tx), captured...)
+			// eval drops the keys of a commit in flight that fails.
+			keys, err := probe(store, tx, captured)
 			if err != nil {
 				return resolved[K, E]{}, err
-			}
-			if len(committing) > 0 {
-				keys = lo.Uniq(append(keys, committing...))
 			}
 			return resolved[K, E]{keys: keyset.Hashed(keys)}, nil
 		},

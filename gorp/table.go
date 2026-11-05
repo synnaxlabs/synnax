@@ -44,8 +44,8 @@ type TableConfig[K Key, E Entry[K]] struct {
 	// of E.
 	Name string
 	// References are the fields of E that hold the keys of other entries. See
-	// NewReference.
-	References []*Reference[K, E]
+	// NewKeyReference and NewTargetReference.
+	References []Reference[K, E]
 	// Instrumentation is used for migration and populate logging.
 	alamos.Instrumentation
 }
@@ -62,7 +62,7 @@ type Table[K Key, E Entry[K]] struct {
 	// name is the name of the table in the DB's registry.
 	name string
 	// references are the references registered on the Table.
-	references []*Reference[K, E]
+	references []Reference[K, E]
 	// registered is true when the table is in the DB's registry.
 	registered bool
 	// disconnectObserver releases the index observer subscription. Nil when no observer

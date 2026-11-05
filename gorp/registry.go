@@ -38,8 +38,8 @@ type registeredReference interface {
 	ownerTable() string
 	referenceName() string
 	index() int
-	onDelete() OnDelete
-	tables() []string
+	onDeletePolicy() OnDelete
+	targetTables() []string
 	// dependents returns the text keys of the entries that hold target.
 	dependents(tx Tx, target Target) ([]string, error)
 }
@@ -82,7 +82,7 @@ func (r *registry) addReferences(refs []registeredReference) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for _, ref := range refs {
-		for _, target := range ref.tables() {
+		for _, target := range ref.targetTables() {
 			r.referencing[target] = append(r.referencing[target], ref)
 		}
 	}
@@ -223,7 +223,7 @@ func (r *registry) plan(
 			}
 			for _, k := range deps {
 				dep := Target{Table: ref.ownerTable(), Key: k}
-				switch ref.onDelete() {
+				switch ref.onDeletePolicy() {
 				case Cascade:
 					if !p.add(dep) {
 						continue

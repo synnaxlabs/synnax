@@ -11,12 +11,12 @@ package gorp
 
 import (
 	"context"
-	"slices"
+	"strconv"
 
 	"github.com/synnaxlabs/gorp/internal/key"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // register validates the table's references and adds the table to its DB's registry.
@@ -27,9 +27,9 @@ func (t *Table[K, E]) register(named bool) error {
 	}
 	for i, r := range t.references {
 		if err := r.validate(t.name); err != nil {
-			return err
+			return validate.PathedError(err, t.name, "references", strconv.Itoa(i))
 		}
-		r.owner, r.position = t.name, i
+		r.bind(t.name, i)
 	}
 	if err := t.db.registry.register(t.name, t); err != nil {
 		return err
@@ -121,7 +121,7 @@ func (t *Table[K, E]) detach(
 		return err
 	}
 	for _, op := range ops {
-		t.references[op.ref].cfg.Detach(&e, op.target)
+		t.references[op.ref].detachTarget(&e, op.target)
 	}
 	w := t.writer(tx, false)
 	return w.Set(ctx, e)
@@ -154,107 +154,9 @@ func (t *Table[K, E]) Dependents(tx Tx, k K) ([]Target, error) {
 // check validates the references e holds against tx.
 func (t *Table[K, E]) check(ctx context.Context, tx Tx, e *E) error {
 	for _, r := range t.references {
-		targets := r.cfg.Targets(e)
-		for _, target := range targets {
-			if !slices.Contains(r.cfg.Tables, target.Table) {
-				return r.fieldErr(
-					"%s cannot reference %s %s",
-					t.name,
-					target.Table,
-					target.Key,
-				)
-			}
-			table, err := t.db.registry.table(target.Table)
-			if err != nil {
-				return err
-			}
-			if !table.canonical(target.Key) {
-				return r.fieldErr("%q is not a key of %s", target.Key, target.Table)
-			}
-			ok, err := table.exists(ctx, tx, target.Key)
-			if err != nil {
-				return err
-			}
-			if !ok {
-				return r.fieldErr("%s %s does not exist", target.Table, target.Key)
-			}
-		}
-		if r.cfg.Unique {
-			if err := t.checkUnique(tx, r, e, targets); err != nil {
-				return err
-			}
-		}
-		if r.cfg.Acyclic {
-			if err := t.checkAcyclic(ctx, tx, r, e, targets); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func (t *Table[K, E]) checkUnique(
-	tx Tx,
-	r *Reference[K, E],
-	e *E,
-	targets []Target,
-) error {
-	self := (*e).GorpKey()
-	for _, target := range targets {
-		holders, err := r.Get(tx, target)
-		if err != nil {
+		if err := r.check(ctx, tx, t, e); err != nil {
 			return err
 		}
-		for _, h := range holders {
-			if h != self {
-				return r.fieldErr(
-					"%s %s already references %s %s",
-					t.name,
-					FormatKey(h),
-					target.Table,
-					target.Key,
-				)
-			}
-		}
-	}
-	return nil
-}
-
-// checkAcyclic walks the chain of targets in the table from e and fails if the chain
-// reaches e.
-func (t *Table[K, E]) checkAcyclic(
-	ctx context.Context,
-	tx Tx,
-	r *Reference[K, E],
-	e *E,
-	targets []Target,
-) error {
-	self := Target{Table: t.name, Key: FormatKey((*e).GorpKey())}
-	visited := set.New[Target]()
-	frontier := slices.Clone(targets)
-	for len(frontier) > 0 {
-		next := frontier[len(frontier)-1]
-		frontier = frontier[:len(frontier)-1]
-		if next.Table != t.name || visited.Contains(next) {
-			continue
-		}
-		if next == self {
-			return r.fieldErr("%s %s would form a cycle", t.name, self.Key)
-		}
-		visited.Add(next)
-		pk, err := key.Parse[K](next.Key)
-		if err != nil {
-			return err
-		}
-		var parent E
-		err = t.NewRetrieve().Where(MatchKeys[K, E](pk)).Entry(&parent).Exec(ctx, tx)
-		if errors.Is(err, query.ErrNotFound) {
-			continue
-		}
-		if err != nil {
-			return err
-		}
-		frontier = append(frontier, r.cfg.Targets(&parent)...)
 	}
 	return nil
 }
