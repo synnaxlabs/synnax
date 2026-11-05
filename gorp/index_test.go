@@ -47,6 +47,15 @@ type indexedEntry struct {
 func (e indexedEntry) GorpKey() int32    { return e.ID }
 func (e indexedEntry) SetOptions() []any { return nil }
 
+// indexedTag is stored in its own table under the keys of indexedEntry.
+type indexedTag struct {
+	ID  int32
+	Tag string
+}
+
+func (e indexedTag) GorpKey() int32    { return e.ID }
+func (e indexedTag) SetOptions() []any { return nil }
+
 // relationEntry is a composite-string-keyed test entry. Its gorp key is
 // the "<from>-><to>" string, mimicking the shape of an ontology
 // relationship key.
@@ -327,6 +336,78 @@ var _ = Describe("Index", func() {
 	)
 
 	Describe("Lookup", func() {
+		Describe("FilterAs", func() {
+			var (
+				nameIdx *gorp.LookupIndex[int32, indexedEntry, string]
+				table   *gorp.Table[int32, indexedEntry]
+			)
+			BeforeEach(func(ctx SpecContext) {
+				nameIdx = gorp.NewLookupIndex(
+					"name", func(e *indexedEntry) string { return e.Name },
+				)
+				table = DeferClose(openIndexedTable(ctx, idxDB, nameIdx))
+				createIndexed(ctx, idxDB,
+					indexedEntry{ID: 1, Name: "alpha"},
+					indexedEntry{ID: 2, Name: "beta"},
+				)
+				tags := []indexedTag{{ID: 1, Tag: "one"}, {ID: 2, Tag: "two"}}
+				Expect(gorp.NewCreate[int32, indexedTag]().
+					Entries(&tags).Exec(ctx, idxDB)).To(Succeed())
+			})
+
+			It(
+				"Should find the entries of another table under the matching keys",
+				func(ctx SpecContext) {
+					var res []indexedTag
+					Expect(gorp.NewRetrieve[int32, indexedTag]().
+						Where(nameIdx.FilterAs[indexedTag]("beta")).
+						Entries(&res).
+						Exec(ctx, idxDB)).To(Succeed())
+					Expect(res).To(Equal([]indexedTag{{ID: 2, Tag: "two"}}))
+				},
+			)
+
+			It(
+				"Should see writes staged in the same transaction",
+				func(ctx SpecContext) {
+					tx := DeferClose(idxDB.OpenTx())
+					Expect(table.NewCreate().
+						Entry(&indexedEntry{ID: 1, Name: "beta"}).
+						Exec(ctx, tx)).To(Succeed())
+					var res []indexedTag
+					Expect(gorp.NewRetrieve[int32, indexedTag]().
+						Where(nameIdx.FilterAs[indexedTag]("beta")).
+						Entries(&res).
+						Exec(ctx, tx)).To(Succeed())
+					Expect(res).To(ConsistOf(
+						indexedTag{ID: 1, Tag: "one"},
+						indexedTag{ID: 2, Tag: "two"},
+					))
+				},
+			)
+
+			It(
+				"Should fail instead of scanning when the index did not populate",
+				func(ctx SpecContext) {
+					db := DeferClose(OpenGorpMsgpackDB())
+					createIndexed(ctx, db, indexedEntry{ID: 1, Name: "beta"})
+					corrupt[int32, indexedEntry](ctx, db, 1)
+					Expect(gorp.NewCreate[int32, indexedTag]().
+						Entry(&indexedTag{ID: 1, Tag: "one"}).
+						Exec(ctx, db)).To(Succeed())
+					failed := gorp.NewLookupIndex(
+						"name", func(e *indexedEntry) string { return e.Name },
+					)
+					DeferClose(openIndexedTable(ctx, db, failed))
+					var res []indexedTag
+					Expect(gorp.NewRetrieve[int32, indexedTag]().
+						Where(failed.FilterAs[indexedTag]("beta")).
+						Entries(&res).
+						Exec(ctx, db)).To(MatchError(gorp.ErrIndexInvalid))
+				},
+			)
+		})
+
 		Describe("Population at OpenTable", func() {
 			It(
 				"Should populate the index from existing entries",

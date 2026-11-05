@@ -380,31 +380,7 @@ func (r *reference[K, E, T]) FilterHolding(holding bool) Filter[K, E] {
 // transaction it runs in. Unlike Filter, it leaves out the commits in flight, and it
 // fails with ErrIndexInvalid instead of a scan when the index failed to populate.
 func (r *reference[K, E, T]) FilterAs[F Entry[K]](targets ...T) Filter[K, F] {
-	captured := slices.Clone(targets)
-	return Filter[K, F]{
-		resolve: func(ctx context.Context, tx Tx) (resolved[K, F], error) {
-			if err := r.store.Wait(ctx); err != nil {
-				return resolved[K, F]{}, err
-			}
-			keys, err := r.store.Get(scopeOf(tx), captured...)
-			if err != nil {
-				return resolved[K, F]{}, err
-			}
-			return resolved[K, F]{
-				keys: keyset.Hashed(keys),
-				eval: func(Context, *F, []byte, []byte) (bool, error) {
-					return true, nil
-				},
-			}, nil
-		},
-		eval: func(Context, *F, []byte, []byte) (bool, error) {
-			return false, errors.Wrapf(
-				ErrIndexInvalid,
-				"%q cannot scan entries",
-				r.name,
-			)
-		},
-	}
+	return filterAs[K, F](r.name, r.store, targets)
 }
 
 // dependents implements registeredReference.
