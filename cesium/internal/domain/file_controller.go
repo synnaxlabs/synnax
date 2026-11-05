@@ -325,7 +325,7 @@ func (fc *fileController) tryAcquireReader(
 	if fc.reserveDescriptor() {
 		return fc.newReader(ctx, key)
 	}
-	if _, err := fc.gcReaders(); err != nil {
+	if collected, err := fc.gcReaders(); collected || err != nil {
 		return nil, err
 	}
 	return nil, fc.closeIdleWriter()

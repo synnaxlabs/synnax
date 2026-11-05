@@ -713,6 +713,27 @@ var _ = Describe("File Controller", Ordered, func() {
 				)
 
 				It(
+					"Should keep idle writer handles when an idle reader frees a place",
+					func(ctx SpecContext) {
+						rec := NewRecorder(fs)
+						openDB(rec, 2)
+						w1, w2 := commitAt(ctx, 10), commitAt(ctx, 20)
+						Expect(w1.Close()).To(Succeed())
+						Expect(w2.Close()).To(Succeed())
+						Eventually(readAsync(ctx), watchdog).Should(BeClosed())
+						i := db.OpenIterator(
+							domain.IteratorConfig{Bounds: telem.TimeRangeMax},
+						)
+						Expect(i.SeekLast(ctx)).To(BeTrue())
+						Expect(MustSucceed(i.OpenReader(ctx)).Close()).To(Succeed())
+						Expect(i.Close()).To(Succeed())
+						rec.Reset()
+						Expect(openAt(ctx, 30).Close()).To(Succeed())
+						Expect(rec.Count(MatchOp(OpOpen))).To(BeZero())
+					},
+				)
+
+				It(
 					"Should wake a reader and a writer on one release",
 					func(ctx SpecContext) {
 						openDB(fs, 2)
