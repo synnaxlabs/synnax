@@ -22,10 +22,18 @@ import (
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 type toEncode struct {
 	Value int
+}
+
+// rejected fails every decode with a validation error.
+type rejected struct{}
+
+func (*rejected) UnmarshalJSONFrom(*jsontext.Decoder) error {
+	return errors.Wrap(validate.ErrValidation, "rejected")
 }
 
 func decoderOf(data string) *jsontext.Decoder {
@@ -347,3 +355,14 @@ var _ = DescribeTable(
 	),
 	Entry("array", `[1]`, uint64(0), MatchError(ContainSubstring("cannot decode"))),
 )
+
+var _ = Describe("Decoding errors", func() {
+	It("Should keep a validation error in the error chain", func(ctx SpecContext) {
+		err := json.Codec.Decode(ctx, []byte(`{}`), &rejected{})
+		Expect(err).To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("failed to decode")),
+		))
+		Expect(errors.Encode(ctx, err, false).Type).To(Equal("sy.validation"))
+	})
+})

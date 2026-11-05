@@ -30,7 +30,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/query"
@@ -1017,6 +1019,71 @@ var _ = Describe("Rack", Ordered, func() {
 		)
 
 		It(
+			"Should change only the status name when create renames a rack",
+			func(ctx SpecContext) {
+				r := rack.Rack{
+					Name: "old name",
+					Status: &rack.Status{
+						Variant:     status.VariantSuccess,
+						Message:     "Rack is connected",
+						Description: "All integrations are running",
+						Time:        telem.SecondTS,
+					},
+				}
+				Expect(writer.Create(ctx, &r)).To(Succeed())
+				retrieve := func() rack.Status {
+					GinkgoHelper()
+					var s rack.Status
+					Expect(stat.NewRetrieve[rack.StatusDetails]().
+						Where(status.MatchKeys[rack.StatusDetails](
+							rack.StatusKey(r.Key),
+						)).
+						Entry(&s).
+						Exec(ctx, tx)).To(Succeed())
+					return s
+				}
+				expected := retrieve()
+				expected.Name = "new name"
+
+				renamed := rack.Rack{Key: r.Key, Name: "new name"}
+				Expect(writer.Create(ctx, &renamed)).To(Succeed())
+
+				Expect(retrieve()).To(Equal(expected))
+			},
+		)
+
+		It(
+			"Should not write the status on a create that keeps the rack name",
+			func(ctx SpecContext) {
+				frozenNow.Store(int64(telem.Now()))
+				r := rack.Rack{Name: "unchanged rack"}
+				Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
+				var writes atomic.Int32
+				DeferCleanup(stat.Observe().OnChange(func(
+					_ context.Context,
+					t gorp.TxReader[status.Key, status.Status[any]],
+				) {
+					for ch := range t {
+						if ch.Key == rack.StatusKey(r.Key) {
+							writes.Add(1)
+						}
+					}
+				}))
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &rack.Rack{
+						Key:  r.Key,
+						Name: r.Name,
+					})
+				})).To(Succeed())
+				Consistently(
+					writes.Load,
+					50*telem.Millisecond.Duration(),
+					5*telem.Millisecond.Duration(),
+				).Should(BeZero())
+			},
+		)
+
+		It(
 			"Should mark a rack as dead when it doesn't receive a status within the health check interval",
 			func(ctx SpecContext) {
 				r := rack.Rack{Name: "dead test rack"}
@@ -1234,6 +1301,138 @@ var _ = Describe("Rack", Ordered, func() {
 					5*time.Millisecond,
 				).Should(BeNumerically(">", countAfterRecovery))
 			},
+		)
+
+		DescribeTable(
+			"Should not extend the deadline of a silent rack on a rename",
+			func(
+				ctx SpecContext,
+				rename func(context.Context, rack.Writer, rack.Key, string) error,
+			) {
+				start := telem.Now()
+				frozenNow.Store(int64(start))
+				r := rack.Rack{
+					Name: "silent rack",
+					Status: &rack.Status{
+						Variant: status.VariantSuccess,
+						Message: "Driver is running",
+						Time:    start,
+					},
+				}
+				Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
+				frozenNow.Store(int64(start.Add(6 * telem.Millisecond)))
+				Expect(rename(ctx, noTxWriter, r.Key, "renamed silent rack")).
+					To(Succeed())
+				frozenNow.Store(int64(start.Add(12 * telem.Millisecond)))
+				Eventually(func(g Gomega) {
+					s := MustSucceed(retrieveStatus(ctx, stat, r.Key))
+					g.Expect(s.Message).To(Equal("Driver not running"))
+					g.Expect(s.Name).To(Equal("renamed silent rack"))
+				}).Should(Succeed())
+			},
+			Entry(
+				"through Create",
+				func(ctx context.Context, w rack.Writer, k rack.Key, n string) error {
+					return w.Create(ctx, &rack.Rack{Key: k, Name: n})
+				},
+			),
+			Entry(
+				"through Rename",
+				func(ctx context.Context, w rack.Writer, k rack.Key, n string) error {
+					return w.Rename(ctx, k, n)
+				},
+			),
+		)
+
+		DescribeTable(
+			"Should report a silent rack again after a rename overwrites its outage",
+			func(
+				ctx SpecContext,
+				rename func(context.Context, rack.Writer, rack.Key, string) error,
+			) {
+				start := telem.Now()
+				frozenNow.Store(int64(start))
+				r := rack.Rack{
+					Name: "overwritten rack",
+					Status: &rack.Status{
+						Variant: status.VariantSuccess,
+						Message: "Driver is running",
+						Time:    telem.SecondTS,
+					},
+				}
+				Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
+				renameTx := DeferClose(db.OpenTx())
+				Expect(rename(ctx, svc.NewWriter(renameTx), r.Key, "renamed")).
+					To(Succeed())
+				frozenNow.Store(int64(start.Add(12 * telem.Millisecond)))
+				Eventually(func(g Gomega) {
+					s := MustSucceed(retrieveStatus(ctx, stat, r.Key))
+					g.Expect(s.Message).To(Equal("Driver not running"))
+				}).Should(Succeed())
+
+				Expect(renameTx.Commit(ctx)).To(Succeed())
+				s := MustSucceed(retrieveStatus(ctx, stat, r.Key))
+				Expect(s.Message).To(Equal("Driver is running"))
+
+				frozenNow.Store(int64(start.Add(24 * telem.Millisecond)))
+				Eventually(func(g Gomega) {
+					s := MustSucceed(retrieveStatus(ctx, stat, r.Key))
+					g.Expect(s.Message).To(Equal("Driver not running"))
+					g.Expect(s.Name).To(Equal("renamed"))
+				}).Should(Succeed())
+			},
+			Entry(
+				"through Create",
+				func(ctx context.Context, w rack.Writer, k rack.Key, n string) error {
+					return w.Create(ctx, &rack.Rack{Key: k, Name: n})
+				},
+			),
+			Entry(
+				"through Rename",
+				func(ctx context.Context, w rack.Writer, k rack.Key, n string) error {
+					return w.Rename(ctx, k, n)
+				},
+			),
+		)
+
+		DescribeTable(
+			"Should restart with any stored status",
+			func(ctx SpecContext, codec encoding.Codec, details any) {
+				kv := memkv.New()
+				restartDB := DeferClose(gorp.Wrap(kv))
+				before := openStack(ctx, restartDB, rack.ServiceConfig{})
+				key := before.rack.EmbeddedKey
+				Expect(before.Close()).To(Succeed())
+				// Migrations do not run again, so the row stays in this encoding.
+				Expect(gorp.NewCreate[status.Key, status.Status[any]]().
+					Entry(&status.Status[any]{
+						Key:     rack.StatusKey(key),
+						Name:    "stale name",
+						Variant: status.VariantSuccess,
+						Time:    telem.Now(),
+						Details: details,
+					}).
+					Exec(ctx, gorp.Wrap(kv, gorp.WithCodec(codec)))).To(Succeed())
+
+				after := DeferClose(openStack(ctx, restartDB, rack.ServiceConfig{}))
+				var res status.Status[any]
+				Expect(after.status.NewRetrieve[any]().
+					Where(status.MatchKeys[any](rack.StatusKey(key))).
+					Entry(&res).
+					Exec(ctx, nil)).To(Succeed())
+				Expect(res.Name).ToNot(Equal("stale name"))
+				Expect(res.Details).To(Equal(details))
+			},
+			Entry("ORC with string details", orc.Codec, "running"),
+			Entry("ORC with array details", orc.Codec, []any{"running"}),
+			Entry("ORC with object details", orc.Codec, map[string]any{"rack": 1.5}),
+			Entry("msgpack with string details", msgpack.Codec, "running"),
+			Entry("msgpack with array details", msgpack.Codec, []any{"running"}),
+			Entry(
+				"msgpack with object details",
+				msgpack.Codec,
+				map[string]any{"rack": 1.5},
+			),
 		)
 
 		It(

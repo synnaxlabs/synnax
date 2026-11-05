@@ -19,7 +19,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -40,6 +39,9 @@ type SuspectHandler = func(ctx context.Context, outage Status) error
 
 type rackState struct {
 	lastUpdated telem.TimeStamp
+	// statusTime is the time on the last status seen since the Core started. A write
+	// that keeps it, such as a rename, is not a report from the rack.
+	statusTime telem.TimeStamp
 	// outage is set from the write of an outage until the Driver reports again, so each
 	// outage is written once.
 	outage *Status
@@ -246,9 +248,12 @@ func (m *monitor) handleChange(
 		alive := ch.Value.Variant == status.VariantSuccess ||
 			ch.Value.Variant == status.VariantInfo ||
 			ch.Value.Variant == status.VariantError
-		if alive || !lo.HasKey(m.mu.racks, key) {
-			m.mu.racks[key] = rackState{lastUpdated: m.svc.Now()}
+		state, known := m.mu.racks[key]
+		if !known || (alive && ch.Value.Time != state.statusTime) {
+			state = rackState{lastUpdated: m.svc.Now()}
 		}
+		state.statusTime = ch.Value.Time
+		m.mu.racks[key] = state
 	}
 }
 
