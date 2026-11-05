@@ -84,6 +84,8 @@ export interface KeyParams {
 
 export const useName = createSelector(({ name }) => name);
 
+export const useRange = createSelector(({ range }) => range);
+
 export type ListQuery = task.RetrieveMultipleParams;
 
 export const useList = Flux.createList<ListQuery, task.Key, task.Task>({

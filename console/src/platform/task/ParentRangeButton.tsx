@@ -51,7 +51,9 @@ interface InternalProps {
 }
 
 const Internal = ({ taskKey }: InternalProps) => {
-  const { range } = PTask.use({ key: taskKey });
+  const query = { key: taskKey };
+  PTask.useEnsure(query);
+  const range = PTask.useRange(query);
   if (range == null) return null;
   return <RangeLink rangeKey={range} />;
 };

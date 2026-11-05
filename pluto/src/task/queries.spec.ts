@@ -676,6 +676,44 @@ describe("queries", () => {
     });
   });
 
+  describe("useRange", () => {
+    const renderRange = async (key: task.Key) =>
+      await renderHookSuspended(
+        () => {
+          Task.useEnsure({ key });
+          return Task.useRange({ key });
+        },
+        { wrapper },
+      );
+
+    it("should return the range of a snapshot", async () => {
+      const rack = await client.racks.create({ name: "rangeRack" });
+      const original = await rack.createTask({
+        name: id.create(),
+        type: "pagerduty_alert",
+        config: { routingKey: "rk-range" },
+      });
+      const rng = await client.ranges.create({
+        name: `range-${id.create()}`,
+        timeRange: new TimeRange(TimeStamp.now(), TimeStamp.MAX),
+      });
+      const snapshot = await client.tasks.copy(original.key, "Snapshot", true, rng.key);
+      const { result } = await renderRange(snapshot.key);
+      await waitFor(() => expect(result.current).toEqual(rng.key));
+    });
+
+    it("should return nothing for a task in no range", async () => {
+      const rack = await client.racks.create({ name: "noRangeRack" });
+      const tsk = await rack.createTask({
+        name: id.create(),
+        type: "pagerduty_alert",
+        config: { routingKey: "rk-no-range" },
+      });
+      const { result } = await renderRange(tsk.key);
+      expect(result.current).toBeUndefined();
+    });
+  });
+
   describe("useMultiple", () => {
     it("should add a task on the rack created after the query resolves", async () => {
       const rack = await client.racks.create({ name: "testRack" });
