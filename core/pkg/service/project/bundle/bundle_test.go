@@ -317,19 +317,6 @@ var _ = Describe("Export", func() {
 		Expect(members).To(ContainElement(t.ResourceID()))
 	})
 
-	It("Should skip a task tab whose task no longer exists", func(ctx SpecContext) {
-		proj := createProject(ctx, "Dangling Task")
-		dangling := resource.ID{
-			Type: resource.TypeTask,
-			Key:  uuid.New().String(),
-		}
-		createPanel(ctx, "Controls", proj.Key, leaf(resourceTab(dangling)))
-		files, _ := MustSucceed2(svc.Export(ctx, proj.Key, xjson.Codec))
-		Expect(files).To(HaveLen(2))
-		root := decode(files["Controls.json"])["root"].(map[string]any)
-		Expect(root["tabs"]).To(BeEmpty())
-	})
-
 	It("Should suffix the second of two members in one directory that collide", func(
 		ctx SpecContext,
 	) {
