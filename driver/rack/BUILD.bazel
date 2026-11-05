@@ -131,6 +131,7 @@ cc_test(
     deps = [
         "//client/cpp/testutil",
         "//driver/rack",
+        "//driver/rack/status",
         "@googletest//:gtest_main",
     ],
 )
