@@ -67,15 +67,14 @@ Task struct<
         @key
     }
     rack        rack.Key = 0 {
-        @doc value """
+        @doc value     """
             is the key of the rack this task deploys to. Zero for a draft that has not
             been assigned a rack; required to start.
         """
-        @filter
+        @ref on_delete cascade
     }
     name        string              {
         @doc value         "is a human-readable name for the task."
-        @filter
         @validate required
     }
     type        Type                {
@@ -83,7 +82,6 @@ Task struct<
             is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan').
             Determines which hardware integration handles the task.
         """
-        @filter
     }
     config      Config              {
         @doc value """
@@ -99,11 +97,9 @@ Task struct<
     }
     internal    bool = false {
         @doc value "is true if this is an internal system task."
-        @filter
     }
     snapshot    bool = false {
         @doc value "is true if this task is an immutable snapshot copy of another task."
-        @filter
     }
     status      Status<StatusData>? {
         @doc value  "is the current execution status of the task."
@@ -111,8 +107,9 @@ Task struct<
     }
     range       ranger.Key?         {
         @cpp omit
-        @doc value "is the range the task is a snapshot in, if any."
+        @doc value     "is the range the task is a snapshot in, if any."
         @pb omit
+        @ref on_delete cascade
     }
 
     action Create {
@@ -150,6 +147,7 @@ Task struct<
     @go migrate
     @py name                 "Payload"
     @resource type           "task"
+    @retrieve indexes
     @ts coalesce_type_params
     @ts concrete_types
     @ts name                 "Payload"

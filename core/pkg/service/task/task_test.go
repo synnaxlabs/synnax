@@ -11,6 +11,7 @@ package task_test
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"slices"
 	"uuid"
@@ -1204,7 +1205,10 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should refuse a task on a rack that does not exist", func(ctx SpecContext) {
 			t := &task.Task{Type: testType, Rack: rack.NewKey(1, 999), Name: "Lost"}
-			Expect(w.Create(ctx, t)).To(MatchError(ContainSubstring("rack")))
+			Expect(w.Create(ctx, t)).To(MatchError(fmt.Sprintf(
+				"rack: rack %d does not exist: validation error",
+				rack.NewKey(1, 999),
+			)))
 		})
 
 		It("Should store a draft on rack zero", func(ctx SpecContext) {
@@ -1273,7 +1277,10 @@ var _ = Describe("Task", Ordered, func() {
 				Name:  "Lost Snapshot",
 				Range: &missing,
 			}
-			Expect(w.Create(ctx, t)).To(MatchError(ContainSubstring("range")))
+			Expect(w.Create(ctx, t)).To(MatchError(fmt.Sprintf(
+				"range: range %s does not exist: validation error",
+				missing,
+			)))
 		})
 	})
 

@@ -121,7 +121,7 @@ type Service struct {
 	closer            xio.MultiCloser
 	table             *gorp.Table[Key, Task]
 	search            *gorp.SearchIndex[Key, Task]
-	refs              references
+	indexes           indexes
 	state             *actions.State[Key, Action]
 	commandChannelKey channel.Key
 	actionChannelKey  channel.Key
@@ -141,18 +141,18 @@ func OpenService(
 		return nil, err
 	}
 	s = &Service{
-		cfg:    cfg,
-		search: newSearchIndex(),
-		refs:   newReferences(),
-		state:  actions.NewState[Key, Action](cfg.DB),
+		cfg:     cfg,
+		search:  newSearchIndex(),
+		indexes: newIndexes(),
+		state:   actions.NewState[Key, Action](cfg.DB),
 	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Task]{
 		DB:         cfg.DB,
-		Name:       string(resource.TypeTask),
+		Name:       tableName,
 		Indexes:    []gorp.Index[Key, Task]{s.search},
-		References: s.refs.all(),
+		References: s.indexes.references(),
 		Migrations: versions.NewMigrations(versions.MigrationsConfig{
 			Status:   cfg.Status,
 			Ontology: cfg.Ontology,
@@ -305,7 +305,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		search:  s.search,
-		refs:    s.refs,
+		indexes: s.indexes,
 		baseTX:  s.cfg.DB,
 		gorp:    s.table.NewRetrieve(),
 		configs: s.cfg.Configs,
