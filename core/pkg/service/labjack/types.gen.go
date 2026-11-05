@@ -39,7 +39,11 @@ const (
 
 // Scale determines how raw sensor values are transformed to engineering units.
 type Scale = versions.Scale
+
+// ScaleVariant is implemented by every Scale variant.
 type ScaleVariant = versions.ScaleVariant
+
+// ScaleType is the "type" value that selects a variant of Scale.
 type ScaleType = versions.ScaleType
 
 const (
@@ -66,7 +70,11 @@ type BaseReadChannel = versions.BaseReadChannel
 // ReadChannel is a single LabJack read channel. The type field selects the input mode
 // and the fields that accompany it.
 type ReadChannel = versions.ReadChannel
+
+// ReadChannelVariant is implemented by every ReadChannel variant.
 type ReadChannelVariant = versions.ReadChannelVariant
+
+// ReadChannelType is the "type" value that selects a variant of ReadChannel.
 type ReadChannelType = versions.ReadChannelType
 
 const (
@@ -93,7 +101,11 @@ type BaseWriteChannel = versions.BaseWriteChannel
 // WriteChannel is a single LabJack write channel. The type field selects the output
 // mode.
 type WriteChannel = versions.WriteChannel
+
+// WriteChannelVariant is implemented by every WriteChannel variant.
 type WriteChannelVariant = versions.WriteChannelVariant
+
+// WriteChannelType is the "type" value that selects a variant of WriteChannel.
 type WriteChannelType = versions.WriteChannelType
 
 const (

@@ -52,7 +52,7 @@ import {
 import { useConfigure } from "@/feature/labjack/task/useConfigure";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
-import { Selector } from "@/platform/selector";
+import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const path = deep.path<Task.Values<WriteSchemas>>();
@@ -66,7 +66,7 @@ const Properties = () => (
   </>
 );
 
-/** The name a channel shows by: its command channel's, or the one configuring gives. */
+/** The name a channel shows by: its command channel's, or the one deploying gives. */
 const commandName = (c: WriteChannel, identifier: string): string =>
   primitive.isNonZero(c.cmdChannelName)
     ? c.cmdChannelName
@@ -78,6 +78,9 @@ const stateName = (c: WriteChannel, identifier: string): string =>
     ? c.stateChannelName
     : `${identifier}_${c.port}_state`;
 
+const portOf = (c: WriteChannel): string =>
+  `${convertWriteChannelTypeToPortType(c.type)}/${c.port}`;
+
 interface ChannelListItemProps extends Task.ChannelListItemProps {
   device: Device;
 }
@@ -88,6 +91,7 @@ const ChannelListItem = ({ device, ...rest }: ChannelListItemProps) => {
   const entry = path.config.channels[rest.itemKey];
   const { get, set } = PForm.useContext();
   const item = PForm.useFieldValue(entry);
+  const skipped = Task.useSkipped(path.config.channels, rest.itemKey, portOf);
   const { port, type, cmdChannel, stateChannel } = item;
   return (
     <List.Item {...rest} full="x" justify="between">
@@ -147,6 +151,7 @@ const ChannelListItem = ({ device, ...rest }: ChannelListItemProps) => {
           stateNamePath={entry.stateChannelName}
           cmdDefaultName={commandName(item, identifier)}
           stateDefaultName={stateName(item, identifier)}
+          skipped={skipped}
         />
         <Task.EnabledCheckbox path={entry.disabled} />
       </Flex.Box>
@@ -308,13 +313,9 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
     }
     const commandChannelsToCreate: WriteChannel[] = [];
     const stateChannelsToCreate: WriteChannel[] = [];
-    // Channels on one port share its data channels, named by an enabled one if any.
-    const seen = new Set<string>();
-    for (const channel of Task.enabledFirst(config.channels)) {
+    for (const channel of Task.firstPerPort(config.channels, portOf)) {
       const key = channel.port;
       const type = convertWriteChannelTypeToPortType(channel.type);
-      if (seen.has(`${type}/${key}`)) continue;
-      seen.add(`${type}/${key}`);
       const existingPair = dev.properties[type].channels[key];
       if (existingPair == null) {
         commandChannelsToCreate.push(channel);
@@ -428,9 +429,10 @@ export const useCreateWrite = Task.createUseCreate({
   deviceMake: MAKE,
 });
 
-export const WriteSelectable = Selector.createSelectable({
+export const WriteSelectable: Selector.Selectable = {
   type: WRITE_TYPE,
   title: "LabJack write task",
+  label: "Write",
   icon: <Icon.Logo.LabJack />,
   useOnSelect: useCreateWrite,
-});
+};

@@ -283,13 +283,17 @@ type BaseWriteField struct {
 	Pointer string `json:"pointer" msgpack:"pointer"`
 }
 
+// WriteFieldType is the "type" value that selects a variant of WriteField.
 type WriteFieldType string
 
 const (
-	StaticWriteFieldType    WriteFieldType = "static"
+	// StaticWriteFieldType places a fixed value in the request body.
+	StaticWriteFieldType WriteFieldType = "static"
+	// GeneratedWriteFieldType places a freshly generated UUID or timestamp in the body.
 	GeneratedWriteFieldType WriteFieldType = "generated"
 )
 
+// WriteFieldVariant is implemented by every WriteField variant.
 type WriteFieldVariant interface {
 	isWriteFieldVariant()
 }
@@ -411,7 +415,11 @@ func (u *WriteField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.GeneratedWriteField
 	default:
-		return errors.Newf("WriteField: unknown type %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"WriteField: unknown type %q",
+			disc.Type,
+		)
 	}
 	return nil
 }
@@ -439,6 +447,31 @@ func (u WriteField) Validate() error {
 		return variant.Validate()
 	}
 	return nil
+}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u WriteField) Base() BaseWriteField {
+	switch variant := u.Variant.(type) {
+	case StaticWriteField:
+		return variant.BaseWriteField
+	case GeneratedWriteField:
+		return variant.BaseWriteField
+	}
+	return BaseWriteField{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *WriteField) SetBase(base BaseWriteField) {
+	switch variant := u.Variant.(type) {
+	case StaticWriteField:
+		variant.BaseWriteField = base
+		u.Variant = variant
+	case GeneratedWriteField:
+		variant.BaseWriteField = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("WriteField: cannot set the base of variant %T", variant))
+	}
 }
 
 // WriteEndpoint is a single HTTP endpoint written to by a write task.

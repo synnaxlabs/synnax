@@ -42,7 +42,7 @@ import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 import { Empty } from "@/platform/empty";
-import { Selector } from "@/platform/selector";
+import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const root = deep.path<Task.Values<EdgeSchemas>>();
@@ -73,8 +73,8 @@ const renderSelectChannel = Component.renderProp((p: PChannel.SelectSingleProps)
 const TagListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const path = root.config.tags[itemKey];
-  const commandChannel = PForm.useFieldValue(path.commandChannel);
-  const commandChannelName = PForm.useFieldValue(path.commandChannelName);
+  const tag = PForm.useFieldValue(path);
+  const { commandChannel, commandChannelName } = tag;
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
 
@@ -119,7 +119,8 @@ const TagListItem = (props: Task.ChannelListItemProps) => {
           <Task.ChannelName
             channel={commandChannel}
             namePath={path.commandChannelName}
-            defaultName={commandChannelName ?? undefined}
+            defaultName={deriveCommandChannelName(tag)}
+            skipped={tag.disabled}
             id={Task.getChannelNameID(itemKey, "cmd")}
           />
         )}
@@ -272,9 +273,9 @@ export const useCreateEdge = Task.createUseCreate({
   deviceMake: MAKE,
 });
 
-export const EdgeSelectable = Selector.createSelectable({
+export const EdgeSelectable: Selector.Selectable = {
   type: EDGE_TYPE,
   title: "Sparkplug edge node",
   icon: <Icon.Logo.MQTT />,
   useOnSelect: useCreateEdge,
-});
+};

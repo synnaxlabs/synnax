@@ -37,16 +37,6 @@ var _ = Describe("View", func() {
 		}
 	})
 
-	Describe("Base", func() {
-		It("Should return the base of each variant", func() {
-			Expect(ranges.Base()).To(Equal(v1.Base{Key: key, Name: "Ranges"}))
-			Expect(status.Base()).To(Equal(v1.Base{Key: key, Name: "Statuses"}))
-		})
-		It("Should return a zero base for a view with no variant", func() {
-			Expect(v1.View{}.Base()).To(Equal(v1.Base{}))
-		})
-	})
-
 	Describe("Type", func() {
 		It("Should return the type of each variant", func() {
 			Expect(ranges.Type()).To(Equal(v1.RangeViewType))

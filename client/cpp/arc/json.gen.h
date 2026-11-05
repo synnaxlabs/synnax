@@ -27,14 +27,14 @@ inline Arc Arc::parse(x::json::Parser parser) {
         .key = parser.field<Key>("key", x::uuid::create()),
         .name = parser.field<std::string>("name"),
         .mode = parser.field<std::string>("mode"),
-        .graph = parser.field<::arc::graph::Graph>("graph"),
-        .text = parser.field<::arc::text::Text>("text"),
+        .graph = parser.field<::arc::graph::Graph>("graph", ::arc::graph::Graph{}),
+        .text = parser.field<::arc::text::Text>("text", ::arc::text::Text{}),
         .program = parser.field<std::optional<::arc::program::Program>>("program"),
     };
 }
 
 inline x::json::json Arc::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["key"] = this->key.to_json();
     j["name"] = this->name;
     j["mode"] = this->mode;
