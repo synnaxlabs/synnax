@@ -456,7 +456,7 @@ func extractRetrieveInfo(
 					field.Name,
 				)
 			}
-			info, err := extractRef(typ, field, ownTable, rt, r, ctx)
+			info, err := extractRef(typ, field, ownTable, rt, table, r, ctx)
 			if err != nil {
 				return nil, err
 			}
@@ -767,6 +767,11 @@ func newIndexes() indexes {
 					return nil
 				}
 				return []{{$ref.TargetType}}{ {{- $ref.TargetOf (printf "*e.%s" $ref.GoName) -}} }
+{{- else if $ref.Zero}}
+				if e.{{$ref.GoName}} == {{$ref.ZeroOperand}} {
+					return nil
+				}
+				return []{{$ref.TargetType}}{ {{- $ref.TargetOf (printf "e.%s" $ref.GoName) -}} }
 {{- else}}
 				return []{{$ref.TargetType}}{ {{- $ref.TargetOf (printf "e.%s" $ref.GoName) -}} }
 {{- end}}
@@ -778,6 +783,8 @@ func newIndexes() indexes {
 					return {{$ref.TargetOf "v"}} == t
 				})
 			},
+{{- else if $ref.Zero}}
+			Detach: func(e *{{$ret.EntryType}}, _ {{$ref.TargetType}}) { e.{{$ref.GoName}} = {{$ref.Zero}} },
 {{- else}}
 			Detach: func(e *{{$ret.EntryType}}, _ {{$ref.TargetType}}) { e.{{$ref.GoName}} = nil },
 {{- end}}
@@ -921,7 +928,51 @@ func MatchKeys(keys ...{{$ret.KeyType}}) Filter {
 	}
 }
 {{range .Filters}}
-{{- if .IsBool}}
+{{- if .Ref}}
+// Match{{.Ref.FilterName}} returns a filter for {{$ret.GoName | toLower | pluralize}}
+// whose {{.GoName}} {{if .IsSlice}}contains{{else}}matches{{end}} any of the provided
+// values.
+func Match{{.Ref.FilterName}}(vals ...{{.ElemGoType}}) Filter {
+	return func(r Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
+{{- if .Ref.IsID}}
+		targets := make([]gorp.Target, len(vals))
+		for i, v := range vals {
+			targets[i] = {{.Ref.TargetOf "v"}}
+		}
+		return r.indexes.{{.Ref.StructField}}.Filter(targets...)
+{{- else}}
+		return r.indexes.{{.Ref.StructField}}.Filter(vals...)
+{{- end}}
+	}
+}
+{{- if .Ref.HoldsNone}}
+
+// MatchHas{{.GoName}} returns a filter for {{$ret.GoName | toLower | pluralize}} whose
+// {{.GoName}} holds a target when has is true, and holds none when has is false.
+func MatchHas{{.GoName}}(has bool) Filter {
+	return func(r Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
+		return r.indexes.{{.Ref.StructField}}.FilterHolding(has)
+	}
+}
+{{- end}}
+{{- if and (eq .Ref.OnDelete "Detach") (not .IsSlice)}}
+
+// set{{.GoName}} returns an update that sets the {{.GoName}} of the
+// {{$ret.GoName | toLower | pluralize}} with keys to v.
+func set{{.GoName}}(
+	table *gorp.Table[{{$ret.KeyType}}, {{$ret.GoName}}],
+	v {{if .Ref.IsOptional}}*{{end}}{{.ElemGoType}},
+	keys ...{{$ret.KeyType}},
+) gorp.Update[{{$ret.KeyType}}, {{$ret.GoName}}] {
+	return table.NewUpdate().
+		Where(gorp.MatchKeys[{{$ret.KeyType}}, {{$ret.GoName}}](keys...)).
+		Change(func(_ gorp.Context, e {{$ret.GoName}}) {{$ret.GoName}} {
+			e.{{.GoName}} = v
+			return e
+		})
+}
+{{- end}}
+{{else if .IsBool}}
 // Match{{.GoName}} returns a filter for {{$ret.GoName | toLower | pluralize}} by their
 // {{.GoName}} field.
 func Match{{.GoName}}(v bool) Filter {
@@ -940,24 +991,18 @@ func Match{{.GoName}}(v bool) Filter {
 // {{$ret.GoName | toLower | pluralize}} whose {{.GoName}} contains the provided
 // value.
 func Match{{.GoName | singularize}}(v {{.ElemGoType}}) Filter {
-	return func({{if .Ref}}r {{end}}Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
-{{- if .Ref}}
-		return r.indexes.{{.Ref.StructField}}.Filter({{.Ref.TargetOf "v"}})
-{{- else}}
+	return func(Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
 		return gorp.Match(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {
 			return slices.Contains(e.{{.GoName}}, v), nil
 		})
-{{- end}}
 	}
 }
 {{else if .IsScalar}}
 // Match{{.GoName}} returns a filter for {{$ret.GoName | toLower | pluralize}} whose
 // {{.GoName}} matches the provided value.
 func Match{{.GoName}}(v {{.GoType}}) Filter {
-	return func({{if or .IndexFieldName .Ref}}r {{end}}Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
-{{- if .Ref}}
-		return r.indexes.{{.Ref.StructField}}.Filter({{.Ref.TargetOf "v"}})
-{{- else if .IndexFieldName}}
+	return func({{if .IndexFieldName}}r {{end}}Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
+{{- if .IndexFieldName}}
 		return r.indexes.{{.IndexFieldName}}.Filter(v)
 {{- else}}
 		return gorp.Match(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {
@@ -971,16 +1016,8 @@ func Match{{.GoName}}(v {{.GoType}}) Filter {
 // {{$ret.GoName | toLower | pluralize}} whose {{.GoName}} matches any of the
 // provided values.
 func Match{{.GoName | pluralize}}(vals ...{{.GoType}}) Filter {
-	return func({{if or .IndexFieldName .Ref}}r {{end}}Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
-{{- if and .Ref .Ref.IsID}}
-		targets := make([]gorp.Target, len(vals))
-		for i, v := range vals {
-			targets[i] = {{.Ref.TargetOf "v"}}
-		}
-		return r.indexes.{{.Ref.StructField}}.Filter(targets...)
-{{- else if .Ref}}
-		return r.indexes.{{.Ref.StructField}}.Filter(vals...)
-{{- else if .IndexFieldName}}
+	return func({{if .IndexFieldName}}r {{end}}Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
+{{- if .IndexFieldName}}
 		return r.indexes.{{.IndexFieldName}}.Filter(vals...)
 {{- else}}
 		return gorp.Match(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {

@@ -10,6 +10,8 @@
 package query_test
 
 import (
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/plugin/go/query"
@@ -140,9 +142,61 @@ var _ = Describe("@ref", func() {
 				"Detach: func(e *Device, t label.Key) {",
 				"e.Labels = slices.DeleteFunc(e.Labels, func(v label.Key) bool {",
 				"return v == t",
-				"func MatchLabel(v label.Key) Filter",
-				"return r.indexes.labels.Filter(v)",
+				"func MatchLabels(vals ...label.Key) Filter",
+				"return r.indexes.labels.Filter(vals...)",
+				"func MatchHasLabels(has bool) Filter",
+				"return r.indexes.labels.FilterHolding(has)",
+			).
+			ToNotContain("func MatchLabel(", "func setLabels")
+	})
+
+	It("Should detach an optional field and write it", func(ctx SpecContext) {
+		resp := MustGenerate(ctx, device(`
+			shelf rack.Key? @ref on_delete detach
+		`), "device", loader, p)
+		ExpectContent(resp, "retrieve.gen.go").
+			ToContain(
+				"Detach: func(e *Device, _ rack.Key) { e.Shelf = nil },",
+				"func MatchHasShelf(has bool) Filter",
+				"func setShelf(",
+				"table *gorp.Table[Key, Device],",
+				"v *rack.Key,",
+				"keys ...Key,",
+				") gorp.Update[Key, Device] {",
+				"Where(gorp.MatchKeys[Key, Device](keys...)).",
+				"e.Shelf = v",
 			)
+	})
+
+	DescribeTable(
+		"Should hold no target while a field with a zero default is zero",
+		func(ctx SpecContext, field, zero string) {
+			resp := MustGenerate(ctx, device(field), "device", loader, p)
+			ExpectContent(resp, "retrieve.gen.go").
+				ToContain(
+					"if e.Spare == "+zero+" {",
+					"return nil",
+					"Detach: func(e *Device, _ ",
+					"e.Spare = "+strings.Trim(zero, "()")+" },",
+					"func MatchHasSpare(has bool) Filter",
+					"func setSpare(",
+				)
+		},
+		Entry("an integer key", `spare rack.Key = 0 @ref on_delete detach`, "0"),
+		Entry("a string key", `spare Key = "" @ref on_delete detach`, `""`),
+		Entry(
+			"a UUID key",
+			`spare label.Key = "" @ref on_delete detach`,
+			"(label.Key{})",
+		),
+	)
+
+	It("Should always hold the target of a required field", func(ctx SpecContext) {
+		resp := MustGenerate(ctx, device(`
+			rack rack.Key @ref on_delete cascade
+		`), "device", loader, p)
+		ExpectContent(resp, "retrieve.gen.go").
+			ToNotContain("func MatchHasRack", "func setRack", "if e.Rack ==")
 	})
 
 	It(
@@ -180,8 +234,16 @@ var _ = Describe("@ref", func() {
 		},
 		Entry("without on_delete", `rack rack.Key @ref`,
 			"@ref field rack needs on_delete cascade, restrict, or detach"),
-		Entry("detaching a required field", `rack rack.Key @ref on_delete detach`,
-			"@ref field rack needs to be optional or an array to detach"),
+		Entry(
+			"detaching a required field",
+			`rack rack.Key @ref on_delete detach`,
+			"@ref field rack needs to be optional, an array, or zero by default to detach",
+		),
+		Entry(
+			"detaching a field with a default that is not zero",
+			`rack rack.Key = 4 @ref on_delete detach`,
+			"@ref field rack needs to be optional, an array, or zero by default to detach",
+		),
 		Entry("to a key that no resource holds", `count uint32 @ref on_delete restrict`,
 			"@ref field count needs the key type of a resource, not uint32"),
 		Entry("naming types on a key", `rack rack.Key {

@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/synnaxlabs/oracle/domain/key"
 	plugindomain "github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
@@ -55,6 +56,29 @@ type refInfo struct {
 	IsSlice bool
 	// IsID is true when each target is a resource ID instead of the key of one table.
 	IsID bool
+	// Zero is the Go zero value of a scalar field that holds no target while it is
+	// zero, because its default is zero. It is empty for any other field.
+	Zero string
+}
+
+// HoldsNone reports whether an entry can hold no target through the field.
+func (r refInfo) HoldsNone() bool { return r.IsOptional || r.IsSlice || r.Zero != "" }
+
+// ZeroOperand returns Zero in a form that can follow == in Go.
+func (r refInfo) ZeroOperand() string {
+	if strings.HasSuffix(r.Zero, "{}") {
+		return "(" + r.Zero + ")"
+	}
+	return r.Zero
+}
+
+// FilterName returns the name of the filter that matches the entries that hold any
+// of a set of targets, without its Match prefix.
+func (r refInfo) FilterName() string {
+	if r.IsSlice {
+		return pluralizeDistinct(singularize(r.GoName))
+	}
+	return pluralizeDistinct(r.GoName)
 }
 
 // TargetType returns the Go type of one target: the key type for a reference to one
@@ -170,6 +194,7 @@ func extractRef(
 	field resolution.Field,
 	ownTable string,
 	rt resourceTypes,
+	table *resolution.Table,
 	r *resolver.Resolver,
 	ctx *resolver.Context,
 ) (refInfo, error) {
@@ -200,8 +225,14 @@ func extractRef(
 		return fail("needs on_delete cascade, restrict, or detach")
 	}
 	isOptional := field.Optional && !isSlice
-	if onDelete == "Detach" && !isOptional && !isSlice {
-		return fail("needs to be optional or an array to detach")
+	var zero string
+	if !isOptional && !isSlice && isZeroDefault(field.Default) {
+		zero = zeroValue(elem, table, func() string {
+			return r.ResolveTypeRef(elem, ctx)
+		})
+	}
+	if onDelete == "Detach" && !isOptional && !isSlice && zero == "" {
+		return fail("needs to be optional, an array, or zero by default to detach")
 	}
 	types := refTypes(field)
 	info := refInfo{
@@ -214,6 +245,7 @@ func extractRef(
 		IsOptional:  isOptional,
 		IsSlice:     isSlice,
 		IsID:        elem.Name == resourceIDType,
+		Zero:        zero,
 	}
 	info.ElemGoType = r.ResolveTypeRef(elem, ctx)
 	if info.IsID {
@@ -269,4 +301,35 @@ func refTypes(field resolution.Field) []string {
 		}
 	}
 	return types
+}
+
+// isZeroDefault reports whether v is the zero of a string or integer field.
+func isZeroDefault(v *resolution.ExpressionValue) bool {
+	if v == nil {
+		return false
+	}
+	switch v.Kind {
+	case resolution.ValueKindString:
+		return v.StringValue == ""
+	case resolution.ValueKindInt:
+		return v.IntValue == 0
+	}
+	return false
+}
+
+// zeroValue returns the Go zero value of the type that ref names. goType returns the
+// Go type of ref.
+func zeroValue(
+	ref resolution.TypeRef,
+	table *resolution.Table,
+	goType func() string,
+) string {
+	switch p := key.ResolvePrimitive(ref, table); {
+	case p == "string":
+		return `""`
+	case strings.HasPrefix(p, "int"), strings.HasPrefix(p, "uint"):
+		return "0"
+	default:
+		return goType() + "{}"
+	}
 }
