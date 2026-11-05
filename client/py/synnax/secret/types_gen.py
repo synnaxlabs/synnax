@@ -38,8 +38,8 @@ class Base(BaseModel):
         key: Is the unique identifier for this secret.
         name: Is a human-readable name for the secret.
         updated: Is when the value or path of the secret last changed.
-        uses: Are the resources that use the secret, filled only when a retrieve request
-            asks for them.
+        uses: Are the resources that use the secret and that the caller can read, filled
+            only when a retrieve request asks for them.
     """
 
     key: Key = Field(default_factory=uuid4)

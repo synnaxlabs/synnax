@@ -43,9 +43,10 @@ import (
 )
 
 var (
-	secretType = ontology.ID{Type: ontology.ResourceTypeSecret}
-	deviceType = ontology.ID{Type: ontology.ResourceTypeDevice}
-	all        = access.AllActions
+	secretType      = ontology.ID{Type: ontology.ResourceTypeSecret}
+	deviceType      = ontology.ID{Type: ontology.ResourceTypeDevice}
+	certificateType = ontology.ID{Type: ontology.ResourceTypeCertificate}
+	all             = access.AllActions
 )
 
 func createSecret(ctx SpecContext, name, value string) secret.Secret {
@@ -377,6 +378,12 @@ var _ = Describe("Service", func() {
 			})
 			It("Should return the resources that use each secret",
 				func(ctx SpecContext) {
+					allow(
+						ctx,
+						u.OntologyID(),
+						[]access.Action{access.ActionRetrieve},
+						certificateType,
+					)
 					res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u),
 						apisecret.RetrieveRequest{
 							Keys:        []secret.Key{key},
@@ -386,6 +393,18 @@ var _ = Describe("Service", func() {
 					Expect(res.Secrets).To(HaveLen(1))
 					Expect(res.Secrets[0].Base().Uses).
 						To(Equal([]ontology.ID{cert.OntologyID()}))
+				},
+			)
+			It("Should leave out the uses that the caller cannot read",
+				func(ctx SpecContext) {
+					res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u),
+						apisecret.RetrieveRequest{
+							Keys:        []secret.Key{key},
+							IncludeUses: true,
+						},
+					))
+					Expect(res.Secrets).To(HaveLen(1))
+					Expect(res.Secrets[0].Base().Uses).To(Equal([]ontology.ID{}))
 				},
 			)
 			It("Should return empty uses for a secret that nothing uses",
