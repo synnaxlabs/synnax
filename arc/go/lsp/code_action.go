@@ -12,9 +12,12 @@ package lsp
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/codes"
+	"github.com/synnaxlabs/arc/formatter"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	lsp "github.com/synnaxlabs/x/lsp"
@@ -58,7 +61,10 @@ func (s *Server) CodeAction(
 		Tokens:  tokenizeContent(content),
 		IsBlock: isBlock,
 	}
-	var actions []protocol.CommandOrCodeAction
+	var (
+		actions []protocol.CommandOrCodeAction
+		hoist   *protocol.CodeAction
+	)
 	for _, diag := range params.Context.Diagnostics {
 		code, _ := diag.Code.(protocol.String)
 		switch string(code) {
@@ -70,6 +76,14 @@ func (s *Server) CodeAction(
 			if action := deprecatedSymbolQuickFix(ctx, snap, diag); action != nil {
 				actions = append(actions, action)
 			}
+		case string(codes.DeclarationAfterStep):
+			// One hoist covers the document, so every such warning shares it.
+			if hoist == nil {
+				hoist = hoistDeclarationsQuickFix(snap)
+			}
+			if hoist != nil {
+				hoist.Diagnostics = append(hoist.Diagnostics, diag)
+			}
 		}
 		// Missing-import is offered for any diagnostic whose range contains
 		// a leading identifier that names an unimported ambient module.
@@ -79,6 +93,9 @@ func (s *Server) CodeAction(
 		if action := missingImportQuickFix(ctx, snap, diag); action != nil {
 			actions = append(actions, action)
 		}
+	}
+	if hoist != nil {
+		actions = append(actions, hoist)
 	}
 	return actions, nil
 }
@@ -156,6 +173,49 @@ func findAliasAtDiagnostic(
 		return child
 	}
 	return nil
+}
+
+// hoistDeclarationsQuickFix builds the action that applies the formatter's hoists.
+func hoistDeclarationsQuickFix(snap codeActionSnapshot) *protocol.CodeAction {
+	moves := formatter.DeclarationHoists(snap.Content)
+	if len(moves) == 0 {
+		return nil
+	}
+	var edits []protocol.TextEdit
+	inserts := make(map[int]string)
+	for _, m := range moves {
+		edits = append(edits, protocol.TextEdit{Range: lineRange(m.Start, m.End)})
+		inserts[m.Anchor] += linesOf(snap.Content, m.Start, m.End)
+	}
+	for _, anchor := range slices.Sorted(maps.Keys(inserts)) {
+		edits = append(edits, protocol.TextEdit{
+			Range:   lineRange(anchor, anchor),
+			NewText: inserts[anchor],
+		})
+	}
+	return &protocol.CodeAction{
+		Title:       "Move declarations to the top",
+		Kind:        new(protocol.CodeActionKindQuickFix),
+		IsPreferred: new(true),
+		Edit: &protocol.WorkspaceEdit{
+			Changes: map[uri.URI][]protocol.TextEdit{snap.URI: edits},
+		},
+	}
+}
+
+// lineRange spans the whole lines in [startLine, endLine).
+func lineRange(startLine, endLine int) protocol.Range {
+	return protocol.Range{
+		Start: protocol.Position{Line: uint32(startLine)},
+		End:   protocol.Position{Line: uint32(endLine)},
+	}
+}
+
+// linesOf returns the text of the whole lines in [startLine, endLine).
+func linesOf(content string, startLine, endLine int) string {
+	start := lsp.PositionToOffset(content, protocol.Position{Line: uint32(startLine)})
+	end := lsp.PositionToOffset(content, protocol.Position{Line: uint32(endLine)})
+	return content[start:end]
 }
 
 // buildUnusedImportEdit computes the TextEdit that removes the unused

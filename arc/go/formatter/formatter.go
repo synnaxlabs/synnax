@@ -31,6 +31,7 @@ func Format(content string) string {
 	if content == "" {
 		return ""
 	}
+	content = HoistDeclarations(content)
 
 	input := antlr.NewInputStream(content)
 	lexer := parser.NewArcLexer(input)

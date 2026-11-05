@@ -21,6 +21,86 @@ import (
 
 var _ = Describe("Formatter", func() {
 	DescribeTable(
+		"Declaration hoisting",
+		func(input, expected string) {
+			Expect(formatter.HoistDeclarations(input)).To(Equal(expected))
+		},
+		Entry(
+			"keeps leading declarations where they are",
+			"sequence main {\n    a := 1\n    b $= 2\n    stage s {\n        true => next\n    }\n    stage t {\n        wait(1s)\n    }\n}",
+			"sequence main {\n    a := 1\n    b $= 2\n    stage s {\n        true => next\n    }\n    stage t {\n        wait(1s)\n    }\n}",
+		),
+		Entry(
+			"moves one declaration above the first stage",
+			"sequence main {\n    stage s {\n        true => next\n    }\n    a := 1\n    stage t {\n        wait(1s)\n    }\n}",
+			"sequence main {\n    a := 1\n    stage s {\n        true => next\n    }\n    stage t {\n        wait(1s)\n    }\n}",
+		),
+		Entry(
+			"keeps the order of declarations interlaced with steps",
+			"sequence main {\n    stage s {\n        true => next\n    }\n    a := 1\n    stage t {\n        true => next\n    }\n    b := 2\n    stage u {\n        wait(1s)\n    }\n    c $= 3\n}",
+			"sequence main {\n    a := 1\n    b := 2\n    c $= 3\n    stage s {\n        true => next\n    }\n    stage t {\n        true => next\n    }\n    stage u {\n        wait(1s)\n    }\n}",
+		),
+		Entry(
+			"places late declarations after the leading ones",
+			"sequence main {\n    a := 1\n    stage s {\n        true => next\n    }\n    stage t {\n        true => next\n    }\n    b := 2\n    c := 3\n    stage u {\n        wait(1s)\n    }\n}",
+			"sequence main {\n    a := 1\n    b := 2\n    c := 3\n    stage s {\n        true => next\n    }\n    stage t {\n        true => next\n    }\n    stage u {\n        wait(1s)\n    }\n}",
+		),
+		Entry(
+			"treats an assignment as a step",
+			"sequence main {\n    a := 1\n    a = 2\n    b := 3\n    stage s {\n        wait(1s)\n    }\n}",
+			"sequence main {\n    a := 1\n    b := 3\n    a = 2\n    stage s {\n        wait(1s)\n    }\n}",
+		),
+		Entry(
+			"moves a declaration above a flow in a stage",
+			"stage main {\n    wait(1s) -> done\n    x := 1\n    x -> out\n    y := 2\n}",
+			"stage main {\n    x := 1\n    y := 2\n    wait(1s) -> done\n    x -> out\n}",
+		),
+		Entry(
+			"hoists inside a nested sequence without leaving it",
+			"sequence main {\n    sequence inner {\n        stage s {\n            true => next\n        }\n        a := 1\n        stage t {\n            wait(1s)\n        }\n    }\n    stage u {\n        wait(1s)\n    }\n}",
+			"sequence main {\n    sequence inner {\n        a := 1\n        stage s {\n            true => next\n        }\n        stage t {\n            wait(1s)\n        }\n    }\n    stage u {\n        wait(1s)\n    }\n}",
+		),
+		Entry(
+			"hoists an outer declaration past a nested sequence that also hoists",
+			"sequence main {\n    sequence inner {\n        stage s {\n            true => next\n        }\n        a := 1\n        stage t {\n            wait(1s)\n        }\n    }\n    b := 2\n    stage u {\n        wait(1s)\n    }\n}",
+			"sequence main {\n    b := 2\n    sequence inner {\n        a := 1\n        stage s {\n            true => next\n        }\n        stage t {\n            wait(1s)\n        }\n    }\n    stage u {\n        wait(1s)\n    }\n}",
+		),
+		Entry(
+			"hoists in a stage nested in a sequence and in the sequence itself",
+			"sequence main {\n    stage s {\n        wait(1s) -> done\n        x := 1\n    }\n    a := 1\n    stage t {\n        wait(1s)\n    }\n}",
+			"sequence main {\n    a := 1\n    stage s {\n        x := 1\n        wait(1s) -> done\n    }\n    stage t {\n        wait(1s)\n    }\n}",
+		),
+		Entry(
+			"moves a trailing comment with its declaration",
+			"sequence main {\n    stage s {\n        true => next\n    }\n    a := 1 // start\n    stage t {\n        wait(1s)\n    }\n}",
+			"sequence main {\n    a := 1 // start\n    stage s {\n        true => next\n    }\n    stage t {\n        wait(1s)\n    }\n}",
+		),
+		Entry(
+			"leaves top-level declarations alone",
+			"stage main {\n    wait(1s)\n}\ntrue => main\na := 1",
+			"stage main {\n    wait(1s)\n}\ntrue => main\na := 1",
+		),
+		Entry(
+			"leaves content that does not parse alone",
+			"sequence main {\n    stage s {\n    a := 1",
+			"sequence main {\n    stage s {\n    a := 1",
+		),
+	)
+
+	It("hoists once and then holds", func() {
+		input := "sequence main {\n    stage s {\n        true => next\n    }\n    a := 1\n    stage t {\n        true => next\n    }\n    b := 2\n    stage u {\n        wait(1s)\n    }\n}"
+		once := formatter.HoistDeclarations(input)
+		Expect(formatter.HoistDeclarations(once)).To(Equal(once))
+	})
+
+	It("hoists as part of Format", func() {
+		input := "sequence main {\nstage s {\ntrue => next\n}\na:=1\nstage t {\nwait(1s)\n}\n}\n"
+		Expect(formatter.Format(input)).To(Equal(
+			"sequence main {\n    a := 1\n    stage s {\n        true => next\n    }\n    stage t {\n        wait(1s)\n    }\n}\n",
+		))
+	})
+
+	DescribeTable(
 		"Binary Operators",
 		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))

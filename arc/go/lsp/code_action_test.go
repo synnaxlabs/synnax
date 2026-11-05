@@ -10,11 +10,14 @@
 package lsp_test
 
 import (
+	"slices"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/lsp"
 	. "github.com/synnaxlabs/arc/lsp/testutil"
+	xlsp "github.com/synnaxlabs/x/lsp"
 	. "github.com/synnaxlabs/x/lsp/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"go.lsp.dev/protocol"
@@ -50,6 +53,85 @@ var _ = Describe("CodeAction", func() {
 			Context:      protocol.CodeActionContext{Diagnostics: diags},
 		}
 	}
+
+	Describe("Hoist declaration quick fix", func() {
+		// applyEdits applies edits from the last position backwards, so each
+		// earlier offset stays valid.
+		applyEdits := func(content string, edits []protocol.TextEdit) string {
+			sorted := slices.Clone(edits)
+			slices.SortFunc(sorted, func(a, b protocol.TextEdit) int {
+				if a.Range.Start.Line != b.Range.Start.Line {
+					return int(b.Range.Start.Line) - int(a.Range.Start.Line)
+				}
+				return int(b.Range.Start.Character) - int(a.Range.Start.Character)
+			})
+			for _, e := range sorted {
+				content = xlsp.ApplyIncrementalChange(
+					content,
+					&protocol.TextDocumentContentChangePartial{
+						Range: e.Range,
+						Text:  e.NewText,
+					},
+				)
+			}
+			return content
+		}
+
+		It("should move every late declaration with one action", func(ctx SpecContext) {
+			content := "import time\n\n" +
+				"sequence main {\n" +
+				"    base := 1\n" +
+				"    stage a {\n" +
+				"        true => next\n" +
+				"    }\n" +
+				"    t0 := time.now()\n" +
+				"    stage b {\n" +
+				"        time.wait(1s)\n" +
+				"        n := 2\n" +
+				"        true => next\n" +
+				"    }\n" +
+				"    count $= 0\n" +
+				"    stage c {\n" +
+				"        time.wait(1s)\n" +
+				"    }\n" +
+				"}\n\n" +
+				"true => main\n"
+			OpenArcDocument(server, ctx, uri, content)
+			diags := client.Diagnostics()
+			Expect(diags).To(HaveLen(3))
+			for _, d := range diags {
+				Expect(DiagnosticCode(d)).To(Equal(string(codes.DeclarationAfterStep)))
+			}
+			actions := asCodeActions(
+				MustSucceed(server.CodeAction(ctx, codeActionParams(diags))),
+			)
+			Expect(actions).To(HaveLen(1))
+			action := actions[0]
+			Expect(action.Title).To(Equal("Move declarations to the top"))
+			Expect(action.Kind).To(HaveValue(Equal(protocol.CodeActionKindQuickFix)))
+			Expect(action.Diagnostics).To(ConsistOf(diags))
+			Expect(applyEdits(content, action.Edit.Changes[uri])).To(Equal(
+				"import time\n\n" +
+					"sequence main {\n" +
+					"    base := 1\n" +
+					"    t0 := time.now()\n" +
+					"    count $= 0\n" +
+					"    stage a {\n" +
+					"        true => next\n" +
+					"    }\n" +
+					"    stage b {\n" +
+					"        n := 2\n" +
+					"        time.wait(1s)\n" +
+					"        true => next\n" +
+					"    }\n" +
+					"    stage c {\n" +
+					"        time.wait(1s)\n" +
+					"    }\n" +
+					"}\n\n" +
+					"true => main\n",
+			))
+		})
+	})
 
 	Describe("Unused import quick fix", func() {
 		It(
