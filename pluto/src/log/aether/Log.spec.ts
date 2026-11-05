@@ -728,7 +728,7 @@ describe("log/aether/Log", () => {
       expect(pause(0).loadNewerCalls).toBeGreaterThan(0);
     });
 
-    it("should not read newer entries while the view is far from the newest", () => {
+    it("should not read newer entries after the view moves far from the newest", () => {
       expect(pause(20_000).loadNewerCalls).toBe(1);
     });
 
