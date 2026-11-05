@@ -1,0 +1,37 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+/* Puts the search glyph on the title icon, so the term starts where the title text
+   did. */
+.console-tree-search__field {
+    margin-left: -1rem;
+
+    & input {
+        padding-left: round(1.75rem, 1px);
+    }
+}
+
+.console-tree-search__message {
+    padding: 3rem 2rem;
+}
+
+.console-tree-search__more {
+    padding: 1rem 2rem;
+}
+
+.console-tree--hidden {
+    display: none;
+}
+
+.console-tree-item__group {
+    min-width: 0;
+    max-width: 50%;
+}

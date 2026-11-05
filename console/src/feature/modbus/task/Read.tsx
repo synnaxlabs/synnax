@@ -47,7 +47,7 @@ import {
   type TypedReadChannel,
   UNSUPPORTED_READ_DATA_TYPES,
 } from "@/feature/modbus/task/types";
-import { Selector } from "@/platform/selector";
+import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const path = deep.path<Task.Values<ReadSchemas>>();
@@ -55,7 +55,7 @@ const path = deep.path<Task.Values<ReadSchemas>>();
 const Properties = () => (
   <>
     <SelectDevice />
-    <Flex.Box x grow>
+    <Flex.Box x grow wrap>
       <Task.Fields.SampleRate />
       <Task.Fields.StreamRate />
     </Flex.Box>
@@ -65,8 +65,12 @@ const Properties = () => (
 const COLUMNS: List.Column[] = [
   { name: "Type", width: "30rem", field: true },
   { name: "Address", width: "24rem", field: true },
-  { name: "Data type", width: "32rem", field: true },
-  { name: "Byte order", width: "27rem", field: true },
+  { name: "Data type", width: "26rem", field: true },
+  {
+    name: "Byte order",
+    width: "var(--console-modbus-byte-order-width, 27rem)",
+    field: true,
+  },
 ];
 
 const ChannelListItem = ({ itemKey, ...rest }: Task.ChannelListItemProps) => {
@@ -254,9 +258,10 @@ export const useCreateRead = Task.createUseCreate({
   deviceMake: MAKE,
 });
 
-export const ReadSelectable = Selector.createSelectable({
+export const ReadSelectable: Selector.Selectable = {
   type: READ_TYPE,
   title: "Modbus read task",
+  label: "Read",
   icon: <Icon.Logo.Modbus />,
   useOnSelect: useCreateRead,
-});
+};

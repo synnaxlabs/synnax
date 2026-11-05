@@ -54,6 +54,10 @@ import {
 export const uniqueName = (prefix: string = "test"): string =>
   `${prefix}_${id.create().replace(/-/g, "_")}`;
 
+/** Generates a unique search term that the Core search keeps as one word. */
+export const uniqueToken = (): string =>
+  `tok${id.create().replace(/[^a-zA-Z0-9]/g, "")}`;
+
 /**
  * Creates a UUID whose last six bytes repeat the given hex nibble. Gorp lists
  * UUID-keyed records ordered by the trailing bytes of the key, so a key ending in zeros

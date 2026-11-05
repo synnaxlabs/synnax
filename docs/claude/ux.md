@@ -86,6 +86,17 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
 - An icon-only button has a tooltip that names the action in a word ("Close"), then
   shows its keys.
 
+### Toolbar search
+
+- A search action in a resource toolbar header turns the title into a field. The search
+  glyph sits where the title icon was, and the term starts at the title text.
+- While the field is open, the header holds a toggle that shows the results in their
+  groups, and a close button. Esc or the close button ends the search, and the tree
+  comes back as it was.
+- In the flat layout, each match shows the name of its group at gray step 8. The start
+  of each word that the term matches takes the primary color.
+- At most 100 matches show. A closing line says when more exist.
+
 ### Keycaps
 
 - Tooltips and buttons show a shortcut as one chip: 18 px tall, a faint fill, a faint
@@ -142,8 +153,18 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
   a number or a duration. Wide later fields squeeze the first control.
 - A number or a duration field is 144 px (24 rem) wide wherever it sits. A form can set
   another width when its values need one.
+- A row of three fits the dialog with no overflow into its padding, so its labels are
+  short ("Channel lifetime", not "Secure channel lifetime").
+- Two text fields on one line, such as a username and a password, are equally wide. The
+  second sits in the control of the first, not in the later field columns. An empty
+  field shows what empty means: "Anonymous" for the username, "None" for the password.
 - A dialog shows its settings in sections, not tabs, while they fit with no scroll. The
   Modbus connect dialog has no tabs.
+- A section holds a whole topic, so a short topic joins its neighbor: the OPC UA login
+  sits in Connection, and its certificates sit in Security. An action that fills a field
+  sits beside that field ("Find endpoints" beside Mode), not on a line of its own.
+- A value in a dialog field, such as a thumbprint, sits on one line with its actions as
+  icon buttons at the end. Each icon button has a tooltip that names it.
 - A field in a row, or beside another field, has no help text. Its control shows the
   error, and the message shows on hover. A control with a border gets a red border. A
   control with no border, such as a text select or a button group, gets red text.
@@ -186,6 +207,8 @@ bound, a log precision, or the line plot X channel.
   the way to enable the channel again.
 - A new task takes the only device of its make. With two or more, the device stays
   empty.
+- A task form is at most 1000 px wide. A task whose channel table needs more room sets
+  `--console-task-form-max-width`. Modbus uses 1200 px.
 - Port banks sit side by side in columns eight ports wide, each under its title. They
   wrap to one column in a narrow pane.
 - A port field that lists an accessory's ports, such as the 80 that a Mux80 adds to a
@@ -210,6 +233,24 @@ bound, a log precision, or the line plot X channel.
   confirmations, errors, and tooltips.
 - A number never clips, because a clipped number reads as a different valid number.
 - A flex child that holds cut text needs `min-width: 0`.
+
+### Pickers
+
+- A card that creates something shows the item's own icon in a large icon tile, then its
+  name and a short description. Never draw a custom illustration or a preview of the
+  result: line art and colored drawings were both rejected.
+- A card is a Lyra `card` button, alone or in `Select.Buttons`. It rests halfway between
+  gray steps 1 and 2, hovers halfway between steps 2 and 3, and presses to step 3. It
+  has a gray step 6 border and the medium radius. Its icon tile has fill step 3 and
+  border step 5, so the tile stands out from the card. An outlined button's fill is too
+  strong for a card, and its tiny radius too sharp.
+- The header is a quiet title (h4, gray step 10, weight 450) over a huge borderless
+  search across the content width, with a gray step 8 search icon and a gray step 6
+  hairline under it. The hairline takes the primary color while the search has focus,
+  because a picker that is not a dialog loses focus, and typed keys then go elsewhere.
+- A search disables each item that does not match it and leaves it in place, so the
+  layout does not move. The arrow keys and the pointer move one highlight, and Enter
+  picks the highlighted item.
 
 ### Menus and selects
 
@@ -243,6 +284,28 @@ bound, a log precision, or the line plot X channel.
 - A heading over a field lines up with the field's text, not its box.
 - A record table that does not fit its pane scrolls sideways, and the headings scroll
   with it. Fields never shrink to fit: a cut value can read as another value.
+- A field whose glyph shows its value, such as the Modbus byte order, drops its name
+  when the form is below its maximum width. Its menu still names each option.
+- A task channel's icon shows its state, in place of the flow arrow in a record table:
+  the arrow for a channel that exists, a green `Icon.New` for one that deploying will
+  create, and an amber `Icon.None` for one that is missing, with its name in gray. The
+  two state circles look the same size: the tinted `Icon.New` disc is drawn a little
+  wider than the dashed ring, because a faint fill looks smaller. Each state but the
+  first has a tooltip that says what deploying does, below the name at its left edge.
+  The name never takes a state color.
+- A channel that deploying will create shows the name deploying gives it, from the
+  function that deploy uses. "No channel" in gray is only for a channel whose name
+  cannot be known yet.
+- A channel that deploying skips, such as a disabled one, shows no `Icon.New`. In a
+  list, its tooltip says that deploying skips it.
+- A missing channel shows the name deploying will use, and a rename edits that name. Its
+  data type unlocks too, because deploying creates a new channel.
+- A channel that the form picks, as in Kafka write, is never new. It reads "No channel"
+  before a pick and "Channel not found" after its channel is deleted.
+- A channel name input shows the same state icons at its start. An item in a group tree
+  shows them at its end, before its switch, so the pointers keep one left edge. Neither
+  shows an icon or a tooltip for a skipped channel: the tree strikes through the item or
+  its group.
 
 ### Table input
 

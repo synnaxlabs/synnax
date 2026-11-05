@@ -337,7 +337,7 @@ var _ = Describe("View", func() {
 				Expect(
 					svc.NewRetrieve().Search("View A").Entries(&resViews).Exec(ctx, db),
 				).To(Succeed())
-				Expect(len(resViews)).To(BeNumerically(">", 1))
+				Expect(resViews).To(HaveLen(1))
 				Expect(resViews[0].GorpKey()).To(Equal(views[0].GorpKey()))
 			})
 		})

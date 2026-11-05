@@ -37,10 +37,13 @@ import {
 } from "@/feature/ni/task/types";
 import { useChannelDevice } from "@/feature/ni/task/usePort";
 import { Device as PlatformDevice } from "@/platform/device";
-import { Selector } from "@/platform/selector";
+import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const root = deep.path<Task.Values<AnalogReadSchemas>>();
+
+// Each device has its own ports.
+const portOf = (c: AIChannel): string => `${c.device}/${getAIChannelDeviceKey(c)}`;
 
 const Properties = () => (
   <>
@@ -68,6 +71,7 @@ const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
   const isRunning = Task.useIsRunning();
   const hasTareButton = channel !== 0 && !isSnapshot;
   const canTare = !disabled && isRunning;
+  const skipped = Task.useSkipped(root.config.channels, rest.itemKey, portOf);
   const Icon = AI_CHANNEL_TYPE_ICONS[type];
   return (
     <Task.Views.ListAndDetailsChannelItem
@@ -79,6 +83,7 @@ const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
       hasTareButton={hasTareButton}
       channel={channel}
       defaultName={device == null ? undefined : ANALOG_INPUT.name(value, device)}
+      skipped={skipped}
       icon={{ icon: <Icon />, name: AI_CHANNEL_TYPE_NAMES[type] }}
       portMaxChars={2}
     />
@@ -100,6 +105,7 @@ const DetailsTitle = ({ path }: Task.Views.DetailsProps<AIChannel>) => {
   const Icon = AI_CHANNEL_TYPE_ICONS[value.type];
   const port = channelPort(value);
   const own = channels.filter((c) => c.device === value.device);
+  const skipped = Task.useSkipped(root.config.channels, value.key, portOf);
   return (
     <Title
       port={
@@ -115,6 +121,7 @@ const DetailsTitle = ({ path }: Task.Views.DetailsProps<AIChannel>) => {
       channel={value.channel}
       namePath={path.name}
       defaultName={device == null ? undefined : ANALOG_INPUT.name(value, device)}
+      skipped={skipped}
       model={device?.model}
     />
   );
@@ -237,13 +244,9 @@ const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
         dev.properties.analogInput.channels = {};
       }
       const toCreate: AIChannel[] = [];
-      // Channels on one port share its data channel, named by an enabled one if any.
-      const seen = new Set<string>();
-      for (const channel of Task.enabledFirst(config.channels)) {
+      for (const channel of Task.firstPerPort(config.channels, portOf)) {
         if (channel.device !== dev.key) continue;
         const key = getAIChannelDeviceKey(channel);
-        if (seen.has(key)) continue;
-        seen.add(key);
         const exKey = dev.properties.analogInput.channels[key];
         if (primitive.isZero(exKey)) toCreate.push(channel);
         else
@@ -294,9 +297,10 @@ export const useCreateAnalogRead = Task.createUseCreate({
   deviceMake: MAKE,
 });
 
-export const AnalogReadSelectable = Selector.createSelectable({
+export const AnalogReadSelectable: Selector.Selectable = {
   type: ANALOG_READ_TYPE,
   title: "NI analog read task",
+  label: "Analog read",
   icon: <Icon.Logo.NI />,
   useOnSelect: useCreateAnalogRead,
-});
+};

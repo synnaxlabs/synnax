@@ -55,19 +55,14 @@ type unionData struct {
 	// NeedsValidate reports that at least one variant carries a Validate method, so the
 	// wrapper emits one that dispatches on the active variant.
 	NeedsValidate bool
-	// Bases are the methods that return a base of the active variant.
-	Bases []unionBaseData
+	// Base is the struct every variant embeds (e.g. "BaseAIChannel"), set only when
+	// resolver.SharedBase finds one. The wrapper then emits Base and SetBase.
+	Base string
+	// BaseField is the selector of Base's embedded field in each variant.
+	BaseField string
 	// TagMethod is the method that returns the tag of the active variant, or empty
 	// when the union has none.
 	TagMethod string
-}
-
-// unionBaseData is the template view of a base that every variant of a union holds.
-type unionBaseData struct {
-	// Method is the method name, which is also the base's field on each variant.
-	Method string
-	// Type is the rendered Go type of the base.
-	Type string
 }
 
 // unionVariantData is the template view of one variant of a discriminated union.
@@ -168,31 +163,26 @@ func processUnion(entry resolution.Type, data *templateData) (unionData, error) 
 		return out
 	}
 	baseEmbeds := embedBases(form.Extends)
-	for _, b := range naming.UnionBases(form, data.table) {
-		ud.Bases = append(ud.Bases, unionBaseData{
-			Method: b.Method,
-			Type:   resolveExtendsType(b.Ref, b.Type, data),
-		})
+	if base, ok := resolver.SharedBase(form, "go", data.table); ok {
+		parent, resolved := base.Resolve(data.table)
+		if !resolved {
+			panic(fmt.Sprintf("union %s extends unresolved base %s", name, base.Name))
+		}
+		ud.Base = resolveExtendsType(base, parent, data)
+		ud.BaseField = embedFieldName(ud.Base)
 	}
 	if method, ok := naming.UnionTagMethod(form); ok {
 		ud.TagMethod = method
 	}
-	// The getters share a method set with the methods that every union declares.
+	// The tag getter shares a method set with the methods that every union declares.
 	methods := set.New(
 		"MarshalJSONTo",
 		"UnmarshalJSONFrom",
 		"ApplyDefaults",
 		"Validate",
 	)
-	for _, b := range ud.Bases {
-		if methods.Contains(b.Method) {
-			return unionData{}, errors.Newf(
-				"%s: the getter for the base %s has the name of another union method; "+
-					"rename the base",
-				entry.QualifiedName, b.Method,
-			)
-		}
-		methods.Add(b.Method)
+	if ud.Base != "" {
+		methods.Add("Base", "SetBase")
 	}
 	if methods.Contains(ud.TagMethod) {
 		return unionData{}, errors.Newf(

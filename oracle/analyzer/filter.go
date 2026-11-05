@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/diagnostics"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/pluralize"
 	"github.com/synnaxlabs/x/set"
 )
@@ -233,9 +232,9 @@ func expandFilter(c *analysisCtx, typ resolution.Type) resolution.Type {
 	if declared.Namespace != typ.Namespace {
 		return report("the target %s must be declared in the same schema")
 	}
-	target, fields, err := filterTarget(filter.Target, c.table)
-	if err != nil {
-		return report("the target %s " + err.Error())
+	target, fields, ok := filterTarget(filter.Target, c.table)
+	if !ok {
+		return report("the target %s must be a struct or a union")
 	}
 	hasBare := lo.SomeBy(filter.Lines, func(l resolution.Field) bool {
 		return !l.HasType()
@@ -274,28 +273,17 @@ func expandFilter(c *analysisCtx, typ resolution.Type) resolution.Type {
 	return typ
 }
 
-var (
-	errTargetNotRecord = errors.New("must be a struct or a union")
-	errTargetCircular  = errors.New("has circular inheritance")
-)
-
 // filterTarget dealiases a filter's target and returns it with the fields its records
 // hold.
 func filterTarget(
 	ref resolution.TypeRef, table *resolution.Table,
-) (resolution.Type, []resolution.Field, error) {
+) (resolution.Type, []resolution.Field, bool) {
 	target, _, ok := resolution.Dealias(ref, table)
 	if !ok {
-		return resolution.Type{}, nil, errTargetNotRecord
-	}
-	if hasCircularInheritance(target, table, make(set.Set[string])) {
-		return resolution.Type{}, nil, errTargetCircular
+		return resolution.Type{}, nil, false
 	}
 	fields, ok := resolution.RecordFields(target, table)
-	if !ok {
-		return resolution.Type{}, nil, errTargetNotRecord
-	}
-	return target, fields, nil
+	return target, fields, ok
 }
 
 // bareLineOperator returns the operator type a bare line expands to, chosen by the type
@@ -442,8 +430,8 @@ func synthesizeRetrieveTypes(c *analysisCtx) {
 		))
 		return
 	}
-	target, fields, err := filterTarget(where.Filter.Target, c.table)
-	if err != nil {
+	target, fields, ok := filterTarget(where.Filter.Target, c.table)
+	if !ok {
 		return
 	}
 	plural := casing.TypeSnake(pluralize.String(target.Name))

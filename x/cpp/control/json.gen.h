@@ -30,7 +30,7 @@ inline Subject Subject::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Subject::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["key"] = this->key;
     j["name"] = this->name;
     j["group"] = this->group;
@@ -48,7 +48,7 @@ State<R> State<R>::parse(x::json::Parser parser) {
 
 template<typename R>
 x::json::json State<R>::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["subject"] = this->subject.to_json();
     j["resource"] = x::json::to_json(this->resource);
     j["authority"] = this->authority;
@@ -65,7 +65,7 @@ Transfer<R> Transfer<R>::parse(x::json::Parser parser) {
 
 template<typename R>
 x::json::json Transfer<R>::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     if (this->from.has_value()) j["from"] = this->from->to_json();
     if (this->to.has_value()) j["to"] = this->to->to_json();
     return j;
@@ -83,7 +83,7 @@ Update<R> Update<R>::parse(x::json::Parser parser) {
 
 template<typename R>
 x::json::json Update<R>::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["transfers"] = x::json::to_array(this->transfers);
     return j;
 }

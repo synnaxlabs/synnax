@@ -30,7 +30,7 @@ inline Node Node::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Node::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["key"] = this->key;
     j["position"] = this->position.to_json();
     return j;
@@ -44,7 +44,7 @@ inline Edge Edge::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Edge::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     for (auto &[k, v]: ::arc::ir::Edge::to_json().items())
         j[k] = v;
     j["key"] = this->key;
@@ -64,7 +64,7 @@ inline Graph Graph::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Graph::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["functions"] = this->functions.to_json();
     j["edges"] = this->edges.to_json();
     j["nodes"] = this->nodes.to_json();

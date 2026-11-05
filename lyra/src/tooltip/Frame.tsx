@@ -27,8 +27,11 @@ import { getRootElement } from "@/util/rootElement";
 export interface FrameProps {
   /** The element the frame sits beside. */
   anchor: HTMLElement;
-  /** The preferred location relative to the anchor. Chosen by position when unset. */
-  location?: position.Location;
+  /**
+   * The anchor's corner to open at, or both the anchor's and the frame's corners.
+   * Chosen by position when unset.
+   */
+  location?: position.LocationPreference;
   id?: string;
   className?: string;
   /** Called when the anchor leaves the document or collapses to zero area. */
