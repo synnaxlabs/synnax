@@ -14,10 +14,11 @@ terraform {
   required_version = ">= 1.10"
   # Created by the config in state/.
   backend "s3" {
-    bucket       = "synnax-preview-terraform-004704223095"
-    key          = "preview/terraform.tfstate"
-    region       = "us-east-1"
-    encrypt      = true
+    bucket = "synnax-preview-terraform-004704223095"
+    key    = "preview/terraform.tfstate"
+    region = "us-east-1"
+    # The bucket encrypts with its KMS key. encrypt = true would ask for AES256.
+    encrypt      = false
     use_lockfile = true
   }
   required_providers {
