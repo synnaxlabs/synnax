@@ -208,7 +208,11 @@ const (
 // CJC is the cold-junction compensation for a thermocouple. The source selects where
 // the reference temperature comes from.
 type CJC = v3.CJC
+
+// CJCVariant is implemented by every CJC variant.
 type CJCVariant = v3.CJCVariant
+
+// CJCType is the "source" value that selects a variant of CJC.
 type CJCType = v3.CJCType
 
 const (
@@ -256,7 +260,11 @@ const (
 
 // Scale determines how raw sensor values are transformed to engineering units.
 type Scale = v3.Scale
+
+// ScaleVariant is implemented by every Scale variant.
 type ScaleVariant = v3.ScaleVariant
+
+// ScaleType is the "type" value that selects a variant of Scale.
 type ScaleType = v3.ScaleType
 
 const (
@@ -327,7 +335,11 @@ type BaseAIChannel = v3.BaseAIChannel
 // AIChannel is a single NI analog input channel. The type field selects the measurement
 // mode and the fields that accompany it.
 type AIChannel = v3.AIChannel
+
+// AIChannelVariant is implemented by every AIChannel variant.
 type AIChannelVariant = v3.AIChannelVariant
+
+// AIChannelType is the "type" value that selects a variant of AIChannel.
 type AIChannelType = v3.AIChannelType
 
 const (
@@ -605,7 +617,11 @@ type BaseCIChannel = v3.BaseCIChannel
 // CIChannel is a single NI counter input channel. The type field selects the
 // measurement mode and the fields that accompany it.
 type CIChannel = v3.CIChannel
+
+// CIChannelVariant is implemented by every CIChannel variant.
 type CIChannelVariant = v3.CIChannelVariant
+
+// CIChannelType is the "type" value that selects a variant of CIChannel.
 type CIChannelType = v3.CIChannelType
 
 const (
@@ -682,7 +698,11 @@ type BaseAOChannel = v3.BaseAOChannel
 // AOChannel is a single NI analog output channel. The type field selects the output
 // mode and the fields that accompany it.
 type AOChannel = v3.AOChannel
+
+// AOChannelVariant is implemented by every AOChannel variant.
 type AOChannelVariant = v3.AOChannelVariant
+
+// AOChannelType is the "type" value that selects a variant of AOChannel.
 type AOChannelType = v3.AOChannelType
 
 const (

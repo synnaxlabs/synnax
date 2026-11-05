@@ -283,13 +283,17 @@ type BaseWriteField struct {
 	Pointer string `json:"pointer" msgpack:"pointer"`
 }
 
+// WriteFieldType is the "type" value that selects a variant of WriteField.
 type WriteFieldType string
 
 const (
-	StaticWriteFieldType    WriteFieldType = "static"
+	// StaticWriteFieldType places a fixed value in the request body.
+	StaticWriteFieldType WriteFieldType = "static"
+	// GeneratedWriteFieldType places a freshly generated UUID or timestamp in the body.
 	GeneratedWriteFieldType WriteFieldType = "generated"
 )
 
+// WriteFieldVariant is implemented by every WriteField variant.
 type WriteFieldVariant interface {
 	isWriteFieldVariant()
 }
@@ -411,7 +415,11 @@ func (u *WriteField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.GeneratedWriteField
 	default:
-		return errors.Newf("WriteField: unknown type %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"WriteField: unknown type %q",
+			disc.Type,
+		)
 	}
 	return nil
 }
