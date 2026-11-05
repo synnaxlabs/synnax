@@ -9,7 +9,7 @@
 
 import { type project, table } from "@synnaxlabs/client";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
-import { compare, grid, id, uuid, verbs, type xy } from "@synnaxlabs/x";
+import { compare, grid, id, verbs, type xy } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
 import { Cell } from "@/table/cells";
@@ -106,7 +106,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
 });
 
 export interface CreateParams extends table.New {
-  project?: project.Key;
+  project: project.Key;
 }
 
 const createDefaultLayout = (): Pick<table.New, "rows" | "columns" | "cells"> => {
@@ -126,7 +126,7 @@ const { useUpdate: useCreateBase } = Flux.createUpdate<CreateParams, table.Table
   name: RESOURCE_NAME,
   verbs: verbs.CREATE,
   update: async ({ client, data, onOptimisticComplete }) =>
-    await client.tables.create(data.project ?? uuid.ZERO, data, {
+    await client.tables.create(data.project, data, {
       onOptimistic: async ([optimistic]) => await onOptimisticComplete(optimistic),
     }),
 });

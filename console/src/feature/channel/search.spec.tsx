@@ -13,7 +13,6 @@ import {
   lineplot,
   log,
   type ontology,
-  project,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
@@ -92,7 +91,7 @@ describe("channel/search", () => {
     const tabKey = uuid.create();
     const pan = await client.panels.create({
       name: uniqueName("panel"),
-      parent: project.resourceID(proj.key),
+      project: proj.key,
       root: {
         variant: "leaf",
         tabs: [
@@ -152,7 +151,7 @@ describe("channel/search", () => {
     const tabKey = uuid.create();
     const pan = await client.panels.create({
       name: uniqueName("panel"),
-      parent: project.resourceID(proj.key),
+      project: proj.key,
       root: {
         variant: "leaf",
         tabs: [{ variant: "resource", key: tabKey, resource: log.resourceID(doc.key) }],

@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { panel, project, query, type resource } from "@synnaxlabs/client";
-import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
+import { panel, type project, query } from "@synnaxlabs/client";
+import { createPanelProject, createTestClient } from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
 import { uuid } from "@synnaxlabs/x";
 import { act, waitFor } from "@testing-library/react";
@@ -25,13 +25,13 @@ import {
 
 const client = createTestClient();
 
-// Panel creation requires a parent; panels whose project is irrelevant to the
+// Panel creation requires a project; panels whose project is irrelevant to the
 // test at hand share this one.
-let defaultParent: resource.ID;
+let defaultProject: project.Key;
 
 beforeAll(async () => {
   await client.connect();
-  defaultParent = await createPanelParent(client);
+  defaultProject = await createPanelProject(client);
 });
 
 const leaf = (...tabKeys: string[]): panel.Node => ({
@@ -42,7 +42,7 @@ const leaf = (...tabKeys: string[]): panel.Node => ({
 const createPanel = async (key: panel.Key, root: panel.Node): Promise<panel.Panel> =>
   await client.panels.create({
     ...panel.panelZ.parse({ key, name: uniqueName("panel"), root }),
-    parent: defaultParent,
+    project: defaultProject,
   });
 
 const selectTab = (store: TestStore, key: panel.Key, tabKey: panel.TabKey): void =>
@@ -183,7 +183,7 @@ const createProjectPanel = async (
   await client.panels.create({
     key,
     name,
-    parent: project.resourceID(projectKey),
+    project: projectKey,
     root: leaf(uuid.create()),
   });
 
@@ -271,8 +271,8 @@ describe("reconcile panel order and selection", () => {
       await client.panels.delete(pan.key);
       // The racing repair retrieve resolves after the delete; give every
       // in-flight repair a full round-trip to land before judging.
-      await client.panels.retrieve({ parent: project.resourceID(proj.key) });
-      await client.panels.retrieve({ parent: project.resourceID(proj.key) });
+      await client.panels.retrieve({ projects: [proj.key] });
+      await client.panels.retrieve({ projects: [proj.key] });
     });
     await waitFor(() => {
       expect(violations).toEqual([]);

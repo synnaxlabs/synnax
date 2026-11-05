@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type project, query, type resource, schematic } from "@synnaxlabs/client";
-import { array, compare, uuid, verbs } from "@synnaxlabs/x";
+import { type project, query, type ranger, schematic } from "@synnaxlabs/client";
+import { array, compare, verbs } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
 import { Edge } from "@/schematic/edge";
@@ -18,6 +18,7 @@ import { Scope } from "@/schematic/scope";
 import { Synnax } from "@/synnax";
 
 const RESOURCE_NAME = "schematic";
+const PLURAL_RESOURCE_NAME = "schematics";
 
 export type RetrieveQuery = schematic.RetrieveSingleParams;
 
@@ -31,6 +32,17 @@ export const { use, useEnsure, useTombstone, createSelector } = Flux.createRetri
   onChange: ({ client, query }, handler) => client.schematics.onChange(query, handler),
   getCached: ({ client, query }) => client.schematics.getCached(query),
   awaitCreation: true,
+});
+
+export type ListQuery = schematic.RetrieveMultipleParams;
+
+export const useList = Flux.createList<ListQuery, schematic.Key, schematic.Schematic>({
+  name: PLURAL_RESOURCE_NAME,
+  retrieve: async ({ client, query }) => await client.schematics.retrieve(query),
+  retrieveByKey: async ({ client, key }) => await client.schematics.retrieve(key),
+  onChange: ({ client, query }, handler) => client.schematics.onChange(query, handler),
+  onChangeByKey: ({ client, key }, handler) => client.schematics.onChange(key, handler),
+  getCached: ({ client, query }) => client.schematics.getCached(query),
 });
 
 export interface KeyParams {
@@ -137,7 +149,7 @@ export const { useUpdate: useCopy } = Flux.createUpdate<
 });
 
 export interface UseCreateParams extends schematic.New {
-  project?: project.Key;
+  project: project.Key;
 }
 
 export const { useUpdate: useCreate } = Flux.createUpdate<
@@ -147,7 +159,7 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
   name: RESOURCE_NAME,
   verbs: verbs.CREATE,
   update: async ({ client, data, onOptimisticComplete }) =>
-    await client.schematics.create(data.project ?? uuid.ZERO, data, {
+    await client.schematics.create(data.project, data, {
       onOptimistic: async ([optimistic]) => await onOptimisticComplete(optimistic),
     }),
 });
@@ -156,25 +168,25 @@ export interface SnapshotPair extends Pick<schematic.Schematic, "key" | "name"> 
 
 export interface SnapshotParams {
   schematics: SnapshotPair | SnapshotPair[];
-  parentID: resource.ID;
+  range: ranger.Key;
 }
 
 export const { useUpdate: useSnapshot } = Flux.createUpdate<SnapshotParams>({
   name: RESOURCE_NAME,
   verbs: verbs.SNAPSHOT,
   update: async ({ client, data }) => {
-    const { schematics, parentID } = data;
-    const ids = await Promise.all(
-      array.toArray(schematics).map(async (s) => {
-        const newSchematic = await client.schematics.copy({
-          key: s.key,
-          name: `${s.name} (Snapshot)`,
-          snapshot: true,
-        });
-        return schematic.resourceID(newSchematic.key);
-      }),
+    const { schematics, range } = data;
+    await Promise.all(
+      array.toArray(schematics).map(
+        async (s) =>
+          await client.schematics.copy({
+            key: s.key,
+            name: `${s.name} (Snapshot)`,
+            snapshot: true,
+            range,
+          }),
+      ),
     );
-    await client.ontology.addChildren(parentID, ...ids);
     return data;
   },
 });

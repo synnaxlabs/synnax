@@ -50,7 +50,7 @@ const createProjectWithPanel = async (): Promise<{
         },
       ],
     },
-    parent: project.resourceID(proj.key),
+    project: proj.key,
   });
   return { proj, logName };
 };
@@ -134,8 +134,9 @@ describe("Project Commands", () => {
       parents: [project.resourceID(imported)],
     });
     expect(groups.map(({ name }) => name)).toEqual(["Propulsion"]);
-    const logs = await client.logs.retrieve({ groups: [groups[0].key] });
+    const logs = await client.logs.retrieve({ projects: [imported] });
     expect(logs.map(({ name }) => name)).toEqual(["Pressure"]);
+    expect(logs[0].group).toEqual(groups[0].key);
   });
 
   it("should raise an error when the picked folder is not a bundle", async () => {

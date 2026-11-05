@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, ranger, resource, task } from "@synnaxlabs/client";
+import { type ontology, resource, schematic, task } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -16,7 +16,8 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Ontology, Synnax, Task } from "@synnaxlabs/pluto";
+import { Schematic, Synnax, Task } from "@synnaxlabs/pluto";
+import { type record } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { CSS } from "@/platform/css";
@@ -82,42 +83,43 @@ export interface SnapshotsProps {
   rangeKey: string;
 }
 
-const taskKeyOf = (id: string): task.Key | null => {
-  const parsed = resource.parseID(id);
-  return parsed.type === task.TYPE_RESOURCE_ID.type ? parsed.key : null;
-};
-
-/** Lists the task snapshots in the range as resources, keyed by resource ID. */
-const useTaskSnapshots = (rangeKey: ranger.Key) => {
-  const { retrieve, status, ...source } = Task.useList({
-    initialQuery: { ranges: [rangeKey], snapshot: true },
-  });
-  const data = List.useTransformedData({
+/** Shows the records of a list as resources of the type, keyed by resource ID. */
+const useResources = <K extends string, E extends record.Keyed<K>>(
+  type: resource.Type,
+  source: Pick<List.FrameProps<K, E>, "data" | "getItem" | "subscribe">,
+  toNamed: (entry: E) => record.KeyedNamed,
+) =>
+  List.useTransformedData({
     source,
-    toKey: (key) => resource.idToString(task.resourceID(key)),
-    fromKey: taskKeyOf,
-    transform: (t) => Tree.toResource("task")(t.payload),
+    toKey: (key) => resource.idToString({ type, key }),
+    fromKey: (id) => {
+      const parsed = resource.parseID(id);
+      return parsed.type === type ? (parsed.key as K) : null;
+    },
+    transform: (entry) => Tree.toResource(type)(toNamed(entry)),
   });
-  return { ...data, retrieve, status };
-};
 
 export const Snapshots: FC<SnapshotsProps> = ({ rangeKey }) => {
-  const tasks = useTaskSnapshots(rangeKey);
-  const others = Ontology.useListChildren({
-    initialQuery: { id: ranger.resourceID(rangeKey) },
-    filter: (item) => item.data?.snapshot === true,
+  const taskList = Task.useList({
+    initialQuery: { ranges: [rangeKey], snapshot: true },
   });
-  const { fetchMore: fetchMoreTasks } = List.usePager({ retrieve: tasks.retrieve });
-  const { fetchMore: fetchMoreOthers } = List.usePager({ retrieve: others.retrieve });
+  const schematicList = Schematic.useList({ initialQuery: { ranges: [rangeKey] } });
+  const tasks = useResources(task.TYPE_RESOURCE_ID.type, taskList, (t) => t.payload);
+  const schematics = useResources(
+    schematic.TYPE_RESOURCE_ID.type,
+    schematicList,
+    (s) => s,
+  );
+  const { fetchMore } = List.usePager({ retrieve: taskList.retrieve });
   const combined = List.useCombinedData<string, ontology.Resource>({
     first: tasks,
-    second: others,
+    second: schematics,
   });
-  if (tasks.status.variant === "error" || others.status.variant === "error")
+  if (taskList.status.variant === "error" || schematicList.status.variant === "error")
     return null;
   const handleFetchMore = () => {
-    fetchMoreTasks();
-    fetchMoreOthers();
+    fetchMore();
+    schematicList.retrieve((q) => q);
   };
   return (
     <Flex.Box y>

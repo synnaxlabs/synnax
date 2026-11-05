@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { lineplot, type panel, type resource, schematic } from "@synnaxlabs/client";
-import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
+import { createPanelProject, createTestClient } from "@synnaxlabs/client/testutil";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { Panel as PPanel } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
@@ -49,7 +49,7 @@ const createFocusedPanel = async (
       variant: "leaf",
       tabs: [{ variant: "resource", key: tabKey, resource: id }],
     },
-    parent: await createPanelParent(client),
+    project: await createPanelProject(client),
   });
   store.dispatch(Session.Panel.select({ key: created.key, windowKey: MAIN_WINDOW }));
   store.dispatch(

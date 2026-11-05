@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { lineplot, panel, ranger, type resource } from "@synnaxlabs/client";
-import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
+import { createPanelProject, createTestClient } from "@synnaxlabs/client/testutil";
 import { LinePlot as PLinePlot } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -154,7 +154,7 @@ describe("focused line plot", () => {
     await client.panels.create({
       name: uniqueName("panel"),
       root: { variant: "leaf", tabs },
-      parent: await createPanelParent(client),
+      project: await createPanelProject(client),
     });
 
   interface Focused {

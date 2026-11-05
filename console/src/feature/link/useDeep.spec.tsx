@@ -9,7 +9,7 @@
 
 import {
   type panel,
-  project,
+  type project,
   query,
   schematic,
   type Synnax as Client,
@@ -52,7 +52,7 @@ const createPanel = async (projectKey: project.Key): Promise<panel.Panel> =>
         },
       ],
     },
-    parent: project.resourceID(projectKey),
+    project: projectKey,
   });
 
 interface Harness {

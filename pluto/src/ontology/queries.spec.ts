@@ -9,10 +9,10 @@
 
 import {
   DisconnectedError,
+  group,
   ontology,
   project,
   resource,
-  schematic,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
@@ -26,22 +26,32 @@ import { createSynnaxWrapper } from "@/testutil/Synnax";
 const client = createTestClient();
 const wrapper = createSynnaxWrapper({ client });
 
+const createGroup = async (name: string): Promise<resource.ID> =>
+  group.resourceID((await client.groups.create({ scope: "channel", name })).key);
+
+// Links a new group under the parent by an ontology edge.
+const createChild = async (parent: resource.ID, name: string): Promise<resource.ID> => {
+  const child = await createGroup(name);
+  await client.ontology.addChildren(parent, child);
+  return child;
+};
+
 describe("Ontology Queries", () => {
   describe("useChildren", async () => {
     it("should return children of a parent", async () => {
-      const parent = await client.projects.create({ name: "parent" });
-      await client.schematics.create(parent.key, { name: "child1" });
-      await client.schematics.create(parent.key, { name: "child2" });
+      const parent = await createGroup("parent");
+      await createChild(parent, "child1");
+      await createChild(parent, "child2");
 
       const { result } = renderHook(
         () =>
           Ontology.useListChildren({
-            initialQuery: { id: project.resourceID(parent.key) },
+            initialQuery: { id: parent },
           }),
         { wrapper },
       );
       act(() => {
-        result.current.retrieve({ id: project.resourceID(parent.key) });
+        result.current.retrieve({ id: parent });
       });
       await waitFor(() => {
         expect(result.current.data).toHaveLength(2);
@@ -49,28 +59,26 @@ describe("Ontology Queries", () => {
     });
 
     it("should update the query when a child is added to the parent", async () => {
-      const parent = await client.projects.create({ name: "parent" });
-      await client.schematics.create(parent.key, { name: "child1" });
-      await client.schematics.create(parent.key, { name: "child2" });
+      const parent = await createGroup("parent");
+      await createChild(parent, "child1");
+      await createChild(parent, "child2");
       const { result } = renderHook(
         () =>
           Ontology.useListChildren({
-            initialQuery: { id: project.resourceID(parent.key) },
+            initialQuery: { id: parent },
           }),
         { wrapper },
       );
       act(() => {
-        result.current.retrieve({ id: project.resourceID(parent.key) });
+        result.current.retrieve({ id: parent });
       });
       await waitFor(() => {
         expect(result.current.data).toHaveLength(2);
       });
       await act(async () => {
-        const alternateParent = await client.projects.create({
-          name: "alternateParent",
-        });
-        await client.schematics.create(parent.key, { name: "child3" });
-        await client.schematics.create(alternateParent.key, { name: "child4" });
+        const alternateParent = await createGroup("alternateParent");
+        await createChild(parent, "child3");
+        await createChild(alternateParent, "child4");
       });
       await waitFor(() => {
         expect(result.current.data).toHaveLength(3);
@@ -78,26 +86,23 @@ describe("Ontology Queries", () => {
     });
 
     it("should update the query when a child is removed from the parent", async () => {
-      const parent = await client.projects.create({ name: "parent" });
-      const child1 = await client.schematics.create(parent.key, { name: "child1" });
-      await client.schematics.create(parent.key, { name: "child2" });
+      const parent = await createGroup("parent");
+      const child1 = await createChild(parent, "child1");
+      await createChild(parent, "child2");
       const { result } = renderHook(
         () =>
           Ontology.useListChildren({
-            initialQuery: { id: project.resourceID(parent.key) },
+            initialQuery: { id: parent },
           }),
         { wrapper },
       );
       act(() => {
-        result.current.retrieve({ id: project.resourceID(parent.key) });
+        result.current.retrieve({ id: parent });
       });
       await waitFor(() => {
         expect(result.current.data).toHaveLength(2);
       });
-      await client.ontology.removeChildren(
-        project.resourceID(parent.key),
-        schematic.resourceID(child1.key),
-      );
+      await client.ontology.removeChildren(parent, child1);
       await waitFor(() => {
         expect(result.current.data).toHaveLength(1);
       });
@@ -212,12 +217,12 @@ describe("Ontology Queries", () => {
 
   describe("useChildren", () => {
     it("should retrieve children of a parent", async () => {
-      const parent = await client.projects.create({ name: "parent" });
-      await client.schematics.create(parent.key, { name: "child1" });
-      await client.schematics.create(parent.key, { name: "child2" });
+      const parent = await createGroup("parent");
+      await createChild(parent, "child1");
+      await createChild(parent, "child2");
 
       const { result } = await renderHookSuspended(
-        () => Ontology.useChildren({ id: project.resourceID(parent.key) }),
+        () => Ontology.useChildren({ id: parent }),
         { wrapper },
       );
 
@@ -228,10 +233,10 @@ describe("Ontology Queries", () => {
     });
 
     it("should return empty array when parent has no children", async () => {
-      const parent = await client.projects.create({ name: "empty-parent" });
+      const parent = await createGroup("empty-parent");
 
       const { result } = await renderHookSuspended(
-        () => Ontology.useChildren({ id: project.resourceID(parent.key) }),
+        () => Ontology.useChildren({ id: parent }),
         { wrapper },
       );
 
@@ -248,24 +253,24 @@ describe("Ontology Queries", () => {
     });
 
     it("should re-fetch when query ID changes", async () => {
-      const parent1 = await client.projects.create({ name: "parent1" });
-      await client.schematics.create(parent1.key, { name: "p1-child" });
+      const parent1 = await createGroup("parent1");
+      await createChild(parent1, "p1-child");
 
-      const parent2 = await client.projects.create({ name: "parent2" });
-      await client.schematics.create(parent2.key, { name: "p2-child1" });
-      await client.schematics.create(parent2.key, { name: "p2-child2" });
+      const parent2 = await createGroup("parent2");
+      await createChild(parent2, "p2-child1");
+      await createChild(parent2, "p2-child2");
 
       const { result, rerender } = await renderHookSuspended(
         ({ id }) => Ontology.useChildren({ id }),
         {
           wrapper,
-          initialProps: { id: project.resourceID(parent1.key) },
+          initialProps: { id: parent1 },
         },
       );
 
       await waitFor(() => expect(result.current).toHaveLength(1));
 
-      await act(async () => rerender({ id: project.resourceID(parent2.key) }));
+      await act(async () => rerender({ id: parent2 }));
 
       await waitFor(() => expect(result.current).toHaveLength(2));
     });

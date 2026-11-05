@@ -13,7 +13,6 @@ import {
   lineplot,
   NotFoundError,
   ontology,
-  project,
 } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
@@ -131,7 +130,7 @@ describe("channel/ontology", () => {
       const tabKey = uuid.create();
       const pan = await client.panels.create({
         name: uniqueName("panel"),
-        parent: project.resourceID(proj.key),
+        project: proj.key,
         root: {
           variant: "leaf",
           tabs: [

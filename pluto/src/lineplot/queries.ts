@@ -9,7 +9,7 @@
 
 import { lineplot, NotFoundError, type project } from "@synnaxlabs/client";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { color, compare, DataType, type require, uuid, verbs } from "@synnaxlabs/x";
+import { color, compare, DataType, type require, verbs } from "@synnaxlabs/x";
 
 import { Channel } from "@/channel";
 import { Flux } from "@/flux";
@@ -341,7 +341,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteParams>({
 });
 
 export interface CreateParams extends lineplot.New {
-  project?: project.Key;
+  project: project.Key;
 }
 
 export const { useUpdate: useCreate } = Flux.createUpdate<
@@ -351,7 +351,7 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
   name: RESOURCE_NAME,
   verbs: verbs.CREATE,
   update: async ({ client, data, onOptimisticComplete }) =>
-    await client.lineplots.create(data.project ?? uuid.ZERO, data, {
+    await client.lineplots.create(data.project, data, {
       onOptimistic: async ([optimistic]) => await onOptimisticComplete(optimistic),
     }),
 });

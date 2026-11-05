@@ -19,7 +19,7 @@ import {
   type Synnax as Client,
   task,
 } from "@synnaxlabs/client";
-import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
+import { createPanelProject, createTestClient } from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Haul } from "@synnaxlabs/lyra/haul";
@@ -213,7 +213,7 @@ export const createSelectedPanel = async (
     name: uniqueName("panel"),
     root: { variant: "leaf", tabs },
   });
-  await client.panels.create({ ...doc, parent: await createPanelParent(client) });
+  await client.panels.create({ ...doc, project: await createPanelProject(client) });
   // Prime the query cache the way the mosaic's retrieve does, and keep the
   // answer live for the test: unsubscribed answers go stale by design.
   onTestFinished(client.panels.onChange(doc.key, () => {}));

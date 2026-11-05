@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, project, ranger, schematic } from "@synnaxlabs/client";
+import { NotFoundError, project, schematic } from "@synnaxlabs/client";
 import { RoleClients } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -105,10 +105,8 @@ describe("Schematic snapshot to the active range", () => {
     );
     fireEvent.click(await screen.findByText(`Snapshot to ${rng.name}`));
     await waitFor(async () => {
-      const children = await client.ontology.children.retrieve({
-        ids: ranger.resourceID(rng.key),
-      });
-      expect(children.map((c) => c.name)).toContain(`${s.name} (Snapshot)`);
+      const snapshots = await client.schematics.retrieve({ ranges: [rng.key] });
+      expect(snapshots.map((c) => c.name)).toContain(`${s.name} (Snapshot)`);
     });
     await waitFor(() =>
       expect(statuses).toContainEqual(
@@ -158,10 +156,10 @@ describe("Schematic TreeContextMenu", () => {
     fireEvent.click(await screen.findByText("Copy"));
     let copyKey = "";
     await waitFor(async () => {
-      const children = await client.ontology.children.retrieve({ ids: rootID });
-      const copy = children.find((c) => c.name === `${s.name} (copy)`);
+      const schematics = await client.schematics.retrieve({ projects: [rootID.key] });
+      const copy = schematics.find((c) => c.name === `${s.name} (copy)`);
       if (copy == null) throw new Error("copy not created yet");
-      copyKey = copy.id.key;
+      copyKey = copy.key;
     });
     const editable = await awaitTextEditingElement();
     const renamed = uniqueName("copy_renamed");

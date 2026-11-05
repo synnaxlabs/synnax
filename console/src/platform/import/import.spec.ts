@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { log, project } from "@synnaxlabs/client";
+import { log } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Status } from "@synnaxlabs/lyra/status";
 import { act, waitFor } from "@testing-library/react";
@@ -50,12 +50,7 @@ describe("use", () => {
     await waitFor(() => expect(picker.lastInput()).toBeDefined());
     picker.selectFiles([fakePickedFile("widget.json", data)]);
     await waitFor(async () => {
-      const children = await client.ontology.children.retrieve({
-        ids: [project.resourceID(proj.key)],
-      });
-      const logs = children.filter(
-        (child) => child.id.type === log.TYPE_RESOURCE_ID.type,
-      );
+      const logs = await client.logs.retrieve({ projects: [proj.key] });
       expect(logs).toHaveLength(2);
       expect(logs.map(({ name }) => name)).toEqual([original.name, original.name]);
     });

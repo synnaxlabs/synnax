@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { panel, project, query } from "@synnaxlabs/client";
+import { panel, type project, query } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
 import { destructor } from "@synnaxlabs/x";
 import { useState } from "react";
@@ -86,9 +86,7 @@ const repairMembership = async (params: Params): Promise<void> => {
   const { client, store } = params;
   const projectKey = store.getState().project.selected;
   if (projectKey == null) return;
-  const panels = await client.panels.retrieve({
-    parent: project.resourceID(projectKey),
-  });
+  const panels = await client.panels.retrieve({ projects: [projectKey] });
   if (store.getState().project.selected !== projectKey) return;
   applyMembership(params, panels);
 };
@@ -105,19 +103,16 @@ const membership: Synchronizer.Callbacks<RequiredStoreState, RequiredAction> = {
       repairMembership(params).catch(console.error);
     };
     // The client maintains the by-project answer itself, tracking optimistic
-    // creates and ontology changes a manual retrieve would race.
+    // creates and project changes a manual retrieve would race.
     let removeQuery: destructor.Destructor | undefined;
     const subscribeProject = (projectKey: project.Key | undefined): void => {
       removeQuery?.();
       removeQuery = undefined;
       if (projectKey == null) return;
-      removeQuery = client.panels.onChange(
-        { parent: project.resourceID(projectKey) },
-        (result) => {
-          if (!query.isLive(result)) return repair();
-          applyMembership(params, result);
-        },
-      );
+      removeQuery = client.panels.onChange({ projects: [projectKey] }, (result) => {
+        if (!query.isLive(result)) return repair();
+        applyMembership(params, result);
+      });
     };
     subscribeProject(store.getState().project.selected);
     const unwatchProject = Synchronizer.watch(

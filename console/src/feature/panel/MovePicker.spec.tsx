@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { panel, project } from "@synnaxlabs/client";
+import { panel, type project } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
 import {
@@ -57,7 +57,7 @@ const createPanel = async (
     ...appearance,
     key: uuid.create(),
     name: uniqueName("panel"),
-    parent: project.resourceID(projectKey),
+    project: projectKey,
     root: { variant: "leaf", tabs },
   });
 

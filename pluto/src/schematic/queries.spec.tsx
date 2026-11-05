@@ -13,7 +13,7 @@ import {
   spyOnSend,
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
-import { color, deep, uuid } from "@synnaxlabs/x";
+import { color, deep, TimeRange, uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor, within } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import {
@@ -402,6 +402,56 @@ describe("schematic queries", () => {
         });
       });
       expect(result.current.configs).toBe(initial);
+    });
+  });
+
+  describe("useList", () => {
+    it("should list the snapshots of a range", async () => {
+      const rng = await client.ranges.create({
+        name: "list_range",
+        timeRange: new TimeRange(1n, 1000n),
+      });
+      const [source] = await Promise.all([
+        client.schematics.create(proj.key, { name: "list_source" }),
+        client.schematics.create(proj.key, { name: "list_other" }),
+      ]);
+      const snapshot = await client.schematics.copy({
+        key: source.key,
+        name: "list_snapshot",
+        snapshot: true,
+        range: rng.key,
+      });
+      const { result } = renderHook(() => Schematic.useList(), { wrapper: Wrapper });
+      act(() => {
+        result.current.retrieve({ ranges: [rng.key] });
+      });
+      await waitFor(() => expect(result.current.variant).toBe("success"));
+      expect(result.current.data).toEqual([snapshot.key]);
+      expect(result.current.getItem(snapshot.key)?.name).toBe("list_snapshot");
+    });
+  });
+
+  describe("useSnapshot", () => {
+    it("should copy the schematics into the range as snapshots", async () => {
+      const source = await client.schematics.create(proj.key, { name: "source" });
+      const rng = await client.ranges.create({
+        name: "snapshot_range",
+        timeRange: new TimeRange(1n, 1000n),
+      });
+      const { result } = renderHook(() => Schematic.useSnapshot(), {
+        wrapper: Wrapper,
+      });
+      await act(async () => {
+        await result.current.updateAsync({
+          schematics: { key: source.key, name: source.name },
+          range: rng.key,
+        });
+      });
+      const snapshots = await client.schematics.retrieve({ ranges: [rng.key] });
+      expect(snapshots).toHaveLength(1);
+      expect(snapshots[0].name).toBe("source (Snapshot)");
+      expect(snapshots[0].snapshot).toBe(true);
+      expect(snapshots[0].project).toBeUndefined();
     });
   });
 

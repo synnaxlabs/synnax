@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { combineReducers, type Store } from "@reduxjs/toolkit";
-import { panel, project, type Synnax } from "@synnaxlabs/client";
-import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
+import { panel, type project, type Synnax } from "@synnaxlabs/client";
+import { createPanelProject, createTestClient } from "@synnaxlabs/client/testutil";
 import { Drift, MAIN_WINDOW } from "@synnaxlabs/drift";
 import { Panel as Pluto } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
@@ -631,7 +631,7 @@ describe("panel selectors", () => {
             name: "panel",
             root: { variant: "leaf", tabs: [{ variant: "view", key: TAB, type: "t" }] },
           }),
-          parent: await createPanelParent(client),
+          project: await createPanelProject(client),
         });
       });
       expect(result.current).toBe(true);
@@ -656,7 +656,7 @@ describe("panel selectors", () => {
           ],
         },
       });
-      await client.panels.create({ ...doc, parent: await createPanelParent(client) });
+      await client.panels.create({ ...doc, project: await createPanelProject(client) });
       await client.panels.retrieve(PANEL);
       const { result } = renderHook(() => Panel.useStartOverlaying(PANEL), {
         wrapper: Wrapper,
@@ -692,7 +692,7 @@ describe("panel selectors", () => {
       const { key: created } = await client.panels.create({
         key,
         name: uniqueName("panel"),
-        parent: project.resourceID(projectKey),
+        project: projectKey,
         root: { variant: "leaf", tabs: [] },
       });
       return created;

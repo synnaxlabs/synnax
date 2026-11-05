@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { project, type Synnax } from "@synnaxlabs/client";
+import { type project, type Synnax } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { describe, expect, it } from "vitest";
 
@@ -36,9 +36,7 @@ describe("Project.importBundle", () => {
     expect(imported).not.toEqual(src.key);
     const proj = await client.projects.retrieve(imported);
     expect(proj.name).toEqual(src.name);
-    const children = await client.ontology.retrieveChildren(
-      project.resourceID(imported),
-    );
-    expect(children.map(({ name }) => name)).toEqual(["Metrics"]);
+    const logs = await client.logs.retrieve({ projects: [imported] });
+    expect(logs.map(({ name }) => name)).toEqual(["Metrics"]);
   });
 });

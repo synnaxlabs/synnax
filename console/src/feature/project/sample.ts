@@ -13,8 +13,6 @@ import {
   DataType,
   lineplot,
   NotFoundError,
-  project,
-  resource,
   schematic,
   status,
   type Synnax,
@@ -217,23 +215,11 @@ export const create = async (client: Synnax, programs: Programs): Promise<void> 
   await client.projects.create({ key: KEYS.project, name: NAME });
   await client.schematics.create(KEYS.project, createSchematic(ch));
   await client.lineplots.create(KEYS.project, createLinePlot(ch));
-  // Overwriting an existing schematic or line plot does not link it to the project, and
-  // the user can have moved either one. Both go back under the project alone, out of
-  // any group. The link comes first, so a failed reset cannot leave a view with no
-  // parent.
-  const projectID = project.resourceID(KEYS.project);
-  const ids = [
-    schematic.resourceID(KEYS.schematic),
-    lineplot.resourceID(KEYS.linePlot),
-  ];
-  await client.ontology.addChildren(projectID, ...ids);
-  for (const id of ids) {
-    const parents = await client.ontology.parents.retrieve({ ids: id });
-    for (const { id: parent } of parents)
-      if (!resource.idsEqual(parent, projectID))
-        await client.ontology.removeChildren(parent, id);
-  }
+  // Overwriting an existing schematic or line plot keeps its project and group, and the
+  // user can have moved either one. Both go back to the top of the sample project.
   await client.batch.send([
+    schematic.setProjectRequest(KEYS.schematic, KEYS.project),
+    lineplot.setProjectRequest(KEYS.linePlot, KEYS.project),
     client.schematics.setGroupRequest(KEYS.schematic),
     client.lineplots.setGroupRequest(KEYS.linePlot),
   ]);
@@ -256,7 +242,7 @@ export const create = async (client: Synnax, programs: Programs): Promise<void> 
   await client.panels.create({
     key: KEYS.panel,
     name: NAME,
-    parent: project.resourceID(KEYS.project),
+    project: KEYS.project,
     root: {
       variant: "split",
       direction: "x",

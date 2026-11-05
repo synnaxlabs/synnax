@@ -131,10 +131,9 @@ const createSnapshot = async (rng: ranger.Range): Promise<resource.ID> => {
     key: sch.key,
     name: uniqueName("snap"),
     snapshot: true,
+    range: rng.key,
   });
-  const id = schematic.resourceID(snap.key);
-  await client.ontology.addChildren(rangerClient.resourceID(rng.key), id);
-  return id;
+  return schematic.resourceID(snap.key);
 };
 
 describe("range/overview/Overview", () => {

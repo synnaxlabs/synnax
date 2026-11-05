@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, project, query, type resource, type Synnax } from "@synnaxlabs/client";
+import {
+  project,
+  query,
+  type resource,
+  type Synnax,
+  UnexpectedError,
+} from "@synnaxlabs/client";
 import { array, deep, type record, verbs } from "@synnaxlabs/x";
 import type z from "zod";
 
@@ -95,51 +101,64 @@ export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
   },
 });
 
+interface Owned extends record.KeyedNamed {
+  project?: project.Key;
+}
+
+type ChildRetriever = (
+  client: Synnax,
+  request: project.OwnerFilter & { keys?: string[] },
+) => Promise<Owned[]>;
+
+/** A resource type that belongs to a project. */
+export type ChildType = "schematic" | "lineplot" | "log" | "table" | "panel";
+
+const CHILD_RETRIEVERS: Record<ChildType, ChildRetriever> = {
+  schematic: async (client, request) => await client.schematics.retrieve(request),
+  lineplot: async (client, request) => await client.lineplots.retrieve(request),
+  log: async (client, request) => await client.logs.retrieve(request),
+  table: async (client, request) => await client.tables.retrieve(request),
+  panel: async (client, request) => await client.panels.retrieve(request),
+};
+
 export type RetrieveChildrenQuery = {
   resourceID?: resource.ID;
-  types: resource.Type[];
+  types: ChildType[];
 };
 
 export interface Child extends record.KeyedNamed {
-  type: resource.Type;
+  type: ChildType;
 }
 
-// A visualization outside every group finds its project through the ontology.
-const findProjectAncestor = async (
-  client: Synnax,
-  id: resource.ID,
-): Promise<resource.ID | null> => {
-  const { data } = await client.ontology.retrieve(id);
-  const groupKey = group.keyZ.nullish().parse(data?.group);
-  if (groupKey == null) {
-    const parents = await client.ontology.parents.retrieve({
-      ids: id,
-      types: ["project"],
-    });
-    return parents[0]?.id ?? null;
-  }
-  const [start, ancestors] = await Promise.all([
-    client.groups.retrieve({ key: groupKey }),
-    client.groups.retrieveAncestors(groupKey),
-  ]);
-  const top = [start, ...ancestors].find(({ parent }) => parent?.type !== "group");
-  return top?.parent?.type === "project" ? top.parent : null;
+const retrieverOf = (type: resource.Type): ChildRetriever => {
+  if (!(type in CHILD_RETRIEVERS))
+    throw new UnexpectedError(`a ${type} does not belong to a project`);
+  return CHILD_RETRIEVERS[type as ChildType];
 };
 
 /**
- * Retrieves the sibling resources sharing the queried resource's project, excluding the
- * resource itself. Returns an empty list when the resource has no project ancestor.
+ * Retrieves the resources of the given types that share the queried resource's
+ * project, excluding the resource itself. Returns an empty list when the resource
+ * belongs to no project.
  */
 export const retrieveChildren = async (
   client: Synnax,
   { resourceID, types }: RetrieveChildrenQuery,
 ): Promise<Child[]> => {
   if (resourceID == null) return [];
-  const projectID = await findProjectAncestor(client, resourceID);
-  if (projectID == null) return [];
-  // Every visualization keeps its project's ontology edge, in a group or not.
-  const children = await client.ontology.children.retrieve({ ids: projectID, types });
-  return children
-    .filter(({ id }) => id.key !== resourceID.key)
-    .map(({ id, name }) => ({ key: id.key, name, type: id.type }));
+  const [owner] = await retrieverOf(resourceID.type)(client, {
+    keys: [resourceID.key],
+  });
+  if (owner?.project == null) return [];
+  const projects = [owner.project];
+  const children = await Promise.all(
+    types.map(async (type) =>
+      (await CHILD_RETRIEVERS[type](client, { projects })).map(({ key, name }) => ({
+        key,
+        name,
+        type,
+      })),
+    ),
+  );
+  return children.flat().filter(({ key }) => key !== resourceID.key);
 };
