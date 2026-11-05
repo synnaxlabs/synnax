@@ -20,50 +20,83 @@ import (
 type Units = versions.Units
 
 const (
-	UnitsVolts                  Units = versions.UnitsVolts
-	UnitsAmps                   Units = versions.UnitsAmps
-	UnitsDegF                   Units = versions.UnitsDegF
-	UnitsDegC                   Units = versions.UnitsDegC
-	UnitsDegR                   Units = versions.UnitsDegR
-	UnitsKelvins                Units = versions.UnitsKelvins
-	UnitsStrain                 Units = versions.UnitsStrain
-	UnitsOhms                   Units = versions.UnitsOhms
-	UnitsHz                     Units = versions.UnitsHz
-	UnitsSeconds                Units = versions.UnitsSeconds
-	UnitsMeters                 Units = versions.UnitsMeters
-	UnitsInches                 Units = versions.UnitsInches
-	UnitsDegrees                Units = versions.UnitsDegrees
-	UnitsRadians                Units = versions.UnitsRadians
-	UnitsG                      Units = versions.UnitsG
+	// UnitsVolts is volts.
+	UnitsVolts Units = versions.UnitsVolts
+	// UnitsAmps is amperes.
+	UnitsAmps Units = versions.UnitsAmps
+	// UnitsDegF is degrees Fahrenheit.
+	UnitsDegF Units = versions.UnitsDegF
+	// UnitsDegC is degrees Celsius.
+	UnitsDegC Units = versions.UnitsDegC
+	// UnitsDegR is degrees Rankine.
+	UnitsDegR Units = versions.UnitsDegR
+	// UnitsKelvins is kelvins.
+	UnitsKelvins Units = versions.UnitsKelvins
+	// UnitsStrain is strain.
+	UnitsStrain Units = versions.UnitsStrain
+	// UnitsOhms is ohms.
+	UnitsOhms Units = versions.UnitsOhms
+	// UnitsHz is hertz.
+	UnitsHz Units = versions.UnitsHz
+	// UnitsSeconds is seconds.
+	UnitsSeconds Units = versions.UnitsSeconds
+	// UnitsMeters is meters.
+	UnitsMeters Units = versions.UnitsMeters
+	// UnitsInches is inches.
+	UnitsInches Units = versions.UnitsInches
+	// UnitsDegrees is degrees.
+	UnitsDegrees Units = versions.UnitsDegrees
+	// UnitsRadians is radians.
+	UnitsRadians Units = versions.UnitsRadians
+	// UnitsG is acceleration in g.
+	UnitsG Units = versions.UnitsG
+	// UnitsMetersPerSecondSquared is meters per second squared.
 	UnitsMetersPerSecondSquared Units = versions.UnitsMetersPerSecondSquared
-	UnitsNewtons                Units = versions.UnitsNewtons
-	UnitsPounds                 Units = versions.UnitsPounds
-	UnitsKilogramForce          Units = versions.UnitsKilogramForce
-	UnitsPoundsPerSquareInch    Units = versions.UnitsPoundsPerSquareInch
-	UnitsBar                    Units = versions.UnitsBar
-	UnitsPascals                Units = versions.UnitsPascals
-	UnitsVoltsPerVolt           Units = versions.UnitsVoltsPerVolt
-	UnitsMVoltsPerVolt          Units = versions.UnitsMVoltsPerVolt
-	UnitsNewtonMeters           Units = versions.UnitsNewtonMeters
-	UnitsInchPounds             Units = versions.UnitsInchPounds
-	UnitsInchOunces             Units = versions.UnitsInchOunces
-	UnitsFootPounds             Units = versions.UnitsFootPounds
+	// UnitsNewtons is newtons.
+	UnitsNewtons Units = versions.UnitsNewtons
+	// UnitsPounds is pounds.
+	UnitsPounds Units = versions.UnitsPounds
+	// UnitsKilogramForce is kilograms of force.
+	UnitsKilogramForce Units = versions.UnitsKilogramForce
+	// UnitsPoundsPerSquareInch is pounds per square inch.
+	UnitsPoundsPerSquareInch Units = versions.UnitsPoundsPerSquareInch
+	// UnitsBar is bar.
+	UnitsBar Units = versions.UnitsBar
+	// UnitsPascals is pascals.
+	UnitsPascals Units = versions.UnitsPascals
+	// UnitsVoltsPerVolt is volts per volt.
+	UnitsVoltsPerVolt Units = versions.UnitsVoltsPerVolt
+	// UnitsMVoltsPerVolt is millivolts per volt.
+	UnitsMVoltsPerVolt Units = versions.UnitsMVoltsPerVolt
+	// UnitsNewtonMeters is newton meters.
+	UnitsNewtonMeters Units = versions.UnitsNewtonMeters
+	// UnitsInchPounds is inch-pounds.
+	UnitsInchPounds Units = versions.UnitsInchPounds
+	// UnitsInchOunces is inch-ounces.
+	UnitsInchOunces Units = versions.UnitsInchOunces
+	// UnitsFootPounds is foot-pounds.
+	UnitsFootPounds Units = versions.UnitsFootPounds
 )
 
 // AccelSensitivityUnits are the units of an accelerometer's sensitivity rating.
 type AccelSensitivityUnits = versions.AccelSensitivityUnits
 
 const (
+	// AccelSensitivityUnitsMVoltsPerG is millivolts per g.
 	AccelSensitivityUnitsMVoltsPerG AccelSensitivityUnits = versions.AccelSensitivityUnitsMVoltsPerG
-	AccelSensitivityUnitsVoltsPerG  AccelSensitivityUnits = versions.AccelSensitivityUnitsVoltsPerG
+	// AccelSensitivityUnitsVoltsPerG is volts per g.
+	AccelSensitivityUnitsVoltsPerG AccelSensitivityUnits = versions.AccelSensitivityUnitsVoltsPerG
 )
 
 // AccelUnits are the engineering units for an acceleration measurement.
 type AccelUnits = versions.AccelUnits
 
 const (
-	AccelUnitsG                      AccelUnits = versions.AccelUnitsG
+	// AccelUnitsG is acceleration in g.
+	AccelUnitsG AccelUnits = versions.AccelUnitsG
+	// AccelUnitsMetersPerSecondSquared is meters per second squared.
 	AccelUnitsMetersPerSecondSquared AccelUnits = versions.AccelUnitsMetersPerSecondSquared
+	// AccelUnitsInchesPerSecondSquared is inches per second squared.
 	AccelUnitsInchesPerSecondSquared AccelUnits = versions.AccelUnitsInchesPerSecondSquared
 )
 
@@ -71,8 +104,11 @@ const (
 type ForceUnits = versions.ForceUnits
 
 const (
-	ForceUnitsNewtons       ForceUnits = versions.ForceUnitsNewtons
-	ForceUnitsPounds        ForceUnits = versions.ForceUnitsPounds
+	// ForceUnitsNewtons is newtons.
+	ForceUnitsNewtons ForceUnits = versions.ForceUnitsNewtons
+	// ForceUnitsPounds is pounds.
+	ForceUnitsPounds ForceUnits = versions.ForceUnitsPounds
+	// ForceUnitsKilogramForce is kilograms of force.
 	ForceUnitsKilogramForce ForceUnits = versions.ForceUnitsKilogramForce
 )
 
@@ -80,27 +116,37 @@ const (
 type ElectricalUnits = versions.ElectricalUnits
 
 const (
+	// ElectricalUnitsMVoltsPerVolt is millivolts per volt.
 	ElectricalUnitsMVoltsPerVolt ElectricalUnits = versions.ElectricalUnitsMVoltsPerVolt
-	ElectricalUnitsVoltsPerVolt  ElectricalUnits = versions.ElectricalUnitsVoltsPerVolt
+	// ElectricalUnitsVoltsPerVolt is volts per volt.
+	ElectricalUnitsVoltsPerVolt ElectricalUnits = versions.ElectricalUnitsVoltsPerVolt
 )
 
 // ExcitationSource selects the source of a sensor's excitation signal.
 type ExcitationSource = versions.ExcitationSource
 
 const (
+	// ExcitationSourceInternal is an internal excitation source.
 	ExcitationSourceInternal ExcitationSource = versions.ExcitationSourceInternal
+	// ExcitationSourceExternal is an external excitation source.
 	ExcitationSourceExternal ExcitationSource = versions.ExcitationSourceExternal
-	ExcitationSourceNone     ExcitationSource = versions.ExcitationSourceNone
+	// ExcitationSourceNone uses no excitation.
+	ExcitationSourceNone ExcitationSource = versions.ExcitationSourceNone
 )
 
 // TerminalConfig selects the terminal configuration for an analog input channel.
 type TerminalConfig = versions.TerminalConfig
 
 const (
+	// TerminalConfigCfgDefault uses the default terminal configuration of the port.
 	TerminalConfigCfgDefault TerminalConfig = versions.TerminalConfigCfgDefault
-	TerminalConfigRse        TerminalConfig = versions.TerminalConfigRse
-	TerminalConfigNrse       TerminalConfig = versions.TerminalConfigNrse
-	TerminalConfigDiff       TerminalConfig = versions.TerminalConfigDiff
+	// TerminalConfigRse is referenced single ended.
+	TerminalConfigRse TerminalConfig = versions.TerminalConfigRse
+	// TerminalConfigNrse is non-referenced single ended.
+	TerminalConfigNrse TerminalConfig = versions.TerminalConfigNrse
+	// TerminalConfigDiff is differential.
+	TerminalConfigDiff TerminalConfig = versions.TerminalConfigDiff
+	// TerminalConfigPseudoDiff is pseudo-differential.
 	TerminalConfigPseudoDiff TerminalConfig = versions.TerminalConfigPseudoDiff
 )
 
@@ -108,8 +154,11 @@ const (
 type BridgeConfig = versions.BridgeConfig
 
 const (
-	BridgeConfigFullBridge    BridgeConfig = versions.BridgeConfigFullBridge
-	BridgeConfigHalfBridge    BridgeConfig = versions.BridgeConfigHalfBridge
+	// BridgeConfigFullBridge is a full bridge.
+	BridgeConfigFullBridge BridgeConfig = versions.BridgeConfigFullBridge
+	// BridgeConfigHalfBridge is a half bridge.
+	BridgeConfigHalfBridge BridgeConfig = versions.BridgeConfigHalfBridge
+	// BridgeConfigQuarterBridge is a quarter bridge.
 	BridgeConfigQuarterBridge BridgeConfig = versions.BridgeConfigQuarterBridge
 )
 
@@ -118,8 +167,11 @@ const (
 type ShuntResistorLocation = versions.ShuntResistorLocation
 
 const (
-	ShuntResistorLocationDefault  ShuntResistorLocation = versions.ShuntResistorLocationDefault
+	// ShuntResistorLocationDefault uses the default location.
+	ShuntResistorLocationDefault ShuntResistorLocation = versions.ShuntResistorLocationDefault
+	// ShuntResistorLocationInternal uses an internal shunt resistor.
 	ShuntResistorLocationInternal ShuntResistorLocation = versions.ShuntResistorLocationInternal
+	// ShuntResistorLocationExternal uses an external shunt resistor.
 	ShuntResistorLocationExternal ShuntResistorLocation = versions.ShuntResistorLocationExternal
 )
 
@@ -127,35 +179,47 @@ const (
 type ForceSensitivityUnits = versions.ForceSensitivityUnits
 
 const (
+	// ForceSensitivityUnitsMVoltsPerNewton is millivolts per newton.
 	ForceSensitivityUnitsMVoltsPerNewton ForceSensitivityUnits = versions.ForceSensitivityUnitsMVoltsPerNewton
-	ForceSensitivityUnitsMVoltsPerPound  ForceSensitivityUnits = versions.ForceSensitivityUnitsMVoltsPerPound
+	// ForceSensitivityUnitsMVoltsPerPound is millivolts per pound.
+	ForceSensitivityUnitsMVoltsPerPound ForceSensitivityUnits = versions.ForceSensitivityUnitsMVoltsPerPound
 )
 
 // PressureUnits are the engineering units for a pressure measurement.
 type PressureUnits = versions.PressureUnits
 
 const (
+	// PressureUnitsPoundsPerSquareInch is pounds per square inch.
 	PressureUnitsPoundsPerSquareInch PressureUnits = versions.PressureUnitsPoundsPerSquareInch
-	PressureUnitsPascals             PressureUnits = versions.PressureUnitsPascals
-	PressureUnitsBar                 PressureUnits = versions.PressureUnitsBar
+	// PressureUnitsPascals is pascals.
+	PressureUnitsPascals PressureUnits = versions.PressureUnitsPascals
+	// PressureUnitsBar is bar.
+	PressureUnitsBar PressureUnits = versions.PressureUnitsBar
 )
 
 // TorqueUnits are the engineering units for a torque measurement.
 type TorqueUnits = versions.TorqueUnits
 
 const (
+	// TorqueUnitsNewtonMeters is newton meters.
 	TorqueUnitsNewtonMeters TorqueUnits = versions.TorqueUnitsNewtonMeters
-	TorqueUnitsInchOunces   TorqueUnits = versions.TorqueUnitsInchOunces
-	TorqueUnitsInchPounds   TorqueUnits = versions.TorqueUnitsInchPounds
-	TorqueUnitsFootPounds   TorqueUnits = versions.TorqueUnitsFootPounds
+	// TorqueUnitsInchOunces is inch-ounces.
+	TorqueUnitsInchOunces TorqueUnits = versions.TorqueUnitsInchOunces
+	// TorqueUnitsInchPounds is inch-pounds.
+	TorqueUnitsInchPounds TorqueUnits = versions.TorqueUnitsInchPounds
+	// TorqueUnitsFootPounds is foot-pounds.
+	TorqueUnitsFootPounds TorqueUnits = versions.TorqueUnitsFootPounds
 )
 
 // ResistanceConfig selects the number of wires used for a resistance measurement.
 type ResistanceConfig = versions.ResistanceConfig
 
 const (
+	// ResistanceConfigWire2 uses two wires.
 	ResistanceConfigWire2 ResistanceConfig = versions.ResistanceConfigWire2
+	// ResistanceConfigWire3 uses three wires.
 	ResistanceConfigWire3 ResistanceConfig = versions.ResistanceConfigWire3
+	// ResistanceConfigWire4 uses four wires.
 	ResistanceConfigWire4 ResistanceConfig = versions.ResistanceConfigWire4
 )
 
@@ -163,10 +227,14 @@ const (
 type TemperatureUnits = versions.TemperatureUnits
 
 const (
-	TemperatureUnitsDegC    TemperatureUnits = versions.TemperatureUnitsDegC
-	TemperatureUnitsDegF    TemperatureUnits = versions.TemperatureUnitsDegF
+	// TemperatureUnitsDegC is degrees Celsius.
+	TemperatureUnitsDegC TemperatureUnits = versions.TemperatureUnitsDegC
+	// TemperatureUnitsDegF is degrees Fahrenheit.
+	TemperatureUnitsDegF TemperatureUnits = versions.TemperatureUnitsDegF
+	// TemperatureUnitsKelvins is kelvins.
 	TemperatureUnitsKelvins TemperatureUnits = versions.TemperatureUnitsKelvins
-	TemperatureUnitsDegR    TemperatureUnits = versions.TemperatureUnitsDegR
+	// TemperatureUnitsDegR is degrees Rankine.
+	TemperatureUnitsDegR TemperatureUnits = versions.TemperatureUnitsDegR
 )
 
 // RTDType selects the resistance-temperature curve of an RTD sensor.
@@ -211,7 +279,11 @@ const (
 // CJC is the cold-junction compensation for a thermocouple. The source selects where
 // the reference temperature comes from.
 type CJC = versions.CJC
+
+// CJCVariant is implemented by every CJC variant.
 type CJCVariant = versions.CJCVariant
+
+// CJCType is the "source" value that selects a variant of CJC.
 type CJCType = versions.CJCType
 
 const (
@@ -236,7 +308,9 @@ type ChanCJC = versions.ChanCJC
 type VelocityUnits = versions.VelocityUnits
 
 const (
+	// VelocityUnitsMetersPerSecond is meters per second.
 	VelocityUnitsMetersPerSecond VelocityUnits = versions.VelocityUnitsMetersPerSecond
+	// VelocityUnitsInchesPerSecond is inches per second.
 	VelocityUnitsInchesPerSecond VelocityUnits = versions.VelocityUnitsInchesPerSecond
 )
 
@@ -245,7 +319,10 @@ const (
 type VelocitySensitivityUnits = versions.VelocitySensitivityUnits
 
 const (
-	VelocitySensitivityUnitsMVoltsPerMmPerSecond   VelocitySensitivityUnits = versions.VelocitySensitivityUnitsMVoltsPerMmPerSecond
+	// VelocitySensitivityUnitsMVoltsPerMmPerSecond is millivolts per millimeter per
+	// second.
+	VelocitySensitivityUnitsMVoltsPerMmPerSecond VelocitySensitivityUnits = versions.VelocitySensitivityUnitsMVoltsPerMmPerSecond
+	// VelocitySensitivityUnitsMVoltsPerInchPerSecond is millivolts per inch per second.
 	VelocitySensitivityUnitsMVoltsPerInchPerSecond VelocitySensitivityUnits = versions.VelocitySensitivityUnitsMVoltsPerInchPerSecond
 )
 
@@ -253,13 +330,19 @@ const (
 type ChargeUnits = versions.ChargeUnits
 
 const (
-	ChargeUnitsCoulombs     ChargeUnits = versions.ChargeUnitsCoulombs
+	// ChargeUnitsCoulombs is coulombs.
+	ChargeUnitsCoulombs ChargeUnits = versions.ChargeUnitsCoulombs
+	// ChargeUnitsPicoCoulombs is picocoulombs.
 	ChargeUnitsPicoCoulombs ChargeUnits = versions.ChargeUnitsPicoCoulombs
 )
 
 // Scale determines how raw sensor values are transformed to engineering units.
 type Scale = versions.Scale
+
+// ScaleVariant is implemented by every Scale variant.
 type ScaleVariant = versions.ScaleVariant
+
+// ScaleType is the "type" value that selects a variant of Scale.
 type ScaleType = versions.ScaleType
 
 const (
@@ -330,7 +413,11 @@ type BaseAIChannel = versions.BaseAIChannel
 // AIChannel is a single NI analog input channel. The type field selects the measurement
 // mode and the fields that accompany it.
 type AIChannel = versions.AIChannel
+
+// AIChannelVariant is implemented by every AIChannel variant.
 type AIChannelVariant = versions.AIChannelVariant
+
+// AIChannelType is the "type" value that selects a variant of AIChannel.
 type AIChannelType = versions.AIChannelType
 
 const (
@@ -505,7 +592,9 @@ type AIVoltageWithExcitChannel = versions.AIVoltageWithExcitChannel
 type CIEdge = versions.CIEdge
 
 const (
-	CIEdgeRising  CIEdge = versions.CIEdgeRising
+	// CIEdgeRising is the rising edge.
+	CIEdgeRising CIEdge = versions.CIEdgeRising
+	// CIEdgeFalling is the falling edge.
 	CIEdgeFalling CIEdge = versions.CIEdgeFalling
 )
 
@@ -513,17 +602,25 @@ const (
 type CIMeasMethod = versions.CIMeasMethod
 
 const (
-	CIMeasMethodLowFreq1Ctr  CIMeasMethod = versions.CIMeasMethodLowFreq1Ctr
+	// CIMeasMethodLowFreq1Ctr uses one counter, for low frequency signals.
+	CIMeasMethodLowFreq1Ctr CIMeasMethod = versions.CIMeasMethodLowFreq1Ctr
+	// CIMeasMethodHighFreq2Ctr uses two counters and a measurement time, for high
+	// frequency signals.
 	CIMeasMethodHighFreq2Ctr CIMeasMethod = versions.CIMeasMethodHighFreq2Ctr
+	// CIMeasMethodLargeRng2Ctr uses two counters and divides the input signal by a
+	// divisor.
 	CIMeasMethodLargeRng2Ctr CIMeasMethod = versions.CIMeasMethodLargeRng2Ctr
-	CIMeasMethodDynamicAvg   CIMeasMethod = versions.CIMeasMethodDynamicAvg
+	// CIMeasMethodDynamicAvg uses dynamic averaging.
+	CIMeasMethodDynamicAvg CIMeasMethod = versions.CIMeasMethodDynamicAvg
 )
 
 // CIFreqUnits are the unit options for a counter frequency channel.
 type CIFreqUnits = versions.CIFreqUnits
 
 const (
-	CIFreqUnitsHz    CIFreqUnits = versions.CIFreqUnitsHz
+	// CIFreqUnitsHz is hertz.
+	CIFreqUnitsHz CIFreqUnits = versions.CIFreqUnitsHz
+	// CIFreqUnitsTicks is ticks.
 	CIFreqUnitsTicks CIFreqUnits = versions.CIFreqUnitsTicks
 )
 
@@ -531,16 +628,21 @@ const (
 type CITimeUnits = versions.CITimeUnits
 
 const (
+	// CITimeUnitsSeconds is seconds.
 	CITimeUnitsSeconds CITimeUnits = versions.CITimeUnitsSeconds
-	CITimeUnitsTicks   CITimeUnits = versions.CITimeUnitsTicks
+	// CITimeUnitsTicks is ticks.
+	CITimeUnitsTicks CITimeUnits = versions.CITimeUnitsTicks
 )
 
 // CICountDirection selects the direction an edge counter counts.
 type CICountDirection = versions.CICountDirection
 
 const (
-	CICountDirectionCountUp              CICountDirection = versions.CICountDirectionCountUp
-	CICountDirectionCountDown            CICountDirection = versions.CICountDirectionCountDown
+	// CICountDirectionCountUp increments the count on each edge.
+	CICountDirectionCountUp CICountDirection = versions.CICountDirectionCountUp
+	// CICountDirectionCountDown decrements the count on each edge.
+	CICountDirectionCountDown CICountDirection = versions.CICountDirectionCountDown
+	// CICountDirectionExternallyControlled reads the direction from a digital signal.
 	CICountDirectionExternallyControlled CICountDirection = versions.CICountDirectionExternallyControlled
 )
 
@@ -548,9 +650,13 @@ const (
 type CIDecodingType = versions.CIDecodingType
 
 const (
-	CIDecodingTypeX1       CIDecodingType = versions.CIDecodingTypeX1
-	CIDecodingTypeX2       CIDecodingType = versions.CIDecodingTypeX2
-	CIDecodingTypeX4       CIDecodingType = versions.CIDecodingTypeX4
+	// CIDecodingTypeX1 is X1 decoding, for quadrature encoders.
+	CIDecodingTypeX1 CIDecodingType = versions.CIDecodingTypeX1
+	// CIDecodingTypeX2 is X2 decoding, for quadrature encoders.
+	CIDecodingTypeX2 CIDecodingType = versions.CIDecodingTypeX2
+	// CIDecodingTypeX4 is X4 decoding, for quadrature encoders.
+	CIDecodingTypeX4 CIDecodingType = versions.CIDecodingTypeX4
+	// CIDecodingTypeTwoPulse is two pulse counting, for two pulse encoders.
 	CIDecodingTypeTwoPulse CIDecodingType = versions.CIDecodingTypeTwoPulse
 )
 
@@ -558,7 +664,9 @@ const (
 type CILinearVelocityUnits = versions.CILinearVelocityUnits
 
 const (
-	CILinearVelocityUnitsMPerS  CILinearVelocityUnits = versions.CILinearVelocityUnitsMPerS
+	// CILinearVelocityUnitsMPerS is meters per second.
+	CILinearVelocityUnitsMPerS CILinearVelocityUnits = versions.CILinearVelocityUnitsMPerS
+	// CILinearVelocityUnitsInPerS is inches per second.
 	CILinearVelocityUnitsInPerS CILinearVelocityUnits = versions.CILinearVelocityUnitsInPerS
 )
 
@@ -566,8 +674,11 @@ const (
 type CIAngularVelocityUnits = versions.CIAngularVelocityUnits
 
 const (
-	CIAngularVelocityUnitsRpm              CIAngularVelocityUnits = versions.CIAngularVelocityUnitsRpm
+	// CIAngularVelocityUnitsRpm is revolutions per minute.
+	CIAngularVelocityUnitsRpm CIAngularVelocityUnits = versions.CIAngularVelocityUnitsRpm
+	// CIAngularVelocityUnitsRadiansPerSecond is radians per second.
 	CIAngularVelocityUnitsRadiansPerSecond CIAngularVelocityUnits = versions.CIAngularVelocityUnitsRadiansPerSecond
+	// CIAngularVelocityUnitsDegreesPerSecond is degrees per second.
 	CIAngularVelocityUnitsDegreesPerSecond CIAngularVelocityUnits = versions.CIAngularVelocityUnitsDegreesPerSecond
 )
 
@@ -575,28 +686,38 @@ const (
 type CILinearPositionUnits = versions.CILinearPositionUnits
 
 const (
+	// CILinearPositionUnitsMeters is meters.
 	CILinearPositionUnitsMeters CILinearPositionUnits = versions.CILinearPositionUnitsMeters
+	// CILinearPositionUnitsInches is inches.
 	CILinearPositionUnitsInches CILinearPositionUnits = versions.CILinearPositionUnitsInches
-	CILinearPositionUnitsTicks  CILinearPositionUnits = versions.CILinearPositionUnitsTicks
+	// CILinearPositionUnitsTicks is ticks.
+	CILinearPositionUnitsTicks CILinearPositionUnits = versions.CILinearPositionUnitsTicks
 )
 
 // CIAngularPositionUnits are the units of an angular position measurement.
 type CIAngularPositionUnits = versions.CIAngularPositionUnits
 
 const (
+	// CIAngularPositionUnitsDegrees is degrees.
 	CIAngularPositionUnitsDegrees CIAngularPositionUnits = versions.CIAngularPositionUnitsDegrees
+	// CIAngularPositionUnitsRadians is radians.
 	CIAngularPositionUnitsRadians CIAngularPositionUnits = versions.CIAngularPositionUnitsRadians
-	CIAngularPositionUnitsTicks   CIAngularPositionUnits = versions.CIAngularPositionUnitsTicks
+	// CIAngularPositionUnitsTicks is ticks.
+	CIAngularPositionUnitsTicks CIAngularPositionUnits = versions.CIAngularPositionUnitsTicks
 )
 
 // ZIndexPhase selects the encoder channel states at which the Z index resets the count.
 type ZIndexPhase = versions.ZIndexPhase
 
 const (
+	// ZIndexPhaseAHighBHigh resets when signals A and B are high.
 	ZIndexPhaseAHighBHigh ZIndexPhase = versions.ZIndexPhaseAHighBHigh
-	ZIndexPhaseAHighBLow  ZIndexPhase = versions.ZIndexPhaseAHighBLow
-	ZIndexPhaseALowBHigh  ZIndexPhase = versions.ZIndexPhaseALowBHigh
-	ZIndexPhaseALowBLow   ZIndexPhase = versions.ZIndexPhaseALowBLow
+	// ZIndexPhaseAHighBLow resets when signal A is high and signal B is low.
+	ZIndexPhaseAHighBLow ZIndexPhase = versions.ZIndexPhaseAHighBLow
+	// ZIndexPhaseALowBHigh resets when signal A is low and signal B is high.
+	ZIndexPhaseALowBHigh ZIndexPhase = versions.ZIndexPhaseALowBHigh
+	// ZIndexPhaseALowBLow resets when signals A and B are low.
+	ZIndexPhaseALowBLow ZIndexPhase = versions.ZIndexPhaseALowBLow
 )
 
 // ZIndex configures the Z-index reset behavior of an encoder.
@@ -608,7 +729,11 @@ type BaseCIChannel = versions.BaseCIChannel
 // CIChannel is a single NI counter input channel. The type field selects the
 // measurement mode and the fields that accompany it.
 type CIChannel = versions.CIChannel
+
+// CIChannelVariant is implemented by every CIChannel variant.
 type CIChannelVariant = versions.CIChannelVariant
+
+// CIChannelType is the "type" value that selects a variant of CIChannel.
 type CIChannelType = versions.CIChannelType
 
 const (
@@ -673,9 +798,13 @@ type CIDutyCycleChannel = versions.CIDutyCycleChannel
 type WaveType = versions.WaveType
 
 const (
-	WaveTypeSine     WaveType = versions.WaveTypeSine
+	// WaveTypeSine is a sine wave.
+	WaveTypeSine WaveType = versions.WaveTypeSine
+	// WaveTypeTriangle is a triangle wave.
 	WaveTypeTriangle WaveType = versions.WaveTypeTriangle
-	WaveTypeSquare   WaveType = versions.WaveTypeSquare
+	// WaveTypeSquare is a square wave.
+	WaveTypeSquare WaveType = versions.WaveTypeSquare
+	// WaveTypeSawtooth is a sawtooth wave.
 	WaveTypeSawtooth WaveType = versions.WaveTypeSawtooth
 )
 
@@ -685,7 +814,11 @@ type BaseAOChannel = versions.BaseAOChannel
 // AOChannel is a single NI analog output channel. The type field selects the output
 // mode and the fields that accompany it.
 type AOChannel = versions.AOChannel
+
+// AOChannelVariant is implemented by every AOChannel variant.
 type AOChannelVariant = versions.AOChannelVariant
+
+// AOChannelType is the "type" value that selects a variant of AOChannel.
 type AOChannelType = versions.AOChannelType
 
 const (
@@ -740,8 +873,13 @@ type ScanConfig = versions.ScanConfig
 type AccelChargeSensitivityUnits = versions.AccelChargeSensitivityUnits
 
 const (
-	AccelChargeSensitivityUnitsPicoCoulombsPerG                      AccelChargeSensitivityUnits = versions.AccelChargeSensitivityUnitsPicoCoulombsPerG
+	// AccelChargeSensitivityUnitsPicoCoulombsPerG is picocoulombs per g.
+	AccelChargeSensitivityUnitsPicoCoulombsPerG AccelChargeSensitivityUnits = versions.AccelChargeSensitivityUnitsPicoCoulombsPerG
+	// AccelChargeSensitivityUnitsPicoCoulombsPerMetersPerSecondSquared is picocoulombs
+	// per meter per second squared.
 	AccelChargeSensitivityUnitsPicoCoulombsPerMetersPerSecondSquared AccelChargeSensitivityUnits = versions.AccelChargeSensitivityUnitsPicoCoulombsPerMetersPerSecondSquared
+	// AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared is picocoulombs
+	// per inch per second squared.
 	AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared AccelChargeSensitivityUnits = versions.AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared
 )
 

@@ -46,17 +46,27 @@ func (r *RegisterValue) ApplyDefaults() {
 // BaseReadChannel carries the fields every Modbus read channel shares.
 type BaseReadChannel = v1.BaseReadChannel
 
+// ReadChannelType is the "type" value that selects a variant of ReadChannel.
 type ReadChannelType string
 
 const (
-	CoilReadChannelType               ReadChannelType = "coil"
-	DiscreteInputReadChannelType      ReadChannelType = "discrete_input"
-	HoldingRegisterReadChannelType    ReadChannelType = "holding_register"
-	InputRegisterReadChannelType      ReadChannelType = "input_register"
+	// CoilReadChannelType reads a single bit from a coil.
+	CoilReadChannelType ReadChannelType = "coil"
+	// DiscreteInputReadChannelType reads a single bit from a discrete input.
+	DiscreteInputReadChannelType ReadChannelType = "discrete_input"
+	// HoldingRegisterReadChannelType reads a typed value from one or more holding
+	// registers.
+	HoldingRegisterReadChannelType ReadChannelType = "holding_register"
+	// InputRegisterReadChannelType reads a typed value from one or more input
+	// registers.
+	InputRegisterReadChannelType ReadChannelType = "input_register"
+	// HoldingRegisterBitReadChannelType reads one bit of a holding register.
 	HoldingRegisterBitReadChannelType ReadChannelType = "holding_register_bit"
-	InputRegisterBitReadChannelType   ReadChannelType = "input_register_bit"
+	// InputRegisterBitReadChannelType reads one bit of an input register.
+	InputRegisterBitReadChannelType ReadChannelType = "input_register_bit"
 )
 
+// ReadChannelVariant is implemented by every ReadChannel variant.
 type ReadChannelVariant interface {
 	isReadChannelVariant()
 }
@@ -258,7 +268,11 @@ func (u *ReadChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.InputRegisterBitReadChannel
 	default:
-		return errors.Newf("ReadChannel: unknown type %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"ReadChannel: unknown type %q",
+			disc.Type,
+		)
 	}
 	return nil
 }
@@ -336,14 +350,20 @@ func (u *ReadChannel) SetBase(base BaseReadChannel) {
 // BaseWriteChannel carries the fields every Modbus write channel shares.
 type BaseWriteChannel = v1.BaseWriteChannel
 
+// WriteChannelType is the "type" value that selects a variant of WriteChannel.
 type WriteChannelType string
 
 const (
-	CoilWriteChannelType               WriteChannelType = "coil"
-	HoldingRegisterWriteChannelType    WriteChannelType = "holding_register"
+	// CoilWriteChannelType writes a single bit to a coil.
+	CoilWriteChannelType WriteChannelType = "coil"
+	// HoldingRegisterWriteChannelType writes a typed value to one or more holding
+	// registers.
+	HoldingRegisterWriteChannelType WriteChannelType = "holding_register"
+	// HoldingRegisterBitWriteChannelType writes one bit of a holding register.
 	HoldingRegisterBitWriteChannelType WriteChannelType = "holding_register_bit"
 )
 
+// WriteChannelVariant is implemented by every WriteChannel variant.
 type WriteChannelVariant interface {
 	isWriteChannelVariant()
 }
@@ -463,7 +483,11 @@ func (u *WriteChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.HoldingRegisterBitWriteChannel
 	default:
-		return errors.Newf("WriteChannel: unknown type %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"WriteChannel: unknown type %q",
+			disc.Type,
+		)
 	}
 	return nil
 }

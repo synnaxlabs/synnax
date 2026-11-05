@@ -76,6 +76,10 @@ func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
 
 	idx.totalSize.Add(int64(p.size))
 	idx.persistHead = min(idx.persistHead, insertAt)
+	var write preparedWrite
+	if persist {
+		write = idx.indexPersist.prepare(idx.persistHead)
+	}
 
 	idx.mu.Unlock()
 	// The live stream carries domains added at the end.
@@ -85,8 +89,7 @@ func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
 	if !persist {
 		return nil
 	}
-
-	return idx.indexPersist.prepare(idx.persistHead).run()
+	return write.run()
 }
 
 func (idx *index) overlap(tr telem.TimeRange) bool {

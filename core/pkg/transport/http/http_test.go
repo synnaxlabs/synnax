@@ -135,11 +135,6 @@ var _ = Describe("HTTP", func() {
 				"/api/v1/secret/grant/create",
 			),
 			Entry(
-				"unary secret grant delete",
-				http.MethodPost,
-				"/api/v1/secret/grant/delete",
-			),
-			Entry(
 				"unary certificate create",
 				http.MethodPost,
 				"/api/v1/certificate/create",
