@@ -762,15 +762,15 @@ class TestRangeLabels:
         assert rng.labels == [lbl.key]
         assert rng.retrieve_labels() == [lbl]
 
-    def test_recreate_merges_labels(self, client: sy.Synnax, rng: sy.Range) -> None:
-        """Should keep the stored labels on a re-create and add the carried ones"""
+    def test_recreate_ignores_labels(self, client: sy.Synnax, rng: sy.Range) -> None:
+        """Should keep the stored labels on a re-create and ignore the carried ones"""
         a = client.labels.create(name=random_name(), color="#FF0000")
         b = client.labels.create(name=random_name(), color="#00FF00")
         rng.add_label(a.key)
         client.ranges.create(
             key=rng.key, name=rng.name, time_range=rng.time_range, labels=[b.key]
         )
-        assert set(client.ranges.retrieve(key=rng.key).labels) == {a.key, b.key}
+        assert client.ranges.retrieve(key=rng.key).labels == [a.key]
 
 
 @pytest.mark.ranger
