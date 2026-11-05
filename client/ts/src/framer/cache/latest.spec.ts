@@ -421,6 +421,57 @@ describe("Latest", () => {
     }
   });
 
+  describe("a channel the Core stores nothing of", () => {
+    const write = (alignment: bigint, stamp: TimeStamp): Series =>
+      new Series({
+        data: new Float32Array([Number(alignment)]),
+        dataType: DataType.FLOAT32,
+        alignment,
+        timeRange: stamp.spanRange(TimeSpan.NANOSECOND),
+      });
+
+    it("should start a later request from the newest streamed sample", async () => {
+      const core = createCore(true);
+      const { open, close } = createLatest(core);
+      const key = core.virtual!.key;
+      const stamp = START.add(TimeSpan.SECOND);
+      const first = open(1, undefined, key);
+      try {
+        await expect.poll(() => core.streams(key), POLL).toBe(true);
+        core.stream(new framer.Frame(key, write(10n, START)));
+        core.stream(new framer.Frame(key, write(11n, stamp)));
+        await expect
+          .poll(() => first.value().time, POLL)
+          .toEqual(stamp.add(TimeSpan.NANOSECOND));
+        const second = open(1, undefined, key);
+        try {
+          await expect.poll(() => second.value().series.length, POLL).toBe(1);
+          expect(second.value().series.at(0)).toEqual(11);
+          expect(second.value().time).toEqual(stamp.add(TimeSpan.NANOSECOND));
+        } finally {
+          second.close();
+        }
+      } finally {
+        first.close();
+        await close();
+      }
+    });
+
+    it("should start empty when nothing streamed the channel", async () => {
+      const core = createCore(true);
+      const { open, close } = createLatest(core);
+      const latest = open(1, undefined, core.virtual!.key);
+      try {
+        await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
+        expect(latest.value().series.length).toBe(0);
+        expect(latest.value().time).toBeUndefined();
+      } finally {
+        latest.close();
+        await close();
+      }
+    });
+  });
+
   describe("timeAt", () => {
     // Returns the alignment of every sample the latest holds.
     const alignmentsOf = (latest: Latest): bigint[] =>

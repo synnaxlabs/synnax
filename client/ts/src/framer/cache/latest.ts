@@ -155,6 +155,8 @@ export class Latest {
     this.demand = props.streamer.demand([key], (frame) => {
       const series = frame.get(key);
       if (series == null) return;
+      const last = series.at(-1);
+      if (last != null && last.length > 0) props.store.recordStreamed(key, last);
       this.push(series, true);
       this.notify();
     });
@@ -436,8 +438,8 @@ export class Latest {
   }
 
   // Reads the newest stored samples after the stream acks the channel, so the stream
-  // delivers every sample the read misses. A virtual channel has none, so it only
-  // streams.
+  // delivers every sample the read misses. A virtual channel has none, so it starts
+  // from the newest series the stream carried for another request, and streams.
   private async load(run: Load): Promise<void> {
     const { signal } = run.abort;
     const { retrieveChannels, streamer, readLatest, now } = this.props;
@@ -463,6 +465,9 @@ export class Latest {
               tr.end,
             );
           read = (await readLatest(this.key, this.count, tr)).series;
+        } else if (this.total === 0) {
+          const newest = this.props.store.newestStreamed(this.key);
+          if (newest != null) read = [newest];
         }
         if (this.running !== run) return;
         this.land(read);
