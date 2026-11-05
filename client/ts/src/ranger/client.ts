@@ -422,7 +422,7 @@ export class Client extends query.Retriever<
   Key,
   Range,
   Range,
-  Key | Name
+  Key | Name | { key: Key }
 > {
   readonly type: string = "range";
   /** The range alias table; injected into sibling clients at wiring. */
@@ -513,7 +513,13 @@ export class Client extends query.Retriever<
         ],
       },
       compose: (r) => this.composeOne(r),
-      single: { schema: z.string(), space: single },
+      single: {
+        schema: z.union([
+          z.string(),
+          z.strictObject({ key: keyZ }).transform(({ key }) => key),
+        ]),
+        space: single,
+      },
     });
     this.cfg = cfg;
     this.lines = createLines((r, keys) =>
@@ -653,7 +659,7 @@ export class Client extends query.Retriever<
     drop();
   }
 
-  async retrieve(params: Key | Name): Promise<Range>;
+  async retrieve(params: Key | Name | { key: Key }): Promise<Range>;
   async retrieve(
     params: Name[] | CrudeTimeRange | query.RequestInput<typeof retrieveMultiParamsZ>,
   ): Promise<Range[]>;
@@ -661,6 +667,7 @@ export class Client extends query.Retriever<
     params:
       | Key
       | Name
+      | { key: Key }
       | Name[]
       | CrudeTimeRange
       | query.RequestInput<typeof retrieveMultiParamsZ>,
