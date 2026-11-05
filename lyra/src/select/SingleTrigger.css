@@ -47,11 +47,24 @@
         }
 
         > .lyra-select__label,
+        > .lyra-select-single-trigger__end,
         &:has(> .lyra-icon:first-child, > .lyra-select-single-trigger__icon:first-child)
             > .lyra-caret-animated {
             display: none;
         }
     }
+}
+
+/* The name fills the trigger, so end content sits before the caret at the trailing
+   edge. */
+.lyra-dialog__trigger > .lyra-select__label:has(+ .lyra-select-single-trigger__end) {
+    flex-grow: 1;
+}
+
+.lyra-select-single-trigger__end {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
 }
 
 /* A fixed item's label fills the trigger, so its content can push a part, such as an

@@ -12,22 +12,9 @@ package v0
 import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	secret "github.com/synnaxlabs/synnax/pkg/service/secret/versions/v0"
 )
 
 var _ gorp.Entry[Key] = Certificate{}
-
-// Source returns where the contents of the certificate live, or an empty source if the
-// certificate has no variant.
-func (c Certificate) Source() secret.Source {
-	switch c.Variant.(type) {
-	case StoredCertificate:
-		return secret.SourceStored
-	case FileCertificate:
-		return secret.SourceFile
-	}
-	return ""
-}
 
 // Details returns the details of the certificate's leaf, and false when they are
 // unknown: a file certificate saved without details, or a certificate with no variant.
