@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, mqtt, type task } from "@synnaxlabs/client";
+import { channel, driver, mqtt, type task } from "@synnaxlabs/client";
 import { DataType, json, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -419,5 +419,7 @@ const browseSparkplugResultZ = z.object({
 export const SCAN_SCHEMAS = {
   type: z.literal(SCAN_TYPE),
   config: record.nullishToEmpty(),
-  statusData: z.union([browseResultZ, browseSparkplugResultZ]).nullish(),
+  statusData: z
+    .union([driver.testResultZ, browseResultZ, browseSparkplugResultZ])
+    .nullish(),
 } as const satisfies task.Schemas;

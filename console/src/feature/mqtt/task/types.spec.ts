@@ -884,8 +884,23 @@ describe("MQTT Scan Task", () => {
     expect(z.validate(MQTT.Task.SCAN_SCHEMAS.config, undefined)).toBe(true);
   });
 
-  it("should accept the null status data of a test connection reply", () => {
+  it("should accept the null status data of a reply with no data", () => {
     expect(z.validate(MQTT.Task.SCAN_SCHEMAS.statusData, null)).toBe(true);
+  });
+
+  it("should parse the steps of a test connection reply", () => {
+    const data = {
+      steps: [
+        {
+          stage: "dial",
+          address: "127.0.0.1:1883",
+          variant: "error",
+          message: "Failed to reach broker",
+          description: "Could not reach 127.0.0.1:1883: connection refused.",
+        },
+      ],
+    };
+    expect(MQTT.Task.SCAN_SCHEMAS.statusData.parse(data)).toEqual(data);
   });
 
   it("should parse the status data of a browse reply", () => {
