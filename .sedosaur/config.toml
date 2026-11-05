@@ -70,3 +70,58 @@ paths = ["**/*.cpp", "**/*.h"]
 path = "docs/claude/toolchains/css.md"
 description = "CSS rules"
 paths = ["**/*.css", "**/*.scss"]
+
+[[context]]
+path = "docs/claude/ux.md"
+description = "How the Console, Lyra, Pluto, and the docs site look and behave"
+paths = ["console/**", "pluto/**", "lyra/**", "site/**"]
+
+[[context]]
+path = "docs/claude/integration-test.md"
+description = "Integration test rules"
+paths = ["integration/**"]
+
+[[context]]
+path = "site/docs/CONTRIBUTING.md"
+description = "Docs site writing rules"
+paths = ["site/docs/**"]
+
+[[context]]
+path = "core/AGENTS.md"
+description = "The Core"
+paths = ["core/**"]
+
+[[context]]
+path = "console/AGENTS.md"
+description = "The Console"
+paths = ["console/**"]
+
+[[context]]
+path = "pluto/AGENTS.md"
+description = "Pluto"
+paths = ["pluto/**"]
+
+[[context]]
+path = "lyra/AGENTS.md"
+description = "Lyra"
+paths = ["lyra/**"]
+
+[[context]]
+path = "driver/AGENTS.md"
+description = "The Driver"
+paths = ["driver/**"]
+
+[[context]]
+path = "arc/AGENTS.md"
+description = "Arc"
+paths = ["arc/**"]
+
+[[context]]
+path = "oracle/AGENTS.md"
+description = "Oracle and its schemas"
+paths = ["oracle/**", "schemas/**"]
+
+[[context]]
+path = "scripts/AGENTS.md"
+description = "Repository scripts"
+paths = ["scripts/**"]
