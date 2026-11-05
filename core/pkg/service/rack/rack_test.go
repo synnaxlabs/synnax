@@ -175,6 +175,26 @@ func (d gatedDB) OnChange(
 	})
 }
 
+// failingDB rejects each commit that fail returns an error for.
+type failingDB struct {
+	kv.DB
+	fail func(kv.TxReader) error
+}
+
+func (d failingDB) OpenTx() kv.Tx { return failingTx{Tx: d.DB.OpenTx(), fail: d.fail} }
+
+type failingTx struct {
+	kv.Tx
+	fail func(kv.TxReader) error
+}
+
+func (t failingTx) Commit(ctx context.Context, opts ...any) error {
+	if err := t.fail(t.NewReader()); err != nil {
+		return err
+	}
+	return t.Tx.Commit(ctx, opts...)
+}
+
 func retrieveStatus(
 	ctx context.Context,
 	stat *status.Service,
@@ -1411,6 +1431,63 @@ var _ = Describe("Rack", Ordered, func() {
 				now.Store(int64(start.Add(24 * telem.Millisecond)))
 				Eventually(func(g Gomega) {
 					s := MustSucceed(retrieveStatus(ctx, gated.status, r.Key))
+					g.Expect(s.Message).To(Equal("Driver not running"))
+					g.Expect(s.Name).To(Equal("renamed"))
+				}).Should(Succeed())
+			},
+		)
+
+		It(
+			"Should not extend the deadline of a silent rack after a failed outage write",
+			func(ctx SpecContext) {
+				start := telem.Now()
+				var (
+					now          atomic.Int64
+					failed       atomic.Bool
+					ticksAfter   atomic.Int32
+					outageStatus = []byte("Driver not running")
+				)
+				now.Store(int64(start))
+				failDB := DeferClose(gorp.Wrap(failingDB{
+					DB: memkv.New(),
+					fail: func(reader kv.TxReader) error {
+						for ch := range reader {
+							if bytes.Contains(ch.Value, outageStatus) &&
+								failed.CompareAndSwap(false, true) {
+								now.Store(int64(start.Add(5 * telem.Millisecond)))
+								return errors.New("commit failed")
+							}
+						}
+						return nil
+					},
+				}))
+				failing := DeferClose(openStack(ctx, failDB, rack.ServiceConfig{
+					HealthCheckInterval: 10 * telem.Millisecond,
+					Now: func() telem.TimeStamp {
+						if failed.Load() {
+							ticksAfter.Add(1)
+						}
+						return telem.TimeStamp(now.Load())
+					},
+				}))
+				r := rack.Rack{
+					Name: "failed outage rack",
+					Status: &rack.Status{
+						Variant: status.VariantSuccess,
+						Message: "Driver is running",
+						Time:    telem.SecondTS,
+					},
+				}
+				Expect(failing.rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+				now.Store(int64(start.Add(12 * telem.Millisecond)))
+				// The next tick shows that the monitor finished with the failed write.
+				Eventually(ticksAfter.Load).Should(BeNumerically(">", 0))
+
+				Expect(failing.rack.NewWriter(nil).Rename(ctx, r.Key, "renamed")).
+					To(Succeed())
+				now.Store(int64(start.Add(12 * telem.Millisecond)))
+				Eventually(func(g Gomega) {
+					s := MustSucceed(retrieveStatus(ctx, failing.status, r.Key))
 					g.Expect(s.Message).To(Equal("Driver not running"))
 					g.Expect(s.Name).To(Equal("renamed"))
 				}).Should(Succeed())
