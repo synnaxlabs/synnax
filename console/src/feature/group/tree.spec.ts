@@ -7,7 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, DataType, device, group, rack, resource } from "@synnaxlabs/client";
+import {
+  channel,
+  DataType,
+  device,
+  group,
+  project,
+  rack,
+  resource,
+} from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { type Haul } from "@synnaxlabs/lyra/haul";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
@@ -18,6 +26,7 @@ import { describe, expect, it } from "vitest";
 import { Channel } from "@/feature/channel";
 import { Device } from "@/feature/device";
 import { Group } from "@/feature/group";
+import { Project } from "@/feature/project";
 import { Rack } from "@/feature/rack";
 import {
   createResource,
@@ -92,6 +101,26 @@ describe("group ontology service", () => {
       });
     expect(canDrop([root])).toBe(true);
     expect(canDrop([rack.resourceID(1), root])).toBe(false);
+  });
+
+  it("should refuse a project into a group under a project", () => {
+    const root = project.TYPE_RESOURCE_ID;
+    const ProjectItem = Group.createTreeItems({
+      channel: [],
+      device: [],
+      project: [Project.GROUP_MEMBER],
+    }).group;
+    const canDrop = (ancestors: resource.ID[]): boolean =>
+      ProjectItem.canDrop({
+        source: { key: "tree", type: PTree.HAUL_TYPE },
+        items: [PTree.createHaulItem("project:b")],
+        root,
+        destination: createResource(group.resourceID("g"), "g"),
+        ancestors,
+        moved: [{ id: project.resourceID("b"), ancestors: [root] }],
+      });
+    expect(canDrop([root])).toBe(true);
+    expect(canDrop([project.resourceID("a"), root])).toBe(false);
   });
 
   it("should offer Reload Console", async () => {

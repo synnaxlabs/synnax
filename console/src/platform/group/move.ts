@@ -73,17 +73,25 @@ const rackOf = (ids: resource.ID[]): resource.ID | undefined =>
 
 /**
  * Returns whether moveRequests can move the dropped items under the destination. An
- * item under a rack stays under that rack, and a rack goes only where no rack is above.
- * @param ancestors - the tree ancestors of the destination.
+ * item under a rack stays under that rack. A rack or project goes only into a group
+ * that has no rack or project above it.
  */
-export const canMove = (
-  items: Tree.Dropped[],
-  destination: resource.ID,
-  ancestors: resource.ID[],
-): boolean => {
-  const rack = rackOf([destination, ...ancestors]);
-  return items.every(({ id, ancestors }) => {
-    if (id.type === "rack") return rack == null;
+export const canMove = ({
+  root,
+  destination,
+  ancestors,
+  moved,
+}: Pick<
+  Tree.CanDropProps,
+  "root" | "destination" | "ancestors" | "moved"
+>): boolean => {
+  const above = [destination.id, ...ancestors];
+  const atRoot = above.every(
+    (id) => id.type === "group" || resource.idsEqual(id, root),
+  );
+  const rack = rackOf(above);
+  return moved.every(({ id, ancestors }) => {
+    if (id.type === "rack" || id.type === "project") return atRoot;
     const from = rackOf(ancestors);
     return from == null || rack == null ? from === rack : resource.idsEqual(from, rack);
   });

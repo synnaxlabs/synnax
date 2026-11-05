@@ -192,9 +192,8 @@ const TreeItem = Tree.createItem({
       Tree.toResource("device"),
     ),
   ],
-  canDrop: ({ destination, ancestors, moved }) =>
-    moved.every(({ id }) => DROPPABLE_TYPES.has(id.type)) &&
-    Group.canMove(moved, destination.id, ancestors),
+  canDrop: (props) =>
+    props.moved.every(({ id }) => DROPPABLE_TYPES.has(id.type)) && Group.canMove(props),
   drop: async ({ client, destination, items }) => {
     await client.batch.send(
       Group.moveRequests(

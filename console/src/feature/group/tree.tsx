@@ -200,14 +200,14 @@ export const createTreeItems = (
     type: "group",
     icon: <Icon.Group />,
     children,
-    canDrop: ({ root, destination, ancestors, moved }) => {
+    canDrop: (props) => {
       const types = new Set<resource.Type>([
         "group",
-        ...membersOf(root).map(({ type }) => type),
+        ...membersOf(props.root).map(({ type }) => type),
       ]);
       return (
-        moved.every(({ id }) => types.has(id.type)) &&
-        PlatformGroup.canMove(moved, destination.id, ancestors)
+        props.moved.every(({ id }) => types.has(id.type)) &&
+        PlatformGroup.canMove(props)
       );
     },
     drop: async ({ client, destination, items }) => {
