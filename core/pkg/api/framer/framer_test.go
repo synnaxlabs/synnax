@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Framer", func() {
@@ -123,6 +124,19 @@ var _ = Describe("Framer", func() {
 			Expect(res.Channels).To(HaveLen(1))
 			Expect(res.Channels[0].Key()).To(Equal(data.Key()))
 			Expect(res.Indexes).To(BeEmpty())
+		})
+
+		It("Should reject a read with both latest and a reduction", func(
+			ctx SpecContext,
+		) {
+			Expect(apiSvc.Read(rootCtx(ctx), apiframer.ReadRequest{
+				Keys:   channel.Keys{data.Key()},
+				Bounds: telem.TimeRangeMax,
+				Latest: 10,
+				Reduction: telem.Reduction{
+					Variant: telem.LimitReduction{PointLimit: 10},
+				},
+			})).Error().To(MatchError(validate.ErrValidation))
 		})
 
 		It(

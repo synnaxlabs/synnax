@@ -72,13 +72,18 @@ func (frameEncoder) EncodeStream(ctx context.Context, w io.Writer, value any) er
 	}
 	c := codec.NewStatic(keys, dataTypes)
 	var buf bytes.Buffer
-	readErr := drain(iter, func(fr Frame) error {
+	write := func(fr Frame) error {
 		buf.Reset()
 		if err := c.EncodeStream(ctx, &buf, fr); err != nil {
 			return err
 		}
 		return writeRecord(w, recordData, buf.Bytes())
-	})
+	}
+	read := drain
+	if res.Latest > 0 {
+		read = drainLatest
+	}
+	readErr := read(iter, write)
 	var payload []byte
 	if readErr != nil {
 		if payload, err = json.Codec.Encode(
@@ -116,6 +121,17 @@ func drain(iter *svcframer.Iterator, f func(Frame) error) error {
 	return errors.Combine(err, iter.Close())
 }
 
+// drainLatest seeks iter to the end of its bounds and calls f with the frame it reads
+// back, which holds up to the chunk size of iter for each channel. It always closes
+// iter, and it returns the read error that Close reports.
+func drainLatest(iter *svcframer.Iterator, f func(Frame) error) error {
+	var err error
+	if iter.SeekLast() && iter.Prev(IteratorAutoSpan) {
+		err = f(iter.Value())
+	}
+	return errors.Combine(err, iter.Close())
+}
+
 func readResponse(value any) (ReadResponse, error) {
 	res, ok := value.(ReadResponse)
 	if !ok {
@@ -129,6 +145,12 @@ func readResponse(value any) (ReadResponse, error) {
 // It returns a validation error when res leaves out the index of a channel or carries a
 // limit reduction.
 func groupByIndex(res ReadResponse) ([][]channel.Channel, error) {
+	if res.Latest > 0 {
+		return nil, errors.Wrap(
+			validate.ErrValidation,
+			"a CSV or TDMS read cannot take latest",
+		)
+	}
 	if _, ok := res.Reduction.Variant.(telem.LimitReduction); ok {
 		// A limit leaves non-numeric channels raw beside their reduced index, so their
 		// samples have no row.

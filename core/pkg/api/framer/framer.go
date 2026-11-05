@@ -170,6 +170,10 @@ type ReadRequest struct {
 	// TimestampsIncluded also reads the index channels that timestamp Keys, when Keys
 	// leaves them out. A CSV read fails without it unless Keys holds every index.
 	TimestampsIncluded bool `json:"timestamps_included" msgpack:"timestamps_included"`
+	// Latest reads only the newest Latest samples of each channel in Bounds, when it is
+	// above 0. A read cannot combine it with Reduction, and a CSV or TDMS read cannot
+	// take it.
+	Latest uint32 `json:"latest" msgpack:"latest"`
 }
 
 // ReadResponse is the handle a read encoder drives to produce the response body. It is
@@ -183,6 +187,8 @@ type ReadResponse struct {
 	Indexes []channel.Channel
 	// Reduction is the request's reduction.
 	Reduction telem.Reduction
+	// Latest is the request's count of newest samples, or 0 to read every sample.
+	Latest uint32
 	// OpenIterator opens an iterator over keys within the read's bounds and under its
 	// reduction. The caller must close it.
 	OpenIterator func(ctx context.Context, keys channel.Keys) (*framer.Iterator, error)
@@ -192,6 +198,12 @@ type ReadResponse struct {
 // channels when req sets TimestampsIncluded, and returns the response an encoder
 // reads them through.
 func (s *Service) Read(ctx context.Context, req ReadRequest) (ReadResponse, error) {
+	if req.Latest > 0 && req.Reduction.Variant != nil {
+		return ReadResponse{}, errors.Wrap(
+			validate.ErrValidation,
+			"a read cannot take both latest and a reduction",
+		)
+	}
 	if err := s.enforceRetrieve(ctx, req.Keys); err != nil {
 		return ReadResponse{}, err
 	}
@@ -221,6 +233,7 @@ func (s *Service) Read(ctx context.Context, req ReadRequest) (ReadResponse, erro
 		Channels:  channels,
 		Indexes:   indexes,
 		Reduction: req.Reduction,
+		Latest:    req.Latest,
 		OpenIterator: func(
 			ctx context.Context,
 			keys channel.Keys,
@@ -229,6 +242,7 @@ func (s *Service) Read(ctx context.Context, req ReadRequest) (ReadResponse, erro
 				Keys:      keys,
 				Bounds:    req.Bounds,
 				Reduction: req.Reduction,
+				ChunkSize: int64(req.Latest),
 			})
 		},
 	}, nil

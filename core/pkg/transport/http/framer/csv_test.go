@@ -68,6 +68,15 @@ var _ = Describe("CSV", func() {
 			)))
 		})
 
+		It("Should reject a latest read", func(ctx SpecContext) {
+			index, channels := createIndexed(ctx, telem.Float32T)
+			res := read(ctx, index, channels...)
+			res.Latest = 1
+			Expect(framer.CSVEncoder.Encode(ctx, res)).Error().To(
+				MatchError(ContainSubstring("cannot take latest")),
+			)
+		})
+
 		It("Should quote a value holding a comma", func(ctx SpecContext) {
 			index, channels := createIndexed(ctx, telem.StringT)
 			write(

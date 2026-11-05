@@ -31,6 +31,7 @@ import { IndexStamps, Stamps } from "@/framer/cache/stamps";
 import { LOADING, NO_HISTORY, READ_FAILED, SUCCESS } from "@/framer/cache/status";
 import { calculated, type Store } from "@/framer/cache/store";
 import { type Demand, type MultiplexedStreamer } from "@/framer/cache/streamer";
+import { type Frame } from "@/framer/frame";
 import { createBreaker, isDefinitive } from "@/framer/retry";
 import { type Snapshot } from "@/framer/subscription";
 import { status } from "@/status";
@@ -47,8 +48,8 @@ export interface LatestProps {
   /** Reports the history changes that make the samples read go out of date. */
   store: Store;
   streamer: MultiplexedStreamer;
-  /** Reads the newest count stored samples of the channel in the time range. */
-  readLatest: (key: channel.Key, count: number, tr: TimeRange) => Promise<MultiSeries>;
+  /** Reads the newest count stored samples of each channel in the time range. */
+  readLatest: (keys: channel.Key[], count: number, tr: TimeRange) => Promise<Frame>;
   retrieveChannels: ChannelRetriever;
   now: () => TimeStamp;
   /** Retry behavior for failed reads. */
@@ -116,6 +117,8 @@ export class Latest {
   // indexStamps holds the index series that stamp the samples held, from the first
   // timeAt that needs them.
   private indexStamps: IndexStamps | null = null;
+  // timed is true from the first timeAt, so reads fetch the index with the samples.
+  private timed = false;
   private indexDemand: Demand | null = null;
   // indexReads holds the index reads in flight and the ones that wait to run again.
   private indexReads: IndexRead[] = [];
@@ -211,6 +214,7 @@ export class Latest {
    * found, and when no sample it answers for has the alignment.
    */
   timeAt(alignment: bigint): TimeStamp | null {
+    this.timed = true;
     const { timeSource } = this;
     if (timeSource == null) return null;
     if (timeSource === "self") return this.sampleAt(alignment);
@@ -406,7 +410,7 @@ export class Latest {
     const read: IndexRead = { span: series.alignmentBounds, tries: prev?.tries ?? 0 };
     this.indexReads = [...this.indexReads.filter((r) => r !== prev), read];
     try {
-      const times = await this.props.readLatest(index, length, tr);
+      const times = (await this.props.readLatest([index], length, tr)).get(index);
       if (this.indexStamps !== stamps) return;
       if (times.length === length) {
         stamps.add([realign(times, read.span.lower, tr)], [read.span]);
@@ -435,12 +439,35 @@ export class Latest {
     return this.closedTotal + (this.buffer.leadingBuffer?.length ?? 0);
   }
 
+  // Returns the index to read with the samples, when the times of a stored channel are
+  // wanted. A read's samples and index share alignments.
+  private readIndexKey(): channel.Key | null {
+    const { timeSource, timed } = this;
+    if (!timed || this.indexRefused || this.dedupe !== "alignment") return null;
+    return timeSource != null && typeof timeSource === "object"
+      ? timeSource.index
+      : null;
+  }
+
+  // Reads the samples with the index, or alone when the Core refuses the index.
+  private async read(index: channel.Key | null, tr: TimeRange): Promise<Frame> {
+    const { readLatest } = this.props;
+    if (index == null) return await readLatest([this.key], this.count, tr);
+    try {
+      return await readLatest([this.key, index], this.count, tr);
+    } catch (e) {
+      if (!isDefinitive(e) && !UnsupportedError.matches(e)) throw e as Error;
+      this.indexRefused = true;
+      return await readLatest([this.key], this.count, tr);
+    }
+  }
+
   // Reads the newest stored samples after the stream acks the channel, so the stream
   // delivers every sample the read misses. A virtual channel has none, so it only
   // streams.
   private async load(run: Load): Promise<void> {
     const { signal } = run.abort;
-    const { retrieveChannels, streamer, readLatest, now } = this.props;
+    const { retrieveChannels, streamer, now } = this.props;
     const brk = createBreaker(this.notifier, this.props.breaker);
     while (this.running === run)
       try {
@@ -448,6 +475,7 @@ export class Latest {
         if (payload == null) throw new NotFoundError(`channel ${this.key} not found`);
         if (this.running === run) this.findTimeSource(payload);
         let read: Series[] = [];
+        let times: Series[] = [];
         if (!payload.virtual) this.dedupe = "alignment";
         else this.dedupe = calculated(payload) ? "time" : null;
         if (this.dedupe != null) {
@@ -462,10 +490,19 @@ export class Latest {
               TimeStamp.min(TimeStamp.max(tr.start, run.after), tr.end),
               tr.end,
             );
-          read = (await readLatest(this.key, this.count, tr)).series;
+          const index = this.readIndexKey();
+          if (index != null) this.indexStamps ??= this.streamIndex(index);
+          const frame = await this.read(index, tr);
+          read = frame.get(this.key).series;
+          if (index != null) times = frame.get(index).series;
         }
         if (this.running !== run) return;
+        const stamps = this.indexStamps;
         this.land(read);
+        stamps?.add(
+          times,
+          read.map((s) => s.alignmentBounds),
+        );
         this.failure = null;
         return this.notify();
       } catch (e) {

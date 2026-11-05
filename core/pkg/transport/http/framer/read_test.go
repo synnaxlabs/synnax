@@ -206,6 +206,36 @@ var _ = Describe("Read", func() {
 			Expect(series[0]).To(telem.MatchSeriesDataV[float32](1, 4, 5, 8))
 		})
 
+		It("Should encode only the newest samples of a latest read", func(
+			ctx SpecContext,
+		) {
+			index, channels := createIndexed(ctx, telem.Float32T)
+			write(
+				ctx,
+				index,
+				telem.NewSeriesSecondsTSV(1, 2, 3, 4),
+				channels,
+				telem.NewSeriesV[float32](1, 2, 3, 4),
+			)
+			res := response(
+				channels,
+				[]svcchannel.Channel{index},
+				svcframer.IteratorConfig{ChunkSize: 2},
+			)
+			res.Latest = 2
+			b := MustSucceed(framer.FrameEncoder.Encode(ctx, res))
+			data, terminator := splitRecords(b)
+			Expect(terminator).To(BeEmpty())
+			Expect(data).To(HaveLen(1))
+			c := codec.NewStatic(
+				svcchannel.KeysFromChannels(channels),
+				[]telem.DataType{telem.Float32T},
+			)
+			fr := MustSucceed(c.Decode(data[0]))
+			Expect(fr.Get(channels[0].Key()).Series[0]).
+				To(telem.MatchWrittenSeries(telem.NewSeriesV[float32](3, 4)))
+		})
+
 		It("Should encode a read with no data as a single terminator", func(
 			ctx SpecContext,
 		) {

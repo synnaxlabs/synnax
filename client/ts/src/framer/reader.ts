@@ -31,12 +31,15 @@ const reqZ = z.object({
   bounds: TimeRange.z,
   reduction: reductionZ.optional(),
   timestampsIncluded: z.boolean(),
+  latest: z.number().optional(),
 });
 
 /** Options controlling how the Core resolves a read. */
 export interface ReadOptions {
   /** Reduces the samples of each channel. A read without one keeps every sample. */
   reduction?: Reduction;
+  /** Reads only the newest count of samples of each channel. */
+  latest?: number;
 }
 
 /** Options controlling how the Core resolves a CSV or TDMS read. */
@@ -162,6 +165,7 @@ export class Reader {
         bounds: new TimeRange(tr),
         reduction: opts.reduction,
         timestampsIncluded,
+        latest: opts.latest,
       },
       reqZ,
       { encoding },
