@@ -10,7 +10,6 @@
 package storage
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -27,23 +26,6 @@ const versionFile = "VERSION"
 
 // UnknownVersion is the Backup.Version of data that no Core recorded a version for.
 const UnknownVersion = "unknown"
-
-// NewerVersionError is returned by OpenLayer when a newer Core last opened the data
-// directory.
-type NewerVersionError struct {
-	// Version is the version of the Core that last opened the data.
-	Version string
-}
-
-// Error implements error.
-func (e NewerVersionError) Error() string {
-	return fmt.Sprintf(
-		"Data was last opened by Core %s. Run Core %s or newer, or restore a backup "+
-			"with `synnax restore`.",
-		e.Version,
-		e.Version,
-	)
-}
 
 // toSemver returns version in the form that the semver package parses.
 func toSemver(version string) string { return "v" + version }
@@ -70,7 +52,12 @@ func checkVersion(cfg LayerConfig, rootFS xfs.FS) error {
 		case 0:
 			return nil
 		case -1:
-			return NewerVersionError{Version: recorded}
+			return errors.Newf(
+				"Data was last opened by Core %s. Run Core %s or newer, or restore a "+
+					"backup with `synnax restore`.",
+				recorded,
+				recorded,
+			)
 		}
 	} else {
 		recorded = UnknownVersion
@@ -90,6 +77,9 @@ func checkVersion(cfg LayerConfig, rootFS xfs.FS) error {
 			return errors.Wrap(err, "failed to back up metadata")
 		}
 		cfg.L.Info("backed up metadata", zap.String("backup", b.Name))
+		if err = prune(fs); err != nil {
+			return errors.Wrap(err, "failed to prune old backups")
+		}
 	}
 	return writeVersion(fs, cfg.Version)
 }
