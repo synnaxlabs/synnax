@@ -44,7 +44,8 @@ type FS interface {
 	// Open opens a file according to the provided flag. The provided flag can be OR-ed
 	// in out of the flags in os, e.g. os.O_CREATE|os.O_WRONLY.
 	Open(name string, flag int) (File, error)
-	// Sub returns a new FS rooted at the given directory.
+	// Sub returns a new FS rooted at the given directory. It creates the directory and
+	// its parents when they do not exist.
 	Sub(string) (FS, error)
 	// List returns a list of files in the directory SORTED by file name.
 	List(string) ([]FileInfo, error)
