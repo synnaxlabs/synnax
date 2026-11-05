@@ -252,7 +252,8 @@ describe("Read", () => {
 
   it("should seed the form from the task row's config", async () => {
     const client = createTestClient();
-    const config = createReadConfig("dev_1", [
+    const dev = await createHTTPDevice(client);
+    const config = createReadConfig(dev.key, [
       {
         ...http.readEndpointZ.parse({}),
         key: "ep1",

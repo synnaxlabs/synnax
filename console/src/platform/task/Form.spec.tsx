@@ -16,7 +16,7 @@ import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { deep, TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { type FC } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { createTestSink } from "@/platform/analytics/testutil";
@@ -96,6 +96,23 @@ const findNameInput = (): HTMLInputElement => {
 };
 
 describe("wrapForm", () => {
+  // The Core refuses a config that names a device it does not hold.
+  beforeAll(async () => {
+    const client = createTestClient();
+    const rack = await client.racks.create({ name: uniqueName("rack") });
+    await client.devices.create(
+      ["dev", "valid", "filled", "remote"].map((key) => ({
+        key,
+        name: key,
+        rack: rack.key,
+        location: "test",
+        make: "test",
+        model: "test",
+        properties: {},
+      })),
+    );
+  });
+
   it("should produce a renderer whose displayName references the child form", () => {
     const Renderer = createRenderer();
     expect(Renderer.displayName).toContain("TestChildForm");

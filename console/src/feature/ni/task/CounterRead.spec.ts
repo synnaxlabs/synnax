@@ -42,7 +42,7 @@ const createChannel = (
     ...NI.Task.createCIChannel(type),
     key: id.create(),
     port,
-    device: "placeholder_device",
+    device: "",
     ...overrides,
   }) as NI.Task.CIChannel;
 

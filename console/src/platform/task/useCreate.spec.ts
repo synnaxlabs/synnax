@@ -56,14 +56,15 @@ const createForMake = async (deviceMake: string, deviceKey?: string) => {
 
 describe("createUseCreate", () => {
   it("should create a draft row on rack zero and open its resource tab", async () => {
+    const dev = await createTestDevice(client);
     const { created, result } = await setup();
-    act(() => result.current({ deviceKey: "dev-1" }));
+    act(() => result.current({ deviceKey: dev.key }));
     const key = await awaitTaskResourceTab(created);
     const tsk = await client.tasks.retrieve({ key, schemas });
     expect(tsk.rack).toBe(0);
     expect(tsk.type).toBe(TYPE);
     expect(tsk.name).toBe("New Create Task");
-    expect(tsk.config.device).toBe("dev-1");
+    expect(tsk.config.device).toBe(dev.key);
   });
 
   it("should start on the only device of its make when no device is given", async () => {
@@ -91,8 +92,9 @@ describe("createUseCreate", () => {
   it("should keep a given device over the only device of its make", async () => {
     const make = uniqueName("make");
     await createTestDevice(client, { make });
-    const tsk = await createForMake(make, "dev-1");
-    expect(tsk.config.device).toBe("dev-1");
+    const given = await createTestDevice(client);
+    const tsk = await createForMake(make, given.key);
+    expect(tsk.config.device).toBe(given.key);
   });
 
   it("should honor an explicit rack", async () => {
@@ -112,14 +114,15 @@ describe("createUseCreate", () => {
         config: config as z.infer<(typeof schemas)["config"]>,
       }),
     });
+    const dev = await createTestDevice(client);
     const store = await createTestStore();
     const { wrapper } = await createConsoleWrapper({ client, store });
     const created = await createSelectedPanel(store, client);
     const { result } = renderHook(() => useCreateFromConfig(), { wrapper });
-    act(() => result.current({ config: { device: "dev-2" } }));
+    act(() => result.current({ config: { device: dev.key } }));
     const key = await awaitTaskResourceTab(created);
     const tsk = await client.tasks.retrieve({ key, schemas });
-    expect(tsk.config.device).toBe("dev-2");
+    expect(tsk.config.device).toBe(dev.key);
   });
 
   it("should replace the tab whose key it is given instead of opening a new one", async () => {

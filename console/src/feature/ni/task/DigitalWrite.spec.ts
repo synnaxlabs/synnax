@@ -63,10 +63,11 @@ const renderDigitalWrite = async (
   return { ...rendered, draft };
 };
 
-const createConfig = (
-  channels: NI.Task.DOChannel[],
-  device = "placeholder_device",
-) => ({ ...NI.Task.DIGITAL_WRITE_SCHEMAS.config.parse({}), device, channels });
+const createConfig = (channels: NI.Task.DOChannel[], device = "") => ({
+  ...NI.Task.DIGITAL_WRITE_SCHEMAS.config.parse({}),
+  device,
+  channels,
+});
 
 describe("DigitalWrite", () => {
   it("should write edits to a channel's line number back into the form", async () => {

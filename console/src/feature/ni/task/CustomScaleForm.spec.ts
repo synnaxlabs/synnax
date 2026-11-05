@@ -83,7 +83,7 @@ const createChannel = (customScale: NI.Task.Scale): VoltageChannel => ({
   ...(NI.Task.createAIChannel("ai_voltage") as VoltageChannel),
   key: id.create(),
   port: 0,
-  device: "placeholder_device",
+  device: "",
   customScale,
 });
 

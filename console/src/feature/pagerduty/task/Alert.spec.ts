@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { pagerduty, type task } from "@synnaxlabs/client";
+import { pagerduty, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -50,14 +50,24 @@ const addAlert = async (): Promise<void> => {
   await waitFor(() => expect(newAlertItem()).toBeTruthy());
 };
 
-const createAlertConfig = (
+// The Core refuses an alert that names a status it does not hold.
+const createAlertConfig = async (
+  client: Synnax,
   overrides: Partial<z.infer<PagerDuty.Task.AlertSchemas["config"]>> = {},
-): z.infer<PagerDuty.Task.AlertSchemas["config"]> => ({
-  ...PagerDuty.Task.ALERT_SCHEMAS.config.parse({}),
-  routingKey: "R".repeat(32),
-  alerts: [{ ...pagerduty.alertZ.parse({}), key: "a1", status: uniqueName("status") }],
-  ...overrides,
-});
+): Promise<z.infer<PagerDuty.Task.AlertSchemas["config"]>> => {
+  const st = await client.statuses.set({
+    key: uniqueName("status"),
+    name: "pressure",
+    variant: "warning",
+    message: "Pressure high",
+  });
+  return {
+    ...PagerDuty.Task.ALERT_SCHEMAS.config.parse({}),
+    routingKey: "R".repeat(32),
+    alerts: [{ ...pagerduty.alertZ.parse({}), key: "a1", status: st.key }],
+    ...overrides,
+  };
+};
 
 describe("PagerDuty Alert form", () => {
   it("should show the empty state and add + select an alert", async () => {
@@ -106,19 +116,19 @@ describe("PagerDuty Alert form", () => {
 
   it("should seed the form from the task row's config", async () => {
     const client = createTestClient();
-    const config = createAlertConfig();
+    const config = await createAlertConfig(client);
     const draft = await client.tasks.create(
       { ...ZERO_DRAFT, config },
       PagerDuty.Task.ALERT_SCHEMAS,
     );
     await renderAlert({ client, taskKey: draft.key });
     await screen.findByDisplayValue("R".repeat(32));
-    await waitFor(() => expect(newAlertItem()).toBeTruthy());
+    await screen.findByRole("option", { name: /pressure/ });
   });
 
   it("should load a routing key the deploy schema would reject", async () => {
     const client = createTestClient();
-    const config = createAlertConfig({ routingKey: "too_short" });
+    const config = await createAlertConfig(client, { routingKey: "too_short" });
     const draft = await client.tasks.create({ ...ZERO_DRAFT, config });
     await renderAlert({ client, taskKey: draft.key });
     const input = await screen.findByPlaceholderText<HTMLInputElement>(
@@ -133,7 +143,7 @@ describe("PagerDuty Alert form", () => {
 
     it("should start the alert task on the rack stored on its row", async () => {
       const rack = await client.racks.create({ name: uniqueName("rack") });
-      const config = createAlertConfig();
+      const config = await createAlertConfig(client);
       const draft = await client.tasks.create(
         { ...ZERO_DRAFT, config, rack: rack.key },
         PagerDuty.Task.ALERT_SCHEMAS,

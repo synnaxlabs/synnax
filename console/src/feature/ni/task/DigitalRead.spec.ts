@@ -64,10 +64,11 @@ const renderDigitalRead = async (
   return { ...rendered, draft };
 };
 
-const createConfig = (
-  channels: NI.Task.DIChannel[],
-  device = "placeholder_device",
-) => ({ ...NI.Task.DIGITAL_READ_SCHEMAS.config.parse({}), device, channels });
+const createConfig = (channels: NI.Task.DIChannel[], device = "") => ({
+  ...NI.Task.DIGITAL_READ_SCHEMAS.config.parse({}),
+  device,
+  channels,
+});
 
 describe("DigitalRead", () => {
   it("should write edits to a channel's line number back into the form", async () => {

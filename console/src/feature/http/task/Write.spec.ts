@@ -162,7 +162,8 @@ describe("Write", () => {
 
   it("should seed the form from the task row's config", async () => {
     const client = createTestClient();
-    const config = createWriteConfig("dev_1", [createWriteEndpoint("ep1", "/seeded")]);
+    const dev = await createHTTPDevice(client);
+    const config = createWriteConfig(dev.key, [createWriteEndpoint("ep1", "/seeded")]);
     const draft = await createDraft(client, config);
     await renderWrite({ client, taskKey: draft.key });
     await screen.findByRole("option", { name: /\/seeded/ });
@@ -177,7 +178,8 @@ describe("Write", () => {
       dataType,
       virtual: true,
     });
-    const config = createWriteConfig("dev_1", [
+    const dev = await createHTTPDevice(client);
+    const config = createWriteConfig(dev.key, [
       createWriteEndpoint("ep1", "/cmd", { channel: ch.key }),
     ]);
     const draft = await createDraft(client, config);

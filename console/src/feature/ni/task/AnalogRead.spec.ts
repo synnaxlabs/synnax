@@ -49,7 +49,7 @@ const createChannel = (
     ...NI.Task.createAIChannel(type),
     key: id.create(),
     port,
-    device: "placeholder_device",
+    device: "",
     ...overrides,
   }) as NI.Task.AIChannel;
 
