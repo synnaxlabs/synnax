@@ -10,4 +10,3 @@
 export * from "@/session/panel/selectors";
 export * from "@/session/panel/slice";
 export * from "@/session/panel/synchronizer";
-export * from "@/session/panel/triggers";

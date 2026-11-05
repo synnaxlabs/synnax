@@ -57,6 +57,20 @@ describe("log/toolbar/Channels", () => {
     expect(await screen.findByDisplayValue("pressure")).toBeDefined();
   });
 
+  it("limits an alias to 64 characters, counting an emoji as one", async () => {
+    const key = await createChannel();
+    const { key: logKey } = await renderChannels([entry(key)]);
+    const { name } = await client.channels.retrieve(key);
+    fireEvent.change(await screen.findByPlaceholderText(name), {
+      target: { value: "😀".repeat(65) },
+    });
+    await waitFor(async () =>
+      expect((await client.logs.retrieve(logKey)).channels[0].alias).toBe(
+        "😀".repeat(64),
+      ),
+    );
+  });
+
   it("renders an absent precision as an empty field with an auto chip", async () => {
     await renderChannels([entry(await createChannel())]);
     const [row] = await waitFor(() => {
