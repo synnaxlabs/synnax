@@ -15,6 +15,8 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { deep, type record, uuid } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
+import { CSS } from "@/platform/css";
+
 type Field = icd.BinaryField | icd.TextField | icd.JSONField;
 type Encoding = "binary" | icd.TextFieldType | "json";
 type FieldOf<E extends Encoding> = E extends "binary"
@@ -52,7 +54,7 @@ const name = <F extends Field>(): Column<F> => ({
 const scale = <F extends Field>(): Column<F> => ({
   name: "Scale",
   render: "number",
-  width: 10,
+  width: 11,
   get: ({ scale }) => scale,
   set: (f, cell) => ({ ...f, scale: Number(cell) }),
 });
@@ -60,7 +62,7 @@ const scale = <F extends Field>(): Column<F> => ({
 const offset = <F extends Field>(): Column<F> => ({
   name: "Offset",
   render: "number",
-  width: 10,
+  width: 11,
   get: ({ offset }) => offset,
   set: (f, cell) => ({ ...f, offset: Number(cell) }),
 });
@@ -68,7 +70,7 @@ const offset = <F extends Field>(): Column<F> => ({
 const units = <F extends Field>(): Column<F> => ({
   name: "Units",
   render: "text",
-  width: 10,
+  width: 11,
   get: ({ units }) => units,
   set: (f, cell) => ({ ...f, units: String(cell) }),
 });
@@ -91,7 +93,7 @@ const parseIntegers = (text: string): number[] =>
 const multiplexValues = <F extends Field>(): Column<F> => ({
   name: "Multiplex values",
   render: "text",
-  width: 16,
+  width: 21,
   get: ({ multiplexValues }) => multiplexValues.join(", "),
   set: (f, cell) => ({ ...f, multiplexValues: parseIntegers(String(cell)) }),
 });
@@ -148,14 +150,14 @@ const COLUMNS: { [E in Encoding]: Column<FieldOf<E>>[] } = {
     {
       name: "Start bit",
       render: "number",
-      width: 11,
+      width: 14,
       get: ({ startBit }) => startBit,
       set: (f, cell) => ({ ...f, startBit: Number(cell) }),
     },
     {
       name: "Bit length",
       render: "number",
-      width: 11,
+      width: 14,
       get: ({ bitLength }) => bitLength,
       set: (f, cell) => ({ ...f, bitLength: Number(cell) }),
     },
@@ -182,7 +184,7 @@ const COLUMNS: { [E in Encoding]: Column<FieldOf<E>>[] } = {
     {
       name: "Position",
       render: "number",
-      width: 11,
+      width: 13,
       get: ({ position }) => position,
       set: (f, cell) => ({ ...f, position: Number(cell) }),
     },
@@ -383,7 +385,7 @@ export const Fields = ({ path, encoding }: FieldsProps): ReactElement => {
   let helpText = status?.message;
   if (failing !== -1) helpText = `Field ${failing + 1}: ${helpText}`;
   return (
-    <Flex.Box y gap="small">
+    <Flex.Box y gap="small" className={CSS.BE("icd-editor", "fields")}>
       <Input.Table
         value={rows}
         onChange={handleChange}

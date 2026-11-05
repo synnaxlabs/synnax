@@ -50,6 +50,11 @@
     padding: var(--console-details-padding);
 }
 
+/* The fields table scrolls inside the pane instead of widening the form grid. */
+.console-icd-editor__fields {
+    contain: inline-size;
+}
+
 .console-icd-editor__flags {
     gap: 0 3rem;
 }
