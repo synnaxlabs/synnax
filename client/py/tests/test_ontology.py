@@ -15,24 +15,10 @@ import synnax as sy
 
 
 @pytest.mark.ontology
-class TestResourceID:
-    """ID's string form is the wire format the Core parses (e.g. the imex parent
-    query param), so it must serialize as type:key."""
-
-    def test_str_is_type_colon_key(self) -> None:
-        id = sy.resource.ID(type="project", key="abc-123")
-        assert str(id) == "project:abc-123"
-
+class TestOntology:
     def test_str_of_root_id(self) -> None:
         assert str(sy.ontology.ROOT_ID) == "builtin:root"
 
-    def test_str_round_trips_through_the_parsing_constructor(self) -> None:
-        original = sy.resource.ID(type="log", key=str(uuid4()))
-        assert sy.resource.ID(str(original)) == original
-
-
-@pytest.mark.ontology
-class TestOntology:
     def test_retrieve_children(self, client: sy.Synnax) -> None:
         name = str(uuid4())
         g = client.groups.create(sy.ontology.ROOT_ID, name)

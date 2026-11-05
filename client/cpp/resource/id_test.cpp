@@ -42,21 +42,26 @@ TEST(ResourceID, testParseValidIDWithUUID) {
 
 /// @brief it should fail to parse an ID without a colon separator.
 TEST(ResourceID, testParseMalformed) {
-    auto [id, err] = ID::parse("malformed");
-    EXPECT_TRUE(err);
-    EXPECT_TRUE(err.matches(x::errors::VALIDATION));
+    const auto [_, err] = ID::parse("malformed");
+    ASSERT_MATCHES(err, x::errors::VALIDATION);
+    EXPECT_EQ(
+        err.data,
+        "[resource] - failed to parse id 'malformed': expected format 'type:key'"
+    );
 }
 
 /// @brief it should fail to parse an ID with only a colon.
 TEST(ResourceID, testParseOnlyColon) {
-    auto [id, err] = ID::parse(":");
-    EXPECT_TRUE(err);
-    EXPECT_TRUE(err.matches(x::errors::VALIDATION));
+    const auto [_, err] = ID::parse(":");
+    ASSERT_MATCHES(err, x::errors::VALIDATION);
+    EXPECT_EQ(err.data, "[resource] - failed to parse id ':': type is empty");
 }
 
 /// @brief it should fail to parse an ID with empty type.
 TEST(ResourceID, testParseEmptyType) {
-    ASSERT_OCCURRED_AS_P(ID::parse(":42"), x::errors::VALIDATION);
+    const auto [_, err] = ID::parse(":42");
+    ASSERT_MATCHES(err, x::errors::VALIDATION);
+    EXPECT_EQ(err.data, "[resource] - failed to parse id ':42': type is empty");
 }
 
 /// @brief it should support round-trip string conversion: parse(id.string()) == id.
@@ -108,7 +113,12 @@ TEST(ResourceID, testParseIDs) {
 /// @brief it should fail to parse a vector with an invalid ID.
 TEST(ResourceID, testParseIDsWithInvalid) {
     const std::vector<std::string> strs = {"channel:42", "malformed", "user:admin"};
-    ASSERT_OCCURRED_AS_P(parse_ids(strs), x::errors::VALIDATION);
+    const auto [_, err] = parse_ids(strs);
+    ASSERT_MATCHES(err, x::errors::VALIDATION);
+    EXPECT_EQ(
+        err.data,
+        "[resource] - failed to parse id 'malformed': expected format 'type:key'"
+    );
 }
 
 /// @brief it should convert a vector of IDs to strings.

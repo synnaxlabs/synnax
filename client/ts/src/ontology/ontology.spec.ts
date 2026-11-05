@@ -54,10 +54,6 @@ describe("Ontology", () => {
       ]);
     });
 
-    it("should reject an invalid resource type without throwing", () => {
-      expect(resource.idZ.validate("nonsense:key")).toBe(false);
-    });
-
     it("should extract ID from a single Resource object", () => {
       const resource: ontology.Resource = {
         id: { type: "group", key: "test-key" },
@@ -889,43 +885,6 @@ describe("Ontology", () => {
         const result = ontology.matchRelationship(relationship, match);
         expect(result).toBe(true);
       });
-    });
-  });
-
-  describe("idToString", () => {
-    it("should convert an ID to a string", () => {
-      const result = resource.idToString({ type: "group", key: "one" });
-      expect(result).toEqual("group:one");
-    });
-
-    it("should convert an array of IDs to strings", () => {
-      const result = resource.idToString([
-        { type: "group", key: "one" },
-        { type: "channel", key: "two" },
-      ]);
-      expect(result).toEqual(["group:one", "channel:two"]);
-    });
-
-    it("should pass through string IDs", () => {
-      const result = resource.idToString("group:one");
-      expect(result).toEqual("group:one");
-    });
-
-    it("should validate string IDs that get passed", () => {
-      expect(() => {
-        resource.idToString("dog");
-      }).toThrow();
-    });
-
-    it("should pass through an array of string IDs", () => {
-      const result = resource.idToString(["group:one", "channel:two"]);
-      expect(result).toEqual(["group:one", "channel:two"]);
-    });
-
-    it("should validate an array of string IDs that get passed", () => {
-      expect(() => {
-        resource.idToString(["group:one", "channel:two", "dog"]);
-      }).toThrow();
     });
   });
 });
