@@ -76,9 +76,16 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 }
 
 func statusAccessResourceIDs(statuses []status.Status[any]) []resource.ID {
-	ids := make([]resource.ID, 0, len(statuses))
+	ids := make([]resource.ID, len(statuses))
+	for i, s := range statuses {
+		ids[i] = s.ResourceID()
+	}
+	return ids
+}
+
+func labelAccessResourceIDs(statuses []status.Status[any]) []resource.ID {
+	var ids []resource.ID
 	for _, s := range statuses {
-		ids = append(ids, s.ResourceID())
 		ids = append(ids, label.ResourceIDs(s.Labels)...)
 	}
 	return ids
@@ -106,7 +113,10 @@ func (s *Service) Set(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: statusAccessResourceIDs(req.Statuses),
+		Objects: append(
+			statusAccessResourceIDs(req.Statuses),
+			labelAccessResourceIDs(req.Statuses)...,
+		),
 	}); err != nil {
 		return SetResponse{}, err
 	}
@@ -232,6 +242,7 @@ func (s *Service) Retrieve(
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
+	// A status holds only the keys of its labels, so reading it needs no access to them.
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,

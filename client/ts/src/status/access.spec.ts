@@ -11,6 +11,7 @@ import { TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { AccessDeniedError, NotFoundError } from "@/index";
+import { label } from "@/label";
 import { status } from "@/status";
 import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 
@@ -119,6 +120,26 @@ describe("status", () => {
         time: TimeStamp.now(),
       });
       await expect(userClient.statuses.delete(randomStatus.key)).rejects.toSatisfy(
+        AccessDeniedError.matches,
+      );
+    });
+
+    it("should give the label keys of a status to a caller that cannot read the labels", async () => {
+      const lbl = await client.labels.create({ name: "test", color: "#FF0000" });
+      const userClient = await createTestClientWithPolicy(client, [
+        { name: "statuses", objects: [status.TYPE_RESOURCE_ID], actions: ["retrieve"] },
+        { name: "labels", objects: [label.TYPE_RESOURCE_ID], actions: ["create"] },
+      ]);
+      const created = await client.statuses.set({
+        name: "test",
+        variant: "info",
+        message: "test",
+        time: TimeStamp.now(),
+        labels: [lbl.key],
+      });
+      const retrieved = await userClient.statuses.retrieve(created.key);
+      expect(retrieved.labels).toEqual([lbl.key]);
+      await expect(userClient.labels.retrieve({ key: lbl.key })).rejects.toSatisfy(
         AccessDeniedError.matches,
       );
     });
