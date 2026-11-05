@@ -12,6 +12,7 @@ package arc
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/crdt"
@@ -121,15 +122,31 @@ func (s *Service) UpdateTask(
 	update TaskUpdate,
 ) (*task.Task, error) {
 	var tsk *task.Task
-	err := s.locks.Do(key, func() error {
-		taskKeys, err := s.NewWriter(nil).childTaskKeys(ctx, key)
-		if err != nil {
-			return err
+	if err := s.locks.Do(key, func() error {
+		for {
+			locked, err := s.NewWriter(nil).childTaskKeys(ctx, key)
+			if err != nil {
+				return err
+			}
+			var unlocked bool
+			if err = s.cfg.Task.Transact(ctx, locked, func(tx gorp.Tx) error {
+				w := s.NewWriter(tx)
+				children, err := w.childTaskKeys(ctx, key)
+				if err != nil {
+					return err
+				}
+				// A task create links its task without the Arc's lock.
+				if unlocked = !lo.Every(locked, children); unlocked {
+					return nil
+				}
+				tsk, err = w.updateTask(ctx, key, children, update)
+				return err
+			}); err != nil || !unlocked {
+				return err
+			}
 		}
-		return s.cfg.Task.Transact(ctx, taskKeys, func(tx gorp.Tx) (err error) {
-			tsk, err = s.NewWriter(tx).UpdateTask(ctx, key, update)
-			return err
-		})
-	})
-	return tsk, err
+	}); err != nil {
+		return nil, err
+	}
+	return tsk, nil
 }

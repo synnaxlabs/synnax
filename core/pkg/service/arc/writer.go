@@ -191,6 +191,16 @@ func (w Writer) UpdateTask(
 	if err != nil {
 		return nil, err
 	}
+	return w.updateTask(ctx, key, existing, update)
+}
+
+// updateTask applies update to the arc with the given key and its existing tasks.
+func (w Writer) updateTask(
+	ctx context.Context,
+	key Key,
+	existing []task.Key,
+	update TaskUpdate,
+) (*task.Task, error) {
 	if update.Rack != nil && *update.Rack == 0 {
 		if update.Performance != nil {
 			return nil, errors.Wrap(
@@ -205,12 +215,13 @@ func (w Writer) UpdateTask(
 		cfg taskversions.Config
 		tsk task.Task
 	)
-	if err = w.table.NewRetrieve().
+	if err := w.table.NewRetrieve().
 		Where(gorp.MatchKeys[Key, Arc](key)).
 		Entry(&a).
 		Exec(ctx, w.tx); err != nil {
 		return nil, err
 	}
+	var err error
 	if len(existing) > 0 {
 		if tsk, cfg, err = w.retrieveTask(ctx, existing[0]); err != nil {
 			return nil, err

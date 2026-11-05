@@ -186,6 +186,35 @@ var _ = Describe("Transact", func() {
 		Expect(rec.Snapshot()).To(BeEmpty())
 	})
 
+	It("Should commit fn with no keys", func(ctx SpecContext) {
+		Expect(st.Transact(ctx, nil, func(tx gorp.Tx) error {
+			return gorp.NewCreate[string, counter]().
+				Entry(&counter{Key: "c", Value: 1}).
+				Exec(ctx, tx)
+		})).To(Succeed())
+		Expect(gorp.NewRetrieve[string, counter]().
+			Where(gorp.MatchKeys[string, counter]("c")).
+			Exec(ctx, db)).To(Succeed())
+	})
+
+	It("Should hold every key until fn returns", func(ctx SpecContext) {
+		dispatched := make(chan error, 1)
+		Expect(st.Transact(ctx, []string{"a", "b"}, func(gorp.Tx) error {
+			go func() {
+				dispatched <- st.Dispatch(
+					ctx,
+					"b",
+					"",
+					nil,
+					func(gorp.Tx) ([]testAction, error) { return nil, nil },
+				)
+			}()
+			Consistently(dispatched, 50*time.Millisecond).ShouldNot(Receive())
+			return nil
+		})).To(Succeed())
+		Eventually(dispatched).Should(Receive(Not(HaveOccurred())))
+	})
+
 	It("Should hold the key until fn returns", func(ctx SpecContext) {
 		entered, release := make(chan struct{}), make(chan struct{})
 		unblock := sync.OnceFunc(func() { close(release) })
