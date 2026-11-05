@@ -118,7 +118,6 @@ func (s *Service) Create(
 			req.Schematics,
 			stored,
 			func(e schematic.Schematic) *group.Key { return e.Group },
-			nil,
 		),
 	}); err != nil {
 		return CreateResponse{}, err

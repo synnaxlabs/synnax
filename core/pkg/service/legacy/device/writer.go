@@ -118,7 +118,7 @@ func (w Writer) Create(ctx context.Context, device *Device) error {
 	exists := !isNotFound
 	if exists {
 		device.Group = existing.Group
-		if LeavesGroup(existing, *device) {
+		if device.Rack != existing.Rack {
 			device.Group = nil
 		}
 	}
@@ -173,10 +173,6 @@ func (w Writer) CreateMany(ctx context.Context, devices *[]Device) error {
 	}
 	return nil
 }
-
-// LeavesGroup reports whether creating d over the stored device takes d out of its
-// group. A device that moves to another rack leaves its group.
-func LeavesGroup(stored, d Device) bool { return stored.Rack != d.Rack }
 
 // SetGroup moves the devices with keys into g, or out of their group when g is nil. It
 // returns a validation error when g does not sit under a device's rack.

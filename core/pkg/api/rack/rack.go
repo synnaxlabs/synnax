@@ -238,7 +238,6 @@ func (s *Service) enforceCreate(
 			racks,
 			existing,
 			func(r rack.Rack) *group.Key { return r.Group },
-			nil,
 		),
 	}); err != nil {
 		return err

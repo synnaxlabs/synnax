@@ -121,7 +121,6 @@ func (s *Service) Create(
 			req.Tables,
 			stored,
 			func(e table.Table) *group.Key { return e.Group },
-			nil,
 		),
 	}); err != nil {
 		return CreateResponse{}, err

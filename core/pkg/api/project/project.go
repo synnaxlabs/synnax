@@ -117,7 +117,6 @@ func (s *Service) Create(
 			req.Projects,
 			stored,
 			func(p project.Project) *group.Key { return p.Group },
-			nil,
 		),
 	}); err != nil {
 		return CreateResponse{}, err

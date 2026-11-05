@@ -121,7 +121,6 @@ func (s *Service) Create(
 			req.Logs,
 			stored,
 			func(e log.Log) *group.Key { return e.Group },
-			nil,
 		),
 	}); err != nil {
 		return CreateResponse{}, err

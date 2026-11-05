@@ -197,7 +197,6 @@ func (s *Service) Create(
 			translated,
 			stored,
 			func(ch channel.Channel) *group.Key { return ch.Group },
-			nil,
 		),
 	}); err != nil {
 		return CreateResponse{}, err

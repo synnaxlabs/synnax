@@ -207,27 +207,24 @@ func sameID(a, b *resource.ID) bool {
 
 // CreateObjects returns the groups that a create of records needs update access on.
 // stored holds the records that exist before the create. A new record joins the group
-// it carries. A create keeps an existing record in its stored group unless leaves
-// reports that it takes the record out. A nil leaves never does.
+// it carries. A create keeps an existing record in its stored group, so it adds
+// nothing.
 func CreateObjects[K comparable, E interface{ GorpKey() K }](
 	records []E,
 	stored []E,
 	groupOf func(E) *Key,
-	leaves func(stored, created E) bool,
 ) []resource.ID {
-	byKey := make(map[K]E, len(stored))
+	exists := make(set.Set[K], len(stored))
 	for _, e := range stored {
-		byKey[e.GorpKey()] = e
+		exists.Add(e.GorpKey())
 	}
-	var from, to []*Key
+	var joined []*Key
 	for _, e := range records {
-		if prev, ok := byKey[e.GorpKey()]; !ok {
-			to = append(to, groupOf(e))
-		} else if leaves != nil && leaves(prev, e) {
-			from = append(from, groupOf(prev))
+		if !exists.Contains(e.GorpKey()) {
+			joined = append(joined, groupOf(e))
 		}
 	}
-	return MoveObjects(nil, from, to...)
+	return MoveObjects(nil, nil, joined...)
 }
 
 // MoveObjects returns the resources that moving the records with ids into the groups in

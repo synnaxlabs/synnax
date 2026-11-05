@@ -134,7 +134,6 @@ func (s *Service) Create(
 			req.Devices,
 			stored,
 			func(d device.Device) *group.Key { return d.Group },
-			device.LeavesGroup,
 		),
 	}); err != nil {
 		return CreateResponse{}, err

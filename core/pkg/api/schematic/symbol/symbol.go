@@ -126,7 +126,6 @@ func (s *Service) Create(
 			req.Symbols,
 			stored,
 			func(sym symbol.Symbol) *group.Key { return sym.Group },
-			nil,
 		),
 	}); err != nil {
 		return CreateResponse{}, err

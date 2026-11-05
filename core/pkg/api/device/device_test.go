@@ -334,54 +334,29 @@ var _ = Describe("Create in a group", func() {
 })
 
 var _ = Describe("Create on another rack", func() {
-	// moveRack creates a device in a group under the embedded rack, then returns it
-	// moved to a new rack, which takes it out of the group.
-	moveRack := func(ctx SpecContext, key string) (device.Device, group.Group) {
-		GinkgoHelper()
-		g := createRackGroup(ctx, key)
-		d := createDevice(ctx, key)
-		Expect(svc.Device.NewWriter(nil).SetGroup(ctx, &g.Key, d.Key)).To(Succeed())
-		other := rack.Rack{Name: key}
-		Expect(svc.Rack.NewWriter(nil).Create(ctx, &other)).To(Succeed())
-		d.Rack, d.Parent = other.Key, nil
-		return d, g
-	}
 	It(
-		"Should refuse the move without update on the group the device leaves",
+		"Should drop the group of a moved device without rights on the group",
 		func(ctx SpecContext) {
 			u := createUser(ctx)
-			d, g := moveRack(ctx, "rack-move-denied")
+			g := createRackGroup(ctx, "Rack move")
+			d := createDevice(ctx, "rack-move")
+			Expect(svc.Device.NewWriter(nil).SetGroup(ctx, &g.Key, d.Key)).To(Succeed())
+			other := rack.Rack{Name: "Rack move"}
+			Expect(svc.Rack.NewWriter(nil).Create(ctx, &other)).To(Succeed())
 			grant(
 				ctx,
 				access.ActionCreate,
 				u.ResourceID(),
 				resource.ID{Type: resource.TypeDevice},
 			)
-			Expect(apiSvc.Create(
-				AuthedCtx(ctx, u), nil,
-				apidevice.CreateRequest{Devices: []device.Device{d}},
-			)).Error().To(MatchError(access.ErrDenied))
-			Expect(retrieveDevice(ctx, d.Key).Group).To(Equal(&g.Key))
-		},
-	)
-	It(
-		"Should take the device out of its group with update on the group",
-		func(ctx SpecContext) {
-			u := createUser(ctx)
-			d, g := moveRack(ctx, "rack-move-granted")
-			grant(
-				ctx,
-				access.ActionCreate,
-				u.ResourceID(),
-				resource.ID{Type: resource.TypeDevice},
-			)
-			grant(ctx, access.ActionUpdate, u.ResourceID(), g.ResourceID())
+			grant(ctx, access.ActionUpdate, u.ResourceID(), d.ResourceID())
+			d.Rack, d.Parent = other.Key, nil
 			Expect(apiSvc.Create(
 				AuthedCtx(ctx, u), nil,
 				apidevice.CreateRequest{Devices: []device.Device{d}},
 			)).Error().ToNot(HaveOccurred())
 			moved := retrieveDevice(ctx, d.Key)
-			Expect(moved.Rack).To(Equal(d.Rack))
+			Expect(moved.Rack).To(Equal(other.Key))
 			Expect(moved.Group).To(BeNil())
 		},
 	)

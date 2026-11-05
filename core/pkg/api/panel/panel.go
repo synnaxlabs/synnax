@@ -138,7 +138,6 @@ func (s *Service) Create(
 			req.Panels,
 			stored,
 			func(p panel.Panel) *group.Key { return p.Group },
-			nil,
 		),
 	}); err != nil {
 		return res, err

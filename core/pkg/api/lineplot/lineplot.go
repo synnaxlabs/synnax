@@ -119,7 +119,6 @@ func (s *Service) Create(
 			req.LinePlots,
 			stored,
 			func(e lineplot.LinePlot) *group.Key { return e.Group },
-			nil,
 		),
 	}); err != nil {
 		return CreateResponse{}, err
