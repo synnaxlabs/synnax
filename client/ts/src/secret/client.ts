@@ -67,7 +67,9 @@ const retrieveMultiParamsZ = retrieveRequestZ.or(query.keyListZ(keyZ));
 
 export type RetrieveSingleParams = {
   key: Key;
-  /** Fills `uses` with the resources that use the secret. */
+  /**
+   * Fills `uses` with the resources that use the secret and that the caller can read.
+   */
   includeUses?: boolean;
 };
 export interface RetrieveMultipleParams extends z.input<typeof retrieveRequestZ> {}

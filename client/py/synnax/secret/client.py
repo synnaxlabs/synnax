@@ -151,7 +151,8 @@ class Client:
         """Retrieves secrets, without their values.
 
         :param include_uses: Whether to fill each secret's uses with the ontology IDs of
-            the resources that use it. Secrets come back with no uses when false.
+            the resources that use it and that the caller can read. Secrets come back
+            with no uses when false.
         :raises NotFoundError: If a key is given and no secret has it.
         :raises AccessDenied: If the caller cannot retrieve one of the secrets.
         """

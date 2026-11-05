@@ -52,8 +52,8 @@ type Base struct {
 	Name string `json:"name" msgpack:"name"`
 	// Updated is when the value or path of the secret last changed.
 	Updated telem.TimeStamp `json:"updated" msgpack:"updated"`
-	// Uses are the resources that use the secret, filled only when a retrieve request
-	// asks for them.
+	// Uses are the resources that use the secret and that the caller can read, filled
+	// only when a retrieve request asks for them.
 	Uses []ontology.ID `json:"uses,omitzero" msgpack:"uses,omitempty"`
 }
 
