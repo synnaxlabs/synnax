@@ -51,6 +51,12 @@ var _ = Describe("Service", func() {
 				)
 				g := group.Group{Name: "API Channels", Scope: resource.TypeChannel}
 				Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+				grantOn(
+					ctx,
+					author.ResourceID(),
+					[]access.Action{access.ActionUpdate},
+					group.ResourceID(g.Key),
+				)
 				created := MustSucceed(apiSvc.Create(
 					AuthedCtx(ctx, author),
 					nil,

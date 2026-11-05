@@ -113,10 +113,21 @@ func (s *Service) Create(
 		}
 		objects = append(objects, *req.Panels[i].Parent)
 	}
-	if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	enforcer := s.access.NewEnforcer(tx)
+	if err = enforcer.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
 		Objects: objects,
+	}); err != nil {
+		return res, err
+	}
+	if err = enforcer.Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: group.MoveObjects(nil, nil, lo.Map(
+			req.Panels,
+			func(p panel.Panel, _ int) *group.Key { return p.Group },
+		)...),
 	}); err != nil {
 		return res, err
 	}

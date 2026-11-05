@@ -109,10 +109,21 @@ func (s *Service) Create(
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	enforcer := s.access.NewEnforcer(tx)
+	if err := enforcer.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
 		Objects: []resource.ID{{Type: resource.TypeDevice}},
+	}); err != nil {
+		return CreateResponse{}, err
+	}
+	if err := enforcer.Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: group.MoveObjects(nil, nil, lo.Map(
+			req.Devices,
+			func(d device.Device, _ int) *group.Key { return d.Group },
+		)...),
 	}); err != nil {
 		return CreateResponse{}, err
 	}

@@ -301,5 +301,12 @@ var _ = Describe("Member", func() {
 			ids := []resource.ID{rackID("r1")}
 			Expect(group.MoveObjects(ids, []*group.Key{nil}, nil)).To(Equal(ids))
 		})
+
+		It("Should add each distinct destination group of a create", func() {
+			a, b := uuid.New(), uuid.New()
+			Expect(group.MoveObjects(nil, nil, &a, nil, &b, &a)).To(Equal(
+				[]resource.ID{group.ResourceID(a), group.ResourceID(b)},
+			))
+		})
 	})
 })

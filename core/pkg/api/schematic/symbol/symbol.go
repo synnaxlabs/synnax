@@ -107,20 +107,15 @@ func (s *Service) Create(
 	}); err != nil {
 		return CreateResponse{}, err
 	}
-	var groups []resource.ID
-	for _, sym := range req.Symbols {
-		if sym.Group != nil {
-			groups = append(groups, group.ResourceID(*sym.Group))
-		}
-	}
-	if len(groups) > 0 {
-		if err := enforcer.Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionUpdate,
-			Objects: groups,
-		}); err != nil {
-			return CreateResponse{}, err
-		}
+	if err := enforcer.Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: group.MoveObjects(nil, nil, lo.Map(
+			req.Symbols,
+			func(sym symbol.Symbol, _ int) *group.Key { return sym.Group },
+		)...),
+	}); err != nil {
+		return CreateResponse{}, err
 	}
 	writer := s.internal.NewWriter(tx)
 	if err := writer.CreateMany(ctx, &req.Symbols); err != nil {

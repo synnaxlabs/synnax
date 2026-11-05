@@ -172,10 +172,21 @@ func (s *Service) Create(
 	for i := range translated {
 		translated[i].Internal = false
 	}
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	enforcer := s.access.NewEnforcer(tx)
+	if err := enforcer.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
 		Objects: []resource.ID{{Type: resource.TypeChannel}},
+	}); err != nil {
+		return CreateResponse{}, err
+	}
+	if err := enforcer.Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: group.MoveObjects(nil, nil, lo.Map(
+			translated,
+			func(ch channel.Channel, _ int) *group.Key { return ch.Group },
+		)...),
 	}); err != nil {
 		return CreateResponse{}, err
 	}

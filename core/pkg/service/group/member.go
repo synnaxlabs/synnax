@@ -205,13 +205,13 @@ func sameID(a, b *resource.ID) bool {
 	return *a == *b
 }
 
-// MoveObjects returns the resources that moving the records with ids into the group to
-// needs update access on: the records, each group in from that holds one of them, and
-// to. A nil group adds nothing.
-func MoveObjects(ids []resource.ID, from []*Key, to *Key) []resource.ID {
+// MoveObjects returns the resources that moving the records with ids into the groups in
+// to needs update access on: the records, each group in from that holds one of them,
+// and each group in to. A create passes no ids and no from. A nil group adds nothing.
+func MoveObjects(ids []resource.ID, from []*Key, to ...*Key) []resource.ID {
 	objects := slices.Clone(ids)
 	added := set.New[Key]()
-	for _, k := range append(from, to) {
+	for _, k := range slices.Concat(from, to) {
 		if k != nil && !added.Contains(*k) {
 			added.Add(*k)
 			objects = append(objects, ResourceID(*k))
