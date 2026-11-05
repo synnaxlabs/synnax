@@ -24,7 +24,9 @@ import (
 )
 
 // Writer creates, updates, and deletes NI chassis. It runs its operations in the
-// transaction given to Service.NewWriter, or each in its own when given none.
+// transaction given to Service.NewWriter, or each in its own when given none. A rack
+// change moves only the chassis. The scanner moves each module when it finds the module
+// on the new rack.
 type Writer struct {
 	service *Service
 	tx      gorp.Tx
@@ -97,8 +99,7 @@ func (w Writer) syncStatus(ctx context.Context, c Chassis) error {
 
 // Create stores c, defines its ontology resource and parent edge, and writes an unknown
 // status when it has none. An existing status takes the name and rack of c. A chassis
-// with a nil key gets a new one. It returns a
-// validation error when c is invalid.
+// with a nil key gets a new one. It returns a validation error when c is invalid.
 func (w Writer) Create(ctx context.Context, c *Chassis) error {
 	if c.Key == uuid.Nil() {
 		c.Key = uuid.New()

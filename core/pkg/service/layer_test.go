@@ -101,7 +101,10 @@ var _ = Describe("Layer", func() {
 				Expect(ch.Internal).To(BeTrue())
 				streamer := MustSucceed(layer.Framer.NewStreamer(
 					ctx,
-					framer.StreamerConfig{Keys: channel.Keys{ch.Key()}},
+					framer.StreamerConfig{
+						Keys:        channel.Keys{ch.Key()},
+						SendOpenAck: true,
+					},
 				))
 				requests, responses := confluence.Attach(streamer, 2)
 				sCtx, cancel := signal.Isolated()
@@ -112,11 +115,11 @@ var _ = Describe("Layer", func() {
 					confluence.Drain(responses)
 					Expect(shutdown.Close()).To(Succeed())
 				})
+				Eventually(responses.Outlet(), 5*time.Second).Should(Receive())
 				return responses
 			}
 			sets := openStreamer("sy_ni_" + name + "_set")
 			deletes := openStreamer("sy_ni_" + name + "_delete")
-			time.Sleep(50 * time.Millisecond)
 
 			key := create(ctx, layer)
 			var res framer.StreamerResponse
