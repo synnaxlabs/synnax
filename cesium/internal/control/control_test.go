@@ -1615,7 +1615,10 @@ var _ = Describe("Control", func() {
 				close(entered)
 				var err error
 				Eventually(errs, 10*time.Second).Should(Receive(&err))
-				return testResource{value: 1}, err
+				if err != nil {
+					return testResource{}, err
+				}
+				return testResource{value: 1}, nil
 			}
 			result = openAsync(cfg)
 			Eventually(entered).Should(BeClosed())

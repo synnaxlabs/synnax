@@ -19,6 +19,7 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium/internal/domain"
+	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
@@ -36,6 +37,49 @@ func (f panicFS) Open(name string, flag int) (xfs.File, error) {
 		panic("open failed")
 	}
 	return f.FS.Open(name, flag)
+}
+
+var errHandleFault = errors.New("handle fault")
+
+// handleFaultFS fails operations on open handles while armed. FaultyFS reaches neither.
+type handleFaultFS struct {
+	xfs.FS
+	failClose *atomic.Bool
+	failStat  *atomic.Bool
+}
+
+func (f handleFaultFS) Open(name string, flag int) (xfs.File, error) {
+	file, err := f.FS.Open(name, flag)
+	if err != nil {
+		return nil, err
+	}
+	return &handleFaultFile{File: file, fs: f}, nil
+}
+
+type handleFaultFile struct {
+	xfs.File
+	fs    handleFaultFS
+	stats int
+}
+
+// Stat fails on the second armed call, which is the size lookup that follows the one
+// xio.NewTrackedWriteCloser makes.
+func (f *handleFaultFile) Stat() (xfs.FileInfo, error) {
+	if f.fs.failStat.Load() {
+		if f.stats++; f.stats == 2 {
+			return nil, errHandleFault
+		}
+	}
+	return f.File.Stat()
+}
+
+// Close closes the file in both cases, as close(2) does when it reports an error.
+func (f *handleFaultFile) Close() error {
+	err := f.File.Close()
+	if f.fs.failClose.CompareAndSwap(true, false) {
+		return errHandleFault
+	}
+	return err
 }
 
 var _ = Describe("File Controller", Ordered, func() {
@@ -689,6 +733,84 @@ var _ = Describe("File Controller", Ordered, func() {
 						Expect(w2.Close()).To(Succeed())
 					},
 				)
+
+				Describe("Handle faults", func() {
+					var (
+						failClose, failStat *atomic.Bool
+						faulty              *FaultyFS
+					)
+					BeforeEach(func() {
+						failClose, failStat = &atomic.Bool{}, &atomic.Bool{}
+						faulty = WrapFaultyFS(handleFaultFS{
+							FS:        fs,
+							failClose: failClose,
+							failStat:  failStat,
+						})
+					})
+
+					It(
+						"Should close a file whose size lookup fails",
+						func(ctx SpecContext) {
+							openDB(faulty, 2)
+							Expect(commitAt(ctx, 10).Close()).To(Succeed())
+							Expect(db.Close()).To(Succeed())
+							openDB(faulty, 2)
+							handles := faulty.OpenFiles()
+							failStat.Store(true)
+							Expect(db.OpenWriter(ctx, domain.WriterConfig{
+								Start: 20 * telem.SecondTS,
+								End:   21 * telem.SecondTS,
+							})).Error().To(MatchError(errHandleFault))
+							failStat.Store(false)
+							Expect(faulty.OpenFiles()).To(Equal(handles))
+							Expect(openAt(ctx, 30).Close()).To(Succeed())
+							Expect(fs.Exists("2.domain")).To(BeFalse())
+						},
+					)
+
+					It(
+						"Should retire a reader whose close fails",
+						func(ctx SpecContext) {
+							openDB(faulty, 1)
+							Expect(commitAt(ctx, 10).Close()).To(Succeed())
+							Eventually(readAsync(ctx), watchdog).Should(BeClosed())
+							failClose.Store(true)
+							Expect(db.OpenWriter(ctx, domain.WriterConfig{
+								Start: 20 * telem.SecondTS,
+								End:   21 * telem.SecondTS,
+							})).Error().To(MatchError(errHandleFault))
+							held := openAt(ctx, 30)
+							opened := make(chan *domain.Writer, 1)
+							go func() {
+								defer GinkgoRecover()
+								opened <- openAt(context.Background(), 40)
+							}()
+							Consistently(opened, 100*time.Millisecond).
+								ShouldNot(Receive())
+							Expect(held.Close()).To(Succeed())
+							var w *domain.Writer
+							Eventually(opened, watchdog).Should(Receive(&w))
+							Expect(w.Close()).To(Succeed())
+						},
+					)
+
+					It(
+						"Should retire a writer whose close fails",
+						func(ctx SpecContext) {
+							openDB(faulty, 1)
+							Expect(commitAt(ctx, 10).Close()).To(Succeed())
+							i := db.OpenIterator(
+								domain.IteratorConfig{Bounds: telem.TimeRangeMax},
+							)
+							Expect(i.SeekFirst(ctx)).To(BeTrue())
+							failClose.Store(true)
+							Expect(i.OpenReader(ctx)).Error().
+								To(MatchError(errHandleFault))
+							Expect(i.Close()).To(Succeed())
+							Expect(commitAt(ctx, 20).Close()).To(Succeed())
+						},
+					)
+				})
 
 				It(
 					"Should keep no place for an open that panics",

@@ -244,74 +244,51 @@ func (fc *fileController) newWriter(
 			lastFileKey = key
 			continue
 		}
-
-		file, err := fc.FS.Open(fileKeyToName(key), os.O_WRONLY|os.O_APPEND)
-		if err != nil {
-			return nil, 0, span.Error(err)
-		}
-		base, err := xio.NewTrackedWriteCloser(file)
-		if err != nil {
-			return nil, 0, span.Error(err)
-		}
-		w := controlledWriter{
-			TrackedWriteCloser: base,
-			controllerEntry:    newPoolEntry(key, fc),
-		}
-		fc.writers.open[key] = w
-		delete(fc.writers.unopened, key)
-
-		s, err := file.Stat()
-		if err != nil {
-			return nil, 0, span.Error(err)
-		}
-		return &w, s.Size(), nil
+		w, size, err := fc.openWriterFile(key, os.O_WRONLY|os.O_APPEND)
+		return w, size, span.Error(err)
 	}
 
 	if lastFileKey != 0 {
-		file, err := fc.FS.Open(fileKeyToName(lastFileKey), os.O_WRONLY|os.O_APPEND)
-		if err != nil {
-			return nil, 0, span.Error(err)
-		}
-		base, err := xio.NewTrackedWriteCloser(file)
-		if err != nil {
-			return nil, 0, span.Error(err)
-		}
-		w := controlledWriter{
-			TrackedWriteCloser: base,
-			controllerEntry:    newPoolEntry(lastFileKey, fc),
-		}
-		fc.writers.open[lastFileKey] = w
-		delete(fc.writers.unopened, lastFileKey)
-
-		s, err := file.Stat()
-		if err != nil {
-			return nil, 0, span.Error(err)
-		}
-		return &w, s.Size(), span.Error(err)
+		w, size, err := fc.openWriterFile(lastFileKey, os.O_WRONLY|os.O_APPEND)
+		return w, size, span.Error(err)
 	}
 
 	nextCtr, err := fc.counter.Add(1)
 	if err != nil {
 		return nil, 0, span.Error(err)
 	}
-	nextKey := uint16(nextCtr)
-	file, err := fc.FS.Open(
-		fileKeyToName(nextKey),
+	w, size, err := fc.openWriterFile(
+		uint16(nextCtr),
 		os.O_CREATE|os.O_EXCL|os.O_WRONLY,
 	)
+	return w, size, span.Error(err)
+}
+
+// openWriterFile opens the file and adds its handle to writers.open. The caller must
+// hold the writers lock. The file stays closed and unregistered on an error.
+func (fc *fileController) openWriterFile(
+	key uint16,
+	flag int,
+) (*controlledWriter, int64, error) {
+	file, err := fc.FS.Open(fileKeyToName(key), flag)
 	if err != nil {
-		return nil, 0, span.Error(err)
+		return nil, 0, err
 	}
 	base, err := xio.NewTrackedWriteCloser(file)
 	if err != nil {
-		return nil, 0, span.Error(err)
+		return nil, 0, errors.Join(err, file.Close())
+	}
+	s, err := file.Stat()
+	if err != nil {
+		return nil, 0, errors.Join(err, file.Close())
 	}
 	w := controlledWriter{
 		TrackedWriteCloser: base,
-		controllerEntry:    newPoolEntry(nextKey, fc),
+		controllerEntry:    newPoolEntry(key, fc),
 	}
-	fc.writers.open[nextKey] = w
-	return &w, 0, nil
+	fc.writers.open[key] = w
+	delete(fc.writers.unopened, key)
+	return &w, s.Size(), nil
 }
 
 func (fc *fileController) acquireReader(
@@ -402,12 +379,9 @@ func (fc *fileController) gcReaders() (successful bool, err error) {
 					// If file is held by someone else, we can't gc.
 					return true
 				}
-				// If we encounter an error, we can't gc.
-				if err = r.HardClose(); err != nil {
-					return true
-				}
+				// A failed close still retires the handle and frees its place.
+				err = errors.Join(err, r.HardClose())
 				successful = true
-				// Good to GC, remove from open.
 				return false
 			})
 			if len(fc.readers.files[k].open) == 0 {
@@ -431,11 +405,11 @@ func (fc *fileController) gcWriters() (bool, error) {
 
 		if s.Size() >= int64(fc.FileSize) && w.tryAcquire() {
 			err = w.HardClose()
+			delete(fc.writers.open, k)
+			collected = true
 			if err != nil {
 				return collected, err
 			}
-			delete(fc.writers.open, k)
-			collected = true
 		}
 	}
 	return collected, nil
@@ -450,18 +424,16 @@ func (fc *fileController) closeIdleWriter() error {
 		if !w.tryAcquire() {
 			continue
 		}
-		if err := w.HardClose(); err != nil {
-			return err
-		}
+		closeErr := w.HardClose()
 		delete(fc.writers.open, k)
 		s, err := fc.FS.Stat(fileKeyToName(k))
 		if err != nil {
-			return err
+			return errors.Join(closeErr, err)
 		}
 		if s.Size() < int64(fc.FileSize) {
 			fc.writers.unopened.Add(k)
 		}
-		return nil
+		return closeErr
 	}
 	return nil
 }
@@ -500,10 +472,11 @@ func (fc *fileController) rejuvenate(fileKey uint16) error {
 		if !w.tryAcquire() {
 			return newResourceInUseError("writer", fileKey)
 		}
-		if err := w.HardClose(); err != nil {
+		err := w.HardClose()
+		delete(fc.writers.open, fileKey)
+		if err != nil {
 			return err
 		}
-		delete(fc.writers.open, fileKey)
 	}
 
 	s, err := fc.FS.Stat(fileKeyToName(fileKey))
@@ -619,11 +592,12 @@ func (ce *controllerEntry) Close() error {
 	return nil
 }
 
-// hardClose closes f and frees its descriptor. The place is free before a waiter wakes.
+// hardClose closes f and frees its descriptor, even if the close fails. The entry stays
+// in use, so tryAcquire can never return it and no caller can close it twice.
 func (ce *controllerEntry) hardClose(f io.Closer) error {
 	err := f.Close()
-	ce.fc.descriptors.Add(-1)
-	return errors.Join(err, ce.Close())
+	ce.fc.freeDescriptor()
+	return err
 }
 
 func (ce *controllerEntry) tryAcquire() bool {
