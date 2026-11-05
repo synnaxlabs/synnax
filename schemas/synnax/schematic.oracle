@@ -101,13 +101,27 @@ SegmentedEdgeConfig struct {
 }
 
 EdgeConfig union on variant {
-    pipe      SegmentedEdgeConfig
-    electric  SegmentedEdgeConfig
-    secondary SegmentedEdgeConfig
-    jacketed  SegmentedEdgeConfig
-    hydraulic SegmentedEdgeConfig
-    pneumatic SegmentedEdgeConfig
-    data      SegmentedEdgeConfig
+    pipe      SegmentedEdgeConfig {
+        @doc value "is the configuration for pipe edges."
+    }
+    electric  SegmentedEdgeConfig {
+        @doc value "is the configuration for electrical edges."
+    }
+    secondary SegmentedEdgeConfig {
+        @doc value "is the configuration for secondary edges."
+    }
+    jacketed  SegmentedEdgeConfig {
+        @doc value "is the configuration for jacketed edges."
+    }
+    hydraulic SegmentedEdgeConfig {
+        @doc value "is the configuration for hydraulic edges."
+    }
+    pneumatic SegmentedEdgeConfig {
+        @doc value "is the configuration for pneumatic edges."
+    }
+    data      SegmentedEdgeConfig {
+        @doc value "is the configuration for data edges."
+    }
 
     @doc value  """
         is the per-edge configuration stored in the schematic configs map. The variant
@@ -313,31 +327,81 @@ StateMapping struct {
 }
 
 NodeConfig union on variant {
-    cap                                StaticSymbolConfig
-    filter                             StaticSymbolConfig
-    flow_straightener                  StaticSymbolConfig
-    heater_element                     StaticSymbolConfig
-    iso_cap                            StaticSymbolConfig
-    iso_filter                         StaticSymbolConfig
-    nozzle                             StaticSymbolConfig
-    orifice                            StaticSymbolConfig
-    orifice_plate                      StaticSymbolConfig
-    strainer                           StaticSymbolConfig
-    strainer_cone                      StaticSymbolConfig
-    thruster                           ToggleSymbolConfig
-    vent                               StaticSymbolConfig
-    flowmeter_general                  StaticSymbolConfig
-    flowmeter_electromagnetic          StaticSymbolConfig
-    flowmeter_variable_area            StaticSymbolConfig
-    flowmeter_coriolis                 StaticSymbolConfig
-    flowmeter_nozzle                   StaticSymbolConfig
-    flowmeter_venturi                  StaticSymbolConfig
-    flowmeter_ring_piston              StaticSymbolConfig
-    flowmeter_positive_displacement    StaticSymbolConfig
-    flowmeter_turbine                  StaticSymbolConfig
-    flowmeter_pulse                    StaticSymbolConfig
-    flowmeter_float_sensor             StaticSymbolConfig
-    flowmeter_orifice                  StaticSymbolConfig
+    cap                                StaticSymbolConfig {
+        @doc value "is the configuration for cap symbols."
+    }
+    filter                             StaticSymbolConfig {
+        @doc value "is the configuration for filter symbols."
+    }
+    flow_straightener                  StaticSymbolConfig {
+        @doc value "is the configuration for flow straightener symbols."
+    }
+    heater_element                     StaticSymbolConfig {
+        @doc value "is the configuration for heater element symbols."
+    }
+    iso_cap                            StaticSymbolConfig {
+        @doc value "is the configuration for ISO cap symbols."
+    }
+    iso_filter                         StaticSymbolConfig {
+        @doc value "is the configuration for ISO filter symbols."
+    }
+    nozzle                             StaticSymbolConfig {
+        @doc value "is the configuration for nozzle symbols."
+    }
+    orifice                            StaticSymbolConfig {
+        @doc value "is the configuration for orifice symbols."
+    }
+    orifice_plate                      StaticSymbolConfig {
+        @doc value "is the configuration for orifice plate symbols."
+    }
+    strainer                           StaticSymbolConfig {
+        @doc value "is the configuration for strainer symbols."
+    }
+    strainer_cone                      StaticSymbolConfig {
+        @doc value "is the configuration for strainer cone symbols."
+    }
+    thruster                           ToggleSymbolConfig {
+        @doc value "is the configuration for thruster symbols."
+    }
+    vent                               StaticSymbolConfig {
+        @doc value "is the configuration for vent symbols."
+    }
+    flowmeter_general                  StaticSymbolConfig {
+        @doc value "is the configuration for general flowmeter symbols."
+    }
+    flowmeter_electromagnetic          StaticSymbolConfig {
+        @doc value "is the configuration for electromagnetic flowmeter symbols."
+    }
+    flowmeter_variable_area            StaticSymbolConfig {
+        @doc value "is the configuration for variable area flowmeter symbols."
+    }
+    flowmeter_coriolis                 StaticSymbolConfig {
+        @doc value "is the configuration for Coriolis flowmeter symbols."
+    }
+    flowmeter_nozzle                   StaticSymbolConfig {
+        @doc value "is the configuration for nozzle flowmeter symbols."
+    }
+    flowmeter_venturi                  StaticSymbolConfig {
+        @doc value "is the configuration for venturi flowmeter symbols."
+    }
+    flowmeter_ring_piston              StaticSymbolConfig {
+        @doc value "is the configuration for ring piston flowmeter symbols."
+    }
+    flowmeter_positive_displacement    StaticSymbolConfig {
+        @doc value "is the configuration for positive displacement flowmeter symbols."
+    }
+    flowmeter_turbine                  StaticSymbolConfig {
+        @doc value "is the configuration for turbine flowmeter symbols."
+    }
+    flowmeter_pulse                    StaticSymbolConfig {
+        @doc value "is the configuration for pulse flowmeter symbols."
+    }
+    flowmeter_float_sensor             StaticSymbolConfig {
+        @doc value "is the configuration for float sensor flowmeter symbols."
+    }
+    flowmeter_orifice                  StaticSymbolConfig {
+        @doc value "is the configuration for orifice flowmeter symbols."
+    }
     box extends LabeledConfig {
         stroke_color  color.Color?       {
             @doc value "is the border color of the box."

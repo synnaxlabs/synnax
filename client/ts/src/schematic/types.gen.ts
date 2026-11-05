@@ -232,36 +232,43 @@ export const scaleIndicatorConfigZ = numericTelemConfigZ
   });
 export interface ScaleIndicatorConfig extends z.infer<typeof scaleIndicatorConfigZ> {}
 
+/** PipeEdgeConfig is the configuration for pipe edges. */
 export const pipeEdgeConfigZ = segmentedEdgeConfigZ.extend({
   variant: z.literal("pipe"),
 });
 export interface PipeEdgeConfig extends z.infer<typeof pipeEdgeConfigZ> {}
 
+/** ElectricEdgeConfig is the configuration for electrical edges. */
 export const electricEdgeConfigZ = segmentedEdgeConfigZ.extend({
   variant: z.literal("electric"),
 });
 export interface ElectricEdgeConfig extends z.infer<typeof electricEdgeConfigZ> {}
 
+/** SecondaryEdgeConfig is the configuration for secondary edges. */
 export const secondaryEdgeConfigZ = segmentedEdgeConfigZ.extend({
   variant: z.literal("secondary"),
 });
 export interface SecondaryEdgeConfig extends z.infer<typeof secondaryEdgeConfigZ> {}
 
+/** JacketedEdgeConfig is the configuration for jacketed edges. */
 export const jacketedEdgeConfigZ = segmentedEdgeConfigZ.extend({
   variant: z.literal("jacketed"),
 });
 export interface JacketedEdgeConfig extends z.infer<typeof jacketedEdgeConfigZ> {}
 
+/** HydraulicEdgeConfig is the configuration for hydraulic edges. */
 export const hydraulicEdgeConfigZ = segmentedEdgeConfigZ.extend({
   variant: z.literal("hydraulic"),
 });
 export interface HydraulicEdgeConfig extends z.infer<typeof hydraulicEdgeConfigZ> {}
 
+/** PneumaticEdgeConfig is the configuration for pneumatic edges. */
 export const pneumaticEdgeConfigZ = segmentedEdgeConfigZ.extend({
   variant: z.literal("pneumatic"),
 });
 export interface PneumaticEdgeConfig extends z.infer<typeof pneumaticEdgeConfigZ> {}
 
+/** DataEdgeConfig is the configuration for data edges. */
 export const dataEdgeConfigZ = segmentedEdgeConfigZ.extend({
   variant: z.literal("data"),
 });
@@ -345,16 +352,19 @@ export const toggleSymbolConfigZ = toggleConfigZ.extend({
 });
 export interface ToggleSymbolConfig extends z.infer<typeof toggleSymbolConfigZ> {}
 
+/** CapNodeConfig is the configuration for cap symbols. */
 export const capNodeConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("cap"),
 });
 export interface CapNodeConfig extends z.infer<typeof capNodeConfigZ> {}
 
+/** FilterNodeConfig is the configuration for filter symbols. */
 export const filterNodeConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("filter"),
 });
 export interface FilterNodeConfig extends z.infer<typeof filterNodeConfigZ> {}
 
+/** FlowStraightenerNodeConfig is the configuration for flow straightener symbols. */
 export const flowStraightenerNodeConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("flow_straightener"),
 });
@@ -362,6 +372,7 @@ export interface FlowStraightenerNodeConfig extends z.infer<
   typeof flowStraightenerNodeConfigZ
 > {}
 
+/** HeaterElementNodeConfig is the configuration for heater element symbols. */
 export const heaterElementNodeConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("heater_element"),
 });
@@ -369,26 +380,31 @@ export interface HeaterElementNodeConfig extends z.infer<
   typeof heaterElementNodeConfigZ
 > {}
 
+/** IsoCapNodeConfig is the configuration for ISO cap symbols. */
 export const isoCapNodeConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("iso_cap"),
 });
 export interface IsoCapNodeConfig extends z.infer<typeof isoCapNodeConfigZ> {}
 
+/** IsoFilterNodeConfig is the configuration for ISO filter symbols. */
 export const isoFilterNodeConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("iso_filter"),
 });
 export interface IsoFilterNodeConfig extends z.infer<typeof isoFilterNodeConfigZ> {}
 
+/** NozzleNodeConfig is the configuration for nozzle symbols. */
 export const nozzleNodeConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("nozzle"),
 });
 export interface NozzleNodeConfig extends z.infer<typeof nozzleNodeConfigZ> {}
 
+/** OrificeNodeConfig is the configuration for orifice symbols. */
 export const orificeNodeConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("orifice"),
 });
 export interface OrificeNodeConfig extends z.infer<typeof orificeNodeConfigZ> {}
 
+/** OrificePlateNodeConfig is the configuration for orifice plate symbols. */
 export const orificePlateNodeConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("orifice_plate"),
 });
@@ -396,11 +412,13 @@ export interface OrificePlateNodeConfig extends z.infer<
   typeof orificePlateNodeConfigZ
 > {}
 
+/** StrainerNodeConfig is the configuration for strainer symbols. */
 export const strainerNodeConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("strainer"),
 });
 export interface StrainerNodeConfig extends z.infer<typeof strainerNodeConfigZ> {}
 
+/** StrainerConeNodeConfig is the configuration for strainer cone symbols. */
 export const strainerConeNodeConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("strainer_cone"),
 });
@@ -408,16 +426,19 @@ export interface StrainerConeNodeConfig extends z.infer<
   typeof strainerConeNodeConfigZ
 > {}
 
+/** ThrusterNodeConfig is the configuration for thruster symbols. */
 export const thrusterNodeConfigZ = toggleSymbolConfigZ.extend({
   variant: z.literal("thruster"),
 });
 export interface ThrusterNodeConfig extends z.infer<typeof thrusterNodeConfigZ> {}
 
+/** VentNodeConfig is the configuration for vent symbols. */
 export const ventNodeConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("vent"),
 });
 export interface VentNodeConfig extends z.infer<typeof ventNodeConfigZ> {}
 
+/** FlowmeterGeneralNodeConfig is the configuration for general flowmeter symbols. */
 export const flowmeterGeneralNodeConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("flowmeter_general"),
 });
@@ -425,6 +446,10 @@ export interface FlowmeterGeneralNodeConfig extends z.infer<
   typeof flowmeterGeneralNodeConfigZ
 > {}
 
+/**
+ * FlowmeterElectromagneticNodeConfig is the configuration for electromagnetic flowmeter
+ * symbols.
+ */
 export const flowmeterElectromagneticNodeConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("flowmeter_electromagnetic"),
 });
@@ -432,6 +457,10 @@ export interface FlowmeterElectromagneticNodeConfig extends z.infer<
   typeof flowmeterElectromagneticNodeConfigZ
 > {}
 
+/**
+ * FlowmeterVariableAreaNodeConfig is the configuration for variable area flowmeter
+ * symbols.
+ */
 export const flowmeterVariableAreaNodeConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("flowmeter_variable_area"),
 });
@@ -439,6 +468,7 @@ export interface FlowmeterVariableAreaNodeConfig extends z.infer<
   typeof flowmeterVariableAreaNodeConfigZ
 > {}
 
+/** FlowmeterCoriolisNodeConfig is the configuration for Coriolis flowmeter symbols. */
 export const flowmeterCoriolisNodeConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("flowmeter_coriolis"),
 });
@@ -446,6 +476,7 @@ export interface FlowmeterCoriolisNodeConfig extends z.infer<
   typeof flowmeterCoriolisNodeConfigZ
 > {}
 
+/** FlowmeterNozzleNodeConfig is the configuration for nozzle flowmeter symbols. */
 export const flowmeterNozzleNodeConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("flowmeter_nozzle"),
 });
@@ -453,6 +484,7 @@ export interface FlowmeterNozzleNodeConfig extends z.infer<
   typeof flowmeterNozzleNodeConfigZ
 > {}
 
+/** FlowmeterVenturiNodeConfig is the configuration for venturi flowmeter symbols. */
 export const flowmeterVenturiNodeConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("flowmeter_venturi"),
 });
@@ -460,6 +492,9 @@ export interface FlowmeterVenturiNodeConfig extends z.infer<
   typeof flowmeterVenturiNodeConfigZ
 > {}
 
+/**
+ * FlowmeterRingPistonNodeConfig is the configuration for ring piston flowmeter symbols.
+ */
 export const flowmeterRingPistonNodeConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("flowmeter_ring_piston"),
 });
@@ -467,6 +502,10 @@ export interface FlowmeterRingPistonNodeConfig extends z.infer<
   typeof flowmeterRingPistonNodeConfigZ
 > {}
 
+/**
+ * FlowmeterPositiveDisplacementNodeConfig is the configuration for positive
+ * displacement flowmeter symbols.
+ */
 export const flowmeterPositiveDisplacementNodeConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("flowmeter_positive_displacement"),
 });
@@ -474,6 +513,7 @@ export interface FlowmeterPositiveDisplacementNodeConfig extends z.infer<
   typeof flowmeterPositiveDisplacementNodeConfigZ
 > {}
 
+/** FlowmeterTurbineNodeConfig is the configuration for turbine flowmeter symbols. */
 export const flowmeterTurbineNodeConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("flowmeter_turbine"),
 });
@@ -481,6 +521,7 @@ export interface FlowmeterTurbineNodeConfig extends z.infer<
   typeof flowmeterTurbineNodeConfigZ
 > {}
 
+/** FlowmeterPulseNodeConfig is the configuration for pulse flowmeter symbols. */
 export const flowmeterPulseNodeConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("flowmeter_pulse"),
 });
@@ -488,6 +529,10 @@ export interface FlowmeterPulseNodeConfig extends z.infer<
   typeof flowmeterPulseNodeConfigZ
 > {}
 
+/**
+ * FlowmeterFloatSensorNodeConfig is the configuration for float sensor flowmeter
+ * symbols.
+ */
 export const flowmeterFloatSensorNodeConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("flowmeter_float_sensor"),
 });
@@ -495,6 +540,7 @@ export interface FlowmeterFloatSensorNodeConfig extends z.infer<
   typeof flowmeterFloatSensorNodeConfigZ
 > {}
 
+/** FlowmeterOrificeNodeConfig is the configuration for orifice flowmeter symbols. */
 export const flowmeterOrificeNodeConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("flowmeter_orifice"),
 });
@@ -1735,16 +1781,19 @@ export const NODE_CONFIG_SCHEMAS: {
   group_box: groupBoxNodeConfigZ,
 };
 
+/** CapElementConfig is the configuration for cap symbols. */
 export const capElementConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("cap"),
 });
 export interface CapElementConfig extends z.infer<typeof capElementConfigZ> {}
 
+/** FilterElementConfig is the configuration for filter symbols. */
 export const filterElementConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("filter"),
 });
 export interface FilterElementConfig extends z.infer<typeof filterElementConfigZ> {}
 
+/** FlowStraightenerElementConfig is the configuration for flow straightener symbols. */
 export const flowStraightenerElementConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("flow_straightener"),
 });
@@ -1752,6 +1801,7 @@ export interface FlowStraightenerElementConfig extends z.infer<
   typeof flowStraightenerElementConfigZ
 > {}
 
+/** HeaterElementElementConfig is the configuration for heater element symbols. */
 export const heaterElementElementConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("heater_element"),
 });
@@ -1759,11 +1809,13 @@ export interface HeaterElementElementConfig extends z.infer<
   typeof heaterElementElementConfigZ
 > {}
 
+/** IsoCapElementConfig is the configuration for ISO cap symbols. */
 export const isoCapElementConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("iso_cap"),
 });
 export interface IsoCapElementConfig extends z.infer<typeof isoCapElementConfigZ> {}
 
+/** IsoFilterElementConfig is the configuration for ISO filter symbols. */
 export const isoFilterElementConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("iso_filter"),
 });
@@ -1771,16 +1823,19 @@ export interface IsoFilterElementConfig extends z.infer<
   typeof isoFilterElementConfigZ
 > {}
 
+/** NozzleElementConfig is the configuration for nozzle symbols. */
 export const nozzleElementConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("nozzle"),
 });
 export interface NozzleElementConfig extends z.infer<typeof nozzleElementConfigZ> {}
 
+/** OrificeElementConfig is the configuration for orifice symbols. */
 export const orificeElementConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("orifice"),
 });
 export interface OrificeElementConfig extends z.infer<typeof orificeElementConfigZ> {}
 
+/** OrificePlateElementConfig is the configuration for orifice plate symbols. */
 export const orificePlateElementConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("orifice_plate"),
 });
@@ -1788,11 +1843,13 @@ export interface OrificePlateElementConfig extends z.infer<
   typeof orificePlateElementConfigZ
 > {}
 
+/** StrainerElementConfig is the configuration for strainer symbols. */
 export const strainerElementConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("strainer"),
 });
 export interface StrainerElementConfig extends z.infer<typeof strainerElementConfigZ> {}
 
+/** StrainerConeElementConfig is the configuration for strainer cone symbols. */
 export const strainerConeElementConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("strainer_cone"),
 });
@@ -1800,16 +1857,19 @@ export interface StrainerConeElementConfig extends z.infer<
   typeof strainerConeElementConfigZ
 > {}
 
+/** ThrusterElementConfig is the configuration for thruster symbols. */
 export const thrusterElementConfigZ = toggleSymbolConfigZ.extend({
   variant: z.literal("thruster"),
 });
 export interface ThrusterElementConfig extends z.infer<typeof thrusterElementConfigZ> {}
 
+/** VentElementConfig is the configuration for vent symbols. */
 export const ventElementConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("vent"),
 });
 export interface VentElementConfig extends z.infer<typeof ventElementConfigZ> {}
 
+/** FlowmeterGeneralElementConfig is the configuration for general flowmeter symbols. */
 export const flowmeterGeneralElementConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("flowmeter_general"),
 });
@@ -1817,6 +1877,10 @@ export interface FlowmeterGeneralElementConfig extends z.infer<
   typeof flowmeterGeneralElementConfigZ
 > {}
 
+/**
+ * FlowmeterElectromagneticElementConfig is the configuration for electromagnetic
+ * flowmeter symbols.
+ */
 export const flowmeterElectromagneticElementConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("flowmeter_electromagnetic"),
 });
@@ -1824,6 +1888,10 @@ export interface FlowmeterElectromagneticElementConfig extends z.infer<
   typeof flowmeterElectromagneticElementConfigZ
 > {}
 
+/**
+ * FlowmeterVariableAreaElementConfig is the configuration for variable area flowmeter
+ * symbols.
+ */
 export const flowmeterVariableAreaElementConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("flowmeter_variable_area"),
 });
@@ -1831,6 +1899,9 @@ export interface FlowmeterVariableAreaElementConfig extends z.infer<
   typeof flowmeterVariableAreaElementConfigZ
 > {}
 
+/**
+ * FlowmeterCoriolisElementConfig is the configuration for Coriolis flowmeter symbols.
+ */
 export const flowmeterCoriolisElementConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("flowmeter_coriolis"),
 });
@@ -1838,6 +1909,7 @@ export interface FlowmeterCoriolisElementConfig extends z.infer<
   typeof flowmeterCoriolisElementConfigZ
 > {}
 
+/** FlowmeterNozzleElementConfig is the configuration for nozzle flowmeter symbols. */
 export const flowmeterNozzleElementConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("flowmeter_nozzle"),
 });
@@ -1845,6 +1917,7 @@ export interface FlowmeterNozzleElementConfig extends z.infer<
   typeof flowmeterNozzleElementConfigZ
 > {}
 
+/** FlowmeterVenturiElementConfig is the configuration for venturi flowmeter symbols. */
 export const flowmeterVenturiElementConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("flowmeter_venturi"),
 });
@@ -1852,6 +1925,10 @@ export interface FlowmeterVenturiElementConfig extends z.infer<
   typeof flowmeterVenturiElementConfigZ
 > {}
 
+/**
+ * FlowmeterRingPistonElementConfig is the configuration for ring piston flowmeter
+ * symbols.
+ */
 export const flowmeterRingPistonElementConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("flowmeter_ring_piston"),
 });
@@ -1859,6 +1936,10 @@ export interface FlowmeterRingPistonElementConfig extends z.infer<
   typeof flowmeterRingPistonElementConfigZ
 > {}
 
+/**
+ * FlowmeterPositiveDisplacementElementConfig is the configuration for positive
+ * displacement flowmeter symbols.
+ */
 export const flowmeterPositiveDisplacementElementConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("flowmeter_positive_displacement"),
 });
@@ -1866,6 +1947,7 @@ export interface FlowmeterPositiveDisplacementElementConfig extends z.infer<
   typeof flowmeterPositiveDisplacementElementConfigZ
 > {}
 
+/** FlowmeterTurbineElementConfig is the configuration for turbine flowmeter symbols. */
 export const flowmeterTurbineElementConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("flowmeter_turbine"),
 });
@@ -1873,6 +1955,7 @@ export interface FlowmeterTurbineElementConfig extends z.infer<
   typeof flowmeterTurbineElementConfigZ
 > {}
 
+/** FlowmeterPulseElementConfig is the configuration for pulse flowmeter symbols. */
 export const flowmeterPulseElementConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("flowmeter_pulse"),
 });
@@ -1880,6 +1963,10 @@ export interface FlowmeterPulseElementConfig extends z.infer<
   typeof flowmeterPulseElementConfigZ
 > {}
 
+/**
+ * FlowmeterFloatSensorElementConfig is the configuration for float sensor flowmeter
+ * symbols.
+ */
 export const flowmeterFloatSensorElementConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("flowmeter_float_sensor"),
 });
@@ -1887,6 +1974,7 @@ export interface FlowmeterFloatSensorElementConfig extends z.infer<
   typeof flowmeterFloatSensorElementConfigZ
 > {}
 
+/** FlowmeterOrificeElementConfig is the configuration for orifice flowmeter symbols. */
 export const flowmeterOrificeElementConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("flowmeter_orifice"),
 });
@@ -2738,16 +2826,19 @@ export const groupBoxElementConfigZ = z.object({
 });
 export interface GroupBoxElementConfig extends z.infer<typeof groupBoxElementConfigZ> {}
 
+/** PipeElementConfig is the configuration for pipe edges. */
 export const pipeElementConfigZ = segmentedEdgeConfigZ.extend({
   variant: z.literal("pipe"),
 });
 export interface PipeElementConfig extends z.infer<typeof pipeElementConfigZ> {}
 
+/** ElectricElementConfig is the configuration for electrical edges. */
 export const electricElementConfigZ = segmentedEdgeConfigZ.extend({
   variant: z.literal("electric"),
 });
 export interface ElectricElementConfig extends z.infer<typeof electricElementConfigZ> {}
 
+/** SecondaryElementConfig is the configuration for secondary edges. */
 export const secondaryElementConfigZ = segmentedEdgeConfigZ.extend({
   variant: z.literal("secondary"),
 });
@@ -2755,11 +2846,13 @@ export interface SecondaryElementConfig extends z.infer<
   typeof secondaryElementConfigZ
 > {}
 
+/** JacketedElementConfig is the configuration for jacketed edges. */
 export const jacketedElementConfigZ = segmentedEdgeConfigZ.extend({
   variant: z.literal("jacketed"),
 });
 export interface JacketedElementConfig extends z.infer<typeof jacketedElementConfigZ> {}
 
+/** HydraulicElementConfig is the configuration for hydraulic edges. */
 export const hydraulicElementConfigZ = segmentedEdgeConfigZ.extend({
   variant: z.literal("hydraulic"),
 });
@@ -2767,6 +2860,7 @@ export interface HydraulicElementConfig extends z.infer<
   typeof hydraulicElementConfigZ
 > {}
 
+/** PneumaticElementConfig is the configuration for pneumatic edges. */
 export const pneumaticElementConfigZ = segmentedEdgeConfigZ.extend({
   variant: z.literal("pneumatic"),
 });
@@ -2774,6 +2868,7 @@ export interface PneumaticElementConfig extends z.infer<
   typeof pneumaticElementConfigZ
 > {}
 
+/** DataElementConfig is the configuration for data edges. */
 export const dataElementConfigZ = segmentedEdgeConfigZ.extend({
   variant: z.literal("data"),
 });
