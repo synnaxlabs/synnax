@@ -45,6 +45,7 @@ var _ = Describe("Migrate", func() {
 			name string,
 			value []byte,
 		) (secret.Key, error) {
+			GinkgoHelper()
 			Expect(tx).ToNot(BeNil())
 			made = append(made, created{name: name, value: string(value)})
 			return uuid.New(), nil
