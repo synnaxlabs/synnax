@@ -117,9 +117,6 @@ public:
     }
 
     [[nodiscard]] x::telem::Frame flush() { return this->harness.flush(); }
-
-    /// @brief returns the stamp the last tick ran with.
-    [[nodiscard]] x::telem::TimeStamp now() const { return this->harness.now(); }
 };
 
 /// @brief returns every sample in a series as T.
