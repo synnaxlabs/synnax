@@ -31,8 +31,10 @@ var _ = Describe("Restore", func() {
 
 	createBackup := func(name string) {
 		GinkgoHelper()
-		Expect(os.MkdirAll(filepath.Join(dir, "backups", name, "kv"), 0o700)).
-			To(Succeed())
+		for _, part := range []string{"kv", "cesium"} {
+			Expect(os.MkdirAll(filepath.Join(dir, "backups", name, part), 0o700)).
+				To(Succeed())
+		}
 	}
 
 	run := func(args ...string) (string, error) {
