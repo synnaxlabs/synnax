@@ -43,7 +43,7 @@ import {
   type WriteChannelType,
   type WriteSchemas,
 } from "@/feature/modbus/task/types";
-import { Selector } from "@/platform/selector";
+import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const path = deep.path<Task.Values<WriteSchemas>>();
@@ -53,8 +53,12 @@ const Properties = () => <SelectDevice />;
 const COLUMNS: List.Column[] = [
   { name: "Type", width: "30rem", field: true },
   { name: "Address", width: "24rem", field: true },
-  { name: "Data type", width: "32rem", field: true },
-  { name: "Byte order", width: "27rem", field: true },
+  { name: "Data type", width: "26rem", field: true },
+  {
+    name: "Byte order",
+    width: "var(--console-modbus-byte-order-width, 27rem)",
+    field: true,
+  },
 ];
 
 // Auto-generated channel names and device map keys keep the released type
@@ -168,7 +172,11 @@ const getOpenChannel = (channels: WriteChannel[]): WriteChannel => {
       ...WRITE_CHANNEL_SCHEMAS.coil.parse({ type: "coil" }),
       key: id.create(),
     };
-  return { ...nextChannel(channels[channels.length - 1]), key: id.create(), name: "" };
+  return {
+    ...nextChannel(channels[channels.length - 1]),
+    ...Task.READ_CHANNEL_OVERRIDE,
+    key: id.create(),
+  };
 };
 
 const createMapChannel = (type: WriteChannelType, address: number): WriteChannel => ({
@@ -294,9 +302,10 @@ export const useCreateWrite = Task.createUseCreate({
   deviceMake: MAKE,
 });
 
-export const WriteSelectable = Selector.createSelectable({
+export const WriteSelectable: Selector.Selectable = {
   type: WRITE_TYPE,
   title: "Modbus write task",
+  label: "Write",
   icon: <Icon.Logo.Modbus />,
   useOnSelect: useCreateWrite,
-});
+};

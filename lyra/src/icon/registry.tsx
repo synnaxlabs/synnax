@@ -190,6 +190,7 @@ import {
   PiFileCsv,
   PiMagnifyingGlassBold,
   PiSelectionPlusBold,
+  PiTreeViewBold,
   PiUploadSimple,
   PiWaveSawtoothBold,
   PiWaveSineBold,
@@ -263,6 +264,7 @@ import { Fitting } from "@/icon/Fitting";
 import { type IconProps, type ReactElement, wrapSVGIcon } from "@/icon/Icon";
 import { LabJack } from "@/icon/LabJack";
 import { Modbus } from "@/icon/Modbus";
+import { New } from "@/icon/New";
 import { NI } from "@/icon/NI";
 import { OPCUA } from "@/icon/OPCUA";
 import { Process } from "@/icon/Process";
@@ -433,6 +435,7 @@ export const Rename = wrapSVGIcon(BiRename, "rename");
 export const Snapshot = wrapSVGIcon(MdPictureInPicture, "snapshot");
 export const Sync = wrapSVGIcon(AiOutlineSync, "sync");
 export const Search = wrapSVGIcon(PiMagnifyingGlassBold, "search");
+export const TreeView = wrapSVGIcon(PiTreeViewBold, "tree-view");
 export const Auto = wrapSVGIcon(MdAutoAwesome, "auto");
 export const Table = wrapSVGIcon(FiTable, "table");
 export const Insert = {
@@ -732,6 +735,7 @@ const icons = {
   Map,
   Linear,
   None,
+  New,
   Constant,
   Terminal,
   TerminalOutline,

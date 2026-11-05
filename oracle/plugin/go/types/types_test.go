@@ -3326,6 +3326,121 @@ var _ = Describe("Go Union Generation", func() {
 	)
 
 	It(
+		"Should generate Base and SetBase for a union whose variants share one base",
+		func(ctx SpecContext) {
+			source := `
+			@go output "out"
+
+			BaseAIChan struct { port int32 }
+			VoltageFields struct { minVal float64 }
+
+			AIChannel union on type extends BaseAIChan {
+				ai_voltage VoltageFields
+				ai_current { units string }
+			}
+		`
+			resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain(
+					"func (u AIChannel) Base() BaseAIChan {\n"+
+						"\tswitch variant := u.Variant.(type) {\n"+
+						"\tcase AIVoltageChannel:\n"+
+						"\t\treturn variant.BaseAIChan\n"+
+						"\tcase AICurrentChannel:\n"+
+						"\t\treturn variant.BaseAIChan\n"+
+						"\t}\n"+
+						"\treturn BaseAIChan{}\n"+
+						"}",
+					"func (u *AIChannel) SetBase(base BaseAIChan) {\n"+
+						"\tswitch variant := u.Variant.(type) {\n"+
+						"\tcase AIVoltageChannel:\n"+
+						"\t\tvariant.BaseAIChan = base\n"+
+						"\t\tu.Variant = variant\n"+
+						"\tcase AICurrentChannel:\n"+
+						"\t\tvariant.BaseAIChan = base\n"+
+						"\t\tu.Variant = variant\n"+
+						"\tdefault:\n"+
+						"\t\tpanic(errors.Newf(\"AIChannel: cannot set the base of "+
+						"variant %T\", variant))\n"+
+						"\t}\n"+
+						"}",
+				)
+		},
+	)
+
+	It(
+		"Should qualify the Base return type of a base from another namespace",
+		func(ctx SpecContext) {
+			loader.Add("schemas/common", `
+			@go output "core/common"
+
+			BaseAIChan struct { port int32 }
+		`)
+			source := `
+			import "schemas/common"
+
+			@go output "core/ni"
+
+			AIChannel union on type extends common.BaseAIChan {
+				ai_voltage { minVal float64 }
+			}
+		`
+			resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+			ExpectContent(resp, "ni/types.gen.go").
+				ToContain(
+					"func (u AIChannel) Base() common.BaseAIChan {",
+					"\t\treturn variant.BaseAIChan\n",
+					"\treturn common.BaseAIChan{}\n",
+					"func (u *AIChannel) SetBase(base common.BaseAIChan) {",
+					"\t\tvariant.BaseAIChan = base\n",
+				)
+		},
+	)
+
+	DescribeTable(
+		"Should not generate Base or SetBase without one base every variant shares",
+		func(ctx SpecContext, source string) {
+			resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain("type AIChannel struct {").
+				ToNotContain(") Base() ", ") SetBase(")
+		},
+		Entry("no base", `
+			@go output "out"
+
+			AIChannel union on type {
+				ai_voltage { minVal float64 }
+			}
+		`),
+		Entry("two bases", `
+			@go output "out"
+
+			BaseAIChan struct { port int32 }
+			Range struct { minVal float64 }
+
+			AIChannel union on type extends BaseAIChan, Range {
+				ai_voltage {}
+			}
+		`),
+		Entry("a variant that omits a base field", `
+			@go output "out"
+
+			BaseAIChan struct {
+				port int32
+				enabled bool
+			}
+
+			AIChannel union on type extends BaseAIChan {
+				ai_voltage { minVal float64 }
+				ai_temp_builtin {
+					-port
+					units string
+				}
+			}
+		`),
+	)
+
+	It(
 		"Should resolve a union-typed struct field to the union wrapper",
 		func(ctx SpecContext) {
 			source := `
