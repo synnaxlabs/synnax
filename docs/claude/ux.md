@@ -264,6 +264,9 @@ bound, a log precision, or the line plot X channel.
   the name. The dropdown is wide enough for each description on one line. Only a narrow
   window wraps it, and it is never cut.
 - A select that shows only its icon is a square button, never a wide box.
+- A device select shows the selected device's status as a chip at the end of the
+  trigger, before the caret. The chip names the status variant in one word ("Connected",
+  "Warning", "Error"), and its tooltip shows the full message.
 
 ### Lists with checkboxes
 

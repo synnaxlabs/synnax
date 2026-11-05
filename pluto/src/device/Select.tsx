@@ -19,6 +19,7 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { type ListParams, useList } from "@/device/queries";
+import { StatusChip } from "@/device/StatusChip";
 import { StatusIndicator } from "@/device/StatusIndicator";
 import { type Flux } from "@/flux";
 
@@ -63,6 +64,9 @@ const LOCATION_STYLE = { marginTop: "0.25rem" } as const;
 
 const DIALOG_PROPS = { className: CSS.BE("device-select", "dialog") };
 
+const renderStatus = (entry: unknown): ReactElement | undefined =>
+  entry == null ? undefined : <StatusChip status={(entry as device.Device).status} />;
+
 export interface SelectSingleProps
   extends
     Omit<
@@ -71,9 +75,11 @@ export interface SelectSingleProps
     >,
     Flux.UseListParams<ListParams, device.Key, device.Device> {}
 
+/** Selects one device. The trigger shows the selected device's status. */
 export const SelectSingle = ({
   filter,
   initialQuery,
+  triggerProps,
   ...rest
 }: SelectSingleProps): ReactElement => {
   const { data, retrieve, getItem, subscribe, status } = useList({
@@ -92,6 +98,7 @@ export const SelectSingle = ({
       status={status}
       icon={<Icon.Device />}
       dialogProps={DIALOG_PROPS}
+      triggerProps={{ renderEndContent: renderStatus, ...triggerProps }}
       {...rest}
     >
       {listItemRenderProp}
