@@ -24,6 +24,15 @@ import { telem } from "@/telem/aether";
 import { buildStack } from "@/testutil/providers";
 import { staleness } from "@/vis/staleness/aether";
 
+const { mockUse } = vi.hoisted(() => ({ mockUse: vi.fn() }));
+
+// The stack mounts a synnax provider with no client. Specs about the Core's clock swap
+// in a core whose connection reports a skew.
+vi.mock("@/synnax/aether", async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return { synnax: { ...(actual.synnax as object), use: mockUse } };
+});
+
 const createSource = (): telem.Source<unknown> => ({
   value: () => telem.success(null),
   onChange: () => () => {},
@@ -105,8 +114,11 @@ const setup = ({
   sweepInterval = SWEEP_INTERVAL,
   timeouts = [5],
 }: SetupOptions = {}) => {
+  // The leaf's source is a plain object, so no telem provider is needed, and the Core
+  // clock specs' stub core has no feed for one to open.
   const stack = buildStack({
     registry: { [Leaf.TYPE]: Leaf },
+    telem: false,
     staleness: { sweepInterval },
   });
   const leaves = timeouts.map((stalenessTimeout, i) => {
@@ -138,7 +150,10 @@ const setup = ({
 describe("staleness", () => {
   let teardown: (() => void) | null = null;
 
-  beforeEach(() => vi.useFakeTimers());
+  beforeEach(() => {
+    vi.useFakeTimers();
+    mockUse.mockReturnValue(null);
+  });
   afterEach(() => {
     teardown?.();
     teardown = null;
@@ -438,14 +453,64 @@ describe("staleness", () => {
       expect(leaf.transitions).toEqual([true]);
     });
 
-    it("should read every arrival after the first as live", () => {
+    it("should date every arrival from its sample time", () => {
+      const { leaf } = mount({ timeouts: [5] });
+      stamp(leaf, TimeSpan.seconds(-3));
+      leaf.received();
+      vi.advanceTimersByTime(1000);
+      stamp(leaf, TimeSpan.seconds(-10));
+      leaf.received();
+      expect(leaf.transitions).toEqual([true]);
+      expect(leaf.state.stale).toBe(true);
+    });
+
+    it("should turn a stale source live when a fresh sample arrives", () => {
       const { leaf } = mount({ timeouts: [5] });
       stamp(leaf, TimeSpan.seconds(-10));
       leaf.received();
-      stamp(leaf, TimeSpan.seconds(-9));
+      stamp(leaf, TimeSpan.ZERO);
       leaf.received();
       expect(leaf.transitions).toEqual([true, false]);
       expect(leaf.state.stale).toBe(false);
+    });
+  });
+
+  describe("Core clock", () => {
+    // Mounts a core whose clock runs `skew` behind the local clock.
+    const useCore = (skew: TimeSpan): void => {
+      mockUse.mockReturnValue({
+        connection: { now: () => TimeStamp.now().sub(skew) },
+      });
+    };
+
+    // Stamps the next sample `offset` from the Core's now, on the Core's clock.
+    const stampOnCore = (leaf: Leaf, skew: TimeSpan, offset: TimeSpan): void => {
+      leaf.source.value = () =>
+        telem.success(null, TimeStamp.now().sub(skew).add(offset));
+    };
+
+    it("should not age a fresh sample when the Console runs ahead of the Core", () => {
+      const skew = TimeSpan.seconds(10);
+      useCore(skew);
+      const { leaf } = mount({ timeouts: [5] });
+      stampOnCore(leaf, skew, TimeSpan.ZERO);
+      leaf.received();
+      vi.advanceTimersByTime(4750);
+      expect(leaf.transitions).toEqual([]);
+      vi.advanceTimersByTime(500);
+      expect(leaf.transitions).toEqual([true]);
+    });
+
+    it("should age an old sample when the Console runs behind the Core", () => {
+      const skew = TimeSpan.seconds(-10);
+      useCore(skew);
+      const { leaf } = mount({ timeouts: [5] });
+      stampOnCore(leaf, skew, TimeSpan.seconds(-3));
+      leaf.received();
+      vi.advanceTimersByTime(1750);
+      expect(leaf.transitions).toEqual([]);
+      vi.advanceTimersByTime(500);
+      expect(leaf.transitions).toEqual([true]);
     });
   });
 
@@ -464,13 +529,12 @@ describe("staleness", () => {
       expect(leaf.transitions).toEqual([true]);
     });
 
-    it("should count a change that grows the appended count while its time holds", () => {
+    it("should count a change that grows the appended count", () => {
       const { leaf } = mount({ timeouts: [5] });
-      const time = TimeStamp.now();
-      append(leaf, 1, time);
+      append(leaf, 1, TimeStamp.now());
       leaf.received();
       vi.advanceTimersByTime(4000);
-      append(leaf, 2, time);
+      append(leaf, 2, TimeStamp.now());
       leaf.received();
       vi.advanceTimersByTime(4000);
       expect(leaf.transitions).toEqual([]);
