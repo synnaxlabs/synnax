@@ -17,6 +17,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -35,6 +37,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Task *task.Service
+	// ArcTask finds the tasks that run an Arc.
+	//
+	// [REQUIRED]
+	ArcTask *arctask.Service
 	// Status stores and retrieves statuses.
 	//
 	// [REQUIRED]
@@ -54,6 +60,7 @@ var (
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Task = override.Nil(c.Task, other.Task)
+	c.ArcTask = override.Nil(c.ArcTask, other.ArcTask)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	return c
@@ -63,15 +70,17 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.task")
 	v.NotNil("task", c.Task)
+	v.NotNil("arc_task", c.ArcTask)
 	v.NotNil("status", c.Status)
 	v.NotNil("rbac", c.RBAC)
 	return v.Error()
 }
 
 type Service struct {
-	access *rbac.Service
-	task   *task.Service
-	status *status.Service
+	access  *rbac.Service
+	task    *task.Service
+	arcTask *arctask.Service
+	status  *status.Service
 }
 
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
@@ -80,9 +89,10 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		task:   cfg.Task,
-		status: cfg.Status,
-		access: cfg.RBAC,
+		task:    cfg.Task,
+		arcTask: cfg.ArcTask,
+		status:  cfg.Status,
+		access:  cfg.RBAC,
 	}, nil
 }
 
@@ -175,6 +185,8 @@ type (
 		IgnoreNotFoundError bool       `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
 		// Ranges keeps only the tasks in any of these ranges.
 		Ranges []ranger.Key `json:"ranges" msgpack:"ranges"`
+		// Arcs keeps only the tasks that run any of these Arcs.
+		Arcs []arc.Key `json:"arcs" msgpack:"arcs"`
 	}
 	RetrieveResponse struct {
 		Tasks []task.Task `json:"tasks" msgpack:"tasks"`
@@ -223,6 +235,9 @@ func (s *Service) Retrieve(
 	}
 	if len(req.Ranges) > 0 {
 		q = q.Where(task.MatchRanges(req.Ranges...))
+	}
+	if len(req.Arcs) > 0 {
+		q = q.Where(s.arcTask.MatchArcs(req.Arcs...))
 	}
 	var res RetrieveResponse
 	err := q.Entries(&res.Tasks).Exec(ctx, nil)

@@ -430,7 +430,7 @@ export class Client extends query.Retriever<
   }
 
   private async fetchTask(arcKey: Key): Promise<task.Task | null> {
-    const tasks = await this.cfg.tasks.retrieve({ types: [TASK_TYPE] });
-    return tasks.find((t) => arcKeyOf(t) === arcKey) ?? null;
+    const [tsk] = await this.cfg.tasks.retrieve({ arcs: [arcKey] });
+    return tsk ?? null;
   }
 }

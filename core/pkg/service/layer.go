@@ -718,6 +718,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			Ontology:        l.Ontology,
 			Channel:         l.Channel,
 			Task:            l.Task,
+			MatchTasks:      l.ArcTask.MatchArcs,
 			Status:          l.Status,
 			Signals:         l.Signals,
 			ImEx:            l.ImEx,

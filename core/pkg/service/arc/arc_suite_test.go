@@ -108,6 +108,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Ontology:            otg,
 		Channel:             channelSvc,
 		Task:                taskSvc,
+		MatchTasks:          arcTaskSvc.MatchArcs,
 		Status:              statusSvc,
 		ImEx:                imexSvc,
 		TextSweepQuiescence: 5 * telem.Second,

@@ -902,9 +902,10 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	if l.Task, err = task.NewService(task.ServiceConfig{
-		Task:   cfg.Service.Task,
-		Status: cfg.Service.Status,
-		RBAC:   cfg.Service.RBAC,
+		Task:    cfg.Service.Task,
+		ArcTask: cfg.Service.ArcTask,
+		Status:  cfg.Service.Status,
+		RBAC:    cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err
 	}

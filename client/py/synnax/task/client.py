@@ -70,6 +70,7 @@ class _RetrieveRequest(BaseModel):
     internal: bool | None = None
     snapshot: bool | None = None
     ranges: list[UUID] | None = None
+    arcs: list[UUID] | None = None
     search_term: str | None = None
     limit: int | None = None
     offset: int | None = None
@@ -485,6 +486,7 @@ class Client:
         internal: bool | None = None,
         snapshot: bool | None = None,
         ranges: list[UUID] | None = None,
+        arcs: list[UUID] | None = None,
         limit: int | None = None,
         offset: int | None = None,
         include_status: bool = False,
@@ -504,6 +506,7 @@ class Client:
         internal: bool | None = None,
         snapshot: bool | None = None,
         ranges: list[UUID] | None = None,
+        arcs: list[UUID] | None = None,
         limit: int | None = None,
         offset: int | None = None,
         include_status: bool = False,
@@ -518,6 +521,7 @@ class Client:
         :param snapshot: Only return snapshot tasks when true, or only live tasks when
             false.
         :param ranges: Only return the snapshots in the ranges with these keys.
+        :param arcs: Only return the tasks that run the Arcs with these keys.
         :param limit: The maximum number of tasks to return.
         :param offset: The number of tasks to skip.
         :param include_status: Whether to populate each task's status. Tasks come
@@ -537,6 +541,7 @@ class Client:
             internal,
             snapshot,
             ranges,
+            arcs,
             limit,
             offset,
         ):
@@ -555,6 +560,7 @@ class Client:
                 internal=internal,
                 snapshot=snapshot,
                 ranges=ranges,
+                arcs=arcs,
                 limit=limit,
                 offset=offset,
                 include_status=include_status,

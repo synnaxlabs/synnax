@@ -60,6 +60,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Task *task.Service
+	// MatchTasks returns a filter for the tasks that run any of the Arcs with keys.
+	//
+	// [REQUIRED]
+	MatchTasks func(arcs ...Key) task.Filter
 	// Status is used to check whether an Arc's task is running before undeploying it.
 	//
 	// [REQUIRED]
@@ -108,6 +112,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Task = override.Nil(c.Task, other.Task)
+	c.MatchTasks = override.Nil(c.MatchTasks, other.MatchTasks)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.ImEx = override.Nil(c.ImEx, other.ImEx)
@@ -131,6 +136,7 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("ontology", c.Ontology)
 	v.NotNil("channel", c.Channel)
 	v.NotNil("task", c.Task)
+	v.NotNil("match_tasks", c.MatchTasks)
 	v.NotNil("status", c.Status)
 	v.NotNil("imex", c.ImEx)
 	v.Positive("task_sync_debounce", c.TaskSyncDebounce)
@@ -307,6 +313,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		tx:         gorp.OverrideTx(s.cfg.DB, tx),
 		otgWriter:  s.cfg.Ontology.NewWriter(tx),
 		tasks:      s.cfg.Task,
+		matchTasks: s.cfg.MatchTasks,
 		status:     s.cfg.Status,
 		table:      s.table,
 		dispatcher: s.state.Dispatcher(),

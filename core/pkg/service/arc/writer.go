@@ -40,6 +40,7 @@ type Writer struct {
 	tx         gorp.Tx
 	otgWriter  ontology.Writer
 	tasks      *task.Service
+	matchTasks func(arcs ...Key) task.Filter
 	status     *status.Service
 	table      *gorp.Table[Key, Arc]
 	dispatcher actions.Dispatcher[Key, Action]
@@ -147,20 +148,14 @@ func (w Writer) deleteChildTasks(ctx context.Context, key Key) error {
 func (w Writer) childTaskKeys(ctx context.Context, key Key) ([]task.Key, error) {
 	var tasks []task.Task
 	if err := w.tasks.NewRetrieve().
-		Where(task.MatchTypes(TaskType)).
+		Where(w.matchTasks(key)).
 		Entries(&tasks).
 		Exec(ctx, w.tx); err != nil {
 		return nil, err
 	}
-	var keys []task.Key
-	for _, t := range tasks {
-		var cfg taskversions.Config
-		if err := t.Config.Unmarshal(&cfg); err != nil {
-			return nil, err
-		}
-		if cfg.ArcKey == key {
-			keys = append(keys, t.Key)
-		}
+	keys := make([]task.Key, len(tasks))
+	for i, t := range tasks {
+		keys[i] = t.Key
 	}
 	return keys, nil
 }

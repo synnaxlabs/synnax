@@ -14,8 +14,10 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/task/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/task/versions/legacy"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
@@ -51,8 +53,9 @@ func (c ServiceConfig) Validate() error {
 // Service owns the stored configuration records of the Arc task type.
 type Service struct {
 	// Config stores arc task configuration records.
-	Config *config.Service[Config]
-	closer xio.MultiCloser
+	Config  *config.Service[Config]
+	indexes indexes
+	closer  xio.MultiCloser
 }
 
 // OpenService opens the Arc task config service with the provided configuration.
@@ -63,7 +66,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{}
+	s = &Service{indexes: newIndexes()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.Config, err = config.OpenService(
@@ -72,6 +75,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Instrumentation:    cfg.Instrumentation,
 			Type:               Type,
 			Migrations:         versions.Migrations,
+			Indexes:            s.indexes.all(),
 			LegacyVersion:      legacy.LastVersion,
 			Ladder:             versions.ConfigLadder,
 			Legacy:             &legacy.Config,
@@ -88,6 +92,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 // Close closes the service and releases the resources it holds. Close is not safe
 // to call concurrently with any other service methods.
 func (s *Service) Close() error { return s.closer.Close() }
+
+// MatchArcs returns a filter for the tasks that run any of the Arcs with keys.
+func (s *Service) MatchArcs(arcs ...arc.Key) task.Filter {
+	return func(task.Retrieve) gorp.Filter[task.Key, task.Task] {
+		return s.indexes.arcKey.FilterAs[task.Task](arcs...)
+	}
+}
 
 // Stores returns the config stores the service owns, for registry assembly.
 func (s *Service) Stores() []config.Store {

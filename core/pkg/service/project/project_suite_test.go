@@ -10,6 +10,7 @@
 package project_test
 
 import (
+	"slices"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -17,6 +18,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
@@ -101,13 +103,17 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
 	}))
 	pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
+	arcTaskSvc := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))
 	taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Rack:     rackSvc,
 		Status:   statusSvc,
 		ImEx:     imexSvc,
-		Configs:  MustSucceed(config.NewRegistry(pd.Stores()...)),
+		Configs: MustSucceed(config.NewRegistry(
+			slices.Concat(pd.Stores(), arcTaskSvc.Stores())...,
+		)),
+		ImExExcluded: []string{arctask.Type},
 	}))
 	testRack = rack.Rack{Name: "Project Test Rack"}
 	Expect(rackSvc.NewWriter(nil).Create(ctx, &testRack)).To(Succeed())
@@ -119,12 +125,13 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status:       statusSvc,
 	}))
 	arcSvc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Channel:  channelSvc,
-		Task:     taskSvc,
-		Status:   statusSvc,
-		ImEx:     imexSvc,
+		DB:         db,
+		Ontology:   otg,
+		Channel:    channelSvc,
+		Task:       taskSvc,
+		MatchTasks: arcTaskSvc.MatchArcs,
+		Status:     statusSvc,
+		ImEx:       imexSvc,
 	}))
 	svc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
 		DB:       db,

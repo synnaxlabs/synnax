@@ -106,12 +106,13 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status:       statusSvc,
 	}))
 	arcSvc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Channel:  channelSvc,
-		Task:     taskSvc,
-		Status:   statusSvc,
-		ImEx:     imexSvc,
+		DB:         db,
+		Ontology:   otg,
+		Channel:    channelSvc,
+		Task:       taskSvc,
+		MatchTasks: arcTaskSvc.MatchArcs,
+		Status:     statusSvc,
+		ImEx:       imexSvc,
 	}))
 	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 	userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{

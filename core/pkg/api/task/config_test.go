@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	apitask "github.com/synnaxlabs/synnax/pkg/api/task"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 )
@@ -21,9 +22,10 @@ import (
 var _ = Describe("ServiceConfig", func() {
 	full := func() apitask.ServiceConfig {
 		return apitask.ServiceConfig{
-			Task:   &task.Service{},
-			Status: &status.Service{},
-			RBAC:   &rbac.Service{},
+			Task:    &task.Service{},
+			ArcTask: &arctask.Service{},
+			Status:  &status.Service{},
+			RBAC:    &rbac.Service{},
 		}
 	}
 
@@ -45,6 +47,11 @@ var _ = Describe("ServiceConfig", func() {
 				"task: must be non-nil",
 			),
 			Entry(
+				"arc task",
+				func(c *apitask.ServiceConfig) { c.ArcTask = nil },
+				"arc_task: must be non-nil",
+			),
+			Entry(
 				"status",
 				func(c *apitask.ServiceConfig) { c.Status = nil },
 				"status: must be non-nil",
@@ -62,6 +69,7 @@ var _ = Describe("ServiceConfig", func() {
 			cfg := full()
 			merged := apitask.ServiceConfig{}.Override(cfg)
 			Expect(merged.Task).To(BeIdenticalTo(cfg.Task))
+			Expect(merged.ArcTask).To(BeIdenticalTo(cfg.ArcTask))
 			Expect(merged.Status).To(BeIdenticalTo(cfg.Status))
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 		})
@@ -70,6 +78,7 @@ var _ = Describe("ServiceConfig", func() {
 			cfg := full()
 			merged := cfg.Override(apitask.ServiceConfig{})
 			Expect(merged.Task).To(BeIdenticalTo(cfg.Task))
+			Expect(merged.ArcTask).To(BeIdenticalTo(cfg.ArcTask))
 			Expect(merged.Status).To(BeIdenticalTo(cfg.Status))
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 		})

@@ -287,6 +287,8 @@ const retrieveReqZ = z.object({
   snapshot: z.boolean().optional(),
   /** Keeps only the tasks that are snapshots in any of these ranges. */
   ranges: ranger.keyZ.array().optional(),
+  /** Keeps only the tasks that run any of the Arcs with these keys. */
+  arcs: z.uuid().array().optional(),
   searchTerm: z.string().optional(),
   offset: z.int().optional(),
   limit: z.int().optional(),
@@ -343,10 +345,13 @@ const cacheRetrieveReqZ = retrieveReqZ.transform(
 );
 const retrieveMultiParamsZ = cacheRetrieveReqZ.or(query.keyListZ(keyZ));
 
+/** Query fields only the server can evaluate. */
+const SERVER_FIELDS = ["searchTerm", "limit", "offset", "arcs"] as const;
+
 /**
  * Client-side matching for a request: key, name, type, rack, range, and flag filters.
- * Server-computed shapes (search, pagination) never reach this filter; they refetch
- * instead.
+ * Server-computed shapes (search, pagination, Arcs) never reach this filter; they
+ * refetch instead.
  */
 const requestFilter = (
   req: RetrieveRequest,
@@ -523,6 +528,7 @@ export class Client extends query.Retriever<
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.fetchThrough(req),
         matches: (t, req) => requestFilter(req)(t),
+        serverFields: SERVER_FIELDS,
         watch: [query.watch(statusStore, (event) => affectedKeys(event))],
       },
       compose: (record) => this.compose(record),

@@ -204,6 +204,16 @@ describe("arc", () => {
       expect(await client.arcs.task.retrieve(created.key)).not.toBeNull();
     });
 
+    it("finds the task through the task client by its Arc", async () => {
+      const rack = await client.racks.create({ name: `rack-${id.create()}` });
+      const deployed = await client.arcs.create(newTextArc(`by-arc-${id.create()}`));
+      const other = await client.arcs.create(newTextArc(`by-arc-${id.create()}`));
+      const tsk = await client.arcs.updateTask(deployed.key, { rack: rack.key });
+      await client.arcs.updateTask(other.key, { rack: rack.key });
+      const found = await client.tasks.retrieve({ arcs: [deployed.key] });
+      expect(found.map(({ key }) => key)).toEqual([tsk?.key]);
+    });
+
     it("reuses the task across rebinds and rack moves", async () => {
       const rackA = await client.racks.create({ name: `rack-${id.create()}` });
       const rackB = await client.racks.create({ name: `rack-${id.create()}` });

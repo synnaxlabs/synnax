@@ -255,6 +255,23 @@ class TestArcTask:
         assert retrieved.key == created.key
         assert retrieved.type == "arc"
 
+    def test_retrieve_tasks_by_arc(self, client: sy.Synnax) -> None:
+        """Should retrieve only the tasks that run the given Arcs."""
+        arcs = [
+            client.arcs.create(name=f"test-arc-by-arc-{uuid4()}", mode="text")
+            for _ in range(2)
+        ]
+        created = [
+            client.tasks.create(
+                name=f"Test Arc Task {uuid4()}",
+                type="arc",
+                config=sy.arc.Task(name="", arc_key=a.key).to_payload().config,
+            )
+            for a in arcs
+        ]
+        retrieved = client.tasks.retrieve(arcs=[arcs[0].key])
+        assert [t.key for t in retrieved] == [created[0].key]
+
     def test_wrap_retrieved_task_as_arc_task(self, client: sy.Synnax) -> None:
         """Should wrap a retrieved task as an ArcTask."""
         arc = client.arcs.create(

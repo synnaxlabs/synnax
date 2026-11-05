@@ -88,7 +88,7 @@ func (r Record) Write(ctx context.Context, tx gorp.Tx) error { return r.write(ct
 
 // ServiceConfig is the configuration for opening a Service. E is the record type
 // the service stores.
-type ServiceConfig[E any] struct {
+type ServiceConfig[E gorp.Entry[uuid.UUID]] struct {
 	// DB is the database config records are stored in.
 	// [REQUIRED]
 	DB *gorp.DB
@@ -101,6 +101,9 @@ type ServiceConfig[E any] struct {
 	// Migrations is the stored-shape migration chain for the record type. Empty for
 	// a type whose stored shape has never changed.
 	Migrations []gorp.Migration
+	// Indexes are the secondary indexes on the records.
+	// [OPTIONAL]
+	Indexes []gorp.Index[uuid.UUID, E]
 	// Ladder decodes typed config blobs at every version the type has exported and
 	// migrates them to the current shape. Its Latest is stamped on exports.
 	// [REQUIRED]
@@ -125,14 +128,13 @@ type ServiceConfig[E any] struct {
 	alamos.Instrumentation
 }
 
-var _ xconfig.Config[ServiceConfig[struct{}]] = ServiceConfig[struct{}]{}
-
 // Override implements xconfig.Config.
 func (c ServiceConfig[E]) Override(other ServiceConfig[E]) ServiceConfig[E] {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Type = override.String(c.Type, other.Type)
 	c.SetEntryKey = override.Nil(c.SetEntryKey, other.SetEntryKey)
 	c.Migrations = override.Slice(c.Migrations, other.Migrations)
+	c.Indexes = override.Slice(c.Indexes, other.Indexes)
 	c.Ladder = override.If(c.Ladder, other.Ladder, other.Ladder.Decode != nil)
 	c.LegacyVersion = override.Numeric(c.LegacyVersion, other.LegacyVersion)
 	c.Legacy = override.Nil(c.Legacy, other.Legacy)
@@ -174,6 +176,7 @@ func OpenService[E gorp.Entry[uuid.UUID]](
 		DB:              cfg.DB,
 		Name:            cfg.Type + "_config",
 		Migrations:      cfg.Migrations,
+		Indexes:         cfg.Indexes,
 		References:      []gorp.Reference[uuid.UUID, E]{newTaskReference[E]()},
 		Instrumentation: cfg.Instrumentation,
 	})

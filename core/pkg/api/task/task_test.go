@@ -19,6 +19,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -224,6 +225,26 @@ var _ = Describe("Retrieve", func() {
 		Expect(res.Tasks[0].Status).To(BeNil())
 		Expect(res.Tasks[1].Key).To(Equal(withStatus.Key))
 		Expect(res.Tasks[1].Status.Owner).To(HaveValue(Equal(withStatus.ResourceID())))
+	})
+
+	It("Should keep only the tasks that run the given Arcs", func(ctx SpecContext) {
+		u := createUser(ctx)
+		grant(ctx, access.ActionRetrieve, u.ResourceID(), resource.ID{
+			Type: resource.TypeTask,
+		})
+		w := svc.Arc.NewWriter(nil)
+		deployed := arc.Arc{Name: "Deployed", Mode: arc.ModeGraph}
+		other := arc.Arc{Name: "Other", Mode: arc.ModeGraph}
+		Expect(w.Create(ctx, &deployed)).To(Succeed())
+		Expect(w.Create(ctx, &other)).To(Succeed())
+		update := arc.TaskUpdate{Rack: new(svc.Rack.EmbeddedKey)}
+		tsk := MustSucceed(w.UpdateTask(ctx, deployed.Key, update))
+		MustSucceed(w.UpdateTask(ctx, other.Key, update))
+		res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), apitask.RetrieveRequest{
+			Arcs: []arc.Key{deployed.Key},
+		}))
+		Expect(res.Tasks).To(HaveLen(1))
+		Expect(res.Tasks[0].Key).To(Equal(tsk.Key))
 	})
 })
 
