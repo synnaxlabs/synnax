@@ -13,6 +13,7 @@ import { channel } from "@synnaxlabs/client";
 import { Description } from "@synnaxlabs/lyra/description";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Telem } from "@synnaxlabs/lyra/telem";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { Tooltip as Base } from "@synnaxlabs/lyra/tooltip";
 import { caseconv, type color, primitive, TimeSpan } from "@synnaxlabs/x";
@@ -21,6 +22,7 @@ import { type ReactElement, type ReactNode, useEffect, useState } from "react";
 import { Channel } from "@/channel";
 import { CSS } from "@/css";
 import { type Node } from "@/schematic/node";
+import { LatestSample } from "@/vis/latestSample";
 import { Staleness } from "@/vis/staleness";
 
 export interface TooltipProps {
@@ -38,6 +40,9 @@ const CHANNEL_ROWS: { field: Field; icon: Icon.FC }[] = [
   { field: "channel", icon: Icon.Channel },
   { field: "commandChannel", icon: Icon.Control },
 ];
+
+// Channels the symbol already streams come first, so the row adds no subscription.
+const LAST_SAMPLE_ORDER: Field[] = ["stateChannel", "channel", "commandChannel"];
 
 const FIELD_ROWS: { field: Field; label?: string; unit?: string }[] = [
   { field: "mode" },
@@ -69,6 +74,29 @@ const Row = ({ label, value, labelColor, valueColor }: RowProps): ReactElement =
     </Description.Value>
   </Description.Item>
 );
+
+interface LastSampleProps {
+  channel: channel.Key;
+}
+
+// Mounted only once the tooltip shows, so a mouse sweep creates no worker component.
+const LastSample = ({ channel }: LastSampleProps): ReactElement => {
+  const time = LatestSample.use({ channel });
+  const since = Telem.Text.useTimeSpanSince(time ?? 0);
+  return (
+    <Description.List level="small" justify="between">
+      <Row
+        label={
+          <>
+            <Icon.TimeOutline />
+            Last sample
+          </>
+        }
+        value={time == null ? undefined : `${since.toString("semantic")} ago`}
+      />
+    </Description.List>
+  );
+};
 
 /** Shows a symbol's configuration beside its element. */
 export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null => {
@@ -117,6 +145,9 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
       />
     );
   });
+  const followed = LAST_SAMPLE_ORDER.map((field) =>
+    data?.find((c) => c.key === values[field]),
+  ).find((c) => c != null);
   const stalenessColor = Staleness.resolveColor(
     "stalenessColor" in config ? config.stalenessColor : undefined,
     theme,
@@ -140,6 +171,9 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
     );
   });
   if (channels.length + fields.length === 0) return null;
+  const divider = (
+    <Divider.Divider x className={CSS.BE("schematic-tooltip", "divider")} />
+  );
   return (
     <Base.Frame
       anchor={anchor}
@@ -151,13 +185,17 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
           {channels}
         </Description.List>
       )}
-      {channels.length > 0 && fields.length > 0 && (
-        <Divider.Divider x className={CSS.BE("schematic-tooltip", "divider")} />
-      )}
+      {channels.length > 0 && fields.length > 0 && divider}
       {fields.length > 0 && (
         <Description.List level="small" justify="between">
           {fields}
         </Description.List>
+      )}
+      {followed != null && (
+        <>
+          {divider}
+          <LastSample key={followed.key} channel={followed.key} />
+        </>
       )}
     </Base.Frame>
   );
