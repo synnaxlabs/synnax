@@ -104,13 +104,25 @@ func (s *Service) Create(
 	}); err != nil {
 		return CreateResponse{}, err
 	}
+	var stored []log.Log
+	if err := s.internal.NewRetrieve().
+		Where(log.MatchKeys(lo.Map(
+			req.Logs,
+			func(e log.Log, _ int) log.Key { return e.Key },
+		)...)).
+		Entries(&stored).
+		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
+		return CreateResponse{}, err
+	}
 	if err := enforcer.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: group.MoveObjects(nil, nil, lo.Map(
+		Objects: group.CreateObjects(
 			req.Logs,
-			func(e log.Log, _ int) *group.Key { return e.Group },
-		)...),
+			stored,
+			func(e log.Log) *group.Key { return e.Group },
+			nil,
+		),
 	}); err != nil {
 		return CreateResponse{}, err
 	}

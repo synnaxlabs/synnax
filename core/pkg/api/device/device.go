@@ -117,13 +117,25 @@ func (s *Service) Create(
 	}); err != nil {
 		return CreateResponse{}, err
 	}
+	var stored []device.Device
+	if err := s.device.NewRetrieve().
+		Where(device.MatchKeys(lo.Map(
+			req.Devices,
+			func(d device.Device, _ int) device.Key { return d.Key },
+		)...)).
+		Entries(&stored).
+		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
+		return CreateResponse{}, err
+	}
 	if err := enforcer.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: group.MoveObjects(nil, nil, lo.Map(
+		Objects: group.CreateObjects(
 			req.Devices,
-			func(d device.Device, _ int) *group.Key { return d.Group },
-		)...),
+			stored,
+			func(d device.Device) *group.Key { return d.Group },
+			device.LeavesGroup,
+		),
 	}); err != nil {
 		return CreateResponse{}, err
 	}

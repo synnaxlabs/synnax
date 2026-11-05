@@ -430,6 +430,26 @@ var _ = Describe("Create in a group", func() {
 			)).Error().To(MatchError(access.ErrDenied))
 		},
 	)
+	It(
+		"Should keep an existing schematic in its group without update on a group",
+		func(ctx SpecContext) {
+			g := createProjectGroup(ctx, "Create keeps group")
+			sc := schematic.Schematic{Name: "Kept", Group: &g.Key}
+			Expect(schematicSvc.NewWriter(nil).Create(ctx, proj.Key, &sc)).To(Succeed())
+			ignored := createProjectGroup(ctx, "Create ignores group")
+			sc.Name, sc.Group = "Renamed", &ignored.Key
+			Expect(apiSvc.Create(
+				AuthedCtx(ctx, author), db,
+				apischematic.CreateRequest{
+					Project:    proj.Key,
+					Schematics: []schematic.Schematic{sc},
+				},
+			)).Error().ToNot(HaveOccurred())
+			stored := retrieveSchematic(ctx, sc.Key)
+			Expect(stored.Name).To(Equal("Renamed"))
+			Expect(stored.Group).To(Equal(&g.Key))
+		},
+	)
 	It("Should create the schematic with update on the group", func(ctx SpecContext) {
 		g := createProjectGroup(ctx, "Create granted")
 		grantUpdateOn(ctx, author.ResourceID(), g.ResourceID())

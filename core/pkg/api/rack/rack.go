@@ -136,16 +136,6 @@ func (s *Service) Create(
 	if err := s.enforceCreate(ctx, tx, req.Racks); err != nil {
 		return CreateResponse{}, err
 	}
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: group.MoveObjects(nil, nil, lo.Map(
-			req.Racks,
-			func(r rack.Rack, _ int) *group.Key { return r.Group },
-		)...),
-	}); err != nil {
-		return CreateResponse{}, err
-	}
 	if err := s.rack.NewWriter(tx).CreateMany(ctx, &req.Racks); err != nil {
 		return CreateResponse{}, err
 	}
@@ -240,6 +230,18 @@ func (s *Service) enforceCreate(
 		}); err != nil {
 			return err
 		}
+	}
+	if err := enforcer.Enforce(ctx, access.Request{
+		Subject: subject,
+		Action:  access.ActionUpdate,
+		Objects: group.CreateObjects(
+			racks,
+			existing,
+			func(r rack.Rack) *group.Key { return r.Group },
+			nil,
+		),
+	}); err != nil {
+		return err
 	}
 	found := make(set.Set[rack.Key], len(existing))
 	for _, r := range existing {

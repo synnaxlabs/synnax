@@ -121,13 +121,25 @@ func (s *Service) Create(
 	}); err != nil {
 		return res, err
 	}
+	var stored []panel.Panel
+	if err = s.internal.NewRetrieve().
+		Where(panel.MatchKeys(lo.Map(
+			req.Panels,
+			func(p panel.Panel, _ int) panel.Key { return p.Key },
+		)...)).
+		Entries(&stored).
+		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
+		return res, err
+	}
 	if err = enforcer.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: group.MoveObjects(nil, nil, lo.Map(
+		Objects: group.CreateObjects(
 			req.Panels,
-			func(p panel.Panel, _ int) *group.Key { return p.Group },
-		)...),
+			stored,
+			func(p panel.Panel) *group.Key { return p.Group },
+			nil,
+		),
 	}); err != nil {
 		return res, err
 	}

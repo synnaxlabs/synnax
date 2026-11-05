@@ -180,13 +180,25 @@ func (s *Service) Create(
 	}); err != nil {
 		return CreateResponse{}, err
 	}
+	var stored []channel.Channel
+	if err := s.internal.NewRetrieve().
+		Where(channel.MatchKeys(lo.Map(
+			translated,
+			func(ch channel.Channel, _ int) channel.Key { return ch.Key() },
+		)...)).
+		Entries(&stored).
+		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
+		return CreateResponse{}, err
+	}
 	if err := enforcer.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: group.MoveObjects(nil, nil, lo.Map(
+		Objects: group.CreateObjects(
 			translated,
-			func(ch channel.Channel, _ int) *group.Key { return ch.Group },
-		)...),
+			stored,
+			func(ch channel.Channel) *group.Key { return ch.Group },
+			nil,
+		),
 	}); err != nil {
 		return CreateResponse{}, err
 	}

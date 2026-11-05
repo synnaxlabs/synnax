@@ -281,6 +281,29 @@ var _ = Describe("Member", func() {
 		)
 	})
 
+	Describe("CreateObjects", func() {
+		groupOf := func(r rack) *group.Key { return r.Group }
+		It("Should add only the groups that the create changes", func() {
+			kept, joined, left := uuid.New(), uuid.New(), uuid.New()
+			stored := []rack{{Key: "kept", Group: &kept}, {Key: "left", Group: &left}}
+			records := []rack{
+				{Key: "kept", Group: &joined},
+				{Key: "left"},
+				{Key: "new", Group: &joined},
+			}
+			leaves := func(_, r rack) bool { return r.Key == "left" }
+			Expect(group.CreateObjects(records, stored, groupOf, leaves)).To(Equal(
+				[]resource.ID{group.ResourceID(left), group.ResourceID(joined)},
+			))
+		})
+
+		It("Should keep every existing record in its group for a nil leaves", func() {
+			g := uuid.New()
+			stored := []rack{{Key: "kept", Group: &g}}
+			Expect(group.CreateObjects(stored, stored, groupOf, nil)).To(BeEmpty())
+		})
+	})
+
 	Describe("MoveObjects", func() {
 		It(
 			"Should add each distinct source group and the destination",

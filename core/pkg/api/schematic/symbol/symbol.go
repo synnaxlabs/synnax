@@ -23,7 +23,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/encoding/zip"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -107,13 +109,25 @@ func (s *Service) Create(
 	}); err != nil {
 		return CreateResponse{}, err
 	}
+	var stored []symbol.Symbol
+	if err := s.internal.NewRetrieve().
+		Where(symbol.MatchKeys(lo.Map(
+			req.Symbols,
+			func(sym symbol.Symbol, _ int) symbol.Key { return sym.Key },
+		)...)).
+		Entries(&stored).
+		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
+		return CreateResponse{}, err
+	}
 	if err := enforcer.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: group.MoveObjects(nil, nil, lo.Map(
+		Objects: group.CreateObjects(
 			req.Symbols,
-			func(sym symbol.Symbol, _ int) *group.Key { return sym.Group },
-		)...),
+			stored,
+			func(sym symbol.Symbol) *group.Key { return sym.Group },
+			nil,
+		),
 	}); err != nil {
 		return CreateResponse{}, err
 	}
