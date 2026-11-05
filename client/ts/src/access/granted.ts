@@ -29,7 +29,7 @@ interface Verdict {
 
 interface SubjectEntry {
   key: string;
-  query: { for: ontology.ID };
+  query: policy.RetrieveMultipleParams;
 }
 
 export interface GrantedConfig {
@@ -57,7 +57,7 @@ export class Granted {
     const key = ontology.idToString(subject);
     let held = this.subjects.get(key);
     if (held == null) {
-      held = { key, query: { for: subject } };
+      held = { key, query: { where: { subjects: [subject] } } };
       this.subjects.set(key, held);
     }
     return held;

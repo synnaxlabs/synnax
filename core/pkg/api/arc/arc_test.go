@@ -36,6 +36,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/telem"
@@ -69,8 +70,9 @@ var _ = Describe("Service", func() {
 				)
 				res := MustSucceed(
 					apiSvc.Retrieve(AuthedCtx(ctx, author), apiarc.RetrieveRequest{
-						Keys:                []arc.Key{a.Key, uuid.New()},
-						IgnoreNotFoundError: true,
+						Where: &arc.Where{
+							Key: &filter.Set[arc.Key]{In: []arc.Key{a.Key, uuid.New()}},
+						},
 					}),
 				)
 				Expect(res.Arcs).To(HaveLen(1))
@@ -83,11 +85,25 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				res := MustSucceed(
 					apiSvc.Retrieve(AuthedCtx(ctx, author), apiarc.RetrieveRequest{
-						Keys:                []arc.Key{uuid.New()},
-						IgnoreNotFoundError: true,
+						Where: &arc.Where{
+							Key: &filter.Set[arc.Key]{In: []arc.Key{uuid.New()}},
+						},
 					}),
 				)
 				Expect(res.Arcs).To(BeEmpty())
+			},
+		)
+
+		It(
+			"Should deny the retrieve before compiling the program",
+			func(ctx SpecContext) {
+				a := arc.Arc{Name: "uncompilable", Mode: arc.ModeText}
+				a.Text.Doc = text.Create("a ->")
+				Expect(arcSvc.NewWriter(nil).Create(ctx, &a)).To(Succeed())
+				Expect(apiSvc.Retrieve(AuthedCtx(ctx, author), apiarc.RetrieveRequest{
+					Where:          &arc.Where{Key: &filter.Set[arc.Key]{Eq: &a.Key}},
+					IncludeProgram: true,
+				})).Error().To(MatchError(access.ErrDenied))
 			},
 		)
 	})
