@@ -85,6 +85,8 @@ interface Unread {
   start: bigint;
   end: bigint;
   counts: Map<channel.Key, number>;
+  // The lines of the samples that streamed into the span.
+  lines?: number;
   // Whether a read of the span missed times, which a second read does not wait out.
   missed?: boolean;
 }
@@ -378,12 +380,10 @@ export class StreamMultiChannelLog
     // page each channel holds. Skipped lines past it are newer than the entries, and
     // the log stays not live until they all join.
     const [tail] = this.unread;
-    const tailCounts = [...tail.counts.values()];
-    const tailSize = tailCounts.reduce((total, count) => total + count, 0);
     const drained =
       this.unread.length === 1 &&
-      lines + tailSize <= kept &&
-      tailCounts.every((count) => count <= PAGE_SIZE);
+      lines + (tail.lines ?? 0) <= kept &&
+      [...tail.counts.values()].every((count) => count <= PAGE_SIZE);
     if (drained)
       while (
         joined < skipped.length &&
@@ -602,6 +602,7 @@ export class StreamMultiChannelLog
         time > last.start ? last : this.unread.find(({ end }) => time <= end)!;
       if (time > span.end) span.end = time;
       span.counts.set(channelKey, (span.counts.get(channelKey) ?? 0) + 1);
+      span.lines = (span.lines ?? 0) + group.length;
     }
     let excess = 0;
     while (this.skippedLines > this.maxEntries)

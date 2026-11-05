@@ -1035,6 +1035,34 @@ describe("StreamMultiChannelLog", () => {
       expect(valuesOf(entriesOf(log), a).at(-1)).toBe(textOf(core, a, 1)[0]);
     });
 
+    it("should show every line of a multiline tail that outgrows the log", async () => {
+      const core = createCore({
+        now: START.add(TimeSpan.seconds(STORED / 10)),
+        text: (i) => Array(20).fill(i).join("\n"),
+      });
+      const [a] = core.data.map((c) => c.key);
+      core.retype(a, DataType.STRING);
+      const log = open(core, connect(core), { channels: [a] }, undefined, 2_000);
+      await expect.poll(() => entriesOf(log).length, POLL).toBeGreaterThan(0);
+      await until(
+        () => log.loadOlder(),
+        () => !log.live,
+      );
+      core.advance(TimeSpan.seconds(30));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      const seen = new Set<string>();
+      await until(
+        () => {
+          valuesOf(entriesOf(log), a).forEach((value) => seen.add(value));
+          log.loadNewer();
+        },
+        () => log.live,
+      );
+      valuesOf(entriesOf(log), a).forEach((value) => seen.add(value));
+      const newest = textOf(core, a, 300).map((text) => text.split("\n")[0]);
+      expect(newest.filter((value) => !seen.has(value))).toEqual([]);
+    });
+
     it("should stay live when it resumes during an older read", async () => {
       const core = deep();
       const [a] = core.data.map((c) => c.key);
