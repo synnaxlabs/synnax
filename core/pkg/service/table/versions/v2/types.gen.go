@@ -48,13 +48,17 @@ func (f FlexAlignment) IsValid() bool {
 	}
 }
 
+// CellConfigType is the "variant" value that selects a variant of CellConfig.
 type CellConfigType string
 
 const (
-	TextCellConfigType  CellConfigType = "text"
+	// TextCellConfigType is the configuration for static text cells.
+	TextCellConfigType CellConfigType = "text"
+	// ValueCellConfigType is the configuration for live telemetry value cells.
 	ValueCellConfigType CellConfigType = "value"
 )
 
+// CellConfigVariant is implemented by every CellConfig variant.
 type CellConfigVariant interface {
 	isCellConfigVariant()
 }
@@ -227,7 +231,11 @@ func (u *CellConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.ValueCellConfig
 	default:
-		return errors.Newf("CellConfig: unknown variant %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"CellConfig: unknown variant %q",
+			disc.Type,
+		)
 	}
 	return nil
 }

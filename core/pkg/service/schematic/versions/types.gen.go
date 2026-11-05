@@ -35,17 +35,28 @@ type SegmentedEdgeConfig = v10.SegmentedEdgeConfig
 // EdgeConfig is the per-edge configuration stored in the schematic configs map. The
 // variant selects the visual style of the connection.
 type EdgeConfig = v10.EdgeConfig
+
+// EdgeConfigVariant is implemented by every EdgeConfig variant.
 type EdgeConfigVariant = v10.EdgeConfigVariant
+
+// EdgeConfigType is the "variant" value that selects a variant of EdgeConfig.
 type EdgeConfigType = v10.EdgeConfigType
 
 const (
-	PipeEdgeConfigType      EdgeConfigType = v10.PipeEdgeConfigType
-	ElectricEdgeConfigType  EdgeConfigType = v10.ElectricEdgeConfigType
+	// PipeEdgeConfigType selects the PipeEdgeConfig variant.
+	PipeEdgeConfigType EdgeConfigType = v10.PipeEdgeConfigType
+	// ElectricEdgeConfigType selects the ElectricEdgeConfig variant.
+	ElectricEdgeConfigType EdgeConfigType = v10.ElectricEdgeConfigType
+	// SecondaryEdgeConfigType selects the SecondaryEdgeConfig variant.
 	SecondaryEdgeConfigType EdgeConfigType = v10.SecondaryEdgeConfigType
-	JacketedEdgeConfigType  EdgeConfigType = v10.JacketedEdgeConfigType
+	// JacketedEdgeConfigType selects the JacketedEdgeConfig variant.
+	JacketedEdgeConfigType EdgeConfigType = v10.JacketedEdgeConfigType
+	// HydraulicEdgeConfigType selects the HydraulicEdgeConfig variant.
 	HydraulicEdgeConfigType EdgeConfigType = v10.HydraulicEdgeConfigType
+	// PneumaticEdgeConfigType selects the PneumaticEdgeConfig variant.
 	PneumaticEdgeConfigType EdgeConfigType = v10.PneumaticEdgeConfigType
-	DataEdgeConfigType      EdgeConfigType = v10.DataEdgeConfigType
+	// DataEdgeConfigType selects the DataEdgeConfig variant.
+	DataEdgeConfigType EdgeConfigType = v10.DataEdgeConfigType
 )
 
 type PipeEdgeConfig = v10.PipeEdgeConfig
@@ -117,35 +128,69 @@ type StateMapping = v10.StateMapping
 // NodeConfig is the per-node configuration stored in the schematic configs map. The
 // variant selects the symbol rendered for the node and the fields that accompany it.
 type NodeConfig = v10.NodeConfig
+
+// NodeConfigVariant is implemented by every NodeConfig variant.
 type NodeConfigVariant = v10.NodeConfigVariant
+
+// NodeConfigType is the "variant" value that selects a variant of NodeConfig.
 type NodeConfigType = v10.NodeConfigType
 
 const (
-	CapNodeConfigType                           NodeConfigType = v10.CapNodeConfigType
-	FilterNodeConfigType                        NodeConfigType = v10.FilterNodeConfigType
-	FlowStraightenerNodeConfigType              NodeConfigType = v10.FlowStraightenerNodeConfigType
-	HeaterElementNodeConfigType                 NodeConfigType = v10.HeaterElementNodeConfigType
-	IsoCapNodeConfigType                        NodeConfigType = v10.IsoCapNodeConfigType
-	IsoFilterNodeConfigType                     NodeConfigType = v10.IsoFilterNodeConfigType
-	NozzleNodeConfigType                        NodeConfigType = v10.NozzleNodeConfigType
-	OrificeNodeConfigType                       NodeConfigType = v10.OrificeNodeConfigType
-	OrificePlateNodeConfigType                  NodeConfigType = v10.OrificePlateNodeConfigType
-	StrainerNodeConfigType                      NodeConfigType = v10.StrainerNodeConfigType
-	StrainerConeNodeConfigType                  NodeConfigType = v10.StrainerConeNodeConfigType
-	ThrusterNodeConfigType                      NodeConfigType = v10.ThrusterNodeConfigType
-	VentNodeConfigType                          NodeConfigType = v10.VentNodeConfigType
-	FlowmeterGeneralNodeConfigType              NodeConfigType = v10.FlowmeterGeneralNodeConfigType
-	FlowmeterElectromagneticNodeConfigType      NodeConfigType = v10.FlowmeterElectromagneticNodeConfigType
-	FlowmeterVariableAreaNodeConfigType         NodeConfigType = v10.FlowmeterVariableAreaNodeConfigType
-	FlowmeterCoriolisNodeConfigType             NodeConfigType = v10.FlowmeterCoriolisNodeConfigType
-	FlowmeterNozzleNodeConfigType               NodeConfigType = v10.FlowmeterNozzleNodeConfigType
-	FlowmeterVenturiNodeConfigType              NodeConfigType = v10.FlowmeterVenturiNodeConfigType
-	FlowmeterRingPistonNodeConfigType           NodeConfigType = v10.FlowmeterRingPistonNodeConfigType
+	// CapNodeConfigType selects the CapNodeConfig variant.
+	CapNodeConfigType NodeConfigType = v10.CapNodeConfigType
+	// FilterNodeConfigType selects the FilterNodeConfig variant.
+	FilterNodeConfigType NodeConfigType = v10.FilterNodeConfigType
+	// FlowStraightenerNodeConfigType selects the FlowStraightenerNodeConfig variant.
+	FlowStraightenerNodeConfigType NodeConfigType = v10.FlowStraightenerNodeConfigType
+	// HeaterElementNodeConfigType selects the HeaterElementNodeConfig variant.
+	HeaterElementNodeConfigType NodeConfigType = v10.HeaterElementNodeConfigType
+	// IsoCapNodeConfigType selects the IsoCapNodeConfig variant.
+	IsoCapNodeConfigType NodeConfigType = v10.IsoCapNodeConfigType
+	// IsoFilterNodeConfigType selects the IsoFilterNodeConfig variant.
+	IsoFilterNodeConfigType NodeConfigType = v10.IsoFilterNodeConfigType
+	// NozzleNodeConfigType selects the NozzleNodeConfig variant.
+	NozzleNodeConfigType NodeConfigType = v10.NozzleNodeConfigType
+	// OrificeNodeConfigType selects the OrificeNodeConfig variant.
+	OrificeNodeConfigType NodeConfigType = v10.OrificeNodeConfigType
+	// OrificePlateNodeConfigType selects the OrificePlateNodeConfig variant.
+	OrificePlateNodeConfigType NodeConfigType = v10.OrificePlateNodeConfigType
+	// StrainerNodeConfigType selects the StrainerNodeConfig variant.
+	StrainerNodeConfigType NodeConfigType = v10.StrainerNodeConfigType
+	// StrainerConeNodeConfigType selects the StrainerConeNodeConfig variant.
+	StrainerConeNodeConfigType NodeConfigType = v10.StrainerConeNodeConfigType
+	// ThrusterNodeConfigType selects the ThrusterNodeConfig variant.
+	ThrusterNodeConfigType NodeConfigType = v10.ThrusterNodeConfigType
+	// VentNodeConfigType selects the VentNodeConfig variant.
+	VentNodeConfigType NodeConfigType = v10.VentNodeConfigType
+	// FlowmeterGeneralNodeConfigType selects the FlowmeterGeneralNodeConfig variant.
+	FlowmeterGeneralNodeConfigType NodeConfigType = v10.FlowmeterGeneralNodeConfigType
+	// FlowmeterElectromagneticNodeConfigType selects the
+	// FlowmeterElectromagneticNodeConfig variant.
+	FlowmeterElectromagneticNodeConfigType NodeConfigType = v10.FlowmeterElectromagneticNodeConfigType
+	// FlowmeterVariableAreaNodeConfigType selects the FlowmeterVariableAreaNodeConfig
+	// variant.
+	FlowmeterVariableAreaNodeConfigType NodeConfigType = v10.FlowmeterVariableAreaNodeConfigType
+	// FlowmeterCoriolisNodeConfigType selects the FlowmeterCoriolisNodeConfig variant.
+	FlowmeterCoriolisNodeConfigType NodeConfigType = v10.FlowmeterCoriolisNodeConfigType
+	// FlowmeterNozzleNodeConfigType selects the FlowmeterNozzleNodeConfig variant.
+	FlowmeterNozzleNodeConfigType NodeConfigType = v10.FlowmeterNozzleNodeConfigType
+	// FlowmeterVenturiNodeConfigType selects the FlowmeterVenturiNodeConfig variant.
+	FlowmeterVenturiNodeConfigType NodeConfigType = v10.FlowmeterVenturiNodeConfigType
+	// FlowmeterRingPistonNodeConfigType selects the FlowmeterRingPistonNodeConfig
+	// variant.
+	FlowmeterRingPistonNodeConfigType NodeConfigType = v10.FlowmeterRingPistonNodeConfigType
+	// FlowmeterPositiveDisplacementNodeConfigType selects the
+	// FlowmeterPositiveDisplacementNodeConfig variant.
 	FlowmeterPositiveDisplacementNodeConfigType NodeConfigType = v10.FlowmeterPositiveDisplacementNodeConfigType
-	FlowmeterTurbineNodeConfigType              NodeConfigType = v10.FlowmeterTurbineNodeConfigType
-	FlowmeterPulseNodeConfigType                NodeConfigType = v10.FlowmeterPulseNodeConfigType
-	FlowmeterFloatSensorNodeConfigType          NodeConfigType = v10.FlowmeterFloatSensorNodeConfigType
-	FlowmeterOrificeNodeConfigType              NodeConfigType = v10.FlowmeterOrificeNodeConfigType
+	// FlowmeterTurbineNodeConfigType selects the FlowmeterTurbineNodeConfig variant.
+	FlowmeterTurbineNodeConfigType NodeConfigType = v10.FlowmeterTurbineNodeConfigType
+	// FlowmeterPulseNodeConfigType selects the FlowmeterPulseNodeConfig variant.
+	FlowmeterPulseNodeConfigType NodeConfigType = v10.FlowmeterPulseNodeConfigType
+	// FlowmeterFloatSensorNodeConfigType selects the FlowmeterFloatSensorNodeConfig
+	// variant.
+	FlowmeterFloatSensorNodeConfigType NodeConfigType = v10.FlowmeterFloatSensorNodeConfigType
+	// FlowmeterOrificeNodeConfigType selects the FlowmeterOrificeNodeConfig variant.
+	FlowmeterOrificeNodeConfigType NodeConfigType = v10.FlowmeterOrificeNodeConfigType
 	// BoxNodeConfigType is the configuration for box annotation symbols.
 	BoxNodeConfigType NodeConfigType = v10.BoxNodeConfigType
 	// ButtonNodeConfigType is the configuration for button symbols.
@@ -239,44 +284,84 @@ const (
 	// TurboCompressorNodeConfigType is the configuration for turbo compressor symbols.
 	TurboCompressorNodeConfigType NodeConfigType = v10.TurboCompressorNodeConfigType
 	// VacuumPumpNodeConfigType is the configuration for vacuum pump symbols.
-	VacuumPumpNodeConfigType                     NodeConfigType = v10.VacuumPumpNodeConfigType
-	BurstDiscNodeConfigType                      NodeConfigType = v10.BurstDiscNodeConfigType
-	FlameArrestorNodeConfigType                  NodeConfigType = v10.FlameArrestorNodeConfigType
-	FlameArrestorDetonationNodeConfigType        NodeConfigType = v10.FlameArrestorDetonationNodeConfigType
-	FlameArrestorExplosionNodeConfigType         NodeConfigType = v10.FlameArrestorExplosionNodeConfigType
-	FlameArrestorFireResNodeConfigType           NodeConfigType = v10.FlameArrestorFireResNodeConfigType
+	VacuumPumpNodeConfigType NodeConfigType = v10.VacuumPumpNodeConfigType
+	// BurstDiscNodeConfigType selects the BurstDiscNodeConfig variant.
+	BurstDiscNodeConfigType NodeConfigType = v10.BurstDiscNodeConfigType
+	// FlameArrestorNodeConfigType selects the FlameArrestorNodeConfig variant.
+	FlameArrestorNodeConfigType NodeConfigType = v10.FlameArrestorNodeConfigType
+	// FlameArrestorDetonationNodeConfigType selects the
+	// FlameArrestorDetonationNodeConfig variant.
+	FlameArrestorDetonationNodeConfigType NodeConfigType = v10.FlameArrestorDetonationNodeConfigType
+	// FlameArrestorExplosionNodeConfigType selects the FlameArrestorExplosionNodeConfig
+	// variant.
+	FlameArrestorExplosionNodeConfigType NodeConfigType = v10.FlameArrestorExplosionNodeConfigType
+	// FlameArrestorFireResNodeConfigType selects the FlameArrestorFireResNodeConfig
+	// variant.
+	FlameArrestorFireResNodeConfigType NodeConfigType = v10.FlameArrestorFireResNodeConfigType
+	// FlameArrestorFireResDetonationNodeConfigType selects the
+	// FlameArrestorFireResDetonationNodeConfig variant.
 	FlameArrestorFireResDetonationNodeConfigType NodeConfigType = v10.FlameArrestorFireResDetonationNodeConfigType
-	IsoBurstDiscNodeConfigType                   NodeConfigType = v10.IsoBurstDiscNodeConfigType
-	AngledValveNodeConfigType                    NodeConfigType = v10.AngledValveNodeConfigType
-	AngledReliefValveNodeConfigType              NodeConfigType = v10.AngledReliefValveNodeConfigType
-	AngledSpringLoadedReliefValveNodeConfigType  NodeConfigType = v10.AngledSpringLoadedReliefValveNodeConfigType
-	BallValveNodeConfigType                      NodeConfigType = v10.BallValveNodeConfigType
-	BreatherValveNodeConfigType                  NodeConfigType = v10.BreatherValveNodeConfigType
-	ButterflyValveOneNodeConfigType              NodeConfigType = v10.ButterflyValveOneNodeConfigType
-	ButterflyValveTwoNodeConfigType              NodeConfigType = v10.ButterflyValveTwoNodeConfigType
-	CheckValveNodeConfigType                     NodeConfigType = v10.CheckValveNodeConfigType
-	CheckValveWithArrowNodeConfigType            NodeConfigType = v10.CheckValveWithArrowNodeConfigType
-	ElectricRegulatorNodeConfigType              NodeConfigType = v10.ElectricRegulatorNodeConfigType
-	ElectricRegulatorMotorizedNodeConfigType     NodeConfigType = v10.ElectricRegulatorMotorizedNodeConfigType
-	FourWayValveNodeConfigType                   NodeConfigType = v10.FourWayValveNodeConfigType
-	GateValveNodeConfigType                      NodeConfigType = v10.GateValveNodeConfigType
-	IsoCheckValveNodeConfigType                  NodeConfigType = v10.IsoCheckValveNodeConfigType
-	ManualValveNodeConfigType                    NodeConfigType = v10.ManualValveNodeConfigType
-	NeedleValveNodeConfigType                    NodeConfigType = v10.NeedleValveNodeConfigType
-	RegulatorNodeConfigType                      NodeConfigType = v10.RegulatorNodeConfigType
-	RegulatorManualNodeConfigType                NodeConfigType = v10.RegulatorManualNodeConfigType
-	ReliefValveNodeConfigType                    NodeConfigType = v10.ReliefValveNodeConfigType
+	// IsoBurstDiscNodeConfigType selects the IsoBurstDiscNodeConfig variant.
+	IsoBurstDiscNodeConfigType NodeConfigType = v10.IsoBurstDiscNodeConfigType
+	// AngledValveNodeConfigType selects the AngledValveNodeConfig variant.
+	AngledValveNodeConfigType NodeConfigType = v10.AngledValveNodeConfigType
+	// AngledReliefValveNodeConfigType selects the AngledReliefValveNodeConfig variant.
+	AngledReliefValveNodeConfigType NodeConfigType = v10.AngledReliefValveNodeConfigType
+	// AngledSpringLoadedReliefValveNodeConfigType selects the
+	// AngledSpringLoadedReliefValveNodeConfig variant.
+	AngledSpringLoadedReliefValveNodeConfigType NodeConfigType = v10.AngledSpringLoadedReliefValveNodeConfigType
+	// BallValveNodeConfigType selects the BallValveNodeConfig variant.
+	BallValveNodeConfigType NodeConfigType = v10.BallValveNodeConfigType
+	// BreatherValveNodeConfigType selects the BreatherValveNodeConfig variant.
+	BreatherValveNodeConfigType NodeConfigType = v10.BreatherValveNodeConfigType
+	// ButterflyValveOneNodeConfigType selects the ButterflyValveOneNodeConfig variant.
+	ButterflyValveOneNodeConfigType NodeConfigType = v10.ButterflyValveOneNodeConfigType
+	// ButterflyValveTwoNodeConfigType selects the ButterflyValveTwoNodeConfig variant.
+	ButterflyValveTwoNodeConfigType NodeConfigType = v10.ButterflyValveTwoNodeConfigType
+	// CheckValveNodeConfigType selects the CheckValveNodeConfig variant.
+	CheckValveNodeConfigType NodeConfigType = v10.CheckValveNodeConfigType
+	// CheckValveWithArrowNodeConfigType selects the CheckValveWithArrowNodeConfig
+	// variant.
+	CheckValveWithArrowNodeConfigType NodeConfigType = v10.CheckValveWithArrowNodeConfigType
+	// ElectricRegulatorNodeConfigType selects the ElectricRegulatorNodeConfig variant.
+	ElectricRegulatorNodeConfigType NodeConfigType = v10.ElectricRegulatorNodeConfigType
+	// ElectricRegulatorMotorizedNodeConfigType selects the
+	// ElectricRegulatorMotorizedNodeConfig variant.
+	ElectricRegulatorMotorizedNodeConfigType NodeConfigType = v10.ElectricRegulatorMotorizedNodeConfigType
+	// FourWayValveNodeConfigType selects the FourWayValveNodeConfig variant.
+	FourWayValveNodeConfigType NodeConfigType = v10.FourWayValveNodeConfigType
+	// GateValveNodeConfigType selects the GateValveNodeConfig variant.
+	GateValveNodeConfigType NodeConfigType = v10.GateValveNodeConfigType
+	// IsoCheckValveNodeConfigType selects the IsoCheckValveNodeConfig variant.
+	IsoCheckValveNodeConfigType NodeConfigType = v10.IsoCheckValveNodeConfigType
+	// ManualValveNodeConfigType selects the ManualValveNodeConfig variant.
+	ManualValveNodeConfigType NodeConfigType = v10.ManualValveNodeConfigType
+	// NeedleValveNodeConfigType selects the NeedleValveNodeConfig variant.
+	NeedleValveNodeConfigType NodeConfigType = v10.NeedleValveNodeConfigType
+	// RegulatorNodeConfigType selects the RegulatorNodeConfig variant.
+	RegulatorNodeConfigType NodeConfigType = v10.RegulatorNodeConfigType
+	// RegulatorManualNodeConfigType selects the RegulatorManualNodeConfig variant.
+	RegulatorManualNodeConfigType NodeConfigType = v10.RegulatorManualNodeConfigType
+	// ReliefValveNodeConfigType selects the ReliefValveNodeConfig variant.
+	ReliefValveNodeConfigType NodeConfigType = v10.ReliefValveNodeConfigType
 	// SolenoidValveNodeConfigType is the configuration for solenoid valve symbols.
-	SolenoidValveNodeConfigType           NodeConfigType = v10.SolenoidValveNodeConfigType
+	SolenoidValveNodeConfigType NodeConfigType = v10.SolenoidValveNodeConfigType
+	// SpringLoadedReliefValveNodeConfigType selects the
+	// SpringLoadedReliefValveNodeConfig variant.
 	SpringLoadedReliefValveNodeConfigType NodeConfigType = v10.SpringLoadedReliefValveNodeConfigType
-	ThreeWayValveNodeConfigType           NodeConfigType = v10.ThreeWayValveNodeConfigType
-	ThreeWayBallValveNodeConfigType       NodeConfigType = v10.ThreeWayBallValveNodeConfigType
-	ValveNodeConfigType                   NodeConfigType = v10.ValveNodeConfigType
-	CrossJunctionNodeConfigType           NodeConfigType = v10.CrossJunctionNodeConfigType
+	// ThreeWayValveNodeConfigType selects the ThreeWayValveNodeConfig variant.
+	ThreeWayValveNodeConfigType NodeConfigType = v10.ThreeWayValveNodeConfigType
+	// ThreeWayBallValveNodeConfigType selects the ThreeWayBallValveNodeConfig variant.
+	ThreeWayBallValveNodeConfigType NodeConfigType = v10.ThreeWayBallValveNodeConfigType
+	// ValveNodeConfigType selects the ValveNodeConfig variant.
+	ValveNodeConfigType NodeConfigType = v10.ValveNodeConfigType
+	// CrossJunctionNodeConfigType selects the CrossJunctionNodeConfig variant.
+	CrossJunctionNodeConfigType NodeConfigType = v10.CrossJunctionNodeConfigType
 	// CylinderNodeConfigType is the configuration for cylinder vessel symbols.
 	CylinderNodeConfigType NodeConfigType = v10.CylinderNodeConfigType
 	// TankNodeConfigType is the configuration for tank vessel symbols.
-	TankNodeConfigType      NodeConfigType = v10.TankNodeConfigType
+	TankNodeConfigType NodeConfigType = v10.TankNodeConfigType
+	// TJunctionNodeConfigType selects the TJunctionNodeConfig variant.
 	TJunctionNodeConfigType NodeConfigType = v10.TJunctionNodeConfigType
 	// CustomActuatorNodeConfigType is the configuration for user-defined actuator
 	// symbols.
@@ -496,35 +581,76 @@ type GroupBoxNodeConfig = v10.GroupBoxNodeConfig
 // ElementConfig is the per-element configuration stored in the schematic configs map: a
 // node config or an edge config, discriminated by variant.
 type ElementConfig = v10.ElementConfig
+
+// ElementConfigVariant is implemented by every ElementConfig variant.
 type ElementConfigVariant = v10.ElementConfigVariant
+
+// ElementConfigType is the "variant" value that selects a variant of ElementConfig.
 type ElementConfigType = v10.ElementConfigType
 
 const (
-	CapElementConfigType                           ElementConfigType = v10.CapElementConfigType
-	FilterElementConfigType                        ElementConfigType = v10.FilterElementConfigType
-	FlowStraightenerElementConfigType              ElementConfigType = v10.FlowStraightenerElementConfigType
-	HeaterElementElementConfigType                 ElementConfigType = v10.HeaterElementElementConfigType
-	IsoCapElementConfigType                        ElementConfigType = v10.IsoCapElementConfigType
-	IsoFilterElementConfigType                     ElementConfigType = v10.IsoFilterElementConfigType
-	NozzleElementConfigType                        ElementConfigType = v10.NozzleElementConfigType
-	OrificeElementConfigType                       ElementConfigType = v10.OrificeElementConfigType
-	OrificePlateElementConfigType                  ElementConfigType = v10.OrificePlateElementConfigType
-	StrainerElementConfigType                      ElementConfigType = v10.StrainerElementConfigType
-	StrainerConeElementConfigType                  ElementConfigType = v10.StrainerConeElementConfigType
-	ThrusterElementConfigType                      ElementConfigType = v10.ThrusterElementConfigType
-	VentElementConfigType                          ElementConfigType = v10.VentElementConfigType
-	FlowmeterGeneralElementConfigType              ElementConfigType = v10.FlowmeterGeneralElementConfigType
-	FlowmeterElectromagneticElementConfigType      ElementConfigType = v10.FlowmeterElectromagneticElementConfigType
-	FlowmeterVariableAreaElementConfigType         ElementConfigType = v10.FlowmeterVariableAreaElementConfigType
-	FlowmeterCoriolisElementConfigType             ElementConfigType = v10.FlowmeterCoriolisElementConfigType
-	FlowmeterNozzleElementConfigType               ElementConfigType = v10.FlowmeterNozzleElementConfigType
-	FlowmeterVenturiElementConfigType              ElementConfigType = v10.FlowmeterVenturiElementConfigType
-	FlowmeterRingPistonElementConfigType           ElementConfigType = v10.FlowmeterRingPistonElementConfigType
+	// CapElementConfigType selects the CapElementConfig variant.
+	CapElementConfigType ElementConfigType = v10.CapElementConfigType
+	// FilterElementConfigType selects the FilterElementConfig variant.
+	FilterElementConfigType ElementConfigType = v10.FilterElementConfigType
+	// FlowStraightenerElementConfigType selects the FlowStraightenerElementConfig
+	// variant.
+	FlowStraightenerElementConfigType ElementConfigType = v10.FlowStraightenerElementConfigType
+	// HeaterElementElementConfigType selects the HeaterElementElementConfig variant.
+	HeaterElementElementConfigType ElementConfigType = v10.HeaterElementElementConfigType
+	// IsoCapElementConfigType selects the IsoCapElementConfig variant.
+	IsoCapElementConfigType ElementConfigType = v10.IsoCapElementConfigType
+	// IsoFilterElementConfigType selects the IsoFilterElementConfig variant.
+	IsoFilterElementConfigType ElementConfigType = v10.IsoFilterElementConfigType
+	// NozzleElementConfigType selects the NozzleElementConfig variant.
+	NozzleElementConfigType ElementConfigType = v10.NozzleElementConfigType
+	// OrificeElementConfigType selects the OrificeElementConfig variant.
+	OrificeElementConfigType ElementConfigType = v10.OrificeElementConfigType
+	// OrificePlateElementConfigType selects the OrificePlateElementConfig variant.
+	OrificePlateElementConfigType ElementConfigType = v10.OrificePlateElementConfigType
+	// StrainerElementConfigType selects the StrainerElementConfig variant.
+	StrainerElementConfigType ElementConfigType = v10.StrainerElementConfigType
+	// StrainerConeElementConfigType selects the StrainerConeElementConfig variant.
+	StrainerConeElementConfigType ElementConfigType = v10.StrainerConeElementConfigType
+	// ThrusterElementConfigType selects the ThrusterElementConfig variant.
+	ThrusterElementConfigType ElementConfigType = v10.ThrusterElementConfigType
+	// VentElementConfigType selects the VentElementConfig variant.
+	VentElementConfigType ElementConfigType = v10.VentElementConfigType
+	// FlowmeterGeneralElementConfigType selects the FlowmeterGeneralElementConfig
+	// variant.
+	FlowmeterGeneralElementConfigType ElementConfigType = v10.FlowmeterGeneralElementConfigType
+	// FlowmeterElectromagneticElementConfigType selects the
+	// FlowmeterElectromagneticElementConfig variant.
+	FlowmeterElectromagneticElementConfigType ElementConfigType = v10.FlowmeterElectromagneticElementConfigType
+	// FlowmeterVariableAreaElementConfigType selects the
+	// FlowmeterVariableAreaElementConfig variant.
+	FlowmeterVariableAreaElementConfigType ElementConfigType = v10.FlowmeterVariableAreaElementConfigType
+	// FlowmeterCoriolisElementConfigType selects the FlowmeterCoriolisElementConfig
+	// variant.
+	FlowmeterCoriolisElementConfigType ElementConfigType = v10.FlowmeterCoriolisElementConfigType
+	// FlowmeterNozzleElementConfigType selects the FlowmeterNozzleElementConfig
+	// variant.
+	FlowmeterNozzleElementConfigType ElementConfigType = v10.FlowmeterNozzleElementConfigType
+	// FlowmeterVenturiElementConfigType selects the FlowmeterVenturiElementConfig
+	// variant.
+	FlowmeterVenturiElementConfigType ElementConfigType = v10.FlowmeterVenturiElementConfigType
+	// FlowmeterRingPistonElementConfigType selects the FlowmeterRingPistonElementConfig
+	// variant.
+	FlowmeterRingPistonElementConfigType ElementConfigType = v10.FlowmeterRingPistonElementConfigType
+	// FlowmeterPositiveDisplacementElementConfigType selects the
+	// FlowmeterPositiveDisplacementElementConfig variant.
 	FlowmeterPositiveDisplacementElementConfigType ElementConfigType = v10.FlowmeterPositiveDisplacementElementConfigType
-	FlowmeterTurbineElementConfigType              ElementConfigType = v10.FlowmeterTurbineElementConfigType
-	FlowmeterPulseElementConfigType                ElementConfigType = v10.FlowmeterPulseElementConfigType
-	FlowmeterFloatSensorElementConfigType          ElementConfigType = v10.FlowmeterFloatSensorElementConfigType
-	FlowmeterOrificeElementConfigType              ElementConfigType = v10.FlowmeterOrificeElementConfigType
+	// FlowmeterTurbineElementConfigType selects the FlowmeterTurbineElementConfig
+	// variant.
+	FlowmeterTurbineElementConfigType ElementConfigType = v10.FlowmeterTurbineElementConfigType
+	// FlowmeterPulseElementConfigType selects the FlowmeterPulseElementConfig variant.
+	FlowmeterPulseElementConfigType ElementConfigType = v10.FlowmeterPulseElementConfigType
+	// FlowmeterFloatSensorElementConfigType selects the
+	// FlowmeterFloatSensorElementConfig variant.
+	FlowmeterFloatSensorElementConfigType ElementConfigType = v10.FlowmeterFloatSensorElementConfigType
+	// FlowmeterOrificeElementConfigType selects the FlowmeterOrificeElementConfig
+	// variant.
+	FlowmeterOrificeElementConfigType ElementConfigType = v10.FlowmeterOrificeElementConfigType
 	// BoxElementConfigType is the configuration for box annotation symbols.
 	BoxElementConfigType ElementConfigType = v10.BoxElementConfigType
 	// ButtonElementConfigType is the configuration for button symbols.
@@ -621,44 +747,90 @@ const (
 	// symbols.
 	TurboCompressorElementConfigType ElementConfigType = v10.TurboCompressorElementConfigType
 	// VacuumPumpElementConfigType is the configuration for vacuum pump symbols.
-	VacuumPumpElementConfigType                     ElementConfigType = v10.VacuumPumpElementConfigType
-	BurstDiscElementConfigType                      ElementConfigType = v10.BurstDiscElementConfigType
-	FlameArrestorElementConfigType                  ElementConfigType = v10.FlameArrestorElementConfigType
-	FlameArrestorDetonationElementConfigType        ElementConfigType = v10.FlameArrestorDetonationElementConfigType
-	FlameArrestorExplosionElementConfigType         ElementConfigType = v10.FlameArrestorExplosionElementConfigType
-	FlameArrestorFireResElementConfigType           ElementConfigType = v10.FlameArrestorFireResElementConfigType
+	VacuumPumpElementConfigType ElementConfigType = v10.VacuumPumpElementConfigType
+	// BurstDiscElementConfigType selects the BurstDiscElementConfig variant.
+	BurstDiscElementConfigType ElementConfigType = v10.BurstDiscElementConfigType
+	// FlameArrestorElementConfigType selects the FlameArrestorElementConfig variant.
+	FlameArrestorElementConfigType ElementConfigType = v10.FlameArrestorElementConfigType
+	// FlameArrestorDetonationElementConfigType selects the
+	// FlameArrestorDetonationElementConfig variant.
+	FlameArrestorDetonationElementConfigType ElementConfigType = v10.FlameArrestorDetonationElementConfigType
+	// FlameArrestorExplosionElementConfigType selects the
+	// FlameArrestorExplosionElementConfig variant.
+	FlameArrestorExplosionElementConfigType ElementConfigType = v10.FlameArrestorExplosionElementConfigType
+	// FlameArrestorFireResElementConfigType selects the
+	// FlameArrestorFireResElementConfig variant.
+	FlameArrestorFireResElementConfigType ElementConfigType = v10.FlameArrestorFireResElementConfigType
+	// FlameArrestorFireResDetonationElementConfigType selects the
+	// FlameArrestorFireResDetonationElementConfig variant.
 	FlameArrestorFireResDetonationElementConfigType ElementConfigType = v10.FlameArrestorFireResDetonationElementConfigType
-	IsoBurstDiscElementConfigType                   ElementConfigType = v10.IsoBurstDiscElementConfigType
-	AngledValveElementConfigType                    ElementConfigType = v10.AngledValveElementConfigType
-	AngledReliefValveElementConfigType              ElementConfigType = v10.AngledReliefValveElementConfigType
-	AngledSpringLoadedReliefValveElementConfigType  ElementConfigType = v10.AngledSpringLoadedReliefValveElementConfigType
-	BallValveElementConfigType                      ElementConfigType = v10.BallValveElementConfigType
-	BreatherValveElementConfigType                  ElementConfigType = v10.BreatherValveElementConfigType
-	ButterflyValveOneElementConfigType              ElementConfigType = v10.ButterflyValveOneElementConfigType
-	ButterflyValveTwoElementConfigType              ElementConfigType = v10.ButterflyValveTwoElementConfigType
-	CheckValveElementConfigType                     ElementConfigType = v10.CheckValveElementConfigType
-	CheckValveWithArrowElementConfigType            ElementConfigType = v10.CheckValveWithArrowElementConfigType
-	ElectricRegulatorElementConfigType              ElementConfigType = v10.ElectricRegulatorElementConfigType
-	ElectricRegulatorMotorizedElementConfigType     ElementConfigType = v10.ElectricRegulatorMotorizedElementConfigType
-	FourWayValveElementConfigType                   ElementConfigType = v10.FourWayValveElementConfigType
-	GateValveElementConfigType                      ElementConfigType = v10.GateValveElementConfigType
-	IsoCheckValveElementConfigType                  ElementConfigType = v10.IsoCheckValveElementConfigType
-	ManualValveElementConfigType                    ElementConfigType = v10.ManualValveElementConfigType
-	NeedleValveElementConfigType                    ElementConfigType = v10.NeedleValveElementConfigType
-	RegulatorElementConfigType                      ElementConfigType = v10.RegulatorElementConfigType
-	RegulatorManualElementConfigType                ElementConfigType = v10.RegulatorManualElementConfigType
-	ReliefValveElementConfigType                    ElementConfigType = v10.ReliefValveElementConfigType
+	// IsoBurstDiscElementConfigType selects the IsoBurstDiscElementConfig variant.
+	IsoBurstDiscElementConfigType ElementConfigType = v10.IsoBurstDiscElementConfigType
+	// AngledValveElementConfigType selects the AngledValveElementConfig variant.
+	AngledValveElementConfigType ElementConfigType = v10.AngledValveElementConfigType
+	// AngledReliefValveElementConfigType selects the AngledReliefValveElementConfig
+	// variant.
+	AngledReliefValveElementConfigType ElementConfigType = v10.AngledReliefValveElementConfigType
+	// AngledSpringLoadedReliefValveElementConfigType selects the
+	// AngledSpringLoadedReliefValveElementConfig variant.
+	AngledSpringLoadedReliefValveElementConfigType ElementConfigType = v10.AngledSpringLoadedReliefValveElementConfigType
+	// BallValveElementConfigType selects the BallValveElementConfig variant.
+	BallValveElementConfigType ElementConfigType = v10.BallValveElementConfigType
+	// BreatherValveElementConfigType selects the BreatherValveElementConfig variant.
+	BreatherValveElementConfigType ElementConfigType = v10.BreatherValveElementConfigType
+	// ButterflyValveOneElementConfigType selects the ButterflyValveOneElementConfig
+	// variant.
+	ButterflyValveOneElementConfigType ElementConfigType = v10.ButterflyValveOneElementConfigType
+	// ButterflyValveTwoElementConfigType selects the ButterflyValveTwoElementConfig
+	// variant.
+	ButterflyValveTwoElementConfigType ElementConfigType = v10.ButterflyValveTwoElementConfigType
+	// CheckValveElementConfigType selects the CheckValveElementConfig variant.
+	CheckValveElementConfigType ElementConfigType = v10.CheckValveElementConfigType
+	// CheckValveWithArrowElementConfigType selects the CheckValveWithArrowElementConfig
+	// variant.
+	CheckValveWithArrowElementConfigType ElementConfigType = v10.CheckValveWithArrowElementConfigType
+	// ElectricRegulatorElementConfigType selects the ElectricRegulatorElementConfig
+	// variant.
+	ElectricRegulatorElementConfigType ElementConfigType = v10.ElectricRegulatorElementConfigType
+	// ElectricRegulatorMotorizedElementConfigType selects the
+	// ElectricRegulatorMotorizedElementConfig variant.
+	ElectricRegulatorMotorizedElementConfigType ElementConfigType = v10.ElectricRegulatorMotorizedElementConfigType
+	// FourWayValveElementConfigType selects the FourWayValveElementConfig variant.
+	FourWayValveElementConfigType ElementConfigType = v10.FourWayValveElementConfigType
+	// GateValveElementConfigType selects the GateValveElementConfig variant.
+	GateValveElementConfigType ElementConfigType = v10.GateValveElementConfigType
+	// IsoCheckValveElementConfigType selects the IsoCheckValveElementConfig variant.
+	IsoCheckValveElementConfigType ElementConfigType = v10.IsoCheckValveElementConfigType
+	// ManualValveElementConfigType selects the ManualValveElementConfig variant.
+	ManualValveElementConfigType ElementConfigType = v10.ManualValveElementConfigType
+	// NeedleValveElementConfigType selects the NeedleValveElementConfig variant.
+	NeedleValveElementConfigType ElementConfigType = v10.NeedleValveElementConfigType
+	// RegulatorElementConfigType selects the RegulatorElementConfig variant.
+	RegulatorElementConfigType ElementConfigType = v10.RegulatorElementConfigType
+	// RegulatorManualElementConfigType selects the RegulatorManualElementConfig
+	// variant.
+	RegulatorManualElementConfigType ElementConfigType = v10.RegulatorManualElementConfigType
+	// ReliefValveElementConfigType selects the ReliefValveElementConfig variant.
+	ReliefValveElementConfigType ElementConfigType = v10.ReliefValveElementConfigType
 	// SolenoidValveElementConfigType is the configuration for solenoid valve symbols.
-	SolenoidValveElementConfigType           ElementConfigType = v10.SolenoidValveElementConfigType
+	SolenoidValveElementConfigType ElementConfigType = v10.SolenoidValveElementConfigType
+	// SpringLoadedReliefValveElementConfigType selects the
+	// SpringLoadedReliefValveElementConfig variant.
 	SpringLoadedReliefValveElementConfigType ElementConfigType = v10.SpringLoadedReliefValveElementConfigType
-	ThreeWayValveElementConfigType           ElementConfigType = v10.ThreeWayValveElementConfigType
-	ThreeWayBallValveElementConfigType       ElementConfigType = v10.ThreeWayBallValveElementConfigType
-	ValveElementConfigType                   ElementConfigType = v10.ValveElementConfigType
-	CrossJunctionElementConfigType           ElementConfigType = v10.CrossJunctionElementConfigType
+	// ThreeWayValveElementConfigType selects the ThreeWayValveElementConfig variant.
+	ThreeWayValveElementConfigType ElementConfigType = v10.ThreeWayValveElementConfigType
+	// ThreeWayBallValveElementConfigType selects the ThreeWayBallValveElementConfig
+	// variant.
+	ThreeWayBallValveElementConfigType ElementConfigType = v10.ThreeWayBallValveElementConfigType
+	// ValveElementConfigType selects the ValveElementConfig variant.
+	ValveElementConfigType ElementConfigType = v10.ValveElementConfigType
+	// CrossJunctionElementConfigType selects the CrossJunctionElementConfig variant.
+	CrossJunctionElementConfigType ElementConfigType = v10.CrossJunctionElementConfigType
 	// CylinderElementConfigType is the configuration for cylinder vessel symbols.
 	CylinderElementConfigType ElementConfigType = v10.CylinderElementConfigType
 	// TankElementConfigType is the configuration for tank vessel symbols.
-	TankElementConfigType      ElementConfigType = v10.TankElementConfigType
+	TankElementConfigType ElementConfigType = v10.TankElementConfigType
+	// TJunctionElementConfigType selects the TJunctionElementConfig variant.
 	TJunctionElementConfigType ElementConfigType = v10.TJunctionElementConfigType
 	// CustomActuatorElementConfigType is the configuration for user-defined actuator
 	// symbols.
@@ -668,14 +840,21 @@ const (
 	CustomStaticElementConfigType ElementConfigType = v10.CustomStaticElementConfigType
 	// GroupBoxElementConfigType is the configuration for a group box, the symbol that
 	// bounds a set of grouped symbols. Groups nest: a member may itself be a group.
-	GroupBoxElementConfigType  ElementConfigType = v10.GroupBoxElementConfigType
-	PipeElementConfigType      ElementConfigType = v10.PipeElementConfigType
-	ElectricElementConfigType  ElementConfigType = v10.ElectricElementConfigType
+	GroupBoxElementConfigType ElementConfigType = v10.GroupBoxElementConfigType
+	// PipeElementConfigType selects the PipeElementConfig variant.
+	PipeElementConfigType ElementConfigType = v10.PipeElementConfigType
+	// ElectricElementConfigType selects the ElectricElementConfig variant.
+	ElectricElementConfigType ElementConfigType = v10.ElectricElementConfigType
+	// SecondaryElementConfigType selects the SecondaryElementConfig variant.
 	SecondaryElementConfigType ElementConfigType = v10.SecondaryElementConfigType
-	JacketedElementConfigType  ElementConfigType = v10.JacketedElementConfigType
+	// JacketedElementConfigType selects the JacketedElementConfig variant.
+	JacketedElementConfigType ElementConfigType = v10.JacketedElementConfigType
+	// HydraulicElementConfigType selects the HydraulicElementConfig variant.
 	HydraulicElementConfigType ElementConfigType = v10.HydraulicElementConfigType
+	// PneumaticElementConfigType selects the PneumaticElementConfig variant.
 	PneumaticElementConfigType ElementConfigType = v10.PneumaticElementConfigType
-	DataElementConfigType      ElementConfigType = v10.DataElementConfigType
+	// DataElementConfigType selects the DataElementConfig variant.
+	DataElementConfigType ElementConfigType = v10.DataElementConfigType
 )
 
 type CapElementConfig = v10.CapElementConfig

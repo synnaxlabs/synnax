@@ -35,7 +35,7 @@ class Master final : public master::Master {
     std::set<uint16_t> disabled_slaves;
     std::optional<size_t> bus_slaves;
     std::optional<x::telem::TimeSpan> dc_step;
-    x::telem::TimeStamp dc_now{};
+    x::telem::TimeStamp dc_now;
     pdo::Offsets pdo_offset_cache;
     bool initialized{false};
     bool activated{false};

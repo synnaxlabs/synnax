@@ -34,7 +34,7 @@ import {
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Form as PlatformForm } from "@/platform/form";
-import { Selector } from "@/platform/selector";
+import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const root = deep.path<Task.Values<WriteSchemas>>();
@@ -252,9 +252,10 @@ export const useCreateWrite = Task.createUseCreate({
   deviceMake: MAKE,
 });
 
-export const WriteSelectable = Selector.createSelectable({
+export const WriteSelectable: Selector.Selectable = {
   type: WRITE_TYPE,
   title: "HTTP write task",
+  label: "Write",
   icon: <Icon.Logo.HTTP />,
   useOnSelect: useCreateWrite,
-});
+};

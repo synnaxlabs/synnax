@@ -18,10 +18,14 @@ import "github.com/synnaxlabs/x/spatial/versions/v0"
 type OuterLocation = v0.OuterLocation
 
 const (
-	OuterLocationTop    OuterLocation = v0.OuterLocationTop
-	OuterLocationRight  OuterLocation = v0.OuterLocationRight
+	// OuterLocationTop is the top edge of the container.
+	OuterLocationTop OuterLocation = v0.OuterLocationTop
+	// OuterLocationRight is the right edge of the container.
+	OuterLocationRight OuterLocation = v0.OuterLocationRight
+	// OuterLocationBottom is the bottom edge of the container.
 	OuterLocationBottom OuterLocation = v0.OuterLocationBottom
-	OuterLocationLeft   OuterLocation = v0.OuterLocationLeft
+	// OuterLocationLeft is the left edge of the container.
+	OuterLocationLeft OuterLocation = v0.OuterLocationLeft
 )
 
 // XY is a 2D coordinate point with x and y values. Used for positioning elements in
@@ -32,7 +36,9 @@ type XY = v0.XY
 type Direction = v0.Direction
 
 const (
+	// DirectionX is the horizontal axis.
 	DirectionX Direction = v0.DirectionX
+	// DirectionY is the vertical axis.
 	DirectionY Direction = v0.DirectionY
 )
 
@@ -40,7 +46,9 @@ const (
 type XLocation = v0.XLocation
 
 const (
-	XLocationLeft  XLocation = v0.XLocationLeft
+	// XLocationLeft is the left edge of the container.
+	XLocationLeft XLocation = v0.XLocationLeft
+	// XLocationRight is the right edge of the container.
 	XLocationRight XLocation = v0.XLocationRight
 )
 
@@ -48,7 +56,9 @@ const (
 type YLocation = v0.YLocation
 
 const (
-	YLocationTop    YLocation = v0.YLocationTop
+	// YLocationTop is the top edge of the container.
+	YLocationTop YLocation = v0.YLocationTop
+	// YLocationBottom is the bottom edge of the container.
 	YLocationBottom YLocation = v0.YLocationBottom
 )
 
@@ -57,7 +67,9 @@ const (
 type StickyUnit = v0.StickyUnit
 
 const (
-	StickyUnitPx      StickyUnit = v0.StickyUnitPx
+	// StickyUnitPx measures the coordinate in pixels.
+	StickyUnitPx StickyUnit = v0.StickyUnitPx
+	// StickyUnitDecimal measures the coordinate as a decimal fraction of the container.
 	StickyUnitDecimal StickyUnit = v0.StickyUnitDecimal
 )
 
@@ -82,10 +94,15 @@ type Viewport = v0.Viewport
 type Location = v0.Location
 
 const (
-	LocationTop    Location = v0.LocationTop
-	LocationRight  Location = v0.LocationRight
+	// LocationTop is the top edge of the container.
+	LocationTop Location = v0.LocationTop
+	// LocationRight is the right edge of the container.
+	LocationRight Location = v0.LocationRight
+	// LocationBottom is the bottom edge of the container.
 	LocationBottom Location = v0.LocationBottom
-	LocationLeft   Location = v0.LocationLeft
+	// LocationLeft is the left edge of the container.
+	LocationLeft Location = v0.LocationLeft
+	// LocationCenter is the center of the container.
 	LocationCenter Location = v0.LocationCenter
 )
 
@@ -93,8 +110,11 @@ const (
 type XCenterLocation = v0.XCenterLocation
 
 const (
-	XCenterLocationLeft   XCenterLocation = v0.XCenterLocationLeft
-	XCenterLocationRight  XCenterLocation = v0.XCenterLocationRight
+	// XCenterLocationLeft is the left edge of the container.
+	XCenterLocationLeft XCenterLocation = v0.XCenterLocationLeft
+	// XCenterLocationRight is the right edge of the container.
+	XCenterLocationRight XCenterLocation = v0.XCenterLocationRight
+	// XCenterLocationCenter is the center of the container.
 	XCenterLocationCenter XCenterLocation = v0.XCenterLocationCenter
 )
 
@@ -102,8 +122,11 @@ const (
 type YCenterLocation = v0.YCenterLocation
 
 const (
-	YCenterLocationTop    YCenterLocation = v0.YCenterLocationTop
+	// YCenterLocationTop is the top edge of the container.
+	YCenterLocationTop YCenterLocation = v0.YCenterLocationTop
+	// YCenterLocationBottom is the bottom edge of the container.
 	YCenterLocationBottom YCenterLocation = v0.YCenterLocationBottom
+	// YCenterLocationCenter is the center of the container.
 	YCenterLocationCenter YCenterLocation = v0.YCenterLocationCenter
 )
 
