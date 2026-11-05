@@ -28,15 +28,13 @@ type Chassis struct {
 	Rack rackv2.Key `json:"rack" msgpack:"rack"`
 	// Name is a human-readable name for the chassis.
 	Name string `json:"name" msgpack:"name"`
-	// Serial is the serial number of the chassis, or its NI-MAX resource name when it
-	// is simulated.
+	// Serial is the serial number of the chassis. Empty on simulated hardware.
 	Serial string `json:"serial" msgpack:"serial"`
+	// ResourceName is the NI-MAX resource name of the chassis, a GUID that survives
+	// renames.
+	ResourceName string `json:"resource_name" msgpack:"resource_name"`
 	// Model is the product name of the chassis.
 	Model string `json:"model" msgpack:"model"`
-	// Alias is the DAQmx alias of the chassis.
-	Alias string `json:"alias" msgpack:"alias"`
-	// Simulated is true when the chassis is simulated in NI-MAX.
-	Simulated bool `json:"simulated" msgpack:"simulated"`
 	// Status is the current operational status of the chassis.
 	Status *Status `json:"status,omitzero" msgpack:"status,omitempty"`
 }
@@ -46,6 +44,8 @@ type Chassis struct {
 func (c Chassis) Validate() error {
 	v := validate.New("Chassis")
 	v.NotEmptyString("name", c.Name)
+	v.NotEmptyString("resource_name", c.ResourceName)
+	v.NotEmptyString("model", c.Model)
 	return v.Error()
 }
 
