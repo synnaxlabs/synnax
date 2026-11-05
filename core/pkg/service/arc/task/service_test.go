@@ -53,10 +53,10 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key, arcKey := uuid.New(), uuid.New()
-			MustSucceed(svc.Config.Write(ctx, nil, key, msgpack.EncodedJSON{
+			Expect(MustSucceed(svc.Config.Validate(ctx, nil, key, msgpack.EncodedJSON{
 				"arc_key":     arcKey.String(),
 				"performance": "high",
-			}))
+			})).Store(ctx, nil)).To(Succeed())
 			data := MustSucceed(svc.Config.Read(ctx, nil, key))
 			Expect(data["key"]).To(Equal(key.String()))
 			Expect(data["arc_key"]).To(Equal(arcKey.String()))
@@ -65,9 +65,9 @@ var _ = Describe("Service", func() {
 
 		It("Should apply schema defaults to absent fields", func(ctx SpecContext) {
 			key := uuid.New()
-			MustSucceed(svc.Config.Write(ctx, nil, key, msgpack.EncodedJSON{
+			Expect(MustSucceed(svc.Config.Validate(ctx, nil, key, msgpack.EncodedJSON{
 				"arc_key": uuid.New().String(),
-			}))
+			})).Store(ctx, nil)).To(Succeed())
 			data := MustSucceed(svc.Config.Read(ctx, nil, key))
 			Expect(data["performance"]).To(Equal("auto"))
 		})
@@ -77,7 +77,7 @@ var _ = Describe("Service", func() {
 			func(
 				ctx SpecContext,
 			) {
-				Expect(svc.Config.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+				Expect(svc.Config.Validate(ctx, nil, uuid.New(), msgpack.EncodedJSON{
 					"arc_key":     uuid.New().String(),
 					"performance": "BOGUS",
 				})).Error().To(MatchError(ContainSubstring("invalid performance: BOGUS")))

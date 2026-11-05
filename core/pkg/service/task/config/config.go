@@ -30,24 +30,23 @@ import (
 type Store interface {
 	// Type returns the task type whose records the store owns.
 	Type() string
-	// Write decodes data into the store's record type, validates it, and stores it
-	// under key, creating or overwriting the record. It returns the stored record as
-	// Read returns it, or an error wrapping validate.ErrValidation when data does not
-	// decode or fails validation.
-	Write(
+	// Validate decodes data into the store's record type under key and validates it.
+	// It returns the record unstored, or an error wrapping validate.ErrValidation when
+	// data does not decode or fails validation.
+	Validate(
 		ctx context.Context,
 		tx gorp.Tx,
 		key uuid.UUID,
 		data msgpack.EncodedJSON,
-	) (msgpack.EncodedJSON, error)
-	// WriteStrict is Write, except that it also rejects data holding a member that the
-	// record type does not declare.
-	WriteStrict(
+	) (Record, error)
+	// ValidateStrict is Validate, except that it also rejects data holding a member
+	// that the record type does not declare.
+	ValidateStrict(
 		ctx context.Context,
 		tx gorp.Tx,
 		key uuid.UUID,
 		data msgpack.EncodedJSON,
-	) (msgpack.EncodedJSON, error)
+	) (Record, error)
 	// Read returns the record stored under key, or an error wrapping
 	// query.ErrNotFound when no record exists.
 	Read(ctx context.Context, tx gorp.Tx, key uuid.UUID) (msgpack.EncodedJSON, error)
@@ -69,6 +68,16 @@ type Store interface {
 	// exported envelopes.
 	Version() imex.Version
 }
+
+// Record is a validated configuration record that is not stored yet.
+type Record struct {
+	// Data is the record as Read returns it once stored.
+	Data  msgpack.EncodedJSON
+	store func(ctx context.Context, tx gorp.Tx) error
+}
+
+// Store stores the record under its key, creating or overwriting it.
+func (r Record) Store(ctx context.Context, tx gorp.Tx) error { return r.store(ctx, tx) }
 
 // ServiceConfig is the configuration for opening a Service. E is the record type
 // the service stores.
@@ -172,42 +181,42 @@ func (s *Service[E]) Type() string { return s.cfg.Type }
 // to call concurrently with any other service methods.
 func (s *Service[E]) Close() error { return s.table.Close() }
 
-// Write implements Store.
-func (s *Service[E]) Write(
+// Validate implements Store.
+func (s *Service[E]) Validate(
 	ctx context.Context,
 	tx gorp.Tx,
 	key uuid.UUID,
 	data msgpack.EncodedJSON,
-) (msgpack.EncodedJSON, error) {
-	return s.write(ctx, tx, key, data, json.RejectUnknownMembers(false))
+) (Record, error) {
+	return s.validate(ctx, tx, key, data, json.RejectUnknownMembers(false))
 }
 
-// WriteStrict implements Store.
-func (s *Service[E]) WriteStrict(
+// ValidateStrict implements Store.
+func (s *Service[E]) ValidateStrict(
 	ctx context.Context,
 	tx gorp.Tx,
 	key uuid.UUID,
 	data msgpack.EncodedJSON,
-) (msgpack.EncodedJSON, error) {
-	return s.write(ctx, tx, key, data, json.RejectUnknownMembers(true))
+) (Record, error) {
+	return s.validate(ctx, tx, key, data, json.RejectUnknownMembers(true))
 }
 
-func (s *Service[E]) write(
+func (s *Service[E]) validate(
 	ctx context.Context,
 	tx gorp.Tx,
 	key uuid.UUID,
 	data msgpack.EncodedJSON,
 	opts json.Options,
-) (msgpack.EncodedJSON, error) {
+) (Record, error) {
 	b, err := json.Marshal(data)
 	if err != nil {
-		return nil, errors.Wrapf(
+		return Record{}, errors.Wrapf(
 			validate.ErrValidation, "encoding %s config: %s", s.cfg.Type, err,
 		)
 	}
 	var e E
 	if err := json.Unmarshal(b, &e, opts); err != nil {
-		return nil, errors.Wrapf(
+		return Record{}, errors.Wrapf(
 			validate.ErrValidation, "decoding %s config: %s", s.cfg.Type, err,
 		)
 	}
@@ -221,18 +230,22 @@ func (s *Service[E]) write(
 			gorp.OverrideTx(s.cfg.DB, tx),
 			&e,
 		); err != nil {
-			return nil, err
+			return Record{}, err
 		}
 	}
 	if s.cfg.ValidateEntry != nil {
 		if err := s.cfg.ValidateEntry(&e); err != nil {
-			return nil, err
+			return Record{}, err
 		}
 	}
-	if err := s.create(ctx, tx, &e); err != nil {
-		return nil, err
+	encoded, err := encode(e)
+	if err != nil {
+		return Record{}, err
 	}
-	return encode(e)
+	return Record{
+		Data:  encoded,
+		store: func(ctx context.Context, tx gorp.Tx) error { return s.create(ctx, tx, &e) },
+	}, nil
 }
 
 func (s *Service[E]) create(ctx context.Context, tx gorp.Tx, e *E) error {

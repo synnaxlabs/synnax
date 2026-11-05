@@ -53,7 +53,11 @@ var _ = Describe("Service", func() {
 	Describe("Write", func() {
 		It("Should store an empty config under the given key", func(ctx SpecContext) {
 			key := uuid.New()
-			MustSucceed(svc.Status.Write(ctx, nil, key, msgpack.EncodedJSON{}))
+			Expect(
+				MustSucceed(
+					svc.Status.Validate(ctx, nil, key, msgpack.EncodedJSON{}),
+				).Store(ctx, nil),
+			).To(Succeed())
 			data := MustSucceed(svc.Status.Read(ctx, nil, key))
 			Expect(data["key"]).To(Equal(key.String()))
 		})

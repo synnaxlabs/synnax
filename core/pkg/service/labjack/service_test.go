@@ -53,7 +53,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			MustSucceed(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{
+			Expect(MustSucceed(svc.Read.Validate(ctx, nil, key, msgpack.EncodedJSON{
 				"device":      "dev-1",
 				"sample_rate": 25,
 				"channels": []any{map[string]any{
@@ -63,7 +63,7 @@ var _ = Describe("Service", func() {
 					"channel": 42,
 					"scale":   map[string]any{"type": "none"},
 				}},
-			}))
+			})).Store(ctx, nil)).To(Succeed())
 			data := MustSucceed(svc.Read.Read(ctx, nil, key))
 			Expect(data["key"]).To(Equal(key.String()))
 			Expect(data["device"]).To(Equal("dev-1"))
@@ -74,7 +74,11 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			MustSucceed(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{}))
+			Expect(
+				MustSucceed(
+					svc.Read.Validate(ctx, nil, key, msgpack.EncodedJSON{}),
+				).Store(ctx, nil),
+			).To(Succeed())
 			data := MustSucceed(svc.Read.Read(ctx, nil, key))
 			Expect(data["sample_rate"]).To(BeNumerically("==", 10))
 			Expect(data["stream_rate"]).To(BeNumerically("==", 5))
@@ -84,7 +88,11 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			MustSucceed(svc.Write.Write(ctx, nil, key, msgpack.EncodedJSON{}))
+			Expect(
+				MustSucceed(
+					svc.Write.Validate(ctx, nil, key, msgpack.EncodedJSON{}),
+				).Store(ctx, nil),
+			).To(Succeed())
 			data := MustSucceed(svc.Write.Read(ctx, nil, key))
 			Expect(data["state_rate"]).To(BeNumerically("==", 10))
 		})
@@ -93,7 +101,11 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			MustSucceed(svc.Scan.Write(ctx, nil, key, msgpack.EncodedJSON{}))
+			Expect(
+				MustSucceed(
+					svc.Scan.Validate(ctx, nil, key, msgpack.EncodedJSON{}),
+				).Store(ctx, nil),
+			).To(Succeed())
 			data := MustSucceed(svc.Scan.Read(ctx, nil, key))
 			Expect(data["rate"]).To(BeNumerically("==", 0.2))
 			Expect(data["tcp_scan_multiplier"]).To(BeNumerically("==", 10))
@@ -102,7 +114,7 @@ var _ = Describe("Service", func() {
 		It("Should return the read validation error for an invalid channel", func(
 			ctx SpecContext,
 		) {
-			Expect(svc.Read.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.Read.Validate(ctx, nil, uuid.New(), msgpack.EncodedJSON{
 				"channels": []any{map[string]any{
 					"type":              "thermocouple",
 					"thermocouple_type": "BOGUS",

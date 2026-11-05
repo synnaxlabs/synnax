@@ -104,15 +104,15 @@ var _ = Describe("Service", func() {
 		})
 	})
 
-	Describe("Write", func() {
+	Describe("Validate", func() {
 		It("Should store a decoded config under the given key", func(
 			ctx SpecContext,
 		) {
 			key, arcKey := uuid.New(), uuid.New()
-			MustSucceed(svc.Write(ctx, nil, key, msgpack.EncodedJSON{
+			Expect(MustSucceed(svc.Validate(ctx, nil, key, msgpack.EncodedJSON{
 				"arc_key":     arcKey.String(),
 				"performance": "high",
-			}))
+			})).Store(ctx, nil)).To(Succeed())
 			data := MustSucceed(svc.Read(ctx, nil, key))
 			Expect(data["key"]).To(Equal(key.String()))
 			Expect(data["arc_key"]).To(Equal(arcKey.String()))
@@ -121,34 +121,45 @@ var _ = Describe("Service", func() {
 
 		It("Should apply schema defaults to absent fields", func(ctx SpecContext) {
 			key := uuid.New()
-			MustSucceed(svc.Write(ctx, nil, key, msgpack.EncodedJSON{
+			Expect(MustSucceed(svc.Validate(ctx, nil, key, msgpack.EncodedJSON{
 				"arc_key": uuid.New().String(),
-			}))
+			})).Store(ctx, nil)).To(Succeed())
 			data := MustSucceed(svc.Read(ctx, nil, key))
 			Expect(data["performance"]).To(Equal("auto"))
 		})
 
-		It("Should return the stored record as Read returns it", func(ctx SpecContext) {
+		It("Should return the record as Read returns it once stored", func(
+			ctx SpecContext,
+		) {
 			key := uuid.New()
-			stored := MustSucceed(svc.Write(ctx, nil, key, msgpack.EncodedJSON{
+			rec := MustSucceed(svc.Validate(ctx, nil, key, msgpack.EncodedJSON{
 				"arc_key": uuid.New().String(),
 			}))
-			Expect(stored["performance"]).To(Equal("auto"))
-			Expect(stored).To(Equal(MustSucceed(svc.Read(ctx, nil, key))))
+			Expect(rec.Data["performance"]).To(Equal("auto"))
+			Expect(rec.Store(ctx, nil)).To(Succeed())
+			Expect(rec.Data).To(Equal(MustSucceed(svc.Read(ctx, nil, key))))
+		})
+
+		It("Should not store the record before Store", func(ctx SpecContext) {
+			key := uuid.New()
+			MustSucceed(svc.Validate(ctx, nil, key, msgpack.EncodedJSON{
+				"arc_key": uuid.New().String(),
+			}))
+			Expect(svc.Read(ctx, nil, key)).Error().To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should overwrite the record stored under the same key", func(
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			MustSucceed(svc.Write(ctx, nil, key, msgpack.EncodedJSON{
+			Expect(MustSucceed(svc.Validate(ctx, nil, key, msgpack.EncodedJSON{
 				"arc_key":     uuid.New().String(),
 				"performance": "high",
-			}))
-			MustSucceed(svc.Write(ctx, nil, key, msgpack.EncodedJSON{
+			})).Store(ctx, nil)).To(Succeed())
+			Expect(MustSucceed(svc.Validate(ctx, nil, key, msgpack.EncodedJSON{
 				"arc_key":     uuid.New().String(),
 				"performance": "low",
-			}))
+			})).Store(ctx, nil)).To(Succeed())
 			data := MustSucceed(svc.Read(ctx, nil, key))
 			Expect(data["performance"]).To(Equal("low"))
 		})
@@ -156,7 +167,7 @@ var _ = Describe("Service", func() {
 		It("Should return a validation error when the data does not decode", func(
 			ctx SpecContext,
 		) {
-			Expect(svc.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.Validate(ctx, nil, uuid.New(), msgpack.EncodedJSON{
 				"arc_key": 123,
 			})).Error().To(MatchError(validate.ErrValidation))
 		})
@@ -164,40 +175,43 @@ var _ = Describe("Service", func() {
 		It("Should return the record's validation error when it fails validation", func(
 			ctx SpecContext,
 		) {
-			Expect(svc.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.Validate(ctx, nil, uuid.New(), msgpack.EncodedJSON{
 				"arc_key":     uuid.New().String(),
 				"performance": "BOGUS",
 			})).Error().To(MatchError(ContainSubstring("invalid performance: BOGUS")))
 		})
 	})
 
-	Describe("WriteStrict", func() {
+	Describe("ValidateStrict", func() {
 		It("Should store a config whose members the record declares", func(
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			MustSucceed(svc.WriteStrict(ctx, nil, key, msgpack.EncodedJSON{
+			Expect(MustSucceed(svc.ValidateStrict(ctx, nil, key, msgpack.EncodedJSON{
 				"arc_key":     uuid.New().String(),
 				"performance": "high",
-			}))
+			})).Store(ctx, nil)).To(Succeed())
 			data := MustSucceed(svc.Read(ctx, nil, key))
 			Expect(data["performance"]).To(Equal("high"))
 		})
 
-		It("Should return the stored record as Read returns it", func(ctx SpecContext) {
+		It("Should return the record as Read returns it once stored", func(
+			ctx SpecContext,
+		) {
 			key := uuid.New()
-			stored := MustSucceed(svc.WriteStrict(ctx, nil, key, msgpack.EncodedJSON{
+			rec := MustSucceed(svc.ValidateStrict(ctx, nil, key, msgpack.EncodedJSON{
 				"arc_key": uuid.New().String(),
 			}))
-			Expect(stored["performance"]).To(Equal("auto"))
-			Expect(stored).To(Equal(MustSucceed(svc.Read(ctx, nil, key))))
+			Expect(rec.Data["performance"]).To(Equal("auto"))
+			Expect(rec.Store(ctx, nil)).To(Succeed())
+			Expect(rec.Data).To(Equal(MustSucceed(svc.Read(ctx, nil, key))))
 		})
 
 		It("Should reject a member the record does not declare", func(
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			Expect(svc.WriteStrict(ctx, nil, key, msgpack.EncodedJSON{
+			Expect(svc.ValidateStrict(ctx, nil, key, msgpack.EncodedJSON{
 				"arc_key":     uuid.New().String(),
 				"performnace": "high",
 			})).Error().To(SatisfyAll(
@@ -212,22 +226,22 @@ var _ = Describe("Service", func() {
 		It("Should return the record's validation error when it fails validation", func(
 			ctx SpecContext,
 		) {
-			Expect(svc.WriteStrict(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.ValidateStrict(ctx, nil, uuid.New(), msgpack.EncodedJSON{
 				"arc_key":     uuid.New().String(),
 				"performance": "BOGUS",
 			})).Error().To(MatchError(ContainSubstring("invalid performance: BOGUS")))
 		})
 	})
 
-	Describe("Write", func() {
+	Describe("Validate", func() {
 		It("Should drop a member the record does not declare", func(
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			MustSucceed(svc.Write(ctx, nil, key, msgpack.EncodedJSON{
+			Expect(MustSucceed(svc.Validate(ctx, nil, key, msgpack.EncodedJSON{
 				"arc_key": uuid.New().String(),
 				"extra":   true,
-			}))
+			})).Store(ctx, nil)).To(Succeed())
 			Expect(MustSucceed(svc.Read(ctx, nil, key))).ToNot(HaveKey("extra"))
 		})
 
@@ -263,10 +277,12 @@ var _ = Describe("Service", func() {
 					return nil
 				})
 				key := uuid.New()
-				MustSucceed(resolving.Write(ctx, nil, key, msgpack.EncodedJSON{
-					"arc_key":     uuid.New().String(),
-					"performance": "BOGUS",
-				}))
+				Expect(
+					MustSucceed(resolving.Validate(ctx, nil, key, msgpack.EncodedJSON{
+						"arc_key":     uuid.New().String(),
+						"performance": "BOGUS",
+					})).Store(ctx, nil),
+				).To(Succeed())
 				data := MustSucceed(resolving.Read(ctx, nil, key))
 				Expect(data["performance"]).To(Equal("low"))
 			})
@@ -282,7 +298,7 @@ var _ = Describe("Service", func() {
 					return errors.New("resolve failed")
 				})
 				key := uuid.New()
-				Expect(resolving.Write(ctx, nil, key, msgpack.EncodedJSON{
+				Expect(resolving.Validate(ctx, nil, key, msgpack.EncodedJSON{
 					"arc_key": uuid.New().String(),
 				})).Error().To(MatchError("resolve failed"))
 				Expect(resolving.Read(ctx, nil, key)).Error().
@@ -301,9 +317,9 @@ var _ = Describe("Service", func() {
 	Describe("Delete", func() {
 		It("Should remove a stored record idempotently", func(ctx SpecContext) {
 			key := uuid.New()
-			MustSucceed(svc.Write(ctx, nil, key, msgpack.EncodedJSON{
+			Expect(MustSucceed(svc.Validate(ctx, nil, key, msgpack.EncodedJSON{
 				"arc_key": uuid.New().String(),
-			}))
+			})).Store(ctx, nil)).To(Succeed())
 			Expect(svc.Delete(ctx, nil, key)).To(Succeed())
 			Expect(svc.Read(ctx, nil, key)).Error().
 				To(MatchError(query.ErrNotFound))
@@ -313,9 +329,9 @@ var _ = Describe("Service", func() {
 		It("Should remove multiple records in one call", func(ctx SpecContext) {
 			k1, k2 := uuid.New(), uuid.New()
 			for _, k := range []uuid.UUID{k1, k2} {
-				MustSucceed(svc.Write(ctx, nil, k, msgpack.EncodedJSON{
+				Expect(MustSucceed(svc.Validate(ctx, nil, k, msgpack.EncodedJSON{
 					"arc_key": uuid.New().String(),
-				}))
+				})).Store(ctx, nil)).To(Succeed())
 			}
 			Expect(svc.Delete(ctx, nil, k1, k2)).To(Succeed())
 			Expect(svc.Read(ctx, nil, k1)).Error().
@@ -329,9 +345,9 @@ var _ = Describe("Service", func() {
 		It("Should duplicate a record under a new key", func(ctx SpecContext) {
 			from, to := uuid.New(), uuid.New()
 			arcKey := uuid.New()
-			MustSucceed(svc.Write(ctx, nil, from, msgpack.EncodedJSON{
+			Expect(MustSucceed(svc.Validate(ctx, nil, from, msgpack.EncodedJSON{
 				"arc_key": arcKey.String(),
-			}))
+			})).Store(ctx, nil)).To(Succeed())
 			Expect(svc.Copy(ctx, nil, from, to)).To(Succeed())
 			data := MustSucceed(svc.Read(ctx, nil, to))
 			Expect(data["key"]).To(Equal(to.String()))

@@ -53,7 +53,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			MustSucceed(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{
+			Expect(MustSucceed(svc.Read.Validate(ctx, nil, key, msgpack.EncodedJSON{
 				"device":      "dev-1",
 				"sample_rate": 25,
 				"channels": []any{map[string]any{
@@ -61,7 +61,7 @@ var _ = Describe("Service", func() {
 					"node_id": "NS=2;I=8",
 					"channel": 42,
 				}},
-			}))
+			})).Store(ctx, nil)).To(Succeed())
 			data := MustSucceed(svc.Read.Read(ctx, nil, key))
 			Expect(data["key"]).To(Equal(key.String()))
 			Expect(data["device"]).To(Equal("dev-1"))
@@ -72,7 +72,11 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			MustSucceed(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{}))
+			Expect(
+				MustSucceed(
+					svc.Read.Validate(ctx, nil, key, msgpack.EncodedJSON{}),
+				).Store(ctx, nil),
+			).To(Succeed())
 			data := MustSucceed(svc.Read.Read(ctx, nil, key))
 			Expect(data["sample_rate"]).To(BeNumerically("==", 50))
 			Expect(data["stream_rate"]).To(BeNumerically("==", 25))
@@ -83,9 +87,9 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			MustSucceed(svc.Write.Write(ctx, nil, key, msgpack.EncodedJSON{
+			Expect(MustSucceed(svc.Write.Validate(ctx, nil, key, msgpack.EncodedJSON{
 				"channels": []any{map[string]any{"key": "chan-1"}},
-			}))
+			})).Store(ctx, nil)).To(Succeed())
 			data := MustSucceed(svc.Write.Read(ctx, nil, key))
 			Expect(data["channels"]).To(HaveExactElements(
 				HaveKeyWithValue("data_type", "float32"),
@@ -96,7 +100,11 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			MustSucceed(svc.Scan.Write(ctx, nil, key, msgpack.EncodedJSON{}))
+			Expect(
+				MustSucceed(
+					svc.Scan.Validate(ctx, nil, key, msgpack.EncodedJSON{}),
+				).Store(ctx, nil),
+			).To(Succeed())
 			data := MustSucceed(svc.Scan.Read(ctx, nil, key))
 			Expect(data["rate"]).To(BeNumerically("==", 0.2))
 		})

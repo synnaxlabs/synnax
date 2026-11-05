@@ -129,6 +129,7 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 		existed = false
 	}
 	otgID := t.ResourceID()
+	var record *config.Record
 	if existed && existing.Snapshot {
 		t.Range = existing.Range
 		t.ConfigHash = existing.ConfigHash
@@ -147,24 +148,15 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 			t.Config = data
 		}
 	} else {
-		stored, err := store.Write(ctx, w.tx, t.Key, t.Config)
+		rec, err := store.Validate(ctx, w.tx, t.Key, t.Config)
 		if err != nil {
 			return err
 		}
-		t.Config = stored
-		if t.ConfigHash, err = hashConfig(configContent(stored)); err != nil {
+		t.Config = rec.Data
+		if t.ConfigHash, err = hashConfig(configContent(rec.Data)); err != nil {
 			return err
 		}
-		// Delete the old type's record only after the new config is stored, so a
-		// rejected config cannot destroy the prior one. Records of different types
-		// live in different tables, so the same key never collides.
-		if existed && existing.Type != t.Type {
-			if oldStore, ok := w.configs.Store(existing.Type); ok {
-				if err := oldStore.Delete(ctx, w.tx, t.Key); err != nil {
-					return err
-				}
-			}
-		}
+		record = &rec
 	}
 	cfg := t.Config // Restored after the row write; rows do not store config.
 	providedStatus := t.Status
@@ -173,6 +165,20 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 	t.Config = cfg
 	if err != nil {
 		return err
+	}
+	if record != nil {
+		if err := record.Store(ctx, w.tx); err != nil {
+			return err
+		}
+		// Records of different types live in different tables, so the same key never
+		// collides.
+		if existed && existing.Type != t.Type {
+			if oldStore, ok := w.configs.Store(existing.Type); ok {
+				if err := oldStore.Delete(ctx, w.tx, t.Key); err != nil {
+					return err
+				}
+			}
+		}
 	}
 	stat := resolveStatus(t, providedStatus, existed)
 	if providedStatus != nil {
@@ -255,10 +261,14 @@ func (w Writer) apply(ctx context.Context, key Key, acts []Action) ([]Action, er
 	if err = next.Validate(); err != nil {
 		return nil, err
 	}
-	stored, err := store.WriteStrict(ctx, w.tx, key, next.Config)
+	rec, err := store.ValidateStrict(ctx, w.tx, key, next.Config)
 	if err != nil {
 		return nil, err
 	}
+	if err = rec.Store(ctx, w.tx); err != nil {
+		return nil, err
+	}
+	stored := rec.Data
 	if next.ConfigHash, err = hashConfig(configContent(stored)); err != nil {
 		return nil, err
 	}
