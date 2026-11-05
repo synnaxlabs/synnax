@@ -757,6 +757,39 @@ TEST_F(TaskManagerTest, CommandForFailedConfigureAnswersWithConfigureError) {
     EXPECT_EQ(s.details.rack, rack.key);
 }
 
+/// @brief it should answer that a task is not running when a refused pinned start
+/// replaced its configure error.
+TEST_F(TaskManagerTest, CommandAfterRefusedPinnedStartAnswersNotRunning) {
+    start_manager(std::make_unique<FailingConfigureFactory>());
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task);
+    send_cmd(
+        client,
+        {.task = task.key,
+         .type = synnax::task::START_CMD_TYPE,
+         .key = "pinned-cmd",
+         .config_hash = "stale",
+         .pinned = true}
+    );
+    send_cmd(client, {.task = task.key, .type = "stop", .key = "stop-cmd"});
+    auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.details.cmd == "stop-cmd";
+    });
+    EXPECT_EQ(s.name, task.name);
+    EXPECT_EQ(s.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(s.message, "Task is not running");
+    EXPECT_EQ(
+        s.description,
+        "The task did not start on this Driver. Configure the task again, then retry."
+    );
+    EXPECT_FALSE(s.details.running);
+}
+
 /// @brief it should answer a command for a task that a factory created at boot and
 /// failed to configure with the error of the configure.
 TEST_F(TaskManagerTest, CommandForFailedInitialTaskAnswersWithConfigureError) {

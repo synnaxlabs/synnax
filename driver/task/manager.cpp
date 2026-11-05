@@ -723,11 +723,18 @@ void Manager::refuse_pinned_start(
 }
 
 void Manager::refuse_command(const Op &op) {
-    // Only a Driver that tried to deploy the task holds its error. After a rack move,
-    // another Driver may still run the task and answer.
+    // Only a Driver that tried to deploy the task holds a status for it. After a rack
+    // move, another Driver may still run the task and answer.
     auto latest = this->statuses->latest(op.task_key);
-    if (!latest.has_value() || latest->variant != synnax::status::VARIANT_ERROR) return;
+    if (!latest.has_value()) return;
     auto status = std::move(*latest);
+    // A latest error, such as a failed configure, says why the task is not running.
+    if (status.variant != synnax::status::VARIANT_ERROR) {
+        status.variant = synnax::status::VARIANT_ERROR;
+        status.message = "Task is not running";
+        status.description = "The task did not start on this Driver. Configure the "
+                             "task again, then retry.";
+    }
     status.time = x::telem::TimeStamp::now();
     status.details.running = false;
     status.details.cmd = op.cmd.key;

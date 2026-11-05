@@ -466,8 +466,8 @@ private:
         const synnax::task::Task &tsk,
         const synnax::task::Command &cmd
     );
-    /// @brief answers a command for a task with no live instance with the task's latest
-    /// error, so its sender does not wait out a timeout.
+    /// @brief answers a command for a task with no live instance with an error, so its
+    /// sender does not wait out a timeout.
     void refuse_command(const Op &op);
 };
 }
