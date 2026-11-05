@@ -18,6 +18,7 @@ import { createTestRange } from "@/platform/range/testutil";
 import {
   createHostItems,
   createResource,
+  expandTreeRow,
   findTreeRow,
   openTreeRowContextMenu,
   renderOntologyTree,
@@ -110,6 +111,21 @@ describe("range/ontology", () => {
       await waitFor(() =>
         expect(Session.Range.selectState(store.getState(), rng.key)).toBeUndefined(),
       );
+    });
+  });
+
+  describe("children", () => {
+    it("should list the ranges nested in the range", async () => {
+      const { rng: parent, items } = await createHostedRange();
+      const child = await client.ranges.create({
+        name: uniqueName("child"),
+        timeRange: parent.timeRange,
+        parent: parent.key,
+      });
+      await renderOntologyTree({ client, root: ontology.ROOT_ID, items });
+      await findTreeRow(parent.name);
+      expandTreeRow(parent.name);
+      expect(await findTreeRow(child.name)).toBeTruthy();
     });
   });
 

@@ -140,10 +140,16 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   );
 };
 
+const toResource = (range: ranger.Range): ontology.Resource =>
+  Tree.toResource("range")(range.payload);
+
 const TreeItem = Tree.createItem({
   type: "range",
   icon: <Icon.Range />,
   useOnSelect,
+  children: ({ client, id }) => [
+    Tree.createSource(client.ranges.children, id.key, toResource),
+  ],
   canDrop: () => true,
   haulItems,
   ContextMenu: TreeContextMenu,
