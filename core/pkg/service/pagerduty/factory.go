@@ -111,9 +111,10 @@ func (f *factory) ConfigureTask(
 		return nil, err
 	}
 	// A successful configure writes no status: the start that follows it answers the
-	// command, and a "configured" status would answer it first with running false.
+	// command, and a "configured" status would answer it first with running false. An
+	// auto-start answers the command too, since no start follows a failed one.
 	if cfg.AutoStart {
-		if err := pdTask.Start(ctx, driver.NoCommand); err != nil {
+		if err := pdTask.Start(ctx, cmdKey); err != nil {
 			return nil, err
 		}
 	}
