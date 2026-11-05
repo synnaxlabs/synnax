@@ -1879,7 +1879,7 @@ type importManager struct {
 	enum           []string
 	pydantic       []string
 	synnax         []string
-	// resource holds imports from synnax.resource.payload.
+	// resource holds imports from synnax.resource.
 	resource []string
 	// codec holds imports from x.codec.
 	codec []string
@@ -2284,7 +2284,7 @@ from pydantic import {{ join .PydanticImports ", " }}
 from synnax.telem import {{ join .SynnaxImports ", " }}
 {{- end }}
 {{- if .ResourceImports }}
-from synnax.resource.payload import {{ join .ResourceImports ", " }}
+from synnax.resource import {{ join .ResourceImports ", " }}
 {{- end }}
 {{- if .CodecImports }}
 from x.codec import {{ join .CodecImports ", " }}

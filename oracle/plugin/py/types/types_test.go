@@ -1313,6 +1313,7 @@ var _ = Describe("Python Types Plugin", func() {
 					resp := MustGenerate(ctx, source, "policy", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
+							`from synnax.resource import ID`,
 							`RESOURCE_TYPE = ID(type="policy")`,
 							`def resource_id(key: Key) -> ID:`,
 						).

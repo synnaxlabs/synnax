@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 
 from synnax import node
 from synnax import status as status_
-from synnax.resource.payload import ID
+from synnax.resource import ID
 from x import control, telem
 
 Key: TypeAlias = int

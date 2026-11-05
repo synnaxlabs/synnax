@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field
 
 from synnax import resource
 from synnax.access import action
-from synnax.resource.payload import ID
+from synnax.resource import ID
 
 Key: TypeAlias = UUID
 

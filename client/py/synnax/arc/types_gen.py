@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field
 from synnax.arc import graph as graph_
 from synnax.arc import program as program_
 from synnax.arc import text as text_
-from synnax.resource.payload import ID
+from synnax.resource import ID
 
 MODE_TEXT: Literal["text"] = "text"
 

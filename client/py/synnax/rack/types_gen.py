@@ -17,7 +17,7 @@ from typing import override as _override
 from pydantic import BaseModel, Field
 
 from synnax import status as status_
-from synnax.resource.payload import ID
+from synnax.resource import ID
 
 Key: TypeAlias = int
 

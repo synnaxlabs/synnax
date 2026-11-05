@@ -18,7 +18,7 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, Field
 
 from synnax import channel as channel_
-from synnax.resource.payload import ID
+from synnax.resource import ID
 from synnax.schematic import symbol
 from x import border, spatial, text
 from x import color as color_

@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field, JsonValue
 from synnax import rack as rack_
 from synnax import resource
 from synnax import status as status_
-from synnax.resource.payload import ID
+from synnax.resource import ID
 
 Key: TypeAlias = str
 

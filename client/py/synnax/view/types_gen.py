@@ -18,7 +18,7 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, Field
 
 from synnax import label, status
-from synnax.resource.payload import ID
+from synnax.resource import ID
 
 Key: TypeAlias = UUID
 

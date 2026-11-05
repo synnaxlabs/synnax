@@ -18,7 +18,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from synnax import label
-from synnax.resource.payload import ID
+from synnax.resource import ID
 from x import color as color_
 from x import telem
 
