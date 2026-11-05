@@ -206,6 +206,7 @@ jobs:
           name: sedosaur-review
           path: ${{ runner.temp }}/review.json
           retention-days: 90
+          overwrite: true
 
       - name: Post the review
         working-directory: .github/scripts

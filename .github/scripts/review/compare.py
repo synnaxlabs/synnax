@@ -157,7 +157,10 @@ def threads(nodes: list[dict[str, Any]]) -> list[Thread]:
     bots = (GREPTILE, SEDOSAUR)
     out: list[Thread] = []
     for n in nodes:
-        [c] = n["first"]["nodes"]
+        first = n["first"]["nodes"]
+        if not first:
+            continue
+        c = first[0]
         login = (c["author"] or {}).get("login")
         if login not in bots:
             continue
