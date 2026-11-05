@@ -1148,9 +1148,9 @@ describe("log/aether/Log", () => {
   });
 
   describe("time-based scrollbar", () => {
-    const paused = (wheelPos: number) => {
+    const paused = (wheelPos: number, region: box.Box = REGION_500) => {
       const entries = Array.from({ length: 200 }, (_, i) => makeEntry(i));
-      const { log, recorder, source, updateState } = setup(entries);
+      const { log, recorder, source, updateState } = setup(entries, region);
       source.timeRange = new TimeRange(
         TimeStamp.milliseconds(-1_000_000),
         entries[199].timestamp,
@@ -1167,6 +1167,14 @@ describe("log/aether/Log", () => {
       const thumb = paused(0);
       assert(thumb != null);
       expect(thumb.y + thumb.height).toBeCloseTo(box.bottom(REGION_500), 0);
+    });
+
+    it("should keep the thumb inside a track shorter than its minimum height", () => {
+      const region = box.construct({ x: 0, y: 0 }, { width: 400, height: 30 });
+      const thumb = paused(0, region);
+      assert(thumb != null);
+      expect(thumb.y).toBeGreaterThanOrEqual(0);
+      expect(thumb.height).toBeLessThanOrEqual(30);
     });
 
     it("should keep the thumb when the view spans the times but hides lines", () => {

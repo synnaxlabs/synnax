@@ -635,7 +635,7 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     // can place.
     if (shown != null && shown.bottom - shown.top < SCROLLBAR_RENDER_THRESHOLD) {
       const proportional = (shown.bottom - shown.top) * regHeight;
-      const height = Math.max(proportional, SCROLLBAR_MIN_HEIGHT);
+      const height = Math.min(Math.max(proportional, SCROLLBAR_MIN_HEIGHT), regHeight);
       const outside = shown.top + 1 - shown.bottom;
       const progress = outside <= 0 ? 0 : shown.top / outside;
       this.drawThumb(draw2d, box.top(reg) + progress * (regHeight - height), height);
