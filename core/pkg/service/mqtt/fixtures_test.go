@@ -216,6 +216,50 @@ func answered(ctx context.Context, t task.Task, cmdKey string) task.Status {
 	return stat
 }
 
+// stepsOf returns the steps of the connection test that stat answers.
+func stepsOf(stat task.Status) []driver.TestStep {
+	GinkgoHelper()
+	var res struct {
+		Steps []driver.TestStep `json:"steps"`
+	}
+	Expect(stat.Details.Data.Unmarshal(&res)).To(Succeed())
+	return res.Steps
+}
+
+// stages returns the stage and variant of each step.
+func stages(steps []driver.TestStep) []string {
+	out := make([]string, len(steps))
+	for i, s := range steps {
+		out[i] = s.Stage + ":" + string(s.Variant)
+	}
+	return out
+}
+
+// publishUntilDone publishes payload to topic every 10 ms until the spec ends.
+func publishUntilDone(b *testBroker, topic, payload string) {
+	GinkgoHelper()
+	done := make(chan struct{})
+	stopped := make(chan struct{})
+	go func() {
+		defer GinkgoRecover()
+		defer close(stopped)
+		ticker := time.NewTicker(10 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				Expect(b.server.Publish(topic, []byte(payload), false, 0)).To(Succeed())
+			}
+		}
+	}()
+	DeferCleanup(func() {
+		close(done)
+		Eventually(stopped).Should(BeClosed())
+	})
+}
+
 // testStreamer receives the frames written to a set of channels.
 type testStreamer struct {
 	responses <-chan framer.StreamerResponse

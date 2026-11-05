@@ -43,7 +43,7 @@ const (
 	samplePayloadLimit = 16 << 10
 	// maxSampleTopics is the most topics that a sample keeps.
 	maxSampleTopics = 500
-	// sampleByteLimit is the most payload bytes that a sample keeps.
+	// sampleByteLimit is the most payload bytes that a sample holds while it reads.
 	sampleByteLimit = 16 << 20
 )
 
@@ -53,74 +53,31 @@ const (
 	stageConnect = "connect"
 )
 
-// TestRequest describes a broker to test a connection to. The broker need not be a
-// stored device yet.
-type TestRequest struct {
+// testConnectionArgs describe a broker that need not be a stored device yet, so that
+// the Console can test a connection before it saves the device.
+type testConnectionArgs struct {
 	// Device is the key of the broker device that the test edits. Empty for a broker
 	// that is not a device yet.
-	Device device.Key `json:"device" msgpack:"device"`
+	Device device.Key `json:"device"`
 	// Location is the host of the broker.
-	Location string `json:"location" msgpack:"location"`
+	Location string `json:"location"`
 	// Properties are the connection properties of the broker device.
-	Properties msgpack.EncodedJSON `json:"properties" msgpack:"properties"`
+	Properties msgpack.EncodedJSON `json:"properties"`
 }
 
-// TestConnection tests a connection to the broker of req one stage at a time: dial,
-// TLS, and connect, where the broker checks the credentials. It stops after the first
-// stage that fails. A broker whose tasks hold a connection with the same settings
-// reports that connection instead. It returns a validation error when the properties of
-// req are not valid, and an error when a certificate file fails to load.
-func (f *Factory) TestConnection(
-	ctx context.Context,
-	req TestRequest,
-) ([]driver.TestStep, error) {
-	return f.scanner().test(ctx, req)
-}
-
-// Browse lists the topics that the broker device of req delivers while a client of its
-// own listens, sorted by name.
-func (f *Factory) Browse(ctx context.Context, req BrowseRequest) (BrowseResult, error) {
-	heard, err := f.scanner().hear(ctx, req)
-	if err != nil {
-		return BrowseResult{}, err
-	}
-	res := BrowseResult{
-		Topics:    make([]BrowsedTopic, len(heard.topics)),
-		Truncated: heard.truncated,
-	}
-	for i, t := range heard.topics {
-		res.Topics[i] = BrowsedTopic{
-			Topic:    t.topic,
-			Count:    t.count,
-			Rate:     float64(t.count-t.retained) / heard.duration.Seconds(),
-			LastSeen: t.lastSeen,
-			Payload:  t.last[:min(len(t.last), browsePayloadLimit)],
-			Format:   driver.FormatOf(t.last),
-			Retained: t.lastRetained,
-		}
-	}
-	return res, nil
-}
-
-// Sample listens to the topics of req until each holds req.Count messages, or until
-// req.Duration passes when a topic is a wildcard filter, and infers the shapes of the
-// payloads.
-func (f *Factory) Sample(ctx context.Context, req SampleRequest) (SampleResult, error) {
-	return f.scanner().sample(ctx, req)
-}
-
-func (f *Factory) scanner() *scanner {
-	return &scanner{ins: f.cfg.Instrumentation, pool: f.pool, device: f.cfg.Device}
-}
-
+// test tests a connection to the broker of args one stage at a time: dial, TLS, and
+// connect, where the broker checks the credentials. It stops after the first stage that
+// fails. A broker whose tasks hold a connection with the same settings reports that
+// connection instead. It returns a validation error when the properties of args are not
+// valid, and an error when a certificate file fails to load.
 func (s *scanner) test(
 	ctx context.Context,
-	req TestRequest,
+	args testConnectionArgs,
 ) ([]driver.TestStep, error) {
 	dev := device.Device{
-		Key:        req.Device,
-		Location:   req.Location,
-		Properties: req.Properties,
+		Key:        args.Device,
+		Location:   args.Location,
+		Properties: args.Properties,
 	}
 	props, err := parseProperties(dev)
 	if err != nil {
@@ -135,7 +92,7 @@ func (s *scanner) test(
 		return nil, err
 	}
 	addr := u.Host
-	if live, connected := s.pool.live(req.Device, cfg); live {
+	if live, connected := s.pool.live(args.Device, cfg); live {
 		if !connected {
 			return []driver.TestStep{failure(
 				stageConnect, addr, "Connection down",
@@ -219,43 +176,17 @@ func connectFailure(addr string, err error) driver.TestStep {
 	}
 }
 
-// BrowseRequest selects what a browse listens to.
-type BrowseRequest struct {
+// browseArgs select what a browse listens to.
+type browseArgs struct {
 	// Device is the key of the broker device to browse.
-	Device device.Key `json:"device" msgpack:"device"`
+	Device device.Key `json:"device"`
 	// Filter is the topic filter to subscribe to. Empty selects every topic.
-	Filter string `json:"filter" msgpack:"filter"`
+	Filter string `json:"filter"`
 	// Duration is the time to listen for, in milliseconds. Zero selects 3 s, and the
 	// most is 20 s.
-	Duration int `json:"duration" msgpack:"duration"`
+	Duration int `json:"duration"`
 	// Limit is the most topics to return. Zero selects 500, and the most is 5,000.
-	Limit int `json:"limit" msgpack:"limit"`
-}
-
-// BrowsedTopic is one topic that a browse heard.
-type BrowsedTopic struct {
-	// Topic is the name of the topic.
-	Topic string `json:"topic" msgpack:"topic"`
-	// Count is the number of messages heard, with a retained message.
-	Count int `json:"count" msgpack:"count"`
-	// Rate is the number of messages per second heard, without a retained message.
-	Rate float64 `json:"rate" msgpack:"rate"`
-	// LastSeen is the time that the last message arrived.
-	LastSeen telem.TimeStamp `json:"last_seen" msgpack:"last_seen"`
-	// Payload is the start of the last payload, at most 256 bytes.
-	Payload []byte `json:"payload" msgpack:"payload"`
-	// Format is the format of the last payload.
-	Format driver.Format `json:"format" msgpack:"format"`
-	// Retained is true when the last message is the retained message of the topic.
-	Retained bool `json:"retained" msgpack:"retained"`
-}
-
-// BrowseResult is what a browse heard.
-type BrowseResult struct {
-	// Topics are the topics heard, sorted by name.
-	Topics []BrowsedTopic `json:"topics" msgpack:"topics"`
-	// Truncated is true when the broker delivered more topics than the limit.
-	Truncated bool `json:"truncated" msgpack:"truncated"`
+	Limit int `json:"limit"`
 }
 
 // heardTopic is what a listen heard on one topic.
@@ -274,32 +205,32 @@ type heard struct {
 	duration  time.Duration
 }
 
-// hear listens to the filter of req for its duration, and keeps the last message of
+// hear listens to the filter of args for its duration, and keeps the last message of
 // each topic.
-func (s *scanner) hear(ctx context.Context, req BrowseRequest) (heard, error) {
-	if req.Filter == "" {
-		req.Filter = defaultBrowseFilter
+func (s *scanner) hear(ctx context.Context, args browseArgs) (heard, error) {
+	if args.Filter == "" {
+		args.Filter = defaultBrowseFilter
 	}
-	if req.Limit <= 0 {
-		req.Limit = defaultBrowseLimit
+	if args.Limit <= 0 {
+		args.Limit = defaultBrowseLimit
 	}
-	req.Limit = min(req.Limit, maxBrowseLimit)
+	args.Limit = min(args.Limit, maxBrowseLimit)
 	var (
 		mu  sync.Mutex
-		res = heard{duration: browseDuration(req.Duration)}
+		res = heard{duration: browseDuration(args.Duration)}
 		by  = make(map[string]*heardTopic)
 	)
 	if err := s.listen(
 		ctx,
-		req.Device,
-		[]string{req.Filter},
+		args.Device,
+		[]string{args.Filter},
 		res.duration,
 		func(m paho.Message) bool {
 			mu.Lock()
 			defer mu.Unlock()
 			t, seen := by[m.Topic()]
 			if !seen {
-				if len(by) >= req.Limit {
+				if len(by) >= args.Limit {
 					res.truncated = true
 					return false
 				}
@@ -327,135 +258,144 @@ func (s *scanner) hear(ctx context.Context, req BrowseRequest) (heard, error) {
 	return res, nil
 }
 
-// SampleRequest selects the messages that a sample reads.
-type SampleRequest struct {
+// sampleArgs select the messages that a sample reads.
+type sampleArgs struct {
 	// Device is the key of the broker device to sample.
-	Device device.Key `json:"device" msgpack:"device"`
+	Device device.Key `json:"device"`
 	// Topics are the topic filters to subscribe to.
-	Topics []string `json:"topics" msgpack:"topics"`
+	Topics []string `json:"topics"`
 	// Count is the most messages to keep from each topic. Zero selects 20, and the most
 	// is 1,000.
-	Count int `json:"count" msgpack:"count"`
+	Count int `json:"count"`
 	// Duration is the longest time to listen for, in milliseconds. Zero selects 5 s,
 	// and the most is 20 s.
-	Duration int `json:"duration" msgpack:"duration"`
+	Duration int `json:"duration"`
 }
 
-// SampledMessage is one message that a sample read.
-type SampledMessage struct {
+// sampledMessage is one message that a sample read.
+type sampledMessage struct {
 	// Time is the time that the message arrived.
-	Time telem.TimeStamp `json:"time" msgpack:"time"`
+	Time telem.TimeStamp `json:"time"`
 	// Payload is the start of the payload, at most 16 KiB.
-	Payload []byte `json:"payload" msgpack:"payload"`
+	Payload []byte `json:"payload"`
 	// Retained is true when the message is the retained message of its topic.
-	Retained bool `json:"retained" msgpack:"retained"`
+	Retained bool `json:"retained"`
 }
 
-// SampledTopic is the sample of one topic.
-type SampledTopic struct {
-	// Topic is the name of the topic.
-	Topic string `json:"topic" msgpack:"topic"`
-	// Messages are the messages read, in the order that they arrived.
-	Messages []SampledMessage `json:"messages" msgpack:"messages"`
-}
-
-// SampleResult is what a sample read.
-type SampleResult struct {
-	// Topics are the topics read, sorted by name.
-	Topics []SampledTopic `json:"topics" msgpack:"topics"`
-	// Shapes are the shapes of the JSON payloads. The source of a shape is a topic.
-	Shapes []xjson.Shape `json:"shapes" msgpack:"shapes"`
-	// Truncated is true when the broker delivered more topics or payload bytes than a
-	// sample keeps.
-	Truncated bool `json:"truncated" msgpack:"truncated"`
-}
-
+// sampledTopic is the sample of one topic.
 type sampledTopic struct {
-	SampledTopic
-	payloads [][]byte
+	// Topic is the name of the topic.
+	Topic string `json:"topic"`
+	// Messages are the messages read, in the order that they arrived.
+	Messages []sampledMessage `json:"messages"`
 }
 
-func (s *scanner) sample(ctx context.Context, req SampleRequest) (SampleResult, error) {
-	if len(req.Topics) == 0 {
-		return SampleResult{}, errors.Wrap(
+// sampleResult is the data that answers a sample.
+type sampleResult struct {
+	// Topics are the topics read, sorted by name.
+	Topics []sampledTopic `json:"topics"`
+	// Shapes are the shapes of the JSON payloads. The source of a shape is a topic.
+	Shapes []xjson.Shape `json:"shapes"`
+	// Truncated is true when the broker delivered more topics or payload bytes than a
+	// sample holds, or when the messages read do not all fit in the answer. The shapes
+	// still come from every message read.
+	Truncated bool `json:"truncated"`
+}
+
+// heardMessage is a message that a sample read, with its whole payload.
+type heardMessage struct {
+	sampledMessage
+	payload []byte
+}
+
+// sample listens to the topics of args until each holds args.Count messages, or until
+// args.Duration passes when a topic is a wildcard filter, and infers the shapes of the
+// payloads. The answer keeps the messages that driver.Fit keeps, and the shapes come
+// from every message read.
+func (s *scanner) sample(ctx context.Context, args sampleArgs) (sampleResult, error) {
+	if len(args.Topics) == 0 {
+		return sampleResult{}, errors.Wrap(
 			validate.ErrValidation, "topics: must be non-empty",
 		)
 	}
-	count := min(max(cmp.Or(req.Count, defaultSampleCount), 1), maxSampleCount)
+	count := min(max(cmp.Or(args.Count, defaultSampleCount), 1), maxSampleCount)
 	duration := min(
-		cmp.Or(time.Duration(req.Duration)*time.Millisecond, defaultSampleDuration),
+		cmp.Or(time.Duration(args.Duration)*time.Millisecond, defaultSampleDuration),
 		maxBrowseDuration,
 	)
 	// Only a set of exact topics can be complete before the duration ends.
-	literal := !slices.ContainsFunc(req.Topics, func(t string) bool {
+	literal := !slices.ContainsFunc(args.Topics, func(t string) bool {
 		return strings.ContainsAny(t, "+#")
 	})
 	var (
 		mu         sync.Mutex
-		by         = make(map[string]*sampledTopic)
-		full, kept int
+		by         = make(map[string][]heardMessage)
+		full, held int
 		truncated  bool
 	)
 	if err := s.listen(
 		ctx,
-		req.Device,
-		req.Topics,
+		args.Device,
+		args.Topics,
 		duration,
 		func(m paho.Message) bool {
 			mu.Lock()
 			defer mu.Unlock()
-			t, seen := by[m.Topic()]
+			messages, seen := by[m.Topic()]
 			payload := m.Payload()
 			switch {
-			case seen && len(t.Messages) == count:
+			case seen && len(messages) == count:
 				return false
 			case !seen && len(by) == maxSampleTopics:
 				truncated = true
 				return false
-			case kept+len(payload) > sampleByteLimit:
+			case held+len(payload) > sampleByteLimit:
 				truncated = true
 				return true
 			}
-			if !seen {
-				t = &sampledTopic{Topic: m.Topic()}
-				by[m.Topic()] = t
-			}
-			kept += len(payload)
-			t.Messages = append(t.Messages, SampledMessage{
+			held += len(payload)
+			by[m.Topic()] = append(messages, heardMessage{
 				Time:     telem.Now(),
 				Payload:  payload[:min(len(payload), samplePayloadLimit)],
 				Retained: m.Retained(),
+				payload:  payload,
 			})
-			t.payloads = append(t.payloads, payload)
-			if len(t.Messages) == count {
+			if len(by[m.Topic()]) == count {
 				full++
 			}
-			return literal && full >= len(req.Topics)
+			return literal && full >= len(args.Topics)
 		},
 	); err != nil {
-		return SampleResult{}, err
+		return sampleResult{}, err
 	}
 	mu.Lock()
 	defer mu.Unlock()
 	var (
-		res = SampleResult{
-			Topics:    make([]SampledTopic, 0, len(by)),
-			Truncated: truncated,
-		}
-		docs []xjson.Document
+		names   = slices.Sorted(maps.Keys(by))
+		sampled = make([][]sampledMessage, len(names))
+		docs    []xjson.Document
 	)
-	for _, name := range slices.Sorted(maps.Keys(by)) {
-		t := by[name]
-		res.Topics = append(res.Topics, t.SampledTopic)
-		for i, p := range t.payloads {
-			docs = append(docs, xjson.Document{
-				Source: name,
-				Data:   p,
-				Time:   t.Messages[i].Time,
-			})
+	for i, name := range names {
+		for _, m := range by[name] {
+			sampled[i] = append(sampled[i], m.sampledMessage)
+			docs = append(
+				docs,
+				xjson.Document{Source: name, Data: m.payload, Time: m.Time},
+			)
 		}
 	}
-	res.Shapes = xjson.Infer(docs)
+	kept, cut, err := driver.Fit(sampled)
+	if err != nil {
+		return sampleResult{}, err
+	}
+	res := sampleResult{
+		Topics:    make([]sampledTopic, len(names)),
+		Shapes:    xjson.Infer(docs),
+		Truncated: truncated || cut,
+	}
+	for i, name := range names {
+		res.Topics[i] = sampledTopic{Topic: name, Messages: kept[i]}
+	}
 	return res, nil
 }
 

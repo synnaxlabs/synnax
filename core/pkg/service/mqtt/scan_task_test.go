@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	xjson "github.com/synnaxlabs/x/json"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -338,13 +339,25 @@ var _ = Describe("Scan task", func() {
 			Expect(stat.Variant).To(Equal(status.VariantError))
 			Expect(stat.Message).To(message)
 		}
+		// expectFailedStep expects stat to answer a test that ran stages and failed
+		// the last with message.
+		expectFailedStep := func(stat task.Status, message string, want ...string) {
+			GinkgoHelper()
+			expectError(stat, Equal(message))
+			Expect(stat.Description).ToNot(BeEmpty())
+			Expect(stages(stepsOf(stat))).To(Equal(want))
+		}
 
 		It("Should connect to a broker that is not a device yet",
 			func(ctx SpecContext) {
 				broker := startBroker(0)
-				expectSuccess(testConnection(ctx, msgpack.EncodedJSON{
-					"port": broker.port,
-				}))
+				stat := testConnection(ctx, msgpack.EncodedJSON{"port": broker.port})
+				expectSuccess(stat)
+				steps := stepsOf(stat)
+				Expect(stages(steps)).
+					To(Equal([]string{"dial:success", "connect:success"}))
+				Expect(steps[0].Address).
+					To(Equal(fmt.Sprintf("127.0.0.1:%d", broker.port)))
 				Eventually(broker.clientCount).Should(BeZero())
 			},
 		)
@@ -369,10 +382,9 @@ var _ = Describe("Scan task", func() {
 			broker := startBroker(0)
 			port := broker.port
 			broker.stop()
-			expectError(
-				testConnection(ctx, msgpack.EncodedJSON{"port": port}),
-				ContainSubstring("refused"),
-			)
+			stat := testConnection(ctx, msgpack.EncodedJSON{"port": port})
+			expectFailedStep(stat, "Failed to reach broker", "dial:error")
+			Expect(stat.Description).To(ContainSubstring("refused"))
 		})
 
 		It("Should send the username and the password", func(ctx SpecContext) {
@@ -382,21 +394,24 @@ var _ = Describe("Scan task", func() {
 			expectSuccess(testConnection(ctx, msgpack.EncodedJSON{
 				"port": broker.port, "username": "operator", "password": "valve-7",
 			}))
-			expectError(
-				testConnection(ctx, msgpack.EncodedJSON{
-					"port": broker.port, "username": "operator", "password": "wrong",
-				}),
-				Equal("the broker rejected the username or password: not Authorized"),
+			stat := testConnection(ctx, msgpack.EncodedJSON{
+				"port": broker.port, "username": "operator", "password": "wrong",
+			})
+			expectFailedStep(
+				stat, "Authentication failed", "dial:success", "connect:error",
 			)
+			Expect(stat.Description).To(Equal(
+				"the broker rejected the username or password: not Authorized. " +
+					"Check the username and the password.",
+			))
 		})
 
 		Describe("Port and keep-alive", func() {
 			DescribeTable("Should connect to the default port of a broker",
 				func(ctx SpecContext, properties msgpack.EncodedJSON, address string) {
-					expectError(
-						testConnection(ctx, properties),
-						ContainSubstring(address),
-					)
+					stat := testConnection(ctx, properties)
+					expectFailedStep(stat, "Failed to reach broker", "dial:error")
+					Expect(stepsOf(stat)[0].Address).To(Equal(address))
 				},
 				Entry("a plain broker", msgpack.EncodedJSON{}, "127.0.0.1:1883"),
 				Entry("a secure broker",
@@ -425,8 +440,12 @@ var _ = Describe("Scan task", func() {
 			It("Should verify the broker against a CA file", func(ctx SpecContext) {
 				tlsCfg, caFile := createCerts()
 				broker := startBrokerWith(brokerOptions{tls: tlsCfg})
-				expectSuccess(testConnection(ctx, msgpack.EncodedJSON{
+				stat := testConnection(ctx, msgpack.EncodedJSON{
 					"port": broker.port, "secure": true, "ca_file": caFile,
+				})
+				expectSuccess(stat)
+				Expect(stages(stepsOf(stat))).To(Equal([]string{
+					"dial:success", "tls:success", "connect:success",
 				}))
 			})
 
@@ -434,12 +453,14 @@ var _ = Describe("Scan task", func() {
 				func(ctx SpecContext) {
 					tlsCfg, _ := createCerts()
 					broker := startBrokerWith(brokerOptions{tls: tlsCfg})
-					expectError(
-						testConnection(ctx, msgpack.EncodedJSON{
-							"port": broker.port, "secure": true,
-						}),
-						ContainSubstring("failed to verify certificate"),
+					stat := testConnection(ctx, msgpack.EncodedJSON{
+						"port": broker.port, "secure": true,
+					})
+					expectFailedStep(
+						stat, "Certificate not trusted", "dial:success", "tls:error",
 					)
+					Expect(stat.Description).
+						To(ContainSubstring("failed to verify certificate"))
 				},
 			)
 
@@ -577,22 +598,47 @@ var _ = Describe("Scan task", func() {
 					"filter": "plant/#", "duration": 200,
 				})
 				Expect(stat.Details.Data).To(HaveKeyWithValue("truncated", false))
-				Expect(stat.Details.Data["topics"]).To(Equal([]any{
-					map[string]any{
-						"topic":    "plant/a",
-						"payload":  `{"v":1}`,
-						"fields":   []any{field("/v", "number", "1")},
-						"retained": true,
-					},
-					map[string]any{
-						"topic":    "plant/b",
-						"payload":  `{"v":2}`,
-						"fields":   []any{field("/v", "number", "2")},
-						"retained": true,
-					},
-				}))
+				expectTopic := func(t any, name, payload, value string) {
+					GinkgoHelper()
+					Expect(t).To(SatisfyAll(
+						HaveKeyWithValue("topic", name),
+						HaveKeyWithValue("payload", payload),
+						HaveKeyWithValue("format", "json"),
+						HaveKeyWithValue("fields", []any{field("/v", "number", value)}),
+						HaveKeyWithValue("retained", true),
+					))
+				}
+				topics := stat.Details.Data["topics"].([]any)
+				Expect(topics).To(HaveLen(2))
+				expectTopic(topics[0], "plant/a", `{"v":1}`, "1")
+				expectTopic(topics[1], "plant/b", `{"v":2}`, "2")
 			},
 		)
+
+		It("Should count the messages of each topic", func(ctx SpecContext) {
+			broker.publish("plant/a", `{"v":1}`, true)
+			publishUntilDone(broker, "plant/b", "ON")
+			stat := browse(ctx, msgpack.EncodedJSON{
+				"filter": "plant/#", "duration": 300,
+			})
+			var res struct {
+				Topics []struct {
+					Count    int             `json:"count"`
+					Rate     float64         `json:"rate"`
+					LastSeen telem.TimeStamp `json:"last_seen"`
+					Format   driver.Format   `json:"format"`
+				} `json:"topics"`
+			}
+			Expect(stat.Details.Data.Unmarshal(&res)).To(Succeed())
+			Expect(res.Topics).To(HaveLen(2))
+			a, b := res.Topics[0], res.Topics[1]
+			Expect(a.Count).To(Equal(1))
+			Expect(a.Rate).To(BeZero())
+			Expect(a.LastSeen).ToNot(BeZero())
+			Expect(b.Count).To(BeNumerically(">", 1))
+			Expect(b.Rate).To(BeNumerically(">", 0))
+			Expect(b.Format).To(Equal(driver.FormatText))
+		})
 
 		It("Should give the scalars of each JSON payload in document order",
 			func(ctx SpecContext) {
@@ -709,6 +755,128 @@ var _ = Describe("Scan task", func() {
 			Expect(stat.Message).To(Equal(
 				"Devices with keys [missing] not found: not found: query",
 			))
+		})
+	})
+
+	Describe("Sample", func() {
+		var (
+			broker *testBroker
+			dev    device.Device
+		)
+
+		BeforeEach(func(ctx SpecContext) {
+			broker = startBroker(0)
+			dev = createBrokerDevice(ctx, rackKey, broker.port, nil)
+		})
+
+		type sampled struct {
+			Topics []struct {
+				Topic    string `json:"topic"`
+				Messages []struct {
+					Payload  []byte `json:"payload"`
+					Retained bool   `json:"retained"`
+				} `json:"messages"`
+			} `json:"topics"`
+			Shapes    []xjson.Shape `json:"shapes"`
+			Truncated bool          `json:"truncated"`
+		}
+
+		// sample runs a sample with args on a new scan task and returns the data that
+		// answers it.
+		sample := func(ctx context.Context, args msgpack.EncodedJSON) sampled {
+			GinkgoHelper()
+			args["device"] = dev.Key
+			configured, t := scan(ctx)
+			stat := answer(ctx, configured, t, task.Command{
+				Type: "sample", Key: "sample", Args: args,
+			})
+			Expect(stat.Variant).To(Equal(status.VariantSuccess))
+			var res sampled
+			Expect(stat.Details.Data.Unmarshal(&res)).To(Succeed())
+			return res
+		}
+
+		It("Should end once each exact topic holds its count", func(ctx SpecContext) {
+			now := time.Now().UnixMilli()
+			for _, topic := range []string{"rig/1/temp", "rig/2/temp"} {
+				broker.publish(topic, fmt.Sprintf(`{"value":1.5,"time":%d}`, now), true)
+			}
+			start := time.Now()
+			res := sample(ctx, msgpack.EncodedJSON{
+				"topics": []string{"rig/1/temp", "rig/2/temp"},
+				"count":  1,
+			})
+			Expect(time.Since(start)).To(BeNumerically("<", 2*time.Second))
+			Expect(res.Topics).To(HaveLen(2))
+			Expect(res.Topics[0].Topic).To(Equal("rig/1/temp"))
+			Expect(res.Topics[0].Messages[0].Retained).To(BeTrue())
+			Expect(res.Topics[0].Messages[0].Payload).
+				To(Equal(fmt.Appendf(nil, `{"value":1.5,"time":%d}`, now)))
+			Expect(res.Shapes).To(HaveLen(1))
+			shape := res.Shapes[0]
+			Expect(shape.Sources).To(Equal([]string{"rig/1/temp", "rig/2/temp"}))
+			Expect(shape.Fields[shape.Index].Pointer.String()).To(Equal("/time"))
+		})
+
+		It("Should keep at most the count of each topic of a wildcard",
+			func(ctx SpecContext) {
+				publishUntilDone(broker, "line/a", `{"v":1}`)
+				res := sample(ctx, msgpack.EncodedJSON{
+					"topics": []string{"line/#"}, "count": 3, "duration": 300,
+				})
+				Expect(res.Topics).To(HaveLen(1))
+				Expect(res.Topics[0].Messages).To(HaveLen(3))
+			},
+		)
+
+		It("Should stop keeping topics at the most that a sample keeps",
+			func(ctx SpecContext) {
+				for i := range 501 {
+					broker.publish(fmt.Sprintf("many/%03d", i), "1", true)
+				}
+				res := sample(ctx, msgpack.EncodedJSON{
+					"topics": []string{"many/#"}, "count": 1, "duration": 500,
+				})
+				Expect(res.Truncated).To(BeTrue())
+				Expect(res.Topics).To(HaveLen(500))
+			},
+		)
+
+		It("Should infer shapes from messages that do not fit in the answer",
+			func(ctx SpecContext) {
+				big := strings.Repeat("x", 15<<10)
+				for i := range 80 {
+					broker.publish(
+						fmt.Sprintf("big/%02d", i),
+						fmt.Sprintf(`{"v":%d,"pad":"%s"}`, i, big),
+						true,
+					)
+				}
+				res := sample(ctx, msgpack.EncodedJSON{
+					"topics": []string{"big/#"}, "count": 1, "duration": 500,
+				})
+				Expect(res.Truncated).To(BeTrue())
+				Expect(res.Topics).To(HaveLen(80))
+				var kept int
+				for _, t := range res.Topics {
+					kept += len(t.Messages)
+				}
+				Expect(kept).To(BeNumerically("<", 80))
+				Expect(res.Shapes).To(HaveLen(1))
+				Expect(res.Shapes[0].Count).To(Equal(80))
+			},
+		)
+
+		It("Should reject a sample with no topics", func(ctx SpecContext) {
+			configured, t := scan(ctx)
+			stat := answer(ctx, configured, t, task.Command{
+				Type: "sample", Key: "sample",
+				Args: msgpack.EncodedJSON{"device": dev.Key},
+			})
+			Expect(stat.Variant).To(Equal(status.VariantError))
+			Expect(
+				stat.Message,
+			).To(Equal("topics: must be non-empty: validation error"))
 		})
 	})
 

@@ -271,36 +271,63 @@ var _ = Describe("Factory", func() {
 			}).WithTimeout(15 * time.Second).Should(Succeed())
 			return stat
 		}
-		expectFailure := func(stat task.Status, reason string) {
+		expectSuccess := func(stat task.Status, want ...string) {
+			GinkgoHelper()
+			Expect(stat.Variant).To(Equal(status.VariantSuccess))
+			Expect(stat.Message).To(Equal("Command executed successfully"))
+			Expect(stages(stepsOf(stat))).To(Equal(want))
+		}
+		// expectFailedStep expects stat to answer a test that ran stages and failed
+		// the last with message.
+		expectFailedStep := func(stat task.Status, message string, want ...string) {
 			GinkgoHelper()
 			Expect(stat.Variant).To(Equal(status.VariantError))
-			Expect(stat.Message).To(SatisfyAll(
-				HavePrefix("failed to connect: "),
-				ContainSubstring(reason),
-			))
+			Expect(stat.Message).To(Equal(message))
+			Expect(stat.Description).ToNot(BeEmpty())
+			Expect(stages(stepsOf(stat))).To(Equal(want))
+		}
+		expectInvalid := func(stat task.Status, reason string) {
+			GinkgoHelper()
+			Expect(stat.Variant).To(Equal(status.VariantError))
+			Expect(stat.Message).To(ContainSubstring(reason))
+			Expect(stat.Details.Data).To(BeEmpty())
 		}
 
-		It("Should answer test_connection with success for a live cluster",
+		It("Should pass every stage of a live cluster", func(ctx SpecContext) {
+			stat := testConnection(ctx, clusterProperties())
+			expectSuccess(stat, "dial:success", "metadata:success", "broker:success")
+			Expect(stepsOf(stat)[0].Address).To(Equal(cluster.ListenAddrs()[0]))
+		})
+
+		It("Should stop at a broker that does not answer", func(ctx SpecContext) {
+			addr := closedAddress()
+			stat := testConnection(ctx, kafka.Properties{Brokers: []string{addr}})
+			expectFailedStep(stat, "Failed to reach broker", "dial:error")
+			Expect(stat.Description).To(HavePrefix("Could not reach " + addr))
+		})
+
+		It("Should warn about a seed broker that does not answer",
 			func(ctx SpecContext) {
-				stat := testConnection(ctx, clusterProperties())
-				Expect(stat.Variant).To(Equal(status.VariantSuccess))
-				Expect(stat.Message).To(Equal("Command executed successfully"))
+				expectSuccess(
+					testConnection(ctx, kafka.Properties{
+						Brokers: append(
+							[]string{closedAddress()},
+							cluster.ListenAddrs()...,
+						),
+					}),
+					"dial:warning",
+					"metadata:success",
+					"broker:success",
+				)
 			},
 		)
 
-		It("Should answer test_connection with an error for an unreachable cluster",
-			func(ctx SpecContext) {
-				expectFailure(testConnection(ctx, kafka.Properties{
-					Brokers: []string{"127.0.0.1:1"},
-				}), "127.0.0.1:1")
-			},
-		)
-
-		It("Should answer test_connection with an error for invalid properties",
-			func(ctx SpecContext) {
-				expectFailure(testConnection(ctx, kafka.Properties{}), "brokers")
-			},
-		)
+		It("Should reject properties with no brokers", func(ctx SpecContext) {
+			expectInvalid(
+				testConnection(ctx, kafka.Properties{}),
+				"brokers: must be non-empty",
+			)
+		})
 
 		Describe("TLS", func() {
 			var (
@@ -329,40 +356,61 @@ var _ = Describe("Factory", func() {
 			It(
 				"Should connect to a broker signed by the given CA",
 				func(ctx SpecContext) {
-					stat := testConnection(ctx, kafka.Properties{
-						Brokers:       brokers,
-						TLS:           true,
-						CaCertificate: caPEM,
-					})
-					Expect(stat.Variant).To(Equal(status.VariantSuccess))
+					expectSuccess(
+						testConnection(ctx, kafka.Properties{
+							Brokers:       brokers,
+							TLS:           true,
+							CaCertificate: caPEM,
+						}),
+						"dial:success",
+						"tls:success",
+						"metadata:success",
+						"broker:success",
+					)
 				},
 			)
 
 			It("Should reject a broker signed by a CA outside the system roots",
 				func(ctx SpecContext) {
-					stat := testConnection(
-						ctx,
-						kafka.Properties{Brokers: brokers, TLS: true},
+					expectFailedStep(
+						testConnection(
+							ctx,
+							kafka.Properties{Brokers: brokers, TLS: true},
+						),
+						"Certificate not trusted",
+						"dial:success",
+						"tls:error",
 					)
-					expectFailure(stat, "certificate")
 				},
 			)
 
 			It("Should reject a CA certificate without TLS", func(ctx SpecContext) {
-				stat := testConnection(ctx, kafka.Properties{
+				expectInvalid(testConnection(ctx, kafka.Properties{
 					Brokers:       brokers,
 					CaCertificate: caPEM,
-				})
-				expectFailure(stat, "requires TLS")
+				}), "requires TLS")
 			})
 
+			It(
+				"Should fail the TLS stage of a broker without TLS",
+				func(ctx SpecContext) {
+					props := clusterProperties()
+					props.TLS = true
+					expectFailedStep(
+						testConnection(ctx, props),
+						"TLS handshake failed",
+						"dial:success",
+						"tls:error",
+					)
+				},
+			)
+
 			It("Should reject a CA certificate that is not PEM", func(ctx SpecContext) {
-				stat := testConnection(ctx, kafka.Properties{
+				expectInvalid(testConnection(ctx, kafka.Properties{
 					Brokers:       brokers,
 					TLS:           true,
 					CaCertificate: "not a certificate",
-				})
-				expectFailure(stat, "PEM-encoded certificate")
+				}), "PEM-encoded certificate")
 			})
 		})
 
@@ -383,11 +431,16 @@ var _ = Describe("Factory", func() {
 			DescribeTable(
 				"Should authenticate with each mechanism",
 				func(ctx SpecContext, variant kafka.SASLVariant) {
-					stat := testConnection(ctx, kafka.Properties{
-						Brokers: brokers,
-						Sasl:    kafka.SASL{Variant: variant},
-					})
-					Expect(stat.Variant).To(Equal(status.VariantSuccess))
+					expectSuccess(
+						testConnection(ctx, kafka.Properties{
+							Brokers: brokers,
+							Sasl:    kafka.SASL{Variant: variant},
+						}),
+						"dial:success",
+						"sasl:success",
+						"metadata:success",
+						"broker:success",
+					)
 				},
 				Entry(
 					"plain",
@@ -410,26 +463,39 @@ var _ = Describe("Factory", func() {
 			)
 
 			It("Should fail to connect without credentials", func(ctx SpecContext) {
-				stat := testConnection(ctx, kafka.Properties{
-					Brokers: brokers,
-					Sasl:    kafka.SASL{Variant: kafka.NoneSASL{}},
-				})
-				expectFailure(stat, "SASL")
+				expectFailedStep(
+					testConnection(ctx, kafka.Properties{
+						Brokers: brokers,
+						Sasl:    kafka.SASL{Variant: kafka.NoneSASL{}},
+					}),
+					"Failed to read cluster metadata",
+					"dial:success",
+					"metadata:error",
+				)
 			})
 
-			It("Should fail to connect with a wrong password", func(ctx SpecContext) {
-				stat := testConnection(ctx, kafka.Properties{
-					Brokers: brokers,
-					Sasl: kafka.SASL{
-						Variant: kafka.ScramSha256SASL{
-							Username: "scram256-user",
-							Password: "wrong",
-						},
-					},
-				})
+			DescribeTable("Should fail to connect with a wrong password",
+				func(ctx SpecContext, variant kafka.SASLVariant) {
+					expectFailedStep(
+						testConnection(ctx, kafka.Properties{
+							Brokers: brokers,
+							Sasl:    kafka.SASL{Variant: variant},
+						}),
+						"Authentication failed",
+						"dial:success",
+						"sasl:error",
+					)
+				},
+				Entry(
+					"plain",
+					kafka.PlainSASL{Username: "plain-user", Password: "wrong"},
+				),
 				// The broker closes the connection on a failed SCRAM exchange.
-				expectFailure(stat, "EOF")
-			})
+				Entry(
+					"SCRAM-SHA-256",
+					kafka.ScramSha256SASL{Username: "scram256-user", Password: "wrong"},
+				),
+			)
 		})
 
 		It("Should answer stop and start", func(ctx SpecContext) {

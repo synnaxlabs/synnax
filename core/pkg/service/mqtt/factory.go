@@ -659,8 +659,12 @@ func (f *Factory) configureScan(t task.Task) (autoStarter, bool, error) {
 		return nil, true, err
 	}
 	scanCfg := driver.ScanTaskConfig{
-		Instrumentation:    f.cfg.Child("scan"),
-		Scanner:            f.scanner(),
+		Instrumentation: f.cfg.Child("scan"),
+		Scanner: &scanner{
+			ins:    f.cfg.Instrumentation,
+			pool:   f.pool,
+			device: f.cfg.Device,
+		},
 		DB:                 f.cfg.DB,
 		Status:             f.cfg.Status,
 		Device:             f.cfg.Device,

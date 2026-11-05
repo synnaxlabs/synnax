@@ -26,14 +26,19 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	xjson "github.com/synnaxlabs/x/json"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
 const (
-	// testConnectionCommand connects to the broker that its arguments describe.
+	// testConnectionCommand tests a connection to the broker that its arguments
+	// describe, one stage at a time.
 	testConnectionCommand = "test_connection"
 	// browseCommand lists the topics that a broker device delivers for a time.
 	browseCommand = "browse"
+	// sampleCommand reads messages from topics of a broker device and infers their
+	// shapes.
+	sampleCommand = "sample"
 
 	defaultBrowseFilter   = "#"
 	defaultBrowseDuration = 3 * time.Second
@@ -50,16 +55,6 @@ const (
 
 var errReconnecting = errors.New("the connection is down and tries again on its own")
 
-// testConnectionArgs describes a broker that may not be a stored device yet, so that
-// the Console can test a connection before it saves the device.
-type testConnectionArgs struct {
-	Properties msgpack.EncodedJSON `json:"properties"`
-	Location   string              `json:"location"`
-	// Device is the key of the broker device that the test edits. Empty for a broker
-	// that is not a device yet.
-	Device device.Key `json:"device"`
-}
-
 // browsedField is one scalar of a browsed JSON payload.
 type browsedField struct {
 	Pointer string `json:"pointer"`
@@ -69,11 +64,19 @@ type browsedField struct {
 	Sample string `json:"sample"`
 }
 
-// browsedTopic is one topic that a browse saw, with its last payload.
+// browsedTopic is one topic that a browse heard, with its last payload.
 type browsedTopic struct {
 	Topic string `json:"topic"`
+	// Count is the number of messages heard, with a retained message.
+	Count int `json:"count"`
+	// Rate is the number of messages per second heard, without a retained message.
+	Rate float64 `json:"rate"`
+	// LastSeen is the time that the last message arrived.
+	LastSeen telem.TimeStamp `json:"last_seen"`
 	// Payload is the start of the last payload. Empty when the payload is not text.
 	Payload string `json:"payload"`
+	// Format is the format of the whole last payload.
+	Format driver.Format `json:"format"`
 	// Fields are the scalars of the whole last payload. Empty when it is not JSON.
 	Fields   []browsedField `json:"fields"`
 	Retained bool           `json:"retained"`
@@ -122,9 +125,31 @@ func (s *scanner) Exec(
 ) (msgpack.EncodedJSON, error) {
 	switch cmd.Type {
 	case testConnectionCommand:
-		return nil, s.testConnection(ctx, cmd)
+		var args testConnectionArgs
+		if err := unmarshalArgs(cmd, &args); err != nil {
+			return nil, err
+		}
+		steps, err := s.test(ctx, args)
+		if err != nil {
+			return nil, err
+		}
+		return driver.AnswerTest(steps)
 	case browseCommand:
-		res, err := s.browse(ctx, cmd)
+		var args browseArgs
+		if err := unmarshalArgs(cmd, &args); err != nil {
+			return nil, err
+		}
+		res, err := s.browse(ctx, args)
+		if err != nil {
+			return nil, err
+		}
+		return msgpack.NewEncodedJSON(res)
+	case sampleCommand:
+		var args sampleArgs
+		if err := unmarshalArgs(cmd, &args); err != nil {
+			return nil, err
+		}
+		res, err := s.sample(ctx, args)
 		if err != nil {
 			return nil, err
 		}
@@ -139,32 +164,12 @@ func (s *scanner) Exec(
 	return nil, driver.ErrUnsupportedCommand
 }
 
-func (s *scanner) testConnection(ctx context.Context, cmd task.Command) error {
-	var args testConnectionArgs
-	if err := cmd.Args.Unmarshal(&args); err != nil {
-		return errors.Wrapf(
-			validate.ErrValidation,
-			"invalid arguments: %s",
-			err.Error(),
-		)
+// unmarshalArgs decodes the arguments of cmd into args.
+func unmarshalArgs(cmd task.Command, args any) error {
+	if err := cmd.Args.Unmarshal(args); err != nil {
+		return errors.Wrapf(validate.ErrValidation, "invalid arguments: %s", err)
 	}
-	cfg, err := newClientConfig(device.Device{
-		Key:        cmd.Key,
-		Location:   args.Location,
-		Properties: args.Properties,
-	})
-	if err != nil {
-		return err
-	}
-	// A broker drops the older of two sessions with one client ID, so a probe with the
-	// settings of the connection that tasks share would drop that connection.
-	if live, connected := s.pool.live(args.Device, cfg); live {
-		if !connected {
-			return errReconnecting
-		}
-		return nil
-	}
-	return probe(ctx, s.ins, cfg)
+	return nil
 }
 
 // probe reports whether a client can connect to the broker of cfg.
@@ -177,14 +182,8 @@ func probe(ctx context.Context, ins alamos.Instrumentation, cfg clientConfig) er
 	return nil
 }
 
-func (s *scanner) browse(ctx context.Context, cmd task.Command) (browseResult, error) {
-	var req BrowseRequest
-	if err := cmd.Args.Unmarshal(&req); err != nil {
-		return browseResult{}, errors.Wrapf(
-			validate.ErrValidation, "invalid arguments: %s", err.Error(),
-		)
-	}
-	heard, err := s.hear(ctx, req)
+func (s *scanner) browse(ctx context.Context, args browseArgs) (browseResult, error) {
+	heard, err := s.hear(ctx, args)
 	if err != nil {
 		return browseResult{}, err
 	}
@@ -195,7 +194,11 @@ func (s *scanner) browse(ctx context.Context, cmd task.Command) (browseResult, e
 	for i, t := range heard.topics {
 		res.Topics[i] = browsedTopic{
 			Topic:    t.topic,
+			Count:    t.count,
+			Rate:     float64(t.count-t.retained) / heard.duration.Seconds(),
+			LastSeen: t.lastSeen,
 			Payload:  payloadSample(t.last),
+			Format:   driver.FormatOf(t.last),
 			Fields:   payloadFields(t.last),
 			Retained: t.lastRetained,
 		}

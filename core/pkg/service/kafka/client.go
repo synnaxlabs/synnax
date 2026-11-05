@@ -25,10 +25,10 @@ import (
 // Make is the device make of a Kafka cluster.
 const Make = "kafka"
 
-// DecodeProperties parses the connection properties of a Kafka cluster device. It
+// decodeProperties parses the connection properties of a Kafka cluster device. It
 // returns an error wrapping validate.ErrValidation when dev is not a Kafka cluster or
 // its properties are incomplete.
-func DecodeProperties(dev device.Device) (Properties, error) {
+func decodeProperties(dev device.Device) (Properties, error) {
 	if dev.Make != Make {
 		return Properties{}, errors.Wrapf(
 			validate.ErrValidation, "device %s is not a Kafka cluster", dev.Key,

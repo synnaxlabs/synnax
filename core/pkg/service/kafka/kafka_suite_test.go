@@ -12,6 +12,7 @@ package kafka_test
 import (
 	"context"
 	"encoding/json/v2"
+	"net"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -271,6 +272,34 @@ func produceJSON(ctx context.Context, cl *kgo.Client, topic, key string, doc any
 		rec.Key = []byte(key)
 	}
 	Expect(cl.ProduceSync(ctx, rec).FirstErr()).To(Succeed())
+}
+
+// stepsOf returns the steps of the connection test that stat answers.
+func stepsOf(stat task.Status) []driver.TestStep {
+	GinkgoHelper()
+	var res struct {
+		Steps []driver.TestStep `json:"steps"`
+	}
+	Expect(stat.Details.Data.Unmarshal(&res)).To(Succeed())
+	return res.Steps
+}
+
+// stages returns the stage and variant of each step.
+func stages(steps []driver.TestStep) []string {
+	out := make([]string, len(steps))
+	for i, s := range steps {
+		out[i] = s.Stage + ":" + string(s.Variant)
+	}
+	return out
+}
+
+// closedAddress returns a local address that refuses connections.
+func closedAddress() string {
+	GinkgoHelper()
+	l := MustSucceed(net.Listen("tcp", "127.0.0.1:0"))
+	addr := l.Addr().String()
+	Expect(l.Close()).To(Succeed())
+	return addr
 }
 
 // uniqueTopic returns a topic name no other spec uses.

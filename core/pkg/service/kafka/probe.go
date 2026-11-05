@@ -40,11 +40,11 @@ const (
 	stageBroker   = "broker"
 )
 
-// TestConnection tests a connection to the cluster of props one stage at a time: dial,
+// testConnection tests a connection to the cluster of props one stage at a time: dial,
 // TLS, SASL, metadata, and each broker that the cluster advertises. It stops after the
 // first stage that fails. It returns a validation error when props cannot open a
 // client.
-func TestConnection(ctx context.Context, props Properties) ([]driver.TestStep, error) {
+func testConnection(ctx context.Context, props Properties) ([]driver.TestStep, error) {
 	props.ApplyDefaults()
 	if err := validateProperties(props); err != nil {
 		return nil, err

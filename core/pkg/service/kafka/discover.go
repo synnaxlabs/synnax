@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/x/errors"
 	xjson "github.com/synnaxlabs/x/json"
 	"github.com/synnaxlabs/x/telem"
@@ -44,8 +45,8 @@ const (
 	samplePayloadLimit = 16 << 10
 )
 
-// Topic is one topic of a cluster, as a browse sees it.
-type Topic struct {
+// browsedTopic is one topic of a cluster, as a browse sees it.
+type browsedTopic struct {
 	// Name is the name of the topic.
 	Name string `json:"name" msgpack:"name"`
 	// Partitions is the number of partitions of the topic.
@@ -65,9 +66,15 @@ type Topic struct {
 	Readable bool `json:"readable" msgpack:"readable"`
 }
 
-// Browse returns the topics of the cluster of props, other than internal topics, sorted
-// by name.
-func Browse(ctx context.Context, props Properties) ([]Topic, error) {
+// browseResult is the data that answers a browse.
+type browseResult struct {
+	// Topics are the topics of the cluster, other than internal topics, sorted by name.
+	Topics []browsedTopic `json:"topics" msgpack:"topics"`
+}
+
+// browseTopics returns the topics of the cluster of props, other than internal topics,
+// sorted by name.
+func browseTopics(ctx context.Context, props Properties) ([]browsedTopic, error) {
 	props.ApplyDefaults()
 	cl, err := openClient(props)
 	if err != nil {
@@ -80,14 +87,14 @@ func Browse(ctx context.Context, props Properties) ([]Topic, error) {
 		return nil, err
 	}
 	var (
-		topics   []Topic
+		topics   []browsedTopic
 		readable []string
 	)
 	for name, d := range details {
 		if d.internal {
 			continue
 		}
-		t := Topic{Name: name, Partitions: d.partitions, Readable: d.readable()}
+		t := browsedTopic{Name: name, Partitions: d.partitions, Readable: d.readable()}
 		topics = append(topics, t)
 		if t.Readable {
 			readable = append(readable, name)
@@ -95,7 +102,7 @@ func Browse(ctx context.Context, props Properties) ([]Topic, error) {
 	}
 	slices.SortFunc(
 		topics,
-		func(a, b Topic) int { return strings.Compare(a.Name, b.Name) },
+		func(a, b browsedTopic) int { return strings.Compare(a.Name, b.Name) },
 	)
 	if len(readable) == 0 {
 		return topics, nil
@@ -235,8 +242,10 @@ func listOffsets(
 	return starts, ends, nil
 }
 
-// SampleRequest selects the records that Sample reads.
-type SampleRequest struct {
+// sampleArgs select the records that a sample reads.
+type sampleArgs struct {
+	// Device is the key of the cluster device to read.
+	Device device.Key `json:"device" msgpack:"device"`
 	// Topics are the topics to read.
 	Topics []string `json:"topics" msgpack:"topics"`
 	// Count is the most records to read from each topic. Zero selects 100, and the most
@@ -244,16 +253,16 @@ type SampleRequest struct {
 	Count int `json:"count" msgpack:"count"`
 }
 
-// Header is one header of a record.
-type Header struct {
+// header is one header of a record.
+type header struct {
 	// Key is the key of the header.
 	Key string `json:"key" msgpack:"key"`
 	// Value is the value of the header, with invalid UTF-8 replaced.
 	Value string `json:"value" msgpack:"value"`
 }
 
-// SampledRecord is one record that a sample read.
-type SampledRecord struct {
+// sampledRecord is one record that a sample read.
+type sampledRecord struct {
 	// Partition is the partition of the record.
 	Partition int32 `json:"partition" msgpack:"partition"`
 	// Offset is the offset of the record in its partition.
@@ -263,17 +272,17 @@ type SampledRecord struct {
 	// Time is the time of the record.
 	Time telem.TimeStamp `json:"time" msgpack:"time"`
 	// Headers are the headers of the record.
-	Headers []Header `json:"headers" msgpack:"headers"`
+	Headers []header `json:"headers" msgpack:"headers"`
 	// Payload is the start of the record value, at most 16 KiB.
 	Payload []byte `json:"payload" msgpack:"payload"`
 }
 
-// SampledTopic is the sample of one topic.
-type SampledTopic struct {
+// sampledTopic is the sample of one topic.
+type sampledTopic struct {
 	// Topic is the name of the topic.
 	Topic string `json:"topic" msgpack:"topic"`
 	// Records are the records read, sorted by partition and offset.
-	Records []SampledRecord `json:"records" msgpack:"records"`
+	Records []sampledRecord `json:"records" msgpack:"records"`
 	// Shapes are the shapes of the JSON values of the records. The source of a shape is
 	// a record key.
 	Shapes []xjson.Shape `json:"shapes" msgpack:"shapes"`
@@ -281,49 +290,59 @@ type SampledTopic struct {
 	Error string `json:"error" msgpack:"error"`
 }
 
-// Sample reads up to req.Count records of each topic of req, in windows spread back in
-// time, and infers the shapes of their values. A topic that cannot be read carries the
-// reason and does not stop the others.
-func Sample(
+// sampleResult is the data that answers a sample.
+type sampleResult struct {
+	// Topics are the samples, in the order of the topics of the request.
+	Topics []sampledTopic `json:"topics" msgpack:"topics"`
+	// Truncated is true when the records read do not all fit in the answer. The shapes
+	// still come from every record read.
+	Truncated bool `json:"truncated" msgpack:"truncated"`
+}
+
+// sampleTopics reads up to args.Count records of each topic of args, in windows spread
+// back in time, and infers the shapes of their values. A topic that cannot be read
+// carries the reason and does not stop the others. The answer keeps the records that
+// driver.Fit keeps, and the shapes come from every record read.
+func sampleTopics(
 	ctx context.Context,
 	props Properties,
-	req SampleRequest,
-) ([]SampledTopic, error) {
+	args sampleArgs,
+) (sampleResult, error) {
 	props.ApplyDefaults()
-	count := int64(cmp.Or(req.Count, defaultSampleCount))
+	count := int64(cmp.Or(args.Count, defaultSampleCount))
 	count = min(max(count, 1), maxSampleCount)
 	cl, err := openClient(props)
 	if err != nil {
-		return nil, err
+		return sampleResult{}, err
 	}
 	defer cl.Close()
 	adm := kadm.NewClient(cl)
-	details, err := describeTopics(ctx, cl, req.Topics)
+	details, err := describeTopics(ctx, cl, args.Topics)
 	if err != nil {
-		return nil, err
+		return sampleResult{}, err
 	}
-	samples := make([]SampledTopic, len(req.Topics))
+	res := sampleResult{Topics: make([]sampledTopic, len(args.Topics))}
 	var readable []string
-	for i, name := range req.Topics {
-		samples[i] = SampledTopic{Topic: name, Records: []SampledRecord{}}
+	for i, name := range args.Topics {
+		res.Topics[i] = sampledTopic{Topic: name, Records: []sampledRecord{}}
 		switch d, ok := details[name]; {
 		case !ok || errors.Is(d.err, kerr.UnknownTopicOrPartition):
-			samples[i].Error = "The topic does not exist."
+			res.Topics[i].Error = "The topic does not exist."
 		case errors.Is(d.err, kerr.TopicAuthorizationFailed),
 			d.err == nil && !d.readable():
-			samples[i].Error = "The cluster does not let the client read the topic."
+			res.Topics[i].Error = "The cluster does not let the client read the topic."
 		case d.err != nil:
-			samples[i].Error = d.err.Error()
+			res.Topics[i].Error = d.err.Error()
 		default:
 			readable = append(readable, name)
 		}
 	}
 	if len(readable) == 0 {
-		return samples, nil
+		return res, nil
 	}
 	starts, ends, err := listOffsets(ctx, adm, readable)
 	if err != nil {
-		return nil, err
+		return sampleResult{}, err
 	}
 	var (
 		records = make(map[string][]*kgo.Record)
@@ -332,7 +351,7 @@ func Sample(
 	for _, ranges := range sampleRanges(readable, starts, ends, count) {
 		got, failed, err := fetch(ctx, props, ranges)
 		if err != nil {
-			return nil, err
+			return sampleResult{}, err
 		}
 		for topic, rs := range got {
 			records[topic] = append(records[topic], rs...)
@@ -343,12 +362,13 @@ func Sample(
 			}
 		}
 	}
-	for i := range samples {
-		s := &samples[i]
-		if err := errs[s.Topic]; err != nil {
-			s.Error = err.Error()
+	sampled := make([][]sampledRecord, len(res.Topics))
+	for i := range res.Topics {
+		t := &res.Topics[i]
+		if err := errs[t.Topic]; err != nil {
+			t.Error = err.Error()
 		}
-		rs := records[s.Topic]
+		rs := records[t.Topic]
 		slices.SortFunc(rs, func(a, b *kgo.Record) int {
 			return cmp.Or(
 				cmp.Compare(a.Partition, b.Partition),
@@ -357,29 +377,34 @@ func Sample(
 		})
 		docs := make([]xjson.Document, len(rs))
 		for j, r := range rs {
-			s.Records = append(s.Records, sampledRecord(r))
-			docs[j] = xjson.Document{
-				Source: s.Records[j].Key,
-				Data:   r.Value,
-				Time:   s.Records[j].Time,
-			}
+			rec := newSampledRecord(r)
+			sampled[i] = append(sampled[i], rec)
+			docs[j] = xjson.Document{Source: rec.Key, Data: r.Value, Time: rec.Time}
 		}
-		s.Shapes = xjson.Infer(docs)
+		t.Shapes = xjson.Infer(docs)
 	}
-	return samples, nil
+	kept, truncated, err := driver.Fit(sampled)
+	if err != nil {
+		return sampleResult{}, err
+	}
+	for i := range res.Topics {
+		res.Topics[i].Records = kept[i]
+	}
+	res.Truncated = truncated
+	return res, nil
 }
 
-func sampledRecord(r *kgo.Record) SampledRecord {
-	s := SampledRecord{
+func newSampledRecord(r *kgo.Record) sampledRecord {
+	s := sampledRecord{
 		Partition: r.Partition,
 		Offset:    r.Offset,
 		Key:       strings.ToValidUTF8(string(r.Key), "�"),
 		Time:      telem.NewTimeStamp(r.Timestamp),
-		Headers:   make([]Header, len(r.Headers)),
+		Headers:   make([]header, len(r.Headers)),
 		Payload:   r.Value[:min(len(r.Value), samplePayloadLimit)],
 	}
 	for i, h := range r.Headers {
-		s.Headers[i] = Header{
+		s.Headers[i] = header{
 			Key:   h.Key,
 			Value: strings.ToValidUTF8(string(h.Value), "�"),
 		}

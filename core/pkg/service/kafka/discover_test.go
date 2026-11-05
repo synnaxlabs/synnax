@@ -10,20 +10,19 @@
 package kafka_test
 
 import (
-	"crypto/tls"
+	"context"
 	"fmt"
-	"net"
+	"strings"
 	"time"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/security/cert"
-	"github.com/synnaxlabs/synnax/pkg/security/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/x/address"
-	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
+	xjson "github.com/synnaxlabs/x/json"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/twmb/franz-go/pkg/kfake"
@@ -31,161 +30,87 @@ import (
 	"github.com/twmb/franz-go/pkg/kmsg"
 )
 
-// stages returns the stage and variant of each step.
-func stages(steps []driver.TestStep) []string {
-	out := make([]string, len(steps))
-	for i, s := range steps {
-		out[i] = s.Stage + ":" + string(s.Variant)
-	}
-	return out
+// browsedTopic is one topic of the data that answers a browse.
+type browsedTopic struct {
+	Name       string          `json:"name"`
+	Partitions int             `json:"partitions"`
+	Records    int64           `json:"records"`
+	Compacted  bool            `json:"compacted"`
+	Rate       float64         `json:"rate"`
+	Newest     telem.TimeStamp `json:"newest"`
+	Format     driver.Format   `json:"format"`
+	Readable   bool            `json:"readable"`
 }
 
-// closedAddress returns a local address that refuses connections.
-func closedAddress() string {
-	GinkgoHelper()
-	l := MustSucceed(net.Listen("tcp", "127.0.0.1:0"))
-	addr := l.Addr().String()
-	Expect(l.Close()).To(Succeed())
-	return addr
-}
-
-// topicNamed returns the topic of topics named name.
-func topicNamed(topics []kafka.Topic, name string) kafka.Topic {
-	GinkgoHelper()
-	for _, t := range topics {
-		if t.Name == name {
-			return t
-		}
-	}
-	Fail("no topic named " + name)
-	return kafka.Topic{}
+// sampledTopic is one topic of the data that answers a sample.
+type sampledTopic struct {
+	Topic   string `json:"topic"`
+	Records []struct {
+		Offset  int64               `json:"offset"`
+		Key     string              `json:"key"`
+		Headers []map[string]string `json:"headers"`
+		Payload []byte              `json:"payload"`
+	} `json:"records"`
+	Shapes []xjson.Shape `json:"shapes"`
+	Error  string        `json:"error"`
 }
 
 var _ = Describe("Discover", func() {
-	Describe("TestConnection", func() {
-		It("Should pass every stage of a reachable cluster", func(ctx SpecContext) {
-			steps := MustSucceed(kafka.TestConnection(ctx, clusterProperties()))
-			Expect(stages(steps)).To(Equal([]string{
-				"dial:success", "metadata:success", "broker:success",
-			}))
-			Expect(steps[0].Address).To(Equal(cluster.ListenAddrs()[0]))
-		})
+	var (
+		dt driver.Task
+		t  task.Task
+	)
 
-		It("Should stop at a broker that does not answer", func(ctx SpecContext) {
-			addr := closedAddress()
-			steps := MustSucceed(kafka.TestConnection(
-				ctx, kafka.Properties{Brokers: []string{addr}},
-			))
-			Expect(stages(steps)).To(Equal([]string{"dial:error"}))
-			Expect(steps[0].Message).To(Equal("Failed to reach broker"))
-			Expect(steps[0].Description).To(HavePrefix("Could not reach " + addr))
-		})
-
-		It(
-			"Should warn about a seed broker that does not answer",
-			func(ctx SpecContext) {
-				steps := MustSucceed(kafka.TestConnection(ctx, kafka.Properties{
-					Brokers: append(
-						[]string{closedAddress()},
-						cluster.ListenAddrs()...,
-					),
-				}))
-				Expect(stages(steps)).To(Equal([]string{
-					"dial:warning", "metadata:success", "broker:success",
-				}))
-			},
-		)
-
-		It("Should fail the TLS stage of a broker without TLS", func(ctx SpecContext) {
-			props := clusterProperties()
-			props.TLS = true
-			steps := MustSucceed(kafka.TestConnection(ctx, props))
-			Expect(stages(steps)).To(Equal([]string{"dial:success", "tls:error"}))
-		})
-
-		It("Should fail the TLS stage of a broker with an untrusted certificate",
-			func(ctx SpecContext) {
-				certs := MustSucceed(cert.NewFactory(cert.FactoryConfig{
-					FS:      xfs.NewMem(),
-					KeySize: testutil.SmallKeySize,
-				}))
-				Expect(certs.CreateCAPair()).To(Succeed())
-				leaf := MustSucceed(certs.SignNodeCert([]address.Address{"127.0.0.1"}))
-				tlsCluster := MustSucceed(kfake.NewCluster(
-					kfake.NumBrokers(1),
-					kfake.TLS(&tls.Config{Certificates: []tls.Certificate{*leaf}}),
-				))
-				DeferCleanup(tlsCluster.Close)
-				steps := MustSucceed(kafka.TestConnection(ctx, kafka.Properties{
-					Brokers: tlsCluster.ListenAddrs(),
-					TLS:     true,
-				}))
-				Expect(stages(steps)).To(Equal([]string{"dial:success", "tls:error"}))
-				Expect(steps[1].Message).To(Equal("Certificate not trusted"))
-			},
-		)
-
-		Describe("SASL", func() {
-			var brokers []string
-			BeforeEach(func() {
-				saslCluster := MustSucceed(kfake.NewCluster(
-					kfake.NumBrokers(1),
-					kfake.EnableSASL(),
-					kfake.Superuser("PLAIN", "user", "pass"),
-				))
-				DeferCleanup(saslCluster.Close)
-				brokers = saslCluster.ListenAddrs()
-			})
-
-			It(
-				"Should pass the SASL stage with the right password",
-				func(ctx SpecContext) {
-					steps := MustSucceed(kafka.TestConnection(ctx, kafka.Properties{
-						Brokers: brokers,
-						Sasl: kafka.SASL{
-							Variant: kafka.PlainSASL{
-								Username: "user",
-								Password: "pass",
-							},
-						},
-					}))
-					Expect(stages(steps)).To(Equal([]string{
-						"dial:success",
-						"sasl:success",
-						"metadata:success",
-						"broker:success",
-					}))
-				},
-			)
-
-			It(
-				"Should fail the SASL stage with a wrong password",
-				func(ctx SpecContext) {
-					steps := MustSucceed(kafka.TestConnection(ctx, kafka.Properties{
-						Brokers: brokers,
-						Sasl: kafka.SASL{
-							Variant: kafka.PlainSASL{
-								Username: "user",
-								Password: "wrong",
-							},
-						},
-					}))
-					Expect(
-						stages(steps),
-					).To(Equal([]string{"dial:success", "sasl:error"}))
-					Expect(steps[1].Message).To(Equal("Authentication failed"))
-					Expect(steps[1].Variant).To(Equal(status.VariantError))
-				},
-			)
-		})
-
-		It("Should reject properties with no brokers", func(ctx SpecContext) {
-			Expect(kafka.TestConnection(ctx, kafka.Properties{})).Error().
-				To(MatchError(ContainSubstring("brokers: must be non-empty")))
-		})
+	BeforeEach(func(ctx SpecContext) {
+		t = newTask(kafka.ScanTaskType, map[string]any{"rate": 20})
+		dt = MustSucceed(newFactory().ConfigureTask(ctx, t, driver.NoCommand))
+		DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
 	})
 
+	// command runs a command of typ with args, decodes the data that answers it into
+	// res, and returns the status that answers it.
+	command := func(ctx context.Context, typ string, args, res any) task.Status {
+		GinkgoHelper()
+		key := uuid.New().String()
+		Expect(dt.Exec(ctx, task.Command{
+			Task: t.Key, Type: typ, Key: key, Args: toJSON(args),
+		})).To(Succeed())
+		var stat task.Status
+		Eventually(func(g Gomega) {
+			stat = taskStatus(ctx, t)
+			g.Expect(stat.Details.Cmd).To(Equal(key))
+		}).WithTimeout(15 * time.Second).Should(Succeed())
+		if stat.Variant == status.VariantSuccess {
+			Expect(stat.Details.Data.Unmarshal(res)).To(Succeed())
+		}
+		return stat
+	}
+
 	Describe("Browse", func() {
+		// browse returns the topics of the cluster of props.
+		browse := func(ctx context.Context, props kafka.Properties) []browsedTopic {
+			GinkgoHelper()
+			var res struct {
+				Topics []browsedTopic `json:"topics"`
+			}
+			dev := createDevice(ctx, props)
+			stat := command(ctx, "browse", map[string]any{"device": dev.Key}, &res)
+			Expect(stat.Variant).To(Equal(status.VariantSuccess))
+			return res.Topics
+		}
+
+		// named returns the topic of topics named name.
+		named := func(topics []browsedTopic, name string) browsedTopic {
+			GinkgoHelper()
+			for _, t := range topics {
+				if t.Name == name {
+					return t
+				}
+			}
+			Fail("no topic named " + name)
+			return browsedTopic{}
+		}
+
 		It("Should describe each topic", func(ctx SpecContext) {
 			jsonTopic, srTopic, emptyTopic := uniqueTopic(), uniqueTopic(), uniqueTopic()
 			Expect(cluster.CreateTopic(jsonTopic, 2, nil)).To(Succeed())
@@ -202,9 +127,9 @@ var _ = Describe("Discover", func() {
 				Topic: srTopic,
 				Value: []byte{0, 0, 0, 0, 7, 2, 4},
 			}).FirstErr()).To(Succeed())
-			topics := MustSucceed(kafka.Browse(ctx, clusterProperties()))
+			topics := browse(ctx, clusterProperties())
 
-			j := topicNamed(topics, jsonTopic)
+			j := named(topics, jsonTopic)
 			Expect(j.Partitions).To(Equal(2))
 			Expect(j.Records).To(Equal(int64(3)))
 			Expect(j.Rate).To(BeNumerically("~", 3.0/60, 1e-9))
@@ -213,9 +138,9 @@ var _ = Describe("Discover", func() {
 			Expect(
 				j.Newest,
 			).To(BeNumerically(">=", before-telem.TimeStamp(telem.Millisecond)))
-			Expect(topicNamed(topics, srTopic).Format).
+			Expect(named(topics, srTopic).Format).
 				To(Equal(driver.FormatSchemaRegistry))
-			empty := topicNamed(topics, emptyTopic)
+			empty := named(topics, emptyTopic)
 			Expect(empty.Records).To(BeZero())
 			Expect(empty.Format).To(BeEmpty())
 			Expect(empty.Compacted).To(BeTrue())
@@ -253,18 +178,45 @@ var _ = Describe("Discover", func() {
 				),
 			))
 			DeferCleanup(aclCluster.Close)
-			topics := MustSucceed(kafka.Browse(ctx, kafka.Properties{
+			topics := browse(ctx, kafka.Properties{
 				Brokers: aclCluster.ListenAddrs(),
 				Sasl: kafka.SASL{
 					Variant: kafka.PlainSASL{Username: "reader", Password: "pass"},
 				},
-			}))
-			Expect(topicNamed(topics, readable).Readable).To(BeTrue())
-			Expect(topicNamed(topics, hidden).Readable).To(BeFalse())
+			})
+			Expect(named(topics, readable).Readable).To(BeTrue())
+			Expect(named(topics, hidden).Readable).To(BeFalse())
+		})
+
+		It("Should report a device that does not exist", func(ctx SpecContext) {
+			stat := command(ctx, "browse", map[string]any{"device": "missing"}, nil)
+			Expect(stat.Variant).To(Equal(status.VariantError))
+			Expect(stat.Message).To(HavePrefix("retrieving device missing: "))
 		})
 	})
 
 	Describe("Sample", func() {
+		// sample samples topics of the suite's cluster and returns the data that
+		// answers it.
+		sample := func(
+			ctx context.Context,
+			topics []string,
+			count int,
+		) ([]sampledTopic, bool) {
+			GinkgoHelper()
+			var res struct {
+				Topics    []sampledTopic `json:"topics"`
+				Truncated bool           `json:"truncated"`
+			}
+			stat := command(ctx, "sample", map[string]any{
+				"device": createDevice(ctx, clusterProperties()).Key,
+				"topics": topics,
+				"count":  count,
+			}, &res)
+			Expect(stat.Variant).To(Equal(status.VariantSuccess))
+			return res.Topics, res.Truncated
+		}
+
 		It("Should infer one shape for each set of keys", func(ctx SpecContext) {
 			topic := uniqueTopic()
 			Expect(cluster.CreateTopic(topic, 1, nil)).To(Succeed())
@@ -297,14 +249,11 @@ var _ = Describe("Discover", func() {
 			Expect(cl.ProduceSync(ctx, &kgo.Record{
 				Topic:   topic,
 				Key:     []byte("tank-1"),
-				Value:   []byte(fmt.Sprintf(`{"ts":%d,"psi":4}`, base+2)),
+				Value:   fmt.Appendf(nil, `{"ts":%d,"psi":4}`, base+2),
 				Headers: []kgo.RecordHeader{{Key: "source", Value: []byte("rig")}},
 			}).FirstErr()).To(Succeed())
-			samples := MustSucceed(
-				kafka.Sample(ctx, clusterProperties(), kafka.SampleRequest{
-					Topics: []string{topic},
-				}),
-			)
+			samples, truncated := sample(ctx, []string{topic}, 0)
+			Expect(truncated).To(BeFalse())
 			Expect(samples).To(HaveLen(1))
 			Expect(samples[0].Error).To(BeEmpty())
 			Expect(samples[0].Records).To(HaveLen(7))
@@ -312,8 +261,10 @@ var _ = Describe("Discover", func() {
 			Expect(last.Offset).To(Equal(int64(6)))
 			Expect(last.Key).To(Equal("tank-1"))
 			Expect(
-				last.Headers,
-			).To(Equal([]kafka.Header{{Key: "source", Value: "rig"}}))
+				last.Payload,
+			).To(Equal(fmt.Appendf(nil, `{"ts":%d,"psi":4}`, base+2)))
+			Expect(last.Headers).
+				To(Equal([]map[string]string{{"key": "source", "value": "rig"}}))
 			shapes := samples[0].Shapes
 			Expect(shapes).To(HaveLen(2))
 			Expect(shapes[0].Sources).To(Equal([]string{"tank-1", "tank-2"}))
@@ -329,12 +280,7 @@ var _ = Describe("Discover", func() {
 				for i := range 50 {
 					produceJSON(ctx, cl, topic, "", map[string]int{"v": i})
 				}
-				samples := MustSucceed(
-					kafka.Sample(ctx, clusterProperties(), kafka.SampleRequest{
-						Topics: []string{topic},
-						Count:  count,
-					}),
-				)
+				samples, _ := sample(ctx, []string{topic}, count)
 				offsets := make([]int64, len(samples[0].Records))
 				for i, r := range samples[0].Records {
 					offsets[i] = r.Offset
@@ -353,13 +299,26 @@ var _ = Describe("Discover", func() {
 				topic := uniqueTopic()
 				Expect(cluster.CreateTopic(topic, 1, nil)).To(Succeed())
 				produceJSON(ctx, newKafkaClient(), topic, "", map[string]int{"v": 1})
-				samples := MustSucceed(kafka.Sample(
-					ctx,
-					clusterProperties(),
-					kafka.SampleRequest{Topics: []string{"missing-" + topic, topic}},
-				))
+				samples, _ := sample(ctx, []string{"missing-" + topic, topic}, 0)
 				Expect(samples[0].Error).To(Equal("The topic does not exist."))
 				Expect(samples[1].Records).To(HaveLen(1))
+			},
+		)
+
+		It("Should infer shapes from records that do not fit in the answer",
+			func(ctx SpecContext) {
+				topic := uniqueTopic()
+				Expect(cluster.CreateTopic(topic, 1, nil)).To(Succeed())
+				cl := newKafkaClient()
+				pad := strings.Repeat("x", 15<<10)
+				for i := range 80 {
+					produceJSON(ctx, cl, topic, "", map[string]any{"v": i, "pad": pad})
+				}
+				samples, truncated := sample(ctx, []string{topic}, 80)
+				Expect(truncated).To(BeTrue())
+				Expect(len(samples[0].Records)).To(BeNumerically("<", 80))
+				Expect(samples[0].Shapes).To(HaveLen(1))
+				Expect(samples[0].Shapes[0].Count).To(Equal(80))
 			},
 		)
 	})

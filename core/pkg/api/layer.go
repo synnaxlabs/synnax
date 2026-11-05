@@ -32,12 +32,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
-	"github.com/synnaxlabs/synnax/pkg/api/kafka"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
 	"github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
-	"github.com/synnaxlabs/synnax/pkg/api/mqtt"
 	"github.com/synnaxlabs/synnax/pkg/api/ontology"
 	"github.com/synnaxlabs/synnax/pkg/api/panel"
 	"github.com/synnaxlabs/synnax/pkg/api/project"
@@ -200,16 +198,6 @@ type Transport struct {
 	DeviceDelete   freighter.UnaryServer[device.DeleteRequest, struct{}]
 	// DeviceRename renames a device.
 	DeviceRename freighter.UnaryServer[device.RenameRequest, struct{}]
-
-	// KAFKA
-	KafkaTest   freighter.UnaryServer[kafka.TestRequest, kafka.TestResponse]
-	KafkaBrowse freighter.UnaryServer[kafka.BrowseRequest, kafka.BrowseResponse]
-	KafkaSample freighter.UnaryServer[kafka.SampleRequest, kafka.SampleResponse]
-
-	// MQTT
-	MQTTTest   freighter.UnaryServer[mqtt.TestRequest, mqtt.TestResponse]
-	MQTTBrowse freighter.UnaryServer[mqtt.BrowseRequest, mqtt.BrowseResponse]
-	MQTTSample freighter.UnaryServer[mqtt.SampleRequest, mqtt.SampleResponse]
 	// ACCESS
 	AccessCreatePolicy   freighter.UnaryServer[access.CreatePolicyRequest, access.CreatePolicyResponse]
 	AccessDeletePolicy   freighter.UnaryServer[access.DeletePolicyRequest, struct{}]
@@ -271,8 +259,6 @@ type Layer struct {
 	Rack         *rack.Service
 	Task         *task.Service
 	Device       *device.Service
-	Kafka        *kafka.Service
-	MQTT         *mqtt.Service
 	Access       *access.Service
 	Arc          *arc.Service
 	Status       *status.Service
@@ -460,16 +446,6 @@ func (l *Layer) BindTo(t Transport) {
 		t.DeviceRetrieve,
 		t.DeviceDelete,
 		t.DeviceRename,
-
-		// KAFKA
-		t.KafkaTest,
-		t.KafkaBrowse,
-		t.KafkaSample,
-
-		// MQTT
-		t.MQTTTest,
-		t.MQTTBrowse,
-		t.MQTTSample,
 
 		// ACCESS
 		t.AccessCreatePolicy,
@@ -684,16 +660,6 @@ func (l *Layer) BindTo(t Transport) {
 	t.DeviceDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Device.Delete))
 	t.DeviceRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Device.Rename))
 
-	// KAFKA
-	t.KafkaTest.BindHandler(l.Kafka.Test)
-	t.KafkaBrowse.BindHandler(l.Kafka.Browse)
-	t.KafkaSample.BindHandler(l.Kafka.Sample)
-
-	// MQTT
-	t.MQTTTest.BindHandler(l.MQTT.Test)
-	t.MQTTBrowse.BindHandler(l.MQTT.Browse)
-	t.MQTTSample.BindHandler(l.MQTT.Sample)
-
 	// ACCESS
 	t.AccessCreatePolicy.BindHandler(
 		fgorp.CreateWriteUnaryHandler(db, l.Access.CreatePolicy),
@@ -904,18 +870,6 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Status:   cfg.Service.Status,
 		RBAC:     cfg.Service.RBAC,
 		Ontology: cfg.Service.Ontology,
-	}); err != nil {
-		return nil, err
-	}
-	if l.Kafka, err = kafka.NewService(kafka.ServiceConfig{
-		Device: cfg.Service.Device,
-		RBAC:   cfg.Service.RBAC,
-	}); err != nil {
-		return nil, err
-	}
-	if l.MQTT, err = mqtt.NewService(mqtt.ServiceConfig{
-		MQTT: cfg.Service.MQTTFactory,
-		RBAC: cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err
 	}

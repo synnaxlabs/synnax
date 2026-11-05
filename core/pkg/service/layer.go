@@ -226,9 +226,6 @@ type Layer struct {
 	PagerDuty *pdruntime.Service
 	// MQTT owns the stored configuration records of the MQTT task types.
 	MQTT *mqtt.Service
-	// MQTTFactory runs the MQTT tasks and reads brokers for the MQTT routes, on the
-	// connections that the tasks share.
-	MQTTFactory *mqtt.Factory
 	// Framer is for reading, writing, and streaming frames of telemetry from channels
 	// across the cluster.
 	Framer *framer.Service
@@ -828,7 +825,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if !ok(err, mqttFactory) {
 		return nil, err
 	}
-	l.MQTTFactory = mqttFactory
 	if l.Driver, err = driver.Open(ctx, driver.Config{
 		Instrumentation: cfg.Child("driver"),
 		DB:              cfg.Distribution.DB,
