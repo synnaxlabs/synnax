@@ -125,6 +125,8 @@ func createIndexedOn(
 		Leaseholder: leaseholder,
 	}
 	Expect(w.Create(ctx, &idx)).To(Succeed())
+	// The host checks that the index of a data channel exists.
+	gossiped(ctx, idx.Key())
 	data := make([]channel.Channel, len(dataTypes))
 	for i, dt := range dataTypes {
 		data[i] = channel.Channel{
@@ -135,8 +137,14 @@ func createIndexedOn(
 		}
 		Expect(w.Create(ctx, &data[i])).To(Succeed())
 	}
-	// A peer's channels reach the host by gossip.
-	keys := append(channel.Keys{idx.Key()}, channel.KeysFromChannels(data)...)
+	gossiped(ctx, channel.KeysFromChannels(data)...)
+	return idx, data
+}
+
+// gossiped waits until the host holds the channels with keys. A peer's channels reach
+// the host by gossip.
+func gossiped(ctx context.Context, keys ...channel.Key) {
+	GinkgoHelper()
 	Eventually(func(g Gomega) {
 		var found []channel.Channel
 		g.Expect(channelSvc.NewRetrieve().
@@ -145,7 +153,6 @@ func createIndexedOn(
 			Exec(ctx, nil)).To(Succeed())
 		g.Expect(found).To(HaveLen(len(keys)))
 	}).Should(Succeed())
-	return idx, data
 }
 
 func createVirtual(ctx context.Context, dt telem.DataType) channel.Channel {
