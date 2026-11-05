@@ -9,7 +9,7 @@
 
 import { type ReactElement, type ReactNode, useState } from "react";
 import { assert, describe, expect, it } from "vitest";
-import { page, userEvent } from "vitest/browser";
+import { type Locator, page, userEvent } from "vitest/browser";
 
 import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
@@ -59,6 +59,17 @@ const onTop = (el: Element): boolean => {
   return hit != null && el.contains(hit);
 };
 
+/** @returns the element the locator finds, which must be an HTML element. */
+const html = (locator: Locator): HTMLElement => {
+  const el = locator.element();
+  assert(el instanceof HTMLElement);
+  return el;
+};
+
+const button = (name: string): HTMLElement => html(page.getByRole("button", { name }));
+
+const field = (name: string): HTMLElement => html(page.getByLabelText(name));
+
 /** Opens a modal from the keyboard, so the trigger holds the focus in every engine. */
 const openModal = async (
   content: ReactNode,
@@ -73,7 +84,7 @@ const openModal = async (
       </Dialog.Frame>
     </Triggers.Provider>,
   );
-  const trigger = page.getByRole("button", { name: "Open" }).element() as HTMLElement;
+  const trigger = button("Open");
   trigger.focus();
   await userEvent.keyboard("{Enter}");
   await expect.element(page.getByRole("dialog")).toBeVisible();
@@ -86,9 +97,6 @@ const FIELDS = (
     <input aria-label="Last" />
   </>
 );
-
-const field = (name: string): HTMLElement =>
-  page.getByLabelText(name).element() as HTMLElement;
 
 /** Opens one modal from another, as a palette command opens a modal. */
 const Chain = (): ReactElement => {
@@ -203,25 +211,41 @@ describe("Dialog", () => {
         expect(document.activeElement).toBe(field("Last"));
       });
 
-      it("should stop on buttons and skip disabled controls", async () => {
+      it("should stop on buttons and skip disabled and hidden controls", async () => {
         await openModal(
           <>
             <input aria-label="First" />
             <button disabled>Off</button>
+            <input aria-label="Hidden" hidden />
             <button>Save</button>
           </>,
         );
         field("First").focus();
         await userEvent.tab();
-        expect(document.activeElement).toBe(
-          page.getByRole("button", { name: "Save" }).element(),
+        expect(document.activeElement).toBe(button("Save"));
+      });
+
+      it("should leave a Tab that a field handles to that field", async () => {
+        await openModal(
+          <>
+            <input
+              aria-label="Code"
+              onKeyDown={(e) => {
+                if (e.key === "Tab") e.preventDefault();
+              }}
+            />
+            <input aria-label="Other" />
+          </>,
         );
+        field("Code").focus();
+        await userEvent.tab();
+        expect(document.activeElement).toBe(field("Code"));
       });
 
       it("should bring back focus that the page behind takes", async () => {
         await openModal(FIELDS, <button>Behind</button>);
         field("Last").focus();
-        (page.getByRole("button", { name: "Behind" }).element() as HTMLElement).focus();
+        button("Behind").focus();
         expect(document.activeElement).toBe(field("Last"));
       });
 
@@ -262,8 +286,8 @@ describe("Dialog", () => {
             </Dialog.Dialog>
           </Dialog.Frame>,
         );
-        const inner = page.getByRole("button", { name: "Inner" }).element();
-        (inner as HTMLElement).focus();
+        const inner = button("Inner");
+        inner.focus();
         await userEvent.keyboard("{Enter}");
         await userEvent.tab();
         expect(document.activeElement).toBe(field("Inner field"));
@@ -278,8 +302,8 @@ describe("Dialog", () => {
 
       it("should give the focus to the first opener when a modal opens the next", async () => {
         await renderThemed(<Chain />);
-        const start = page.getByRole("button", { name: "Start" }).element();
-        (start as HTMLElement).focus();
+        const start = button("Start");
+        start.focus();
         await userEvent.keyboard("{Enter}");
         await userEvent.tab();
         await userEvent.keyboard("{Enter}");

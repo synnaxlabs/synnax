@@ -54,6 +54,8 @@ export const useFocusTrap = (
     openerRef.current = e.relatedTarget;
   };
 
+  // A layout effect gives the focus back before a modal opened in the same commit
+  // takes it.
   useLayoutEffect(() => {
     const surface = surfaceRef.current;
     if (!enabled || surface == null) return;
