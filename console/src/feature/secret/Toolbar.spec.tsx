@@ -155,6 +155,26 @@ describe("secret/Toolbar", () => {
     expect(await retrieveByName(s.name)).toHaveLength(1);
   });
 
+  it("keeps a rename that another user makes while the replacement is open", async () => {
+    const s = await createSecret();
+    await renderToolbar();
+    await openContextMenu(s.name);
+    await clickAndSettle("Replace value");
+    const renamed = uniqueName("renamed");
+    await createTestClient().secrets.rename(s.key, renamed);
+    // The list and the dialog title both show the new name.
+    await waitFor(() => expect(screen.getAllByText(renamed)).toHaveLength(2));
+    fireEvent.change(await screen.findByPlaceholderText("New value"), {
+      target: { value: "hunter3" },
+    });
+    fireEvent.click(findButton("Replace"));
+    await waitFor(async () => {
+      const replaced = await client.secrets.retrieve(s.key);
+      expect(replaced.updated.after(s.updated)).toBe(true);
+      expect(replaced.name).toBe(renamed);
+    });
+  });
+
   it("offers no replacement to a user who cannot create secrets", async () => {
     const s = await createSecret();
     const editor = await createTestClientWithGrants(client, {
