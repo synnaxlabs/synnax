@@ -81,8 +81,7 @@ can carry it. Secrets have no exporter. The Console shows `updated` as "Set on <
 | `secret/retrieve`     | Can retrieve secrets | Returns records without values             |
 | `secret/rename`       | Can update secrets   | Renames a secret                           |
 | `secret/delete`       | Can delete secrets   | Refuses while anything uses the secret     |
-| `secret/grant/create` | Can create devices   | Stores a grant for a rack (§3.3)           |
-| `secret/grant/delete` | Can create devices   | Deletes grants                             |
+| `secret/grant/create` | Can create devices   | Stores a one-time grant (§3.3)             |
 | `secret/resolve`      | A rack only          | Returns stored values; refuses file values |
 
 Owner and Engineer get every action on `secret` and `certificate`. Operator and Viewer
@@ -142,16 +141,19 @@ process, as the Core's rack. A rack reads a secret when:
 2. The request carries a grant for that rack that names it.
 
 A grant covers commands that run before a device is saved: a connect dialog's test and
-browse. The Console calls `secret/grant/create` with a rack and secrets, and the Core
-checks that the caller can create devices. For a certificate, the Console sends the
-secret in its `private_key`. The Core stores the grant with the rack, the secrets, and
-the caller's session, and returns its key. The Console sends the key with the command
-and deletes the grant when the command ends. A grant also ends with its session. Like
-the sessions of RFC 0073 §4.4, a grant is stored and revocable, with no clock and no
-signing key. Only that rack can use it, so its key can travel on `sy_task_cmd`. Without
-grants, an Operator, who can write any command
-(`core/pkg/service/access/rbac/builtin/builtin.go:171-179`), could send a saved password
-to a server of their choice.
+browse. A test reads secrets only with a grant, even for a saved device. The Console
+calls `secret/grant/create` with a subject and secrets, and the Core checks that the
+caller can create devices. Only a rack can be a subject for now. For a certificate, the
+Console sends the secret in its `private_key`. The Core stores the grant with the
+subject, the secrets, and an expiry one minute away, and returns its key. The Console
+sends the key with the command.
+
+The first resolve that carries the key deletes the grant, and reads only the secrets
+that the grant names. A grant that no resolve uses ends at its expiry. The key travels
+on `sy_task_cmd`, where an Operator can read and write any command
+(`core/pkg/service/access/rbac/builtin/builtin.go:171-179`). The Console's command
+spends the grant first, so a copied key reads nothing. Without grants, an Operator could
+send a saved password to a server of their choice.
 
 A user who can edit a device can still point it at their own server, as in Grafana and
 Ignition. Write-only keeps secrets from people who can only view, and out of statuses,
@@ -288,10 +290,13 @@ the Driver change, so they are separate phases.
 7. **A rack reads only what its rack uses**: This is narrower than the Driver role's
    device access (`core/pkg/service/access/rbac/builtin/builtin.go:117-135`), so a
    stolen test-stand computer reads only its own secrets.
-8. **Grants, not save then test**: Grafana saves before it tests. Synnax keeps the test
-   before save (RFC 0079 §4.2). A grant is stored, not signed, so a person can revoke it
-   and no clock ends it, as RFC 0073 decided for sessions. The trade is real: a stored
-   write for each test, and grants to clean up when a session ends.
+8. **One-time grants, not save then test**: Grafana saves before it tests. Synnax keeps
+   the test before save (RFC 0079 §4.2). A grant works once, as an AWS KMS grant retires
+   when its work is done, so a copied key reads nothing. It names a subject, not a
+   session or a connection, so other subjects can use grants later. Unlike the sessions
+   of RFC 0073 §4.4, a grant has a clock, because no person ends a grant that no test
+   uses. The trade is real: a stored write for each test, and an Operator can see a key
+   for up to a minute.
 9. **Uploaded private keys**: This replaces RFC 0089 principle 1 and decision 2, whose
    reason, commands that leak to every Viewer, is gone. Grafana, HighByte, and
    Ignition's MQTT modules take uploads. The trade is real: a key lives in the Core too,
