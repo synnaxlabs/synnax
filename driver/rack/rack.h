@@ -126,13 +126,13 @@ struct Config {
     /// @brief the directory that holds the persisted state file. Integrations keep
     /// their own files, such as certificates, inside it.
     std::filesystem::path state_dir;
-    /// @brief the version of the Core when it runs another minor than this Driver.
-    /// The Driver then starts no tasks. Set by load_remote.
+    /// @brief the version of the Core when it runs another minor than this Driver. The
+    /// Driver then starts no tasks. Set by load_remote.
     std::optional<std::string> incompatible_core_version;
 
-    /// @brief returns a new task factory to use for creating tasks in the task
-    /// manager. With an incompatible Core, the factory runs only the rack status, which
-    /// reports the mismatch, and refuses every other task.
+    /// @brief returns a new task factory to use for creating tasks in the task manager.
+    /// With an incompatible Core, the factory runs only the rack status, which reports
+    /// the mismatch, and refuses every other task.
     [[nodiscard]] std::unique_ptr<task::Factory>
     new_factory(const std::shared_ptr<x::thread::rt::Manager> &rt_manager) const;
 

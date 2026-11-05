@@ -315,8 +315,8 @@ TEST(stateTests, ResendsTaskStatusesAfterALateHeartbeat) {
     EXPECT_EQ(transport->task_writes.load(), 2);
 }
 
-/// @brief it should report the variant, message, and description of its health in
-/// each heartbeat.
+/// @brief it should report the variant, message, and description of its health in each
+/// heartbeat.
 TEST(stateTests, ReportsHealth) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     const synnax::rack::Rack rack{.key = 1, .name = "test_rack"};

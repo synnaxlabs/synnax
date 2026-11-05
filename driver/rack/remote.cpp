@@ -24,8 +24,8 @@ namespace {
 const std::string RACK_SUBJECT_TYPE = "rack";
 const std::string API_KEY_NAME = "synnax-driver";
 
-/// check_core returns the state of a connectivity check and the cluster key it reports,
-/// or an error when the check does not reach the Core.
+/// @brief returns the state of a connectivity check and the cluster key it reports, or
+/// an error when the check does not reach the Core.
 std::tuple<synnax::connection::State, x::uuid::UUID, x::errors::Error>
 check_core(const synnax::Synnax &client) {
     auto state = client.connectivity->check();
