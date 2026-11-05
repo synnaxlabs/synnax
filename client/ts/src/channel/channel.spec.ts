@@ -328,6 +328,23 @@ describe("Channel", () => {
     });
   });
 
+  describe("setGroupRequest", () => {
+    it("should move channels into a group and back out", async () => {
+      const ch = await client.channels.create({
+        name: id.create(),
+        dataType: "float32",
+        virtual: true,
+      });
+      const g = await client.groups.create({ name: id.create(), scope: "channel" });
+      await client.batch.send([client.channels.setGroupRequest(ch.key, g.key)]);
+      expect((await client.channels.retrieve(ch.key)).group).toEqual(g.key);
+      expect(
+        (await client.channels.retrieve({ groups: [g.key] })).map((c) => c.key),
+      ).toEqual([ch.key]);
+      await client.batch.send([client.channels.setGroupRequest(ch.key, null)]);
+      expect(await client.channels.retrieve({ groups: [g.key] })).toEqual([]);
+    });
+  });
   describe("update calculations", () => {
     test("update virtual channel expression", async () => {
       const channel = await client.channels.create({

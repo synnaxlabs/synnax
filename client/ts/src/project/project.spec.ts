@@ -112,7 +112,7 @@ describe("Project", () => {
         name: "Propulsion",
       });
       const l = await client.logs.create(proj.key, { name: "Pressure" });
-      await client.logs.setGroup(l.key, g.key);
+      await client.batch.send([client.logs.setGroupRequest(l.key, g.key)]);
       const archive = await download(proj.key);
       expect(archive).toContain("Propulsion/Pressure.json");
     });
@@ -165,7 +165,7 @@ describe("Project", () => {
         name: "Propulsion",
       });
       const l = await client.logs.create(src.key, { name: "Pressure" });
-      await client.logs.setGroup(l.key, g.key);
+      await client.batch.send([client.logs.setGroupRequest(l.key, g.key)]);
       const stream = await client.projects.export(src.key, { encoding: "JSON" });
       const bundle = new Uint8Array(await new Response(stream).arrayBuffer());
       const imported = await client.projects.import(bundle, {

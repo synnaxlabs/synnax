@@ -64,14 +64,6 @@ const createReqZ = z.object({
 const createResZ = z.object({ tables: tableZ.array() });
 
 const emptyResZ = z.object({});
-const setGroupReqZ = group.moveReqZ(keyZ);
-
-/**
- * Builds a request that moves the tables into the group, or out of their group when it
- * is null or undefined.
- */
-export const setGroupRequest = (keys: Key | Key[], to?: group.Key | null) =>
-  group.moveRequest("/table/set-group", keys, to);
 
 /** Client-side matching for a request: key and group sets. */
 const requestFilter = (req: RetrieveRequest): ((t: Table) => boolean) => {
@@ -89,6 +81,8 @@ export interface ClientConfig {
 export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Table> {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Table>;
+  /** Builds requests that move tables between groups. */
+  readonly setGroupRequest: group.SetGroupRequest<Key>;
   private readonly dispatcher: actions.Controller<Key, Table, Action>;
 
   constructor(cfg: ClientConfig) {
@@ -124,6 +118,9 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ta
     });
     this.cfg = cfg;
     this.store = store;
+    this.setGroupRequest = group.createSetGroupRequest("/table/set-group", (keys, to) =>
+      group.moveCached(store, keys, to),
+    );
     this.dispatcher = dispatcher;
   }
 
@@ -260,26 +257,6 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ta
         ),
     });
     drop();
-  }
-
-  /**
-   * Moves the tables into the group, or out of their group when it is null or
-   * undefined.
-   */
-  async setGroup(
-    keys: Key | Key[],
-    to?: group.Key | null,
-    opts: query.WriteOptions = {},
-  ): Promise<void> {
-    const { endpoint, payload } = setGroupRequest(keys, to);
-    const move = () => group.moveCached(this.store, payload.keys, payload.group);
-    await query.optimistic({
-      rollbacks: [move()],
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.cfg.unary.send(endpoint, payload, setGroupReqZ, emptyResZ),
-    });
-    move();
   }
 
   /** Subscribes to every table delete delivered to the cache. */

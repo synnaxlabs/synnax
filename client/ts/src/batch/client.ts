@@ -8,16 +8,24 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
+import { type destructor } from "@synnaxlabs/x";
 import { z } from "zod";
+
+import { query } from "@/query";
 
 /**
  * One request in a batch: the endpoint it targets, such as `/group/create`, and the
- * payload that endpoint takes on its own. Build them with the domain builders, such as
- * `group.createRequest` and `channel.setGroupRequest`.
+ * payload that endpoint takes on its own. Build them with the domain clients, such as
+ * `client.groups.createRequest` and `client.channels.setGroupRequest`.
  */
 export interface Request<P = unknown> {
   endpoint: string;
   payload: P;
+  /**
+   * Writes the change the request makes to the client cache, before the Core answers.
+   * Returns a rollback.
+   */
+  apply?: () => destructor.Destructor;
 }
 
 const sendReqZ = z.object({
@@ -30,6 +38,9 @@ const sendResZ = z.object({
     .default(() => []),
 });
 
+const applyAll = (requests: Request[]): destructor.Destructor[] =>
+  requests.flatMap(({ apply }) => (apply == null ? [] : [apply()]));
+
 /** Runs several write requests against the Core as one transaction. */
 export class Client {
   private readonly unary: UnaryClient;
@@ -40,13 +51,20 @@ export class Client {
 
   /**
    * Runs the requests in order in one transaction. The first failure fails the whole
-   * batch, and nothing commits. Cached records update from the Core's change stream.
+   * batch, and nothing commits. The cache writes of the requests apply before the
+   * batch runs and roll back when it fails.
    * @returns one response per request, in order.
    * @throws {ValidationError} if a request targets an endpoint the batch does not
    * accept, or if a request is invalid.
    */
-  async send(requests: Request[]): Promise<unknown[]> {
-    const res = await this.unary.send("/batch", { requests }, sendReqZ, sendResZ);
+  async send(requests: Request[], opts: query.WriteOptions = {}): Promise<unknown[]> {
+    const wire = requests.map(({ endpoint, payload }) => ({ endpoint, payload }));
+    const res = await query.optimistic({
+      rollbacks: applyAll(requests),
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
+        await this.unary.send("/batch", { requests: wire }, sendReqZ, sendResZ),
+    });
     return res.responses;
   }
 }

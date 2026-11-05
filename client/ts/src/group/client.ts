@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, primitive, zod } from "@synnaxlabs/x";
+import { array, primitive, zod } from "@synnaxlabs/x";
 import z from "zod";
 
 import { type batch } from "@/batch";
@@ -80,48 +80,6 @@ const requestFilter = (req: z.output<typeof retrieveReqZ>): ((g: Group) => boole
   };
 };
 
-/**
- * Builds a request that creates a group. The Core derives the scope from the parent;
- * a group with no parent needs a scope.
- */
-export const createRequest = (
-  params: CreateParams,
-): batch.Request<z.infer<typeof createReqZ>> => ({
-  endpoint: "/group/create",
-  payload: zod.parse(createReqZ, params, { label: "group create request" }),
-});
-
-/** Builds a request that renames a group. */
-export const renameRequest = (
-  key: Key,
-  name: string,
-): batch.Request<z.infer<typeof renameReqZ>> => ({
-  endpoint: "/group/rename",
-  payload: { key, name },
-});
-
-/**
- * Builds a request that deletes groups. The Core refuses to delete a non-empty group.
- */
-export const deleteRequest = (
-  keys: Key | Key[],
-): batch.Request<z.infer<typeof deleteReqZ>> => ({
-  endpoint: "/group/delete",
-  payload: { keys: array.toArray(keys) },
-});
-
-/**
- * Builds a request that moves groups under the parent, or to the top level when the
- * parent is null or undefined.
- */
-export const setParentRequest = (
-  keys: Key | Key[],
-  parent?: resource.ID | null,
-): batch.Request<z.infer<typeof setParentReqZ>> => ({
-  endpoint: "/group/set-parent",
-  payload: { keys: array.toArray(keys), parent: parent ?? undefined },
-});
-
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
@@ -157,32 +115,80 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Gr
   }
 
   /**
+   * Builds a request that creates a group. The Core derives the scope from the parent;
+   * a group with no parent needs a scope.
+   */
+  createRequest(params: CreateParams): batch.Request<z.infer<typeof createReqZ>> {
+    return {
+      endpoint: "/group/create",
+      payload: zod.parse(createReqZ, params, { label: "group create request" }),
+    };
+  }
+
+  /** Builds a request that renames a group. Its cache write renames the cached group. */
+  renameRequest(key: Key, name: string): batch.Request<z.infer<typeof renameReqZ>> {
+    return {
+      endpoint: "/group/rename",
+      payload: { key, name },
+      apply: () => query.partialUpdate(this.store, key, { name }),
+    };
+  }
+
+  /**
+   * Builds a request that deletes groups. The Core refuses to delete a non-empty group.
+   * Its cache write drops the cached groups.
+   */
+  deleteRequest(keys: Key | Key[]): batch.Request<z.infer<typeof deleteReqZ>> {
+    const payload = { keys: array.toArray(keys) };
+    return {
+      endpoint: "/group/delete",
+      payload,
+      apply: () => this.store.delete(payload.keys),
+    };
+  }
+
+  /**
+   * Builds a request that moves groups under the parent, or to the top level when the
+   * parent is null or undefined. Its cache write moves the cached groups.
+   */
+  setParentRequest(
+    keys: Key | Key[],
+    parent?: resource.ID | null,
+  ): batch.Request<z.infer<typeof setParentReqZ>> {
+    const payload = { keys: array.toArray(keys), parent: parent ?? undefined };
+    return {
+      endpoint: "/group/set-parent",
+      payload,
+      apply: () => {
+        const prev = payload.keys.map(
+          (key) => [key, this.store.get(key)?.parent] as const,
+        );
+        payload.keys.forEach((key) =>
+          query.partialUpdate(this.store, key, { parent: payload.parent }),
+        );
+        return () =>
+          prev.forEach(([key, p]) =>
+            query.partialUpdate(this.store, key, { parent: p }),
+          );
+      },
+    };
+  }
+
+  /**
    * Creates a group. Give a parent to nest it under a group, project, or rack, or a
    * scope to create a top-level group.
    * @throws {ValidationError} if neither a parent nor a scope is given, or if the scope
    * does not match the parent.
    */
   async create(params: CreateParams): Promise<Group> {
-    const { endpoint, payload } = createRequest(params);
+    const { endpoint, payload } = this.createRequest(params);
     const res = await this.cfg.unary.send(endpoint, payload, createReqZ, createResZ);
     this.store.set(res.group);
     return res.group;
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const rename = () => query.partialUpdate(this.store, key, { name });
-    await query.optimistic({
-      rollbacks: [rename()],
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.cfg.unary.send(
-          "/group/rename",
-          { key, name },
-          renameReqZ,
-          emptyResZ,
-        ),
-    });
-    rename();
+    await this.send(this.renameRequest(key, name), renameReqZ, opts);
   }
 
   /**
@@ -191,15 +197,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Gr
    * delete.
    */
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
-    const { endpoint, payload } = deleteRequest(keys);
-    const drop = () => this.store.delete(array.toArray(keys));
-    await query.optimistic({
-      rollbacks: [drop()],
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.cfg.unary.send(endpoint, payload, deleteReqZ, emptyResZ),
-    });
-    drop();
+    await this.send(this.deleteRequest(keys), deleteReqZ, opts);
   }
 
   /**
@@ -213,24 +211,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Gr
     parent?: resource.ID | null,
     opts: query.WriteOptions = {},
   ): Promise<void> {
-    const { endpoint, payload } = setParentRequest(keys, parent);
-    const move = (): destructor.Destructor => {
-      const prev = payload.keys.map(
-        (key) => [key, this.store.get(key)?.parent] as const,
-      );
-      payload.keys.forEach((key) =>
-        query.partialUpdate(this.store, key, { parent: payload.parent }),
-      );
-      return () =>
-        prev.forEach(([key, p]) => query.partialUpdate(this.store, key, { parent: p }));
-    };
-    await query.optimistic({
-      rollbacks: [move()],
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.cfg.unary.send(endpoint, payload, setParentReqZ, emptyResZ),
-    });
-    move();
+    await this.send(this.setParentRequest(keys, parent), setParentReqZ, opts);
   }
 
   /**
@@ -245,6 +226,20 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Gr
     });
     this.store.ingest([...res.groups, ...res.ancestors], { since });
     return res.ancestors;
+  }
+
+  private async send<P>(
+    request: batch.Request<P>,
+    reqZ: z.ZodType<P>,
+    opts: query.WriteOptions,
+  ): Promise<void> {
+    const { endpoint, payload, apply } = request;
+    await query.optimistic({
+      rollbacks: apply == null ? [] : [apply()],
+      onOptimistic: opts.onOptimistic,
+      commit: async () => await this.cfg.unary.send(endpoint, payload, reqZ, emptyResZ),
+    });
+    apply?.();
   }
 
   private async execRetrieve(

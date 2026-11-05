@@ -7,21 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type batch,
-  channel,
-  device,
-  group,
-  lineplot,
-  log,
-  panel,
-  project,
-  rack,
-  resource,
-  schematic,
-  type Synnax,
-  table,
-} from "@synnaxlabs/client";
+import { type batch, type group, resource, type Synnax } from "@synnaxlabs/client";
 
 import { type Tree } from "@/platform/tree";
 
@@ -42,18 +28,21 @@ export interface Member {
 /** The member types each scope holds. */
 export type Members = Record<Scope, Member[]>;
 
-type SetGroup = (keys: string[], to?: group.Key) => batch.Request;
-
-const SET_GROUP: Partial<Record<resource.Type, SetGroup>> = {
-  channel: (keys, to) => channel.setGroupRequest(keys.map(Number), to),
-  device: (keys, to) => device.setGroupRequest(keys, to),
-  rack: (keys, to) => rack.setGroupRequest(keys.map(Number), to),
-  project: (keys, to) => project.setGroupRequest(keys, to),
-  schematic: (keys, to) => schematic.setGroupRequest(keys, to),
-  lineplot: (keys, to) => lineplot.setGroupRequest(keys, to),
-  log: (keys, to) => log.setGroupRequest(keys, to),
-  table: (keys, to) => table.setGroupRequest(keys, to),
-  panel: (keys, to) => panel.setGroupRequest(keys, to),
+const SET_GROUP: Partial<
+  Record<
+    resource.Type,
+    (client: Synnax, keys: string[], to?: group.Key) => batch.Request
+  >
+> = {
+  channel: (client, keys, to) => client.channels.setGroupRequest(keys.map(Number), to),
+  device: (client, keys, to) => client.devices.setGroupRequest(keys, to),
+  rack: (client, keys, to) => client.racks.setGroupRequest(keys.map(Number), to),
+  project: (client, keys, to) => client.projects.setGroupRequest(keys, to),
+  schematic: (client, keys, to) => client.schematics.setGroupRequest(keys, to),
+  lineplot: (client, keys, to) => client.lineplots.setGroupRequest(keys, to),
+  log: (client, keys, to) => client.logs.setGroupRequest(keys, to),
+  table: (client, keys, to) => client.tables.setGroupRequest(keys, to),
+  panel: (client, keys, to) => client.panels.setGroupRequest(keys, to),
 };
 
 /**
@@ -64,6 +53,7 @@ const SET_GROUP: Partial<Record<resource.Type, SetGroup>> = {
  * @throws if a resource is of a type that cannot sit in a group.
  */
 export const moveRequests = (
+  client: Synnax,
   ids: resource.ID[],
   parent?: resource.ID,
 ): batch.Request[] => {
@@ -71,10 +61,10 @@ export const moveRequests = (
   ids.forEach(({ type, key }) => byType.set(type, [...(byType.get(type) ?? []), key]));
   const to = parent?.type === "group" ? parent.key : undefined;
   return [...byType].map(([type, keys]) => {
-    if (type === "group") return group.setParentRequest(keys, parent);
+    if (type === "group") return client.groups.setParentRequest(keys, parent);
     const setGroup = SET_GROUP[type];
     if (setGroup == null) throw new Error(`a ${type} cannot sit in a group`);
-    return setGroup(keys, to);
+    return setGroup(client, keys, to);
   });
 };
 

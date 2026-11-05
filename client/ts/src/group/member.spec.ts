@@ -76,18 +76,30 @@ describe("memberFilterZ", () => {
   });
 });
 
-describe("moveRequest", () => {
+describe("createSetGroupRequest", () => {
+  const setGroupRequest = (table: query.Table<string, Doc>) =>
+    group.createSetGroupRequest<string>("/doc/set-group", (keys, to) =>
+      group.moveCached(table, keys, to),
+    );
+
   it("should wrap a single key in a list", () => {
-    expect(group.moveRequest("/channel/set-group", 1, G1)).toEqual({
-      endpoint: "/channel/set-group",
-      payload: { keys: [1], group: G1 },
-    });
+    const req = setGroupRequest(createTable())("a", G1);
+    expect(req.endpoint).toEqual("/doc/set-group");
+    expect(req.payload).toEqual({ keys: ["a"], group: G1 });
   });
 
   it("should leave the group out when it is null", () => {
-    const req = group.moveRequest("/device/set-group", ["a", "b"], null);
+    const req = setGroupRequest(createTable())(["a", "b"], null);
     expect(req.payload).toEqual({ keys: ["a", "b"], group: undefined });
     expect(group.moveReqZ(z.string()).parse(req.payload)).toEqual({ keys: ["a", "b"] });
+  });
+
+  it("should move the cached records when its cache write applies", () => {
+    const table = createTable({ key: "a", name: "A", group: G1 });
+    const rollback = setGroupRequest(table)("a", G2).apply?.();
+    expect(table.get("a")?.group).toEqual(G2);
+    rollback?.();
+    expect(table.get("a")?.group).toEqual(G1);
   });
 });
 

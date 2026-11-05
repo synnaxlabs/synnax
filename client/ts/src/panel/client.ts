@@ -52,14 +52,6 @@ const deleteReqZ = z.object({ keys: keyZ.array() });
 const retrieveResZ = z.object({ panels: panelZ.array().default(() => []) });
 const createResZ = z.object({ panels: panelZ.array() });
 const emptyResZ = z.object({});
-const setGroupReqZ = group.moveReqZ(keyZ);
-
-/**
- * Builds a request that moves the panels into the group, or out of their group when it
- * is null or undefined.
- */
-export const setGroupRequest = (keys: Key | Key[], to?: group.Key | null) =>
-  group.moveRequest("/panel/set-group", keys, to);
 
 const isChildOf = (rel: ontology.Relationship, parent: resource.ID): boolean =>
   ontology.matchRelationship(rel, {
@@ -87,6 +79,8 @@ export interface ClientConfig {
 export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Panel> {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Panel>;
+  /** Builds requests that move panels between groups. */
+  readonly setGroupRequest: group.SetGroupRequest<Key>;
   private readonly dispatcher: actions.Controller<Key, Panel, Action>;
 
   constructor(cfg: ClientConfig) {
@@ -139,6 +133,9 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
     });
     this.cfg = cfg;
     this.store = store;
+    this.setGroupRequest = group.createSetGroupRequest("/panel/set-group", (keys, to) =>
+      group.moveCached(store, keys, to),
+    );
     this.dispatcher = dispatcher;
   }
 
@@ -288,26 +285,6 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
         ),
     });
     drop();
-  }
-
-  /**
-   * Moves the panels into the group, or out of their group when it is null or
-   * undefined.
-   */
-  async setGroup(
-    keys: Key | Key[],
-    to?: group.Key | null,
-    opts: query.WriteOptions = {},
-  ): Promise<void> {
-    const { endpoint, payload } = setGroupRequest(keys, to);
-    const move = () => group.moveCached(this.store, payload.keys, payload.group);
-    await query.optimistic({
-      rollbacks: [move()],
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.cfg.unary.send(endpoint, payload, setGroupReqZ, emptyResZ),
-    });
-    move();
   }
 
   /** Subscribes to every panel delete delivered to the cache. */

@@ -82,14 +82,6 @@ const createResZ = z.object({ racks: payloadZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const emptyResZ = z.object({});
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
-const setGroupReqZ = group.moveReqZ(keyZ);
-
-/**
- * Builds a request that moves the racks into the group, or out of their group when it
- * is null or undefined.
- */
-export const setGroupRequest = (keys: Key | Key[], to?: group.Key | null) =>
-  group.moveRequest("/rack/set-group", keys, to);
 
 /** Query fields only the server can evaluate. */
 const SERVER_FIELDS = ["searchTerm", "limit", "offset", "hostIsNode"] as const;
@@ -150,6 +142,8 @@ export class Client extends query.Retriever<
 > {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Omit<Payload, "status">>;
+  /** Builds requests that move racks between groups. */
+  readonly setGroupRequest: group.SetGroupRequest<Key>;
 
   constructor(cfg: ClientConfig) {
     const { cache, statuses } = cfg;
@@ -206,6 +200,9 @@ export class Client extends query.Retriever<
     });
     this.cfg = cfg;
     this.store = store;
+    this.setGroupRequest = group.createSetGroupRequest("/rack/set-group", (keys, to) =>
+      group.moveCached(store, keys, to),
+    );
   }
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
@@ -240,25 +237,6 @@ export class Client extends query.Retriever<
         await this.cfg.unary.send("/rack/rename", { key, name }, renameReqZ, emptyResZ),
     });
     rename();
-  }
-
-  /**
-   * Moves the racks into the group, or out of their group when it is null or undefined.
-   */
-  async setGroup(
-    keys: Key | Key[],
-    to?: group.Key | null,
-    opts: query.WriteOptions = {},
-  ): Promise<void> {
-    const { endpoint, payload } = setGroupRequest(keys, to);
-    const move = () => group.moveCached(this.store, payload.keys, payload.group);
-    await query.optimistic({
-      rollbacks: [move()],
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.cfg.unary.send(endpoint, payload, setGroupReqZ, emptyResZ),
-    });
-    move();
   }
 
   async create(rack: New): Promise<Rack>;

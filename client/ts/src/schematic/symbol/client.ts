@@ -32,7 +32,6 @@ export const DELETE_CHANNEL_NAME = "sy_schematic_symbol_delete";
 const createReqZ = z.object({ symbols: symbolZ.array() });
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
-const setGroupReqZ = group.moveReqZ(keyZ);
 
 const retrieveRequestZ = group.memberFilterZ.extend({
   keys: keyZ.array().optional(),
@@ -70,13 +69,6 @@ export interface CreateMultipleParams {
 const SERVER_FIELDS = ["searchTerm"] as const;
 
 /**
- * Builds a request that moves the symbols into the group, or out of their group when it
- * is null or undefined.
- */
-export const setGroupRequest = (keys: Key | Key[], to?: group.Key | null) =>
-  group.moveRequest("/schematic/symbol/set-group", keys, to);
-
-/**
  * Client-side matching for a request: key and group sets. Server-computed shapes
  * (search) never reach this filter; they refetch instead.
  */
@@ -96,6 +88,8 @@ export interface ClientConfig {
 export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Symbol> {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Symbol>;
+  /** Builds requests that move symbols between groups. */
+  readonly setGroupRequest: group.SetGroupRequest<Key>;
 
   constructor(cfg: ClientConfig) {
     const { cache } = cfg;
@@ -119,6 +113,10 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
     });
     this.cfg = cfg;
     this.store = store;
+    this.setGroupRequest = group.createSetGroupRequest(
+      "/schematic/symbol/set-group",
+      (keys, to) => group.moveCached(store, keys, to),
+    );
   }
 
   async create(options: CreateParams): Promise<Symbol>;
@@ -169,26 +167,6 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
         ),
     });
     drop();
-  }
-
-  /**
-   * Moves the symbols into the group, or out of their group when it is null or
-   * undefined.
-   */
-  async setGroup(
-    keys: Key | Key[],
-    to?: group.Key | null,
-    opts: query.WriteOptions = {},
-  ): Promise<void> {
-    const { endpoint, payload } = setGroupRequest(keys, to);
-    const move = () => group.moveCached(this.store, payload.keys, payload.group);
-    await query.optimistic({
-      rollbacks: [move()],
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.cfg.unary.send(endpoint, payload, setGroupReqZ, emptyResZ),
-    });
-    move();
   }
 
   /**

@@ -57,14 +57,6 @@ const createReqZ = z.object({
 const createResZ = z.object({ logs: logZ.array() });
 
 const emptyResZ = z.object({});
-const setGroupReqZ = group.moveReqZ(keyZ);
-
-/**
- * Builds a request that moves the logs into the group, or out of their group when it is
- * null or undefined.
- */
-export const setGroupRequest = (keys: Key | Key[], to?: group.Key | null) =>
-  group.moveRequest("/log/set-group", keys, to);
 
 /** Client-side matching for a request: key and group sets. */
 const requestFilter = (req: RetrieveRequest): ((l: Log) => boolean) => {
@@ -82,6 +74,8 @@ export interface ClientConfig {
 export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Log> {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Log>;
+  /** Builds requests that move logs between groups. */
+  readonly setGroupRequest: group.SetGroupRequest<Key>;
   private readonly dispatcher: actions.Controller<Key, Log, Action>;
 
   constructor(cfg: ClientConfig) {
@@ -116,6 +110,9 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Lo
     });
     this.cfg = cfg;
     this.store = store;
+    this.setGroupRequest = group.createSetGroupRequest("/log/set-group", (keys, to) =>
+      group.moveCached(store, keys, to),
+    );
     this.dispatcher = dispatcher;
   }
 
@@ -252,25 +249,6 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Lo
         ),
     });
     drop();
-  }
-
-  /**
-   * Moves the logs into the group, or out of their group when it is null or undefined.
-   */
-  async setGroup(
-    keys: Key | Key[],
-    to?: group.Key | null,
-    opts: query.WriteOptions = {},
-  ): Promise<void> {
-    const { endpoint, payload } = setGroupRequest(keys, to);
-    const move = () => group.moveCached(this.store, payload.keys, payload.group);
-    await query.optimistic({
-      rollbacks: [move()],
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.cfg.unary.send(endpoint, payload, setGroupReqZ, emptyResZ),
-    });
-    move();
   }
 
   /** Subscribes to every log delete delivered to the cache. */

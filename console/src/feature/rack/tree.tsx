@@ -189,6 +189,7 @@ const TreeItem = Tree.createItem({
   drop: async ({ client, destination, items }) => {
     await client.batch.send(
       Group.moveRequests(
+        client,
         items.map(({ id }) => id),
         destination.id,
       ),

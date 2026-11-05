@@ -231,6 +231,7 @@ const children: Tree.Children = ({ client, id }) => {
 const drop: Tree.Drop = async ({ client, destination, items }) => {
   await client.batch.send(
     Group.moveRequests(
+      client,
       items.map(({ id }) => id),
       destination.id,
     ),

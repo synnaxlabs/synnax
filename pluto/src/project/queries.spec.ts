@@ -400,7 +400,7 @@ describe("queries", () => {
         parent: project.resourceID(proj.key),
         name: "My Group",
       });
-      await client.schematics.setGroup(s2.key, g.key);
+      await client.batch.send([client.schematics.setGroupRequest(s2.key, g.key)]);
 
       const children = await Project.retrieveChildren(client, {
         resourceID: schematic.resourceID(s1.key),
@@ -427,7 +427,9 @@ describe("queries", () => {
         parent: group.resourceID(outerGroup.key),
         name: "Inner Group",
       });
-      await client.schematics.setGroup(s2.key, innerGroup.key);
+      await client.batch.send([
+        client.schematics.setGroupRequest(s2.key, innerGroup.key),
+      ]);
 
       const children = await Project.retrieveChildren(client, {
         resourceID: schematic.resourceID(s1.key),
@@ -513,20 +515,20 @@ describe("queries", () => {
           parent: project.resourceID(proj.key),
           name: "Group 1",
         });
-        await client.schematics.setGroup(sB.key, g1.key);
+        await client.batch.send([client.schematics.setGroupRequest(sB.key, g1.key)]);
 
         const g2 = await client.groups.create({
           parent: group.resourceID(g1.key),
           name: "Group 2",
         });
-        await client.schematics.setGroup(sC.key, g2.key);
-        await client.schematics.setGroup(sD.key, g2.key);
+        await client.batch.send([client.schematics.setGroupRequest(sC.key, g2.key)]);
+        await client.batch.send([client.schematics.setGroupRequest(sD.key, g2.key)]);
 
         const gE = await client.groups.create({
           parent: group.resourceID(g2.key),
           name: "Group E",
         });
-        await client.schematics.setGroup(sE.key, gE.key);
+        await client.batch.send([client.schematics.setGroupRequest(sE.key, gE.key)]);
 
         const mproj = await client.projects.create({
           name: "Mirrored TestSpace",
@@ -551,20 +553,20 @@ describe("queries", () => {
           parent: project.resourceID(mproj.key),
           name: "Group 1 Mirrored",
         });
-        await client.schematics.setGroup(sBm.key, mg1.key);
+        await client.batch.send([client.schematics.setGroupRequest(sBm.key, mg1.key)]);
 
         const mg2 = await client.groups.create({
           parent: group.resourceID(mg1.key),
           name: "Group 2 Mirrored",
         });
-        await client.schematics.setGroup(sCm.key, mg2.key);
-        await client.schematics.setGroup(sDm.key, mg2.key);
+        await client.batch.send([client.schematics.setGroupRequest(sCm.key, mg2.key)]);
+        await client.batch.send([client.schematics.setGroupRequest(sDm.key, mg2.key)]);
 
         const mgE = await client.groups.create({
           parent: group.resourceID(mg2.key),
           name: "Group E Mirrored",
         });
-        await client.schematics.setGroup(sEm.key, mgE.key);
+        await client.batch.send([client.schematics.setGroupRequest(sEm.key, mgE.key)]);
       });
 
       const expectSiblingsFromSource = async (

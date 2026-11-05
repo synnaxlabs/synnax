@@ -32,8 +32,8 @@ const base = Flux.createUpdate<CreateParams>({
       group: { name, key },
     } = data;
     await client.batch.send([
-      group.createRequest({ key, name, ...placement(parentID, rootID) }),
-      ...moveRequests(getResourcesToGroup(ids, shape), group.resourceID(key)),
+      client.groups.createRequest({ key, name, ...placement(parentID, rootID) }),
+      ...moveRequests(client, getResourcesToGroup(ids, shape), group.resourceID(key)),
     ]);
     return data;
   },

@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { id, uuid } from "@synnaxlabs/x";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { channel } from "@/channel";
 import { group } from "@/group";
 import { NotFoundError } from "@/index";
+import { type resource } from "@/resource";
 import { createTestClient } from "@/testutil";
 
 const client = createTestClient();
@@ -21,6 +21,34 @@ const createTopLevel = async (): Promise<group.Group> =>
   await client.groups.create({ name: `group-${id.create()}`, scope: "channel" });
 
 describe("Group", () => {
+  describe("request builders", () => {
+    const RACK: resource.ID = { type: "rack", key: "1" };
+    const KEY = "00000000-0000-4000-8000-000000000001";
+    it("should build a create request", () => {
+      expect(client.groups.createRequest({ name: "Pumps", parent: RACK })).toEqual({
+        endpoint: "/group/create",
+        payload: { name: "Pumps", parent: RACK },
+      });
+    });
+    it("should build a rename request", () => {
+      expect(client.groups.renameRequest(KEY, "Valves")).toMatchObject({
+        endpoint: "/group/rename",
+        payload: { key: KEY, name: "Valves" },
+      });
+    });
+    it("should build a delete request from a single key", () => {
+      expect(client.groups.deleteRequest(KEY)).toMatchObject({
+        endpoint: "/group/delete",
+        payload: { keys: [KEY] },
+      });
+    });
+    it("should build a set-parent request that moves groups to the top level", () => {
+      expect(client.groups.setParentRequest([KEY], null)).toMatchObject({
+        endpoint: "/group/set-parent",
+        payload: { keys: [KEY], parent: undefined },
+      });
+    });
+  });
   describe("create", () => {
     it("should create a top-level group in a scope", async () => {
       const name = `group-${id.create()}`;
@@ -75,6 +103,21 @@ describe("Group", () => {
       const ancestors = await client.groups.retrieveAncestors(leaf.key);
       expect(ancestors.map((g) => g.key).sort()).toEqual([top.key, mid.key].sort());
     });
+    it("should keep a parent query live as a matching group lands", async () => {
+      const parent = await createTopLevel();
+      const params = { parents: [group.resourceID(parent.key)] };
+      const handler = vi.fn();
+      const stop = client.groups.onChange(params, handler);
+      expect(await client.groups.retrieve(params)).toEqual([]);
+      const child = await client.groups.create({
+        name: "child",
+        parent: group.resourceID(parent.key),
+      });
+      await expect
+        .poll(() => client.groups.getCached(params))
+        .toEqual([expect.objectContaining({ key: child.key })]);
+      stop();
+    });
   });
   describe("rename", () => {
     it("should correctly rename a group", async () => {
@@ -96,7 +139,7 @@ describe("Group", () => {
       await client.groups.setParent(g.key, null);
       expect(await client.groups.retrieve({ parents: [parentID] })).toEqual([]);
     });
-    it("should reject a move that makes a cycle", async () => {
+    it("should reject a move that makes a cycle and restore the cached parent", async () => {
       const parent = await createTopLevel();
       const child = await client.groups.create({
         name: "child",
@@ -105,6 +148,9 @@ describe("Group", () => {
       await expect(
         client.groups.setParent(parent.key, group.resourceID(child.key)),
       ).rejects.toThrow("would form a cycle");
+      expect(client.groups.getCached(parent.key)).toEqual(
+        expect.objectContaining({ parent: undefined }),
+      );
     });
   });
   describe("delete", () => {
@@ -135,8 +181,8 @@ describe("Group", () => {
       });
       const key = uuid.create();
       await client.batch.send([
-        group.createRequest({ key, name: "Batched", scope: "channel" }),
-        channel.setGroupRequest(ch.key, key),
+        client.groups.createRequest({ key, name: "Batched", scope: "channel" }),
+        client.channels.setGroupRequest(ch.key, key),
       ]);
       expect(
         (await client.channels.retrieve({ groups: [key] })).map((c) => c.key),
@@ -146,11 +192,41 @@ describe("Group", () => {
       const key = uuid.create();
       await expect(
         client.batch.send([
-          group.createRequest({ key, name: "Rolled back", scope: "channel" }),
-          group.setParentRequest(key, group.resourceID(key)),
+          client.groups.createRequest({ key, name: "Rolled back", scope: "channel" }),
+          client.groups.setParentRequest(key, group.resourceID(key)),
         ]),
       ).rejects.toThrow("would form a cycle");
       await expect(client.groups.retrieve({ key })).rejects.toThrow(NotFoundError);
+    });
+    it("should move cached records before the Core answers", async () => {
+      const g = await createTopLevel();
+      const ch = await client.channels.create({
+        name: `batch_${id.create()}`,
+        dataType: "float32",
+        virtual: true,
+      });
+      const sent = client.batch.send([client.channels.setGroupRequest(ch.key, g.key)]);
+      expect(client.channels.getCached(ch.key)).toEqual(
+        expect.objectContaining({ group: g.key }),
+      );
+      await sent;
+    });
+    it("should roll back the cache writes when the batch fails", async () => {
+      const g = await createTopLevel();
+      const ch = await client.channels.create({
+        name: `batch_${id.create()}`,
+        dataType: "float32",
+        virtual: true,
+      });
+      await expect(
+        client.batch.send([
+          client.channels.setGroupRequest(ch.key, g.key),
+          client.groups.setParentRequest(g.key, group.resourceID(g.key)),
+        ]),
+      ).rejects.toThrow("would form a cycle");
+      expect(client.channels.getCached(ch.key)).toEqual(
+        expect.objectContaining({ group: undefined }),
+      );
     });
   });
 });

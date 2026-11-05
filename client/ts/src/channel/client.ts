@@ -233,16 +233,6 @@ export type RetrieveOptions = Omit<RetrieveRequest, "keys" | "names" | "search">
 
 const retrieveResZ = z.object({ channels: payloadZ.array().default(() => []) });
 
-const setGroupReqZ = group.moveReqZ(keyZ);
-const emptyResZ = z.object({});
-
-/**
- * Builds a request that moves the channels into the group, or out of their group when
- * it is null or undefined.
- */
-export const setGroupRequest = (keys: Key | Key[], to?: group.Key | null) =>
-  group.moveRequest("/channel/set-group", keys, to);
-
 /** Names one channel. Give a `rangeKey` to resolve its alias in that range. */
 export type RetrieveSingleParams = { key: Key; rangeKey?: ranger.Key };
 
@@ -391,6 +381,8 @@ export class Client extends query.Retriever<
   private readonly cfg: ClientConfig;
   readonly writer: Writer;
   readonly store: query.Table<Key, Channel>;
+  /** Builds requests that move channels between groups. */
+  readonly setGroupRequest: group.SetGroupRequest<Key>;
   private readonly byName: query.LookupIndex<Key, Channel>;
 
   constructor(cfg: ClientConfig) {
@@ -471,6 +463,13 @@ export class Client extends query.Retriever<
     this.cfg = cfg;
     this.writer = writer;
     this.store = store;
+    this.setGroupRequest = group.createSetGroupRequest(
+      "/channel/set-group",
+      (keys, to) => {
+        const rollbacks = keys.map((key) => this.moveThrough(key, to));
+        return () => rollbacks.forEach((rollback) => rollback());
+      },
+    );
     this.byName = byName;
   }
 
@@ -677,26 +676,6 @@ export class Client extends query.Retriever<
       commit: async () => await this.writer.rename(keysArr, namesArr),
     });
     rename();
-  }
-
-  /**
-   * Moves the channels into the group, or out of their group when it is null or
-   * undefined.
-   */
-  async setGroup(
-    keys: Key | Key[],
-    to?: group.Key | null,
-    opts: query.WriteOptions = {},
-  ): Promise<void> {
-    const { endpoint, payload } = setGroupRequest(keys, to);
-    const move = () => payload.keys.map((key) => this.moveThrough(key, payload.group));
-    await query.optimistic({
-      rollbacks: move(),
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.cfg.unary.send(endpoint, payload, setGroupReqZ, emptyResZ),
-    });
-    move();
   }
 
   /**

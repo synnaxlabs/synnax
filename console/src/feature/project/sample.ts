@@ -234,8 +234,8 @@ export const create = async (client: Synnax, programs: Programs): Promise<void> 
         await client.ontology.removeChildren(parent, id);
   }
   await client.batch.send([
-    schematic.setGroupRequest(KEYS.schematic),
-    lineplot.setGroupRequest(KEYS.linePlot),
+    client.schematics.setGroupRequest(KEYS.schematic),
+    client.lineplots.setGroupRequest(KEYS.linePlot),
   ]);
   await client.arcs.create([
     {

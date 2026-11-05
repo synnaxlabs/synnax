@@ -44,7 +44,6 @@ const createReqZ = z.object({ projects: projectZ.array() });
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const exportReqZ = z.object({ key: keyZ, encoding: imex.encodingZ });
-const setGroupReqZ = group.moveReqZ(keyZ);
 
 const importParamsZ = z.object({ fileName: z.string().min(1) });
 
@@ -61,13 +60,6 @@ export interface ImportOptions {
    */
   fileName: string;
 }
-
-/**
- * Builds a request that moves the projects into the group, or out of their group when
- * it is null or undefined.
- */
-export const setGroupRequest = (keys: Key | Key[], to?: group.Key | null) =>
-  group.moveRequest("/project/set-group", keys, to);
 
 /**
  * Client-side matching for a request: key and group sets. Server-computed shapes
@@ -89,6 +81,8 @@ export interface ClientConfig {
 export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Project> {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Project>;
+  /** Builds requests that move projects between groups. */
+  readonly setGroupRequest: group.SetGroupRequest<Key>;
 
   constructor(cfg: ClientConfig) {
     const { cache } = cfg;
@@ -111,6 +105,10 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pr
     });
     this.cfg = cfg;
     this.store = store;
+    this.setGroupRequest = group.createSetGroupRequest(
+      "/project/set-group",
+      (keys, to) => group.moveCached(store, keys, to),
+    );
   }
 
   async create(project: New, opts?: query.WriteOptions<Project[]>): Promise<Project>;
@@ -178,26 +176,6 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pr
         ),
     });
     drop();
-  }
-
-  /**
-   * Moves the projects into the group, or out of their group when it is null or
-   * undefined.
-   */
-  async setGroup(
-    keys: Key | Key[],
-    to?: group.Key | null,
-    opts: query.WriteOptions = {},
-  ): Promise<void> {
-    const { endpoint, payload } = setGroupRequest(keys, to);
-    const move = () => group.moveCached(this.store, payload.keys, payload.group);
-    await query.optimistic({
-      rollbacks: [move()],
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.cfg.unary.send(endpoint, payload, setGroupReqZ, emptyResZ),
-    });
-    move();
   }
 
   /**

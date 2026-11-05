@@ -52,14 +52,6 @@ const createResZ = <
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const emptyResZ = z.object({});
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
-const setGroupReqZ = group.moveReqZ(keyZ);
-
-/**
- * Builds a request that moves the devices into the group, or out of their group when it
- * is null or undefined. The group must sit under each device's rack.
- */
-export const setGroupRequest = (keys: Key | Key[], to?: group.Key | null) =>
-  group.moveRequest("/device/set-group", keys, to);
 
 const retrieveRequestZ = group.memberFilterZ.extend({
   keys: keyZ.array().optional(),
@@ -190,6 +182,11 @@ export class Client extends query.Retriever<
 > {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Omit<Device, "status">>;
+  /**
+   * Builds requests that move devices between groups. The group must sit under each
+   * device's rack.
+   */
+  readonly setGroupRequest: group.SetGroupRequest<Key>;
 
   constructor(cfg: ClientConfig) {
     const { cache, statuses } = cfg;
@@ -249,6 +246,10 @@ export class Client extends query.Retriever<
     });
     this.cfg = cfg;
     this.store = store;
+    this.setGroupRequest = group.createSetGroupRequest(
+      "/device/set-group",
+      (keys, to) => group.moveCached(store, keys, to),
+    );
   }
 
   async retrieve<
@@ -390,27 +391,6 @@ export class Client extends query.Retriever<
         ),
     });
     rename();
-  }
-
-  /**
-   * Moves the devices into the group, or out of their group when it is null or
-   * undefined.
-   * @throws {ValidationError} if the group does not sit under a device's rack.
-   */
-  async setGroup(
-    keys: Key | Key[],
-    to?: group.Key | null,
-    opts: query.WriteOptions = {},
-  ): Promise<void> {
-    const { endpoint, payload } = setGroupRequest(keys, to);
-    const move = () => group.moveCached(this.store, payload.keys, payload.group);
-    await query.optimistic({
-      rollbacks: [move()],
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.cfg.unary.send(endpoint, payload, setGroupReqZ, emptyResZ),
-    });
-    move();
   }
 
   /** Subscribes to every device set delivered to the cache. Statuses excluded. */

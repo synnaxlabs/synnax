@@ -286,7 +286,9 @@ describe("Sample project", () => {
       parent: project.resourceID(sample.project),
       name: "Folder",
     });
-    await client.schematics.setGroup(sample.schematic, folder.key);
+    await client.batch.send([
+      client.schematics.setGroupRequest(sample.schematic, folder.key),
+    ]);
     await open();
     fireEvent.click(await screen.findByRole("button", { name: "Reset" }));
     await waitFor(async () =>
