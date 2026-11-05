@@ -9,7 +9,8 @@
 
 # Starts the classifier, the review gate, and auto-merge and adds path labels for pull
 # requests the other relays cannot reach: a fork or Dependabot gets a token that cannot
-# dispatch or write. It skips a pull request that has not changed for an hour. It runs
+# dispatch or write. It skips a pull request that has not changed for an hour, unless
+# it is a fork without review/human, because a fork's reports can arrive late. It runs
 # from the default branch and reads pull requests only through the API.
 
 name: Relay - Sweep
@@ -43,9 +44,11 @@ jobs:
         run: |
           since=$(date -u -d '1 hour ago' +%FT%TZ)
           prs=$(gh pr list --state open --limit 5000 \
-            --json number,isCrossRepository,author,updatedAt \
+            --json number,isCrossRepository,author,updatedAt,labels \
             --jq ".[] | select(.isCrossRepository
-              or .author.login == \"app/dependabot\") | select(.updatedAt > \"$since\")
+                or .author.login == \"app/dependabot\")
+              | select(.updatedAt > \"$since\" or (.isCrossRepository
+                and ([.labels[].name] | index(\"review/human\") | not)))
               | .number")
           {
             echo 'prs<<EOF'
