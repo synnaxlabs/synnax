@@ -23,9 +23,13 @@ type Key = versions.Key
 type FlexAlignment = versions.FlexAlignment
 
 const (
-	FlexAlignmentStart   FlexAlignment = versions.FlexAlignmentStart
-	FlexAlignmentCenter  FlexAlignment = versions.FlexAlignmentCenter
-	FlexAlignmentEnd     FlexAlignment = versions.FlexAlignmentEnd
+	// FlexAlignmentStart aligns content to the start.
+	FlexAlignmentStart FlexAlignment = versions.FlexAlignmentStart
+	// FlexAlignmentCenter aligns content to the center.
+	FlexAlignmentCenter FlexAlignment = versions.FlexAlignmentCenter
+	// FlexAlignmentEnd aligns content to the end.
+	FlexAlignmentEnd FlexAlignment = versions.FlexAlignmentEnd
+	// FlexAlignmentStretch stretches content to fill the available space.
 	FlexAlignmentStretch FlexAlignment = versions.FlexAlignmentStretch
 )
 

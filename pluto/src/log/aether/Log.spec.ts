@@ -416,6 +416,15 @@ describe("log/aether/Log", () => {
       source.notify();
       expect(recorder.loopCalls.length).toBeGreaterThan(before);
     });
+
+    // A paused log whose entries all fit clamps its wheel position on every update.
+    it("should request a render to erase a paused log when it hides", () => {
+      const { h, recorder } = setup([makeEntry(0)]);
+      h.setState((s) => ({ ...s, scrolling: true }));
+      recorder.clear();
+      h.setState((s) => ({ ...s, visible: false }));
+      expect(recorder.loopCalls).toHaveLength(1);
+    });
   });
 
   describe("scrollback with continued scrolling", () => {
