@@ -40,7 +40,7 @@ fi
 
 echo "$STATE: $DESCRIPTION"
 RUN_URL="$GITHUB_SERVER_URL/$REPO/actions/runs/$GITHUB_RUN_ID"
-gh api "repos/${REPO}/statuses/${SHA}" \
+"$(dirname "$0")/gh_api.sh" "repos/${REPO}/statuses/${SHA}" \
     -f state="$STATE" \
     -f context="Review gate" \
     -f description="$DESCRIPTION" \

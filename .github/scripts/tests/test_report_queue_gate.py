@@ -31,6 +31,7 @@ class Harness:
             "GITHUB_REPOSITORY": "synnaxlabs/synnax",
             "GITHUB_SERVER_URL": "https://github.com",
             "GITHUB_RUN_ID": "7",
+            "GH_API_RETRY_DELAY": "0",
         }
         self.gh.serve("api */statuses/*")
         self.gh.serve(
@@ -53,7 +54,10 @@ class Harness:
     def score(self, score: int) -> None:
         """Serves the description revision that gives the head a Greptile score."""
         link = "https://github.com/synnaxlabs/synnax/commit/head)"
-        diff = f"<!-- greptile_confidence_score:{score} -->\n{link}"
+        diff = (
+            f"<!-- greptile_comment -->\n<!-- greptile_confidence_score:{score} -->\n"
+            f"{link}\n<!-- /greptile_comment -->"
+        )
         edit = {"editor": {"__typename": "Bot", "login": "greptile-apps"}, "diff": diff}
         pull = {"userContentEdits": {"nodes": [edit]}}
         self.gh.serve("api graphql", {"data": {"repository": {"pullRequest": pull}}})
@@ -97,13 +101,20 @@ class TestReport:
     def test_fails_a_low_score(self, harness: Harness) -> None:
         harness.score(4)
         assert harness.run().returncode == 0
-        assert "state=failure" in harness.statuses()[0]
+        post = harness.statuses()[0]
+        assert "state=failure" in post
+        assert "description=Greptile scored the head 4/5, not 5/5" in post
 
     def test_judges_a_pull_request_with_a_slash_in_its_base(
         self, harness: Harness
     ) -> None:
         assert harness.run(f"gh-readonly-queue/a/b/pr-42-{BASE}").returncode == 0
         assert "state=success" in harness.statuses()[0]
+
+    def test_retries_an_empty_response_to_the_post(self, harness: Harness) -> None:
+        harness.gh.fail("api */statuses/*", "unexpected end of JSON input")
+        assert harness.run().returncode == 0
+        assert len(harness.statuses()) == 2
 
 
 class TestFailure:
