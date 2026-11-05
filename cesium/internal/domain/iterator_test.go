@@ -109,6 +109,52 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					Expect(i.Close()).To(Succeed())
 				})
 
+				It("Should visit a domain that crosses the end of its domain", func(
+					ctx SpecContext,
+				) {
+					var (
+						tail     = (25 * telem.SecondTS).Range(30 * telem.SecondTS)
+						crossing = (25 * telem.SecondTS).Range(35 * telem.SecondTS)
+					)
+					i := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
+					Expect(i.SeekGE(ctx, first.Start)).To(BeTrue())
+					Expect(db.Delete(
+						ctx,
+						tail,
+						fixedOffsetAndTimeStamp(1, tail.Start),
+						fixedOffsetAndTimeStamp(2, tail.End),
+					)).To(Succeed())
+					Expect(
+						testutil.WriteDomain(ctx, db, crossing, []byte{4}),
+					).To(Succeed())
+					Expect(i.Next()).To(BeTrue())
+					Expect(i.TimeRange()).To(Equal(crossing))
+					Expect(i.Next()).To(BeTrue())
+					Expect(i.TimeRange()).To(Equal(second))
+					Expect(i.Close()).To(Succeed())
+				})
+
+				It("Should not visit its domain again after the domain grows", func(
+					ctx SpecContext,
+				) {
+					var (
+						start = 60 * telem.SecondTS
+						w     = MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
+							Start:            start,
+							EnableAutoCommit: new(false),
+						}))
+						i = db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
+					)
+					MustSucceed(w.Write([]byte{5}))
+					Expect(w.Commit(ctx, start+telem.SecondTS)).To(Succeed())
+					Expect(i.SeekGE(ctx, start)).To(BeTrue())
+					MustSucceed(w.Write([]byte{6}))
+					Expect(w.Commit(ctx, start+2*telem.SecondTS)).To(Succeed())
+					Expect(i.Next()).To(BeFalse())
+					Expect(i.Close()).To(Succeed())
+					Expect(w.Close()).To(Succeed())
+				})
+
 				It("Should find a domain while earlier domains are inserted", func(
 					ctx SpecContext,
 				) {
