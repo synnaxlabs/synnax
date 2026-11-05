@@ -9,7 +9,6 @@
 
 #include <algorithm>
 #include <charconv>
-#include <tuple>
 
 #include "absl/log/log.h"
 
@@ -24,15 +23,13 @@ namespace {
 const std::string RACK_SUBJECT_TYPE = "rack";
 const std::string API_KEY_NAME = "synnax-driver";
 
-/// @brief returns the state of a connectivity check and the cluster key it reports, or
-/// an error when the check does not reach the Core.
-std::tuple<synnax::connection::State, x::uuid::UUID, x::errors::Error>
-check_core(const synnax::Synnax &client) {
-    auto state = client.connectivity->check();
+/// @brief returns the cluster key that a connectivity check reports, or the error of a
+/// check that did not reach the Core.
+std::pair<x::uuid::UUID, x::errors::Error>
+parse_cluster_key(const synnax::connection::State &state) {
     if (state.status != synnax::connection::Status::CONNECTED)
-        return {state, x::uuid::UUID(), state.error};
-    auto [cluster_key, err] = x::uuid::UUID::parse(state.cluster_key);
-    return {state, cluster_key, err};
+        return {x::uuid::UUID(), state.error};
+    return x::uuid::UUID::parse(state.cluster_key);
 }
 
 std::pair<synnax::rack::Rack, x::errors::Error>
@@ -45,7 +42,7 @@ create_rack(const synnax::Synnax &client) {
 x::errors::Error Config::enroll() {
     const auto client = synnax::Synnax(this->connection);
     if (const auto err = client.auth->authenticate()) return err;
-    const auto [core, cluster_key, key_err] = check_core(client);
+    const auto [cluster_key, key_err] = parse_cluster_key(client.connectivity->check());
     if (key_err) return key_err;
     std::pair<synnax::rack::Rack, x::errors::Error> res;
     bool created = false;
@@ -95,7 +92,8 @@ x::errors::Error Config::enroll() {
 x::errors::Error Config::load_remote() {
     const auto client = synnax::Synnax(this->connection);
     if (const auto err = client.auth->authenticate()) return err;
-    const auto [core, cluster_key, key_err] = check_core(client);
+    const auto core = client.connectivity->check();
+    const auto [cluster_key, key_err] = parse_cluster_key(core);
     if (key_err) return key_err;
     const auto subject = client.auth->current_session().subject;
     synnax::rack::Key rack_key = this->remote_info.rack_key;
