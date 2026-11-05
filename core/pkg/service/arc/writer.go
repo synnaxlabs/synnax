@@ -246,9 +246,8 @@ func (w Writer) updateTask(
 
 // writeTask creates or overwrites the arc's task with the given key on rackKey with
 // cfg, stamping the arc's key into it. A nil key creates a task. cfg.Hash is the arc's
-// semantic hash, so the task's config hash
-// tracks the arc's content and the task drift mechanism reports arc content drift with
-// no extra machinery.
+// semantic hash, so the task's config hash tracks the arc's content and the task drift
+// mechanism reports arc content drift with no extra machinery.
 func (w Writer) writeTask(
 	ctx context.Context,
 	a Arc,
