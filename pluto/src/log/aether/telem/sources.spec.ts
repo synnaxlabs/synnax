@@ -916,7 +916,6 @@ describe("StreamMultiChannelLog", () => {
       expect(valuesOf(entriesOf(log), a).at(-1)).toBe(textOf(core, a, 1)[0]);
     });
 
-<<<<<<< HEAD
     it("should know the oldest stored time", async () => {
       const core = deep();
       const [a] = core.data.map((c) => c.key);
@@ -1095,8 +1094,8 @@ describe("StreamMultiChannelLog", () => {
       log.value();
       await expect.poll(() => core.streams(core.virtual!.key), POLL).toBe(true);
       expect(log.timeRange).toBeNull();
-||||||| d7a5240203
-=======
+    });
+
     it("should stay live when it resumes during an older read", async () => {
       const core = deep();
       const [a] = core.data.map((c) => c.key);
@@ -1120,7 +1119,6 @@ describe("StreamMultiChannelLog", () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
       expect(log.live).toBe(true);
       expect(log.value().status.variant).toBe("success");
->>>>>>> 396a37c4cad80804e26c8f344275de4e6de2a013
     });
 
     it("should move past a span whose times never arrive", async () => {
