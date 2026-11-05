@@ -75,9 +75,6 @@ func (b *Builder) New(
 	kvCfg.RecoveryTransportClient = b.RecoveryNet.StreamClient()
 	kve, err := kv.Open(ctx, kvCfg)
 	if err != nil {
-		if kve != nil {
-			err = errors.Combine(err, kve.Close())
-		}
 		return nil, err
 	}
 	b.KVs[c.Host().Key] = kve

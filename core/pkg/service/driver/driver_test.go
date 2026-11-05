@@ -2145,8 +2145,7 @@ var _ = Describe("Driver", func() {
 			})
 
 			It("should log only the task that really failed", func(ctx SpecContext) {
-				rackKey := embeddedRackKey(ctx)
-				canceled, failing := newTask(rackKey), newTask(rackKey)
+				canceledKey, failingKey := uuid.New(), uuid.New()
 				logs := openLogged(ctx, &mockFactory{
 					name: "test",
 					configureFunc: func(
@@ -2154,16 +2153,18 @@ var _ = Describe("Driver", func() {
 						t task.Task,
 					) (driver.Task, error) {
 						switch t.Key {
-						case canceled.Key:
+						case canceledKey:
 							return nil, context.Canceled
-						case failing.Key:
+						case failingKey:
 							return nil, errors.New("configure failed")
 						}
 						return &mockTask{key: t.Key}, nil
 					},
 				})
-				for _, t := range []*task.Task{&canceled, &failing} {
-					Expect(taskWriter.Create(ctx, t)).To(Succeed())
+				for _, key := range []task.Key{canceledKey, failingKey} {
+					t := newTask(embeddedRackKey(ctx))
+					t.Key = key
+					Expect(taskWriter.Create(ctx, &t)).To(Succeed())
 					writeCommand(
 						ctx,
 						task.Command{Task: t.Key, Type: "start", Key: "cmd"},
