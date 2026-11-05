@@ -11,17 +11,26 @@ package task_test
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"time"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/text"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -126,6 +135,79 @@ var _ = Describe("Stopper", func() {
 			Expect(svc.Task.NewWriter(nil).Create(ctx, &t)).To(Succeed())
 			return t
 		}
+		createChannel := func(ctx SpecContext, ch channel.Channel) channel.Channel {
+			GinkgoHelper()
+			ch.Name = "stop_" + strings.ReplaceAll(uuid.New().String(), "-", "_")
+			ch.Leaseholder = 1
+			Expect(svc.Channel.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+			return ch
+		}
+		retrieveRunning := func(ctx SpecContext, t task.Task) (bool, error) {
+			var stat task.Status
+			err := svc.Status.NewRetrieve[task.StatusDetails]().
+				Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+				Entry(&stat).
+				Exec(ctx, nil)
+			return stat.Details.Running, err
+		}
+		// startArc starts an Arc task on the runtime in the Core.
+		startArc := func(ctx SpecContext) task.Task {
+			GinkgoHelper()
+			index := createChannel(
+				ctx, channel.Channel{DataType: telem.TimestampT, IsIndex: true},
+			)
+			data := createChannel(ctx, channel.Channel{
+				DataType:   telem.Uint8T,
+				LocalIndex: index.LocalKey,
+			})
+			a := arc.Arc{
+				Name: "stopper-" + uuid.New().String(),
+				Mode: arc.ModeText,
+				Text: text.Text{
+					Raw: fmt.Sprintf("interval(period=10ms) -> %s", data.Name),
+				},
+			}
+			Expect(svc.Arc.NewWriter(nil).Create(ctx, &a)).To(Succeed())
+			var coreRack rack.Rack
+			Expect(svc.Rack.NewRetrieve().
+				Where(rack.MatchNames("Node 1")).
+				Entry(&coreRack).
+				Exec(ctx, nil)).To(Succeed())
+			t := task.Task{
+				Rack:   coreRack.Key,
+				Name:   a.Name,
+				Type:   arc.TaskType,
+				Config: msgpack.EncodedJSON{"arc_key": a.Key.String()},
+			}
+			Expect(svc.Task.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+			cmdKey := svc.Task.CommandChannelKey()
+			w := MustSucceed(svc.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Keys:  channel.Keys{cmdKey},
+				Start: telem.Now(),
+			}))
+			Expect(w.Write(frame.NewUnary(
+				cmdKey,
+				MustSucceed(telem.NewJSONSeriesV(task.Command{
+					Task: t.Key,
+					Type: "start",
+					Key:  uuid.New().String(),
+					Args: msgpack.EncodedJSON{},
+				})),
+			))).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+			Eventually(func() (bool, error) {
+				return retrieveRunning(ctx, t)
+			}).Should(BeTrue())
+			return t
+		}
+		It("Should stop a running task and return on its ack", func(ctx SpecContext) {
+			const timeout = 10 * time.Second
+			t := startArc(ctx)
+			start := time.Now()
+			Expect(withTimeout(timeout).Stop(ctx, []task.Key{t.Key})).To(Succeed())
+			Expect(time.Since(start)).To(BeNumerically("<", timeout))
+			Expect(retrieveRunning(ctx, t)).To(BeFalse())
+		})
 		It("Should not wait for no keys", func(ctx SpecContext) {
 			start := time.Now()
 			Expect(withTimeout(10*time.Second).Stop(ctx, nil)).To(Succeed())
