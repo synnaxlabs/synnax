@@ -12,6 +12,7 @@ import "schemas/x/color"
 import "schemas/x/spatial"
 
 @go output "core/pkg/service/panel"
+@py output "client/py/synnax/panel"
 @ts output "client/ts/src/panel"
 
 TabKey = uuid {

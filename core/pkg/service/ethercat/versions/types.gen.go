@@ -19,7 +19,11 @@ type BaseReadChannel = v3.BaseReadChannel
 // ReadChannel is a single EtherCAT read channel (TxPDO, slave to master). The type
 // field selects how the PDO entry is addressed.
 type ReadChannel = v3.ReadChannel
+
+// ReadChannelVariant is implemented by every ReadChannel variant.
 type ReadChannelVariant = v3.ReadChannelVariant
+
+// ReadChannelType is the "type" value that selects a variant of ReadChannel.
 type ReadChannelType = v3.ReadChannelType
 
 const (
@@ -43,7 +47,11 @@ type BaseWriteChannel = v3.BaseWriteChannel
 // WriteChannel is a single EtherCAT write channel (RxPDO, master to slave). The type
 // field selects how the PDO entry is addressed.
 type WriteChannel = v3.WriteChannel
+
+// WriteChannelVariant is implemented by every WriteChannel variant.
 type WriteChannelVariant = v3.WriteChannelVariant
+
+// WriteChannelType is the "type" value that selects a variant of WriteChannel.
 type WriteChannelType = v3.WriteChannelType
 
 const (
@@ -74,7 +82,11 @@ type ScanConfig = v3.ScanConfig
 
 // Scale determines how raw PDO values are transformed to engineering units.
 type Scale = v3.Scale
+
+// ScaleVariant is implemented by every Scale variant.
 type ScaleVariant = v3.ScaleVariant
+
+// ScaleType is the "type" value that selects a variant of Scale.
 type ScaleType = v3.ScaleType
 
 const (

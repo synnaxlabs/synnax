@@ -10,20 +10,32 @@
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
+import { deep } from "@synnaxlabs/x";
 import { type FC } from "react";
 import { type z } from "zod";
 
-type ScaleType = "linear" | "map" | "none";
-
-interface Scale {
-  type: ScaleType;
+interface LinearScale {
+  type: "linear";
+  slope: number;
+  offset: number;
 }
+
+interface MapScale {
+  type: "map";
+  preScaledMin: number;
+  preScaledMax: number;
+  scaledMin: number;
+  scaledMax: number;
+}
+
+type Scale = LinearScale | MapScale | { type: "none" };
+
+type ScaleType = Scale["type"];
 
 /** The schema of each scale type, used to fill defaults when the type changes. */
 type ScaleSchemas = Record<ScaleType, z.ZodType<Scale>>;
 
-const SelectTypeField = Form.buildSelectField<ScaleType>({
-  fieldKey: "type",
+const SelectType = Form.buildSelectField<ScaleType>({
   fieldProps: { label: "Scale" },
   inputProps: {
     resourceName: "scale type",
@@ -47,30 +59,36 @@ const SelectTypeField = Form.buildSelectField<ScaleType>({
 });
 
 interface ParamsProps {
-  path: string;
+  path: deep.Path<Scale>;
 }
 
 const PARAMS: Record<ScaleType, FC<ParamsProps>> = {
-  linear: ({ path }) => (
-    <>
-      <Form.NumericField path={`${path}.slope`} label="Slope" />
-      <Form.NumericField path={`${path}.offset`} label="Offset" />
-    </>
-  ),
-  map: ({ path }) => (
-    <>
-      <Form.NumericField path={`${path}.preScaledMin`} label="Pre-scaled min" />
-      <Form.NumericField path={`${path}.preScaledMax`} label="Pre-scaled max" />
-      <Form.NumericField path={`${path}.scaledMin`} label="Scaled min" />
-      <Form.NumericField path={`${path}.scaledMax`} label="Scaled max" />
-    </>
-  ),
+  linear: ({ path }) => {
+    const { offset, slope } = deep.variant(path, "type", "linear");
+    return (
+      <>
+        <Form.NumericField path={slope} label="Slope" />
+        <Form.NumericField path={offset} label="Offset" />
+      </>
+    );
+  },
+  map: ({ path }) => {
+    const scale = deep.variant(path, "type", "map");
+    return (
+      <>
+        <Form.NumericField path={scale.preScaledMin} label="Pre-scaled min" />
+        <Form.NumericField path={scale.preScaledMax} label="Pre-scaled max" />
+        <Form.NumericField path={scale.scaledMin} label="Scaled min" />
+        <Form.NumericField path={scale.scaledMax} label="Scaled max" />
+      </>
+    );
+  },
   none: () => null,
 };
 
 export interface ScaleFormProps {
   /** The path of the scale field. */
-  path: string;
+  path: deep.Target<Scale>;
   /** The schema of each scale type the field accepts. */
   schemas: ScaleSchemas;
 }
@@ -80,15 +98,18 @@ export interface ScaleFormProps {
  * another).
  */
 export const ScaleForm = ({ path, schemas }: ScaleFormProps) => {
-  const type = Form.useFieldValue<ScaleType>(`${path}.type`);
-  const handleTypeChange: Form.FieldProps<ScaleType>["onChange"] = (value, { set }) => {
-    if (type !== value) set(path, schemas[value].parse({ type: value }));
-  };
+  const scale = deep.widen(path);
+  const type = Form.useFieldValue(scale.type);
   const Params = PARAMS[type];
   return (
     <>
-      <SelectTypeField path={path} onChange={handleTypeChange} />
-      <Params path={path} />
+      <SelectType
+        path={scale.type}
+        onChange={(value, { set }) => {
+          if (type !== value) set(scale, schemas[value].parse({ type: value }));
+        }}
+      />
+      <Params path={scale} />
     </>
   );
 };

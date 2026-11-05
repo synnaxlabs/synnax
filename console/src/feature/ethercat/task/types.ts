@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, ethercat, type task } from "@synnaxlabs/client";
-import { id } from "@synnaxlabs/x";
+import { id, primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type SlaveDevice } from "@/feature/ethercat/device/types";
@@ -235,4 +235,36 @@ export const getEntryChannelName = (
     part = `${entry.name}_${hex}`;
   }
   return channel.escapeInvalidName(`${identifier}_${part}`);
+};
+
+/**
+ * The name deploying the task gives a read channel. The default name of a scaled
+ * channel ends in `_scaled`, apart from the raw channel of its entry.
+ */
+export const readChannelName = (slave: SlaveDevice, ch: EntryReadChannel): string => {
+  if (primitive.isNonZero(ch.name)) return ch.name;
+  const name = getEntryChannelName(
+    slave.properties.identifier,
+    slave.properties.pdos.inputs,
+    ch,
+  );
+  return isScaled(ch) ? `${name}_scaled` : name;
+};
+
+/** The names deploying the task gives a write channel's command and state channels. */
+export const writeChannelNames = (
+  slave: SlaveDevice,
+  ch: EntryWriteChannel,
+): { cmd: string; state: string } => {
+  const base = getEntryChannelName(
+    slave.properties.identifier,
+    slave.properties.pdos.outputs,
+    ch,
+  );
+  return {
+    cmd: primitive.isNonZero(ch.cmdChannelName) ? ch.cmdChannelName : `${base}_cmd`,
+    state: primitive.isNonZero(ch.stateChannelName)
+      ? ch.stateChannelName
+      : `${base}_state`,
+  };
 };

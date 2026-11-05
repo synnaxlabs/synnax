@@ -235,24 +235,6 @@ struct Output final : Channel {
     }
 };
 
-/// @brief the shared base fields of a parsed input channel configuration.
-inline const ::synnax::ethercat::BaseReadChannel &
-base(const ::synnax::ethercat::ReadChannel &cfg) {
-    return std::visit(
-        [](const auto &c) -> const ::synnax::ethercat::BaseReadChannel & { return c; },
-        cfg
-    );
-}
-
-/// @brief the shared base fields of a parsed output channel configuration.
-inline const ::synnax::ethercat::BaseWriteChannel &
-base(const ::synnax::ethercat::WriteChannel &cfg) {
-    return std::visit(
-        [](const auto &c) -> const ::synnax::ethercat::BaseWriteChannel & { return c; },
-        cfg
-    );
-}
-
 /// @brief constructs a runtime input channel from a parsed configuration,
 /// accumulating errors on the parser under the given path prefix.
 inline std::unique_ptr<Input> make_input(

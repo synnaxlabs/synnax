@@ -100,7 +100,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         cfg.iter("channels", [&](x::json::Parser &ch) {
             const auto parsed = ::synnax::ethercat::parse_read_channel(ch);
             if (ch.error()) return;
-            const auto &slave_key = channel::base(parsed).device;
+            const auto &slave_key = ::synnax::ethercat::base(parsed).device;
             if (!slave_cache.contains(slave_key)) {
                 auto [slave_dev, slave_err] = client->devices.retrieve(slave_key);
                 if (slave_err) {

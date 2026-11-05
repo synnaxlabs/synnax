@@ -108,6 +108,18 @@ AriaRole = Literal[
 ]
 
 
+_SPAN_UNITS = {
+    "d": sy.TimeSpan.DAY,
+    "h": sy.TimeSpan.HOUR,
+    "min": sy.TimeSpan.MINUTE,
+    "s": sy.TimeSpan.SECOND,
+    "ms": sy.TimeSpan.MILLISECOND,
+    "μs": sy.TimeSpan.MICROSECOND,
+    "ns": sy.TimeSpan.NANOSECOND,
+}
+_SPAN_PART = re.compile(r"(\d+(?:\.\d+)?)(min|ms|μs|ns|d|h|s)")
+
+
 class LayoutClient:
     """
     Layout and UI primitives for Console automation.
@@ -140,9 +152,8 @@ class LayoutClient:
     def dialog(self) -> Locator:
         """The currently open dialog.
 
-        Closed dialogs unmount, except passthrough ones, which stay mounted at
-        opacity 0 and still expose their role; the open-state class excludes
-        them.
+        A dialog mounts hidden until its frame places it, and still exposes its role;
+        the open-state class excludes it until then.
         """
         return self.page.locator("[role='dialog'].lyra--visible")
 
@@ -394,6 +405,17 @@ class LayoutClient:
         )
         input_field.wait_for(state="attached", timeout=5000)
         return input_field.input_value(timeout=2000)
+
+    def get_time_span_field(self, input_label: str) -> sy.TimeSpan:
+        """Get the span a duration field shows, such as "2ms 300μs"."""
+        text = self.get_input_field(input_label)
+        span = sy.TimeSpan(0)
+        for part in text.split():
+            match = _SPAN_PART.fullmatch(part)
+            if match is None:
+                raise ValueError(f"{input_label} shows {text!r}, not a duration")
+            span += sy.TimeSpan(float(match[1]) * _SPAN_UNITS[match[2]])
+        return span
 
     def click_btn(self, button_label: str) -> None:
         """Click a button by label."""

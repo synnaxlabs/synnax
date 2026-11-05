@@ -8,14 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { labjack } from "@synnaxlabs/client";
+import { deep } from "@synnaxlabs/x";
 import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Task } from "@/platform/task";
 import { renderInTaskForm } from "@/platform/task/testutil";
 
+const SCALE = deep.path<{ scale: labjack.Scale }>().scale;
+
 const renderScale = (scale: labjack.Scale) =>
-  renderInTaskForm(<Task.ScaleForm path="scale" schemas={labjack.SCALE_SCHEMAS} />, {
+  renderInTaskForm(<Task.ScaleForm path={SCALE} schemas={labjack.SCALE_SCHEMAS} />, {
     values: { scale },
   });
 
@@ -53,7 +56,7 @@ describe("ScaleForm", () => {
     const { form } = await renderScale({ type: "none" });
     fireEvent.click(screen.getByRole("button", { name: /None/ }));
     fireEvent.click(await screen.findByRole("option", { name: /Linear/ }));
-    expect(form.current?.get<labjack.Scale>("scale").value).toEqual({
+    expect(form.current?.get(SCALE).value).toEqual({
       type: "linear",
       slope: 1,
       offset: 0,
@@ -65,6 +68,6 @@ describe("ScaleForm", () => {
     const { form } = await renderScale({ type: "linear", slope: 2, offset: 1 });
     fireEvent.click(screen.getByRole("button", { name: /Linear/ }));
     fireEvent.click(await screen.findByRole("option", { name: /None/ }));
-    expect(form.current?.get<labjack.Scale>("scale").value).toEqual({ type: "none" });
+    expect(form.current?.get(SCALE).value).toEqual({ type: "none" });
   });
 });

@@ -32,6 +32,7 @@ export interface UseProps
         | "selectionStart"
         | "selectionEnd"
         | "visibleStart"
+        | "rowEntries"
         | "selectedText"
         | "selectedLines"
         | "computedLineHeight"
@@ -61,7 +62,7 @@ export const use = ({
   font,
   visible = true,
   channelNamesHidden = false,
-  receiptTimestampHidden = false,
+  timestampsHidden = false,
   timestampPrecision = 0,
   channels: rawChannels,
   color,
@@ -91,7 +92,7 @@ export const use = ({
     telem,
     visible,
     channelNamesHidden,
-    receiptTimestampHidden,
+    timestampsHidden,
     timestampPrecision,
     channelNames,
     channelDataTypes,

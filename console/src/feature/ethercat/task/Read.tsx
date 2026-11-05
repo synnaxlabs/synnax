@@ -7,14 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { primitive } from "@synnaxlabs/x";
+import { deep, errors, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { useSlavesByKeys } from "@/feature/ethercat/device/queries";
+import { useResultSlave, useSlavesByKeys } from "@/feature/ethercat/device/queries";
+import { type SlaveDevice } from "@/feature/ethercat/device/types";
 import {
   ReadChannelDetails,
   ReadDetailsTitle,
@@ -25,24 +27,29 @@ import {
   retrieveAndValidateSlaves,
 } from "@/feature/ethercat/task/configure";
 import {
+  addressKey,
   createReadChannel,
   deployReadConfigZ,
-  getEntryChannelName,
+  entryAt,
+  type EntryReadChannel,
   getPortLabel,
   hasEntry,
   isScaled,
   READ_SCHEMAS,
   READ_TYPE,
   type ReadChannel,
+  readChannelName,
   readDataType,
   readKey,
   type ReadSchemas,
 } from "@/feature/ethercat/task/types";
-import { Selector } from "@/platform/selector";
+import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
+const path = deep.path<Task.Values<ReadSchemas>>();
+
 const Properties = () => (
-  <Flex.Box x grow>
+  <Flex.Box x grow wrap>
     <Task.Fields.SampleRate />
     <Task.Fields.StreamRate />
   </Flex.Box>
@@ -50,16 +57,27 @@ const Properties = () => (
 
 const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
-  const path = `config.channels.${itemKey}`;
-  const ch = PForm.useFieldValue<ReadChannel>(path);
+  const entry = path.config.channels[itemKey];
+  const ch = PForm.useFieldValue(entry);
+  const { data: slave } = useResultSlave(
+    primitive.isZero(ch.device) ? null : { key: ch.device },
+  );
   return (
     <Task.Views.ListAndDetailsChannelItem
       {...props}
       nameDirection="y"
       port={getPortLabel(ch)}
       status={ch.type === "unresolved" ? "error" : undefined}
-      path={path}
+      path={entry}
       channel={ch.channel}
+      defaultName={
+        slave != null &&
+        hasEntry(ch) &&
+        entryAt(slave.properties.pdos.inputs, ch) != null
+          ? readChannelName(slave, ch)
+          : undefined
+      }
+      skipped={ch.disabled}
       hasTareButton={false}
       canTare={false}
       portMaxChars={10}
@@ -74,7 +92,7 @@ const detailsTitle = Component.renderProp(ReadDetailsTitle);
 const listItem = Component.renderProp(ChannelListItem);
 
 const Form: FC = () => {
-  const slaves = useSlavesByKeys(Task.useChannelDeviceKeys());
+  const slaves = useSlavesByKeys(Task.useChannelDeviceKeys(path.config.channels));
   const resolve = (ch: ReadChannel) => {
     const slave = slaves?.find(({ key }) => key === ch.device);
     if (slave == null || !hasEntry(ch)) return null;
@@ -82,6 +100,7 @@ const Form: FC = () => {
   };
   return (
     <Task.Views.ListAndDetails<ReadChannel>
+      path={path.config.channels}
       listItem={listItem}
       details={channelDetails}
       detailsTitle={detailsTitle}
@@ -104,6 +123,27 @@ const READ_INDEX_OPTIONS = {
   nameSuffix: "_time" as const,
 };
 
+/**
+ * @returns the name of a new read channel. A scaled channel can not share the name of
+ * its entry's raw channel, so it adds `_scaled` to that name.
+ */
+const createChannelName = async (
+  client: Synnax,
+  slave: SlaveDevice,
+  ch: EntryReadChannel,
+): Promise<string> => {
+  const name = readChannelName(slave, ch);
+  const raw = slave.properties.read.channels[addressKey(ch)] ?? 0;
+  if (!isScaled(ch) || raw === 0) return name;
+  try {
+    const { name: rawName } = await client.channels.retrieve(raw);
+    return rawName === name ? `${name}_scaled` : name;
+  } catch (e) {
+    if (NotFoundError.matches(e)) return name;
+    throw errors.fromUnknown(e);
+  }
+};
+
 const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
   const { slaves, rack, channelsBySlaveKey } =
     await retrieveAndValidateSlaves<ReadChannel>(client, config.channels, "inputs");
@@ -121,18 +161,14 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
 
     if (toCreate.length > 0) {
       modified = true;
-      const { identifier, pdos } = slave.properties;
       const created = await client.channels.create(
-        toCreate.map((ch) => {
-          const suffix = isScaled(ch) ? "_scaled" : "";
-          return {
-            name: primitive.isNonZero(ch.name)
-              ? ch.name
-              : `${getEntryChannelName(identifier, pdos.inputs, ch)}${suffix}`,
+        await Promise.all(
+          toCreate.map(async (ch) => ({
+            name: await createChannelName(client, slave, ch),
             dataType: readDataType(ch),
             index: slave.properties.readIndex,
-          };
-        }),
+          })),
+        ),
       );
 
       created.forEach((c, i) => {
@@ -163,9 +199,10 @@ export const useCreateRead = Task.createUseCreate({
   getInitialValues,
 });
 
-export const ReadSelectable = Selector.createSelectable({
+export const ReadSelectable: Selector.Selectable = {
   type: READ_TYPE,
   title: "EtherCAT read task",
+  label: "Read",
   icon: <Icon.Logo.EtherCAT />,
   useOnSelect: useCreateRead,
-});
+};

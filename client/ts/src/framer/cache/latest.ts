@@ -8,13 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import {
+  bounds,
   type breaker,
+  DataType,
   deep,
   MultiSeries,
   resolveWindow,
-  type Series,
+  Series,
   sync,
   TimeRange,
+  TimeSpan,
   TimeStamp,
   type Window,
 } from "@synnaxlabs/x";
@@ -24,19 +27,29 @@ import { NotFoundError, UnsupportedError } from "@/errors";
 import { type ChannelRetriever } from "@/framer/adapter";
 import { domainOf } from "@/framer/cache/block";
 import { Dynamic } from "@/framer/cache/dynamic";
+import { IndexStamps, Stamps } from "@/framer/cache/stamps";
 import { LOADING, NO_HISTORY, READ_FAILED, SUCCESS } from "@/framer/cache/status";
 import { calculated, type Store } from "@/framer/cache/store";
 import { type Demand, type MultiplexedStreamer } from "@/framer/cache/streamer";
+import { type Frame } from "@/framer/frame";
 import { createBreaker, isDefinitive } from "@/framer/retry";
 import { type Snapshot } from "@/framer/subscription";
 import { status } from "@/status";
+
+// Returns the timestamps as one series at alignment.
+const realign = (times: MultiSeries, alignment: bigint, tr: TimeRange): Series => {
+  const data = new BigInt64Array(times.length);
+  let i = 0;
+  for (const t of times) data[i++] = t as bigint;
+  return new Series({ data, dataType: DataType.TIMESTAMP, alignment, timeRange: tr });
+};
 
 export interface LatestProps {
   /** Reports the history changes that make the samples read go out of date. */
   store: Store;
   streamer: MultiplexedStreamer;
-  /** Reads the newest count stored samples of the channel in the time range. */
-  readLatest: (key: channel.Key, count: number, tr: TimeRange) => Promise<MultiSeries>;
+  /** Reads the newest count stored samples of each channel in the time range. */
+  readLatest: (keys: channel.Key[], count: number, tr: TimeRange) => Promise<Frame>;
   retrieveChannels: ChannelRetriever;
   now: () => TimeStamp;
   /** Retry behavior for failed reads. */
@@ -48,6 +61,18 @@ const UNSERVED_CAP = 100_000;
 // Bounds on the samples of a buffer that streamed series grow into.
 const MIN_BUFFER = 1_024;
 const MAX_BUFFER = 65_536;
+// How long a series waits to read its index again after a read that did not stamp it.
+const INDEX_RETRY = TimeSpan.seconds(5);
+// The most reads of the index that one series gets.
+const INDEX_TRIES = 3;
+
+// The reads of the index for the held series over span. A read that does not stamp the
+// series counts a try and waits until retryAt, which is unset while a read runs.
+interface IndexRead {
+  span: bounds.Bounds<bigint>;
+  tries: number;
+  retryAt?: TimeStamp;
+}
 
 // A running read of the newest stored samples.
 interface Load {
@@ -87,6 +112,22 @@ export class Latest {
   private running: Load | null;
   private readonly demand: Demand;
   private readonly stopInvalidations: () => void;
+  // timeSource is null until the channel is found.
+  private timeSource: { index: channel.Key } | "self" | "stamps" | null = null;
+  // indexStamps holds the index series that stamp the samples held, from the first
+  // timeAt that needs them.
+  private indexStamps: IndexStamps | null = null;
+  // timed is true from the first timeAt, so reads fetch the index with the samples.
+  private timed = false;
+  private indexDemand: Demand | null = null;
+  // indexReads holds the index reads in flight and the ones that wait to run again.
+  private indexReads: IndexRead[] = [];
+  // indexRefused is true once the Core refuses a read of the index, which it then
+  // refuses every time.
+  private indexRefused = false;
+  // stamps records each write until the channel turns out to have an index, since
+  // streamed series can arrive before it is found.
+  private stamps: Stamps | null;
   // dedupe is how fresh finds repeated samples: by Core alignment for a stored channel,
   // and by time for one a calculation writes, whose alignments depend on how its inputs
   // split into series. A channel that only streams repeats no sample.
@@ -113,13 +154,19 @@ export class Latest {
     private readonly notify: () => void,
   ) {
     this.buffer = this.createBuffer();
+    this.stamps = this.createStamps();
     this.demand = props.streamer.demand([key], (frame) => {
       const series = frame.get(key);
       if (series == null) return;
-      this.push(series);
+      this.push(series, true);
       this.notify();
     });
-    this.demand.onStatusChange(() => this.notify());
+    this.demand.onStatusChange((_, s) => {
+      // A reconnect resets the tries of the series still missing stamps.
+      if (s.variant === "success")
+        this.indexReads = this.indexReads.filter((r) => r.retryAt == null);
+      this.notify();
+    });
     this.demand.onDrop(() => this.reload());
     this.stopInvalidations = props.store.onInvalidate((ch, tr) => {
       if (ch == null || ch === key) this.changed(tr);
@@ -158,8 +205,33 @@ export class Latest {
     return snapshot;
   }
 
+  /**
+   * @returns the Core's stamp of the held sample at alignment, read from the channel's
+   * index or, for a channel with no index, from the write that carried it. It answers
+   * for at least the newest count samples. The first call for a channel with an index
+   * starts streaming the index, and a miss reads the index for the sample's series. The
+   * latest notifies once the stamps arrive. Null until then, until the channel is
+   * found, and when no sample it answers for has the alignment.
+   */
+  timeAt(alignment: bigint): TimeStamp | null {
+    this.timed = true;
+    const { timeSource } = this;
+    if (timeSource == null) return null;
+    if (timeSource === "self") return this.sampleAt(alignment);
+    if (timeSource === "stamps") return this.stamps?.at(alignment) ?? null;
+    this.indexStamps ??= this.streamIndex(timeSource.index);
+    const stamp = this.indexStamps.at(alignment);
+    if (stamp == null) void this.readIndex(timeSource.index, alignment);
+    return stamp;
+  }
+
   /** Releases the channel's stream. */
   close(): void {
+    this.indexDemand?.close();
+    this.indexDemand = null;
+    this.indexStamps = null;
+    this.indexReads = [];
+    this.timeSource = null;
     this.restart(null);
     this.stopInvalidations();
     this.demand.close();
@@ -184,9 +256,12 @@ export class Latest {
   private rebuild(): Snapshot {
     this.trim();
     this.unserved = 0;
-    const series = [...this.series];
-    const leading = this.buffer.leadingBuffer;
-    if (leading != null) series.push(leading);
+    const series = this.held();
+    const spans = series.map((s) => s.alignmentBounds);
+    this.indexStamps?.retain(spans);
+    this.indexReads = this.indexReads.filter((r) =>
+      spans.some((s) => bounds.overlapsWith(s, r.span)),
+    );
     this.snapshot = {
       series: new MultiSeries(series),
       status: this.status(),
@@ -263,6 +338,91 @@ export class Latest {
     this.unserved = 0;
     this.shown = false;
     this.snapshot = null;
+    if (this.stamps != null) this.stamps = this.createStamps();
+  }
+
+  // Each write holds at least one sample, so count records cover the newest count
+  // samples.
+  private createStamps(): Stamps {
+    return new Stamps(Math.max(this.count, 1));
+  }
+
+  private findTimeSource(p: channel.Payload): void {
+    if (this.timeSource != null) return;
+    if (!p.isIndex && p.index === 0) {
+      this.timeSource = "stamps";
+      return;
+    }
+    this.timeSource = p.isIndex ? "self" : { index: p.index };
+    this.stamps = null;
+  }
+
+  // Returns the timestamp sample at alignment, for an index channel.
+  private sampleAt(alignment: bigint): TimeStamp | null {
+    for (const s of this.held()) {
+      const value = s.atAlignment(alignment);
+      if (value != null) return new TimeStamp(value as bigint);
+    }
+    return null;
+  }
+
+  // Returns the closed series and the leading buffer, oldest first.
+  private held(): Series[] {
+    const leading = this.buffer.leadingBuffer;
+    return leading == null ? [...this.series] : [...this.series, leading];
+  }
+
+  // Streams the index, keeping the index series written with this channel's samples.
+  private streamIndex(index: channel.Key): IndexStamps {
+    const stamps = new IndexStamps();
+    this.indexDemand = this.props.streamer.demand([index], (frame) => {
+      const data = frame.get(this.key);
+      const written = frame.get(index);
+      if (data == null || written == null) return;
+      stamps.add(
+        written,
+        data.map((s) => s.alignmentBounds),
+      );
+      this.notify();
+    });
+    return stamps;
+  }
+
+  // Reads the index over the held series with the sample at alignment. The read pairs
+  // by position, since a streamed series' alignments differ from its read's.
+  private async readIndex(index: channel.Key, alignment: bigint): Promise<void> {
+    const series = this.held().find((s) =>
+      bounds.contains(s.alignmentBounds, alignment),
+    );
+    const stamps = this.indexStamps;
+    if (series == null || stamps == null || this.indexRefused) return;
+    const prev = this.indexReads.find((r) => bounds.contains(r.span, alignment));
+    const running = prev != null && prev.retryAt == null;
+    const waiting = prev?.retryAt?.after(this.props.now()) ?? false;
+    if (running || waiting || (prev?.tries ?? 0) >= INDEX_TRIES) return;
+    const tr =
+      series === this.buffer.leadingBuffer
+        ? this.buffer.dataTimeRange
+        : series.timeRange;
+    if (tr == null || tr.isZero) return;
+    // The leading buffer can grow while the read waits.
+    const { length } = series;
+    const read: IndexRead = { span: series.alignmentBounds, tries: prev?.tries ?? 0 };
+    this.indexReads = [...this.indexReads.filter((r) => r !== prev), read];
+    try {
+      const times = (await this.props.readLatest([index], length, tr)).get(index);
+      if (this.indexStamps !== stamps) return;
+      if (times.length === length) {
+        stamps.add([realign(times, read.span.lower, tr)], [read.span]);
+        this.indexReads = this.indexReads.filter((r) => r !== read);
+        return this.notify();
+      }
+      read.tries++;
+    } catch (e) {
+      this.indexRefused = isDefinitive(e) || UnsupportedError.matches(e);
+      read.tries++;
+    }
+    read.retryAt = this.props.now().add(INDEX_RETRY);
   }
 
   private createBuffer(): Dynamic {
@@ -279,18 +439,43 @@ export class Latest {
     return this.closedTotal + (this.buffer.leadingBuffer?.length ?? 0);
   }
 
+  // Returns the index to read with the samples, when the times of a stored channel are
+  // wanted. A read's samples and index share alignments.
+  private readIndexKey(): channel.Key | null {
+    const { timeSource, timed } = this;
+    if (!timed || this.indexRefused || this.dedupe !== "alignment") return null;
+    return timeSource != null && typeof timeSource === "object"
+      ? timeSource.index
+      : null;
+  }
+
+  // Reads the samples with the index, or alone when the Core refuses the index.
+  private async read(index: channel.Key | null, tr: TimeRange): Promise<Frame> {
+    const { readLatest } = this.props;
+    if (index == null) return await readLatest([this.key], this.count, tr);
+    try {
+      return await readLatest([this.key, index], this.count, tr);
+    } catch (e) {
+      if (!isDefinitive(e) && !UnsupportedError.matches(e)) throw e as Error;
+      this.indexRefused = true;
+      return await readLatest([this.key], this.count, tr);
+    }
+  }
+
   // Reads the newest stored samples after the stream acks the channel, so the stream
   // delivers every sample the read misses. A virtual channel has none, so it only
   // streams.
   private async load(run: Load): Promise<void> {
     const { signal } = run.abort;
-    const { retrieveChannels, streamer, readLatest, now } = this.props;
+    const { retrieveChannels, streamer, now } = this.props;
     const brk = createBreaker(this.notifier, this.props.breaker);
     while (this.running === run)
       try {
         const [payload] = await retrieveChannels([this.key]);
         if (payload == null) throw new NotFoundError(`channel ${this.key} not found`);
+        if (this.running === run) this.findTimeSource(payload);
         let read: Series[] = [];
+        let times: Series[] = [];
         if (!payload.virtual) this.dedupe = "alignment";
         else this.dedupe = calculated(payload) ? "time" : null;
         if (this.dedupe != null) {
@@ -305,10 +490,19 @@ export class Latest {
               TimeStamp.min(TimeStamp.max(tr.start, run.after), tr.end),
               tr.end,
             );
-          read = (await readLatest(this.key, this.count, tr)).series;
+          const index = this.readIndexKey();
+          if (index != null) this.indexStamps ??= this.streamIndex(index);
+          const frame = await this.read(index, tr);
+          read = frame.get(this.key).series;
+          if (index != null) times = frame.get(index).series;
         }
         if (this.running !== run) return;
+        const stamps = this.indexStamps;
         this.land(read);
+        stamps?.add(
+          times,
+          read.map((s) => s.alignmentBounds),
+        );
         this.failure = null;
         return this.notify();
       } catch (e) {
@@ -334,7 +528,7 @@ export class Latest {
     const dropped = this.running?.dropped ?? false;
     if (this.shown) {
       [this.running, this.shown] = [null, false];
-      this.push(read);
+      this.push(read, false);
       if (dropped) this.reload();
       return;
     }
@@ -347,7 +541,7 @@ export class Latest {
     });
     this.running = null;
     const { appended } = this;
-    this.push(read);
+    this.push(read, false);
     if (repeated) this.appended = appended;
     // Frames may have dropped between the read and the streamed series, so the next
     // read starts after the newest sample of this read, not after a streamed one.
@@ -355,18 +549,21 @@ export class Latest {
       this.closeLeading();
       this.restart(this.series.length, { after: this.time() });
     }
-    this.push(streamed);
+    this.push(streamed, false);
     this.unserved = this.total;
     this.snapshot = null;
   }
 
-  private push(series: Series[]): void {
+  // Appends the series the latest accepts. A live write records its stamp once, before
+  // the buffer joins it to others.
+  private push(series: Series[], live: boolean): void {
     for (const s of series) {
       const fresh = this.fresh(s);
       if (fresh == null) continue;
       // Series of two data types cannot share a snapshot.
       const first = this.series.at(0) ?? this.buffer.leadingBuffer;
       if (first != null && !first.dataType.equals(fresh.dataType)) this.clear();
+      if (live) this.stamps?.record(fresh);
       this.unserved += fresh.length;
       this.appended += fresh.length;
       this.append(fresh);

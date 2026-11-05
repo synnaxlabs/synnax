@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { device, ontology, query as clientQuery, type query } from "@synnaxlabs/client";
-import { primitive, type record, uuid, verbs, zod } from "@synnaxlabs/x";
+import { deep, primitive, type record, uuid, verbs, zod } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { type z } from "zod";
 
@@ -196,7 +196,8 @@ export const useList = Flux.createList<ListParams, device.Key, device.Device>({
   retrieveByKey: async ({ client, key }) =>
     await client.devices.retrieve({ ...BASE_QUERY, key }),
   onChange: ({ client, query }, handler) => client.devices.onChange(query, handler),
-  onChangeByKey: ({ client, key }, handler) => client.devices.onChange(key, handler),
+  onChangeByKey: ({ client, key }, handler) =>
+    client.devices.onChange({ ...BASE_QUERY, key }, handler),
   getCached: ({ client, query }) => client.devices.getCached(query),
 });
 
@@ -266,6 +267,8 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
 
 export const formSchema = device.deviceZ();
 
+export const formPath = deep.path<z.infer<typeof formSchema>>();
+
 /** The schema a form built by {@link createForm} validates against. */
 export type FormSchema<S> =
   S extends device.DeviceSchemas<infer P, infer Ma, infer Mo>
@@ -329,9 +332,14 @@ export const createForm: CreateForm = (
       const data = value();
       if (primitive.isZero(data.key)) {
         data.key = uuid.create();
-        set("key", data.key);
+        set(formPath.key, data.key);
       }
-      await client.devices.create(data as device.New, schemas);
+      // A status under the device's key was read from the Core. A beforeSave hook that
+      // reports a new status creates it under its own key.
+      const reported =
+        data.status != null && data.status.key !== device.statusKey(data.key);
+      const sent = reported ? data : device.toUpdate(data);
+      await client.devices.create(sent as device.New, schemas);
     },
     mountListeners: ({ client, query: { key }, reset, set }) => {
       if (primitive.isZero(key)) return [];
@@ -343,7 +351,10 @@ export const createForm: CreateForm = (
         }),
         client.statuses.onSet((changed) => {
           if (changed.key !== device.statusKey(key)) return;
-          set("status", zod.parse(device.statusZ, changed, { label: "device status" }));
+          set(
+            formPath.status,
+            zod.parse(device.statusZ, changed, { label: "device status" }),
+          );
         }),
       ];
     },

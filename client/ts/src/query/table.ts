@@ -73,7 +73,10 @@ export type Stamp = number;
 export interface IngestOptions {
   /** Overrides the table's declared hydrate mode. */
   mode?: HydrateMode;
-  /** Skips entries written after this stamp: the fetch predates those writes. */
+  /**
+   * Skips entries written after this stamp, and every entry if the table was reset
+   * after it: the fetch predates those writes.
+   */
   since?: Stamp;
 }
 
@@ -143,6 +146,10 @@ const fetchSurvivors = async <Key extends record.Key, Value extends state.State>
 
 const DEFAULT_FETCH_DEBOUNCE = TimeSpan.milliseconds(10);
 
+// "confirmed" tombstones a key the Core no longer holds. "local" tombstones a key this
+// client deleted ahead of the change stream.
+type Removal = "evict" | "confirmed" | "local";
+
 /**
  * Owns the base of a key, the value that writes build on, when a table shows other
  * content on top of it, such as edits that have not reached the Core.
@@ -168,6 +175,9 @@ export class Table<
 > {
   private readonly entries = new Map<Key, Value>();
   private readonly tombstones = new Map<Key, Deleted<Value>>();
+  // Locally deleted keys whose delete the change stream has not delivered. The Core
+  // committed every set the stream delivers for them before that delete.
+  private readonly pendingDeletes = new Set<Key>();
   private readonly broadSubscribers = new Set<TableSubscriber<Key, Value>>();
   private readonly batchSubscribers = new Set<BatchSubscriber<Key, Value>>();
   private readonly keyedSubscribers = new Map<Key, Set<TableSubscriber<Key, Value>>>();
@@ -182,8 +192,8 @@ export class Table<
   > | null;
   private readonly indexes: Array<LookupIndex<Key, Value>>;
   private interceptor: Interceptor<Key, Value> | null = null;
-  private gen = 0;
   private writeSeq = 0;
+  private resetSeq = 0;
   // Holds a stamp only for present entries: applyDelete drops the key's stamp, so the
   // map never outgrows the entries.
   private readonly writeStamps = new Map<Key, Stamp>();
@@ -345,18 +355,22 @@ export class Table<
     return () => this.batch(() => rollbacks.reverse().forEach((r) => r()));
   }
 
-  private stampWrite(key: Key): void {
+  /**
+   * Counts a write that left the key's value as it was, so a fetch that started before
+   * this call cannot overwrite the key.
+   */
+  stampWrite(key: Key): void {
     if (this.entries.has(key)) this.writeStamps.set(key, ++this.writeSeq);
   }
 
   private writtenSince(key: Key, since: Stamp): boolean {
-    return (this.writeStamps.get(key) ?? 0) > since;
+    return this.resetSeq > since || (this.writeStamps.get(key) ?? 0) > since;
   }
 
   /**
    * Marks the current point in the table's write history. A fetch takes one before it
-   * starts and hands it to {@link ingest} so that writes landing while the fetch is in
-   * flight are not overwritten by its older records.
+   * starts and hands it to {@link ingest}, so its older records undo neither a write
+   * nor a reset that lands while it is in flight.
    */
   stamp(): Stamp {
     return this.writeSeq;
@@ -452,25 +466,23 @@ export class Table<
       const misses =
         opts.refresh === true ? keys : keys.filter((key) => !this.entries.has(key));
       if (misses.length > 0) {
-        const gen = this.gen;
         const since = this.stamp();
         const fetched = await this.fetchBatcher.enqueue(misses);
-        if (gen === this.gen)
-          if (opts.refresh === true) {
-            // A refresh is authoritative for its keys: cached entries the fetch omitted
-            // vanished from the cluster and are tombstoned.
-            const present = new Set<Key>(fetched.map(({ key }) => key));
-            const vanished = misses.filter(
-              (key) =>
-                !present.has(key) &&
-                this.entries.has(key) &&
-                !this.writtenSince(key, since),
-            );
-            this.batch(() => {
-              if (vanished.length > 0) this.delete(vanished);
-              if (fetched.length > 0) this.ingest(fetched, { mode: "set", since });
-            });
-          } else if (fetched.length > 0) this.ingest(fetched, { since });
+        if (opts.refresh === true) {
+          // A refresh is authoritative for its keys: cached entries the fetch omitted
+          // vanished from the cluster and are tombstoned.
+          const present = new Set<Key>(fetched.map(({ key }) => key));
+          const vanished = misses.filter(
+            (key) =>
+              !present.has(key) &&
+              this.entries.has(key) &&
+              !this.writtenSince(key, since),
+          );
+          this.batch(() => {
+            if (vanished.length > 0) this.remove(vanished, "confirmed");
+            if (fetched.length > 0) this.ingest(fetched, { mode: "set", since });
+          });
+        } else if (fetched.length > 0) this.ingest(fetched, { since });
       }
     }
     const seen = new Set<Key>();
@@ -486,7 +498,8 @@ export class Table<
 
   /**
    * Deletes entries and notifies subscribers. Deleted values are retained as tombstones
-   * until a subsequent set for the key.
+   * until a subsequent set for the key. In a table with a fetch, {@link mirrorSet}
+   * skips a deleted key until the change stream delivers its delete.
    * @param key - The key(s) to delete or a filter function
    * @returns A rollback that restores the deleted entries, then fetches them again: an
    * entry misses every change made while it was deleted.
@@ -494,7 +507,7 @@ export class Table<
   delete(
     key: Key | Key[] | ((value: Value, key: Key) => boolean),
   ): destructor.Destructor {
-    return this.remove(key, true);
+    return this.remove(key, "local");
   }
 
   /**
@@ -504,12 +517,40 @@ export class Table<
    * @returns A rollback that restores the removed entries
    */
   evict(key: Key | Key[]): destructor.Destructor {
-    return this.remove(key, false);
+    return this.remove(key, "evict");
+  }
+
+  /**
+   * Applies a set that the change stream delivered, as {@link set} does. Skips the key
+   * while a local delete of it waits for its stream delete, since the Core committed
+   * the set before that delete. Cache-internal surface: called by mirror listeners.
+   */
+  mirrorSet(key: Key, value: state.SetArg<Value | undefined>): void {
+    if (this.pendingDeletes.has(key)) return;
+    this.set(key, value);
+  }
+
+  /**
+   * Applies deletes that the change stream delivered, tombstoning the entries the table
+   * holds. Cache-internal surface: called by mirror listeners.
+   */
+  mirrorDelete(keys: Key[]): void {
+    keys.forEach((key) => this.pendingDeletes.delete(key));
+    this.remove(keys, "confirmed");
+  }
+
+  /**
+   * Stops {@link mirrorSet} skipping keys whose local delete waits for its stream
+   * delete. Called when the change stream opens or reopens, since a stream never
+   * delivers what the Core sent before it opened. Cache-internal surface.
+   */
+  clearPendingDeletes(): void {
+    this.pendingDeletes.clear();
   }
 
   private remove(
     key: Key | Key[] | ((value: Value, key: Key) => boolean),
-    tombstone: boolean,
+    removal: Removal,
   ): destructor.Destructor {
     const toDelete: Array<{ key: Key; value?: Value }> = [];
 
@@ -523,8 +564,13 @@ export class Table<
     this.batch(() =>
       toDelete.forEach(({ key: k, value }) => {
         this.applyDelete(k);
-        if (tombstone && value != null)
+        if (removal !== "evict" && value != null) {
           this.tombstones.set(k, new Deleted(value, TimeStamp.now()));
+          // The Core sends no delete for a key it already lost. Only the reconcile of a
+          // table with a fetch finds such a key and clears its mark.
+          if (removal === "local" && this.fetchEntries != null)
+            this.pendingDeletes.add(k);
+        }
         this.notify({ variant: "delete", key: k });
       }),
     );
@@ -535,12 +581,13 @@ export class Table<
         toDelete.forEach(({ key: k, value }) => {
           if (value == null) return;
           this.tombstones.delete(k);
+          this.pendingDeletes.delete(k);
           this.show(k, value);
           this.stampWrite(k);
           restored.push(k);
         }),
       );
-      if (tombstone) this.refetch(restored);
+      if (removal !== "evict") this.refetch(restored);
     };
   }
 
@@ -563,18 +610,16 @@ export class Table<
     if (fetchEntries == null) return;
     const keys = this.keys();
     if (keys.length === 0) return;
-    const gen = this.gen;
     const since = this.stamp();
     const values = await fetchSurvivors(fetchEntries, keys);
-    // A reset mid-fetch means the cluster was replaced: writing the fetched entries
-    // would repopulate the cleared table with old-cluster records.
-    if (gen !== this.gen) return;
     const present = new Set<Key>(values.map(({ key }) => key));
     const vanished = keys.filter(
       (k) => !present.has(k) && !this.writtenSince(k, since),
     );
+    // A vanished key deleted here during the fetch gets no delete from the Core.
+    vanished.forEach((k) => this.pendingDeletes.delete(k));
     this.batch(() => {
-      if (vanished.length > 0) this.delete(vanished);
+      if (vanished.length > 0) this.remove(vanished, "confirmed");
       if (values.length > 0) this.ingest(values, { mode: "set", since });
     });
   }
@@ -586,9 +631,10 @@ export class Table<
    * runs discard their results.
    */
   reset(): void {
-    this.gen++;
+    this.resetSeq = ++this.writeSeq;
     this.entries.clear();
     this.tombstones.clear();
+    this.pendingDeletes.clear();
     this.writeStamps.clear();
     for (const index of this.indexes) index.reset();
   }
@@ -725,7 +771,7 @@ export const createSetListener = <
       onChange: (changed) => {
         table.batch(() =>
           changed.forEach((c) =>
-            table.set(key(c), (prev) => value(c, prev) ?? undefined),
+            table.mirrorSet(key(c), (prev) => value(c, prev) ?? undefined),
           ),
         );
       },
@@ -752,7 +798,7 @@ export const createDeleteListener = <
       channel,
       schema,
       onChange: (changed) => {
-        table.delete(changed.map((c) => key(c)));
+        table.mirrorDelete(changed.map((c) => key(c)));
       },
     }),
   };

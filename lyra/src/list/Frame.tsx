@@ -277,8 +277,8 @@ const useElements = (pin: Elements["pin"]): Elements => {
     if (element == null) elementsRef.current.delete(key);
     else elementsRef.current.set(key, element);
   };
-  const click = (key: record.Key) => elementsRef.current.get(key)?.click();
-  return { setElement, click, pin };
+  const getElement = (key: record.Key) => elementsRef.current.get(key);
+  return { setElement, getElement, pin };
 };
 
 // A static frame mounts every item, so nothing needs pinning.

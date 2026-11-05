@@ -40,7 +40,7 @@ inline BaseChannel BaseChannel::parse(x::json::Parser parser) {
 }
 
 inline x::json::json BaseChannel::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["key"] = this->key;
     j["name"] = this->name;
     j["disabled"] = this->disabled;
@@ -58,15 +58,17 @@ inline ReadChannel ReadChannel::parse(x::json::Parser parser) {
         ::synnax::channel::Key(0)
     );
     result.is_index = parser.field<bool>("is_index", false);
+    result.field = parser.field<std::string>("field", "");
     return result;
 }
 
 inline x::json::json ReadChannel::to_json() const {
-    x::json::json j;
-    for (auto &[k, v]: BaseChannel::to_json().items())
-        j[k] = v;
+    x::json::json j = x::json::json::object();
+    if (const auto parent = BaseChannel::to_json(); parent.is_object())
+        j.update(parent);
     j["channel"] = this->channel;
     j["is_index"] = this->is_index;
+    j["field"] = this->field;
     return j;
 }
 
@@ -81,9 +83,9 @@ inline WriteChannel WriteChannel::parse(x::json::Parser parser) {
 }
 
 inline x::json::json WriteChannel::to_json() const {
-    x::json::json j;
-    for (auto &[k, v]: BaseChannel::to_json().items())
-        j[k] = v;
+    x::json::json j = x::json::json::object();
+    if (const auto parent = BaseChannel::to_json(); parent.is_object())
+        j.update(parent);
     j["cmd_channel"] = this->cmd_channel;
     return j;
 }
@@ -108,19 +110,21 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
         "channels",
         std::vector<ReadChannel>{}
     );
+    result.nan_fill_enabled = parser.field<bool>("nan_fill_enabled", false);
     return result;
 }
 
 inline x::json::json ReadConfig::to_json() const {
-    x::json::json j;
-    for (auto &[k, v]: ::synnax::task::ReadConfig::to_json().items())
-        j[k] = v;
+    x::json::json j = x::json::json::object();
+    if (const auto parent = ::synnax::task::ReadConfig::to_json(); parent.is_object())
+        j.update(parent);
     j["sample_rate"] = this->sample_rate;
     j["stream_rate"] = this->stream_rate;
     j["device"] = this->device;
     j["array_mode"] = this->array_mode;
     j["array_size"] = this->array_size;
     j["channels"] = x::json::to_array(this->channels);
+    j["nan_fill_enabled"] = this->nan_fill_enabled;
     return j;
 }
 
@@ -137,9 +141,9 @@ inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
 }
 
 inline x::json::json WriteConfig::to_json() const {
-    x::json::json j;
-    for (auto &[k, v]: ::synnax::task::WriteConfig::to_json().items())
-        j[k] = v;
+    x::json::json j = x::json::json::object();
+    if (const auto parent = ::synnax::task::WriteConfig::to_json(); parent.is_object())
+        j.update(parent);
     j["channels"] = x::json::to_array(this->channels);
     return j;
 }
@@ -153,9 +157,9 @@ inline ScanConfig ScanConfig::parse(x::json::Parser parser) {
 }
 
 inline x::json::json ScanConfig::to_json() const {
-    x::json::json j;
-    for (auto &[k, v]: ::synnax::task::ScanConfig::to_json().items())
-        j[k] = v;
+    x::json::json j = x::json::json::object();
+    if (const auto parent = ::synnax::task::ScanConfig::to_json(); parent.is_object())
+        j.update(parent);
     return j;
 }
 

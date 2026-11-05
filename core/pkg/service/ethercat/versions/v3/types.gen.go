@@ -19,18 +19,24 @@ import (
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // BaseReadChannel carries the fields every EtherCAT read channel shares.
 type BaseReadChannel = v2.BaseReadChannel
 
+// ReadChannelType is the "type" value that selects a variant of ReadChannel.
 type ReadChannelType string
 
 const (
-	EntryReadChannelType      ReadChannelType = "entry"
+	// EntryReadChannelType addresses a PDO entry by its CoE index and sub-index.
+	EntryReadChannelType ReadChannelType = "entry"
+	// UnresolvedReadChannelType is a channel whose PDO entry name matched no single
+	// entry on its slave. It must be given an entry before the task runs.
 	UnresolvedReadChannelType ReadChannelType = "unresolved"
 )
 
+// ReadChannelVariant is implemented by every ReadChannel variant.
 type ReadChannelVariant interface {
 	isReadChannelVariant()
 }
@@ -134,9 +140,24 @@ func (u *ReadChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.UnresolvedReadChannel
 	default:
-		return errors.Newf("ReadChannel: unknown type %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"ReadChannel: unknown type %q",
+			disc.Type,
+		)
 	}
 	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u ReadChannel) Type() ReadChannelType {
+	switch u.Variant.(type) {
+	case EntryReadChannel:
+		return EntryReadChannelType
+	case UnresolvedReadChannel:
+		return UnresolvedReadChannelType
+	}
+	return ""
 }
 
 // ApplyDefaults fills the active variant's zero-valued fields with their
@@ -149,13 +170,42 @@ func (u *ReadChannel) ApplyDefaults() {
 	}
 }
 
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u ReadChannel) Base() BaseReadChannel {
+	switch variant := u.Variant.(type) {
+	case EntryReadChannel:
+		return variant.BaseReadChannel
+	case UnresolvedReadChannel:
+		return variant.BaseReadChannel
+	}
+	return BaseReadChannel{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *ReadChannel) SetBase(base BaseReadChannel) {
+	switch variant := u.Variant.(type) {
+	case EntryReadChannel:
+		variant.BaseReadChannel = base
+		u.Variant = variant
+	case UnresolvedReadChannel:
+		variant.BaseReadChannel = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("ReadChannel: cannot set the base of variant %T", variant))
+	}
+}
+
 // BaseWriteChannel carries the fields every EtherCAT write channel shares.
 type BaseWriteChannel = v2.BaseWriteChannel
 
 // WriteChannel is a single EtherCAT write channel (RxPDO, master to slave). The type
 // field selects how the PDO entry is addressed.
 type WriteChannel = v2.WriteChannel
+
+// WriteChannelVariant is implemented by every WriteChannel variant.
 type WriteChannelVariant = v2.WriteChannelVariant
+
+// WriteChannelType is the "type" value that selects a variant of WriteChannel.
 type WriteChannelType = v2.WriteChannelType
 
 const (
@@ -196,14 +246,19 @@ type WriteConfig = v2.WriteConfig
 // ScanConfig configures an EtherCAT scan task.
 type ScanConfig = v2.ScanConfig
 
+// ScaleType is the "type" value that selects a variant of Scale.
 type ScaleType string
 
 const (
+	// LinearScaleType maps raw values to engineering units with a slope and offset.
 	LinearScaleType ScaleType = "linear"
-	MapScaleType    ScaleType = "map"
-	NoneScaleType   ScaleType = "none"
+	// MapScaleType maps a raw range linearly onto a scaled range.
+	MapScaleType ScaleType = "map"
+	// NoneScaleType applies no scaling; the raw value is used directly.
+	NoneScaleType ScaleType = "none"
 )
 
+// ScaleVariant is implemented by every Scale variant.
 type ScaleVariant interface {
 	isScaleVariant()
 }
@@ -333,9 +388,26 @@ func (u *Scale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.NoneScale
 	default:
-		return errors.Newf("Scale: unknown type %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Scale: unknown type %q",
+			disc.Type,
+		)
 	}
 	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u Scale) Type() ScaleType {
+	switch u.Variant.(type) {
+	case LinearScale:
+		return LinearScaleType
+	case MapScale:
+		return MapScaleType
+	case NoneScale:
+		return NoneScaleType
+	}
+	return ""
 }
 
 // ApplyDefaults fills the active variant's zero-valued fields with their

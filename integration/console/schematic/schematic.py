@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Literal, TypedDict
+from typing import Literal, TypedDict, TypeVar
 
 from playwright.sync_api import Locator
 
@@ -24,8 +24,9 @@ from console.schematic.symbol import (
     box_right,
     box_top,
 )
+from x.spatial import AngularDirection, OuterLocation
 
-PropertyDict = dict[str, float | str | bool]
+_SymbolT = TypeVar("_SymbolT", bound=Symbol)
 
 
 class SchematicProperties(TypedDict):
@@ -56,11 +57,6 @@ _ALIGNMENT_EXTRACTORS = {
 DistributionType = Literal[
     "horizontal",
     "vertical",
-]
-
-RotationType = Literal[
-    "clockwise",
-    "counterclockwise",
 ]
 
 
@@ -98,7 +94,7 @@ class Schematic(ConsolePage):
         self.layout.show_visualization_toolbar()
         self.page.get_by_role("tab", name="Properties", exact=True).click()
 
-    def create_symbol(self, symbol: Symbol) -> Symbol:
+    def create_symbol(self, symbol: _SymbolT) -> _SymbolT:
         """Add a symbol to the schematic and configure it.
 
         Args:
@@ -249,7 +245,7 @@ class Schematic(ConsolePage):
     def rotate(
         self,
         symbols: list[Symbol],
-        direction: RotationType,
+        direction: AngularDirection,
         *,
         group: bool = False,
     ) -> None:
@@ -291,9 +287,9 @@ class Schematic(ConsolePage):
         self,
         *,
         source_symbol: Symbol,
-        source_handle: str,
+        source_handle: OuterLocation,
         target_symbol: Symbol,
-        target_handle: str,
+        target_handle: OuterLocation,
     ) -> None:
         """Connect two symbols by dragging from source handle to target handle."""
         source_x, source_y = self.find_symbol_handle(source_symbol, source_handle)
@@ -304,7 +300,9 @@ class Schematic(ConsolePage):
         self.page.mouse.move(target_x, target_y, steps=10)
         self.page.mouse.up()
 
-    def find_symbol_handle(self, symbol: Symbol, handle: str) -> tuple[float, float]:
+    def find_symbol_handle(
+        self, symbol: Symbol, handle: OuterLocation
+    ) -> tuple[float, float]:
         """Calculate the coordinates of a symbol's connection handle."""
         symbol_box = symbol.locator.bounding_box()
         if not symbol_box:
@@ -336,9 +334,9 @@ class Schematic(ConsolePage):
         self,
         *,
         source_symbol: Symbol,
-        source_handle: str,
+        source_handle: OuterLocation,
         target_symbol: Symbol,
-        target_handle: str,
+        target_handle: OuterLocation,
     ) -> None:
         """Select the edge between two symbol handles by clicking its midpoint.
 

@@ -20,12 +20,14 @@ import { useCombinedStateAndRef, useInitializerRef } from "@synnaxlabs/lyra/hook
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
 import { Tree as Base } from "@synnaxlabs/lyra/tree";
 import { Access, Ontology, Synnax } from "@synnaxlabs/pluto";
-import { array, type destructor, type observe } from "@synnaxlabs/x";
+import { array, type destructor, type observe, unique } from "@synnaxlabs/x";
 import {
   type DragEvent,
   type FC,
+  type KeyboardEvent,
   type ReactElement,
   type ReactNode,
   useEffect,
@@ -33,15 +35,29 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { flushSync } from "react-dom";
 import { useStore } from "react-redux";
 
 import { ContextMenu } from "@/platform/context-menu";
+import { CSS } from "@/platform/css";
 import { Errors } from "@/platform/errors";
 import { Panel } from "@/platform/panel";
 import { DefaultContextMenu } from "@/platform/tree/DefaultContextMenu";
 import { DefaultItem, type Item } from "@/platform/tree/item";
 import { MultipleSelectionContextMenu } from "@/platform/tree/MultipleSelectionContextMenu";
 import { useItems } from "@/platform/tree/Provider";
+import {
+  type CreateSearchParams,
+  type Match,
+  type Matches,
+  MatchProvider,
+  type ResultNodes,
+  type Search,
+  type SearchAnswer,
+  type SearchLayout,
+  useOntologyMatches,
+  type UseSearch,
+} from "@/platform/tree/search";
 import {
   type BaseProps,
   type ContextMenuProps,
@@ -51,9 +67,14 @@ import {
 import { useResources } from "@/platform/tree/useResource";
 import { type Action, type State } from "@/session/store";
 
-interface InternalProps {
+/** The resource types the tree sorts first and every search finds. */
+const FOLDER_TYPES = new Set<ontology.ResourceType>(["group"]);
+
+interface InternalProps extends Pick<List.ScrollProps, "ref" | "onKeyDown"> {
   root: ontology.ID;
   emptyContent?: ReactNode;
+  results?: ResultNodes;
+  className?: string;
 }
 
 interface ContextValue {
@@ -143,12 +164,18 @@ const TreeItem = ({ onDrop: _, ...rest }: Base.ItemProps<string>) => {
 
 const itemRenderProp = Component.renderProp(TreeItem);
 
-// Returns the keys that sit inside another key in the same set. Depth cannot answer
-// this: two nodes at different depths are often unrelated.
-const findContainedKeys = (tree: Base.Node<string>[], keys: string[]): Set<string> => {
+// Returns the keys that sit inside another key in the same set, in the tree or in the
+// ancestors of a search match. Depth cannot answer this: two nodes at different depths
+// are often unrelated.
+const findContainedKeys = (
+  tree: Base.Node<string>[],
+  keys: string[],
+  ancestors: Map<string, Set<string>> = new Map(),
+): Set<string> => {
   const all = new Set(keys);
   const contained = new Set<string>();
   keys.forEach((key) => {
+    if ([...(ancestors.get(key) ?? [])].some((a) => all.has(a))) contained.add(key);
     const node = Base.findNode({ tree, key });
     if (node?.children == null) return;
     Base.getDescendants(...node.children).forEach(({ key: descendant }) => {
@@ -169,6 +196,46 @@ const keepLoadedChildren = (
     return existing == null ? node : { ...node, children: existing.children };
   });
 
+// No answer holds a node the Core has not heard of yet, so a node that a placeholder
+// backs stays. The nodes moved under it leave the answer.
+const keepPlaceholders = (
+  prev: Base.Node<string>[],
+  next: Base.Node<string>[],
+  isPlaceholder: (key: string) => boolean,
+): Base.Node<string>[] => {
+  const nextKeys = new Set(next.map(({ key }) => key));
+  const kept = prev.filter(({ key }) => !nextKeys.has(key) && isPlaceholder(key));
+  const moved = new Set(Base.getDescendants(...kept).map(({ key }) => key));
+  return [...kept, ...next.filter(({ key }) => !moved.has(key))];
+};
+
+// A watched group keeps the children its answer gave, since they are every child and
+// not only the matches.
+const keepWatchedChildren = (
+  prev: Base.Node<string>[],
+  next: Base.Node<string>[],
+  watched: Map<string, destructor.Destructor>,
+  isPlaceholder: (key: string) => boolean,
+): Base.Node<string>[] =>
+  keepPlaceholders(
+    prev,
+    next.map((node) => {
+      const existing = prev.find(({ key }) => key === node.key);
+      if (existing?.children == null || node.children == null) return node;
+      if (watched.has(node.key)) return { ...node, children: existing.children };
+      return {
+        ...node,
+        children: keepWatchedChildren(
+          existing.children,
+          node.children,
+          watched,
+          isPlaceholder,
+        ),
+      };
+    }),
+    isPlaceholder,
+  );
+
 const toNodes = (
   resources: ontology.Resource[],
   resolveItem: (type: ontology.ResourceType) => Item,
@@ -183,7 +250,14 @@ const toNodes = (
       children: resolveItem(r.id.type).hasChildren ? [] : undefined,
     }));
 
-const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
+const Internal = ({
+  root,
+  emptyContent,
+  results,
+  className,
+  ref,
+  onKeyDown,
+}: InternalProps): ReactElement => {
   const items = useItems();
   const resolveItem = (type: ontology.ResourceType): Item => items[type] ?? DefaultItem;
   const [selected, setSelected, selectedRef] = useCombinedStateAndRef<string[]>([]);
@@ -193,6 +267,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   // The retained answer seeds the first render, not an effect: an effect runs
   // after the commit paints, so the tree would still show one empty frame.
   const [seed] = useState<Base.Node<string>[] | null>(() => {
+    if (results != null) return null;
     const cached = client?.ontology.children.getCached({ ids: root });
     return query.isLive(cached) ? toNodes(cached, resolveItem) : null;
   });
@@ -223,24 +298,37 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     };
   };
 
+  const sort = (a: Base.Node<string>, b: Base.Node<string>) => {
+    const aResource = getResourceByKey(a.key);
+    const bResource = getResourceByKey(b.key);
+    if (aResource == null && bResource == null) return 0;
+    if (aResource == null) return 1;
+    if (bResource == null) return -1;
+    const aFolder = FOLDER_TYPES.has(aResource.id.type);
+    const bFolder = FOLDER_TYPES.has(bResource.id.type);
+    if (aFolder !== bFolder) return aFolder ? -1 : 1;
+    return aResource.name.localeCompare(bResource.name);
+  };
+
   const applyAnswer = (parent: ontology.ID, resources: ontology.Resource[]) => {
     const next = toNodes(resources, resolveItem);
-    const nextKeys = new Set(next.map(({ key }) => key));
     // A placeholder stands in only until the Core delivers the real resource, which
     // the answer carries.
     const settled = ontology
       .idToString(resources.map(({ id }) => id))
       .filter(placeholders.hasItem);
     if (settled.length > 0) placeholders.deleteItem(settled);
-    // The answer is the authority on its parent's membership. A node it omits
-    // survives only while a placeholder backs it, since an optimistic row the Core
-    // has not heard about yet cannot be in any answer.
-    const merge = (prevChildren: Base.Node<string>[]): Base.Node<string>[] => [
-      ...prevChildren.filter(
-        ({ key }) => !nextKeys.has(key) && placeholders.hasItem(key),
-      ),
-      ...keepLoadedChildren(prevChildren, next),
-    ];
+    // The answer is the authority on its parent's membership.
+    const merge = (prevChildren: Base.Node<string>[]): Base.Node<string>[] => {
+      const merged = keepPlaceholders(
+        prevChildren,
+        keepLoadedChildren(prevChildren, next),
+        placeholders.hasItem,
+      );
+      // Results keep the order of the matches, so the tree does not sort them, and
+      // the children of a group arrive sorted instead.
+      return results == null ? merged : merged.sort(sort);
+    };
     if (ontology.idsEqual(parent, root)) {
       setNodes(merge);
       setAnswered(true);
@@ -313,7 +401,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   };
 
   useEffect(() => {
-    void watchChildren(root);
+    if (results == null) void watchChildren(root);
     return () => releaseChildren([...watchedRef.current.keys()]);
   }, [client, ontology.idToString(root)]);
 
@@ -335,6 +423,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
         releaseChildren(Base.getDescendants(node).map(({ key }) => key));
       return;
     }
+    if (results?.fixed.has(clicked) === true) return;
     setLoading(clicked);
     void watchChildren(ontology.parseID(clicked));
   };
@@ -360,25 +449,52 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     (keys) => keys.map(getResourceByKey).filter((r) => r != null),
   );
 
-  const sort = (a: Base.Node<string>, b: Base.Node<string>) => {
-    const aResource = getResourceByKey(a.key);
-    const bResource = getResourceByKey(b.key);
-    if (aResource == null && bResource == null) return 0;
-    if (aResource == null) return 1;
-    if (bResource == null) return -1;
-    if (aResource.id.type === "group" && bResource.id.type !== "group") return -1;
-    if (aResource.id.type !== "group" && bResource.id.type === "group") return 1;
-    return aResource.name.localeCompare(bResource.name);
-  };
-
   const treeProps = Base.use({
     nodes,
     onExpand: handleExpand,
     selected,
     onSelectedChange: setSelected,
-    sort,
+    sort: results == null ? sort : undefined,
   });
-  const { shape, expand, contract } = treeProps;
+  const { shape, expand, contract, expanded } = treeProps;
+
+  // Groups open on arrival once, so a group the user closes stays closed.
+  const openedRef = useInitializerRef(() => new Set<string>());
+  useEffect(() => {
+    if (results == null) return;
+    // A group that now holds only matches drops every child its watch gave.
+    releaseChildren(
+      [...watchedRef.current.keys()].filter((key) => results.fixed.has(key)),
+    );
+    const next = keepWatchedChildren(
+      nodesRef.current,
+      results.nodes,
+      watchedRef.current,
+      placeholders.hasItem,
+    );
+    // A group the results leave out loses its watch, so it loads its children again
+    // when it comes back.
+    releaseChildren(
+      [...watchedRef.current.keys()].filter(
+        (key) => Base.findNode({ tree: next, key }) == null,
+      ),
+    );
+    setNodes(next);
+    // An open group that starts to match gets no expand, so it loads its children here.
+    expanded
+      .filter(
+        (key) =>
+          !results.fixed.has(key) &&
+          !watchedRef.current.has(key) &&
+          Base.findNode({ tree: results.nodes, key }) != null,
+      )
+      .forEach((key) => void watchChildren(ontology.parseID(key)));
+    results.expanded.forEach((key) => {
+      if (openedRef.current.has(key)) return;
+      openedRef.current.add(key);
+      expand(key);
+    });
+  }, [results]);
   // A placeholder's row stays mounted, so its rename can start out of view. Focusing
   // the editable then scrolls the row into view.
   const pinned = shape.keys.filter(placeholders.hasItem);
@@ -400,6 +516,13 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   const store = useStore<State, Action>();
 
   const { update: moveChildren } = Ontology.useMoveChildren({});
+
+  // A result at the top of the tree has a real parent the tree does not show.
+  const parentOf = (tree: Base.Node<string>[], key: string): ontology.ID => {
+    const parent = Base.findNodeParent({ tree, key });
+    if (parent != null) return ontology.parseID(parent.key);
+    return results?.parents.get(key) ?? root;
+  };
 
   const getBaseProps = (client: Client): BaseProps => ({
     client,
@@ -424,15 +547,14 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     // An item inside another dragged item travels with it. Moving it explicitly
     // would re-parent it onto the destination as a sibling of its own parent.
     const droppedKeys = dropped.map(({ key }) => key);
-    const contained = findContainedKeys(nodesSnapshot, droppedKeys);
+    const contained = findContainedKeys(nodesSnapshot, droppedKeys, results?.ancestors);
     const moved = dropped.filter(({ key }) => !contained.has(key));
     if (moved.length === 0) return [];
 
     // Each item leaves its own parent: a selection can span several.
     const bySource = new Map<string, ontology.ID[]>();
     moved.forEach(({ key }) => {
-      const parent = Base.findNodeParent({ tree: nodesSnapshot, key });
-      const sourceKey = parent?.key ?? ontology.idToString(root);
+      const sourceKey = ontology.idToString(parentOf(nodesSnapshot, key));
       const ids = bySource.get(sourceKey) ?? [];
       ids.push(ontology.parseID(key));
       bySource.set(sourceKey, ids);
@@ -466,30 +588,30 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     startDrag([Base.createHaulItem(itemKey), ...haulItems]);
   };
 
-  const renderContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
+  const renderContextMenu = ({ keys: clicked }: Menu.ContextMenuMenuProps) => {
     if (client == null) return <FallbackContextMenu />;
-    if (keys.length === 0) return <DefaultContextMenu root={root} state={state} />;
-    const rightClickedButNotSelected = keys.find((v) => !selected.includes(v));
-    // In the case where we right clicked the menu, but it's not in the current
-    // selection, we only display a context menu for that item.
-    if (rightClickedButNotSelected != null) keys = [rightClickedButNotSelected];
-    // Because we're using a virtualized tree, the keys from the context menu
-    // might not actually be accurate (because we're missing DOM elements), so instead
-    // we pull directly from the list selected state.
-    else keys = selected;
+    if (clicked.length === 0) return <DefaultContextMenu root={root} state={state} />;
+    const rightClickedButNotSelected = clicked.find((v) => !selected.includes(v));
+    // A right-click outside the selection shows a menu for that item alone. Otherwise
+    // the selection state gives the keys, since the virtual tree can lack the DOM
+    // elements.
+    const keys =
+      rightClickedButNotSelected != null ? [rightClickedButNotSelected] : selected;
 
     const ids = keys.map((key) => ontology.parseID(key));
 
-    // We want to find the parent of the node with the lowest depth, since we
-    // might be selecting nodes AND their children.
-    const [shallowest] = keys.toSorted(Base.compareDepth(shape));
-    // TODO: we might be selecting two nodes that are not ascendants or descendants of
-    // the other ones. We need to change this function to implement recursion.
-    const parent = Base.findNodeParent({ tree: nodes, key: shallowest });
+    // A selected node's own children do not count, since an action on the node carries
+    // them along.
+    const top = Base.getAllNodesOfMinDepth(
+      Base.filterShape(shape, (key) => keys.includes(key)),
+    );
+    const parents = unique.by(
+      top.map((key) => parentOf(nodes, key)),
+      (id) => ontology.idToString(id),
+    );
+    const parentID = parents.length === 1 ? parents[0] : null;
 
-    const parentID = parent == null ? root : ontology.parseID(parent.key);
-
-    const firstID = ontology.parseID(shallowest);
+    const firstID = ids[0];
 
     const props: ContextMenuProps = {
       selection: {
@@ -536,9 +658,12 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
         // Not getResource: it throws, and a resource may not be cached before
         // the tree attempts to render it.
         getItem={getItem}
-        emptyContent={answered ? emptyContent : null}
+        emptyContent={answered || results != null ? emptyContent : null}
+        className={className}
         pinned={pinned}
         onContextMenu={menuProps.open}
+        ref={ref}
+        onKeyDown={onKeyDown}
       >
         {itemRenderProp}
       </Base.Tree>
@@ -546,12 +671,330 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   );
 };
 
+const LIMIT = 100;
+const DEBOUNCE_MS = 120;
+const EMPTY_ANCESTRY: ontology.Ancestry = { resources: [], paths: {} };
+
+type FoundMatches = Extract<Matches, { variant: "success" }>;
+type FailedMatches = Extract<Matches, { variant: "error" }>;
+
+const isFound = (matches: Matches): matches is FoundMatches =>
+  matches.variant === "success";
+
+const isFailed = (matches: Matches): matches is FailedMatches =>
+  matches.variant === "error";
+
+const isFolderNode = ({ key }: Base.Node<string>): boolean =>
+  FOLDER_TYPES.has(ontology.parseID(key).type);
+
+const foldersFirst = (nodes: Base.Node<string>[]): Base.Node<string>[] =>
+  [...nodes.filter(isFolderNode), ...nodes.filter((node) => !isFolderNode(node))].map(
+    (node) =>
+      node.children == null ? node : { ...node, children: foldersFirst(node.children) },
+  );
+
+interface BuildResultsParams {
+  ids: ontology.ID[];
+  ancestry: ontology.Ancestry;
+  layout: SearchLayout;
+  root: ontology.ID;
+  hasChildren: (id: ontology.ID) => boolean;
+}
+
+interface Built {
+  results: ResultNodes;
+  groups: Map<string, string>;
+}
+
+const buildResults = ({
+  ids,
+  ancestry: { resources, paths },
+  layout,
+  root,
+  hasChildren,
+}: BuildResultsParams): Built => {
+  const names = new Map(resources.map(({ key, name }) => [key, name]));
+  const matched = new Set(ontology.idToString(ids));
+  const nodes: Base.Node<string>[] = [];
+  const parents = new Map<string, ontology.ID>();
+  const ancestors = new Map<string, Set<string>>();
+  const groups = new Map<string, string>();
+  const fixed = new Set<string>();
+  const expanded = new Set<string>();
+  const toNode = (id: ontology.ID): Base.Node<string> => ({
+    key: ontology.idToString(id),
+    children: hasChildren(id) ? [] : undefined,
+  });
+  ids.forEach((id) => {
+    const key = ontology.idToString(id);
+    const idPaths = paths[key] ?? [];
+    // The tree shows only what sits under its root.
+    if (idPaths.length === 0) return;
+    const parent = idPaths[0].at(-1);
+    parents.set(key, parent ?? root);
+    ancestors.set(key, new Set(idPaths.flatMap((path) => ontology.idToString(path))));
+    if (layout === "flat") {
+      const group = parent == null ? undefined : names.get(ontology.idToString(parent));
+      if (group != null) groups.set(key, group);
+      nodes.push(toNode(id));
+      return;
+    }
+    idPaths.forEach((path) => {
+      let level = nodes;
+      path.forEach((groupID) => {
+        const groupKey = ontology.idToString(groupID);
+        expanded.add(groupKey);
+        if (!matched.has(groupKey)) fixed.add(groupKey);
+        let node = level.find((n) => n.key === groupKey);
+        if (node == null) {
+          node = { key: groupKey, children: [] };
+          level.push(node);
+        }
+        node.children ??= [];
+        level = node.children;
+      });
+      if (!level.some((n) => n.key === key)) level.push(toNode(id));
+    });
+  });
+  return {
+    results: {
+      nodes: foldersFirst(nodes),
+      fixed,
+      expanded: [...expanded],
+      parents,
+      ancestors,
+    },
+    groups,
+  };
+};
+
+interface Held {
+  key: string;
+  layout: SearchLayout;
+  ancestry: ontology.Ancestry;
+  results: ResultNodes;
+  match: Match;
+  more: boolean;
+}
+
+const useDebounced = (value: string): string => {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timeout = setTimeout(() => setDebounced(value), DEBOUNCE_MS);
+    return () => clearTimeout(timeout);
+  }, [value]);
+  return debounced;
+};
+
+/**
+ * Declares the search of a tree. Call it at module scope, and call the hook it returns
+ * where both the search field and the tree can read its state.
+ */
+export const createSearch = ({
+  noun,
+  types = [],
+  useMatches = useOntologyMatches,
+}: CreateSearchParams): UseSearch => {
+  const searchTypes = [...FOLDER_TYPES, ...types];
+  const useSearch = (root: ontology.ID | null): Search => {
+    const items = useItems();
+    const [open, setOpen] = useState(false);
+    const [term, setTerm] = useState("");
+    const [layout, setLayout] = useState<SearchLayout>("flat");
+    const fieldRef = useRef<HTMLInputElement>(null);
+    const resultsRef = useRef<HTMLDivElement>(null);
+    const treeRef = useRef<HTMLDivElement>(null);
+    const searching = open && term.trim() !== "";
+    const trimmed = useDebounced(term).trim();
+    const sources = useMatches(
+      !open || root == null || trimmed === ""
+        ? null
+        : { term: trimmed, root, types: searchTypes, limit: LIMIT + 1 },
+    );
+    const found = sources.every(isFound)
+      ? unique.by(
+          sources.flatMap(({ ids }) => ids),
+          (id) => ontology.idToString(id),
+        )
+      : null;
+    const shownIDs = found?.slice(0, LIMIT) ?? null;
+    const ancestry = Ontology.useResultAncestors(
+      root == null || shownIDs == null || shownIDs.length === 0
+        ? null
+        : { ids: shownIDs, root },
+    );
+    let placed: ontology.Ancestry | null = null;
+    if (shownIDs?.length === 0) placed = EMPTY_ANCESTRY;
+    else if (ancestry.variant === "success") placed = ancestry.data;
+    const key =
+      shownIDs == null ? null : [trimmed, ...ontology.idToString(shownIDs)].join("\n");
+    const more = found != null && found.length > LIMIT;
+
+    // The last answer shows until the next one is placed, so the results never blank
+    // between keystrokes.
+    const [held, setHeld] = useState<Held | null>(null);
+    if (!searching) {
+      if (held != null) setHeld(null);
+    } else if (
+      root != null &&
+      key != null &&
+      found != null &&
+      shownIDs != null &&
+      placed != null &&
+      (held?.key !== key ||
+        held.ancestry !== placed ||
+        held.layout !== layout ||
+        held.more !== more)
+    ) {
+      const { results, groups } = buildResults({
+        ids: shownIDs,
+        ancestry: placed,
+        layout,
+        root,
+        hasChildren: (id) => (items[id.type] ?? DefaultItem).hasChildren,
+      });
+      setHeld({
+        key,
+        layout,
+        ancestry: placed,
+        results,
+        match: { term: trimmed, groups },
+        more,
+      });
+    }
+
+    const failure =
+      sources.find(isFailed) ?? (ancestry.variant === "error" ? ancestry.status : null);
+    let answer: SearchAnswer | null = null;
+    if (searching && failure != null)
+      answer = { variant: "error", description: failure.description };
+    else if (searching && held != null)
+      answer = {
+        variant: "success",
+        results: held.results,
+        match: held.match,
+        more: held.more,
+      };
+    return {
+      noun,
+      open,
+      term,
+      layout,
+      loading: searching && failure == null && (key == null || held?.key !== key),
+      answer,
+      start: () => setOpen(true),
+      close: () => {
+        // A hidden tree cannot take the focus, so the close renders first.
+        flushSync(() => {
+          setOpen(false);
+          setTerm("");
+        });
+        treeRef.current?.focus({ preventScroll: true });
+      },
+      setTerm,
+      setLayout,
+      fieldRef,
+      resultsRef,
+      treeRef,
+    };
+  };
+  return useSearch;
+};
+
+interface NoMatchesProps {
+  noun: string;
+  term: string;
+}
+
+const NoMatches = ({ noun, term }: NoMatchesProps): ReactElement => (
+  <Text.Text level="small" color={9} className={CSS.BE("tree-search", "message")}>
+    No {noun} match “{term}”
+  </Text.Text>
+);
+
+interface ResultsProps extends Pick<
+  Search,
+  "noun" | "layout" | "fieldRef" | "resultsRef"
+> {
+  root: ontology.ID;
+  answer: SearchAnswer;
+}
+
+const Results = ({
+  root,
+  noun,
+  layout,
+  answer,
+  fieldRef,
+  resultsRef,
+}: ResultsProps): ReactElement => {
+  // A second Escape, in the field, closes the search.
+  const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== "Escape" || e.target !== e.currentTarget) return;
+    e.stopPropagation();
+    fieldRef.current?.focus();
+  };
+  if (answer.variant === "error")
+    return (
+      <Status.Summary
+        className={CSS.BE("tree-search", "message")}
+        variant="error"
+        message={`Failed to search ${noun}`}
+        description={answer.description}
+      />
+    );
+  return (
+    <MatchProvider value={answer.match}>
+      <Internal
+        key={layout}
+        root={root}
+        results={answer.results}
+        ref={resultsRef}
+        onKeyDown={handleKeyDown}
+        emptyContent={<NoMatches noun={noun} term={answer.match.term} />}
+      />
+      {answer.more && (
+        <Text.Text level="small" color={9} className={CSS.BE("tree-search", "more")}>
+          Showing the first {LIMIT} matches. Type more to narrow the search.
+        </Text.Text>
+      )}
+    </MatchProvider>
+  );
+};
+
 export interface TreeProps {
   root?: ontology.ID | null;
   emptyContent?: ReactNode;
+  /** Shows the search answer in place of the tree while the search has one. */
+  search?: Search;
 }
 
-export const Tree = ({ root, ...rest }: TreeProps): ReactElement | null => {
+export const Tree = ({
+  root,
+  emptyContent,
+  search,
+}: TreeProps): ReactElement | null => {
   if (root == null) return null;
-  return <Internal root={root} {...rest} />;
+  return (
+    <>
+      {/* The results come ahead of the hidden tree, so a lookup by item ID, such as
+          the start of a rename, finds the result first. */}
+      {search?.answer != null && (
+        <Results
+          root={root}
+          noun={search.noun}
+          layout={search.layout}
+          answer={search.answer}
+          fieldRef={search.fieldRef}
+          resultsRef={search.resultsRef}
+        />
+      )}
+      <Internal
+        root={root}
+        ref={search?.treeRef}
+        emptyContent={emptyContent}
+        className={search?.answer != null ? CSS.BM("tree", "hidden") : undefined}
+      />
+    </>
+  );
 };

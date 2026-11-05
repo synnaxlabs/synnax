@@ -16,13 +16,13 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 
-const RECEIPT_TIMESTAMP_PRECISION_BOUNDS: bounds.Bounds = { lower: 0, upper: 3 };
+const TIMESTAMP_PRECISION_BOUNDS: bounds.Bounds = { lower: 0, upper: 3 };
 
 export const Properties = (): ReactElement => {
   const key = Log.useKey();
   const dispatch = Log.useSingleDispatch();
   const channelNamesHidden = Log.useIsHidingChannelNames();
-  const receiptTimestampHidden = Log.useIsHidingReceiptTimestamp();
+  const timestampsHidden = Log.useIsHidingTimestamps();
   const timestampPrecision = Log.useTimestampPrecision();
   const hasEditPermission = Access.useUpdateGranted(log.ontologyID(key));
 
@@ -32,26 +32,28 @@ export const Properties = (): ReactElement => {
   const handleShowChannelNamesChange = (visible: boolean) =>
     dispatch(log.setChannelNamesHidden({ channelNamesHidden: !visible }));
 
-  const handleShowReceiptTimestampChange = (visible: boolean) =>
-    dispatch(log.setReceiptTimestampHidden({ receiptTimestampHidden: !visible }));
+  const handleShowTimestampsChange = (visible: boolean) =>
+    dispatch(log.setTimestampsHidden({ timestampsHidden: !visible }));
 
   return (
     <Flex.Box x className={CSS.BE("log", "toolbar", "properties")}>
-      <Input.Item label="Show receipt timestamp">
+      <Input.Item label="Show timestamps">
         <Input.Switch
-          value={!receiptTimestampHidden}
-          onChange={handleShowReceiptTimestampChange}
+          value={!timestampsHidden}
+          onChange={handleShowTimestampsChange}
           disabled={!hasEditPermission}
         />
       </Input.Item>
-      <Input.Item label="Receipt timestamp precision">
-        <Input.Numeric
-          value={timestampPrecision}
-          onChange={handlePrecisionChange}
-          resetValue={0}
-          bounds={RECEIPT_TIMESTAMP_PRECISION_BOUNDS}
-          disabled={!hasEditPermission}
-        />
+      <Input.Item label="Timestamp precision">
+        <Flex.Box y className={CSS.BE("log", "timestamp-precision")}>
+          <Input.Numeric
+            value={timestampPrecision}
+            onChange={handlePrecisionChange}
+            resetValue={0}
+            bounds={TIMESTAMP_PRECISION_BOUNDS}
+            disabled={!hasEditPermission || timestampsHidden}
+          />
+        </Flex.Box>
       </Input.Item>
       <Input.Item label="Show channel names">
         <Input.Switch

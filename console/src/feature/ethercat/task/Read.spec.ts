@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type rack, type Synnax, type task } from "@synnaxlabs/client";
+import { channel, type rack, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeAll, describe, expect, it } from "vitest";
 import { type z } from "zod";
 
@@ -30,6 +30,7 @@ import {
   clickDeploy,
   createWithHook,
   deployAndAwaitTask,
+  findChannelListItem,
   renderTaskFormTab,
 } from "@/platform/task/testutil";
 import { uniqueName } from "@/testutil";
@@ -148,7 +149,9 @@ describe("Read", () => {
     fireEvent.click(await screen.findByRole("option", { name: /0x6000:01/ }));
     fireEvent.click(await screen.findByRole("button", { name: /^Entry/ }));
     await waitFor(() =>
-      expect(screen.getAllByRole("option", { name: /Value/ })).toHaveLength(1),
+      expect(
+        within(screen.getByRole("dialog")).getAllByRole("option", { name: /Value/ }),
+      ).toHaveLength(1),
     );
     expect(screen.queryByText("Compact › Value")).toBeNull();
   });
@@ -563,6 +566,62 @@ describe("Read", () => {
     expect(updated.properties.read.channels[`scaled_${0x6000}_1`]).toBe(scaledKey);
   });
 
+  it("should add _scaled to a typed name its raw channel already holds", async () => {
+    const name = uniqueName("ecat_typed");
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: createPDOs(),
+    });
+    const raw = createEntryReadChannel(slave.key, STATUS_ENTRY, { name });
+    const deploy = async (ch: EtherCAT.Task.ReadChannel) => {
+      const rendered = await renderRead({
+        ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+        channels: [ch],
+      });
+      const deployed = await deployAndAwaitTask(
+        client,
+        rendered.container,
+        rendered.draft.key,
+        EtherCAT.Task.READ_SCHEMAS,
+      );
+      rendered.unmount();
+      return await client.channels.retrieve(deployed.config.channels[0].channel);
+    };
+    expect((await deploy(raw)).name).toBe(name);
+    const scaled = await deploy({
+      ...raw,
+      scale: { type: "linear", slope: 2, offset: 0 },
+    });
+    expect(scaled.name).toBe(`${name}_scaled`);
+  });
+
+  it("should keep a typed name for a scaled channel when no raw channel holds it", async () => {
+    const name = uniqueName("ecat_typed");
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: createPDOs(),
+    });
+    const { container, draft } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [
+        createEntryReadChannel(slave.key, STATUS_ENTRY, {
+          name,
+          scale: { type: "linear", slope: 2, offset: 0 },
+        }),
+      ],
+    });
+    const deployed = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      EtherCAT.Task.READ_SCHEMAS,
+    );
+    const scaled = await client.channels.retrieve(deployed.config.channels[0].channel);
+    expect(scaled.name).toBe(name);
+  });
+
   it("should reuse a scaled entry's float64 channel when redeployed", async () => {
     const slave = await createSlaveDevice(client, testRack.key, {
       identifier: createIdentifier(),
@@ -673,5 +732,31 @@ describe("Read", () => {
       EtherCAT.Task.READ_SCHEMAS,
     );
     expect(tsk.config.channels).toHaveLength(1);
+  });
+});
+
+describe("Read channel names", () => {
+  const renderStatus = async (overrides: { disabled?: boolean } = {}) => {
+    const identifier = createIdentifier();
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier,
+      network: "eth0",
+      pdos: createPDOs(),
+    });
+    await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [createEntryReadChannel(slave.key, STATUS_ENTRY, overrides)],
+    });
+    return await findChannelListItem(channel.escapeInvalidName(`${identifier}_Status`));
+  };
+
+  it("should show the name deploying gives a channel in the list", async () => {
+    const item = await renderStatus();
+    expect(within(item).getByRole("img", { name: "New channel" })).toBeTruthy();
+  });
+
+  it("should not mark a disabled channel as new", async () => {
+    const item = await renderStatus({ disabled: true });
+    expect(within(item).queryByRole("img", { name: "New channel" })).toBeNull();
   });
 });

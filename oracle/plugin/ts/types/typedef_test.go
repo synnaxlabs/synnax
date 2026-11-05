@@ -40,7 +40,7 @@ var _ = Describe("Type Definition Generation", func() {
 			`
 				resp := MustGenerate(ctx, source, "slug", loader, p)
 				content := MustContentOf(resp, "types.gen.ts")
-				Expect(content).To(ContainSubstring(".min(3)"))
+				Expect(content).To(ContainSubstring(".check(zod.minLength(3))"))
 			},
 		)
 

@@ -23,6 +23,9 @@ interface RenderOptions {
   visible?: boolean;
   onChange?: (key: string | null) => void;
   search?: boolean;
+  data?: string[];
+  /** Adds a "time" item below the list, with a hint that its label leaves out. */
+  pinned?: boolean;
 }
 
 const renderSelect = ({
@@ -30,12 +33,14 @@ const renderSelect = ({
   visible = false,
   onChange = vi.fn(),
   search = false,
+  data = ["alpha", "bravo"],
+  pinned = false,
 }: RenderOptions = {}): RenderResult =>
   render(
     <Triggers.Provider>
       <Dialog.Frame visible={visible}>
         <Select.Frame<string, undefined>
-          data={["alpha", "bravo"]}
+          data={data}
           value={value}
           onChange={onChange}
           allowNone
@@ -56,6 +61,12 @@ const renderSelect = ({
               </Select.Items>
               <Select.Item itemKey="custom">Custom</Select.Item>
             </Select.List>
+            {pinned && (
+              <Select.Item itemKey="time" label="Time">
+                <span>Time</span>
+                <span>Uses each channel's time.</span>
+              </Select.Item>
+            )}
           </Select.Dialog>
         </Select.Frame>
       </Dialog.Frame>
@@ -180,6 +191,52 @@ describe("Select.Item", () => {
       keyDown("ArrowUp");
       expect(hovered(c)).toBe("custom");
     });
+
+    it("should never hide a fixed item outside the list", () => {
+      const c = renderSelect({ visible: true, search: true, pinned: true });
+      type(c, "zzz");
+      expect(c.baseElement.querySelector("#custom")?.hasAttribute("hidden")).toBe(true);
+      expect(c.baseElement.querySelector("#time")?.hasAttribute("hidden")).toBe(false);
+    });
+
+    it("should leave a fixed item outside the list out of its rows", () => {
+      const c = renderSelect({ visible: true, search: true, pinned: true, data: [] });
+      type(c, "channel");
+      const scroll = c.baseElement.querySelector(".lyra-list__scroll");
+      expect(scroll?.classList.contains("lyra-list__scroll--empty")).toBe(true);
+    });
+  });
+
+  describe("pinned", () => {
+    it("should walk a fixed item outside the list after it", () => {
+      const c = renderSelect({ visible: true, pinned: true });
+      keyDown("ArrowDown");
+      keyDown("ArrowUp");
+      expect(hovered(c)).toBe("time");
+    });
+
+    it("should select a fixed item outside the list on click", () => {
+      const onChange = vi.fn();
+      const c = renderSelect({ visible: true, pinned: true, onChange });
+      fireEvent.click(c.getByText("Uses each channel's time."));
+      expect(onChange).toHaveBeenCalledWith("time", { clicked: "time" });
+    });
+  });
+
+  describe("label", () => {
+    it("should show the label in a closed trigger instead of the children", () => {
+      const c = renderSelect({ value: "time", pinned: true });
+      expect(c.getByRole("button").textContent).toBe("Time");
+    });
+
+    it("should show the label in the trigger and the children in the row", () => {
+      const c = renderSelect({ value: "time", visible: true, pinned: true });
+      const trigger = c.baseElement.querySelector(".lyra-dialog__trigger");
+      expect(trigger?.textContent).toBe("Time");
+      expect(c.baseElement.querySelector("#time")?.textContent).toBe(
+        "TimeUses each channel's time.",
+      );
+    });
   });
 });
 
@@ -242,6 +299,43 @@ describe("Select render isolation", () => {
     reset();
     fireEvent.click(c.getByText("key-7"));
     expect([...counts.keys()].sort()).toEqual(["key-3", "key-7"]);
+  });
+
+  it("should re-render only the two items an arrow key moves the hover between", () => {
+    const { Counted, counts, reset } = createRenderCounter();
+    render(
+      <Triggers.Provider>
+        <Dialog.Frame visible>
+          <Select.Frame<string, undefined>
+            data={KEYS}
+            onChange={vi.fn()}
+            allowNone
+            initialHover={3}
+          >
+            <Select.List>
+              <Select.Items<string>>
+                {({ key, ...p }) => (
+                  <Counted key={key} id={p.itemKey}>
+                    <Select.Item {...p}>{p.itemKey}</Select.Item>
+                  </Counted>
+                )}
+              </Select.Items>
+            </Select.List>
+          </Select.Frame>
+        </Dialog.Frame>
+      </Triggers.Provider>,
+    );
+    reset();
+    act(() => {
+      fireEvent.keyDown(window, { code: "ArrowDown" });
+    });
+    act(() => {
+      fireEvent.keyUp(window, { code: "ArrowDown" });
+    });
+    expect([...counts.entries()].sort()).toEqual([
+      ["key-3", 1],
+      ["key-4", 1],
+    ]);
   });
 
   it("should render only the fixed items whose visibility changes on a search", () => {
