@@ -9,7 +9,9 @@
 
 import { device as deviceClient, NotFoundError, ontology } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
+import { type Status } from "@synnaxlabs/lyra/status";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { createElement, type ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Device } from "@/feature/device";
@@ -29,6 +31,7 @@ import {
 import {
   assertDefined,
   awaitTextEditingElement,
+  CaptureStatuses,
   commitTextEdit,
   uniqueName,
 } from "@/testutil";
@@ -40,11 +43,15 @@ const roles = new RoleClients(client);
 const hostDevices = (...devices: { key: string }[]) =>
   createHostItems(devices.map((d) => deviceClient.resourceID(d.key)));
 
-const renderDeviceTree = async (host: ReturnType<typeof hostDevices>) =>
+const renderDeviceTree = async (
+  host: ReturnType<typeof hostDevices>,
+  extra?: ReactNode,
+) =>
   await renderOntologyTree({
     client,
     root: ontology.ROOT_ID,
     items: { ...Device.TREE_ITEMS, ...host },
+    extra,
   });
 
 describe("device/ontology", () => {
@@ -101,6 +108,36 @@ describe("device/ontology", () => {
         NotFoundError.matches(e),
       );
     });
+  });
+
+  it("reports a delete that a task config refuses", async () => {
+    const dev = await createTestDevice(client);
+    const rack = await client.racks.retrieve({ key: dev.rack });
+    const task = await rack.createTask({
+      name: uniqueName("read"),
+      type: "modbus_read",
+      config: { device: dev.key, channels: [] },
+    });
+    let statuses: Status.NotificationSpec[] = [];
+    await renderDeviceTree(
+      hostDevices(dev),
+      createElement(CaptureStatuses, { onStatuses: (s) => (statuses = s) }),
+    );
+    await openTreeRowContextMenu(dev.name);
+    fireEvent.click(await screen.findByText("Delete"));
+    await screen.findByText(`Are you sure you want to delete ${dev.name}?`);
+    fireEvent.click(findButton("Delete"));
+    await waitFor(() =>
+      expect(statuses).toContainEqual(
+        expect.objectContaining({
+          message: "Failed to delete device",
+          description:
+            `cannot delete device ${dev.key} because modbus_read_config ` +
+            `${task.key} references it through device: validation error`,
+        }),
+      ),
+    );
+    expect((await client.devices.retrieve({ key: dev.key })).key).toBe(dev.key);
   });
 
   it("should configure a found device with an action to create a read task", async () => {

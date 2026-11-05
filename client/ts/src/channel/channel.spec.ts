@@ -11,7 +11,7 @@ import { control, DataType, id, TimeRange, TimeSpan, TimeStamp } from "@synnaxla
 import { beforeAll, describe, expect, it, test, vi } from "vitest";
 
 import { channel } from "@/channel";
-import { NotFoundError } from "@/index";
+import { NotFoundError, ValidationError } from "@/index";
 import { query } from "@/query";
 import {
   createProxiedTestClient,
@@ -292,6 +292,40 @@ describe("Channel", () => {
       await expect(
         async () => await client.channels.retrieve(channel.key),
       ).rejects.toThrow(NotFoundError);
+    });
+    test("refuse a channel that a task config names", async () => {
+      const channel = await client.channels.create({
+        name: id.create(),
+        leaseholder: 1,
+        virtual: true,
+        dataType: DataType.FLOAT32,
+      });
+      const rack = await client.racks.create({ name: "test" });
+      const device = await client.devices.create({
+        key: id.create(),
+        rack: rack.key,
+        location: "127.0.0.1:502",
+        name: "plc",
+        make: "modbus",
+        model: "modbus",
+        properties: {},
+      });
+      const task = await rack.createTask({
+        name: "read",
+        type: "modbus_read",
+        config: {
+          device: device.key,
+          channels: [{ type: "coil", key: "coil", channel: channel.key }],
+        },
+      });
+      await expect(client.channels.delete(channel.key)).rejects.toThrow(
+        new ValidationError(
+          `cannot delete channel ${channel.key} because modbus_read_config ` +
+            `${task.key} references it through channels.channel: validation error`,
+        ),
+      );
+      await client.tasks.delete(task.key);
+      await client.channels.delete(channel.key);
     });
   });
   describe("rename", async () => {

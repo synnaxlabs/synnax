@@ -15,6 +15,7 @@ import {
   ontology,
 } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
+import { type Status } from "@synnaxlabs/lyra/status";
 import { uuid } from "@synnaxlabs/x";
 import {
   act,
@@ -23,6 +24,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
+import { createElement, type ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Channel } from "@/feature/channel";
@@ -40,6 +42,7 @@ import { Session } from "@/session";
 import {
   assertDefined,
   awaitTextEditingElement,
+  CaptureStatuses,
   commitTextEdit,
   resolveFocusedTab,
   uniqueName,
@@ -65,12 +68,14 @@ const hostChannels = (...channels: { key: channelClient.Key }[]) =>
 const renderChannelTree = async (
   host: ReturnType<typeof hostChannels>,
   onCaughtError?: RenderOptions["onCaughtError"],
+  extra?: ReactNode,
 ) =>
   await renderOntologyTree({
     client,
     root: ontology.ROOT_ID,
     items: { ...Channel.TREE_ITEMS, ...host },
     onCaughtError,
+    extra,
   });
 
 describe("channel/ontology", () => {
@@ -212,6 +217,49 @@ describe("channel/ontology", () => {
           NotFoundError.matches(e),
         );
       });
+    });
+
+    it("reports a delete that a task config refuses", async () => {
+      const ch = await createChannel();
+      const rack = await client.racks.create({ name: uniqueName("rack") });
+      const device = await client.devices.create({
+        key: uuid.create(),
+        rack: rack.key,
+        location: "127.0.0.1:502",
+        name: uniqueName("plc"),
+        make: "modbus",
+        model: "modbus",
+        properties: {},
+      });
+      const task = await rack.createTask({
+        name: uniqueName("read"),
+        type: "modbus_read",
+        config: {
+          device: device.key,
+          channels: [{ type: "coil", key: "coil", channel: ch.key }],
+        },
+      });
+      let statuses: Status.NotificationSpec[] = [];
+      await renderChannelTree(
+        hostChannels(ch),
+        undefined,
+        createElement(CaptureStatuses, { onStatuses: (s) => (statuses = s) }),
+      );
+      await openTreeRowContextMenu(ch.name);
+      fireEvent.click(await screen.findByText("Delete"));
+      await screen.findByText(`Are you sure you want to delete ${ch.name}?`);
+      fireEvent.click(findButton("Delete"));
+      await waitFor(() =>
+        expect(statuses).toContainEqual(
+          expect.objectContaining({
+            message: "Failed to delete channel",
+            description:
+              `cannot delete channel ${ch.key} because modbus_read_config ` +
+              `${task.key} references it through channels.channel: validation error`,
+          }),
+        ),
+      );
+      expect((await client.channels.retrieve(ch.key)).key).toBe(ch.key);
     });
 
     it("renames the real channel name while an alias is shown", async () => {
