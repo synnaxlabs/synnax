@@ -50,18 +50,44 @@ const usedByDialogID = (key: secret.Key): string => `used-by-${key}`;
 
 type PopoverMode = "hover" | "pinned" | null;
 
+interface CountProps extends Pick<
+  Button.ButtonProps,
+  "onPointerEnter" | "onPointerLeave" | "onClick"
+> {
+  listed: secret.Key[];
+  secretKey: secret.Key;
+}
+
+const Count = ({ listed, secretKey, ...rest }: CountProps): ReactElement | null => {
+  const count = useUses(listed, secretKey).length;
+  if (count === 0) return null;
+  return (
+    <Button.Button
+      {...rest}
+      variant="text"
+      size="tiny"
+      textColor={9}
+      className={CSS.BE("credentials", "count")}
+      onDoubleClick={stopPropagation}
+    >
+      Used by {count}
+    </Button.Button>
+  );
+};
+
 interface UsedByPopoverProps {
+  listed: secret.Key[];
   secretKey: secret.Key;
   anchor: HTMLElement | null;
   onSelectCertificate: SelectCertificate;
 }
 
 const UsedByPopover = ({
+  listed,
   secretKey,
   anchor,
   onSelectCertificate,
 }: UsedByPopoverProps): ReactElement => {
-  const count = useUses(secretKey).length;
   const [mode, setMode] = useState<PopoverMode>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => clearTimeout(closeTimer.current), []);
@@ -91,20 +117,15 @@ const UsedByPopover = ({
       onVisibleChange={handleVisibleChange}
       location={POPOVER_LOCATION}
     >
-      {count > 0 && (
-        <Button.Button
-          variant="text"
-          size="tiny"
-          textColor={9}
-          className={CSS.BE("credentials", "count")}
+      <UsesBoundary>
+        <Count
+          listed={listed}
+          secretKey={secretKey}
           onPointerEnter={handleEnter}
           onPointerLeave={scheduleClose}
           onClick={() => setMode("pinned")}
-          onDoubleClick={stopPropagation}
-        >
-          Used by {count}
-        </Button.Button>
-      )}
+        />
+      </UsesBoundary>
       <Dialog.Dialog
         background={1}
         rounded="medium"
@@ -117,7 +138,11 @@ const UsedByPopover = ({
           Used by
         </Text.Text>
         <UsesBoundary>
-          <UsedBy secretKey={secretKey} onSelectCertificate={handleSelectCertificate} />
+          <UsedBy
+            listed={listed}
+            secretKey={secretKey}
+            onSelectCertificate={handleSelectCertificate}
+          />
         </UsesBoundary>
       </Dialog.Dialog>
     </Dialog.Frame>
@@ -125,10 +150,11 @@ const UsedByPopover = ({
 };
 
 interface SecretItemProps extends List.ItemProps<secret.Key> {
+  listed: secret.Key[];
   onSelectCertificate: SelectCertificate;
 }
 
-const SecretItem = ({ onSelectCertificate, ...rest }: SecretItemProps) => {
+const SecretItem = ({ listed, onSelectCertificate, ...rest }: SecretItemProps) => {
   const { itemKey } = rest;
   const s = List.useItem<secret.Key, secret.Secret>(itemKey);
   const canUpdate = Access.useUpdateGranted(secret.ontologyID(itemKey));
@@ -157,13 +183,12 @@ const SecretItem = ({ onSelectCertificate, ...rest }: SecretItemProps) => {
           {Validity.describeSecret(s)}
         </Text.Text>
       </Flex.Box>
-      <UsesBoundary>
-        <UsedByPopover
-          secretKey={itemKey}
-          anchor={element}
-          onSelectCertificate={onSelectCertificate}
-        />
-      </UsesBoundary>
+      <UsedByPopover
+        listed={listed}
+        secretKey={itemKey}
+        anchor={element}
+        onSelectCertificate={onSelectCertificate}
+      />
     </Select.Item>
   );
 };
@@ -245,6 +270,8 @@ const SecretSection = ({
   selected,
   onSelect,
 }: ListSectionProps<ListsData["secrets"]>): ReactElement => {
+  // A rename reorders the list. Sorting keeps the request for the uses the same.
+  const listed = [...list.data].sort();
   const menu = Menu.useContextMenu();
   const openUsedBy = (key: secret.Key) => {
     onSelect(key);
@@ -274,7 +301,12 @@ const SecretSection = ({
             emptyContent={list.answered && EMPTY_SECRETS}
           >
             {({ key, ...p }) => (
-              <SecretItem key={key} {...p} onSelectCertificate={onSelect} />
+              <SecretItem
+                key={key}
+                {...p}
+                listed={listed}
+                onSelectCertificate={onSelect}
+              />
             )}
           </List.Items>
         </List.Scroll>

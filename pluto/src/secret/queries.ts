@@ -35,6 +35,22 @@ export const { use } = Flux.createRetrieve<RetrieveQuery, secret.Secret>({
   getCached: ({ client, query }) => client.secrets.getCached(query),
 });
 
+export type RetrieveMultipleQuery = {
+  keys: secret.Key[];
+  /** Fills `uses` with the resources that use each secret. */
+  includeUses?: boolean;
+};
+
+export const { use: useMultiple } = Flux.createRetrieve<
+  RetrieveMultipleQuery,
+  secret.Secret[]
+>({
+  name: PLURAL_RESOURCE_NAME,
+  retrieve: async ({ client, query }) => await client.secrets.retrieve(query),
+  onChange: ({ client, query }, handler) => client.secrets.onChange(query, handler),
+  getCached: ({ client, query }) => client.secrets.getCached(query),
+});
+
 /** Creates a secret, or replaces the secret whose key exists. */
 export const { useUpdate: useCreate } = Flux.createUpdate<secret.New, secret.Secret>({
   name: RESOURCE_NAME,

@@ -11,8 +11,8 @@ import { type certificate, type ontology, type secret } from "@synnaxlabs/client
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Errors, Flux, Ontology, Secret } from "@synnaxlabs/pluto";
-import { type PropsWithChildren, type ReactElement } from "react";
+import { Ontology, Secret } from "@synnaxlabs/pluto";
+import { type PropsWithChildren, type ReactElement, Suspense } from "react";
 
 import { CSS } from "@/platform/css";
 import { Tree } from "@/platform/tree";
@@ -22,25 +22,23 @@ export interface SelectCertificate {
   (key: certificate.Key): void;
 }
 
-// A secret deleted while its uses show unmounts with its item, so the read renders
-// nothing. Any other failure reaches the toolbar boundary.
-const DeletedFallback = ({ error }: Errors.FallbackProps): null => {
-  if (Flux.DeletedError.matches(error)) return null;
-  throw error;
-};
-
-/** Suspends a read of the uses of a secret without a loading indicator. */
+/**
+ * Suspends a read of the uses of a secret without a loading indicator. A failed read
+ * reaches the toolbar boundary.
+ */
 export const UsesBoundary = ({ children }: PropsWithChildren): ReactElement => (
-  <Errors.SuspenseBoundary loading={null} FallbackComponent={DeletedFallback}>
-    {children}
-  </Errors.SuspenseBoundary>
+  <Suspense fallback={null}>{children}</Suspense>
 );
 
 const NO_USES: ontology.ID[] = [];
 
-/** Returns the IDs of the resources that use the secret. Suspends while they load. */
-export const useUses = (key: secret.Key): ontology.ID[] =>
-  Secret.use({ key, includeUses: true }).uses ?? NO_USES;
+/**
+ * Returns the IDs of the resources that use the secret, read in one request for every
+ * listed secret. Suspends while the uses load.
+ */
+export const useUses = (listed: secret.Key[], key: secret.Key): ontology.ID[] =>
+  Secret.useMultiple({ keys: listed, includeUses: true }).find((s) => s.key === key)
+    ?.uses ?? NO_USES;
 
 interface ResourceProps {
   resource: ontology.Resource;
@@ -94,15 +92,17 @@ const Resources = ({ ids, onSelectCertificate }: ResourcesProps): ReactElement =
 };
 
 export interface UsedByProps extends Pick<ResourceProps, "onSelectCertificate"> {
+  listed: secret.Key[];
   secretKey: secret.Key;
 }
 
 /** Lists the resources that use a secret. Suspends while they load. */
 export const UsedBy = ({
+  listed,
   secretKey,
   onSelectCertificate,
 }: UsedByProps): ReactElement => {
-  const uses = useUses(secretKey);
+  const uses = useUses(listed, secretKey);
   if (uses.length === 0)
     return (
       <Text.Text level="small" color={9} className={CSS.BE("credentials", "unused")}>
