@@ -91,9 +91,9 @@ type (
 	}
 )
 
-// Exec runs the requests in order in tx and stops at the first error. It returns a
-// validation error before running anything when an endpoint is not one the batch
-// accepts.
+// Exec runs the requests in order in tx and stops at the first error, which names the
+// index of the failed request. It returns a validation error before running anything
+// when an endpoint is not one the batch accepts.
 func (s *Service) Exec(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -115,8 +115,18 @@ func (s *Service) Exec(
 	for i, r := range req.Requests {
 		var err error
 		if res.Responses[i], err = handlers[i](ctx, tx, r.Payload); err != nil {
-			return ExecResponse{}, err
+			return ExecResponse{}, requestError(err, i)
 		}
 	}
 	return res, nil
+}
+
+// requestError names request i in err. A validation error gets the path requests.i.
+// Any other error keeps its type, and its message starts with requests.i.
+func requestError(err error, i int) error {
+	var pathErr validate.PathError
+	if errors.Is(err, validate.ErrValidation) || errors.As(err, &pathErr) {
+		return validate.PathedError(err, "requests", strconv.Itoa(i))
+	}
+	return errors.Wrapf(err, "requests.%d", i)
 }

@@ -955,22 +955,6 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}); err != nil {
 		return nil, err
 	}
-	// Channel create and delete stay out: they write Cesium, outside the transaction.
-	l.Batch = batch.NewService(batch.Routes{
-		"/group/create":               batch.Route(l.Group.Create),
-		"/group/rename":               batch.Route(l.Group.Rename),
-		"/group/delete":               batch.Route(l.Group.Delete),
-		"/group/set-parent":           batch.Route(l.Group.SetParent),
-		"/channel/set-group":          batch.Route(l.Channel.SetGroup),
-		"/device/set-group":           batch.Route(l.Device.SetGroup),
-		"/rack/set-group":             batch.Route(l.Rack.SetGroup),
-		"/project/set-group":          batch.Route(l.Project.SetGroup),
-		"/schematic/set-group":        batch.Route(l.Schematic.SetGroup),
-		"/schematic/symbol/set-group": batch.Route(l.Symbol.SetGroup),
-		"/lineplot/set-group":         batch.Route(l.LinePlot.SetGroup),
-		"/log/set-group":              batch.Route(l.Log.SetGroup),
-		"/table/set-group":            batch.Route(l.Table.SetGroup),
-		"/panel/set-group":            batch.Route(l.Panel.SetGroup),
-	})
+	l.Batch = batch.NewService(l.batchRoutes())
 	return l, nil
 }

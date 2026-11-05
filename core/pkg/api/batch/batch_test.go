@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
+	"github.com/synnaxlabs/x/validate"
 )
 
 type setRequest struct {
@@ -118,7 +119,10 @@ var _ = Describe("Batch", func() {
 			{"endpoint": "/set", "payload": {"key": "c", "value": "1"}},
 			{"endpoint": "/refuse", "payload": {}},
 			{"endpoint": "/set", "payload": {"key": "d", "value": "1"}}
-		]}`))).Error().To(MatchError(errRefused))
+		]}`))).Error().To(SatisfyAll(
+			MatchError(errRefused),
+			MatchError("requests.1: refused"),
+		))
 		Expect(sets).To(Equal(1))
 		Expect(stored(ctx, "c")).To(BeEmpty())
 		Expect(stored(ctx, "d")).To(BeEmpty())
@@ -139,12 +143,16 @@ var _ = Describe("Batch", func() {
 
 	It("Should reject a request with no payload", func(ctx SpecContext) {
 		Expect(exec(ctx, decode(ctx, `{"requests": [{"endpoint": "/set"}]}`))).
-			Error().To(MatchError(ContainSubstring("payload: required")))
+			Error().To(MatchError("requests.0.payload: required: validation error"))
 	})
 
 	It("Should reject a payload that does not decode", func(ctx SpecContext) {
-		Expect(exec(ctx, decode(ctx, `{"requests": [
+		_, err := exec(ctx, decode(ctx, `{"requests": [
 			{"endpoint": "/set", "payload": {"key": 12}}
-		]}`))).Error().To(MatchError(ContainSubstring("payload")))
+		]}`))
+		var pathErr validate.PathError
+		Expect(errors.As(err, &pathErr)).To(BeTrue())
+		Expect(pathErr.Path).To(Equal([]string{"requests", "0", "payload"}))
+		Expect(pathErr.Err).To(MatchError(validate.ErrValidation))
 	})
 })

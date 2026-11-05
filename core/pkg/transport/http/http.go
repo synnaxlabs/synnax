@@ -213,15 +213,15 @@ func Bind(layer *api.Layer, router *http.Router) {
 		// GROUP
 		GroupCreate: unary[group.CreateRequest, group.CreateResponse](
 			router,
-			"/api/v1/group/create",
+			"/api/v1"+api.PathGroupCreate,
 		),
 		GroupDelete: unary[group.DeleteRequest, struct{}](
 			router,
-			"/api/v1/group/delete",
+			"/api/v1"+api.PathGroupDelete,
 		),
 		GroupRename: unary[group.RenameRequest, struct{}](
 			router,
-			"/api/v1/group/rename",
+			"/api/v1"+api.PathGroupRename,
 		),
 		GroupRetrieve: unary[group.RetrieveRequest, group.RetrieveResponse](
 			router,
@@ -229,47 +229,47 @@ func Bind(layer *api.Layer, router *http.Router) {
 		),
 		GroupSetParent: unary[group.SetParentRequest, struct{}](
 			router,
-			"/api/v1/group/set-parent",
+			"/api/v1"+api.PathGroupSetParent,
 		),
 		ChannelSetGroup: unary[channel.SetGroupRequest, struct{}](
 			router,
-			"/api/v1/channel/set-group",
+			"/api/v1"+api.PathChannelSetGroup,
 		),
 		DeviceSetGroup: unary[device.SetGroupRequest, struct{}](
 			router,
-			"/api/v1/device/set-group",
+			"/api/v1"+api.PathDeviceSetGroup,
 		),
 		RackSetGroup: unary[rack.SetGroupRequest, struct{}](
 			router,
-			"/api/v1/rack/set-group",
+			"/api/v1"+api.PathRackSetGroup,
 		),
 		ProjectSetGroup: unary[project.SetGroupRequest, struct{}](
 			router,
-			"/api/v1/project/set-group",
+			"/api/v1"+api.PathProjectSetGroup,
 		),
 		SchematicSetGroup: unary[schematic.SetGroupRequest, struct{}](
 			router,
-			"/api/v1/schematic/set-group",
+			"/api/v1"+api.PathSchematicSetGroup,
 		),
 		SchematicSymbolSetGroup: unary[symbol.SetGroupRequest, struct{}](
 			router,
-			"/api/v1/schematic/symbol/set-group",
+			"/api/v1"+api.PathSchematicSymbolSetGroup,
 		),
 		LinePlotSetGroup: unary[lineplot.SetGroupRequest, struct{}](
 			router,
-			"/api/v1/lineplot/set-group",
+			"/api/v1"+api.PathLinePlotSetGroup,
 		),
 		LogSetGroup: unary[log.SetGroupRequest, struct{}](
 			router,
-			"/api/v1/log/set-group",
+			"/api/v1"+api.PathLogSetGroup,
 		),
 		TableSetGroup: unary[table.SetGroupRequest, struct{}](
 			router,
-			"/api/v1/table/set-group",
+			"/api/v1"+api.PathTableSetGroup,
 		),
 		PanelSetGroup: unary[panel.SetGroupRequest, struct{}](
 			router,
-			"/api/v1/panel/set-group",
+			"/api/v1"+api.PathPanelSetGroup,
 		),
 		Batch: unary[batch.ExecRequest, batch.ExecResponse](
 			router,
@@ -493,10 +493,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/label/delete",
 		),
-		LabelAdd: unary[label.AddRequest, struct{}](router, "/api/v1/label/set"),
+		LabelAdd: unary[label.AddRequest, struct{}](router, "/api/v1"+api.PathLabelSet),
 		LabelRemove: unary[label.RemoveRequest, struct{}](
 			router,
-			"/api/v1/label/remove",
+			"/api/v1"+api.PathLabelRemove,
 		),
 		LabelDispatch: unary[label.DispatchRequest, struct{}](
 			router,
@@ -625,7 +625,7 @@ func Bind(layer *api.Layer, router *http.Router) {
 		// STATUS
 		StatusSet: unary[status.SetRequest, status.SetResponse](
 			router,
-			"/api/v1/status/set",
+			"/api/v1"+api.PathStatusSet,
 		),
 		StatusRetrieve: unary[status.RetrieveRequest, status.RetrieveResponse](
 			router,
