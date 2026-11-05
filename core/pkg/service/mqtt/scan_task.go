@@ -84,7 +84,8 @@ type browsedTopic struct {
 
 type browseResult struct {
 	Topics []browsedTopic `json:"topics"`
-	// Truncated is true when the broker delivered more topics than the limit.
+	// Truncated is true when the broker delivered more topics than the limit, or when
+	// the topics do not all fit in the answer.
 	Truncated bool `json:"truncated"`
 }
 
@@ -187,23 +188,19 @@ func (s *scanner) browse(ctx context.Context, args browseArgs) (browseResult, er
 	if err != nil {
 		return browseResult{}, err
 	}
-	res := browseResult{
-		Topics:    make([]browsedTopic, len(heard.topics)),
-		Truncated: heard.truncated,
-	}
+	topics := make([]browsedTopic, len(heard.topics))
 	for i, t := range heard.topics {
-		res.Topics[i] = browsedTopic{
-			Topic:    t.topic,
-			Count:    t.count,
-			Rate:     float64(t.count-t.retained) / heard.duration.Seconds(),
-			LastSeen: t.lastSeen,
-			Payload:  payloadSample(t.last),
-			Format:   driver.FormatOf(t.last),
-			Fields:   payloadFields(t.last),
-			Retained: t.lastRetained,
-		}
+		t.Rate = float64(t.Count-t.retained) / heard.duration.Seconds()
+		topics[i] = t.browsedTopic
 	}
-	return res, nil
+	kept, truncated, err := driver.Fit(browseResult{}, [][]browsedTopic{topics})
+	if err != nil {
+		return browseResult{}, err
+	}
+	return browseResult{
+		Topics:    kept[0],
+		Truncated: heard.truncated || truncated,
+	}, nil
 }
 
 // browseDuration returns the time that a browse listens for, from its argument in

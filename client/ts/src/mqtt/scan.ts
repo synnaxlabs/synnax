@@ -51,7 +51,10 @@ export interface BrowsedTopic extends z.infer<typeof browsedTopicZ> {}
 export const browseResultZ = z.object({
   /** topics are the topics that delivered messages, sorted by name. */
   topics: z.array(browsedTopicZ),
-  /** truncated is true when more topics delivered messages than the limit. */
+  /**
+   * truncated is true when more topics delivered messages than the limit, or when the
+   * topics do not all fit in the answer.
+   */
   truncated: z.boolean(),
 });
 

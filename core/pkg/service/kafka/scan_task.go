@@ -91,7 +91,13 @@ func (s scanner) Exec(
 		if err != nil {
 			return nil, err
 		}
-		return msgpack.NewEncodedJSON(browseResult{Topics: topics})
+		kept, truncated, err := driver.Fit(browseResult{}, [][]browsedTopic{topics})
+		if err != nil {
+			return nil, err
+		}
+		return msgpack.NewEncodedJSON(
+			browseResult{Topics: kept[0], Truncated: truncated},
+		)
 	case sampleCommand:
 		var args sampleArgs
 		if err := unmarshalArgs(cmd, &args); err != nil {

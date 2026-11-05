@@ -70,6 +70,8 @@ type browsedTopic struct {
 type browseResult struct {
 	// Topics are the topics of the cluster, other than internal topics, sorted by name.
 	Topics []browsedTopic `json:"topics" msgpack:"topics"`
+	// Truncated is true when the topics do not all fit in the answer.
+	Truncated bool `json:"truncated" msgpack:"truncated"`
 }
 
 // browseTopics returns the topics of the cluster of props, other than internal topics,
@@ -383,7 +385,7 @@ func sampleTopics(
 		}
 		t.Shapes = xjson.Infer(docs)
 	}
-	kept, truncated, err := driver.Fit(sampled)
+	kept, truncated, err := driver.Fit(res, sampled)
 	if err != nil {
 		return sampleResult{}, err
 	}

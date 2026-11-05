@@ -12,6 +12,7 @@ package driver
 import (
 	"context"
 	"encoding/json/v2"
+	"fmt"
 	"sync"
 	"time"
 	"uuid"
@@ -44,18 +45,22 @@ type Scanner interface {
 	Exec(ctx context.Context, cmd task.Command) (msgpack.EncodedJSON, error)
 }
 
-// replyLimit is the most bytes of JSON that Fit keeps. The task stores an answer in its
-// status, and every observer of statuses receives it.
+// replyLimit is the most bytes of JSON in the answer to a command. The task stores an
+// answer in its status, and every observer of statuses receives it.
 const replyLimit = 1 << 20
 
-// Fit returns the items of lists that fit in 1 MiB of JSON, so that the answer to a
-// command that reads data, such as a sample, stays small. It takes one item of each
-// list in turn, so that each list keeps a fair share. It keeps the order of each list,
-// and reports whether it left out any item.
-func Fit[T any](lists [][]T) ([][]T, bool, error) {
+// Fit returns the items of lists that fit in an answer of 1 MiB of JSON beside rest,
+// the part of the answer that holds no items. It takes one item of each list in turn,
+// so that each list keeps a fair share. It keeps the order of each list, and reports
+// whether it left out any item.
+func Fit[T any](rest any, lists [][]T) ([][]T, bool, error) {
+	encoded, err := json.Marshal(rest)
+	if err != nil {
+		return nil, false, err
+	}
 	var (
 		kept      = make([][]T, len(lists))
-		size      int
+		size      = len(encoded)
 		truncated bool
 	)
 	for i := range kept {
@@ -72,11 +77,12 @@ func Fit[T any](lists [][]T) ([][]T, bool, error) {
 			if err != nil {
 				return nil, false, err
 			}
-			if size+len(encoded) > replyLimit {
+			// The comma that separates items takes one byte.
+			if size+len(encoded)+1 > replyLimit {
 				truncated = true
 				continue
 			}
-			size += len(encoded)
+			size += len(encoded) + 1
 			kept[i] = append(kept[i], list[round])
 		}
 		if !more {
@@ -260,6 +266,9 @@ func (t *ScanTask) execScanner(ctx context.Context, cmd task.Command) {
 	if errors.Is(ctx.Err(), context.Canceled) {
 		return
 	}
+	if sErr := checkSize(data); sErr != nil {
+		data, err = nil, sErr
+	}
 	var (
 		variant     = status.VariantSuccess
 		message     = "Command executed successfully"
@@ -276,6 +285,22 @@ func (t *ScanTask) execScanner(ctx context.Context, cmd task.Command) {
 		context.WithoutCancel(ctx), cmd.Key, variant, message, description, data,
 	); rErr != nil {
 		t.cfg.L.Error("failed to answer command", zap.Error(rErr))
+	}
+}
+
+// checkSize returns a failure when data holds more than replyLimit bytes of JSON.
+func checkSize(data msgpack.EncodedJSON) error {
+	encoded, err := json.Marshal(data)
+	if err != nil || len(encoded) <= replyLimit {
+		return err
+	}
+	return failure{
+		message: "Answer too large",
+		description: fmt.Sprintf(
+			"The answer holds %.1f MiB of JSON, and a command answers with at most "+
+				"1 MiB. Ask for less data, such as fewer topics.",
+			float64(len(encoded))/replyLimit,
+		),
 	}
 }
 

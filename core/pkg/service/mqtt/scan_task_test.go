@@ -640,6 +640,30 @@ var _ = Describe("Scan task", func() {
 			Expect(b.Format).To(Equal(driver.FormatText))
 		})
 
+		It("Should leave out the topics that do not fit in the answer",
+			func(ctx SpecContext) {
+				fields := make([]string, 256)
+				for i := range fields {
+					fields[i] = fmt.Sprintf(`"f%03d":"%s"`, i, strings.Repeat("x", 64))
+				}
+				payload := "{" + strings.Join(fields, ",") + "}"
+				for i := range 60 {
+					broker.publish(fmt.Sprintf("plant/%02d", i), payload, true)
+				}
+				stat := browse(ctx, msgpack.EncodedJSON{
+					"filter": "plant/#", "duration": 300,
+				})
+				Expect(stat.Variant).To(Equal(status.VariantSuccess))
+				Expect(stat.Details.Data["truncated"]).To(BeTrue())
+				Expect(stat.Details.Data["topics"]).To(
+					WithTransform(
+						func(t []any) int { return len(t) },
+						And(BeNumerically(">", 0), BeNumerically("<", 60)),
+					),
+				)
+			},
+		)
+
 		It("Should give the scalars of each JSON payload in document order",
 			func(ctx SpecContext) {
 				broker.publish("plant/a", "23.4", true)

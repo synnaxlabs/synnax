@@ -189,13 +189,12 @@ type browseArgs struct {
 	Limit int `json:"limit"`
 }
 
-// heardTopic is what a listen heard on one topic.
+// heardTopic is what a browse heard on one topic. It holds what the answer shows of the
+// last message, not the message.
 type heardTopic struct {
-	topic           string
-	count, retained int
-	last            []byte
-	lastSeen        telem.TimeStamp
-	lastRetained    bool
+	browsedTopic
+	// retained is the number of retained messages heard.
+	retained int
 }
 
 // heard is what a browse heard on each topic.
@@ -205,8 +204,8 @@ type heard struct {
 	duration  time.Duration
 }
 
-// hear listens to the filter of args for its duration, and keeps the last message of
-// each topic.
+// hear listens to the filter of args for its duration, and keeps what the answer shows
+// of the last message of each topic.
 func (s *scanner) hear(ctx context.Context, args browseArgs) (heard, error) {
 	if args.Filter == "" {
 		args.Filter = defaultBrowseFilter
@@ -234,14 +233,17 @@ func (s *scanner) hear(ctx context.Context, args browseArgs) (heard, error) {
 					res.truncated = true
 					return false
 				}
-				t = &heardTopic{topic: m.Topic()}
+				t = &heardTopic{Topic: m.Topic()}
 				by[m.Topic()] = t
 			}
-			t.count++
+			t.Count++
 			if m.Retained() {
 				t.retained++
 			}
-			t.last, t.lastSeen, t.lastRetained = m.Payload(), telem.Now(), m.Retained()
+			p := m.Payload()
+			t.LastSeen, t.Retained = telem.Now(), m.Retained()
+			t.Payload, t.Format, t.Fields = payloadSample(p), driver.FormatOf(p),
+				payloadFields(p)
 			return false
 		},
 	); err != nil {
@@ -253,7 +255,7 @@ func (s *scanner) hear(ctx context.Context, args browseArgs) (heard, error) {
 		res.topics = append(res.topics, t)
 	}
 	slices.SortFunc(res.topics, func(a, b *heardTopic) int {
-		return strings.Compare(a.topic, b.topic)
+		return strings.Compare(a.Topic, b.Topic)
 	})
 	return res, nil
 }
@@ -384,18 +386,21 @@ func (s *scanner) sample(ctx context.Context, args sampleArgs) (sampleResult, er
 			)
 		}
 	}
-	kept, cut, err := driver.Fit(sampled)
+	res := sampleResult{
+		Topics: make([]sampledTopic, len(names)),
+		Shapes: xjson.Infer(docs),
+	}
+	for i, name := range names {
+		res.Topics[i].Topic = name
+	}
+	kept, cut, err := driver.Fit(res, sampled)
 	if err != nil {
 		return sampleResult{}, err
 	}
-	res := sampleResult{
-		Topics:    make([]sampledTopic, len(names)),
-		Shapes:    xjson.Infer(docs),
-		Truncated: truncated || cut,
+	for i := range res.Topics {
+		res.Topics[i].Messages = kept[i]
 	}
-	for i, name := range names {
-		res.Topics[i] = sampledTopic{Topic: name, Messages: kept[i]}
-	}
+	res.Truncated = truncated || cut
 	return res, nil
 }
 

@@ -37,6 +37,8 @@ export interface Topic extends z.infer<typeof topicZ> {}
 export const browseResultZ = z.object({
   /** topics are the topics of the cluster, sorted by name. */
   topics: z.array(topicZ),
+  /** truncated is true when the topics do not all fit in the answer. */
+  truncated: z.boolean(),
 });
 
 export interface BrowseResult extends z.infer<typeof browseResultZ> {}
