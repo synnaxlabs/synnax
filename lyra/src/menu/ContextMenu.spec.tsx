@@ -11,7 +11,9 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
+import { List } from "@/list";
 import { Menu } from "@/menu";
+import { Select } from "@/select";
 import { Triggers } from "@/triggers";
 
 const TestMenu = (): ReactElement => {
@@ -89,6 +91,63 @@ const KeyMenu = ({ onKeys }: { onKeys: (keys: string[]) => void }): ReactElement
   );
 };
 
+const FocusMenu = (): ReactElement => {
+  const ctx = Menu.useContextMenu();
+  return (
+    <Menu.ContextMenu
+      menu={() => (
+        <Menu.Menu>
+          <Menu.Item itemKey="action1">Action 1</Menu.Item>
+          <Menu.Item itemKey="action2" disabled>
+            Action 2
+          </Menu.Item>
+          <Menu.Item
+            itemKey="action3"
+            onClick={() => document.getElementById("field")?.focus()}
+          >
+            Action 3
+          </Menu.Item>
+        </Menu.Menu>
+      )}
+      {...ctx}
+    >
+      <button onContextMenu={ctx.open}>Opener</button>
+      <input id="field" aria-label="field" />
+    </Menu.ContextMenu>
+  );
+};
+
+const ListMenu = ({ onChange }: { onChange: (key: string) => void }): ReactElement => {
+  const ctx = Menu.useContextMenu();
+  return (
+    <Menu.ContextMenu
+      menu={() => (
+        <Menu.Menu>
+          <Menu.Item itemKey="rename">Rename</Menu.Item>
+        </Menu.Menu>
+      )}
+      {...ctx}
+    >
+      <Select.Frame
+        data={["alpha", "bravo"]}
+        onChange={onChange}
+        initialHover={0}
+        enableTriggers
+      >
+        <List.Scroll>
+          <Select.Items<string>>
+            {({ key, ...rest }) => (
+              <Select.Item key={key} {...rest} onContextMenu={ctx.open}>
+                {rest.itemKey}
+              </Select.Item>
+            )}
+          </Select.Items>
+        </List.Scroll>
+      </Select.Frame>
+    </Menu.ContextMenu>
+  );
+};
+
 describe("ContextMenu", () => {
   it("should not display the menu by default", () => {
     render(<TestMenu />);
@@ -139,6 +198,91 @@ describe("ContextMenu", () => {
     });
     expect(screen.getByText("Action 1")).toBeTruthy();
     expect(screen.getByText("Action 2")).toBeTruthy();
+  });
+
+  describe("keyboard", () => {
+    const open = (): HTMLElement => {
+      render(
+        <Triggers.Provider>
+          <FocusMenu />
+        </Triggers.Provider>,
+      );
+      const opener = screen.getByText("Opener");
+      opener.focus();
+      fireEvent.contextMenu(opener);
+      return opener;
+    };
+    const focused = () => document.activeElement?.textContent;
+    const press = (key: string, init?: KeyboardEventInit) => {
+      if (document.activeElement == null) throw new Error("nothing has focus");
+      fireEvent.keyDown(document.activeElement, { key, code: key, ...init });
+    };
+
+    it("should keep its keys from a list behind it", () => {
+      const onChange = vi.fn();
+      render(
+        <Triggers.Provider>
+          <ListMenu onChange={onChange} />
+        </Triggers.Provider>,
+      );
+      fireEvent.contextMenu(screen.getByText("bravo"));
+      press("ArrowDown");
+      expect(focused()).toBe("Rename");
+      press("Enter");
+      expect(onChange).not.toHaveBeenCalled();
+      act(() => {
+        fireEvent.keyDown(window, { key: "Escape", code: "Escape" });
+      });
+      fireEvent.keyDown(window, { key: "Enter", code: "Enter" });
+      expect(onChange).toHaveBeenCalledExactlyOnceWith("alpha", expect.anything());
+    });
+
+    it("should take the focus on open and give it back on Escape", () => {
+      const opener = open();
+      expect(document.activeElement).toBe(screen.getByRole("menu"));
+      act(() => {
+        fireEvent.keyDown(window, { key: "Escape", code: "Escape" });
+      });
+      expect(document.activeElement).toBe(opener);
+    });
+
+    it("should move the focus through the enabled items, wrapping at the ends", () => {
+      open();
+      press("ArrowDown");
+      expect(focused()).toBe("Action 1");
+      press("ArrowDown");
+      expect(focused()).toBe("Action 3");
+      press("ArrowDown");
+      expect(focused()).toBe("Action 1");
+      press("ArrowUp");
+      expect(focused()).toBe("Action 3");
+      press("Home");
+      expect(focused()).toBe("Action 1");
+      press("End");
+      expect(focused()).toBe("Action 3");
+    });
+
+    it("should stop a held key at the last item", () => {
+      open();
+      press("ArrowDown");
+      press("ArrowDown", { repeat: true });
+      press("ArrowDown", { repeat: true });
+      expect(focused()).toBe("Action 3");
+    });
+
+    it("should leave the focus where an item moved it", () => {
+      open();
+      fireEvent.click(screen.getByText("Action 3"));
+      expect(document.activeElement).toBe(screen.getByLabelText("field"));
+    });
+
+    it("should give the focus back after an item click", () => {
+      const opener = open();
+      press("ArrowDown");
+      fireEvent.click(screen.getByText("Action 1"));
+      expect(screen.queryByRole("menu")).toBeNull();
+      expect(document.activeElement).toBe(opener);
+    });
   });
 
   describe("open target stamping", () => {
