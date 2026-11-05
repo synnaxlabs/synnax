@@ -7,13 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, uuid } from "@synnaxlabs/x";
-import { describe, expect, it } from "vitest";
+import { id, sleep, TimeSpan, uuid } from "@synnaxlabs/x";
+import { assert, describe, expect, it, vi } from "vitest";
 
 import { NotFoundError, PathError } from "@/index";
 import { type query } from "@/query";
 import { type secret } from "@/secret";
-import { createTestClient, expectDeleted, waitForStreamLive } from "@/testutil";
+import {
+  CERTIFICATE,
+  createTestClient,
+  expectDeleted,
+  expectLive,
+  waitForStreamLive,
+} from "@/testutil";
+
+const { pem: PEM, privateKey: PRIVATE_KEY } = CERTIFICATE;
 
 describe("Secret", () => {
   describe("create", () => {
@@ -124,6 +132,42 @@ describe("Secret", () => {
       });
       expect(retrieved).toEqual({ ...s, uses: [] });
       expect((await client.secrets.retrieve({ key: s.key })).uses).toBeUndefined();
+    });
+
+    it("should refetch the uses of a secret for a new subscriber", async () => {
+      const client = createTestClient();
+      await waitForStreamLive(client.connection);
+      const c = await client.certificates.create({
+        name: "Gap",
+        source: "stored",
+        pem: PEM,
+        privateKey: PRIVATE_KEY,
+      });
+      assert(c.source === "stored" && c.privateKey != null);
+      const { privateKey } = c;
+      const q = { key: privateKey, includeUses: true };
+      const off = client.secrets.onChange(q, () => {});
+      const before = await client.secrets.retrieve(q);
+      expect(before.uses).toEqual([{ type: "certificate", key: c.key }]);
+      off();
+      // Past the teardown grace window, so nothing maintains the answer.
+      await sleep.sleep(TimeSpan.seconds(8));
+      await client.certificates.delete(c.key);
+      await vi.waitFor(() => expectDeleted(client.secrets.getCached(privateKey)));
+      await client.secrets.create({
+        key: privateKey,
+        name: "Gap",
+        source: "stored",
+        value: "abc",
+      });
+      const offAgain = client.secrets.onChange(q, () => {});
+      try {
+        await vi.waitFor(() =>
+          expect(expectLive(client.secrets.getCached(q)).uses).toEqual([]),
+        );
+      } finally {
+        offAgain();
+      }
     });
 
     it("should search for secrets by name", async () => {
