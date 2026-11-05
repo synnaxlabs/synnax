@@ -198,8 +198,8 @@ jobs:
             ${{ inputs.shards > 1 && format('--shard={0}/{1}', matrix.shard,
             inputs.shards) || '' }}
         run: |
-          # shellcheck disable=SC2086 # Splits the argument lists into arguments.
-          pnpm cov:"$PACKAGE" -- $COVERAGE_ARGS $SHARD_ARG $TEST_ARGS
+          read -ra args <<< "$COVERAGE_ARGS $SHARD_ARG $TEST_ARGS"
+          pnpm cov:"$PACKAGE" -- "${args[@]}"
 
       - name: Test in WebKit
         if: inputs.test && inputs.browsers

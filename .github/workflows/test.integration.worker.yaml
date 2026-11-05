@@ -163,8 +163,8 @@ jobs:
           PAGERDUTY_API_KEY: ${{ secrets.PAGERDUTY_API_KEY }}
           TC_ARGS: ${{ matrix.target || inputs.flags }}
         run: |
-          # shellcheck disable=SC2086 # Splits the flags into arguments.
-          uv run test-conductor --name tc_unix $TC_ARGS
+          read -ra args <<< "$TC_ARGS"
+          uv run test-conductor --name tc_unix "${args[@]}"
 
       # A failed measurement must not fail the tests it measured.
       - name: Report resource use

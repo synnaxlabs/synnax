@@ -178,8 +178,8 @@ jobs:
         env:
           TYPE_CHECK_DIR: ${{ inputs.type_check_dir }}
         run: |
-          # shellcheck disable=SC2086 # Splits the directory list into arguments.
-          uv run mypy $TYPE_CHECK_DIR
+          read -ra directories <<< "$TYPE_CHECK_DIR"
+          uv run mypy "${directories[@]}"
 
       # Only the newest Python measures coverage.
       - name: Test

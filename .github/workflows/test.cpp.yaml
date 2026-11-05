@@ -129,8 +129,8 @@ jobs:
           PACKAGES: ${{ inputs.apt_packages }}
         run: |
           sudo apt-get update
-          # shellcheck disable=SC2086 # Splits the package list into arguments.
-          sudo apt-get install -y $PACKAGES
+          read -ra packages <<< "$PACKAGES"
+          sudo apt-get install -y "${packages[@]}"
 
       - name: Install Rust
         if: inputs.rust
@@ -164,8 +164,8 @@ jobs:
         env:
           DIRECTORIES: ${{ inputs.directories }}
         run: |
-          # shellcheck disable=SC2086 # Splits the directory list into arguments.
-          for directory in $DIRECTORIES; do
+          read -ra directories <<< "$DIRECTORIES"
+          for directory in "${directories[@]}"; do
             scripts/check_clang_format.sh "$directory"
           done
 
@@ -193,9 +193,9 @@ jobs:
           TAG_FLAG: ${{ steps.tags.outputs.flag }}
           TEST_FLAGS: ${{ inputs.test_flags }}
         run: |
-          # shellcheck disable=SC2086 # Splits the flag list into arguments.
+          read -ra args <<< "$TARGETS $TAG_FLAG $TEST_FLAGS"
           bazel test ${{ inputs.sanitizers && '--config=asan' || '' }} \
-            --test_output=all $TARGETS $TAG_FLAG $TEST_FLAGS
+            --test_output=all "${args[@]}"
 
       # The Ubuntu build bots have 16 GB and no swap. A sanitized compile takes up to
       # 3.5 GB, so eight at once reach the OOM killer, which takes the runner down with
@@ -259,8 +259,8 @@ jobs:
           PACKAGES: ${{ inputs.apt_packages }}
         run: |
           sudo apt-get update
-          # shellcheck disable=SC2086 # Splits the package list into arguments.
-          sudo apt-get install -y $PACKAGES
+          read -ra packages <<< "$PACKAGES"
+          sudo apt-get install -y "${packages[@]}"
 
       - name: Install Rust
         if: inputs.rust
