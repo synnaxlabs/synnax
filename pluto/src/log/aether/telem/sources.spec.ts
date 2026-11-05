@@ -959,7 +959,7 @@ describe("StreamMultiChannelLog", () => {
       await settle(log, PAGE);
       expect(log.timeRange).toBeNull();
       empty = false;
-      core.advance(TimeSpan.seconds(1));
+      core.advance(TimeSpan.seconds(31));
       await expect
         .poll(() => log.timeRange?.start.valueOf(), POLL)
         .toBe(START.valueOf());
@@ -1006,6 +1006,52 @@ describe("StreamMultiChannelLog", () => {
       expect(log.timeRange?.end.valueOf()).toBeGreaterThan(end!);
     });
 
+    it("should not read the oldest time again for samples it did not store", async () => {
+      const core = deep();
+      const [a] = core.data.map((c) => c.key);
+      let reads = 0;
+      const client = connect(core, {
+        readFirst: async () => {
+          reads++;
+          return new framer.Frame();
+        },
+      });
+      const log = open(core, client, { channels: [a] });
+      await settle(log, PAGE);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      const opened = reads;
+      core.advance(TimeSpan.seconds(1));
+      await expect.poll(() => entriesOf(log).length, POLL).toBeGreaterThan(PAGE);
+      core.advance(TimeSpan.seconds(1));
+      await expect.poll(() => entriesOf(log).length, POLL).toBeGreaterThan(PAGE + 10);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(reads).toBe(opened);
+    });
+
+    it("should drop a read of the oldest time from before the channels changed", async () => {
+      const core = deep();
+      const [a, b] = core.data.map((c) => c.key);
+      const { promise: released, resolve: release } = Promise.withResolvers<void>();
+      let reads = 0;
+      const client = connect(core, {
+        readFirst: async (keys) => {
+          if (++reads === 1) {
+            await released;
+            return core.readFirst(keys);
+          }
+          throw new AccessDeniedError("no access");
+        },
+      });
+      const log = open(core, client, { channels: [a] });
+      await settle(log, PAGE);
+      await expect.poll(() => reads, POLL).toBe(1);
+      log.setChannels([b]);
+      release();
+      await expect.poll(() => reads, POLL).toBe(2);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(log.timeRange).toBeNull();
+    });
+
     it("should forget the oldest stored time when the channels change", async () => {
       const core = deep();
       const [a, b] = core.data.map((c) => c.key);
@@ -1048,6 +1094,39 @@ describe("StreamMultiChannelLog", () => {
       log.value();
       await expect.poll(() => core.streams(core.virtual!.key), POLL).toBe(true);
       expect(log.timeRange).toBeNull();
+    });
+
+    it("should move past a span whose times never arrive", async () => {
+      const core = deep();
+      const [a] = core.data.map((c) => c.key);
+      let stamped = true;
+      const client = connect(core, {
+        readLatest: async (keys, count, tr) =>
+          core.readLatest(
+            stamped ? keys : keys.filter((key) => key !== core.index.key),
+            count,
+            tr,
+          ),
+      });
+      const log = open(core, client, { channels: [a] }, undefined, 2_000);
+      await settle(log, 1_800);
+      await until(
+        () => log.loadOlder(),
+        () => !log.live,
+      );
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      stamped = false;
+      vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+      try {
+        for (let i = 0; i < 200 && !log.live; i++) {
+          log.loadNewer();
+          await new Promise((resolve) => setTimeout(resolve, 5));
+          await vi.advanceTimersByTimeAsync(PAST_WAIT_LIMIT.milliseconds);
+        }
+      } finally {
+        vi.useRealTimers();
+      }
+      expect(log.live).toBe(true);
     });
 
     it("should return to the newest samples when it resumes", async () => {

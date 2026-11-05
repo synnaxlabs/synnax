@@ -45,6 +45,8 @@ const PAGE_SIZE = 10_000;
 const RECHECK_INTERVAL = TimeSpan.seconds(5);
 // How long a sample waits for its time before the log drops it.
 const WAIT_LIMIT = TimeSpan.seconds(20);
+// How long a log waits to read its oldest time again while the Core has none.
+const START_RECHECK_INTERVAL = TimeSpan.seconds(30);
 // The stored samples of each channel that one older page reads.
 const OLDER_PAGE_SIZE = 1_000;
 
@@ -85,6 +87,8 @@ interface Unread {
   start: bigint;
   end: bigint;
   counts: Map<channel.Key, number>;
+  // Whether a read of the span missed times, which a second read does not wait out.
+  missed?: boolean;
 }
 
 // A channel whose retrieval failed. A definitive failure is not retried.
@@ -158,6 +162,7 @@ export class StreamMultiChannelLog
   // startRead counts the reads of start, and the newest one sets it.
   private startRead = 0;
   private startPending = false;
+  private startReadAt = TimeStamp.ZERO;
   private readonly pageBreaker: breaker.Breaker;
   private readonly startBreaker: breaker.Breaker;
   private pageFailure?: cstatus.Status;
@@ -201,6 +206,8 @@ export class StreamMultiChannelLog
     if (compare.primitiveArrays(this._channels, channels) === compare.EQUAL) return;
     this._channels = channels;
     this.start = null;
+    this.startRead++;
+    this.startPending = false;
     this.endPaging();
     const kept = new Set(channels);
     this.entries = this.entries.filter((e) => kept.has(e.channelKey));
@@ -337,13 +344,16 @@ export class StreamMultiChannelLog
       ),
     );
     if (read == null) return;
-    // A span stays when its times did not all arrive or a late sample changed the spans
-    // during the read, and the next read starts from the first span.
+    // A span stays when a late sample changed the spans during the read, or its times
+    // did not all arrive. A second read that misses times leaves those samples out, so
+    // the log can move past them.
+    const missed = read.some(({ missed }) => missed);
     if (
       this.unread[0] !== span ||
       size() !== before ||
-      read.some(({ missed }) => missed)
+      (missed && span.missed !== true)
     ) {
+      if (this.unread[0] === span) span.missed = missed;
       this.notify();
       return;
     }
@@ -495,6 +505,7 @@ export class StreamMultiChannelLog
   // change of channels reads again.
   private async readStart(client: telem.Client): Promise<void> {
     const read = ++this.startRead;
+    this.startReadAt = this.now();
     const metas = [...this.metas.values()].filter(({ stored }) => stored);
     const indexes = [...new Set(metas.map(({ index }) => index))];
     this.startBreaker.reset();
@@ -560,8 +571,14 @@ export class StreamMultiChannelLog
     this.status = worst;
     this.failures.observe(worst);
     if (groups.length === 0) return statusChanged;
-    // A channel that was empty when the log read start has a start now.
-    if (this.start == null && !this.startPending && this.client != null)
+    // A channel that was empty when the log read start can have one now. Samples that
+    // stream without being stored find none, so the reads stay far apart.
+    if (
+      this.start == null &&
+      !this.startPending &&
+      this.client != null &&
+      receivedAt.span(this.startReadAt).greaterThan(START_RECHECK_INTERVAL)
+    )
       void this.readStart(this.client);
     if (!this.live) {
       const [{ start }] = this.unread;
