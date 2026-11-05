@@ -27,8 +27,8 @@ import (
 // finish. It holds the name of the backup.
 const restoreMarkerFile = "RESTORING"
 
-// orphansDir is the directory in the Cesium directory that a Restore moves the channels
-// the backup does not know to, before it moves them to the backups directory.
+// orphansDir is where a Restore stages, inside the Cesium directory, the channels that
+// the backup does not know.
 const orphansDir = "orphaned"
 
 // Restored describes a backup that Restore put back.

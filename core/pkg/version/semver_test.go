@@ -48,5 +48,6 @@ var _ = Describe("Compare", func() {
 		Entry("newer minor", "0.61.0", "0.60.5", 1),
 		Entry("candidate before its release", "0.60.0-rc.1", "0.60.0", -1),
 		Entry("numeric candidates", "0.60.0-rc.10", "0.60.0-rc.9", 1),
+		Entry("invalid before valid", "garbage", "0.60.0", -1),
 	)
 })

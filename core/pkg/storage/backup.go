@@ -71,11 +71,9 @@ type BackupsConfig struct {
 	LockFS vfs.FS
 }
 
-var (
-	_ config.Config[BackupsConfig] = BackupsConfig{}
-	// DefaultBackupsConfig is the default configuration for NewBackups.
-	DefaultBackupsConfig = BackupsConfig{FS: xfs.Default, LockFS: vfs.Default}
-)
+var _ config.Config[BackupsConfig] = BackupsConfig{}
+
+var defaultBackupsConfig = BackupsConfig{FS: xfs.Default, LockFS: vfs.Default}
 
 // Override implements config.Config.
 func (cfg BackupsConfig) Override(other BackupsConfig) BackupsConfig {
@@ -105,7 +103,7 @@ type Backups struct {
 // NewBackups returns the backups of the data directory in the configuration. It returns
 // an error that matches fs.ErrNotExist when the data directory does not exist.
 func NewBackups(cfgs ...BackupsConfig) (*Backups, error) {
-	cfg, err := config.New(DefaultBackupsConfig, cfgs...)
+	cfg, err := config.New(defaultBackupsConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -181,7 +179,10 @@ func (b *Backups) create(version string) (Backup, error) {
 	if err = b.fs.Rename(partialDir, path.Join(backupsDir, backup.Name)); err != nil {
 		return Backup{}, err
 	}
-	return backup, b.prune()
+	if err = b.prune(); err != nil {
+		return Backup{}, err
+	}
+	return backup, nil
 }
 
 // removePartial removes the backups that a failed or interrupted create left.

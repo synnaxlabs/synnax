@@ -127,6 +127,23 @@ var _ = Describe("Restore", func() {
 		}),
 	)
 
+	It(
+		"Should move channels that an interrupted restore set aside",
+		func(ctx SpecContext) {
+			openAt(ctx, dir, "0.59.0")
+			openAt(ctx, dir, "0.60.0")
+			name := filepath.Base(onlyBackup(dir))
+			writeFile(filepath.Join(dir, restoreMarkerFile), name)
+			Expect(os.MkdirAll(filepath.Join(dir, "cesium", "orphaned", "9"), 0o700)).
+				To(Succeed())
+			res := MustSucceed(newBackups(dir).Restore(name))
+			Expect(
+				entries(filepath.Join(dir, "cesium")),
+			).ToNot(ContainElement("orphaned"))
+			Expect(entries(res.OrphanedDir)).To(ConsistOf("9"))
+		},
+	)
+
 	It("Should not open the data after a restore that failed", func(ctx SpecContext) {
 		openAt(ctx, dir, "0.59.0")
 		openAt(ctx, dir, "0.60.0")
