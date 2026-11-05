@@ -777,6 +777,54 @@ TEST_F(ConnectionPoolTest, ReadStopsAtDeadline) {
     ASSERT_NIL_P(conn.read(req));
 }
 
+/// @brief it should not try to connect once its deadline passes.
+TEST_F(ConnectionPoolTest, AcquireFailsAfterDeadline) {
+    Pool pool(testutil::create_store());
+    const auto sessions = server_->sessions_created.load();
+    ASSERT_OCCURRED_AS_P(
+        pool.acquire(conn_cfg_, "[test] ", std::chrono::steady_clock::now()),
+        errors::DEADLINE_EXCEEDED
+    );
+    EXPECT_EQ(server_->sessions_created.load(), sessions);
+    ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+}
+
+/// @brief it should stop reading the facts of a server once its deadline passes, which
+/// does not count toward pausing the connections to that server.
+TEST_F(ConnectionPoolTest, AcquireDeadlineDoesNotOpenBreaker) {
+    Pool pool(testutil::create_store());
+    server_->probe_delay = 50 * x::telem::MILLISECOND;
+    for (int i = 0; i < 4; ++i)
+        ASSERT_OCCURRED_AS_P(
+            pool.acquire(
+                conn_cfg_,
+                "[test] ",
+                std::chrono::steady_clock::now() + std::chrono::milliseconds(5)
+            ),
+            errors::DEADLINE_EXCEEDED
+        );
+    server_->probe_delay = x::telem::TimeSpan{};
+    ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+}
+
+/// @brief it should stop waiting for the connection attempt of another caller once its
+/// deadline passes.
+TEST_F(ConnectionPoolTest, AcquireStopsWaitingAtDeadline) {
+    Pool pool(testutil::create_store());
+    server_->probe_delay = 200 * x::telem::MILLISECOND;
+    std::thread first([&] { ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] ")); });
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    ASSERT_OCCURRED_AS_P(
+        pool.acquire(
+            conn_cfg_,
+            "[test] ",
+            std::chrono::steady_clock::now() + std::chrono::milliseconds(50)
+        ),
+        errors::DEADLINE_EXCEEDED
+    );
+    first.join();
+}
+
 /// @brief it should stop following continuation points once its deadline passes, and
 /// mark each node that it cut short.
 TEST_F(ConnectionPoolTest, BrowseStopsAtDeadline) {

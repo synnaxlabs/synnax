@@ -345,8 +345,16 @@ public:
     /// failures in a row, it refuses attempts for a cooldown that starts at
     /// Timing::min_cooldown and doubles up to Timing::max_cooldown. A connection that
     /// no one uses for Timing::idle_timeout closes.
-    std::pair<Connection, x::errors::Error>
-    acquire(const Config &cfg, const std::string &log_prefix);
+    ///
+    /// Starts no new step once deadline passes, so a step in progress can still run
+    /// for the client timeout. A deadline does not count as a failure.
+    /// @returns errors::DEADLINE_EXCEEDED when deadline stops the attempt.
+    std::pair<Connection, x::errors::Error> acquire(
+        const Config &cfg,
+        const std::string &log_prefix,
+        std::chrono::steady_clock::time_point deadline =
+            std::chrono::steady_clock::time_point::max()
+    );
 
     /// @brief connects again when the configuration now resolves to another client
     /// certificate than conn uses, such as after the Driver certificate changes. The
