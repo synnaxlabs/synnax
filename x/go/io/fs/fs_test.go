@@ -10,10 +10,12 @@
 package fs_test
 
 import (
+	"io"
 	"os"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	invariants "github.com/synnaxlabs/x/io/fs/internal/invariants"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
@@ -386,6 +388,50 @@ var _ = Describe("FS", func() {
 					l := MustSucceed(fs.List(""))
 					Expect(l).To(HaveLen(1))
 					Expect(l[0].Name()).To(Equal("sub1"))
+				})
+			})
+			Describe("CopyFile", func() {
+				write := func(fs xfs.FS, name, data string) {
+					GinkgoHelper()
+					f := MustSucceed(fs.Open(name, os.O_CREATE|os.O_WRONLY|os.O_TRUNC))
+					MustSucceed(f.Write([]byte(data)))
+					Expect(f.Close()).To(Succeed())
+				}
+				It(
+					"Should copy a file and replace the file in the destination",
+					func() {
+						src, dst := MustSucceed(
+							fs.Sub("src"),
+						), MustSucceed(
+							fs.Sub("dst"),
+						)
+						write(src, "data.txt", "new")
+						write(dst, "data.txt", "older data")
+						Expect(xfs.CopyFile(src, dst, "data.txt")).To(Succeed())
+						f := MustSucceed(dst.Open("data.txt", os.O_RDONLY))
+						Expect(io.ReadAll(f)).To(Equal([]byte("new")))
+						Expect(f.Close()).To(Succeed())
+					},
+				)
+				It("Should return an error for a missing file", func() {
+					src, dst := MustSucceed(fs.Sub("src")), MustSucceed(fs.Sub("dst"))
+					Expect(xfs.CopyFile(src, dst, "data.txt")).
+						To(MatchError(os.ErrNotExist))
+				})
+			})
+			Describe("Move", func() {
+				It("Should move a directory between sub file systems", func() {
+					src, dst := MustSucceed(fs.Sub("src")), MustSucceed(fs.Sub("dst"))
+					MustSucceed(src.Sub("dir/child"))
+					Expect(xfs.Move(src, dst, "dir")).To(Succeed())
+					Expect(src.Exists("dir")).To(BeFalse())
+					Expect(dst.Exists("dir/child")).To(BeTrue())
+				})
+				It("Should not move between different file systems", func() {
+					MustSucceed(fs.Sub("dir"))
+					Expect(xfs.Move(fs, xfs.NewMem(), "dir")).
+						To(MatchError(errors.ErrUnsupported))
+					Expect(fs.Exists("dir")).To(BeTrue())
 				})
 			})
 			_ = Describe("Exists", func() {
