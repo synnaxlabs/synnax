@@ -20,6 +20,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/alamos"
 	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
@@ -33,6 +34,9 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/version"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 var _ = Describe("txn", func() {
@@ -445,6 +449,29 @@ var _ = Describe("txn", func() {
 	})
 
 	Describe("Recovery", func() {
+		It("Should return a cancel without logging an error", func(ctx SpecContext) {
+			MustOpen(builder.New(ctx, kv.Config{}, cluster.Config{}))
+			cCtx, cancel := context.WithCancel(ctx)
+			defer cancel()
+			core, logs := observer.New(zap.InfoLevel)
+			logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+				ZapLogger: zap.New(core, zap.Hooks(func(e zapcore.Entry) error {
+					if e.Message == "recovering lost key-value operations" {
+						cancel()
+					}
+					return nil
+				})),
+			}))
+			Expect(builder.New(
+				cCtx,
+				kv.Config{
+					Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
+				},
+				cluster.Config{},
+			)).Error().To(MatchError(context.Canceled))
+			Expect(logs.FilterMessage("recovery failed").Len()).To(BeZero())
+		})
+
 		It("Should recover the state of the key-value store", func(ctx SpecContext) {
 			kv1 := MustOpen(builder.New(ctx, kv.Config{}, cluster.Config{}))
 			Expect(kv1.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())

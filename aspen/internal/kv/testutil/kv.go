@@ -59,9 +59,9 @@ func (b *Builder) New(
 		return nil, err
 	}
 	kvCfg = b.BaseCfg.Override(kvCfg)
-	ownsEngine := kvCfg.Engine == nil
-	if ownsEngine {
+	if kvCfg.Engine == nil {
 		kvCfg.Engine = memkv.New()
+		b.engines[c.Host().Key] = kvCfg.Engine
 	}
 	kvCfg.Cluster = c
 	addr := c.Host().Address
@@ -75,12 +75,12 @@ func (b *Builder) New(
 	kvCfg.RecoveryTransportClient = b.RecoveryNet.StreamClient()
 	kve, err := kv.Open(ctx, kvCfg)
 	if err != nil {
+		if kve != nil {
+			err = errors.Combine(err, kve.Close())
+		}
 		return nil, err
 	}
 	b.KVs[c.Host().Key] = kve
-	if ownsEngine {
-		b.engines[c.Host().Key] = kvCfg.Engine
-	}
 	return kve, nil
 }
 
