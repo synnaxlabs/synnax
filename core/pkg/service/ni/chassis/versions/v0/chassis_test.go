@@ -25,7 +25,7 @@ var _ = Describe("Chassis", func() {
 	})
 
 	It("Should identify itself by its key", func() {
-		key := uuid.New()
+		key := uuid.MustParse("11111111-1111-4111-8111-111111111111")
 		c := v0.Chassis{Key: key}
 		Expect(c.GorpKey()).To(Equal(key))
 		Expect(c.SetOptions()).To(BeNil())
