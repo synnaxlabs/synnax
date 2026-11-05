@@ -155,12 +155,12 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 			t.Config = data
 		}
 	} else {
-		rec, err := store.Validate(ctx, w.tx, t.Key, t.Config)
+		rec, err := store.Prepare(ctx, w.tx, t.Key, t.Config)
 		if err != nil {
 			return err
 		}
-		t.Config = rec.Data
-		if t.ConfigHash, err = hashConfig(configContent(rec.Data)); err != nil {
+		t.Config = rec.Data()
+		if t.ConfigHash, err = hashConfig(configContent(t.Config)); err != nil {
 			return err
 		}
 		record = &rec
@@ -174,7 +174,7 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 		return err
 	}
 	if record != nil {
-		if err := record.Store(ctx, w.tx); err != nil {
+		if err := record.Write(ctx, w.tx); err != nil {
 			return err
 		}
 		// Records of different types live in different tables, so the same key never
@@ -268,14 +268,14 @@ func (w Writer) apply(ctx context.Context, key Key, acts []Action) ([]Action, er
 	if err = next.Validate(); err != nil {
 		return nil, err
 	}
-	rec, err := store.ValidateStrict(ctx, w.tx, key, next.Config)
+	rec, err := store.PrepareStrict(ctx, w.tx, key, next.Config)
 	if err != nil {
 		return nil, err
 	}
-	if err = rec.Store(ctx, w.tx); err != nil {
+	if err = rec.Write(ctx, w.tx); err != nil {
 		return nil, err
 	}
-	stored := rec.Data
+	stored := rec.Data()
 	if next.ConfigHash, err = hashConfig(configContent(stored)); err != nil {
 		return nil, err
 	}

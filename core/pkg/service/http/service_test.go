@@ -131,7 +131,7 @@ var _ = Describe("Service", func() {
 		It("Should return the read validation error for an invalid endpoint", func(
 			ctx SpecContext,
 		) {
-			Expect(svc.Read.Validate(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.Read.Prepare(ctx, nil, uuid.New(), msgpack.EncodedJSON{
 				"endpoints": []any{map[string]any{"method": "BOGUS"}},
 			})).Error().To(MatchError(ContainSubstring("invalid method: BOGUS")))
 		})
@@ -139,7 +139,7 @@ var _ = Describe("Service", func() {
 		It("Should return the write validation error for an invalid endpoint", func(
 			ctx SpecContext,
 		) {
-			Expect(svc.Write.Validate(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.Write.Prepare(ctx, nil, uuid.New(), msgpack.EncodedJSON{
 				"endpoints": []any{map[string]any{"method": "BOGUS"}},
 			})).Error().To(MatchError(ContainSubstring("invalid method: BOGUS")))
 		})

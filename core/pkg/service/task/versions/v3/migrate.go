@@ -146,9 +146,9 @@ func migrateConfigsToRecords(
 			}
 			continue
 		}
-		rec, err := store.Validate(ctx, tx, t.Key, converted)
+		rec, err := store.Prepare(ctx, tx, t.Key, converted)
 		if err == nil {
-			err = rec.Store(ctx, tx)
+			err = rec.Write(ctx, tx)
 		}
 		if err != nil {
 			if err := store.Delete(ctx, tx, t.Key); err != nil {
@@ -161,7 +161,7 @@ func migrateConfigsToRecords(
 			}
 			continue
 		}
-		stored := rec.Data
+		stored := rec.Data()
 		hash, err := hashConfig(configContent(stored))
 		if err != nil {
 			return err

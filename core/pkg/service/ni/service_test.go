@@ -203,7 +203,7 @@ var _ = Describe("Service", func() {
 				ctx SpecContext,
 			) {
 				Expect(
-					svc.AnalogRead.Validate(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+					svc.AnalogRead.Prepare(ctx, nil, uuid.New(), msgpack.EncodedJSON{
 						"channels": []any{map[string]any{
 							"type":            "ai_voltage",
 							"terminal_config": "BOGUS",
@@ -220,7 +220,7 @@ var _ = Describe("Service", func() {
 				ctx SpecContext,
 			) {
 				Expect(
-					svc.AnalogWrite.Validate(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+					svc.AnalogWrite.Prepare(ctx, nil, uuid.New(), msgpack.EncodedJSON{
 						"channels": []any{map[string]any{
 							"type": "ao_voltage",
 							"custom_scale": map[string]any{
@@ -238,7 +238,7 @@ var _ = Describe("Service", func() {
 			"Should reject a voltage-mode sensitivity unit on a charge accelerometer",
 			func(ctx SpecContext) {
 				Expect(
-					svc.AnalogRead.Validate(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+					svc.AnalogRead.Prepare(ctx, nil, uuid.New(), msgpack.EncodedJSON{
 						"channels": []any{map[string]any{
 							"type":              "ai_accel_charge",
 							"sensitivity_units": "mVoltsPerG",
@@ -257,7 +257,7 @@ var _ = Describe("Service", func() {
 				ctx SpecContext,
 			) {
 				Expect(
-					svc.CounterRead.Validate(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+					svc.CounterRead.Prepare(ctx, nil, uuid.New(), msgpack.EncodedJSON{
 						"channels": []any{map[string]any{
 							"type":  "ci_frequency",
 							"units": "BOGUS",

@@ -363,7 +363,7 @@ var _ = Describe("Service", func() {
 		It("Should reject an unresolved channel on a slave with malformed PDOs", func(
 			ctx SpecContext,
 		) {
-			Expect(svc.Read.Validate(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.Read.Prepare(ctx, nil, uuid.New(), msgpack.EncodedJSON{
 				"channels": []any{map[string]any{
 					"type":   "unresolved",
 					"key":    "a",

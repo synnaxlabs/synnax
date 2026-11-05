@@ -148,7 +148,7 @@ var _ = Describe("Service", func() {
 
 		It("Should return the read validation error for an invalid start offset",
 			func(ctx SpecContext) {
-				Expect(svc.Read.Validate(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+				Expect(svc.Read.Prepare(ctx, nil, uuid.New(), msgpack.EncodedJSON{
 					"start_offset": "bogus",
 				})).Error().To(MatchError(ContainSubstring("invalid start_offset: bogus")))
 			},
@@ -156,7 +156,7 @@ var _ = Describe("Service", func() {
 
 		It("Should return the write validation error for an invalid record key",
 			func(ctx SpecContext) {
-				Expect(svc.Write.Validate(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+				Expect(svc.Write.Prepare(ctx, nil, uuid.New(), msgpack.EncodedJSON{
 					"record_key": "bogus",
 				})).Error().To(MatchError(ContainSubstring("invalid record_key: bogus")))
 			},

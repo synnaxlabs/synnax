@@ -84,7 +84,7 @@ var _ = Describe("Service", func() {
 			func(
 				ctx SpecContext,
 			) {
-				Expect(svc.Config.Validate(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+				Expect(svc.Config.Prepare(ctx, nil, uuid.New(), msgpack.EncodedJSON{
 					"arc_key":     uuid.New().String(),
 					"performance": "BOGUS",
 				})).Error().To(MatchError(ContainSubstring("invalid performance: BOGUS")))

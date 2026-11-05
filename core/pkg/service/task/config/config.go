@@ -32,18 +32,18 @@ import (
 type Store interface {
 	// Type returns the task type whose records the store owns.
 	Type() string
-	// Validate decodes data into the store's record type under key and validates it.
-	// It returns the record unstored, or an error wrapping validate.ErrValidation when
-	// data does not decode or fails validation.
-	Validate(
+	// Prepare decodes data into the store's record type under key and validates it,
+	// writing nothing. It returns the record to write, or an error wrapping
+	// validate.ErrValidation when data does not decode or fails validation.
+	Prepare(
 		ctx context.Context,
 		tx gorp.Tx,
 		key uuid.UUID,
 		data msgpack.EncodedJSON,
 	) (Record, error)
-	// ValidateStrict is Validate, except that it also rejects data holding a member
-	// that the record type does not declare.
-	ValidateStrict(
+	// PrepareStrict is Prepare, except that it also rejects data holding a member that
+	// the record type does not declare.
+	PrepareStrict(
 		ctx context.Context,
 		tx gorp.Tx,
 		key uuid.UUID,
@@ -72,16 +72,19 @@ type Store interface {
 	Version() imex.Version
 }
 
-// Record is a validated configuration record that is not stored yet.
+// Record is a validated configuration record that is not written yet. Only a Store
+// builds one.
 type Record struct {
-	// Data is the record as Read returns it once stored.
-	Data  msgpack.EncodedJSON
-	store func(ctx context.Context, tx gorp.Tx) error
+	data  msgpack.EncodedJSON
+	write func(ctx context.Context, tx gorp.Tx) error
 }
 
-// Store stores the record under its key, creating or overwriting it. It returns a
+// Data returns the record as Read returns it once written.
+func (r Record) Data() msgpack.EncodedJSON { return r.data }
+
+// Write writes the record under its key, creating or overwriting it. It returns a
 // validation error when no task has the key.
-func (r Record) Store(ctx context.Context, tx gorp.Tx) error { return r.store(ctx, tx) }
+func (r Record) Write(ctx context.Context, tx gorp.Tx) error { return r.write(ctx, tx) }
 
 // ServiceConfig is the configuration for opening a Service. E is the record type
 // the service stores.
@@ -197,27 +200,27 @@ func (s *Service[E]) Type() string { return s.cfg.Type }
 // to call concurrently with any other service methods.
 func (s *Service[E]) Close() error { return s.table.Close() }
 
-// Validate implements Store.
-func (s *Service[E]) Validate(
+// Prepare implements Store.
+func (s *Service[E]) Prepare(
 	ctx context.Context,
 	tx gorp.Tx,
 	key uuid.UUID,
 	data msgpack.EncodedJSON,
 ) (Record, error) {
-	return s.validate(ctx, tx, key, data, json.RejectUnknownMembers(false))
+	return s.prepare(ctx, tx, key, data, json.RejectUnknownMembers(false))
 }
 
-// ValidateStrict implements Store.
-func (s *Service[E]) ValidateStrict(
+// PrepareStrict implements Store.
+func (s *Service[E]) PrepareStrict(
 	ctx context.Context,
 	tx gorp.Tx,
 	key uuid.UUID,
 	data msgpack.EncodedJSON,
 ) (Record, error) {
-	return s.validate(ctx, tx, key, data, json.RejectUnknownMembers(true))
+	return s.prepare(ctx, tx, key, data, json.RejectUnknownMembers(true))
 }
 
-func (s *Service[E]) validate(
+func (s *Service[E]) prepare(
 	ctx context.Context,
 	tx gorp.Tx,
 	key uuid.UUID,
@@ -259,8 +262,8 @@ func (s *Service[E]) validate(
 		return Record{}, err
 	}
 	return Record{
-		Data:  encoded,
-		store: func(ctx context.Context, tx gorp.Tx) error { return s.create(ctx, tx, &e) },
+		data:  encoded,
+		write: func(ctx context.Context, tx gorp.Tx) error { return s.create(ctx, tx, &e) },
 	}, nil
 }
 

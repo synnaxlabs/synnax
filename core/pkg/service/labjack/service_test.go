@@ -106,7 +106,7 @@ var _ = Describe("Service", func() {
 		It("Should return the read validation error for an invalid channel", func(
 			ctx SpecContext,
 		) {
-			Expect(svc.Read.Validate(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.Read.Prepare(ctx, nil, uuid.New(), msgpack.EncodedJSON{
 				"channels": []any{map[string]any{
 					"type":              "thermocouple",
 					"thermocouple_type": "BOGUS",

@@ -137,7 +137,7 @@ var _ = Describe("Service", func() {
 			) {
 				key := uuid.New()
 				write := func(bit int) error {
-					_, err := store().Validate(ctx, nil, key, msgpack.EncodedJSON{
+					_, err := store().Prepare(ctx, nil, key, msgpack.EncodedJSON{
 						"channels": []any{map[string]any{
 							"type":    channelType,
 							"key":     "chan-1",
