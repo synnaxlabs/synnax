@@ -14,6 +14,7 @@ import (
 	"os"
 	"slices"
 	"sync"
+	"sync/atomic"
 
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
@@ -39,7 +40,8 @@ func (ip *indexPersist) load() ([]pointer, error) {
 }
 
 // prepare encodes the pointers from start on, so the returned write can run after the
-// pointers change.
+// pointers change. Prepared writes run in the order they prepare, so the caller must
+// hold idx.mu and must run the returned write.
 func (ip *indexPersist) prepare(start int) preparedWrite {
 	buf, ok := ip.p.buffers.Get().(*[]byte)
 	if !ok {
@@ -47,25 +49,34 @@ func (ip *indexPersist) prepare(start int) preparedWrite {
 	}
 	*buf = ip.p.encode(*buf, start, ip.idx.mu.pointers)
 	return preparedWrite{
-		p:     ip.p,
-		buf:   buf,
-		start: start,
-		count: len(ip.idx.mu.pointers),
+		p:      ip.p,
+		buf:    buf,
+		start:  start,
+		count:  len(ip.idx.mu.pointers),
+		ticket: ip.p.tickets.Add(1) - 1,
 	}
 }
 
 // preparedWrite is one encoded write of the index. It owns its buffer until run.
 type preparedWrite struct {
-	p     *pointerPersist
-	buf   *[]byte
-	start int
-	count int
+	p      *pointerPersist
+	buf    *[]byte
+	start  int
+	count  int
+	ticket uint64
 }
 
 func (w preparedWrite) run() error {
 	defer w.p.buffers.Put(w.buf)
 	w.p.Lock()
 	defer w.p.Unlock()
+	for w.p.nextTicket != w.ticket {
+		w.p.ticketDone.Wait()
+	}
+	defer func() {
+		w.p.nextTicket++
+		w.p.ticketDone.Broadcast()
+	}()
 	if err := w.p.Truncate(int64(w.count) * pointerByteSize); err != nil {
 		return err
 	}
@@ -83,11 +94,18 @@ type pointerPersist struct {
 	sync.Mutex
 	// buffers holds *[]byte. Overlapping prepares each need their own buffer.
 	buffers sync.Pool
+	// tickets counts prepared writes. A run waits for nextTicket to reach its ticket,
+	// so a stale snapshot cannot truncate a newer one.
+	tickets    atomic.Uint64
+	ticketDone sync.Cond
+	nextTicket uint64
 }
 
 func openPointerPersist(fs fs.FS) (*pointerPersist, error) {
 	f, err := fs.Open(indexFile, os.O_CREATE|os.O_RDWR)
-	return &pointerPersist{File: f}, err
+	p := &pointerPersist{File: f}
+	p.ticketDone.L = &p.Mutex
+	return p, err
 }
 
 func (p *pointerPersist) load() ([]pointer, error) {

@@ -644,10 +644,6 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/secret/grant/create",
 		),
-		SecretGrantDelete: unary[secret.GrantDeleteRequest, struct{}](
-			router,
-			"/api/v1/secret/grant/delete",
-		),
 		SecretResolve: unary[secret.ResolveRequest, secret.ResolveResponse](
 			router,
 			"/api/v1/secret/resolve",
