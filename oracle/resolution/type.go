@@ -11,6 +11,8 @@ package resolution
 
 import (
 	"maps"
+	"slices"
+	"strings"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/set"
@@ -28,6 +30,80 @@ type Type struct {
 	// payloads) that resolve like any other type but are excluded from
 	// standalone code generation.
 	Synthetic bool
+	// Filter is the filter definition the type was declared as, or nil. Form holds
+	// the struct the definition expands into.
+	Filter *Filter
+}
+
+// RetrieveKey returns the key type that a `@retrieve key` expression declares on typ,
+// whose key is computed instead of stored in a field.
+func RetrieveKey(typ Type) (TypeRef, bool) {
+	dom, ok := typ.Domains["retrieve"]
+	if !ok {
+		return TypeRef{}, false
+	}
+	expr, ok := dom.Expressions.Find("key")
+	if !ok || len(expr.Values) == 0 {
+		return TypeRef{}, false
+	}
+	name := expr.Values[0].StringValue
+	if !strings.Contains(name, ".") {
+		name = typ.Namespace + "." + name
+	}
+	return TypeRef{Name: name}, true
+}
+
+// FilterNamespace is the namespace of the operator types that a filter's bare lines
+// expand to.
+const FilterNamespace = "filter"
+
+// The qualified names of the operator types that a filter's bare lines expand to.
+const (
+	OperatorSet      = FilterNamespace + ".Set"
+	OperatorOrdered  = FilterNamespace + ".Ordered"
+	OperatorContains = FilterNamespace + ".Contains"
+	OperatorString   = FilterNamespace + ".String"
+	OperatorBool     = FilterNamespace + ".Bool"
+)
+
+var operatorMembers = map[string][]string{
+	OperatorSet:      {"eq", "in"},
+	OperatorOrdered:  {"eq", "in", "gt", "gte", "lt", "lte"},
+	OperatorContains: {"any"},
+	OperatorString:   {"eq", "in", "regex"},
+	OperatorBool:     {"eq"},
+}
+
+// OperatorMembers returns the members that the interpreters of the operator type op
+// check, where op is a qualified name such as OperatorSet. It returns false when op is
+// not an operator type.
+func OperatorMembers(op string) ([]string, bool) {
+	members, ok := operatorMembers[op]
+	return members, ok
+}
+
+// InFilterRequest reports whether typ is part of a filter request: a filter, the
+// request derived from one, or an operator type of the filter schema. Clients decode
+// these strictly, since a tree matched with an unknown key ignores the key.
+func InFilterRequest(typ Type, table *Table) bool {
+	if typ.Filter != nil || typ.Namespace == FilterNamespace {
+		return true
+	}
+	return slices.ContainsFunc(table.StructTypes(), func(t Type) bool {
+		return t.Filter != nil && t.Filter.Request == typ.QualifiedName
+	})
+}
+
+// Filter is a filter definition: the lines a filter tree over Target can set.
+type Filter struct {
+	// Target is the struct or union the filter selects.
+	Target TypeRef
+	// Lines are the lines as declared. A bare line has no type and names a field of the
+	// target. A typed line names a hand-written matcher that takes its type.
+	Lines []Field
+	// Request and Response are the qualified names of the derived retrieve request and
+	// response, or empty when the analyzer derived none.
+	Request, Response string
 }
 
 type TypeForm interface {
@@ -458,6 +534,40 @@ func NonDefaultedTypeParams(tps []TypeParam) []TypeParam {
 		out = append(out, tp)
 	}
 	return out
+}
+
+// RecordFields returns the fields every record of typ holds: the fields of a struct, or
+// the fields of a union's bases and the tag of a union that borrows its enum. A field
+// typed by a type parameter with a default takes the default. It returns false when typ
+// is neither a struct nor a union.
+func RecordFields(typ Type, table *Table) ([]Field, bool) {
+	var fields []Field
+	switch form := typ.Form.(type) {
+	case StructForm:
+		fields = slices.Clone(UnifiedFields(typ, table))
+	case UnionForm:
+		for _, ext := range form.Extends {
+			if base, _, ok := Dealias(ext, table); ok {
+				fields = append(fields, UnifiedFields(base, table)...)
+			}
+		}
+		// The tag of an unnamed enum has no type to give the field.
+		if form.BorrowsEnum() {
+			fields = append(fields, Field{Name: form.Discriminator, Type: form.Enum})
+		}
+	default:
+		return nil, false
+	}
+	defaults := make(map[string]TypeRef)
+	for _, p := range TypeParams(typ.Form) {
+		if p.Default != nil {
+			defaults[p.Name] = *p.Default
+		}
+	}
+	for i := range fields {
+		fields[i].Type = SubstituteTypeRef(fields[i].Type, defaults)
+	}
+	return fields, true
 }
 
 func UnifiedFields(typ Type, table *Table) []Field {

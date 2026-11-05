@@ -65,6 +65,7 @@ func (c ChannelEntry) Validate() error {
 	if c.Precision != nil {
 		v.LessThanEq("precision", *c.Precision, 17)
 	}
+	v.MaxLength("alias", c.Alias, 64)
 	v.Exec(func() error { return validate.PathedError(c.Timestamp.Validate(), "timestamp") })
 	return v.Error()
 }

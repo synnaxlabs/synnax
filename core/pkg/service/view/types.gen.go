@@ -17,9 +17,13 @@ import "github.com/synnaxlabs/synnax/pkg/service/view/versions"
 type Key = versions.Key
 
 // View is a saved, named filter over a list of resources. The type selects the resource
-// the view lists and the shape of its query.
+// the view lists and the shape of its where.
 type View = versions.View
+
+// ViewVariant is implemented by every View variant.
 type ViewVariant = versions.ViewVariant
+
+// ViewType is the "type" value that selects a variant of View.
 type ViewType = versions.ViewType
 
 const (
@@ -37,9 +41,3 @@ type StatusView = versions.StatusView
 
 // Base carries the fields shared by every view variant.
 type Base = versions.Base
-
-// RangeQuery filters the ranges shown by a range view.
-type RangeQuery = versions.RangeQuery
-
-// StatusQuery filters the statuses shown by a status view.
-type StatusQuery = versions.StatusQuery
