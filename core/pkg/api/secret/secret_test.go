@@ -10,7 +10,6 @@
 package secret_test
 
 import (
-	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -22,16 +21,13 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/gofiber/fiber/v3"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
-	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	apisecret "github.com/synnaxlabs/synnax/pkg/api/secret"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -89,30 +85,6 @@ func createCertificate(ctx SpecContext) certificate.Certificate {
 		pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyDER}),
 	)).To(Succeed())
 	return c
-}
-
-// sessionCtx returns a request context for u that passed the auth middleware, and the
-// key of the session u opened for it.
-func sessionCtx(ctx context.Context, u user.User) (freighter.Context, auth.SessionKey) {
-	GinkgoHelper()
-	k, _ := MustSucceed2(svc.APIKey.NewWriter(nil).Create(ctx, u.OntologyID(), "c"))
-	session, token := MustSucceed2(
-		svc.Auth.NewWriter(nil).Open(ctx, u.OntologyID(), k.Key),
-	)
-	fctx := freighter.Context{
-		Context: ctx,
-		Params:  freighter.Params{},
-		Variant: freighter.VariantUnary,
-	}
-	fctx.Set(fiber.HeaderAuthorization, "Bearer "+token)
-	var authed freighter.Context
-	MustSucceed(apiauth.Middleware(svc.Auth).Exec(fctx, freighter.FinalizerFunc(
-		func(c freighter.Context) (freighter.Context, error) {
-			authed = c
-			return c, nil
-		},
-	)))
-	return authed, session.Key
 }
 
 var _ = Describe("ServiceConfig", func() {
@@ -510,7 +482,7 @@ var _ = Describe("Service", func() {
 				a := createSecret(ctx, "A", "first")
 				b := createSecret(ctx, "B", "second")
 				keys := []secret.Key{b.Base().Key, a.Base().Key}
-				uCtx, _ := sessionCtx(ctx, u)
+				uCtx := SubjectCtx(ctx, u.OntologyID())
 				res := createGrant(uCtx, keys...)
 				values := MustSucceed(apiSvc.Resolve(SubjectCtx(ctx, rk.OntologyID()),
 					apisecret.ResolveRequest{Keys: keys, Grant: res.Grant},
@@ -525,7 +497,7 @@ var _ = Describe("Service", func() {
 			u := createUser(ctx)
 			allowDevices(ctx, u)
 			s := createSecret(ctx, "A", "v")
-			uCtx, _ := sessionCtx(ctx, u)
+			uCtx := SubjectCtx(ctx, u.OntologyID())
 			res := createGrant(uCtx, s.Base().Key)
 			req := apisecret.ResolveRequest{
 				Keys:  []secret.Key{s.Base().Key},
@@ -545,7 +517,7 @@ var _ = Describe("Service", func() {
 				u := createUser(ctx)
 				allow(ctx, u.OntologyID(), all, secretType)
 				s := createSecret(ctx, "A", "v")
-				uCtx, _ := sessionCtx(ctx, u)
+				uCtx := SubjectCtx(ctx, u.OntologyID())
 				Expect(apiSvc.CreateGrant(uCtx, nil, apisecret.GrantCreateRequest{
 					Subject: rk.OntologyID(),
 					Secrets: []secret.Key{s.Base().Key},

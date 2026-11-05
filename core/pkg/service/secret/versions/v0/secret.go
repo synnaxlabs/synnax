@@ -16,18 +16,6 @@ import (
 
 var _ gorp.Entry[Key] = Secret{}
 
-// Source returns where the value of the secret lives, or an empty source if the secret
-// has no variant.
-func (s Secret) Source() Source {
-	switch s.Variant.(type) {
-	case StoredSecret:
-		return SourceStored
-	case FileSecret:
-		return SourceFile
-	}
-	return ""
-}
-
 // GorpKey returns the secret's storage key.
 func (s Secret) GorpKey() Key { return s.Base().Key }
 

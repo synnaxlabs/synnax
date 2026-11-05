@@ -20,7 +20,7 @@ import { DataType, deep, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { use } from "@/feature/mqtt/device/queries";
-import { Select as SelectDevice } from "@/feature/mqtt/device/Select";
+import { Select as SelectDevice, useNoneSelected } from "@/feature/mqtt/device/Select";
 import { type Device, MAKE, SCHEMAS } from "@/feature/mqtt/device/types";
 import { useConnectModal } from "@/feature/mqtt/device/useConnectModal";
 import { createDiscoverModal, type Kind } from "@/feature/mqtt/task/discover/Discover";
@@ -310,6 +310,7 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
 const Form = PlatformDevice.wrapTaskForm({
   use,
   useConfigure: useConnectModal,
+  useNoneSelected,
   Content,
 });
 
