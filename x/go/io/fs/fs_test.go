@@ -37,6 +37,17 @@ var _ = Describe("FS", func() {
 					Expect(fs.Remove("test_file.txt")).To(Succeed())
 				})
 			})
+			Describe("Chmod", func() {
+				It("Should change the permission bits of a file", func() {
+					// Windows keeps only the write bit, so this mode reads back on
+					// every system.
+					mode := xfs.UserRW | xfs.GroupRW | xfs.OtherRW
+					f := MustSucceed(fs.Open("file", os.O_CREATE|os.O_RDONLY))
+					Expect(f.Chmod(mode)).To(Succeed())
+					Expect(f.Close()).To(Succeed())
+					Expect(MustSucceed(fs.Stat("file")).Mode().Perm()).To(Equal(mode))
+				})
+			})
 			Describe("Open", func() {
 				Describe("Create test CREATE flag", func() {
 					It("Should create a file", func() {
@@ -413,6 +424,16 @@ var _ = Describe("FS", func() {
 						Expect(f.Close()).To(Succeed())
 					},
 				)
+				It("Should give the copy the permission bits of the source", func() {
+					src, dst := MustSucceed(fs.Sub("src")), MustSucceed(fs.Sub("dst"))
+					f := MustSucceed(src.Open("key", os.O_CREATE|os.O_WRONLY))
+					MustSucceed(f.Write([]byte("secret")))
+					Expect(f.Chmod(xfs.UserRW)).To(Succeed())
+					Expect(f.Close()).To(Succeed())
+					Expect(xfs.CopyFile(src, dst, "key")).To(Succeed())
+					Expect(MustSucceed(dst.Stat("key")).Mode().Perm()).
+						To(Equal(MustSucceed(src.Stat("key")).Mode().Perm()))
+				})
 				It("Should return an error for a missing file", func() {
 					src, dst := MustSucceed(fs.Sub("src")), MustSucceed(fs.Sub("dst"))
 					Expect(xfs.CopyFile(src, dst, "data.txt")).

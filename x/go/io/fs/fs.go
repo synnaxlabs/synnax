@@ -37,6 +37,8 @@ type File interface {
 	Truncate(int64) error
 	Stat() (FileInfo, error)
 	Sync() error
+	// Chmod changes the permission bits of the file to those of mode.
+	Chmod(mode fs.FileMode) error
 }
 
 type FileInfo = fs.FileInfo
@@ -94,18 +96,26 @@ func (s *subFS) Stat(name string) (FileInfo, error) {
 }
 
 // CopyFile copies the file name in src to the same name in dst, replaces any file
-// there, and syncs the copy. The directory of name must exist in dst.
+// there, and syncs the copy. The copy gets the permission bits of the source before
+// CopyFile writes data to it. The directory of name must exist in dst.
 func CopyFile(src, dst FS, name string) (err error) {
 	from, err := src.Open(name, os.O_RDONLY)
 	if err != nil {
 		return err
 	}
 	defer func() { err = errors.Combine(err, from.Close()) }()
+	info, err := from.Stat()
+	if err != nil {
+		return err
+	}
 	to, err := dst.Open(name, os.O_CREATE|os.O_WRONLY|os.O_TRUNC)
 	if err != nil {
 		return err
 	}
 	defer func() { err = errors.Combine(err, to.Close()) }()
+	if err = to.Chmod(info.Mode().Perm()); err != nil {
+		return err
+	}
 	if _, err = io.Copy(to, from); err != nil {
 		return err
 	}
