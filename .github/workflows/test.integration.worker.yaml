@@ -133,7 +133,9 @@ jobs:
         if: runner.os == 'Windows'
         id: test-conductor-win
         timeout-minutes: 30
-        shell: bash
+        # The self-hosted Windows test bots have no bash. !TC_ARGS! expands after cmd
+        # parses the line, so the flags cannot add commands.
+        shell: cmd
         working-directory: integration
         env:
           PYTHONIOENCODING: utf-8
@@ -141,8 +143,8 @@ jobs:
           PAGERDUTY_API_KEY: ${{ secrets.PAGERDUTY_API_KEY }}
           TC_ARGS: ${{ matrix.target || inputs.flags }}
         run: |
-          # shellcheck disable=SC2086 # Splits the flags into arguments.
-          uv run test-conductor --name tc_win $TC_ARGS
+          setlocal EnableDelayedExpansion
+          uv run test-conductor --name tc_win !TC_ARGS!
 
       - name: Test conductor (Ubuntu)
         if: runner.os == 'Linux'
