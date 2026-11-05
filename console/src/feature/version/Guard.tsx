@@ -30,12 +30,12 @@ interface MismatchProps {
 const Mismatch = ({ clientVersion, nodeVersion }: MismatchProps): ReactElement => {
   const target = Session.Core.useSelectSelected();
   const logout = Core.useLogout();
-  const served =
+  const url =
     target == null
       ? undefined
       : `${target.secure ? "https" : "http"}://${target.host}:${target.port}`;
   return (
-    <Shell.Frame connection={target}>
+    <Shell.Frame className={CSS.B("version-mismatch")} connection={target}>
       <Flex.Box
         y
         align="center"
@@ -63,7 +63,7 @@ const Mismatch = ({ clientVersion, nodeVersion }: MismatchProps): ReactElement =
             size="large"
             full="x"
             justify="center"
-            href={served}
+            href={url}
             target="_blank"
           >
             Open in browser
