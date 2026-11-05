@@ -95,15 +95,18 @@ var _ = Describe("Service", func() {
 		tx = DeferClose(db.OpenTx())
 	})
 
+	newChassis := func() chassis.Chassis {
+		return chassis.Chassis{
+			Rack:         rackKey,
+			Name:         "PXIe-1071",
+			Serial:       uuid.New().String(),
+			ResourceName: uuid.New().String(),
+			Model:        "PXIe-1071",
+		}
+	}
 	create := func(ctx context.Context) chassis.Chassis {
 		GinkgoHelper()
-		c := chassis.Chassis{
-			Rack:   rackKey,
-			Name:   "PXIe-1071",
-			Serial: uuid.New().String(),
-			Model:  "PXIe-1071",
-			Alias:  "PXI1",
-		}
+		c := newChassis()
 		Expect(svc.NewWriter(tx).Create(ctx, &c)).To(Succeed())
 		return c
 	}
@@ -183,9 +186,37 @@ var _ = Describe("Service", func() {
 		})
 
 		It("Should reject a chassis without a name", func(ctx SpecContext) {
-			c := chassis.Chassis{Rack: rackKey}
+			c := newChassis()
+			c.Name = ""
 			Expect(svc.NewWriter(tx).Create(ctx, &c)).
 				To(MatchError(ContainSubstring("name: required")))
+		})
+
+		It("Should reject a chassis without a resource name", func(ctx SpecContext) {
+			c := newChassis()
+			c.ResourceName = ""
+			Expect(svc.NewWriter(tx).Create(ctx, &c)).
+				To(MatchError(ContainSubstring("resource_name: required")))
+		})
+
+		It("Should reject a chassis without a model", func(ctx SpecContext) {
+			c := newChassis()
+			c.Model = ""
+			Expect(svc.NewWriter(tx).Create(ctx, &c)).
+				To(MatchError(ContainSubstring("model: required")))
+		})
+
+		It("Should store a simulated chassis without a serial", func(ctx SpecContext) {
+			c := newChassis()
+			c.Serial = ""
+			Expect(svc.NewWriter(tx).Create(ctx, &c)).To(Succeed())
+			var got chassis.Chassis
+			Expect(svc.NewRetrieve().
+				Where(chassis.MatchResourceNames(c.ResourceName)).
+				Entry(&got).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(got.Key).To(Equal(c.Key))
+			Expect(got.Serial).To(BeEmpty())
 		})
 
 		It("Should write an unknown status", func(ctx SpecContext) {
@@ -245,12 +276,12 @@ var _ = Describe("Service", func() {
 				ctx,
 				c.Key,
 				func(c chassis.Chassis) (chassis.Chassis, error) {
-					c.Alias = "PXI2"
+					c.Model = "PXIe-1062"
 					return c, nil
 				},
 			)).To(Succeed())
 			got := retrieve(ctx, c.Key)
-			Expect(got.Alias).To(Equal("PXI2"))
+			Expect(got.Model).To(Equal("PXIe-1062"))
 			Expect(got.Serial).To(Equal(c.Serial))
 		})
 
@@ -307,7 +338,7 @@ var _ = Describe("Service", func() {
 		It("Should keep the row when its status write fails without a tx", func(
 			ctx SpecContext,
 		) {
-			c := chassis.Chassis{Rack: rackKey, Name: "Chassis"}
+			c := newChassis()
 			Expect(svc.NewWriter(nil).Create(ctx, &c)).To(Succeed())
 			DeferCleanup(func(ctx SpecContext) {
 				Expect(svc.NewWriter(nil).Delete(ctx, c.Key)).To(Succeed())
@@ -329,7 +360,7 @@ var _ = Describe("Service", func() {
 				Where(chassis.MatchKeys(c.Key)).
 				Entry(&got).
 				Exec(ctx, nil)).To(Succeed())
-			Expect(got.Name).To(Equal("Chassis"))
+			Expect(got.Name).To(Equal(c.Name))
 		})
 
 		It("Should return the error change returns", func(ctx SpecContext) {
@@ -428,7 +459,7 @@ var _ = Describe("Service", func() {
 			})
 
 			It("Should translate a set and a key-only delete", func(ctx SpecContext) {
-				c := chassis.Chassis{Rack: rackKey, Name: "Chassis"}
+				c := newChassis()
 				Expect(svc.NewWriter(nil).Create(ctx, &c)).To(Succeed())
 				Expect(svc.NewWriter(nil).Delete(ctx, c.Key)).To(Succeed())
 				id := chassis.OntologyID(c.Key).String()
@@ -442,7 +473,7 @@ var _ = Describe("Service", func() {
 
 			It("Should stop after disconnecting", func(ctx SpecContext) {
 				disconnect()
-				c := chassis.Chassis{Rack: rackKey, Name: "Chassis"}
+				c := newChassis()
 				Expect(svc.NewWriter(nil).Create(ctx, &c)).To(Succeed())
 				DeferCleanup(func(ctx SpecContext) {
 					Expect(svc.NewWriter(nil).Delete(ctx, c.Key)).To(Succeed())

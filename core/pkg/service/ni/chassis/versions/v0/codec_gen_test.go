@@ -36,22 +36,20 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v0.Chassis{
-				Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-				Rack:      rack.Key(3),
-				Name:      "test_3",
-				Serial:    "test_4",
-				Model:     "test_5",
-				Alias:     "test_6",
-				Simulated: true,
+				Key:          uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Rack:         rack.Key(3),
+				Name:         "test_3",
+				Serial:       "test_4",
+				ResourceName: "test_5",
+				Model:        "test_6",
 			}),
 			Entry("zero values", v0.Chassis{
-				Key:       uuid.Nil(),
-				Rack:      rack.Key(0),
-				Name:      "",
-				Serial:    "",
-				Model:     "",
-				Alias:     "",
-				Simulated: false,
+				Key:          uuid.Nil(),
+				Rack:         rack.Key(0),
+				Name:         "",
+				Serial:       "",
+				ResourceName: "",
+				Model:        "",
 			}),
 		)
 	})
@@ -59,13 +57,12 @@ var _ = Describe("Codec", func() {
 
 func BenchmarkEncodeDecodeChassis(b *testing.B) {
 	seed := v0.Chassis{
-		Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-		Rack:      rack.Key(3),
-		Name:      "test_3",
-		Serial:    "test_4",
-		Model:     "test_5",
-		Alias:     "test_6",
-		Simulated: true,
+		Key:          uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		Rack:         rack.Key(3),
+		Name:         "test_3",
+		Serial:       "test_4",
+		ResourceName: "test_5",
+		Model:        "test_6",
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -85,13 +82,12 @@ func BenchmarkEncodeDecodeChassis(b *testing.B) {
 func FuzzDecodeChassis(f *testing.F) {
 	{
 		seed := v0.Chassis{
-			Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-			Rack:      rack.Key(3),
-			Name:      "test_3",
-			Serial:    "test_4",
-			Model:     "test_5",
-			Alias:     "test_6",
-			Simulated: true,
+			Key:          uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Rack:         rack.Key(3),
+			Name:         "test_3",
+			Serial:       "test_4",
+			ResourceName: "test_5",
+			Model:        "test_6",
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -101,13 +97,12 @@ func FuzzDecodeChassis(f *testing.F) {
 	}
 	{
 		seed := v0.Chassis{
-			Key:       uuid.Nil(),
-			Rack:      rack.Key(0),
-			Name:      "",
-			Serial:    "",
-			Model:     "",
-			Alias:     "",
-			Simulated: false,
+			Key:          uuid.Nil(),
+			Rack:         rack.Key(0),
+			Name:         "",
+			Serial:       "",
+			ResourceName: "",
+			Model:        "",
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
