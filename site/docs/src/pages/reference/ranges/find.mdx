@@ -203,11 +203,11 @@ Navigate up the hierarchy by retrieving a child range's parent.
   <Fragment slot="python">
 
 ```python
-my_range = client.ranges.retrieve(key=my_range.key, include_parent=True)
-parent = my_range.parent
+if my_range.parent is not None:
+    parent = client.ranges.retrieve(key=my_range.parent)
 ```
 
-`parent` is the parent range payload, or `None` when the range has no parent.
+`parent` is the key of the parent range, or `None` when the range has no parent.
 
   </Fragment>
 
