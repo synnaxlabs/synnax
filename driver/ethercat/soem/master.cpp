@@ -60,6 +60,24 @@ constexpr uint16_t RXPDO_MAPPING_END = 0x17FF;
 
 /// @}
 
+namespace {
+/// @brief returns the text of the error for an interface where no slave answers.
+std::string no_slaves_message(API &api, const std::string &iface) {
+    const auto found = "no EtherCAT slaves found on " + iface + ". ";
+    if (!api.dewesoft_filter_bound(iface.c_str()))
+        return found + "Check the cable and the power of the first device.";
+    return found + std::format(
+                       "The DewesoftX \"EthercatDAQ Filter\" is on adapter \"{0}\". "
+                       "After DewesoftX starts, the filter blocks EtherCAT replies, "
+                       "also after DewesoftX closes. Clear it in the properties of "
+                       "\"{0}\" (Settings > Network & internet > Advanced network "
+                       "settings > More network adapter options, then right-click the "
+                       "adapter > Properties).",
+                       api.adapter_name(iface.c_str()).value_or(iface)
+                   );
+}
+}
+
 Master::Master(std::unique_ptr<API> api, std::string interface_name):
     iface_name(std::move(interface_name)),
     api(std::move(api)),
@@ -94,7 +112,7 @@ x::errors::Error Master::initialize() {
         this->api->close();
         return x::errors::Error(
             errors::NO_SLAVES_FOUND,
-            "no EtherCAT slaves found on " + this->iface_name
+            no_slaves_message(*this->api, this->iface_name)
         );
     }
 

@@ -52,9 +52,14 @@ cc_library(
     srcs = select({
         "@platforms//os:linux": ["api_linux.cpp"],
         "@platforms//os:macos": ["api_darwin.cpp"],
+        "@platforms//os:windows": ["api_windows.cpp"],
         "//conditions:default": ["api_noop.cpp"],
     }),
     hdrs = ["api.h"],
+    linkopts = select({
+        "@platforms//os:windows": ["/DEFAULTLIB:advapi32.lib"],
+        "//conditions:default": [],
+    }),
     visibility = ["//driver/ethercat:__subpackages__"],
     deps = [
         "//driver/ethercat/errors",
@@ -62,6 +67,7 @@ cc_library(
         "//x/cpp/errors",
     ] + select({
         "@platforms//os:macos": [":bpf"],
+        "@platforms//os:windows": [":util"],
         "//conditions:default": [],
     }),
 )
