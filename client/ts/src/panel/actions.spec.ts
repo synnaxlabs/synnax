@@ -635,3 +635,15 @@ describe("setGroup", () => {
     expect(panel.reduceAll(doc, [panel.setGroup({ group: G1 })]).targets).toEqual([]);
   });
 });
+
+describe("setProject", () => {
+  const P1 = "11111111-1111-4111-8111-111111111111";
+  it("should move the panel into the project without an undo entry", () => {
+    const { next, inverse, targets } = panel.reduceAll(state(leaf("a")), [
+      panel.setProject({ project: P1 }),
+    ]);
+    expect(next.project).toEqual(P1);
+    expect(inverse).toEqual([]);
+    expect(targets).toEqual([]);
+  });
+});

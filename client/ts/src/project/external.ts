@@ -8,4 +8,5 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/project/client";
+export * from "@/project/owner";
 export * from "@/project/types.gen";

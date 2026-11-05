@@ -86,7 +86,7 @@ describe("Project", () => {
       await client.panels.create({
         key: uuid.create(),
         name: "Controls",
-        parent: project.resourceID(proj.key),
+        project: proj.key,
         root: {
           variant: "leaf",
           tabs: [
@@ -133,7 +133,7 @@ describe("Project", () => {
       await client.panels.create({
         key: uuid.create(),
         name: "Controls",
-        parent: project.resourceID(src.key),
+        project: src.key,
         root: {
           variant: "leaf",
           tabs: [
@@ -152,10 +152,12 @@ describe("Project", () => {
       });
       expect(imported.key).not.toEqual(src.key);
       expect(imported.name).toEqual(src.name);
-      const children = await client.ontology.retrieveChildren(
-        project.resourceID(imported.key),
-      );
-      expect(children.map(({ name }) => name).sort()).toEqual(["Controls", "Metrics"]);
+      const logs = await client.logs.retrieve({ projects: [imported.key] });
+      const panels = await client.panels.retrieve({ projects: [imported.key] });
+      expect([...logs, ...panels].map(({ name }) => name).sort()).toEqual([
+        "Controls",
+        "Metrics",
+      ]);
     });
 
     test("recreates group directories as groups", async () => {

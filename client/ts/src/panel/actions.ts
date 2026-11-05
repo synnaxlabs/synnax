@@ -184,6 +184,11 @@ const handlers: Handlers = {
     return { inverse: [], targets: [] };
   },
 
+  setProject: (state, payload) => {
+    state.project = payload.project;
+    return { inverse: [], targets: [] };
+  },
+
   setIcon: (state, payload) => {
     state.icon = payload.icon;
     return { inverse: [], targets: [state.key] };

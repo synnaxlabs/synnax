@@ -1149,3 +1149,27 @@ describe("setGroup", () => {
     ).toEqual([]);
   });
 });
+
+describe("setProject", () => {
+  const P1 = "11111111-1111-4111-8111-111111111111";
+  const P2 = "22222222-2222-4222-8222-222222222222";
+  it("should move the document into the project", () => {
+    const doc = empty({ project: P1 });
+    expect(
+      schematic.reduceAll(doc, [schematic.setProject({ project: P2 })]).next.project,
+    ).toEqual(P2);
+  });
+  it("should restore the previous project through its inverse", () => {
+    const doc = empty({ project: P1 });
+    const { next, inverse } = schematic.reduceAll(doc, [
+      schematic.setProject({ project: P2 }),
+    ]);
+    expect(schematic.reduceAll(next, inverse).next.project).toEqual(P1);
+  });
+  it("should target nothing, so it never enters the undo stack", () => {
+    const doc = empty();
+    expect(
+      schematic.reduceAll(doc, [schematic.setProject({ project: P1 })]).targets,
+    ).toEqual([]);
+  });
+});

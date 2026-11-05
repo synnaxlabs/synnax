@@ -11,7 +11,7 @@ import { id } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { type Synnax } from "@/index";
-import { project } from "@/project";
+import { type project } from "@/project";
 import { createTestClient } from "@/testutil";
 
 // Every document table declares a fetch that resolves keys against the cluster and
@@ -77,7 +77,7 @@ const DOMAINS: Domain[] = [
       (
         await writer.panels.create({
           name: `p-${id.create()}`,
-          parent: project.resourceID(proj.key),
+          project: proj.key,
         })
       ).key,
     del: async (key) => await writer.panels.delete(key),

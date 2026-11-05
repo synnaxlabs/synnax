@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { id, uuid } from "@synnaxlabs/x";
-import { describe, expect, it, test } from "vitest";
+import { describe, expect, it, test, vi } from "vitest";
 
 import { NotFoundError } from "@/index";
 import { query } from "@/query";
@@ -52,6 +52,38 @@ describe("Table", () => {
       await client.tables.rename(t.key, "Table2");
       const res = await client.tables.retrieve(t.key);
       expect(res.name).toEqual("Table2");
+    });
+  });
+
+  describe("project", () => {
+    test("retrieve the tables of a project", async () => {
+      const proj = await client.projects.create({ name: "Table" });
+      const other = await client.projects.create({ name: "Table" });
+      const v = await client.tables.create(proj.key, { name: "Table" });
+      expect(v.project).toEqual(proj.key);
+      const owned = await client.tables.retrieve({ projects: [proj.key] });
+      expect(owned.map(({ key }) => key)).toEqual([v.key]);
+      const unowned = await client.tables.retrieve({ projects: [other.key] });
+      expect(unowned).toEqual([]);
+    });
+
+    test("move to another project", async () => {
+      const proj = await client.projects.create({ name: "Table" });
+      const dest = await client.projects.create({ name: "Table" });
+      const v = await client.tables.create(proj.key, { name: "Table" });
+      await client.tables.setProject(v.key, dest.key);
+      const res = await client.tables.retrieve({ keys: [v.key] });
+      expect(res[0].project).toEqual(dest.key);
+    });
+
+    test("delete with its project", async () => {
+      const proj = await client.projects.create({ name: "Table" });
+      const v = await client.tables.create(proj.key, { name: "Table" });
+      await client.projects.delete(proj.key);
+      await vi.waitFor(
+        async () =>
+          await expect(client.tables.retrieve(v.key)).rejects.toThrow(NotFoundError),
+      );
     });
   });
 

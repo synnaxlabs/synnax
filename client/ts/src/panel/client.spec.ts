@@ -11,22 +11,22 @@ import { id } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { panel } from "@/panel";
+import { type project } from "@/project";
 import { type query } from "@/query";
-import { type resource } from "@/resource";
-import { createPanelParent, createTestClient, expectLive } from "@/testutil";
+import { createPanelProject, createTestClient, expectLive } from "@/testutil";
 
 const client = createTestClient();
 
 describe("Panel Client", () => {
-  // Panel creation requires a parent; every panel here shares this one.
-  let parent: resource.ID;
+  // Every panel here shares this project.
+  let proj: project.Key;
 
   beforeAll(async () => {
-    parent = await createPanelParent(client);
+    proj = await createPanelProject(client);
   });
 
   const createPanel = async (): Promise<panel.Panel> =>
-    await client.panels.create({ name: `panel-${id.create()}`, parent });
+    await client.panels.create({ name: `panel-${id.create()}`, project: proj });
 
   describe("optimistic rename", () => {
     const WRITE_FAILED = new Error("write failed");

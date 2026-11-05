@@ -38,7 +38,7 @@ export const DELETE_CHANNEL_NAME = "sy_lineplot_delete";
 
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
-const retrieveReqZ = group.memberFilterZ.extend({
+const retrieveReqZ = group.memberFilterZ.extend(project.ownerFilterZ.shape).extend({
   keys: keyZ.array().optional(),
   ignoreNotFoundError: z.boolean().optional(),
 });
@@ -57,19 +57,24 @@ interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
 const retrieveResZ = z.object({ linePlots: linePlotZ.array().default(() => []) });
 
 const createReqZ = z.object({
-  project: project.keyZ,
   dispatchKey: z.string(),
   linePlots: linePlotZ.array(),
 });
 const createResZ = z.object({ linePlots: linePlotZ.array() });
 
 const emptyResZ = z.object({});
+const setProjectReqZ = project.setProjectReqZ(keyZ);
+
+/** Builds a request that moves the line plots into the project. */
+export const setProjectRequest = (keys: Key | Key[], to: project.Key) =>
+  project.setProjectRequest("/lineplot/set-project", keys, to);
 
 /** Client-side matching for a request: key and group sets. */
 const requestFilter = (req: RetrieveRequest): ((p: LinePlot) => boolean) => {
   const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
   const inGroup = group.createMemberMatcher(req);
-  return (p) => (keySet == null || keySet.has(p.key)) && inGroup(p);
+  const owned = project.createOwnerMatcher(req);
+  return (p) => (keySet == null || keySet.has(p.key)) && inGroup(p) && owned(p);
 };
 
 export interface ClientConfig {
@@ -145,7 +150,7 @@ export class Client extends query.Retriever<
     const isMany = Array.isArray(linePlots);
     const optimistic = array
       .toArray(linePlots)
-      .map((p) => zod.parse(linePlotZ, p, { label: "line plot" }));
+      .map((p) => zod.parse(linePlotZ, { ...p, project }, { label: "line plot" }));
     const res = await query.optimistic({
       rollbacks: [this.store.set(optimistic)],
       onOptimistic: () => opts.onOptimistic?.(optimistic),
@@ -155,7 +160,7 @@ export class Client extends query.Retriever<
           async (dispatchKey) =>
             await this.cfg.unary.send(
               "/lineplot/create",
-              { project, dispatchKey, linePlots: optimistic },
+              { dispatchKey, linePlots: optimistic },
               createReqZ,
               createResZ,
             ),
@@ -260,6 +265,24 @@ export class Client extends query.Retriever<
         ),
     });
     drop();
+  }
+
+  /** Moves the line plots into the project. */
+  async setProject(
+    keys: Key | Key[],
+    to: project.Key,
+    opts: query.WriteOptions = {},
+  ): Promise<void> {
+    const { endpoint, payload } = setProjectRequest(keys, to);
+    const move = () =>
+      project.setCachedProject(this.store, payload.keys, payload.project);
+    await query.optimistic({
+      rollbacks: [move()],
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
+        await this.cfg.unary.send(endpoint, payload, setProjectReqZ, emptyResZ),
+    });
+    move();
   }
 
   /** Subscribes to every line plot delete delivered to the cache. */

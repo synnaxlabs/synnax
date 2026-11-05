@@ -38,7 +38,7 @@ export const DELETE_CHANNEL_NAME = "sy_table_delete";
 
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
-const retrieveReqZ = group.memberFilterZ.extend({
+const retrieveReqZ = group.memberFilterZ.extend(project.ownerFilterZ.shape).extend({
   keys: keyZ.array().optional(),
   ignoreNotFoundError: z.boolean().optional(),
 });
@@ -57,19 +57,24 @@ interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
 const retrieveResZ = z.object({ tables: tableZ.array().default(() => []) });
 
 const createReqZ = z.object({
-  project: project.keyZ,
   dispatchKey: z.string(),
   tables: tableZ.array(),
 });
 const createResZ = z.object({ tables: tableZ.array() });
 
 const emptyResZ = z.object({});
+const setProjectReqZ = project.setProjectReqZ(keyZ);
+
+/** Builds a request that moves the tables into the project. */
+export const setProjectRequest = (keys: Key | Key[], to: project.Key) =>
+  project.setProjectRequest("/table/set-project", keys, to);
 
 /** Client-side matching for a request: key and group sets. */
 const requestFilter = (req: RetrieveRequest): ((t: Table) => boolean) => {
   const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
   const inGroup = group.createMemberMatcher(req);
-  return (t) => (keySet == null || keySet.has(t.key)) && inGroup(t);
+  const owned = project.createOwnerMatcher(req);
+  return (t) => (keySet == null || keySet.has(t.key)) && inGroup(t) && owned(t);
 };
 
 export interface ClientConfig {
@@ -142,7 +147,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ta
     const isMany = Array.isArray(tables);
     const optimistic = array
       .toArray(tables)
-      .map((t) => zod.parse(tableZ, t, { label: "table" }));
+      .map((t) => zod.parse(tableZ, { ...t, project }, { label: "table" }));
     const res = await query.optimistic({
       rollbacks: [this.store.set(optimistic)],
       onOptimistic: () => opts.onOptimistic?.(optimistic),
@@ -152,7 +157,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ta
           async (dispatchKey) =>
             await this.cfg.unary.send(
               "/table/create",
-              { project, dispatchKey, tables: optimistic },
+              { dispatchKey, tables: optimistic },
               createReqZ,
               createResZ,
             ),
@@ -257,6 +262,24 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ta
         ),
     });
     drop();
+  }
+
+  /** Moves the tables into the project. */
+  async setProject(
+    keys: Key | Key[],
+    to: project.Key,
+    opts: query.WriteOptions = {},
+  ): Promise<void> {
+    const { endpoint, payload } = setProjectRequest(keys, to);
+    const move = () =>
+      project.setCachedProject(this.store, payload.keys, payload.project);
+    await query.optimistic({
+      rollbacks: [move()],
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
+        await this.cfg.unary.send(endpoint, payload, setProjectReqZ, emptyResZ),
+    });
+    move();
   }
 
   /** Subscribes to every table delete delivered to the cache. */

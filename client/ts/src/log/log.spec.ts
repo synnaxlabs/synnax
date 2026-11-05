@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { id, uuid } from "@synnaxlabs/x";
-import { describe, expect, it, test } from "vitest";
+import { describe, expect, it, test, vi } from "vitest";
 
 import { NotFoundError } from "@/index";
 import { query } from "@/query";
@@ -35,6 +35,38 @@ describe("Log", () => {
       expect(res.name).toEqual("Log2");
     });
   });
+  describe("project", () => {
+    test("retrieve the logs of a project", async () => {
+      const proj = await client.projects.create({ name: "Log" });
+      const other = await client.projects.create({ name: "Log" });
+      const v = await client.logs.create(proj.key, { name: "Log" });
+      expect(v.project).toEqual(proj.key);
+      const owned = await client.logs.retrieve({ projects: [proj.key] });
+      expect(owned.map(({ key }) => key)).toEqual([v.key]);
+      const unowned = await client.logs.retrieve({ projects: [other.key] });
+      expect(unowned).toEqual([]);
+    });
+
+    test("move to another project", async () => {
+      const proj = await client.projects.create({ name: "Log" });
+      const dest = await client.projects.create({ name: "Log" });
+      const v = await client.logs.create(proj.key, { name: "Log" });
+      await client.logs.setProject(v.key, dest.key);
+      const res = await client.logs.retrieve({ keys: [v.key] });
+      expect(res[0].project).toEqual(dest.key);
+    });
+
+    test("delete with its project", async () => {
+      const proj = await client.projects.create({ name: "Log" });
+      const v = await client.logs.create(proj.key, { name: "Log" });
+      await client.projects.delete(proj.key);
+      await vi.waitFor(
+        async () =>
+          await expect(client.logs.retrieve(v.key)).rejects.toThrow(NotFoundError),
+      );
+    });
+  });
+
   describe("delete", () => {
     test("delete one", async () => {
       const proj = await client.projects.create({ name: "Log" });

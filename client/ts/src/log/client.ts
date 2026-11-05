@@ -31,7 +31,7 @@ export const DELETE_CHANNEL_NAME = "sy_log_delete";
 
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
-const retrieveReqZ = group.memberFilterZ.extend({
+const retrieveReqZ = group.memberFilterZ.extend(project.ownerFilterZ.shape).extend({
   keys: keyZ.array().optional(),
   ignoreNotFoundError: z.boolean().optional(),
 });
@@ -50,19 +50,24 @@ interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
 const retrieveResZ = z.object({ logs: logZ.array().default(() => []) });
 
 const createReqZ = z.object({
-  project: project.keyZ,
   dispatchKey: z.string(),
   logs: logZ.array(),
 });
 const createResZ = z.object({ logs: logZ.array() });
 
 const emptyResZ = z.object({});
+const setProjectReqZ = project.setProjectReqZ(keyZ);
+
+/** Builds a request that moves the logs into the project. */
+export const setProjectRequest = (keys: Key | Key[], to: project.Key) =>
+  project.setProjectRequest("/log/set-project", keys, to);
 
 /** Client-side matching for a request: key and group sets. */
 const requestFilter = (req: RetrieveRequest): ((l: Log) => boolean) => {
   const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
   const inGroup = group.createMemberMatcher(req);
-  return (l) => (keySet == null || keySet.has(l.key)) && inGroup(l);
+  const owned = project.createOwnerMatcher(req);
+  return (l) => (keySet == null || keySet.has(l.key)) && inGroup(l) && owned(l);
 };
 
 export interface ClientConfig {
@@ -134,7 +139,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Lo
     const isMany = Array.isArray(logs);
     const optimistic = array
       .toArray(logs)
-      .map((l) => zod.parse(logZ, l, { label: "log" }));
+      .map((l) => zod.parse(logZ, { ...l, project }, { label: "log" }));
     const res = await query.optimistic({
       rollbacks: [this.store.set(optimistic)],
       onOptimistic: () => opts.onOptimistic?.(optimistic),
@@ -144,7 +149,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Lo
           async (dispatchKey) =>
             await this.cfg.unary.send(
               "/log/create",
-              { project, dispatchKey, logs: optimistic },
+              { dispatchKey, logs: optimistic },
               createReqZ,
               createResZ,
             ),
@@ -249,6 +254,24 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Lo
         ),
     });
     drop();
+  }
+
+  /** Moves the logs into the project. */
+  async setProject(
+    keys: Key | Key[],
+    to: project.Key,
+    opts: query.WriteOptions = {},
+  ): Promise<void> {
+    const { endpoint, payload } = setProjectRequest(keys, to);
+    const move = () =>
+      project.setCachedProject(this.store, payload.keys, payload.project);
+    await query.optimistic({
+      rollbacks: [move()],
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
+        await this.cfg.unary.send(endpoint, payload, setProjectReqZ, emptyResZ),
+    });
+    move();
   }
 
   /** Subscribes to every log delete delivered to the cache. */

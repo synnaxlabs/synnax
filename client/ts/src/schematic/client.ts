@@ -16,6 +16,7 @@ import { group } from "@/group";
 import { type ontology } from "@/ontology";
 import { project } from "@/project";
 import { query } from "@/query";
+import { ranger } from "@/ranger";
 import { createOf, encode, kindOf, reduceAll } from "@/schematic/actions";
 import {
   type Action,
@@ -43,9 +44,11 @@ const copyReqZ = z.object({
   key: keyZ,
   name: z.string(),
   snapshot: z.boolean(),
+  /** Makes the copy belong to the range instead of the original's project. */
+  range: ranger.keyZ.optional(),
 });
 
-const retrieveReqZ = group.memberFilterZ.extend({
+const retrieveReqZ = group.memberFilterZ.extend(project.ownerFilterZ.shape).extend({
   keys: keyZ.array().optional(),
   ignoreNotFoundError: z.boolean().optional(),
 });
@@ -65,7 +68,6 @@ interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
 const retrieveResZ = z.object({ schematics: schematicZ.array() });
 
 const createReqZ = z.object({
-  project: project.keyZ,
   dispatchKey: z.string(),
   schematics: schematicZ.array(),
 });
@@ -73,12 +75,18 @@ const createResZ = z.object({ schematics: schematicZ.array() });
 
 const copyResZ = z.object({ schematic: schematicZ });
 const emptyResZ = z.object({});
+const setProjectReqZ = project.setProjectReqZ(keyZ);
+
+/** Builds a request that moves the schematics into the project. */
+export const setProjectRequest = (keys: Key | Key[], to: project.Key) =>
+  project.setProjectRequest("/schematic/set-project", keys, to);
 
 /** Client-side matching for a request: key and group sets. */
 const requestFilter = (req: RetrieveRequest): ((s: Schematic) => boolean) => {
   const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
   const inGroup = group.createMemberMatcher(req);
-  return (s) => (keySet == null || keySet.has(s.key)) && inGroup(s);
+  const owned = project.createOwnerMatcher(req);
+  return (s) => (keySet == null || keySet.has(s.key)) && inGroup(s) && owned(s);
 };
 
 export interface ClientConfig {
@@ -164,7 +172,7 @@ export class Client extends query.Retriever<
     const isMany = Array.isArray(schematics);
     const optimistic = array
       .toArray(schematics)
-      .map((s) => zod.parse(schematicZ, s, { label: "schematic" }));
+      .map((s) => zod.parse(schematicZ, { ...s, project }, { label: "schematic" }));
     const res = await query.optimistic({
       rollbacks: [this.store.set(optimistic)],
       onOptimistic: () => opts.onOptimistic?.(optimistic),
@@ -174,7 +182,7 @@ export class Client extends query.Retriever<
           async (dispatchKey) =>
             await this.cfg.unary.send(
               "/schematic/create",
-              { project, dispatchKey, schematics: optimistic },
+              { dispatchKey, schematics: optimistic },
               createReqZ,
               createResZ,
             ),
@@ -279,6 +287,24 @@ export class Client extends query.Retriever<
         ),
     });
     drop();
+  }
+
+  /** Moves the schematics into the project. */
+  async setProject(
+    keys: Key | Key[],
+    to: project.Key,
+    opts: query.WriteOptions = {},
+  ): Promise<void> {
+    const { endpoint, payload } = setProjectRequest(keys, to);
+    const move = () =>
+      project.setCachedProject(this.store, payload.keys, payload.project);
+    await query.optimistic({
+      rollbacks: [move()],
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
+        await this.cfg.unary.send(endpoint, payload, setProjectReqZ, emptyResZ),
+    });
+    move();
   }
 
   /** Subscribes to every schematic delete delivered to the cache. */

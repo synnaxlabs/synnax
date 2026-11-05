@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { id, uuid } from "@synnaxlabs/x";
-import { describe, expect, it, test } from "vitest";
+import { describe, expect, it, test, vi } from "vitest";
 
 import { NotFoundError } from "@/index";
 import { lineplot } from "@/lineplot";
@@ -39,6 +39,38 @@ describe("LinePlot", () => {
       expect(res.name).toEqual("Line Plot2");
     });
   });
+  describe("project", () => {
+    test("retrieve the lineplots of a project", async () => {
+      const proj = await client.projects.create({ name: "Line Plot" });
+      const other = await client.projects.create({ name: "Line Plot" });
+      const v = await client.lineplots.create(proj.key, { name: "Line Plot" });
+      expect(v.project).toEqual(proj.key);
+      const owned = await client.lineplots.retrieve({ projects: [proj.key] });
+      expect(owned.map(({ key }) => key)).toEqual([v.key]);
+      const unowned = await client.lineplots.retrieve({ projects: [other.key] });
+      expect(unowned).toEqual([]);
+    });
+
+    test("move to another project", async () => {
+      const proj = await client.projects.create({ name: "Line Plot" });
+      const dest = await client.projects.create({ name: "Line Plot" });
+      const v = await client.lineplots.create(proj.key, { name: "Line Plot" });
+      await client.lineplots.setProject(v.key, dest.key);
+      const res = await client.lineplots.retrieve({ keys: [v.key] });
+      expect(res[0].project).toEqual(dest.key);
+    });
+
+    test("delete with its project", async () => {
+      const proj = await client.projects.create({ name: "Line Plot" });
+      const v = await client.lineplots.create(proj.key, { name: "Line Plot" });
+      await client.projects.delete(proj.key);
+      await vi.waitFor(
+        async () =>
+          await expect(client.lineplots.retrieve(v.key)).rejects.toThrow(NotFoundError),
+      );
+    });
+  });
+
   describe("delete", () => {
     test("delete one", async () => {
       const proj = await client.projects.create({
