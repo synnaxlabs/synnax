@@ -20,11 +20,7 @@ mkdir -p /root/.docker /etc/caddy/sites
 echo '{"credsStore": "ecr-login"}' > /root/.docker/config.json
 
 cat > /etc/synnax-preview.env << 'EOF'
-PREVIEW_DOMAIN=${domain}
-PREVIEW_SITES=/etc/caddy/sites
-PREVIEW_TTL_DAYS=${ttl_days}
-PREVIEW_LICENSE_PARAMETER=${license}
-PREVIEW_REGION=${region}
+${env}
 EOF
 
 cat > /etc/caddy/Caddyfile << 'EOF'
@@ -37,10 +33,7 @@ EOF
 chmod +x /usr/local/bin/preview
 
 docker network create preview
-docker run --detach --name caddy --network preview --restart unless-stopped \
-    --publish 80:80 --publish 443:443 \
-    --volume /etc/caddy:/etc/caddy:ro --volume caddy_data:/data \
-    caddy:2.10
+/usr/local/bin/preview upgrade
 
 cat > /etc/systemd/system/preview-sweep.service << 'EOF'
 [Unit]

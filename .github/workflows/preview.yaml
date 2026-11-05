@@ -16,14 +16,16 @@ name: Preview
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, labeled, closed]
+    types: [opened, synchronize, reopened, labeled, unlabeled, closed]
 
-# A new push or the close cancels the run it replaces. Any other label gets a group of
-# its own, so it skips without cancelling a deploy or a teardown.
+# A new push or the close cancels the run it replaces. A removed label, or an added one
+# other than preview, gets a group of its own, so it never cancels a deploy or a
+# teardown.
 concurrency:
   group:
-    preview-${{ github.event.pull_request.number }}${{ github.event.action == 'labeled'
-    && github.event.label.name != 'preview' && format('-{0}', github.run_id) || '' }}
+    preview-${{ github.event.pull_request.number }}${{ (github.event.action ==
+    'unlabeled' || (github.event.action == 'labeled' && github.event.label.name !=
+    'preview')) && format('-{0}', github.run_id) || '' }}
   cancel-in-progress: true
 
 permissions: {}
@@ -37,6 +39,7 @@ jobs:
     if:
       github.event.pull_request.head.repo.full_name == github.repository &&
       vars.PREVIEW_INSTANCE_ID != '' && github.event.action != 'closed' &&
+      github.event.action != 'unlabeled' &&
       contains(github.event.pull_request.labels.*.name, 'preview') &&
       (github.event.action != 'labeled' || github.event.label.name == 'preview')
     runs-on: ubuntu-latest
@@ -88,12 +91,57 @@ jobs:
             CONSOLE_ENABLED=true
             GIT_COMMIT=${{ github.event.pull_request.head.sha }}
 
-      - name: Deploy the preview
+      - name: Read the review mark
+        id: mark
         env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mark=$(.github/scripts/review_mark.sh)
+          echo "mark=$mark" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy the preview
+        id: deploy
+        shell: bash
+        env:
+          # A preview waiting on a human review is evicted after the others.
           COMMAND: >-
-            /usr/local/bin/preview up ${{ env.PR }} ${{ steps.tag.outputs.image }}
+            /usr/local/bin/preview up ${{ env.PR }} ${{ steps.tag.outputs.image }} ${{
+            steps.mark.outputs.mark }}
           INSTANCE: ${{ vars.PREVIEW_INSTANCE_ID }}
-        run: .github/scripts/run_preview_command.sh
+        # Records the removed previews even when the deploy fails after removing them.
+        run: |
+          status=0
+          .github/scripts/run_preview_command.sh | tee deploy.log || status=$?
+          evicted=$(sed -n 's/^evicted \([0-9]*\) /\1@/p' deploy.log | xargs)
+          echo "evicted=$evicted" >> "$GITHUB_OUTPUT"
+          exit "$status"
+
+      # The host runs a fixed number of previews, so a deploy can remove the oldest.
+      - name: Note the removed previews
+        if: ${{ !cancelled() && steps.deploy.outputs.evicted != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVICTED: ${{ steps.deploy.outputs.evicted }}
+        # Each entry is <pr>@<eviction time>. A comment updated after the eviction is
+        # from a newer deploy of that preview, so the notice leaves it.
+        run: |
+          marker="<!-- Sticky Pull Request Commentpreview -->"
+          issues="repos/$GITHUB_REPOSITORY/issues"
+          for entry in $EVICTED; do
+            pr=${entry%@*}
+            evicted=${entry#*@}
+            checks="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/pull/$pr/checks"
+            body=$(printf '%s\n\n%s\n%s\n%s\n%s' "### Preview" \
+              "Evicted to make room for the preview of #$PR, so the link no longer" \
+              "works. To bring it back, re-run the **Preview** workflow from the" \
+              "[checks]($checks), or push a commit." "$marker")
+            comment=$(gh api --paginate "$issues/$pr/comments" --jq \
+              ".[] | select(.body | contains(\"$marker\")) | \"\(.id) \(.updated_at)\"")
+            read -r id updated <<< "$comment"
+            if [[ -n $id && $updated < $evicted ]]; then
+              gh api -X PATCH "$issues/comments/$id" -f body="$body"
+            fi
+          done
 
       # Caddy gets the certificate for a new preview name on its first request, so the
       # URL can fail TLS for a short time after the deploy.
@@ -129,6 +177,41 @@ jobs:
             for a simulated tank pressurization.
 
             Built from ${{ github.event.pull_request.head.sha }}.
+
+  # Eviction keeps previews waiting on a human review, so the host learns when the
+  # review/human label changes without a redeploy.
+  mark:
+    if:
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      vars.PREVIEW_INSTANCE_ID != '' && github.event.label.name == 'review/human' &&
+      (github.event.action == 'labeled' || github.event.action == 'unlabeled')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ vars.PREVIEW_ROLE_ARN }}
+          aws-region: ${{ vars.PREVIEW_REGION }}
+
+      - name: Read the review mark
+        id: mark
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mark=$(.github/scripts/review_mark.sh)
+          echo "mark=$mark" >> "$GITHUB_OUTPUT"
+
+      - name: Mark the preview
+        env:
+          COMMAND: >-
+            /usr/local/bin/preview mark ${{ env.PR }} ${{ steps.mark.outputs.mark }}
+          INSTANCE: ${{ vars.PREVIEW_INSTANCE_ID }}
+        run: .github/scripts/run_preview_command.sh
 
   teardown:
     if:

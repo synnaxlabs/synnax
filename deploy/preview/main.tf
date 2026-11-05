@@ -75,7 +75,28 @@ variable "instance_type" {
 variable "ttl_days" {
   description = "Days after its last deploy that the host removes a preview."
   type        = number
-  default     = 7
+  default     = 2
+}
+
+# The defaults fit a t3.large (2 vCPUs, 8 GiB). Twenty-five previews may take 6400 MiB,
+# which leaves about 1.4 GiB for Caddy, Docker, and the SSM agent. An idle Core uses
+# about 50 MiB and 1% of a vCPU, so the CPU limit is a ceiling for a starting Core.
+variable "max_previews" {
+  description = "Previews the host runs at once. A new one removes the oldest."
+  type        = number
+  default     = 25
+}
+
+variable "preview_cpus" {
+  description = "CPUs each preview Core may use, as docker run --cpus takes them."
+  type        = string
+  default     = "0.25"
+}
+
+variable "preview_memory" {
+  description = "Memory each preview Core may use, as docker run --memory takes it."
+  type        = string
+  default     = "256m"
 }
 
 data "aws_ssm_parameter" "ami" {
@@ -176,16 +197,12 @@ resource "aws_iam_instance_profile" "host" {
 }
 
 resource "aws_instance" "host" {
-  ami                         = data.aws_ssm_parameter.ami.value
-  instance_type               = var.instance_type
-  iam_instance_profile        = aws_iam_instance_profile.host.name
-  vpc_security_group_ids      = [aws_security_group.preview.id]
-  user_data_replace_on_change = true
+  ami                    = data.aws_ssm_parameter.ami.value
+  instance_type          = var.instance_type
+  iam_instance_profile   = aws_iam_instance_profile.host.name
+  vpc_security_group_ids = [aws_security_group.preview.id]
   user_data = templatefile("${path.module}/bootstrap.sh", {
-    domain    = local.domain
-    ttl_days  = var.ttl_days
-    license   = var.license_parameter
-    region    = var.region
+    env       = local.host_env
     caddyfile = file("${path.module}/Caddyfile")
     preview   = file("${path.module}/preview.sh")
   })
@@ -197,9 +214,25 @@ resource "aws_instance" "host" {
     http_tokens = "required"
   }
   tags = { Name = "synnax-preview" }
+  # User data only bootstraps a new host. install.sh brings a running host up to date,
+  # so a script or setting change never replaces the host under live previews.
   lifecycle {
-    ignore_changes = [ami]
+    ignore_changes = [ami, user_data]
   }
+}
+
+locals {
+  host_env = <<-EOT
+    PREVIEW_DOMAIN=${local.domain}
+    PREVIEW_SITES=/etc/caddy/sites
+    PREVIEW_TTL_DAYS=${var.ttl_days}
+    PREVIEW_LICENSE_PARAMETER=${var.license_parameter}
+    PREVIEW_REGION=${var.region}
+    PREVIEW_MAX=${var.max_previews}
+    PREVIEW_CPUS=${var.preview_cpus}
+    PREVIEW_MEMORY=${var.preview_memory}
+    PREVIEW_LOGS=/var/log/caddy
+  EOT
 }
 
 resource "aws_eip" "host" {}
@@ -307,4 +340,9 @@ output "domain" {
 
 output "ecr_repository_url" {
   value = aws_ecr_repository.preview.repository_url
+}
+
+output "host_env" {
+  description = "The settings install.sh writes to the host."
+  value       = local.host_env
 }
