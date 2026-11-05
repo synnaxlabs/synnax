@@ -197,18 +197,31 @@ export const useCalculatedForm = Flux.createForm<
 
 export type ListQuery = channel.RetrieveMultipleParams;
 
+const normalizeListQuery = <Q extends ListQuery>(query: Q): Q => ({
+  ...query,
+  where: { internal: { eq: false }, ...query.where },
+});
+
 export const useList = Flux.createList<ListQuery, channel.Key, channel.Channel>({
   name: PLURAL_RESOURCE_NAME,
-  normalizeQuery: (query) => ({
-    ...query,
-    where: { internal: { eq: false }, ...query.where },
-  }),
+  normalizeQuery: normalizeListQuery,
   retrieve: async ({ client, query }) => await client.channels.retrieve(query),
   retrieveByKey: async ({ client, key, query: { rangeKey } }) =>
     await client.channels.retrieve(key, { rangeKey }),
   onChange: ({ client, query }, handler) => client.channels.onChange(query, handler),
   onChangeByKey: ({ client, key, query: { rangeKey } }, handler) =>
     client.channels.onChange({ key, rangeKey }, handler),
+  getCached: ({ client, query }) => client.channels.getCached(query),
+});
+
+export const { useResult: useResultList } = Flux.createRetrieve<
+  ListQuery,
+  channel.Channel[]
+>({
+  name: PLURAL_RESOURCE_NAME,
+  normalizeQuery: normalizeListQuery,
+  retrieve: async ({ client, query }) => await client.channels.retrieve(query),
+  onChange: ({ client, query }, handler) => client.channels.onChange(query, handler),
   getCached: ({ client, query }) => client.channels.getCached(query),
 });
 
@@ -281,7 +294,10 @@ export const { useUpdate: useDeleteAlias } = Flux.createUpdate<DeleteAliasParams
 
 type RetrieveGroupQuery = Record<string, never>;
 
-export const { use: useGroup } = Flux.createRetrieve<RetrieveGroupQuery, group.Group>({
+export const { use: useGroup, useResult: useResultGroup } = Flux.createRetrieve<
+  RetrieveGroupQuery,
+  group.Group
+>({
   name: "channel group",
   retrieve: async ({ client }) => await client.channels.retrieveGroup(),
 });

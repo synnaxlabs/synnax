@@ -16,7 +16,7 @@ import { type ContextMenu as ItemContextMenu } from "@/platform/tree/types";
 
 export const MultipleSelectionContextMenu: ItemContextMenu = (props) => {
   const {
-    selection: { ids, rootID },
+    selection: { ids, rootID, parentID },
     state: { shape },
   } = props;
   const groupFromSelection = Group.useCreateFromSelection();
@@ -29,6 +29,7 @@ export const MultipleSelectionContextMenu: ItemContextMenu = (props) => {
             ids={ids}
             shape={shape}
             rootID={rootID}
+            parentID={parentID}
             onClick={() => groupFromSelection(props)}
           />
           <Menu.Divider />

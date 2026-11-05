@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apirack "github.com/synnaxlabs/synnax/pkg/api/rack"
+	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
@@ -286,6 +287,40 @@ var _ = Describe("Retrieve", func() {
 			),
 		))
 	})
+
+	It(
+		"Should not let the status API break the reads of a rack",
+		func(ctx SpecContext) {
+			u := createUser(ctx)
+			r := createRackWithStatus(ctx, "Target")
+			key := rack.StatusKey(r.Key)
+			grant(ctx, access.ActionCreate, u.OntologyID(), status.OntologyID(key))
+			grant(ctx, access.ActionUpdate, u.OntologyID(), r.OntologyID())
+			grant(ctx, access.ActionRetrieve, u.OntologyID(), r.OntologyID())
+			Expect(statusAPI.Set(
+				AuthedCtx(ctx, u), nil,
+				apistatus.SetRequest{Statuses: []status.Status[any]{{
+					Key:     key,
+					Time:    telem.Now(),
+					Variant: status.VariantError,
+					Details: "not an object",
+				}}},
+			)).Error().To(MatchError(ContainSubstring("statuses.0.details")))
+			retrieved := MustSucceed(apiSvc.Retrieve(
+				AuthedCtx(ctx, u),
+				apirack.RetrieveRequest{
+					Where:         &rack.Where{Key: &filter.Set[rack.Key]{Eq: &r.Key}},
+					IncludeStatus: true,
+				},
+			))
+			Expect(retrieved.Racks[0].Status.Message).To(Equal("Rack is running"))
+			created := MustSucceed(apiSvc.Create(
+				AuthedCtx(ctx, u), nil,
+				apirack.CreateRequest{Racks: []rack.Rack{r}},
+			))
+			Expect(created.Racks[0].Status.Message).To(Equal("Rack is running"))
+		},
+	)
 })
 
 var _ = Describe("RetrieveRequest", func() {

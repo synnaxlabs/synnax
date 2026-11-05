@@ -9,7 +9,7 @@
 
 import { act, fireEvent, render, renderHook } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { Dialog } from "@/dialog";
 import { List } from "@/list";
@@ -55,8 +55,10 @@ describe("Select keyboard hover", () => {
       );
       return dialog ? <Dialog.Frame visible>{content}</Dialog.Frame> : content;
     };
-    const { result } = renderHook(() => Select.useContext<string>(), { wrapper });
-    return { hover: () => result.current.getState().hover };
+    const { result, unmount } = renderHook(() => Select.useContext<string>(), {
+      wrapper,
+    });
+    return { hover: () => result.current.getState().hover, unmount };
   };
 
   const keyDown = (code: string): void => {
@@ -93,6 +95,25 @@ describe("Select keyboard hover", () => {
   it("should move the hover index to 0 when the initial hover is beyond the length of the list", () => {
     const { hover } = renderHover(DATA, vi.fn(), { initialHover: 10 });
     expect(hover()).toBe("alpha");
+  });
+
+  it("should stop repeating a held arrow key after it unmounts", () => {
+    vi.useFakeTimers();
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
+    const { hover, unmount } = renderHover(DATA, vi.fn());
+    keyDown("ArrowDown");
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+    expect(hover()).toBe("alpha");
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+    expect(hover()).toBe("bravo");
+    unmount();
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   describe("pointer", () => {

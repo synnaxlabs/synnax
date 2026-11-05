@@ -29,7 +29,7 @@ inline StatusDetails StatusDetails::parse(x::json::Parser parser) {
 }
 
 inline x::json::json StatusDetails::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["rack"] = this->rack;
     return j;
 }
@@ -48,7 +48,7 @@ inline Rack Rack::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Rack::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["key"] = this->key;
     j["name"] = this->name;
     j["embedded"] = this->embedded;
@@ -73,7 +73,7 @@ inline Where Where::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Where::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     if (this->and_.has_value()) j["and"] = x::json::to_array(*this->and_);
     if (this->or_.has_value()) j["or"] = x::json::to_array(*this->or_);
     if (this->not_.has_value()) j["not"] = this->not_->to_json();
@@ -97,7 +97,7 @@ inline RetrieveRequest RetrieveRequest::parse(x::json::Parser parser) {
 }
 
 inline x::json::json RetrieveRequest::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     if (this->where.has_value()) j["where"] = this->where->to_json();
     j["search_term"] = this->search_term;
     if (this->limit.has_value()) j["limit"] = *this->limit;
@@ -113,7 +113,7 @@ inline RetrieveResponse RetrieveResponse::parse(x::json::Parser parser) {
 }
 
 inline x::json::json RetrieveResponse::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["racks"] = x::json::to_array(this->racks);
     return j;
 }

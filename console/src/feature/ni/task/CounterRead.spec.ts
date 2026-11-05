@@ -378,7 +378,7 @@ describe("CounterRead ports", () => {
 });
 
 describe("CounterRead channel names", () => {
-  it("should show the name configuring gives each channel in the list", async () => {
+  it("should show the name deploying gives each channel in the list", async () => {
     const dev = await createNIDevice(client);
     await renderCounterRead(
       createConfig([createChannel("ci_frequency", 1, { device: dev.key })]),
