@@ -974,6 +974,20 @@ describe("StreamMultiChannelLog", () => {
       expect(log.timeRange).toBeNull();
     });
 
+    it("should extend the time range to older samples than it read", async () => {
+      const core = deep();
+      const [a] = core.data.map((c) => c.key);
+      const client = connect(core, {
+        readFirst: async (keys) => core.readLatest(keys, 1),
+      });
+      const log = open(core, client, { channels: [a] });
+      await settle(log, PAGE);
+      await expect.poll(() => log.timeRange, POLL).not.toBeNull();
+      expect(log.timeRange?.start.valueOf()).toBe(
+        entriesOf(log)[0].timestamp.valueOf(),
+      );
+    });
+
     it("should forget the oldest stored time when the channels change", async () => {
       const core = deep();
       const [a, b] = core.data.map((c) => c.key);

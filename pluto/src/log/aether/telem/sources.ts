@@ -221,7 +221,9 @@ export class StreamMultiChannelLog
   get timeRange(): TimeRange | null {
     const end = this.unread.at(-1)?.end ?? this.entries.at(-1)?.timestamp.valueOf();
     if (this.start == null || end == null) return null;
-    return new TimeRange(this.start, new TimeStamp(end));
+    // Samples written after the read of start can be older than it.
+    const start = TimeStamp.min(this.start, this.entries[0]?.timestamp ?? this.start);
+    return new TimeRange(start, new TimeStamp(end));
   }
 
   /** Whether the entries end at the newest samples, so that new samples join them. */
