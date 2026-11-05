@@ -46,11 +46,27 @@ resource_type_to_pb(const std::string &cpp) {
             {RESOURCE_TYPE_SCHEMATIC, ::service::ontology::pb::RESOURCE_TYPE_SCHEMATIC},
             {RESOURCE_TYPE_SCHEMATIC_SYMBOL,
              ::service::ontology::pb::RESOURCE_TYPE_SCHEMATIC_SYMBOL},
+            {RESOURCE_TYPE_SECRET, ::service::ontology::pb::RESOURCE_TYPE_SECRET},
             {RESOURCE_TYPE_STATUS, ::service::ontology::pb::RESOURCE_TYPE_STATUS},
             {RESOURCE_TYPE_TABLE, ::service::ontology::pb::RESOURCE_TYPE_TABLE},
             {RESOURCE_TYPE_TASK, ::service::ontology::pb::RESOURCE_TYPE_TASK},
             {RESOURCE_TYPE_USER, ::service::ontology::pb::RESOURCE_TYPE_USER},
             {RESOURCE_TYPE_VIEW, ::service::ontology::pb::RESOURCE_TYPE_VIEW},
+            {RESOURCE_TYPE_ETHERCAT_MASTER,
+             ::service::ontology::pb::RESOURCE_TYPE_ETHERCAT_MASTER},
+            {RESOURCE_TYPE_ETHERCAT_SLAVE,
+             ::service::ontology::pb::RESOURCE_TYPE_ETHERCAT_SLAVE},
+            {RESOURCE_TYPE_HTTP_SERVER,
+             ::service::ontology::pb::RESOURCE_TYPE_HTTP_SERVER},
+            {RESOURCE_TYPE_LABJACK_DEVICE,
+             ::service::ontology::pb::RESOURCE_TYPE_LABJACK_DEVICE},
+            {RESOURCE_TYPE_MODBUS_SERVER,
+             ::service::ontology::pb::RESOURCE_TYPE_MODBUS_SERVER},
+            {RESOURCE_TYPE_NI_CHASSIS,
+             ::service::ontology::pb::RESOURCE_TYPE_NI_CHASSIS},
+            {RESOURCE_TYPE_NI_DEVICE, ::service::ontology::pb::RESOURCE_TYPE_NI_DEVICE},
+            {RESOURCE_TYPE_OPCUA_SERVER,
+             ::service::ontology::pb::RESOURCE_TYPE_OPCUA_SERVER},
     };
     auto it = kMap.find(cpp);
     if (it == kMap.end())
@@ -99,6 +115,8 @@ resource_type_from_pb(::service::ontology::pb::ResourceType pb) {
             return {RESOURCE_TYPE_SCHEMATIC, x::errors::NIL};
         case ::service::ontology::pb::RESOURCE_TYPE_SCHEMATIC_SYMBOL:
             return {RESOURCE_TYPE_SCHEMATIC_SYMBOL, x::errors::NIL};
+        case ::service::ontology::pb::RESOURCE_TYPE_SECRET:
+            return {RESOURCE_TYPE_SECRET, x::errors::NIL};
         case ::service::ontology::pb::RESOURCE_TYPE_STATUS:
             return {RESOURCE_TYPE_STATUS, x::errors::NIL};
         case ::service::ontology::pb::RESOURCE_TYPE_TABLE:
@@ -109,6 +127,22 @@ resource_type_from_pb(::service::ontology::pb::ResourceType pb) {
             return {RESOURCE_TYPE_USER, x::errors::NIL};
         case ::service::ontology::pb::RESOURCE_TYPE_VIEW:
             return {RESOURCE_TYPE_VIEW, x::errors::NIL};
+        case ::service::ontology::pb::RESOURCE_TYPE_ETHERCAT_MASTER:
+            return {RESOURCE_TYPE_ETHERCAT_MASTER, x::errors::NIL};
+        case ::service::ontology::pb::RESOURCE_TYPE_ETHERCAT_SLAVE:
+            return {RESOURCE_TYPE_ETHERCAT_SLAVE, x::errors::NIL};
+        case ::service::ontology::pb::RESOURCE_TYPE_HTTP_SERVER:
+            return {RESOURCE_TYPE_HTTP_SERVER, x::errors::NIL};
+        case ::service::ontology::pb::RESOURCE_TYPE_LABJACK_DEVICE:
+            return {RESOURCE_TYPE_LABJACK_DEVICE, x::errors::NIL};
+        case ::service::ontology::pb::RESOURCE_TYPE_MODBUS_SERVER:
+            return {RESOURCE_TYPE_MODBUS_SERVER, x::errors::NIL};
+        case ::service::ontology::pb::RESOURCE_TYPE_NI_CHASSIS:
+            return {RESOURCE_TYPE_NI_CHASSIS, x::errors::NIL};
+        case ::service::ontology::pb::RESOURCE_TYPE_NI_DEVICE:
+            return {RESOURCE_TYPE_NI_DEVICE, x::errors::NIL};
+        case ::service::ontology::pb::RESOURCE_TYPE_OPCUA_SERVER:
+            return {RESOURCE_TYPE_OPCUA_SERVER, x::errors::NIL};
         default:
             return {"", x::errors::Error("unrecognized ResourceType protobuf value")};
     }

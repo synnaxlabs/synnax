@@ -30,6 +30,8 @@ type Base = v0.Base
 // Secret is a hidden value that a device or task uses to connect, such as a password, a
 // token, an API key, or a private key. Only the program that connects reads it.
 type Secret = v0.Secret
+
+// SecretVariant is implemented by every Secret variant.
 type SecretVariant = v0.SecretVariant
 
 // StoredSecret is a secret whose value the Core stores.
