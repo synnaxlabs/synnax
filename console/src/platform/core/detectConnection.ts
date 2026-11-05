@@ -35,8 +35,6 @@ const DEV_PORT_KEY = "synnax-dev-connection-port";
  */
 const DEV_DETACH_KEY = "synnax-dev-connection-detach";
 
-const SELECT_CORE_PARAM = "select-core";
-
 const devConnection = (): ConnectionParams | null => {
   if (localStorage.getItem(DEV_DETACH_KEY) != null) return null;
   const port = Number(localStorage.getItem(DEV_PORT_KEY));
@@ -46,7 +44,7 @@ const devConnection = (): ConnectionParams | null => {
 
 export const detectConnection = (): ConnectionParams | null => {
   if (Session.Runtime.ENGINE === "tauri") return null;
-  if (new URLSearchParams(window.location.search).has(SELECT_CORE_PARAM)) return null;
+  if (new URLSearchParams(window.location.search).has("select-core")) return null;
   if (IS_DEV) return devConnection();
   const url = new URL(window.location.origin);
   return {
@@ -57,10 +55,3 @@ export const detectConnection = (): ConnectionParams | null => {
     secure: url.protocol === "https:",
   };
 };
-
-/**
- * Stops detectConnection from reporting the serving Core, so login starts on the Cores
- * list. The page's URL holds the setting, so a reload keeps it.
- */
-export const disableDetection = (): void =>
-  window.history.replaceState(window.history.state, "", `?${SELECT_CORE_PARAM}`);

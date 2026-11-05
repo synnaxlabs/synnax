@@ -14,7 +14,12 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Synnax } from "@synnaxlabs/pluto";
-import { type PropsWithChildren, type ReactElement, type ReactNode } from "react";
+import {
+  type PropsWithChildren,
+  type ReactElement,
+  type ReactNode,
+  useEffect,
+} from "react";
 
 import { Shell } from "@/feature/shell";
 import { Core } from "@/platform/core";
@@ -34,11 +39,6 @@ const Mismatch = ({ clientVersion, nodeVersion }: MismatchProps): ReactElement =
     target == null
       ? undefined
       : `${target.secure ? "https" : "http"}://${target.host}:${target.port}`;
-  const desktop = Session.Runtime.ENGINE === "tauri";
-  const handleChooseCore = (): void => {
-    if (!desktop) Core.disableDetection();
-    logout();
-  };
   return (
     <Shell.Frame className={CSS.B("version-mismatch")} connection={target}>
       <Flex.Box
@@ -69,23 +69,17 @@ const Mismatch = ({ clientVersion, nodeVersion }: MismatchProps): ReactElement =
             full="x"
             justify="center"
             href={url}
-            target={desktop ? "_blank" : undefined}
+            target="_blank"
           >
-            {desktop ? (
-              <>
-                Open in browser
-                <Icon.OpenExternal />
-              </>
-            ) : (
-              "Open matching Console"
-            )}
+            Open in browser
+            <Icon.OpenExternal />
           </Button.Button>
           <Button.Button
             variant="outlined"
             size="large"
             full="x"
             justify="center"
-            onClick={handleChooseCore}
+            onClick={logout}
           >
             Choose another Core
           </Button.Button>
@@ -98,11 +92,19 @@ const Mismatch = ({ clientVersion, nodeVersion }: MismatchProps): ReactElement =
 /**
  * Renders the mismatch screen instead of its children while the last check of the Core
  * reports a different minor version than the Console. The screen lifts once a check
- * reports a matching version.
+ * reports a matching version. A browser reloads the page instead, because the Core
+ * serves the Console that matches it.
  */
 export const Guard = ({ children }: PropsWithChildren): ReactNode => {
   const { clientVersion, nodeVersion, clientServerCompatible } =
     Synnax.useConnectionStatus().details;
-  if (nodeVersion == null || clientServerCompatible) return children;
+  const mismatched = nodeVersion != null && !clientServerCompatible;
+  // The dev server does not come from the Core, so a reload cannot fix it.
+  const reloads = Session.Runtime.ENGINE === "web" && !IS_DEV;
+  useEffect(() => {
+    if (mismatched && reloads) window.location.reload();
+  }, [mismatched, reloads]);
+  if (!mismatched) return children;
+  if (reloads) return null;
   return <Mismatch clientVersion={clientVersion} nodeVersion={nodeVersion} />;
 };
