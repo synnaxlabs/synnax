@@ -25,7 +25,7 @@ var _ = Describe("Device", func() {
 	})
 
 	It("Should identify itself by its key", func() {
-		key := uuid.New()
+		key := uuid.MustParse("22222222-2222-4222-8222-222222222222")
 		d := v0.Device{Key: key}
 		Expect(d.GorpKey()).To(Equal(key))
 		Expect(d.SetOptions()).To(BeNil())
