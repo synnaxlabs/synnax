@@ -7,12 +7,29 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { deep } from "@synnaxlabs/x";
 import { act, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Task } from "@/platform/task";
-import { type FormRef, renderInTaskForm } from "@/platform/task/testutil";
+import { type FormRef, renderInTaskFormWithClient } from "@/platform/task/testutil";
+import { uniqueName } from "@/testutil";
+
+const client = createTestClient();
+
+const createChannel = async () =>
+  (
+    await client.channels.create({
+      name: uniqueName("bind_read"),
+      dataType: "float32",
+      virtual: true,
+    })
+  ).key;
+
+const [INDEX, VALUE, OTHER_INDEX, OTHER_VALUE] = await Promise.all(
+  Array.from({ length: 4 }, createChannel),
+);
 
 interface Source {
   key: string;
@@ -39,23 +56,23 @@ const SOURCE: Source = {
 };
 
 const READ: Record<string, Task.ReadChannelProps> = {
-  "/api": { index: 4, channels: { "/value": 6 } },
+  "/api": { index: INDEX, channels: { "/value": VALUE } },
 };
 
 const channelOf = (form: FormRef, key: string) =>
   form.current?.get(source.fields[key].channel).value;
 
 const render = async (read: Record<string, Task.ReadChannelProps> | null) =>
-  await renderInTaskForm(
+  await renderInTaskFormWithClient(
     <Task.BindReadChannels path={source} propertiesKey={source.path} read={read} />,
-    { values: { config: { sources: [SOURCE] } } },
+    { client, values: { config: { sources: [SOURCE] } } },
   );
 
 describe("BindReadChannels", () => {
   it("should bind the index field to the index and a field to its pointer", async () => {
     const { form } = await render(READ);
-    await waitFor(() => expect(channelOf(form, "v")).toBe(6));
-    expect(channelOf(form, "ts")).toBe(4);
+    await waitFor(() => expect(channelOf(form, "v")).toBe(VALUE));
+    expect(channelOf(form, "ts")).toBe(INDEX);
   });
 
   it("should leave every field alone while the device is unknown", async () => {
@@ -67,11 +84,11 @@ describe("BindReadChannels", () => {
   it("should follow the source to the channels its new key maps", async () => {
     const { form } = await render({
       ...READ,
-      "/other": { index: 8, channels: { "/value": 9 } },
+      "/other": { index: OTHER_INDEX, channels: { "/value": OTHER_VALUE } },
     });
-    await waitFor(() => expect(channelOf(form, "v")).toBe(6));
+    await waitFor(() => expect(channelOf(form, "v")).toBe(VALUE));
     act(() => form.current?.set(source.path, "/other"));
-    await waitFor(() => expect(channelOf(form, "v")).toBe(9));
-    expect(channelOf(form, "ts")).toBe(8);
+    await waitFor(() => expect(channelOf(form, "v")).toBe(OTHER_VALUE));
+    expect(channelOf(form, "ts")).toBe(OTHER_INDEX);
   });
 });

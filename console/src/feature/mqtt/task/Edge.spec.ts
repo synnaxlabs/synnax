@@ -352,17 +352,27 @@ describe("MQTT Edge form", () => {
       expect(cmd.dataType.toString()).toBe("string");
     });
 
-    it("should create a command channel again when it no longer exists", async () => {
+    it("should replace a gone command channel the broker maps", async () => {
       const ch = await createDataChannel();
       const kept = await createDataChannel();
       const deleted = await createDataChannel();
       await client.channels.delete(deleted.key);
       const name = uniqueName("b");
-      const { container, draft } = await renderEdge([
-        createTag("t1", { name: "a", channel: ch.key, commandChannel: kept.key }),
-        createTag("t2", { name, channel: ch.key, commandChannel: deleted.key }),
-        createTag("t3", { name: "c", channel: ch.key }),
-      ]);
+      const dev = await createBroker(client, {
+        properties: { edge: { [`spBv1.0/plant/line1//${name}`]: deleted.key } },
+      });
+      const draft = await createDraft(
+        client,
+        createEdgeConfig(dev.key, [
+          createTag("t1", { name: "a", channel: ch.key, commandChannel: kept.key }),
+          createTag("t2", { name, channel: ch.key, commandChannelName: `${name}_cmd` }),
+          createTag("t3", { name: "c", channel: ch.key }),
+        ]),
+      );
+      const { container } = await renderTaskFormTab(MQTT.Task.Edge, {
+        client,
+        taskKey: draft.key,
+      });
       const created = await deployAndAwaitTask(
         client,
         container,

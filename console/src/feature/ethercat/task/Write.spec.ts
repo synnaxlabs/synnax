@@ -322,6 +322,7 @@ describe("Write", () => {
     );
     first.unmount();
     const [bound] = firstTask.config.channels;
+    await client.tasks.delete(firstTask.key);
     await client.channels.delete(bound.stateChannel);
 
     const second = await renderWrite(config);
