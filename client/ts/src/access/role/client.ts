@@ -11,15 +11,7 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import {
-  type Key,
-  keyZ,
-  type New,
-  resourceID,
-  type Role,
-  roleZ,
-} from "@/access/role/types.gen";
-import { type ontology } from "@/ontology";
+import { type Key, keyZ, type New, type Role, roleZ } from "@/access/role/types.gen";
 import { query } from "@/query";
 
 export const SET_CHANNEL_NAME = "sy_role_set";
@@ -80,7 +72,6 @@ const requestFilter = (req: RetrieveRequest): ((r: Role) => boolean) => {
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
-  ontology: ontology.Client;
 }
 
 export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Role> {
@@ -126,11 +117,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ro
 
   async delete(params: DeleteParams, opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(params);
-    const ids = resourceID(keysArr);
-    const drop = () => [
-      this.cfg.ontology.cache.deleteResources(ids),
-      this.store.delete(keysArr),
-    ];
+    const drop = () => [this.store.delete(keysArr)];
     await query.optimistic({
       rollbacks: drop(),
       onOptimistic: opts.onOptimistic,
@@ -147,10 +134,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ro
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
     const existing = await this.retrieve(key);
-    const rename = () => [
-      query.partialUpdate(this.store, key, { name }),
-      this.cfg.ontology.cache.renameResource(resourceID(key), name),
-    ];
+    const rename = () => [query.partialUpdate(this.store, key, { name })];
     await query.optimistic({
       rollbacks: rename(),
       onOptimistic: opts.onOptimistic,

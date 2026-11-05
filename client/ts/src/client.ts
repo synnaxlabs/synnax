@@ -37,7 +37,6 @@ import { label } from "@/label";
 import { license } from "@/license";
 import { lineplot } from "@/lineplot";
 import { log } from "@/log";
-import { ontology } from "@/ontology";
 import { panel } from "@/panel";
 import { project } from "@/project";
 import { query } from "@/query";
@@ -165,7 +164,6 @@ const RESOURCE_CHANNELS: Record<resource.Type, resource.Channels | null> = {
  * @property channel - Channel client for creating and retrieving channels.
  * @property data - Data client for reading and writing telemetry.
  * @property connection - The connection state machine.
- * @property ontology - Client for querying the cluster's ontology.
  */
 export default class Synnax extends framer.Client {
   readonly key: string;
@@ -177,7 +175,6 @@ export default class Synnax extends framer.Client {
   readonly users: user.Client;
   readonly access: access.Client;
   readonly connection: connection.Handle;
-  readonly ontology: ontology.Client;
   readonly resources: resource.Client;
   readonly projects: project.Client;
   readonly labels: label.Client;
@@ -294,7 +291,6 @@ export default class Synnax extends framer.Client {
     this.params = parsedParams;
     this.transport = transport;
     const unary = this.transport.unary;
-    this.ontology = new ontology.Client({ unary, cache });
     this.resources = new resource.Client({ unary, cache, channels: RESOURCE_CHANNELS });
     this.license = new license.Client({ unary, connection: this.conn, cache });
     this.labels = new label.Client({
@@ -307,13 +303,12 @@ export default class Synnax extends framer.Client {
           this.statuses.relabel(key, update),
       },
     });
-    this.statuses = new status.Client({ unary, cache, ontology: this.ontology });
+    this.statuses = new status.Client({ unary, cache });
     this.ranges = new ranger.Client({
       framer: this,
       unary,
       channels: retrieveChannels,
       labels: this.labels,
-      ontology: this.ontology,
       cache,
     });
     this.channels = new channel.Client({
@@ -323,32 +318,27 @@ export default class Synnax extends framer.Client {
       statuses: this.statuses,
       ranges: this.ranges,
       cache,
-      ontology: this.ontology,
     });
     this.control = new control.Client({ unary, cache });
     this.users = new user.Client({
       unary,
       cache,
-      ontology: this.ontology,
       connection: this.conn,
       identity,
     });
     this.access = new access.Client({
       unary,
       cache,
-      ontology: this.ontology,
       users: this.users,
     });
     this.projects = new project.Client({
       unary,
       file: this.transport.file,
       cache,
-      ontology: this.ontology,
     });
     this.tasks = new task.Client({
       unary,
       framer: this,
-      ontology: this.ontology,
       ranges: this.ranges,
       cache,
       statuses: this.statuses,
@@ -358,13 +348,11 @@ export default class Synnax extends framer.Client {
       tasks: this.tasks,
       cache,
       statuses: this.statuses,
-      ontology: this.ontology,
     });
     this.devices = new device.Client({
       unary,
       cache,
       statuses: this.statuses,
-      ontology: this.ontology,
     });
     this.arcs = new arc.Client({
       unary,
@@ -373,24 +361,22 @@ export default class Synnax extends framer.Client {
       cache,
       statuses: this.statuses,
     });
-    this.views = new view.Client({ unary, cache, ontology: this.ontology });
+    this.views = new view.Client({ unary, cache });
     this.groups = new group.Client({ unary, cache });
     this.batch = new batch.Client(unary);
     this.schematics = new schematic.Client({
       unary,
       file: this.transport.file,
-      ontology: this.ontology,
       cache,
       groupStore: this.groups.store,
     });
-    this.lineplots = new lineplot.Client({ unary, cache, ontology: this.ontology });
+    this.lineplots = new lineplot.Client({ unary, cache });
     this.panels = new panel.Client({
       unary,
-      ontology: this.ontology,
       cache,
     });
-    this.logs = new log.Client({ unary, cache, ontology: this.ontology });
-    this.tables = new table.Client({ unary, cache, ontology: this.ontology });
+    this.logs = new log.Client({ unary, cache });
+    this.tables = new table.Client({ unary, cache });
     this.imex = new imex.Client({ file: this.transport.file });
   }
 

@@ -17,10 +17,8 @@ import {
   type New,
   type Policy,
   policyZ,
-  resourceID,
 } from "@/access/policy/types.gen";
 import { role } from "@/access/role";
-import { type ontology } from "@/ontology";
 import { query } from "@/query";
 import { resource } from "@/resource";
 import { user } from "@/user";
@@ -94,7 +92,6 @@ const requestFilter = (req: RetrieveRequest): ((p: Policy) => boolean) => {
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
-  ontology: ontology.Client;
   /** Holds the roles of users, so a role change refetches the policies of a user. */
   users: user.Client;
 }
@@ -153,11 +150,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Po
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const ids = resourceID(keysArr);
-    const drop = () => [
-      this.cfg.ontology.cache.deleteResources(ids),
-      this.store.delete(keysArr),
-    ];
+    const drop = () => [this.store.delete(keysArr)];
     await query.optimistic({
       rollbacks: drop(),
       onOptimistic: opts.onOptimistic,
@@ -174,10 +167,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Po
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
     const existing = await this.retrieve(key);
-    const rename = () => [
-      query.partialUpdate(this.store, key, { name }),
-      this.cfg.ontology.cache.renameResource(resourceID(key), name),
-    ];
+    const rename = () => [query.partialUpdate(this.store, key, { name })];
     await query.optimistic({
       rollbacks: rename(),
       onOptimistic: opts.onOptimistic,

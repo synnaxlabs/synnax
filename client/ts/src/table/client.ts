@@ -13,7 +13,6 @@ import { z } from "zod";
 
 import { actions } from "@/actions";
 import { group } from "@/group";
-import { type ontology } from "@/ontology";
 import { project } from "@/project";
 import { query } from "@/query";
 import { createOf, encode, kindOf, reduceAll } from "@/table/actions";
@@ -24,14 +23,7 @@ import {
   rename as renameAction,
   scopedActionZ,
 } from "@/table/actions.gen";
-import {
-  type Key,
-  keyZ,
-  type New,
-  resourceID,
-  type Table,
-  tableZ,
-} from "@/table/types.gen";
+import { type Key, keyZ, type New, type Table, tableZ } from "@/table/types.gen";
 
 export const SET_CHANNEL_NAME = "sy_table_set";
 export const DELETE_CHANNEL_NAME = "sy_table_delete";
@@ -75,7 +67,6 @@ const requestFilter = (req: RetrieveRequest): ((t: Table) => boolean) => {
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
-  ontology: ontology.Client;
 }
 
 export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Table> {
@@ -164,10 +155,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ta
     const rename = (): destructor.Destructor => {
       const prev = this.store.get(key)?.name ?? name;
       query.partialUpdate(this.store, key, { name });
-      const resource = this.cfg.ontology.cache.renameResource(resourceID(key), name);
       return () => {
         query.partialUpdate(this.store, key, { name: prev });
-        resource();
       };
     };
     const rollback = rename();
@@ -238,10 +227,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ta
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const drop = () => [
-      this.cfg.ontology.cache.deleteRelationships(resourceID(keysArr)),
-      this.store.delete(keysArr),
-    ];
+    const drop = () => [this.store.delete(keysArr)];
     await query.optimistic({
       rollbacks: drop(),
       onOptimistic: opts.onOptimistic,

@@ -20,18 +20,10 @@ import z from "zod";
 
 import { type batch } from "@/batch";
 import { label } from "@/label";
-import { type ontology } from "@/ontology";
 import { query } from "@/query";
 import { resource } from "@/resource";
 import { DELETE_CHANNEL_NAME, SET_CHANNEL_NAME } from "@/status/payload";
-import {
-  type Key,
-  keyZ,
-  type New,
-  resourceID,
-  type Status,
-  statusZ,
-} from "@/status/types.gen";
+import { type Key, keyZ, type New, type Status, statusZ } from "@/status/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 const setReqZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
@@ -83,7 +75,6 @@ const OWNED_FETCH_DEBOUNCE = TimeSpan.milliseconds(10);
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
-  ontology: ontology.Client;
 }
 
 export class Client extends query.Retriever<
@@ -236,10 +227,7 @@ export class Client extends query.Retriever<
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const rename = () => [
-      query.partialUpdate(this.store, key, { name }),
-      this.cfg.ontology.cache.renameResource(resourceID(key), name),
-    ];
+    const rename = () => [query.partialUpdate(this.store, key, { name })];
     await query.optimistic({
       rollbacks: rename(),
       onOptimistic: opts.onOptimistic,

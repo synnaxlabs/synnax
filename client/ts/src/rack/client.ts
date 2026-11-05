@@ -13,7 +13,6 @@ import { z } from "zod";
 
 import { type role } from "@/access/role";
 import { group } from "@/group";
-import { type ontology } from "@/ontology";
 import { query } from "@/query";
 import {
   type Key,
@@ -130,7 +129,6 @@ export interface ClientConfig {
   tasks: task.Client;
   cache: query.Cache;
   statuses: status.Client;
-  ontology: ontology.Client;
 }
 
 export class Client extends query.Retriever<
@@ -208,10 +206,7 @@ export class Client extends query.Retriever<
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const drop = () => [
-      this.cfg.ontology.cache.deleteResources(resourceID(keysArr)),
-      this.store.delete(keysArr),
-    ];
+    const drop = () => [this.store.delete(keysArr)];
     await query.optimistic({
       rollbacks: drop(),
       onOptimistic: opts.onOptimistic,
@@ -227,10 +222,7 @@ export class Client extends query.Retriever<
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const rename = () => [
-      query.partialUpdate(this.store, key, { name }),
-      this.cfg.ontology.cache.renameResource(resourceID(key), name),
-    ];
+    const rename = () => [query.partialUpdate(this.store, key, { name })];
     await query.optimistic({
       rollbacks: rename(),
       onOptimistic: opts.onOptimistic,

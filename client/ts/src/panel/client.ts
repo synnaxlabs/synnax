@@ -13,7 +13,6 @@ import { z } from "zod";
 
 import { actions } from "@/actions";
 import { group } from "@/group";
-import { type ontology } from "@/ontology";
 import { createOf, kindOf, reduceAll } from "@/panel/actions";
 import {
   type Action,
@@ -22,14 +21,7 @@ import {
   rename as renameAction,
   scopedActionZ,
 } from "@/panel/actions.gen";
-import {
-  type Key,
-  keyZ,
-  type New,
-  type Panel,
-  panelZ,
-  resourceID,
-} from "@/panel/types.gen";
+import { type Key, keyZ, type New, type Panel, panelZ } from "@/panel/types.gen";
 import { project } from "@/project";
 import { query } from "@/query";
 
@@ -65,7 +57,6 @@ const requestFilter = (req: RetrieveRequest): ((p: Panel) => boolean) => {
 
 export interface ClientConfig {
   unary: UnaryClient;
-  ontology: ontology.Client;
   cache: query.Cache;
 }
 
@@ -164,10 +155,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
     const rename = (): destructor.Destructor => {
       const prev = this.store.get(key)?.name ?? name;
       query.partialUpdate(this.store, key, { name });
-      const resource = this.cfg.ontology.cache.renameResource(resourceID(key), name);
       return () => {
         query.partialUpdate(this.store, key, { name: prev });
-        resource();
       };
     };
     // Rename routes through dispatch so the action channel broadcasts the change
@@ -240,10 +229,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const drop = () => [
-      this.cfg.ontology.cache.deleteResources(resourceID(keysArr)),
-      this.store.delete(keysArr),
-    ];
+    const drop = () => [this.store.delete(keysArr)];
     await query.optimistic({
       rollbacks: drop(),
       onOptimistic: opts.onOptimistic,

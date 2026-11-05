@@ -10,7 +10,7 @@
 import { id } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { panel } from "@/panel";
+import { type panel } from "@/panel";
 import { type project } from "@/project";
 import { type query } from "@/query";
 import { createPanelProject, createTestClient, expectLive } from "@/testutil";
@@ -51,16 +51,6 @@ describe("Panel Client", () => {
         client.panels.rename(pan.key, "renamed", { onOptimistic: fail }),
       ).rejects.toBe(WRITE_FAILED);
       expect(expectLive(client.panels.getCached(pan.key)).name).toEqual(pan.name);
-    });
-
-    it("should restore the ontology resource name when the write fails", async () => {
-      const pan = await createPanel();
-      const panelID = panel.resourceID(pan.key);
-      await client.ontology.retrieve(panelID);
-      await expect(
-        client.panels.rename(pan.key, "renamed", { onOptimistic: fail }),
-      ).rejects.toBe(WRITE_FAILED);
-      expect(expectLive(client.ontology.getCached(panelID)).name).toEqual(pan.name);
     });
   });
 });
