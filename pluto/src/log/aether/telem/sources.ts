@@ -345,14 +345,7 @@ export class StreamMultiChannelLog
       this.notify();
       return;
     }
-    const groups = counts.flatMap(([key], i) =>
-      read[i].samples.map((p) => toEntries(key, p, p.time)),
-    );
-    // The entries keep this many lines after an eviction, so a longer read would evict
-    // lines of its own before they show.
-    const kept = this.maxEntries - Math.floor(this.maxEntries * EVICTION_HEADROOM);
-    const lines = groups.reduce((total, group) => total + group.length, 0);
-    if (read.some(({ full }) => full) || (middle > span.start && lines > kept)) {
+    const split = (): void => {
       const half = (start: bigint, end: bigint): Unread => ({
         start,
         end,
@@ -362,8 +355,16 @@ export class StreamMultiChannelLog
         this.unread.splice(0, 1, half(span.start, middle), half(middle, span.end));
       else counts.forEach(([key, count]) => span.counts.set(key, count * 2));
       this.notify();
-      return;
-    }
+    };
+    if (read.some(({ full }) => full)) return split();
+    const groups = counts.flatMap(([key], i) =>
+      read[i].samples.map((p) => toEntries(key, p, p.time)),
+    );
+    // The entries keep this many lines after an eviction, so a longer read would evict
+    // lines of its own before they show.
+    const kept = this.maxEntries - Math.floor(this.maxEntries * EVICTION_HEADROOM);
+    const lines = groups.reduce((total, group) => total + group.length, 0);
+    if (middle > span.start && lines > kept) return split();
     this.unread.shift();
     if (this.unread.every(({ counts }) => counts.size === 0)) this.unread = [];
     if (groups.length > 0) this.insert(groups);
