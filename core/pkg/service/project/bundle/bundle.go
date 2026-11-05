@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/project/versions/legacy"
@@ -33,7 +32,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filename"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -44,10 +42,10 @@ type Config struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// Ontology names the members of a bundle.
+	// Resource names the members of a bundle.
 	//
 	// [REQUIRED]
-	Ontology *ontology.Ontology
+	Resource *resource.Service
 	// Project stores the projects bundles hold.
 	//
 	// [REQUIRED]
@@ -71,7 +69,7 @@ var _ config.Config[Config] = Config{}
 // Override implements config.Config.
 func (c Config) Override(other Config) Config {
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
+	c.Resource = override.Nil(c.Resource, other.Resource)
 	c.Project = override.Nil(c.Project, other.Project)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Panel = override.Nil(c.Panel, other.Panel)
@@ -83,7 +81,7 @@ func (c Config) Override(other Config) Config {
 func (c Config) Validate() error {
 	v := validate.New("project.bundle")
 	v.NotNil("db", c.DB)
-	v.NotNil("ontology", c.Ontology)
+	v.NotNil("resource", c.Resource)
 	v.NotNil("project", c.Project)
 	v.NotNil("group", c.Group)
 	v.NotNil("panel", c.Panel)
@@ -300,7 +298,7 @@ func (w *bundleWalk) directory(
 func (w *bundleWalk) children(
 	ctx context.Context,
 	parent resource.ID,
-) ([]ontology.Resource, error) {
+) ([]resource.Resource, error) {
 	var ids []resource.ID
 	if parent.Type == resource.TypeProject {
 		key, err := project.KeyFromResourceID(parent)
@@ -325,15 +323,7 @@ func (w *bundleWalk) children(
 			return nil, err
 		}
 	}
-	if len(ids) == 0 {
-		return nil, nil
-	}
-	var children []ontology.Resource
-	err := w.svc.cfg.Ontology.NewRetrieve().
-		WhereIDs(ids...).
-		Entries(&children).
-		Exec(ctx, w.tx)
-	return children, err
+	return w.svc.cfg.Resource.Retrieve(ctx, w.tx, ids...)
 }
 
 // groupedMembers returns every member of the groups under the project with id, as seen
@@ -394,24 +384,17 @@ func (w *bundleWalk) panelRefs(
 	prefix string,
 	claims *imex.Claims,
 ) error {
-	var members []ontology.Resource
+	var ids []resource.ID
 	for _, id := range panel.ResourceRefs(p.Root) {
-		if w.visited.Contains(id) ||
-			!unreachedTypes.Contains(id.Type) ||
-			!w.svc.cfg.ImEx.ExporterRegistered(id.Type) {
-			continue
+		if !w.visited.Contains(id) &&
+			unreachedTypes.Contains(id.Type) &&
+			w.svc.cfg.ImEx.ExporterRegistered(id.Type) {
+			ids = append(ids, id)
 		}
-		var res ontology.Resource
-		if err := w.svc.cfg.Ontology.NewRetrieve().
-			WhereIDs(id).
-			Entry(&res).
-			Exec(ctx, w.tx); err != nil {
-			if errors.Is(err, query.ErrNotFound) {
-				continue
-			}
-			return err
-		}
-		members = append(members, res)
+	}
+	members, err := w.svc.cfg.Resource.Retrieve(ctx, w.tx, ids...)
+	if err != nil {
+		return err
 	}
 	imex.SortResources(members)
 	for _, m := range members {

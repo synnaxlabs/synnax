@@ -14,7 +14,7 @@ import (
 	"slices"
 	"strconv"
 
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/filename"
 	"github.com/synnaxlabs/x/set"
 )
@@ -38,8 +38,8 @@ type Manifest struct {
 // SortResources orders resources by name and then by ID. Bundle walks sort each
 // directory's members with it before claiming file names, so Claims assigns numeric
 // suffixes deterministically across exports.
-func SortResources(resources []ontology.Resource) {
-	slices.SortFunc(resources, func(a, b ontology.Resource) int {
+func SortResources(resources []resource.Resource) {
+	slices.SortFunc(resources, func(a, b resource.Resource) int {
 		return cmp.Or(
 			cmp.Compare(a.Name, b.Name),
 			cmp.Compare(a.ID.String(), b.ID.String()),

@@ -24,7 +24,6 @@ import (
 	xchange "github.com/synnaxlabs/x/change"
 	xiter "github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
-	"github.com/synnaxlabs/x/search"
 	"github.com/synnaxlabs/x/zyn"
 )
 
@@ -117,13 +116,4 @@ func newSearchIndex() *gorp.SearchIndex[Key, Task] {
 	return gorp.NewSearchIndex("search", func(e *Task) []string {
 		return []string{e.Name, e.Type}
 	})
-}
-
-// Search implements ontology.Service.
-func (s *Service) Search(
-	ctx context.Context,
-	tx gorp.Tx,
-	q search.Query[resource.ID],
-) (search.Result[resource.ID], error) {
-	return ontology.SearchIndex(ctx, tx, s.search, ResourceID, q)
 }

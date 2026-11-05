@@ -33,6 +33,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/project/bundle"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -47,12 +48,13 @@ func TestBundle(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	db       *gorp.DB
-	otg      *ontology.Ontology
-	svc      *bundle.Service
-	groupSvc *group.Service
-	panelSvc *panel.Service
-	logSvc   *log.Service
+	db          *gorp.DB
+	otg         *ontology.Ontology
+	resourceSvc *resource.Service
+	svc         *bundle.Service
+	groupSvc    *group.Service
+	panelSvc    *panel.Service
+	logSvc      *log.Service
 	// lineplotSvc registers its exporter in a registry the bundle service never sees,
 	// so line plots stand in for children Export cannot serialize.
 	lineplotSvc *lineplot.Service
@@ -89,7 +91,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Ontology: otg,
 		ImEx:     imex.NewService(),
 	}))
-	MustOpen(label.OpenService(ctx, label.ServiceConfig{
+	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    groupSvc,
@@ -146,9 +148,25 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:       db,
 		Ontology: otg,
 	}))
+	resourceSvc = MustSucceed(resource.NewService(resource.ServiceConfig{
+		DB: db,
+		Providers: map[resource.Type]resource.Provider{
+			resource.TypeArc:      arcSvc,
+			resource.TypeChannel:  channelSvc,
+			resource.TypeGroup:    groupSvc,
+			resource.TypeLabel:    labelSvc,
+			resource.TypeLineplot: lineplotSvc,
+			resource.TypeLog:      logSvc,
+			resource.TypePanel:    panelSvc,
+			resource.TypeProject:  projectSvc,
+			resource.TypeRack:     rackSvc,
+			resource.TypeStatus:   statusSvc,
+			resource.TypeTask:     taskSvc,
+		},
+	}))
 	svc = MustSucceed(bundle.NewService(bundle.Config{
 		DB:       db,
-		Ontology: otg,
+		Resource: resourceSvc,
 		Project:  projectSvc,
 		Group:    groupSvc,
 		Panel:    panelSvc,

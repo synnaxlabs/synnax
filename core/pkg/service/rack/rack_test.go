@@ -723,6 +723,44 @@ var _ = Describe("Rack", Ordered, func() {
 		)
 	})
 
+	Describe("RetrieveResources", func() {
+		It("Should return the ID and name of each rack", func(ctx SpecContext) {
+			a := rack.Rack{Name: "rack a"}
+			b := rack.Rack{Name: "rack b"}
+			Expect(writer.Create(ctx, &a)).To(Succeed())
+			Expect(writer.Create(ctx, &b)).To(Succeed())
+			Expect(svc.RetrieveResources(
+				ctx,
+				tx,
+				[]resource.ID{a.ResourceID(), b.ResourceID()},
+			)).To(ConsistOf(
+				resource.Resource{ID: a.ResourceID(), Name: "rack a"},
+				resource.Resource{ID: b.ResourceID(), Name: "rack b"},
+			))
+		})
+
+		It("Should leave out a key that names no rack", func(ctx SpecContext) {
+			r := rack.Rack{Name: "kept"}
+			Expect(writer.Create(ctx, &r)).To(Succeed())
+			missing := resource.ID{Type: resource.TypeRack, Key: "4294967295"}
+			Expect(svc.RetrieveResources(
+				ctx,
+				tx,
+				[]resource.ID{missing, r.ResourceID()},
+			)).To(ConsistOf(resource.Resource{ID: r.ResourceID(), Name: "kept"}))
+		})
+
+		It("Should return an error for a key that is not a rack key",
+			func(ctx SpecContext) {
+				Expect(svc.RetrieveResources(
+					ctx,
+					tx,
+					[]resource.ID{{Type: resource.TypeRack, Key: "pump"}},
+				)).Error().To(MatchError(ContainSubstring(`parsing "pump"`)))
+			},
+		)
+	})
+
 	Describe("Create with Integrations", func() {
 		BeforeEach(openTx)
 		It("Should persist integrations on the rack", func(ctx SpecContext) {

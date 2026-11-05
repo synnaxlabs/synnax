@@ -45,26 +45,6 @@ type Service interface {
 	observe.Observable[iter.Seq[Change]]
 }
 
-// SearchIndex searches idx as Service.Search does. id returns the ID of the entry with
-// a key. Services use it to implement Service.Search.
-func SearchIndex[K gorp.Key, E gorp.Entry[K]](
-	ctx context.Context,
-	tx gorp.Tx,
-	idx *gorp.SearchIndex[K, E],
-	id func(K) resource.ID,
-	q search.Query[resource.ID],
-) (search.Result[resource.ID], error) {
-	res, err := idx.Search(ctx, tx, search.Query[K]{
-		Term:   q.Term,
-		Except: func(key K) bool { return q.Except != nil && q.Except(id(key)) },
-		Limit:  q.Limit,
-	})
-	if err != nil {
-		return search.Result[resource.ID]{}, err
-	}
-	return search.MapKeys(res, id), nil
-}
-
 type serviceRegistrar map[resource.Type]Service
 
 // register returns false, and keeps the registered Service, when a Service is already
