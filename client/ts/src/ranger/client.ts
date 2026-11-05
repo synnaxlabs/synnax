@@ -270,25 +270,6 @@ const retrieveMultiParamsZ = retrieveRequestZ
 
 const retrieveResZ = z.object({ ranges: payloadZ.array().default(() => []) });
 
-/**
- * Request addressing a range's children. With an `offset`, it addresses a page in the
- * order the Core returns them. A `limit` alone addresses some `limit` children, not
- * necessarily the first.
- */
-export type ChildrenRequest = {
-  key: Key;
-  limit?: number;
-  offset?: number;
-};
-
-/** Params addressing a range's children. A bare key addresses all of them. */
-export type ChildrenParams = Key | ChildrenRequest;
-
-const CHILDREN_SERVER_FIELDS = ["limit", "offset"] as const;
-
-const normalizeChildren = (params: ChildrenParams): ChildrenRequest =>
-  typeof params === "string" ? { key: params } : params;
-
 /** Exact client-side evaluation of a request against a cached range. */
 const requestMatches = (r: Range, req: RetrieveRequest): boolean => {
   if (primitive.isNonZero(req.keys) && !req.keys.includes(r.key)) return false;
@@ -341,8 +322,6 @@ export class Client extends query.Retriever<
   readonly type: string = "range";
   /** The range alias table; injected into sibling clients at wiring. */
   readonly aliases: query.Table<string, alias.Alias>;
-  /** Cached queries for the children of a range, keyed by the parent's key. */
-  readonly children: query.Retrieves<ChildrenParams, Range[]>;
   /**
    * Cached queries for the closest range parent of a resource, keyed by the
    * child's resource ID.
@@ -409,26 +388,6 @@ export class Client extends query.Retriever<
     this.dispatcher = dispatcher;
     this.kvPairs = kvPairs;
     this.aliases = aliases;
-    const children = cache.queries<ChildrenRequest, Range[], Key, Range>({
-      name: "child ranges",
-      table: ranges,
-      fetch: async ({ key, limit, offset }) => {
-        const since = ranges.stamp();
-        const found = await this.execRetrieve({ parents: [key], limit, offset });
-        ranges.ingest(found, { since });
-        return found.map((r) => r.key);
-      },
-      compose: (records) => records,
-      matches: (r, query) => r.parent === query.key,
-      serverFields: CHILDREN_SERVER_FIELDS,
-    });
-    this.children = {
-      retrieve: async (params, options) =>
-        await children.retrieve(normalizeChildren(params), options),
-      onChange: (params, handler) =>
-        children.onChange(normalizeChildren(params), handler),
-      getCached: (params) => children.getCached(normalizeChildren(params)),
-    };
     this.parent = cache.queries<resource.ID, Range | null, Key, Range>({
       name: "parent range",
       table: ranges,

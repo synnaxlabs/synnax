@@ -140,6 +140,10 @@ describe("range", () => {
       expect(child.parent).toEqual(parentRange.key);
       const children = await client.ranges.retrieve({ parents: [parentRange.key] });
       expect(children.map(({ key }) => key)).toEqual([child.key]);
+      const retrieved = await client.ranges.retrieve(parentRange.key);
+      expect((await retrieved.retrieveChildren()).map(({ key }) => key)).toEqual([
+        child.key,
+      ]);
     });
     it("should create a range with labels", async () => {
       const lbl = await client.labels.create({ name: "Created", color: "#E774D0" });
@@ -448,18 +452,19 @@ describe("range", () => {
         expect(expectLive(client.ranges.getCached(rng.key)).name).toEqual(rng.name);
       });
 
-      it("should restore the range's children entry when the write fails", async () => {
+      it("should restore the range in its parent's children when the write fails", async () => {
         const parent = await createRange();
         const child = await client.ranges.create({
           name: `optimistic-child-${id.create()}`,
           timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
           parent: parent.key,
         });
-        expect(await client.ranges.children.retrieve(parent.key)).toHaveLength(1);
+        const children = { parents: [parent.key] };
+        expect(await client.ranges.retrieve(children)).toHaveLength(1);
         await expect(
           client.ranges.delete(child.key, { onOptimistic: fail }),
         ).rejects.toBe(WRITE_FAILED);
-        const cached = expectLive(client.ranges.children.getCached(parent.key));
+        const cached = expectLive(client.ranges.getCached(children));
         expect(cached.map((c) => c.key)).toEqual([child.key]);
       });
     });
@@ -858,14 +863,15 @@ describe("cached reads", () => {
     it("retrieves children and appends a remotely created child while subscribed", async () => {
       const parent = await createRange();
       const child = await createRange(client, { parent: parent.key });
-      const off = client.ranges.children.onChange(parent.key, vi.fn());
+      const params = { parents: [parent.key] };
+      const off = client.ranges.onChange(params, vi.fn());
       try {
-        const children = await client.ranges.children.retrieve(parent.key);
+        const children = await client.ranges.retrieve(params);
         expect(children.map((c) => c.key)).toContain(child.key);
         const second = await createRange(remote, { parent: parent.key });
         await expect
           .poll(() => {
-            const cached = client.ranges.children.getCached(parent.key);
+            const cached = client.ranges.getCached(params);
             return query.isLive(cached) && cached.some((c) => c.key === second.key);
           })
           .toBe(true);
@@ -879,18 +885,11 @@ describe("cached reads", () => {
       await Promise.all(
         Array.from({ length: 5 }, () => createRange(client, { parent: parent.key })),
       );
-      const all = await client.ranges.children.retrieve(parent.key);
+      const parents = [parent.key];
+      const all = await client.ranges.retrieve({ parents });
       expect(all).toHaveLength(5);
-      const first = await client.ranges.children.retrieve({
-        key: parent.key,
-        limit: 3,
-        offset: 0,
-      });
-      const second = await client.ranges.children.retrieve({
-        key: parent.key,
-        limit: 3,
-        offset: 3,
-      });
+      const first = await client.ranges.retrieve({ parents, limit: 3, offset: 0 });
+      const second = await client.ranges.retrieve({ parents, limit: 3, offset: 3 });
       expect(first).toHaveLength(3);
       expect(second).toHaveLength(2);
       const paged = [...first, ...second].map((r) => r.key).sort();
@@ -904,10 +903,7 @@ describe("cached reads", () => {
       );
       const send = spyOnSend(client);
       try {
-        const page = await client.ranges.children.retrieve({
-          key: parent.key,
-          limit: 2,
-        });
+        const page = await client.ranges.retrieve({ parents: [parent.key], limit: 2 });
         expect(page).toHaveLength(2);
         expect(send).toHaveBeenCalledWith(
           "/range/retrieve",

@@ -51,16 +51,16 @@ export const useListChildren = Flux.createList<
   name: PLURAL_CHILDREN_RESOURCE_NAME,
   retrieve: async ({ client, query: { key, limit, offset } }) => {
     if (key == null) return [];
-    return await client.ranges.children.retrieve({ key, limit, offset });
+    return await client.ranges.retrieve({ parents: [key], limit, offset });
   },
   retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
   onChange: ({ client, query: { key, limit, offset } }, handler) => {
     if (key == null) return () => {};
-    return client.ranges.children.onChange({ key, limit, offset }, handler);
+    return client.ranges.onChange({ parents: [key], limit, offset }, handler);
   },
   getCached: ({ client, query: { key, limit, offset } }) => {
     if (key == null) return undefined;
-    return client.ranges.children.getCached({ key, limit, offset });
+    return client.ranges.getCached({ parents: [key], limit, offset });
   },
 });
 

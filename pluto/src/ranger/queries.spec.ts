@@ -474,7 +474,7 @@ describe("queries", () => {
           }),
         ),
       );
-      const spy = vi.spyOn(client.ranges.children, "retrieve");
+      const spy = vi.spyOn(client.ranges, "retrieve");
       try {
         const { result } = renderHook(() => Ranger.useListChildren(), { wrapper });
         act(() => {
@@ -485,7 +485,11 @@ describe("queries", () => {
         });
         await waitFor(() => expect(result.current.variant).toEqual("success"));
         expect(result.current.data).toHaveLength(2);
-        expect(spy).toHaveBeenCalledWith({ key: parentRange.key, limit: 2, offset: 0 });
+        expect(spy).toHaveBeenCalledWith({
+          parents: [parentRange.key],
+          limit: 2,
+          offset: 0,
+        });
       } finally {
         spy.mockRestore();
       }
