@@ -128,6 +128,16 @@ var _ = Describe("Create", func() {
 		))
 		Expect(res.Racks[0].Status.Message).To(Equal("Rack is running"))
 	})
+	It("Should reply with the new name of a renamed rack", func(ctx SpecContext) {
+		r := createRackWithStatus(ctx, "Old")
+		r.Name = "New"
+		res := MustSucceed(apiSvc.Create(
+			SubjectCtx(ctx, r.OntologyID()), nil,
+			apirack.CreateRequest{Racks: []rack.Rack{r}},
+		))
+		Expect(res.Racks[0].Status.Name).To(Equal("New"))
+		Expect(res.Racks[0].Status.Message).To(Equal("Rack is running"))
+	})
 	It("Should let a rack with the Driver role save itself", func(ctx SpecContext) {
 		r := rack.Rack{Name: "Self"}
 		Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())

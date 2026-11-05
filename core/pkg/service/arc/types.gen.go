@@ -23,7 +23,9 @@ type Key = versions.Key
 type Mode = versions.Mode
 
 const (
-	ModeText  Mode = versions.ModeText
+	// ModeText stores the module as Arc source text.
+	ModeText Mode = versions.ModeText
+	// ModeGraph stores the module as a visual dataflow graph.
 	ModeGraph Mode = versions.ModeGraph
 )
 
