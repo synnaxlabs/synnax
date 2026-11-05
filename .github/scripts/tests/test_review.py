@@ -129,6 +129,7 @@ class TestParse:
             ({"score": 6}, "score 6 is not between 1 and 5"),
             ({"severity": "P3"}, "severity 'P3' is not one of"),
             ({"start_line": 10}, "lines 10-9 of x.go are invalid"),
+            ({"start_line": 0}, "lines 0-9 of x.go are invalid"),
             ({"line": 0}, "lines None-0 of x.go are invalid"),
         ],
     )

@@ -30,7 +30,8 @@ class Finding:
 
     @property
     def lines(self) -> range:
-        return range(self.start_line or self.line, self.line + 1)
+        start = self.line if self.start_line is None else self.start_line
+        return range(start, self.line + 1)
 
 
 @dataclass(frozen=True, kw_only=True)
