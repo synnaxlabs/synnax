@@ -218,17 +218,17 @@ class TestRackClient:
 class TestRackGroup:
     def test_create_in_group(self, client: sy.Synnax) -> None:
         """Should create a rack in a group and retrieve it by that group."""
-        g = client.groups.create(str(uuid4()), scope="rack")
+        g = client.groups.create(str(uuid4()), scope="device")
         rack = client.racks.create(name=str(uuid4()), group=g.key)
         assert rack.group == g.key
         assert [r.key for r in client.racks.retrieve(groups=[g.key])] == [rack.key]
 
     def test_set_group(self, client: sy.Synnax) -> None:
         """Should move a rack into a group and back out of it."""
-        g = client.groups.create(str(uuid4()), scope="rack")
+        g = client.groups.create(str(uuid4()), scope="device")
         rack = client.racks.create(name=str(uuid4()))
         assert rack.group is None
         client.racks.set_group([rack.key], g.key)
         assert client.racks.retrieve(rack.key).group == g.key
-        client.racks.set_group([rack.key])
+        client.racks.set_group(rack.key)
         assert client.racks.retrieve(rack.key).group is None

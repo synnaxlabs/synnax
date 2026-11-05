@@ -17,7 +17,7 @@ from freighter import Empty, UnaryClient
 from synnax import group
 from synnax.exceptions import NotFoundError
 from synnax.rack.types_gen import Key, Rack
-from x.lists import all_none, override
+from x.lists import all_none, normalize, override
 
 
 class _CreateRequest(BaseModel):
@@ -121,13 +121,13 @@ class Client:
         if self._embedded_rack is not None and self._embedded_rack.key == key:
             self._embedded_rack = None
 
-    def set_group(self, keys: list[Key], group: group.Key | None = None) -> None:
+    def set_group(self, keys: Key | list[Key], group: group.Key | None = None) -> None:
         """Moves racks into a group, or out of their group when group is None.
 
-        :param keys: The keys of the racks to move.
+        :param keys: The key of the rack to move, or a list of keys.
         :param group: The key of the group to move the racks into.
         """
-        req = _SetGroupRequest(keys=keys, group=group)
+        req = _SetGroupRequest(keys=normalize(keys), group=group)
         self._client.send("/rack/set-group", req, Empty)
 
     @overload
