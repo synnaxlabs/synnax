@@ -194,7 +194,6 @@ func (w Writer) UpdateTask(
 	return w.updateTask(ctx, key, existing, update)
 }
 
-// updateTask applies update to the arc with the given key and its existing tasks.
 func (w Writer) updateTask(
 	ctx context.Context,
 	key Key,

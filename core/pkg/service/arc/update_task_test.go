@@ -525,11 +525,9 @@ var _ = Describe("Task sync", func() {
 		})
 
 		It("Should return no task for a rejected update", func(ctx SpecContext) {
-			tsk, err := svc.UpdateTask(ctx, a.Key, arc.TaskUpdate{
+			Expect(svc.UpdateTask(ctx, a.Key, arc.TaskUpdate{
 				Performance: new(arctask.PerformanceHigh),
-			})
-			Expect(err).To(MatchError(validate.ErrValidation))
-			Expect(tsk).To(BeNil())
+			})).Error().To(MatchError(validate.ErrValidation))
 		})
 
 		It("Should return no task when the commit fails", func(ctx SpecContext) {
@@ -538,9 +536,8 @@ var _ = Describe("Task sync", func() {
 			hook := func(task.Task) { cancel() }
 			onTaskLink.Store(&hook)
 			DeferCleanup(func() { onTaskLink.Store(nil) })
-			tsk, err := svc.UpdateTask(cCtx, a.Key, bind)
-			Expect(err).To(MatchError(context.Canceled))
-			Expect(tsk).To(BeNil())
+			Expect(svc.UpdateTask(cCtx, a.Key, bind)).Error().
+				To(MatchError(context.Canceled))
 		})
 
 		It("Should wait for a write that holds the task", func(ctx SpecContext) {
