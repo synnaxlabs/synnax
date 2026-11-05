@@ -127,6 +127,34 @@ const authorityOf = ({
   persistent: sessionPersistent,
 });
 
+const changes = (set: string, del: string): resource.Channels => ({ set, delete: del });
+
+const RESOURCE_CHANNELS: Partial<Record<resource.Type, resource.Channels>> = {
+  arc: changes(arc.SET_CHANNEL_NAME, arc.DELETE_CHANNEL_NAME),
+  channel: changes(channel.SET_CHANNEL_NAME, channel.DELETE_CHANNEL_NAME),
+  device: changes(device.SET_CHANNEL_NAME, device.DELETE_CHANNEL_NAME),
+  group: changes(group.SET_CHANNEL_NAME, group.DELETE_CHANNEL_NAME),
+  label: changes(label.ACTION_CHANNEL_NAME, label.DELETE_CHANNEL_NAME),
+  lineplot: changes(lineplot.SET_CHANNEL_NAME, lineplot.DELETE_CHANNEL_NAME),
+  log: changes(log.SET_CHANNEL_NAME, log.DELETE_CHANNEL_NAME),
+  panel: changes(panel.SET_CHANNEL_NAME, panel.DELETE_CHANNEL_NAME),
+  policy: changes(access.policy.SET_CHANNEL_NAME, access.policy.DELETE_CHANNEL_NAME),
+  project: changes(project.SET_CHANNEL_NAME, project.DELETE_CHANNEL_NAME),
+  rack: changes(rack.SET_CHANNEL_NAME, rack.DELETE_CHANNEL_NAME),
+  range: changes(ranger.ACTION_CHANNEL_NAME, ranger.DELETE_CHANNEL_NAME),
+  role: changes(access.role.SET_CHANNEL_NAME, access.role.DELETE_CHANNEL_NAME),
+  schematic: changes(schematic.SET_CHANNEL_NAME, schematic.DELETE_CHANNEL_NAME),
+  schematic_symbol: changes(
+    schematic.symbol.SET_CHANNEL_NAME,
+    schematic.symbol.DELETE_CHANNEL_NAME,
+  ),
+  status: changes(status.SET_CHANNEL_NAME, status.DELETE_CHANNEL_NAME),
+  table: changes(table.SET_CHANNEL_NAME, table.DELETE_CHANNEL_NAME),
+  task: changes(task.ACTION_CHANNEL_NAME, task.DELETE_CHANNEL_NAME),
+  user: changes(user.SET_CHANNEL_NAME, user.DELETE_CHANNEL_NAME),
+  view: changes(view.SET_CHANNEL_NAME, view.DELETE_CHANNEL_NAME),
+};
+
 /**
  * Client to perform operations against a Synnax cluster.
  * @property channel - Channel client for creating and retrieving channels.
@@ -262,7 +290,7 @@ export default class Synnax extends framer.Client {
     this.transport = transport;
     const unary = this.transport.unary;
     this.ontology = new ontology.Client({ unary, cache });
-    this.resources = new resource.Client(unary);
+    this.resources = new resource.Client({ unary, cache, channels: RESOURCE_CHANNELS });
     this.license = new license.Client({ unary, connection: this.conn, cache });
     this.labels = new label.Client({
       unary,

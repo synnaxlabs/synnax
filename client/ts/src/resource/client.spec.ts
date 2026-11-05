@@ -7,12 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { NotFoundError, ValidationError } from "@/errors";
 import { group } from "@/group";
 import { label } from "@/label";
-import { type resource } from "@/resource";
+import { lineplot } from "@/lineplot";
+import { query } from "@/query";
+import { resource } from "@/resource";
 import { createTestClient } from "@/testutil";
 
 const client = createTestClient();
@@ -89,6 +91,59 @@ describe("Resource", () => {
           ValidationError.matches(e) &&
           (e as Error).message === 'types: unknown resource type "builtin"',
       );
+    });
+  });
+
+  describe("onChange", () => {
+    // Subscribes before the first read, so the answer is maintained from its first
+    // fetch and only change channels can move it afterward.
+    const subscribe = async (
+      params: resource.SearchParams,
+    ): Promise<() => resource.Resource[] | undefined> => {
+      let latest: resource.Resource[] | undefined;
+      const off = client.resources.onChange(params, (answer) => {
+        if (query.isLive(answer)) latest = answer;
+      });
+      onTestFinished(off);
+      latest = await client.resources.search(params);
+      return () => latest;
+    };
+
+    it("should add a created resource to a subscribed list", async () => {
+      const read = await subscribe({ term: "", types: ["group"] });
+      const g = await createGroup(randomToken());
+      await expect.poll(() => read()?.map((r) => r.id)).toContainEqual(g);
+    });
+
+    // Waits for the search index to hold the term. A different limit keeps this read
+    // off the answer that a spec subscribes to.
+    const awaitIndexed = async (term: string, count: number): Promise<void> => {
+      await expect
+        .poll(async () => (await client.resources.search({ term, limit: 10 })).length)
+        .toEqual(count);
+    };
+
+    it("should rename a resource in a subscribed search", async () => {
+      const token = randomToken();
+      const proj = await client.projects.create({ name: randomToken() });
+      const plot = await client.lineplots.create(proj.key, { name: token });
+      await awaitIndexed(token, 1);
+      const read = await subscribe({ term: token, types: ["lineplot"] });
+      await client.lineplots.rename(plot.key, `${token} renamed`);
+      const key = resource.idToString(lineplot.resourceID(plot.key));
+      await expect
+        .poll(() => read()?.find((r) => r.key === key)?.name)
+        .toEqual(`${token} renamed`);
+    });
+
+    it("should drop a deleted resource from a subscribed search", async () => {
+      const token = randomToken();
+      const proj = await client.projects.create({ name: randomToken() });
+      const plot = await client.lineplots.create(proj.key, { name: token });
+      await awaitIndexed(token, 1);
+      const read = await subscribe({ term: token, types: ["lineplot"] });
+      await client.lineplots.delete(plot.key);
+      await expect.poll(() => read()).toEqual([]);
     });
   });
 

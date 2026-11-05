@@ -15,6 +15,7 @@ import { type ReactElement, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Channel } from "@/feature/channel";
+import { LinePlot } from "@/feature/lineplot";
 import { Search } from "@/feature/search";
 import { Search as PlatformSearch } from "@/platform/search";
 import { createConsoleWrapper, uniqueName } from "@/testutil";
@@ -89,6 +90,17 @@ describe("Search.List", () => {
     await renderSearch();
     fireEvent.change(searchInput(), { target: { value: ch.name } });
     await waitFor(() => expect(screen.getByText(ch.name)).toBeTruthy());
+  });
+
+  it("shows the new name of a result renamed while the palette is open", async () => {
+    const token = uniqueName("plot").replace(/_/g, "");
+    const proj = await client.projects.create({ name: uniqueName("proj") });
+    const plot = await client.lineplots.create(proj.key, { name: token });
+    await renderSearch(LinePlot.SEARCH_LIST_ITEMS);
+    fireEvent.change(searchInput(), { target: { value: token } });
+    await screen.findByText(token);
+    await client.lineplots.rename(plot.key, `${token} renamed`);
+    expect(await screen.findByText(`${token} renamed`)).toBeTruthy();
   });
 
   it("fires a search item's onSelect exactly once per mouse click", async () => {

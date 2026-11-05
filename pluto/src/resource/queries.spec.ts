@@ -75,6 +75,15 @@ describe("Resource Queries", () => {
       expect(result.current.data).toEqual(expected.map((r) => r.key));
     });
 
+    it("should add a resource created while the list is mounted", async () => {
+      const { result } = renderHook(() => Resource.useSearch(), { wrapper });
+      await act(async () => await result.current.retrieveAsync({ types: ["group"] }));
+      const g = await createGroup(randomToken());
+      await waitFor(() =>
+        expect(result.current.data).toContain(resource.idToString(g)),
+      );
+    });
+
     it("should look up a resource outside the page by its key", async () => {
       const name = randomToken();
       const l = await createLabel(name);

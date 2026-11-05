@@ -8,11 +8,19 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array } from "@synnaxlabs/x";
+import { array, type destructor } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type ID, idZ, type Resource, resourceZ } from "@/resource/payload";
-import { typeZ } from "@/resource/types.gen";
+import { query } from "@/query";
+import {
+  type ID,
+  idToString,
+  idZ,
+  parseID,
+  type Resource,
+  resourceZ,
+} from "@/resource/payload";
+import { type Type, typeZ } from "@/resource/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 const searchReqZ = z.object({
@@ -28,32 +36,107 @@ const searchReqZ = z.object({
 /** Selects the resources that {@link Client.search} returns. */
 export interface SearchParams extends z.input<typeof searchReqZ> {}
 
+/** A search with its zero fields left out, so equal searches share one answer. */
+type Search = {
+  term?: string;
+  types?: Type[];
+  limit?: number;
+  offset?: number;
+};
+
+const normalize = ({ term, types, limit, offset }: SearchParams): Search => ({
+  ...(term !== "" && { term }),
+  ...(types != null && types.length > 0 && { types }),
+  ...(limit != null && limit > 0 && { limit }),
+  ...(offset != null && offset > 0 && { offset }),
+});
+
+const SERVER_FIELDS = ["term", "limit", "offset"] as const;
+
 const retrieveReqZ = z.object({ ids: idZ.array() });
 const resZ = z.object({ resources: resourceZ.array().default(() => []) });
 
+const keyZ = z.union([z.string(), z.number()]);
+const keyedZ = z.object({ key: keyZ });
+
+/** The channels on which the Core announces the changes to the records of a type. */
+export interface Channels {
+  /** Carries a JSON sample with the key of each record set. */
+  set: string;
+  /** Carries the key of each record deleted. */
+  delete: string;
+}
+
+/** Configuration for a {@link Client}. */
+export interface ClientConfig {
+  unary: UnaryClient;
+  cache: query.Cache;
+  /** The change channels of each type whose searches stay current. */
+  channels: Partial<Record<Type, Channels>>;
+}
+
 /**
  * Searches and names records of every type on a Core. Reach it through
- * `client.resources`.
+ * `client.resources`. A subscribed search stays current for the types that the client
+ * has change channels for.
  */
 export class Client {
   private readonly client: UnaryClient;
+  private readonly table: query.Table<string, Resource>;
+  private readonly searches: query.Retrieves<Search, Resource[]>;
+  /** The types of each subscribed search. Undefined covers every type. */
+  private readonly subscribed = new Map<symbol, Type[] | undefined>();
 
-  constructor(client: UnaryClient) {
-    this.client = client;
+  constructor({ unary, cache, channels }: ClientConfig) {
+    this.client = unary;
+    this.table = cache.createTable<string, Resource>({
+      name: "resources",
+      fetch: async (keys) => await this.execRetrieve(keys.map((k) => parseID(k))),
+      listen: Object.entries(channels).flatMap(([type, ch]) =>
+        this.listeners(type as Type, ch),
+      ),
+    });
+    this.searches = cache.queries<Search, Resource[], string, Resource>({
+      name: "resources",
+      table: this.table,
+      fetch: async (q) => {
+        const since = this.table.stamp();
+        const resources = await this.execSearch(q);
+        this.table.ingest(resources, { since });
+        return resources.map((r) => r.key);
+      },
+      compose: (records) => records,
+      matches: (r, q) => q.types == null || q.types.includes(r.id.type),
+      serverFields: SERVER_FIELDS,
+    });
   }
 
   /**
-   * @returns the resources whose text matches the term, closest match first.
+   * @returns the resources whose text matches the term, closest match first. An empty
+   * term lists the resources in order of type.
    * @throws {ValidationError} if a type is unknown, or the limit or offset is negative.
    */
   async search(params: SearchParams): Promise<Resource[]> {
-    const { resources } = await this.client.send(
-      "/resource/search",
-      params,
-      searchReqZ,
-      resZ,
-    );
-    return resources;
+    return await this.searches.retrieve(normalize(params));
+  }
+
+  /**
+   * Calls the handler with the new answer of the search each time it changes. Renames,
+   * creates, and deletes of the types that the client has change channels for change
+   * the answer.
+   */
+  onChange(
+    params: SearchParams,
+    handler: query.ChangeHandler<Resource[]>,
+  ): destructor.Destructor {
+    const q = normalize(params);
+    const token = Symbol("search");
+    this.subscribed.set(token, q.types);
+    const off = this.searches.onChange(q, handler);
+    return () => {
+      off();
+      this.subscribed.delete(token);
+    };
   }
 
   /**
@@ -66,13 +149,62 @@ export class Client {
   async retrieve(ids: ID[]): Promise<Resource[]>;
   async retrieve(ids: ID | ID[]): Promise<Resource | Resource[]> {
     const isSingle = !Array.isArray(ids);
+    const resources = await this.execRetrieve(array.toArray(ids));
+    checkForMultipleOrNoResults("Resource", ids, resources, isSingle);
+    return isSingle ? resources[0] : resources;
+  }
+
+  private listeners(
+    type: Type,
+    { set, delete: del }: Channels,
+  ): query.ListenerSpec<string, Resource>[] {
+    const toKey = (key: string | number): string => idToString({ type, key: `${key}` });
+    const onSet: query.ListenerSpec<string, Resource> = {
+      bind: (table): query.Listener<typeof keyedZ> => ({
+        channel: set,
+        schema: keyedZ,
+        // A set re-reads names only while a subscribed search covers the type, so
+        // frequent writes cost nothing when no search is open.
+        onChange: async (changed) => {
+          if (!this.covers(type)) return;
+          await table.retrieve(
+            changed.map(({ key }) => toKey(key)),
+            { refresh: true },
+          );
+        },
+      }),
+    };
+    return [
+      onSet,
+      query.createDeleteListener<typeof keyZ, string, Resource>(del, keyZ, {
+        key: toKey,
+      }),
+    ];
+  }
+
+  private covers(type: Type): boolean {
+    for (const types of this.subscribed.values())
+      if (types == null || types.includes(type)) return true;
+    return false;
+  }
+
+  private async execSearch({ term = "", ...rest }: Search): Promise<Resource[]> {
+    const { resources } = await this.client.send(
+      "/resource/search",
+      { term, ...rest },
+      searchReqZ,
+      resZ,
+    );
+    return resources;
+  }
+
+  private async execRetrieve(ids: ID[]): Promise<Resource[]> {
     const { resources } = await this.client.send(
       "/resource/retrieve",
-      { ids: array.toArray(ids) },
+      { ids },
       retrieveReqZ,
       resZ,
     );
-    checkForMultipleOrNoResults("Resource", ids, resources, isSingle);
-    return isSingle ? resources[0] : resources;
+    return resources;
   }
 }
