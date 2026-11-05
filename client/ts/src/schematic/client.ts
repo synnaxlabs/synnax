@@ -36,7 +36,7 @@ import {
   type Schematic,
   schematicZ,
 } from "@/schematic/types.gen";
-import { matches, serverComputed, retrieveInputZ } from "@/schematic/where.gen";
+import { matches, retrieveInputZ, serverComputed } from "@/schematic/where.gen";
 
 export const SET_CHANNEL_NAME = "sy_schematic_set";
 export const DELETE_CHANNEL_NAME = "sy_schematic_delete";

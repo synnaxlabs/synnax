@@ -31,7 +31,7 @@ import {
   retrieveRequestZ,
   retrieveResponseZ,
 } from "@/lineplot/types.gen";
-import { matches, serverComputed, retrieveInputZ } from "@/lineplot/where.gen";
+import { matches, retrieveInputZ, serverComputed } from "@/lineplot/where.gen";
 import { type ontology } from "@/ontology";
 import { project } from "@/project";
 import { query } from "@/query";

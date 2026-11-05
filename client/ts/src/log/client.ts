@@ -31,7 +31,7 @@ import {
   retrieveRequestZ,
   retrieveResponseZ,
 } from "@/log/types.gen";
-import { matches, serverComputed, retrieveInputZ } from "@/log/where.gen";
+import { matches, retrieveInputZ, serverComputed } from "@/log/where.gen";
 import { type ontology } from "@/ontology";
 import { project } from "@/project";
 import { query } from "@/query";

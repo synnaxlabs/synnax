@@ -32,7 +32,7 @@ import {
   retrieveResponseZ,
   type Where,
 } from "@/label/types.gen";
-import { type Lines, matches, serverComputed, retrieveInputZ } from "@/label/where.gen";
+import { type Lines, matches, retrieveInputZ, serverComputed } from "@/label/where.gen";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 

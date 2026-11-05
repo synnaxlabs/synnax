@@ -28,7 +28,7 @@ import {
   retrieveRequestZ,
   retrieveResponseZ,
 } from "@/project/types.gen";
-import { matches, serverComputed, retrieveInputZ } from "@/project/where.gen";
+import { matches, retrieveInputZ, serverComputed } from "@/project/where.gen";
 import { query } from "@/query";
 
 export const SET_CHANNEL_NAME = "sy_project_set";

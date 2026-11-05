@@ -22,7 +22,7 @@ import {
   type Role,
   roleZ,
 } from "@/access/role/types.gen";
-import { matches, serverComputed, retrieveInputZ } from "@/access/role/where.gen";
+import { matches, retrieveInputZ, serverComputed } from "@/access/role/where.gen";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { user } from "@/user";

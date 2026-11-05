@@ -34,7 +34,7 @@ import {
   type Table,
   tableZ,
 } from "@/table/types.gen";
-import { matches, serverComputed, retrieveInputZ } from "@/table/where.gen";
+import { matches, retrieveInputZ, serverComputed } from "@/table/where.gen";
 
 export const SET_CHANNEL_NAME = "sy_table_set";
 export const DELETE_CHANNEL_NAME = "sy_table_delete";

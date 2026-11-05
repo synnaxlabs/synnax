@@ -24,7 +24,7 @@ import {
   type View,
   viewZ,
 } from "@/view/types.gen";
-import { matches, serverComputed, retrieveInputZ } from "@/view/where.gen";
+import { matches, retrieveInputZ, serverComputed } from "@/view/where.gen";
 
 export const SET_CHANNEL_NAME = "sy_view_set";
 export const DELETE_CHANNEL_NAME = "sy_view_delete";
