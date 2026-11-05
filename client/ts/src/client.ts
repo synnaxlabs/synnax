@@ -32,10 +32,12 @@ import { errorsMiddleware, isConnectionError } from "@/errors";
 import { framer } from "@/framer";
 import { group } from "@/group";
 import { imex } from "@/imex";
+import { kafka } from "@/kafka";
 import { label } from "@/label";
 import { license } from "@/license";
 import { lineplot } from "@/lineplot";
 import { log } from "@/log";
+import { mqtt } from "@/mqtt";
 import { ontology } from "@/ontology";
 import { panel } from "@/panel";
 import { project } from "@/project";
@@ -160,6 +162,8 @@ export default class Synnax extends framer.Client {
   readonly tables: table.Client;
   readonly groups: group.Client;
   readonly imex: imex.Client;
+  readonly kafka: kafka.Client;
+  readonly mqtt: mqtt.Client;
   private readonly cache: query.Cache;
   private readonly transport: Transport;
   private readonly conn: connection.Client;
@@ -349,6 +353,8 @@ export default class Synnax extends framer.Client {
     this.logs = new log.Client({ unary, cache, ontology: this.ontology });
     this.tables = new table.Client({ unary, cache, ontology: this.ontology });
     this.imex = new imex.Client({ file: this.transport.file });
+    this.kafka = new kafka.Client(unary);
+    this.mqtt = new mqtt.Client(unary);
   }
 
   /**

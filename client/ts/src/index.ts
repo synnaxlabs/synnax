@@ -25,6 +25,7 @@ export {
 export * from "@/connection";
 export { control } from "@/control";
 export { device } from "@/device";
+export { driver } from "@/driver";
 export {
   AccessDeniedError,
   AuthError,
