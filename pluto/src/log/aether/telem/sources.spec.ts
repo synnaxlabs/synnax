@@ -847,6 +847,29 @@ describe("StreamMultiChannelLog", () => {
         .toBe(textOf(core, a, 1)[0]);
     });
 
+    it("should show every line of a span too long for the log", async () => {
+      const core = deep();
+      const [a] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), { channels: [a] }, undefined, 2_000);
+      await settle(log, 1_800);
+      await until(
+        () => log.loadOlder(),
+        () => !log.live,
+      );
+      core.advance(TimeSpan.seconds(300));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      const seen = new Set<string>();
+      await until(
+        () => {
+          valuesOf(entriesOf(log), a).forEach((value) => seen.add(value));
+          log.loadNewer();
+        },
+        () => log.live,
+      );
+      valuesOf(entriesOf(log), a).forEach((value) => seen.add(value));
+      expect(textOf(core, a, 3_000).filter((value) => !seen.has(value))).toEqual([]);
+    });
+
     it("should find the samples that streamed past it while not live", async () => {
       const core = deep();
       const [a] = core.data.map((c) => c.key);
