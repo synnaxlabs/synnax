@@ -7,16 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, type Synnax } from "@synnaxlabs/client";
+import { type Synnax } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { deep, errors, primitive } from "@synnaxlabs/x";
+import { deep, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { useResultSlave, useSlavesByKeys } from "@/feature/ethercat/device/queries";
-import { type SlaveDevice } from "@/feature/ethercat/device/types";
 import {
   ReadChannelDetails,
   ReadDetailsTitle,
@@ -27,14 +26,11 @@ import {
   retrieveAndValidateSlaves,
 } from "@/feature/ethercat/task/configure";
 import {
-  addressKey,
   createReadChannel,
   deployReadConfigZ,
   entryAt,
-  type EntryReadChannel,
   getPortLabel,
   hasEntry,
-  isScaled,
   READ_SCHEMAS,
   READ_TYPE,
   type ReadChannel,
@@ -124,24 +120,24 @@ const READ_INDEX_OPTIONS = {
 };
 
 /**
- * @returns the name of a new read channel. A scaled channel can not share the name of
- * its entry's raw channel, so it adds `_scaled` to that name.
+ * @throws when two new channels share a name, or when a channel already holds one of
+ * their names.
  */
-const createChannelName = async (
-  client: Synnax,
-  slave: SlaveDevice,
-  ch: EntryReadChannel,
-): Promise<string> => {
-  const name = readChannelName(slave, ch);
-  const raw = slave.properties.read.channels[addressKey(ch)] ?? 0;
-  if (!isScaled(ch) || raw === 0) return name;
-  try {
-    const { name: rawName } = await client.channels.retrieve(raw);
-    return rawName === name ? `${name}_scaled` : name;
-  } catch (e) {
-    if (NotFoundError.matches(e)) return name;
-    throw errors.fromUnknown(e);
-  }
+const checkNamesFree = async (client: Synnax, names: string[]): Promise<void> => {
+  const repeated = names.find((name, i) => names.indexOf(name) !== i);
+  if (repeated != null)
+    throw new Error(
+      `Two channels of the task use the name ${repeated}. Choose another name for ` +
+        "one of them.",
+    );
+  // Names with pattern characters match more than themselves.
+  const taken = (await client.channels.retrieve({ names })).find(({ name }) =>
+    names.includes(name),
+  );
+  if (taken != null)
+    throw new Error(
+      `A channel named ${taken.name} already exists. Choose another name.`,
+    );
 };
 
 const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
@@ -150,7 +146,6 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
 
   for (const slave of slaves) {
     const channels = channelsBySlaveKey.get(slave.key) ?? [];
-    let modified = await checkOrCreateIndex(client, slave, READ_INDEX_OPTIONS);
     const toCreate = await findChannelsToCreate(
       client,
       channels,
@@ -158,17 +153,19 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
       readKey,
       readDataType,
     );
+    const names = toCreate.map((ch) => readChannelName(slave, ch));
+    if (toCreate.length > 0) await checkNamesFree(client, names);
+    // The checks run first, so a failed one leaves no index that the device lacks.
+    let modified = await checkOrCreateIndex(client, slave, READ_INDEX_OPTIONS);
 
     if (toCreate.length > 0) {
       modified = true;
       const created = await client.channels.create(
-        await Promise.all(
-          toCreate.map(async (ch) => ({
-            name: await createChannelName(client, slave, ch),
-            dataType: readDataType(ch),
-            index: slave.properties.readIndex,
-          })),
-        ),
+        toCreate.map((ch, i) => ({
+          name: names[i],
+          dataType: readDataType(ch),
+          index: slave.properties.readIndex,
+        })),
       );
 
       created.forEach((c, i) => {
