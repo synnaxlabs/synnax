@@ -125,7 +125,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Gr
     };
   }
 
-  /** Builds a request that renames a group. Its cache write renames the cached group. */
+  /** Builds a request that renames a group. Its cache write renames the cached one. */
   renameRequest(key: Key, name: string): batch.Request<z.infer<typeof renameReqZ>> {
     return {
       endpoint: "/group/rename",

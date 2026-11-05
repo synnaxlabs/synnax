@@ -51,8 +51,8 @@ export class Client {
 
   /**
    * Runs the requests in order in one transaction. The first failure fails the whole
-   * batch, and nothing commits. The cache writes of the requests apply before the
-   * batch runs and roll back when it fails.
+   * batch, and nothing commits. The cache writes of the requests apply before the batch
+   * runs and roll back when it fails.
    * @returns one response per request, in order.
    * @throws {ValidationError} if a request targets an endpoint the batch does not
    * accept, or if a request is invalid.
