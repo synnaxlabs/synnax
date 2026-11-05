@@ -1,0 +1,53 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Asks Sedosaur for a review when a pull request into the default branch opens or is
+# ready, and when a member comments `@sedosaur review` or `@greptileai review`. The
+# review holds secrets, so it runs from the default branch through a dispatch. A fork's
+# token cannot dispatch, and the review skips a fork.
+
+name: Relay - Sedosaur
+run-name: ${{ github.event.pull_request.number || github.event.issue.number }}
+
+on:
+  pull_request:
+    types:
+      - opened
+      - ready_for_review
+  issue_comment:
+    types:
+      - created
+
+permissions: {}
+
+jobs:
+  relay:
+    name: Relay review request
+    if: >-
+      (github.event_name == 'pull_request'
+        && !github.event.pull_request.draft
+        && github.event.pull_request.head.repo.full_name == github.repository
+        && github.event.pull_request.base.ref == github.event.repository.default_branch)
+      || (github.event_name == 'issue_comment'
+        && github.event.issue.pull_request
+        && contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'),
+          github.event.comment.author_association)
+        && (contains(github.event.comment.body, '@sedosaur review')
+          || contains(github.event.comment.body, '@greptileai review')))
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    env:
+      GH_REPO: ${{ github.repository }}
+      GH_TOKEN: ${{ github.token }}
+      PR: ${{ github.event.pull_request.number || github.event.issue.number }}
+      REF: ${{ github.event.repository.default_branch }}
+    steps:
+      - name: Start Review - Sedosaur
+        run: gh workflow run review.sedosaur.yaml --ref "$REF" -f pr="$PR"

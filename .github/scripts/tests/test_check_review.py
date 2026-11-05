@@ -97,7 +97,19 @@ def greptile_body(*scores: int, sha: str = "head") -> str:
     """A description the way Greptile leaves it after it scores a commit."""
     markers = "".join(f"<!-- greptile_confidence_score:{s} -->\n" for s in scores)
     link = f"https://github.com/synnaxlabs/synnax/commit/{sha})"
-    return f'{markers}<sub>Last reviewed commit: ["Fix"]({link}</sub>'
+    return (
+        f"<!-- greptile_comment -->\n{markers}"
+        f'<sub>Last reviewed commit: ["Fix"]({link}</sub>\n<!-- /greptile_comment -->'
+    )
+
+
+def sedosaur_block(score: int, sha: str = "head") -> str:
+    """The summary another reviewer leaves in the description."""
+    link = f"https://github.com/synnaxlabs/synnax/commit/{sha}"
+    return (
+        f"<!-- sedosaur_comment -->\n<!-- sedosaur_confidence_score:{score} -->\n"
+        f"[Fix]({link})\n<!-- /sedosaur_comment -->"
+    )
 
 
 def greptile_edit(*scores: int, sha: str = "head") -> dict[str, object]:
@@ -170,6 +182,16 @@ class TestScore:
     def test_rejects_a_second_marker_that_is_not_a_five(self, harness: Harness) -> None:
         harness.edits(greptile_edit(3, 5))
         assert harness.run()[0] == "failure"
+
+    def test_rejects_another_block_that_names_the_head(self, harness: Harness) -> None:
+        body = greptile_body(5, sha="earlier") + sedosaur_block(5)
+        harness.edits(edit(body, login="greptile-apps", kind="Bot"))
+        assert harness.run()[0] == "pending"
+
+    def test_ignores_a_marker_outside_the_block(self, harness: Harness) -> None:
+        body = "<!-- greptile_confidence_score:2 -->\n" + greptile_body(5)
+        harness.edits(edit(body, login="greptile-apps", kind="Bot"))
+        assert harness.run()[0] == "success"
 
     def test_pends_on_a_deleted_revision(self, harness: Harness) -> None:
         harness.edits(edit(None, login="greptile-apps", kind="Bot"), greptile_edit(5))

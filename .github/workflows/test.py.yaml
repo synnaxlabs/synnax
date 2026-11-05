@@ -87,30 +87,6 @@ jobs:
     name: Test (${{ matrix.os }}, Python ${{ matrix.python }})
     env:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-    # A service with an empty image does not start, so a package that needs no server
-    # leaves both inputs empty. The lowest run tests against a Core on the oldest
-    # Python, so the locked oldest leg starts none.
-    services:
-      synnax:
-        image:
-          ${{ (inputs.lowest || matrix.python != 'oldest') && inputs.core_image || '' }}
-        env:
-          SYNNAX_VERBOSE: true
-          SYNNAX_INSECURE: true
-          SYNNAX_MEM: true
-          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
-        credentials:
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-        ports:
-          - 9090:9090
-      freighter:
-        image: ${{ inputs.freighter_image }}
-        credentials:
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-        ports:
-          - 8080:8080
     strategy:
       fail-fast: false
       matrix:
@@ -132,6 +108,32 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Start Core
+        if:
+          runner.os == 'Linux' && inputs.core_image != '' && (inputs.lowest ||
+          matrix.python != 'oldest')
+        uses: ./.github/actions/start-service
+        env:
+          SYNNAX_VERBOSE: true
+          SYNNAX_INSECURE: true
+          SYNNAX_MEM: true
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+        with:
+          name: synnax
+          image: ${{ inputs.core_image }}
+          port: 9090
+          token: ${{ github.token }}
+          variables: SYNNAX_VERBOSE SYNNAX_INSECURE SYNNAX_MEM SYNNAX_LICENSE_KEY
+
+      - name: Start the Freighter server
+        if: runner.os == 'Linux' && inputs.freighter_image != ''
+        uses: ./.github/actions/start-service
+        with:
+          name: freighter
+          image: ${{ inputs.freighter_image }}
+          port: 8080
+          token: ${{ github.token }}
 
       - name: Install uv
         uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
@@ -194,3 +196,7 @@ jobs:
           fail_ci_if_error: true
           flags: ${{ inputs.coverage_flag }}
           directory: ${{ inputs.directory }}
+
+      - name: Stop the services
+        if: always() && runner.os == 'Linux'
+        run: docker rm --force synnax freighter 2> /dev/null || true

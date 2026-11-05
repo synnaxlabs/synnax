@@ -24,7 +24,7 @@ on:
         type: string
     outputs:
       image:
-        description: The image, tagged with a hash of the sources it was built from
+        description: The image, pinned by digest
         value: ${{ jobs.build.outputs.image }}
   workflow_dispatch:
     inputs: *inputs
@@ -40,7 +40,7 @@ jobs:
       packages: write
     runs-on: ubuntu-latest
     outputs:
-      image: ${{ steps.tag.outputs.image }}
+      image: ${{ steps.digest.outputs.image }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -107,3 +107,13 @@ jobs:
           cache-from: type=gha,scope=synnax-docker-${{ inputs.module }}
           cache-to: type=gha,mode=max,scope=synnax-docker-${{ inputs.module }}
           build-args: GO_VERSION=${{ steps.tag.outputs.go_version }}
+
+      - name: Resolve the digest
+        id: digest
+        shell: bash
+        env:
+          IMAGE: ${{ steps.tag.outputs.image }}
+        run: |
+          digest=$(docker buildx imagetools inspect "$IMAGE" \
+            --format '{{json .Manifest.Digest}}' | tr -d '"')
+          echo "image=${IMAGE%:*}@$digest" >> "$GITHUB_OUTPUT"
