@@ -14,8 +14,8 @@ METRICS_GROUP = "Metrics"
 METRICS_PREFIX = "sy_node_1_metrics"
 
 
-class ChannelOntology(ConsoleCase):
-    """Test channel ontology operations: groups, nesting, and drag-to-move."""
+class ChannelGroups(ConsoleCase):
+    """Test channel groups: create, nest, rename, delete, and drag-to-move."""
 
     suffix: str
     channels: list[str]
@@ -42,7 +42,7 @@ class ChannelOntology(ConsoleCase):
         )
 
     def run(self) -> None:
-        """Run all channel ontology tests."""
+        """Run all channel group tests."""
         self.test_create_group()
         self.test_move_to_group()
         self.test_rename_group()

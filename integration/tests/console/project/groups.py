@@ -15,8 +15,8 @@ from framework.utils import get_fixture_path
 from x import random_name
 
 
-class Ontology(ConsoleCase):
-    """Test project ontology operations: groups, nesting, and drag-to-move."""
+class ProjectGroups(ConsoleCase):
+    """Test project groups: create, nest, rename, delete, and drag-to-move."""
 
     suffix: str
     page_a: str
@@ -35,28 +35,28 @@ class Ontology(ConsoleCase):
 
     def create_test_pages(self) -> None:
         """Create a mix of page types for grouping tests."""
-        self.page_a = f"Ontology Schematic {self.suffix}"
+        self.page_a = f"Page Schematic {self.suffix}"
         json_path = get_fixture_path("ImportSpace/Metrics Schematic.json")
         self.console.pages.import_file(json_path, name=self.page_a)
         self.console.layout.close_tab(self.page_a)
 
-        self.page_b = f"Ontology Log {self.suffix}"
+        self.page_b = f"Page Log {self.suffix}"
         json_path = get_fixture_path("ImportSpace/Metrics Log.json")
         self.console.pages.import_file(json_path, name=self.page_b)
         self.console.layout.close_tab(self.page_b)
 
-        self.page_c = f"Ontology Table {self.suffix}"
+        self.page_c = f"Page Table {self.suffix}"
         table = self.console.pages.create(Table, self.page_c)
         self.page_c = table.page_name
         table.close()
 
-        self.page_d = f"Ontology Plot {self.suffix}"
+        self.page_d = f"Page Plot {self.suffix}"
         json_path = get_fixture_path("ImportSpace/Metrics Plot.json")
         self.console.pages.import_file(json_path, name=self.page_d)
         self.console.layout.close_tab(self.page_d)
 
     def run(self) -> None:
-        """Run all ontology tests."""
+        """Run all project group tests."""
         self.create_test_pages()
         self.test_create_group()
         self.test_move_page_to_group()

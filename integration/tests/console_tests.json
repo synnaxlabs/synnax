@@ -5,9 +5,9 @@
       "sequence_name": "project",
       "tests": [
         { "case": "console/project/project" },
-        { "case": "console/project/ontology" },
+        { "case": "console/project/groups" },
         { "case": "console/pages/file_drop" },
-        { "case": "console/channel/ontology" },
+        { "case": "console/channel/groups" },
         { "case": "console/task/task_lifecycle" },
         { "case": "console/channel/tree_virtualization" }
       ]
