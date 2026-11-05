@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactNode } from "react";
+import { type ReactElement, type ReactNode, useState } from "react";
 import { assert, describe, expect, it } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
@@ -57,6 +57,58 @@ const onTop = (el: Element): boolean => {
     rect.top + rect.height / 2,
   );
   return hit != null && el.contains(hit);
+};
+
+/** Opens a modal from the keyboard, so the trigger holds the focus in every engine. */
+const openModal = async (
+  content: ReactNode,
+  behind?: ReactNode,
+): Promise<{ trigger: HTMLElement; dialog: Element }> => {
+  await renderThemed(
+    <Triggers.Provider>
+      {behind}
+      <Dialog.Frame variant="modal">
+        <Dialog.Trigger>Open</Dialog.Trigger>
+        <Dialog.Dialog>{content}</Dialog.Dialog>
+      </Dialog.Frame>
+    </Triggers.Provider>,
+  );
+  const trigger = page.getByRole("button", { name: "Open" }).element() as HTMLElement;
+  trigger.focus();
+  await userEvent.keyboard("{Enter}");
+  await expect.element(page.getByRole("dialog")).toBeVisible();
+  return { trigger, dialog: page.getByRole("dialog").element() };
+};
+
+const FIELDS = (
+  <>
+    <input aria-label="First" />
+    <input aria-label="Last" />
+  </>
+);
+
+const field = (name: string): HTMLElement =>
+  page.getByLabelText(name).element() as HTMLElement;
+
+/** Opens one modal from another, as a palette command opens a modal. */
+const Chain = (): ReactElement => {
+  const [step, setStep] = useState<"first" | "second" | null>(null);
+  const close = () => setStep(null);
+  return (
+    <Triggers.Provider>
+      <button onClick={() => setStep("first")}>Start</button>
+      <Dialog.Frame variant="modal" visible={step === "first"} onVisibleChange={close}>
+        <Dialog.Dialog>
+          <button onClick={() => setStep("second")}>Next</button>
+        </Dialog.Dialog>
+      </Dialog.Frame>
+      <Dialog.Frame variant="modal" visible={step === "second"} onVisibleChange={close}>
+        <Dialog.Dialog>
+          <input aria-label="Name" autoFocus />
+        </Dialog.Dialog>
+      </Dialog.Frame>
+    </Triggers.Provider>
+  );
 };
 
 describe("Dialog", () => {
@@ -114,6 +166,130 @@ describe("Dialog", () => {
   });
 
   describe("modal", () => {
+    describe("focus", () => {
+      it("should take the focus on open", async () => {
+        const { dialog } = await openModal(FIELDS);
+        expect(document.activeElement).toBe(dialog);
+      });
+
+      it("should leave the focus on a field that takes it on open", async () => {
+        await openModal(<input aria-label="Name" autoFocus />);
+        expect(document.activeElement).toBe(field("Name"));
+      });
+
+      it("should move Tab from the modal to its first field", async () => {
+        await openModal(FIELDS);
+        await userEvent.tab();
+        expect(document.activeElement).toBe(field("First"));
+      });
+
+      it("should move Shift+Tab from the modal to its last field", async () => {
+        await openModal(FIELDS);
+        await userEvent.tab({ shift: true });
+        expect(document.activeElement).toBe(field("Last"));
+      });
+
+      it("should wrap Tab from the last field to the first", async () => {
+        await openModal(FIELDS, <button>Behind</button>);
+        field("Last").focus();
+        await userEvent.tab();
+        expect(document.activeElement).toBe(field("First"));
+      });
+
+      it("should wrap Shift+Tab from the first field to the last", async () => {
+        await openModal(FIELDS, <button>Behind</button>);
+        field("First").focus();
+        await userEvent.tab({ shift: true });
+        expect(document.activeElement).toBe(field("Last"));
+      });
+
+      it("should stop on buttons and skip disabled controls", async () => {
+        await openModal(
+          <>
+            <input aria-label="First" />
+            <button disabled>Off</button>
+            <button>Save</button>
+          </>,
+        );
+        field("First").focus();
+        await userEvent.tab();
+        expect(document.activeElement).toBe(
+          page.getByRole("button", { name: "Save" }).element(),
+        );
+      });
+
+      it("should bring back focus that the page behind takes", async () => {
+        await openModal(FIELDS, <button>Behind</button>);
+        field("Last").focus();
+        (page.getByRole("button", { name: "Behind" }).element() as HTMLElement).focus();
+        expect(document.activeElement).toBe(field("Last"));
+      });
+
+      it("should leave the focus in a dropdown opened over the modal", async () => {
+        await openModal(
+          <Dialog.Frame>
+            <Dialog.Trigger>Menu</Dialog.Trigger>
+            <Dialog.Dialog>
+              <input aria-label="Search" />
+            </Dialog.Dialog>
+          </Dialog.Frame>,
+        );
+        await userEvent.click(page.getByRole("button", { name: "Menu" }));
+        field("Search").focus();
+        expect(document.activeElement).toBe(field("Search"));
+      });
+
+      it("should give the focus back to the opener on close", async () => {
+        const { trigger } = await openModal(FIELDS);
+        await userEvent.keyboard("{Escape}");
+        await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
+        expect(document.activeElement).toBe(trigger);
+      });
+
+      it("should give the focus back to the opener after a field took it", async () => {
+        const { trigger } = await openModal(<input aria-label="Name" autoFocus />);
+        await userEvent.keyboard("{Escape}");
+        await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
+        expect(document.activeElement).toBe(trigger);
+      });
+
+      it("should hold the focus only in the top modal", async () => {
+        await openModal(
+          <Dialog.Frame variant="modal">
+            <Dialog.Trigger>Inner</Dialog.Trigger>
+            <Dialog.Dialog>
+              <input aria-label="Inner field" />
+            </Dialog.Dialog>
+          </Dialog.Frame>,
+        );
+        const inner = page.getByRole("button", { name: "Inner" }).element();
+        (inner as HTMLElement).focus();
+        await userEvent.keyboard("{Enter}");
+        await userEvent.tab();
+        expect(document.activeElement).toBe(field("Inner field"));
+        await userEvent.tab();
+        expect(document.activeElement).toBe(field("Inner field"));
+        await userEvent.keyboard("{Escape}");
+        await expect
+          .element(page.getByLabelText("Inner field"))
+          .not.toBeInTheDocument();
+        expect(document.activeElement).toBe(inner);
+      });
+
+      it("should give the focus to the first opener when a modal opens the next", async () => {
+        await renderThemed(<Chain />);
+        const start = page.getByRole("button", { name: "Start" }).element();
+        (start as HTMLElement).focus();
+        await userEvent.keyboard("{Enter}");
+        await userEvent.tab();
+        await userEvent.keyboard("{Enter}");
+        await expect.element(page.getByLabelText("Name")).toHaveFocus();
+        await userEvent.keyboard("{Escape}");
+        await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
+        expect(document.activeElement).toBe(start);
+      });
+    });
+
     it("should tint the whole window behind it", async () => {
       const { dialog } = await openDialog("modal");
       const bg = dialog.closest(`.${CSS.BE("dialog", "bg")}`)!;

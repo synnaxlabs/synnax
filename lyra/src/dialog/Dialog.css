@@ -21,6 +21,8 @@
 
     &.lyra--modal {
         position: relative;
+        /* The surface takes the focus on open, with no ring. */
+        outline: none;
 
         &.lyra--hidden {
             background: none;
