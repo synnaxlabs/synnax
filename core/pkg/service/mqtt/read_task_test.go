@@ -178,6 +178,23 @@ var _ = Describe("Read task", func() {
 			},
 		)
 
+		It("Should store a string, and a JSON value as the payload spells it",
+			func(ctx SpecContext) {
+				_, data := createIndexed(ctx, telem.StringT, telem.JSONT)
+				start(ctx, readConfig(dev, plainEntry(
+					"plant/line9",
+					field("s", data[0], "/s"),
+					field("j", data[1], "/j"),
+				)))
+				payload := `{"s":"a\nb","j":{ "z": 1.0, "a": [] }}`
+				broker.publish("plant/line9", payload, false)
+				Eventually(func() int64 { return stored(ctx, data[1]).Len() }).
+					Should(BeEquivalentTo(1))
+				Expect(string(stored(ctx, data[0]).At(0))).To(Equal("a\nb"))
+				Expect(string(stored(ctx, data[1]).At(0))).To(Equal(`{"z":1.0,"a":[]}`))
+			},
+		)
+
 		It("Should stream and not store when data saving is disabled",
 			func(ctx SpecContext) {
 				_, data := createIndexed(ctx, telem.Float64T)
@@ -221,6 +238,33 @@ var _ = Describe("Read task", func() {
 					Should(BeEquivalentTo(1))
 				Expect(stored(ctx, data[0]).Len()).To(BeEquivalentTo(1))
 			},
+		)
+
+		DescribeTable("Should warn and write nothing for a value that does not convert",
+			func(ctx SpecContext, dt telem.DataType, payload, message string) {
+				_, data := createIndexed(ctx, dt)
+				t := start(ctx, readConfig(dev, plainEntry(
+					"plant/convert", field("v", data[0], "/v"),
+				)))
+				broker.publish("plant/convert", payload, false)
+				Eventually(func(g Gomega) {
+					stat := taskStatus(ctx, t)
+					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
+					g.Expect(stat.Description).To(SatisfyAll(
+						HavePrefix("rejected a message on topic plant/convert: "),
+						ContainSubstring(message),
+					))
+				}).Should(Succeed())
+				Expect(stored(ctx, data[0]).Len()).To(BeZero())
+			},
+			Entry("a number into a string channel", telem.StringT, `{"v":1}`,
+				"field v: expected a string, got a number"),
+			Entry("a string into a number channel", telem.Float64T, `{"v":"1"}`,
+				`field v: unknown enum label "1"`),
+			Entry("a repeated member at a field", telem.Float64T, `{"v":1,"v":2}`,
+				"duplicate value at /v"),
+			Entry("a payload that is not UTF-8", telem.StringT, "\xff",
+				"invalid UTF-8"),
 		)
 
 		It("Should reject a timestamp that is not after the last one written",
@@ -655,10 +699,10 @@ var _ = Describe("Read task", func() {
 			),
 			Entry("a channel of a data type that a field cannot write",
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
-					ch := createVirtual(ctx, telem.UUIDT)
+					ch := createVirtual(ctx, telem.BytesT)
 					return readConfig(dev, plainEntry("plant/x", field("v", ch, ""))),
 						"field v of topic plant/x: channel " + ch.Name +
-							": cannot convert a JSON value to uuid"
+							": cannot convert a JSON value to bytes"
 				},
 			),
 			Entry("fields of one topic on different indexes",

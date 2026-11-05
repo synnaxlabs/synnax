@@ -877,25 +877,13 @@ var _ = Describe("Read task", func() {
 		},
 	)
 
-	It("Should read one array element into fields that spell its index differently",
+	It("Should not read an array index written with a leading zero",
 		func(ctx SpecContext) {
 			index, data := createIndexed(ctx, telem.Float64T)
-			other := channel.Channel{
-				Name:       "other_" + uuid.New().String()[:8],
-				DataType:   telem.Float64T,
-				LocalIndex: index.LocalKey,
-			}
-			Expect(channelSvc.NewWriter(nil).Create(ctx, &other)).To(Succeed())
 			dev := createDevice(ctx, clusterProperties())
 			topic := newTopic()
 			fields := stampedFields(index, data)
-			fields[1].Pointer = "/vals/1"
-			fields = append(fields, kafka.ReadField{
-				Key:      "w",
-				Channel:  other.Key(),
-				Pointer:  "/vals/01",
-				DataType: telem.Float64T,
-			})
+			fields[1].Pointer = "/vals/01"
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device:  dev.Key,
 				Topic:   topic,
@@ -905,8 +893,9 @@ var _ = Describe("Read task", func() {
 			produceJSON(ctx, producer, topic, "", map[string]any{
 				"ts": 10e9, "vals": []any{1.0, 2.5},
 			})
-			Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{2.5}))
-			Expect(floats(expectStored(ctx, other.Key(), 1))).To(Equal([]float64{2.5}))
+			Eventually(func() string { return taskStatus(ctx, t).Description }).
+				WithTimeout(15 * time.Second).
+				Should(Equal("Record has no value at /vals/01"))
 		},
 	)
 
@@ -1179,26 +1168,6 @@ var _ = Describe("Read task", func() {
 		Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{2}))
 	})
 
-	It("Should skip a record when a pointer lacks its leading slash",
-		func(ctx SpecContext) {
-			index, data := createIndexed(ctx, telem.Float64T)
-			dev := createDevice(ctx, clusterProperties())
-			topic := newTopic()
-			fields := stampedFields(index, data)
-			fields[1].Pointer = "v"
-			dt, t := configure(ctx, kafka.ReadConfig{
-				Device:  dev.Key,
-				Topic:   topic,
-				Records: single(fields),
-			})
-			start(ctx, dt, t)
-			produceJSON(ctx, producer, topic, "", map[string]any{"ts": 10e9, "v": 1.0})
-			Eventually(func() string { return taskStatus(ctx, t).Description }).
-				WithTimeout(15 * time.Second).
-				Should(ContainSubstring(`pointer "v" must start with '/'`))
-		},
-	)
-
 	onOff := []http.EnumEntry{{Label: "OFF", Value: 0}, {Label: "ON", Value: 1}}
 	readUUID := uuid.MustParse("6f1c2a4e-8d3b-4f5a-9c7e-2b1d0e3f4a5b")
 
@@ -1343,9 +1312,12 @@ var _ = Describe("Read task", func() {
 			telem.Float64T, http.TimeFormatISO8601, nil,
 			map[string]any{"ts": "yesterday", "v": 1.5},
 			"invalid ISO 8601 timestamp"),
-		Entry("a string where a numeric timestamp is expected",
+		Entry("a boolean where a numeric timestamp is expected",
 			telem.Float64T, http.TimeFormatUnixNs, nil,
-			map[string]any{"ts": "10", "v": 1.5}, "expected a number"),
+			map[string]any{"ts": true, "v": 1.5}, "expected a number, got a boolean"),
+		Entry("a string that holds no number where a numeric timestamp is expected",
+			telem.Float64T, http.TimeFormatUnixNs, nil,
+			map[string]any{"ts": "soon", "v": 1.5}, `invalid number "soon"`),
 		Entry("an unknown enum label",
 			telem.Uint8T, http.TimeFormatUnixNs, onOff,
 			map[string]any{"ts": 10e9, "v": "MAYBE"}, "unknown enum label"),
@@ -1374,10 +1346,10 @@ var _ = Describe("Read task", func() {
 		Entry("a fraction into an integer channel",
 			telem.Int32T, http.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": 1.5}, "1.5 is not an integer"),
-		Entry("a float beyond the integer channel's range",
+		Entry("an exponent beyond the integer channel's range",
 			telem.Int64T, http.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": jsontext.Value("1e19")},
-			"1e+19 is out of range for int64"),
+			"10000000000000000000 is out of range for int64"),
 		Entry("a number beyond float32",
 			telem.Float32T, http.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": 1e39}, "1e+39 overflows float32"),
@@ -1392,7 +1364,7 @@ var _ = Describe("Read task", func() {
 		Entry("a floating-point timestamp beyond the nanosecond range",
 			telem.Float64T, http.TimeFormatUnixSec, nil,
 			map[string]any{"ts": jsontext.Value("1e13"), "v": 1.5},
-			"1e+13 is out of range for a unix_sec timestamp"),
+			"1e13 is out of range for a unix_sec timestamp"),
 	)
 
 	DescribeTable("Should reject an invalid config",
@@ -1427,6 +1399,25 @@ var _ = Describe("Read task", func() {
 			func(_ context.Context, _, data channel.Channel) []kafka.ReadField {
 				return []kafka.ReadField{{Key: "v", Channel: data.Key()}}
 			}, "pointer"),
+		Entry("a pointer without a leading slash",
+			func(_ context.Context, _, data channel.Channel) []kafka.ReadField {
+				return []kafka.ReadField{{
+					Key:      "v",
+					Channel:  data.Key(),
+					Pointer:  "v",
+					DataType: telem.Float64T,
+				}}
+			}, `field "v": json pointer "v" must be empty or start with "/"`),
+		Entry("a bytes channel",
+			func(ctx context.Context, _, _ channel.Channel) []kafka.ReadField {
+				_, data := createIndexed(ctx, telem.BytesT)
+				return []kafka.ReadField{{
+					Key:      "v",
+					Channel:  data.Key(),
+					Pointer:  "/v",
+					DataType: telem.BytesT,
+				}}
+			}, `field "v": cannot convert a JSON value to bytes`),
 		Entry("data type mismatch",
 			func(_ context.Context, _, data channel.Channel) []kafka.ReadField {
 				return []kafka.ReadField{{

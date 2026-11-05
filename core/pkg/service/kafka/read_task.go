@@ -24,12 +24,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
+	"github.com/synnaxlabs/synnax/pkg/service/http"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
+	xjson "github.com/synnaxlabs/x/json"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -48,7 +50,7 @@ type readGroup struct {
 	// channels[i] is the channel fields[i] writes to.
 	channels []channel.Channel
 	// extractor resolves the fields' pointers in a record.
-	extractor *extractor
+	extractor *xjson.Extractor
 	// values[i] is scratch space for the JSON value of fields[i] in a record.
 	values []jsontext.Value
 	// columns[i] holds the current poll's samples of fields[i].
@@ -190,6 +192,7 @@ func buildReadGroups(
 		}
 		claimed.Add(rec.RecordKey)
 		g := &readGroup{key: rec.RecordKey, stamp: -1, replaying: true}
+		var pointers []xjson.Pointer
 		for _, fld := range rec.Fields {
 			if fld.Disabled {
 				continue
@@ -216,25 +219,27 @@ func buildReadGroups(
 					fld.Key,
 				)
 			}
+			pointer, err := xjson.ParsePointer(fld.Pointer)
+			if err != nil {
+				return nil, errors.Wrapf(err, "field %q", fld.Key)
+			}
+			dec, err := newDecoder(fld, ch)
+			if err != nil {
+				return nil, errors.Wrapf(err, "field %q", fld.Key)
+			}
 			if fld.Key == rec.Index {
 				g.stamp = len(g.fields)
 			}
 			g.fields = append(g.fields, fld)
 			g.channels = append(g.channels, ch)
+			pointers = append(pointers, pointer)
+			g.columns = append(g.columns, newColumn(dec, ch.DataType))
 		}
 		if len(g.fields) == 0 {
 			continue
 		}
-		pointers := make([]string, len(g.fields))
-		for i, fld := range g.fields {
-			pointers[i] = fld.Pointer
-		}
-		g.extractor = newExtractor(pointers)
+		g.extractor = xjson.NewExtractor(pointers)
 		g.values = make([]jsontext.Value, len(g.fields))
-		g.columns = make([]column, len(g.fields))
-		for i, fld := range g.fields {
-			g.columns[i] = newColumn(fld, g.channels[i].DataType)
-		}
 		if rec.Index != "" && g.stamp == -1 {
 			return nil, errors.Wrapf(
 				validate.ErrValidation,
@@ -279,6 +284,29 @@ func buildReadGroups(
 		}
 	}
 	return groups, nil
+}
+
+// newDecoder returns the decoder of fld, which writes to ch.
+func newDecoder(fld ReadField, ch channel.Channel) (*xjson.Decoder, error) {
+	f := xjson.Field{DataType: ch.DataType, Enums: enums(fld.EnumValues)}
+	if fld.TimeFormat != nil {
+		var err error
+		if f.TimeFormat, err = xjson.ParseTimeFormat(
+			string(*fld.TimeFormat),
+		); err != nil {
+			return nil, err
+		}
+	}
+	return xjson.NewDecoder(f)
+}
+
+// enums returns the labels of entries in the form xjson takes.
+func enums(entries []http.EnumEntry) []xjson.Enum {
+	out := make([]xjson.Enum, len(entries))
+	for i, e := range entries {
+		out[i] = xjson.Enum{Label: e.Label, Value: e.Value}
+	}
+	return out
 }
 
 // Exec implements driver.Task. Every command it handles ends in a status carrying the
@@ -711,18 +739,12 @@ func (t *readTask) convert(rec *kgo.Record) {
 			return
 		}
 	}
-	clear(g.values)
-	if err := g.extractor.extract(rec.Value, g.values); err != nil {
+	if err := g.extractor.Extract(rec.Value, g.values); err != nil {
 		t.skip("Record is not JSON: " + err.Error())
 		return
 	}
 	r := row{ts: telem.NewTimeStamp(rec.Timestamp), pos: len(g.rows)}
 	for i, fld := range g.fields {
-		if err := g.extractor.errs[i]; err != nil {
-			t.skip(err.Error())
-			g.truncate(r.pos)
-			return
-		}
 		if g.values[i] == nil {
 			t.skip(fmt.Sprintf("Record has no value at %s", fld.Pointer))
 			g.truncate(r.pos)
