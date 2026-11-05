@@ -16,6 +16,7 @@ import synnax as sy
 from synnax.exceptions import PathError
 from synnax.modbus.types import _READ_NAME_TYPES, _WRITE_NAME_TYPES
 from tests.json_value import arr, obj
+from tests.task_targets import TaskTargets
 from x.strings import random_name
 
 
@@ -281,7 +282,9 @@ class TestModbusReadTask:
         assert obj(channels[0])["address"] == 0
         assert obj(channels[0])["data_type"] == "float32"
 
-    def test_create_and_retrieve_read_task(self, client: sy.Synnax) -> None:
+    def test_create_and_retrieve_read_task(
+        self, client: sy.Synnax, task_targets: TaskTargets
+    ) -> None:
         """Test that ReadTask can be created and retrieved from the database."""
         task = sy.modbus.ReadTask(
             name="test-modbus-read-task",
@@ -306,6 +309,7 @@ class TestModbusReadTask:
                 ),
             ],
         )
+        task_targets.attach(task.config)
         created_task = client.tasks.create(
             name="test-modbus-read-task",
             type="modbus_read",
@@ -480,7 +484,9 @@ class TestModbusWriteTask:
         assert len(channels) == 1
         assert obj(channels[0])["address"] == 5
 
-    def test_create_and_retrieve_write_task(self, client: sy.Synnax) -> None:
+    def test_create_and_retrieve_write_task(
+        self, client: sy.Synnax, task_targets: TaskTargets
+    ) -> None:
         """Test that WriteTask can be created and retrieved from the database."""
         task = sy.modbus.WriteTask(
             name="test-modbus-write-task",
@@ -502,6 +508,7 @@ class TestModbusWriteTask:
                 ),
             ],
         )
+        task_targets.attach(task.config)
         created_task = client.tasks.create(
             name="test-modbus-write-task",
             type="modbus_write",
@@ -509,7 +516,9 @@ class TestModbusWriteTask:
         )
         sy.modbus.WriteTask(created_task)
 
-    def test_write_task_serialization_round_trip(self, client: sy.Synnax) -> None:
+    def test_write_task_serialization_round_trip(
+        self, client: sy.Synnax, task_targets: TaskTargets
+    ) -> None:
         """Test that task can be serialized and deserialized correctly."""
         original_task = sy.modbus.WriteTask(
             name="test-round-trip",
@@ -537,6 +546,7 @@ class TestModbusWriteTask:
         )
 
         # Create task in database
+        task_targets.attach(original_task.config)
         created_task = client.tasks.create(
             name="test-round-trip",
             type="modbus_write",
@@ -565,7 +575,7 @@ class TestModbusWriteTask:
                 assert retr_ch.words_swapped == orig_ch.words_swapped
 
     def test_register_channel_without_override_follows_device(
-        self, client: sy.Synnax
+        self, client: sy.Synnax, task_targets: TaskTargets
     ) -> None:
         """A register channel left unset keeps no swap fields, so the device's order
         applies, while an explicit False survives as an override."""
@@ -588,6 +598,7 @@ class TestModbusWriteTask:
                 ),
             ],
         )
+        task_targets.attach(task.config)
         created = client.tasks.create(
             name="test-swap-inherit", type="modbus_write", config=task.config
         )

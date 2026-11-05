@@ -15,6 +15,7 @@ from pydantic import ValidationError
 
 import synnax as sy
 from tests.json_value import obj
+from tests.task_targets import TaskTargets
 from x.strings import random_name
 
 
@@ -208,7 +209,9 @@ class TestLabJackReadTask:
                 scale=sy.labjack.NoneScale(type="none"),
             )
 
-    def test_create_and_retrieve_read_task(self, client: sy.Synnax) -> None:
+    def test_create_and_retrieve_read_task(
+        self, client: sy.Synnax, task_targets: TaskTargets
+    ) -> None:
         """Test that ReadTask can be created and retrieved from the database."""
         task = sy.labjack.ReadTask(
             name="test-labjack-read-task",
@@ -234,6 +237,7 @@ class TestLabJackReadTask:
                 ),
             ],
         )
+        task_targets.attach(task.config)
         created_task = client.tasks.create(
             name="test-labjack-read-task",
             type="labjack_read",
@@ -383,7 +387,9 @@ class TestLabJackWriteTask:
         assert channel.key != ""
         assert len(channel.key) > 0
 
-    def test_create_and_retrieve_write_task(self, client: sy.Synnax) -> None:
+    def test_create_and_retrieve_write_task(
+        self, client: sy.Synnax, task_targets: TaskTargets
+    ) -> None:
         """Test that WriteTask can be created and retrieved from the database."""
         task = sy.labjack.WriteTask(
             name="test-labjack-write-task",
@@ -408,6 +414,7 @@ class TestLabJackWriteTask:
                 ),
             ],
         )
+        task_targets.attach(task.config)
         created_task = client.tasks.create(
             name="test-labjack-write-task",
             type="labjack_write",
@@ -415,7 +422,9 @@ class TestLabJackWriteTask:
         )
         sy.labjack.WriteTask(created_task)
 
-    def test_write_task_serialization_round_trip(self, client: sy.Synnax) -> None:
+    def test_write_task_serialization_round_trip(
+        self, client: sy.Synnax, task_targets: TaskTargets
+    ) -> None:
         """Test that task can be serialized and deserialized correctly."""
         original_task = sy.labjack.WriteTask(
             name="test-round-trip",
@@ -443,6 +452,7 @@ class TestLabJackWriteTask:
             ],
         )
 
+        task_targets.attach(original_task.config)
         created_task = client.tasks.create(
             name="test-round-trip",
             type="labjack_write",

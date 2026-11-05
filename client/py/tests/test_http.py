@@ -11,6 +11,7 @@ import pytest
 
 import synnax as sy
 from tests.json_value import arr, obj
+from tests.task_targets import TaskTargets
 from x.strings import random_name
 
 
@@ -292,7 +293,9 @@ class TestHTTPReadTask:
         assert "timestamp_format" not in field
         assert field["enum_values"] == []
 
-    def test_create_and_retrieve_read_task(self, client: sy.Synnax) -> None:
+    def test_create_and_retrieve_read_task(
+        self, client: sy.Synnax, task_targets: TaskTargets
+    ) -> None:
         """Test that ReadTask can be created and retrieved from the database."""
         task = sy.http.ReadTask(
             name="test-http-read-task",
@@ -314,6 +317,7 @@ class TestHTTPReadTask:
                 ),
             ],
         )
+        task_targets.attach(task.config)
         created = client.tasks.create(
             name="test-http-read-task",
             type="http_read",
@@ -578,7 +582,9 @@ class TestHTTPWriteTask:
         assert ep["query_params"] == []
         assert "time_format" not in obj(ep, "channel")
 
-    def test_create_and_retrieve_write_task(self, client: sy.Synnax) -> None:
+    def test_create_and_retrieve_write_task(
+        self, client: sy.Synnax, task_targets: TaskTargets
+    ) -> None:
         """Test that WriteTask can be created and retrieved from the database."""
         task = sy.http.WriteTask(
             name="test-http-write-task",
@@ -596,6 +602,7 @@ class TestHTTPWriteTask:
                 ),
             ],
         )
+        task_targets.attach(task.config)
         created = client.tasks.create(
             name="test-http-write-task",
             type="http_write",
@@ -603,7 +610,9 @@ class TestHTTPWriteTask:
         )
         sy.http.WriteTask(created)
 
-    def test_write_task_serialization_round_trip(self, client: sy.Synnax) -> None:
+    def test_write_task_serialization_round_trip(
+        self, client: sy.Synnax, task_targets: TaskTargets
+    ) -> None:
         """Test that task can be serialized and deserialized correctly."""
         original = sy.http.WriteTask(
             name="test-round-trip",
@@ -631,6 +640,7 @@ class TestHTTPWriteTask:
                 ),
             ],
         )
+        task_targets.attach(original.config)
         created = client.tasks.create(
             name="test-round-trip",
             type="http_write",

@@ -359,6 +359,43 @@ class TestChannel:
         results = client.channels.retrieve(names)
         assert len(results) == 0
 
+    def test_delete_refused_by_task_config(
+        self, client: sy.Synnax, virtual_channel: sy.Channel
+    ) -> None:
+        """Should refuse deleting a channel that a task config names"""
+        rack = client.racks.create(name=channel_name())
+        device = client.devices.create(
+            sy.Device(
+                key=channel_name(),
+                name="plc",
+                rack=rack.key,
+                location="127.0.0.1:502",
+                make="modbus",
+                model="modbus",
+            )
+        )
+        task = client.tasks.create(
+            name="read",
+            type="modbus_read",
+            config={
+                "device": device.key,
+                "channels": [
+                    {"type": "coil", "key": "coil", "channel": virtual_channel.key}
+                ],
+            },
+        )
+        with pytest.raises(
+            sy.ValidationError,
+            match=(
+                f"cannot delete channel {virtual_channel.key} because "
+                f"modbus_read_config {task.key} references it through "
+                "channels.channel"
+            ),
+        ):
+            client.channels.delete(virtual_channel.key)
+        client.tasks.delete(task.key)
+        client.channels.delete(virtual_channel.key)
+
     def test_delete_and_recreate_with_same_name(self, client: sy.Synnax) -> None:
         """Should be able to delete, recreate, and then query a channel with the same
         name."""

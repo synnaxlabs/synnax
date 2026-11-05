@@ -10,6 +10,7 @@
 import pytest
 
 import synnax as sy
+from tests.task_targets import TaskTargets
 
 
 @pytest.mark.opcua
@@ -108,7 +109,9 @@ class TestOPCReadTask:
         input_data = test_data["data"]
         sy.opcua.ReadConfig.model_validate(input_data)
 
-    def test_create_and_retrieve_task(self, client: sy.Synnax) -> None:
+    def test_create_and_retrieve_task(
+        self, client: sy.Synnax, task_targets: TaskTargets
+    ) -> None:
         """Test that ReadTask can be created and retrieved from the database."""
         task = sy.opcua.ReadTask(
             name="test-task",
@@ -125,6 +128,7 @@ class TestOPCReadTask:
                 )
             ],
         )
+        task_targets.attach(task.config)
         createdTask = client.tasks.create(
             name="test-task",
             type="opc_read",
@@ -132,11 +136,14 @@ class TestOPCReadTask:
         )
         sy.opcua.ReadTask(createdTask)
 
-    def test_nan_fill_enabled_round_trip(self, client: sy.Synnax) -> None:
+    def test_nan_fill_enabled_round_trip(
+        self, client: sy.Synnax, task_targets: TaskTargets
+    ) -> None:
         """Should keep nan_fill_enabled through a create and retrieve."""
         task = sy.opcua.ReadTask(
             name="test-task", device="some-device-key", nan_fill_enabled=True
         )
+        task_targets.attach(task.config)
         created = client.tasks.create(
             name="test-task", type="opc_read", config=task.config
         )
@@ -192,7 +199,9 @@ class TestOPCWriteTask:
         input_data = test_data["data"]
         sy.opcua.WriteConfig.model_validate(input_data)
 
-    def test_create_and_retrieve_write_task(self, client: sy.Synnax) -> None:
+    def test_create_and_retrieve_write_task(
+        self, client: sy.Synnax, task_targets: TaskTargets
+    ) -> None:
         """Test that WriteTask can be created and retrieved from the database."""
         task = sy.opcua.WriteTask(
             name="test-write-task",
@@ -206,6 +215,7 @@ class TestOPCWriteTask:
                 )
             ],
         )
+        task_targets.attach(task.config)
         createdTask = client.tasks.create(
             name="test-write-task",
             type="opc_write",
@@ -255,7 +265,9 @@ class TestOPCWriteTask:
         assert channel.key != ""
         assert len(channel.key) > 0
 
-    def test_write_task_serialization_round_trip(self, client: sy.Synnax) -> None:
+    def test_write_task_serialization_round_trip(
+        self, client: sy.Synnax, task_targets: TaskTargets
+    ) -> None:
         """Test that task can be serialized and deserialized correctly."""
         original_task = sy.opcua.WriteTask(
             name="test-round-trip",
@@ -278,6 +290,7 @@ class TestOPCWriteTask:
         )
 
         # Create task in database
+        task_targets.attach(original_task.config)
         created_task = client.tasks.create(
             name="test-round-trip",
             type="opc_write",
