@@ -17,10 +17,10 @@ import (
 
 	"github.com/cockroachdb/pebble/v2/vfs"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/set"
 )
 
 // Restored describes a backup that Restore put back.
@@ -58,26 +58,16 @@ func Restore(dirname, name string) (res Restored, err error) {
 	if !ok {
 		return Restored{}, errors.Wrapf(query.ErrNotFound, "backup %s", name)
 	}
-	src := path.Join(backupsDir, name)
-	orphaned, err := moveOrphans(fs, src)
+	src, err := fs.Sub(path.Join(backupsDir, name))
+	if err != nil {
+		return Restored{}, err
+	}
+	orphaned, err := restoreTS(fs, src)
 	if err != nil {
 		return Restored{}, err
 	}
 	if err = replaceKV(fs, src); err != nil {
 		return Restored{}, err
-	}
-	keys, err := channelDirs(fs, path.Join(src, cesiumDir))
-	if err != nil {
-		return Restored{}, err
-	}
-	for _, key := range keys {
-		if err = copyFileInto(
-			fs,
-			path.Join(src, cesiumDir, key, metaFile),
-			path.Join(cesiumDir, key),
-		); err != nil {
-			return Restored{}, err
-		}
 	}
 	if err = restoreDriverKey(fs, src); err != nil {
 		return Restored{}, err
@@ -98,40 +88,42 @@ func Restore(dirname, name string) (res Restored, err error) {
 	return res, nil
 }
 
-// moveOrphans moves the Cesium directory of each channel that the backup at src has no
-// metadata for to a new directory in the backups directory, and returns the path of
-// that directory, or an empty string when there were no such channels.
-func moveOrphans(fs xfs.FS, src string) (string, error) {
-	live, err := channelDirs(fs, cesiumDir)
+// restoreTS puts back the Cesium metadata of the backup src. It returns the path of the
+// directory that holds the channels the backup does not know, or an empty string when
+// there are none.
+func restoreTS(fs, src xfs.FS) (string, error) {
+	ts, err := fs.Sub(cesiumDir)
 	if err != nil {
 		return "", err
 	}
-	backedUp, err := channelDirs(fs, path.Join(src, cesiumDir))
+	tsBackup, err := src.Sub(cesiumDir)
 	if err != nil {
 		return "", err
 	}
-	known := set.New(backedUp...)
-	dir := ""
-	for _, key := range live {
-		if known.Contains(key) {
-			continue
-		}
-		if dir == "" {
-			dir = path.Join(backupsDir, fmt.Sprintf("orphaned-%d", time.Now().Unix()))
-			if _, err = fs.Sub(dir); err != nil {
-				return "", err
-			}
-		}
-		if err = fs.Rename(path.Join(cesiumDir, key), path.Join(dir, key)); err != nil {
-			return "", err
-		}
+	dir := path.Join(backupsDir, fmt.Sprintf("orphaned-%d", time.Now().Unix()))
+	orphans, err := fs.Sub(dir)
+	if err != nil {
+		return "", err
 	}
-	return dir, nil
+	moved, err := cesium.RestoreMeta(ts, tsBackup, orphans)
+	if err != nil {
+		return "", err
+	}
+	if len(moved) > 0 {
+		return dir, nil
+	}
+	// A restore that failed earlier in the same second can have moved channels here.
+	if infos, err := fs.List(dir); err != nil {
+		return "", err
+	} else if len(infos) > 0 {
+		return dir, nil
+	}
+	return "", fs.Remove(dir)
 }
 
-// replaceKV replaces the key-value store with the copy in the backup at src. The live
+// replaceKV replaces the key-value store with the copy in the backup src. The live
 // store stays in place until the copy is complete.
-func replaceKV(fs xfs.FS, src string) error {
+func replaceKV(fs, src xfs.FS) error {
 	staged, retired := kvDir+".restore", kvDir+".old"
 	if err := fs.Remove(staged); err != nil {
 		return err
@@ -139,7 +131,15 @@ func replaceKV(fs xfs.FS, src string) error {
 	if err := fs.Remove(retired); err != nil {
 		return err
 	}
-	if err := copyDir(fs, path.Join(src, kvDir), staged); err != nil {
+	kv, err := src.Sub(kvDir)
+	if err != nil {
+		return err
+	}
+	stagedKV, err := fs.Sub(staged)
+	if err != nil {
+		return err
+	}
+	if err = copyDir(kv, stagedKV, ""); err != nil {
 		return err
 	}
 	if exists, err := fs.Exists(kvDir); err != nil {
@@ -155,14 +155,13 @@ func replaceKV(fs xfs.FS, src string) error {
 	return fs.Remove(retired)
 }
 
-func restoreDriverKey(fs xfs.FS, src string) error {
-	key := path.Join(src, DriverKeyFile)
-	exists, err := fs.Exists(key)
+func restoreDriverKey(fs, src xfs.FS) error {
+	exists, err := src.Exists(DriverKeyFile)
 	if err != nil {
 		return err
 	}
 	if !exists {
 		return fs.Remove(DriverKeyFile)
 	}
-	return copyFile(fs, key, DriverKeyFile)
+	return xfs.CopyFile(src, fs, DriverKeyFile)
 }

@@ -11,7 +11,6 @@ package storage
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"path"
 	"regexp"
@@ -19,6 +18,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 )
@@ -26,7 +26,6 @@ import (
 const (
 	kvDir         = "kv"
 	cesiumDir     = "cesium"
-	metaFile      = "meta.json"
 	backupsDir    = "backups"
 	partialSuffix = ".partial"
 	keptBackups   = 3
@@ -105,27 +104,35 @@ func backup(fs xfs.FS, version string) (Backup, error) {
 		Time:    time.Unix(now.Unix(), 0),
 		Version: version,
 	}
-	partial := path.Join(backupsDir, b.Name+partialSuffix)
-	if err := copyDir(fs, kvDir, path.Join(partial, kvDir)); err != nil {
-		return Backup{}, err
-	}
-	keys, err := channelDirs(fs, cesiumDir)
+	partialDir := path.Join(backupsDir, b.Name+partialSuffix)
+	partial, err := fs.Sub(partialDir)
 	if err != nil {
 		return Backup{}, err
 	}
-	for _, key := range keys {
-		if err = copyFileInto(
-			fs,
-			path.Join(cesiumDir, key, metaFile),
-			path.Join(partial, cesiumDir, key),
-		); err != nil {
+	if err = copyDir(fs, partial, kvDir); err != nil {
+		return Backup{}, err
+	}
+	ts, err := fs.Sub(cesiumDir)
+	if err != nil {
+		return Backup{}, err
+	}
+	tsBackup, err := partial.Sub(cesiumDir)
+	if err != nil {
+		return Backup{}, err
+	}
+	if err = cesium.BackupMeta(ts, tsBackup); err != nil {
+		return Backup{}, err
+	}
+	hasDriverKey, err := fs.Exists(DriverKeyFile)
+	if err != nil {
+		return Backup{}, err
+	}
+	if hasDriverKey {
+		if err = xfs.CopyFile(fs, partial, DriverKeyFile); err != nil {
 			return Backup{}, err
 		}
 	}
-	if err = copyFileInto(fs, DriverKeyFile, partial); err != nil {
-		return Backup{}, err
-	}
-	if err = fs.Rename(partial, path.Join(backupsDir, b.Name)); err != nil {
+	if err = fs.Rename(partialDir, path.Join(backupsDir, b.Name)); err != nil {
 		return Backup{}, err
 	}
 	return b, nil
@@ -156,74 +163,27 @@ func prune(fs xfs.FS) error {
 	return nil
 }
 
-// channelDirs returns the names of the channel directories in the Cesium directory dir,
-// or nothing when dir does not exist.
-func channelDirs(fs xfs.FS, dir string) ([]string, error) {
-	if exists, err := fs.Exists(dir); err != nil || !exists {
-		return nil, err
-	}
-	infos, err := fs.List(dir)
-	if err != nil {
-		return nil, err
-	}
-	var names []string
-	for _, info := range infos {
-		_, err := strconv.ParseUint(info.Name(), 10, 32)
-		if info.IsDir() && err == nil {
-			names = append(names, info.Name())
-		}
-	}
-	return names, nil
-}
-
-func copyDir(fs xfs.FS, from, to string) error {
-	if _, err := fs.Sub(to); err != nil {
+// copyDir copies the directory dir in src, with everything in it, to dir in dst.
+func copyDir(src, dst xfs.FS, dir string) error {
+	if _, err := dst.Sub(dir); err != nil {
 		return err
 	}
-	infos, err := fs.List(from)
+	infos, err := src.List(dir)
 	if err != nil {
 		return err
 	}
 	for _, info := range infos {
-		src, dst := path.Join(from, info.Name()), path.Join(to, info.Name())
+		name := path.Join(dir, info.Name())
 		if info.IsDir() {
-			err = copyDir(fs, src, dst)
+			err = copyDir(src, dst, name)
 		} else {
-			err = copyFile(fs, src, dst)
+			err = xfs.CopyFile(src, dst, name)
 		}
 		if err != nil {
 			return err
 		}
 	}
 	return nil
-}
-
-// copyFileInto copies the file at src, when it exists, into the directory dir.
-func copyFileInto(fs xfs.FS, src, dir string) error {
-	if exists, err := fs.Exists(src); err != nil || !exists {
-		return err
-	}
-	if _, err := fs.Sub(dir); err != nil {
-		return err
-	}
-	return copyFile(fs, src, path.Join(dir, path.Base(src)))
-}
-
-func copyFile(fs xfs.FS, from, to string) (err error) {
-	src, err := fs.Open(from, os.O_RDONLY)
-	if err != nil {
-		return err
-	}
-	defer func() { err = errors.Combine(err, src.Close()) }()
-	dst, err := fs.Open(to, os.O_CREATE|os.O_WRONLY|os.O_TRUNC)
-	if err != nil {
-		return err
-	}
-	defer func() { err = errors.Combine(err, dst.Close()) }()
-	if _, err = io.Copy(dst, src); err != nil {
-		return err
-	}
-	return dst.Sync()
 }
 
 func writeFile(fs xfs.FS, name string, data []byte) (err error) {
