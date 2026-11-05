@@ -1334,6 +1334,37 @@ describe("list", () => {
       });
     });
 
+    it("should subscribe to the query before its retrieve lands", async () => {
+      const subscribe = vi.fn().mockReturnValue(() => {});
+      let release!: (items: record.Keyed<number>[]) => void;
+      const retrieve = vi.fn(
+        async () =>
+          await new Promise<record.Keyed<number>[]>((resolve) => (release = resolve)),
+      );
+      const { result } = renderHook(
+        () =>
+          Flux.createList<{}, number, record.Keyed<number>>({
+            name: "Resource",
+            retrieve,
+            retrieveByKey: async ({ key }) => ({ key }),
+            onChange: subscribe,
+          })(),
+        { wrapper },
+      );
+      let retrieved!: Promise<void>;
+      act(() => {
+        retrieved = result.current.retrieveAsync({});
+      });
+      await waitFor(() => expect(retrieve).toHaveBeenCalled());
+      expect(subscribe).toHaveBeenCalledTimes(1);
+      await act(async () => {
+        release([{ key: 1 }]);
+        await retrieved;
+      });
+      expect(subscribe).toHaveBeenCalledTimes(1);
+      expect(result.current.data).toEqual([1]);
+    });
+
     it("should subscribe to an item when retrieving it before any list", async () => {
       const onChangeByKey = vi.fn().mockReturnValue(() => {});
       const retrieveByKey = vi.fn().mockResolvedValue({ key: 1 });
