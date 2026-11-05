@@ -39,7 +39,11 @@ const (
 
 // Scale determines how raw sensor values are transformed to engineering units.
 type Scale = v2.Scale
+
+// ScaleVariant is implemented by every Scale variant.
 type ScaleVariant = v2.ScaleVariant
+
+// ScaleType is the "type" value that selects a variant of Scale.
 type ScaleType = v2.ScaleType
 
 const (
@@ -66,7 +70,11 @@ type BaseReadChannel = v2.BaseReadChannel
 // ReadChannel is a single LabJack read channel. The type field selects the input mode
 // and the fields that accompany it.
 type ReadChannel = v2.ReadChannel
+
+// ReadChannelVariant is implemented by every ReadChannel variant.
 type ReadChannelVariant = v2.ReadChannelVariant
+
+// ReadChannelType is the "type" value that selects a variant of ReadChannel.
 type ReadChannelType = v2.ReadChannelType
 
 const (
@@ -93,7 +101,11 @@ type BaseWriteChannel = v2.BaseWriteChannel
 // WriteChannel is a single LabJack write channel. The type field selects the output
 // mode.
 type WriteChannel = v2.WriteChannel
+
+// WriteChannelVariant is implemented by every WriteChannel variant.
 type WriteChannelVariant = v2.WriteChannelVariant
+
+// WriteChannelType is the "type" value that selects a variant of WriteChannel.
 type WriteChannelType = v2.WriteChannelType
 
 const (

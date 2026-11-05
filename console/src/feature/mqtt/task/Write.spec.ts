@@ -19,6 +19,7 @@ import {
   clickDeploy,
   createChannelReadOnlyClient,
   deployAndAwaitTask,
+  findChannelListItem,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
   selectFromDropdown,
@@ -107,6 +108,10 @@ const addTarget = async (): Promise<void> => {
   await screen.findByText("Publish");
 };
 
+// The name deploying gives the command channel of a target with no topic yet.
+const emptyTopicCommandName = (deviceName: string): string =>
+  `${channel.escapeInvalidName(deviceName)}__cmd`;
+
 describe("MQTT Write form", () => {
   it("should show the empty state and add + select a target", async () => {
     await renderWrite();
@@ -184,23 +189,43 @@ describe("MQTT Write form", () => {
   });
 
   it("should duplicate targets and rename the command channel via the context menu", async () => {
-    await renderWrite();
+    const { dev } = await renderWrite();
     await addTarget();
-    const item = await screen.findByText("No channel");
-    fireEvent.contextMenu(item);
+    const name = emptyTopicCommandName(dev.name);
+    const items = () => screen.getAllByRole("option", { name: new RegExp(name) });
+    fireEvent.contextMenu(within(await screen.findByRole("option")).getByText(name));
     fireEvent.click(await screen.findByText("Duplicate"));
-    await waitFor(() => expect(screen.getAllByText("No channel")).toHaveLength(2));
-    fireEvent.contextMenu(screen.getAllByText("No channel")[0]);
+    await waitFor(() => expect(items()).toHaveLength(2));
+    fireEvent.contextMenu(within(items()[0]).getByText(name));
     fireEvent.click(await screen.findByText("Rename"));
     const editable = await awaitTextEditingElement();
     commitTextEdit(editable, "my_cmd_channel");
     await screen.findByText("my_cmd_channel");
   });
 
+  it("should mark a new command channel, unless its target is disabled", async () => {
+    const { dev } = await renderWrite([
+      createWriteTarget("t1", "plant/valve/set"),
+      { ...createWriteTarget("t2", "plant/spare/set"), disabled: true },
+    ]);
+    const escape = channel.escapeInvalidName;
+    const on = await findChannelListItem(
+      `${escape(dev.name)}_${escape("plant/valve/set")}_cmd`,
+    );
+    expect(within(on).getByRole("img", { name: "New channel" })).toBeTruthy();
+    const off = await findChannelListItem(
+      `${escape(dev.name)}_${escape("plant/spare/set")}_cmd`,
+    );
+    expect(within(off).queryByRole("img", { name: "New channel" })).toBeNull();
+  });
+
   it("should withhold rename from a subject who cannot update channels", async () => {
-    await renderWrite([], { as: await createChannelReadOnlyClient(client) });
+    const { dev } = await renderWrite([], {
+      as: await createChannelReadOnlyClient(client),
+    });
     await addTarget();
-    fireEvent.contextMenu(await screen.findByText("No channel"));
+    const name = emptyTopicCommandName(dev.name);
+    fireEvent.contextMenu(within(await screen.findByRole("option")).getByText(name));
     // Duplicate is ungated, so its presence proves the menu resolved before the
     // absence below is read.
     expect(await screen.findByText("Duplicate")).toBeTruthy();

@@ -19,18 +19,24 @@ import (
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // BaseReadChannel carries the fields every EtherCAT read channel shares.
 type BaseReadChannel = v1.BaseReadChannel
 
+// ReadChannelType is the "type" value that selects a variant of ReadChannel.
 type ReadChannelType string
 
 const (
-	EntryReadChannelType      ReadChannelType = "entry"
+	// EntryReadChannelType addresses a PDO entry by its CoE index and sub-index.
+	EntryReadChannelType ReadChannelType = "entry"
+	// UnresolvedReadChannelType is a channel whose PDO entry name matched no single
+	// entry on its slave. It must be given an entry before the task runs.
 	UnresolvedReadChannelType ReadChannelType = "unresolved"
 )
 
+// ReadChannelVariant is implemented by every ReadChannel variant.
 type ReadChannelVariant interface {
 	isReadChannelVariant()
 }
@@ -123,21 +129,55 @@ func (u *ReadChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.UnresolvedReadChannel
 	default:
-		return errors.Newf("ReadChannel: unknown type %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"ReadChannel: unknown type %q",
+			disc.Type,
+		)
 	}
 	return nil
+}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u ReadChannel) Base() BaseReadChannel {
+	switch variant := u.Variant.(type) {
+	case EntryReadChannel:
+		return variant.BaseReadChannel
+	case UnresolvedReadChannel:
+		return variant.BaseReadChannel
+	}
+	return BaseReadChannel{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *ReadChannel) SetBase(base BaseReadChannel) {
+	switch variant := u.Variant.(type) {
+	case EntryReadChannel:
+		variant.BaseReadChannel = base
+		u.Variant = variant
+	case UnresolvedReadChannel:
+		variant.BaseReadChannel = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("ReadChannel: cannot set the base of variant %T", variant))
+	}
 }
 
 // BaseWriteChannel carries the fields every EtherCAT write channel shares.
 type BaseWriteChannel = v1.BaseWriteChannel
 
+// WriteChannelType is the "type" value that selects a variant of WriteChannel.
 type WriteChannelType string
 
 const (
-	EntryWriteChannelType      WriteChannelType = "entry"
+	// EntryWriteChannelType addresses a PDO entry by its CoE index and sub-index.
+	EntryWriteChannelType WriteChannelType = "entry"
+	// UnresolvedWriteChannelType is a channel whose PDO entry name matched no single
+	// entry on its slave. It must be given an entry before the task runs.
 	UnresolvedWriteChannelType WriteChannelType = "unresolved"
 )
 
+// WriteChannelVariant is implemented by every WriteChannel variant.
 type WriteChannelVariant interface {
 	isWriteChannelVariant()
 }
@@ -230,9 +270,38 @@ func (u *WriteChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.UnresolvedWriteChannel
 	default:
-		return errors.Newf("WriteChannel: unknown type %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"WriteChannel: unknown type %q",
+			disc.Type,
+		)
 	}
 	return nil
+}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u WriteChannel) Base() BaseWriteChannel {
+	switch variant := u.Variant.(type) {
+	case EntryWriteChannel:
+		return variant.BaseWriteChannel
+	case UnresolvedWriteChannel:
+		return variant.BaseWriteChannel
+	}
+	return BaseWriteChannel{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *WriteChannel) SetBase(base BaseWriteChannel) {
+	switch variant := u.Variant.(type) {
+	case EntryWriteChannel:
+		variant.BaseWriteChannel = base
+		u.Variant = variant
+	case UnresolvedWriteChannel:
+		variant.BaseWriteChannel = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("WriteChannel: cannot set the base of variant %T", variant))
+	}
 }
 
 // ReadConfig configures an EtherCAT read task. Each channel addresses a PDO entry on

@@ -312,7 +312,9 @@ var _ = Describe("TS Types Plugin", func() {
 			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`name: z.string().min(1).max(255)`))
+			Expect(
+				content,
+			).To(ContainSubstring(`name: z.string().min(1).check(zod.maxLength(255))`))
 			Expect(content).To(ContainSubstring(`email: z.string()`))
 			Expect(content).To(ContainSubstring(`age: z.int32().min(0).max(150)`))
 		})

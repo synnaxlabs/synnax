@@ -27,7 +27,7 @@ inline StatusDetails StatusDetails::parse(x::json::Parser parser) {
 }
 
 inline x::json::json StatusDetails::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["rack"] = this->rack;
     return j;
 }
@@ -46,7 +46,7 @@ inline Rack Rack::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Rack::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["key"] = this->key;
     j["name"] = this->name;
     j["embedded"] = this->embedded;
