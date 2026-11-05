@@ -298,6 +298,33 @@ var _ = Describe("Restore", func() {
 		Entry("unfinished", "0000000001-0.59.0.partial"),
 	)
 
+	DescribeTable(
+		"Should not change the data when the backup lacks a directory",
+		func(ctx SpecContext, missing string) {
+			openAt(ctx, dir, "0.59.0")
+			l := openLayer(ctx, dir, "0.60.0")
+			Expect(l.KV.Set(ctx, []byte("key"), []byte("after"))).To(Succeed())
+			Expect(l.TS.CreateChannel(ctx, indexCh)).To(Succeed())
+			Expect(l.Close()).To(Succeed())
+			backup := onlyBackup(dir)
+			Expect(os.RemoveAll(filepath.Join(backup, missing))).To(Succeed())
+			Expect(storage.Restore(dir, filepath.Base(backup))).Error().
+				To(MatchError(ContainSubstring("has no %s directory", missing)))
+			Expect(entries(backup)).ToNot(ContainElement(missing))
+			Expect(filepath.Join(dir, storage.RestoreMarkerFile)).
+				ToNot(BeAnExistingFile())
+			l = openLayer(ctx, dir, "0.60.0")
+			value, closer := MustSucceed2(l.KV.Get(ctx, []byte("key")))
+			Expect(string(value)).To(Equal("after"))
+			Expect(closer.Close()).To(Succeed())
+			Expect(MustSucceed(l.TS.RetrieveChannel(ctx, indexCh.Key)).Name).
+				To(Equal("time"))
+			Expect(l.Close()).To(Succeed())
+		},
+		Entry("key-value store", "kv"),
+		Entry("channel metadata", "cesium"),
+	)
+
 	It("Should not restore while a Core runs on the data", func(ctx SpecContext) {
 		openAt(ctx, dir, "0.59.0")
 		openAt(ctx, dir, "0.60.0")
