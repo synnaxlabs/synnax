@@ -374,6 +374,16 @@ says why in a sentence, then gives the raw error.
   set the x axis. Below a toolbar width of 144rem it takes its own row at the bottom.
 - The X1 dialog floats, so it can be wider than its trigger.
 
+### Plot lines tab
+
+- The aggregation and detail of a line are compact selects, not rows of buttons. The
+  trigger shows an icon and a label that says what it sets ("Min/max", "Medium detail").
+  Each option says what it does to the plot in a few words ("Keeps spikes visible"), not
+  how it works, so the dropdown stays narrow.
+- A waveform marks min/max, a sine wave marks average, and `Icon.Meter` marks the
+  detail. These selects have no search.
+- Icon buttons alone were rejected: a user must hover each one to learn it.
+
 ### Plot legend
 
 - A padded Lyra `Divider` separates the axis groups: the shared border, with 0.5rem

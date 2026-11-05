@@ -17,45 +17,13 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 
-type ManualPerformance = Exclude<arc.task.Performance, "auto">;
-
-/** The number of meter bars each level fills. */
-const FILLED: Record<ManualPerformance, number> = { low: 1, medium: 2, high: 3 };
-
-const BAR_HEIGHTS = [6, 10, 14];
-const BAR_CLASS = CSS.BE("performance-select", "bar");
-
-/** Creates an icon that shows a level as three rising bars, filled up to the level. */
-const createMeter = (level: ManualPerformance): Icon.FC =>
-  Icon.wrapSVGIcon(
-    (props) => (
-      <svg viewBox="0 0 16 16" {...props}>
-        {BAR_HEIGHTS.map((height, i) => (
-          <rect
-            key={height}
-            className={CSS.cls(BAR_CLASS, i < FILLED[level] && CSS.M("filled"))}
-            x={1.5 + i * 5}
-            y={15 - height}
-            width={3}
-            height={height}
-            rx={1}
-          />
-        ))}
-      </svg>
-    ),
-    `performance-${level}`,
-    { className: CSS.BM("performance-select-meter", level) },
-  );
-
-const LowMeter = createMeter("low");
-const MediumMeter = createMeter("medium");
-const HighMeter = createMeter("high");
-
 const GLYPHS: Record<arc.task.Performance, Icon.ReactElement> = {
   auto: <Icon.Auto className={CSS.BE("performance-select", "auto")} />,
-  low: <LowMeter />,
-  medium: <MediumMeter />,
-  high: <HighMeter />,
+  low: <Icon.Meter.Low className={CSS.BM("performance-select-meter", "low")} />,
+  medium: (
+    <Icon.Meter.Medium className={CSS.BM("performance-select-meter", "medium")} />
+  ),
+  high: <Icon.Meter.High className={CSS.BM("performance-select-meter", "high")} />,
 };
 
 interface Level {

@@ -167,7 +167,7 @@ describe("TaskControls", () => {
       await client.arcs.updateTask(a.key, { rack: rck.key, performance: "medium" });
       await renderControls(a.key);
       const trigger = await findDialogTriggerByText("Medium");
-      expect(queryIcon(trigger, "performance-medium")).toBe(trigger.firstElementChild);
+      expect(queryIcon(trigger, "meter-medium")).toBe(trigger.firstElementChild);
     });
 
     it("should search the levels by name, not by description", async () => {
