@@ -20,6 +20,7 @@ export const Select = () => {
       emptyContent="No MQTT brokers connected"
       label="MQTT broker"
       make={MAKE}
+      icon={NETWORK.icon}
       connect={{ title: NETWORK.title, open: () => openConnect() }}
     />
   );
