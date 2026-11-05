@@ -55,6 +55,7 @@ var resourceTabTypes = set.New(
 	ontology.ResourceTypeLineplot,
 	ontology.ResourceTypeLog,
 	ontology.ResourceTypeTable,
+	ontology.ResourceTypeVideo,
 	ontology.ResourceTypeArc,
 	ontology.ResourceTypeTask,
 	ontology.ResourceTypeRange,

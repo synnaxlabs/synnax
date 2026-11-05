@@ -26,11 +26,12 @@ func _() {
 	_ = x[IteratorCommandValid-7]
 	_ = x[IteratorCommandError-8]
 	_ = x[IteratorCommandSetBounds-9]
+	_ = x[IteratorCommandSeekKeyframe-10]
 }
 
-const _IteratorCommand_name = "IteratorCommandNextIteratorCommandPrevIteratorCommandSeekFirstIteratorCommandSeekLastIterCommandSeekLEIteratorCommandSeekGEIteratorCommandValidIteratorCommandErrorIteratorCommandSetBounds"
+const _IteratorCommand_name = "IteratorCommandNextIteratorCommandPrevIteratorCommandSeekFirstIteratorCommandSeekLastIterCommandSeekLEIteratorCommandSeekGEIteratorCommandValidIteratorCommandErrorIteratorCommandSetBoundsIteratorCommandSeekKeyframe"
 
-var _IteratorCommand_index = [...]uint8{0, 19, 38, 62, 85, 102, 123, 143, 163, 187}
+var _IteratorCommand_index = [...]uint8{0, 19, 38, 62, 85, 102, 123, 143, 163, 187, 214}
 
 func (i IteratorCommand) String() string {
 	idx := int(i) - 1

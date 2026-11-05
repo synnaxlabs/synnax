@@ -201,6 +201,19 @@ func (c *Controller[R]) ResourceAt(tr telem.TimeRange) (res R, ok bool) {
 	return res, ok
 }
 
+// EarliestStart returns the earliest start of any region, reporting false when the
+// controller has no regions.
+func (c *Controller[R]) EarliestStart() (start telem.TimeStamp, ok bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	for _, reg := range c.regions {
+		if !ok || reg.timeRange.Start < start {
+			start, ok = reg.timeRange.Start, true
+		}
+	}
+	return start, ok
+}
+
 // OpenGate opens a new gate for the region occupying the specified time range. If the
 // region does not exist, it will be created and cfg.OpenResource will be called.
 // If the region does exist, the new gate will be added to the authority chain for the

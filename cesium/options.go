@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/json"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -42,6 +43,8 @@ type options struct {
 	// frame before dropping it.
 	slowConsumerTimeout time.Duration
 	chunkSize           int64
+	chunkBytes          telem.Size
+	offsetCacheBudget   telem.Size
 }
 
 func (o *options) Report() alamos.Report { return alamos.Report{"dirname": o.dirname} }
@@ -53,6 +56,8 @@ func newOptions(dirname string, opts ...Option) (*options, error) {
 		streamBufferSize:    defaultStreamBufferSize,
 		slowConsumerTimeout: defaultSlowConsumerTimeout,
 		chunkSize:           defaultChunkSize,
+		chunkBytes:          defaultChunkBytes,
+		offsetCacheBudget:   unary.DefaultOffsetCacheBudget,
 	}
 	for _, opt := range opts {
 		opt(o)
@@ -81,6 +86,8 @@ func mergeAndValidateOptions(o *options) error {
 	v.Positive("stream_buffer_size", o.streamBufferSize)
 	v.Positive("slow_consumer_timeout", o.slowConsumerTimeout)
 	v.Positive("chunk_size", o.chunkSize)
+	v.Positive("chunk_bytes", o.chunkBytes)
+	v.Positive("offset_cache_budget", o.offsetCacheBudget)
 	return v.Error()
 }
 
@@ -131,4 +138,17 @@ func WithSlowConsumerTimeout(timeout time.Duration) Option {
 // an automatic span, per channel.
 func WithChunkSize(size int64) Option {
 	return func(o *options) { o.chunkSize = size }
+}
+
+// WithChunkBytes sets the most data of one variable-density channel that one chunk of
+// a Next or Prev holds. A chunk holds at least one sample of each channel, however
+// large. Defaults to 64 MB.
+func WithChunkBytes(size telem.Size) Option {
+	return func(o *options) { o.chunkBytes = size }
+}
+
+// WithOffsetCacheBudget sets the most memory that the byte offset tables of
+// variable-density channels may use, summed over all channels. Defaults to 128 MB.
+func WithOffsetCacheBudget(budget telem.Size) Option {
+	return func(o *options) { o.offsetCacheBudget = budget }
 }

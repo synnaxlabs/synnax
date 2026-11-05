@@ -7,10 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { describe, expect, it } from "vitest";
+import {
+  DataType,
+  id,
+  Series,
+  TimeSpan,
+  TimeStamp,
+  type VideoFrame,
+} from "@synnaxlabs/x";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { type channel } from "@/channel";
+import { ValidationError } from "@/errors";
 import { createTestClient, secondsLinspace } from "@/testutil";
 
 const client = createTestClient();
@@ -34,6 +42,21 @@ const parseCSV = (csv: string): string[][] => {
   const lines = csv.trim().split(delimiter);
   return lines.map((line) => line.split(","));
 };
+
+const streamToBytes = async (stream: ReadableStream<Uint8Array>): Promise<Uint8Array> =>
+  new Uint8Array(await new Response(stream).arrayBuffer());
+
+// A 1920x1080 baseline SPS, which an MP4 init segment can parse.
+const SPS = [
+  0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02, 0x27, 0xe5, 0x84, 0x00, 0x00, 0x03,
+  0x00, 0x04, 0x00, 0x00, 0x03, 0x00, 0xf0, 0x3c, 0x60, 0xc9, 0x20,
+];
+const PPS = [0x68, 0xce, 0x3c, 0x80];
+const IDR = [0x65, 0x88, 0x84, 0x00];
+const P_SLICE = [0x41, 0xc0, 0x00];
+
+const annexB = (...nalus: number[][]): Uint8Array =>
+  new Uint8Array(nalus.flatMap((n) => [0, 0, 0, 1, ...n]));
 
 const streamToRecords = async (
   stream: ReadableStream<Uint8Array>,
@@ -807,6 +830,58 @@ describe("Reader", () => {
       expect(totalRows).toBe(denseSamples);
       expect(sparseRows).toBe(sparseSamples);
     }, 60_000);
+  });
+  describe("MP4", () => {
+    it("should export the frames of a video channel as an MP4 file", async () => {
+      const index = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+      });
+      const video = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.VIDEO,
+        index: index.key,
+      });
+      onTestFinished(async () => await client.channels.delete([video.key, index.key]));
+      const frames: VideoFrame[] = [
+        { keyframe: true, codec: "h264", data: annexB(SPS, PPS, IDR) },
+        { keyframe: false, codec: "h264", data: annexB(P_SLICE) },
+      ];
+      await client.write(TimeStamp.seconds(1), {
+        [index.key]: [TimeStamp.seconds(1), TimeStamp.seconds(2)],
+        [video.key]: new Series({ data: frames, dataType: DataType.VIDEO }),
+      });
+      const file = await streamToBytes(
+        await client.readMP4(
+          { start: TimeStamp.seconds(0), end: TimeStamp.seconds(10) },
+          video.key,
+        ),
+      );
+      const text = new TextDecoder("latin1").decode(file);
+      expect(text.slice(4, 8)).toBe("ftyp");
+      expect(text).toContain("moof");
+      expect(text).toContain("mdat");
+    });
+
+    it("should reject a channel that is not a video channel", async () => {
+      const index = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+      });
+      const data = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.FLOAT64,
+        index: index.key,
+      });
+      const read = client.readMP4(
+        { start: TimeStamp.seconds(0), end: TimeStamp.seconds(10) },
+        data.key,
+      );
+      await expect(read).rejects.toThrow(ValidationError);
+      await expect(read).rejects.toThrow("an MP4 read takes exactly one video channel");
+    });
   });
   describe("TDMS", () => {
     it("should export the channels and their index as a TDMS file", async () => {

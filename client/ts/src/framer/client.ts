@@ -19,9 +19,11 @@ import {
   type MultiSeries,
   TimeRange,
   TimeSpan,
+  TimeStamp,
 } from "@synnaxlabs/x";
 
 import { channel } from "@/channel";
+import { NotFoundError } from "@/errors";
 import { type ChannelRetriever } from "@/framer/adapter";
 import { Deleter } from "@/framer/deleter";
 import { Feed, type FeedOptions } from "@/framer/feed";
@@ -121,7 +123,30 @@ export class Client {
       openStreamer: async (config) => await this.openStreamer(config),
       readLatest: async (keys, count, tr) =>
         await this.readLatestNFrame(keys, count, tr),
+      findKeyframe: async (key, ts) => await this.findKeyframe(key, ts),
     });
+  }
+
+  // Returns the time of the keyframe of the video channel at or before ts, or null when
+  // there is none.
+  private async findKeyframe(
+    key: channel.Key,
+    ts: TimeStamp,
+  ): Promise<TimeStamp | null> {
+    const [ch] = await this.cfg.retrieveChannels([key]);
+    if (ch == null) throw new NotFoundError(`channel ${key} not found`);
+    const iter = await this.openIterator(new TimeRange(TimeStamp.MIN, ts.add(1)), [
+      key,
+      ch.index,
+    ]);
+    try {
+      if (!(await iter.seekKeyframe(ts))) return null;
+      if (!(await iter.next(TimeSpan.nanoseconds(1)))) return null;
+      const [first] = iter.value.get(ch.index).series;
+      return first == null || first.length === 0 ? null : new TimeStamp(first.data[0]);
+    } finally {
+      await iter.close();
+    }
   }
 
   async write(
@@ -252,6 +277,26 @@ export class Client {
     opts?: ReadFileOptions,
   ): Promise<ReadableStream<Uint8Array>> {
     return await this.reader.readTDMS(tr, channels, opts);
+  }
+
+  /**
+   * Reads the frames a video channel holds within the time range as a fragmented MP4
+   * file, with no re-encoding. The file starts at the first keyframe in the time range.
+   * The Core writes the file, so the caller never holds the whole export in memory.
+   *
+   * @param tr - the time range to read.
+   * @param channel - the video channel to read, by key or by name.
+   * @returns the MP4 file as a stream of bytes.
+   * @throws {NotFoundError} if the channel does not exist.
+   * @throws {AccessDeniedError} if the caller may not retrieve the channel or its index.
+   * @throws {ValidationError} if the channel is not a video channel, or has no keyframe
+   * in the time range.
+   */
+  async readMP4(
+    tr: CrudeTimeRange,
+    channel: channel.Key | channel.Name,
+  ): Promise<ReadableStream<Uint8Array>> {
+    return await this.reader.readMP4(tr, channel);
   }
 
   async readLatest(

@@ -1389,6 +1389,53 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						})
 					})
 				})
+				Describe("Claim at a file switch", func() {
+					It(
+						"Should free the finished domains except their last sample",
+						func(ctx SpecContext) {
+							idxW, _ := MustSucceed2(indexDB.OpenWriter(
+								ctx,
+								unary.WriterConfig{
+									Start:   10 * telem.SecondTS,
+									Subject: control.Subject{Key: "index"},
+								},
+							))
+							dataW, _ := MustSucceed2(dataDB.OpenWriter(
+								ctx,
+								unary.WriterConfig{
+									Start:   10 * telem.SecondTS,
+									Subject: control.Subject{Key: "data"},
+								},
+							))
+							stamps := make([]telem.TimeStamp, 13)
+							values := make([]int64, 13)
+							for i := range stamps {
+								stamps[i] = telem.TimeStamp(10 + i)
+								values[i] = int64(100 + i)
+							}
+							MustSucceed(
+								idxW.Write(telem.NewSeriesSecondsTSV(stamps...)),
+							)
+							MustSucceed(dataW.Write(telem.NewSeriesV(values...)))
+							Expect(idxW.Commit(ctx)).To(Equal(22*telem.SecondTS + 1))
+							Expect(dataW.Commit(ctx)).To(Equal(22*telem.SecondTS + 1))
+							freed := (10 * telem.SecondTS).Range(22 * telem.SecondTS)
+							Expect(dataDB.Delete(ctx, freed)).To(Succeed())
+							Expect(indexDB.Delete(ctx, freed)).To(Succeed())
+							last := (21 * telem.SecondTS).Range(23 * telem.SecondTS)
+							Expect(dataDB.Delete(ctx, last)).
+								To(MatchError(control.ErrUnauthorized))
+							Expect(indexDB.Delete(ctx, last)).
+								To(MatchError(control.ErrUnauthorized))
+							MustSucceed(idxW.Write(telem.NewSeriesSecondsTSV(23, 24)))
+							MustSucceed(dataW.Write(telem.NewSeriesV[int64](113, 114)))
+							Expect(idxW.Commit(ctx)).To(Equal(24*telem.SecondTS + 1))
+							Expect(dataW.Commit(ctx)).To(Equal(24*telem.SecondTS + 1))
+							MustSucceed(dataW.Close())
+							MustSucceed(idxW.Close())
+						},
+					)
+				})
 			})
 
 			Describe("Control", func() {

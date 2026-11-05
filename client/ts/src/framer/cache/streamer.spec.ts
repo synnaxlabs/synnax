@@ -36,6 +36,7 @@ const createErrorSpy = () => {
 
 class MockStreamer implements framer.Streamer {
   private keysI: channel.Params[];
+  dropped: channel.Key[] = [];
   readonly updateVi = vi.fn();
   readonly closeVi = vi.fn();
   readonly iteratorVi = vi.fn();
@@ -1001,6 +1002,41 @@ describe("MultiplexedStreamer", () => {
 
       expect(store.open(1)).toBeNull();
       sub.close();
+      await streamer.close();
+    });
+
+    it("should close the open blocks of the channels in a drop notice", async () => {
+      const cache = createJoined(1, 2);
+      const { store } = cache;
+      const frame = new framer.Frame({ 1: createTimestamps(), 2: createTimestamps() });
+      const notice = oneFrameStreamer([1, 2], frame);
+      const read = notice.nextFn as () => Promise<IteratorResult<framer.Frame>>;
+      let reads = 0;
+      const ms = new MockStreamer([1, 2], async () => {
+        reads++;
+        if (reads === 2) {
+          ms.dropped = [1];
+          return { done: false, value: new framer.Frame() };
+        }
+        return await read();
+      });
+      ms.close = notice.close;
+      const streamer = new MultiplexedStreamer({
+        ...cache,
+        openStreamer: createStreamOpener([ms]),
+      });
+      const sub1 = streamer.demand([1], () => {});
+      const sub2 = streamer.demand([2], () => {});
+      const drops: channel.Key[] = [];
+      sub1.onDrop(() => drops.push(1));
+      sub2.onDrop(() => drops.push(2));
+      await vi.advanceTimersByTimeAsync(200);
+
+      expect(store.open(1)).toBeNull();
+      expect(store.open(2)).not.toBeNull();
+      expect(drops).toEqual([1]);
+      sub1.close();
+      sub2.close();
       await streamer.close();
     });
 

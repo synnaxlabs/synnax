@@ -71,6 +71,7 @@ type CoreConfig struct {
 	taskOpTimeout        time.Duration
 	slowConsumerTimeout  time.Duration
 	sessionIdleTimeout   time.Duration
+	whipUDPPort          int
 	taskWorkerCount      uint8
 }
 
@@ -158,6 +159,7 @@ func (c CoreConfig) Override(other CoreConfig) CoreConfig {
 			c.taskWorkerCount,
 			other.taskWorkerCount,
 		),
+		whipUDPPort:       override.Numeric(c.whipUDPPort, other.whipUDPPort),
 		certFactoryConfig: c.certFactoryConfig.Override(other.certFactoryConfig),
 		enabledIntegrations: override.Slice(
 			c.enabledIntegrations,
@@ -273,6 +275,7 @@ func BootupCore(
 			Loopback: new(cfg.listeners.Loopback()),
 		},
 		ValidateChannelNames: cfg.validateChannelNames,
+		WHIPUDPPort:          cfg.whipUDPPort,
 	})
 	if !ok(err, serviceLayer) {
 		return err
@@ -324,7 +327,7 @@ func BootupCore(
 		server.Config{
 			Branches: []server.Branch{
 				&server.SecureHTTPBranch{
-					Transports: []http.BindableTransport{r, embeddedConsole},
+					Transports: append(transportLayer.HTTP, embeddedConsole),
 				},
 				&server.GRPCBranch{Transports: append(
 					transportLayer.GRPC,

@@ -72,13 +72,16 @@ export { project } from "@/project";
 export { query } from "@/query";
 export { rack } from "@/rack";
 export { ranger } from "@/ranger";
+export { rtsp } from "@/rtsp";
 export { schematic } from "@/schematic";
 export { status } from "@/status";
 export type { StatusZodObject } from "@/status/types.gen";
 export { table } from "@/table";
 export { task } from "@/task";
 export { user } from "@/user";
+export { video } from "@/video";
 export { view } from "@/view";
+export { whip } from "@/whip";
 export {
   type CrudeDataType,
   type CrudeDensity,

@@ -12,16 +12,19 @@ import { deep, type destructor } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
 import { UnexpectedError, ValidationError } from "@/errors";
+import { Frames, type FramesProps } from "@/framer/cache/frames";
 import { Latest, type LatestProps } from "@/framer/cache/latest";
 import { Points, type PointsProps } from "@/framer/cache/points";
 import {
+  type FramesRequest,
+  type LatestRequest,
   type PointsRequest,
   type Snapshot,
   type SubscribeRequest,
   type Subscription,
 } from "@/framer/subscription";
 
-export interface HandleProps extends PointsProps, LatestProps {
+export interface HandleProps extends PointsProps, LatestProps, FramesProps {
   /** Called once when the subscription closes. */
   onClose: () => void;
   /** Logs the errors that change handlers throw. */
@@ -31,13 +34,21 @@ export interface HandleProps extends PointsProps, LatestProps {
 const isPoints = (request: SubscribeRequest): request is PointsRequest =>
   request.limit.variant === "points";
 
+const isLatest = (request: SubscribeRequest): request is LatestRequest =>
+  request.limit.variant === "latest";
+
+const isFrames = (request: SubscribeRequest): request is FramesRequest =>
+  request.limit.variant === "frames";
+
+type Consumer = Points | Latest | Frames;
+
 /**
- * A subscription that serves each channel through a points or latest consumer. Its
- * change handlers run once per microtask, however many changes it holds.
+ * A subscription that serves each channel through a points, latest, or frames
+ * consumer. Its change handlers run once per microtask, however many changes it holds.
  */
 export class Handle implements Subscription {
   private request: SubscribeRequest | null = null;
-  private readonly consumers = new Map<channel.Key, Points | Latest>();
+  private readonly consumers = new Map<channel.Key, Consumer>();
   private readonly handlers = new Set<() => void>();
   private notifying = false;
   private closed = false;
@@ -76,21 +87,36 @@ export class Handle implements Subscription {
     });
     keys.forEach((key) => {
       const c = this.consumers.get(key);
-      if (isPoints(request)) {
-        const { window, limit } = request;
-        if (c instanceof Points) c.update(window, limit);
-        else
-          this.consumers.set(
-            key,
-            new Points(this.props, key, window, limit, this.notify),
-          );
-      } else if (c instanceof Latest) c.update(request.window, request.limit.count);
-      else
-        this.consumers.set(
-          key,
-          new Latest(this.props, key, request.window, request.limit.count, this.notify),
-        );
+      if (c != null) this.updateConsumer(c, request);
+      else this.consumers.set(key, this.createConsumer(key, request));
     });
+  }
+
+  private createConsumer(key: channel.Key, request: SubscribeRequest): Consumer {
+    if (isPoints(request))
+      return new Points(this.props, key, request.window, request.limit, this.notify);
+    if (isLatest(request))
+      return new Latest(
+        this.props,
+        key,
+        request.window,
+        request.limit.count,
+        this.notify,
+      );
+    if (isFrames(request))
+      return new Frames(this.props, key, request.window, this.notify);
+    throw new UnexpectedError("subscription request has an unknown limit");
+  }
+
+  // update closes every consumer of another variant first.
+  private updateConsumer(c: Consumer, request: SubscribeRequest): void {
+    if (c instanceof Points && isPoints(request))
+      c.update(request.window, request.limit);
+    else if (c instanceof Latest && isLatest(request))
+      c.update(request.window, request.limit.count);
+    else if (c instanceof Frames && isFrames(request)) c.update(request.window);
+    else
+      throw new UnexpectedError(`consumer of channel ${c.key} is of another variant`);
   }
 
   onChange(handler: () => void): destructor.Destructor {

@@ -680,6 +680,7 @@ describe("Streamer", () => {
 
   class MockStreamer implements framer.Streamer {
     keys: channel.Key[] = [];
+    dropped: channel.Key[] = [];
     updateMock = vi.fn();
     readMock = vi.fn();
     closeMock = vi.fn();

@@ -62,6 +62,9 @@ type Channel struct {
 	// Concurrency sets the policy for concurrent writes to the channel's data. Only
 	// virtual channels can have a policy of shared concurrency.
 	Concurrency control.Concurrency `json:"concurrency" msgpack:"concurrency"`
+	// Retention is how long the Core keeps the data of an index channel and of every
+	// channel on it. Zero keeps the data forever. Only an index channel can set it.
+	Retention telem.TimeSpan `json:"retention" msgpack:"retention"`
 	// Status is the current operational status of the channel.
 	Status *Status `json:"status,omitzero" msgpack:"status,omitempty"`
 }

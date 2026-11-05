@@ -33,6 +33,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/history"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/retention"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/http"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
@@ -59,6 +60,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
+	"github.com/synnaxlabs/synnax/pkg/service/rtsp"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -66,7 +68,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/synnax/pkg/service/video"
 	"github.com/synnaxlabs/synnax/pkg/service/view"
+	"github.com/synnaxlabs/synnax/pkg/service/whip"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -117,6 +121,10 @@ type LayerConfig struct {
 	//
 	// [OPTIONAL] - Defaults to true (validation enabled)
 	ValidateChannelNames *bool
+	// WHIPUDPPort is the UDP port that receives the media of every WHIP session.
+	//
+	// [OPTIONAL] - Defaults to 0, which gives each session its own ports.
+	WHIPUDPPort int
 	// Instrumentation is for logging, tracing, metrics, etc.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -147,6 +155,7 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 	c.ValidateChannelNames = override.Nil(
 		c.ValidateChannelNames, other.ValidateChannelNames,
 	)
+	c.WHIPUDPPort = override.Numeric(c.WHIPUDPPort, other.WHIPUDPPort)
 	return c
 }
 
@@ -192,6 +201,8 @@ type Layer struct {
 	LinePlot *lineplot.Service
 	// Log is for working with log visualizations.
 	Log *log.Service
+	// Video is for working with video views.
+	Video *video.Service
 	// Table is for working with table visualizations.
 	Table *table.Service
 	// Panel is for working with Panels.
@@ -223,6 +234,12 @@ type Layer struct {
 	PagerDuty *pdruntime.Service
 	// MQTT owns the stored configuration records of the MQTT task types.
 	MQTT *mqtt.Service
+	// RTSP owns the stored configuration records of the rtsp_read task type.
+	RTSP *rtsp.Service
+	// WHIP owns the stored configuration records of the whip_read task type.
+	WHIP *whip.Service
+	// WHIPFactory runs WHIP read tasks and connects the encoders that publish to them.
+	WHIPFactory *whip.Factory
 	// Framer is for reading, writing, and streaming frames of telemetry from channels
 	// across the cluster.
 	Framer *framer.Service
@@ -365,6 +382,15 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			ChannelGraph:    channelGraph,
 		},
 	); !ok(err, l.Framer) {
+		return nil, err
+	}
+	retentionSvc, err := retention.Open(retention.Config{
+		Instrumentation: cfg.Child("framer.retention"),
+		Channel:         l.Channel,
+		Framer:          cfg.Distribution.Framer,
+		HostProvider:    cfg.Distribution.Cluster,
+	})
+	if !ok(err, retentionSvc) {
 		return nil, err
 	}
 	if l.Signals, err = signals.New(signals.Config{
@@ -566,6 +592,14 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Log) {
 		return nil, err
 	}
+	if l.Video, err = video.OpenService(ctx, video.ServiceConfig{
+		Instrumentation: cfg.Child("video"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        l.Ontology,
+		Signals:         l.Signals,
+	}); !ok(err, l.Video) {
+		return nil, err
+	}
 	if l.Panel, err = panel.OpenService(ctx, panel.ServiceConfig{
 		Instrumentation: cfg.Child("panel"),
 		DB:              cfg.Distribution.DB,
@@ -683,10 +717,23 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.MQTT) {
 		return nil, err
 	}
+	if l.RTSP, err = rtsp.OpenService(ctx, rtsp.ServiceConfig{
+		Instrumentation: cfg.Child("rtsp"),
+		DB:              cfg.Distribution.DB,
+	}); !ok(err, l.RTSP) {
+		return nil, err
+	}
+	if l.WHIP, err = whip.OpenService(ctx, whip.ServiceConfig{
+		Instrumentation: cfg.Child("whip"),
+		DB:              cfg.Distribution.DB,
+	}); !ok(err, l.WHIP) {
+		return nil, err
+	}
 	configStores := slices.Concat(
 		l.NI.Stores(), l.OPCUA.Stores(), l.LabJack.Stores(), l.Modbus.Stores(),
 		l.EtherCAT.Stores(), l.HTTP.Stores(), l.ArcTask.Stores(),
-		l.RackTask.Stores(), l.PagerDuty.Stores(), l.MQTT.Stores(),
+		l.RackTask.Stores(), l.PagerDuty.Stores(), l.MQTT.Stores(), l.RTSP.Stores(),
+		l.WHIP.Stores(),
 	)
 	taskConfigs, err := taskconfig.NewRegistry(configStores...)
 	if !ok(err, nil) {
@@ -805,6 +852,26 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if !ok(err, mqttFactory) {
 		return nil, err
 	}
+	rtspFactory, err := rtsp.NewFactory(rtsp.FactoryConfig{
+		Instrumentation: cfg.Child("rtsp"),
+		DB:              cfg.Distribution.DB,
+		Channel:         l.Channel,
+		Framer:          l.Framer,
+		Status:          l.Status,
+	})
+	if !ok(err, nil) {
+		return nil, err
+	}
+	if l.WHIPFactory, err = whip.OpenFactory(whip.FactoryConfig{
+		Instrumentation: cfg.Child("whip"),
+		DB:              cfg.Distribution.DB,
+		Channel:         l.Channel,
+		Framer:          l.Framer,
+		Status:          l.Status,
+		UDPPort:         cfg.WHIPUDPPort,
+	}); !ok(err, l.WHIPFactory) {
+		return nil, err
+	}
 	if l.Driver, err = driver.Open(ctx, driver.Config{
 		Instrumentation: cfg.Child("driver"),
 		DB:              cfg.Distribution.DB,
@@ -813,8 +880,10 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Framer:          l.Framer,
 		Channel:         l.Channel,
 		Status:          l.Status,
-		Factories:       []driver.Factory{arcFactory, pdFactory, mqttFactory},
-		Host:            cfg.Distribution.Cluster,
+		Factories: []driver.Factory{
+			arcFactory, pdFactory, mqttFactory, rtspFactory, l.WHIPFactory,
+		},
+		Host: cfg.Distribution.Cluster,
 	}); !ok(err, l.Driver) {
 		return nil, err
 	}

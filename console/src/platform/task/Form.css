@@ -69,6 +69,13 @@
             overflow: auto;
             height: 100%;
         }
+
+        /* Sections that fill the channel form box of a task with no channel list. */
+        .console-task-sections {
+            width: 100%;
+            padding: 3.5rem;
+            overflow: auto;
+        }
     }
 
     .console-task__channel-name {

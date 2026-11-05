@@ -52,6 +52,9 @@ const (
 	// BooleanT is a data type for a boolean value. Samples are a single byte with
 	// canonical values 0x00 (false) and 0x01 (true).
 	BooleanT DataType = versions.BooleanT
+	// VideoT is a variable density data type for encoded video. Each sample is one
+	// frame: a two-byte header followed by the encoded picture. See VideoFrame.
+	VideoT DataType = versions.VideoT
 )
 
 // InferDataType infers the data type of the given Sample.

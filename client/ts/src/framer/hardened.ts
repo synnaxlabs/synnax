@@ -263,6 +263,10 @@ export class HardenedStreamer implements Streamer {
     return this.wrapped.keys;
   }
 
+  get dropped(): channel.Key[] {
+    return this.current?.dropped ?? [];
+  }
+
   [Symbol.asyncIterator](): AsyncIterator<Frame> {
     return this;
   }

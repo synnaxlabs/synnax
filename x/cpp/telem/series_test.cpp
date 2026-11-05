@@ -92,6 +92,44 @@ TYPED_TEST(NumericSeriesTest, testSampleValueConstruction) {
         this->validate_sample_value_ctor(TypeParam{42});
 }
 
+/// @brief it should construct a video series and read its frames back.
+TEST(TestSeries, testVideoFrameConstruction) {
+    const std::vector<VideoFrame> frames = {
+        {.keyframe = true, .codec = VideoCodec::H264, .data = {0, 0, 1, 0x65}},
+        {.keyframe = false, .codec = VideoCodec::H264, .data = {0, 0, 1, 0x41}},
+    };
+    const Series s{frames};
+    ASSERT_EQ(s.data_type(), VIDEO_T);
+    ASSERT_EQ(s.size(), 2);
+    ASSERT_EQ(s.byte_size(), 20);
+    ASSERT_EQ(ASSERT_NIL_P(s.video_frames()), frames);
+}
+
+/// @brief it should keep the frames of a video series through protobuf.
+TEST(TestSeries, testVideoProtoRoundTrip) {
+    const std::vector<VideoFrame> frames = {
+        {.keyframe = true, .codec = VideoCodec::H264, .data = {0, 0, 1, 0x65}},
+    };
+    const Series s{frames};
+    const auto s2 = ASSERT_NIL_P(Series::from_proto(s.to_proto()));
+    ASSERT_EQ(s2.data_type(), VIDEO_T);
+    ASSERT_EQ(ASSERT_NIL_P(s2.video_frames()), frames);
+}
+
+/// @brief it should return a validation error when a sample is not a valid frame.
+TEST(TestSeries, testVideoFramesInvalidSample) {
+    const Series s{std::vector<std::string>{std::string(1, '\0')}, VIDEO_T};
+    const auto [frames, err] = s.video_frames();
+    ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+    ASSERT_EQ(err.data, "video sample has 1 bytes, but the header needs 2");
+}
+
+/// @brief it should throw when reading frames from a series that is not video.
+TEST(TestSeries, testVideoFramesWrongDataType) {
+    const Series s{std::vector<std::string>{"a"}};
+    ASSERT_THROW(static_cast<void>(s.video_frames()), std::runtime_error);
+}
+
 //// @brief it should correctly initialize and parse a string series.
 TEST(TestSeries, testStringVectorConstruction) {
     const std::vector<std::string> vals = {"hello", "world"};

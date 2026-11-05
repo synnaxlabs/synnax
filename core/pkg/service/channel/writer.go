@@ -185,6 +185,20 @@ func (w Writer) RenameMany(
 	return w.rename(ctx, keys, newNames, allowInternal)
 }
 
+// validateRetention returns a validation error for a negative retention, or for a
+// retention on a channel that is not a persisted index channel.
+func validateRetention(ch Channel) error {
+	var msg string
+	if ch.Retention < 0 {
+		msg = "retention cannot be negative"
+	} else if ch.Retention > 0 && (!ch.IsIndex || ch.Virtual) {
+		msg = "only a persisted index channel can have a retention"
+	} else {
+		return nil
+	}
+	return validate.PathedError(errors.Wrap(validate.ErrValidation, msg), "retention")
+}
+
 // create orchestrates channel creation: it validates names, preprocesses calculated
 // channels, resolves existing channels, allocates keys and storage through the
 // distribution allocator, writes the rich channel records to the table, and registers
@@ -196,7 +210,11 @@ func (w Writer) create(
 ) error {
 	channels := *_channels
 	for i := range channels {
-		if err := channels[i].Validate(); err != nil {
+		err := channels[i].Validate()
+		if err == nil {
+			err = validateRetention(channels[i])
+		}
+		if err != nil {
 			return validate.PathedError(err, strconv.Itoa(i))
 		}
 	}

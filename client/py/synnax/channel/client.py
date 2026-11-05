@@ -34,10 +34,12 @@ from synnax.ontology.payload import ID
 from synnax.telem import (
     CrudeDataType,
     CrudeSeries,
+    CrudeTimeSpan,
     CrudeTimeStamp,
     DataType,
     MultiSeries,
     TimeRange,
+    TimeSpan,
 )
 from x import control
 from x.lists import normalize
@@ -67,6 +69,7 @@ class Channel(Payload):
         operations: list[Operation] | None = None,
         alias: str | None = None,
         concurrency: control.Concurrency = control.Concurrency.exclusive,
+        retention: CrudeTimeSpan = 0,
         status: Status | None = None,
         _frame_client: framer.Client | None = None,
         _client: Client | None = None,
@@ -93,6 +96,8 @@ class Channel(Payload):
         :param operations: A list of operations to apply to the channel. Operations
         include aggregations like min, max, avg over a time duration or triggered by
         a reset channel.
+        :param retention: How long Synnax keeps the data of an index channel and of
+        every channel on it. Zero keeps the data forever.
         :returns: The created channel.
         :param _frame_client: The backing client for reading and writing data to and
         from the channel. This is provided by the Synnax py during calls to
@@ -114,6 +119,7 @@ class Channel(Payload):
             expression=expression,
             operations=operations,
             concurrency=concurrency,
+            retention=TimeSpan(retention),
             alias=alias,
             status=status,
         )
@@ -202,6 +208,7 @@ class Channel(Payload):
             internal=self.internal,
             expression=self.expression,
             operations=self.operations,
+            retention=self.retention,
         )
 
 
@@ -239,6 +246,7 @@ class Client:
         virtual: bool | None = None,
         expression: str = "",
         operations: list[Operation] | None = None,
+        retention: CrudeTimeSpan = 0,
         retrieve_if_name_exists: bool = False,
     ) -> Channel: ...
 
@@ -264,6 +272,7 @@ class Client:
         virtual: bool | None = None,
         expression: str = "",
         operations: list[Operation] | None = None,
+        retention: CrudeTimeSpan = 0,
         retrieve_if_name_exists: bool = False,
     ) -> Channel | list[Channel]:
         """Creates new channel(s) in the Synnax cluster.
@@ -284,6 +293,8 @@ class Client:
         automatically configured as virtual.
         set if expression is not an empty string. If expression is not an empty string,
         this should have at least one channel.
+        :param retention: How long Synnax keeps the data of an index channel and of
+        every channel on it. Zero keeps the data forever.
         :param retrieve_if_name_exists: Boolean indicating whether to retrieve channels
         with the same name if they already exist in the cluster.
         :returns: The created channel.
@@ -319,6 +330,7 @@ class Client:
                     virtual=virtual if virtual is not None else len(expression) > 0,
                     expression=expression,
                     operations=operations,
+                    retention=TimeSpan(retention),
                 )
             ]
         elif isinstance(channels, Channel):

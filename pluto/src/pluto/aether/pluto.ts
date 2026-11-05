@@ -21,6 +21,8 @@ import { table } from "@/table/aether";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { theming } from "@/theming/aether";
+import { video } from "@/video/aether";
+import { VideoFactory } from "@/video/aether/telem/factory";
 import { button } from "@/vis/button/aether";
 import { canvas } from "@/vis/canvas/aether";
 import { diagram } from "@/vis/diagram/aether";
@@ -57,13 +59,17 @@ export const render = (): void => {
     ...status.REGISTRY,
     ...stringValue.REGISTRY,
     ...synnax.REGISTRY,
-    ...telem.createRegistry((client) => new LogFactory(client)),
+    ...telem.createRegistry(
+      (client) => new LogFactory(client),
+      (client) => new VideoFactory(client),
+    ),
     ...theming.REGISTRY,
     ...toggle.REGISTRY,
     ...value.REGISTRY,
     ...log.REGISTRY,
     ...table.REGISTRY,
     ...gauge.REGISTRY,
+    ...video.REGISTRY,
   };
 
   aether.render({

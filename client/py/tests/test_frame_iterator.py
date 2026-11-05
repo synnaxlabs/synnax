@@ -88,6 +88,54 @@ class TestIterator:
 
             assert not i.prev(sy.framer.AUTO_SPAN)
 
+    def test_seek_keyframe(self, client: sy.Synnax) -> None:
+        """Should read from the last keyframe at or before a timestamp."""
+        v = random_name()
+        idx = client.channels.create(
+            name=f"test_{v}_time", is_index=True, data_type=sy.DataType.TIMESTAMP
+        )
+        video = client.channels.create(
+            name=f"test_{v}_video", index=idx.key, data_type=sy.DataType.VIDEO
+        )
+        frames = [
+            sy.VideoFrame(
+                data=bytes([i]), codec=sy.VideoCodec.H264, keyframe=i % 3 == 0
+            )
+            for i in range(6)
+        ]
+        start = sy.TimeStamp(sy.TimeSpan.SECOND * 10)
+        with client.open_writer(start, [idx.key, video.key]) as w:
+            w.write(
+                {
+                    idx.key: seconds_linspace(10, count=6),
+                    video.key: sy.Series(frames, data_type=sy.DataType.VIDEO),
+                }
+            )
+            w.commit()
+        with client.open_iterator(sy.TimeRange.MAX, [idx.key, video.key]) as i:
+            assert i.seek_keyframe(sy.TimeSpan.SECOND * 15)
+            assert i.next(sy.TimeSpan.SECOND * 2)
+            assert np.array_equal(
+                i.value[idx.key].to_numpy(), seconds_linspace(13, count=2)
+            )
+            read = list(i.value[video.key])
+            assert read[0].keyframe
+            assert read[0].data == bytes([3])
+
+    def test_seek_keyframe_without_video(
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ) -> None:
+        """Should fail to seek to a keyframe without a video channel."""
+        idx_ch, _ = indexed_pair
+        idx_ch.write(sy.TimeSpan.SECOND * 1, seconds_linspace(1, count=5))
+        i = client.open_iterator(sy.TimeRange.MAX, idx_ch.key)
+        assert not i.seek_keyframe(sy.TimeSpan.SECOND * 3)
+        with pytest.raises(
+            sy.ValidationError,
+            match="cannot seek to a keyframe of a timestamp channel",
+        ):
+            i.close()
+
     def test_advanced_iterate(
         self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]
     ) -> None:

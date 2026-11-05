@@ -26,11 +26,12 @@ func _() {
 	_ = x[CommandValid-7]
 	_ = x[CommandError-8]
 	_ = x[CommandSetBounds-9]
+	_ = x[CommandSeekKeyframe-10]
 }
 
-const _Command_name = "CommandNextCommandPrevCommandSeekFirstCommandSeekLastCommandSeekLECommandSeekGECommandValidCommandErrorCommandSetBounds"
+const _Command_name = "CommandNextCommandPrevCommandSeekFirstCommandSeekLastCommandSeekLECommandSeekGECommandValidCommandErrorCommandSetBoundsCommandSeekKeyframe"
 
-var _Command_index = [...]uint8{0, 11, 22, 38, 53, 66, 79, 91, 103, 119}
+var _Command_index = [...]uint8{0, 11, 22, 38, 53, 66, 79, 91, 103, 119, 138}
 
 func (i Command) String() string {
 	idx := int(i) - 1

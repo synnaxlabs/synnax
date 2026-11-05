@@ -47,6 +47,9 @@ const (
 	CommandError
 	// CommandSetBounds sets the time bounds the iterator operates over.
 	CommandSetBounds
+	// CommandSeekKeyframe positions the iterator at the last keyframe of its video
+	// channels at or before a timestamp.
+	CommandSeekKeyframe
 )
 
 // Request is a request to an Iterator.
@@ -55,7 +58,7 @@ type Request struct {
 	Keys channel.Keys `json:"keys" msgpack:"keys"`
 	// Bounds should be set during calls to SetBounds.
 	Bounds telem.TimeRange `json:"bounds" msgpack:"bounds"`
-	// Stamp should be set during calls to SeekLE and SeekGE.
+	// Stamp should be set during calls to SeekLE, SeekGE, and SeekKeyframe.
 	Stamp telem.TimeStamp `json:"stamp" msgpack:"stamp"`
 	// Span should be set during calls to Next and Prev.
 	Span telem.TimeSpan `json:"span" msgpack:"span"`

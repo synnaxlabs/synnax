@@ -433,6 +433,7 @@ func (db *DB) openDomainIdxWriter(
 	w.idx.autoStampClock = cfg.Start
 	w.writingToIdx = false
 	w.start = cfg.Start
+	w.stampFrom = cfg.Start
 	w.lastCommitEnd = cfg.Start
 	return w, nil
 }

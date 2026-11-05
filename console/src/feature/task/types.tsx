@@ -18,6 +18,8 @@ import { MQTT } from "@/feature/mqtt";
 import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
 import { PagerDuty } from "@/feature/pagerduty";
+import { RTSP } from "@/feature/rtsp";
+import { WHIP } from "@/feature/whip";
 
 const PREFIXES = [
   EtherCAT.Task.PREFIX,
@@ -28,6 +30,8 @@ const PREFIXES = [
   NI.Task.PREFIX,
   OPCUA.Task.PREFIX,
   PagerDuty.Task.PREFIX,
+  RTSP.Task.PREFIX,
+  WHIP.Task.PREFIX,
 ] as const;
 type Prefix = (typeof PREFIXES)[number];
 
@@ -40,6 +44,8 @@ const ICONS: Record<Prefix, Icon.ReactElement> = {
   [NI.Task.PREFIX]: <Icon.Logo.NI />,
   [OPCUA.Task.PREFIX]: <Icon.Logo.OPCUA />,
   [PagerDuty.Task.PREFIX]: <Icon.Logo.PagerDuty />,
+  [RTSP.Task.PREFIX]: <Icon.Video />,
+  [WHIP.Task.PREFIX]: <Icon.Video />,
 };
 
 export const getIcon = (type: string): Icon.ReactElement => {
@@ -56,6 +62,8 @@ const PREFIX_NAMES: Record<Prefix, string> = {
   [NI.Task.PREFIX]: "NI",
   [OPCUA.Task.PREFIX]: "OPC UA",
   [PagerDuty.Task.PREFIX]: "PagerDuty",
+  [RTSP.Task.PREFIX]: "RTSP",
+  [WHIP.Task.PREFIX]: "WHIP",
 };
 
 export const parseType = (type: string): string => {

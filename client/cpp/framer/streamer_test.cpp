@@ -9,6 +9,7 @@
 
 #include <chrono>
 #include <future>
+#include <set>
 
 #include "gtest/gtest.h"
 
@@ -75,6 +76,47 @@ TEST(StreamerTests, testStreamBasic) {
     ASSERT_EQ(res_frame.series->at(0).at<float>(0), v);
 
     ASSERT_NIL(writer.close());
+    ASSERT_NIL(streamer.close());
+}
+
+/// @brief it should name the channels whose frames the Core dropped for a slow reader.
+TEST(StreamerTests, testDropped) {
+    auto client = new_test_client();
+    auto data = create_virtual_channel(client, x::telem::FLOAT64_T);
+    std::vector channels = {data.key};
+    auto streamer = ASSERT_NIL_P(
+        client.telem.open_streamer(synnax::framer::StreamerConfig{channels})
+    );
+    auto writer = ASSERT_NIL_P(client.telem.open_writer(
+        synnax::framer::WriterConfig{
+            channels,
+            x::telem::TimeStamp::now(),
+            {x::control::AUTHORITY_ABSOLUTE},
+            x::control::Subject{"test_writer"}
+        }
+    ));
+    constexpr int count = 80;
+    for (int i = 0; i < count; i++) {
+        std::vector<double> values(1 << 17);
+        values[0] = i;
+        auto frame = x::telem::Frame(1);
+        frame.emplace(data.key, x::telem::Series(values));
+        ASSERT_NIL(writer.write(frame));
+    }
+    ASSERT_NIL(writer.close());
+    std::set<synnax::channel::Key> dropped;
+    int firsts = 0;
+    double last = -1;
+    while (last != count - 1) {
+        auto frame = ASSERT_NIL_P(streamer.read());
+        dropped.insert(streamer.dropped().begin(), streamer.dropped().end());
+        for (const auto &series: *frame.series) {
+            last = series.at<double>(0);
+            firsts++;
+        }
+    }
+    ASSERT_EQ(dropped, std::set{data.key});
+    ASSERT_LT(firsts, count);
     ASSERT_NIL(streamer.close());
 }
 

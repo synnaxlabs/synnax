@@ -138,7 +138,12 @@ const PlainEntryPane: FC<{ path: string }> = ({ path }) => (
 );
 
 // A Sparkplug B DateTime tag reads into a timestamp channel.
-const SPARKPLUG_HIDDEN_DATA_TYPES = [DataType.UUID, DataType.JSON, DataType.BYTES];
+const SPARKPLUG_HIDDEN_DATA_TYPES = [
+  DataType.UUID,
+  DataType.JSON,
+  DataType.BYTES,
+  DataType.VIDEO,
+];
 
 interface PaneProps {
   path: string;

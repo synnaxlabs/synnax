@@ -26,6 +26,10 @@ describe("resolveDataTypeIcon", () => {
     expect(resolveDataTypeIcon(DataType.BYTES)).toBe(Icon.Binary);
   });
 
+  it("should return the Video icon for VIDEO data type", () => {
+    expect(resolveDataTypeIcon(DataType.VIDEO)).toBe(Icon.Video);
+  });
+
   it("should return the Binary icon for integer data types", () => {
     expect(resolveDataTypeIcon(DataType.INT8)).toBe(Icon.Binary);
     expect(resolveDataTypeIcon(DataType.INT16)).toBe(Icon.Binary);

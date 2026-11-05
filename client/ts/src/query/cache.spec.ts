@@ -24,6 +24,7 @@ interface Doc extends record.Keyed<string> {
 
 class MockStreamer implements framer.Streamer {
   keys: channel.Key[] = [];
+  dropped: channel.Key[] = [];
   private readonly frames: framer.Frame[];
   private done = false;
 
@@ -67,6 +68,7 @@ const makeEngine = (openStreamer?: framer.StreamOpener, retry?: breaker.Config) 
 // Fails on every read with a non-EOF error, forcing a reopen.
 const failingStreamer = (): framer.Streamer => ({
   keys: [],
+  dropped: [],
   update: async () => {},
   close: () => {},
   next: async () => {
@@ -92,6 +94,7 @@ const lateFrameStreamer = (frame: framer.Frame): framer.Streamer => {
   };
   return {
     keys: [],
+    dropped: [],
     update: async () => {},
     close: () => {
       closed = true;

@@ -54,7 +54,7 @@ type WriterConfig struct {
 	// Start marks the start of the writer's control region and, unless
 	// Writer.SetDomainStart sets another, of the domain it writes. A zero Start means
 	// the time the writer opens. A non-zero Start fails the open when stored data holds
-	// it.
+	// it. At each file switch, the region start moves to the last committed sample.
 	// [OPTIONAL]
 	Start telem.TimeStamp
 	// End is an optional parameter that marks the ending bound of the domain. Defining
@@ -160,9 +160,12 @@ type controlledWriter struct {
 	// and the current domain start remain consistent across owners. Reset on rollover
 	// via the domain.Writer's OnRollover hook.
 	tracker *offsetTracker
-	// sessionStart is the start of the resource's first domain since it last ended one.
-	// Commits that resolve their end from the session sample count anchor on it.
-	sessionStart telem.TimeStamp
+	// stampFrom is the last committed sample, or the session start before the first
+	// commit, and stampIndex is the number of session samples before it. A commit that
+	// resolves its end from the session sample count stamps from it. The claim never
+	// moves past it, so a delete cannot remove it.
+	stampFrom  telem.TimeStamp
+	stampIndex int64
 	// alignments reserves the alignment domain of each domain after the first.
 	alignments *alignment.Counter
 }
@@ -184,7 +187,8 @@ func (w *controlledWriter) setStart(start telem.TimeStamp) error {
 	if err := w.SetStart(start); err != nil {
 		return err
 	}
-	w.sessionStart = start
+	w.stampFrom = start
+	w.stampIndex = 0
 	w.tracker.currentStart = start
 	return nil
 }
@@ -265,10 +269,10 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (
 					return nil, err
 				}
 				cw := &controlledWriter{
-					channelKey:   db.cfg.Channel.Key,
-					tracker:      db.resolver.newTracker(),
-					sessionStart: start,
-					alignments:   db.leadingAlignment,
+					channelKey: db.cfg.Channel.Key,
+					tracker:    db.resolver.newTracker(),
+					stampFrom:  start,
+					alignments: db.leadingAlignment,
 				}
 				cw.storeAlignment(a)
 				domainCfg := cfg.domain()
@@ -456,22 +460,22 @@ func (w *Writer) commitWithEnd(
 		return 0, err
 	}
 
-	if end.IsZero() {
-		// Subtract 1 because we want the timestamp of the last written sample.
-		// Anchor on the session start with the cumulative session sample count, since
-		// after a rollover the per-domain start is "previous commit end + 1ns" which
-		// is not a sample boundary in the index.
+	stamped := end.IsZero()
+	last := dw.tracker.count(dw.Writer) - 1
+	if stamped {
+		// A domain start after a rollover is the previous commit end, which is not a
+		// sample in the index, so the stamp starts from a committed sample instead.
 		approx, err := w.idx.Stamp(
 			ctx,
-			dw.sessionStart,
-			dw.tracker.count(dw.Writer)-1,
+			dw.stampFrom,
+			last-dw.stampIndex,
 			index.MustBeContinuous,
 		)
 		if err != nil {
 			return 0, err
 		}
 		if !approx.Exact() {
-			return 0, index.NewDiscontinuousStampError(dw.sessionStart)
+			return 0, index.NewDiscontinuousStampError(dw.stampFrom)
 		}
 		// Add 1 to the end timestamp because the end timestamp is exclusive.
 		end = approx.Lower + 1
@@ -482,10 +486,21 @@ func (w *Writer) commitWithEnd(
 			return 0, err
 		}
 	}
+	start := dw.Start
 	if err := dw.Commit(ctx, end); err != nil {
 		return 0, err
 	}
 	dw.tracker.publish(end)
+	if stamped {
+		dw.stampFrom, dw.stampIndex = end-1, last
+	}
+	// A file switch frees the finished domain for deletes, except for its last
+	// sample, which the next commit of a writer that stamps its end starts from.
+	if dw.Start != start {
+		if err = w.control.MoveStart(end - 1); err != nil {
+			return 0, err
+		}
+	}
 	return end, nil
 }
 

@@ -742,6 +742,36 @@ var _ = Describe("Series", func() {
 		})
 	})
 
+	Describe("Slice", func() {
+		It("Should slice a fixed density series", func() {
+			s := telem.NewSeriesV[int32](1, 2, 3, 4)
+			s.Alignment = telem.NewAlignment(2, 10)
+			sliced := s.Slice(1, 3)
+			Expect(sliced.Unmarshal[int32]()).To(Equal([]int32{2, 3}))
+			Expect(sliced.Alignment).To(Equal(telem.NewAlignment(2, 11)))
+		})
+
+		It("Should slice a variable density series", func() {
+			s := telem.NewSeriesV("a", "bb", "ccc", "dddd")
+			s.Alignment = telem.NewAlignment(2, 10)
+			sliced := s.Slice(1, 3)
+			Expect(sliced.Unmarshal[string]()).To(Equal([]string{"bb", "ccc"}))
+			Expect(sliced.Len()).To(Equal(int64(2)))
+			Expect(sliced.Alignment).To(Equal(telem.NewAlignment(2, 11)))
+		})
+
+		It("Should slice a variable density series to its end", func() {
+			sliced := telem.NewSeriesV("a", "bb", "ccc").Slice(2, 3)
+			Expect(sliced.Unmarshal[string]()).To(Equal([]string{"ccc"}))
+		})
+
+		It("Should scale the alignment by the alignment multiple", func() {
+			s := telem.NewSeriesV[int32](1, 2, 3)
+			s.AlignmentMultiple = 4
+			Expect(s.Slice(2, 3).Alignment).To(Equal(telem.NewAlignment(0, 8)))
+		})
+	})
+
 	Describe("Resize", func() {
 		Context("Fixed Length Data Types", func() {
 			It("Should shrink a series by truncating data", func() {

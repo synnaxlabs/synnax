@@ -88,6 +88,24 @@ var _ = Describe("DB Metadata Operations", func() {
 				)
 			})
 
+			Describe("ClaimStart", func() {
+				It("Should report no start when no writer is open", func() {
+					Expect(indexDB.ClaimStart()).To(BeZero())
+				})
+
+				It("Should return the start of an open writer", func(ctx SpecContext) {
+					w, _ := MustSucceed2(indexDB.OpenWriter(ctx, unary.WriterConfig{
+						Start:   10 * telem.SecondTS,
+						Subject: control.Subject{Key: "claim_test"},
+					}))
+					Expect(
+						MustBeOk(indexDB.ClaimStart()),
+					).To(Equal(10 * telem.SecondTS))
+					MustSucceed(w.Close())
+					Expect(indexDB.ClaimStart()).To(BeZero())
+				})
+			})
+
 			Describe("Size", func() {
 				It("Should return zero for an empty database", func() {
 					Expect(indexDB.Size()).To(Equal(telem.Size(0)))

@@ -30,7 +30,7 @@ func (dt DataType) Density() Density {
 
 // IsVariable returns true if the data type has a variable density.
 func (dt DataType) IsVariable() bool {
-	return dt == BytesT || dt == StringT || dt == JSONT
+	return dt == BytesT || dt == StringT || dt == JSONT || dt == VideoT
 }
 
 const (
@@ -70,4 +70,7 @@ const (
 	// BooleanT is a data type for a boolean value. Samples are a single byte with
 	// canonical values 0x00 (false) and 0x01 (true).
 	BooleanT DataType = "boolean"
+	// VideoT is a variable density data type for encoded video. Each sample is one
+	// frame: a two-byte header followed by the encoded picture.
+	VideoT DataType = "video"
 )

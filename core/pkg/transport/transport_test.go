@@ -12,6 +12,7 @@ package transport_test
 import (
 	"net/http"
 	"net/http/httptest"
+	"uuid"
 
 	"github.com/gofiber/fiber/v3"
 	. "github.com/onsi/ginkgo/v2"
@@ -50,14 +51,24 @@ var _ = Describe("Transport", func() {
 			}))
 
 			Expect(tl.GRPC).To(HaveLen(13))
+			Expect(tl.HTTP).To(HaveLen(2))
+			Expect(tl.HTTP[0]).To(BeIdenticalTo(router))
 
 			app := fiber.New()
 			defer func() { Expect(app.Shutdown()).To(Succeed()) }()
-			router.BindTo(app)
+			for _, t := range tl.HTTP {
+				t.BindTo(app)
+			}
 			res := MustSucceed(app.Test(
 				httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", nil),
 			))
 			Expect(res.StatusCode).ToNot(Equal(http.StatusNotFound))
+			res = MustSucceed(app.Test(httptest.NewRequest(
+				http.MethodPost,
+				"/api/v1/whip/"+uuid.New().String(),
+				nil,
+			)))
+			Expect(res.StatusCode).To(Equal(http.StatusUnauthorized))
 		})
 	})
 })

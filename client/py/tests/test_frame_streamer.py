@@ -164,6 +164,25 @@ class TestStreamer:
                 assert frame is not None
                 assert np.array_equal(frame[virtual_channel.key], data)
 
+    def test_dropped(self, virtual_channel: sy.Channel, client: sy.Synnax) -> None:
+        """Should name the channels whose frames the Core dropped for a slow reader"""
+        count = 80
+        with client.open_streamer(virtual_channel.key) as s:
+            with client.open_writer(sy.TimeStamp.now(), virtual_channel.key) as w:
+                for i in range(count):
+                    data = np.zeros(1 << 17, dtype=np.float64)
+                    data[0] = i
+                    w.write({virtual_channel.key: data})
+            firsts: list[float] = []
+            dropped: list[sy.channel.Key] = []
+            while not firsts or firsts[-1] != count - 1:
+                frame = s.read(timeout=READ_TIMEOUT)
+                assert frame is not None
+                dropped.extend(s.dropped)
+                firsts.extend(series[0] for series in frame.series)
+            assert dropped == [virtual_channel.key]
+            assert len(firsts) < count
+
     def test_open_streamer_no_channels(self, client: sy.Synnax) -> None:
         """Should not throw an exception when a streamer is opened with no channels"""
         with client.open_streamer([]):

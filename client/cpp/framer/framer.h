@@ -256,11 +256,21 @@ public:
     /// any other DB methods.
     void close_send() const;
 
+    /// @brief returns the channels that lost frames before the frame that the last
+    /// read() returned, because the streamer read too slowly. The Core drops the
+    /// oldest frames first.
+    /// @note dropped is not safe to call concurrently with read().
+    [[nodiscard]] const std::vector<channel::Key> &dropped() const;
+
 private:
     /// @brief true if the streamer has been closed.
     bool closed = false;
 
     StreamerConfig cfg;
+
+    /// @brief the channels named by drop notices since the last frame read.
+    std::set<channel::Key> pending_dropped;
+    std::vector<channel::Key> dropped_;
 
     /// @brief custom framing codec.
     Codec codec;

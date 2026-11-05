@@ -35,6 +35,7 @@ import {
   TimeStamp,
   type TypedArray,
 } from "@/telem/telem";
+import { decodeVideoFrame, encodeVideoFrame, type VideoFrame } from "@/telem/video";
 import { uuid } from "@/uuid";
 
 interface GL {
@@ -137,6 +138,39 @@ const nullArrayZ = z
   .transform(() => new Uint8Array().buffer);
 
 const UINT32_SIZE = 4;
+
+const encodeVariableSamples = (
+  dataType: DataType,
+  samples: unknown[],
+): Uint8Array[] => {
+  if (dataType.equals(DataType.BYTES))
+    return samples.map((s) => {
+      if (!(s instanceof Uint8Array))
+        throw new Error("[series] - a bytes series accepts only Uint8Arrays");
+      return s;
+    });
+  if (dataType.equals(DataType.VIDEO))
+    return samples.map((s) => encodeVideoFrame(s as VideoFrame));
+  const encoder = new TextEncoder();
+  if (dataType.equals(DataType.STRING))
+    return samples.map((s) => encoder.encode(s as string));
+  return samples.map((s) => encoder.encode(binary.JSON_CODEC.encodeString(s)));
+};
+
+const encodeVariable = (samples: Uint8Array[]): ArrayBuffer => {
+  const total = samples.reduce((acc, s) => acc + UINT32_SIZE + s.byteLength, 0);
+  const buf = new ArrayBuffer(total);
+  const view = new DataView(buf);
+  const bytes = new Uint8Array(buf);
+  let offset = 0;
+  for (const s of samples) {
+    view.setUint32(offset, s.byteLength, true);
+    offset += UINT32_SIZE;
+    bytes.set(s, offset);
+    offset += s.byteLength;
+  }
+  return buf;
+};
 
 type JSType = "string" | "number" | "bigint" | "boolean";
 
@@ -309,6 +343,7 @@ export class Series<T extends TelemValue = TelemValue>
       else if (typeof first === "number") this.dataType = DataType.FLOAT64;
       else if (typeof first === "bigint") this.dataType = DataType.INT64;
       else if (typeof first === "boolean") this.dataType = DataType.BOOLEAN;
+      else if (first instanceof Uint8Array) this.dataType = DataType.BYTES;
       else if (
         first instanceof TimeStamp ||
         first instanceof Date ||
@@ -334,44 +369,9 @@ export class Series<T extends TelemValue = TelemValue>
         first instanceof TimeSpan
       )
         data_ = data_.map((v) => new TimeStamp(v as CrudeTimeStamp).valueOf());
-      if (this.dataType.equals(DataType.STRING)) {
+      if (this.dataType.isVariable) {
         this.cachedLength = data_.length;
-        const encoded = (data_ as string[]).map((s) => new TextEncoder().encode(s));
-        const totalBytes = encoded.reduce(
-          (acc, e) => acc + UINT32_SIZE + e.byteLength,
-          0,
-        );
-        const buf = new ArrayBuffer(totalBytes);
-        const view = new DataView(buf);
-        const bytes = new Uint8Array(buf);
-        let offset = 0;
-        for (const e of encoded) {
-          view.setUint32(offset, e.byteLength, true);
-          offset += UINT32_SIZE;
-          bytes.set(e, offset);
-          offset += e.byteLength;
-        }
-        this._data = buf;
-      } else if (this.dataType.equals(DataType.JSON)) {
-        this.cachedLength = data_.length;
-        const encoded = data_.map((d) =>
-          new TextEncoder().encode(binary.JSON_CODEC.encodeString(d)),
-        );
-        const totalBytes = encoded.reduce(
-          (acc, e) => acc + UINT32_SIZE + e.byteLength,
-          0,
-        );
-        const buf = new ArrayBuffer(totalBytes);
-        const view = new DataView(buf);
-        const bytes = new Uint8Array(buf);
-        let offset = 0;
-        for (const e of encoded) {
-          view.setUint32(offset, e.byteLength, true);
-          offset += UINT32_SIZE;
-          bytes.set(e, offset);
-          offset += e.byteLength;
-        }
-        this._data = buf;
+        this._data = encodeVariable(encodeVariableSamples(this.dataType, data_));
       } else if (this.dataType.equals(DataType.BOOLEAN)) {
         const bytes = new Uint8Array(data_.length);
         for (let i = 0; i < data_.length; i++) bytes[i] = data_[i] ? 1 : 0;
@@ -850,8 +850,12 @@ export class Series<T extends TelemValue = TelemValue>
 
   at(index: number, required: boolean = false): T | undefined {
     if (this.dataType.isVariable) {
-      const str = this.atVariable(index, required);
-      if (str == null) return undefined;
+      const sample = this.atVariableBytes(index, required);
+      if (sample == null) return undefined;
+      if (this.dataType.equals(DataType.BYTES)) return sample as unknown as T;
+      if (this.dataType.equals(DataType.VIDEO))
+        return decodeVideoFrame(sample) as unknown as T;
+      const str = new TextDecoder().decode(sample);
       if (this.dataType.equals(DataType.STRING)) return str as T;
       return caseconv.snakeToCamel(JSON.parse(str)) as T;
     }
@@ -916,6 +920,12 @@ export class Series<T extends TelemValue = TelemValue>
   }
 
   private atVariable(index: number, required: boolean): string | undefined {
+    const sample = this.atVariableBytes(index, required);
+    if (sample == null) return undefined;
+    return new TextDecoder().decode(sample);
+  }
+
+  private atVariableBytes(index: number, required: boolean): Uint8Array | undefined {
     let start = 0;
     let len = 0;
     const buf = this.buffer;
@@ -950,8 +960,7 @@ export class Series<T extends TelemValue = TelemValue>
         return undefined;
       }
     }
-    const slice = new Uint8Array(buf, start, len);
-    return new TextDecoder().decode(slice);
+    return new Uint8Array(buf, start, len);
   }
 
   /**
@@ -1164,6 +1173,10 @@ export class Series<T extends TelemValue = TelemValue>
   }
 
   [Symbol.iterator](): Iterator<T> {
+    if (this.dataType.equals(DataType.BYTES))
+      return new BytesSeriesIterator(this) as Iterator<unknown> as Iterator<T>;
+    if (this.dataType.equals(DataType.VIDEO))
+      return new VideoSeriesIterator(this) as Iterator<unknown> as Iterator<T>;
     if (this.dataType.isVariable) {
       const s = new StringSeriesIterator(this);
       if (this.dataType.equals(DataType.JSON))
@@ -1351,10 +1364,9 @@ class SubIterator<T> implements Iterator<T> {
   }
 }
 
-class StringSeriesIterator implements Iterator<string> {
+class BytesSeriesIterator implements Iterator<Uint8Array> {
   private readonly series: Series;
   private byteOffset: number;
-  private readonly decoder: TextDecoder;
   private readonly view: DataView;
 
   constructor(series: Series) {
@@ -1364,21 +1376,47 @@ class StringSeriesIterator implements Iterator<string> {
       );
     this.series = series;
     this.byteOffset = 0;
-    this.decoder = new TextDecoder();
     this.view = new DataView(series.buffer);
   }
 
-  next(): IteratorResult<string> {
+  next(): IteratorResult<Uint8Array> {
     const byteLen = this.series.byteLength.valueOf();
     if (this.byteOffset + UINT32_SIZE > byteLen)
       return { done: true, value: undefined };
     const len = this.view.getUint32(this.byteOffset, true);
     this.byteOffset += UINT32_SIZE;
-    const s = this.decoder.decode(
-      new Uint8Array(this.series.buffer, this.byteOffset, len),
-    );
+    const sample = new Uint8Array(this.series.buffer, this.byteOffset, len);
     this.byteOffset += len;
-    return { done: false, value: s };
+    return { done: false, value: sample };
+  }
+}
+
+class StringSeriesIterator implements Iterator<string> {
+  private readonly wrapped: BytesSeriesIterator;
+  private readonly decoder = new TextDecoder();
+
+  constructor(series: Series) {
+    this.wrapped = new BytesSeriesIterator(series);
+  }
+
+  next(): IteratorResult<string> {
+    const next = this.wrapped.next();
+    if (next.done === true) return next;
+    return { done: false, value: this.decoder.decode(next.value) };
+  }
+}
+
+class VideoSeriesIterator implements Iterator<VideoFrame> {
+  private readonly wrapped: BytesSeriesIterator;
+
+  constructor(series: Series) {
+    this.wrapped = new BytesSeriesIterator(series);
+  }
+
+  next(): IteratorResult<VideoFrame> {
+    const next = this.wrapped.next();
+    if (next.done === true) return next;
+    return { done: false, value: decodeVideoFrame(next.value) };
   }
 }
 

@@ -40,6 +40,16 @@ var _ = Describe("Options", func() {
 			cesium.WithChunkSize(0),
 			"chunk_size: must be positive",
 		),
+		Entry(
+			"a non-positive chunk byte size",
+			cesium.WithChunkBytes(0),
+			"chunk_bytes: must be positive",
+		),
+		Entry(
+			"a non-positive offset cache budget",
+			cesium.WithOffsetCacheBudget(0),
+			"offset_cache_budget: must be positive",
+		),
 	)
 })
 

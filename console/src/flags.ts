@@ -20,6 +20,8 @@ export const FLAGS = {
   // Owner: Emiliano Bonilla. Umbrella: SY-4876. Removed in 0.61, which also links the
   // MQTT docs from the other driver pages.
   mqtt: ENABLED,
+  // Owner: Emiliano Bonilla. Umbrella: none yet. Removed when the video view ships.
+  video: ENABLED,
 } as const satisfies Record<string, boolean>;
 
 export type Flag = keyof typeof FLAGS;

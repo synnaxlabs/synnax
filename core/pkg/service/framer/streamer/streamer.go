@@ -14,8 +14,10 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/gop"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
@@ -107,6 +109,11 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Framer *framer.Service
+	// GOP holds the frames since the last keyframe of each video channel, so a new
+	// streamer can decode video at once.
+	//
+	// [REQUIRED]
+	GOP *gop.Cache
 	// Instrumentation is used for logging, tracing, and metrics.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -120,6 +127,7 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	cfg.Calculation = override.Nil(cfg.Calculation, other.Calculation)
 	cfg.Channel = override.Nil(cfg.Channel, other.Channel)
 	cfg.Framer = override.Nil(cfg.Framer, other.Framer)
+	cfg.GOP = override.Nil(cfg.GOP, other.GOP)
 	return cfg
 }
 
@@ -128,6 +136,7 @@ func (cfg ServiceConfig) Validate() error {
 	v.NotNil("calculation", cfg.Calculation)
 	v.NotNil("channel", cfg.Channel)
 	v.NotNil("framer", cfg.Framer)
+	v.NotNil("gop", cfg.GOP)
 	return v.Error()
 }
 
@@ -148,11 +157,16 @@ var (
 	utAddr         address.Address = "updater_transform"
 	downsampleAddr address.Address = "downsample"
 	throttleAddr   address.Address = "throttle"
+	queueAddr      address.Address = "queue"
+	gateAddr       address.Address = "keyframe_gate"
 )
 
 const (
 	responseBufferSize = 200
 	requestBufferSize  = 10
+	// queueCapacity is the size of the frames that a streamer holds for a slow consumer
+	// before it drops the oldest ones.
+	queueCapacity = 16 * telem.Megabyte
 )
 
 func (s *Service) New(ctx context.Context, cfgs ...Config) (Streamer, error) {
@@ -183,10 +197,17 @@ func (s *Service) New(ctx context.Context, cfgs ...Config) (Streamer, error) {
 		p.MustConnect[Response](routeOutletFrom, throttleAddr, responseBufferSize)
 		routeOutletFrom = throttleAddr
 	}
+	p.SetSegment(queueAddr, &confluence.Queue[Response]{
+		Instrumentation: s.cfg.Instrumentation,
+		Policy:          &relay.DropOldest{Capacity: queueCapacity},
+	})
+	p.MustConnect[Response](routeOutletFrom, queueAddr, responseBufferSize)
+	p.SetSegment(gateAddr, newKeyframeGate(s.cfg.GOP))
+	p.MustConnect[Response](queueAddr, gateAddr, 1)
 	return &plumber.Segment[Request, Response]{
 		Pipeline:         p,
 		RouteInletsTo:    []address.Address{utAddr},
-		RouteOutletsFrom: []address.Address{routeOutletFrom},
+		RouteOutletsFrom: []address.Address{gateAddr},
 	}, nil
 }
 

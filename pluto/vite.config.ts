@@ -78,7 +78,11 @@ export default defineConfig({
           environment: "jsdom",
           setupFiles: ["src/testutil/setup.ts"],
           include: ["src/**/*.spec.{ts,tsx}"],
-          exclude: ["**/node_modules/**", "**/dist/**", "src/**/*.browser.spec.tsx"],
+          exclude: [
+            "**/node_modules/**",
+            "**/dist/**",
+            "src/**/*.browser.spec.{ts,tsx}",
+          ],
         },
       },
       {
@@ -92,7 +96,7 @@ export default defineConfig({
         test: {
           name: "browser",
           setupFiles: ["src/testutil/browser.ts"],
-          include: ["src/**/*.browser.spec.tsx"],
+          include: ["src/**/*.browser.spec.{ts,tsx}"],
           browser: {
             enabled: true,
             headless: true,

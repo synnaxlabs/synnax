@@ -256,25 +256,31 @@ export class SugaredOffscreenCanvasRenderingContext2D implements OffscreenCanvas
   ): void;
   drawImage(
     image: CanvasImageSource,
-    sx: number,
-    sy?: number,
-    sw?: number,
-    sh?: number,
+    a: number,
+    b: number,
+    c?: number,
+    d?: number,
     dx?: number,
     dy?: number,
     dw?: number,
     dh?: number,
   ): void {
+    const { x, y } = this.scale_;
+    if (c == null || d == null)
+      return this.wrapped.drawImage(image, x.pos(a), y.pos(b));
+    if (dx == null || dy == null || dw == null || dh == null)
+      return this.wrapped.drawImage(image, x.pos(a), y.pos(b), x.dim(c), y.dim(d));
+    // The source rectangle is in image pixels, so only the destination scales.
     this.wrapped.drawImage(
       image,
-      sx,
-      sy as number,
-      sw as number,
-      sh as number,
-      (dx != null ? this.scale_.x.pos(dx) : dx) as number,
-      (dy != null ? this.scale_.y.pos(dy) : dy) as number,
-      (dw != null ? this.scale_.x.dim(dw) : dw) as number,
-      (dh != null ? this.scale_.y.dim(dh) : dh) as number,
+      a,
+      b,
+      c,
+      d,
+      x.pos(dx),
+      y.pos(dy),
+      x.dim(dw),
+      y.dim(dh),
     );
   }
 

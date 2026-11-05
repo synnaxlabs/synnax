@@ -2658,6 +2658,91 @@ var _ = Describe("Writer Behavior", func() {
 						},
 					)
 
+					It(
+						"Should commit data written without its index after a delete before the claim",
+						func(ctx SpecContext) {
+							db2 = MustSucceed(cesium.Open(ctx, "size-capped-db",
+								cesium.WithFS(fs),
+								cesium.WithFileSizeCap(40*telem.Byte),
+								cesium.WithInstrumentation(PanicLogger()),
+							))
+							other := GenerateChannelKey()
+							Expect(db2.CreateChannel(
+								ctx,
+								cesium.Channel{
+									Name:     "Varda",
+									Key:      index,
+									IsIndex:  true,
+									DataType: telem.TimestampT,
+								},
+								cesium.Channel{
+									Name:     "Akerman",
+									Key:      basic,
+									Index:    index,
+									DataType: telem.Int64T,
+								},
+								cesium.Channel{
+									Name:     "Denis",
+									Key:      other,
+									Index:    index,
+									DataType: telem.Int64T,
+								},
+							)).To(Succeed())
+							withIndex := MustSucceed(
+								db2.OpenWriter(ctx, cesium.WriterConfig{
+									Channels:         []cesium.ChannelKey{index, basic},
+									Start:            10 * telem.SecondTS,
+									EnableAutoCommit: new(false),
+								}),
+							)
+							alone := MustSucceed(
+								db2.OpenWriter(ctx, cesium.WriterConfig{
+									Channels:         []cesium.ChannelKey{other},
+									Start:            10 * telem.SecondTS,
+									EnableAutoCommit: new(false),
+								}),
+							)
+							write := func(stamps ...telem.TimeStamp) {
+								GinkgoHelper()
+								values := make([]int64, len(stamps))
+								MustSucceed(withIndex.Write(telem.MultiFrame(
+									[]cesium.ChannelKey{index, basic},
+									[]telem.Series{
+										telem.NewSeriesSecondsTSV(stamps...),
+										telem.NewSeriesV(values...),
+									},
+								)))
+								MustSucceed(alone.Write(telem.MultiFrame(
+									[]cesium.ChannelKey{other},
+									[]telem.Series{telem.NewSeriesV(values...)},
+								)))
+							}
+							write(10, 11, 12, 13, 14, 15, 16)
+							Expect(withIndex.Commit()).To(Equal(16*telem.SecondTS + 1))
+							Expect(alone.Commit()).To(Equal(16*telem.SecondTS + 1))
+							all := []cesium.ChannelKey{index, basic, other}
+							Expect(db2.DeleteTimeRange(
+								ctx,
+								all,
+								(10 * telem.SecondTS).Range(16*telem.SecondTS),
+							)).To(Succeed())
+							Expect(db2.DeleteTimeRange(
+								ctx,
+								[]cesium.ChannelKey{other},
+								(15 * telem.SecondTS).Range(17*telem.SecondTS),
+							)).To(MatchError(control.ErrUnauthorized))
+							write(17, 18)
+							Expect(withIndex.Commit()).To(Equal(18*telem.SecondTS + 1))
+							Expect(alone.Commit()).To(Equal(18*telem.SecondTS + 1))
+							Expect(alone.Close()).To(Succeed())
+							Expect(withIndex.Close()).To(Succeed())
+							Expect(
+								MustSucceed(db2.Read(ctx, telem.TimeRangeMax, other)).
+									Get(other).Len(),
+							).To(Equal(int64(3)))
+						},
+					)
+
 					Specify("With AutoCommit", func(ctx SpecContext) {
 						db2 = MustSucceed(cesium.Open(ctx, "size-capped-db",
 							cesium.WithFS(fs),

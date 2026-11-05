@@ -84,6 +84,12 @@ func (db *DB) WriteCursor(ts telem.TimeStamp) (telem.Alignment, error) {
 	return db.leadingAlignment.Next()
 }
 
+// ClaimStart returns the earliest time that an open writer or delete holds, reporting
+// false when nothing holds the channel.
+func (db *DB) ClaimStart() (telem.TimeStamp, bool) {
+	return db.controller.EarliestStart()
+}
+
 // LeadingControlState returns the first chronological gate in this unary database.
 func (db *DB) LeadingControlState() *control.State {
 	return db.controller.LeadingState()
@@ -128,7 +134,7 @@ func (db *DB) Close() error {
 		}
 		return db.wrapError(err)
 	}
-
+	db.resolver.purge()
 	return nil
 }
 

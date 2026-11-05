@@ -21,7 +21,9 @@ import { MQTT } from "@/feature/mqtt";
 import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
 import { PagerDuty } from "@/feature/pagerduty";
+import { RTSP } from "@/feature/rtsp";
 import { getIcon } from "@/feature/task/types";
+import { WHIP } from "@/feature/whip";
 import { Panel } from "@/platform/panel";
 import { type Task } from "@/platform/task";
 
@@ -34,6 +36,8 @@ const FORMS: Task.Forms = {
   ...NI.Task.FORMS,
   ...OPCUA.Task.FORMS,
   ...PagerDuty.Task.FORMS,
+  ...RTSP.Task.FORMS,
+  ...WHIP.Task.FORMS,
 };
 
 const Content: Panel.Content = () => {

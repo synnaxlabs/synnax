@@ -284,7 +284,11 @@ func (w RelayResponseTranslator) Backward(
 	if err != nil {
 		return relay.Response{}, err
 	}
-	return relay.Response{Frame: fr, Group: res.Group}, nil
+	return relay.Response{
+		Frame:   fr,
+		Group:   res.Group,
+		Dropped: channel.KeysFromUint32(res.Dropped),
+	}, nil
 }
 
 func (w RelayResponseTranslator) Forward(
@@ -295,7 +299,11 @@ func (w RelayResponseTranslator) Forward(
 	if err != nil {
 		return nil, err
 	}
-	return &RelayResponse{Frame: fr, Group: res.Group}, nil
+	return &RelayResponse{
+		Frame:   fr,
+		Group:   res.Group,
+		Dropped: res.Dropped.Uint32(),
+	}, nil
 }
 
 func translateFrameForward(fr *telempb.Frame) (framer.Frame, error) {

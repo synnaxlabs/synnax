@@ -38,6 +38,8 @@ from x.telem.telem import (
     TimeSpan,
     TimeSpanUnits,
     TimeStamp,
+    VideoCodec,
+    VideoFrame,
     convert_time_units,
     seconds_linspace,
 )
@@ -80,6 +82,8 @@ __all__ = [
     "TimeSpanUnits",
     "TimeStamp",
     "TypedCrudeSeries",
+    "VideoCodec",
+    "VideoFrame",
     "convert_time_units",
     "elapsed_seconds",
     "seconds_linspace",

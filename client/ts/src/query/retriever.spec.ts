@@ -39,6 +39,7 @@ const silentStreamer = (): framer.Streamer => {
   let closed = false;
   const streamer: framer.Streamer = {
     keys: [],
+    dropped: [],
     update: async () => {},
     close: () => {
       closed = true;

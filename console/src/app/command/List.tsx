@@ -34,6 +34,7 @@ import { Task } from "@/feature/task";
 import { Theme } from "@/feature/theme";
 import { User } from "@/feature/user";
 import { Version } from "@/feature/version";
+import { Video } from "@/feature/video";
 import { type Palette } from "@/platform/palette";
 
 const COMMANDS: Command.Command[] = [
@@ -48,6 +49,7 @@ const COMMANDS: Command.Command[] = [
   ...License.COMMANDS,
   ...LinePlot.COMMANDS,
   ...Log.COMMANDS,
+  ...Video.COMMANDS,
   ...Panel.COMMANDS,
   ...Persist.COMMANDS,
   ...Range.COMMANDS,

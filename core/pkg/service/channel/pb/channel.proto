@@ -73,4 +73,7 @@ message Channel {
   // expression is an Arc expression for calculated channels. If set, the channel is
   // automatically configured as virtual.
   string expression = 11;
+  // retention is how long the Core keeps the data of an index channel and of every
+  // channel on it. Zero keeps the data forever. Only an index channel can set it.
+  int64 retention = 12;
 }

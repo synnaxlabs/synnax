@@ -40,22 +40,43 @@ func (t *throttle) Flow(sCtx signal.Context, opts ...confluence.Option) {
 		ticker := time.NewTicker(t.rate.Period().Duration())
 		first := true
 		defer ticker.Stop()
+		flush := func() error {
+			if t.fr.Len() == 0 {
+				return nil
+			}
+			if err := signal.SendUnderContext(
+				sCtx,
+				t.Out.Inlet(),
+				Response{Frame: t.fr},
+			); err != nil {
+				return err
+			}
+			t.fr = frame.Alloc(t.fr.Count())
+			return nil
+		}
 		for {
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
 			case <-ticker.C:
-				if t.fr.Len() > 0 {
+				if err := flush(); err != nil {
+					return err
+				}
+			case res, ok := <-t.In.Outlet():
+				// A drop notice must follow the frames from before the drop.
+				if ok && len(res.Dropped) > 0 {
+					if err := flush(); err != nil {
+						return err
+					}
 					if err := signal.SendUnderContext(
 						sCtx,
 						t.Out.Inlet(),
-						Response{Frame: t.fr},
+						res,
 					); err != nil {
 						return err
 					}
-					t.fr = frame.Alloc(t.fr.Count())
+					continue
 				}
-			case res, ok := <-t.In.Outlet():
 				if ok && res.Ack {
 					if err := signal.SendUnderContext(
 						sCtx,

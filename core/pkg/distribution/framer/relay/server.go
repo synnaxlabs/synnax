@@ -17,7 +17,12 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/telem"
 )
+
+// queueCapacity is the size of the frames that the server holds for a slow peer before
+// it drops the oldest ones.
+const queueCapacity = 16 * telem.Megabyte
 
 type server struct {
 	newStreamer func(...StreamerConfig) (confluence.Segment[Request, Response], error)
@@ -48,10 +53,15 @@ func (s *server) handle(ctx context.Context, server ServerStream) error {
 		return err
 	}
 	pipe.SetSegment("streamer", reader)
+	pipe.SetSegment("queue", &confluence.Queue[Response]{
+		Instrumentation: s.Instrumentation,
+		Policy:          &DropOldest{Capacity: queueCapacity},
+	})
 	pipe.SetSource[Request]("tap", rcv)
 	pipe.SetSink[Response]("sender", sender)
 	pipe.MustConnect[Request]("tap", "streamer", 1)
-	pipe.MustConnect[Response]("streamer", "sender", 1)
+	pipe.MustConnect[Response]("streamer", "queue", 1)
+	pipe.MustConnect[Response]("queue", "sender", 1)
 	pipe.Flow(
 		sCtx,
 		confluence.CloseOutputInletsOnExit(),

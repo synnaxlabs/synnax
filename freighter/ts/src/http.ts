@@ -35,6 +35,7 @@ const ENCODING_CONTENT_TYPES: Record<FileEncoding, string> = {
   ZIP: "application/zip",
   CSV: "text/csv",
   TDMS: "application/x-tdms",
+  MP4: "video/mp4",
 };
 
 const contentType = (encoding: FileOptions["encoding"]): string =>

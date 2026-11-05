@@ -499,6 +499,11 @@ type idxWriter struct {
 	// count of M.
 	sampleCount int64
 	start       telem.TimeStamp
+	// stampFrom is the last committed sample, or start before the first commit, and
+	// stampIndex is the number of samples before it. A group that does not write the
+	// index stamps its commits from it, because the claims of its writers hold it.
+	stampFrom  telem.TimeStamp
+	stampIndex int64
 	// anchor is the index write cursor observed at this group's first write, valid only
 	// when writingToIdx is false. Every subsequent write is stamped at anchor plus the
 	// number of samples the group has already written, so a group that does not write
@@ -600,8 +605,10 @@ func (w *idxWriter) maxDataAuth() xcontrol.Authority {
 // resolved once, and offsets by the number of samples it has written since, so the
 // index is consulted once per writer rather than once per write.
 func (w *idxWriter) resolveAlignment() (telem.Alignment, error) {
+	// The index writer's claim moves past start at a file switch, but always holds
+	// the newest index sample.
 	if w.writingToIdx {
-		return w.idx.db.WriteCursor(w.start)
+		return w.idx.db.WriteCursor(w.idx.highWaterMark)
 	}
 	if !w.anchorSet {
 		anchor, err := w.idx.db.WriteCursor(w.start)
@@ -745,6 +752,7 @@ func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	if err != nil {
 		return 0, err
 	}
+	last := end.Lower
 	// because the range is exclusive, we need to add 1 nanosecond to the end
 	end.Lower++
 	// Every channel shares the same end, so their errors repeat. Keep the first.
@@ -755,6 +763,7 @@ func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	}
 	if err == nil {
 		w.lastCommitEnd = end.Lower
+		w.stampFrom, w.stampIndex = last, w.sampleCount-1
 	}
 	// Reset on ErrUnauthorized as well: after a control transfer, the new controller
 	// may advance prevCommit, making any future commit with this writer's stale
@@ -953,15 +962,21 @@ func (w *idxWriter) resolveCommitEnd(
 	if w.writingToIdx {
 		return index.Exactly(w.idx.highWaterMark), nil
 	}
-	approx, err := w.idx.Stamp(ctx, w.start, w.sampleCount-1, index.MustBeContinuous)
+	approx, err := w.idx.Stamp(
+		ctx,
+		w.stampFrom,
+		w.sampleCount-1-w.stampIndex,
+		index.MustBeContinuous,
+	)
 	if err != nil {
 		return approx, err
 	}
-	// An inexact approximation means w.start is not an exact sample in the index, so
-	// there is no defined timestamp for the samples written by this writer. Committing
-	// anyway would use the approximation's zero-valued lower bound as the commit end.
+	// An inexact approximation means w.stampFrom is not an exact sample in the index,
+	// so there is no defined timestamp for the samples written by this writer.
+	// Committing anyway would use the approximation's zero-valued lower bound as the
+	// commit end.
 	if !approx.Exact() {
-		return approx, index.NewDiscontinuousStampError(w.start)
+		return approx, index.NewDiscontinuousStampError(w.stampFrom)
 	}
 	return approx, nil
 }

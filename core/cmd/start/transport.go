@@ -13,6 +13,7 @@ import (
 	"github.com/samber/lo"
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/security"
+	"github.com/synnaxlabs/synnax/pkg/server"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	insecureGRPC "google.golang.org/grpc/credentials/insecure"
@@ -25,6 +26,7 @@ func configureClientGRPC(
 	return fgrpc.OpenPool(
 		"",
 		grpc.WithTransportCredentials(getClientGRPCTransportCredentials(sec, insecure)),
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(server.MaxGRPCMessageSize)),
 	)
 }
 

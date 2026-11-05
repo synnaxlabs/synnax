@@ -132,6 +132,25 @@ export class Reader {
     return await this.readFile(tr, channels, "TDMS", opts);
   }
 
+  /**
+   * Reads the frames a video channel holds within tr as a fragmented MP4 file, with no
+   * re-encoding. The file starts at the first keyframe in tr.
+   *
+   * @param tr - the time range to read.
+   * @param channel - the video channel to read, by key or by name.
+   * @returns the MP4 file as a stream of bytes the caller pipes wherever it likes.
+   * @throws {NotFoundError} if the channel does not exist.
+   * @throws {AccessDeniedError} if the caller may not retrieve the channel or its index.
+   * @throws {ValidationError} if the channel is not a video channel, or has no keyframe
+   * in tr.
+   */
+  async readMP4(
+    tr: CrudeTimeRange,
+    channel: channel.Key | channel.Name,
+  ): Promise<ReadableStream<Uint8Array>> {
+    return await this.readFile(tr, channel, "MP4", {});
+  }
+
   private async readFile(
     tr: CrudeTimeRange,
     channels: channel.Params,

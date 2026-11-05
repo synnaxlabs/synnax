@@ -49,6 +49,26 @@ class _Request(BaseModel):
 class _Response(BaseModel):
     frame: FramePayload
     keep_alive: bool = False
+    dropped: list[channel.Key] | None = None
+
+
+class _Gaps:
+    """Tracks the drop notices that arrive between the frames a streamer reads."""
+
+    def __init__(self) -> None:
+        self._pending: set[channel.Key] = set()
+        self.dropped: list[channel.Key] = []
+
+    def notice(self, res: _Response) -> bool:
+        """:returns: True if the response is a drop notice."""
+        if not res.dropped:
+            return False
+        self._pending.update(res.dropped)
+        return True
+
+    def frame(self) -> None:
+        self.dropped = sorted(self._pending)
+        self._pending.clear()
 
 
 class _Liveness:
@@ -139,6 +159,7 @@ class Streamer:
         validate_downsample_factor(downsample_factor)
         keep_alive = TimeSpan.from_seconds(keep_alive)
         self._liveness = _Liveness(keep_alive)
+        self._gaps = _Gaps()
         self._adapter = adapter
         client = client.with_codec(_WSStreamerCodec(self._adapter.codec))
         self._stream = client.stream(_ENDPOINT, _Request, _Response)
@@ -209,8 +230,17 @@ class Streamer:
                 if deadline_bound:
                     raise self._liveness.unreachable() from e
                 return None
-            if not res.keep_alive:
+            if not res.keep_alive and not self._gaps.notice(res):
+                self._gaps.frame()
                 return self._adapter.adapt(Frame(res.frame))
+
+    @property
+    def dropped(self) -> list[channel.Key]:
+        """The channels that lost frames before the frame that the last read
+        returned, because the streamer read too slowly. The Core drops the oldest
+        frames first.
+        """
+        return self._gaps.dropped
 
     def _receive(self, timeout: float | None) -> _Response:
         res = self._stream.receive(timeout=timeout)
@@ -306,6 +336,7 @@ class AsyncStreamer:
         self._throttle_rate = throttle_rate
         self._exclude_groups = exclude_groups or []
         self._liveness = _Liveness(TimeSpan.from_seconds(keep_alive))
+        self._gaps = _Gaps()
 
     async def _open(self) -> None:
         client = self._client.with_codec(_WSStreamerCodec(self._adapter.codec))
@@ -333,8 +364,17 @@ class AsyncStreamer:
         """
         while True:
             res = await self._receive_with_deadline()
-            if not res.keep_alive:
+            if not res.keep_alive and not self._gaps.notice(res):
+                self._gaps.frame()
                 return self._adapter.adapt(Frame(res.frame))
+
+    @property
+    def dropped(self) -> list[channel.Key]:
+        """The channels that lost frames before the frame that the last read
+        returned, because the streamer read too slowly. The Core drops the oldest
+        frames first.
+        """
+        return self._gaps.dropped
 
     async def _receive_with_deadline(self) -> _Response:
         dead = self._liveness.dead_at()

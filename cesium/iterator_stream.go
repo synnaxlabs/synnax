@@ -75,11 +75,13 @@ const (
 	IteratorCommandError
 	// IteratorCommandSetBounds represents a call to Iterator.SetBounds.
 	IteratorCommandSetBounds
+	// IteratorCommandSeekKeyframe represents a call to Iterator.SeekKeyframe.
+	IteratorCommandSeekKeyframe
 )
 
 var validateIteratorCommand = validate.NewInclusiveBoundsChecker(
 	IteratorCommandNext,
-	IteratorCommandSetBounds,
+	IteratorCommandSeekKeyframe,
 )
 
 // IteratorRequest is issued to an StreamIterator asking it to read data from a DB.
@@ -88,8 +90,8 @@ var validateIteratorCommand = validate.NewInclusiveBoundsChecker(
 type IteratorRequest struct {
 	// Command is the command to execute.
 	Command IteratorCommand
-	// Stamp should be set during a request to IteratorCommandSeekLE or
-	// IteratorCommandSeekGE.
+	// Stamp should be set during a request to IteratorCommandSeekLE,
+	// IteratorCommandSeekGE, or IteratorCommandSeekKeyframe.
 	Stamp telem.TimeStamp
 	// Span should be set during a request to IteratorCommandNext or
 	// IteratorCommandPrev.
@@ -226,8 +228,42 @@ func (s *streamIterator) exec(
 		ok = s.execWithoutResponse(
 			func(i *unary.Iterator) bool { i.SetBounds(req.Bounds); return true },
 		)
+	case IteratorCommandSeekKeyframe:
+		ok = s.seekKeyframe(ctx, req.Stamp)
 	}
 	return ok, err
+}
+
+// seekKeyframe moves every iterator to the earliest of the last keyframes at or before
+// ts of the video channels. A video channel whose own keyframe is later starts with
+// frames that need an earlier keyframe. Without a video channel, each iterator fails
+// the seek and records why.
+func (s *streamIterator) seekKeyframe(ctx context.Context, ts telem.TimeStamp) bool {
+	var (
+		target = telem.TimeStampMax
+		video  bool
+	)
+	for _, i := range s.internal {
+		if i.Channel.DataType != telem.VideoT {
+			continue
+		}
+		video = true
+		if i.SeekKeyframe(ctx, ts) {
+			target = min(target, i.View().Start)
+		}
+	}
+	if !video {
+		return s.execWithoutResponse(
+			func(i *unary.Iterator) bool { return i.SeekKeyframe(ctx, ts) },
+		)
+	}
+	if target == telem.TimeStampMax {
+		return false
+	}
+	for _, i := range s.internal {
+		i.SeekLE(ctx, target)
+	}
+	return true
 }
 
 // execWithResponse runs f on each iterator and sends the data of every iterator that f
@@ -249,8 +285,9 @@ func (s *streamIterator) execWithResponse(
 
 // readInChunks runs a Next or Prev with a fixed span. It reads the range of each
 // iterator forward in chunks that each hold at most chunkSize samples summed over the
-// channels, or more for a run of equal timestamps. Each chunk is one data response that
-// holds every channel's data up to the end of the chunk.
+// channels, or more for a run of equal timestamps, and at most the chunk bytes of each
+// variable-density channel. Each chunk is one data response that holds every channel's
+// data up to the end of the chunk.
 func (s *streamIterator) readInChunks(
 	ctx context.Context,
 	req IteratorRequest,
@@ -278,10 +315,15 @@ func (s *streamIterator) readInChunks(
 			if i.Channel.IsIndex {
 				idx = i.Channel.Key
 			}
-			if i.View().End >= ends[j] || probed.Contains(idx) {
+			// A variable-density channel has its own byte budget, so it ends a chunk
+			// that its index alone would not.
+			variable := i.Channel.DataType.IsVariable()
+			if i.View().End >= ends[j] || (!variable && probed.Contains(idx)) {
 				continue
 			}
-			probed.Add(idx)
+			if !variable {
+				probed.Add(idx)
+			}
 			chunkEnd, err := i.EndAfter(ctx, n)
 			if err != nil {
 				return ok, err

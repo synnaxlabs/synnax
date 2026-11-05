@@ -8,8 +8,10 @@
 // included in the file licenses/APL.txt.
 
 export {
+  canvasTest,
   createAsyncSynnaxWrapper,
   createSynnaxWrapper,
+  type CreateSynnaxWrapperParams,
   disableActEnvironment,
   renderHookSuspended,
 } from "@synnaxlabs/pluto/testutil";

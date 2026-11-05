@@ -14,6 +14,7 @@ export const resolveDataTypeIcon = (d: DataType): Icon.FC | undefined => {
   if (d.equals(DataType.BOOLEAN)) return Icon.Boolean;
   if (d.equals(DataType.JSON)) return Icon.JSON;
   if (d.equals(DataType.BYTES)) return Icon.Binary;
+  if (d.equals(DataType.VIDEO)) return Icon.Video;
   if (d.isInteger) return Icon.Binary;
   if (d.isFloat) return Icon.Decimal;
   if (d.equals(DataType.STRING) || d.equals(DataType.UUID)) return Icon.String;

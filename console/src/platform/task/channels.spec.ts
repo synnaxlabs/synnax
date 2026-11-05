@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { channel } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { DataType } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { Task } from "@/platform/task";
@@ -282,6 +284,53 @@ describe("channels", () => {
       const ch = await client.channels.retrieve(key);
       expect(ch.name).toBe(name);
       expect((await client.channels.retrieve(ch.index)).name).toBe(`${name}_time`);
+    });
+  });
+
+  describe("configureVideoChannel", () => {
+    it("should keep the channel the task has", async () => {
+      const ch = await client.channels.create({
+        name: uniqueName("video"),
+        dataType: DataType.VIDEO,
+        virtual: true,
+      });
+      expect(await Task.configureVideoChannel(client, ch.key, "unused", true)).toBe(
+        ch.key,
+      );
+    });
+
+    it("should create a virtual video channel for a task that saves no data", async () => {
+      const name = uniqueName("camera 1");
+      const key = await Task.configureVideoChannel(client, 0, name, false);
+      const ch = await client.channels.retrieve(key);
+      expect(ch.name).toBe(channel.escapeInvalidName(name));
+      expect(ch.dataType.equals(DataType.VIDEO)).toBe(true);
+      expect(ch.virtual).toBe(true);
+    });
+
+    it("should create a video channel and its index for a task that saves data", async () => {
+      const name = uniqueName("camera 2");
+      const key = await Task.configureVideoChannel(client, 0, name, true);
+      const ch = await client.channels.retrieve(key);
+      expect(ch.name).toBe(channel.escapeInvalidName(name));
+      expect(ch.dataType.equals(DataType.VIDEO)).toBe(true);
+      expect(ch.virtual).toBe(false);
+      const index = await client.channels.retrieve(ch.index);
+      expect(index.name).toBe(`${channel.escapeInvalidName(name)}_time`);
+      expect(index.isIndex).toBe(true);
+    });
+
+    it("should replace a channel that no longer exists", async () => {
+      const key = await Task.configureVideoChannel(
+        client,
+        MISSING_KEY,
+        uniqueName("cam"),
+        false,
+      );
+      expect(key).not.toBe(MISSING_KEY);
+      expect(
+        (await client.channels.retrieve(key)).dataType.equals(DataType.VIDEO),
+      ).toBe(true);
     });
   });
 });

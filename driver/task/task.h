@@ -421,15 +421,18 @@ private:
     /// @brief opens the streamer for task set/delete/cmd channels.
     x::errors::Error open_streamer();
     /// @brief replaces the control state mirror with the cluster's current state.
-    /// Best-effort: a failed read is logged and leaves the mirror empty.
-    void retrieve_initial_control_states();
+    /// Best-effort: a failed read is logged and leaves the mirror unchanged.
+    void retrieve_control_states();
     /// @brief loads and queues all existing tasks from the cluster.
     x::errors::Error configure_initial_tasks();
     /// @brief stops all running tasks.
     void stop_all_tasks();
-    /// @brief re-reads this rack's name so a rename made before the streamer opened
-    /// is not lost. Best-effort: a failed read is logged and keeps the boot name.
+    /// @brief re-reads this rack's name so a rename the stream missed is not lost.
+    /// Best-effort: a failed read is logged and keeps the current name.
     void retrieve_rack_name();
+    /// @brief re-reads the state behind each channel that lost frames to a slow read.
+    /// Task events have no state to re-read, so their loss is only logged.
+    void recover_dropped(const std::vector<synnax::channel::Key> &dropped);
     void process_rack_set(const x::telem::Series &series);
     /// @brief refreshes the local row for each changed task. Never deploys or stops;
     /// a rack move is acted on by the next start command.

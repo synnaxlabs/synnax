@@ -267,6 +267,60 @@ var _ = Describe("Writer", func() {
 				)
 			})
 		})
+		Context("Retention", func() {
+			It("Should store the retention of an index channel", func(ctx SpecContext) {
+				ch := channel.Channel{
+					Name:        UniqueChannelName(),
+					DataType:    telem.TimestampT,
+					Leaseholder: 1,
+					IsIndex:     true,
+					Retention:   telem.Hour,
+				}
+				Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
+				var res channel.Channel
+				Expect(svc.NewRetrieve().
+					Where(channel.MatchKeys(ch.Key())).
+					Entry(&res).
+					Exec(ctx, nil)).To(Succeed())
+				Expect(res.Retention).To(Equal(telem.Hour))
+			})
+			DescribeTable(
+				"Should reject a retention on a channel that is not a persisted index",
+				func(ctx SpecContext, ch channel.Channel) {
+					ch.Name = UniqueChannelName()
+					ch.Leaseholder = 1
+					ch.Retention = telem.Hour
+					err := channelWriter.Create(ctx, &ch)
+					Expect(err).To(MatchError(ContainSubstring(
+						"only a persisted index channel can have a retention",
+					)))
+				},
+				Entry(
+					"data channel",
+					channel.Channel{DataType: telem.Float64T, Virtual: true},
+				),
+				Entry(
+					"virtual index channel",
+					channel.Channel{
+						DataType: telem.TimestampT,
+						IsIndex:  true,
+						Virtual:  true,
+					},
+				),
+			)
+			It("Should reject a negative retention", func(ctx SpecContext) {
+				ch := channel.Channel{
+					Name:        UniqueChannelName(),
+					DataType:    telem.TimestampT,
+					Leaseholder: 1,
+					IsIndex:     true,
+					Retention:   -telem.Hour,
+				}
+				Expect(channelWriter.Create(ctx, &ch)).To(MatchError(ContainSubstring(
+					"retention: retention cannot be negative",
+				)))
+			})
+		})
 		Context("Multiple channels", func() {
 			It("Should create multiple channels without error", func(ctx SpecContext) {
 				chs := []channel.Channel{

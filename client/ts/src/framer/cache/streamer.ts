@@ -372,22 +372,30 @@ export class MultiplexedStreamer {
     for (const key of keys) onWait(joins.flush(key));
   }
 
+  // The open stream lost frames of the keys, so reads fetch the lost span.
+  private gap(keys: channel.Key[]): void {
+    this.flushBuffers(keys);
+    this.entries.forEach((e) => {
+      if (e.removed || !keys.some((k) => e.keys.has(k))) return;
+      this.runDropHandlers(e);
+    });
+  }
+
+  private runDropHandlers(e: Entry): void {
+    e.dropHandlers.forEach((handler) => {
+      try {
+        handler();
+      } catch (err) {
+        this.props.instrumentation.L.error("drop handler failed", { error: err }, true);
+      }
+    });
+  }
+
   // Frames may drop until a stream opens again.
   private drop(): void {
     this.outdated = true;
     this.entries.forEach((e) => {
-      if (e.removed) return;
-      e.dropHandlers.forEach((handler) => {
-        try {
-          handler();
-        } catch (err) {
-          this.props.instrumentation.L.error(
-            "drop handler failed",
-            { error: err },
-            true,
-          );
-        }
-      });
+      if (!e.removed) this.runDropHandlers(e);
     });
   }
 
@@ -513,6 +521,7 @@ export class MultiplexedStreamer {
     const { joins, onWait, instrumentation: ins } = this.props;
     try {
       for await (const frame of streamer) {
+        if (streamer.dropped.length > 0) this.gap(streamer.dropped);
         // Group series by key in one pass; per-key get() scans the whole frame.
         const grouped: Map<channel.Key, Series[]> = new Map();
         frame.forEach((k, s) => {

@@ -45,12 +45,13 @@ from x.telem.telem import (
     TimeRange,
     TimeSpan,
     TimeStamp,
+    VideoFrame,
 )
 
 _VARIABLE_LENGTH_PREFIX_SIZE = 4
 
 SampleValue: TypeAlias = (
-    np.number | np.bool_ | uuid.UUID | TimeStamp | bytes | JsonValue
+    np.number | np.bool_ | uuid.UUID | TimeStamp | bytes | VideoFrame | JsonValue
 )
 """A sample of a series whose data type is known only at runtime."""
 
@@ -69,6 +70,16 @@ def _encode_samples(samples: list[Any], data_type: DataType) -> bytes:
         if len(uuids) != len(samples):
             raise TypeError("[Series] - a UUID series accepts only UUIDs")
         return b"".join(d.bytes for d in uuids)
+    if data_type == DataType.BYTES:
+        parts = [d for d in samples if isinstance(d, bytes)]
+        if len(parts) != len(samples):
+            raise TypeError("[Series] - a bytes series accepts only bytes")
+        return _encode_variable(parts)
+    if data_type == DataType.VIDEO:
+        frames = [d for d in samples if isinstance(d, VideoFrame)]
+        if len(frames) != len(samples):
+            raise TypeError("[Series] - a video series accepts only VideoFrames")
+        return _encode_variable([f.encode() for f in frames])
     return np.array(samples, dtype=data_type.np).tobytes()
 
 
@@ -186,6 +197,7 @@ _CODECS: dict[DataType, _Codec[SampleValue]] = {
     DataType.STRING: _VariableCodec(_decode_string),
     DataType.JSON: _VariableCodec(_JSON.validate_json),
     DataType.BYTES: _VariableCodec(bytes),
+    DataType.VIDEO: _VariableCodec(VideoFrame.decode),
     DataType.UNKNOWN: _UnknownCodec(),
 }
 
@@ -205,6 +217,7 @@ _SAMPLE_TYPES: dict[DataType, type] = {
     DataType.UUID: uuid.UUID,
     DataType.STRING: str,
     DataType.BYTES: bytes,
+    DataType.VIDEO: VideoFrame,
 }
 
 
@@ -350,7 +363,7 @@ class Series(ArrayOperators, Generic[T]):
         elif isinstance(data, list):
             data_type = data_type or DataType(data)
             data_ = _encode_samples(data, data_type)
-        elif isinstance(data, (str, dict, uuid.UUID)):
+        elif isinstance(data, (str, dict, uuid.UUID, VideoFrame)):
             data_type = data_type or DataType([data])
             data_ = _encode_samples([data], data_type)
         else:
@@ -532,7 +545,15 @@ def to_int(value: SampleValue) -> int:
 
 
 CrudeSample: TypeAlias = (
-    np.number | np.bool_ | str | uuid.UUID | dict[str, Any] | float | int | TimeStamp
+    np.number
+    | np.bool_
+    | str
+    | uuid.UUID
+    | dict[str, Any]
+    | float
+    | int
+    | TimeStamp
+    | VideoFrame
 )
 """A single sample that a Series can be built from."""
 
@@ -548,6 +569,8 @@ CrudeSeries: TypeAlias = (
     | list[dict[str, Any]]
     | list[uuid.UUID]
     | list[TimeStamp]
+    | list[bytes]
+    | list[VideoFrame]
     | CrudeSample
 )
 

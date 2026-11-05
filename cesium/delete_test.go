@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Delete", func() {
@@ -1637,6 +1638,156 @@ var _ = Describe("Delete", func() {
 							).To(MatchError(ContainSubstring(fmt.Sprintf("cannot delete index channel %v with channel %v depending on it", channels[0], newChannels[1]))))
 						},
 					)
+				})
+			})
+
+			Describe("DeleteBefore", func() {
+				var index, first, second cesium.ChannelKey
+				BeforeEach(func(ctx SpecContext) {
+					index = GenerateChannelKey()
+					first = GenerateChannelKey()
+					second = GenerateChannelKey()
+					Expect(db.CreateChannel(
+						ctx,
+						cesium.Channel{
+							Name:     "Clock",
+							Key:      index,
+							DataType: telem.TimestampT,
+							IsIndex:  true,
+						},
+						cesium.Channel{
+							Name:     "Pressure",
+							Key:      first,
+							DataType: telem.Int64T,
+							Index:    index,
+						},
+						cesium.Channel{
+							Name:     "Camera",
+							Key:      second,
+							DataType: telem.Int64T,
+							Index:    index,
+						},
+					)).To(Succeed())
+					Expect(db.Write(ctx, 10*telem.SecondTS, telem.MultiFrame(
+						[]cesium.ChannelKey{index, first, second},
+						[]telem.Series{
+							telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14),
+							telem.NewSeriesV[int64](0, 1, 2, 3, 4),
+							telem.NewSeriesV[int64](0, 1, 2, 3, 4),
+						},
+					))).To(Succeed())
+				})
+				AfterEach(func() {
+					Expect(
+						db.DeleteChannels([]cesium.ChannelKey{first, second, index}),
+					).
+						To(Succeed())
+				})
+				expectData := func(ctx SpecContext, values ...int64) {
+					GinkgoHelper()
+					stamps := make([]telem.TimeStamp, len(values))
+					for i, v := range values {
+						stamps[i] = telem.TimeStamp(10+v) * telem.SecondTS
+					}
+					f := MustSucceed(
+						db.Read(ctx, telem.TimeRangeMax, index, first, second),
+					)
+					Expect(
+						f.Get(index).Data(),
+					).To(Equal(telem.NewSeriesV(stamps...).Data))
+					Expect(
+						f.Get(first).Data(),
+					).To(Equal(telem.NewSeriesV(values...).Data))
+					Expect(
+						f.Get(second).Data(),
+					).To(Equal(telem.NewSeriesV(values...).Data))
+				}
+
+				It(
+					"Should delete the data of an index and its channels before a time",
+					func(
+						ctx SpecContext,
+					) {
+						Expect(
+							db.DeleteBefore(ctx, index, 12*telem.SecondTS),
+						).To(Succeed())
+						expectData(ctx, 2, 3, 4)
+					},
+				)
+
+				It("Should keep the data of an open writer on the index", func(
+					ctx SpecContext,
+				) {
+					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+						Channels: []cesium.ChannelKey{index, first, second},
+						Start:    15 * telem.SecondTS,
+					}))
+					MustSucceed(w.Write(telem.MultiFrame(
+						[]cesium.ChannelKey{index, first, second},
+						[]telem.Series{
+							telem.NewSeriesSecondsTSV(15, 16),
+							telem.NewSeriesV[int64](5, 6),
+							telem.NewSeriesV[int64](5, 6),
+						},
+					)))
+					Expect(db.DeleteBefore(ctx, index, 20*telem.SecondTS)).To(Succeed())
+					Expect(w.Close()).To(Succeed())
+					expectData(ctx, 5, 6)
+				})
+
+				It(
+					"Should keep the data of an open writer on a channel of the index",
+					func(
+						ctx SpecContext,
+					) {
+						Expect(db.Write(ctx, 15*telem.SecondTS, telem.MultiFrame(
+							[]cesium.ChannelKey{index, first},
+							[]telem.Series{
+								telem.NewSeriesSecondsTSV(15, 16),
+								telem.NewSeriesV[int64](5, 6),
+							},
+						))).To(Succeed())
+						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+							Channels: []cesium.ChannelKey{second},
+							Start:    15 * telem.SecondTS,
+						}))
+						Expect(
+							db.DeleteBefore(ctx, index, 20*telem.SecondTS),
+						).To(Succeed())
+						MustSucceed(w.Write(telem.MultiFrame(
+							[]cesium.ChannelKey{second},
+							[]telem.Series{telem.NewSeriesV[int64](5, 6)},
+						)))
+						Expect(w.Close()).To(Succeed())
+						expectData(ctx, 5, 6)
+					},
+				)
+
+				It("Should delete nothing before the earliest time stamp", func(
+					ctx SpecContext,
+				) {
+					Expect(
+						db.DeleteBefore(ctx, index, telem.TimeStampMin),
+					).To(Succeed())
+					expectData(ctx, 0, 1, 2, 3, 4)
+				})
+
+				It("Should fail for a channel that is not an index", func(
+					ctx SpecContext,
+				) {
+					Expect(db.DeleteBefore(ctx, first, 20*telem.SecondTS)).To(And(
+						MatchError(validate.ErrValidation),
+						MatchError(ContainSubstring("is not an index")),
+					))
+				})
+
+				It("Should fail for a channel that does not exist", func(
+					ctx SpecContext,
+				) {
+					Expect(
+						db.DeleteBefore(ctx, GenerateChannelKey(), 20*telem.SecondTS),
+					).
+						To(MatchError(cesium.ErrChannelNotFound))
 				})
 			})
 		})

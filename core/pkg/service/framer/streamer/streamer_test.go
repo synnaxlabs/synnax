@@ -10,6 +10,7 @@
 package streamer_test
 
 import (
+	"encoding/binary"
 	"fmt"
 	"time"
 
@@ -22,6 +23,7 @@ import (
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/gop"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -40,6 +42,7 @@ var _ = Describe("Streamer", Ordered, func() {
 		channelSvc    *channel.Service
 		channelWriter channel.Writer
 		streamerSvc   *streamer.Service
+		gopCache      *gop.Cache
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
@@ -85,10 +88,15 @@ var _ = Describe("Streamer", Ordered, func() {
 			Channel:      channelSvc,
 			ChannelGraph: channelGraph,
 		}))
+		gopCache = MustOpen(gop.Open(ctx, gop.Config{
+			Channel: channelSvc,
+			Framer:  node.Framer,
+		}))
 		streamerSvc = MustSucceed(streamer.NewService(streamer.ServiceConfig{
 			Framer:      node.Framer,
 			Channel:     channelSvc,
 			Calculation: calc,
+			GOP:         gopCache,
 		}))
 	})
 
@@ -143,6 +151,261 @@ var _ = Describe("Streamer", Ordered, func() {
 			inlet.Close()
 			Eventually(outlet.Outlet()).Should(BeClosed())
 		})
+	})
+
+	Describe("Slow consumers", func() {
+		It("Should not hold back writers or other streamers", func(ctx SpecContext) {
+			const count = 1000
+			ch := &channel.Channel{
+				Name:     UniqueChannelName(),
+				DataType: telem.Float32T,
+				Virtual:  true,
+			}
+			Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+			keys := []channel.Key{ch.Key()}
+			cfg := streamer.Config{Keys: keys, SendOpenAck: true}
+			slow := MustSucceed(streamerSvc.New(ctx, cfg))
+			fast := MustSucceed(streamerSvc.New(ctx, cfg))
+			sCtx, cancel := signal.Isolated()
+			defer cancel()
+			slowIn, slowOut := confluence.Attach(slow)
+			fastIn, fastOut := confluence.Attach(fast)
+			slow.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+			fast.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+			Eventually(slowOut.Outlet()).Should(Receive())
+			Eventually(fastOut.Outlet()).Should(Receive())
+			receive := func(out confluence.Outlet[streamer.Response]) []float32 {
+				var values []float32
+				for len(values) < count {
+					var res streamer.Response
+					Eventually(out.Outlet()).
+						WithPolling(time.Millisecond).
+						Should(Receive(&res))
+					for s := range res.Frame.Series() {
+						values = append(values, s.Unmarshal[float32]()...)
+					}
+				}
+				return values
+			}
+			expected := make([]float32, count)
+			for i := range expected {
+				expected[i] = float32(i)
+			}
+			w := MustOpen(node.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Start: telem.Now(),
+				Keys:  keys,
+			}))
+			start := time.Now()
+			for _, v := range expected {
+				fr := frame.NewUnary(ch.Key(), telem.NewSeriesV(v))
+				Expect(w.Write(fr)).To(BeTrue())
+			}
+			Expect(receive(fastOut)).To(Equal(expected))
+			Expect(time.Since(start)).To(BeNumerically("<", 5*time.Second))
+			Expect(receive(slowOut)).To(Equal(expected))
+			slowIn.Close()
+			fastIn.Close()
+			Eventually(slowOut.Outlet()).Should(BeClosed())
+			Eventually(fastOut.Outlet()).Should(BeClosed())
+		})
+
+		It(
+			"Should send a notice of the channels whose frames it dropped",
+			func(ctx SpecContext) {
+				const (
+					count      = 40
+					sampleSize = 1 << 18
+				)
+				ch := &channel.Channel{
+					Name:     UniqueChannelName(),
+					DataType: telem.Float32T,
+					Virtual:  true,
+				}
+				Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+				keys := []channel.Key{ch.Key()}
+				s := MustSucceed(streamerSvc.New(ctx, streamer.Config{
+					Keys:        keys,
+					SendOpenAck: true,
+				}))
+				sCtx, cancel := signal.Isolated()
+				defer cancel()
+				in, out := confluence.Attach(s)
+				s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+				Eventually(out.Outlet()).Should(Receive())
+				w := MustOpen(node.Framer.OpenWriter(ctx, framer.WriterConfig{
+					Start: telem.Now(),
+					Keys:  keys,
+				}))
+				for i := range count {
+					values := make([]float32, sampleSize)
+					values[0] = float32(i)
+					fr := frame.NewUnary(ch.Key(), telem.NewSeries(values))
+					Expect(w.Write(fr)).To(BeTrue())
+				}
+				var (
+					firsts  []float32
+					dropped []channel.Key
+				)
+				for len(firsts) == 0 || firsts[len(firsts)-1] != count-1 {
+					var res streamer.Response
+					Eventually(out.Outlet()).Should(Receive(&res))
+					dropped = append(dropped, res.Dropped...)
+					for s := range res.Frame.Series() {
+						firsts = append(firsts, s.ValueAt[float32](0))
+					}
+				}
+				Expect(dropped).To(ContainElement(ch.Key()))
+				Expect(len(firsts)).To(BeNumerically("<", count))
+				in.Close()
+				Eventually(out.Outlet()).Should(BeClosed())
+			},
+		)
+	})
+
+	Describe("Video", func() {
+		var key channel.Key
+		BeforeEach(func(ctx SpecContext) {
+			ch := &channel.Channel{
+				Name:     UniqueChannelName(),
+				DataType: telem.VideoT,
+				Virtual:  true,
+			}
+			Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+			key = ch.Key()
+		})
+
+		videoFrame := func(keyframe bool, index uint32) telem.VideoFrame {
+			data := binary.LittleEndian.AppendUint32(nil, index)
+			return telem.VideoFrame{
+				Keyframe: keyframe,
+				Codec:    telem.VideoCodecH264,
+				Data:     data,
+			}
+		}
+
+		open := func(ctx SpecContext) (
+			confluence.Inlet[streamer.Request],
+			confluence.Outlet[streamer.Response],
+		) {
+			s := MustSucceed(streamerSvc.New(ctx, streamer.Config{
+				Keys:        []channel.Key{key},
+				SendOpenAck: true,
+			}))
+			sCtx, cancel := signal.Isolated()
+			in, out := confluence.Attach(s)
+			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+			DeferCleanup(func() {
+				in.Close()
+				Eventually(out.Outlet()).Should(BeClosed())
+				cancel()
+			})
+			Eventually(out.Outlet()).Should(Receive())
+			return in, out
+		}
+
+		openWriter := func(ctx SpecContext) *framer.Writer {
+			return MustOpen(node.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Start: telem.Now(),
+				Keys:  []channel.Key{key},
+			}))
+		}
+
+		write := func(w *framer.Writer, frames ...telem.VideoFrame) {
+			fr := frame.NewUnary(key, telem.NewVideoSeries(frames))
+			Expect(w.Write(fr)).To(BeTrue())
+		}
+
+		receive := func(out confluence.Outlet[streamer.Response]) (
+			frames []telem.VideoFrame,
+			bounds telem.AlignmentBounds,
+		) {
+			var res streamer.Response
+			Eventually(out.Outlet()).Should(Receive(&res))
+			for s := range res.Frame.Series() {
+				frames = append(frames, MustSucceed(s.DecodeVideo())...)
+			}
+			return frames, res.Frame.SeriesAt(-1).AlignmentBounds()
+		}
+
+		It("Should start a new streamer at the cached keyframe", func(ctx SpecContext) {
+			_, first := open(ctx)
+			w := openWriter(ctx)
+			Eventually(func(g Gomega) {
+				write(w, videoFrame(true, 0), videoFrame(false, 1))
+				_, bounds := receive(first)
+				_, ok := gopCache.Bridge(key, bounds.Upper)
+				g.Expect(ok).To(BeTrue())
+			}).Should(Succeed())
+			_, second := open(ctx)
+			write(w, videoFrame(false, 2))
+			frames, _ := receive(second)
+			Expect(frames).To(Equal([]telem.VideoFrame{
+				videoFrame(true, 0),
+				videoFrame(false, 1),
+				videoFrame(false, 2),
+			}))
+		})
+
+		It(
+			"Should pass no frames until a keyframe when the cache has none",
+			func(ctx SpecContext) {
+				_, out := open(ctx)
+				w := openWriter(ctx)
+				write(w, videoFrame(false, 0))
+				write(
+					w,
+					videoFrame(false, 1),
+					videoFrame(true, 2),
+					videoFrame(false, 3),
+				)
+				frames, _ := receive(out)
+				Expect(frames).To(Equal([]telem.VideoFrame{
+					videoFrame(true, 2),
+					videoFrame(false, 3),
+				}))
+			},
+		)
+
+		It(
+			"Should resume at a frame that decodes after dropping frames",
+			func(ctx SpecContext) {
+				const (
+					count       = 60
+					gopLength   = 10
+					payloadSize = 1 << 20
+				)
+				_, out := open(ctx)
+				w := openWriter(ctx)
+				for i := range uint32(count) {
+					f := videoFrame(i%gopLength == 0, i)
+					f.Data = append(f.Data, make([]byte, payloadSize)...)
+					write(w, f)
+				}
+				var (
+					received []telem.VideoFrame
+					dropped  bool
+				)
+				for len(received) == 0 ||
+					binary.LittleEndian.Uint32(received[len(received)-1].Data) != count-1 {
+					var res streamer.Response
+					Eventually(out.Outlet()).Should(Receive(&res))
+					dropped = dropped || len(res.Dropped) > 0
+					for s := range res.Frame.Series() {
+						received = append(received, MustSucceed(s.DecodeVideo())...)
+					}
+				}
+				Expect(dropped).To(BeTrue())
+				Expect(len(received)).To(BeNumerically("<", count))
+				for i, f := range received {
+					if f.Keyframe {
+						continue
+					}
+					Expect(i).To(BeNumerically(">", 0))
+					prev := binary.LittleEndian.Uint32(received[i-1].Data)
+					Expect(binary.LittleEndian.Uint32(f.Data)).To(Equal(prev + 1))
+				}
+			},
+		)
 	})
 
 	Describe("Key update acks", func() {

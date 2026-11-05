@@ -121,6 +121,20 @@ class Reader:
         """
         self._read_file(tr, channels, dest, reduction)
 
+    def read_mp4(self, tr: TimeRange, ch: channel.Key | str, *, dest: FilePath) -> None:
+        """Reads the frames a video channel holds within tr into an MP4 file.
+
+        The Core writes a fragmented MP4 file with no re-encoding. The file starts at
+        the first keyframe in tr.
+
+        :param tr: the time range to read.
+        :param ch: the video channel to read, by key or by name.
+        :param dest: the path of the MP4 file to write. It must end in .mp4.
+        :raises ValidationError: if the channel is not a video channel, or has no
+            keyframe in tr.
+        """
+        self._read_file(tr, ch, dest, None)
+
     def _read_file(
         self,
         tr: TimeRange,

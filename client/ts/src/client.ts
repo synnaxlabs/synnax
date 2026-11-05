@@ -48,6 +48,7 @@ import { table } from "@/table";
 import { task } from "@/task";
 import { Transport } from "@/transport";
 import { user } from "@/user";
+import { video } from "@/video";
 import { view } from "@/view";
 
 export const synnaxParamsZ = z.object({
@@ -157,6 +158,7 @@ export default class Synnax extends framer.Client {
   readonly lineplots: lineplot.Client;
   readonly panels: panel.Client;
   readonly logs: log.Client;
+  readonly videos: video.Client;
   readonly tables: table.Client;
   readonly groups: group.Client;
   readonly imex: imex.Client;
@@ -347,6 +349,7 @@ export default class Synnax extends framer.Client {
       cache,
     });
     this.logs = new log.Client({ unary, cache, ontology: this.ontology });
+    this.videos = new video.Client({ unary, cache, ontology: this.ontology });
     this.tables = new table.Client({ unary, cache, ontology: this.ontology });
     this.imex = new imex.Client({ file: this.transport.file });
   }

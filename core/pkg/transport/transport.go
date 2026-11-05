@@ -64,22 +64,26 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 	return c
 }
 
-// Layer binds the API layer to Synnax's supported transport protocols. HTTP endpoints
-// are registered directly onto the configured router; gRPC services are exposed via
-// GRPC for registration with the server's gRPC branch.
+// Layer binds the API layer to Synnax's supported transport protocols. HTTP and GRPC
+// hold the transports to register with the server's HTTP and gRPC branches.
 type Layer struct {
+	// HTTP holds the bindable HTTP transports, in the order the server's HTTP branch
+	// must bind them. The configured router comes first.
+	HTTP []fhttp.BindableTransport
 	// GRPC holds the bindable gRPC transports that must be registered with the server's
 	// gRPC branch.
 	GRPC []fgrpc.BindableTransport
 }
 
-// NewLayer binds the configured API layer to the HTTP router and gRPC transports,
-// returning a Layer that exposes the gRPC transports for server registration.
+// NewLayer binds the configured API layer to the HTTP and gRPC transports, returning a
+// Layer that exposes them for server registration.
 func NewLayer(cfgs ...LayerConfig) (Layer, error) {
 	cfg, err := config.New(LayerConfig{}, cfgs...)
 	if err != nil {
 		return Layer{}, err
 	}
-	http.Bind(cfg.API, cfg.Router)
-	return Layer{GRPC: grpc.Bind(cfg.API)}, nil
+	return Layer{
+		HTTP: http.Bind(cfg.API, cfg.Router),
+		GRPC: grpc.Bind(cfg.API),
+	}, nil
 }

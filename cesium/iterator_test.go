@@ -1073,6 +1073,40 @@ var _ = Describe("Iterator Behavior", func() {
 					return pdb
 				}
 
+				// chunkFrames sends seek and then cmd with span, and returns the frame
+				// of
+				// each data response to cmd.
+				chunkFrames := func(
+					pdb *cesium.DB,
+					cfg cesium.IteratorConfig,
+					seek cesium.IteratorCommand,
+					cmd cesium.IteratorCommand,
+					span telem.TimeSpan,
+				) []cesium.Frame {
+					GinkgoHelper()
+					it := MustSucceed(pdb.NewStreamIterator(cfg))
+					sCtx, cancel := signal.Isolated()
+					defer cancel()
+					requests, responses := confluence.Attach(it, 1)
+					it.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+					requests.Inlet() <- cesium.IteratorRequest{Command: seek}
+					Eventually(responses.Outlet()).Should(Receive())
+					requests.Inlet() <- cesium.IteratorRequest{Command: cmd, Span: span}
+					var frames []cesium.Frame
+					for {
+						var res cesium.IteratorResponse
+						Eventually(responses.Outlet()).Should(Receive(&res))
+						if res.Variant == cesium.IteratorResponseVariantAck {
+							Expect(res.Ack).To(BeTrue())
+							break
+						}
+						frames = append(frames, res.Frame)
+					}
+					requests.Close()
+					Expect(sCtx.Wait()).To(Succeed())
+					return frames
+				}
+
 				// chunks sends seek and then cmd with span, and returns the samples of
 				// the data channels in each data response to cmd.
 				chunks := func(
@@ -1084,34 +1118,119 @@ var _ = Describe("Iterator Behavior", func() {
 					data ...cesium.ChannelKey,
 				) [][]int64 {
 					GinkgoHelper()
-					it := MustSucceed(pdb.NewStreamIterator(cfg))
-					sCtx, cancel := signal.Isolated()
-					defer cancel()
-					requests, responses := confluence.Attach(it, 1)
-					it.Flow(sCtx, confluence.CloseOutputInletsOnExit())
-					requests.Inlet() <- cesium.IteratorRequest{Command: seek}
-					Eventually(responses.Outlet()).Should(Receive())
-					requests.Inlet() <- cesium.IteratorRequest{Command: cmd, Span: span}
-					var chunks [][]int64
-					for {
-						var res cesium.IteratorResponse
-						Eventually(responses.Outlet()).Should(Receive(&res))
-						if res.Variant == cesium.IteratorResponseVariantAck {
-							Expect(res.Ack).To(BeTrue())
-							break
-						}
+					var out [][]int64
+					for _, fr := range chunkFrames(pdb, cfg, seek, cmd, span) {
 						var chunk []int64
-						for key, series := range res.Frame.Entries() {
+						for key, series := range fr.Entries() {
 							if slices.Contains(data, key) {
 								chunk = append(chunk, series.Unmarshal[int64]()...)
 							}
 						}
-						chunks = append(chunks, chunk)
+						out = append(out, chunk)
 					}
-					requests.Close()
-					Expect(sCtx.Wait()).To(Succeed())
-					return chunks
+					return out
 				}
+
+				// stringChunks writes ten 2-character strings to a new channel and
+				// returns the strings of each chunk of a fixed span over all of them.
+				stringChunks := func(
+					ctx SpecContext,
+					seek, cmd cesium.IteratorCommand,
+					opts ...cesium.Option,
+				) [][]string {
+					GinkgoHelper()
+					pdb := open(ctx, opts...)
+					idx, data := GenerateChannelKey(), GenerateChannelKey()
+					Expect(pdb.CreateChannel(
+						ctx,
+						cesium.Channel{
+							Key:      idx,
+							Name:     "Nobile",
+							IsIndex:  true,
+							DataType: telem.TimestampT,
+						},
+						cesium.Channel{
+							Key:      data,
+							Name:     "Andree",
+							Index:    idx,
+							DataType: telem.StringT,
+						},
+					)).To(Succeed())
+					values := []string{
+						"s0",
+						"s1",
+						"s2",
+						"s3",
+						"s4",
+						"s5",
+						"s6",
+						"s7",
+						"s8",
+						"s9",
+					}
+					Expect(pdb.Write(ctx, telem.SecondTS, telem.MultiFrame(
+						[]cesium.ChannelKey{idx, data},
+						[]telem.Series{
+							telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5, 6, 7, 8, 9, 10),
+							telem.NewSeriesV(values...),
+						},
+					))).To(Succeed())
+					cfg := cesium.IteratorConfig{
+						Bounds:   telem.TimeRangeMax,
+						Channels: []cesium.ChannelKey{idx, data},
+					}
+					var out [][]string
+					for _, fr := range chunkFrames(pdb, cfg, seek, cmd, 20*telem.Second) {
+						var chunk []string
+						for _, series := range fr.Get(data).Series {
+							chunk = append(chunk, series.Unmarshal[string]()...)
+						}
+						out = append(out, chunk)
+					}
+					return out
+				}
+
+				DescribeTable(
+					"Should end a chunk at the chunk bytes of a variable-density channel",
+					func(ctx SpecContext, seek, cmd cesium.IteratorCommand) {
+						// Each sample is a 4-byte length and 2 bytes of string.
+						Expect(stringChunks(ctx, seek, cmd, cesium.WithChunkBytes(18))).
+							To(Equal([][]string{
+								{"s0", "s1", "s2"},
+								{"s3", "s4", "s5"},
+								{"s6", "s7", "s8"},
+								{"s9"},
+							}))
+					},
+					Entry(
+						"Next",
+						cesium.IteratorCommandSeekFirst,
+						cesium.IteratorCommandNext,
+					),
+					Entry(
+						"Prev",
+						cesium.IteratorCommandSeekLast,
+						cesium.IteratorCommandPrev,
+					),
+				)
+
+				DescribeTable(
+					"Should put one sample in a chunk when it is larger than the chunk bytes",
+					func(ctx SpecContext, seek, cmd cesium.IteratorCommand) {
+						Expect(stringChunks(ctx, seek, cmd, cesium.WithChunkBytes(1))).
+							To(HaveLen(10))
+					},
+					Entry(
+						"Next",
+						cesium.IteratorCommandSeekFirst,
+						cesium.IteratorCommandNext,
+					),
+					Entry(
+						"Prev",
+						cesium.IteratorCommandSeekLast,
+						cesium.IteratorCommandPrev,
+					),
+				)
 
 				DescribeTable(
 					"Should send a fixed span as one response per chunk of at most "+

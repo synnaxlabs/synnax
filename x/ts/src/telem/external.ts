@@ -13,3 +13,4 @@ export { type GLBufferController } from "@/telem/gl";
 export * from "@/telem/series";
 export * from "@/telem/telem";
 export * from "@/telem/types.gen";
+export * from "@/telem/video";

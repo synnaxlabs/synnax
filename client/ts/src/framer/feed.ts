@@ -17,6 +17,8 @@ import {
 
 import { type channel } from "@/channel";
 import { isConnectionError, UnexpectedError } from "@/errors";
+import { FRAMES_LEVEL } from "@/framer/cache/block";
+import { type KeyframeFinder } from "@/framer/cache/frames";
 import { Joins } from "@/framer/cache/join";
 import { Joiner } from "@/framer/cache/joiner";
 import {
@@ -62,6 +64,7 @@ export interface FeedProps
     Omit<MultiplexedStreamerProps, "store" | "joins" | "onWait" | "openStreamer"> {
   openStreamer: StreamOpener;
   readLatest: RemoteLatestReader;
+  findKeyframe: KeyframeFinder;
   /**
    * The key of the Core node the client connects to, once known. History signals keep
    * the blocks of only the channels stored on it.
@@ -81,7 +84,13 @@ export interface FeedProps
 /** The part of {@link FeedProps} a caller sets. The client supplies the rest. */
 export interface FeedOptions extends Omit<
   FeedProps,
-  "readRemote" | "retrieveChannels" | "openStreamer" | "readLatest" | "onRetry" | "node"
+  | "readRemote"
+  | "retrieveChannels"
+  | "openStreamer"
+  | "readLatest"
+  | "findKeyframe"
+  | "onRetry"
+  | "node"
 > {}
 
 /**
@@ -91,6 +100,8 @@ export interface FeedOptions extends Omit<
  */
 export class Feed {
   private readonly reader: Reader;
+  // frames fills the short raw blocks of frames requests.
+  private readonly frames: Reader;
   private readonly streamer: MultiplexedStreamer;
   private readonly tiles: TileReader;
   private readonly store: Store;
@@ -135,6 +146,15 @@ export class Feed {
       batchDebounce,
       fetchTimeout,
       now,
+    });
+    this.frames = new Reader({
+      readRemote,
+      retrieveChannels,
+      store: this.store,
+      batchDebounce,
+      fetchTimeout,
+      now,
+      level: FRAMES_LEVEL,
     });
     this.tiles = new TileReader({
       readRemote,
@@ -222,6 +242,8 @@ export class Feed {
         store: this.store,
         joins: this.joins,
         reader: this.reader,
+        frames: this.frames,
+        findKeyframe: this.props.findKeyframe,
         tiles: this.tiles,
         streamer: this.streamer,
         joiner: this.joiner,
@@ -280,6 +302,7 @@ export class Feed {
     this.signals = null;
     await this.streamer.close();
     await this.reader.close();
+    await this.frames.close();
     this.tiles.close();
     this.joins.close();
     this.store.close();

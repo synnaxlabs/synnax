@@ -113,6 +113,10 @@ struct Channel {
     /// @brief concurrency sets the policy for concurrent writes to the channel's data.
     /// Only virtual channels can have a policy of shared concurrency.
     ::x::control::Concurrency concurrency = ::x::control::Concurrency::Exclusive;
+    /// @brief retention is how long the Core keeps the data of an index channel and of
+    /// every channel on it. Zero keeps the data forever. Only an index channel can set
+    /// it.
+    ::x::telem::TimeSpan retention = ::x::telem::TimeSpan(0);
     /// @brief status is the current operational status of the channel.
     std::optional<Status> status;
 

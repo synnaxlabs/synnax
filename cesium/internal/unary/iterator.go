@@ -14,6 +14,7 @@ import (
 	"context"
 	"io"
 	"slices"
+	"sort"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/channel"
@@ -39,6 +40,9 @@ type IteratorConfig struct {
 	// Under a limit, AutoChunkSize counts points, auto spans end on group boundaries,
 	// and a fixed span clips groups at the view edges.
 	Reduction telem.Reduction
+	// ChunkBytes is the most data that one chunk of a variable-density channel holds. A
+	// chunk holds at least one sample, however large.
+	ChunkBytes telem.Size
 }
 
 func (i IteratorConfig) domainIteratorConfig() domain.IteratorConfig {
@@ -49,6 +53,7 @@ func (i IteratorConfig) domainIteratorConfig() domain.IteratorConfig {
 func (i IteratorConfig) Override(other IteratorConfig) IteratorConfig {
 	i.Bounds = override.Zero(i.Bounds, other.Bounds)
 	i.AutoChunkSize = override.Numeric(i.AutoChunkSize, other.AutoChunkSize)
+	i.ChunkBytes = override.Numeric(i.ChunkBytes, other.ChunkBytes)
 	i.Reduction.Variant = override.Nil(i.Reduction.Variant, other.Reduction.Variant)
 	return i
 }
@@ -57,6 +62,7 @@ func (i IteratorConfig) Override(other IteratorConfig) IteratorConfig {
 func (i IteratorConfig) Validate() error {
 	v := validate.New("unary.iterator_config")
 	v.Positive("auto_chunk_size", i.AutoChunkSize)
+	v.Positive("chunk_bytes", i.ChunkBytes)
 	v.Exec(i.Reduction.Validate)
 	return v.Error()
 }
@@ -65,6 +71,7 @@ var (
 	_                     config.Config[IteratorConfig] = IteratorConfig{}
 	defaultIteratorConfig                               = IteratorConfig{
 		AutoChunkSize: 1e5,
+		ChunkBytes:    64 * telem.Megabyte,
 	}
 )
 
@@ -78,6 +85,7 @@ type Iterator struct {
 	alamos.Instrumentation
 	err      error
 	internal *domain.Iterator
+	domain   *domain.DB
 	idx      *index.Domain
 	resolver *offsetResolver
 	Channel  channel.Channel
@@ -119,6 +127,7 @@ func (db *DB) OpenIterator(cfgs ...IteratorConfig) (*Iterator, error) {
 		Channel:         db.cfg.Channel,
 		resolver:        db.resolver,
 		internal:        iter,
+		domain:          db.domain,
 		IteratorConfig:  cfg,
 	}
 	switch r := cfg.Reduction.Variant.(type) {
@@ -168,7 +177,128 @@ func (i *Iterator) Continue(ctx context.Context, end telem.TimeStamp) bool {
 // EndAfter returns the end of the time range that starts at the end of the view and
 // holds the next n samples of the channel. See index.Domain.EndAfter.
 func (i *Iterator) EndAfter(ctx context.Context, n int64) (telem.TimeStamp, error) {
-	return i.idx.EndAfter(ctx, i.view.End, n)
+	end, err := i.idx.EndAfter(ctx, i.view.End, n)
+	if err != nil || !i.Channel.DataType.IsVariable() {
+		return end, err
+	}
+	bytesEnd, err := i.endAfterBytes(ctx, i.view.End)
+	return min(end, bytesEnd), err
+}
+
+// endAfterBytes returns the end of a read forward from ref that holds at most
+// ChunkBytes of data, and at least one sample.
+func (i *Iterator) endAfterBytes(
+	ctx context.Context,
+	ref telem.TimeStamp,
+) (end telem.TimeStamp, err error) {
+	iter := i.domain.OpenIterator(domain.IterRange(ref.SpanRange(telem.TimeSpanMax)))
+	defer func() { err = errors.Combine(err, iter.Close()) }()
+	budget := i.ChunkBytes
+	for ok := iter.SeekFirst(ctx); ok; ok = iter.Next() {
+		tr := iter.TimeRange()
+		var start int64
+		if tr.Start < ref {
+			approx, err := i.idx.Distance(
+				ctx,
+				tr.Start.Range(ref),
+				index.MustBeContinuous,
+			)
+			if err != nil {
+				return 0, err
+			}
+			start = approx.Upper
+		}
+		t, err := i.resolver.tableFor(ctx, iter)
+		if err != nil {
+			return 0, err
+		}
+		cut, size := forwardCut(
+			t,
+			iter.Size(),
+			start,
+			t.sampleCount,
+			budget,
+			budget == i.ChunkBytes,
+		)
+		if cut < t.sampleCount {
+			return i.stampSample(ctx, tr.Start, cut)
+		}
+		budget -= size
+	}
+	return telem.TimeStampMax, nil
+}
+
+// offsetOf returns the byte offset of sample k in a domain of size bytes, or size for a
+// sample past its end.
+func offsetOf(t *offsetTable, size telem.Size, k int64) telem.Size {
+	if k >= t.sampleCount {
+		return size
+	}
+	return t.byteOffsetAt(k)
+}
+
+// forwardCut returns the sample after the last one in [start, limit) that fits in
+// budget bytes, and the bytes up to it. When empty, the cut keeps at least one sample.
+func forwardCut(
+	t *offsetTable,
+	size telem.Size,
+	start, limit int64,
+	budget telem.Size,
+	empty bool,
+) (int64, telem.Size) {
+	base := offsetOf(t, size, start)
+	fit := sort.Search(int(limit-start), func(j int) bool {
+		return offsetOf(t, size, start+int64(j)+1)-base > budget
+	})
+	cut := start + int64(fit)
+	if cut == start && empty && start < limit {
+		cut++
+	}
+	return cut, offsetOf(t, size, cut) - base
+}
+
+// backwardCut returns the first sample of the run in [first, end) that ends at end and
+// fits in budget bytes, and the bytes of the run. When empty, the run keeps at least
+// one
+// sample.
+func backwardCut(
+	t *offsetTable,
+	size telem.Size,
+	first, end int64,
+	budget telem.Size,
+	empty bool,
+) (int64, telem.Size) {
+	top := offsetOf(t, size, end)
+	fit := sort.Search(int(end-first), func(j int) bool {
+		return top-offsetOf(t, size, end-int64(j)-1) > budget
+	})
+	cut := end - int64(fit)
+	if cut == end && empty && first < end {
+		cut--
+	}
+	return cut, top - offsetOf(t, size, cut)
+}
+
+// cutBytes limits the samples [start, end) of the current domain to the bytes left in
+// a chunk, from the front when forward and from the back otherwise. It returns the new
+// bound and the bytes that remain after it.
+func (i *Iterator) cutBytes(
+	ctx context.Context,
+	start, end int64,
+	remaining telem.Size,
+	forward bool,
+) (int64, telem.Size, error) {
+	t, err := i.resolver.tableFor(ctx, i.internal)
+	if err != nil {
+		return 0, 0, err
+	}
+	empty := remaining == i.ChunkBytes
+	if forward {
+		cut, size := forwardCut(t, i.internal.Size(), start, end, remaining, empty)
+		return cut, remaining - size, nil
+	}
+	cut, size := backwardCut(t, i.internal.Size(), start, end, remaining, empty)
+	return cut, remaining - size, nil
 }
 
 func (i *Iterator) Value() channel.Frame { return i.frame }
@@ -232,6 +362,71 @@ func (i *Iterator) SeekGE(ctx context.Context, ts telem.TimeStamp) bool {
 		i.seekReset(i.internal.TimeRange().BoundBy(i.bounds).Start)
 	}
 	return ok
+}
+
+// SeekKeyframe moves the view to the last keyframe at or before ts in the iterator's
+// bounds. It returns false when there is none. The channel must be video.
+func (i *Iterator) SeekKeyframe(ctx context.Context, ts telem.TimeStamp) bool {
+	if i.closed {
+		i.err = ErrIteratorClosed
+		return false
+	}
+	if i.Channel.DataType != telem.VideoT {
+		i.err = errors.Wrapf(
+			validate.ErrValidation,
+			"cannot seek to a keyframe of a %v channel",
+			i.Channel.DataType,
+		)
+		return false
+	}
+	ts = min(ts, i.bounds.End-1)
+	for ok := i.internal.SeekLE(ctx, ts); ok; ok = i.internal.Prev() {
+		stamp, found, err := i.lastKeyframe(ctx, ts)
+		if err != nil {
+			i.err = err
+			return false
+		}
+		if !found {
+			continue
+		}
+		if stamp < i.bounds.Start {
+			break
+		}
+		i.seekReset(stamp)
+		return true
+	}
+	i.seekReset(max(ts, i.bounds.Start))
+	return false
+}
+
+// lastKeyframe returns the timestamp of the last keyframe at or before ts in the
+// current domain.
+func (i *Iterator) lastKeyframe(
+	ctx context.Context,
+	ts telem.TimeStamp,
+) (telem.TimeStamp, bool, error) {
+	tr := i.internal.TimeRange()
+	t, err := i.resolver.tableFor(ctx, i.internal)
+	if err != nil {
+		return 0, false, err
+	}
+	end := t.sampleCount
+	if ts+1 < tr.End {
+		approx, err := i.idx.Distance(ctx, tr.Start.Range(ts+1), index.MustBeContinuous)
+		if err != nil {
+			return 0, false, err
+		}
+		end = pickSampleOffset(approx)
+	}
+	if end == 0 {
+		return 0, false, nil
+	}
+	k, found := t.lastKeyframe(end - 1)
+	if !found {
+		return 0, false, nil
+	}
+	stamp, err := i.stampSample(ctx, tr.Start, k)
+	return stamp, true, err
 }
 
 // Next moves the iterator forward by span. More specifically, if the current view is
@@ -298,10 +493,11 @@ func (i *Iterator) nextChunk(ctx context.Context) bool {
 	// it replaces the end once the read reaches it.
 	i.reset(i.view.End.Range(i.bounds.End))
 	var (
-		nRemaining = i.AutoChunkSize
-		end        = i.view.Start
-		closed     bool
-		more       bool
+		nRemaining     = i.AutoChunkSize
+		bytesRemaining = i.ChunkBytes
+		end            = i.view.Start
+		closed         bool
+		more           bool
 	)
 	for {
 		domainTR := i.internal.TimeRange()
@@ -338,6 +534,19 @@ func (i *Iterator) nextChunk(ctx context.Context) bool {
 				return false
 			}
 		}
+		if i.Channel.DataType.IsVariable() {
+			endSample, bytesRemaining, err = i.cutBytes(
+				ctx,
+				startSample,
+				endSample,
+				bytesRemaining,
+				true,
+			)
+			if err != nil {
+				i.err = err
+				return false
+			}
+		}
 		end = domainTR.End
 		if closed = endSample < limit; closed {
 			// The chunk fills inside this domain, so it ends at the first sample it
@@ -356,7 +565,7 @@ func (i *Iterator) nextChunk(ctx context.Context) bool {
 		}
 		nRemaining -= used
 		// A full chunk reads on into the next domain only to complete a cut group.
-		more = closed || nRemaining <= 0
+		more = closed || nRemaining <= 0 || bytesRemaining <= 0
 		if closed || (more && i.tail == nil) || !i.internal.Next() {
 			break
 		}
@@ -380,10 +589,11 @@ func (i *Iterator) autoPrev(ctx context.Context) bool {
 func (i *Iterator) prevChunk(ctx context.Context) bool {
 	i.reset(i.bounds.Start.Range(i.view.Start))
 	var (
-		nRemaining = i.AutoChunkSize
-		start      = i.view.End
-		closed     bool
-		more       bool
+		nRemaining     = i.AutoChunkSize
+		bytesRemaining = i.ChunkBytes
+		start          = i.view.End
+		closed         bool
+		more           bool
 	)
 	for {
 		domainTR := i.internal.TimeRange()
@@ -420,6 +630,19 @@ func (i *Iterator) prevChunk(ctx context.Context) bool {
 				return false
 			}
 		}
+		if i.Channel.DataType.IsVariable() {
+			startSample, bytesRemaining, err = i.cutBytes(
+				ctx,
+				startSample,
+				endSample,
+				bytesRemaining,
+				false,
+			)
+			if err != nil {
+				i.err = err
+				return false
+			}
+		}
 		start = domainTR.Start
 		if closed = startSample > first; closed {
 			// The chunk fills inside this domain, so it starts at the earliest sample
@@ -437,7 +660,7 @@ func (i *Iterator) prevChunk(ctx context.Context) bool {
 			return false
 		}
 		nRemaining -= used
-		more = closed || nRemaining <= 0
+		more = closed || nRemaining <= 0 || bytesRemaining <= 0
 		if closed || (more && i.head == nil) || !i.internal.Prev() {
 			break
 		}

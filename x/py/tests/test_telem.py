@@ -832,6 +832,7 @@ class TestDataType:
             (sy.DataType.STRING, True),
             (sy.DataType.JSON, True),
             (sy.DataType.BYTES, True),
+            (sy.DataType.VIDEO, True),
             (sy.DataType.BOOLEAN, False),
             (sy.DataType.UUID, False),
             (sy.DataType.TIMESTAMP, False),
@@ -875,6 +876,7 @@ class TestDataType:
             sy.DataType.STRING,
             sy.DataType.JSON,
             sy.DataType.BYTES,
+            sy.DataType.VIDEO,
         }
         assert len(sy.DataType.ALL) == len(set(sy.DataType.ALL))
 
@@ -888,6 +890,46 @@ class TestDataType:
     def test_known_name(self, data_type: sy.DataType) -> None:
         """Should construct every data type from its name."""
         assert sy.DataType(str(data_type)) == data_type
+
+
+@pytest.mark.telem
+class TestVideoFrame:
+    _KEY = sy.VideoFrame(
+        data=b"\x00\x00\x00\x01\x67", codec=sy.VideoCodec.H264, keyframe=True
+    )
+    _DELTA = sy.VideoFrame(data=b"\x00\x00\x01\x41", codec=sy.VideoCodec.H264)
+
+    def test_encode(self) -> None:
+        """Should prefix the access unit with the flags and codec bytes"""
+        assert self._KEY.encode() == b"\x01\x01\x00\x00\x00\x01\x67"
+        assert self._DELTA.encode() == b"\x00\x01\x00\x00\x01\x41"
+
+    def test_decode(self) -> None:
+        """Should decode an encoded frame"""
+        assert sy.VideoFrame.decode(self._KEY.encode()) == self._KEY
+        assert sy.VideoFrame.decode(self._DELTA.encode()) == self._DELTA
+
+    def test_decode_empty_access_unit(self) -> None:
+        """Should decode a frame with an empty access unit"""
+        assert sy.VideoFrame.decode(b"\x00\x01").data == b""
+
+    @pytest.mark.parametrize(
+        ("sample", "message"),
+        [
+            (b"\x01", "video sample has 1 bytes, but the header needs 2"),
+            (b"\x03\x01", "video sample has unknown flags 0x03"),
+            (b"\x01\x09", "video sample has unknown codec 9"),
+        ],
+        ids=["short", "flags", "codec"],
+    )
+    def test_decode_invalid(self, sample: bytes, message: str) -> None:
+        """Should raise a ValueError for a malformed header"""
+        with pytest.raises(ValueError, match=message):
+            sy.VideoFrame.decode(sample)
+
+    def test_data_type(self) -> None:
+        """Should infer the video data type from a frame"""
+        assert sy.DataType([self._KEY, self._DELTA]) == sy.DataType.VIDEO
 
 
 @pytest.mark.telem

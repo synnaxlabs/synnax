@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, NotFoundError } from "@synnaxlabs/client";
+import { DataType, NotFoundError, TimeSpan } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -48,6 +48,24 @@ const selectKind = (name: string): void => {
   fireEvent.click(getKind(name));
 };
 
+const setRetention = async (text: string): Promise<void> => {
+  fireEvent.click(screen.getByRole("button", { name: "Retention" }));
+  const field = await waitFor(() => {
+    const focused = document.activeElement;
+    if (
+      !(focused instanceof HTMLInputElement) ||
+      focused.placeholder === "Channel name"
+    )
+      throw new Error("the retention editor is not open");
+    return focused;
+  });
+  fireEvent.change(field, { target: { value: text } });
+  await waitFor(() => {
+    fireEvent.keyDown(field, { key: "Enter" });
+    expect(field.isConnected).toBe(false);
+  });
+};
+
 const clickCreate = async (): Promise<void> => {
   await act(async () => {
     fireEvent.click(findButton("Create"));
@@ -66,6 +84,17 @@ describe("useCreateModal", () => {
       await openModal();
       selectKind("Index");
       await waitFor(() => expect(screen.queryByText("Select channel")).toBeNull());
+    });
+
+    it("should show the retention field only for an index channel", async () => {
+      await openModal();
+      expect(screen.queryByRole("button", { name: "Retention" })).toBeNull();
+      selectKind("Index");
+      await screen.findByRole("button", { name: "Retention" });
+      selectKind("Virtual");
+      await waitFor(() =>
+        expect(screen.queryByRole("button", { name: "Retention" })).toBeNull(),
+      );
     });
 
     it("should hide the index field for a virtual channel", async () => {
@@ -104,6 +133,34 @@ describe("useCreateModal", () => {
       await waitFor(() =>
         expect(screen.queryByPlaceholderText("Channel name")).toBeNull(),
       );
+    });
+
+    it("should create an index channel with a retention", async () => {
+      await openModal();
+      const name = uniqueChannelName("idx");
+      setName(name);
+      selectKind("Index");
+      await setRetention("2h");
+      await clickCreate();
+      await waitFor(async () => {
+        const created = await client.channels.retrieve(name);
+        expect(created.retention).toEqual(TimeSpan.hours(2));
+      });
+    });
+
+    it("should clear the retention when leaving the index kind", async () => {
+      await openModal();
+      const name = uniqueChannelName("virt");
+      setName(name);
+      selectKind("Index");
+      await setRetention("2h");
+      selectKind("Virtual");
+      await clickCreate();
+      await waitFor(async () => {
+        const created = await client.channels.retrieve(name);
+        expect(created.virtual).toBe(true);
+        expect(created.retention).toEqual(TimeSpan.ZERO);
+      });
     });
 
     it("should create a data channel paired with the selected index", async () => {

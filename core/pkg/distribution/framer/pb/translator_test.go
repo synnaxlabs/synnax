@@ -247,6 +247,13 @@ var _ = Describe("Translator", func() {
 			Expect(result.Group).To(Equal(uint32(42)))
 		})
 
+		It("Should round-trip a drop notice", func(ctx SpecContext) {
+			original := relay.Response{Dropped: channel.Keys{1, 2}}
+			pb := MustSucceed(t.Forward(ctx, original))
+			result := MustSucceed(t.Backward(ctx, pb))
+			Expect(result.Dropped).To(Equal(channel.Keys{1, 2}))
+		})
+
 		It("Should handle zero-value response", func(ctx SpecContext) {
 			original := relay.Response{}
 			pb := MustSucceed(t.Forward(ctx, original))

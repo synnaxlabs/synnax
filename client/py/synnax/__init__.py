@@ -20,7 +20,9 @@ from synnax import (
     node,
     opcua,
     pagerduty,
+    rtsp,
     status,
+    whip,
 )
 from synnax.access.policy import Policy
 from synnax.access.role import Role
@@ -102,6 +104,8 @@ from synnax.telem import (
     TimeSpan,
     TimeSpanUnits,
     TimeStamp,
+    VideoCodec,
+    VideoFrame,
     convert_time_units,
     elapsed_seconds,
 )
@@ -192,6 +196,8 @@ __all__ = [
     "UnexpectedError",
     "User",
     "ValidationError",
+    "VideoCodec",
+    "VideoFrame",
     "View",
     "Writer",
     "WriterClosed",
@@ -212,6 +218,8 @@ __all__ = [
     "opcua",
     "pagerduty",
     "poll",
+    "rtsp",
     "sleep",
     "status",
+    "whip",
 ]

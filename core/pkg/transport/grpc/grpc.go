@@ -36,7 +36,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/table"
 	apitask "github.com/synnaxlabs/synnax/pkg/api/task"
 	"github.com/synnaxlabs/synnax/pkg/api/user"
+	"github.com/synnaxlabs/synnax/pkg/api/video"
 	"github.com/synnaxlabs/synnax/pkg/api/view"
+	"github.com/synnaxlabs/synnax/pkg/api/whip"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/arc"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/auth"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/channel"
@@ -167,6 +169,14 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.LogRetrieve = noop.UnaryServer[log.RetrieveRequest, log.RetrieveResponse]{}
 	t.LogDelete = noop.UnaryServer[log.DeleteRequest, struct{}]{}
 	t.LogDispatch = noop.UnaryServer[log.DispatchRequest, struct{}]{}
+	t.VideoCreate = noop.UnaryServer[video.CreateRequest, video.CreateResponse]{}
+	t.VideoRetrieve = noop.UnaryServer[video.RetrieveRequest, video.RetrieveResponse]{}
+	t.VideoDelete = noop.UnaryServer[video.DeleteRequest, struct{}]{}
+	t.VideoDispatch = noop.UnaryServer[video.DispatchRequest, struct{}]{}
+
+	// WHIP
+	t.WHIPPublish = noop.UnaryServer[whip.PublishRequest, whip.PublishResponse]{}
+	t.WHIPUnpublish = noop.UnaryServer[whip.UnpublishRequest, struct{}]{}
 
 	// VIEW
 	t.ViewCreate = noop.UnaryServer[view.CreateRequest, view.CreateResponse]{}

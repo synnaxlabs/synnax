@@ -47,15 +47,16 @@ var ErrIteratorClosed = iterator.ErrClosed
 const (
 	IteratorAutoSpan = iterator.AutoSpan
 
-	IteratorCommandNext      = iterator.CommandNext
-	IteratorCommandPrev      = iterator.CommandPrev
-	IteratorCommandSeekFirst = iterator.CommandSeekFirst
-	IteratorCommandSeekLast  = iterator.CommandSeekLast
-	IteratorCommandSeekLE    = iterator.CommandSeekLE
-	IteratorCommandSeekGE    = iterator.CommandSeekGE
-	IteratorCommandValid     = iterator.CommandValid
-	IteratorCommandError     = iterator.CommandError
-	IteratorCommandSetBounds = iterator.CommandSetBounds
+	IteratorCommandNext         = iterator.CommandNext
+	IteratorCommandPrev         = iterator.CommandPrev
+	IteratorCommandSeekFirst    = iterator.CommandSeekFirst
+	IteratorCommandSeekLast     = iterator.CommandSeekLast
+	IteratorCommandSeekLE       = iterator.CommandSeekLE
+	IteratorCommandSeekGE       = iterator.CommandSeekGE
+	IteratorCommandValid        = iterator.CommandValid
+	IteratorCommandError        = iterator.CommandError
+	IteratorCommandSetBounds    = iterator.CommandSetBounds
+	IteratorCommandSeekKeyframe = iterator.CommandSeekKeyframe
 
 	IteratorResponseVariantAck  = iterator.ResponseVariantAck
 	IteratorResponseVariantData = iterator.ResponseVariantData

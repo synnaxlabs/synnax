@@ -23,7 +23,6 @@ Key uint32 {
         key (first 12 bits) and a local key (last 20 bits), enabling distributed
         assignment while maintaining global uniqueness.
     """
-    @go hand
     @go output    "core/pkg/service/channel"
     @ts to_number
 }
@@ -35,7 +34,6 @@ LocalKey uint20 {
         channel key within a node. Combined with a node.Key to form the global channel
         Key.
     """
-    @go hand
     @go output "core/pkg/service/channel"
     @py omit
 }
@@ -152,6 +150,12 @@ Channel struct {
             automatically configured as virtual.
         """
     }
+    retention   telem.TimeSpan = 0 {
+        @doc value """
+            is how long the Core keeps the data of an index channel and of every channel
+            on it. Zero keeps the data forever. Only an index channel can set it.
+        """
+    }
 
     @cpp hand
     @doc value     """
@@ -242,6 +246,12 @@ APIChannel struct {
         @doc value """
             sets the policy for concurrent writes to the channel's data. Only virtual
             channels can have a policy of shared concurrency.
+        """
+    }
+    retention   telem.TimeSpan = 0 {
+        @doc value """
+            is how long the Core keeps the data of an index channel and of every channel
+            on it. Zero keeps the data forever. Only an index channel can set it.
         """
     }
     status      Status?             {

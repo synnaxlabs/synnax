@@ -19,6 +19,7 @@ import { createKeys, createSequence } from "@/framer/testutil";
 
 class StubStreamer implements framer.Streamer {
   keys: channel.Key[];
+  dropped: channel.Key[] = [];
   private i = 0;
   private pending: ((r: IteratorResult<framer.Frame>) => void) | null = null;
 

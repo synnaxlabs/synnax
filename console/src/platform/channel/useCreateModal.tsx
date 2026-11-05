@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, DataType } from "@synnaxlabs/client";
+import { type channel, DataType, TimeSpan } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -52,6 +52,7 @@ const Create = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
     form.set("isIndex", next === "index");
     form.set("virtual", next === "virtual");
     if (next !== "data") form.set("index", 0);
+    if (next !== "index") form.set("retention", TimeSpan.ZERO);
     if (next === "index") form.set("dataType", DataType.TIMESTAMP.toString());
     else if (isIndex) form.set("dataType", Channel.ZERO_FORM_VALUES.dataType);
   };
@@ -95,6 +96,20 @@ const Create = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
               )}
             </Form.Field>
           </Flex.Box>
+          <Form.Field<TimeSpan>
+            path="retention"
+            label="Retention"
+            helpText="Deletes data older than this. Zero keeps all data."
+            visible={kind === "index"}
+          >
+            {({ value, onChange }) => (
+              <Input.TimeSpan
+                value={Number(new TimeSpan(value).valueOf())}
+                onChange={(v) => onChange(new TimeSpan(v))}
+                aria-label="Retention"
+              />
+            )}
+          </Form.Field>
           <Form.Field<channel.Key> path="index" label="Index" visible={kind === "data"}>
             {({ value, onChange }) => (
               <Channel.SelectSingle

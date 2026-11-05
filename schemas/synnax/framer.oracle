@@ -26,21 +26,23 @@ WriterCommand enum {
 }
 
 IteratorCommand enum {
-    Open      = 0
-    Next      = 1
-    Prev      = 2
-    SeekFirst = 3
-    SeekLast  = 4
-    SeekLE    = 5
-    SeekGE    = 6
-    Valid     = 7
-    Error     = 8
+    Open         = 0
+    Next         = 1
+    Prev         = 2
+    SeekFirst    = 3
+    SeekLast     = 4
+    SeekLE       = 5
+    SeekGE       = 6
+    Valid        = 7
+    Error        = 8
+    SeekKeyframe = 10
 
     @doc value """
         defines commands driving an iterator's traversal of a time range. Open
         initializes the iterator with the requested keys, bounds, and chunk size; the
         seek commands position the cursor without yielding data; Next/Prev advance
-        through the range and emit data frames.
+        through the range and emit data frames. SeekKeyframe positions the cursor at the
+        last keyframe of the iterator's video channels at or before a timestamp.
     """
 }
 

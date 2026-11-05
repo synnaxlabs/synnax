@@ -46,6 +46,7 @@ export { Control } from "@/telem/control";
 export { control } from "@/telem/control/aether";
 export { Theming } from "@/theming";
 export { User } from "@/user";
+export { Video } from "@/video";
 export { View } from "@/view";
 export { Viewport } from "@/viewport";
 export { axis } from "@/vis/axis";

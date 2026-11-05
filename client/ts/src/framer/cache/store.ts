@@ -162,7 +162,7 @@ export class Store {
   set(key: string, block: Block): void {
     if (block instanceof RawBlock) {
       this.changed(block.channel);
-      if (block.coveredCount > 0)
+      if (block.coveredCount > 0 && block.level === RAW_LEVEL)
         this.newest.set(
           block.channel,
           Math.max(block.index, this.newest.get(block.channel) ?? -Infinity),
@@ -307,15 +307,15 @@ export class Store {
   }
 
   /**
-   * @returns the channel's raw block at the index, cached empty when absent. An expired
-   * block comes back without its fetched samples.
+   * @returns the channel's raw block at the index and level, cached empty when absent.
+   * An expired block comes back without its fetched samples.
    * @throws {UnexpectedError} if another kind of block holds the raw block's key.
    */
-  raw(ch: channel.Key, index: number): RawBlock {
-    const cached = this.findRaw(ch, index);
-    const key = rawKey(ch, index);
+  raw(ch: channel.Key, index: number, level: number = RAW_LEVEL): RawBlock {
+    const cached = this.findRaw(ch, index, level);
+    const key = rawKey(ch, index, level);
     if (cached == null) {
-      const block = new RawBlock(ch, index, this.now);
+      const block = new RawBlock(ch, index, this.now, level);
       this.set(key, block);
       return block;
     }
@@ -324,11 +324,16 @@ export class Store {
   }
 
   /**
-   * @returns the channel's raw block at the index, or undefined when none is cached.
+   * @returns the channel's raw block at the index and level, or undefined when none is
+   * cached.
    * @throws {UnexpectedError} if another kind of block holds the raw block's key.
    */
-  findRaw(ch: channel.Key, index: number): RawBlock | undefined {
-    const key = rawKey(ch, index);
+  findRaw(
+    ch: channel.Key,
+    index: number,
+    level: number = RAW_LEVEL,
+  ): RawBlock | undefined {
+    const key = rawKey(ch, index, level);
     const cached = this.get(key);
     if (cached == null) return undefined;
     if (!(cached instanceof RawBlock))
@@ -337,8 +342,8 @@ export class Store {
   }
 
   /**
-   * @returns the index of the newest raw block of the channel that a read or the stream
-   * filled with samples, or -Infinity when none did.
+   * @returns the index of the newest level 16 raw block of the channel that a read or
+   * the stream filled with samples, or -Infinity when none did.
    */
   newestBlock(ch: channel.Key): number {
     return this.newest.get(ch) ?? -Infinity;
@@ -368,7 +373,7 @@ export class Store {
     if (live.block != null) this.seal(live, live.block.index < block.index);
     block.buffer = live.buffer;
     live.block = block;
-    this.set(rawKey(block.channel, block.index), block);
+    this.set(rawKey(block.channel, block.index, block.level), block);
   }
 
   /**
@@ -397,7 +402,7 @@ export class Store {
     if (flushed) block.fill(res.flushed.series, block.coveredEnd, block.coveredCount);
     block.extend(p.timeRange.end, offsetOf(p.alignment) + p.length);
     if (opened || flushed || res.allocated.series.length > 0)
-      this.set(rawKey(block.channel, block.index), block);
+      this.set(rawKey(block.channel, block.index, block.level), block);
   }
 
   /**
@@ -455,7 +460,7 @@ export class Store {
     if (complete) block.extend(block.range.end, block.coveredCount);
     block.buffer = null;
     live.block = null;
-    this.set(rawKey(block.channel, block.index), block);
+    this.set(rawKey(block.channel, block.index, block.level), block);
   }
 
   private changed(ch: channel.Key): void {

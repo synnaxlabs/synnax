@@ -44,6 +44,8 @@ const resZ = z.object({
   keepAlive: z.boolean().optional(),
   /** Marks the empty response that answers a request with ackRequested set. */
   ack: z.boolean().optional(),
+  /** The channels that lost frames before this response. */
+  dropped: z.number().array().nullish(),
 });
 
 /**
@@ -99,6 +101,11 @@ export interface StreamerUpdateOptions {
 export interface Streamer extends AsyncIterator<Frame>, AsyncIterable<Frame> {
   /** The keys of the channels currently being streamed from. */
   keys: channel.Key[];
+  /**
+   * The channels that lost frames before the frame that the last read returned,
+   * because the streamer read too slowly. The Core drops the oldest frames first.
+   */
+  readonly dropped: channel.Key[];
   /**
    * Replaces the list of channels being streamed from.
    * @param options - Set waitForAck to resolve only once the Core streams the channels.
@@ -186,6 +193,9 @@ class BaseStreamer implements Streamer {
   // Updates waiting on an ack, oldest first. The Core acks in request order.
   private readonly pendingAcks: PromiseWithResolvers<void>[] = [];
   private failure?: Error;
+  // Drop notices that arrived after the last frame read.
+  private pendingDropped = new Set<channel.Key>();
+  dropped: channel.Key[] = [];
 
   constructor(
     stream: Stream<typeof reqZ, typeof resZ>,
@@ -241,6 +251,12 @@ class BaseStreamer implements Streamer {
         ack.resolve();
         continue;
       }
+      if (res.dropped != null && res.dropped.length > 0) {
+        res.dropped.forEach((key) => this.pendingDropped.add(key));
+        continue;
+      }
+      this.dropped = Array.from(this.pendingDropped);
+      this.pendingDropped.clear();
       return this.adapter.adapt(new Frame(res.frame));
     }
   }

@@ -12,4 +12,5 @@ export * from "@/testutil/Aether";
 export * from "@/testutil/form";
 export * from "@/testutil/render";
 export * from "@/testutil/Synnax";
+export { canvasTest } from "@/vis/render/testutil";
 export * from "@synnaxlabs/lyra/testutil";

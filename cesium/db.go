@@ -57,8 +57,10 @@ type DB struct {
 	// controlUpdates notifies subscribers of every control transfer the DB arbitrates.
 	controlUpdates observe.Observer[ControlUpdate]
 	historyChanges observe.Observer[HistoryChange]
-	closed         *atomic.Bool
-	mu             struct {
+	// offsets holds the offset tables of every variable-density channel.
+	offsets *unary.OffsetCache
+	closed  *atomic.Bool
+	mu      struct {
 		dbs struct {
 			unary   map[ChannelKey]unary.DB
 			virtual map[ChannelKey]virtual.DB

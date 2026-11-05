@@ -17,6 +17,13 @@ import { index as tileIndex, tileRange } from "@/framer/cache/grid";
 /** The grid level of raw blocks: 2^16 milliseconds, about 65.5 seconds. */
 export const RAW_LEVEL = 16;
 
+/**
+ * The grid level of the raw blocks of frames requests: 2^13 milliseconds, about 8.2
+ * seconds. A read fills a block from its start, so a short block keeps a seek into a
+ * video stream cheap.
+ */
+export const FRAMES_LEVEL = 13;
+
 /** A cached part of one channel's samples. */
 export interface Block {
   readonly channel: channel.Key;
@@ -37,11 +44,17 @@ export interface Block {
   pins: number;
 }
 
-/** @returns the index of the raw block that holds the timestamp. */
-export const rawIndex = (ts: TimeStamp): number => tileIndex(ts, RAW_LEVEL);
+/** @returns the index of the raw block at the level that holds the timestamp. */
+export const rawIndex = (ts: TimeStamp, level: number = RAW_LEVEL): number =>
+  tileIndex(ts, level);
 
-/** @returns the store key of the channel's raw block at the index. */
-export const rawKey = (ch: channel.Key, index: number): string => `${ch}/raw/${index}`;
+/** @returns the store key of the channel's raw block at the index and level. */
+export const rawKey = (
+  ch: channel.Key,
+  index: number,
+  level: number = RAW_LEVEL,
+): string =>
+  level === RAW_LEVEL ? `${ch}/raw/${index}` : `${ch}/raw${level}/${index}`;
 
 const OFFSET_MASK = (1n << 32n) - 1n;
 
@@ -161,15 +174,19 @@ const cut = (s: Series, tr: TimeRange): Series =>
  * @returns the part of each raw block that holds index samples, by block index, in
  * block order.
  */
-export const split = (timestamps: Series[], series: Series[]): Map<number, Part> => {
+export const split = (
+  timestamps: Series[],
+  series: Series[],
+  level: number = RAW_LEVEL,
+): Map<number, Part> => {
   const parts = new Map<number, Part>();
   // edges holds the Core alignment bounds of the index samples of each part, in order.
   const edges: Array<{ part: Part; range: TimeRange; lower: bigint; upper: bigint }> =
     [];
   for (const ts of timestamps)
     for (let lo = 0; lo < ts.length;) {
-      const index = rawIndex(new TimeStamp(ts.data[lo]));
-      const range = tileRange({ level: RAW_LEVEL, index });
+      const index = rawIndex(new TimeStamp(ts.data[lo]), level);
+      const range = tileRange({ level, index });
       const hi = search(ts, range.end.valueOf(), lo);
       let part = parts.get(index);
       if (part == null) {
@@ -199,7 +216,7 @@ const sumBytes = (series: Series[]): number =>
   series.reduce((sum, s) => sum + s.byteCapacity.valueOf(), 0);
 
 /**
- * One channel's raw samples over one level 16 tile of the grid, in block alignment.
+ * One channel's raw samples over one tile of the grid at its level, in block alignment.
  * Fetched series cover the block from its start. While a join writes the stream into
  * the block, the stream's buffer holds the samples after them.
  */
@@ -222,8 +239,9 @@ export class RawBlock implements Block {
     readonly channel: channel.Key,
     readonly index: number,
     private readonly now: () => TimeStamp = () => TimeStamp.now(),
+    readonly level: number = RAW_LEVEL,
   ) {
-    this.range = tileRange({ level: RAW_LEVEL, index });
+    this.range = tileRange({ level, index });
     this.coveredEnd = this.range.start;
   }
 

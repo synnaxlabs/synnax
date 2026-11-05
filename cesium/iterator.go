@@ -84,6 +84,14 @@ func (i *Iterator) SeekGE(ts telem.TimeStamp) bool {
 	return i.exec(IteratorRequest{Command: IteratorCommandSeekGE, Stamp: ts})
 }
 
+// SeekKeyframe moves the iterator to the latest keyframe at or before ts. With several
+// video channels, it moves to the earliest of their keyframes. It returns false when
+// no video channel has a keyframe in that span. Without a video channel, it fails with
+// a validation error.
+func (i *Iterator) SeekKeyframe(ts telem.TimeStamp) bool {
+	return i.exec(IteratorRequest{Command: IteratorCommandSeekKeyframe, Stamp: ts})
+}
+
 // Error implements Iterator.
 func (i *Iterator) Error() error {
 	_, err := i.execErr(IteratorRequest{Command: IteratorCommandError})

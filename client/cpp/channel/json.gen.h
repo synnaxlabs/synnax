@@ -61,6 +61,10 @@ inline Channel Channel::parse(x::json::Parser parser) {
             std::vector<Operation>{}
         ),
         .concurrency = parser.field<::x::control::Concurrency>("concurrency"),
+        .retention = parser.field<::x::telem::TimeSpan>(
+            "retention",
+            ::x::telem::TimeSpan(0)
+        ),
         .status = parser.field<std::optional<Status>>("status"),
     };
 }
@@ -79,6 +83,7 @@ inline x::json::json Channel::to_json() const {
     j["expression"] = this->expression;
     j["operations"] = x::json::to_array(this->operations);
     j["concurrency"] = this->concurrency;
+    j["retention"] = this->retention.nanoseconds();
     if (this->status.has_value()) j["status"] = this->status->to_json();
     return j;
 }

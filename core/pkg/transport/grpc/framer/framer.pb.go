@@ -551,6 +551,7 @@ type StreamerResponse struct {
 	Frame         *pb.Frame              `protobuf:"bytes,1,opt,name=frame,proto3" json:"frame,omitempty"`
 	Buffer        []byte                 `protobuf:"bytes,2,opt,name=buffer,proto3" json:"buffer,omitempty"`
 	Ack           bool                   `protobuf:"varint,3,opt,name=ack,proto3" json:"ack,omitempty"`
+	Dropped       []uint32               `protobuf:"varint,4,rep,packed,name=dropped,proto3" json:"dropped,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -604,6 +605,13 @@ func (x *StreamerResponse) GetAck() bool {
 		return x.Ack
 	}
 	return false
+}
+
+func (x *StreamerResponse) GetDropped() []uint32 {
+	if x != nil {
+		return x.Dropped
+	}
+	return nil
 }
 
 type DeleteRequest struct {
@@ -715,11 +723,12 @@ const file_core_pkg_transport_grpc_framer_framer_proto_rawDesc = "" +
 	"\x11downsample_factor\x18\x02 \x01(\rR\x10downsampleFactor\x12(\n" +
 	"\x10throttle_rate_hz\x18\x04 \x01(\x01R\x0ethrottleRateHz\x12%\n" +
 	"\x0eexclude_groups\x18\x05 \x03(\rR\rexcludeGroups\x12#\n" +
-	"\rack_requested\x18\x06 \x01(\bR\fackRequested\"e\n" +
+	"\rack_requested\x18\x06 \x01(\bR\fackRequested\"\x7f\n" +
 	"\x10StreamerResponse\x12'\n" +
 	"\x05frame\x18\x01 \x01(\v2\x11.x.telem.pb.FrameR\x05frame\x12\x16\n" +
 	"\x06buffer\x18\x02 \x01(\fR\x06buffer\x12\x10\n" +
-	"\x03ack\x18\x03 \x01(\bR\x03ack\"h\n" +
+	"\x03ack\x18\x03 \x01(\bR\x03ack\x12\x18\n" +
+	"\adropped\x18\x04 \x03(\rR\adropped\"h\n" +
 	"\rDeleteRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\rR\x04keys\x12\x14\n" +
 	"\x05names\x18\x02 \x03(\tR\x05names\x12-\n" +

@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/telem"
 )
 
 type relayResponse struct {
@@ -45,6 +46,9 @@ const (
 	// defaultChunkSize keeps a chunk of a fixed-span read at about 64 MB of 8-byte
 	// samples.
 	defaultChunkSize = 1 << 23
+	// defaultChunkBytes keeps a chunk of a variable-density channel at the size of a
+	// default chunk of 8-byte samples.
+	defaultChunkBytes = 64 * telem.Megabyte
 )
 
 func openRelay(sCtx signal.Context, o *options) *relay {

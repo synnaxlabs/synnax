@@ -19,6 +19,7 @@ import {
   errors,
   type MultiSeries,
   primitive,
+  TimeSpan,
   type TypedArray,
   zod,
 } from "@synnaxlabs/x";
@@ -113,6 +114,11 @@ export class Channel {
   readonly expression: string;
   readonly operations: Operation[];
   readonly concurrency: control.Concurrency;
+  /**
+   * How long Synnax keeps the data of an index channel and of every channel on it.
+   * Zero keeps the data forever.
+   */
+  readonly retention: TimeSpan;
   /** The status of the channel. */
   readonly status?: status.Status;
 
@@ -131,6 +137,7 @@ export class Channel {
     expression = "",
     operations = [],
     concurrency = control.Concurrency.exclusive,
+    retention = TimeSpan.ZERO,
   }: New & { frameClient?: framer.Client }) {
     this.key = zod.parse(keyZ, key, { label: "channel key" });
     this.name = name;
@@ -146,6 +153,9 @@ export class Channel {
       label: "channel operations",
     });
     this.concurrency = concurrency;
+    this.retention = zod.parse(TimeSpan.z, retention, {
+      label: "channel retention",
+    });
     if (argsStatus != null)
       this.status = zod.parse(statusZ, argsStatus, { label: "channel status" });
     this.frameClient = frameClient ?? null;
@@ -178,6 +188,7 @@ export class Channel {
         status: this.status,
         operations: this.operations,
         concurrency: this.concurrency,
+        retention: this.retention,
       },
       { label: "channel payload" },
     );

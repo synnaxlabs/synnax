@@ -14,6 +14,7 @@ export { status } from "@/status/aether";
 export { synnax } from "@/synnax/aether";
 export { telem } from "@/telem/aether";
 export { theming } from "@/theming/aether";
+export { video, VideoFactory } from "@/video/aether";
 export { canvas } from "@/vis/canvas/aether";
 export { diagram } from "@/vis/diagram/aether";
 export { eraser } from "@/vis/eraser/aether";

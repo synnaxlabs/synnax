@@ -2318,6 +2318,11 @@ describe("DataType", () => {
     it("should return true for BYTES", () => {
       expect(DataType.BYTES.isVariable).toBe(true);
     });
+    it("should return true for VIDEO", () => {
+      expect(DataType.VIDEO.isVariable).toBe(true);
+      expect(DataType.VIDEO.isNumeric).toBe(false);
+      expect(DataType.VIDEO.density).toBe(Density.UNKNOWN);
+    });
     it("should return false for BOOLEAN", () => {
       expect(DataType.BOOLEAN.isVariable).toBe(false);
     });

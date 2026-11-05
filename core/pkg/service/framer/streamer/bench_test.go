@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/gop"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -116,10 +117,19 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 		b.Fatalf("failed to open calculation service: %v", err)
 	}
 
+	gopCache, err := gop.Open(b.Context(), gop.Config{
+		Channel: channelSvc,
+		Framer:  node.Framer,
+	})
+	if err != nil {
+		b.Fatalf("failed to open gop cache: %v", err)
+	}
+
 	streamerSvc, err := streamer.NewService(streamer.ServiceConfig{
 		Framer:      node.Framer,
 		Channel:     channelSvc,
 		Calculation: calc,
+		GOP:         gopCache,
 	})
 	if err != nil {
 		b.Fatalf("failed to open streamer service: %v", err)
@@ -129,7 +139,7 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 		ctx:  b.Context(),
 		node: node,
 		closer: io.MultiCloser{
-			calc, channelSvc, statusSvc, labelSvc, groupSvc, otg, node,
+			gopCache, calc, channelSvc, statusSvc, labelSvc, groupSvc, otg, node,
 		},
 		channelSvc:    channelSvc,
 		channelWriter: channelSvc.NewWriter(nil),

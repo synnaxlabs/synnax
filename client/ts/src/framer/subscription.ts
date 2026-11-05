@@ -57,8 +57,21 @@ export interface LatestRequest {
   limit: LatestLimit;
 }
 
+/** Keeps every stored sample of each video channel in a time range. */
+export interface FramesLimit {
+  variant: "frames";
+}
+
+/** A request that keeps every stored sample of its video channels in a time range. */
+export interface FramesRequest {
+  keys: channel.Key[];
+  /** The time range. The samples start at the keyframe at or before its start. */
+  window: TimeRange;
+  limit: FramesLimit;
+}
+
 /** The channels, window, and limit of a subscription. */
-export type SubscribeRequest = PointsRequest | LatestRequest;
+export type SubscribeRequest = PointsRequest | LatestRequest | FramesRequest;
 
 /** The samples a subscription serves for one channel. */
 export interface Snapshot {
@@ -73,6 +86,11 @@ export interface Snapshot {
    * history change reads again do not count.
    */
   appended?: number;
+  /**
+   * For a frames request, the index samples that time series: one for each sample, at
+   * the alignment of the sample.
+   */
+  timestamps?: MultiSeries;
 }
 
 /**

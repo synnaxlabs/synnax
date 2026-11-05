@@ -73,8 +73,11 @@ type Channel struct {
 	// concurrency sets the policy for concurrent writes to the channel's data. Only
 	// virtual channels can have a policy of shared concurrency.
 	Concurrency pb1.Concurrency `protobuf:"varint,12,opt,name=concurrency,proto3,enum=x.control.pb.Concurrency" json:"concurrency,omitempty"`
+	// retention is how long the Core keeps the data of an index channel and of every
+	// channel on it. Zero keeps the data forever. Only an index channel can set it.
+	Retention int64 `protobuf:"varint,13,opt,name=retention,proto3" json:"retention,omitempty"`
 	// status is the current operational status of the channel.
-	Status        *pb2.Status `protobuf:"bytes,13,opt,name=status,proto3,oneof" json:"status,omitempty"`
+	Status        *pb2.Status `protobuf:"bytes,14,opt,name=status,proto3,oneof" json:"status,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -193,6 +196,13 @@ func (x *Channel) GetConcurrency() pb1.Concurrency {
 	return pb1.Concurrency(0)
 }
 
+func (x *Channel) GetRetention() int64 {
+	if x != nil {
+		return x.Retention
+	}
+	return 0
+}
+
 func (x *Channel) GetStatus() *pb2.Status {
 	if x != nil {
 		return x.Status
@@ -204,7 +214,7 @@ var File_core_pkg_api_channel_pb_channel_proto protoreflect.FileDescriptor
 
 const file_core_pkg_api_channel_pb_channel_proto_rawDesc = "" +
 	"\n" +
-	"%core/pkg/api/channel/pb/channel.proto\x12\x0eapi.channel.pb\x1a)core/pkg/service/channel/pb/channel.proto\x1a'core/pkg/service/status/pb/status.proto\x1a\x1dx/go/control/pb/control.proto\"\xd9\x03\n" +
+	"%core/pkg/api/channel/pb/channel.proto\x12\x0eapi.channel.pb\x1a)core/pkg/service/channel/pb/channel.proto\x1a'core/pkg/service/status/pb/status.proto\x1a\x1dx/go/control/pb/control.proto\"\xf7\x03\n" +
 	"\aChannel\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\rR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
@@ -222,8 +232,9 @@ const file_core_pkg_api_channel_pb_channel_proto_rawDesc = "" +
 	"\n" +
 	"operations\x18\v \x03(\v2\x1d.service.channel.pb.OperationR\n" +
 	"operations\x12;\n" +
-	"\vconcurrency\x18\f \x01(\x0e2\x19.x.control.pb.ConcurrencyR\vconcurrency\x126\n" +
-	"\x06status\x18\r \x01(\v2\x19.service.status.pb.StatusH\x01R\x06status\x88\x01\x01B\b\n" +
+	"\vconcurrency\x18\f \x01(\x0e2\x19.x.control.pb.ConcurrencyR\vconcurrency\x12\x1c\n" +
+	"\tretention\x18\r \x01(\x03R\tretention\x126\n" +
+	"\x06status\x18\x0e \x01(\v2\x19.service.status.pb.StatusH\x01R\x06status\x88\x01\x01B\b\n" +
 	"\x06_aliasB\t\n" +
 	"\a_statusB\xad\x01\n" +
 	"\x12com.api.channel.pbB\fChannelProtoP\x01Z/github.com/synnaxlabs/synnax/pkg/api/channel/pb\xa2\x02\x03ACP\xaa\x02\x0eApi.Channel.Pb\xca\x02\x0eApi\\Channel\\Pb\xe2\x02\x1aApi\\Channel\\Pb\\GPBMetadata\xea\x02\x10Api::Channel::Pbb\x06proto3"

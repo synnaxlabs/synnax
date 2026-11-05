@@ -20,6 +20,7 @@ import { Schematic } from "@/feature/schematic";
 import { Search } from "@/feature/search";
 import { Table } from "@/feature/table";
 import { Task } from "@/feature/task";
+import { Video } from "@/feature/video";
 import { type Palette } from "@/platform/palette";
 
 const SEARCH_LIST_ITEMS: Search.ListItems = {
@@ -27,6 +28,7 @@ const SEARCH_LIST_ITEMS: Search.ListItems = {
   ...Channel.SEARCH_LIST_ITEMS,
   ...LinePlot.SEARCH_LIST_ITEMS,
   ...Log.SEARCH_LIST_ITEMS,
+  ...Video.SEARCH_LIST_ITEMS,
   ...Project.SEARCH_LIST_ITEMS,
   ...Range.SEARCH_LIST_ITEMS,
   ...Schematic.SEARCH_LIST_ITEMS,

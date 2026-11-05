@@ -1591,7 +1591,8 @@ export class DataType
     return (
       this.equals(DataType.JSON) ||
       this.equals(DataType.STRING) ||
-      this.equals(DataType.BYTES)
+      this.equals(DataType.BYTES) ||
+      this.equals(DataType.VIDEO)
     );
   }
 
@@ -1741,6 +1742,9 @@ export class DataType
   /** Represents a boolean data type. Samples are a single byte with canonical values
    * 0x00 (false) and 0x01 (true). */
   static readonly BOOLEAN = new DataType("boolean");
+  /** Represents encoded video. Each sample is one encoded frame. Video has an unknown
+   * density and is encoded as uint32-length-prefixed samples. */
+  static readonly VIDEO = new DataType("video");
 
   private static readonly ARRAY_CONSTRUCTORS: Map<string, TypedArrayConstructor> =
     new Map<string, TypedArrayConstructor>([
@@ -1760,6 +1764,7 @@ export class DataType
       [DataType.UUID.toString(), Uint8Array],
       [DataType.BYTES.toString(), Uint8Array],
       [DataType.BOOLEAN.toString(), Uint8Array],
+      [DataType.VIDEO.toString(), Uint8Array],
     ]);
 
   private static readonly ARRAY_CONSTRUCTOR_DATA_TYPES: Map<string, DataType> = new Map<
@@ -1795,6 +1800,7 @@ export class DataType
     [DataType.UUID.toString(), Density.BIT128],
     [DataType.BYTES.toString(), Density.UNKNOWN],
     [DataType.BOOLEAN.toString(), Density.BIT8],
+    [DataType.VIDEO.toString(), Density.UNKNOWN],
   ]);
 
   /** All the data types. */
@@ -1816,6 +1822,7 @@ export class DataType
     DataType.STRING,
     DataType.JSON,
     DataType.BYTES,
+    DataType.VIDEO,
   ];
 
   private static readonly SHORT_STRINGS = new Map<string, string>([
@@ -1835,6 +1842,7 @@ export class DataType
     [DataType.STRING.toString(), "str"],
     [DataType.JSON.toString(), "json"],
     [DataType.BYTES.toString(), "bytes"],
+    [DataType.VIDEO.toString(), "video"],
   ]);
 
   static readonly BIG_INT_TYPES = [DataType.INT64, DataType.UINT64, DataType.TIMESTAMP];

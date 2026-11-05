@@ -52,6 +52,7 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 		closed:         &atomic.Bool{},
 		controlUpdates: observe.New[ControlUpdate](),
 		historyChanges: observe.New[HistoryChange](),
+		offsets:        unary.NewOffsetCache(o.offsetCacheBudget),
 	}
 	db.mu.dbs.unary = make(map[channel.Key]unary.DB, len(info))
 	db.mu.dbs.virtual = make(map[channel.Key]virtual.DB, len(info))
@@ -117,6 +118,7 @@ func (db *DB) openUnary(ctx context.Context, ch Channel, fs fs.FS) error {
 		OnHistoryChange: func(ctx context.Context, tr telem.TimeRange) {
 			db.historyChanges.Notify(ctx, HistoryChange{Key: ch.Key, TimeRange: tr})
 		},
+		OffsetCache: db.offsets,
 	})
 	if err != nil {
 		return err

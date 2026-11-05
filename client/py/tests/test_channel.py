@@ -146,6 +146,39 @@ class TestChannel:
         res = client.channels.retrieve(ch.key)
         assert res.data_type == sy.DataType.BOOLEAN
 
+    def test_create_index_with_retention(self, client: sy.Synnax) -> None:
+        """Should create an index channel that keeps its data for a retention."""
+        channel = client.channels.create(
+            name=channel_name(), is_index=True, retention=sy.TimeSpan.HOUR
+        )
+        assert channel.retention == sy.TimeSpan.HOUR
+        assert client.channels.retrieve(channel.key).retention == sy.TimeSpan.HOUR
+
+    def test_create_index_with_retention_from_class(self, client: sy.Synnax) -> None:
+        """Should create an index channel with a retention from the class."""
+        channel = client.channels.create(
+            sy.Channel(
+                name=channel_name(),
+                data_type=sy.DataType.TIMESTAMP,
+                is_index=True,
+                retention=sy.TimeSpan.HOUR,
+            )
+        )
+        assert client.channels.retrieve(channel.key).retention == sy.TimeSpan.HOUR
+
+    def test_create_retention_on_data_channel(self, client: sy.Synnax) -> None:
+        """Should raise a validation error for a retention on a data channel."""
+        with pytest.raises(
+            sy.ValidationError,
+            match="only a persisted index channel can have a retention",
+        ):
+            client.channels.create(
+                name=channel_name(),
+                data_type=sy.DataType.FLOAT32,
+                virtual=True,
+                retention=sy.TimeSpan.HOUR,
+            )
+
     def test_create_virtual(self, client: sy.Synnax) -> None:
         """Should create a virtual channel"""
         channel = client.channels.create(

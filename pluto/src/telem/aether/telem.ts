@@ -72,6 +72,8 @@ export interface ValueProps {
   points?: number;
   /** True when every sample must fall inside the bounds of the returned series. */
   extremesKept?: boolean;
+  /** The time the caller shows, for a source that plays video over a range. */
+  time?: TimeStamp;
 }
 
 export interface Telem {

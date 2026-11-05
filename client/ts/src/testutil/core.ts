@@ -275,6 +275,9 @@ export class SyntheticCore {
       retrieveChannels: this.retrieveChannels,
       openStreamer: async (config) => this.openStreamer(config),
       readLatest: async (keys, count, tr) => this.readLatest(keys, count, tr),
+      findKeyframe: async () => {
+        throw new ValidationError("synthetic core serves no video channel");
+      },
       node: () => this.node,
       ...props,
     });
@@ -588,6 +591,7 @@ const groupSize = (count: number, limit: number, aggregation: Aggregation): numb
 
 class SyntheticStreamer implements Streamer {
   keys: channel.Key[];
+  dropped: channel.Key[] = [];
   private readonly queue: Frame[] = [];
   // waiting resolves the pending pull with the next frame, or with null on close.
   private waiting: ((frame: Frame | null) => void) | null = null;

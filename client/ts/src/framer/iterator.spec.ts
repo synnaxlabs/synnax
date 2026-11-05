@@ -9,10 +9,13 @@
 
 import {
   type Aggregation,
-  type Series,
+  DataType,
+  id,
+  Series,
   TimeRange,
   TimeSpan,
   TimeStamp,
+  type VideoFrame,
 } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
@@ -29,6 +32,63 @@ const client = createTestClient();
 const MAX_FACTOR = 2 ** 32 - 1;
 
 describe("Iterator", () => {
+  describe("seekKeyframe", () => {
+    test("should read from the last keyframe at or before a timestamp", async () => {
+      const idx = await client.channels.create({
+        name: id.create(),
+        isIndex: true,
+        dataType: DataType.TIMESTAMP,
+      });
+      const video = await client.channels.create({
+        name: id.create(),
+        index: idx.key,
+        dataType: DataType.VIDEO,
+      });
+      const frames: VideoFrame[] = Array.from({ length: 6 }, (_, i) => ({
+        keyframe: i % 3 === 0,
+        codec: "h264",
+        data: new Uint8Array([i]),
+      }));
+      const writer = await client.openWriter({
+        start: TimeStamp.seconds(10),
+        channels: [idx.key, video.key],
+      });
+      try {
+        await writer.write({
+          [idx.key]: secondsLinspace(10, 6),
+          [video.key]: new Series({ data: frames, dataType: DataType.VIDEO }),
+        });
+        await writer.commit();
+      } finally {
+        await writer.close();
+      }
+      const iter = await client.openIterator(TimeRange.MAX, [idx.key, video.key]);
+      try {
+        expect(await iter.seekKeyframe(TimeStamp.seconds(15))).toBe(true);
+        expect(await iter.next(TimeSpan.seconds(2))).toBe(true);
+        expect(Array.from(iter.value.get(idx.key))).toEqual([
+          TimeStamp.seconds(13).valueOf(),
+          TimeStamp.seconds(14).valueOf(),
+        ]);
+        const [first] = iter.value.get(video.key).series[0] as unknown as VideoFrame[];
+        expect(first.keyframe).toBe(true);
+        expect(first.data).toEqual(new Uint8Array([3]));
+      } finally {
+        await iter.close();
+      }
+    });
+
+    test("should fail without a video channel", async () => {
+      const [idx] = await newIndexedPair(client);
+      await client.write(TimeStamp.SECOND, idx.key, secondsLinspace(1, 5));
+      const iter = await client.openIterator(TimeRange.MAX, [idx.key]);
+      expect(await iter.seekKeyframe(TimeStamp.seconds(3))).toBe(false);
+      await expect(iter.close()).rejects.toThrow(
+        "cannot seek to a keyframe of a timestamp channel",
+      );
+    });
+  });
+
   test("happy path", async () => {
     const channels = await newIndexedPair(client);
     const writer = await client.openWriter({

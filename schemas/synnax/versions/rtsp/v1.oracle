@@ -1,0 +1,64 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/channel/v0"
+import "schemas/synnax/versions/task/v2"
+import "schemas/x/versions/telem/v0"
+
+Protocol enum {
+    automatic = "automatic"
+    tcp       = "tcp"
+    udp       = "udp"
+
+    @doc value """
+        is the transport of the media of an RTSP stream. Automatic tries UDP first, then
+        TCP.
+    """
+}
+
+TimeSource enum {
+    arrival = "arrival"
+    capture = "capture"
+
+    @doc value """
+        is where a task takes the time of each frame from. Arrival smooths the time that
+        each frame reaches the Core by the spacing of its RTP timestamps. Capture takes
+        the time from the RTCP sender reports of a source that NTP or PTP keeps in sync,
+        and drops the frames before the first report.
+    """
+}
+
+ReadConfig struct extends task.PersistConfig {
+    url         string = "" {
+        @doc value "is the RTSP URL of the stream. It can hold a username and password."
+    }
+    channel     channel.Key = 0 {
+        @doc value "is the key of the video channel that the task writes frames to."
+    }
+    protocol    Protocol = automatic {
+        @doc value "is the transport of the media of the stream."
+    }
+    offset      telem.TimeSpan = 0 {
+        @doc value """
+            is added to the time of each frame. A negative offset removes encode and
+            network delay.
+        """
+    }
+    time_source TimeSource = arrival {
+        @doc value "is where the task takes the time of each frame from."
+    }
+
+    @doc value  """
+        configures an RTSP read task, which pulls an H.264 stream from a camera or media
+        server and writes its frames to a video channel.
+    """
+    @go imex    body
+    @go marshal
+    @go migrate
+}

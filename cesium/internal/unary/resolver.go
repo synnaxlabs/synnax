@@ -11,6 +11,7 @@ package unary
 
 import (
 	"bufio"
+	"container/list"
 	"context"
 	"io"
 	"slices"
@@ -18,6 +19,7 @@ import (
 	"sync"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
@@ -41,43 +43,133 @@ type offsetTable struct {
 	end         telem.TimeStamp
 	offsets     []uint32
 	sampleCount int64
+	// keyframes holds the ascending indices of the keyframes of a video domain. It is
+	// nil for other channels.
+	keyframes []uint32
 }
+
+// tableOverhead approximates the memory of a table beyond its offsets: the table, its
+// cache entry, and its list element.
+const tableOverhead = 128 * telem.Byte
 
 func (t *offsetTable) byteOffsetAt(sampleIdx int64) telem.Size {
 	return telem.Size(t.offsets[sampleIdx])
 }
 
-// offsetCache memoizes per-domain offset tables for variable-length channels.
-// Tables are keyed by the Start timestamp of the domain pointer they describe.
-// Pointer Starts are unique within a DB (non-overlapping ranges) and immutable
-// once set, so they are stable cache keys even when other pointers are
-// inserted or removed before this one.
-type offsetCache struct {
-	mu     sync.RWMutex
-	tables map[telem.TimeStamp]*offsetTable
+func (t *offsetTable) size() telem.Size {
+	return telem.Size(4*(len(t.offsets)+len(t.keyframes))) + tableOverhead
 }
 
-func newOffsetCache() *offsetCache {
-	return &offsetCache{tables: make(map[telem.TimeStamp]*offsetTable)}
+// lastKeyframe returns the index of the last keyframe at or before sample.
+func (t *offsetTable) lastKeyframe(sample int64) (int64, bool) {
+	j, found := slices.BinarySearch(t.keyframes, uint32(sample))
+	if found {
+		return sample, true
+	}
+	if j == 0 {
+		return 0, false
+	}
+	return int64(t.keyframes[j-1]), true
 }
 
-func (c *offsetCache) get(start telem.TimeStamp) (*offsetTable, bool) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	t, ok := c.tables[start]
-	return t, ok
+// DefaultOffsetCacheBudget is the budget of the cache that a DB opens when its config
+// has none.
+const DefaultOffsetCacheBudget = 128 * telem.Megabyte
+
+// OffsetCache holds the offset tables of variable-density domains for every DB that
+// shares it. When its tables pass the budget, it evicts the least recently used ones.
+// A table larger than the whole budget is not cached. Safe for concurrent use.
+type OffsetCache struct {
+	budget telem.Size
+	mu     struct {
+		sync.Mutex
+		size telem.Size
+		// recent orders the cached tables from most to least recently used.
+		recent list.List
+		tables map[channel.Key]map[telem.TimeStamp]*list.Element
+	}
 }
 
-func (c *offsetCache) set(start telem.TimeStamp, t *offsetTable) {
+type cachedTable struct {
+	channel channel.Key
+	// start is the Start of the domain pointer. Pointer Starts are unique within a DB
+	// and immutable once set, so they are stable keys even when other pointers are
+	// inserted or removed before this one.
+	start telem.TimeStamp
+	table *offsetTable
+}
+
+// NewOffsetCache opens a cache that holds at most budget bytes of tables.
+func NewOffsetCache(budget telem.Size) *OffsetCache {
+	c := &OffsetCache{budget: budget}
+	c.mu.tables = make(map[channel.Key]map[telem.TimeStamp]*list.Element)
+	return c
+}
+
+func (c *OffsetCache) get(ch channel.Key, start telem.TimeStamp) (*offsetTable, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.tables[start] = t
+	el, ok := c.mu.tables[ch][start]
+	if !ok {
+		return nil, false
+	}
+	c.mu.recent.MoveToFront(el)
+	return el.Value.(*cachedTable).table, true
 }
 
-func (c *offsetCache) invalidateAll() {
+func (c *OffsetCache) set(ch channel.Key, start telem.TimeStamp, t *offsetTable) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	clear(c.tables)
+	if el, ok := c.mu.tables[ch][start]; ok {
+		c.remove(el)
+	}
+	if t.size() > c.budget {
+		return
+	}
+	tables, ok := c.mu.tables[ch]
+	if !ok {
+		tables = make(map[telem.TimeStamp]*list.Element)
+		c.mu.tables[ch] = tables
+	}
+	tables[start] = c.mu.recent.PushFront(
+		&cachedTable{channel: ch, start: start, table: t},
+	)
+	c.mu.size += t.size()
+	for c.mu.size > c.budget {
+		c.remove(c.mu.recent.Back())
+	}
+}
+
+// invalidate removes the tables of the channel's domains that overlap tr. Bounds are
+// inclusive, so a domain that only touches tr goes too.
+func (c *OffsetCache) invalidate(ch channel.Key, tr telem.TimeRange) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for start, el := range c.mu.tables[ch] {
+		if start <= tr.End && el.Value.(*cachedTable).table.end >= tr.Start {
+			c.remove(el)
+		}
+	}
+}
+
+// purge removes every table of the channel.
+func (c *OffsetCache) purge(ch channel.Key) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for _, el := range c.mu.tables[ch] {
+		c.remove(el)
+	}
+}
+
+// remove requires c.mu to be held.
+func (c *OffsetCache) remove(el *list.Element) {
+	entry := c.mu.recent.Remove(el).(*cachedTable)
+	tables := c.mu.tables[entry.channel]
+	delete(tables, entry.start)
+	if len(tables) == 0 {
+		delete(c.mu.tables, entry.channel)
+	}
+	c.mu.size -= entry.table.size()
 }
 
 func buildOffsetTable(
@@ -133,6 +225,42 @@ func buildOffsetTable(
 	return t, nil
 }
 
+// videoScanSize is how much of each frame buildVideoTable reads: the 4-byte length
+// and the 2-byte header.
+const videoScanSize = 6
+
+// buildVideoTable builds the table of a video domain like buildOffsetTable, but it
+// reads only the length and header of each frame and skips its data.
+func buildVideoTable(
+	ins alamos.Instrumentation,
+	r *domain.Reader,
+	domainSize telem.Size,
+	tr telem.TimeRange,
+) (*offsetTable, error) {
+	var (
+		t      = &offsetTable{end: tr.End}
+		header = make([]byte, videoScanSize)
+		pos    int64
+	)
+	for pos+videoScanSize <= int64(domainSize) {
+		if _, err := r.ReadAt(header, pos); err != nil {
+			if errors.IsAny(err, io.EOF, io.ErrUnexpectedEOF) {
+				logTruncation(ins, tr, domainSize, pos, err)
+				break
+			}
+			return nil, err
+		}
+		length := int64(telem.ByteOrder.Uint32(header))
+		if telem.IsVideoKeyframe(header[4:]) {
+			t.keyframes = append(t.keyframes, uint32(t.sampleCount))
+		}
+		t.offsets = append(t.offsets, uint32(pos))
+		pos += 4 + length
+		t.sampleCount++
+	}
+	return t, nil
+}
+
 // logTruncation records a warning when the on-disk file underlying a domain
 // pointer is shorter than the pointer's recorded size, surfacing a class of
 // corruption that buildOffsetTable would otherwise silently absorb by serving
@@ -154,15 +282,18 @@ func logTruncation(
 }
 
 // offsetResolver translates sample indices to byte offsets within domain files.
-// Fixed-density channels have a zero cache and rely on density arithmetic;
-// variable-length channels carry a per-domain offset cache that is built on
+// Fixed-density channels have no cache and rely on density arithmetic;
+// variable-length channels keep per-domain offset tables in a cache, built on
 // first access by scanning the length-prefixed records.
 type offsetResolver struct {
 	// ins is the resolver's instrumentation handle. Used by tableFor's scan
 	// path to surface on-disk truncation warnings; otherwise unused.
 	ins     alamos.Instrumentation
 	density telem.Density
-	cache   *offsetCache // nil for fixed-density channels
+	channel channel.Key
+	cache   *OffsetCache // nil for fixed-density channels
+	// video is true when the channel's tables hold keyframes.
+	video bool
 	// rebuilds collapses concurrent rebuilds of the same domain into a single
 	// scan. Callers that miss on the same start timestamp wait for the leader
 	// to finish and share its result rather than each opening their own reader
@@ -170,11 +301,20 @@ type offsetResolver struct {
 	rebuilds singleflight.Group
 }
 
-func newOffsetResolver(dt telem.DataType, ins alamos.Instrumentation) *offsetResolver {
-	if dt.IsVariable() {
-		return &offsetResolver{ins: ins, cache: newOffsetCache()}
+func newOffsetResolver(
+	ch channel.Channel,
+	cache *OffsetCache,
+	ins alamos.Instrumentation,
+) *offsetResolver {
+	if ch.DataType.IsVariable() {
+		return &offsetResolver{
+			ins:     ins,
+			channel: ch.Key,
+			cache:   cache,
+			video:   ch.DataType == telem.VideoT,
+		}
 	}
-	return &offsetResolver{ins: ins, density: dt.Density()}
+	return &offsetResolver{ins: ins, density: ch.DataType.Density()}
 }
 
 // byteOffset returns the byte offset of sampleIdx within iter's current domain.
@@ -216,9 +356,17 @@ func (r *offsetResolver) domainSampleCount(
 	return t.sampleCount, nil
 }
 
-func (r *offsetResolver) invalidate() {
+// invalidate drops the tables of the domains that a delete of tr changed.
+func (r *offsetResolver) invalidate(tr telem.TimeRange) {
 	if r.cache != nil {
-		r.cache.invalidateAll()
+		r.cache.invalidate(r.channel, tr)
+	}
+}
+
+// purge drops every table of the channel.
+func (r *offsetResolver) purge() {
+	if r.cache != nil {
+		r.cache.purge(r.channel)
 	}
 }
 
@@ -231,7 +379,7 @@ func (r *offsetResolver) tableFor(
 	// exactly: a stale-behind cache (cached.end < tr.End) misses tail samples,
 	// and a stale-ahead cache (cached.end > tr.End, published by a concurrent
 	// commit) inflates sampleCount and yields offsets past iter.Size().
-	if cached, ok := r.cache.get(tr.Start); ok && cached.end == tr.End {
+	if cached, ok := r.cache.get(r.channel, tr.Start); ok && cached.end == tr.End {
 		return cached, nil
 	}
 	// Concurrent callers missing on the same (Start, End) collapse into one scan
@@ -252,7 +400,7 @@ func (r *offsetResolver) tableFor(
 	result, err, _ := r.rebuilds.Do(key, func() (any, error) {
 		// Re-check the cache: the leader of a prior call may have populated it
 		// while this goroutine was waiting on the singleflight entry.
-		if cached, ok := r.cache.get(tr.Start); ok && cached.end == tr.End {
+		if cached, ok := r.cache.get(r.channel, tr.Start); ok && cached.end == tr.End {
 			return cached, nil
 		}
 		rd, err := iter.OpenReader(ctx)
@@ -260,11 +408,15 @@ func (r *offsetResolver) tableFor(
 			return nil, err
 		}
 		defer func() { err = errors.Combine(err, rd.Close()) }()
-		t, err := buildOffsetTable(r.ins, rd, iter.Size(), tr)
+		build := buildOffsetTable
+		if r.video {
+			build = buildVideoTable
+		}
+		t, err := build(r.ins, rd, iter.Size(), tr)
 		if err != nil {
 			return nil, err
 		}
-		r.cache.set(tr.Start, t)
+		r.cache.set(r.channel, tr.Start, t)
 		return t, nil
 	})
 	if err != nil {
@@ -313,6 +465,9 @@ type offsetTracker struct {
 	// domainOffsets is the running list of per-sample byte offsets within the current
 	// domain for variable-length trackers; nil for fixed-density. Reset on rollover.
 	domainOffsets []uint32
+	// domainKeyframes holds the indices of the keyframes in the current domain of a
+	// video channel. Reset on rollover.
+	domainKeyframes []uint32
 	// sessionSamples is the cumulative sample count for variable-length trackers
 	// across every domain in the controlled resource's lifetime. Used for alignment
 	// math and the end-timestamp lookup at commit time. Survives control handoff
@@ -345,8 +500,14 @@ func (t *offsetTracker) record(data []byte, baseByteOffset uint32) {
 	t.domainBytes += int64(len(data))
 	offset := 0
 	for offset+4 <= len(data) {
-		t.domainOffsets = append(t.domainOffsets, baseByteOffset+uint32(offset))
 		length := int(telem.ByteOrder.Uint32(data[offset:]))
+		if t.resolver.video && telem.IsVideoKeyframe(data[offset+4:]) {
+			t.domainKeyframes = append(
+				t.domainKeyframes,
+				uint32(len(t.domainOffsets)),
+			)
+		}
+		t.domainOffsets = append(t.domainOffsets, baseByteOffset+uint32(offset))
 		offset += 4 + length
 		t.sessionSamples++
 	}
@@ -361,10 +522,11 @@ func (t *offsetTracker) publish(end telem.TimeStamp) {
 	if t.density != 0 || t.resolver.cache == nil || len(t.domainOffsets) == 0 {
 		return
 	}
-	t.resolver.cache.set(t.currentStart, &offsetTable{
+	t.resolver.cache.set(t.resolver.channel, t.currentStart, &offsetTable{
 		end:         end,
 		offsets:     slices.Clone(t.domainOffsets),
 		sampleCount: int64(len(t.domainOffsets)),
+		keyframes:   slices.Clone(t.domainKeyframes),
 	})
 }
 
@@ -372,6 +534,7 @@ func (t *offsetTracker) publish(end telem.TimeStamp) {
 func (t *offsetTracker) reset() {
 	t.domainBytes = 0
 	t.domainOffsets = nil
+	t.domainKeyframes = nil
 	t.sessionSamples = 0
 }
 
@@ -384,4 +547,5 @@ func (t *offsetTracker) rollover(commitEnd telem.TimeStamp) {
 	t.currentStart = commitEnd
 	t.domainBytes = 0
 	t.domainOffsets = nil
+	t.domainKeyframes = nil
 }

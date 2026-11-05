@@ -20,6 +20,7 @@ import {
   TimeSpan,
   TimeStamp,
 } from "@/telem/telem";
+import { type VideoFrame } from "@/telem/video";
 import { MockGLBufferController } from "@/testutil";
 
 // More items than a call takes as arguments.
@@ -1190,6 +1191,76 @@ describe("Series", () => {
       bytes.set(payload2, 4 + payload1.byteLength + 4);
       const s = new Series({ data: buf, dataType: DataType.BYTES });
       expect(s.length).toEqual(2);
+    });
+  });
+
+  describe("bytes samples", () => {
+    it("should construct a bytes series from Uint8Arrays", () => {
+      const s = new Series([new Uint8Array([1]), new Uint8Array([2, 3])]);
+      expect(s.dataType).toEqual(DataType.BYTES);
+      expect(new Uint8Array(s.buffer)).toEqual(
+        new Uint8Array([1, 0, 0, 0, 1, 2, 0, 0, 0, 2, 3]),
+      );
+    });
+
+    it("should return the bytes of a sample from at", () => {
+      const s = new Series([new Uint8Array([1]), new Uint8Array([2, 3])]);
+      expect(s.at(1)).toEqual(new Uint8Array([2, 3]));
+      expect(s.at(-2)).toEqual(new Uint8Array([1]));
+      expect(s.at(2)).toBeUndefined();
+    });
+
+    it("should iterate the bytes of each sample", () => {
+      const s = new Series([new Uint8Array([1]), new Uint8Array([2, 3])]);
+      expect(Array.from(s)).toEqual([new Uint8Array([1]), new Uint8Array([2, 3])]);
+    });
+
+    it("should reject samples that are not Uint8Arrays", () => {
+      expect(() => new Series({ data: ["a"], dataType: DataType.BYTES })).toThrow(
+        "[series] - a bytes series accepts only Uint8Arrays",
+      );
+    });
+  });
+
+  describe("video samples", () => {
+    const key: VideoFrame = {
+      keyframe: true,
+      codec: "h264",
+      data: new Uint8Array([0, 0, 1, 0x65]),
+    };
+    const delta: VideoFrame = {
+      keyframe: false,
+      codec: "h264",
+      data: new Uint8Array([0, 0, 1, 0x41]),
+    };
+
+    it("should encode each frame as a header and an access unit", () => {
+      const s = new Series({ data: [key, delta], dataType: DataType.VIDEO });
+      expect(s.length).toEqual(2);
+      expect(new Uint8Array(s.buffer)).toEqual(
+        new Uint8Array([
+          6, 0, 0, 0, 1, 1, 0, 0, 1, 0x65, 6, 0, 0, 0, 0, 1, 0, 0, 1, 0x41,
+        ]),
+      );
+    });
+
+    it("should return a frame from at", () => {
+      const s = new Series({ data: [key, delta], dataType: DataType.VIDEO });
+      expect(s.at(0)).toEqual(key);
+      expect(s.at(-1)).toEqual(delta);
+    });
+
+    it("should iterate the frames", () => {
+      const s = new Series({ data: [key, delta], dataType: DataType.VIDEO });
+      expect(Array.from(s)).toEqual([key, delta]);
+    });
+
+    it("should throw when a sample is not a valid frame", () => {
+      const s = new Series({
+        data: new Uint8Array([1, 0, 0, 0, 1]).buffer,
+        dataType: DataType.VIDEO,
+      });
+      expect(() => s.at(0)).toThrow("video sample has 1 bytes, but the header needs 2");
     });
   });
 

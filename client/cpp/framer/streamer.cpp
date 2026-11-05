@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <string>
+#include <tuple>
 
 #include "client/cpp/framer/framer.h"
 
@@ -42,6 +43,18 @@ Streamer::Streamer(std::unique_ptr<StreamerStream> stream, StreamerConfig config
 std::pair<x::telem::Frame, x::errors::Error> Streamer::read() {
     this->assert_open();
     auto [fr, exc] = this->stream->receive();
+    // A drop notice carries no frame.
+    while (!exc && fr.dropped_size() > 0) {
+        this->pending_dropped.insert(fr.dropped().begin(), fr.dropped().end());
+        std::tie(fr, exc) = this->stream->receive();
+    }
+    if (!exc) {
+        this->dropped_.assign(
+            this->pending_dropped.begin(),
+            this->pending_dropped.end()
+        );
+        this->pending_dropped.clear();
+    }
     if (!fr.buffer().empty())
         return this->codec.decode(
             reinterpret_cast<const std::uint8_t *>(fr.buffer().data()),
@@ -51,6 +64,10 @@ std::pair<x::telem::Frame, x::errors::Error> Streamer::read() {
     auto [frame, proto_err] = x::telem::Frame::from_proto(fr.frame());
     if (proto_err) return {x::telem::Frame(), proto_err};
     return {std::move(frame), x::errors::NIL};
+}
+
+const std::vector<channel::Key> &Streamer::dropped() const {
+    return this->dropped_;
 }
 
 void Streamer::close_send() const {

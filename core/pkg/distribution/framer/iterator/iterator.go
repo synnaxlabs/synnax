@@ -78,6 +78,14 @@ func (i *Iterator) SeekGE(stamp telem.TimeStamp) bool {
 	return i.exec(Request{Command: CommandSeekGE, Stamp: stamp})
 }
 
+// SeekKeyframe seeks the Iterator to the last keyframe at or before stamp. With several
+// video channels, it seeks to the earliest of their keyframes. It returns false when no
+// video channel has a keyframe at or before stamp, and fails without a video channel.
+func (i *Iterator) SeekKeyframe(stamp telem.TimeStamp) bool {
+	i.value = nil
+	return i.exec(Request{Command: CommandSeekKeyframe, Stamp: stamp})
+}
+
 // Valid returns true if the Iterator is pointing at valid data and is error free.
 func (i *Iterator) Valid() bool {
 	return i.exec(Request{Command: CommandValid})

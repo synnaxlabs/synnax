@@ -210,5 +210,16 @@ func (s *Service) DeleteTimeRange(
 	return s.deleter.DeleteTimeRange(ctx, keys, tr)
 }
 
+// DeleteBefore deletes the data before ts in the index channel index and in every
+// channel on it. It stops at the earliest time that an open writer on those channels
+// holds. index must be leased to this Core.
+func (s *Service) DeleteBefore(
+	ctx context.Context,
+	index channel.Key,
+	ts telem.TimeStamp,
+) error {
+	return s.cfg.TS.DeleteBefore(ctx, index.StorageKey(), ts)
+}
+
 // Close closes the Service.
 func (s *Service) Close() error { return s.closer.Close() }

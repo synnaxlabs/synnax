@@ -209,6 +209,54 @@ func (db *DB) DeleteTimeRange(
 ) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
+	return db.deleteTimeRange(ctx, chs, tr)
+}
+
+// DeleteBefore deletes the data before ts in the index channel index and in every
+// channel on it. It stops at the earliest time that an open writer on those channels
+// holds. It returns ErrChannelNotFound when index does not exist, and a validation
+// error when index is not an index channel.
+func (db *DB) DeleteBefore(
+	ctx context.Context,
+	index ChannelKey,
+	ts telem.TimeStamp,
+) error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	idx, ok := db.mu.dbs.unary[index]
+	if !ok {
+		return channel.NewNotFoundError(index)
+	}
+	if !idx.Channel().IsIndex {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"channel %v is not an index",
+			idx.Channel(),
+		)
+	}
+	keys := []ChannelKey{index}
+	for key, u := range db.mu.dbs.unary {
+		if key != index && u.Channel().Index == index {
+			keys = append(keys, key)
+		}
+	}
+	for _, key := range keys {
+		u := db.mu.dbs.unary[key]
+		if start, held := u.ClaimStart(); held && start < ts {
+			ts = start
+		}
+	}
+	if ts <= telem.TimeStampMin {
+		return nil
+	}
+	return db.deleteTimeRange(ctx, keys, telem.TimeStampMin.Range(ts))
+}
+
+func (db *DB) deleteTimeRange(
+	ctx context.Context,
+	chs []ChannelKey,
+	tr telem.TimeRange,
+) error {
 	var (
 		indexChannels = make([]ChannelKey, 0, len(chs))
 		dataChannels  = make([]ChannelKey, 0, len(chs))

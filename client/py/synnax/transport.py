@@ -62,7 +62,7 @@ class Transport:
         ssl_context = ssl.create_default_context(cafile=ca_cert) if secure else None
         self.url = url.child("/api/v1/")
         codec = JSONCodec()
-        max_message_size = int(Size.MB * 5)
+        max_message_size = int(Size.MB * 64)
         ws_options = {
             "open_timeout": open_timeout.seconds,
             "close_timeout": read_timeout.seconds,

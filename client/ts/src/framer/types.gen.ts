@@ -32,6 +32,7 @@ export enum IteratorCommand {
   SeekGE = 6,
   Valid = 7,
   Error = 8,
+  SeekKeyframe = 10,
 }
 export const iteratorCommandZ = z.enum(IteratorCommand);
 

@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	channelgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/gop"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
@@ -66,6 +67,7 @@ const (
 	IteratorCommandValid        = iterator.CommandValid
 	IteratorCommandError        = iterator.CommandError
 	IteratorCommandSetBounds    = iterator.CommandSetBounds
+	IteratorCommandSeekKeyframe = iterator.CommandSeekKeyframe
 	IteratorAutoSpan            = iterator.AutoSpan
 	WriterCommandOpen           = writer.CommandOpen
 	WriterCommandWrite          = writer.CommandWrite
@@ -164,11 +166,20 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}); !ok(err, calcSvc) {
 		return nil, err
 	}
+	var gopCache *gop.Cache
+	if gopCache, err = gop.Open(ctx, gop.Config{
+		Instrumentation: cfg.Child("gop"),
+		Channel:         cfg.Channel,
+		Framer:          cfg.Framer,
+	}); !ok(err, gopCache) {
+		return nil, err
+	}
 	if s.streamer, err = streamer.NewService(streamer.ServiceConfig{
 		Instrumentation: cfg.Child("streamer"),
 		Framer:          cfg.Framer,
 		Channel:         cfg.Channel,
 		Calculation:     calcSvc,
+		GOP:             gopCache,
 	}); !ok(err, nil) {
 		return nil, err
 	}

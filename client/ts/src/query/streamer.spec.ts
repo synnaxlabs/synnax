@@ -20,6 +20,7 @@ import { createStreamer, type Streamer, type StreamerParams } from "@/query/stre
 
 class MockHardenedStreamer implements framer.Streamer {
   private keysI: channel.Params[];
+  dropped: channel.Key[] = [];
   readonly updateVi = vi.fn();
   readonly closeVi = vi.fn();
   readonly iteratorVi = vi.fn();

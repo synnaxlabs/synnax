@@ -110,7 +110,7 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
 
             const auto &dt = ch.data_type;
             if (dt == x::telem::UUID_T || dt == x::telem::JSON_T ||
-                dt == x::telem::BYTES_T) {
+                dt == x::telem::BYTES_T || dt == x::telem::VIDEO_T) {
                 parser.field_err(
                     "endpoints",
                     "channel " + ch.name + " has unsupported data type " + dt.name()

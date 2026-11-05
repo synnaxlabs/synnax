@@ -201,6 +201,20 @@ export class Iterator {
   }
 
   /**
+   * Seeks the iterator to the last keyframe of its video channels at or before the
+   * provided timestamp, so the next call to next reads frames that decode on their own.
+   * With several video channels, it seeks to the earliest of their keyframes.
+   * @returns false if no video channel has a keyframe at or before the timestamp.
+   * @throws when the iterator has no video channel. The error arrives on close.
+   */
+  async seekKeyframe(stamp: CrudeTimeStamp): Promise<boolean> {
+    return await this.execute({
+      command: IteratorCommand.SeekKeyframe,
+      stamp: new TimeStamp(stamp),
+    });
+  }
+
+  /**
    * @returns true if the iterator value contains a valid segment, and false otherwise.
    * valid most commonly returns false when the iterator is exhausted or has accumulated
    * an error.

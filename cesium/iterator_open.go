@@ -58,6 +58,7 @@ func (db *DB) newStreamIterator(cfg IteratorConfig) (si *streamIterator, err err
 				Bounds:        cfg.Bounds,
 				AutoChunkSize: cfg.AutoChunkSize,
 				Reduction:     cfg.Reduction,
+				ChunkBytes:    db.chunkBytes,
 			})
 			if iterErr != nil {
 				return nil, iterErr

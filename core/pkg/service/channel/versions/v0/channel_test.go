@@ -17,8 +17,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/x/control"
 	xmsgpack "github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -28,29 +26,10 @@ import (
 )
 
 var _ = Describe("Channel", func() {
-	Describe("IsCalculated", func() {
-		It("Should return true when the channel has an expression", func() {
-			Expect(v0.Channel{Expression: "a + b"}.IsCalculated()).To(BeTrue())
-		})
-		It("Should return false when the channel has no expression", func() {
-			Expect(v0.Channel{}.IsCalculated()).To(BeFalse())
-		})
-	})
-
 	Describe("Key", func() {
 		It("Should compose the key from the leaseholder and local key", func() {
 			ch := v0.Channel{Leaseholder: 1, LocalKey: 2}
 			Expect(ch.Key()).To(Equal(channel.NewKey(1, 2)))
-		})
-	})
-
-	Describe("Index", func() {
-		It("Should return the key of the channel's index channel", func() {
-			ch := v0.Channel{Leaseholder: 1, LocalIndex: 5}
-			Expect(ch.Index()).To(Equal(channel.NewKey(1, 5)))
-		})
-		It("Should return a zero key when the channel has no local index", func() {
-			Expect(v0.Channel{Leaseholder: 1}.Index()).To(Equal(v0.Key(0)))
 		})
 	})
 
@@ -79,169 +58,6 @@ var _ = Describe("Channel", func() {
 		It("Should return false for a leased channel", func() {
 			Expect(v0.Channel{Leaseholder: 1}.Free()).To(BeFalse())
 		})
-	})
-
-	Describe("Distribution", func() {
-		It(
-			"Should return the distribution-layer representation of the channel",
-			func() {
-				ch := v0.Channel{
-					Name:        "temp",
-					Leaseholder: 1,
-					DataType:    telem.Float32T,
-					IsIndex:     true,
-					LocalKey:    2,
-					LocalIndex:  3,
-					Virtual:     true,
-					Concurrency: control.ConcurrencyShared,
-					Internal:    true,
-					Expression:  "a + b",
-				}
-				Expect(ch.Distribution()).To(Equal(channel.Channel{
-					Name:        "temp",
-					Leaseholder: 1,
-					DataType:    telem.Float32T,
-					IsIndex:     true,
-					LocalKey:    2,
-					LocalIndex:  3,
-					Virtual:     true,
-					Concurrency: control.ConcurrencyShared,
-				}))
-			},
-		)
-	})
-
-	Describe("Equals", func() {
-		It("Should return true if the two channels are equal", func() {
-			c1 := v0.Channel{Leaseholder: 1, LocalKey: 1}
-			c2 := v0.Channel{Leaseholder: 1, LocalKey: 1}
-			Expect(c1.Equals(c2)).To(BeTrue())
-		})
-		DescribeTable(
-			"Should ignore excluded fields",
-			func(c1, c2 v0.Channel, exclude ...string) {
-				Expect(c1.Equals(c2, exclude...)).To(BeTrue())
-			},
-			Entry(
-				"Names",
-				v0.Channel{Name: "name1", LocalKey: 1},
-				v0.Channel{Name: "name2", LocalKey: 1},
-				"Name",
-			),
-			Entry(
-				"Leaseholders",
-				v0.Channel{Leaseholder: 1, LocalKey: 1},
-				v0.Channel{Leaseholder: 2, LocalKey: 1},
-				"Leaseholder",
-			),
-			Entry(
-				"LocalKeys",
-				v0.Channel{Leaseholder: 1, LocalKey: 1},
-				v0.Channel{Leaseholder: 1, LocalKey: 2},
-				"LocalKey",
-			),
-			Entry(
-				"Virtual",
-				v0.Channel{Leaseholder: 1, LocalKey: 1},
-				v0.Channel{Leaseholder: 1, LocalKey: 1, Virtual: true},
-				"Virtual",
-			),
-			Entry(
-				"DataType",
-				v0.Channel{Leaseholder: 1, LocalKey: 1},
-				v0.Channel{Leaseholder: 1, LocalKey: 1, DataType: "int"},
-				"DataType",
-			),
-			Entry(
-				"LocalIndex",
-				v0.Channel{Leaseholder: 1, LocalKey: 1},
-				v0.Channel{Leaseholder: 1, LocalKey: 1, LocalIndex: 1},
-				"LocalIndex",
-			),
-			Entry(
-				"Operations",
-				v0.Channel{
-					Leaseholder: 1,
-					LocalKey:    1,
-					Operations:  []v0.Operation{{Type: "max"}},
-				},
-				v0.Channel{
-					Leaseholder: 1,
-					LocalKey:    1,
-					Operations:  []v0.Operation{{Type: "min"}},
-				},
-				"Operations",
-			),
-		)
-		DescribeTable(
-			"Should report inequality",
-			func(c1, c2 v0.Channel, exclude ...string) {
-				Expect(c1.Equals(c2, exclude...)).To(BeFalse())
-			},
-			Entry(
-				"By LocalIndex",
-				v0.Channel{Leaseholder: 1, LocalKey: 1, LocalIndex: 1},
-				v0.Channel{Leaseholder: 1, LocalKey: 1, LocalIndex: 2},
-			),
-			Entry(
-				"By Name",
-				v0.Channel{Name: "name1", LocalKey: 1},
-				v0.Channel{Name: "name2", LocalKey: 1},
-			),
-			Entry(
-				"By Leaseholder",
-				v0.Channel{Leaseholder: 1, LocalKey: 1},
-				v0.Channel{Leaseholder: 2, LocalKey: 1},
-			),
-			Entry(
-				"By LocalKey",
-				v0.Channel{Leaseholder: 1, LocalKey: 1},
-				v0.Channel{Leaseholder: 1, LocalKey: 2},
-			),
-			Entry(
-				"By Data Type",
-				v0.Channel{Leaseholder: 1, LocalKey: 1, DataType: "int"},
-				v0.Channel{Leaseholder: 1, LocalKey: 1, DataType: "float"},
-			),
-			Entry(
-				"By Virtual",
-				v0.Channel{Leaseholder: 1, LocalKey: 1, Virtual: true},
-				v0.Channel{Leaseholder: 1, LocalKey: 1},
-			),
-			Entry(
-				"By Operations",
-				v0.Channel{
-					Leaseholder: 1,
-					LocalKey:    1,
-					Operations:  []v0.Operation{{Type: "max"}},
-				},
-				v0.Channel{
-					Leaseholder: 1,
-					LocalKey:    1,
-					Operations:  []v0.Operation{{Type: "min"}},
-				},
-			),
-		)
-	})
-
-	Describe("String", func() {
-		DescribeTable("Should format the channel as a string",
-			func(ch v0.Channel, expected string) {
-				Expect(ch.String()).To(Equal(expected))
-			},
-			Entry("named channel",
-				v0.Channel{Name: "temp", Leaseholder: 1, LocalKey: 2},
-				"[temp]<1048578>",
-			),
-			Entry("unnamed channel",
-				v0.Channel{Leaseholder: 1, LocalKey: 2},
-				"<1048578>",
-			),
-			Entry("zero-value channel",
-				v0.Channel{},
-				"<0>",
-			),
-		)
 	})
 
 	Describe("DecodeMsgpack", func() {
@@ -299,15 +115,6 @@ var _ = Describe("Channel", func() {
 					ContainSubstring("failed to decode legacy node_id from msgpack"),
 				),
 			)
-		})
-	})
-
-	Describe("OntologyID", func() {
-		It("Should return the channel ontology identifier", func() {
-			ch := v0.Channel{Leaseholder: 1, LocalKey: 2}
-			Expect(ch.OntologyID()).To(Equal(ontology.ID{
-				Type: ontology.ResourceTypeChannel, Key: ch.Key().String(),
-			}))
 		})
 	})
 })

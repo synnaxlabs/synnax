@@ -27,6 +27,13 @@ import (
 
 type Streamer = confluence.Segment[Request, Response]
 
+func keepKeys(keys channel.Keys, keep set.Set[channel.Key]) channel.Keys {
+	if len(keys) == 0 {
+		return nil
+	}
+	return lo.Filter(keys, func(k channel.Key, _ int) bool { return keep.Contains(k) })
+}
+
 type streamer struct {
 	confluence.AbstractLinear[Request, Response]
 	demands       confluence.Inlet[demand]
@@ -194,15 +201,20 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 				if r.Group != 0 && slices.Contains(s.excludeGroups, r.Group) {
 					continue
 				}
-				if filtered := r.Frame.KeepKeys(s.keys); !filtered.Empty() {
-					res := Response{Frame: filtered, Group: r.Group}
-					if err := signal.SendUnderContext(
-						ctx,
-						s.Out.Inlet(),
-						res,
-					); err != nil {
-						return err
-					}
+				res := Response{
+					Frame:   r.Frame.KeepKeys(s.keys),
+					Group:   r.Group,
+					Dropped: keepKeys(r.Dropped, s.keys),
+				}
+				if res.Frame.Empty() && len(res.Dropped) == 0 {
+					continue
+				}
+				if err := signal.SendUnderContext(
+					ctx,
+					s.Out.Inlet(),
+					res,
+				); err != nil {
+					return err
 				}
 			}
 		}

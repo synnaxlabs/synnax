@@ -157,6 +157,31 @@ describe("Channel", () => {
       });
     });
 
+    describe("retention", () => {
+      it("should create an index channel with a retention", async () => {
+        const ch = await client.channels.create({
+          name: id.create(),
+          dataType: DataType.TIMESTAMP,
+          isIndex: true,
+          retention: TimeSpan.hours(1),
+        });
+        expect(ch.retention).toEqual(TimeSpan.hours(1));
+        const retrieved = await client.channels.retrieve(ch.key);
+        expect(retrieved.retention).toEqual(TimeSpan.hours(1));
+      });
+
+      it("should reject a retention on a data channel", async () => {
+        await expect(
+          client.channels.create({
+            name: id.create(),
+            dataType: DataType.FLOAT32,
+            virtual: true,
+            retention: TimeSpan.hours(1),
+          }),
+        ).rejects.toThrow("only a persisted index channel can have a retention");
+      });
+    });
+
     describe("retrieveIfNameExists", () => {
       it("should retrieve the existing channel when it exists", async () => {
         const name = id.create();
@@ -401,6 +426,22 @@ describe("Channel", () => {
       }).operations;
       expect(op.resetChannel).toEqual(0);
       expect(op.duration).toEqual(TimeSpan.ZERO);
+    });
+
+    it("defaults the retention to zero", () => {
+      const ch = new channel.Channel({ name: "idx", dataType: DataType.TIMESTAMP });
+      expect(ch.retention).toEqual(TimeSpan.ZERO);
+    });
+
+    it("parses a crude retention into a TimeSpan", () => {
+      const ch = new channel.Channel({
+        name: "idx",
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+        retention: TimeSpan.hours(2).valueOf(),
+      });
+      expect(ch.retention).toEqual(TimeSpan.hours(2));
+      expect(ch.payload.retention).toEqual(TimeSpan.hours(2));
     });
 
     it("parses a crude status time into a TimeStamp", () => {

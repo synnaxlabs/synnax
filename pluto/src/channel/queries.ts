@@ -88,6 +88,7 @@ export const ZERO_FORM_VALUES: z.infer<
   expression: "",
   concurrency: control.Concurrency.exclusive,
   operations: [ZERO_OPERATION],
+  retention: TimeSpan.ZERO,
 };
 
 export const { use, useResult, useEnsure, createSelector, createResultSelector } =

@@ -18,9 +18,11 @@ import { MQTT } from "@/feature/mqtt";
 import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
 import { PagerDuty } from "@/feature/pagerduty";
+import { RTSP } from "@/feature/rtsp";
 import { Selector, SELECTOR_TAB_TYPE } from "@/feature/task/Selector";
 import { TAB } from "@/feature/task/tab";
 import { getIcon, parseType } from "@/feature/task/types";
+import { WHIP } from "@/feature/whip";
 import { type Command } from "@/platform/command";
 import { type Panel } from "@/platform/panel";
 import { type Range } from "@/platform/range";
@@ -47,6 +49,8 @@ export const COMMANDS: Command.Command[] = [
   ...NI.Task.COMMANDS,
   ...OPCUA.Task.COMMANDS,
   ...PagerDuty.Task.COMMANDS,
+  ...RTSP.Task.COMMANDS,
+  ...WHIP.Task.COMMANDS,
 ];
 
 export const TABS: Panel.Tabs = {

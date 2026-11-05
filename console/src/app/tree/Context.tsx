@@ -27,6 +27,7 @@ import { Status } from "@/feature/status";
 import { Table } from "@/feature/table";
 import { Task } from "@/feature/task";
 import { User } from "@/feature/user";
+import { Video } from "@/feature/video";
 import { Tree } from "@/platform/tree";
 
 const TREE_ITEMS: Tree.Items = {
@@ -47,6 +48,7 @@ const TREE_ITEMS: Tree.Items = {
   ...Status.TREE_ITEMS,
   ...Table.TREE_ITEMS,
   ...Task.TREE_ITEMS,
+  ...Video.TREE_ITEMS,
   ...(DESKTOP ? {} : User.TREE_ITEMS),
 };
 

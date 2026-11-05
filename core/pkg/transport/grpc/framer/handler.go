@@ -220,13 +220,21 @@ func (t frameStreamerResponseTranslator) Forward(
 		if err != nil {
 			return nil, err
 		}
-		return &StreamerResponse{Buffer: buf, Ack: msg.Ack}, nil
+		return &StreamerResponse{
+			Buffer:  buf,
+			Ack:     msg.Ack,
+			Dropped: msg.Dropped.Uint32(),
+		}, nil
 	}
 	frm, err := telempb.FrameToPB(msg.Frame.Frame)
 	if err != nil {
 		return nil, err
 	}
-	return &StreamerResponse{Frame: frm, Ack: msg.Ack}, nil
+	return &StreamerResponse{
+		Frame:   frm,
+		Ack:     msg.Ack,
+		Dropped: msg.Dropped.Uint32(),
+	}, nil
 }
 
 func (frameDeleteRequestTranslator) Backward(

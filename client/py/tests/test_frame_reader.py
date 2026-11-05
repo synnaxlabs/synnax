@@ -89,6 +89,17 @@ def _tdms_segment_count(content: bytes) -> int:
     return count
 
 
+# A 1920x1080 baseline SPS, which an MP4 init segment can parse.
+_SPS = bytes.fromhex("6742c028d900780227e584000003000400000300f03c60c920")
+_PPS = bytes([0x68, 0xCE, 0x3C, 0x80])
+_IDR = bytes([0x65, 0x88, 0x84, 0x00])
+_P_SLICE = bytes([0x41, 0xC0, 0x00])
+
+
+def _annex_b(*nalus: bytes) -> bytes:
+    return b"".join(b"\x00\x00\x00\x01" + n for n in nalus)
+
+
 @pytest.mark.framer
 @pytest.mark.reader
 class TestReader:
@@ -248,6 +259,56 @@ class TestReader:
         assert lines[0] == f"{idx_ch.name},{data_ch.name}"
         assert lines[1] == "1000000000,0"
         assert len(lines) == 11
+
+    def test_read_mp4(self, client: sy.Synnax, tmp_path: pathlib.Path) -> None:
+        """Should write the frames of a video channel to an MP4 file"""
+        v = random_name()
+        idx = client.channels.create(
+            name=f"test_{v}_time", is_index=True, data_type=sy.DataType.TIMESTAMP
+        )
+        video = client.channels.create(
+            name=f"test_{v}_video", index=idx.key, data_type=sy.DataType.VIDEO
+        )
+        try:
+            frames = [
+                sy.VideoFrame(
+                    data=_annex_b(_SPS, _PPS, _IDR),
+                    codec=sy.VideoCodec.H264,
+                    keyframe=True,
+                ),
+                sy.VideoFrame(data=_annex_b(_P_SLICE), codec=sy.VideoCodec.H264),
+            ]
+            with client.open_writer(
+                sy.TimeStamp(sy.TimeSpan.SECOND), [idx.key, video.key]
+            ) as w:
+                w.write(
+                    {
+                        idx.key: seconds_linspace(1, count=2),
+                        video.key: sy.Series(frames, data_type=sy.DataType.VIDEO),
+                    }
+                )
+                w.commit()
+            dest = tmp_path / "out.mp4"
+            client.read_mp4(sy.TimeRange.MAX, video.key, dest=dest)
+            content = dest.read_bytes()
+            assert content[4:8] == b"ftyp"
+            assert b"moof" in content
+            assert b"mdat" in content
+        finally:
+            client.channels.delete([video.key, idx.key])
+
+    def test_read_mp4_not_video(
+        self,
+        written_pair: tuple[sy.Channel, sy.Channel],
+        client: sy.Synnax,
+        tmp_path: pathlib.Path,
+    ) -> None:
+        """Should reject a channel that is not a video channel"""
+        _, data_ch = written_pair
+        with pytest.raises(
+            sy.ValidationError, match="an MP4 read takes exactly one video channel"
+        ):
+            client.read_mp4(sy.TimeRange.MAX, data_ch.key, dest=tmp_path / "out.mp4")
 
     def test_read_tdms(self, client: sy.Synnax, tmp_path: pathlib.Path) -> None:
         """Should write every data type so that a TDMS reader recovers each sample"""

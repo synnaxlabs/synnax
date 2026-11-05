@@ -115,6 +115,11 @@ export const payloadZ = z.object({
    * virtual channels can have a policy of shared concurrency.
    */
   concurrency: control.concurrencyZ.default(control.Concurrency.exclusive),
+  /**
+   * retention is how long the Core keeps the data of an index channel and of every
+   * channel on it. Zero keeps the data forever. Only an index channel can set it.
+   */
+  retention: telem.timeSpanZ.default(TimeSpan.ZERO),
   /** status is the current operational status of the channel. */
   status: statusZ.optional(),
 });

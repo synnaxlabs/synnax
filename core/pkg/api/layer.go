@@ -49,7 +49,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/table"
 	"github.com/synnaxlabs/synnax/pkg/api/task"
 	"github.com/synnaxlabs/synnax/pkg/api/user"
+	"github.com/synnaxlabs/synnax/pkg/api/video"
 	"github.com/synnaxlabs/synnax/pkg/api/view"
+	"github.com/synnaxlabs/synnax/pkg/api/whip"
 	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	svctask "github.com/synnaxlabs/synnax/pkg/service/task"
 	xconfig "github.com/synnaxlabs/x/config"
@@ -154,6 +156,15 @@ type Transport struct {
 	LogRetrieve freighter.UnaryServer[log.RetrieveRequest, log.RetrieveResponse]
 	LogDelete   freighter.UnaryServer[log.DeleteRequest, struct{}]
 	LogDispatch freighter.UnaryServer[log.DispatchRequest, struct{}]
+
+	// VIDEO
+	VideoCreate   freighter.UnaryServer[video.CreateRequest, video.CreateResponse]
+	VideoRetrieve freighter.UnaryServer[video.RetrieveRequest, video.RetrieveResponse]
+	VideoDelete   freighter.UnaryServer[video.DeleteRequest, struct{}]
+	VideoDispatch freighter.UnaryServer[video.DispatchRequest, struct{}]
+	// WHIP
+	WHIPPublish   freighter.UnaryServer[whip.PublishRequest, whip.PublishResponse]
+	WHIPUnpublish freighter.UnaryServer[whip.UnpublishRequest, struct{}]
 	// TABLE
 	TableCreate   freighter.UnaryServer[table.CreateRequest, table.CreateResponse]
 	TableRetrieve freighter.UnaryServer[table.RetrieveRequest, table.RetrieveResponse]
@@ -249,6 +260,8 @@ type Layer struct {
 	Alias        *alias.Service
 	Group        *group.Service
 	Log          *log.Service
+	Video        *video.Service
+	WHIP         *whip.Service
 	Auth         *auth.Service
 	Schematic    *schematic.Service
 	Symbol       *symbol.Service
@@ -285,6 +298,14 @@ func (l *Layer) BindTo(t Transport) {
 		t.AuthLogin,
 		t.AuthSessionCreate,
 		t.ConnectivityCheck,
+	)
+
+	// An encoder proves itself with an API key in the request, so the WHIP endpoints
+	// skip the token check.
+	freighter.UseOnAll(
+		append(slices.Clone(insecureMiddleware), gate),
+		t.WHIPPublish,
+		t.WHIPUnpublish,
 	)
 
 	// Session upkeep skips the gate so a client can renew and log out of an unlicensed
@@ -412,6 +433,10 @@ func (l *Layer) BindTo(t Transport) {
 		t.LogRetrieve,
 		t.LogDelete,
 		t.LogDispatch,
+		t.VideoCreate,
+		t.VideoRetrieve,
+		t.VideoDelete,
+		t.VideoDispatch,
 
 		// TABLE
 		t.TableCreate,
@@ -625,6 +650,14 @@ func (l *Layer) BindTo(t Transport) {
 	t.LogRetrieve.BindHandler(l.Log.Retrieve)
 	t.LogDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Log.Delete))
 	t.LogDispatch.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Log.Dispatch))
+	t.VideoCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Video.Create))
+	t.VideoRetrieve.BindHandler(l.Video.Retrieve)
+	t.VideoDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Video.Delete))
+	t.VideoDispatch.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Video.Dispatch))
+
+	// WHIP
+	t.WHIPPublish.BindHandler(l.WHIP.Publish)
+	t.WHIPUnpublish.BindHandler(l.WHIP.Unpublish)
 
 	// TABLE
 	t.TableCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Table.Create))
@@ -875,6 +908,19 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	if l.Log, err = log.NewService(log.ServiceConfig{
 		Log:  cfg.Service.Log,
 		RBAC: cfg.Service.RBAC,
+	}); err != nil {
+		return nil, err
+	}
+	if l.Video, err = video.NewService(video.ServiceConfig{
+		Video: cfg.Service.Video,
+		RBAC:  cfg.Service.RBAC,
+	}); err != nil {
+		return nil, err
+	}
+	if l.WHIP, err = whip.NewService(whip.ServiceConfig{
+		Factory: cfg.Service.WHIPFactory,
+		APIKey:  cfg.Service.APIKey,
+		RBAC:    cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err
 	}

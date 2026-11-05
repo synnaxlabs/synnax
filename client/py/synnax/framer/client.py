@@ -340,6 +340,20 @@ class Client:
         """
         self._reader.read_tdms(tr, channels, dest=dest, reduction=reduction)
 
+    def read_mp4(self, tr: TimeRange, ch: channel.Key | str, *, dest: FilePath) -> None:
+        """
+        Reads the frames a video channel holds between the two timestamps into an MP4
+        file. The Core writes a fragmented MP4 file with no re-encoding, starting at the
+        first keyframe in the time range.
+
+        :param tr: The time range to read from.
+        :param ch: The key or name of the video channel to read from.
+        :param dest: The path of the MP4 file to write. It must end in .mp4.
+        :raises ValidationError: If the channel is not a video channel, or has no
+            keyframe in the time range.
+        """
+        self._reader.read_mp4(tr, ch, dest=dest)
+
     @overload
     def read_latest(
         self,

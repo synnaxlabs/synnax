@@ -1,0 +1,70 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/channel"
+import "schemas/synnax/ranger"
+
+@go output "core/pkg/service/video"
+@ts output "client/ts/src/video"
+
+Key = uuid {
+    @doc value "is a unique identifier for a video view, represented as a UUID."
+}
+
+Video struct {
+    key     Key = create {
+        @doc value "is the unique identifier for this video view."
+        @key
+    }
+    name    string      {
+        @doc value         "is a human-readable name for the video view."
+        @search
+        @validate required
+    }
+    channel channel.Key = 0 {
+        @doc value "is the video channel the view shows."
+    }
+    range   ranger.Ref? {
+        @doc value "is the range the view plays back. Absent shows live video."
+    }
+
+    action Create {
+        video Video
+
+        @doc value """
+            replaces the document with the given created state. Emitted by the Core on
+            create so remote caches ingest new documents; clients never dispatch it.
+        """
+    }
+
+    action Rename {
+        name string
+
+        @doc value "renames the video view."
+    }
+
+    action SetChannel {
+        channel channel.Key
+
+        @doc value "sets the video channel the view shows."
+    }
+
+    action SetRange {
+        range ranger.Ref?
+
+        @doc value "sets the range the view plays back. Absent shows live video."
+    }
+
+    @create
+    @doc value     "is a view that shows the frames of one video channel."
+    @go marshal
+    @go migrate
+    @ontology type "video"
+    @retrieve
+}

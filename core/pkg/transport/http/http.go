@@ -38,16 +38,20 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/table"
 	"github.com/synnaxlabs/synnax/pkg/api/task"
 	"github.com/synnaxlabs/synnax/pkg/api/user"
+	"github.com/synnaxlabs/synnax/pkg/api/video"
 	"github.com/synnaxlabs/synnax/pkg/api/view"
 	"github.com/synnaxlabs/synnax/pkg/transport/http/framer"
+	"github.com/synnaxlabs/synnax/pkg/transport/http/whip"
 	"github.com/synnaxlabs/x/encoding/zip"
 )
 
-// Bind registers an HTTP endpoint for every API service onto router and binds the API
-// layer's handlers and middleware to them. The frame codec resolves channel keys
-// through the API layer's channel service.
-func Bind(layer *api.Layer, router *http.Router) {
+// Bind registers an HTTP endpoint for every API service and binds the API layer's
+// handlers and middleware to them. It returns the transports that serve the endpoints,
+// in the order to bind them: router, then the WHIP endpoints. The frame codec resolves
+// channel keys through the API layer's channel service.
+func Bind(layer *api.Layer, router *http.Router) []http.BindableTransport {
 	framerServerOption := framer.WithCodec(layer.Channel)
+	whipTransport := whip.New()
 	layer.BindTo(api.Transport{
 		// AUTH
 		AuthLogin: unary[auth.LoginRequest, auth.LoginResponse](
@@ -182,6 +186,7 @@ func Bind(layer *api.Layer, router *http.Router) {
 				framer.FrameEncoder,
 				framer.CSVEncoder,
 				framer.TDMSEncoder,
+				framer.MP4Encoder,
 			),
 			// CSV is decimal text and compresses by 70% or more. Frame and TDMS
 			// bodies are binary samples: gzip shrinks them by under 10% and costs more
@@ -421,6 +426,28 @@ func Bind(layer *api.Layer, router *http.Router) {
 			"/api/v1/log/dispatch",
 		),
 
+		// VIDEO
+		VideoCreate: unary[video.CreateRequest, video.CreateResponse](
+			router,
+			"/api/v1/video/create",
+		),
+		VideoRetrieve: unary[video.RetrieveRequest, video.RetrieveResponse](
+			router,
+			"/api/v1/video/retrieve",
+		),
+		VideoDelete: unary[video.DeleteRequest, struct{}](
+			router,
+			"/api/v1/video/delete",
+		),
+		VideoDispatch: unary[video.DispatchRequest, struct{}](
+			router,
+			"/api/v1/video/dispatch",
+		),
+
+		// WHIP
+		WHIPPublish:   whipTransport.Publish(),
+		WHIPUnpublish: whipTransport.Unpublish(),
+
 		// TABLE
 		TableCreate: unary[table.CreateRequest, table.CreateResponse](
 			router,
@@ -633,4 +660,5 @@ func Bind(layer *api.Layer, router *http.Router) {
 			http.WithResponseEncoders(imex.JSONCodec),
 		),
 	})
+	return []http.BindableTransport{router, whipTransport}
 }

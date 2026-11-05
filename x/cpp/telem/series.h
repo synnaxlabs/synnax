@@ -23,6 +23,7 @@
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/telem.h"
+#include "x/cpp/telem/video.h"
 #include "x/cpp/uuid/uuid.h"
 
 #include "x/go/telem/pb/frame.pb.h"
@@ -659,6 +660,27 @@ public:
         }
     }
 
+    /// @brief constructs a VIDEO series with one sample per frame.
+    explicit Series(const std::vector<VideoFrame> &frames):
+        data_type_(VIDEO_T), cap_(frames.size()), size_(frames.size()) {
+        std::vector<std::vector<std::uint8_t>> samples;
+        samples.reserve(frames.size());
+        this->cached_byte_size = 0;
+        for (const auto &f: frames) {
+            samples.push_back(f.encode());
+            this->cached_byte_size += samples.back().size() +
+                                      VARIABLE_LENGTH_PREFIX_SIZE;
+        }
+        this->data_ = alloc(this->byte_size());
+        size_t offset = 0;
+        for (const auto &s: samples) {
+            write_u32_le(this->data_.get() + offset, static_cast<uint32_t>(s.size()));
+            offset += VARIABLE_LENGTH_PREFIX_SIZE;
+            memcpy(this->data_.get() + offset, s.data(), s.size());
+            offset += s.size();
+        }
+    }
+
     /// @brief constructs the series from the given string. This can also be a JSON
     /// encoded string, in which case the data type should be set to JSON.
     /// @param data the string to be used as the data_.
@@ -1065,6 +1087,30 @@ public:
         for (const auto &str: this->strings())
             v.push_back(json::json::parse(str));
         return v;
+    }
+
+    /// @returns the frames of a VIDEO series, or errors::VALIDATION when a sample is
+    /// not a valid frame.
+    /// @throws std::runtime_error when the data type is not VIDEO.
+    [[nodiscard]] std::pair<std::vector<VideoFrame>, errors::Error>
+    video_frames() const {
+        if (this->data_type() != VIDEO_T)
+            throw std::runtime_error("cannot convert a non-video series to frames");
+        std::vector<VideoFrame> frames;
+        frames.reserve(this->size());
+        const auto *ptr = this->data_.get();
+        const auto *end = ptr + this->byte_size();
+        while (ptr + VARIABLE_LENGTH_PREFIX_SIZE <= end) {
+            const uint32_t len = read_u32_le(ptr);
+            ptr += VARIABLE_LENGTH_PREFIX_SIZE;
+            auto [frame, err] = VideoFrame::decode(
+                {reinterpret_cast<const std::uint8_t *>(ptr), len}
+            );
+            if (err) return {{}, err};
+            frames.push_back(std::move(frame));
+            ptr += len;
+        }
+        return {std::move(frames), errors::NIL};
     }
 
     /// @brief accesses the number at the given index.

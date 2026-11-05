@@ -41,6 +41,9 @@ type Response struct {
 	// Ack marks the empty response that answers a Request with AckRequested set. Acks
 	// arrive in the order of their requests.
 	Ack bool `json:"ack" msgpack:"ack"`
+	// Dropped are the channels that lost frames before this response, because a
+	// consumer read too slowly.
+	Dropped channel.Keys `json:"dropped" msgpack:"dropped"`
 }
 
 func reqToStorage(req Request) ts.StreamerRequest {

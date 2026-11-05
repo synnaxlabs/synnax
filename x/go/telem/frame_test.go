@@ -3919,6 +3919,35 @@ var _ = Describe("Frame", func() {
 		)
 	})
 
+	Describe("Size", func() {
+		It("Should return the total size of the series in the frame", func() {
+			fr := telem.MultiFrame(
+				[]int32{1, 2, 3},
+				[]telem.Series{
+					telem.NewSeriesV[int32](1, 2, 3),
+					telem.NewSeriesV[int64](4, 5),
+					telem.NewSeriesV("ab"),
+				},
+			)
+			Expect(fr.Size()).To(Equal(telem.Size(34)))
+		})
+
+		It("Should leave out the series that the frame filters", func() {
+			fr := telem.MultiFrame(
+				[]int32{1, 2},
+				[]telem.Series{
+					telem.NewSeriesV[int32](1, 2, 3),
+					telem.NewSeriesV[int64](4, 5),
+				},
+			)
+			Expect(fr.KeepKeys(set.New[int32](2)).Size()).To(Equal(telem.Size(16)))
+		})
+
+		It("Should return zero for an empty frame", func() {
+			Expect(telem.Frame[int32]{}.Size()).To(Equal(telem.Size(0)))
+		})
+	})
+
 	Describe("SeriesAt and RawSeriesAt", func() {
 		It("Should correctly get series at index", func() {
 			fr := telem.MultiFrame(

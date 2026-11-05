@@ -22,7 +22,7 @@ from freighter.websocket import Message
 from synnax.framer.adapter import ReadFrameAdapter
 from synnax.framer.codec import LOW_PERF_SPECIAL_CHAR, WSCodec
 from synnax.framer.frame import Frame, FramePayload
-from synnax.telem import Reduction, TimeRange, TimeSpan, TimeStamp
+from synnax.telem import CrudeTimeStamp, Reduction, TimeRange, TimeSpan, TimeStamp
 
 AUTO_SPAN = TimeSpan(-1)
 
@@ -37,6 +37,7 @@ class _Command(int, Enum):
     SEEK_GE = 6
     VALID = 7
     ERROR = 8
+    SEEK_KEYFRAME = 10
 
 
 class _ResponseVariant(int, Enum):
@@ -198,6 +199,19 @@ class Iterator:
         particular channel or has accumulated an error.
         """
         return self._exec(_Request(command=_Command.SEEK_LE, stamp=stamp))
+
+    def seek_keyframe(self, stamp: CrudeTimeStamp) -> bool:
+        """Seeks the iterator to the last keyframe of its video channels at or before
+        the provided timestamp, so the next call to next reads frames that decode on
+        their own. With several video channels, it seeks to the earliest of their
+        keyframes.
+
+        :returns: False if no video channel has a keyframe at or before the timestamp.
+        :raises ValidationError: on close, when the iterator has no video channel.
+        """
+        return self._exec(
+            _Request(command=_Command.SEEK_KEYFRAME, stamp=TimeStamp(stamp))
+        )
 
     def seek_ge(self, stamp: TimeStamp) -> bool:
         """Seeks the iterator to the first segment whose start is greater than or equal

@@ -80,7 +80,7 @@ func (s Series) Len() int64 {
 // multiple of the sample size. For variable-density types, it verifies that the
 // length-prefix chain exactly consumes the buffer. For JSONT, it additionally verifies
 // that each sample is valid JSON. For StringT, it verifies that each sample is valid
-// UTF-8.
+// UTF-8. For VideoT, it verifies that each sample is a valid VideoFrame.
 func (s *Series) Validate() error {
 	if len(s.Data) == 0 {
 		return nil
@@ -131,6 +131,11 @@ func (s *Series) validateVariable() error {
 				"sample %q is not valid UTF-8",
 				sample,
 			)
+		}
+		if s.DataType == VideoT {
+			if _, err := DecodeVideoFrame(sample); err != nil {
+				return err
+			}
 		}
 		data = data[n:]
 		count++
@@ -190,6 +195,39 @@ func (s Series) At(i int) []byte {
 	}
 	den := int(s.DataType.Density())
 	return s.Data[i*den : (i+1)*den]
+}
+
+// Slice returns the samples of s in [start, end). The result aliases the Data of s, and
+// its Alignment is the Alignment of its first sample.
+func (s Series) Slice(start, end int) Series {
+	out := Series{
+		DataType:          s.DataType,
+		TimeRange:         s.TimeRange,
+		Alignment:         s.Alignment.AddSamples(uint32(start) * s.Multiple()),
+		AlignmentMultiple: s.AlignmentMultiple,
+	}
+	if !s.DataType.IsVariable() {
+		den := int(s.DataType.Density())
+		out.Data = s.Data[start*den : end*den]
+		return out
+	}
+	from, to, offset := len(s.Data), len(s.Data), 0
+	for i := 0; ; i++ {
+		if i == start {
+			from = offset
+		}
+		if i == end {
+			to = offset
+			break
+		}
+		_, n := UnmarshalVariableSample(s.Data[offset:])
+		if n == 0 {
+			break
+		}
+		offset += n
+	}
+	out.Data = s.Data[from:to]
+	return out
 }
 
 // Resize resizes the series to the specified number of samples. If the new length is

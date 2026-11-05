@@ -288,6 +288,7 @@ const (
 	IteratorCommandValid        = framer.IteratorCommandValid
 	IteratorCommandError        = framer.IteratorCommandError
 	IteratorCommandSetBounds    = framer.IteratorCommandSetBounds
+	IteratorCommandSeekKeyframe = framer.IteratorCommandSeekKeyframe
 	IteratorAutoSpan            = framer.IteratorAutoSpan
 )
 
@@ -385,7 +386,7 @@ type (
 
 const (
 	streamingRequestBufferSize  = 5
-	streamingResponseBufferSize = 200
+	streamingResponseBufferSize = 1
 )
 
 func (s *Service) Stream(ctx context.Context, stream StreamerStream) error {

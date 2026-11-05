@@ -20,6 +20,7 @@ const HIDDEN_DATA_TYPES = [
   DataType.UUID,
   DataType.JSON,
   DataType.BYTES,
+  DataType.VIDEO,
 ];
 
 export interface DataTypeFieldProps extends Pick<

@@ -97,6 +97,11 @@ export interface ReaderProps {
    * @default TimeStamp.now
    */
   now?: () => TimeStamp;
+  /**
+   * The grid level of the raw blocks the reader fills.
+   * @default RAW_LEVEL
+   */
+  level?: number;
 }
 
 /**
@@ -118,8 +123,9 @@ export class Reader {
       batchDebounce = DEFAULT_BATCH_DEBOUNCE,
       fetchTimeout = TimeSpan.seconds(30),
       now = () => TimeStamp.now(),
+      level = RAW_LEVEL,
     } = props;
-    this.props = { readRemote, retrieveChannels, store, fetchTimeout, now };
+    this.props = { readRemote, retrieveChannels, store, fetchTimeout, now, level };
     this.batcher = new scheduler.Batcher({
       interval: batchDebounce,
       exec: async (entries) => await this.batchRead(entries),
@@ -135,7 +141,8 @@ export class Reader {
    */
   async fill(tr: TimeRange, ch: channel.Key): Promise<void> {
     if (this.closed) throw new UnexpectedError("telemetry reader is closed");
-    const blocks = indexes(tr, RAW_LEVEL).map((i) => this.props.store.raw(ch, i));
+    const { store, level } = this.props;
+    const blocks = indexes(tr, level).map((i) => store.raw(ch, i, level));
     const waits: Array<Promise<void>> = [];
     for (const b of blocks) {
       if (b.covers(tr)) continue;
@@ -176,8 +183,8 @@ export class Reader {
    */
   async catchUp(ch: channel.Key, first: number): Promise<destructor.Destructor> {
     if (this.closed) throw new UnexpectedError("telemetry reader is closed");
-    const { store } = this.props;
-    const block = store.raw(ch, first);
+    const { store, level } = this.props;
+    const block = store.raw(ch, first, level);
     const pinned = new Set<RawBlock>();
     const release = (): void => store.repin(pinned, new Set());
     try {
@@ -258,7 +265,7 @@ export class Reader {
     { first, last, start, catchUp, entries }: Group,
     tr: TimeRange,
   ): Promise<Set<Request>> {
-    const { readRemote, retrieveChannels, store, now } = this.props;
+    const { readRemote, retrieveChannels, store, now, level } = this.props;
     const committed = now().sub(COMMIT_MARGIN);
     const requested = Map.groupBy(
       entries.map(({ req }) => req),
@@ -286,10 +293,7 @@ export class Reader {
     // rewritten holds the channels whose history changed over the read's blocks while
     // it ran, and null when every channel's did.
     const rewritten = new Set<channel.Key | null>();
-    const span = new TimeRange(
-      tileRange({ level: RAW_LEVEL, index: first }).start,
-      tr.end,
-    );
+    const span = new TimeRange(tileRange({ level, index: first }).start, tr.end);
     const stopWatching = store.onInvalidate((ch, changed) => {
       if (changed.overlapsWith(span)) rewritten.add(ch);
     });
@@ -316,14 +320,14 @@ export class Reader {
       const changed =
         series.length > 0 && store.retainDataType(key, series[0].dataType);
       const timestamps = idx === 0 ? [] : (grouped.get(idx) ?? []);
-      const parts = split(timestamps, series);
+      const parts = split(timestamps, series, level);
       const targets = [...(requested.get(key) ?? [])];
       // A read fills the blocks of the index it reads along with a channel, and a
       // catch-up fills the blocks of the newer samples it read.
       const extra = [...parts.keys()].filter((i) => i > last);
       if (targets.length === 0) for (let i = first; i <= last; i++) extra.push(i);
       extra.forEach((i) =>
-        targets.push({ block: store.raw(key, i), end: tr.end, catchUp }),
+        targets.push({ block: store.raw(key, i, level), end: tr.end, catchUp }),
       );
       const trusted = catchUp ? newestEnd([...parts.values()], start) : committed;
       // The Core stamps a series with the span of its domain inside the read, so the
@@ -371,7 +375,7 @@ export class Reader {
           pinned.add(block);
           store.repin(new Set(), new Set([block]));
         });
-        store.set(rawKey(key, block.index), block);
+        store.set(rawKey(key, block.index, level), block);
       });
     });
     return refetch;

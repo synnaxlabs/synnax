@@ -95,6 +95,7 @@ func ChannelToPB(r channel.Channel) (*Channel, error) {
 		Virtual:     r.Virtual,
 		Internal:    r.Internal,
 		Expression:  r.Expression,
+		Retention:   int64(r.Retention),
 		Concurrency: concurrencyVal,
 		Operations:  operationsVal,
 	}
@@ -125,6 +126,7 @@ func ChannelFromPB(pb *Channel) (channel.Channel, error) {
 	r.Virtual = pb.Virtual
 	r.Internal = pb.Internal
 	r.Expression = pb.Expression
+	r.Retention = telem.TimeSpan(pb.Retention)
 	return r, nil
 }
 

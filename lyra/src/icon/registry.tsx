@@ -188,6 +188,7 @@ import {
   PiMagnifyingGlassBold,
   PiSelectionPlusBold,
   PiUploadSimple,
+  PiVideoCamera,
   PiWaveSawtoothBold,
   PiWaveSineBold,
   PiWaveSquareBold,
@@ -518,6 +519,7 @@ export const Decimal = wrapSVGIcon(TbDecimal, "decimal");
 export const Scientific = wrapSVGIcon(MdOutlineScience, "scientific");
 export const Engineering = wrapSVGIcon(TbLetterE, "engineering");
 export const String = wrapSVGIcon(VscSymbolString, "string");
+export const Video = wrapSVGIcon(PiVideoCamera, "video");
 export const Control = wrapSVGIcon(MdOutlineControlCamera, "control");
 export const Sound = wrapSVGIcon(FaMicrophone, "sound");
 export const Function = wrapSVGIcon(TbMathFunction, "function");
@@ -704,6 +706,7 @@ const icons = {
   Scientific,
   Engineering,
   String,
+  Video,
   Control,
   Rack,
   Units,

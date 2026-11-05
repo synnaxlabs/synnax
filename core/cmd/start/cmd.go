@@ -191,6 +191,7 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
 		taskPollInterval:     viper.GetDuration(FlagTaskPollInterval),
 		taskShutdownTimeout:  viper.GetDuration(FlagTaskShutdownTimeout),
 		taskWorkerCount:      viper.GetUint8(FlagTaskWorkerCount),
+		whipUDPPort:          viper.GetInt(FlagWHIPUDPPort),
 		certFactoryConfig:    factoryCfg,
 		enabledIntegrations:  viper.GetStringSlice(FlagEnableIntegrations),
 		disabledIntegrations: viper.GetStringSlice(FlagDisableIntegrations),

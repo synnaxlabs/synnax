@@ -36,11 +36,7 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 	if db.closed.Load() {
 		return ErrDBClosed
 	}
-	if err := db.domain.GarbageCollect(ctx); err != nil {
-		return db.wrapError(err)
-	}
-	db.resolver.invalidate()
-	return nil
+	return db.wrapError(db.domain.GarbageCollect(ctx))
 }
 
 // resolveByteOffset opens a short-lived domain iterator at domainStart and asks
@@ -99,7 +95,7 @@ func (db *DB) delete(ctx context.Context, tr telem.TimeRange) error {
 	); err != nil {
 		return err
 	}
-	db.resolver.invalidate()
+	db.resolver.invalidate(tr)
 	return nil
 }
 

@@ -107,6 +107,7 @@ Channel::to_proto() const {
         *pb.add_operations() = v;
     }
     pb.set_concurrency(static_cast<::x::control::pb::Concurrency>(this->concurrency));
+    pb.set_retention(this->retention.to_proto());
     if (this->status.has_value()) {
         auto [v, err] = this->status->to_proto();
         if (err) return {{}, err};
@@ -134,6 +135,7 @@ Channel::from_proto(const ::api::channel::pb::Channel &pb) {
         ))
         return {{}, err};
     cpp.concurrency = static_cast<::x::control::Concurrency>(pb.concurrency());
+    cpp.retention = ::x::telem::TimeSpan::from_proto(pb.retention());
     if (pb.has_status()) {
         auto [v, err] = Status::from_proto(pb.status());
         if (err) return {{}, err};

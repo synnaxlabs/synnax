@@ -59,6 +59,7 @@ interface FakeContext {
   measureText: Mock<(text: string) => TextMetrics>;
   reset: Mock<() => void>;
   fillRect: Mock<(x: number, y: number, w: number, h: number) => void>;
+  drawImage: Mock<(image: unknown, ...args: number[]) => void>;
   strokeRect: Mock<(x: number, y: number, w: number, h: number) => void>;
   clearRect: Mock<(x: number, y: number, w: number, h: number) => void>;
   fillText: Mock<(t: string, x: number, y: number, maxWidth?: number) => void>;
@@ -126,6 +127,7 @@ const createFakeContext = (): FakeContext => {
       values.font = "10px sans-serif";
     }),
     fillRect: vi.fn(),
+    drawImage: vi.fn(),
     strokeRect: vi.fn(),
     clearRect: vi.fn(),
     fillText: vi.fn(),
@@ -177,6 +179,8 @@ const create = (
   );
   return [sugared, fake];
 };
+
+const IMAGE = {} as CanvasImageSource;
 
 describe("SugaredOffscreenCanvasRenderingContext2D", () => {
   describe("property caching", () => {
@@ -300,6 +304,24 @@ describe("SugaredOffscreenCanvasRenderingContext2D", () => {
       const [ctx, fake] = create(scale.XY.translate(xy.construct(10, 20)));
       ctx.fillRect(1, 2, 3, 4);
       expect(fake.fillRect).toHaveBeenCalledWith(11, 22, 3, 4);
+    });
+
+    it("should scale the position of an image drawn at its own size", () => {
+      const [ctx, fake] = create(doubled);
+      ctx.drawImage(IMAGE, 1, 2);
+      expect(fake.drawImage).toHaveBeenCalledWith(IMAGE, 2, 6);
+    });
+
+    it("should scale the destination of an image drawn at a given size", () => {
+      const [ctx, fake] = create(doubled);
+      ctx.drawImage(IMAGE, 1, 2, 3, 4);
+      expect(fake.drawImage).toHaveBeenCalledWith(IMAGE, 2, 6, 6, 12);
+    });
+
+    it("should scale only the destination of an image drawn from a source rect", () => {
+      const [ctx, fake] = create(doubled);
+      ctx.drawImage(IMAGE, 1, 2, 3, 4, 5, 6, 7, 8);
+      expect(fake.drawImage).toHaveBeenCalledWith(IMAGE, 1, 2, 3, 4, 10, 18, 14, 24);
     });
 
     it("should leave clearRect in canvas coordinates", () => {

@@ -19,6 +19,7 @@ import { Range } from "@/feature/range";
 import { Schematic } from "@/feature/schematic";
 import { Table } from "@/feature/table";
 import { Task } from "@/feature/task";
+import { Video } from "@/feature/video";
 import { Session } from "@/session";
 
 // Keyed by the resource type, the segment after the cluster key in a deep link.
@@ -29,6 +30,7 @@ const useLinks = (): void =>
     device: Device.useLink(),
     lineplot: LinePlot.useLink(),
     log: Log.useLink(),
+    video: Video.useLink(),
     project: Project.useLink(),
     range: Range.useLink(),
     schematic: Schematic.useLink(),

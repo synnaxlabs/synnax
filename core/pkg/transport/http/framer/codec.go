@@ -39,16 +39,17 @@ type (
 )
 
 const (
-	WriterCommandCommit      = framer.WriterCommandCommit
-	IteratorCommandPrev      = framer.IteratorCommandPrev
-	IteratorCommandSeekFirst = framer.IteratorCommandSeekFirst
-	IteratorCommandSeekLast  = framer.IteratorCommandSeekLast
-	IteratorCommandSeekLE    = framer.IteratorCommandSeekLE
-	IteratorCommandSeekGE    = framer.IteratorCommandSeekGE
-	IteratorCommandValid     = framer.IteratorCommandValid
-	IteratorCommandError     = framer.IteratorCommandError
-	IteratorCommandSetBounds = framer.IteratorCommandSetBounds
-	IteratorAutoSpan         = framer.IteratorAutoSpan
+	WriterCommandCommit         = framer.WriterCommandCommit
+	IteratorCommandPrev         = framer.IteratorCommandPrev
+	IteratorCommandSeekFirst    = framer.IteratorCommandSeekFirst
+	IteratorCommandSeekLast     = framer.IteratorCommandSeekLast
+	IteratorCommandSeekLE       = framer.IteratorCommandSeekLE
+	IteratorCommandSeekGE       = framer.IteratorCommandSeekGE
+	IteratorCommandValid        = framer.IteratorCommandValid
+	IteratorCommandError        = framer.IteratorCommandError
+	IteratorCommandSetBounds    = framer.IteratorCommandSetBounds
+	IteratorCommandSeekKeyframe = framer.IteratorCommandSeekKeyframe
+	IteratorAutoSpan            = framer.IteratorAutoSpan
 )
 
 // frameContentType is the media type of the binary frame encoding.

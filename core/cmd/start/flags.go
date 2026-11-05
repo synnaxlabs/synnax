@@ -38,6 +38,7 @@ const (
 	FlagTaskWorkerCount              = "task-worker-count"
 	FlagDisableChannelNameValidation = "disable-channel-name-validation"
 	FlagStopOnStdinClose             = "stop-on-stdin-close"
+	FlagWHIPUDPPort                  = "whip-udp-port"
 )
 
 // AddFlags adds the start flags to the given command.
@@ -115,6 +116,12 @@ func AddFlags(cmd *cobra.Command) {
 		FlagTaskShutdownTimeout,
 		30*time.Second,
 		"Max time to wait for task workers during embedded Driver shutdown",
+	)
+	cmd.Flags().Int(
+		FlagWHIPUDPPort,
+		0,
+		"Receive the media of every WHIP session on this UDP port. 0 gives each "+
+			"session its own ports",
 	)
 	cmd.Flags().Int(
 		FlagTaskWorkerCount,

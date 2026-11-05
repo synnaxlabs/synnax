@@ -24,6 +24,7 @@ cc_library(
         "series.h",
         "telem.h",
         "types.gen.h",
+        "video.h",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -57,6 +58,7 @@ cc_test(
         "mono_clock_test.cpp",
         "series_test.cpp",
         "telem_test.cpp",
+        "video_test.cpp",
     ],
     deps = [
         "//x/cpp/loop",

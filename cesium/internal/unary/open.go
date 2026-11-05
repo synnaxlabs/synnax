@@ -64,6 +64,10 @@ type Config struct {
 	// block or call back into the DB.
 	// [OPTIONAL]
 	OnHistoryChange func(context.Context, telem.TimeRange)
+	// OffsetCache holds the offset tables of a variable-density channel. DBs that
+	// share one cache share its budget.
+	// [OPTIONAL] Default: a cache of the DB's own with DefaultOffsetCacheBudget.
+	OffsetCache *OffsetCache
 }
 
 var (
@@ -93,6 +97,7 @@ func (cfg Config) Override(other Config) Config {
 	cfg.GCThreshold = override.Numeric(cfg.GCThreshold, other.GCThreshold)
 	cfg.MetaCodec = override.Nil(cfg.MetaCodec, other.MetaCodec)
 	cfg.OnHistoryChange = override.Nil(cfg.OnHistoryChange, other.OnHistoryChange)
+	cfg.OffsetCache = override.Nil(cfg.OffsetCache, other.OffsetCache)
 	return cfg
 }
 
@@ -104,6 +109,9 @@ func Open(ctx context.Context, configs ...Config) (*DB, error) {
 	cfg.Channel, err = meta.Open(ctx, cfg.FS, cfg.Channel, cfg.MetaCodec)
 	if err != nil {
 		return nil, err
+	}
+	if cfg.OffsetCache == nil {
+		cfg.OffsetCache = NewOffsetCache(DefaultOffsetCacheBudget)
 	}
 	wrapError := channel.NewErrorWrapper(cfg.Channel)
 	if cfg.Channel.Virtual {
@@ -133,7 +141,11 @@ func Open(ctx context.Context, configs ...Config) (*DB, error) {
 		wrapError:        wrapError,
 		closed:           &atomic.Bool{},
 		leadingAlignment: alignment.NewCounter(alignment.ZeroLeading),
-		resolver:         newOffsetResolver(cfg.Channel.DataType, cfg.Instrumentation),
+		resolver: newOffsetResolver(
+			cfg.Channel,
+			cfg.OffsetCache,
+			cfg.Instrumentation,
+		),
 	}
 	if cfg.Channel.IsIndex {
 		db.idx = &index.Domain{

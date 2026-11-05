@@ -19,6 +19,8 @@ import { MQTT } from "@/feature/mqtt";
 import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
 import { PagerDuty } from "@/feature/pagerduty";
+import { RTSP } from "@/feature/rtsp";
+import { WHIP } from "@/feature/whip";
 import { Panel } from "@/platform/panel";
 import { Selector as Base } from "@/platform/selector";
 
@@ -41,6 +43,8 @@ export const SELECTABLES: Base.Selectable[] = [
   ...NI.Task.SELECTABLES,
   ...OPCUA.Task.SELECTABLES,
   ...PagerDuty.Task.SELECTABLES,
+  ...RTSP.Task.SELECTABLES,
+  ...WHIP.Task.SELECTABLES,
 ].map(withTaskVisibility);
 
 export const Selector = Base.create({

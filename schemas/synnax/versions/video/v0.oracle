@@ -1,0 +1,35 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/channel/v0"
+import "schemas/synnax/versions/ranger/v1"
+
+Key = uuid {
+    @doc value "is a unique identifier for a video view, represented as a UUID."
+}
+
+Video struct {
+    key     Key = create {
+        @doc value "is the unique identifier for this video view."
+        @key
+    }
+    name    string      {
+        @doc value "is a human-readable name for the video view."
+    }
+    channel channel.Key = 0 {
+        @doc value "is the video channel the view shows."
+    }
+    range   ranger.Ref? {
+        @doc value "is the range the view plays back. Absent shows live video."
+    }
+
+    @doc value  "is a view that shows the frames of one video channel."
+    @go marshal
+    @go migrate
+}

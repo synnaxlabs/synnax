@@ -939,7 +939,8 @@ const std::string STRING_T = "string";
 const std::string JSON_T = "json";
 const std::string BYTES_T = "bytes";
 const std::string BOOLEAN_T = "boolean";
-const std::vector VARIABLE_TYPES = {JSON_T, STRING_T, BYTES_T};
+const std::string VIDEO_T = "video";
+const std::vector VARIABLE_TYPES = {JSON_T, STRING_T, BYTES_T, VIDEO_T};
 }
 
 /// @brief Holds the name and properties of a datatype.
@@ -1192,6 +1193,7 @@ private:
         {details::STRING_T, 0},
         {details::JSON_T, 0},
         {details::BOOLEAN_T, 1},
+        {details::VIDEO_T, 0},
     };
 
     /// @brief stores a map of C++ type indexes to their corresponding synnax data
@@ -1336,6 +1338,9 @@ const DataType BYTES_T(details::BYTES_T);
 /// @brief identifier for a boolean data type in a Synnax cluster. Samples are a
 /// single byte with canonical values 0x00 (false) and 0x01 (true).
 const DataType BOOLEAN_T(details::BOOLEAN_T);
+/// @brief identifier for an encoded video data type in a Synnax cluster. Each sample
+/// is one VideoFrame, uint32-length-prefixed.
+const DataType VIDEO_T(details::VIDEO_T);
 }
 
 template<>

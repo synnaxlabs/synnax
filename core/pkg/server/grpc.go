@@ -13,9 +13,14 @@ import (
 	"github.com/cockroachdb/cmux"
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/telem"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
+
+// MaxGRPCMessageSize is the largest gRPC message that a Core receives. It holds a
+// frame with several video keyframes.
+const MaxGRPCMessageSize = int(64 * telem.Megabyte)
 
 // GRPCBranch is a Branch that serves gRPC traffic.
 type GRPCBranch struct {
@@ -41,6 +46,7 @@ func (g *GRPCBranch) Key() string { return "grpc" }
 func (g *GRPCBranch) Init(ctx BranchContext) {
 	g.server = grpc.NewServer(
 		g.credentials(ctx),
+		grpc.MaxRecvMsgSize(MaxGRPCMessageSize),
 		grpc.ChainUnaryInterceptor(
 			fgrpc.RecoveryUnaryServerInterceptor(ctx.Instrumentation),
 		),

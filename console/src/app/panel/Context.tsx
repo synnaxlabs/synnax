@@ -18,6 +18,7 @@ import { Schematic } from "@/feature/schematic";
 import { Status } from "@/feature/status";
 import { Table } from "@/feature/table";
 import { Task } from "@/feature/task";
+import { Video } from "@/feature/video";
 import { Panel } from "@/platform/panel";
 
 const TABS: Panel.Tabs = {
@@ -27,6 +28,7 @@ const TABS: Panel.Tabs = {
   ...Selector.TABS,
   ...LinePlot.TABS,
   ...Log.TABS,
+  ...Video.TABS,
   ...Schematic.TABS,
   ...Table.TABS,
   ...Task.TABS,

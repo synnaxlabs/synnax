@@ -205,3 +205,40 @@ export const configureCommandChannel = async (
   write[propertiesKey] = cmdCh.key;
   return cmdCh.key;
 };
+
+/**
+ * Gives a video task its channel: the one it has, or a new video channel. A new
+ * channel persists with its own index when the task saves data, and is virtual
+ * otherwise.
+ *
+ * @param saved - Whether the task saves data.
+ * @returns the key of the channel.
+ */
+export const configureVideoChannel = async (
+  client: Client,
+  current: channel.Key,
+  name: string,
+  saved: boolean,
+): Promise<channel.Key> => {
+  if (await channelExists(client, current)) return current;
+  name = channel.escapeInvalidName(name);
+  if (!saved) {
+    const ch = await client.channels.create({
+      name,
+      dataType: DataType.VIDEO,
+      virtual: true,
+    });
+    return ch.key;
+  }
+  const index = await client.channels.create({
+    name: `${name}_time`,
+    dataType: DataType.TIMESTAMP,
+    isIndex: true,
+  });
+  const ch = await client.channels.create({
+    name,
+    dataType: DataType.VIDEO,
+    index: index.key,
+  });
+  return ch.key;
+};

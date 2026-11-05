@@ -1116,6 +1116,47 @@ class TestSeriesSamples:
         assert s[-1] == b"bc"
         assert list(s) == [b"a", b"bc"]
 
+    def test_bytes_from_list(self) -> None:
+        """Should build a bytes series from a list of bytes"""
+        s = telem.Series([b"a", b"bc"])
+        assert s.data_type == telem.DataType.BYTES
+        assert s.data == b"\x01\x00\x00\x00a\x02\x00\x00\x00bc"
+        assert list(s) == [b"a", b"bc"]
+
+    def test_bytes_rejects_other_samples(self) -> None:
+        """Should raise a TypeError for a bytes series of other samples"""
+        with pytest.raises(TypeError, match="a bytes series accepts only bytes"):
+            telem.Series(["a"], data_type=telem.DataType.BYTES)
+
+    def test_video(self) -> None:
+        """Should build, index, and iterate a video series"""
+        key = telem.VideoFrame(
+            data=b"\x00\x00\x01\x65", codec=telem.VideoCodec.H264, keyframe=True
+        )
+        delta = telem.VideoFrame(data=b"\x00\x00\x01\x41", codec=telem.VideoCodec.H264)
+        s = telem.Series([key, delta])
+        assert s.data_type == telem.DataType.VIDEO
+        assert len(s) == 2
+        assert s[0] == key
+        assert s[-1] == delta
+        assert list(s.as_(telem.VideoFrame)) == [key, delta]
+
+    def test_video_single_frame(self) -> None:
+        """Should build a video series from one frame"""
+        frame = telem.VideoFrame(data=b"\x00", codec=telem.VideoCodec.H264)
+        assert list(telem.Series(frame)) == [frame]
+
+    def test_video_rejects_other_samples(self) -> None:
+        """Should raise a TypeError for a video series of other samples"""
+        with pytest.raises(TypeError, match="a video series accepts only VideoFrames"):
+            telem.Series([b"\x00\x01"], data_type=telem.DataType.VIDEO)
+
+    def test_video_invalid_sample(self) -> None:
+        """Should raise a ValueError when reading a malformed video sample"""
+        s = telem.Series(b"\x01\x00\x00\x00\x00", data_type=telem.DataType.VIDEO)
+        with pytest.raises(ValueError, match="video sample has 1 bytes"):
+            s[0]
+
     def test_uuid_negative_index(self) -> None:
         """Should index a UUID series from the end"""
         s = telem.Series([uuid.UUID(int=1), uuid.UUID(int=2)])

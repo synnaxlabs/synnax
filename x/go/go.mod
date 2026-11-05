@@ -6,6 +6,7 @@ replace github.com/synnaxlabs/alamos => ../../alamos/go
 
 require (
 	github.com/antlr4-go/antlr/v4 v4.13.1
+	github.com/bluenviron/mediacommon/v2 v2.9.7
 	github.com/cockroachdb/errors v1.14.0
 	github.com/cockroachdb/pebble v1.1.5
 	github.com/cockroachdb/pebble/v2 v2.1.7
@@ -31,6 +32,7 @@ require (
 	github.com/Masterminds/semver/v3 v3.5.0 // indirect
 	github.com/RaduBerinde/axisds v0.1.0 // indirect
 	github.com/RaduBerinde/btreemap v0.0.0-20260105202824-d3184786f603 // indirect
+	github.com/abema/go-mp4 v1.7.3 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect

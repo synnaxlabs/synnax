@@ -88,6 +88,9 @@ class Payload(BaseModel):
             applied to channel data over time or triggered by a reset channel.
         concurrency: Sets the policy for concurrent writes to the channel's data. Only
             virtual channels can have a policy of shared concurrency.
+        retention: Is how long the Core keeps the data of an index channel and of every
+            channel on it. Zero keeps the data forever. Only an index channel can set
+            it.
         status: Is the current operational status of the channel.
     """
 
@@ -103,6 +106,9 @@ class Payload(BaseModel):
     expression: str = ""
     operations: list[Operation] = Field(default_factory=list)
     concurrency: control.Concurrency = control.Concurrency.exclusive
+    retention: telem.TimeSpan = Field(
+        default=telem.TimeSpan(0), ge=-9223372036854775808, le=9223372036854775807
+    )
     status: Status | None = None
 
     def __hash__(self) -> int:

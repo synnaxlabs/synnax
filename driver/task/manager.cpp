@@ -176,7 +176,7 @@ x::errors::Error Manager::run(const std::function<void()> &on_started) {
     }
     // Read after the streamer opens so a transfer arriving during the read is held by
     // the stream instead of lost; the read loop then applies it on top.
-    this->retrieve_initial_control_states();
+    this->retrieve_control_states();
     this->retrieve_rack_name();
     LOG(INFO) << x::log::GREEN() << "started successfully" << x::log::RESET();
     if (on_started) on_started();
@@ -197,6 +197,8 @@ x::errors::Error Manager::run(const std::function<void()> &on_started) {
             else if (key == this->channels.rack_set.key)
                 this->process_rack_set(series);
         }
+        // After the frame, so the re-read state lands on top of what it carried.
+        this->recover_dropped(this->streamer->dropped());
     } while (true);
     this->stop_all_tasks();
     this->stop_workers();
@@ -206,7 +208,7 @@ x::errors::Error Manager::run(const std::function<void()> &on_started) {
     return c_err;
 }
 
-void Manager::retrieve_initial_control_states() {
+void Manager::retrieve_control_states() {
     auto [states, err] = this->ctx->client->control.retrieve();
     if (err) {
         // The mirror treats an absent entry as uncontrolled and the Core arbitrates
@@ -225,6 +227,20 @@ void Manager::retrieve_rack_name() {
         return;
     }
     this->ctx->set_rack_name(rack.name);
+}
+
+void Manager::recover_dropped(const std::vector<synnax::channel::Key> &dropped) {
+    bool tasks_lost = false;
+    for (const auto &key: dropped)
+        if (key == this->channels.control_state.key)
+            this->retrieve_control_states();
+        else if (key == this->channels.rack_set.key)
+            this->retrieve_rack_name();
+        else
+            tasks_lost = true;
+    if (tasks_lost)
+        LOG(ERROR) << "lost task events because the Driver read too slowly. Restart "
+                      "the Driver to load the current tasks.";
 }
 
 void Manager::process_rack_set(const x::telem::Series &series) {

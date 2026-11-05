@@ -43,6 +43,7 @@ import { Session } from "@/session";
 import {
   createAsyncSynnaxWrapper,
   createSynnaxWrapper,
+  type CreateSynnaxWrapperParams,
   disableActEnvironment,
 } from "@/testutil/Synnax";
 
@@ -324,6 +325,10 @@ export interface CreateConsoleWrapperParams {
   store?: TestStore;
   /** Extra aether components merged over the default (eraser) test registry. */
   additionalRegistry?: aether.ComponentRegistry;
+  /** A fake render context, so canvas-rendered components can mount. */
+  renderContext?: CreateSynnaxWrapperParams["renderContext"];
+  /** Mounts the telemetry provider with these factories over the production set. */
+  telemFactories?: CreateSynnaxWrapperParams["telemFactories"];
 }
 
 export const createConsoleWrapper = async ({
@@ -331,6 +336,8 @@ export const createConsoleWrapper = async ({
   preloadedState,
   store,
   additionalRegistry,
+  renderContext,
+  telemFactories,
 }: CreateConsoleWrapperParams): Promise<{
   wrapper: FC<PropsWithChildren>;
   store: TestStore;
@@ -339,6 +346,8 @@ export const createConsoleWrapper = async ({
   const SynnaxWrapper = await createAsyncSynnaxWrapper({
     client,
     additionalRegistry: { ...ADDITIONAL_REGISTRY, ...additionalRegistry },
+    renderContext,
+    telemFactories,
   });
   return {
     wrapper: composeConsole(SynnaxWrapper, resolvedStore),

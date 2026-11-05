@@ -371,6 +371,15 @@ func (f Frame[K]) Len() int64 {
 	return length
 }
 
+// Size returns the total size of the series in the frame.
+func (f Frame[K]) Size() Size {
+	var size Size
+	for s := range f.Series() {
+		size += s.Size()
+	}
+	return size
+}
+
 // Count returns the number of keys/series in the frame.
 func (f Frame[K]) Count() int {
 	if f.mask.enabled {

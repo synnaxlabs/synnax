@@ -10,7 +10,9 @@
 from __future__ import annotations
 
 import uuid
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta, tzinfo
+from enum import IntEnum
 from fractions import Fraction
 from math import trunc
 from typing import Any, ClassVar, Literal, NoReturn, TypeAlias, overload, override
@@ -1186,6 +1188,56 @@ Size.GB_UNITS = "gb"
 _SizeUnits = ["gb", "mb", "kb", "b"]
 
 
+_VIDEO_HEADER_SIZE = 2
+_VIDEO_KEYFRAME_FLAG = 1
+
+
+class VideoCodec(IntEnum):
+    """The encoding of the access unit in a VideoFrame."""
+
+    H264 = 1
+    """H.264 in Annex B format, with no B-frames."""
+
+
+@dataclass(frozen=True, kw_only=True)
+class VideoFrame:
+    """One encoded picture. It is a single sample of a video series."""
+
+    data: bytes
+    """One access unit."""
+    codec: VideoCodec
+    """The encoding of data."""
+    keyframe: bool = False
+    """True when the frame decodes without the frames before it. A keyframe carries
+    its codec parameter sets."""
+
+    def encode(self) -> bytes:
+        """:returns: The frame as a sample of a video series."""
+        flags = _VIDEO_KEYFRAME_FLAG if self.keyframe else 0
+        return bytes((flags, self.codec)) + self.data
+
+    @classmethod
+    def decode(cls, sample: bytes) -> VideoFrame:
+        """:returns: The frame that a sample of a video series holds.
+        :raises ValueError: If the header is malformed or names an unknown codec.
+        """
+        if len(sample) < _VIDEO_HEADER_SIZE:
+            raise ValueError(
+                f"video sample has {len(sample)} bytes, but the header needs "
+                f"{_VIDEO_HEADER_SIZE}"
+            )
+        flags = sample[0]
+        if flags & ~_VIDEO_KEYFRAME_FLAG:
+            raise ValueError(f"video sample has unknown flags {flags:#04x}")
+        if sample[1] not in VideoCodec:
+            raise ValueError(f"video sample has unknown codec {sample[1]}")
+        return cls(
+            data=bytes(sample[_VIDEO_HEADER_SIZE:]),
+            codec=VideoCodec(sample[1]),
+            keyframe=flags == _VIDEO_KEYFRAME_FLAG,
+        )
+
+
 class DataType(str):
     """DataType represents a data type as a string."""
 
@@ -1198,7 +1250,9 @@ class DataType(str):
                 raise ValueError(f"{value!r} is not a valid data type")
             return super().__new__(cls, value)
 
-        if isinstance(value, (int, float, np.number, np.bool_, dict, uuid.UUID)):
+        if isinstance(
+            value, (int, float, np.number, np.bool_, dict, uuid.UUID, VideoFrame)
+        ):
             return DataType._from_sample(value)
 
         if isinstance(value, list):
@@ -1232,6 +1286,10 @@ class DataType(str):
             return DataType.INT64
         if isinstance(value, uuid.UUID):
             return DataType.UUID
+        if isinstance(value, bytes):
+            return DataType.BYTES
+        if isinstance(value, VideoFrame):
+            return DataType.VIDEO
         if isinstance(value, np.number):
             result = DataType._FROM_NUMPY.get(np.dtype(value), None)
             if result is not None:
@@ -1294,9 +1352,7 @@ class DataType(str):
 
     @property
     def is_variable(self) -> bool:
-        return (
-            self == DataType.STRING or self == DataType.JSON or self == DataType.BYTES
-        )
+        return self in (DataType.STRING, DataType.JSON, DataType.BYTES, DataType.VIDEO)
 
     @property
     def has_np(self) -> bool:
@@ -1331,6 +1387,7 @@ class DataType(str):
     JSON: DataType
     BYTES: DataType
     BOOLEAN: DataType
+    VIDEO: DataType
     ALL: tuple[DataType, ...]
     _TO_NUMPY: dict[DataType, DTypeLike]
     _FROM_NUMPY: dict[DTypeLike, DataType]
@@ -1358,6 +1415,7 @@ DataType.JSON = _const("json")
 DataType.STRING = _const("string")
 DataType.BYTES = _const("bytes")
 DataType.BOOLEAN = _const("boolean")
+DataType.VIDEO = _const("video")
 DataType.ALL = (
     DataType.UNKNOWN,
     DataType.UINT8,
@@ -1376,6 +1434,7 @@ DataType.ALL = (
     DataType.STRING,
     DataType.JSON,
     DataType.BYTES,
+    DataType.VIDEO,
 )
 
 CrudeTimeStamp: TypeAlias = (
@@ -1440,6 +1499,7 @@ DataType._DENSITIES = {
     DataType.JSON: Density.UNKNOWN,
     DataType.BYTES: Density.UNKNOWN,
     DataType.BOOLEAN: Density.BIT8,
+    DataType.VIDEO: Density.UNKNOWN,
 }
 
 

@@ -390,6 +390,30 @@ var _ = Describe("Control", func() {
 			})
 		})
 
+		Describe("EarliestStart", func() {
+			It("Should report no start when no region exists", func() {
+				Expect(c.EarliestStart()).To(BeZero())
+			})
+			It("Should return the earliest start of any region", func() {
+				openAt("late", telem.NewRangeSeconds(20, 30))
+				openAt("early", telem.NewRangeSeconds(5, 10))
+				Expect(MustBeOk(c.EarliestStart())).To(Equal(5 * telem.SecondTS))
+			})
+			It(
+				"Should return the start of a region moved before a bounded region",
+				func() {
+					cfg, _ := baseConfig(1)
+					cfg.Subject.Key = "backfill"
+					cfg.TimeRange = telem.NewRangeSeconds(2, 3)
+					cfg.Bounded = new(true)
+					MustSucceed2(c.OpenGate(cfg))
+					g := openAt("live", telem.NewRangeSeconds(10, 20))
+					Expect(g.MoveStart(1 * telem.SecondTS)).To(Succeed())
+					Expect(MustBeOk(c.EarliestStart())).To(Equal(1 * telem.SecondTS))
+				},
+			)
+		})
+
 		Describe("Reach", func() {
 			It("Should move the end of the region forward", func() {
 				g := openAt("test", telem.NewRangeSeconds(10, 20))
