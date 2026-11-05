@@ -21,10 +21,12 @@ import (
 	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
+	"github.com/synnaxlabs/synnax/pkg/api/kafka"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
 	"github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
+	"github.com/synnaxlabs/synnax/pkg/api/mqtt"
 	"github.com/synnaxlabs/synnax/pkg/api/ontology"
 	"github.com/synnaxlabs/synnax/pkg/api/panel"
 	"github.com/synnaxlabs/synnax/pkg/api/project"
@@ -126,6 +128,16 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.DeviceRename = noop.UnaryServer[apidevice.RenameRequest, struct{}]{}
 	t.StatusRename = noop.UnaryServer[apistatus.RenameRequest, struct{}]{}
 	t.ViewRename = noop.UnaryServer[view.RenameRequest, struct{}]{}
+
+	// KAFKA
+	t.KafkaTest = noop.UnaryServer[kafka.TestRequest, kafka.TestResponse]{}
+	t.KafkaBrowse = noop.UnaryServer[kafka.BrowseRequest, kafka.BrowseResponse]{}
+	t.KafkaSample = noop.UnaryServer[kafka.SampleRequest, kafka.SampleResponse]{}
+
+	// MQTT
+	t.MQTTTest = noop.UnaryServer[mqtt.TestRequest, mqtt.TestResponse]{}
+	t.MQTTBrowse = noop.UnaryServer[mqtt.BrowseRequest, mqtt.BrowseResponse]{}
+	t.MQTTSample = noop.UnaryServer[mqtt.SampleRequest, mqtt.SampleResponse]{}
 
 	// TASK
 	t.TaskDispatch = noop.UnaryServer[apitask.DispatchRequest, apitask.DispatchResponse]{}

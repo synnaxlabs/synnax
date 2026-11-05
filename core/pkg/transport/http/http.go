@@ -21,10 +21,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/device"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
+	"github.com/synnaxlabs/synnax/pkg/api/kafka"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
 	"github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
+	"github.com/synnaxlabs/synnax/pkg/api/mqtt"
 	"github.com/synnaxlabs/synnax/pkg/api/ontology"
 	"github.com/synnaxlabs/synnax/pkg/api/panel"
 	"github.com/synnaxlabs/synnax/pkg/api/project"
@@ -522,6 +524,34 @@ func Bind(layer *api.Layer, router *http.Router) {
 		DeviceRename: unary[device.RenameRequest, struct{}](
 			router,
 			"/api/v1/device/rename",
+		),
+
+		// KAFKA
+		KafkaTest: unary[kafka.TestRequest, kafka.TestResponse](
+			router,
+			"/api/v1/kafka/test",
+		),
+		KafkaBrowse: unary[kafka.BrowseRequest, kafka.BrowseResponse](
+			router,
+			"/api/v1/kafka/browse",
+		),
+		KafkaSample: unary[kafka.SampleRequest, kafka.SampleResponse](
+			router,
+			"/api/v1/kafka/sample",
+		),
+
+		// MQTT
+		MQTTTest: unary[mqtt.TestRequest, mqtt.TestResponse](
+			router,
+			"/api/v1/mqtt/test",
+		),
+		MQTTBrowse: unary[mqtt.BrowseRequest, mqtt.BrowseResponse](
+			router,
+			"/api/v1/mqtt/browse",
+		),
+		MQTTSample: unary[mqtt.SampleRequest, mqtt.SampleResponse](
+			router,
+			"/api/v1/mqtt/sample",
 		),
 
 		// ACCESS
