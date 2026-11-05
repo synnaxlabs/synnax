@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device, type rack, task } from "@synnaxlabs/client";
+import { device, rack, task } from "@synnaxlabs/client";
 
 import { connect, type ConnectionOptions } from "@/fixtures/client";
 
@@ -171,11 +171,10 @@ export const configured = (
 
 /** rackStatus returns the status a Driver writes for its rack while it runs. */
 export const rackStatus = ({ key, name }: { key: rack.Key; name: string }) => ({
-  key: `rack:${key}`,
+  owner: rack.resourceID(key),
   name,
   variant: "success" as const,
   message: "Driver is running",
-  details: { rack: key },
 });
 
 /** deviceStatus returns the status a Driver on `rackKey` writes for a found device. */
@@ -184,11 +183,11 @@ export const deviceStatus = (
   { key, name }: { key: string; name: string },
   message = "Device present",
 ) => ({
-  key: `device:${key}`,
+  owner: device.resourceID(key),
   name,
   variant: "success" as const,
   message,
-  details: { rack: rackKey, device: key },
+  details: { rack: rackKey },
 });
 
 /**
@@ -201,12 +200,11 @@ export const taskStatus = (
   running: boolean,
   cmd?: string,
 ) => ({
-  key: task.statusKey(t.key),
+  owner: task.resourceID(t.key),
   name: t.name,
   variant: "success" as const,
   message: running ? "Started task" : "Stopped task",
   details: {
-    task: t.key,
     running,
     ...(cmd != null && { cmd }),
     configHash: t.configHash,
