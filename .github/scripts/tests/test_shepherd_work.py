@@ -109,6 +109,12 @@ class TestShepherdWork:
         gh.ok("failure")
         assert gh.run() == ["ci 1"]
 
+    def test_should_skip_the_ok_job_without_a_ci_run(self, gh: Harness) -> None:
+        gh.pull(state="dirty")
+        gh.runs()
+        gh.ok("failure")
+        assert gh.run() == ["conflict"]
+
     def test_should_report_threads_that_need_action(self, gh: Harness) -> None:
         gh.threads(count=2)
         assert gh.run() == ["threads 2"]
