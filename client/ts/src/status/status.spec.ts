@@ -82,7 +82,7 @@ describe("Status", () => {
       expect(statuses[1].key).toBe("batch-2");
     });
 
-    it("should keep the labels a status holds and add the ones it carries", async () => {
+    it("should keep the stored labels on an update and ignore the carried ones", async () => {
       const [held, carried] = await client.labels.create([
         { name: "Held", color: color.construct("#0000FF") },
         { name: "Carried", color: color.construct("#FF0000") },
@@ -94,13 +94,17 @@ describe("Status", () => {
         message: "a",
         labels: [held.key],
       });
-      const updated = await client.statuses.set({
-        key,
-        variant: "info",
-        message: "b",
-        labels: [carried.key],
-      });
-      expect(updated.labels.toSorted()).toEqual([held.key, carried.key].toSorted());
+      let duringWrite: status.Status["labels"] | undefined;
+      const updated = await client.statuses.set(
+        { key, variant: "info", message: "b", labels: [carried.key] },
+        {
+          onOptimistic: () => {
+            duringWrite = client.statuses.store.get(key)?.labels;
+          },
+        },
+      );
+      expect(duringWrite).toEqual([held.key]);
+      expect(updated.labels).toEqual([held.key]);
     });
   });
 
@@ -171,28 +175,25 @@ describe("Status", () => {
       expect(targets.filter((t) => t === "/status/retrieve")).toHaveLength(1);
     });
 
-    it("should drop the key it guessed when the Core answers with another", async () => {
+    it("should not cache an owned status it holds no key for before the write commits", async () => {
       const owner = await createOwner();
       const created = await client.statuses.set({
         owner,
         variant: "info",
         message: "a",
       });
-      // This client does not hold the owner's status, so it guesses a key.
       const observer = createTestClient();
-      let guessed: status.Key | undefined;
+      let duringWrite: status.Status | undefined;
       const updated = await observer.statuses.set(
         { owner, variant: "warning", message: "b" },
         {
           onOptimistic: () => {
-            guessed = observer.statuses.ownedBy(owner)?.key;
+            duringWrite = observer.statuses.ownedBy(owner);
           },
         },
       );
+      expect(duringWrite).toBeUndefined();
       expect(updated.key).toEqual(created.key);
-      expect(guessed).toBeDefined();
-      expect(guessed).not.toEqual(created.key);
-      expect(observer.statuses.getCached(guessed as status.Key)).toBeUndefined();
       expect(observer.statuses.ownedBy(owner)?.key).toEqual(created.key);
     });
 

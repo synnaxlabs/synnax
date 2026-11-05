@@ -1107,65 +1107,40 @@ describe("Task", async () => {
       }
     });
 
-    it("writes the optimistic status for a task whose status has not synced", async () => {
-      const t = await testRack.createTask({
-        name: `status-uncached-${id.create()}`,
-        config: {},
-        type: "pagerduty_alert",
-      });
-      const params = { key: t.key };
-      const loading: Array<NonNullable<task.Task["status"]>> = [];
-      const off = client.tasks.onChange(params, (cached) => {
-        if (!query.isLive(cached)) return;
-        const { status } = cached;
-        if (status?.variant === "loading") loading.push(status);
-      });
-      try {
-        await client.tasks.retrieve(params);
-        await setRackStatus(testRack.key, "success", "Driver is running");
-        // A reconnect empties the status table while the task stays known. The
-        // command must still get an optimistic status.
-        const key = statusKeyOf(task.resourceID(t.key));
-        client.statuses.store.delete(key);
-        expect(client.statuses.store.get(key)).toBeUndefined();
-        await client.tasks.executeCommand({ task: t.key, type: "stop" });
-        await expect.poll(() => loading.length).toBeGreaterThan(0);
-        expect(loading[0].name).toBe(t.name);
-        expect(loading[0].message).toBe("Sending stop command");
-      } finally {
-        off();
-      }
-    });
-
-    it("drops the status a command guessed once the Core sets the task's status", async () => {
-      const t = await testRack.createTask({
-        name: `guessed-${id.create()}`,
-        config: {},
-        type: "pagerduty_alert",
-      });
-      const owner = task.resourceID(t.key);
-      const stored = statusKeyOf(owner);
+    it("writes no optimistic status for a task whose status the cache does not hold", async () => {
+      const create = async (): Promise<task.Task> =>
+        await testRack.createTask({
+          name: `unheld-${id.create()}`,
+          config: {},
+          type: "pagerduty_alert",
+        });
+      const held = await create();
+      const unheld = await create();
+      const heldOwner = task.resourceID(held.key);
+      const unheldOwner = task.resourceID(unheld.key);
       const local = createTestClient();
       await local.connect();
       await waitForStreamLive(local.connection);
-      await local.tasks.retrieve({ key: t.key });
-      // The retrieve carries the task's status, so drop it to model one not synced.
-      local.statuses.store.delete(stored);
-      expect(local.statuses.ownedBy(owner)).toBeUndefined();
-      await client.tasks.executeCommand({ task: t.key, type: "stop" });
-      await expect.poll(() => local.statuses.ownedBy(owner) != null).toBe(true);
-      const guessed = local.statuses.ownedBy(owner)?.key as status.Key;
-      expect(guessed).not.toEqual(stored);
-      await writer.statuses.set({
-        owner,
-        name: "Task Status",
-        variant: "success",
-        message: "Stopped task",
-        time: TimeStamp.now(),
-        details: { running: false, cmd: "", data: {} },
+      await local.tasks.retrieve({ keys: [held.key, unheld.key] });
+      // A reconnect empties the status table while the task stays known.
+      local.statuses.store.delete(statusKeyOf(unheldOwner));
+      const heldKey = statusKeyOf(heldOwner);
+      // One frame carries both commands, so the client handles them together.
+      await client.tasks.executeCommand({
+        commands: [
+          { task: held.key, type: "stop" },
+          { task: unheld.key, type: "stop" },
+        ],
       });
-      await expect.poll(() => local.statuses.ownedBy(owner)?.key).toEqual(stored);
-      expect(local.statuses.store.get(guessed)).toBeUndefined();
+      // A rack with no Driver goes down at its own pace, so the stand-in is a loading
+      // status or the rack's warning.
+      const standIn = (): boolean =>
+        ["loading", "warning"].includes(
+          local.statuses.ownedBy(heldOwner)?.variant ?? "",
+        );
+      await expect.poll(standIn).toBe(true);
+      expect(local.statuses.ownedBy(heldOwner)?.key).toEqual(heldKey);
+      expect(local.statuses.ownedBy(unheldOwner)).toBeUndefined();
     });
 
     it("stands the rack's problem in for a wait its Driver cannot answer", async () => {

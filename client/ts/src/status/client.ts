@@ -116,16 +116,6 @@ export class Client extends query.Retriever<
       ],
       indexes: [owners],
     });
-    // An owner holds one status, so a status the cache holds for an owner under a
-    // key the Core never used, such as a guess before the Core answers, gives way to
-    // the status set after it.
-    store.subscribe((event) => {
-      if (event.variant !== "set" || store.get(event.key) !== event.value) return;
-      const owner = ownerOf(event.value);
-      if (owner == null) return;
-      const stale = owners.get(owner).filter(({ key }) => key !== event.key);
-      if (stale.length > 0) store.evict(stale.map(({ key }) => key));
-    });
     super(cache, {
       name: "status",
       table: store,
@@ -170,7 +160,8 @@ export class Client extends query.Retriever<
 
   /**
    * Writes statuses to the Core. The Core writes an owned status to the status its
-   * owner holds, whatever key it carries, and keeps the labels a status holds.
+   * owner holds, whatever key it carries. A create stores the labels a status carries,
+   * and an update keeps the stored labels: change them with the label client.
    * @returns each status as the Core stores it.
    */
   async set<DetailsSchema extends z.ZodType>(
@@ -188,10 +179,12 @@ export class Client extends query.Retriever<
     // Filling the schema defaults up front gives every status a key, so the cache can
     // hold it before the Core answers.
     const schema = statusZ<DetailsSchema>({ details: opts.detailsSchema });
-    const normalized = array
+    const parsed = array
       .toArray(statuses)
-      .map((status) => this.predict(schema.parse(status) as Status<DetailsSchema>));
-    const apply = () => [this.store.set(normalized)];
+      .map((status) => schema.parse(status) as Status<DetailsSchema>);
+    const predicted = parsed.map((status) => this.predict(status));
+    const sent = predicted.map((status, i) => status ?? parsed[i]);
+    const apply = () => [this.store.set(predicted.filter((status) => status != null))];
     const res = await query.optimistic({
       rollbacks: apply(),
       onOptimistic: opts.onOptimistic,
@@ -199,7 +192,7 @@ export class Client extends query.Retriever<
         await this.cfg.unary.send(
           "/status/set",
           {
-            statuses: normalized as z.input<
+            statuses: sent as z.input<
               ReturnType<typeof setReqZ<DetailsSchema>>
             >["statuses"],
           },
@@ -314,14 +307,19 @@ export class Client extends query.Retriever<
     return [changed.owner.key];
   }
 
-  /** Returns the status as the Core will store it, as far as the cache can tell. */
-  private predict<D extends z.ZodType>(status: Status<D>): Status<D> {
-    const held = status.owner == null ? undefined : this.ownedBy(status.owner);
-    const key = held?.key ?? status.key;
+  /**
+   * @returns the status as the Core will store it, or null when the status has an
+   * owner and the cache does not hold the key of the status the owner holds.
+   */
+  private predict<D extends z.ZodType>(status: Status<D>): Status<D> | null {
+    let { key } = status;
+    if (status.owner != null) {
+      const held = this.ownedBy(status.owner);
+      if (held == null) return null;
+      key = held.key;
+    }
     const prev = this.store.get(key);
-    if (prev == null) return { ...status, key };
-    const labels = [...new Set([...prev.labels, ...status.labels])];
-    return { ...status, key, labels };
+    return { ...status, key, labels: prev?.labels ?? status.labels };
   }
 
   private async execRetrieve<DetailsSchema extends z.ZodType = z.ZodNever>(

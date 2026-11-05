@@ -479,14 +479,12 @@ export class Client extends query.Retriever<
         statusStore.batch(() =>
           commands.forEach((changed) => {
             if (!LOADING_COMMANDS.includes(changed.type)) return;
-            // Commands reach every client, so one for a task this client neither
-            // tracks nor holds a status for is dropped.
-            if (
-              store.get(changed.task) == null &&
-              statuses.ownedBy(resourceID(changed.task)) == null
-            )
-              return;
-            const optimistic = this.optimisticStatus(changed);
+            // Commands reach every client, and only the status the cache holds for the
+            // task has a known key, so a command for any other task shows nothing until
+            // the Driver answers.
+            const held = statuses.ownedBy(resourceID(changed.task));
+            if (held == null) return;
+            const optimistic = this.optimisticStatus(changed, held.key);
             statuses.setLocal(optimistic);
             this.armCommandDeadline(changed, optimistic);
           }),
@@ -724,17 +722,14 @@ export class Client extends query.Retriever<
   }
 
   /**
-   * Builds the status shown while a command is in flight. A rack whose Driver is down
-   * answers nothing, so its warning stands in for a wait that would never end. The
-   * status takes the key of the status the task holds, or a new key the cache drops
-   * once the Core sets the task's status.
+   * Builds the status shown under key while a command is in flight. A rack whose Driver
+   * is down answers nothing, so its warning stands in for a wait that would never end.
    */
-  private optimisticStatus(cmd: Command): Status {
+  private optimisticStatus(cmd: Command, key: status.Key): Status {
     // Carry the last known deploy info forward: zeroing it would make this
     // optimistic status claim the task deployed with an empty config/rack.
     const latest = this.latestStatusOf(cmd.task);
     const owner = resourceID(cmd.task);
-    const key = this.cfg.statuses.ownedBy(owner)?.key ?? id.create();
     const details = {
       cmd: "",
       configHash: latest?.details.configHash ?? "",
@@ -777,7 +772,7 @@ export class Client extends query.Retriever<
         held !== pending.optimistic &&
         status.detailsOf(held)?.cmd === pending.cmd.key;
       if (answered) continue;
-      pending.optimistic = this.optimisticStatus(pending.cmd);
+      pending.optimistic = this.optimisticStatus(pending.cmd, pending.optimistic.key);
       this.cfg.statuses.setLocal(pending.optimistic);
     }
   }
