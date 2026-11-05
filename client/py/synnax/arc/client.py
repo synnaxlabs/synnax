@@ -12,15 +12,24 @@ from __future__ import annotations
 from typing import overload
 from uuid import UUID
 
-from pydantic import BaseModel, Field, PrivateAttr
+from pydantic import BaseModel, PrivateAttr
 
 from freighter import Empty, UnaryClient
 from synnax.arc.graph import Graph
 from synnax.arc.program import Program
 from synnax.arc.text import Text
-from synnax.arc.types_gen import Key, Mode, Payload, ontology_id
+from synnax.arc.types_gen import (
+    Key,
+    Mode,
+    Payload,
+    RetrieveRequest,
+    RetrieveResponse,
+    Where,
+    ontology_id,
+)
 from synnax.exceptions import MultipleFoundError, NotFoundError
 from synnax.ontology.payload import ID
+from x import filter
 from x.lists import normalize
 from x.uuid import NIL
 
@@ -31,19 +40,6 @@ class _CreateRequest(BaseModel):
 
 class _CreateResponse(BaseModel):
     arcs: list[Payload] = []
-
-
-class _RetrieveRequest(BaseModel):
-    keys: list[UUID] | None = None
-    names: list[str] | None = None
-    search_term: str | None = None
-    limit: int | None = None
-    offset: int | None = None
-    compile: bool = False
-
-
-class _RetrieveResponse(BaseModel):
-    arcs: list[Payload] = Field(default_factory=list)
 
 
 class _DeleteRequest(BaseModel):
@@ -152,21 +148,22 @@ class Client:
         return created[0] if is_single else created
 
     @overload
-    def retrieve(self, *, key: Key, compile: bool = False) -> Arc: ...
+    def retrieve(self, *, key: Key, include_program: bool = False) -> Arc: ...
 
     @overload
-    def retrieve(self, *, name: str, compile: bool = False) -> Arc: ...
+    def retrieve(self, *, name: str, include_program: bool = False) -> Arc: ...
 
     @overload
     def retrieve(
         self,
         *,
+        where: Where | None = None,
         keys: list[Key] | None = None,
         names: list[str] | None = None,
-        search_term: str | None = None,
+        search_term: str = "",
         limit: int | None = None,
-        offset: int | None = None,
-        compile: bool = False,
+        offset: int = 0,
+        include_program: bool = False,
     ) -> list[Arc]: ...
 
     def retrieve(
@@ -174,33 +171,43 @@ class Client:
         *,
         key: Key | None = None,
         name: str | None = None,
+        where: Where | None = None,
         keys: list[Key] | None = None,
         names: list[str] | None = None,
-        search_term: str | None = None,
+        search_term: str = "",
         limit: int | None = None,
-        offset: int | None = None,
-        compile: bool = False,
+        offset: int = 0,
+        include_program: bool = False,
     ) -> Arc | list[Arc]:
-        """Retrieve Arcs. When compile is True, the Core compiles each Arc and sets
-        its program, raising an error if any Arc fails to compile.
+        """Retrieve Arcs. Returns one Arc when a key or name is given, and a list
+        otherwise.
+
+        :param where: Keeps Arcs that match this filter tree.
+        :param include_program: Whether the Core compiles each Arc and sets its
+            program. The Core raises an error if any Arc fails to compile.
+        :raises NotFoundError: If a single Arc is requested and none matches.
+        :raises MultipleFoundError: If a single Arc is requested by name and more
+            than one matches.
         """
         if key is not None:
             keys = [key]
         if name is not None:
             names = [name]
-
+        flat = Where(
+            key=None if keys is None else filter.Set[Key](in_=keys),
+            name=None if names is None else filter.String(in_=names),
+        )
         is_single = key is not None or name is not None
         res = self._client.send(
             "/arc/retrieve",
-            _RetrieveRequest(
-                keys=keys,
-                names=names,
+            RetrieveRequest(
+                where=filter.merge(where, flat),
                 search_term=search_term,
                 limit=limit,
                 offset=offset,
-                compile=compile,
+                include_program=include_program,
             ),
-            _RetrieveResponse,
+            RetrieveResponse,
         )
 
         arcs = self._sugar(res.arcs)

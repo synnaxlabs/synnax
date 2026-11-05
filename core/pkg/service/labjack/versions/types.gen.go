@@ -29,14 +29,23 @@ const (
 type ThermocoupleType = v2.ThermocoupleType
 
 const (
+	// ThermocoupleTypeJ pairs iron with copper-nickel.
 	ThermocoupleTypeJ ThermocoupleType = v2.ThermocoupleTypeJ
+	// ThermocoupleTypeK pairs nickel-chromium with nickel-aluminum.
 	ThermocoupleTypeK ThermocoupleType = v2.ThermocoupleTypeK
+	// ThermocoupleTypeN pairs nickel-chromium-silicon with nickel-silicon-magnesium.
 	ThermocoupleTypeN ThermocoupleType = v2.ThermocoupleTypeN
+	// ThermocoupleTypeR pairs platinum-13% rhodium with platinum.
 	ThermocoupleTypeR ThermocoupleType = v2.ThermocoupleTypeR
+	// ThermocoupleTypeS pairs platinum-10% rhodium with platinum.
 	ThermocoupleTypeS ThermocoupleType = v2.ThermocoupleTypeS
+	// ThermocoupleTypeT pairs copper with copper-nickel.
 	ThermocoupleTypeT ThermocoupleType = v2.ThermocoupleTypeT
+	// ThermocoupleTypeB pairs platinum-30% rhodium with platinum-6% rhodium.
 	ThermocoupleTypeB ThermocoupleType = v2.ThermocoupleTypeB
+	// ThermocoupleTypeE pairs nickel-chromium with copper-nickel.
 	ThermocoupleTypeE ThermocoupleType = v2.ThermocoupleTypeE
+	// ThermocoupleTypeC pairs tungsten-5% rhenium with tungsten-26% rhenium.
 	ThermocoupleTypeC ThermocoupleType = v2.ThermocoupleTypeC
 )
 

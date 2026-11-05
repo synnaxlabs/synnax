@@ -10,11 +10,18 @@
 from typing import overload
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
-from synnax.access.role.types_gen import Role
+from synnax.access.role.types_gen import (
+    RetrieveRequest,
+    RetrieveResponse,
+    Role,
+    Where,
+)
+from synnax.exceptions import NotFoundError
+from x import filter
 from x.lists import normalize
 
 
@@ -23,18 +30,6 @@ class _CreateRequest(BaseModel):
 
 
 _CreateResponse = _CreateRequest
-
-
-class _RetrieveRequest(BaseModel):
-    keys: list[UUID] | None = None
-    search_term: str | None = None
-    limit: int | None = None
-    offset: int | None = None
-    internal: bool | None = None
-
-
-class _RetrieveResponse(BaseModel):
-    roles: list[Role] = Field(default_factory=list)
 
 
 class _DeleteRequest(BaseModel):
@@ -92,10 +87,11 @@ class Client:
     def retrieve(
         self,
         *,
+        where: Where | None = None,
         keys: list[UUID] | None = None,
-        search_term: str | None = None,
+        search_term: str = "",
         limit: int | None = None,
-        offset: int | None = None,
+        offset: int = 0,
         internal: bool | None = None,
     ) -> list[Role]: ...
 
@@ -103,24 +99,37 @@ class Client:
         self,
         key: UUID | None = None,
         *,
+        where: Where | None = None,
         keys: list[UUID] | None = None,
-        search_term: str | None = None,
+        search_term: str = "",
         limit: int | None = None,
-        offset: int | None = None,
+        offset: int = 0,
         internal: bool | None = None,
     ) -> Role | list[Role]:
+        """Retrieves roles. Returns one role when a key is given, and a list otherwise.
+
+        :param where: Keeps roles that match this filter tree.
+        :raises NotFoundError: If a single role is requested and none matches.
+        """
         is_single = key is not None
-        if is_single and key is not None:
+        if key is not None:
             keys = [key]
-        req = _RetrieveRequest(
-            keys=keys,
+        flat = Where(
+            key=None if keys is None else filter.Set[UUID](in_=keys),
+            internal=None if internal is None else filter.Bool(eq=internal),
+        )
+        req = RetrieveRequest(
+            where=filter.merge(where, flat),
             search_term=search_term,
             limit=limit,
             offset=offset,
-            internal=internal,
         )
-        res = self._client.send("/access/role/retrieve", req, _RetrieveResponse)
-        return res.roles[0] if is_single else res.roles
+        res = self._client.send("/access/role/retrieve", req, RetrieveResponse)
+        if not is_single:
+            return res.roles
+        if len(res.roles) == 0:
+            raise NotFoundError(f"Role {key} not found")
+        return res.roles[0]
 
     def delete(self, keys: UUID | list[UUID]) -> None:
         req = _DeleteRequest(keys=normalize(keys))

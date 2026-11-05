@@ -13,7 +13,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"maps"
 	"slices"
 
 	"github.com/synnaxlabs/alamos"
@@ -33,7 +32,6 @@ import (
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -134,7 +132,7 @@ type Service struct {
 	closer            xio.MultiCloser
 	group             group.Group
 	table             *gorp.Table[Key, Task]
-	search            *gorp.SearchIndex[Key, Task]
+	indexes           indexes
 	state             *actions.State[Key, Action]
 	commandChannelKey channel.Key
 	actionChannelKey  channel.Key
@@ -154,15 +152,15 @@ func OpenService(
 		return nil, err
 	}
 	s = &Service{
-		cfg:    cfg,
-		search: newSearchIndex(),
-		state:  actions.NewState[Key, Action](cfg.DB),
+		cfg:     cfg,
+		indexes: newIndexes(),
+		state:   actions.NewState[Key, Action](cfg.DB),
 	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Task]{
 		DB:      cfg.DB,
-		Indexes: []gorp.Index[Key, Task]{s.search},
+		Indexes: s.indexes.all(),
 		Migrations: versions.NewMigrations(versions.MigrationsConfig{
 			Status:   cfg.Status,
 			Ontology: cfg.Ontology,
@@ -338,7 +336,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		search:  s.search,
+		indexes: s.indexes,
 		baseTX:  s.cfg.DB,
 		gorp:    s.table.NewRetrieve(),
 		otg:     s.cfg.Ontology,
@@ -353,27 +351,21 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) error
 		Exec(ctx, nil); err != nil {
 		return errors.Wrap(err, "failed to retrieve tasks on suspect rack")
 	}
-	if len(tasks) == 0 {
-		return nil
-	}
-	byKey := make(map[string]Task, len(tasks))
-	for _, tsk := range tasks {
-		byKey[tsk.OntologyID().String()] = tsk
-	}
-	// A task without a status has never reported running, so it gets no copy.
-	var reported []Status
-	if err := s.cfg.Status.NewRetrieve[StatusDetails]().
-		Where(status.MatchKeys[StatusDetails](slices.Collect(maps.Keys(byKey))...)).
-		Entries(&reported).
-		Exec(ctx, nil); errors.Skip(err, query.ErrNotFound) != nil {
+	reported, err := s.cfg.Status.Join[StatusDetails](
+		ctx,
+		nil,
+		OntologyIDsFromTasks(tasks),
+	)
+	if err != nil {
 		return errors.Wrap(err, "failed to retrieve statuses on suspect rack")
 	}
-	statuses := make([]Status, 0, len(reported))
-	for _, prev := range reported {
-		if !prev.Details.Running {
+	statuses := make([]Status, 0, len(tasks))
+	for i, tsk := range tasks {
+		// A task without a status has never reported running, so it gets no copy.
+		prev := reported[i]
+		if prev == nil || !prev.Details.Running {
 			continue
 		}
-		tsk := byKey[prev.Key]
 		// A silent rack does not undo the deploy the Driver reported, so the config
 		// hash is carried across.
 		statuses = append(statuses, Status{
