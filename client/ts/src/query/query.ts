@@ -655,6 +655,12 @@ export class Space<
   }
 
   private fetch(query: Query<P, K, D, V>, options?: FetchOptions): Promise<D> {
+    // This fetch covers what a pending refetch would confirm, and a refetch that fails
+    // during this fetch would replace its loading state.
+    if (query.refetchTimer != null) {
+      clearTimeout(query.refetchTimer);
+      query.refetchTimer = undefined;
+    }
     const promise = this.config.fetch(query.params, options).then(
       (keys) => {
         const { table, single, name } = this.config;
