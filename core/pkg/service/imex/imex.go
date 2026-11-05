@@ -224,6 +224,10 @@ func (e Envelope) Decode[T any](ctx context.Context) (T, error) {
 	return t, nil
 }
 
+// placementFields name the struct fields that say where a resource sits. They hold keys
+// local to the exporting Core, so Encode leaves them out.
+var placementFields = [...]string{"group", "project", "range"}
+
 // BodyExporter is implemented by a resource whose portable body differs from its stored
 // shape — an Arc, whose file carries the materialized source rather than the operation
 // log that reconstructs it. Encode reduces ExportBody's return in place of the
@@ -240,7 +244,9 @@ type BodyExporter interface {
 // error env is left untouched.
 //
 // data may be a map[string]any, which is merged flat; any other value must be a struct.
-// A BodyExporter is reduced through ExportBody instead of directly.
+// A BodyExporter is reduced through ExportBody instead of directly. A struct also loses
+// its top-level `group`, `project`, and `range`, since the importer places the resource
+// from ImportOptions.
 func (env *Envelope) Encode[T any](data T) error {
 	value := any(data)
 	if b, ok := value.(BodyExporter); ok {
@@ -254,6 +260,9 @@ func (env *Envelope) Encode[T any](data T) error {
 		var err error
 		if body, err = structToMap(value); err != nil {
 			return errors.Wrap(err, "encode envelope")
+		}
+		for _, field := range placementFields {
+			delete(body, field)
 		}
 	}
 	// Importers mint a fresh key, so a key on the wire is noise at best and a collision

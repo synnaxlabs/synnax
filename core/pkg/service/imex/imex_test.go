@@ -385,6 +385,36 @@ var _ = Describe("ImEx", func() {
 				Expect(round["foo"]).To(BeEquivalentTo(1))
 			})
 
+			It("Should drop the placement fields of a struct body", func() {
+				type placed struct {
+					Name    string `json:"name"`
+					Group   string `json:"group"`
+					Project string `json:"project"`
+					Range   string `json:"range"`
+				}
+				env := imex.Envelope{Version: 1, Type: "log"}
+				Expect(env.Encode(placed{
+					Name: "n", Group: "g", Project: "p", Range: "r",
+				})).To(Succeed())
+				b := MustSucceed(json.Marshal(env))
+				var round map[string]any
+				Expect(json.Unmarshal(b, &round)).To(Succeed())
+				Expect(round).ToNot(HaveKey("group"))
+				Expect(round).ToNot(HaveKey("project"))
+				Expect(round).ToNot(HaveKey("range"))
+				Expect(round["name"]).To(Equal("n"))
+			})
+
+			It("Should keep a group in a map body", func() {
+				env := imex.Envelope{Version: 1, Type: "kafka_read", Name: "n"}
+				Expect(env.Encode(map[string]any{"group": "consumers"})).
+					To(Succeed())
+				b := MustSucceed(json.Marshal(env))
+				var round map[string]any
+				Expect(json.Unmarshal(b, &round)).To(Succeed())
+				Expect(round["group"]).To(Equal("consumers"))
+			})
+
 			It(
 				"Should fail when neither the envelope nor the data carries a type",
 				func() {
