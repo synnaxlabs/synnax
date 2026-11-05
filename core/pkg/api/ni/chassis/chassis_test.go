@@ -33,7 +33,7 @@ var _ = Describe("Service", func() {
 	var u user.User
 	BeforeEach(func(ctx SpecContext) { u = createUser(ctx) })
 
-	create := func(ctx SpecContext) chassis.Chassis {
+	create := func(ctx SpecContext, overrides ...func(*chassis.Chassis)) chassis.Chassis {
 		GinkgoHelper()
 		d := chassis.Chassis{
 			Rack:         svc.Rack.EmbeddedKey,
@@ -41,6 +41,9 @@ var _ = Describe("Service", func() {
 			Serial:       uuid.New().String(),
 			ResourceName: uuid.New().String(),
 			Model:        "PXIe-1071",
+		}
+		for _, override := range overrides {
+			override(&d)
 		}
 		Expect(svc.NI.Chassis.NewWriter(nil).Create(ctx, &d)).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
@@ -207,9 +210,15 @@ var _ = Describe("Service", func() {
 			"Should filter by each request field",
 			func(ctx SpecContext, filter func(*apichassis.RetrieveRequest, chassis.Chassis)) {
 				d := create(ctx)
-				create(ctx)
+				other := rack.Rack{Name: "Other"}
+				Expect(svc.Rack.NewWriter(nil).Create(ctx, &other)).To(Succeed())
+				create(ctx, func(o *chassis.Chassis) {
+					o.Rack = other.Key
+					o.Name = "Other"
+					o.Model = "Other"
+				})
 				grant(ctx, access.ActionRetrieve, user.OntologyID(u.Key), chassisType)
-				req := apichassis.RetrieveRequest{Keys: []chassis.Key{d.Key}}
+				var req apichassis.RetrieveRequest
 				filter(&req, d)
 				res := MustSucceed(apiSvc.Retrieve(testutil.AuthedCtx(ctx, u), req))
 				Expect(res.Chassis).To(HaveLen(1))
@@ -230,10 +239,18 @@ var _ = Describe("Service", func() {
 					r.SearchTerm = d.Name
 				},
 			),
-			Entry("limit", func(r *apichassis.RetrieveRequest, _ chassis.Chassis) {
-				r.Limit = 1
-			}),
 		)
+
+		It("Should cap the results at the limit", func(ctx SpecContext) {
+			d := create(ctx)
+			create(ctx)
+			grant(ctx, access.ActionRetrieve, user.OntologyID(u.Key), chassisType)
+			res := MustSucceed(apiSvc.Retrieve(
+				testutil.AuthedCtx(ctx, u),
+				apichassis.RetrieveRequest{Names: []string{d.Name}, Limit: 1},
+			))
+			Expect(res.Chassis).To(HaveLen(1))
+		})
 
 		It("Should skip chassis before the offset", func(ctx SpecContext) {
 			d := create(ctx)
