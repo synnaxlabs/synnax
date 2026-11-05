@@ -46,6 +46,7 @@ var (
 	writer     arc.Writer
 	channelSvc *channel.Service
 	taskSvc    *task.Service
+	arcTaskSvc *arctask.Service
 	statusSvc  *status.Service
 	rackSvc    *rack.Service
 	testRack   *rack.Rack
@@ -87,7 +88,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DriverRole:          MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
 	}))
 	imexSvc = imex.NewService()
-	arcTaskSvc := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{
+	arcTaskSvc = MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{
 		DB: db,
 	}))
 	configs := MustSucceed(taskconfig.NewRegistry(arcTaskSvc.Stores()...))

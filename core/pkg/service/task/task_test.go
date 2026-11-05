@@ -1159,6 +1159,29 @@ var _ = Describe("Task", Ordered, func() {
 		})
 
 		It(
+			"Should delete the config records of the tasks of a deleted rack",
+			func(ctx SpecContext) {
+				r := createRack(ctx)
+				t := &task.Task{
+					Type:     testType,
+					Rack:     r.Key,
+					Name:     "Internal Scan Task",
+					Internal: true,
+				}
+				Expect(w.Create(ctx, t)).To(Succeed())
+				store := MustBeOk(configs.Store(testType))
+				Expect(store.Read(ctx, tx, t.Key)).Error().ToNot(HaveOccurred())
+				Expect(rackService.NewWriter(tx).Delete(
+					ctx,
+					svc.RackDeleteGuard,
+					r.Key,
+				)).To(Succeed())
+				Expect(store.Read(ctx, tx, t.Key)).Error().
+					To(MatchError(query.ErrNotFound))
+			},
+		)
+
+		It(
 			"Should refuse to delete a rack that holds a task that is not internal",
 			func(ctx SpecContext) {
 				r := createRack(ctx)
@@ -1221,6 +1244,26 @@ var _ = Describe("Task", Ordered, func() {
 				Where(task.MatchKeys(t.Key)).
 				Exists(ctx, tx)).To(BeFalse())
 		})
+
+		It(
+			"Should delete the config records of the tasks of a deleted range",
+			func(ctx SpecContext) {
+				r := createRange(ctx, tx)
+				t := &task.Task{
+					Type:     testType,
+					Rack:     testRack.Key,
+					Name:     "Snapshot",
+					Snapshot: true,
+					Range:    &r.Key,
+				}
+				Expect(w.Create(ctx, t)).To(Succeed())
+				store := MustBeOk(configs.Store(testType))
+				Expect(store.Read(ctx, tx, t.Key)).Error().ToNot(HaveOccurred())
+				Expect(rangeSvc.NewWriter(tx).Delete(ctx, r.Key)).To(Succeed())
+				Expect(store.Read(ctx, tx, t.Key)).Error().
+					To(MatchError(query.ErrNotFound))
+			},
+		)
 
 		It("Should refuse a range that does not exist", func(ctx SpecContext) {
 			missing := uuid.New()

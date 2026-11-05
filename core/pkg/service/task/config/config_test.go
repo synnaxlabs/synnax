@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -161,6 +162,18 @@ var _ = Describe("Service", func() {
 			Expect(svc.Read(ctx, nil, key)).Error().To(MatchError(query.ErrNotFound))
 		})
 
+		It("Should not store a record whose key is not a task's key", func(
+			ctx SpecContext,
+		) {
+			key := uuid.New()
+			rec := MustSucceed(svc.Validate(ctx, nil, key, msgpack.EncodedJSON{
+				"arc_key": uuid.New().String(),
+			}))
+			Expect(rec.Store(ctx, nil)).
+				To(MatchError(ContainSubstring("key: task %s does not exist", key)))
+			Expect(svc.Read(ctx, nil, key)).Error().To(MatchError(query.ErrNotFound))
+		})
+
 		It("Should overwrite the record stored under the same key", func(
 			ctx SpecContext,
 		) {
@@ -257,12 +270,15 @@ var _ = Describe("Service", func() {
 		})
 
 		Context("With a resolve hook", func() {
+			// openResolving opens the store on a DB of its own, as two stores of one
+			// type cannot share a DB.
 			openResolving := func(
 				ctx SpecContext,
 				resolve func(context.Context, gorp.Tx, *arctask.Config) error,
-			) *config.Service[arctask.Config] {
+			) (*config.Service[arctask.Config], *tasktestutil.Tasks) {
 				GinkgoHelper()
-				return MustOpen(config.OpenService(
+				db := DeferClose(gorp.Wrap(memkv.New()))
+				resolving := MustOpen(config.OpenService(
 					ctx,
 					config.ServiceConfig[arctask.Config]{
 						DB:            db,
@@ -273,12 +289,19 @@ var _ = Describe("Service", func() {
 						ValidateEntry: (*arctask.Config).Validate,
 					},
 				))
+				return resolving, MustOpen(tasktestutil.OpenTasks(
+					ctx,
+					tasktestutil.TasksConfig{
+						DB:     db,
+						Stores: []config.Store{resolving},
+					},
+				))
 			}
 
 			It("Should store the entry the hook resolves, before validating it", func(
 				ctx SpecContext,
 			) {
-				resolving := openResolving(ctx, func(
+				resolving, tasks := openResolving(ctx, func(
 					_ context.Context,
 					tx gorp.Tx,
 					c *arctask.Config,
@@ -287,13 +310,10 @@ var _ = Describe("Service", func() {
 					c.Performance = "low"
 					return nil
 				})
-				key := createTask(ctx)
-				Expect(
-					MustSucceed(resolving.Validate(ctx, nil, key, msgpack.EncodedJSON{
-						"arc_key":     uuid.New().String(),
-						"performance": "BOGUS",
-					})).Store(ctx, nil),
-				).To(Succeed())
+				key := MustSucceed(tasks.Create(ctx, resolving, msgpack.EncodedJSON{
+					"arc_key":     uuid.New().String(),
+					"performance": "BOGUS",
+				}))
 				data := MustSucceed(resolving.Read(ctx, nil, key))
 				Expect(data["performance"]).To(Equal("low"))
 			})
@@ -301,7 +321,7 @@ var _ = Describe("Service", func() {
 			It("Should return the hook's error and store nothing", func(
 				ctx SpecContext,
 			) {
-				resolving := openResolving(ctx, func(
+				resolving, _ := openResolving(ctx, func(
 					context.Context,
 					gorp.Tx,
 					*arctask.Config,

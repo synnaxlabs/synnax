@@ -83,12 +83,14 @@ var _ = Describe("NewMigration", func() {
 		})).To(Succeed())
 	}
 
+	// run migrates the seeded tasks as the task table does when it opens, so that the
+	// records the migration stores can reference their tasks.
 	run := func(ctx SpecContext, stores ...config.Store) {
 		GinkgoHelper()
 		configs := MustSucceed(config.NewRegistry(stores...))
-		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-			DB:        db,
-			Namespace: "Task",
+		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v2.Key, v2.Task]{
+			DB:   db,
+			Name: string(resource.TypeTask),
 			Migrations: []gorp.Migration{
 				v3.NewMigration(v3.MigrationConfig{
 					Status:   statusSvc,
@@ -96,7 +98,7 @@ var _ = Describe("NewMigration", func() {
 					Configs:  configs,
 				}),
 			},
-		})).To(Succeed())
+		}))
 	}
 
 	openArcStore := func(ctx SpecContext) config.Store {
@@ -211,6 +213,38 @@ var _ = Describe("NewMigration", func() {
 			Expect(migrated.Type).To(Equal("rack_status"))
 		},
 	)
+
+	It("Should store a record for every task it converts", func(ctx SpecContext) {
+		store := openArcStore(ctx)
+		rt := MustOpen(racktask.OpenService(ctx, racktask.ServiceConfig{DB: db}))
+		arcKeys := []uuid.UUID{uuid.New(), uuid.New(), uuid.New()}
+		for i, k := range arcKeys {
+			seed(ctx, v2.Task{
+				Key:    k,
+				Name:   fmt.Sprintf("Arc Task %d", i),
+				Type:   "arc",
+				Config: msgpack.EncodedJSON{"arcKey": uuid.New().String()},
+			})
+		}
+		statusKey := uuid.New()
+		seed(ctx, v2.Task{
+			Key:      statusKey,
+			Name:     "Rack Status",
+			Type:     "Rack Status",
+			Internal: true,
+		})
+		run(ctx, append(rt.Stores(), store)...)
+
+		var migrated []v2.Task
+		Expect(gorp.NewRetrieve[v2.Key, v2.Task]().
+			Entries(&migrated).Exec(ctx, db)).To(Succeed())
+		Expect(migrated).To(HaveLen(4))
+		for _, k := range arcKeys {
+			Expect(store.Read(ctx, nil, k)).To(HaveKeyWithValue("key", k.String()))
+		}
+		Expect(rt.Status.Read(ctx, nil, statusKey)).
+			To(HaveKeyWithValue("key", statusKey.String()))
+	})
 
 	It("Should quarantine a task of an unknown type", func(ctx SpecContext) {
 		key := uuid.New()

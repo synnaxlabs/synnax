@@ -305,24 +305,6 @@ func renamesOnly(acts []Action) bool {
 // Delete deletes the task with the given key, its config record, and its associated
 // status.
 func (w Writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
-	var t Task
-	found := true
-	if err := w.table.NewRetrieve().
-		Where(gorp.MatchKeys[Key, Task](key)).
-		Entry(&t).
-		Exec(ctx, w.tx); err != nil {
-		if !errors.Is(err, query.ErrNotFound) {
-			return err
-		}
-		found = false
-	}
-	if found {
-		if store, ok := w.configs.Store(t.Type); ok {
-			if err := store.Delete(ctx, w.tx, key); err != nil {
-				return err
-			}
-		}
-	}
 	if err := w.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Task](key)).
 		Exec(ctx, w.tx); err != nil {

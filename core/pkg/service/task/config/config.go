@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config/legacy"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -26,7 +27,8 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Store persists the configuration records of one task type.
+// Store persists the configuration records of one task type. A record's key is the key
+// of its task, and deleting the task deletes the record.
 type Store interface {
 	// Type returns the task type whose records the store owns.
 	Type() string
@@ -53,7 +55,8 @@ type Store interface {
 	// Delete removes the records stored under keys. Delete is idempotent.
 	Delete(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) error
 	// Copy duplicates the record stored under from into a new record stored under
-	// to. It returns an error wrapping query.ErrNotFound when from does not exist.
+	// to, which must be the key of a task. It returns an error wrapping
+	// query.ErrNotFound when from does not exist.
 	Copy(ctx context.Context, tx gorp.Tx, from, to uuid.UUID) error
 	// Normalize converts a config blob at the given version to the current stored
 	// shape with defaults applied. A version that predates the type's ladder runs the
@@ -76,7 +79,8 @@ type Record struct {
 	store func(ctx context.Context, tx gorp.Tx) error
 }
 
-// Store stores the record under its key, creating or overwriting it.
+// Store stores the record under its key, creating or overwriting it. It returns a
+// validation error when no task has the key.
 func (r Record) Store(ctx context.Context, tx gorp.Tx) error { return r.store(ctx, tx) }
 
 // ServiceConfig is the configuration for opening a Service. E is the record type
@@ -165,13 +169,27 @@ func OpenService[E gorp.Entry[uuid.UUID]](
 	}
 	table, err := gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, E]{
 		DB:              cfg.DB,
+		Name:            cfg.Type + "_config",
 		Migrations:      cfg.Migrations,
+		References:      []*gorp.Reference[uuid.UUID, E]{newTaskReference[E]()},
 		Instrumentation: cfg.Instrumentation,
 	})
 	if err != nil {
 		return nil, err
 	}
 	return &Service[E]{cfg: cfg, table: table}, nil
+}
+
+// newTaskReference returns the reference from a record to the task that shares its key.
+func newTaskReference[E gorp.Entry[uuid.UUID]]() *gorp.Reference[uuid.UUID, E] {
+	return gorp.NewReference(gorp.ReferenceConfig[uuid.UUID, E]{
+		Name:     "key",
+		Tables:   []string{string(resource.TypeTask)},
+		OnDelete: gorp.Cascade,
+		Targets: func(e *E) []gorp.Target {
+			return []gorp.Target{gorp.To(string(resource.TypeTask), (*e).GorpKey())}
+		},
+	})
 }
 
 // Type implements Store.

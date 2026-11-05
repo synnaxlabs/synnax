@@ -211,6 +211,28 @@ var _ = Describe("Writer", func() {
 		})
 
 		It(
+			"Should delete the config records of its child tasks",
+			func(ctx SpecContext) {
+				a := arc.Arc{Name: "arc-with-config", Mode: arc.ModeText}
+				Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
+				t := &task.Task{
+					Rack:   testRack.Key,
+					Name:   "child-task",
+					Type:   arc.TaskType,
+					Config: msgpack.EncodedJSON{"arc_key": a.Key.String()},
+				}
+				Expect(taskSvc.NewWriter(tx).Create(ctx, t)).To(Succeed())
+				Expect(
+					arcTaskSvc.Config.Read(ctx, tx, t.Key),
+				).Error().
+					ToNot(HaveOccurred())
+				Expect(svc.NewWriter(tx).Delete(ctx, a.Key)).To(Succeed())
+				Expect(arcTaskSvc.Config.Read(ctx, tx, t.Key)).Error().
+					To(MatchError(query.ErrNotFound))
+			},
+		)
+
+		It(
 			"Should handle Arc deletion when Arc has no child tasks",
 			func(ctx SpecContext) {
 				a := arc.Arc{Name: "arc-without-tasks", Mode: arc.ModeText}
