@@ -19,6 +19,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -38,6 +39,32 @@ type TestStep struct {
 	Message string `json:"message" msgpack:"message"`
 	// Description says why, and what to do now, in full sentences.
 	Description string `json:"description" msgpack:"description"`
+}
+
+// testResult is the data that answers a connection test.
+type testResult struct {
+	// Steps are the stages that ran, in order. The last is the first that failed.
+	Steps []TestStep `json:"steps" msgpack:"steps"`
+}
+
+// failure is an error that answers a command with a status message and description.
+type failure struct{ message, description string }
+
+// Error implements error.
+func (f failure) Error() string { return f.message + ": " + f.description }
+
+// AnswerTest returns the data that answers a connection test that ran steps. When the
+// last step failed, the error gives the answer the message and the description of that
+// step.
+func AnswerTest(steps []TestStep) (msgpack.EncodedJSON, error) {
+	data, err := msgpack.NewEncodedJSON(testResult{Steps: steps})
+	if err != nil {
+		return nil, err
+	}
+	if last := steps[len(steps)-1]; last.Variant == status.VariantError {
+		return data, failure{message: last.Message, description: last.Description}
+	}
+	return data, nil
 }
 
 // Handshake runs a TLS handshake with cfg on conn, a connection to addr, and returns

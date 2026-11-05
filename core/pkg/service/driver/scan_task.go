@@ -11,6 +11,7 @@ package driver
 
 import (
 	"context"
+	"encoding/json/v2"
 	"sync"
 	"time"
 	"uuid"
@@ -41,6 +42,47 @@ type Scanner interface {
 	// command it does not know. The task runs one Exec at a time, apart from the
 	// command loop of the driver, and cancels ctx when the task stops.
 	Exec(ctx context.Context, cmd task.Command) (msgpack.EncodedJSON, error)
+}
+
+// replyLimit is the most bytes of JSON that Fit keeps. The task stores an answer in its
+// status, and every observer of statuses receives it.
+const replyLimit = 1 << 20
+
+// Fit returns the items of lists that fit in 1 MiB of JSON, so that the answer to a
+// command that reads data, such as a sample, stays small. It takes one item of each
+// list in turn, so that each list keeps a fair share. It keeps the order of each list,
+// and reports whether it left out any item.
+func Fit[T any](lists [][]T) ([][]T, bool, error) {
+	var (
+		kept      = make([][]T, len(lists))
+		size      int
+		truncated bool
+	)
+	for i := range kept {
+		kept[i] = []T{}
+	}
+	for round := 0; ; round++ {
+		more := false
+		for i, list := range lists {
+			if round >= len(list) {
+				continue
+			}
+			more = true
+			encoded, err := json.Marshal(list[round])
+			if err != nil {
+				return nil, false, err
+			}
+			if size+len(encoded) > replyLimit {
+				truncated = true
+				continue
+			}
+			size += len(encoded)
+			kept[i] = append(kept[i], list[round])
+		}
+		if !more {
+			return kept, truncated, nil
+		}
+	}
 }
 
 // ScanTaskConfig is the configuration for a ScanTask.
@@ -218,12 +260,20 @@ func (t *ScanTask) execScanner(ctx context.Context, cmd task.Command) {
 	if errors.Is(ctx.Err(), context.Canceled) {
 		return
 	}
-	variant, message := status.VariantSuccess, "Command executed successfully"
-	if err != nil {
+	var (
+		variant     = status.VariantSuccess
+		message     = "Command executed successfully"
+		description string
+		f           failure
+	)
+	switch {
+	case errors.As(err, &f):
+		variant, message, description = status.VariantError, f.message, f.description
+	case err != nil:
 		variant, message = status.VariantError, err.Error()
 	}
 	if rErr := t.status.Reply(
-		context.WithoutCancel(ctx), cmd.Key, variant, message, data,
+		context.WithoutCancel(ctx), cmd.Key, variant, message, description, data,
 	); rErr != nil {
 		t.cfg.L.Error("failed to answer command", zap.Error(rErr))
 	}
