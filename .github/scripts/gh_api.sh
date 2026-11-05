@@ -9,8 +9,8 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Runs `gh api` with the given arguments. GitHub sometimes answers with an empty, cut, or
-# plain text body, which gh reports as "unexpected end of JSON input" or "invalid
+# Runs `gh api` with the given arguments. GitHub sometimes answers with an empty, cut,
+# or plain text body, which gh reports as "unexpected end of JSON input" or "invalid
 # character". This retries those failures only. Every other failure, such as a 404,
 # exits at once with gh's output and exit code. A failed write can still land, so only
 # send requests that are safe to repeat.
