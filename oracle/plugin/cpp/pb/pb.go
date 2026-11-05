@@ -1561,6 +1561,20 @@ func (p *Plugin) generateMapConversion(
 	}
 
 	valueType := typeRef.TypeArgs[1]
+	if inst, ok := instance.Of(valueType, data.rawNs, data.table); ok {
+		name := p.addInstance(inst, data)
+		forward = fmt.Sprintf(`for (const auto& [k, v] : this->%s) {
+        auto [pb_v, err] = %s_to_proto(v);
+        if (err) return {{}, err};
+        (*pb.mutable_%s())[k] = pb_v;
+    }`, fieldName, name, accessorName)
+		backward = fmt.Sprintf(`for (const auto& [k, v] : pb.%s()) {
+        auto [cpp_v, err] = %s_from_proto(v);
+        if (err) return {{}, err};
+        cpp.%s[k] = cpp_v;
+    }`, accessorName, name, fieldName)
+		return forward, backward
+	}
 	// An alias value converts as the type it stands for.
 	value, valueRef, dealiased := resolution.Dealias(valueType, data.table)
 
