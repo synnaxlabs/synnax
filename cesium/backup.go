@@ -12,6 +12,7 @@ package cesium
 import (
 	"path"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/meta"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/set"
@@ -46,13 +47,15 @@ func RestoreMeta(fs, backup xfs.FS, orphans string) error {
 		return err
 	}
 	known := set.New(backedUp...)
-	for _, key := range live {
-		if known.Contains(key) {
-			continue
-		}
+	unknown := lo.Reject(live, func(key ChannelKey, _ int) bool {
+		return known.Contains(key)
+	})
+	if len(unknown) > 0 {
 		if _, err = fs.Sub(orphans); err != nil {
 			return err
 		}
+	}
+	for _, key := range unknown {
 		dir := keyToDirName(key)
 		if err = fs.Rename(dir, path.Join(orphans, dir)); err != nil {
 			return err

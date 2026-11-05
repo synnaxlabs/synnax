@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
+// Cmd is the command group that lists the metadata backups and undoes updates.
 var Cmd = &cobra.Command{
 	Use:   "update",
 	Short: "Undo an update of the Core",

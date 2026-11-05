@@ -165,6 +165,11 @@ var _ = Describe("Backups", func() {
 			To(MatchError(fs.ErrNotExist))
 	})
 
+	It("Should require a data directory", func() {
+		Expect(storage.NewBackups(storage.BackupsConfig{})).Error().
+			To(MatchError(ContainSubstring("dirname: required")))
+	})
+
 	It("Should return nothing when there are no backups", func() {
 		Expect(os.MkdirAll(dir, 0o700)).To(Succeed())
 		Expect(MustSucceed(newBackups(dir).List())).To(BeEmpty())
