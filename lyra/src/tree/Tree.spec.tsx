@@ -522,6 +522,29 @@ describe("Tree keys", () => {
     expect(onDoubleClick).toHaveBeenCalledExactlyOnceWith("0");
   });
 
+  it("should open the menu of the selection out of view after a deselect", () => {
+    const onContextMenu = vi.fn();
+    const nodes = Array.from({ length: 300 }, (_, i) => ({ key: `${i}` }));
+    const c = render(<Component nodes={nodes} onContextMenu={onContextMenu} />);
+    fireEvent.click(row("0"));
+    const scroller = c.container.querySelector<HTMLElement>(".lyra-list__scroll");
+    if (scroller == null) throw new Error("scroll container not found");
+    const scrollTo = (index: number) =>
+      act(() => {
+        scroller.scrollTop = index * 27;
+        fireEvent.scroll(scroller);
+      });
+    scrollTo(200);
+    fireEvent.keyDown(window, { code: "Control" });
+    fireEvent.click(row("200"));
+    fireEvent.click(row("200"));
+    fireEvent.keyUp(window, { code: "Control" });
+    scrollTo(201);
+    fireEvent.keyDown(tree(), { key: "F10", code: "F10", shiftKey: true });
+    expect(onContextMenu).toHaveBeenCalledOnce();
+    expect(onContextMenu.mock.calls[0][0].target).toBe(row("0"));
+  });
+
   it("should extend a shift-click range from the item the keys moved to", () => {
     render(
       <Component nodes={[{ key: "a" }, { key: "b" }, { key: "c" }, { key: "d" }]} />,
