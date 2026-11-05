@@ -1926,6 +1926,16 @@ describe("Tombstones", () => {
       expect(table.status("k1")).toBe("tombstoned");
     });
 
+    it("should keep a key deleted after the stamp when a later set rolls back", () => {
+      const table = newRevivable();
+      const since = table.stamp();
+      table.delete("k1");
+      const rollback = table.set("k1", { key: "k1", name: "c" });
+      rollback();
+      table.ingest(fetched, { since });
+      expect(table.status("k1")).toBe("tombstoned");
+    });
+
     it("should keep the tombstone on an ingest without a stamp", () => {
       const table = newRevivable();
       table.delete("k1");
@@ -1993,6 +2003,149 @@ describe("Tombstones", () => {
     rollback();
     expect(table.status("k1")).toBe("tombstoned");
     expect(table.getTombstone("k1")?.corpse).toEqual({ key: "k1", name: "a" });
+  });
+});
+
+describe("mirror", () => {
+  interface Doc extends record.Keyed<string> {
+    key: string;
+    name: string;
+  }
+  const newTable = () =>
+    new query.Table<string, Doc>({
+      onError: noopError,
+      fetch: async (keys) => keys.map((key) => ({ key, name: "a" })),
+    });
+  const newDeleted = () => {
+    const table = newTable();
+    table.set("k1", { key: "k1", name: "a" });
+    table.delete("k1");
+    return table;
+  };
+
+  it("should skip a streamed set for a locally deleted key", () => {
+    const table = newDeleted();
+    const subscriber = vi.fn();
+    table.subscribe(subscriber);
+    table.mirrorSet("k1", { key: "k1", name: "a" });
+    expect(table.status("k1")).toBe("tombstoned");
+    expect(subscriber).not.toHaveBeenCalled();
+  });
+
+  it("should apply a streamed set after the streamed delete", () => {
+    const table = newDeleted();
+    table.mirrorSet("k1", { key: "k1", name: "a" });
+    table.mirrorDelete(["k1"]);
+    table.mirrorSet("k1", { key: "k1", name: "b" });
+    expect(table.get("k1")).toEqual({ key: "k1", name: "b" });
+  });
+
+  it("should tombstone a held key on a streamed delete", () => {
+    const table = newTable();
+    table.set("k1", { key: "k1", name: "a" });
+    table.mirrorDelete(["k1"]);
+    expect(table.getTombstone("k1")?.corpse).toEqual({ key: "k1", name: "a" });
+  });
+
+  it("should apply a streamed set to a key the stream deleted", () => {
+    const table = newTable();
+    table.set("k1", { key: "k1", name: "a" });
+    table.mirrorDelete(["k1"]);
+    table.mirrorSet("k1", { key: "k1", name: "b" });
+    expect(table.get("k1")).toEqual({ key: "k1", name: "b" });
+  });
+
+  it("should apply a streamed set to a key deleted while absent", () => {
+    const table = newTable();
+    table.delete("k1");
+    table.mirrorSet("k1", { key: "k1", name: "a" });
+    expect(table.get("k1")).toEqual({ key: "k1", name: "a" });
+  });
+
+  it("should skip a streamed set for a locally re-created key", () => {
+    const table = newDeleted();
+    table.set("k1", { key: "k1", name: "b" });
+    table.mirrorSet("k1", { key: "k1", name: "a" });
+    expect(table.get("k1")).toEqual({ key: "k1", name: "b" });
+  });
+
+  it("should skip a streamed set after a failed re-create rolls back", () => {
+    const table = newDeleted();
+    table.set("k1", { key: "k1", name: "b" })();
+    table.mirrorSet("k1", { key: "k1", name: "a" });
+    expect(table.status("k1")).toBe("tombstoned");
+  });
+
+  it("should apply a streamed set after the delete is rolled back", () => {
+    const table = newTable();
+    table.set("k1", { key: "k1", name: "a" });
+    table.delete("k1")();
+    table.mirrorSet("k1", { key: "k1", name: "b" });
+    expect(table.get("k1")).toEqual({ key: "k1", name: "b" });
+  });
+
+  it("should apply a streamed set after the pending deletes clear", () => {
+    const table = newDeleted();
+    table.clearPendingDeletes();
+    table.mirrorSet("k1", { key: "k1", name: "b" });
+    expect(table.get("k1")).toEqual({ key: "k1", name: "b" });
+  });
+
+  it("should apply a streamed set after a reset", () => {
+    const table = newDeleted();
+    table.reset();
+    table.mirrorSet("k1", { key: "k1", name: "b" });
+    expect(table.get("k1")).toEqual({ key: "k1", name: "b" });
+  });
+
+  describe("keys the Core no longer holds", () => {
+    const newHeld = () => {
+      const table = new query.Table<string, Doc>({
+        onError: noopError,
+        fetch: async () => [],
+      });
+      table.set("k1", { key: "k1", name: "a" });
+      return table;
+    };
+
+    it("should apply a streamed set to a key a refresh found missing", async () => {
+      const table = newHeld();
+      await table.retrieve(["k1"], { refresh: true });
+      expect(table.status("k1")).toBe("tombstoned");
+      table.mirrorSet("k1", { key: "k1", name: "b" });
+      expect(table.get("k1")).toEqual({ key: "k1", name: "b" });
+    });
+
+    it("should apply a streamed set to a key a reconcile found missing", async () => {
+      const table = newHeld();
+      await table.reconcile();
+      expect(table.status("k1")).toBe("tombstoned");
+      table.mirrorSet("k1", { key: "k1", name: "b" });
+      expect(table.get("k1")).toEqual({ key: "k1", name: "b" });
+    });
+
+    it("should apply a streamed set to a key deleted during a reconcile", async () => {
+      let release: (docs: Doc[]) => void = () => {};
+      const table = new query.Table<string, Doc>({
+        onError: noopError,
+        fetch: async () => await new Promise<Doc[]>((resolve) => (release = resolve)),
+      });
+      table.set("k1", { key: "k1", name: "a" });
+      const reconciling = table.reconcile();
+      table.delete("k1");
+      release([]);
+      await reconciling;
+      table.mirrorSet("k1", { key: "k1", name: "b" });
+      expect(table.get("k1")).toEqual({ key: "k1", name: "b" });
+    });
+
+    it("should apply a streamed set to a deleted key in a table with no fetch", () => {
+      const table = new query.Table<string, Doc>({ onError: noopError });
+      table.set("k1", { key: "k1", name: "a" });
+      table.delete("k1");
+      table.mirrorSet("k1", { key: "k1", name: "b" });
+      expect(table.get("k1")).toEqual({ key: "k1", name: "b" });
+    });
   });
 });
 

@@ -225,6 +225,39 @@ var _ = Describe("TS Filter Plugin", func() {
 			)
 		})
 
+		It("Should import a typed line's type from an ancestor as a namespace", func(
+			ctx SpecContext,
+		) {
+			loader.Add("schemas/thing", `
+				@ts output "client/ts/src/thing"
+
+				Span struct {
+					start int64
+				}
+			`)
+			resp := MustGenerate(ctx, `
+				import "schemas/x/filter"
+				import "schemas/thing"
+
+				@ts output "client/ts/src/thing/part"
+
+				Part struct {
+					key uuid { @key }
+
+					@ts name "Payload"
+				}
+
+				Where filter Part {
+					key
+					overlaps thing.Span
+				}
+			`, "part", loader, p)
+			ExpectContent(resp, "where.gen.ts").ToContain(
+				`import * as thing from "@/thing/types.gen";`,
+				"overlaps: thing.spanZ.exactOptional(),",
+			)
+		})
+
 		It("Should skip a line omitted from TypeScript", func(ctx SpecContext) {
 			resp := MustGenerate(ctx, thing+`
 				Where filter Thing {

@@ -229,10 +229,6 @@ This section lists the most common diagnostics without a code, not all of them.
   <Problem.Cause>A `=>` sends values into `select`.</Problem.Cause>
   <Problem.Fix>Use `->`.</Problem.Fix>
 </Problem.Item>
-<Problem.Item message={"input routing tables not yet implemented in text compiler"}>
-  <Problem.Cause>The code uses an input routing table.</Problem.Cause>
-  <Problem.Fix>Set the extra parameters in `()`, or call the function from a function.</Problem.Fix>
-</Problem.Item>
 <Problem.Item message={"'next' used outside of a sequence"}>
   <Problem.Cause>A `=> next` is in a top-level stage or flow.</Problem.Cause>
   <Problem.Fix>Move it into a sequence.</Problem.Fix>

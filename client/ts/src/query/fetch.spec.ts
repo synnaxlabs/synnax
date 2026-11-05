@@ -17,7 +17,8 @@ import { createTestClient } from "@/testutil";
 // Every document table declares a fetch that resolves keys against the cluster and
 // omits entries the cluster no longer has. Reconciliation and watch backfill ride that
 // contract (the reconcile pass itself is covered in cache.spec.ts); these tests pin it
-// per domain through a filter on keys, which resolves through the same table fetch. Each test uses a fresh reader whose streamer opens after the writer's create
+// per domain through a filter on keys, which resolves through the same table fetch.
+// Each test uses a fresh reader whose streamer opens after the writer's create
 // broadcast, so its cache stays cold and a hit proves a real cluster fetch.
 const writer = createTestClient();
 
