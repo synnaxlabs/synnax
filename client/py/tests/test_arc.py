@@ -12,6 +12,7 @@ from uuid import uuid4
 import pytest
 
 import synnax as sy
+from x import filter
 from x.testutil import assert_eventually
 
 
@@ -86,19 +87,33 @@ class TestArc:
         retrieved_keys = {arc.key for arc in retrieved}
         assert retrieved_keys == set(keys)
 
+    def test_retrieve_where(self, client: sy.Synnax) -> None:
+        """Should keep Arcs that match a filter tree and the given keys."""
+        prefix = f"test-arc-where-{uuid4()}"
+        created = client.arcs.create(
+            [
+                sy.Arc(name=f"{prefix}-a", mode="text"),
+                sy.Arc(name=f"{prefix}-b", mode="text"),
+            ]
+        )
+        keys = [arc.key for arc in created]
+        where = sy.arc.Where(name=filter.String(regex=f"^{prefix}-b$"))
+        retrieved = client.arcs.retrieve(where=where, keys=keys)
+        assert [arc.key for arc in retrieved] == [created[1].key]
+
     def test_retrieve_compiled(self, client: sy.Synnax) -> None:
-        """Should return the compiled program when compile is True."""
+        """Should return the compiled program when include_program is True."""
         created = client.arcs.create(
             name=f"test-arc-{uuid4()}",
             mode="text",
             text=sy.Text(raw="func f() {}"),
         )
-        retrieved = client.arcs.retrieve(key=created.key, compile=True)
+        retrieved = client.arcs.retrieve(key=created.key, include_program=True)
         assert retrieved.program is not None
         assert retrieved.program.wasm.startswith(b"\x00asm")
 
     def test_retrieve_not_compiled(self, client: sy.Synnax) -> None:
-        """Should return no program when compile is not set."""
+        """Should return no program when include_program is not set."""
         created = client.arcs.create(
             name=f"test-arc-{uuid4()}",
             mode="text",

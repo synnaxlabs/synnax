@@ -16,22 +16,20 @@ import "github.com/synnaxlabs/synnax/pkg/service/view/versions/v2"
 // Key is a unique identifier for a saved view configuration.
 type Key = v2.Key
 
+// Type names the resource that a view lists.
+type Type = v2.Type
+
+const (
+	TypeRange  Type = v2.TypeRange
+	TypeStatus Type = v2.TypeStatus
+)
+
 // View is a saved, named filter over a list of resources. The type selects the resource
 // the view lists and the shape of its where.
 type View = v2.View
 
 // ViewVariant is implemented by every View variant.
 type ViewVariant = v2.ViewVariant
-
-// ViewType is the "type" value that selects a variant of View.
-type ViewType = v2.ViewType
-
-const (
-	// RangeViewType is a saved view of ranges.
-	RangeViewType ViewType = v2.RangeViewType
-	// StatusViewType is a saved view of statuses.
-	StatusViewType ViewType = v2.StatusViewType
-)
 
 // RangeView is a saved view of ranges.
 type RangeView = v2.RangeView
