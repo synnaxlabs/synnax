@@ -47,7 +47,8 @@ class Harness:
         self.gh.serve("api */actions/*", {"workflow_runs": runs})
 
     def ok(self, conclusion: str | None = None) -> None:
-        self.gh.serve("api */check-runs*", {"check_runs": [{"conclusion": conclusion}]})
+        jobs = [{"name": "OK", "conclusion": conclusion}]
+        self.gh.serve("api */jobs*", {"jobs": jobs})
 
     def threads(self, count: int = 0) -> None:
         last = {"author": {"login": "someone", "__typename": "User"}}

@@ -37,8 +37,8 @@ read -r RUN CONCLUSION < <(gh api "${RUNS}?${QUERY}" \
     --jq '.workflow_runs[0] | "\(.id) \(.conclusion)"')
 # CI wakes the shepherd from inside the run, once its OK job fails.
 if [ "$CONCLUSION" = null ]; then
-    CONCLUSION=$(gh api "repos/${REPO}/commits/${SHA}/check-runs?check_name=OK" \
-        --jq '.check_runs[0].conclusion')
+    CONCLUSION=$(gh api "repos/${REPO}/actions/runs/${RUN}/jobs?per_page=100" \
+        --paginate --jq '.jobs[] | select(.name == "OK") | .conclusion')
 fi
 if [ "$CONCLUSION" = failure ]; then
     echo "ci $RUN"
