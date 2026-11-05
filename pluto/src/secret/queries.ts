@@ -35,11 +35,10 @@ export const { use } = Flux.createRetrieve<RetrieveQuery, secret.Secret>({
   getCached: ({ client, query }) => client.secrets.getCached(query),
 });
 
-export type RetrieveMultipleQuery = {
-  keys: secret.Key[];
-  /** Fills `uses` with the resources that use each secret. */
-  includeUses?: boolean;
-};
+export type RetrieveMultipleQuery = Pick<
+  secret.RetrieveMultipleParams,
+  "keys" | "includeUses"
+>;
 
 export const { use: useMultiple } = Flux.createRetrieve<
   RetrieveMultipleQuery,

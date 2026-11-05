@@ -54,12 +54,11 @@ interface CountProps extends Pick<
   Button.ButtonProps,
   "onPointerEnter" | "onPointerLeave" | "onClick"
 > {
-  listed: secret.Key[];
   secretKey: secret.Key;
 }
 
-const Count = ({ listed, secretKey, ...rest }: CountProps): ReactElement | null => {
-  const count = useUses(listed, secretKey).length;
+const Count = ({ secretKey, ...rest }: CountProps): ReactElement | null => {
+  const count = useUses(secretKey).length;
   if (count === 0) return null;
   return (
     <Button.Button
@@ -76,14 +75,12 @@ const Count = ({ listed, secretKey, ...rest }: CountProps): ReactElement | null 
 };
 
 interface UsedByPopoverProps {
-  listed: secret.Key[];
   secretKey: secret.Key;
   anchor: HTMLElement | null;
   onSelectCertificate: SelectCertificate;
 }
 
 const UsedByPopover = ({
-  listed,
   secretKey,
   anchor,
   onSelectCertificate,
@@ -119,7 +116,6 @@ const UsedByPopover = ({
     >
       <UsesBoundary>
         <Count
-          listed={listed}
           secretKey={secretKey}
           onPointerEnter={handleEnter}
           onPointerLeave={scheduleClose}
@@ -138,11 +134,7 @@ const UsedByPopover = ({
           Used by
         </Text.Text>
         <UsesBoundary>
-          <UsedBy
-            listed={listed}
-            secretKey={secretKey}
-            onSelectCertificate={handleSelectCertificate}
-          />
+          <UsedBy secretKey={secretKey} onSelectCertificate={handleSelectCertificate} />
         </UsesBoundary>
       </Dialog.Dialog>
     </Dialog.Frame>
@@ -150,11 +142,10 @@ const UsedByPopover = ({
 };
 
 interface SecretItemProps extends List.ItemProps<secret.Key> {
-  listed: secret.Key[];
   onSelectCertificate: SelectCertificate;
 }
 
-const SecretItem = ({ listed, onSelectCertificate, ...rest }: SecretItemProps) => {
+const SecretItem = ({ onSelectCertificate, ...rest }: SecretItemProps) => {
   const { itemKey } = rest;
   const s = List.useItem<secret.Key, secret.Secret>(itemKey);
   const canUpdate = Access.useUpdateGranted(secret.ontologyID(itemKey));
@@ -184,7 +175,6 @@ const SecretItem = ({ listed, onSelectCertificate, ...rest }: SecretItemProps) =
         </Text.Text>
       </Flex.Box>
       <UsedByPopover
-        listed={listed}
         secretKey={itemKey}
         anchor={element}
         onSelectCertificate={onSelectCertificate}
@@ -270,8 +260,6 @@ const SecretSection = ({
   selected,
   onSelect,
 }: ListSectionProps<ListsData["secrets"]>): ReactElement => {
-  // A rename reorders the list. Sorting keeps the request for the uses the same.
-  const listed = [...list.data].sort();
   const menu = Menu.useContextMenu();
   const openUsedBy = (key: secret.Key) => {
     onSelect(key);
@@ -301,12 +289,7 @@ const SecretSection = ({
             emptyContent={list.answered && EMPTY_SECRETS}
           >
             {({ key, ...p }) => (
-              <SecretItem
-                key={key}
-                {...p}
-                listed={listed}
-                onSelectCertificate={onSelect}
-              />
+              <SecretItem key={key} {...p} onSelectCertificate={onSelect} />
             )}
           </List.Items>
         </List.Scroll>

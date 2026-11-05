@@ -32,13 +32,15 @@ export const UsesBoundary = ({ children }: PropsWithChildren): ReactElement => (
 
 const NO_USES: ontology.ID[] = [];
 
+/** Every secret's uses, read in one request that a deleted secret cannot fail. */
+const ALL_USES: Secret.RetrieveMultipleQuery = { includeUses: true };
+
 /**
- * Returns the IDs of the resources that use the secret, read in one request for every
- * listed secret. Suspends while the uses load.
+ * Returns the IDs of the resources that use the secret and that the caller can read.
+ * Suspends while the uses load.
  */
-export const useUses = (listed: secret.Key[], key: secret.Key): ontology.ID[] =>
-  Secret.useMultiple({ keys: listed, includeUses: true }).find((s) => s.key === key)
-    ?.uses ?? NO_USES;
+export const useUses = (key: secret.Key): ontology.ID[] =>
+  Secret.useMultiple(ALL_USES).find((s) => s.key === key)?.uses ?? NO_USES;
 
 interface ResourceProps {
   resource: ontology.Resource;
@@ -92,17 +94,15 @@ const Resources = ({ ids, onSelectCertificate }: ResourcesProps): ReactElement =
 };
 
 export interface UsedByProps extends Pick<ResourceProps, "onSelectCertificate"> {
-  listed: secret.Key[];
   secretKey: secret.Key;
 }
 
 /** Lists the resources that use a secret. Suspends while they load. */
 export const UsedBy = ({
-  listed,
   secretKey,
   onSelectCertificate,
 }: UsedByProps): ReactElement => {
-  const uses = useUses(listed, secretKey);
+  const uses = useUses(secretKey);
   if (uses.length === 0)
     return (
       <Text.Text level="small" color={9} className={CSS.BE("credentials", "unused")}>
