@@ -2936,6 +2936,16 @@ var _ = Describe("Calculations across Cores", func() {
 		nodes := []testutil.Node{cluster.Provision(ctx), cluster.Provision(ctx)}
 		iteratorSvc, channelSvc := openServices(ctx, nodes[0])
 		writer := channelSvc.NewWriter(nil)
+		// A channel leased by the second Core reaches the first by gossip.
+		gossiped := func(key channel.Key) {
+			Eventually(func(g Gomega) {
+				var res channel.Channel
+				g.Expect(channelSvc.NewRetrieve().
+					Where(channel.MatchKeys(key)).
+					Entry(&res).
+					Exec(ctx, nil)).To(Succeed())
+			}).Should(Succeed())
+		}
 		for k, n := range nodes {
 			idx := &channel.Channel{
 				Name:        "cross_time_" + strconv.Itoa(k),
@@ -2944,6 +2954,8 @@ var _ = Describe("Calculations across Cores", func() {
 				Leaseholder: n.Cluster.HostKey(),
 			}
 			Expect(writer.Create(ctx, idx)).To(Succeed())
+			// The first Core checks that the index of a data channel exists.
+			gossiped(idx.Key())
 			data := &channel.Channel{
 				Name:        "cross_" + strconv.Itoa(k),
 				DataType:    telem.Float32T,
@@ -2951,14 +2963,7 @@ var _ = Describe("Calculations across Cores", func() {
 				Leaseholder: n.Cluster.HostKey(),
 			}
 			Expect(writer.Create(ctx, data)).To(Succeed())
-			// A channel leased by the second Core reaches the first by gossip.
-			Eventually(func(g Gomega) {
-				var res channel.Channel
-				g.Expect(channelSvc.NewRetrieve().
-					Where(channel.MatchKeys(data.Key())).
-					Entry(&res).
-					Exec(ctx, nil)).To(Succeed())
-			}).Should(Succeed())
+			gossiped(data.Key())
 			stamps := make([]telem.TimeStamp, 20)
 			values := make([]float32, 20)
 			for j := range values {
