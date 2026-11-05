@@ -30,6 +30,8 @@ const (
 // View is a saved, named filter over a list of resources. The type selects the resource
 // the view lists and the shape of its where.
 type View = versions.View
+
+// ViewVariant is implemented by every View variant.
 type ViewVariant = versions.ViewVariant
 
 // RangeView is a saved view of ranges.
