@@ -30,10 +30,10 @@ and its tests. When you are not sure that a problem is real, leave it out.
 
 - `path` is relative to the root of the repository.
 - `line` is a line of the file at the head of the pull request. The left column of the
-  diff shows these numbers. For a finding about several lines, `start_line` is the
-  first line and `line` is the last.
-- When you can, anchor a finding to lines that the diff shows with a number, so it
-  posts as an inline comment.
+  diff shows these numbers. For a finding about several lines, `start_line` is the first
+  line and `line` is the last.
+- When you can, anchor a finding to lines that the diff shows with a number, so it posts
+  as an inline comment.
 - `title` is a short phrase that names the problem. When an earlier finding still
   applies, use its title again.
 - `body` tells what goes wrong, when, and why, in two to four sentences.
@@ -49,7 +49,7 @@ and its tests. When you are not sure that a problem is real, leave it out.
 - 1: must not merge.
 
 `verdict` is one sentence that tells whether the pull request is safe to merge.
-`summary` is two to five short bullets about what the pull request changes, for a
-reader who has not seen it.
+`summary` is two to five short bullets about what the pull request changes, for a reader
+who has not seen it.
 
 Write plain, short sentences. Do not praise the code.
