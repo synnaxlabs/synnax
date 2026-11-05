@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 
 from freighter import Empty, UnaryClient
 from synnax import project as project_
+from synnax import ranger
 from synnax.table.types_gen import Key, Table
 from x.lists import normalize
 
@@ -30,7 +31,9 @@ class _DeleteRequest(BaseModel):
 
 
 class _RetrieveRequest(BaseModel):
-    keys: list[Key]
+    keys: list[Key] | None = None
+    projects: list[project_.Key] | None = None
+    ranges: list[ranger.Key] | None = None
 
 
 class _RetrieveResponse(BaseModel):
@@ -100,23 +103,37 @@ class Client:
     def retrieve(self, *, key: Key) -> Table: ...
 
     @overload
-    def retrieve(self, *, keys: list[Key]) -> list[Table]: ...
+    def retrieve(
+        self,
+        *,
+        keys: list[Key] | None = None,
+        projects: list[project_.Key] | None = None,
+        ranges: list[ranger.Key] | None = None,
+    ) -> list[Table]: ...
 
     def retrieve(
         self,
         *,
         key: Key | None = None,
         keys: list[Key] | None = None,
+        projects: list[project_.Key] | None = None,
+        ranges: list[ranger.Key] | None = None,
     ) -> Table | list[Table]:
-        """Retrieve one or more tables by key.
+        """Retrieve one or more tables.
 
         :param key: The key of a single table to retrieve.
         :param keys: The keys of the tables to retrieve.
+        :param projects: The keys of projects. Only the tables these projects own are
+            returned.
+        :param ranges: The keys of ranges. Only the tables these ranges own are
+            returned.
         :returns: The table when ``key`` is provided, otherwise a list of tables.
         :raises NotFoundError: If any of the requested tables does not exist.
         """
         is_single = key is not None
-        req = _RetrieveRequest(keys=normalize(key, keys))
+        req = _RetrieveRequest(
+            keys=normalize(key, keys), projects=projects, ranges=ranges
+        )
         res = self._client.send("/table/retrieve", req, _RetrieveResponse)
         return res.tables[0] if is_single else res.tables
 

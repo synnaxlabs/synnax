@@ -28,6 +28,8 @@ class _CreateResponse(BaseModel):
 
 class _RetrieveRequest(BaseModel):
     keys: list[Key] | None = None
+    projects: list[project.Key] | None = None
+    ranges: list[ranger.Key] | None = None
 
 
 class _RetrieveResponse(BaseModel):
@@ -125,18 +127,30 @@ class Client:
     def retrieve(self, *, key: Key) -> Schematic: ...
 
     @overload
-    def retrieve(self, *, keys: list[Key]) -> list[Schematic]: ...
+    def retrieve(
+        self,
+        *,
+        keys: list[Key] | None = None,
+        projects: list[project.Key] | None = None,
+        ranges: list[ranger.Key] | None = None,
+    ) -> list[Schematic]: ...
 
     def retrieve(
         self,
         *,
         key: Key | None = None,
         keys: list[Key] | None = None,
+        projects: list[project.Key] | None = None,
+        ranges: list[ranger.Key] | None = None,
     ) -> Schematic | list[Schematic]:
-        """Retrieves one or more schematics by key.
+        """Retrieves one or more schematics.
 
         :param key: The key of a single schematic to retrieve.
         :param keys: The keys of the schematics to retrieve.
+        :param projects: The keys of projects. Only the schematics these projects own
+            are returned.
+        :param ranges: The keys of ranges. Only the schematics these ranges own are
+            returned.
         :returns: The matching schematic when ``key`` is provided, otherwise a list of
             matching schematics.
         :raises NotFoundError: If a requested key does not exist.
@@ -145,7 +159,9 @@ class Client:
         if key is not None:
             keys = [key]
         res = self._client.send(
-            "/schematic/retrieve", _RetrieveRequest(keys=keys), _RetrieveResponse
+            "/schematic/retrieve",
+            _RetrieveRequest(keys=keys, projects=projects, ranges=ranges),
+            _RetrieveResponse,
         )
         return res.schematics[0] if is_single else res.schematics
 

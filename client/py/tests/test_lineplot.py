@@ -150,6 +150,26 @@ class TestClient:
         plots = client.line_plots.retrieve(keys=[p1.key, p2.key])
         assert {p.key for p in plots} == {p1.key, p2.key}
 
+    def test_retrieve_by_project(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should retrieve only the line plots the project owns."""
+        a = client.line_plots.create(project.key, name="Child A")
+        b = client.line_plots.create(project.key, name="Child B")
+        other = client.projects.create(name="Other Project")
+        client.line_plots.create(other.key, name="Other")
+        retrieved = client.line_plots.retrieve(projects=[project.key])
+        assert {r.key for r in retrieved} == {a.key, b.key}
+
+    def test_retrieve_by_range_without_line_plots(
+        self, client: sy.Synnax, project: sy.Project
+    ) -> None:
+        """Should return no line plots when the range owns none."""
+        client.line_plots.create(project.key, name="Project Owned")
+        rng = client.ranges.create(
+            name="Empty Range",
+            time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
+        )
+        assert client.line_plots.retrieve(ranges=[rng.key]) == []
+
     def test_retrieve_missing_raises(self, client: sy.Synnax) -> None:
         """Should raise NotFoundError when retrieving a missing line plot by key."""
         with pytest.raises(NotFoundError):

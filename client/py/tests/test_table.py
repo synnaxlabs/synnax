@@ -107,6 +107,26 @@ class TestClient:
         tables = client.tables.retrieve(keys=[t1.key, t2.key])
         assert {t.key for t in tables} == {t1.key, t2.key}
 
+    def test_retrieve_by_project(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should retrieve only the tables the project owns."""
+        a = client.tables.create(project.key, name="Child A")
+        b = client.tables.create(project.key, name="Child B")
+        other = client.projects.create(name="Other Project")
+        client.tables.create(other.key, name="Other")
+        retrieved = client.tables.retrieve(projects=[project.key])
+        assert {r.key for r in retrieved} == {a.key, b.key}
+
+    def test_retrieve_by_range_without_tables(
+        self, client: sy.Synnax, project: sy.Project
+    ) -> None:
+        """Should return no tables when the range owns none."""
+        client.tables.create(project.key, name="Project Owned")
+        rng = client.ranges.create(
+            name="Empty Range",
+            time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
+        )
+        assert client.tables.retrieve(ranges=[rng.key]) == []
+
     def test_retrieve_missing_raises(self, client: sy.Synnax) -> None:
         """Should raise NotFoundError when a table does not exist."""
         with pytest.raises(NotFoundError):

@@ -122,6 +122,26 @@ class TestClient:
         retrieved = client.logs.retrieve(keys=[log.key for log in created])
         assert {log.key for log in retrieved} == {log.key for log in created}
 
+    def test_retrieve_by_project(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should retrieve only the logs the project owns."""
+        a = client.logs.create(project.key, name="Child A")
+        b = client.logs.create(project.key, name="Child B")
+        other = client.projects.create(name="Other Project")
+        client.logs.create(other.key, name="Other")
+        retrieved = client.logs.retrieve(projects=[project.key])
+        assert {r.key for r in retrieved} == {a.key, b.key}
+
+    def test_retrieve_by_range_without_logs(
+        self, client: sy.Synnax, project: sy.Project
+    ) -> None:
+        """Should return no logs when the range owns none."""
+        client.logs.create(project.key, name="Project Owned")
+        rng = client.ranges.create(
+            name="Empty Range",
+            time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
+        )
+        assert client.logs.retrieve(ranges=[rng.key]) == []
+
     def test_retrieve_missing_raises(self, client: sy.Synnax) -> None:
         """Should raise NotFoundError when a log does not exist."""
         with pytest.raises(NotFoundError):

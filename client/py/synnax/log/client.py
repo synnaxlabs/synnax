@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 
 from freighter import Empty, UnaryClient
 from synnax import project as project_
+from synnax import ranger
 from synnax.log.types_gen import Key, Log
 from x.lists import normalize
 
@@ -30,7 +31,9 @@ class _DeleteRequest(BaseModel):
 
 
 class _RetrieveRequest(BaseModel):
-    keys: list[Key]
+    keys: list[Key] | None = None
+    projects: list[project_.Key] | None = None
+    ranges: list[ranger.Key] | None = None
 
 
 class _RetrieveResponse(BaseModel):
@@ -101,23 +104,36 @@ class Client:
     def retrieve(self, *, key: Key) -> Log: ...
 
     @overload
-    def retrieve(self, *, keys: list[Key]) -> list[Log]: ...
+    def retrieve(
+        self,
+        *,
+        keys: list[Key] | None = None,
+        projects: list[project_.Key] | None = None,
+        ranges: list[ranger.Key] | None = None,
+    ) -> list[Log]: ...
 
     def retrieve(
         self,
         *,
         key: Key | None = None,
         keys: list[Key] | None = None,
+        projects: list[project_.Key] | None = None,
+        ranges: list[ranger.Key] | None = None,
     ) -> Log | list[Log]:
-        """Retrieve one or more logs by key.
+        """Retrieve one or more logs.
 
         :param key: The key of a single log to retrieve.
         :param keys: The keys of the logs to retrieve.
+        :param projects: The keys of projects. Only the logs these projects own are
+            returned.
+        :param ranges: The keys of ranges. Only the logs these ranges own are returned.
         :returns: The log when ``key`` is provided, otherwise a list of logs.
         :raises NotFoundError: If any of the requested logs does not exist.
         """
         is_single = key is not None
-        req = _RetrieveRequest(keys=normalize(key, keys))
+        req = _RetrieveRequest(
+            keys=normalize(key, keys), projects=projects, ranges=ranges
+        )
         res = self._client.send("/log/retrieve", req, _RetrieveResponse)
         return res.logs[0] if is_single else res.logs
 

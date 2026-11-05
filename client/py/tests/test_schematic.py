@@ -278,6 +278,26 @@ class TestClient:
         retrieved = client.schematics.retrieve(keys=[s1.key, s2.key])
         assert {s.key for s in retrieved} == {s1.key, s2.key}
 
+    def test_retrieve_by_project(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should retrieve only the schematics the project owns."""
+        a = client.schematics.create(project.key, name="Child A")
+        b = client.schematics.create(project.key, name="Child B")
+        other = client.projects.create(name="Other Project")
+        client.schematics.create(other.key, name="Other")
+        retrieved = client.schematics.retrieve(projects=[project.key])
+        assert {s.key for s in retrieved} == {a.key, b.key}
+
+    def test_retrieve_by_range(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should retrieve only the schematics the range owns."""
+        s = client.schematics.create(project.key, name="Original")
+        rng = client.ranges.create(
+            name="Snapshot Range",
+            time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
+        )
+        c = client.schematics.copy(s.key, name="Snapshot", snapshot=True, range=rng.key)
+        retrieved = client.schematics.retrieve(ranges=[rng.key])
+        assert [r.key for r in retrieved] == [c.key]
+
     def test_retrieve_not_found(self, client: sy.Synnax) -> None:
         """Should raise NotFoundError when the key does not exist."""
         with pytest.raises(NotFoundError):

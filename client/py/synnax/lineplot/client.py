@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 
 from freighter import Empty, UnaryClient
 from synnax import project as project_
+from synnax import ranger
 from synnax.lineplot.types_gen import Key, LinePlot
 from x.lists import normalize
 
@@ -26,7 +27,9 @@ class _CreateResponse(BaseModel):
 
 
 class _RetrieveRequest(BaseModel):
-    keys: list[Key]
+    keys: list[Key] | None = None
+    projects: list[project_.Key] | None = None
+    ranges: list[ranger.Key] | None = None
 
 
 class _RetrieveResponse(BaseModel):
@@ -105,25 +108,39 @@ class Client:
     def retrieve(self, *, key: Key) -> LinePlot: ...
 
     @overload
-    def retrieve(self, *, keys: list[Key]) -> list[LinePlot]: ...
+    def retrieve(
+        self,
+        *,
+        keys: list[Key] | None = None,
+        projects: list[project_.Key] | None = None,
+        ranges: list[ranger.Key] | None = None,
+    ) -> list[LinePlot]: ...
 
     def retrieve(
         self,
         *,
         key: Key | None = None,
         keys: list[Key] | None = None,
+        projects: list[project_.Key] | None = None,
+        ranges: list[ranger.Key] | None = None,
     ) -> LinePlot | list[LinePlot]:
-        """Retrieve one or more line plots by key.
+        """Retrieve one or more line plots.
 
         :param key: The key of a single line plot to retrieve.
         :param keys: The keys of the line plots to retrieve.
+        :param projects: The keys of projects. Only the line plots these projects own
+            are returned.
+        :param ranges: The keys of ranges. Only the line plots these ranges own are
+            returned.
         :returns: The matching line plot when ``key`` is provided, otherwise a list of
             matching line plots.
         :raises NotFoundError: If any of the requested line plots does not exist.
         """
         res = self._client.send(
             "/lineplot/retrieve",
-            _RetrieveRequest(keys=normalize(key, keys)),
+            _RetrieveRequest(
+                keys=normalize(key, keys), projects=projects, ranges=ranges
+            ),
             _RetrieveResponse,
         )
         return res.line_plots[0] if key is not None else res.line_plots
