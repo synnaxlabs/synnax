@@ -15,7 +15,7 @@ import { deep, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { use } from "@/feature/labjack/device/queries";
-import { Select } from "@/feature/labjack/device/Select";
+import { Select, useNoneSelected } from "@/feature/labjack/device/Select";
 import {
   AI_PORT_TYPE,
   type AIPort,
@@ -314,6 +314,7 @@ const ChannelsForm = ({ device }: ChannelsFormProps) => {
 const Form: FC = PlatformDevice.wrapTaskForm({
   use,
   useConfigure,
+  useNoneSelected,
   Content: ChannelsForm,
 });
 

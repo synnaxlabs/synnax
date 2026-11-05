@@ -13,7 +13,11 @@ import { Access } from "@synnaxlabs/pluto";
 import { deep, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { NoneSelected, Unconfigured } from "@/platform/device/Empty";
+import {
+  NoneSelected,
+  type NoneSelectedParams,
+  Unconfigured,
+} from "@/platform/device/Empty";
 import { Task } from "@/platform/task";
 
 const path = deep.path<{ config: { device: device.Key } }>();
@@ -25,6 +29,8 @@ export interface TaskFormContentProps<D> {
 export interface WrapTaskFormParams<D> {
   use: (query: { key: device.Key }) => D;
   useConfigure: () => (params: { deviceKey: device.Key }) => void;
+  /** Returns what the body offers while the task has no device. */
+  useNoneSelected: () => NoneSelectedParams;
   Content: FC<TaskFormContentProps<D>>;
 }
 
@@ -38,6 +44,7 @@ export const wrapTaskForm = <
 >({
   use,
   useConfigure,
+  useNoneSelected,
   Content,
 }: WrapTaskFormParams<D>): FC<{}> => {
   const Configured = ({ deviceKey }: { deviceKey: device.Key }) => {
@@ -58,7 +65,15 @@ export const wrapTaskForm = <
   Configured.displayName = `Configured(${Content.displayName ?? Content.name})`;
   const Wrapper = () => {
     const deviceKey = Form.useFieldValue(path.config.device);
-    if (primitive.isZero(deviceKey)) return <NoneSelected />;
+    const noneSelected = useNoneSelected();
+    const configure = useConfigure();
+    if (primitive.isZero(deviceKey))
+      return (
+        <NoneSelected
+          {...noneSelected}
+          onConfigure={(deviceKey) => configure({ deviceKey })}
+        />
+      );
     // A new device mounts a new body, so no state read from the old device stays.
     return <Configured key={deviceKey} deviceKey={deviceKey} />;
   };

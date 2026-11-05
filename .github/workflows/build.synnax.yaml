@@ -360,6 +360,7 @@ jobs:
         # Dependencies should already be installed on the machine.
         # This is nominally a no-op, but exists as a fallback and for documentation.
         if: matrix.os == 'ubuntu-build-bot'
+        timeout-minutes: 10
         run: |
           sudo apt-get update
           sudo apt-get install -y libsystemd-dev autoconf automake libtool

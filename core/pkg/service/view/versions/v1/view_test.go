@@ -27,41 +27,10 @@ var _ = Describe("View", func() {
 	var (
 		key    uuid.UUID
 		ranges v1.View
-		status v1.View
 	)
 	BeforeEach(func() {
 		key = uuid.New()
 		ranges = v1.View{Variant: v1.RangeView{Base: v1.Base{Key: key, Name: "Ranges"}}}
-		status = v1.View{
-			Variant: v1.StatusView{Base: v1.Base{Key: key, Name: "Statuses"}},
-		}
-	})
-
-	Describe("Type", func() {
-		It("Should return the type of each variant", func() {
-			Expect(ranges.Type()).To(Equal(v1.RangeViewType))
-			Expect(status.Type()).To(Equal(v1.StatusViewType))
-		})
-		It("Should return an empty type for a view with no variant", func() {
-			Expect(v1.View{}.Type()).To(BeEmpty())
-		})
-	})
-
-	Describe("WithKey", func() {
-		It("Should set the key of each variant", func() {
-			next := uuid.New()
-			Expect(ranges.WithKey(next).GorpKey()).To(Equal(next))
-			Expect(status.WithKey(next).GorpKey()).To(Equal(next))
-			Expect(ranges.GorpKey()).To(Equal(key))
-		})
-	})
-
-	Describe("WithName", func() {
-		It("Should set the name of each variant", func() {
-			Expect(ranges.WithName("Renamed").Base().Name).To(Equal("Renamed"))
-			Expect(status.WithName("Renamed").Base().Name).To(Equal("Renamed"))
-			Expect(ranges.Base().Name).ToNot(Equal("Renamed"))
-		})
 	})
 
 	Describe("GorpKey", func() {

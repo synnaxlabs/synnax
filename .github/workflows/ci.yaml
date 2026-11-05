@@ -604,17 +604,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      # Type checking every module for three GOOS values fills the default disk.
-      - name: Free disk space
-        run: |
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
-            /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
-
+      # The check compiles nothing, and the modules download faster than a cache
+      # restores.
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: x/go/go.mod
-          cache-dependency-path: "**/go.sum"
+          cache: false
 
       - name: Download the Go modules
         run: |

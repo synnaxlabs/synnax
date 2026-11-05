@@ -624,6 +624,20 @@ func (u *CJC) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// Source returns the source of the active variant, or an empty source when there is
+// none.
+func (u CJC) Source() CJCType {
+	switch u.Variant.(type) {
+	case BuiltInCJC:
+		return BuiltInCJCType
+	case ConstValCJC:
+		return ConstValCJCType
+	case ChanCJC:
+		return ChanCJCType
+	}
+	return ""
+}
+
 // VelocityUnits are the engineering units for a velocity measurement.
 type VelocityUnits string
 
@@ -970,6 +984,23 @@ func (u *Scale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		)
 	}
 	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u Scale) Type() ScaleType {
+	switch u.Variant.(type) {
+	case LinearScale:
+		return LinearScaleType
+	case MapScale:
+		return MapScaleType
+	case TableScale:
+		return TableScaleType
+	case PolynomialScale:
+		return PolynomialScaleType
+	case NoneScale:
+		return NoneScaleType
+	}
+	return ""
 }
 
 // ApplyDefaults fills the active variant's zero-valued fields with their
@@ -2972,6 +3003,73 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u AIChannel) Type() AIChannelType {
+	switch u.Variant.(type) {
+	case AIVoltageChannel:
+		return AIVoltageChannelType
+	case AIAccelChannel:
+		return AIAccelChannelType
+	case AIBridgeChannel:
+		return AIBridgeChannelType
+	case AICurrentChannel:
+		return AICurrentChannelType
+	case AIForceBridgeTableChannel:
+		return AIForceBridgeTableChannelType
+	case AIForceBridgeTwoPointLinChannel:
+		return AIForceBridgeTwoPointLinChannelType
+	case AIForceIEPEChannel:
+		return AIForceIEPEChannelType
+	case AIMicrophoneChannel:
+		return AIMicrophoneChannelType
+	case AIPressureBridgeTableChannel:
+		return AIPressureBridgeTableChannelType
+	case AIPressureBridgeTwoPointLinChannel:
+		return AIPressureBridgeTwoPointLinChannelType
+	case AIResistanceChannel:
+		return AIResistanceChannelType
+	case AIRTDChannel:
+		return AIRTDChannelType
+	case AIStrainGaugeChannel:
+		return AIStrainGaugeChannelType
+	case AITempBuiltinChannel:
+		return AITempBuiltinChannelType
+	case AIThermocoupleChannel:
+		return AIThermocoupleChannelType
+	case AITorqueBridgeTableChannel:
+		return AITorqueBridgeTableChannelType
+	case AITorqueBridgeTwoPointLinChannel:
+		return AITorqueBridgeTwoPointLinChannelType
+	case AIVelocityIEPEChannel:
+		return AIVelocityIEPEChannelType
+	case AIAccel4WireDCVoltageChannel:
+		return AIAccel4WireDCVoltageChannelType
+	case AIAccelChargeChannel:
+		return AIAccelChargeChannelType
+	case AIChargeChannel:
+		return AIChargeChannelType
+	case AICurrentRMSChannel:
+		return AICurrentRMSChannelType
+	case AIForceBridgePolynomialChannel:
+		return AIForceBridgePolynomialChannelType
+	case AIFreqVoltageChannel:
+		return AIFreqVoltageChannelType
+	case AIPressureBridgePolynomialChannel:
+		return AIPressureBridgePolynomialChannelType
+	case AIThermistorIexChannel:
+		return AIThermistorIexChannelType
+	case AIThermistorVexChannel:
+		return AIThermistorVexChannelType
+	case AITorqueBridgePolynomialChannel:
+		return AITorqueBridgePolynomialChannelType
+	case AIVoltageRMSChannel:
+		return AIVoltageRMSChannelType
+	case AIVoltageWithExcitChannel:
+		return AIVoltageWithExcitChannelType
+	}
+	return ""
+}
+
 // ApplyDefaults fills the active variant's zero-valued fields with their
 // schema-declared defaults.
 func (u *AIChannel) ApplyDefaults() {
@@ -3141,7 +3239,9 @@ func (u AIChannel) Validate() error {
 type CIEdge string
 
 const (
-	CIEdgeRising  CIEdge = "Rising"
+	// CIEdgeRising is the rising edge.
+	CIEdgeRising CIEdge = "Rising"
+	// CIEdgeFalling is the falling edge.
 	CIEdgeFalling CIEdge = "Falling"
 )
 
@@ -3160,10 +3260,16 @@ func (c CIEdge) IsValid() bool {
 type CIMeasMethod string
 
 const (
-	CIMeasMethodLowFreq1Ctr  CIMeasMethod = "LowFreq1Ctr"
+	// CIMeasMethodLowFreq1Ctr uses one counter, for low frequency signals.
+	CIMeasMethodLowFreq1Ctr CIMeasMethod = "LowFreq1Ctr"
+	// CIMeasMethodHighFreq2Ctr uses two counters and a measurement time, for high
+	// frequency signals.
 	CIMeasMethodHighFreq2Ctr CIMeasMethod = "HighFreq2Ctr"
+	// CIMeasMethodLargeRng2Ctr uses two counters and divides the input signal by a
+	// divisor.
 	CIMeasMethodLargeRng2Ctr CIMeasMethod = "LargeRng2Ctr"
-	CIMeasMethodDynamicAvg   CIMeasMethod = "DynamicAvg"
+	// CIMeasMethodDynamicAvg uses dynamic averaging.
+	CIMeasMethodDynamicAvg CIMeasMethod = "DynamicAvg"
 )
 
 // IsValid reports whether c is one of the defined CIMeasMethod
@@ -3181,7 +3287,9 @@ func (c CIMeasMethod) IsValid() bool {
 type CIFreqUnits string
 
 const (
-	CIFreqUnitsHz    CIFreqUnits = "Hz"
+	// CIFreqUnitsHz is hertz.
+	CIFreqUnitsHz CIFreqUnits = "Hz"
+	// CIFreqUnitsTicks is ticks.
 	CIFreqUnitsTicks CIFreqUnits = "Ticks"
 )
 
@@ -3200,8 +3308,10 @@ func (c CIFreqUnits) IsValid() bool {
 type CITimeUnits string
 
 const (
+	// CITimeUnitsSeconds is seconds.
 	CITimeUnitsSeconds CITimeUnits = "Seconds"
-	CITimeUnitsTicks   CITimeUnits = "Ticks"
+	// CITimeUnitsTicks is ticks.
+	CITimeUnitsTicks CITimeUnits = "Ticks"
 )
 
 // IsValid reports whether c is one of the defined CITimeUnits
@@ -3219,8 +3329,11 @@ func (c CITimeUnits) IsValid() bool {
 type CICountDirection string
 
 const (
-	CICountDirectionCountUp              CICountDirection = "CountUp"
-	CICountDirectionCountDown            CICountDirection = "CountDown"
+	// CICountDirectionCountUp increments the count on each edge.
+	CICountDirectionCountUp CICountDirection = "CountUp"
+	// CICountDirectionCountDown decrements the count on each edge.
+	CICountDirectionCountDown CICountDirection = "CountDown"
+	// CICountDirectionExternallyControlled reads the direction from a digital signal.
 	CICountDirectionExternallyControlled CICountDirection = "ExternallyControlled"
 )
 
@@ -3239,9 +3352,13 @@ func (c CICountDirection) IsValid() bool {
 type CIDecodingType string
 
 const (
-	CIDecodingTypeX1       CIDecodingType = "X1"
-	CIDecodingTypeX2       CIDecodingType = "X2"
-	CIDecodingTypeX4       CIDecodingType = "X4"
+	// CIDecodingTypeX1 is X1 decoding, for quadrature encoders.
+	CIDecodingTypeX1 CIDecodingType = "X1"
+	// CIDecodingTypeX2 is X2 decoding, for quadrature encoders.
+	CIDecodingTypeX2 CIDecodingType = "X2"
+	// CIDecodingTypeX4 is X4 decoding, for quadrature encoders.
+	CIDecodingTypeX4 CIDecodingType = "X4"
+	// CIDecodingTypeTwoPulse is two pulse counting, for two pulse encoders.
 	CIDecodingTypeTwoPulse CIDecodingType = "TwoPulse"
 )
 
@@ -3260,7 +3377,9 @@ func (c CIDecodingType) IsValid() bool {
 type CILinearVelocityUnits string
 
 const (
-	CILinearVelocityUnitsMPerS  CILinearVelocityUnits = "m/s"
+	// CILinearVelocityUnitsMPerS is meters per second.
+	CILinearVelocityUnitsMPerS CILinearVelocityUnits = "m/s"
+	// CILinearVelocityUnitsInPerS is inches per second.
 	CILinearVelocityUnitsInPerS CILinearVelocityUnits = "in/s"
 )
 
@@ -3279,8 +3398,11 @@ func (c CILinearVelocityUnits) IsValid() bool {
 type CIAngularVelocityUnits string
 
 const (
-	CIAngularVelocityUnitsRpm              CIAngularVelocityUnits = "RPM"
+	// CIAngularVelocityUnitsRpm is revolutions per minute.
+	CIAngularVelocityUnitsRpm CIAngularVelocityUnits = "RPM"
+	// CIAngularVelocityUnitsRadiansPerSecond is radians per second.
 	CIAngularVelocityUnitsRadiansPerSecond CIAngularVelocityUnits = "Radians/s"
+	// CIAngularVelocityUnitsDegreesPerSecond is degrees per second.
 	CIAngularVelocityUnitsDegreesPerSecond CIAngularVelocityUnits = "Degrees/s"
 )
 
@@ -3299,9 +3421,12 @@ func (c CIAngularVelocityUnits) IsValid() bool {
 type CILinearPositionUnits string
 
 const (
+	// CILinearPositionUnitsMeters is meters.
 	CILinearPositionUnitsMeters CILinearPositionUnits = "Meters"
+	// CILinearPositionUnitsInches is inches.
 	CILinearPositionUnitsInches CILinearPositionUnits = "Inches"
-	CILinearPositionUnitsTicks  CILinearPositionUnits = "Ticks"
+	// CILinearPositionUnitsTicks is ticks.
+	CILinearPositionUnitsTicks CILinearPositionUnits = "Ticks"
 )
 
 // IsValid reports whether c is one of the defined CILinearPositionUnits
@@ -3319,9 +3444,12 @@ func (c CILinearPositionUnits) IsValid() bool {
 type CIAngularPositionUnits string
 
 const (
+	// CIAngularPositionUnitsDegrees is degrees.
 	CIAngularPositionUnitsDegrees CIAngularPositionUnits = "Degrees"
+	// CIAngularPositionUnitsRadians is radians.
 	CIAngularPositionUnitsRadians CIAngularPositionUnits = "Radians"
-	CIAngularPositionUnitsTicks   CIAngularPositionUnits = "Ticks"
+	// CIAngularPositionUnitsTicks is ticks.
+	CIAngularPositionUnitsTicks CIAngularPositionUnits = "Ticks"
 )
 
 // IsValid reports whether c is one of the defined CIAngularPositionUnits
@@ -3339,10 +3467,14 @@ func (c CIAngularPositionUnits) IsValid() bool {
 type ZIndexPhase string
 
 const (
+	// ZIndexPhaseAHighBHigh resets when signals A and B are high.
 	ZIndexPhaseAHighBHigh ZIndexPhase = "AHighBHigh"
-	ZIndexPhaseAHighBLow  ZIndexPhase = "AHighBLow"
-	ZIndexPhaseALowBHigh  ZIndexPhase = "ALowBHigh"
-	ZIndexPhaseALowBLow   ZIndexPhase = "ALowBLow"
+	// ZIndexPhaseAHighBLow resets when signal A is high and signal B is low.
+	ZIndexPhaseAHighBLow ZIndexPhase = "AHighBLow"
+	// ZIndexPhaseALowBHigh resets when signal A is low and signal B is high.
+	ZIndexPhaseALowBHigh ZIndexPhase = "ALowBHigh"
+	// ZIndexPhaseALowBLow resets when signals A and B are low.
+	ZIndexPhaseALowBLow ZIndexPhase = "ALowBLow"
 )
 
 // IsValid reports whether z is one of the defined ZIndexPhase
@@ -4128,6 +4260,35 @@ func (u *CIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u CIChannel) Type() CIChannelType {
+	switch u.Variant.(type) {
+	case CIFrequencyChannel:
+		return CIFrequencyChannelType
+	case CIEdgeCountChannel:
+		return CIEdgeCountChannelType
+	case CIPeriodChannel:
+		return CIPeriodChannelType
+	case CIPulseWidthChannel:
+		return CIPulseWidthChannelType
+	case CISemiPeriodChannel:
+		return CISemiPeriodChannelType
+	case CITwoEdgeSepChannel:
+		return CITwoEdgeSepChannelType
+	case CIVelocityLinearChannel:
+		return CIVelocityLinearChannelType
+	case CIVelocityAngularChannel:
+		return CIVelocityAngularChannelType
+	case CIPositionLinearChannel:
+		return CIPositionLinearChannelType
+	case CIPositionAngularChannel:
+		return CIPositionAngularChannelType
+	case CIDutyCycleChannel:
+		return CIDutyCycleChannelType
+	}
+	return ""
+}
+
 // ApplyDefaults fills the active variant's zero-valued fields with their
 // schema-declared defaults.
 func (u *CIChannel) ApplyDefaults() {
@@ -4272,9 +4433,13 @@ func (u *CIChannel) SetBase(base BaseCIChannel) {
 type WaveType string
 
 const (
-	WaveTypeSine     WaveType = "Sine"
+	// WaveTypeSine is a sine wave.
+	WaveTypeSine WaveType = "Sine"
+	// WaveTypeTriangle is a triangle wave.
 	WaveTypeTriangle WaveType = "Triangle"
-	WaveTypeSquare   WaveType = "Square"
+	// WaveTypeSquare is a square wave.
+	WaveTypeSquare WaveType = "Square"
+	// WaveTypeSawtooth is a sawtooth wave.
 	WaveTypeSawtooth WaveType = "Sawtooth"
 )
 
@@ -4486,6 +4651,19 @@ func (u *AOChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		)
 	}
 	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u AOChannel) Type() AOChannelType {
+	switch u.Variant.(type) {
+	case AOCurrentChannel:
+		return AOCurrentChannelType
+	case AOFuncGenChannel:
+		return AOFuncGenChannelType
+	case AOVoltageChannel:
+		return AOVoltageChannelType
+	}
+	return ""
 }
 
 // ApplyDefaults fills the active variant's zero-valued fields with their
