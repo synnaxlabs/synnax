@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
@@ -33,6 +34,7 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
 	db         *gorp.DB
+	channels   *channeltestutil.Table
 	groupSvc   *group.Service
 	otg        *ontology.Ontology
 	proj       project.Project
@@ -49,6 +51,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:       db,
 		Ontology: otg,
 	}))
+	channels = DeferClose(MustOpen(channeltestutil.OpenTable(ctx, db)))
+	Expect(channels.Create(ctx, 1, 2, 3, 4, 5, 10, 42, 99)).To(Succeed())
 	imexSvc = imex.NewService()
 	projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
 		DB:       db,
