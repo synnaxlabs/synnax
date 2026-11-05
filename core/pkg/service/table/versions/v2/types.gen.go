@@ -27,7 +27,7 @@ import (
 // Key is a unique identifier for a table, represented as a UUID.
 type Key = v1.Key
 
-// FlexAlignment is a cross-axis flex alignment for laid-out content.
+// FlexAlignment is a flex alignment for laid-out content.
 type FlexAlignment string
 
 const (
