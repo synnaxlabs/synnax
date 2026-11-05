@@ -191,6 +191,18 @@ var _ = Describe("Service", func() {
 			Expect(res.Chassis[0].Status.Message).To(Equal("Status unknown"))
 		})
 
+		It("Should select a chassis by resource name", func(ctx SpecContext) {
+			d := create(ctx)
+			create(ctx)
+			grant(ctx, access.ActionRetrieve, user.OntologyID(u.Key), chassisType)
+			res := MustSucceed(apiSvc.Retrieve(
+				testutil.AuthedCtx(ctx, u),
+				apichassis.RetrieveRequest{ResourceNames: []string{d.ResourceName}},
+			))
+			Expect(res.Chassis).To(HaveLen(1))
+			Expect(res.Chassis[0].Key).To(Equal(d.Key))
+		})
+
 		DescribeTable(
 			"Should filter by each request field",
 			func(ctx SpecContext, filter func(*apichassis.RetrieveRequest, chassis.Chassis)) {

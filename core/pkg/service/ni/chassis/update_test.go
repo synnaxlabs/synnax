@@ -53,7 +53,7 @@ var _ = Describe("Update", func() {
 				MustSucceed(json.Marshal(update)),
 				&got,
 			)).To(Succeed())
-			Expect(got.Variant).To(BeAssignableToTypeOf(update.Variant))
+			Expect(got).To(Equal(update))
 		},
 		Entry("identity", identity),
 		Entry("configuration", configuration),

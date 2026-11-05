@@ -187,6 +187,8 @@ type RetrieveRequest struct {
 	Names []string `json:"names" msgpack:"names"`
 	// Serials selects chassis by serial number.
 	Serials []string `json:"serials" msgpack:"serials"`
+	// ResourceNames selects chassis by NI-MAX resource name.
+	ResourceNames []string `json:"resource_names" msgpack:"resource_names"`
 	// Models selects chassis by product name.
 	Models []string `json:"models" msgpack:"models"`
 	// Racks selects chassis by rack.
@@ -224,6 +226,9 @@ func (s *Service) Retrieve(
 	}
 	if len(req.Serials) > 0 {
 		q = q.Where(chassis.MatchSerials(req.Serials...))
+	}
+	if len(req.ResourceNames) > 0 {
+		q = q.Where(chassis.MatchResourceNames(req.ResourceNames...))
 	}
 	if len(req.Models) > 0 {
 		q = q.Where(chassis.MatchModels(req.Models...))
