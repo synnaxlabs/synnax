@@ -17,9 +17,15 @@ import "schemas/x/telem"
 @ts output "client/ts/src/mqtt"
 
 QoS enum {
-    at_most_once  = "at_most_once"
-    at_least_once = "at_least_once"
-    exactly_once  = "exactly_once"
+    at_most_once  = "at_most_once" {
+        @doc value "is level 0, which delivers a message at most once."
+    }
+    at_least_once = "at_least_once" {
+        @doc value "is level 1, which delivers a message at least once."
+    }
+    exactly_once  = "exactly_once" {
+        @doc value "is level 2, which delivers a message exactly once."
+    }
 
     @doc value """
         is the MQTT quality of service of a subscription or a publish: level 0, 1, or 2.
@@ -27,11 +33,21 @@ QoS enum {
 }
 
 TimeFormat enum {
-    iso8601  = "iso8601"
-    unix_sec = "unix_sec"
-    unix_ms  = "unix_ms"
-    unix_us  = "unix_us"
-    unix_ns  = "unix_ns"
+    iso8601  = "iso8601" {
+        @doc value "is an ISO 8601 string."
+    }
+    unix_sec = "unix_sec" {
+        @doc value "is a count of seconds since the Unix epoch."
+    }
+    unix_ms  = "unix_ms" {
+        @doc value "is a count of milliseconds since the Unix epoch."
+    }
+    unix_us  = "unix_us" {
+        @doc value "is a count of microseconds since the Unix epoch."
+    }
+    unix_ns  = "unix_ns" {
+        @doc value "is a count of nanoseconds since the Unix epoch."
+    }
 
     @doc value "is the encoding of a timestamp value within a JSON payload."
 }
@@ -52,19 +68,45 @@ EnumEntry struct {
 }
 
 SparkplugDataType enum {
-    int8      = "int8"
-    int16     = "int16"
-    int32     = "int32"
-    int64     = "int64"
-    uint8     = "uint8"
-    uint16    = "uint16"
-    uint32    = "uint32"
-    uint64    = "uint64"
-    float     = "float"
-    double    = "double"
-    boolean   = "boolean"
-    string    = "string"
-    date_time = "date_time"
+    int8      = "int8" {
+        @doc value "is a signed 8-bit integer."
+    }
+    int16     = "int16" {
+        @doc value "is a signed 16-bit integer."
+    }
+    int32     = "int32" {
+        @doc value "is a signed 32-bit integer."
+    }
+    int64     = "int64" {
+        @doc value "is a signed 64-bit integer."
+    }
+    uint8     = "uint8" {
+        @doc value "is an unsigned 8-bit integer."
+    }
+    uint16    = "uint16" {
+        @doc value "is an unsigned 16-bit integer."
+    }
+    uint32    = "uint32" {
+        @doc value "is an unsigned 32-bit integer."
+    }
+    uint64    = "uint64" {
+        @doc value "is an unsigned 64-bit integer."
+    }
+    float     = "float" {
+        @doc value "is a 32-bit floating point number."
+    }
+    double    = "double" {
+        @doc value "is a 64-bit floating point number."
+    }
+    boolean   = "boolean" {
+        @doc value "is a true or false value."
+    }
+    string    = "string" {
+        @doc value "is a string."
+    }
+    date_time = "date_time" {
+        @doc value "is a point in time, as milliseconds since the Unix epoch."
+    }
 
     @doc value "is the Sparkplug B data type of a tag."
 }
@@ -198,16 +240,26 @@ ReadConfig struct extends task.PersistConfig {
 }
 
 JSONType enum {
-    number  = "number"
-    string  = "string"
-    boolean = "boolean"
+    number  = "number" {
+        @doc value "writes the value as a JSON number."
+    }
+    string  = "string" {
+        @doc value "writes the value as a JSON string."
+    }
+    boolean = "boolean" {
+        @doc value "writes the value as a JSON boolean."
+    }
 
     @doc value "is the JSON type a channel value is serialized as in a payload."
 }
 
 GeneratorType enum {
-    uuid      = "uuid"
-    timestamp = "timestamp"
+    uuid      = "uuid" {
+        @doc value "produces a new UUID for each message."
+    }
+    timestamp = "timestamp" {
+        @doc value "produces the time of the message."
+    }
 
     @doc value "is the kind of value produced for a generated write field."
 }

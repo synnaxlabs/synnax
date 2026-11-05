@@ -25,13 +25,17 @@ import (
 // Key is a unique identifier for a saved view configuration.
 type Key = v0.Key
 
+// ViewType is the "type" value that selects a variant of View.
 type ViewType string
 
 const (
-	RangeViewType  ViewType = "range"
+	// RangeViewType is a saved view of ranges.
+	RangeViewType ViewType = "range"
+	// StatusViewType is a saved view of statuses.
 	StatusViewType ViewType = "status"
 )
 
+// ViewVariant is implemented by every View variant.
 type ViewVariant interface {
 	isViewVariant()
 }
@@ -135,7 +139,11 @@ func (u *View) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.StatusView
 	default:
-		return errors.Newf("View: unknown type %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"View: unknown type %q",
+			disc.Type,
+		)
 	}
 	return nil
 }

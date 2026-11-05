@@ -41,8 +41,35 @@ struct is_vector<std::vector<T>> : std::true_type {
 template<typename T>
 inline constexpr bool is_vector_v = is_vector<T>::value;
 
-/// @brief Type trait to detect std::map and std::unordered_map types with string or
-/// numeric keys
+/// @brief Type trait to detect a key type with a static parse from a string that
+/// returns a pair of the key and an error, such as x::uuid::UUID.
+template<typename K, typename = void>
+struct is_string_parseable : std::false_type {};
+
+template<typename K>
+struct is_string_parseable<
+    K,
+    std::enable_if_t<std::is_same_v<
+        decltype(K::parse(std::declval<const std::string &>())),
+        std::pair<K, errors::Error>>>> : std::true_type {};
+
+template<typename K>
+inline constexpr bool is_string_parseable_v = is_string_parseable<K>::value;
+
+/// @brief returns the JSON object key for a map key. Accepts strings, integers, and
+/// types with a to_string member, such as x::uuid::UUID.
+template<typename K>
+std::string map_key(const K &key) {
+    if constexpr (std::is_same_v<K, std::string>)
+        return key;
+    else if constexpr (std::is_integral_v<K>)
+        return std::to_string(key);
+    else
+        return key.to_string();
+}
+
+/// @brief Type trait to detect std::map and std::unordered_map types with string,
+/// numeric, or string-parseable keys
 template<typename T>
 struct is_map : std::false_type {
     using key_type = void;
@@ -52,7 +79,8 @@ struct is_map : std::false_type {
 template<typename K, typename V>
 struct is_map<std::map<K, V>>
     : std::conditional_t<
-          std::is_same_v<K, std::string> || std::is_arithmetic_v<K>,
+          std::is_same_v<K, std::string> || std::is_arithmetic_v<K> ||
+              is_string_parseable_v<K>,
           std::true_type,
           std::false_type> {
     using key_type = K;
@@ -62,7 +90,8 @@ struct is_map<std::map<K, V>>
 template<typename K, typename V>
 struct is_map<std::unordered_map<K, V>>
     : std::conditional_t<
-          std::is_same_v<K, std::string> || std::is_arithmetic_v<K>,
+          std::is_same_v<K, std::string> || std::is_arithmetic_v<K> ||
+              is_string_parseable_v<K>,
           std::true_type,
           std::false_type> {
     using key_type = K;
@@ -107,6 +136,19 @@ class Parser {
     json config;
     /// @brief noop means the parser should fail fast.
     bool noop = false;
+    /// @brief true once a keyed lookup has reported a value that is not an object.
+    bool shape_reported = false;
+
+    /// @brief finds the value at path. Null reads as missing. Any other value that is
+    /// not an object binds one error, so a type with only defaulted fields cannot
+    /// accept malformed content.
+    json::iterator find(const std::string &path) {
+        if (!config.is_object() && !config.is_null() && !shape_reported) {
+            shape_reported = true;
+            field_err("", "expected an object");
+        }
+        return config.find(path);
+    }
 
     Parser(
         json config,
@@ -139,6 +181,13 @@ class Parser {
                 field_err(path, "Invalid numeric key: '" + json_key + "'");
                 return {K{}, false};
             }
+        } else if constexpr (is_string_parseable_v<K>) {
+            auto [map_key, err] = K::parse(json_key);
+            if (err) {
+                field_err(path, "Invalid key: '" + json_key + "'");
+                return {K{}, false};
+            }
+            return {map_key, true};
         }
         return {K{}, false};
     }
@@ -226,7 +275,7 @@ public:
     T field(const std::string &path) {
         if (noop) return T();
         if (path.empty()) return field<T>();
-        const auto iter = config.find(path);
+        const auto iter = find(path);
         if (iter == config.end()) {
             if constexpr (is_optional_v<T>) return std::nullopt;
             if constexpr (is_indirect_v<T>) return nullptr;
@@ -248,7 +297,7 @@ public:
     T field(const std::string &path, const T &default_value) {
         if (noop) return default_value;
 
-        const auto iter = config.find(path);
+        const auto iter = find(path);
         if (iter == config.end() || iter->is_null()) return default_value;
         return get<T>(path, iter);
     }
@@ -266,7 +315,7 @@ public:
         }
 
         for (const auto &path: paths) {
-            if (const auto iter = config.find(path); iter != config.end())
+            if (const auto iter = find(path); iter != config.end())
                 return get<T>(path, iter);
         }
 
@@ -284,7 +333,7 @@ public:
         if (paths.empty()) return default_value;
 
         for (const auto &path: paths) {
-            if (const auto iter = config.find(path); iter != config.end())
+            if (const auto iter = find(path); iter != config.end())
                 return get<T>(path, iter);
         }
 
