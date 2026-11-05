@@ -12,6 +12,38 @@ from typing import Any
 
 SEVERITIES = ("P0", "P1", "P2")
 
+_TEXT = {"type": "string"}
+_LINE = {"type": "integer", "minimum": 1}
+SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["score", "verdict", "summary", "findings"],
+    "properties": {
+        "score": {"type": "integer", "minimum": 1, "maximum": 5},
+        "verdict": _TEXT,
+        "summary": {"type": "array", "items": _TEXT},
+        "findings": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["severity", "title", "body", "path", "line"],
+                "properties": {
+                    "severity": {"enum": list(SEVERITIES)},
+                    "title": _TEXT,
+                    "body": _TEXT,
+                    "path": _TEXT,
+                    "line": _LINE,
+                    "start_line": _LINE,
+                    "suggestion": _TEXT,
+                    "rule": _TEXT,
+                },
+            },
+        },
+    },
+}
+"""The JSON Schema of the review the reviewer writes, which parse reads."""
+
 
 @dataclass(frozen=True, kw_only=True)
 class Finding:
