@@ -9,32 +9,6 @@
 
 import { z } from "zod";
 
-import { status } from "@/status";
-
-/** The outcome of one stage of a connection test. */
-export const testStepZ = z.object({
-  /** stage names the stage, such as "dial" or "tls". */
-  stage: z.string(),
-  /** address is the network address that the stage reached, or empty. */
-  address: z.string(),
-  /** variant is success, warning, or error. */
-  variant: status.variantZ,
-  /** message says what happened in one short line. */
-  message: z.string(),
-  /** description says why, and what to do now. */
-  description: z.string(),
-});
-
-export interface TestStep extends z.infer<typeof testStepZ> {}
-
-/** The data that answers a connection test command of a scan task. */
-export const testResultZ = z.object({
-  /** steps are the stages that ran, in order. */
-  steps: z.array(testStepZ),
-});
-
-export interface TestResult extends z.infer<typeof testResultZ> {}
-
 /** The encodings of a message payload. */
 export const FORMATS = ["json", "schema_registry", "text", "binary"] as const;
 

@@ -21,6 +21,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -33,7 +34,7 @@ var _ = Describe("Discover", func() {
 			ctx context.Context,
 			server *httptest.Server,
 			cfg *tls.Config,
-		) driver.TestStep {
+		) task.TestStep {
 			GinkgoHelper()
 			addr := server.Listener.Addr().String()
 			conn := MustSucceed(net.Dial("tcp", addr))
@@ -93,8 +94,8 @@ var _ = Describe("Discover", func() {
 	})
 
 	Describe("AnswerTest", func() {
-		step := func(stage string, variant status.Variant, message string) driver.TestStep {
-			return driver.TestStep{
+		step := func(stage string, variant status.Variant, message string) task.TestStep {
+			return task.TestStep{
 				Stage:       stage,
 				Variant:     variant,
 				Message:     message,
@@ -103,7 +104,7 @@ var _ = Describe("Discover", func() {
 		}
 
 		It("Should answer with no error when every step passed", func() {
-			data := MustSucceed(driver.AnswerTest([]driver.TestStep{
+			data := MustSucceed(driver.AnswerTest([]task.TestStep{
 				step("dial", status.VariantSuccess, "Reached broker"),
 				step("broker", status.VariantWarning, "Slow broker"),
 			}))
@@ -111,7 +112,7 @@ var _ = Describe("Discover", func() {
 		})
 
 		It("Should answer with the first step that failed", func() {
-			data, err := driver.AnswerTest([]driver.TestStep{
+			data, err := driver.AnswerTest([]task.TestStep{
 				step("dial", status.VariantSuccess, "Reached broker"),
 				step("broker", status.VariantError, "Failed to reach broker 1"),
 				step("broker", status.VariantSuccess, "Reached broker 2"),

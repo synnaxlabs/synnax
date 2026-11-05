@@ -12,8 +12,11 @@
 package task
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task/versions"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/validate"
+	"strconv"
 )
 
 // Key is a unique identifier for a task.
@@ -66,4 +69,43 @@ type Command struct {
 	// Pinned is true when the Driver must refuse a start whose config_hash differs from
 	// the hash of the stored config.
 	Pinned bool `json:"pinned" msgpack:"pinned"`
+}
+
+// TestStep is the outcome of one stage of a connection test that a scan task runs.
+type TestStep struct {
+	// Stage names the stage, such as 'dial' or 'tls'.
+	Stage string `json:"stage" msgpack:"stage"`
+	// Address is the network address that the stage reached. Empty when the stage is
+	// not about one address.
+	Address string `json:"address" msgpack:"address"`
+	// Variant is success, warning, or error.
+	Variant status.Variant `json:"variant" msgpack:"variant"`
+	// Message says what happened in one short line.
+	Message string `json:"message" msgpack:"message"`
+	// Description says why, and what to do now, in full sentences.
+	Description string `json:"description" msgpack:"description"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (t TestStep) Validate() error {
+	v := validate.New("TestStep")
+	v.Ternaryf("variant", !t.Variant.IsValid(), "invalid variant: %v", t.Variant)
+	return v.Error()
+}
+
+// TestResult is the status data that answers the test command of a scan task.
+type TestResult struct {
+	// Steps are the stages that ran, in order.
+	Steps []TestStep `json:"steps" msgpack:"steps"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (t TestResult) Validate() error {
+	v := validate.New("TestResult")
+	for i := range t.Steps {
+		v.Exec(func() error { return validate.PathedError(t.Steps[i].Validate(), "steps", strconv.Itoa(i)) })
+	}
+	return v.Error()
 }

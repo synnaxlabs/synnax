@@ -22,6 +22,7 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/twmb/franz-go/pkg/kadm"
 	"github.com/twmb/franz-go/pkg/kerr"
@@ -44,13 +45,13 @@ const (
 // TLS, SASL, metadata, and each broker that the cluster advertises. It stops after the
 // first stage that fails. It returns a validation error when props cannot open a
 // client.
-func testConnection(ctx context.Context, props Properties) ([]driver.TestStep, error) {
+func testConnection(ctx context.Context, props Properties) ([]task.TestStep, error) {
 	props.ApplyDefaults()
 	if err := validateProperties(props); err != nil {
 		return nil, err
 	}
 	conn, step := dialSeed(ctx, props.Brokers)
-	steps := []driver.TestStep{step}
+	steps := []task.TestStep{step}
 	if conn == nil {
 		return steps, nil
 	}
@@ -67,8 +68,8 @@ func testConnection(ctx context.Context, props Properties) ([]driver.TestStep, e
 	return append(steps, testCluster(ctx, props)...), nil
 }
 
-func success(stage, address, message string) driver.TestStep {
-	return driver.TestStep{
+func success(stage, address, message string) task.TestStep {
+	return task.TestStep{
 		Stage:   stage,
 		Address: address,
 		Variant: status.VariantSuccess,
@@ -76,8 +77,8 @@ func success(stage, address, message string) driver.TestStep {
 	}
 }
 
-func failure(stage, address, message, description string) driver.TestStep {
-	return driver.TestStep{
+func failure(stage, address, message, description string) task.TestStep {
+	return task.TestStep{
 		Stage:       stage,
 		Address:     address,
 		Variant:     status.VariantError,
@@ -88,7 +89,7 @@ func failure(stage, address, message, description string) driver.TestStep {
 
 // dialSeed opens a TCP connection to the first seed broker that answers. It returns a
 // nil connection when none answers.
-func dialSeed(ctx context.Context, brokers []string) (net.Conn, driver.TestStep) {
+func dialSeed(ctx context.Context, brokers []string) (net.Conn, task.TestStep) {
 	var (
 		dialer   net.Dialer
 		failures []string
@@ -127,7 +128,7 @@ func handshake(
 	conn net.Conn,
 	addr string,
 	props Properties,
-) driver.TestStep {
+) task.TestStep {
 	ctx, cancel := context.WithTimeout(ctx, stageTimeout)
 	defer cancel()
 	return driver.Handshake(ctx, conn, addr, tlsConfig(props))
@@ -135,7 +136,7 @@ func handshake(
 
 // testCluster authenticates, reads the cluster metadata, and reaches each broker that
 // the metadata advertises.
-func testCluster(ctx context.Context, props Properties) []driver.TestStep {
+func testCluster(ctx context.Context, props Properties) []task.TestStep {
 	var auth authHook
 	cl, err := openClient(
 		props,
@@ -144,7 +145,7 @@ func testCluster(ctx context.Context, props Properties) []driver.TestStep {
 		kgo.WithHooks(&auth),
 	)
 	if err != nil {
-		return []driver.TestStep{
+		return []task.TestStep{
 			failure(stageMetadata, "", "Failed to open client", err.Error()+"."),
 		}
 	}
@@ -155,16 +156,16 @@ func testCluster(ctx context.Context, props Properties) []driver.TestStep {
 	sasl := props.Sasl.Mechanism() != NoneSASLType
 	if err != nil {
 		if sasl && (saslFailure(err) || auth.dropped.Load()) {
-			return []driver.TestStep{failure(
+			return []task.TestStep{failure(
 				stageSASL, "", "Authentication failed", fmt.Sprintf(
 					"%s. Check the username, the password, and the SASL mechanism.",
 					err,
 				),
 			)}
 		}
-		return []driver.TestStep{metadataFailure(err)}
+		return []task.TestStep{metadataFailure(err)}
 	}
-	var steps []driver.TestStep
+	var steps []task.TestStep
 	if sasl {
 		steps = append(steps, success(stageSASL, "", "Authenticated"))
 	}
@@ -192,7 +193,7 @@ func saslFailure(err error) bool {
 		errors.Is(err, kerr.IllegalSaslState)
 }
 
-func metadataFailure(err error) driver.TestStep {
+func metadataFailure(err error) task.TestStep {
 	const hint = "Check that the TLS and SASL settings match the listener of the broker."
 	switch {
 	case errors.Is(err, kerr.ClusterAuthorizationFailed),
@@ -227,12 +228,12 @@ func testBrokers(
 	ctx context.Context,
 	cl *kgo.Client,
 	brokers kadm.BrokerDetails,
-) []driver.TestStep {
+) []task.TestStep {
 	brokers = slices.Clone(brokers)
 	slices.SortFunc(brokers, func(a, b kadm.BrokerDetail) int {
 		return int(a.NodeID - b.NodeID)
 	})
-	steps := make([]driver.TestStep, len(brokers))
+	steps := make([]task.TestStep, len(brokers))
 	var wg sync.WaitGroup
 	for i, b := range brokers {
 		wg.Go(func() {

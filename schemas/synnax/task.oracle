@@ -183,6 +183,39 @@ Command struct {
     @doc value "is a command to execute on a task in the Driver system."
 }
 
+TestStep struct {
+    stage       string         {
+        @doc value "names the stage, such as 'dial' or 'tls'."
+    }
+    address     string = "" {
+        @doc value """
+            is the network address that the stage reached. Empty when the stage is not
+            about one address.
+        """
+    }
+    variant     status.Variant {
+        @doc value "is success, warning, or error."
+    }
+    message     string         {
+        @doc value "says what happened in one short line."
+    }
+    description string = "" {
+        @doc value "says why, and what to do now, in full sentences."
+    }
+
+    @doc value "is the outcome of one stage of a connection test that a scan task runs."
+    @pb omit
+}
+
+TestResult struct {
+    steps TestStep[] {
+        @doc value "are the stages that ran, in order."
+    }
+
+    @doc value "is the status data that answers the test command of a scan task."
+    @pb omit
+}
+
 KeyedConfig struct {
     key uuid = create {
         @doc value "is the unique identifier for the stored configuration record."

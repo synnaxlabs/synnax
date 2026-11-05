@@ -17,6 +17,24 @@ import { ontology } from "@/ontology";
 import { rack } from "@/rack";
 import { status } from "@/status";
 
+/** TestStep is the outcome of one stage of a connection test that a scan task runs. */
+export const testStepZ = z.object({
+  /** stage names the stage, such as 'dial' or 'tls'. */
+  stage: z.string(),
+  /**
+   * address is the network address that the stage reached. Empty when the stage is not
+   * about one address.
+   */
+  address: z.string().default(""),
+  /** variant is success, warning, or error. */
+  variant: status.variantZ,
+  /** message says what happened in one short line. */
+  message: z.string(),
+  /** description says why, and what to do now, in full sentences. */
+  description: z.string().default(""),
+});
+export interface TestStep extends z.infer<typeof testStepZ> {}
+
 /** KeyedConfig is the base for every stored task configuration record. */
 export const keyedConfigZ = z.object({
   /** key is the unique identifier for the stored configuration record. */
@@ -26,6 +44,13 @@ export interface KeyedConfig extends z.infer<typeof keyedConfigZ> {}
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
+
+/** TestResult is the status data that answers the test command of a scan task. */
+export const testResultZ = z.object({
+  /** steps are the stages that ran, in order. */
+  steps: testStepZ.array().default(() => []),
+});
+export interface TestResult extends z.infer<typeof testResultZ> {}
 
 export const startConfigZ = keyedConfigZ.extend({
   autoStart: z.boolean().default(false),

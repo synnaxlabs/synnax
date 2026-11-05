@@ -87,7 +87,7 @@ func (s *mapScanner) Exec(
 	case "browse":
 		return nil, errors.New("broker refused the subscription")
 	case "test":
-		return driver.AnswerTest([]driver.TestStep{
+		return driver.AnswerTest([]task.TestStep{
 			{Stage: "dial", Variant: status.VariantSuccess, Message: "Reached broker"},
 			{
 				Stage:       "connect",
@@ -479,9 +479,7 @@ var _ = Describe("ScanTask", func() {
 					g.Expect(stat.Message).To(Equal("Authentication failed"))
 					g.Expect(stat.Description).
 						To(Equal("Check the username and the password."))
-					var res struct {
-						Steps []driver.TestStep `json:"steps"`
-					}
+					var res task.TestResult
 					g.Expect(stat.Details.Data.Unmarshal(&res)).To(Succeed())
 					g.Expect(res.Steps).To(HaveLen(2))
 					g.Expect(res.Steps[1].Stage).To(Equal("connect"))

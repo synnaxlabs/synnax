@@ -20,33 +20,13 @@ import (
 	"unicode/utf8"
 
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 )
 
 // StageTLS is the stage of a connection test that runs the TLS handshake.
 const StageTLS = "tls"
-
-// TestStep is the outcome of one stage of a connection test.
-type TestStep struct {
-	// Stage names the stage, such as "dial" or "tls".
-	Stage string `json:"stage" msgpack:"stage"`
-	// Address is the network address that the stage reached. Empty when the stage is
-	// not about one address.
-	Address string `json:"address" msgpack:"address"`
-	// Variant is success, warning, or error.
-	Variant status.Variant `json:"variant" msgpack:"variant"`
-	// Message says what happened in one short line.
-	Message string `json:"message" msgpack:"message"`
-	// Description says why, and what to do now, in full sentences.
-	Description string `json:"description" msgpack:"description"`
-}
-
-// testResult is the data that answers a connection test.
-type testResult struct {
-	// Steps are the stages that ran, in order.
-	Steps []TestStep `json:"steps" msgpack:"steps"`
-}
 
 // failure is an error that answers a command with a status message and description.
 type failure struct{ message, description string }
@@ -57,12 +37,12 @@ func (f failure) Error() string { return f.message + ": " + f.description }
 // AnswerTest returns the data that answers a connection test that ran steps. When a
 // step failed, the error gives the answer the message and the description of the first
 // step that failed.
-func AnswerTest(steps []TestStep) (msgpack.EncodedJSON, error) {
-	data, err := msgpack.NewEncodedJSON(testResult{Steps: steps})
+func AnswerTest(steps []task.TestStep) (msgpack.EncodedJSON, error) {
+	data, err := msgpack.NewEncodedJSON(task.TestResult{Steps: steps})
 	if err != nil {
 		return nil, err
 	}
-	i := slices.IndexFunc(steps, func(s TestStep) bool {
+	i := slices.IndexFunc(steps, func(s task.TestStep) bool {
 		return s.Variant == status.VariantError
 	})
 	if i < 0 {
@@ -79,14 +59,14 @@ func Handshake(
 	conn net.Conn,
 	addr string,
 	cfg *tls.Config,
-) TestStep {
+) task.TestStep {
 	if cfg = cfg.Clone(); cfg == nil {
 		cfg = &tls.Config{MinVersion: tls.VersionTLS12}
 	}
 	if host, _, err := net.SplitHostPort(addr); err == nil && cfg.ServerName == "" {
 		cfg.ServerName = host
 	}
-	step := TestStep{Stage: StageTLS, Address: addr, Variant: status.VariantError}
+	step := task.TestStep{Stage: StageTLS, Address: addr, Variant: status.VariantError}
 	err := tls.Client(conn, cfg).HandshakeContext(ctx)
 	var (
 		authority x509.UnknownAuthorityError

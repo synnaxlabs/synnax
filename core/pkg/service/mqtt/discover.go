@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	xjson "github.com/synnaxlabs/x/json"
@@ -73,7 +74,7 @@ type testConnectionArgs struct {
 func (s *scanner) test(
 	ctx context.Context,
 	args testConnectionArgs,
-) ([]driver.TestStep, error) {
+) ([]task.TestStep, error) {
 	dev := device.Device{
 		Key:        args.Device,
 		Location:   args.Location,
@@ -94,13 +95,13 @@ func (s *scanner) test(
 	addr := u.Host
 	if live, connected := s.pool.live(args.Device, cfg); live {
 		if !connected {
-			return []driver.TestStep{failure(
+			return []task.TestStep{failure(
 				stageConnect, addr, "Connection down",
 				"The tasks of this broker hold a connection with these settings. It "+
 					"is down and tries again on its own.",
 			)}, nil
 		}
-		return []driver.TestStep{success(stageConnect, addr, "Connected")}, nil
+		return []task.TestStep{success(stageConnect, addr, "Connected")}, nil
 	}
 	// A broker drops the older of two sessions with one client ID, so each test derives
 	// an ID of its own. A set ID is kept, because a broker can allow only it.
@@ -111,7 +112,7 @@ func (s *scanner) test(
 	defer cancel()
 	conn, err := proxy.Dial(dialCtx, "tcp", addr)
 	if err != nil {
-		return []driver.TestStep{failure(
+		return []task.TestStep{failure(
 			stageDial, addr, "Failed to reach broker", fmt.Sprintf(
 				"Could not reach %s: %s. Check the host and the port, and that the "+
 					"network of the Core can reach the broker.",
@@ -119,7 +120,7 @@ func (s *scanner) test(
 			),
 		)}, nil
 	}
-	steps := []driver.TestStep{success(stageDial, addr, "Reached broker")}
+	steps := []task.TestStep{success(stageDial, addr, "Reached broker")}
 	if cfg.tls != nil {
 		steps = append(steps, driver.Handshake(dialCtx, conn, addr, cfg.tls))
 	}
@@ -135,8 +136,8 @@ func (s *scanner) test(
 	return append(steps, success(stageConnect, addr, "Connected")), nil
 }
 
-func success(stage, address, message string) driver.TestStep {
-	return driver.TestStep{
+func success(stage, address, message string) task.TestStep {
+	return task.TestStep{
 		Stage:   stage,
 		Address: address,
 		Variant: status.VariantSuccess,
@@ -144,8 +145,8 @@ func success(stage, address, message string) driver.TestStep {
 	}
 }
 
-func failure(stage, address, message, description string) driver.TestStep {
-	return driver.TestStep{
+func failure(stage, address, message, description string) task.TestStep {
+	return task.TestStep{
 		Stage:       stage,
 		Address:     address,
 		Variant:     status.VariantError,
@@ -154,7 +155,7 @@ func failure(stage, address, message, description string) driver.TestStep {
 	}
 }
 
-func connectFailure(addr string, err error) driver.TestStep {
+func connectFailure(addr string, err error) task.TestStep {
 	switch {
 	case errors.Is(err, packets.ErrorRefusedNotAuthorised),
 		errors.Is(err, packets.ErrorRefusedBadUsernameOrPassword):

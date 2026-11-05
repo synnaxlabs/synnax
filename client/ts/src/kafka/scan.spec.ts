@@ -11,7 +11,7 @@ import { id, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { driver } from "@/driver";
+import { task } from "@/task";
 import { createTestClient } from "@/testutil";
 
 const client = createTestClient();
@@ -43,7 +43,7 @@ describe("kafka scan task", () => {
     });
     expect(state.variant).toBe("error");
     expect(state.message).toBe("Failed to reach broker");
-    const { steps } = driver.testResultZ.parse(state.details.data);
+    const { steps } = task.testResultZ.parse(state.details.data);
     expect(steps).toHaveLength(1);
     expect(steps[0]).toMatchObject({ stage: "dial", variant: "error" });
   });

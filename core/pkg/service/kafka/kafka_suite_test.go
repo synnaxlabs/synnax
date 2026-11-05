@@ -275,17 +275,15 @@ func produceJSON(ctx context.Context, cl *kgo.Client, topic, key string, doc any
 }
 
 // stepsOf returns the steps of the connection test that stat answers.
-func stepsOf(stat task.Status) []driver.TestStep {
+func stepsOf(stat task.Status) []task.TestStep {
 	GinkgoHelper()
-	var res struct {
-		Steps []driver.TestStep `json:"steps"`
-	}
+	var res task.TestResult
 	Expect(stat.Details.Data.Unmarshal(&res)).To(Succeed())
 	return res.Steps
 }
 
 // stages returns the stage and variant of each step.
-func stages(steps []driver.TestStep) []string {
+func stages(steps []task.TestStep) []string {
 	out := make([]string, len(steps))
 	for i, s := range steps {
 		out[i] = s.Stage + ":" + string(s.Variant)
