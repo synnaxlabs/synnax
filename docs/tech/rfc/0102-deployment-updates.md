@@ -64,32 +64,38 @@ that version with its own:
 | Older or none    | Backs up (§3.1), writes its version, then opens. |
 | Newer            | Stops with the error below.                      |
 
-The error reads: "Data was last opened by Core 0.60.1. Run Core 0.60.1 or newer, or
-restore a backup with `synnax restore`."
+The error reads: "Data was last opened by Core 0.60.1. Run Core 0.60.1 or newer, or undo
+the update with `synnax update undo`."
 
 The Core writes the file right after the backup, before any migration runs. A crash
 during a migration then resumes at the next start and does not replace the good backup.
 A `0.0.0` dev Core neither checks nor writes the file, as in the client checks (RFC 0058
 §2.2).
 
-### 3.1 Backups and restore
+### 3.1 Backups and undo
 
-The backup copies `kv/`, the `meta.json` of every Cesium channel, and
-`embedded-driver-key` to `<data>/backups/<unix seconds>-<old version>`, with a
-`.partial` name until the copy is done. It keeps the newest 3. A failed copy stops the
-Core from starting. Telemetry files stay out: Cesium migrations must not write them
-(`cesium/internal/migrate/migrate.go:70`), and they can be terabytes. This is the Synnax
-Desktop backup (`console/src-tauri/src/supervisor/backup.rs`) moved into the Core, and
-the Desktop copy is deleted.
+The backup copies `kv/` and the `meta.json` of every Cesium channel to
+`<data>/backups/<unix seconds>-<old version>`, with a `.partial` name until the copy is
+done. It keeps the newest 3. A failed copy stops the Core from starting. Telemetry files
+stay out: Cesium migrations must not write them
+(`cesium/internal/migrate/migrate.go:70`), and they can be terabytes. A Cesium migration
+test fails when a migration changes a telemetry file. A release that changes the
+telemetry format must also handle undo for that update. The embedded Driver key stays
+out too: a Driver whose saved key fails after an undo makes a new one
+(`core/pkg/driver/driver.go:480-517`). This is the Synnax Desktop backup
+(`console/src-tauri/src/supervisor/backup.rs`) moved into the Core, and the Desktop copy
+is deleted.
 
-`synnax restore` runs with the Core stopped. It lists the backups, puts the chosen one
-back, writes its version to `VERSION`, and prints the Core version to run. A restore
-writes a marker first and removes it last. While the marker exists, the Core does not
-start and tells the user to run `synnax restore` again. It moves aside the Cesium
-directory of each channel that has no `meta.json` in the backup. The channel key counter
-lives in `kv/` (`core/pkg/distribution/channel/counter.go:22-38`), so it gives out those
-keys again, and Cesium refuses a duplicate key (`cesium/channel.go:157-164`). Telemetry
-written to known channels after the backup stays.
+`synnax update undo` runs with the Core stopped. It puts back the newest backup, or the
+one it names, writes its version to `VERSION`, and prints the Core version to run. With
+no name, it refuses when `VERSION` already holds the newest backup's version: the last
+update is already undone. `synnax update history` lists the backups. An undo writes a
+marker first and removes it last. While the marker exists, the Core does not start and
+tells the user to run the undo again. It moves aside the Cesium directory of each
+channel that has no `meta.json` in the backup. The channel key counter lives in `kv/`
+(`core/pkg/distribution/channel/counter.go:22-38`), so it gives out those keys again,
+and Cesium refuses a duplicate key (`cesium/channel.go:157-164`). Telemetry written to
+known channels after the backup stays.
 
 ### 3.2 `synnax update`
 
@@ -106,6 +112,8 @@ admin rights on the host, which is the access control for a Core update.
 5. On a failure, stops the Core and puts the old binary back. If step 3 made a backup,
    it first restores that backup (§3.1). With no new backup, the data did not change. It
    then starts the old Core.
+
+`synnax update undo` also puts `<binary>.old` back when it exists.
 
 Linux gets `synnax service install|uninstall|start|stop|status`, a systemd unit shaped
 after `core/cmd/service/service_windows.go`. The Windows installer runs the same update
@@ -210,7 +218,7 @@ the most risk, so it goes last. Each phase updates the docs pages that it change
 | Phase | Scope                                                   | Touches                                                                                                           | Depends on |
 | ----- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ---------- |
 | 1     | Block the Console when its minor differs from the Core  | `pluto/src/synnax`, `console/src/app/window`, `console/src/feature/version`, `console/src/platform/version`       | -          |
-| 2     | Add Core backups, restore, and the downgrade check      | `core/pkg/storage`, `core/cmd`, `console/src-tauri/src/supervisor`                                                | -          |
+| 2     | Add Core backups, undo, and the downgrade check         | `core/pkg/storage`, `core/cmd`, `console/src-tauri/src/supervisor`                                                | -          |
 | 3     | Report Driver versions and stop tasks on a mismatch     | `schemas/synnax/rack.oracle`, `driver/rack`, `driver/task`, `console/src/feature/rack`                            | -          |
 | 4     | Serve the matching Console update from the Core         | `core/pkg/console`, `.github/workflows/build.synnax.yaml`                                                         | -          |
 | 5     | Update the Console from its Core                        | `console/src/platform/version`, `console/src-tauri`                                                               | 1, 4       |
@@ -246,8 +254,10 @@ manual update to a release with phase 10.
    rejected; they need code in Gorp, Cesium, and Pebble for downgrades that the docs
    already do not support. Postgres refuses data from another version the same way
    (`PG_VERSION`).
-7. **Restore is in, general backup is out**: The §3.0 error needs `synnax restore`. A
-   metadata-only `synnax backup` would answer disaster recovery only in part.
+7. **Undo is in, general backup is out**: The §3.0 error needs `synnax update undo`. A
+   metadata-only `synnax backup` would answer disaster recovery only in part, and the
+   name would promise more. Disaster recovery belongs to snapshot tools such as Veeam
+   (§4).
 8. **`builtin:version` is the admin permission**: A check on the Owner role name was
    rejected; no Console code checks role names, and custom admin roles would fail.
 9. **The Core serves the matching Console**: A docs-site route for the newest release on
