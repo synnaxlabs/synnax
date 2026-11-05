@@ -31,27 +31,27 @@ var _ = Describe("Index", func() {
 		var db *domain.DB
 
 		openWriter := func(ctx context.Context, start telem.TimeStamp) *domain.Writer {
-			w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
+			GinkgoHelper()
+			w := DeferClose(MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
 				Start:                    start,
 				AutoIndexPersistInterval: telem.Hour,
-			}))
+			})))
 			MustSucceed(w.Write([]byte{1}))
-			DeferCleanup(func() { Expect(w.Close()).To(Succeed()) })
 			return w
 		}
 
 		BeforeEach(func() {
-			db = MustSucceed(domain.Open(domain.Config{
+			db = MustOpen(domain.Open(domain.Config{
 				FS:              FileSystems["memFS"](),
 				FileSize:        telem.Megabyte,
 				Instrumentation: PanicLogger(),
 			}))
-			DeferCleanup(func() { Expect(db.Close()).To(Succeed()) })
 		})
 
 		// Each failed commit builds its error from the domain another commit is
 		// growing, so the race detector fails these specs if that read leaves the lock.
 		commitDuringConflicts := func(ctx context.Context, conflicting *domain.Writer) {
+			GinkgoHelper()
 			grown := openWriter(ctx, conflictAt)
 			Expect(grown.Commit(ctx, conflictAt+1)).To(Succeed())
 			var wg sync.WaitGroup
