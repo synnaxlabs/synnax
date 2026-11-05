@@ -49,6 +49,8 @@ var _ = Describe("Update", func() {
 				&got,
 			)).To(Succeed())
 			Expect(got.Variant).To(BeAssignableToTypeOf(update.Variant))
+			Expect(MustSucceed(json.Marshal(got))).
+				To(MatchJSON(MustSucceed(json.Marshal(update))))
 		},
 		Entry("identity", identity),
 		Entry("configuration", configuration),
