@@ -207,6 +207,10 @@ bound, a log precision, or the line plot X channel.
   the way to enable the channel again.
 - A new task takes the only device of its make. With two or more, the device stays
   empty.
+- A task body without a device names the next step. With no device of its make, it says
+  so and offers to connect one ("Connect MQTT broker"), then selects the new device.
+  Otherwise it says "No device selected" and offers "Select device", which opens the
+  device select.
 - A task form is at most 1000 px wide. A task whose channel table needs more room sets
   `--console-task-form-max-width`. Modbus uses 1200 px.
 - Port banks sit side by side in columns eight ports wide, each under its title. They
