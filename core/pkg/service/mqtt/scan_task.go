@@ -17,6 +17,7 @@ import (
 	"slices"
 	"time"
 	"unicode/utf8"
+	"uuid"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
@@ -234,7 +235,9 @@ func (s *scanner) browseConfig(
 	if err != nil {
 		return device.Device{}, properties{}, clientConfig{}, err
 	}
-	cfg.clientID = deriveClientID(dev.Key + "/browse")
+	// A broker drops the older of two sessions with one client ID, so each browse and
+	// sample derives an ID of its own.
+	cfg.clientID = deriveClientID(uuid.New().String())
 	// A browse is never the host application, so it sets no STATE last will.
 	cfg.hostID = ""
 	return dev, props, cfg, nil

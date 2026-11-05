@@ -1,0 +1,109 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package driver_test
+
+import (
+	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"net"
+	"net/http"
+	"net/http/httptest"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/service/driver"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
+	. "github.com/synnaxlabs/x/testutil"
+)
+
+var _ = Describe("Discover", func() {
+	Describe("Handshake", func() {
+		noop := http.HandlerFunc(func(http.ResponseWriter, *http.Request) {})
+
+		// handshake dials server and runs a handshake with cfg on the connection.
+		handshake := func(
+			ctx context.Context,
+			server *httptest.Server,
+			cfg *tls.Config,
+		) driver.TestStep {
+			GinkgoHelper()
+			addr := server.Listener.Addr().String()
+			conn := MustSucceed(net.Dial("tcp", addr))
+			DeferCleanup(conn.Close)
+			return driver.Handshake(ctx, conn, addr, cfg)
+		}
+
+		// trusting returns a TLS config that trusts the certificate of server.
+		trusting := func(server *httptest.Server) *tls.Config {
+			roots := x509.NewCertPool()
+			roots.AddCert(server.Certificate())
+			return &tls.Config{MinVersion: tls.VersionTLS12, RootCAs: roots}
+		}
+
+		var server *httptest.Server
+
+		BeforeEach(func() {
+			server = httptest.NewTLSServer(noop)
+			DeferCleanup(server.Close)
+		})
+
+		It("Should secure a connection to a server that the roots trust",
+			func(ctx SpecContext) {
+				step := handshake(ctx, server, trusting(server))
+				Expect(step.Stage).To(Equal(driver.StageTLS))
+				Expect(step.Address).To(Equal(server.Listener.Addr().String()))
+				Expect(step.Variant).To(Equal(status.VariantSuccess))
+				Expect(step.Message).To(Equal("Secured connection"))
+			},
+		)
+
+		It("Should not trust a certificate that the roots do not sign",
+			func(ctx SpecContext) {
+				step := handshake(ctx, server, nil)
+				Expect(step.Variant).To(Equal(status.VariantError))
+				Expect(step.Message).To(Equal("Certificate not trusted"))
+			},
+		)
+
+		It("Should reject a certificate that does not name the host",
+			func(ctx SpecContext) {
+				cfg := trusting(server)
+				cfg.ServerName = "other.test"
+				step := handshake(ctx, server, cfg)
+				Expect(step.Variant).To(Equal(status.VariantError))
+				Expect(step.Message).To(Equal("Certificate does not match the address"))
+			},
+		)
+
+		It("Should report a server that does not use TLS", func(ctx SpecContext) {
+			plain := httptest.NewServer(noop)
+			DeferCleanup(plain.Close)
+			step := handshake(ctx, plain, nil)
+			Expect(step.Variant).To(Equal(status.VariantError))
+			Expect(step.Message).To(Equal("Server does not use TLS"))
+		})
+	})
+
+	DescribeTable("FormatOf",
+		func(payload []byte, format driver.Format) {
+			Expect(driver.FormatOf(payload)).To(Equal(format))
+		},
+		Entry("a JSON object", []byte(`{"v":1}`), driver.FormatJSON),
+		Entry("a JSON number", []byte("12.5"), driver.FormatJSON),
+		Entry(
+			"a Schema Registry frame",
+			[]byte{0, 0, 0, 0, 1, 2},
+			driver.FormatSchemaRegistry,
+		),
+		Entry("text that is not JSON", []byte("ON"), driver.FormatText),
+		Entry("bytes that are not text", []byte{0xff, 0xfe, 0x01}, driver.FormatBinary),
+	)
+})

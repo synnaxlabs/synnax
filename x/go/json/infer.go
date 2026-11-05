@@ -254,6 +254,8 @@ type fieldStats struct {
 	pointer                    Pointer
 	count                      int
 	numbers, strings, booleans int
+	// unreadable is the number of numbers that do not fit a float64.
+	unreadable int
 	// floating is true when a number has a fraction or does not fit a 64-bit integer.
 	floating, unsigned, negative bool
 	labels                       set.Set[string]
@@ -292,11 +294,14 @@ func (s *fieldStats) add(source string, l leaf, ref telem.TimeStamp) {
 	switch l.kind {
 	case '0':
 		s.numbers++
-		if n, err := parseNumber(l.raw); err != nil || n.kind == floatNumber {
+		switch n, err := parseNumber(l.raw); {
+		case err != nil:
+			s.unreadable++
+		case n.kind == floatNumber:
 			s.floating = true
-		} else if n.kind == uintNumber {
+		case n.kind == uintNumber:
 			s.unsigned = true
-		} else if n.i < 0 {
+		case n.i < 0:
 			s.negative = true
 		}
 	case '"':
@@ -337,7 +342,7 @@ func (s *fieldStats) field() InferredField {
 	numeric := s.numbers + s.booleans
 	switch {
 	case s.numbers > 0 && numeric >= s.strings:
-		f.Type, f.DataType, f.Mismatched = Number, s.numberType(), s.strings
+		f.Type, f.DataType, f.Mismatched = Number, s.numberType(), s.strings+s.unreadable
 	case s.numbers == 0 && s.booleans > s.strings:
 		f.Type, f.DataType, f.Mismatched = Boolean, telem.Uint8T, s.strings
 	default:

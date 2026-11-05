@@ -167,6 +167,16 @@ var _ = Describe("Infer", func() {
 			To(HaveValue(Equal(xjson.UnixMicrosecond)))
 	})
 
+	It("Should count the numbers that do not fit a float64", func() {
+		values := []string{"1.5", "1e400", "2.5"}
+		shapes := xjson.Infer(documents("meter", 3, func(i int) string {
+			return fmt.Sprintf(`{"v":%s}`, values[i])
+		}))
+		v := fieldAt(shapes[0], "/v")
+		Expect(v.DataType).To(Equal(telem.Float64T))
+		Expect(v.Mismatched).To(Equal(1))
+	})
+
 	DescribeTable("Should widen the type of a field across documents",
 		func(values []string, expected telem.DataType) {
 			shapes := xjson.Infer(documents("a", len(values), func(i int) string {

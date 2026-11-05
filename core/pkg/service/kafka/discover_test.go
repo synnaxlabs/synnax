@@ -321,25 +321,31 @@ var _ = Describe("Discover", func() {
 			Expect(shapes[1].Sources).To(Equal([]string{"pump-1"}))
 		})
 
-		It("Should read windows spread back in time", func(ctx SpecContext) {
-			topic := uniqueTopic()
-			Expect(cluster.CreateTopic(topic, 1, nil)).To(Succeed())
-			cl := newKafkaClient()
-			for i := range 50 {
-				produceJSON(ctx, cl, topic, "", map[string]int{"v": i})
-			}
-			samples := MustSucceed(
-				kafka.Sample(ctx, clusterProperties(), kafka.SampleRequest{
-					Topics: []string{topic},
-					Count:  9,
-				}),
-			)
-			offsets := make([]int64, len(samples[0].Records))
-			for i, r := range samples[0].Records {
-				offsets[i] = r.Offset
-			}
-			Expect(offsets).To(Equal([]int64{0, 1, 2, 23, 24, 25, 47, 48, 49}))
-		})
+		DescribeTable("Should read windows spread back in time",
+			func(ctx SpecContext, count int, expected []int64) {
+				topic := uniqueTopic()
+				Expect(cluster.CreateTopic(topic, 1, nil)).To(Succeed())
+				cl := newKafkaClient()
+				for i := range 50 {
+					produceJSON(ctx, cl, topic, "", map[string]int{"v": i})
+				}
+				samples := MustSucceed(
+					kafka.Sample(ctx, clusterProperties(), kafka.SampleRequest{
+						Topics: []string{topic},
+						Count:  count,
+					}),
+				)
+				offsets := make([]int64, len(samples[0].Records))
+				for i, r := range samples[0].Records {
+					offsets[i] = r.Offset
+				}
+				Expect(offsets).To(Equal(expected))
+			},
+			Entry("a count that splits evenly", 9,
+				[]int64{0, 1, 2, 23, 24, 25, 47, 48, 49}),
+			Entry("a count that does not split evenly", 10,
+				[]int64{0, 1, 2, 3, 24, 25, 26, 47, 48, 49}),
+		)
 
 		It("Should report a topic that does not exist and read the rest",
 			func(ctx SpecContext) {

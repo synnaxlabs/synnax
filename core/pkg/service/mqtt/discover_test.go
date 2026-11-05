@@ -38,6 +38,7 @@ func publishUntilDone(b *testBroker, topic, payload string) {
 	done := make(chan struct{})
 	stopped := make(chan struct{})
 	go func() {
+		defer GinkgoRecover()
 		defer close(stopped)
 		ticker := time.NewTicker(10 * time.Millisecond)
 		defer ticker.Stop()
@@ -46,13 +47,13 @@ func publishUntilDone(b *testBroker, topic, payload string) {
 			case <-done:
 				return
 			case <-ticker.C:
-				_ = b.server.Publish(topic, []byte(payload), false, 0)
+				Expect(b.server.Publish(topic, []byte(payload), false, 0)).To(Succeed())
 			}
 		}
 	}()
 	DeferCleanup(func() {
 		close(done)
-		<-stopped
+		Eventually(stopped).Should(BeClosed())
 	})
 }
 
@@ -221,6 +222,22 @@ var _ = Describe("Discover", func() {
 				}))
 				Expect(res.Topics).To(HaveLen(1))
 				Expect(res.Topics[0].Messages).To(HaveLen(3))
+			},
+		)
+
+		It("Should stop keeping topics at the most that a sample keeps",
+			func(ctx SpecContext) {
+				for i := range 501 {
+					broker.publish(fmt.Sprintf("many/%03d", i), "1", true)
+				}
+				res := MustSucceed(factory.Sample(ctx, mqtt.SampleRequest{
+					Device:   dev.Key,
+					Topics:   []string{"many/#"},
+					Count:    1,
+					Duration: 500,
+				}))
+				Expect(res.Truncated).To(BeTrue())
+				Expect(res.Topics).To(HaveLen(500))
 			},
 		)
 

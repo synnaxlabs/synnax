@@ -108,6 +108,8 @@ export const sampleResultZ = z.object({
   topics: z.array(sampledTopicZ),
   /** shapes group the topics by the set of fields that their payloads hold. */
   shapes: z.array(json.shapeZ),
+  /** truncated is true when the broker delivered more than a sample keeps. */
+  truncated: z.boolean(),
 });
 
 export interface SampleResult extends z.infer<typeof sampleResultZ> {}

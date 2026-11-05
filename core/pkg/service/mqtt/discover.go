@@ -41,6 +41,10 @@ const (
 	defaultSampleDuration = 5 * time.Second
 	// samplePayloadLimit is the most bytes of a payload that a sample returns.
 	samplePayloadLimit = 16 << 10
+	// maxSampleTopics is the most topics that a sample keeps.
+	maxSampleTopics = 500
+	// sampleByteLimit is the most payload bytes that a sample keeps.
+	sampleByteLimit = 16 << 20
 )
 
 // The stages of a connection test.
@@ -141,10 +145,10 @@ func (s *scanner) test(
 		}
 		return []driver.TestStep{success(stageConnect, addr, "Connected")}, nil
 	}
-	// A broker drops the older of two sessions with one client ID. A derived ID gets a
-	// suffix of its own, but a set ID is kept, because a broker can allow only it.
+	// A broker drops the older of two sessions with one client ID, so each test derives
+	// an ID of its own. A set ID is kept, because a broker can allow only it.
 	if props.ClientID == "" {
-		cfg.clientID = deriveClientID(cmp.Or(req.Device, uuid.New().String()) + "/test")
+		cfg.clientID = deriveClientID(uuid.New().String())
 	}
 	dialCtx, cancel := context.WithTimeout(ctx, operationTimeout)
 	defer cancel()
@@ -361,6 +365,9 @@ type SampleResult struct {
 	Topics []SampledTopic `json:"topics" msgpack:"topics"`
 	// Shapes are the shapes of the JSON payloads. The source of a shape is a topic.
 	Shapes []xjson.Shape `json:"shapes" msgpack:"shapes"`
+	// Truncated is true when the broker delivered more topics or payload bytes than a
+	// sample keeps.
+	Truncated bool `json:"truncated" msgpack:"truncated"`
 }
 
 type sampledTopic struct {
@@ -384,9 +391,10 @@ func (s *scanner) sample(ctx context.Context, req SampleRequest) (SampleResult, 
 		return strings.ContainsAny(t, "+#")
 	})
 	var (
-		mu   sync.Mutex
-		by   = make(map[string]*sampledTopic)
-		full int
+		mu         sync.Mutex
+		by         = make(map[string]*sampledTopic)
+		full, kept int
+		truncated  bool
 	)
 	if err := s.listen(
 		ctx,
@@ -396,15 +404,23 @@ func (s *scanner) sample(ctx context.Context, req SampleRequest) (SampleResult, 
 		func(m paho.Message) bool {
 			mu.Lock()
 			defer mu.Unlock()
-			t, ok := by[m.Topic()]
-			if !ok {
+			t, seen := by[m.Topic()]
+			payload := m.Payload()
+			switch {
+			case seen && len(t.Messages) == count:
+				return false
+			case !seen && len(by) == maxSampleTopics:
+				truncated = true
+				return false
+			case kept+len(payload) > sampleByteLimit:
+				truncated = true
+				return true
+			}
+			if !seen {
 				t = &sampledTopic{Topic: m.Topic()}
 				by[m.Topic()] = t
 			}
-			if len(t.Messages) == count {
-				return false
-			}
-			payload := m.Payload()
+			kept += len(payload)
 			t.Messages = append(t.Messages, SampledMessage{
 				Time:     telem.Now(),
 				Payload:  payload[:min(len(payload), samplePayloadLimit)],
@@ -422,7 +438,10 @@ func (s *scanner) sample(ctx context.Context, req SampleRequest) (SampleResult, 
 	mu.Lock()
 	defer mu.Unlock()
 	var (
-		res  = SampleResult{Topics: make([]SampledTopic, 0, len(by))}
+		res = SampleResult{
+			Topics:    make([]SampledTopic, 0, len(by)),
+			Truncated: truncated,
+		}
 		docs []xjson.Document
 	)
 	for _, name := range slices.Sorted(maps.Keys(by)) {
