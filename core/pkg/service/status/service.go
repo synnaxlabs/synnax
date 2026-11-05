@@ -185,8 +185,9 @@ func (s *Service) SetByKeyOrName(
 }
 
 // SetMissing writes each of statuses whose owner holds no status, under the key that
-// v2.MigrateKey derives from the owner. Each status needs an owner. Like
-// NewMigrationWriter, it skips reference checks.
+// v2.MigrateKey derives from the owner, and defines its ontology resource. Each status
+// needs an owner. It skips reference checks, so only the migrations of the tables that
+// status owners live in may call it.
 func (s *Service) SetMissing[D any](
 	ctx context.Context,
 	tx gorp.Tx,
@@ -203,7 +204,10 @@ func (s *Service) SetMissing[D any](
 		Exec(ctx, tx); err != nil {
 		return err
 	}
-	w := s.NewMigrationWriter(tx)
+	var (
+		w       = s.NewMigrationWriter(tx)
+		written []resource.ID
+	)
 	for _, st := range statuses {
 		if slices.ContainsFunc(held, func(h Status[D]) bool {
 			return *h.Owner == *st.Owner
@@ -214,13 +218,15 @@ func (s *Service) SetMissing[D any](
 		if err := w.Set(ctx, st.ToAny()); err != nil {
 			return err
 		}
+		written = append(written, st.ResourceID())
 	}
-	return nil
+	return s.cfg.Ontology.NewWriter(tx).DefineResources(ctx, written...)
 }
 
-// NewMigrationWriter returns a writer for the migrations of the tables that status
-// owners live in. Those migrations run before their tables open, so the writer skips
-// reference checks. Pass a nil tx to write directly against the service's DB.
+// NewMigrationWriter returns a writer that skips reference checks, for the migrations
+// of the tables that status owners live in. Those migrations run before their tables
+// open, so no other caller may use it. Pass a nil tx to write directly against the
+// service's DB.
 func (s *Service) NewMigrationWriter(tx gorp.Tx) *gorp.Writer[Key, Status[any]] {
 	return s.table.NewUncheckedWriter(gorp.OverrideTx(s.cfg.DB, tx))
 }

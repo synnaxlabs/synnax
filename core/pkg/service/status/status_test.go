@@ -982,6 +982,11 @@ var _ = Describe("Status", Ordered, func() {
 				Expect(retrieve(ctx, existing.Key).Message).To(Equal("Running"))
 				key, _ := statusv2.MigrateKey(missing.String())
 				Expect(retrieve(ctx, key).Owner).To(Equal(&missing))
+				var res ontology.Resource
+				Expect(otg.NewRetrieve().
+					WhereIDs(status.ResourceID(key)).
+					Entry(&res).
+					Exec(ctx, tx)).To(Succeed())
 			},
 		)
 	})

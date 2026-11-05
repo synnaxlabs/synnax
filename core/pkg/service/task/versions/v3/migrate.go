@@ -211,17 +211,8 @@ func stageAndRemove(
 		return err
 	}
 	taskID := resource.ID{Type: resource.TypeTask, Key: t.Key.String()}
-	var held []status.Status[any]
-	if err := statuses.NewRetrieve[any]().
-		Where(status.MatchOwners[any](taskID)).
-		Entries(&held).
-		Exec(ctx, tx); err != nil {
+	if err := statuses.NewWriter(tx).DeleteOwned(ctx, taskID); err != nil {
 		return err
-	}
-	for _, s := range held {
-		if err := statuses.NewMigrationWriter(tx).Delete(ctx, s.Key); err != nil {
-			return err
-		}
 	}
 	return otgW.DeleteResources(ctx, taskID)
 }
