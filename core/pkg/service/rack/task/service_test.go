@@ -10,20 +10,26 @@
 package task_test
 
 import (
-	"uuid"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/rack/task"
+	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Service", func() {
-	var svc *task.Service
+	var (
+		svc   *task.Service
+		tasks *tasktestutil.Tasks
+	)
 	BeforeEach(func(ctx SpecContext) {
 		svc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 			DB: db,
+		}))
+		tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
+			DB:     db,
+			Stores: svc.Stores(),
 		}))
 	})
 
@@ -52,12 +58,7 @@ var _ = Describe("Service", func() {
 
 	Describe("Write", func() {
 		It("Should store an empty config under the given key", func(ctx SpecContext) {
-			key := uuid.New()
-			Expect(
-				MustSucceed(
-					svc.Status.Validate(ctx, nil, key, msgpack.EncodedJSON{}),
-				).Store(ctx, nil),
-			).To(Succeed())
+			key := MustSucceed(tasks.Create(ctx, svc.Status, msgpack.EncodedJSON{}))
 			data := MustSucceed(svc.Status.Read(ctx, nil, key))
 			Expect(data["key"]).To(Equal(key.String()))
 		})

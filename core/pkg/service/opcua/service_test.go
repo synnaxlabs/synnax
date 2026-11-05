@@ -10,20 +10,26 @@
 package opcua_test
 
 import (
-	"uuid"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/opcua"
+	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Service", func() {
-	var svc *opcua.Service
+	var (
+		svc   *opcua.Service
+		tasks *tasktestutil.Tasks
+	)
 	BeforeEach(func(ctx SpecContext) {
 		svc = MustOpen(opcua.OpenService(ctx, opcua.ServiceConfig{
 			DB: db,
+		}))
+		tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
+			DB:     db,
+			Stores: svc.Stores(),
 		}))
 	})
 
@@ -52,8 +58,7 @@ var _ = Describe("Service", func() {
 		It("Should store a decoded read config under the given key", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			Expect(MustSucceed(svc.Read.Validate(ctx, nil, key, msgpack.EncodedJSON{
+			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
 				"device":      "dev-1",
 				"sample_rate": 25,
 				"channels": []any{map[string]any{
@@ -61,7 +66,7 @@ var _ = Describe("Service", func() {
 					"node_id": "NS=2;I=8",
 					"channel": 42,
 				}},
-			})).Store(ctx, nil)).To(Succeed())
+			}))
 			data := MustSucceed(svc.Read.Read(ctx, nil, key))
 			Expect(data["key"]).To(Equal(key.String()))
 			Expect(data["device"]).To(Equal("dev-1"))
@@ -71,12 +76,7 @@ var _ = Describe("Service", func() {
 		It("Should apply read config schema defaults to absent fields", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			Expect(
-				MustSucceed(
-					svc.Read.Validate(ctx, nil, key, msgpack.EncodedJSON{}),
-				).Store(ctx, nil),
-			).To(Succeed())
+			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{}))
 			data := MustSucceed(svc.Read.Read(ctx, nil, key))
 			Expect(data["sample_rate"]).To(BeNumerically("==", 50))
 			Expect(data["stream_rate"]).To(BeNumerically("==", 25))
@@ -86,10 +86,9 @@ var _ = Describe("Service", func() {
 		It("Should apply write channel schema defaults to absent fields", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			Expect(MustSucceed(svc.Write.Validate(ctx, nil, key, msgpack.EncodedJSON{
+			key := MustSucceed(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{
 				"channels": []any{map[string]any{"key": "chan-1"}},
-			})).Store(ctx, nil)).To(Succeed())
+			}))
 			data := MustSucceed(svc.Write.Read(ctx, nil, key))
 			Expect(data["channels"]).To(HaveExactElements(
 				HaveKeyWithValue("data_type", "float32"),
@@ -99,12 +98,7 @@ var _ = Describe("Service", func() {
 		It("Should apply scan config schema defaults to absent fields", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			Expect(
-				MustSucceed(
-					svc.Scan.Validate(ctx, nil, key, msgpack.EncodedJSON{}),
-				).Store(ctx, nil),
-			).To(Succeed())
+			key := MustSucceed(tasks.Create(ctx, svc.Scan, msgpack.EncodedJSON{}))
 			data := MustSucceed(svc.Scan.Read(ctx, nil, key))
 			Expect(data["rate"]).To(BeNumerically("==", 0.2))
 		})

@@ -14,16 +14,28 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
+	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 var _ = Describe("Service", func() {
-	var svc *mqtt.Service
+	var (
+		svc   *mqtt.Service
+		tasks *tasktestutil.Tasks
+	)
 	BeforeEach(func(ctx SpecContext) {
+		// The suite's DB holds a mqtt service and a task service of its own.
+		db := DeferClose(gorp.Wrap(memkv.New()))
 		svc = MustOpen(mqtt.OpenService(ctx, mqtt.ServiceConfig{DB: db}))
+		tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
+			DB:     db,
+			Stores: svc.Stores(),
+		}))
 	})
 
 	Describe("OpenService", func() {
@@ -70,15 +82,14 @@ var _ = Describe("Service", func() {
 		It("Should store a plain read entry with its schema defaults", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			Expect(MustSucceed(svc.Read.Validate(ctx, nil, key, msgpack.EncodedJSON{
+			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
 				"device": "broker-1",
 				"entries": []any{map[string]any{
 					"key":   "entry-1",
 					"type":  "plain",
 					"topic": "plant/line1/temperature",
 				}},
-			})).Store(ctx, nil)).To(Succeed())
+			}))
 			data := MustSucceed(svc.Read.Read(ctx, nil, key))
 			Expect(data["key"]).To(Equal(key.String()))
 			Expect(data["device"]).To(Equal("broker-1"))
@@ -90,8 +101,7 @@ var _ = Describe("Service", func() {
 		})
 
 		It("Should store a Sparkplug read entry", func(ctx SpecContext) {
-			key := uuid.New()
-			Expect(MustSucceed(svc.Read.Validate(ctx, nil, key, msgpack.EncodedJSON{
+			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
 				"entries": []any{map[string]any{
 					"key":       "entry-1",
 					"type":      "sparkplug",
@@ -99,7 +109,7 @@ var _ = Describe("Service", func() {
 					"edge_node": "line1",
 					"tag":       "temperature",
 				}},
-			})).Store(ctx, nil)).To(Succeed())
+			}))
 			data := MustSucceed(svc.Read.Read(ctx, nil, key))
 			Expect(data["entries"]).To(HaveExactElements(SatisfyAll(
 				HaveKeyWithValue("edge_node", "line1"),
@@ -110,10 +120,9 @@ var _ = Describe("Service", func() {
 		It("Should default a plain write target to QoS 1 and not retained", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			Expect(MustSucceed(svc.Write.Validate(ctx, nil, key, msgpack.EncodedJSON{
+			key := MustSucceed(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{
 				"targets": []any{map[string]any{"key": "target-1", "type": "plain"}},
-			})).Store(ctx, nil)).To(Succeed())
+			}))
 			data := MustSucceed(svc.Write.Read(ctx, nil, key))
 			Expect(data["targets"]).To(HaveExactElements(SatisfyAll(
 				HaveKeyWithValue("qos", "at_least_once"),
@@ -124,12 +133,7 @@ var _ = Describe("Service", func() {
 		It("Should apply scan config schema defaults to absent fields", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			Expect(
-				MustSucceed(
-					svc.Scan.Validate(ctx, nil, key, msgpack.EncodedJSON{}),
-				).Store(ctx, nil),
-			).To(Succeed())
+			key := MustSucceed(tasks.Create(ctx, svc.Scan, msgpack.EncodedJSON{}))
 			data := MustSucceed(svc.Scan.Read(ctx, nil, key))
 			Expect(data["rate"]).To(BeNumerically("==", 0.2))
 		})
@@ -137,12 +141,11 @@ var _ = Describe("Service", func() {
 		It("Should default an edge node tag to the double type", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			Expect(MustSucceed(svc.Edge.Validate(ctx, nil, key, msgpack.EncodedJSON{
+			key := MustSucceed(tasks.Create(ctx, svc.Edge, msgpack.EncodedJSON{
 				"group":     "plant",
 				"edge_node": "synnax",
 				"tags":      []any{map[string]any{"key": "tag-1", "name": "pressure"}},
-			})).Store(ctx, nil)).To(Succeed())
+			}))
 			data := MustSucceed(svc.Edge.Read(ctx, nil, key))
 			Expect(data["tags"]).To(HaveExactElements(
 				HaveKeyWithValue("tag_type", "double"),

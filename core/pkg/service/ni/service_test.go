@@ -15,15 +15,23 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/ni"
+	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Service", func() {
-	var svc *ni.Service
+	var (
+		svc   *ni.Service
+		tasks *tasktestutil.Tasks
+	)
 	BeforeEach(func(ctx SpecContext) {
 		svc = MustOpen(ni.OpenService(ctx, ni.ServiceConfig{
 			DB: db,
+		}))
+		tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
+			DB:     db,
+			Stores: svc.Stores(),
 		}))
 	})
 
@@ -55,14 +63,11 @@ var _ = Describe("Service", func() {
 		It("Should store a decoded analog read config under the given key", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			Expect(
-				MustSucceed(svc.AnalogRead.Validate(ctx, nil, key, msgpack.EncodedJSON{
-					"sample_rate": 25,
-					"stream_rate": 5,
-					"channels":    []any{},
-				})).Store(ctx, nil),
-			).To(Succeed())
+			key := MustSucceed(tasks.Create(ctx, svc.AnalogRead, msgpack.EncodedJSON{
+				"sample_rate": 25,
+				"stream_rate": 5,
+				"channels":    []any{},
+			}))
 			data := MustSucceed(svc.AnalogRead.Read(ctx, nil, key))
 			Expect(data["key"]).To(Equal(key.String()))
 			Expect(data["sample_rate"]).To(BeNumerically("==", 25))
@@ -72,12 +77,7 @@ var _ = Describe("Service", func() {
 		It("Should apply analog read schema defaults to absent fields", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			Expect(
-				MustSucceed(
-					svc.AnalogRead.Validate(ctx, nil, key, msgpack.EncodedJSON{}),
-				).Store(ctx, nil),
-			).To(Succeed())
+			key := MustSucceed(tasks.Create(ctx, svc.AnalogRead, msgpack.EncodedJSON{}))
 			data := MustSucceed(svc.AnalogRead.Read(ctx, nil, key))
 			Expect(data["sample_rate"]).To(BeNumerically("==", 10))
 			Expect(data["stream_rate"]).To(BeNumerically("==", 5))
@@ -86,12 +86,9 @@ var _ = Describe("Service", func() {
 		It("Should apply analog write schema defaults to absent fields", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			Expect(
-				MustSucceed(
-					svc.AnalogWrite.Validate(ctx, nil, key, msgpack.EncodedJSON{}),
-				).Store(ctx, nil),
-			).To(Succeed())
+			key := MustSucceed(
+				tasks.Create(ctx, svc.AnalogWrite, msgpack.EncodedJSON{}),
+			)
 			data := MustSucceed(svc.AnalogWrite.Read(ctx, nil, key))
 			Expect(data["state_rate"]).To(BeNumerically("==", 10))
 		})
@@ -99,12 +96,9 @@ var _ = Describe("Service", func() {
 		It("Should apply counter read schema defaults to absent fields", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			Expect(
-				MustSucceed(
-					svc.CounterRead.Validate(ctx, nil, key, msgpack.EncodedJSON{}),
-				).Store(ctx, nil),
-			).To(Succeed())
+			key := MustSucceed(
+				tasks.Create(ctx, svc.CounterRead, msgpack.EncodedJSON{}),
+			)
 			data := MustSucceed(svc.CounterRead.Read(ctx, nil, key))
 			Expect(data["sample_rate"]).To(BeNumerically("==", 10))
 		})
@@ -112,12 +106,9 @@ var _ = Describe("Service", func() {
 		It("Should apply digital read schema defaults to absent fields", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			Expect(
-				MustSucceed(
-					svc.DigitalRead.Validate(ctx, nil, key, msgpack.EncodedJSON{}),
-				).Store(ctx, nil),
-			).To(Succeed())
+			key := MustSucceed(
+				tasks.Create(ctx, svc.DigitalRead, msgpack.EncodedJSON{}),
+			)
 			data := MustSucceed(svc.DigitalRead.Read(ctx, nil, key))
 			Expect(data["sample_rate"]).To(BeNumerically("==", 10))
 		})
@@ -125,12 +116,9 @@ var _ = Describe("Service", func() {
 		It("Should apply digital write schema defaults to absent fields", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			Expect(
-				MustSucceed(
-					svc.DigitalWrite.Validate(ctx, nil, key, msgpack.EncodedJSON{}),
-				).Store(ctx, nil),
-			).To(Succeed())
+			key := MustSucceed(
+				tasks.Create(ctx, svc.DigitalWrite, msgpack.EncodedJSON{}),
+			)
 			data := MustSucceed(svc.DigitalWrite.Read(ctx, nil, key))
 			Expect(data["state_rate"]).To(BeNumerically("==", 10))
 		})
@@ -138,12 +126,7 @@ var _ = Describe("Service", func() {
 		It("Should apply scanner schema defaults to absent fields", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			Expect(
-				MustSucceed(
-					svc.Scanner.Validate(ctx, nil, key, msgpack.EncodedJSON{}),
-				).Store(ctx, nil),
-			).To(Succeed())
+			key := MustSucceed(tasks.Create(ctx, svc.Scanner, msgpack.EncodedJSON{}))
 			data := MustSucceed(svc.Scanner.Read(ctx, nil, key))
 			Expect(data["rate"]).To(BeNumerically("==", 0.2))
 		})
@@ -151,21 +134,18 @@ var _ = Describe("Service", func() {
 		It("Should keep a deliberate zero on a grouped default", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			Expect(
-				MustSucceed(svc.AnalogRead.Validate(ctx, nil, key, msgpack.EncodedJSON{
-					"channels": []any{map[string]any{
-						"type":    "ai_voltage",
-						"min_val": -10,
-						"max_val": 0,
-						"custom_scale": map[string]any{
-							"type":       "map",
-							"scaled_min": -5,
-							"scaled_max": 0,
-						},
-					}},
-				})).Store(ctx, nil),
-			).To(Succeed())
+			key := MustSucceed(tasks.Create(ctx, svc.AnalogRead, msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type":    "ai_voltage",
+					"min_val": -10,
+					"max_val": 0,
+					"custom_scale": map[string]any{
+						"type":       "map",
+						"scaled_min": -5,
+						"scaled_max": 0,
+					},
+				}},
+			}))
 			data := MustSucceed(svc.AnalogRead.Read(ctx, nil, key))
 			ch := data["channels"].([]any)[0].(map[string]any)
 			Expect(ch["min_val"]).To(BeNumerically("==", -10))
@@ -180,12 +160,9 @@ var _ = Describe("Service", func() {
 		It("Should fill a grouped default when every member is zero", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			Expect(
-				MustSucceed(svc.AnalogRead.Validate(ctx, nil, key, msgpack.EncodedJSON{
-					"channels": []any{map[string]any{"type": "ai_voltage"}},
-				})).Store(ctx, nil),
-			).To(Succeed())
+			key := MustSucceed(tasks.Create(ctx, svc.AnalogRead, msgpack.EncodedJSON{
+				"channels": []any{map[string]any{"type": "ai_voltage"}},
+			}))
 			data := MustSucceed(svc.AnalogRead.Read(ctx, nil, key))
 			ch := data["channels"].([]any)[0].(map[string]any)
 			Expect(ch["min_val"]).To(BeNumerically("==", 0))
@@ -195,16 +172,13 @@ var _ = Describe("Service", func() {
 		It("Should keep a deliberate zero on a counter channel range", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			Expect(
-				MustSucceed(svc.CounterRead.Validate(ctx, nil, key, msgpack.EncodedJSON{
-					"channels": []any{map[string]any{
-						"type":    "ci_velocity_linear",
-						"min_val": -10,
-						"max_val": 0,
-					}},
-				})).Store(ctx, nil),
-			).To(Succeed())
+			key := MustSucceed(tasks.Create(ctx, svc.CounterRead, msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type":    "ci_velocity_linear",
+					"min_val": -10,
+					"max_val": 0,
+				}},
+			}))
 			data := MustSucceed(svc.CounterRead.Read(ctx, nil, key))
 			ch := data["channels"].([]any)[0].(map[string]any)
 			Expect(ch["min_val"]).To(BeNumerically("==", -10))
@@ -214,12 +188,9 @@ var _ = Describe("Service", func() {
 		It("Should fill a counter channel range when both bounds are zero", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			Expect(
-				MustSucceed(svc.CounterRead.Validate(ctx, nil, key, msgpack.EncodedJSON{
-					"channels": []any{map[string]any{"type": "ci_frequency"}},
-				})).Store(ctx, nil),
-			).To(Succeed())
+			key := MustSucceed(tasks.Create(ctx, svc.CounterRead, msgpack.EncodedJSON{
+				"channels": []any{map[string]any{"type": "ci_frequency"}},
+			}))
 			data := MustSucceed(svc.CounterRead.Read(ctx, nil, key))
 			ch := data["channels"].([]any)[0].(map[string]any)
 			Expect(ch["min_val"]).To(BeNumerically("==", 2))

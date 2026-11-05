@@ -17,17 +17,25 @@ import (
 	"github.com/synnaxlabs/gorp"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/task/versions"
+	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 var _ = Describe("Service", func() {
-	var svc *arctask.Service
+	var (
+		svc   *arctask.Service
+		tasks *tasktestutil.Tasks
+	)
 	BeforeEach(func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		svc = MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{
 			DB: db,
+		}))
+		tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
+			DB:     db,
+			Stores: svc.Stores(),
 		}))
 	})
 
@@ -52,11 +60,11 @@ var _ = Describe("Service", func() {
 		It("Should store a decoded config under the given key", func(
 			ctx SpecContext,
 		) {
-			key, arcKey := uuid.New(), uuid.New()
-			Expect(MustSucceed(svc.Config.Validate(ctx, nil, key, msgpack.EncodedJSON{
+			arcKey := uuid.New()
+			key := MustSucceed(tasks.Create(ctx, svc.Config, msgpack.EncodedJSON{
 				"arc_key":     arcKey.String(),
 				"performance": "high",
-			})).Store(ctx, nil)).To(Succeed())
+			}))
 			data := MustSucceed(svc.Config.Read(ctx, nil, key))
 			Expect(data["key"]).To(Equal(key.String()))
 			Expect(data["arc_key"]).To(Equal(arcKey.String()))
@@ -64,10 +72,9 @@ var _ = Describe("Service", func() {
 		})
 
 		It("Should apply schema defaults to absent fields", func(ctx SpecContext) {
-			key := uuid.New()
-			Expect(MustSucceed(svc.Config.Validate(ctx, nil, key, msgpack.EncodedJSON{
+			key := MustSucceed(tasks.Create(ctx, svc.Config, msgpack.EncodedJSON{
 				"arc_key": uuid.New().String(),
-			})).Store(ctx, nil)).To(Succeed())
+			}))
 			data := MustSucceed(svc.Config.Read(ctx, nil, key))
 			Expect(data["performance"]).To(Equal("auto"))
 		})

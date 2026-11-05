@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -35,8 +36,12 @@ import (
 
 // openDevices opens a device service on db and creates three slaves on its embedded
 // rack: "slave" with a unique input and output name, "el1008" with eight inputs named
-// "Input", and "malformed" with PDOs that do not decode.
-func openDevices(ctx SpecContext, db *gorp.DB) *device.Service {
+// "Input", and "malformed" with PDOs that do not decode. It also returns the config
+// that opens Tasks on the services it opens.
+func openDevices(
+	ctx SpecContext,
+	db *gorp.DB,
+) (*device.Service, tasktestutil.TasksConfig) {
 	GinkgoHelper()
 	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
@@ -111,21 +116,30 @@ func openDevices(ctx SpecContext, db *gorp.DB) *device.Service {
 		},
 	}
 	Expect(devices.NewWriter(nil).CreateMany(ctx, &slaves)).To(Succeed())
-	return devices
+	return devices, tasktestutil.TasksConfig{
+		DB:       db,
+		Ontology: otg,
+		Status:   statusSvc,
+		Rack:     rackSvc,
+	}
 }
 
 var _ = Describe("Service", func() {
 	var (
 		svc     *ethercat.Service
 		devices *device.Service
+		tasks   *tasktestutil.Tasks
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
-		devices = openDevices(ctx, db)
+		var tasksCfg tasktestutil.TasksConfig
+		devices, tasksCfg = openDevices(ctx, db)
 		svc = MustOpen(ethercat.OpenService(ctx, ethercat.ServiceConfig{
 			DB:     db,
 			Device: devices,
 		}))
+		tasksCfg.Stores = svc.Stores()
+		tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasksCfg))
 	})
 
 	Describe("OpenService", func() {
@@ -147,7 +161,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
-			devices := openDevices(ctx, db)
+			devices, _ := openDevices(ctx, db)
 			var read v1.ReadConfig
 			read.Key = uuid.New()
 			read.Channels = []v1.ReadChannel{
@@ -254,7 +268,7 @@ var _ = Describe("Service", func() {
 			}
 			Expect(gorp.NewCreate[device.Key, device.Device]().
 				Entry(&slave).Exec(ctx, db)).To(Succeed())
-			devices := openDevices(ctx, db)
+			devices, _ := openDevices(ctx, db)
 			var read v1.ReadConfig
 			read.Key = uuid.New()
 			read.Channels = []v1.ReadChannel{{Variant: v1.AutomaticReadChannel{
@@ -291,18 +305,16 @@ var _ = Describe("Service", func() {
 	Describe("Write", func() {
 		readChannels := func(ctx SpecContext, channels ...any) []any {
 			GinkgoHelper()
-			key := uuid.New()
-			Expect(MustSucceed(svc.Read.Validate(ctx, nil, key, msgpack.EncodedJSON{
+			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
 				"channels": channels,
-			})).Store(ctx, nil)).To(Succeed())
+			}))
 			return MustSucceed(svc.Read.Read(ctx, nil, key))["channels"].([]any)
 		}
 
 		It("Should store a decoded read config under the given key", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			Expect(MustSucceed(svc.Read.Validate(ctx, nil, key, msgpack.EncodedJSON{
+			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
 				"sample_rate": 25,
 				"channels": []any{map[string]any{
 					"type":      "entry",
@@ -313,7 +325,7 @@ var _ = Describe("Service", func() {
 					"sub_index": 1,
 					"data_type": "int16",
 				}},
-			})).Store(ctx, nil)).To(Succeed())
+			}))
 			data := MustSucceed(svc.Read.Read(ctx, nil, key))
 			Expect(data["key"]).To(Equal(key.String()))
 			Expect(data["sample_rate"]).To(BeNumerically("==", 25))
@@ -367,15 +379,14 @@ var _ = Describe("Service", func() {
 		It("Should address an unresolved write channel by its slave's output", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			Expect(MustSucceed(svc.Write.Validate(ctx, nil, key, msgpack.EncodedJSON{
+			key := MustSucceed(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{
 				"channels": []any{map[string]any{
 					"type":   "unresolved",
 					"key":    "c",
 					"device": "slave",
 					"pdo":    "Output",
 				}},
-			})).Store(ctx, nil)).To(Succeed())
+			}))
 			channels := MustSucceed(svc.Write.Read(ctx, nil, key))["channels"].([]any)
 			Expect(channels[0]).To(HaveKeyWithValue("type", "entry"))
 			Expect(channels[0]).To(HaveKeyWithValue("index", float64(0x7000)))
@@ -384,12 +395,7 @@ var _ = Describe("Service", func() {
 		It("Should apply read config schema defaults to absent fields", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			Expect(
-				MustSucceed(
-					svc.Read.Validate(ctx, nil, key, msgpack.EncodedJSON{}),
-				).Store(ctx, nil),
-			).To(Succeed())
+			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{}))
 			data := MustSucceed(svc.Read.Read(ctx, nil, key))
 			Expect(data["sample_rate"]).To(BeNumerically("==", 10))
 			Expect(data["stream_rate"]).To(BeNumerically("==", 5))
@@ -398,12 +404,7 @@ var _ = Describe("Service", func() {
 		It("Should apply write config schema defaults to absent fields", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			Expect(
-				MustSucceed(
-					svc.Write.Validate(ctx, nil, key, msgpack.EncodedJSON{}),
-				).Store(ctx, nil),
-			).To(Succeed())
+			key := MustSucceed(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{}))
 			data := MustSucceed(svc.Write.Read(ctx, nil, key))
 			Expect(data["state_rate"]).To(BeNumerically("==", 25))
 			Expect(data["execution_rate"]).To(BeNumerically("==", 1000))
@@ -412,12 +413,7 @@ var _ = Describe("Service", func() {
 		It("Should apply scan config schema defaults to absent fields", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			Expect(
-				MustSucceed(
-					svc.Scan.Validate(ctx, nil, key, msgpack.EncodedJSON{}),
-				).Store(ctx, nil),
-			).To(Succeed())
+			key := MustSucceed(tasks.Create(ctx, svc.Scan, msgpack.EncodedJSON{}))
 			data := MustSucceed(svc.Scan.Read(ctx, nil, key))
 			Expect(data["rate"]).To(BeNumerically("==", 0.2))
 		})

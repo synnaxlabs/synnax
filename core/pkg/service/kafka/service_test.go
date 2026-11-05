@@ -14,15 +14,27 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
+	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 var _ = Describe("Service", func() {
-	var svc *kafka.Service
+	var (
+		svc   *kafka.Service
+		tasks *tasktestutil.Tasks
+	)
 	BeforeEach(func(ctx SpecContext) {
+		// The suite's DB holds a kafka service and a task service of its own.
+		db := DeferClose(gorp.Wrap(memkv.New()))
 		svc = MustOpen(kafka.OpenService(ctx, kafka.ServiceConfig{DB: db}))
+		tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
+			DB:     db,
+			Stores: svc.Stores(),
+		}))
 	})
 
 	Describe("OpenService", func() {
@@ -50,8 +62,7 @@ var _ = Describe("Service", func() {
 		It("Should store a decoded read config under the given key", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			Expect(MustSucceed(svc.Read.Validate(ctx, nil, key, msgpack.EncodedJSON{
+			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
 				"device": "dev-1",
 				"topic":  "telemetry",
 				"records": []any{map[string]any{
@@ -62,7 +73,7 @@ var _ = Describe("Service", func() {
 						"pointer": "/value",
 					}},
 				}},
-			})).Store(ctx, nil)).To(Succeed())
+			}))
 			data := MustSucceed(svc.Read.Read(ctx, nil, key))
 			Expect(data["key"]).To(Equal(key.String()))
 			Expect(data["device"]).To(Equal("dev-1"))
@@ -78,13 +89,12 @@ var _ = Describe("Service", func() {
 		It("Should apply read config schema defaults to absent fields", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			Expect(MustSucceed(svc.Read.Validate(ctx, nil, key, msgpack.EncodedJSON{
+			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
 				"records": []any{map[string]any{
 					"key":    "r-1",
 					"fields": []any{map[string]any{"key": "f-1"}},
 				}},
-			})).Store(ctx, nil)).To(Succeed())
+			}))
 			data := MustSucceed(svc.Read.Read(ctx, nil, key))
 			Expect(data["start_offset"]).To(Equal("latest"))
 			Expect(data["records"]).To(HaveExactElements(SatisfyAll(
@@ -98,10 +108,9 @@ var _ = Describe("Service", func() {
 		It("Should apply write config schema defaults to absent fields", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			Expect(MustSucceed(svc.Write.Validate(ctx, nil, key, msgpack.EncodedJSON{
+			key := MustSucceed(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{
 				"channels": []any{map[string]any{"key": "ch-1"}},
-			})).Store(ctx, nil)).To(Succeed())
+			}))
 			data := MustSucceed(svc.Write.Read(ctx, nil, key))
 			Expect(data["record_key"]).To(Equal("channel_name"))
 			Expect(data["record"]).To(And(
@@ -116,13 +125,12 @@ var _ = Describe("Service", func() {
 		})
 
 		It("Should keep the record pointers the caller sets", func(ctx SpecContext) {
-			key := uuid.New()
-			Expect(MustSucceed(svc.Write.Validate(ctx, nil, key, msgpack.EncodedJSON{
+			key := MustSucceed(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{
 				"record": map[string]any{
 					"channel_pointer":   "/name",
 					"timestamp_pointer": "/time",
 				},
-			})).Store(ctx, nil)).To(Succeed())
+			}))
 			data := MustSucceed(svc.Write.Read(ctx, nil, key))
 			Expect(data["record"]).To(And(
 				HaveKeyWithValue("channel_pointer", "/name"),
@@ -133,12 +141,7 @@ var _ = Describe("Service", func() {
 		It("Should apply scan config schema defaults to absent fields", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			Expect(
-				MustSucceed(
-					svc.Scan.Validate(ctx, nil, key, msgpack.EncodedJSON{}),
-				).Store(ctx, nil),
-			).To(Succeed())
+			key := MustSucceed(tasks.Create(ctx, svc.Scan, msgpack.EncodedJSON{}))
 			data := MustSucceed(svc.Scan.Read(ctx, nil, key))
 			Expect(data["rate"]).To(BeNumerically("==", 0.2))
 		})

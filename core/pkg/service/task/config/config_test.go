@@ -21,6 +21,7 @@ import (
 	arcversions "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config/legacy"
+	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -34,7 +35,10 @@ import (
 const testType = "arc_task"
 
 var _ = Describe("Service", func() {
-	var svc *config.Service[arctask.Config]
+	var (
+		svc   *config.Service[arctask.Config]
+		tasks *tasktestutil.Tasks
+	)
 	BeforeEach(func(ctx SpecContext) {
 		svc = MustOpen(config.OpenService(
 			ctx,
@@ -47,7 +51,17 @@ var _ = Describe("Service", func() {
 				ValidateEntry:      (*arctask.Config).Validate,
 			},
 		))
+		tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
+			DB:     db,
+			Stores: []config.Store{svc},
+		}))
 	})
+	createTask := func(ctx SpecContext) uuid.UUID {
+		GinkgoHelper()
+		return MustSucceed(tasks.Create(ctx, svc, msgpack.EncodedJSON{
+			"arc_key": uuid.New().String(),
+		}))
+	}
 
 	Describe("OpenService", func() {
 		It("Should reject a config missing the DB", func(ctx SpecContext) {
@@ -108,11 +122,11 @@ var _ = Describe("Service", func() {
 		It("Should store a decoded config under the given key", func(
 			ctx SpecContext,
 		) {
-			key, arcKey := uuid.New(), uuid.New()
-			Expect(MustSucceed(svc.Validate(ctx, nil, key, msgpack.EncodedJSON{
+			arcKey := uuid.New()
+			key := MustSucceed(tasks.Create(ctx, svc, msgpack.EncodedJSON{
 				"arc_key":     arcKey.String(),
 				"performance": "high",
-			})).Store(ctx, nil)).To(Succeed())
+			}))
 			data := MustSucceed(svc.Read(ctx, nil, key))
 			Expect(data["key"]).To(Equal(key.String()))
 			Expect(data["arc_key"]).To(Equal(arcKey.String()))
@@ -120,10 +134,9 @@ var _ = Describe("Service", func() {
 		})
 
 		It("Should apply schema defaults to absent fields", func(ctx SpecContext) {
-			key := uuid.New()
-			Expect(MustSucceed(svc.Validate(ctx, nil, key, msgpack.EncodedJSON{
+			key := MustSucceed(tasks.Create(ctx, svc, msgpack.EncodedJSON{
 				"arc_key": uuid.New().String(),
-			})).Store(ctx, nil)).To(Succeed())
+			}))
 			data := MustSucceed(svc.Read(ctx, nil, key))
 			Expect(data["performance"]).To(Equal("auto"))
 		})
@@ -131,7 +144,7 @@ var _ = Describe("Service", func() {
 		It("Should return the record as Read returns it once stored", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
+			key := createTask(ctx)
 			rec := MustSucceed(svc.Validate(ctx, nil, key, msgpack.EncodedJSON{
 				"arc_key": uuid.New().String(),
 			}))
@@ -151,11 +164,10 @@ var _ = Describe("Service", func() {
 		It("Should overwrite the record stored under the same key", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			Expect(MustSucceed(svc.Validate(ctx, nil, key, msgpack.EncodedJSON{
+			key := MustSucceed(tasks.Create(ctx, svc, msgpack.EncodedJSON{
 				"arc_key":     uuid.New().String(),
 				"performance": "high",
-			})).Store(ctx, nil)).To(Succeed())
+			}))
 			Expect(MustSucceed(svc.Validate(ctx, nil, key, msgpack.EncodedJSON{
 				"arc_key":     uuid.New().String(),
 				"performance": "low",
@@ -186,7 +198,7 @@ var _ = Describe("Service", func() {
 		It("Should store a config whose members the record declares", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
+			key := createTask(ctx)
 			Expect(MustSucceed(svc.ValidateStrict(ctx, nil, key, msgpack.EncodedJSON{
 				"arc_key":     uuid.New().String(),
 				"performance": "high",
@@ -198,7 +210,7 @@ var _ = Describe("Service", func() {
 		It("Should return the record as Read returns it once stored", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
+			key := createTask(ctx)
 			rec := MustSucceed(svc.ValidateStrict(ctx, nil, key, msgpack.EncodedJSON{
 				"arc_key": uuid.New().String(),
 			}))
@@ -237,11 +249,10 @@ var _ = Describe("Service", func() {
 		It("Should drop a member the record does not declare", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			Expect(MustSucceed(svc.Validate(ctx, nil, key, msgpack.EncodedJSON{
+			key := MustSucceed(tasks.Create(ctx, svc, msgpack.EncodedJSON{
 				"arc_key": uuid.New().String(),
 				"extra":   true,
-			})).Store(ctx, nil)).To(Succeed())
+			}))
 			Expect(MustSucceed(svc.Read(ctx, nil, key))).ToNot(HaveKey("extra"))
 		})
 
@@ -276,7 +287,7 @@ var _ = Describe("Service", func() {
 					c.Performance = "low"
 					return nil
 				})
-				key := uuid.New()
+				key := createTask(ctx)
 				Expect(
 					MustSucceed(resolving.Validate(ctx, nil, key, msgpack.EncodedJSON{
 						"arc_key":     uuid.New().String(),
@@ -316,10 +327,9 @@ var _ = Describe("Service", func() {
 
 	Describe("Delete", func() {
 		It("Should remove a stored record idempotently", func(ctx SpecContext) {
-			key := uuid.New()
-			Expect(MustSucceed(svc.Validate(ctx, nil, key, msgpack.EncodedJSON{
+			key := MustSucceed(tasks.Create(ctx, svc, msgpack.EncodedJSON{
 				"arc_key": uuid.New().String(),
-			})).Store(ctx, nil)).To(Succeed())
+			}))
 			Expect(svc.Delete(ctx, nil, key)).To(Succeed())
 			Expect(svc.Read(ctx, nil, key)).Error().
 				To(MatchError(query.ErrNotFound))
@@ -327,12 +337,7 @@ var _ = Describe("Service", func() {
 		})
 
 		It("Should remove multiple records in one call", func(ctx SpecContext) {
-			k1, k2 := uuid.New(), uuid.New()
-			for _, k := range []uuid.UUID{k1, k2} {
-				Expect(MustSucceed(svc.Validate(ctx, nil, k, msgpack.EncodedJSON{
-					"arc_key": uuid.New().String(),
-				})).Store(ctx, nil)).To(Succeed())
-			}
+			k1, k2 := createTask(ctx), createTask(ctx)
 			Expect(svc.Delete(ctx, nil, k1, k2)).To(Succeed())
 			Expect(svc.Read(ctx, nil, k1)).Error().
 				To(MatchError(query.ErrNotFound))
@@ -343,11 +348,11 @@ var _ = Describe("Service", func() {
 
 	Describe("Copy", func() {
 		It("Should duplicate a record under a new key", func(ctx SpecContext) {
-			from, to := uuid.New(), uuid.New()
 			arcKey := uuid.New()
-			Expect(MustSucceed(svc.Validate(ctx, nil, from, msgpack.EncodedJSON{
+			from := MustSucceed(tasks.Create(ctx, svc, msgpack.EncodedJSON{
 				"arc_key": arcKey.String(),
-			})).Store(ctx, nil)).To(Succeed())
+			}))
+			to := createTask(ctx)
 			Expect(svc.Copy(ctx, nil, from, to)).To(Succeed())
 			data := MustSucceed(svc.Read(ctx, nil, to))
 			Expect(data["key"]).To(Equal(to.String()))
