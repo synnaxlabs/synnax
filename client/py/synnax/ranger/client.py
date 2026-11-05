@@ -24,7 +24,6 @@ from synnax import framer, label
 from synnax.channel.retrieve import Retriever as ChannelRetriever
 from synnax.exceptions import ConfigurationError, MultipleFoundError, NotFoundError
 from synnax.framer.frame import K
-from synnax.ontology import Client as OntologyClient
 from synnax.ranger import alias as alias_
 from synnax.ranger import kv
 from synnax.ranger.retrieve import Request, Retriever
@@ -72,7 +71,6 @@ class _InternalScopedChannel(ArrayOperators, channel.Payload):
     _cache: MultiSeries | None = PrivateAttr(None)
     """An internal cache to prevent repeated reads from the same channel."""
     _tasks: TaskClient | None = PrivateAttr(None)
-    _ontology: OntologyClient | None = PrivateAttr(None)
 
     # ArrayOperators clears __hash__, but writes can key data by channel payload.
     __hash__ = channel.Payload.__hash__
@@ -82,7 +80,6 @@ class _InternalScopedChannel(ArrayOperators, channel.Payload):
         rng: Range,
         frame_client: framer.Client,
         tasks: TaskClient,
-        ontology: OntologyClient,
         payload: channel.Payload,
         _aliaser: alias_.Client | None = None,
     ):
@@ -91,7 +88,6 @@ class _InternalScopedChannel(ArrayOperators, channel.Payload):
         self._cached_frame_client = frame_client
         self._aliaser = _aliaser
         self._tasks = tasks
-        self._ontology = ontology
 
     @property
     def _range(self) -> Range:
@@ -262,7 +258,6 @@ class Range(Payload):
     """Resolved channel queries, so each name or key is retrieved once."""
     _cached_client: Client | None = PrivateAttr(None)
     _cached_tasks: TaskClient | None = PrivateAttr(None)
-    _cached_ontology: OntologyClient | None = PrivateAttr(None)
     _cached_label_client: label.Client | None = PrivateAttr(None)
 
     def __init__(
@@ -280,7 +275,6 @@ class Range(Payload):
         _aliaser: alias_.Client | None = None,
         _client: Client | None = None,
         _tasks: TaskClient | None = None,
-        _ontology: OntologyClient | None = None,
         _label_client: label.Client | None = None,
     ):
         """Initializes a new Range using the given parameters. It's important to note
@@ -319,7 +313,6 @@ class Range(Payload):
         self._cached_aliaser = _aliaser
         self._cached_client = _client
         self._cached_tasks = _tasks
-        self._cached_ontology = _ontology
         self._cached_label_client = _label_client
 
     def _get_scoped_channel(
@@ -367,7 +360,6 @@ class Range(Payload):
                     frame_client=self._frame_client,
                     payload=pld,
                     tasks=self._tasks,
-                    ontology=self._ontology,
                 )
                 self._cache[pld.key] = cached
             results.append(cached)
@@ -406,12 +398,6 @@ class Range(Payload):
         if self._cached_tasks is None:
             raise _RANGE_NOT_CREATED
         return self._cached_tasks
-
-    @property
-    def _ontology(self) -> OntologyClient:
-        if self._cached_ontology is None:
-            raise _RANGE_NOT_CREATED
-        return self._cached_ontology
 
     @property
     def _label_client(self) -> label.Client:
@@ -537,7 +523,6 @@ class Client:
     _unary_client: UnaryClient
     _signals: Registry
     _tasks: TaskClient
-    _ontology: OntologyClient
     _labels: label.Client
 
     def __init__(
@@ -550,7 +535,6 @@ class Client:
         channel_retriever: ChannelRetriever,
         signals: Registry,
         tasks: TaskClient,
-        ontology: OntologyClient,
         labels: label.Client,
     ) -> None:
         self._unary_client = unary_client
@@ -560,7 +544,6 @@ class Client:
         self._channels = channel_retriever
         self._signals = signals
         self._tasks = tasks
-        self._ontology = ontology
         self._labels = labels
 
     @overload
@@ -790,7 +773,6 @@ class Client:
                 _kv=kv.Client(rng=r.key, client=self._unary_client),
                 _aliaser=alias_.Client(rng=r.key, client=self._unary_client),
                 _client=self,
-                _ontology=self._ontology,
                 _tasks=self._tasks,
                 _label_client=self._labels,
             )

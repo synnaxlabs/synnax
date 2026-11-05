@@ -232,7 +232,6 @@ __all__ = [
     "mqtt",
     "ni",
     "node",
-    "ontology",
     "opcua",
     "pagerduty",
     "poll",
