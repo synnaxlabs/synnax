@@ -29,6 +29,9 @@ const TOOLTIP_LIST_OFFSET: xy.XY = xy.construct(12);
 const TOOLTIP_LIST_SPACING: number = 3;
 const TOOLTIP_LIST_ITEM_HEIGHT: number = 14;
 const TOOLTIP_PADDING: xy.XY = xy.construct(6);
+const TOOLTIP_COLUMN_GAP: number = 24;
+const LABEL_FONT = { level: "small", weight: 500 } as const;
+const VALUE_FONT = { level: "small", code: true } as const;
 
 export const tooltipStateZ = z.object({
   position: xy.xyZ.or(z.null()),
@@ -126,46 +129,42 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
     if (relativePosition.x > 0.6) root.x = "right";
     if (relativePosition.y > 0.6) root.y = "bottom";
 
-    let maxLabelLength = values.reduce((p, c) => Math.max(p, c.label?.length ?? 0), 0);
-    const timeValueLength = avgXValue.toString("preciseDate", "local").length;
-    if (timeValueLength > maxLabelLength) maxLabelLength = timeValueLength;
+    const time = avgXValue.toString("preciseDate", "local");
+    const rows = [
+      { label: "Time", value: time, color: this.internal.textColor },
+      ...validValues.map((v) => ({
+        label: v.label ?? "",
+        value: formatValue(v),
+        color: v.color,
+      })),
+    ];
+    const width = Math.max(
+      ...rows.map(
+        ({ label, value }) =>
+          draw.textWidth({ text: label, ...LABEL_FONT }) +
+          TOOLTIP_COLUMN_GAP +
+          draw.textWidth({ text: value, ...VALUE_FONT }),
+      ),
+    );
 
     draw.list({
       root,
       offset: TOOLTIP_LIST_OFFSET,
-      length: validValues.length + 1,
+      length: rows.length,
       padding: TOOLTIP_PADDING,
       itemHeight: TOOLTIP_LIST_ITEM_HEIGHT,
       spacing: TOOLTIP_LIST_SPACING,
-      width: maxLabelLength * 7 + 48,
+      width,
       position: this.state.position,
       draw: (i, b) => {
-        let label: string;
-        let value: string;
-        let color = this.internal.textColor;
-        if (i === 0) {
-          label = "Time";
-          value = avgXValue.toString("preciseDate", "local");
-        } else {
-          const v = validValues[i - 1];
-          label = v.label ?? "";
-          value = formatValue(v);
-          color = v.color;
-        }
-        draw.text({
-          position: box.topLeft(b),
-          text: label,
-          level: "small",
-          weight: 500,
-          color,
-        });
+        const { label, value, color } = rows[i];
+        draw.text({ position: box.topLeft(b), text: label, color, ...LABEL_FONT });
         draw.text({
           position: xy.translateY(box.topRight(b), -1),
           text: value,
-          level: "small",
           justify: "right",
-          code: true,
           shade: 10,
+          ...VALUE_FONT,
         });
       },
     });

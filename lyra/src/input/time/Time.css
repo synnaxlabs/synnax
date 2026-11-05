@@ -89,7 +89,6 @@
     & .lyra-time-editor__hint {
         margin-left: auto;
         padding-left: 2rem;
-        font-family: var(--pluto-code-font-family);
     }
 }
 

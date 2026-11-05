@@ -99,7 +99,7 @@ const ListItem = (props: BaseList.ItemProps<status.Key>) => {
         <Telem.Text.TimeSpanSince
           level="small"
           format="semantic"
-          variant="code"
+          variant="numeric"
           color={9}
         >
           {time}

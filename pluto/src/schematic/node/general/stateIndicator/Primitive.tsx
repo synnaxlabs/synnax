@@ -72,11 +72,7 @@ export const StateIndicator = ({
         bottom={102}
       />
       <div className={CSS.BE("state-indicator", "content")}>
-        <Text.Text
-          level={SIZE_LEVELS[size]}
-          color={color.cssString(staleColor)}
-          variant="code"
-        >
+        <Text.Text level={SIZE_LEVELS[size]} color={color.cssString(staleColor)}>
           {label}
         </Text.Text>
       </div>
