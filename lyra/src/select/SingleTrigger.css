@@ -55,6 +55,18 @@
     }
 }
 
+/* The name fills the trigger, so end content sits before the caret at the trailing
+   edge. */
+.lyra-dialog__trigger > .lyra-select__label:has(+ .lyra-select-single-trigger__end) {
+    flex-grow: 1;
+}
+
+.lyra-select-single-trigger__end {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+}
+
 /* A fixed item's label fills the trigger, so its content can push a part, such as an
    auto chip, to the trailing edge. */
 .lyra-dialog__trigger > .lyra-select__label:has(> .lyra-select__fixed-label) {
@@ -100,17 +112,4 @@
     > .lyra-select-single-trigger__icon
     > .lyra-icon {
     visibility: hidden;
-}
-
-/* End content takes the free space, so the caret follows it at the trailing edge. */
-.lyra-dialog__trigger > .lyra-select-single-trigger__end {
-    display: inline-flex;
-    flex-shrink: 0;
-    align-items: center;
-    margin-left: auto;
-
-    ~ .lyra-caret-animated,
-    ~ .lyra-select-single-trigger__icon {
-        margin-left: 0;
-    }
 }
