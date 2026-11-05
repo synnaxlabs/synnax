@@ -64,8 +64,8 @@ that version with its own:
 | Older or none    | Backs up (§3.1), writes its version, then opens. |
 | Newer            | Stops with the error below.                      |
 
-The error reads: "Data was last opened by Core 0.60.1. Run Core 0.60.1 or newer, or
-undo the update with `synnax update undo`."
+The error reads: "Data was last opened by Core 0.60.1. Run Core 0.60.1 or newer, or undo
+the update with `synnax update undo`."
 
 The Core writes the file right after the backup, before any migration runs. A crash
 during a migration then resumes at the next start and does not replace the good backup.
