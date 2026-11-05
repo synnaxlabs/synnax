@@ -49,16 +49,16 @@ var _ = Describe("Ancestors", func() {
 	})
 
 	It("Should return every parent relationship up to the ontology root",
-		func() {
-			Expect(otg.Ancestors(tx, resource.ID{}, leaf)).To(ConsistOf(
+		func(ctx SpecContext) {
+			Expect(otg.Ancestors(ctx, tx, resource.ID{}, leaf)).To(ConsistOf(
 				parentOf(mid, leaf),
 				parentOf(top, mid),
 				parentOf(ontology.RootID, top),
 			))
 		})
 
-	It("Should stop the walk at root", func() {
-		Expect(otg.Ancestors(tx, top, leaf)).To(ConsistOf(
+	It("Should stop the walk at root", func(ctx SpecContext) {
+		Expect(otg.Ancestors(ctx, tx, top, leaf)).To(ConsistOf(
 			parentOf(mid, leaf),
 			parentOf(top, mid),
 		))
@@ -69,7 +69,7 @@ var _ = Describe("Ancestors", func() {
 			Expect(w.DefineRelationships(
 				ctx, side, ontology.RelationshipTypeParentOf, leaf,
 			)).To(Succeed())
-			Expect(otg.Ancestors(tx, top, leaf)).To(ConsistOf(
+			Expect(otg.Ancestors(ctx, tx, top, leaf)).To(ConsistOf(
 				parentOf(mid, leaf),
 				parentOf(side, leaf),
 				parentOf(top, mid),
@@ -82,7 +82,7 @@ var _ = Describe("Ancestors", func() {
 		Expect(w.DefineRelationships(
 			ctx, mid, ontology.RelationshipTypeParentOf, other,
 		)).To(Succeed())
-		Expect(otg.Ancestors(tx, top, leaf, other)).To(ConsistOf(
+		Expect(otg.Ancestors(ctx, tx, top, leaf, other)).To(ConsistOf(
 			parentOf(mid, leaf),
 			parentOf(mid, other),
 			parentOf(top, mid),
@@ -92,17 +92,18 @@ var _ = Describe("Ancestors", func() {
 	It("Should ignore relationships that are not parent relationships",
 		func(ctx SpecContext) {
 			Expect(w.DefineRelationships(ctx, side, "labeled_by", leaf)).To(Succeed())
-			Expect(otg.Ancestors(tx, top, leaf)).To(ConsistOf(
+			Expect(otg.Ancestors(ctx, tx, top, leaf)).To(ConsistOf(
 				parentOf(mid, leaf),
 				parentOf(top, mid),
 			))
 		})
 
-	It("Should return nothing for a resource with no parents", func() {
-		Expect(otg.Ancestors(tx, resource.ID{}, side)).To(BeEmpty())
+	It("Should return nothing for a resource with no parents", func(ctx SpecContext) {
+		Expect(otg.Ancestors(ctx, tx, resource.ID{}, side)).To(BeEmpty())
 	})
 
-	It("Should read only committed state when tx is nil", func() {
-		Expect(MustSucceed(otg.Ancestors(nil, resource.ID{}, leaf))).To(BeEmpty())
+	It("Should read only committed state when tx is nil", func(ctx SpecContext) {
+		Expect(MustSucceed(otg.Ancestors(ctx, nil, resource.ID{}, leaf))).
+			To(BeEmpty())
 	})
 })

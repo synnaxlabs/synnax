@@ -165,7 +165,7 @@ type Traverser struct {
 	// probes honor per-tx delta overlays: a traverse inside a write tx must see
 	// relationships written earlier in the same tx, not just committed state. When nil
 	// the dispatcher falls back to FilterPrefix or a full scan.
-	Index func(Retrieve, gorp.Tx, []resource.ID) ([]resource.ID, error)
+	Index func(context.Context, Retrieve, gorp.Tx, []resource.ID) ([]resource.ID, error)
 }
 
 var (
@@ -220,10 +220,15 @@ var (
 // inside the same write tx that just created a new parent relationship will see that
 // pending write and include it in the next-hop set, preserving read-your-own-writes for
 // graph traversal.
-func parentsByIndex(r Retrieve, tx gorp.Tx, ids []resource.ID) ([]resource.ID, error) {
+func parentsByIndex(
+	ctx context.Context,
+	r Retrieve,
+	tx gorp.Tx,
+	ids []resource.ID,
+) ([]resource.ID, error) {
 	nextIDs := make([]resource.ID, 0, len(ids)*4)
 	for _, id := range ids {
-		keys, err := r.relIndexes.byTo.Get(tx, id)
+		keys, err := r.relIndexes.byTo.Get(ctx, tx, id)
 		if err != nil {
 			return nil, err
 		}
@@ -404,7 +409,7 @@ func (r Retrieve) traverse(
 	ids []resource.ID,
 ) ([]resource.ID, error) {
 	if traverse.Index != nil {
-		nextIDs, err := traverse.Index(r, tx, ids)
+		nextIDs, err := traverse.Index(ctx, r, tx, ids)
 		if err == nil {
 			return nextIDs, nil
 		}

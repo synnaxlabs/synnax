@@ -230,7 +230,7 @@ func (o *Ontology) Search(
 		except func(resource.ID) bool
 	)
 	if !q.Root.IsZero() {
-		scope = o.newDescendants(tx, q.Root)
+		scope = o.newDescendants(ctx, tx, q.Root)
 		except = scope.except
 	}
 	results := make([]search.Result[resource.ID], 0, len(o.services))
