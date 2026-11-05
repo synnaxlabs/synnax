@@ -19,7 +19,11 @@ describe("createTestClient", () => {
     const fetchSpy = vi
       .spyOn(globalThis, "fetch")
       .mockImplementation(async (input, init) => {
-        if (failures === 0 && String(input).includes("channel/retrieve")) {
+        if (
+          failures === 0 &&
+          typeof input === "string" &&
+          input.includes("channel/retrieve")
+        ) {
           failures++;
           throw new TypeError("fetch failed", {
             cause: { code: "UND_ERR_SOCKET" },
