@@ -95,9 +95,10 @@ var _ = Describe("Group", Ordered, func() {
 					Scope:  resource.TypeDevice,
 					Parent: new(parent.ResourceID()),
 				}
-				Expect(w.Create(ctx, &child)).To(MatchError(ContainSubstring(
-					"parent: a device group cannot sit in a channel group",
-				)))
+				Expect(w.Create(ctx, &child)).To(MatchError(
+					"parent: a device group cannot sit under a channel parent: " +
+						"validation error",
+				))
 			},
 		)
 
@@ -142,7 +143,7 @@ var _ = Describe("Group", Ordered, func() {
 
 		It("Should reject a group with no scope and no parent", func(ctx SpecContext) {
 			g := group.Group{Name: "no scope"}
-			Expect(w.Create(ctx, &g)).To(MatchError(ContainSubstring("scope")))
+			Expect(w.Create(ctx, &g)).To(MatchError("scope: invalid scope: "))
 		})
 	})
 
@@ -278,7 +279,8 @@ var _ = Describe("Group", Ordered, func() {
 			Expect(w.Create(ctx, &parent)).To(Succeed())
 			g := create(ctx, "channel child", nil)
 			Expect(w.SetParent(ctx, new(parent.ResourceID()), g.Key)).To(MatchError(
-				ContainSubstring("a channel group cannot sit in a device group"),
+				"parent: a channel group cannot sit under a device parent: " +
+					"validation error",
 			))
 		})
 

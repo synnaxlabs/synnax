@@ -33,31 +33,32 @@ func TestTable(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	db      *gorp.DB
-	proj    project.Project
-	svc     *table.Service
-	imexSvc *imex.Service
+	db       *gorp.DB
+	groupSvc *group.Service
+	proj     project.Project
+	svc      *table.Service
+	imexSvc  *imex.Service
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	db = DeferClose(gorp.Wrap(memkv.New()))
 	var (
-		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		g   = MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-		}))
+		otg      = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		panelSvc = MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 		}))
 	)
+	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+	}))
 	imexSvc = imex.NewService()
 	projectSvc := MustOpen(project.OpenService(ctx, project.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
-		Group:    g,
+		Group:    groupSvc,
 		ImEx:     imexSvc,
 		Panel:    panelSvc,
 	}))
