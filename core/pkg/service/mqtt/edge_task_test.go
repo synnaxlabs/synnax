@@ -171,8 +171,7 @@ var _ = Describe("Edge task", func() {
 			}
 			g.Expect(written).To(BeEmpty(), "no NDATA for a written stamp yet")
 		})
-		// A publish that races a dropped connection can block the task for the full
-		// operation timeout, so no attempt may stay in flight.
+		// A spec may drop the connection next, which fails a publish still in flight.
 		Eventually(func() []hostMessage { return host.dataAt(last) }).
 			ShouldNot(BeEmpty())
 		return seen
