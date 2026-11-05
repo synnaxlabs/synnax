@@ -9,14 +9,17 @@
 
 import dataclasses
 import json
+import os
 from pathlib import Path
 from typing import Any
 
 import pytest
 
 from review import Config, Doc, Finding, PullRequest, load, run
+from review.__main__ import claude as launch
 
 ROOT = Path(__file__).resolve().parents[3]
+WORK = Path("/work")
 DIFF = """\
 diff --git a/core/a.go b/core/a.go
 index 1111111..2222222 100644
@@ -78,6 +81,7 @@ class FakeClaude:
     def __init__(self, score: int = 5, findings: list[dict[str, Any]] | None = None):
         self.args: list[str] = []
         self.stdin = ""
+        self.cwd = Path()
         self.out: dict[str, Any] = {
             "is_error": False,
             "subtype": "success",
@@ -89,17 +93,19 @@ class FakeClaude:
             },
         }
 
-    def __call__(self, args: list[str], stdin: str) -> str:
-        self.args, self.stdin = args, stdin
+    def __call__(self, args: list[str], stdin: str, cwd: Path) -> str:
+        self.args, self.stdin, self.cwd = args, stdin, cwd
         return json.dumps(self.out)
 
     def flag(self, name: str) -> str:
         return self.args[self.args.index(name) + 1]
 
 
-def review(c: Config | None = None, pr: PullRequest | None = None) -> FakeClaude:
+def review(
+    c: Config | None = None, pr: PullRequest | None = None, workdir: Path = WORK
+) -> FakeClaude:
     claude = FakeClaude()
-    run(c or config(), pr or pull(), claude=claude)
+    run(c or config(), pr or pull(), claude=claude, workdir=workdir)
     return claude
 
 
@@ -183,11 +189,20 @@ class TestPrompt:
         stdin = review(pr=pull(open={("core/a.go", "Old bug")})).stdin
         assert "# Earlier findings still open\n\n- `core/a.go`: Old bug" in stdin
 
-    def test_should_cut_the_diff_at_a_file(self) -> None:
-        stdin = review(config(diff_chars=200)).stdin
-        assert "+new" in stdin
-        assert "+y" not in stdin
-        assert "Read these files:\n- `web/b.ts`" in stdin
+    def test_should_cut_the_diff_at_a_file(self, tmp_path: Path) -> None:
+        claude = review(config(diff_chars=200), workdir=tmp_path)
+        assert claude.cwd == tmp_path
+        assert "+new" in claude.stdin
+        assert "+y" not in claude.stdin
+        assert "in `rest.diff` in your working directory" in claude.stdin
+        assert "Read all of it:\n- `web/b.ts`" in claude.stdin
+        rest = (tmp_path / "rest.diff").read_text()
+        assert rest.startswith("diff --git a/web/b.ts b/web/b.ts")
+        assert "       -x\n     1 +y" in rest
+
+    def test_should_write_no_file_when_the_diff_fits(self, tmp_path: Path) -> None:
+        review(workdir=tmp_path)
+        assert list(tmp_path.iterdir()) == []
 
 
 class TestCommand:
@@ -219,11 +234,11 @@ class TestScore:
         self, severities: list[str], score: int
     ) -> None:
         claude = FakeClaude(5, [finding(s) for s in severities])
-        assert run(config(), pull(), claude=claude).score == score
+        assert run(config(), pull(), claude=claude, workdir=WORK).score == score
 
     def test_should_keep_a_score_below_the_cap(self) -> None:
         claude = FakeClaude(3, [finding("P1")])
-        assert run(config(), pull(), claude=claude).score == 3
+        assert run(config(), pull(), claude=claude, workdir=WORK).score == 3
 
     def test_should_raise_when_claude_ends_with_an_error(self) -> None:
         claude = FakeClaude()
@@ -231,4 +246,35 @@ class TestScore:
         with pytest.raises(
             RuntimeError, match=r"claude ended with error_max_turns: Out\."
         ):
-            run(config(), pull(), claude=claude)
+            run(config(), pull(), claude=claude, workdir=WORK)
+
+
+class TestLaunch:
+    """Tests the process that runs Claude Code."""
+
+    def test_should_pass_claude_only_its_token(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        bindir = tmp_path / "bin"
+        bindir.mkdir()
+        fake = bindir / "claude"
+        fake.write_text(
+            "#!/usr/bin/env python3\n"
+            "import json, os, sys\n"
+            "print(json.dumps({'args': sys.argv[1:], 'stdin': sys.stdin.read(),"
+            " 'cwd': os.getcwd(), 'env': dict(os.environ)}))\n"
+        )
+        fake.chmod(0o755)
+        monkeypatch.setenv("PATH", f"{bindir}{os.pathsep}{os.environ['PATH']}")
+        monkeypatch.setenv("GH_TOKEN", "app-token")
+        monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", "claude-token")
+        work = tmp_path / "work"
+        work.mkdir()
+        out = json.loads(launch(["claude", "--print"], "Review it.", work))
+        assert out["args"] == ["--print"]
+        assert out["stdin"] == "Review it."
+        assert Path(out["cwd"]).resolve() == work.resolve()
+        env = out["env"]
+        assert env["CLAUDE_CODE_OAUTH_TOKEN"] == "claude-token"
+        assert "GH_TOKEN" not in env
+        assert env["HOME"] == env["CLAUDE_CONFIG_DIR"] != os.environ["HOME"]

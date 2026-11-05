@@ -17,8 +17,12 @@ from pathlib import Path
 from review.findings import SCHEMA, Review, parse
 from review.render import fence
 
-Claude = Callable[[list[str], str], str]
-"""Runs `claude` with the given arguments and stdin, and returns its stdout."""
+Claude = Callable[[list[str], str, Path], str]
+"""Runs `claude` with the given arguments and stdin in a working directory, and returns
+its stdout."""
+
+REST = "rest.diff"
+"""The file in the working directory that holds the diff the prompt leaves out."""
 
 _HUNK = re.compile(r"@@ -\d+(?:,\d+)? \+(\d+)")
 _FILE = re.compile(r"^diff --git a/.* b/(.*)$", re.M)
@@ -131,26 +135,20 @@ def _numbered(diff: str) -> str:
     return "\n".join(out)
 
 
-def _cut(diff: str, chars: int) -> tuple[str, list[str]]:
-    """Cuts a diff at the last file boundary within chars.
-
-    :returns: The kept diff, and the paths of the files it leaves out.
-    """
-    kept: list[str] = []
+def _cut(diff: str, chars: int) -> tuple[str, str]:
+    """Cuts a diff at the last file boundary within chars, and returns both parts."""
     size = 0
     files = re.split(r"(?m)^(?=diff --git )", diff)
     for i, chunk in enumerate(files):
         if size + len(chunk) > chars:
-            return "".join(kept), _FILE.findall("".join(files[i:]))
-        kept.append(chunk)
+            return "".join(files[:i]), "".join(files[i:])
         size += len(chunk)
-    return diff, []
+    return diff, ""
 
 
-def _prompt(config: Config, pr: PullRequest) -> str:
+def _prompt(config: Config, pr: PullRequest, shown: str, rest: str) -> str:
     """Builds the reviewer's prompt for a pull request."""
     changed = _FILE.findall(pr.diff)
-    shown, left = _cut(_numbered(pr.diff), config.diff_chars)
     parts = [
         config.prompt.strip(),
         f"# Pull request #{pr.number}: {pr.title}",
@@ -171,10 +169,11 @@ def _prompt(config: Config, pr: PullRequest) -> str:
         "# Diff",
         f"The repository at the head of the pull request is in `{pr.head}`.",
     ]
-    if left:
-        listed = "\n".join(f"- `{p}`" for p in left)
+    if rest:
+        listed = "\n".join(f"- `{p}`" for p in _FILE.findall(rest))
         parts.append(
-            f"The diff is too long to show in full. Read these files:\n{listed}"
+            "The diff is too long to show in full. The diff of these files is in "
+            f"`{REST}` in your working directory. Read all of it:\n{listed}"
         )
     parts.append(fence(shown, "diff"))
     return "\n\n".join(parts)
@@ -215,12 +214,17 @@ def _cap(review: Review, caps: dict[str, int]) -> Review:
     return replace(review, score=min(review.score, limit))
 
 
-def run(config: Config, pr: PullRequest, *, claude: Claude) -> Review:
+def run(config: Config, pr: PullRequest, *, claude: Claude, workdir: Path) -> Review:
     """Reviews a pull request.
 
+    :param workdir: An empty directory that Claude Code starts in and can read.
     :raises RuntimeError: If Claude Code ends with an error.
     """
-    out = json.loads(claude(_command(config, head=pr.head), _prompt(config, pr)))
+    shown, rest = _cut(_numbered(pr.diff), config.diff_chars)
+    if rest:
+        (workdir / REST).write_text(rest)
+    text = _prompt(config, pr, shown, rest)
+    out = json.loads(claude(_command(config, head=pr.head), text, workdir))
     if out["is_error"]:
         raise RuntimeError(f"claude ended with {out['subtype']}: {out.get('result')}")
     return _cap(parse(out["structured_output"]), config.caps)

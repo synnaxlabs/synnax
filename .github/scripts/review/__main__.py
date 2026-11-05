@@ -29,8 +29,8 @@ from pathlib import Path
 from review import PullRequest, Target, gh, load, open_findings, parse, post, run
 
 
-def claude(args: list[str], stdin: str) -> str:
-    with tempfile.TemporaryDirectory() as cwd, tempfile.TemporaryDirectory() as home:
+def claude(args: list[str], stdin: str, cwd: Path) -> str:
+    with tempfile.TemporaryDirectory() as home:
         env = {
             "PATH": os.environ["PATH"],
             "HOME": home,
@@ -50,7 +50,7 @@ def claude(args: list[str], stdin: str) -> str:
 
 def review(target: Target, path: Path) -> None:
     config = load(Path(os.environ["BASE_DIR"]))
-    head = Path(os.environ["HEAD_DIR"])
+    head = Path(os.environ["HEAD_DIR"]).resolve()
     excluded = [f":(glob,exclude){g}" for g in config.excluded]
     diff = subprocess.run(
         [
@@ -77,7 +77,9 @@ def review(target: Target, path: Path) -> None:
         diff=diff,
         open=open_findings(target, gh),
     )
-    path.write_text(json.dumps(dataclasses.asdict(run(config, pr, claude=claude))))
+    with tempfile.TemporaryDirectory() as workdir:
+        result = run(config, pr, claude=claude, workdir=Path(workdir))
+    path.write_text(json.dumps(dataclasses.asdict(result)))
 
 
 def main(argv: list[str]) -> None:
