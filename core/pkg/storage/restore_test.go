@@ -242,6 +242,17 @@ var _ = Describe("Undo", func() {
 		MustSucceed(newBackups(dir).Restore(name))
 	})
 
+	It("Should not undo twice when the backup has no version", func(ctx SpecContext) {
+		openAt(ctx, dir, "0.59.0")
+		Expect(os.Remove(filepath.Join(dir, "VERSION"))).To(Succeed())
+		openAt(ctx, dir, "0.60.0")
+		res := MustSucceed(newBackups(dir).Undo())
+		Expect(res.Backup.Version).To(Equal(storage.UnknownVersion))
+		Expect(filepath.Join(dir, "VERSION")).ToNot(BeAnExistingFile())
+		Expect(newBackups(dir).Undo()).Error().
+			To(MatchError(ContainSubstring("The last update is already undone")))
+	})
+
 	It("Should return an error when there is no backup", func(ctx SpecContext) {
 		openAt(ctx, dir, "0.60.0")
 		Expect(newBackups(dir).Undo()).Error().
