@@ -14,6 +14,7 @@ import { beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 import { type Haul } from "@/haul";
 import { List } from "@/list";
 import { mockGeometry } from "@/testutil/dom";
+import { createRenderCounter } from "@/testutil/renders";
 import { type Node } from "@/tree/base";
 import { Item } from "@/tree/Item";
 import {
@@ -480,6 +481,33 @@ describe("Tree keys", () => {
     expect(screen.queryByText("1", { exact: true })).toBeNull();
     press("Enter");
     expect(onDoubleClick).toHaveBeenCalledExactlyOnceWith("0");
+  });
+
+  it("should re-render only the two items an arrow key moves between", () => {
+    const { Counted, counts, reset } = createRenderCounter();
+    const nodes = Array.from({ length: 30 }, (_, i) => ({ key: `${i}` }));
+    const Counter = () => {
+      const props = use({ nodes });
+      return (
+        <Triggers.Provider>
+          <Tree {...props} getItem={getItem}>
+            {({ key, ...rest }) => (
+              <Counted key={key} id={key}>
+                <Item {...rest}>{key}</Item>
+              </Counted>
+            )}
+          </Tree>
+        </Triggers.Provider>
+      );
+    };
+    render(<Counter />);
+    fireEvent.click(row("1"));
+    reset();
+    press("ArrowDown");
+    expect([...counts.entries()].sort()).toEqual([
+      ["1", 1],
+      ["2", 1],
+    ]);
   });
 
   it("should extend a shift-click range from the item the keys moved to", () => {
