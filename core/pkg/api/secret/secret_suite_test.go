@@ -45,7 +45,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
 	apiSvc = MustSucceed(apisecret.NewService(apisecret.ServiceConfig{
 		Secret: svc.Secret,
-		Grant:  svc.Grant,
 		RBAC:   svc.RBAC,
 	}))
 })

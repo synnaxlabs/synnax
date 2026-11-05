@@ -16,6 +16,6 @@ import "github.com/synnaxlabs/synnax/pkg/service/secret/grant/versions/v0"
 // Key is a unique identifier for a grant.
 type Key = v0.Key
 
-// Grant lets a rack read secrets that nothing on the rack uses yet, such as to test a
-// connection before the device that uses them is saved.
+// Grant lets a subject read secrets once, such as for a rack to test a connection
+// before the device that uses them is saved.
 type Grant = v0.Grant

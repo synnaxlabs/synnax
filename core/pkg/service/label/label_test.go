@@ -137,6 +137,21 @@ var _ = Describe("Label", Ordered, func() {
 			Expect(labels).To(HaveLen(1))
 			Expect(labels[0].Key).To(Equal(l.Key))
 		})
+		It("Should get no labels for a deleted resource", func(ctx SpecContext) {
+			l := &label.Label{
+				Name:  "Label",
+				Color: MustSucceed(color.FromHex("#000000")),
+			}
+			Expect(w.Create(ctx, l)).To(Succeed())
+			labeled := &label.Label{
+				Name:  "Labeled",
+				Color: MustSucceed(color.FromHex("#000000")),
+			}
+			Expect(w.Create(ctx, labeled)).To(Succeed())
+			Expect(w.Label(ctx, labeled.OntologyID(), []label.Key{l.Key})).To(Succeed())
+			Expect(w.Delete(ctx, labeled.Key)).To(Succeed())
+			Expect(svc.RetrieveFor(ctx, labeled.OntologyID(), tx)).To(BeEmpty())
+		})
 	})
 	Describe("MatchNames", func() {
 		It("Should retrieve a label by its name", func(ctx SpecContext) {

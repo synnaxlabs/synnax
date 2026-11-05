@@ -165,11 +165,10 @@ export const SingleTrigger = <K extends record.Key>({
   return (
     <Dialog.Trigger
       id={id}
-      variant={triggerVariant === "shadow" ? "outlined" : triggerVariant}
+      variant={triggerVariant}
       gap="small"
       className={CSS.cls(
         CSS.dropRegion(canDrop(dragging)),
-        triggerVariant === "shadow" && CSS.M("shadow"),
         name == null && !fixed ? CSS.BM("select-single-trigger", "empty") : null,
         collapsible && CSS.BM("select-single-trigger", "collapsible"),
         clearShown && CSS.M("reveals"),

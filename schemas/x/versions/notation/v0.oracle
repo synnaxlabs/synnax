@@ -8,9 +8,17 @@
 // included in the file licenses/APL.txt.
 
 Notation enum {
-    standard    = "standard"
-    scientific  = "scientific"
-    engineering = "engineering"
+    standard    = "standard" {
+        @doc value "renders a plain decimal number."
+    }
+    scientific  = "scientific" {
+        @doc value "renders a mantissa below 10 and an exponent."
+    }
+    engineering = "engineering" {
+        @doc value """
+            renders a mantissa below 1000 and an exponent that is a multiple of 3.
+        """
+    }
 
     @doc value "is the numeric notation used to render samples."
 }

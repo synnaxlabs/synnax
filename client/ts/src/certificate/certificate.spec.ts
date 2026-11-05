@@ -11,6 +11,7 @@ import { id, TimeStamp } from "@synnaxlabs/x";
 import { assert, describe, expect, it } from "vitest";
 
 import { NotFoundError, PathError, ValidationError } from "@/index";
+import { rack } from "@/rack";
 import { CERTIFICATE, createTestClient, waitForStreamLive } from "@/testutil";
 
 const { pem: PEM, privateKey: PRIVATE_KEY } = CERTIFICATE;
@@ -227,7 +228,7 @@ describe("Certificate", () => {
   describe("grant", () => {
     it("should grant a rack the private key of a certificate", async () => {
       const client = createTestClient();
-      const rack = await client.racks.create({ name: "Grant rack" });
+      const r = await client.racks.create({ name: "Grant rack" });
       const c = await client.certificates.create({
         name: "Grant",
         source: "stored",
@@ -236,7 +237,7 @@ describe("Certificate", () => {
       });
       assert(c.source === "stored" && c.privateKey != null);
       const grant = await client.secrets.grant({
-        rack: rack.key,
+        subject: rack.ontologyID(r.key),
         secrets: [c.privateKey],
       });
       expect(grant).toHaveLength(36);

@@ -40,7 +40,7 @@ import { Button } from "@/platform/button";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
-import { Selector } from "@/platform/selector";
+import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const path = deep.path<Task.Values<AlertSchemas>>();
@@ -296,9 +296,10 @@ export const useCreateAlert = Task.createUseCreate({
   getInitialValues,
 });
 
-export const AlertSelectable = Selector.createSelectable({
+export const AlertSelectable: Selector.Selectable = {
   type: ALERT_TYPE,
   title: "PagerDuty alert task",
+  label: "Alert",
   icon: <Icon.Logo.PagerDuty />,
   useOnSelect: useCreateAlert,
-});
+};

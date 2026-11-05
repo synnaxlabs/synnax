@@ -14,7 +14,6 @@ import { z } from "zod";
 import { NotFoundError } from "@/errors";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
-import { rack } from "@/rack";
 import {
   type Base,
   fileSecretZ,
@@ -49,12 +48,11 @@ const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const emptyResZ = z.object({});
 
 const grantKeyZ = z.uuid();
-/** GrantKey is the key of a grant that lets a rack read secrets. */
+/** GrantKey is the key of a grant that lets a subject read secrets once. */
 export type GrantKey = z.infer<typeof grantKeyZ>;
-const grantCreateReqZ = z.object({ rack: rack.keyZ, secrets: keyZ.array() });
+const grantCreateReqZ = z.object({ subject: ontology.idZ, secrets: keyZ.array() });
 export interface GrantParams extends z.input<typeof grantCreateReqZ> {}
 const grantCreateResZ = z.object({ grant: grantKeyZ });
-const grantDeleteReqZ = z.object({ grants: grantKeyZ.array() });
 
 const retrieveRequestZ = z.object({
   keys: keyZ.array().optional(),
@@ -245,10 +243,9 @@ export class Client extends query.Retriever<
   }
 
   /**
-   * Lets a rack read secrets that nothing on it uses yet, such as to test a connection
-   * before saving the device that uses them. The grant ends when it is revoked or when
-   * the client's session ends.
-   * @returns the key of the grant to send to the rack with the command.
+   * Lets a subject read secrets once, within a minute, such as for a rack to test a
+   * connection before the device that uses them is saved. Only racks can be subjects.
+   * @returns the key of the grant to send to the subject with the command.
    * @throws {AccessDeniedError} if the caller cannot create devices.
    * @throws {NotFoundError} if a secret does not exist.
    */
@@ -260,19 +257,6 @@ export class Client extends query.Retriever<
       grantCreateResZ,
     );
     return res.grant;
-  }
-
-  /**
-   * Revokes grants. Unknown keys are ignored.
-   * @throws {AccessDeniedError} if the caller cannot create devices.
-   */
-  async revoke(grants: GrantKey | GrantKey[]): Promise<void> {
-    await this.cfg.unary.send(
-      "/secret/grant/delete",
-      { grants: array.toArray(grants) },
-      grantDeleteReqZ,
-      emptyResZ,
-    );
   }
 
   private compose(secret: Secret, includeUses: boolean): Secret {

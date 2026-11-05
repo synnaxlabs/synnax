@@ -205,7 +205,6 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.SecretRename = noop.UnaryServer[apisecret.RenameRequest, struct{}]{}
 	t.SecretDelete = noop.UnaryServer[apisecret.DeleteRequest, struct{}]{}
 	t.SecretGrantCreate = noop.UnaryServer[apisecret.GrantCreateRequest, apisecret.GrantCreateResponse]{}
-	t.SecretGrantDelete = noop.UnaryServer[apisecret.GrantDeleteRequest, struct{}]{}
 	t.SecretResolve = noop.UnaryServer[apisecret.ResolveRequest, apisecret.ResolveResponse]{}
 
 	// CERTIFICATE
