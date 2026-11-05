@@ -29,6 +29,8 @@ var (
 	g       *group.Service
 	svc     *policy.Service
 	roleSvc *role.Service
+	// owner is the role that holds each policy a spec creates.
+	owner role.Role
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -47,6 +49,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:       db,
 		Ontology: otg,
 	}))
+	owner = role.Role{Name: "owner"}
+	Expect(roleSvc.NewWriter(nil, true).Create(ctx, &owner)).To(Succeed())
 })
 
 func TestPolicy(t *testing.T) {

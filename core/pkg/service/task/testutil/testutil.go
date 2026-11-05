@@ -16,6 +16,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -104,7 +105,15 @@ func (t *Tasks) openRack(ctx context.Context, cfg *TasksConfig) (err error) {
 		return err
 	}
 	t.closer = append(t.closer, cfg.Status)
-	role, err := racktestutil.CreateDriverRole(ctx, cfg.Ontology)
+	roles, err := role.OpenService(ctx, role.ServiceConfig{
+		DB:       cfg.DB,
+		Ontology: cfg.Ontology,
+	})
+	if err != nil {
+		return err
+	}
+	t.closer = append(t.closer, roles)
+	driverRole, err := racktestutil.CreateDriverRole(ctx, roles)
 	if err != nil {
 		return err
 	}
@@ -113,7 +122,7 @@ func (t *Tasks) openRack(ctx context.Context, cfg *TasksConfig) (err error) {
 		Ontology:     cfg.Ontology,
 		HostProvider: testutil.NewStaticHostProvider(1),
 		Status:       cfg.Status,
-		DriverRole:   role,
+		DriverRole:   driverRole,
 	}); err != nil {
 		return err
 	}

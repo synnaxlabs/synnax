@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/rack/pb"
@@ -33,6 +34,7 @@ var _ = Describe("Translator", func() {
 				Message: "Driver running",
 				Labels:  []label.Key{label.Key(uuid.New())},
 			},
+			Roles: []role.Key{uuid.New()},
 		}
 		translated := MustSucceed(pb.RackToPB(r))
 		Expect(translated.Status.Details).To(BeNil())

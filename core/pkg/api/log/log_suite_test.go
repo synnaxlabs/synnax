@@ -82,11 +82,12 @@ func grant(
 	r := &role.Role{Name: "role-" + uuid.New().String(), Description: "test"}
 	Expect(roleWriter.Create(ctx, r)).To(Succeed())
 	p := &policy.Policy{
+		Role:    r.Key,
 		Name:    "policy-" + uuid.New().String(),
 		Objects: objects,
 		Actions: []access.Action{action},
 	}
 	Expect(policyWriter.Create(ctx, p)).To(Succeed())
-	Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
-	Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
+	key := MustSucceed(user.KeyFromResourceID(subject))
+	Expect(svc.User.NewWriter(nil).AssignRole(ctx, r.Key, key)).To(Succeed())
 }

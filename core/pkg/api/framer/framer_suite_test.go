@@ -129,12 +129,12 @@ func createUserGranted(
 	Expect(roleWriter.Create(ctx, r)).To(Succeed())
 	policyWriter := rbacSvc.Policy.NewWriter(nil, true)
 	p := &policy.Policy{
+		Role:    r.Key,
 		Name:    "api-framer-" + uuid.New().String(),
 		Objects: objects,
 		Actions: []access.Action{action},
 	}
 	Expect(policyWriter.Create(ctx, p)).To(Succeed())
-	Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
-	Expect(roleWriter.AssignRole(ctx, u.ResourceID(), r.Key)).To(Succeed())
+	Expect(userSvc.NewWriter(nil).AssignRole(ctx, r.Key, u.Key)).To(Succeed())
 	return u
 }

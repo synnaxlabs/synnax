@@ -20,6 +20,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -65,13 +66,17 @@ func openStack(ctx context.Context, rackName string, excluded ...string) stack {
 		DB:       db,
 		Ontology: otg,
 	}))
+	roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+	}))
 	rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:                  db,
 		Ontology:            otg,
 		HostProvider:        testutil.NewStaticHostProvider(1),
 		Status:              statusSvc,
 		HealthCheckInterval: 10 * telem.Millisecond,
-		DriverRole:          MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
+		DriverRole:          MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
 	}))
 	pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
 	imexSvc := imex.NewService()

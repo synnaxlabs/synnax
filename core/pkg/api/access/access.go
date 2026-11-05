@@ -12,7 +12,6 @@ package access
 import (
 	"context"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -20,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -92,11 +90,14 @@ func (s *Service) CreatePolicy(
 }
 
 type RetrievePolicyRequest struct {
-	Internal *bool         `json:"internal" msgpack:"internal"`
+	Internal *bool `json:"internal" msgpack:"internal"`
+	// Subjects keeps only the policies of the roles that these subjects hold.
 	Subjects []resource.ID `json:"subjects" msgpack:"subjects"`
-	Keys     []policy.Key  `json:"keys"     msgpack:"keys"`
-	Limit    int           `json:"limit"    msgpack:"limit"`
-	Offset   int           `json:"offset"   msgpack:"offset"`
+	// Roles keeps only the policies of these roles.
+	Roles  []role.Key   `json:"roles"  msgpack:"roles"`
+	Keys   []policy.Key `json:"keys"   msgpack:"keys"`
+	Limit  int          `json:"limit"  msgpack:"limit"`
+	Offset int          `json:"offset" msgpack:"offset"`
 }
 
 type RetrievePolicyResponse struct {
@@ -109,15 +110,19 @@ func (s *Service) RetrievePolicy(
 ) (RetrievePolicyResponse, error) {
 	q := s.internal.Policy.NewRetrieve()
 	if len(req.Subjects) > 0 {
-		subjectKeys, err := s.internal.Policy.ResolveSubjects(ctx, nil, req.Subjects...)
+		roles, err := s.internal.RolesOf(ctx, nil, req.Subjects...)
 		if err != nil {
 			return RetrievePolicyResponse{}, err
 		}
-		if len(req.Keys) > 0 {
-			subjectKeys = lo.Intersect(subjectKeys, req.Keys)
+		if len(roles) == 0 {
+			return RetrievePolicyResponse{Policies: []policy.Policy{}}, nil
 		}
-		q = q.Where(policy.MatchKeys(subjectKeys...))
-	} else if len(req.Keys) > 0 {
+		q = q.Where(policy.MatchRoles(roles...))
+	}
+	if len(req.Roles) > 0 {
+		q = q.Where(policy.MatchRoles(req.Roles...))
+	}
+	if len(req.Keys) > 0 {
 		q = q.Where(policy.MatchKeys(req.Keys...))
 	}
 	if req.Limit > 0 {
@@ -265,48 +270,4 @@ func (s *Service) DeleteRole(
 		}
 	}
 	return struct{}{}, nil
-}
-
-type AssignRoleRequest struct {
-	User user.Key `json:"user" msgpack:"user"`
-	Role role.Key `json:"role" msgpack:"role"`
-}
-
-func (s *Service) AssignRole(
-	ctx context.Context,
-	tx gorp.Tx,
-	req AssignRoleRequest,
-) (struct{}, error) {
-	userID := user.ResourceID(req.User)
-	if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Objects: []resource.ID{userID},
-		Action:  access.ActionUpdate,
-	}); err != nil {
-		return struct{}{}, err
-	}
-	return struct{}{}, s.internal.Role.NewWriter(tx, allowInternal).
-		AssignRole(ctx, userID, req.Role)
-}
-
-type UnassignRoleRequest struct {
-	User user.Key `json:"user" msgpack:"user"`
-	Role role.Key `json:"role" msgpack:"role"`
-}
-
-func (s *Service) UnassignRole(
-	ctx context.Context,
-	tx gorp.Tx,
-	req UnassignRoleRequest,
-) (struct{}, error) {
-	userID := user.ResourceID(req.User)
-	if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Objects: []resource.ID{userID},
-		Action:  access.ActionUpdate,
-	}); err != nil {
-		return struct{}{}, err
-	}
-	return struct{}{}, s.internal.Role.NewWriter(tx, allowInternal).
-		UnassignRole(ctx, userID, req.Role)
 }

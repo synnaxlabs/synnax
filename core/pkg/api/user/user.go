@@ -11,11 +11,14 @@ package user
 
 import (
 	"context"
+	"slices"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -99,8 +102,9 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 // username.
 type NewUser struct {
 	svcauth.Credentials
-	Name string   `json:"name" msgpack:"name"`
-	Key  user.Key `json:"key"  msgpack:"key"`
+	Name  string     `json:"name"  msgpack:"name"`
+	Key   user.Key   `json:"key"   msgpack:"key"`
+	Roles []role.Key `json:"roles" msgpack:"roles"`
 }
 
 type (
@@ -113,18 +117,31 @@ type (
 )
 
 // Create registers the new users with the provided credentials. If successful, Create
-// returns a slice of the new users.
+// returns a slice of the new users. Giving a new user roles also takes the update
+// action on users.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
+	enforcer := s.access.NewEnforcer(tx)
+	subject := auth.GetSubject(ctx)
+	if err := enforcer.Enforce(ctx, access.Request{
+		Subject: subject,
 		Action:  access.ActionCreate,
 		Objects: []resource.ID{{Type: resource.TypeUser}},
 	}); err != nil {
 		return CreateResponse{}, err
+	}
+	hasRoles := func(u NewUser) bool { return len(u.Roles) > 0 }
+	if slices.ContainsFunc(req.Users, hasRoles) {
+		if err := enforcer.Enforce(ctx, access.Request{
+			Subject: subject,
+			Action:  access.ActionUpdate,
+			Objects: []resource.ID{{Type: resource.TypeUser}},
+		}); err != nil {
+			return CreateResponse{}, err
+		}
 	}
 	passwordW := s.password.NewWriter(tx)
 	userW := s.internal.NewWriter(tx)
@@ -134,7 +151,7 @@ func (s *Service) Create(
 		if name == "" {
 			name = nu.Username
 		}
-		u, err := userW.Create(ctx, user.User{Name: name, Key: nu.Key})
+		u, err := userW.Create(ctx, user.User{Name: name, Key: nu.Key, Roles: nu.Roles})
 		if err != nil {
 			return CreateResponse{}, err
 		}
@@ -211,14 +228,16 @@ type (
 	RetrieveRequest struct {
 		Keys      []user.Key `json:"keys"      msgpack:"keys"`
 		Usernames []string   `json:"usernames" msgpack:"usernames"`
+		// Roles keeps only the users that hold any of these roles.
+		Roles []role.Key `json:"roles" msgpack:"roles"`
 	}
 	RetrieveResponse struct {
 		Users []user.User `json:"users" msgpack:"users"`
 	}
 )
 
-// Retrieve returns the users with the provided keys or the provided usernames of their
-// passwords.
+// Retrieve returns the users with the provided keys, the provided usernames of their
+// passwords, or the provided roles.
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
@@ -236,6 +255,11 @@ func (s *Service) Retrieve(
 			return RetrieveResponse{Users: []user.User{}}, nil
 		}
 		q = q.Where(user.MatchKeys(keys...))
+	}
+	if len(req.Roles) > 0 {
+		q = q.Where(user.Or(lo.Map(req.Roles, func(r role.Key, _ int) user.Filter {
+			return user.MatchRole(r)
+		})...))
 	}
 	var users []user.User
 	if err := q.Entries(&users).Exec(ctx, nil); err != nil {
@@ -298,4 +322,26 @@ func (s *Service) Delete(
 	}
 	return struct{}{}, s.auth.NewWriter(tx).
 		DeleteFor(ctx, user.ResourceIDsFromKeys(req.Keys)...)
+}
+
+// SetRolesRequest sets the roles of the users with Keys to Roles.
+type SetRolesRequest struct {
+	Keys  []user.Key `json:"keys"  msgpack:"keys"`
+	Roles []role.Key `json:"roles" msgpack:"roles"`
+}
+
+// SetRoles sets the roles of the users with the provided keys.
+func (s *Service) SetRoles(
+	ctx context.Context,
+	tx gorp.Tx,
+	req SetRolesRequest,
+) (struct{}, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: user.ResourceIDsFromKeys(req.Keys),
+	}); err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, s.internal.NewWriter(tx).SetRoles(ctx, req.Roles, req.Keys...)
 }

@@ -71,10 +71,12 @@ func OpenService(
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Policy]{
 		DB:              cfg.DB,
+		Name:            tableName,
 		Indexes:         s.indexes.all(),
+		References:      s.indexes.references(),
 		Instrumentation: cfg.Instrumentation,
 		Migrations:      versions.Migrations,
-	}); err != nil {
+	}); !ok(err, s.table) {
 		return nil, err
 	}
 	if cfg.Signals != nil {
@@ -104,9 +106,8 @@ func (s *Service) NewWriter(tx gorp.Tx, allowInternal bool) Writer {
 
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		baseTX:   s.cfg.DB,
-		gorp:     s.table.NewRetrieve(),
-		ontology: s.cfg.Ontology,
-		indexes:  s.indexes,
+		baseTX:  s.cfg.DB,
+		gorp:    s.table.NewRetrieve(),
+		indexes: s.indexes,
 	}
 }

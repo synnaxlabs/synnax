@@ -143,13 +143,14 @@ func grantOn(
 	}
 	Expect(roleWriter.Create(ctx, r)).To(Succeed())
 	p := &policy.Policy{
+		Role:    r.Key,
 		Name:    string(action) + "-policy-" + uuid.New().String(),
 		Objects: objects,
 		Actions: []access.Action{action},
 	}
 	Expect(policyWriter.Create(ctx, p)).To(Succeed())
-	Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
-	Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
+	key := MustSucceed(user.KeyFromResourceID(subject))
+	Expect(userSvc.NewWriter(nil).AssignRole(ctx, r.Key, key)).To(Succeed())
 }
 
 func grantCreateOn(ctx SpecContext, subject resource.ID, objects ...resource.ID) {

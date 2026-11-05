@@ -13,6 +13,7 @@ import { uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { access } from "@/access/action";
+import { role } from "@/access/role";
 import { resource } from "@/resource";
 
 export const keyZ = z.uuid();
@@ -20,20 +21,22 @@ export type Key = z.infer<typeof keyZ>;
 
 /**
  * Policy is an access control policy that defines which actions are permitted on which
- * resources. Policies are attached to roles, and roles are assigned to users via
- * ontology relationships.
+ * resources. Each policy belongs to one role, and a subject holds the policies of each
+ * role in its roles.
  */
 export const policyZ = z.object({
   /** key is the unique identifier for this policy. */
   key: keyZ.default(uuid.create),
   /** name is a human-readable name for the policy. */
   name: z.string().min(1, "name is required"),
-  /** objects is the list of ontology resources this policy applies to. */
+  /** objects is the list of resources this policy applies to. */
   objects: resource.idZ.array().default(() => []),
   /** actions is the list of actions this policy permits. */
   actions: access.actionZ.array().default(() => []),
   /** internal is true if this is a built-in system policy that cannot be deleted. */
   internal: z.boolean().default(false),
+  /** role is the role that grants this policy to its subjects. */
+  role: role.keyZ,
 });
 export interface Policy extends z.infer<typeof policyZ> {}
 export interface New extends z.input<typeof policyZ> {}

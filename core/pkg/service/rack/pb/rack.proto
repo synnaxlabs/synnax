@@ -34,4 +34,6 @@ message Rack {
   repeated string integrations = 5;
   // group is the group the rack sits in, if any.
   optional string group = 6;
+  // roles are the roles that grant the rack its permissions.
+  repeated string roles = 7;
 }

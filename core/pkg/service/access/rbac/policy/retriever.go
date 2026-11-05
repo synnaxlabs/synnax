@@ -9,42 +9,10 @@
 
 package policy
 
-import (
-	"context"
-
-	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
-)
+import "github.com/synnaxlabs/gorp"
 
 type Retrieve struct {
-	baseTX   gorp.Tx
-	gorp     gorp.Retrieve[Key, Policy]
-	indexes  indexes
-	ontology *ontology.Ontology
-}
-
-// ResolveSubjects walks the ontology from each subject up to its parent roles
-// and back down to the policies attached to those roles, returning the policy
-// keys. The result is the input to MatchKeys when retrieving policies for a
-// subject; performing the resolution eagerly lets the policy retrieve hit the
-// keyed multi-get fast path instead of scanning the full policy table.
-func (s *Service) ResolveSubjects(
-	ctx context.Context,
-	tx gorp.Tx,
-	subjects ...resource.ID,
-) ([]Key, error) {
-	tx = gorp.OverrideTx(s.cfg.DB, tx)
-	var policyResources []ontology.Resource
-	if err := s.cfg.Ontology.NewRetrieve().WhereIDs(subjects...).
-		ExcludeFieldData(true).
-		TraverseTo(ontology.ParentsTraverser).
-		WhereTypes(resource.TypeRole).
-		TraverseTo(ontology.ChildrenTraverser).
-		WhereTypes(resource.TypePolicy).
-		Entries(&policyResources).
-		Exec(ctx, tx); err != nil {
-		return nil, err
-	}
-	return KeysFromResourceIDs(ontology.ResourceIDs(policyResources))
+	baseTX  gorp.Tx
+	gorp    gorp.Retrieve[Key, Policy]
+	indexes indexes
 }

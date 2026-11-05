@@ -16,6 +16,7 @@ import (
 	"slices"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 )
 
@@ -29,6 +30,7 @@ const tableName = "rack"
 // instead of relying on package-level state.
 type indexes struct {
 	group  *gorp.KeyReference[Key, Rack, group.Key]
+	roles  *gorp.KeyReference[Key, Rack, role.Key]
 	search *gorp.SearchIndex[Key, Rack]
 }
 
@@ -48,6 +50,19 @@ func newIndexes() indexes {
 				return []group.Key{*e.Group}
 			},
 			Detach: func(e *Rack, _ group.Key) { e.Group = nil },
+		}),
+		roles: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Rack, role.Key]{
+			Name:     "roles",
+			Table:    "role",
+			OnDelete: gorp.Detach,
+			Targets: func(e *Rack) []role.Key {
+				return e.Roles
+			},
+			Detach: func(e *Rack, t role.Key) {
+				e.Roles = slices.DeleteFunc(e.Roles, func(v role.Key) bool {
+					return v == t
+				})
+			},
 		}),
 		search: gorp.NewSearchIndex[Key, Rack](
 			"search",
@@ -71,6 +86,7 @@ func (i indexes) all() []gorp.Index[Key, Rack] {
 func (i indexes) references() []gorp.Reference[Key, Rack] {
 	return []gorp.Reference[Key, Rack]{
 		i.group,
+		i.roles,
 	}
 }
 
@@ -189,6 +205,23 @@ func setGroup(
 			e.Group = v
 			return e
 		})
+}
+
+// MatchRoles returns a filter for racks
+// whose Roles contains any of the provided
+// values.
+func MatchRoles(vals ...role.Key) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Rack] {
+		return r.indexes.roles.Filter(vals...)
+	}
+}
+
+// MatchHasRoles returns a filter for racks whose
+// Roles holds a target when has is true, and holds none when has is false.
+func MatchHasRoles(has bool) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Rack] {
+		return r.indexes.roles.FilterHolding(has)
+	}
 }
 
 // Where applies the provided filter to the query, binding it to the Retrieve

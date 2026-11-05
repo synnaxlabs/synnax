@@ -41,6 +41,7 @@ var _ = Describe("Codec", func() {
 				Embedded:     true,
 				Integrations: []string{"test_4"},
 				Group:        new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"))),
+				Roles:        []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806")},
 			}),
 			Entry("zero values", v3.Rack{
 				Key:          v3.Key(0),
@@ -48,6 +49,7 @@ var _ = Describe("Codec", func() {
 				Embedded:     false,
 				Integrations: []string{},
 				Group:        nil,
+				Roles:        []uuid.UUID{},
 			}),
 			Entry("empty collections", v3.Rack{
 				Key:          v3.Key(2),
@@ -55,6 +57,7 @@ var _ = Describe("Codec", func() {
 				Embedded:     true,
 				Integrations: []string{},
 				Group:        new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"))),
+				Roles:        []uuid.UUID{},
 			}),
 		)
 	})
@@ -67,6 +70,7 @@ func BenchmarkEncodeDecodeRack(b *testing.B) {
 		Embedded:     true,
 		Integrations: []string{"test_4"},
 		Group:        new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"))),
+		Roles:        []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806")},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -91,6 +95,7 @@ func FuzzDecodeRack(f *testing.F) {
 			Embedded:     true,
 			Integrations: []string{"test_4"},
 			Group:        new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"))),
+			Roles:        []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806")},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -105,6 +110,7 @@ func FuzzDecodeRack(f *testing.F) {
 			Embedded:     false,
 			Integrations: []string{},
 			Group:        nil,
+			Roles:        []uuid.UUID{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -119,6 +125,7 @@ func FuzzDecodeRack(f *testing.F) {
 			Embedded:     true,
 			Integrations: []string{},
 			Group:        new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"))),
+			Roles:        []uuid.UUID{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -79,13 +80,17 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Ontology:     otg,
 		Status:       statusSvc,
 	}))
+	roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+	}))
 	rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:                  db,
 		Ontology:            otg,
 		HostProvider:        testutil.NewStaticHostProvider(1),
 		Status:              statusSvc,
 		HealthCheckInterval: 10 * telem.Millisecond,
-		DriverRole:          MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
+		DriverRole:          MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
 	}))
 	imexSvc = imex.NewService()
 	arcTable := MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))

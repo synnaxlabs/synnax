@@ -50,7 +50,9 @@ type Rack struct {
 	// "opc", "labjack"). An empty or nil list means the rack supports no integrations.
 	Integrations []string `protobuf:"bytes,5,rep,name=integrations,proto3" json:"integrations,omitempty"`
 	// group is the group the rack sits in, if any.
-	Group         *string `protobuf:"bytes,6,opt,name=group,proto3,oneof" json:"group,omitempty"`
+	Group *string `protobuf:"bytes,6,opt,name=group,proto3,oneof" json:"group,omitempty"`
+	// roles are the roles that grant the rack its permissions.
+	Roles         []string `protobuf:"bytes,7,rep,name=roles,proto3" json:"roles,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -127,18 +129,26 @@ func (x *Rack) GetGroup() string {
 	return ""
 }
 
+func (x *Rack) GetRoles() []string {
+	if x != nil {
+		return x.Roles
+	}
+	return nil
+}
+
 var File_core_pkg_service_rack_pb_rack_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_rack_pb_rack_proto_rawDesc = "" +
 	"\n" +
-	"#core/pkg/service/rack/pb/rack.proto\x12\x0fservice.rack.pb\x1a'core/pkg/service/status/pb/status.proto\"\xd4\x01\n" +
+	"#core/pkg/service/rack/pb/rack.proto\x12\x0fservice.rack.pb\x1a'core/pkg/service/status/pb/status.proto\"\xea\x01\n" +
 	"\x04Rack\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\rR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
 	"\bembedded\x18\x03 \x01(\bR\bembedded\x126\n" +
 	"\x06status\x18\x04 \x01(\v2\x19.service.status.pb.StatusH\x00R\x06status\x88\x01\x01\x12\"\n" +
 	"\fintegrations\x18\x05 \x03(\tR\fintegrations\x12\x19\n" +
-	"\x05group\x18\x06 \x01(\tH\x01R\x05group\x88\x01\x01B\t\n" +
+	"\x05group\x18\x06 \x01(\tH\x01R\x05group\x88\x01\x01\x12\x14\n" +
+	"\x05roles\x18\a \x03(\tR\x05rolesB\t\n" +
 	"\a_statusB\b\n" +
 	"\x06_groupB\xb0\x01\n" +
 	"\x13com.service.rack.pbB\tRackProtoP\x01Z0github.com/synnaxlabs/synnax/pkg/service/rack/pb\xa2\x02\x03SRP\xaa\x02\x0fService.Rack.Pb\xca\x02\x0fService\\Rack\\Pb\xe2\x02\x1bService\\Rack\\Pb\\GPBMetadata\xea\x02\x11Service::Rack::Pbb\x06proto3"

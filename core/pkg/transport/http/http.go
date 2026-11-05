@@ -113,6 +113,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/user/retrieve",
 		),
+		UserSetRoles: unary[user.SetRolesRequest, struct{}](
+			router,
+			"/api/v1/user/set-roles",
+		),
 
 		// CHANNEL
 		ChannelCreate: unary[channel.CreateRequest, channel.CreateResponse](
@@ -609,14 +613,6 @@ func Bind(layer *api.Layer, router *http.Router) {
 		AccessRetrieveRole: unary[access.RetrieveRoleRequest, access.RetrieveRoleResponse](
 			router,
 			"/api/v1/access/role/retrieve",
-		),
-		AccessAssignRole: unary[access.AssignRoleRequest, struct{}](
-			router,
-			"/api/v1/access/role/assign",
-		),
-		AccessUnassignRole: unary[access.UnassignRoleRequest, struct{}](
-			router,
-			"/api/v1/access/role/unassign",
 		),
 
 		// ARC

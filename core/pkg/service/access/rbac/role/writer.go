@@ -15,7 +15,6 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -55,8 +54,8 @@ func (w Writer) CreateMany(ctx context.Context, roles *[]Role) error {
 	return nil
 }
 
-// Delete removes a role from the database. It will fail if the role is builtin or if
-// any users are assigned to the role.
+// Delete removes a role and its policies from the database, and removes the role from
+// each user and rack that holds it. It returns a validation error for a built-in role.
 func (w Writer) Delete(ctx context.Context, key Key) error {
 	return w.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Role](key)).
@@ -67,23 +66,4 @@ func (w Writer) Delete(ctx context.Context, key Key) error {
 			return nil
 		}).
 		Exec(ctx, w.tx)
-}
-
-// AssignRole assigns a role to a subject (typically a user) by creating an ontology
-// relationship. The relationship is idempotent - calling this multiple times with the
-// same subject and role has no effect.
-func (w Writer) AssignRole(ctx context.Context, subject resource.ID, role Key) error {
-	return w.otg.DefineRelationships(
-		ctx, ResourceID(role), ontology.RelationshipTypeParentOf, subject,
-	)
-}
-
-// UnassignRole removes a role from a subject by deleting the ontology relationship. If
-// the relationship does not exist, this is a no-op.
-func (w Writer) UnassignRole(ctx context.Context, subject resource.ID, role Key) error {
-	return w.otg.DeleteRelationships(ctx, ontology.Relationship{
-		From: ResourceID(role),
-		Type: ontology.RelationshipTypeParentOf,
-		To:   subject,
-	})
 }

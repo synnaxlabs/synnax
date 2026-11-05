@@ -14,7 +14,6 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
@@ -27,7 +26,8 @@ type Writer struct {
 	table         *gorp.Table[Key, Policy]
 }
 
-// Create creates a new policy in the database.
+// Create creates a new policy in the database. It returns a validation error when the
+// policy's role does not exist.
 func (w Writer) Create(ctx context.Context, p *Policy) error {
 	if p.Key == uuid.Nil() {
 		p.Key = uuid.New()
@@ -59,17 +59,4 @@ func (w Writer) CreateMany(ctx context.Context, policies *[]Policy) error {
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	return w.table.NewDelete().Where(gorp.MatchKeys[Key, Policy](keys...)).
 		Exec(ctx, w.tx)
-}
-
-func (w Writer) SetOnRole(
-	ctx context.Context,
-	roleKey role.Key,
-	policies ...Key,
-) error {
-	return w.otg.DefineRelationships(
-		ctx,
-		role.ResourceID(roleKey),
-		ontology.RelationshipTypeParentOf,
-		ResourceIDs(policies)...,
-	)
 }

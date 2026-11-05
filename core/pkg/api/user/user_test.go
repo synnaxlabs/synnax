@@ -17,7 +17,10 @@ import (
 	"github.com/synnaxlabs/freighter"
 	apiuser "github.com/synnaxlabs/synnax/pkg/api/user"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -44,6 +47,30 @@ func createUser(ctx SpecContext, username string) user.User {
 		Password: "p",
 	})).To(Succeed())
 	return u
+}
+
+// grantOnUsers gives u a new role whose policy allows action on every user.
+func grantOnUsers(ctx SpecContext, u user.User, action access.Action) {
+	GinkgoHelper()
+	r := &role.Role{Name: "grant-" + uuid.New().String()}
+	Expect(rbacSvc.Role.NewWriter(nil, true).Create(ctx, r)).To(Succeed())
+	Expect(rbacSvc.Policy.NewWriter(nil, true).Create(ctx, &policy.Policy{
+		Role:    r.Key,
+		Name:    "grant-" + uuid.New().String(),
+		Objects: []resource.ID{{Type: resource.TypeUser}},
+		Actions: []access.Action{action},
+	})).To(Succeed())
+	Expect(writer.AssignRole(ctx, r.Key, u.Key)).To(Succeed())
+}
+
+func rolesOf(ctx SpecContext, key user.Key) []role.Key {
+	GinkgoHelper()
+	var u user.User
+	Expect(userSvc.NewRetrieve().
+		Where(user.MatchKeys(key)).
+		Entry(&u).
+		Exec(ctx, nil)).To(Succeed())
+	return u.Roles
 }
 
 var _ = Describe("Service", func() {
@@ -313,6 +340,64 @@ var _ = Describe("Service", func() {
 					To(MatchError(auth.ErrRepeatedUsername))
 			},
 		)
+	})
+
+	Describe("Roles", func() {
+		It("Should give new users the provided roles", func(ctx SpecContext) {
+			viewer := rbacSvc.Builtin.ViewerKey
+			res := MustSucceed(apiSvc.Create(rootCtx(ctx), db, apiuser.CreateRequest{
+				Users: []apiuser.NewUser{{
+					Username: uuid.New().String(),
+					Password: "p",
+					Roles:    []role.Key{viewer},
+				}},
+			}))
+			Expect(rolesOf(ctx, res.Users[0].Key)).To(Equal([]role.Key{viewer}))
+		})
+		It(
+			"Should deny giving roles to a new user without update access",
+			func(ctx SpecContext) {
+				fctx, u := nonRootCtx(ctx)
+				grantOnUsers(ctx, u, access.ActionCreate)
+				Expect(apiSvc.Create(fctx, db, apiuser.CreateRequest{
+					Users: []apiuser.NewUser{{
+						Username: uuid.New().String(),
+						Password: "p",
+						Roles:    []role.Key{rbacSvc.Builtin.OwnerKey},
+					}},
+				})).Error().To(MatchError(access.ErrDenied))
+			},
+		)
+		It("Should set the roles of users", func(ctx SpecContext) {
+			u := createUser(ctx, "set-roles-"+uuid.New().String())
+			roles := []role.Key{rbacSvc.Builtin.OperatorKey, rbacSvc.Builtin.ViewerKey}
+			Expect(apiSvc.SetRoles(rootCtx(ctx), db, apiuser.SetRolesRequest{
+				Keys:  []user.Key{u.Key},
+				Roles: roles,
+			})).Error().ToNot(HaveOccurred())
+			Expect(rolesOf(ctx, u.Key)).To(Equal(roles))
+		})
+		It(
+			"Should deny setting roles when the subject lacks update access",
+			func(ctx SpecContext) {
+				fctx, u := nonRootCtx(ctx)
+				Expect(apiSvc.SetRoles(fctx, db, apiuser.SetRolesRequest{
+					Keys:  []user.Key{u.Key},
+					Roles: []role.Key{rbacSvc.Builtin.OwnerKey},
+				})).Error().To(MatchError(access.ErrDenied))
+				Expect(rolesOf(ctx, u.Key)).To(BeEmpty())
+			},
+		)
+		It("Should retrieve the users that hold any role", func(ctx SpecContext) {
+			r := &role.Role{Name: "retrieve-" + uuid.New().String()}
+			Expect(rbacSvc.Role.NewWriter(nil, true).Create(ctx, r)).To(Succeed())
+			u := createUser(ctx, "by-role-"+uuid.New().String())
+			Expect(writer.AssignRole(ctx, r.Key, u.Key)).To(Succeed())
+			res := MustSucceed(apiSvc.Retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
+				Roles: []role.Key{r.Key},
+			}))
+			Expect(res.Users).To(HaveExactElements(HaveField("Key", u.Key)))
+		})
 	})
 
 	Describe("Delete", func() {

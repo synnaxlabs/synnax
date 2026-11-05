@@ -12,6 +12,7 @@
 package v1
 
 import (
+	role "github.com/synnaxlabs/synnax/pkg/service/access/rbac/role/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/user/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -29,6 +30,8 @@ type User struct {
 	// RootUser is true if this is a root/admin user with full system access. Root users
 	// cannot be deleted.
 	RootUser bool `json:"root_user" msgpack:"root_user"`
+	// Roles are the roles that grant the user its permissions.
+	Roles []role.Key `json:"roles" msgpack:"roles"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

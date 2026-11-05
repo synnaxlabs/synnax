@@ -17,6 +17,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from synnax.access import role
 from synnax.resource import ID
 
 Key: TypeAlias = UUID
@@ -31,11 +32,13 @@ class User(BaseModel):
         name: Is the user's display name.
         root_user: Is true if this is a root/admin user with full system access. Root
             users cannot be deleted.
+        roles: Are the roles that grant the user its permissions.
     """
 
     key: Key
     name: str = Field(min_length=1)
     root_user: bool = False
+    roles: list[role.Key] = Field(default_factory=list)
 
     @_override
     def __hash__(self) -> int:

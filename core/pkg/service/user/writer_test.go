@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -33,6 +34,21 @@ var _ = Describe("Writer", func() {
 	exists := func(ctx SpecContext, key user.Key) bool {
 		GinkgoHelper()
 		return MustSucceed(svc.NewRetrieve().Where(user.MatchKeys(key)).Exists(ctx, tx))
+	}
+	createRole := func(ctx SpecContext) role.Key {
+		GinkgoHelper()
+		r := role.Role{Name: "role"}
+		Expect(roleSvc.NewWriter(tx, false).Create(ctx, &r)).To(Succeed())
+		return r.Key
+	}
+	rolesOf := func(ctx SpecContext, key user.Key) []role.Key {
+		GinkgoHelper()
+		var u user.User
+		Expect(svc.NewRetrieve().
+			Where(user.MatchKeys(key)).
+			Entry(&u).
+			Exec(ctx, tx)).To(Succeed())
+		return u.Roles
 	}
 	Describe("Create", func() {
 		It("Should refuse an empty name", func(ctx SpecContext) {
@@ -73,6 +89,64 @@ var _ = Describe("Writer", func() {
 				})).Error().To(MatchError(ContainSubstring("cannot create a root user; root users are provisioned at startup")))
 			},
 		)
+	})
+	Describe("Roles", func() {
+		It("Should create a user with roles", func(ctx SpecContext) {
+			r := createRole(ctx)
+			u := MustSucceed(w.Create(ctx, user.User{Name: "a", Roles: []role.Key{r}}))
+			Expect(rolesOf(ctx, u.Key)).To(Equal([]role.Key{r}))
+		})
+		It("Should refuse to create a user with a role that does not exist", func(
+			ctx SpecContext,
+		) {
+			Expect(w.Create(ctx, user.User{
+				Name:  "a",
+				Roles: []role.Key{uuid.New()},
+			})).Error().To(SatisfyAll(
+				BeAssignableToTypeOf(validate.PathError{}),
+				MatchError(ContainSubstring("roles: role")),
+				MatchError(ContainSubstring("does not exist")),
+			))
+		})
+		It("Should replace the roles of each user", func(ctx SpecContext) {
+			old, next := createRole(ctx), createRole(ctx)
+			a := MustSucceed(w.Create(ctx, user.User{
+				Name:  "a",
+				Roles: []role.Key{old},
+			}))
+			b := MustSucceed(w.Create(ctx, user.User{Name: "b"}))
+			Expect(w.SetRoles(ctx, []role.Key{next}, a.Key, b.Key)).To(Succeed())
+			Expect(rolesOf(ctx, a.Key)).To(Equal([]role.Key{next}))
+			Expect(rolesOf(ctx, b.Key)).To(Equal([]role.Key{next}))
+		})
+		It("Should refuse to set a role that does not exist", func(ctx SpecContext) {
+			u := MustSucceed(w.Create(ctx, user.User{Name: "a"}))
+			Expect(w.SetRoles(ctx, []role.Key{uuid.New()}, u.Key)).To(SatisfyAll(
+				BeAssignableToTypeOf(validate.PathError{}),
+				MatchError(ContainSubstring("does not exist")),
+			))
+		})
+		It("Should assign a role to a user once", func(ctx SpecContext) {
+			held, r := createRole(ctx), createRole(ctx)
+			u := MustSucceed(w.Create(ctx, user.User{
+				Name:  "a",
+				Roles: []role.Key{held},
+			}))
+			Expect(w.AssignRole(ctx, r, u.Key)).To(Succeed())
+			Expect(w.AssignRole(ctx, r, u.Key)).To(Succeed())
+			Expect(rolesOf(ctx, u.Key)).To(Equal([]role.Key{held, r}))
+		})
+		It("Should retrieve the users that hold a role", func(ctx SpecContext) {
+			r := createRole(ctx)
+			u := MustSucceed(w.Create(ctx, user.User{Name: "a", Roles: []role.Key{r}}))
+			MustSucceed(w.Create(ctx, user.User{Name: "b"}))
+			var users []user.User
+			Expect(svc.NewRetrieve().
+				Where(user.MatchRole(r)).
+				Entries(&users).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(users).To(HaveExactElements(HaveField("Key", u.Key)))
+		})
 	})
 	Describe("ChangeName", func() {
 		It("Should refuse an empty name", func(ctx SpecContext) {

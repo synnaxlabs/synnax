@@ -13,6 +13,7 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"slices"
 	"uuid"
 
 	"github.com/synnaxlabs/alamos"
@@ -283,22 +284,15 @@ func newDriverRoleMigration(s *Service) gorp.Migration {
 	return migrate.New(
 		"v0.driver_role",
 		func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
-			var racks []Rack
-			if err := s.NewRetrieve().Entries(&racks).Exec(ctx, tx); err != nil {
-				return err
-			}
-			w := s.Ontology.NewWriter(tx)
-			for _, r := range racks {
-				if err := w.DefineRelationships(
-					ctx,
-					role.ResourceID(s.DriverRole),
-					ontology.RelationshipTypeParentOf,
-					r.ResourceID(),
-				); err != nil {
-					return err
-				}
-			}
-			return nil
+			return s.table.NewUpdate().
+				Where(gorp.Match(func(_ gorp.Context, r *Rack) (bool, error) {
+					return !slices.Contains(r.Roles, s.DriverRole), nil
+				})).
+				Change(func(_ gorp.Context, r Rack) Rack {
+					r.Roles = append(slices.Clone(r.Roles), s.DriverRole)
+					return r
+				}).
+				Exec(ctx, tx)
 		},
 	)
 }

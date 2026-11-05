@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
@@ -81,13 +82,19 @@ var _ = Describe("Task", Ordered, func() {
 			Ontology: otg,
 			DB:       db,
 		}))
+		roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+		}))
 		rackService = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:                  db,
 			Ontology:            otg,
 			HostProvider:        testutil.NewStaticHostProvider(1),
 			Status:              stat,
 			HealthCheckInterval: 10 * telem.Millisecond,
-			DriverRole:          MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
+			DriverRole: MustSucceed(
+				racktestutil.CreateDriverRole(ctx, roleSvc),
+			),
 		}))
 		rangeSvc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
 			DB:       db,

@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -44,8 +45,7 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// Ontology is the ontology used to define role and policy resources and the
-	// relationships (role -> subject, role -> policy) that drive enforcement.
+	// Ontology is the ontology used to define role and policy resources.
 	//
 	// [REQUIRED]
 	Ontology *ontology.Ontology
@@ -54,8 +54,8 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL] - Defaults to nil.
 	Signals *signals.Provider
-	// User is the user service used to load existing root users so the Owner role can
-	// be assigned to them during startup.
+	// User is the user service that holds the roles of each user. It assigns the Owner
+	// role to root users at startup.
 	//
 	// [REQUIRED]
 	User *user.Service
@@ -107,14 +107,6 @@ func OpenService(
 	s = &Service{cfg: cfg}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	if s.Policy, err = policy.OpenService(ctx, policy.ServiceConfig{
-		Instrumentation: cfg.Child("policy"),
-		DB:              cfg.DB,
-		Signals:         cfg.Signals,
-		Ontology:        cfg.Ontology,
-	}); !ok(err, s.Policy) {
-		return nil, err
-	}
 	if s.Role, err = role.OpenService(ctx, role.ServiceConfig{
 		Instrumentation: cfg.Child("role"),
 		DB:              cfg.DB,
@@ -123,15 +115,23 @@ func OpenService(
 	}); !ok(err, s.Role) {
 		return nil, err
 	}
+	// Policies reference roles, so the role table opens and migrates first.
+	if s.Policy, err = policy.OpenService(ctx, policy.ServiceConfig{
+		Instrumentation: cfg.Child("policy"),
+		DB:              cfg.DB,
+		Signals:         cfg.Signals,
+		Ontology:        cfg.Ontology,
+	}); !ok(err, s.Policy) {
+		return nil, err
+	}
 	// Provision built-in roles and policies. This is idempotent and runs every startup
 	// to ensure policy definitions stay up to date.
 	s.Builtin, err = builtin.Provision(ctx, cfg.DB, s.Policy, s.Role)
 	if !ok(err, nil) {
 		return nil, err
 	}
-	// Phase 2 migration assigns users to roles based on the legacy mapping extracted by
-	// Phase 1 in the policy package. This runs after provisioning so the built-in roles
-	// exist in the ontology.
+	// The migrations assign roles to users, so they run after provisioning creates the
+	// built-in roles.
 	if err = gorp.Migrate(ctx, gorp.MigrateConfig{
 		Instrumentation: cfg.Instrumentation,
 		DB:              cfg.DB,
@@ -139,7 +139,6 @@ func OpenService(
 		Migrations: migrations.New(migrations.Config{
 			User:     cfg.User,
 			Ontology: cfg.Ontology,
-			Role:     s.Role,
 			Roles:    s.Builtin,
 		}),
 	}); !ok(err, nil) {
@@ -165,35 +164,87 @@ func (s *Service) assignOwnerToRoots(ctx context.Context, ownerKey role.Key) err
 			Exec(ctx, tx); err != nil {
 			return errors.Wrap(err, "load root users")
 		}
-		w := s.Role.NewWriter(tx, false)
-		for _, r := range roots {
-			if err := w.AssignRole(
-				ctx,
-				r.ResourceID(),
-				ownerKey,
-			); err != nil {
-				return errors.Wrapf(
-					err,
-					"assign Owner role to root user %q",
-					r.Name,
-				)
-			}
+		if len(roots) == 0 {
+			return nil
 		}
-		return nil
+		keys := lo.Map(roots, func(u user.User, _ int) user.Key { return u.Key })
+		return errors.Wrap(
+			s.cfg.User.NewWriter(tx).AssignRole(ctx, ownerKey, keys...),
+			"assign Owner role to root users",
+		)
 	})
+}
+
+// RolesOf returns the keys of the roles that the subjects hold, as seen by tx. A
+// subject is a user or a rack. RolesOf returns a validation error for a subject of any
+// other type, and query.ErrNotFound when a subject does not exist.
+func (s *Service) RolesOf(
+	ctx context.Context,
+	tx gorp.Tx,
+	subjects ...resource.ID,
+) ([]role.Key, error) {
+	tx = gorp.OverrideTx(s.cfg.DB, tx)
+	var roles []role.Key
+	for _, subject := range subjects {
+		held, err := s.rolesOf(ctx, tx, subject)
+		if err != nil {
+			return nil, err
+		}
+		roles = append(roles, held...)
+	}
+	return lo.Uniq(roles), nil
+}
+
+func (s *Service) rolesOf(
+	ctx context.Context,
+	tx gorp.Tx,
+	subject resource.ID,
+) ([]role.Key, error) {
+	switch subject.Type {
+	case resource.TypeUser:
+		key, err := user.KeyFromResourceID(subject)
+		if err != nil {
+			return nil, err
+		}
+		var u user.User
+		err = s.cfg.User.NewRetrieve().
+			Where(user.MatchKeys(key)).
+			Entry(&u).
+			Exec(ctx, tx)
+		return u.Roles, err
+	case resource.TypeRack:
+		key, err := rack.KeyFromResourceID(subject)
+		if err != nil {
+			return nil, err
+		}
+		// The rack service takes the Driver role from this service, so it opens later
+		// and racks are read from their table.
+		var r rack.Rack
+		err = gorp.NewRetrieve[rack.Key, rack.Rack]().
+			Where(gorp.MatchKeys[rack.Key, rack.Rack](key)).
+			Entry(&r).
+			Exec(ctx, tx)
+		return r.Roles, err
+	default:
+		return nil, errors.Wrapf(
+			validate.ErrValidation,
+			"%s cannot hold roles",
+			subject,
+		)
+	}
 }
 
 func (e *Enforcer) retrievePolicies(
 	ctx context.Context,
 	subject resource.ID,
 ) ([]policy.Policy, error) {
-	keys, err := e.policy.ResolveSubjects(ctx, e.tx, subject)
-	if err != nil {
+	roles, err := e.svc.RolesOf(ctx, e.tx, subject)
+	if err != nil || len(roles) == 0 {
 		return nil, err
 	}
 	var policies []policy.Policy
-	if err := e.policy.NewRetrieve().
-		Where(policy.MatchKeys(keys...)).
+	if err := e.svc.Policy.NewRetrieve().
+		Where(policy.MatchRoles(roles...)).
 		Entries(&policies).
 		Exec(ctx, e.tx); err != nil {
 		return nil, err
@@ -202,23 +253,16 @@ func (e *Enforcer) retrievePolicies(
 }
 
 type Enforcer struct {
-	policy *policy.Service
-	role   *role.Service
-	cfg    ServiceConfig
-	tx     gorp.Tx
+	svc *Service
+	tx  gorp.Tx
 }
 
 func (s *Service) NewEnforcer(tx gorp.Tx) *Enforcer {
-	return &Enforcer{
-		role:   s.Role,
-		policy: s.Policy,
-		cfg:    s.cfg,
-		tx:     gorp.OverrideTx(s.cfg.DB, tx),
-	}
+	return &Enforcer{svc: s, tx: gorp.OverrideTx(s.cfg.DB, tx)}
 }
 
-// Enforce checks both direct user policies and policies from all roles assigned to the
-// user.
+// Enforce allows the request when the policies of the subject's roles cover every
+// object for the action, and returns an error wrapping access.ErrDenied otherwise.
 func (e *Enforcer) Enforce(ctx context.Context, req access.Request) error {
 	v, err := e.retrievePolicies(ctx, req.Subject)
 	if err != nil {

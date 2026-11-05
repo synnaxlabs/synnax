@@ -43,7 +43,6 @@ type Policy struct {
 // schema constraints.
 func (p Policy) Validate() error {
 	v := validate.New("Policy")
-	v.NotEmptyString("name", p.Name)
 	for i := range p.Objects {
 		v.Exec(func() error { return validate.PathedError(p.Objects[i].Validate(), "objects", strconv.Itoa(i)) })
 	}

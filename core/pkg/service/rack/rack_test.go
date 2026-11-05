@@ -74,10 +74,14 @@ func openStack(ctx context.Context, db *gorp.DB, cfg rack.ServiceConfig) stack {
 	cfg.Ontology = otg
 	cfg.HostProvider = testutil.NewStaticHostProvider(1)
 	cfg.Status = stat
-	cfg.DriverRole = MustSucceed(racktestutil.CreateDriverRole(ctx, otg))
+	roles := MustSucceed(role.OpenService(ctx, role.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+	}))
+	cfg.DriverRole = MustSucceed(racktestutil.CreateDriverRole(ctx, roles))
 	svc := MustSucceed(rack.OpenService(ctx, cfg))
 	return stack{
-		MultiCloser: xio.MultiCloser{otg, g, lbl, stat, svc},
+		MultiCloser: xio.MultiCloser{otg, g, lbl, stat, roles, svc},
 		rack:        svc,
 		status:      stat,
 		group:       g,
@@ -86,23 +90,15 @@ func openStack(ctx context.Context, db *gorp.DB, cfg rack.ServiceConfig) stack {
 	}
 }
 
-// hasDriverRole reports whether the rack with key holds the role driverRole.
-func hasDriverRole(
-	ctx context.Context,
-	otg *ontology.Ontology,
-	driverRole role.Key,
-	key rack.Key,
-) bool {
+// hasDriverRole reports whether the rack with key holds the stack's Driver role.
+func hasDriverRole(ctx context.Context, s stack, key rack.Key) bool {
 	GinkgoHelper()
-	var children []ontology.Resource
-	Expect(otg.NewRetrieve().
-		WhereIDs(role.ResourceID(driverRole)).
-		TraverseTo(ontology.ChildrenTraverser).
-		Entries(&children).
+	var r rack.Rack
+	Expect(s.rack.NewRetrieve().
+		Where(rack.MatchKeys(key)).
+		Entry(&r).
 		Exec(ctx, nil)).To(Succeed())
-	return slices.ContainsFunc(children, func(r ontology.Resource) bool {
-		return r.ID == key.ResourceID()
-	})
+	return slices.Contains(r.Roles, s.driverRole)
 }
 
 var _ = Describe("Driver role", func() {
@@ -111,12 +107,12 @@ var _ = Describe("Driver role", func() {
 		s := DeferClose(openStack(ctx, db, rack.ServiceConfig{}))
 		r := &rack.Rack{Name: "new"}
 		Expect(s.rack.NewWriter(nil).Create(ctx, r)).To(Succeed())
-		Expect(hasDriverRole(ctx, s.otg, s.driverRole, r.Key)).To(BeTrue())
+		Expect(hasDriverRole(ctx, s, r.Key)).To(BeTrue())
 	})
 	It("Should give the embedded rack the Driver role", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		s := DeferClose(openStack(ctx, db, rack.ServiceConfig{}))
-		Expect(hasDriverRole(ctx, s.otg, s.driverRole, s.rack.EmbeddedKey)).
+		Expect(hasDriverRole(ctx, s, s.rack.EmbeddedKey)).
 			To(BeTrue())
 	})
 	It(
@@ -127,13 +123,13 @@ var _ = Describe("Driver role", func() {
 			w := s.rack.NewWriter(nil)
 			r := &rack.Rack{Name: "revoked"}
 			Expect(w.Create(ctx, r)).To(Succeed())
-			Expect(s.otg.NewWriter(nil).DeleteRelationships(ctx, ontology.Relationship{
-				From: role.ResourceID(s.driverRole),
-				Type: ontology.RelationshipTypeParentOf,
-				To:   r.ResourceID(),
-			})).To(Succeed())
+			revoked := *r
+			revoked.Roles = nil
+			Expect(gorp.NewCreate[rack.Key, rack.Rack]().
+				Entry(&revoked).
+				Exec(ctx, db)).To(Succeed())
 			Expect(w.Create(ctx, r)).To(Succeed())
-			Expect(hasDriverRole(ctx, s.otg, s.driverRole, r.Key)).To(BeFalse())
+			Expect(hasDriverRole(ctx, s, r.Key)).To(BeFalse())
 		},
 	)
 	It("Should give the Driver role to racks stored before it", func(ctx SpecContext) {
@@ -145,7 +141,7 @@ var _ = Describe("Driver role", func() {
 		// The second open gives the rack a new Driver role, which only the migration
 		// can assign to a rack that already exists.
 		s = DeferClose(openStack(ctx, db, rack.ServiceConfig{}))
-		Expect(hasDriverRole(ctx, s.otg, s.driverRole, embedded)).To(BeTrue())
+		Expect(hasDriverRole(ctx, s, embedded)).To(BeTrue())
 	})
 })
 

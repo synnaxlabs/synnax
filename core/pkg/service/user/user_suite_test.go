@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -31,6 +32,7 @@ var (
 	otg         *ontology.Ontology
 	groupSvc    *group.Service
 	passwordSvc *password.Service
+	roleSvc     *role.Service
 )
 
 func TestUser(t *testing.T) {
@@ -62,5 +64,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 			auth.Credentials{Username: "suite-root", Password: "p"},
 		),
 	)
+	roleSvc = MustOpen(role.OpenService(ctx, role.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+	}))
 	writer = svc.NewWriter(nil)
 })

@@ -45,6 +45,7 @@ var (
 	groupSvc   *group.Service
 	statusSvc  *status.Service
 	rbacSvc    *rbac.Service
+	userSvc    *user.Service
 	rangerSvc  *ranger.Service
 	aliasSvc   *alias.Service
 	apiSvc     *apichannel.Service
@@ -64,7 +65,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Ontology: otg,
 		Group:    groupSvc,
 	}))
-	userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
+	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
 		DB:       node.DB,
 		Ontology: otg,
 		Group:    groupSvc,
@@ -121,11 +122,12 @@ func grantOn(
 	r := &role.Role{Name: "role-" + uuid.New().String(), Description: "test"}
 	Expect(roleWriter.Create(ctx, r)).To(Succeed())
 	p := &policy.Policy{
+		Role:    r.Key,
 		Name:    "policy-" + uuid.New().String(),
 		Objects: objects,
 		Actions: actions,
 	}
 	Expect(policyWriter.Create(ctx, p)).To(Succeed())
-	Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
-	Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
+	key := MustSucceed(user.KeyFromResourceID(subject))
+	Expect(userSvc.NewWriter(nil).AssignRole(ctx, r.Key, key)).To(Succeed())
 }

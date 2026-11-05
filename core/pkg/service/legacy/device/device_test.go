@@ -20,6 +20,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
@@ -63,12 +64,16 @@ var _ = Describe("Device", func() {
 			Ontology: otg,
 			DB:       db,
 		}))
+		roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+		}))
 		rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:           db,
 			Ontology:     otg,
 			HostProvider: testutil.NewStaticHostProvider(1),
 			Status:       stat,
-			DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
+			DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
 		}))
 		svc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
 			DB:       db,
@@ -1238,12 +1243,16 @@ var _ = Describe("Device", func() {
 				Ontology: otg,
 				DB:       db,
 			}))
+			roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+			}))
 			rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 				DB:           db,
 				Ontology:     otg,
 				HostProvider: testutil.NewStaticHostProvider(1),
 				Status:       stat,
-				DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
+				DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
 			}))
 			svc := MustOpen(device.OpenService(ctx, device.ServiceConfig{
 				DB:       db,
@@ -1293,6 +1302,10 @@ var _ = Describe("Device", func() {
 					Ontology: otg,
 					DB:       db,
 				}))
+				roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
+					DB:       db,
+					Ontology: otg,
+				}))
 				rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 					DB:                  db,
 					Ontology:            otg,
@@ -1300,7 +1313,7 @@ var _ = Describe("Device", func() {
 					Status:              stat,
 					HealthCheckInterval: 10 * telem.Millisecond,
 					DriverRole: MustSucceed(
-						racktestutil.CreateDriverRole(ctx, otg),
+						racktestutil.CreateDriverRole(ctx, roleSvc),
 					),
 				}))
 				svc := MustOpen(device.OpenService(ctx, device.ServiceConfig{

@@ -12,6 +12,7 @@
 package v3
 
 import (
+	role "github.com/synnaxlabs/synnax/pkg/service/access/rbac/role/versions/v0"
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
 	"github.com/synnaxlabs/x/validate"
@@ -42,6 +43,8 @@ type Rack struct {
 	Integrations []string `json:"integrations" msgpack:"integrations"`
 	// Group is the group the rack sits in, if any.
 	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
+	// Roles are the roles that grant the rack its permissions.
+	Roles []role.Key `json:"roles" msgpack:"roles"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

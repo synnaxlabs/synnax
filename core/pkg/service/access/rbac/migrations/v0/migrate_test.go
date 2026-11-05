@@ -11,6 +11,7 @@ package v0_test
 
 import (
 	"context"
+	"slices"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -33,28 +34,20 @@ import (
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
-func userHasSpecificRole(
+func userHasRole(
 	ctx context.Context,
 	tx gorp.Tx,
-	otg *ontology.Ontology,
-	userID resource.ID,
-	roleKey uuid.UUID,
+	users *user.Service,
+	key user.Key,
+	roleKey role.Key,
 ) bool {
-	var roles []ontology.Resource
-	if err := otg.NewRetrieve().
-		WhereIDs(userID).
-		TraverseTo(ontology.ParentsTraverser).
-		WhereTypes(resource.TypeRole).
-		Entries(&roles).
-		Exec(ctx, tx); err != nil {
-		return false
-	}
-	for _, r := range roles {
-		if r.ID.Key == roleKey.String() {
-			return true
-		}
-	}
-	return false
+	GinkgoHelper()
+	var u user.User
+	Expect(users.NewRetrieve().
+		Where(user.MatchKeys(key)).
+		Entry(&u).
+		Exec(ctx, tx)).To(Succeed())
+	return slices.Contains(u.Roles, roleKey)
 }
 
 var _ = Describe("Legacy Permission Migration", func() {
@@ -140,7 +133,6 @@ var _ = Describe("Legacy Permission Migration", func() {
 					v0.NewMigration(v0.MigrationConfig{
 						User:     userSvc,
 						Ontology: otg,
-						Role:     roleSvc,
 						Roles:    builtinRoles,
 					}),
 				},
@@ -173,43 +165,19 @@ var _ = Describe("Legacy Permission Migration", func() {
 
 			// Root user -> Owner
 			Expect(
-				userHasSpecificRole(
-					ctx,
-					tx2,
-					otg,
-					rootUser.ResourceID(),
-					ownerRole.Key,
-				),
+				userHasRole(ctx, tx2, userSvc, rootUser.Key, ownerRole.Key),
 			).To(BeTrue())
 			// Admin policy user -> Owner
 			Expect(
-				userHasSpecificRole(
-					ctx,
-					tx2,
-					otg,
-					adminUser.ResourceID(),
-					ownerRole.Key,
-				),
+				userHasRole(ctx, tx2, userSvc, adminUser.Key, ownerRole.Key),
 			).To(BeTrue())
 			// Schematic policy user -> Engineer
 			Expect(
-				userHasSpecificRole(
-					ctx,
-					tx2,
-					otg,
-					schematicUser.ResourceID(),
-					engineerRole.Key,
-				),
+				userHasRole(ctx, tx2, userSvc, schematicUser.Key, engineerRole.Key),
 			).To(BeTrue())
 			// Regular user -> Operator
 			Expect(
-				userHasSpecificRole(
-					ctx,
-					tx2,
-					otg,
-					regularUser.ResourceID(),
-					operatorRole.Key,
-				),
+				userHasRole(ctx, tx2, userSvc, regularUser.Key, operatorRole.Key),
 			).To(BeTrue())
 
 			// Legacy policies should be deleted
@@ -270,7 +238,6 @@ var _ = Describe("Legacy Permission Migration", func() {
 					v0.NewMigration(v0.MigrationConfig{
 						User:     userSvc,
 						Ontology: otg,
-						Role:     roleSvc,
 						Roles:    builtinRoles,
 					}),
 				},
@@ -321,8 +288,10 @@ var _ = Describe("Legacy Permission Migration", func() {
 		viewer := MustSucceed(userSvc.NewWriter(tx).Create(ctx, user.User{
 			Name: "viewer",
 		}))
-		Expect(roleSvc.NewWriter(tx, true).AssignRole(
-			ctx, viewer.ResourceID(), builtinRoles.ViewerKey,
+		Expect(userSvc.NewWriter(tx).AssignRole(
+			ctx,
+			builtinRoles.ViewerKey,
+			viewer.Key,
 		)).To(Succeed())
 		Expect(tx.Commit(ctx)).To(Succeed())
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
@@ -331,16 +300,13 @@ var _ = Describe("Legacy Permission Migration", func() {
 			Migrations: []gorp.Migration{v0.NewMigration(v0.MigrationConfig{
 				User:     userSvc,
 				Ontology: otg,
-				Role:     roleSvc,
 				Roles:    builtinRoles,
 			})},
 		})).To(Succeed())
 		check := DeferClose(db.OpenTx())
-		Expect(userHasSpecificRole(
-			ctx, check, otg, viewer.ResourceID(), builtinRoles.ViewerKey,
-		)).To(BeTrue())
-		Expect(userHasSpecificRole(
-			ctx, check, otg, viewer.ResourceID(), builtinRoles.OperatorKey,
-		)).To(BeFalse())
+		Expect(userHasRole(ctx, check, userSvc, viewer.Key, builtinRoles.ViewerKey)).
+			To(BeTrue())
+		Expect(userHasRole(ctx, check, userSvc, viewer.Key, builtinRoles.OperatorKey)).
+			To(BeFalse())
 	})
 })

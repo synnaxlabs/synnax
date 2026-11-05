@@ -17,6 +17,6 @@ import "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/versions"
 type Key = versions.Key
 
 // Policy is an access control policy that defines which actions are permitted on which
-// resources. Policies are attached to roles, and roles are assigned to users via
-// ontology relationships.
+// resources. Each policy belongs to one role, and a subject holds the policies of each
+// role in its roles.
 type Policy = versions.Policy

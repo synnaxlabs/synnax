@@ -21,11 +21,19 @@ import (
 )
 
 var _ = Describe("CreateDriverRole", func() {
-	It("Should define the role in the ontology", func(ctx SpecContext) {
+	It("Should create the role", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		k := MustSucceed(racktestutil.CreateDriverRole(ctx, otg))
-		Expect(otg.NewRetrieve().WhereIDs(role.ResourceID(k)).Exists(ctx, nil)).
-			To(BeTrue())
+		roles := MustOpen(role.OpenService(ctx, role.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+		}))
+		k := MustSucceed(racktestutil.CreateDriverRole(ctx, roles))
+		var r role.Role
+		Expect(roles.NewRetrieve().
+			Where(role.MatchKeys(k)).
+			Entry(&r).
+			Exec(ctx, nil)).To(Succeed())
+		Expect(r.Name).To(Equal("Driver"))
 	})
 })

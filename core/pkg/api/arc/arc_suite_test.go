@@ -32,7 +32,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -53,6 +52,7 @@ var (
 	db       *gorp.DB
 	otg      *ontology.Ontology
 	rbacSvc  *rbac.Service
+	userSvc  *user.Service
 	arcSvc   *arc.Service
 	apiSvc   *apiarc.Service
 	author   user.User
@@ -78,13 +78,32 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:       db,
 		Ontology: otg,
 	}))
+	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
+	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		Group:    groupSvc,
+	}))
+	MustSucceed2(
+		user.ProvisionRoot(
+			ctx,
+			userSvc,
+			passwordSvc,
+			auth.Credentials{Username: "suite-root", Password: "p"},
+		),
+	)
+	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		User:     userSvc,
+	}))
 	rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:                  db,
 		Ontology:            otg,
 		HostProvider:        testutil.NewStaticHostProvider(1),
 		Status:              statusSvc,
 		HealthCheckInterval: 10 * telem.Millisecond,
-		DriverRole:          MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
+		DriverRole:          rbacSvc.Builtin.DriverKey,
 	}))
 	imexSvc := imex.NewService()
 	arcTable := MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
@@ -116,25 +135,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status:     statusSvc,
 		ImEx:       imexSvc,
 	}))
-	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
-	userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
-	}))
-	MustSucceed2(
-		user.ProvisionRoot(
-			ctx,
-			userSvc,
-			passwordSvc,
-			auth.Credentials{Username: "suite-root", Password: "p"},
-		),
-	)
-	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		User:     userSvc,
-	}))
 	apiSvc = MustSucceed(apiarc.NewService(apiarc.ServiceConfig{
 		RBAC:   rbacSvc,
 		Arc:    arcSvc,
@@ -150,8 +150,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 // grantOn creates a policy granting the given action on the given objects to a
 // fresh role and assigns the role to the given subject. Writes commit directly
 // to the database so the api enforcers (which read committed state with no
-// transaction) can observe them. The assignment is unassigned on spec cleanup so
-// a grant cannot leak into later randomized specs.
+// transaction) can observe them. The role is deleted on spec cleanup so a grant
+// cannot leak into later randomized specs.
 func grantOn(
 	ctx SpecContext,
 	subject resource.ID,
@@ -167,15 +167,16 @@ func grantOn(
 	}
 	Expect(roleWriter.Create(ctx, r)).To(Succeed())
 	p := &policy.Policy{
+		Role:    r.Key,
 		Name:    string(action) + "-policy-" + uuid.New().String(),
 		Objects: objects,
 		Actions: []access.Action{action},
 	}
 	Expect(policyWriter.Create(ctx, p)).To(Succeed())
-	Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
-	Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
+	key := MustSucceed(user.KeyFromResourceID(subject))
+	Expect(userSvc.NewWriter(nil).AssignRole(ctx, r.Key, key)).To(Succeed())
 	DeferCleanup(func(ctx SpecContext) {
-		Expect(roleWriter.UnassignRole(ctx, subject, r.Key)).To(Succeed())
+		Expect(roleWriter.Delete(ctx, r.Key)).To(Succeed())
 	})
 }
 

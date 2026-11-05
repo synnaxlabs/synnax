@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 
 from synnax import resource
 from synnax.access import action
+from synnax.access import role as role_
 from synnax.resource import ID
 
 Key: TypeAlias = UUID
@@ -26,15 +27,16 @@ Key: TypeAlias = UUID
 
 class Policy(BaseModel):
     """Is an access control policy that defines which actions are permitted on which
-    resources. Policies are attached to roles, and roles are assigned to users via
-    ontology relationships.
+    resources. Each policy belongs to one role, and a subject holds the policies of each
+    role in its roles.
 
     Attributes:
         key: Is the unique identifier for this policy.
         name: Is a human-readable name for the policy.
-        objects: Is the list of ontology resources this policy applies to.
+        objects: Is the list of resources this policy applies to.
         actions: Is the list of actions this policy permits.
         internal: Is true if this is a built-in system policy that cannot be deleted.
+        role: Is the role that grants this policy to its subjects.
     """
 
     key: Key = Field(default_factory=uuid4)
@@ -42,6 +44,7 @@ class Policy(BaseModel):
     objects: list[resource.ID] = Field(default_factory=list)
     actions: list[action.Action] = Field(default_factory=list)
     internal: bool = False
+    role: role_.Key
 
     @_override
     def __hash__(self) -> int:

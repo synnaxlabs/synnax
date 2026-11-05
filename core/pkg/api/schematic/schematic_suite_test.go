@@ -46,6 +46,7 @@ var (
 	groupSvc     *group.Service
 	otg          *ontology.Ontology
 	rbacSvc      *rbac.Service
+	userSvc      *user.Service
 	schematicSvc *schematic.Service
 	apiSvc       *apischematic.Service
 	proj         project.Project
@@ -121,13 +122,14 @@ func grantOn(
 	}
 	Expect(roleWriter.Create(ctx, r)).To(Succeed())
 	p := &policy.Policy{
+		Role:    r.Key,
 		Name:    string(action) + "-policy-" + uuid.New().String(),
 		Objects: objects,
 		Actions: []access.Action{action},
 	}
 	Expect(policyWriter.Create(ctx, p)).To(Succeed())
-	Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
-	Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
+	key := MustSucceed(user.KeyFromResourceID(subject))
+	Expect(userSvc.NewWriter(nil).AssignRole(ctx, r.Key, key)).To(Succeed())
 }
 
 // newUser creates a user with no policies.

@@ -13,8 +13,10 @@ package user
 
 import (
 	"context"
+	"slices"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 )
 
 // tableName names the User table for references. Pass it as
@@ -34,6 +36,7 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
+	roles  *gorp.KeyReference[Key, User, role.Key]
 	search *gorp.SearchIndex[Key, User]
 }
 
@@ -42,6 +45,19 @@ type indexes struct {
 // Service struct.
 func newIndexes() indexes {
 	return indexes{
+		roles: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, User, role.Key]{
+			Name:     "roles",
+			Table:    "role",
+			OnDelete: gorp.Detach,
+			Targets: func(e *User) []role.Key {
+				return e.Roles
+			},
+			Detach: func(e *User, t role.Key) {
+				e.Roles = slices.DeleteFunc(e.Roles, func(v role.Key) bool {
+					return v == t
+				})
+			},
+		}),
 		search: gorp.NewSearchIndex[Key, User](
 			"search",
 			func(e *User) []string {
@@ -56,6 +72,14 @@ func newIndexes() indexes {
 func (i indexes) all() []gorp.Index[Key, User] {
 	return []gorp.Index[Key, User]{
 		i.search,
+	}
+}
+
+// references returns the references packaged for registration via
+// gorp.TableConfig.References when opening the underlying table.
+func (i indexes) references() []gorp.Reference[Key, User] {
+	return []gorp.Reference[Key, User]{
+		i.roles,
 	}
 }
 
@@ -119,6 +143,23 @@ func MatchRootUser(v bool) Filter {
 		return gorp.Match(func(_ gorp.Context, e *User) (bool, error) {
 			return e.RootUser == v, nil
 		})
+	}
+}
+
+// MatchRoles returns a filter for users
+// whose Roles contains any of the provided
+// values.
+func MatchRoles(vals ...role.Key) Filter {
+	return func(r Retrieve) gorp.Filter[Key, User] {
+		return r.indexes.roles.Filter(vals...)
+	}
+}
+
+// MatchHasRoles returns a filter for users whose
+// Roles holds a target when has is true, and holds none when has is false.
+func MatchHasRoles(has bool) Filter {
+	return func(r Retrieve) gorp.Filter[Key, User] {
+		return r.indexes.roles.FilterHolding(has)
 	}
 }
 

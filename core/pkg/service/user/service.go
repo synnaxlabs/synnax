@@ -100,8 +100,10 @@ func OpenService(
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, User]{
 		DB:              cfg.DB,
+		Name:            tableName,
 		Migrations:      versions.Migrations,
 		Indexes:         s.indexes.all(),
+		References:      s.indexes.references(),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err

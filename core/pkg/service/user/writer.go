@@ -11,9 +11,11 @@ package user
 
 import (
 	"context"
+	"slices"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
@@ -32,7 +34,8 @@ type Writer struct {
 
 // Create persists a new user record from u. If u.Key is the zero UUID, a new key is
 // assigned. The returned User has Key populated. Returns an error if u.RootUser is
-// true, and a validation error if u.Name is empty or a user with u.Key already exists.
+// true, and a validation error if u.Name is empty, a user with u.Key already exists, or
+// a role in u.Roles does not exist.
 func (w Writer) Create(ctx context.Context, u User) (User, error) {
 	if u.RootUser {
 		return User{}, errors.New(
@@ -79,6 +82,32 @@ func (w Writer) ChangeName(ctx context.Context, key Key, name string) error {
 			u.Name = name
 			return u
 		}).Exec(ctx, w.tx)
+}
+
+// SetRoles sets the roles of the users with the given keys. It returns a validation
+// error when a role does not exist.
+func (w Writer) SetRoles(ctx context.Context, roles []role.Key, keys ...Key) error {
+	return w.table.NewUpdate().
+		Where(gorp.MatchKeys[Key, User](keys...)).
+		Change(func(_ gorp.Context, u User) User {
+			u.Roles = slices.Clone(roles)
+			return u
+		}).
+		Exec(ctx, w.tx)
+}
+
+// AssignRole adds the role r to each user with the given keys that does not hold it. It
+// returns a validation error when r does not exist.
+func (w Writer) AssignRole(ctx context.Context, r role.Key, keys ...Key) error {
+	return w.table.NewUpdate().
+		Where(gorp.MatchKeys[Key, User](keys...)).
+		Change(func(_ gorp.Context, u User) User {
+			if !slices.Contains(u.Roles, r) {
+				u.Roles = append(slices.Clone(u.Roles), r)
+			}
+			return u
+		}).
+		Exec(ctx, w.tx)
 }
 
 func (w Writer) setRootUser(ctx context.Context, key Key, root bool) error {

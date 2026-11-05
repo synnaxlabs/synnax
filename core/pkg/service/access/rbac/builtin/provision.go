@@ -107,27 +107,6 @@ func provisionRole(
 	policySvc *policy.Service,
 	roleSvc *role.Service,
 ) (role.Key, error) {
-	policyKeys := make([]policy.Key, 0, len(policies))
-	for i := range policies {
-		pol := &policies[i]
-		desiredName := pol.Name
-		desiredObjects := pol.Objects
-		desiredActions := pol.Actions
-		if err := policySvc.NewRetrieve().
-			Where(policy.MatchNames(storedNames(pol.Name)...)).
-			Where(policy.MatchInternal(true)).
-			Entry(pol).
-			Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
-			return uuid.Nil(), err
-		}
-		pol.Name = desiredName
-		pol.Objects = desiredObjects
-		pol.Actions = desiredActions
-		if err := policySvc.NewWriter(tx, true).Create(ctx, pol); err != nil {
-			return uuid.Nil(), err
-		}
-		policyKeys = append(policyKeys, pol.Key)
-	}
 	desired := rol
 	if err := roleSvc.NewRetrieve().
 		Where(role.MatchNames(storedNames(rol.Name)...)).
@@ -143,9 +122,26 @@ func provisionRole(
 			return uuid.Nil(), err
 		}
 	}
-	if err := policySvc.NewWriter(tx, true).
-		SetOnRole(ctx, rol.Key, policyKeys...); err != nil {
-		return uuid.Nil(), err
+	for i := range policies {
+		pol := &policies[i]
+		desiredName := pol.Name
+		desiredObjects := pol.Objects
+		desiredActions := pol.Actions
+		if err := policySvc.NewRetrieve().
+			Where(policy.MatchNames(storedNames(pol.Name)...)).
+			Where(policy.MatchInternal(true)).
+			Where(policy.MatchRoles(rol.Key)).
+			Entry(pol).
+			Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
+			return uuid.Nil(), err
+		}
+		pol.Name = desiredName
+		pol.Objects = desiredObjects
+		pol.Actions = desiredActions
+		pol.Role = rol.Key
+		if err := policySvc.NewWriter(tx, true).Create(ctx, pol); err != nil {
+			return uuid.Nil(), err
+		}
 	}
 	return rol.Key, nil
 }

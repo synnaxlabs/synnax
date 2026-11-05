@@ -11,6 +11,7 @@
 
 import { z } from "zod";
 
+import { role } from "@/access/role";
 import { resource } from "@/resource";
 
 export const keyZ = z.uuid();
@@ -30,6 +31,8 @@ export const userZ = z.object({
    * cannot be deleted.
    */
   rootUser: z.boolean().default(false),
+  /** roles are the roles that grant the user its permissions. */
+  roles: role.keyZ.array().default(() => []),
 });
 export interface User extends z.infer<typeof userZ> {}
 
