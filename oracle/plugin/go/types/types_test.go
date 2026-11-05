@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/oracle/versions"
 	gotesterrors "github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 func TestGoTypes(t *testing.T) {
@@ -2938,6 +2939,9 @@ Entry struct {
 							"type ScaleType = versions.ScaleType",
 							"type LinearScale = versions.LinearScale",
 							"LinearScaleType ScaleType = versions.LinearScaleType",
+							"// ScaleVariant is implemented by every Scale variant.",
+							`// ScaleType is the "type" value that selects a variant of Scale.`,
+							"// LinearScaleType selects the LinearScale variant.",
 						)
 				},
 			)
@@ -3240,6 +3244,58 @@ func (u View) Type() ViewType {
 			ExpectContent(resp, "types.gen.go").
 				ToContain(`type ScaleType string`, "\nconst LinearScaleType ScaleType = \"linear\"\n").
 				ToNotContain("const (\n\tLinearScaleType")
+		},
+	)
+
+	It(
+		"Should document the exported union declarations and not the marker",
+		func(ctx SpecContext) {
+			source := `
+			@go output "out"
+
+			LinearParams struct { slope float64 }
+			NoneParams struct {}
+
+			Scale union on kind {
+				linear LinearParams {
+					@doc value "scales a value along a line."
+				}
+				none NoneParams
+			}
+		`
+			resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToBeValidGoSource().
+				ToContain(
+					`// ScaleType is the "kind" value that selects a variant of Scale.`,
+					"// LinearScaleType scales a value along a line.",
+					"// NoneScaleType selects the NoneScale variant.",
+					"// ScaleVariant is implemented by every Scale variant.",
+				).
+				ToNotContain("// isScaleVariant")
+		},
+	)
+
+	It(
+		"Should wrap an unknown discriminator in a validation error",
+		func(ctx SpecContext) {
+			source := `
+			@go output "out"
+
+			LinearParams struct { slope float64 }
+
+			Scale union on type {
+				linear LinearParams
+			}
+		`
+			resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToBeValidGoSource().
+				ToContain(
+					`"github.com/synnaxlabs/x/validate"`,
+					"validate.ErrValidation,",
+					`"Scale: unknown type %q",`,
+				)
 		},
 	)
 
@@ -3750,7 +3806,11 @@ func (u *rtScale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.rtLinearScale
 	default:
-		return gotesterrors.Newf("rtScale: unknown type %q", disc.Type)
+		return gotesterrors.Wrapf(
+			validate.ErrValidation,
+			"rtScale: unknown type %q",
+			disc.Type,
+		)
 	}
 	return nil
 }
@@ -3830,6 +3890,18 @@ var _ = Describe("Union codec round trip", func() {
 			To(Succeed())
 		Expect(out.Variant.(rtLinearScale).Slope).To(Equal(2.0))
 	})
+
+	DescribeTable("Should reject an invalid discriminator as a validation error",
+		func(data, value string) {
+			var out rtScale
+			Expect(json.Unmarshal([]byte(data), &out)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("rtScale: unknown type "+value)),
+			))
+		},
+		Entry("unknown", `{"type":"bogus"}`, `"bogus"`),
+		Entry("missing", `{"slope":2}`, `""`),
+	)
 
 	It("Should reject an unknown member of a union variant", func() {
 		data := []byte(`{"type":"linear","slope":2,"offset":1}`)

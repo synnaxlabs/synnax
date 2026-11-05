@@ -91,6 +91,7 @@ export const Base = ({
     scrolling,
     empty,
     loading,
+    blank,
     selectedText,
     selectedLines,
     region,
@@ -249,7 +250,15 @@ export const Base = ({
         onContextMenu={menuProps.open}
         {...rest}
       >
-        {loading && (
+        {blank && (
+          <Status.Loading
+            aria-label="Loading entries"
+            className={CSS.BE("log", "blank")}
+          >
+            <Status.Orbital />
+          </Status.Loading>
+        )}
+        {loading && !blank && (
           <Icon.Loading aria-label="Loading" className={CSS.BE("log", "loading")} />
         )}
         {empty ? emptyContent : children}

@@ -47,11 +47,24 @@
         }
 
         > .lyra-select__label,
+        > .lyra-select-single-trigger__end,
         &:has(> .lyra-icon:first-child, > .lyra-select-single-trigger__icon:first-child)
             > .lyra-caret-animated {
             display: none;
         }
     }
+}
+
+/* The name fills the trigger, so end content sits before the caret at the trailing
+   edge. */
+.lyra-dialog__trigger > .lyra-select__label:has(+ .lyra-select-single-trigger__end) {
+    flex-grow: 1;
+}
+
+.lyra-select-single-trigger__end {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
 }
 
 /* A fixed item's label fills the trigger, so its content can push a part, such as an
@@ -99,32 +112,4 @@
     > .lyra-select-single-trigger__icon
     > .lyra-icon {
     visibility: hidden;
-}
-
-/* A shadow trigger reads as its value, with its text inset like a shadow input's. An
-   open menu keeps its box, so the menu points at the field. The caret keeps its space
-   while hidden, so the label never moves. */
-.lyra-btn.lyra-dialog__trigger.lyra--shadow {
-    padding-inline: 1.5rem;
-
-    --pluto-bg: transparent;
-    --pluto-border-color: transparent;
-    --pluto-hover-bg: var(--pluto-fill-hover);
-    --pluto-active-bg: var(--pluto-fill-press);
-    --pluto-hover-border-color: var(--pluto-gray-l7);
-    --pluto-active-border-color: var(--pluto-gray-l8);
-
-    &[aria-expanded="true"] {
-        --pluto-bg: var(--pluto-fill-hover);
-        --pluto-border-color: var(--pluto-gray-l7);
-    }
-
-    & .lyra-caret-animated {
-        color: var(--pluto-gray-l7);
-        opacity: 0;
-    }
-
-    &:is(:hover, :focus-visible, [aria-expanded="true"]) .lyra-caret-animated {
-        opacity: 1;
-    }
 }

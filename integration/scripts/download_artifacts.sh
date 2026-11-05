@@ -41,12 +41,10 @@ download_artifacts() {
     local os_suffix=$(get_os_suffix)
     echo "Downloading artifacts from run: $run_id"
 
-    # Create binaries directory
-    mkdir -p ./binaries
-
     # Download core artifact matching this OS
     echo "Downloading synnax-core *-${os_suffix} artifact..."
-    gh run download $run_id -p "synnax-core*${os_suffix}" --dir ./binaries
+    .github/scripts/download_run_artifacts.sh "$run_id" "synnax-core*${os_suffix}" \
+        ./binaries
 
     # gh run download creates a subdirectory named after the artifact — flatten it
     if ls ./binaries/synnax-core*/synnax-v* 1> /dev/null 2>&1; then
