@@ -20,6 +20,7 @@ import (
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/secret/grant/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/testutil"
 )
 
@@ -36,22 +37,22 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v0.Grant{
-				Key:     uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-				Rack:    ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_4"},
-				Secrets: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805")},
-				Session: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"),
+				Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Subject:   ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_4"},
+				Secrets:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805")},
+				ExpiresAt: telem.TimeStamp(7),
 			}),
 			Entry("zero values", v0.Grant{
-				Key:     uuid.Nil(),
-				Rack:    ontology.ID{Type: ontology.ResourceType(""), Key: ""},
-				Secrets: []uuid.UUID{},
-				Session: uuid.Nil(),
+				Key:       uuid.Nil(),
+				Subject:   ontology.ID{Type: ontology.ResourceType(""), Key: ""},
+				Secrets:   []uuid.UUID{},
+				ExpiresAt: telem.TimeStamp(0),
 			}),
 			Entry("empty collections", v0.Grant{
-				Key:     uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-				Rack:    ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_4"},
-				Secrets: []uuid.UUID{},
-				Session: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"),
+				Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Subject:   ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_4"},
+				Secrets:   []uuid.UUID{},
+				ExpiresAt: telem.TimeStamp(7),
 			}),
 		)
 	})
@@ -59,10 +60,10 @@ var _ = Describe("Codec", func() {
 
 func BenchmarkEncodeDecodeGrant(b *testing.B) {
 	seed := v0.Grant{
-		Key:     uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-		Rack:    ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_4"},
-		Secrets: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805")},
-		Session: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"),
+		Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		Subject:   ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_4"},
+		Secrets:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805")},
+		ExpiresAt: telem.TimeStamp(7),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -82,10 +83,10 @@ func BenchmarkEncodeDecodeGrant(b *testing.B) {
 func FuzzDecodeGrant(f *testing.F) {
 	{
 		seed := v0.Grant{
-			Key:     uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-			Rack:    ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_4"},
-			Secrets: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805")},
-			Session: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"),
+			Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Subject:   ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_4"},
+			Secrets:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805")},
+			ExpiresAt: telem.TimeStamp(7),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -95,10 +96,10 @@ func FuzzDecodeGrant(f *testing.F) {
 	}
 	{
 		seed := v0.Grant{
-			Key:     uuid.Nil(),
-			Rack:    ontology.ID{Type: ontology.ResourceType(""), Key: ""},
-			Secrets: []uuid.UUID{},
-			Session: uuid.Nil(),
+			Key:       uuid.Nil(),
+			Subject:   ontology.ID{Type: ontology.ResourceType(""), Key: ""},
+			Secrets:   []uuid.UUID{},
+			ExpiresAt: telem.TimeStamp(0),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -108,10 +109,10 @@ func FuzzDecodeGrant(f *testing.F) {
 	}
 	{
 		seed := v0.Grant{
-			Key:     uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-			Rack:    ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_4"},
-			Secrets: []uuid.UUID{},
-			Session: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"),
+			Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Subject:   ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_4"},
+			Secrets:   []uuid.UUID{},
+			ExpiresAt: telem.TimeStamp(7),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

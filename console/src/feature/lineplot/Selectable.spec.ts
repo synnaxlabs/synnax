@@ -9,19 +9,20 @@
 
 import { lineplot } from "@synnaxlabs/client";
 import { RoleClients } from "@synnaxlabs/client/testutil";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { LinePlot } from "@/feature/lineplot";
 import { client, project } from "@/feature/lineplot/testutil";
 import { createActiveState } from "@/platform/project/testutil";
+import { renderVisible, select } from "@/platform/selector/testutil";
 import { Session } from "@/session";
 import { assertDefined, createConsoleWrapper, resolveFocusedTab } from "@/testutil";
 
 const roles = new RoleClients(client);
 
 describe("lineplot/Selectable", () => {
-  it("creates a plot in the active project and opens its tab when clicked", async () => {
+  it("creates a plot in the active project and opens its tab when selected", async () => {
     const proj = await client.projects.retrieve(await project());
     const { wrapper, store } = await createConsoleWrapper({
       client,
@@ -29,8 +30,7 @@ describe("lineplot/Selectable", () => {
     });
     const Selectable = LinePlot.SELECTABLES[0];
     expect(Selectable.type).toBe(lineplot.TYPE_ONTOLOGY_ID.type);
-    render(<Selectable />, { wrapper });
-    fireEvent.click(await screen.findByText("Line plot"));
+    select(Selectable, wrapper);
     const tab = await resolveFocusedTab(store, client, (t) => t.variant === "resource");
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
     expect(tab.resource.type).toBe(lineplot.TYPE_ONTOLOGY_ID.type);
@@ -48,21 +48,28 @@ describe("lineplot/Selectable permissions", () => {
     return Selectable;
   };
 
-  it("should offer the tile to an engineer", async () => {
-    const Selectable = findSelectable();
+  it("should be visible to an engineer", async () => {
     const { wrapper } = await createConsoleWrapper({
       client: await roles.get("Engineer"),
     });
-    render(<Selectable />, { wrapper });
-    expect(await screen.findByText("Line plot")).toBeTruthy();
+    const { result } = renderVisible(
+      findSelectable(),
+      lineplot.TYPE_ONTOLOGY_ID,
+      wrapper,
+    );
+    await waitFor(() => expect(result.current.visible).toBe(true));
   });
 
-  it("should withhold the tile from a viewer", async () => {
-    const Selectable = findSelectable();
+  it("should not be visible to a viewer", async () => {
     const { wrapper } = await createConsoleWrapper({
       client: await roles.get("Viewer"),
     });
-    const { container } = render(<Selectable />, { wrapper });
-    await waitFor(() => expect(container.textContent).toBe(""));
+    const { result } = renderVisible(
+      findSelectable(),
+      lineplot.TYPE_ONTOLOGY_ID,
+      wrapper,
+    );
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+    expect(result.current.visible).toBe(false);
   });
 });
