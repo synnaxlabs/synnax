@@ -19,6 +19,7 @@
         display: grid;
         grid-column: 1 / -1;
         grid-template-columns: subgrid;
+
         /* A label or value that starts with an icon has the icon's baseline, so the
            pair centers instead. */
         align-items: center;
