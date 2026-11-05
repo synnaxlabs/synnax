@@ -497,13 +497,13 @@ func synthesizeRetrieveTypes(c *analysisCtx) {
 		}
 	}
 	// A client takes lines and retrieve options side by side, so no line may share a
-	// name with an option.
+	// name with an option in any casing.
 	options := append(
 		lo.Map(request, func(f resolution.Field, _ int) string { return f.Name }),
 		oneOption,
 	)
 	for _, line := range where.Filter.Lines {
-		if lo.Contains(options, line.Name) {
+		if lo.Contains(options, casing.FieldSnake(line.Name)) {
 			c.report(diagnostics.Errorf(
 				where.AST.(parser.IFilterDefContext),
 				"filter %s: %q is reserved for retrieve",

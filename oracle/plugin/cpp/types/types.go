@@ -21,9 +21,9 @@ import (
 	"github.com/synnaxlabs/oracle/domain/key"
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/domain/ontology"
-	"github.com/synnaxlabs/oracle/domain/validation"
 	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin"
+	"github.com/synnaxlabs/oracle/plugin/cpp/internal/defaults"
 	"github.com/synnaxlabs/oracle/plugin/cpp/internal/includes"
 	"github.com/synnaxlabs/oracle/plugin/cpp/keywords"
 	cppnaming "github.com/synnaxlabs/oracle/plugin/cpp/naming"
@@ -32,7 +32,6 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/framework"
 	"github.com/synnaxlabs/oracle/plugin/internal/arrays"
-	"github.com/synnaxlabs/oracle/plugin/internal/telem"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -774,23 +773,6 @@ func cppDefaultValue(cppType, underlyingPrimitive string) string {
 	return ""
 }
 
-// wrapCppDistinct direct-initializes a scalar default literal with its C++ type
-// when the field's type resolves to a distinct type. Hand-written distinct types
-// such as x::telem::Rate and x::telem::DataType expose only explicit
-// constructors, so a bare literal fails copy-initialization both as a struct
-// member initializer and as the fallback argument to parser.field. Generated
-// distinct types are scalar typedefs, where the direct-init is a no-op cast.
-func (p *Plugin) wrapCppDistinct(
-	typeRef resolution.TypeRef,
-	literal string,
-	data *templateData,
-) string {
-	if !resolution.IsDistinct(typeRef, data.table) {
-		return literal
-	}
-	return fmt.Sprintf("%s(%s)", p.typeRefToCpp(typeRef, data), literal)
-}
-
 func getUnderlyingPrimitive(
 	typeRef resolution.TypeRef,
 	table *resolution.Table,
@@ -899,7 +881,8 @@ func (p *Plugin) processField(
 	cppFieldName = keywords.Escape(cppFieldName)
 
 	if field.Default != nil {
-		if lit := p.cppDefaultLiteral(field.Type, *field.Default, data); lit != "" {
+		if lit := p.defaultRenderer(data).
+			Literal(field.Type, *field.Default); lit != "" {
 			defaultValue = lit
 		}
 	}
@@ -912,143 +895,14 @@ func (p *Plugin) processField(
 	}
 }
 
-// cppDefaultLiteral renders a default value as a C++ brace-init literal. typeRef
-// is the declared type of the value, used to resolve enum variants, array
-// element types, and nested struct field types. Arrays and structs recurse.
-func (p *Plugin) cppDefaultLiteral(
-	typeRef resolution.TypeRef,
-	val resolution.ExpressionValue,
-	data *templateData,
-) string {
-	switch val.Kind {
-	case resolution.ValueKindString:
-		return p.wrapCppDistinct(typeRef, fmt.Sprintf("%q", val.StringValue), data)
-	case resolution.ValueKindInt:
-		return p.wrapCppDistinct(typeRef, fmt.Sprintf("%d", val.IntValue), data)
-	case resolution.ValueKindFloat:
-		return p.wrapCppDistinct(typeRef, fmt.Sprintf("%f", val.FloatValue), data)
-	case resolution.ValueKindBool:
-		return fmt.Sprintf("%t", val.BoolValue)
-	case resolution.ValueKindIdent:
-		if ev, ok := validation.ResolveEnumVariant(
-			val.IdentValue,
-			typeRef,
-			data.table,
-		); ok {
-			return p.cppEnumVariantRef(ev, data)
-		}
-		if val.IdentValue == "true" || val.IdentValue == "false" {
-			return val.IdentValue
-		}
-		if val.IdentValue == "now" && telem.IsTimeStamp(typeRef, data.table, "cpp") {
-			return "x::telem::TimeStamp::now()"
-		}
-		if uv, ok := validation.ResolveUnionVariant(
-			val.IdentValue,
-			typeRef,
-			data.table,
-		); ok {
-			// std::variant default-constructs its first alternative, so a default
-			// naming any other variant must be written out explicitly. The variant
-			// structs live with the union, not with an alias of it.
-			_, unionRef, _ := resolution.Dealias(typeRef, data.table)
-			return cppnaming.QualifiedVariantTypeName(
-				p.typeRefToCpp(unionRef, data),
-				uv.Variant.Name,
-			) + "{}"
-		}
-		// Unresolvable idents (magic defaults like create) have no C++
-		// rendering; the caller falls back to the type's zero value.
-		return ""
-	case resolution.ValueKindArray:
-		elem := cppArrayElementType(typeRef)
-		parts := make([]string, 0, len(val.Elements))
-		for _, el := range val.Elements {
-			parts = append(parts, p.cppDefaultLiteral(elem, el, data))
-		}
-		return "{" + strings.Join(parts, ", ") + "}"
-	case resolution.ValueKindStruct:
-		return p.cppStructLiteral(typeRef, val, data)
+func (p *Plugin) defaultRenderer(data *templateData) defaults.Renderer {
+	return defaults.Renderer{
+		Table:     data.table,
+		Namespace: data.rawNs,
+		TypeName: func(typeRef resolution.TypeRef) string {
+			return p.typeRefToCpp(typeRef, data)
+		},
 	}
-	return ""
-}
-
-// cppStructLiteral renders a struct default as a C++ designated-initializer list,
-// emitting the provided fields in the struct's declaration order (required for
-// designated initializers in C++).
-func (p *Plugin) cppStructLiteral(
-	typeRef resolution.TypeRef,
-	val resolution.ExpressionValue,
-	data *templateData,
-) string {
-	resolved, _, ok := resolution.Dealias(typeRef, data.table)
-	if !ok {
-		return "{}"
-	}
-	provided := make(map[string]resolution.ExpressionValue, len(val.Fields))
-	for _, fv := range val.Fields {
-		provided[fv.Name] = fv.Value
-	}
-	parts := make([]string, 0, len(val.Fields))
-	for _, f := range resolution.UnifiedFields(resolved, data.table) {
-		v, has := provided[f.Name]
-		if !has {
-			continue
-		}
-		parts = append(
-			parts,
-			fmt.Sprintf(
-				".%s = %s",
-				cppFieldName(f),
-				p.cppDefaultLiteral(f.Type, v, data),
-			),
-		)
-	}
-	return "{" + strings.Join(parts, ", ") + "}"
-}
-
-// cppEnumVariantRef renders a fully-qualified C++ reference to an enum variant.
-// Int enums generate as enum classes and are referenced Enum::Variant; string
-// enums generate as ENUM_VARIANT string constants and must be referenced as such.
-func (p *Plugin) cppEnumVariantRef(
-	ev validation.EnumVariant,
-	data *templateData,
-) string {
-	ref := fmt.Sprintf("%s::%s", ev.Type.Name, lo.PascalCase(ev.Variant.Name))
-	if form, ok := ev.Type.Form.(resolution.EnumForm); ok && !form.IsIntEnum {
-		ref = fmt.Sprintf(
-			"%s_%s",
-			cppnaming.ScreamingSnake(ev.Type.Name),
-			cppnaming.ScreamingSnake(ev.Variant.Name),
-		)
-	}
-	if ev.Type.Namespace != data.rawNs {
-		targetOutputPath := enum.FindOutputPath(ev.Type, data.table, "cpp")
-		if targetOutputPath != "" {
-			ns := cppnaming.Namespace(targetOutputPath)
-			return fmt.Sprintf("::%s::%s", ns, ref)
-		}
-	}
-	return ref
-}
-
-// cppFieldName returns the C++ field name for a resolved field, mirroring the
-// naming applied when the field is declared.
-func cppFieldName(field resolution.Field) string {
-	name := domain.GetFieldName(field, "cpp")
-	if name == field.Name {
-		name = casing.FieldSnake(field.Name)
-	}
-	return keywords.Escape(name)
-}
-
-// cppArrayElementType returns the element type of an array type reference, or the
-// reference itself when it is not an array.
-func cppArrayElementType(typeRef resolution.TypeRef) resolution.TypeRef {
-	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
-		return typeRef.TypeArgs[0]
-	}
-	return typeRef
 }
 
 func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) string {

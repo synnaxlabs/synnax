@@ -151,6 +151,10 @@ const fetchSurvivors = async <Key extends record.Key, Value extends state.State>
 
 const DEFAULT_FETCH_DEBOUNCE = TimeSpan.milliseconds(10);
 
+// "confirmed" tombstones a key the Core no longer holds. "local" tombstones a key this
+// client deleted ahead of the change stream.
+type Removal = "evict" | "confirmed" | "local";
+
 /**
  * Owns the base of a key, the value that writes build on, when a table shows other
  * content on top of it, such as edits that have not reached the Core.
@@ -176,6 +180,9 @@ export class Table<
 > {
   private readonly entries = new Map<Key, Value>();
   private readonly tombstones = new Map<Key, Deleted<Value>>();
+  // Locally deleted keys whose delete the change stream has not delivered. The Core
+  // committed every set the stream delivers for them before that delete.
+  private readonly pendingDeletes = new Set<Key>();
   private readonly broadSubscribers = new Set<TableSubscriber<Key, Value>>();
   private readonly batchSubscribers = new Set<BatchSubscriber<Key, Value>>();
   private readonly keyedSubscribers = new Map<Key, Set<TableSubscriber<Key, Value>>>();
@@ -307,6 +314,7 @@ export class Table<
     const next = state.executeSetter(value, prev);
     if (next == null || (prev != null && this.equal(next, prev, key))) return undefined;
     const prevTombstone = this.tombstones.get(key);
+    const prevStamp = this.writeStamps.get(key);
     this.tombstones.delete(key);
     this.show(key, next);
 
@@ -314,6 +322,7 @@ export class Table<
       if (prev === undefined) {
         this.applyDelete(key);
         if (prevTombstone != null) this.tombstones.set(key, prevTombstone);
+        if (prevStamp != null) this.writeStamps.set(key, prevStamp);
         this.notify({ variant: "delete", key });
       } else this.show(key, prev);
     };
@@ -504,7 +513,7 @@ export class Table<
               !this.writtenSince(key, since),
           );
           this.batch(() => {
-            if (vanished.length > 0) this.delete(vanished);
+            if (vanished.length > 0) this.remove(vanished, "confirmed");
             if (fetched.length > 0) this.ingest(fetched, { mode: "set", since });
           });
         } else if (fetched.length > 0) this.ingest(fetched, { since });
@@ -523,7 +532,8 @@ export class Table<
 
   /**
    * Deletes entries and notifies subscribers. Deleted values are retained as tombstones
-   * until a subsequent set for the key.
+   * until a subsequent set for the key. In a table with a fetch, {@link mirrorSet}
+   * skips a deleted key until the change stream delivers its delete.
    * @param key - The key(s) to delete or a filter function
    * @returns A rollback that restores the deleted entries, then fetches them again: an
    * entry misses every change made while it was deleted.
@@ -531,7 +541,7 @@ export class Table<
   delete(
     key: Key | Key[] | ((value: Value, key: Key) => boolean),
   ): destructor.Destructor {
-    return this.remove(key, true);
+    return this.remove(key, "local");
   }
 
   /**
@@ -541,12 +551,40 @@ export class Table<
    * @returns A rollback that restores the removed entries
    */
   evict(key: Key | Key[]): destructor.Destructor {
-    return this.remove(key, false);
+    return this.remove(key, "evict");
+  }
+
+  /**
+   * Applies a set that the change stream delivered, as {@link set} does. Skips the key
+   * while a local delete of it waits for its stream delete, since the Core committed
+   * the set before that delete. Cache-internal surface: called by mirror listeners.
+   */
+  mirrorSet(key: Key, value: state.SetArg<Value | undefined>): void {
+    if (this.pendingDeletes.has(key)) return;
+    this.set(key, value);
+  }
+
+  /**
+   * Applies deletes that the change stream delivered, tombstoning the entries the table
+   * holds. Cache-internal surface: called by mirror listeners.
+   */
+  mirrorDelete(keys: Key[]): void {
+    keys.forEach((key) => this.pendingDeletes.delete(key));
+    this.remove(keys, "confirmed");
+  }
+
+  /**
+   * Stops {@link mirrorSet} skipping keys whose local delete waits for its stream
+   * delete. Called when the change stream opens or reopens, since a stream never
+   * delivers what the Core sent before it opened. Cache-internal surface.
+   */
+  clearPendingDeletes(): void {
+    this.pendingDeletes.clear();
   }
 
   private remove(
     key: Key | Key[] | ((value: Value, key: Key) => boolean),
-    tombstone: boolean,
+    removal: Removal,
   ): destructor.Destructor {
     const toDelete: Array<{ key: Key; value?: Value }> = [];
 
@@ -560,10 +598,15 @@ export class Table<
     this.batch(() =>
       toDelete.forEach(({ key: k, value }) => {
         this.applyDelete(k);
-        if (tombstone && value != null)
+        if (removal !== "evict" && value != null) {
           this.tombstones.set(k, new Deleted(value, TimeStamp.now()));
+          // The Core sends no delete for a key it already lost. Only the reconcile of a
+          // table with a fetch finds such a key and clears its mark.
+          if (removal === "local" && this.fetchEntries != null)
+            this.pendingDeletes.add(k);
+        }
         // A repeat marks the delete as committed, so it also counts as a write.
-        if (tombstone && this.tombstones.has(k))
+        if (removal !== "evict" && this.tombstones.has(k))
           this.writeStamps.set(k, ++this.writeSeq);
         this.notify({ variant: "delete", key: k });
       }),
@@ -575,12 +618,13 @@ export class Table<
         toDelete.forEach(({ key: k, value }) => {
           if (value == null) return;
           this.tombstones.delete(k);
+          this.pendingDeletes.delete(k);
           this.show(k, value);
           this.stampWrite(k);
           restored.push(k);
         }),
       );
-      if (tombstone) this.refetch(restored);
+      if (removal !== "evict") this.refetch(restored);
     };
   }
 
@@ -606,11 +650,12 @@ export class Table<
     const since = this.stamp();
     const values = await fetchSurvivors(fetchEntries, keys);
     const present = new Set<Key>(values.map(({ key }) => key));
-    const vanished = keys.filter(
-      (k) => !present.has(k) && !this.writtenSince(k, since),
-    );
+    const missing = keys.filter((k) => !present.has(k));
+    // A missing key deleted here during the fetch gets no delete from the Core.
+    missing.forEach((k) => this.pendingDeletes.delete(k));
+    const vanished = missing.filter((k) => !this.writtenSince(k, since));
     this.batch(() => {
-      if (vanished.length > 0) this.delete(vanished);
+      if (vanished.length > 0) this.remove(vanished, "confirmed");
       if (values.length > 0) this.ingest(values, { mode: "set", since });
     });
   }
@@ -625,6 +670,7 @@ export class Table<
     this.resetSeq = ++this.writeSeq;
     this.entries.clear();
     this.tombstones.clear();
+    this.pendingDeletes.clear();
     this.writeStamps.clear();
     for (const index of this.indexes) index.reset();
   }
@@ -761,7 +807,7 @@ export const createSetListener = <
       onChange: (changed) => {
         table.batch(() =>
           changed.forEach((c) =>
-            table.set(key(c), (prev) => value(c, prev) ?? undefined),
+            table.mirrorSet(key(c), (prev) => value(c, prev) ?? undefined),
           ),
         );
       },
@@ -788,7 +834,7 @@ export const createDeleteListener = <
       channel,
       schema,
       onChange: (changed) => {
-        table.delete(changed.map((c) => key(c)));
+        table.mirrorDelete(changed.map((c) => key(c)));
       },
     }),
   };
