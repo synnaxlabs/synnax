@@ -38,6 +38,23 @@ func createChannel(ctx SpecContext, dt telem.DataType) channel.Channel {
 	return ch
 }
 
+func createChannelGroup(ctx SpecContext, name string) group.Group {
+	GinkgoHelper()
+	g := group.Group{Name: name, Scope: resource.TypeChannel}
+	Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+	return g
+}
+
+func retrieveChannel(ctx SpecContext, key channel.Key) channel.Channel {
+	GinkgoHelper()
+	var ch channel.Channel
+	Expect(channelSvc.NewRetrieve().
+		Where(channel.MatchKeys(key)).
+		Entry(&ch).
+		Exec(ctx, nil)).To(Succeed())
+	return ch
+}
+
 var _ = Describe("Service", func() {
 	Describe("Group", func() {
 		It(
@@ -73,6 +90,73 @@ var _ = Describe("Service", func() {
 					apichannel.RetrieveRequest{Keys: channel.Keys{created[0].Key}},
 				)).Channels
 				Expect(retrieved[0].Group).To(Equal(&g.Key))
+			},
+		)
+		It(
+			"Should refuse a created channel without update on its group",
+			func(ctx SpecContext) {
+				grantOn(
+					ctx,
+					author.ResourceID(),
+					[]access.Action{access.ActionCreate},
+					resource.ID{Type: resource.TypeChannel},
+				)
+				g := createChannelGroup(ctx, "Create denied")
+				Expect(apiSvc.Create(
+					AuthedCtx(ctx, author),
+					nil,
+					apichannel.CreateRequest{Channels: []apichannel.Channel{{
+						Name:     UniqueChannelName(),
+						DataType: telem.TimestampT,
+						IsIndex:  true,
+						Group:    &g.Key,
+					}}},
+				)).Error().To(MatchError(access.ErrDenied))
+			},
+		)
+		It(
+			"Should refuse a move without update on the destination group",
+			func(ctx SpecContext) {
+				ch := createChannel(ctx, telem.Float32T)
+				g := createChannelGroup(ctx, "Set group denied")
+				grantOn(
+					ctx,
+					author.ResourceID(),
+					[]access.Action{access.ActionUpdate},
+					channel.ResourceID(ch.Key()),
+				)
+				Expect(apiSvc.SetGroup(
+					AuthedCtx(ctx, author),
+					nil,
+					apichannel.SetGroupRequest{
+						Group: &g.Key,
+						Keys:  []channel.Key{ch.Key()},
+					},
+				)).Error().To(MatchError(access.ErrDenied))
+				Expect(retrieveChannel(ctx, ch.Key()).Group).To(BeNil())
+			},
+		)
+		It(
+			"Should move a channel with update on the destination group",
+			func(ctx SpecContext) {
+				ch := createChannel(ctx, telem.Float32T)
+				g := createChannelGroup(ctx, "Set group granted")
+				grantOn(
+					ctx,
+					author.ResourceID(),
+					[]access.Action{access.ActionUpdate},
+					channel.ResourceID(ch.Key()),
+					group.ResourceID(g.Key),
+				)
+				Expect(apiSvc.SetGroup(
+					AuthedCtx(ctx, author),
+					nil,
+					apichannel.SetGroupRequest{
+						Group: &g.Key,
+						Keys:  []channel.Key{ch.Key()},
+					},
+				)).Error().ToNot(HaveOccurred())
+				Expect(retrieveChannel(ctx, ch.Key()).Group).To(Equal(&g.Key))
 			},
 		)
 	})

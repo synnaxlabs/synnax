@@ -17,6 +17,7 @@ import (
 	apidevice "github.com/synnaxlabs/synnax/pkg/api/device"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -232,5 +233,101 @@ var _ = Describe("Retrieve", func() {
 		Expect(
 			res.Devices[1].Status.Owner,
 		).To(HaveValue(Equal(withStatus.ResourceID())))
+	})
+})
+
+// createRackGroup creates a group under the embedded rack, where its devices can sit.
+func createRackGroup(ctx SpecContext, name string) group.Group {
+	GinkgoHelper()
+	g := group.Group{Name: name, Parent: new(svc.Rack.EmbeddedKey.ResourceID())}
+	Expect(svc.Group.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+	return g
+}
+
+var _ = Describe("SetGroup", func() {
+	It(
+		"Should refuse the move without update on the destination group",
+		func(ctx SpecContext) {
+			u := createUser(ctx)
+			d := createDevice(ctx, "set-group-denied")
+			g := createRackGroup(ctx, "Set group denied")
+			grant(ctx, access.ActionUpdate, u.ResourceID(), d.ResourceID())
+			Expect(apiSvc.SetGroup(
+				AuthedCtx(ctx, u), nil,
+				apidevice.SetGroupRequest{Group: &g.Key, Keys: []device.Key{d.Key}},
+			)).Error().To(MatchError(access.ErrDenied))
+			Expect(retrieveDevice(ctx, d.Key).Group).To(BeNil())
+		},
+	)
+	It(
+		"Should move the device with update on the destination group",
+		func(ctx SpecContext) {
+			u := createUser(ctx)
+			d := createDevice(ctx, "set-group-granted")
+			g := createRackGroup(ctx, "Set group granted")
+			grant(
+				ctx,
+				access.ActionUpdate,
+				u.ResourceID(),
+				d.ResourceID(),
+				g.ResourceID(),
+			)
+			Expect(apiSvc.SetGroup(
+				AuthedCtx(ctx, u), nil,
+				apidevice.SetGroupRequest{Group: &g.Key, Keys: []device.Key{d.Key}},
+			)).Error().ToNot(HaveOccurred())
+			Expect(retrieveDevice(ctx, d.Key).Group).To(Equal(&g.Key))
+		},
+	)
+})
+
+var _ = Describe("Create in a group", func() {
+	newDevice := func(key string, g group.Group) device.Device {
+		return device.Device{
+			Key:      key,
+			Rack:     svc.Rack.EmbeddedKey,
+			Location: key,
+			Name:     key,
+			Make:     "Test Make",
+			Model:    "Test Model",
+			Group:    &g.Key,
+		}
+	}
+	It(
+		"Should refuse the create without update on the group",
+		func(ctx SpecContext) {
+			u := createUser(ctx)
+			g := createRackGroup(ctx, "Create denied")
+			grant(
+				ctx,
+				access.ActionCreate,
+				u.ResourceID(),
+				resource.ID{Type: resource.TypeDevice},
+			)
+			Expect(apiSvc.Create(
+				AuthedCtx(ctx, u), nil,
+				apidevice.CreateRequest{
+					Devices: []device.Device{newDevice("create-group-denied", g)},
+				},
+			)).Error().To(MatchError(access.ErrDenied))
+		},
+	)
+	It("Should create the device with update on the group", func(ctx SpecContext) {
+		u := createUser(ctx)
+		g := createRackGroup(ctx, "Create granted")
+		grant(
+			ctx,
+			access.ActionCreate,
+			u.ResourceID(),
+			resource.ID{Type: resource.TypeDevice},
+		)
+		grant(ctx, access.ActionUpdate, u.ResourceID(), g.ResourceID())
+		Expect(apiSvc.Create(
+			AuthedCtx(ctx, u), nil,
+			apidevice.CreateRequest{
+				Devices: []device.Device{newDevice("create-group-granted", g)},
+			},
+		)).Error().ToNot(HaveOccurred())
+		Expect(retrieveDevice(ctx, "create-group-granted").Group).To(Equal(&g.Key))
 	})
 })

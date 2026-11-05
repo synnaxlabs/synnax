@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/x/query"
@@ -344,5 +345,101 @@ var _ = Describe("Service", func() {
 				},
 			)
 		})
+	})
+})
+
+// createProjectGroup creates a project group with no top parent.
+func createProjectGroup(ctx SpecContext, name string) group.Group {
+	GinkgoHelper()
+	g := group.Group{Name: name, Scope: resource.TypeProject}
+	Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+	return g
+}
+
+func retrieveSchematic(ctx SpecContext, key schematic.Key) schematic.Schematic {
+	GinkgoHelper()
+	var s schematic.Schematic
+	Expect(schematicSvc.NewRetrieve().
+		Where(schematic.MatchKeys(key)).
+		Entry(&s).
+		Exec(ctx, nil)).To(Succeed())
+	return s
+}
+
+var _ = Describe("SetGroup", func() {
+	It(
+		"Should refuse the move without update on the destination group",
+		func(ctx SpecContext) {
+			s := createSchematic(ctx, "Set group denied")
+			g := createProjectGroup(ctx, "Set group denied")
+			grantUpdateOn(ctx, author.ResourceID(), schematic.ResourceID(s.Key))
+			Expect(apiSvc.SetGroup(
+				AuthedCtx(ctx, author),
+				db,
+				apischematic.SetGroupRequest{
+					Group: &g.Key,
+					Keys:  []schematic.Key{s.Key},
+				},
+			)).Error().To(MatchError(access.ErrDenied))
+			Expect(retrieveSchematic(ctx, s.Key).Group).To(BeNil())
+		},
+	)
+	It(
+		"Should move the schematic with update on the destination group",
+		func(ctx SpecContext) {
+			s := createSchematic(ctx, "Set group granted")
+			g := createProjectGroup(ctx, "Set group granted")
+			grantUpdateOn(
+				ctx,
+				author.ResourceID(),
+				schematic.ResourceID(s.Key),
+				g.ResourceID(),
+			)
+			Expect(apiSvc.SetGroup(
+				AuthedCtx(ctx, author),
+				db,
+				apischematic.SetGroupRequest{
+					Group: &g.Key,
+					Keys:  []schematic.Key{s.Key},
+				},
+			)).Error().ToNot(HaveOccurred())
+			Expect(retrieveSchematic(ctx, s.Key).Group).To(Equal(&g.Key))
+		},
+	)
+})
+
+var _ = Describe("Create in a group", func() {
+	BeforeEach(func(ctx SpecContext) {
+		grantOn(
+			ctx,
+			author.ResourceID(),
+			access.ActionCreate,
+			resource.ID{Type: resource.TypeSchematic},
+		)
+	})
+	It(
+		"Should refuse the create without update on the group",
+		func(ctx SpecContext) {
+			g := createProjectGroup(ctx, "Create denied")
+			Expect(apiSvc.Create(
+				AuthedCtx(ctx, author), db,
+				apischematic.CreateRequest{
+					Project:    proj.Key,
+					Schematics: []schematic.Schematic{{Name: "Denied", Group: &g.Key}},
+				},
+			)).Error().To(MatchError(access.ErrDenied))
+		},
+	)
+	It("Should create the schematic with update on the group", func(ctx SpecContext) {
+		g := createProjectGroup(ctx, "Create granted")
+		grantUpdateOn(ctx, author.ResourceID(), g.ResourceID())
+		res := MustSucceed(apiSvc.Create(
+			AuthedCtx(ctx, author), db,
+			apischematic.CreateRequest{
+				Project:    proj.Key,
+				Schematics: []schematic.Schematic{{Name: "Granted", Group: &g.Key}},
+			},
+		))
+		Expect(retrieveSchematic(ctx, res.Schematics[0].Key).Group).To(Equal(&g.Key))
 	})
 })

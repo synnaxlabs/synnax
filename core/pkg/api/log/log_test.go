@@ -14,8 +14,11 @@ import (
 	. "github.com/onsi/gomega"
 	apilog "github.com/synnaxlabs/synnax/pkg/api/log"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -35,5 +38,91 @@ var _ = Describe("Create", func() {
 		Expect(frames).To(HaveLen(1))
 		Expect(frames[0].Key).To(Equal(res.Logs[0].Key))
 		Expect(frames[0].DispatchKey).To(Equal("dk-create"))
+	})
+})
+
+// createProjectGroup creates a project group with no top parent.
+func createProjectGroup(ctx SpecContext, name string) group.Group {
+	GinkgoHelper()
+	g := group.Group{Name: name, Scope: resource.TypeProject}
+	Expect(svc.Group.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+	return g
+}
+
+func createLog(ctx SpecContext, name string) log.Log {
+	GinkgoHelper()
+	l := log.Log{Name: name}
+	Expect(svc.Log.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
+	return l
+}
+
+func retrieveLog(ctx SpecContext, key log.Key) log.Log {
+	GinkgoHelper()
+	var l log.Log
+	Expect(svc.Log.NewRetrieve().
+		Where(log.MatchKeys(key)).
+		Entry(&l).
+		Exec(ctx, nil)).To(Succeed())
+	return l
+}
+
+var _ = Describe("SetGroup", func() {
+	It(
+		"Should refuse the move without update on the destination group",
+		func(ctx SpecContext) {
+			u := newCreator(ctx)
+			l := createLog(ctx, "Set group denied")
+			g := createProjectGroup(ctx, "Set group denied")
+			grant(ctx, access.ActionUpdate, u.ResourceID(), log.ResourceID(l.Key))
+			Expect(apiSvc.SetGroup(
+				AuthedCtx(ctx, u), nil,
+				apilog.SetGroupRequest{Group: &g.Key, Keys: []log.Key{l.Key}},
+			)).Error().To(MatchError(access.ErrDenied))
+			Expect(retrieveLog(ctx, l.Key).Group).To(BeNil())
+		},
+	)
+	It(
+		"Should move the log with update on the destination group",
+		func(ctx SpecContext) {
+			u := newCreator(ctx)
+			l := createLog(ctx, "Set group granted")
+			g := createProjectGroup(ctx, "Set group granted")
+			grant(
+				ctx,
+				access.ActionUpdate,
+				u.ResourceID(),
+				log.ResourceID(l.Key),
+				g.ResourceID(),
+			)
+			Expect(apiSvc.SetGroup(
+				AuthedCtx(ctx, u), nil,
+				apilog.SetGroupRequest{Group: &g.Key, Keys: []log.Key{l.Key}},
+			)).Error().ToNot(HaveOccurred())
+			Expect(retrieveLog(ctx, l.Key).Group).To(Equal(&g.Key))
+		},
+	)
+})
+
+var _ = Describe("Create in a group", func() {
+	It(
+		"Should refuse the create without update on the group",
+		func(ctx SpecContext) {
+			u := newCreator(ctx)
+			g := createProjectGroup(ctx, "Create denied")
+			Expect(apiSvc.Create(AuthedCtx(ctx, u), nil, apilog.CreateRequest{
+				Project: proj.Key,
+				Logs:    []log.Log{{Name: "Denied", Group: &g.Key}},
+			})).Error().To(MatchError(access.ErrDenied))
+		},
+	)
+	It("Should create the log with update on the group", func(ctx SpecContext) {
+		u := newCreator(ctx)
+		g := createProjectGroup(ctx, "Create granted")
+		grant(ctx, access.ActionUpdate, u.ResourceID(), g.ResourceID())
+		res := MustSucceed(apiSvc.Create(AuthedCtx(ctx, u), nil, apilog.CreateRequest{
+			Project: proj.Key,
+			Logs:    []log.Log{{Name: "Granted", Group: &g.Key}},
+		}))
+		Expect(retrieveLog(ctx, res.Logs[0].Key).Group).To(Equal(&g.Key))
 	})
 })

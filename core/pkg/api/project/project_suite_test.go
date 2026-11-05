@@ -44,6 +44,7 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
 	rbacSvc    *rbac.Service
+	groupSvc   *group.Service
 	projectSvc *project.Service
 	logSvc     *log.Service
 	panelSvc   *panel.Service
@@ -56,7 +57,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	db := DeferClose(gorp.Wrap(memkv.New()))
 	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 	}))

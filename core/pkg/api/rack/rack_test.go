@@ -16,6 +16,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -274,5 +275,79 @@ var _ = Describe("Delete", func() {
 		)).Error().ToNot(HaveOccurred())
 		Expect(svc.Auth.Authenticate(ctx, token)).Error().
 			To(MatchError(auth.ErrInvalidToken))
+	})
+})
+
+// createDeviceGroup creates a device group with no top parent, where racks can sit.
+func createDeviceGroup(ctx SpecContext, name string) group.Group {
+	GinkgoHelper()
+	g := group.Group{Name: name, Scope: resource.TypeDevice}
+	Expect(svc.Group.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+	return g
+}
+
+var _ = Describe("SetGroup", func() {
+	It(
+		"Should refuse the move without update on the destination group",
+		func(ctx SpecContext) {
+			u := createUser(ctx)
+			r := rack.Rack{Name: "Set group denied"}
+			Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+			g := createDeviceGroup(ctx, "Set group denied")
+			grant(ctx, access.ActionUpdate, u.ResourceID(), r.ResourceID())
+			Expect(apiSvc.SetGroup(
+				AuthedCtx(ctx, u), nil,
+				apirack.SetGroupRequest{Group: &g.Key, Keys: []rack.Key{r.Key}},
+			)).Error().To(MatchError(access.ErrDenied))
+			Expect(retrieveRack(ctx, r.Key).Group).To(BeNil())
+		},
+	)
+	It(
+		"Should move the rack with update on the destination group",
+		func(ctx SpecContext) {
+			u := createUser(ctx)
+			r := rack.Rack{Name: "Set group granted"}
+			Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+			g := createDeviceGroup(ctx, "Set group granted")
+			grant(
+				ctx,
+				access.ActionUpdate,
+				u.ResourceID(),
+				r.ResourceID(),
+				g.ResourceID(),
+			)
+			Expect(apiSvc.SetGroup(
+				AuthedCtx(ctx, u), nil,
+				apirack.SetGroupRequest{Group: &g.Key, Keys: []rack.Key{r.Key}},
+			)).Error().ToNot(HaveOccurred())
+			Expect(retrieveRack(ctx, r.Key).Group).To(Equal(&g.Key))
+		},
+	)
+})
+
+var _ = Describe("Create in a group", func() {
+	rackType := resource.ID{Type: resource.TypeRack}
+	It(
+		"Should refuse the create without update on the group",
+		func(ctx SpecContext) {
+			u := createUser(ctx)
+			g := createDeviceGroup(ctx, "Create denied")
+			grant(ctx, access.ActionCreate, u.ResourceID(), rackType)
+			Expect(apiSvc.Create(
+				AuthedCtx(ctx, u), nil,
+				apirack.CreateRequest{Racks: []rack.Rack{{Name: "New", Group: &g.Key}}},
+			)).Error().To(MatchError(access.ErrDenied))
+		},
+	)
+	It("Should create the rack with update on the group", func(ctx SpecContext) {
+		u := createUser(ctx)
+		g := createDeviceGroup(ctx, "Create granted")
+		grant(ctx, access.ActionCreate, u.ResourceID(), rackType)
+		grant(ctx, access.ActionUpdate, u.ResourceID(), g.ResourceID())
+		res := MustSucceed(apiSvc.Create(
+			AuthedCtx(ctx, u), nil,
+			apirack.CreateRequest{Racks: []rack.Rack{{Name: "New", Group: &g.Key}}},
+		))
+		Expect(retrieveRack(ctx, res.Racks[0].Key).Group).To(Equal(&g.Key))
 	})
 })

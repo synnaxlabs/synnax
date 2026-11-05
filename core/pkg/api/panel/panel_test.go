@@ -19,6 +19,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -258,5 +259,103 @@ var _ = Describe("Service", func() {
 			Expect(panelSvc.NewRetrieve().Where(panel.MatchKeys(p.Key)).
 				Entry(&got).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 		})
+	})
+})
+
+// createProjectGroup creates a project group with no top parent.
+func createProjectGroup(ctx SpecContext, name string) group.Group {
+	GinkgoHelper()
+	g := group.Group{Name: name, Scope: resource.TypeProject}
+	Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+	return g
+}
+
+func retrievePanel(ctx SpecContext, key panel.Key) panel.Panel {
+	GinkgoHelper()
+	var p panel.Panel
+	Expect(panelSvc.NewRetrieve().
+		Where(panel.MatchKeys(key)).
+		Entry(&p).
+		Exec(ctx, nil)).To(Succeed())
+	return p
+}
+
+var _ = Describe("SetGroup", func() {
+	It(
+		"Should refuse the move without update on the destination group",
+		func(ctx SpecContext) {
+			u := newUser(ctx)
+			p := createPanel(ctx, "Set group denied")
+			g := createProjectGroup(ctx, "Set group denied")
+			grant(ctx, u.ResourceID(), access.ActionUpdate, panel.ResourceID(p.Key))
+			Expect(apiSvc.SetGroup(
+				AuthedCtx(ctx, u), nil,
+				apipanel.SetGroupRequest{Group: &g.Key, Keys: []panel.Key{p.Key}},
+			)).Error().To(MatchError(access.ErrDenied))
+			Expect(retrievePanel(ctx, p.Key).Group).To(BeNil())
+		},
+	)
+	It(
+		"Should move the panel with update on the destination group",
+		func(ctx SpecContext) {
+			u := newUser(ctx)
+			p := createPanel(ctx, "Set group granted")
+			g := createProjectGroup(ctx, "Set group granted")
+			grant(
+				ctx,
+				u.ResourceID(),
+				access.ActionUpdate,
+				panel.ResourceID(p.Key),
+				g.ResourceID(),
+			)
+			Expect(apiSvc.SetGroup(
+				AuthedCtx(ctx, u), nil,
+				apipanel.SetGroupRequest{Group: &g.Key, Keys: []panel.Key{p.Key}},
+			)).Error().ToNot(HaveOccurred())
+			Expect(retrievePanel(ctx, p.Key).Group).To(Equal(&g.Key))
+		},
+	)
+})
+
+var _ = Describe("Create in a group", func() {
+	newPanel := func(name string, g group.Group) panel.Panel {
+		return panel.Panel{
+			Key:    uuid.New(),
+			Name:   name,
+			Parent: &parentID,
+			Group:  &g.Key,
+		}
+	}
+	grantCreate := func(ctx SpecContext, u resource.ID) {
+		GinkgoHelper()
+		grant(
+			ctx,
+			u,
+			access.ActionCreate,
+			resource.ID{Type: resource.TypePanel},
+			parentID,
+		)
+	}
+	It(
+		"Should refuse the create without update on the group",
+		func(ctx SpecContext) {
+			u := newUser(ctx)
+			g := createProjectGroup(ctx, "Create denied")
+			grantCreate(ctx, u.ResourceID())
+			Expect(apiSvc.Create(AuthedCtx(ctx, u), nil, apipanel.CreateRequest{
+				Panels: []panel.Panel{newPanel("Denied", g)},
+			})).Error().To(MatchError(access.ErrDenied))
+		},
+	)
+	It("Should create the panel with update on the group", func(ctx SpecContext) {
+		u := newUser(ctx)
+		g := createProjectGroup(ctx, "Create granted")
+		grantCreate(ctx, u.ResourceID())
+		grant(ctx, u.ResourceID(), access.ActionUpdate, g.ResourceID())
+		p := newPanel("Granted", g)
+		Expect(apiSvc.Create(AuthedCtx(ctx, u), nil, apipanel.CreateRequest{
+			Panels: []panel.Panel{p},
+		})).Error().ToNot(HaveOccurred())
+		Expect(retrievePanel(ctx, p.Key).Group).To(Equal(&g.Key))
 	})
 })

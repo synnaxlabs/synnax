@@ -77,6 +77,54 @@ var _ = Describe("Create", func() {
 	})
 })
 
+var _ = Describe("SetGroup", func() {
+	It(
+		"Should refuse the move without update on the destination group",
+		func(ctx SpecContext) {
+			u := createUser(ctx)
+			from := createGroup(ctx, "set-group-denied-from")
+			to := createGroup(ctx, "set-group-denied-to")
+			sym := createSymbol(ctx, from, "Inlet")
+			grantUpdateOn(
+				ctx,
+				u.ResourceID(),
+				symbol.ResourceID(sym.Key),
+				from.ResourceID(),
+			)
+			Expect(apiSvc.SetGroup(AuthedCtx(ctx, u), nil, apisymbol.SetGroupRequest{
+				Group: &to.Key,
+				Keys:  []symbol.Key{sym.Key},
+			})).Error().To(MatchError(access.ErrDenied))
+			Expect(symbolSvc.RetrieveGroupSymbols(ctx, nil, from.Key)).To(
+				ConsistOf(symbol.ResourceID(sym.Key)),
+			)
+		},
+	)
+	It(
+		"Should move the symbol with update on the destination group",
+		func(ctx SpecContext) {
+			u := createUser(ctx)
+			from := createGroup(ctx, "set-group-granted-from")
+			to := createGroup(ctx, "set-group-granted-to")
+			sym := createSymbol(ctx, from, "Inlet")
+			grantUpdateOn(
+				ctx,
+				u.ResourceID(),
+				symbol.ResourceID(sym.Key),
+				from.ResourceID(),
+				to.ResourceID(),
+			)
+			Expect(apiSvc.SetGroup(AuthedCtx(ctx, u), nil, apisymbol.SetGroupRequest{
+				Group: &to.Key,
+				Keys:  []symbol.Key{sym.Key},
+			})).Error().ToNot(HaveOccurred())
+			Expect(symbolSvc.RetrieveGroupSymbols(ctx, nil, to.Key)).To(
+				ConsistOf(symbol.ResourceID(sym.Key)),
+			)
+		},
+	)
+})
+
 var _ = Describe("Retrieve", func() {
 	It("Should return the symbols the keys name when retrieve is granted", func(
 		ctx SpecContext,
