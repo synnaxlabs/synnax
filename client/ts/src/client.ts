@@ -43,6 +43,7 @@ import { project } from "@/project";
 import { query } from "@/query";
 import { rack } from "@/rack";
 import { ranger } from "@/ranger";
+import { resource } from "@/resource";
 import { schematic } from "@/schematic";
 import { status } from "@/status";
 import { table } from "@/table";
@@ -144,6 +145,7 @@ export default class Synnax extends framer.Client {
   readonly access: access.Client;
   readonly connection: connection.Handle;
   readonly ontology: ontology.Client;
+  readonly resources: resource.Client;
   readonly projects: project.Client;
   readonly labels: label.Client;
   readonly license: license.Client;
@@ -260,6 +262,7 @@ export default class Synnax extends framer.Client {
     this.transport = transport;
     const unary = this.transport.unary;
     this.ontology = new ontology.Client({ unary, cache });
+    this.resources = new resource.Client(unary);
     this.license = new license.Client({ unary, connection: this.conn, cache });
     this.labels = new label.Client({
       unary,
