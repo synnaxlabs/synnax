@@ -117,17 +117,8 @@ func NewDecoder(f Field) (*Decoder, error) {
 //   - A numeric or boolean sample takes a number that it can hold exactly, a boolean
 //     as 0 or 1, or the label of an enum.
 //
-// When raw does not convert, Append returns dst unchanged and an error wrapping
-// validate.ErrValidation.
+// When raw does not convert, Append returns an error wrapping validate.ErrValidation.
 func (d *Decoder) Append(dst []byte, raw jsontext.Value) ([]byte, error) {
-	out, err := d.append(dst, raw)
-	if err != nil {
-		return dst, err
-	}
-	return out, nil
-}
-
-func (d *Decoder) append(dst []byte, raw jsontext.Value) ([]byte, error) {
 	switch d.field.DataType {
 	case telem.TimestampT:
 		ts, err := d.timeStamp(raw)

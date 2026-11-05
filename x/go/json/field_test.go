@@ -147,13 +147,12 @@ var _ = Describe("Field", func() {
 		DescribeTable("Should reject a JSON value that does not convert",
 			func(f xjson.Field, raw, message string) {
 				d := MustSucceed(xjson.NewDecoder(f))
-				dst := []byte{9}
-				out, err := d.Append(dst, jsontext.Value(raw))
+				out, err := d.Append([]byte{9}, jsontext.Value(raw))
 				Expect(err).To(SatisfyAll(
 					MatchError(validate.ErrValidation),
 					MatchError(ContainSubstring(message)),
 				))
-				Expect(out).To(Equal(dst))
+				Expect(out).To(BeNil())
 			},
 			Entry("a number into a string", xjson.Field{DataType: telem.StringT}, `1`,
 				"expected a string, got a number"),
