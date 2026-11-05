@@ -24,8 +24,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -47,8 +45,6 @@ var start = time.Date(2026, 11, 3, 12, 0, 0, 0, time.UTC)
 type env struct {
 	db      *gorp.DB
 	otg     *ontology.Ontology
-	keys    *apikey.Service
-	auth    *auth.Service
 	secrets *secret.Service
 	status  *status.Service
 	svc     *certificate.Service
@@ -76,15 +72,7 @@ func newEnv(ctx SpecContext, interval telem.TimeSpan) *env {
 		Group:    g,
 		Label:    lbl,
 	}))
-	e.keys = MustOpen(apikey.OpenService(ctx, apikey.ServiceConfig{DB: e.db}))
-	e.auth = MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
-		DB:             e.db,
-		Authenticators: map[auth.Method]auth.Authenticator{auth.MethodAPIKey: e.keys},
-	}))
-	grants := MustOpen(grant.OpenService(ctx, grant.ServiceConfig{
-		DB:   e.db,
-		Auth: e.auth,
-	}))
+	grants := MustOpen(grant.OpenService(ctx, grant.ServiceConfig{DB: e.db}))
 	e.secrets = MustOpen(secret.OpenService(ctx, secret.ServiceConfig{
 		DB:            e.db,
 		Ontology:      e.otg,
@@ -188,10 +176,7 @@ func (e *env) resolveKey(ctx SpecContext, c certificate.Certificate) []byte {
 	GinkgoHelper()
 	key := *c.Variant.(certificate.StoredCertificate).PrivateKey
 	rk := rack.Key(1).OntologyID()
-	user := ontology.ID{Type: ontology.ResourceTypeUser, Key: uuid.New().String()}
-	k, _ := MustSucceed2(e.keys.NewWriter(nil).Create(ctx, user, "Console"))
-	session, _ := MustSucceed2(e.auth.NewWriter(nil).Open(ctx, user, k.Key))
-	g := MustSucceed(e.secrets.Grant(ctx, nil, rk, session.Key, key))
+	g := MustSucceed(e.secrets.Grant(ctx, nil, rk, key))
 	return MustSucceed(e.secrets.Resolve(ctx, nil, rk, g, key))[key]
 }
 

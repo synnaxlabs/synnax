@@ -65,6 +65,7 @@ func (b Base) Validate() error {
 	return v.Error()
 }
 
+// SecretVariant is implemented by every Secret variant.
 type SecretVariant interface {
 	isSecretVariant()
 }
@@ -168,7 +169,11 @@ func (u *Secret) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.FileSecret
 	default:
-		return errors.Newf("Secret: unknown source %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Secret: unknown source %q",
+			disc.Type,
+		)
 	}
 	return nil
 }

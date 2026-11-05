@@ -228,6 +228,12 @@ const Internal = ({
       }}
       gap="tiny"
       {...rest}
+      // React bubbles events out of the portal to the owner's ancestors, where an outer
+      // context menu would open on top of this one.
+      onContextMenu={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
     >
       {menu?.({ keys, visible, position, cursor })}
     </Flex.Box>,
