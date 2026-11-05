@@ -20,6 +20,7 @@ import {
   createTestClient,
   expectDeleted,
   expectLive,
+  holdResponses,
   waitForStreamLive,
 } from "@/testutil";
 
@@ -196,6 +197,39 @@ describe("Secret", () => {
           ]),
         );
         await client.tasks.delete(t.key);
+        await vi.waitFor(() =>
+          expect(expectLive(client.secrets.getCached(q)).uses).toEqual([]),
+        );
+      } finally {
+        off();
+      }
+    });
+
+    it("should apply refetched uses in the order of the changes", async () => {
+      const client = createTestClient();
+      await waitForStreamLive(client.connection);
+      const s = await client.secrets.create({
+        name: "Ordered routing key",
+        source: "stored",
+        value: "abc",
+      });
+      const q = { key: s.key, includeUses: true };
+      const off = client.secrets.onChange(q, () => {});
+      try {
+        expect((await client.secrets.retrieve(q)).uses).toEqual([]);
+        const held = holdResponses(client, "/secret/retrieve");
+        const r = await client.racks.create({ name: "Ordered uses" });
+        const t = await r.createTask({
+          name: "Alerts",
+          type: "pagerduty_alert",
+          config: { routingKey: s.key },
+        });
+        await held.responded;
+        await client.tasks.delete(t.key);
+        // Long enough for the deletion to reach the client.
+        await sleep.sleep(TimeSpan.seconds(1));
+        expect(held.sent()).toBe(1);
+        held.release();
         await vi.waitFor(() =>
           expect(expectLive(client.secrets.getCached(q)).uses).toEqual([]),
         );
