@@ -49,15 +49,17 @@ func openDirectories(
 		),
 	}
 	var err error
-	d.table, err = gorp.OpenTable(
+	if d.table, err = gorp.OpenTable(
 		ctx,
 		gorp.TableConfig[directory.Key, directory.Directory]{
 			DB:              cfg.DB,
 			Indexes:         []gorp.Index[directory.Key, directory.Directory]{d.search},
 			Instrumentation: cfg.Instrumentation,
 		},
-	)
-	return d, err
+	); err != nil {
+		return directories{}, err
+	}
+	return d, nil
 }
 
 var _ ontology.Service = directories{}

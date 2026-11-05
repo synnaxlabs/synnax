@@ -18,7 +18,6 @@ type ResourceType = v0.ResourceType
 
 const (
 	ResourceTypeArc             ResourceType = v0.ResourceTypeArc
-	ResourceTypeArcDirectory    ResourceType = v0.ResourceTypeArcDirectory
 	ResourceTypeBuiltin         ResourceType = v0.ResourceTypeBuiltin
 	ResourceTypeChannel         ResourceType = v0.ResourceTypeChannel
 	ResourceTypeDevice          ResourceType = v0.ResourceTypeDevice
@@ -50,6 +49,7 @@ const (
 	ResourceTypeNiChassis       ResourceType = v0.ResourceTypeNiChassis
 	ResourceTypeNiDevice        ResourceType = v0.ResourceTypeNiDevice
 	ResourceTypeOpcuaServer     ResourceType = v0.ResourceTypeOpcuaServer
+	ResourceTypeArcDirectory    ResourceType = v0.ResourceTypeArcDirectory
 )
 
 type RelationshipType = v0.RelationshipType

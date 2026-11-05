@@ -15,8 +15,6 @@ from typing import Literal
 
 RESOURCE_TYPE_ARC: Literal["arc"] = "arc"
 
-RESOURCE_TYPE_ARC_DIRECTORY: Literal["arc_directory"] = "arc_directory"
-
 RESOURCE_TYPE_BUILTIN: Literal["builtin"] = "builtin"
 
 RESOURCE_TYPE_CHANNEL: Literal["channel"] = "channel"
@@ -79,10 +77,11 @@ RESOURCE_TYPE_NI_DEVICE: Literal["ni_device"] = "ni_device"
 
 RESOURCE_TYPE_OPCUA_SERVER: Literal["opcua_server"] = "opcua_server"
 
+RESOURCE_TYPE_ARC_DIRECTORY: Literal["arc_directory"] = "arc_directory"
+
 
 ResourceType = Literal[
     "arc",
-    "arc_directory",
     "builtin",
     "channel",
     "device",
@@ -114,4 +113,5 @@ ResourceType = Literal[
     "ni_chassis",
     "ni_device",
     "opcua_server",
+    "arc_directory",
 ]

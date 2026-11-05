@@ -13,7 +13,6 @@ import { z } from "zod";
 
 export const RESOURCE_TYPES = [
   "arc",
-  "arc_directory",
   "builtin",
   "channel",
   "device",
@@ -45,6 +44,7 @@ export const RESOURCE_TYPES = [
   "ni_chassis",
   "ni_device",
   "opcua_server",
+  "arc_directory",
 ] as const;
 export const resourceTypeZ = z.enum(RESOURCE_TYPES);
 export type ResourceType = z.infer<typeof resourceTypeZ>;

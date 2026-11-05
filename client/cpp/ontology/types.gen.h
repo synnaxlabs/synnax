@@ -14,7 +14,6 @@
 namespace synnax::ontology {
 
 constexpr const char *RESOURCE_TYPE_ARC = "arc";
-constexpr const char *RESOURCE_TYPE_ARC_DIRECTORY = "arc_directory";
 constexpr const char *RESOURCE_TYPE_BUILTIN = "builtin";
 constexpr const char *RESOURCE_TYPE_CHANNEL = "channel";
 constexpr const char *RESOURCE_TYPE_DEVICE = "device";
@@ -46,4 +45,5 @@ constexpr const char *RESOURCE_TYPE_MODBUS_SERVER = "modbus_server";
 constexpr const char *RESOURCE_TYPE_NI_CHASSIS = "ni_chassis";
 constexpr const char *RESOURCE_TYPE_NI_DEVICE = "ni_device";
 constexpr const char *RESOURCE_TYPE_OPCUA_SERVER = "opcua_server";
+constexpr const char *RESOURCE_TYPE_ARC_DIRECTORY = "arc_directory";
 }

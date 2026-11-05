@@ -18,7 +18,6 @@ type ResourceType = versions.ResourceType
 
 const (
 	ResourceTypeArc             ResourceType = versions.ResourceTypeArc
-	ResourceTypeArcDirectory    ResourceType = versions.ResourceTypeArcDirectory
 	ResourceTypeBuiltin         ResourceType = versions.ResourceTypeBuiltin
 	ResourceTypeChannel         ResourceType = versions.ResourceTypeChannel
 	ResourceTypeDevice          ResourceType = versions.ResourceTypeDevice
@@ -50,6 +49,7 @@ const (
 	ResourceTypeNiChassis       ResourceType = versions.ResourceTypeNiChassis
 	ResourceTypeNiDevice        ResourceType = versions.ResourceTypeNiDevice
 	ResourceTypeOpcuaServer     ResourceType = versions.ResourceTypeOpcuaServer
+	ResourceTypeArcDirectory    ResourceType = versions.ResourceTypeArcDirectory
 )
 
 type RelationshipType = versions.RelationshipType
