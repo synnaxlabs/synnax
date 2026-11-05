@@ -11,16 +11,14 @@ package status
 
 import (
 	"context"
-	"uuid"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/status"
-	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/api/status/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/synnax/pkg/service/status/pb"
+	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	xpb "github.com/synnaxlabs/x/pb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -43,7 +41,7 @@ type (
 		status.RetrieveRequest,
 		*RetrieveRequest,
 		status.RetrieveResponse,
-		*RetrieveResponse,
+		*pb.RetrieveResponse,
 	]
 	deleteServer = grpc.UnaryServer[
 		status.DeleteRequest,
@@ -69,7 +67,7 @@ var (
 	_ grpc.Translator[status.RetrieveRequest, *RetrieveRequest] = (*retrieveRequestTranslator)(
 		nil,
 	)
-	_ grpc.Translator[status.RetrieveResponse, *RetrieveResponse] = (*retrieveResponseTranslator)(
+	_ grpc.Translator[status.RetrieveResponse, *pb.RetrieveResponse] = (*retrieveResponseTranslator)(
 		nil,
 	)
 	_ grpc.Translator[status.DeleteRequest, *DeleteRequest] = (*deleteRequestTranslator)(
@@ -87,7 +85,7 @@ func (setRequestTranslator) Forward(
 	_ context.Context,
 	msg status.SetRequest,
 ) (*SetRequest, error) {
-	statuses, err := pb.StatusesToPB(msg.Statuses, xpb.AnyToPBAny)
+	statuses, err := statuspb.StatusesToPB(msg.Statuses, xpb.AnyToPBAny)
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +104,7 @@ func (setRequestTranslator) Backward(
 			return status.SetRequest{}, err
 		}
 	}
-	statuses, err := pb.StatusesFromPB(msg.Statuses, xpb.AnyFromPBAny)
+	statuses, err := statuspb.StatusesFromPB(msg.Statuses, xpb.AnyFromPBAny)
 	if err != nil {
 		return status.SetRequest{}, err
 	}
@@ -117,7 +115,7 @@ func (setResponseTranslator) Forward(
 	_ context.Context,
 	msg status.SetResponse,
 ) (*SetResponse, error) {
-	statuses, err := pb.StatusesToPB(msg.Statuses, xpb.AnyToPBAny)
+	statuses, err := statuspb.StatusesToPB(msg.Statuses, xpb.AnyToPBAny)
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +126,7 @@ func (setResponseTranslator) Backward(
 	_ context.Context,
 	msg *SetResponse,
 ) (status.SetResponse, error) {
-	statuses, err := pb.StatusesFromPB(msg.Statuses, xpb.AnyFromPBAny)
+	statuses, err := statuspb.StatusesFromPB(msg.Statuses, xpb.AnyFromPBAny)
 	if err != nil {
 		return status.SetResponse{}, err
 	}
@@ -139,72 +137,37 @@ func (retrieveRequestTranslator) Forward(
 	_ context.Context,
 	msg status.RetrieveRequest,
 ) (*RetrieveRequest, error) {
-	hasLabels := lo.Map(msg.HasLabels, func(k label.Key, _ int) string {
-		return k.String()
-	})
-	variants := lo.Map(msg.Variants, func(v svcstatus.Variant, _ int) string {
-		return string(v)
-	})
-	return &RetrieveRequest{
-		Keys:                msg.Keys,
-		SearchTerm:          msg.SearchTerm,
-		Offset:              int32(msg.Offset),
-		Limit:               int32(msg.Limit),
-		IncludeLabels:       msg.IncludeLabels,
-		HasLabels:           hasLabels,
-		Variants:            variants,
-		IgnoreNotFoundError: msg.IgnoreNotFoundError,
-	}, nil
+	req, err := pb.RetrieveRequestToPB(msg)
+	if err != nil {
+		return nil, err
+	}
+	return &RetrieveRequest{Request: req}, nil
 }
 
 func (retrieveRequestTranslator) Backward(
 	_ context.Context,
 	msg *RetrieveRequest,
 ) (status.RetrieveRequest, error) {
-	hasLabelKeys, err := lo.MapErr(
-		msg.HasLabels,
-		func(k string, _ int) (label.Key, error) {
-			return uuid.Parse(k)
-		},
-	)
-	if err != nil {
+	// A client older than the Core sends the reserved fields, which would otherwise
+	// select every status.
+	if err := xpb.RejectUnknown(msg); err != nil {
 		return status.RetrieveRequest{}, err
 	}
-	variants := lo.Map(msg.Variants, func(v string, _ int) svcstatus.Variant {
-		return svcstatus.Variant(v)
-	})
-	return status.RetrieveRequest{
-		Keys:                msg.Keys,
-		SearchTerm:          msg.SearchTerm,
-		Offset:              int(msg.Offset),
-		Limit:               int(msg.Limit),
-		HasLabels:           hasLabelKeys,
-		Variants:            variants,
-		IncludeLabels:       msg.IncludeLabels,
-		IgnoreNotFoundError: msg.IgnoreNotFoundError,
-	}, nil
+	return pb.RetrieveRequestFromPB(msg.Request)
 }
 
 func (retrieveResponseTranslator) Forward(
 	_ context.Context,
 	msg status.RetrieveResponse,
-) (*RetrieveResponse, error) {
-	statuses, err := pb.StatusesToPB(msg.Statuses, xpb.AnyToPBAny)
-	if err != nil {
-		return nil, err
-	}
-	return &RetrieveResponse{Statuses: statuses}, nil
+) (*pb.RetrieveResponse, error) {
+	return pb.RetrieveResponseToPB(msg)
 }
 
 func (retrieveResponseTranslator) Backward(
 	_ context.Context,
-	msg *RetrieveResponse,
+	msg *pb.RetrieveResponse,
 ) (status.RetrieveResponse, error) {
-	statuses, err := pb.StatusesFromPB(msg.Statuses, xpb.AnyFromPBAny)
-	if err != nil {
-		return status.RetrieveResponse{}, err
-	}
-	return status.RetrieveResponse{Statuses: statuses}, nil
+	return pb.RetrieveResponseFromPB(msg)
 }
 
 func (deleteRequestTranslator) Forward(
