@@ -300,8 +300,7 @@ type DeleteRequest struct {
 	Keys []device.Key `json:"keys" msgpack:"keys"`
 }
 
-// Delete removes the given devices. It requires delete access on them and returns a
-// validation error when a task references one.
+// Delete removes the given devices. It requires delete access on them.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
