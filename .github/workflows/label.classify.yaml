@@ -23,6 +23,20 @@ on:
       - Check - Classify
     types:
       - completed
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: The Check - Classify run that uploaded the results
+        required: true
+        type: string
+      head_sha:
+        description: The commit that run classified
+        required: true
+        type: string
+      group:
+        description: Concurrency group of the pull request branch
+        required: true
+        type: string
 
 permissions: {}
 
@@ -30,8 +44,9 @@ permissions: {}
 # one. A newer queued run replaces an older queued one.
 concurrency:
   group:
-    label-classify-${{ github.event.workflow_run.head_repository.full_name }}-${{
-    github.event.workflow_run.head_branch }}
+    label-classify-${{ inputs.group || format('{0}-{1}',
+    github.event.workflow_run.head_repository.full_name,
+    github.event.workflow_run.head_branch) }}
   cancel-in-progress: false
 
 jobs:
@@ -51,7 +66,7 @@ jobs:
       - name: Download the results
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
-          run-id: ${{ github.event.workflow_run.id }}
+          run-id: ${{ inputs.run_id || github.event.workflow_run.id }}
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/results
 
@@ -68,5 +83,5 @@ jobs:
       - name: Classify
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
-          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          HEAD_SHA: ${{ inputs.head_sha || github.event.workflow_run.head_sha }}
         run: python3 .github/scripts/classify.py "$RUNNER_TEMP/results"

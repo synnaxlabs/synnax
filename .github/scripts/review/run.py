@@ -90,7 +90,7 @@ class PullRequest:
 def load(root: Path) -> Config:
     """Loads the configuration in `.sedosaur`, with the documents it names.
 
-    :param root: The root of a checkout of the base branch.
+    :param root: The root of a trusted checkout of the default branch.
     :raises TypeError: If the config has a missing or unknown key.
     """
     home = root / ".sedosaur"

@@ -149,3 +149,34 @@ jobs:
             out/surface-${{ matrix.surface }}/status
             out/surface-${{ matrix.surface }}/diff
           if-no-files-found: ignore
+
+  # Runs last, so Label - Classify finds every result.
+  relay:
+    name: Relay the results
+    needs:
+      - pr
+      - surface
+    if:
+      ${{ !cancelled() && github.event.pull_request.head.repo.full_name ==
+      github.repository && github.actor != 'dependabot[bot]' }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Start Label - Classify
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          REF: ${{ github.event.repository.default_branch }}
+        run: |
+          state=$(gh api "repos/$GH_REPO/actions/workflows/label.classify.yaml" \
+            --jq .state)
+          if [ "$state" != active ]; then
+            echo "Label - Classify is $state"
+            exit 0
+          fi
+          gh workflow run label.classify.yaml --ref "$REF" \
+            -f group="$GH_REPO-$HEAD_REF" -f run_id="$GITHUB_RUN_ID" \
+            -f head_sha="$HEAD_SHA"
