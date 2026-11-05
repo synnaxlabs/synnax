@@ -60,6 +60,7 @@ var _ = Describe("Writer", func() {
 		It("Should preserve a caller-provided tree", func(ctx SpecContext) {
 			tx := DeferClose(db.OpenTx())
 			key := uuid.New()
+			createPlot(ctx, tx, key)
 			p := panel.Panel{Name: "test", Root: leafNode(tab(key)), Project: &proj.Key}
 			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 			res := retrieve(ctx, tx, p.Key)
@@ -382,6 +383,7 @@ var _ = Describe("Writer", func() {
 			"Should apply an InsertTabs action and persist the tab",
 			func(ctx SpecContext) {
 				tabKey := uuid.New()
+				createPlot(ctx, nil, tabKey)
 				key := create(ctx, leafNode())
 				Expect(svc.Dispatch(ctx, key, "d1", []panel.Action{
 					panel.NewInsertTabsAction(
@@ -399,6 +401,7 @@ var _ = Describe("Writer", func() {
 
 		It("Should apply a multi-action batch atomically", func(ctx SpecContext) {
 			tabKey := uuid.New()
+			createPlot(ctx, nil, tabKey)
 			key := create(ctx, leafNode())
 			Expect(svc.Dispatch(ctx, key, "d1", []panel.Action{
 				panel.NewRenameAction(panel.RenamePayload{Name: "batched"}),
@@ -435,6 +438,7 @@ var _ = Describe("Writer", func() {
 			"Should upsert rather than duplicate when inserting a tab with an existing key",
 			func(ctx SpecContext) {
 				tabKey := uuid.New()
+				createPlot(ctx, nil, tabKey)
 				key := create(ctx, leafNode(viewTab(tabKey, "selector")))
 				Expect(svc.Dispatch(ctx, key, "d1", []panel.Action{
 					panel.NewInsertTabsAction(

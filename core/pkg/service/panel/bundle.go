@@ -12,6 +12,7 @@ package panel
 import (
 	"context"
 	"encoding/json/v2"
+	"slices"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
@@ -62,7 +63,10 @@ type bundleSplit struct {
 // leaves emptied by removals are collapsed. View tabs pass through unchanged. It
 // returns a validation error when p has no name.
 func EncodeBundle(p Panel, refs map[resource.ID]string) (imex.Envelope, error) {
-	root := stripNonMemberTabs(p.Root, refs)
+	root := stripTabs(p.Root, func(id resource.ID) bool {
+		_, member := refs[id]
+		return !member
+	})
 	collapseEmptyLeaves(&root)
 	node, err := bundleNode(root, refs)
 	if err != nil {
@@ -182,25 +186,19 @@ func collectResourceRefs(n Node, ids set.Set[resource.ID]) {
 	}
 }
 
-// stripNonMemberTabs removes every resource tab whose target refs does not name,
-// leaving emptied leaves in place for collapseEmptyLeaves.
-func stripNonMemberTabs(n Node, refs map[resource.ID]string) Node {
+// stripTabs removes every resource tab whose resource dropped reports, leaving emptied
+// leaves in place for collapseEmptyLeaves.
+func stripTabs(n Node, dropped func(resource.ID) bool) Node {
 	switch v := n.Variant.(type) {
 	case LeafNode:
-		tabs := make([]Tab, 0, len(v.Tabs))
-		for _, t := range v.Tabs {
-			if r, ok := t.Variant.(ResourceTab); ok {
-				if _, member := refs[r.Resource]; !member {
-					continue
-				}
-			}
-			tabs = append(tabs, t)
-		}
-		v.Tabs = tabs
+		v.Tabs = slices.DeleteFunc(slices.Clone(v.Tabs), func(t Tab) bool {
+			r, ok := t.Variant.(ResourceTab)
+			return ok && dropped(r.Resource)
+		})
 		return Node{Variant: v}
 	case SplitNode:
-		v.First = stripNonMemberTabs(v.First, refs)
-		v.Last = stripNonMemberTabs(v.Last, refs)
+		v.First = stripTabs(v.First, dropped)
+		v.Last = stripTabs(v.Last, dropped)
 		return Node{Variant: v}
 	default:
 		return n
@@ -208,7 +206,7 @@ func stripNonMemberTabs(n Node, refs map[resource.ID]string) Node {
 }
 
 // bundleNode converts a node to its bundle wire form, rewriting each resource tab's
-// target to its path from refs. stripNonMemberTabs runs first, so a tab whose target
+// target to its path from refs. stripTabs runs first, so a tab whose target
 // refs does not name is an invariant violation and errors.
 func bundleNode(n Node, refs map[resource.ID]string) (any, error) {
 	switch v := n.Variant.(type) {

@@ -10,7 +10,9 @@
 package panel_test
 
 import (
+	"context"
 	"testing"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -20,7 +22,9 @@ import (
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
@@ -44,6 +48,7 @@ var (
 	framerSvc  *framer.Service
 	channelSvc *channel.Service
 	projectSvc *project.Service
+	plotSvc    *lineplot.Service
 	proj       project.Project
 )
 
@@ -100,6 +105,18 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	proj = project.Project{Name: "panel-project"}
 	Expect(projectSvc.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
+	plotSvc = MustOpen(lineplot.OpenService(ctx, lineplot.ServiceConfig{
+		DB:       node.DB,
+		Ontology: otg,
+		ImEx:     imex.NewService(),
+	}))
 })
+
+// createPlot stores the line plot that tab(key) displays.
+func createPlot(ctx context.Context, tx gorp.Tx, key uuid.UUID) {
+	GinkgoHelper()
+	p := lineplot.LinePlot{Key: key, Name: "plot", Project: &proj.Key}
+	Expect(plotSvc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
+}
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
