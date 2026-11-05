@@ -359,13 +359,18 @@ describe("Rack", () => {
         const stop = local.racks.onChange(r.key, () => {});
         await waitForStreamLive(local.connection);
         try {
-          await client.racks.create({ key: r.key, name: "stream-cached-renamed" });
+          // A rename would also stream the status, so this update keeps the name.
+          await client.racks.create({
+            key: r.key,
+            name: r.name,
+            integrations: ["ni"],
+          });
           await expect
             .poll(() => {
               const cached = local.racks.getCached(r.key);
-              return query.isLive(cached) ? cached.name : undefined;
+              return query.isLive(cached) ? cached.integrations : undefined;
             })
-            .toBe("stream-cached-renamed");
+            .toEqual(["ni"]);
           const params = { key: r.key, includeStatus: true };
           expect(local.racks.getCached(params)).toBeUndefined();
           const retrieved = await local.racks.retrieve(params);

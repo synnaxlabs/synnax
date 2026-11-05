@@ -1,6 +1,6 @@
 module github.com/synnaxlabs/gorp
 
-go 1.27.2
+go 1.27.3
 
 replace (
 	github.com/synnaxlabs/alamos => ../alamos/go

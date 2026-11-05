@@ -153,6 +153,17 @@ describe("log/aether/Log", () => {
       expect(log.state.empty).toBe(false);
     });
 
+    it("should be blank only while loading with no entries", () => {
+      const { log, source } = setup([]);
+      source.status = telem.LOADING_STATUS;
+      source.notify();
+      expect(log.state.blank).toBe(true);
+      source.push(makeEntry(0));
+      source.notify();
+      expect(log.state.blank).toBe(false);
+      expect(log.state.loading).toBe(true);
+    });
+
     it("should set loading while the source loads", () => {
       const { log, source } = setup([]);
       expect(log.state.loading).toBe(false);
@@ -418,6 +429,15 @@ describe("log/aether/Log", () => {
       source.push(makeEntry(1));
       source.notify();
       expect(recorder.loopCalls.length).toBeGreaterThan(before);
+    });
+
+    // A paused log whose entries all fit clamps its wheel position on every update.
+    it("should request a render to erase a paused log when it hides", () => {
+      const { h, recorder } = setup([makeEntry(0)]);
+      h.setState((s) => ({ ...s, scrolling: true }));
+      recorder.clear();
+      h.setState((s) => ({ ...s, visible: false }));
+      expect(recorder.loopCalls).toHaveLength(1);
     });
   });
 

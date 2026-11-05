@@ -11,12 +11,14 @@
 
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <type_traits>
 #include <vector>
 
 #include "client/cpp/label/json.gen.h"
 #include "client/cpp/status/types.gen.h"
+#include "x/cpp/filter/json.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/types.gen.h"
 #include "x/cpp/uuid/uuid.h"
@@ -48,13 +50,74 @@ x::json::json Status<Details>::to_json() const {
     j["message"] = this->message;
     j["description"] = this->description;
     j["time"] = this->time.nanoseconds();
-    if constexpr (std::is_same_v<Details, x::json::json::object_t>)
-        j["details"] = this->details;
-    else if constexpr (std::is_same_v<Details, std::monostate>)
-        j["details"] = nullptr;
-    else
-        j["details"] = this->details.to_json();
+    j["details"] = x::json::to_json(this->details);
     if (this->labels.has_value()) j["labels"] = x::json::to_array(*this->labels);
+    return j;
+}
+
+inline Where Where::parse(x::json::Parser parser) {
+    return Where{
+        .and_ = parser.field<std::optional<std::vector<Where>>>("and"),
+        .or_ = parser.field<std::optional<std::vector<Where>>>("or"),
+        .not_ = parser.field<x::mem::indirect<Where>>("not"),
+        .key = parser.field<std::optional<::x::filter::Set<Key>>>("key"),
+        .variant = parser.field<std::optional<::x::filter::Set<std::string>>>(
+            "variant"
+        ),
+        .labels = parser.field<std::optional<std::vector<::synnax::label::Key>>>(
+            "labels"
+        ),
+    };
+}
+
+inline x::json::json Where::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->and_.has_value()) j["and"] = x::json::to_array(*this->and_);
+    if (this->or_.has_value()) j["or"] = x::json::to_array(*this->or_);
+    if (this->not_.has_value()) j["not"] = this->not_->to_json();
+    if (this->key.has_value()) j["key"] = this->key->to_json();
+    if (this->variant.has_value()) j["variant"] = this->variant->to_json();
+    if (this->labels.has_value()) {
+        auto arr = x::json::json::array();
+        for (const auto &item: *this->labels)
+            arr.push_back(item.to_json());
+        j["labels"] = arr;
+    }
+    return j;
+}
+
+inline RetrieveRequest RetrieveRequest::parse(x::json::Parser parser) {
+    return RetrieveRequest{
+        .where = parser.field<std::optional<Where>>("where"),
+        .search_term = parser.field<std::string>("search_term", ""),
+        .limit = parser.field<std::optional<std::uint32_t>>("limit"),
+        .offset = parser.field<std::uint32_t>("offset", 0),
+        .include_labels = parser.field<bool>("include_labels", false),
+    };
+}
+
+inline x::json::json RetrieveRequest::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->where.has_value()) j["where"] = this->where->to_json();
+    j["search_term"] = this->search_term;
+    if (this->limit.has_value()) j["limit"] = *this->limit;
+    j["offset"] = this->offset;
+    j["include_labels"] = this->include_labels;
+    return j;
+}
+
+inline RetrieveResponse RetrieveResponse::parse(x::json::Parser parser) {
+    return RetrieveResponse{
+        .statuses = parser.field<std::vector<Status<x::json::json>>>(
+            "statuses",
+            std::vector<Status<x::json::json>>{}
+        ),
+    };
+}
+
+inline x::json::json RetrieveResponse::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["statuses"] = x::json::to_array(this->statuses);
     return j;
 }
 
