@@ -195,10 +195,8 @@ describe("task ontology", () => {
       store.dispatch(Session.Range.select(rng.key));
       fireEvent.click(await screen.findByText(`Snapshot to ${rng.name}`));
       await waitFor(async () => {
-        const children = await client.ontology.children.retrieve({
-          ids: rng.resourceID,
-        });
-        expect(children.some((c) => c.id.type === "task")).toBe(true);
+        const tasks = await client.tasks.retrieve({ ranges: [rng.key] });
+        expect(tasks.some((s) => s.snapshot)).toBe(true);
       });
       await waitFor(() =>
         expect(statuses).toContainEqual(

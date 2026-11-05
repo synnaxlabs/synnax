@@ -406,15 +406,12 @@ describe("task/Toolbar", () => {
       await openContextMenu(t.name);
       fireEvent.click(await screen.findByText(`Snapshot to ${rng.name}`));
       const snapshots = await waitFor(async () => {
-        const children = await client.ontology.children.retrieve({
-          ids: rng.resourceID,
-        });
-        const tasks = children.filter((c) => c.id.type === "task");
+        const tasks = await client.tasks.retrieve({ ranges: [rng.key] });
         expect(tasks).not.toHaveLength(0);
         return tasks;
       });
       // The snapshot is a task on the same rack, which cannot go while it remains.
-      createdTasks.push(...snapshots.map((c) => c.id.key));
+      createdTasks.push(...snapshots.map((s) => s.key));
     });
   });
 
