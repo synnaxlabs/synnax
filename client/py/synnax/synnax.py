@@ -29,6 +29,7 @@ from synnax import (
     project,
     rack,
     ranger,
+    resource,
     schematic,
     status,
     table,
@@ -88,6 +89,7 @@ class Synnax(framer.Client):
     devices: device.Client
     tasks: task.Client
     ontology: OntologyClient
+    resources: resource.Client
     license: LicenseClient
     statuses: status.Client
     arcs: arc.Client
@@ -213,6 +215,7 @@ class Synnax(framer.Client):
         self.groups = group.Client(self._transport.unary)
         self.labels = label.Client(self._transport.unary)
         self.ontology = OntologyClient(client=self._transport.unary)
+        self.resources = resource.Client(self._transport.unary)
         self.channels = channel.Client(
             client=self._transport.unary,
             frame_client=self,
