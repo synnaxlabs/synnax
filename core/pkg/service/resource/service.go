@@ -43,6 +43,8 @@ type Provider interface {
 	// RetrieveResources returns the records that ids name. It leaves out each ID that
 	// names no record. Every ID has the type of the Provider.
 	RetrieveResources(ctx context.Context, tx gorp.Tx, ids []ID) ([]Resource, error)
+	// ListResources returns at most limit records, in the same order on every call.
+	ListResources(ctx context.Context, tx gorp.Tx, limit int) ([]Resource, error)
 }
 
 // SearchIndex searches idx as Provider.Search does. id returns the ID of the entry with
@@ -120,7 +122,8 @@ const defaultSearchLimit = 100
 
 // SearchQuery selects the resources that Service.Search returns.
 type SearchQuery struct {
-	// Term is the text that a resource must match.
+	// Term is the text that a resource must match. An empty term matches every
+	// resource.
 	Term string
 	// Types limits the search to resources of these types. Empty searches every type.
 	Types []Type
@@ -130,9 +133,10 @@ type SearchQuery struct {
 	Offset int
 }
 
-// Search returns the resources that match q, closest match first. Search reads the
-// changes staged against tx, falling back to the database when tx is nil. A negative
-// limit or offset, or a type with no Provider, is a validation error.
+// Search returns the resources that match q, closest match first. For an empty term,
+// it lists the resources in order of type, then in the order of each Provider. Search
+// reads the changes staged against tx, falling back to the database when tx is nil. A
+// negative limit or offset, or a type with no Provider, is a validation error.
 func (s *Service) Search(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -152,6 +156,9 @@ func (s *Service) Search(
 	if limit == 0 {
 		limit = defaultSearchLimit
 	}
+	if q.Term == "" {
+		return s.list(ctx, tx, q.Types, q.Offset, limit)
+	}
 	results := make([]search.Result[ID], 0, len(s.types))
 	for _, t := range s.types {
 		if len(q.Types) > 0 && !slices.Contains(q.Types, t) {
@@ -168,6 +175,33 @@ func (s *Service) Search(
 	}
 	ids := search.Merge(q.Offset+limit, results...).Keys
 	return s.retrieve(ctx, tx, ids[min(q.Offset, len(ids)):])
+}
+
+func (s *Service) list(
+	ctx context.Context,
+	tx gorp.Tx,
+	types []Type,
+	offset, limit int,
+) ([]Resource, error) {
+	resources := make([]Resource, 0, offset+limit)
+	for _, t := range s.types {
+		if len(resources) >= offset+limit {
+			break
+		}
+		if len(types) > 0 && !slices.Contains(types, t) {
+			continue
+		}
+		res, err := s.cfg.Providers[t].ListResources(
+			ctx,
+			tx,
+			offset+limit-len(resources),
+		)
+		if err != nil {
+			return nil, err
+		}
+		resources = append(resources, res...)
+	}
+	return resources[min(offset, len(resources)):], nil
 }
 
 // Retrieve returns the resources that ids name, in the order of ids. It leaves out each

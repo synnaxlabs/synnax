@@ -21,7 +21,7 @@ export type SearchQuery = List.PagerParams & {
 
 /**
  * Searches the records of every type for the search term, closest match first. An
- * empty term matches nothing.
+ * empty term lists the records in order of type.
  */
 export const useSearch = Flux.createList<SearchQuery, string, resource.Resource>({
   name: PLURAL_RESOURCE_NAME,

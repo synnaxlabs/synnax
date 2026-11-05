@@ -51,7 +51,25 @@ func (s *Service) RetrieveResources(
 		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
 		return nil, err
 	}
-	return lo.Map(schematics, func(e Schematic, _ int) resource.Resource {
-		return resource.Resource{ID: e.ResourceID(), Name: e.Name}
-	}), nil
+	return lo.Map(schematics, toResource), nil
+}
+
+// ListResources implements resource.Provider.
+func (s *Service) ListResources(
+	ctx context.Context,
+	tx gorp.Tx,
+	limit int,
+) ([]resource.Resource, error) {
+	var schematics []Schematic
+	if err := s.NewRetrieve().
+		Limit(limit).
+		Entries(&schematics).
+		Exec(ctx, tx); err != nil {
+		return nil, err
+	}
+	return lo.Map(schematics, toResource), nil
+}
+
+func toResource(e Schematic, _ int) resource.Resource {
+	return resource.Resource{ID: e.ResourceID(), Name: e.Name}
 }

@@ -51,7 +51,22 @@ func (s *Service) RetrieveResources(
 		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
 		return nil, err
 	}
-	return lo.Map(logs, func(e Log, _ int) resource.Resource {
-		return resource.Resource{ID: e.ResourceID(), Name: e.Name}
-	}), nil
+	return lo.Map(logs, toResource), nil
+}
+
+// ListResources implements resource.Provider.
+func (s *Service) ListResources(
+	ctx context.Context,
+	tx gorp.Tx,
+	limit int,
+) ([]resource.Resource, error) {
+	var logs []Log
+	if err := s.NewRetrieve().Limit(limit).Entries(&logs).Exec(ctx, tx); err != nil {
+		return nil, err
+	}
+	return lo.Map(logs, toResource), nil
+}
+
+func toResource(e Log, _ int) resource.Resource {
+	return resource.Resource{ID: e.ResourceID(), Name: e.Name}
 }

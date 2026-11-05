@@ -61,8 +61,24 @@ describe("Resource", () => {
       expect(await page(2)).toEqual(1);
     });
 
-    it("should return nothing for an empty term", async () => {
-      expect(await client.resources.search({ term: "" })).toEqual([]);
+    it("should list the resources of the given types for an empty term", async () => {
+      await createLabel(randomToken());
+      await createLabel(randomToken());
+      const page = await client.resources.search({
+        term: "",
+        types: ["label"],
+        limit: 2,
+      });
+      expect(page).toHaveLength(2);
+      expect(page.every((r) => r.id.type === "label")).toBe(true);
+      expect(
+        await client.resources.search({
+          term: "",
+          types: ["label"],
+          limit: 1,
+          offset: 1,
+        }),
+      ).toEqual([page[1]]);
     });
 
     it("should refuse a type that the Core cannot search", async () => {

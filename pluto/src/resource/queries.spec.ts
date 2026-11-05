@@ -61,11 +61,18 @@ describe("Resource Queries", () => {
       });
     });
 
-    it("should answer with nothing for an empty search term", async () => {
+    it("should list the resources of the given types for an empty term", async () => {
+      await createLabel(randomToken());
+      const expected = await client.resources.search({
+        term: "",
+        types: ["label"],
+        limit: 3,
+      });
       const { result } = renderHook(() => Resource.useSearch(), { wrapper });
-      await act(async () => await result.current.retrieveAsync({}));
-      expect(result.current.answered).toBe(true);
-      expect(result.current.data).toEqual([]);
+      await act(
+        async () => await result.current.retrieveAsync({ types: ["label"], limit: 3 }),
+      );
+      expect(result.current.data).toEqual(expected.map((r) => r.key));
     });
 
     it("should look up a resource outside the page by its key", async () => {

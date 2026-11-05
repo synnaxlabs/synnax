@@ -58,7 +58,8 @@ class Client:
     ) -> list[Resource]:
         """Searches the records of every type for a term.
 
-        :param term: The text that a resource must match.
+        :param term: The text that a resource must match. An empty term matches every
+            resource.
         :param types: Limits the search to resources of these types.
         :param limit: The maximum number of resources to return. Defaults to 100.
         :param offset: The number of closest matches to skip.

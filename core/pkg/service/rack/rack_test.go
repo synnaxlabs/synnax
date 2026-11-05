@@ -761,6 +761,20 @@ var _ = Describe("Rack", Ordered, func() {
 		)
 	})
 
+	Describe("ListResources", func() {
+		It("Should list at most limit racks in the same order", func(ctx SpecContext) {
+			for _, name := range []string{"listed a", "listed b"} {
+				Expect(writer.Create(ctx, &rack.Rack{Name: name})).To(Succeed())
+			}
+			all := MustSucceed(svc.ListResources(ctx, tx, 1000))
+			Expect(all).To(ContainElements(
+				HaveField("Name", "listed a"),
+				HaveField("Name", "listed b"),
+			))
+			Expect(svc.ListResources(ctx, tx, 1)).To(Equal(all[:1]))
+		})
+	})
+
 	Describe("Create with Integrations", func() {
 		BeforeEach(openTx)
 		It("Should persist integrations on the rack", func(ctx SpecContext) {

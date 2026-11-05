@@ -107,6 +107,23 @@ func (p provider[E]) RetrieveResources(
 	}), nil
 }
 
+func (p provider[E]) ListResources(
+	ctx context.Context,
+	tx gorp.Tx,
+	limit int,
+) ([]resource.Resource, error) {
+	var entries []E
+	if err := p.table.NewRetrieve().
+		Limit(limit).
+		Entries(&entries).
+		Exec(ctx, tx); err != nil {
+		return nil, err
+	}
+	return lo.Map(entries, func(e E, _ int) resource.Resource {
+		return resource.Resource{ID: p.id(e.GorpKey()), Name: e.name()}
+	}), nil
+}
+
 var _ = Describe("SearchIndex", func() {
 	var (
 		db *gorp.DB
@@ -262,9 +279,60 @@ var _ = Describe("Service", func() {
 			},
 		)
 
-		It("Should return nothing for an empty term", func(ctx SpecContext) {
-			Expect(MustSucceed(svc.Search(ctx, nil, resource.SearchQuery{}))).
-				To(BeEmpty())
+		Describe("Empty term", func() {
+			It("Should list the resources of every type in order of type",
+				func(ctx SpecContext) {
+					Expect(MustSucceed(svc.Search(ctx, nil, resource.SearchQuery{}))).
+						To(Equal([]resource.Resource{
+							{ID: channels.id("1"), Name: "pump pressure"},
+							{ID: channels.id("2"), Name: "pump"},
+							{ID: channels.id("3"), Name: "valve"},
+							{ID: racks.id("1"), Name: "pump"},
+							{ID: racks.id("2"), Name: "pump station rack"},
+						}))
+				},
+			)
+
+			It("Should list only the given types", func(ctx SpecContext) {
+				Expect(MustSucceed(svc.Search(ctx, nil, resource.SearchQuery{
+					Types: []resource.Type{resource.TypeRack},
+				}))).To(Equal([]resource.Resource{
+					{ID: racks.id("1"), Name: "pump"},
+					{ID: racks.id("2"), Name: "pump station rack"},
+				}))
+			})
+
+			It("Should page across types", func(ctx SpecContext) {
+				Expect(MustSucceed(svc.Search(ctx, nil, resource.SearchQuery{
+					Limit:  2,
+					Offset: 2,
+				}))).To(Equal([]resource.Resource{
+					{ID: channels.id("3"), Name: "valve"},
+					{ID: racks.id("1"), Name: "pump"},
+				}))
+			})
+
+			It("Should return nothing for an offset past the last resource",
+				func(ctx SpecContext) {
+					Expect(MustSucceed(svc.Search(ctx, nil, resource.SearchQuery{
+						Offset: 10,
+					}))).To(BeEmpty())
+				},
+			)
+
+			It("Should read the changes staged against the transaction",
+				func(ctx SpecContext) {
+					tx := db.OpenTx()
+					defer func() { Expect(tx.Close()).To(Succeed()) }()
+					racks.create(ctx, tx, rackEntry{Key: "3", Name: "staged"})
+					Expect(MustSucceed(svc.Search(ctx, tx, resource.SearchQuery{
+						Types: []resource.Type{resource.TypeRack},
+					}))).To(ContainElement(resource.Resource{
+						ID:   racks.id("3"),
+						Name: "staged",
+					}))
+				},
+			)
 		})
 
 		It("Should read the changes staged against the transaction",

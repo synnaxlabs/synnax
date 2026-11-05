@@ -16,7 +16,7 @@ import { typeZ } from "@/resource/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 const searchReqZ = z.object({
-  /** The text that a resource must match. */
+  /** The text that a resource must match. An empty term matches every resource. */
   term: z.string(),
   /** Limits the search to resources of these types. Empty searches every type. */
   types: typeZ.array().optional(),

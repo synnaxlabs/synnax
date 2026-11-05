@@ -15,6 +15,7 @@ import (
 	"slices"
 	"strconv"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/search"
@@ -65,4 +66,17 @@ func (s *Service) RetrieveResources(
 		}
 	}
 	return resources, nil
+}
+
+// ListResources implements resource.Provider. It lists the nodes that the cluster holds
+// when ListResources is called, in order of key.
+func (s *Service) ListResources(
+	_ context.Context,
+	_ gorp.Tx,
+	limit int,
+) ([]resource.Resource, error) {
+	keys := slices.Sorted(maps.Keys(s.cfg.Cluster.CopyState().Nodes))
+	return lo.Map(keys[:min(limit, len(keys))], func(key Key, _ int) resource.Resource {
+		return resource.Resource{ID: ResourceID(key), Name: name(key)}
+	}), nil
 }

@@ -56,7 +56,25 @@ func (s *Service) RetrieveResources(
 		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
 		return nil, err
 	}
-	return lo.Map(aliases, func(a Alias, _ int) resource.Resource {
-		return resource.Resource{ID: ResourceID(a.Range, a.Channel), Name: a.Alias}
-	}), nil
+	return lo.Map(aliases, toResource), nil
+}
+
+// ListResources implements resource.Provider.
+func (s *Service) ListResources(
+	ctx context.Context,
+	tx gorp.Tx,
+	limit int,
+) ([]resource.Resource, error) {
+	var aliases []Alias
+	if err := s.table.NewRetrieve().
+		Limit(limit).
+		Entries(&aliases).
+		Exec(ctx, tx); err != nil {
+		return nil, err
+	}
+	return lo.Map(aliases, toResource), nil
+}
+
+func toResource(a Alias, _ int) resource.Resource {
+	return resource.Resource{ID: ResourceID(a.Range, a.Channel), Name: a.Alias}
 }

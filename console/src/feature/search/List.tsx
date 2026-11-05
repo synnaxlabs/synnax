@@ -48,8 +48,7 @@ export const List = ({ items, ...rest }: ListProps): ReactElement => {
   });
   return (
     <Palette.BaseList
-      // An empty term matches nothing, so the list stays blank until the user types.
-      emptyContent={listProps.answered && rest.value !== "" && emptyContent}
+      emptyContent={listProps.answered && emptyContent}
       listItem={listItem}
       {...listProps}
       {...rest}

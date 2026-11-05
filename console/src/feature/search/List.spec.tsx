@@ -64,14 +64,20 @@ describe("Search.List", () => {
     await screen.findByText("No resources found");
   });
 
-  it("hides the empty state again once the term is cleared", async () => {
-    await renderSearch({});
-    fireEvent.change(searchInput(), {
-      target: { value: uniqueName("nosuch").replace(/_/g, "") },
+  it("lists the resources of its item types before the user types", async () => {
+    await client.channels.create({
+      name: uniqueName("ch"),
+      dataType: DataType.FLOAT32,
+      virtual: true,
     });
-    await screen.findByText("No resources found");
-    fireEvent.change(searchInput(), { target: { value: "" } });
-    await waitFor(() => expect(screen.queryByText("No resources found")).toBeNull());
+    const [first] = await client.resources.search({
+      term: "",
+      types: ["channel"],
+      limit: 1,
+    });
+    await renderSearch();
+    expect(await screen.findByText(first.name)).toBeTruthy();
+    expect(screen.queryByText("No resources found")).toBeNull();
   });
 
   it("finds a live resource by name and renders its search item", async () => {
