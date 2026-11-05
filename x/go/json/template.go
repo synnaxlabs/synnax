@@ -18,6 +18,8 @@ import (
 
 // TemplateField is one value of the documents a Template renders.
 type TemplateField struct {
+	// Label names the field in errors, such as field "source".
+	Label string
 	// Pointer places the value. Its tokens name object members, never array indexes.
 	Pointer Pointer
 	// Literal is the JSON text of a value every document holds. A nil Literal makes the
@@ -58,7 +60,8 @@ type segment struct {
 
 // NewTemplate returns a Template for fields, which it creates the objects of. It
 // returns an error wrapping validate.ErrValidation when two pointers are equal or one
-// holds the other, since a document can hold only one of them.
+// holds the other, since a document can hold only one of them. The error names both
+// fields in the order of fields.
 func NewTemplate(fields []TemplateField) (Template, error) {
 	root := &templateNode{field: -1}
 	for i := range fields {
@@ -79,7 +82,7 @@ func (n *templateNode) set(fields []TemplateField, i int) error {
 	p := fields[i].Pointer
 	for depth, token := range p {
 		if n.field != -1 {
-			return overlapError(fields[n.field].Pointer, p)
+			return overlapError(fields, n.field, i)
 		}
 		c, ok := n.members[token]
 		if !ok {
@@ -93,29 +96,33 @@ func (n *templateNode) set(fields []TemplateField, i int) error {
 			n.names = append(n.names, token)
 			n.members[token] = c
 		} else if depth == len(p)-1 {
-			return overlapError(p, overlapped(fields, c))
+			return overlapError(fields, overlapped(c), i)
 		}
 		n = c
 	}
 	if len(p) == 0 {
 		if n.field != -1 || n.members != nil {
-			return overlapError(p, overlapped(fields, n))
+			return overlapError(fields, overlapped(n), i)
 		}
 		n.field = i
 	}
 	return nil
 }
 
-// overlapped returns the pointer of a field that sets n or a value inside it.
-func overlapped(fields []TemplateField, n *templateNode) Pointer {
+// overlapped returns the position of a field that sets n or a value inside it.
+func overlapped(n *templateNode) int {
 	for n.field == -1 {
 		n = n.members[n.names[0]]
 	}
-	return fields[n.field].Pointer
+	return n.field
 }
 
-func overlapError(a, b Pointer) error {
-	return errors.Wrapf(validate.ErrValidation, "pointers %q and %q overlap", a, b)
+func overlapError(fields []TemplateField, a, b int) error {
+	return errors.Wrapf(
+		validate.ErrValidation,
+		"%s %q and %s %q overlap",
+		fields[a].Label, fields[a].Pointer, fields[b].Label, fields[b].Pointer,
+	)
 }
 
 // render appends n to text, which holds the JSON text since the last slot. Each slot

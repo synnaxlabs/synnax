@@ -285,7 +285,29 @@ var _ = Describe("Read task", func() {
 		},
 	)
 
-	It("Should skip a record lacking a field with an error status",
+	It("Should skip a record lacking a field with a warning", func(ctx SpecContext) {
+		index, data := createIndexed(ctx, telem.Float64T)
+		dev := createDevice(ctx, clusterProperties())
+		topic := newTopic()
+		dt, t := configure(ctx, kafka.ReadConfig{
+			Device:  dev.Key,
+			Topic:   topic,
+			Records: single(stampedFields(index, data)),
+		})
+		start(ctx, dt, t)
+		produceJSON(ctx, producer, topic, "", map[string]any{"ts": 10e9})
+		produceJSON(ctx, producer, topic, "", map[string]any{"ts": 11e9, "v": 2.5})
+		Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{2.5}))
+		stat := taskStatus(ctx, t)
+		Expect(stat.Variant).To(Equal(status.VariantWarning))
+		// The two records can arrive in one poll or in two.
+		Expect(stat.Message).To(HavePrefix("Skipped 1 of "))
+		Expect(stat.Description).
+			To(Equal("Record has no value at /v (partition 0, offset 0)."))
+		Expect(stat.Details.Running).To(BeTrue())
+	})
+
+	It("Should clear the warning 5 seconds after the last skipped record",
 		func(ctx SpecContext) {
 			index, data := createIndexed(ctx, telem.Float64T)
 			dev := createDevice(ctx, clusterProperties())
@@ -297,12 +319,16 @@ var _ = Describe("Read task", func() {
 			})
 			start(ctx, dt, t)
 			produceJSON(ctx, producer, topic, "", map[string]any{"ts": 10e9})
-			produceJSON(ctx, producer, topic, "", map[string]any{"ts": 11e9, "v": 2.5})
-			Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{2.5}))
+			Eventually(func() status.Variant { return taskStatus(ctx, t).Variant }).
+				WithTimeout(15 * time.Second).Should(Equal(status.VariantWarning))
+			skipped := time.Now()
+			Eventually(func() status.Variant { return taskStatus(ctx, t).Variant }).
+				WithTimeout(15 * time.Second).Should(Equal(status.VariantSuccess))
+			Expect(time.Since(skipped)).To(BeNumerically(">=", 4*time.Second))
 			stat := taskStatus(ctx, t)
-			Expect(stat.Variant).To(Equal(status.VariantError))
-			Expect(stat.Message).To(Equal("Skipped record"))
-			Expect(stat.Description).To(Equal("Record has no value at /v"))
+			Expect(stat.Message).To(Equal("Started task"))
+			Expect(stat.Description).To(BeEmpty())
+			Expect(stat.Details.Data).To(BeNil())
 			Expect(stat.Details.Running).To(BeTrue())
 		},
 	)
@@ -612,10 +638,9 @@ var _ = Describe("Read task", func() {
 				defer pr.Close()
 				produceJSON(ctx, pr, topic, "", doc)
 			}
-			// The same skip before the drop must not hide the one after it.
 			produce(map[string]any{"ts": 5e9})
 			Eventually(func() string { return taskStatus(ctx, t).Message }).
-				WithTimeout(15 * time.Second).Should(Equal("Skipped record"))
+				WithTimeout(15 * time.Second).Should(Equal("Skipped 1 of 1 record"))
 			restore := cutConnections(broker)
 			Eventually(func() string { return taskStatus(ctx, t).Message }).
 				WithTimeout(15 * time.Second).
@@ -627,15 +652,16 @@ var _ = Describe("Read task", func() {
 			// The rejoined group may replay the first skipped record too.
 			stat := taskStatus(ctx, t)
 			Expect(stat.Message).To(HavePrefix("Skipped"))
-			Expect(stat.Description).To(Equal("Record has no value at /v"))
-			Expect(stat.Variant).To(Equal(status.VariantError))
+			Expect(stat.Description).
+				To(HavePrefix("Record has no value at /v (partition 0, offset "))
+			Expect(stat.Variant).To(Equal(status.VariantWarning))
 			Expect(stat.Details.Running).To(BeTrue())
 			// The offsets commit on stop, which needs the cluster cleanup closes.
 			Expect(dt.Stop(false)).To(Succeed())
 		},
 	)
 
-	It("Should write one status for the records a poll skips", func(ctx SpecContext) {
+	It("Should count the records it reads and skips", func(ctx SpecContext) {
 		index, data := createIndexed(ctx, telem.Float64T)
 		dev := createDevice(ctx, clusterProperties())
 		topic := newTopic()
@@ -651,8 +677,14 @@ var _ = Describe("Read task", func() {
 		})
 		start(ctx, dt, t)
 		Eventually(func() string { return taskStatus(ctx, t).Message }).
-			WithTimeout(15 * time.Second).Should(Equal("Skipped 3 records"))
-		Expect(taskStatus(ctx, t).Description).To(Equal("Record has no value at /v"))
+			WithTimeout(15 * time.Second).Should(Equal("Skipped 3 of 3 records"))
+		stat := taskStatus(ctx, t)
+		Expect(stat.Description).
+			To(Equal("Record has no value at /v (partition 0, offset 2)."))
+		Expect(stat.Details.Data).To(HaveKeyWithValue("stats", SatisfyAll(
+			HaveKeyWithValue("read", BeNumerically("==", 3)),
+			HaveKeyWithValue("skipped", BeNumerically("==", 3)),
+		)))
 	})
 
 	It("Should route keyed records to their groups", func(ctx SpecContext) {
@@ -895,7 +927,9 @@ var _ = Describe("Read task", func() {
 			})
 			Eventually(func() string { return taskStatus(ctx, t).Description }).
 				WithTimeout(15 * time.Second).
-				Should(Equal("Record has no value at /vals/01"))
+				Should(Equal(
+					"Record has no value at /vals/01 (partition 0, offset 0).",
+				))
 		},
 	)
 
@@ -1302,7 +1336,7 @@ var _ = Describe("Read task", func() {
 			Eventually(func() string { return taskStatus(ctx, t).Description }).
 				WithTimeout(15 * time.Second).Should(ContainSubstring(msg))
 			stat := taskStatus(ctx, t)
-			Expect(stat.Variant).To(Equal(status.VariantError))
+			Expect(stat.Variant).To(Equal(status.VariantWarning))
 			Expect(stat.Details.Running).To(BeTrue())
 		},
 		Entry("a number where an ISO 8601 timestamp is expected",

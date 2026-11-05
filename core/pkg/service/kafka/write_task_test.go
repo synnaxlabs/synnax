@@ -285,11 +285,13 @@ var _ = Describe("Write task", func() {
 		Entry(
 			"a channel pointer equal to the value pointer",
 			kafka.Record{ValuePointer: "/value", ChannelPointer: new("/value")},
-			`record: pointers "/value" and "/value" overlap`,
+			`record.value_pointer "/value" and record.channel_pointer "/value" `+
+				`overlap`,
 		),
 		Entry("a channel pointer nested inside the value pointer",
 			kafka.Record{ValuePointer: "/value", ChannelPointer: new("/value/name")},
-			`record: pointers "/value" and "/value/name" overlap`),
+			`record.value_pointer "/value" and `+
+				`record.channel_pointer "/value/name" overlap`),
 		Entry("a timestamp pointer lacking its leading slash",
 			kafka.Record{TimestampPointer: new("timestamp")},
 			`record.timestamp_pointer: json pointer "timestamp" must be empty or `+
@@ -306,7 +308,8 @@ var _ = Describe("Write task", func() {
 					Value:    "synnax",
 				}}},
 			},
-			`record: pointers "/meta" and "/meta/value" overlap`),
+			`record.value_pointer "/meta/value" and field "source" "/meta" `+
+				`overlap`),
 	)
 
 	// startOne configures and starts a write task producing one channel of dt.

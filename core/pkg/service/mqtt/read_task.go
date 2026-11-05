@@ -12,6 +12,7 @@ package mqtt
 import (
 	"context"
 	"encoding/json/jsontext"
+	"fmt"
 	"slices"
 	"strings"
 	"time"
@@ -327,6 +328,7 @@ func (s *readSource) Open(ctx context.Context) (driver.Reader, error) {
 	r := &reader{
 		readSource: s,
 		attachment: a,
+		skips:      driver.NewSkips("message"),
 		awaited:    make(map[tagScope]time.Time),
 		offline:    make(set.Set[tagScope]),
 	}
@@ -387,7 +389,9 @@ type reader struct {
 	// the warning that names them.
 	offline    set.Set[tagScope]
 	offlineErr error
-	// degraded is the data loss that the task currently warns about.
+	// skips counts the messages on plain topics that the task reads and skips.
+	skips *driver.Skips
+	// degraded is the other data loss that the task currently warns about.
 	degraded struct {
 		err   error
 		until time.Time
@@ -474,7 +478,7 @@ func (r *reader) Read(ctx context.Context) (driver.Batch, error) {
 	if err != nil {
 		if ctx.Err() == nil && errors.Is(err, context.DeadlineExceeded) {
 			r.expire(now)
-			return driver.Batch{}, r.health()
+			return driver.Batch{}, r.health(now)
 		}
 		return driver.Batch{}, err
 	}
@@ -498,7 +502,7 @@ func (r *reader) Read(ctx context.Context) (driver.Batch, error) {
 		))
 	}
 	r.expire(now)
-	return b.result(), r.health()
+	return b.result(), r.health(now)
 }
 
 // apply adds the samples of msg to b. The first message of a new session awaits the
@@ -521,6 +525,9 @@ func (r *reader) apply(now time.Time, msg message, b *batch) {
 func (r *reader) deadline() (deadline time.Time, ok bool) {
 	if r.degraded.err != nil {
 		deadline, ok = r.degraded.until, true
+	}
+	if until, due := r.skips.Deadline(); due && (!ok || until.Before(deadline)) {
+		deadline, ok = until, true
 	}
 	for _, until := range r.awaited {
 		if !ok || until.Before(deadline) {
@@ -556,10 +563,14 @@ func (r *reader) expire(now time.Time) {
 	}
 }
 
-// health returns the warning of the task, or nil for a task with none.
-func (r *reader) health() error {
+// health returns the warning of the task at now, or nil for a task with none.
+func (r *reader) health(now time.Time) error {
+	skipped := r.skips.Warning(now)
 	if r.degraded.err != nil {
 		return r.degraded.err
+	}
+	if skipped != nil {
+		return skipped.Degraded()
 	}
 	return r.offlineErr
 }
@@ -596,9 +607,10 @@ func (r *reader) convert(now time.Time, msg message, b *batch) {
 	if !ok || (msg.retained && t.retainedIgnored) {
 		return
 	}
+	r.skips.Read()
 	series, stamp, err := t.convert(msg)
 	if err != nil {
-		r.degrade(now, errors.Wrapf(err, "rejected a message on topic %s", t.topic))
+		r.skips.Skip(now, fmt.Sprintf("Message on topic %s: %s", t.topic, err))
 		return
 	}
 	if t.index != 0 {
@@ -606,9 +618,9 @@ func (r *reader) convert(now time.Time, msg message, b *batch) {
 		// value that the task may have, so a stale one is no loss.
 		if stamp <= r.lastStamp[t.index] {
 			if !msg.retained {
-				r.degrade(now, errors.Newf(
-					"rejected a message on topic %s: its timestamp is not after the "+
-						"last one written",
+				r.skips.Skip(now, fmt.Sprintf(
+					"Message on topic %s: its timestamp is not after the last one "+
+						"written",
 					t.topic,
 				))
 			}

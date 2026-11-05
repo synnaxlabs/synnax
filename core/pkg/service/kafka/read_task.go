@@ -18,6 +18,7 @@ import (
 	"net"
 	"slices"
 	"sync/atomic"
+	"time"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -76,6 +77,9 @@ type row struct {
 	ts telem.TimeStamp
 	// pos is the record's position in the group's columns.
 	pos int
+	// partition and offset locate the record in its topic.
+	partition int32
+	offset    int64
 }
 
 // readTask consumes a topic and writes record fields into channels.
@@ -97,12 +101,8 @@ type readTask struct {
 	// failed is set before the consumer reports its failure. sCtx only cancels once the
 	// consumer exits, after the report.
 	failed atomic.Bool
-	// lastSkip is the last skip reported, so a repeated one is not rewritten.
-	lastSkip string
-	// skipped counts the records the current poll skipped, and skipReason is why the
-	// first was.
-	skipped    int
-	skipReason string
+	// skips counts the records of the current run that the task reads and skips.
+	skips *driver.Skips
 	// reassigned is set when the group assigns partitions, which replay from the last
 	// committed offset.
 	reassigned atomic.Bool
@@ -477,7 +477,7 @@ func (t *readTask) open(ctx context.Context) (err error) {
 	t.client = cl
 	t.sCtx = sCtx
 	t.failed.Store(false)
-	t.lastSkip = ""
+	t.skips = driver.NewSkips("record")
 	t.disconnected = false
 	t.closer = xio.MultiCloser{
 		xio.CloserFunc(t.closeClient),
@@ -588,12 +588,16 @@ func (t *readTask) lastStored(
 // an error status.
 func (t *readTask) consume(ctx context.Context) error {
 	for {
-		fetches := t.client.PollFetches(ctx)
+		fetches := t.poll(ctx)
 		if ctx.Err() != nil || fetches.IsClientClosed() {
 			return nil
 		}
 		var fatal, transient error
 		fetches.EachError(func(topic string, partition int32, err error) {
+			// The deadline of poll ends a quiet poll, and is no failure.
+			if errors.Is(err, context.DeadlineExceeded) {
+				return
+			}
 			err = errors.Wrapf(err, "fetching %s/%d", topic, partition)
 			if isConnectionErr(err) {
 				transient = cmp.Or(transient, err)
@@ -604,11 +608,9 @@ func (t *readTask) consume(ctx context.Context) error {
 		if fatal != nil {
 			return t.fail(ctx, "Failed to fetch records", fatal)
 		}
-		// A connection status replaces the last skip, so the next skip is reported
-		// again. Recovery is reported before the batch, so a skip in it stays visible.
+		// Recovery is reported before the batch, so a skip in it stays visible.
 		if transient != nil && !t.disconnected {
 			t.disconnected = true
-			t.lastSkip = ""
 			t.setStatus(
 				ctx,
 				driver.NoCommand,
@@ -620,7 +622,6 @@ func (t *readTask) consume(ctx context.Context) error {
 		}
 		if transient == nil && t.disconnected && fetches.NumRecords() > 0 {
 			t.disconnected = false
-			t.lastSkip = ""
 			t.setStatus(
 				ctx,
 				driver.NoCommand,
@@ -634,6 +635,17 @@ func (t *readTask) consume(ctx context.Context) error {
 			return t.fail(ctx, "Failed to process records", err)
 		}
 	}
+}
+
+// poll returns the next records. It returns early with a deadline error when the skip
+// warning must change.
+func (t *readTask) poll(ctx context.Context) kgo.Fetches {
+	if deadline, ok := t.skips.Deadline(); ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithDeadline(ctx, deadline)
+		defer cancel()
+	}
+	return t.client.PollFetches(ctx)
 }
 
 // fail reports the error that stops the consumer and returns it. A start that follows
@@ -703,7 +715,7 @@ func (t *readTask) process(ctx context.Context, fetches kgo.Fetches) error {
 			size += g.size()
 		}
 	}
-	t.reportSkips(ctx)
+	t.reportSkips(ctx, time.Now())
 	if keys > 0 {
 		if _, err := t.writer.Write(t.frame(keys, size)); err != nil {
 			return errors.Wrap(err, "writing records")
@@ -731,7 +743,7 @@ func (t *readTask) frame(keyCount, size int) frame.Frame {
 }
 
 // convert parses rec into its group's samples. A record that is not addressed to this
-// task leaves nothing, and neither does one that is skipped with a status.
+// task leaves nothing, and neither does one that is skipped.
 func (t *readTask) convert(rec *kgo.Record) {
 	g, ok := t.groups[string(rec.Key)]
 	if !ok {
@@ -739,20 +751,26 @@ func (t *readTask) convert(rec *kgo.Record) {
 			return
 		}
 	}
+	t.skips.Read()
+	r := row{
+		ts:        telem.NewTimeStamp(rec.Timestamp),
+		pos:       len(g.rows),
+		partition: rec.Partition,
+		offset:    rec.Offset,
+	}
 	if err := g.extractor.Extract(rec.Value, g.values); err != nil {
-		t.skip("Record is not JSON: " + err.Error())
+		t.skip(r, "Record is not JSON: "+err.Error())
 		return
 	}
-	r := row{ts: telem.NewTimeStamp(rec.Timestamp), pos: len(g.rows)}
 	for i, fld := range g.fields {
 		if g.values[i] == nil {
-			t.skip(fmt.Sprintf("Record has no value at %s", fld.Pointer))
+			t.skip(r, fmt.Sprintf("Record has no value at %s", fld.Pointer))
 			g.truncate(r.pos)
 			return
 		}
 		col := &g.columns[i]
 		if err := col.append(g.values[i]); err != nil {
-			t.skip(fmt.Sprintf("Value at %s: %s", fld.Pointer, err))
+			t.skip(r, fmt.Sprintf("Value at %s: %s", fld.Pointer, err))
 			g.truncate(r.pos)
 			return
 		}
@@ -775,7 +793,7 @@ func (t *readTask) keep(g *readGroup) {
 				continue
 			}
 			if g.stamp != -1 {
-				t.skip(fmt.Sprintf(
+				t.skip(r, fmt.Sprintf(
 					"Record stamped %s is not after the last written %s for key %q",
 					r.ts, g.last, g.key,
 				))
@@ -845,38 +863,32 @@ func (g *readGroup) appendSeries(
 	return series, data
 }
 
-// skip counts a skipped record and why for reportSkips.
-func (t *readTask) skip(reason string) {
-	if t.skipped == 0 {
-		t.skipReason = reason
-	}
-	t.skipped++
+// skip counts the record of r as skipped. reason says why.
+func (t *readTask) skip(r row, reason string) {
+	t.skips.Skip(time.Now(), fmt.Sprintf(
+		"%s (partition %d, offset %d).", reason, r.partition, r.offset,
+	))
 }
 
-// reportSkips writes one status for the records the poll skipped, unless its reason
-// repeats the last one.
-func (t *readTask) reportSkips(ctx context.Context) {
-	n := t.skipped
-	if n == 0 {
+// reportSkips writes the skip warning at now, or clears it once it expires. It writes
+// nothing while the connection warning shows.
+func (t *readTask) reportSkips(ctx context.Context, now time.Time) {
+	w := t.skips.Warning(now)
+	if t.disconnected {
 		return
 	}
-	t.skipped = 0
-	if t.skipReason == t.lastSkip {
-		return
+	var err error
+	if w != nil {
+		err = t.status.Warn(ctx, *w)
+	} else {
+		err = t.status.ClearWarning(ctx)
 	}
-	t.lastSkip = t.skipReason
-	message := "Skipped record"
-	if n > 1 {
-		message = fmt.Sprintf("Skipped %d records", n)
+	if err != nil {
+		t.factoryCfg.L.Error("failed to write task warning",
+			zap.Stringer("task", t.task.Key),
+			zap.Error(err),
+		)
 	}
-	t.setStatus(
-		ctx,
-		driver.NoCommand,
-		status.VariantError,
-		true,
-		message,
-		t.skipReason,
-	)
 }
 
 // ackCurrent answers cmdKey with the task's current status, for a command that needs

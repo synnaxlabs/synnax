@@ -37,6 +37,14 @@ func field(pointer, literal string) xjson.TemplateField {
 	return f
 }
 
+// labeled returns a slot at pointer with label.
+func labeled(label, pointer string) xjson.TemplateField {
+	GinkgoHelper()
+	f := field(pointer, "")
+	f.Label = label
+	return f
+}
+
 func render(fields ...xjson.TemplateField) string {
 	GinkgoHelper()
 	t := MustSucceed(xjson.NewTemplate(fields))
@@ -80,16 +88,19 @@ var _ = Describe("Template", func() {
 				MatchError(ContainSubstring(message)),
 			))
 		},
-		Entry("two equal pointers", `pointers "/a" and "/a" overlap`,
-			field("/a", ""), field("/a", "")),
-		Entry("a pointer inside another", `pointers "/a" and "/a/b" overlap`,
-			field("/a", ""), field("/a/b", "")),
-		Entry("a pointer that holds another", `pointers "/a" and "/a/b" overlap`,
-			field("/a/b", ""), field("/a", "")),
-		Entry("the root and another pointer", `pointers "" and "/a" overlap`,
-			field("", ""), field("/a", "")),
-		Entry("another pointer and the root", `pointers "" and "/a" overlap`,
-			field("/a", ""), field("", "")),
+		Entry("two equal pointers", `x "/a" and y "/a" overlap`,
+			labeled("x", "/a"), labeled("y", "/a")),
+		Entry("a pointer inside another", `x "/a" and y "/a/b" overlap`,
+			labeled("x", "/a"), labeled("y", "/a/b")),
+		Entry("a pointer that holds another", `x "/a/b" and y "/a" overlap`,
+			labeled("x", "/a/b"), labeled("y", "/a")),
+		Entry("the root and another pointer", `x "" and y "/a" overlap`,
+			labeled("x", ""), labeled("y", "/a")),
+		Entry("another pointer and the root", `x "/a" and y "" overlap`,
+			labeled("x", "/a"), labeled("y", "")),
+		Entry("a field after a field it does not overlap",
+			`x "/a/b" and z "/a" overlap`,
+			labeled("x", "/a/b"), labeled("y", "/c"), labeled("z", "/a")),
 	)
 })
 
