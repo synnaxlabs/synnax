@@ -17,7 +17,6 @@ import { List as BaseList } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status as Base } from "@synnaxlabs/lyra/status";
-import { Tag } from "@synnaxlabs/lyra/tag";
 import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Label, Status } from "@synnaxlabs/pluto";
@@ -79,9 +78,6 @@ const ListItem = (props: BaseList.ItemProps<status.Key>) => {
   const { data: item } = Status.useResult({ key: itemKey });
   const canRename = Access.useUpdateGranted(status.resourceID(itemKey));
   const { update: rename } = Status.useRename();
-  const labels = Label.useResultMultiple(
-    item == null ? null : { keys: item.labels },
-  ).data;
   if (item == null) return null;
   const { name, time, variant, message } = item;
   return (
@@ -113,13 +109,9 @@ const ListItem = (props: BaseList.ItemProps<status.Key>) => {
           {message}
         </Text.Text>
       )}
-      {labels != null && labels.length > 0 && (
+      {item.labels.length > 0 && (
         <Flex.Box x gap="small" wrap className={CSS.B("status-list-item-labels")}>
-          {labels.map((l) => (
-            <Tag.Tag key={l.key} size="tiny" color={l.color}>
-              {l.name}
-            </Tag.Tag>
-          ))}
+          <Label.Tags keys={item.labels} size="tiny" />
         </Flex.Box>
       )}
     </Select.Item>

@@ -14,7 +14,6 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select as Base } from "@synnaxlabs/lyra/select";
-import { Tag } from "@synnaxlabs/lyra/tag";
 import { Telem } from "@synnaxlabs/lyra/telem";
 import { type ReactElement } from "react";
 
@@ -88,10 +87,6 @@ const ListItem = ({
   const item = List.useItem<ranger.Key, ranger.Payload>(itemKey);
   const parentKey = showParent ? item?.parent : undefined;
   const parent = useResult(parentKey == null ? null : { key: parentKey }).data;
-  const labelKeys = showLabels ? item?.labels : undefined;
-  const labels = Label.useResultMultiple(
-    labelKeys == null ? null : { keys: labelKeys },
-  ).data;
   if (item == null) return null;
   const { name, timeRange } = item;
   return (
@@ -108,15 +103,7 @@ const ListItem = ({
         timeRange={timeRange}
       />
       <Flex.Box x>
-        {labels != null && labels.length > 0 && (
-          <>
-            {labels.map(({ key, name, color }) => (
-              <Tag.Tag key={key} color={color} size="small">
-                {name}
-              </Tag.Tag>
-            ))}
-          </>
-        )}
+        {showLabels && <Label.Tags keys={item.labels} />}
         <Telem.Text.TimeRange level="tiny">{timeRange}</Telem.Text.TimeRange>
       </Flex.Box>
     </Base.Item>

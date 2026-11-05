@@ -37,9 +37,6 @@ export const Item = (props: ItemProps): ReactElement | null => {
   const item = List.useItem<status.Key, status.Status>(itemKey);
   const canRename = Access.useUpdateGranted(status.resourceID(itemKey));
   const { update: rename } = Status.useRename();
-  const labels = Label.useResultMultiple(
-    item == null ? null : { keys: item.labels },
-  ).data;
 
   if (item == null) return null;
   const { name, time, variant, message } = item;
@@ -69,13 +66,9 @@ export const Item = (props: ItemProps): ReactElement | null => {
         </Text.Text>
       </Flex.Box>
       <Flex.Box x align="center">
-        {labels != null && labels.length > 0 && (
+        {item.labels.length > 0 && (
           <Tag.Tags variant="text">
-            {labels.map(({ key, name, color }) => (
-              <Tag.Tag key={key} color={color} size="small">
-                {name}
-              </Tag.Tag>
-            ))}
+            <Label.Tags keys={item.labels} />
           </Tag.Tags>
         )}
         <Text.Text x>

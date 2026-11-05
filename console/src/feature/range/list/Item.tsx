@@ -43,10 +43,6 @@ const Base = ({
   const { update: setTimeRange } = Ranger.useSetTimeRange();
   const parentKey = showParent ? item?.parent : undefined;
   const parent = Ranger.useResult(parentKey == null ? null : { key: parentKey }).data;
-  const labelKeys = showLabels ? item?.labels : undefined;
-  const labels = Label.useResultMultiple(
-    labelKeys == null ? null : { keys: labelKeys },
-  ).data;
   if (item == null) return null;
 
   const { name, timeRange } = item;
@@ -80,13 +76,9 @@ const Base = ({
         />
       </Flex.Box>
       <Flex.Box x align="center" className={CSS.BE("range", "list-item-trailing")}>
-        {labels != null && labels.length > 0 && (
+        {showLabels && item.labels.length > 0 && (
           <Tag.Tags variant="text">
-            {labels.map(({ key, name, color }) => (
-              <Tag.Tag key={key} color={color} size="small">
-                {name}
-              </Tag.Tag>
-            ))}
+            <Label.Tags keys={item.labels} />
           </Tag.Tags>
         )}
         {showTimeRange && (
