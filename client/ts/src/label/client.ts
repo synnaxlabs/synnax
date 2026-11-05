@@ -137,9 +137,11 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
         schema: retrieveMultiParamsZ,
         fetch: async (req) => {
           const id = labelsOf(req);
+          const { epoch } = cache;
           const since = relationships.stamp();
           const labels = await this.execRetrieve(req);
-          if (id == null) return labels;
+          // A response from before a reconnect can miss changes that the stream missed.
+          if (id == null || cache.epoch !== epoch) return labels;
           // The response holds every label of id, so it replaces the cached set.
           const fetched = new Map(
             labels.map((l) => {

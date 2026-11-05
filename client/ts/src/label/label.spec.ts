@@ -18,6 +18,7 @@ import {
   expectDeleted,
   expectLive,
   FAST_RETRY,
+  holdResponses,
   spyOnSend,
   waitForStreamLive,
 } from "@/testutil";
@@ -370,6 +371,29 @@ describe("cached reads", () => {
         await duringGap(async () => await remote.labels.label(itemID, [changed.key]));
         const both = [kept.key, changed.key].sort();
         await expect.poll(keys).toEqual(both);
+        await rename();
+        expect(keys()).toEqual(both);
+      } finally {
+        off();
+      }
+    }, 30000);
+
+    it("should ignore a for fetch that started before the gap", async () => {
+      const { local, itemID, params, kept, changed, keys, duringGap, rename } =
+        await setup();
+      await local.labels.label(itemID, [kept.key]);
+      const { responded, release } = holdResponses(local, "/label/retrieve");
+      const off = local.labels.onChange(params, vi.fn());
+      try {
+        const pending = local.labels.retrieve(params);
+        await responded;
+        // Holds only the first fetch, so the refetch on reconnect lands before it.
+        vi.restoreAllMocks();
+        await duringGap(async () => await remote.labels.label(itemID, [changed.key]));
+        const both = [kept.key, changed.key].sort();
+        await expect.poll(keys).toEqual(both);
+        release();
+        await pending;
         await rename();
         expect(keys()).toEqual(both);
       } finally {
