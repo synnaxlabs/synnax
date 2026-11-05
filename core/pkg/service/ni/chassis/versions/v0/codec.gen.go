@@ -22,9 +22,8 @@ func (c Chassis) EncodeOrc(w *orc.Writer) error {
 	w.Uint32(uint32(c.Rack))
 	w.String(c.Name)
 	w.String(c.Serial)
+	w.String(c.ResourceName)
 	w.String(c.Model)
-	w.String(c.Alias)
-	w.Bool(c.Simulated)
 	return nil
 }
 
@@ -47,13 +46,10 @@ func (c *Chassis) DecodeOrc(r *orc.Reader) error {
 	if c.Serial, err = r.String(); err != nil {
 		return err
 	}
+	if c.ResourceName, err = r.String(); err != nil {
+		return err
+	}
 	if c.Model, err = r.String(); err != nil {
-		return err
-	}
-	if c.Alias, err = r.String(); err != nil {
-		return err
-	}
-	if c.Simulated, err = r.Bool(); err != nil {
 		return err
 	}
 	return nil
