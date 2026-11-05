@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe } from "vitest";
+import { uuid } from "@synnaxlabs/x";
+import { describe, expect, it } from "vitest";
 
 import { ranger } from "@/ranger";
 import { createLines } from "@/ranger/where";
-import { matches, serverComputed } from "@/ranger/where.gen";
+import { matches, retrieveInputZ, serverComputed } from "@/ranger/where.gen";
 import { itMatchesVectors, readVectors } from "@/testutil/vectors";
 
 const lines = createLines(
@@ -24,4 +25,67 @@ describe("Where", () => {
     (r, where) => matches(lines, r, where),
     (where) => serverComputed(lines, where),
   );
+});
+
+describe("retrieveInputZ", () => {
+  const key = uuid.create();
+  const labelKey = uuid.create();
+
+  it("should read a value as eq", () => {
+    expect(retrieveInputZ.parse({ key })).toEqual({ where: { key: { eq: key } } });
+  });
+
+  it("should read a list as in", () => {
+    expect(retrieveInputZ.parse({ name: ["a", "b"] })).toEqual({
+      where: { name: { in: ["a", "b"] } },
+    });
+  });
+
+  it("should keep an operator", () => {
+    const name = { startsWith: "Hot", caseInsensitive: true };
+    expect(retrieveInputZ.parse({ name })).toEqual({ where: { name } });
+  });
+
+  it("should read a value on a list line as a list of one", () => {
+    expect(retrieveInputZ.parse({ labels: labelKey })).toEqual({
+      where: { labels: [labelKey] },
+    });
+  });
+
+  it("should read the children of or", () => {
+    expect(
+      retrieveInputZ.parse({
+        or: [{ name: { startsWith: "Hot" } }, { labels: labelKey }],
+      }),
+    ).toEqual({
+      where: { or: [{ name: { startsWith: "Hot" } }, { labels: [labelKey] }] },
+    });
+  });
+
+  it("should split the options from the fields", () => {
+    expect(
+      retrieveInputZ.parse({ name: "a", limit: 2, offset: 1, includeLabels: true }),
+    ).toEqual({
+      where: { name: { eq: "a" } },
+      limit: 2,
+      offset: 1,
+      includeLabels: true,
+    });
+  });
+
+  it("should leave where unset when only options are set", () => {
+    expect(retrieveInputZ.parse({ limit: 5 }).where).toBeUndefined();
+  });
+
+  it("should reject a field set to undefined", () => {
+    const { error } = retrieveInputZ.safeParse({ name: undefined });
+    expect(error?.issues).toMatchObject([{ code: "invalid_union", path: ["name"] }]);
+  });
+
+  it("should reject a field the filter does not have", () => {
+    const { error } = retrieveInputZ.safeParse({ color: "red" });
+    expect(error?.issues).toMatchObject([
+      { code: "unrecognized_keys", keys: ["color"] },
+    ]);
+  });
 });

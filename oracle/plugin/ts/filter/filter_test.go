@@ -116,7 +116,9 @@ var _ = Describe("TS Filter Plugin", func() {
 			ExpectContent(resp, "where.gen.ts").
 				ToContain(
 					`import { filter } from "@synnaxlabs/x";`,
-					`import { Payload, Where } from "@/thing/types.gen";`,
+					`import { z } from "zod";`,
+					`import { Payload, RetrieveRequest, Where, retrieveRequestZ } `+
+						`from "@/thing/types.gen";`,
 					"export const matches = (record: Payload, where?: Where): boolean => {",
 					"if (where == null) return true;",
 					" * @returns whether only the Core can check where, because it holds a "+
@@ -175,6 +177,82 @@ var _ = Describe("TS Filter Plugin", func() {
 				)
 		})
 
+		It("Should read each bare line from a value, a list, or an operator", func(
+			ctx SpecContext,
+		) {
+			resp := MustGenerate(ctx, thing+`
+				Where filter Thing {
+					key
+					name
+					created_at
+					tags
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "where.gen.ts").ToContain(
+				"/** key selects by key. */\n"+
+					"  key: filter.setInputZ(z.uuid()).exactOptional(),",
+				"name: filter.stringInputZ.exactOptional(),",
+				"createdAt: filter.orderedInputZ(z.int64()).exactOptional(),",
+				"tags: filter.containsInputZ(z.string()).exactOptional(),",
+				"export interface WhereInput extends filter.Input<typeof inputs> {\n"+
+					"  and?: WhereInput[];\n"+
+					"  or?: WhereInput[];\n"+
+					"  not?: WhereInput;\n}",
+				"const whereInputZ: z.ZodType<Where, WhereInput> = z.strictObject({",
+				"return whereInputZ.array().exactOptional();",
+				"return whereInputZ.exactOptional();",
+				"export type RetrieveInput = z.input<typeof retrieveInputZ>;",
+			)
+		})
+
+		It("Should read a typed line as its type, or a list from a value", func(
+			ctx SpecContext,
+		) {
+			resp := MustGenerate(ctx, thing+`
+				Where filter Thing {
+					key
+					overlaps Span
+					spans    Span[]
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "where.gen.ts").ToContain(
+				"overlaps: spanZ.exactOptional(),",
+				"spans: filter.listInputZ(spanZ).exactOptional(),",
+				`import { Payload, RetrieveRequest, Where, retrieveRequestZ, spanZ } `+
+					`from "@/thing/types.gen";`,
+			)
+		})
+
+		It("Should split the retrieve options from the lines", func(ctx SpecContext) {
+			resp := MustGenerate(ctx, `
+				import "schemas/x/filter"
+
+				@ts output "client/ts/src/thing"
+
+				Label struct {
+					key uuid { @key }
+				}
+				Thing struct {
+					key    uuid     { @key }
+					name   string   { @search }
+					labels Label[]? { @include }
+
+					@ts name "Payload"
+				}
+				Where filter Thing {
+					key
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "where.gen.ts").ToContain(
+				"...retrieveRequestZ.omit({ where: true }).shape,",
+				"({ searchTerm, limit, offset, includeLabels, ...where }): "+
+					"RetrieveRequest => ({\n"+
+					"      where: filter.nonEmpty(where),\n"+
+					"      searchTerm,\n      limit,\n      offset,\n"+
+					"      includeLabels,\n    }),",
+			)
+		})
+
 		It("Should skip a line omitted from TypeScript", func(ctx SpecContext) {
 			resp := MustGenerate(ctx, thing+`
 				Where filter Thing {
@@ -207,7 +285,8 @@ var _ = Describe("TS Filter Plugin", func() {
 			`, "thing", loader, p)
 			ExpectContent(resp, "where.gen.ts").
 				ToContain(
-					`import { Where, Wire } from "@/thing/types.gen";`,
+					`import { RetrieveRequest, Where, Wire, retrieveRequestZ } from `+
+						`"@/thing/types.gen";`,
 					"record: Wire",
 					"!filter.matchesString(where.name, record.name)",
 				)

@@ -808,6 +808,30 @@ var _ = Describe("Filter definitions", func() {
 			Entry("with two paths", `@go request_output "a" "b"`),
 		)
 
+		DescribeTable("Should reject a line with the name of a retrieve option",
+			func(ctx SpecContext, line, field string) {
+				_, diag := Analyze(ctx, `
+					import "schemas/x/filter"
+
+					Thing struct {
+						key    uuid     { @key }
+						labels string[]? { @include }
+					}
+					Where filter Thing {
+						`+line+`
+					}
+				`, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(
+					"filter Where: " + field + " is reserved for retrieve",
+				))
+			},
+			Entry("where", "where bool", `"where"`),
+			Entry("limit", "limit uint32", `"limit"`),
+			Entry("one", "one bool", `"one"`),
+			Entry("an include field", "include_labels bool", `"include_labels"`),
+		)
+
 		It("Should reject a derived name the schema already declares", func(
 			ctx SpecContext,
 		) {
