@@ -304,7 +304,10 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 		// If we only have keys and no filters, and don't need entries, skip execution
 		// entirely and use the keys directly.
 		if canSkipExec(cls, entriesBound, atLast) {
-			nextIDs = lo.Must(ParseIDs(cls.GetFilterKeys()))
+			var err error
+			if nextIDs, err = ParseIDs(cls.GetFilterKeys()); err != nil {
+				return err
+			}
 		} else {
 			// For intermediate clauses that don't have user-bound entries, we need to
 			// bind a temporary slice so gorp can store the query results. Without this,
@@ -352,8 +355,8 @@ func (r Retrieve) Exists(ctx context.Context, tx gorp.Tx) (bool, error) {
 }
 
 func canSkipExec(q clause, entriesBound, atLast bool) bool {
-	return !entriesBound && !atLast && q.HasFilterKeys() &&
-		!q.HasFilters() && !q.HasLimit() && !q.HasOffset()
+	return !entriesBound && !atLast && q.IsBareKeys() &&
+		!q.HasPrefix() && !q.HasLimit() && !q.HasOffset()
 }
 
 func (r Retrieve) retrieveEntities(

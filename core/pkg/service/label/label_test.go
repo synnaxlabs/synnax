@@ -137,12 +137,20 @@ var _ = Describe("Label", Ordered, func() {
 			Expect(labels).To(HaveLen(1))
 			Expect(labels[0].Key).To(Equal(l.Key))
 		})
-		It("Should fail with not found for a resource that does not exist", func(
-			ctx SpecContext,
-		) {
-			missing := label.OntologyID(label.Key(uuid.New()))
-			Expect(svc.RetrieveFor(ctx, missing, tx)).Error().
-				To(MatchError(query.ErrNotFound))
+		It("Should get no labels for a deleted resource", func(ctx SpecContext) {
+			l := &label.Label{
+				Name:  "Label",
+				Color: MustSucceed(color.FromHex("#000000")),
+			}
+			Expect(w.Create(ctx, l)).To(Succeed())
+			labeled := &label.Label{
+				Name:  "Labeled",
+				Color: MustSucceed(color.FromHex("#000000")),
+			}
+			Expect(w.Create(ctx, labeled)).To(Succeed())
+			Expect(w.Label(ctx, labeled.OntologyID(), []label.Key{l.Key})).To(Succeed())
+			Expect(w.Delete(ctx, labeled.Key)).To(Succeed())
+			Expect(svc.RetrieveFor(ctx, labeled.OntologyID(), tx)).To(BeEmpty())
 		})
 		It("Should fail with not found for a label relationship with no label", func(
 			ctx SpecContext,
