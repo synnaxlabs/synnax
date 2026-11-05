@@ -190,6 +190,12 @@ describe("range", () => {
       expect(retrieved.key).toEqual(range.key);
       expect(retrieved.timeRange).toEqual(range.timeRange);
     });
+    it("should retrieve a range by a key object", async () => {
+      const timeRange = TimeStamp.now().spanRange(TimeSpan.seconds(1));
+      const range = await client.ranges.create({ name: "Key Object Range", timeRange });
+      const retrieved = await client.ranges.retrieve({ key: range.key });
+      expect(retrieved.key).toEqual(range.key);
+    });
     it("should retrieve ranges by a flat filter", async () => {
       const prefix = `flat-${id.create()}`;
       const timeRange = TimeStamp.now().spanRange(TimeSpan.seconds(1));
