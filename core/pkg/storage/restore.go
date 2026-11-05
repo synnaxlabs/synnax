@@ -38,8 +38,9 @@ type Restored struct {
 // Restored.OrphanedDir, and keeps the telemetry of every other channel.
 //
 // Restore holds the lock on the data directory, so it fails while a Core runs on it. It
-// returns query.ErrNotFound when there is no complete backup with the name. A failed
-// Restore can run again, and OpenLayer does not open the data until one finishes.
+// returns query.ErrNotFound when there is no complete backup with the name, and an
+// error without changing the data when the backup lacks a part. A failed Restore can
+// run again, and OpenLayer does not open the data until one finishes.
 func Restore(dirname, name string) (res Restored, err error) {
 	fs, err := openDataDir(dirname)
 	if err != nil {
@@ -61,6 +62,13 @@ func Restore(dirname, name string) (res Restored, err error) {
 	src, err := fs.Sub(path.Join(backupsDir, name))
 	if err != nil {
 		return Restored{}, err
+	}
+	for _, dir := range []string{kvDir, cesiumDir} {
+		if exists, err := src.Exists(dir); err != nil {
+			return Restored{}, err
+		} else if !exists {
+			return Restored{}, errors.Newf("backup %s has no %s directory", name, dir)
+		}
 	}
 	if err = writeFile(fs, RestoreMarkerFile, []byte(name)); err != nil {
 		return Restored{}, err
