@@ -248,12 +248,18 @@ export const useCursor = <K extends record.Key>(
   const stepRef = useSyncedRef(step);
   const repeat = useDestructors();
   const release = repeat.cleanup;
+  const heldRef = useRef(false);
   const press = (key: CursorKey): void => {
     release();
     if (key === "Enter") return activate();
     stepRef.current(key, false);
+    // A late release is no hold, so a selection repeats only once the OS repeats the
+    // key. A hover reads the keys through Triggers, which drops the repeats.
+    heldRef.current = hovering;
     let timer = setTimeout(() => {
-      timer = setInterval(() => stepRef.current(key, true), REPEAT_INTERVAL);
+      timer = setInterval(() => {
+        if (heldRef.current) stepRef.current(key, true);
+      }, REPEAT_INTERVAL);
     }, REPEAT_DELAY);
     // A window that loses focus while a key is held never sees the release.
     const stop = (): void => {
@@ -297,7 +303,8 @@ export const useCursor = <K extends record.Key>(
       if (!isCursorKey(key) || (isX(key) && moveX == null)) return;
       e.preventDefault();
       // The cursor repeats a held key at its own pace.
-      if (!e.repeat) press(key);
+      if (e.repeat) heldRef.current = true;
+      else press(key);
     },
     onKeyUp: (e) => {
       if (isCursorKey(Triggers.eventKey(e))) return release();

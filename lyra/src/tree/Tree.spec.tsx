@@ -367,6 +367,7 @@ describe("Tree keys", () => {
     });
     render(<Component />);
     fireEvent.keyDown(tree(), { key: "ArrowDown", code: "ArrowDown" });
+    fireEvent.keyDown(tree(), { key: "ArrowDown", code: "ArrowDown", repeat: true });
     act(() => {
       vi.advanceTimersByTime(400);
     });
@@ -423,6 +424,20 @@ describe("Tree keys", () => {
     expect(row("a").getAttribute("aria-expanded")).toBe("true");
   });
 
+  it("should move once on a press whose release comes late", () => {
+    vi.useFakeTimers();
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
+    render(<Component />);
+    fireEvent.keyDown(tree(), { key: "ArrowDown", code: "ArrowDown" });
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    fireEvent.keyUp(tree(), { key: "ArrowDown", code: "ArrowDown" });
+    expect(selected()).toEqual(["a"]);
+  });
+
   it("should stop a held key when the window loses focus", () => {
     vi.useFakeTimers();
     onTestFinished(() => {
@@ -430,6 +445,7 @@ describe("Tree keys", () => {
     });
     render(<Component />);
     fireEvent.keyDown(tree(), { key: "ArrowDown", code: "ArrowDown" });
+    fireEvent.keyDown(tree(), { key: "ArrowDown", code: "ArrowDown", repeat: true });
     fireEvent.blur(window);
     act(() => {
       vi.advanceTimersByTime(1000);
