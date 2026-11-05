@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field, JsonValue
 from typing_extensions import TypeVar
 
 from synnax import label, resource
-from synnax.resource.payload import ID
+from synnax.resource import ID
 from x import telem
 
 VARIANT_SUCCESS: Literal["success"] = "success"
@@ -87,7 +87,7 @@ class Status(BaseModel, Generic[Details]):
         return hash(self.key)
 
 
-RESOURCE_TYPE = ID(type="status")
+TYPE_RESOURCE_ID = ID(type="status")
 
 
 def resource_id(key: Key) -> ID:

@@ -64,7 +64,7 @@ func (w Writer) writeStatus(
 		d.Status = resolveStatus(d, provided)
 		return w.status.Set(ctx, d.Status)
 	}
-	key, err := w.status.KeyOf(d.ResourceID())
+	key, err := w.status.KeyOf(ctx, d.ResourceID())
 	if errors.Is(err, query.ErrNotFound) {
 		d.Status = resolveStatus(d, provided)
 		return w.status.Set(ctx, d.Status)
@@ -184,7 +184,7 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 		return err
 	}
 	// A missing status row is valid: the next Create heals it.
-	statusKey, err := w.status.KeyOf(ResourceID(key))
+	statusKey, err := w.status.KeyOf(ctx, ResourceID(key))
 	if err == nil {
 		err = w.status.Rename(ctx, statusKey, name)
 	}

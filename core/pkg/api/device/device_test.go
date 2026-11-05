@@ -214,7 +214,7 @@ var _ = Describe("Retrieve", func() {
 		withoutStatus := createDevice(ctx, "retrieve-without-status")
 		w := svc.Status.NewWriter(nil)
 		Expect(w.Delete(
-			ctx, MustSucceed(w.KeyOf(withoutStatus.ResourceID())),
+			ctx, MustSucceed(w.KeyOf(ctx, withoutStatus.ResourceID())),
 		)).To(Succeed())
 		grant(
 			ctx, access.ActionRetrieve, u.ResourceID(),

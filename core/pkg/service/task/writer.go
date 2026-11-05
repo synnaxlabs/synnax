@@ -78,7 +78,7 @@ func resolveStatus(t *Task, provided *Status, existed bool) *Status {
 // task's current name.
 func (w Writer) healStatus(ctx context.Context, stat *Status) (*Status, error) {
 	var existing Status
-	key, err := w.status.KeyOf(*stat.Owner)
+	key, err := w.status.KeyOf(ctx, *stat.Owner)
 	if err == nil {
 		err = gorp.NewRetrieve[string, Status]().
 			Where(gorp.MatchKeys[string, Status](key)).
@@ -225,7 +225,7 @@ func (w Writer) CreateMany(ctx context.Context, tasks *[]Task) error {
 
 func (w Writer) renameStatus(ctx context.Context, key Key, name string) error {
 	// A missing status row is valid: the next Create heals it.
-	statusKey, err := w.status.KeyOf(ResourceID(key))
+	statusKey, err := w.status.KeyOf(ctx, ResourceID(key))
 	if err == nil {
 		err = w.status.Rename(ctx, statusKey, name)
 	}

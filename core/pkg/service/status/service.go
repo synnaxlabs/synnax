@@ -222,7 +222,7 @@ func (s *Service) SetMissing[D any](
 // owners live in. Those migrations run before their tables open, so the writer skips
 // reference checks. Pass a nil tx to write directly against the service's DB.
 func (s *Service) NewMigrationWriter(tx gorp.Tx) *gorp.Writer[Key, Status[any]] {
-	return s.table.NewWriter(gorp.OverrideTx(s.cfg.DB, tx))
+	return s.table.NewUncheckedWriter(gorp.OverrideTx(s.cfg.DB, tx))
 }
 
 // NewWriter opens a Writer for statuses. Pass a nil tx to write directly against the

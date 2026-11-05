@@ -30,10 +30,14 @@ type Retrieve[D any] struct {
 // Filter is a per-service filter that is bound to the Retrieve when passed to Where.
 // It resolves when the query runs, against the query's transaction, so index-backed
 // filters see the transaction's own writes. Use Match to construct one from a closure.
-type Filter[D any] func(tx gorp.Tx, r Retrieve[D]) (gorp.Filter[Key, Status[D]], error)
+type Filter[D any] func(
+	ctx context.Context,
+	tx gorp.Tx,
+	r Retrieve[D],
+) (gorp.Filter[Key, Status[D]], error)
 
 func pure[D any](f gorp.Filter[Key, Status[D]]) Filter[D] {
-	return func(gorp.Tx, Retrieve[D]) (gorp.Filter[Key, Status[D]], error) {
+	return func(context.Context, gorp.Tx, Retrieve[D]) (gorp.Filter[Key, Status[D]], error) {
 		return f, nil
 	}
 }
@@ -42,7 +46,11 @@ func pure[D any](f gorp.Filter[Key, Status[D]]) Filter[D] {
 func Match[D any](
 	f func(gorp.Context, Retrieve[D], *Status[D]) (bool, error),
 ) Filter[D] {
-	return func(_ gorp.Tx, r Retrieve[D]) (gorp.Filter[Key, Status[D]], error) {
+	return func(
+		_ context.Context,
+		_ gorp.Tx,
+		r Retrieve[D],
+	) (gorp.Filter[Key, Status[D]], error) {
 		return gorp.Match(func(ctx gorp.Context, s *Status[D]) (bool, error) {
 			return f(ctx, r, s)
 		}), nil
@@ -99,7 +107,11 @@ func MatchNames[D any](names ...string) Filter[D] {
 // first. An empty term matches no status. Only a Retrieve[any] can search, because the
 // search index holds details of any type.
 func MatchSearch(term string) Filter[any] {
-	return func(_ gorp.Tx, r Retrieve[any]) (gorp.Filter[Key, Status[any]], error) {
+	return func(
+		_ context.Context,
+		_ gorp.Tx,
+		r Retrieve[any],
+	) (gorp.Filter[Key, Status[any]], error) {
 		return r.indexes.search.Filter(term), nil
 	}
 }
@@ -113,12 +125,12 @@ func MatchVariants[D any](variants ...Variant) Filter[D] {
 
 // MatchLabels returns a filter for statuses that have any of the provided labels.
 func MatchLabels[D any](labels ...label.Key) Filter[D] {
-	targets := make([]gorp.Target, len(labels))
-	for i, l := range labels {
-		targets[i] = gorp.To(string(resource.TypeLabel), l)
-	}
-	return func(tx gorp.Tx, r Retrieve[D]) (gorp.Filter[Key, Status[D]], error) {
-		keys, err := r.indexes.labels.Get(tx, targets...)
+	return func(
+		ctx context.Context,
+		tx gorp.Tx,
+		r Retrieve[D],
+	) (gorp.Filter[Key, Status[D]], error) {
+		keys, err := r.indexes.labels.Get(ctx, tx, labels...)
 		return gorp.MatchKeys[Key, Status[D]](keys...), err
 	}
 }
@@ -129,8 +141,12 @@ func MatchOwners[D any](owners ...resource.ID) Filter[D] {
 	for i, o := range owners {
 		targets[i] = resourceTarget(o)
 	}
-	return func(tx gorp.Tx, r Retrieve[D]) (gorp.Filter[Key, Status[D]], error) {
-		keys, err := r.indexes.owner.Get(tx, targets...)
+	return func(
+		ctx context.Context,
+		tx gorp.Tx,
+		r Retrieve[D],
+	) (gorp.Filter[Key, Status[D]], error) {
+		keys, err := r.indexes.owner.Get(ctx, tx, targets...)
 		return gorp.MatchKeys[Key, Status[D]](keys...), err
 	}
 }
@@ -141,7 +157,7 @@ func (r Retrieve[D]) Exec(ctx context.Context, tx gorp.Tx) error {
 	tx = gorp.OverrideTx(r.baseTX, tx)
 	q := r.gorp
 	for _, f := range r.filters {
-		filter, err := f(tx, r)
+		filter, err := f(ctx, tx, r)
 		if err != nil {
 			return err
 		}

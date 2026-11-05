@@ -28,8 +28,8 @@ const tableName = "status"
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	labels *gorp.Reference[Key, Status[any]]
-	owner  *gorp.Reference[Key, Status[any]]
+	labels *gorp.KeyReference[Key, Status[any], label.Key]
+	owner  *gorp.TargetReference[Key, Status[any]]
 	search *gorp.SearchIndex[Key, Status[any]]
 }
 
@@ -38,24 +38,20 @@ type indexes struct {
 // Service struct.
 func newIndexes() indexes {
 	return indexes{
-		labels: gorp.NewReference(gorp.ReferenceConfig[Key, Status[any]]{
+		labels: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Status[any], label.Key]{
 			Name:     "labels",
-			Tables:   []string{"label"},
+			Table:    "label",
 			OnDelete: gorp.Detach,
-			Targets: func(e *Status[any]) []gorp.Target {
-				targets := make([]gorp.Target, len(e.Labels))
-				for i, v := range e.Labels {
-					targets[i] = gorp.To("label", v)
-				}
-				return targets
+			Targets: func(e *Status[any]) []label.Key {
+				return e.Labels
 			},
-			Detach: func(e *Status[any], t gorp.Target) {
+			Detach: func(e *Status[any], t label.Key) {
 				e.Labels = slices.DeleteFunc(e.Labels, func(v label.Key) bool {
-					return gorp.To("label", v) == t
+					return v == t
 				})
 			},
 		}),
-		owner: gorp.NewReference(gorp.ReferenceConfig[Key, Status[any]]{
+		owner: gorp.NewTargetReference(gorp.TargetReferenceConfig[Key, Status[any]]{
 			Name:     "owner",
 			Tables:   []string{"rack", "task", "device", "channel"},
 			OnDelete: gorp.Cascade,
@@ -86,8 +82,8 @@ func (i indexes) all() []gorp.Index[Key, Status[any]] {
 
 // references returns the references packaged for registration via
 // gorp.TableConfig.References when opening the underlying table.
-func (i indexes) references() []*gorp.Reference[Key, Status[any]] {
-	return []*gorp.Reference[Key, Status[any]]{
+func (i indexes) references() []gorp.Reference[Key, Status[any]] {
+	return []gorp.Reference[Key, Status[any]]{
 		i.labels,
 		i.owner,
 	}

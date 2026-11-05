@@ -12,7 +12,6 @@ package ranger
 import (
 	"context"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -199,11 +198,7 @@ func (s *Service) Retrieve(
 		q = q.Where(ranger.MatchKeys(req.Keys...))
 	}
 	if hasLabels {
-		q = q.Where(
-			ranger.Or(lo.Map(req.HasLabels, func(k label.Key, _ int) ranger.Filter {
-				return ranger.MatchLabel(k)
-			})...),
-		)
+		q = q.Where(ranger.MatchLabels(req.HasLabels...))
 	}
 	if len(req.Parents) > 0 {
 		q = q.Where(ranger.MatchParents(req.Parents...))

@@ -282,7 +282,7 @@ func (g *Graph) clearRuntimeStatus(ctx context.Context, key channel.Key) error {
 
 func (g *Graph) deleteStatus(ctx context.Context, tx gorp.Tx, key channel.Key) error {
 	w := g.status.NewWriter(tx)
-	statusKey, err := w.KeyOf(channel.ResourceID(key))
+	statusKey, err := w.KeyOf(ctx, channel.ResourceID(key))
 	if err != nil {
 		return errors.Skip(err, query.ErrNotFound)
 	}

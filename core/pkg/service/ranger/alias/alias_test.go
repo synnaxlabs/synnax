@@ -411,9 +411,10 @@ var _ = Describe("Alias", Ordered, func() {
 
 	Context("Range delete", func() {
 		It("Should delete the aliases of a deleted range", func(ctx SpecContext) {
+			ch := createChannel(ctx)
+			tx := DeferClose(db.OpenTx())
 			r := ranger.Range{Name: "Range", TimeRange: telem.NewRangeSeconds(5, 10)}
 			Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
-			ch := createChannel(ctx)
 			Expect(aliasSvc.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "Alias")).
 				To(Succeed())
 			Expect(rangerSvc.NewWriter(tx).Delete(ctx, r.Key)).To(Succeed())
@@ -424,6 +425,7 @@ var _ = Describe("Alias", Ordered, func() {
 			"Should reject an alias on a range that does not exist",
 			func(ctx SpecContext) {
 				ch := createChannel(ctx)
+				tx := DeferClose(db.OpenTx())
 				Expect(aliasSvc.NewWriter(tx).Set(ctx, uuid.New(), ch.Key(), "Alias")).
 					To(MatchError(ContainSubstring("range")))
 			},

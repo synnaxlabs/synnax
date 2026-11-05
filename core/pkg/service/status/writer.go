@@ -67,8 +67,8 @@ func (w Writer) SetMany[D any](ctx context.Context, statuses *[]Status[D]) error
 
 // KeyOf returns the key of the status that owner holds. It returns query.ErrNotFound
 // when owner holds no status.
-func (w Writer) KeyOf(owner resource.ID) (Key, error) {
-	keys, err := w.indexes.owner.Get(w.tx, resourceTarget(owner))
+func (w Writer) KeyOf(ctx context.Context, owner resource.ID) (Key, error) {
+	keys, err := w.indexes.owner.Get(ctx, w.tx, resourceTarget(owner))
 	if err != nil {
 		return "", err
 	}
@@ -80,7 +80,7 @@ func (w Writer) KeyOf(owner resource.ID) (Key, error) {
 
 func (w Writer) resolve[D any](ctx context.Context, s *Status[D]) error {
 	if s.Owner != nil {
-		key, err := w.KeyOf(*s.Owner)
+		key, err := w.KeyOf(ctx, *s.Owner)
 		if err == nil {
 			s.Key = key
 		} else if !errors.Is(err, query.ErrNotFound) {

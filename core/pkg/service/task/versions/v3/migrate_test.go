@@ -230,7 +230,7 @@ var _ = Describe("NewMigration", func() {
 		})).To(Succeed())
 		run(ctx, openArcStore(ctx))
 
-		Expect(statusSvc.NewWriter(nil).KeyOf(taskID)).Error().
+		Expect(statusSvc.NewWriter(nil).KeyOf(ctx, taskID)).Error().
 			To(MatchError(query.ErrNotFound))
 		Expect(gorp.NewRetrieve[v2.Key, v2.Task]().
 			Where(gorp.MatchKeys[v2.Key, v2.Task](key)).

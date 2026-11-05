@@ -49,7 +49,7 @@ struct Label {
     from_proto(const ::service::label::pb::Label &pb);
 };
 
-const synnax::resource::ID RESOURCE_TYPE("label", "");
+const synnax::resource::ID TYPE_RESOURCE_ID("label", "");
 
 inline synnax::resource::ID resource_id(const Key &key) {
     return synnax::resource::ID("label", key.to_string());

@@ -11,14 +11,17 @@
 
 package kv
 
-import "github.com/synnaxlabs/gorp"
+import (
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+)
 
 // indexes bundles the per-Service secondary indexes registered on the
 // Pair table. Each index is constructed via newIndexes and threaded
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	rangeVal *gorp.Reference[string, Pair]
+	rangeVal *gorp.KeyReference[string, Pair, ranger.Key]
 }
 
 // newIndexes constructs a fresh indexes value, allocating one instance of each
@@ -26,12 +29,12 @@ type indexes struct {
 // Service struct.
 func newIndexes() indexes {
 	return indexes{
-		rangeVal: gorp.NewReference(gorp.ReferenceConfig[string, Pair]{
+		rangeVal: gorp.NewKeyReference(gorp.KeyReferenceConfig[string, Pair, ranger.Key]{
 			Name:     "range",
-			Tables:   []string{"range"},
+			Table:    "range",
 			OnDelete: gorp.Cascade,
-			Targets: func(e *Pair) []gorp.Target {
-				return []gorp.Target{gorp.To("range", e.Range)}
+			Targets: func(e *Pair) []ranger.Key {
+				return []ranger.Key{e.Range}
 			},
 		}),
 	}
@@ -45,8 +48,8 @@ func (i indexes) all() []gorp.Index[string, Pair] {
 
 // references returns the references packaged for registration via
 // gorp.TableConfig.References when opening the underlying table.
-func (i indexes) references() []*gorp.Reference[string, Pair] {
-	return []*gorp.Reference[string, Pair]{
+func (i indexes) references() []gorp.Reference[string, Pair] {
+	return []gorp.Reference[string, Pair]{
 		i.rangeVal,
 	}
 }

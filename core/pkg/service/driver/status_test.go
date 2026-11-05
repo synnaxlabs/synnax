@@ -61,7 +61,7 @@ var _ = Describe("StatusHandler", func() {
 		GinkgoHelper()
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			w := statusSvc.NewWriter(tx)
-			key, err := w.KeyOf(t.ResourceID())
+			key, err := w.KeyOf(ctx, t.ResourceID())
 			if err != nil {
 				return err
 			}
@@ -139,7 +139,7 @@ var _ = Describe("StatusHandler", func() {
 			)).To(Succeed())
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				w := statusSvc.NewWriter(tx)
-				key, err := w.KeyOf(t.ResourceID())
+				key, err := w.KeyOf(ctx, t.ResourceID())
 				if err != nil {
 					return err
 				}
@@ -381,7 +381,7 @@ var _ = Describe("StatusHandler", func() {
 		It("should write no status at boot for a task that does not start",
 			func(ctx SpecContext) {
 				reporter().Report(ctx, t, driver.NoCommand, false, cfgErr)
-				Expect(statusSvc.NewWriter(nil).KeyOf(t.ResourceID())).Error().
+				Expect(statusSvc.NewWriter(nil).KeyOf(ctx, t.ResourceID())).Error().
 					To(MatchError(query.ErrNotFound))
 			},
 		)

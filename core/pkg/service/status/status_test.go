@@ -302,13 +302,13 @@ var _ = Describe("Status", Ordered, func() {
 					s := newStatus("")
 					s.Owner = &owner
 					Expect(w.Set(ctx, &s)).To(Succeed())
-					Expect(w.KeyOf(owner)).To(Equal(s.Key))
+					Expect(w.KeyOf(ctx, owner)).To(Equal(s.Key))
 				},
 			)
 			It(
 				"Should return a not found error for an owner with no status",
 				func(ctx SpecContext) {
-					Expect(w.KeyOf(createRack(ctx, 5))).Error().
+					Expect(w.KeyOf(ctx, createRack(ctx, 5))).Error().
 						To(MatchError(query.ErrNotFound))
 				},
 			)
@@ -967,7 +967,7 @@ var _ = Describe("Status", Ordered, func() {
 				Expect(svc.SetMissing(ctx, tx, backfill)).To(Succeed())
 				Expect(retrieve(ctx, existing.Key).Message).To(Equal("Running"))
 				key, _ := statusv2.MigrateKey(missing.String())
-				Expect(w.KeyOf(missing)).To(Equal(key))
+				Expect(w.KeyOf(ctx, missing)).To(Equal(key))
 			},
 		)
 	})

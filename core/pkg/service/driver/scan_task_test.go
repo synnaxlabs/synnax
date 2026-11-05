@@ -362,7 +362,7 @@ var _ = Describe("ScanTask", func() {
 
 		It("Should warn with the error of a scan that fails", func(ctx SpecContext) {
 			dev := createDevice(ctx, deviceMake)
-			statusKey := MustSucceed(statusSvc.NewWriter(nil).KeyOf(dev.ResourceID()))
+			statusKey := MustSucceed(statusSvc.NewWriter(nil).KeyOf(ctx, dev.ResourceID()))
 			st := openOn(
 				gorp.Wrap(refusingDB{DB: db.KV(), marker: []byte(statusKey)}),
 				time.Hour,

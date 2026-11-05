@@ -391,9 +391,9 @@ var _ = Describe("Device", func() {
 				Expect(w.Create(ctx, &d)).To(Succeed())
 
 				sw := stat.NewWriter(tx)
-				Expect(sw.Delete(ctx, MustSucceed(sw.KeyOf(d.ResourceID())))).
+				Expect(sw.Delete(ctx, MustSucceed(sw.KeyOf(ctx, d.ResourceID())))).
 					To(Succeed())
-				Expect(sw.KeyOf(d.ResourceID())).Error().
+				Expect(sw.KeyOf(ctx, d.ResourceID())).Error().
 					To(MatchError(query.ErrNotFound))
 
 				reconfigured := device.Device{
@@ -1093,7 +1093,7 @@ var _ = Describe("Device", func() {
 			}
 			Expect(w.Create(ctx, &d)).To(Succeed())
 			sw := stat.NewWriter(tx)
-			Expect(sw.Delete(ctx, MustSucceed(sw.KeyOf(d.ResourceID())))).
+			Expect(sw.Delete(ctx, MustSucceed(sw.KeyOf(ctx, d.ResourceID())))).
 				To(Succeed())
 			Expect(w.Rename(ctx, d.Key, "After")).To(Succeed())
 		})
@@ -1120,7 +1120,7 @@ var _ = Describe("Device", func() {
 						Exec(ctx, tx),
 				).
 					To(MatchError(query.ErrNotFound))
-				Expect(stat.NewWriter(tx).KeyOf(d.ResourceID())).Error().
+				Expect(stat.NewWriter(tx).KeyOf(ctx, d.ResourceID())).Error().
 					To(MatchError(query.ErrNotFound))
 			},
 		)

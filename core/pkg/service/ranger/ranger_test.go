@@ -157,7 +157,7 @@ var _ = Describe("Ranger", func() {
 			var results []ranger.Range
 			Expect(
 				svc.NewRetrieve().
-					Where(ranger.MatchLabel(l.Key)).
+					Where(ranger.MatchLabels(l.Key)).
 					Entries(&results).
 					Exec(ctx, tx),
 			).To(Succeed())
@@ -177,7 +177,7 @@ var _ = Describe("Ranger", func() {
 				var results []ranger.Range
 				Expect(
 					svc.NewRetrieve().
-						Where(ranger.MatchLabel(l.Key)).
+						Where(ranger.MatchLabels(l.Key)).
 						Entries(&results).
 						Exec(ctx, tx),
 				).To(Succeed())
@@ -217,7 +217,7 @@ var _ = Describe("Ranger", func() {
 				var results []ranger.Range
 				Expect(
 					svc.NewRetrieve().
-						Where(ranger.Or(ranger.MatchLabel(la.Key), ranger.MatchLabel(lb.Key))).
+						Where(ranger.Or(ranger.MatchLabels(la.Key), ranger.MatchLabels(lb.Key))).
 						Entries(&results).
 						Exec(ctx, tx),
 				).To(Succeed())
@@ -227,7 +227,7 @@ var _ = Describe("Ranger", func() {
 			},
 		)
 		It(
-			"Should compose MatchOverlap and MatchLabel under And via Where",
+			"Should compose MatchOverlap and MatchLabels under And via Where",
 			func(ctx SpecContext) {
 				l := &label.Label{Name: "AndLabel"}
 				Expect(labelSvc.NewWriter(tx).Create(ctx, l)).To(Succeed())
@@ -271,7 +271,7 @@ var _ = Describe("Ranger", func() {
 							End:   telem.TimeStamp(9 * telem.Second),
 						},
 					),
-					ranger.MatchLabel(l.Key),
+					ranger.MatchLabels(l.Key),
 				)).Entries(&results).Exec(ctx, tx)).To(Succeed())
 				Expect(results).To(HaveLen(1))
 				Expect(results[0].Key).To(Equal(rHit.Key))
@@ -340,7 +340,7 @@ var _ = Describe("Ranger", func() {
 			Expect(svc.NewRetrieve().Where(
 				ranger.And(
 					ranger.MatchNames("NotLabeled", "NotPlain"),
-					ranger.Not(ranger.MatchLabel(l.Key)),
+					ranger.Not(ranger.MatchLabels(l.Key)),
 				),
 			).Entries(&results).Exec(ctx, tx)).To(Succeed())
 			Expect(results).To(HaveLen(1))

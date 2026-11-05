@@ -260,7 +260,7 @@ var _ = Describe("Writer", func() {
 				Expect(w.Create(ctx, r)).To(Succeed())
 				var res []ranger.Range
 				Expect(svc.NewRetrieve().
-					Where(ranger.MatchLabel(a)).
+					Where(ranger.MatchLabels(a)).
 					Entries(&res).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(res).To(HaveLen(1))

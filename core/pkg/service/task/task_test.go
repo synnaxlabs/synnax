@@ -744,7 +744,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should rename a task that has no status", func(ctx SpecContext) {
 			sw := stat.NewWriter(db)
-			Expect(sw.Delete(ctx, MustSucceed(sw.KeyOf(alerts.ResourceID())))).
+			Expect(sw.Delete(ctx, MustSucceed(sw.KeyOf(ctx, alerts.ResourceID())))).
 				To(Succeed())
 			MustSucceed(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
 				set([]string{"name"}, "Renamed"),
@@ -1079,7 +1079,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(
 					svc.NewRetrieve().Where(task.MatchKeys(m.Key)).Exec(ctx, tx),
 				).To(MatchError(query.ErrNotFound))
-				Expect(stat.NewWriter(tx).KeyOf(m.ResourceID())).Error().
+				Expect(stat.NewWriter(tx).KeyOf(ctx, m.ResourceID())).Error().
 					To(MatchError(query.ErrNotFound))
 			},
 		)
@@ -1236,9 +1236,9 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(w.Create(ctx, t)).To(Succeed())
 
 				sw := stat.NewWriter(tx)
-				Expect(sw.Delete(ctx, MustSucceed(sw.KeyOf(t.ResourceID())))).
+				Expect(sw.Delete(ctx, MustSucceed(sw.KeyOf(ctx, t.ResourceID())))).
 					To(Succeed())
-				Expect(sw.KeyOf(t.ResourceID())).Error().
+				Expect(sw.KeyOf(ctx, t.ResourceID())).Error().
 					To(MatchError(query.ErrNotFound))
 
 				reconfigured := &task.Task{Key: t.Key, Name: t.Name, Type: testType}
