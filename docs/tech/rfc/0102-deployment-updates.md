@@ -139,7 +139,10 @@ endpoint and version comparator at runtime (`tauri-plugin-updater` 2.14.1,
 from the Core's, in either direction, or when the Core's Console is a newer patch.
 `dangerousInsecureTransportProtocol` is on, because the Windows installer starts every
 Core with `--insecure` (`.github/scripts/windows_installer.nsi:117`). The updater still
-requires a valid signature (`console/src-tauri/tauri.conf.json:34-38`).
+requires a valid signature (`console/src-tauri/tauri.conf.json:34-38`). The signature
+does not cover the version in the manifest, so on an `--insecure` link an attacker in
+the middle can serve an older signed build. That risk is accepted: the Console must take
+older builds to match an older Core, and that attacker can already send commands.
 
 A user with `update` on the built-in object `builtin:version` also sees the newest
 stable Console from `docs.synnaxlabs.com/releases/console/latest.json` when it is past
