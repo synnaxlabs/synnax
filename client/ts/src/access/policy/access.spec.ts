@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id } from "@synnaxlabs/x";
+import { id, uuid } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { policy } from "@/access/policy";
+import { type role } from "@/access/role";
 import { AccessDeniedError, NotFoundError } from "@/index";
 import { query } from "@/query";
 import {
@@ -22,10 +23,17 @@ import {
 
 const client = createTestClient();
 
+// The role that holds every policy these specs create.
+let owner: role.Role;
+beforeAll(async () => {
+  owner = await client.access.roles.create({ name: `policy-spec-${id.create()}` });
+});
+
 describe("policy", () => {
   describe("retrieve", () => {
     it("should filter by internal flag when retrieving policies", async () => {
       const created = await client.access.policies.create({
+        role: owner.key,
         name: "test-non-internal",
         objects: [],
         actions: ["retrieve"],
@@ -47,6 +55,31 @@ describe("policy", () => {
     });
   });
 
+  describe("roles", () => {
+    it("should retrieve the policies of a role", async () => {
+      const r = await client.access.roles.create({ name: `role-${id.create()}` });
+      const held = await client.access.policies.create({
+        role: r.key,
+        name: "held",
+        objects: [],
+        actions: ["retrieve"],
+      });
+      const res = await client.access.policies.retrieve({ roles: [r.key] });
+      expect(res.map((p) => p.key)).toEqual([held.key]);
+    });
+
+    it("should refuse a policy whose role does not exist", async () => {
+      await expect(
+        client.access.policies.create({
+          role: uuid.create(),
+          name: "orphan",
+          objects: [],
+          actions: ["retrieve"],
+        }),
+      ).rejects.toThrow("does not exist");
+    });
+  });
+
   describe("access control", () => {
     it("should deny access when no matching policy exists", async () => {
       // Create a user with no policy for retrieving policies
@@ -56,6 +89,7 @@ describe("policy", () => {
         actions: [],
       });
       const randomPolicy = await client.access.policies.create({
+        role: owner.key,
         name: "test",
         objects: [],
         actions: ["retrieve"],
@@ -72,6 +106,7 @@ describe("policy", () => {
         actions: ["retrieve"],
       });
       const randomPolicy = await client.access.policies.create({
+        role: owner.key,
         name: "test",
         objects: [],
         actions: ["retrieve"],
@@ -90,6 +125,7 @@ describe("policy", () => {
         actions: ["create"],
       });
       await userClient.access.policies.create({
+        role: owner.key,
         name: "test",
         objects: [],
         actions: ["retrieve"],
@@ -105,6 +141,7 @@ describe("policy", () => {
       });
       await expect(
         userClient.access.policies.create({
+          role: owner.key,
           name: "test",
           objects: [],
           actions: ["retrieve"],
@@ -119,6 +156,7 @@ describe("policy", () => {
         actions: ["delete"],
       });
       const randomPolicy = await client.access.policies.create({
+        role: owner.key,
         name: "test",
         objects: [],
         actions: ["retrieve"],
@@ -137,6 +175,7 @@ describe("policy", () => {
         actions: ["retrieve"],
       });
       const randomPolicy = await client.access.policies.create({
+        role: owner.key,
         name: "test",
         objects: [],
         actions: ["retrieve"],
@@ -154,6 +193,7 @@ const remote = createTestClient();
 
 const createPolicy = async (c = client) =>
   await c.access.policies.create({
+    role: owner.key,
     name: `qry-${id.create()}`,
     objects: [],
     actions: ["retrieve"],

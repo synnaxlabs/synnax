@@ -93,24 +93,30 @@ describe("role", () => {
         NotFoundError,
       );
     });
-  });
 
-  describe("assign", () => {
-    it("should allow the caller to assign a role to a user", async () => {
-      const role = await client.access.roles.create({
-        name: "test",
-        description: "test",
+    it("should delete the role's policies and remove it from its users", async () => {
+      const doomed = await client.access.roles.create({
+        name: `doomed-${id.create()}`,
       });
-      const username = id.create();
+      const kept = await client.access.roles.create({ name: `kept-${id.create()}` });
+      const p = await client.access.policies.create({
+        role: doomed.key,
+        name: "doomed",
+        objects: [],
+        actions: ["retrieve"],
+      });
       const u = await client.users.create({
-        username,
+        username: id.create(),
         password: "test",
-        name: "test",
+        roles: [doomed.key, kept.key],
       });
-      await client.access.roles.assign({
-        user: u.key,
-        role: role.key,
-      });
+      await client.access.roles.delete(doomed.key);
+      // A client with an empty cache reads what the Core stores.
+      const fresh = createTestClient();
+      await expect(fresh.access.policies.retrieve(p.key)).rejects.toThrow(
+        NotFoundError,
+      );
+      expect((await fresh.users.retrieve(u.key)).roles).toEqual([kept.key]);
     });
   });
 

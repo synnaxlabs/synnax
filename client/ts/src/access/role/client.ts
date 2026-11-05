@@ -19,10 +19,8 @@ import {
   type Role,
   roleZ,
 } from "@/access/role/types.gen";
-import { ontology } from "@/ontology";
+import { type ontology } from "@/ontology";
 import { query } from "@/query";
-import { resource } from "@/resource";
-import { user } from "@/user";
 
 export const SET_CHANNEL_NAME = "sy_role_set";
 export const DELETE_CHANNEL_NAME = "sy_role_delete";
@@ -66,22 +64,6 @@ const deleteParamsZ = keyZ
   .or(keyZ.array().transform((keys) => ({ keys })));
 export type DeleteParams = z.input<typeof deleteParamsZ>;
 
-const assignReqZ = z.object({
-  user: user.keyZ,
-  role: keyZ,
-});
-export type AssignParams = z.input<typeof assignReqZ>;
-
-const assignResZ = z.object({});
-
-const unassignReqZ = z.object({
-  user: user.keyZ,
-  role: keyZ,
-});
-export type UnassignParams = z.input<typeof unassignReqZ>;
-
-const unassignResZ = z.object({});
-
 /**
  * Client-side matching for a request: key sets and the internal flag. Server-computed
  * shapes (search, limit/offset) never reach this filter; they refetch instead.
@@ -94,12 +76,6 @@ const requestFilter = (req: RetrieveRequest): ((r: Role) => boolean) => {
     return true;
   };
 };
-
-const assignmentRel = (role: Key, userKey: user.Key): ontology.Relationship => ({
-  from: resourceID(role),
-  type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-  to: user.resourceID(userKey),
-});
 
 export interface ClientConfig {
   unary: UnaryClient;
@@ -167,9 +143,6 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ro
         ),
     });
     drop();
-    this.cfg.ontology.cache.relationships.delete((r) =>
-      ids.some((id) => resource.idsEqual(r.from, id) || resource.idsEqual(r.to, id)),
-    );
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
@@ -186,44 +159,6 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ro
       },
     });
     rename();
-  }
-
-  async assign(params: AssignParams, opts: query.WriteOptions = {}): Promise<void> {
-    const rel = assignmentRel(params.role, params.user);
-    await query.optimistic({
-      rollbacks: [
-        this.cfg.ontology.cache.relationships.set(
-          ontology.relationshipToString(rel),
-          rel,
-        ),
-      ],
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.cfg.unary.send(
-          "/access/role/assign",
-          params,
-          assignReqZ,
-          assignResZ,
-        ),
-    });
-  }
-
-  async unassign(params: UnassignParams, opts: query.WriteOptions = {}): Promise<void> {
-    await query.optimistic({
-      rollbacks: [
-        this.cfg.ontology.cache.relationships.delete(
-          ontology.relationshipToString(assignmentRel(params.role, params.user)),
-        ),
-      ],
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.cfg.unary.send(
-          "/access/role/unassign",
-          params,
-          unassignReqZ,
-          unassignResZ,
-        ),
-    });
   }
 
   private async execRetrieve(params: RetrieveMultipleParams): Promise<Role[]> {

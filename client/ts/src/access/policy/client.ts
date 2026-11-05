@@ -19,6 +19,7 @@ import {
   policyZ,
   resourceID,
 } from "@/access/policy/types.gen";
+import { role } from "@/access/role";
 import { type ontology } from "@/ontology";
 import { query } from "@/query";
 import { resource } from "@/resource";
@@ -29,6 +30,7 @@ export const DELETE_CHANNEL_NAME = "sy_policy_delete";
 const retrieveRequestZ = z.object({
   keys: keyZ.array().optional(),
   subjects: resource.idZ.array().optional(),
+  roles: role.keyZ.array().optional(),
   limit: z.number().optional(),
   offset: z.number().optional(),
   internal: z.boolean().optional(),
@@ -67,19 +69,22 @@ const deleteReqZ = z.object({ keys: keyZ.array() });
 const deleteResZ = z.object({});
 
 /**
- * Query fields only the server can evaluate: policy records do not carry
- * their subjects, so subject membership cannot be checked locally.
+ * Query fields only the server can evaluate: the roles of a subject live on the
+ * subject, so subject membership cannot be checked locally.
  */
 const SERVER_FIELDS = ["subjects", "limit", "offset"] as const;
 
 /**
- * Client-side matching for a request: key sets and the internal flag. Server-computed
- * shapes (subjects, pagination) never reach this filter; they refetch instead.
+ * Client-side matching for a request: key sets, roles, and the internal flag.
+ * Server-computed shapes (subjects, pagination) never reach this filter; they refetch
+ * instead.
  */
 const requestFilter = (req: RetrieveRequest): ((p: Policy) => boolean) => {
   const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
+  const roleSet = primitive.isNonZero(req.roles) ? new Set(req.roles) : undefined;
   return (p) => {
     if (keySet != null && !keySet.has(p.key)) return false;
+    if (roleSet != null && !roleSet.has(p.role)) return false;
     if (req.internal != null && p.internal !== req.internal) return false;
     return true;
   };
@@ -152,9 +157,6 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Po
         ),
     });
     drop();
-    this.cfg.ontology.cache.relationships.delete((r) =>
-      ids.some((id) => resource.idsEqual(r.from, id) || resource.idsEqual(r.to, id)),
-    );
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
@@ -171,25 +173,6 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Po
       },
     });
     rename();
-  }
-
-  /**
-   * Retrieves every policy governing the subject, warming the role links of
-   * the subject and its policies so role reads resolve from the cache.
-   */
-  async retrieveForSubject(subject: resource.ID): Promise<Policy[]> {
-    const policies = await this.retrieve({ for: subject });
-    const { parents } = this.cfg.ontology;
-    const warms = [parents.retrieve({ ids: subject, types: ["role"] })];
-    if (policies.length > 0)
-      warms.push(
-        parents.retrieve({
-          ids: policies.map((p) => resourceID(p.key)),
-          types: ["role"],
-        }),
-      );
-    await Promise.all(warms);
-    return policies;
   }
 
   private async execRetrieve(params: RetrieveRequest): Promise<Policy[]> {

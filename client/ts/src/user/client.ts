@@ -11,6 +11,7 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, type observe, primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { role } from "@/access/role";
 import { type connection } from "@/connection";
 import { MultipleFoundError, NotFoundError } from "@/errors";
 import { type ontology } from "@/ontology";
@@ -22,6 +23,7 @@ import { type Key, keyZ, type New, newZ, type User, userZ } from "@/user/types.g
 const retrieveRequestZ = z.object({
   keys: keyZ.array().optional(),
   usernames: z.string().array().optional(),
+  roles: role.keyZ.array().optional(),
 });
 const retrieveMultiParamsZ = retrieveRequestZ.or(query.keyListZ(keyZ));
 
@@ -61,6 +63,8 @@ const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const renameResZ = z.object({});
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const deleteResZ = z.object({});
+const setRolesReqZ = z.object({ keys: keyZ.array(), roles: role.keyZ.array() });
+const setRolesResZ = z.object({});
 
 export const SET_CHANNEL_NAME = "sy_user_set";
 export const DELETE_CHANNEL_NAME = "sy_user_delete";
@@ -78,7 +82,12 @@ const singleIdentifier = (params: SingleParams): string =>
 
 const requestFilter = (req: RetrieveRequest): ((u: User) => boolean) => {
   const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
-  return (u) => keySet == null || keySet.has(u.key);
+  const roleSet = primitive.isNonZero(req.roles) ? new Set(req.roles) : undefined;
+  return (u) => {
+    if (keySet != null && !keySet.has(u.key)) return false;
+    if (roleSet != null && !u.roles.some((r) => roleSet.has(r))) return false;
+    return true;
+  };
 };
 
 // The username lives on the user's password, so only the Core can match it.
@@ -188,6 +197,26 @@ export class Client extends query.Retriever<
           { key, name },
           renameReqZ,
           renameResZ,
+        ),
+    });
+  }
+
+  /** Sets the roles of the users with the given keys, replacing the roles they hold. */
+  async setRoles(
+    keys: Key | Key[],
+    roles: role.Key[],
+    opts: query.WriteOptions = {},
+  ): Promise<void> {
+    const keysArr = array.toArray(keys);
+    await query.optimistic({
+      rollbacks: keysArr.map((key) => query.partialUpdate(this.store, key, { roles })),
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
+        await this.cfg.unary.send(
+          "/user/set-roles",
+          { keys: keysArr, roles },
+          setRolesReqZ,
+          setRolesResZ,
         ),
     });
   }

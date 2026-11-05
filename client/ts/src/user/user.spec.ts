@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id } from "@synnaxlabs/x";
+import { id, uuid } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, test, vi } from "vitest";
 
 import { AuthError, NotFoundError, ValidationError } from "@/index";
@@ -244,6 +244,43 @@ describe("User", () => {
       release();
       await fetching;
       expect(cachedName()).toBe(name);
+    });
+  });
+  describe("Roles", () => {
+    test("create a user with roles", async () => {
+      const r = await client.access.roles.create({ name: `role-${id.create()}` });
+      const u = await client.users.create({
+        username: id.create(),
+        password: "test",
+        roles: [r.key],
+      });
+      expect(u.roles).toEqual([r.key]);
+    });
+    test("set the roles of users", async () => {
+      const r = await client.access.roles.create({ name: `role-${id.create()}` });
+      const a = await client.users.create({ username: id.create(), password: "test" });
+      const b = await client.users.create({ username: id.create(), password: "test" });
+      await client.users.setRoles([a.key, b.key], [r.key]);
+      const fresh = createTestClient();
+      const stored = await fresh.users.retrieve({ keys: [a.key, b.key] });
+      expect(stored.map((u) => u.roles)).toEqual([[r.key], [r.key]]);
+    });
+    test("retrieve the users that hold a role", async () => {
+      const r = await client.access.roles.create({ name: `role-${id.create()}` });
+      const u = await client.users.create({
+        username: id.create(),
+        password: "test",
+        roles: [r.key],
+      });
+      await client.users.create({ username: id.create(), password: "test" });
+      const held = await client.users.retrieve({ roles: [r.key] });
+      expect(held.map(({ key }) => key)).toEqual([u.key]);
+    });
+    test("refuse a role that does not exist", async () => {
+      const u = await client.users.create({ username: id.create(), password: "test" });
+      await expect(client.users.setRoles(u.key, [uuid.create()])).rejects.toThrow(
+        "does not exist",
+      );
     });
   });
   describe("Delete", () => {

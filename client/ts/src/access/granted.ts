@@ -65,7 +65,7 @@ export class Granted {
 
   /** Fetches the subject's policies and answers the question. */
   async retrieve(subject: resource.ID, q: GrantedQuery): Promise<boolean> {
-    const policies = await this.policies.retrieveForSubject(subject);
+    const policies = await this.policies.retrieve(this.subjectFor(subject).query);
     return allowRequest({ subject, objects: q.objects, action: q.action }, policies);
   }
 
