@@ -34,6 +34,7 @@ import {
 } from "@/feature/opcua/device/haul";
 import { use } from "@/feature/opcua/device/queries";
 import { executeScanCommand } from "@/feature/opcua/device/scanCommand";
+import { useNoneSelected } from "@/feature/opcua/device/Select";
 import { type Device } from "@/feature/opcua/device/types";
 import { useConnectModal } from "@/feature/opcua/device/useConnectModal";
 import { CSV } from "@/feature/opcua/task/csv";
@@ -512,6 +513,7 @@ export const createForm = <C extends Channel>(props: FormProps<C>): FC<{}> => {
   return PlatformDevice.wrapTaskForm({
     use,
     useConfigure: useConnectModal,
+    useNoneSelected,
     Content,
   });
 };

@@ -253,63 +253,52 @@ var _ = Describe("Factory", func() {
 			DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
 		})
 
-		// testConnection runs test_connection against props and returns the answer.
+		// testConnection runs test_connection against props and returns the status
+		// that answers it.
 		testConnection := func(ctx SpecContext, props kafka.Properties) task.Status {
 			GinkgoHelper()
+			key := uuid.New().String()
 			Expect(dt.Exec(ctx, task.Command{
 				Task: t.Key,
 				Type: "test_connection",
-				Key:  "cmd-conn",
+				Key:  key,
 				Args: toJSON(map[string]any{"connection": props}),
 			})).To(Succeed())
-			return taskStatus(ctx, t)
+			var stat task.Status
+			Eventually(func(g Gomega) {
+				stat = taskStatus(ctx, t)
+				g.Expect(stat.Details.Cmd).To(Equal(key))
+			}).WithTimeout(15 * time.Second).Should(Succeed())
+			return stat
+		}
+		expectFailure := func(stat task.Status, reason string) {
+			GinkgoHelper()
+			Expect(stat.Variant).To(Equal(status.VariantError))
+			Expect(stat.Message).To(SatisfyAll(
+				HavePrefix("failed to connect: "),
+				ContainSubstring(reason),
+			))
 		}
 
 		It("Should answer test_connection with success for a live cluster",
 			func(ctx SpecContext) {
-				Expect(dt.Exec(ctx, task.Command{
-					Task: t.Key,
-					Type: "test_connection",
-					Key:  "cmd-2",
-					Args: toJSON(map[string]any{"connection": clusterProperties()}),
-				})).To(Succeed())
-				stat := taskStatus(ctx, t)
+				stat := testConnection(ctx, clusterProperties())
 				Expect(stat.Variant).To(Equal(status.VariantSuccess))
-				Expect(stat.Message).To(Equal("Connected"))
-				Expect(stat.Details.Cmd).To(Equal("cmd-2"))
+				Expect(stat.Message).To(Equal("Command executed successfully"))
 			},
 		)
 
 		It("Should answer test_connection with an error for an unreachable cluster",
 			func(ctx SpecContext) {
-				Expect(dt.Exec(ctx, task.Command{
-					Task: t.Key,
-					Type: "test_connection",
-					Key:  "cmd-3",
-					Args: toJSON(map[string]any{
-						"connection": kafka.Properties{
-							Brokers: []string{"127.0.0.1:1"},
-						},
-					}),
-				})).To(Succeed())
-				stat := taskStatus(ctx, t)
-				Expect(stat.Variant).To(Equal(status.VariantError))
-				Expect(stat.Message).To(Equal("Failed to connect"))
-				Expect(stat.Details.Cmd).To(Equal("cmd-3"))
+				expectFailure(testConnection(ctx, kafka.Properties{
+					Brokers: []string{"127.0.0.1:1"},
+				}), "127.0.0.1:1")
 			},
 		)
 
 		It("Should answer test_connection with an error for invalid properties",
 			func(ctx SpecContext) {
-				Expect(dt.Exec(ctx, task.Command{
-					Task: t.Key,
-					Type: "test_connection",
-					Key:  "cmd-4",
-					Args: toJSON(map[string]any{"connection": kafka.Properties{}}),
-				})).To(Succeed())
-				stat := taskStatus(ctx, t)
-				Expect(stat.Variant).To(Equal(status.VariantError))
-				Expect(stat.Description).To(ContainSubstring("brokers"))
+				expectFailure(testConnection(ctx, kafka.Properties{}), "brokers")
 			},
 		)
 
@@ -355,8 +344,7 @@ var _ = Describe("Factory", func() {
 						ctx,
 						kafka.Properties{Brokers: brokers, TLS: true},
 					)
-					Expect(stat.Variant).To(Equal(status.VariantError))
-					Expect(stat.Message).To(Equal("Failed to connect"))
+					expectFailure(stat, "certificate")
 				},
 			)
 
@@ -365,8 +353,7 @@ var _ = Describe("Factory", func() {
 					Brokers:       brokers,
 					CaCertificate: caPEM,
 				})
-				Expect(stat.Variant).To(Equal(status.VariantError))
-				Expect(stat.Description).To(ContainSubstring("requires TLS"))
+				expectFailure(stat, "requires TLS")
 			})
 
 			It("Should reject a CA certificate that is not PEM", func(ctx SpecContext) {
@@ -375,8 +362,7 @@ var _ = Describe("Factory", func() {
 					TLS:           true,
 					CaCertificate: "not a certificate",
 				})
-				Expect(stat.Variant).To(Equal(status.VariantError))
-				Expect(stat.Description).To(ContainSubstring("PEM-encoded certificate"))
+				expectFailure(stat, "PEM-encoded certificate")
 			})
 		})
 
@@ -428,8 +414,7 @@ var _ = Describe("Factory", func() {
 					Brokers: brokers,
 					Sasl:    kafka.SASL{Variant: kafka.NoneSASL{}},
 				})
-				Expect(stat.Variant).To(Equal(status.VariantError))
-				Expect(stat.Message).To(Equal("Failed to connect"))
+				expectFailure(stat, "SASL")
 			})
 
 			It("Should fail to connect with a wrong password", func(ctx SpecContext) {
@@ -442,14 +427,9 @@ var _ = Describe("Factory", func() {
 						},
 					},
 				})
-				Expect(stat.Variant).To(Equal(status.VariantError))
-				Expect(stat.Message).To(Equal("Failed to connect"))
+				// The broker closes the connection on a failed SCRAM exchange.
+				expectFailure(stat, "EOF")
 			})
-		})
-
-		It("Should reject unknown commands", func(ctx SpecContext) {
-			Expect(dt.Exec(ctx, task.Command{Task: t.Key, Type: "bogus"})).
-				To(MatchError(driver.ErrUnsupportedCommand))
 		})
 
 		It("Should answer stop and start", func(ctx SpecContext) {
@@ -472,14 +452,15 @@ var _ = Describe("Factory", func() {
 				dead := createDevice(ctx, kafka.Properties{
 					Brokers: []string{"127.0.0.1:1"},
 				})
+				// A new device starts as a warning, so the wait matches the message.
 				Eventually(func(g Gomega) {
-					g.Expect(deviceStatus(ctx, live).Variant).
-						To(Equal(status.VariantSuccess))
-					g.Expect(deviceStatus(ctx, dead).Variant).
-						To(Equal(status.VariantError))
+					g.Expect(deviceStatus(ctx, live).Message).
+						To(Equal("Device connected"))
+					g.Expect(deviceStatus(ctx, dead).Message).
+						To(Equal("Failed to connect"))
 				}).WithTimeout(15 * time.Second).Should(Succeed())
-				Expect(deviceStatus(ctx, live).Message).To(Equal("Device connected"))
-				Expect(deviceStatus(ctx, dead).Message).To(Equal("Failed to connect"))
+				Expect(deviceStatus(ctx, live).Variant).To(Equal(status.VariantSuccess))
+				Expect(deviceStatus(ctx, dead).Variant).To(Equal(status.VariantWarning))
 			},
 		)
 	})

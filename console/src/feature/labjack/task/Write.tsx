@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/feature/labjack/task/Write.css";
-
 import { channel, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -19,7 +17,7 @@ import { deep, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { use } from "@/feature/labjack/device/queries";
-import { Select } from "@/feature/labjack/device/Select";
+import { Select, useNoneSelected } from "@/feature/labjack/device/Select";
 import {
   AO_PORT_TYPE,
   type AOPort,
@@ -50,7 +48,6 @@ import {
   type WriteSchemas,
 } from "@/feature/labjack/task/types";
 import { useConfigure } from "@/feature/labjack/task/useConfigure";
-import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
@@ -85,6 +82,11 @@ interface ChannelListItemProps extends Task.ChannelListItemProps {
   device: Device;
 }
 
+const COLUMNS: List.Column[] = [
+  { name: "Type", width: "24rem", field: true },
+  { name: "Port", width: "22rem", field: true },
+];
+
 const ChannelListItem = ({ device, ...rest }: ChannelListItemProps) => {
   const { model } = device;
   const identifier = channel.escapeInvalidName(device.properties.identifier);
@@ -94,8 +96,36 @@ const ChannelListItem = ({ device, ...rest }: ChannelListItemProps) => {
   const skipped = Task.useSkipped(path.config.channels, rest.itemKey, portOf);
   const { port, type, cmdChannel, stateChannel } = item;
   return (
-    <List.Item {...rest} full="x" justify="between">
-      <Flex.Box pack x align="center">
+    <Task.Views.ListChannelItem
+      {...rest}
+      path={entry}
+      channel={cmdChannel}
+      defaultName={commandName(item, identifier)}
+      stateChannel={stateChannel}
+      stateDefaultName={stateName(item, identifier)}
+      skipped={skipped}
+    >
+      <List.Cell>
+        <PForm.Field<WriteChannelType>
+          path={entry.type}
+          showLabel={false}
+          showHelpText={false}
+          onChange={(value) => {
+            if (type === value) return;
+            const portType = convertWriteChannelTypeToPortType(value);
+            const others = get(path.config.channels).value.filter(
+              ({ key }) => key !== item.key,
+            );
+            const port = (
+              getOpenPort(others, model, [portType]) ?? PORTS[model][portType][0]
+            ).key;
+            set(entry, { ...item, type: value, port });
+          }}
+        >
+          {selectWriteChannelType}
+        </PForm.Field>
+      </List.Cell>
+      <List.Cell>
         <PForm.Field
           path={entry.port}
           showLabel={false}
@@ -115,47 +145,11 @@ const ChannelListItem = ({ device, ...rest }: ChannelListItemProps) => {
               type={convertWriteChannelTypeToPortType(type)}
               channel={item.key}
               name={(c) => commandName(c, identifier)}
-              className={CSS.BE("labjack-write", "port-select")}
-            >
-              <PForm.Field<WriteChannelType>
-                key="type"
-                path={entry.type}
-                showLabel={false}
-                showHelpText={false}
-                gap="large"
-                onChange={(value) => {
-                  if (type === value) return;
-                  const portType = convertWriteChannelTypeToPortType(value);
-                  const others = get(path.config.channels).value.filter(
-                    ({ key }) => key !== item.key,
-                  );
-                  const port = (
-                    getOpenPort(others, model, [portType]) ?? PORTS[model][portType][0]
-                  ).key;
-                  set(entry, { ...item, type: value, port });
-                }}
-                empty
-              >
-                {selectWriteChannelType}
-              </PForm.Field>
-            </PortPicker>
+            />
           )}
         </PForm.Field>
-      </Flex.Box>
-      <Flex.Box x align="center" justify="evenly">
-        <Task.WriteChannelNames
-          cmdChannel={cmdChannel}
-          itemKey={item.key}
-          stateChannel={stateChannel}
-          cmdNamePath={entry.cmdChannelName}
-          stateNamePath={entry.stateChannelName}
-          cmdDefaultName={commandName(item, identifier)}
-          stateDefaultName={stateName(item, identifier)}
-          skipped={skipped}
-        />
-        <Task.EnabledCheckbox path={entry.disabled} />
-      </Flex.Box>
-    </List.Item>
+      </List.Cell>
+    </Task.Views.ListChannelItem>
   );
 };
 
@@ -210,13 +204,14 @@ const ChannelList = ({ device }: ChannelListProps) => {
   const listItem = ({ key, ...p }: Task.ChannelListItemProps) => (
     <ChannelListItem key={key} {...p} device={device} />
   );
-  const ports = (p: Task.Views.PortsProps<WriteChannel>) => (
+  const map = (p: Task.Views.PortsProps<WriteChannel>) => (
     <PortsView<WriteChannel, AOPort | DOPort>
       {...p}
       model={model}
       ports={[...PORTS[model][AO_PORT_TYPE], ...PORTS[model][DO_PORT_TYPE]]}
       create={(_, port) => createChannelOn(port)}
       name={(c) => commandName(c, identifier)}
+      compact
     />
   );
   const resolve = (c: WriteChannel) => {
@@ -230,9 +225,12 @@ const ChannelList = ({ device }: ChannelListProps) => {
       path={path.config.channels}
       createChannel={createChannel}
       listItem={listItem}
+      columns={COLUMNS}
+      channelColumns={Task.Views.LIST_WRITE_CHANNEL_COLUMNS}
+      checkable
       contextMenuItems={Task.writeChannelContextMenuItems}
       resolve={resolve}
-      ports={ports}
+      map={map}
     />
   );
 };
@@ -240,6 +238,7 @@ const ChannelList = ({ device }: ChannelListProps) => {
 const Form: FC = PlatformDevice.wrapTaskForm({
   use,
   useConfigure,
+  useNoneSelected,
   Content: ChannelList,
 });
 

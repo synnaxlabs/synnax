@@ -138,6 +138,17 @@ func (u *ReadChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u ReadChannel) Type() ReadChannelType {
+	switch u.Variant.(type) {
+	case EntryReadChannel:
+		return EntryReadChannelType
+	case UnresolvedReadChannel:
+		return UnresolvedReadChannelType
+	}
+	return ""
+}
+
 // Base returns the fields every variant shares, or the zero value if Variant is nil.
 func (u ReadChannel) Base() BaseReadChannel {
 	switch variant := u.Variant.(type) {
@@ -277,6 +288,17 @@ func (u *WriteChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		)
 	}
 	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u WriteChannel) Type() WriteChannelType {
+	switch u.Variant.(type) {
+	case EntryWriteChannel:
+		return EntryWriteChannelType
+	case UnresolvedWriteChannel:
+		return UnresolvedWriteChannelType
+	}
+	return ""
 }
 
 // Base returns the fields every variant shares, or the zero value if Variant is nil.

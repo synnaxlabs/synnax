@@ -24,16 +24,21 @@ import (
 type StartOffset = versions.StartOffset
 
 const (
-	StartOffsetLatest   StartOffset = versions.StartOffsetLatest
+	// StartOffsetLatest starts at the end of the topic and reads only new records.
+	StartOffsetLatest StartOffset = versions.StartOffsetLatest
+	// StartOffsetEarliest starts at the oldest record the topic retains.
 	StartOffsetEarliest StartOffset = versions.StartOffsetEarliest
-	StartOffsetNone     StartOffset = versions.StartOffsetNone
+	// StartOffsetNone fails the start.
+	StartOffsetNone StartOffset = versions.StartOffsetNone
 )
 
 // RecordKey is the source of the key placed on every record a write task produces.
 type RecordKey = versions.RecordKey
 
 const (
-	RecordKeyNone        RecordKey = versions.RecordKeyNone
+	// RecordKeyNone writes records with no key.
+	RecordKeyNone RecordKey = versions.RecordKeyNone
+	// RecordKeyChannelName uses the name of the source channel as the key.
 	RecordKeyChannelName RecordKey = versions.RecordKeyChannelName
 )
 
@@ -213,6 +218,22 @@ func (u *SASL) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		)
 	}
 	return nil
+}
+
+// Mechanism returns the mechanism of the active variant, or an empty mechanism when
+// there is none.
+func (u SASL) Mechanism() SASLType {
+	switch u.Variant.(type) {
+	case NoneSASL:
+		return NoneSASLType
+	case PlainSASL:
+		return PlainSASLType
+	case ScramSha256SASL:
+		return ScramSha256SASLType
+	case ScramSha512SASL:
+		return ScramSha512SASLType
+	}
+	return ""
 }
 
 // Properties configures the connection to a Kafka cluster device.
