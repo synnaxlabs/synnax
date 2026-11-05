@@ -333,11 +333,19 @@ describe("Retriever", () => {
         expect(fetchRequest).not.toHaveBeenCalled();
       });
 
-      it("returns one record per key of a bare key list, in key order", async () => {
+      it("returns each record of a bare key list once, in key order", async () => {
         const fetchKeys = vi.fn(async (keys: string[]) => keys.map((k) => thing(k)));
         const client = new KeysClient(newCache(), fetchKeys, async () => []);
         const results = await client.retrieve(["b", "a", "b"]);
-        expect(results.map((t) => t.key)).toEqual(["b", "a", "b"]);
+        expect(results.map((t) => t.key)).toEqual(["b", "a"]);
+        expect(client.getCached(["b", "a", "b"])).toEqual(results);
+      });
+
+      it("names a repeated missing key of a bare key list once", async () => {
+        const client = new KeysClient(newCache(), async () => [thing("a")], vi.fn());
+        await expect(client.retrieve(["b", "a", "b"])).rejects.toThrow(
+          new NotFoundError("thing with key b not found"),
+        );
       });
 
       it("throws a NotFoundError naming the missing key of a bare key list", async () => {
