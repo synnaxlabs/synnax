@@ -213,29 +213,42 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				Expect(iter.Close()).To(Succeed())
 			})
 
-			It("Should exit on cancel when nothing reads its responses", func(
-				ctx SpecContext,
-			) {
-				calculation := &channel.Channel{
-					Name:       "unread_output",
-					DataType:   telem.Float32T,
-					Expression: "return sensor_1",
-				}
-				Expect(channelWriter.Create(ctx, calculation)).To(Succeed())
-				stream := MustSucceed(iteratorSvc.NewStream(ctx, iterator.Config{
-					Keys:   []channel.Key{calculation.Key()},
-					Bounds: telem.TimeRangeMax,
-				}))
-				sCtx, cancel := signal.Isolated()
-				defer cancel()
-				requests, _ := confluence.Attach(stream)
-				stream.Flow(sCtx, confluence.CloseOutputInletsOnExit())
-				requests.Inlet() <- iterator.Request{Command: iterator.CommandSeekFirst}
-				Consistently(sCtx.Stopped()).ShouldNot(BeClosed())
-				cancel()
-				Eventually(sCtx.Stopped()).Should(BeClosed())
-				Expect(sCtx.Wait()).To(MatchError(context.Canceled))
-			})
+			DescribeTable(
+				"Should exit on cancel when nothing reads its responses",
+				func(
+					ctx SpecContext,
+					name string,
+					reduction telem.Reduction,
+				) {
+					calculation := &channel.Channel{
+						Name:       name,
+						DataType:   telem.Float32T,
+						Expression: "return sensor_1",
+					}
+					Expect(channelWriter.Create(ctx, calculation)).To(Succeed())
+					stream := MustSucceed(iteratorSvc.NewStream(ctx, iterator.Config{
+						Keys:      []channel.Key{calculation.Key()},
+						Bounds:    telem.TimeRangeMax,
+						Reduction: reduction,
+					}))
+					sCtx, cancel := signal.Isolated()
+					defer cancel()
+					requests, _ := confluence.Attach(stream)
+					stream.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+					requests.Inlet() <- iterator.Request{Command: iterator.CommandSeekFirst}
+					Consistently(sCtx.Stopped()).ShouldNot(BeClosed())
+					cancel()
+					Eventually(sCtx.Stopped()).Should(BeClosed())
+					Expect(sCtx.Wait()).To(MatchError(context.Canceled))
+				},
+				Entry("no reduction", "unread_output", telem.Reduction{}),
+				Entry("point limit", "unread_limited_output", telem.Reduction{
+					Variant: telem.LimitReduction{
+						Aggregation: telem.AggregationMinMax,
+						PointLimit:  2,
+					},
+				}),
+			)
 
 			It("Should carry calculation state across domains", func(
 				ctx SpecContext,
