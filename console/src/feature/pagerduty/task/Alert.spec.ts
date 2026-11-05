@@ -7,33 +7,45 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { pagerduty, type task } from "@synnaxlabs/client";
+import { pagerduty, type secret, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { type z } from "zod";
 
 import { PagerDuty } from "@/feature/pagerduty";
+import { createSecret } from "@/feature/secret/testutil";
 import {
   awaitEditableForm,
   deployAndAwaitTask,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
 } from "@/platform/task/testutil";
-import { uniqueName } from "@/testutil";
+import { findDialogTriggerByText, uniqueName } from "@/testutil";
+
+const client = createTestClient();
+
+const secrets: secret.Key[] = [];
+
+const tasks: task.Key[] = [];
+
+afterEach(async () => {
+  // The Core refuses to delete a secret that a task uses.
+  for (const key of tasks.splice(0)) await client.tasks.delete(key);
+  for (const key of secrets.splice(0)) await client.secrets.delete(key);
+});
 
 // The form renders read-only until the update grant lands, and a preview field renders
 // no input, so wait for it to become editable before querying fields.
 const renderAlert = async (options: RenderTaskFormTabOptions = {}) => {
   const rendered = await renderTaskFormTab(PagerDuty.Task.Alert, {
+    client,
     task: ZERO_DRAFT,
     ...options,
   });
   await awaitEditableForm();
   return rendered;
 };
-
-const ROUTING_KEY_PLACEHOLDER = "R022XIJR9M266DX570EVE6EXP1AFBN6D";
 
 // Drafts carry no key; the created row mints its own.
 const ZERO_DRAFT: task.New<PagerDuty.Task.AlertSchemas> = {
@@ -54,17 +66,28 @@ const createAlertConfig = (
   overrides: Partial<z.infer<PagerDuty.Task.AlertSchemas["config"]>> = {},
 ): z.infer<PagerDuty.Task.AlertSchemas["config"]> => ({
   ...PagerDuty.Task.ALERT_SCHEMAS.config.parse({}),
-  routingKey: "R".repeat(32),
   alerts: [{ ...pagerduty.alertZ.parse({}), key: "a1", status: uniqueName("status") }],
   ...overrides,
 });
+
+// Creates a draft whose routing key is a new secret.
+const createKeyedDraft = async (
+  draft: Partial<task.New<PagerDuty.Task.AlertSchemas>> = {},
+) => {
+  const s = await createSecret(client, secrets);
+  const t = await client.tasks.create(
+    { ...ZERO_DRAFT, config: createAlertConfig({ routingKey: s.key }), ...draft },
+    PagerDuty.Task.ALERT_SCHEMAS,
+  );
+  tasks.push(t.key);
+  return { secret: s, task: t };
+};
 
 describe("PagerDuty Alert form", () => {
   it("should show the empty state and add + select an alert", async () => {
     await renderAlert();
     await screen.findByText("No alerts");
     expect(screen.getByText("No alert selected")).toBeTruthy();
-    expect(screen.getByPlaceholderText(ROUTING_KEY_PLACEHOLDER)).toBeTruthy();
     await addAlert();
     expect(screen.getByText("Treat error as critical")).toBeTruthy();
     expect(screen.getByPlaceholderText("engine-1")).toBeTruthy();
@@ -104,52 +127,48 @@ describe("PagerDuty Alert form", () => {
     expect(screen.getByText("No alert selected")).toBeTruthy();
   });
 
-  it("should seed the form from the task row's config", async () => {
-    const client = createTestClient();
-    const config = createAlertConfig();
-    const draft = await client.tasks.create(
-      { ...ZERO_DRAFT, config },
-      PagerDuty.Task.ALERT_SCHEMAS,
-    );
-    await renderAlert({ client, taskKey: draft.key });
-    await screen.findByDisplayValue("R".repeat(32));
+  it("should show the routing key secret from the task's config", async () => {
+    const { secret: s, task: t } = await createKeyedDraft();
+    await renderAlert({ taskKey: t.key });
+    await findDialogTriggerByText(s.name);
     await waitFor(() => expect(newAlertItem()).toBeTruthy());
   });
 
-  it("should load a routing key the deploy schema would reject", async () => {
-    const client = createTestClient();
-    const config = createAlertConfig({ routingKey: "too_short" });
-    const draft = await client.tasks.create({ ...ZERO_DRAFT, config });
-    await renderAlert({ client, taskKey: draft.key });
-    const input = await screen.findByPlaceholderText<HTMLInputElement>(
-      ROUTING_KEY_PLACEHOLDER,
-    );
-    expect(input.value).toBe("too_short");
-    expect(screen.queryByText("No alerts")).toBeNull();
+  it("should load a config without a routing key", async () => {
+    const draft = await client.tasks.create({
+      ...ZERO_DRAFT,
+      config: createAlertConfig(),
+    });
+    await renderAlert({ taskKey: draft.key });
+    await findDialogTriggerByText("Select a secret");
+    await waitFor(() => expect(newAlertItem()).toBeTruthy());
+  });
+
+  it("should name a new routing key secret after the task", async () => {
+    const name = uniqueName("alerts");
+    await renderAlert({ task: { ...ZERO_DRAFT, name } });
+    fireEvent.click(await findDialogTriggerByText("Select a secret"));
+    fireEvent.click(await screen.findByText("New secret"));
+    const input = await screen.findByLabelText("Secret name");
+    expect(input).toHaveProperty("value", `${name} routing key`);
   });
 
   describe("deploying against a live Core", () => {
-    const client = createTestClient();
-
     it("should start the alert task on the rack stored on its row", async () => {
       const rack = await client.racks.create({ name: uniqueName("rack") });
-      const config = createAlertConfig();
-      const draft = await client.tasks.create(
-        { ...ZERO_DRAFT, config, rack: rack.key },
-        PagerDuty.Task.ALERT_SCHEMAS,
-      );
-      const { container } = await renderAlert({ client, taskKey: draft.key });
-      const created = await deployAndAwaitTask(
+      const { secret: s, task: t } = await createKeyedDraft({ rack: rack.key });
+      const { container } = await renderAlert({ taskKey: t.key });
+      const deployed = await deployAndAwaitTask(
         client,
         container,
-        draft.key,
+        t.key,
         PagerDuty.Task.ALERT_SCHEMAS,
       );
-      expect(created.type).toBe(PagerDuty.Task.ALERT_TYPE);
-      expect(created.rack).toBe(rack.key);
-      expect(created.config.routingKey).toBe(config.routingKey);
-      expect(created.config.alerts).toHaveLength(1);
-      expect(created.config.alerts[0].status).toBe(config.alerts[0].status);
+      expect(deployed.type).toBe(PagerDuty.Task.ALERT_TYPE);
+      expect(deployed.rack).toBe(rack.key);
+      expect(deployed.config.routingKey).toBe(s.key);
+      expect(deployed.config.alerts).toHaveLength(1);
+      expect(deployed.config.alerts[0].status).toBe(t.config.alerts[0].status);
     });
   });
 });
