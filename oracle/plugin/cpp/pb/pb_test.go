@@ -160,6 +160,30 @@ var _ = Describe("C++ PB Plugin", func() {
 		)
 
 		It(
+			"Should translate each value of a map of a generic use",
+			func(ctx SpecContext) {
+				AddFilterSchema(loader)
+				source := `
+				import "schemas/x/filter"
+
+				@cpp output "client/cpp/thing"
+				@pb
+
+				Thing struct {
+					sets map<string, filter.Set<uuid>>
+				}
+			`
+				resp := MustGenerate(ctx, source, "thing", loader, pbPlugin)
+				ExpectContent(resp, "thing/proto.gen.h").
+					ToContain(
+						"auto [pb_v, err] = uuid_set_to_proto(v);",
+						"auto [cpp_v, err] = uuid_set_from_proto(v);",
+					).
+					ToNotContain("v.to_proto()", "::from_proto(v)")
+			},
+		)
+
+		It(
 			"Should translate a generic use over an optional enum value",
 			func(ctx SpecContext) {
 				AddFilterSchema(loader)

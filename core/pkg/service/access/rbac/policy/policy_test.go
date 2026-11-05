@@ -419,12 +419,11 @@ var _ = Describe("Retriever", func() {
 			Expect(ps).To(ConsistOf(policies[2]))
 		})
 
-		It("Should fail to resolve a subject that does not exist", func(
+		It("Should resolve no policies for a subject that does not exist", func(
 			ctx SpecContext,
 		) {
 			missing := ontology.ID{Type: "user", Key: uuid.New().String()}
-			Expect(svc.ResolveSubjects(ctx, tx, missing)).
-				Error().To(MatchError(query.ErrNotFound))
+			Expect(svc.ResolveSubjects(ctx, tx, missing)).To(BeEmpty())
 		})
 
 		It("Should compose MatchSubjects under Not", func(ctx SpecContext) {

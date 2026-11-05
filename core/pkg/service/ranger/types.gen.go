@@ -26,7 +26,11 @@ type Where = versions.Where
 // Ref is the range a visualization shows: a range saved in the Core, or an inline
 // window.
 type Ref = versions.Ref
+
+// RefVariant is implemented by every Ref variant.
 type RefVariant = versions.RefVariant
+
+// RefType is the "variant" value that selects a variant of Ref.
 type RefType = versions.RefType
 
 const (

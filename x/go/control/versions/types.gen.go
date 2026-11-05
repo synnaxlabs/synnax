@@ -18,6 +18,8 @@ import "github.com/synnaxlabs/x/control/versions/v0"
 type Concurrency = v0.Concurrency
 
 const (
+	// ConcurrencyExclusive allows one subject to act on the resource at a time.
 	ConcurrencyExclusive Concurrency = v0.ConcurrencyExclusive
-	ConcurrencyShared    Concurrency = v0.ConcurrencyShared
+	// ConcurrencyShared allows many subjects to act on the resource at once.
+	ConcurrencyShared Concurrency = v0.ConcurrencyShared
 )
