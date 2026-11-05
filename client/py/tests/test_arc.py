@@ -212,7 +212,7 @@ class TestArcTask:
             text=sy.Text(raw="x := 1"),
         )
         task = sy.arc.Task(name="Test Arc Task", arc_key=arc.key, auto_start=False)
-        assert task.config.arc_key == str(arc.key)
+        assert task.config.arc_key == arc.key
         assert task.config.auto_start is False
         assert task.TYPE == "arc"
 
@@ -286,7 +286,7 @@ class TestArcTask:
         retrieved = client.tasks.retrieve(key=created.key)
         # Wrap the generic Task as an ArcTask
         arc_task = sy.arc.Task(internal=retrieved)
-        assert arc_task.config.arc_key == str(arc.key)
+        assert arc_task.config.arc_key == arc.key
         assert arc_task.config.auto_start is False
 
     def test_performance_defaults_to_auto(self) -> None:
