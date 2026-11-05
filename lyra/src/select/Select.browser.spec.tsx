@@ -11,6 +11,7 @@ import { describe, expect, it } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { Dialog } from "@/dialog";
+import { Icon } from "@/icon";
 import { Select } from "@/select";
 import { computed, renderThemed, resolve } from "@/styletest";
 import { Text } from "@/text";
@@ -104,7 +105,86 @@ const renderFooter = async (): Promise<Element> => {
   return document.getElementById("footer") as Element;
 };
 
+const DESCRIPTION = "Wider than the minimum width of a select dialog";
+const TRIGGER_WIDTH = 100;
+
+interface DescribedOption {
+  option: Element;
+  icon: DOMRect;
+  name: DOMRect;
+  description: Element;
+}
+
+const rangeOf = (node: Node): Range => {
+  const range = document.createRange();
+  range.selectNodeContents(node);
+  return range;
+};
+
+const renderDescribedOptions = async (): Promise<DescribedOption[]> => {
+  const { getByRole } = await renderThemed(
+    <div style={{ width: TRIGGER_WIDTH, marginLeft: "auto" }}>
+      <Select.Simple<string>
+        resourceName="level"
+        value="low"
+        onChange={() => {}}
+        variant="floating"
+        searchHidden
+        initialVisible
+      >
+        {["low", "high"].map((key) => (
+          <Select.Item key={key} itemKey={key} label={key} textValue={key}>
+            <Icon.Auto />
+            {key}
+            <Select.ItemDescription>{DESCRIPTION}</Select.ItemDescription>
+          </Select.Item>
+        ))}
+      </Select.Simple>
+    </div>,
+  );
+  const dialog = getByRole("dialog").element();
+  await expect.poll(() => computed(dialog, "opacity")).toBe("1");
+  return getByRole("option")
+    .elements()
+    .map((option) => {
+      const name = Array.from(option.childNodes).find(
+        (node) => node.nodeType === Node.TEXT_NODE,
+      );
+      if (name == null) throw new Error("option name not found");
+      return {
+        option,
+        icon: option.querySelector(".lyra-icon")!.getBoundingClientRect(),
+        name: rangeOf(name).getBoundingClientRect(),
+        description: option.querySelector(".lyra-select__item-description")!,
+      };
+    });
+};
+
 describe("Select", () => {
+  describe("described options", () => {
+    it("should put the icon beside the name and the description under it", async () => {
+      const [{ icon, name, description }] = await renderDescribedOptions();
+      const line = description.getBoundingClientRect();
+      expect(icon.right).toBeLessThan(name.left);
+      expect(line.left).toBeCloseTo(name.left, 0);
+      expect(line.top).toBeGreaterThanOrEqual(name.bottom);
+    });
+
+    it("should fit each description on one line", async () => {
+      const options = await renderDescribedOptions();
+      options.forEach(({ description }) =>
+        expect(rangeOf(description).getClientRects()).toHaveLength(1),
+      );
+    });
+
+    it("should space the options apart", async () => {
+      const [first, second] = await renderDescribedOptions();
+      expect(second.option.getBoundingClientRect().top).toBeGreaterThan(
+        first.option.getBoundingClientRect().bottom,
+      );
+    });
+  });
+
   describe("footer", () => {
     it("should keep its height when the list overflows the dialog", async () => {
       const footer = await renderFooter();

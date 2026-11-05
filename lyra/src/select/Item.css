@@ -45,3 +45,22 @@
 .lyra-select__item--checkable > .lyra-input__checkbox {
     margin-inline-end: -1.5rem;
 }
+
+/* The icon sits beside the name, and the description lines up under the name. The extra
+   class outranks the gap and alignment modifiers of the flex row. */
+.lyra-list__item.lyra-flex:has(> .lyra-select__item-description) {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 0.5rem 1rem;
+}
+
+.lyra-list__item:has(> .lyra-select__item-description)
+    + .lyra-list__item:has(> .lyra-select__item-description) {
+    margin-top: 1rem;
+}
+
+.lyra-select__item-description {
+    grid-column: 2;
+    text-wrap: pretty;
+}

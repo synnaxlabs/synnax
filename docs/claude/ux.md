@@ -261,8 +261,8 @@ bound, a log precision, or the line plot X channel.
 - A field in a list item uses the `shadow` variant: no box at rest, a border on hover,
   and a box while open. Fields in forms and detail panes keep their box.
 - An option with a description shows the icon beside the name and the description under
-  the name. The dropdown is wide enough for each description on one line. Only a narrow
-  window wraps it, and it is never cut.
+  the name, through `Select.ItemDescription`. The dropdown is wide enough for each
+  description on one line. Only a narrow window wraps it, and it is never cut.
 - A select with a few described options, such as the Arc performance level and the plot
   line sampling, has no search. A user reads the options instead.
 - A select that shows only its icon is a square button, never a wide box.
