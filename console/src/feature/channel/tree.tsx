@@ -12,7 +12,6 @@ import "@/feature/channel/tree.css";
 import {
   channel,
   isCalculated,
-  type ontology,
   ranger,
   resource,
   status,
@@ -45,7 +44,7 @@ import { Range } from "@/platform/range";
 import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 
-const haulItems = ({ name, id: otgID, data }: ontology.Resource): Haul.Item[] => {
+const haulItems = ({ name, id: otgID, data }: Tree.Resource): Haul.Item[] => {
   const items = [
     PSchematic.createHaulItem({
       key: id.create(),
@@ -248,7 +247,7 @@ const Content = ({ resource, icon: _, ...rest }: Tree.ContentProps) => {
   );
 };
 
-const toResource = (ch: channel.Channel): ontology.Resource =>
+const toResource = (ch: channel.Channel): Tree.Resource =>
   Tree.toResource("channel")(ch.payload);
 
 /** Lists the channels that sit in a group. */

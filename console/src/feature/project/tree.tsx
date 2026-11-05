@@ -11,7 +11,6 @@ import {
   imex,
   lineplot,
   log,
-  type ontology,
   project,
   type resource,
   schematic,
@@ -170,7 +169,7 @@ const TreeContextMenu: Tree.ContextMenu = (props): ReactElement => {
   );
 };
 
-const useOnSelect = (): ((resource: ontology.Resource) => void) => {
+const useOnSelect = (): ((resource: Tree.Resource) => void) => {
   const client = Synnax.use();
   const store = Session.useStore();
   const handleError = Status.useErrorHandler();

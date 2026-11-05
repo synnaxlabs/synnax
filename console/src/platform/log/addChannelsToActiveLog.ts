@@ -9,10 +9,10 @@
 
 import { type channel, log, type Synnax } from "@synnaxlabs/client";
 
-// addChannelsToActiveLog dispatches AddChannel actions for each channel that is
-// not already in the target log. It runs outside of React (called from ontology
-// handlers), so it bypasses Pluto's hook-based dispatch and goes through the
-// client directly. The retrieve also warms the cache dispatch requires.
+// addChannelsToActiveLog dispatches AddChannel actions for each channel that is not
+// already in the target log. It runs outside of React (called from tree handlers), so
+// it bypasses Pluto's hook-based dispatch and goes through the client directly. The
+// retrieve also warms the cache dispatch requires.
 export const addChannelsToActiveLog = async (
   client: Synnax,
   key: log.Key,

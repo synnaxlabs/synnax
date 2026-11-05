@@ -21,7 +21,7 @@ import { describe, expect, it } from "vitest";
 import {
   createScopeTree,
   getTreeRow,
-  renderOntologyTree,
+  renderLiveTree,
 } from "@/platform/tree/testutil";
 import {
   awaitTextEditingElement,
@@ -54,7 +54,7 @@ const setupMixedSelection = async (as: Client = client): Promise<MixedSelection>
     virtual: true,
     group: container.key,
   });
-  await renderOntologyTree({
+  await renderLiveTree({
     client: as,
     projectClient: client,
     root: channel.TYPE_RESOURCE_ID,

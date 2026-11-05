@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, group, ontology, resource, type Synnax } from "@synnaxlabs/client";
+import { channel, group, resource, type Synnax } from "@synnaxlabs/client";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
@@ -41,13 +41,13 @@ import {
  * against the supplied resources; the mutating members are no-ops unless overridden.
  */
 export const createState = (
-  resources: ontology.Resource[],
+  resources: Tree.Resource[],
   overrides: Partial<Tree.TreeState> = {},
 ): Tree.TreeState => {
   const byKey = new Map(resources.map((r) => [resource.idToString(r.id), r]));
-  const lookup = (id: resource.ID | string): ontology.Resource | undefined =>
+  const lookup = (id: resource.ID | string): Tree.Resource | undefined =>
     byKey.get(typeof id === "string" ? id : resource.idToString(id));
-  const resolve = (id: resource.ID | string): ontology.Resource => {
+  const resolve = (id: resource.ID | string): Tree.Resource => {
     const found = lookup(id);
     if (found != null) return found;
     const key = typeof id === "string" ? id : resource.idToString(id);
@@ -73,12 +73,12 @@ export const createState = (
   };
 };
 
-/** Builds an ontology resource for the given id with an optional name and data payload. */
+/** Builds a tree resource for the given id with an optional name and data payload. */
 export const createResource = (
   id: resource.ID,
   name: string,
   data?: Record<string, unknown>,
-): ontology.Resource => ({
+): Tree.Resource => ({
   key: resource.idToString(id),
   id,
   name,
@@ -142,7 +142,7 @@ const listMembers = (client: Synnax, key: group.Key): Tree.Source[] => [
 
 /** The items of a tree and the lister of its root. */
 export interface ScopeTree extends Required<
-  Pick<RenderOntologyTreeOptions, "items" | "listRoot">
+  Pick<RenderLiveTreeOptions, "items" | "listRoot">
 > {}
 
 /**
@@ -163,16 +163,19 @@ export const createScopeTree = (
   listRoot: (client) => listMembers(client, container),
 });
 
+/** The root of a tree whose children come from {@link createHostItems}. */
+export const HOST_ID: resource.ID = { type: "builtin", key: "host" };
+
 /**
- * Builds the item of a tree rooted at ontology.ROOT_ID that lists the resources with
- * the given IDs, for specs whose resources sit in no group.
+ * Builds the item of a tree rooted at HOST_ID that lists the records of the sources,
+ * for specs whose records sit in no group.
  */
-export const createHostItems = (ids: resource.ID[]): Tree.Items => ({
-  [ontology.ROOT_ID.type]: Tree.createItem({
-    type: ontology.ROOT_ID.type,
-    children: ({ client }) => [
-      Tree.createSource(client.ontology, { ids }, (r: ontology.Resource) => r),
-    ],
+export const createHostItems = (
+  children: (client: Synnax) => Tree.Source[],
+): Tree.Items => ({
+  [HOST_ID.type]: Tree.createItem({
+    type: HOST_ID.type,
+    children: ({ client }) => children(client),
   }),
 });
 
@@ -224,10 +227,7 @@ export const createBaseProps = ({
   ...overrides,
 });
 
-export interface RenderOntologyTreeOptions extends Pick<
-  RenderOptions,
-  "onCaughtError"
-> {
+export interface RenderLiveTreeOptions extends Pick<RenderOptions, "onCaughtError"> {
   client: Synnax;
   root: resource.ID | null;
   /** Real item overrides; every other resource type falls back to Tree.DefaultItem. */
@@ -239,7 +239,7 @@ export interface RenderOntologyTreeOptions extends Pick<
   projectClient?: Synnax;
 }
 
-export interface OntologyTreeHandle extends RenderResult {
+export interface LiveTreeHandle extends RenderResult {
   store: TestStore;
 }
 
@@ -250,7 +250,7 @@ export interface OntologyTreeHandle extends RenderResult {
  * multi-select) behave as they do in the app. An active project is established so
  * onSelect handlers that place a tab have a project to create panels under.
  */
-export const renderOntologyTree = async ({
+export const renderLiveTree = async ({
   client,
   root,
   items = {},
@@ -258,7 +258,7 @@ export const renderOntologyTree = async ({
   extra,
   projectClient = client,
   onCaughtError,
-}: RenderOntologyTreeOptions): Promise<OntologyTreeHandle> => {
+}: RenderLiveTreeOptions): Promise<LiveTreeHandle> => {
   const { wrapper, store } = await createConsoleWrapper({ client });
   await selectTestProject(store, projectClient);
   const rendered = render(
@@ -339,7 +339,7 @@ export interface RenderTreeContextMenuOptions extends Pick<
 > {
   client: Synnax;
   /** Resources backing the tree state. */
-  resources: ontology.Resource[];
+  resources: Tree.Resource[];
   /** The selected ids; defaults to every resource. */
   selected?: resource.ID[];
   /** The tree parent of the selection; defaults to the root. */
@@ -410,8 +410,8 @@ export interface ToolbarHandle {
 
 /**
  * Renders a domain's navdrawer toolbar content inside the full console provider stack
- * with haul + ontology services and a live modal stack, so the toolbar's resource tree
- * and its actions run against the real Core.
+ * with haul and tree items and a live modal stack, so the toolbar's resource tree and
+ * its actions run against the real Core.
  */
 export const renderToolbar = async (
   content: ReactNode,

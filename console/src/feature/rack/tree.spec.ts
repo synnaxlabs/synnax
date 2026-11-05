@@ -13,7 +13,6 @@ import {
   group,
   ni,
   NotFoundError,
-  ontology,
   rack,
   type resource,
   type Synnax as Client,
@@ -27,13 +26,15 @@ import { describe, expect, it } from "vitest";
 import { Device } from "@/feature/device";
 import { NI } from "@/feature/ni";
 import { Rack } from "@/feature/rack";
+import { Tree } from "@/platform/tree";
 import {
   createHostItems,
   createResource,
   expandTreeRow,
   findModalButton,
   findTreeRow,
-  renderOntologyTree,
+  HOST_ID,
+  renderLiveTree,
   renderTreeContextMenu,
 } from "@/platform/tree/testutil";
 import { assertDefined, createTestClientWithGrants, uniqueName } from "@/testutil";
@@ -88,7 +89,7 @@ const createRackWriter = async (creatable: resource.ID) =>
     create: [creatable],
   });
 
-describe("rack ontology service", () => {
+describe("rack tree item", () => {
   describe("drop", () => {
     const root = device.TYPE_RESOURCE_ID;
     const destination = createResource(rack.resourceID(1), "rack");
@@ -220,13 +221,17 @@ describe("rack children", () => {
       });
     const chassis = await make("chassis");
     const module = await make("module", chassis.key);
-    await renderOntologyTree({
+    await renderLiveTree({
       client,
-      root: ontology.ROOT_ID,
+      root: HOST_ID,
       items: {
         ...Rack.TREE_ITEMS,
         ...Device.TREE_ITEMS,
-        ...createHostItems([rack.resourceID(r.key)]),
+        ...createHostItems((c) => [
+          Tree.createSource(c.racks, { keys: [r.key] }, (rk) =>
+            Tree.toResource("rack")(rk.payload),
+          ),
+        ]),
       },
     });
     await findTreeRow(r.name);

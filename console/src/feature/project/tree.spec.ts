@@ -26,7 +26,7 @@ import {
   createResource,
   findModalButton,
   findTreeRow,
-  renderOntologyTree,
+  renderLiveTree,
   renderTreeContextMenu,
 } from "@/platform/tree/testutil";
 import { Session } from "@/session";
@@ -62,7 +62,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("project ontology service", () => {
+describe("project tree item", () => {
   it("should offer Reload Console", async () => {
     const p = await createProject();
     assertDefined(Item.ContextMenu);
@@ -154,7 +154,7 @@ describe("project ontology service", () => {
 
   it("should select the project when the row is double-clicked", async () => {
     const p = await createProject();
-    const { store } = await renderOntologyTree({
+    const { store } = await renderLiveTree({
       client,
       root: project.TYPE_RESOURCE_ID,
       listRoot: Project.listTreeRoot,

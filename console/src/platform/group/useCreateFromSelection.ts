@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, type ontology, resource } from "@synnaxlabs/client";
+import { group, resource } from "@synnaxlabs/client";
 import { List } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
@@ -54,7 +54,7 @@ const beforeUpdate = async ({
   const resourcesToGroup = getResourcesToGroup(selection.ids, shape);
   const prevNodes = PTree.deepCopy(nodes);
   rollbacks.push(() => setNodes(prevNodes));
-  const res: ontology.Resource = { key: newIDString, id: newID, name: "" };
+  const res: Tree.Resource = { key: newIDString, id: newID, name: "" };
   setResource(res);
   const destination = resource.idsEqual(selection.rootID, selection.parentID)
     ? null

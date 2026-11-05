@@ -63,7 +63,7 @@ const groupResource = (g: group.Group) =>
 
 const nodeKey = (g: group.Group) => resource.idToString(group.resourceID(g.key));
 
-describe("group ontology service", () => {
+describe("group tree item", () => {
   it("should accept groups and the member types of its scope, and haul its own id", () => {
     const source: Haul.Item = { key: "tree", type: PTree.HAUL_TYPE };
     const res = groupResource({ key: uuid.create(), name: "g", scope: "channel" });

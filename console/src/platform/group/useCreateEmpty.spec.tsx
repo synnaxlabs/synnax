@@ -18,7 +18,7 @@ import { type Tree } from "@/platform/tree";
 import {
   createScopeTree,
   getTreeRow,
-  renderOntologyTree,
+  renderLiveTree,
   retrieveChildGroupKeys,
 } from "@/platform/tree/testutil";
 import {
@@ -47,7 +47,7 @@ const renderScopeTree = async () => {
     parent: group.resourceID(container.key),
     name: uniqueName("child"),
   });
-  await renderOntologyTree({
+  await renderLiveTree({
     client,
     root: channel.TYPE_RESOURCE_ID,
     ...createScopeTree(container.key, { ContextMenu: CreateUnderSelectionMenu }),

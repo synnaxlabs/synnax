@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, resource, schematic, task } from "@synnaxlabs/client";
+import { resource, schematic, task } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -28,7 +28,7 @@ import { Tree } from "@/platform/tree";
 
 const SnapshotsListItem = ({ className, ...rest }: List.ItemProps<string>) => {
   const { itemKey } = rest;
-  const entry = List.useItem<string, ontology.Resource>(itemKey);
+  const entry = List.useItem<string, Tree.Resource>(itemKey);
   const services = Range.useSnapshotServices();
   const openTab = Panel.useOpenTab();
   const client = Synnax.use();
@@ -114,7 +114,7 @@ export const Snapshots: FC<SnapshotsProps> = ({ rangeKey }) => {
   );
   const taskPager = List.usePager({ retrieve: taskList.retrieve });
   const schematicPager = List.usePager({ retrieve: schematicList.retrieve });
-  const combined = List.useCombinedData<string, ontology.Resource>({
+  const combined = List.useCombinedData<string, Tree.Resource>({
     first: tasks,
     second: schematics,
   });

@@ -12,7 +12,6 @@ import "@/feature/rack/tree.css";
 import {
   arc,
   device,
-  type ontology,
   rack,
   type resource,
   task,
@@ -169,7 +168,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   );
 };
 
-const toResource = (r: rack.Rack): ontology.Resource =>
+const toResource = (r: rack.Rack): Tree.Resource =>
   Tree.toResource("rack")(r.payload);
 
 /** Lists the racks that sit in a group. */

@@ -27,7 +27,7 @@ import {
   expandTreeRow,
   findTreeRow,
   getTreeRow,
-  renderOntologyTree,
+  renderLiveTree,
   retrieveChildGroupKeys,
 } from "@/platform/tree/testutil";
 import {
@@ -506,7 +506,7 @@ describe("Tree.Tree", () => {
       const items: Tree.Items = {
         group: createGroupItem({ ContextMenu: TreeContextMenu }),
       };
-      await renderOntologyTree({ client, root: parentID, items });
+      await renderLiveTree({ client, root: parentID, items });
       await screen.findByText(doomed.name);
       await screen.findByText(survivor.name);
       // Both must be selected: the menu falls back to the live selection only when
@@ -637,7 +637,7 @@ describe("Tree.Tree", () => {
       const folderID = group.resourceID(folder.key);
       const report = await createGroup(folderID, "report");
       const dest = await createGroup(containerID, "dest");
-      await renderOntologyTree({ client, root: containerID, items: DROPPABLE });
+      await renderLiveTree({ client, root: containerID, items: DROPPABLE });
       await screen.findByText(folder.name);
       expandTreeRow(folder.name);
       await screen.findByText(report.name);
@@ -664,7 +664,7 @@ describe("Tree.Tree", () => {
       const folderID = group.resourceID(folder.key);
       const nested = await createGroup(folderID, "nested");
       const dest = await createGroup(containerID, "dest");
-      await renderOntologyTree({ client, root: containerID, items: DROPPABLE });
+      await renderLiveTree({ client, root: containerID, items: DROPPABLE });
       await screen.findByText(folder.name);
       expandTreeRow(folder.name);
       await screen.findByText(nested.name);
@@ -690,7 +690,7 @@ describe("Tree.Tree", () => {
       const folderBID = group.resourceID(folderB.key);
       const reportB = await createGroup(folderBID, "reportB");
       const dest = await createGroup(containerID, "dest");
-      await renderOntologyTree({ client, root: containerID, items: DROPPABLE });
+      await renderLiveTree({ client, root: containerID, items: DROPPABLE });
       await screen.findByText(folderA.name);
       expandTreeRow(folderA.name);
       await screen.findByText(reportA.name);

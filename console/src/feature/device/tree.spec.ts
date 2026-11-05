@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device as deviceClient, NotFoundError, ontology } from "@synnaxlabs/client";
+import { device as deviceClient, NotFoundError } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
@@ -19,13 +19,15 @@ import { createModbusDevice } from "@/feature/modbus/testutil";
 import { NI } from "@/feature/ni";
 import { createTestDevice } from "@/platform/device/testutil";
 import { findButton } from "@/platform/modals/testutil";
+import { Tree } from "@/platform/tree";
 import {
   createHostItems,
   createResource,
   expandTreeRow,
   findTreeRow,
+  HOST_ID,
   openTreeRowContextMenu,
-  renderOntologyTree,
+  renderLiveTree,
   renderTreeContextMenu,
 } from "@/platform/tree/testutil";
 import {
@@ -39,22 +41,28 @@ import {
 const client = createTestClient();
 const roles = new RoleClients(client);
 
-// Hosts the devices under the ontology root, outside any rack or group.
+// Hosts the devices under the host root, outside any rack or group.
 const hostDevices = (...devices: { key: string }[]) =>
-  createHostItems(devices.map((d) => deviceClient.resourceID(d.key)));
+  createHostItems((c) => [
+    Tree.createSource(
+      c.devices,
+      { keys: devices.map((d) => d.key) },
+      Tree.toResource("device"),
+    ),
+  ]);
 
 const renderDeviceTree = async (
   host: ReturnType<typeof hostDevices>,
   extra?: ReactNode,
 ) =>
-  await renderOntologyTree({
+  await renderLiveTree({
     client,
-    root: ontology.ROOT_ID,
+    root: HOST_ID,
     items: { ...Device.TREE_ITEMS, ...host },
     extra,
   });
 
-describe("device/ontology", () => {
+describe("device/tree", () => {
   it("renders the device with its location", async () => {
     const dev = await createTestDevice(client);
     const host = hostDevices(dev);

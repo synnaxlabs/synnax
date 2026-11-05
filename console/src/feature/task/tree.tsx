@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, resource, task } from "@synnaxlabs/client";
+import { resource, task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access, Mosaic, Task as Base } from "@synnaxlabs/pluto";
@@ -21,7 +21,7 @@ import { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
 import { Tree } from "@/platform/tree";
 
-const useOnSelect = (): ((resource: ontology.Resource) => void) => {
+const useOnSelect = (): ((resource: Tree.Resource) => void) => {
   const openTab = Panel.useOpenTab();
   return (resource) => openTab({ variant: "resource", resource: resource.id });
 };

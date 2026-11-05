@@ -20,7 +20,7 @@ import {
   expandTreeRow,
   findTreeRow,
   getTreeRow,
-  renderOntologyTree,
+  renderLiveTree,
   retrieveChildGroupKeys,
 } from "@/platform/tree/testutil";
 import {
@@ -42,7 +42,7 @@ const createContainer = async () =>
   await client.groups.create({ scope: "channel", name: uniqueName("container") });
 
 const renderScopeTree = async (container: group.Group) =>
-  await renderOntologyTree({
+  await renderLiveTree({
     client,
     root: channel.TYPE_RESOURCE_ID,
     ...createScopeTree(container.key, { ContextMenu: GroupSelectionMenu }),

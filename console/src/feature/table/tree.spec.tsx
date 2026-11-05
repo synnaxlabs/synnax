@@ -32,7 +32,7 @@ import {
   createSelection,
   createState,
   findTreeRow,
-  renderOntologyTree,
+  renderLiveTree,
 } from "@/platform/tree/testutil";
 import { Session } from "@/session";
 import { createCore, createCoreState } from "@/session/core/testutil";
@@ -88,7 +88,7 @@ const renderMenu = async ({ tables, overrides, withCore = false }: SetupParams) 
   return { store, props, itemID };
 };
 
-describe("table/ontology", () => {
+describe("table/tree", () => {
   describe("TreeContextMenu", () => {
     it("renders single-selection items once permissions resolve", async () => {
       const t = await createTable();
@@ -171,7 +171,7 @@ describe("table/ontology", () => {
   describe("onSelect", () => {
     it("retrieves the table and opens it as a tab when double-clicked", async () => {
       const t = await createTable();
-      const { store } = await renderOntologyTree({
+      const { store } = await renderLiveTree({
         client,
         root: clientProject.resourceID(await project()),
         items: { ...Project.TREE_ITEMS, ...Table.TREE_ITEMS },

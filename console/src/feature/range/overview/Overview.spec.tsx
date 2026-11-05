@@ -9,7 +9,6 @@
 
 import {
   label,
-  type ontology,
   panel,
   project,
   query,
@@ -180,7 +179,7 @@ describe("range/overview/Overview", () => {
     );
     fireEvent.click(item);
     await waitFor(() => expect(onSnapshotClick).toHaveBeenCalledTimes(1));
-    const [resource] = onSnapshotClick.mock.calls[0] as [ontology.Resource];
+    const [resource] = onSnapshotClick.mock.calls[0] as [resource.Resource];
     expect(resource.id.key).toBe(snapID.key);
     await act(async () => {});
     expect(statuses).not.toContainEqual(
@@ -200,7 +199,7 @@ describe("range/overview/Overview", () => {
     const { onSnapshotClick } = await renderOverview(rng.key);
     fireEvent.click(await screen.findByText(snap.name));
     await waitFor(() => expect(onSnapshotClick).toHaveBeenCalledTimes(1));
-    const [resource] = onSnapshotClick.mock.calls[0] as [ontology.Resource];
+    const [resource] = onSnapshotClick.mock.calls[0] as [resource.Resource];
     expect(resource.id).toEqual({ type: "task", key: snap.key });
   });
 
@@ -290,10 +289,9 @@ describe("range/overview tab", () => {
     const [restored] = await remote.ranges.retrieve([rng.key]);
     expect(restored.name).toEqual(rng.name);
     expect(restored.timeRange).toEqual(rng.timeRange);
-    // The tab chip and every tree view read the range through the ontology, not
-    // the range store.
-    const resource = await remote.ontology.retrieve(rng.resourceID);
-    expect(resource.name).toEqual(rng.name);
+    // Name lookups read the range through the resource service, not the range store.
+    const named = await remote.resources.retrieve(rng.resourceID);
+    expect(named.name).toEqual(rng.name);
   });
 });
 
