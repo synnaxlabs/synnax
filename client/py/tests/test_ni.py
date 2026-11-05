@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from uuid import uuid4
+from uuid import UUID
 
 import pytest
 from pydantic import ValidationError
@@ -896,6 +896,10 @@ class TestNIDeviceHelpers:
 
 @pytest.mark.ni
 class TestNIResources:
+    """Tests for the NI device and chassis resources."""
+
+    KEY = UUID("11111111-1111-4111-8111-111111111111")
+
     def test_device_defaults(self) -> None:
         device = sy.ni.device.Device(
             rack=1, name="PXI-6255", serial="01A", model="PXI-6255", alias="Mod1"
@@ -906,14 +910,12 @@ class TestNIResources:
         assert device.analog_output == sy.ni.device.OutputPorts()
 
     def test_device_ontology_id(self) -> None:
-        key = uuid4()
-        assert sy.ni.device.ontology_id(key).type == "ni_device"
-        assert sy.ni.device.ontology_id(key).key == str(key)
+        assert sy.ni.device.ontology_id(self.KEY).type == "ni_device"
+        assert sy.ni.device.ontology_id(self.KEY).key == str(self.KEY)
 
     def test_chassis_ontology_id(self) -> None:
-        key = uuid4()
-        assert sy.ni.chassis.ontology_id(key).type == "ni_chassis"
-        assert sy.ni.chassis.ontology_id(key).key == str(key)
+        assert sy.ni.chassis.ontology_id(self.KEY).type == "ni_chassis"
+        assert sy.ni.chassis.ontology_id(self.KEY).key == str(self.KEY)
 
     def test_chassis_requires_a_serial(self) -> None:
         with pytest.raises(ValidationError):
