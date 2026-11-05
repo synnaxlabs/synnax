@@ -48,6 +48,9 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       PR: ${{ github.event.pull_request.number || github.event.issue.number }}
       REF: ${{ github.event.repository.default_branch }}
+      COMMENT: ${{ github.event.comment.id }}
     steps:
       - name: Start Review - Sedosaur
-        run: gh workflow run review.sedosaur.yaml --ref "$REF" -f pr="$PR"
+        run: |
+          gh workflow run review.sedosaur.yaml --ref "$REF" -f pr="$PR" \
+            -f comment="$COMMENT"
