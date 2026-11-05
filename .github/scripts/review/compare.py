@@ -24,7 +24,7 @@ import tempfile
 from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass, replace
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -471,9 +471,41 @@ class _Tally:
         return _share(self.found, self.greptile[0])
 
 
-def report(ps: list[Pair], *, since: datetime) -> str:
-    """Renders the comparison of the paired reviews as Markdown."""
-    lines = [f"## Sedosaur trial since {since:%Y-%m-%d %H:%M} UTC", ""]
+def _limits(recs: list[dict[str, Any]]) -> list[str]:
+    # Records written before reviews kept their limits have none.
+    newest = next((r for r in reversed(recs) if "limits" in r["usage"]), None)
+    if newest is None:
+        return ["No review has recorded the usage limits yet."]
+    at = datetime.fromisoformat(newest["at"])
+    return [
+        f"As of the newest review, at {at:%Y-%m-%d %H:%M} UTC:",
+        "",
+        "| Window | Used | Status | Resets |",
+        "| --- | --- | --- | --- |",
+        *(
+            f"| `{name}` | {round(100 * w['utilization'])}% | {w['status']} "
+            f"| {datetime.fromtimestamp(w['resets_at'], UTC):%Y-%m-%d %H:%M} UTC |"
+            for name, w in sorted(newest["usage"]["limits"].items())
+        ),
+    ]
+
+
+def report(ps: list[Pair], recs: list[dict[str, Any]], *, since: datetime) -> str:
+    """Renders the usage limits of the Claude subscription and the comparison of the
+    paired reviews as Markdown.
+
+    :param recs: The review records the pairs came from, oldest first.
+    """
+    lines = [
+        f"## Sedosaur trial since {since:%Y-%m-%d %H:%M} UTC",
+        "",
+        "### Usage limits",
+        "",
+        *_limits(recs),
+        "",
+        "### Findings",
+        "",
+    ]
     if not ps:
         return "\n".join([*lines, "No commit has a review from both yet."])
     t = _Tally.of(ps)

@@ -16,7 +16,7 @@ from typing import Any
 
 import pytest
 
-from review import Config, Doc, Finding, PullRequest, load, run
+from review import Config, Doc, Finding, PullRequest, Window, load, run
 from review.__main__ import claude as launch
 from review.__main__ import main
 
@@ -103,13 +103,31 @@ class FakeClaude:
                 "findings": findings or [],
             },
         }
+        self.limits: list[dict[str, Any]] = [
+            limits(0.1, "allowed"),
+            limits(0.81, "allowed_warning"),
+        ]
 
     def __call__(self, args: list[str], stdin: str, cwd: Path) -> str:
         self.args, self.stdin, self.cwd = args, stdin, cwd
-        return json.dumps(self.out)
+        events = [
+            {"type": "rate_limit_event", "rate_limit_info": i} for i in self.limits
+        ]
+        stream = [{"type": "system"}, *events, {"type": "result", **self.out}]
+        return "".join(f"{json.dumps(m)}\n" for m in stream)
 
     def flag(self, name: str) -> str:
         return self.args[self.args.index(name) + 1]
+
+
+def limits(utilization: float, status: str) -> dict[str, Any]:
+    """Rate limit info the way Claude Code streams it for a subscription."""
+    week = {"utilization": utilization, "resetsAt": 1_794_247_200, "status": status}
+    return {
+        "status": status,
+        "rateLimitType": "seven_day",
+        "unifiedWindows": {"seven_day": week},
+    }
 
 
 def review(
@@ -275,6 +293,28 @@ class TestScore:
             run(config(), pull(), claude=claude, workdir=WORK)
 
 
+class TestUsage:
+    """Tests what a review reports it cost."""
+
+    def test_should_report_the_cost_and_the_last_limits(self) -> None:
+        _, usage = run(config(), pull(), claude=FakeClaude(), workdir=WORK)
+        assert (usage.cost_usd, usage.turns, usage.cache_read_tokens) == (
+            0.5,
+            12,
+            90_000,
+        )
+        assert usage.limits == {
+            "seven_day": Window(
+                status="allowed_warning", utilization=0.81, resets_at=1_794_247_200
+            )
+        }
+
+    def test_should_report_no_limits_when_claude_streams_none(self) -> None:
+        claude = FakeClaude()
+        claude.limits = []
+        assert run(config(), pull(), claude=claude, workdir=WORK)[1].limits == {}
+
+
 class TestLaunch:
     """Tests the process that runs Claude Code."""
 
@@ -354,8 +394,9 @@ class TestMain:
         executable(
             bindir / "claude",
             f"open({str(prompt)!r}, 'w').write(sys.stdin.read())\n"
-            "print(json.dumps({'is_error': False, 'total_cost_usd': 0.5,"
-            " 'duration_ms': 1, 'num_turns': 2, 'usage': {'input_tokens': 3,"
+            "print(json.dumps({'type': 'result', 'is_error': False,"
+            " 'total_cost_usd': 0.5, 'duration_ms': 1, 'num_turns': 2,"
+            " 'usage': {'input_tokens': 3,"
             " 'output_tokens': 4, 'cache_read_input_tokens': 5,"
             " 'cache_creation_input_tokens': 6}, 'structured_output': {"
             "'score': 5, 'verdict': 'Safe.', 'summary': ['S'], 'findings': []}}))\n",
@@ -382,6 +423,7 @@ class TestMain:
         assert text.startswith("Use the trusted policy.\n\n# Pull request #7: Fix A")
         assert "     2 +two" in text
         record = json.loads(out.read_text())
+        assert record["at"].endswith("+00:00")
         assert record["pr"] == 7
         assert record["head"] == env["HEAD_SHA"]
         assert record["base"] == base
@@ -395,4 +437,5 @@ class TestMain:
             "output_tokens": 4,
             "cache_read_tokens": 5,
             "cache_creation_tokens": 6,
+            "limits": {},
         }

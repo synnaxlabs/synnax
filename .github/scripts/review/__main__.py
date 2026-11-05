@@ -19,10 +19,11 @@ BASE_SHA, CHECK_RUN, RUN_URL, and BOT, the slug of the GitHub App the review pos
 its commit; HEAD_DIR, a checkout of the head; and CLAUDE_CODE_OAUTH_TOKEN, the only
 variable that reaches Claude Code.
 
-`run` writes a record of the review: the pull request, the commits, the policy commit,
-the usage, and the review. `post` posts the review in a record. `compare` takes only
-GH_TOKEN and GITHUB_REPOSITORY, runs in a clone with full history, and prints a Markdown
-comparison of the records of the last days with Greptile's reviews of the same commits.
+`run` writes a record of the review: when it ran, the pull request, the commits, the
+policy commit, the usage, and the review. `post` posts the review in a record. `compare`
+takes only GH_TOKEN and GITHUB_REPOSITORY, runs in a clone with full history, and prints
+a Markdown comparison of the records of the last days with Greptile's reviews of the
+same commits.
 """
 
 import dataclasses
@@ -98,6 +99,7 @@ def review(target: Target, path: Path) -> None:
     with tempfile.TemporaryDirectory() as workdir:
         result, usage = run(config, pr, claude=claude, workdir=Path(workdir))
     record = {
+        "at": datetime.now(UTC).isoformat(timespec="seconds"),
         "pr": target.pr,
         "head": target.head,
         "base": target.base,
@@ -116,7 +118,8 @@ def main(argv: list[str]) -> None:
         since = datetime.now(UTC) - timedelta(days=int(argv[1]))
         repo = env["GITHUB_REPOSITORY"]
         recs = compare.records(gh, repo, since)
-        print(compare.report(compare.pairs(gh, compare.git, repo, recs), since=since))
+        ps = compare.pairs(gh, compare.git, repo, recs)
+        print(compare.report(ps, recs, since=since))
         return
     target = Target(
         repo=env["GITHUB_REPOSITORY"],

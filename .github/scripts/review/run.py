@@ -76,6 +76,17 @@ class Config:
 
 
 @dataclass(frozen=True, kw_only=True)
+class Window:
+    """A usage limit window of the Claude subscription, such as `seven_day`."""
+
+    status: str
+    utilization: float
+    """The share of the window's limit in use, from 0 to 1."""
+    resets_at: int
+    """When the window resets, in Unix seconds."""
+
+
+@dataclass(frozen=True, kw_only=True)
 class Usage:
     """What one review cost, as Claude Code reports it."""
 
@@ -86,11 +97,19 @@ class Usage:
     output_tokens: int
     cache_read_tokens: int
     cache_creation_tokens: int
+    limits: dict[str, Window]
+    """The subscription's limit windows after the review, by name. Empty when Claude
+    Code reports none, as with an API key."""
 
     @classmethod
-    def of(cls, out: dict[str, Any]) -> "Usage":
-        """Reads the usage from Claude Code's JSON result."""
+    def of(cls, out: dict[str, Any], messages: list[dict[str, Any]]) -> "Usage":
+        """Reads the usage from Claude Code's result and the rate limit events among
+        the messages it streamed."""
         u = out["usage"]
+        events = [
+            m["rate_limit_info"] for m in messages if m["type"] == "rate_limit_event"
+        ]
+        windows = events[-1]["unifiedWindows"] if events else {}
         return cls(
             cost_usd=out["total_cost_usd"],
             duration_ms=out["duration_ms"],
@@ -99,6 +118,14 @@ class Usage:
             output_tokens=u["output_tokens"],
             cache_read_tokens=u["cache_read_input_tokens"],
             cache_creation_tokens=u["cache_creation_input_tokens"],
+            limits={
+                name: Window(
+                    status=w["status"],
+                    utilization=w["utilization"],
+                    resets_at=w["resetsAt"],
+                )
+                for name, w in windows.items()
+            },
         )
 
 
@@ -233,7 +260,8 @@ def _command(config: Config, *, head: Path) -> list[str]:
         "--effort",
         config.effort,
         "--output-format",
-        "json",
+        "stream-json",
+        "--verbose",
         "--json-schema",
         json.dumps(SCHEMA),
         "--no-session-persistence",
@@ -258,7 +286,10 @@ def run(
     if rest:
         (workdir / REST).write_text(rest)
     text = _prompt(config, pr, shown, rest)
-    out = json.loads(claude(_command(config, head=pr.head), text, workdir))
+    stream = claude(_command(config, head=pr.head), text, workdir)
+    messages = [json.loads(line) for line in stream.splitlines() if line]
+    [out] = [m for m in messages if m["type"] == "result"]
     if out["is_error"]:
         raise RuntimeError(f"claude ended with {out['subtype']}: {out.get('result')}")
-    return _cap(parse(out["structured_output"]), config.caps), Usage.of(out)
+    review = _cap(parse(out["structured_output"]), config.caps)
+    return review, Usage.of(out, messages)

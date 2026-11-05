@@ -168,6 +168,19 @@ def record(head: str, score: int = 5) -> dict[str, Any]:
     }
 
 
+def limited(utilization: float, at: str) -> dict[str, Any]:
+    """A record of a review that kept the usage limits of the subscription."""
+    r = record(HEAD)
+    r["at"] = at
+    week = {
+        "status": "allowed_warning",
+        "utilization": utilization,
+        "resets_at": 1_794_247_200,
+    }
+    r["usage"]["limits"] = {"seven_day": week}
+    return r
+
+
 class FakeGH:
     """Serves pull request 7 and its records through the gh calls the comparison makes.
 
@@ -380,7 +393,7 @@ class TestReport:
     def test_should_report_coverage_and_precision(self, repo: Repo) -> None:
         repo.commit({"a.go": "y\n"})
         ps = compare.pairs(FakeGH(repo.head), repo.git, REPO, [record(repo.head)])
-        text = compare.report(ps, since=SINCE)
+        text = compare.report(ps, [], since=SINCE)
         short = repo.head[:10]
         assert "1 commit on 1 pull request have a review from both." in text
         assert "| Precision | 1 of 1 (100%) | 1 of 1 (100%) |" in text
@@ -400,19 +413,30 @@ class TestReport:
         gh.threads = gh.threads[:1]
         r = record(repo.head)
         r["review"]["findings"] = []
-        text = compare.report(compare.pairs(gh, repo.git, REPO, [r]), since=SINCE)
+        text = compare.report(compare.pairs(gh, repo.git, REPO, [r]), [r], since=SINCE)
         missed = text.split("### Real Greptile findings Sedosaur missed\n\n")[1]
         assert missed.startswith("- P1 **Leaks a handle** `a.go:10` (#7)")
 
     def test_should_say_when_no_finding_is_real_yet(self, repo: Repo) -> None:
         gh = FakeGH(repo.head)
         gh.threads[0]["isResolved"] = False
+        recs = [record(repo.head)]
         text = compare.report(
-            compare.pairs(gh, repo.git, REPO, [record(repo.head)]), since=SINCE
+            compare.pairs(gh, repo.git, REPO, recs), recs, since=SINCE
         )
         assert "- **Coverage:** no real Greptile findings yet." in text
 
+    def test_should_show_the_limits_of_the_newest_review(self) -> None:
+        recs = [limited(0.2, "2026-11-05T09:00:00+00:00"), limited(0.81, NOON)]
+        text = compare.report([], recs, since=SINCE)
+        assert "As of the newest review, at 2026-11-05 12:00 UTC:" in text
+        assert "| `seven_day` | 81% | allowed_warning | 2026-11-09 18:00 UTC |" in text
+
+    def test_should_say_when_no_review_recorded_the_limits(self) -> None:
+        text = compare.report([], [record(HEAD)], since=SINCE)
+        assert "No review has recorded the usage limits yet." in text
+
     def test_should_say_when_nothing_is_paired(self) -> None:
-        assert compare.report([], since=SINCE).endswith(
+        assert compare.report([], [], since=SINCE).endswith(
             "No commit has a review from both yet."
         )
