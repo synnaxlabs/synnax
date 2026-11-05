@@ -1,0 +1,41 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/ranger/v1"
+import "schemas/synnax/versions/status/v1"
+
+Key = v0.Key
+
+Base = v1.Base
+
+View union on type extends Base {
+    range {
+        where ranger.Where? {
+            @doc value "selects the ranges the view shows. An absent where shows all."
+        }
+
+        @doc value "is a saved view of ranges."
+    }
+    status {
+        where status.Where? {
+            @doc value """
+                selects the statuses the view shows. An absent where shows all.
+            """
+        }
+
+        @doc value "is a saved view of statuses."
+    }
+
+    @doc value  """
+        is a saved, named filter over a list of resources. The type selects the resource
+        the view lists and the shape of its where.
+    """
+    @go marshal
+    @go migrate
+}
