@@ -914,6 +914,39 @@ describe("StreamMultiChannelLog", () => {
       expect(valuesOf(entriesOf(log), a).at(-1)).toBe(textOf(core, a, 1)[0]);
     });
 
+    it("should move past a span whose times never arrive", async () => {
+      const core = deep();
+      const [a] = core.data.map((c) => c.key);
+      let stamped = true;
+      const client = connect(core, {
+        readLatest: async (keys, count, tr) =>
+          core.readLatest(
+            stamped ? keys : keys.filter((key) => key !== core.index.key),
+            count,
+            tr,
+          ),
+      });
+      const log = open(core, client, { channels: [a] }, undefined, 2_000);
+      await settle(log, 1_800);
+      await until(
+        () => log.loadOlder(),
+        () => !log.live,
+      );
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      stamped = false;
+      vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+      try {
+        for (let i = 0; i < 200 && !log.live; i++) {
+          log.loadNewer();
+          await new Promise((resolve) => setTimeout(resolve, 5));
+          await vi.advanceTimersByTimeAsync(PAST_WAIT_LIMIT.milliseconds);
+        }
+      } finally {
+        vi.useRealTimers();
+      }
+      expect(log.live).toBe(true);
+    });
+
     it("should return to the newest samples when it resumes", async () => {
       const core = deep();
       const [a] = core.data.map((c) => c.key);

@@ -85,6 +85,8 @@ interface Unread {
   start: bigint;
   end: bigint;
   counts: Map<channel.Key, number>;
+  // Whether a read of the span missed times, which a second read does not wait out.
+  missed?: boolean;
 }
 
 // A channel whose retrieval failed. A definitive failure is not retried.
@@ -318,13 +320,16 @@ export class StreamMultiChannelLog
       ),
     );
     if (read == null) return;
-    // A span stays when its times did not all arrive or a late sample changed the spans
-    // during the read, and the next read starts from the first span.
+    // A span stays when a late sample changed the spans during the read, or its times
+    // did not all arrive. A second read that misses times leaves those samples out, so
+    // the log can move past them.
+    const missed = read.some(({ missed }) => missed);
     if (
       this.unread[0] !== span ||
       size() !== before ||
-      read.some(({ missed }) => missed)
+      (missed && span.missed !== true)
     ) {
+      if (this.unread[0] === span) span.missed = missed;
       this.notify();
       return;
     }
