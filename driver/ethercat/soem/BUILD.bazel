@@ -72,6 +72,17 @@ cc_library(
     }),
 )
 
+cc_test(
+    name = "api_windows_test",
+    srcs = ["api_windows_test.cpp"],
+    linkopts = ["/DEFAULTLIB:iphlpapi.lib"],
+    target_compatible_with = ["@platforms//os:windows"],
+    deps = [
+        ":soem_api",
+        "@googletest//:gtest_main",
+    ],
+)
+
 cc_library(
     name = "soem_mock_api",
     hdrs = ["mock_api.h"],

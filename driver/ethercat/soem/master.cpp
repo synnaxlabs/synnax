@@ -61,7 +61,6 @@ constexpr uint16_t RXPDO_MAPPING_END = 0x17FF;
 /// @}
 
 namespace {
-/// @brief returns the text of the error for an interface where no slave answers.
 std::string no_slaves_message(API &api, const std::string &iface) {
     const auto found = "no EtherCAT slaves found on " + iface + ". ";
     if (!api.dewesoft_filter_bound(iface.c_str()))
