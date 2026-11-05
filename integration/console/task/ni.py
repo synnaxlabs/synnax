@@ -7,8 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from abc import abstractmethod
-from typing import Any, TypeVar
+from collections.abc import Callable
+from typing import Concatenate, ParamSpec, TypeVar
 
 from playwright.sync_api import Locator
 
@@ -22,6 +22,7 @@ from console.task_page import TaskPage
 # Union type for all NI channel types
 NIChannel = Analog | Counter
 _NIChannelT = TypeVar("_NIChannelT", bound=NIChannel)
+_P = ParamSpec("_P")
 
 
 class NITask(TaskPage):
@@ -46,34 +47,6 @@ class NITask(TaskPage):
         self.channels: list[NIChannel] = []
         self.channels_by_name: list[str] = []
 
-    @abstractmethod
-    def add_channel(
-        self,
-        name: str,
-        *,
-        chan_type: str,
-        device: str,
-        dev_name: str | None = None,
-        **kwargs: Any,
-    ) -> NIChannel:
-        """
-        Add a channel to the task.
-
-        Subclasses must implement this method to validate the channel type
-        and instantiate the appropriate channel class.
-
-        Args:
-            name: Channel name
-            chan_type: Channel type string for UI selection
-            device: Device identifier
-            dev_name: Optional device name
-            **kwargs: Additional channel-specific configuration
-
-        Returns:
-            The created channel instance
-        """
-        ...
-
     def _open_new_device_dropdown(self) -> None:
         """Select the next channel row and open its device dropdown."""
         idx = self.next_channel_row()
@@ -92,26 +65,24 @@ class NITask(TaskPage):
             state="visible", timeout=5000
         )
 
-    def _add_channel_helper(
+    def _add_channel(
         self,
         name: str,
+        chan_type: Callable[Concatenate[LayoutClient, str, str, _P], _NIChannelT],
         device: str,
         dev_name: str | None,
-        channel_class: type[_NIChannelT],
-        **kwargs: Any,
+        *args: _P.args,
+        **kwargs: _P.kwargs,
     ) -> _NIChannelT:
-        """
-        Helper method for adding a channel with common UI automation logic.
+        """Add a channel row to the task and configure it.
 
-        Args:
-            name: Channel name
-            device: Device identifier
-            dev_name: Optional device name
-            channel_class: Channel class to instantiate
-            **kwargs: Additional channel-specific configuration
-
-        Returns:
-            The created channel instance
+        :param name: The channel name.
+        :param chan_type: The channel class to instantiate.
+        :param device: The device identifier.
+        :param dev_name: The device name. Defaults to the first 12 characters of name.
+        :param args: Channel-specific configuration.
+        :param kwargs: Channel-specific configuration.
+        :returns: The created channel.
         """
         layout = self.layout
 
@@ -136,7 +107,7 @@ class NITask(TaskPage):
             layout.wait_for_dropdown_value("Device", dev_name)
 
         # Create channel using provided class
-        channel = channel_class(layout=self.layout, name=name, device=device, **kwargs)
+        channel = chan_type(self.layout, name, device, *args, **kwargs)
 
         self.channels.append(channel)
         self.channels_by_name.append(name)

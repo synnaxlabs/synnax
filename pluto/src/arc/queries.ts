@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { arc, type rack, status, task } from "@synnaxlabs/client";
-import { type List } from "@synnaxlabs/lyra/list";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { compare, deep, type record, verbs, xy } from "@synnaxlabs/x";
 import z from "zod";
@@ -164,9 +163,7 @@ export const useAddNode = (keyOverride?: arc.Key) => {
   };
 };
 
-export type ListQuery = List.PagerParams & {
-  keys?: arc.Key[];
-};
+export type ListQuery = arc.RetrieveMultipleParams;
 
 export const useList = Flux.createList<ListQuery, arc.Key, arc.Arc>({
   name: PLURAL_RESOURCE_NAME,

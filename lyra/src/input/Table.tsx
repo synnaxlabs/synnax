@@ -49,7 +49,15 @@ export interface TableCellProps<V extends TableCell = TableCell> extends Control
 interface BaseTableColumnProps {
   /** The heading rendered above the column. Omitted for a lone unlabeled column. */
   name?: string;
+  /**
+   * The width of the column in rem. Omitted, the column shares the width the others
+   * leave, down to a minimum. Past the minimum, the table scrolls.
+   */
+  width?: number;
 }
+
+/** The narrowest a column with no width gets, in rem. */
+const MIN_SHARED_WIDTH = 16;
 
 /**
  * The column's type decides what a new row holds, how pasted text is read, and which
@@ -170,6 +178,11 @@ export interface TableProps
   resourceName?: string;
   /** Reads a cell's status, such as an error at its form path. */
   cellStatus?: (at: xy.XY) => Status.Crude | undefined;
+  /**
+   * Called with the index of the row the user removes. When set, a removal calls it in
+   * place of onChange, so the caller can remove the row by identity.
+   */
+  onRemove?: (index: number) => void;
 }
 
 /** A focused cell's value and text from when it took focus. */
@@ -209,7 +222,9 @@ export const Table = ({
   createRow,
   resourceName = "row",
   cellStatus,
+  onRemove,
   className,
+  style,
   ...rest
 }: TableProps): ReactElement => {
   // Paste and keyboard moves land on the focused cell, so the last focus is the anchor.
@@ -234,6 +249,14 @@ export const Table = ({
   const rowName = (index: number): string =>
     rowLabel?.(index) ?? (index + 1).toString();
   const hasHeader = columns.some(({ name }) => name != null);
+  const columnsWidth = columns.reduce(
+    (sum, { width }) => sum + (width ?? MIN_SHARED_WIDTH),
+    0,
+  );
+  const tableStyle: CSS.VarProperties = {
+    "--pluto-input-table-columns-width": `${columnsWidth}rem`,
+    ...style,
+  };
 
   const handleCellChange = (at: xy.XY, next: TableCell) => {
     if (marks.some((mark) => xy.equals(mark.at, at)))
@@ -305,7 +328,8 @@ export const Table = ({
         return [{ ...mark, at: { x: mark.at.x, y: mark.at.y - 1 } }];
       }),
     );
-    onChange(value.filter((_, i) => i !== index));
+    if (onRemove != null) onRemove(index);
+    else onChange(value.filter((_, i) => i !== index));
   };
 
   const handleCellFocus = (e: FocusEvent<HTMLTableCellElement>, at: xy.XY) => {
@@ -349,104 +373,118 @@ export const Table = ({
   };
 
   return (
-    <table
-      ref={table}
-      className={CSS.cls(CSS.BE("input", "table"), className)}
-      onPaste={handlePaste}
-      onKeyDown={handleKeyDown}
-      onKeyDownCapture={handleKeyDownCapture}
-      // Any edit after a restore lets the next Esc restore again.
-      onInput={() => (restored.current = false)}
-      {...rest}
-    >
-      {hasHeader && value.length > 0 && (
-        <thead>
-          <tr>
-            {hasGutter && <th className={CSS.BE("input", "table-gutter")} />}
-            {columns.map(({ name }, i) => (
-              <th key={i} scope="col">
-                <Text.Text level="small" weight={450} color={9}>
-                  {name}
-                </Text.Text>
-              </th>
-            ))}
-            <th />
-          </tr>
-        </thead>
-      )}
-      <tbody>
-        {value.map((row, i) => (
-          <tr key={i}>
-            {hasGutter && (
-              <th scope="row" className={CSS.BE("input", "table-gutter")}>
-                <Text.Text level="small" color={9}>
-                  {rowName(i)}
-                </Text.Text>
-              </th>
-            )}
-            {columns.map((column, j) => {
-              const status = statusAt({ x: j, y: i });
-              // A cell's own status replaces the status of an item around the table.
-              const cellItem: ItemContextValue = {
-                status: status?.variant,
-                message: status?.message,
-                helpTextHidden: true,
-              };
-              return (
-                <td
-                  key={j}
-                  onFocus={(e) => handleCellFocus(e, { x: j, y: i })}
-                  onBlur={handleCellBlur}
-                >
-                  <ItemContext value={cellItem}>
-                    {renderCell(column, {
-                      value: row[j] ?? emptyCell(column),
-                      onChange: (next) => handleCellChange({ x: j, y: i }, next),
-                      preview,
-                      variant: "shadow",
-                      "aria-label":
-                        column.name == null
-                          ? rowName(i)
-                          : `${column.name} ${rowName(i)}`,
-                    })}
-                  </ItemContext>
-                </td>
-              );
-            })}
-            <td>
-              {!preview && (
+    <div className={CSS.BE("input", "table-scroll")}>
+      <table
+        ref={table}
+        className={CSS.cls(
+          CSS.BE("input", "table"),
+          columns.every(({ width }) => width != null) && CSS.M("sized"),
+          className,
+        )}
+        style={tableStyle}
+        onPaste={handlePaste}
+        onKeyDown={handleKeyDown}
+        onKeyDownCapture={handleKeyDownCapture}
+        // Any edit after a restore lets the next Esc restore again.
+        onInput={() => (restored.current = false)}
+        {...rest}
+      >
+        <colgroup>
+          {hasGutter && <col className={CSS.BE("input", "table-gutter")} />}
+          {columns.map(({ width }, i) => (
+            <col key={i} style={width == null ? undefined : { width: `${width}rem` }} />
+          ))}
+          <col className={CSS.BE("input", "table-action")} />
+        </colgroup>
+        {hasHeader && value.length > 0 && (
+          <thead>
+            <tr>
+              {hasGutter && <th className={CSS.BE("input", "table-gutter")} />}
+              {columns.map(({ name }, i) => (
+                <th key={i} scope="col">
+                  <Text.Text level="small" weight={450} color={9}>
+                    {name}
+                  </Text.Text>
+                </th>
+              ))}
+              <th />
+            </tr>
+          </thead>
+        )}
+        <tbody>
+          {value.map((row, i) => (
+            <tr key={i}>
+              {hasGutter && (
+                <th scope="row" className={CSS.BE("input", "table-gutter")}>
+                  <Text.Text level="small" color={9}>
+                    {rowName(i)}
+                  </Text.Text>
+                </th>
+              )}
+              {columns.map((column, j) => {
+                const status = statusAt({ x: j, y: i });
+                // A cell's own status replaces the status of an item around the table.
+                const cellItem: ItemContextValue = {
+                  status: status?.variant,
+                  message: status?.message,
+                  helpTextHidden: true,
+                };
+                return (
+                  <td
+                    key={j}
+                    onFocus={(e) => handleCellFocus(e, { x: j, y: i })}
+                    onBlur={handleCellBlur}
+                  >
+                    <ItemContext value={cellItem}>
+                      {renderCell(column, {
+                        value: row[j] ?? emptyCell(column),
+                        onChange: (next) => handleCellChange({ x: j, y: i }, next),
+                        preview,
+                        variant: "shadow",
+                        "aria-label":
+                          column.name == null
+                            ? rowName(i)
+                            : `${column.name} ${rowName(i)}`,
+                      })}
+                    </ItemContext>
+                  </td>
+                );
+              })}
+              <td>
+                {!preview && (
+                  <Button.Button
+                    variant="text"
+                    size="small"
+                    textColor={9}
+                    tooltip={`Remove ${resourceName} ${rowName(i)}`}
+                    onClick={() => handleRemove(i)}
+                  >
+                    <Icon.Close />
+                  </Button.Button>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+        {!preview && (
+          <tfoot>
+            <tr>
+              {hasGutter && <td className={CSS.BE("input", "table-gutter")} />}
+              <td colSpan={columns.length + 1}>
                 <Button.Button
                   variant="text"
                   size="small"
                   textColor={9}
-                  tooltip={`Remove ${resourceName} ${rowName(i)}`}
-                  onClick={() => handleRemove(i)}
+                  onClick={handleAdd}
                 >
-                  <Icon.Close />
+                  <Icon.Add />
+                  Add {resourceName}
                 </Button.Button>
-              )}
-            </td>
-          </tr>
-        ))}
-      </tbody>
-      {!preview && (
-        <tfoot>
-          <tr>
-            {hasGutter && <td className={CSS.BE("input", "table-gutter")} />}
-            <td colSpan={columns.length + 1}>
-              <Button.Button
-                variant="text"
-                size="small"
-                textColor={9}
-                onClick={handleAdd}
-              >
-                <Icon.Add />
-                Add {resourceName}
-              </Button.Button>
-            </td>
-          </tr>
-        </tfoot>
-      )}
-    </table>
+              </td>
+            </tr>
+          </tfoot>
+        )}
+      </table>
+    </div>
   );
 };

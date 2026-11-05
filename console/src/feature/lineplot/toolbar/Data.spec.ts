@@ -16,14 +16,20 @@ import {
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { client, renderLinePlot } from "@/feature/lineplot/testutil";
 import { Toolbar } from "@/feature/lineplot/toolbar";
 import { createTestRange } from "@/platform/range/testutil";
 import { Session } from "@/session";
-import { assertDefined, findTagCloseButton, uniqueName } from "@/testutil";
+import {
+  assertDefined,
+  findDialogTriggerByText,
+  findTagCloseButton,
+  getInputItem,
+  uniqueName,
+} from "@/testutil";
 
 // A separate client reads what the Core saved, not the rendering client's cache.
 const reader = createTestClient();
@@ -122,6 +128,20 @@ describe("lineplot/toolbar/Data", () => {
       await expectRanges(key, []);
     });
 
+    it("clears the window with the Off option", async () => {
+      const { key } = await renderData([rolling(FIVE_MIN)]);
+      openSearch();
+      fireEvent.click(screen.getByRole("button", { name: "Off" }));
+      await expectRanges(key, []);
+    });
+
+    it("marks Off while the plot has no window", async () => {
+      await renderData([]);
+      openSearch();
+      const off = screen.getByRole("button", { name: "Off" });
+      expect(off.getAttribute("aria-pressed")).toBe("true");
+    });
+
     it("sets the window to a duration typed into the search on Enter", async () => {
       const { key } = await renderData([rolling(FIVE_MIN)]);
       const input = openSearch();
@@ -148,10 +168,33 @@ describe("lineplot/toolbar/Data", () => {
       await expectRanges(key, [rolling(FORTY_FIVE_MIN)]);
     });
 
-    it("lists no option for a duration typed into the search", async () => {
+    it("lists a live option for a duration typed into the search", async () => {
       await renderData([]);
       search("45m");
-      expect(screen.queryAllByRole("option")).toHaveLength(0);
+      const options = screen.getAllByRole("option");
+      expect(options).toHaveLength(1);
+      expect(within(options[0]).getByText(label(FORTY_FIVE_MIN))).toBeDefined();
+      expect(screen.queryByText("No favorite ranges found")).toBeNull();
+    });
+
+    it("replaces the window with the live option picked", async () => {
+      const { key } = await renderData([fixed(1, 2), rolling(FIVE_MIN)]);
+      search("45m");
+      fireEvent.click(screen.getByRole("option"));
+      await expectRanges(key, [fixed(1, 2), rolling(FORTY_FIVE_MIN)]);
+    });
+
+    it("clears the window when its live option is picked again", async () => {
+      const { key } = await renderData([rolling(FIVE_MIN)]);
+      search("5m");
+      fireEvent.click(screen.getByRole("option"));
+      await expectRanges(key, []);
+    });
+
+    it("marks the live option selected while its window is live", async () => {
+      await renderData([rolling(FIVE_MIN)]);
+      search("5m");
+      expect(screen.getByRole("option").getAttribute("aria-selected")).toBe("true");
     });
 
     it("ignores Enter when the search is not a duration", async () => {
@@ -179,8 +222,9 @@ describe("lineplot/toolbar/Data", () => {
       });
       const pressed = screen
         .getAllByRole("button")
-        .filter((b) => b.getAttribute("aria-pressed") === "true");
-      expect(pressed).toHaveLength(0);
+        .filter((b) => b.getAttribute("aria-pressed") === "true")
+        .map((b) => b.textContent);
+      expect(pressed).toEqual(["Off"]);
     });
 
     it("clears the window when its tag is closed", async () => {
@@ -337,5 +381,33 @@ describe("lineplot/toolbar/Data", () => {
       expect(plot.channels.x1).toBe(0);
     });
     expect(screen.queryByLabelText(`Clear ${index.name}`)).toBeNull();
+  });
+
+  it("shows an empty X channel as time with an auto chip", async () => {
+    await renderData();
+    const item = getInputItem("X1");
+    expect(within(item).getByText("Time")).toBeDefined();
+    expect(within(item).getByText("Auto")).toBeDefined();
+  });
+
+  it("returns the X channel to time with the pinned time option", async () => {
+    const index = await client.channels.create({
+      name: uniqueName("x_index"),
+      dataType: DataType.TIMESTAMP,
+      isIndex: true,
+    });
+    const { key } = await renderLinePlot(Toolbar, {
+      linePlot: { channels: { x1: index.key } },
+    });
+    fireEvent.click(await findDialogTriggerByText(index.name));
+    fireEvent.click(
+      await screen.findByText(
+        "Automatically uses each channel's time. Best for most needs.",
+      ),
+    );
+    await waitFor(async () => {
+      const plot = await reader.lineplots.retrieve(key);
+      expect(plot.channels.x1).toBe(0);
+    });
   });
 });

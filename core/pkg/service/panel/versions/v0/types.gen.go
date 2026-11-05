@@ -47,13 +47,20 @@ type View struct {
 	Args msgpack.EncodedJSON `json:"args" msgpack:"args"`
 }
 
+// TabType is the "variant" value that selects a variant of Tab.
 type TabType string
 
 const (
+	// ResourceTabType is a tab displaying a backing core document.
 	ResourceTabType TabType = "resource"
-	ViewTabType     TabType = "view"
+	// ViewTabType is a tab displaying an inline, self-describing view. Unlike a
+	// resource, a view has no backing core document: it carries its own type and opaque
+	// args. Used for app-views and tools (docs, explorers, task forms, and the selector
+	// pickers).
+	ViewTabType TabType = "view"
 )
 
+// TabVariant is implemented by every Tab variant.
 type TabVariant interface {
 	isTabVariant()
 }
@@ -155,7 +162,11 @@ func (u *Tab) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.ViewTab
 	default:
-		return errors.Newf("Tab: unknown variant %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Tab: unknown variant %q",
+			disc.Type,
+		)
 	}
 	return nil
 }
@@ -170,13 +181,42 @@ func (u Tab) Validate() error {
 	return nil
 }
 
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u Tab) Base() TabBase {
+	switch variant := u.Variant.(type) {
+	case ResourceTab:
+		return variant.TabBase
+	case ViewTab:
+		return variant.TabBase
+	}
+	return TabBase{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *Tab) SetBase(base TabBase) {
+	switch variant := u.Variant.(type) {
+	case ResourceTab:
+		variant.TabBase = base
+		u.Variant = variant
+	case ViewTab:
+		variant.TabBase = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("Tab: cannot set the base of variant %T", variant))
+	}
+}
+
+// NodeType is the "variant" value that selects a variant of Node.
 type NodeType string
 
 const (
-	LeafNodeType  NodeType = "leaf"
+	// LeafNodeType is a leaf node in the panel tree displaying a tab strip.
+	LeafNodeType NodeType = "leaf"
+	// SplitNodeType is an interior split node dividing its area between two children.
 	SplitNodeType NodeType = "split"
 )
 
+// NodeVariant is implemented by every Node variant.
 type NodeVariant interface {
 	isNodeVariant()
 }
@@ -290,7 +330,11 @@ func (u *Node) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.SplitNode
 	default:
-		return errors.Newf("Node: unknown variant %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Node: unknown variant %q",
+			disc.Type,
+		)
 	}
 	return nil
 }

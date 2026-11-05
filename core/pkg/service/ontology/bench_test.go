@@ -55,8 +55,7 @@ func (*benchService) RetrieveResource(
 func (*benchService) Search(
 	context.Context,
 	gorp.Tx,
-	string,
-	int,
+	search.Query[ontology.ID],
 ) (search.Result[ontology.ID], error) {
 	return search.Result[ontology.ID]{}, nil
 }

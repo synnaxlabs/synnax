@@ -19,9 +19,11 @@ import { Modal } from "@synnaxlabs/lyra/modal";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Device as PDevice, type Flux } from "@synnaxlabs/pluto";
-import { deep } from "@synnaxlabs/x";
+import { deep, Density } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
+import { ByteOrderOption } from "@/feature/modbus/device/ByteOrder";
+import { MENU_PROPS, TRIGGER_PROPS } from "@/feature/modbus/device/Option";
 import {
   BAUD_RATES,
   BYTE_ORDERS,
@@ -402,13 +404,6 @@ const Diagnostics = (): ReactElement => {
 const SWAP_BYTES_PATH = connectionPath.swapBytes;
 const SWAP_WORDS_PATH = connectionPath.swapWords;
 
-const BYTE_ORDER_NAMES: Record<ByteOrder, string> = {
-  ABCD: "Big-endian",
-  BADC: "Byte swap",
-  CDAB: "Word swap",
-  DCBA: "Little-endian",
-};
-
 // One select over the two stored swap settings.
 const ByteOrderField = (): ReactElement => {
   const ctx = Form.useContext();
@@ -426,10 +421,12 @@ const ByteOrderField = (): ReactElement => {
         onChange={handleChange}
         allowNone={false}
         resourceName="byte order"
+        triggerProps={TRIGGER_PROPS}
+        dialogProps={MENU_PROPS}
       >
         {BYTE_ORDERS.map((order) => (
           <Select.Item<ByteOrder> key={order} itemKey={order}>
-            {`${BYTE_ORDER_NAMES[order]} (${order})`}
+            <ByteOrderOption order={order} size={Density.BIT32.valueOf()} />
           </Select.Item>
         ))}
       </Select.Simple>
@@ -439,8 +436,14 @@ const ByteOrderField = (): ReactElement => {
 
 const SelectTransport = (props: Select.ButtonsProps<Transport>) => (
   <Select.Buttons<Transport> {...props}>
-    <Select.Item<Transport> itemKey="tcp">TCP</Select.Item>
-    <Select.Item<Transport> itemKey="rtu">Serial</Select.Item>
+    <Select.Item<Transport> itemKey="tcp">
+      <Icon.Network />
+      TCP
+    </Select.Item>
+    <Select.Item<Transport> itemKey="rtu">
+      <Icon.Serial />
+      Serial
+    </Select.Item>
   </Select.Buttons>
 );
 

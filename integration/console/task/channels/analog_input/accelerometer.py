@@ -33,10 +33,10 @@ class Accelerometer(Analog):
 
     def __init__(
         self,
-        *,
         layout: LayoutClient,
         name: str,
         device: str,
+        *,
         sensitivity: float | None = None,
         units: Literal["mV/g", "V/g"] | None = None,
         excitation_source: Literal["Internal", "External", "None"] | None = None,

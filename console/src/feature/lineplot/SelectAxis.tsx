@@ -7,17 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, lineplot } from "@synnaxlabs/client";
+import { type channel, DataType, lineplot } from "@synnaxlabs/client";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
 import { Channel, LinePlot } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
+import { CSS } from "@/platform/css";
 import { Session } from "@/session";
 
-const SEARCH_OPTIONS: channel.RetrieveOptions = {
-  notDataTypes: ["string", "json", "uuid"],
-  internal: false,
-  virtual: false,
+const SEARCH_QUERY: Channel.ListQuery = {
+  where: {
+    not: { dataType: { in: [DataType.STRING, DataType.JSON, DataType.UUID] } },
+    virtual: false,
+  },
 };
 
 export interface YAxisChannelSelectProps extends Omit<
@@ -40,7 +46,7 @@ export const YAxisChannelSelect = ({
     <Input.Item x label={LinePlot.axisLabel(axisKey)} {...rest}>
       <Channel.SelectMultiple
         value={value}
-        initialQuery={{ ...SEARCH_OPTIONS, rangeKey }}
+        initialQuery={{ ...SEARCH_QUERY, rangeKey }}
         onChange={handleChange}
         full="x"
         location="top"
@@ -55,6 +61,42 @@ export interface XAxisChannelSelectProps extends Omit<
 > {
   axisKey: lineplot.XAxisKey;
 }
+
+const CHIP_CLASS = CSS.BE("line-plot", "x-time-chip");
+
+const X_DIALOG_PROPS = { className: CSS.BE("line-plot", "x-dialog") };
+
+// Key 0 means no X channel: each Y channel plots against its own index channel.
+const TIME_OPTION = (
+  <Flex.Box className={CSS.BE("line-plot", "x-time")} full="x">
+    <Select.Item<channel.Key>
+      itemKey={0}
+      textValue="Time"
+      label={
+        <>
+          Time
+          <Input.AutoChip className={CHIP_CLASS} />
+        </>
+      }
+    >
+      <div className={CSS.BE("line-plot", "x-time-option")}>
+        <Icon.Time />
+        <Text.Text>
+          Time
+          <Input.AutoChip className={CHIP_CLASS} />
+        </Text.Text>
+        <Text.Text
+          className={CSS.BE("line-plot", "x-time-description")}
+          level="small"
+          color={9}
+          overflow="wrap"
+        >
+          Automatically uses each channel's time. Best for most needs.
+        </Text.Text>
+      </div>
+    </Select.Item>
+  </Flex.Box>
+);
 
 export const XAxisChannelSelect = ({
   axisKey,
@@ -71,8 +113,12 @@ export const XAxisChannelSelect = ({
         value={value}
         onChange={handleChange}
         allowNone
-        initialQuery={{ ...SEARCH_OPTIONS, rangeKey }}
+        initialQuery={{ ...SEARCH_QUERY, rangeKey }}
+        variant="floating"
         location="top"
+        icon={<Icon.Time />}
+        footer={TIME_OPTION}
+        dialogProps={X_DIALOG_PROPS}
       />
     </Input.Item>
   );
