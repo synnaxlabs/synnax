@@ -175,7 +175,7 @@ const Entry = ({
       </Text.Text>
       {editable ? (
         <Select.Simple<string>
-          resourceName="Role"
+          resourceName="role"
           value={m.role}
           onChange={changeRole.run}
           disabled={changeRole.loading}
@@ -328,7 +328,7 @@ const InviteContent = ({ organization }: InviteDialogProps): ReactElement => {
       </Form.Field>
       <Form.Field path={path.role} label="Role">
         {(p) => (
-          <Select.Simple<string> {...p} resourceName="Role">
+          <Select.Simple<string> {...p} resourceName="role">
             {ROLES.map(({ key, name }) => (
               <Select.Item key={key} itemKey={key}>
                 {name}

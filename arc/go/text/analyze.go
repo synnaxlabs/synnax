@@ -1816,10 +1816,11 @@ func (p *flowChainProcessor) consumeTransition(
 }
 
 func (p *flowChainProcessor) processRoutingTable(rt parser.IRoutingTableContext) bool {
+	// SY-5483: a table with no node before it is an input table, which is unsupported.
 	if p.prevNode == nil {
 		p.ctx.Diagnostics.Add(diagnostics.Errorf(
 			p.ctx.AST,
-			"input routing tables not yet implemented in text compiler",
+			"input routing tables are not supported",
 		))
 		return false
 	}

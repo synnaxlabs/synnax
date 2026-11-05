@@ -118,13 +118,15 @@ interface InternalState {
   stopListeningRestore?: destructor.Destructor;
 }
 
-// One line of pixels on screen. A wrapped entry has one row per piece of its value.
+// One line of pixels on screen. A wrapped entry has one row per piece of its value. A
+// day row shows its text in prefix, above entry.
 interface Row {
   entry: number;
   prefix: string;
   value: string;
   channelKey: string;
   first: boolean;
+  day?: boolean;
 }
 
 // How an entry splits into rows. The first lead rows hold no value.
@@ -177,6 +179,17 @@ const muteColor = (c: color.Crude, theme: theme.Theme): color.Color => {
     Math.min(1, a * p.alpha),
   ]);
 };
+
+const dayText = ({ timestamp }: LogEntry): string =>
+  new Date(new TimeStamp(timestamp).milliseconds).toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+
+const sameDay = (a: LogEntry, b: LogEntry): boolean =>
+  new TimeStamp(a.timestamp).isSameDay(new TimeStamp(b.timestamp), "local");
 
 // East Asian characters take two columns of a monospace font. An emoji takes two already,
 // as a surrogate pair.
@@ -411,12 +424,14 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     const capacity = this.calcRowCapacity(lh);
     let rows = 0;
     for (let end = 1; end <= this.entries.length; end++) {
-      const entryRows = this.layoutEntry(end - 1).rows;
-      if (rows + entryRows > capacity) {
-        if (rows >= capacity) return { offset: Math.max(1, end - 1), tail: 0 };
-        return { offset: end, tail: rows + entryRows - capacity };
+      const { rows: entryRows } = this.layoutEntry(end - 1);
+      const total = rows + entryRows + (this.startsDay(end - 1) ? 1 : 0);
+      if (total > capacity) {
+        if (total - capacity >= entryRows)
+          return { offset: Math.max(1, end - 1), tail: 0 };
+        return { offset: end, tail: total - capacity };
       }
-      rows += entryRows;
+      rows = total;
     }
     return { offset: this.entries.length, tail: 0 };
   }
@@ -518,10 +533,20 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     };
   }
 
+  // Returns whether a day row sits above the entry. Times with no date need no day.
+  private startsDay(entry: number): boolean {
+    if (this.state.timestampsHidden) return false;
+    return entry === 0 || !sameDay(this.entries[entry], this.entries[entry - 1]);
+  }
+
+  private dayRow(entry: number): Row {
+    const prefix = dayText(this.entries[entry]);
+    return { entry, prefix, value: "", channelKey: "", first: false, day: true };
+  }
+
   // Lays out the rows that fit above the entry at end, less its bottom tail rows, and
   // cuts the top entry to fit.
-  private layoutRows(end: number, tail: number, lh: number): Row[] {
-    const capacity = this.calcRowCapacity(lh);
+  private fitRows(end: number, tail: number, capacity: number): Row[] {
     const rows: Row[] = [];
     let last = tail;
     for (let i = end - 1; i >= 0 && rows.length < capacity; i--) {
@@ -529,9 +554,21 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
       const bottom = layout.rows - 1 - Math.min(last, layout.rows - 1);
       const top = Math.max(0, bottom + 1 - (capacity - rows.length));
       for (let row = bottom; row >= top; row--) rows.push(this.rowOf(layout, row));
+      if (rows.length < capacity && this.startsDay(i)) rows.push(this.dayRow(i));
       last = 0;
     }
     return rows.reverse();
+  }
+
+  // The top row always names the day of the rows below it.
+  private layoutRows(end: number, tail: number, lh: number): Row[] {
+    const capacity = this.calcRowCapacity(lh);
+    const rows = this.fitRows(end, tail, capacity);
+    if (this.state.timestampsHidden || capacity < 2 || rows.length === 0) return rows;
+    if (rows[0].day) return rows;
+    const pinned = this.fitRows(end, tail, capacity - 1);
+    if (pinned[0].day) return pinned;
+    return [this.dayRow(pinned[0].entry), ...pinned];
   }
 
   render(): render.Cleanup | undefined {
@@ -708,7 +745,10 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
   // entries (O(n)). The render loop below is already O(n) over visible entries — adding
   // a second O(n) scan here just to answer a yes/no question would double the per-frame
   // work at up to 60fps.
-  private formatEntry(entry: LogEntry): {
+  private formatEntry(
+    entry: LogEntry,
+    dated = false,
+  ): {
     prefix: string;
     value: string;
     line: string;
@@ -743,6 +783,10 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     else if (!timestampsHidden) prefix = `${ts}   `;
     else if (!channelNamesHidden) prefix = `${name}${pad}   `;
     else prefix = "";
+    if (dated && ts !== "") {
+      const date = new TimeStamp(entry.timestamp).toString("ISODate", "local");
+      prefix = `${date} ${prefix}`;
+    }
     // Continuation lines (\n) keep the prefix's alignment width as whitespace.
     if (entry.continuation) prefix = " ".repeat(prefix.length);
     return { prefix, value, line: prefix + value, channelKey: chKeyStr };
@@ -758,7 +802,7 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     const selMin = Math.min(selectionStart, selectionEnd);
     const selMax = Math.max(selectionStart, selectionEnd);
     const selected = this.entries.slice(selMin, selMax + 1);
-    const formatted = selected.map((e) => this.formatEntry(e));
+    const formatted = selected.map((e) => this.formatEntry(e, true));
     const text = formatted.map((f) => f.line).join("\n");
     if (text !== this.state.selectedText) {
       const { valueColors } = this.internal;

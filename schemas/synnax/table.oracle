@@ -36,7 +36,7 @@ FlexAlignment enum {
         @doc value "stretches content to fill the available space."
     }
 
-    @doc value "is a cross-axis flex alignment for laid-out content."
+    @doc value "is a flex alignment for laid-out content."
 }
 
 CellConfig union on variant {

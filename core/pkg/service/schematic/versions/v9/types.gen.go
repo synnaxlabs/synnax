@@ -365,7 +365,7 @@ func (u EdgeConfig) Validate() error {
 	return nil
 }
 
-// FlexAlignment is a cross-axis flex alignment for laid-out content.
+// FlexAlignment is a flex alignment for laid-out content.
 type FlexAlignment string
 
 const (
