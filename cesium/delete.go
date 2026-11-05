@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -169,6 +170,16 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 // removeChannel removes ch from db.mu.dbs.unary or db.mu.dbs.virtual. Returns an
 // error if there is an open resource on the database.
 func (db *DB) removeChannel(ch ChannelKey) error {
+	db.opening.Lock()
+	opening := db.opening.channels[ch] > 0
+	db.opening.Unlock()
+	if opening {
+		return errors.Wrapf(
+			resource.ErrOpen,
+			"cannot delete channel %d because a writer is opening on it",
+			ch,
+		)
+	}
 	if uDB, ok := db.mu.dbs.unary[ch]; ok {
 		if uDB.Channel().IsIndex {
 			for otherDBKey, otherDB := range db.mu.dbs.unary {

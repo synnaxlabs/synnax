@@ -95,7 +95,7 @@ type GateConfig[R Resource] struct {
 	// [REQUIRED]
 	OpenResource func() (R, error)
 	// ErrIfControlled indicates whether the controller should return an error if any
-	// other gates are currently controlling the resource.
+	// other gates are currently controlling the resource, or the resource is opening.
 	//
 	// [OPTIONAL] Defaults to false.
 	ErrIfControlled *bool
@@ -222,8 +222,9 @@ func (c *Controller[R]) resourceAt(
 // OpenGate opens a new gate for the region occupying the specified time range. If the
 // region exists, the new gate joins its authority chain. If not, OpenGate creates the
 // region and calls cfg.OpenResource, which can block, while it holds no locks. Gates
-// for a region that is opening wait for it. If cfg.OpenResource fails, the region is
-// removed and a waiting gate opens the resource itself.
+// for a region that is opening wait for it, except that a gate with ErrIfControlled
+// fails at once. If cfg.OpenResource fails, the region is removed and a waiting gate
+// opens the resource itself.
 func (c *Controller[R]) OpenGate(
 	cfg GateConfig[R],
 ) (g *Gate[R], t Transfer, err error) {
@@ -276,6 +277,13 @@ func (c *Controller[R]) joinOrCreate(cfg GateConfig[R]) (
 				return nil, t, nil, nil, err
 			}
 			if reg.opening != nil {
+				if *cfg.ErrIfControlled {
+					return nil, t, nil, nil, errors.Wrapf(
+						control.ErrUnauthorized,
+						"cannot access time range %v because a writer is opening on it",
+						cfg.TimeRange.Intersection(reg.timeRange),
+					)
+				}
 				return nil, t, nil, reg.opening, nil
 			}
 			// If there is an existing region, we open a new gate on that region.

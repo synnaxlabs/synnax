@@ -1723,6 +1723,18 @@ var _ = Describe("Control", func() {
 			Expect(second.PeekResource()).To(Equal(first.PeekResource()))
 		})
 
+		It("Should fail a gate that errors if the region is controlled", func() {
+			openBlocked(regionB, false)
+			cfg := gateCfg("exclusive", regionB, 2)
+			cfg.ErrIfControlled = new(true)
+			expectReturns(func() {
+				Expect(c.OpenGate(cfg)).Error().To(SatisfyAll(
+					MatchError(xcontrol.ErrUnauthorized),
+					MatchError(ContainSubstring("a writer is opening")),
+				))
+			})
+		})
+
 		It("Should open one resource for gates racing for a time range", func() {
 			const gates = 32
 			var (

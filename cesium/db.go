@@ -50,6 +50,12 @@ func NewAlignmentCounter() *AlignmentCounter {
 	return alignment.NewCounter(alignment.ZeroLeading)
 }
 
+// channelDBs holds the unary and virtual DB of each channel.
+type channelDBs struct {
+	unary   map[ChannelKey]unary.DB
+	virtual map[ChannelKey]virtual.DB
+}
+
 type DB struct {
 	shutdown io.Closer
 	*options
@@ -59,11 +65,14 @@ type DB struct {
 	historyChanges observe.Observer[HistoryChange]
 	closed         *atomic.Bool
 	mu             struct {
-		dbs struct {
-			unary   map[ChannelKey]unary.DB
-			virtual map[ChannelKey]virtual.DB
-		}
+		dbs channelDBs
 		sync.RWMutex
+	}
+	// opening counts the writers opening on each channel. A writer opens with mu
+	// unlocked, because the open can block on the file system.
+	opening struct {
+		channels map[ChannelKey]int
+		sync.Mutex
 	}
 }
 
