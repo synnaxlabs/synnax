@@ -148,6 +148,39 @@ TEST(RangerTests, testRetrieveMultipleByKey) {
     ASSERT_EQ(got[1].time_range.end, x::telem::TimeStamp(100 * x::telem::SECOND));
 }
 
+/// @brief it should retrieve the ranges that match a tree with an or and a not.
+TEST(RangerTests, testRetrieveWhere) {
+    const auto client = new_test_client();
+    const auto rand_name = std::to_string(gen_rand());
+    const auto tr = x::telem::TimeRange(
+        x::telem::TimeStamp(10),
+        x::telem::TimeStamp(100)
+    );
+    const auto a = ASSERT_NIL_P(client.ranges.create(rand_name + "_a", tr));
+    const auto b = ASSERT_NIL_P(client.ranges.create(rand_name + "_b", tr));
+    ASSERT_NIL_P(client.ranges.create(rand_name + "_c", tr));
+    const auto got = ASSERT_NIL_P(client.ranges.retrieve(
+        RetrieveRequest{
+            .where = Where{
+                .or_ =
+                    std::vector<Where>{
+                        Where{.labels = std::vector<label::Key>{x::uuid::create()}},
+                        Where{
+                            .name = x::filter::String{
+                                .in = std::vector<std::string>{a.name, b.name},
+                            },
+                        },
+                    },
+                .not_ = x::mem::indirect<Where>(
+                    Where{.key = x::filter::Set<Key>{.eq = b.key}}
+                ),
+            },
+        }
+    ));
+    ASSERT_EQ(got.size(), 1);
+    ASSERT_EQ(got[0].key, a.key);
+}
+
 /// @brief it should set a key-value pair on the range.
 TEST(RangerTests, testSet) {
     const auto client = new_test_client();

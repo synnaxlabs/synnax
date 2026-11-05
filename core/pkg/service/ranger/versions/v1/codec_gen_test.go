@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
 	color "github.com/synnaxlabs/x/color/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
+	filter "github.com/synnaxlabs/x/filter/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/testutil"
 )
@@ -83,6 +84,124 @@ var _ = Describe("Codec", func() {
 			}}),
 		)
 	})
+	Describe("Where", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v1.Where) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v1.Where
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v1.Where{
+				And: []v1.Where{
+					{
+						And: []v1.Where{{}},
+						Or:  []v1.Where{{}},
+						Not: new(v1.Where{}),
+						Key: new(filter.Set[v1.Key]{
+							Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
+							In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807")},
+						}),
+						Name: new(filter.String{
+							Eq:    new(string("test_9")),
+							In:    []string{"test_10"},
+							Regex: new(string("test_11")),
+						}),
+						Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(14), End: telem.TimeStamp(15)}),
+						Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f")},
+					},
+				},
+				Or: []v1.Where{
+					{
+						And: []v1.Where{{}},
+						Or:  []v1.Where{{}},
+						Not: new(v1.Where{}),
+						Key: new(filter.Set[v1.Key]{
+							Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567815"))),
+							In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567816")},
+						}),
+						Name: new(filter.String{
+							Eq:    new(string("test_24")),
+							In:    []string{"test_25"},
+							Regex: new(string("test_26")),
+						}),
+						Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(29), End: telem.TimeStamp(30)}),
+						Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781e")},
+					},
+				},
+				Not: new(v1.Where{
+					And: []v1.Where{{}},
+					Or:  []v1.Where{{}},
+					Not: new(v1.Where{}),
+					Key: new(filter.Set[v1.Key]{
+						Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567824"))),
+						In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567825")},
+					}),
+					Name: new(filter.String{
+						Eq:    new(string("test_39")),
+						In:    []string{"test_40"},
+						Regex: new(string("test_41")),
+					}),
+					Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(44), End: telem.TimeStamp(45)}),
+					Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456782d")},
+				}),
+				Key: new(filter.Set[v1.Key]{
+					Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456782f"))),
+					In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567830")},
+				}),
+				Name: new(filter.String{
+					Eq:    new(string("test_50")),
+					In:    []string{"test_51"},
+					Regex: new(string("test_52")),
+				}),
+				Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(55), End: telem.TimeStamp(56)}),
+				Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567838")},
+			}),
+			Entry("zero values", v1.Where{
+				And:      []v1.Where{},
+				Or:       []v1.Where{},
+				Not:      nil,
+				Key:      nil,
+				Name:     nil,
+				Overlaps: nil,
+				Labels:   []uuid.UUID{},
+			}),
+			Entry("empty collections", v1.Where{
+				And: []v1.Where{},
+				Or:  []v1.Where{},
+				Not: new(v1.Where{
+					And: []v1.Where{},
+					Or:  []v1.Where{},
+					Not: new(v1.Where{}),
+					Key: new(filter.Set[v1.Key]{
+						Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"))),
+						In: []uuid.UUID{},
+					}),
+					Name: new(filter.String{
+						Eq:    new(string("test_11")),
+						In:    []string{},
+						Regex: new(string("test_13")),
+					}),
+					Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(16), End: telem.TimeStamp(17)}),
+					Labels:   []uuid.UUID{},
+				}),
+				Key: new(filter.Set[v1.Key]{
+					Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567813"))),
+					In: []uuid.UUID{},
+				}),
+				Name: new(filter.String{
+					Eq:    new(string("test_22")),
+					In:    []string{},
+					Regex: new(string("test_24")),
+				}),
+				Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(27), End: telem.TimeStamp(28)}),
+				Labels:   []uuid.UUID{},
+			}),
+		)
+	})
 })
 
 func BenchmarkEncodeDecodeRange(b *testing.B) {
@@ -122,6 +241,87 @@ func BenchmarkEncodeDecodeRef(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded v1.Ref
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeWhere(b *testing.B) {
+	seed := v1.Where{
+		And: []v1.Where{
+			{
+				And: []v1.Where{{}},
+				Or:  []v1.Where{{}},
+				Not: new(v1.Where{}),
+				Key: new(filter.Set[v1.Key]{
+					Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
+					In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807")},
+				}),
+				Name: new(filter.String{
+					Eq:    new(string("test_9")),
+					In:    []string{"test_10"},
+					Regex: new(string("test_11")),
+				}),
+				Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(14), End: telem.TimeStamp(15)}),
+				Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f")},
+			},
+		},
+		Or: []v1.Where{
+			{
+				And: []v1.Where{{}},
+				Or:  []v1.Where{{}},
+				Not: new(v1.Where{}),
+				Key: new(filter.Set[v1.Key]{
+					Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567815"))),
+					In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567816")},
+				}),
+				Name: new(filter.String{
+					Eq:    new(string("test_24")),
+					In:    []string{"test_25"},
+					Regex: new(string("test_26")),
+				}),
+				Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(29), End: telem.TimeStamp(30)}),
+				Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781e")},
+			},
+		},
+		Not: new(v1.Where{
+			And: []v1.Where{{}},
+			Or:  []v1.Where{{}},
+			Not: new(v1.Where{}),
+			Key: new(filter.Set[v1.Key]{
+				Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567824"))),
+				In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567825")},
+			}),
+			Name: new(filter.String{
+				Eq:    new(string("test_39")),
+				In:    []string{"test_40"},
+				Regex: new(string("test_41")),
+			}),
+			Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(44), End: telem.TimeStamp(45)}),
+			Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456782d")},
+		}),
+		Key: new(filter.Set[v1.Key]{
+			Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456782f"))),
+			In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567830")},
+		}),
+		Name: new(filter.String{
+			Eq:    new(string("test_50")),
+			In:    []string{"test_51"},
+			Regex: new(string("test_52")),
+		}),
+		Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(55), End: telem.TimeStamp(56)}),
+		Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567838")},
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v1.Where
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -232,6 +432,155 @@ func FuzzDecodeRef(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v1.Ref
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeWhere(f *testing.F) {
+	{
+		seed := v1.Where{
+			And: []v1.Where{
+				{
+					And: []v1.Where{{}},
+					Or:  []v1.Where{{}},
+					Not: new(v1.Where{}),
+					Key: new(filter.Set[v1.Key]{
+						Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
+						In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807")},
+					}),
+					Name: new(filter.String{
+						Eq:    new(string("test_9")),
+						In:    []string{"test_10"},
+						Regex: new(string("test_11")),
+					}),
+					Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(14), End: telem.TimeStamp(15)}),
+					Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f")},
+				},
+			},
+			Or: []v1.Where{
+				{
+					And: []v1.Where{{}},
+					Or:  []v1.Where{{}},
+					Not: new(v1.Where{}),
+					Key: new(filter.Set[v1.Key]{
+						Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567815"))),
+						In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567816")},
+					}),
+					Name: new(filter.String{
+						Eq:    new(string("test_24")),
+						In:    []string{"test_25"},
+						Regex: new(string("test_26")),
+					}),
+					Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(29), End: telem.TimeStamp(30)}),
+					Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781e")},
+				},
+			},
+			Not: new(v1.Where{
+				And: []v1.Where{{}},
+				Or:  []v1.Where{{}},
+				Not: new(v1.Where{}),
+				Key: new(filter.Set[v1.Key]{
+					Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567824"))),
+					In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567825")},
+				}),
+				Name: new(filter.String{
+					Eq:    new(string("test_39")),
+					In:    []string{"test_40"},
+					Regex: new(string("test_41")),
+				}),
+				Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(44), End: telem.TimeStamp(45)}),
+				Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456782d")},
+			}),
+			Key: new(filter.Set[v1.Key]{
+				Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456782f"))),
+				In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567830")},
+			}),
+			Name: new(filter.String{
+				Eq:    new(string("test_50")),
+				In:    []string{"test_51"},
+				Regex: new(string("test_52")),
+			}),
+			Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(55), End: telem.TimeStamp(56)}),
+			Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567838")},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v1.Where{
+			And:      []v1.Where{},
+			Or:       []v1.Where{},
+			Not:      nil,
+			Key:      nil,
+			Name:     nil,
+			Overlaps: nil,
+			Labels:   []uuid.UUID{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v1.Where{
+			And: []v1.Where{},
+			Or:  []v1.Where{},
+			Not: new(v1.Where{
+				And: []v1.Where{},
+				Or:  []v1.Where{},
+				Not: new(v1.Where{}),
+				Key: new(filter.Set[v1.Key]{
+					Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"))),
+					In: []uuid.UUID{},
+				}),
+				Name: new(filter.String{
+					Eq:    new(string("test_11")),
+					In:    []string{},
+					Regex: new(string("test_13")),
+				}),
+				Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(16), End: telem.TimeStamp(17)}),
+				Labels:   []uuid.UUID{},
+			}),
+			Key: new(filter.Set[v1.Key]{
+				Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567813"))),
+				In: []uuid.UUID{},
+			}),
+			Name: new(filter.String{
+				Eq:    new(string("test_22")),
+				In:    []string{},
+				Regex: new(string("test_24")),
+			}),
+			Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(27), End: telem.TimeStamp(28)}),
+			Labels:   []uuid.UUID{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v1.Where
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v1.Where
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
