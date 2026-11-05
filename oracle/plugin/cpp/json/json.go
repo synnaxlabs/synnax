@@ -31,6 +31,7 @@ import (
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var primitiveMapper = cppprimitives.Mapper()
@@ -304,6 +305,11 @@ func (p *Plugin) processStruct(
 	if !ok {
 		return nil, nil
 	}
+	for _, field := range resolution.UnifiedFields(s, data.table) {
+		if err := checkStructMapKey(s, field, data.table); err != nil {
+			return nil, err
+		}
+	}
 
 	cppName := domain.GetName(s, "cpp")
 
@@ -353,6 +359,51 @@ func (p *Plugin) processStruct(
 	}
 
 	return serializer, nil
+}
+
+// structMap returns the map type behind ref when its values are structs.
+func structMap(
+	ref resolution.TypeRef,
+	table *resolution.Table,
+) (resolution.TypeRef, bool) {
+	if _, target, ok := resolution.Dealias(ref, table); ok {
+		ref = target
+	}
+	if ref.Name != "Map" || len(ref.TypeArgs) < 2 {
+		return resolution.TypeRef{}, false
+	}
+	value, _, ok := resolution.Dealias(ref.TypeArgs[1], table)
+	if !ok {
+		return resolution.TypeRef{}, false
+	}
+	_, isStruct := value.Form.(resolution.StructForm)
+	return ref, isStruct
+}
+
+// checkStructMapKey rejects a map of structs whose key has no exact JSON object key:
+// to_json writes string keys as they are, UUID keys through to_string, and integer keys
+// through std::to_string.
+func checkStructMapKey(
+	s resolution.Type,
+	field resolution.Field,
+	table *resolution.Table,
+) error {
+	ref, ok := structMap(field.Type, table)
+	if !ok || ref.TypeArgs[0].IsTypeParam() {
+		return nil
+	}
+	base := resolution.PrimitiveBase(ref.TypeArgs[0], table)
+	if base == "string" || base == "uuid" || strings.HasPrefix(base, "int") ||
+		strings.HasPrefix(base, "uint") {
+		return nil
+	}
+	return errors.Wrapf(
+		validate.ErrValidation,
+		"%s.%s: C++ cannot serialize a map of structs keyed by %s",
+		s.QualifiedName,
+		field.Name,
+		ref.TypeArgs[0].Name,
+	)
 }
 
 // isSelfReference reports whether t directly or transitively references parent.
@@ -553,6 +604,13 @@ func (p *Plugin) parseExprForField(
 				}
 				if field.Optional {
 					wrapperType = fmt.Sprintf("std::optional<%s>", wrapperType)
+				} else if isEmptyDefault(field.Default) {
+					return fmt.Sprintf(
+						`parser.field<%s>("%s", %s{})`,
+						wrapperType,
+						jsonName,
+						wrapperType,
+					)
 				}
 				return fmt.Sprintf(`parser.field<%s>("%s")`, wrapperType, jsonName)
 			}
@@ -720,6 +778,14 @@ func (p *Plugin) parseExprForField(
 					jsonName,
 				)
 			}
+			if isEmptyDefault(field.Default) {
+				return fmt.Sprintf(
+					`parser.field<%s>("%s", %s{})`,
+					structType,
+					jsonName,
+					structType,
+				)
+			}
 			return fmt.Sprintf(`parser.field<%s>("%s")`, structType, jsonName)
 		}
 		if union, ok := dealiasUnion(typeRef, data.table); ok {
@@ -788,6 +854,14 @@ func (p *Plugin) parseExprForField(
 							jsonName,
 						)
 					}
+					if isEmptyDefault(field.Default) {
+						return fmt.Sprintf(
+							`parser.field<%s>("%s", %s{})`,
+							aliasType,
+							jsonName,
+							aliasType,
+						)
+					}
 					return fmt.Sprintf(`parser.field<%s>("%s")`, aliasType, jsonName)
 				}
 			}
@@ -848,8 +922,30 @@ func (p *Plugin) parseExprForField(
 				defaultVal,
 			)
 		}
+		if isEmptyDefault(field.Default) {
+			return fmt.Sprintf(
+				`parser.field<%s>("%s", %s{})`,
+				cppType,
+				jsonName,
+				cppType,
+			)
+		}
 	}
 	return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
+}
+
+// isEmptyDefault reports whether val is the empty composite default {} or [].
+func isEmptyDefault(val *resolution.ExpressionValue) bool {
+	if val == nil {
+		return false
+	}
+	switch val.Kind {
+	case resolution.ValueKindStruct:
+		return len(val.Fields) == 0
+	case resolution.ValueKindArray:
+		return len(val.Elements) == 0
+	}
+	return false
 }
 
 func (p *Plugin) toJSONExprForField(
@@ -905,6 +1001,36 @@ func (p *Plugin) toJSONExprForField(
 				return fmt.Sprintf(`j["%s"] = this->%s.to_json();`, jsonName, fieldName)
 			}
 		}
+	}
+
+	if mapRef, ok := structMap(typeRef, data.table); ok {
+		src := "this->" + fieldName
+		if field.Optional {
+			src = "*" + src
+		}
+		// JSON object keys are strings, and obj[key] with an integer key indexes an
+		// array.
+		key := "key"
+		switch base := resolution.PrimitiveBase(mapRef.TypeArgs[0], data.table); {
+		case mapRef.TypeArgs[0].IsTypeParam():
+			key = "x::json::map_key(key)"
+		case base == "string":
+		case base == "uuid":
+			key = "key.to_string()"
+		default:
+			data.AddSystem("string")
+			key = "std::to_string(key)"
+		}
+		// nlohmann_json cannot reach the to_json member inside a map.
+		body := fmt.Sprintf(`{
+        auto obj = x::json::json::object();
+        for (const auto& [key, item] : %s) obj[%s] = item.to_json();
+        j["%s"] = obj;
+    }`, src, key, jsonName)
+		if field.Optional {
+			return fmt.Sprintf(`if (this->%s.has_value()) %s`, fieldName, body)
+		}
+		return body
 	}
 
 	if elemType, isArray := arrays.ElementType(typeRef, data.table); isArray {

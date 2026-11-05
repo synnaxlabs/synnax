@@ -110,6 +110,26 @@ describe("log/Base", () => {
       expect(screen.getByText("No log entries")).toBeDefined();
     });
 
+    it("should show the loading symbol only while loading", () => {
+      setupAether({ empty: false, loading: true });
+      const { rerender } = renderLog();
+      expect(screen.getByLabelText("Loading")).toBeDefined();
+      setupAether({ empty: false, loading: false });
+      rerender(<Base />);
+      expect(screen.queryByLabelText("Loading")).toBeNull();
+    });
+
+    it("should show the full loading state while a log has no entries", () => {
+      setupAether({ empty: false, loading: true, blank: true });
+      const { rerender } = renderLog();
+      expect(screen.getByLabelText("Loading entries")).toBeDefined();
+      expect(screen.queryByLabelText("Loading")).toBeNull();
+      setupAether({ empty: false, loading: true, blank: false });
+      rerender(<Base />);
+      expect(screen.queryByLabelText("Loading entries")).toBeNull();
+      expect(screen.getByLabelText("Loading")).toBeDefined();
+    });
+
     it("should render children when not empty", () => {
       setupAether({ empty: false });
       renderLog({ children: <div data-testid="overlay" /> });

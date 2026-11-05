@@ -46,6 +46,8 @@ export const logStateZ = log.logZ
     scrolling: z.boolean(),
     resumedAt: z.number().default(0),
     empty: z.boolean(),
+    loading: z.boolean().default(false),
+    blank: z.boolean().default(false),
     visible: z.boolean(),
     // channelNames: server-side display names (fetched fresh, never persisted)
     // channelDataTypes: server-side data types (fetched fresh, never persisted)
@@ -77,6 +79,8 @@ const SCROLLBAR_WIDTH = 6;
 // height falls below a pixel.
 const SCROLLBAR_MIN_HEIGHT = 32;
 const CANVAS: render.Canvas2DVariant = "lower2d";
+// A paused view this many lines or fewer from the oldest entry reads older entries.
+const LOAD_MARGIN = 200;
 const CONTENT_PADDING = 6;
 
 // Per-theme prefix color muting — multiplied with the base color's HSLA.
@@ -274,24 +278,39 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     const { data, status } = i.telem.value();
     this.entries = data;
     this.setAnchors(this.state.selectionStart, this.state.selectionEnd);
-    this.checkEmpty(status);
+    this.syncStatus(status);
     i.stopListeningTelem?.();
     i.stopListeningTelem = i.telem.onChange(() => {
       const { data, status } = this.internal.telem.value();
       this.entries = data;
       this.reanchor();
-      this.checkEmpty(status);
+      this.syncStatus(status);
+      this.loadOlderNearTop();
       if (this.state.visible) this.requestRender();
     });
+    this.loadOlderNearTop();
     if (!this.state.visible && !this.prevState.visible) return;
     this.requestRender();
   }
 
+  private loadOlderNearTop(): void {
+    if (!this.state.scrolling) return;
+    if (this.scrollState.offset - this.visibleLineCount <= LOAD_MARGIN)
+      this.internal.telem.wrapped.loadOlder?.();
+  }
+
   // A loading log is not empty, since its stored entries have not arrived yet.
-  private checkEmpty(s: status.Status): void {
-    const actuallyEmpty = this.entries.length === 0 && s.variant !== "loading";
-    if (actuallyEmpty === this.state.empty) return;
-    this.setState((p) => ({ ...p, empty: actuallyEmpty }));
+  private syncStatus(s: status.Status): void {
+    const loading = s.variant === "loading";
+    const empty = this.entries.length === 0 && !loading;
+    const blank = this.entries.length === 0 && loading;
+    if (
+      empty === this.state.empty &&
+      loading === this.state.loading &&
+      blank === this.state.blank
+    )
+      return;
+    this.setState((p) => ({ ...p, empty, loading, blank }));
   }
 
   afterDelete(): void {

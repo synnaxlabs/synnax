@@ -60,7 +60,7 @@ class Harness {
     x::telem::MonoClock clock;
     /// @brief the stamp the last tick ran with. drain() and flush() stamp indexes
     /// from it, matching what the runtime loop does after every pass.
-    x::telem::TimeStamp cycle_now{};
+    x::telem::TimeStamp cycle_now;
     x::telem::Alignment alignment;
     /// @brief holds writes drained by advance() until the next flush().
     x::telem::Frame pending;
