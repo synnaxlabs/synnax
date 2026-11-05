@@ -284,6 +284,33 @@ describe("Cache", () => {
       await cache.close();
     });
 
+    it("keeps a deleted key deleted when its earlier set streams late", async () => {
+      const schema = z.object({ key: z.string(), name: z.string() });
+      const opener = async () =>
+        new MockStreamer([
+          new framer.Frame({ docs_set: new Series([{ key: "k1", name: "a" }]) }),
+          new framer.Frame({ docs_delete: new Series(["k1"]) }),
+        ]);
+      const cache = makeEngine(opener);
+      const table = cache.createTable<string, Doc>({
+        name: "docs",
+        fetch: async () => [],
+        listen: [
+          query.createSetListener("docs_set", schema),
+          query.createDeleteListener("docs_delete", z.string()),
+        ],
+      });
+      table.set("k1", { key: "k1", name: "a" });
+      table.delete("k1");
+      const subscriber = vi.fn();
+      table.subscribe(subscriber);
+      await cache.ensureStreaming();
+      await expect.poll(() => subscriber.mock.calls.length).toBe(1);
+      expect(subscriber.mock.calls).toEqual([[{ variant: "delete", key: "k1" }]]);
+      expect(table.status("k1")).toBe("tombstoned");
+      await cache.close();
+    });
+
     it("refetches announced keys via a declared fetch listener", async () => {
       const fetch = vi.fn(async (keys: string[]) =>
         keys.map((k) => ({ key: k, name: `${k}-fresh` })),
@@ -505,6 +532,31 @@ describe("Cache", () => {
       await cache.ensureStreaming();
       await expect.poll(() => cache.epoch).toBe(2);
       expect(table.get("k1")).toEqual({ key: "k1", name: "a" });
+      await cache.close();
+    });
+
+    it("applies streamed sets to locally deleted keys after a reopen", async () => {
+      const schema = z.object({ key: z.string(), name: z.string() });
+      let opens = 0;
+      const cache = makeEngine(async (): Promise<framer.Streamer> => {
+        opens++;
+        if (opens === 1) return failingStreamer();
+        return new MockStreamer([
+          new framer.Frame({ docs_set: new Series([{ key: "k1", name: "b" }]) }),
+        ]);
+      });
+      const table = cache.createTable<string, Doc>({
+        name: "docs",
+        fetch: async () => [],
+        listen: [
+          query.createSetListener("docs_set", schema),
+          query.createDeleteListener("docs_delete", z.string()),
+        ],
+      });
+      table.set("k1", { key: "k1", name: "a" });
+      table.delete("k1");
+      await cache.ensureStreaming();
+      await expect.poll(() => table.get("k1")).toEqual({ key: "k1", name: "b" });
       await cache.close();
     });
 
