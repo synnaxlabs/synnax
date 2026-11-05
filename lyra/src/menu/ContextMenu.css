@@ -29,7 +29,10 @@
     /* The menu holds the focus until a key moves it to an item. */
     outline: none;
 
+    /* An empty menu, as while its items load, stays hidden but holds the focus. */
     &:empty {
-        display: none;
+        opacity: 0;
+        animation: none;
+        pointer-events: none;
     }
 }

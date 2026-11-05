@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import { type ReactElement, Suspense, use } from "react";
 import { describe, expect, it } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
@@ -43,6 +43,28 @@ const FocusMenu = (): ReactElement => {
       <button onContextMenu={ctx.open}>Opener</button>
       {/* Takes no focus on a press, as a canvas does. */}
       <div onMouseDown={(e) => e.preventDefault()}>Canvas</div>
+    </Menu.ContextMenu>
+  );
+};
+
+const Loaded = ({ items }: { items: Promise<void> }): ReactElement => {
+  use(items);
+  return ITEMS;
+};
+
+// Renders nothing while its items load, as a menu that reads Core data does.
+const LoadingMenu = ({ items }: { items: Promise<void> }): ReactElement => {
+  const ctx = Menu.useContextMenu();
+  return (
+    <Menu.ContextMenu
+      menu={() => (
+        <Suspense fallback={null}>
+          <Loaded items={items} />
+        </Suspense>
+      )}
+      {...ctx}
+    >
+      <button onContextMenu={ctx.open}>Opener</button>
     </Menu.ContextMenu>
   );
 };
@@ -102,6 +124,25 @@ describe("Menu", () => {
       );
       expect(computed(rename, "background-color")).not.toBe(resolve("transparent"));
       expect(computed(rename, "outline-style")).toBe("none");
+    });
+
+    it("should hold the focus, hidden, while its items load", async () => {
+      let load = (): void => {};
+      const items = new Promise<void>((resolve) => {
+        load = resolve;
+      });
+      const { getByText } = await renderThemed(<LoadingMenu items={items} />);
+      const opener = getByText("Opener").element() as HTMLElement;
+      opener.focus();
+      await userEvent.click(opener, { button: "right" });
+      const menu = page.getByRole("menu").element();
+      await expect.poll(() => document.activeElement).toBe(menu);
+      expect(computed(menu, "opacity")).toBe("0");
+      load();
+      const copy = page.getByRole("menuitem", { name: "Copy" });
+      await expect.poll(() => copy.query()).not.toBeNull();
+      await userEvent.keyboard("{ArrowDown}");
+      await expect.poll(() => document.activeElement).toBe(copy.element());
     });
 
     it("should leave the focus to a click outside", async () => {
