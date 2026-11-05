@@ -188,8 +188,7 @@ var _ = Describe("Writer open", func() {
 							delKey  cesium.ChannelKey
 							deleted chan error
 							// The delete removes [12 s, 15 s) from a domain of ten
-							// samples.
-							// It parks on the read that resolves its offsets.
+							// samples. It parks on the read that resolves its offsets.
 							tr = (12 * telem.SecondTS).Range(15 * telem.SecondTS)
 						)
 						stamp := func(s telem.TimeStamp) telem.TimeStamp {
