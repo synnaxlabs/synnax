@@ -10,7 +10,7 @@
 import "@/select/SingleTrigger.css";
 
 import { primitive, type record } from "@synnaxlabs/x";
-import { type KeyboardEvent, type ReactElement, useId } from "react";
+import { type KeyboardEvent, type ReactElement, type ReactNode, useId } from "react";
 
 import { Button } from "@/button";
 import { Caret } from "@/caret";
@@ -51,6 +51,11 @@ export interface SingleTriggerProps extends Omit<Dialog.TriggerProps, "variant">
   /** Chooses an icon from the selected entry, overriding `icon`. */
   renderIcon?: (entry: unknown) => Icon.ReactElement | undefined;
   /**
+   * Renders content from the selected entry at the trailing edge, before the caret. An
+   * icon-only trigger shows none.
+   */
+  renderEndContent?: (entry: unknown) => ReactNode;
+  /**
    * Whether the trigger drops its name and caret when too narrow to read the name. A
    * tooltip then shows the name. The caller must size the select, because the
    * trigger's width no longer depends on the name.
@@ -78,6 +83,7 @@ export const SingleTrigger = <K extends record.Key>({
   hideCaret = false,
   variant: triggerVariant = "outlined",
   renderIcon,
+  renderEndContent,
   collapsible = false,
   clearable = false,
   preview,
@@ -97,6 +103,7 @@ export const SingleTrigger = <K extends record.Key>({
   const item = List.useItem<K, SingleTriggerEntry<K>>(selected);
   const { name, icon } = item ?? {};
   const resolvedIcon = renderIcon?.(item) ?? icon ?? baseIcon;
+  const endContent = iconOnly ? undefined : renderEndContent?.(item);
   const canDrop = (hauled: Haul.DraggingState) =>
     staticCanDrop(hauled, haulType, allSelected, disabled);
   const { startDrag, onDragEnd, ...dropProps } = Haul.useDragAndDrop({
@@ -165,11 +172,10 @@ export const SingleTrigger = <K extends record.Key>({
   return (
     <Dialog.Trigger
       id={id}
-      variant={triggerVariant === "shadow" ? "outlined" : triggerVariant}
+      variant={triggerVariant}
       gap="small"
       className={CSS.cls(
         CSS.dropRegion(canDrop(dragging)),
-        triggerVariant === "shadow" && CSS.M("shadow"),
         name == null && !fixed ? CSS.BM("select-single-trigger", "empty") : null,
         collapsible && CSS.BM("select-single-trigger", "collapsible"),
         clearShown && CSS.M("reveals"),
@@ -199,6 +205,9 @@ export const SingleTrigger = <K extends record.Key>({
         <Label itemKey={selected} id={labelId}>
           {shown}
         </Label>
+      )}
+      {endContent != null && (
+        <span className={CSS.BE("select-single-trigger", "end")}>{endContent}</span>
       )}
       {clearOnCaret &&
         withClear(

@@ -133,10 +133,16 @@ func (f *factory) ConfigureTask(
 ) (driver.Task, error) {
 	switch t.Type {
 	case ScanTaskType:
-		st, err := f.configureScan(ctx, t)
+		st, autoStart, err := f.configureScan(t)
 		if err != nil {
 			f.reportConfigError(ctx, t, cmdKey, err)
 			return nil, err
+		}
+		// Start writes its own status when it fails.
+		if autoStart {
+			if err := st.Start(ctx, driver.NoCommand); err != nil {
+				return nil, err
+			}
 		}
 		return st, nil
 	case ReadTaskType:

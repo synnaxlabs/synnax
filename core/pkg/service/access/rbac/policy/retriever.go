@@ -24,8 +24,8 @@ type Retrieve struct {
 }
 
 // ResolveSubjects walks the ontology from each subject up to its parent roles and back
-// down to the policies attached to those roles, returning the policy keys. It returns
-// query.ErrNotFound if a subject does not exist.
+// down to the policies attached to those roles, returning the policy keys. A subject
+// that does not exist has no policies.
 func (s *Service) ResolveSubjects(
 	ctx context.Context,
 	tx gorp.Tx,

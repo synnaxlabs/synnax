@@ -7,93 +7,54 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package kafka
+package json
 
 import (
 	"bytes"
 	"encoding/json/jsontext"
 	"io"
-	"strconv"
 
 	"github.com/synnaxlabs/x/errors"
 )
 
-// pathNode is one step of the pointers an extractor resolves.
+// pathNode is one step of the pointers an Extractor resolves.
 type pathNode struct {
-	// fields are the positions of the fields whose pointer ends here.
-	fields []int
+	// pointers are the positions of the pointers that end here.
+	pointers []int
 	// names holds the next step by object member name.
 	names map[string]*pathNode
-	// tokens holds the steps array index tokens take. A pointer token such as "01" and
-	// "1" both address index 1, so one index can hold several steps.
-	tokens map[int][]*pathNode
-	// elements holds the next step by array index, merged from tokens.
+	// elements holds the next step by array index.
 	elements map[int]*pathNode
-	// children is this node without its fields, for walking a value already read.
+	// children is this node without its pointers, for walking a value already read.
 	children *pathNode
 }
 
 func (n *pathNode) child(token string) *pathNode {
+	if c, ok := n.names[token]; ok {
+		return c
+	}
 	if n.names == nil {
 		n.names = make(map[string]*pathNode)
 	}
-	c, ok := n.names[token]
-	if !ok {
-		c = &pathNode{}
-		n.names[token] = c
-		if i, err := strconv.Atoi(token); err == nil && i >= 0 {
-			if n.tokens == nil {
-				n.tokens = make(map[int][]*pathNode)
-			}
-			n.tokens[i] = append(n.tokens[i], c)
+	c := &pathNode{}
+	n.names[token] = c
+	if i, ok := arrayIndex(token); ok {
+		if n.elements == nil {
+			n.elements = make(map[int]*pathNode)
 		}
+		n.elements[i] = c
 	}
 	return c
 }
 
-// resolve computes the walk's lookups for n and every node below it.
+// resolve sets children on n and every node below it.
 func (n *pathNode) resolve() {
 	for _, c := range n.names {
 		c.resolve()
 	}
-	if n.tokens != nil {
-		n.elements = make(map[int]*pathNode, len(n.tokens))
-	}
-	for i, cs := range n.tokens {
-		c := cs[0]
-		if len(cs) > 1 {
-			c = merge(cs)
-			c.resolve()
-		}
-		n.elements[i] = c
-	}
-	if len(n.fields) > 0 && n.names != nil {
+	if len(n.pointers) > 0 && n.names != nil {
 		n.children = &pathNode{names: n.names, elements: n.elements}
 	}
-}
-
-// merge joins the steps several tokens take into one array element.
-func merge(nodes []*pathNode) *pathNode {
-	m := &pathNode{}
-	for _, n := range nodes {
-		m.fields = append(m.fields, n.fields...)
-		for name, c := range n.names {
-			if m.names == nil {
-				m.names = make(map[string]*pathNode)
-			}
-			if prev, ok := m.names[name]; ok {
-				c = merge([]*pathNode{prev, c})
-			}
-			m.names[name] = c
-		}
-		for i, cs := range n.tokens {
-			if m.tokens == nil {
-				m.tokens = make(map[int][]*pathNode)
-			}
-			m.tokens[i] = append(m.tokens[i], cs...)
-		}
-	}
-	return m
 }
 
 // documentDecoder decodes one JSON document held in memory.
@@ -120,50 +81,46 @@ func (d *documentDecoder) readValue() (jsontext.Value, error) {
 	return jsontext.Value(d.doc[end-int64(len(raw)) : end]), nil
 }
 
-// extractor resolves a fixed set of JSON pointers in one pass over a document. It
-// neither copies nor decodes the values the pointers address. It is not safe for
-// concurrent use.
-type extractor struct {
+// Extractor resolves a fixed set of pointers in one pass over a JSON document. It
+// neither copies nor decodes the values the pointers address, and it allocates nothing
+// once it has seen a document as deep as the pointers. It is not safe for concurrent
+// use.
+type Extractor struct {
 	root *pathNode
-	// errs[i] is the error of the malformed pointer of field i.
-	errs []error
 	// decoders[i] decodes at nesting level i. A pointer that addresses a value inside
 	// another pointer's value adds a level.
 	decoders []*documentDecoder
-	// opts allow repeats of the names no pointer addresses. A repeated addressed
-	// value is caught in walk.
+	// opts allow repeats of the names no pointer addresses. A repeated addressed value
+	// is caught in walk.
 	opts []jsontext.Options
 	// name is scratch space for an object member name holding an escape.
 	name []byte
 }
 
-func newExtractor(pointers []string) *extractor {
-	e := &extractor{
+// NewExtractor returns an Extractor for pointers.
+func NewExtractor(pointers []Pointer) *Extractor {
+	e := &Extractor{
 		root:     &pathNode{},
-		errs:     make([]error, len(pointers)),
 		decoders: []*documentDecoder{{}},
 		opts:     []jsontext.Options{jsontext.AllowDuplicateNames(true)},
 	}
 	for i, p := range pointers {
-		tokens, err := pointerTokens(p)
-		if err != nil {
-			e.errs[i] = err
-			continue
-		}
 		n := e.root
-		for _, t := range tokens {
-			n = n.child(t)
+		for _, token := range p {
+			n = n.child(token)
 		}
-		n.fields = append(n.fields, i)
+		n.pointers = append(n.pointers, i)
 	}
 	e.root.resolve()
 	return e
 }
 
-// extract resolves every pointer in doc into values, which must have one zeroed entry
-// per pointer. A pointer doc does not hold leaves its entry nil. Each value is a slice
-// of doc. It returns an error when doc is not one valid JSON document.
-func (e *extractor) extract(doc []byte, values []jsontext.Value) error {
+// Extract resolves every pointer in doc into values, which holds one entry for each
+// pointer. Each value is a slice of doc, or nil when doc holds no value at the pointer.
+// Extract returns an error when doc is not one valid JSON document, or when a member
+// name repeats on the path to an addressed value.
+func (e *Extractor) Extract(doc []byte, values []jsontext.Value) error {
+	clear(values)
 	d := e.decoders[0]
 	d.reset(doc, e.opts)
 	if err := e.walk(d, e.root, values, 0); err != nil {
@@ -178,22 +135,22 @@ func (e *extractor) extract(doc []byte, values []jsontext.Value) error {
 	return nil
 }
 
-func (e *extractor) walk(
+func (e *Extractor) walk(
 	d *documentDecoder,
 	n *pathNode,
 	values []jsontext.Value,
 	level int,
 ) error {
-	if len(n.fields) > 0 {
+	if len(n.pointers) > 0 {
 		raw, err := d.readValue()
 		if err != nil {
 			return err
 		}
-		for _, f := range n.fields {
-			if values[f] != nil {
+		for _, p := range n.pointers {
+			if values[p] != nil {
 				return errors.Newf("duplicate value at %s", d.dec.StackPointer())
 			}
-			values[f] = raw
+			values[p] = raw
 		}
 		if n.children == nil {
 			return nil
@@ -262,7 +219,7 @@ func (e *extractor) walk(
 
 // member returns the step n takes on the object member with the quoted name, or nil
 // when no pointer addresses it.
-func (e *extractor) member(n *pathNode, quoted jsontext.Value) (*pathNode, error) {
+func (e *Extractor) member(n *pathNode, quoted jsontext.Value) (*pathNode, error) {
 	name := quoted[1 : len(quoted)-1]
 	if bytes.IndexByte(name, '\\') >= 0 {
 		var err error

@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -166,19 +165,15 @@ var _ = Describe("Service", func() {
 				).To(MatchError(access.ErrDenied))
 			})
 
-			It("Should fail with not found for a subject that does not exist", func(
-				ctx SpecContext,
-			) {
-				missing := ontology.ID{Type: "user", Key: uuid.New().String()}
+			It("Should deny a subject that does not exist", func(ctx SpecContext) {
 				req := access.Request{
-					Subject: missing,
+					Subject: ontology.ID{Type: "user", Key: uuid.New().String()},
 					Objects: []ontology.ID{obj1},
 					Action:  access.ActionRetrieve,
 				}
-				Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, req)).To(SatisfyAll(
-					MatchError(query.ErrNotFound),
-					MatchError(ContainSubstring(missing.String())),
-				))
+				Expect(
+					rbacSvc.NewEnforcer(tx).Enforce(ctx, req),
+				).To(MatchError(access.ErrDenied))
 			})
 
 			It("Should name the subject, action, and denied object", func(

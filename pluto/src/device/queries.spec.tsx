@@ -374,6 +374,45 @@ describe("queries", () => {
       await waitFor(() => expect(result.current?.name).toEqual("updated"));
     });
 
+    it("should keep the status of an item read by key when it changes", async () => {
+      const rack = await client.racks.create({ name: "test" });
+      const item: device.New = {
+        key: id.create(),
+        name: "original",
+        rack: rack.key,
+        location: "test",
+        make: "test",
+        model: "test",
+        properties: {},
+      };
+      await client.devices.create(item);
+      await client.statuses.set(
+        status.create<typeof device.statusDetailsZ>({
+          key: device.statusKey(item.key),
+          variant: "success",
+          message: "Device connected",
+          details: { rack: rack.key, device: item.key },
+        }),
+      );
+      const { result } = renderHook(
+        () => {
+          const list = Device.useList({ useCachedList: false });
+          return Flux.useListItem({
+            subscribe: list.subscribe,
+            getItem: list.getItem,
+            key: item.key,
+          });
+        },
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current?.status?.variant).toEqual("success"));
+      await act(async () => {
+        await client.devices.create({ ...item, name: "updated" });
+      });
+      await waitFor(() => expect(result.current?.name).toEqual("updated"));
+      expect(result.current?.status?.variant).toEqual("success");
+    });
+
     it("should return a list of device keys", async () => {
       const rack = await client.racks.create({
         name: "test",

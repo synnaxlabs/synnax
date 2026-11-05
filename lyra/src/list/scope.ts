@@ -18,8 +18,8 @@ export type SetElement = (key: record.Key, element: HTMLElement | null) => void;
 /** Acts on the mounted items of a Frame by key. */
 export interface Elements {
   setElement: SetElement;
-  /** Clicks the mounted item with the given key. */
-  click: (key: record.Key) => void;
+  /** Returns the element of the mounted item with the given key. */
+  getElement: (key: record.Key) => HTMLElement | undefined;
   /** Keeps the item with the given key mounted when it scrolls out of view. */
   pin: (key: record.Key | null) => void;
 }
@@ -29,9 +29,9 @@ export const [ElementsContext, useElementsContext] = context.create<Elements>({
   providerName: "List.Frame",
 });
 
-/** @returns a function that clicks the item of the enclosing Frame by key. */
-export const useClick = (): Elements["click"] =>
-  useElementsContext("List.useClick").click;
+/** @returns a function that reads the element of a mounted item by key. */
+export const useGetElement = (): Elements["getElement"] =>
+  useElementsContext("List.useGetElement").getElement;
 
 /**
  * Keeps the item with the given key mounted while it is out of view, so it can still be

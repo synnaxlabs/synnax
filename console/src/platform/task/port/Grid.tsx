@@ -9,11 +9,13 @@
 
 import "@/platform/task/port/Grid.css";
 
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { type CSSProperties, type MouseEvent, type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
+import { useHovered, useSetHovered } from "@/platform/task/port/Hovered";
 
 /** Whether a port is free, holds one channel, or holds more than one. */
 export type State = "free" | "used" | "conflict";
@@ -42,6 +44,8 @@ export interface Cell {
    * click opens the channel's menu in the enclosing channel list.
    */
   channel?: string;
+  /** Every channel on the port. */
+  channels: string[];
   tooltip: string;
 }
 
@@ -56,7 +60,18 @@ export interface GridProps {
   /** Names the grid for assistive technology. */
   label: string;
   groups: Group[];
-  onClick: (cell: Cell) => void;
+  /** Handles a click that `onAdd` and `onMove` do not. */
+  onClick?: (cell: Cell) => void;
+  /**
+   * Moves a channel to the port, on a click on any port: the grid is a picker. A free
+   * port's tooltip then names the move.
+   */
+  onMove?: (cell: Cell) => void;
+  /**
+   * Adds a channel on a free port, in place of `onClick`. A free port then shows a
+   * plus under the pointer, and its tooltip names the port the click adds on.
+   */
+  onAdd?: (cell: Cell) => void;
   /**
    * Opens a menu over a free port. A used port leaves the event to the enclosing
    * channel list, which opens its channel's menu. Without it, a free port is not a
@@ -68,11 +83,15 @@ export interface GridProps {
 const cellClass = (
   { state, selected = false, paired = false, disabled = false }: Cell,
   target: boolean,
+  addable: boolean,
+  hovered: boolean,
 ): string =>
   CSS.cls(
     target && Menu.CONTEXT_TARGET,
     CSS.BE("port-grid", "cell"),
     CSS.BEM("port-grid", "cell", state),
+    addable && CSS.BEM("port-grid", "cell", "addable"),
+    hovered && CSS.BEM("port-grid", "cell", "hovered"),
     paired && CSS.BEM("port-grid", "cell", "paired"),
     disabled && CSS.BEM("port-grid", "cell", "disabled"),
     selected && CSS.BEM("port-grid", "cell", "selected"),
@@ -86,48 +105,70 @@ const cellStyle = ({ row, column, paired = false }: Cell): CSSProperties => ({
 /**
  * The ports of a device as a grid of cells colored by state: free, used, or in
  * conflict. A channel's own color never shows, so the channel on a port shows in its
- * tooltip.
+ * tooltip. Under a {@link HoverProvider}, the pointer on a port marks its channels,
+ * and a marked channel marks its port.
  */
 export const Grid = ({
   label,
   groups,
   onClick,
+  onMove,
+  onAdd,
   onContextMenu,
-}: GridProps): ReactElement => (
-  <div role="group" aria-label={label} className={CSS.B("port-grid")}>
-    {groups.map(({ key, columns, cells }) => (
-      <div
-        key={key}
-        className={CSS.BE("port-grid", "group")}
-        style={{ gridTemplateColumns: `repeat(${columns}, var(--pluto-port-width))` }}
-      >
-        {cells.map((cell) => {
-          const menuKey =
-            cell.channel ?? (onContextMenu == null ? undefined : cell.key);
-          return (
-            <Tooltip.Dialog key={cell.key} location="top">
-              {cell.tooltip}
-              <button
-                type="button"
-                aria-label={cell.name}
-                aria-pressed={cell.selected ?? false}
-                data-menu-key={menuKey}
-                className={cellClass(cell, menuKey != null)}
-                style={cellStyle(cell)}
-                onClick={() => onClick(cell)}
-                onContextMenu={cell.state === "free" ? onContextMenu : undefined}
-              >
-                {cell.labels.map((l) => (
-                  <span key={l}>{l}</span>
-                ))}
-              </button>
-            </Tooltip.Dialog>
-          );
-        })}
-      </div>
-    ))}
-  </div>
-);
+}: GridProps): ReactElement => {
+  const hovered = useHovered();
+  const setHovered = useSetHovered();
+  return (
+    <div role="group" aria-label={label} className={CSS.B("port-grid")}>
+      {groups.map(({ key, columns, cells }) => (
+        <div
+          key={key}
+          className={CSS.BE("port-grid", "group")}
+          style={{ gridTemplateColumns: `repeat(${columns}, var(--pluto-port-width))` }}
+        >
+          {cells.map((cell) => {
+            const menuKey =
+              cell.channel ?? (onContextMenu == null ? undefined : cell.key);
+            const add = cell.state === "free" ? onAdd : undefined;
+            const addable = add != null;
+            let tooltip = cell.tooltip;
+            if (addable) tooltip = `Add a channel on ${cell.name}`;
+            else if (onMove != null && cell.state === "free")
+              tooltip = `Move to ${cell.name}`;
+            const linked = hovered != null && cell.channels.includes(String(hovered));
+            const handleClick = add ?? onMove ?? onClick;
+            return (
+              <Tooltip.Dialog key={cell.key} location="top">
+                {tooltip}
+                <button
+                  type="button"
+                  aria-label={cell.name}
+                  aria-pressed={cell.selected ?? false}
+                  data-menu-key={menuKey}
+                  className={cellClass(cell, menuKey != null, addable, linked)}
+                  style={cellStyle(cell)}
+                  onClick={() => handleClick?.(cell)}
+                  onPointerEnter={() => {
+                    if (cell.channel != null) setHovered(cell.channel);
+                  }}
+                  onPointerLeave={() => {
+                    if (cell.channel != null) setHovered();
+                  }}
+                  onContextMenu={cell.state === "free" ? onContextMenu : undefined}
+                >
+                  {cell.labels.map((l) => (
+                    <span key={l}>{l}</span>
+                  ))}
+                  {addable && <Icon.Add className={CSS.BE("port-grid", "add")} />}
+                </button>
+              </Tooltip.Dialog>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+};
 
 export interface BadgeProps {
   state: State;

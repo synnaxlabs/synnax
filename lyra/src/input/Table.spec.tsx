@@ -27,6 +27,7 @@ interface RenderOptions {
   rowLabel?: (index: number) => string;
   resourceName?: string;
   cellStatus?: (at: xy.XY) => Status.Crude | undefined;
+  onRemove?: (index: number) => void;
 }
 
 const renderTable = ({ value = [[1, 10]], ...rest }: RenderOptions = {}) => {
@@ -190,6 +191,20 @@ describe("Input.Table", () => {
       [1, 10],
       [3, 30],
     ]);
+  });
+
+  it("should pass the removed row's index to onRemove in place of onChange", () => {
+    const onRemove = vi.fn();
+    const onChange = renderTable({
+      value: [
+        [1, 10],
+        [2, 20],
+      ],
+      onRemove,
+    });
+    fireEvent.click(removeButton(1));
+    expect(onRemove).toHaveBeenCalledExactlyOnceWith(1);
+    expect(onChange).not.toHaveBeenCalled();
   });
 
   it("should hide the add and remove buttons in preview", () => {
@@ -597,6 +612,30 @@ describe("Input.Table", () => {
   });
 
   describe("columns", () => {
+    const renderWidths = () =>
+      render(
+        <Input.Table value={[[1, 2]]} onChange={vi.fn()}>
+          <Input.TableColumn name="Raw" width={10} />
+          <Input.TableColumn name="Scaled" />
+        </Input.Table>,
+      );
+
+    it("should give a column the width it declares", () => {
+      const { container } = renderWidths();
+      const widths = Array.from(container.querySelectorAll("col")).map(
+        (col) => col.style.width,
+      );
+      expect(widths).toEqual(["10rem", "", ""]);
+    });
+
+    it("should size the table to fit every column", () => {
+      const { container } = renderWidths();
+      const table = container.querySelector("table");
+      expect(table?.style.getPropertyValue("--pluto-input-table-columns-width")).toBe(
+        "26rem",
+      );
+    });
+
     const renderMixed = (value: Input.TableCell[][] = [["on", 1]]) => {
       const onChange = vi.fn();
       render(

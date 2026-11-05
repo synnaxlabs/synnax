@@ -670,7 +670,7 @@ describe("Read ports", () => {
     for (const [port, tooltip] of [
       ["AIN0", "AIN0: chan_a"],
       ["AIN1", "AIN1 is used by chan_b and chan_c"],
-      ["AIN2", "AIN2 is free"],
+      ["AIN2", "Add a channel on AIN2"],
     ]) {
       const target = cell(port, "Analog inputs");
       fireEvent.pointerOver(target, { pointerType: "mouse" });
