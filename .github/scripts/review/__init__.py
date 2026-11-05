@@ -12,7 +12,7 @@ its review in the form Greptile uses."""
 
 from review.findings import SEVERITIES, Finding, Review, parse
 from review.post import GH, Target, gh, open_findings, post
-from review.run import Claude, Config, Doc, PullRequest, load, run
+from review.run import Claude, Config, Doc, PullRequest, Usage, load, run
 
 __all__ = [
     "GH",
@@ -24,6 +24,7 @@ __all__ = [
     "PullRequest",
     "Review",
     "Target",
+    "Usage",
     "gh",
     "load",
     "open_findings",

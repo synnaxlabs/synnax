@@ -13,6 +13,7 @@ import tomllib
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
+from typing import Any
 
 from review.findings import SCHEMA, Review, parse
 from review.render import fence
@@ -72,6 +73,33 @@ class Config:
     """The highest score a review can give while it has a finding of the severity."""
     prompt: str
     docs: list[Doc]
+
+
+@dataclass(frozen=True, kw_only=True)
+class Usage:
+    """What one review cost, as Claude Code reports it."""
+
+    cost_usd: float
+    duration_ms: int
+    turns: int
+    input_tokens: int
+    output_tokens: int
+    cache_read_tokens: int
+    cache_creation_tokens: int
+
+    @classmethod
+    def of(cls, out: dict[str, Any]) -> "Usage":
+        """Reads the usage from Claude Code's JSON result."""
+        u = out["usage"]
+        return cls(
+            cost_usd=out["total_cost_usd"],
+            duration_ms=out["duration_ms"],
+            turns=out["num_turns"],
+            input_tokens=u["input_tokens"],
+            output_tokens=u["output_tokens"],
+            cache_read_tokens=u["cache_read_input_tokens"],
+            cache_creation_tokens=u["cache_creation_input_tokens"],
+        )
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -218,8 +246,10 @@ def _cap(review: Review, caps: dict[str, int]) -> Review:
     return replace(review, score=min(review.score, limit))
 
 
-def run(config: Config, pr: PullRequest, *, claude: Claude, workdir: Path) -> Review:
-    """Reviews a pull request.
+def run(
+    config: Config, pr: PullRequest, *, claude: Claude, workdir: Path
+) -> tuple[Review, Usage]:
+    """Reviews a pull request, and returns the review with what it cost.
 
     :param workdir: An empty directory that Claude Code starts in and can read.
     :raises RuntimeError: If Claude Code ends with an error.
@@ -231,4 +261,4 @@ def run(config: Config, pr: PullRequest, *, claude: Claude, workdir: Path) -> Re
     out = json.loads(claude(_command(config, head=pr.head), text, workdir))
     if out["is_error"]:
         raise RuntimeError(f"claude ended with {out['subtype']}: {out.get('result')}")
-    return _cap(parse(out["structured_output"]), config.caps)
+    return _cap(parse(out["structured_output"]), config.caps), Usage.of(out)

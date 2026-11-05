@@ -194,9 +194,18 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           BOT: ${{ steps.app.outputs.app-slug }}
           POLICY_DIR: ${{ github.workspace }}
+          POLICY_SHA: ${{ github.sha }}
           HEAD_DIR: ${{ runner.temp }}/head
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.SEDOSAUR_CLAUDE_CODE_OAUTH_TOKEN }}
         run: python3 -m review run "$RUNNER_TEMP/review.json"
+
+      # The trial report compares these records with Greptile's reviews.
+      - name: Keep the record
+        uses: actions/upload-artifact@v7
+        with:
+          name: sedosaur-review
+          path: ${{ runner.temp }}/review.json
+          retention-days: 90
 
       - name: Post the review
         working-directory: .github/scripts

@@ -87,6 +87,15 @@ class FakeClaude:
         self.out: dict[str, Any] = {
             "is_error": False,
             "subtype": "success",
+            "total_cost_usd": 0.5,
+            "duration_ms": 60_000,
+            "num_turns": 12,
+            "usage": {
+                "input_tokens": 10,
+                "output_tokens": 2_000,
+                "cache_read_input_tokens": 90_000,
+                "cache_creation_input_tokens": 30_000,
+            },
             "structured_output": {
                 "score": score,
                 "verdict": "Safe to merge.",
@@ -251,11 +260,11 @@ class TestScore:
         self, severities: list[str], score: int
     ) -> None:
         claude = FakeClaude(5, [finding(s) for s in severities])
-        assert run(config(), pull(), claude=claude, workdir=WORK).score == score
+        assert run(config(), pull(), claude=claude, workdir=WORK)[0].score == score
 
     def test_should_keep_a_score_below_the_cap(self) -> None:
         claude = FakeClaude(3, [finding("P1")])
-        assert run(config(), pull(), claude=claude, workdir=WORK).score == 3
+        assert run(config(), pull(), claude=claude, workdir=WORK)[0].score == 3
 
     def test_should_raise_when_claude_ends_with_an_error(self) -> None:
         claude = FakeClaude()
@@ -345,7 +354,10 @@ class TestMain:
         executable(
             bindir / "claude",
             f"open({str(prompt)!r}, 'w').write(sys.stdin.read())\n"
-            "print(json.dumps({'is_error': False, 'structured_output': {"
+            "print(json.dumps({'is_error': False, 'total_cost_usd': 0.5,"
+            " 'duration_ms': 1, 'num_turns': 2, 'usage': {'input_tokens': 3,"
+            " 'output_tokens': 4, 'cache_read_input_tokens': 5,"
+            " 'cache_creation_input_tokens': 6}, 'structured_output': {"
             "'score': 5, 'verdict': 'Safe.', 'summary': ['S'], 'findings': []}}))\n",
         )
         env = {
@@ -358,6 +370,7 @@ class TestMain:
             "RUN_URL": "https://example.com/run",
             "BOT": "sedosaur",
             "POLICY_DIR": str(tmp_path / "policy"),
+            "POLICY_SHA": "policy",
             "HEAD_DIR": str(head),
             "CLAUDE_CODE_OAUTH_TOKEN": "claude-token",
         }
@@ -368,4 +381,18 @@ class TestMain:
         text = prompt.read_text()
         assert text.startswith("Use the trusted policy.\n\n# Pull request #7: Fix A")
         assert "     2 +two" in text
-        assert json.loads(out.read_text())["score"] == 5
+        record = json.loads(out.read_text())
+        assert record["pr"] == 7
+        assert record["head"] == env["HEAD_SHA"]
+        assert record["base"] == base
+        assert record["policy"] == "policy"
+        assert record["review"]["score"] == 5
+        assert record["usage"] == {
+            "cost_usd": 0.5,
+            "duration_ms": 1,
+            "turns": 2,
+            "input_tokens": 3,
+            "output_tokens": 4,
+            "cache_read_tokens": 5,
+            "cache_creation_tokens": 6,
+        }
