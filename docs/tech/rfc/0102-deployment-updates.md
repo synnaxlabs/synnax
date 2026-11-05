@@ -87,11 +87,12 @@ out too: a Driver whose saved key fails after an undo makes a new one
 is deleted.
 
 `synnax update undo` runs with the Core stopped. It puts back the newest backup, or the
-one it names, writes its version to `VERSION`, and prints the Core version to run.
-`synnax update history` lists the backups. An undo writes a marker first and removes it
-last. While the marker exists, the Core does not start and tells the user to run the
-undo again. It moves aside the Cesium directory of each channel that has no `meta.json`
-in the backup. The channel key counter lives in `kv/`
+one it names, writes its version to `VERSION`, and prints the Core version to run. With
+no name, it refuses when `VERSION` already holds the newest backup's version: the last
+update is already undone. `synnax update history` lists the backups. An undo writes a
+marker first and removes it last. While the marker exists, the Core does not start and
+tells the user to run the undo again. It moves aside the Cesium directory of each
+channel that has no `meta.json` in the backup. The channel key counter lives in `kv/`
 (`core/pkg/distribution/channel/counter.go:22-38`), so it gives out those keys again,
 and Cesium refuses a duplicate key (`cesium/channel.go:157-164`). Telemetry written to
 known channels after the backup stays.
