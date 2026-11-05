@@ -134,11 +134,6 @@ var _ = Describe("HTTP", func() {
 				http.MethodPost,
 				"/api/v1/secret/grant/create",
 			),
-			Entry(
-				"unary secret grant delete",
-				http.MethodPost,
-				"/api/v1/secret/grant/delete",
-			),
 		)
 
 		It("Should not register a route for an unknown path", func() {

@@ -15,38 +15,41 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Writer creates and deletes grants in one transaction. It makes no access check and
-// does not check that the secrets exist: the caller does both.
+// Writer creates grants in one transaction. It makes no access check and does not check
+// that the secrets exist: the caller does both.
 type Writer struct {
 	svc *Service
 	tx  gorp.Tx
 }
 
-// Create stores g under a new key, which it writes to g. It returns a validation error
-// when g's rack is not a rack, g names no secrets, or g has no session.
+// Create stores g under a new key with an expiry one TTL from now, and writes both to
+// g. It also deletes the grants that have expired. It returns a validation error when
+// g's subject is not a rack or g names no secrets.
 func (w Writer) Create(ctx context.Context, g *Grant) error {
 	v := validate.New("grant")
 	v.Ternaryf(
-		"rack",
-		g.Rack.Type != ontology.ResourceTypeRack,
+		"subject",
+		g.Subject.Type != ontology.ResourceTypeRack,
 		"%s is not a rack",
-		g.Rack,
+		g.Subject,
 	)
 	v.NotEmptySlice("secrets", g.Secrets)
-	v.Ternary("session", g.Session == uuid.Nil(), "required")
 	if err := v.Error(); err != nil {
 		return err
 	}
+	now := w.svc.now()
+	if err := w.svc.table.NewDelete().
+		Where(gorp.Match(func(_ gorp.Context, e *Grant) (bool, error) {
+			return e.ExpiresAt.Before(now), nil
+		})).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
 	g.Key = uuid.New()
+	g.ExpiresAt = now.Add(telem.TimeSpan(w.svc.cfg.TTL))
 	return w.svc.table.NewCreate().Entry(g).Exec(ctx, w.tx)
-}
-
-// Delete deletes the grants with the given keys. Unknown keys are ignored.
-func (w Writer) Delete(ctx context.Context, keys ...Key) error {
-	return w.svc.table.NewDelete().
-		Where(gorp.MatchKeys[Key, Grant](keys...)).
-		Exec(ctx, w.tx)
 }

@@ -7,25 +7,30 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package grant stores grants. A [Grant] lets a rack read secrets that nothing on the
-// rack uses yet, and ends when the session that created it ends.
+// Package grant stores grants. A [Grant] lets a subject read secrets once, until it
+// expires.
 package grant
 
 import (
 	"context"
+	"sync"
+	"time"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/telem"
+	xtime "github.com/synnaxlabs/x/time"
 	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap"
 )
+
+// DefaultTTL is the default [ServiceConfig.TTL].
+const DefaultTTL = time.Minute
 
 // ServiceConfig is the configuration for opening a [Service].
 type ServiceConfig struct {
@@ -33,10 +38,14 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// Auth holds the sessions that grants end with.
+	// TTL is how long a grant works when no read uses it.
 	//
-	// [REQUIRED]
-	Auth *auth.Service
+	// [OPTIONAL] - Defaults to [DefaultTTL].
+	TTL time.Duration
+	// Clock tells the time, for expiry.
+	//
+	// [OPTIONAL] - Defaults to the system clock.
+	Clock xtime.Clock
 	// Instrumentation is for logging, tracing, metrics, etc.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -49,7 +58,8 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Auth = override.Nil(c.Auth, other.Auth)
+	c.TTL = override.Numeric(c.TTL, other.TTL)
+	c.Clock = override.Nil(c.Clock, other.Clock)
 	return c
 }
 
@@ -57,74 +67,41 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("grant")
 	v.NotNil("db", c.DB)
-	v.NotNil("auth", c.Auth)
+	v.Positive("ttl", c.TTL)
+	v.NotNil("clock", c.Clock)
 	return v.Error()
 }
 
-// Service stores grants, and deletes the grants of each session that ends.
+// Service stores grants.
 type Service struct {
-	cfg        ServiceConfig
-	table      *gorp.Table[Key, Grant]
-	indexes    indexes
-	disconnect observe.Disconnect
+	cfg   ServiceConfig
+	table *gorp.Table[Key, Grant]
+	// redeem makes the read and delete of a redeem one step, so a grant works once.
+	redeem sync.Mutex
 }
 
 // OpenService opens a [Service] with the given configurations. If the error is nil, the
 // Service must be closed with Close after use.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(ServiceConfig{}, cfgs...)
+	cfg, err := config.New(
+		ServiceConfig{TTL: DefaultTTL, Clock: xtime.Real},
+		cfgs...,
+	)
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{cfg: cfg, indexes: newIndexes()}
+	s := &Service{cfg: cfg}
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Grant]{
 		DB:              cfg.DB,
-		Indexes:         s.indexes.all(),
 		Instrumentation: cfg.Instrumentation,
 	}); err != nil {
 		return nil, err
 	}
-	s.disconnect = cfg.Auth.Observe().OnChange(s.endWithSessions)
 	return s, nil
 }
 
-// Close stops deleting the grants of ended sessions and releases the service's
-// resources.
-func (s *Service) Close() error {
-	s.disconnect()
-	return s.table.Close()
-}
-
-// NewRetrieve opens a query for grants.
-func (s *Service) NewRetrieve() Retrieve {
-	return Retrieve{gorp: s.table.NewRetrieve(), baseTX: s.cfg.DB, indexes: s.indexes}
-}
-
-// Get returns the grant with the given key. It returns query.ErrNotFound when no grant
-// has the key or the session that created the grant has ended.
-func (s *Service) Get(ctx context.Context, tx gorp.Tx, key Key) (Grant, error) {
-	var g Grant
-	if err := s.NewRetrieve().
-		Where(MatchKeys(key)).
-		Entry(&g).
-		Exec(ctx, tx); err != nil {
-		return Grant{}, err
-	}
-	live, err := s.cfg.Auth.NewRetrieve().
-		Where(auth.MatchKeys(g.Session)).
-		Exists(ctx, tx)
-	if err != nil {
-		return Grant{}, err
-	}
-	if !live {
-		return Grant{}, errors.Wrapf(
-			query.ErrNotFound,
-			"grant %s ended with its session",
-			key,
-		)
-	}
-	return g, nil
-}
+// Close releases the service's resources.
+func (s *Service) Close() error { return s.table.Close() }
 
 // NewWriter opens a [Writer] that runs in tx. If tx is nil, the Writer writes directly
 // to the DB.
@@ -132,22 +109,44 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{svc: s, tx: gorp.OverrideTx(s.cfg.DB, tx)}
 }
 
-func (s *Service) endWithSessions(
+// Redeem returns the grant with the given key and deletes it, so no later call can use
+// it. Redeem writes directly to the DB. It returns an error wrapping access.ErrDenied
+// when no grant has the key, the grant has expired, or the grant is for a subject other
+// than subject. A grant for another subject stays in place.
+func (s *Service) Redeem(
 	ctx context.Context,
-	changes gorp.TxReader[auth.SessionKey, auth.Session],
-) {
-	var ended []auth.SessionKey
-	for ch := range changes {
-		if ch.Variant == change.VariantDelete {
-			ended = append(ended, ch.Key)
+	key Key,
+	subject ontology.ID,
+) (Grant, error) {
+	s.redeem.Lock()
+	defer s.redeem.Unlock()
+	var g Grant
+	if err := s.table.NewRetrieve().
+		Where(gorp.MatchKeys[Key, Grant](key)).
+		Entry(&g).
+		Exec(ctx, s.cfg.DB); err != nil {
+		if errors.Is(err, query.ErrNotFound) {
+			return Grant{}, errEnded(key)
 		}
+		return Grant{}, err
 	}
-	if len(ended) == 0 {
-		return
+	expired := g.ExpiresAt.Before(s.now())
+	if !expired && g.Subject != subject {
+		return Grant{}, errors.Wrapf(access.ErrDenied, "grant is not for %s", subject)
 	}
 	if err := s.table.NewDelete().
-		Where(MatchSessions(ended...)(s.NewRetrieve())).
+		Where(gorp.MatchKeys[Key, Grant](key)).
 		Exec(ctx, s.cfg.DB); err != nil {
-		s.cfg.L.Error("failed to delete the grants of ended sessions", zap.Error(err))
+		return Grant{}, err
 	}
+	if expired {
+		return Grant{}, errEnded(key)
+	}
+	return g, nil
 }
+
+func errEnded(key Key) error {
+	return errors.Wrapf(access.ErrDenied, "grant %s has ended or does not exist", key)
+}
+
+func (s *Service) now() telem.TimeStamp { return telem.NewTimeStamp(s.cfg.Clock.Now()) }

@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
 	"github.com/synnaxlabs/x/config"
@@ -34,10 +33,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Secret *secret.Service
-	// Grant stores the grants that let a rack read secrets that nothing on it uses.
-	//
-	// [REQUIRED]
-	Grant *grant.Service
 	// RBAC enforces access control on every request.
 	//
 	// [REQUIRED]
@@ -53,7 +48,6 @@ var (
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Secret = override.Nil(c.Secret, other.Secret)
-	c.Grant = override.Nil(c.Grant, other.Grant)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	return c
 }
@@ -62,7 +56,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.secret")
 	v.NotNil("secret", c.Secret)
-	v.NotNil("grant", c.Grant)
 	v.NotNil("rbac", c.RBAC)
 	return v.Error()
 }
@@ -72,7 +65,6 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	access   *rbac.Service
 	internal *secret.Service
-	grants   *grant.Service
 }
 
 // NewService opens a Service with the given configuration.
@@ -84,7 +76,6 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	return &Service{
 		access:   cfg.RBAC,
 		internal: cfg.Secret,
-		grants:   cfg.Grant,
 	}, nil
 }
 
@@ -296,23 +287,22 @@ func (s *Service) Delete(
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }
 
-// GrantCreateRequest names a rack and the secrets it may read before any device on the
-// rack uses them.
+// GrantCreateRequest names a subject and the secrets it may read once, whether or not
+// anything on the subject uses them.
 type GrantCreateRequest struct {
-	// Secrets are the secrets the rack may read.
+	// Subject is the subject that may read the secrets. It must be a rack.
+	Subject ontology.ID `json:"subject" msgpack:"subject"`
+	// Secrets are the secrets the subject may read.
 	Secrets []Key `json:"secrets" msgpack:"secrets"`
-	// Rack is the rack that may read the secrets.
-	Rack rack.Key `json:"rack" msgpack:"rack"`
 }
 
-// GrantCreateResponse holds the key of a grant to send with a command to the rack.
+// GrantCreateResponse holds the key of a grant to send with a command to the subject.
 type GrantCreateResponse struct {
 	Grant grant.Key `json:"grant" msgpack:"grant"`
 }
 
-// CreateGrant creates a grant that lets the rack read the secrets until the caller's
-// session ends or the grant is deleted. Only a user with create access on devices may
-// call it.
+// CreateGrant creates a grant that lets the subject read the secrets once, within a
+// minute. Only a user with create access on devices may call it.
 func (s *Service) CreateGrant(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -321,35 +311,11 @@ func (s *Service) CreateGrant(
 	if err := s.enforceGrant(ctx, tx); err != nil {
 		return GrantCreateResponse{}, err
 	}
-	key, err := s.internal.Grant(
-		ctx,
-		tx,
-		req.Rack.OntologyID(),
-		auth.GetSessionKey(ctx),
-		req.Secrets...,
-	)
+	key, err := s.internal.Grant(ctx, tx, req.Subject, req.Secrets...)
 	if err != nil {
 		return GrantCreateResponse{}, err
 	}
 	return GrantCreateResponse{Grant: key}, nil
-}
-
-// GrantDeleteRequest selects the grants to delete.
-type GrantDeleteRequest struct {
-	Grants []grant.Key `json:"grants" msgpack:"grants"`
-}
-
-// DeleteGrants deletes the grants. Unknown keys are ignored. Only a user with create
-// access on devices may call it.
-func (s *Service) DeleteGrants(
-	ctx context.Context,
-	tx gorp.Tx,
-	req GrantDeleteRequest,
-) (struct{}, error) {
-	if err := s.enforceGrant(ctx, tx); err != nil {
-		return struct{}{}, err
-	}
-	return struct{}{}, s.grants.NewWriter(tx).Delete(ctx, req.Grants...)
 }
 
 var errGrantSubject = errors.Wrap(access.ErrDenied, "only a user can grant secrets")
@@ -368,8 +334,10 @@ func (s *Service) enforceGrant(ctx context.Context, tx gorp.Tx) error {
 
 // ResolveRequest selects the secrets to resolve.
 type ResolveRequest struct {
-	// Grant is the key of an optional grant for the calling rack. A zero key names no
-	// grant.
+	// Grant is the key of an optional grant for the calling rack. A request with a
+	// grant reads only the secrets that the grant names, and spends the grant. A zero
+	// key names
+	// no grant.
 	Grant grant.Key `json:"grant" msgpack:"grant"`
 	// Keys selects the secrets to resolve.
 	Keys []Key `json:"keys" msgpack:"keys"`
@@ -391,7 +359,8 @@ type ResolveResponse struct {
 var errResolveSubject = errors.Wrap(access.ErrDenied, "only a rack can resolve secrets")
 
 // Resolve returns the plain text values of the secrets. Only a rack may call it, and
-// only for secrets that something on the rack uses or that the grant names.
+// only for secrets that the grant names, or with no grant, that something on the rack
+// uses.
 func (s *Service) Resolve(
 	ctx context.Context,
 	req ResolveRequest,

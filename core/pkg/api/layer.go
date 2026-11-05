@@ -235,7 +235,6 @@ type Transport struct {
 	SecretRename      freighter.UnaryServer[secret.RenameRequest, struct{}]
 	SecretDelete      freighter.UnaryServer[secret.DeleteRequest, struct{}]
 	SecretGrantCreate freighter.UnaryServer[secret.GrantCreateRequest, secret.GrantCreateResponse]
-	SecretGrantDelete freighter.UnaryServer[secret.GrantDeleteRequest, struct{}]
 	SecretResolve     freighter.UnaryServer[secret.ResolveRequest, secret.ResolveResponse]
 	// IMPORT/EXPORT
 	ImExImport freighter.UnaryServer[imex.ImportRequest, imex.ImportResponse]
@@ -487,7 +486,6 @@ func (l *Layer) BindTo(t Transport) {
 		t.SecretRename,
 		t.SecretDelete,
 		t.SecretGrantCreate,
-		t.SecretGrantDelete,
 		t.SecretResolve,
 
 		// ARC
@@ -725,9 +723,6 @@ func (l *Layer) BindTo(t Transport) {
 	t.SecretGrantCreate.BindHandler(
 		fgorp.CreateWriteUnaryHandler(db, l.Secret.CreateGrant),
 	)
-	t.SecretGrantDelete.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Secret.DeleteGrants),
-	)
 	t.SecretResolve.BindHandler(l.Secret.Resolve)
 
 	// ARC
@@ -943,7 +938,6 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}
 	if l.Secret, err = secret.NewService(secret.ServiceConfig{
 		Secret: cfg.Service.Secret,
-		Grant:  cfg.Service.Grant,
 		RBAC:   cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err

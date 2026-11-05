@@ -16,68 +16,38 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Grant creates a grant that lets rack read the secrets with the given keys, whether or
-// not anything on the rack uses them, until session ends or the grant is deleted. It
-// returns query.ErrNotFound when a secret does not exist, and a validation error when
-// rack is not a rack, keys is empty, or session is zero.
+// Grant creates a grant that lets subject read the secrets with the given keys once,
+// whether or not anything on subject uses them, until the grant expires. It returns
+// query.ErrNotFound when a secret does not exist, and a validation error when subject
+// is not a rack or keys is empty.
 func (s *Service) Grant(
 	ctx context.Context,
 	tx gorp.Tx,
-	rack ontology.ID,
-	session auth.SessionKey,
+	subject ontology.ID,
 	keys ...Key,
 ) (grant.Key, error) {
 	if err := s.NewRetrieve().Where(MatchKeys(keys...)).Exec(ctx, tx); err != nil {
 		return uuid.Nil(), err
 	}
-	g := grant.Grant{Rack: rack, Secrets: keys, Session: session}
+	g := grant.Grant{Subject: subject, Secrets: keys}
 	if err := s.cfg.Grant.NewWriter(tx).Create(ctx, &g); err != nil {
 		return uuid.Nil(), err
 	}
 	return g.Key, nil
 }
 
-// granted returns the secrets that the grant with key lets rack read. A zero key lets
-// rack read nothing.
-func (s *Service) granted(
-	ctx context.Context,
-	tx gorp.Tx,
-	rack ontology.ID,
-	key grant.Key,
-) (set.Set[Key], error) {
-	if key == uuid.Nil() {
-		return set.Set[Key]{}, nil
-	}
-	g, err := s.cfg.Grant.Get(ctx, tx, key)
-	if err != nil {
-		if errors.Is(err, query.ErrNotFound) {
-			return nil, errors.Wrapf(
-				access.ErrDenied,
-				"grant %s has ended or does not exist",
-				key,
-			)
-		}
-		return nil, err
-	}
-	if g.Rack != rack {
-		return nil, errors.Wrapf(access.ErrDenied, "grant is not for %s", rack)
-	}
-	return set.New(g.Secrets...), nil
-}
-
 // Resolve returns the plain text value of each stored secret with the given keys, for
-// rack to connect with. Rack may read a secret when something on the rack uses it, or
-// when the grant with the given key names it. A zero grant key names no grant. Resolve
-// returns access.ErrDenied when rack may not read a secret or the grant has ended,
+// rack to connect with. With a zero grant key, rack may read a secret when something on
+// the rack uses it. With a grant key, rack may read only the secrets that the grant
+// names, and Resolve spends the grant, so no later call can use it. Resolve returns
+// access.ErrDenied when rack may not read a secret or the grant has ended,
 // query.ErrNotFound when a secret does not exist, and a validation error for a file
 // secret, whose value only the file holds.
 func (s *Service) Resolve(
@@ -94,34 +64,20 @@ func (s *Service) Resolve(
 		Exec(ctx, tx); err != nil {
 		return nil, err
 	}
-	uses, err := s.cfg.Uses(ctx, gorp.OverrideTx(s.cfg.DB, tx), keys)
+	readable, err := s.readable(ctx, tx, rack, grantKey, keys)
 	if err != nil {
 		return nil, err
 	}
-	readable := make(set.Set[Key], len(keys))
-	for _, use := range uses {
-		if slices.Contains(use.Racks, rack) {
-			readable.Add(use.Secret)
-		}
-	}
-	var granted set.Set[Key]
 	values := make(map[Key][]byte, len(secrets))
 	for _, sec := range secrets {
 		base := sec.Base()
 		if !readable.Contains(base.Key) {
-			if granted == nil {
-				if granted, err = s.granted(ctx, tx, rack, grantKey); err != nil {
-					return nil, err
-				}
-			}
-			if !granted.Contains(base.Key) {
-				return nil, errors.Wrapf(
-					access.ErrDenied,
-					"%s cannot read secret %q",
-					rack,
-					base.Name,
-				)
-			}
+			return nil, errors.Wrapf(
+				access.ErrDenied,
+				"%s cannot read secret %q",
+				rack,
+				base.Name,
+			)
 		}
 		stored, ok := sec.Variant.(StoredSecret)
 		if !ok {
@@ -141,4 +97,33 @@ func (s *Service) Resolve(
 		}
 	}
 	return values, nil
+}
+
+// readable returns the secrets among keys that rack may read: the secrets that the
+// grant names, or with a zero grant key, the secrets that something on the rack uses.
+func (s *Service) readable(
+	ctx context.Context,
+	tx gorp.Tx,
+	rack ontology.ID,
+	grantKey grant.Key,
+	keys []Key,
+) (set.Set[Key], error) {
+	if grantKey != uuid.Nil() {
+		g, err := s.cfg.Grant.Redeem(ctx, grantKey, rack)
+		if err != nil {
+			return nil, err
+		}
+		return set.New(g.Secrets...), nil
+	}
+	uses, err := s.cfg.Uses(ctx, gorp.OverrideTx(s.cfg.DB, tx), keys)
+	if err != nil {
+		return nil, err
+	}
+	readable := make(set.Set[Key], len(keys))
+	for _, use := range uses {
+		if slices.Contains(use.Racks, rack) {
+			readable.Add(use.Secret)
+		}
+	}
+	return readable, nil
 }
