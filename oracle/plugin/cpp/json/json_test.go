@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/cpp/json"
 	. "github.com/synnaxlabs/oracle/testutil"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("C++ JSON Plugin", func() {
@@ -88,6 +89,26 @@ var _ = Describe("C++ JSON Plugin", func() {
 				},
 			)
 		})
+
+		DescribeTable(
+			"Should start the JSON of a struct as an object",
+			func(ctx SpecContext, decls string) {
+				source := `
+				@cpp output "client/cpp/types"
+			` + decls
+				resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+				ExpectContent(resp, "json.gen.h").
+					ToContain("x::json::json j = x::json::json::object();").
+					ToNotContain("x::json::json j;")
+			},
+			Entry("for a plain struct", "Unit struct {\n name string?\n}"),
+			Entry("for a generic struct", "Status struct<D> {\n details D?\n}"),
+			Entry(
+				"for a struct that extends another",
+				"Base struct {\n name string?\n}\n"+
+					"Unit struct extends Base {\n scale float64?\n}",
+			),
+		)
 
 		Context("array alias fields (e.g., Params -> Param[])", func() {
 			It(
@@ -354,6 +375,97 @@ var _ = Describe("C++ JSON Plugin", func() {
 			)
 		})
 
+		Context("empty composite defaults", func() {
+			It("Should fall back to an empty map", func(ctx SpecContext) {
+				source := `
+					@cpp output "client/cpp/task"
+
+					Task struct {
+						metadata map<string, string> = {}
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+
+				ExpectContent(resp, "json.gen.h").
+					ToContain(`parser.field<std::unordered_map<std::string, std::string>>("metadata", std::unordered_map<std::string, std::string>{})`)
+			})
+			It("Should fall back to an empty struct", func(ctx SpecContext) {
+				source := `
+					@cpp output "client/cpp/task"
+
+					Ports struct {
+						index uint32
+					}
+
+					Task struct {
+						ports Ports = {}
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+
+				ExpectContent(resp, "json.gen.h").
+					ToContain(`parser.field<Ports>("ports", Ports{})`)
+			})
+			It("Should fall back to an empty struct alias", func(ctx SpecContext) {
+				source := `
+					@cpp output "client/cpp/task"
+
+					Ports struct {
+						index uint32
+					}
+
+					Inputs = Ports
+
+					Task struct {
+						inputs Inputs = {}
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+
+				ExpectContent(resp, "json.gen.h").
+					ToContain(`parser.field<Inputs>("inputs", Inputs{})`)
+			})
+			It("Should fall back to an empty array wrapper", func(ctx SpecContext) {
+				source := `
+					@cpp output "client/cpp/task"
+
+					Param struct {
+						name string
+					}
+
+					Params Param[]
+
+					Task struct {
+						params Params = []
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+
+				ExpectContent(resp, "json.gen.h").
+					ToContain(`parser.field<Params>("params", Params{})`)
+			})
+			It(
+				"Should leave a non-empty struct default required",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "client/cpp/task"
+
+					Ports struct {
+						index uint32
+					}
+
+					Task struct {
+						ports Ports = { index = 1 }
+					}
+				`
+					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+
+					ExpectContent(resp, "json.gen.h").
+						ToContain(`parser.field<Ports>("ports")`)
+				},
+			)
+		})
+
 		Context("map type handling", func() {
 			It(
 				"Should use std::unordered_map for Map types in json serialization",
@@ -477,7 +589,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
-						ToContain(`obj[std::to_string(key)] = item.to_json();`)
+						ToContain(`obj[x::json::map_key(key)] = item.to_json();`)
 				},
 			)
 			DescribeTable("Should reject a map of structs with an unsupported key",
@@ -497,8 +609,10 @@ var _ = Describe("C++ JSON Plugin", func() {
 						pairs map<`+key+`, Pair>
 					}
 				`, "task", loader)
-					Expect(jsonPlugin.Generate(req)).Error().
-						To(MatchError(ContainSubstring("Task.pairs")))
+					Expect(jsonPlugin.Generate(req)).Error().To(SatisfyAll(
+						MatchError(ContainSubstring("Task.pairs")),
+						MatchError(validate.ErrValidation),
+					))
 				},
 				Entry("string enum", "Units"),
 				Entry("float", "float64"),

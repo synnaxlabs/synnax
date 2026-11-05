@@ -19,6 +19,7 @@ import (
 	"strings"
 	"sync"
 	"unicode"
+	"unicode/utf8"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -30,7 +31,7 @@ type oracle map[int][]string
 
 func oracleWords(text string) []string {
 	return strings.FieldsFunc(strings.ToLower(text), func(r rune) bool {
-		return unicode.IsSpace(r) || r == '_' || r == '-' || r == '.'
+		return unicode.IsSpace(r) || r == '_' || r == '-' || r == '.' || r == '/'
 	})
 }
 
@@ -71,7 +72,7 @@ func weight(word, token string) int {
 		return 100
 	case strings.HasPrefix(token, word):
 		return 10
-	case distance(word, token) <= 1:
+	case utf8.RuneCountInString(word) >= 3 && distance(word, token) <= 1:
 		return 1
 	}
 	return 0
@@ -129,7 +130,7 @@ func (o oracle) expectRanked(keys []int, term string) {
 // randomText joins random words. Its pieces include capitals, a rune whose lowercase
 // form is longer ('İ'), and an invalid UTF-8 byte.
 func randomText(rng *rand.Rand) string {
-	const separators = " _-."
+	const separators = " _-./"
 	pieces := []string{"a", "b", "c", "é", "A", "İ", "Σ", "\xff"}
 	words := make([]string, 1+rng.IntN(3))
 	for i := range words {
@@ -165,6 +166,10 @@ var _ = Describe("Index", func() {
 		Entry("one replaced multi-byte rune", "résumé", "resumé"),
 		Entry("a word split by '-'", "gse-ai", "ai"),
 		Entry("a word split by '.'", "gse.ai", "ai"),
+		Entry("a word split by '/'", "plant/line2/temp", "line2"),
+		Entry("a capital 'İ' as an 'i'", "İl", "il"),
+		Entry("a final capital 'Σ' as a 'σ'", "ΟΣ", "οσ"),
+		Entry("a word split by a next line", "plant\u0085temp", "temp"),
 		Entry("a word split by a tab", "gse\tai", "ai"),
 	)
 
@@ -205,7 +210,8 @@ var _ = Describe("Index", func() {
 		),
 	)
 
-	DescribeTable("Not matching",
+	DescribeTable(
+		"Not matching",
 		func(text, term string) {
 			idx.Set(1, text)
 			Expect(idx.Search(search.Query[int]{Term: term}).Keys).To(BeEmpty())
@@ -214,6 +220,11 @@ var _ = Describe("Index", func() {
 		Entry("a short term two edits away", "Channel", "nn"),
 		Entry("an empty term", "test", ""),
 		Entry("a term of only separators", "test", " _-."),
+		Entry(
+			"a word joined by a zero width no-break space",
+			"plant\uFEFFtemp",
+			"temp",
+		),
 	)
 
 	DescribeTable(
@@ -229,11 +240,10 @@ var _ = Describe("Index", func() {
 		Entry("an exact word before a prefix", []string{"test2", "test"}, "test", 1),
 		Entry(
 			"the most exact words first",
-			[]string{"October 30 Gooster", "October 29 Gooster", "October 28 Gooster"},
-			"October 28 Gooster",
-			2,
+			[]string{"Gooster tests", "Gooster test"},
+			"Gooster test",
+			1,
 		),
-		Entry("a shared prefix", []string{"View B", "View A"}, "View A", 1),
 		Entry(
 			"fewer tokens on a tie",
 			[]string{"pressure feed", "pressure"},
@@ -241,6 +251,17 @@ var _ = Describe("Index", func() {
 			1,
 		),
 	)
+
+	It("Should not match a word of one or two runes one edit away", func() {
+		idx.Set(1, "sensor_1")
+		idx.Set(2, "sensor_2")
+		idx.Set(3, "October 29")
+		idx.Set(4, "October 28")
+		Expect(idx.Search(search.Query[int]{Term: "sensor_2"}).Keys).To(Equal([]int{2}))
+		Expect(
+			idx.Search(search.Query[int]{Term: "October 28"}).Keys,
+		).To(Equal([]int{4}))
+	})
 
 	It("Should rank an exact word, then a prefix, then a near word", func() {
 		idx.Set(1, "tost")

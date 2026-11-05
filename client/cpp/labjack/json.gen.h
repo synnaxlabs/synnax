@@ -40,7 +40,7 @@ inline BaseReadChannel BaseReadChannel::parse(x::json::Parser parser) {
 }
 
 inline x::json::json BaseReadChannel::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["key"] = this->key;
     j["name"] = this->name;
     j["disabled"] = this->disabled;
@@ -68,7 +68,7 @@ inline BaseWriteChannel BaseWriteChannel::parse(x::json::Parser parser) {
 }
 
 inline x::json::json BaseWriteChannel::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["key"] = this->key;
     j["disabled"] = this->disabled;
     j["cmd_channel"] = this->cmd_channel;
@@ -105,7 +105,7 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
 }
 
 inline x::json::json ReadConfig::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     if (const auto parent = ::synnax::task::ReadConfig::to_json(); parent.is_object())
         j.update(parent);
     j["device"] = this->device;
@@ -141,7 +141,7 @@ inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
 }
 
 inline x::json::json WriteConfig::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     if (const auto parent = ::synnax::task::WriteConfig::to_json(); parent.is_object())
         j.update(parent);
     j["state_rate"] = this->state_rate;
@@ -164,7 +164,7 @@ inline ScanConfig ScanConfig::parse(x::json::Parser parser) {
 }
 
 inline x::json::json ScanConfig::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     if (const auto parent = ::synnax::task::ScanConfig::to_json(); parent.is_object())
         j.update(parent);
     j["tcp_scan_multiplier"] = this->tcp_scan_multiplier;
@@ -180,7 +180,7 @@ inline LinearScale LinearScale::parse(x::json::Parser parser) {
 }
 
 inline x::json::json LinearScale::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["slope"] = this->slope;
     j["offset"] = this->offset;
     j["type"] = this->type;
@@ -198,7 +198,7 @@ inline MapScale MapScale::parse(x::json::Parser parser) {
 }
 
 inline x::json::json MapScale::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["pre_scaled_min"] = this->pre_scaled_min;
     j["pre_scaled_max"] = this->pre_scaled_max;
     j["scaled_min"] = this->scaled_min;
@@ -214,7 +214,7 @@ inline NoneScale NoneScale::parse(x::json::Parser parser) {
 }
 
 inline x::json::json NoneScale::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["type"] = this->type;
     return j;
 }
@@ -232,7 +232,7 @@ inline AnalogReadChannel AnalogReadChannel::parse(x::json::Parser parser) {
 }
 
 inline x::json::json AnalogReadChannel::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     if (const auto parent = BaseReadChannel::to_json(); parent.is_object())
         j.update(parent);
     j["port"] = this->port;
@@ -252,7 +252,7 @@ inline DigitalReadChannel DigitalReadChannel::parse(x::json::Parser parser) {
 }
 
 inline x::json::json DigitalReadChannel::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     if (const auto parent = BaseReadChannel::to_json(); parent.is_object())
         j.update(parent);
     j["port"] = this->port;
@@ -277,7 +277,7 @@ inline ThermocoupleReadChannel ThermocoupleReadChannel::parse(x::json::Parser pa
 }
 
 inline x::json::json ThermocoupleReadChannel::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     if (const auto parent = BaseReadChannel::to_json(); parent.is_object())
         j.update(parent);
     j["port"] = this->port;
@@ -301,7 +301,7 @@ inline AnalogWriteChannel AnalogWriteChannel::parse(x::json::Parser parser) {
 }
 
 inline x::json::json AnalogWriteChannel::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     if (const auto parent = BaseWriteChannel::to_json(); parent.is_object())
         j.update(parent);
     j["port"] = this->port;
@@ -318,7 +318,7 @@ inline DigitalWriteChannel DigitalWriteChannel::parse(x::json::Parser parser) {
 }
 
 inline x::json::json DigitalWriteChannel::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     if (const auto parent = BaseWriteChannel::to_json(); parent.is_object())
         j.update(parent);
     j["port"] = this->port;

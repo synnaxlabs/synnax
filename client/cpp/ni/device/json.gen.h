@@ -34,17 +34,17 @@ inline Device Device::parse(x::json::Parser parser) {
         .simulated = parser.field<bool>("simulated", false),
         .chassis = parser.field<std::optional<::synnax::ni::chassis::Key>>("chassis"),
         .identifier = parser.field<std::string>("identifier", ""),
-        .analog_input = parser.field<InputPorts>("analog_input"),
-        .analog_output = parser.field<OutputPorts>("analog_output"),
-        .counter_input = parser.field<InputPorts>("counter_input"),
-        .digital_input = parser.field<InputPorts>("digital_input"),
-        .digital_output = parser.field<OutputPorts>("digital_output"),
+        .analog_input = parser.field<InputPorts>("analog_input", InputPorts{}),
+        .analog_output = parser.field<OutputPorts>("analog_output", OutputPorts{}),
+        .counter_input = parser.field<InputPorts>("counter_input", InputPorts{}),
+        .digital_input = parser.field<InputPorts>("digital_input", InputPorts{}),
+        .digital_output = parser.field<OutputPorts>("digital_output", OutputPorts{}),
         .status = parser.field<std::optional<Status>>("status"),
     };
 }
 
 inline x::json::json Device::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["key"] = this->key.to_json();
     j["rack"] = this->rack;
     j["name"] = this->name;
@@ -69,13 +69,14 @@ inline InputPorts InputPorts::parse(x::json::Parser parser) {
                      .field<::synnax::channel::Key>("index", ::synnax::channel::Key(0)),
         .channels = parser
                         .field<std::unordered_map<std::string, ::synnax::channel::Key>>(
-                            "channels"
+                            "channels",
+                            std::unordered_map<std::string, ::synnax::channel::Key>{}
                         ),
     };
 }
 
 inline x::json::json InputPorts::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["index"] = this->index;
     j["channels"] = this->channels;
     return j;
@@ -93,7 +94,7 @@ inline CommandStatePair CommandStatePair::parse(x::json::Parser parser) {
 }
 
 inline x::json::json CommandStatePair::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["command"] = this->command;
     j["state"] = this->state;
     return j;
@@ -106,13 +107,14 @@ inline OutputPorts OutputPorts::parse(x::json::Parser parser) {
             ::synnax::channel::Key(0)
         ),
         .channels = parser.field<std::unordered_map<std::string, CommandStatePair>>(
-            "channels"
+            "channels",
+            std::unordered_map<std::string, CommandStatePair>{}
         ),
     };
 }
 
 inline x::json::json OutputPorts::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["state_index"] = this->state_index;
     {
         auto obj = x::json::json::object();
@@ -131,7 +133,7 @@ inline StatusDetails StatusDetails::parse(x::json::Parser parser) {
 }
 
 inline x::json::json StatusDetails::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["rack"] = this->rack;
     j["device"] = this->device.to_json();
     return j;

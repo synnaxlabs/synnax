@@ -16,6 +16,7 @@ import (
 	"encoding/json/v2"
 
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // TimeStamp is a 64-bit signed integer representing nanoseconds since the Unix epoch
@@ -38,13 +39,17 @@ type TimeRange struct {
 	End TimeStamp `json:"end" msgpack:"end"`
 }
 
+// WindowType is the "variant" value that selects a variant of Window.
 type WindowType string
 
 const (
+	// DynamicWindowType is a rolling window.
 	DynamicWindowType WindowType = "dynamic"
-	StaticWindowType  WindowType = "static"
+	// StaticWindowType is a fixed window.
+	StaticWindowType WindowType = "static"
 )
 
+// WindowVariant is implemented by every Window variant.
 type WindowVariant interface {
 	isWindowVariant()
 }
@@ -129,7 +134,11 @@ func (u *Window) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.StaticWindow
 	default:
-		return errors.Newf("Window: unknown variant %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Window: unknown variant %q",
+			disc.Type,
+		)
 	}
 	return nil
 }

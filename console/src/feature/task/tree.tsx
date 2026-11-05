@@ -41,7 +41,7 @@ const useRename = Tree.createUseRename({
 
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const { selection, openTab, state } = props;
-  const { ids, rootID } = selection;
+  const { ids, rootID, parentID } = selection;
   const resources = Tree.useResources(state, ids);
   const handleDelete = useDelete(props);
   const handleLink = Core.useCopyLinkToClipboard();
@@ -73,6 +73,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
             ids={ids}
             shape={state.shape}
             rootID={rootID}
+            parentID={parentID}
             onClick={() => group(props)}
           />
         </>
