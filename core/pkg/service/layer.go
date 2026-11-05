@@ -659,9 +659,12 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Group:           l.Group,
 		Signals:         l.Signals,
 		Channel:         l.Channel,
-		Uses:            certificate.FindSecretUses,
-		Grant:           l.Grant,
-		EncryptionKey:   cfg.SecretsKey,
+		Uses: secret.MultiFinder(
+			certificate.FindSecretUses,
+			pdruntime.FindSecretUses,
+		),
+		Grant:         l.Grant,
+		EncryptionKey: cfg.SecretsKey,
 	}); !ok(err, l.Secret) {
 		return nil, err
 	}
@@ -723,6 +726,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.PagerDuty, err = pdruntime.OpenService(ctx, pdruntime.ServiceConfig{
 		Instrumentation: cfg.Child("pagerduty"),
 		DB:              cfg.Distribution.DB,
+		Secret:          l.Secret,
 	}); !ok(err, l.PagerDuty) {
 		return nil, err
 	}
@@ -850,6 +854,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Instrumentation: cfg.Child("pagerduty"),
 		DB:              cfg.Distribution.DB,
 		Status:          l.Status,
+		Secret:          l.Secret,
 	})
 	if !ok(err, nil) {
 		return nil, err

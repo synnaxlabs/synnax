@@ -13,10 +13,12 @@ import (
 	"context"
 	"fmt"
 	"time"
+	"uuid"
 
 	"github.com/PagerDuty/go-pagerduty"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/change"
@@ -27,11 +29,11 @@ import (
 // AlertTaskType is the type identifier for PagerDuty alert tasks.
 const AlertTaskType = "pagerduty_alert"
 
-// validateConfig checks the deploy-time constraints on a task config: a real
-// routing key and at least one enabled alert.
+// validateConfig checks the deploy-time constraints on a task config: a routing key
+// and at least one enabled alert.
 func validateConfig(c TaskConfig) error {
 	v := validate.New("pagerduty.task_config")
-	v.Ternary("routing_key", len(c.RoutingKey) != 32, "must be exactly 32 characters")
+	v.Ternary("routing_key", c.RoutingKey == nil, "required")
 	var hasEnabled bool
 	for _, a := range c.Alerts {
 		if !a.Disabled {
@@ -41,6 +43,27 @@ func validateConfig(c TaskConfig) error {
 	}
 	v.Ternary("alerts", !hasEnabled, "at least one alert must be enabled")
 	return v.Error()
+}
+
+// resolveRoutingKey returns the value of the secret with the given key, read as the
+// rack of t. It returns a validation error when the value is not 32 characters.
+func resolveRoutingKey(
+	ctx context.Context,
+	secrets *secret.Service,
+	t task.Task,
+	key secret.Key,
+) (string, error) {
+	values, err := secrets.Resolve(ctx, nil, t.Rack.OntologyID(), uuid.Nil(), key)
+	if err != nil {
+		return "", err
+	}
+	value := string(values[key])
+	v := validate.New("pagerduty.task_config")
+	v.Ternary("routing_key", len(value) != 32, "must be exactly 32 characters")
+	if err = v.Error(); err != nil {
+		return "", err
+	}
+	return value, nil
 }
 
 // alertTask sends a PagerDuty event for each change of a watched status.
@@ -134,10 +157,9 @@ func (t *alertTask) buildTriggerEvent(
 		source = s.Key
 	}
 	return pagerduty.V2Event{
-		RoutingKey: t.cfg.RoutingKey,
-		Action:     "trigger",
-		DedupKey:   s.Key,
-		Client:     "Synnax",
+		Action:   "trigger",
+		DedupKey: s.Key,
+		Client:   "Synnax",
 		Payload: &pagerduty.V2Payload{
 			Summary:   summary,
 			Source:    source,
@@ -152,11 +174,7 @@ func (t *alertTask) buildTriggerEvent(
 }
 
 func (t *alertTask) buildResolveEvent(statusKey status.Key) pagerduty.V2Event {
-	return pagerduty.V2Event{
-		RoutingKey: t.cfg.RoutingKey,
-		Action:     "resolve",
-		DedupKey:   statusKey,
-	}
+	return pagerduty.V2Event{Action: "resolve", DedupKey: statusKey}
 }
 
 func mapSeverity(variant status.Variant, errorsCritical bool) string {
@@ -175,10 +193,28 @@ func mapSeverity(variant status.Variant, errorsCritical bool) string {
 	}
 }
 
-// sendEvent sends event. A failed send sets an error status on the task that stays
-// until the next start or stop.
+// sendEvent sends event with the current value of the task's routing key. A failed
+// send sets an error status on the task that stays until the next start or stop.
 func (t *alertTask) sendEvent(ctx context.Context, event pagerduty.V2Event) {
-	resp, err := t.factoryCfg.Sender.SendEvent(ctx, event)
+	routingKey, err := resolveRoutingKey(
+		ctx,
+		t.factoryCfg.Secret,
+		t.task,
+		*t.cfg.RoutingKey,
+	)
+	if err != nil {
+		t.factoryCfg.L.Error(
+			"failed to resolve PagerDuty routing key",
+			zap.Stringer("task", t.task),
+			zap.Error(err),
+		)
+		t.ReportError(ctx, "Failed to send PagerDuty event", err.Error())
+		return
+	}
+	// The logs below carry event, which holds no routing key.
+	sent := event
+	sent.RoutingKey = routingKey
+	resp, err := t.factoryCfg.Sender.SendEvent(ctx, sent)
 	if err != nil {
 		t.factoryCfg.L.Error(
 			"failed to send PagerDuty event",

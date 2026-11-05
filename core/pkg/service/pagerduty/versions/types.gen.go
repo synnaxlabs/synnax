@@ -11,11 +11,11 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions/v1"
+import "github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions/v2"
 
 // Alert maps a Synnax status to a PagerDuty event routing rule.
-type Alert = v1.Alert
+type Alert = v2.Alert
 
 // TaskConfig configures a PagerDuty alert task, which forwards Synnax status changes to
 // PagerDuty as events.
-type TaskConfig = v1.TaskConfig
+type TaskConfig = v2.TaskConfig
