@@ -106,8 +106,7 @@ func (w Writer) syncStatus(ctx context.Context, d Device) error {
 
 // Create stores d, defines its ontology resource and parent edge, and writes an unknown
 // status when it has none. An existing status takes the name and rack of d. A device
-// with a nil key gets a new one. It returns a
-// validation error when d is invalid.
+// with a nil key gets a new one. It returns a validation error when d is invalid.
 func (w Writer) Create(ctx context.Context, d *Device) error {
 	if d.Key == uuid.Nil() {
 		d.Key = uuid.New()
