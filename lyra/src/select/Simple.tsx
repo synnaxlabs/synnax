@@ -42,6 +42,8 @@ interface BaseSimpleProps
   resourceName: string;
   /** Singular name for the search field. It defaults to `resourceName`. */
   searchName?: string;
+  /** Leaves out the search field, for a list short enough to scan. */
+  searchHidden?: boolean;
   /** The options, as {@link Item}s. */
   children: ReactNode;
   /** Shown when the search hides every option. */
@@ -97,6 +99,7 @@ const Empty = (props: EmptyProps): ReactNode =>
 export const Simple = <K extends record.Key>({
   resourceName,
   searchName = resourceName,
+  searchHidden,
   value,
   onChange,
   multiple,
@@ -138,7 +141,7 @@ export const Simple = <K extends record.Key>({
   };
   const dialog = (
     <SelectDialog {...dialogProps}>
-      <Search placeholder={searchPlaceholder(searchName)} />
+      {!searchHidden && <Search placeholder={searchPlaceholder(searchName)} />}
       <List bordered borderColor={6} grow rounded full="x">
         {children}
         <Empty resourceName={resourceName} emptyContent={emptyContent} />

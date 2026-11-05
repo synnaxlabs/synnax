@@ -267,14 +267,21 @@ func (r *Runner) stop(ctx context.Context, cmdKey string, sendStatus bool) error
 	return r.status.Send(ctx, cmdKey, status.VariantSuccess, false, "Stopped task", "")
 }
 
-// Report writes the health of a run to the task status: a warning with message and the
-// text of a non-nil err, and the status that the warning replaced for a nil err.
+// Report writes the health of a run to the task status: the warning of an err from
+// Warning.Degraded, a warning with message and the text of any other non-nil err, and
+// the status that the warning replaced for a nil err.
 func (r *Runner) Report(ctx context.Context, message string, err error) {
-	var sErr error
-	if err == nil {
+	var (
+		sErr error
+		w    warningError
+	)
+	switch {
+	case err == nil:
 		sErr = r.status.ClearWarning(ctx)
-	} else {
-		sErr = r.status.Warn(ctx, message, err.Error())
+	case errors.As(err, &w):
+		sErr = r.status.Warn(ctx, w.warning)
+	default:
+		sErr = r.status.Warn(ctx, Warning{Message: message, Description: err.Error()})
 	}
 	if sErr != nil {
 		r.cfg.L.Error("failed to write task health status", zap.Error(sErr))
