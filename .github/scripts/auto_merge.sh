@@ -25,7 +25,7 @@ BOT=${BOT:-synnax-claude-code[bot]}
 
 # shellcheck disable=SC2016 # The jq program uses jq variables.
 read -r state stacked want enabled ours < <(
-    gh api "repos/$REPO/pulls/$PR" --jq '[.labels[].name] as $l
+    "$(dirname "$0")/gh_api.sh" "repos/$REPO/pulls/$PR" --jq '[.labels[].name] as $l
         | (.draft == false and any($l[]; . == "review/bot")
             and all($l[]; . != "review/human")
             and (.base.ref == "main" or (.base.ref | startswith("release/"))))

@@ -20,15 +20,19 @@ type Key = versions.Key
 type TickType = versions.TickType
 
 const (
+	// TickTypeLinear labels ticks with numeric values.
 	TickTypeLinear TickType = versions.TickTypeLinear
-	TickTypeTime   TickType = versions.TickTypeTime
+	// TickTypeTime labels ticks with timestamps.
+	TickTypeTime TickType = versions.TickTypeTime
 )
 
 // XAxisKey names one of the two x-axes. X-axes carry a single channel each.
 type XAxisKey = versions.XAxisKey
 
 const (
+	// XAxisKeyX1 is the x-axis at the bottom of the plot.
 	XAxisKeyX1 XAxisKey = versions.XAxisKeyX1
+	// XAxisKeyX2 is the x-axis at the top of the plot.
 	XAxisKeyX2 XAxisKey = versions.XAxisKeyX2
 )
 
@@ -36,9 +40,13 @@ const (
 type YAxisKey = versions.YAxisKey
 
 const (
+	// YAxisKeyY1 is a y-axis on the left of the plot.
 	YAxisKeyY1 YAxisKey = versions.YAxisKeyY1
+	// YAxisKeyY2 is a y-axis on the right of the plot.
 	YAxisKeyY2 YAxisKey = versions.YAxisKeyY2
+	// YAxisKeyY3 is a second y-axis on the left of the plot.
 	YAxisKeyY3 YAxisKey = versions.YAxisKeyY3
+	// YAxisKeyY4 is a second y-axis on the right of the plot.
 	YAxisKeyY4 YAxisKey = versions.YAxisKeyY4
 )
 
@@ -46,11 +54,17 @@ const (
 type AxisKey = versions.AxisKey
 
 const (
+	// AxisKeyX1 is the x-axis at the bottom of the plot.
 	AxisKeyX1 AxisKey = versions.AxisKeyX1
+	// AxisKeyX2 is the x-axis at the top of the plot.
 	AxisKeyX2 AxisKey = versions.AxisKeyX2
+	// AxisKeyY1 is a y-axis on the left of the plot.
 	AxisKeyY1 AxisKey = versions.AxisKeyY1
+	// AxisKeyY2 is a y-axis on the right of the plot.
 	AxisKeyY2 AxisKey = versions.AxisKeyY2
+	// AxisKeyY3 is a second y-axis on the left of the plot.
 	AxisKeyY3 AxisKey = versions.AxisKeyY3
+	// AxisKeyY4 is a second y-axis on the right of the plot.
 	AxisKeyY4 AxisKey = versions.AxisKeyY4
 )
 
@@ -92,7 +106,9 @@ type LinePlot = versions.LinePlot
 type Aggregation = versions.Aggregation
 
 const (
-	AggregationMinMax  Aggregation = versions.AggregationMinMax
+	// AggregationMinMax draws the lowest and highest sample of each pixel group.
+	AggregationMinMax Aggregation = versions.AggregationMinMax
+	// AggregationAverage draws the mean of each pixel group.
 	AggregationAverage Aggregation = versions.AggregationAverage
 )
 
@@ -101,7 +117,10 @@ const (
 type Detail = versions.Detail
 
 const (
-	DetailLow    Detail = versions.DetailLow
+	// DetailLow draws one sample group per four pixel columns.
+	DetailLow Detail = versions.DetailLow
+	// DetailMedium draws one sample group per two pixel columns.
 	DetailMedium Detail = versions.DetailMedium
-	DetailHigh   Detail = versions.DetailHigh
+	// DetailHigh draws one sample group per pixel column.
+	DetailHigh Detail = versions.DetailHigh
 )

@@ -17,8 +17,11 @@ import "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions"
 type QoS = versions.QoS
 
 const (
-	QoSAtMostOnce  QoS = versions.QoSAtMostOnce
+	// QoSAtMostOnce is level 0, which delivers a message at most once.
+	QoSAtMostOnce QoS = versions.QoSAtMostOnce
+	// QoSAtLeastOnce is level 1, which delivers a message at least once.
 	QoSAtLeastOnce QoS = versions.QoSAtLeastOnce
+	// QoSExactlyOnce is level 2, which delivers a message exactly once.
 	QoSExactlyOnce QoS = versions.QoSExactlyOnce
 )
 
@@ -26,11 +29,16 @@ const (
 type TimeFormat = versions.TimeFormat
 
 const (
+	// TimeFormatISO8601 is an ISO 8601 string.
 	TimeFormatISO8601 TimeFormat = versions.TimeFormatISO8601
+	// TimeFormatUnixSec is a count of seconds since the Unix epoch.
 	TimeFormatUnixSec TimeFormat = versions.TimeFormatUnixSec
-	TimeFormatUnixMs  TimeFormat = versions.TimeFormatUnixMs
-	TimeFormatUnixUs  TimeFormat = versions.TimeFormatUnixUs
-	TimeFormatUnixNs  TimeFormat = versions.TimeFormatUnixNs
+	// TimeFormatUnixMs is a count of milliseconds since the Unix epoch.
+	TimeFormatUnixMs TimeFormat = versions.TimeFormatUnixMs
+	// TimeFormatUnixUs is a count of microseconds since the Unix epoch.
+	TimeFormatUnixUs TimeFormat = versions.TimeFormatUnixUs
+	// TimeFormatUnixNs is a count of nanoseconds since the Unix epoch.
+	TimeFormatUnixNs TimeFormat = versions.TimeFormatUnixNs
 )
 
 // EnumEntry maps a string label in a JSON payload to a numeric channel value for
@@ -41,18 +49,32 @@ type EnumEntry = versions.EnumEntry
 type SparkplugDataType = versions.SparkplugDataType
 
 const (
-	SparkplugDataTypeInt8     SparkplugDataType = versions.SparkplugDataTypeInt8
-	SparkplugDataTypeInt16    SparkplugDataType = versions.SparkplugDataTypeInt16
-	SparkplugDataTypeInt32    SparkplugDataType = versions.SparkplugDataTypeInt32
-	SparkplugDataTypeInt64    SparkplugDataType = versions.SparkplugDataTypeInt64
-	SparkplugDataTypeUint8    SparkplugDataType = versions.SparkplugDataTypeUint8
-	SparkplugDataTypeUint16   SparkplugDataType = versions.SparkplugDataTypeUint16
-	SparkplugDataTypeUint32   SparkplugDataType = versions.SparkplugDataTypeUint32
-	SparkplugDataTypeUint64   SparkplugDataType = versions.SparkplugDataTypeUint64
-	SparkplugDataTypeFloat    SparkplugDataType = versions.SparkplugDataTypeFloat
-	SparkplugDataTypeDouble   SparkplugDataType = versions.SparkplugDataTypeDouble
-	SparkplugDataTypeBoolean  SparkplugDataType = versions.SparkplugDataTypeBoolean
-	SparkplugDataTypeString   SparkplugDataType = versions.SparkplugDataTypeString
+	// SparkplugDataTypeInt8 is a signed 8-bit integer.
+	SparkplugDataTypeInt8 SparkplugDataType = versions.SparkplugDataTypeInt8
+	// SparkplugDataTypeInt16 is a signed 16-bit integer.
+	SparkplugDataTypeInt16 SparkplugDataType = versions.SparkplugDataTypeInt16
+	// SparkplugDataTypeInt32 is a signed 32-bit integer.
+	SparkplugDataTypeInt32 SparkplugDataType = versions.SparkplugDataTypeInt32
+	// SparkplugDataTypeInt64 is a signed 64-bit integer.
+	SparkplugDataTypeInt64 SparkplugDataType = versions.SparkplugDataTypeInt64
+	// SparkplugDataTypeUint8 is an unsigned 8-bit integer.
+	SparkplugDataTypeUint8 SparkplugDataType = versions.SparkplugDataTypeUint8
+	// SparkplugDataTypeUint16 is an unsigned 16-bit integer.
+	SparkplugDataTypeUint16 SparkplugDataType = versions.SparkplugDataTypeUint16
+	// SparkplugDataTypeUint32 is an unsigned 32-bit integer.
+	SparkplugDataTypeUint32 SparkplugDataType = versions.SparkplugDataTypeUint32
+	// SparkplugDataTypeUint64 is an unsigned 64-bit integer.
+	SparkplugDataTypeUint64 SparkplugDataType = versions.SparkplugDataTypeUint64
+	// SparkplugDataTypeFloat is a 32-bit floating point number.
+	SparkplugDataTypeFloat SparkplugDataType = versions.SparkplugDataTypeFloat
+	// SparkplugDataTypeDouble is a 64-bit floating point number.
+	SparkplugDataTypeDouble SparkplugDataType = versions.SparkplugDataTypeDouble
+	// SparkplugDataTypeBoolean is a true or false value.
+	SparkplugDataTypeBoolean SparkplugDataType = versions.SparkplugDataTypeBoolean
+	// SparkplugDataTypeString is a string.
+	SparkplugDataTypeString SparkplugDataType = versions.SparkplugDataTypeString
+	// SparkplugDataTypeDateTime is a point in time, as milliseconds since the Unix
+	// epoch.
 	SparkplugDataTypeDateTime SparkplugDataType = versions.SparkplugDataTypeDateTime
 )
 
@@ -93,8 +115,11 @@ type ReadConfig = versions.ReadConfig
 type JSONType = versions.JSONType
 
 const (
-	JSONTypeNumber  JSONType = versions.JSONTypeNumber
-	JSONTypeString  JSONType = versions.JSONTypeString
+	// JSONTypeNumber writes the value as a JSON number.
+	JSONTypeNumber JSONType = versions.JSONTypeNumber
+	// JSONTypeString writes the value as a JSON string.
+	JSONTypeString JSONType = versions.JSONTypeString
+	// JSONTypeBoolean writes the value as a JSON boolean.
 	JSONTypeBoolean JSONType = versions.JSONTypeBoolean
 )
 
@@ -102,7 +127,9 @@ const (
 type GeneratorType = versions.GeneratorType
 
 const (
-	GeneratorTypeUUID      GeneratorType = versions.GeneratorTypeUUID
+	// GeneratorTypeUUID produces a new UUID for each message.
+	GeneratorTypeUUID GeneratorType = versions.GeneratorTypeUUID
+	// GeneratorTypeTimestamp produces the time of the message.
 	GeneratorTypeTimestamp GeneratorType = versions.GeneratorTypeTimestamp
 )
 

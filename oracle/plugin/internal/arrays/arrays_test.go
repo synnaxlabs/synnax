@@ -33,6 +33,7 @@ var _ = Describe("Arrays", func() {
 		for _, typ := range []resolution.Type{
 			{
 				Name:          "Label",
+				Namespace:     "test",
 				QualifiedName: "test.Label",
 				Form:          resolution.StructForm{},
 			},
@@ -303,7 +304,9 @@ var _ = Describe("Arrays", func() {
 	Describe("OptionalWrapperName", func() {
 		DescribeTable("should derive the optional list wrapper name",
 			func(ref resolution.TypeRef, expected string) {
-				Expect(arrays.OptionalWrapperName(ref, table)).To(Equal(expected))
+				Expect(
+					arrays.OptionalWrapperName(ref, "test", table),
+				).To(Equal(expected))
 			},
 			Entry(
 				"array of a named type",
@@ -317,10 +320,18 @@ var _ = Describe("Arrays", func() {
 			),
 		)
 
+		It("Should prefix an element from another namespace", func() {
+			Expect(arrays.OptionalWrapperName(
+				arrayOf("test.Label", nil),
+				"other",
+				table,
+			)).To(Equal("TestLabelList"))
+		})
+
 		DescribeTable("should fall back when the element does not resolve",
 			func(elem, expected string) {
 				bare := &resolution.Table{}
-				name := arrays.OptionalWrapperName(arrayOf(elem, nil), bare)
+				name := arrays.OptionalWrapperName(arrayOf(elem, nil), "test", bare)
 				Expect(name).To(Equal(expected))
 			},
 			Entry("primitive element title-cases", "uint8", "Uint8List"),
