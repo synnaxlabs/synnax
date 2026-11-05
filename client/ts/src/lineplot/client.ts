@@ -31,7 +31,7 @@ import {
   retrieveRequestZ,
   retrieveResponseZ,
 } from "@/lineplot/types.gen";
-import { matches, serverComputed } from "@/lineplot/where.gen";
+import { matches, serverComputed, retrieveInputZ } from "@/lineplot/where.gen";
 import { type ontology } from "@/ontology";
 import { project } from "@/project";
 import { query } from "@/query";
@@ -41,7 +41,11 @@ export const DELETE_CHANNEL_NAME = "sy_lineplot_delete";
 
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
-const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), retrieveRequestZ]);
+const retrieveMultiParamsZ = z.union([
+  query.keysRequestZ(keyZ),
+  retrieveRequestZ,
+  retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+]);
 
 export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 export type RetrieveSingleParams = { key: Key };

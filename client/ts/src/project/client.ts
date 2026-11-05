@@ -28,13 +28,17 @@ import {
   retrieveRequestZ,
   retrieveResponseZ,
 } from "@/project/types.gen";
-import { matches, serverComputed } from "@/project/where.gen";
+import { matches, serverComputed, retrieveInputZ } from "@/project/where.gen";
 import { query } from "@/query";
 
 export const SET_CHANNEL_NAME = "sy_project_set";
 export const DELETE_CHANNEL_NAME = "sy_project_delete";
 
-const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), retrieveRequestZ]);
+const retrieveMultiParamsZ = z.union([
+  query.keysRequestZ(keyZ),
+  retrieveRequestZ,
+  retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+]);
 export type RetrieveMultipleParams = RetrieveRequest;
 const createReqZ = z.object({ projects: projectZ.array() });
 const renameReqZ = z.object({ key: keyZ, name: z.string() });

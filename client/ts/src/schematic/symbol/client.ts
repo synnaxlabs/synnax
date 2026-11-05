@@ -31,7 +31,7 @@ import {
   symbolZ,
   type Where,
 } from "@/schematic/symbol/types.gen";
-import { matches, serverComputed } from "@/schematic/symbol/where.gen";
+import { matches, retrieveInputZ, serverComputed } from "@/schematic/symbol/where.gen";
 
 export const SET_CHANNEL_NAME = "sy_schematic_symbol_set";
 export const DELETE_CHANNEL_NAME = "sy_schematic_symbol_delete";
@@ -49,6 +49,7 @@ export type RetrieveMultipleParams = z.infer<typeof parentRequestZ>;
 const retrieveMultiParamsZ = z.union([
   keyZ.array().transform((keys): RetrieveMultipleParams => query.keysRequest(keys)),
   parentRequestZ,
+  retrieveInputZ(parentRequestZ.omit({ where: true }).shape),
 ]);
 
 export type RetrieveSingleParams = { key: Key };

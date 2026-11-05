@@ -33,7 +33,7 @@ import {
   retrieveResponseZ,
   type Where,
 } from "@/panel/types.gen";
-import { matches, serverComputed } from "@/panel/where.gen";
+import { matches, retrieveInputZ, serverComputed } from "@/panel/where.gen";
 import { query } from "@/query";
 
 export const SET_CHANNEL_NAME = "sy_panel_set";
@@ -46,6 +46,7 @@ export type RetrieveMultipleParams = z.infer<typeof parentRequestZ>;
 const retrieveMultiParamsZ = z.union([
   keyZ.array().transform((keys): RetrieveMultipleParams => query.keysRequest(keys)),
   parentRequestZ,
+  retrieveInputZ(parentRequestZ.omit({ where: true }).shape),
 ]);
 const createReqZ = z.object({ dispatchKey: z.string(), panels: panelZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });

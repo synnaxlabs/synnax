@@ -32,7 +32,7 @@ import {
   retrieveResponseZ,
   type Where,
 } from "@/label/types.gen";
-import { type Lines, matches, serverComputed } from "@/label/where.gen";
+import { type Lines, matches, serverComputed, retrieveInputZ } from "@/label/where.gen";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 
@@ -55,7 +55,11 @@ export interface SetOptions extends Pick<SetReq, "replace"> {}
 const removeReqZ = setReqZ.omit({ replace: true });
 const emptyResZ = z.object({});
 
-const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), retrieveRequestZ]);
+const retrieveMultiParamsZ = z.union([
+  query.keysRequestZ(keyZ),
+  retrieveRequestZ,
+  retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+]);
 
 // The client does not cache every attachment, so only the Core can check for.
 const LINES: Lines = { for: null };

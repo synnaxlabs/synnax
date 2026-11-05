@@ -82,6 +82,13 @@ const isBareKey = (params: unknown): params is record.Key =>
   typeof params === "string" || typeof params === "number";
 
 /**
+ * True for params that address one record: a bare key, or an object whose `key` is a
+ * plain value. A list or an operator on `key` is a filter.
+ */
+const addressesKey = (params: unknown): boolean =>
+  isBareKey(params) || (isObject(params) && isBareKey(params.key));
+
+/**
  * Request schema arm reading a bare key list as `{ keys }`. Union it onto a domain's
  * request schema to opt that domain into the shorthand:
  * `retrieveRequestZ.or(keyListZ(keyZ))`.
@@ -249,12 +256,12 @@ export abstract class Retriever<
     if (single != null) {
       this.singleSpace = single.space as Retrieves<Params, D | D[]>;
       const singleSchema = single.schema;
-      // Params carrying `key` that fail the single schema are malformed single queries;
-      // falling through would silently fetch every record.
+      // Params addressing a key that fail the single schema are malformed single
+      // queries; falling through would silently fetch every record.
       this.trySingle = (p) => {
         const res = singleSchema.safeParse(p);
         if (res.success) return { query: res.data };
-        if (isBareKey(p) || (typeof p === "object" && p !== null && "key" in p)) {
+        if (addressesKey(p)) {
           const cause = new zod.ParseError({
             issues: res.error.issues,
             input: p,
@@ -287,9 +294,12 @@ export abstract class Retriever<
       }) as Retrieves<Params, D | D[]>;
       this.trySingle = (p) => {
         if (isBareKey(p)) return { query: p as Params as SingleQuery };
-        return typeof p === "object" && p !== null && "key" in p
-          ? { query: (p as { key: K }).key as Params as SingleQuery }
-          : null;
+        if (!isObject(p) || !isBareKey(p.key)) return null;
+        if (soleMember(p)?.[0] === "key")
+          return { query: p.key as Params as SingleQuery };
+        throw new ValidationError(
+          `${name} params address a single key but hold other fields.`,
+        );
       };
     }
   }
@@ -323,8 +333,8 @@ export abstract class Retriever<
    * on keys returns the records that exist.
    * @throws {NotFoundError} if a single-record query matches nothing, the record was
    * deleted, or a key in a bare key list has no record.
-   * @throws {ValidationError} if params contain `key` (or are a bare key) but fail the
-   * single-query schema.
+   * @throws {ValidationError} if params address a single key (a bare key, or a plain
+   * `key` value) but fail the single-query schema.
    */
   retrieve(params: K | SingleInput, options?: FetchOptions): Promise<D>;
   retrieve(params: K[] | RequestInput<Z>, options?: FetchOptions): Promise<D[]>;

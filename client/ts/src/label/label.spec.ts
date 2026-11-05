@@ -63,6 +63,24 @@ describe("Label", () => {
       });
       expect(labels.map((l) => l.key)).toEqual([item.key]);
     });
+    it("should retrieve labels by a flat filter", async () => {
+      const prefix = `flat-label-${id.create()}`;
+      const [item, attached] = await client.labels.create([
+        { name: `${prefix}-item`, color: "#E774D0" },
+        { name: `${prefix}-attached`, color: "#E774D0" },
+      ]);
+      await client.labels.label(label.ontologyID(item.key), [attached.key]);
+      const labels = await client.labels.retrieve({
+        name: { regex: `^${prefix}` },
+        not: { for: label.ontologyID(item.key) },
+      });
+      expect(labels.map((l) => l.key)).toEqual([item.key]);
+    });
+    it("should drop the keys that do not exist from a flat key list", async () => {
+      const lbl = await client.labels.create({ name: "Label", color: "#E774D0" });
+      const labels = await client.labels.retrieve({ key: [lbl.key, uuid.create()] });
+      expect(labels.map((l) => l.key)).toEqual([lbl.key]);
+    });
     it("should throw a NotFoundError for a missing key in a key list", async () => {
       const lbl = await client.labels.create({ name: "Label", color: "#E774D0" });
       const missing = uuid.create();

@@ -22,14 +22,23 @@ import {
   retrieveRequestZ,
   retrieveResponseZ,
 } from "@/access/policy/types.gen";
-import { type Lines, matches, serverComputed } from "@/access/policy/where.gen";
+import {
+  type Lines,
+  matches,
+  serverComputed,
+  retrieveInputZ,
+} from "@/access/policy/where.gen";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 
 export const SET_CHANNEL_NAME = "sy_policy_set";
 export const DELETE_CHANNEL_NAME = "sy_policy_delete";
 
-const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), retrieveRequestZ]);
+const retrieveMultiParamsZ = z.union([
+  query.keysRequestZ(keyZ),
+  retrieveRequestZ,
+  retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+]);
 
 export type RetrieveSingleParams = { key: Key };
 export type RetrieveMultipleParams = RetrieveRequest;
