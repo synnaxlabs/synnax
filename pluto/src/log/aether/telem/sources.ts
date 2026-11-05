@@ -567,7 +567,8 @@ export class StreamMultiChannelLog
       const [{ start }] = this.unread;
       const held = groups.filter(([{ timestamp }]) => timestamp.valueOf() <= start);
       this.skip(groups.filter(([{ timestamp }]) => timestamp.valueOf() > start));
-      if (held.length === 0) return statusChanged;
+      // The skipped samples move the end of the time range.
+      if (held.length === 0) return true;
       this.insert(held);
       this.evictNewest();
       return true;

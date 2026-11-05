@@ -988,6 +988,24 @@ describe("StreamMultiChannelLog", () => {
       );
     });
 
+    it("should notify when samples outside the entries move the time range", async () => {
+      const core = deep();
+      const [a] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), { channels: [a] }, undefined, 2_000);
+      await settle(log, 1_800);
+      await until(
+        () => log.loadOlder(),
+        () => !log.live,
+      );
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      const end = log.timeRange?.end.valueOf();
+      const onChange = vi.fn();
+      closers.push(log.onChange(onChange));
+      core.advance(TimeSpan.seconds(1));
+      await expect.poll(() => onChange.mock.calls.length, POLL).toBeGreaterThan(0);
+      expect(log.timeRange?.end.valueOf()).toBeGreaterThan(end!);
+    });
+
     it("should forget the oldest stored time when the channels change", async () => {
       const core = deep();
       const [a, b] = core.data.map((c) => c.key);
