@@ -170,6 +170,10 @@ export const SearchField = ({ search }: SearchFieldProps): ReactElement => {
     resultsRef,
   } = search;
   const enterResults = (e: KeyboardEvent<HTMLInputElement>) => {
+    // A key that is part of an IME word, such as the Enter that ends it, stays in the
+    // field. Safari marks that Enter only with the keyCode.
+    // eslint-disable-next-line @typescript-eslint/no-deprecated
+    if (e.nativeEvent.isComposing || e.keyCode === 229) return;
     const results = resultsRef.current;
     if (results == null || answer?.variant !== "success") return;
     if (answer.results.nodes.length === 0) return;
@@ -179,14 +183,17 @@ export const SearchField = ({ search }: SearchFieldProps): ReactElement => {
     // The focus comes back to a selected match. With none, the results get a Down key,
     // so they select the first match.
     if (results.querySelector('[aria-selected="true"]') != null) return;
-    results.dispatchEvent(
-      new window.KeyboardEvent("keydown", {
-        key: "ArrowDown",
-        code: "ArrowDown",
-        bubbles: true,
-        cancelable: true,
-      }),
-    );
+    const down = {
+      key: "ArrowDown",
+      code: "ArrowDown",
+      bubbles: true,
+      cancelable: true,
+    };
+    results.dispatchEvent(new window.KeyboardEvent("keydown", down));
+    // A real Down gets its own release. Enter does not, so the Down it sends gets one,
+    // or the triggers keep Down held.
+    if (e.key === "Enter")
+      results.dispatchEvent(new window.KeyboardEvent("keyup", down));
   };
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "ArrowDown" || e.key === "Enter") return enterResults(e);

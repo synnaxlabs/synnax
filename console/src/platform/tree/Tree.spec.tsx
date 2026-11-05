@@ -11,8 +11,16 @@ import { group, ontology, ranger, type Synnax as Client } from "@synnaxlabs/clie
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { TimeRange, TimeStamp } from "@synnaxlabs/x";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import {
   type PropsWithChildren,
   type ReactElement,
@@ -1202,6 +1210,35 @@ describe("Tree.Tree search", () => {
         expect(hiddenTrees()).toBe(1);
       },
     );
+
+    it("should leave no key held after Enter moves into the results", async () => {
+      const { root, tok, names } = await createSearchTree();
+      await renderSearchable(root);
+      searchTree(tok);
+      await findTreeRow(itemName(names.charlie));
+      const { result } = renderHook(
+        () => Triggers.useHeldRef({ triggers: [["ArrowDown"]], loose: true }),
+        { wrapper: Triggers.Provider },
+      );
+      fireEvent.keyDown(field(), { key: "Enter", code: "Enter" });
+      fireEvent.keyUp(results(), { key: "Enter", code: "Enter" });
+      expect(result.current.current.held).toBe(false);
+    });
+
+    it.each([
+      ["an Enter", { key: "Enter", isComposing: true }],
+      ["a Down", { key: "ArrowDown", isComposing: true }],
+      ["a Safari Enter", { key: "Enter", keyCode: 229 }],
+    ])("should leave %s that is part of an IME word to the IME", async (_, key) => {
+      const { root, tok, names } = await createSearchTree();
+      await renderSearchable(root);
+      searchTree(tok);
+      await findTreeRow(itemName(names.charlie));
+      field().focus();
+      fireEvent.keyDown(field(), key);
+      expect(document.activeElement).toBe(field());
+      expect(results().querySelector('[aria-selected="true"]')).toBeNull();
+    });
 
     it("should come back to the selected match on ArrowDown", async () => {
       const { root, tok, names } = await createSearchTree();
