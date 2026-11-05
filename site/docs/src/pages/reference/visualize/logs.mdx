@@ -63,6 +63,9 @@ Click <Icon.Pause /> (**Pause scrolling**) or press **H** to stop the log from
 scrolling. New lines still arrive. Scroll up to pause too. To resume, click <Icon.Play
 /> or scroll back to the newest line.
 
+Scroll up to see older lines. When you get near the oldest line, the log reads older
+stored values.
+
 To copy lines, drag across them, or press **Ctrl+A** (**Cmd+A** on macOS) to select all.
 Then press **Ctrl+C**, or right-click and select **Copy**.
 
@@ -86,7 +89,8 @@ show the time that the Console received the value.
 
 ## Limits
 
-- A log keeps up to 100,000 lines. Past that, it removes the oldest lines.
+- A log keeps up to 100,000 lines. Past that, it removes the oldest lines, and it reads
+  no older values when you scroll up.
 - A value with more than one line of text shows as several lines.
 
 <Divider.Divider x />

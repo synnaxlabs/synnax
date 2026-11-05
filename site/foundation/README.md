@@ -84,8 +84,8 @@ vercel deploy --prebuilt --target=preview --scope synnax
 ```
 
 Preview access is public. Vercel's Git integration deploys only `main`, so publish
-previews through the CLI. Verify that the deployment target is `preview` with
-`vercel inspect <deployment-url>`.
+previews through the CLI or the `preview/foundation` label. Verify that the deployment
+target is `preview` with `vercel inspect <deployment-url>`.
 
 Production promotion and assigning `foundation.synnaxlabs.com` are separate deployment
 actions. Keep the Git production branch set to `main`. The canonical URL and sitemap
