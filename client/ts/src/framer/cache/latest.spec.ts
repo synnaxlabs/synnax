@@ -458,6 +458,35 @@ describe("Latest", () => {
       }
     });
 
+    it("should record a sample that streams while the channel lookup waits", async () => {
+      const core = createCore(true);
+      let release: () => void = () => {};
+      let held: Promise<void> | null = new Promise((resolve) => (release = resolve));
+      const { open, close } = createLatest(core, undefined, undefined, async () => {
+        if (held != null) await held;
+      });
+      const key = core.virtual!.key;
+      const first = open(1, undefined, key);
+      try {
+        await expect.poll(() => core.streams(key), POLL).toBe(true);
+        core.stream(new framer.Frame(key, write(11n, START)));
+        await expect.poll(() => first.value().series.length, POLL).toBe(1);
+        held = null;
+        release();
+        await expect.poll(() => first.value().status.variant, POLL).toBe("success");
+        const second = open(1, undefined, key);
+        try {
+          await expect.poll(() => second.value().series.length, POLL).toBe(1);
+          expect(second.timeAt(11n)).toEqual(START);
+        } finally {
+          second.close();
+        }
+      } finally {
+        first.close();
+        await close();
+      }
+    });
+
     it("should start empty when nothing streamed the channel", async () => {
       const core = createCore(true);
       const { open, close } = createLatest(core);

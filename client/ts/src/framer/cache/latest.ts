@@ -125,9 +125,10 @@ export class Latest {
   // stamps records each write until the channel turns out to have an index, since
   // streamed series can arrive before it is found.
   private stamps: Stamps | null;
-  // seedable is true for a channel the Core stores nothing of, whose newest streamed
-  // series the store keeps for the requests that open later.
-  private seedable = false;
+  // seedable is true for a channel the Core stores nothing of, null until known.
+  private seedable: boolean | null = null;
+  // The newest series streamed before the channel was known.
+  private pending: Series | null = null;
   // dedupe is how fresh finds repeated samples: by Core alignment for a stored channel,
   // and by time for one a calculation writes, whose alignments depend on how its inputs
   // split into series. A channel that only streams repeats no sample.
@@ -159,8 +160,9 @@ export class Latest {
       const series = frame.get(key);
       if (series == null) return;
       const last = series.at(-1);
-      if (this.seedable && last != null && last.length > 0)
-        props.store.recordStreamed(key, last);
+      if (last != null && last.length > 0)
+        if (this.seedable === true) props.store.recordStreamed(key, last);
+        else if (this.seedable == null) this.pending = last;
       this.push(series, true);
       this.notify();
     });
@@ -458,6 +460,9 @@ export class Latest {
         if (!payload.virtual) this.dedupe = "alignment";
         else this.dedupe = calculated(payload) ? "time" : null;
         this.seedable = this.dedupe == null;
+        if (this.seedable && this.pending != null)
+          this.props.store.recordStreamed(this.key, this.pending);
+        this.pending = null;
         if (this.dedupe != null) {
           await streamer.waitAcked([this.key], signal);
           if (this.running !== run) return;
