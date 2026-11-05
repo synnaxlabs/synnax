@@ -287,11 +287,11 @@ describe("Schematic.Tooltip", () => {
     );
   });
 
-  describe("last sample row", () => {
-    const LABEL = "Last sample";
+  describe("sample age row", () => {
+    const LABEL = "Sample age";
     const findRowValue = async (tooltip: HTMLElement): Promise<string | null> => {
       await waitFor(() =>
-        expect(valueOf(labelOf(tooltip, LABEL)).textContent).toContain("ago"),
+        expect(valueOf(labelOf(tooltip, LABEL)).textContent).not.toEqual(""),
       );
       return valueOf(labelOf(tooltip, LABEL)).textContent;
     };
@@ -326,7 +326,7 @@ describe("Schematic.Tooltip", () => {
       stamps.stamp(ch.key, TimeStamp.now().sub(TimeSpan.hours(2)));
       renderTooltip(Node.createConfig({ variant: "value", channel: ch.key }));
       const tooltip = await findTooltip();
-      expect(await findRowValue(tooltip)).toEqual("2h ago");
+      expect(await findRowValue(tooltip)).toEqual("2h");
     });
 
     it("should follow a sample that arrives while open", async () => {
@@ -335,7 +335,7 @@ describe("Schematic.Tooltip", () => {
       const tooltip = await findTooltip();
       // The row's clock ticks once a second, so the stamp sits past the hour mark.
       stamps.stamp(ch.key, TimeStamp.now().sub(TimeSpan.hours(1).add(TimeSpan.SECOND)));
-      expect(await findRowValue(tooltip)).toEqual("1h ago");
+      expect(await findRowValue(tooltip)).toEqual("1h");
     });
 
     it("should show one row for a valve with two channels", async () => {
@@ -363,7 +363,7 @@ describe("Schematic.Tooltip", () => {
         }),
       );
       const tooltip = await findTooltip();
-      expect(await findRowValue(tooltip)).toEqual("2h ago");
+      expect(await findRowValue(tooltip)).toEqual("2h");
     });
 
     it("should fall back to the command channel", async () => {
@@ -458,7 +458,7 @@ describe("Schematic.Tooltip", () => {
           Node.createConfig({ variant: "value", channel: a.key, stalenessTimeout: 10 }),
         );
         expect(labelOf(tooltip, LABEL)).toBe(label);
-        expect(valueOf(label).textContent).toContain("ago");
+        expect(valueOf(label).textContent).not.toEqual("");
       });
 
       it("should drop the row when the channel is cleared", async () => {
@@ -473,7 +473,7 @@ describe("Schematic.Tooltip", () => {
   });
 
   describe("dividers", () => {
-    it("should divide channel rows, field rows, and the last sample row", async () => {
+    it("should divide channel rows, field rows, and the sample age row", async () => {
       const ch = await createChannel();
       renderTooltip(Node.createConfig({ variant: "value", channel: ch.key }));
       const tooltip = await findTooltip();

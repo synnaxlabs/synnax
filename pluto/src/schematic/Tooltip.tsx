@@ -43,7 +43,7 @@ const CHANNEL_ROWS: { field: Field; icon: Icon.FC }[] = [
 ];
 
 // Channels the symbol already streams come first, so the row adds no subscription.
-const LAST_SAMPLE_ORDER: Field[] = ["stateChannel", "channel", "commandChannel"];
+const SAMPLE_AGE_ORDER: Field[] = ["stateChannel", "channel", "commandChannel"];
 
 const FIELD_ROWS: { field: Field; label?: string; unit?: string }[] = [
   { field: "mode" },
@@ -83,25 +83,25 @@ const Row = ({
   </Description.Item>
 );
 
-interface LastSampleProps {
+interface SampleAgeProps {
   channel: channel.Key;
 }
 
 // Mounted only once the tooltip shows, so a mouse sweep creates no worker component.
-const LastSample = ({ channel }: LastSampleProps): ReactElement => {
+const SampleAge = ({ channel }: SampleAgeProps): ReactElement => {
   const time = LatestSample.use({ channel });
   const since = Telem.Text.useTimeSpanSince(time ?? 0).toString("semantic");
   return (
     <Description.List level="small" justify="between" className={LIST_CLASS}>
       <Row
-        valueClassName={CSS.BE("schematic-tooltip", "last-sample")}
+        valueClassName={CSS.BE("schematic-tooltip", "sample-age")}
         label={
           <>
             <Icon.TimeOutline />
-            Last sample
+            Sample age
           </>
         }
-        value={time == null ? undefined : `${since} ago`}
+        value={time == null ? undefined : since}
       />
     </Description.List>
   );
@@ -154,7 +154,7 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
       />
     );
   });
-  const followed = LAST_SAMPLE_ORDER.map((field) =>
+  const followed = SAMPLE_AGE_ORDER.map((field) =>
     data?.find((c) => c.key === values[field]),
   ).find((c) => c != null);
   const stalenessColor = Staleness.resolveColor(
@@ -203,7 +203,7 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
       {followed != null && (
         <>
           {divider}
-          <LastSample key={followed.key} channel={followed.key} />
+          <SampleAge key={followed.key} channel={followed.key} />
         </>
       )}
     </Base.Frame>

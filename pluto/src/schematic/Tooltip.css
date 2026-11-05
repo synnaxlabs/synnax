@@ -21,7 +21,7 @@
     color: var(--pluto-gray-l9);
 }
 
-/* Wide enough for the longest text, "4min 59s ago", so the box never resizes. */
-.pluto-schematic-tooltip__last-sample {
-    min-width: 12ch;
+/* Wide enough for the longest text, "4min 59s", so the box never resizes. */
+.pluto-schematic-tooltip__sample-age {
+    min-width: 8ch;
 }
