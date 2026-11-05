@@ -487,6 +487,47 @@ describe("Latest", () => {
       }
     });
 
+    it("should keep the newest sample when a closed request's lookup settles last", async () => {
+      const core = createCore(true);
+      // Each lookup waits on its own gate until the gates open for good.
+      const gates: (() => void)[] = [];
+      let gated = true;
+      const { open, close } = createLatest(core, undefined, undefined, async () => {
+        if (gated) await new Promise<void>((resolve) => gates.push(resolve));
+      });
+      const key = core.virtual!.key;
+      const first = open(1, undefined, key);
+      const second = open(1, undefined, key);
+      try {
+        await expect.poll(() => core.streams(key), POLL).toBe(true);
+        core.stream(new framer.Frame(key, write(11n, START)));
+        await expect.poll(() => first.value().series.length, POLL).toBe(1);
+        first.close();
+        core.stream(new framer.Frame(key, write(12n, START.add(TimeSpan.SECOND))));
+        const newest = (): unknown => {
+          const { series } = second.value();
+          return series.at(series.length - 1);
+        };
+        await expect.poll(newest, POLL).toEqual(12);
+        await expect.poll(() => gates.length, POLL).toBe(2);
+        gates[1]();
+        await expect.poll(() => second.value().status.variant, POLL).toBe("success");
+        gates[0]();
+        await sleep.sleep(TimeSpan.milliseconds(20));
+        gated = false;
+        const third = open(1, undefined, key);
+        try {
+          await expect.poll(() => third.value().series.at(0), POLL).toEqual(12);
+          expect(third.timeAt(12n)).toEqual(START.add(TimeSpan.SECOND));
+        } finally {
+          third.close();
+        }
+      } finally {
+        second.close();
+        await close();
+      }
+    });
+
     it("should start empty when nothing streamed the channel", async () => {
       const core = createCore(true);
       const { open, close } = createLatest(core);

@@ -354,8 +354,14 @@ export class Store {
     return this.epochs.get(ch) ?? 0;
   }
 
-  /** Records the newest series the stream carried for the channel. */
+  /**
+   * Records a series the stream carried for the channel. A series older than the one
+   * held is dropped, so a request whose lookup settles late cannot put back an older
+   * sample.
+   */
   recordStreamed(ch: channel.Key, s: Series): void {
+    const held = this.streamed.get(ch);
+    if (held != null && s.timeRange.end.before(held.timeRange.end)) return;
     this.streamed.set(ch, s);
   }
 
