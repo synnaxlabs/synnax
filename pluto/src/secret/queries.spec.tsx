@@ -202,6 +202,34 @@ describe("queries", () => {
     });
   });
 
+  describe("useMultiple without keys", () => {
+    it("should read the uses of every secret and track additions and deletions", async () => {
+      const cert = await client.certificates.create({
+        name: "All uses certificate",
+        source: "stored",
+        pem: CERTIFICATE.pem,
+        privateKey: CERTIFICATE.privateKey,
+      });
+      assert(cert.source === "stored" && cert.privateKey != null);
+      const deleted = await createSecret("all uses deleted");
+      const { result } = await renderHookSuspended(
+        () => Secret.useMultiple({ includeUses: true }),
+        { wrapper },
+      );
+      const usesOf = (key: string) => result.current.find((s) => s.key === key)?.uses;
+      expect(usesOf(cert.privateKey)).toEqual([{ type: "certificate", key: cert.key }]);
+      expect(usesOf(deleted.key)).toEqual([]);
+      const added = await act(async () => {
+        await client.secrets.delete(deleted.key);
+        return await createSecret("all uses added");
+      });
+      await waitFor(() => {
+        expect(usesOf(deleted.key)).toBeUndefined();
+        expect(usesOf(added.key)).toEqual([]);
+      });
+    });
+  });
+
   describe("useCreate", () => {
     it("should create a stored secret", async () => {
       let created: secret.Secret | undefined;
