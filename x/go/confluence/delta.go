@@ -69,17 +69,16 @@ func (d *DeltaTransformMultiplier[I, O]) transformAndMultiply(
 
 // DynamicDeltaMultiplier is a segment that reads values from an input stream and
 // dynamically distributes them to multiple output streams. It supports runtime
-// connection and disconnection of output streams, with optional timeout handling
-// for sending values to downstream consumers. Once Flow exits, the multiplier has
-// stopped: every connected inlet is closed, and it closes any inlet connected later.
+// connection and disconnection of output streams, with optional timeout handling for
+// sending values to downstream consumers. Once Flow exits, the multiplier has stopped:
+// every connected inlet is closed, and it closes any inlet connected later.
 type DynamicDeltaMultiplier[V Value] struct {
 	alamos.Instrumentation
 	UnarySink[V]
 	connections    chan []Inlet[V]
 	disconnections chan []Inlet[V]
 	stopped        chan struct{}
-	// sending is the inlet of a send in progress. It stays set if the send panics, and
-	// only the Flow goroutine accesses it.
+	// sending is the inlet of an unfinished send. Only the Flow goroutine accesses it.
 	sending Inlet[V]
 	Source  AbstractMultiSource[V]
 	timeout time.Duration
@@ -100,9 +99,9 @@ func NewDynamicDeltaMultiplier[V Value](
 	}
 }
 
-// Connect adds one or more inlets to the DynamicDeltaMultiplier's output streams.
-// The inlets will receive values from the input stream until they are disconnected.
-// If the multiplier has stopped, Connect closes the inlets.
+// Connect adds one or more inlets to the DynamicDeltaMultiplier's output streams. The
+// inlets will receive values from the input stream until they are disconnected. If the
+// multiplier has stopped, Connect closes the inlets.
 func (d *DynamicDeltaMultiplier[V]) Connect(inlets ...Inlet[V]) {
 	select {
 	case d.connections <- inlets:
