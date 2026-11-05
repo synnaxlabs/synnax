@@ -216,8 +216,9 @@ export class StreamMultiChannelLog
 
   /** Moves a log that is not live back to the newest samples. */
   resume(): void {
-    if (this.live) return;
+    // A late older page could evict the newest entries of a live log.
     this.cancelPage();
+    if (this.live) return this.notify();
     this.unread = [];
     this.entries = [];
     this.metas.forEach((meta) => {

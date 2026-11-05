@@ -914,6 +914,31 @@ describe("StreamMultiChannelLog", () => {
       expect(valuesOf(entriesOf(log), a).at(-1)).toBe(textOf(core, a, 1)[0]);
     });
 
+    it("should stay live when it resumes during an older read", async () => {
+      const core = deep();
+      const [a] = core.data.map((c) => c.key);
+      const { promise: released, resolve: release } = Promise.withResolvers<void>();
+      let waiting = false;
+      const client = connect(core, {
+        readLatest: async (keys, count, tr) => {
+          if (keys.includes(a) && tr.end.valueOf() !== TimeStamp.MAX.valueOf()) {
+            waiting = true;
+            await released;
+          }
+          return core.readLatest(keys, count, tr);
+        },
+      });
+      const log = open(core, client, { channels: [a] }, undefined, 2_000);
+      await settle(log, 1_800);
+      log.loadOlder();
+      await expect.poll(() => waiting, POLL).toBe(true);
+      log.resume();
+      release();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(log.live).toBe(true);
+      expect(log.value().status.variant).toBe("success");
+    });
+
     it("should move past a span whose times never arrive", async () => {
       const core = deep();
       const [a] = core.data.map((c) => c.key);
