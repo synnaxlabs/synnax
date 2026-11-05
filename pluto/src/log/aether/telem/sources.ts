@@ -156,6 +156,7 @@ export class StreamMultiChannelLog
   // skipped holds the streamed lines of channels that store nothing, which no read can
   // find again, while the log is not live.
   private skipped: LogEntry[][] = [];
+  private skippedLines = 0;
   private readonly pageBreaker: breaker.Breaker;
   private pageFailure?: cstatus.Status;
   private _channels: channel.Key[] = [];
@@ -224,6 +225,7 @@ export class StreamMultiChannelLog
     if (this.live) return this.notify();
     this.unread = [];
     this.skipped = [];
+    this.skippedLines = 0;
     this.entries = [];
     this.metas.forEach((meta) => {
       Object.assign(meta, {
@@ -354,16 +356,32 @@ export class StreamMultiChannelLog
       read[i].samples.map((p) => toEntries(key, p, p.time)),
     );
     // The entries keep this many lines after an eviction, so a longer read would evict
-    // lines of its own before they show.
+    // lines of its own before they show. Skipped lines count, since they join in time.
     const kept = this.maxEntries - Math.floor(this.maxEntries * EVICTION_HEADROOM);
-    const lines = groups.reduce((total, group) => total + group.length, 0);
+    const { skipped } = this;
+    let lines = groups.reduce((total, group) => total + group.length, 0);
+    let joined = 0;
+    while (
+      joined < skipped.length &&
+      skipped[joined][0].timestamp.valueOf() <= span.end
+    )
+      lines += skipped[joined++].length;
     if (middle > span.start && lines > kept) return split();
     this.unread.shift();
-    if (this.unread.every(({ counts }) => counts.size === 0)) this.unread = [];
-    const reached = ([{ timestamp }]: LogEntry[]): boolean =>
-      this.live || timestamp.valueOf() <= span.end;
-    groups.push(...this.skipped.filter(reached));
-    this.skipped = this.skipped.filter((group) => !reached(group));
+    // Past the last span, skipped lines are newer than the entries. The log stays not
+    // live until they all join.
+    const drained = this.unread.every(({ counts }) => counts.size === 0);
+    if (drained)
+      while (
+        joined < skipped.length &&
+        (lines === 0 || lines + skipped[joined].length <= kept)
+      )
+        lines += skipped[joined++].length;
+    for (const group of skipped.splice(0, joined)) {
+      this.skippedLines -= group.length;
+      groups.push(group);
+    }
+    if (drained && skipped.length === 0) this.unread = [];
     if (groups.length > 0) this.insert(groups);
     this.evict();
     this.notify();
@@ -550,6 +568,7 @@ export class StreamMultiChannelLog
       const [{ channelKey, timestamp }] = group;
       if (this.metas.get(channelKey)?.stored !== true) {
         this.skipped.push(group);
+        this.skippedLines += group.length;
         continue;
       }
       const time = timestamp.valueOf();
@@ -558,7 +577,10 @@ export class StreamMultiChannelLog
       if (time > span.end) span.end = time;
       span.counts.set(channelKey, (span.counts.get(channelKey) ?? 0) + 1);
     }
-    this.skipped.splice(0, this.skipped.length - this.maxEntries);
+    let excess = 0;
+    while (this.skippedLines > this.maxEntries)
+      this.skippedLines -= this.skipped[excess++].length;
+    this.skipped.splice(0, excess);
   }
 
   private scheduleRecheck(subscription: framer.Subscription, waiting: boolean): void {
@@ -750,6 +772,7 @@ export class StreamMultiChannelLog
     this.unresolved.clear();
     this.unread = [];
     this.skipped = [];
+    this.skippedLines = 0;
     this.entries = [];
     this.status = telem.SUCCESS_STATUS;
     this.valid = false;

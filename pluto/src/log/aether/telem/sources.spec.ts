@@ -939,6 +939,74 @@ describe("StreamMultiChannelLog", () => {
       expect(sorted(entriesOf(log))).toBe(true);
     });
 
+    it("should show every skipped and stored line when they outgrow the log", async () => {
+      const core = createCore({
+        derived: true,
+        now: START.add(TimeSpan.seconds(STORED / 10)),
+      });
+      const [a] = core.data.map((c) => c.key);
+      const { key } = core.virtual!;
+      const client = connect(core);
+      const log = open(core, client, { channels: [a, key] }, undefined, 2_000);
+      const witness = open(core, client, { channels: [key] });
+      witness.value();
+      await settle(log, 1_800);
+      await expect.poll(() => core.streams(key), POLL).toBe(true);
+      await until(
+        () => log.loadOlder(),
+        () => !log.live,
+      );
+      core.advance(TimeSpan.seconds(150));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      const stored = new Set<string>();
+      const virtual = new Set<string>();
+      const see = (): void => {
+        valuesOf(entriesOf(log), a).forEach((value) => stored.add(value));
+        valuesOf(entriesOf(log), key).forEach((value) => virtual.add(value));
+      };
+      await until(
+        () => {
+          see();
+          log.loadNewer();
+        },
+        () => log.live,
+      );
+      see();
+      expect(textOf(core, a, 1_500).filter((value) => !stored.has(value))).toEqual([]);
+      expect([...virtual]).toEqual(valuesOf(entriesOf(witness), key));
+    });
+
+    it("should cap skipped lines, not samples", async () => {
+      const core = createCore({
+        derived: true,
+        now: START.add(TimeSpan.seconds(STORED / 10)),
+        text: (i) => `${i}\n${i}`,
+      });
+      const [a] = core.data.map((c) => c.key);
+      const { key } = core.virtual!;
+      core.retype(key, DataType.STRING);
+      const log = open(core, connect(core), { channels: [a, key] }, undefined, 2_000);
+      await settle(log, 1_800);
+      await expect.poll(() => core.streams(key), POLL).toBe(true);
+      await until(
+        () => log.loadOlder(),
+        () => !log.live,
+      );
+      core.advance(TimeSpan.seconds(1_000));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      const samples = new Set<string>();
+      await until(
+        () => {
+          valuesOf(entriesOf(log), key).forEach((value) => samples.add(value));
+          log.loadNewer();
+        },
+        () => log.live,
+      );
+      valuesOf(entriesOf(log), key).forEach((value) => samples.add(value));
+      expect(samples.size).toBeGreaterThan(0);
+      expect(samples.size).toBeLessThanOrEqual(1_000);
+    });
+
     it("should stay live when it resumes during an older read", async () => {
       const core = deep();
       const [a] = core.data.map((c) => c.key);
