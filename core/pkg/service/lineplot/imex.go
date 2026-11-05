@@ -32,8 +32,9 @@ func (*Service) Match(body map[string]any) bool {
 }
 
 // Import decodes env into a LinePlot created under opts.Parent, which must be a
-// project. The key on the wire is discarded so every import mints a new resource. An
-// unknown envelope version is a path-scoped validation error.
+// project. The key on the wire is discarded so every import mints a new resource. The
+// plot drops each channel the Core does not hold. An unknown envelope version is a
+// path-scoped validation error.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -49,6 +50,15 @@ func (s *Service) Import(
 		return resource.ID{}, err
 	}
 	lp.Group, lp.Project, lp.Range = opts.Group, &proj, nil
+	if _, err = gorp.DropDangling(
+		ctx,
+		gorp.OverrideTx(s.cfg.DB, tx),
+		s.cfg.DB,
+		[]gorp.ReferenceConfig[Key, LinePlot]{channelsReference()},
+		&lp,
+	); err != nil {
+		return resource.ID{}, err
+	}
 	if err = s.NewWriter(tx).Create(ctx, &lp); err != nil {
 		return resource.ID{}, err
 	}

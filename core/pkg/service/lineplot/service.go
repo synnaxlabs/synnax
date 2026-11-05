@@ -105,11 +105,14 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, LinePlot]{
-		DB:              cfg.DB,
-		Name:            tableName,
-		Indexes:         s.indexes.all(),
-		References:      s.indexes.references(),
-		Migrations:      migrations,
+		DB:      cfg.DB,
+		Name:    tableName,
+		Indexes: s.indexes.all(),
+		References: append(
+			s.indexes.references(),
+			gorp.NewReference(channelsReference()),
+		),
+		Migrations:      newMigrations(cfg.DB),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err

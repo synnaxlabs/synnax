@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions"
@@ -78,6 +79,8 @@ var _ = Describe("Stored v7 line plots", func() {
 			Expect(gorp.NewCreate[string, ontology.Relationship]().
 				Entry(&owner).
 				Exec(ctx, db)).To(Succeed())
+			channels := DeferClose(MustOpen(channeltestutil.OpenTable(ctx, db)))
+			Expect(channels.Create(ctx, 5)).To(Succeed())
 			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 			MustOpen(lineplot.OpenService(ctx, lineplot.ServiceConfig{
 				DB:       db,
@@ -100,4 +103,53 @@ var _ = Describe("Stored v7 line plots", func() {
 			Expect(got.Lines).To(HaveLen(1))
 		},
 	)
+
+	It("Should drop channels the Core does not hold", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:         db,
+			Namespace:  "LinePlot",
+			Migrations: versions.Migrations,
+		})).To(Succeed())
+		channels := DeferClose(MustOpen(channeltestutil.OpenTable(ctx, db)))
+		Expect(channels.Create(ctx, 5, 7)).To(Succeed())
+		stored := lineplot.LinePlot{
+			Key:  uuid.New(),
+			Name: "plot",
+			Channels: lineplot.Channels{
+				X1: 6,
+				Y1: []channel.Key{5, 8},
+				Y2: []channel.Key{7},
+			},
+			Lines: []lineplot.Line{
+				{YAxis: lineplot.YAxisKeyY1, YChannel: 5, XChannel: 6, StrokeWidth: 3},
+				{YAxis: lineplot.YAxisKeyY1, YChannel: 8, XChannel: 6, StrokeWidth: 4},
+			},
+		}
+		Expect(gorp.NewCreate[lineplot.Key, lineplot.LinePlot]().
+			Entry(&stored).
+			Exec(ctx, db)).To(Succeed())
+		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+		MustOpen(lineplot.OpenService(ctx, lineplot.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			ImEx:     imex.NewService(),
+		}))
+		var got lineplot.LinePlot
+		Expect(gorp.NewRetrieve[lineplot.Key, lineplot.LinePlot]().
+			Where(gorp.MatchKeys[lineplot.Key, lineplot.LinePlot](stored.Key)).
+			Entry(&got).
+			Exec(ctx, db)).To(Succeed())
+		Expect(got.Channels).To(Equal(lineplot.Channels{
+			Y1: []channel.Key{5},
+			Y2: []channel.Key{7},
+		}))
+		Expect(got.Lines).To(HaveLen(2))
+		Expect(got.Lines[0]).To(SatisfyAll(
+			HaveField("YChannel", channel.Key(5)),
+			HaveField("XChannel", channel.Key(0)),
+			HaveField("StrokeWidth", 3.0),
+		))
+		Expect(got.Lines[1].YChannel).To(Equal(channel.Key(7)))
+	})
 })
