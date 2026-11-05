@@ -167,13 +167,16 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 	return err
 }
 
+func (db *DB) writerOpening(ch ChannelKey) bool {
+	db.opening.Lock()
+	defer db.opening.Unlock()
+	return db.opening.channels[ch] > 0
+}
+
 // removeChannel removes ch from db.mu.dbs.unary or db.mu.dbs.virtual. Returns an
 // error if there is an open resource on the database.
 func (db *DB) removeChannel(ch ChannelKey) error {
-	db.opening.Lock()
-	opening := db.opening.channels[ch] > 0
-	db.opening.Unlock()
-	if opening {
+	if db.writerOpening(ch) {
 		return errors.Wrapf(
 			resource.ErrOpen,
 			"cannot delete channel %d because a writer is opening on it",
@@ -254,8 +257,10 @@ func (db *DB) DeleteTimeRange(
 			if otherDBKey == ch || otherDB.Channel().Index != ch {
 				continue
 			}
+			// Read before HasDataFor: a finished open leaves a gate that it can see.
+			opening := db.writerOpening(otherDBKey)
 			hasOverlap, err := otherDB.HasDataFor(ctx, tr)
-			if err != nil || hasOverlap {
+			if opening || err != nil || hasOverlap {
 				return errors.Newf(
 					"cannot delete index channel %v "+
 						"with channel %v depending on it on the time range %s",

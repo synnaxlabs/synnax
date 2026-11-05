@@ -339,6 +339,74 @@ var _ = Describe("Writer open", func() {
 	})
 
 	Describe("Next to an index delete", func() {
+		It("Should fail while a writer is opening on a dependent channel", func(
+			ctx SpecContext,
+		) {
+			var (
+				gfs     = newGatedFS(FileSystems["memFS"]())
+				db      = mustOpenDBOnFS(ctx, gfs)
+				passKey = GenerateChannelKey()
+				idxKey  = GenerateChannelKey()
+				key     = GenerateChannelKey()
+				start   = 10 * telem.SecondTS
+			)
+			Expect(db.CreateChannel(
+				ctx,
+				cesium.Channel{
+					Key:      passKey,
+					Name:     "pass",
+					IsIndex:  true,
+					DataType: telem.TimestampT,
+				},
+				cesium.Channel{
+					Key:      idxKey,
+					Name:     "time",
+					IsIndex:  true,
+					DataType: telem.TimestampT,
+				},
+				cesium.Channel{
+					Key:      key,
+					Name:     "data",
+					Index:    idxKey,
+					DataType: telem.Int64T,
+				},
+			)).To(Succeed())
+			Expect(db.WriteSeries(
+				ctx,
+				idxKey,
+				start,
+				telem.NewSeriesV(start),
+			)).To(Succeed())
+			gate := gfs.gateFor(passKey)
+			gate.armed.Store(true)
+			DeferCleanup(gate.open)
+			opened := make(chan *cesium.Writer, 1)
+			go func() {
+				defer GinkgoRecover()
+				opened <- MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+					Channels: []cesium.ChannelKey{passKey, key},
+					Start:    start,
+				}))
+			}()
+			Eventually(gate.entered).Should(Receive())
+			Expect(db.DeleteTimeRange(
+				ctx,
+				[]cesium.ChannelKey{idxKey},
+				telem.TimeRangeMax,
+			)).To(MatchError(ContainSubstring("cannot delete index channel")))
+			gate.open()
+			var w *cesium.Writer
+			Eventually(opened).Should(Receive(&w))
+			MustSucceed(w.Write(telem.MultiFrame(
+				[]cesium.ChannelKey{passKey, key},
+				[]telem.Series{telem.NewSeriesV(start), telem.NewSeriesV[int64](1)},
+			)))
+			MustSucceed(w.Commit())
+			Expect(w.Close()).To(Succeed())
+			frame := MustSucceed(db.Read(ctx, telem.TimeRangeMax, key))
+			Expect(frame.SeriesAt(0).Len()).To(Equal(int64(1)))
+		})
+
 		It("Should not join the region HasDataFor holds", func(ctx SpecContext) {
 			const rounds = 1024
 			var (
