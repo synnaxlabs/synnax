@@ -188,7 +188,8 @@ Configure modules in the Console.
 Find modules and list their PDOs:
 
 ```typescript
-for (const module of await client.devices.retrieve({ makes: ["ethercat"] })) {
+const modules = await client.devices.retrieve({ where: { make: { eq: "ethercat" } } });
+for (const module of modules) {
   const { network, position, pdos } = module.properties;
   console.log(module.name, network, position, JSON.stringify(pdos));
 }
