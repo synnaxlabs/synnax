@@ -37,8 +37,7 @@ var _ control.Resource = (*testResource)(nil)
 func (t testResource) ChannelKey() channel.Key { return channel.Key(0) }
 
 // hookedResource calls onChannelKey from ChannelKey, which a region calls while it
-// holds
-// its lock.
+// holds its lock.
 type hookedResource struct {
 	onChannelKey func()
 }
