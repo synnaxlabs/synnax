@@ -7,13 +7,13 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Labels a pull request review/human or review/bot from the results Check - Classify
-# uploaded, and keeps one comment with the evidence. An agent reads the UI part of the
-# diff (Console, Pluto, Lyra), fetched through the API. A fork, or a change to the
-# classifier itself, always gets a human: either could forge the uploaded results. The
-# workflow runs from the default branch and never checks out or runs pull request code:
-# the artifacts are data. The label goes on with an App token, because a label set with
-# GITHUB_TOKEN starts no other workflow, and the review gate and auto-merge wait for it.
+# Raises a pull request to review/human when the results Check - Classify uploaded show
+# a changed interface, and keeps one comment with the evidence. Otherwise the author
+# picks the tier. A fork, or a change to the classifier itself, always gets a human:
+# either could forge the uploaded results. The workflow runs from the default branch and
+# never checks out or runs pull request code: the artifacts are data. The label goes on
+# with an App token, because a label set with GITHUB_TOKEN starts no other workflow, and
+# the review gate and auto-merge wait for it.
 
 name: Label - Classify
 
@@ -65,13 +65,8 @@ jobs:
           permission-issues: write
           permission-pull-requests: write
 
-      - name: Install the agent
-        run: npm install --global @anthropic-ai/claude-code@latest
-
       - name: Classify
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          REVIEW_AGENT: claude -p --tools "" --strict-mcp-config
         run: python3 .github/scripts/classify.py "$RUNNER_TEMP/results"
