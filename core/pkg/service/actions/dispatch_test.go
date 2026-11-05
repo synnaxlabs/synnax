@@ -175,7 +175,7 @@ var _ = Describe("Transact", func() {
 	It("Should commit fn and notify nothing", func(ctx SpecContext) {
 		rec := &Recorder[string, testAction]{}
 		DeferCleanup(st.OnChange(rec.Record))
-		Expect(st.Transact(ctx, "c", func(tx gorp.Tx) error {
+		Expect(st.Transact(ctx, []string{"c"}, func(tx gorp.Tx) error {
 			return gorp.NewCreate[string, counter]().
 				Entry(&counter{Key: "c", Value: 1}).
 				Exec(ctx, tx)
@@ -192,7 +192,7 @@ var _ = Describe("Transact", func() {
 		DeferCleanup(unblock)
 		done := make(chan error, 1)
 		go func() {
-			done <- st.Transact(ctx, "c", func(gorp.Tx) error {
+			done <- st.Transact(ctx, []string{"c"}, func(gorp.Tx) error {
 				close(entered)
 				select {
 				case <-release:

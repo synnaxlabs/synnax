@@ -242,7 +242,7 @@ func (s *Service) UpdateTask(
 	}); err != nil {
 		return UpdateTaskResponse{}, err
 	}
-	tsk, err := s.internal.NewWriter(tx).UpdateTask(ctx, req.Key, arc.TaskUpdate{
+	tsk, err := s.internal.UpdateTask(ctx, req.Key, arc.TaskUpdate{
 		Rack:        req.Rack,
 		Performance: req.Performance,
 	})

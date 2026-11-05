@@ -20,6 +20,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	apitask "github.com/synnaxlabs/synnax/pkg/api/task"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
@@ -221,6 +222,64 @@ var _ = Describe("Create", func() {
 			Expect(keys).To(Equal([]string{"dk-create"}))
 		},
 	)
+
+	Describe("Concurrent writes", func() {
+		var (
+			t   task.Task
+			u   user.User
+			req apitask.CreateRequest
+		)
+		BeforeEach(func(ctx SpecContext) {
+			t = task.Task{
+				Type: pagerduty.AlertTaskType,
+				Rack: svc.Rack.EmbeddedKey,
+				Name: "Alerts",
+			}
+			Expect(svc.Task.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+			u = createUser(ctx)
+			grant(ctx, access.ActionCreate, u.OntologyID(), ontology.ID{
+				Type: ontology.ResourceTypeTask,
+			})
+			renamed := t
+			renamed.Name = "Renamed"
+			req = apitask.CreateRequest{Tasks: []task.Task{renamed}}
+		})
+
+		It("Should keep a dispatch that lands before the request commits", func(
+			ctx SpecContext,
+		) {
+			tx := db.OpenTx()
+			DeferCleanup(func() { Expect(tx.Close()).To(Succeed()) })
+			MustSucceed(apiSvc.Create(AuthedCtx(ctx, u), tx, req))
+			MustSucceed(svc.Task.Dispatch(ctx, t.Key, "", []task.Action{
+				task.NewSetAction(task.SetPayload{
+					Path:  []string{"config", "routing_key"},
+					Value: "rk-2",
+				}),
+			}))
+			Expect(tx.Commit(ctx)).To(Succeed())
+			var stored task.Task
+			Expect(svc.Task.NewRetrieve().
+				Where(task.MatchKeys(t.Key)).
+				Entry(&stored).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(stored.Name).To(Equal("Renamed"))
+			Expect(stored.Config).To(HaveKeyWithValue("routing_key", "rk-2"))
+		})
+
+		It("Should wait for a write that holds the task", func(ctx SpecContext) {
+			created := make(chan error, 1)
+			Expect(svc.Task.Transact(ctx, []task.Key{t.Key}, func(gorp.Tx) error {
+				go func() {
+					_, err := apiSvc.Create(AuthedCtx(ctx, u), nil, req)
+					created <- err
+				}()
+				Consistently(created, 100*time.Millisecond).ShouldNot(Receive())
+				return nil
+			})).To(Succeed())
+			Eventually(created).Should(Receive(Not(HaveOccurred())))
+		})
+	})
 })
 
 var _ = Describe("Retrieve", func() {

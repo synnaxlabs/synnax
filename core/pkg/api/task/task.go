@@ -122,9 +122,15 @@ func (s *Service) Create(
 	}); err != nil {
 		return CreateResponse{}, err
 	}
-	if err := s.task.NewWriter(tx).
-		WithDispatchKey(req.DispatchKey).
-		CreateMany(ctx, &req.Tasks); err != nil {
+	keys := make([]task.Key, len(req.Tasks))
+	for i, t := range req.Tasks {
+		keys[i] = t.Key
+	}
+	if err := s.task.Transact(ctx, keys, func(tx gorp.Tx) error {
+		return s.task.NewWriter(tx).
+			WithDispatchKey(req.DispatchKey).
+			CreateMany(ctx, &req.Tasks)
+	}); err != nil {
 		return CreateResponse{}, err
 	}
 	return CreateResponse{Tasks: req.Tasks}, nil

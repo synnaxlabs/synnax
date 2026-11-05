@@ -13,6 +13,7 @@ import (
 	"context"
 	"math"
 	"slices"
+	"time"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -565,7 +566,7 @@ var _ = Describe("Task", Ordered, func() {
 	Describe("Transact", func() {
 		It("Should commit the writes of fn", func(ctx SpecContext) {
 			t := task.Task{Key: uuid.New(), Name: "transact", Type: "pagerduty_alert"}
-			Expect(svc.Transact(ctx, t.Key, func(tx gorp.Tx) error {
+			Expect(svc.Transact(ctx, []task.Key{t.Key}, func(tx gorp.Tx) error {
 				return gorp.NewCreate[task.Key, task.Task]().Entry(&t).Exec(ctx, tx)
 			})).To(Succeed())
 			Expect(svc.NewRetrieve().
@@ -574,7 +575,7 @@ var _ = Describe("Task", Ordered, func() {
 		})
 		It("Should abort when fn fails", func(ctx SpecContext) {
 			t := task.Task{Key: uuid.New(), Name: "transact", Type: "pagerduty_alert"}
-			Expect(svc.Transact(ctx, t.Key, func(tx gorp.Tx) error {
+			Expect(svc.Transact(ctx, []task.Key{t.Key}, func(tx gorp.Tx) error {
 				if err := gorp.NewCreate[task.Key, task.Task]().
 					Entry(&t).
 					Exec(ctx, tx); err != nil {
@@ -585,6 +586,51 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(svc.NewRetrieve().
 				Where(task.MatchKeys(t.Key)).
 				Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+		})
+		It("Should accept repeated keys", func(ctx SpecContext) {
+			key := uuid.New()
+			Expect(svc.Transact(ctx, []task.Key{key, key}, func(gorp.Tx) error {
+				return nil
+			})).To(Succeed())
+		})
+		It("Should hold every key through the commit", func(ctx SpecContext) {
+			first, second := uuid.New(), uuid.New()
+			waited := make(chan error, 1)
+			Expect(svc.Transact(
+				ctx,
+				[]task.Key{first, second},
+				func(gorp.Tx) error {
+					go func() {
+						waited <- svc.Transact(
+							ctx,
+							[]task.Key{second},
+							func(gorp.Tx) error { return nil },
+						)
+					}()
+					Consistently(waited, 50*time.Millisecond).ShouldNot(Receive())
+					return nil
+				},
+			)).To(Succeed())
+			Eventually(waited).Should(Receive(Not(HaveOccurred())))
+		})
+		It("Should not deadlock on opposite key orders", func(ctx SpecContext) {
+			first, second := uuid.New(), uuid.New()
+			done := make(chan error, 2)
+			transact := func(keys ...task.Key) {
+				for range 50 {
+					if err := svc.Transact(ctx, keys, func(gorp.Tx) error {
+						return nil
+					}); err != nil {
+						done <- err
+						return
+					}
+				}
+				done <- nil
+			}
+			go transact(first, second)
+			go transact(second, first)
+			Eventually(done).Should(Receive(Not(HaveOccurred())))
+			Eventually(done).Should(Receive(Not(HaveOccurred())))
 		})
 	})
 

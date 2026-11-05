@@ -13,6 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/crdt"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -89,20 +90,46 @@ func (s *Service) resyncTask(ctx context.Context, key Key) {
 		if err != nil {
 			break
 		}
-		err = errors.Skip(s.cfg.Task.Transact(ctx, taskKey, func(tx gorp.Tx) error {
-			var a Arc
-			if err := s.table.NewRetrieve().
-				Where(gorp.MatchKeys[Key, Arc](key)).
-				Entry(&a).
-				Exec(ctx, tx); err != nil {
-				return err
-			}
-			return s.NewWriter(tx).syncTask(ctx, a, taskKey)
-		}), query.ErrNotFound)
+		err = errors.Skip(s.cfg.Task.Transact(
+			ctx,
+			[]task.Key{taskKey},
+			func(tx gorp.Tx) error {
+				var a Arc
+				if err := s.table.NewRetrieve().
+					Where(gorp.MatchKeys[Key, Arc](key)).
+					Entry(&a).
+					Exec(ctx, tx); err != nil {
+					return err
+				}
+				return s.NewWriter(tx).syncTask(ctx, a, taskKey)
+			},
+		), query.ErrNotFound)
 	}
 	if err == nil || errors.Is(err, context.Canceled) ||
 		errors.Is(err, query.ErrNotFound) {
 		return
 	}
 	s.cfg.L.Error("failed to sync arc task", zap.Error(err), zap.Stringer("key", key))
+}
+
+// UpdateTask applies Writer.UpdateTask in its own transaction. It holds the Arc's lock
+// and the locks of the Arc's tasks through the commit, so it cannot overwrite a
+// task.Dispatch and two binds of one Arc cannot each create a task.
+func (s *Service) UpdateTask(
+	ctx context.Context,
+	key Key,
+	update TaskUpdate,
+) (*task.Task, error) {
+	var tsk *task.Task
+	err := s.locks.Do(key, func() error {
+		taskKeys, err := s.NewWriter(nil).childTaskKeys(ctx, key)
+		if err != nil {
+			return err
+		}
+		return s.cfg.Task.Transact(ctx, taskKeys, func(tx gorp.Tx) (err error) {
+			tsk, err = s.NewWriter(tx).UpdateTask(ctx, key, update)
+			return err
+		})
+	})
+	return tsk, err
 }

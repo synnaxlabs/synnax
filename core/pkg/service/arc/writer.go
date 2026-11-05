@@ -180,7 +180,8 @@ type TaskUpdate struct {
 // UpdateTask changes the task of the arc with the given key. It returns the task, or
 // nil after an unbind. It returns an error wrapping validate.ErrValidation when
 // unbinding a running task, when unbinding and setting the performance in one update,
-// or when setting the performance of an arc with no task.
+// or when setting the performance of an arc with no task. The caller must hold the
+// locks of the arc's tasks through the commit, as Service.UpdateTask does.
 func (w Writer) UpdateTask(
 	ctx context.Context,
 	key Key,

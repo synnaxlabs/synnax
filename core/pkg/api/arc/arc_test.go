@@ -597,6 +597,107 @@ var _ = Describe("Service", func() {
 				Exec(ctx, nil)).To(Succeed())
 		})
 
+		Describe("Concurrent writes", func() {
+			var a arc.Arc
+			BeforeEach(func(ctx SpecContext) {
+				a = createArc(ctx, "concurrent-update-task")
+				grantBind(ctx, a)
+			})
+
+			bind := func(ctx SpecContext) *task.Task {
+				GinkgoHelper()
+				return MustSucceed(
+					apiSvc.UpdateTask(
+						AuthedCtx(ctx, author),
+						db,
+						apiarc.UpdateTaskRequest{
+							Key:  a.Key,
+							Rack: new(testRack.Key),
+						},
+					),
+				).Task
+			}
+
+			It("Should keep a dispatch that lands before the request commits", func(
+				ctx SpecContext,
+			) {
+				tsk := bind(ctx)
+				other := &rack.Rack{Name: "Other Rack"}
+				Expect(rackSvc.NewWriter(nil).Create(ctx, other)).To(Succeed())
+				tx := db.OpenTx()
+				DeferCleanup(func() { Expect(tx.Close()).To(Succeed()) })
+				MustSucceed(
+					apiSvc.UpdateTask(
+						AuthedCtx(ctx, author),
+						tx,
+						apiarc.UpdateTaskRequest{Key: a.Key, Rack: new(other.Key)},
+					),
+				)
+				MustSucceed(svc.Task.Dispatch(ctx, tsk.Key, "", []task.Action{
+					task.NewSetAction(task.SetPayload{
+						Path:  []string{"config", "performance"},
+						Value: string(arctask.PerformanceHigh),
+					}),
+				}))
+				Expect(tx.Commit(ctx)).To(Succeed())
+				var stored task.Task
+				Expect(svc.Task.NewRetrieve().
+					Where(task.MatchKeys(tsk.Key)).
+					Entry(&stored).
+					Exec(ctx, nil)).To(Succeed())
+				Expect(stored.Rack).To(Equal(other.Key))
+				Expect(stored.Config).To(HaveKeyWithValue(
+					"performance",
+					string(arctask.PerformanceHigh),
+				))
+			})
+
+			It("Should wait for a write that holds the task", func(ctx SpecContext) {
+				tsk := bind(ctx)
+				updated := make(chan error, 1)
+				Expect(svc.Task.Transact(ctx, []task.Key{tsk.Key}, func(gorp.Tx) error {
+					go func() {
+						_, err := apiSvc.UpdateTask(
+							AuthedCtx(ctx, author),
+							nil,
+							apiarc.UpdateTaskRequest{
+								Key:  a.Key,
+								Rack: new(testRack.Key),
+							},
+						)
+						updated <- err
+					}()
+					Consistently(updated, 100*time.Millisecond).ShouldNot(Receive())
+					return nil
+				})).To(Succeed())
+				Eventually(updated).Should(Receive(Not(HaveOccurred())))
+			})
+
+			It("Should bind one task for concurrent first binds", func(
+				ctx SpecContext,
+			) {
+				const binds = 8
+				updated := make(chan error, binds)
+				for range binds {
+					go func() {
+						_, err := apiSvc.UpdateTask(
+							AuthedCtx(ctx, author),
+							nil,
+							apiarc.UpdateTaskRequest{
+								Key:  a.Key,
+								Rack: new(testRack.Key),
+							},
+						)
+						updated <- err
+					}()
+				}
+				for range binds {
+					Eventually(updated).Should(Receive(Not(HaveOccurred())))
+				}
+				Expect(arcSvc.NewWriter(nil).TaskKeys(ctx, a.Key)).To(HaveLen(1))
+			})
+		})
+
 		It(
 			"Should reject a performance change without task update permission",
 			func(ctx SpecContext) {
