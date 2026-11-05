@@ -205,13 +205,29 @@ jobs:
           BOT: ${{ steps.app.outputs.app-slug }}
         run: python3 -m review post "$RUNNER_TEMP/review.json"
 
+  # A review that never gets a runner cannot close its own check run, so a hosted job
+  # closes it whenever the review did not succeed.
+  end:
+    needs: [start, review]
+    if: always() && needs.start.outputs.check != '' && needs.review.result != 'success'
+    name: End the check run
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mint the GitHub App token
+        id: app
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.SEDOSAUR_APP_ID }}
+          private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
+          permission-checks: write
+
       - name: End the check run
-        if: (failure() || cancelled()) && steps.app.outputs.token
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
-          STATUS: ${{ job.status }}
+          CHECK_RUN: ${{ needs.start.outputs.check }}
+          STATUS: ${{ needs.review.result }}
         run: |
           gh api -X PATCH "repos/$GITHUB_REPOSITORY/check-runs/$CHECK_RUN" \
             -f status=completed -f conclusion="$STATUS" \
             -f "output[title]=The review ended with $STATUS" \
-            -f "output[summary]=See the [run]($RUN_URL)."
+            -f "output[summary]=See the [run]($RUN_URL)." --silent
