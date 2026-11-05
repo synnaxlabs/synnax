@@ -341,6 +341,7 @@ var _ = Describe("Discover", func() {
 				}
 				Expect(offsets).To(Equal(expected))
 			},
+			Entry("a count of one", 1, []int64{49}),
 			Entry("a count that splits evenly", 9,
 				[]int64{0, 1, 2, 23, 24, 25, 47, 48, 49}),
 			Entry("a count that does not split evenly", 10,

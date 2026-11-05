@@ -426,8 +426,8 @@ func sampleRanges(
 }
 
 // partitionWindows splits budget records of the offsets from start to end into up to
-// sampleWindows ranges, spread evenly, the first starting at start and the last ending
-// at end. Their sizes differ by at most one and sum to budget.
+// sampleWindows ranges, spread evenly, the last ending at end. Their sizes differ by at
+// most one and sum to budget.
 func partitionWindows(start, end, budget int64) []fetchRange {
 	if budget <= 0 {
 		return nil
@@ -446,9 +446,9 @@ func partitionWindows(start, end, budget int64) []fetchRange {
 		if k < budget%n {
 			size++
 		}
-		from := start + read
+		from := end - size
 		if n > 1 {
-			from += gap * k / (n - 1)
+			from = start + read + gap*k/(n-1)
 		}
 		ranges[k] = fetchRange{from: from, to: from + size}
 		read += size

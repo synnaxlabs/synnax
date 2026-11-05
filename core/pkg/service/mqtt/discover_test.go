@@ -35,6 +35,7 @@ func stages(steps []driver.TestStep) []string {
 
 // publishUntilDone publishes payload to topic every 10 ms until the spec ends.
 func publishUntilDone(b *testBroker, topic, payload string) {
+	GinkgoHelper()
 	done := make(chan struct{})
 	stopped := make(chan struct{})
 	go func() {
