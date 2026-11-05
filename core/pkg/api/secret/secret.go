@@ -213,7 +213,8 @@ type RetrieveRequest struct {
 	Limit int `json:"limit" msgpack:"limit"`
 	// Offset is the number of secrets to skip.
 	Offset int `json:"offset" msgpack:"offset"`
-	// IncludeUses fills each secret with the ontology IDs of the resources that use it.
+	// IncludeUses fills each secret with the ontology IDs of the resources that use it
+	// and that the caller can read.
 	IncludeUses bool `json:"include_uses" msgpack:"include_uses"`
 }
 
@@ -257,8 +258,9 @@ func (s *Service) Retrieve(
 	return RetrieveResponse{Secrets: secrets}, nil
 }
 
-// fillUses sets the uses of each secret. A secret that nothing uses gets empty uses, so
-// the response tells it apart from a secret whose uses were not asked for.
+// fillUses sets the uses of each secret, leaving out the resources the caller cannot
+// read. A secret with no readable uses gets empty uses, so the response tells it apart
+// from a secret whose uses were not asked for.
 func (s *Service) fillUses(ctx context.Context, secrets []Secret) error {
 	keys := make([]Key, len(secrets))
 	resources := make(map[Key][]ontology.ID, len(secrets))
@@ -270,7 +272,20 @@ func (s *Service) fillUses(ctx context.Context, secrets []Secret) error {
 	if err != nil {
 		return err
 	}
+	enforcer := s.access.NewEnforcer(nil)
+	subject := auth.GetSubject(ctx)
 	for _, use := range uses {
+		err := enforcer.Enforce(ctx, access.Request{
+			Subject: subject,
+			Action:  access.ActionRetrieve,
+			Objects: []ontology.ID{use.Resource},
+		})
+		if errors.Is(err, access.ErrDenied) {
+			continue
+		}
+		if err != nil {
+			return err
+		}
 		resources[use.Secret] = append(resources[use.Secret], use.Resource)
 	}
 	for i := range secrets {
