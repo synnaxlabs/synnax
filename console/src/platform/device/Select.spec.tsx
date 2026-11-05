@@ -10,6 +10,7 @@
 import { type device } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { deep } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
@@ -30,12 +31,16 @@ const RackProbe = (): ReactElement => {
 };
 RackProbe.displayName = "RackProbe";
 
-const renderSelect = async (
-  props: Device.SelectProps,
-): ReturnType<typeof renderWithDeviceForm> =>
+const DEVICE_ICON = <Icon.Device />;
+
+const renderSelect = async ({
+  icon = DEVICE_ICON,
+  ...props
+}: Omit<Device.SelectProps, "icon"> &
+  Partial<Pick<Device.SelectProps, "icon">>): ReturnType<typeof renderWithDeviceForm> =>
   await renderWithDeviceForm(
     <>
-      <Device.Select {...props} />
+      <Device.Select icon={icon} {...props} />
       <RackProbe />
       <Modals.Stack />
     </>,
@@ -103,6 +108,16 @@ describe("Device.Select", () => {
     await waitFor(() => expect(screen.getByText(`rack:${dev.rack}`)).toBeTruthy());
     const trigger = await findDialogTrigger();
     await waitFor(() => expect(trigger.textContent).toContain(dev.name));
+  });
+
+  it("should show its icon in the trigger", async () => {
+    await renderSelect({
+      make: uniqueName("make"),
+      icon: <Icon.Logo.Modbus />,
+      onConfigure: vi.fn(),
+    });
+    const trigger = await findDialogTrigger();
+    expect(trigger.querySelector(".lyra-icon--logo-modbus")).not.toBeNull();
   });
 
   it("should show the empty content when no devices match the make", async () => {

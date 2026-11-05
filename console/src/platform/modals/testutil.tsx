@@ -73,21 +73,18 @@ export interface RenderWithModalsOptions {
 }
 
 /**
- * Renders ui together with a live {@link Modals.Stack} inside {@link Wrapper}, so modals
- * pushed during the test actually mount. Modals portal to the document body; query them
- * via the returned result's baseElement or testing-library's screen.
+ * Renders ui inside a live {@link Modals.Stack} within {@link Wrapper}, as the window
+ * renders its page, so modals pushed during the test actually mount. Modals portal to
+ * the document body; query them via the returned result's baseElement or
+ * testing-library's screen.
  */
 export const renderWithModals = (
   ui: ReactNode,
   { connectionStatus }: RenderWithModalsOptions = {},
 ): RenderResult =>
-  render(
-    <>
-      {ui}
-      <Modals.Stack />
-    </>,
-    { wrapper: connectionStatus == null ? Wrapper : createWrapper(connectionStatus) },
-  );
+  render(<Modals.Stack>{ui}</Modals.Stack>, {
+    wrapper: connectionStatus == null ? Wrapper : createWrapper(connectionStatus),
+  });
 
 /** The value a modal hook yields, paired with the live store backing it. */
 export interface ModalHookHandle<T> {
