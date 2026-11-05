@@ -506,14 +506,12 @@ export class StreamMultiChannelLog
   private async readStart(client: telem.Client): Promise<void> {
     const read = ++this.startRead;
     this.startReadAt = this.now();
-    const metas = [...this.metas.values()].filter(({ stored }) => stored);
-    const indexes = [...new Set(metas.map(({ index }) => index))];
+    const keys = [...this.metas].filter(([, { stored }]) => stored).map(([key]) => key);
     this.startBreaker.reset();
     this.startPending = true;
     while (read === this.startRead)
       try {
-        const start =
-          indexes.length === 0 ? null : await client.feed.firstTime(indexes);
+        const start = keys.length === 0 ? null : await client.feed.firstTime(keys);
         if (read !== this.startRead) return;
         this.start = start;
         this.startPending = false;

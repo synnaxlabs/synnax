@@ -210,16 +210,16 @@ export class Feed {
   }
 
   /**
-   * @returns the oldest time stored by the index channels, or null when they store no
-   * samples.
+   * @returns the start of the oldest stored domain of the channels, or null when they
+   * store no samples.
    * @throws {NotFoundError} if a channel does not exist.
    * @throws {AccessDeniedError} if the caller may not retrieve a channel.
    */
-  async firstTime(indexes: channel.Key[]): Promise<TimeStamp | null> {
-    const frame = await this.props.readFirst(indexes);
-    const firsts = indexes.flatMap((key) => {
-      const first = frame.get(key).at(0);
-      return first == null ? [] : [new TimeStamp(first as bigint)];
+  async firstTime(keys: channel.Key[]): Promise<TimeStamp | null> {
+    const frame = await this.props.readFirst(keys);
+    const firsts = keys.flatMap((key) => {
+      const series = frame.get(key);
+      return series.series.length === 0 ? [] : [series.timeRange.start];
     });
     return firsts.length === 0 ? null : firsts.reduce((a, b) => TimeStamp.min(a, b));
   }

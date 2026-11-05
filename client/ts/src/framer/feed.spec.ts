@@ -352,6 +352,20 @@ describe("Feed", () => {
       expect(first?.valueOf()).toBe(older.valueOf());
     });
 
+    it("should return the first time of a data channel, not of its index", async () => {
+      const index = await createIndex();
+      const data = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.FLOAT64,
+        index: index.key,
+      });
+      const start = TimeStamp.seconds(400);
+      const stamps = [0, 1, 2, 3].map((i) => start.add(TimeSpan.seconds(i)));
+      await client.write(start, index.key, stamps);
+      await client.write(stamps[2], data.key, [1, 2]);
+      expect((await feed.firstTime([data.key]))?.valueOf()).toBe(stamps[2].valueOf());
+    });
+
     it("should skip an index with no samples", async () => {
       const [a, b] = await Promise.all([createIndex(), createIndex()]);
       const start = TimeStamp.seconds(300);
