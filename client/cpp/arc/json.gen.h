@@ -11,10 +11,13 @@
 
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <variant>
+#include <vector>
 
 #include "client/cpp/arc/types.gen.h"
+#include "x/cpp/filter/json.gen.h"
 #include "x/cpp/json/json.h"
 
 #include "arc/cpp/graph/json.gen.h"
@@ -37,6 +40,70 @@ inline x::json::json Base::to_json() const {
     j["key"] = this->key.to_json();
     j["name"] = this->name;
     j["source"] = ::synnax::arc::to_json(this->source);
+    return j;
+}
+
+inline Where Where::parse(x::json::Parser parser) {
+    return Where{
+        .and_ = parser.field<std::optional<std::vector<Where>>>("and"),
+        .or_ = parser.field<std::optional<std::vector<Where>>>("or"),
+        .not_ = parser.field<x::mem::indirect<Where>>("not"),
+        .key = parser.field<std::optional<::x::filter::Set<Key>>>("key"),
+        .name = parser.field<std::optional<::x::filter::String>>("name"),
+    };
+}
+
+inline x::json::json Where::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->and_.has_value()) j["and"] = x::json::to_array(*this->and_);
+    if (this->or_.has_value()) j["or"] = x::json::to_array(*this->or_);
+    if (this->not_.has_value()) j["not"] = this->not_->to_json();
+    if (this->key.has_value()) j["key"] = this->key->to_json();
+    if (this->name.has_value()) j["name"] = this->name->to_json();
+    return j;
+}
+
+inline RetrieveRequest RetrieveRequest::parse(x::json::Parser parser) {
+    return RetrieveRequest{
+        .where = parser.field<std::optional<Where>>("where"),
+        .search_term = parser.field<std::string>("search_term", ""),
+        .limit = parser.field<std::optional<std::uint32_t>>("limit"),
+        .offset = parser.field<std::uint32_t>("offset", 0),
+        .include_program = parser.field<bool>("include_program", false),
+    };
+}
+
+inline x::json::json RetrieveRequest::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->where.has_value()) j["where"] = this->where->to_json();
+    j["search_term"] = this->search_term;
+    if (this->limit.has_value()) j["limit"] = *this->limit;
+    j["offset"] = this->offset;
+    j["include_program"] = this->include_program;
+    return j;
+}
+
+inline RetrieveResponse RetrieveResponse::parse(x::json::Parser parser) {
+    return RetrieveResponse{
+        .arcs = [&] {
+            std::vector<Arc> result;
+            if (parser.has("arcs"))
+                parser.iter("arcs", [&result](x::json::Parser &p) {
+                    result.push_back(parse_arc(p));
+                });
+            return result;
+        }(),
+    };
+}
+
+inline x::json::json RetrieveResponse::to_json() const {
+    x::json::json j = x::json::json::object();
+    {
+        auto arr = x::json::json::array();
+        for (const auto &item: this->arcs)
+            arr.push_back(::synnax::arc::to_json(item));
+        j["arcs"] = arr;
+    }
     return j;
 }
 

@@ -76,9 +76,10 @@ TEST(TestArc, testModule) {
     const auto client = new_test_client();
     Arc arc = ModuleArc{{.name = random_arc_name("module_test")}};
     ASSERT_NIL(client.arcs.create(arc));
-    auto retrieved = ASSERT_NIL_P(
-        client.arcs.retrieve_by_key(base(arc).key, RetrieveOptions{.compile = true})
-    );
+    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_key(
+        base(arc).key,
+        RetrieveOptions{.include_program = true}
+    ));
     ASSERT_TRUE(std::holds_alternative<ModuleArc>(retrieved));
 }
 
@@ -135,6 +136,30 @@ TEST(TestArc, testRetrieveByKeys) {
     ASSERT_EQ(retrieved.size(), 2);
 }
 
+/// @brief it should retrieve the Arc programs that match a filter tree.
+TEST(TestArc, testRetrieveWhere) {
+    const auto client = new_test_client();
+    auto arcs = std::vector<Arc>{
+        AutomationArc{{.name = random_arc_name("where_a")}},
+        AutomationArc{{.name = random_arc_name("where_b")}},
+    };
+    ASSERT_NIL(client.arcs.create(arcs));
+    const auto retrieved = ASSERT_NIL_P(client.arcs.retrieve(
+        RetrieveRequest{
+            .where = Where{
+                .not_ = x::mem::indirect<Where>(
+                    Where{.key = x::filter::Set<Key>{.eq = base(arcs[0]).key}}
+                ),
+                .key = x::filter::Set<Key>{
+                    .in = std::vector<Key>{base(arcs[0]).key, base(arcs[1]).key},
+                },
+            },
+        }
+    ));
+    ASSERT_EQ(retrieved.size(), 1);
+    ASSERT_EQ(base(retrieved[0]).key, base(arcs[1]).key);
+}
+
 /// @brief it should delete an Arc program by key.
 TEST(TestArc, testDelete) {
     const auto client = new_test_client();
@@ -161,10 +186,7 @@ TEST(TestArc, testDeleteMany) {
     std::vector<x::uuid::UUID> keys = {base(arcs[0]).key, base(arcs[1]).key};
     ASSERT_NIL(client.arcs.del(keys));
 
-    auto retrieved = ASSERT_OCCURRED_AS_P(
-        client.arcs.retrieve_by_keys(keys),
-        x::errors::NOT_FOUND
-    );
+    ASSERT_TRUE(ASSERT_NIL_P(client.arcs.retrieve_by_keys(keys)).empty());
 }
 
 /// @brief it should handle the program field correctly.
@@ -212,7 +234,7 @@ func calc() {val f32} f32 {
     ASSERT_NIL(client.arcs.create(arc));
 
     RetrieveOptions options;
-    options.compile = true;
+    options.include_program = true;
     auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_key(base(arc).key, options));
     ASSERT_EQ(base(retrieved).key, base(arc).key);
     const auto &program = std::get<AutomationArc>(retrieved).program.value();
@@ -265,7 +287,7 @@ sequence main {
     auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_key(
         base(arc).key,
         synnax::arc::RetrieveOptions{
-            .compile = true,
+            .include_program = true,
         }
     ));
     const auto &program = std::get<AutomationArc>(retrieved).program.value();

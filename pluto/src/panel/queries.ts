@@ -38,7 +38,7 @@ export const { use, useEnsure, useInvalidate, useResult, createSelector } =
 
 export type RetrieveKeysByProjectQuery = { project: project.Key };
 
-const childrenOf = (projectKey: project.Key): panel.RetrieveRequest => ({
+const childrenOf = (projectKey: project.Key): panel.RetrieveMultipleParams => ({
   parent: project.ontologyID(projectKey),
 });
 

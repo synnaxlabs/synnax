@@ -125,6 +125,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:       db,
 		Ontology: otg,
 		Group:    groupSvc,
+		Password: passwordSvc,
 	}))
 	MustSucceed2(
 		user.ProvisionRoot(

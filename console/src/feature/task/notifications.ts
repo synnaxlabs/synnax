@@ -49,8 +49,7 @@ export const createNotificationRule = (scanners: Scanner[]): Notifications.Rule 
     const make = scanners.find(({ scanType }) => scanType === tsk.type)?.make;
     if (make == null) return true;
     const devices = await args.client.devices.retrieve({
-      racks: [tsk.rack],
-      makes: [make],
+      where: { make: { eq: make }, rack: { eq: tsk.rack } },
     });
     return devices.some(({ configured }) => configured);
   },

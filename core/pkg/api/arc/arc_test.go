@@ -28,6 +28,7 @@ import (
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
@@ -77,8 +78,10 @@ var _ = Describe("Service", func() {
 				grantOn(ctx, author.OntologyID(), access.ActionRetrieve, a.OntologyID())
 				res := MustSucceed(
 					apiSvc.Retrieve(AuthedCtx(ctx, author), apiarc.RetrieveRequest{
-						Keys:    []arc.Key{a.Base().Key},
-						Compile: true,
+						Where: &arc.Where{
+							Key: &filter.Set[arc.Key]{In: []arc.Key{a.Base().Key}},
+						},
+						IncludeProgram: true,
 					}),
 				)
 				Expect(res.Arcs).To(HaveLen(1))
@@ -123,8 +126,12 @@ var _ = Describe("Service", func() {
 				)
 				res := MustSucceed(
 					apiSvc.Retrieve(AuthedCtx(ctx, author), apiarc.RetrieveRequest{
-						Keys:    []arc.Key{automation.Base().Key, module.Base().Key},
-						Compile: true,
+						Where: &arc.Where{
+							Key: &filter.Set[arc.Key]{
+								In: []arc.Key{automation.Base().Key, module.Base().Key},
+							},
+						},
+						IncludeProgram: true,
 					}),
 				)
 				Expect(res.Arcs).To(HaveLen(2))
@@ -153,8 +160,11 @@ var _ = Describe("Service", func() {
 				)
 				res := MustSucceed(
 					apiSvc.Retrieve(AuthedCtx(ctx, author), apiarc.RetrieveRequest{
-						Keys:                []arc.Key{a.Base().Key, uuid.New()},
-						IgnoreNotFoundError: true,
+						Where: &arc.Where{
+							Key: &filter.Set[arc.Key]{
+								In: []arc.Key{a.Base().Key, uuid.New()},
+							},
+						},
 					}),
 				)
 				Expect(res.Arcs).To(HaveLen(1))
@@ -167,11 +177,30 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				res := MustSucceed(
 					apiSvc.Retrieve(AuthedCtx(ctx, author), apiarc.RetrieveRequest{
-						Keys:                []arc.Key{uuid.New()},
-						IgnoreNotFoundError: true,
+						Where: &arc.Where{
+							Key: &filter.Set[arc.Key]{In: []arc.Key{uuid.New()}},
+						},
 					}),
 				)
 				Expect(res.Arcs).To(BeEmpty())
+			},
+		)
+
+		It(
+			"Should deny the retrieve before compiling the program",
+			func(ctx SpecContext) {
+				a := arc.Arc{Variant: arc.AutomationArc{Base: arc.Base{
+					Name: "uncompilable",
+					Source: arc.Source{Variant: arc.TextSource{
+						Text: text.Text{Doc: text.Create("a ->")},
+					}},
+				}}}
+				Expect(arcSvc.NewWriter(nil).Create(ctx, &a)).To(Succeed())
+				key := a.Base().Key
+				Expect(apiSvc.Retrieve(AuthedCtx(ctx, author), apiarc.RetrieveRequest{
+					Where:          &arc.Where{Key: &filter.Set[arc.Key]{Eq: &key}},
+					IncludeProgram: true,
+				})).Error().To(MatchError(access.ErrDenied))
 			},
 		)
 	})

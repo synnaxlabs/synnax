@@ -18,9 +18,10 @@
 package pb
 
 import (
-	pb1 "github.com/synnaxlabs/arc/graph/pb"
-	pb2 "github.com/synnaxlabs/arc/program/pb"
-	pb "github.com/synnaxlabs/arc/text/pb"
+	pb2 "github.com/synnaxlabs/arc/graph/pb"
+	pb3 "github.com/synnaxlabs/arc/program/pb"
+	pb1 "github.com/synnaxlabs/arc/text/pb"
+	pb "github.com/synnaxlabs/x/filter/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -194,17 +195,243 @@ func (x *Base) GetSource() *Source {
 	return nil
 }
 
+type WhereList struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Values        []*Where               `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WhereList) Reset() {
+	*x = WhereList{}
+	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WhereList) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WhereList) ProtoMessage() {}
+
+func (x *WhereList) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WhereList.ProtoReflect.Descriptor instead.
+func (*WhereList) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_arc_pb_arc_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *WhereList) GetValues() []*Where {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
+type UuidList struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Values        []string               `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UuidList) Reset() {
+	*x = UuidList{}
+	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UuidList) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UuidList) ProtoMessage() {}
+
+func (x *UuidList) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UuidList.ProtoReflect.Descriptor instead.
+func (*UuidList) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_arc_pb_arc_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *UuidList) GetValues() []string {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
+// UuidSet selects values that only compare for equality, such as keys, enum values, and
+// UUIDs. A value must match every operator that is set.
+type UuidSet struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// eq matches a value equal to eq.
+	Eq *string `protobuf:"bytes,1,opt,name=eq,proto3,oneof" json:"eq,omitempty"`
+	// in matches a value equal to an element of in.
+	In            *UuidList `protobuf:"bytes,2,opt,name=in,proto3" json:"in,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UuidSet) Reset() {
+	*x = UuidSet{}
+	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UuidSet) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UuidSet) ProtoMessage() {}
+
+func (x *UuidSet) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UuidSet.ProtoReflect.Descriptor instead.
+func (*UuidSet) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_arc_pb_arc_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *UuidSet) GetEq() string {
+	if x != nil && x.Eq != nil {
+		return *x.Eq
+	}
+	return ""
+}
+
+func (x *UuidSet) GetIn() *UuidList {
+	if x != nil {
+		return x.In
+	}
+	return nil
+}
+
+// Where is a filter that selects Arcs.
+type Where struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// and matches when every child matches.
+	And *WhereList `protobuf:"bytes,1,opt,name=and,proto3" json:"and,omitempty"`
+	// or matches when any child matches.
+	Or *WhereList `protobuf:"bytes,2,opt,name=or,proto3" json:"or,omitempty"`
+	// not matches when the child does not match.
+	Not *Where `protobuf:"bytes,3,opt,name=not,proto3,oneof" json:"not,omitempty"`
+	// key selects by key.
+	Key *UuidSet `protobuf:"bytes,4,opt,name=key,proto3,oneof" json:"key,omitempty"`
+	// name selects by name.
+	Name          *pb.String `protobuf:"bytes,5,opt,name=name,proto3,oneof" json:"name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Where) Reset() {
+	*x = Where{}
+	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Where) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Where) ProtoMessage() {}
+
+func (x *Where) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Where.ProtoReflect.Descriptor instead.
+func (*Where) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_arc_pb_arc_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *Where) GetAnd() *WhereList {
+	if x != nil {
+		return x.And
+	}
+	return nil
+}
+
+func (x *Where) GetOr() *WhereList {
+	if x != nil {
+		return x.Or
+	}
+	return nil
+}
+
+func (x *Where) GetNot() *Where {
+	if x != nil {
+		return x.Not
+	}
+	return nil
+}
+
+func (x *Where) GetKey() *UuidSet {
+	if x != nil {
+		return x.Key
+	}
+	return nil
+}
+
+func (x *Where) GetName() *pb.String {
+	if x != nil {
+		return x.Name
+	}
+	return nil
+}
+
 type SourceTextPayload struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// text is the text-based Arc source code.
-	Text          *pb.Text `protobuf:"bytes,1,opt,name=text,proto3" json:"text,omitempty"`
+	Text          *pb1.Text `protobuf:"bytes,1,opt,name=text,proto3" json:"text,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SourceTextPayload) Reset() {
 	*x = SourceTextPayload{}
-	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[1]
+	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -216,7 +443,7 @@ func (x *SourceTextPayload) String() string {
 func (*SourceTextPayload) ProtoMessage() {}
 
 func (x *SourceTextPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[1]
+	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -229,10 +456,10 @@ func (x *SourceTextPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SourceTextPayload.ProtoReflect.Descriptor instead.
 func (*SourceTextPayload) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_arc_pb_arc_proto_rawDescGZIP(), []int{1}
+	return file_core_pkg_service_arc_pb_arc_proto_rawDescGZIP(), []int{5}
 }
 
-func (x *SourceTextPayload) GetText() *pb.Text {
+func (x *SourceTextPayload) GetText() *pb1.Text {
 	if x != nil {
 		return x.Text
 	}
@@ -242,14 +469,14 @@ func (x *SourceTextPayload) GetText() *pb.Text {
 type SourceGraphPayload struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// graph is the visual dataflow graph representation of the module.
-	Graph         *pb1.Graph `protobuf:"bytes,1,opt,name=graph,proto3" json:"graph,omitempty"`
+	Graph         *pb2.Graph `protobuf:"bytes,1,opt,name=graph,proto3" json:"graph,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SourceGraphPayload) Reset() {
 	*x = SourceGraphPayload{}
-	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[2]
+	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -261,7 +488,7 @@ func (x *SourceGraphPayload) String() string {
 func (*SourceGraphPayload) ProtoMessage() {}
 
 func (x *SourceGraphPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[2]
+	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -274,10 +501,10 @@ func (x *SourceGraphPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SourceGraphPayload.ProtoReflect.Descriptor instead.
 func (*SourceGraphPayload) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_arc_pb_arc_proto_rawDescGZIP(), []int{2}
+	return file_core_pkg_service_arc_pb_arc_proto_rawDescGZIP(), []int{6}
 }
 
-func (x *SourceGraphPayload) GetGraph() *pb1.Graph {
+func (x *SourceGraphPayload) GetGraph() *pb2.Graph {
 	if x != nil {
 		return x.Graph
 	}
@@ -287,14 +514,14 @@ func (x *SourceGraphPayload) GetGraph() *pb1.Graph {
 type ArcAutomationPayload struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// program is the compiled module output including IR and WebAssembly bytecode.
-	Program       *pb2.Program `protobuf:"bytes,1,opt,name=program,proto3,oneof" json:"program,omitempty"`
+	Program       *pb3.Program `protobuf:"bytes,1,opt,name=program,proto3,oneof" json:"program,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ArcAutomationPayload) Reset() {
 	*x = ArcAutomationPayload{}
-	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[3]
+	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -306,7 +533,7 @@ func (x *ArcAutomationPayload) String() string {
 func (*ArcAutomationPayload) ProtoMessage() {}
 
 func (x *ArcAutomationPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[3]
+	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -319,10 +546,10 @@ func (x *ArcAutomationPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ArcAutomationPayload.ProtoReflect.Descriptor instead.
 func (*ArcAutomationPayload) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_arc_pb_arc_proto_rawDescGZIP(), []int{3}
+	return file_core_pkg_service_arc_pb_arc_proto_rawDescGZIP(), []int{7}
 }
 
-func (x *ArcAutomationPayload) GetProgram() *pb2.Program {
+func (x *ArcAutomationPayload) GetProgram() *pb3.Program {
 	if x != nil {
 		return x.Program
 	}
@@ -337,7 +564,7 @@ type ArcModulePayload struct {
 
 func (x *ArcModulePayload) Reset() {
 	*x = ArcModulePayload{}
-	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[4]
+	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -349,7 +576,7 @@ func (x *ArcModulePayload) String() string {
 func (*ArcModulePayload) ProtoMessage() {}
 
 func (x *ArcModulePayload) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[4]
+	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -362,7 +589,7 @@ func (x *ArcModulePayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ArcModulePayload.ProtoReflect.Descriptor instead.
 func (*ArcModulePayload) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_arc_pb_arc_proto_rawDescGZIP(), []int{4}
+	return file_core_pkg_service_arc_pb_arc_proto_rawDescGZIP(), []int{8}
 }
 
 // Source is the source code of an Arc. The mode selects text or a graph.
@@ -379,7 +606,7 @@ type Source struct {
 
 func (x *Source) Reset() {
 	*x = Source{}
-	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[5]
+	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -391,7 +618,7 @@ func (x *Source) String() string {
 func (*Source) ProtoMessage() {}
 
 func (x *Source) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[5]
+	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -404,7 +631,7 @@ func (x *Source) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Source.ProtoReflect.Descriptor instead.
 func (*Source) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_arc_pb_arc_proto_rawDescGZIP(), []int{5}
+	return file_core_pkg_service_arc_pb_arc_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *Source) GetVariant() isSource_Variant {
@@ -464,7 +691,7 @@ type Arc struct {
 
 func (x *Arc) Reset() {
 	*x = Arc{}
-	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[6]
+	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -476,7 +703,7 @@ func (x *Arc) String() string {
 func (*Arc) ProtoMessage() {}
 
 func (x *Arc) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[6]
+	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -489,7 +716,7 @@ func (x *Arc) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Arc.ProtoReflect.Descriptor instead.
 func (*Arc) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_arc_pb_arc_proto_rawDescGZIP(), []int{6}
+	return file_core_pkg_service_arc_pb_arc_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *Arc) GetBase() *Base {
@@ -544,11 +771,28 @@ var File_core_pkg_service_arc_pb_arc_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_arc_pb_arc_proto_rawDesc = "" +
 	"\n" +
-	"!core/pkg/service/arc/pb/arc.proto\x12\x0eservice.arc.pb\x1a\x1barc/go/graph/pb/graph.proto\x1a\x1farc/go/program/pb/program.proto\x1a\x19arc/go/text/pb/text.proto\"\\\n" +
+	"!core/pkg/service/arc/pb/arc.proto\x12\x0eservice.arc.pb\x1a\x1barc/go/graph/pb/graph.proto\x1a\x1farc/go/program/pb/program.proto\x1a\x19arc/go/text/pb/text.proto\x1a\x1bx/go/filter/pb/filter.proto\"\\\n" +
 	"\x04Base\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12.\n" +
 	"\x06source\x18\x03 \x01(\v2\x16.service.arc.pb.SourceR\x06source\":\n" +
+	"\tWhereList\x12-\n" +
+	"\x06values\x18\x01 \x03(\v2\x15.service.arc.pb.WhereR\x06values\"\"\n" +
+	"\bUuidList\x12\x16\n" +
+	"\x06values\x18\x01 \x03(\tR\x06values\"O\n" +
+	"\aUuidSet\x12\x13\n" +
+	"\x02eq\x18\x01 \x01(\tH\x00R\x02eq\x88\x01\x01\x12(\n" +
+	"\x02in\x18\x02 \x01(\v2\x18.service.arc.pb.UuidListR\x02inB\x05\n" +
+	"\x03_eq\"\x84\x02\n" +
+	"\x05Where\x12+\n" +
+	"\x03and\x18\x01 \x01(\v2\x19.service.arc.pb.WhereListR\x03and\x12)\n" +
+	"\x02or\x18\x02 \x01(\v2\x19.service.arc.pb.WhereListR\x02or\x12,\n" +
+	"\x03not\x18\x03 \x01(\v2\x15.service.arc.pb.WhereH\x00R\x03not\x88\x01\x01\x12.\n" +
+	"\x03key\x18\x04 \x01(\v2\x17.service.arc.pb.UuidSetH\x01R\x03key\x88\x01\x01\x12,\n" +
+	"\x04name\x18\x05 \x01(\v2\x13.x.filter.pb.StringH\x02R\x04name\x88\x01\x01B\x06\n" +
+	"\x04_notB\x06\n" +
+	"\x04_keyB\a\n" +
+	"\x05_name\":\n" +
 	"\x11SourceTextPayload\x12%\n" +
 	"\x04text\x18\x01 \x01(\v2\x11.arc.text.pb.TextR\x04text\"?\n" +
 	"\x12SourceGraphPayload\x12)\n" +
@@ -591,36 +835,48 @@ func file_core_pkg_service_arc_pb_arc_proto_rawDescGZIP() []byte {
 }
 
 var file_core_pkg_service_arc_pb_arc_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_core_pkg_service_arc_pb_arc_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_core_pkg_service_arc_pb_arc_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_core_pkg_service_arc_pb_arc_proto_goTypes = []any{
 	(Mode)(0),                    // 0: service.arc.pb.Mode
 	(Type)(0),                    // 1: service.arc.pb.Type
 	(*Base)(nil),                 // 2: service.arc.pb.Base
-	(*SourceTextPayload)(nil),    // 3: service.arc.pb.SourceTextPayload
-	(*SourceGraphPayload)(nil),   // 4: service.arc.pb.SourceGraphPayload
-	(*ArcAutomationPayload)(nil), // 5: service.arc.pb.ArcAutomationPayload
-	(*ArcModulePayload)(nil),     // 6: service.arc.pb.ArcModulePayload
-	(*Source)(nil),               // 7: service.arc.pb.Source
-	(*Arc)(nil),                  // 8: service.arc.pb.Arc
-	(*pb.Text)(nil),              // 9: arc.text.pb.Text
-	(*pb1.Graph)(nil),            // 10: arc.graph.pb.Graph
-	(*pb2.Program)(nil),          // 11: arc.program.pb.Program
+	(*WhereList)(nil),            // 3: service.arc.pb.WhereList
+	(*UuidList)(nil),             // 4: service.arc.pb.UuidList
+	(*UuidSet)(nil),              // 5: service.arc.pb.UuidSet
+	(*Where)(nil),                // 6: service.arc.pb.Where
+	(*SourceTextPayload)(nil),    // 7: service.arc.pb.SourceTextPayload
+	(*SourceGraphPayload)(nil),   // 8: service.arc.pb.SourceGraphPayload
+	(*ArcAutomationPayload)(nil), // 9: service.arc.pb.ArcAutomationPayload
+	(*ArcModulePayload)(nil),     // 10: service.arc.pb.ArcModulePayload
+	(*Source)(nil),               // 11: service.arc.pb.Source
+	(*Arc)(nil),                  // 12: service.arc.pb.Arc
+	(*pb.String)(nil),            // 13: x.filter.pb.String
+	(*pb1.Text)(nil),             // 14: arc.text.pb.Text
+	(*pb2.Graph)(nil),            // 15: arc.graph.pb.Graph
+	(*pb3.Program)(nil),          // 16: arc.program.pb.Program
 }
 var file_core_pkg_service_arc_pb_arc_proto_depIdxs = []int32{
-	7,  // 0: service.arc.pb.Base.source:type_name -> service.arc.pb.Source
-	9,  // 1: service.arc.pb.SourceTextPayload.text:type_name -> arc.text.pb.Text
-	10, // 2: service.arc.pb.SourceGraphPayload.graph:type_name -> arc.graph.pb.Graph
-	11, // 3: service.arc.pb.ArcAutomationPayload.program:type_name -> arc.program.pb.Program
-	3,  // 4: service.arc.pb.Source.text:type_name -> service.arc.pb.SourceTextPayload
-	4,  // 5: service.arc.pb.Source.graph:type_name -> service.arc.pb.SourceGraphPayload
-	2,  // 6: service.arc.pb.Arc.base:type_name -> service.arc.pb.Base
-	5,  // 7: service.arc.pb.Arc.automation:type_name -> service.arc.pb.ArcAutomationPayload
-	6,  // 8: service.arc.pb.Arc.module:type_name -> service.arc.pb.ArcModulePayload
-	9,  // [9:9] is the sub-list for method output_type
-	9,  // [9:9] is the sub-list for method input_type
-	9,  // [9:9] is the sub-list for extension type_name
-	9,  // [9:9] is the sub-list for extension extendee
-	0,  // [0:9] is the sub-list for field type_name
+	11, // 0: service.arc.pb.Base.source:type_name -> service.arc.pb.Source
+	6,  // 1: service.arc.pb.WhereList.values:type_name -> service.arc.pb.Where
+	4,  // 2: service.arc.pb.UuidSet.in:type_name -> service.arc.pb.UuidList
+	3,  // 3: service.arc.pb.Where.and:type_name -> service.arc.pb.WhereList
+	3,  // 4: service.arc.pb.Where.or:type_name -> service.arc.pb.WhereList
+	6,  // 5: service.arc.pb.Where.not:type_name -> service.arc.pb.Where
+	5,  // 6: service.arc.pb.Where.key:type_name -> service.arc.pb.UuidSet
+	13, // 7: service.arc.pb.Where.name:type_name -> x.filter.pb.String
+	14, // 8: service.arc.pb.SourceTextPayload.text:type_name -> arc.text.pb.Text
+	15, // 9: service.arc.pb.SourceGraphPayload.graph:type_name -> arc.graph.pb.Graph
+	16, // 10: service.arc.pb.ArcAutomationPayload.program:type_name -> arc.program.pb.Program
+	7,  // 11: service.arc.pb.Source.text:type_name -> service.arc.pb.SourceTextPayload
+	8,  // 12: service.arc.pb.Source.graph:type_name -> service.arc.pb.SourceGraphPayload
+	2,  // 13: service.arc.pb.Arc.base:type_name -> service.arc.pb.Base
+	9,  // 14: service.arc.pb.Arc.automation:type_name -> service.arc.pb.ArcAutomationPayload
+	10, // 15: service.arc.pb.Arc.module:type_name -> service.arc.pb.ArcModulePayload
+	16, // [16:16] is the sub-list for method output_type
+	16, // [16:16] is the sub-list for method input_type
+	16, // [16:16] is the sub-list for extension type_name
+	16, // [16:16] is the sub-list for extension extendee
+	0,  // [0:16] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_arc_pb_arc_proto_init() }
@@ -629,11 +885,13 @@ func file_core_pkg_service_arc_pb_arc_proto_init() {
 		return
 	}
 	file_core_pkg_service_arc_pb_arc_proto_msgTypes[3].OneofWrappers = []any{}
-	file_core_pkg_service_arc_pb_arc_proto_msgTypes[5].OneofWrappers = []any{
+	file_core_pkg_service_arc_pb_arc_proto_msgTypes[4].OneofWrappers = []any{}
+	file_core_pkg_service_arc_pb_arc_proto_msgTypes[7].OneofWrappers = []any{}
+	file_core_pkg_service_arc_pb_arc_proto_msgTypes[9].OneofWrappers = []any{
 		(*Source_Text)(nil),
 		(*Source_Graph)(nil),
 	}
-	file_core_pkg_service_arc_pb_arc_proto_msgTypes[6].OneofWrappers = []any{
+	file_core_pkg_service_arc_pb_arc_proto_msgTypes[10].OneofWrappers = []any{
 		(*Arc_Automation)(nil),
 		(*Arc_Module)(nil),
 	}
@@ -643,7 +901,7 @@ func file_core_pkg_service_arc_pb_arc_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_service_arc_pb_arc_proto_rawDesc), len(file_core_pkg_service_arc_pb_arc_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   7,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

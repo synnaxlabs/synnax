@@ -12,6 +12,7 @@ import "schemas/arc/ir"
 import "schemas/arc/program"
 import "schemas/arc/text"
 import "schemas/x/crdt"
+import "schemas/x/filter"
 import "schemas/x/patch"
 import "schemas/x/spatial"
 
@@ -84,6 +85,7 @@ Arc union on type Type extends Base {
                 is the compiled module output including IR and WebAssembly bytecode.
             """
             @go marshal omit
+            @include
         }
 
         @doc value "is an Arc that runs on a rack as a task."
@@ -246,4 +248,12 @@ Type enum {
         specifies whether an Arc runs on a rack as an automation or holds code for other
         Arcs to import as a module.
     """
+}
+
+Where filter Arc {
+    key
+    name
+
+    @doc value         "is a filter that selects Arcs."
+    @go request_output "core/pkg/api/arc"
 }

@@ -48,7 +48,7 @@ export const NoneSelected = ({
   const isPreview = Task.useIsPreview(ctx);
   const canConnect = Access.useCreateGranted(device.TYPE_ONTOLOGY_ID);
   const handleChange = useHandleChange(onConfigure);
-  const devices = Device.useMultiple({ makes: [make], limit: 1 });
+  const devices = Device.useMultiple({ where: { make: { eq: make } }, limit: 1 });
   if (devices.length > 0)
     return (
       <Empty.Action
