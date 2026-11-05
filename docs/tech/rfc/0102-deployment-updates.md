@@ -166,10 +166,10 @@ outside `License.Guard`: on an unlicensed Core, the user opens the matching web 
 to activate the license. When the Core reports a matching version, the screen lifts by
 itself. The actions are "Update Console" (the §3.3 update, up or down), "Open in
 browser" (the Console that the Core serves, which always matches), and the Core list. A
-web Console reloads the page instead, because its Core serves the Console that matches
-it. The mismatch warning, its notification actions
-(`console/src/feature/core/notifications.tsx:22-47`), and the "Version mismatch" badge
-are deleted.
+web page that the selected Core served reloads instead, because that Core serves the
+Console that matches it. A page from any other origin shows the screen. The mismatch
+warning, its notification actions (`console/src/feature/core/notifications.tsx:22-47`),
+and the "Version mismatch" badge are deleted.
 
 ### 3.5 Drivers
 
