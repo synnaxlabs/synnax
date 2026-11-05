@@ -9,8 +9,8 @@
 
 ## 0 Summary
 
-A user who connects Kafka or MQTT sees the data before mapping it. The Core serves four
-routes for each integration: test, browse, sample, and preview. Sample infers each
+A user who connects Kafka or MQTT sees the data before mapping it. The scan task of each
+integration takes four commands: test, browse, sample, and preview. Sample infers each
 field's type and finds the timestamp. Preview runs a draft config through the task's own
 parsing code. One "Add data" dialog in the Console serves both integrations. A rule
 entry maps a topic that carries many channels without one pick per channel. A bad record
@@ -64,36 +64,41 @@ Each item was reproduced on a dev Core with simulated Kafka and MQTT brokers.
 3. **Channels come only from config**: A task makes channels from its fields and its
    rule entries, never from traffic that no entry matches. This amends RFC 0064 §3,
    principle 2.
-4. **A route answers, a command commands**: Kafka and MQTT run in the Core, so a request
-   that returns data is a route, not a scan task command that answers through a status.
-5. **Credentials never leave in a response**: No route returns a password, and no status
-   carries one.
+4. **Discovery is a scan task command**: Every integration discovers through its scan
+   task, as OPC UA does with `browse` and `test_connection`
+   (`driver/opcua/scan_task.h:67-79`). One command path serves the Driver and the Core.
+5. **Credentials never leave in an answer**: No command answer and no status carries a
+   password.
 
 ## 4 Design
 
-### 4.0 Routes
+### 4.0 Commands
 
-Each integration gets an API service in `core/pkg/api/<integration>`, in the shape of
-the NI device routes (#4152): a `ServiceConfig` with its dependencies, RBAC enforcement
-on the device, and request and response structs. The routes call the integration service
-in `core/pkg/service/<integration>`. They read today's device record, so they do not
-wait for typed devices (RFC 0081).
+The Kafka and MQTT scan tasks take the commands below through `driver.Scanner.Exec`
+(`core/pkg/service/driver/scan_task.go:36`). The Console writes a command to the scan
+task, and the Core answers in the task status, with the data in `details.data`. A
+command runs on the Core that hosts the device's rack. The commands read today's device
+record, so they do not wait for typed devices (RFC 0081).
 
-| Route            | Request                        | Response                                                                  |
-| ---------------- | ------------------------------ | ------------------------------------------------------------------------- |
-| `/kafka/test`    | Cluster properties             | One result per step: dial, TLS, SASL, metadata, each advertised broker    |
-| `/kafka/browse`  | Device key                     | Topics with partitions, about how many records, newest time, rate, format |
-| `/kafka/sample`  | Device key, topics, count      | Records with key, time, headers, and payload; inferred shapes             |
-| `/kafka/preview` | Device key, `ReadConfig` draft | Samples per channel and problems per record                               |
-| `/mqtt/test`     | Broker properties              | One result per step: dial, TLS, authentication                            |
-| `/mqtt/browse`   | Device key, filter, duration   | Topics with message count, rate, last seen, last payload, format          |
-| `/mqtt/sample`   | Device key, topics, count      | Messages per topic; inferred shapes                                       |
-| `/mqtt/preview`  | Device key, `ReadConfig` draft | Samples per channel and problems per record                               |
+| Task         | Command           | Arguments                      | Answer                                                                    |
+| ------------ | ----------------- | ------------------------------ | ------------------------------------------------------------------------- |
+| `kafka_scan` | `test_connection` | Cluster properties             | One step per stage: dial, TLS, SASL, metadata, each advertised broker     |
+| `kafka_scan` | `browse`          | Device key                     | Topics with partitions, about how many records, newest time, rate, format |
+| `kafka_scan` | `sample`          | Device key, topics, count      | Records with key, time, headers, and payload; inferred shapes             |
+| `kafka_scan` | `preview`         | Device key, `ReadConfig` draft | Samples per channel and problems per record                               |
+| `mqtt_scan`  | `test_connection` | Broker properties              | One step per stage: dial, TLS, authentication                             |
+| `mqtt_scan`  | `browse`          | Device key, filter, duration   | Topics with message count, rate, last seen, last payload, format          |
+| `mqtt_scan`  | `sample`          | Device key, topics, count      | Messages per topic; inferred shapes                                       |
+| `mqtt_scan`  | `preview`         | Device key, `ReadConfig` draft | Samples per channel and problems per record                               |
 
-Browse, sample, and preview require `retrieve` on the device. Test requires `create` or
-`update` on it. A failed test step carries what failed and what to do, split per the
-status text rule: "Authentication failed" as the message, and the cause and fix as the
-description.
+A failed test step carries what failed and what to do, split per the status text rule:
+"Authentication failed" as the message, and the cause and fix as the description. The
+status of a failed test takes the message and the description of its failed step.
+
+The Core stores each answer in the task status, so an answer keeps at most 1 MiB of
+JSON. Sample and preview take one record from each topic in turn, leave out a record
+that does not fit, and set `truncated`. Inference reads every record, not only the kept
+ones.
 
 Kafka samples with `kgo.ConsumePartitions` at explicit offsets: no consumer group and no
 commits. It reads a few windows spread back in time, so that rare values show. MQTT
@@ -106,13 +111,11 @@ Browse labels each topic's format from its newest payloads: JSON, Schema Registr
 5-byte header that starts with a zero byte), or binary. A topic that is not JSON shows
 its raw bytes and cannot be mapped.
 
-The Kafka scan task moves onto `driver.Scanner`
-(`core/pkg/service/driver/scan_task.go:36`) in Phase 1, and keeps `test_connection`
-while the connect form still sends it. When the forms move onto the routes, Phase 4
-deletes that command and the MQTT `test_connection` and `browse` commands
-(`core/pkg/service/mqtt/scan_task.go:30,38`), so both scan tasks keep only health
-checks. The TS client gains route methods under `client.kafka` and `client.mqtt`, in the
-shape of `client/ts/src/arc/client.ts`.
+The Kafka scan task moves onto `driver.Scanner` in Phase 1. Phase 3 extends the MQTT
+`test_connection` and `browse` commands (`core/pkg/service/mqtt/scan_task.go:30,38`) in
+place. The MQTT browse answer keeps its `fields` until Phase 4 moves the dialog off
+them. The TS client exports a Zod schema for the arguments and the answer of each
+command.
 
 ### 4.1 Inference
 
@@ -131,8 +134,8 @@ shape of `client/ts/src/arc/client.ts`.
 - **Narrow layout**: When many keys or topics each carry one value and one time,
   inference proposes a rule entry (§4.3) in place of one entry per key.
 
-The routes return neutral shapes, never task config types. For each record key (Kafka)
-or topic (MQTT), a shape holds the fields with pointer, data type, and time format, the
+The answers hold neutral shapes, never task config types. For each record key (Kafka) or
+topic (MQTT), a shape holds the fields with pointer, data type, and time format, the
 timestamp field, and the shape group. Kafka and MQTT tasks describe a payload only
 through an ICD message (SY-4971), so the dialog writes the picked fields as messages in
 the task's own ICD and binds the channels in the same step. `createReadFields.ts` is
@@ -142,8 +145,8 @@ deleted.
 
 After the ICD cutover, both read tasks parse a payload with the ICD JSON decoder. The
 preview builds that decoder from the draft messages and runs it over a fresh sample. The
-response holds the samples per channel and each problem with its record: "`tank-1`
-records have no `/pressure_psi`". Problems use the run-time warning text (§4.5).
+answer holds the samples per channel and each problem with its record: "`tank-1` records
+have no `/pressure_psi`". Problems use the run-time warning text (§4.5).
 
 Kafka and MQTT first share one JSON path. Kafka's allocation-free extractor, converter,
 and write template move into `x/go/json` as `Extractor`, `Decoder`, `Encoder`, and
@@ -187,8 +190,8 @@ shape and the timestamp set as the index, or take the proposed rule, check the p
 then add to the task. MQTT browse gains count, rate, and last seen per topic, and a
 "keep listening" mode in place of the fixed 3 s window.
 
-The Kafka connect form calls `/kafka/test` and shows the failed step in one status. It
-follows `docs/claude/ux.md`: field rows and a checkbox for TLS.
+The Kafka connect form sends `test_connection` and shows the failed step in one status.
+It follows `docs/claude/ux.md`: field rows and a checkbox for TLS.
 
 ### 4.5 Bad records
 
@@ -231,15 +234,15 @@ Each phase is one PR into `main`. The Console work stays behind `FLAGS.kafka` an
 both read configs without a migration. Phases 5 to 7 come after the ICD cutover PR
 (SY-4971), which moves Kafka and MQTT reads and writes onto ICD messages.
 
-| Phase | Scope                                               | Touches                                                                                                                                                                                                                                     | Depends on |
-| ----- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| 1     | Move Kafka onto `x/go/json` and `driver.Scanner`    | `x/go/json`, `core/pkg/service/kafka`, `core/pkg/service/mqtt`                                                                                                                                                                              | -          |
-| 2     | Warn on bad records with counts                     | `core/pkg/service/driver`, `core/pkg/service/kafka`, `core/pkg/service/mqtt`                                                                                                                                                                | 1          |
-| 3     | Add test, browse, and sample routes with inference  | `x/go/json`, `core/pkg/api/kafka`, `core/pkg/api/mqtt`, `core/pkg/service/kafka`, `core/pkg/service/mqtt`, `core/pkg/transport`, `client/ts/src/kafka`, `client/ts/src/mqtt`                                                                | 1          |
-| 4     | Move the connect forms and Add data onto the routes | `core/pkg/service/kafka`, `core/pkg/service/mqtt`, `console/src/feature/kafka/device`, `console/src/feature/mqtt`, `console/src/platform/task`                                                                                              | 3          |
-| 5     | Add the Kafka Add data dialog with inferred fields  | `console/src/feature/kafka/task`, `console/src/feature/mqtt/task`, `console/src/platform/task`                                                                                                                                              | 4          |
-| 6     | Preview drafts through the task's own parsing       | `core/pkg/api/kafka`, `core/pkg/api/mqtt`, `core/pkg/service/kafka`, `core/pkg/service/mqtt`, `client/ts/src/kafka`, `client/ts/src/mqtt`, `console/src/platform/task`                                                                      | 2, 5       |
-| 7     | Add rule entries for Kafka and MQTT                 | `schemas/synnax/kafka.oracle`, `schemas/synnax/mqtt.oracle`, `core/pkg/service/kafka`, `core/pkg/service/mqtt`, `client/ts/src/kafka`, `client/ts/src/mqtt`, `client/py/synnax/kafka`, `client/py/synnax/mqtt`, `console/src/platform/task` | 6          |
+| Phase | Scope                                                 | Touches                                                                                                                                                                                                                                     | Depends on |
+| ----- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| 1     | Move Kafka onto `x/go/json` and `driver.Scanner`      | `x/go/json`, `core/pkg/service/kafka`, `core/pkg/service/mqtt`                                                                                                                                                                              | -          |
+| 2     | Warn on bad records with counts                       | `core/pkg/service/driver`, `core/pkg/service/kafka`, `core/pkg/service/mqtt`                                                                                                                                                                | 1          |
+| 3     | Add test, browse, and sample commands with inference  | `x/go/json`, `x/ts/src/json`, `core/pkg/service/driver`, `core/pkg/service/kafka`, `core/pkg/service/mqtt`, `client/ts/src/driver`, `client/ts/src/kafka`, `client/ts/src/mqtt`, `console/src/feature/mqtt/task`                            | 1          |
+| 4     | Move the connect forms and Add data onto the commands | `core/pkg/service/mqtt`, `console/src/feature/kafka/device`, `console/src/feature/mqtt`, `console/src/platform/task`                                                                                                                        | 3          |
+| 5     | Add the Kafka Add data dialog with inferred fields    | `console/src/feature/kafka/task`, `console/src/feature/mqtt/task`, `console/src/platform/task`                                                                                                                                              | 4          |
+| 6     | Preview drafts through the task's own parsing         | `core/pkg/service/kafka`, `core/pkg/service/mqtt`, `client/ts/src/kafka`, `client/ts/src/mqtt`, `console/src/platform/task`                                                                                                                 | 2, 5       |
+| 7     | Add rule entries for Kafka and MQTT                   | `schemas/synnax/kafka.oracle`, `schemas/synnax/mqtt.oracle`, `core/pkg/service/kafka`, `core/pkg/service/mqtt`, `client/ts/src/kafka`, `client/ts/src/mqtt`, `client/py/synnax/kafka`, `client/py/synnax/mqtt`, `console/src/platform/task` | 6          |
 
 ## 7 What this RFC does not cover
 
@@ -259,10 +262,12 @@ both read configs without a migration. Phases 5 to 7 come after the ICD cutover 
 2. **Browse inside the task**: A modal in the task form, as MQTT does and as OPC UA does
    with `console/src/feature/opcua/device/Browser.tsx`. A broker explorer from the
    device tree answers what is on the broker, not what this task should read.
-3. **Routes, not scan task commands**: A command answers through a stored status as
-   untyped JSON. That path exists because the Driver holds the connections of its
-   integrations, and Kafka and MQTT run in the Core. Commands now and routes later would
-   cost a rewrite.
+3. **Scan task commands, not routes**: OPC UA and the existing Kafka and MQTT commands
+   already discover through the scan task, and a second path for two integrations breaks
+   the pattern. A command also runs on the Core that hosts the rack, where a route runs
+   on the Core the client reaches. The trade is real: the Core stores each answer in the
+   task status as untyped JSON, so an answer keeps at most 1 MiB, a large sample shows
+   `truncated`, and the client checks each answer with Zod.
 4. **Inference and preview in the Core**: One copy serves every client, and the preview
    runs the task's own code. The trade is real: each change in the dialog is a request,
    which took milliseconds on a local broker, and a change to inference ships with a
@@ -277,9 +282,6 @@ both read configs without a migration. Phases 5 to 7 come after the ICD cutover 
 
 ## 9 Open questions
 
-- **Routes in a multi-node cluster**: A route runs on the Core the client reaches, and a
-  task runs on the Core that hosts its rack. Whether a route forwards to the rack's
-  Core, for a cluster whose Cores see different networks.
 - **Rule channel names**: How a key with characters that a channel name does not allow
   becomes a name.
 - **Sample size**: The record count and the number of windows that Kafka samples.
