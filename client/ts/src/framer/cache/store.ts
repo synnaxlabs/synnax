@@ -118,7 +118,7 @@ export class Store {
   private readonly newest = new Map<channel.Key, number>();
   // epochs counts the changes to the series of each channel's raw blocks.
   private readonly epochs = new Map<channel.Key, number>();
-  // streamed holds the newest series the stream carried for each channel.
+  // streamed holds the newest streamed series of each channel with no stored samples.
   private readonly streamed = new Map<channel.Key, Series>();
   private bytes = 0;
   private readonly calculated = new Set<channel.Key>();

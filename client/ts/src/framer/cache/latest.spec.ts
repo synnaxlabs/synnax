@@ -448,6 +448,7 @@ describe("Latest", () => {
           await expect.poll(() => second.value().series.length, POLL).toBe(1);
           expect(second.value().series.at(0)).toEqual(11);
           expect(second.value().time).toEqual(stamp.add(TimeSpan.NANOSECOND));
+          expect(second.timeAt(11n)).toEqual(stamp);
         } finally {
           second.close();
         }

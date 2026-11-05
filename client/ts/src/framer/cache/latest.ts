@@ -125,6 +125,9 @@ export class Latest {
   // stamps records each write until the channel turns out to have an index, since
   // streamed series can arrive before it is found.
   private stamps: Stamps | null;
+  // seedable is true for a channel the Core stores nothing of, whose newest streamed
+  // series the store keeps for the requests that open later.
+  private seedable = false;
   // dedupe is how fresh finds repeated samples: by Core alignment for a stored channel,
   // and by time for one a calculation writes, whose alignments depend on how its inputs
   // split into series. A channel that only streams repeats no sample.
@@ -156,7 +159,8 @@ export class Latest {
       const series = frame.get(key);
       if (series == null) return;
       const last = series.at(-1);
-      if (last != null && last.length > 0) props.store.recordStreamed(key, last);
+      if (this.seedable && last != null && last.length > 0)
+        props.store.recordStreamed(key, last);
       this.push(series, true);
       this.notify();
     });
@@ -450,8 +454,10 @@ export class Latest {
         if (payload == null) throw new NotFoundError(`channel ${this.key} not found`);
         if (this.running === run) this.findTimeSource(payload);
         let read: Series[] = [];
+        let seed: Series | null = null;
         if (!payload.virtual) this.dedupe = "alignment";
         else this.dedupe = calculated(payload) ? "time" : null;
+        this.seedable = this.dedupe == null;
         if (this.dedupe != null) {
           await streamer.waitAcked([this.key], signal);
           if (this.running !== run) return;
@@ -466,11 +472,12 @@ export class Latest {
             );
           read = (await readLatest(this.key, this.count, tr)).series;
         } else if (this.total === 0) {
-          const newest = this.props.store.newestStreamed(this.key);
-          if (newest != null) read = [newest];
+          seed = this.props.store.newestStreamed(this.key);
+          if (seed != null) read = [seed];
         }
         if (this.running !== run) return;
         this.land(read);
+        if (seed != null) this.stamps?.record(seed);
         this.failure = null;
         return this.notify();
       } catch (e) {

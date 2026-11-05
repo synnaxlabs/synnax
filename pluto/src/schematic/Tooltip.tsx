@@ -22,6 +22,7 @@ import { type ReactElement, type ReactNode, useEffect, useState } from "react";
 import { Channel } from "@/channel";
 import { CSS } from "@/css";
 import { type Node } from "@/schematic/node";
+import { Synnax } from "@/synnax";
 import { LatestSample } from "@/vis/latestSample";
 import { Staleness } from "@/vis/staleness";
 
@@ -110,7 +111,10 @@ const sinceString = (span: TimeSpan): string => {
 // Mounted only once the tooltip shows, so a mouse sweep creates no worker component.
 const LastSample = ({ channel }: LastSampleProps): ReactElement => {
   const time = LatestSample.use({ channel });
-  const since = sinceString(Telem.Text.useTimeSpanSince(time ?? 0));
+  // The stamp is on the Core's clock and the hook counts on the local one, so the stamp
+  // moves by the measured skew between them.
+  const skew = Synnax.use()?.connection.status.details.clockSkew ?? TimeSpan.ZERO;
+  const since = sinceString(Telem.Text.useTimeSpanSince(time?.add(skew) ?? 0));
   return (
     <Description.List level="small" justify="between" className={LIST_CLASS}>
       <Row
