@@ -986,6 +986,24 @@ describe("StreamMultiChannelLog", () => {
       expect(log.timeRange).toBeNull();
     });
 
+    it("should not repeat a read of the oldest time that the Core refused", async () => {
+      const core = deep();
+      const [a] = core.data.map((c) => c.key);
+      let reads = 0;
+      const client = connect(core, {
+        readFirst: async () => {
+          reads++;
+          throw new AccessDeniedError("no access");
+        },
+      });
+      const log = open(core, client, { channels: [a] });
+      await settle(log, PAGE);
+      await expect.poll(() => reads, POLL).toBe(1);
+      core.advance(TimeSpan.seconds(1));
+      await expect.poll(() => entriesOf(log).length, POLL).toBeGreaterThan(PAGE);
+      expect(reads).toBe(1);
+    });
+
     it("should have no time range for virtual channels", async () => {
       const core = createCore({ derived: true });
       const log = open(core, connect(core), { channels: [core.virtual!.key] });

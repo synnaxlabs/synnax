@@ -483,7 +483,8 @@ export class StreamMultiChannelLog
   }
 
   // Never rejects. A newer read replaces this one. A connectivity failure retries under
-  // the breaker, and any other failure leaves start unknown.
+  // the breaker. Any other failure leaves start unknown and startPending set, so only a
+  // change of channels reads again.
   private async readStart(client: telem.Client): Promise<void> {
     const read = ++this.startRead;
     const metas = [...this.metas.values()].filter(({ stored }) => stored);
@@ -499,7 +500,8 @@ export class StreamMultiChannelLog
         this.startPending = false;
         return this.notify();
       } catch (e) {
-        if (framer.retry.isDefinitive(e) || !(await this.startBreaker.wait())) {
+        if (framer.retry.isDefinitive(e)) return;
+        if (!(await this.startBreaker.wait())) {
           if (read === this.startRead) this.startPending = false;
           return;
         }
