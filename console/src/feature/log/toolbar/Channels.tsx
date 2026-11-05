@@ -20,7 +20,6 @@ import {
   color,
   DataType,
   type notation,
-  primitive,
   type TimestampFormat,
   type TimeZone,
 } from "@synnaxlabs/x";
@@ -210,11 +209,9 @@ export const Channels = (): ReactElement => {
       aria-label="Log channels"
       className={CSS.BE("log", "toolbar", "channels")}
     >
-      {channelKeys.map((ch, i) =>
-        primitive.isZero(ch) ? null : (
-          <ChannelRow key={ch} index={i} channel={ch} disabled={!hasUpdatePermission} />
-        ),
-      )}
+      {channelKeys.map((ch, i) => (
+        <ChannelRow key={ch} index={i} channel={ch} disabled={!hasUpdatePermission} />
+      ))}
       <AddChannelRow disabled={!hasUpdatePermission} />
     </Flex.Box>
   );
