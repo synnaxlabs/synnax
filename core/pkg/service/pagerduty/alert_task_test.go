@@ -13,9 +13,11 @@ import (
 	"context"
 	"strings"
 	"time"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	pd "github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
@@ -253,19 +255,21 @@ var _ = Describe("AlertTask", func() {
 	})
 
 	Describe("Routing key", func() {
-		It("Should send each event with the current value of the routing key",
+		It("Should keep the value it started with until the next start",
 			func(ctx context.Context) {
 				tsk := configureAndStart(ctx, validConfig(
 					pd.Alert{Status: "replaced-key"},
 				))
 				defer func() { Expect(tsk.Stop(true)).To(Succeed()) }()
+				replaceRoutingKey(ctx, routingKey, strings.Repeat("c", 32))
 
 				setStatus(ctx, "replaced-key", status.VariantError, "First", nil)
 				Eventually(func() int { return len(sender.getEvents()) }).
 					WithTimeout(2 * time.Second).
 					Should(Equal(1))
 
-				replaceRoutingKey(ctx, routingKey, strings.Repeat("c", 32))
+				Expect(tsk.Exec(ctx, task.Command{Type: "stop"})).To(Succeed())
+				Expect(tsk.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
 				setStatus(ctx, "replaced-key", status.VariantSuccess, "Second", nil)
 				Eventually(func() int { return len(sender.getEvents()) }).
 					WithTimeout(2 * time.Second).
@@ -277,7 +281,49 @@ var _ = Describe("AlertTask", func() {
 			},
 		)
 
-		It("Should set an error status when the routing key no longer resolves",
+		It("Should keep sending after the saved config picks another secret",
+			func(ctx context.Context) {
+				t := storeTask(ctx, "PagerDuty Test", validConfig(
+					pd.Alert{Status: "saved-key"},
+				))
+				tsk := MustSucceed(factory.ConfigureTask(ctx, t, "cmd-1"))
+				defer func() { Expect(tsk.Stop(true)).To(Succeed()) }()
+				Expect(tsk.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+				other := createRoutingKey(ctx, strings.Repeat("c", 32))
+				cfg := validConfig(pd.Alert{Status: "saved-key"})
+				cfg.RoutingKey = &other
+				MustSucceed(alertSvc.Alert.Write(
+					ctx,
+					nil,
+					t.Key,
+					t.Name,
+					encodeConfig(cfg),
+				))
+
+				setStatus(ctx, "saved-key", status.VariantError, "Trigger", nil)
+				Eventually(func() int { return len(sender.getEvents()) }).
+					WithTimeout(2 * time.Second).
+					Should(Equal(1))
+				Expect(sender.getEvents()[0].RoutingKey).
+					To(Equal(strings.Repeat("b", 32)))
+			},
+		)
+
+		It("Should refuse to start with a routing key that the rack does not use",
+			func(ctx context.Context) {
+				t := task.Task{
+					Key: uuid.New(), Rack: testRack, Name: "test",
+					Type:   pd.AlertTaskType,
+					Config: encodeConfig(validConfig(pd.Alert{Status: "s1"})),
+				}
+				tsk := MustSucceed(factory.ConfigureTask(ctx, t, "cmd-1"))
+				defer func() { Expect(tsk.Stop(true)).To(Succeed()) }()
+				Expect(tsk.Exec(ctx, task.Command{Type: "start"})).
+					To(MatchError(access.ErrDenied))
+			},
+		)
+
+		It("Should fail to start when the routing key is not 32 characters",
 			func(ctx context.Context) {
 				t := storeTask(
 					ctx,
@@ -286,10 +332,11 @@ var _ = Describe("AlertTask", func() {
 				)
 				tsk := MustSucceed(factory.ConfigureTask(ctx, t, "cmd-1"))
 				defer func() { Expect(tsk.Stop(true)).To(Succeed()) }()
-				Expect(tsk.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-
 				replaceRoutingKey(ctx, routingKey, "tooshort")
-				setStatus(ctx, "bad-key", status.VariantError, "Trigger send", nil)
+				Expect(tsk.Exec(ctx, task.Command{Type: "start"})).
+					To(MatchError(ContainSubstring(
+						"routing_key: must be exactly 32 characters",
+					)))
 				Eventually(func(g Gomega) {
 					var stat task.Status
 					g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
@@ -299,11 +346,10 @@ var _ = Describe("AlertTask", func() {
 						Entry(&stat).
 						Exec(ctx, nil)).To(Succeed())
 					g.Expect(stat.Variant).To(Equal(status.VariantError))
-					g.Expect(stat.Message).To(Equal("Failed to send PagerDuty event"))
+					g.Expect(stat.Message).To(Equal("Failed to start task"))
 					g.Expect(stat.Description).
 						To(ContainSubstring("must be exactly 32 characters"))
 				}).WithTimeout(2 * time.Second).Should(Succeed())
-				Expect(sender.getEvents()).To(BeEmpty())
 			},
 		)
 	})

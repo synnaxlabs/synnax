@@ -108,8 +108,24 @@ func newAlertTask(
 	return at, nil
 }
 
-func (t *alertTask) open(context.Context) (func(context.Context) error, error) {
-	disconnect := t.factoryCfg.Status.Observe().OnChange(t.handleStatusChange)
+// open reads the routing key once, so a run keeps the key it started with when the
+// saved config or the secret's value changes.
+func (t *alertTask) open(ctx context.Context) (func(context.Context) error, error) {
+	routingKey, err := resolveRoutingKey(
+		ctx,
+		t.factoryCfg.Secret,
+		t.task,
+		*t.cfg.RoutingKey,
+	)
+	if err != nil {
+		return nil, err
+	}
+	disconnect := t.factoryCfg.Status.Observe().OnChange(func(
+		ctx context.Context,
+		reader gorp.TxReader[status.Key, status.Status[any]],
+	) {
+		t.handleStatusChange(ctx, reader, routingKey)
+	})
 	return func(ctx context.Context) error {
 		<-ctx.Done()
 		disconnect()
@@ -120,6 +136,7 @@ func (t *alertTask) open(context.Context) (func(context.Context) error, error) {
 func (t *alertTask) handleStatusChange(
 	ctx context.Context,
 	reader gorp.TxReader[status.Key, status.Status[any]],
+	routingKey string,
 ) {
 	for ch := range reader {
 		if ch.Variant == change.VariantDelete {
@@ -133,10 +150,10 @@ func (t *alertTask) handleStatusChange(
 		switch s.Variant {
 		case status.VariantError, status.VariantWarning, status.VariantInfo:
 			event := t.buildTriggerEvent(s, alertCfg)
-			t.sendEvent(ctx, event)
+			t.sendEvent(ctx, event, routingKey)
 		case status.VariantSuccess:
 			event := t.buildResolveEvent(s.Key)
-			t.sendEvent(ctx, event)
+			t.sendEvent(ctx, event, routingKey)
 		default:
 			// loading, disabled — skip
 		}
@@ -193,24 +210,13 @@ func mapSeverity(variant status.Variant, errorsCritical bool) string {
 	}
 }
 
-// sendEvent sends event with the current value of the task's routing key. A failed
-// send sets an error status on the task that stays until the next start or stop.
-func (t *alertTask) sendEvent(ctx context.Context, event pagerduty.V2Event) {
-	routingKey, err := resolveRoutingKey(
-		ctx,
-		t.factoryCfg.Secret,
-		t.task,
-		*t.cfg.RoutingKey,
-	)
-	if err != nil {
-		t.factoryCfg.L.Error(
-			"failed to resolve PagerDuty routing key",
-			zap.Stringer("task", t.task),
-			zap.Error(err),
-		)
-		t.ReportError(ctx, "Failed to send PagerDuty event", err.Error())
-		return
-	}
+// sendEvent sends event with routingKey. A failed send sets an error status on the
+// task that stays until the next start or stop.
+func (t *alertTask) sendEvent(
+	ctx context.Context,
+	event pagerduty.V2Event,
+	routingKey string,
+) {
 	// The logs below carry event, which holds no routing key.
 	sent := event
 	sent.RoutingKey = routingKey
