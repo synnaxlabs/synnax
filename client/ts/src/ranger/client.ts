@@ -384,13 +384,6 @@ export class Client extends query.Retriever<
       },
     });
     cache.listen(dispatcher.listener(ACTION_CHANNEL_NAME, scopedActionZ));
-    // A label delete detaches the label from every range in the Core without an
-    // action, so the cache drops it the same way.
-    cache.listen({
-      channel: label.DELETE_CHANNEL_NAME,
-      schema: label.keyZ,
-      onChange: (deleted) => this.detachLabels(deleted),
-    });
     const single = cache.queries<Key | Name, Range, Key, Range>({
       name: "range",
       table: ranges,
@@ -529,7 +522,7 @@ export class Client extends query.Retriever<
 
   /** Deletes the ranges and every range nested in them. */
   async delete(key: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
-    const keys = this.withDescendants(array.toArray(key));
+    const keys = array.toArray(key);
     const drop = () => [
       this.cfg.ontology.cache.deleteRelationships(resourceID(keys)),
       this.store.delete(keys),
@@ -537,7 +530,7 @@ export class Client extends query.Retriever<
     await query.optimistic({
       rollbacks: drop(),
       onOptimistic: opts.onOptimistic,
-      commit: async () => await this.writer.delete(array.toArray(key)),
+      commit: async () => await this.writer.delete(keys),
     });
     drop();
   }
@@ -582,38 +575,6 @@ export class Client extends query.Retriever<
 
   private createKVClient(key: Key): KVClient {
     return new KVClient(key, this.cfg.unary, this.kvPairs);
-  }
-
-  /** Returns the keys with the keys of every cached range nested in them. */
-  private withDescendants(keys: Key[]): Key[] {
-    const all = new Set(keys);
-    let frontier = keys;
-    while (frontier.length > 0) {
-      const parents = new Set(frontier);
-      frontier = this.store
-        .get((r) => r.parent != null && parents.has(r.parent) && !all.has(r.key))
-        .map((r) => r.key);
-      frontier.forEach((k) => all.add(k));
-    }
-    return [...all];
-  }
-
-  private detachLabels(deleted: label.Key[]): void {
-    const gone = new Set(deleted);
-    const held = this.store.get((r) => r.labels.some((l) => gone.has(l)));
-    if (held.length === 0) return;
-    this.store.batch(() =>
-      held.forEach(({ key }) =>
-        this.store.set(key, (r) =>
-          r == null
-            ? undefined
-            : this.sugarOne({
-                ...r.payload,
-                labels: r.labels.filter((l) => !gone.has(l)),
-              }),
-        ),
-      ),
-    );
   }
 
   private async fetchSingle(query: Key | Name): Promise<Range> {

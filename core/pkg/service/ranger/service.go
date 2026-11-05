@@ -121,6 +121,15 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
+	// A label delete detaches the label from each range that holds it, which no range
+	// write does, so the service publishes the labels the range keeps.
+	disconnect := s.table.ObserveDetaches().OnChange(func(ctx context.Context, r Range) {
+		s.state.Dispatcher().Notify(ctx, r.Key, labelsAction(r.Labels))
+	})
+	s.closer = append(s.closer, xio.CloserFunc(func() error {
+		disconnect()
+		return nil
+	}))
 	if cfg.Signals == nil {
 		return s, nil
 	}

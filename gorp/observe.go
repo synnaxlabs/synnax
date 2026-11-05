@@ -55,6 +55,11 @@ func (t *Table[K, E]) Observe() observe.Observable[iter.Seq[change.Change[K, E]]
 	return t.db.newObservable[K, E](t.db)
 }
 
+// ObserveDetaches returns an observable that notifies each entry of the table, as
+// written, that a delete of one of its targets detached. Handlers run synchronously
+// after the delete's transaction commits.
+func (t *Table[K, E]) ObserveDetaches() observe.Observable[E] { return t.detaches }
+
 func wrapMatchedChanges[K Key, E Entry[K]](
 	ctx context.Context,
 	changes []kv.Change,

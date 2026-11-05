@@ -788,6 +788,53 @@ var _ = Describe("Reference", func() {
 				Expect(keys).To(BeEmpty())
 			},
 		)
+
+		Describe("ObserveDetaches", func() {
+			var detached []refDevice
+			BeforeEach(func(ctx SpecContext) {
+				detached = nil
+				DeferCleanup(devices.ObserveDetaches().OnChange(
+					func(_ context.Context, d refDevice) { detached = append(detached, d) },
+				))
+				createRack(ctx, 1)
+				createLabels(ctx, "l1", "l2")
+				Expect(createDevice(ctx, refDevice{
+					Key:    "d1",
+					Rack:   1,
+					Labels: []string{"l1", "l2"},
+				})).To(Succeed())
+				Expect(createDevice(ctx, refDevice{
+					Key:    "d2",
+					Rack:   1,
+					Labels: []string{"l2"},
+				})).To(Succeed())
+			})
+
+			It(
+				"Should notify each detached entry after the delete commits",
+				func(ctx SpecContext) {
+					tx := db.OpenTx()
+					Expect(labels.NewDelete().
+						Where(gorp.MatchKeys[string, refLabel]("l1")).
+						Exec(ctx, tx)).To(Succeed())
+					Expect(detached).To(BeEmpty())
+					Expect(tx.Commit(ctx)).To(Succeed())
+					Expect(tx.Close()).To(Succeed())
+					Expect(detached).To(HaveLen(1))
+					Expect(detached[0].Key).To(Equal("d1"))
+					Expect(detached[0].Labels).To(Equal([]string{"l2"}))
+				},
+			)
+
+			It("Should not notify a detach that does not commit", func(ctx SpecContext) {
+				tx := db.OpenTx()
+				Expect(labels.NewDelete().
+					Where(gorp.MatchKeys[string, refLabel]("l1")).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(tx.Close()).To(Succeed())
+				Expect(detached).To(BeEmpty())
+			})
+		})
 	})
 
 	Describe("Delete size", func() {

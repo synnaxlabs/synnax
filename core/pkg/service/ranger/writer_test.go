@@ -478,6 +478,35 @@ var _ = Describe("Writer broadcasts", func() {
 		Expect(frames[1].Actions[0].Set.Path).To(Equal([]string{"labels"}))
 	})
 
+	It(
+		"Should broadcast the labels a range keeps when a label delete detaches one",
+		func(ctx SpecContext) {
+			openTx()
+			deleted := label.Label{Key: uuid.New(), Name: "Deleted"}
+			kept := label.Label{Key: uuid.New(), Name: "Kept"}
+			Expect(labelSvc.NewWriter(tx).Create(ctx, &deleted)).To(Succeed())
+			Expect(labelSvc.NewWriter(tx).Create(ctx, &kept)).To(Succeed())
+			r := newRange()
+			r.Labels = []label.Key{deleted.Key, kept.Key}
+			Expect(w.Create(ctx, r)).To(Succeed())
+			commit(ctx, r.Key)
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(labelSvc.NewWriter(db).Delete(ctx, kept.Key)).To(Succeed())
+			})
+			rec := &Recorder[ranger.Key, ranger.Action]{}
+			DeferCleanup(svc.OnAction(rec.Record))
+			Expect(labelSvc.NewWriter(db).Delete(ctx, deleted.Key)).To(Succeed())
+			frames := framesOf(rec, r.Key)
+			Expect(frames).To(HaveLen(1))
+			Expect(frames[0].Actions).To(Equal([]ranger.Action{
+				ranger.NewSetAction(ranger.SetPayload{
+					Path:  []string{"labels"},
+					Value: []label.Key{kept.Key},
+				}),
+			}))
+		},
+	)
+
 	It("Should not broadcast a create that never commits", func(ctx SpecContext) {
 		rec := &Recorder[ranger.Key, ranger.Action]{}
 		DeferCleanup(svc.OnAction(rec.Record))

@@ -71,6 +71,8 @@ type Table[K Key, E Entry[K]] struct {
 	// populateShutdown cancels the populate context and waits for the populate routine
 	// to exit. Nil when the table has no indexes.
 	populateShutdown io.Closer
+	// detaches notifies each entry that a delete of a target detached.
+	detaches observe.Observer[E]
 }
 
 // Close disconnects the table's index observer, cancels any running populate goroutine,
@@ -112,6 +114,7 @@ func OpenTable[K Key, E Entry[K]](
 		indexes:    slices.Clone(cfg.Indexes),
 		name:       cfg.Name,
 		references: cfg.References,
+		detaches:   observe.New[E](),
 	}
 	if t.name == "" {
 		t.name = types.Name[E]()

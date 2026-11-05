@@ -771,6 +771,21 @@ describe("cached reads", () => {
       }
     });
 
+    it("delivers the delete of a nested range that a remote delete cascades to", async () => {
+      const parent = await createRange();
+      const child = await createRange(client, { parent: parent.key });
+      const off = client.ranges.onChange(child.key, vi.fn());
+      try {
+        await client.ranges.retrieve(child.key);
+        await remote.ranges.delete(parent.key);
+        await expect
+          .poll(() => query.Deleted.matches(client.ranges.getCached(child.key)))
+          .toBe(true);
+      } finally {
+        off();
+      }
+    });
+
     it("serves a record recreated while nothing subscribed to its delete", async () => {
       const rng = await createRange();
       const off = client.ranges.onChange(rng.key, () => {});
