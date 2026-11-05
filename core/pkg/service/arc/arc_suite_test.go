@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -42,7 +41,6 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
 	db         *gorp.DB
-	otg        *ontology.Ontology
 	svc        *arc.Service
 	writer     arc.Writer
 	channelSvc *channel.Service
@@ -59,34 +57,27 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := testutil.NewNode(ctx)
 	db = node.DB
-	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
+		DB: db,
 	}))
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
+		DB:    db,
+		Group: groupSvc,
 	}))
 	statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
+		DB: db,
 	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel:      node.Channel,
 		DB:           node.DB,
 		HostProvider: node.Cluster,
-		Ontology:     otg,
 		Status:       statusSvc,
 	}))
 	roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
+		DB: db,
 	}))
 	rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:                  db,
-		Ontology:            otg,
 		HostProvider:        testutil.NewStaticHostProvider(1),
 		Status:              statusSvc,
 		HealthCheckInterval: 10 * telem.Millisecond,
@@ -100,7 +91,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	configs := MustSucceed(taskconfig.NewRegistry(arcTaskSvc.Stores()...))
 	taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:           db,
-		Ontology:     otg,
 		Rack:         rackSvc,
 		Status:       statusSvc,
 		ImEx:         imexSvc,
@@ -112,7 +102,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	svc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
 		DB:                  db,
 		Table:               arcTable,
-		Ontology:            otg,
 		Channel:             channelSvc,
 		Task:                taskSvc,
 		MatchTasks:          arcTaskSvc.MatchArcs,

@@ -30,7 +30,6 @@ import (
 	roleversions "github.com/synnaxlabs/synnax/pkg/service/access/rbac/role/versions"
 	rolev0 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/role/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	ontologyv0 "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	rackversions "github.com/synnaxlabs/synnax/pkg/service/rack/versions"
@@ -147,34 +146,28 @@ var _ = Describe("Migration chain", func() {
 			[]gorp.Migration{migrate.New("v0.permission_assignment", nil)},
 		)
 
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		groups := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
+			DB: db,
 		}))
-		roles := MustOpen(rbac.OpenRoles(ctx, rbac.RolesConfig{DB: db, Ontology: otg}))
+		roles := MustOpen(rbac.OpenRoles(ctx, rbac.RolesConfig{DB: db}))
 		users := MustOpen(user.OpenService(ctx, user.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    groups,
+			DB:    db,
+			Group: groups,
 		}))
 		statuses := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
+			DB: db,
 		}))
 		racks := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:           db,
-			Ontology:     otg,
 			HostProvider: testutil.NewStaticHostProvider(1),
 			Status:       statuses,
 			DriverRole:   roles.Builtin.DriverKey,
 		}))
 		svc := MustSucceed(rbac.NewService(ctx, rbac.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Roles:    roles,
-			User:     users,
-			Rack:     racks,
+			DB:    db,
+			Roles: roles,
+			User:  users,
+			Rack:  racks,
 		}))
 
 		Expect(svc.RolesOf(ctx, nil, u.ResourceID())).To(Equal([]role.Key{a.Key}))

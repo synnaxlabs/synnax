@@ -31,7 +31,7 @@ import (
 	lineplotv0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	logv0 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v0"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	panelversions "github.com/synnaxlabs/synnax/pkg/service/panel/versions"

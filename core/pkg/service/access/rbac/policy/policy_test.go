@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/search"
@@ -99,24 +98,6 @@ var _ = Describe("Writer", func() {
 				Actions: access.AllActions,
 			}
 			Expect(w.Create(ctx, p)).To(Succeed())
-		})
-
-		It("Should define policy in ontology", func(ctx SpecContext) {
-			p := &policy.Policy{
-				Role:    owner.Key,
-				Name:    "ontology-test",
-				Objects: []resource.ID{{Type: "channel", Key: "ch1"}},
-				Actions: []access.Action{access.ActionRetrieve},
-			}
-			Expect(w.Create(ctx, p)).To(Succeed())
-
-			var res ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereIDs(p.ResourceID()).
-				Entry(&res).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(res.ID.Key).To(Equal(p.Key.String()))
-			Expect(res.Name).To(Equal(p.Name))
 		})
 
 		It(
@@ -556,47 +537,10 @@ var _ = Describe("Retriever", func() {
 	})
 })
 
-var _ = Describe("Ontology Integration", func() {
+var _ = Describe("Resources", func() {
 	var tx gorp.Tx
 	BeforeEach(func(ctx SpecContext) { tx = db.OpenTx() })
 	AfterEach(func(ctx SpecContext) { Expect(tx.Close()).To(Succeed()) })
-
-	Describe("Type", func() {
-		It("Should return correct ontology type", func(ctx SpecContext) {
-			Expect(svc.Type()).To(Equal(resource.TypePolicy))
-		})
-	})
-
-	Describe("RetrieveResource", func() {
-		It("Should retrieve a policy as an ontology resource", func(ctx SpecContext) {
-			w := svc.NewWriter(tx, false)
-			p := &policy.Policy{
-				Role:    owner.Key,
-				Name:    "resource-test",
-				Objects: []resource.ID{{Type: "channel", Key: "ch1"}},
-				Actions: []access.Action{access.ActionRetrieve},
-			}
-			Expect(w.Create(ctx, p)).To(Succeed())
-
-			res := MustSucceed(svc.RetrieveResource(ctx, p.Key.String(), tx))
-			Expect(res.ID.Key).To(Equal(p.Key.String()))
-			Expect(res.Name).To(Equal(p.Name))
-		})
-
-		It("Should return error for invalid UUID", func(ctx SpecContext) {
-			Expect(
-				svc.RetrieveResource(ctx, "invalid-uuid", tx),
-			).Error().
-				To(MatchError("invalid uuid"))
-		})
-
-		It("Should return error for non-existent policy", func(ctx SpecContext) {
-			Expect(
-				svc.RetrieveResource(ctx, uuid.New().String(), tx),
-			).Error().
-				To(MatchError(query.ErrNotFound))
-		})
-	})
 
 	Describe("Search", func() {
 		It(
@@ -610,7 +554,7 @@ var _ = Describe("Ontology Integration", func() {
 				}
 				Expect(svc.NewWriter(tx, false).Create(ctx, p)).To(Succeed())
 				q := search.Query[resource.ID]{Term: "turbopump", Limit: 10}
-				Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
+				Expect(MustSucceed(svc.Resources().Search(ctx, tx, q)).Keys).
 					To(Equal([]resource.ID{p.ResourceID()}))
 			},
 		)

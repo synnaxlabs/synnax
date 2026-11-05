@@ -25,7 +25,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/project/bundle"
@@ -57,16 +56,13 @@ var (
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	db := DeferClose(gorp.Wrap(memkv.New()))
-	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
+		DB: db,
 	}))
 	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
+		DB:    db,
+		Group: groupSvc,
 	}))
 	MustSucceed2(
 		user.ProvisionRoot(
@@ -77,28 +73,23 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		),
 	)
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
+		DB: db,
 	}))
 	rbacSvc = MustOpen(rbactestutil.Open(ctx, rbactestutil.Config{
-		DB:       db,
-		Ontology: otg,
-		User:     userSvc,
-		Status:   statusSvc,
+		DB:     db,
+		User:   userSvc,
+		Status: statusSvc,
 	})).RBAC
 	imexSvc := imex.NewService()
 	panelSvc = MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
+		DB: db,
 	}))
 	logSvc = MustOpen(log.OpenService(ctx, log.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		ImEx:     imexSvc,
+		DB:   db,
+		ImEx: imexSvc,
 	}))
 	projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
+		DB: db,
 	}))
 	resourceSvc := MustSucceed(resource.NewService(resource.ServiceConfig{
 		DB: db,

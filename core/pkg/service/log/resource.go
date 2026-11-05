@@ -10,6 +10,7 @@
 package log
 
 import (
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
@@ -22,4 +23,21 @@ func (s *Service) Resources() *resource.TableProvider[Key, Log] {
 		Key:    resource.ParseUUIDKey,
 		Name:   func(l *Log) string { return l.Name },
 	})
+}
+
+// ResourceID returns the resource ID of the log with key.
+func ResourceID(k Key) resource.ID {
+	return resource.ID{Type: resource.TypeLog, Key: k.String()}
+}
+
+// ResourceIDs returns the resource IDs of the logs with keys.
+func ResourceIDs(keys []Key) []resource.ID {
+	return lo.Map(keys, func(key Key, _ int) resource.ID {
+		return ResourceID(key)
+	})
+}
+
+// ResourceIDsFromLogs returns the resource IDs of the logs.
+func ResourceIDsFromLogs(logs []Log) []resource.ID {
+	return lo.Map(logs, func(l Log, _ int) resource.ID { return l.ResourceID() })
 }

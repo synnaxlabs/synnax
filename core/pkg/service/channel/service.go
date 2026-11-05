@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/cluster"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/io"
@@ -56,10 +55,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	HostProvider cluster.HostProvider
-	// Ontology integrates channels into the resource ontology.
-	//
-	// [REQUIRED]
-	Ontology *ontology.Ontology
 	// Limit enforces the cap on external (non-internal, non-virtual) channels.
 	//
 	// [OPTIONAL] - Defaults to no cap.
@@ -83,7 +78,6 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("channel", c.Channel)
 	v.NotNil("db", c.DB)
 	v.NotNil("host_provider", c.HostProvider)
-	v.NotNil("ontology", c.Ontology)
 	v.NotNil("limit", c.Limit)
 	v.NotNil("status", c.Status)
 	v.NotNil("validate_names", c.ValidateNames)
@@ -96,7 +90,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.HostProvider = override.Nil(c.HostProvider, other.HostProvider)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Limit = override.Nil(c.Limit, other.Limit)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.ValidateNames = override.Nil(c.ValidateNames, other.ValidateNames)
@@ -104,7 +97,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 }
 
 // Service is the top-level channel service. It owns the channel metadata table,
-// retrieval, ontology and search integration, and the create/delete/rename
+// retrieval, search integration, and the create/delete/rename
 // orchestration, driving the distribution-layer allocator for key assignment and
 // storage. It also infers DataTypes for calculated channels on write.
 type Service struct {
@@ -161,7 +154,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	s.mu.externalNonVirtualSet.Insert(KeysFromChannels(externalNonVirtualChannels)...)
-	cfg.Ontology.RegisterService(s)
 	return s, nil
 }
 
@@ -254,7 +246,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
 		svc: s,
 		tx:  tx,
-		otg: s.cfg.Ontology.NewWriter(tx),
 		analyzer: NewCalculationAnalyzer(s.NewArcSymbolResolver(tx), parser.Config{
 			AllowDashedNames: !s.ShouldValidateNames(),
 		}),

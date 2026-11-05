@@ -34,9 +34,8 @@ import (
 // scopedAction is a short local alias for the Arc action envelope.
 type scopedAction = actions.Scoped[arc.Key, arc.Action]
 
-// createArc persists a fresh Arc and returns it with its key populated. Writes
-// commit immediately (nil tx) so access-control reads can observe the new
-// ontology resource.
+// createArc persists a fresh Arc and returns it with its key populated. Writes commit
+// immediately (nil tx) so access-control reads can observe the new Arc.
 func createArc(ctx context.Context, name string) arc.Arc {
 	GinkgoHelper()
 	a := arc.Arc{Name: name, Mode: arc.ModeGraph}

@@ -14,7 +14,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/opcua"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
@@ -29,26 +28,22 @@ var _ = Describe("Service", func() {
 		tasks      *tasktestutil.Tasks
 	)
 	BeforeEach(func(ctx SpecContext) {
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
+			DB: db,
 		}))
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 			Channel:      node.Channel,
 			DB:           db,
 			HostProvider: node.Cluster,
-			Ontology:     otg,
 			Status:       statusSvc,
 		}))
 		svc = MustOpen(opcua.OpenService(ctx, opcua.ServiceConfig{
 			DB: db,
 		}))
 		tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
-			DB:       db,
-			Ontology: otg,
-			Status:   statusSvc,
-			Stores:   svc.Stores(),
+			DB:     db,
+			Status: statusSvc,
+			Stores: svc.Stores(),
 		}))
 	})
 

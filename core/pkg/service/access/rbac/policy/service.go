@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
@@ -28,9 +27,8 @@ import (
 
 type ServiceConfig struct {
 	alamos.Instrumentation
-	DB       *gorp.DB
-	Ontology *ontology.Ontology
-	Signals  *signals.Provider
+	DB      *gorp.DB
+	Signals *signals.Provider
 	// Role holds the roles that policies belong to. Writers that do not allow internal
 	// writes read it to refuse changes to the policies of built-in roles.
 	//
@@ -45,7 +43,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Signals = override.Nil(c.Signals, other.Signals)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Role = override.Nil(c.Role, other.Role)
 	return c
 }
@@ -54,7 +51,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("policy")
 	v.NotNil("db", c.DB)
-	v.NotNil("ontology", c.Ontology)
 	v.NotNil("role", c.Role)
 	return v.Error()
 }
@@ -96,7 +92,6 @@ func OpenService(
 			return nil, err
 		}
 	}
-	cfg.Ontology.RegisterService(s)
 	return s, nil
 }
 
@@ -107,7 +102,6 @@ func (s *Service) NewWriter(tx gorp.Tx, allowInternal bool) Writer {
 	return Writer{
 		svc:           s,
 		tx:            tx,
-		otg:           s.cfg.Ontology.NewWriter(tx),
 		allowInternal: allowInternal,
 		table:         s.table,
 		roles:         s.cfg.Role,

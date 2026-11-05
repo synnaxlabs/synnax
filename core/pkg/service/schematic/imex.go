@@ -22,6 +22,9 @@ import (
 
 var _ imex.ImportExporter = (*Service)(nil)
 
+// Type implements imex.ImportExporter.
+func (s *Service) Type() resource.Type { return resource.TypeSchematic }
+
 // Match reports whether body is a legacy Console schematic state, which persists the
 // document inline under nodes and props. The markers are frozen historical file shapes.
 func (*Service) Match(body map[string]any) bool {

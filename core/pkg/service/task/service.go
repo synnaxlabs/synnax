@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
@@ -45,11 +44,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// Ontology is used to define relationships between tasks and other resources in the
-	// Synnax cluster.
-	//
-	// [REQUIRED]
-	Ontology *ontology.Ontology
 	// Rack is used to manage rack-related operations for tasks.
 	//
 	// [REQUIRED]
@@ -93,7 +87,6 @@ var _ xconfig.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Rack = override.Nil(c.Rack, other.Rack)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Channel = override.Nil(c.Channel, other.Channel)
@@ -108,7 +101,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("task")
 	v.NotNil("db", c.DB)
-	v.NotNil("ontology", c.Ontology)
 	v.NotNil("rack", c.Rack)
 	v.NotNil("status", c.Status)
 	v.NotNil("imex", c.ImEx)
@@ -154,15 +146,13 @@ func OpenService(
 		Indexes:    []gorp.Index[Key, Task]{s.search},
 		References: s.indexes.references(),
 		Migrations: versions.NewMigrations(versions.MigrationsConfig{
-			Status:   cfg.Status,
-			Ontology: cfg.Ontology,
-			Configs:  cfg.Configs,
+			Status:  cfg.Status,
+			Configs: cfg.Configs,
 		}),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
 	}
-	cfg.Ontology.RegisterService(s)
 	if err = cfg.ImEx.RegisterExporter(s); !ok(err, nil) {
 		return nil, err
 	}
@@ -304,8 +294,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
 		svc:        s,
 		tx:         tx,
-		otgWriter:  s.cfg.Ontology.NewWriter(tx),
-		otg:        s.cfg.Ontology,
 		status:     s.cfg.Status.NewWriter(tx),
 		statuses:   s.cfg.Status,
 		table:      s.table,

@@ -7,19 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package ontology_test
-
-import (
-	"testing"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	. "github.com/synnaxlabs/x/testutil"
-)
-
-func TestAPIOntology(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "API Ontology Suite", SuiteConfig())
-}
-
-var _ = ShouldNotLeakGoroutinesPerSpec()
+// Tombstone: the Core stopped storing resources and relationships at v1, so nothing
+// persists this resource at v1 or later. The live schema is hand-owned; v0 stays frozen
+// for the migrations that read the edges of an upgraded store.

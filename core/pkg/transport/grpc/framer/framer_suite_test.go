@@ -23,7 +23,6 @@ import (
 	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -49,46 +48,37 @@ func TestFramer(t *testing.T) {
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := testutil.NewNode(ctx)
-	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
+		DB: node.DB,
 	}))
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
-		Group:    groupSvc,
+		DB:    node.DB,
+		Group: groupSvc,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
+		DB: node.DB,
 	}))
 	channelSvc = MustOpen(svcchannel.OpenService(ctx, svcchannel.ServiceConfig{
 		Channel:      node.Channel,
 		DB:           node.DB,
 		HostProvider: node.Cluster,
-		Ontology:     otg,
 		Status:       statusSvc,
 	}))
 	userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
-		Group:    groupSvc,
+		DB:    node.DB,
+		Group: groupSvc,
 	}))
 	rbacSvc := MustOpen(rbactestutil.Open(ctx, rbactestutil.Config{
-		DB:       node.DB,
-		Ontology: otg,
-		User:     userSvc,
-		Status:   statusSvc,
+		DB:     node.DB,
+		User:   userSvc,
+		Status: statusSvc,
 	})).RBAC
 	rangerSvc := MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
-		Group:    groupSvc,
+		DB:    node.DB,
+		Group: groupSvc,
 	}))
 	aliasSvc := MustOpen(alias.OpenService(ctx, alias.ServiceConfig{
 		DB:              node.DB,
-		Ontology:        otg,
 		Channel:         channelSvc,
 		ParentRetriever: rangerSvc,
 	}))

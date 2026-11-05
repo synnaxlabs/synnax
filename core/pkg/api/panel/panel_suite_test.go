@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -41,7 +40,6 @@ func TestAPIPanel(t *testing.T) {
 var (
 	db         *gorp.DB
 	groupSvc   *group.Service
-	otg        *ontology.Ontology
 	rbacSvc    *rbac.Service
 	panelSvc   *panel.Service
 	userSvc    *user.Service
@@ -54,16 +52,13 @@ var (
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	db = DeferClose(gorp.Wrap(memkv.New()))
-	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
+		DB: db,
 	}))
 	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
+		DB:    db,
+		Group: groupSvc,
 	}))
 	MustSucceed2(
 		user.ProvisionRoot(
@@ -74,18 +69,15 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		),
 	)
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
+		DB: db,
 	}))
 	rbacSvc = MustOpen(rbactestutil.Open(ctx, rbactestutil.Config{
-		DB:       db,
-		Ontology: otg,
-		User:     userSvc,
-		Status:   statusSvc,
+		DB:     db,
+		User:   userSvc,
+		Status: statusSvc,
 	})).RBAC
 	panelSvc = MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
+		DB: db,
 	}))
 	apiSvc = MustSucceed(apipanel.NewService(apipanel.ServiceConfig{
 		RBAC:  rbacSvc,
@@ -95,8 +87,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		userSvc.NewWriter(nil).Create(ctx, user.User{Name: "test"}),
 	)
 	projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
+		DB: db,
 	}))
 	proj = project.Project{Name: "panel-project"}
 	Expect(projectSvc.NewWriter(nil).Create(ctx, &proj)).To(Succeed())

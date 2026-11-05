@@ -413,8 +413,8 @@ type Importer interface {
 	// of the newly-created resource. The envelope's Name is fully resolved (non-empty)
 	// by the time Import is called — the registry has already applied the file-name
 	// fallback — so importers should treat it as the resource's name rather than
-	// re-deriving one from the body. The importer owns all ontology writes for the
-	// resource, including attaching it under opts.Parent when one is given.
+	// re-deriving one from the body. The importer attaches the resource under
+	// opts.Parent when one is given.
 	Import(context.Context, gorp.Tx, Envelope, ImportOptions) (resource.ID, error)
 	// Match reports whether the envelope body, decoded as a flat map, is this
 	// importer's resource. It routes envelopes carrying no `type` header: some legacy
@@ -426,7 +426,7 @@ type Importer interface {
 	// Type returns the broader resource type the importer creates. For services with
 	// asymmetric registration (e.g. a task service registered under "http_read" and
 	// "opc_scan") this is the coarser resource type ("task"); it is the resource type
-	// used for access control and ontology accounting.
+	// used for access control.
 	Type() resource.Type
 }
 
@@ -436,12 +436,12 @@ type Exporter interface {
 	// Export retrieves the resource identified by id and serializes it, stamping the
 	// exporter's per-schema Version.
 	Export(context.Context, resource.ID) (Envelope, error)
-	// Type returns the ontology resource type this exporter handles.
+	// Type returns the resource type this exporter handles.
 	Type() resource.Type
 }
 
 // ImportExporter is a service that implements both Importer and Exporter under the same
-// ontology resource type and can be registered with Service.RegisterImportExporter.
+// resource type and can be registered with Service.RegisterImportExporter.
 type ImportExporter interface {
 	Importer
 	Exporter

@@ -26,7 +26,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
-	"github.com/synnaxlabs/synnax/pkg/api/ontology"
 	"github.com/synnaxlabs/synnax/pkg/api/panel"
 	"github.com/synnaxlabs/synnax/pkg/api/project"
 	"github.com/synnaxlabs/synnax/pkg/api/rack"
@@ -195,24 +194,6 @@ func Bind(layer *api.Layer, router *http.Router) {
 		ControlRetrieve: unary[control.RetrieveRequest, control.RetrieveResponse](
 			router,
 			"/api/v1/control/retrieve",
-		),
-
-		// ONTOLOGY
-		OntologyRetrieve: unary[ontology.RetrieveRequest, ontology.RetrieveResponse](
-			router,
-			"/api/v1/ontology/retrieve",
-		),
-		OntologyAddChildren: unary[ontology.AddChildrenRequest, struct{}](
-			router,
-			"/api/v1/ontology/add-children",
-		),
-		OntologyRemoveChildren: unary[ontology.RemoveChildrenRequest, struct{}](
-			router,
-			"/api/v1/ontology/remove-children",
-		),
-		OntologyMoveChildren: unary[ontology.MoveChildrenRequest, struct{}](
-			router,
-			"/api/v1/ontology/move-children",
 		),
 
 		// RESOURCE

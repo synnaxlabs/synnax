@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/user/versions"
 	"github.com/synnaxlabs/x/config"
@@ -36,11 +35,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// Ontology will be used to create relationships between users and other resources,
-	// such as projects, within the Synnax cluster.
-	//
-	// [REQUIRED]
-	Ontology *ontology.Ontology
 	// Group is used to create the top level "Users" group that will be the default
 	// parent of all users.
 	//
@@ -63,7 +57,6 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	return c
@@ -73,7 +66,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("user")
 	v.NotNil("db", c.DB)
-	v.NotNil("ontology", c.Ontology)
 	v.NotNil("group", c.Group)
 	return v.Error()
 }
@@ -108,7 +100,6 @@ func OpenService(
 	}); !ok(err, s.table) {
 		return nil, err
 	}
-	cfg.Ontology.RegisterService(s)
 	if cfg.Signals != nil {
 		var sig io.Closer
 		if sig, err = cfg.Signals.PublishFromGorp(
@@ -126,7 +117,6 @@ func OpenService(
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
 		tx:    gorp.OverrideTx(s.cfg.DB, tx),
-		otg:   s.cfg.Ontology.NewWriter(tx),
 		svc:   s,
 		table: s.table,
 	}

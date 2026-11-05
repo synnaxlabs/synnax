@@ -21,12 +21,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/search"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -35,7 +35,6 @@ import (
 var _ = Describe("Alias", Ordered, func() {
 	var (
 		db         *gorp.DB
-		otg        *ontology.Ontology
 		rangerSvc  *ranger.Service
 		aliasSvc   *alias.Service
 		channelSvc *channel.Service
@@ -44,35 +43,28 @@ var _ = Describe("Alias", Ordered, func() {
 		ShouldNotLeakGoroutines()
 		node := testutil.NewNode(ctx)
 		db = node.DB
-		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
 		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       node.DB,
-			Ontology: otg,
+			DB: node.DB,
 		}))
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:       node.DB,
-			Ontology: otg,
-			Group:    groupSvc,
+			DB:    node.DB,
+			Group: groupSvc,
 		}))
 		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			DB:       node.DB,
-			Ontology: otg,
+			DB: node.DB,
 		}))
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 			Channel:      node.Channel,
 			DB:           node.DB,
 			HostProvider: node.Cluster,
-			Ontology:     otg,
 			Status:       statusSvc,
 		}))
 		rangerSvc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
-			DB:       node.DB,
-			Ontology: otg,
-			Group:    groupSvc,
+			DB:    node.DB,
+			Group: groupSvc,
 		}))
 		aliasSvc = MustOpen(alias.OpenService(ctx, alias.ServiceConfig{
 			DB:              node.DB,
-			Ontology:        otg,
 			Channel:         channelSvc,
 			ParentRetriever: rangerSvc,
 		}))
@@ -337,27 +329,28 @@ var _ = Describe("Alias", Ordered, func() {
 				Expect(aliasSvc.NewReader(tx).Search(ctx, r.Key, "valve")).To(BeEmpty())
 			})
 
-		It("Should find aliases through the ontology search", func(ctx SpecContext) {
-			Expect(otg.Search(
-				ctx, tx, ontology.SearchQuery{Term: "turbopump inlet"},
-			)).To(Equal([]resource.ID{alias.ResourceID(r.Key, inlet.Key())}))
+		It("Should find aliases through the resource search", func(ctx SpecContext) {
+			q := search.Query[resource.ID]{Term: "turbopump inlet", Limit: 10}
+			Expect(MustSucceed(aliasSvc.Resources().Search(ctx, tx, q)).Keys).
+				To(Equal([]resource.ID{alias.ResourceID(r.Key, inlet.Key())}))
 		})
 
 		It(
-			"Should drop a deleted alias from the ontology search",
+			"Should drop a deleted alias from the resource search",
 			func(ctx SpecContext) {
 				id := alias.ResourceID(r.Key, inlet.Key())
+				q := search.Query[resource.ID]{Term: "turbopump inlet", Limit: 10}
 				Expect(tx.Commit(ctx)).To(Succeed())
-				Expect(otg.Search(
-					ctx, nil, ontology.SearchQuery{Term: "turbopump inlet"},
-				)).To(ContainElement(id))
+				Expect(MustSucceed(aliasSvc.Resources().Search(ctx, db, q)).Keys).
+					To(ContainElement(id))
 				del := DeferClose(db.OpenTx())
 				Expect(aliasSvc.NewWriter(del).Delete(ctx, r.Key, inlet.Key())).
 					To(Succeed())
 				Expect(del.Commit(ctx)).To(Succeed())
-				Expect(otg.Search(
-					ctx, nil, ontology.SearchQuery{Term: "turbopump inlet"},
-				)).ToNot(ContainElement(id))
+				Expect(MustSucceed(aliasSvc.Resources().Search(ctx, db, q)).Keys).
+					ToNot(ContainElement(id))
+				Expect(aliasSvc.Resources().Retrieve(ctx, db, []resource.ID{id})).
+					To(BeEmpty())
 			},
 		)
 	})
@@ -434,39 +427,6 @@ var _ = Describe("Alias", Ordered, func() {
 				))
 			},
 		)
-	})
-
-	Context("Ontology", func() {
-		It("Should find a created alias in the ontology", func(ctx SpecContext) {
-			ch := createChannel(ctx)
-			tx := DeferClose(db.OpenTx())
-			r := ranger.Range{
-				Name: "Range",
-				TimeRange: telem.TimeRange{
-					Start: telem.TimeStamp(5 * telem.Second),
-					End:   telem.TimeStamp(10 * telem.Second),
-				},
-			}
-			Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
-			Expect(
-				aliasSvc.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "Alias"),
-			).To(Succeed())
-			var res ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereIDs(alias.ResourceID(r.Key, ch.Key())).
-				Entry(&res).
-				Exec(ctx, tx),
-			).To(Succeed())
-			Expect(res).To(Equal(ontology.Resource{
-				ID:   alias.ResourceID(r.Key, ch.Key()),
-				Name: "Alias",
-				Data: map[string]any{
-					"range":   r.Key.String(),
-					"channel": ch.Key().StorageKey(),
-					"alias":   "Alias",
-				},
-			}))
-		})
 	})
 
 	Describe("Resources", func() {

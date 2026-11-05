@@ -15,7 +15,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
@@ -30,9 +29,6 @@ type Writer struct {
 	// tx is the underlying gorp transaction that rack operations will be executed
 	// against.
 	tx gorp.Tx
-	// otg is a writer used to modify rack related resources and relationships within
-	// the ontology.
-	otg ontology.Writer
 	// newKey returns a new key for a rack.
 	newKey func(context.Context) (Key, error)
 	// status is used to write status updates.
@@ -134,9 +130,6 @@ func (w Writer) create(ctx context.Context, r *Rack) error {
 	if err = w.table.NewCreate().Entry(r).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if err = w.otg.DefineResources(ctx, r.ResourceID()); err != nil {
-		return err
-	}
 	stat := resolveStatus(r)
 	if r.Status != nil {
 		if err = w.status.Set(ctx, stat); err != nil {
@@ -200,14 +193,11 @@ func (w Writer) Delete(
 	guard gorp.GuardFunc[Key, Rack],
 	keys ...Key,
 ) error {
-	if err := w.table.NewDelete().
+	return w.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Rack](keys...)).
 		Guard(guardEmbedded).
 		Guard(guard).
-		Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	return w.otg.DeleteResources(ctx, ResourceIDs(keys)...)
+		Exec(ctx, w.tx)
 }
 
 func guardEmbedded(_ gorp.Context, r Rack) error {

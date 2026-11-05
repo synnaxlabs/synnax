@@ -14,7 +14,6 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -22,11 +21,9 @@ import (
 
 // Writer is used to create and delete aliases.
 type Writer struct {
-	tx        gorp.Tx
-	otg       *ontology.Ontology
-	otgWriter ontology.Writer
-	channel   *channel.Service
-	table     *gorp.Table[string, Alias]
+	tx      gorp.Tx
+	channel *channel.Service
+	table   *gorp.Table[string, Alias]
 }
 
 // Set sets an alias for the given channel on the specified range.
@@ -53,7 +50,7 @@ func (w Writer) Set(
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.otgWriter.DefineResources(ctx, ResourceID(rng, ch))
+	return nil
 }
 
 // Delete deletes the alias for the given channel on the specified range.

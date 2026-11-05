@@ -10,6 +10,7 @@
 package arc
 
 import (
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
@@ -22,4 +23,26 @@ func (s *Service) Resources() *resource.TableProvider[Key, Arc] {
 		Key:    resource.ParseUUIDKey,
 		Name:   func(a *Arc) string { return a.Name },
 	})
+}
+
+// ResourceID returns the resource ID of the Arc with key.
+func ResourceID(k Key) resource.ID {
+	return resource.ID{Type: resource.TypeArc, Key: k.String()}
+}
+
+// ResourceIDs returns the resource IDs of the Arcs with keys.
+func ResourceIDs(keys []Key) []resource.ID {
+	return lo.Map(keys, func(key Key, _ int) resource.ID { return ResourceID(key) })
+}
+
+// KeysFromResourceIDs extracts the keys of the arcs from the resource IDs.
+func KeysFromResourceIDs(ids []resource.ID) ([]Key, error) {
+	return lo.MapErr(ids, func(id resource.ID, _ int) (Key, error) {
+		return resource.ParseUUIDKey(id)
+	})
+}
+
+// ResourceIDsFromArcs returns the resource IDs of the arcs.
+func ResourceIDsFromArcs(arcs []Arc) []resource.ID {
+	return lo.Map(arcs, func(a Arc, _ int) resource.ID { return a.ResourceID() })
 }

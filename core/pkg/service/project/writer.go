@@ -15,7 +15,6 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -25,7 +24,6 @@ import (
 type Writer struct {
 	svc   *Service
 	tx    gorp.Tx
-	otg   ontology.Writer
 	table *gorp.Table[Key, Project]
 }
 
@@ -79,10 +77,7 @@ func (w Writer) create(
 	if err = p.Validate(); err != nil {
 		return err
 	}
-	if err = w.table.NewCreate().Entry(p).Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	return w.otg.DefineResources(ctx, p.ResourceID())
+	return w.table.NewCreate().Entry(p).Exec(ctx, w.tx)
 }
 
 // SetGroup moves the projects with keys into g, or out of their group when g is nil.
@@ -138,10 +133,7 @@ func (w Writer) Delete(
 	ctx context.Context,
 	keys ...Key,
 ) error {
-	if err := w.table.NewDelete().
+	return w.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Project](keys...)).
-		Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	return w.otg.DeleteResources(ctx, ResourceIDs(keys)...)
+		Exec(ctx, w.tx)
 }

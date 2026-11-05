@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
@@ -202,11 +202,7 @@ func rewriteWorkspaceRelationships(ctx context.Context, tx gorp.Tx) error {
 // parent is now the Projects group. This must run after the workspace-to-project
 // migration, which re-types the legacy user-to-workspace relationships to
 // user-to-project before they can be matched here.
-func removeAuthorRelationships(
-	ctx context.Context,
-	tx gorp.Tx,
-	otg *ontology.Ontology,
-) error {
+func removeAuthorRelationships(ctx context.Context, tx gorp.Tx) error {
 	stale, err := collectEntries(
 		ctx,
 		gorp.WrapReader[string, ontology.Relationship](tx),
@@ -219,7 +215,7 @@ func removeAuthorRelationships(
 	if err != nil {
 		return err
 	}
-	return otg.NewWriter(tx).DeleteRelationships(ctx, stale...)
+	return ontology.DeleteRelationships(ctx, tx, stale...)
 }
 
 // collectEntries drains a reader into a slice of the entries matching keep. Mutating a
@@ -256,27 +252,16 @@ var layoutsToStagingMigration = migrate.New(
 
 // removeAuthorRelationshipsMigration drops the legacy author relationships projects
 // held in the ontology.
-func removeAuthorRelationshipsMigration(otg *ontology.Ontology) gorp.Migration {
-	return migrate.New(
-		"v56_remove_project_author_relationships",
-		func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
-			return removeAuthorRelationships(ctx, tx, otg)
-		},
-	)
-}
+var removeAuthorRelationshipsMigration = migrate.New(
+	"v56_remove_project_author_relationships",
+	func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
+		return removeAuthorRelationships(ctx, tx)
+	},
+)
 
-// MigrationsConfig is the configuration for NewMigrations.
-type MigrationsConfig struct {
-	// Ontology is the cluster ontology; the author-relationship cleanup runs against
-	// it.
-	Ontology *ontology.Ontology
-}
-
-// NewMigrations returns the ordered migration chain for stored projects.
-func NewMigrations(cfg MigrationsConfig) []gorp.Migration {
-	return []gorp.Migration{
-		workspaceToProjectMigration,
-		layoutsToStagingMigration,
-		removeAuthorRelationshipsMigration(cfg.Ontology),
-	}
+// Migrations is the ordered migration chain for stored projects at this version.
+var Migrations = []gorp.Migration{
+	workspaceToProjectMigration,
+	layoutsToStagingMigration,
+	removeAuthorRelationshipsMigration,
 }

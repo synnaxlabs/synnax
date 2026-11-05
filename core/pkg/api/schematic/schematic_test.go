@@ -35,9 +35,9 @@ import (
 // the test files don't have to spell out the generic parameters at every use.
 type scopedAction = actions.Scoped[schematic.Key, schematic.Action]
 
-// createSchematic persists a fresh schematic owned by the suite project and
-// returns it with its key populated. Writes commit immediately (nil tx) so
-// access-control reads can observe the new ontology resource.
+// createSchematic persists a fresh schematic owned by the suite project and returns it
+// with its key populated. Writes commit immediately (nil tx) so access-control reads
+// can observe the new schematic.
 func createSchematic(ctx context.Context, name string) schematic.Schematic {
 	GinkgoHelper()
 	s := schematic.Schematic{Project: &proj.Key, Name: name}

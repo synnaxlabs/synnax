@@ -14,7 +14,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/view"
 	. "github.com/synnaxlabs/x/testutil"
@@ -24,8 +23,7 @@ import (
 var _ = Describe("Resources", func() {
 	var svc *view.Service
 	BeforeEach(func(ctx SpecContext) {
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		svc = MustOpen(view.OpenService(ctx, view.ServiceConfig{DB: db, Ontology: otg}))
+		svc = MustOpen(view.OpenService(ctx, view.ServiceConfig{DB: db}))
 	})
 
 	It("Should name each view by its base name", func(ctx SpecContext) {

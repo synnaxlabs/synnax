@@ -20,6 +20,9 @@ import (
 
 var _ imex.ImportExporter = (*Service)(nil)
 
+// Type implements imex.ImportExporter.
+func (s *Service) Type() resource.Type { return resource.TypeSchematicSymbol }
+
 // Match reports whether body is a legacy Console symbol file, which nests the spec in a
 // data object with an inline svg. The marker is a frozen historical file shape.
 func (*Service) Match(body map[string]any) bool {

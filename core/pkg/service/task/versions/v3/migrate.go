@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -33,8 +33,6 @@ import (
 type MigrationConfig struct {
 	// Status deletes the statuses of the tasks the migration removes.
 	Status *status.Service
-	// Ontology defines the task resources the migration creates and removes.
-	Ontology *ontology.Ontology
 	// Configs routes each task type to the store that owns its config records.
 	Configs config.Registry
 }
@@ -114,10 +112,9 @@ func migrateConfigsToRecords(
 		return err
 	}
 	rows := gorp.WrapWriter[v2.Key, v2.Task](tx)
-	otgW := cfg.Ontology.NewWriter(tx)
 	for _, t := range tasks {
 		if retiredTypes.Contains(t.Type) {
-			if err := retire(ctx, tx, ins, otgW, cfg.Status, t); err != nil {
+			if err := retire(ctx, tx, ins, cfg.Status, t); err != nil {
 				return err
 			}
 			continue
@@ -129,7 +126,7 @@ func migrateConfigsToRecords(
 		store, ok := cfg.Configs.Store(newType)
 		if !ok {
 			if err := quarantine(
-				ctx, tx, ins, otgW, cfg.Status, t, "unknown task type "+t.Type,
+				ctx, tx, ins, cfg.Status, t, "unknown task type "+t.Type,
 			); err != nil {
 				return err
 			}
@@ -140,7 +137,7 @@ func migrateConfigsToRecords(
 		converted, err := store.Normalize(ctx, tx, 0, t.Config)
 		if err != nil {
 			if err := quarantine(
-				ctx, tx, ins, otgW, cfg.Status, t, unconvertibleReason(err),
+				ctx, tx, ins, cfg.Status, t, unconvertibleReason(err),
 			); err != nil {
 				return err
 			}
@@ -155,7 +152,7 @@ func migrateConfigsToRecords(
 				return err
 			}
 			if err := quarantine(
-				ctx, tx, ins, otgW, cfg.Status, t, unconvertibleReason(err),
+				ctx, tx, ins, cfg.Status, t, unconvertibleReason(err),
 			); err != nil {
 				return err
 			}
@@ -174,7 +171,7 @@ func migrateConfigsToRecords(
 			Type: resource.TypeTask,
 			Key:  t.Key.String(),
 		}
-		if err := otgW.DefineResources(ctx, taskID); err != nil {
+		if err := ontology.DefineResources(ctx, tx, taskID); err != nil {
 			return err
 		}
 	}
@@ -188,7 +185,6 @@ func stageAndRemove(
 	ctx context.Context,
 	tx gorp.Tx,
 	ins alamos.Instrumentation,
-	otgW ontology.Writer,
 	statuses *status.Service,
 	t v2.Task,
 ) error {
@@ -218,7 +214,7 @@ func stageAndRemove(
 	if err := statuses.NewWriter(tx).DeleteOwned(ctx, taskID); err != nil {
 		return err
 	}
-	return otgW.DeleteResources(ctx, taskID)
+	return ontology.DeleteResources(ctx, tx, taskID)
 }
 
 // unconvertibleReason frames a raw conversion or encode error as a quarantine reason
@@ -233,12 +229,11 @@ func quarantine(
 	ctx context.Context,
 	tx gorp.Tx,
 	ins alamos.Instrumentation,
-	otgW ontology.Writer,
 	statuses *status.Service,
 	t v2.Task,
 	reason string,
 ) error {
-	if err := stageAndRemove(ctx, tx, ins, otgW, statuses, t); err != nil {
+	if err := stageAndRemove(ctx, tx, ins, statuses, t); err != nil {
 		return err
 	}
 	ins.L.Warn(
@@ -256,11 +251,10 @@ func retire(
 	ctx context.Context,
 	tx gorp.Tx,
 	ins alamos.Instrumentation,
-	otgW ontology.Writer,
 	statuses *status.Service,
 	t v2.Task,
 ) error {
-	if err := stageAndRemove(ctx, tx, ins, otgW, statuses, t); err != nil {
+	if err := stageAndRemove(ctx, tx, ins, statuses, t); err != nil {
 		return err
 	}
 	ins.L.Info(

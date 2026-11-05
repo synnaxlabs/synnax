@@ -24,3 +24,8 @@ func (s *Service) Resources() *resource.TableProvider[string, Alias] {
 		Name: func(a *Alias) string { return a.Alias },
 	})
 }
+
+// resourceID returns the resource ID of the alias with the given gorp key.
+func resourceID(key string) resource.ID {
+	return resource.ID{Type: resource.TypeRangeAlias, Key: key}
+}

@@ -18,22 +18,19 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Writer is used to create and update statuses within the DB. Every write touches both
-// the status entry and its ontology resource. A Writer with no transaction runs each
-// call in a transaction of its own.
+// Writer is used to create and update statuses within the DB. A Writer with no
+// transaction runs each call in a transaction of its own.
 type Writer struct {
-	svc       *Service
-	tx        gorp.Tx
-	table     *gorp.Table[Key, Status[any]]
-	indexes   indexes
-	otgWriter ontology.Writer
+	svc     *Service
+	tx      gorp.Tx
+	table   *gorp.Table[Key, Status[any]]
+	indexes indexes
 }
 
 // inTx calls f with w, or with a Writer on a transaction of its own when w has no
@@ -58,12 +55,7 @@ func (w Writer) Set[D any](ctx context.Context, s *Status[D]) error {
 		if err := w.resolve(ctx, s); err != nil {
 			return err
 		}
-		if err := w.table.NewCreate().
-			Entry(new(s.ToAny())).
-			Exec(ctx, w.tx); err != nil {
-			return err
-		}
-		return w.otgWriter.DefineResources(ctx, s.ResourceID())
+		return w.table.NewCreate().Entry(new(s.ToAny())).Exec(ctx, w.tx)
 	})
 }
 
@@ -215,14 +207,9 @@ func (w Writer) retrieveRaw(
 
 // Delete deletes the statuses with the given keys. Delete is idempotent.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
-	return w.inTx(ctx, func(w Writer) error {
-		if err := w.table.NewDelete().
-			Where(gorp.MatchKeys[Key, Status[any]](keys...)).
-			Exec(ctx, w.tx); err != nil {
-			return err
-		}
-		return w.otgWriter.DeleteResources(ctx, ResourceIDs(keys)...)
-	})
+	return w.table.NewDelete().
+		Where(gorp.MatchKeys[Key, Status[any]](keys...)).
+		Exec(ctx, w.tx)
 }
 
 func (w Writer) validate[D any](s Status[D]) error {

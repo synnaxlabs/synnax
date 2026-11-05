@@ -30,7 +30,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	ontologyv0 "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
@@ -57,7 +56,6 @@ type stack struct {
 	rack       *rack.Service
 	status     *status.Service
 	group      *group.Service
-	otg        *ontology.Ontology
 	driverRole role.Key
 }
 
@@ -65,38 +63,31 @@ type stack struct {
 // fills every dependency in cfg, and creates a Driver role when cfg has none.
 func openStack(ctx context.Context, db *gorp.DB, cfg rack.ServiceConfig) stack {
 	GinkgoHelper()
-	otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
 	g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
+		DB: db,
 	}))
 	lbl := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    g,
+		DB:    db,
+		Group: g,
 	}))
 	stat := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
-		Ontology: otg,
-		DB:       db,
+		DB: db,
 	}))
 	cfg.DB = db
-	cfg.Ontology = otg
 	cfg.HostProvider = testutil.NewStaticHostProvider(1)
 	cfg.Status = stat
 	roles := MustSucceed(role.OpenService(ctx, role.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
+		DB: db,
 	}))
 	if cfg.DriverRole == uuid.Nil() {
 		cfg.DriverRole = MustSucceed(racktestutil.CreateDriverRole(ctx, roles))
 	}
 	svc := MustSucceed(rack.OpenService(ctx, cfg))
 	return stack{
-		MultiCloser: xio.MultiCloser{otg, g, lbl, stat, roles, svc},
+		MultiCloser: xio.MultiCloser{g, lbl, stat, roles, svc},
 		rack:        svc,
 		status:      stat,
 		group:       g,
-		otg:         otg,
 		driverRole:  cfg.DriverRole,
 	}
 }
@@ -220,7 +211,6 @@ var _ = Describe("Rack", Ordered, func() {
 		db         *gorp.DB
 		svc        *rack.Service
 		stat       *status.Service
-		otg        *ontology.Ontology
 		// frozenNow pins the health monitor's clock to a fixed timestamp when
 		// non-zero, letting timing tests stop logical time instead of racing the
 		// wall clock. Zero means use the real clock.
@@ -239,7 +229,7 @@ var _ = Describe("Rack", Ordered, func() {
 				return telem.Now()
 			},
 		}))
-		svc, stat, otg = s.rack, s.status, s.otg
+		svc, stat = s.rack, s.status
 		noTxWriter = svc.NewWriter(nil)
 	})
 	BeforeEach(func(ctx SpecContext) { frozenNow.Store(0) })
@@ -706,10 +696,10 @@ var _ = Describe("Rack", Ordered, func() {
 				a := create(ctx, "turbopump test")
 				b := create(ctx, "turbopump")
 				q := search.Query[resource.ID]{Term: "turbopump"}
-				Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
+				Expect(MustSucceed(svc.Resources().Search(ctx, tx, q)).Keys).
 					To(Equal([]resource.ID{b, a}))
 				q.Limit = 1
-				Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
+				Expect(MustSucceed(svc.Resources().Search(ctx, tx, q)).Keys).
 					To(Equal([]resource.ID{b}))
 			},
 		)
@@ -719,7 +709,7 @@ var _ = Describe("Rack", Ordered, func() {
 			func(ctx SpecContext) {
 				create(ctx, "injector")
 				q := search.Query[resource.ID]{Term: "injector"}
-				Expect(MustSucceed(svc.Search(ctx, db, q)).Keys).To(BeEmpty())
+				Expect(MustSucceed(svc.Resources().Search(ctx, db, q)).Keys).To(BeEmpty())
 			},
 		)
 	})
@@ -892,20 +882,6 @@ var _ = Describe("Rack", Ordered, func() {
 			).To(MatchError(query.ErrNotFound))
 			Expect(retrieveStatusTx(ctx, stat, tx, r.Key)).Error().
 				To(MatchError(query.ErrNotFound))
-		})
-
-		It("Should delete the rack's ontology resource", func(ctx SpecContext) {
-			r := &rack.Rack{Name: "rack5"}
-			Expect(writer.Create(ctx, r)).To(Succeed())
-			Expect(otg.NewRetrieve().
-				WhereIDs(r.ResourceID()).
-				Entries(&[]ontology.Resource{}).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(writer.Delete(ctx, nil, r.Key)).To(Succeed())
-			Expect(otg.NewRetrieve().
-				WhereIDs(r.ResourceID()).
-				Entries(&[]ontology.Resource{}).
-				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should delete many racks at once", func(ctx SpecContext) {

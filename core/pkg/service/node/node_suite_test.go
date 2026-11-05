@@ -10,18 +10,18 @@
 package node_test
 
 import (
-	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/testutil/memkv"
+)
+
+var (
+	testCluster *testutil.Cluster
+	testSvc     *node.Service
 )
 
 func TestNode(t *testing.T) {
@@ -31,32 +31,10 @@ func TestNode(t *testing.T) {
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
-// openTestService spins up a fresh ontology against the supplied cluster and returns a
-// node Service registered with it. Test fixtures use this instead of the mock cluster's
-// pre-registered services so that the test owns the ontology lifecycle and avoids
-// duplicate-registration panics.
-func openTestService(
-	ctx context.Context,
-	c cluster.Cluster,
-) (*node.Service, *ontology.Ontology) {
-	GinkgoHelper()
-	db := DeferClose(gorp.Wrap(memkv.New()))
-	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	svc := MustSucceed(node.NewService(ctx, node.ServiceConfig{
-		Cluster:  c,
-		Ontology: otg,
-	}))
-	return svc, otg
-}
-
-var (
-	testCluster *testutil.Cluster
-	testSvc     *node.Service
-	testOtg     *ontology.Ontology
-)
-
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	testCluster = testutil.NewCluster(ctx, 2)
-	testSvc, testOtg = openTestService(ctx, testCluster.Nodes[1].Cluster)
+	testSvc = MustSucceed(node.NewService(node.ServiceConfig{
+		Cluster: testCluster.Nodes[1].Cluster,
+	}))
 })

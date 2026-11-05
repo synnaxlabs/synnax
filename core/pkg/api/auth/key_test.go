@@ -22,6 +22,7 @@ import (
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/query"
@@ -64,7 +65,7 @@ var _ = Describe("API keys", func() {
 		bob, eng           user.User
 		bobToken, engToken string
 		rootToken          string
-		rack               resource.ID
+		rackID             resource.ID
 	)
 	login := func(ctx context.Context, proof auth.Proof) string {
 		GinkgoHelper()
@@ -91,8 +92,9 @@ var _ = Describe("API keys", func() {
 		bobToken = login(ctx, passwordProof(bob.Name, "p"))
 		engToken = login(ctx, passwordProof(eng.Name, "p"))
 		rootToken = login(ctx, passwordProof(creds.Username, creds.Password))
-		rack = resource.ID{Type: resource.TypeRack, Key: uuid.New().String()}
-		Expect(otg.NewWriter(nil).DefineResources(ctx, rack)).To(Succeed())
+		r := rack.Rack{Name: "rack-" + uuid.New().String()}
+		Expect(rackSvc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+		rackID = r.ResourceID()
 	})
 	Describe("CreateKey", func() {
 		It("Should create a key for the caller that logs in as the caller", func(
@@ -110,12 +112,12 @@ var _ = Describe("API keys", func() {
 			Expect(session.Credential).To(Equal(res.Key.Key))
 		})
 		It("Should let an Engineer create a key for a rack", func(ctx SpecContext) {
-			res := MustSucceed(create(ctx, engToken, rack))
+			res := MustSucceed(create(ctx, engToken, rackID))
 			session := MustSucceed(authSvc.Authenticate(
 				ctx,
 				login(ctx, keyProof(res.Token)),
 			))
-			Expect(session.Subject).To(Equal(rack))
+			Expect(session.Subject).To(Equal(rackID))
 		})
 		It("Should deny an Engineer a key for another user", func(ctx SpecContext) {
 			Expect(create(ctx, engToken, bob.ResourceID())).Error().
@@ -137,11 +139,11 @@ var _ = Describe("API keys", func() {
 				access.ActionUpdate,
 				resource.ID{Type: resource.TypeRack},
 			)
-			Expect(create(ctx, bobToken, rack)).Error().
+			Expect(create(ctx, bobToken, rackID)).Error().
 				To(MatchError(access.ErrDenied))
 		})
 		It("Should deny a user without a role a key for a rack", func(ctx SpecContext) {
-			Expect(create(ctx, bobToken, rack)).Error().
+			Expect(create(ctx, bobToken, rackID)).Error().
 				To(MatchError(access.ErrDenied))
 		})
 		It("Should let the Owner create a key for another user", func(ctx SpecContext) {
@@ -149,9 +151,14 @@ var _ = Describe("API keys", func() {
 			Expect(res.Key.Subject).To(Equal(bob.ResourceID()))
 		})
 		It("Should reject a subject that does not exist", func(ctx SpecContext) {
-			missing := resource.ID{Type: resource.TypeRack, Key: "missing"}
+			missing := resource.ID{Type: resource.TypeRack, Key: "4000000000"}
 			Expect(create(ctx, rootToken, missing)).Error().
 				To(MatchError(query.ErrNotFound))
+		})
+		It("Should reject a subject with a malformed key", func(ctx SpecContext) {
+			malformed := resource.ID{Type: resource.TypeRack, Key: "missing"}
+			Expect(create(ctx, rootToken, malformed)).Error().
+				To(MatchError(validate.ErrValidation))
 		})
 		It("Should reject a subject that is not a user or rack", func(ctx SpecContext) {
 			channel := resource.ID{Type: resource.TypeChannel, Key: "1"}

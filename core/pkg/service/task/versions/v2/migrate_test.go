@@ -10,6 +10,7 @@
 package v2_test
 
 import (
+	"context"
 	"slices"
 	"strconv"
 	"uuid"
@@ -29,7 +30,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/labjack"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/ni"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
@@ -48,32 +49,32 @@ import (
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
+func resourceExists(ctx context.Context, db *gorp.DB, id resource.ID) (bool, error) {
+	return gorp.NewRetrieve[string, ontology.Resource]().
+		Where(gorp.MatchKeys[string, ontology.Resource](id.String())).
+		Exists(ctx, db)
+}
+
 var _ = Describe("Migrations", func() {
 	It(
 		"Should migrate a legacy uint64-keyed task and its status to a UUID key",
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
-			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 			g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
+				DB: db,
 			}))
 			MustOpen(label.OpenService(ctx, label.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-				Group:    g,
+				DB:    db,
+				Group: g,
 			}))
 			stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-				Ontology: otg,
-				DB:       db,
+				DB: db,
 			}))
 			roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
+				DB: db,
 			}))
 			rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 				DB:           db,
-				Ontology:     otg,
 				HostProvider: testutil.NewStaticHostProvider(1),
 				Status:       stat,
 				DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
@@ -99,7 +100,7 @@ var _ = Describe("Migrations", func() {
 				Type: resource.TypeTask,
 				Key:  strconv.FormatUint(uint64(legacyKey), 10),
 			}
-			Expect(otg.NewWriter(nil).DefineResources(ctx, legacyID)).To(Succeed())
+			Expect(ontology.DefineResources(ctx, db, legacyID)).To(Succeed())
 
 			// Legacy data stored the task key as a msgpack float64; the v0 backfill
 			// must read it through the flex decoder before the re-key runs. The status
@@ -123,12 +124,11 @@ var _ = Describe("Migrations", func() {
 			pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
 			configs := MustSucceed(config.NewRegistry(pd.Stores()...))
 			svc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-				Rack:     rackSvc,
-				Status:   stat,
-				ImEx:     imex.NewService(),
-				Configs:  configs,
+				DB:      db,
+				Rack:    rackSvc,
+				Status:  stat,
+				ImEx:    imex.NewService(),
+				Configs: configs,
 			}))
 
 			var migrated task.Task
@@ -152,10 +152,8 @@ var _ = Describe("Migrations", func() {
 			Expect(restoredStatus.Details.Running).To(BeTrue())
 			Expect(restoredStatus.Details.Cmd).To(Equal("start"))
 
-			Expect(otg.NewRetrieve().
-				WhereIDs(task.ResourceID(migrated.Key)).
-				Exists(ctx, nil)).To(BeTrue())
-			Expect(otg.NewRetrieve().WhereIDs(legacyID).Exists(ctx, nil)).To(BeFalse())
+			Expect(resourceExists(ctx, db, task.ResourceID(migrated.Key))).To(BeTrue())
+			Expect(resourceExists(ctx, db, legacyID)).To(BeFalse())
 
 			staged, closer := MustSucceed2(db.Get(ctx, v2.LegacyKeyKVKey(legacyKey)))
 			Expect(string(staged)).To(Equal(migrated.Key.String()))
@@ -172,27 +170,21 @@ var _ = Describe("Migrations", func() {
 			node := testutil.NewNode(ctx)
 			db := node.DB
 			stageDB := gorp.Wrap(db.DB, gorp.WithCodec(msgpack.Codec))
-			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 			g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
+				DB: db,
 			}))
 			MustOpen(label.OpenService(ctx, label.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-				Group:    g,
+				DB:    db,
+				Group: g,
 			}))
 			stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-				Ontology: otg,
-				DB:       db,
+				DB: db,
 			}))
 			roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
+				DB: db,
 			}))
 			rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 				DB:           db,
-				Ontology:     otg,
 				HostProvider: testutil.NewStaticHostProvider(1),
 				Status:       stat,
 				DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
@@ -201,10 +193,9 @@ var _ = Describe("Migrations", func() {
 			Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
 			targets := tasktestutil.NewTargets(tasktestutil.TargetsConfig{
 				Device: MustOpen(device.OpenService(ctx, device.ServiceConfig{
-					DB:       db,
-					Ontology: otg,
-					Status:   stat,
-					Rack:     rackSvc,
+					DB:     db,
+					Status: stat,
+					Rack:   rackSvc,
 				})),
 				Status: stat,
 				Rack:   testRack.Key,
@@ -215,7 +206,6 @@ var _ = Describe("Migrations", func() {
 				Channel:      node.Channel,
 				DB:           db,
 				HostProvider: node.Cluster,
-				Ontology:     otg,
 				Status:       stat,
 			}))
 			keys := MustSucceed(channeltestutil.CreateVirtual(ctx, channelSvc, 4))
@@ -352,12 +342,11 @@ var _ = Describe("Migrations", func() {
 				pd.Stores(), at.Stores(), lj.Stores(), niSvc.Stores(),
 			)...))
 			svc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-				Rack:     rackSvc,
-				Status:   stat,
-				ImEx:     imex.NewService(),
-				Configs:  configs,
+				DB:      db,
+				Rack:    rackSvc,
+				Status:  stat,
+				ImEx:    imex.NewService(),
+				Configs: configs,
 			}))
 
 			var migratedPD task.Task

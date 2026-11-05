@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -41,7 +40,6 @@ const calculatedIndexNameSuffix = "_time"
 type Writer struct {
 	svc      *Service
 	tx       gorp.Tx
-	otg      ontology.Writer
 	analyzer *CalculationAnalyzer
 }
 
@@ -149,16 +147,15 @@ func (w Writer) ChangeDataType(
 		Exec(ctx, w.tx)
 }
 
-// Delete deletes the channel with the given key, along with its storage and ontology
-// resources. Unless allowInternal is true, deleting an internal channel returns an
-// error.
+// Delete deletes the channel with the given key, along with its storage. Unless
+// allowInternal is true, deleting an internal channel returns an error.
 func (w Writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
 	return w.DeleteMany(ctx, []Key{key}, allowInternal)
 }
 
-// DeleteMany deletes the channels with the given keys, along with their storage and
-// ontology resources. Unless allowInternal is true, deleting any internal channel
-// returns an error and no channels are deleted.
+// DeleteMany deletes the channels with the given keys, along with their storage. Unless
+// allowInternal is true, deleting any internal channel returns an error and no channels
+// are deleted.
 func (w Writer) DeleteMany(ctx context.Context, keys []Key, allowInternal bool) error {
 	return w.delete(ctx, keys, allowInternal)
 }
@@ -197,8 +194,7 @@ func (w Writer) RenameMany(
 
 // create orchestrates channel creation: it validates names, preprocesses calculated
 // channels, resolves existing channels, allocates keys and storage through the
-// distribution allocator, writes the rich channel records to the table, and registers
-// ontology resources.
+// distribution allocator, and writes the rich channel records to the table.
 func (w Writer) create(
 	ctx context.Context,
 	_channels *[]Channel,
@@ -463,11 +459,7 @@ func (w Writer) create(
 	}
 
 	*_channels = channels
-
-	externalIDs := lo.FilterMap(channels, func(ch Channel, _ int) (resource.ID, bool) {
-		return ResourceID(ch.Key()), !ch.Internal
-	})
-	return w.otg.DefineResources(ctx, externalIDs...)
+	return nil
 }
 
 // allocateAndWrite enforces the channel limit, then allocates keys and storage for the
@@ -647,9 +639,6 @@ func (w Writer) delete(ctx context.Context, keys Keys, allowInternal bool) error
 			return nil
 		}).
 		Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	if err := w.otg.DeleteResources(ctx, ResourceIDsFromKeys(keys)...); err != nil {
 		return err
 	}
 	// Storage deletion goes last, as it is the only operation that can fail without an

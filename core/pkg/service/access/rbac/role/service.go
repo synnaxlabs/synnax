@@ -16,7 +16,6 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role/versions"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
@@ -27,9 +26,8 @@ import (
 
 type ServiceConfig struct {
 	alamos.Instrumentation
-	DB       *gorp.DB
-	Ontology *ontology.Ontology
-	Signals  *signals.Provider
+	DB      *gorp.DB
+	Signals *signals.Provider
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -38,7 +36,6 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	return c
 }
@@ -47,7 +44,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("policy")
 	v.NotNil("db", c.DB)
-	v.NotNil("ontology", c.Ontology)
 	return v.Error()
 }
 
@@ -80,9 +76,6 @@ func OpenService(
 	}); !ok(err, s.table) {
 		return nil, err
 	}
-	if cfg.Ontology != nil {
-		cfg.Ontology.RegisterService(s)
-	}
 	if cfg.Signals != nil {
 		var sig io.Closer
 		if sig, err = cfg.Signals.PublishFromGorp(
@@ -98,7 +91,6 @@ func OpenService(
 func (s *Service) NewWriter(tx gorp.Tx, allowInternal bool) Writer {
 	return Writer{
 		tx:            gorp.OverrideTx(s.cfg.DB, tx),
-		otg:           s.cfg.Ontology.NewWriter(tx),
 		allowInternal: allowInternal,
 		table:         s.table,
 	}

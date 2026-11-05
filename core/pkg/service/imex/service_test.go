@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/encoding/orc"
@@ -54,6 +53,7 @@ type testEntry struct {
 	Name     string `json:"name"      msgpack:"name"`
 	FieldOne string `json:"field_one" msgpack:"field_one"`
 	FieldTwo int    `json:"field_two" msgpack:"field_two"`
+	Parent   string `json:"parent"    msgpack:"parent"`
 }
 
 var _ gorp.Entry[string] = testEntry{}
@@ -69,6 +69,7 @@ func (e testEntry) EncodeOrc(w *orc.Writer) error {
 	w.String(e.Name)
 	w.String(e.FieldOne)
 	w.Int64(int64(e.FieldTwo))
+	w.String(e.Parent)
 	return nil
 }
 
@@ -89,7 +90,8 @@ func (e *testEntry) DecodeOrc(r *orc.Reader) error {
 		return err
 	}
 	e.FieldTwo = int(n)
-	return nil
+	e.Parent, err = r.String()
+	return err
 }
 
 // testService is a minimal in-memory ImportExporter used to exercise the ImEx registry
@@ -123,21 +125,13 @@ func (s *testService) Import(
 	}
 	key := uuid.New().String()
 	e := testEntry{Key: key, Name: env.Name, FieldOne: r.FieldOne, FieldTwo: r.FieldTwo}
+	if !opts.Parent.IsZero() {
+		e.Parent = opts.Parent.String()
+	}
 	if err := s.table.NewCreate().Entry(&e).Exec(ctx, tx); err != nil {
 		return resource.ID{}, err
 	}
 	id := resource.ID{Type: resource.TypeChannel, Key: key}
-	w := otg.NewWriter(tx)
-	if err := w.DefineResources(ctx, id); err != nil {
-		return resource.ID{}, err
-	}
-	if !opts.Parent.IsZero() {
-		if err := w.DefineRelationships(
-			ctx, opts.Parent, ontology.RelationshipTypeParentOf, id,
-		); err != nil {
-			return resource.ID{}, err
-		}
-	}
 	return id, nil
 }
 
@@ -231,15 +225,6 @@ func (n noopExporter) Export(context.Context, resource.ID) (imex.Envelope, error
 		return imex.Envelope{}, err
 	}
 	return env, nil
-}
-
-// newParent defines a fresh project resource in the ontology and returns its ID so
-// imports satisfy the registry's required-parent check.
-func newParent(ctx context.Context) resource.ID {
-	GinkgoHelper()
-	id := project.ResourceID(uuid.New())
-	Expect(otg.NewWriter(nil).DefineResources(ctx, id)).To(Succeed())
-	return id
 }
 
 var _ = Describe("Service", func() {
@@ -342,7 +327,7 @@ var _ = Describe("Service", func() {
 				})).To(Succeed())
 				id := MustSucceed(s.Import(
 					ctx, db, typelessEnvelope(`{"version":"1.0.0","channels":[]}`),
-					imex.ImportOptions{FileName: "Legacy.json", Parent: newParent(ctx)},
+					imex.ImportOptions{FileName: "Legacy.json"},
 				))
 				Expect(id).To(Equal(resource.ID{
 					Type: resource.TypeLog, Key: "noop-key",
@@ -378,12 +363,12 @@ var _ = Describe("Service", func() {
 				k1 := MustSucceed(s.Import(
 					ctx, db,
 					imex.Envelope{Version: 1, Type: "http_read", Name: "ingest"},
-					imex.ImportOptions{Parent: newParent(ctx)},
+					imex.ImportOptions{},
 				))
 				k2 := MustSucceed(s.Import(
 					ctx, db,
 					imex.Envelope{Version: 1, Type: "opc_scan", Name: "scan"},
-					imex.ImportOptions{Parent: newParent(ctx)},
+					imex.ImportOptions{},
 				))
 				Expect(
 					k1,
@@ -480,7 +465,7 @@ var _ = Describe("Service", func() {
 					ctx,
 					db,
 					sampleEnvelope("Registry Test", resource.TypeChannel),
-					imex.ImportOptions{Parent: newParent(ctx)},
+					imex.ImportOptions{},
 				))
 				Expect(id.Type).To(Equal(resource.TypeChannel))
 				Expect(id.Key).NotTo(BeEmpty())
@@ -494,7 +479,7 @@ var _ = Describe("Service", func() {
 				Name:    "Bad Type",
 			}
 			Expect(
-				svc.Import(ctx, db, env, imex.ImportOptions{Parent: newParent(ctx)}),
+				svc.Import(ctx, db, env, imex.ImportOptions{}),
 			).Error().
 				To(SatisfyAll(
 					MatchError(ContainSubstring("no importer registered")),
@@ -506,7 +491,7 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				Expect(svc.Import(
 					ctx, db, sampleEnvelope("Erroring", resource.TypeDevice),
-					imex.ImportOptions{Parent: newParent(ctx)},
+					imex.ImportOptions{},
 				)).Error().To(MatchError(ContainSubstring("importer error: forced failure")))
 			},
 		)
@@ -519,13 +504,12 @@ var _ = Describe("Service", func() {
 				// wraps the multi- envelope batch in db.WithTx. This test exercises
 				// that contract: the bad envelope causes the tx callback to return
 				// early, so the good envelope's write is rolled back along with it.
-				parent := newParent(ctx)
 				err := db.WithTx(ctx, func(tx gorp.Tx) error {
 					if _, err := svc.Import(
 						ctx,
 						tx,
 						sampleEnvelope("Good Record", resource.TypeChannel),
-						imex.ImportOptions{Parent: parent},
+						imex.ImportOptions{},
 					); err != nil {
 						return err
 					}
@@ -533,7 +517,7 @@ var _ = Describe("Service", func() {
 						Version: testVersion,
 						Type:    "nonexistent",
 						Name:    "Bad Type",
-					}, imex.ImportOptions{Parent: parent})
+					}, imex.ImportOptions{})
 					return err
 				})
 				Expect(err).To(MatchError(ContainSubstring("no importer registered")))
@@ -567,7 +551,6 @@ var _ = Describe("Service", func() {
 						namelessEnvelope(),
 						imex.ImportOptions{
 							FileName: "Metrics Log.json",
-							Parent:   newParent(ctx),
 						},
 					))
 					Expect(id.Key).NotTo(BeEmpty())
@@ -585,7 +568,6 @@ var _ = Describe("Service", func() {
 						sampleEnvelope("Body Name", resource.TypeChannel),
 						imex.ImportOptions{
 							FileName: "File Name.json",
-							Parent:   newParent(ctx),
 						},
 					))
 					entry := MustSucceed(ts.Retrieve(ctx, "Body Name"))
@@ -599,7 +581,7 @@ var _ = Describe("Service", func() {
 						ctx,
 						db,
 						namelessEnvelope(),
-						imex.ImportOptions{FileName: fileName, Parent: newParent(ctx)},
+						imex.ImportOptions{FileName: fileName},
 					))
 					entry := MustSucceed(ts.Retrieve(ctx, expected))
 					Expect(entry.Key).To(Equal(id.Key))
@@ -617,7 +599,7 @@ var _ = Describe("Service", func() {
 						ctx,
 						db,
 						namelessEnvelope(),
-						imex.ImportOptions{Parent: newParent(ctx)},
+						imex.ImportOptions{},
 					)).Error().To(SatisfyAll(
 						MatchError(ContainSubstring("name must be a non-empty string")),
 						MatchError(ContainSubstring("validation error")),
@@ -634,7 +616,6 @@ var _ = Describe("Service", func() {
 						namelessEnvelope(),
 						imex.ImportOptions{
 							FileName: "symbols/",
-							Parent:   newParent(ctx),
 						},
 					)).Error().To(
 						MatchError(ContainSubstring("name must be a non-empty string")),
@@ -644,63 +625,26 @@ var _ = Describe("Service", func() {
 		})
 
 		Describe("Parent", func() {
-			var projectKey project.Key
-			BeforeEach(func(ctx SpecContext) {
-				projectKey = uuid.New()
-				Expect(otg.NewWriter(nil).DefineResources(
-					ctx, project.ResourceID(projectKey),
-				)).To(Succeed())
-			})
-
 			It("Should import a resource with no parent", func(ctx SpecContext) {
-				id := MustSucceed(svc.Import(
+				MustSucceed(svc.Import(
 					ctx, db,
 					sampleEnvelope("No Parent", resource.TypeChannel),
 					imex.ImportOptions{},
 				))
-				var parents []ontology.Resource
-				Expect(otg.NewRetrieve().
-					WhereIDs(id).
-					TraverseTo(ontology.ParentsTraverser).
-					Entries(&parents).
-					Exec(ctx, nil)).To(Succeed())
-				Expect(parents).To(BeEmpty())
+				Expect(MustSucceed(ts.Retrieve(ctx, "No Parent")).Parent).To(BeEmpty())
 			})
 
-			It(
-				"Should attach the imported resource under the given parent",
-				func(ctx SpecContext) {
-					id := MustSucceed(svc.Import(
-						ctx,
-						db,
-						sampleEnvelope("Parented", resource.TypeChannel),
-						imex.ImportOptions{Parent: project.ResourceID(projectKey)},
-					))
-					Expect(otg.RelationshipExists(ctx, nil, ontology.Relationship{
-						From: project.ResourceID(projectKey),
-						Type: ontology.RelationshipTypeParentOf,
-						To:   id,
-					})).To(BeTrue())
-				},
-			)
-
-			It(
-				"Should roll back the import when the parent does not exist",
-				func(ctx SpecContext) {
-					err := db.WithTx(ctx, func(tx gorp.Tx) error {
-						_, err := svc.Import(
-							ctx, tx,
-							sampleEnvelope("Orphaned", resource.TypeChannel),
-							imex.ImportOptions{Parent: project.ResourceID(uuid.New())},
-						)
-						return err
-					})
-					Expect(err).To(MatchError(query.ErrNotFound))
-					Expect(ts.Retrieve(ctx, "Orphaned")).Error().To(
-						MatchError(query.ErrNotFound),
-					)
-				},
-			)
+			It("Should pass the parent through to the importer", func(ctx SpecContext) {
+				parent := project.ResourceID(uuid.New())
+				MustSucceed(svc.Import(
+					ctx,
+					db,
+					sampleEnvelope("Parented", resource.TypeChannel),
+					imex.ImportOptions{Parent: parent},
+				))
+				Expect(MustSucceed(ts.Retrieve(ctx, "Parented")).Parent).
+					To(Equal(parent.String()))
+			})
 		})
 	})
 
@@ -710,7 +654,7 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				id := MustSucceed(svc.Import(
 					ctx, db, sampleEnvelope("Round Trip", resource.TypeChannel),
-					imex.ImportOptions{Parent: newParent(ctx)},
+					imex.ImportOptions{},
 				))
 				env := MustSucceed(svc.Export(ctx, id))
 				Expect(env.Version).To(Equal(testVersion))

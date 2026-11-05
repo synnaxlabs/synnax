@@ -29,7 +29,7 @@ import (
 
 // createPanel persists a panel in the suite project and returns it with its key
 // populated. Writes commit immediately (nil tx) so the api enforcer can observe the new
-// ontology resource.
+// panel.
 func createPanel(ctx context.Context, name string) panel.Panel {
 	GinkgoHelper()
 	p := panel.Panel{Name: name, Project: &proj.Key}

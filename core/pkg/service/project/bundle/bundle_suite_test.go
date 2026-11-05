@@ -26,7 +26,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
@@ -49,7 +48,6 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
 	db          *gorp.DB
-	otg         *ontology.Ontology
 	resourceSvc *resource.Service
 	svc         *bundle.Service
 	groupSvc    *group.Service
@@ -71,42 +69,33 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := testutil.NewNode(ctx)
 	db = node.DB
-	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
+		DB: db,
 	}))
 	imexSvc = imex.NewService()
 	panelSvc = MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
+		DB: db,
 	}))
 	logSvc = MustOpen(log.OpenService(ctx, log.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		ImEx:     imexSvc,
+		DB:   db,
+		ImEx: imexSvc,
 	}))
 	lineplotSvc = MustOpen(lineplot.OpenService(ctx, lineplot.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		ImEx:     imex.NewService(),
+		DB:   db,
+		ImEx: imex.NewService(),
 	}))
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
+		DB:    db,
+		Group: groupSvc,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
+		DB: db,
 	}))
 	roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
+		DB: db,
 	}))
 	rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:           db,
-		Ontology:     otg,
 		Status:       statusSvc,
 		HostProvider: node.Cluster,
 		DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
@@ -115,11 +104,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	arcTable := MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
 	arcTaskSvc := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))
 	taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Rack:     rackSvc,
-		Status:   statusSvc,
-		ImEx:     imexSvc,
+		DB:     db,
+		Rack:   rackSvc,
+		Status: statusSvc,
+		ImEx:   imexSvc,
 		Configs: MustSucceed(config.NewRegistry(
 			slices.Concat(pd.Stores(), arcTaskSvc.Stores())...,
 		)),
@@ -131,13 +119,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Channel:      node.Channel,
 		DB:           db,
 		HostProvider: node.Cluster,
-		Ontology:     otg,
 		Status:       statusSvc,
 	}))
 	arcSvc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
 		DB:         db,
 		Table:      arcTable,
-		Ontology:   otg,
 		Channel:    channelSvc,
 		Task:       taskSvc,
 		MatchTasks: arcTaskSvc.MatchArcs,
@@ -145,8 +131,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		ImEx:       imexSvc,
 	}))
 	projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
+		DB: db,
 	}))
 	resourceSvc = MustSucceed(resource.NewService(resource.ServiceConfig{
 		DB: db,

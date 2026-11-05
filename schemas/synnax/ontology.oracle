@@ -7,16 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// The Core no longer stores the ontology. This file only anchors the frozen v0 package
+// that the migrations of an upgraded store read.
+
 import "schemas/synnax/resource"
 
 @go output "core/pkg/service/ontology"
-@py output "client/py/synnax/ontology"
-@ts output "client/ts/src/ontology"
 
 RelationshipType string {
     @go hand
-    @py hand
-    @ts hand
 }
 
 Resource struct {
@@ -24,22 +23,17 @@ Resource struct {
         @doc value "is the unique identifier for this resource."
     }
     name string      {
-        @doc value  "is a human-readable name for the resource."
-        @go marshal omit
+        @doc value "is a human-readable name for the resource."
     }
     data record = {} {
-        @doc value  "is optional metadata associated with the resource."
-        @go marshal omit
+        @doc value "is optional metadata associated with the resource."
     }
 
-    @doc value  """
+    @doc value """
         is a resource in the ontology system with its identifier, name, and optional
         metadata.
     """
     @go hand
-    @go marshal
-    @py hand
-    @ts hand
 }
 
 Relationship struct {
@@ -53,11 +47,8 @@ Relationship struct {
         @doc value "is the target resource of the relationship."
     }
 
-    @doc value  """
+    @doc value """
         is a directional relationship between two resources in the ontology system.
     """
     @go hand
-    @go marshal
-    @py hand
-    @ts hand
 }

@@ -15,7 +15,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -25,15 +24,11 @@ func TestImEx(t *testing.T) {
 	RunSpecs(t, "Service Import/Export Suite", SuiteConfig())
 }
 
-var (
-	db  *gorp.DB
-	otg *ontology.Ontology
-)
+var db *gorp.DB
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	db = DeferClose(gorp.Wrap(memkv.New()))
-	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 })
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

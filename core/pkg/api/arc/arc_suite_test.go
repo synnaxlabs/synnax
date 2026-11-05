@@ -28,7 +28,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -48,7 +47,6 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
 	db       *gorp.DB
-	otg      *ontology.Ontology
 	rbacSvc  *rbac.Service
 	userSvc  *user.Service
 	arcSvc   *arc.Service
@@ -62,25 +60,20 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := testutil.NewNode(ctx)
 	db = node.DB
-	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
+		DB: db,
 	}))
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
+		DB:    db,
+		Group: groupSvc,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
+		DB: db,
 	}))
 	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
+		DB:    db,
+		Group: groupSvc,
 	}))
 	MustSucceed2(
 		user.ProvisionRoot(
@@ -90,21 +83,19 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 			auth.Credentials{Username: "suite-root", Password: "p"},
 		),
 	)
-	roles := MustOpen(rbac.OpenRoles(ctx, rbac.RolesConfig{DB: db, Ontology: otg}))
+	roles := MustOpen(rbac.OpenRoles(ctx, rbac.RolesConfig{DB: db}))
 	rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:                  db,
-		Ontology:            otg,
 		HostProvider:        testutil.NewStaticHostProvider(1),
 		Status:              statusSvc,
 		HealthCheckInterval: 10 * telem.Millisecond,
 		DriverRole:          roles.Builtin.DriverKey,
 	}))
 	rbacSvc = MustSucceed(rbac.NewService(ctx, rbac.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Roles:    roles,
-		User:     userSvc,
-		Rack:     rackSvc,
+		DB:    db,
+		Roles: roles,
+		User:  userSvc,
+		Rack:  rackSvc,
 	}))
 	imexSvc := imex.NewService()
 	arcTable := MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
@@ -112,7 +103,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	configs := MustSucceed(taskconfig.NewRegistry(arcTaskSvc.Stores()...))
 	taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:           db,
-		Ontology:     otg,
 		Rack:         rackSvc,
 		Status:       statusSvc,
 		ImEx:         imexSvc,
@@ -123,13 +113,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Channel:      node.Channel,
 		DB:           db,
 		HostProvider: node.Cluster,
-		Ontology:     otg,
 		Status:       statusSvc,
 	}))
 	arcSvc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
 		DB:         db,
 		Table:      arcTable,
-		Ontology:   otg,
 		Channel:    channelSvc,
 		Task:       taskSvc,
 		MatchTasks: arcTaskSvc.MatchArcs,

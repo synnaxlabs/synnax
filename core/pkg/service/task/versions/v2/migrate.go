@@ -21,14 +21,13 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/zyn"
 )
 
 // LegacyKeyKVPrefix is the KV key prefix under which the re-key migration stages the
@@ -65,15 +64,6 @@ func NewMigration(cfg MigrationConfig) gorp.Migration {
 func resourceID(key Key) resource.ID {
 	return resource.ID{Type: resource.TypeTask, Key: key.String()}
 }
-
-// resourceSchema is a frozen copy of the task ontology resource schema as of this
-// version, used to rebuild re-keyed task resources.
-var resourceSchema = zyn.Object(map[string]zyn.Schema{
-	"key":      zyn.UUID(),
-	"name":     zyn.String(),
-	"type":     zyn.String(),
-	"snapshot": zyn.Bool(),
-})
 
 // hashConfig is a frozen copy of the config hash as of this version: xxhash64 of the
 // JSON encoding as 16 lowercase hex characters. encoding/json sorts map keys, so equal
@@ -145,7 +135,7 @@ func migrateKeysToUUID(ctx context.Context, tx gorp.Tx, cfg MigrationConfig) err
 	); err != nil {
 		return err
 	}
-	if err := rewriteResources(ctx, tx, keys, byKey); err != nil {
+	if err := rewriteResources(ctx, tx, keys); err != nil {
 		return err
 	}
 	if err := rewriteRelationships(ctx, tx, keys); err != nil {
@@ -226,14 +216,8 @@ func rewriteStatuses(
 }
 
 // rewriteResources re-keys every task ontology resource to its UUID and every task
-// status resource to the re-keyed status key. Task resource data is rebuilt from the
-// migrated record so it reflects the new key and rack.
-func rewriteResources(
-	ctx context.Context,
-	tx gorp.Tx,
-	keys map[v1.Key]Key,
-	byKey map[Key]Task,
-) error {
+// status resource to the re-keyed status key.
+func rewriteResources(ctx context.Context, tx gorp.Tx, keys map[v1.Key]Key) error {
 	statusKeyPrefix := string(resource.TypeTask) + ":"
 	stale, err := collectEntries(
 		ctx,
@@ -264,8 +248,7 @@ func rewriteResources(
 			continue
 		}
 		if r.ID.Type == resource.TypeTask {
-			t := byKey[key]
-			r = ontology.NewResource(resourceSchema, resourceID(key), t.Name, t)
+			r.ID = resourceID(key)
 		} else {
 			r.ID.Key = resourceID(key).String()
 		}

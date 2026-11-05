@@ -9,7 +9,10 @@
 
 package user
 
-import "github.com/synnaxlabs/synnax/pkg/service/resource"
+import (
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+)
 
 // Resources returns the resource.Provider of users.
 func (s *Service) Resources() *resource.TableProvider[Key, User] {
@@ -21,3 +24,20 @@ func (s *Service) Resources() *resource.TableProvider[Key, User] {
 		Name:   func(u *User) string { return u.Name },
 	})
 }
+
+// ResourceID returns the resource ID of the user with key.
+func ResourceID(key Key) resource.ID {
+	return resource.ID{Type: resource.TypeUser, Key: key.String()}
+}
+
+// ResourceIDsFromKeys returns a slice of unique identifiers from a slice of keys
+func ResourceIDsFromKeys(keys []Key) []resource.ID {
+	return lo.Map(keys, func(key Key, _ int) resource.ID { return ResourceID(key) })
+}
+
+// ResourceIDsFromUsers returns the resource IDs of users.
+func ResourceIDsFromUsers(users []User) []resource.ID {
+	return lo.Map(users, func(u User, _ int) resource.ID { return u.ResourceID() })
+}
+
+func KeyFromResourceID(id resource.ID) (Key, error) { return resource.ParseUUIDKey(id) }

@@ -15,7 +15,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
@@ -30,7 +29,6 @@ import (
 type Writer struct {
 	svc      *Service
 	tx       gorp.Tx
-	otg      ontology.Writer
 	status   status.Writer
 	statuses *status.Service
 	table    *gorp.Table[Key, Device]
@@ -148,7 +146,7 @@ func (w Writer) create(ctx context.Context, device *Device) error {
 	if exists {
 		return nil
 	}
-	return w.otg.DefineResources(ctx, device.ResourceID())
+	return nil
 }
 
 // CreateMany creates or updates the given devices. If devices with the same key already
@@ -206,8 +204,5 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 
 // Delete deletes the device with the given key, its status, and every device it holds.
 func (w Writer) Delete(ctx context.Context, key Key) error {
-	if err := w.otg.DeleteResources(ctx, ResourceID(key)); err != nil {
-		return err
-	}
 	return w.table.NewDelete().Where(gorp.MatchKeys[Key, Device](key)).Exec(ctx, w.tx)
 }

@@ -18,7 +18,6 @@ import (
 	. "github.com/synnaxlabs/gorp/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	statusv2 "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v0"
@@ -34,19 +33,15 @@ var _ = Describe("Migration", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
+			DB: db,
 		}))
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    groupSvc,
+			DB:    db,
+			Group: groupSvc,
 		}))
 		statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			Ontology: otg,
-			DB:       db,
+			DB: db,
 		}))
 	})
 
@@ -125,19 +120,15 @@ var _ = Describe("Status backfill", func() {
 		"Should read a status whose task key was stored as float64",
 		func(ctx SpecContext) {
 			db := DeferClose(OpenGorpMsgpackDB())
-			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 			groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
+				DB: db,
 			}))
 			MustOpen(label.OpenService(ctx, label.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-				Group:    groupSvc,
+				DB:    db,
+				Group: groupSvc,
 			}))
 			statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-				Ontology: otg,
-				DB:       db,
+				DB: db,
 			}))
 
 			taskKey := v0.Key(65537<<32 | 99)

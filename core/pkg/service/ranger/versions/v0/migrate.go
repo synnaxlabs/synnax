@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -28,8 +28,6 @@ import (
 
 // MigrationConfig is the configuration for newMigration.
 type MigrationConfig struct {
-	// Ontology is the cluster ontology; migrated ranges are re-parented in it.
-	Ontology *ontology.Ontology
 	// Group is the group service the legacy range groups are folded into.
 	Group *group.Service
 	alamos.Instrumentation
@@ -81,27 +79,35 @@ func newMigration(cfg MigrationConfig) gorp.Migration {
 				return err
 			}
 
-			var groups []ontology.Resource
-			if err = cfg.Ontology.
+			topEdges, err := outgoingParentEdges(ctx, tx, topLevelGroup.ResourceID())
+			if err != nil {
+				return err
+			}
+			var groupKeys []uuid.UUID
+			for _, e := range topEdges {
+				if e.To.Type != resource.TypeGroup {
+					continue
+				}
+				k, err := uuid.Parse(e.To.Key)
+				if err != nil {
+					return err
+				}
+				groupKeys = append(groupKeys, k)
+			}
+			// An edge can name a group that no longer exists.
+			var groups []group.Group
+			if err = cfg.Group.
 				NewRetrieve().
-				WhereIDs(topLevelGroup.ResourceID()).
-				TraverseTo(ontology.ChildrenTraverser).
-				WhereTypes(resource.TypeGroup).
+				Where(group.MatchKeys(groupKeys...)).
 				Entries(&groups).
-				Exec(ctx, tx); err != nil {
+				Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
 				return err
 			}
 			cfg.L.Debug(
 				"converting groups to parent ranges",
 				zap.Int("groups", len(groups)),
 			)
-
-			otgWriter := cfg.Ontology.NewWriter(tx)
-			if err := otgWriter.DeleteOutgoingRelationshipsOfType(
-				ctx,
-				topLevelGroup.ResourceID(),
-				ontology.RelationshipTypeParentOf,
-			); err != nil {
+			if err = ontology.DeleteRelationships(ctx, tx, topEdges...); err != nil {
 				return err
 			}
 			if err := cfg.Group.NewWriter(tx).
@@ -110,37 +116,36 @@ func newMigration(cfg MigrationConfig) gorp.Migration {
 			}
 
 			for _, g := range groups {
-				var childRanges []ontology.Resource
-				// ExcludeFieldData is required because this migration runs during
-				// OpenService before the range ontology service is registered. Without
-				// it, the ontology would panic trying to retrieve range resources.
-				if err = cfg.Ontology.
-					NewRetrieve().
-					WhereIDs(g.ID).
-					TraverseTo(ontology.ChildrenTraverser).
-					WhereTypes(resource.TypeRange).
-					ExcludeFieldData(true).
-					Entries(&childRanges).
-					Exec(ctx, tx); err != nil {
+				childEdges, err := outgoingParentEdges(ctx, tx, g.ResourceID())
+				if err != nil {
 					return err
+				}
+				var childRanges []Range
+				for _, e := range childEdges {
+					if e.To.Type != resource.TypeRange {
+						continue
+					}
+					rKey, err := uuid.Parse(e.To.Key)
+					if err != nil {
+						return err
+					}
+					if r, ok := rangeMap[rKey]; ok {
+						childRanges = append(childRanges, r)
+					}
 				}
 				cfg.L.Debug(
 					"migrating range group",
 					zap.String("group", g.Name),
 					zap.Int("children", len(childRanges)),
 				)
-				gKey, err := uuid.Parse(g.ID.Key)
-				if err != nil {
-					return err
-				}
-				if err = otgWriter.DeleteOutgoingRelationshipsOfType(
+				if err = ontology.DeleteRelationships(
 					ctx,
-					g.ID,
-					ontology.RelationshipTypeParentOf,
+					tx,
+					childEdges...,
 				); err != nil {
 					return err
 				}
-				if err = cfg.Group.NewWriter(tx).Delete(ctx, gKey); err != nil {
+				if err = cfg.Group.NewWriter(tx).Delete(ctx, g.Key); err != nil {
 					return err
 				}
 				if len(childRanges) == 0 {
@@ -150,15 +155,7 @@ func newMigration(cfg MigrationConfig) gorp.Migration {
 					Start: telem.TimeStampMax,
 					End:   telem.TimeStampMin,
 				}
-				for _, cr := range childRanges {
-					rKey, err := uuid.Parse(cr.ID.Key)
-					if err != nil {
-						return err
-					}
-					r, ok := rangeMap[rKey]
-					if !ok {
-						continue
-					}
+				for _, r := range childRanges {
 					if r.TimeRange.Start.Before(tr.Start) {
 						tr.Start = r.TimeRange.Start
 					}
@@ -174,18 +171,18 @@ func newMigration(cfg MigrationConfig) gorp.Migration {
 				if err = writer.Set(ctx, newParentRange); err != nil {
 					return err
 				}
-				if err = otgWriter.DefineResources(
-					ctx,
-					newParentRange.ResourceID(),
-				); err != nil {
+				parentID := newParentRange.ResourceID()
+				if err = ontology.DefineResources(ctx, tx, parentID); err != nil {
 					return err
 				}
-				if err = otgWriter.DefineRelationships(
+				if err = gorp.WrapWriter[string, ontology.Relationship](tx).Set(
 					ctx,
-					newParentRange.ResourceID(),
-					ontology.RelationshipTypeParentOf,
-					lo.Map(childRanges, func(r ontology.Resource, _ int) resource.ID {
-						return r.ID
+					lo.Map(childRanges, func(r Range, _ int) ontology.Relationship {
+						return ontology.Relationship{
+							From: parentID,
+							Type: ontology.RelationshipTypeParentOf,
+							To:   r.ResourceID(),
+						}
 					})...,
 				); err != nil {
 					return err
@@ -194,6 +191,16 @@ func newMigration(cfg MigrationConfig) gorp.Migration {
 			return nil
 		},
 	)
+}
+
+func outgoingParentEdges(
+	ctx context.Context,
+	tx gorp.Tx,
+	from resource.ID,
+) ([]ontology.Relationship, error) {
+	return ontology.RetrieveRelationships(ctx, tx, func(r ontology.Relationship) bool {
+		return r.From == from && r.Type == ontology.RelationshipTypeParentOf
+	})
 }
 
 // alreadyMigrated reports whether a Core up to v0.53 already folded the store's legacy

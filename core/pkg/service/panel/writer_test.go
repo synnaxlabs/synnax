@@ -17,7 +17,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -107,19 +106,6 @@ var _ = Describe("Writer", func() {
 					leafNode(tab(uuid.New())), panel.Node{})
 			}, "node has no variant"),
 		)
-
-		It("Should register the panel as an ontology resource", func(ctx SpecContext) {
-			tx := DeferClose(db.OpenTx())
-			p := panel.Panel{Name: "test", Project: &proj.Key}
-			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
-			var resource ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereIDs(p.ResourceID()).
-				Entry(&resource).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(resource.ID).To(Equal(p.ResourceID()))
-			Expect(resource.Name).To(Equal("test"))
-		})
 
 		It(
 			"Should reject a panel with neither a project nor a range",
@@ -298,15 +284,6 @@ var _ = Describe("Writer", func() {
 				).To(MatchError(query.ErrNotFound))
 			},
 		)
-
-		It("Should remove the panel's ontology resource", func(ctx SpecContext) {
-			p := panel.Panel{Name: "to-delete", Project: &proj.Key}
-			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
-			Expect(svc.NewWriter(tx).Delete(ctx, p.Key)).To(Succeed())
-			Expect(otg.NewRetrieve().WhereIDs(p.ResourceID()).
-				Entry(&ontology.Resource{}).
-				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
-		})
 
 		It("Should delete multiple panels in one call", func(ctx SpecContext) {
 			a := panel.Panel{Name: "a", Project: &proj.Key}

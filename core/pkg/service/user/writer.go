@@ -17,7 +17,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -29,7 +28,6 @@ import (
 type Writer struct {
 	svc   *Service
 	tx    gorp.Tx
-	otg   ontology.Writer
 	table *gorp.Table[Key, User]
 }
 
@@ -64,9 +62,6 @@ func (w Writer) create(ctx context.Context, u User) (User, error) {
 		)
 	}
 	if err := w.table.NewCreate().Entry(&u).Exec(ctx, w.tx); err != nil {
-		return User{}, err
-	}
-	if err := w.otg.DefineResources(ctx, u.ResourceID()); err != nil {
 		return User{}, err
 	}
 	return u, nil
@@ -151,5 +146,5 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		}).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.otg.DeleteResources(ctx, ResourceIDsFromKeys(keys)...)
+	return nil
 }

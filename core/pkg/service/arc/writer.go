@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	taskversions "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -38,7 +37,6 @@ const TaskType = "arc"
 // on the database.
 type Writer struct {
 	tx         gorp.Tx
-	otgWriter  ontology.Writer
 	tasks      *task.Service
 	matchTasks func(arcs ...Key) task.Filter
 	status     *status.Service
@@ -82,9 +80,6 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 		return err
 	}
 	if !exists {
-		if err = w.otgWriter.DefineResources(ctx, a.ResourceID()); err != nil {
-			return err
-		}
 	} else if err = w.syncTask(ctx, *a); err != nil {
 		return err
 	}
@@ -122,9 +117,6 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		return err
 	}
 	for _, key := range keys {
-		if err := w.otgWriter.DeleteResources(ctx, ResourceID(key)); err != nil {
-			return err
-		}
 		w.sweeper.forget(key)
 		w.taskSync.Forget(key)
 	}

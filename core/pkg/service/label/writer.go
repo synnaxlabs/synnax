@@ -15,13 +15,11 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 )
 
 // Writer wraps a transaction to create, update, and delete labels.
 type Writer struct {
 	tx         gorp.Tx
-	otg        ontology.Writer
 	table      *gorp.Table[Key, Label]
 	dispatcher actions.Dispatcher[Key, Action]
 }
@@ -52,7 +50,7 @@ func (w Writer) Create(ctx context.Context, l *Label) error {
 		l.Key,
 		NewCreateAction(CreatePayload{Label: *l}),
 	)
-	return w.otg.DefineResources(ctx, l.ResourceID())
+	return nil
 }
 
 // apply applies the actions to the label with the given key and stores the result.
@@ -84,13 +82,10 @@ func (w Writer) CreateMany(ctx context.Context, labels *[]Label) error {
 	return nil
 }
 
-// Delete removes a label from the database and ontology. Delete is idempotent, and will
-// not return an error if the label does not exist.
+// Delete removes a label from the database. Delete is idempotent, and will not return
+// an error if the label does not exist.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
-	if err := w.table.NewDelete().
+	return w.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Label](keys...)).
-		Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	return w.otg.DeleteResources(ctx, ResourceIDs(keys)...)
+		Exec(ctx, w.tx)
 }

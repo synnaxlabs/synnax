@@ -14,14 +14,12 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )
 
 type Writer struct {
 	tx            gorp.Tx
-	otg           ontology.Writer
 	allowInternal bool
 	table         *gorp.Table[Key, Role]
 }
@@ -37,10 +35,7 @@ func (w Writer) Create(ctx context.Context, r *Role) error {
 	if err := r.Validate(); err != nil {
 		return err
 	}
-	if err := w.table.NewCreate().Entry(r).Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	return w.otg.DefineResources(ctx, r.ResourceID())
+	return w.table.NewCreate().Entry(r).Exec(ctx, w.tx)
 }
 
 // CreateMany creates the given roles. If roles with the same key already exist, they

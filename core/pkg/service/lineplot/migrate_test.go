@@ -23,7 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v7"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -32,35 +32,29 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// openChannels opens a node with an ontology and a channel service on its DB, and
-// creates count channels. It returns the DB, the ontology, and the channel keys.
-func openChannels(
-	ctx SpecContext,
-	count int,
-) (*gorp.DB, *ontology.Ontology, channel.Keys) {
+// openChannels opens a node with a channel service on its DB, and creates count
+// channels. It returns the DB and the channel keys.
+func openChannels(ctx SpecContext, count int) (*gorp.DB, channel.Keys) {
 	GinkgoHelper()
 	node := testutil.NewNode(ctx)
-	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
+		DB: node.DB,
 	}))
 	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel:      node.Channel,
 		DB:           node.DB,
 		HostProvider: node.Cluster,
-		Ontology:     otg,
 		Status:       statusSvc,
 	}))
 	keys := MustSucceed(channeltestutil.CreateVirtual(ctx, channelSvc, count))
-	return node.DB, otg, keys
+	return node.DB, keys
 }
 
 var _ = Describe("Stored v7 line plots", func() {
 	It(
 		"Should drop key references to ranges the Core does not hold",
 		func(ctx SpecContext) {
-			db, otg, keys := openChannels(ctx, 1)
+			db, keys := openChannels(ctx, 1)
 			ch := keys[0]
 			// Mark the chain through v7 as applied, so only the v8 steps run on open.
 			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
@@ -105,8 +99,7 @@ var _ = Describe("Stored v7 line plots", func() {
 			Expect(gorp.NewCreate[v7.Key, v7.LinePlot]().
 				Entry(&old).Exec(ctx, db)).To(Succeed())
 			projects := MustOpen(project.OpenService(ctx, project.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
+				DB: db,
 			}))
 			proj := project.Project{Name: "Project"}
 			Expect(projects.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
@@ -119,9 +112,8 @@ var _ = Describe("Stored v7 line plots", func() {
 				Entry(&owner).
 				Exec(ctx, db)).To(Succeed())
 			MustOpen(lineplot.OpenService(ctx, lineplot.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-				ImEx:     imex.NewService(),
+				DB:   db,
+				ImEx: imex.NewService(),
 			}))
 			var got lineplot.LinePlot
 			Expect(gorp.NewRetrieve[lineplot.Key, lineplot.LinePlot]().
@@ -141,7 +133,7 @@ var _ = Describe("Stored v7 line plots", func() {
 	)
 
 	It("Should drop channels the Core does not hold", func(ctx SpecContext) {
-		db, otg, keys := openChannels(ctx, 2)
+		db, keys := openChannels(ctx, 2)
 		y1, y2 := keys[0], keys[1]
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:         db,
@@ -165,9 +157,8 @@ var _ = Describe("Stored v7 line plots", func() {
 			Entry(&stored).
 			Exec(ctx, db)).To(Succeed())
 		MustOpen(lineplot.OpenService(ctx, lineplot.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			ImEx:     imex.NewService(),
+			DB:   db,
+			ImEx: imex.NewService(),
 		}))
 		var got lineplot.LinePlot
 		Expect(gorp.NewRetrieve[lineplot.Key, lineplot.LinePlot]().

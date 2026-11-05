@@ -18,7 +18,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -32,8 +31,6 @@ import (
 type Writer struct {
 	svc        *Service
 	tx         gorp.Tx
-	otgWriter  ontology.Writer
-	otg        *ontology.Ontology
 	status     status.Writer
 	statuses   *status.Service
 	table      *gorp.Table[Key, Task]
@@ -154,7 +151,6 @@ func (w Writer) create(ctx context.Context, t *Task) error {
 		}
 		existed = false
 	}
-	otgID := t.ResourceID()
 	var record *config.Record
 	if existed && existing.Snapshot {
 		t.Range = existing.Range
@@ -221,14 +217,7 @@ func (w Writer) create(ctx context.Context, t *Task) error {
 		t.Key,
 		NewCreateAction(CreatePayload{Task: *t}),
 	)
-	exists, err := w.otg.NewRetrieve().WhereIDs(otgID).Exists(ctx, w.tx)
-	if err != nil {
-		return err
-	}
-	if exists {
-		return nil
-	}
-	return w.otgWriter.DefineResources(ctx, otgID)
+	return nil
 }
 
 // CreateMany creates the given tasks. If tasks with the same key already exist, they
@@ -331,12 +320,9 @@ func renamesOnly(acts []Action) bool {
 // Delete deletes the task with the given key, its config record, and its associated
 // status.
 func (w Writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
-	if err := w.table.NewDelete().
+	return w.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Task](key)).
-		Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	return w.otgWriter.DeleteResources(ctx, ResourceID(key))
+		Exec(ctx, w.tx)
 }
 
 func validateRange(snapshot bool, rng *ranger.Key) error {
@@ -402,9 +388,6 @@ func (w Writer) copy(
 		return Task{}, err
 	}
 	if err := w.status.Set(ctx, resolveStatus(&res, nil, false)); err != nil {
-		return Task{}, err
-	}
-	if err := w.otgWriter.DefineResources(ctx, ResourceID(newKey)); err != nil {
 		return Task{}, err
 	}
 	if store, ok := w.configs.Store(res.Type); ok {

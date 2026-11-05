@@ -16,7 +16,9 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -57,7 +59,9 @@ type KeyCreateResponse struct {
 
 // CreateKey creates an API key for the caller, or for another user or rack when the
 // caller may create that subject. It returns a validation error when the subject is not
-// a user or rack, and an error wrapping query.ErrNotFound when it does not exist.
+// a user or rack or has a malformed key, and an error wrapping query.ErrNotFound when
+// it
+// does not exist.
 func (s *Service) CreateKey(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -81,7 +85,7 @@ func (s *Service) CreateKey(
 	); err != nil {
 		return KeyCreateResponse{}, err
 	}
-	exists, err := s.ontology.NewRetrieve().WhereIDs(subject).Exists(ctx, tx)
+	exists, err := s.subjectExists(ctx, tx, subject)
 	if err != nil {
 		return KeyCreateResponse{}, err
 	}
@@ -93,6 +97,34 @@ func (s *Service) CreateKey(
 		return KeyCreateResponse{}, err
 	}
 	return KeyCreateResponse{Token: token, Key: apiKey(k)}, nil
+}
+
+func (s *Service) subjectExists(
+	ctx context.Context,
+	tx gorp.Tx,
+	subject resource.ID,
+) (bool, error) {
+	if subject.Type == resource.TypeUser {
+		key, err := user.KeyFromResourceID(subject)
+		if err != nil {
+			return false, malformedSubjectError(subject)
+		}
+		return s.user.NewRetrieve().Where(user.MatchKeys(key)).Exists(ctx, tx)
+	}
+	key, err := rack.KeyFromResourceID(subject)
+	if err != nil {
+		return false, malformedSubjectError(subject)
+	}
+	return s.rack.NewRetrieve().Where(rack.MatchKeys(key)).Exists(ctx, tx)
+}
+
+func malformedSubjectError(subject resource.ID) error {
+	return errors.Wrapf(
+		validate.ErrValidation,
+		"%q is not a valid %s key",
+		subject.Key,
+		subject.Type,
+	)
 }
 
 // KeyRetrieveRequest selects API keys to list.

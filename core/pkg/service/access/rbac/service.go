@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/migrations"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
@@ -45,10 +44,6 @@ type RolesConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// Ontology is the ontology used to define role and policy resources.
-	//
-	// [REQUIRED]
-	Ontology *ontology.Ontology
 	// Signals propagates role and policy changes through the Synnax signals system so
 	// subscribers see RBAC updates without polling.
 	//
@@ -62,7 +57,6 @@ var _ config.Config[RolesConfig] = RolesConfig{}
 func (c RolesConfig) Override(other RolesConfig) RolesConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	return c
 }
@@ -71,7 +65,6 @@ func (c RolesConfig) Override(other RolesConfig) RolesConfig {
 func (c RolesConfig) Validate() error {
 	v := validate.New("rbac.roles")
 	v.NotNil("db", c.DB)
-	v.NotNil("ontology", c.Ontology)
 	return v.Error()
 }
 
@@ -100,7 +93,6 @@ func OpenRoles(ctx context.Context, configs ...RolesConfig) (r *Roles, err error
 	if r.Role, err = role.OpenService(ctx, role.ServiceConfig{
 		Instrumentation: cfg.Child("role"),
 		DB:              cfg.DB,
-		Ontology:        cfg.Ontology,
 		Signals:         cfg.Signals,
 	}); !ok(err, r.Role) {
 		return nil, err
@@ -110,7 +102,6 @@ func OpenRoles(ctx context.Context, configs ...RolesConfig) (r *Roles, err error
 		Instrumentation: cfg.Child("policy"),
 		DB:              cfg.DB,
 		Signals:         cfg.Signals,
-		Ontology:        cfg.Ontology,
 		Role:            r.Role,
 	}); !ok(err, r.Policy) {
 		return nil, err
@@ -130,10 +121,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// Ontology is the ontology that the legacy permission migration reads.
-	//
-	// [REQUIRED]
-	Ontology *ontology.Ontology
 	// Roles holds the roles and policies that the service enforces.
 	//
 	// [REQUIRED]
@@ -155,7 +142,6 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Roles = override.Nil(c.Roles, other.Roles)
 	c.User = override.Nil(c.User, other.User)
 	c.Rack = override.Nil(c.Rack, other.Rack)
@@ -166,7 +152,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("rbac")
 	v.NotNil("db", c.DB)
-	v.NotNil("ontology", c.Ontology)
 	v.NotNil("roles", c.Roles)
 	v.NotNil("user", c.User)
 	v.NotNil("rack", c.Rack)
@@ -192,9 +177,8 @@ func NewService(ctx context.Context, configs ...ServiceConfig) (*Service, error)
 		DB:              cfg.DB,
 		Namespace:       "RBAC",
 		Migrations: migrations.New(migrations.Config{
-			User:     cfg.User,
-			Ontology: cfg.Ontology,
-			Roles:    s.Builtin,
+			User:  cfg.User,
+			Roles: s.Builtin,
 		}),
 	}); err != nil {
 		return nil, err

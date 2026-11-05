@@ -10,6 +10,7 @@
 package lineplot
 
 import (
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
@@ -21,5 +22,22 @@ func (s *Service) Resources() *resource.TableProvider[Key, LinePlot] {
 		ID:     ResourceID,
 		Key:    resource.ParseUUIDKey,
 		Name:   func(l *LinePlot) string { return l.Name },
+	})
+}
+
+// ResourceID returns the resource ID of the line plot with key.
+func ResourceID(k Key) resource.ID {
+	return resource.ID{Type: resource.TypeLineplot, Key: k.String()}
+}
+
+// ResourceIDs returns the resource IDs of the line plots with keys.
+func ResourceIDs(keys []Key) []resource.ID {
+	return lo.Map(keys, func(k Key, _ int) resource.ID { return ResourceID(k) })
+}
+
+// ResourceIDsFromLinePlots returns the resource IDs of the schematics.
+func ResourceIDsFromLinePlots(linePlots []LinePlot) []resource.ID {
+	return lo.Map(linePlots, func(linePlot LinePlot, _ int) resource.ID {
+		return linePlot.ResourceID()
 	})
 }

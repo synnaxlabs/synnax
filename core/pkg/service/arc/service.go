@@ -25,7 +25,6 @@ import (
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -50,11 +49,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Table *Table
-	// Ontology is used to define relationships between Arcs and other entities in the
-	// Synnax resource graph.
-	//
-	// [REQUIRED]
-	Ontology *ontology.Ontology
 	// Channel is used for retrieving channel information from the cluster.
 	//
 	// [REQUIRED]
@@ -112,7 +106,6 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Table = override.Nil(c.Table, other.Table)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Task = override.Nil(c.Task, other.Task)
@@ -138,7 +131,6 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("arc")
 	v.NotNil("db", c.DB)
 	v.NotNil("table", c.Table)
-	v.NotNil("ontology", c.Ontology)
 	v.NotNil("channel", c.Channel)
 	v.NotNil("task", c.Task)
 	v.NotNil("match_tasks", c.MatchTasks)
@@ -270,7 +262,6 @@ func OpenService(
 	}); !ok(err, s.taskSync) {
 		return nil, err
 	}
-	cfg.Ontology.RegisterService(s)
 	if err = cfg.ImEx.RegisterImportExporter(s); !ok(err, nil) {
 		return nil, err
 	}
@@ -309,7 +300,6 @@ func (s *Service) OnAction(
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
 		tx:         gorp.OverrideTx(s.cfg.DB, tx),
-		otgWriter:  s.cfg.Ontology.NewWriter(tx),
 		tasks:      s.cfg.Task,
 		matchTasks: s.cfg.MatchTasks,
 		status:     s.cfg.Status,
