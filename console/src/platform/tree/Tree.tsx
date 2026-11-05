@@ -35,6 +35,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { flushSync } from "react-dom";
 import { useStore } from "react-redux";
 
 import { ContextMenu } from "@/platform/context-menu";
@@ -802,6 +803,7 @@ export const createSearch = ({
     const [layout, setLayout] = useState<SearchLayout>("flat");
     const fieldRef = useRef<HTMLInputElement>(null);
     const resultsRef = useRef<HTMLDivElement>(null);
+    const treeRef = useRef<HTMLDivElement>(null);
     const searching = open && term.trim() !== "";
     const trimmed = useDebounced(term).trim();
     const sources = useMatches(
@@ -882,13 +884,18 @@ export const createSearch = ({
       answer,
       start: () => setOpen(true),
       close: () => {
-        setOpen(false);
-        setTerm("");
+        // A hidden tree cannot take the focus, so the close renders first.
+        flushSync(() => {
+          setOpen(false);
+          setTerm("");
+        });
+        treeRef.current?.focus({ preventScroll: true });
       },
       setTerm,
       setLayout,
       fieldRef,
       resultsRef,
+      treeRef,
     };
   };
   return useSearch;
@@ -984,6 +991,7 @@ export const Tree = ({
       )}
       <Internal
         root={root}
+        ref={search?.treeRef}
         emptyContent={emptyContent}
         className={search?.answer != null ? CSS.BM("tree", "hidden") : undefined}
       />

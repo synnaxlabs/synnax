@@ -131,6 +131,8 @@ export interface Search {
   fieldRef: RefObject<HTMLInputElement | null>;
   /** Takes the focus from the field on ArrowDown. */
   resultsRef: RefObject<HTMLDivElement | null>;
+  /** Takes the focus when the search closes. */
+  treeRef: RefObject<HTMLDivElement | null>;
 }
 
 /** Runs the search of the tree under root. A null root searches nothing. */

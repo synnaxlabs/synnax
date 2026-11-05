@@ -1181,6 +1181,7 @@ describe("Tree.Tree search", () => {
       return tree;
     };
     const arrowDown = { key: "ArrowDown", code: "ArrowDown" };
+    const field = (): HTMLElement => screen.getByPlaceholderText("Search groups");
 
     it("should move into the results on ArrowDown and back on Escape", async () => {
       const { root, tok, names } = await createSearchTree();
@@ -1220,6 +1221,31 @@ describe("Tree.Tree search", () => {
       expect(document.activeElement).toBe(results());
       expect(selected()).toEqual(second);
     });
+
+    it.each([
+      ["Escape", () => fireEvent.keyDown(field(), { key: "Escape", code: "Escape" })],
+      [
+        "the close button",
+        () => fireEvent.click(getIconButton(document.body, "close")),
+      ],
+    ])(
+      "should give the focus to the tree when %s closes the search",
+      async (_, close) => {
+        const { root, tok, names } = await createSearchTree();
+        await renderSearchable(root);
+        searchTree(tok);
+        await findTreeRow(itemName(names.charlie));
+        field().focus();
+        close();
+        const tree = results();
+        expect(hiddenTrees()).toBe(0);
+        expect(document.activeElement).toBe(tree);
+        fireEvent.keyDown(tree, arrowDown);
+        fireEvent.keyUp(tree, arrowDown);
+        const [first] = tree.querySelectorAll(".lyra-tree__item");
+        expect(first.getAttribute("aria-selected")).toBe("true");
+      },
+    );
 
     it("should keep the focus in the field when nothing matches", async () => {
       const { root } = await createSearchTree();
