@@ -89,10 +89,13 @@ is deleted.
 `synnax update undo` runs with the Core stopped. It puts back the newest backup, or the
 one it names, writes its version to `VERSION`, and prints the Core version to run. With
 no name, it refuses when `VERSION` already holds the newest backup's version: the last
-update is already undone. `synnax update history` lists the backups. An undo writes a
-marker first and removes it last. While the marker exists, the Core does not start and
-tells the user to run the undo again. It moves aside the Cesium directory of each
-channel that has no `meta.json` in the backup. The channel key counter lives in `kv/`
+update is already undone. Data with no `VERSION` file gives a backup named
+`<unix seconds>-unknown`. Its undo removes `VERSION` and cannot name the Core to run,
+and a second undo sees the missing file as `unknown` and refuses.
+`synnax update history` lists the backups. An undo writes a marker first and removes it
+last. While the marker exists, the Core does not start and tells the user to run the
+undo again. It moves aside the Cesium directory of each channel that has no `meta.json`
+in the backup. The channel key counter lives in `kv/`
 (`core/pkg/distribution/channel/counter.go:22-38`), so it gives out those keys again,
 and Cesium refuses a duplicate key (`cesium/channel.go:157-164`). Telemetry written to
 known channels after the backup stays.
@@ -263,7 +266,8 @@ manual update to a release with phase 10.
 9. **The Core serves the matching Console**: A docs-site route for the newest release on
    a minor was rejected. With it, a Console patch could reach an operator PC before the
    admin updates the Core. The cost is that a Console hotfix needs a Core patch; every
-   Console patch since 0.59 already had one.
+   Console patch since 0.59 already had one. This replaces the independent Console
+   hotfix of RFC 0058 §2.2.
 10. **Drivers update themselves from the Core**: A per-host `synnax-driver update` was
     rejected; the admin would visit every DAQ PC and cRIO after each Core update.
 11. **The Core downloads Drivers on demand**: Downloading all four platforms in
