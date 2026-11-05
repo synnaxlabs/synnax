@@ -12,6 +12,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { act, render, type RenderResult } from "@testing-library/react";
 import { type ReactElement } from "react";
 
+import { Tree } from "@/app/tree";
 import {
   type ConsolePreloadedState,
   createConsoleWrapper,
@@ -32,7 +33,8 @@ export const withActiveProject = (
 
 // renderBar mounts ui against a real client so access-gated nav items and the user/
 // connection badges resolve through the production query path, and returns the render
-// result plus the Redux store for asserting dispatched navigation actions.
+// result plus the Redux store for asserting dispatched navigation actions. The app tree
+// items wrap ui, as they wrap the nav drawers in production.
 //
 // React holds a commit's passive effects while a sibling subtree is suspended, and the
 // panel selector suspends. A synchronous mount returns before they flush, so no bar
@@ -45,7 +47,7 @@ export const renderBar = async (
   const { wrapper, store } = await createConsoleWrapper({ client: as, preloadedState });
   let rendered!: RenderResult;
   await act(async () => {
-    rendered = render(ui, { wrapper });
+    rendered = render(<Tree.Context>{ui}</Tree.Context>, { wrapper });
   });
   return { ...rendered, store };
 };
