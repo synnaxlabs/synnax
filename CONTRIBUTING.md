@@ -30,7 +30,8 @@ person dispatches every release ([RFC 0058](docs/tech/rfc/0058-release-workflow.
   author merges a `review/human` PR once the gate passes.
 - The `preview` label deploys a live Core with the Console for the PR, and each push
   while the label stays deploys it again. Add it when the PR changes the Console UI or
-  needs a live Core to review. `preview/docs` does the same for the docs site.
+  needs a live Core to review. `preview/docs`, `preview/foundation`, `preview/landing`,
+  and `preview/portal` do the same for each site on Vercel.
 - A version bump rides the PR that ships the change. Test-only and docs-only changes
   bump nothing.
 
