@@ -34,8 +34,10 @@ std::string random_arc_name(const std::string &prefix) {
 TEST(TestArc, testCreate) {
     const auto client = new_test_client();
     const auto name = random_arc_name("test_arc");
-    Arc arc = AutomationArc{{.name = name, .mode = MODE_TEXT}};
-    std::get<AutomationArc>(arc).text.raw = "// Simple Arc program";
+    Arc arc = AutomationArc{{.name = name}};
+    std::get<AutomationArc>(arc).source = TextSource{
+        .text = {.raw = "// Simple Arc program"}
+    };
 
     ASSERT_NIL(client.arcs.create(arc));
     ASSERT_EQ(base(arc).name, name);
@@ -55,9 +57,9 @@ TEST(TestArc, testCreateConvenience) {
 TEST(TestArc, testCreateMany) {
     const auto client = new_test_client();
     auto arcs = std::vector<Arc>{
-        AutomationArc{{.name = random_arc_name("arc1"), .mode = MODE_TEXT}},
-        AutomationArc{{.name = random_arc_name("arc2"), .mode = MODE_TEXT}},
-        AutomationArc{{.name = random_arc_name("arc3"), .mode = MODE_TEXT}},
+        AutomationArc{{.name = random_arc_name("arc1")}},
+        AutomationArc{{.name = random_arc_name("arc2")}},
+        AutomationArc{{.name = random_arc_name("arc3")}},
     };
 
     ASSERT_NIL(client.arcs.create(arcs));
@@ -72,7 +74,7 @@ TEST(TestArc, testCreateMany) {
 /// @brief it should create a module and retrieve it as a module.
 TEST(TestArc, testModule) {
     const auto client = new_test_client();
-    Arc arc = ModuleArc{{.name = random_arc_name("module_test"), .mode = MODE_TEXT}};
+    Arc arc = ModuleArc{{.name = random_arc_name("module_test")}};
     ASSERT_NIL(client.arcs.create(arc));
     auto retrieved = ASSERT_NIL_P(
         client.arcs.retrieve_by_key(base(arc).key, RetrieveOptions{.compile = true})
@@ -84,7 +86,7 @@ TEST(TestArc, testModule) {
 TEST(TestArc, testRetrieveByName) {
     const auto client = new_test_client();
     auto name = random_arc_name("retrieve_test");
-    Arc created = AutomationArc{{.name = name, .mode = MODE_TEXT}};
+    Arc created = AutomationArc{{.name = name}};
     ASSERT_NIL(client.arcs.create(created));
 
     auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_name(name));
@@ -96,7 +98,7 @@ TEST(TestArc, testRetrieveByName) {
 TEST(TestArc, testRetrieveByKey) {
     const auto client = new_test_client();
     const auto name = random_arc_name("key_test");
-    Arc created = AutomationArc{{.name = name, .mode = MODE_TEXT}};
+    Arc created = AutomationArc{{.name = name}};
     ASSERT_NIL(client.arcs.create(created));
 
     auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_key(base(created).key));
@@ -110,8 +112,8 @@ TEST(TestArc, testRetrieveMany) {
     auto name1 = random_arc_name("multi1");
     auto name2 = random_arc_name("multi2");
     auto arcs = std::vector<Arc>{
-        AutomationArc{{.name = name1, .mode = MODE_TEXT}},
-        AutomationArc{{.name = name2, .mode = MODE_TEXT}}
+        AutomationArc{{.name = name1}},
+        AutomationArc{{.name = name2}}
     };
     ASSERT_NIL(client.arcs.create(arcs));
 
@@ -123,8 +125,8 @@ TEST(TestArc, testRetrieveMany) {
 TEST(TestArc, testRetrieveByKeys) {
     const auto client = new_test_client();
     auto arcs = std::vector<Arc>{
-        AutomationArc{{.name = random_arc_name("keys1"), .mode = MODE_TEXT}},
-        AutomationArc{{.name = random_arc_name("keys2"), .mode = MODE_TEXT}},
+        AutomationArc{{.name = random_arc_name("keys1")}},
+        AutomationArc{{.name = random_arc_name("keys2")}},
     };
     ASSERT_NIL(client.arcs.create(arcs));
 
@@ -136,9 +138,7 @@ TEST(TestArc, testRetrieveByKeys) {
 /// @brief it should delete an Arc program by key.
 TEST(TestArc, testDelete) {
     const auto client = new_test_client();
-    Arc arc = AutomationArc{
-        {.name = random_arc_name("delete_test"), .mode = MODE_TEXT}
-    };
+    Arc arc = AutomationArc{{.name = random_arc_name("delete_test")}};
     ASSERT_NIL(client.arcs.create(arc));
 
     ASSERT_NIL(client.arcs.del(base(arc).key));
@@ -153,8 +153,8 @@ TEST(TestArc, testDelete) {
 TEST(TestArc, testDeleteMany) {
     const auto client = new_test_client();
     auto arcs = std::vector<Arc>{
-        AutomationArc{{.name = random_arc_name("delete1"), .mode = MODE_TEXT}},
-        AutomationArc{{.name = random_arc_name("delete2"), .mode = MODE_TEXT}},
+        AutomationArc{{.name = random_arc_name("delete1")}},
+        AutomationArc{{.name = random_arc_name("delete2")}},
     };
     ASSERT_NIL(client.arcs.create(arcs));
 
@@ -170,10 +170,10 @@ TEST(TestArc, testDeleteMany) {
 /// @brief it should handle the program field correctly.
 TEST(TestArc, testProgramField) {
     const auto client = new_test_client();
-    Arc arc = AutomationArc{
-        {.name = random_arc_name("module_test"), .mode = MODE_TEXT}
+    Arc arc = AutomationArc{{.name = random_arc_name("module_test")}};
+    std::get<AutomationArc>(arc).source = TextSource{
+        .text = {.raw = "// Test program"}
     };
-    std::get<AutomationArc>(arc).text.raw = "// Test program";
 
     ASSERT_NIL(client.arcs.create(arc));
 
@@ -198,9 +198,7 @@ TEST(TestArc, testRetrieveWithCompile) {
         true
     ));
 
-    Arc arc = AutomationArc{
-        {.name = random_arc_name("compile_test"), .mode = MODE_TEXT}
-    };
+    Arc arc = AutomationArc{{.name = random_arc_name("compile_test")}};
     std::string calc_arc_text = R"(
 func calc() {val f32} f32 {
     return val * 2
@@ -209,7 +207,7 @@ func calc() {val f32} f32 {
 )" + ox_pt_1.name + " -> calc() -> " +
                                 ox_pt_doubled.name + R"(
 )";
-    std::get<AutomationArc>(arc).text.raw = calc_arc_text;
+    std::get<AutomationArc>(arc).source = TextSource{.text = {.raw = calc_arc_text}};
 
     ASSERT_NIL(client.arcs.create(arc));
 
@@ -251,10 +249,8 @@ func calc() {val f32} f32 {
 TEST(TestArc, testIntervalNodeCompiles) {
     const auto client = new_test_client();
 
-    Arc arc = AutomationArc{
-        {.name = random_arc_name("interval_test"), .mode = MODE_TEXT}
-    };
-    std::get<AutomationArc>(arc).text.raw = R"(
+    Arc arc = AutomationArc{{.name = random_arc_name("interval_test")}};
+    std::get<AutomationArc>(arc).source = TextSource{.text = {.raw = R"(
 sequence main {
     stage initial {
         interval(period=5s) => next
@@ -262,7 +258,7 @@ sequence main {
     stage end {
     }
 }
-)";
+)"}};
 
     ASSERT_NIL(client.arcs.create(arc));
 

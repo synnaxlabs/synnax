@@ -27,9 +27,8 @@ inline Base Base::parse(x::json::Parser parser) {
     return Base{
         .key = parser.field<Key>("key", x::uuid::create()),
         .name = parser.field<std::string>("name"),
-        .mode = parser.field<std::string>("mode"),
-        .graph = parser.field<::arc::graph::Graph>("graph", ::arc::graph::Graph{}),
-        .text = parser.field<::arc::text::Text>("text", ::arc::text::Text{}),
+        .source = parser.has("source") ? parse_source(parser.child("source"))
+                                       : Source{TextSource{}},
     };
 }
 
@@ -37,9 +36,35 @@ inline x::json::json Base::to_json() const {
     x::json::json j = x::json::json::object();
     j["key"] = this->key.to_json();
     j["name"] = this->name;
-    j["mode"] = this->mode;
-    j["graph"] = this->graph.to_json();
+    j["source"] = ::synnax::arc::to_json(this->source);
+    return j;
+}
+
+inline TextSource TextSource::parse(x::json::Parser parser) {
+    TextSource result;
+    result.text = parser.field<::arc::text::Text>("text", ::arc::text::Text{});
+    result.mode = parser.field<std::string>("mode");
+    return result;
+}
+
+inline x::json::json TextSource::to_json() const {
+    x::json::json j = x::json::json::object();
     j["text"] = this->text.to_json();
+    j["mode"] = this->mode;
+    return j;
+}
+
+inline GraphSource GraphSource::parse(x::json::Parser parser) {
+    GraphSource result;
+    result.graph = parser.field<::arc::graph::Graph>("graph", ::arc::graph::Graph{});
+    result.mode = parser.field<std::string>("mode");
+    return result;
+}
+
+inline x::json::json GraphSource::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["graph"] = this->graph.to_json();
+    j["mode"] = this->mode;
     return j;
 }
 
@@ -71,6 +96,18 @@ inline x::json::json ModuleArc::to_json() const {
     if (const auto parent = Base::to_json(); parent.is_object()) j.update(parent);
     j["type"] = this->type;
     return j;
+}
+
+inline Source parse_source(x::json::Parser parser) {
+    const auto discriminator = parser.field<std::string>("mode");
+    if (discriminator == "text") return TextSource::parse(parser);
+    if (discriminator == "graph") return GraphSource::parse(parser);
+    parser.field_err("mode", "unknown Source mode: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const Source &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 
 inline Arc parse_arc(x::json::Parser parser) {

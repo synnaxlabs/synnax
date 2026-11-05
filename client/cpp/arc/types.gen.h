@@ -38,19 +38,56 @@ constexpr const char *TYPE_MODULE = "module";
 
 using Key = x::uuid::UUID;
 
+/// @brief TextSource is Arc source code written as text.
+struct TextSource {
+    std::string mode = MODE_TEXT;
+    /// @brief text is the text-based Arc source code.
+    ::arc::text::Text text = {};
+
+    static TextSource parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::arc::pb::SourceTextPayload;
+    [[nodiscard]] std::pair<::service::arc::pb::SourceTextPayload, x::errors::Error>
+    to_proto() const;
+    static std::pair<TextSource, x::errors::Error>
+    from_proto(const ::service::arc::pb::SourceTextPayload &pb);
+};
+
+/// @brief GraphSource is Arc source code drawn as a visual dataflow graph.
+struct GraphSource {
+    std::string mode = MODE_GRAPH;
+    /// @brief graph is the visual dataflow graph representation of the module.
+    ::arc::graph::Graph graph = {};
+
+    static GraphSource parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::arc::pb::SourceGraphPayload;
+    [[nodiscard]] std::pair<::service::arc::pb::SourceGraphPayload, x::errors::Error>
+    to_proto() const;
+    static std::pair<GraphSource, x::errors::Error>
+    from_proto(const ::service::arc::pb::SourceGraphPayload &pb);
+};
+
+/// @brief Source is the source code of an Arc. The mode selects text or a graph.
+using Source = std::variant<TextSource, GraphSource>;
+
+Source parse_source(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const Source &value);
+[[nodiscard]] std::pair<::service::arc::pb::Source, x::errors::Error>
+to_proto(const Source &value);
+std::pair<Source, x::errors::Error>
+source_from_proto(const ::service::arc::pb::Source &pb);
+
 /// @brief Base carries the fields that every Arc shares.
 struct Base {
     /// @brief key is the unique identifier for this module.
     Key key;
     /// @brief name is a human-readable name for the module.
     std::string name;
-    /// @brief mode specifies the representation mode for this module. Either "text" for
-    /// text-based Arc code or "graph" for visual dataflow.
-    std::string mode;
-    /// @brief graph is the visual dataflow graph representation of the module.
-    ::arc::graph::Graph graph = {};
-    /// @brief text is the text-based Arc source code.
-    ::arc::text::Text text = {};
+    /// @brief source is the Arc's source code, written as text or drawn as a graph.
+    Source source = TextSource{};
 
     static Base parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

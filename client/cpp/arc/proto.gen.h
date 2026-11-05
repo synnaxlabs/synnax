@@ -85,19 +85,9 @@ inline std::pair<::service::arc::pb::Base, x::errors::Error> Base::to_proto() co
     pb.set_key(this->key.to_string());
     pb.set_name(this->name);
     {
-        auto [v, err] = mode_to_pb(this->mode);
+        auto [v, err] = ::synnax::arc::to_proto(this->source);
         if (err) return {{}, err};
-        pb.set_mode(v);
-    }
-    {
-        auto [v, err] = this->graph.to_proto();
-        if (err) return {{}, err};
-        *pb.mutable_graph() = v;
-    }
-    {
-        auto [v, err] = this->text.to_proto();
-        if (err) return {{}, err};
-        *pb.mutable_text() = v;
+        *pb.mutable_source() = v;
     }
     return {pb, x::errors::NIL};
 }
@@ -112,19 +102,53 @@ Base::from_proto(const ::service::arc::pb::Base &pb) {
     }
     cpp.name = pb.name();
     {
-        auto [v, err] = mode_from_pb(pb.mode());
+        auto [v, err] = ::synnax::arc::source_from_proto(pb.source());
         if (err) return {{}, err};
-        cpp.mode = v;
+        cpp.source = v;
     }
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::arc::pb::SourceTextPayload, x::errors::Error>
+TextSource::to_proto() const {
+    ::service::arc::pb::SourceTextPayload pb;
     {
-        auto [v, err] = ::arc::graph::Graph::from_proto(pb.graph());
+        auto [v, err] = this->text.to_proto();
         if (err) return {{}, err};
-        cpp.graph = v;
+        *pb.mutable_text() = v;
     }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<TextSource, x::errors::Error>
+TextSource::from_proto(const ::service::arc::pb::SourceTextPayload &pb) {
+    TextSource cpp;
     {
         auto [v, err] = ::arc::text::Text::from_proto(pb.text());
         if (err) return {{}, err};
         cpp.text = v;
+    }
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::arc::pb::SourceGraphPayload, x::errors::Error>
+GraphSource::to_proto() const {
+    ::service::arc::pb::SourceGraphPayload pb;
+    {
+        auto [v, err] = this->graph.to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_graph() = v;
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<GraphSource, x::errors::Error>
+GraphSource::from_proto(const ::service::arc::pb::SourceGraphPayload &pb) {
+    GraphSource cpp;
+    {
+        auto [v, err] = ::arc::graph::Graph::from_proto(pb.graph());
+        if (err) return {{}, err};
+        cpp.graph = v;
     }
     return {cpp, x::errors::NIL};
 }
@@ -161,6 +185,46 @@ inline std::pair<ModuleArc, x::errors::Error>
 ModuleArc::from_proto(const ::service::arc::pb::ArcModulePayload &pb) {
     ModuleArc cpp;
     return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::arc::pb::Source, x::errors::Error>
+to_proto(const Source &value) {
+    ::service::arc::pb::Source pb;
+    const auto visit_err = std::visit(
+        [&pb](const auto &v) -> x::errors::Error {
+            using V = std::decay_t<decltype(v)>;
+            auto [inner, err] = v.to_proto();
+            if (err) return err;
+            if constexpr (std::is_same_v<V, TextSource>)
+                *pb.mutable_text() = inner;
+            else if constexpr (std::is_same_v<V, GraphSource>)
+                *pb.mutable_graph() = inner;
+            return x::errors::NIL;
+        },
+        value
+    );
+    return {pb, visit_err};
+}
+
+inline std::pair<Source, x::errors::Error>
+source_from_proto(const ::service::arc::pb::Source &pb) {
+    switch (pb.variant_case()) {
+        case ::service::arc::pb::Source::kText: {
+            auto [v, err] = TextSource::from_proto(pb.text());
+            if (err) return {{}, err};
+            return {v, x::errors::NIL};
+        }
+        case ::service::arc::pb::Source::kGraph: {
+            auto [v, err] = GraphSource::from_proto(pb.graph());
+            if (err) return {{}, err};
+            return {v, x::errors::NIL};
+        }
+        default:
+            return {
+                {},
+                x::errors::Error(x::errors::VALIDATION, "Source: no variant set")
+            };
+    }
 }
 
 inline std::pair<::service::arc::pb::Arc, x::errors::Error> to_proto(const Arc &value) {

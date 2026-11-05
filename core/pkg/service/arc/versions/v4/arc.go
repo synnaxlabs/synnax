@@ -51,11 +51,17 @@ func TypeFromFileType(header string) (t Type, ok bool) {
 // than the operation log that reconstructs it, and the derived program is left off for
 // the importer to recompile. The type is the file's type header.
 type exportBody struct {
-	Name  string      `json:"name"`
-	Type  string      `json:"type"`
-	Mode  Mode        `json:"mode"`
-	Graph graph.Graph `json:"graph"`
-	Text  exportText  `json:"text"`
+	Name   string       `json:"name"`
+	Type   string       `json:"type"`
+	Source exportSource `json:"source"`
+}
+
+// exportSource is an Arc's source as a file carries it: the text as raw source, or the
+// graph.
+type exportSource struct {
+	Mode  Mode         `json:"mode"`
+	Graph *graph.Graph `json:"graph,omitempty"`
+	Text  *exportText  `json:"text,omitempty"`
 }
 
 // exportText is an Arc's text as a file carries it. Raw is the field Import reads, and
@@ -69,11 +75,12 @@ var _ imex.BodyExporter = Arc{}
 // ExportBody implements imex.BodyExporter.
 func (a Arc) ExportBody() any {
 	b := a.Base()
-	return exportBody{
-		Name:  b.Name,
-		Type:  FileType(a.Type()),
-		Mode:  b.Mode,
-		Graph: b.Graph,
-		Text:  exportText{Raw: b.Text.Materialize().Raw},
+	src := exportSource{Mode: b.Source.Mode()}
+	switch v := b.Source.Variant.(type) {
+	case TextSource:
+		src.Text = &exportText{Raw: v.Text.Materialize().Raw}
+	case GraphSource:
+		src.Graph = &v.Graph
 	}
+	return exportBody{Name: b.Name, Type: FileType(a.Type()), Source: src}
 }

@@ -42,9 +42,8 @@ const createArcInDirectory = async () => {
   const root = clientArc.directory.ontologyID(dir.key);
   const arc = await client.arcs.create({
     name: uniqueName("arc"),
-    mode: "graph",
     type: "automation",
-    graph: { nodes: [], edges: [] },
+    source: { mode: "graph", graph: { nodes: [], edges: [] } },
   });
   await client.arcs.directories.move(arcsID, root, clientArc.ontologyID(arc.key));
   return { arc, root, arcsID };
@@ -113,8 +112,8 @@ describe("arc/ontology", () => {
       const { arc, root, arcsID } = await createArcInDirectory();
       const other = await client.arcs.create({
         name: uniqueName("mod"),
-        mode: "text",
         type: "module",
+        source: { mode: "text" },
       });
       await client.arcs.directories.move(arcsID, root, clientArc.ontologyID(other.key));
       await renderOntologyTree({ client, root, items: Arc.TREE_ITEMS });

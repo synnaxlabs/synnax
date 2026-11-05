@@ -31,9 +31,16 @@ var _ = Describe("Dispatch", func() {
 	It(
 		"Should reject a create without changing the Arc it names",
 		func(ctx SpecContext) {
-			target := newAutomation(arc.Base{Name: "target", Mode: arc.ModeGraph})
+			target := newAutomation(
+				arc.Base{
+					Name:   "target",
+					Source: arc.Source{Variant: arc.GraphSource{}},
+				},
+			)
 			Expect(writer.Create(ctx, &target)).To(Succeed())
-			other := newAutomation(arc.Base{Name: "other", Mode: arc.ModeGraph})
+			other := newAutomation(
+				arc.Base{Name: "other", Source: arc.Source{Variant: arc.GraphSource{}}},
+			)
 			Expect(writer.Create(ctx, &other)).To(Succeed())
 			DeferCleanup(func(ctx SpecContext) {
 				Expect(
@@ -43,9 +50,9 @@ var _ = Describe("Dispatch", func() {
 			Expect(svc.Dispatch(ctx, target.Base().Key, "d1", []arc.Action{
 				arc.NewCreateAction(arc.CreatePayload{
 					Arc: newAutomation(arc.Base{
-						Key:  other.Base().Key,
-						Name: "overwritten",
-						Mode: arc.ModeGraph,
+						Key:    other.Base().Key,
+						Name:   "overwritten",
+						Source: arc.Source{Variant: arc.GraphSource{}},
 					}),
 				}),
 			})).To(SatisfyAll(
@@ -66,12 +73,11 @@ var _ = Describe("Dispatch", func() {
 		func(ctx SpecContext) {
 			a := newAutomation(arc.Base{
 				Name: "dispatch-pos",
-				Mode: arc.ModeGraph,
-				Graph: graph.Graph{
+				Source: arc.Source{Variant: arc.GraphSource{Graph: graph.Graph{
 					Nodes: graph.Nodes{
 						{Key: "n1", Position: spatial.XY{X: 0, Y: 0}},
 					},
-				},
+				}}},
 			})
 			Expect(writer.Create(ctx, &a)).To(Succeed())
 			Expect(svc.Dispatch(ctx, a.Base().Key, "session-1", []arc.Action{
@@ -88,7 +94,7 @@ var _ = Describe("Dispatch", func() {
 					Exec(ctx, nil),
 			).To(Succeed())
 			Expect(
-				res.Base().Graph.Nodes[0].Position,
+				graphOf(res.Base()).Nodes[0].Position,
 			).To(Equal(spatial.XY{X: 100, Y: 200}))
 		},
 	)
@@ -96,7 +102,12 @@ var _ = Describe("Dispatch", func() {
 	It(
 		"Should apply a sequence of mixed actions atomically",
 		func(ctx SpecContext) {
-			a := newAutomation(arc.Base{Name: "dispatch-seq", Mode: arc.ModeGraph})
+			a := newAutomation(
+				arc.Base{
+					Name:   "dispatch-seq",
+					Source: arc.Source{Variant: arc.GraphSource{}},
+				},
+			)
 			Expect(writer.Create(ctx, &a)).To(Succeed())
 			Expect(svc.Dispatch(ctx, a.Base().Key, "session-1", []arc.Action{
 				arc.NewSetNodeAction(
@@ -122,15 +133,20 @@ var _ = Describe("Dispatch", func() {
 					Entry(&res).
 					Exec(ctx, nil),
 			).To(Succeed())
-			Expect(res.Base().Graph.Nodes).To(HaveLen(2))
-			Expect(res.Base().Graph.Edges).To(HaveLen(1))
+			Expect(graphOf(res.Base()).Nodes).To(HaveLen(2))
+			Expect(graphOf(res.Base()).Edges).To(HaveLen(1))
 		},
 	)
 
 	It(
 		"Should notify subscribers with the dispatched scoped action on success",
 		func(ctx SpecContext) {
-			a := newAutomation(arc.Base{Name: "observed", Mode: arc.ModeGraph})
+			a := newAutomation(
+				arc.Base{
+					Name:   "observed",
+					Source: arc.Source{Variant: arc.GraphSource{}},
+				},
+			)
 			Expect(writer.Create(ctx, &a)).To(Succeed())
 			rec := &Recorder[arc.Key, arc.Action]{}
 			DeferCleanup(svc.OnAction(rec.Record))
@@ -157,7 +173,12 @@ var _ = Describe("Dispatch", func() {
 	It(
 		"Should stamp strictly increasing Seq values onto successive broadcasts",
 		func(ctx SpecContext) {
-			a := newAutomation(arc.Base{Name: "seq-test", Mode: arc.ModeGraph})
+			a := newAutomation(
+				arc.Base{
+					Name:   "seq-test",
+					Source: arc.Source{Variant: arc.GraphSource{}},
+				},
+			)
 			Expect(writer.Create(ctx, &a)).To(Succeed())
 			rec := &Recorder[arc.Key, arc.Action]{}
 			DeferCleanup(svc.OnAction(rec.Record))
@@ -226,7 +247,12 @@ var _ = Describe("Collaborative text", func() {
 	It(
 		"Should materialize dispatched insertions into the Arc's text",
 		func(ctx SpecContext) {
-			a := newAutomation(arc.Base{Name: "collab-empty", Mode: arc.ModeText})
+			a := newAutomation(
+				arc.Base{
+					Name:   "collab-empty",
+					Source: arc.Source{Variant: arc.TextSource{}},
+				},
+			)
 			Expect(writer.Create(ctx, &a)).To(Succeed())
 
 			client := crdt.New(2)
@@ -241,7 +267,7 @@ var _ = Describe("Collaborative text", func() {
 				To(Succeed())
 
 			Expect(
-				fetch(ctx, a.Base().Key).Base().Text.Materialize().Raw,
+				textOf(fetch(ctx, a.Base().Key).Base()).Materialize().Raw,
 			).To(Equal("hello"))
 		},
 	)
@@ -251,14 +277,18 @@ var _ = Describe("Collaborative text", func() {
 		func(ctx SpecContext) {
 			a := newAutomation(arc.Base{
 				Name: "collab-seeded",
-				Mode: arc.ModeText,
-				Text: text.Text{Raw: "base"},
+				Source: arc.Source{
+					Variant: arc.TextSource{Text: text.Text{Raw: "base"}},
+				},
 			})
 			Expect(writer.Create(ctx, &a)).To(Succeed())
 
 			seeded := fetch(ctx, a.Base().Key)
 			client := crdt.New(2)
-			client.Load(seeded.Base().Text.Doc.Inserts, seeded.Base().Text.Doc.Deletes)
+			client.Load(
+				textOf(seeded.Base()).Doc.Inserts,
+				textOf(seeded.Base()).Doc.Deletes,
+			)
 			Expect(client.String()).To(Equal("base"))
 
 			Expect(
@@ -272,7 +302,7 @@ var _ = Describe("Collaborative text", func() {
 				To(Succeed())
 
 			Expect(
-				fetch(ctx, a.Base().Key).Base().Text.Materialize().Raw,
+				textOf(fetch(ctx, a.Base().Key).Base()).Materialize().Raw,
 			).To(Equal("Xbase"))
 		},
 	)
@@ -300,13 +330,17 @@ var _ = Describe("Collaborative text", func() {
 
 			a := newAutomation(arc.Base{
 				Name: "collab-sweep",
-				Mode: arc.ModeText,
-				Text: text.Text{Raw: "hello world"},
+				Source: arc.Source{
+					Variant: arc.TextSource{Text: text.Text{Raw: "hello world"}},
+				},
 			})
 			Expect(writer.Create(ctx, &a)).To(Succeed())
 			client := crdt.New(2)
 			seeded := fetch(ctx, a.Base().Key)
-			client.Load(seeded.Base().Text.Doc.Inserts, seeded.Base().Text.Doc.Deletes)
+			client.Load(
+				textOf(seeded.Base()).Doc.Inserts,
+				textOf(seeded.Base()).Doc.Deletes,
+			)
 
 			Expect(
 				svc.Dispatch(
@@ -317,7 +351,7 @@ var _ = Describe("Collaborative text", func() {
 				),
 			).
 				To(Succeed())
-			Expect(fetch(ctx, a.Base().Key).Base().Text.Doc.Deletes).To(HaveLen(5))
+			Expect(textOf(fetch(ctx, a.Base().Key).Base()).Doc.Deletes).To(HaveLen(5))
 
 			base = base.Add(2 * telem.Second)
 			Expect(
@@ -329,7 +363,7 @@ var _ = Describe("Collaborative text", func() {
 				),
 			).
 				To(Succeed())
-			Expect(fetch(ctx, a.Base().Key).Base().Text.Doc.Deletes).To(HaveLen(5))
+			Expect(textOf(fetch(ctx, a.Base().Key).Base()).Doc.Deletes).To(HaveLen(5))
 			Expect(forgottenCount()).To(Equal(0))
 
 			base = base.Add(10 * telem.Second)
@@ -345,9 +379,9 @@ var _ = Describe("Collaborative text", func() {
 
 			Expect(forgottenCount()).To(Equal(5))
 			swept := fetch(ctx, a.Base().Key)
-			Expect(swept.Base().Text.Doc.Deletes).To(BeEmpty())
-			Expect(swept.Base().Text.Doc.Inserts).To(HaveLen(8))
-			Expect(swept.Base().Text.Materialize().Raw).To(Equal("YXhello "))
+			Expect(textOf(swept.Base()).Doc.Deletes).To(BeEmpty())
+			Expect(textOf(swept.Base()).Doc.Inserts).To(HaveLen(8))
+			Expect(textOf(swept.Base()).Materialize().Raw).To(Equal("YXhello "))
 		},
 	)
 
@@ -356,13 +390,17 @@ var _ = Describe("Collaborative text", func() {
 		func(ctx SpecContext) {
 			a := newAutomation(arc.Base{
 				Name: "collab-race",
-				Mode: arc.ModeText,
-				Text: text.Text{Raw: "ranges.crea"},
+				Source: arc.Source{
+					Variant: arc.TextSource{Text: text.Text{Raw: "ranges.crea"}},
+				},
 			})
 			Expect(writer.Create(ctx, &a)).To(Succeed())
 			client := crdt.New(2)
 			seeded := fetch(ctx, a.Base().Key)
-			client.Load(seeded.Base().Text.Doc.Inserts, seeded.Base().Text.Doc.Deletes)
+			client.Load(
+				textOf(seeded.Base()).Doc.Inserts,
+				textOf(seeded.Base()).Doc.Deletes,
+			)
 
 			// Author one keystroke per batch up front, then send every batch
 			// concurrently: the op-log materializes independent of arrival order, so
@@ -381,7 +419,7 @@ var _ = Describe("Collaborative text", func() {
 			}
 			wg.Wait()
 
-			Expect(fetch(ctx, a.Base().Key).Base().Text.Materialize().Raw).
+			Expect(textOf(fetch(ctx, a.Base().Key).Base()).Materialize().Raw).
 				To(Equal(`ranges.create{"Main"}`))
 		},
 	)

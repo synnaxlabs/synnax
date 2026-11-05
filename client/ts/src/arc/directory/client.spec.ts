@@ -71,8 +71,8 @@ describe("arc.directory", () => {
     });
     const a = await client.arcs.create({
       name: uniqueName(),
-      mode: "text",
       type: "automation",
+      source: { mode: "text" },
     });
     const dirID = arc.directory.ontologyID(d.key);
     await client.arcs.directories.move(root, dirID, arc.ontologyID(a.key));
@@ -94,8 +94,8 @@ describe("arc.directory", () => {
     });
     const a = await client.arcs.create({
       name: uniqueName(),
-      mode: "text",
       type: "automation",
+      source: { mode: "text" },
     });
     await expect(
       client.arcs.directories.move(

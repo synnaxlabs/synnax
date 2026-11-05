@@ -16,7 +16,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph"
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/text"
+	"github.com/synnaxlabs/arc/types"
 	apiarc "github.com/synnaxlabs/synnax/pkg/api/arc"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -40,7 +42,7 @@ type scopedAction = actions.Scoped[arc.Key, arc.Action]
 func createArc(ctx context.Context, name string) arc.Arc {
 	GinkgoHelper()
 	a := arc.Arc{Variant: arc.AutomationArc{
-		Base: arc.Base{Name: name, Mode: arc.ModeGraph},
+		Base: arc.Base{Name: name, Source: arc.Source{Variant: arc.GraphSource{}}},
 	}}
 	Expect(arcSvc.NewWriter(nil).Create(ctx, &a)).To(Succeed())
 	return a
@@ -49,17 +51,60 @@ func createArc(ctx context.Context, name string) arc.Arc {
 var _ = Describe("Service", func() {
 	Describe("Retrieve", func() {
 		It(
+			"Should compile the graph of a graph-mode automation",
+			func(ctx SpecContext) {
+				a := arc.Arc{Variant: arc.AutomationArc{Base: arc.Base{
+					Name: "compiled_graph",
+					Source: arc.Source{Variant: arc.GraphSource{Graph: graph.Graph{
+						Functions: []ir.Function{{
+							Key: "add",
+							Inputs: types.Params{
+								{Name: "a", Type: types.I64()},
+								{Name: "b", Type: types.I64()},
+							},
+							Outputs: types.Params{
+								{Name: ir.DefaultOutputParam, Type: types.I64()},
+							},
+							Body: ir.Body{Raw: "{ return a + b }"},
+						}},
+					}}},
+				}}}
+				w := arcSvc.NewWriter(nil)
+				Expect(w.Create(ctx, &a)).To(Succeed())
+				DeferCleanup(func(ctx SpecContext) {
+					Expect(w.Delete(ctx, a.Base().Key)).To(Succeed())
+				})
+				grantOn(ctx, author.OntologyID(), access.ActionRetrieve, a.OntologyID())
+				res := MustSucceed(
+					apiSvc.Retrieve(AuthedCtx(ctx, author), apiarc.RetrieveRequest{
+						Keys:    []arc.Key{a.Base().Key},
+						Compile: true,
+					}),
+				)
+				Expect(res.Arcs).To(HaveLen(1))
+				automation, ok := res.Arcs[0].Variant.(arc.AutomationArc)
+				Expect(ok).To(BeTrue())
+				Expect(automation.Program).ToNot(BeNil())
+				Expect(automation.Program.Functions).To(HaveLen(1))
+			},
+		)
+
+		It(
 			"Should compile automations and leave modules uncompiled",
 			func(ctx SpecContext) {
 				automation := arc.Arc{Variant: arc.AutomationArc{Base: arc.Base{
 					Name: "compiled",
-					Mode: arc.ModeText,
-					Text: text.Text{Raw: "func f() {}"},
+					Source: arc.Source{
+						Variant: arc.TextSource{Text: text.Text{Raw: "func f() {}"}},
+					},
 				}}}
 				module := arc.Arc{Variant: arc.ModuleArc{Base: arc.Base{
 					Name: "not_compiled",
-					Mode: arc.ModeText,
-					Text: text.Text{Raw: "this does not compile"},
+					Source: arc.Source{
+						Variant: arc.TextSource{
+							Text: text.Text{Raw: "this does not compile"},
+						},
+					},
 				}}}
 				w := arcSvc.NewWriter(nil)
 				Expect(w.Create(ctx, &automation)).To(Succeed())
@@ -143,15 +188,18 @@ var _ = Describe("Service", func() {
 				)
 				a := apiarc.Arc{Variant: arc.AutomationArc{Base: arc.Base{
 					Name: "lying-raw",
-					Mode: arc.ModeText,
-					Text: text.Text{Doc: text.Create("a -> b"), Raw: "a -> c"},
+					Source: arc.Source{
+						Variant: arc.TextSource{
+							Text: text.Text{Doc: text.Create("a -> b"), Raw: "a -> c"},
+						},
+					},
 				}}}
 				res := MustSucceed(
 					apiSvc.Create(AuthedCtx(ctx, author), db, apiarc.CreateRequest{
 						Arcs: []apiarc.Arc{a},
 					}),
 				)
-				Expect(res.Arcs[0].Base().Text.Raw).To(Equal("a -> b"))
+				Expect(textOf(res.Arcs[0].Base()).Raw).To(Equal("a -> b"))
 			},
 		)
 
@@ -169,7 +217,10 @@ var _ = Describe("Service", func() {
 			res := MustSucceed(
 				apiSvc.Create(AuthedCtx(ctx, author), db, apiarc.CreateRequest{
 					Arcs: []apiarc.Arc{{Variant: arc.AutomationArc{
-						Base: arc.Base{Name: "broadcast", Mode: arc.ModeGraph},
+						Base: arc.Base{
+							Name:   "broadcast",
+							Source: arc.Source{Variant: arc.GraphSource{}},
+						},
 					}}},
 					DispatchKey: "dk-create",
 				}),
@@ -224,9 +275,9 @@ var _ = Describe("Service", func() {
 					Expect(arcSvc.NewRetrieve().
 						Where(arc.MatchKeys(a.Base().Key)).
 						Entry(&res).Exec(ctx, nil)).To(Succeed())
-					Expect(res.Base().Graph.Nodes).To(HaveLen(1))
+					Expect(graphOf(res.Base()).Nodes).To(HaveLen(1))
 					Expect(
-						res.Base().Graph.Nodes[0].Position,
+						graphOf(res.Base()).Nodes[0].Position,
 					).To(Equal(spatial.XY{X: 1, Y: 2}))
 				},
 			)
@@ -279,7 +330,7 @@ var _ = Describe("Service", func() {
 					Expect(arcSvc.NewRetrieve().
 						Where(arc.MatchKeys(a.Base().Key)).
 						Entry(&res).Exec(ctx, nil)).To(Succeed())
-					Expect(res.Base().Graph.Nodes).To(HaveLen(2))
+					Expect(graphOf(res.Base()).Nodes).To(HaveLen(2))
 					Expect(res.Base().Name).To(Equal("renamed-multi"))
 				},
 			)

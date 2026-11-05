@@ -56,7 +56,10 @@ var _ = Describe("Directories", func() {
 	}
 	createArc := func(ctx SpecContext, name string, t arc.Type) arc.Arc {
 		GinkgoHelper()
-		a := newArc(t, arc.Base{Name: name, Mode: arc.ModeText})
+		a := newArc(
+			t,
+			arc.Base{Name: name, Source: arc.Source{Variant: arc.TextSource{}}},
+		)
 		Expect(w.Create(ctx, &a)).To(Succeed())
 		return a
 	}
@@ -234,6 +237,8 @@ var _ = Describe("Directories", func() {
 			// the rules are.
 			first := newAutomation(arc.Base{Key: uuid.New(), Name: "dup"})
 			second := newAutomation(arc.Base{Key: uuid.New(), Name: "dup"})
+			first.ApplyDefaults()
+			second.ApplyDefaults()
 			Expect(gorp.NewCreate[arc.Key, arc.Arc]().
 				Entries(&[]arc.Arc{first, second}).
 				Exec(ctx, tx)).To(Succeed())
@@ -266,7 +271,12 @@ var _ = Describe("Directories", func() {
 		It("Should reject a module whose name is not an identifier", func(
 			ctx SpecContext,
 		) {
-			a := newModule(arc.Base{Name: "my module", Mode: arc.ModeText})
+			a := newModule(
+				arc.Base{
+					Name:   "my module",
+					Source: arc.Source{Variant: arc.TextSource{}},
+				},
+			)
 			Expect(w.Create(ctx, &a)).To(MatchError(ContainSubstring(
 				"must contain only letters, digits, and underscores",
 			)))
@@ -278,7 +288,9 @@ var _ = Describe("Directories", func() {
 			ctx SpecContext,
 		) {
 			createDirectory(ctx, "lib", root)
-			a := newModule(arc.Base{Name: "lib", Mode: arc.ModeText})
+			a := newModule(
+				arc.Base{Name: "lib", Source: arc.Source{Variant: arc.TextSource{}}},
+			)
 			Expect(w.Create(ctx, &a)).
 				To(MatchError(ContainSubstring(`name "lib" is already used`)))
 		})
@@ -295,10 +307,18 @@ var _ = Describe("Directories", func() {
 		It("Should reject a dispatched rename that duplicates a name", func(
 			ctx SpecContext,
 		) {
-			taken := newAutomation(arc.Base{Name: "dispatch_taken", Mode: arc.ModeText})
+			taken := newAutomation(
+				arc.Base{
+					Name:   "dispatch_taken",
+					Source: arc.Source{Variant: arc.TextSource{}},
+				},
+			)
 			Expect(writer.Create(ctx, &taken)).To(Succeed())
 			renamed := newAutomation(
-				arc.Base{Name: "dispatch_free", Mode: arc.ModeText},
+				arc.Base{
+					Name:   "dispatch_free",
+					Source: arc.Source{Variant: arc.TextSource{}},
+				},
 			)
 			Expect(writer.Create(ctx, &renamed)).To(Succeed())
 			DeferCleanup(func(ctx SpecContext) {

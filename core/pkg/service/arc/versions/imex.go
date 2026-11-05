@@ -50,11 +50,6 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Arc, error) {
 		return Arc{}, err
 	}
 	b := a.Base()
-	// Console-era files leave the mode blank when the Arc was never switched out of the
-	// graph editor.
-	if b.Mode == "" {
-		b.Mode = ModeGraph
-	}
 	// Importing always materializes a new resource, so any key on the wire is dropped
 	// and the importer mints a fresh one.
 	b.Key = uuid.Nil()

@@ -227,11 +227,12 @@ func (s *Service) CompileProgram(ctx context.Context, key Key) (AutomationArc, e
 		)
 	}
 	var prog arc.Program
-	if automation.Mode == ModeText {
-		prog, err = arc.CompileText(ctx, automation.Text.Materialize(), s.NewRoot(nil),
+	switch src := automation.Source.Variant.(type) {
+	case TextSource:
+		prog, err = arc.CompileText(ctx, src.Text.Materialize(), s.NewRoot(nil),
 			arc.WithAllowDashedNames(s.AllowDashedNames()))
-	} else {
-		prog, err = arc.CompileGraph(ctx, automation.Graph, s.NewRoot(nil),
+	case GraphSource:
+		prog, err = arc.CompileGraph(ctx, src.Graph, s.NewRoot(nil),
 			arc.WithAllowDashedNames(s.AllowDashedNames()))
 	}
 	if err != nil {

@@ -39,23 +39,39 @@ Type = Literal["automation", "module"]
 Key: TypeAlias = UUID
 
 
+class TextSource(BaseModel):
+    """Is Arc source code written as text."""
+
+    mode: Literal["text"] = "text"
+    text: text_.Text = Field(default_factory=lambda: text_.Text())
+
+
+class GraphSource(BaseModel):
+    """Is Arc source code drawn as a visual dataflow graph."""
+
+    mode: Literal["graph"] = "graph"
+    graph: graph_.Graph = Field(default_factory=lambda: graph_.Graph())
+
+
+# Is the source code of an Arc. The mode selects text or a graph.
+Source = Annotated[
+    TextSource | GraphSource,
+    Field(discriminator="mode"),
+]
+
+
 class Base(BaseModel):
     """Carries the fields that every Arc shares.
 
     Attributes:
         key: Is the unique identifier for this module.
         name: Is a human-readable name for the module.
-        mode: Specifies the representation mode for this module. Either "text" for
-            text-based Arc code or "graph" for visual dataflow.
-        graph: Is the visual dataflow graph representation of the module.
-        text: Is the text-based Arc source code.
+        source: Is the Arc's source code, written as text or drawn as a graph.
     """
 
     key: Key = Field(default_factory=uuid4)
     name: str
-    mode: Mode
-    graph: graph_.Graph = Field(default_factory=lambda: graph_.Graph())
-    text: text_.Text = Field(default_factory=lambda: text_.Text())
+    source: Source = Field(default_factory=lambda: TextSource(mode="text"))
 
     @_override
     def __hash__(self) -> int:

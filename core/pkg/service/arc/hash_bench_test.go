@@ -45,7 +45,7 @@ func bigGraphArc(nodes int) arc.Base {
 			})
 		}
 	}
-	return arc.Base{Mode: arc.ModeGraph, Graph: g}
+	return arc.Base{Source: arc.Source{Variant: arc.GraphSource{Graph: g}}}
 }
 
 func benchHash(b *testing.B, a arc.Base) {

@@ -28,12 +28,11 @@ import {
 
 const client = createTestClient();
 
-const createGraphArc = async (graph: Partial<arc.Arc["graph"]> = {}) =>
+const createGraphArc = async (graph: Partial<arc.graph.Graph> = {}) =>
   await client.arcs.create({
     name: uniqueName("arc"),
-    mode: "graph",
     type: "automation",
-    graph: { nodes: [], edges: [], ...graph },
+    source: { mode: "graph", graph: { nodes: [], edges: [], ...graph } },
   });
 
 interface ToolbarHandle {
@@ -128,7 +127,10 @@ describe("arc editor toolbar", () => {
       fireEvent.blur(input);
       const reader = createTestClient();
       await expect
-        .poll(async () => (await reader.arcs.retrieve(a.key)).graph.inputs.n1)
+        .poll(async () => {
+          const { source } = await reader.arcs.retrieve(a.key);
+          return source.mode === "graph" ? source.graph.inputs.n1 : undefined;
+        })
         .toEqual({ type: "constant", value: 7 });
     });
 
@@ -217,9 +219,8 @@ describe("arc editor toolbar", () => {
   it("renders the text toolbar for a text-mode arc", async () => {
     const arc = await client.arcs.create({
       name: uniqueName("arc"),
-      mode: "text",
       type: "automation",
-      text: { raw: "x = 1" },
+      source: { mode: "text", text: { raw: "x = 1" } },
     });
     await renderToolbar(arc.key);
     expect(await screen.findByText(arc.name)).toBeTruthy();

@@ -26,15 +26,44 @@ const cfg = (type: string, params: record.Unknown = {}): record.Unknown => ({
 const empty = (graph: Partial<arc.graph.Graph> = {}, name = "Test Arc"): arc.Arc =>
   arc.arcZ.parse({
     name,
-    mode: "graph",
     type: "automation",
-    graph: arc.graph.graphZ.parse(graph),
+    source: { mode: "graph", graph: arc.graph.graphZ.parse(graph) },
   });
+
+const graphOf = (a: arc.Arc): arc.graph.Graph => {
+  if (a.source.mode !== "graph") throw new Error("expected a graph-mode Arc");
+  return a.source.graph;
+};
+
+const emptyText = (): arc.Arc =>
+  arc.arcZ.parse({ name: "Test Arc", type: "automation", source: { mode: "text" } });
+
+const textOf = (a: arc.Arc): arc.text.Text => {
+  if (a.source.mode !== "text") throw new Error("expected a text-mode Arc");
+  return a.source.text;
+};
 
 const apply = (state: arc.Arc, ...actions: arc.Action[]): arc.Arc =>
   arc.reduceAll(state, actions).next;
 
 describe("arc reducer", () => {
+  describe("mode", () => {
+    it.each([
+      ["setNode", arc.setNode({ node: node("n1", 0, 0) })],
+      ["removeNode", arc.removeNode({ key: "n1" })],
+      ["removeEdge", arc.removeEdge({ key: "e1" })],
+    ])("should reject the graph action %s on a text Arc", (_, action) => {
+      expect(() => apply(emptyText(), action)).toThrow("cannot take a graph edit");
+    });
+
+    it("should reject a text action on a graph Arc", () => {
+      const op = new crdt.Text(2).insert(0, "x")[0];
+      expect(() => apply(empty(), arc.insertChar(op))).toThrow(
+        "cannot take a text edit",
+      );
+    });
+  });
+
   describe("rename", () => {
     it("should set the module name to the payload name", () => {
       expect(apply(empty({}, "old"), arc.rename({ name: "new" })).name).toEqual("new");
@@ -52,8 +81,8 @@ describe("arc reducer", () => {
         ],
       });
       const out = apply(state, arc.rename({ name: "new" }));
-      expect(out.graph.nodes).toEqual(state.graph.nodes);
-      expect(out.graph.edges).toEqual(state.graph.edges);
+      expect(graphOf(out).nodes).toEqual(graphOf(state).nodes);
+      expect(graphOf(out).edges).toEqual(graphOf(state).edges);
     });
   });
 
@@ -61,15 +90,15 @@ describe("arc reducer", () => {
     it("should append the node when no node has the same key", () => {
       const state = empty({ nodes: [node("n1", 0, 0)] });
       const out = apply(state, arc.setNode({ node: node("n2", 1, 2) }));
-      expect(out.graph.nodes).toEqual([node("n1", 0, 0), node("n2", 1, 2)]);
+      expect(graphOf(out).nodes).toEqual([node("n1", 0, 0), node("n2", 1, 2)]);
     });
     it("should replace an existing node in place, preserving slice index", () => {
       const state = empty({
         nodes: [node("n1", 0, 0), node("n2", 1, 1), node("n3", 2, 2)],
       });
       const out = apply(state, arc.setNode({ node: node("n2", 9, 9) }));
-      expect(out.graph.nodes).toHaveLength(3);
-      expect(out.graph.nodes[1]).toEqual(node("n2", 9, 9));
+      expect(graphOf(out).nodes).toHaveLength(3);
+      expect(graphOf(out).nodes[1]).toEqual(node("n2", 9, 9));
     });
   });
 
@@ -80,8 +109,8 @@ describe("arc reducer", () => {
         state,
         arc.setNodePosition({ key: "n1", position: { x: 100, y: 200 } }),
       );
-      expect(out.graph.nodes[0].position).toEqual({ x: 100, y: 200 });
-      expect(out.graph.nodes[1].position).toEqual({ x: 5, y: 5 });
+      expect(graphOf(out).nodes[0].position).toEqual({ x: 100, y: 200 });
+      expect(graphOf(out).nodes[1].position).toEqual({ x: 5, y: 5 });
     });
     it("should be a no-op when the key does not match any node", () => {
       const state = empty({ nodes: [node("n1", 0, 0)] });
@@ -101,7 +130,7 @@ describe("arc reducer", () => {
         state,
         arc.setNodeInputs({ key: "n1", inputs: cfg("constant", { value: 2 }) }),
       );
-      expect(out.graph.inputs.n1).toEqual(cfg("constant", { value: 2 }));
+      expect(graphOf(out).inputs.n1).toEqual(cfg("constant", { value: 2 }));
     });
     it("should merge the config into the existing entry, preserving absent fields", () => {
       const state = empty({
@@ -109,11 +138,11 @@ describe("arc reducer", () => {
         inputs: { n1: cfg("constant", { value: 1 }) },
       });
       const out = apply(state, arc.setNodeInputs({ key: "n1", inputs: { value: 2 } }));
-      expect(out.graph.inputs.n1).toEqual(cfg("constant", { value: 2 }));
+      expect(graphOf(out).inputs.n1).toEqual(cfg("constant", { value: 2 }));
     });
     it("should write the config even when no entry exists yet", () => {
       const out = apply(empty(), arc.setNodeInputs({ key: "n1", inputs: cfg("add") }));
-      expect(out.graph.inputs.n1).toEqual(cfg("add"));
+      expect(graphOf(out).inputs.n1).toEqual(cfg("add"));
     });
   });
 
@@ -138,9 +167,9 @@ describe("arc reducer", () => {
         inputs: { n2: cfg("add") },
       });
       const out = apply(state, arc.removeNode({ key: "n2" }));
-      expect(out.graph.nodes).toEqual([node("n1", 0, 0), node("n3", 2, 2)]);
-      expect(out.graph.edges).toEqual([]);
-      expect(out.graph.inputs.n2).toBeUndefined();
+      expect(graphOf(out).nodes).toEqual([node("n1", 0, 0), node("n3", 2, 2)]);
+      expect(graphOf(out).edges).toEqual([]);
+      expect(graphOf(out).inputs.n2).toBeUndefined();
     });
     it("should keep unrelated edges intact", () => {
       const state = empty({
@@ -155,7 +184,7 @@ describe("arc reducer", () => {
         ],
       });
       const out = apply(state, arc.removeNode({ key: "n2" }));
-      expect(out.graph.edges).toEqual([
+      expect(graphOf(out).edges).toEqual([
         {
           key: "n1n3",
           source: { node: "n1", param: "out" },
@@ -193,7 +222,7 @@ describe("arc reducer", () => {
           },
         }),
       );
-      expect(out.graph.edges).toEqual([
+      expect(graphOf(out).edges).toEqual([
         {
           key: "ab",
           source: { node: "a", param: "o" },
@@ -254,7 +283,7 @@ describe("arc reducer", () => {
         ],
       });
       const out = apply(state, arc.removeEdge({ key: "ab" }));
-      expect(out.graph.edges).toEqual([
+      expect(graphOf(out).edges).toEqual([
         {
           key: "bc",
           source: { node: "b", param: "o" },
@@ -298,7 +327,7 @@ describe("arc reducer", () => {
           target: { node: "c", param: "i" },
         }),
       );
-      expect(out.graph.edges).toEqual([
+      expect(graphOf(out).edges).toEqual([
         {
           key: "ab",
           source: { node: "a", param: "o" },
@@ -363,7 +392,7 @@ describe("arc reducer", () => {
       const actions: arc.Action[] = [];
       for (let i = 0; i < 30; i++)
         actions.push(arc.setNodePosition({ key: "n", position: { x: i, y: i * 2 } }));
-      expect(arc.reduceAll(state, actions).next.graph.nodes[0].position).toEqual({
+      expect(graphOf(arc.reduceAll(state, actions).next).nodes[0].position).toEqual({
         x: 29,
         y: 58,
       });
@@ -384,9 +413,9 @@ describe("arc reducer", () => {
           },
         }),
       );
-      expect(out.graph.nodes).toHaveLength(2);
-      expect(out.graph.edges).toHaveLength(1);
-      expect(out.graph.inputs.src).toEqual(cfg("on", { channel: 1 }));
+      expect(graphOf(out).nodes).toHaveLength(2);
+      expect(graphOf(out).edges).toHaveLength(1);
+      expect(graphOf(out).inputs.src).toEqual(cfg("on", { channel: 1 }));
     });
     it("should leave state untouched when given an empty action list", () => {
       const state = empty({ nodes: [node("n1", 0, 0)] });
@@ -421,9 +450,9 @@ describe("arc reducer inverses", () => {
     const restored = arc.reduceAll(next, inverse).next;
     const byKey = (ns: arc.graph.Node[]) =>
       Object.fromEntries(ns.map((n) => [n.key, n]));
-    expect(byKey(restored.graph.nodes)).toEqual(byKey(state.graph.nodes));
-    expect(restored.graph.edges).toEqual(state.graph.edges);
-    expect(restored.graph.inputs).toEqual(state.graph.inputs);
+    expect(byKey(graphOf(restored).nodes)).toEqual(byKey(graphOf(state).nodes));
+    expect(graphOf(restored).edges).toEqual(graphOf(state).edges);
+    expect(graphOf(restored).inputs).toEqual(graphOf(state).inputs);
   };
 
   describe("rename", () => {
@@ -575,9 +604,9 @@ describe("arc reducer inverses", () => {
     it("appends insert_char ops so the document materializes to the typed text", () => {
       const gen = new crdt.Text(2);
       const ops = gen.insert(0, "hi").map((op) => arc.insertChar(op));
-      const { next } = arc.reduceAll(empty(), ops);
+      const { next } = arc.reduceAll(emptyText(), ops);
       const doc = new crdt.Text(3);
-      doc.load(next.text.doc);
+      doc.load(textOf(next).doc);
       expect(doc.toString()).toEqual("hi");
     });
 
@@ -585,9 +614,9 @@ describe("arc reducer inverses", () => {
       const gen = new crdt.Text(2);
       const insertOps = gen.insert(0, "hi").map((op) => arc.insertChar(op));
       const deleteOps = gen.delete(0, 1).map((op) => arc.deleteChar(op));
-      const { next } = arc.reduceAll(empty(), [...insertOps, ...deleteOps]);
+      const { next } = arc.reduceAll(emptyText(), [...insertOps, ...deleteOps]);
       const doc = new crdt.Text(3);
-      doc.load(next.text.doc);
+      doc.load(textOf(next).doc);
       expect(doc.toString()).toEqual("i");
     });
 
@@ -601,20 +630,20 @@ describe("arc reducer inverses", () => {
       const gen = new crdt.Text(2);
       const insertOps = gen.insert(0, "hi");
       const deleteOps = gen.delete(1, 1);
-      let state = arc.reduceAll(empty(), [
+      let state = arc.reduceAll(emptyText(), [
         ...insertOps.map((op) => arc.insertChar(op)),
         ...deleteOps.map((op) => arc.deleteChar(op)),
       ]).next;
-      expect(state.text.doc.inserts).toHaveLength(2);
-      expect(state.text.doc.deletes).toHaveLength(1);
+      expect(textOf(state).doc.inserts).toHaveLength(2);
+      expect(textOf(state).doc.deletes).toHaveLength(1);
 
       state = arc.reduceAll(state, [
         arc.forgetChars({ ids: deleteOps.map((op) => op.id) }),
       ]).next;
-      expect(state.text.doc.inserts).toHaveLength(1);
-      expect(state.text.doc.deletes).toHaveLength(0);
+      expect(textOf(state).doc.inserts).toHaveLength(1);
+      expect(textOf(state).doc.deletes).toHaveLength(0);
       const doc = new crdt.Text(3);
-      doc.load(state.text.doc);
+      doc.load(textOf(state).doc);
       expect(doc.toString()).toEqual("h");
     });
 
@@ -632,7 +661,7 @@ describe("arc path actions", () => {
     const { next, targets } = arc.reduceAll(state, [
       set(["graph", "inputs", "n1", "minValue"], 2),
     ]);
-    expect(next.graph.inputs.n1).toEqual(cfg("constant", { minValue: 2 }));
+    expect(graphOf(next).inputs.n1).toEqual(cfg("constant", { minValue: 2 }));
     expect(targets).toEqual(["n1"]);
   });
 

@@ -43,145 +43,131 @@ func (p RenamePayload) Handle(state Arc) (Arc, error) {
 // Handle inserts the node if no node with the same key exists, otherwise
 // replaces the existing node in place.
 func (p SetNodePayload) Handle(state Arc) (Arc, error) {
-	b := state.Base()
-	for i := range b.Graph.Nodes {
-		if b.Graph.Nodes[i].Key == p.Node.Key {
-			b.Graph.Nodes[i] = p.Node
-			state.SetBase(b)
-			return state, nil
+	return onGraph(state, func(g *graph.Graph) {
+		for i := range g.Nodes {
+			if g.Nodes[i].Key == p.Node.Key {
+				g.Nodes[i] = p.Node
+				return
+			}
 		}
-	}
-	b.Graph.Nodes = append(b.Graph.Nodes, p.Node)
-	state.SetBase(b)
-	return state, nil
+		g.Nodes = append(g.Nodes, p.Node)
+	})
 }
 
 // Handle moves the named node to the given canvas position. No-op if no node
 // matches.
 func (p SetNodePositionPayload) Handle(state Arc) (Arc, error) {
-	b := state.Base()
-	for i := range b.Graph.Nodes {
-		if b.Graph.Nodes[i].Key == p.Key {
-			b.Graph.Nodes[i].Position = p.Position
-			break
+	return onGraph(state, func(g *graph.Graph) {
+		for i := range g.Nodes {
+			if g.Nodes[i].Key == p.Key {
+				g.Nodes[i].Position = p.Position
+				return
+			}
 		}
-	}
-	state.SetBase(b)
-	return state, nil
+	})
 }
 
 // Handle merges the payload inputs into the entry for the given key in
 // the graph inputs map. Top-level fields present in the payload overwrite
 // existing fields; fields absent from the payload are preserved.
 func (p SetNodeInputsPayload) Handle(state Arc) (Arc, error) {
-	b := state.Base()
-	if b.Graph.Inputs == nil {
-		b.Graph.Inputs = make(map[string]msgpack.EncodedJSON)
-	}
-	if existing := b.Graph.Inputs[p.Key]; existing != nil {
+	return onGraph(state, func(g *graph.Graph) {
+		if g.Inputs == nil {
+			g.Inputs = make(map[string]msgpack.EncodedJSON)
+		}
+		existing := g.Inputs[p.Key]
+		if existing == nil {
+			g.Inputs[p.Key] = p.Inputs
+			return
+		}
 		merged := make(msgpack.EncodedJSON, len(existing)+len(p.Inputs))
 		maps.Copy(merged, existing)
 		maps.Copy(merged, p.Inputs)
-		b.Graph.Inputs[p.Key] = merged
-		state.SetBase(b)
-		return state, nil
-	}
-	b.Graph.Inputs[p.Key] = p.Inputs
-	state.SetBase(b)
-	return state, nil
+		g.Inputs[p.Key] = merged
+	})
 }
 
 // Handle removes the node with the matching key along with any edges connected
 // to it.
 func (p RemoveNodePayload) Handle(state Arc) (Arc, error) {
-	b := state.Base()
-	for i := range b.Graph.Nodes {
-		if b.Graph.Nodes[i].Key == p.Key {
-			b.Graph.Nodes = append(
-				b.Graph.Nodes[:i],
-				b.Graph.Nodes[i+1:]...,
-			)
-			break
+	return onGraph(state, func(g *graph.Graph) {
+		for i := range g.Nodes {
+			if g.Nodes[i].Key == p.Key {
+				g.Nodes = append(g.Nodes[:i], g.Nodes[i+1:]...)
+				break
+			}
 		}
-	}
-	delete(b.Graph.Inputs, p.Key)
-	kept := make(graph.Edges, 0, len(b.Graph.Edges))
-	for _, e := range b.Graph.Edges {
-		if e.Source.Node == p.Key || e.Target.Node == p.Key {
-			continue
+		delete(g.Inputs, p.Key)
+		kept := make(graph.Edges, 0, len(g.Edges))
+		for _, e := range g.Edges {
+			if e.Source.Node == p.Key || e.Target.Node == p.Key {
+				continue
+			}
+			kept = append(kept, e)
 		}
-		kept = append(kept, e)
-	}
-	b.Graph.Edges = kept
-	state.SetBase(b)
-	return state, nil
+		g.Edges = kept
+	})
 }
 
 // Handle appends the character insertion to the Arc's replicated text document. The
 // document is an op-log; materialization (see text.Text.Materialize) deduplicates and
 // orders, so applying an operation is appending it.
 func (p InsertCharPayload) Handle(state Arc) (Arc, error) {
-	b := state.Base()
-	b.Text.Doc.Inserts = append(
-		b.Text.Doc.Inserts,
-		crdt.Insert{ID: p.ID, Origin: p.Origin, Side: p.Side, Char: p.Char},
-	)
-	state.SetBase(b)
-	return state, nil
+	return onText(state, func(t *text.Text) {
+		t.Doc.Inserts = append(
+			t.Doc.Inserts,
+			crdt.Insert{ID: p.ID, Origin: p.Origin, Side: p.Side, Char: p.Char},
+		)
+	})
 }
 
 // Handle appends the edge to the graph. No-op when an edge with the same source
 // and target handles already exists, so concurrent additions of the same
 // connection converge regardless of differing keys.
 func (p AddEdgePayload) Handle(state Arc) (Arc, error) {
-	b := state.Base()
-	for _, e := range b.Graph.Edges {
-		if e.Source == p.Edge.Source && e.Target == p.Edge.Target {
-			return state, nil
+	return onGraph(state, func(g *graph.Graph) {
+		for _, e := range g.Edges {
+			if e.Source == p.Edge.Source && e.Target == p.Edge.Target {
+				return
+			}
 		}
-	}
-	b.Graph.Edges = append(b.Graph.Edges, p.Edge)
-	state.SetBase(b)
-	return state, nil
+		g.Edges = append(g.Edges, p.Edge)
+	})
 }
 
 // Handle removes the edge with the given key, if present.
 func (p RemoveEdgePayload) Handle(state Arc) (Arc, error) {
-	b := state.Base()
-	kept := make(graph.Edges, 0, len(b.Graph.Edges))
-	for _, e := range b.Graph.Edges {
-		if e.Key == p.Key {
-			continue
+	return onGraph(state, func(g *graph.Graph) {
+		kept := make(graph.Edges, 0, len(g.Edges))
+		for _, e := range g.Edges {
+			if e.Key != p.Key {
+				kept = append(kept, e)
+			}
 		}
-		kept = append(kept, e)
-	}
-	b.Graph.Edges = kept
-	state.SetBase(b)
-	return state, nil
+		g.Edges = kept
+	})
 }
 
 // Handle rewrites the endpoints of the edge with the given key, preserving its
 // key and kind. No-op when no edge with the key exists.
 func (p ReconnectEdgePayload) Handle(state Arc) (Arc, error) {
-	b := state.Base()
-	for i := range b.Graph.Edges {
-		if b.Graph.Edges[i].Key == p.Key {
-			b.Graph.Edges[i].Source = p.Source
-			b.Graph.Edges[i].Target = p.Target
-			break
+	return onGraph(state, func(g *graph.Graph) {
+		for i := range g.Edges {
+			if g.Edges[i].Key == p.Key {
+				g.Edges[i].Source = p.Source
+				g.Edges[i].Target = p.Target
+				return
+			}
 		}
-	}
-	state.SetBase(b)
-	return state, nil
+	})
 }
 
 // Handle appends the character deletion to the Arc's replicated text document. See
 // InsertCharPayload.Handle.
 func (p DeleteCharPayload) Handle(state Arc) (Arc, error) {
-	b := state.Base()
-	b.Text.Doc.Deletes = append(b.Text.Doc.Deletes, crdt.Delete{ID: p.ID})
-	state.SetBase(b)
-	return state, nil
+	return onText(state, func(t *text.Text) {
+		t.Doc.Deletes = append(t.Doc.Deletes, crdt.Delete{ID: p.ID})
+	})
 }
 
 // Handle drops the insert and delete operations of the given already-deleted characters
@@ -192,25 +178,61 @@ func (p ForgetCharsPayload) Handle(state Arc) (Arc, error) {
 	if len(p.IDs) == 0 {
 		return state, nil
 	}
-	b := state.Base()
 	forget := set.New(p.IDs...)
-	doc := b.Text.Doc
-	keptInserts := make([]crdt.Insert, 0, len(doc.Inserts))
-	for _, in := range doc.Inserts {
-		if !forget.Contains(in.ID) {
-			keptInserts = append(keptInserts, in)
+	return onText(state, func(t *text.Text) {
+		keptInserts := make([]crdt.Insert, 0, len(t.Doc.Inserts))
+		for _, in := range t.Doc.Inserts {
+			if !forget.Contains(in.ID) {
+				keptInserts = append(keptInserts, in)
+			}
 		}
-	}
-	keptDeletes := make([]crdt.Delete, 0, len(doc.Deletes))
-	for _, del := range doc.Deletes {
-		if !forget.Contains(del.ID) {
-			keptDeletes = append(keptDeletes, del)
+		keptDeletes := make([]crdt.Delete, 0, len(t.Doc.Deletes))
+		for _, del := range t.Doc.Deletes {
+			if !forget.Contains(del.ID) {
+				keptDeletes = append(keptDeletes, del)
+			}
 		}
+		t.Doc.Inserts = keptInserts
+		t.Doc.Deletes = keptDeletes
+	})
+}
+
+// onGraph applies edit to the graph of a graph-mode Arc. A text-mode Arc is a
+// validation error.
+func onGraph(state Arc, edit func(g *graph.Graph)) (Arc, error) {
+	b := state.Base()
+	src, ok := b.Source.Variant.(GraphSource)
+	if !ok {
+		return Arc{}, errWrongMode(b, ModeGraph)
 	}
-	b.Text.Doc.Inserts = keptInserts
-	b.Text.Doc.Deletes = keptDeletes
+	edit(&src.Graph)
+	b.Source.Variant = src
 	state.SetBase(b)
 	return state, nil
+}
+
+// onText applies edit to the text of a text-mode Arc. A graph-mode Arc is a validation
+// error.
+func onText(state Arc, edit func(t *text.Text)) (Arc, error) {
+	b := state.Base()
+	src, ok := b.Source.Variant.(TextSource)
+	if !ok {
+		return Arc{}, errWrongMode(b, ModeText)
+	}
+	edit(&src.Text)
+	b.Source.Variant = src
+	state.SetBase(b)
+	return state, nil
+}
+
+func errWrongMode(b Base, want Mode) error {
+	return errors.Wrapf(
+		validate.ErrValidation,
+		"%q is a %s Arc and cannot take a %s edit",
+		b.Name,
+		b.Source.Mode(),
+		want,
+	)
 }
 
 // lastEdits records the cluster time of each Arc's most recent character edit. The
@@ -349,17 +371,20 @@ func (p MovePayload) Handle(state Arc) (Arc, error) {
 
 // edit applies a path action to the inputs of the node that its path names.
 func edit(state Arc, a patch.Action) (Arc, error) {
-	b := state.Base()
-	inputs, err := patch.EditMap(
-		b.Graph.Inputs,
-		[]string{"graph", "inputs"},
-		a,
-		nil,
-	)
+	var err error
+	state, editErr := onGraph(state, func(g *graph.Graph) {
+		var inputs map[string]msgpack.EncodedJSON
+		if inputs, err = patch.EditMap(
+			g.Inputs,
+			[]string{"graph", "inputs"},
+			a,
+			nil,
+		); err == nil {
+			g.Inputs = inputs
+		}
+	})
 	if err != nil {
 		return Arc{}, err
 	}
-	b.Graph.Inputs = inputs
-	state.SetBase(b)
-	return state, nil
+	return state, editErr
 }

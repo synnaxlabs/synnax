@@ -25,9 +25,8 @@ const roles = new RoleClients(client);
 const createArc = async (): Promise<arc.Arc> =>
   await client.arcs.create({
     name: uniqueName("arc"),
-    mode: "graph",
     type: "automation",
-    graph: { nodes: [], edges: [] },
+    source: { mode: "graph", graph: { nodes: [], edges: [] } },
   });
 
 const renderMenu = async (a: arc.Arc, as: Client = client): Promise<void> => {

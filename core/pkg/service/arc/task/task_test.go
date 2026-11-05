@@ -165,7 +165,7 @@ var _ = Describe("Task", Ordered, func() {
 				return svcarc.AutomationArc{
 					Key:     key,
 					Name:    "test-arc",
-					Graph:   g,
+					Source:  svcarc.Source{Variant: svcarc.GraphSource{Graph: g}},
 					Program: &module,
 				}, nil
 			},
@@ -191,7 +191,7 @@ var _ = Describe("Task", Ordered, func() {
 				return svcarc.AutomationArc{
 					Key:     uuid.New(),
 					Name:    "test-arc",
-					Text:    prof,
+					Source:  svcarc.Source{Variant: svcarc.TextSource{Text: prof}},
 					Program: &module,
 				}, nil
 			},

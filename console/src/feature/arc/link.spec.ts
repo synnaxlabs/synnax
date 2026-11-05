@@ -24,9 +24,8 @@ describe("Arc.useLink", () => {
     });
     const created = await client.arcs.create({
       name: id.create(),
-      mode: "graph",
       type: "automation",
-      graph: { nodes: [], edges: [] },
+      source: { mode: "graph", graph: { nodes: [], edges: [] } },
     });
     const { handler, store } = await renderLinkHook(Arc.useLink, { client });
     store.dispatch(Session.Project.select(project.key));

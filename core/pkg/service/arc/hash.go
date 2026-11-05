@@ -35,27 +35,29 @@ type semanticContent struct {
 }
 
 // Hash returns the xxhash64 of the Arc's semantic content as 16 lowercase hex
-// characters. Only the active mode's source contributes: text mode hashes the
-// materialized source, graph mode hashes the graph without layout data. Equal content
-// hashes equally regardless of edit history, so an edit that is undone restores the
-// original hash. Text.Raw never contributes; the document is the source of truth.
+// characters. Text hashes its materialized source, and a graph hashes without layout
+// data. Equal content hashes equally regardless of edit history, so an edit that is
+// undone restores the original hash. Text.Raw never contributes; the document is the
+// source of truth.
 func Hash(a Base) (string, error) {
-	content := semanticContent{Mode: a.Mode}
-	if a.Mode == ModeText {
-		content.Text = a.Text.Materialize().Raw
-	} else {
-		content.Functions = a.Graph.Functions
-		content.Nodes = make([]string, len(a.Graph.Nodes))
-		for i, n := range a.Graph.Nodes {
+	content := semanticContent{Mode: a.Source.Mode()}
+	switch src := a.Source.Variant.(type) {
+	case TextSource:
+		content.Text = src.Text.Materialize().Raw
+	case GraphSource:
+		g := src.Graph
+		content.Functions = g.Functions
+		content.Nodes = make([]string, len(g.Nodes))
+		for i, n := range g.Nodes {
 			content.Nodes[i] = n.Key
 		}
 		slices.Sort(content.Nodes)
-		content.Edges = make([]ir.Edge, len(a.Graph.Edges))
-		for i, e := range a.Graph.Edges {
+		content.Edges = make([]ir.Edge, len(g.Edges))
+		for i, e := range g.Edges {
 			content.Edges[i] = e.Edge
 		}
 		slices.SortFunc(content.Edges, compareEdges)
-		content.Inputs = a.Graph.Inputs
+		content.Inputs = g.Inputs
 	}
 	b, err := json.Marshal(content, json.Deterministic(true))
 	if err != nil {

@@ -14,7 +14,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 )
@@ -23,10 +22,8 @@ var _ = Describe("Retrieve", func() {
 	Describe("Arc Retrieve", func() {
 		It("Should retrieve an Arc", func(ctx SpecContext) {
 			a := newAutomation(arc.Base{
-				Name:  "test-retrieve",
-				Mode:  arc.ModeText,
-				Graph: graph.Graph{},
-				Text:  text.Text{},
+				Name:   "test-retrieve",
+				Source: arc.Source{Variant: arc.TextSource{Text: text.Text{}}},
 			})
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 
@@ -44,22 +41,16 @@ var _ = Describe("Retrieve", func() {
 		It("Should retrieve multiple Arcs", func(ctx SpecContext) {
 			arcs := []arc.Arc{
 				newAutomation(arc.Base{
-					Name:  "arc-multi-1",
-					Mode:  arc.ModeText,
-					Graph: graph.Graph{},
-					Text:  text.Text{},
+					Name:   "arc-multi-1",
+					Source: arc.Source{Variant: arc.TextSource{Text: text.Text{}}},
 				}),
 				newAutomation(arc.Base{
-					Name:  "arc-multi-2",
-					Mode:  arc.ModeText,
-					Graph: graph.Graph{},
-					Text:  text.Text{},
+					Name:   "arc-multi-2",
+					Source: arc.Source{Variant: arc.TextSource{Text: text.Text{}}},
 				}),
 				newAutomation(arc.Base{
-					Name:  "arc-multi-3",
-					Mode:  arc.ModeText,
-					Graph: graph.Graph{},
-					Text:  text.Text{},
+					Name:   "arc-multi-3",
+					Source: arc.Source{Variant: arc.TextSource{Text: text.Text{}}},
 				}),
 			}
 
@@ -82,10 +73,8 @@ var _ = Describe("Retrieve", func() {
 		It("Should retrieve Arc after transaction commit", func(ctx SpecContext) {
 			localTx := db.OpenTx()
 			a := newAutomation(arc.Base{
-				Name:  "tx-test-arc",
-				Mode:  arc.ModeText,
-				Graph: graph.Graph{},
-				Text:  text.Text{},
+				Name:   "tx-test-arc",
+				Source: arc.Source{Variant: arc.TextSource{Text: text.Text{}}},
 			})
 			Expect(svc.NewWriter(localTx).Create(ctx, &a)).To(Succeed())
 			Expect(localTx.Commit(ctx)).To(Succeed())
@@ -106,10 +95,8 @@ var _ = Describe("Retrieve", func() {
 		It("Should retrieve Arc without transaction", func(ctx SpecContext) {
 			localTx := db.OpenTx()
 			a := newAutomation(arc.Base{
-				Name:  "no-tx-arc",
-				Mode:  arc.ModeText,
-				Graph: graph.Graph{},
-				Text:  text.Text{},
+				Name:   "no-tx-arc",
+				Source: arc.Source{Variant: arc.TextSource{Text: text.Text{}}},
 			})
 			Expect(svc.NewWriter(localTx).Create(ctx, &a)).To(Succeed())
 			Expect(localTx.Commit(ctx)).To(Succeed())

@@ -84,8 +84,8 @@ describe("Arc.Directory", () => {
     });
     const a = await client.arcs.create({
       name: uniqueName(),
-      mode: "text",
       type: "automation",
+      source: { mode: "text" },
     });
     const destination = arc.directory.ontologyID(d.key);
     const { result } = renderHook(() => Arc.Directory.useMove(), { wrapper });

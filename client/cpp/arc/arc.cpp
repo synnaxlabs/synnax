@@ -67,7 +67,7 @@ x::errors::Error Client::create(std::vector<Arc> &arcs) const {
 }
 
 std::pair<Arc, x::errors::Error> Client::create(const std::string &name) const {
-    Arc arc = AutomationArc{{.name = name, .mode = MODE_TEXT}};
+    Arc arc = AutomationArc{{.name = name}};
     auto err = create(arc);
     return {arc, err};
 }

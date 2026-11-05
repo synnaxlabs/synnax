@@ -31,36 +31,9 @@ import (
 
 var (
 	fullyPopulatedBase = v4.Base{
-		Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-		Name: "test_2",
-		Mode: v4.Mode("text"),
-		Graph: graph.Graph{
-			Functions: []ir.Function{
-				{
-					Key:      "test_6",
-					Body:     ir.Body{},
-					Inputs:   []types.Param{{}},
-					Outputs:  []types.Param{{}},
-					Channels: types.Channels{},
-				},
-			},
-			Edges: []graph.Edge{
-				{
-					Source: ir.Handle{},
-					Target: ir.Handle{},
-					Kind:   ir.EdgeKind(0),
-					Key:    "test_15",
-				},
-			},
-			Nodes:  []graph.Node{{Key: "test_17", Position: spatial.XY{}}},
-			Inputs: map[string]msgpack.EncodedJSON{"test_19": {"key_19": "value_19"}},
-		},
-		Text: text.Text{
-			Doc: text.Document{
-				Inserts: []crdt.Insert{{}},
-				Deletes: []crdt.Delete{{}},
-			},
-		},
+		Key:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		Name:   "test_2",
+		Source: v4.Source{Variant: v4.TextSource{Text: text.Text{Doc: text.Document{}}}},
 	}
 )
 
@@ -95,17 +68,56 @@ var _ = Describe("Codec", func() {
 			Entry("zero values", v4.Base{
 				Key:  uuid.Nil(),
 				Name: "",
-				Mode: v4.Mode(""),
-				Graph: graph.Graph{
-					Functions: []ir.Function{},
-					Edges:     []graph.Edge{},
-					Nodes:     []graph.Node{},
-					Inputs:    map[string]msgpack.EncodedJSON{},
-				},
-				Text: text.Text{
-					Doc: text.Document{Inserts: []crdt.Insert{}, Deletes: []crdt.Delete{}},
-				},
+				Source: v4.Source{Variant: v4.TextSource{
+					Text: text.Text{
+						Doc: text.Document{Inserts: []crdt.Insert{}, Deletes: []crdt.Delete{}},
+					},
+				}},
 			}),
+		)
+	})
+	Describe("Source", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v4.Source) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v4.Source
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("text variant", v4.Source{Variant: v4.TextSource{
+				Text: text.Text{
+					Doc: text.Document{
+						Inserts: []crdt.Insert{{}},
+						Deletes: []crdt.Delete{{}},
+					},
+				},
+			}}),
+			Entry("graph variant", v4.Source{Variant: v4.GraphSource{
+				Graph: graph.Graph{
+					Functions: []ir.Function{
+						{
+							Key:      "test_3",
+							Body:     ir.Body{},
+							Inputs:   []types.Param{{}},
+							Outputs:  []types.Param{{}},
+							Channels: types.Channels{},
+						},
+					},
+					Edges: []graph.Edge{
+						{
+							Source: ir.Handle{},
+							Target: ir.Handle{},
+							Kind:   ir.EdgeKind(0),
+							Key:    "test_12",
+						},
+					},
+					Nodes:  []graph.Node{{Key: "test_14", Position: spatial.XY{}}},
+					Inputs: map[string]msgpack.EncodedJSON{"test_16": {"key_16": "value_16"}},
+				},
+			}}),
 		)
 	})
 })
@@ -137,6 +149,30 @@ func BenchmarkEncodeDecodeBase(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded v4.Base
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeSource(b *testing.B) {
+	seed := v4.Source{Variant: v4.TextSource{
+		Text: text.Text{
+			Doc: text.Document{
+				Inserts: []crdt.Insert{{}},
+				Deletes: []crdt.Delete{{}},
+			},
+		},
+	}}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v4.Source
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -196,16 +232,11 @@ func FuzzDecodeBase(f *testing.F) {
 		seed := v4.Base{
 			Key:  uuid.Nil(),
 			Name: "",
-			Mode: v4.Mode(""),
-			Graph: graph.Graph{
-				Functions: []ir.Function{},
-				Edges:     []graph.Edge{},
-				Nodes:     []graph.Node{},
-				Inputs:    map[string]msgpack.EncodedJSON{},
-			},
-			Text: text.Text{
-				Doc: text.Document{Inserts: []crdt.Insert{}, Deletes: []crdt.Delete{}},
-			},
+			Source: v4.Source{Variant: v4.TextSource{
+				Text: text.Text{
+					Doc: text.Document{Inserts: []crdt.Insert{}, Deletes: []crdt.Delete{}},
+				},
+			}},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -225,6 +256,74 @@ func FuzzDecodeBase(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v4.Base
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeSource(f *testing.F) {
+	{
+		seed := v4.Source{Variant: v4.TextSource{
+			Text: text.Text{
+				Doc: text.Document{
+					Inserts: []crdt.Insert{{}},
+					Deletes: []crdt.Delete{{}},
+				},
+			},
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v4.Source{Variant: v4.GraphSource{
+			Graph: graph.Graph{
+				Functions: []ir.Function{
+					{
+						Key:      "test_3",
+						Body:     ir.Body{},
+						Inputs:   []types.Param{{}},
+						Outputs:  []types.Param{{}},
+						Channels: types.Channels{},
+					},
+				},
+				Edges: []graph.Edge{
+					{
+						Source: ir.Handle{},
+						Target: ir.Handle{},
+						Kind:   ir.EdgeKind(0),
+						Key:    "test_12",
+					},
+				},
+				Nodes:  []graph.Node{{Key: "test_14", Position: spatial.XY{}}},
+				Inputs: map[string]msgpack.EncodedJSON{"test_16": {"key_16": "value_16"}},
+			},
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v4.Source
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v4.Source
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

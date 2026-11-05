@@ -34,25 +34,26 @@ const EDGE_KEY = "edge-n1-n2";
 const createGraphArc = async (): Promise<arc.Arc> =>
   await client.arcs.create({
     name: `clipboard_${id.create()}`,
-    mode: "graph",
     type: "automation",
-    graph: {
-      nodes: [
-        { key: N1, position: { x: 0, y: 0 } },
-        { key: N2, position: { x: 10, y: 10 } },
-      ],
-      edges: [
-        {
-          key: EDGE_KEY,
-          source: { node: N1, param: "out" },
-          target: { node: N2, param: "in" },
-          kind: arc.ir.EdgeKind.continuous,
-        },
-      ],
-      inputs: { [N1]: { type: "constant" }, [N2]: { type: "log" } },
-      functions: [],
+    source: {
+      mode: "graph",
+      graph: {
+        nodes: [
+          { key: N1, position: { x: 0, y: 0 } },
+          { key: N2, position: { x: 10, y: 10 } },
+        ],
+        edges: [
+          {
+            key: EDGE_KEY,
+            source: { node: N1, param: "out" },
+            target: { node: N2, param: "in" },
+            kind: arc.ir.EdgeKind.continuous,
+          },
+        ],
+        inputs: { [N1]: { type: "constant" }, [N2]: { type: "log" } },
+        functions: [],
+      },
     },
-    text: { raw: "" },
   });
 
 // loadArc primes the client cache with the arc at key via the suspending

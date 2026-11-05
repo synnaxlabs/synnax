@@ -3,7 +3,5 @@
   "type": "arc-module",
   "key": "11111111-2222-3333-4444-555555555555",
   "name": "sy_lib",
-  "mode": "text",
-  "graph": { "nodes": [], "edges": [], "inputs": {} },
-  "text": { "raw": "export func f() {}" }
+  "source": { "mode": "text", "text": { "raw": "export func f() {}" } }
 }

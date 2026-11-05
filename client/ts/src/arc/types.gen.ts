@@ -28,21 +28,41 @@ export type Type = z.infer<typeof typeZ>;
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
+/** TextSource is Arc source code written as text. */
+export const textSourceZ = z.object({
+  mode: z.literal("text"),
+  /** text is the text-based Arc source code. */
+  text: text.textZ.prefault({}),
+});
+export interface TextSource extends z.infer<typeof textSourceZ> {}
+
+/** GraphSource is Arc source code drawn as a visual dataflow graph. */
+export const graphSourceZ = z.object({
+  mode: z.literal("graph"),
+  /** graph is the visual dataflow graph representation of the module. */
+  graph: graph.graphZ.prefault({}),
+});
+export interface GraphSource extends z.infer<typeof graphSourceZ> {}
+
+/** Source is the source code of an Arc. The mode selects text or a graph. */
+export const sourceZ = z.discriminatedUnion("mode", [textSourceZ, graphSourceZ]);
+export type Source = TextSource | GraphSource;
+
+export const SOURCE_SCHEMAS: {
+  [K in Mode]: z.ZodType<Extract<Source, { mode: K }>>;
+} = {
+  text: textSourceZ,
+  graph: graphSourceZ,
+};
+
 /** Base carries the fields that every Arc shares. */
 export const baseZ = z.object({
   /** key is the unique identifier for this module. */
   key: keyZ.default(uuid.create),
   /** name is a human-readable name for the module. */
   name: z.string().min(1, "name is required"),
-  /**
-   * mode specifies the representation mode for this module. Either "text" for
-   * text-based Arc code or "graph" for visual dataflow.
-   */
-  mode: modeZ,
-  /** graph is the visual dataflow graph representation of the module. */
-  graph: graph.graphZ.prefault({}),
-  /** text is the text-based Arc source code. */
-  text: text.textZ.prefault({}),
+  /** source is the Arc's source code, written as text or drawn as a graph. */
+  source: sourceZ.prefault({ mode: "text" }),
 });
 export interface Base extends z.infer<typeof baseZ> {}
 

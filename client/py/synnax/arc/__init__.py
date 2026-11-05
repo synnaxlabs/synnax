@@ -17,9 +17,12 @@ from synnax.arc.task import Task, TaskConfig
 from synnax.arc.text import Text
 from synnax.arc.types_gen import (
     ONTOLOGY_TYPE,
+    GraphSource,
     Key,
     Mode,
     Payload,
+    Source,
+    TextSource,
     ontology_id,
 )
 from x.spatial import XY as Position
@@ -33,15 +36,18 @@ __all__ = [
     "Graph",
     "GraphEdge",
     "GraphNode",
+    "GraphSource",
     "Handle",
     "Key",
     "Mode",
     "Module",
     "Payload",
     "Position",
+    "Source",
     "Task",
     "TaskConfig",
     "Text",
+    "TextSource",
     "compiler",
     "graph",
     "ir",

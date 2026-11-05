@@ -100,7 +100,10 @@ func createTask(ctx SpecContext, name string) task.Task {
 func createArc(ctx SpecContext, name, source string) arc.Arc {
 	GinkgoHelper()
 	a := arc.Arc{Variant: arc.AutomationArc{
-		Base: arc.Base{Name: name, Mode: arc.ModeText, Text: text.Text{Raw: source}},
+		Base: arc.Base{
+			Name:   name,
+			Source: arc.Source{Variant: arc.TextSource{Text: text.Text{Raw: source}}},
+		},
 	}}
 	Expect(arcSvc.NewWriter(nil).Create(ctx, &a)).To(Succeed())
 	DeferCleanup(func(ctx SpecContext) {
@@ -267,7 +270,10 @@ var _ = Describe("Export", func() {
 		Expect(files).To(HaveKey("Startup.json"))
 		Expect(decode(files["Startup.json"])).To(SatisfyAll(
 			HaveKeyWithValue("type", "arc-automation"),
-			HaveKeyWithValue("text", map[string]any{"raw": "x := 1"}),
+			HaveKeyWithValue("source", map[string]any{
+				"mode": "text",
+				"text": map[string]any{"raw": "x := 1"},
+			}),
 		))
 		root := decode(files["Controls.json"])["root"].(map[string]any)
 		Expect(root["tabs"]).To(ConsistOf(
@@ -604,7 +610,7 @@ var _ = Describe("Import", func() {
 				Entry(&a).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(a.Base().Name).To(Equal("Startup Sequence"))
-			Expect(a.Base().Text.Materialize().Raw).
+			Expect(textOf(a.Base()).Materialize().Raw).
 				To(Equal("stage chamber_pressure -> ok\n"))
 			Expect(refs[1].Type).To(Equal(ontology.ResourceTypeTask))
 		})
@@ -763,7 +769,7 @@ var _ = Describe("Import", func() {
 			Entry(&res).
 			Exec(ctx, tx)).To(Succeed())
 		Expect(res.Base().Name).To(Equal("Startup"))
-		Expect(res.Base().Text.Materialize().Raw).To(Equal("x := 1"))
+		Expect(textOf(res.Base()).Materialize().Raw).To(Equal("x := 1"))
 		var parents []ontology.Resource
 		Expect(otg.NewRetrieve().
 			WhereIDs(newArcID).

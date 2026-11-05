@@ -14,7 +14,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/text"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
@@ -27,7 +26,12 @@ import (
 var _ = Describe("Writer", func() {
 	Describe("Create", func() {
 		It("Should create an Arc with generated key", func(ctx SpecContext) {
-			a := newAutomation(arc.Base{Name: "test-arc", Mode: arc.ModeText})
+			a := newAutomation(
+				arc.Base{
+					Name:   "test-arc",
+					Source: arc.Source{Variant: arc.TextSource{}},
+				},
+			)
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 			Expect(a.Base().Key).ToNot(Equal(uuid.Nil()))
 		})
@@ -35,7 +39,9 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should return a validation error when the name is empty",
 			func(ctx SpecContext) {
-				a := newAutomation(arc.Base{Mode: arc.ModeText})
+				a := newAutomation(
+					arc.Base{Source: arc.Source{Variant: arc.TextSource{}}},
+				)
 				Expect(svc.NewWriter(tx).Create(ctx, &a)).
 					To(MatchError(ContainSubstring("name: required")))
 			},
@@ -44,14 +50,23 @@ var _ = Describe("Writer", func() {
 		It("Should create an Arc with explicit key", func(ctx SpecContext) {
 			key := uuid.New()
 			a := newAutomation(
-				arc.Base{Key: key, Name: "test-arc-with-key", Mode: arc.ModeText},
+				arc.Base{
+					Key:    key,
+					Name:   "test-arc-with-key",
+					Source: arc.Source{Variant: arc.TextSource{}},
+				},
 			)
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 			Expect(a.Base().Key).To(Equal(key))
 		})
 
 		It("Should parent the Arc under the root directory", func(ctx SpecContext) {
-			a := newAutomation(arc.Base{Name: "parented-arc", Mode: arc.ModeText})
+			a := newAutomation(
+				arc.Base{
+					Name:   "parented-arc",
+					Source: arc.Source{Variant: arc.TextSource{}},
+				},
+			)
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 			var parents []ontology.Resource
 			Expect(otg.NewRetrieve().
@@ -72,7 +87,9 @@ var _ = Describe("Writer", func() {
 		})
 
 		It("Should reject a change of type", func(ctx SpecContext) {
-			a := newModule(arc.Base{Name: "typed", Mode: arc.ModeText})
+			a := newModule(
+				arc.Base{Name: "typed", Source: arc.Source{Variant: arc.TextSource{}}},
+			)
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 			a = newAutomation(a.Base())
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).
@@ -80,8 +97,12 @@ var _ = Describe("Writer", func() {
 		})
 
 		It("Should handle multiple Arc creations", func(ctx SpecContext) {
-			a1 := newAutomation(arc.Base{Name: "arc-1", Mode: arc.ModeText})
-			a2 := newAutomation(arc.Base{Name: "arc-2", Mode: arc.ModeText})
+			a1 := newAutomation(
+				arc.Base{Name: "arc-1", Source: arc.Source{Variant: arc.TextSource{}}},
+			)
+			a2 := newAutomation(
+				arc.Base{Name: "arc-2", Source: arc.Source{Variant: arc.TextSource{}}},
+			)
 			Expect(svc.NewWriter(tx).Create(ctx, &a1)).To(Succeed())
 			Expect(svc.NewWriter(tx).Create(ctx, &a2)).To(Succeed())
 			Expect(a1.Base().Key).ToNot(Equal(uuid.Nil()))
@@ -94,7 +115,12 @@ var _ = Describe("Writer", func() {
 			func(ctx SpecContext) {
 				rec := &Recorder[arc.Key, arc.Action]{}
 				DeferCleanup(svc.OnAction(rec.Record))
-				v := newAutomation(arc.Base{Name: "broadcast", Mode: arc.ModeText})
+				v := newAutomation(
+					arc.Base{
+						Name:   "broadcast",
+						Source: arc.Source{Variant: arc.TextSource{}},
+					},
+				)
 				Expect(
 					svc.NewWriter(tx).WithDispatchKey("dk-1").Create(ctx, &v),
 				).To(Succeed())
@@ -115,7 +141,12 @@ var _ = Describe("Writer", func() {
 				rec := &Recorder[arc.Key, arc.Action]{}
 				DeferCleanup(svc.OnAction(rec.Record))
 				uncommitted := db.OpenTx()
-				v := newAutomation(arc.Base{Name: "discarded", Mode: arc.ModeText})
+				v := newAutomation(
+					arc.Base{
+						Name:   "discarded",
+						Source: arc.Source{Variant: arc.TextSource{}},
+					},
+				)
 				Expect(svc.NewWriter(uncommitted).Create(ctx, &v)).To(Succeed())
 				Expect(uncommitted.Close()).To(Succeed())
 				Expect(rec.Snapshot()).To(BeEmpty())
@@ -126,8 +157,18 @@ var _ = Describe("Writer", func() {
 	Describe("CreateMany", func() {
 		It("Should create multiple Arcs", func(ctx SpecContext) {
 			arcs := []arc.Arc{
-				newAutomation(arc.Base{Name: "arc-many-1", Mode: arc.ModeText}),
-				newAutomation(arc.Base{Name: "arc-many-2", Mode: arc.ModeText}),
+				newAutomation(
+					arc.Base{
+						Name:   "arc-many-1",
+						Source: arc.Source{Variant: arc.TextSource{}},
+					},
+				),
+				newAutomation(
+					arc.Base{
+						Name:   "arc-many-2",
+						Source: arc.Source{Variant: arc.TextSource{}},
+					},
+				),
 			}
 			Expect(svc.NewWriter(tx).CreateMany(ctx, &arcs)).To(Succeed())
 
@@ -144,11 +185,9 @@ var _ = Describe("Writer", func() {
 		It("Should update an existing Arc", func(ctx SpecContext) {
 			key := uuid.New()
 			a := newAutomation(arc.Base{
-				Key:   key,
-				Name:  "existing-arc",
-				Mode:  arc.ModeText,
-				Graph: graph.Graph{},
-				Text:  text.Text{},
+				Key:    key,
+				Name:   "existing-arc",
+				Source: arc.Source{Variant: arc.TextSource{Text: text.Text{}}},
 			})
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 			b := a.Base()
@@ -169,10 +208,8 @@ var _ = Describe("Writer", func() {
 	Describe("Delete", func() {
 		It("Should delete an Arc", func(ctx SpecContext) {
 			a := newAutomation(arc.Base{
-				Name:  "arc-to-delete",
-				Mode:  arc.ModeText,
-				Graph: graph.Graph{},
-				Text:  text.Text{},
+				Name:   "arc-to-delete",
+				Source: arc.Source{Variant: arc.TextSource{Text: text.Text{}}},
 			})
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 			Expect(svc.NewWriter(tx).Delete(ctx, a.Base().Key)).To(Succeed())
@@ -181,8 +218,18 @@ var _ = Describe("Writer", func() {
 		})
 
 		It("Should delete multiple Arcs", func(ctx SpecContext) {
-			a1 := newAutomation(arc.Base{Name: "arc-to-delete-1", Mode: arc.ModeText})
-			a2 := newAutomation(arc.Base{Name: "arc-to-delete-2", Mode: arc.ModeText})
+			a1 := newAutomation(
+				arc.Base{
+					Name:   "arc-to-delete-1",
+					Source: arc.Source{Variant: arc.TextSource{}},
+				},
+			)
+			a2 := newAutomation(
+				arc.Base{
+					Name:   "arc-to-delete-2",
+					Source: arc.Source{Variant: arc.TextSource{}},
+				},
+			)
 			w := svc.NewWriter(tx)
 			Expect(w.Create(ctx, &a1)).To(Succeed())
 			Expect(w.Create(ctx, &a2)).To(Succeed())
@@ -204,7 +251,12 @@ var _ = Describe("Writer", func() {
 		)
 
 		It("Should delete child tasks when deleting an Arc", func(ctx SpecContext) {
-			a := newAutomation(arc.Base{Name: "arc-with-task", Mode: arc.ModeText})
+			a := newAutomation(
+				arc.Base{
+					Name:   "arc-with-task",
+					Source: arc.Source{Variant: arc.TextSource{}},
+				},
+			)
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 
 			t := &task.Task{
@@ -233,7 +285,10 @@ var _ = Describe("Writer", func() {
 			"Should handle Arc deletion when Arc has no child tasks",
 			func(ctx SpecContext) {
 				a := newAutomation(
-					arc.Base{Name: "arc-without-tasks", Mode: arc.ModeText},
+					arc.Base{
+						Name:   "arc-without-tasks",
+						Source: arc.Source{Variant: arc.TextSource{}},
+					},
 				)
 				Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 				Expect(svc.NewWriter(tx).Delete(ctx, a.Base().Key)).To(Succeed())
@@ -248,7 +303,10 @@ var _ = Describe("Writer", func() {
 			"Should delete multiple child tasks when deleting an Arc",
 			func(ctx SpecContext) {
 				a := newAutomation(
-					arc.Base{Name: "arc-with-multiple-tasks", Mode: arc.ModeText},
+					arc.Base{
+						Name:   "arc-with-multiple-tasks",
+						Source: arc.Source{Variant: arc.TextSource{}},
+					},
 				)
 				Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 

@@ -26,6 +26,18 @@ const (
 	ModeGraph Mode = v4.ModeGraph
 )
 
+// Source is the source code of an Arc. The mode selects text or a graph.
+type Source = v4.Source
+
+// SourceVariant is implemented by every Source variant.
+type SourceVariant = v4.SourceVariant
+
+// TextSource is Arc source code written as text.
+type TextSource = v4.TextSource
+
+// GraphSource is Arc source code drawn as a visual dataflow graph.
+type GraphSource = v4.GraphSource
+
 // Base carries the fields that every Arc shares.
 type Base = v4.Base
 

@@ -23,24 +23,14 @@ import (
 
 // BaseToPB converts Base to Base.
 func BaseToPB(r arc.Base) (*Base, error) {
-	modeVal, err := ModeToPB(r.Mode)
-	if err != nil {
-		return nil, err
-	}
-	graphVal, err := graphpb.GraphToPB(r.Graph)
-	if err != nil {
-		return nil, err
-	}
-	textVal, err := textpb.TextToPB(r.Text)
+	sourceVal, err := SourceToPB(r.Source)
 	if err != nil {
 		return nil, err
 	}
 	pb := &Base{
-		Name:  r.Name,
-		Key:   r.Key.String(),
-		Mode:  modeVal,
-		Graph: graphVal,
-		Text:  textVal,
+		Name:   r.Name,
+		Key:    r.Key.String(),
+		Source: sourceVal,
 	}
 	return pb, nil
 }
@@ -56,15 +46,7 @@ func BaseFromPB(pb *Base) (arc.Base, error) {
 	if err != nil {
 		return arc.Base{}, err
 	}
-	r.Mode, err = ModeFromPB(pb.Mode)
-	if err != nil {
-		return arc.Base{}, err
-	}
-	r.Graph, err = graphpb.GraphFromPB(pb.Graph)
-	if err != nil {
-		return arc.Base{}, err
-	}
-	r.Text, err = textpb.TextFromPB(pb.Text)
+	r.Source, err = SourceFromPB(pb.Source)
 	if err != nil {
 		return arc.Base{}, err
 	}
@@ -91,6 +73,110 @@ func BasesFromPB(pbs []*Base) ([]arc.Base, error) {
 	for i, pb := range pbs {
 		var err error
 		result[i], err = BaseFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// TextSourceToPB converts TextSource to SourceTextPayload.
+func TextSourceToPB(r arc.TextSource) (*SourceTextPayload, error) {
+	textVal, err := textpb.TextToPB(r.Text)
+	if err != nil {
+		return nil, err
+	}
+	pb := &SourceTextPayload{
+		Text: textVal,
+	}
+	return pb, nil
+}
+
+// TextSourceFromPB converts SourceTextPayload to TextSource.
+func TextSourceFromPB(pb *SourceTextPayload) (arc.TextSource, error) {
+	var r arc.TextSource
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Text, err = textpb.TextFromPB(pb.Text)
+	if err != nil {
+		return arc.TextSource{}, err
+	}
+	return r, nil
+}
+
+// TextSourcesToPB converts a slice of TextSource to SourceTextPayload.
+func TextSourcesToPB(rs []arc.TextSource) ([]*SourceTextPayload, error) {
+	result := make([]*SourceTextPayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = TextSourceToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// TextSourcesFromPB converts a slice of SourceTextPayload to TextSource.
+func TextSourcesFromPB(pbs []*SourceTextPayload) ([]arc.TextSource, error) {
+	result := make([]arc.TextSource, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = TextSourceFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// GraphSourceToPB converts GraphSource to SourceGraphPayload.
+func GraphSourceToPB(r arc.GraphSource) (*SourceGraphPayload, error) {
+	graphVal, err := graphpb.GraphToPB(r.Graph)
+	if err != nil {
+		return nil, err
+	}
+	pb := &SourceGraphPayload{
+		Graph: graphVal,
+	}
+	return pb, nil
+}
+
+// GraphSourceFromPB converts SourceGraphPayload to GraphSource.
+func GraphSourceFromPB(pb *SourceGraphPayload) (arc.GraphSource, error) {
+	var r arc.GraphSource
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Graph, err = graphpb.GraphFromPB(pb.Graph)
+	if err != nil {
+		return arc.GraphSource{}, err
+	}
+	return r, nil
+}
+
+// GraphSourcesToPB converts a slice of GraphSource to SourceGraphPayload.
+func GraphSourcesToPB(rs []arc.GraphSource) ([]*SourceGraphPayload, error) {
+	result := make([]*SourceGraphPayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = GraphSourceToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// GraphSourcesFromPB converts a slice of SourceGraphPayload to GraphSource.
+func GraphSourcesFromPB(pbs []*SourceGraphPayload) ([]arc.GraphSource, error) {
+	result := make([]arc.GraphSource, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = GraphSourceFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -187,6 +273,82 @@ func ModuleArcsFromPB(pbs []*ArcModulePayload) ([]arc.ModuleArc, error) {
 	for i, pb := range pbs {
 		var err error
 		result[i], err = ModuleArcFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// SourceToPB converts Source to Source.
+func SourceToPB(r arc.Source) (*Source, error) {
+	if r.Variant == nil {
+		return nil, nil
+	}
+	pb := &Source{}
+	switch v := r.Variant.(type) {
+	case arc.TextSource:
+		inner, err := TextSourceToPB(v)
+		if err != nil {
+			return nil, err
+		}
+		pb.Variant = &Source_Text{Text: inner}
+	case arc.GraphSource:
+		inner, err := GraphSourceToPB(v)
+		if err != nil {
+			return nil, err
+		}
+		pb.Variant = &Source_Graph{Graph: inner}
+	default:
+		return nil, errors.Newf("Source: unknown variant %T", r.Variant)
+	}
+	return pb, nil
+}
+
+// SourceFromPB converts Source to Source.
+func SourceFromPB(pb *Source) (arc.Source, error) {
+	var r arc.Source
+	if pb == nil {
+		return r, nil
+	}
+	switch v := pb.Variant.(type) {
+	case *Source_Text:
+		inner, err := TextSourceFromPB(v.Text)
+		if err != nil {
+			return r, err
+		}
+		m := inner
+		r.Variant = m
+	case *Source_Graph:
+		inner, err := GraphSourceFromPB(v.Graph)
+		if err != nil {
+			return r, err
+		}
+		m := inner
+		r.Variant = m
+	}
+	return r, nil
+}
+
+// SourcesToPB converts a slice of Source to Source.
+func SourcesToPB(rs []arc.Source) ([]*Source, error) {
+	result := make([]*Source, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = SourceToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// SourcesFromPB converts a slice of Source to Source.
+func SourcesFromPB(pbs []*Source) ([]arc.Source, error) {
+	result := make([]arc.Source, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = SourceFromPB(pb)
 		if err != nil {
 			return nil, err
 		}

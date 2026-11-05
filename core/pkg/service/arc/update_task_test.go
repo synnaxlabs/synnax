@@ -35,7 +35,10 @@ var _ = Describe("UpdateTask", func() {
 	createArc := func(ctx SpecContext, raw string) {
 		GinkgoHelper()
 		a = newAutomation(
-			arc.Base{Name: "deployable", Mode: arc.ModeText, Text: newText(raw)},
+			arc.Base{
+				Name:   "deployable",
+				Source: arc.Source{Variant: arc.TextSource{Text: newText(raw)}},
+			},
 		)
 		Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 	}
@@ -51,7 +54,9 @@ var _ = Describe("UpdateTask", func() {
 	}
 
 	It("Should reject a rack on a module", func(ctx SpecContext) {
-		m := newModule(arc.Base{Name: "mod", Mode: arc.ModeText})
+		m := newModule(
+			arc.Base{Name: "mod", Source: arc.Source{Variant: arc.TextSource{}}},
+		)
 		Expect(svc.NewWriter(tx).Create(ctx, &m)).To(Succeed())
 		Expect(svc.NewWriter(tx).
 			UpdateTask(ctx, m.Base().Key, arc.TaskUpdate{Rack: new(testRack.Key)})).
@@ -120,10 +125,9 @@ var _ = Describe("UpdateTask", func() {
 			)
 			firstHash := retrieveTask(ctx, first.Key).ConfigHash
 			edited := newAutomation(arc.Base{
-				Key:  a.Base().Key,
-				Name: a.Base().Name,
-				Mode: arc.ModeText,
-				Text: newText("a -> c"),
+				Key:    a.Base().Key,
+				Name:   a.Base().Name,
+				Source: arc.Source{Variant: arc.TextSource{Text: newText("a -> c")}},
 			})
 			Expect(w.Create(ctx, &edited)).To(Succeed())
 			second := MustSucceed(
@@ -264,10 +268,9 @@ var _ = Describe("UpdateTask", func() {
 			}))
 			before := retrieveTask(ctx, tsk.Key)
 			edited := newAutomation(arc.Base{
-				Key:  a.Base().Key,
-				Name: a.Base().Name,
-				Mode: arc.ModeText,
-				Text: newText("a -> c"),
+				Key:    a.Base().Key,
+				Name:   a.Base().Name,
+				Source: arc.Source{Variant: arc.TextSource{Text: newText("a -> c")}},
 			})
 			Expect(w.Create(ctx, &edited)).To(Succeed())
 			after := retrieveTask(ctx, tsk.Key)
@@ -336,7 +339,11 @@ var _ = Describe("Task sync", func() {
 
 	createArc := func(ctx SpecContext, mode arc.Mode) {
 		GinkgoHelper()
-		a = newAutomation(arc.Base{Name: "syncable", Mode: mode})
+		src := arc.Source{Variant: arc.TextSource{}}
+		if mode == arc.ModeGraph {
+			src.Variant = arc.GraphSource{}
+		}
+		a = newAutomation(arc.Base{Name: "syncable", Source: src})
 		Expect(writer.Create(ctx, &a)).To(Succeed())
 		key := a.Base().Key
 		DeferCleanup(func(ctx SpecContext) {
@@ -426,7 +433,9 @@ var _ = Describe("Task sync", func() {
 	)
 
 	It("Should not create a task for an arc with no rack bound", func(ctx SpecContext) {
-		unbound := newAutomation(arc.Base{Name: "unbound", Mode: arc.ModeText})
+		unbound := newAutomation(
+			arc.Base{Name: "unbound", Source: arc.Source{Variant: arc.TextSource{}}},
+		)
 		Expect(writer.Create(ctx, &unbound)).To(Succeed())
 		client := crdt.New(2)
 		Expect(
@@ -487,10 +496,9 @@ var _ = Describe("Task sync", func() {
 			)
 			before := retrieveTask(ctx, tsk.Key)
 			edited := newAutomation(arc.Base{
-				Key:  a.Base().Key,
-				Name: a.Base().Name,
-				Mode: arc.ModeText,
-				Text: newText("a -> c"),
+				Key:    a.Base().Key,
+				Name:   a.Base().Name,
+				Source: arc.Source{Variant: arc.TextSource{Text: newText("a -> c")}},
 			})
 			Expect(w.Create(ctx, &edited)).To(Succeed())
 			Expect(retrieveTask(ctx, tsk.Key).ConfigHash).
@@ -502,9 +510,8 @@ var _ = Describe("Task sync", func() {
 		"Should hash the stored doc when an overwrite carries a mismatched raw",
 		func(ctx SpecContext) {
 			deployed := newAutomation(arc.Base{
-				Name: "lying-raw",
-				Mode: arc.ModeText,
-				Text: newText("a -> b"),
+				Name:   "lying-raw",
+				Source: arc.Source{Variant: arc.TextSource{Text: newText("a -> b")}},
 			})
 			w := svc.NewWriter(tx)
 			Expect(w.Create(ctx, &deployed)).To(Succeed())
@@ -519,10 +526,9 @@ var _ = Describe("Task sync", func() {
 			lying := newText("a -> b")
 			lying.Raw = "a -> c"
 			edited := newAutomation(arc.Base{
-				Key:  deployed.Base().Key,
-				Name: deployed.Base().Name,
-				Mode: arc.ModeText,
-				Text: lying,
+				Key:    deployed.Base().Key,
+				Name:   deployed.Base().Name,
+				Source: arc.Source{Variant: arc.TextSource{Text: lying}},
 			})
 			Expect(w.Create(ctx, &edited)).To(Succeed())
 			Expect(retrieveTask(ctx, tsk.Key).Config["hash"]).

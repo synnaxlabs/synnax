@@ -20,10 +20,13 @@ from synnax.arc.graph import Graph
 from synnax.arc.text import Text
 from synnax.arc.types_gen import (
     AutomationPayload,
+    GraphSource,
     Key,
     Mode,
     ModulePayload,
     Payload,
+    Source,
+    TextSource,
     Type,
     ontology_id,
 )
@@ -89,6 +92,16 @@ _ARCS: dict[Type, type[Automation] | type[Module]] = {
 }
 
 
+def _source(mode: Mode, text: Text | None, graph: Graph | None) -> Source:
+    if mode == "graph":
+        if text is not None:
+            raise ValueError("a graph-mode Arc takes no text")
+        return GraphSource(graph=graph if graph is not None else Graph())
+    if graph is not None:
+        raise ValueError("a text-mode Arc takes no graph")
+    return TextSource(text=text if text is not None else Text())
+
+
 class Client:
     """Client for managing Arc programs in the Synnax cluster."""
 
@@ -131,14 +144,7 @@ class Client:
         elif arc is not None:
             to_create = [arc]
         else:
-            to_create = [
-                _PAYLOADS[type](
-                    name=name,
-                    graph=graph if graph is not None else Graph(),
-                    text=text if text is not None else Text(),
-                    mode=mode,
-                )
-            ]
+            to_create = [_PAYLOADS[type](name=name, source=_source(mode, text, graph))]
 
         res = self._client.send(
             "/arc/create", _CreateRequest(arcs=to_create), _CreateResponse

@@ -64,11 +64,7 @@ func (a *Arc) DecodeOrc(r *orc.Reader) error {
 func (bv Base) EncodeOrc(w *orc.Writer) error {
 	w.Write(bv.Key[:])
 	w.String(bv.Name)
-	w.String(string(bv.Mode))
-	if err := bv.Graph.EncodeOrc(w); err != nil {
-		return err
-	}
-	if err := bv.Text.EncodeOrc(w); err != nil {
+	if err := bv.Source.EncodeOrc(w); err != nil {
 		return err
 	}
 	return nil
@@ -83,18 +79,52 @@ func (bv *Base) DecodeOrc(r *orc.Reader) error {
 	if bv.Name, err = r.String(); err != nil {
 		return err
 	}
-	{
-		rawV, err := r.String()
-		if err != nil {
+	if err = bv.Source.DecodeOrc(r); err != nil {
+		return err
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (s Source) EncodeOrc(w *orc.Writer) error {
+	switch v := s.Variant.(type) {
+	case TextSource:
+		w.String("text")
+		if err := v.Text.EncodeOrc(w); err != nil {
 			return err
 		}
-		bv.Mode = Mode(rawV)
+	case GraphSource:
+		w.String("graph")
+		if err := v.Graph.EncodeOrc(w); err != nil {
+			return err
+		}
+	default:
+		return errors.Newf("Source: nil or unknown variant %T", s.Variant)
 	}
-	if err = bv.Graph.DecodeOrc(r); err != nil {
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (s *Source) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.String()
+	if err != nil {
 		return err
 	}
-	if err = bv.Text.DecodeOrc(r); err != nil {
-		return err
+	switch tag {
+	case "text":
+		var v TextSource
+		if err = v.Text.DecodeOrc(r); err != nil {
+			return err
+		}
+		s.Variant = v
+	case "graph":
+		var v GraphSource
+		if err = v.Graph.DecodeOrc(r); err != nil {
+			return err
+		}
+		s.Variant = v
+	default:
+		return errors.Newf("Source: unknown variant %q", tag)
 	}
 	return nil
 }

@@ -16,13 +16,20 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/program"
+	"github.com/synnaxlabs/arc/text"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v4"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Arc", func() {
-	base := v4.Base{Key: uuid.New(), Name: "m", Mode: v4.ModeText}
+	base := v4.Base{
+		Key:  uuid.New(),
+		Name: "m",
+		Source: v4.Source{
+			Variant: v4.TextSource{Text: text.Text{Doc: text.Create("x := 1")}},
+		},
+	}
 	module := v4.Arc{Variant: v4.ModuleArc{Base: base}}
 	automation := v4.Arc{Variant: v4.AutomationArc{
 		Base:    base,
@@ -51,6 +58,10 @@ var _ = Describe("Arc", func() {
 			Expect(json.Unmarshal(raw, &body)).To(Succeed())
 			Expect(body).To(HaveKeyWithValue("type", "arc-module"))
 			Expect(body).To(HaveKeyWithValue("name", "m"))
+			Expect(body).To(HaveKeyWithValue("source", map[string]any{
+				"mode": "text",
+				"text": map[string]any{"raw": "x := 1"},
+			}))
 		})
 	})
 

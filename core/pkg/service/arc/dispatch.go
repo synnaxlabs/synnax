@@ -46,8 +46,9 @@ func (s *Service) Dispatch(
 				ChangeErr(func(_ gorp.Context, a Arc) (Arc, error) {
 					sweep = nil
 					var dead []crdt.ID
-					if s.sweeper.quiet(key) {
-						dead = s.sweeper.forgettable(a.Base().Text.Doc)
+					src, isText := a.Base().Source.Variant.(TextSource)
+					if isText && s.sweeper.quiet(key) {
+						dead = s.sweeper.forgettable(src.Text.Doc)
 					}
 					name := a.Base().Name
 					a, err := Reduce(a, acts...)

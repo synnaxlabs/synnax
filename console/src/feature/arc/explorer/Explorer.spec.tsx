@@ -30,13 +30,16 @@ const client = createTestClient();
 const createArc = async () =>
   await client.arcs.create({
     name: uniqueName("arc"),
-    mode: "graph",
     type: "automation",
-    graph: { nodes: [], edges: [] },
+    source: { mode: "graph", graph: { nodes: [], edges: [] } },
   });
 
 const createModule = async () =>
-  await client.arcs.create({ name: uniqueName("mod"), mode: "text", type: "module" });
+  await client.arcs.create({
+    name: uniqueName("mod"),
+    type: "module",
+    source: { mode: "text" },
+  });
 
 const createDirectory = async (parent: ontology.ID) =>
   await client.arcs.directories.create({ parent: parent.key, name: uniqueName("dir") });

@@ -85,10 +85,9 @@ TEST(TaskConfigParsing, InvalidPerformance) {
 /// @brief it should refuse a task config whose Arc is a module.
 TEST(TaskConfigParsing, Module) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    synnax::arc::Arc module = synnax::arc::ModuleArc{{
-        .name = make_unique_channel_name("module"),
-        .mode = synnax::arc::MODE_TEXT,
-    }};
+    synnax::arc::Arc module = synnax::arc::ModuleArc{
+        {.name = make_unique_channel_name("module")}
+    };
     ASSERT_NIL(client->arcs.create(module));
     nlohmann::json cfg{
         {"arc_key", std::get<synnax::arc::ModuleArc>(module).key.to_string()}
@@ -136,13 +135,15 @@ TEST(ArcTests, testCalcDoubling) {
     ASSERT_NIL(client->channels.create(output_ch));
 
     synnax::arc::AutomationArc arc_prog{
-        {.name = make_unique_channel_name("calc_test"), .mode = synnax::arc::MODE_TEXT}
+        {.name = make_unique_channel_name("calc_test")}
     };
-    arc_prog.text = ::arc::text::Text{
-        .raw = "func calc() {val f32} f32 {\n"
-               "    return val * 2\n"
-               "}\n" +
-               input_name + " -> calc() -> " + output_name + "\n"
+    arc_prog.source = synnax::arc::TextSource{
+        .text = ::arc::text::Text{
+            .raw = "func calc() {val f32} f32 {\n"
+                   "    return val * 2\n"
+                   "}\n" +
+                   input_name + " -> calc() -> " + output_name + "\n"
+        }
     };
     ASSERT_NIL(create_automation(client, arc_prog));
 
@@ -240,19 +241,20 @@ TEST(ArcTests, testBasicSequence) {
 
     // Create Arc program with the sequence
     synnax::arc::AutomationArc arc_prog{
-        {.name = make_unique_channel_name("sequence_test"),
-         .mode = synnax::arc::MODE_TEXT}
+        {.name = make_unique_channel_name("sequence_test")}
     };
-    arc_prog.text = ::arc::text::Text{
-        .raw = "sequence main {\n"
-               "    stage run {\n"
-               "        1 -> " +
-               valve_cmd_name +
-               "\n"
-               "    }\n"
-               "}\n"
-               "\n" +
-               start_cmd_name + " => main\n"
+    arc_prog.source = synnax::arc::TextSource{
+        .text = ::arc::text::Text{
+            .raw = "sequence main {\n"
+                   "    stage run {\n"
+                   "        1 -> " +
+                   valve_cmd_name +
+                   "\n"
+                   "    }\n"
+                   "}\n"
+                   "\n" +
+                   start_cmd_name + " => main\n"
+        }
     };
     ASSERT_NIL(create_automation(client, arc_prog));
 
@@ -363,19 +365,20 @@ TEST(ArcTests, testOneShotTruthiness) {
 
     // Create Arc program with a sequence triggered by one-shot edge
     synnax::arc::AutomationArc arc_prog{
-        {.name = make_unique_channel_name("truthiness_test"),
-         .mode = synnax::arc::MODE_TEXT}
+        {.name = make_unique_channel_name("truthiness_test")}
     };
-    arc_prog.text = ::arc::text::Text{
-        .raw = "sequence main {\n"
-               "    stage run {\n"
-               "        42 -> " +
-               valve_cmd_name +
-               "\n"
-               "    }\n"
-               "}\n"
-               "\n" +
-               start_cmd_name + " => main\n"
+    arc_prog.source = synnax::arc::TextSource{
+        .text = ::arc::text::Text{
+            .raw = "sequence main {\n"
+                   "    stage run {\n"
+                   "        42 -> " +
+                   valve_cmd_name +
+                   "\n"
+                   "    }\n"
+                   "}\n"
+                   "\n" +
+                   start_cmd_name + " => main\n"
+        }
     };
     ASSERT_NIL(create_automation(client, arc_prog));
 
@@ -533,27 +536,28 @@ TEST(ArcTests, testTwoStageSequenceWithTransition) {
     // Stage "pressurize": outputs 1, transitions to "idle" when pressure > 50
     // Stage "idle": outputs 0 (terminal stage)
     synnax::arc::AutomationArc arc_prog{
-        {.name = make_unique_channel_name("two_stage_test"),
-         .mode = synnax::arc::MODE_TEXT}
+        {.name = make_unique_channel_name("two_stage_test")}
     };
-    arc_prog.text = ::arc::text::Text{
-        .raw = "sequence main {\n"
-               "    stage pressurize {\n"
-               "        1 -> " +
-               valve_cmd_name +
-               "\n"
-               "        " +
-               pressure_name + " -> " + pressure_name +
-               " > 50 => next\n"
-               "    }\n"
-               "    stage idle {\n"
-               "        0 -> " +
-               valve_cmd_name +
-               "\n"
-               "    }\n"
-               "}\n"
-               "\n" +
-               start_cmd_name + " => main\n"
+    arc_prog.source = synnax::arc::TextSource{
+        .text = ::arc::text::Text{
+            .raw = "sequence main {\n"
+                   "    stage pressurize {\n"
+                   "        1 -> " +
+                   valve_cmd_name +
+                   "\n"
+                   "        " +
+                   pressure_name + " -> " + pressure_name +
+                   " > 50 => next\n"
+                   "    }\n"
+                   "    stage idle {\n"
+                   "        0 -> " +
+                   valve_cmd_name +
+                   "\n"
+                   "    }\n"
+                   "}\n"
+                   "\n" +
+                   start_cmd_name + " => main\n"
+        }
     };
     ASSERT_NIL(create_automation(client, arc_prog));
 
@@ -728,11 +732,13 @@ TEST(ArcErrorHandling, WasmTrapTriggersFatalError) {
     ASSERT_NIL(client->channels.create(output_ch));
 
     synnax::arc::AutomationArc arc_prog{
-        {.name = make_unique_channel_name("trap_test"), .mode = synnax::arc::MODE_TEXT}
+        {.name = make_unique_channel_name("trap_test")}
     };
-    arc_prog.text = ::arc::text::Text{
-        .raw = "func divide_by_zero() {val i32} i32 { return val / 0 }\n" + input_name +
-               " -> divide_by_zero() -> " + output_name + "\n"
+    arc_prog.source = synnax::arc::TextSource{
+        .text = ::arc::text::Text{
+            .raw = "func divide_by_zero() {val i32} i32 { return val / 0 }\n" +
+                   input_name + " -> divide_by_zero() -> " + output_name + "\n"
+        }
     };
     ASSERT_NIL(create_automation(client, arc_prog));
 
@@ -827,25 +833,26 @@ TEST(ArcErrorHandling, NodeWarningKeepsProgramRunning) {
     ASSERT_NIL(client->channels.create(output_ch));
 
     synnax::arc::AutomationArc arc_prog{
-        {.name = make_unique_channel_name("parked_test"),
-         .mode = synnax::arc::MODE_TEXT}
+        {.name = make_unique_channel_name("parked_test")}
     };
-    arc_prog.text = ::arc::text::Text{
-        .raw = "import time\n"
-               "sequence main {\n"
-               "    hold := i64 ns(0s)\n"
-               "    stage parked {\n"
-               "        time.wait(duration=hold) -> " +
-               output_ch.name +
-               "\n"
-               "        time.wait(2s) => reenter\n"
-               "    }\n"
-               "    stage reenter {\n"
-               "        time.wait(10ms) -> sequence { hold = i64 ns(100ms) }\n"
-               "        time.wait(50ms) => parked\n"
-               "    }\n"
-               "}\n" +
-               input_ch.name + " => main\n"
+    arc_prog.source = synnax::arc::TextSource{
+        .text = ::arc::text::Text{
+            .raw = "import time\n"
+                   "sequence main {\n"
+                   "    hold := i64 ns(0s)\n"
+                   "    stage parked {\n"
+                   "        time.wait(duration=hold) -> " +
+                   output_ch.name +
+                   "\n"
+                   "        time.wait(2s) => reenter\n"
+                   "    }\n"
+                   "    stage reenter {\n"
+                   "        time.wait(10ms) -> sequence { hold = i64 ns(100ms) }\n"
+                   "        time.wait(50ms) => parked\n"
+                   "    }\n"
+                   "}\n" +
+                   input_ch.name + " => main\n"
+        }
     };
     ASSERT_NIL(create_automation(client, arc_prog));
 
@@ -947,15 +954,16 @@ TEST(ArcErrorHandling, RestartAfterWasmTrap) {
     ASSERT_NIL(client->channels.create(output_ch));
 
     synnax::arc::AutomationArc arc_prog{
-        {.name = make_unique_channel_name("restart_trap_test"),
-         .mode = synnax::arc::MODE_TEXT}
+        {.name = make_unique_channel_name("restart_trap_test")}
     };
-    arc_prog.text = ::arc::text::Text{
-        .raw = "func maybe_trap() {val i32} i32 {\n"
-               "    if val == 0 { return 1 / val }\n"
-               "    return val * 2\n"
-               "}\n" +
-               input_name + " -> maybe_trap() -> " + output_name + "\n"
+    arc_prog.source = synnax::arc::TextSource{
+        .text = ::arc::text::Text{
+            .raw = "func maybe_trap() {val i32} i32 {\n"
+                   "    if val == 0 { return 1 / val }\n"
+                   "    return val * 2\n"
+                   "}\n" +
+                   input_name + " -> maybe_trap() -> " + output_name + "\n"
+        }
     };
     ASSERT_NIL(create_automation(client, arc_prog));
 
@@ -1082,12 +1090,13 @@ TEST(ArcErrorHandling, MultipleErrorRecoveryCycles) {
     ASSERT_NIL(client->channels.create(output_ch));
 
     synnax::arc::AutomationArc arc_prog{
-        {.name = make_unique_channel_name("multi_cycle_test"),
-         .mode = synnax::arc::MODE_TEXT}
+        {.name = make_unique_channel_name("multi_cycle_test")}
     };
-    arc_prog.text = ::arc::text::Text{
-        .raw = "func double() {val f32} f32 { return val * 2 }\n" + input_name +
-               " -> double() -> " + output_name + "\n"
+    arc_prog.source = synnax::arc::TextSource{
+        .text = ::arc::text::Text{
+            .raw = "func double() {val f32} f32 { return val * 2 }\n" + input_name +
+                   " -> double() -> " + output_name + "\n"
+        }
     };
     ASSERT_NIL(create_automation(client, arc_prog));
 
@@ -1194,12 +1203,13 @@ TEST(ArcStatusVerification, StartStatusHasCorrectVariantAndRunning) {
     ASSERT_NIL(client->channels.create(output_ch));
 
     synnax::arc::AutomationArc arc_prog{
-        {.name = make_unique_channel_name("status_verify_test"),
-         .mode = synnax::arc::MODE_TEXT}
+        {.name = make_unique_channel_name("status_verify_test")}
     };
-    arc_prog.text = ::arc::text::Text{
-        .raw = "func pass() {val f32} f32 { return val }\n" + input_name +
-               " -> pass() -> " + output_name + "\n"
+    arc_prog.source = synnax::arc::TextSource{
+        .text = ::arc::text::Text{
+            .raw = "func pass() {val f32} f32 { return val }\n" + input_name +
+                   " -> pass() -> " + output_name + "\n"
+        }
     };
     ASSERT_NIL(create_automation(client, arc_prog));
 
@@ -1331,12 +1341,13 @@ TEST(ArcStatusVerification, StopCommandStatusCarriesCommandKey) {
     ASSERT_NIL(client->channels.create(output_ch));
 
     synnax::arc::AutomationArc arc_prog{
-        {.name = make_unique_channel_name("stop_cmd_test"),
-         .mode = synnax::arc::MODE_TEXT}
+        {.name = make_unique_channel_name("stop_cmd_test")}
     };
-    arc_prog.text = ::arc::text::Text{
-        .raw = "func pass() {val f32} f32 { return val }\n" + input_name +
-               " -> pass() -> " + output_name + "\n"
+    arc_prog.source = synnax::arc::TextSource{
+        .text = ::arc::text::Text{
+            .raw = "func pass() {val f32} f32 { return val }\n" + input_name +
+                   " -> pass() -> " + output_name + "\n"
+        }
     };
     ASSERT_NIL(create_automation(client, arc_prog));
 
@@ -1431,11 +1442,13 @@ TEST(ArcEdgeCases, RapidStartStop) {
     ASSERT_NIL(client->channels.create(output_ch));
 
     synnax::arc::AutomationArc arc_prog{
-        {.name = make_unique_channel_name("rapid_test"), .mode = synnax::arc::MODE_TEXT}
+        {.name = make_unique_channel_name("rapid_test")}
     };
-    arc_prog.text = ::arc::text::Text{
-        .raw = "func pass() {val f32} f32 { return val }\n" + input_name +
-               " -> pass() -> " + output_name + "\n"
+    arc_prog.source = synnax::arc::TextSource{
+        .text = ::arc::text::Text{
+            .raw = "func pass() {val f32} f32 { return val }\n" + input_name +
+                   " -> pass() -> " + output_name + "\n"
+        }
     };
     ASSERT_NIL(create_automation(client, arc_prog));
 
@@ -1525,12 +1538,13 @@ TEST(ArcEdgeCases, StopWithoutStart) {
     ASSERT_NIL(client->channels.create(output_ch));
 
     synnax::arc::AutomationArc arc_prog{
-        {.name = make_unique_channel_name("nostart_test"),
-         .mode = synnax::arc::MODE_TEXT}
+        {.name = make_unique_channel_name("nostart_test")}
     };
-    arc_prog.text = ::arc::text::Text{
-        .raw = "func pass() {val f32} f32 { return val }\n" + input_name +
-               " -> pass() -> " + output_name + "\n"
+    arc_prog.source = synnax::arc::TextSource{
+        .text = ::arc::text::Text{
+            .raw = "func pass() {val f32} f32 { return val }\n" + input_name +
+                   " -> pass() -> " + output_name + "\n"
+        }
     };
     ASSERT_NIL(create_automation(client, arc_prog));
 
@@ -1636,15 +1650,16 @@ TEST(ArcTests, testChannelConfigParam) {
 
     // Arc program: function with channel-typed config param
     synnax::arc::AutomationArc arc_prog{
-        {.name = make_unique_channel_name("cfg_ch_test"),
-         .mode = synnax::arc::MODE_TEXT}
+        {.name = make_unique_channel_name("cfg_ch_test")}
     };
-    arc_prog.text = ::arc::text::Text{
-        .raw = "func read_data(ch chan f32) {trigger u8} f32 {\n"
-               "    return ch + f32(0.0)\n"
-               "}\n" +
-               trigger_name + " -> read_data(ch=" + data_name + ") -> " + output_name +
-               "\n"
+    arc_prog.source = synnax::arc::TextSource{
+        .text = ::arc::text::Text{
+            .raw = "func read_data(ch chan f32) {trigger u8} f32 {\n"
+                   "    return ch + f32(0.0)\n"
+                   "}\n" +
+                   trigger_name + " -> read_data(ch=" + data_name + ") -> " +
+                   output_name + "\n"
+        }
     };
     ASSERT_NIL(create_automation(client, arc_prog));
 
@@ -1782,26 +1797,26 @@ TEST(ArcTests, testChannelConfigParamReadWrite) {
     // Arc program mimicking count_rising:
     // counter_ch is a WRITE config param (channel_write_f32)
     // max_ch is a READ config param (channel_read_f32)
-    synnax::arc::AutomationArc arc_prog{
-        {.name = make_unique_channel_name("crw_test"), .mode = synnax::arc::MODE_TEXT}
-    };
-    arc_prog.text = ::arc::text::Text{
-        .raw =
-            "func count_rising_test(counter_ch chan f32, max_ch chan f32) {input u8} {\n"
-            "    prev u8 $= input\n"
-            "    counter f32 $= 0.0\n"
-            "    read_val := max_ch + f32(0.0)\n"
-            "    if counter < read_val {\n"
-            "        counter = read_val\n"
-            "    }\n"
-            "    if input != 0 and prev == 0 {\n"
-            "        counter = counter + 1.0\n"
-            "    }\n"
-            "    counter_ch = counter\n"
-            "    prev = input\n"
-            "}\n" +
-            input_name + " -> count_rising_test(counter_ch=" + counter_name +
-            ", max_ch=" + max_name + ")\n"
+    synnax::arc::AutomationArc arc_prog{{.name = make_unique_channel_name("crw_test")}};
+    arc_prog.source = synnax::arc::TextSource{
+        .text = ::arc::text::Text{
+            .raw =
+                "func count_rising_test(counter_ch chan f32, max_ch chan f32) {input u8} {\n"
+                "    prev u8 $= input\n"
+                "    counter f32 $= 0.0\n"
+                "    read_val := max_ch + f32(0.0)\n"
+                "    if counter < read_val {\n"
+                "        counter = read_val\n"
+                "    }\n"
+                "    if input != 0 and prev == 0 {\n"
+                "        counter = counter + 1.0\n"
+                "    }\n"
+                "    counter_ch = counter\n"
+                "    prev = input\n"
+                "}\n" +
+                input_name + " -> count_rising_test(counter_ch=" + counter_name +
+                ", max_ch=" + max_name + ")\n"
+        }
     };
     ASSERT_NIL(create_automation(client, arc_prog));
 
@@ -1919,12 +1934,13 @@ TEST(ArcEdgeCases, DoubleStart) {
     ASSERT_NIL(client->channels.create(output_ch));
 
     synnax::arc::AutomationArc arc_prog{
-        {.name = make_unique_channel_name("double_start_test"),
-         .mode = synnax::arc::MODE_TEXT}
+        {.name = make_unique_channel_name("double_start_test")}
     };
-    arc_prog.text = ::arc::text::Text{
-        .raw = "func pass() {val f32} f32 { return val }\n" + input_name +
-               " -> pass() -> " + output_name + "\n"
+    arc_prog.source = synnax::arc::TextSource{
+        .text = ::arc::text::Text{
+            .raw = "func pass() {val f32} f32 { return val }\n" + input_name +
+                   " -> pass() -> " + output_name + "\n"
+        }
     };
     ASSERT_NIL(create_automation(client, arc_prog));
 
@@ -2016,16 +2032,17 @@ TEST(ArcTests, testRestartResetsState) {
     ASSERT_NIL(client->channels.create(output_ch));
 
     synnax::arc::AutomationArc arc_prog{
-        {.name = make_unique_channel_name("restart_test"),
-         .mode = synnax::arc::MODE_TEXT}
+        {.name = make_unique_channel_name("restart_test")}
     };
-    arc_prog.text = ::arc::text::Text{
-        .raw = "func counter() {trigger i64} i64 {\n"
-               "    count $= 0\n"
-               "    count = count + trigger\n"
-               "    return count\n"
-               "}\n" +
-               input_name + " -> counter() -> " + output_name + "\n"
+    arc_prog.source = synnax::arc::TextSource{
+        .text = ::arc::text::Text{
+            .raw = "func counter() {trigger i64} i64 {\n"
+                   "    count $= 0\n"
+                   "    count = count + trigger\n"
+                   "    return count\n"
+                   "}\n" +
+                   input_name + " -> counter() -> " + output_name + "\n"
+        }
     };
     ASSERT_NIL(create_automation(client, arc_prog));
 
@@ -2143,14 +2160,16 @@ TEST(ArcTests, testStaticAuthorityConfig) {
     ASSERT_NIL(client->channels.create(output_ch));
 
     synnax::arc::AutomationArc arc_prog{
-        {.name = make_unique_channel_name("auth_test"), .mode = synnax::arc::MODE_TEXT}
+        {.name = make_unique_channel_name("auth_test")}
     };
-    arc_prog.text = ::arc::text::Text{
-        .raw = "authority 200\n"
-               "func calc() {val f32} f32 {\n"
-               "    return val * 2\n"
-               "}\n" +
-               input_name + " -> calc() -> " + output_name + "\n"
+    arc_prog.source = synnax::arc::TextSource{
+        .text = ::arc::text::Text{
+            .raw = "authority 200\n"
+                   "func calc() {val f32} f32 {\n"
+                   "    return val * 2\n"
+                   "}\n" +
+                   input_name + " -> calc() -> " + output_name + "\n"
+        }
     };
     ASSERT_NIL(create_automation(client, arc_prog));
 
@@ -2256,21 +2275,21 @@ TEST(ArcTests, testPerChannelAuthorityConfig) {
     };
     ASSERT_NIL(client->channels.create(out_b_ch));
 
-    synnax::arc::AutomationArc arc_prog{
-        {.name = make_unique_channel_name("pca_test"), .mode = synnax::arc::MODE_TEXT}
-    };
-    arc_prog.text = ::arc::text::Text{
-        .raw = "authority (\n"
-               "    100\n"
-               "    " +
-               out_a_name +
-               " 200\n"
-               ")\n"
-               "func calc() {val f32} f32 {\n"
-               "    return val * 2\n"
-               "}\n" +
-               input_name + " -> calc() -> " + out_a_name + "\n" + input_name +
-               " -> calc() -> " + out_b_name + "\n"
+    synnax::arc::AutomationArc arc_prog{{.name = make_unique_channel_name("pca_test")}};
+    arc_prog.source = synnax::arc::TextSource{
+        .text = ::arc::text::Text{
+            .raw = "authority (\n"
+                   "    100\n"
+                   "    " +
+                   out_a_name +
+                   " 200\n"
+                   ")\n"
+                   "func calc() {val f32} f32 {\n"
+                   "    return val * 2\n"
+                   "}\n" +
+                   input_name + " -> calc() -> " + out_a_name + "\n" + input_name +
+                   " -> calc() -> " + out_b_name + "\n"
+        }
     };
     ASSERT_NIL(create_automation(client, arc_prog));
 
@@ -2374,20 +2393,21 @@ TEST(ArcTests, testDynamicSetAuthorityInSequence) {
     ASSERT_NIL(client->channels.create(valve_cmd_ch));
 
     synnax::arc::AutomationArc arc_prog{
-        {.name = make_unique_channel_name("dyn_auth_test"),
-         .mode = synnax::arc::MODE_TEXT}
+        {.name = make_unique_channel_name("dyn_auth_test")}
     };
-    arc_prog.text = ::arc::text::Text{
-        .raw = "sequence main {\n"
-               "    stage run {\n"
-               "        1 -> " +
-               valve_cmd_name +
-               "\n"
-               "        set_authority(value=150)\n"
-               "    }\n"
-               "}\n"
-               "\n" +
-               start_cmd_name + " => main\n"
+    arc_prog.source = synnax::arc::TextSource{
+        .text = ::arc::text::Text{
+            .raw = "sequence main {\n"
+                   "    stage run {\n"
+                   "        1 -> " +
+                   valve_cmd_name +
+                   "\n"
+                   "        set_authority(value=150)\n"
+                   "    }\n"
+                   "}\n"
+                   "\n" +
+                   start_cmd_name + " => main\n"
+        }
     };
     ASSERT_NIL(create_automation(client, arc_prog));
 
@@ -2479,22 +2499,23 @@ TEST(ArcTests, testDynamicPerChannelSetAuthority) {
     ASSERT_NIL(client->channels.create(valve_cmd_ch));
 
     synnax::arc::AutomationArc arc_prog{
-        {.name = make_unique_channel_name("dpc_auth_test"),
-         .mode = synnax::arc::MODE_TEXT}
+        {.name = make_unique_channel_name("dpc_auth_test")}
     };
-    arc_prog.text = ::arc::text::Text{
-        .raw = "sequence main {\n"
-               "    stage run {\n"
-               "        1 -> " +
-               valve_cmd_name +
-               "\n"
-               "        set_authority(value=200, channel=" +
-               valve_cmd_name +
-               ")\n"
-               "    }\n"
-               "}\n"
-               "\n" +
-               start_cmd_name + " => main\n"
+    arc_prog.source = synnax::arc::TextSource{
+        .text = ::arc::text::Text{
+            .raw = "sequence main {\n"
+                   "    stage run {\n"
+                   "        1 -> " +
+                   valve_cmd_name +
+                   "\n"
+                   "        set_authority(value=200, channel=" +
+                   valve_cmd_name +
+                   ")\n"
+                   "    }\n"
+                   "}\n"
+                   "\n" +
+                   start_cmd_name + " => main\n"
+        }
     };
     ASSERT_NIL(create_automation(client, arc_prog));
 
@@ -2588,15 +2609,16 @@ TEST(ArcTests, testSetAuthorityWithCalcInTopLevelFlow) {
     ASSERT_NIL(client->channels.create(output_ch));
 
     synnax::arc::AutomationArc arc_prog{
-        {.name = make_unique_channel_name("auth_calc_test"),
-         .mode = synnax::arc::MODE_TEXT}
+        {.name = make_unique_channel_name("auth_calc_test")}
     };
-    arc_prog.text = ::arc::text::Text{
-        .raw = "func double() {val u8} u8 {\n"
-               "    return val * 2\n"
-               "}\n" +
-               input_name + " -> double() -> " + output_name + "\n" + input_name +
-               " -> set_authority(value=100)\n"
+    arc_prog.source = synnax::arc::TextSource{
+        .text = ::arc::text::Text{
+            .raw = "func double() {val u8} u8 {\n"
+                   "    return val * 2\n"
+                   "}\n" +
+                   input_name + " -> double() -> " + output_name + "\n" + input_name +
+                   " -> set_authority(value=100)\n"
+        }
     };
     ASSERT_NIL(create_automation(client, arc_prog));
 
@@ -2700,14 +2722,14 @@ TEST(ArcTests, testWriterOpensWithErrOnUnauthorizedFalse) {
     ASSERT_NIL(client->channels.create(input_ch));
     ASSERT_NIL(client->channels.create(output_ch));
 
-    synnax::arc::AutomationArc arc_prog{
-        {.name = make_unique_channel_name("eou_test"), .mode = synnax::arc::MODE_TEXT}
-    };
-    arc_prog.text = ::arc::text::Text{
-        .raw = "func calc() {val f32} f32 {\n"
-               "    return val * 2\n"
-               "}\n" +
-               input_name + " -> calc() -> " + output_name + "\n"
+    synnax::arc::AutomationArc arc_prog{{.name = make_unique_channel_name("eou_test")}};
+    arc_prog.source = synnax::arc::TextSource{
+        .text = ::arc::text::Text{
+            .raw = "func calc() {val f32} f32 {\n"
+                   "    return val * 2\n"
+                   "}\n" +
+                   input_name + " -> calc() -> " + output_name + "\n"
+        }
     };
     ASSERT_NIL(create_automation(client, arc_prog));
 
@@ -2795,12 +2817,13 @@ TEST(ArcErrorHandling, WriterFailurePropagatesErrorStatus) {
     ASSERT_NIL(client->channels.create(output_ch));
 
     synnax::arc::AutomationArc arc_prog{
-        {.name = make_unique_channel_name("writer_fail_test"),
-         .mode = synnax::arc::MODE_TEXT}
+        {.name = make_unique_channel_name("writer_fail_test")}
     };
-    arc_prog.text = ::arc::text::Text{
-        .raw = "func double() {val i32} i32 { return val * 2 }\n" + input_name +
-               " -> double() -> " + output_name + "\n"
+    arc_prog.source = synnax::arc::TextSource{
+        .text = ::arc::text::Text{
+            .raw = "func double() {val i32} i32 { return val * 2 }\n" + input_name +
+                   " -> double() -> " + output_name + "\n"
+        }
     };
     ASSERT_NIL(create_automation(client, arc_prog));
 
@@ -2901,14 +2924,15 @@ TEST(ArcTests, testWriterOpensEagerlyBeforeFirstFrame) {
     ASSERT_NIL(client->channels.create(output_ch));
 
     synnax::arc::AutomationArc arc_prog{
-        {.name = make_unique_channel_name("eager_open_test"),
-         .mode = synnax::arc::MODE_TEXT}
+        {.name = make_unique_channel_name("eager_open_test")}
     };
-    arc_prog.text = ::arc::text::Text{
-        .raw = "func calc() {val f32} f32 {\n"
-               "    return val * 2\n"
-               "}\n" +
-               input_name + " -> calc() -> " + output_name + "\n"
+    arc_prog.source = synnax::arc::TextSource{
+        .text = ::arc::text::Text{
+            .raw = "func calc() {val f32} f32 {\n"
+                   "    return val * 2\n"
+                   "}\n" +
+                   input_name + " -> calc() -> " + output_name + "\n"
+        }
     };
     ASSERT_NIL(create_automation(client, arc_prog));
 
@@ -2980,14 +3004,15 @@ TEST(ArcTests, ForwardsStampFromBeforeStart) {
     ASSERT_NIL(client->channels.create(output_ch));
 
     synnax::arc::AutomationArc arc_prog{
-        {.name = make_unique_channel_name("early_stamp_test"),
-         .mode = synnax::arc::MODE_TEXT}
+        {.name = make_unique_channel_name("early_stamp_test")}
     };
-    arc_prog.text = ::arc::text::Text{
-        .raw = "func calc() {val f32} f32 {\n"
-               "    return val * 2\n"
-               "}\n" +
-               input_ch.name + " -> calc() -> " + output_ch.name + "\n"
+    arc_prog.source = synnax::arc::TextSource{
+        .text = ::arc::text::Text{
+            .raw = "func calc() {val f32} f32 {\n"
+                   "    return val * 2\n"
+                   "}\n" +
+                   input_ch.name + " -> calc() -> " + output_ch.name + "\n"
+        }
     };
     ASSERT_NIL(create_automation(client, arc_prog));
 
@@ -3072,30 +3097,31 @@ TEST(ArcTests, testReadOnlyNoWriteChannels) {
     ASSERT_NIL(client->channels.create(input_ch));
 
     synnax::arc::AutomationArc arc_prog{
-        {.name = make_unique_channel_name("read_only_test"),
-         .mode = synnax::arc::MODE_TEXT}
+        {.name = make_unique_channel_name("read_only_test")}
     };
-    arc_prog.text = ::arc::text::Text{
-        .raw = "import status\n\n" + start_cmd_name +
-               " => main\n"
-               "sequence main {\n"
-               "    stage on {\n"
-               "        " +
-               input_name +
-               " > 305 => status.set(\n"
-               "            key_or_name = \"tstill_status\",\n"
-               "            message = \"TStill too warm\",\n"
-               "            variant = \"error\"\n"
-               "        )\n"
-               "        " +
-               input_name +
-               " < 305 => status.set(\n"
-               "            key_or_name = \"tstill_status\",\n"
-               "            message = \"TStill nominal\",\n"
-               "            variant = \"success\"\n"
-               "        )\n"
-               "    }\n"
-               "}\n"
+    arc_prog.source = synnax::arc::TextSource{
+        .text = ::arc::text::Text{
+            .raw = "import status\n\n" + start_cmd_name +
+                   " => main\n"
+                   "sequence main {\n"
+                   "    stage on {\n"
+                   "        " +
+                   input_name +
+                   " > 305 => status.set(\n"
+                   "            key_or_name = \"tstill_status\",\n"
+                   "            message = \"TStill too warm\",\n"
+                   "            variant = \"error\"\n"
+                   "        )\n"
+                   "        " +
+                   input_name +
+                   " < 305 => status.set(\n"
+                   "            key_or_name = \"tstill_status\",\n"
+                   "            message = \"TStill nominal\",\n"
+                   "            variant = \"success\"\n"
+                   "        )\n"
+                   "    }\n"
+                   "}\n"
+        }
     };
     ASSERT_NIL(create_automation(client, arc_prog));
 
@@ -3169,16 +3195,17 @@ TEST(ArcTests, testWriteOnlyNoReadChannels) {
     ASSERT_NIL(client->channels.create(output_ch));
 
     synnax::arc::AutomationArc arc_prog{
-        {.name = make_unique_channel_name("write_only_test"),
-         .mode = synnax::arc::MODE_TEXT}
+        {.name = make_unique_channel_name("write_only_test")}
     };
-    arc_prog.text = ::arc::text::Text{
-        .raw = "func write_valve() {\n"
-               "    " +
-               output_name +
-               " = 1\n"
-               "}\n"
-               "interval(period=100ms) -> write_valve()\n"
+    arc_prog.source = synnax::arc::TextSource{
+        .text = ::arc::text::Text{
+            .raw = "func write_valve() {\n"
+                   "    " +
+                   output_name +
+                   " = 1\n"
+                   "}\n"
+                   "interval(period=100ms) -> write_valve()\n"
+        }
     };
     ASSERT_NIL(create_automation(client, arc_prog));
 

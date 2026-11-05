@@ -21,26 +21,27 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// MigrateArc lifts a v3 Arc, rewriting its text from the grammar that wrote inputs in
-// braces and triggers in parens. A stored Arc carries its text as a document and an
-// exported one as raw; either way the result carries a fresh document and no raw.
+// MigrateArc lifts a v3 Arc, keeping only the body its mode selects. A blank mode, from
+// files written before modes, is graph. Text is rewritten from the grammar that wrote
+// inputs in braces and triggers in parens; a stored Arc carries it as a document and an
+// exported one as raw, and either way the result carries a fresh document and no raw.
 // Every Arc stored before v4 is an automation.
 func MigrateArc(_ context.Context, old v3.Arc) (Arc, error) {
-	b := Base{
-		Key:   old.Key,
-		Name:  old.Name,
-		Mode:  old.Mode,
-		Graph: old.Graph,
-		Text:  old.Text,
+	b := Base{Key: old.Key, Name: old.Name}
+	if old.Mode != v3.ModeText {
+		b.Source.Variant = GraphSource{Graph: old.Graph}
+		return Arc{Variant: AutomationArc{Base: b}}, nil
 	}
-	raw := b.Text.Raw
-	if len(b.Text.Doc.Inserts) > 0 {
-		raw = b.Text.Materialize().Raw
+	t := old.Text
+	raw := t.Raw
+	if len(t.Doc.Inserts) > 0 {
+		raw = t.Materialize().Raw
 	}
 	if raw != "" {
-		b.Text.Doc = text.Create(SwapBrackets(raw))
-		b.Text.Raw = ""
+		t.Doc = text.Create(SwapBrackets(raw))
+		t.Raw = ""
 	}
+	b.Source.Variant = TextSource{Text: t}
 	return Arc{Variant: AutomationArc{Base: b}}, nil
 }
 

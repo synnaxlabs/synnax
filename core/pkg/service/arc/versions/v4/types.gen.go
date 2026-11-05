@@ -36,28 +36,152 @@ const (
 	ModeGraph Mode = v3.ModeGraph
 )
 
+// SourceVariant is implemented by every Source variant.
+type SourceVariant interface {
+	isSourceVariant()
+}
+
+// TextSource is Arc source code written as text.
+type TextSource struct {
+	// Text is the text-based Arc source code.
+	Text text.Text `json:"text" msgpack:"text"`
+}
+
+func (TextSource) isSourceVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (t TextSource) Validate() error {
+	v := validate.New("TextSource")
+	v.Exec(func() error { return validate.PathedError(t.Text.Validate(), "text") })
+	return v.Error()
+}
+
+// GraphSource is Arc source code drawn as a visual dataflow graph.
+type GraphSource struct {
+	// Graph is the visual dataflow graph representation of the module.
+	Graph graph.Graph `json:"graph" msgpack:"graph"`
+}
+
+func (GraphSource) isSourceVariant() {}
+
+// Source is the source code of an Arc. The mode selects text or a graph.
+type Source struct {
+	Variant SourceVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "mode" tag injected.
+func (u Source) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case TextSource:
+		return json.MarshalEncode(enc, struct {
+			Type Mode `json:"mode"`
+			TextSource
+		}{Type: ModeText, TextSource: v})
+	case GraphSource:
+		return json.MarshalEncode(enc, struct {
+			Type Mode `json:"mode"`
+			GraphSource
+		}{Type: ModeGraph, GraphSource: v})
+	default:
+		return errors.Newf("Source: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "mode" field.
+func (u *Source) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type Mode `json:"mode"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case ModeText:
+		var v struct {
+			Type Mode `json:"mode"`
+			TextSource
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.TextSource
+	case ModeGraph:
+		var v struct {
+			Type Mode `json:"mode"`
+			GraphSource
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.GraphSource
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Source: unknown mode %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Mode returns the mode of the active variant, or an empty mode when there is none.
+func (u Source) Mode() Mode {
+	switch u.Variant.(type) {
+	case TextSource:
+		return ModeText
+	case GraphSource:
+		return ModeGraph
+	}
+	return ""
+}
+
+// Validate returns an error wrapping validate.ErrValidation if the active variant
+// violates its schema constraints.
+func (u Source) Validate() error {
+	switch variant := u.Variant.(type) {
+	case TextSource:
+		return variant.Validate()
+	}
+	return nil
+}
+
 // Base carries the fields that every Arc shares.
 type Base struct {
 	// Key is the unique identifier for this module.
 	Key Key `json:"key" msgpack:"key"`
 	// Name is a human-readable name for the module.
 	Name string `json:"name" msgpack:"name"`
-	// Mode specifies the representation mode for this module. Either "text" for
-	// text-based Arc code or "graph" for visual dataflow.
-	Mode Mode `json:"mode" msgpack:"mode"`
-	// Graph is the visual dataflow graph representation of the module.
-	Graph graph.Graph `json:"graph" msgpack:"graph"`
-	// Text is the text-based Arc source code.
-	Text text.Text `json:"text" msgpack:"text"`
+	// Source is the Arc's source code, written as text or drawn as a graph.
+	Source Source `json:"source" msgpack:"source"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (b *Base) ApplyDefaults() {
+	if b.Source.Variant == nil {
+		b.Source.Variant = TextSource{}
+	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (b Base) Validate() error {
 	v := validate.New("Base")
-	v.Ternaryf("mode", !b.Mode.IsValid(), "invalid mode: %v", b.Mode)
 	v.NotEmptyString("name", b.Name)
-	v.Exec(func() error { return validate.PathedError(b.Text.Validate(), "text") })
+	v.Exec(func() error { return validate.PathedError(b.Source.Validate(), "source") })
 	return v.Error()
 }
 
@@ -75,6 +199,11 @@ type AutomationArc struct {
 
 func (AutomationArc) isArcVariant() {}
 
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *AutomationArc) ApplyDefaults() {
+	a.Base.ApplyDefaults()
+}
+
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (a AutomationArc) Validate() error {
@@ -89,6 +218,11 @@ type ModuleArc struct {
 }
 
 func (ModuleArc) isArcVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (m *ModuleArc) ApplyDefaults() {
+	m.Base.ApplyDefaults()
+}
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
@@ -181,6 +315,19 @@ func (u Arc) Type() Type {
 		return TypeModule
 	}
 	return ""
+}
+
+// ApplyDefaults fills the active variant's zero-valued fields with their
+// schema-declared defaults.
+func (u *Arc) ApplyDefaults() {
+	switch variant := u.Variant.(type) {
+	case AutomationArc:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case ModuleArc:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if the active variant

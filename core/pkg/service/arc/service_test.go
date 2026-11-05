@@ -35,8 +35,7 @@ var _ = Describe("CompileProgram", func() {
 	It("Should retrieve and compile an Arc with a valid graph", func(ctx SpecContext) {
 		a := newAutomation(arc.Base{
 			Name: "test-arc",
-			Mode: arc.ModeGraph,
-			Graph: graph.Graph{
+			Source: arc.Source{Variant: arc.GraphSource{Graph: graph.Graph{
 				Functions: []ir.Function{
 					{
 						Key: "add",
@@ -50,7 +49,7 @@ var _ = Describe("CompileProgram", func() {
 						Body: ir.Body{Raw: "{ return a + b }"},
 					},
 				},
-			},
+			}}},
 		})
 		Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 		Expect(tx.Commit(ctx)).To(Succeed())
@@ -66,8 +65,9 @@ var _ = Describe("CompileProgram", func() {
 	It("Should refuse a module, which never runs", func(ctx SpecContext) {
 		m := newModule(arc.Base{
 			Name: "never_runs",
-			Mode: arc.ModeText,
-			Text: text.Text{Raw: "func f() {}"},
+			Source: arc.Source{
+				Variant: arc.TextSource{Text: text.Text{Raw: "func f() {}"}},
+			},
 		})
 		Expect(svc.NewWriter(tx).Create(ctx, &m)).To(Succeed())
 		Expect(tx.Commit(ctx)).To(Succeed())
@@ -87,8 +87,7 @@ var _ = Describe("CompileProgram", func() {
 	It("Should return error when graph compilation fails", func(ctx SpecContext) {
 		a := newAutomation(arc.Base{
 			Name: "invalid-arc",
-			Mode: arc.ModeGraph,
-			Graph: graph.Graph{
+			Source: arc.Source{Variant: arc.GraphSource{Graph: graph.Graph{
 				Functions: []ir.Function{
 					{
 						Key: "source",
@@ -109,7 +108,7 @@ var _ = Describe("CompileProgram", func() {
 						Target: ir.Handle{Node: "nonexistent", Param: "input"},
 					},
 				},
-			},
+			}}},
 		})
 		Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 		Expect(tx.Commit(ctx)).To(Succeed())

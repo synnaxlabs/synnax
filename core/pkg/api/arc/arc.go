@@ -13,6 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
+	arclang "github.com/synnaxlabs/arc"
 	arctransport "github.com/synnaxlabs/arc/lsp/transport"
 	"github.com/synnaxlabs/arc/parser"
 	arctext "github.com/synnaxlabs/arc/text"
@@ -331,35 +332,62 @@ func (s *Service) LSP(
 	})
 }
 
-// materialize returns a with its raw text derived from its document.
+// materialize returns a with the raw text of a text-mode Arc derived from its document.
 func materialize(a Arc) Arc {
 	b := a.Base()
-	b.Text = b.Text.Materialize()
+	src, ok := b.Source.Variant.(arc.TextSource)
+	if !ok {
+		return a
+	}
+	src.Text = src.Text.Materialize()
+	b.Source.Variant = src
 	a.SetBase(b)
 	return a
 }
 
-// compile compiles the text of an automation into its program and leaves a module as
+// compile compiles the source of an automation into its program and leaves a module as
 // is. Returns an error if parsing, analysis, or compilation fails.
 func (s *Service) compile(ctx context.Context, a *Arc) error {
 	automation, ok := a.Variant.(arc.AutomationArc)
 	if !ok {
 		return nil
 	}
-	cfg := parser.Config{AllowDashedNames: s.internal.AllowDashedNames()}
-	parsed, diag := arctext.Parse(automation.Text, cfg)
-	if diag != nil && !diag.Ok() {
-		return CompileError{Diagnostics: diag.Error()}
+	var (
+		prog arclang.Program
+		err  error
+	)
+	switch src := automation.Source.Variant.(type) {
+	case arc.TextSource:
+		prog, err = s.compileText(ctx, src.Text)
+	case arc.GraphSource:
+		prog, err = arclang.CompileGraph(
+			ctx,
+			src.Graph,
+			s.internal.NewRoot(nil),
+			arclang.WithAllowDashedNames(s.internal.AllowDashedNames()),
+		)
 	}
-	ir, diag := arctext.Analyze(ctx, parsed, s.internal.NewRoot(nil), cfg)
-	if diag != nil && !diag.Ok() {
-		return CompileError{Diagnostics: diag.Error()}
-	}
-	mod, err := arctext.Compile(ctx, ir)
 	if err != nil {
 		return err
 	}
-	automation.Program = &mod
+	automation.Program = &prog
 	a.Variant = automation
 	return nil
+}
+
+// compileText compiles t, reporting parse and analysis failures as a CompileError.
+func (s *Service) compileText(
+	ctx context.Context,
+	t arctext.Text,
+) (arclang.Program, error) {
+	cfg := parser.Config{AllowDashedNames: s.internal.AllowDashedNames()}
+	parsed, diag := arctext.Parse(t, cfg)
+	if diag != nil && !diag.Ok() {
+		return arclang.Program{}, CompileError{Diagnostics: diag.Error()}
+	}
+	ir, diag := arctext.Analyze(ctx, parsed, s.internal.NewRoot(nil), cfg)
+	if diag != nil && !diag.Ok() {
+		return arclang.Program{}, CompileError{Diagnostics: diag.Error()}
+	}
+	return arctext.Compile(ctx, ir)
 }

@@ -87,11 +87,10 @@ public:
 /// @brief Compiles an Arc program via the Synnax client.
 inline arc::program::Program
 compile_text(const synnax::Synnax &client, const std::string &source) {
-    synnax::arc::AutomationArc automation{{
-        .name = make_unique_channel_name("test_arc"),
-        .mode = synnax::arc::MODE_TEXT,
-    }};
-    automation.text.raw = source;
+    synnax::arc::AutomationArc automation{
+        {.name = make_unique_channel_name("test_arc")}
+    };
+    automation.source = synnax::arc::TextSource{.text = {.raw = source}};
     synnax::arc::Arc arc = automation;
     if (const auto create_err = client.arcs.create(arc))
         throw std::runtime_error("Failed to create arc: " + create_err.message());

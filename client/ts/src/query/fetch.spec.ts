@@ -70,8 +70,8 @@ const DOMAINS: Domain[] = [
       (
         await writer.arcs.create({
           name: `arc-${id.create()}`,
-          mode: "graph",
           type: "automation",
+          source: { mode: "graph" },
         })
       ).key,
     del: async (key) => await writer.arcs.delete(key),
