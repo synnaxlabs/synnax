@@ -179,7 +179,10 @@ func OpenService[E gorp.Entry[uuid.UUID]](
 	}
 	migrations := cfg.Migrations
 	if len(cfg.References) > 0 {
-		migrations = append(slices.Clone(migrations), newDanglingMigration(cfg))
+		migrations = append(
+			slices.Clone(migrations),
+			migrate.DropDangling("dangling_references", cfg.DB, cfg.References),
+		)
 	}
 	table, err := gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, E]{
 		DB:              cfg.DB,
@@ -205,42 +208,6 @@ func newTaskReference[E gorp.Entry[uuid.UUID]]() *gorp.KeyReference[uuid.UUID, E
 		OnDelete: gorp.Cascade,
 		Targets:  func(e *E) []uuid.UUID { return []uuid.UUID{(*e).GorpKey()} },
 	})
-}
-
-// newDanglingMigration returns the migration that drops the targets that do not exist
-// from stored entries, through the Detach of each reference. It decodes entries with
-// their current type, so it runs after the type's version chain.
-func newDanglingMigration[E gorp.Entry[uuid.UUID]](
-	cfg ServiceConfig[E],
-) gorp.Migration {
-	return migrate.New(
-		"dangling_references",
-		func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
-			var entries []E
-			if err := gorp.NewRetrieve[uuid.UUID, E]().
-				Entries(&entries).
-				Exec(ctx, tx); err != nil {
-				return err
-			}
-			changed := make([]E, 0, len(entries))
-			for i := range entries {
-				dropped, err := gorp.DropDangling(
-					ctx,
-					tx,
-					cfg.DB,
-					cfg.References,
-					&entries[i],
-				)
-				if err != nil {
-					return err
-				}
-				if dropped {
-					changed = append(changed, entries[i])
-				}
-			}
-			return gorp.NewCreate[uuid.UUID, E]().Entries(&changed).Exec(ctx, tx)
-		},
-	)
 }
 
 // Type implements Store.

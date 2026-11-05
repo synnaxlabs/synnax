@@ -9,17 +9,12 @@
 
 package channel
 
-import (
-	"context"
-
-	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/gorp/migrate"
-)
+import "github.com/synnaxlabs/gorp"
 
 // indexReference returns the config of the reference from a data channel to the index
 // channel that holds its timestamps. A delete of an index fails while it keeps a data
-// channel that uses the index.
+// channel that uses the index. Opening the service clears a missing index, and a
+// calculated channel whose index was deleted gets a new one on its next write.
 func indexReference() gorp.ReferenceConfig[Key, Channel] {
 	return gorp.ReferenceConfig[Key, Channel]{
 		Name:     "local_index",
@@ -33,34 +28,4 @@ func indexReference() gorp.ReferenceConfig[Key, Channel] {
 		},
 		Detach: func(c *Channel, _ gorp.Target) { c.LocalIndex = 0 },
 	}
-}
-
-// newDanglingIndexMigration returns the migration that clears the index of each
-// channel whose index channel does not exist. A calculated channel whose index was
-// deleted gets a new index on its next write. It decodes channels with their current
-// type, so it runs after the channel version chain.
-func newDanglingIndexMigration(db *gorp.DB) gorp.Migration {
-	refs := []gorp.ReferenceConfig[Key, Channel]{indexReference()}
-	return migrate.New(
-		"dangling_index",
-		func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
-			var channels []Channel
-			if err := gorp.NewRetrieve[Key, Channel]().
-				Entries(&channels).
-				Exec(ctx, tx); err != nil {
-				return err
-			}
-			changed := make([]Channel, 0, len(channels))
-			for i := range channels {
-				dropped, err := gorp.DropDangling(ctx, tx, db, refs, &channels[i])
-				if err != nil {
-					return err
-				}
-				if dropped {
-					changed = append(changed, channels[i])
-				}
-			}
-			return gorp.NewCreate[Key, Channel]().Entries(&changed).Exec(ctx, tx)
-		},
-	)
 }
