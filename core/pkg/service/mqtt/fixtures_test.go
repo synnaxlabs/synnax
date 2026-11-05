@@ -11,9 +11,12 @@ package mqtt_test
 
 import (
 	"context"
+	"sync"
+	"sync/atomic"
 	"time"
 	"uuid"
 
+	paho "github.com/eclipse/paho.mqtt.golang"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
@@ -47,6 +50,72 @@ func newFactory(queueSize int) driver.Factory {
 		DB:      db, Status: statusSvc,
 		QueueSize: queueSize,
 	}))
+}
+
+// stalledToken is the token of a publish that a connection drop strands in Paho.
+type stalledToken struct{}
+
+func (stalledToken) Wait() bool                     { return false }
+func (stalledToken) WaitTimeout(time.Duration) bool { return false }
+func (stalledToken) Done() <-chan struct{}          { return nil }
+func (stalledToken) Error() error                   { return nil }
+
+// publishStall strands one Paho publish, which reaches that state only on a connection
+// drop that lands inside the call. Its factory gives every connection a real client.
+type publishStall struct {
+	// armed makes the next publish stall.
+	armed atomic.Bool
+	// stalled is true once a publish stalled.
+	stalled atomic.Bool
+	// blocks makes the stalled publish block until release, in place of returning a
+	// token that never completes.
+	blocks  bool
+	release func()
+	waiter  chan struct{}
+}
+
+func newPublishStall(blocks bool) *publishStall {
+	waiter := make(chan struct{})
+	return &publishStall{
+		blocks:  blocks,
+		waiter:  waiter,
+		release: sync.OnceFunc(func() { close(waiter) }),
+	}
+}
+
+func (s *publishStall) factory() driver.Factory {
+	GinkgoHelper()
+	return MustOpen(mqtt.OpenFactory(mqtt.FactoryConfig{
+		Device:  deviceSvc,
+		Channel: channelSvc,
+		Framer:  framerSvc,
+		DB:      db, Status: statusSvc,
+		QueueSize: 64,
+		NewClient: func(opts *paho.ClientOptions) paho.Client {
+			return &stallingClient{Client: paho.NewClient(opts), stall: s}
+		},
+	}))
+}
+
+type stallingClient struct {
+	paho.Client
+	stall *publishStall
+}
+
+func (c *stallingClient) Publish(
+	topic string,
+	qos byte,
+	retained bool,
+	payload any,
+) paho.Token {
+	if !c.stall.armed.CompareAndSwap(true, false) {
+		return c.Client.Publish(topic, qos, retained, payload)
+	}
+	c.stall.stalled.Store(true)
+	if c.stall.blocks {
+		<-c.stall.waiter
+	}
+	return stalledToken{}
 }
 
 // createRack creates a rack for the devices and tasks of one spec.
