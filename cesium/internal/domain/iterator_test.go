@@ -60,7 +60,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 				)
 				BeforeEach(func(ctx SpecContext) {
 					Expect(
-						testutil.WriteDomain(ctx, db, first, []byte{1}),
+						testutil.WriteDomain(ctx, db, first, []byte{1, 2}),
 					).To(Succeed())
 					Expect(
 						testutil.WriteDomain(ctx, db, second, []byte{2}),
@@ -90,6 +90,22 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					).To(Succeed())
 					Expect(i.Prev()).To(BeTrue())
 					Expect(i.TimeRange()).To(Equal(first))
+					Expect(i.Close()).To(Succeed())
+				})
+
+				It("Should skip the rest of a domain after its head is deleted", func(
+					ctx SpecContext,
+				) {
+					i := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
+					Expect(i.SeekGE(ctx, first.Start)).To(BeTrue())
+					Expect(db.Delete(
+						ctx,
+						(20 * telem.SecondTS).Range(25*telem.SecondTS),
+						fixedOffsetAndTimeStamp(0, 20*telem.SecondTS),
+						fixedOffsetAndTimeStamp(1, 25*telem.SecondTS),
+					)).To(Succeed())
+					Expect(i.Next()).To(BeTrue())
+					Expect(i.TimeRange()).To(Equal(second))
 					Expect(i.Close()).To(Succeed())
 				})
 

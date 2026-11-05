@@ -120,7 +120,7 @@ func (i *Iterator) Next() bool {
 	if !i.valid {
 		return false
 	}
-	return i.load(i.db.idx.next(i.currPtr.Start))
+	return i.load(i.db.idx.next(i.currPtr.End))
 }
 
 // Prev advances the iterator to the previous domain. If the iterator has been

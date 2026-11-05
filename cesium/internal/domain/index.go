@@ -10,6 +10,7 @@
 package domain
 
 import (
+	"cmp"
 	"context"
 	"slices"
 	"sync"
@@ -218,12 +219,17 @@ func (idx *index) searchGE(
 	return idx.unprotectedGet(i)
 }
 
-// next returns the first domain that starts after start. ok is false if there is none.
-func (idx *index) next(start telem.TimeStamp) (position int, p pointer, ok bool) {
+// next returns the first domain that starts at or after end. ok is false if there is
+// none.
+func (idx *index) next(end telem.TimeStamp) (position int, p pointer, ok bool) {
 	idx.mu.RLock()
 	defer idx.mu.RUnlock()
-	i, _ := idx.unprotectedSearch(start.SpanRange(0))
-	return idx.unprotectedGet(i + 1)
+	i, _ := slices.BinarySearchFunc(
+		idx.mu.pointers,
+		end,
+		func(p pointer, ts telem.TimeStamp) int { return cmp.Compare(p.Start, ts) },
+	)
+	return idx.unprotectedGet(i)
 }
 
 // prev returns the last domain that starts before start. ok is false if there is none.
