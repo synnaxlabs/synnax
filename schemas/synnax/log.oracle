@@ -43,13 +43,12 @@ ChannelEntry struct {
     notation  notation.Notation = "standard" {
         @doc value "is the numeric notation used to render samples."
     }
-    precision int32?            {
+    precision uint8?            {
         @doc value    """
             is the number of decimal digits to display. Absent shows each sample as it
             arrives; 17 is the maximum significant digits for a float64.
         """
         @validate max 17
-        @validate min 0
     }
     alias     string = "" {
         @doc value "is a human-readable alias displayed in place of the channel name."
@@ -75,10 +74,9 @@ Log struct {
     channels             ChannelEntry[] = [] {
         @doc value "are the channels displayed in this log, in order."
     }
-    timestamp_precision  int32 = 0 {
+    timestamp_precision  uint8 = 0 {
         @doc value    "is the precision of displayed timestamps (0-3)."
         @validate max 3
-        @validate min 0
     }
     channel_names_hidden bool = false {
         @doc value "is true when channel names are hidden."
@@ -154,7 +152,7 @@ Log struct {
 
     action SetChannelPrecision {
         channel   channel.Key
-        precision int32?
+        precision uint8?
 
         @doc value """
             sets the number of decimal digits displayed for the entry identified by
@@ -215,7 +213,7 @@ Log struct {
     }
 
     action SetTimestampPrecision {
-        timestamp_precision int32
+        timestamp_precision uint8
 
         @doc value "sets the precision of displayed timestamps (0-3)."
     }

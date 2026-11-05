@@ -35,10 +35,13 @@ import {
 } from "@/feature/ni/task/types";
 import { useChannelDevice } from "@/feature/ni/task/usePort";
 import { Device as PlatformDevice } from "@/platform/device";
-import { Selector } from "@/platform/selector";
+import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const root = deep.path<Task.Values<CounterReadSchemas>>();
+
+// Each device has its own ports.
+const portOf = (c: CIChannel): string => `${c.device}/${c.port}`;
 
 const Properties = () => (
   <>
@@ -62,6 +65,7 @@ const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
   const isRunning = Task.useIsRunning();
   const hasTareButton = channel !== 0 && !isSnapshot;
   const canTare = !disabled && isRunning;
+  const skipped = Task.useSkipped(root.config.channels, rest.itemKey, portOf);
   const Icon = CI_CHANNEL_TYPE_ICONS[type];
   return (
     <Task.Views.ListAndDetailsChannelItem
@@ -73,6 +77,7 @@ const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
       hasTareButton={hasTareButton}
       channel={channel}
       defaultName={device == null ? undefined : COUNTER_INPUT.name(value, device)}
+      skipped={skipped}
       icon={{ icon: <Icon />, name: CI_CHANNEL_TYPE_NAMES[type] }}
       portMaxChars={2}
     />
@@ -92,6 +97,7 @@ const DetailsTitle = ({ path }: Task.Views.DetailsProps<CIChannel>) => {
   const device = useChannelDevice(path);
   const Icon = CI_CHANNEL_TYPE_ICONS[value.type];
   const own = channels.filter((c) => c.device === value.device);
+  const skipped = Task.useSkipped(root.config.channels, value.key, portOf);
   return (
     <Title
       port={{
@@ -103,6 +109,7 @@ const DetailsTitle = ({ path }: Task.Views.DetailsProps<CIChannel>) => {
       channel={value.channel}
       namePath={path.name}
       defaultName={device == null ? undefined : COUNTER_INPUT.name(value, device)}
+      skipped={skipped}
       model={device?.model}
     />
   );
@@ -215,12 +222,8 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
 
       const deviceChannels = config.channels.filter((c) => c.device === dev.key);
       const toCreate: CIChannel[] = [];
-      // Channels on one port share its data channel, named by an enabled one if any.
-      const seen = new Set<string>();
-      for (const channel of Task.enabledFirst(deviceChannels)) {
+      for (const channel of Task.firstPerPort(deviceChannels, portOf)) {
         const key = channel.port.toString();
-        if (seen.has(key)) continue;
-        seen.add(key);
         const exKey = dev.properties.counterInput.channels[key];
         if (primitive.isZero(exKey)) toCreate.push(channel);
         else
@@ -272,9 +275,10 @@ export const useCreateCounterRead = Task.createUseCreate({
   deviceMake: MAKE,
 });
 
-export const CounterReadSelectable = Selector.createSelectable({
+export const CounterReadSelectable: Selector.Selectable = {
   type: COUNTER_READ_TYPE,
   title: "NI counter read task",
+  label: "Counter read",
   icon: <Icon.Logo.NI />,
   useOnSelect: useCreateCounterRead,
-});
+};

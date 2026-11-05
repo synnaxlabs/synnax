@@ -2435,6 +2435,105 @@ var _ = Describe("C++ Union Generation", func() {
 	)
 
 	It(
+		"Should emit a base accessor for a union whose variants share one base",
+		func(ctx SpecContext) {
+			source := `
+			@cpp output "out"
+
+			BaseAIChan struct { port int32 }
+			VoltageFields struct { minVal float64 }
+
+			AIChannel union on type extends BaseAIChan {
+				ai_voltage VoltageFields
+				ai_current { units string }
+			}
+		`
+			resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
+			ExpectContent(resp, "types.gen.h").
+				ToContain(
+					"[[nodiscard]] inline const BaseAIChan& " +
+						"base(const AIChannel& value) {\n" +
+						"    return std::visit([](const auto& v) -> const BaseAIChan& " +
+						"{ return v; }, value);\n}",
+				).
+				ToNotContain("base(AIChannel& value)")
+		},
+	)
+
+	It(
+		"Should qualify the base accessor type of a base from another namespace",
+		func(ctx SpecContext) {
+			loader.Add("schemas/common", `
+			@cpp output "x/cpp/common"
+
+			BaseAIChan struct { port int32 }
+		`)
+			source := `
+			import "schemas/common"
+
+			@cpp output "client/cpp/ni"
+
+			VoltageFields struct { minVal float64 }
+
+			AIChannel union on type extends common.BaseAIChan {
+				ai_voltage VoltageFields
+			}
+		`
+			resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
+			ExpectContent(resp, "ni/types.gen.h").
+				ToContain(
+					"inline const ::x::common::BaseAIChan& " +
+						"base(const AIChannel& value)",
+				)
+		},
+	)
+
+	DescribeTable(
+		"Should not emit a base accessor without one base every variant shares",
+		func(ctx SpecContext, source string) {
+			resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
+			ExpectContent(resp, "types.gen.h").
+				ToContain("using AIChannel = std::variant<").
+				ToNotContain(" base(")
+		},
+		Entry("no base", `
+			@cpp output "out"
+
+			VoltageFields struct { minVal float64 }
+
+			AIChannel union on type {
+				ai_voltage VoltageFields
+			}
+		`),
+		Entry("two bases", `
+			@cpp output "out"
+
+			BaseAIChan struct { port int32 }
+			Range struct { minVal float64 }
+
+			AIChannel union on type extends BaseAIChan, Range {
+				ai_voltage {}
+			}
+		`),
+		Entry("a variant that omits a base field", `
+			@cpp output "out"
+
+			BaseAIChan struct {
+				port int32
+				enabled bool
+			}
+
+			AIChannel union on type extends BaseAIChan {
+				ai_voltage { minVal float64 }
+				ai_temp_builtin {
+					-port
+					units string
+				}
+			}
+		`),
+	)
+
+	It(
 		"Should move a variant's restated base default into a constructor",
 		func(ctx SpecContext) {
 			source := `

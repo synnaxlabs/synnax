@@ -11,14 +11,20 @@ package status
 
 import (
 	"context"
+	"encoding/json/v2"
+	"strconv"
+	"strings"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
@@ -91,6 +97,35 @@ func statusAccessOntologyIDs(statuses []status.Status[any]) []ontology.ID {
 	return ids
 }
 
+func decodeDetails[D any](details any) error {
+	b, err := json.Marshal(details)
+	if err != nil {
+		return errors.Wrap(validate.ErrValidation, err.Error())
+	}
+	var decoded D
+	if err = json.Unmarshal(b, &decoded); err != nil {
+		return errors.Wrap(validate.ErrValidation, err.Error())
+	}
+	return nil
+}
+
+func validateDetails(s status.Status[any]) error {
+	// A row that its resource cannot decode fails every read of that resource's status.
+	resourceType, _, _ := strings.Cut(s.Key, ":")
+	switch ontology.ResourceType(resourceType) {
+	case ontology.ResourceTypeRack:
+		return decodeDetails[rack.StatusDetails](s.Details)
+	case ontology.ResourceTypeDevice:
+		return decodeDetails[device.StatusDetails](s.Details)
+	case ontology.ResourceTypeTask:
+		return decodeDetails[task.StatusDetails](s.Details)
+	case ontology.ResourceTypeChannel:
+		return decodeDetails[struct{}](s.Details)
+	default:
+		return nil
+	}
+}
+
 // SetRequest is a request to set (create or update) statuses in the cluster.
 type SetRequest struct {
 	// Parent is the parent ontology ID for the statuses.
@@ -105,7 +140,9 @@ type SetResponse struct {
 	Statuses []status.Status[any] `json:"statuses" msgpack:"statuses"`
 }
 
-// Set creates or updates statuses in the cluster.
+// Set creates or updates statuses in the cluster. It returns a validation error and
+// writes nothing if a status keyed by a rack, device, task, or channel carries details
+// that resource cannot decode.
 func (s *Service) Set(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -117,6 +154,13 @@ func (s *Service) Set(
 		Objects: statusAccessOntologyIDs(req.Statuses),
 	}); err != nil {
 		return SetResponse{}, err
+	}
+	for i, st := range req.Statuses {
+		if err := validateDetails(st); err != nil {
+			return SetResponse{}, validate.PathedError(
+				err, "statuses", strconv.Itoa(i), "details",
+			)
+		}
 	}
 	if err := s.internal.NewWriter(tx).SetManyWithParent(
 		ctx,

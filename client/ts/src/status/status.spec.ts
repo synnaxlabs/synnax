@@ -850,6 +850,15 @@ describe("fromException", () => {
     expect(s.description).toBe("Failed to parse task config. the formatted breakdown");
   });
 
+  it("should leave out a toStatus() message that repeats the heading", () => {
+    const s = status.fromException(
+      new CustomError("boom"),
+      "Failed to parse task config",
+    );
+    expect(s.message).toBe("Failed to parse task config");
+    expect(s.description).toBe("the formatted breakdown");
+  });
+
   it("should keep the error text when toStatus() gives no description", () => {
     class MessageOnlyError extends Error {
       toStatus() {
