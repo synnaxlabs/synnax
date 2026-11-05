@@ -7,10 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type ranger } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 
 import { Tree } from "@/platform/tree";
 
-const TreeItem = Tree.createItem({ type: "label", icon: <Icon.Label /> });
+const children: Tree.Children = ({ client, id }) => {
+  const q = { hasLabels: [id.key] };
+  return [
+    Tree.createSource(client.ranges, q, (range: ranger.Range) =>
+      Tree.toResource("range")(range.payload),
+    ),
+    Tree.createSource(client.statuses, q, Tree.toResource("status")),
+  ];
+};
+
+const TreeItem = Tree.createItem({ type: "label", icon: <Icon.Label />, children });
 
 export const TREE_ITEMS = { label: TreeItem } satisfies Tree.Items;
