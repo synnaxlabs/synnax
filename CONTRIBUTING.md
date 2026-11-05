@@ -30,13 +30,22 @@ person dispatches every release ([RFC 0058](docs/tech/rfc/0058-release-workflow.
   author merges a `review/human` PR once the gate passes.
 - The `preview` label deploys a live Core with the Console for the PR, and each push
   while the label stays deploys it again. Add it when the PR changes the Console UI or
-  needs a live Core to review. `preview/docs` does the same for the docs site.
+  needs a live Core to review. `preview/docs`, `preview/foundation`, `preview/landing`,
+  and `preview/portal` do the same for each site on Vercel.
 - A version bump rides the PR that ships the change. Test-only and docs-only changes
   bump nothing.
 
+### Pull requests from forks
+
+Workflows that hold write access start only from a branch of this repository, so a fork
+gets no automation. A maintainer adds the review tier label, then starts the gate with
+`gh workflow run check.review.yaml -f pr=<number>` after each change.
+
 ## Review tiers
 
-A tier says if a human must read the PR. A reviewer can raise it by swapping the label.
+The author picks the tier. `Label - Classify` raises a PR to `review/human` when a
+report of a schema, client API, or Core or Driver config changes. A reviewer can raise
+it by swapping the label.
 
 | Label          | Review                          | Covers                                                                                                                                                                                                                                               |
 | -------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

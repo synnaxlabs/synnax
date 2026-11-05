@@ -118,10 +118,10 @@ func (p *Plugin) processUnion(
 					name, v.Name, enumType.Name,
 				))
 			}
-			discDefault = p.cppEnumVariantRef(validation.EnumVariant{
+			discDefault = p.defaultRenderer(data).EnumVariant(validation.EnumVariant{
 				Type:    enumType,
 				Variant: member,
-			}, data)
+			})
 		}
 		sd := structData{
 			Name: variantName,

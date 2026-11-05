@@ -141,7 +141,8 @@ func Variable(name string, constraint *Type) Type {
 // NumericConstraint returns a constraint accepting any numeric type.
 func NumericConstraint() Type { return Type{Kind: KindNumericConstant} }
 
-// IntegerConstraint returns a constraint accepting any integer type.
+// IntegerConstraint returns a constraint for integer literals, which can resolve to any
+// numeric type.
 func IntegerConstraint() Type { return Type{Kind: KindIntegerConstant} }
 
 // FloatConstraint returns a constraint accepting any floating-point type.
