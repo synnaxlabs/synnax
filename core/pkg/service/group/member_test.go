@@ -199,6 +199,17 @@ var _ = Describe("Member", func() {
 			},
 		)
 
+		It("Should reject a device held by a device", func(ctx SpecContext) {
+			g := create(ctx, resource.TypeDevice, new(rackID("r1")))
+			holder := resource.ID{Type: resource.TypeDevice, Key: "chassis"}
+			Expect(group.CheckMember(
+				ctx, db, &g.Key, resource.TypeDevice, &holder,
+			)).To(MatchError(
+				"group: a device held by device chassis cannot sit in a group: " +
+					"validation error",
+			))
+		})
+
 		It("Should allow a rack in a top-level device group", func(ctx SpecContext) {
 			g := create(ctx, resource.TypeDevice, nil)
 			Expect(group.CheckMember(ctx, db, &g.Key, resource.TypeRack, nil)).

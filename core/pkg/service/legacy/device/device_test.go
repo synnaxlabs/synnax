@@ -794,6 +794,53 @@ var _ = Describe("Device", func() {
 				Expect(retrieve(ctx).Group).To(BeNil())
 			},
 		)
+
+		It(
+			"Should refuse to move a device with a parent into a group",
+			func(ctx SpecContext) {
+				g := createGroup(ctx, d.Rack)
+				d.Parent = createChassis(ctx, w, d.Rack)
+				Expect(w.Create(ctx, &d)).To(Succeed())
+				Expect(w.SetGroup(ctx, &g, d.Key)).To(MatchError(fmt.Sprintf(
+					"group: a device held by device %s cannot sit in a group: "+
+						"validation error",
+					*d.Parent,
+				)))
+				Expect(retrieve(ctx).Group).To(BeNil())
+			},
+		)
+
+		It(
+			"Should refuse a new device with a parent and a group",
+			func(ctx SpecContext) {
+				g := createGroup(ctx, d.Rack)
+				module := device.Device{
+					Key:      "grouped-module",
+					Rack:     d.Rack,
+					Location: "slot-1",
+					Name:     "Grouped Module",
+					Make:     "Test Make",
+					Model:    "Test Model",
+					Parent:   &d.Key,
+					Group:    &g,
+				}
+				Expect(w.Create(ctx, &module)).To(MatchError(fmt.Sprintf(
+					"group: a device held by device %s cannot sit in a group: "+
+						"validation error",
+					d.Key,
+				)))
+			},
+		)
+
+		It("Should clear the group of a device given a parent", func(ctx SpecContext) {
+			g := createGroup(ctx, d.Rack)
+			Expect(w.SetGroup(ctx, &g, d.Key)).To(Succeed())
+			d.Parent = createChassis(ctx, w, d.Rack)
+			Expect(w.Create(ctx, &d)).To(Succeed())
+			stored := retrieve(ctx)
+			Expect(stored.Parent).To(Equal(d.Parent))
+			Expect(stored.Group).To(BeNil())
+		})
 	})
 	Describe("Rack", func() {
 		It("Should refuse to delete a rack that holds a device", func(ctx SpecContext) {

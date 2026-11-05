@@ -45,19 +45,29 @@ var memberRules = map[resource.Type]memberRule{
 }
 
 // CheckMember returns a validation error when a record of type t cannot sit in the
-// group with key, as seen by tx. The group's scope must hold t. A device sits only in a
-// group under its rack, passed as top. A rack or project sits only in a group with no
-// top parent. Pass a nil top for every type but a device. A nil key is no group, which
-// every record can have.
+// group with key, as seen by tx. The group's scope must hold t. holder is the record
+// that holds a device: its parent device, or else its rack. A device sits only in a
+// group under its rack, and a device held by a device sits in no group. A rack or
+// project sits only in a group with no top parent. Pass a nil holder for every type but
+// a device. A nil key is no group, which every record can have.
 func CheckMember(
 	ctx context.Context,
 	tx gorp.Tx,
 	key *Key,
 	t resource.Type,
-	top *resource.ID,
+	holder *resource.ID,
 ) error {
 	if key == nil {
 		return nil
+	}
+	if holder != nil && holder.Type == t {
+		return validate.PathedError(errors.Wrapf(
+			validate.ErrValidation,
+			"a %s held by %s %s cannot sit in a group",
+			t,
+			holder.Type,
+			holder.Key,
+		), "group")
 	}
 	rule, ok := memberRules[t]
 	if !ok {
@@ -81,16 +91,16 @@ func CheckMember(
 		return nil
 	}
 	actual, err := topParent(ctx, tx, g)
-	if err != nil || sameID(actual, top) {
+	if err != nil || sameID(actual, holder) {
 		return err
 	}
-	if top != nil {
+	if holder != nil {
 		return validate.PathedError(errors.Wrapf(
 			validate.ErrValidation,
 			"group %s does not sit under %s %s",
 			g.Name,
-			top.Type,
-			top.Key,
+			holder.Type,
+			holder.Key,
 		), "group")
 	}
 	return validate.PathedError(errors.Wrapf(

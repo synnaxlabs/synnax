@@ -97,11 +97,12 @@ func (w Writer) writeStatus(
 }
 
 // Create creates or updates the given device. Create writes the parent as sent, so an
-// update must carry the current parent. An existing device keeps its group unless it
-// moves to another rack. A status provided on the device replaces the stored status if
-// the device is new, renamed, or moved to another rack or parent. With no provided
-// status, the stored status stays, and only a device with no stored status gets the
-// default "unknown" status. Create sets device.Status to the resulting status.
+// update must carry the current parent. A new device with a parent cannot sit in a
+// group. An existing device keeps its group unless it moves to another rack or has a
+// parent. A status provided on the device replaces the stored status if the device is
+// new, renamed, or moved to another rack or parent. With no provided status, the stored
+// status stays, and only a device with no stored status gets the default "unknown"
+// status. Create sets device.Status to the resulting status.
 func (w Writer) Create(ctx context.Context, device *Device) error {
 	return w.inTx(ctx, func(w Writer) error { return w.create(ctx, device) })
 }
@@ -124,7 +125,7 @@ func (w Writer) create(ctx context.Context, device *Device) error {
 	exists := err == nil
 	if exists {
 		device.Group = existing.Group
-		if device.Rack != existing.Rack {
+		if device.Rack != existing.Rack || device.Parent != nil {
 			device.Group = nil
 		}
 	}
@@ -162,7 +163,8 @@ func (w Writer) CreateMany(ctx context.Context, devices *[]Device) error {
 }
 
 // SetGroup moves the devices with keys into g, or out of their group when g is nil. It
-// returns a validation error when g does not sit under a device's rack.
+// returns a validation error when g does not sit under a device's rack, or when a
+// device has a parent.
 func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
 	return setGroup(w.table, g, keys...).
 		ChangeErr(func(ctx gorp.Context, d Device) (Device, error) {
@@ -172,13 +174,11 @@ func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
 }
 
 func (w Writer) checkGroup(ctx context.Context, key *group.Key, d Device) error {
-	return group.CheckMember(
-		ctx,
-		w.tx,
-		key,
-		resource.TypeDevice,
-		new(d.Rack.ResourceID()),
-	)
+	holder := d.Rack.ResourceID()
+	if d.Parent != nil {
+		holder = ResourceID(*d.Parent)
+	}
+	return group.CheckMember(ctx, w.tx, key, resource.TypeDevice, &holder)
 }
 
 // Rename renames the device with the given key and its status, keeping every other
