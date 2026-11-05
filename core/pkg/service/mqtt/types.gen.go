@@ -65,7 +65,11 @@ type BaseReadEntry = versions.BaseReadEntry
 // ReadEntry is a single source of an MQTT read task. The type field selects a plain
 // topic with a JSON payload or a Sparkplug B tag.
 type ReadEntry = versions.ReadEntry
+
+// ReadEntryVariant is implemented by every ReadEntry variant.
 type ReadEntryVariant = versions.ReadEntryVariant
+
+// ReadEntryType is the "type" value that selects a variant of ReadEntry.
 type ReadEntryType = versions.ReadEntryType
 
 const (
@@ -111,7 +115,11 @@ type BaseWriteField = versions.BaseWriteField
 // WriteField is an additional payload field on a plain write target. The type field
 // selects whether the value is fixed or generated per publish.
 type WriteField = versions.WriteField
+
+// WriteFieldVariant is implemented by every WriteField variant.
 type WriteFieldVariant = versions.WriteFieldVariant
+
+// WriteFieldType is the "type" value that selects a variant of WriteField.
 type WriteFieldType = versions.WriteFieldType
 
 const (
@@ -134,7 +142,11 @@ type BaseWriteTarget = versions.BaseWriteTarget
 // WriteTarget is a single destination of an MQTT write task. The type field selects a
 // plain topic with a JSON payload or a Sparkplug B tag command.
 type WriteTarget = versions.WriteTarget
+
+// WriteTargetVariant is implemented by every WriteTarget variant.
 type WriteTargetVariant = versions.WriteTargetVariant
+
+// WriteTargetType is the "type" value that selects a variant of WriteTarget.
 type WriteTargetType = versions.WriteTargetType
 
 const (
