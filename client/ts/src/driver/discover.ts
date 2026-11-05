@@ -29,7 +29,7 @@ export interface TestStep extends z.infer<typeof testStepZ> {}
 
 /** The data that answers a connection test command of a scan task. */
 export const testResultZ = z.object({
-  /** steps are the stages that ran, in order. The last is the first that failed. */
+  /** steps are the stages that ran, in order. */
   steps: z.array(testStepZ),
 });
 

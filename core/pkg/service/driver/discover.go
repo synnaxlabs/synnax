@@ -16,6 +16,7 @@ import (
 	"encoding/json/jsontext"
 	"fmt"
 	"net"
+	"slices"
 	"unicode/utf8"
 
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -43,7 +44,7 @@ type TestStep struct {
 
 // testResult is the data that answers a connection test.
 type testResult struct {
-	// Steps are the stages that ran, in order. The last is the first that failed.
+	// Steps are the stages that ran, in order.
 	Steps []TestStep `json:"steps" msgpack:"steps"`
 }
 
@@ -53,18 +54,21 @@ type failure struct{ message, description string }
 // Error implements error.
 func (f failure) Error() string { return f.message + ": " + f.description }
 
-// AnswerTest returns the data that answers a connection test that ran steps. When the
-// last step failed, the error gives the answer the message and the description of that
-// step.
+// AnswerTest returns the data that answers a connection test that ran steps. When a
+// step failed, the error gives the answer the message and the description of the first
+// step that failed.
 func AnswerTest(steps []TestStep) (msgpack.EncodedJSON, error) {
 	data, err := msgpack.NewEncodedJSON(testResult{Steps: steps})
 	if err != nil {
 		return nil, err
 	}
-	if last := steps[len(steps)-1]; last.Variant == status.VariantError {
-		return data, failure{message: last.Message, description: last.Description}
+	i := slices.IndexFunc(steps, func(s TestStep) bool {
+		return s.Variant == status.VariantError
+	})
+	if i < 0 {
+		return data, nil
 	}
-	return data, nil
+	return data, failure{message: steps[i].Message, description: steps[i].Description}
 }
 
 // Handshake runs a TLS handshake with cfg on conn, a connection to addr, and returns

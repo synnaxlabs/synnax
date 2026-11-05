@@ -92,6 +92,37 @@ var _ = Describe("Discover", func() {
 		})
 	})
 
+	Describe("AnswerTest", func() {
+		step := func(stage string, variant status.Variant, message string) driver.TestStep {
+			return driver.TestStep{
+				Stage:       stage,
+				Variant:     variant,
+				Message:     message,
+				Description: message + ".",
+			}
+		}
+
+		It("Should answer with no error when every step passed", func() {
+			data := MustSucceed(driver.AnswerTest([]driver.TestStep{
+				step("dial", status.VariantSuccess, "Reached broker"),
+				step("broker", status.VariantWarning, "Slow broker"),
+			}))
+			Expect(data).To(HaveKey("steps"))
+		})
+
+		It("Should answer with the first step that failed", func() {
+			data, err := driver.AnswerTest([]driver.TestStep{
+				step("dial", status.VariantSuccess, "Reached broker"),
+				step("broker", status.VariantError, "Failed to reach broker 1"),
+				step("broker", status.VariantSuccess, "Reached broker 2"),
+			})
+			Expect(err).To(MatchError(
+				"Failed to reach broker 1: Failed to reach broker 1.",
+			))
+			Expect(data["steps"]).To(HaveLen(3))
+		})
+	})
+
 	DescribeTable("FormatOf",
 		func(payload []byte, format driver.Format) {
 			Expect(driver.FormatOf(payload)).To(Equal(format))
