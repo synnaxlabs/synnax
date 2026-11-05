@@ -221,6 +221,23 @@ var _ = Describe("Write task", func() {
 			},
 		)
 
+		It(
+			"Should write the members of a payload in config order",
+			func(ctx SpecContext) {
+				ch := createVirtual(ctx, telem.Int32T)
+				start(ctx, writeConfig(dev, plainTarget(
+					"plant/order/set", ch, "/reading/value", "number",
+					staticField("/source", "string", "plc"),
+					staticField("/reading/unit", "string", "rpm"),
+				)))
+				command(ctx, ch, telem.NewSeriesV[int32](1200), func(g Gomega) {
+					g.Expect(payloads("plant/order/set")).To(ContainElement(
+						`{"reading":{"value":1200,"unit":"rpm"},"source":"plc"}`,
+					))
+				})
+			},
+		)
+
 		It("Should publish one message for each sample of a command frame",
 			func(ctx SpecContext) {
 				ch := createVirtual(ctx, telem.Int32T)
@@ -283,8 +300,7 @@ var _ = Describe("Write task", func() {
 					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
 					g.Expect(stat.Message).To(Equal("Failed to write data"))
 					g.Expect(stat.Description).To(Equal(
-						"target plant/nan: cannot convert NaN to JSON: value is not " +
-							"finite: json conversion failed: validation error",
+						"target plant/nan: NaN is not a JSON number: validation error",
 					))
 					g.Expect(stat.Details.Running).To(BeTrue())
 				})
@@ -331,6 +347,36 @@ var _ = Describe("Write task", func() {
 					g.Expect(payloads("plant/outage")).To(ContainElement(`{"v":2}`))
 				})
 				Expect(payloads("plant/outage")).ToNot(ContainElement(`{"v":1}`))
+			},
+		)
+
+		It("Should warn and keep running when the connection drops under a publish",
+			func(ctx SpecContext) {
+				ch := createVirtual(ctx, telem.Float64T)
+				target := plainTarget("plant/unacked", ch, "/v", "number")
+				target["qos"] = "at_least_once"
+				unacked := &unackedHook{topic: "plant/unacked"}
+				Expect(broker.server.AddHook(unacked, nil)).To(Succeed())
+				t := start(ctx, writeConfig(dev, target))
+				command(ctx, ch, telem.NewSeriesV(1.0), func(g Gomega) {
+					g.Expect(unacked.held.Load()).To(BeNumerically(">", 0))
+				})
+				unacked.released.Store(true)
+				broker.dropClients()
+				Eventually(func(g Gomega) {
+					stat := taskStatus(ctx, t)
+					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
+					g.Expect(stat.Message).To(Equal("Failed to write data"))
+					g.Expect(stat.Details.Running).To(BeTrue())
+				}, 5*time.Second).Should(Succeed())
+				Eventually(
+					func() status.Variant { return taskStatus(ctx, t).Variant },
+					10*time.Second,
+				).
+					Should(Equal(status.VariantSuccess))
+				command(ctx, ch, telem.NewSeriesV(2.0), func(g Gomega) {
+					g.Expect(payloads("plant/unacked")).To(ContainElement(`{"v":2}`))
+				})
 			},
 		)
 	})
@@ -402,7 +448,7 @@ var _ = Describe("Write task", func() {
 					ch := createVirtual(ctx, telem.StringT)
 					return writeConfig(dev, plainTarget("plant/x", ch, "", "number")),
 						"target plant/x: channel " + ch.Name +
-							": cannot convert string to a JSON number"
+							": data type string only serializes as a string"
 				},
 			),
 			Entry("enum values for a JSON type that is not string",
@@ -420,10 +466,11 @@ var _ = Describe("Write task", func() {
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
 					ch := createVirtual(ctx, telem.Float64T)
 					unit := staticField("/unit", "string", "rpm")
+					unit["key"] = "unit"
 					target := plainTarget("plant/x", ch, "", "number", unit)
 					return writeConfig(dev, target),
-						"a channel value that is the whole payload " +
-							"allows no other fields"
+						`target plant/x: channel.pointer "" and field "unit" "/unit" ` +
+							`overlap`
 				},
 			),
 			Entry("a static value that is not of its JSON type",
@@ -439,30 +486,34 @@ var _ = Describe("Write task", func() {
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
 					ch := createVirtual(ctx, telem.Float64T)
 					unit := staticField("/unit", "string", "rpm")
+					unit["key"] = "unit"
 					target := plainTarget("plant/x", ch, "/unit/value", "number", unit)
 					return writeConfig(dev, target),
-						"target plant/x: two fields set /unit"
+						`target plant/x: channel.pointer "/unit/value" and ` +
+							`field "unit" "/unit" overlap`
 				},
 			),
 			Entry("a channel value at the parent of a field",
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
 					ch := createVirtual(ctx, telem.Float64T)
 					unit := staticField("/reading/unit", "string", "rpm")
+					unit["key"] = "unit"
 					target := plainTarget("plant/x", ch, "/reading", "number", unit)
 					return writeConfig(dev, target),
-						"target plant/x: two fields set /reading"
+						`target plant/x: channel.pointer "/reading" and ` +
+							`field "unit" "/reading/unit" overlap`
 				},
 			),
 			Entry("two fields at one pointer",
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
 					ch := createVirtual(ctx, telem.Float64T)
-					target := plainTarget(
-						"plant/x", ch, "/v", "number",
-						staticField("/unit", "string", "rpm"),
-						staticField("/unit", "string", "rps"),
-					)
+					rpm := staticField("/unit", "string", "rpm")
+					rps := staticField("/unit", "string", "rps")
+					rpm["key"], rps["key"] = "rpm", "rps"
+					target := plainTarget("plant/x", ch, "/v", "number", rpm, rps)
 					return writeConfig(dev, target),
-						"target plant/x: two fields set /unit"
+						`target plant/x: field "rpm" "/unit" and field "rps" "/unit" ` +
+							`overlap`
 				},
 			),
 		)

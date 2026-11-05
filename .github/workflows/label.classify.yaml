@@ -7,12 +7,13 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Labels a pull request review/human or review/bot from the results Check - Classify
-# uploaded, and keeps one comment with the evidence. A fork, or a change to the
-# classifier itself, always gets a human: either could forge the uploaded results. The
-# workflow runs from the default branch and never checks out or runs pull request code:
-# the artifacts are data. The label goes on with an App token, because a label set with
-# GITHUB_TOKEN starts no other workflow, and the review gate and auto-merge wait for it.
+# Raises a pull request to review/human when the results Check - Classify uploaded show
+# a changed interface, and keeps one comment with the evidence. Otherwise the author
+# picks the tier. A fork, or a change to the classifier itself, always gets a human:
+# either could forge the uploaded results. The workflow runs from the default branch and
+# never checks out or runs pull request code: the artifacts are data. The label goes on
+# with an App token, because a label set with GITHUB_TOKEN starts no other workflow, and
+# the review gate and auto-merge wait for it.
 
 name: Label - Classify
 
@@ -60,6 +61,9 @@ jobs:
         with:
           app-id: ${{ secrets.CLAUDE_CODE_APP_ID }}
           private-key: ${{ secrets.CLAUDE_CODE_APP_PRIVATE_KEY }}
+          permission-contents: read
+          permission-issues: write
+          permission-pull-requests: write
 
       - name: Classify
         env:

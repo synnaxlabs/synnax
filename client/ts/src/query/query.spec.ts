@@ -747,6 +747,173 @@ describe("Answers", () => {
     });
   });
 
+  describe("entry coverage (covers)", () => {
+    const coveringSpace = (
+      table: query.Table<string, Rec>,
+      fetch: (query: Q) => Promise<string[]>,
+    ) =>
+      new Space<Q, number, string, Rec>({
+        name: "thing",
+        table,
+        fetch,
+        compose: (records) => records[0]?.value ?? 0,
+        keyOf: (query) => query.k,
+        covers: (record) => record.value > 0,
+        single: true,
+      });
+
+    it("does not answer from an entry that does not cover the query", () => {
+      const table = newTable();
+      table.set(rec("a", 0));
+      const space = coveringSpace(table, async () => ["a"]);
+      expect(space.getCached(qA)).toBeUndefined();
+    });
+
+    it("answers from an entry that covers the query", () => {
+      const table = newTable();
+      table.set(rec("a", 1));
+      const space = coveringSpace(table, async () => ["a"]);
+      expect(space.getCached(qA)).toEqual(1);
+    });
+
+    it("holds a fetched answer its entry does not cover", async () => {
+      const table = newTable();
+      table.set(rec("a", 0));
+      const space = coveringSpace(table, async () => ["a"]);
+      await space.retrieve(qA);
+      expect(space.getCached(qA)).toEqual(0);
+    });
+
+    it("delivers a deletion regardless of coverage", async () => {
+      const table = newTable();
+      table.set(rec("a", 0));
+      const space = coveringSpace(table, async () => ["a"]);
+      table.delete("a");
+      expect(expectDeleted(space.getCached(qA)).corpse).toEqual(0);
+    });
+
+    it("fetches for a subscriber instead of seeding from the entry", async () => {
+      const table = newTable();
+      table.set(rec("a", 0));
+      const fetch = vi.fn(async () => {
+        table.set(rec("a", 1));
+        return ["a"];
+      });
+      const space = coveringSpace(table, fetch);
+      const seen: query.Cached<number>[] = [];
+      const stop = space.onChange(qA, (result) => {
+        if (result !== undefined) seen.push(result);
+      });
+      await vi.waitFor(() => expect(seen).toContain(1));
+      expect(seen).not.toContain(0);
+      expect(fetch).toHaveBeenCalledTimes(1);
+      stop();
+    });
+
+    it("fetches when a subscriber gets an entry that does not cover it", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => {
+        table.set(rec("a", 1));
+        return ["a"];
+      });
+      const space = coveringSpace(table, fetch);
+      const seen: query.Cached<number>[] = [];
+      const stop = space.onChange(qA, (result) => {
+        if (result !== undefined) seen.push(result);
+      });
+      table.set(rec("a", 0));
+      await vi.waitFor(() => expect(seen).toContain(1));
+      expect(seen).not.toContain(0);
+      stop();
+    });
+
+    it("shares one fetch between a subscriber and a read", async () => {
+      const table = newTable();
+      table.set(rec("a", 0));
+      const fetch = vi.fn(async () => ["a"]);
+      const space = coveringSpace(table, fetch);
+      const stop = space.onChange(qA, () => {});
+      await space.retrieve(qA);
+      await wait(150);
+      expect(fetch).toHaveBeenCalledTimes(1);
+      stop();
+    });
+
+    it("joins a subscriber's fetch from a read", async () => {
+      const table = newTable();
+      table.set(rec("a", 0));
+      let release = (): void => {};
+      const held = new Promise<void>((resolve) => (release = resolve));
+      const fetch = vi.fn(async () => {
+        await held;
+        return ["a"];
+      });
+      const space = coveringSpace(table, fetch);
+      const stop = space.onChange(qA, () => {});
+      await wait(150);
+      const reading = space.retrieve(qA);
+      release();
+      await reading;
+      expect(fetch).toHaveBeenCalledTimes(1);
+      stop();
+    });
+
+    it("reports a failed subscriber fetch and retries on the next read", async () => {
+      const table = newTable();
+      table.set(rec("a", 0));
+      const fetch = vi
+        .fn<() => Promise<string[]>>()
+        .mockRejectedValueOnce(new Error("boom"))
+        .mockResolvedValue(["a"]);
+      const onError = vi.fn();
+      const space = new Space<Q, number, string, Rec>(
+        {
+          name: "thing",
+          table,
+          fetch,
+          compose: (records) => records[0]?.value ?? 0,
+          keyOf: (query) => query.k,
+          covers: (record) => record.value > 0,
+          single: true,
+        },
+        { onError },
+      );
+      const stop = space.onChange(qA, () => {});
+      await vi.waitFor(() => expect(onError).toHaveBeenCalledTimes(1));
+      await expect(space.retrieve(qA)).resolves.toEqual(0);
+      expect(fetch).toHaveBeenCalledTimes(2);
+      stop();
+    });
+
+    it("leaves an entry written during a fetch to that fetch", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => {
+        await wait(0);
+        table.set(rec("a", 0));
+        return ["a"];
+      });
+      const space = coveringSpace(table, fetch);
+      const stop = space.onChange(qA, () => {});
+      await space.retrieve(qA);
+      await wait(150);
+      expect(fetch).toHaveBeenCalledTimes(1);
+      stop();
+    });
+
+    it("keeps notifying a ready query that its entry no longer covers", async () => {
+      const table = newTable();
+      table.set(rec("a", 1));
+      const space = coveringSpace(table, async () => ["a"]);
+      const seen: query.Cached<number>[] = [];
+      const stop = space.onChange(qA, (result) => {
+        if (result !== undefined) seen.push(result);
+      });
+      table.set(rec("a", 0));
+      expect(seen.at(-1)).toEqual(0);
+      stop();
+    });
+  });
+
   describe("deletion", () => {
     it("delivers the corpse through onChange and getCached", async () => {
       const table = newTable();
@@ -1254,6 +1421,17 @@ describe("Answers", () => {
       expect(fetch).toHaveBeenCalledTimes(1);
     });
 
+    it("refetches a full page with a zero offset on a new match", async () => {
+      const table = newTable();
+      const fetch = fetchOf(table, [rec("a", 5), rec("b", 4)]);
+      const answers = limitSpace(table, fetch);
+      answers.onChange({ min: 3, limit: 2, offset: 0 }, vi.fn());
+      await answers.retrieve({ min: 3, limit: 2, offset: 0 });
+      table.set("c", rec("c", 6));
+      await wait(150);
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
     it("admits matches only up to the limit", async () => {
       const table = newTable();
       const fetch = fetchOf(table, [rec("a", 5)]);
@@ -1451,6 +1629,20 @@ describe("Answers", () => {
       expect(handler).not.toHaveBeenCalled();
     });
 
+    it("refetches an empty search term on a new record", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => {
+        table.set("a", rec("a", 1));
+        return ["a"];
+      });
+      const answers = searchSpace(table, fetch);
+      answers.onChange({ searchTerm: "" }, vi.fn());
+      await answers.retrieve({ searchTerm: "" });
+      table.set("z", rec("z", 9));
+      await wait(150);
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
     it("refetches wholesale after a debounced table change", async () => {
       const table = newTable();
       const fetch = vi.fn(async () => {
@@ -1462,6 +1654,26 @@ describe("Answers", () => {
       answers.onChange({ searchTerm: "x" }, handler);
       await answers.retrieve({ searchTerm: "x" });
       expect(fetch).toHaveBeenCalledTimes(1);
+      table.set("z", rec("z", 9));
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
+    });
+
+    it("refetches wholesale when serverComputed holds", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => {
+        table.set("a", rec("a", 1));
+        return ["a"];
+      });
+      const answers = new Space<{ regex?: string }, Rec[], string, Rec>({
+        name: "things",
+        table,
+        fetch,
+        compose: (records) => records,
+        matches: () => true,
+        serverComputed: (q) => q.regex != null,
+      });
+      answers.onChange({ regex: "^a" }, vi.fn());
+      await answers.retrieve({ regex: "^a" });
       table.set("z", rec("z", 9));
       await expect.poll(() => fetch.mock.calls.length).toBe(2);
     });

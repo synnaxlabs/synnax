@@ -18,10 +18,14 @@ import "github.com/synnaxlabs/x/validate"
 type OuterLocation string
 
 const (
-	OuterLocationTop    OuterLocation = "top"
-	OuterLocationRight  OuterLocation = "right"
+	// OuterLocationTop is the top edge of the container.
+	OuterLocationTop OuterLocation = "top"
+	// OuterLocationRight is the right edge of the container.
+	OuterLocationRight OuterLocation = "right"
+	// OuterLocationBottom is the bottom edge of the container.
 	OuterLocationBottom OuterLocation = "bottom"
-	OuterLocationLeft   OuterLocation = "left"
+	// OuterLocationLeft is the left edge of the container.
+	OuterLocationLeft OuterLocation = "left"
 )
 
 // IsValid reports whether o is one of the defined OuterLocation
@@ -48,7 +52,9 @@ type XY struct {
 type Direction string
 
 const (
+	// DirectionX is the horizontal axis.
 	DirectionX Direction = "x"
+	// DirectionY is the vertical axis.
 	DirectionY Direction = "y"
 )
 
@@ -67,7 +73,9 @@ func (d Direction) IsValid() bool {
 type XLocation string
 
 const (
-	XLocationLeft  XLocation = "left"
+	// XLocationLeft is the left edge of the container.
+	XLocationLeft XLocation = "left"
+	// XLocationRight is the right edge of the container.
 	XLocationRight XLocation = "right"
 )
 
@@ -86,7 +94,9 @@ func (x XLocation) IsValid() bool {
 type YLocation string
 
 const (
-	YLocationTop    YLocation = "top"
+	// YLocationTop is the top edge of the container.
+	YLocationTop YLocation = "top"
+	// YLocationBottom is the bottom edge of the container.
 	YLocationBottom YLocation = "bottom"
 )
 
@@ -106,7 +116,9 @@ func (y YLocation) IsValid() bool {
 type StickyUnit string
 
 const (
-	StickyUnitPx      StickyUnit = "px"
+	// StickyUnitPx measures the coordinate in pixels.
+	StickyUnitPx StickyUnit = "px"
+	// StickyUnitDecimal measures the coordinate as a decimal fraction of the container.
 	StickyUnitDecimal StickyUnit = "decimal"
 )
 
@@ -221,10 +233,15 @@ func (vi *Viewport) ApplyDefaults() {
 type Location string
 
 const (
-	LocationTop    Location = "top"
-	LocationRight  Location = "right"
+	// LocationTop is the top edge of the container.
+	LocationTop Location = "top"
+	// LocationRight is the right edge of the container.
+	LocationRight Location = "right"
+	// LocationBottom is the bottom edge of the container.
 	LocationBottom Location = "bottom"
-	LocationLeft   Location = "left"
+	// LocationLeft is the left edge of the container.
+	LocationLeft Location = "left"
+	// LocationCenter is the center of the container.
 	LocationCenter Location = "center"
 )
 
@@ -243,8 +260,11 @@ func (l Location) IsValid() bool {
 type XCenterLocation string
 
 const (
-	XCenterLocationLeft   XCenterLocation = "left"
-	XCenterLocationRight  XCenterLocation = "right"
+	// XCenterLocationLeft is the left edge of the container.
+	XCenterLocationLeft XCenterLocation = "left"
+	// XCenterLocationRight is the right edge of the container.
+	XCenterLocationRight XCenterLocation = "right"
+	// XCenterLocationCenter is the center of the container.
 	XCenterLocationCenter XCenterLocation = "center"
 )
 
@@ -263,8 +283,11 @@ func (x XCenterLocation) IsValid() bool {
 type YCenterLocation string
 
 const (
-	YCenterLocationTop    YCenterLocation = "top"
+	// YCenterLocationTop is the top edge of the container.
+	YCenterLocationTop YCenterLocation = "top"
+	// YCenterLocationBottom is the bottom edge of the container.
 	YCenterLocationBottom YCenterLocation = "bottom"
+	// YCenterLocationCenter is the center of the container.
 	YCenterLocationCenter YCenterLocation = "center"
 )
 

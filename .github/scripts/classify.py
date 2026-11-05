@@ -12,9 +12,8 @@
     python3 classify.py <artifacts-dir>
 
 A pull request needs review/human when a surface report differs between its base and
-head. No report covers the Console, so the author picks the tier of a UI change. A UI
-change with no tier, or with a review/bot label this script added, gets review/human.
-The script only raises: it never removes review/human. It reads the pull request
+head, or a trust check fails. Otherwise the author picks the tier, so the script adds no
+label. The script only raises: it never removes review/human. It reads the pull request
 number from <artifacts-dir>/pr/number and refuses it unless the pull request's head
 is HEAD_SHA. Environment: GH_TOKEN, GITHUB_REPOSITORY, and HEAD_SHA.
 """
@@ -31,10 +30,8 @@ from urllib.parse import quote
 
 HUMAN = "review/human"
 BOT = "review/bot"
-APP = "synnax-claude-code[bot]"
 # Tier labels from before the two-tier scheme. Both ask for a human.
 HUMAN_TIERS = {HUMAN, "review/light", "review/thorough"}
-UI_PREFIXES = ("console/", "pluto/", "lyra/")
 # Files that make or judge the reports. A pull request that changes one could forge
 # its own result, so it always gets a human.
 CLASSIFIER_PATHS = (
@@ -51,8 +48,6 @@ CLASSIFIER_PATHS = (
     "scripts/surface_py.py",
 )
 MARKER = "<!-- review-classifier -->"
-# Records in the comment that this script added review/bot: the author did not pick it.
-AUTO_BOT = "<!-- review-classifier:auto-bot -->"
 SURFACES = {
     "oracle": "Oracle schemas",
     "client-ts": "TypeScript client API",
@@ -97,26 +92,17 @@ def trust_reasons(pull: dict[str, Any], *, files: list[dict[str, Any]]) -> list[
     return reasons
 
 
-def changes_ui(files: list[dict[str, Any]]) -> bool:
-    return any(f["filename"].startswith(UI_PREFIXES) for f in files)
-
-
-def has_chosen_tier(current: set[str], *, auto_bot: bool) -> bool:
-    if current & HUMAN_TIERS:
-        return True
-    return BOT in current and not auto_bot
-
-
 def needs_human(surfaces: list[Surface], *, reasons: list[str]) -> bool:
     return any(s.status != "same" for s in surfaces) or bool(reasons)
 
 
 def plan_labels(current: set[str], *, human: bool) -> tuple[list[str], list[str]]:
-    """Returns the labels to add and to remove, so exactly one of review/human and
-    review/bot stays. An existing human tier label counts as review/human."""
+    """Returns the labels to add and to remove. Raises to review/human when needed and
+    otherwise leaves the author's tier alone. An existing human tier counts as
+    review/human."""
     if human or current & HUMAN_TIERS:
         return ([] if HUMAN in current else [HUMAN]), ([BOT] if BOT in current else [])
-    return ([] if BOT in current else [BOT]), []
+    return [], []
 
 
 def fence(text: str) -> str:
@@ -131,29 +117,23 @@ def fence(text: str) -> str:
 def render(
     surfaces: list[Surface],
     *,
-    ui: bool,
     reasons: list[str],
     kept: bool,
-    auto_bot: bool,
 ) -> str:
     changed = any(s.status != "same" for s in surfaces)
-    tier = HUMAN if changed or reasons or kept else BOT
+    tier = f"`{HUMAN}`" if changed or reasons or kept else "the author picks"
     if changed:
         summary = "This pull request changes a user-facing interface."
     elif reasons:
         summary = "The classifier cannot clear this pull request."
     elif kept:
         summary = "No interface changed, but a human review tier is already set."
-    elif ui:
-        summary = "No report changed, and the author chose this tier for a UI change."
     else:
-        summary = "This pull request changes no user-facing interface."
+        summary = "No report changed, so the classifier sets no tier."
     rows = [f"| {SURFACES[s.name]} | {STATUS_TEXT[s.status]} |" for s in surfaces]
-    ui_result = "Changed: the author picks the tier" if ui else "Not changed"
-    rows.append(f"| Console and UI libraries | {ui_result} |")
     lines = [
         MARKER,
-        f"## Review tier: `{tier}`",
+        f"## Review tier: {tier}",
         "",
         summary,
         "",
@@ -177,7 +157,6 @@ def render(
     lines += [
         "",
         f"The classifier only raises the tier. It never removes `{HUMAN}`.",
-        *([AUTO_BOT] if auto_bot else []),
     ]
     return "\n".join(lines) + "\n"
 
@@ -190,18 +169,6 @@ def gh(*args: str, stdin: str | None = None) -> str:
 
 def gh_lines(*args: str) -> list[Any]:
     return [json.loads(line) for line in gh(*args).splitlines() if line]
-
-
-def bot_labelers(repo: str, *, number: int) -> list[str]:
-    """Returns who labeled the pull request review/bot, oldest first."""
-    return gh_lines(
-        "api",
-        "--paginate",
-        f"repos/{repo}/issues/{number}/events",
-        "--jq",
-        f'.[] | select(.event == "labeled" and .label.name == "{BOT}")'
-        " | .actor.login | tojson",
-    )
 
 
 def find_comment(repo: str, *, number: int) -> dict[str, Any] | None:
@@ -251,13 +218,6 @@ def main() -> None:
         ".[] | {filename}",
     )
     comment = find_comment(repo, number=number)
-    # A person who labels review/bot after the classifier makes the choice their own.
-    was_auto_bot = (
-        comment is not None
-        and AUTO_BOT in comment["body"]
-        and bot_labelers(repo, number=number)[-1:] == [APP]
-    )
-    ui = changes_ui(files)
     reasons = trust_reasons(pull, files=files)
     surfaces = read_surfaces(root)
     # A push during the reads leaves the reports stale: check the head before writing.
@@ -266,8 +226,6 @@ def main() -> None:
         print(f"#{number} moved past {head_sha}; a newer run classifies it")
         return
     current = {label["name"] for label in pull["labels"]}
-    if ui and not has_chosen_tier(current, auto_bot=was_auto_bot):
-        reasons.append("A UI file changed and the author chose no tier.")
     add, remove = plan_labels(current, human=needs_human(surfaces, reasons=reasons))
     for label in add:
         gh(
@@ -286,12 +244,11 @@ def main() -> None:
             f"repos/{repo}/issues/{number}/labels/{quote(label, safe='')}",
         )
     kept = bool(current & HUMAN_TIERS)
-    auto_bot = BOT in add or (was_auto_bot and BOT in current and BOT not in remove)
     write_comment(
         repo,
         number=number,
         comment=comment,
-        body=render(surfaces, ui=ui, reasons=reasons, kept=kept, auto_bot=auto_bot),
+        body=render(surfaces, reasons=reasons, kept=kept),
     )
     print(f"#{number}: add {add}, remove {remove}")
 

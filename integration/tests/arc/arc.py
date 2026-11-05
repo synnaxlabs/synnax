@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from typing import Unpack
+
 """Base test case for headless Arc integration tests.
 
 Drives the Arc program + task lifecycle directly through the Synnax Python client,
@@ -25,8 +27,7 @@ from uuid import UUID
 from pydantic import ValidationError
 
 import synnax as sy
-from framework.models import DEFAULT_CONNECTION, SynnaxConnection
-from framework.test_case import TestCase
+from framework.test_case import Config, TestCase, param
 from framework.utils import create_virtual_channel
 from tests.driver.sim_daq_case import SimDaqCase
 from x import random_name
@@ -61,14 +62,8 @@ class ArcCase(SimDaqCase, TestCase):
     arc_name: str
     _arcs: list[ArcTaskHandle]
 
-    def __init__(
-        self,
-        *,
-        synnax_connection: SynnaxConnection = DEFAULT_CONNECTION,
-        name: str,
-        **params: object,
-    ) -> None:
-        super().__init__(synnax_connection=synnax_connection, name=name, **params)
+    def __init__(self, **kwargs: Unpack[Config]) -> None:
+        super().__init__(**kwargs)
         self._arcs = []
 
     def setup(self) -> None:
@@ -92,7 +87,7 @@ class ArcCase(SimDaqCase, TestCase):
         super().setup()
 
     def _retrieve_rack(self) -> None:
-        rack_key = self.params.get("rack_key")
+        rack_key = param(self.params, "rack_key", 0)
         if rack_key:
             self.rack = self.client.racks.retrieve(rack_key)
         else:

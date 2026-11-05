@@ -16,15 +16,11 @@ import pytest
 
 import classify
 from classify import (
-    APP,
-    AUTO_BOT,
     BOT,
     HUMAN,
     MARKER,
     Surface,
-    changes_ui,
     fence,
-    has_chosen_tier,
     needs_human,
     plan_labels,
     read_surfaces,
@@ -38,13 +34,6 @@ def same(name: str) -> Surface:
 
 
 ALL_SAME = [same(n) for n in ("oracle", "client-ts", "client-py", "core", "driver")]
-
-
-def agent(tmp_path: Path, *, reply: str) -> str:
-    """Returns a command that reads stdin and prints reply."""
-    script = tmp_path / "agent.py"
-    script.write_text(f"import sys\nsys.stdin.read()\nprint({reply!r})\n")
-    return f"{sys.executable} {script}"
 
 
 def pull(head_repo: str = "synnaxlabs/synnax") -> dict[str, Any]:
@@ -96,41 +85,14 @@ class TestNeedsHuman:
         assert needs_human(ALL_SAME, reasons=["fork"])
 
 
-class TestChangesUI:
-    """Tests finding UI files in a pull request."""
-
-    def test_finds_console_pluto_and_lyra(self) -> None:
-        for name in ("console/a.tsx", "pluto/b.tsx", "lyra/c.css"):
-            assert changes_ui([file(name)])
-
-    def test_ignores_other_files(self) -> None:
-        assert not changes_ui([file("core/main.go")])
-
-
-class TestHasChosenTier:
-    """Tests telling the author's tier from one the classifier added."""
-
-    def test_is_false_with_no_tier(self) -> None:
-        assert not has_chosen_tier(set(), auto_bot=False)
-
-    def test_is_true_for_a_human_tier(self) -> None:
-        assert has_chosen_tier({HUMAN}, auto_bot=True)
-
-    def test_is_true_for_a_bot_tier_from_the_author(self) -> None:
-        assert has_chosen_tier({BOT}, auto_bot=False)
-
-    def test_is_false_for_a_bot_tier_the_classifier_added(self) -> None:
-        assert not has_chosen_tier({BOT}, auto_bot=True)
-
-
 class TestPlanLabels:
-    """Tests that exactly one of review/human and review/bot stays."""
+    """Tests that the classifier only raises a tier."""
 
     def test_sets_human_and_removes_bot(self) -> None:
         assert plan_labels({BOT}, human=True) == ([HUMAN], [BOT])
 
-    def test_sets_bot_when_no_tier_is_set(self) -> None:
-        assert plan_labels(set(), human=False) == ([BOT], [])
+    def test_sets_no_tier_when_none_is_set(self) -> None:
+        assert plan_labels(set(), human=False) == ([], [])
 
     def test_never_removes_human(self) -> None:
         assert plan_labels({HUMAN}, human=False) == ([], [])
@@ -171,38 +133,30 @@ class TestRender:
             *ALL_SAME[:4],
             Surface(name="driver", status="changed", diff="+flag --x\n"),
         ]
-        body = render(surfaces, ui=False, reasons=[], kept=False, auto_bot=False)
+        body = render(surfaces, reasons=[], kept=False)
         assert body.startswith(MARKER)
         assert f"`{HUMAN}`" in body
         assert "| Driver commands and config keys | Changed |" in body
         assert "+flag --x" in body
 
     def test_explains_a_kept_human_label(self) -> None:
-        body = render(ALL_SAME, ui=True, reasons=[], kept=True, auto_bot=False)
+        body = render(ALL_SAME, reasons=[], kept=True)
         assert f"## Review tier: `{HUMAN}`" in body
         assert "already set" in body
-        assert "| Console and UI libraries | Changed: the author picks" in body
 
     def test_lists_trust_reasons(self) -> None:
         body = render(
             ALL_SAME,
-            ui=False,
             reasons=["The pull request comes from a fork."],
             kept=False,
-            auto_bot=False,
         )
         assert f"## Review tier: `{HUMAN}`" in body
         assert "- The pull request comes from a fork." in body
 
-    def test_says_bot_when_nothing_changed(self) -> None:
-        assert f"## Review tier: `{BOT}`" in render(
-            ALL_SAME, ui=False, reasons=[], kept=False, auto_bot=False
+    def test_says_the_author_picks_when_nothing_changed(self) -> None:
+        assert "## Review tier: the author picks" in render(
+            ALL_SAME, reasons=[], kept=False
         )
-
-    def test_says_a_person_chose_the_tier_of_a_ui_change(self) -> None:
-        body = render(ALL_SAME, ui=True, reasons=[], kept=False, auto_bot=False)
-        assert "the author chose this tier" in body
-        assert "changes no user-facing interface" not in body
 
     def test_fences_a_diff_that_holds_backticks(self) -> None:
         assert fence("+```\n").startswith("````diff")
@@ -218,7 +172,6 @@ class FakeGH:
 
     def __init__(self) -> None:
         self.heads = ["abc", "abc"]
-        self.bot_labelers = [APP]
         self.files = ["core/main.go"]
         self.labels: list[str] = []
         self.comments: list[dict[str, Any]] = []
@@ -232,8 +185,6 @@ class FakeGH:
             return json.dumps({"head": head, "base": same, "labels": labels})
         if f"repos/{REPO}/pulls/5/files" in args:
             return "".join(json.dumps(file(name)) + "\n" for name in self.files)
-        if args[:3] == ("api", "--paginate", f"repos/{REPO}/issues/5/events"):
-            return "".join(json.dumps(name) + "\n" for name in self.bot_labelers)
         if args[:3] == ("api", "--paginate", COMMENTS):
             return "".join(json.dumps(c) + "\n" for c in self.comments)
         self.writes.append((args, stdin))
@@ -258,15 +209,14 @@ class TestMain:
         monkeypatch.setenv("HEAD_SHA", "abc")
         return fake
 
-    def test_labels_bot_and_posts_a_comment_when_nothing_changed(
+    def test_adds_no_label_and_posts_a_comment_when_nothing_changed(
         self, gh: FakeGH
     ) -> None:
         classify.main()
-        (label, _), (post, body) = gh.writes
-        assert label == ("api", "-X", "POST", LABELS, "-f", f"labels[]={BOT}")
+        ((post, body),) = gh.writes
         assert post == ("api", "-X", "POST", COMMENTS, "--input", "-")
         assert body is not None
-        assert f"## Review tier: `{BOT}`" in json.loads(body)["body"]
+        assert "the author picks" in json.loads(body)["body"]
 
     def test_swaps_bot_for_human_and_edits_the_comment_when_a_surface_changed(
         self, gh: FakeGH, tmp_path: Path
@@ -288,63 +238,17 @@ class TestMain:
             ),
         ]
 
-    def test_labels_human_when_the_ui_changed_and_no_tier_is_set(
+    def test_adds_no_label_when_only_the_ui_changed(self, gh: FakeGH) -> None:
+        gh.files = ["console/a.tsx"]
+        classify.main()
+        assert [args[3] for args, _ in gh.writes] == [COMMENTS]
+
+    def test_keeps_the_tier_the_author_set_when_nothing_changed(
         self, gh: FakeGH
     ) -> None:
-        gh.files = ["console/a.tsx"]
-        classify.main()
-        label, _ = gh.writes[0]
-        assert label == ("api", "-X", "POST", LABELS, "-f", f"labels[]={HUMAN}")
-
-    def test_keeps_the_bot_tier_the_author_set_on_a_ui_change(self, gh: FakeGH) -> None:
-        gh.files = ["console/a.tsx"]
         gh.labels = [BOT]
         classify.main()
-        assert [args[1:3] for args, _ in gh.writes] == [("-X", "POST")]
-        assert gh.writes[0][0][3] == COMMENTS
-
-    def test_records_a_bot_tier_it_added(self, gh: FakeGH) -> None:
-        classify.main()
-        _, body = gh.writes[1]
-        assert body is not None
-        assert AUTO_BOT in json.loads(body)["body"]
-
-    def test_keeps_the_record_while_its_bot_tier_stays(self, gh: FakeGH) -> None:
-        gh.labels = [BOT]
-        gh.comments = [{"id": 9, "body": f"{MARKER}\n{AUTO_BOT}"}]
-        classify.main()
-        _, body = gh.writes[0]
-        assert body is not None
-        assert AUTO_BOT in json.loads(body)["body"]
-
-    def test_raises_a_bot_tier_it_added_when_a_later_push_changes_the_ui(
-        self, gh: FakeGH
-    ) -> None:
-        gh.files = ["console/a.tsx"]
-        gh.labels = [BOT]
-        gh.comments = [{"id": 9, "body": f"{MARKER}\n{AUTO_BOT}"}]
-        classify.main()
-        assert gh.writes[0][0] == (
-            "api",
-            "-X",
-            "POST",
-            LABELS,
-            "-f",
-            f"labels[]={HUMAN}",
-        )
-
-    def test_keeps_a_bot_tier_a_person_set_after_the_classifier(
-        self, gh: FakeGH
-    ) -> None:
-        gh.files = ["console/a.tsx"]
-        gh.labels = [BOT]
-        gh.comments = [{"id": 9, "body": f"{MARKER}\n{AUTO_BOT}"}]
-        gh.bot_labelers = [APP, "pjdotson"]
-        classify.main()
-        args, body = gh.writes[0]
-        assert args[2] == "PATCH"
-        assert body is not None
-        assert AUTO_BOT not in json.loads(body)["body"]
+        assert [args[3] for args, _ in gh.writes] == [COMMENTS]
 
     def test_writes_nothing_when_the_head_moves_during_the_run(
         self, gh: FakeGH

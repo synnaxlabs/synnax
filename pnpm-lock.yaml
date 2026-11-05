@@ -459,9 +459,6 @@ catalogs:
     fflate:
       specifier: ^0.8.3
       version: 0.8.3
-    fuse.js:
-      specifier: ^7.5.0
-      version: 7.5.0
     globals:
       specifier: ^17.13.0
       version: 17.13.0
@@ -594,6 +591,9 @@ catalogs:
     typescript-eslint:
       specifier: ^8.71.2
       version: 8.71.2
+    undici:
+      specifier: ^8.12.2
+      version: 8.12.2
     use-sync-external-store:
       specifier: ^1.7.0
       version: 1.7.0
@@ -1049,6 +1049,9 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
+      undici:
+        specifier: 'catalog:'
+        version: 8.12.2
       vite:
         specifier: 'catalog:'
         version: 8.3.4(@types/node@24.19.2)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1)
@@ -1183,9 +1186,6 @@ importers:
       compromise-dates:
         specifier: 'catalog:'
         version: 3.9.0(compromise@14.18.0)
-      fuse.js:
-        specifier: 'catalog:'
-        version: 7.5.0
       mathjs:
         specifier: 'catalog:'
         version: 15.2.0
@@ -6738,10 +6738,6 @@ packages:
 
   function-bind@1.1.2:
     resolution: {integrity: sha512-7XHNxH7qX9xG5mIwxkhumTox/MIRNcOgDrxWsMt2pAr23WHp6MrRlN7FBSFpCpr+oVO0F744iUgR82nJMfG2SA==}
-
-  fuse.js@7.5.0:
-    resolution: {integrity: sha512-sQtrEfA+ez/3G0cCZecF70oqpCRttCexYUG4mUrtWL49ULUzUyxokt5kyqwtKzj1270RaKih+hcP3qLcumccow==}
-    engines: {node: '>=10'}
 
   gensync@1.0.0-beta.2:
     resolution: {integrity: sha512-3hN7NaskYvMDLQY55gnW3NQ+mesEAepTqlg+VEbj7zzqEMBVNhzcGYYeqFo/TlYz6eQiFcp1HcsCZO+nGgS8zg==}
@@ -14026,8 +14022,6 @@ snapshots:
     optional: true
 
   function-bind@1.1.2: {}
-
-  fuse.js@7.5.0: {}
 
   gensync@1.0.0-beta.2: {}
 

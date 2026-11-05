@@ -34,7 +34,7 @@ import {
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Form as PlatformForm } from "@/platform/form";
-import { Selector } from "@/platform/selector";
+import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const root = deep.path<Task.Values<WriteSchemas>>();
@@ -57,10 +57,17 @@ const renderMethodSelect = Component.renderProp(
   ),
 );
 
+/** The name deploying gives an endpoint's command channel while it has none. */
+const commandChannelName = (device: string, endpoint: string): string =>
+  `${channel.escapeInvalidName(device)}${channel.escapeInvalidName(endpoint)}_cmd`;
+
 const EndpointItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const path = root.config.endpoints[itemKey];
-  const channel = PForm.useFieldValue(path.channel.channel);
+  const channelKey = PForm.useFieldValue(path.channel.channel);
+  const endpointPath = PForm.useFieldValue(path.path);
+  const disabled = PForm.useFieldValue(path.disabled);
+  const dev = useFromConfig();
   return (
     <Select.Item
       {...props}
@@ -74,8 +81,12 @@ const EndpointItem = (props: Task.ChannelListItemProps) => {
       </Flex.Box>
       <Flex.Box x align="center" justify="between" gap="small" full="x">
         <Task.ChannelName
-          channel={channel}
+          channel={channelKey}
           namePath={path.channel.name}
+          defaultName={
+            dev == null ? undefined : commandChannelName(dev.name, endpointPath)
+          }
+          skipped={disabled}
           id={Task.getChannelNameID(itemKey)}
           level="small"
           weight={450}
@@ -204,7 +215,6 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
     key: config.device,
     schemas: SCHEMAS,
   });
-  const safeDevName = channel.escapeInvalidName(dev.name);
   const saved = deep.copy(dev.properties);
   try {
     for (const ep of config.endpoints) {
@@ -217,7 +227,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
           channel: ep.channel.channel,
           name: primitive.isNonZero(ep.channel.name)
             ? ep.channel.name
-            : `${safeDevName}${channel.escapeInvalidName(ep.path)}_cmd`,
+            : commandChannelName(dev.name, ep.path),
           dataType: ep.channel.dataType,
         },
       );
@@ -242,9 +252,10 @@ export const useCreateWrite = Task.createUseCreate({
   deviceMake: MAKE,
 });
 
-export const WriteSelectable = Selector.createSelectable({
+export const WriteSelectable: Selector.Selectable = {
   type: WRITE_TYPE,
   title: "HTTP write task",
+  label: "Write",
   icon: <Icon.Logo.HTTP />,
   useOnSelect: useCreateWrite,
-});
+};

@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -92,7 +93,8 @@ var _ = Describe("Ontology", func() {
 				DeferCleanup(func(ctx SpecContext) {
 					Expect(writer.Delete(ctx, created.Key)).To(Succeed())
 				})
-				Expect(MustSucceed(svc.Search(ctx, db, term, 10)).Keys).
+				q := search.Query[ontology.ID]{Term: term, Limit: 10}
+				Expect(MustSucceed(svc.Search(ctx, db, q)).Keys).
 					To(ContainElement(created.OntologyID()))
 			},
 			Entry("first word", "Persephone"),

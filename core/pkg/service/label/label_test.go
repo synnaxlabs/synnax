@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -135,6 +136,21 @@ var _ = Describe("Label", Ordered, func() {
 			labels := MustSucceed(svc.RetrieveFor(ctx, labeled.OntologyID(), tx))
 			Expect(labels).To(HaveLen(1))
 			Expect(labels[0].Key).To(Equal(l.Key))
+		})
+		It("Should get no labels for a deleted resource", func(ctx SpecContext) {
+			l := &label.Label{
+				Name:  "Label",
+				Color: MustSucceed(color.FromHex("#000000")),
+			}
+			Expect(w.Create(ctx, l)).To(Succeed())
+			labeled := &label.Label{
+				Name:  "Labeled",
+				Color: MustSucceed(color.FromHex("#000000")),
+			}
+			Expect(w.Create(ctx, labeled)).To(Succeed())
+			Expect(w.Label(ctx, labeled.OntologyID(), []label.Key{l.Key})).To(Succeed())
+			Expect(w.Delete(ctx, labeled.Key)).To(Succeed())
+			Expect(svc.RetrieveFor(ctx, labeled.OntologyID(), tx)).To(BeEmpty())
 		})
 	})
 	Describe("MatchNames", func() {
@@ -302,9 +318,11 @@ var _ = Describe("Label", Ordered, func() {
 			func(ctx SpecContext) {
 				a := create(ctx, "turbopump test")
 				b := create(ctx, "turbopump")
-				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", 0)).Keys).
+				q := search.Query[ontology.ID]{Term: "turbopump"}
+				Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
 					To(Equal([]ontology.ID{b, a}))
-				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", 1)).Keys).
+				q.Limit = 1
+				Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
 					To(Equal([]ontology.ID{b}))
 			},
 		)
@@ -313,9 +331,8 @@ var _ = Describe("Label", Ordered, func() {
 			"Should not match a staged label outside its transaction",
 			func(ctx SpecContext) {
 				create(ctx, "injector")
-				Expect(
-					MustSucceed(svc.Search(ctx, db, "injector", 0)).Keys,
-				).To(BeEmpty())
+				q := search.Query[ontology.ID]{Term: "injector"}
+				Expect(MustSucceed(svc.Search(ctx, db, q)).Keys).To(BeEmpty())
 			},
 		)
 	})

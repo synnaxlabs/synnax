@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include "client/cpp/ontology/id.h"
+#include "client/cpp/ontology/types.gen.h"
 #include "x/cpp/testutil/testutil.h"
 
 namespace synnax::ontology {
@@ -188,6 +189,24 @@ TEST(OntologyID, testProtoRoundTrip) {
     const auto pb = ASSERT_NIL_P(original.to_proto());
     const auto parsed = ASSERT_NIL_P(ID::from_proto(pb));
     EXPECT_EQ(parsed, original);
+}
+
+/// @brief it should round-trip every typed device resource type through protobuf.
+TEST(OntologyID, testProtoRoundTripTypedDevices) {
+    for (const auto &type:
+         {RESOURCE_TYPE_ETHERCAT_MASTER,
+          RESOURCE_TYPE_ETHERCAT_SLAVE,
+          RESOURCE_TYPE_HTTP_SERVER,
+          RESOURCE_TYPE_LABJACK_DEVICE,
+          RESOURCE_TYPE_MODBUS_SERVER,
+          RESOURCE_TYPE_NI_CHASSIS,
+          RESOURCE_TYPE_NI_DEVICE,
+          RESOURCE_TYPE_OPCUA_SERVER}) {
+        const ID original{.type = type, .key = "key"};
+        const auto pb = ASSERT_NIL_P(original.to_proto());
+        const auto parsed = ASSERT_NIL_P(ID::from_proto(pb));
+        EXPECT_EQ(parsed, original);
+    }
 }
 
 /// @brief it should return an error for an unrecognized type in to_proto.

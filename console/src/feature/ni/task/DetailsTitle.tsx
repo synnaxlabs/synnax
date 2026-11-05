@@ -23,6 +23,8 @@ export interface DetailsTitleProps {
   namePath: deep.Target<string | undefined>;
   /** The name deploying the task gives a channel with no name. */
   defaultName?: string;
+  /** Deploying the task does not create the channel. */
+  skipped?: boolean;
   model?: string;
 }
 
@@ -36,6 +38,7 @@ export const DetailsTitle = ({
   channel,
   namePath,
   defaultName,
+  skipped,
   model,
 }: DetailsTitleProps): ReactElement => (
   <>
@@ -52,6 +55,7 @@ export const DetailsTitle = ({
       channel={channel}
       namePath={namePath}
       defaultName={defaultName}
+      skipped={skipped}
       level="p"
       weight={500}
       overflow="fade"

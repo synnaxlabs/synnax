@@ -33,6 +33,19 @@ const makeEntry = (i: number, channelKey: number = 1): LogEntry => ({
   value: String(i),
 });
 
+const SCROLLBAR_WIDTH = 6;
+
+// The thumb is the only rounded rect drawn at the scrollbar width; selection bands are
+// unrounded and span the full region.
+const findThumb = (recorder: ReturnType<typeof canvasTest.record>) => {
+  const call = recorder.lower2d.calls.findLast(
+    ({ op, args }) => op === "roundRect" && args[2] === SCROLLBAR_WIDTH,
+  );
+  if (call == null) return null;
+  const [x, y, width, height] = call.args as number[];
+  return { x, y, width, height };
+};
+
 let testIdCounter = 0;
 
 const baseInput = (
@@ -140,6 +153,36 @@ describe("log/aether/Log", () => {
       expect(log.state.empty).toBe(false);
     });
 
+    it("should be blank only while loading with no entries", () => {
+      const { log, source } = setup([]);
+      source.status = telem.LOADING_STATUS;
+      source.notify();
+      expect(log.state.blank).toBe(true);
+      source.push(makeEntry(0));
+      source.notify();
+      expect(log.state.blank).toBe(false);
+      expect(log.state.loading).toBe(true);
+    });
+
+    it("should set loading while the source loads", () => {
+      const { log, source } = setup([]);
+      expect(log.state.loading).toBe(false);
+      source.status = telem.LOADING_STATUS;
+      source.notify();
+      expect(log.state.loading).toBe(true);
+      source.status = telem.SUCCESS_STATUS;
+      source.notify();
+      expect(log.state.loading).toBe(false);
+    });
+
+    it("should set loading while it holds entries", () => {
+      const { log, source } = setup([makeEntry(0)]);
+      source.status = telem.LOADING_STATUS;
+      source.notify();
+      expect(log.state.loading).toBe(true);
+      expect(log.state.empty).toBe(false);
+    });
+
     it("should set empty to true when the source loads no entries", () => {
       const { log, source } = setup([]);
       source.status = telem.LOADING_STATUS;
@@ -154,7 +197,7 @@ describe("log/aether/Log", () => {
     it("should initialize scrollState with zero values", () => {
       const { log } = setup();
       expect(log.scrollState.offset).toBe(0);
-      expect(log.scrollState.offsetRef).toBe(0);
+      expect(log.scrollState.tail).toBe(0);
       expect(log.scrollState.scrollRef).toBe(0);
     });
 
@@ -179,7 +222,7 @@ describe("log/aether/Log", () => {
       });
 
       expect(log.scrollState.offset).toBe(entries.length);
-      expect(log.scrollState.offsetRef).toBe(entries.length);
+      expect(log.scrollState.tail).toBe(0);
       expect(log.scrollState.scrollRef).toBe(100);
     });
 
@@ -190,8 +233,9 @@ describe("log/aether/Log", () => {
       const { log } = setup(entries);
       expect(log.scrollState).toEqual({
         offset: 0,
-        offsetRef: 0,
+        tail: 0,
         scrollRef: 0,
+        moved: 0,
         awayFromEnd: false,
       });
     });
@@ -385,6 +429,15 @@ describe("log/aether/Log", () => {
       source.push(makeEntry(1));
       source.notify();
       expect(recorder.loopCalls.length).toBeGreaterThan(before);
+    });
+
+    // A paused log whose entries all fit clamps its wheel position on every update.
+    it("should request a render to erase a paused log when it hides", () => {
+      const { h, recorder } = setup([makeEntry(0)]);
+      h.setState((s) => ({ ...s, scrolling: true }));
+      recorder.clear();
+      h.setState((s) => ({ ...s, visible: false }));
+      expect(recorder.loopCalls).toHaveLength(1);
     });
   });
 
@@ -652,6 +705,33 @@ describe("log/aether/Log", () => {
     });
   });
 
+  describe("older entries", () => {
+    const pause = (wheelPos: number) => {
+      const entries = Array.from({ length: 1000 }, (_, i) => makeEntry(i));
+      const { source, updateState } = setup(entries);
+      const base = { region: REGION_500, empty: false, visible: true };
+      updateState({ ...base, wheelPos: 0, scrolling: false });
+      updateState({ ...base, wheelPos: 0, scrolling: true });
+      updateState({ ...base, wheelPos, scrolling: true });
+      return source;
+    };
+
+    it("should not read older entries while the view is far from the oldest", () => {
+      expect(pause(0).loadOlderCalls).toBe(0);
+    });
+
+    it("should read older entries when the paused view nears the oldest", () => {
+      expect(pause(20_000).loadOlderCalls).toBeGreaterThan(0);
+    });
+
+    it("should not read older entries while live", () => {
+      const entries = Array.from({ length: 10 }, (_, i) => makeEntry(i));
+      const { source } = setup(entries);
+      source.notify();
+      expect(source.loadOlderCalls).toBe(0);
+    });
+  });
+
   describe("after the 2D canvases are restored", () => {
     it("should request a render until deleted", () => {
       const { h, recorder } = setup([makeEntry(1)]);
@@ -713,6 +793,24 @@ describe("log/aether/Log", () => {
   });
 
   describe("render with scrollback", () => {
+    it("should render a paused log whose new source has fewer entries", () => {
+      const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
+      const { log, h, updateState } = setup(entries);
+      updateState({ empty: false, wheelPos: 0 });
+      updateState({ empty: false, wheelPos: 0, scrolling: true });
+      const testId = `log-test-${++testIdCounter}`;
+      const source = new MockLogSource();
+      source.push(makeEntry(0), makeEntry(1));
+      registerMockLogSource(testId, source);
+      h.setState(() =>
+        logStateZ.parse(
+          baseInput(testId, REGION_500, { empty: false, wheelPos: 0, scrolling: true }),
+        ),
+      );
+      expect(log.render()).toBeTypeOf("function");
+      expect(log.state.rowEntries).toEqual([0, 1]);
+    });
+
     it("should render the correct slice when scrolled back", () => {
       const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
       const { log, updateState } = setup(entries);
@@ -857,7 +955,7 @@ describe("log/aether/Log", () => {
       ];
       const { log } = setup(entries, REGION_500, {
         channelNamesHidden: false,
-        receiptTimestampHidden: true,
+        timestampsHidden: true,
         channels: [clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO })],
         channelNames: { "1": "log" },
         selectionStart: 0,
@@ -881,7 +979,7 @@ describe("log/aether/Log", () => {
       ];
       const { log } = setup(entries, REGION_500, {
         channelNamesHidden: false,
-        receiptTimestampHidden: true,
+        timestampsHidden: true,
         channels: [clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO })],
         channelNames: { "1": "log" },
         selectionStart: 0,
@@ -910,7 +1008,7 @@ describe("log/aether/Log", () => {
       ];
       const { log } = setup(entries, REGION_500, {
         channelNamesHidden: false,
-        receiptTimestampHidden: false,
+        timestampsHidden: false,
         channels: [clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO })],
         channelNames: { "1": "sensor" },
         selectionStart: 0,
@@ -939,7 +1037,7 @@ describe("log/aether/Log", () => {
       ];
       const { log } = setup(entries, REGION_500, {
         channelNamesHidden: true,
-        receiptTimestampHidden: true,
+        timestampsHidden: true,
         channels: [clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO })],
         selectionStart: 0,
         selectionEnd: 1,
@@ -969,7 +1067,7 @@ describe("log/aether/Log", () => {
       ];
       const { log } = setup(entries, REGION_500, {
         channelNamesHidden: false,
-        receiptTimestampHidden: true,
+        timestampsHidden: true,
         channels: [
           clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO }),
           clientLog.channelEntryZ.parse({ channel: 2, color: color.ZERO }),
@@ -1002,7 +1100,7 @@ describe("log/aether/Log", () => {
       ];
       const { log } = setup(entries, REGION_500, {
         channelNamesHidden: false,
-        receiptTimestampHidden: true,
+        timestampsHidden: true,
         channels: [clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO })],
         channelNames: { "1": "log" },
         selectionStart: 0,
@@ -1015,6 +1113,119 @@ describe("log/aether/Log", () => {
       expect(lines[1]).not.toContain("log");
       expect(lines[1]).toMatch(/^\s*$/);
       expect(lines[1].length).toBe(lines[0].indexOf("data"));
+    });
+  });
+
+  describe("wide characters", () => {
+    const rowsOf = (value: string): number => {
+      const { log } = setup([{ ...makeEntry(0), value }]);
+      log.render();
+      return log.state.rowEntries.length;
+    };
+
+    it("should keep an empty value at every width", () => {
+      for (let width = 20; width <= 160; width += 2) {
+        const region = box.construct({ x: 0, y: 0 }, { width, height: 500 });
+        const { log } = setup([{ ...makeEntry(0), value: "" }], region);
+        log.render();
+        expect(log.state.rowEntries).toContain(0);
+      }
+    });
+
+    it("should give a wide character two columns", () => {
+      const ascii = rowsOf("a".repeat(2_000));
+      const wide = rowsOf("日".repeat(1_000));
+      expect(Math.abs(wide - ascii)).toBeLessThanOrEqual(1);
+    });
+
+    it("should keep every character of a wide value", () => {
+      const value = "日本語a".repeat(60);
+      const { log, recorder } = setup([{ ...makeEntry(0), value }], REGION_500);
+      recorder.clear();
+      log.render();
+      const drawn = recorder.lower2d.calls
+        .filter(({ op }) => op === "fillText")
+        .map(({ args }) => String(args[0]))
+        .filter((text) => /[日本語]/.test(text));
+      expect(drawn.length).toBeGreaterThan(1);
+      expect(drawn.join("")).toBe(value);
+    });
+  });
+
+  describe("scrolling through a wrapped value", () => {
+    const LONG = Array.from({ length: 2_000 }, (_, i) => `w${i}`).join(" ");
+    const pausedRows = (wheelPos: number) => {
+      const entries = [makeEntry(0), { ...makeEntry(1), value: LONG }, makeEntry(2)];
+      const { log, recorder, updateState } = setup(entries);
+      updateState({ empty: false, wheelPos: 0 });
+      updateState({ empty: false, wheelPos: 0, scrolling: true });
+      for (let wheel = 0; wheel <= wheelPos; wheel += log.lineHeight)
+        updateState({ empty: false, wheelPos: wheel, scrolling: true });
+      recorder.clear();
+      log.render();
+      return {
+        log,
+        recorder,
+        updateState,
+        texts: recorder.lower2d.calls
+          .filter(({ op }) => op === "fillText")
+          .map(({ args }) => String(args[0])),
+      };
+    };
+
+    it("should show the end of the value before scrolling", () => {
+      const { texts } = pausedRows(0);
+      expect(texts.some((t) => t.includes("w1999"))).toBe(true);
+      expect(texts.some((t) => t.startsWith("w0 "))).toBe(false);
+    });
+
+    it("should reach the start of the value by scrolling row by row", () => {
+      const { texts } = pausedRows(100_000);
+      expect(texts.some((t) => t.startsWith("w0 "))).toBe(true);
+    });
+
+    it("should draw a thumb that moves through one value", () => {
+      const thumbY = (wheelPos: number): number | undefined => {
+        const { recorder } = pausedRows(wheelPos);
+        return findThumb(recorder)?.y;
+      };
+      const [bottom, top] = [thumbY(0), thumbY(100_000)];
+      expect(bottom).toBeDefined();
+      expect(top).toBeLessThan(bottom!);
+    });
+
+    it("should keep scrolling after a resize shrinks the value", () => {
+      const { log, updateState } = pausedRows(100_000);
+      const { tail } = log.scrollState;
+      expect(tail).toBeGreaterThan(0);
+      log.entries[1] = { ...log.entries[1], value: "short" };
+      updateState({
+        empty: false,
+        wheelPos: 100_000 + log.lineHeight,
+        scrolling: true,
+      });
+      expect(log.scrollState.tail).toBe(0);
+    });
+
+    it("should show the entries of a log mounted paused", () => {
+      const { log } = setup([makeEntry(0), makeEntry(1)], REGION_500, {
+        scrolling: true,
+      });
+      log.render();
+      expect(log.state.rowEntries).toContain(1);
+    });
+
+    it("should show entries that reach a log mounted paused", () => {
+      const { log, source } = setup([], REGION_500, { scrolling: true });
+      source.setEntries([makeEntry(0), makeEntry(1)]);
+      source.notify();
+      log.render();
+      expect(log.state.rowEntries).toContain(1);
+    });
+
+    it("should reach the entry above the value", () => {
+      const { log } = pausedRows(100_000);
+      expect(log.state.rowEntries[0]).toBe(0);
     });
   });
 
@@ -1122,21 +1333,9 @@ describe("log/aether/Log", () => {
   });
 
   describe("render scrollbar", () => {
-    const SCROLLBAR_WIDTH = 6;
     // The log never sits at the top left of the window, and the thumb is positioned in
     // canvas coordinates, so an offset region is the case that matters.
     const REGION_OFFSET = box.construct({ x: 20, y: 200 }, { width: 400, height: 500 });
-
-    // The thumb is the only rounded rect drawn at the scrollbar width; selection bands
-    // are unrounded and span the full region.
-    const findThumb = (recorder: ReturnType<typeof canvasTest.record>) => {
-      const call = recorder.lower2d.calls.findLast(
-        ({ op, args }) => op === "roundRect" && args[2] === SCROLLBAR_WIDTH,
-      );
-      if (call == null) return null;
-      const [x, y, width, height] = call.args as number[];
-      return { x, y, width, height };
-    };
 
     // Enters scrollback pinned to the bottom, then scrolls up by wheelPos.
     const scrollTo = (

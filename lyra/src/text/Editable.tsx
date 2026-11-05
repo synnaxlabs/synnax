@@ -20,6 +20,7 @@ import {
 import { CSS as PCSS } from "@/css";
 import { useCombinedRefs, useSyncedRef } from "@/hooks/ref";
 import { type Input } from "@/input";
+import { paintHighlight } from "@/text/highlight";
 import { Text, type TextProps } from "@/text/Text";
 import { triggerReflow } from "@/util/reflow";
 
@@ -123,6 +124,7 @@ export const Editable = ({
   allowEmpty = false,
   style,
   outline = true,
+  highlight,
   ...rest
 }: EditableProps): ReactElement => {
   const [editable, setEditable] = useState(false);
@@ -138,6 +140,9 @@ export const Editable = ({
   // repaints from value, which still carries the old text until the caller's write
   // lands, so the committed text stands in until value moves off what it replaced.
   const committedRef = useRef<{ text: string; replaced: string } | null>(null);
+  // Enter and Escape give the focus back here, such as to a list that answers the arrow
+  // keys.
+  const returnFocusRef = useRef<HTMLElement | null>(null);
 
   // Writing modes like vertical-rl do not lay out again when the value or the inline
   // size changes, so a change forces a reflow.
@@ -202,7 +207,8 @@ export const Editable = ({
     if (ref.current == null) return;
     setEditable(false);
     handleUpdate(el, e.key === "Escape");
-    el.blur();
+    returnFocusRef.current?.focus({ preventScroll: true });
+    if (document.activeElement === el) el.blur();
   };
 
   const handleKeyUp = (e: KeyboardEvent<HTMLDivElement>): void => e.preventDefault();
@@ -211,6 +217,10 @@ export const Editable = ({
     if (ref.current == null || !editable) return;
     triggerReflow(ref.current);
     const { current: el } = ref;
+    // An edit runs over plain text, so the tint marks go.
+    el.replaceChildren(el.textContent);
+    const active = document.activeElement;
+    returnFocusRef.current = active instanceof HTMLElement ? active : null;
     el.focus();
     const range = document.createRange();
     range.selectNodeContents(el);
@@ -224,10 +234,10 @@ export const Editable = ({
     if (ref.current == null || editable) return;
     const { current: committed } = committedRef;
     if (committed != null && value === committed.replaced)
-      ref.current.textContent = committed.text;
+      paintHighlight(ref.current, committed.text, highlight);
     else {
       committedRef.current = null;
-      ref.current.textContent = value;
+      paintHighlight(ref.current, value, highlight);
     }
   });
 
