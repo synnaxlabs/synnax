@@ -148,7 +148,7 @@ const TreeItem = Tree.createItem({
   icon: <Icon.Range />,
   useOnSelect,
   children: ({ client, id }) => [
-    Tree.createSource(client.ranges.children, id.key, toResource),
+    Tree.createSource(client.ranges, { parents: [id.key] }, toResource),
   ],
   canDrop: () => true,
   haulItems,

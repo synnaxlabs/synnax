@@ -250,7 +250,7 @@ var _ = Describe("Group", Ordered, func() {
 			parent := create(ctx, "children-parent", nil)
 			a := create(ctx, "children-a", &parent)
 			b := create(ctx, "children-b", &parent)
-			Expect(svc.Children(nil, parent.Key)).
+			Expect(svc.Children(ctx, nil, parent.Key)).
 				To(ConsistOf(a.ResourceID(), b.ResourceID()))
 		})
 	})

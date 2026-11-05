@@ -167,7 +167,7 @@ func childrenOf(ctx SpecContext, id resource.ID) []ontology.Resource {
 		}
 	} else {
 		key := MustSucceed(group.KeyFromResourceID(id))
-		ids = MustSucceed(groupSvc.Children(tx, key))
+		ids = MustSucceed(groupSvc.Children(ctx, tx, key))
 	}
 	if len(ids) == 0 {
 		return nil
@@ -181,7 +181,7 @@ func childrenOf(ctx SpecContext, id resource.ID) []ontology.Resource {
 // descendants returns every group and member that sits under the group with key.
 func descendants(ctx SpecContext, key group.Key) []resource.ID {
 	GinkgoHelper()
-	children := MustSucceed(groupSvc.Children(tx, key))
+	children := MustSucceed(groupSvc.Children(ctx, tx, key))
 	out := slices.Clone(children)
 	for _, c := range children {
 		if c.Type == resource.TypeGroup {

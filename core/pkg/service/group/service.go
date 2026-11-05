@@ -176,8 +176,12 @@ func (s *Service) Ancestors(
 
 // Children returns the ID of every record and group that sits in the group with key, as
 // seen by tx.
-func (s *Service) Children(tx gorp.Tx, key Key) ([]resource.ID, error) {
-	deps, err := s.table.Dependents(gorp.OverrideTx(s.cfg.DB, tx), key)
+func (s *Service) Children(
+	ctx context.Context,
+	tx gorp.Tx,
+	key Key,
+) ([]resource.ID, error) {
+	deps, err := s.table.Dependents(ctx, gorp.OverrideTx(s.cfg.DB, tx), key)
 	if err != nil {
 		return nil, err
 	}
@@ -350,7 +354,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	if err := w.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Group](keys...)).
 		Guard(func(ctx gorp.Context, g Group) error {
-			deps, err := w.table.Dependents(ctx.Tx, g.Key)
+			deps, err := w.table.Dependents(ctx, ctx.Tx, g.Key)
 			if err != nil {
 				return err
 			}

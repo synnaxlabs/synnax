@@ -27,8 +27,8 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// createImportGroup creates a symbol group in the per-spec tx and returns its key.
-func createImportGroup(ctx context.Context) *group.Key {
+// createImportGroup creates a symbol group in tx and returns its key.
+func createImportGroup(ctx context.Context, tx gorp.Tx) *group.Key {
 	GinkgoHelper()
 	g := group.Group{Name: "Imported", Scope: resource.TypeSchematicSymbol}
 	Expect(groupSvc.NewWriter(tx).Create(ctx, &g)).To(Succeed())
@@ -120,7 +120,7 @@ var _ = Describe("ImEx", func() {
 				res := importAndRetrieve(
 					ctx,
 					"versions/testdata/import_v2.json",
-					createImportGroup(ctx),
+					createImportGroup(ctx, tx),
 				)
 				Expect(res.Name).To(Equal("Server Symbol"))
 				Expect(res.Data.SVG).To(Equal("<svg><rect/></svg>"))
@@ -146,7 +146,7 @@ var _ = Describe("ImEx", func() {
 				res := importAndRetrieve(
 					ctx,
 					"versions/testdata/import_console.json",
-					createImportGroup(ctx),
+					createImportGroup(ctx, tx),
 				)
 				Expect(res.Name).To(Equal("Console Symbol"))
 				Expect(res.Data.Variant).To(Equal("sensor"))
@@ -167,7 +167,7 @@ var _ = Describe("ImEx", func() {
 		)
 
 		It("Should put the imported symbol in the given group", func(ctx SpecContext) {
-			g := createImportGroup(ctx)
+			g := createImportGroup(ctx, tx)
 			res := importAndRetrieve(ctx, "versions/testdata/import_v2.json", g)
 			Expect(res.Group).To(Equal(g))
 		})
@@ -190,7 +190,7 @@ var _ = Describe("ImEx", func() {
 			func(ctx SpecContext) {
 				Expect(imexSvc.Import(ctx, tx,
 					LoadEnvelope("versions/testdata/import_bad_version.json"),
-					imex.ImportOptions{Group: createImportGroup(ctx)},
+					imex.ImportOptions{Group: createImportGroup(ctx, tx)},
 				)).Error().To(SatisfyAll(
 					MatchError(ContainSubstring("schematic_symbol version 99")),
 					MatchError(ContainSubstring("newer than this Core supports")),
@@ -207,7 +207,7 @@ var _ = Describe("ImEx", func() {
 					LoadEnvelope(
 						"versions/testdata/import_v2.json",
 					),
-					imex.ImportOptions{Group: createImportGroup(ctx)},
+					imex.ImportOptions{Group: createImportGroup(ctx, tx)},
 				))
 				Expect(id.Key).ToNot(Equal("11111111-2222-3333-4444-555555555555"))
 			},
@@ -237,7 +237,7 @@ var _ = Describe("ImEx", func() {
 					ctx,
 					tx,
 					WireRoundTrip(env),
-					imex.ImportOptions{Group: createImportGroup(ctx)},
+					imex.ImportOptions{Group: createImportGroup(ctx, tx)},
 				))
 				key := MustSucceed(uuid.Parse(id.Key))
 				Expect(key).ToNot(Equal(original.Key))

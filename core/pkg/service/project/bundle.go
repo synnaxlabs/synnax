@@ -262,7 +262,7 @@ func (w *bundleWalk) children(
 		if err != nil {
 			return nil, err
 		}
-		if ids, err = w.svc.cfg.Group.Children(w.tx, key); err != nil {
+		if ids, err = w.svc.cfg.Group.Children(ctx, w.tx, key); err != nil {
 			return nil, err
 		}
 	}
@@ -298,7 +298,7 @@ func (s *Service) groupedMembers(
 		}
 		next = next[:0]
 		for _, g := range groups {
-			children, err := s.cfg.Group.Children(tx, g.Key)
+			children, err := s.cfg.Group.Children(ctx, tx, g.Key)
 			if err != nil {
 				return nil, err
 			}
