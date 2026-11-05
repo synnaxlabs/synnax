@@ -246,6 +246,29 @@ var _ = Describe("Factory", func() {
 				Expect(tsk.Stop(true)).To(Succeed())
 			})
 
+			It("Should answer the start command when an auto-start fails",
+				func(ctx context.Context) {
+					short := createRoutingKey(ctx, "tooshort")
+					t := storeTask(ctx, "PagerDuty Test", pd.TaskConfig{
+						AutoStart:  true,
+						RoutingKey: &short,
+						Alerts:     []pd.Alert{{Status: "test-status"}},
+					})
+					Expect(factory.ConfigureTask(ctx, t, "cmd-1")).Error().
+						To(MatchError(ContainSubstring(
+							"routing_key: must be exactly 32 characters",
+						)))
+					var stat task.Status
+					Expect(statusSvc.NewRetrieve[task.StatusDetails]().
+						Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+						Entry(&stat).Exec(ctx, nil)).To(Succeed())
+					Expect(stat.Variant).To(BeEquivalentTo("error"))
+					Expect(stat.Message).To(Equal("Failed to start task"))
+					Expect(stat.Details.Cmd).To(Equal("cmd-1"))
+					Expect(stat.Details.Running).To(BeFalse())
+				},
+			)
+
 			It("Should not write a status for an invalid config at boot",
 				func(ctx context.Context) {
 					cfg := encodeConfig(pd.TaskConfig{
