@@ -239,6 +239,36 @@ describe("connection", () => {
       await client.close();
     });
 
+    it("should read now behind the local clock when the Core runs behind", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const unary = mockUnary(() => TimeStamp.now().sub(TimeSpan.hours(1)));
+      const client = createClient(unary);
+      await client.connect(TimeSpan.seconds(5));
+      const now = client.now();
+      expect(now.before(TimeStamp.now().sub(TimeSpan.minutes(59)))).toBe(true);
+      expect(now.after(TimeStamp.now().sub(TimeSpan.minutes(61)))).toBe(true);
+      await client.close();
+      warn.mockRestore();
+    });
+
+    it("should read now ahead of the local clock when the Core runs ahead", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const unary = mockUnary(() => TimeStamp.now().add(TimeSpan.hours(1)));
+      const client = createClient(unary);
+      await client.connect(TimeSpan.seconds(5));
+      const now = client.now();
+      expect(now.after(TimeStamp.now().add(TimeSpan.minutes(59)))).toBe(true);
+      expect(now.before(TimeStamp.now().add(TimeSpan.minutes(61)))).toBe(true);
+      await client.close();
+      warn.mockRestore();
+    });
+
+    it("should read now on the local clock before the first check", async () => {
+      const client = createClient(mockUnary(() => TimeStamp.now()));
+      expect(TimeStamp.now().span(client.now()).milliseconds).toBeLessThan(100);
+      await client.close();
+    });
+
     it("should not flag skew within half the round trip", () => {
       const config = createConfig({ clockSkewThreshold: TimeSpan.seconds(1) });
       const status = apply(config, {

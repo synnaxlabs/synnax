@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
 import { connection } from "@/connection";
@@ -28,6 +29,7 @@ const createClient = (info: license.Info): license.Client =>
       status: connection.DEFAULT_STATUS,
       onChange: () => () => {},
       retryNow: vi.fn(),
+      now: () => TimeStamp.now(),
     },
     cache: new query.Cache({ openStreamer: null }),
   });
