@@ -24,7 +24,6 @@ import {
   rename as renameAction,
   scopedActionZ,
 } from "@/arc/actions.gen";
-import { type Condition } from "@/arc/builder.gen";
 import { type Performance, performanceZ } from "@/arc/task/types.gen";
 import {
   type Arc,
@@ -122,7 +121,6 @@ export interface ClientConfig {
 }
 
 export class Client extends query.Retriever<
-  Condition,
   typeof retrieveMultiParamsZ,
   Key,
   Arc,
@@ -170,7 +168,6 @@ export class Client extends query.Retriever<
     super(cache, {
       name: "Arc",
       table: store,
-      names: { key: keyZ },
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) =>

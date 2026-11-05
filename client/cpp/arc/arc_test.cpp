@@ -9,7 +9,6 @@
 
 #include <functional>
 #include <random>
-#include <set>
 #include <string>
 
 #include <include/gtest/gtest.h>
@@ -74,7 +73,7 @@ TEST(TestArc, testRetrieveByName) {
     auto created = Arc{.name = name, .mode = MODE_TEXT};
     ASSERT_NIL(client.arcs.create(created));
 
-    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve(name));
+    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_name(name));
     ASSERT_EQ(retrieved.key, created.key);
     ASSERT_EQ(retrieved.name, name);
 }
@@ -85,7 +84,7 @@ TEST(TestArc, testRetrieveByKey) {
     auto created = Arc{.name = "key_test", .mode = MODE_TEXT};
     ASSERT_NIL(client.arcs.create(created));
 
-    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve(created.key));
+    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_key(created.key));
     ASSERT_EQ(retrieved.key, created.key);
     ASSERT_EQ(retrieved.name, "key_test");
 }
@@ -115,39 +114,8 @@ TEST(TestArc, testRetrieveByKeys) {
     ASSERT_NIL(client.arcs.create(arcs));
 
     std::vector<x::uuid::UUID> keys = {arcs[0].key, arcs[1].key};
-    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve(keys));
+    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_keys(keys));
     ASSERT_EQ(retrieved.size(), 2);
-}
-
-/// @brief it should retrieve the Arc programs that match every condition.
-TEST(TestArc, testRetrieveConditions) {
-    const auto client = new_test_client();
-    const auto prefix = random_arc_name("cond");
-    auto arcs = std::vector<Arc>{
-        Arc{.name = prefix + "_a", .mode = MODE_TEXT},
-        Arc{.name = prefix + "_b", .mode = MODE_TEXT},
-        Arc{.name = prefix + "_c", .mode = MODE_TEXT},
-    };
-    ASSERT_NIL(client.arcs.create(arcs));
-    const auto retrieved = ASSERT_NIL_P(client.arcs.retrieve(
-        arc::name.starts_with(prefix),
-        arc::not_(arc::key.eq(arcs[1].key))
-    ));
-    std::set<std::string> names;
-    for (const auto &a: retrieved)
-        names.insert(a.name);
-    ASSERT_EQ(names, (std::set<std::string>{arcs[0].name, arcs[2].name}));
-}
-
-/// @brief it should retrieve one Arc program that matches every condition.
-TEST(TestArc, testRetrieveOne) {
-    const auto client = new_test_client();
-    auto created = Arc{.name = random_arc_name("one"), .mode = MODE_TEXT};
-    ASSERT_NIL(client.arcs.create(created));
-    const auto retrieved = ASSERT_NIL_P(
-        client.arcs.retrieve(arc::name.eq(created.name), arc::one())
-    );
-    ASSERT_EQ(retrieved.key, created.key);
 }
 
 /// @brief it should retrieve the Arc programs that match a filter tree.
@@ -182,7 +150,7 @@ TEST(TestArc, testDelete) {
 
     ASSERT_NIL(client.arcs.del(arc.key));
 
-    ASSERT_OCCURRED_AS_P(client.arcs.retrieve(arc.key), x::errors::NOT_FOUND);
+    ASSERT_OCCURRED_AS_P(client.arcs.retrieve_by_key(arc.key), x::errors::NOT_FOUND);
 }
 
 /// @brief it should delete multiple Arc programs by keys.
@@ -197,7 +165,7 @@ TEST(TestArc, testDeleteMany) {
     std::vector<x::uuid::UUID> keys = {arcs[0].key, arcs[1].key};
     ASSERT_NIL(client.arcs.del(keys));
 
-    ASSERT_TRUE(ASSERT_NIL_P(client.arcs.retrieve(keys)).empty());
+    ASSERT_TRUE(ASSERT_NIL_P(client.arcs.retrieve_by_keys(keys)).empty());
 }
 
 /// @brief it should handle the program field correctly.
@@ -208,7 +176,7 @@ TEST(TestArc, testProgramField) {
 
     ASSERT_NIL(client.arcs.create(arc));
 
-    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve(arc.key));
+    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_key(arc.key));
     ASSERT_EQ(retrieved.key, arc.key);
     ASSERT_FALSE(retrieved.program.has_value());
 }
@@ -242,9 +210,9 @@ func calc() {val f32} f32 {
 
     ASSERT_NIL(client.arcs.create(arc));
 
-    auto retrieved = ASSERT_NIL_P(
-        client.arcs.retrieve(arc.key, arc::include_program())
-    );
+    RetrieveOptions options;
+    options.include_program = true;
+    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_key(arc.key, options));
     ASSERT_EQ(retrieved.key, arc.key);
 
     // Verify the module was compiled - should have WASM bytes
@@ -296,9 +264,12 @@ sequence main {
 
     ASSERT_NIL(client.arcs.create(arc));
 
-    auto retrieved = ASSERT_NIL_P(
-        client.arcs.retrieve(arc.key, synnax::arc::include_program())
-    );
+    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_key(
+        arc.key,
+        synnax::arc::RetrieveOptions{
+            .include_program = true,
+        }
+    ));
     ASSERT_FALSE(retrieved.program.value().wasm.empty());
 
     bool found_interval = false;

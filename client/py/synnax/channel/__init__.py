@@ -7,21 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from synnax.channel.builder_gen import (
-    Condition,
-    and_,
-    data_type,
-    internal,
-    is_index,
-    key,
-    leaseholder,
-    name,
-    name_patterns,
-    not_,
-    or_,
-    virtual,
-    where,
-)
 from synnax.channel.client import Channel, Client
 from synnax.channel.payload import (
     Key,
@@ -38,7 +23,6 @@ from synnax.channel.writer import Writer
 __all__ = [
     "Channel",
     "Client",
-    "Condition",
     "Key",
     "NormalizedKeyResult",
     "NormalizedNameResult",
@@ -48,19 +32,7 @@ __all__ = [
     "Retriever",
     "Where",
     "Writer",
-    "and_",
-    "data_type",
     "has_params",
-    "internal",
-    "is_index",
-    "key",
-    "leaseholder",
-    "name",
-    "name_patterns",
     "normalize_params",
-    "not_",
-    "or_",
     "retrieve_required",
-    "virtual",
-    "where",
 ]

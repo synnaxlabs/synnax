@@ -11,7 +11,6 @@
 
 #include <string>
 
-#include "client/cpp/channel/builder.gen.h"
 #include "client/cpp/channel/types.gen.h"
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/telem/telem.h"
@@ -106,98 +105,54 @@ public:
         bool is_virtual = true
     ) const;
 
-    /// @brief Retrieves the channel with the given key, with each include option in
-    /// includes applied.
-    /// @returns the channel, or a NOT_FOUND error when no channel has the key.
-    template<typename... Includes>
-        requires x::filter::includes<RetrieveRequest, Includes...>
+    /// @brief retrieves a channel with the given name.
+    /// @param name the name of the channel to retrieve. A name that is not a valid
+    /// channel name is a regular expression, anchored when unanchored.
+    /// @throws QueryError if the channel does not exist or multiple channels with
+    /// the same name exist.
+    /// @returns the retrieved channel.
+    /// @returns a pair containing the retrieved channel and an error where ok() is
+    /// false if the channel could not be retrieved. In the case of an error, the
+    /// returned channel will be invalid. Use err.message() to get the error message
+    /// or err.type to get the error type.
     [[nodiscard]] std::pair<Channel, x::errors::Error>
-    retrieve(const Key &key, Includes... includes) const {
-        return this->retrieve_one(
-            x::filter::request<Where, RetrieveRequest>(
-                channel::key.eq(key),
-                includes...
-            ),
-            "key " + std::to_string(key)
-        );
-    }
+    retrieve(const std::string &name) const;
 
-    /// @brief Retrieves the channel with the given name, with each include option in
-    /// includes applied. A name that is not a valid channel name is a regular
-    /// expression, anchored when unanchored.
-    /// @returns the channel, or an error when no channel or more than one channel has
-    /// the name.
-    template<typename... Includes>
-        requires x::filter::includes<RetrieveRequest, Includes...>
+    /// @brief retrieves a channel with the given key.
+    /// @param key the key of the channel to retrieve.
+    /// @throws QueryError if the channel does not exist.
+    /// @returns the retrieved channel.
+    /// @returns a pair containing the retrieved channel and an error where ok() is
+    /// false if the channel could not be retrieved. In the case of an error, the
+    /// returned channel will be invalid. Use err.message() to get the error message
+    /// or err.type to get the error type.
     [[nodiscard]] std::pair<Channel, x::errors::Error>
-    retrieve(const std::string &name, Includes... includes) const {
-        return this->retrieve_one(
-            x::filter::request<Where, RetrieveRequest>(
-                channel::name_patterns.has(name),
-                includes...
-            ),
-            "name " + name
-        );
-    }
+    retrieve(std::uint32_t key) const;
 
-    /// @brief Retrieves the channels with the given keys, with each include option in
-    /// includes applied. The channels come in the order of keys, and a key that no
-    /// channel has is a NOT_FOUND error.
-    template<typename... Includes>
-        requires x::filter::includes<RetrieveRequest, Includes...>
+    /// @brief retrieves channels with the given names.
+    /// @param names the names of the channels to retrieve. A valid channel name matches
+    /// exactly, and any other name is a regular expression, anchored when unanchored.
+    /// @returns all channels matching the given names. If a channel matching a
+    /// name, does not exist, it will not be in the returned vector.
+    /// @returns a pair containing the retrieved channels and an error where ok() is
+    /// false if the channels could not be retrieved. In the case of an error, the
+    /// returned channels will be invalid. Use err.message() to get the error
+    /// message
     [[nodiscard]] std::pair<std::vector<Channel>, x::errors::Error>
-    retrieve(const std::vector<Key> &keys, Includes... includes) const {
-        return this->retrieve_keys(
-            x::filter::request<Where, RetrieveRequest>(
-                channel::key.in(keys),
-                includes...
-            ),
-            keys
-        );
-    }
+    retrieve(const std::vector<std::string> &names) const;
 
-    /// @brief Retrieves the channels with the given names, with each include option in
-    /// includes applied. A valid channel name matches exactly, and any other name is a
-    /// regular expression, anchored when unanchored.
-    template<typename... Includes>
-        requires x::filter::includes<RetrieveRequest, Includes...>
+    /// @brief retrieves channels with the given keys.
+    /// @param keys the keys of the channels to retrieve.
+    /// @returns the channels in the order of keys, and a NOT_FOUND error that names
+    /// every key without a channel.
     [[nodiscard]] std::pair<std::vector<Channel>, x::errors::Error>
-    retrieve(const std::vector<std::string> &names, Includes... includes) const {
-        return this->retrieve(
-            x::filter::request<Where, RetrieveRequest>(
-                channel::name_patterns.has_any(names),
-                includes...
-            )
-        );
-    }
+    retrieve(const std::vector<Key> &keys) const;
 
     /// @brief retrieves the channels that req selects.
     [[nodiscard]] std::pair<std::vector<Channel>, x::errors::Error>
     retrieve(const RetrieveRequest &req) const;
 
-    /// @brief Retrieves the channels that match every condition in parts, with each
-    /// option in parts applied.
-    /// @returns the channels, or one channel when parts end with channel::one(). One
-    /// channel is an error when no channel or more than one channel matches.
-    template<typename... Parts>
-        requires x::filter::parts<Where, RetrieveRequest, Parts...>
-    [[nodiscard]] auto retrieve(Parts... parts) const {
-        const auto req = x::filter::request<Where, RetrieveRequest>(
-            std::move(parts)...
-        );
-        if constexpr (x::filter::returns_one<Parts...>)
-            return this->retrieve_one(req, x::filter::describe(req.where));
-        else
-            return this->retrieve(req);
-    }
-
 private:
-    [[nodiscard]] std::pair<Channel, x::errors::Error>
-    retrieve_one(const RetrieveRequest &req, const std::string &query) const;
-
-    [[nodiscard]] std::pair<std::vector<Channel>, x::errors::Error>
-    retrieve_keys(const RetrieveRequest &req, const std::vector<Key> &keys) const;
-
     /// @brief transport for retrieving channels.
     std::shared_ptr<RetrieveClient> retrieve_client;
     /// @brief transport for creating channels.

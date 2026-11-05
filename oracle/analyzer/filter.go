@@ -36,15 +36,6 @@ const (
 // treeFields are the fields every expanded filter starts with.
 var treeFields = []string{"and", "or", "not"}
 
-// builderNames are the names that the generated builders declare, so a line cannot take
-// them. A line also cannot start with includePrefix. The checks compare snake_case
-// names, since each generator converts the case of a line.
-var builderNames = []string{
-	"where", "limit", "offset", "search", "one", "filter", "builder",
-}
-
-const includePrefix = "include_"
-
 // collectFilter registers a filter definition as a struct holding the tree fields and
 // the typed lines. expandFilters adds the bare lines once the target resolves.
 func collectFilter(c *analysisCtx, def parser.IFilterDefContext) {
@@ -94,26 +85,15 @@ func collectFilter(c *analysisCtx, def parser.IFilterDefContext) {
 			if !ok {
 				continue
 			}
-			snake := casing.TypeSnake(line.Name)
-			if names.Contains(snake) {
+			if names.Contains(line.Name) {
 				msg := "filter %s: duplicate line %q"
-				if slices.Contains(treeFields, snake) {
+				if slices.Contains(treeFields, line.Name) {
 					msg = "filter %s: %q is reserved for the tree"
 				}
 				c.report(diagnostics.Errorf(fd, msg, name, line.Name))
 				continue
 			}
-			if slices.Contains(builderNames, snake) ||
-				strings.HasPrefix(snake, includePrefix) {
-				c.report(diagnostics.Errorf(
-					fd,
-					"filter %s: %q is reserved for the builder",
-					name,
-					line.Name,
-				))
-				continue
-			}
-			names.Add(snake)
+			names.Add(line.Name)
 			filter.Lines = append(filter.Lines, line)
 			if line.HasType() {
 				form.Fields = append(form.Fields, lineField(line, line.Type))

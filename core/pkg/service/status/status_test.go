@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/search"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -410,7 +411,7 @@ var _ = Describe("Status", Ordered, func() {
 							Entries(&statuses).
 							Exec(ctx, tx),
 					).To(Succeed())
-					Expect(len(statuses)).To(BeNumerically(">", 1))
+					Expect(statuses).To(HaveLen(1))
 					Expect(statuses[0].Key).To(Equal("retrieve-a"))
 				},
 			)
@@ -819,9 +820,11 @@ var _ = Describe("Status", Ordered, func() {
 			func(ctx SpecContext) {
 				a := create(ctx, "a", "turbopump test")
 				b := create(ctx, "b", "turbopump")
-				Expect(MustSucceed(svc.Search(ctx, db, "turbopump", 0)).Keys).
+				q := search.Query[ontology.ID]{Term: "turbopump"}
+				Expect(MustSucceed(svc.Search(ctx, db, q)).Keys).
 					To(Equal([]ontology.ID{b, a}))
-				Expect(MustSucceed(svc.Search(ctx, db, "turbopump", 1)).Keys).
+				q.Limit = 1
+				Expect(MustSucceed(svc.Search(ctx, db, q)).Keys).
 					To(Equal([]ontology.ID{b}))
 			},
 		)
@@ -829,9 +832,11 @@ var _ = Describe("Status", Ordered, func() {
 		It("Should match a renamed status by its new name", func(ctx SpecContext) {
 			id := create(ctx, "c", "cryogenic")
 			Expect(svc.NewWriter(nil).Rename(ctx, "c", "hydraulic")).To(Succeed())
-			Expect(MustSucceed(svc.Search(ctx, db, "hydraulic", 0)).Keys).
+			q := search.Query[ontology.ID]{Term: "hydraulic"}
+			Expect(MustSucceed(svc.Search(ctx, db, q)).Keys).
 				To(Equal([]ontology.ID{id}))
-			Expect(MustSucceed(svc.Search(ctx, db, "cryogenic", 0)).Keys).
+			q = search.Query[ontology.ID]{Term: "cryogenic"}
+			Expect(MustSucceed(svc.Search(ctx, db, q)).Keys).
 				To(BeEmpty())
 		})
 	})

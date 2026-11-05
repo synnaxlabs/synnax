@@ -9,7 +9,6 @@
 
 export * from "@/arc/actions";
 export * from "@/arc/actions.gen";
-export * from "@/arc/builder.gen";
 export * from "@/arc/client";
 export * from "@/arc/compiler";
 export * from "@/arc/graph";

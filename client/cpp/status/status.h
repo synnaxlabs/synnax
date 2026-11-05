@@ -14,7 +14,6 @@
 #include <vector>
 
 #include "client/cpp/errors/errors.h"
-#include "client/cpp/status/builder.gen.h"
 #include "client/cpp/status/json.gen.h"
 #include "client/cpp/status/proto.gen.h"
 #include "client/cpp/status/types.gen.h"
@@ -126,33 +125,40 @@ public:
         return x::errors::NIL;
     }
 
-    /// @brief Retrieves the status with the given key, with each include option in
-    /// includes applied.
-    /// @returns the status, or a NOT_FOUND error when no status has the key.
-    template<typename Details = x::json::json, typename... Includes>
-        requires x::filter::includes<RetrieveRequest, Includes...>
+    /// @brief Retrieves a status with the given key.
+    /// @tparam Details The type of custom details expected in the retrieved status.
+    /// @param key The key of the status to retrieve.
+    /// @returns A pair containing the retrieved status and an error where ok() is
+    /// false if the status could not be retrieved. In the case of an error, the
+    /// returned status will be invalid. Use err.message() to get the error message
+    /// or err.type to get the error type.
+    template<typename Details = x::json::json>
     [[nodiscard]] std::pair<synnax::status::Status<Details>, x::errors::Error>
-    retrieve(const std::string &key, Includes... includes) const {
-        return this->retrieve_one<Details>(
-            x::filter::request<Where, RetrieveRequest>(
-                status::key.eq(key),
-                includes...
-            ),
-            "key " + key
-        );
+    retrieve(const std::string &key) const {
+        auto [statuses, err] = this->retrieve<Details>(std::vector{key});
+        if (err) return {synnax::status::Status<Details>{}, err};
+        if (statuses.empty()) {
+            return {
+                synnax::status::Status<Details>(),
+                errors::not_found_error("status", "key " + key)
+            };
+        }
+        return {statuses[0], x::errors::NIL};
     }
 
-    /// @brief Retrieves the statuses with the given keys, with each include option in
-    /// includes applied. A key that no status has is left out.
-    template<typename Details = x::json::json, typename... Includes>
-        requires x::filter::includes<RetrieveRequest, Includes...>
+    /// @brief Retrieves statuses with the given keys.
+    /// @tparam Details The type of custom details expected in the retrieved statuses.
+    /// @param keys The keys of the statuses to retrieve.
+    /// @returns A pair containing all statuses matching the given keys and an error
+    /// where ok() is false if the statuses could not be retrieved. Statuses that
+    /// don't exist will not be in the returned vector.
+    template<typename Details = x::json::json>
     [[nodiscard]] std::
         pair<std::vector<synnax::status::Status<Details>>, x::errors::Error>
-        retrieve(const std::vector<std::string> &keys, Includes... includes) const {
-        return this->retrieve<Details>(x::filter::request<Where, RetrieveRequest>(
-            status::key.in(keys),
-            includes...
-        ));
+        retrieve(const std::vector<std::string> &keys) const {
+        return this->retrieve<Details>(
+            RetrieveRequest{.where = Where{.key = x::filter::Set<Key>{.in = keys}}}
+        );
     }
 
     /// @brief Retrieves the statuses that req selects.
@@ -180,22 +186,6 @@ public:
             statuses.push_back(decoded);
         }
         return {statuses, x::errors::NIL};
-    }
-
-    /// @brief Retrieves the statuses that match every condition in parts, with each
-    /// option in parts applied.
-    /// @returns the statuses, or one status when parts end with status::one(). One
-    /// status is an error when no status or more than one status matches.
-    template<typename Details = x::json::json, typename... Parts>
-        requires x::filter::parts<Where, RetrieveRequest, Parts...>
-    [[nodiscard]] auto retrieve(Parts... parts) const {
-        const auto req = x::filter::request<Where, RetrieveRequest>(
-            std::move(parts)...
-        );
-        if constexpr (x::filter::returns_one<Parts...>)
-            return this->retrieve_one<Details>(req, x::filter::describe(req.where));
-        else
-            return this->retrieve<Details>(req);
     }
 
     /// @brief Deletes a status with the given key.
@@ -249,24 +239,6 @@ public:
     }
 
 private:
-    template<typename Details>
-    [[nodiscard]] std::pair<synnax::status::Status<Details>, x::errors::Error>
-    retrieve_one(const RetrieveRequest &req, const std::string &query) const {
-        auto [statuses, err] = this->retrieve<Details>(req);
-        if (err) return {synnax::status::Status<Details>{}, err};
-        if (statuses.empty())
-            return {
-                synnax::status::Status<Details>{},
-                errors::not_found_error("status", query)
-            };
-        if (statuses.size() > 1)
-            return {
-                synnax::status::Status<Details>{},
-                errors::multiple_found_error("statuses", query)
-            };
-        return {std::move(statuses[0]), x::errors::NIL};
-    }
-
     std::shared_ptr<RetrieveClient> retrieve_client;
     std::shared_ptr<SetClient> set_client;
     std::shared_ptr<DeleteClient> delete_client;

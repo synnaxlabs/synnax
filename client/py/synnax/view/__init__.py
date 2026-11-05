@@ -7,16 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from synnax.view.builder_gen import (
-    Condition,
-    and_,
-    key,
-    name,
-    not_,
-    or_,
-    type,
-    where,
-)
 from synnax.view.client import Client
 from synnax.view.types_gen import (
     ONTOLOGY_TYPE,
@@ -32,19 +22,11 @@ from synnax.view.types_gen import (
 __all__ = [
     "ONTOLOGY_TYPE",
     "Client",
-    "Condition",
     "Key",
     "RangeView",
     "StatusView",
     "Type",
     "View",
     "Where",
-    "and_",
-    "key",
-    "name",
-    "not_",
     "ontology_id",
-    "or_",
-    "type",
-    "where",
 ]

@@ -11,6 +11,7 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import {
   array,
   color,
+  type CrudeTimeRange,
   deep,
   type destructor,
   errors,
@@ -36,7 +37,6 @@ import {
 } from "@/ranger/actions.gen";
 import { alias } from "@/ranger/alias";
 import { Client as AliasClient } from "@/ranger/alias/client";
-import { type Condition } from "@/ranger/builder.gen";
 import { kv } from "@/ranger/kv";
 import { Client as KVClient } from "@/ranger/kv/client";
 import { type Name, type Params } from "@/ranger/payload";
@@ -412,7 +412,6 @@ export interface ClientConfig {
  * return sugared {@link Range}s, served from a cache a change stream keeps current.
  */
 export class Client extends query.Retriever<
-  Condition,
   typeof retrieveMultiParamsZ,
   Key,
   Range,
@@ -648,6 +647,18 @@ export class Client extends query.Retriever<
     drop();
   }
 
+  async retrieve(params: Key | Name): Promise<Range>;
+  async retrieve(
+    params: Key[] | Name[] | CrudeTimeRange | RetrieveMultipleParams,
+  ): Promise<Range[]>;
+  async retrieve(
+    params: Key | Name | Key[] | Name[] | CrudeTimeRange | RetrieveMultipleParams,
+  ): Promise<Range | Range[]> {
+    // The branches narrow params onto different base overloads.
+    if (typeof params === "string") return await super.retrieve(params);
+    return await super.retrieve(params);
+  }
+
   private async execRetrieve(req: RetrieveMultipleParams): Promise<Range[]> {
     const { ranges } = await this.cfg.unary.send(
       "/range/retrieve",
@@ -704,13 +715,6 @@ export class Client extends query.Retriever<
     this.writeRelationships(range);
   }
 
-  private hydrate(range: Range, since: query.Stamp): void {
-    if (this.store.status(range.key) === "tombstoned") return;
-    this.store.ingest(range, { since });
-    if (range.labels != null) this.cfg.labels.store.ingest(range.labels);
-    this.writeRelationships(range);
-  }
-
   private writeRelationships(range: Range): void {
     const id = ontologyID(range.key);
     if (range.labels != null)
@@ -738,13 +742,20 @@ export class Client extends query.Retriever<
     }
   }
 
-  // One batch per table, so each table flushes once.
+  // One batch per table, so each table flushes once. The ranges go first, so the
+  // relationship backfill finds parents in this response. A range written after since
+  // keeps that write, since the fetch predates it.
   private hydrateMany(ranges: Range[], since: query.Stamp): void {
     this.store.batch(() =>
       this.cfg.labels.store.batch(() =>
-        this.cfg.ontology.cache.relationships.batch(() =>
-          ranges.forEach((r) => this.hydrate(r, since)),
-        ),
+        this.cfg.ontology.cache.relationships.batch(() => {
+          this.store.ingest(ranges, { since });
+          ranges.forEach((r) => {
+            if (this.store.status(r.key) === "tombstoned") return;
+            if (r.labels != null) this.cfg.labels.store.ingest(r.labels);
+            this.writeRelationships(r);
+          });
+        }),
       ),
     );
   }
@@ -771,7 +782,7 @@ export class Client extends query.Retriever<
     const since = this.store.stamp();
     const ranges = await this.execRetrieve({ where: { name: { eq: query } } });
     checkForMultipleOrNoResults("Range", query, ranges, true);
-    this.hydrate(ranges[0], since);
+    this.hydrateMany(ranges, since);
     return ranges[0];
   }
 

@@ -20,7 +20,6 @@ import {
   rename as renameAction,
   scopedActionZ,
 } from "@/lineplot/actions.gen";
-import { type Condition } from "@/lineplot/builder.gen";
 import {
   type Key,
   keyZ,
@@ -64,7 +63,6 @@ export interface ClientConfig {
 }
 
 export class Client extends query.Retriever<
-  Condition,
   typeof retrieveMultiParamsZ,
   Key,
   LinePlot

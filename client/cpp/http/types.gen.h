@@ -193,6 +193,11 @@ using WriteField = std::variant<StaticWriteField, GeneratedWriteField>;
 WriteField parse_write_field(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const WriteField &value);
 
+/// @brief returns the fields every variant of the union shares.
+[[nodiscard]] inline const BaseWriteField &base(const WriteField &value) {
+    return std::visit([](const auto &v) -> const BaseWriteField & { return v; }, value);
+}
+
 /// @brief ReadEndpoint is a single HTTP endpoint polled by a read task.
 struct ReadEndpoint {
     /// @brief key uniquely identifies the endpoint within the task.

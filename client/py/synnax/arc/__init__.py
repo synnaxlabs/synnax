@@ -8,15 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.arc import compiler, graph, ir, program, text, types
-from synnax.arc.builder_gen import (
-    Condition,
-    and_,
-    key,
-    name,
-    not_,
-    or_,
-    where,
-)
 from synnax.arc.client import Arc, Client
 from synnax.arc.graph import Edge as GraphEdge
 from synnax.arc.graph import Graph
@@ -38,7 +29,6 @@ __all__ = [
     "ONTOLOGY_TYPE",
     "Arc",
     "Client",
-    "Condition",
     "Edge",
     "Graph",
     "GraphEdge",
@@ -52,17 +42,11 @@ __all__ = [
     "TaskConfig",
     "Text",
     "Where",
-    "and_",
     "compiler",
     "graph",
     "ir",
-    "key",
-    "name",
-    "not_",
     "ontology_id",
-    "or_",
     "program",
     "text",
     "types",
-    "where",
 ]

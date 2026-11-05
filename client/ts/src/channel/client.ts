@@ -17,7 +17,6 @@ import {
   deep,
   type destructor,
   errors,
-  filter,
   type MultiSeries,
   primitive,
   type TypedArray,
@@ -25,7 +24,6 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type Condition } from "@/channel/builder.gen";
 import {
   analyzeParams,
   isCalculated,
@@ -230,10 +228,6 @@ const aliasedRetrieveRequestZ = z.object({
   rangeKey: rangerKeyZ.optional(),
 });
 
-type ListParts = query.ListParts<Condition, typeof retrieveMultipleParamsZ>;
-type OneParts = query.OneParts<Condition, typeof retrieveMultipleParamsZ>;
-type ShortcutOptions = query.ShortcutOptions<Condition, typeof retrieveMultipleParamsZ>;
-
 /** The options a retrieval by keys or names accepts. */
 export type RetrieveOptions = Pick<RetrieveMultipleParams, "rangeKey">;
 
@@ -305,7 +299,6 @@ export interface ClientConfig {
  * read costs nothing.
  */
 export class Client extends query.Retriever<
-  Condition,
   typeof retrieveMultipleParamsZ,
   Key,
   Channel,
@@ -356,6 +349,8 @@ export class Client extends query.Retriever<
           ? records[0]
           : this.composeAlias(records[0].payload, query.rangeKey),
       keyOf: (query) => query.key,
+      // Status-free fetches and the stream cache calculated channels with no status.
+      covers: (ch) => !ch.isCalculated || ch.status != null,
       single: true,
       watch: [
         query.watch(aliasStore, (event, query: RetrieveSingleParams) => {
@@ -482,13 +477,6 @@ export class Client extends query.Retriever<
   }
 
   /**
-   * Retrieves the channels that match every condition in parts, or one channel when
-   * parts end with `one()`.
-   */
-  async retrieve(...parts: OneParts): Promise<Channel>;
-  async retrieve(...parts: ListParts): Promise<Channel[]>;
-
-  /**
    * Retrieves a channel from the database using the given key or name.
    * @param params - The key or the name of the channel to retrieve. A name that is not
    * a valid channel name is a regular expression, anchored when unanchored.
@@ -508,9 +496,6 @@ export class Client extends query.Retriever<
    */
   async retrieve(params: Key | Name, options?: RetrieveOptions): Promise<Channel>;
 
-  /** Retrieves a channel by key or name, with each include option applied. */
-  async retrieve(params: Key | Name, ...options: ShortcutOptions): Promise<Channel>;
-
   /**
    * Retrieves multiple channels from the database using the provided keys or the
    * provided names.
@@ -525,25 +510,15 @@ export class Client extends query.Retriever<
     options?: RetrieveOptions,
   ): Promise<Channel[]>;
 
-  /** Retrieves channels by keys or names, with each include option applied. */
-  async retrieve(
-    params: Key[] | Name[],
-    ...options: ShortcutOptions
-  ): Promise<Channel[]>;
-
   async retrieve(params: RetrieveSingleParams): Promise<Channel>;
 
   /** Retrieves the channels that params selects. */
   async retrieve(params: RetrieveMultipleParams): Promise<Channel[]>;
 
-  async retrieve(...args: unknown[]): Promise<Channel | Channel[]> {
-    const [params, ...rest] = args as [
-      PrimitiveParams | Payload[] | RetrieveSingleParams | RetrieveMultipleParams,
-      ...Array<RetrieveOptions | filter.Option>,
-    ];
-    // Channel names are patterns, so only parts go to the base.
-    if (args.length === 0 || filter.isPart(params))
-      return await this.retrieveParts(args);
+  async retrieve(
+    params: PrimitiveParams | Payload[] | RetrieveSingleParams | RetrieveMultipleParams,
+    options?: RetrieveOptions,
+  ): Promise<Channel | Channel[]> {
     if (typeof params === "object" && !Array.isArray(params))
       return await super.retrieve(params);
     const isSingle = !Array.isArray(params);
@@ -554,21 +529,15 @@ export class Client extends query.Retriever<
       checkForMultipleOrNoResults<Params, Channel>("channel", params, [], isSingle);
       return [];
     }
-    const included = filter.isPart(rest[0]);
-    const rangeKey = included
-      ? undefined
-      : (rest[0] as RetrieveOptions | undefined)?.rangeKey;
-    if (isSingle && variant === "keys" && !included)
+    const rangeKey = options?.rangeKey;
+    if (isSingle && variant === "keys")
       return await super.retrieve({ key: normalized[0] as Key, rangeKey });
     const where =
       variant === "keys"
         ? { key: { in: normalized as Key[] } }
         : { namePatterns: normalized as string[] };
-    const include = included
-      ? (filter.toRequest(rest as filter.Option[]) as RetrieveMultipleParams)
-      : {};
     const res = await super.retrieve(
-      rangeKey == null ? { where, ...include } : { where, rangeKey },
+      rangeKey == null ? { where } : { where, rangeKey },
     );
     checkForMultipleOrNoResults<Params, Channel>("channel", params, res, isSingle);
     return isSingle ? res[0] : res;

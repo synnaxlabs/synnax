@@ -17,7 +17,6 @@
 #include "google/protobuf/empty.pb.h"
 
 #include "client/cpp/ontology/id.h"
-#include "client/cpp/rack/builder.gen.h"
 #include "client/cpp/rack/proto.gen.h"
 #include "client/cpp/rack/types.gen.h"
 #include "client/cpp/task/task.h"
@@ -71,6 +70,14 @@ inline std::uint16_t rack_key_node(const Key key) {
     return key >> 16;
 }
 
+/// @brief Options for retrieving racks.
+struct RetrieveOptions {
+    /// @brief When true, the server joins each rack's current operational
+    /// status from the Status service and returns it on the retrieved rack.
+    /// Leave false for lighter-weight reads that don't need live status.
+    bool include_status = false;
+};
+
 /// @brief Client for managing racks in a Synnax cluster.
 class Client {
 public:
@@ -98,80 +105,40 @@ public:
     [[nodiscard]]
     std::pair<Rack, x::errors::Error> create(const std::string &name) const;
 
-    /// @brief Retrieves the rack with the given key, with each include option in
-    /// includes applied.
-    /// @returns the rack, or a NOT_FOUND error when no rack has the key.
-    template<typename... Includes>
-        requires x::filter::includes<RetrieveRequest, Includes...>
-    [[nodiscard]] std::pair<Rack, x::errors::Error>
-    retrieve(const Key &key, Includes... includes) const {
-        return this->retrieve_one(
-            x::filter::request<Where, RetrieveRequest>(rack::key.eq(key), includes...),
-            "key " + std::to_string(key)
-        );
-    }
+    /// @brief Retrieves a rack by its key.
+    /// @param key The key of the rack to retrieve.
+    /// @returns A pair containing the retrieved rack and an error if one occurred.
+    [[nodiscard]]
+    std::pair<Rack, x::errors::Error> retrieve(std::uint32_t key) const;
 
-    /// @brief Retrieves the rack with the given name, with each include option in
-    /// includes applied.
-    /// @returns the rack, or an error when no rack or more than one rack has the name.
-    template<typename... Includes>
-        requires x::filter::includes<RetrieveRequest, Includes...>
-    [[nodiscard]] std::pair<Rack, x::errors::Error>
-    retrieve(const std::string &name, Includes... includes) const {
-        return this->retrieve_one(
-            x::filter::request<Where, RetrieveRequest>(
-                rack::name.eq(name),
-                includes...
-            ),
-            "name " + name
-        );
-    }
+    /// @brief Retrieves a rack by its key with options.
+    /// @param key The key of the rack to retrieve.
+    /// @param options Options controlling which optional fields the server
+    /// joins onto the returned rack (e.g. its current operational status).
+    /// @returns A pair containing the retrieved rack and an error if one occurred.
+    [[nodiscard]]
+    std::pair<Rack, x::errors::Error>
+    retrieve(std::uint32_t key, const RetrieveOptions &options) const;
 
-    /// @brief Retrieves the racks with the given keys, with each include option in
-    /// includes applied. A key that no rack has is left out.
-    template<typename... Includes>
-        requires x::filter::includes<RetrieveRequest, Includes...>
-    [[nodiscard]] std::pair<std::vector<Rack>, x::errors::Error>
-    retrieve(const std::vector<Key> &keys, Includes... includes) const {
-        return this->retrieve(
-            x::filter::request<Where, RetrieveRequest>(rack::key.in(keys), includes...)
-        );
-    }
+    /// @brief Retrieves a rack by its name.
+    /// @param name The name of the rack to retrieve.
+    /// @returns A pair containing the retrieved rack and an error if one occurred.
+    [[nodiscard]]
+    std::pair<Rack, x::errors::Error> retrieve(const std::string &name) const;
 
-    /// @brief Retrieves the racks with the given names, with each include option in
-    /// includes applied. A name that no rack has is left out.
-    template<typename... Includes>
-        requires x::filter::includes<RetrieveRequest, Includes...>
-    [[nodiscard]] std::pair<std::vector<Rack>, x::errors::Error>
-    retrieve(const std::vector<std::string> &names, Includes... includes) const {
-        return this->retrieve(
-            x::filter::request<Where, RetrieveRequest>(
-                rack::name.in(names),
-                includes...
-            )
-        );
-    }
+    /// @brief Retrieves a rack by its name with options.
+    /// @param name The name of the rack to retrieve.
+    /// @param options Options controlling which optional fields the server
+    /// joins onto the returned rack (e.g. its current operational status).
+    /// @returns A pair containing the retrieved rack and an error if one occurred.
+    [[nodiscard]]
+    std::pair<Rack, x::errors::Error>
+    retrieve(const std::string &name, const RetrieveOptions &options) const;
 
     /// @brief Retrieves the racks that req selects.
     [[nodiscard]]
     std::pair<std::vector<Rack>, x::errors::Error>
     retrieve(const RetrieveRequest &req) const;
-
-    /// @brief Retrieves the racks that match every condition in parts, with each option
-    /// in parts applied.
-    /// @returns the racks, or one rack when parts end with rack::one(). One rack is an
-    /// error when no rack or more than one rack matches.
-    template<typename... Parts>
-        requires x::filter::parts<Where, RetrieveRequest, Parts...>
-    [[nodiscard]] auto retrieve(Parts... parts) const {
-        const auto req = x::filter::request<Where, RetrieveRequest>(
-            std::move(parts)...
-        );
-        if constexpr (x::filter::returns_one<Parts...>)
-            return this->retrieve_one(req, x::filter::describe(req.where));
-        else
-            return this->retrieve(req);
-    }
 
     /// @brief Deletes a rack by its key.
     /// @param key The key of the rack to delete.

@@ -10,7 +10,6 @@
 export * from "@/ranger/actions";
 export * from "@/ranger/actions.gen";
 export * from "@/ranger/alias";
-export * from "@/ranger/builder.gen";
 export * from "@/ranger/client";
 export * from "@/ranger/kv";
 export * from "@/ranger/payload";

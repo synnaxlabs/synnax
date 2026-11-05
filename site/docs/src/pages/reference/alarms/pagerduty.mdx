@@ -142,7 +142,7 @@ with alert_task.run():
   <Fragment slot="typescript">
 
 ```typescript
-import { pagerduty, rack } from "@synnaxlabs/client";
+import { pagerduty } from "@synnaxlabs/client";
 
 await client.statuses.set({
   key: "engine-1",
@@ -151,10 +151,12 @@ await client.statuses.set({
   message: "Running",
 });
 
-const [driver] = await client.racks.retrieve(rack.integrations.has("pagerduty"));
+const [rack] = await client.racks.retrieve({
+  where: { integrations: { any: ["pagerduty"] } },
+});
 const alertTask = await client.tasks.create({
   name: "Engine alerts",
-  rack: driver.key,
+  rack: rack.key,
   type: "pagerduty_alert",
   config: pagerduty.taskConfigZ.parse({
     routingKey: "<your-32-character-integration-key>",

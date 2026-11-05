@@ -42,7 +42,6 @@ import {
   dispatchResZ,
   scopedActionZ,
 } from "@/task/actions.gen";
-import { type Condition } from "@/task/builder.gen";
 import {
   type Command,
   commandZ,
@@ -394,16 +393,11 @@ export interface ClientConfig {
   statuses: status.Client;
 }
 
-type ListParts = query.ListParts<Condition, typeof retrieveMultiParamsZ>;
-type OneParts = query.OneParts<Condition, typeof retrieveMultiParamsZ>;
-type ShortcutOptions = query.ShortcutOptions<Condition, typeof retrieveMultiParamsZ>;
-
 /**
  * Creates, reads, deletes, and commands tasks on a Core. Reach it through
  * `client.hardware.tasks`. Reads are served from a cache a change stream keeps current.
  */
 export class Client extends query.Retriever<
-  Condition,
   typeof retrieveMultiParamsZ,
   Key,
   Omit<Task, "status">,
@@ -444,7 +438,13 @@ export class Client extends query.Retriever<
       encode: (task, action) => encode(task.payload, action),
       createOf: (action) => {
         const created = createOf(action);
-        return created == null ? undefined : this.sugar(created);
+        if (created == null) return undefined;
+        // The status streams on its own channel and can land after the task, so the
+        // status the create carries fills in until it does.
+        const carried =
+          action.type === "create" ? action.create.task.status : undefined;
+        if (carried != null) statusStore.ingest(carried, { mode: "if-absent" });
+        return this.sugar(created);
       },
     });
     cache.listen(dispatcher.listener(ACTION_CHANNEL_NAME, scopedActionZ));
@@ -499,7 +499,6 @@ export class Client extends query.Retriever<
     super(cache, {
       name: "task",
       table: store,
-      names: { key: keyZ },
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.fetchThrough(req),
@@ -620,31 +619,17 @@ export class Client extends query.Retriever<
     return this.dispatcher.transaction(key);
   }
 
-  /**
-   * Retrieves the tasks that match every condition in parts, or one task when parts end
-   * with `one()`.
-   */
-  async retrieve(...parts: OneParts): Promise<Task>;
-  async retrieve(...parts: ListParts): Promise<Task[]>;
   async retrieve<S extends Schemas = Schemas>(
     params: RetrieveSingleParams & RetrieveSchemas<S>,
   ): Promise<Task<S>>;
   async retrieve(params: Key | RetrieveSingleParams): Promise<Task>;
-
-  /** Retrieves a task by key or name, with each include option applied. */
-  async retrieve(key: Key | string, ...options: ShortcutOptions): Promise<Task>;
-  async retrieve(keys: Key[] | string[], ...options: ShortcutOptions): Promise<Task[]>;
   async retrieve<S extends Schemas = Schemas>(
     params: RetrieveMultipleParams & RetrieveSchemas<S>,
   ): Promise<Task<S>[]>;
   async retrieve(params: RetrieveMultipleParams): Promise<Task[]>;
   async retrieve<S extends Schemas = Schemas>(
-    ...args: unknown[]
+    rawParams: Key | (RetrieveParams & RetrieveSchemas<S>),
   ): Promise<Task<S> | Task<S>[]> {
-    if (this.isParts(args))
-      return (await this.retrieveParts(args)) as Task<S> | Task<S>[];
-    const [rawParams] = args as [Key | Key[] | (RetrieveParams & RetrieveSchemas<S>)];
-    if (Array.isArray(rawParams)) return (await super.retrieve(rawParams)) as Task<S>[];
     const { schemas, ...params } =
       typeof rawParams === "string" ? { key: rawParams } : rawParams;
     const isSingle = z.validate(singleRetrieveParamsZ, params);

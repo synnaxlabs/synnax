@@ -13,10 +13,9 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access } from "@synnaxlabs/pluto";
-import { caseconv, errors, primitive } from "@synnaxlabs/x";
+import { caseconv, deep, errors, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { type HaulItem } from "@/feature/opcua/device/Browser";
 import { Select } from "@/feature/opcua/device/Select";
 import {
   type Device,
@@ -28,26 +27,33 @@ import {
 import { type ChannelKeyAndIDGetter, createForm } from "@/feature/opcua/task/Form";
 import {
   deployWriteConfigZ,
+  type ScannedNode,
   WRITE_SCHEMAS,
   WRITE_TYPE,
   type WriteChannel,
   type WriteSchemas,
 } from "@/feature/opcua/task/types";
 import { ContextMenu } from "@/platform/context-menu";
-import { Selector } from "@/platform/selector";
+import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
+
+const path = deep.path<Task.Values<WriteSchemas>>();
 
 const Properties = () => <Select />;
 
-const convertHaulItemToChannel = ({ data }: HaulItem): WriteChannel => ({
-  key: data.nodeId,
-  nodeName: data.name,
-  nodeId: data.nodeId,
-  name: "",
-  cmdChannel: 0,
-  disabled: false,
-  dataType: data.dataType,
-});
+// A write goes to a whole node, so a member of a structure is not a write channel.
+const convertNodeToChannel = (node: ScannedNode): WriteChannel | null =>
+  node.field !== ""
+    ? null
+    : {
+        key: node.nodeId,
+        nodeName: node.name,
+        nodeId: node.nodeId,
+        name: "",
+        cmdChannel: 0,
+        disabled: false,
+        dataType: node.dataType,
+      };
 
 const getChannelKeyAndID: ChannelKeyAndIDGetter<WriteChannel> = ({
   cmdChannel,
@@ -84,7 +90,8 @@ const resolve = (device: Device, { nodeId }: WriteChannel) => ({
 });
 
 const TaskForm: FC = createForm<WriteChannel>({
-  convertHaulItemToChannel,
+  path: path.config.channels,
+  convertNodeToChannel,
   getChannelKeyAndID,
   contextMenuItems,
   resolve,
@@ -176,9 +183,10 @@ export const useCreateWrite = Task.createUseCreate({
   deviceMake: MAKE,
 });
 
-export const WriteSelectable = Selector.createSelectable({
+export const WriteSelectable: Selector.Selectable = {
   type: WRITE_TYPE,
   title: "OPC UA write task",
+  label: "Write",
   icon: <Icon.Logo.OPCUA />,
   useOnSelect: useCreateWrite,
-});
+};

@@ -267,7 +267,8 @@ type ReadChannelVariant interface {
 // AnalogReadChannel reads a voltage from an analog input port.
 type AnalogReadChannel struct {
 	BaseReadChannel
-	// Range is the upper bound of the voltage input range, in Volts.
+	// Range is the largest voltage magnitude the channel reads, in Volts. The channel
+	// uses the smallest range of the device that covers it.
 	Range float64 `json:"range" msgpack:"range"`
 	// NegChan is the negative channel for differential readings on T7 devices. 199
 	// selects single-ended.
@@ -318,7 +319,8 @@ type ThermocoupleReadChannel struct {
 	// selects single-ended.
 	NegChan int32 `json:"neg_chan" msgpack:"neg_chan"`
 	// CjcSource selects the cold-junction-compensation source: the device sensor
-	// ('TEMPERATURE_DEVICE_K'), ambient air ('TEMPERATURE_AIR_K'), or an AIN port (e.g.
+	// ('TEMPERATURE_DEVICE_K', which on a T8 is the sensor at the thermocouple's own
+	// terminal), ambient air ('TEMPERATURE_AIR_K', not on a T8), or an AIN port (e.g.
 	// 'AIN2').
 	CjcSource string `json:"cjc_source" msgpack:"cjc_source"`
 	// CjcSlope is the CJC voltage-to-temperature slope, in Kelvin per Volt.
@@ -452,20 +454,6 @@ func (u *ReadChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// BaseReadChannel returns the BaseReadChannel of the active variant, or a zero
-// BaseReadChannel when there is none.
-func (u ReadChannel) BaseReadChannel() BaseReadChannel {
-	switch v := u.Variant.(type) {
-	case AnalogReadChannel:
-		return v.BaseReadChannel
-	case DigitalReadChannel:
-		return v.BaseReadChannel
-	case ThermocoupleReadChannel:
-		return v.BaseReadChannel
-	}
-	return BaseReadChannel{}
-}
-
 // Type returns the type of the active variant, or an empty type when there is none.
 func (u ReadChannel) Type() ReadChannelType {
 	switch u.Variant.(type) {
@@ -503,6 +491,36 @@ func (u ReadChannel) Validate() error {
 		return variant.Validate()
 	}
 	return nil
+}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u ReadChannel) Base() BaseReadChannel {
+	switch variant := u.Variant.(type) {
+	case AnalogReadChannel:
+		return variant.BaseReadChannel
+	case DigitalReadChannel:
+		return variant.BaseReadChannel
+	case ThermocoupleReadChannel:
+		return variant.BaseReadChannel
+	}
+	return BaseReadChannel{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *ReadChannel) SetBase(base BaseReadChannel) {
+	switch variant := u.Variant.(type) {
+	case AnalogReadChannel:
+		variant.BaseReadChannel = base
+		u.Variant = variant
+	case DigitalReadChannel:
+		variant.BaseReadChannel = base
+		u.Variant = variant
+	case ThermocoupleReadChannel:
+		variant.BaseReadChannel = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("ReadChannel: cannot set the base of variant %T", variant))
+	}
 }
 
 // BaseWriteChannel carries the fields every LabJack write channel shares.
@@ -632,18 +650,6 @@ func (u *WriteChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// BaseWriteChannel returns the BaseWriteChannel of the active variant, or a zero
-// BaseWriteChannel when there is none.
-func (u WriteChannel) BaseWriteChannel() BaseWriteChannel {
-	switch v := u.Variant.(type) {
-	case AnalogWriteChannel:
-		return v.BaseWriteChannel
-	case DigitalWriteChannel:
-		return v.BaseWriteChannel
-	}
-	return BaseWriteChannel{}
-}
-
 // Type returns the type of the active variant, or an empty type when there is none.
 func (u WriteChannel) Type() WriteChannelType {
 	switch u.Variant.(type) {
@@ -665,6 +671,31 @@ func (u *WriteChannel) ApplyDefaults() {
 	case DigitalWriteChannel:
 		variant.ApplyDefaults()
 		u.Variant = variant
+	}
+}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u WriteChannel) Base() BaseWriteChannel {
+	switch variant := u.Variant.(type) {
+	case AnalogWriteChannel:
+		return variant.BaseWriteChannel
+	case DigitalWriteChannel:
+		return variant.BaseWriteChannel
+	}
+	return BaseWriteChannel{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *WriteChannel) SetBase(base BaseWriteChannel) {
+	switch variant := u.Variant.(type) {
+	case AnalogWriteChannel:
+		variant.BaseWriteChannel = base
+		u.Variant = variant
+	case DigitalWriteChannel:
+		variant.BaseWriteChannel = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("WriteChannel: cannot set the base of variant %T", variant))
 	}
 }
 

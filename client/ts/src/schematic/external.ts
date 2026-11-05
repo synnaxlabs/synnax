@@ -9,7 +9,6 @@
 
 export * from "@/schematic/actions";
 export * from "@/schematic/actions.gen";
-export * from "@/schematic/builder.gen";
 export * from "@/schematic/client";
 export * from "@/schematic/symbol";
 export * from "@/schematic/types.gen";

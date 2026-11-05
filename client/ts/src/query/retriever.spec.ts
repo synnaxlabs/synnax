@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { EOF } from "@synnaxlabs/freighter";
-import { filter, type record, zod } from "@synnaxlabs/x";
+import { type record, zod } from "@synnaxlabs/x";
 import { assert, describe, expect, it, vi } from "vitest";
 import z from "zod";
 
 import { type framer } from "@/framer";
-import { MultipleFoundError, NotFoundError, ValidationError } from "@/index";
+import { NotFoundError, ValidationError } from "@/index";
 import { query } from "@/query";
 
 interface Thing extends record.Keyed<string> {
@@ -24,40 +24,22 @@ interface Thing extends record.Keyed<string> {
 
 const thing = (key: string, size = 1): Thing => ({ key, name: `${key}-name`, size });
 
-// A cache query type must be a type alias, which has an index signature.
-type Where = {
-  and?: Where[];
-  key?: { eq?: string; in?: string[] };
-  name?: { eq?: string; in?: string[] };
-};
-
-const whereZ: z.ZodType<Where> = z.object({
-  get and() {
-    return whereZ.array().optional();
-  },
-  key: z
-    .object({ eq: z.string().optional(), in: z.string().array().optional() })
-    .optional(),
-  name: z
-    .object({ eq: z.string().optional(), in: z.string().array().optional() })
-    .optional(),
-});
-
 const requestZ = z.object({
   keys: z.string().array().optional(),
-  where: whereZ.optional(),
+  where: z
+    .object({
+      key: z
+        .object({ eq: z.string().optional(), in: z.string().array().optional() })
+        .optional(),
+      name: z.object({ eq: z.string().optional() }).optional(),
+    })
+    .optional(),
   minSize: z.number().optional(),
   searchTerm: z.string().optional(),
-  includeTags: z.boolean().optional(),
 });
 interface Request extends z.infer<typeof requestZ> {}
 
 const paramsZ = requestZ.or(query.keyListZ(z.string()));
-
-type Condition = filter.Condition<"thing", Where>;
-const builder = filter.builder<"thing", Where>();
-const key = builder.set("key");
-const name = builder.set("name");
 
 // A live but silent stream: subscribed answers stay maintained, so reads
 // serve from the cache without a network fetch.
@@ -85,7 +67,7 @@ const silentStreamer = (): framer.Streamer => {
 
 const newCache = () => new query.Cache({ openStreamer: async () => silentStreamer() });
 
-class Client extends query.Retriever<Condition, typeof paramsZ, string, Thing> {
+class Client extends query.Retriever<typeof paramsZ, string, Thing> {
   constructor(
     cache: query.Cache,
     fetchKeys: (keys: string[]) => Promise<Thing[]>,
@@ -98,7 +80,6 @@ class Client extends query.Retriever<Condition, typeof paramsZ, string, Thing> {
     super(cache, {
       name: "thing",
       table: store,
-      names: { key: z.string().length(1) },
       request: {
         schema: paramsZ,
         fetch: async (req) => await fetchRequest(req),
@@ -159,7 +140,7 @@ describe("Retriever", () => {
           names: z.string().array().optional(),
         }),
       );
-      class NamesClient extends query.Retriever<never, typeof namesZ, string, Thing> {
+      class NamesClient extends query.Retriever<typeof namesZ, string, Thing> {
         constructor(
           cache: query.Cache,
           fetchRequest: (req: z.output<typeof namesZ>) => Promise<Thing[]>,
@@ -184,12 +165,7 @@ describe("Retriever", () => {
 
     it("rejects a bare key array the request schema does not accept", async () => {
       const keylessZ = z.object({ minSize: z.number().optional() });
-      class KeylessClient extends query.Retriever<
-        never,
-        typeof keylessZ,
-        string,
-        Thing
-      > {
+      class KeylessClient extends query.Retriever<typeof keylessZ, string, Thing> {
         constructor(cache: query.Cache) {
           const store = cache.createTable<string, Thing>({
             name: "things",
@@ -307,7 +283,7 @@ describe("Retriever", () => {
 
     describe("keysRequestZ", () => {
       const keysZ = z.union([query.keysRequestZ(z.string()), requestZ]);
-      class KeysClient extends query.Retriever<never, typeof keysZ, string, Thing> {
+      class KeysClient extends query.Retriever<typeof keysZ, string, Thing> {
         constructor(
           cache: query.Cache,
           fetchKeys: (keys: string[]) => Promise<Thing[]>,
@@ -454,7 +430,6 @@ describe("Retriever", () => {
     it("validates a single params object once across repeat reads", async () => {
       const singleZ = z.strictObject({ key: z.string() }).transform(({ key }) => key);
       class SingleClient extends query.Retriever<
-        never,
         typeof requestZ,
         string,
         Thing,
@@ -510,7 +485,6 @@ describe("Retriever", () => {
     }
 
     class SugaredClient extends query.Retriever<
-      never,
       typeof requestZ,
       string,
       Thing,
@@ -543,7 +517,6 @@ describe("Retriever", () => {
     type NameOrKey = string;
 
     class ByNameClient extends query.Retriever<
-      never,
       typeof requestZ,
       string,
       Thing,
@@ -585,7 +558,6 @@ describe("Retriever", () => {
 
     describe("malformed single params", () => {
       class StrictSingleClient extends query.Retriever<
-        never,
         typeof requestZ,
         string,
         Thing,
@@ -668,7 +640,6 @@ describe("Retriever", () => {
 
       it("rejects a bare key when the single query needs more than a key", async () => {
         class IDSingleClient extends query.Retriever<
-          never,
           typeof requestZ,
           string,
           Thing,
@@ -720,145 +691,6 @@ describe("Retriever", () => {
         await expect(client.retrieve("a")).rejects.toThrow(ValidationError);
         expect(fetchRequest).not.toHaveBeenCalled();
       });
-    });
-  });
-
-  describe("parts", () => {
-    const newClient = (records: Thing[]) => {
-      const fetchRequest = vi.fn(async (_: Request) => records);
-      const client = new Client(newCache(), async () => [], fetchRequest);
-      return { client, fetchRequest };
-    };
-
-    it("should read every record with no parts", async () => {
-      const { client, fetchRequest } = newClient([thing("a"), thing("b")]);
-      expect(await client.retrieve()).toEqual([thing("a"), thing("b")]);
-      expect(fetchRequest).toHaveBeenCalledWith({});
-    });
-
-    it("should read the records that a condition matches", async () => {
-      const { client, fetchRequest } = newClient([thing("a")]);
-      expect(await client.retrieve(name.eq("a-name"))).toEqual([thing("a")]);
-      expect(fetchRequest).toHaveBeenCalledWith({ where: { name: { eq: "a-name" } } });
-    });
-
-    it("should join conditions with and and apply options", async () => {
-      const { client, fetchRequest } = newClient([thing("a")]);
-      await client.retrieve(name.eq("a-name"), key.eq("a"), filter.search("a"));
-      expect(fetchRequest).toHaveBeenCalledWith({
-        where: { and: [{ name: { eq: "a-name" } }, { key: { eq: "a" } }] },
-        searchTerm: "a",
-      });
-    });
-
-    it("should return one record when the parts end with one", async () => {
-      const { client } = newClient([thing("a")]);
-      const record: Thing = await client.retrieve(name.eq("a-name"), filter.one());
-      expect(record).toEqual(thing("a"));
-    });
-
-    it("should throw a NotFoundError when one matches no record", async () => {
-      const { client } = newClient([]);
-      const res = client.retrieve(name.eq("x"), filter.one());
-      await expect(res).rejects.toThrow(NotFoundError);
-      await expect(res).rejects.toThrow(
-        'thing not found matching {"where":{"name":{"eq":"x"}}}',
-      );
-    });
-
-    it("should throw a MultipleFoundError when one matches more records", async () => {
-      const { client } = newClient([thing("a"), thing("b")]);
-      const res = client.retrieve(filter.one());
-      await expect(res).rejects.toThrow(MultipleFoundError);
-      await expect(res).rejects.toThrow("Expected one thing matching {}, but found 2");
-    });
-
-    it("should reject parts the client does not take", () => {
-      const { client } = newClient([]);
-      const other = filter.builder<"other", Where>();
-      // @ts-expect-error a condition of another entity
-      void client.retrieve(other.set("name").eq("a"));
-      // @ts-expect-error the request has no limit
-      void client.retrieve(filter.limit(1));
-      // @ts-expect-error one goes after every other part
-      void client.retrieve(filter.one(), name.eq("a"));
-      // @ts-expect-error a key takes only include options
-      void client.retrieve(["a"], filter.limit(1));
-    });
-  });
-
-  describe("shortcuts", () => {
-    const newClient = (records: Thing[]) => {
-      const fetchRequest = vi.fn(async (_: Request) => records);
-      const client = new Client(newCache(), async () => [], fetchRequest);
-      return { client, fetchRequest };
-    };
-    const includeTags = filter.include("includeTags");
-
-    it("should read one record by name", async () => {
-      const { client, fetchRequest } = newClient([thing("a")]);
-      expect(await client.retrieve("a-name")).toEqual(thing("a"));
-      expect(fetchRequest).toHaveBeenCalledWith({ where: { name: { eq: "a-name" } } });
-    });
-
-    it("should read the records with the names in a list", async () => {
-      const { client, fetchRequest } = newClient([thing("a"), thing("b")]);
-      const records = await client.retrieve(["a-name", "b-name"]);
-      expect(records).toEqual([thing("a"), thing("b")]);
-      expect(fetchRequest).toHaveBeenCalledWith({
-        where: { name: { in: ["a-name", "b-name"] } },
-      });
-    });
-
-    it("should apply include options to a key", async () => {
-      const { client, fetchRequest } = newClient([thing("a")]);
-      expect(await client.retrieve("a", includeTags())).toEqual(thing("a"));
-      expect(fetchRequest).toHaveBeenCalledWith({
-        where: { key: { eq: "a" } },
-        includeTags: true,
-      });
-    });
-
-    it("should throw a NotFoundError when no record has the name", async () => {
-      const { client } = newClient([]);
-      const res = client.retrieve("x-name");
-      await expect(res).rejects.toThrow(NotFoundError);
-      await expect(res).rejects.toThrow('thing not found matching "x-name"');
-    });
-
-    it("should reject a name in getCached and onChange", async () => {
-      const { client } = newClient([thing("a")]);
-      await client.retrieve("a-name");
-      expect(() => client.getCached("a-name")).toThrow(
-        '"a-name" is not a thing key. Select by name with a request whose where has ' +
-          "a name condition.",
-      );
-      expect(() => client.onChange(["a-name"], () => {})).toThrow(ValidationError);
-      expect(client.getCached("a")).toEqual(thing("a"));
-    });
-
-    it("should throw a MultipleFoundError when two records have the name", async () => {
-      const { client } = newClient([thing("a"), thing("b")]);
-      const res = client.retrieve("a-name");
-      await expect(res).rejects.toThrow(MultipleFoundError);
-      await expect(res).rejects.toThrow(
-        'Expected one thing matching "a-name", but found 2',
-      );
-    });
-
-    it("should reject a page on a retrieve of one record", () => {
-      interface Paged {
-        where?: Where;
-        limit?: number;
-        offset?: number;
-      }
-      type Parts = query.OneParts<Condition, z.ZodType<Paged, Paged>>;
-      // @ts-expect-error a limit could hide a second match
-      const limited: Parts = [filter.limit(1), filter.one()];
-      // @ts-expect-error an offset could hide a second match
-      const skipped: Parts = [filter.offset(1), filter.one()];
-      const unpaged: Parts = [name.eq("a"), filter.one()];
-      expect([limited, skipped, unpaged]).toHaveLength(3);
     });
   });
 });

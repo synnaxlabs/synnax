@@ -160,7 +160,7 @@ func (r Reader) Search(
 	for _, a := range aliases {
 		idx.Set(a.Channel, a.Alias)
 	}
-	return idx.Search(term, 0).Keys, nil
+	return idx.Search(search.Query[channel.Key]{Term: term}).Keys, nil
 }
 
 // SearchChannels returns the channels that q selects and that match term by name or by

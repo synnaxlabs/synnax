@@ -16,12 +16,10 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	rangerv1 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
-	statusv1 "github.com/synnaxlabs/synnax/pkg/service/status/versions/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/view/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/view/versions/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	filter "github.com/synnaxlabs/x/filter/versions/v0"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -74,9 +72,7 @@ var _ = Describe("Migration", func() {
 		return v, err
 	}
 
-	It("Should turn the query of range and status views into a where", func(
-		ctx SpecContext,
-	) {
+	It("Should type the query of range and status views", func(ctx SpecContext) {
 		label := uuid.New()
 		ranges := v0.View{
 			Key:   uuid.New(),
@@ -94,36 +90,22 @@ var _ = Describe("Migration", func() {
 			},
 		}
 		empty := v0.View{Key: uuid.New(), Name: "Empty", Type: "range"}
-		emptyStatuses := v0.View{
-			Key:   uuid.New(),
-			Name:  "Empty statuses",
-			Type:  "status",
-			Query: msgpack.EncodedJSON{"has_labels": []any{}, "variants": []any{}},
-		}
-		create(ctx, ranges, statuses, empty, emptyStatuses)
+		create(ctx, ranges, statuses, empty)
 		run(ctx)
 		Expect(retrieve(ctx, ranges.Key)).To(Equal(v1.View{Variant: v1.RangeView{
 			Base:  v1.Base{Key: ranges.Key, Name: "Ranges"},
-			Where: &rangerv1.Where{Labels: []uuid.UUID{label}},
+			Query: v1.RangeQuery{HasLabels: []uuid.UUID{label}},
 		}}))
 		Expect(retrieve(ctx, statuses.Key)).To(Equal(v1.View{Variant: v1.StatusView{
 			Base: v1.Base{Key: statuses.Key, Name: "Statuses"},
-			Where: &statusv1.Where{
-				Labels: []uuid.UUID{label},
-				Variant: &filter.Set[statusv1.Variant]{In: []statusv1.Variant{
-					statusv1.VariantError,
-					statusv1.VariantWarning,
-				}},
+			Query: v1.StatusQuery{
+				HasLabels: []uuid.UUID{label},
+				Variants:  []status.Variant{status.VariantError, status.VariantWarning},
 			},
 		}}))
 		Expect(retrieve(ctx, empty.Key)).To(Equal(v1.View{Variant: v1.RangeView{
 			Base: v1.Base{Key: empty.Key, Name: "Empty"},
 		}}))
-		Expect(retrieve(ctx, emptyStatuses.Key)).To(Equal(v1.View{
-			Variant: v1.StatusView{
-				Base: v1.Base{Key: emptyStatuses.Key, Name: "Empty statuses"},
-			},
-		}))
 	})
 
 	It(

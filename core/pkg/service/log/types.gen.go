@@ -25,9 +25,8 @@ type TimestampConfig = versions.TimestampConfig
 // ChannelEntry is a per-channel display configuration entry within a log.
 type ChannelEntry = versions.ChannelEntry
 
-// Log is a timestamped event and message logging component. Logs display chronological
-// records of events, system messages, and audit trails with filtering and formatting
-// capabilities.
+// Log is a visualization that shows the samples of its channels as text, one line per
+// sample, in time order.
 type Log = versions.Log
 
 // Where is a filter that selects logs.

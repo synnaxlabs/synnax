@@ -11,7 +11,6 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, type destructor, primitive, type record, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type Condition } from "@/device/builder.gen";
 import {
   type Device,
   type DeviceSchemas,
@@ -110,6 +109,17 @@ const singleQueryZ = z
 const stripStatus = ({ status: _, ...device }: Device): Omit<Device, "status"> =>
   device;
 
+/**
+ * Removes the fields that make the Core write a device's status and parent. Use it to
+ * send a retrieved device or a create reply back to {@link Client.create}: a reply
+ * carries a parent, and the Core writes the status of any device sent with one.
+ */
+export const toUpdate = <D extends Pick<Device, "status" | "parent">>({
+  status: _status,
+  parent: _parent,
+  ...device
+}: D): Omit<D, "status" | "parent"> => device;
+
 // Device statuses live in the status table under the "device:<key>" status
 // key, carrying the device key in their details.
 const affectedDeviceKeys = (
@@ -131,12 +141,7 @@ export interface ClientConfig {
   ontology: ontology.Client;
 }
 
-type ListParts = query.ListParts<Condition, typeof retrieveMultiParamsZ>;
-type OneParts = query.OneParts<Condition, typeof retrieveMultiParamsZ>;
-type ShortcutOptions = query.ShortcutOptions<Condition, typeof retrieveMultiParamsZ>;
-
 export class Client extends query.Retriever<
-  Condition,
   typeof retrieveMultiParamsZ,
   Key,
   Omit<Device, "status">,
@@ -161,7 +166,7 @@ export class Client extends query.Retriever<
         query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
       ],
     });
-    // Composed rows always carry status; includeStatus only gates fetch flags.
+    // Composed rows carry any cached status; includeStatus only gates fetch flags.
     const composed = cache.derive<Key, Omit<Device, "status">, Device>({
       name: "device.composed",
       source: store,
@@ -172,11 +177,13 @@ export class Client extends query.Retriever<
       name: "device",
       table: composed,
       fetch: async (q) => [(await this.fetchSingle(q)).key],
-      // The composed row always carries status; the query gates whether the
-      // answer keeps it, mirroring the request space.
+      // The query gates whether the answer keeps the row's status, mirroring the
+      // request space.
       compose: (records, q) =>
         q.includeStatus === true ? records[0] : stripStatus(records[0]),
       keyOf: (q) => q.key,
+      // The stream and status-free fetches cache devices with no status.
+      covers: (d, q) => q.includeStatus !== true || d.status != null,
       single: true,
     });
     super(cache, {
@@ -203,12 +210,6 @@ export class Client extends query.Retriever<
     this.store = store;
   }
 
-  /**
-   * Retrieves the devices that match every condition in parts, or one device when parts
-   * end with `one()`.
-   */
-  async retrieve(...parts: OneParts): Promise<Device>;
-  async retrieve(...parts: ListParts): Promise<Device[]>;
   async retrieve<
     Properties extends z.ZodType<record.Unknown>,
     Make extends z.ZodType<string>,
@@ -218,13 +219,6 @@ export class Client extends query.Retriever<
   ): Promise<Device<Properties, Make, Model>>;
 
   async retrieve(params: Key | RetrieveSingleParams): Promise<Device>;
-
-  /**
-   * Retrieves a device by key, with each include option applied. A device key is free
-   * text, so a device takes no name.
-   */
-  async retrieve(key: Key, ...options: ShortcutOptions): Promise<Device>;
-  async retrieve(keys: Key[], ...options: ShortcutOptions): Promise<Device[]>;
 
   async retrieve<
     Properties extends z.ZodType<record.Unknown>,
@@ -236,12 +230,9 @@ export class Client extends query.Retriever<
 
   async retrieve(params: RetrieveMultipleParams): Promise<Array<Device>>;
 
-  async retrieve(...args: unknown[]): Promise<Device | Array<Device>> {
-    if (this.isParts(args)) return await this.retrieveParts(args);
-    const [rawParams] = args as [
-      Key | Key[] | (RetrieveParams & { schemas?: DeviceSchemas }),
-    ];
-    if (Array.isArray(rawParams)) return await super.retrieve(rawParams);
+  async retrieve(
+    rawParams: Key | (RetrieveParams & { schemas?: DeviceSchemas }),
+  ): Promise<Device | Array<Device>> {
     const params = typeof rawParams === "string" ? { key: rawParams } : rawParams;
     const { schemas, ...rest } = params;
     const isSingle = "key" in rest;
@@ -300,6 +291,8 @@ export class Client extends query.Retriever<
       .toArray(devices)
       .map((device) => deviceZ(schemas).parse(device) as Device);
     const apply = () => [this.store.set(normalized.map(stripStatus))];
+    // A status streamed during the request is newer than the reply.
+    const since = this.cfg.statusStore.stamp();
     const res = await query.optimistic({
       rollbacks: apply(),
       onOptimistic: opts.onOptimistic,
@@ -310,6 +303,9 @@ export class Client extends query.Retriever<
           createReqZ(schemas),
           createResZ(schemas),
         ),
+    });
+    res.devices.forEach(({ status: st }) => {
+      if (st != null) this.cfg.statusStore.ingest(st, { since });
     });
     this.store.set(res.devices.map(stripStatus));
     return isSingle ? res.devices[0] : res.devices;

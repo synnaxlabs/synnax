@@ -10,12 +10,13 @@
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
+import { type deep } from "@synnaxlabs/x";
 
 import { useIsPreview } from "@/platform/task/useIsPreview";
 
 export interface EnabledCheckboxProps {
   /** The path of the item's `disabled` flag. */
-  path: string;
+  path: deep.Target<boolean | undefined>;
 }
 
 /**
@@ -25,7 +26,7 @@ export interface EnabledCheckboxProps {
 export const EnabledCheckbox = ({ path }: EnabledCheckboxProps) => {
   const isPreview = useIsPreview();
   const { set } = Form.useContext();
-  const disabled = Form.useFieldValue<boolean>(path, { optional: true });
+  const disabled = Form.useFieldValue(path, { optional: true });
   if (disabled == null) return null;
   return (
     <Input.Checkbox

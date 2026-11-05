@@ -33,7 +33,7 @@ inline StatusDetails StatusDetails::parse(x::json::Parser parser) {
 }
 
 inline x::json::json StatusDetails::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["rack"] = this->rack;
     j["device"] = this->device;
     if (this->data.has_value()) j["data"] = *this->data;
@@ -56,7 +56,7 @@ inline Device Device::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Device::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["key"] = this->key;
     j["rack"] = this->rack;
     j["location"] = this->location;
@@ -87,7 +87,7 @@ inline Where Where::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Where::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     if (this->and_.has_value()) j["and"] = x::json::to_array(*this->and_);
     if (this->or_.has_value()) j["or"] = x::json::to_array(*this->or_);
     if (this->not_.has_value()) j["not"] = this->not_->to_json();
@@ -112,7 +112,7 @@ inline RetrieveRequest RetrieveRequest::parse(x::json::Parser parser) {
 }
 
 inline x::json::json RetrieveRequest::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     if (this->where.has_value()) j["where"] = this->where->to_json();
     j["search_term"] = this->search_term;
     if (this->limit.has_value()) j["limit"] = *this->limit;
@@ -129,7 +129,7 @@ inline RetrieveResponse RetrieveResponse::parse(x::json::Parser parser) {
 }
 
 inline x::json::json RetrieveResponse::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["devices"] = x::json::to_array(this->devices);
     return j;
 }

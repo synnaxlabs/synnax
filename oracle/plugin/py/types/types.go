@@ -11,6 +11,7 @@ package types
 
 import (
 	"bytes"
+	"cmp"
 	"fmt"
 	"slices"
 	"strings"
@@ -35,6 +36,7 @@ import (
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // primitiveMapper is the Python-specific primitive type mapper.
@@ -106,6 +108,8 @@ func generatePyFile(
 		TypeDefs:    make([]typeDefData, 0, len(typeDefs)),
 		SortedDecls: make([]sortedDeclData, 0),
 		imports:     newImportManager(),
+
+		missingIncludes: make(set.Set[string]),
 	}
 	if len(structs) > 0 {
 		data.imports.addPydantic("BaseModel")
@@ -129,24 +133,36 @@ func generatePyFile(
 		data.imports.addOntology("ID")
 	}
 
-	// Pre-collect all field names to detect conflicts with module import names.
-	// This allows us to alias module imports when a field name would shadow them.
+	// Pre-collect the field and TypeVar names, so a module import that one would shadow
+	// takes an alias.
+	for _, typ := range slices.Concat(structs, typeDefs) {
+		for _, tp := range resolution.NonDefaultedTypeParams(
+			resolution.TypeParams(typ.Form),
+		) {
+			data.imports.reserve(tp.Name)
+		}
+	}
 	for _, s := range structs {
 		if form, ok := s.Form.(resolution.StructForm); ok {
 			for _, field := range form.Fields {
-				data.imports.registerFieldName(FieldName(field.Name))
+				data.imports.reserve(fieldName(field.Name))
 			}
 		}
 		// Also collect unified fields (which include inherited fields)
 		for _, field := range resolution.UnifiedFields(s, table) {
-			data.imports.registerFieldName(FieldName(field.Name))
+			data.imports.reserve(fieldName(field.Name))
 		}
 	}
 	for _, u := range unions {
-		for _, v := range u.Form.(resolution.UnionForm).Variants {
+		form := u.Form.(resolution.UnionForm)
+		for _, v := range form.Variants {
+			_, declared := resolver.VariantBases(form, v, "py", table)
+			for _, field := range declared {
+				data.imports.reserve(fieldName(field.Name))
+			}
 			if payload, ok := v.Type.Resolve(table); ok {
 				for _, field := range resolution.UnifiedFields(payload, table) {
-					data.imports.registerFieldName(FieldName(field.Name))
+					data.imports.reserve(fieldName(field.Name))
 				}
 			}
 		}
@@ -219,6 +235,11 @@ func generatePyFile(
 			if err != nil {
 				return nil, err
 			}
+			// The alias keeps a field named override from shadowing the decorator in
+			// the class body.
+			if sd.KeyField != "" && !sd.Skip && !sd.IsAlias {
+				data.imports.addTyping("override as _override")
+			}
 			hasAlias := lo.SomeBy(
 				sd.Fields,
 				func(f fieldData) bool { return f.Alias != "" },
@@ -253,6 +274,16 @@ func generatePyFile(
 	var buf bytes.Buffer
 	if err := fileTemplate.Execute(&buf, data); err != nil {
 		return nil, err
+	}
+	if len(data.missingIncludes) > 0 {
+		missing := data.missingIncludes.Slice()
+		slices.Sort(missing)
+		return nil, errors.Wrapf(
+			validate.ErrValidation,
+			"types with no generated Python declaration need a @py include "+
+				"module: %s",
+			strings.Join(missing, ", "),
+		)
 	}
 	return buf.Bytes(), nil
 }
@@ -675,7 +706,7 @@ func processStruct(
 						processField(field, table, data, keyFields, form.OmittedFields),
 					)
 					if hashableKey(field) {
-						sd.KeyField = FieldName(field.Name)
+						sd.KeyField = fieldName(field.Name)
 					}
 				}
 				return sd, nil
@@ -749,7 +780,7 @@ func processStruct(
 						)
 						sd.Fields = append(sd.Fields, fd)
 						if hashableKey(childField) {
-							sd.KeyField = FieldName(childField.Name)
+							sd.KeyField = fieldName(childField.Name)
 						}
 					} else {
 						fd := processField(
@@ -761,7 +792,7 @@ func processStruct(
 						)
 						sd.Fields = append(sd.Fields, fd)
 						if hashableKey(pf) {
-							sd.KeyField = FieldName(pf.Name)
+							sd.KeyField = fieldName(pf.Name)
 						}
 					}
 					addedFields.Add(pf.Name)
@@ -780,7 +811,7 @@ func processStruct(
 					)
 					sd.Fields = append(sd.Fields, fd)
 					if hashableKey(field) {
-						sd.KeyField = FieldName(field.Name)
+						sd.KeyField = fieldName(field.Name)
 					}
 				}
 				return sd, nil
@@ -797,13 +828,13 @@ func processStruct(
 				sd.Fields = append(sd.Fields, fd)
 				// Only a required @key field yields a __hash__.
 				if hashableKey(field) {
-					sd.KeyField = FieldName(field.Name)
+					sd.KeyField = fieldName(field.Name)
 				}
 			}
 			// Also check parent fields for @key if not redefined
 			for _, pf := range parentFields {
 				if !redefinedFields.Contains(pf.Name) && hashableKey(pf) {
-					sd.KeyField = FieldName(pf.Name)
+					sd.KeyField = fieldName(pf.Name)
 				}
 			}
 
@@ -846,7 +877,7 @@ func processStruct(
 		sd.Fields = append(sd.Fields, processField(field, table, data, keyFields, nil))
 		// Only a required @key field yields a __hash__.
 		if hashableKey(field) {
-			sd.KeyField = FieldName(field.Name)
+			sd.KeyField = fieldName(field.Name)
 		}
 	}
 	return sd, nil
@@ -866,6 +897,7 @@ func buildExtendsExpr(
 	data *templateData,
 ) string {
 	baseName := getPyName(parent)
+	baseName = importLocalHand(parent, baseName, data)
 
 	// A base class defined in another schema module must be imported and
 	// referenced through its module alias (e.g. task_.ReadConfig).
@@ -922,7 +954,7 @@ func processField(
 ) fieldData {
 	wireName := casing.FieldSnake(field.Name)
 	fd := fieldData{
-		Name:       FieldName(field.Name),
+		Name:       fieldName(field.Name),
 		Doc:        doc.Get(field.Domains),
 		IsOptional: field.Optional,
 		IsArray:    field.Type.Name == "Array",
@@ -955,6 +987,7 @@ func processField(
 			fieldConstraints = append(fieldConstraints, "le="+bounds.max)
 		}
 	}
+	orderBounds(fieldConstraints)
 
 	// Check if this field should be excluded from serialization (Pydantic v2)
 	isExcluded := lo.Contains(excludedFields, field.Name)
@@ -997,6 +1030,24 @@ func processField(
 	)
 
 	return fd
+}
+
+// orderBounds moves ge and le to the end of constraints, so the output does not depend
+// on which bounds a schema states and which its type implies.
+func orderBounds(constraints []string) {
+	rank := func(c string) int {
+		switch {
+		case strings.HasPrefix(c, "ge="):
+			return 1
+		case strings.HasPrefix(c, "le="):
+			return 2
+		default:
+			return 0
+		}
+	}
+	slices.SortStableFunc(constraints, func(a, b string) int {
+		return cmp.Compare(rank(a), rank(b))
+	})
 }
 
 // ensureDefaultFactory appends a default_factory constraint unless one is already
@@ -1202,7 +1253,7 @@ func collectValidation(
 				constraints = append(constraints, fmt.Sprintf(
 					"default_factory=lambda: %s(%s=%q)",
 					unionVariantToPython(uv, table, data),
-					FieldName(uv.Union.Discriminator),
+					fieldName(uv.Union.Discriminator),
 					uv.Variant.Name,
 				))
 			}
@@ -1341,6 +1392,7 @@ func pyStructLiteral(
 		}
 	}
 	className := getPyName(resolved)
+	className = importLocalHand(resolved, className, data)
 	if resolved.Namespace != data.Namespace {
 		outputPath := output.GetPath(resolved, "py")
 		if outputPath == "" {
@@ -1418,7 +1470,7 @@ func pyConstructorCall(
 			parts,
 			fmt.Sprintf(
 				"%s=%s",
-				FieldName(fv.Name),
+				fieldName(fv.Name),
 				pyDefaultLiteral(fieldsByName[fv.Name].Type, fv.Value, table, data),
 			),
 		)
@@ -1470,7 +1522,7 @@ func unionVariantToPython(
 ) string {
 	variantName := casing.VariantTypeName(getPyName(uv.Type), uv.Variant.Name)
 	if uv.Type.Namespace == data.Namespace {
-		return variantName
+		return importLocalHand(uv.Type, variantName, data)
 	}
 	outputPath := enum.FindOutputPath(uv.Type, table, "py")
 	if outputPath == "" {
@@ -1526,6 +1578,22 @@ func sizedIntBounds(
 	return b, ok
 }
 
+// importLocalHand imports name from typ's `@py include` module when typ is
+// hand-written or omitted in the namespace being generated, since the generated file
+// declares no such type. It returns the name to reference, which is an alias when the
+// import takes one. A missing module is recorded so generation fails.
+func importLocalHand(typ resolution.Type, name string, data *templateData) string {
+	if typ.Namespace != data.Namespace || !omit.IsSkipped(typ, "py") {
+		return name
+	}
+	module := domain.GetStringFromType(typ, "py", "include")
+	if module == "" {
+		data.missingIncludes.Add(typ.QualifiedName)
+		return name
+	}
+	return data.imports.addModuleImport(toPythonModulePath(module), name)
+}
+
 func addCrossNamespaceImport(modulePath, typeName string, data *templateData) string {
 	parts := strings.Split(modulePath, ".")
 	if len(parts) >= 2 {
@@ -1537,25 +1605,6 @@ func addCrossNamespaceImport(modulePath, typeName string, data *templateData) st
 	// Fallback for single-level module path (rare case)
 	alias := data.imports.addModuleImport("", modulePath)
 	return fmt.Sprintf("%s.%s", alias, typeName)
-}
-
-// qualify returns the name by which the module of data refers to resolved, whose Python
-// name is pyName and whose Python output is outputPath, and adds the import it needs.
-func qualify(
-	resolved resolution.Type,
-	pyName, outputPath string,
-	data *templateData,
-) string {
-	if resolved.Namespace == data.Namespace {
-		if data.TypesModule != "" {
-			data.imports.addLocal(pyName)
-		}
-		return pyName
-	}
-	if outputPath == "" {
-		outputPath = resolved.Namespace
-	}
-	return addCrossNamespaceImport(toPythonModulePath(outputPath), pyName, data)
 }
 
 func typeToPython(
@@ -1612,21 +1661,40 @@ func typeToPython(
 	}
 
 	pyName := getPyName(resolved)
+	pyName = importLocalHand(resolved, pyName, data)
 	switch form := resolved.Form.(type) {
 	case resolution.StructForm:
-		return qualify(resolved, pyName, output.GetPath(resolved, "py"), data) +
-			typeArgsToPython(resolved, typeRef.TypeArgs, table, data)
+		if resolved.Namespace != data.Namespace {
+			outputPath := output.GetPath(resolved, "py")
+			if outputPath == "" {
+				outputPath = resolved.Namespace
+			}
+			modulePath := toPythonModulePath(outputPath)
+			pyName = addCrossNamespaceImport(modulePath, pyName, data)
+		}
+		return pyName + typeArgsToPython(resolved, typeRef.TypeArgs, table, data)
 
 	case resolution.EnumForm:
-		return qualify(
-			resolved,
-			pyName,
-			enum.FindOutputPath(resolved, table, "py"),
-			data,
-		)
+		if resolved.Namespace != data.Namespace {
+			outputPath := enum.FindOutputPath(resolved, table, "py")
+			if outputPath == "" {
+				outputPath = resolved.Namespace
+			}
+			modulePath := toPythonModulePath(outputPath)
+			return addCrossNamespaceImport(modulePath, pyName, data)
+		}
+		return pyName
 
 	case resolution.DistinctForm:
-		return qualify(resolved, pyName, output.GetPath(resolved, "py"), data)
+		if resolved.Namespace != data.Namespace {
+			outputPath := output.GetPath(resolved, "py")
+			if outputPath == "" {
+				outputPath = resolved.Namespace
+			}
+			modulePath := toPythonModulePath(outputPath)
+			return addCrossNamespaceImport(modulePath, pyName, data)
+		}
+		return pyName
 
 	case resolution.AliasForm:
 		// A generic TypeAlias binds its arguments in the order its type variables first
@@ -1643,10 +1711,26 @@ func typeToPython(
 			)
 			return typeToPython(target, table, data)
 		}
-		return qualify(resolved, pyName, output.GetPath(resolved, "py"), data)
+		if resolved.Namespace != data.Namespace {
+			outputPath := output.GetPath(resolved, "py")
+			if outputPath == "" {
+				outputPath = resolved.Namespace
+			}
+			modulePath := toPythonModulePath(outputPath)
+			pyName = addCrossNamespaceImport(modulePath, pyName, data)
+		}
+		return pyName
 
 	case resolution.UnionForm:
-		return qualify(resolved, pyName, output.GetPath(resolved, "py"), data)
+		if resolved.Namespace != data.Namespace {
+			outputPath := output.GetPath(resolved, "py")
+			if outputPath == "" {
+				outputPath = resolved.Namespace
+			}
+			modulePath := toPythonModulePath(outputPath)
+			return addCrossNamespaceImport(modulePath, pyName, data)
+		}
+		return pyName
 
 	default:
 		data.imports.addTyping("Any")
@@ -1686,6 +1770,7 @@ func typeRefToPythonAlias(
 	// Get the base type name with proper import handling
 	// Use getPyName to respect @py name directives (e.g., GoStatus -> Status)
 	pyName := getPyName(resolved)
+	pyName = importLocalHand(resolved, pyName, data)
 	var baseName string
 	if resolved.Namespace != data.Namespace {
 		outputPath := output.GetPath(resolved, "py")
@@ -1787,10 +1872,11 @@ func primitiveToPython(primitive string, data *templateData) string {
 }
 
 type importManager struct {
-	// fieldNames tracks all field names to detect conflicts with module imports.
-	fieldNames set.Set[string]
-	uuid       []string
-	typing     []string
+	// reserved holds the field and TypeVar names in the file, which a module import
+	// must not bind.
+	reserved set.Set[string]
+	uuid     []string
+	typing   []string
 	// typeVarDefault is true when a TypeVar takes a default, so TypeVar comes from
 	// typing_extensions instead of typing.
 	typeVarDefault bool
@@ -1805,20 +1891,17 @@ type importManager struct {
 	namespaces []namespaceImportData
 	// modules holds module imports (for "from parent import module").
 	modules []moduleImportData
-	// local holds the types of the namespace that a module beside types_gen.py imports.
-	local []string
 }
 
 func newImportManager() *importManager {
 	return &importManager{
-		fieldNames: make(set.Set[string]),
+		reserved: make(set.Set[string]),
 	}
 }
 
-// registerFieldName adds a field name to the set of known field names.
-// This is used to detect conflicts with module import names.
-func (m *importManager) registerFieldName(name string) {
-	m.fieldNames.Add(name)
+// reserve marks name as bound in the file, so a module import takes an alias instead.
+func (m *importManager) reserve(name string) {
+	m.reserved.Add(name)
 }
 
 func (m *importManager) addUUID(name string) {
@@ -1857,12 +1940,6 @@ func (m *importManager) addCodec(name string) {
 	}
 }
 
-func (m *importManager) addLocal(name string) {
-	if !lo.Contains(m.local, name) {
-		m.local = append(m.local, name)
-	}
-}
-
 func (m *importManager) addOntology(name string) {
 	if !lo.Contains(m.ontology, name) {
 		m.ontology = append(m.ontology, name)
@@ -1881,21 +1958,47 @@ func (m *importManager) addNamespace(alias, path string) {
 	}
 }
 
-// addModuleImport adds a module import and returns the alias to use for referencing
-// types. If the module name conflicts with a field name, an alias with underscore
-// suffix is used.
+// generatedImportNames holds every name the generator itself imports from typing,
+// pydantic, uuid, enum, the ontology and x.codec. A module import never binds one of
+// them, because the generator may add that import later in the same file.
+var generatedImportNames = set.New(
+	"Annotated", "Any", "BaseModel", "Bytes", "ConfigDict", "Field", "Generic",
+	"ID", "IntEnum", "JsonValue", "Literal", "Tuple", "TypeAlias", "TypeVar",
+	"UUID", "uuid4",
+)
+
+// bound reports whether name is reserved or already imported in the file.
+func (m *importManager) bound(name string) bool {
+	if m.reserved.Contains(name) || generatedImportNames.Contains(name) {
+		return true
+	}
+	for _, names := range [][]string{
+		m.uuid, m.typing, m.enum, m.pydantic, m.synnax, m.ontology, m.codec,
+	} {
+		if lo.Contains(names, name) {
+			return true
+		}
+	}
+	return lo.ContainsBy(
+		m.modules,
+		func(mod moduleImportData) bool { return mod.Alias == name },
+	) || lo.ContainsBy(
+		m.namespaces,
+		func(ns namespaceImportData) bool { return ns.Alias == name },
+	)
+}
+
+// addModuleImport adds `from parentPath import moduleName` and returns the name that
+// binds it. A name that bound reports gets underscore suffixes until it is free.
 func (m *importManager) addModuleImport(parentPath, moduleName string) string {
-	// Check if we already have this module imported
 	for _, mod := range m.modules {
-		if mod.Module == moduleName {
+		if mod.Parent == parentPath && mod.Module == moduleName {
 			return mod.Alias
 		}
 	}
-
-	// Determine if we need an alias to avoid field name conflicts
 	alias := moduleName
-	if m.fieldNames.Contains(moduleName) {
-		alias = moduleName + "_"
+	for m.bound(alias) {
+		alias += "_"
 	}
 
 	m.modules = append(m.modules, moduleImportData{
@@ -1931,19 +2034,19 @@ func (m *importManager) AddImport(category, path, name string) {
 }
 
 type templateData struct {
-	imports    *importManager
-	Ontology   *ontologyData
-	Namespace  string
-	OutputPath string
-	// TypesModule is the types_gen module of Namespace when the file is another module
-	// beside it, or empty.
-	TypesModule   string
+	imports       *importManager
+	Ontology      *ontologyData
+	Namespace     string
+	OutputPath    string
 	Structs       []structData
 	Enums         []enumData
 	TypeDefs      []typeDefData
 	SortedDecls   []sortedDeclData
 	TypeVars      []typeVarData
 	RebuildModels []string
+	// missingIncludes holds the hand-written types referenced in this namespace that
+	// declare no @py include module, so generation fails.
+	missingIncludes set.Set[string]
 }
 
 type sortedDeclData struct {
@@ -1983,7 +2086,6 @@ func (d *templateData) PydanticImports() []string { return d.imports.pydantic }
 func (d *templateData) SynnaxImports() []string   { return d.imports.synnax }
 func (d *templateData) OntologyImports() []string { return d.imports.ontology }
 func (d *templateData) CodecImports() []string    { return d.imports.codec }
-func (d *templateData) LocalImports() []string    { return d.imports.local }
 
 func (d *templateData) NamespaceImports() []namespaceImportData { return d.imports.namespaces }
 
@@ -2154,9 +2256,9 @@ func hasTypeParams(params []typeParamData) bool {
 	return len(params) > 0
 }
 
-// FieldName returns the Python attribute name for a schema field: its snake_case wire
+// fieldName returns the Python attribute name for a schema field: its snake_case wire
 // key, escaped when it collides with a Python keyword.
-func FieldName(name string) string {
+func fieldName(name string) string {
 	return keywords.Escape(casing.FieldSnake(name))
 }
 
@@ -2175,7 +2277,7 @@ var templateFuncs = template.FuncMap{
 	"pyDocComment":           pyDocComment,
 	"genericArg":             genericArg,
 	"hasTypeParams":          hasTypeParams,
-	"fieldName":              FieldName,
+	"fieldName":              fieldName,
 }
 
 var fileTemplate = template.Must(
@@ -2184,7 +2286,40 @@ var fileTemplate = template.Must(
 		Parse(`# Code generated by Oracle. DO NOT EDIT.
 
 from __future__ import annotations
-{{- template "imports" . }}
+{{- if .UUIDImports }}
+from uuid import {{ join .UUIDImports ", " }}
+{{- end }}
+{{- if .TypingImports }}
+from typing import {{ join .TypingImports ", " }}
+{{- end }}
+{{- if .TypingExtensionsImports }}
+from typing_extensions import {{ join .TypingExtensionsImports ", " }}
+{{- end }}
+{{- if .EnumImports }}
+from enum import {{ join .EnumImports ", " }}
+{{- end }}
+{{- if .PydanticImports }}
+from pydantic import {{ join .PydanticImports ", " }}
+{{- end }}
+{{- if .SynnaxImports }}
+from synnax.telem import {{ join .SynnaxImports ", " }}
+{{- end }}
+{{- if .OntologyImports }}
+from synnax.ontology.payload import {{ join .OntologyImports ", " }}
+{{- end }}
+{{- if .CodecImports }}
+from x.codec import {{ join .CodecImports ", " }}
+{{- end }}
+{{- range .NamespaceImports }}
+from {{ .Path }} import {{ .Alias }}
+{{- end }}
+{{- range .ModuleImports }}
+{{- if eq .Module .Alias }}
+from {{ .Parent }} import {{ .Module }}
+{{- else }}
+from {{ .Parent }} import {{ .Module }} as {{ .Alias }}
+{{- end }}
+{{- end }}
 {{- range .TypeDefs }}
 {{- if .IsDistinct }}
 
@@ -2249,6 +2384,7 @@ class {{ .PyName }}({{ range $i, $n := .ExtendsNames }}{{ if $i }}, {{ end }}{{ 
 {{- end }}
 {{- if .KeyField }}
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.{{ .KeyField }})
 {{- end }}
@@ -2270,6 +2406,7 @@ class {{ .PyName }}(BaseModel, Generic[{{ range $i, $p := .TypeParams }}{{ if $i
 {{- end }}
 {{- if .KeyField }}
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.{{ .KeyField }})
 {{- end }}
@@ -2288,6 +2425,7 @@ class {{ .PyName }}(BaseModel):
 {{- end }}
 {{- if .KeyField }}
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.{{ .KeyField }})
 {{- end }}
@@ -2337,45 +2475,6 @@ ONTOLOGY_TYPE = ID(type="{{ .Ontology.TypeName }}")
 
 def ontology_id(key: {{ .Ontology.KeyType }}) -> ID:
     return ID(type="{{ .Ontology.TypeName }}", key=str(key))
-{{- end }}
-{{- define "imports" }}
-{{- if .UUIDImports }}
-from uuid import {{ join .UUIDImports ", " }}
-{{- end }}
-{{- if .TypingImports }}
-from typing import {{ join .TypingImports ", " }}
-{{- end }}
-{{- if .TypingExtensionsImports }}
-from typing_extensions import {{ join .TypingExtensionsImports ", " }}
-{{- end }}
-{{- if .EnumImports }}
-from enum import {{ join .EnumImports ", " }}
-{{- end }}
-{{- if .PydanticImports }}
-from pydantic import {{ join .PydanticImports ", " }}
-{{- end }}
-{{- if .SynnaxImports }}
-from synnax.telem import {{ join .SynnaxImports ", " }}
-{{- end }}
-{{- if .OntologyImports }}
-from synnax.ontology.payload import {{ join .OntologyImports ", " }}
-{{- end }}
-{{- if .CodecImports }}
-from x.codec import {{ join .CodecImports ", " }}
-{{- end }}
-{{- range .NamespaceImports }}
-from {{ .Path }} import {{ .Alias }}
-{{- end }}
-{{- range .ModuleImports }}
-{{- if eq .Module .Alias }}
-from {{ .Parent }} import {{ .Module }}
-{{- else }}
-from {{ .Parent }} import {{ .Module }} as {{ .Alias }}
-{{- end }}
-{{- end }}
-{{- if .LocalImports }}
-from {{ .TypesModule }} import {{ join .LocalImports ", " }}
-{{- end }}
 {{- end }}
 `),
 )

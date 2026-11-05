@@ -9,6 +9,5 @@
 
 export * from "@/table/actions";
 export * from "@/table/actions.gen";
-export * from "@/table/builder.gen";
 export * from "@/table/client";
 export * from "@/table/types.gen";

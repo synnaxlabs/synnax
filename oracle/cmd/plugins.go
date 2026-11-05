@@ -11,7 +11,6 @@ package cmd
 
 import (
 	"github.com/synnaxlabs/oracle/plugin"
-	cppbuilder "github.com/synnaxlabs/oracle/plugin/cpp/builder"
 	cppjson "github.com/synnaxlabs/oracle/plugin/cpp/json"
 	cpppb "github.com/synnaxlabs/oracle/plugin/cpp/pb"
 	cpptypes "github.com/synnaxlabs/oracle/plugin/cpp/types"
@@ -24,10 +23,8 @@ import (
 	goquery "github.com/synnaxlabs/oracle/plugin/go/query"
 	gotypes "github.com/synnaxlabs/oracle/plugin/go/types"
 	pbtypes "github.com/synnaxlabs/oracle/plugin/pb/types"
-	pybuilder "github.com/synnaxlabs/oracle/plugin/py/builder"
 	pytypes "github.com/synnaxlabs/oracle/plugin/py/types"
 	tsactions "github.com/synnaxlabs/oracle/plugin/ts/actions"
-	tsbuilder "github.com/synnaxlabs/oracle/plugin/ts/builder"
 	tsfilter "github.com/synnaxlabs/oracle/plugin/ts/filter"
 	tstypes "github.com/synnaxlabs/oracle/plugin/ts/types"
 )
@@ -58,9 +55,6 @@ func buildPluginRegistry() (*plugin.Registry, error) {
 		goimex.New(goimex.DefaultOptions()),
 		tsactions.New(tsactions.DefaultOptions()),
 		tsfilter.New(tsfilter.DefaultOptions()),
-		tsbuilder.New(tsbuilder.DefaultOptions()),
-		pybuilder.New(pybuilder.DefaultOptions()),
-		cppbuilder.New(cppbuilder.DefaultOptions()),
 	} {
 		if err := registry.Register(p); err != nil {
 			return nil, err

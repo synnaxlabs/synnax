@@ -103,8 +103,7 @@ func (s *Service) OnChange(
 func (s *Service) Search(
 	ctx context.Context,
 	tx gorp.Tx,
-	term string,
-	limit int,
+	q search.Query[ontology.ID],
 ) (search.Result[ontology.ID], error) {
-	return ontology.SearchIndex(ctx, tx, s.indexes.search, term, limit, OntologyID)
+	return ontology.SearchIndex(ctx, tx, s.indexes.search, OntologyID, q)
 }

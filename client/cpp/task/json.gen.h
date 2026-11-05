@@ -38,7 +38,7 @@ inline StatusDetails StatusDetails::parse(x::json::Parser parser) {
 }
 
 inline x::json::json StatusDetails::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["task"] = this->task.to_json();
     j["running"] = this->running;
     j["cmd"] = this->cmd;
@@ -63,7 +63,7 @@ inline Task Task::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Task::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["key"] = this->key.to_json();
     j["rack"] = this->rack;
     j["name"] = this->name;
@@ -93,7 +93,7 @@ inline Where Where::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Where::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     if (this->and_.has_value()) j["and"] = x::json::to_array(*this->and_);
     if (this->or_.has_value()) j["or"] = x::json::to_array(*this->or_);
     if (this->not_.has_value()) j["not"] = this->not_->to_json();
@@ -119,7 +119,7 @@ inline Command Command::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Command::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["task"] = this->task.to_json();
     j["type"] = this->type;
     j["key"] = this->key;
@@ -136,7 +136,7 @@ inline KeyedConfig KeyedConfig::parse(x::json::Parser parser) {
 }
 
 inline x::json::json KeyedConfig::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["key"] = this->key.to_json();
     return j;
 }
@@ -149,7 +149,7 @@ inline StartConfig StartConfig::parse(x::json::Parser parser) {
 }
 
 inline x::json::json StartConfig::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     for (auto &[k, v]: KeyedConfig::to_json().items())
         j[k] = v;
     j["auto_start"] = this->auto_start;
@@ -164,7 +164,7 @@ inline PersistConfig PersistConfig::parse(x::json::Parser parser) {
 }
 
 inline x::json::json PersistConfig::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     for (auto &[k, v]: StartConfig::to_json().items())
         j[k] = v;
     j["data_saving_disabled"] = this->data_saving_disabled;
@@ -186,7 +186,7 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
 }
 
 inline x::json::json ReadConfig::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     for (auto &[k, v]: PersistConfig::to_json().items())
         j[k] = v;
     j["sample_rate"] = this->sample_rate;
@@ -202,7 +202,7 @@ inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
 }
 
 inline x::json::json WriteConfig::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     for (auto &[k, v]: PersistConfig::to_json().items())
         j[k] = v;
     j["device"] = this->device;
@@ -218,7 +218,7 @@ inline ScanConfig ScanConfig::parse(x::json::Parser parser) {
 }
 
 inline x::json::json ScanConfig::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     for (auto &[k, v]: KeyedConfig::to_json().items())
         j[k] = v;
     j["rate"] = this->rate;
@@ -237,7 +237,7 @@ inline RetrieveRequest RetrieveRequest::parse(x::json::Parser parser) {
 }
 
 inline x::json::json RetrieveRequest::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     if (this->where.has_value()) j["where"] = this->where->to_json();
     j["search_term"] = this->search_term;
     if (this->limit.has_value()) j["limit"] = *this->limit;
@@ -253,7 +253,7 @@ inline RetrieveResponse RetrieveResponse::parse(x::json::Parser parser) {
 }
 
 inline x::json::json RetrieveResponse::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["tasks"] = x::json::to_array(this->tasks);
     return j;
 }

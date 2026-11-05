@@ -1543,6 +1543,11 @@ using CIChannel = std::variant<
 CIChannel parse_ci_channel(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const CIChannel &value);
 
+/// @brief returns the fields every variant of the union shares.
+[[nodiscard]] inline const BaseCIChannel &base(const CIChannel &value) {
+    return std::visit([](const auto &v) -> const BaseCIChannel & { return v; }, value);
+}
+
 /// @brief AOCurrentChannel drives a current output.
 struct AOCurrentChannel : public BaseAOChannel, public MinMaxVal, public CustomScale {
     std::string type = "ao_current";
@@ -1581,6 +1586,11 @@ using AOChannel = std::variant<AOCurrentChannel, AOFuncGenChannel, AOVoltageChan
 
 AOChannel parse_ao_channel(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const AOChannel &value);
+
+/// @brief returns the fields every variant of the union shares.
+[[nodiscard]] inline const BaseAOChannel &base(const AOChannel &value) {
+    return std::visit([](const auto &v) -> const BaseAOChannel & { return v; }, value);
+}
 
 /// @brief AnalogReadConfig configures an NI analog read task. Each channel carries its
 /// own device.

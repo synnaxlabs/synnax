@@ -9,13 +9,13 @@
 
 from __future__ import annotations
 
-from typing import Literal, overload
+from typing import overload, override
 from uuid import UUID
 
-from pydantic import PrivateAttr
+from pydantic import BaseModel, PrivateAttr
 
-from synnax import framer, node, util
-from synnax.channel.builder_gen import Condition
+from freighter import Empty, UnaryClient
+from synnax import framer, group, node
 from synnax.channel.payload import (
     Key,
     Params,
@@ -41,6 +41,7 @@ from synnax.telem import (
     MultiSeries,
     TimeRange,
 )
+from synnax.util import one
 from x import control, filter
 from x.lists import normalize
 
@@ -184,9 +185,11 @@ class Channel(Payload):
             )
         return self._cached_frame_client
 
+    @override
     def __hash__(self) -> int:
         return hash(self.key)
 
+    @override
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Channel):
             return NotImplemented
@@ -207,9 +210,14 @@ class Channel(Payload):
         )
 
 
+class _RetrieveGroupResponse(BaseModel):
+    group: group.Group
+
+
 class Client:
     """The core py class for executing channel operations against a Synnax cluster."""
 
+    _client: UnaryClient
     _frame_client: framer.Client
     _retriever: Retriever
     _creator: Writer
@@ -217,10 +225,12 @@ class Client:
     def __init__(
         self,
         *,
+        client: UnaryClient,
         frame_client: framer.Client,
         retriever: Retriever,
         creator: Writer,
     ):
+        self._client = client
         self._frame_client = frame_client
         self._retriever = retriever
         self._creator = creator
@@ -345,6 +355,7 @@ class Client:
         self,
         channel: Key | str,
         *,
+        where: Where | None = None,
         search_term: str = "",
         data_types: list[CrudeDataType] | None = None,
         not_data_types: list[CrudeDataType] | None = None,
@@ -361,42 +372,13 @@ class Client:
     @overload
     def retrieve(
         self,
-        channel: list[Key] | tuple[Key] | list[str] | tuple[str] | None = None,
+        channel: list[Key]
+        | tuple[Key, ...]
+        | list[str]
+        | tuple[str, ...]
+        | None = None,
         *,
-        search_term: str = "",
-        data_types: list[CrudeDataType] | None = None,
-        not_data_types: list[CrudeDataType] | None = None,
-        virtual: bool | None = None,
-        is_index: bool | None = None,
-        internal: bool | None = None,
-        range_key: UUID | None = None,
-        node_key: int | None = None,
-        limit: int | None = None,
-        offset: int = 0,
-        include_status: bool = False,
-    ) -> list[Channel]: ...
-
-    @overload
-    def retrieve(
-        self,
-        *conditions: Condition,
-        one: Literal[True],
-        search_term: str = "",
-        data_types: list[CrudeDataType] | None = None,
-        not_data_types: list[CrudeDataType] | None = None,
-        virtual: bool | None = None,
-        is_index: bool | None = None,
-        internal: bool | None = None,
-        range_key: UUID | None = None,
-        node_key: int | None = None,
-        include_status: bool = False,
-    ) -> Channel: ...
-
-    @overload
-    def retrieve(
-        self,
-        *conditions: Condition,
-        one: Literal[False] = False,
+        where: Where | None = None,
         search_term: str = "",
         data_types: list[CrudeDataType] | None = None,
         not_data_types: list[CrudeDataType] | None = None,
@@ -412,9 +394,9 @@ class Client:
 
     def retrieve(
         self,
-        channel: Params | Condition | None = None,
-        *args: Condition,
-        one: bool = False,
+        channel: Params | None = None,
+        *,
+        where: Where | None = None,
         search_term: str = "",
         data_types: list[CrudeDataType] | None = None,
         not_data_types: list[CrudeDataType] | None = None,
@@ -433,10 +415,8 @@ class Client:
         :param channel: The key or name of one channel, or a list of keys or names. A
             single key or name returns one channel. A list, or None, returns a list. A
             name that is not a valid channel name is a regular expression, anchored
-            when unanchored. It can also be the first condition.
-        :param args: Conditions from the channel builder, such as
-            ``channel.name.contains("pressure")``.
-        :param one: Returns the one channel that matches, instead of a list.
+            when unanchored.
+        :param where: Keeps channels that match this filter tree.
         :param search_term: Fuzzy matches channel names. With range_key, the channels
             whose alias in the range matches come first.
         :param data_types: Keeps channels with one of these data types.
@@ -453,23 +433,14 @@ class Client:
             status gets None.
         :returns: The retrieved channel, or a list of the retrieved channels.
         :raises NotFoundError: If a single channel is requested and not found.
-        :raises MultipleFoundError: If a single name, or one, matches more than one
-            channel.
-        :raises TypeError: If args are not channel conditions, or follow a key or name.
-        :raises ValueError: If one is combined with limit or offset.
+        :raises MultipleFoundError: If a single name matches more than one channel.
         """
-        util.reject_page(one, limit, offset)
-        positional: tuple[object, ...] = args
-        if isinstance(channel, filter.Condition) or len(args) > 0:
-            positional = (channel, *args)
-            channel = None
-        conditions = util.conditions("Channel", positional, Condition)
         single = False
         selected = Where()
         if channel is not None:
             normal = normalize_params(channel)
             if len(normal.channels) == 0:
-                return util.one("Channel", channel, []) if one else []
+                return []
             single = normal.single
             selected = params_where(channel)
         flat = Where(
@@ -494,7 +465,7 @@ class Client:
             is_index=None if is_index is None else filter.Bool(eq=is_index),
             internal=None if internal is None else filter.Bool(eq=internal),
         )
-        where = filter.merge(filter.join(Where, conditions), flat)
+        where = filter.merge(where, flat)
         res = self._retriever.filter(
             RetrieveRequest(
                 where=where,
@@ -506,13 +477,11 @@ class Client:
             range_key,
         )
         sug = self._sugar(res)
-        if channel is not None and single:
-            if len(res) > 1:
-                raise _multiple_results_error(channel, res)
-            return util.one("Channel", channel, sug)
-        if one:
-            return util.one("Channel", where, sug)
-        return sug
+        if channel is None or not single:
+            return sug
+        if len(res) > 1:
+            raise _multiple_results_error(channel, res)
+        return one("Channel", channel, sug)
 
     @overload
     def rename(self, keys: Key, names: str) -> None:
@@ -525,7 +494,7 @@ class Client:
 
     @overload
     def rename(
-        self, keys: list[Key] | tuple[Key], names: list[str] | tuple[str]
+        self, keys: list[Key] | tuple[Key, ...], names: list[str] | tuple[str, ...]
     ) -> None:
         """Renames one or more channels in the cluster.
 
@@ -536,8 +505,8 @@ class Client:
 
     def rename(
         self,
-        keys: Key | list[Key] | tuple[Key],
-        names: str | list[str] | tuple[str],
+        keys: Key | list[Key] | tuple[Key, ...],
+        names: str | list[str] | tuple[str, ...],
     ) -> None:
         """Renames one or more channels in the cluster.
 
@@ -546,6 +515,15 @@ class Client:
         :returns: None.
         """
         self._creator.rename(normalize(keys), normalize(names))
+
+    def retrieve_group(self) -> group.Group:
+        """Retrieves the group that holds every channel by default.
+
+        :returns: The channel group.
+        """
+        return self._client.send(
+            "/channel/retrieve-group", Empty(), _RetrieveGroupResponse
+        ).group
 
     def _sugar(self, channels: list[Payload]) -> list[Channel]:
         return [

@@ -12,8 +12,8 @@ from __future__ import annotations
 import warnings
 from collections.abc import Generator, Iterable, Mapping, Sequence
 from contextlib import contextmanager
-from typing import Literal, TypeVar, overload
 from typing import Protocol as BaseProtocol
+from typing import TypeVar, overload, override
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, JsonValue, ValidationError
@@ -22,15 +22,12 @@ from pydantic_core import to_jsonable_python
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
 from synnax import rack as rack_
-from synnax import util
 from synnax.device import Client as DeviceClient
 from synnax.device import Device
 from synnax.framer import Client as FrameClient
 from synnax.ontology.payload import ID
 from synnax.rack import Client as RackClient
 from synnax.rack import Rack
-from synnax.task import builder_gen
-from synnax.task.builder_gen import Condition
 from synnax.task.types_gen import (
     Command,
     Key,
@@ -41,9 +38,10 @@ from synnax.task.types_gen import (
     Where,
     ontology_id,
 )
-from synnax.telem import TimeSpan
-from x import filter
-from x.lists import all_none, override
+from synnax.telem import CrudeTimeSpan, TimeSpan
+from synnax.util import one
+from x import filter, lists
+from x.lists import all_none
 from x.timing import Timer
 
 
@@ -204,7 +202,7 @@ class Task:
         type_: str,
         *,
         args: Mapping[str, object] | None = None,
-        timeout: float | TimeSpan = 5,
+        timeout: CrudeTimeSpan = 5,
     ) -> Status:
         """Executes a command on the task and waits for the driver to acknowledge the
         command with a state.
@@ -276,7 +274,7 @@ P = TypeVar("P", bound=Protocol)
 class StarterStopperMixin:
     _internal: Task
 
-    def start(self, *, timeout: float | TimeSpan = 5) -> None:
+    def start(self, *, timeout: CrudeTimeSpan = 5) -> None:
         """Starts the task and blocks until the Synnax cluster has acknowledged the
         command or the specified timeout has elapsed.
 
@@ -286,7 +284,7 @@ class StarterStopperMixin:
         """
         self._internal.execute_command_sync("start", timeout=timeout)
 
-    def stop(self, *, timeout: float | TimeSpan = 5) -> None:
+    def stop(self, *, timeout: CrudeTimeSpan = 5) -> None:
         """Stops the task and blocks until the Synnax cluster has acknowledged the
         command or the specified timeout has elapsed.
 
@@ -297,7 +295,7 @@ class StarterStopperMixin:
         self._internal.execute_command_sync("stop", timeout=timeout)
 
     @contextmanager
-    def run(self, *, timeout: float | TimeSpan = 5) -> Generator[None, None, None]:
+    def run(self, *, timeout: CrudeTimeSpan = 5) -> Generator[None, None, None]:
         """Context manager that starts the task before entering the block and stops the
         task after exiting the block. This is useful for ensuring that the task is
         properly stopped even if an exception occurs during execution.
@@ -317,17 +315,20 @@ class JSONConfigMixin[C: BaseModel](Protocol):
     def name(self) -> str:
         return self._internal.name
 
+    @override
     @property
     def key(self) -> Key:
         """Implements the Protocol interface."""
         return self._internal.key
 
+    @override
     def to_payload(self) -> Payload:
         """Implements the Protocol interface."""
         pld = self._internal.to_payload()
         pld.config = to_jsonable_python(self.config, by_alias=True, exclude_none=True)
         return pld
 
+    @override
     def set_internal(self, task: Task) -> None:
         """Implements the Protocol interface."""
         self._internal = task
@@ -338,7 +339,7 @@ class Client:
     _frame_client: FrameClient
     _default_rack: Rack | None
     _racks: RackClient
-    _device_client: DeviceClient | None
+    _device_client: DeviceClient
     instrumentation: Instrumentation = NOOP
 
     def __init__(
@@ -347,7 +348,7 @@ class Client:
         client: UnaryClient,
         frame_client: FrameClient,
         rack_client: RackClient,
-        device_client: DeviceClient | None = None,
+        device_client: DeviceClient,
         instrumentation: Instrumentation = NOOP,
     ) -> None:
         self._client = client
@@ -424,15 +425,20 @@ class Client:
 
     def configure(self, task: P) -> P:
         """Saves the task's configuration to the cluster. The config is deployed
-        to the driver on the next start command.
+        to the driver on the next start command. A task with no rack goes on the rack
+        of the device that its config names, or on the embedded rack when it names no
+        device.
 
         :param task: The task to save.
         :returns: The saved task with its key and rack populated.
+        :raises NotFoundError: If the config names a device that does not exist.
         """
-        # Call task-specific device property update (e.g., for Modbus, OPC UA, LabJack)
-        if self._device_client is not None:
-            task.update_device_properties(self._device_client)
-        pld = self.maybe_assign_def_rack(task.to_payload())
+        task.update_device_properties(self._device_client)
+        pld = task.to_payload()
+        device = pld.config.get("device")
+        if pld.rack == 0 and isinstance(device, str) and device:
+            pld.rack = self._device_client.retrieve(key=device).rack
+        pld = self.maybe_assign_def_rack(pld)
         req = _CreateRequest(tasks=[pld])
         tasks = self._exec_create(req)
         task.set_internal(self.sugar(tasks)[0])
@@ -452,15 +458,7 @@ class Client:
         self._client.send("/task/rename", _RenameRequest(key=key, name=name), Empty)
 
     @overload
-    def retrieve(self, key: Key | str, /, *, include_status: bool = False) -> Task: ...
-
-    @overload
-    def retrieve(
-        self, keys: list[Key] | list[str], /, *, include_status: bool = False
-    ) -> list[Task]: ...
-
-    @overload
-    def retrieve(self, *, key: Key, include_status: bool = False) -> Task: ...
+    def retrieve(self, key: Key, *, include_status: bool = False) -> Task: ...
 
     @overload
     def retrieve(self, *, name: str, include_status: bool = False) -> Task: ...
@@ -471,23 +469,8 @@ class Client:
     @overload
     def retrieve(
         self,
-        *conditions: Condition,
-        one: Literal[True],
-        keys: list[Key] | None = None,
-        names: list[str] | None = None,
-        types: list[str] | None = None,
-        search_term: str = "",
-        rack: int | None = None,
-        internal: bool | None = None,
-        snapshot: bool | None = None,
-        include_status: bool = False,
-    ) -> Task: ...
-
-    @overload
-    def retrieve(
-        self,
-        *conditions: Condition,
-        one: Literal[False] = False,
+        *,
+        where: Where | None = None,
         keys: list[Key] | None = None,
         names: list[str] | None = None,
         types: list[str] | None = None,
@@ -502,11 +485,11 @@ class Client:
 
     def retrieve(
         self,
-        *args: Key | str | list[Key] | list[str] | Condition,
         key: Key | None = None,
+        *,
         name: str | None = None,
         type: str | None = None,
-        one: bool = False,
+        where: Where | None = None,
         keys: list[Key] | None = None,
         names: list[str] | None = None,
         types: list[str] | None = None,
@@ -518,13 +501,11 @@ class Client:
         offset: int = 0,
         include_status: bool = False,
     ) -> list[Task] | Task:
-        """Retrieves tasks that match every condition and filter. Returns one task for a
-        key, a name, a type, or one, and a list otherwise. A filter left as None does
-        not filter.
+        """Retrieves tasks matching the given filters. Returns one task when a key,
+        name, or type is given, and a list otherwise. A filter left as None does not
+        filter.
 
-        :param args: Conditions from the task builder, such as
-            ``task.type.eq("ni_analog_read")``, or one key, name, or list of either.
-        :param one: Returns the one task that matches, instead of a list.
+        :param where: Keeps tasks that match this filter tree.
         :param search_term: A fuzzy search term matched against task names.
         :param rack: Only return tasks on the rack with this key.
         :param internal: Only return internal tasks when true, or only user tasks when
@@ -538,33 +519,24 @@ class Client:
         :raises ValueError: If two singular selectors are given, or one is
             combined with a list filter.
         :raises NotFoundError: If a single task is requested and none matches.
-        :raises MultipleFoundError: If more than one task matches a single name, a type,
-            or one.
-        :raises TypeError: If args are neither task conditions nor a shortcut.
-        :raises ValueError: If one is combined with limit or offset.
+        :raises MultipleFoundError: If more than one task matches a single name or
+            type.
         """
-        util.reject_page(one, limit, offset)
-        conditions, query = util.shortcut(
-            "Task", args, Condition, UUID, builder_gen.key, builder_gen.name
-        )
+        is_single = not all_none(key, name, type)
         if sum(v is not None for v in (key, name, type)) > 1:
             raise ValueError("only one of key, name, and type can be given")
-        if not all_none(key, name, type):
-            if (
-                args
-                or one
-                or search_term
-                or offset
-                or not all_none(keys, names, types, rack, internal, snapshot, limit)
-            ):
-                raise ValueError(
-                    "key, name, and type cannot be combined with list filters; use "
-                    "keys, names, or types instead"
-                )
-            query = next(v for v in (key, name, type) if v is not None)
-        keys = override(key, keys)
-        names = override(name, names)
-        types = override(type, types)
+        if is_single and (
+            search_term
+            or offset
+            or not all_none(where, keys, names, types, rack, internal, snapshot, limit)
+        ):
+            raise ValueError(
+                "key, name, and type cannot be combined with list filters; use "
+                "keys, names, or types instead"
+            )
+        keys = lists.override(key, keys)
+        names = lists.override(name, names)
+        types = lists.override(type, types)
         flat = Where(
             key=None if keys is None else filter.Set[Key](in_=keys),
             name=None if names is None else filter.String(in_=names),
@@ -574,7 +546,7 @@ class Client:
             snapshot=None if snapshot is None else filter.Bool(eq=snapshot),
         )
         req = RetrieveRequest(
-            where=filter.merge(filter.join(Where, conditions), flat),
+            where=filter.merge(where, flat),
             search_term=search_term,
             limit=limit,
             offset=offset,
@@ -582,9 +554,9 @@ class Client:
         )
         res = self._client.send(_RETRIEVE_ENDPOINT, req, RetrieveResponse)
         sug = self.sugar(res.tasks)
-        if query is None and not one:
+        if not is_single:
             return sug
-        return util.one("Task", req.where if query is None else query, sug)
+        return one("Task", next(v for v in (key, name, type) if v is not None), sug)
 
     def sugar(self, tasks: list[Payload]) -> list[Task]:
         return [

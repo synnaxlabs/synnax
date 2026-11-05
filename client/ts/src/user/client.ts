@@ -15,7 +15,6 @@ import { type connection } from "@/connection";
 import { MultipleFoundError, NotFoundError } from "@/errors";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
-import { type Condition } from "@/user/builder.gen";
 import { Current } from "@/user/current";
 import {
   type Key,
@@ -89,7 +88,6 @@ export interface ClientConfig {
 }
 
 export class Client extends query.Retriever<
-  Condition,
   typeof retrieveMultiParamsZ,
   Key,
   User,
@@ -116,9 +114,11 @@ export class Client extends query.Retriever<
       name: "user",
       table: store,
       fetch: async (params) => {
+        // A user written after since keeps that write, since the fetch predates it.
+        const since = store.stamp();
         const users = await this.execRetrieve(params);
         checkSingle(params, users);
-        store.ingest(users);
+        store.ingest(users, { since });
         return users.map((u) => u.key);
       },
       compose: (records) => records[0],

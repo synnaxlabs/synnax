@@ -53,6 +53,15 @@ const (
 	// CommandSetAuthority represents a call to Writer.SetAuthority. Re-exported from
 	// [writer.CommandSetAuthority].
 	CommandSetAuthority = writer.CommandSetAuthority
+	// ModePersistStream persists and streams written frames. Re-exported from
+	// [writer.ModePersistStream].
+	ModePersistStream = writer.ModePersistStream
+	// ModePersistOnly persists written frames and does not stream them. Re-exported
+	// from [writer.ModePersistOnly].
+	ModePersistOnly = writer.ModePersistOnly
+	// ModeStreamOnly streams written frames and does not persist them. Re-exported
+	// from [writer.ModeStreamOnly].
+	ModeStreamOnly = writer.ModeStreamOnly
 	// CommandEndDomain represents a call to Writer.EndDomain. Re-exported from
 	// [writer.CommandEndDomain].
 	CommandEndDomain = writer.CommandEndDomain

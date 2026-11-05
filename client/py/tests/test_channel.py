@@ -342,47 +342,16 @@ class TestChannel:
             ]
         )
         res = client.channels.retrieve(
-            sy.channel.where(
-                sy.channel.Where(
-                    name=filter.String(regex=f"^{prefix}"),
-                    data_type=filter.Set[sy.DataType](eq=sy.DataType.FLOAT32),
-                )
+            where=sy.channel.Where(
+                name=filter.String(regex=f"^{prefix}"),
+                data_type=filter.Set[sy.DataType](eq=sy.DataType.FLOAT32),
             )
         )
         assert sorted(ch.key for ch in res) == sorted([a.key, c.key])
 
-    def test_retrieve_conditions(self, client: sy.Synnax) -> None:
-        """Should retrieve the channels that every condition selects"""
-        prefix = channel_name()
-        a, _, c = client.channels.create(
-            [
-                sy.Channel(name=f"{prefix}_a", virtual=True, data_type="float32"),
-                sy.Channel(name=f"{prefix}_b", virtual=True, data_type="float64"),
-                sy.Channel(name=f"{prefix}_c", virtual=True, data_type="float32"),
-            ]
-        )
-        res = client.channels.retrieve(
-            sy.channel.name.starts_with(prefix.upper(), case_insensitive=True),
-            sy.channel.data_type.eq(sy.DataType.FLOAT32),
-        )
-        assert sorted(ch.key for ch in res) == sorted([a.key, c.key])
-        one = client.channels.retrieve(
-            sy.channel.name.starts_with(prefix),
-            ~sy.channel.key.eq(c.key),
-            data_types=["float32"],
-            one=True,
-        )
-        assert one.key == a.key
-        with pytest.raises(sy.MultipleFoundError):
-            client.channels.retrieve(sy.channel.name.starts_with(prefix), one=True)
-
-    def test_retrieve_one_empty_selector(self, client: sy.Synnax) -> None:
-        """Should raise a not found error when one has an empty selector"""
-        with pytest.raises(sy.NotFoundError, match=r"Channel matching \[\] not found"):
-            client.channels.retrieve([], one=True)  # type: ignore[call-overload]
-
-    def test_retrieve_conditions_and_filters(self, client: sy.Synnax) -> None:
-        """Should keep the channels that every condition and filter select"""
+    def test_retrieve_where_and_filters(self, client: sy.Synnax) -> None:
+        """Should keep the channels that the names, the where, and the filters all
+        select"""
         prefix = channel_name()
         a, b, c = client.channels.create(
             [
@@ -392,16 +361,13 @@ class TestChannel:
             ]
         )
         res = client.channels.retrieve(
-            sy.channel.name.in_([a.name, b.name, c.name]),
-            ~sy.channel.key.eq(c.key),
+            [a.name, b.name, c.name],
+            where=sy.channel.Where(
+                not_=sy.channel.Where(key=filter.Set[int](eq=c.key))
+            ),
             data_types=["float32"],
         )
         assert [ch.key for ch in res] == [a.key]
-
-    def test_retrieve_shortcut_with_conditions(self, client: sy.Synnax) -> None:
-        """Should reject a key or name list followed by conditions"""
-        with pytest.raises(TypeError, match=r"\['a'\] is not a Channel condition"):
-            client.channels.retrieve(["a"], sy.channel.key.eq(1))  # type: ignore[call-overload]
 
     def test_delete_by_key(self, client: sy.Synnax) -> None:
         """Should delete channels using a list of keys"""
@@ -685,6 +651,12 @@ class TestChannel:
         assert len(retrieved.operations) == 1
         assert retrieved.operations[0].type == "avg"
         assert retrieved.operations[0].duration == sy.TimeSpan.SECOND * 15
+
+    def test_retrieve_group(self, client: sy.Synnax) -> None:
+        """Should retrieve the group that holds every channel by default"""
+        g = client.channels.retrieve_group()
+        assert g.name == "Channels"
+        assert client.channels.retrieve_group().key == g.key
 
 
 @pytest.mark.channel
@@ -974,27 +946,3 @@ class TestChannelWriteRead:
             start + (len(d) - 1) * sy.TimeSpan.SECOND + sy.TimeSpan.NANOSECOND
         )
         assert np.array_equal(data, d)
-
-
-class TestBuilder:
-    def test_join(self) -> None:
-        """Should join channel conditions into one Where tree."""
-        where = filter.join(
-            sy.channel.Where,
-            [
-                sy.channel.virtual.eq(False),
-                sy.channel.is_index.eq(True),
-                sy.channel.data_type.eq(sy.DataType.TIMESTAMP),
-                sy.channel.name_patterns.has_any(["pressure_.*"]),
-            ],
-        )
-        assert where == sy.channel.Where(
-            and_=[
-                sy.channel.Where(virtual=False),
-                sy.channel.Where(is_index=filter.Bool(eq=True)),
-                sy.channel.Where(
-                    data_type=filter.Set[sy.DataType](eq=sy.DataType.TIMESTAMP)
-                ),
-                sy.channel.Where(name_patterns=["pressure_.*"]),
-            ]
-        )

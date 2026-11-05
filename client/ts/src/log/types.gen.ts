@@ -39,7 +39,7 @@ export const channelEntryZ = z.object({
    * precision is the number of decimal digits to display. Absent shows each sample as
    * it arrives; 17 is the maximum significant digits for a float64.
    */
-  precision: z.int32().min(0).max(17).optional(),
+  precision: zod.uint8.max(17).optional(),
   /** alias is a human-readable alias displayed in place of the channel name. */
   alias: z.string().default(""),
   /** timestamp is the per-channel timestamp display configuration. */
@@ -72,9 +72,8 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
 });
 
 /**
- * Log is a timestamped event and message logging component. Logs display chronological
- * records of events, system messages, and audit trails with filtering and formatting
- * capabilities.
+ * Log is a visualization that shows the samples of its channels as text, one line per
+ * sample, in time order.
  */
 export const logZ = z.object({
   /** key is the unique identifier for this log. */
@@ -84,11 +83,11 @@ export const logZ = z.object({
   /** channels are the channels displayed in this log, in order. */
   channels: channelEntryZ.array().default(() => []),
   /** timestampPrecision is the precision of displayed timestamps (0-3). */
-  timestampPrecision: z.int32().min(0).max(3).default(0),
+  timestampPrecision: zod.uint8.max(3).default(0),
   /** channelNamesHidden is true when channel names are hidden. */
   channelNamesHidden: z.boolean().default(false),
-  /** receiptTimestampHidden is true when the receipt timestamp column is hidden. */
-  receiptTimestampHidden: z.boolean().default(false),
+  /** timestampsHidden is true when entry timestamps are hidden. */
+  timestampsHidden: z.boolean().default(false),
 });
 export interface Log extends z.infer<typeof logZ> {}
 

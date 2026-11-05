@@ -7,16 +7,13 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Generic, Literal, TypeVar, overload
+from typing import Generic, TypeVar, overload
 from uuid import UUID
 
 from pydantic import BaseModel, JsonValue
 
 from freighter import Empty, UnaryClient
-from synnax import util
 from synnax.ontology import ID
-from synnax.status import builder_gen
-from synnax.status.builder_gen import Condition
 from synnax.status.types_gen import (
     Key,
     RetrieveRequest,
@@ -25,8 +22,10 @@ from synnax.status.types_gen import (
     Variant,
     Where,
 )
+from synnax.util import one
 from x import filter
 from x.lists import normalize
+from x.params import require_named_params
 
 D = TypeVar("D")
 
@@ -154,36 +153,14 @@ class Client:
 
     @overload
     def retrieve(
-        self, key: str, /, *, include_labels: bool = False
-    ) -> Status[JsonValue]: ...
-
-    @overload
-    def retrieve(
-        self, keys: list[str], /, *, include_labels: bool = False
-    ) -> list[Status[JsonValue]]: ...
-
-    @overload
-    def retrieve(
         self, *, key: str, include_labels: bool = False
     ) -> Status[JsonValue]: ...
 
     @overload
     def retrieve(
         self,
-        *conditions: Condition,
-        one: Literal[True],
-        keys: list[str] | None = None,
-        search_term: str = "",
-        include_labels: bool = False,
-        has_labels: list[UUID] | None = None,
-        variants: list[Variant] | None = None,
-    ) -> Status[JsonValue]: ...
-
-    @overload
-    def retrieve(
-        self,
-        *conditions: Condition,
-        one: Literal[False] = False,
+        *,
+        where: Where | None = None,
         keys: list[str] | None = None,
         search_term: str = "",
         offset: int = 0,
@@ -193,11 +170,12 @@ class Client:
         variants: list[Variant] | None = None,
     ) -> list[Status[JsonValue]]: ...
 
+    @require_named_params(example_params=("key", "'status-key-123'"))
     def retrieve(
         self,
-        *args: str | list[str] | Condition,
+        *,
         key: str | None = None,
-        one: bool = False,
+        where: Where | None = None,
         keys: list[str] | None = None,
         search_term: str = "",
         offset: int = 0,
@@ -206,43 +184,57 @@ class Client:
         has_labels: list[UUID] | None = None,
         variants: list[Variant] | None = None,
     ) -> Status[JsonValue] | list[Status[JsonValue]]:
-        """Retrieves the statuses that match every condition and filter.
+        """Retrieve statuses from the cluster.
 
-        :param args: Conditions from the status builder, such as
-            ``status.variant.eq("error")``, or one key or list of keys.
-        :param key: The key of one status to retrieve.
-        :param one: Returns the one status that matches, instead of a list.
-        :param keys: Keeps statuses with one of these keys.
-        :param search_term: A fuzzy search term matched against status names and
-            messages.
-        :param offset: The number of statuses to skip.
-        :param limit: The maximum number of statuses to return.
-        :param include_labels: Whether to populate each status's labels.
-        :param has_labels: Keeps statuses that have any of these labels.
-        :param variants: Keeps statuses with one of these variants.
-        :returns: One status for a key or one, and a list otherwise.
-        :raises NotFoundError: If no status matches a key or one.
-        :raises MultipleFoundError: If one is True and more than one status matches.
-        :raises TypeError: If args are neither status conditions nor a shortcut.
-        :raises ValueError: If one is combined with limit or offset.
+        Args:
+            key: Retrieve a single status by key.
+            where: Keeps statuses that match this filter tree.
+            keys: Retrieve multiple statuses by keys.
+            search_term: Search for statuses by name or message.
+            offset: Pagination offset.
+            limit: Pagination limit.
+            include_labels: Whether to include labels in the response.
+            has_labels: Filter statuses that have any of these labels.
+            variants: Filter statuses by variant (e.g. "success", "error").
+
+        Returns:
+            A single status, or a list of statuses.
+
+        Examples:
+            Retrieve by key:
+                >>> status = client.statuses.retrieve(key="my-status")
+
+            Retrieve multiple:
+                >>> statuses = client.statuses.retrieve(
+                ...     keys=["status-1", "status-2"]
+                ... )
+
+            Search with pagination:
+                >>> statuses = client.statuses.retrieve(
+                ...     search_term="error",
+                ...     limit=10,
+                ...     offset=0
+                ... )
+
+            Filter by labels:
+                >>> from uuid import UUID
+                >>> statuses = client.statuses.retrieve(
+                ...     has_labels=[UUID("label-uuid")],
+                ...     include_labels=True
+                ... )
         """
-        util.reject_page(one, limit, offset)
-        conditions, query = util.shortcut(
-            "Status", args, Condition, str, builder_gen.key
-        )
-        if key is not None:
+        single = key is not None
+        if single and key is not None:
             keys = [key]
-            query = key
         flat = Where(
             key=None if keys is None else filter.Set[Key](in_=keys),
             variant=None if variants is None else filter.Set[Variant](in_=variants),
             labels=has_labels,
         )
-        where = filter.merge(filter.join(Where, conditions), flat)
         res = self.client.send(
             _RETRIEVE_ENDPOINT,
             RetrieveRequest(
-                where=where,
+                where=filter.merge(where, flat),
                 search_term=search_term,
                 offset=offset,
                 limit=limit,
@@ -251,9 +243,9 @@ class Client:
             RetrieveResponse,
         ).statuses
 
-        if query is None and not one:
-            return res
-        return util.one("Status", where if query is None else query, res)
+        if single:
+            return one("Status", key, res)
+        return res
 
     def rename(self, key: Key, name: str) -> None:
         """Renames a status.

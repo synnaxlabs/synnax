@@ -7,7 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { control, DataType, id, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import {
+  control,
+  DataType,
+  id,
+  sleep,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, test, vi } from "vitest";
 
 import { channel } from "@/channel";
@@ -21,6 +29,7 @@ import {
   expectLive,
   FAST_RETRY,
   spyOnSend,
+  waitForStreamLive,
 } from "@/testutil";
 
 const quiet = (): void => {};
@@ -289,34 +298,6 @@ describe("Channel", () => {
         where: { name: { regex: `^${prefix}` }, dataType: { eq: DataType.FLOAT32 } },
       });
       expect(res.map((ch) => ch.key).sort()).toEqual([a.key, c.key].sort());
-    });
-    test("retrieve by parts", async () => {
-      const prefix = `qry_${id.create()}`;
-      const [a, , c] = await client.channels.create([
-        { name: `${prefix}_a`, virtual: true, dataType: DataType.FLOAT32 },
-        { name: `${prefix}_b`, virtual: true, dataType: DataType.FLOAT64 },
-        { name: `${prefix}_c`, virtual: true, dataType: DataType.FLOAT32 },
-      ]);
-      const res = await client.channels.retrieve(
-        channel.name.startsWith(prefix),
-        channel.dataType.eq(DataType.FLOAT32),
-      );
-      expect(res.map((ch) => ch.key).sort()).toEqual([a.key, c.key].sort());
-      const one = await client.channels.retrieve(
-        channel.name.eq(a.name),
-        channel.one(),
-      );
-      expect(one.key).toEqual(a.key);
-    });
-    test("retrieve by name with an include option", async () => {
-      const name = `qry_${id.create()}`;
-      const ch = await client.channels.create({
-        name,
-        virtual: true,
-        dataType: DataType.FLOAT32,
-      });
-      const retrieved = await client.channels.retrieve(name, channel.includeStatus());
-      expect(retrieved.key).toEqual(ch.key);
     });
     test("retrieve by a name pattern", async () => {
       const prefix = `qry_${id.create()}`;
@@ -824,6 +805,198 @@ describe("cached reads", () => {
         await expect(client.channels.retrieve(ch.key)).rejects.toThrow("deleted");
       } finally {
         off();
+      }
+    });
+  });
+
+  describe("calculated channel cached without a status", () => {
+    // Outlasts the query layer's refetch debounce.
+    const REFETCH_WINDOW = 150;
+    const countOf = (send: ReturnType<typeof spyOnSend>, target: string) =>
+      send.mock.calls.filter(([t]) => t === target).length;
+
+    const createCalculated = async () => {
+      const source = await createVirtual();
+      const calc = await client.channels.create({
+        name: `qry_${id.create()}`,
+        dataType: DataType.FLOAT32,
+        virtual: true,
+        expression: `return ${source.name} * 2`,
+      });
+      // The Core clears a new calculated channel's status: let that settle.
+      await sleep.sleep(TimeSpan.milliseconds(500));
+      return calc;
+    };
+
+    const setStatus = async (calc: channel.Channel, message: string) =>
+      await client.statuses.set({
+        key: channel.statusKey(calc.key),
+        name: calc.name,
+        variant: "error",
+        message,
+        time: TimeStamp.now(),
+        details: { channel: calc.key },
+      });
+
+    const createCalculatedWithStatus = async () => {
+      const calc = await createCalculated();
+      await setStatus(calc, "invalid expression");
+      return calc;
+    };
+
+    const createCalculatedWithoutStatus = async () => {
+      const calc = await createCalculated();
+      await client.statuses.delete(channel.statusKey(calc.key));
+      return calc;
+    };
+
+    it("should fetch the status after a status-free fetch", async () => {
+      const calc = await createCalculatedWithStatus();
+      const local = createTestClient();
+      await local.channels.retrieve([calc.key]);
+      expect(local.channels.getCached(calc.key)).toBeUndefined();
+      const retrieved = await local.channels.retrieve(calc.key);
+      expect(retrieved.status?.message).toBe("invalid expression");
+      expect(expectLive(local.channels.getCached(calc.key)).status?.message).toBe(
+        "invalid expression",
+      );
+    });
+
+    it("should fetch the status after a channel arrives on the stream", async () => {
+      const calc = await createCalculatedWithStatus();
+      const local = createTestClient();
+      await local.connect();
+      await waitForStreamLive(local.connection);
+      const seen: (channel.Status | undefined)[] = [];
+      const stop = local.channels.onChange(calc.key, (cached) => {
+        if (query.isLive(cached)) seen.push(cached.status);
+      });
+      try {
+        await client.channels.rename(calc.key, `qry_${id.create()}`);
+        await expect.poll(() => seen.at(-1)?.message).toBe("invalid expression");
+        expect(seen.every((st) => st != null)).toBe(true);
+      } finally {
+        stop();
+      }
+    });
+
+    it("should fetch the status for a subscriber with no fetch", async () => {
+      const calc = await createCalculatedWithStatus();
+      const local = createTestClient();
+      await local.channels.retrieve([calc.key]);
+      const seen: (channel.Status | undefined)[] = [];
+      const stop = local.channels.onChange(calc.key, (cached) => {
+        if (query.isLive(cached)) seen.push(cached.status);
+      });
+      try {
+        await expect.poll(() => seen.at(-1)?.message).toBe("invalid expression");
+        expect(seen.every((st) => st != null)).toBe(true);
+      } finally {
+        stop();
+      }
+    });
+
+    it("should hold the status through the grace window", async () => {
+      const calc = await createCalculatedWithStatus();
+      const local = createTestClient();
+      await local.channels.retrieve([calc.key]);
+      const stop = local.channels.onChange(calc.key, () => {});
+      stop();
+      const retrieved = await local.channels.retrieve(calc.key);
+      expect(retrieved.status?.message).toBe("invalid expression");
+    });
+
+    it("should fetch the status for a query under a range", async () => {
+      const calc = await createCalculatedWithStatus();
+      const rng = await createRange();
+      const local = createTestClient();
+      await local.channels.retrieve([calc.key]);
+      const params = { key: calc.key, rangeKey: rng.key };
+      expect(local.channels.getCached(params)).toBeUndefined();
+      const retrieved = await local.channels.retrieve(params);
+      expect(retrieved.status?.message).toBe("invalid expression");
+    });
+
+    it("should cost one fetch for a query with no status row", async () => {
+      const calc = await createCalculatedWithoutStatus();
+      const local = createTestClient();
+      await local.channels.retrieve([calc.key]);
+      await waitForStreamLive(local.connection);
+      const send = spyOnSend(local);
+      const stop = local.channels.onChange(calc.key, () => {});
+      try {
+        const retrieved = await local.channels.retrieve(calc.key);
+        expect(retrieved.status).toBeUndefined();
+        await local.channels.retrieve(calc.key);
+        const cached = expectLive(local.channels.getCached(calc.key));
+        expect(cached.key).toBe(calc.key);
+        expect(cached.status).toBeUndefined();
+        await sleep.sleep(TimeSpan.milliseconds(REFETCH_WINDOW));
+        expect(countOf(send, "/status/retrieve")).toBe(1);
+        expect(countOf(send, "/channel/retrieve")).toBe(0);
+      } finally {
+        stop();
+      }
+    });
+
+    it("should cost one fetch for a list", async () => {
+      const calcs = await Promise.all([
+        createCalculatedWithoutStatus(),
+        createCalculatedWithoutStatus(),
+        createCalculatedWithoutStatus(),
+      ]);
+      const keys = calcs.map(({ key }) => key);
+      const local = createTestClient();
+      await local.channels.retrieve(keys);
+      await waitForStreamLive(local.connection);
+      const send = spyOnSend(local);
+      const stops = keys.map((key) => local.channels.onChange(key, () => {}));
+      try {
+        await Promise.all(keys.map(async (key) => await local.channels.retrieve(key)));
+        await sleep.sleep(TimeSpan.milliseconds(REFETCH_WINDOW));
+        expect(countOf(send, "/status/retrieve")).toBe(1);
+      } finally {
+        stops.forEach((stop) => stop());
+      }
+    });
+
+    it("should deliver a status written after a fetch found none", async () => {
+      const calc = await createCalculatedWithoutStatus();
+      const local = createTestClient();
+      await local.channels.retrieve([calc.key]);
+      const seen: (channel.Status | undefined)[] = [];
+      const stop = local.channels.onChange(calc.key, (cached) => {
+        if (query.isLive(cached)) seen.push(cached.status);
+      });
+      await waitForStreamLive(local.connection);
+      try {
+        await local.channels.retrieve(calc.key);
+        await setStatus(calc, "broken expression");
+        await expect.poll(() => seen.at(-1)?.message).toBe("broken expression");
+      } finally {
+        stop();
+      }
+    });
+
+    it("should never fetch for a list of plain channels", async () => {
+      const keys = (
+        await Promise.all([createVirtual(), createVirtual(), createVirtual()])
+      ).map(({ key }) => key);
+      const local = createTestClient();
+      await local.channels.retrieve(keys);
+      await waitForStreamLive(local.connection);
+      const send = spyOnSend(local);
+      const stops = keys.map((key) => local.channels.onChange(key, () => {}));
+      try {
+        for (const key of keys) {
+          expect(expectLive(local.channels.getCached(key)).key).toBe(key);
+          await local.channels.retrieve(key);
+        }
+        await sleep.sleep(TimeSpan.milliseconds(REFETCH_WINDOW));
+        expect(countOf(send, "/status/retrieve")).toBe(0);
+        expect(countOf(send, "/channel/retrieve")).toBe(0);
+      } finally {
+        stops.forEach((stop) => stop());
       }
     });
   });

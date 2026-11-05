@@ -892,6 +892,12 @@ func (p *Plugin) processField(
 		cppType = fmt.Sprintf("std::optional<%s>", cppType)
 	}
 
+	cppFieldName := domain.GetFieldName(field, "cpp")
+	if cppFieldName == field.Name {
+		cppFieldName = casing.FieldSnake(field.Name)
+	}
+	cppFieldName = keywords.Escape(cppFieldName)
+
 	if field.Default != nil {
 		if lit := p.cppDefaultLiteral(field.Type, *field.Default, data); lit != "" {
 			defaultValue = lit
@@ -899,7 +905,7 @@ func (p *Plugin) processField(
 	}
 
 	return fieldData{
-		Name:         FieldName(field),
+		Name:         cppFieldName,
 		CppType:      cppType,
 		Doc:          doc.Get(field.Domains),
 		DefaultValue: defaultValue,
@@ -993,7 +999,7 @@ func (p *Plugin) cppStructLiteral(
 			parts,
 			fmt.Sprintf(
 				".%s = %s",
-				FieldName(f),
+				cppFieldName(f),
 				p.cppDefaultLiteral(f.Type, v, data),
 			),
 		)
@@ -1026,9 +1032,9 @@ func (p *Plugin) cppEnumVariantRef(
 	return ref
 }
 
-// FieldName returns the C++ name of a field, with a trailing underscore when the name
-// is a C++ keyword.
-func FieldName(field resolution.Field) string {
+// cppFieldName returns the C++ field name for a resolved field, mirroring the
+// naming applied when the field is declared.
+func cppFieldName(field resolution.Field) string {
 	name := domain.GetFieldName(field, "cpp")
 	if name == field.Name {
 		name = casing.FieldSnake(field.Name)
@@ -1778,6 +1784,13 @@ using {{$u.Name}} = std::variant<{{range $j, $v := $u.Variants}}{{if $j}}, {{end
 {{- if $u.HasProto}}
 [[nodiscard]] std::pair<{{$u.ProtoType}}, x::errors::Error> to_proto(const {{$u.Name}}& value);
 std::pair<{{$u.Name}}, x::errors::Error> {{$u.SnakeName}}_from_proto(const {{$u.ProtoType}}& pb);
+{{- end}}
+{{- if $u.Base}}
+
+/// @brief returns the fields every variant of the union shares.
+[[nodiscard]] inline const {{$u.Base}}& base(const {{$u.Name}}& value) {
+    return std::visit([](const auto& v) -> const {{$u.Base}}& { return v; }, value);
+}
 {{- end}}
 {{- end}}
 {{- end}}

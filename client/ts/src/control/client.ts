@@ -39,7 +39,6 @@ export interface ClientConfig {
  * deletes the entry instead of storing a sentinel.
  */
 export class Client extends query.Retriever<
-  never,
   typeof retrieveMultiParamsZ,
   channel.Key,
   KeyedState

@@ -24,7 +24,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { type z } from "zod";
 
 import { framer } from "@/framer";
-import { MultipleFoundError, NotFoundError } from "@/index";
+import { MultipleFoundError, NotFoundError, type Synnax } from "@/index";
 import { label } from "@/label";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
@@ -200,14 +200,6 @@ describe("range", () => {
       expect(retrieved.length).toBeGreaterThan(0);
       expect(retrieved[0].name).toEqual(range.name);
     });
-    it("should cache a range retrieved by its name", async () => {
-      const range = await client.ranges.create({
-        name: `cached-${id.create()}`,
-        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
-      });
-      await client.ranges.retrieve(range.name);
-      expect(expectLive(client.ranges.getCached(range.name)).key).toEqual(range.key);
-    });
     it("should retrieve ranges that overlap with the given time range", async () => {
       const timeRange = TimeStamp.hours(500).spanRange(TimeSpan.seconds(1));
       const range = await client.ranges.create({
@@ -229,69 +221,6 @@ describe("range", () => {
           return results.map((r) => r.name).sort();
         })
         .toEqual(names);
-    });
-
-    describe("parts", () => {
-      const createRanges = async () => {
-        const prefix = `parts-${id.create()}`;
-        const early = TimeStamp.hours(600).spanRange(TimeSpan.seconds(1));
-        const late = TimeStamp.hours(700).spanRange(TimeSpan.seconds(1));
-        const ranges = await client.ranges.create([
-          { name: `${prefix}-Early`, timeRange: early },
-          { name: `${prefix}-Late`, timeRange: late },
-        ]);
-        return { prefix, early, ranges };
-      };
-
-      it("should retrieve the ranges that every condition matches", async () => {
-        const { prefix, early, ranges } = await createRanges();
-        const retrieved = await client.ranges.retrieve(
-          ranger.name.startsWith(prefix),
-          ranger.overlaps(early),
-        );
-        expect(retrieved.map((r) => r.key)).toEqual([ranges[0].key]);
-      });
-
-      it("should match a name with any case", async () => {
-        const { prefix, ranges } = await createRanges();
-        const retrieved = await client.ranges.retrieve(
-          ranger.name.contains(`${prefix}-late`.toUpperCase(), {
-            caseInsensitive: true,
-          }),
-        );
-        expect(retrieved.map((r) => r.key)).toEqual([ranges[1].key]);
-      });
-
-      it("should return at most limit ranges", async () => {
-        const { prefix } = await createRanges();
-        const retrieved = await client.ranges.retrieve(
-          ranger.name.startsWith(prefix),
-          ranger.limit(1),
-        );
-        expect(retrieved).toHaveLength(1);
-      });
-
-      it("should retrieve one range", async () => {
-        const { prefix, ranges } = await createRanges();
-        const retrieved = await client.ranges.retrieve(
-          ranger.name.eq(`${prefix}-Late`),
-          ranger.one(),
-        );
-        expect(retrieved.key).toEqual(ranges[1].key);
-      });
-
-      it("should throw a MultipleFoundError when one matches more ranges", async () => {
-        const { prefix } = await createRanges();
-        const res = client.ranges.retrieve(
-          ranger.name.startsWith(prefix),
-          ranger.one(),
-        );
-        await expect(res).rejects.toThrow(MultipleFoundError);
-        const where = JSON.stringify({ where: { name: { startsWith: prefix } } });
-        await expect(res).rejects.toThrow(
-          `Expected one range matching ${where}, but found 2`,
-        );
-      });
     });
   });
 
@@ -750,6 +679,65 @@ describe("cached reads", () => {
       await client.ranges.retrieve(b.key);
       const res = await client.ranges.retrieve([a.key, b.key]);
       expect(res.map((r) => r.key)).toEqual([a.key, b.key]);
+    });
+  });
+
+  describe("writes during a fetch", () => {
+    const cachedName = (c: Synnax, key: ranger.Key): string | undefined => {
+      const cached = c.ranges.getCached(key);
+      return query.isLive(cached) ? cached.name : undefined;
+    };
+
+    const expectRenameKept = async (
+      fetch: (local: Synnax, rng: ranger.Range) => Promise<unknown>,
+    ) => {
+      const rng = await createRange();
+      const local = createTestClient();
+      await local.connect();
+      await waitForStreamLive(local.connection);
+      await local.ranges.retrieve(rng.key);
+      const { responded, release } = holdResponses(local, "/range/retrieve");
+      const fetching = fetch(local, rng);
+      await responded;
+      const renamed = `qry-renamed-${id.create()}`;
+      await remote.ranges.rename(rng.key, renamed);
+      await expect.poll(() => cachedName(local, rng.key)).toBe(renamed);
+      release();
+      await fetching;
+      expect(cachedName(local, rng.key)).toBe(renamed);
+    };
+
+    it("does not fetch a parent that arrives with its child", async () => {
+      const token = `fam_${id.create()}`;
+      const parent = await createRange(client, { name: `${token} parent` });
+      await createRange(client, {
+        name: `${token} child`,
+        parent: { key: parent.key },
+      });
+      const local = createTestClient();
+      const send = spyOnSend(local);
+      const found = await local.ranges.retrieve({ searchTerm: token });
+      expect(found).toHaveLength(2);
+      // Goes through the same fetch queue, so any parent backfill has gone out first.
+      await local.ranges.retrieve((await createRange()).key);
+      const parentFetches = send.mock.calls.filter(
+        ([target, req]) =>
+          target === "/range/retrieve" &&
+          (req as ranger.RetrieveRequest).where?.key?.in?.includes(parent.key) === true,
+      );
+      expect(parentFetches).toHaveLength(0);
+    });
+
+    it("keeps a change that streams in during a search", async () => {
+      await expectRenameKept(
+        async (local, rng) => await local.ranges.retrieve({ searchTerm: rng.name }),
+      );
+    });
+
+    it("keeps a change that streams in during a retrieve by name", async () => {
+      await expectRenameKept(
+        async (local, rng) => await local.ranges.retrieve(rng.name),
+      );
     });
   });
 

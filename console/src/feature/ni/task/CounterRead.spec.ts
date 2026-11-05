@@ -124,7 +124,7 @@ describe("CounterRead", () => {
     await renderCounterRead(
       createConfig([createChannel("ci_frequency", 0, { measMethod: "HighFreq2Ctr" })]),
     );
-    await waitFor(() => expect(screen.getByText("Measurement time (s)")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Measurement time")).toBeTruthy());
     expect(screen.queryByText("Divisor")).toBeNull();
   });
 
@@ -133,7 +133,7 @@ describe("CounterRead", () => {
       createConfig([createChannel("ci_frequency", 0, { measMethod: "LargeRng2Ctr" })]),
     );
     await waitFor(() => expect(screen.getByText("Divisor")).toBeTruthy());
-    expect(screen.queryByText("Measurement time (s)")).toBeNull();
+    expect(screen.queryByText("Measurement time")).toBeNull();
   });
 
   it("should swap the channel to the newly selected type", async () => {
@@ -378,7 +378,7 @@ describe("CounterRead ports", () => {
 });
 
 describe("CounterRead channel names", () => {
-  it("should show the name configuring gives each channel in the list", async () => {
+  it("should show the name deploying gives each channel in the list", async () => {
     const dev = await createNIDevice(client);
     await renderCounterRead(
       createConfig([createChannel("ci_frequency", 1, { device: dev.key })]),

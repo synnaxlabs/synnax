@@ -302,7 +302,7 @@ public:
 /// @brief represents a 64-bit nanosecond-precision, UNIX Epoch UTC timestamp.
 class TimeStamp {
     /// @property value holds the internal, primitive value of the timestamp.
-    std::int64_t value;
+    std::int64_t value = 0;
 
 public:
     TimeStamp() = default;
@@ -618,14 +618,6 @@ public:
     /// @brief constructs a TimeRange from protobuf representation.
     static std::pair<TimeRange, x::errors::Error> from_proto(const pb::TimeRange &pb);
 };
-
-inline TimeRange TimeRange::parse(x::json::Parser parser) {
-    return {parser.field<TimeStamp>("start"), parser.field<TimeStamp>("end")};
-}
-
-inline x::json::json TimeRange::to_json() const {
-    return {{"start", this->start.nanoseconds()}, {"end", this->end.nanoseconds()}};
-}
 
 inline std::pair<pb::TimeRange, x::errors::Error> TimeRange::to_proto() const {
     pb::TimeRange pb;

@@ -10,6 +10,7 @@
 import { status } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Form } from "@synnaxlabs/lyra/form";
+import { deep } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
@@ -19,6 +20,8 @@ import { Status } from "@/platform/status";
 import { View } from "@/platform/view";
 import { enableEditing } from "@/platform/view/testutil";
 import { createConsoleWrapper, findTagCloseButton } from "@/testutil";
+
+const path = deep.path<z.infer<typeof schema>>();
 
 const client = createTestClient();
 
@@ -37,7 +40,7 @@ const Fixture = ({ variant }: FixtureProps): ReactElement => {
     <View.Frame resourceType="status" icon="Status">
       <Form.Form<typeof schema> {...methods}>
         <Status.Filter.Chips />
-        <Form.Field<status.Where["variant"]> path="where.variant" showLabel={false}>
+        <Form.Field path={deep.present(path.where).variant} showLabel={false}>
           {({ value }) => <span>{`value:${value?.in?.join(",") ?? "none"}`}</span>}
         </Form.Field>
       </Form.Form>

@@ -93,19 +93,36 @@ Client::retrieve(const RetrieveRequest &req) const {
     return {std::move(decoded.channels), x::errors::NIL};
 }
 
-std::pair<Channel, x::errors::Error>
-Client::retrieve_one(const RetrieveRequest &req, const std::string &query) const {
-    auto [channels, err] = this->retrieve(req);
+std::pair<Channel, x::errors::Error> Client::retrieve(const Key key) const {
+    auto [channels, err] = this->retrieve(
+        RetrieveRequest{.where = Where{.key = x::filter::Set<Key>{.eq = key}}}
+    );
     if (err) return {Channel{}, err};
-    if (channels.empty()) return {Channel{}, errors::not_found_error("channel", query)};
+    if (channels.empty())
+        return {
+            Channel{},
+            errors::not_found_error("channel", "key " + std::to_string(key))
+        };
+    return {std::move(channels[0]), x::errors::NIL};
+}
+
+std::pair<Channel, x::errors::Error> Client::retrieve(const std::string &name) const {
+    auto [channels, err] = this->retrieve(
+        RetrieveRequest{.where = Where{.name_patterns = std::vector{name}}}
+    );
+    if (err) return {Channel{}, err};
+    if (channels.empty())
+        return {Channel{}, errors::not_found_error("channel", "name " + name)};
     if (channels.size() > 1)
-        return {Channel{}, errors::multiple_found_error("channels", query)};
+        return {Channel{}, errors::multiple_found_error("channels", "name " + name)};
     return {std::move(channels[0]), x::errors::NIL};
 }
 
 std::pair<std::vector<Channel>, x::errors::Error>
-Client::retrieve_keys(const RetrieveRequest &req, const std::vector<Key> &keys) const {
-    auto [channels, err] = this->retrieve(req);
+Client::retrieve(const std::vector<Key> &keys) const {
+    auto [channels, err] = this->retrieve(
+        RetrieveRequest{.where = Where{.key = x::filter::Set<Key>{.in = keys}}}
+    );
     if (err) return {{}, err};
     // Callers bind the channels to keys by position, so a missing key is an error.
     std::unordered_set<Key> found;
@@ -123,5 +140,10 @@ Client::retrieve_keys(const RetrieveRequest &req, const std::vector<Key> &keys) 
             )
         };
     return {channels, x::errors::NIL};
+}
+
+std::pair<std::vector<Channel>, x::errors::Error>
+Client::retrieve(const std::vector<std::string> &names) const {
+    return this->retrieve(RetrieveRequest{.where = Where{.name_patterns = names}});
 }
 }

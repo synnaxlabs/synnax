@@ -11,7 +11,6 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type Condition } from "@/access/role/builder.gen";
 import {
   type Key,
   keyZ,
@@ -82,12 +81,7 @@ export interface ClientConfig {
   ontology: ontology.Client;
 }
 
-export class Client extends query.Retriever<
-  Condition,
-  typeof retrieveMultiParamsZ,
-  Key,
-  Role
-> {
+export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Role> {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Role>;
 
@@ -104,7 +98,6 @@ export class Client extends query.Retriever<
     super(cache, {
       name: "role",
       table: store,
-      names: { key: keyZ },
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),

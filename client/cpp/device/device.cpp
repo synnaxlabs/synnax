@@ -24,6 +24,39 @@ Client::Client(
     device_retrieve_client(std::move(device_retrieve_client)),
     device_delete_client(std::move(device_delete_client)) {}
 
+std::pair<Device, x::errors::Error> Client::retrieve(const std::string &key) const {
+    return this->retrieve(key, RetrieveOptions{});
+}
+
+std::pair<Device, x::errors::Error>
+Client::retrieve(const std::string &key, const RetrieveOptions &options) const {
+    return this->retrieve_one(
+        {
+            .where = Where{.key = x::filter::Set<Key>{.eq = key}},
+            .include_status = options.include_status,
+            .include_parent = options.include_parent,
+        },
+        "key " + key
+    );
+}
+
+std::pair<std::vector<Device>, x::errors::Error>
+Client::retrieve(const std::vector<std::string> &keys) const {
+    if (keys.empty()) return {std::vector<Device>(), x::errors::NIL};
+    return this->retrieve(keys, RetrieveOptions{});
+}
+
+std::pair<std::vector<Device>, x::errors::Error> Client::retrieve(
+    const std::vector<std::string> &keys,
+    const RetrieveOptions &options
+) const {
+    return this->retrieve({
+        .where = Where{.key = x::filter::Set<Key>{.in = keys}},
+        .include_status = options.include_status,
+        .include_parent = options.include_parent,
+    });
+}
+
 std::pair<std::vector<Device>, x::errors::Error>
 Client::retrieve(const RetrieveRequest &req) const {
     auto [pb_req, pb_err] = req.to_proto();
@@ -42,8 +75,6 @@ Client::retrieve_one(const RetrieveRequest &req, const std::string &query) const
     auto [devices, err] = this->retrieve(req);
     if (err) return {Device{}, err};
     if (devices.empty()) return {Device{}, errors::not_found_error("device", query)};
-    if (devices.size() > 1)
-        return {Device{}, errors::multiple_found_error("devices", query)};
     return {std::move(devices[0]), x::errors::NIL};
 }
 

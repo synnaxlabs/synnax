@@ -10,25 +10,7 @@
 import pytest
 
 import synnax as sy
-from synnax.util import one, one_or_none, reject_page
-
-
-class TestRejectPage:
-    """Tests for the check that a retrieve of one record takes no page."""
-
-    @pytest.mark.parametrize(("limit", "offset"), [(1, 0), (None, 1), (1, 1)])
-    def test_page(self, limit: int | None, offset: int) -> None:
-        """Should raise ValueError when one has a limit or an offset."""
-        with pytest.raises(ValueError, match="one cannot be combined"):
-            reject_page(True, limit, offset)
-
-    def test_no_page(self) -> None:
-        """Should accept one without a limit or an offset."""
-        reject_page(True, None, 0)
-
-    def test_list(self) -> None:
-        """Should accept a page on a retrieve that returns a list."""
-        reject_page(False, 1, 1)
+from synnax.util import one, one_or_none
 
 
 class TestOne:

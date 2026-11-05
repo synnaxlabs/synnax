@@ -427,6 +427,7 @@ var _ = Describe("Channel", func() {
 			Expect(diagnostics.Ok()).To(BeTrue())
 			channelState = channels.NewProgramState([]channels.Digest{
 				{Key: 10, DataType: telem.Float32T, Index: 11},
+				{Key: 12, DataType: telem.StringT, Index: 13},
 				{Key: 20, DataType: telem.Int32T, Index: 0},
 			})
 			progState = rnode.New(inter)
@@ -463,6 +464,114 @@ var _ = Describe("Channel", func() {
 				Expect(
 					*progState.Node("source").OutputTime(0),
 				).To(telem.MatchSeries(telem.NewSeriesSecondsTSV(100, 101, 102)))
+			})
+
+			It(
+				"Should keep the time range of a batch trimmed at entry",
+				func(ctx SpecContext) {
+					source := MustSucceed(factory.Create(rnode.Config{
+						Node: ir.Node{
+							Type: "on",
+							Inputs: types.Params{
+								{Name: "channel", Type: types.U32(), Value: uint32(10)},
+							},
+						},
+						State: progState.Node("source"),
+					}))
+					source.Reset(rnode.Context{Context: ctx, Now: 101 * telem.SecondTS})
+					tr := telem.TimeRange{
+						Start: 100 * telem.SecondTS,
+						End:   103 * telem.SecondTS,
+					}
+					data := telem.NewSeriesV[float32](1.5, 2.5, 3.5)
+					data.TimeRange = tr
+					stamps := telem.NewSeriesSecondsTSV(100, 101, 102)
+					stamps.TimeRange = tr
+					fr := telem.Frame[uint32]{}
+					fr = fr.Append(10, data)
+					fr = fr.Append(11, stamps)
+					channelState.Ingest(fr)
+					source.Next(rnode.Context{
+						Context:       ctx,
+						ReserveStamps: testutil.ReserveStamps(0),
+						MarkChanged:   func(int) {},
+					})
+					nodeState := progState.Node("source")
+					out := nodeState.Output(0)
+					Expect(out.Unmarshal[float32]()).To(Equal([]float32{2.5, 3.5}))
+					Expect(out.TimeRange).To(Equal(tr))
+					Expect(nodeState.OutputTime(0).TimeRange).To(Equal(tr))
+				},
+			)
+
+			It(
+				"Should skip a batch taken entirely before entry",
+				func(ctx SpecContext) {
+					nodeState := progState.Node("source")
+					source := MustSucceed(factory.Create(rnode.Config{
+						Node: ir.Node{
+							Type: "on",
+							Inputs: types.Params{
+								{Name: "channel", Type: types.U32(), Value: uint32(10)},
+							},
+						},
+						State: nodeState,
+					}))
+					source.Reset(rnode.Context{Context: ctx, Now: 200 * telem.SecondTS})
+					fr1 := telem.Frame[uint32]{}
+					d1 := telem.NewSeriesV[float32](1.5, 2.5)
+					d1.Alignment = telem.NewAlignment(1, 0)
+					t1 := telem.NewSeriesSecondsTSV(100, 101)
+					t1.Alignment = telem.NewAlignment(1, 0)
+					fr1 = fr1.Append(10, d1)
+					fr1 = fr1.Append(11, t1)
+					channelState.Ingest(fr1)
+					fr2 := telem.Frame[uint32]{}
+					d2 := telem.NewSeriesV[float32](3.5)
+					d2.Alignment = telem.NewAlignment(1, 2)
+					t2 := telem.NewSeriesSecondsTSV(201)
+					t2.Alignment = telem.NewAlignment(1, 2)
+					fr2 = fr2.Append(10, d2)
+					fr2 = fr2.Append(11, t2)
+					channelState.Ingest(fr2)
+					outputCount := 0
+					source.Next(rnode.Context{
+						Context:       ctx,
+						ReserveStamps: testutil.ReserveStamps(0),
+						MarkChanged:   func(int) { outputCount++ },
+					})
+					Expect(outputCount).To(Equal(1))
+					Expect(*nodeState.Output(0)).To(telem.MatchSeries(d2))
+				},
+			)
+
+			It("Should trim a string batch at entry", func(ctx SpecContext) {
+				nodeState := progState.Node("source")
+				source := MustSucceed(factory.Create(rnode.Config{
+					Node: ir.Node{
+						Type: "on",
+						Inputs: types.Params{
+							{Name: "channel", Type: types.U32(), Value: uint32(12)},
+						},
+					},
+					State: nodeState,
+				}))
+				source.Reset(rnode.Context{Context: ctx, Now: 101 * telem.SecondTS})
+				fr := telem.Frame[uint32]{}
+				fr = fr.Append(12, telem.NewSeriesV("a", "b", "c"))
+				fr = fr.Append(13, telem.NewSeriesSecondsTSV(100, 101, 102))
+				channelState.Ingest(fr)
+				source.Next(rnode.Context{
+					Context:       ctx,
+					ReserveStamps: testutil.ReserveStamps(0),
+					MarkChanged:   func(int) {},
+				})
+				Expect(
+					nodeState.Output(0).Unmarshal[string](),
+				).To(Equal([]string{"b", "c"}))
+				Expect(nodeState.OutputTime(0).Unmarshal[telem.TimeStamp]()).To(Equal(
+					[]telem.TimeStamp{101 * telem.SecondTS, 102 * telem.SecondTS},
+				))
 			})
 
 			It("Should handle channel without index", func(ctx SpecContext) {

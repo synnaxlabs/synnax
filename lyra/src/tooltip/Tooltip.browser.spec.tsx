@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeSpan } from "@synnaxlabs/x";
+import { location, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
@@ -67,5 +67,30 @@ describe("Tooltip", () => {
       tip.top < t.bottom &&
       tip.bottom > t.top;
     expect(overlaps).toBe(false);
+  });
+
+  it("should open at both pinned corners", async () => {
+    await renderThemed(
+      <Tooltip.Config delay={TimeSpan.milliseconds(1)}>
+        <div style={{ padding: "20rem" }}>
+          <Tooltip.Dialog
+            location={{
+              targetCorner: location.BOTTOM_LEFT,
+              dialogCorner: location.TOP_LEFT,
+            }}
+          >
+            A tip much wider than the target it describes
+            <button>Target</button>
+          </Tooltip.Dialog>
+        </div>
+      </Tooltip.Config>,
+    );
+    const target = page.getByRole("button", { name: "Target" }).element();
+    await userEvent.hover(target);
+    await expect.element(page.getByRole("tooltip")).toBeVisible();
+    const tip = page.getByRole("tooltip").element() as HTMLElement;
+    const anchor = target.getBoundingClientRect();
+    expect(parseFloat(tip.style.left)).toBe(Math.round(anchor.left));
+    expect(parseFloat(tip.style.top)).toBeGreaterThan(anchor.bottom);
   });
 });

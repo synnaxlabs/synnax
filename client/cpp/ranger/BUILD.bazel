@@ -14,7 +14,6 @@ cc_library(
     name = "ranger",
     srcs = ["ranger.cpp"],
     hdrs = [
-        "builder.gen.h",
         "json.gen.h",
         "proto.gen.h",
         "ranger.h",

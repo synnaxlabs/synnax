@@ -47,22 +47,6 @@
     color: var(--pluto-gray-l9);
 }
 
-.console-modbus__menu {
-    min-width: max-content;
-}
-
-.console-modbus__option-description {
-    margin-left: auto;
-    padding-left: 3rem;
-    color: var(--pluto-gray-l8);
-    font-size: var(--pluto-small-size);
-    font-variant-numeric: tabular-nums;
-}
-
-.console-modbus__trigger .console-modbus__option-description {
-    display: none;
-}
-
 .console-modbus__address {
     position: relative;
     font-variant-numeric: tabular-nums;
@@ -100,32 +84,12 @@
 
     & > :last-child:not(:first-child) {
         flex: none;
-        width: 13rem;
+        width: 7rem;
     }
 }
 
 .console-modbus__address:focus-within .console-modbus__address-end {
     display: none;
-}
-
-.console-modbus__order-glyph {
-    --console-modbus-order-color: var(--pluto-primary-z);
-
-    width: 5rem;
-    height: 2rem;
-    flex-shrink: 0;
-
-    & rect {
-        fill: color-mix(
-            in srgb,
-            var(--console-modbus-order-color) calc(90% - var(--rank) * 72%),
-            transparent
-        );
-    }
-}
-
-.console-modbus__order-glyph--device {
-    --console-modbus-order-color: var(--pluto-gray-l9);
 }
 
 .console-modbus__map {
@@ -290,4 +254,21 @@
     justify-content: center;
     white-space: nowrap;
     color: var(--pluto-text-color);
+}
+
+.console-task-configure--modbus_read,
+.console-task-configure--modbus_write {
+    --console-task-form-max-width: 1200px;
+}
+
+/* Below the form's maximum width, the byte order shows only its glyph. */
+@container (max-width: 1199px) {
+    .console-task-configure--modbus_read > div,
+    .console-task-configure--modbus_write > div {
+        --console-modbus-byte-order-width: 12rem;
+
+        .console-modbus__trigger .console-modbus__order-glyph + span {
+            display: none;
+        }
+    }
 }

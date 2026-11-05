@@ -26,7 +26,7 @@ inline XY XY::parse(x::json::Parser parser) {
 }
 
 inline x::json::json XY::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["x"] = this->x;
     j["y"] = this->y;
     return j;
@@ -40,7 +40,7 @@ inline CornerLocation CornerLocation::parse(x::json::Parser parser) {
 }
 
 inline x::json::json CornerLocation::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["x"] = this->x;
     j["y"] = this->y;
     return j;
@@ -54,7 +54,7 @@ inline StickyUnits StickyUnits::parse(x::json::Parser parser) {
 }
 
 inline x::json::json StickyUnits::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["x"] = this->x;
     j["y"] = this->y;
     return j;
@@ -70,7 +70,7 @@ inline StickyXY StickyXY::parse(x::json::Parser parser) {
 }
 
 inline x::json::json StickyXY::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["x"] = this->x;
     j["y"] = this->y;
     j["root"] = this->root.to_json();
@@ -86,7 +86,7 @@ inline Dimensions Dimensions::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Dimensions::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["width"] = this->width;
     j["height"] = this->height;
     return j;
@@ -100,7 +100,7 @@ inline Viewport Viewport::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Viewport::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["zoom"] = this->zoom;
     j["position"] = this->position.to_json();
     return j;
@@ -114,7 +114,7 @@ inline LocationXY LocationXY::parse(x::json::Parser parser) {
 }
 
 inline x::json::json LocationXY::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["x"] = this->x;
     j["y"] = this->y;
     return j;
@@ -128,7 +128,7 @@ inline SignedDimensions SignedDimensions::parse(x::json::Parser parser) {
 }
 
 inline x::json::json SignedDimensions::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["signed_width"] = this->signed_width;
     j["signed_height"] = this->signed_height;
     return j;
@@ -142,7 +142,7 @@ inline ClientXY ClientXY::parse(x::json::Parser parser) {
 }
 
 inline x::json::json ClientXY::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["client_x"] = this->client_x;
     j["client_y"] = this->client_y;
     return j;
@@ -156,7 +156,7 @@ inline Bounds Bounds::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Bounds::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["lower"] = this->lower;
     j["upper"] = this->upper;
     return j;

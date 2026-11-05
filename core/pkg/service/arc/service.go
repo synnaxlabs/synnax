@@ -151,13 +151,18 @@ type Service struct {
 
 // NewRoot builds the production analysis root: the STL, status, and ranges modules
 // plus the Core channel resolver. tx is consulted for channel lookups; nil uses the DB.
+// A root resolves each channel name the same way for its lifetime, so build one per
+// analysis or compile.
 func (s *Service) NewRoot(tx gorp.Tx) *symbol.Symbol {
 	syms := slices.Concat(
 		stl.NewSymbols(),
 		arcstatus.NewSymbols(),
 		ranges.NewSymbols(),
 	)
-	return symbol.NewRoot(s.cfg.Channel.NewArcSymbolResolver(tx), syms)
+	return symbol.NewRoot(
+		channel.NewConsistentResolver(s.cfg.Channel.NewArcSymbolResolver(tx)),
+		syms,
+	)
 }
 
 func (s *Service) NewLSP() (*lsp.Server, error) {

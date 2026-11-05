@@ -23,7 +23,6 @@ import {
   rename as renameAction,
   scopedActionZ,
 } from "@/table/actions.gen";
-import { type Condition } from "@/table/builder.gen";
 import {
   type Key,
   keyZ,
@@ -63,12 +62,7 @@ export interface ClientConfig {
   ontology: ontology.Client;
 }
 
-export class Client extends query.Retriever<
-  Condition,
-  typeof retrieveMultiParamsZ,
-  Key,
-  Table
-> {
+export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Table> {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Table>;
   private readonly dispatcher: actions.Controller<Key, Table, Action>;

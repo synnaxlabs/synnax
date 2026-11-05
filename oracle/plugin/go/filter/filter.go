@@ -117,6 +117,7 @@ var comparisons = map[string]string{"gt": ">", "gte": ">=", "lt": "<", "lte": "<
 
 type templateData struct {
 	*imports.Manager
+	// Package is the Go package of the generated file.
 	Package string
 	// Target is the Go type of a target record, such as Status[Details].
 	Target string
@@ -124,7 +125,8 @@ type templateData struct {
 	TypeParams string
 	// TypeArgs passes the target's type parameters, such as [Details].
 	TypeArgs string
-	Lines    []lineData
+	// Lines are the lines of the filter definition.
+	Lines []lineData
 }
 
 type lineData struct {
@@ -182,7 +184,12 @@ func (l lineData) NoOperator() string {
 	return b.String()
 }
 
-type comparisonData struct{ Member, Op string }
+type comparisonData struct {
+	// Member is the Go field of the ordering member, such as Gt.
+	Member string
+	// Op is the Go operator of the member, such as >.
+	Op string
+}
 
 // Comparisons returns the ordering members the line compares with a closure.
 func (l lineData) Comparisons() []comparisonData {
@@ -354,6 +361,7 @@ func generateFile(
 
 type requestData struct {
 	*imports.Manager
+	// Package is the Go package of the generated file.
 	Package string
 	// Service qualifies the identifiers of the filter's package, such as "rack.", and
 	// is empty when the request is in the same package.

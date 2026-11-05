@@ -32,7 +32,7 @@ inline String String::parse(x::json::Parser parser) {
 }
 
 inline x::json::json String::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     if (this->eq.has_value()) j["eq"] = *this->eq;
     if (this->in.has_value()) j["in"] = *this->in;
     if (this->contains.has_value()) j["contains"] = *this->contains;
@@ -49,7 +49,7 @@ inline Bool Bool::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Bool::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     if (this->eq.has_value()) j["eq"] = *this->eq;
     return j;
 }
@@ -64,7 +64,7 @@ Set<T> Set<T>::parse(x::json::Parser parser) {
 
 template<typename T>
 x::json::json Set<T>::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     if (this->eq.has_value()) j["eq"] = x::json::to_json(*this->eq);
     if (this->in.has_value()) j["in"] = x::json::to_array(*this->in);
     return j;
@@ -84,7 +84,7 @@ Ordered<T> Ordered<T>::parse(x::json::Parser parser) {
 
 template<typename T>
 x::json::json Ordered<T>::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     if (this->eq.has_value()) j["eq"] = x::json::to_json(*this->eq);
     if (this->in.has_value()) j["in"] = x::json::to_array(*this->in);
     if (this->gt.has_value()) j["gt"] = x::json::to_json(*this->gt);
@@ -103,7 +103,7 @@ Contains<T> Contains<T>::parse(x::json::Parser parser) {
 
 template<typename T>
 x::json::json Contains<T>::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     if (this->any.has_value()) j["any"] = x::json::to_array(*this->any);
     return j;
 }

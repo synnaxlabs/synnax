@@ -7,10 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Literal
+from typing import Literal, Unpack
 
 from console.layout import LayoutClient
-from console.task.channels.analog import Analog
+from console.task.channels.analog import Analog, Options
 
 
 class ForceIEPE(Analog):
@@ -34,10 +34,10 @@ class ForceIEPE(Analog):
 
     def __init__(
         self,
-        *,
         layout: LayoutClient,
         name: str,
         device: str,
+        *,
         force_units: Literal["Newtons", "Pounds"] | None = None,
         sensitivity: float | None = None,
         sensitivity_units: Literal["mV/N", "mV/lb"] | None = None,
@@ -45,7 +45,7 @@ class ForceIEPE(Analog):
             Literal["Internal", "External", "None"] | None
         ) = None,
         current_excitation_value: float | None = None,
-        **kwargs: Any,
+        **kwargs: Unpack[Options],
     ) -> None:
         super().__init__(
             layout=layout,

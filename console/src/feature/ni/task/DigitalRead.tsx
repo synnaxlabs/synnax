@@ -12,7 +12,7 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { errors, primitive } from "@synnaxlabs/x";
+import { deep, errors, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { useFromConfig } from "@/feature/ni/device/queries";
@@ -36,13 +36,15 @@ import {
   type DigitalReadSchemas,
 } from "@/feature/ni/task/types";
 import { Device as PlatformDevice } from "@/platform/device";
-import { Selector } from "@/platform/selector";
+import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
+
+const root = deep.path<Task.Values<DigitalReadSchemas>>();
 
 const Properties = () => (
   <>
     <Select />
-    <Flex.Box x>
+    <Flex.Box x wrap>
       <Task.Fields.SampleRate />
       <Task.Fields.StreamRate />
     </Flex.Box>
@@ -51,20 +53,30 @@ const Properties = () => (
 
 interface NameComponentProps extends DigitalNameComponentProps<DIChannel> {}
 
-const NameComponent = ({ channel, itemKey, path }: NameComponentProps) => (
-  <Task.ChannelName
-    channel={channel}
-    id={Task.getChannelNameID(itemKey)}
-    level="p"
-    namePath={`${path}.name`}
-  />
-);
+const NameComponent = ({ channel, itemKey, path, ...rest }: NameComponentProps) => {
+  const device = useFromConfig();
+  const skipped = Task.useSkipped(
+    root.config.channels,
+    itemKey,
+    getDigitalChannelDeviceKey,
+  );
+  return (
+    <Task.ChannelName
+      channel={channel}
+      id={Task.getChannelNameID(itemKey)}
+      level="p"
+      namePath={path.name}
+      defaultName={device == null ? undefined : digitalInputName(rest, device)}
+      skipped={skipped}
+    />
+  );
+};
 
 const name = Component.renderProp(NameComponent);
 
 const Form: FC = () => {
   const dev = useFromConfig();
-  PForm.useCheck("config", digitalHardwareZ(dev, "input"));
+  PForm.useCheck(root.config, digitalHardwareZ(dev, "input"));
   const resolve = (ch: DIChannel) =>
     dev == null
       ? null
@@ -74,6 +86,7 @@ const Form: FC = () => {
         };
   return (
     <DigitalChannelList<DIChannel>
+      path={root.config.channels}
       createChannel={(channels) => createNextDIChannel(channels, {}, dev)}
       name={name}
       contextMenuItems={Task.readChannelContextMenuItem}
@@ -138,12 +151,11 @@ const onConfigure: Task.OnConfigure<typeof digitalReadConfigZ> = async (
       dev.properties.digitalInput.channels = {};
     }
     const toCreate: DIChannel[] = [];
-    // Channels on one port share its data channel, named by an enabled one if any.
-    const seen = new Set<string>();
-    for (const channel of Task.enabledFirst(config.channels)) {
+    for (const channel of Task.firstPerPort(
+      config.channels,
+      getDigitalChannelDeviceKey,
+    )) {
       const key = getDigitalChannelDeviceKey(channel);
-      if (seen.has(key)) continue;
-      seen.add(key);
       const exKey = dev.properties.digitalInput.channels[key];
       if (primitive.isZero(exKey)) toCreate.push(channel);
       else
@@ -158,9 +170,7 @@ const onConfigure: Task.OnConfigure<typeof digitalReadConfigZ> = async (
       modified = true;
       const channels = await client.channels.create(
         toCreate.map((c) => ({
-          name: primitive.isNonZero(c.name)
-            ? c.name
-            : `${identifier}_di_${c.port}_${c.line}`,
+          name: digitalInputName(c, dev),
           dataType: "uint8",
           index: dev.properties.digitalInput.index,
         })),
@@ -194,9 +204,10 @@ export const useCreateDigitalRead = Task.createUseCreate({
   deviceMake: MAKE,
 });
 
-export const DigitalReadSelectable = Selector.createSelectable({
+export const DigitalReadSelectable: Selector.Selectable = {
   type: DIGITAL_READ_TYPE,
   title: "NI digital read task",
+  label: "Digital read",
   icon: <Icon.Logo.NI />,
   useOnSelect: useCreateDigitalRead,
-});
+};

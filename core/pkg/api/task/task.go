@@ -11,12 +11,14 @@ package task
 
 import (
 	"context"
+	"time"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -40,12 +42,21 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
+	// Framer sends stop commands to the running tasks of a delete.
+	//
+	// [REQUIRED]
+	Framer *framer.Service
+	// StopTimeout caps how long one delete request waits for its running tasks to
+	// stop. Keep it under the 5 second default read timeout of the Python client.
+	//
+	// [OPTIONAL] - Defaults to 4 seconds.
+	StopTimeout time.Duration
 }
 
 var (
 	_ config.Config[ServiceConfig] = ServiceConfig{}
 	// DefaultServiceConfig is the default configuration for the task API service.
-	DefaultServiceConfig = ServiceConfig{}
+	DefaultServiceConfig = ServiceConfig{StopTimeout: 4 * time.Second}
 )
 
 // Override implements config.Config.
@@ -53,6 +64,8 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Task = override.Nil(c.Task, other.Task)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
+	c.Framer = override.Nil(c.Framer, other.Framer)
+	c.StopTimeout = override.Numeric(c.StopTimeout, other.StopTimeout)
 	return c
 }
 
@@ -62,13 +75,17 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("task", c.Task)
 	v.NotNil("status", c.Status)
 	v.NotNil("rbac", c.RBAC)
+	v.NotNil("framer", c.Framer)
+	v.Positive("stop_timeout", c.StopTimeout)
 	return v.Error()
 }
 
 type Service struct {
-	access *rbac.Service
-	task   *task.Service
-	status *status.Service
+	access      *rbac.Service
+	task        *task.Service
+	status      *status.Service
+	framer      *framer.Service
+	stopTimeout time.Duration
 }
 
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
@@ -77,9 +94,11 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		task:   cfg.Task,
-		status: cfg.Status,
-		access: cfg.RBAC,
+		task:        cfg.Task,
+		status:      cfg.Status,
+		access:      cfg.RBAC,
+		framer:      cfg.Framer,
+		stopTimeout: cfg.StopTimeout,
 	}, nil
 }
 
@@ -173,6 +192,7 @@ func (s *Service) Retrieve(
 	if req.IncludeStatus {
 		statuses, err := s.status.Join[task.StatusDetails](
 			ctx,
+			nil,
 			task.OntologyIDsFromTasks(res.Tasks),
 		)
 		if err != nil {
@@ -223,6 +243,9 @@ type DeleteRequest struct {
 	Keys []task.Key `json:"keys" msgpack:"keys"`
 }
 
+// Delete stops the running tasks in req, then deletes every task in req. The stops take
+// at most StopTimeout in total. A task that does not stop in time is still deleted, and
+// it can hold its channels open until its Driver removes it.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -233,6 +256,9 @@ func (s *Service) Delete(
 		Action:  access.ActionDelete,
 		Objects: task.OntologyIDs(req.Keys),
 	}); err != nil {
+		return struct{}{}, err
+	}
+	if err := s.stopRunning(ctx, req.Keys); err != nil {
 		return struct{}{}, err
 	}
 	w := s.task.NewWriter(tx)

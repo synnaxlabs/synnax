@@ -10,11 +10,13 @@
 import { device } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Access } from "@synnaxlabs/pluto";
-import { primitive } from "@synnaxlabs/x";
+import { deep, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { NoneSelected, Unconfigured } from "@/platform/device/Empty";
 import { Task } from "@/platform/task";
+
+const path = deep.path<{ config: { device: device.Key } }>();
 
 export interface TaskFormContentProps<D> {
   device: D;
@@ -55,9 +57,10 @@ export const wrapTaskForm = <
   };
   Configured.displayName = `Configured(${Content.displayName ?? Content.name})`;
   const Wrapper = () => {
-    const deviceKey = Form.useFieldValue<string>("config.device");
+    const deviceKey = Form.useFieldValue(path.config.device);
     if (primitive.isZero(deviceKey)) return <NoneSelected />;
-    return <Configured deviceKey={deviceKey} />;
+    // A new device mounts a new body, so no state read from the old device stays.
+    return <Configured key={deviceKey} deviceKey={deviceKey} />;
   };
   Wrapper.displayName = `DeviceTaskForm(${Content.displayName ?? Content.name})`;
   return Wrapper;

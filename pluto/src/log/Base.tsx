@@ -59,7 +59,7 @@ export const Base = ({
   className,
   visible,
   channelNamesHidden,
-  receiptTimestampHidden,
+  timestampsHidden,
   timestampPrecision,
   channels,
   emptyContent = EMPTY_CONTENT,
@@ -78,7 +78,7 @@ export const Base = ({
     font,
     visible,
     channelNamesHidden,
-    receiptTimestampHidden,
+    timestampsHidden,
     timestampPrecision,
     channels,
     color,
@@ -90,6 +90,7 @@ export const Base = ({
   const {
     scrolling,
     empty,
+    loading,
     selectedText,
     selectedLines,
     region,
@@ -248,6 +249,9 @@ export const Base = ({
         onContextMenu={menuProps.open}
         {...rest}
       >
+        {loading && (
+          <Icon.Loading aria-label="Loading" className={CSS.BE("log", "loading")} />
+        )}
         {empty ? emptyContent : children}
       </div>
     </Menu.ContextMenu>

@@ -7,18 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from synnax.rack.builder_gen import (
-    Condition,
-    and_,
-    embedded,
-    host_is_node,
-    integrations,
-    key,
-    name,
-    not_,
-    or_,
-    where,
-)
 from synnax.rack.client import Client
 from synnax.rack.types_gen import (
     ONTOLOGY_TYPE,
@@ -33,20 +21,10 @@ from synnax.rack.types_gen import (
 __all__ = [
     "ONTOLOGY_TYPE",
     "Client",
-    "Condition",
     "Key",
     "Rack",
     "Status",
     "StatusDetails",
     "Where",
-    "and_",
-    "embedded",
-    "host_is_node",
-    "integrations",
-    "key",
-    "name",
-    "not_",
     "ontology_id",
-    "or_",
-    "where",
 ]

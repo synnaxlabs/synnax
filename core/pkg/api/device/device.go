@@ -115,7 +115,57 @@ func (s *Service) Create(
 	if err := s.device.NewWriter(tx).CreateMany(ctx, &req.Devices); err != nil {
 		return CreateResponse{}, err
 	}
+	if err := s.attachReadableStatuses(ctx, tx, req.Devices); err != nil {
+		return CreateResponse{}, err
+	}
 	return CreateResponse(req), nil
+}
+
+func (s *Service) attachReadableStatuses(
+	ctx context.Context,
+	tx gorp.Tx,
+	devices []device.Device,
+) error {
+	enforcer := s.access.NewEnforcer(tx)
+	subject := auth.GetSubject(ctx)
+	for i := range devices {
+		err := enforcer.Enforce(ctx, access.Request{
+			Subject: subject,
+			Action:  access.ActionRetrieve,
+			Objects: []ontology.ID{devices[i].OntologyID()},
+		})
+		// Create access does not grant read access.
+		if errors.Is(err, access.ErrDenied) {
+			devices[i].Status = nil
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		if err := s.attachStatuses(ctx, tx, devices[i:i+1]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Service) attachStatuses(
+	ctx context.Context,
+	tx gorp.Tx,
+	devices []device.Device,
+) error {
+	statuses, err := s.status.Join[device.StatusDetails](
+		ctx,
+		tx,
+		device.OntologyIDsFromDevices(devices),
+	)
+	if err != nil {
+		return err
+	}
+	for i, st := range statuses {
+		devices[i].Status = st
+	}
+	return nil
 }
 
 func (s *Service) Retrieve(
@@ -131,15 +181,8 @@ func (s *Service) Retrieve(
 		return RetrieveResponse{}, err
 	}
 	if req.IncludeStatus {
-		statuses, err := s.status.Join[device.StatusDetails](
-			ctx,
-			device.OntologyIDsFromDevices(res.Devices),
-		)
-		if err != nil {
+		if err := s.attachStatuses(ctx, nil, res.Devices); err != nil {
 			return RetrieveResponse{}, err
-		}
-		for i, st := range statuses {
-			res.Devices[i].Status = st
 		}
 	}
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{

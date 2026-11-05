@@ -31,13 +31,8 @@ export {
   keyListZ,
   keysRequest,
   keysRequestZ,
-  type ListParts,
-  type Name,
-  type OneParts,
-  type Part,
   Retriever,
   type RetrieverParams,
-  type ShortcutOptions,
 } from "@/query/retriever";
 export { type Listener } from "@/query/streamer";
 export {

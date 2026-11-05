@@ -14,7 +14,6 @@
 #include <utility>
 #include <vector>
 
-#include "client/cpp/ranger/builder.gen.h"
 #include "client/cpp/ranger/json.gen.h"
 #include "client/cpp/ranger/kv/kv.h"
 #include "client/cpp/ranger/proto.gen.h"
@@ -56,82 +55,21 @@ public:
     [[nodiscard]] std::pair<std::vector<Range>, x::errors::Error>
     retrieve(const RetrieveRequest &req) const;
 
-    /// @brief Retrieves the ranges that match every condition in parts, with each
-    /// option in parts applied.
-    /// @returns the ranges, or one range when parts end with ranger::one(). One range
-    /// is an error when no range or more than one range matches.
-    template<typename... Parts>
-        requires x::filter::parts<Where, RetrieveRequest, Parts...>
-    [[nodiscard]] auto retrieve(Parts... parts) const {
-        const auto req = x::filter::request<Where, RetrieveRequest>(
-            std::move(parts)...
-        );
-        if constexpr (x::filter::returns_one<Parts...>)
-            return this->retrieve_one(req, x::filter::describe(req.where));
-        else
-            return this->retrieve(req);
-    }
-
-    /// @brief Retrieves the range with the given key, with each include option in
-    /// includes applied.
-    /// @returns the range, or a NOT_FOUND error when no range has the key.
-    template<typename... Includes>
-        requires x::filter::includes<RetrieveRequest, Includes...>
+    /// @brief retrieves the range with the given key.
     [[nodiscard]] std::pair<Range, x::errors::Error>
-    retrieve(const Key &key, Includes... includes) const {
-        return this->retrieve_one(
-            x::filter::request<Where, RetrieveRequest>(
-                ranger::key.eq(key),
-                includes...
-            ),
-            "key " + key.to_string()
-        );
-    }
+    retrieve_by_key(const Key &key) const;
 
-    /// @brief Retrieves the range with the given name, with each include option in
-    /// includes applied.
-    /// @returns the range, or an error when no range or more than one range has the
-    /// name.
-    template<typename... Includes>
-        requires x::filter::includes<RetrieveRequest, Includes...>
+    /// @brief retrieves the range with the given name.
     [[nodiscard]] std::pair<Range, x::errors::Error>
-    retrieve(const std::string &name, Includes... includes) const {
-        return this->retrieve_one(
-            x::filter::request<Where, RetrieveRequest>(
-                ranger::name.eq(name),
-                includes...
-            ),
-            "name " + name
-        );
-    }
+    retrieve_by_name(const std::string &name) const;
 
-    /// @brief Retrieves the ranges with the given keys, with each include option in
-    /// includes applied. A key that no range has is left out.
-    template<typename... Includes>
-        requires x::filter::includes<RetrieveRequest, Includes...>
+    /// @brief retrieves the ranges with the given keys.
     [[nodiscard]] std::pair<std::vector<Range>, x::errors::Error>
-    retrieve(const std::vector<Key> &keys, Includes... includes) const {
-        return this->retrieve(
-            x::filter::request<Where, RetrieveRequest>(
-                ranger::key.in(keys),
-                includes...
-            )
-        );
-    }
+    retrieve_by_key(const std::vector<Key> &keys) const;
 
-    /// @brief Retrieves the ranges with the given names, with each include option in
-    /// includes applied. A name that no range has is left out.
-    template<typename... Includes>
-        requires x::filter::includes<RetrieveRequest, Includes...>
+    /// @brief retrieves the ranges with the given names.
     [[nodiscard]] std::pair<std::vector<Range>, x::errors::Error>
-    retrieve(const std::vector<std::string> &names, Includes... includes) const {
-        return this->retrieve(
-            x::filter::request<Where, RetrieveRequest>(
-                ranger::name.in(names),
-                includes...
-            )
-        );
-    }
+    retrieve_by_name(const std::vector<std::string> &names) const;
 
     /// @brief creates the given ranges.
     [[nodiscard]] x::errors::Error create(std::vector<Range> &ranges) const;
@@ -149,9 +87,6 @@ public:
     set_end(const Key &key, x::telem::TimeStamp end) const;
 
 private:
-    [[nodiscard]] std::pair<Range, x::errors::Error>
-    retrieve_one(const RetrieveRequest &req, const std::string &query) const;
-
     /// @brief range retrieval transport.
     std::unique_ptr<RetrieveClient> retrieve_client;
     /// @brief create retrieval transport.

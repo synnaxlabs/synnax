@@ -9,6 +9,7 @@
 
 import { status } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
+import { deep } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
@@ -16,6 +17,8 @@ import { z } from "zod";
 
 import { Status } from "@/platform/status";
 import { findDialogTrigger, renderWithConsole } from "@/testutil";
+
+const path = deep.path<z.infer<typeof schema>>();
 
 const schema = z.object({ where: status.whereZ.optional() });
 
@@ -31,7 +34,7 @@ const Fixture = ({ variant }: FixtureProps): ReactElement => {
   return (
     <Form.Form<typeof schema> {...methods}>
       <Status.Filter.MenuItem />
-      <Form.Field<status.Where["variant"]> path="where.variant" showLabel={false}>
+      <Form.Field path={deep.present(path.where).variant} showLabel={false}>
         {({ value }) => <span>{`value:${value?.in?.join(",") ?? "none"}`}</span>}
       </Form.Field>
     </Form.Form>

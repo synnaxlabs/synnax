@@ -15,6 +15,7 @@ import "schemas/x/patch"
 import "schemas/x/text"
 
 @go output "core/pkg/service/table"
+@py output "client/py/synnax/table"
 @ts output "client/ts/src/table"
 
 Key = uuid {

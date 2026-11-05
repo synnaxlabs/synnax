@@ -38,7 +38,7 @@ export const logStateZ = log.logZ
     channels: true,
     timestampPrecision: true,
     channelNamesHidden: true,
-    receiptTimestampHidden: true,
+    timestampsHidden: true,
   })
   .extend({
     region: box.box,
@@ -46,6 +46,7 @@ export const logStateZ = log.logZ
     scrolling: z.boolean(),
     resumedAt: z.number().default(0),
     empty: z.boolean(),
+    loading: z.boolean().default(false),
     visible: z.boolean(),
     // channelNames: server-side display names (fetched fresh, never persisted)
     // channelDataTypes: server-side data types (fetched fresh, never persisted)
@@ -274,13 +275,13 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     const { data, status } = i.telem.value();
     this.entries = data;
     this.setAnchors(this.state.selectionStart, this.state.selectionEnd);
-    this.checkEmpty(status);
+    this.syncStatus(status);
     i.stopListeningTelem?.();
     i.stopListeningTelem = i.telem.onChange(() => {
       const { data, status } = this.internal.telem.value();
       this.entries = data;
       this.reanchor();
-      this.checkEmpty(status);
+      this.syncStatus(status);
       if (this.state.visible) this.requestRender();
     });
     if (!this.state.visible && !this.prevState.visible) return;
@@ -288,10 +289,11 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
   }
 
   // A loading log is not empty, since its stored entries have not arrived yet.
-  private checkEmpty(s: status.Status): void {
-    const actuallyEmpty = this.entries.length === 0 && s.variant !== "loading";
-    if (actuallyEmpty === this.state.empty) return;
-    this.setState((p) => ({ ...p, empty: actuallyEmpty }));
+  private syncStatus(s: status.Status): void {
+    const loading = s.variant === "loading";
+    const empty = this.entries.length === 0 && !loading;
+    if (empty === this.state.empty && loading === this.state.loading) return;
+    this.setState((p) => ({ ...p, empty, loading }));
   }
 
   afterDelete(): void {
@@ -497,11 +499,11 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     line: string;
     channelKey: string;
   } {
-    const { channelNamesHidden, receiptTimestampHidden, channelDataTypes } = this.state;
+    const { channelNamesHidden, timestampsHidden, channelDataTypes } = this.state;
     const { tsLen, configs } = this.internal;
     const chKeyStr = String(entry.channelKey);
     const cfg = configs[chKeyStr];
-    const ts = !receiptTimestampHidden
+    const ts = !timestampsHidden
       ? new TimeStamp(entry.timestamp).toString("preciseTime", "local").slice(0, tsLen)
       : "";
     let value = entry.value;
@@ -522,10 +524,9 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     const name = displayNames[chKeyStr] ?? chKeyStr;
     const pad = namePadding[chKeyStr] ?? "";
     let prefix: string;
-    if (!receiptTimestampHidden && !channelNamesHidden)
-      prefix = `${ts} [${name}]${pad}  `;
-    else if (!receiptTimestampHidden) prefix = `${ts}  `;
-    else if (!channelNamesHidden) prefix = `[${name}]${pad}  `;
+    if (!timestampsHidden && !channelNamesHidden) prefix = `${ts}  ${name}${pad}   `;
+    else if (!timestampsHidden) prefix = `${ts}   `;
+    else if (!channelNamesHidden) prefix = `${name}${pad}   `;
     else prefix = "";
     // Continuation lines (\n) keep the prefix's alignment width as whitespace.
     if (entry.continuation) prefix = " ".repeat(prefix.length);

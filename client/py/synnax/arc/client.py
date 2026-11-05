@@ -9,15 +9,12 @@
 
 from __future__ import annotations
 
-from typing import Literal, overload
+from typing import overload
 from uuid import UUID
 
 from pydantic import BaseModel, PrivateAttr
 
 from freighter import Empty, UnaryClient
-from synnax import util
-from synnax.arc import builder_gen
-from synnax.arc.builder_gen import Condition
 from synnax.arc.graph import Graph
 from synnax.arc.program import Program
 from synnax.arc.text import Text
@@ -31,6 +28,7 @@ from synnax.arc.types_gen import (
     ontology_id,
 )
 from synnax.ontology.payload import ID
+from synnax.util import one
 from x import filter
 from x.lists import normalize
 from x.uuid import NIL
@@ -150,14 +148,6 @@ class Client:
         return created[0] if is_single else created
 
     @overload
-    def retrieve(self, key: Key | str, /, *, include_program: bool = False) -> Arc: ...
-
-    @overload
-    def retrieve(
-        self, keys: list[Key] | list[str], /, *, include_program: bool = False
-    ) -> list[Arc]: ...
-
-    @overload
     def retrieve(self, *, key: Key, include_program: bool = False) -> Arc: ...
 
     @overload
@@ -166,19 +156,8 @@ class Client:
     @overload
     def retrieve(
         self,
-        *conditions: Condition,
-        one: Literal[True],
-        keys: list[Key] | None = None,
-        names: list[str] | None = None,
-        search_term: str = "",
-        include_program: bool = False,
-    ) -> Arc: ...
-
-    @overload
-    def retrieve(
-        self,
-        *conditions: Condition,
-        one: Literal[False] = False,
+        *,
+        where: Where | None = None,
         keys: list[Key] | None = None,
         names: list[str] | None = None,
         search_term: str = "",
@@ -189,10 +168,10 @@ class Client:
 
     def retrieve(
         self,
-        *args: Key | str | list[Key] | list[str] | Condition,
+        *,
         key: Key | None = None,
         name: str | None = None,
-        one: bool = False,
+        where: Where | None = None,
         keys: list[Key] | None = None,
         names: list[str] | None = None,
         search_term: str = "",
@@ -200,24 +179,16 @@ class Client:
         offset: int = 0,
         include_program: bool = False,
     ) -> Arc | list[Arc]:
-        """Retrieves Arcs that match every condition and filter. Returns one Arc for a
-        key, a name, or one, and a list otherwise.
+        """Retrieve Arcs. Returns one Arc when a key or name is given, and a list
+        otherwise.
 
-        :param args: Conditions from the Arc builder, such as
-            ``arc.name.contains("press")``, or one key, name, or list of either.
-        :param one: Returns the one Arc that matches, instead of a list.
+        :param where: Keeps Arcs that match this filter tree.
         :param include_program: Whether the Core compiles each Arc and sets its
             program. The Core raises an error if any Arc fails to compile.
         :raises NotFoundError: If a single Arc is requested and none matches.
-        :raises MultipleFoundError: If a single Arc is requested by name or one and more
+        :raises MultipleFoundError: If a single Arc is requested by name and more
             than one matches.
-        :raises TypeError: If args are neither Arc conditions nor a shortcut.
-        :raises ValueError: If one is combined with limit or offset.
         """
-        util.reject_page(one, limit, offset)
-        conditions, query = util.shortcut(
-            "Arc", args, Condition, UUID, builder_gen.key, builder_gen.name
-        )
         if key is not None:
             keys = [key]
         if name is not None:
@@ -226,13 +197,11 @@ class Client:
             key=None if keys is None else filter.Set[Key](in_=keys),
             name=None if names is None else filter.String(in_=names),
         )
-        if key is not None or name is not None:
-            query = key if key is not None else name
-        where = filter.merge(filter.join(Where, conditions), flat)
+        is_single = key is not None or name is not None
         res = self._client.send(
             "/arc/retrieve",
             RetrieveRequest(
-                where=where,
+                where=filter.merge(where, flat),
                 search_term=search_term,
                 limit=limit,
                 offset=offset,
@@ -242,9 +211,9 @@ class Client:
         )
 
         arcs = self._sugar(res.arcs)
-        if query is None and not one:
+        if not is_single:
             return arcs
-        return util.one("Arc", where if query is None else query, arcs)
+        return one("Arc", key if key is not None else name, arcs)
 
     def delete(self, keys: Key | list[Key]) -> None:
         self._client.send("/arc/delete", _DeleteRequest(keys=normalize(keys)), Empty)

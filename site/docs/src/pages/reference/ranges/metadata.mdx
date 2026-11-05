@@ -189,14 +189,23 @@ run the "Edit labels" command from the
 
   <Fragment slot="python">
 
-The Python client can read the labels of a range, but cannot set them:
-
 ```python
-my_range = client.ranges.retrieve(name="My Range", include_labels=True)
+my_range = client.ranges.retrieve(name="My Range")
 
-# labels is None when the range has no labels
-for label in my_range.labels or []:
-    print(label.name)
+# Create a label
+label = client.labels.create(name="Hotfire", color="#FF0000")
+
+# Add the label to the range
+my_range.add_label(label.key)
+
+# List the labels on the range
+labels = my_range.retrieve_labels()
+
+# Remove the label from the range
+my_range.remove_label(label.key)
+
+# Retrieve every range with the label
+hotfires = client.ranges.retrieve(has_labels=[label.key])
 ```
 
   </Fragment>
@@ -204,8 +213,6 @@ for label in my_range.labels or []:
   <Fragment slot="typescript">
 
 ```typescript
-import { ranger } from "@synnaxlabs/client";
-
 const myRange = await client.ranges.retrieve("My Range");
 
 // Create a label
@@ -221,7 +228,7 @@ const labels = await myRange.retrieveLabels();
 await myRange.removeLabel(label.key);
 
 // Retrieve every range with the label
-const hotfires = await client.ranges.retrieve(ranger.labels.has(label.key));
+const hotfires = await client.ranges.retrieve({ where: { labels: [label.key] } });
 ```
 
   </Fragment>
