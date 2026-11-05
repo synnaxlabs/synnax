@@ -763,6 +763,29 @@ describe("Device", async () => {
         expect(retrieved.properties.channels).toEqual(["ai0", "ai1"]);
       });
 
+      it("should retrieve devices by a flat filter with schemas", async () => {
+        const location = `flat-${id.create()}`;
+        const d = await client.devices.create(
+          {
+            key: id.create(),
+            rack: testRack.key,
+            location,
+            name: "flat-schema",
+            make: "ni",
+            model: "pxi",
+            properties: { rate: 100, channels: ["ch1"] },
+          },
+          schemas,
+        );
+        const retrieved = await client.devices.retrieve({
+          location,
+          make: "ni",
+          schemas,
+        });
+        expect(retrieved.map(({ key }) => key)).toEqual([d.key]);
+        expect(retrieved[0].properties.rate).toBe(100);
+      });
+
       it("should create and retrieve with typed make and model", async () => {
         const makeModelSchemas = {
           properties: record.unknownZ(),

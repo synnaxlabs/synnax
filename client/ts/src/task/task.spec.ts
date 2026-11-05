@@ -445,6 +445,15 @@ describe("Task", async () => {
         expect(result.every((t) => t.type === "labjack_scan")).toBe(true);
       });
 
+      it("should combine rack and type in a flat filter", async () => {
+        const result = await client.tasks.retrieve({
+          rack: secondRack.key,
+          type: ["labjack_scan"],
+        });
+        expect(result.length).toBeGreaterThanOrEqual(1);
+        expect(result.every((t) => t.type === "labjack_scan")).toBe(true);
+      });
+
       it("should handle limit without offset", async () => {
         const result = await client.tasks.retrieve({
           limit: 1,

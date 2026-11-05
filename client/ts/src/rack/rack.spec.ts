@@ -258,6 +258,19 @@ describe("Rack", () => {
       expect(keys).toContain(r1.key);
       expect(keys).not.toContain(r2.key);
     });
+    it("should filter racks by integration in a flat filter", async () => {
+      const [r1, r2] = await Promise.all(
+        [["ni", "opc"], ["modbus"]].map(
+          async (integrations) =>
+            await client.racks.create({ name: "rack-flat", integrations }),
+        ),
+      );
+      const results = await client.racks.retrieve({
+        key: [r1.key, r2.key],
+        integrations: "ni",
+      });
+      expect(results.map((r) => r.key)).toEqual([r1.key]);
+    });
     it("should update integrations on upsert", async () => {
       const r = await client.racks.create({
         name: "rack-update-integrations",

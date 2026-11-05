@@ -59,7 +59,7 @@ import {
   statusZ,
   type Where,
 } from "@/task/types.gen";
-import { matches, serverComputed } from "@/task/where.gen";
+import { matches, retrieveInputZ, serverComputed } from "@/task/where.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export type { PayloadSchemas as Schemas } from "@/task/types.gen";
@@ -305,19 +305,19 @@ const singleWhere = (q: SingleRequest): Where => {
 
 const singleRetrieveParamsZ = z.union([
   z
-    .object({ key: keyZ, includeStatus: z.boolean().optional() })
+    .strictObject({ key: keyZ, includeStatus: z.boolean().optional() })
     .transform(({ key, includeStatus }): RetrieveRequest => ({
       where: singleWhere({ key }),
       includeStatus,
     })),
   z
-    .object({ name: z.string(), includeStatus: z.boolean().optional() })
+    .strictObject({ name: z.string(), includeStatus: z.boolean().optional() })
     .transform(({ name, includeStatus }): RetrieveRequest => ({
       where: singleWhere({ name }),
       includeStatus,
     })),
   z
-    .object({ type: z.string(), rack: rackKeyZ.optional() })
+    .strictObject({ type: z.string(), rack: rackKeyZ.optional() })
     .transform(({ type, rack }): RetrieveRequest => ({
       where: singleWhere({ type, rack }),
     })),
@@ -328,7 +328,14 @@ export type RetrieveSingleParams = z.input<typeof singleRetrieveParamsZ>;
 /** Everything a multi-task retrieval can filter on. */
 export type RetrieveMultipleParams = RetrieveRequest;
 
-const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveRequestZ]);
+const filterParamsZ = retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape);
+type FilterParams = z.input<typeof filterParamsZ>;
+
+const retrieveParamsZ = z.union([
+  singleRetrieveParamsZ,
+  retrieveRequestZ,
+  filterParamsZ,
+]);
 /** Params for a task retrieval, single or multiple. */
 export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 
@@ -356,6 +363,7 @@ const singleQueryZ = z
 const retrieveMultiParamsZ = z.union([
   query.keysRequestZ(keyZ),
   retrieveRequestZ.transform(({ includeStatus: _, ...rest }) => rest),
+  filterParamsZ.transform(({ includeStatus: _, ...rest }) => rest),
 ]);
 
 interface RetrieveSchemas<S extends Schemas = Schemas> {
@@ -624,12 +632,16 @@ export class Client extends query.Retriever<
   ): Promise<Task<S>>;
   async retrieve(params: Key | RetrieveSingleParams): Promise<Task>;
   async retrieve<S extends Schemas = Schemas>(
-    params: RetrieveMultipleParams & RetrieveSchemas<S>,
+    params: (RetrieveMultipleParams | FilterParams) & RetrieveSchemas<S>,
   ): Promise<Task<S>[]>;
-  async retrieve(params: RetrieveMultipleParams): Promise<Task[]>;
+  async retrieve(
+    params: query.RequestInput<typeof retrieveMultiParamsZ>,
+  ): Promise<Task[]>;
   async retrieve<S extends Schemas = Schemas>(
-    rawParams: Key | (RetrieveParams & RetrieveSchemas<S>),
+    rawParams: Key | Key[] | ((RetrieveParams | FilterParams) & RetrieveSchemas<S>),
   ): Promise<Task<S> | Task<S>[]> {
+    if (Array.isArray(rawParams))
+      return (await super.retrieve(rawParams)) as unknown as Task<S>[];
     const { schemas, ...params } =
       typeof rawParams === "string" ? { key: rawParams } : rawParams;
     const isSingle = z.validate(singleRetrieveParamsZ, params);
@@ -672,7 +684,7 @@ export class Client extends query.Retriever<
   }
 
   private async execRetrieve<S extends Schemas = Schemas>(
-    params: RetrieveParams,
+    params: RetrieveParams | FilterParams,
     schemas?: S,
   ): Promise<Task<S>[]> {
     const res = await this.cfg.unary.send(
