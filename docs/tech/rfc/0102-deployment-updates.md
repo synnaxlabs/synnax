@@ -109,9 +109,11 @@ admin rights on the host, which is the access control for a Core update.
 1. Stops the Core service. A Core that runs in a terminal must be stopped by hand first.
 2. Keeps the old binary as `<binary>.old` and puts the new one in its place.
 3. Starts the Core, which backs up and migrates (§3.0).
-4. Waits for `/connectivity/check` to answer with a license state of `ok`
-   (`core/pkg/api/connectivity/connectivity.go:76-89`). That covers the license version
-   cap (`core/pkg/service/license/service.go:426-471`).
+4. Waits for `/connectivity/check` to answer
+   (`core/pkg/api/connectivity/connectivity.go:76-89`). A license state of `ok` before
+   the update must stay `ok`, which covers the license version cap
+   (`core/pkg/service/license/service.go:426-471`). A `missing` or `expired` state has
+   nothing to lose.
 5. On a failure, stops the Core and puts the old binary back. If step 3 made a backup,
    it first restores that backup (§3.1). With no new backup, the data did not change. It
    then starts the old Core.
@@ -183,7 +185,10 @@ Core release also uploads one bundle per OS: the Core binary and the four Driver
 binaries (about 310 MB together). `synnax update --file` loads the Drivers from it.
 
 At each connect, a Driver whose version differs from the Core's Driver downloads it,
-checks the signature, and replaces itself. It never updates while tasks run.
+checks the signature, and replaces itself. It never updates while tasks run. A Core
+update ends each Driver's stream, so the Driver stops its tasks and reconnects
+(`driver/task/manager.cpp:201`, `driver/rack/rack.cpp:38-53`). The version check and the
+update run at that connect, before any task starts again.
 
 | Platform    | Restart after the replace                                     |
 | ----------- | ------------------------------------------------------------- |
