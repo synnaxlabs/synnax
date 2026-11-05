@@ -114,13 +114,15 @@ Scanner::Scanner(
     synnax::task::Task task,
     std::shared_ptr<connection::Pool> conn_pool,
     std::shared_ptr<certificate::Store> store,
-    std::shared_ptr<secret::Reader> reader
+    std::shared_ptr<secret::Reader> reader,
+    const std::chrono::steady_clock::duration read_node_deadline
 ):
     ctx(std::move(ctx)),
     task(std::move(task)),
     conn_pool(std::move(conn_pool)),
     store(std::move(store)),
-    reader(std::move(reader)) {}
+    reader(std::move(reader)),
+    read_node_deadline(read_node_deadline) {}
 
 common::ScannerConfig Scanner::config() const {
     return common::ScannerConfig{
@@ -591,9 +593,6 @@ constexpr auto SEARCH_DEADLINE = std::chrono::seconds(20);
 /// @brief how long a browse command runs before it returns the nodes that it typed,
 /// which is less than the 10 s that the Console waits for the reply.
 constexpr auto BROWSE_DEADLINE = std::chrono::seconds(7);
-/// @brief how long a read_node command sends requests before it fails. The Console adds
-/// this to the time that it waits for a connection and one request.
-constexpr auto READ_NODE_DEADLINE = std::chrono::seconds(20);
 
 /// @brief finds the variables under a node, through objects at any depth, breadth
 /// first, until deadline. Does not look under a variable. A node that fails to browse
@@ -847,7 +846,8 @@ std::optional<std::pair<connection::Pool::Connection, UA_NodeId>> Scanner::targe
     const ScanCommandArgs &args,
     const std::optional<synnax::secret::Grant> &grant,
     synnax::task::Status &status,
-    const std::string &failure
+    const std::string &failure,
+    const std::chrono::steady_clock::time_point deadline
 ) const {
     if (!parser.ok()) {
         status.message = "Failed to parse scan command";
@@ -863,7 +863,7 @@ std::optional<std::pair<connection::Pool::Connection, UA_NodeId>> Scanner::targe
         ctx->set_status(status);
         return std::nullopt;
     }
-    auto [connection, err] = conn_pool->acquire(cfg, SCAN_LOG_PREFIX);
+    auto [connection, err] = conn_pool->acquire(cfg, SCAN_LOG_PREFIX, deadline);
     if (err) {
         status.message = "Failed to connect to server";
         status.description = err.data;
@@ -874,7 +874,7 @@ std::optional<std::pair<connection::Pool::Connection, UA_NodeId>> Scanner::targe
     // index, which a restart can move.
     types::ReadRequestBuilder ns_req;
     ns_req.add_node(UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_NAMESPACEARRAY));
-    auto [ns_res, ns_err] = connection.read(ns_req.build());
+    auto [ns_res, ns_err] = connection.read(ns_req.build(), deadline);
     if (!ns_err) ns_err = connection.update_namespaces(ns_res.get().results[0]).second;
     if (ns_err) {
         status.message = failure;
@@ -901,7 +901,14 @@ void Scanner::browse_nodes(
     x::json::Parser parser(cmd.args);
     const ScanCommandArgs args(parser);
     auto status = command_status(this->task, cmd);
-    auto target = this->target(parser, args, grant, status, "Failed to browse nodes");
+    auto target = this->target(
+        parser,
+        args,
+        grant,
+        status,
+        "Failed to browse nodes",
+        deadline
+    );
     if (!target.has_value()) return;
     auto &[connection, start] = *target;
 
@@ -962,7 +969,14 @@ void Scanner::browse_variables(
     x::json::Parser parser(cmd.args);
     const ScanCommandArgs args(parser);
     auto status = command_status(this->task, cmd);
-    auto target = this->target(parser, args, grant, status, "Failed to find variables");
+    auto target = this->target(
+        parser,
+        args,
+        grant,
+        status,
+        "Failed to find variables",
+        deadline
+    );
     if (!target.has_value()) return;
     auto &[connection, start] = *target;
     auto [search, search_err] = find_variables(connection, start, deadline);
@@ -1002,11 +1016,18 @@ void Scanner::read_node(
     const synnax::task::Command &cmd,
     const std::optional<synnax::secret::Grant> &grant
 ) const {
-    const auto deadline = std::chrono::steady_clock::now() + READ_NODE_DEADLINE;
+    const auto deadline = std::chrono::steady_clock::now() + this->read_node_deadline;
     x::json::Parser parser(cmd.args);
     const ScanCommandArgs args(parser);
     auto status = command_status(this->task, cmd);
-    auto target = this->target(parser, args, grant, status, "Failed to read node");
+    auto target = this->target(
+        parser,
+        args,
+        grant,
+        status,
+        "Failed to read node",
+        deadline
+    );
     if (!target.has_value()) return;
     auto &[connection, id] = *target;
     auto [data, details_err] = read_details(connection, id, args.field, deadline);
