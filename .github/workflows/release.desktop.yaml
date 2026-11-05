@@ -37,8 +37,7 @@ concurrency:
 
 permissions:
   actions: read
-  contents: write
-  packages: write
+  contents: read
 
 env:
   GH_REPO: ${{ github.repository }}
@@ -90,6 +89,9 @@ jobs:
   draft:
     name: Draft Desktop
     needs: [resolve, ci]
+    permissions:
+      actions: read
+      contents: write
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -129,6 +131,9 @@ jobs:
   publish:
     name: Publish Desktop
     needs: [resolve, build]
+    permissions:
+      actions: read
+      contents: write
     runs-on: ubuntu-latest
     env:
       TAG: ${{ needs.resolve.outputs.tag }}
@@ -154,7 +159,7 @@ jobs:
           app: Synnax Desktop
 
       - name: Publish release
-        run: gh release edit "$TAG" --draft=false
+        run: gh release edit "$TAG" --draft=false --latest=false
 
   deploy-docs:
     name: Deploy docs

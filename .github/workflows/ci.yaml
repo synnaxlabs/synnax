@@ -419,6 +419,8 @@ jobs:
 
       - name: Upload coverage
         uses: codecov/codecov-action@v7
+        env:
+          CURL_HOME: ${{ github.workspace }}/.github/codecov
         with:
           disable_search: true
           fail_ci_if_error: true

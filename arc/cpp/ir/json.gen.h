@@ -32,7 +32,7 @@ inline Handle Handle::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Handle::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["node"] = this->node;
     j["param"] = this->param;
     return j;
@@ -47,7 +47,7 @@ inline Edge Edge::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Edge::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["source"] = this->source.to_json();
     j["target"] = this->target.to_json();
     j["kind"] = this->kind;
@@ -63,7 +63,7 @@ inline Transition Transition::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Transition::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["on"] = this->on.to_json();
     j["kind"] = this->kind;
     j["target"] = ::arc::ir::to_json(this->target);
@@ -78,7 +78,7 @@ inline Activation Activation::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Activation::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["on"] = this->on.to_json();
     j["kind"] = this->kind;
     return j;
@@ -92,7 +92,7 @@ inline Member Member::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Member::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     if (this->node_key.has_value()) j["node_key"] = *this->node_key;
     if (this->scope.has_value()) j["scope"] = this->scope->to_json();
     return j;
@@ -117,7 +117,7 @@ inline Scope Scope::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Scope::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["key"] = this->key;
     j["mode"] = this->mode;
     j["liveness"] = this->liveness;
@@ -140,7 +140,7 @@ inline Body Body::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Body::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["raw"] = this->raw;
     return j;
 }
@@ -156,7 +156,7 @@ inline Function Function::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Function::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["key"] = this->key;
     j["body"] = this->body.to_json();
     j["inputs"] = this->inputs.to_json();
@@ -176,7 +176,7 @@ inline Node Node::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Node::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["key"] = this->key;
     j["type"] = this->type;
     j["inputs"] = this->inputs.to_json();
@@ -195,7 +195,7 @@ inline Authorities Authorities::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Authorities::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     if (this->default_.has_value()) j["default"] = *this->default_;
     j["channels"] = this->channels;
     return j;
@@ -212,7 +212,7 @@ inline IR IR::parse(x::json::Parser parser) {
 }
 
 inline x::json::json IR::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["functions"] = this->functions.to_json();
     j["nodes"] = this->nodes.to_json();
     j["edges"] = this->edges.to_json();
@@ -228,7 +228,7 @@ inline ExitTarget ExitTarget::parse(x::json::Parser parser) {
 }
 
 inline x::json::json ExitTarget::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["type"] = this->type;
     return j;
 }
@@ -241,7 +241,7 @@ inline StepTarget StepTarget::parse(x::json::Parser parser) {
 }
 
 inline x::json::json StepTarget::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["key"] = this->key;
     j["type"] = this->type;
     return j;
@@ -255,7 +255,7 @@ inline ScopeTarget ScopeTarget::parse(x::json::Parser parser) {
 }
 
 inline x::json::json ScopeTarget::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["key"] = this->key;
     j["type"] = this->type;
     return j;

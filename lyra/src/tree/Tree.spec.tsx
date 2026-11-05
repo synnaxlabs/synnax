@@ -235,6 +235,19 @@ describe("Tree expansion", () => {
     });
   });
 
+  it("should toggle a node that its collapsed parent hides", () => {
+    const onExpand = vi.fn();
+    const { result } = renderHook(() =>
+      use({ nodes: [{ key: "a", children: [{ key: "a1", children: [] }] }], onExpand }),
+    );
+    act(() => result.current.toggle("a1"));
+    expect(onExpand).toHaveBeenLastCalledWith({
+      current: ["a1"],
+      action: "expand",
+      clicked: "a1",
+    });
+  });
+
   it("should report the expanded keys after a contract", () => {
     const onExpand = vi.fn();
     const { result } = renderHook(() =>

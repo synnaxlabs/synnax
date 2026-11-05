@@ -55,15 +55,18 @@ import {
 } from "@/feature/labjack/task/types";
 import { useConfigure } from "@/feature/labjack/task/useConfigure";
 import { Device as PlatformDevice } from "@/platform/device";
-import { Selector } from "@/platform/selector";
+import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const root = deep.path<Task.Values<ReadSchemas>>();
 
+const portOf = (c: ReadChannel): string =>
+  `${convertReadChannelTypeToPortType(c.type)}/${c.port}`;
+
 const Properties = () => (
   <>
     <Select />
-    <Flex.Box x>
+    <Flex.Box x wrap>
       <Task.Fields.SampleRate />
       <Task.Fields.StreamRate />
     </Flex.Box>
@@ -97,6 +100,7 @@ const ChannelListItem = ({
   const type = PForm.useFieldValue(entry.type);
   const isSnapshot = Task.useIsSnapshot();
   const isRunning = Task.useIsRunning();
+  const skipped = Task.useSkipped(root.config.channels, rest.itemKey, portOf);
   const hasTareButton = channel !== 0 && type === "analog" && !isSnapshot;
   const canTare = !disabled && isRunning;
   return (
@@ -109,6 +113,7 @@ const ChannelListItem = ({
       hasTareButton={hasTareButton}
       channel={channel}
       defaultName={channelName({ name, port }, identifier)}
+      skipped={skipped}
       portMaxChars={maxTerminalChars(model)}
     />
   );
@@ -350,13 +355,8 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
       dev.properties.readIndex = index.key;
     }
     const toCreate: ReadChannel[] = [];
-    // Channels on one port share its data channel, named by an enabled one if any.
-    const seen = new Set<string>();
-    for (const c of Task.enabledFirst(config.channels)) {
+    for (const c of Task.firstPerPort(config.channels, portOf)) {
       const type = convertReadChannelTypeToPortType(c.type);
-      const key = `${type}/${c.port}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
       const existing = dev.properties[type].channels[c.port];
       if (primitive.isZero(existing)) toCreate.push(c);
       else
@@ -407,9 +407,10 @@ export const useCreateRead = Task.createUseCreate({
   deviceMake: MAKE,
 });
 
-export const ReadSelectable = Selector.createSelectable({
+export const ReadSelectable: Selector.Selectable = {
   type: READ_TYPE,
   title: "LabJack read task",
+  label: "Read",
   icon: <Icon.Logo.LabJack />,
   useOnSelect: useCreateRead,
-});
+};
