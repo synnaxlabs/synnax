@@ -1098,6 +1098,77 @@ var _ = Describe("Device", func() {
 			Expect(w.Rename(ctx, d.Key, "After")).To(Succeed())
 		})
 	})
+	Describe("Group", func() {
+		var underRack group.Group
+		BeforeEach(func(ctx SpecContext) {
+			underRack = group.Group{
+				Name:   "Under rack",
+				Parent: new(rackSvc.EmbeddedKey.ResourceID()),
+			}
+			Expect(groupSvc.NewWriter(tx).Create(ctx, &underRack)).To(Succeed())
+		})
+		createDevice := func(ctx context.Context, key string, g *group.Key) error {
+			return w.Create(ctx, &device.Device{
+				Key:      key,
+				Rack:     rackSvc.EmbeddedKey,
+				Location: key,
+				Name:     key,
+				Make:     "Test Make",
+				Model:    "Test Model",
+				Group:    g,
+			})
+		}
+		retrieveGroup := func(ctx context.Context, key string) *group.Key {
+			GinkgoHelper()
+			var d device.Device
+			Expect(svc.NewRetrieve().
+				Where(device.MatchKeys(key)).
+				Entry(&d).
+				Exec(ctx, tx)).To(Succeed())
+			return d.Group
+		}
+
+		It(
+			"Should move a device into a group under its rack and back out",
+			func(ctx SpecContext) {
+				Expect(createDevice(ctx, "grouped", nil)).To(Succeed())
+				Expect(w.SetGroup(ctx, &underRack.Key, "grouped")).To(Succeed())
+				Expect(retrieveGroup(ctx, "grouped")).To(Equal(&underRack.Key))
+				Expect(w.SetGroup(ctx, nil, "grouped")).To(Succeed())
+				Expect(retrieveGroup(ctx, "grouped")).To(BeNil())
+			},
+		)
+
+		It(
+			"Should reject a group that does not sit under the device's rack",
+			func(ctx SpecContext) {
+				top := group.Group{Name: "Top", Scope: resource.TypeDevice}
+				Expect(groupSvc.NewWriter(tx).Create(ctx, &top)).To(Succeed())
+				Expect(createDevice(ctx, "elsewhere", nil)).To(Succeed())
+				Expect(w.SetGroup(ctx, &top.Key, "elsewhere")).To(MatchError(
+					"group: group Top does not sit under rack " +
+						rackSvc.EmbeddedKey.ResourceID().Key + ": validation error",
+				))
+				Expect(retrieveGroup(ctx, "elsewhere")).To(BeNil())
+			},
+		)
+
+		It("Should create a device in a group under its rack", func(ctx SpecContext) {
+			Expect(createDevice(ctx, "created", &underRack.Key)).To(Succeed())
+			Expect(retrieveGroup(ctx, "created")).To(Equal(&underRack.Key))
+		})
+
+		It(
+			"Should reject a created device in a group of another scope",
+			func(ctx SpecContext) {
+				channels := group.Group{Name: "Channels", Scope: resource.TypeChannel}
+				Expect(groupSvc.NewWriter(tx).Create(ctx, &channels)).To(Succeed())
+				Expect(createDevice(ctx, "mismatch", &channels.Key)).To(MatchError(
+					"group: a device cannot sit in a channel group: validation error",
+				))
+			},
+		)
+	})
 	Describe("Delete", func() {
 		It(
 			"Should correctly delete a device and its associated status",
