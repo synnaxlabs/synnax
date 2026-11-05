@@ -175,8 +175,19 @@ export const useContextMenu = (): UseContextMenuReturn => {
 
   useWindowResize(calculatePosition, { enabled: state.visible });
 
+  // The items can load after the menu opens, and an empty menu is hidden and cannot
+  // take the focus, so the menu takes it when they show unless the focus has moved.
   useEffect(() => {
-    if (state.visible) menuRef.current?.focus({ preventScroll: true });
+    const menu = menuRef.current;
+    if (!state.visible || menu == null) return;
+    const take = (): void => {
+      if (document.activeElement === returnFocusRef.current)
+        menu.focus({ preventScroll: true });
+    };
+    take();
+    const observer = new MutationObserver(take);
+    observer.observe(menu, { childList: true });
+    return () => observer.disconnect();
   }, [state.visible]);
 
   const hide = (returnFocus: boolean): void => {

@@ -65,6 +65,7 @@ const LoadingMenu = ({ items }: { items: Promise<void> }): ReactElement => {
       {...ctx}
     >
       <button onContextMenu={ctx.open}>Opener</button>
+      <input id="field" aria-label="field" />
     </Menu.ContextMenu>
   );
 };
@@ -126,7 +127,7 @@ describe("Menu", () => {
       expect(computed(rename, "outline-style")).toBe("none");
     });
 
-    it("should hold the focus, hidden, while its items load", async () => {
+    const openLoading = async () => {
       let load = (): void => {};
       const items = new Promise<void>((resolve) => {
         load = resolve;
@@ -135,14 +136,27 @@ describe("Menu", () => {
       const opener = getByText("Opener").element() as HTMLElement;
       opener.focus();
       await userEvent.click(opener, { button: "right" });
-      const menu = page.getByRole("menu").element();
-      await expect.poll(() => document.activeElement).toBe(menu);
-      expect(computed(menu, "opacity")).toBe("0");
+      return { opener, load };
+    };
+
+    it("should take the focus when its items load", async () => {
+      const { load } = await openLoading();
       load();
       const copy = page.getByRole("menuitem", { name: "Copy" });
-      await expect.poll(() => copy.query()).not.toBeNull();
+      await expect
+        .poll(() => document.activeElement?.getAttribute("role"))
+        .toBe("menu");
       await userEvent.keyboard("{ArrowDown}");
       await expect.poll(() => document.activeElement).toBe(copy.element());
+    });
+
+    it("should leave the focus that moved while its items load", async () => {
+      const { load } = await openLoading();
+      const field = document.getElementById("field") as HTMLElement;
+      field.focus();
+      load();
+      await expect.poll(() => page.getByRole("menu").query()).not.toBeNull();
+      expect(document.activeElement).toBe(field);
     });
 
     it("should leave the focus to a click outside", async () => {
