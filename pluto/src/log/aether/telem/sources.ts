@@ -103,8 +103,6 @@ interface Meta {
   appended: number;
   // Whether the channel stores samples, so that older pages can read them.
   stored: boolean;
-  // The index channel of a channel that stores samples.
-  index: channel.Key;
   // Samples that wait for their times, oldest first.
   pending: Sample[];
   // Whether the log has warned that it dropped samples that never got a time.
@@ -240,8 +238,9 @@ export class StreamMultiChannelLog
 
   /** Moves a log that is not live back to the newest samples. */
   resume(): void {
-    if (this.live) return;
+    // A late older page could evict the newest entries of a live log.
     this.cancelPage();
+    if (this.live) return this.notify();
     this.unread = [];
     this.entries = [];
     this.metas.forEach((meta) => {
@@ -814,7 +813,6 @@ const toMeta = (ch: channel.Channel): Meta => {
   const stored = ch.isIndex || (ch.index !== 0 && (!ch.virtual || ch.isCalculated));
   return {
     stored,
-    index: ch.isIndex ? ch.key : ch.index,
     appended: 0,
     pending: [],
     dropWarned: false,
