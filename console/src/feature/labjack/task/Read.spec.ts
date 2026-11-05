@@ -64,9 +64,10 @@ const createDraft = async (
 
 describe("Read", () => {
   it("should prompt for a selection when the form carries no device", async () => {
+    await createLabJackDevice(client);
     const draft = await createDraft(client, createConfig("", []));
     await renderRead({ client, taskKey: draft.key });
-    await waitFor(() => expect(screen.getByText("No device selected")).toBeTruthy());
+    await screen.findByText("No device selected");
   });
 
   it("should prompt to configure an unconfigured device", async () => {
@@ -670,7 +671,7 @@ describe("Read ports", () => {
     for (const [port, tooltip] of [
       ["AIN0", "AIN0: chan_a"],
       ["AIN1", "AIN1 is used by chan_b and chan_c"],
-      ["AIN2", "AIN2 is free"],
+      ["AIN2", "Add a channel on AIN2"],
     ]) {
       const target = cell(port, "Analog inputs");
       fireEvent.pointerOver(target, { pointerType: "mouse" });

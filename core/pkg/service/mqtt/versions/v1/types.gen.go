@@ -28,8 +28,11 @@ import (
 type QoS string
 
 const (
-	QoSAtMostOnce  QoS = "at_most_once"
+	// QoSAtMostOnce is level 0, which delivers a message at most once.
+	QoSAtMostOnce QoS = "at_most_once"
+	// QoSAtLeastOnce is level 1, which delivers a message at least once.
 	QoSAtLeastOnce QoS = "at_least_once"
+	// QoSExactlyOnce is level 2, which delivers a message exactly once.
 	QoSExactlyOnce QoS = "exactly_once"
 )
 
@@ -48,11 +51,16 @@ func (q QoS) IsValid() bool {
 type TimeFormat string
 
 const (
+	// TimeFormatISO8601 is an ISO 8601 string.
 	TimeFormatISO8601 TimeFormat = "iso8601"
+	// TimeFormatUnixSec is a count of seconds since the Unix epoch.
 	TimeFormatUnixSec TimeFormat = "unix_sec"
-	TimeFormatUnixMs  TimeFormat = "unix_ms"
-	TimeFormatUnixUs  TimeFormat = "unix_us"
-	TimeFormatUnixNs  TimeFormat = "unix_ns"
+	// TimeFormatUnixMs is a count of milliseconds since the Unix epoch.
+	TimeFormatUnixMs TimeFormat = "unix_ms"
+	// TimeFormatUnixUs is a count of microseconds since the Unix epoch.
+	TimeFormatUnixUs TimeFormat = "unix_us"
+	// TimeFormatUnixNs is a count of nanoseconds since the Unix epoch.
+	TimeFormatUnixNs TimeFormat = "unix_ns"
 )
 
 // IsValid reports whether t is one of the defined TimeFormat
@@ -79,18 +87,32 @@ type EnumEntry struct {
 type SparkplugDataType string
 
 const (
-	SparkplugDataTypeInt8     SparkplugDataType = "int8"
-	SparkplugDataTypeInt16    SparkplugDataType = "int16"
-	SparkplugDataTypeInt32    SparkplugDataType = "int32"
-	SparkplugDataTypeInt64    SparkplugDataType = "int64"
-	SparkplugDataTypeUint8    SparkplugDataType = "uint8"
-	SparkplugDataTypeUint16   SparkplugDataType = "uint16"
-	SparkplugDataTypeUint32   SparkplugDataType = "uint32"
-	SparkplugDataTypeUint64   SparkplugDataType = "uint64"
-	SparkplugDataTypeFloat    SparkplugDataType = "float"
-	SparkplugDataTypeDouble   SparkplugDataType = "double"
-	SparkplugDataTypeBoolean  SparkplugDataType = "boolean"
-	SparkplugDataTypeString   SparkplugDataType = "string"
+	// SparkplugDataTypeInt8 is a signed 8-bit integer.
+	SparkplugDataTypeInt8 SparkplugDataType = "int8"
+	// SparkplugDataTypeInt16 is a signed 16-bit integer.
+	SparkplugDataTypeInt16 SparkplugDataType = "int16"
+	// SparkplugDataTypeInt32 is a signed 32-bit integer.
+	SparkplugDataTypeInt32 SparkplugDataType = "int32"
+	// SparkplugDataTypeInt64 is a signed 64-bit integer.
+	SparkplugDataTypeInt64 SparkplugDataType = "int64"
+	// SparkplugDataTypeUint8 is an unsigned 8-bit integer.
+	SparkplugDataTypeUint8 SparkplugDataType = "uint8"
+	// SparkplugDataTypeUint16 is an unsigned 16-bit integer.
+	SparkplugDataTypeUint16 SparkplugDataType = "uint16"
+	// SparkplugDataTypeUint32 is an unsigned 32-bit integer.
+	SparkplugDataTypeUint32 SparkplugDataType = "uint32"
+	// SparkplugDataTypeUint64 is an unsigned 64-bit integer.
+	SparkplugDataTypeUint64 SparkplugDataType = "uint64"
+	// SparkplugDataTypeFloat is a 32-bit floating point number.
+	SparkplugDataTypeFloat SparkplugDataType = "float"
+	// SparkplugDataTypeDouble is a 64-bit floating point number.
+	SparkplugDataTypeDouble SparkplugDataType = "double"
+	// SparkplugDataTypeBoolean is a true or false value.
+	SparkplugDataTypeBoolean SparkplugDataType = "boolean"
+	// SparkplugDataTypeString is a string.
+	SparkplugDataTypeString SparkplugDataType = "string"
+	// SparkplugDataTypeDateTime is a point in time, as milliseconds since the Unix
+	// epoch.
 	SparkplugDataTypeDateTime SparkplugDataType = "date_time"
 )
 
@@ -296,6 +318,17 @@ func (u *ReadEntry) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u ReadEntry) Type() ReadEntryType {
+	switch u.Variant.(type) {
+	case PlainReadEntry:
+		return PlainReadEntryType
+	case SparkplugReadEntry:
+		return SparkplugReadEntryType
+	}
+	return ""
+}
+
 // ApplyDefaults fills the active variant's zero-valued fields with their
 // schema-declared defaults.
 func (u *ReadEntry) ApplyDefaults() {
@@ -375,8 +408,11 @@ func (r ReadConfig) Validate() error {
 type JSONType string
 
 const (
-	JSONTypeNumber  JSONType = "number"
-	JSONTypeString  JSONType = "string"
+	// JSONTypeNumber writes the value as a JSON number.
+	JSONTypeNumber JSONType = "number"
+	// JSONTypeString writes the value as a JSON string.
+	JSONTypeString JSONType = "string"
+	// JSONTypeBoolean writes the value as a JSON boolean.
 	JSONTypeBoolean JSONType = "boolean"
 )
 
@@ -395,7 +431,9 @@ func (j JSONType) IsValid() bool {
 type GeneratorType string
 
 const (
-	GeneratorTypeUUID      GeneratorType = "uuid"
+	// GeneratorTypeUUID produces a new UUID for each message.
+	GeneratorTypeUUID GeneratorType = "uuid"
+	// GeneratorTypeTimestamp produces the time of the message.
 	GeneratorTypeTimestamp GeneratorType = "timestamp"
 )
 
@@ -598,6 +636,17 @@ func (u *WriteField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		)
 	}
 	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u WriteField) Type() WriteFieldType {
+	switch u.Variant.(type) {
+	case StaticWriteField:
+		return StaticWriteFieldType
+	case GeneratedWriteField:
+		return GeneratedWriteFieldType
+	}
+	return ""
 }
 
 // ApplyDefaults fills the active variant's zero-valued fields with their
@@ -821,6 +870,17 @@ func (u *WriteTarget) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		)
 	}
 	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u WriteTarget) Type() WriteTargetType {
+	switch u.Variant.(type) {
+	case PlainWriteTarget:
+		return PlainWriteTargetType
+	case SparkplugWriteTarget:
+		return SparkplugWriteTargetType
+	}
+	return ""
 }
 
 // ApplyDefaults fills the active variant's zero-valued fields with their

@@ -28,9 +28,12 @@ import (
 type TemperatureUnits string
 
 const (
-	TemperatureUnitsCelsius    TemperatureUnits = "C"
+	// TemperatureUnitsCelsius is degrees Celsius.
+	TemperatureUnitsCelsius TemperatureUnits = "C"
+	// TemperatureUnitsFahrenheit is degrees Fahrenheit.
 	TemperatureUnitsFahrenheit TemperatureUnits = "F"
-	TemperatureUnitsKelvin     TemperatureUnits = "K"
+	// TemperatureUnitsKelvin is kelvins.
+	TemperatureUnitsKelvin TemperatureUnits = "K"
 )
 
 // IsValid reports whether t is one of the defined TemperatureUnits
@@ -219,6 +222,19 @@ func (u *Scale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		)
 	}
 	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u Scale) Type() ScaleType {
+	switch u.Variant.(type) {
+	case LinearScale:
+		return LinearScaleType
+	case MapScale:
+		return MapScaleType
+	case NoneScale:
+		return NoneScaleType
+	}
+	return ""
 }
 
 // ApplyDefaults fills the active variant's zero-valued fields with their
@@ -459,6 +475,19 @@ func (u *ReadChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u ReadChannel) Type() ReadChannelType {
+	switch u.Variant.(type) {
+	case AnalogReadChannel:
+		return AnalogReadChannelType
+	case DigitalReadChannel:
+		return DigitalReadChannelType
+	case ThermocoupleReadChannel:
+		return ThermocoupleReadChannelType
+	}
+	return ""
+}
+
 // ApplyDefaults fills the active variant's zero-valued fields with their
 // schema-declared defaults.
 func (u *ReadChannel) ApplyDefaults() {
@@ -648,6 +677,17 @@ func (u *WriteChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		)
 	}
 	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u WriteChannel) Type() WriteChannelType {
+	switch u.Variant.(type) {
+	case AnalogWriteChannel:
+		return AnalogWriteChannelType
+	case DigitalWriteChannel:
+		return DigitalWriteChannelType
+	}
+	return ""
 }
 
 // ApplyDefaults fills the active variant's zero-valued fields with their

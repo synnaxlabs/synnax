@@ -30,8 +30,11 @@ type Handle = versions.Handle
 type EdgeKind = versions.EdgeKind
 
 const (
+	// EdgeKindUnspecified has no kind set.
 	EdgeKindUnspecified EdgeKind = versions.EdgeKindUnspecified
-	EdgeKindContinuous  EdgeKind = versions.EdgeKindContinuous
+	// EdgeKindContinuous fires on every output of the source.
+	EdgeKindContinuous EdgeKind = versions.EdgeKindContinuous
+	// EdgeKindConditional fires only when the source output is truthy.
 	EdgeKindConditional EdgeKind = versions.EdgeKindConditional
 )
 
@@ -197,6 +200,19 @@ func (u *Target) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		)
 	}
 	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u Target) Type() TargetType {
+	switch u.Variant.(type) {
+	case ExitTarget:
+		return ExitTargetType
+	case StepTarget:
+		return StepTargetType
+	case ScopeTarget:
+		return ScopeTargetType
+	}
+	return ""
 }
 
 // Transition is a declarative state-transition rule on a sequential Scope, or an exit

@@ -13,9 +13,15 @@ import "schemas/synnax/versions/task/v2"
 import "schemas/x/versions/telem/v0"
 
 TemperatureUnits enum {
-    celsius    = "C"
-    fahrenheit = "F"
-    kelvin     = "K"
+    celsius    = "C" {
+        @doc value "is degrees Celsius."
+    }
+    fahrenheit = "F" {
+        @doc value "is degrees Fahrenheit."
+    }
+    kelvin     = "K" {
+        @doc value "is kelvins."
+    }
 
     @doc value "are the engineering units for a temperature measurement."
 }
