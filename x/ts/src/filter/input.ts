@@ -53,6 +53,23 @@ export type Input<S extends Record<string, z.ZodType>> = {
   [K in keyof S]?: z.input<S[K]>;
 };
 
-/** @returns where, or undefined when where sets no line, so both hash alike. */
-export const nonEmpty = <W extends object>(where: W): W | undefined =>
-  Object.keys(where).length > 0 ? where : undefined;
+/**
+ * @returns input with the members named by fields moved into where. where is undefined
+ * when input sets none of them, so the two requests hash alike.
+ */
+export const split = <T extends object, F extends keyof T>(
+  input: T,
+  fields: readonly F[],
+): Omit<T, F> & { where?: Pick<T, F> } => {
+  const rest: Partial<T> = { ...input };
+  const where: Partial<T> = {};
+  for (const f of fields) {
+    if (input[f] === undefined) continue;
+    where[f] = input[f];
+    delete rest[f];
+  }
+  return {
+    ...(rest as Omit<T, F>),
+    where: Object.keys(where).length > 0 ? (where as Pick<T, F>) : undefined,
+  };
+};

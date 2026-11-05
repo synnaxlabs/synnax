@@ -28,33 +28,34 @@ describe("Where", () => {
 });
 
 describe("retrieveInputZ", () => {
+  const inputZ = retrieveInputZ(ranger.retrieveRequestZ.omit({ where: true }).shape);
   const key = uuid.create();
   const labelKey = uuid.create();
 
   it("should read a value as eq", () => {
-    expect(retrieveInputZ.parse({ key })).toEqual({ where: { key: { eq: key } } });
+    expect(inputZ.parse({ key })).toEqual({ where: { key: { eq: key } } });
   });
 
   it("should read a list as in", () => {
-    expect(retrieveInputZ.parse({ name: ["a", "b"] })).toEqual({
+    expect(inputZ.parse({ name: ["a", "b"] })).toEqual({
       where: { name: { in: ["a", "b"] } },
     });
   });
 
   it("should keep an operator", () => {
     const name = { startsWith: "Hot", caseInsensitive: true };
-    expect(retrieveInputZ.parse({ name })).toEqual({ where: { name } });
+    expect(inputZ.parse({ name })).toEqual({ where: { name } });
   });
 
   it("should read a value on a list line as a list of one", () => {
-    expect(retrieveInputZ.parse({ labels: labelKey })).toEqual({
+    expect(inputZ.parse({ labels: labelKey })).toEqual({
       where: { labels: [labelKey] },
     });
   });
 
   it("should read the children of or", () => {
     expect(
-      retrieveInputZ.parse({
+      inputZ.parse({
         or: [{ name: { startsWith: "Hot" } }, { labels: labelKey }],
       }),
     ).toEqual({
@@ -64,7 +65,7 @@ describe("retrieveInputZ", () => {
 
   it("should split the options from the fields", () => {
     expect(
-      retrieveInputZ.parse({ name: "a", limit: 2, offset: 1, includeLabels: true }),
+      inputZ.parse({ name: "a", limit: 2, offset: 1, includeLabels: true }),
     ).toEqual({
       where: { name: { eq: "a" } },
       limit: 2,
@@ -74,16 +75,16 @@ describe("retrieveInputZ", () => {
   });
 
   it("should leave where unset when only options are set", () => {
-    expect(retrieveInputZ.parse({ limit: 5 }).where).toBeUndefined();
+    expect(inputZ.parse({ limit: 5 }).where).toBeUndefined();
   });
 
   it("should reject a field set to undefined", () => {
-    const { error } = retrieveInputZ.safeParse({ name: undefined });
+    const { error } = inputZ.safeParse({ name: undefined });
     expect(error?.issues).toMatchObject([{ code: "invalid_union", path: ["name"] }]);
   });
 
   it("should reject a field the filter does not have", () => {
-    const { error } = retrieveInputZ.safeParse({ color: "red" });
+    const { error } = inputZ.safeParse({ color: "red" });
     expect(error?.issues).toMatchObject([
       { code: "unrecognized_keys", keys: ["color"] },
     ]);

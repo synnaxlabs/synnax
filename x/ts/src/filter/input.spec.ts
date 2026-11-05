@@ -113,13 +113,16 @@ describe("filter input", () => {
     });
   });
 
-  describe("nonEmpty", () => {
-    it("should return a where that sets a line", () => {
-      expect(filter.nonEmpty({ key: { eq: 1 } })).toEqual({ key: { eq: 1 } });
+  describe("split", () => {
+    it("should move the named fields into where", () => {
+      expect(filter.split({ key: { eq: 1 }, limit: 2 }, ["key"])).toEqual({
+        where: { key: { eq: 1 } },
+        limit: 2,
+      });
     });
 
-    it("should return undefined for a where that sets no line", () => {
-      expect(filter.nonEmpty({})).toBeUndefined();
+    it("should leave where undefined when no named field is set", () => {
+      expect(filter.split({ key: undefined, limit: 2 }, ["key"]).where).toBeUndefined();
     });
   });
 });

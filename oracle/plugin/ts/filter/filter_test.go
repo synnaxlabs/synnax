@@ -117,8 +117,7 @@ var _ = Describe("TS Filter Plugin", func() {
 				ToContain(
 					`import { filter } from "@synnaxlabs/x";`,
 					`import { z } from "zod";`,
-					`import { Payload, RetrieveRequest, Where, retrieveRequestZ } `+
-						`from "@/thing/types.gen";`,
+					`import { Payload, Where } from "@/thing/types.gen";`,
 					"export const matches = (record: Payload, where?: Where): boolean => {",
 					"if (where == null) return true;",
 					" * @returns whether only the Core can check where, because it holds a "+
@@ -201,7 +200,11 @@ var _ = Describe("TS Filter Plugin", func() {
 				"const whereInputZ: z.ZodType<Where, WhereInput> = z.strictObject({",
 				"return whereInputZ.array().exactOptional();",
 				"return whereInputZ.exactOptional();",
-				"export type RetrieveInput = z.input<typeof retrieveInputZ>;",
+				"export const retrieveInputZ = <O extends z.core.$ZodShape>("+
+					"options: O) =>",
+				"...inputs,\n      ...options,",
+				`filter.split(input, ["and", "or", "not", "key", "name", "createdAt", `+
+					`"tags"]),`,
 			)
 		})
 
@@ -218,38 +221,7 @@ var _ = Describe("TS Filter Plugin", func() {
 			ExpectContent(resp, "where.gen.ts").ToContain(
 				"overlaps: spanZ.exactOptional(),",
 				"spans: filter.listInputZ(spanZ).exactOptional(),",
-				`import { Payload, RetrieveRequest, Where, retrieveRequestZ, spanZ } `+
-					`from "@/thing/types.gen";`,
-			)
-		})
-
-		It("Should split the retrieve options from the lines", func(ctx SpecContext) {
-			resp := MustGenerate(ctx, `
-				import "schemas/x/filter"
-
-				@ts output "client/ts/src/thing"
-
-				Label struct {
-					key uuid { @key }
-				}
-				Thing struct {
-					key    uuid     { @key }
-					name   string   { @search }
-					labels Label[]? { @include }
-
-					@ts name "Payload"
-				}
-				Where filter Thing {
-					key
-				}
-			`, "thing", loader, p)
-			ExpectContent(resp, "where.gen.ts").ToContain(
-				"...retrieveRequestZ.omit({ where: true }).shape,",
-				"({ searchTerm, limit, offset, includeLabels, ...where }): "+
-					"RetrieveRequest => ({\n"+
-					"      where: filter.nonEmpty(where),\n"+
-					"      searchTerm,\n      limit,\n      offset,\n"+
-					"      includeLabels,\n    }),",
+				`import { Payload, Where, spanZ } from "@/thing/types.gen";`,
 			)
 		})
 
@@ -285,8 +257,7 @@ var _ = Describe("TS Filter Plugin", func() {
 			`, "thing", loader, p)
 			ExpectContent(resp, "where.gen.ts").
 				ToContain(
-					`import { RetrieveRequest, Where, Wire, retrieveRequestZ } from `+
-						`"@/thing/types.gen";`,
+					`import { Where, Wire } from "@/thing/types.gen";`,
 					"record: Wire",
 					"!filter.matchesString(where.name, record.name)",
 				)

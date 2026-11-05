@@ -11,13 +11,7 @@
 import { filter } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import {
-  keyZ,
-  type Payload,
-  type RetrieveRequest,
-  retrieveRequestZ,
-  type Where,
-} from "@/rack/types.gen";
+import { keyZ, type Payload, type Where } from "@/rack/types.gen";
 
 /**
  * Lines checks the typed lines of a Where against a record. A null entry marks a line
@@ -105,25 +99,28 @@ const whereInputZ: z.ZodType<Where, WhereInput> = z.strictObject({
 });
 
 /**
- * retrieveInputZ reads the fields of a WhereInput and the retrieve options, side by
- * side, into a RetrieveRequest. A field set to undefined throws, since dropping it
- * would select every record.
+ * retrieveInputZ reads the fields of a WhereInput and the given options, side by side,
+ * into a request whose where holds the fields. A field set to undefined throws, since
+ * dropping it would select every record.
  */
-export const retrieveInputZ = z
-  .strictObject({
-    and: whereInputZ.array().exactOptional(),
-    or: whereInputZ.array().exactOptional(),
-    not: whereInputZ.exactOptional(),
-    ...inputs,
-    ...retrieveRequestZ.omit({ where: true }).shape,
-  })
-  .transform(
-    ({ searchTerm, limit, offset, includeStatus, ...where }): RetrieveRequest => ({
-      where: filter.nonEmpty(where),
-      searchTerm,
-      limit,
-      offset,
-      includeStatus,
-    }),
-  );
-export type RetrieveInput = z.input<typeof retrieveInputZ>;
+export const retrieveInputZ = <O extends z.core.$ZodShape>(options: O) =>
+  z
+    .strictObject({
+      and: whereInputZ.array().exactOptional(),
+      or: whereInputZ.array().exactOptional(),
+      not: whereInputZ.exactOptional(),
+      ...inputs,
+      ...options,
+    })
+    .transform((input) =>
+      filter.split(input, [
+        "and",
+        "or",
+        "not",
+        "key",
+        "name",
+        "embedded",
+        "integrations",
+        "hostIsNode",
+      ]),
+    );

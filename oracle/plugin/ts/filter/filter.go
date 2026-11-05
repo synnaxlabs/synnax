@@ -12,7 +12,7 @@
 // serverComputed tells whether only the Core can check one. The hand-written client
 // passes in a Lines table with a function, or an explicit null, for each typed line.
 // The input reads a partial record, in which a plain value or a list stands for an
-// operator, into a Where or a RetrieveRequest.
+// operator, into a Where, beside options that the client gives.
 package filter
 
 import (
@@ -112,8 +112,6 @@ type templateData struct {
 	Record string
 	// Lines are the lines of the filter definition.
 	Lines []lineData
-	// Options are the fields of the retrieve request other than where.
-	Options []string
 }
 
 type lineData struct {
@@ -176,19 +174,9 @@ func generateFile(
 		return fail("the response type %s must be a struct or a union", record.Name)
 	}
 
-	request, ok := table.Get(where.Filter.Request)
-	if !ok {
-		return fail("has no derived retrieve request")
-	}
-
 	data := templateData{
 		Manager: imports.NewManager(),
 		Record:  domain.GetName(record, "ts"),
-	}
-	for _, f := range request.Form.(resolution.StructForm).Fields {
-		if f.Name != "where" {
-			data.Options = append(data.Options, tstypes.FieldName(f.Name))
-		}
 	}
 	fp := &tstypes.FieldProcessor{
 		Imports:    data.Manager,
@@ -272,10 +260,10 @@ func generateFile(
 
 	data.AddImport("zod", "z")
 	data.AddImport(tspaths.CalculateImport(outputPath, "x/ts/src/filter"), "filter")
-	typesGen := tspaths.CalculateImport(outputPath, outputPath) + "/types.gen"
-	data.AddImport(typesGen, "Where")
-	data.AddImport(typesGen, "RetrieveRequest")
-	data.AddImport(typesGen, "retrieveRequestZ")
+	data.AddImport(
+		tspaths.CalculateImport(outputPath, outputPath)+"/types.gen",
+		"Where",
+	)
 	data.AddImport(
 		tspaths.CalculateImport(outputPath, output.GetPath(record, "ts"))+"/types.gen",
 		data.Record,
@@ -394,26 +382,21 @@ const whereInputZ: z.ZodType<Where, WhereInput> = z.strictObject({
 });
 
 /**
- * retrieveInputZ reads the fields of a WhereInput and the retrieve options, side by
- * side, into a RetrieveRequest. A field set to undefined throws, since dropping it
- * would select every record.
+ * retrieveInputZ reads the fields of a WhereInput and the given options, side by side,
+ * into a request whose where holds the fields. A field set to undefined throws, since
+ * dropping it would select every record.
  */
-export const retrieveInputZ = z
-  .strictObject({
-    and: whereInputZ.array().exactOptional(),
-    or: whereInputZ.array().exactOptional(),
-    not: whereInputZ.exactOptional(),
-    ...inputs,
-    ...retrieveRequestZ.omit({ where: true }).shape,
-  })
-  .transform(
-    ({ {{ range .Options }}{{ . }}, {{ end }}...where }): RetrieveRequest => ({
-      where: filter.nonEmpty(where),
-{{- range .Options }}
-      {{ . }},
-{{- end }}
-    }),
-  );
-export type RetrieveInput = z.input<typeof retrieveInputZ>;
+export const retrieveInputZ = <O extends z.core.$ZodShape>(options: O) =>
+  z
+    .strictObject({
+      and: whereInputZ.array().exactOptional(),
+      or: whereInputZ.array().exactOptional(),
+      not: whereInputZ.exactOptional(),
+      ...inputs,
+      ...options,
+    })
+    .transform((input) =>
+      filter.split(input, ["and", "or", "not"{{ range .Lines }}, "{{ .Name }}"{{ end }}]),
+    );
 `),
 )
