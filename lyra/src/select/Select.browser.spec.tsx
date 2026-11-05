@@ -73,6 +73,33 @@ const renderFixedLabel = async (): Promise<Record<string, Element>> => {
   };
 };
 
+const renderEndContent = async (width: string): Promise<Record<string, Element>> => {
+  const { container } = await renderThemed(
+    <div style={{ width }}>
+      <Dialog.Frame>
+        <Select.Frame<string, undefined> value="time" onChange={() => {}}>
+          <Select.SingleTrigger
+            placeholder="Pick"
+            collapsible
+            renderEndContent={() => "Connected"}
+          />
+          <Select.Dialog>
+            <Select.Item itemKey="time">Time</Select.Item>
+          </Select.Dialog>
+        </Select.Frame>
+      </Dialog.Frame>
+    </div>,
+  );
+  const get = (selector: string): Element =>
+    container.querySelector(selector) as Element;
+  return {
+    trigger: get(".lyra-dialog__trigger"),
+    label: get(".lyra-select__label"),
+    end: get(".lyra-select-single-trigger__end"),
+    caret: get(".lyra-caret-animated"),
+  };
+};
+
 const CHECKABLE_COLUMNS: List.Column[] = [
   { name: "Type", width: "20rem" },
   { name: "Channel", width: "20rem" },
@@ -155,6 +182,22 @@ describe("Select", () => {
         label.getBoundingClientRect().width,
       );
       expect(computed(caret, "margin-left")).toBe("0px");
+    });
+  });
+
+  describe("end content", () => {
+    it("should sit right before the caret", async () => {
+      const { trigger, label, end, caret } = await renderEndContent("400px");
+      const gap = parseFloat(computed(trigger, "column-gap"));
+      expect(
+        end.getBoundingClientRect().left - label.getBoundingClientRect().right,
+      ).toBeCloseTo(gap, 0);
+      expect(computed(caret, "margin-left")).toBe("0px");
+    });
+
+    it("should hide in a collapsed trigger", async () => {
+      const { end } = await renderEndContent("100px");
+      expect(computed(end, "display")).toBe("none");
     });
   });
 

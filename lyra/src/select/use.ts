@@ -134,7 +134,27 @@ const useOrder = <K extends record.Key>(): SelectionOrder<K> => {
     getElement(key)?.dispatchEvent(
       new MouseEvent("dblclick", { bubbles: true, cancelable: true }),
     );
-  return { getOrder, scrollTo, click, doubleClick, subscribe: registry.subscribe };
+  const contextMenu = (key: K) => {
+    const element = getElement(key);
+    if (element == null) return;
+    const { left, bottom } = element.getBoundingClientRect();
+    element.dispatchEvent(
+      new MouseEvent("contextmenu", {
+        bubbles: true,
+        cancelable: true,
+        clientX: left,
+        clientY: bottom,
+      }),
+    );
+  };
+  return {
+    getOrder,
+    scrollTo,
+    click,
+    doubleClick,
+    contextMenu,
+    subscribe: registry.subscribe,
+  };
 };
 
 /**
