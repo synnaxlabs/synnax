@@ -280,14 +280,13 @@ func rowBounds(
 			first = min(first, s.ValueAt[telem.TimeStamp](0))
 			last = max(last, s.ValueAt[telem.TimeStamp](-1))
 		}
-		if res.Latest > 0 {
-			bounds.Start = first
-		} else {
-			bounds.End = last.Add(telem.Nanosecond)
-		}
+		bounds = telem.TimeRange{Start: first, End: last.Add(telem.Nanosecond)}
 		return nil
 	})
-	return bounds, err
+	if err != nil {
+		return telem.TimeRange{}, err
+	}
+	return bounds, nil
 }
 
 // closeColumns closes the iterator of every column and returns their read errors.
