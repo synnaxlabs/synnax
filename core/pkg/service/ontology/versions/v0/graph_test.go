@@ -58,36 +58,40 @@ var _ = Describe("NewFieldMigration", func() {
 		},
 	})
 
-	It("Should move each converted relationship into its holder", func(ctx SpecContext) {
-		labeled := v0.Relationship{
-			From: child,
-			Type: v0.RelationshipTypeLabeledBy,
-			To:   label,
-		}
-		Expect(gorp.WrapWriter[string, member](db).
-			Set(ctx, member{Key: child.Key})).To(Succeed())
-		Expect(gorp.WrapWriter[string, v0.Relationship](db).Set(
-			ctx,
-			v0.Relationship{From: parent, Type: v0.RelationshipTypeParentOf, To: child},
-			v0.Relationship{From: parent, Type: v0.RelationshipTypeParentOf, To: missing},
-			labeled,
-		)).To(Succeed())
-		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-			DB:         db,
-			Namespace:  "member",
-			Migrations: []gorp.Migration{migration},
-		})).To(Succeed())
-		var m member
-		Expect(gorp.NewRetrieve[string, member]().
-			Where(gorp.MatchKeys[string, member](child.Key)).
-			Entry(&m).
-			Exec(ctx, db)).To(Succeed())
-		Expect(m.Parent).To(Equal(parent.Key))
-		rels := MustSucceed(v0.RetrieveRelationships(
-			ctx,
-			db,
-			func(v0.Relationship) bool { return true },
-		))
-		Expect(rels).To(ConsistOf(labeled))
-	})
+	It(
+		"Should move each converted relationship into its holder",
+		func(ctx SpecContext) {
+			labeled := v0.Relationship{
+				From: child,
+				Type: v0.RelationshipTypeLabeledBy,
+				To:   label,
+			}
+			Expect(gorp.WrapWriter[string, member](db).
+				Set(ctx, member{Key: child.Key})).To(Succeed())
+			stored := []v0.Relationship{
+				{From: parent, Type: v0.RelationshipTypeParentOf, To: child},
+				{From: parent, Type: v0.RelationshipTypeParentOf, To: missing},
+				labeled,
+			}
+			Expect(gorp.WrapWriter[string, v0.Relationship](db).
+				Set(ctx, stored...)).To(Succeed())
+			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+				DB:         db,
+				Namespace:  "member",
+				Migrations: []gorp.Migration{migration},
+			})).To(Succeed())
+			var m member
+			Expect(gorp.NewRetrieve[string, member]().
+				Where(gorp.MatchKeys[string, member](child.Key)).
+				Entry(&m).
+				Exec(ctx, db)).To(Succeed())
+			Expect(m.Parent).To(Equal(parent.Key))
+			rels := MustSucceed(v0.RetrieveRelationships(
+				ctx,
+				db,
+				func(v0.Relationship) bool { return true },
+			))
+			Expect(rels).To(ConsistOf(labeled))
+		},
+	)
 })

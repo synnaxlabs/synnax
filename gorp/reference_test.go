@@ -793,9 +793,10 @@ var _ = Describe("Reference", func() {
 			var detached []refDevice
 			BeforeEach(func(ctx SpecContext) {
 				detached = nil
-				DeferCleanup(devices.ObserveDetaches().OnChange(
-					func(_ context.Context, d refDevice) { detached = append(detached, d) },
-				))
+				record := func(_ context.Context, d refDevice) {
+					detached = append(detached, d)
+				}
+				DeferCleanup(devices.ObserveDetaches().OnChange(record))
 				createRack(ctx, 1)
 				createLabels(ctx, "l1", "l2")
 				Expect(createDevice(ctx, refDevice{
@@ -826,14 +827,17 @@ var _ = Describe("Reference", func() {
 				},
 			)
 
-			It("Should not notify a detach that does not commit", func(ctx SpecContext) {
-				tx := db.OpenTx()
-				Expect(labels.NewDelete().
-					Where(gorp.MatchKeys[string, refLabel]("l1")).
-					Exec(ctx, tx)).To(Succeed())
-				Expect(tx.Close()).To(Succeed())
-				Expect(detached).To(BeEmpty())
-			})
+			It(
+				"Should not notify a detach that does not commit",
+				func(ctx SpecContext) {
+					tx := db.OpenTx()
+					Expect(labels.NewDelete().
+						Where(gorp.MatchKeys[string, refLabel]("l1")).
+						Exec(ctx, tx)).To(Succeed())
+					Expect(tx.Close()).To(Succeed())
+					Expect(detached).To(BeEmpty())
+				},
+			)
 		})
 	})
 

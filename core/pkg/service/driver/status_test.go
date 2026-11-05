@@ -130,7 +130,9 @@ var _ = Describe("StatusHandler", func() {
 				"Started task",
 				"",
 			)).To(Succeed())
-			Expect(statusSvc.NewWriter(nil).RenameOwned(ctx, t.ResourceID(), "renamed")).
+			Expect(
+				statusSvc.NewWriter(nil).RenameOwned(ctx, t.ResourceID(), "renamed"),
+			).
 				To(Succeed())
 			Expect(handler.Ack(ctx, "cmd-2", true)).To(Succeed())
 			Expect(retrieve(ctx).Name).To(Equal("renamed"))

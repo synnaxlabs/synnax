@@ -21,3 +21,5 @@ func TestUUID(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "UUID Suite", SuiteConfig())
 }
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

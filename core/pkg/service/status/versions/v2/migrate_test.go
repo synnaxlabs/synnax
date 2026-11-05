@@ -156,9 +156,18 @@ var _ = Describe("Migration", func() {
 		goneID := resource.ID{Type: resource.TypeLabel, Key: gone.String()}
 		define(ctx, keptID)
 		write(ctx, stored("Alarm", "alarm", `null`))
-		relate(ctx,
-			ontology.Relationship{From: statusID("alarm"), Type: ontology.RelationshipTypeLabeledBy, To: keptID},
-			ontology.Relationship{From: statusID("alarm"), Type: ontology.RelationshipTypeLabeledBy, To: goneID},
+		relate(
+			ctx,
+			ontology.Relationship{
+				From: statusID("alarm"),
+				Type: ontology.RelationshipTypeLabeledBy,
+				To:   keptID,
+			},
+			ontology.Relationship{
+				From: statusID("alarm"),
+				Type: ontology.RelationshipTypeLabeledBy,
+				To:   goneID,
+			},
 		)
 		migrate(ctx)
 		Expect(get(ctx, "alarm").Labels).To(Equal([]uuid.UUID{kept}))
@@ -169,25 +178,28 @@ var _ = Describe("Migration", func() {
 		Expect(rels).To(BeEmpty())
 	})
 
-	It("Should move the labels of a status that moves to a new key", func(ctx SpecContext) {
-		owner := resource.ID{Type: resource.TypeRack, Key: "4"}
-		lbl := resource.ID{Type: resource.TypeLabel, Key: uuid.New().String()}
-		define(ctx, owner, lbl)
-		write(ctx, stored("Rack", owner.String(), `null`))
-		relate(ctx, ontology.Relationship{
-			From: statusID(owner.String()),
-			Type: ontology.RelationshipTypeLabeledBy,
-			To:   lbl,
-		})
-		migrate(ctx)
-		key, _ := v2.MigrateKey(owner.String())
-		Expect(get(ctx, key).Labels).To(Equal([]uuid.UUID{uuid.MustParse(lbl.Key)}))
-		var rels []ontology.Relationship
-		Expect(gorp.NewRetrieve[string, ontology.Relationship]().
-			Entries(&rels).
-			Exec(ctx, db)).To(Succeed())
-		Expect(rels).To(BeEmpty())
-	})
+	It(
+		"Should move the labels of a status that moves to a new key",
+		func(ctx SpecContext) {
+			owner := resource.ID{Type: resource.TypeRack, Key: "4"}
+			lbl := resource.ID{Type: resource.TypeLabel, Key: uuid.New().String()}
+			define(ctx, owner, lbl)
+			write(ctx, stored("Rack", owner.String(), `null`))
+			relate(ctx, ontology.Relationship{
+				From: statusID(owner.String()),
+				Type: ontology.RelationshipTypeLabeledBy,
+				To:   lbl,
+			})
+			migrate(ctx)
+			key, _ := v2.MigrateKey(owner.String())
+			Expect(get(ctx, key).Labels).To(Equal([]uuid.UUID{uuid.MustParse(lbl.Key)}))
+			var rels []ontology.Relationship
+			Expect(gorp.NewRetrieve[string, ontology.Relationship]().
+				Entries(&rels).
+				Exec(ctx, db)).To(Succeed())
+			Expect(rels).To(BeEmpty())
+		},
+	)
 
 	It("Should delete a status whose owner is gone", func(ctx SpecContext) {
 		owner := resource.ID{Type: resource.TypeRack, Key: "7"}

@@ -242,7 +242,7 @@ func (s *Service) Retrieve(
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	// A status holds only the keys of its labels, so reading it needs no access to them.
+	// A status holds only the keys of its labels, so a read needs no label access.
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
