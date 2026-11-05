@@ -14,7 +14,6 @@ import {
   type CrudeTimeSpan,
   deep,
   type destructor,
-  errors,
   id,
   primitive,
   type record,
@@ -26,7 +25,6 @@ import {
 import { z } from "zod";
 
 import { actions } from "@/actions";
-import { NotFoundError } from "@/errors";
 import { type framer } from "@/framer";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
@@ -971,7 +969,7 @@ export class Client extends query.Retriever<
         commands: params.commands.map((c) => this.stampConfigHash(c)),
         frameClient: this.cfg.framer,
         name: retrieveNames,
-        racks: await this.racksOf(params.commands.map((c) => c.task)),
+        racks: this.racksOf(params.commands.map((c) => c.task)),
       });
     }
     const retrieveName = async () => {
@@ -983,19 +981,14 @@ export class Client extends query.Retriever<
       frameClient: this.cfg.framer,
       name: retrieveName,
       ...params,
-      racks: await this.racksOf([params.task]),
+      racks: this.racksOf([params.task]),
       configHash: params.configHash ?? this.store.get(params.task)?.configHash,
     });
   }
 
-  // A task the Core no longer has runs on no rack, so its wait ends on the timeout.
-  private async racksOf(tasks: Key[]): Promise<RackKey[]> {
-    try {
-      return (await this.store.retrieve(tasks)).map((t) => t.rack);
-    } catch (e) {
-      if (NotFoundError.matches(e)) return [];
-      throw errors.fromUnknown(e);
-    }
+  // Reads only cached tasks: a fetch would make a command need read access to its task.
+  private racksOf(tasks: Key[]): RackKey[] {
+    return tasks.flatMap((t) => this.store.get(t)?.rack ?? []);
   }
 }
 

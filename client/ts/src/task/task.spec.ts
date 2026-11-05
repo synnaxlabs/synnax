@@ -1054,6 +1054,34 @@ describe("Task", async () => {
       await expect(wait).rejects.toThrow("Driver not running");
     });
 
+    it("should end the wait of a batch that holds a deleted task", async () => {
+      const dying = await client.racks.create({ name: `dying-${id.create()}` });
+      const live = await dying.createTask({
+        name: `live-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const gone = await testRack.createTask({
+        name: `gone-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      await client.tasks.delete(gone.key);
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      onTestFinished(() => streamer.close());
+      const wait = client.tasks.executeCommandSync({
+        commands: [
+          { task: gone.key, type: "scan" },
+          { task: live.key, type: "scan" },
+        ],
+        timeout: TimeSpan.minutes(1),
+        statusDataZ: z.unknown(),
+      });
+      await readCommand(streamer, live.key);
+      await setDriverNotRunning(dying.key);
+      await expect(wait).rejects.toThrow("Driver not running");
+    });
+
     it("should keep waiting through a healthy status of the rack", async () => {
       const alive = await client.racks.create({ name: `alive-${id.create()}` });
       const t = await alive.createTask({
