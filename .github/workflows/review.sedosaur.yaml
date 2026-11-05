@@ -8,7 +8,8 @@
 # included in the file licenses/APL.txt.
 
 # Reviews a pull request with Sedosaur on a review runner, and posts the review as the
-# sedosaur GitHub App. Policy comes from `.sedosaur/` on the base branch. Claude Code
+# sedosaur GitHub App. The scripts run from the commit that started this workflow, on
+# the default branch, and policy comes from `.sedosaur/` on the base branch. Claude Code
 # gets only read tools, a checkout of the head, and its OAuth token. The App token
 # reaches only the step that posts.
 
@@ -40,7 +41,6 @@ jobs:
     outputs:
       head: ${{ steps.pr.outputs.head }}
       base: ${{ steps.pr.outputs.base }}
-      ref: ${{ steps.pr.outputs.ref }}
       fork: ${{ steps.pr.outputs.fork }}
     steps:
       - name: Read the pull request
@@ -50,7 +50,7 @@ jobs:
           PR: ${{ inputs.pr }}
         run: |
           gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" --jq '
-            "head=\(.head.sha)", "base=\(.base.sha)", "ref=\(.base.ref)",
+            "head=\(.head.sha)", "base=\(.base.sha)",
             "fork=\(.head.repo.full_name != .base.repo.full_name)"' >> "$GITHUB_OUTPUT"
 
       - name: Assume the runner start role
@@ -93,7 +93,6 @@ jobs:
       PR: ${{ inputs.pr }}
       HEAD_SHA: ${{ needs.start.outputs.head }}
       BASE_SHA: ${{ needs.start.outputs.base }}
-      BASE_DIR: ${{ github.workspace }}
       RUN_URL:
         ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id
         }}
@@ -119,21 +118,22 @@ jobs:
             -f status=in_progress -f details_url="$RUN_URL" --jq .id)
           echo "id=$id" >> "$GITHUB_OUTPUT"
 
-      # The runner keeps the clone between jobs, so each fetch is small. The scripts,
-      # config, and rules come from the base branch, never from the pull request.
-      - name: Check out the base branch
+      # The runner keeps the clone between jobs, so each fetch is small. This checkout
+      # holds the scripts: a base branch other than the default one is not trusted.
+      - name: Check out the scripts
         uses: actions/checkout@v7
         with:
-          ref: ${{ needs.start.outputs.ref }}
           persist-credentials: false
           fetch-depth: 0
 
+      # The config, prompt, and rules come from the base, never from the pull request.
       # The runner empties its temporary directory after each job, so prune drops the
-      # checkout of the last review.
-      - name: Check out the head
+      # checkouts of the last review.
+      - name: Check out the base and the head
         run: |
           git worktree prune
-          git fetch --no-tags origin "$HEAD_SHA"
+          git fetch --no-tags origin "$BASE_SHA" "$HEAD_SHA"
+          git worktree add --detach "$RUNNER_TEMP/base" "$BASE_SHA"
           git worktree add --detach "$RUNNER_TEMP/head" "$HEAD_SHA"
 
       # A runner can stay stopped for weeks, so a review takes the latest Claude Code.
@@ -146,6 +146,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           CHECK_RUN: ${{ steps.check.outputs.id }}
           BOT: ${{ steps.app.outputs.app-slug }}
+          BASE_DIR: ${{ runner.temp }}/base
           HEAD_DIR: ${{ runner.temp }}/head
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.SEDOSAUR_CLAUDE_CODE_OAUTH_TOKEN }}
         run: python3 -m review run "$RUNNER_TEMP/review.json"
