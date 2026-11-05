@@ -74,6 +74,7 @@ var _ = Describe("Service", func() {
 
 	Describe("NewWriter", func() {
 		It("Should create a writer with transaction", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			writer := svc.NewWriter(tx)
 			Expect(writer).ToNot(BeNil())
 		})

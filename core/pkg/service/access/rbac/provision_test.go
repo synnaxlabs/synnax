@@ -26,9 +26,9 @@ import (
 
 var _ = Describe("Provision", func() {
 	var tx gorp.Tx
-	BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 
 	Describe("Built-in roles", func() {
+		BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 		It(
 			"Should have created all built-in roles during OpenService",
 			func(ctx SpecContext) {
@@ -68,6 +68,7 @@ var _ = Describe("Provision", func() {
 	Describe("Driver role", func() {
 		var subject resource.ID
 		BeforeEach(func(ctx SpecContext) {
+			tx = DeferClose(db.OpenTx())
 			var r role.Role
 			Expect(
 				rbacSvc.Role.NewRetrieve().
@@ -201,7 +202,7 @@ var _ = Describe("Provision", func() {
 					rbacSvc.Role.NewRetrieve().
 						Where(role.MatchNames("Owner")).
 						Entry(&ownerBefore).
-						Exec(ctx, tx),
+						Exec(ctx, nil),
 				).To(Succeed())
 
 				svc2 := MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
@@ -216,7 +217,7 @@ var _ = Describe("Provision", func() {
 					svc2.Role.NewRetrieve().
 						Where(role.MatchNames("Owner")).
 						Entry(&ownerAfter).
-						Exec(ctx, tx),
+						Exec(ctx, nil),
 				).To(Succeed())
 				Expect(ownerAfter.Key).To(Equal(ownerBefore.Key))
 			},

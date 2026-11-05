@@ -137,9 +137,14 @@ as a channel and its Cesium storage, is never a `cascade` target.
 `rack: rack 1 does not exist`. A refused `restrict` is `validate.ErrValidation` with
 `cannot delete X because Y references it through F`.
 
-**Isolation**: Integrity holds within one node, and concurrent transactions are not
-isolated today. A device create and a delete of its rack in two transactions can both
-commit. §7.0 keeps the lock design open.
+**Isolation** (`gorp/gorp.go`): Each `gorp.DB` holds one write lock. A transaction takes
+it when it opens and releases it at commit or close, before observers run, because an
+observer can open a transaction. A write through the DB used as a `Tx` runs in a
+transaction of its own. So the read in each check and the write it guards never
+interleave with another transaction: a device create and a delete of its rack cannot
+both commit. A goroutine that opens a second transaction while its first is open
+deadlocks. `OpenTx` logs a warning when it waits long for the lock. Integrity holds
+within one node (§8).
 
 ### 4.2 Every relationship, mapped
 
@@ -309,24 +314,12 @@ because `Targets` is a function. Each phase stacks on the one before it.
    the Console and the clients create statuses with no owner.
 10. **Visualizations with no owner are deleted**: A recovery project was rejected. No
     path reaches them today.
+11. **One write lock per DB, taken at open**: A lock taken at the first write misses a
+    read that comes before that write, and each check reads first. Per-table locks
+    deadlock when two transactions take them in opposite orders. Revisit the lock when
+    measured lock waits on a busy Core are long.
 
 ## 7 Open questions
-
-### 7.0 Locking
-
-This RFC adds no lock. Per-table locks taken in sorted order prevent a deadlock only
-inside one operation, and one transaction can run two operations that lock tables in
-different orders. Transaction A deletes a project: it locks `project`, then the cascade
-locks `schematic`. Transaction B updates a schematic, which locks `schematic`, then
-creates a project, which needs `project`. Each waits on the other.
-
-The other option is one write lock for the DB, taken at the first write and held to
-commit. It cannot deadlock. Aspen already commits one transaction at a time in a serial
-persist stage with `pebble.Sync` (`aspen/internal/kv/persist.go`), so the lock adds only
-the time from the first write to commit. In that time the rack status write, one per
-rack per second, waits on any open delete.
-
-### 7.1 Other questions
 
 1. The `@ref` block grammar: newline-separated like `@ts { }`, or a delimiter.
 2. The default closure cap, from a measured worst case. A range can hold one alias per

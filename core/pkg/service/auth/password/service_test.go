@@ -191,6 +191,34 @@ var _ = Describe("Service", func() {
 			Entry("bcrypt with a bad body", "$2a$garbage"),
 		)
 	})
+	Describe("Verify", func() {
+		It(
+			"Should check a bcrypt hash in a transaction and keep it",
+			func(ctx SpecContext) {
+				bob := subject()
+				hash := MustSucceed(
+					bcrypt.GenerateFromPassword([]byte("p"), bcrypt.MinCost),
+				)
+				name := uuid.New().String()
+				createHash(ctx, db, bob, name, hash)
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					identity, err := svc.Verify(ctx, tx, auth.PasswordProof{
+						Username: name,
+						Password: "p",
+					})
+					Expect(identity.Subject).To(Equal(bob))
+					return err
+				})).To(Succeed())
+				Expect(storedHash(ctx, svc, bob)).To(Equal(hash))
+			},
+		)
+		It("Should reject a wrong password", func(ctx SpecContext) {
+			Expect(svc.Verify(ctx, nil, auth.PasswordProof{
+				Username: username,
+				Password: "wrong",
+			})).Error().To(MatchError(auth.ErrInvalidCredentials))
+		})
+	})
 	Describe("NewRetrieve", func() {
 		var bob resource.ID
 		BeforeEach(func(ctx SpecContext) {

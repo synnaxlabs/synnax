@@ -195,11 +195,11 @@ var _ = Describe("Rack", Ordered, func() {
 		svc, stat, otg = s.rack, s.status, s.otg
 		noTxWriter = svc.NewWriter(nil)
 	})
-	BeforeEach(func(ctx SpecContext) {
-		frozenNow.Store(0)
+	BeforeEach(func(ctx SpecContext) { frozenNow.Store(0) })
+	openTx := func() {
 		tx = DeferClose(db.OpenTx())
 		writer = svc.NewWriter(tx)
-	})
+	}
 	Describe("Key", func() {
 		It(
 			"Should correctly construct a key from its components",
@@ -285,6 +285,7 @@ var _ = Describe("Rack", Ordered, func() {
 		)
 	})
 	Describe("Create", func() {
+		BeforeEach(openTx)
 		It("Should create a rack and assign it a key", func(ctx SpecContext) {
 			r := &rack.Rack{Name: "rack1"}
 			Expect(writer.Create(ctx, r)).To(Succeed())
@@ -305,6 +306,7 @@ var _ = Describe("Rack", Ordered, func() {
 		})
 	})
 	Describe("CreateMany", func() {
+		BeforeEach(openTx)
 		It("Should create multiple racks", func(ctx SpecContext) {
 			racks := []rack.Rack{
 				{Name: "rack-many-1"},
@@ -321,6 +323,7 @@ var _ = Describe("Rack", Ordered, func() {
 		})
 	})
 	Describe("Retrieve", func() {
+		BeforeEach(openTx)
 		It("Should retrieve a rack by its key", func(ctx SpecContext) {
 			r := &rack.Rack{Name: "rack3"}
 			Expect(writer.Create(ctx, r)).To(Succeed())
@@ -664,6 +667,7 @@ var _ = Describe("Rack", Ordered, func() {
 		})
 	})
 	Describe("Search", func() {
+		BeforeEach(openTx)
 		create := func(ctx SpecContext, name string) resource.ID {
 			GinkgoHelper()
 			r := rack.Rack{Name: name}
@@ -696,6 +700,7 @@ var _ = Describe("Rack", Ordered, func() {
 	})
 
 	Describe("Create with Integrations", func() {
+		BeforeEach(openTx)
 		It("Should persist integrations on the rack", func(ctx SpecContext) {
 			r := &rack.Rack{
 				Name:         "persist-integ-rack",
@@ -730,6 +735,7 @@ var _ = Describe("Rack", Ordered, func() {
 		It(
 			"Should rename the embedded rack and its status, keeping every other field",
 			func(ctx SpecContext) {
+				openTx()
 				var before rack.Rack
 				Expect(svc.NewRetrieve().
 					Where(rack.MatchKeys(svc.EmbeddedKey)).
@@ -758,6 +764,7 @@ var _ = Describe("Rack", Ordered, func() {
 			},
 		)
 		It("Should keep a rack's integrations", func(ctx SpecContext) {
+			openTx()
 			r := &rack.Rack{Name: "rename-integ-rack", Integrations: []string{"ni"}}
 			Expect(writer.Create(ctx, r)).To(Succeed())
 			Expect(writer.Rename(ctx, r.Key, "renamed-integ-rack")).To(Succeed())
@@ -770,12 +777,14 @@ var _ = Describe("Rack", Ordered, func() {
 			Expect(res.Integrations).To(Equal([]string{"ni"}))
 		})
 		It("Should return a validation error for an empty name", func(ctx SpecContext) {
+			openTx()
 			r := &rack.Rack{Name: "rename-empty-rack"}
 			Expect(writer.Create(ctx, r)).To(Succeed())
 			Expect(writer.Rename(ctx, r.Key, "")).
 				To(MatchError(ContainSubstring("name: required")))
 		})
 		It("Should return a not found error for a missing rack", func(ctx SpecContext) {
+			openTx()
 			Expect(writer.Rename(ctx, rack.NewKey(1, 60000), "renamed")).
 				To(MatchError(query.ErrNotFound))
 		})
@@ -801,6 +810,7 @@ var _ = Describe("Rack", Ordered, func() {
 		})
 	})
 	Describe("Delete", func() {
+		BeforeEach(openTx)
 		It("Should delete a rack and its associated status", func(ctx SpecContext) {
 			r := &rack.Rack{Name: "rack4"}
 			Expect(writer.Create(ctx, r)).To(Succeed())
@@ -836,6 +846,7 @@ var _ = Describe("Rack", Ordered, func() {
 
 	Describe("Embedded Rack", func() {
 		It("Should correctly create the node embedded rack", func(ctx SpecContext) {
+			openTx()
 			Expect(svc.EmbeddedKey).ToNot(Equal(rack.Key(0)))
 			var embeddedRack rack.Rack
 			Expect(
@@ -970,6 +981,7 @@ var _ = Describe("Rack", Ordered, func() {
 		It(
 			"Should restore a missing status row when the rack is re-configured",
 			func(ctx SpecContext) {
+				openTx()
 				r := rack.Rack{Name: "heal rack"}
 				Expect(writer.Create(ctx, &r)).To(Succeed())
 
@@ -994,6 +1006,7 @@ var _ = Describe("Rack", Ordered, func() {
 		It(
 			"Should not clobber a live status row on a no-op re-configure",
 			func(ctx SpecContext) {
+				openTx()
 				r := rack.Rack{
 					Name: "live status rack",
 					Status: &rack.Status{

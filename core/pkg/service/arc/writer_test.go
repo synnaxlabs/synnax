@@ -16,16 +16,19 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/text"
+	"github.com/synnaxlabs/gorp"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/query"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Writer", func() {
 	Describe("Create", func() {
 		It("Should create an Arc with generated key", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			a := arc.Arc{Name: "test-arc", Mode: arc.ModeText}
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 			Expect(a.Key).ToNot(Equal(uuid.Nil()))
@@ -34,6 +37,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should return a validation error when the name is empty",
 			func(ctx SpecContext) {
+				tx := DeferClose(db.OpenTx())
 				a := arc.Arc{Mode: arc.ModeText}
 				Expect(svc.NewWriter(tx).Create(ctx, &a)).
 					To(MatchError(ContainSubstring("name: required")))
@@ -41,6 +45,7 @@ var _ = Describe("Writer", func() {
 		)
 
 		It("Should create an Arc with explicit key", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			key := uuid.New()
 			a := arc.Arc{Key: key, Name: "test-arc-with-key", Mode: arc.ModeText}
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
@@ -48,6 +53,7 @@ var _ = Describe("Writer", func() {
 		})
 
 		It("Should handle multiple Arc creations", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			a1 := arc.Arc{Name: "arc-1", Mode: arc.ModeText}
 			a2 := arc.Arc{Name: "arc-2", Mode: arc.ModeText}
 			Expect(svc.NewWriter(tx).Create(ctx, &a1)).To(Succeed())
@@ -60,6 +66,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should broadcast the create with the writer's dispatch key after commit",
 			func(ctx SpecContext) {
+				tx := DeferClose(db.OpenTx())
 				rec := &Recorder[arc.Key, arc.Action]{}
 				DeferCleanup(svc.OnAction(rec.Record))
 				v := arc.Arc{Name: "broadcast", Mode: arc.ModeText}
@@ -92,6 +99,8 @@ var _ = Describe("Writer", func() {
 	})
 
 	Describe("CreateMany", func() {
+		var tx gorp.Tx
+		BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 		It("Should create multiple Arcs", func(ctx SpecContext) {
 			arcs := []arc.Arc{
 				{Name: "arc-many-1", Mode: arc.ModeText},
@@ -109,6 +118,8 @@ var _ = Describe("Writer", func() {
 	})
 
 	Describe("Update", func() {
+		var tx gorp.Tx
+		BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 		It("Should update an existing Arc", func(ctx SpecContext) {
 			key := uuid.New()
 			a := arc.Arc{
@@ -133,6 +144,8 @@ var _ = Describe("Writer", func() {
 	})
 
 	Describe("Delete", func() {
+		var tx gorp.Tx
+		BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 		It("Should delete an Arc", func(ctx SpecContext) {
 			a := arc.Arc{
 				Name:  "arc-to-delete",

@@ -22,7 +22,7 @@ import (
 var _ = Describe("Reader", func() {
 	var tx gorp.Tx
 	BeforeEach(func() {
-		tx = db.OpenTx()
+		tx = DeferClose(db.OpenTx())
 	})
 	Describe("Iterator", func() {
 		It("Should iterate over entries matching a type", func(ctx SpecContext) {
@@ -67,7 +67,7 @@ var _ = Describe("Reader", func() {
 				Expect(kvTx.Commit(ctx)).To(Succeed())
 				Expect(kvTx.Close()).To(Succeed())
 
-				tx2 := db.OpenTx()
+				tx2 := DeferClose(db.OpenTx())
 				iter2 := MustSucceed(
 					gorp.WrapReader[int32, entry](tx2).OpenIterator(gorp.IterOptions{}),
 				)

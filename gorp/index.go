@@ -65,12 +65,6 @@ type Index[K Key, E Entry[K]] interface {
 	// When tx has no per-tx identity, the deletion applies to committed
 	// state immediately.
 	stageDelete(tx Tx, key K)
-	// announce shows entry to index filters while a write outside a transaction is in
-	// progress. Committed index state does not change. Pass the returned handle to
-	// withdraw when the write ends.
-	announce(entry *E) uint64
-	// withdraw ends the announce that returned handle.
-	withdraw(handle uint64)
 }
 
 // indexStore is the read side of the engine behind an index.
@@ -99,9 +93,9 @@ func scopeOf(tx Tx) *txState {
 }
 
 // probe returns the keys that store maps to any of values, with the changes staged
-// against tx applied. Observers run before a commit returns, so probe also includes
-// the keys of each commit in flight. Such a commit can fail, so a caller checks each
-// key against storage.
+// against tx applied. A read outside a transaction can run after a commit writes and
+// before its index changes apply, so probe also includes the keys of each commit in
+// flight. Such a commit can fail, so a caller checks each key against storage.
 func probe[K Key, V comparable](
 	store indexStore[K, V],
 	tx Tx,
@@ -201,14 +195,6 @@ func (l *LookupIndex[K, E, V]) stageDelete(tx Tx, key K) {
 	l.store.StageDelete(tx.txIdentity(), key)
 }
 
-//nolint:unused
-func (l *LookupIndex[K, E, V]) announce(entry *E) uint64 {
-	return l.store.Announce((*entry).GorpKey(), l.extract(entry))
-}
-
-//nolint:unused
-func (l *LookupIndex[K, E, V]) withdraw(handle uint64) { l.store.Withdraw(handle) }
-
 // Get returns the primary keys of entries whose indexed field matches any of the
 // provided values, merging committed index state with any per-tx delta staged against
 // tx. Pass a nil tx to read committed state only.
@@ -293,14 +279,6 @@ func (s *SortedIndex[K, E, V]) stageSet(tx Tx, entry E) {
 func (s *SortedIndex[K, E, V]) stageDelete(tx Tx, key K) {
 	s.store.StageDelete(tx.txIdentity(), key)
 }
-
-//nolint:unused
-func (s *SortedIndex[K, E, V]) announce(entry *E) uint64 {
-	return s.store.Announce((*entry).GorpKey(), s.extract(entry))
-}
-
-//nolint:unused
-func (s *SortedIndex[K, E, V]) withdraw(handle uint64) { s.store.Withdraw(handle) }
 
 // Get returns the primary keys of entries whose indexed field matches any of the
 // provided values, merging committed index state with any per-tx delta staged against

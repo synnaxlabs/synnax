@@ -28,7 +28,6 @@ type Multi[S Scope, K, V comparable] struct {
 	forward    map[V]holders[K]
 	reverse    map[K][]V
 	overlay    overlay[S, *delta[K, V]]
-	announcements[K, V]
 }
 
 // NewMulti returns an empty Multi that waits for its bulk load.
@@ -113,17 +112,10 @@ func (m *Multi[S, K, V]) Get(scope S, values ...V) ([]K, error) {
 	return mergeValues(&m.overlay, scope, committed, values), nil
 }
 
-// Committing returns the keys that a transaction in its commit or an announced write
-// maps to any of values. Get misses them until that write returns. The write can fail,
-// so a caller must check each key against storage. Call Committing before Get.
+// Committing returns the keys that a transaction in its commit maps to any of values.
+// See Lookup.Committing for its contract.
 func (m *Multi[S, K, V]) Committing(values ...V) []K {
-	return m.appendKeys(committingKeys(&m.overlay, values), values)
-}
-
-// Announce makes Committing return key for each of values until Withdraw of the
-// returned handle.
-func (m *Multi[S, K, V]) Announce(key K, values []V) uint64 {
-	return m.announce(key, slices.Clone(values))
+	return committingKeys(&m.overlay, values)
 }
 
 func (m *Multi[S, K, V]) put(key K, values []V) {

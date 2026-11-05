@@ -30,6 +30,7 @@ var _ = Describe("Ancestors", func() {
 		w                    ontology.Writer
 	)
 	BeforeEach(func(ctx SpecContext) {
+		tx = DeferClose(db.OpenTx())
 		top = newSampleType("an-top")
 		mid = newSampleType("an-mid")
 		side = newSampleType("an-side")

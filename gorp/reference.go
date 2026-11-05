@@ -60,8 +60,7 @@ func FormatKey[K Key](k K) string { return key.Format(k) }
 // transaction.
 //
 // KeyReference and TargetReference implement Reference. Integrity holds within one
-// node only. Gorp does not isolate concurrent transactions, so a check and a
-// conflicting write in another transaction can both commit.
+// node only.
 type Reference[K Key, E Entry[K]] interface {
 	Index[K, E]
 	// validate checks the configuration of the reference for a table named table.
@@ -302,14 +301,6 @@ func (r *reference[K, E, T]) stageSet(tx Tx, entry E) {
 func (r *reference[K, E, T]) stageDelete(tx Tx, key K) {
 	r.store.StageDelete(tx.txIdentity(), key)
 }
-
-//nolint:unused
-func (r *reference[K, E, T]) announce(entry *E) uint64 {
-	return r.store.Announce((*entry).GorpKey(), r.targetsOf(entry))
-}
-
-//nolint:unused
-func (r *reference[K, E, T]) withdraw(handle uint64) { r.store.Withdraw(handle) }
 
 func (r *reference[K, E, T]) targets(e *E) []Target {
 	held := r.targetsOf(e)

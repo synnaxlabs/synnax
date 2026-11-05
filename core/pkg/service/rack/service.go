@@ -169,7 +169,14 @@ func OpenService(
 		return nil, err
 	}
 	counterKey := []byte(cfg.HostProvider.HostKey().String() + ".rack.counter")
-	if s.localKeyCounter, err = kv.NewCounter(ctx, cfg.DB, counterKey); !ok(err, nil) {
+	if s.localKeyCounter, err = kv.NewCounter(
+		ctx,
+		cfg.DB.KV(),
+		counterKey,
+	); !ok(
+		err,
+		nil,
+	) {
 		return nil, err
 	}
 	if err = s.loadEmbeddedRack(ctx); !ok(err, nil) {

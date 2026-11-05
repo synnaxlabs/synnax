@@ -117,8 +117,8 @@ func (f *failOnceDB) OpenIterator(opts kv.IteratorOptions) (kv.Iterator, error) 
 	return f.DB.OpenIterator(opts)
 }
 
-// failingCommitDB is a kv.DB whose transactions fail to commit once fail is set. Each
-// failing commit calls during before it returns.
+// failingCommitDB is a kv.DB whose transactions call during, when set, before they
+// commit. Once fail is set, each commit fails with it instead.
 type failingCommitDB struct {
 	kv.DB
 	fail   error
@@ -135,31 +135,13 @@ func (f *failingCommitDB) OpenTx() kv.Tx {
 }
 
 func (t failingCommitTx) Commit(ctx context.Context, opts ...any) error {
+	if t.db.during != nil {
+		t.db.during()
+	}
 	if t.db.fail == nil {
 		return t.Tx.Commit(ctx, opts...)
 	}
-	t.db.during()
 	return t.db.fail
-}
-
-// interceptedSetDB is a kv.DB that calls intercept before each write outside a
-// transaction. An error from intercept fails the write before it reaches storage.
-type interceptedSetDB struct {
-	kv.DB
-	intercept func() error
-}
-
-func (i *interceptedSetDB) Set(
-	ctx context.Context,
-	key, value []byte,
-	opts ...any,
-) error {
-	if i.intercept != nil {
-		if err := i.intercept(); err != nil {
-			return err
-		}
-	}
-	return i.DB.Set(ctx, key, value, opts...)
 }
 
 // openHostIndexedDB returns a DB whose indexes take local writes only from the commit
@@ -293,69 +275,40 @@ var _ = Describe("Index", func() {
 			Exec(ctx, db)).To(Succeed())
 	})
 
-	Describe("Write through the DB", func() {
-		var (
-			store    *interceptedSetDB
-			db       *gorp.DB
-			table    *gorp.Table[int32, indexedEntry]
-			nameIdx  *gorp.LookupIndex[int32, indexedEntry, string]
-			scoreIdx *gorp.SortedIndex[int32, indexedEntry, int64]
-		)
-		BeforeEach(func(ctx SpecContext) {
-			store = &interceptedSetDB{DB: memkv.New()}
-			db = DeferClose(openHostIndexedDB(store))
-			nameIdx = gorp.NewLookupIndex(
+	It(
+		"Should find an entry only by its stored value during a commit that updates it",
+		func(ctx SpecContext) {
+			store := &failingCommitDB{DB: memkv.New()}
+			db := DeferClose(openHostIndexedDB(store))
+			nameIdx := gorp.NewLookupIndex(
 				"name", func(e *indexedEntry) string { return e.Name },
 			)
-			scoreIdx = gorp.NewSortedIndex(
-				"score", func(e *indexedEntry) int64 { return e.Score },
-			)
-			table = DeferClose(openIndexedTable(ctx, db, nameIdx, scoreIdx))
+			table := DeferClose(openIndexedTable(ctx, db, nameIdx))
 			Expect(table.NewCreate().
-				Entry(&indexedEntry{ID: 1, Name: "alpha", Score: 10}).
+				Entry(&indexedEntry{ID: 1, Name: "alpha"}).
 				Exec(ctx, db)).To(Succeed())
-		})
-
-		It(
-			"Should find an entry only by its stored value during an update",
-			func(ctx SpecContext) {
-				retrieve := func(f gorp.Filter[int32, indexedEntry]) []int32 {
-					GinkgoHelper()
-					var res []indexedEntry
-					Expect(table.NewRetrieve().
-						Where(f).Entries(&res).Exec(ctx, db)).To(Succeed())
-					return idsOf(res)
-				}
-				var byOld, byNew []int32
-				store.intercept = func() error {
-					byOld = retrieve(nameIdx.Filter("alpha"))
-					byNew = retrieve(nameIdx.Filter("zeta"))
-					return nil
-				}
-				Expect(table.NewCreate().
-					Entry(&indexedEntry{ID: 1, Name: "zeta", Score: 99}).
-					Exec(ctx, db)).To(Succeed())
-				Expect(byOld).To(ConsistOf(int32(1)))
-				Expect(byNew).To(BeEmpty())
-				Expect(retrieve(nameIdx.Filter("alpha"))).To(BeEmpty())
-				Expect(retrieve(nameIdx.Filter("zeta"))).To(ConsistOf(int32(1)))
-			},
-		)
-
-		It("Should keep the indexes when the write fails", func(ctx SpecContext) {
-			store.intercept = func() error { return errors.New("set failed") }
+			retrieve := func(f gorp.Filter[int32, indexedEntry]) []int32 {
+				GinkgoHelper()
+				var res []indexedEntry
+				Expect(table.NewRetrieve().
+					Where(f).Entries(&res).Exec(ctx, db)).To(Succeed())
+				return idsOf(res)
+			}
+			var byOld, byNew []int32
+			store.during = func() {
+				byOld = retrieve(nameIdx.Filter("alpha"))
+				byNew = retrieve(nameIdx.Filter("zeta"))
+			}
 			Expect(table.NewCreate().
-				Entry(&indexedEntry{ID: 1, Name: "zeta", Score: 99}).
-				Exec(ctx, db)).To(MatchError("set failed"))
-			Expect(table.NewCreate().
-				Entry(&indexedEntry{ID: 2, Name: "zeta", Score: 99}).
-				Exec(ctx, db)).To(MatchError("set failed"))
-			Expect(nameIdx.Get(nil, "zeta")).To(BeEmpty())
-			Expect(nameIdx.Get(nil, "alpha")).To(ConsistOf(int32(1)))
-			Expect(scoreIdx.Get(nil, int64(99))).To(BeEmpty())
-			Expect(scoreIdx.Get(nil, int64(10))).To(ConsistOf(int32(1)))
-		})
-	})
+				Entry(&indexedEntry{ID: 1, Name: "zeta"}).
+				Exec(ctx, db)).To(Succeed())
+			Expect(byOld).To(ConsistOf(int32(1)))
+			Expect(byNew).To(BeEmpty())
+			store.during = nil
+			Expect(retrieve(nameIdx.Filter("alpha"))).To(BeEmpty())
+			Expect(retrieve(nameIdx.Filter("zeta"))).To(ConsistOf(int32(1)))
+		},
+	)
 
 	Describe("Lookup", func() {
 		Describe("Population at OpenTable", func() {

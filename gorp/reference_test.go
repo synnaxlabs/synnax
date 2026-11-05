@@ -371,6 +371,59 @@ var _ = Describe("Reference", func() {
 		)
 	})
 
+	Describe("Concurrent writes", func() {
+		BeforeEach(func(ctx SpecContext) { open(ctx) })
+
+		It(
+			"Should keep one of two concurrent first writes of a unique target",
+			func(ctx SpecContext) {
+				createRack(ctx, 1)
+				owner := &refOwner{Table: "rack", Key: "1"}
+				first := DeferClose(db.OpenTx())
+				Expect(statuses.NewCreate().
+					Entry(&refStatus{Key: "s1", Owner: owner}).
+					Exec(ctx, first)).To(Succeed())
+				second := make(chan error, 1)
+				go func() {
+					second <- statuses.NewCreate().
+						Entry(&refStatus{Key: "s2", Owner: owner}).
+						Exec(ctx, db)
+				}()
+				Consistently(second, 50*time.Millisecond).ShouldNot(Receive())
+				Expect(first.Commit(ctx)).To(Succeed())
+				Eventually(second).Should(Receive(MatchError(ContainSubstring(
+					"owner: status s1 already references rack 1",
+				))))
+				var all []refStatus
+				Expect(statuses.NewRetrieve().Entries(&all).Exec(ctx, db)).
+					To(Succeed())
+				Expect(all).To(ConsistOf(refStatus{Key: "s1", Owner: owner}))
+			},
+		)
+
+		It(
+			"Should not commit both a restrict delete and a create of a dependent",
+			func(ctx SpecContext) {
+				createRack(ctx, 1)
+				first := DeferClose(db.OpenTx())
+				Expect(racks.NewDelete().
+					Where(gorp.MatchKeys[uint32, refRack](1)).
+					Exec(ctx, first)).To(Succeed())
+				second := make(chan error, 1)
+				go func() {
+					second <- createDevice(ctx, refDevice{Key: "d1", Rack: 1})
+				}()
+				Consistently(second, 50*time.Millisecond).ShouldNot(Receive())
+				Expect(first.Commit(ctx)).To(Succeed())
+				Eventually(second).Should(Receive(MatchError(ContainSubstring(
+					"rack: rack 1 does not exist",
+				))))
+				Expect(rackExists(ctx, 1)).To(BeFalse())
+				Expect(deviceExists(ctx, "d1")).To(BeFalse())
+			},
+		)
+	})
+
 	Describe("NewWriter", func() {
 		BeforeEach(func(ctx SpecContext) {
 			open(ctx, gorp.WithIndexObservable(observe.Noop[kv.TxReader]{}))

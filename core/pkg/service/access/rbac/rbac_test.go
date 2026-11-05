@@ -93,8 +93,6 @@ var _ = Describe("ServiceConfig", func() {
 
 var _ = Describe("Service", func() {
 	var tx gorp.Tx
-	BeforeEach(func(ctx SpecContext) { tx = db.OpenTx() })
-	AfterEach(func(ctx SpecContext) { Expect(tx.Close()).To(Succeed()) })
 
 	Describe("OpenService", func() {
 		It("Should open a service with a valid configuration", func(ctx SpecContext) {
@@ -124,6 +122,7 @@ var _ = Describe("Service", func() {
 			obj2         resource.ID
 		)
 		BeforeEach(func(ctx SpecContext) {
+			tx = DeferClose(db.OpenTx())
 			policyWriter = rbacSvc.Policy.NewWriter(tx, true)
 			roleWriter = rbacSvc.Role.NewWriter(tx, true)
 			subject = resource.ID{Type: "user", Key: uuid.New().String()}
@@ -353,6 +352,7 @@ var _ = Describe("Service", func() {
 			obj          resource.ID
 		)
 		BeforeEach(func(ctx SpecContext) {
+			tx = DeferClose(db.OpenTx())
 			policyWriter = rbacSvc.Policy.NewWriter(tx, true)
 			roleWriter = rbacSvc.Role.NewWriter(tx, true)
 			subject = resource.ID{Type: "user", Key: uuid.New().String()}
@@ -425,6 +425,7 @@ var _ = Describe("Service", func() {
 			subject      resource.ID
 		)
 		BeforeEach(func(ctx SpecContext) {
+			tx = DeferClose(db.OpenTx())
 			policyWriter = rbacSvc.Policy.NewWriter(tx, true)
 			roleWriter = rbacSvc.Role.NewWriter(tx, true)
 			subject = resource.ID{Type: "user", Key: uuid.New().String()}
@@ -499,6 +500,7 @@ var _ = Describe("Service", func() {
 		})
 
 		It("Should use provided transaction", func(ctx SpecContext) {
+			tx = DeferClose(db.OpenTx())
 			enforcer := rbacSvc.NewEnforcer(tx)
 			Expect(enforcer).ToNot(BeNil())
 

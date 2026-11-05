@@ -31,6 +31,7 @@ import (
 
 var _ = Describe("CompileProgram", func() {
 	It("Should retrieve and compile an Arc with a valid graph", func(ctx SpecContext) {
+		tx := DeferClose(db.OpenTx())
 		a := arc.Arc{
 			Name: "test-arc",
 			Mode: arc.ModeGraph,
@@ -65,6 +66,7 @@ var _ = Describe("CompileProgram", func() {
 	})
 
 	It("Should return error when graph compilation fails", func(ctx SpecContext) {
+		tx := DeferClose(db.OpenTx())
 		a := arc.Arc{
 			Name: "invalid-arc",
 			Mode: arc.ModeGraph,

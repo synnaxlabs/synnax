@@ -73,14 +73,6 @@ func (s *SearchIndex[K, E]) stageDelete(tx Tx, key K) {
 	s.store.StageDelete(tx.txIdentity(), key)
 }
 
-// announce does nothing: a search does not see writes in progress.
-//
-//nolint:unused
-func (s *SearchIndex[K, E]) announce(*E) uint64 { return 0 }
-
-//nolint:unused
-func (s *SearchIndex[K, E]) withdraw(uint64) {}
-
 // Search returns the keys of the entries that match q.Term, closest match first. When
 // no entry matches every word of q.Term, it returns the entries that match any word.
 // Search merges committed index state with the changes staged against tx; pass the DB

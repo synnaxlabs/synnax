@@ -78,8 +78,4 @@ var _ = BeforeSuite(func() {
 	otg.RegisterService(&sampleService{})
 })
 
-var _ = BeforeEach(func() {
-	tx = DeferClose(db.OpenTx())
-})
-
 var _ = ShouldNotLeakGoroutinesPerSpec()

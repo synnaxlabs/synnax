@@ -82,6 +82,11 @@ type Tx interface {
 	Close() error
 }
 
+// OnApplied is a Commit option. The DB calls it once the commit's writes are visible to
+// reads and before it notifies observers. A DB that notifies observers on another
+// goroutine may ignore it.
+type OnApplied func()
+
 // DB represents a general key-value store.
 type DB interface {
 	// Tx allows the DB to behave as a transaction, although all operations are directly

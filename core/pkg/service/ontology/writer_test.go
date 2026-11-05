@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/graph"
 	"github.com/synnaxlabs/x/query"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Writer", func() {
@@ -26,6 +27,7 @@ var _ = Describe("Writer", func() {
 		id resource.ID
 	)
 	BeforeEach(func() {
+		tx = DeferClose(db.OpenTx())
 		w = otg.NewWriter(tx)
 		id = newSampleType("foo")
 	})

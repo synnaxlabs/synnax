@@ -92,6 +92,7 @@ var _ = Describe("Ontology", func() {
 	})
 	Describe("RetrieveResource", func() {
 		It("Should retrieve a project as an ontology resource", func(ctx SpecContext) {
+			tx = DeferClose(db.OpenTx())
 			p := project.Project{Key: uuid.New(), Name: "resource"}
 			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 			resource := MustSucceed(svc.RetrieveResource(ctx, p.Key.String(), tx))

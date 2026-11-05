@@ -10,6 +10,7 @@
 package gorp
 
 import (
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
@@ -41,6 +42,11 @@ func WithMaxDeleteSize(n int) Option {
 	return func(opts *options) { opts.MaxDeleteSize = n }
 }
 
+// WithInstrumentation sets the instrumentation that the DB logs to.
+func WithInstrumentation(ins alamos.Instrumentation) Option {
+	return func(opts *options) { opts.Instrumentation = ins }
+}
+
 // options holds the configuration applied to a DB and inherited by
 // every Tx opened from it.
 type options struct {
@@ -52,6 +58,8 @@ type options struct {
 	IndexObservable observe.Observable[kv.TxReader]
 	// MaxDeleteSize is the most entries that one Delete may delete or rewrite.
 	MaxDeleteSize int
+	// Instrumentation is where the DB logs.
+	Instrumentation alamos.Instrumentation
 }
 
 var defaultOptions = options{

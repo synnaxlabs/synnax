@@ -77,6 +77,10 @@ func (d Delete[K, E]) Guard(filter GuardFunc[K, E]) Delete[K, E] {
 // Guards run only on the entries the query matches, never on cascaded ones.
 func (d Delete[K, E]) Exec(ctx context.Context, tx Tx) error {
 	checkForNilTx("Delete.Exec", tx)
+	return inTx(ctx, tx, func(tx Tx) error { return d.exec(ctx, tx) })
+}
+
+func (d Delete[K, E]) exec(ctx context.Context, tx Tx) error {
 	var (
 		queryCtx = Context{Context: ctx, Tx: tx}
 		entries  []E

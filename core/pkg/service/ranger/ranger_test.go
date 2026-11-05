@@ -23,6 +23,7 @@ import (
 )
 
 var _ = Describe("Ranger", func() {
+	BeforeEach(openTx)
 	Describe("RetrieveParent", func() {
 		It("Should get the parent of the range", func(ctx SpecContext) {
 			parent := ranger.Range{

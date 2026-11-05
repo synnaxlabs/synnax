@@ -55,24 +55,39 @@ func wrapWriter[K Key, E Entry[K]](
 	}
 }
 
-// Set writes the provided entries to the DB.
+// Set writes the provided entries to the DB. When the Writer wraps a DB, Set writes all
+// of them in one transaction.
 func (w *Writer[K, E]) Set(ctx context.Context, entries ...E) error {
-	for _, entry := range entries {
-		if err := w.set(ctx, entry); err != nil {
-			return err
+	return inTx(ctx, w.tx, func(tx Tx) error {
+		bound := w.bind(tx)
+		for _, entry := range entries {
+			if err := bound.set(ctx, entry); err != nil {
+				return err
+			}
 		}
-	}
-	return nil
+		return nil
+	})
 }
 
-// Delete deletes the provided keys from the DB.
+// Delete deletes the provided keys from the DB. When the Writer wraps a DB, Delete
+// deletes all of them in one transaction.
 func (w *Writer[K, E]) Delete(ctx context.Context, keys ...K) error {
-	for _, key := range keys {
-		if err := w.delete(ctx, key); err != nil {
-			return err
+	return inTx(ctx, w.tx, func(tx Tx) error {
+		bound := w.bind(tx)
+		for _, key := range keys {
+			if err := bound.delete(ctx, key); err != nil {
+				return err
+			}
 		}
-	}
-	return nil
+		return nil
+	})
+}
+
+// bind returns a copy of w that writes through tx.
+func (w *Writer[K, E]) bind(tx Tx) Writer[K, E] {
+	bound := *w
+	bound.tx = tx
+	return bound
 }
 
 func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
@@ -86,9 +101,6 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 		return err
 	}
 	v := w.keyCodec.Encode(entry.GorpKey())
-	if w.tx.txIdentity() == nil {
-		return w.setDirect(ctx, v, data, entry)
-	}
 	if err := w.tx.Set(ctx, v, data, entry.SetOptions()...); err != nil {
 		return err
 	}
@@ -96,28 +108,6 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 		idx.stageSet(w.tx, entry)
 	}
 	return nil
-}
-
-// setDirect writes entry through a DB, which commits inside Set. Observers run before
-// Set returns, so announcing entry lets their filters find it while the stored value
-// stays visible to others.
-func (w *Writer[K, E]) setDirect(
-	ctx context.Context,
-	v, data []byte,
-	entry E,
-) error {
-	handles := make([]uint64, len(w.indexes))
-	for i, idx := range w.indexes {
-		handles[i] = idx.announce(&entry)
-	}
-	err := w.tx.Set(ctx, v, data, entry.SetOptions()...)
-	for i, idx := range w.indexes {
-		if err == nil {
-			idx.stageSet(w.tx, entry)
-		}
-		idx.withdraw(handles[i])
-	}
-	return err
 }
 
 func (w *Writer[K, E]) delete(ctx context.Context, key K) error {

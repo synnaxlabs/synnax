@@ -104,13 +104,10 @@ var _ = Describe("Task", Ordered, func() {
 		testRack = &rack.Rack{Name: "Test Rack"}
 		Expect(rackService.NewWriter(db).Create(ctx, testRack)).To(Succeed())
 	})
-	BeforeEach(func(ctx SpecContext) {
-		tx = db.OpenTx()
+	openTx := func() {
+		tx = DeferClose(db.OpenTx())
 		w = svc.NewWriter(tx)
-	})
-	AfterEach(func(ctx SpecContext) {
-		Expect(tx.Close()).To(Succeed())
-	})
+	}
 	type frame = actions.Scoped[task.Key, task.Action]
 	collect := func() *[]frame {
 		GinkgoHelper()
@@ -144,6 +141,7 @@ var _ = Describe("Task", Ordered, func() {
 
 	Describe("Create", func() {
 		It("Should mint a unique key when none is provided", func(ctx SpecContext) {
+			openTx()
 			m := &task.Task{
 				Type: testType,
 				Rack: testRack.Key,
@@ -154,6 +152,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(m.Name).To(Equal("Test Task"))
 		})
 		It("Should preserve a client-provided key", func(ctx SpecContext) {
+			openTx()
 			key := uuid.New()
 			m := &task.Task{
 				Type: testType,
@@ -165,12 +164,14 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(m.Key).To(Equal(key))
 		})
 		It("Should create a rackless draft", func(ctx SpecContext) {
+			openTx()
 			m := &task.Task{Type: testType, Name: "Draft Task"}
 			Expect(w.Create(ctx, m)).To(Succeed())
 			Expect(m.Key).ToNot(Equal(uuid.Nil()))
 			Expect(m.Rack.IsZero()).To(BeTrue())
 		})
 		It("Should reject a task with an empty name", func(ctx SpecContext) {
+			openTx()
 			m := &task.Task{Type: testType, Rack: testRack.Key}
 			Expect(w.Create(ctx, m)).To(MatchError(ContainSubstring("name: required")))
 		})
@@ -217,6 +218,7 @@ var _ = Describe("Task", Ordered, func() {
 	})
 
 	Describe("ConfigHash", func() {
+		BeforeEach(openTx)
 		create := func(ctx context.Context, config msgpack.EncodedJSON) string {
 			GinkgoHelper()
 			t := &task.Task{
@@ -382,6 +384,7 @@ var _ = Describe("Task", Ordered, func() {
 	})
 
 	Describe("Config storage", func() {
+		BeforeEach(openTx)
 		It("Should reject a task with an unregistered type", func(ctx SpecContext) {
 			t := &task.Task{Type: "made_up", Rack: testRack.Key, Name: "Bad"}
 			Expect(w.Create(ctx, t)).To(MatchError(validate.ErrValidation))
@@ -539,6 +542,7 @@ var _ = Describe("Task", Ordered, func() {
 	})
 
 	Describe("CreateMany", func() {
+		BeforeEach(openTx)
 		It("Should create multiple tasks", func(ctx SpecContext) {
 			tasks := []task.Task{
 				{
@@ -565,6 +569,7 @@ var _ = Describe("Task", Ordered, func() {
 
 	Describe("Copy", func() {
 		It("Should copy a task", func(ctx SpecContext) {
+			openTx()
 			m := &task.Task{
 				Type: testType,
 				Rack: testRack.Key,
@@ -578,6 +583,7 @@ var _ = Describe("Task", Ordered, func() {
 		})
 
 		It("Should create a snapshot of an existing task", func(ctx SpecContext) {
+			openTx()
 			m := &task.Task{
 				Type: testType,
 				Rack: testRack.Key,
@@ -591,6 +597,7 @@ var _ = Describe("Task", Ordered, func() {
 		})
 
 		It("Should reject a copy with an empty name", func(ctx SpecContext) {
+			openTx()
 			m := &task.Task{Type: testType, Rack: testRack.Key, Name: "Test Task"}
 			Expect(w.Create(ctx, m)).To(Succeed())
 			Expect(w.Copy(ctx, m.Key, "", false)).Error().
@@ -607,6 +614,7 @@ var _ = Describe("Task", Ordered, func() {
 					Config: msgpack.EncodedJSON{"routing_key": "rk-1"},
 				}
 				Expect(svc.NewWriter(db).Create(ctx, m)).To(Succeed())
+				openTx()
 				frames := collect()
 				copied := MustSucceed(w.WithDispatchKey("dk-copy").
 					Copy(ctx, m.Key, "Copied", false))
@@ -910,6 +918,7 @@ var _ = Describe("Task", Ordered, func() {
 	})
 
 	Describe("Retrieve", func() {
+		BeforeEach(openTx)
 		It("Should correctly retrieve a task", func(ctx SpecContext) {
 			m := &task.Task{
 				Type: testType,
@@ -1059,6 +1068,7 @@ var _ = Describe("Task", Ordered, func() {
 	})
 
 	Describe("Delete", func() {
+		BeforeEach(openTx)
 		It(
 			"Should correctly delete a task and its associated status",
 			func(ctx SpecContext) {
@@ -1098,6 +1108,7 @@ var _ = Describe("Task", Ordered, func() {
 	})
 
 	Describe("DeleteByRacks", func() {
+		BeforeEach(openTx)
 		It(
 			"Should delete every task on the rack with its config record",
 			func(ctx SpecContext) {
@@ -1141,6 +1152,7 @@ var _ = Describe("Task", Ordered, func() {
 	})
 
 	Describe("Status", func() {
+		BeforeEach(openTx)
 		It(
 			"Should create a not-deployed status when creating a task",
 			func(ctx SpecContext) {
@@ -1563,6 +1575,7 @@ var _ = Describe("Task", Ordered, func() {
 	})
 
 	Describe("Search", func() {
+		BeforeEach(openTx)
 		create := func(ctx SpecContext, name string) resource.ID {
 			GinkgoHelper()
 			t := task.Task{Type: testType, Rack: testRack.Key, Name: name}

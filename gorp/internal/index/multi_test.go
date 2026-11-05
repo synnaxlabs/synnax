@@ -83,11 +83,4 @@ var _ = Describe("Multi", func() {
 		Expect(m.Get(nil, "a")).To(ConsistOf(1))
 		Expect(m.Get(txn, "a")).To(ConsistOf(1))
 	})
-
-	It("Should return announced keys until they are withdrawn", func() {
-		handle := m.Announce(4, []string{"d", "e"})
-		Expect(m.Committing("e")).To(ConsistOf(4))
-		m.Withdraw(handle)
-		Expect(m.Committing("e")).To(BeEmpty())
-	})
 })

@@ -214,8 +214,6 @@ var _ = Describe("View", func() {
 				rangeView("View B"),
 				statusView("View C"),
 			}
-			tx = db.OpenTx()
-			w = svc.NewWriter(tx)
 			Expect(w.CreateMany(ctx, &views)).To(Succeed())
 		})
 

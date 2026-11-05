@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -30,7 +31,11 @@ import (
 )
 
 var _ = Describe("UpdateTask", func() {
-	var a arc.Arc
+	var (
+		a  arc.Arc
+		tx gorp.Tx
+	)
+	BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 
 	createArc := func(ctx SpecContext, raw string) {
 		GinkgoHelper()
@@ -306,7 +311,7 @@ var _ = Describe("Task sync", func() {
 		Expect(writer.Create(ctx, &a)).To(Succeed())
 	}
 
-	retrieveTask := func(ctx SpecContext, key task.Key) task.Task {
+	retrieveTask := func(ctx SpecContext, tx gorp.Tx, key task.Key) task.Task {
 		GinkgoHelper()
 		var tsk task.Task
 		Expect(taskSvc.NewRetrieve().
@@ -365,7 +370,7 @@ var _ = Describe("Task sync", func() {
 			tsk := MustSucceed(
 				writer.UpdateTask(ctx, a.Key, arc.TaskUpdate{Rack: new(testRack.Key)}),
 			)
-			before := retrieveTask(ctx, tsk.Key)
+			before := retrieveTask(ctx, db, tsk.Key)
 			client := crdt.New(2)
 			Expect(
 				svc.Dispatch(ctx, a.Key, "dk", toInsertActions(client.Insert(0, "x"))),
@@ -373,7 +378,7 @@ var _ = Describe("Task sync", func() {
 				To(Succeed())
 			Eventually(taskConfigHash(ctx, tsk.Key)).
 				ShouldNot(Equal(before.ConfigHash))
-			after := retrieveTask(ctx, tsk.Key)
+			after := retrieveTask(ctx, db, tsk.Key)
 			Expect(after.Config["hash"]).ToNot(Equal(before.Config["hash"]))
 		},
 	)
@@ -412,7 +417,7 @@ var _ = Describe("Task sync", func() {
 		tsk := MustSucceed(
 			writer.UpdateTask(ctx, a.Key, arc.TaskUpdate{Rack: new(testRack.Key)}),
 		)
-		before := retrieveTask(ctx, tsk.Key)
+		before := retrieveTask(ctx, db, tsk.Key)
 		Expect(svc.Dispatch(ctx, a.Key, "dk", setNode(9))).To(Succeed())
 		Consistently(
 			taskConfigHash(ctx, tsk.Key),
@@ -426,11 +431,12 @@ var _ = Describe("Task sync", func() {
 		"Should rewrite the task config when an overwrite changes the content",
 		func(ctx SpecContext) {
 			createArc(ctx, arc.ModeText)
+			tx := DeferClose(db.OpenTx())
 			w := svc.NewWriter(tx)
 			tsk := MustSucceed(
 				w.UpdateTask(ctx, a.Key, arc.TaskUpdate{Rack: new(testRack.Key)}),
 			)
-			before := retrieveTask(ctx, tsk.Key)
+			before := retrieveTask(ctx, tx, tsk.Key)
 			edited := arc.Arc{
 				Key:  a.Key,
 				Name: a.Name,
@@ -438,7 +444,7 @@ var _ = Describe("Task sync", func() {
 				Text: newText("a -> c"),
 			}
 			Expect(w.Create(ctx, &edited)).To(Succeed())
-			Expect(retrieveTask(ctx, tsk.Key).ConfigHash).
+			Expect(retrieveTask(ctx, tx, tsk.Key).ConfigHash).
 				ToNot(Equal(before.ConfigHash))
 		},
 	)
@@ -451,6 +457,7 @@ var _ = Describe("Task sync", func() {
 				Mode: arc.ModeText,
 				Text: newText("a -> b"),
 			}
+			tx := DeferClose(db.OpenTx())
 			w := svc.NewWriter(tx)
 			Expect(w.Create(ctx, &deployed)).To(Succeed())
 			tsk := MustSucceed(
@@ -460,7 +467,7 @@ var _ = Describe("Task sync", func() {
 					arc.TaskUpdate{Rack: new(testRack.Key)},
 				),
 			)
-			before := retrieveTask(ctx, tsk.Key)
+			before := retrieveTask(ctx, tx, tsk.Key)
 			lying := newText("a -> b")
 			lying.Raw = "a -> c"
 			edited := arc.Arc{
@@ -470,7 +477,7 @@ var _ = Describe("Task sync", func() {
 				Text: lying,
 			}
 			Expect(w.Create(ctx, &edited)).To(Succeed())
-			Expect(retrieveTask(ctx, tsk.Key).Config["hash"]).
+			Expect(retrieveTask(ctx, tx, tsk.Key).Config["hash"]).
 				To(Equal(before.Config["hash"]))
 		},
 	)
@@ -482,7 +489,7 @@ var _ = Describe("Task sync", func() {
 			tsk := MustSucceed(
 				writer.UpdateTask(ctx, a.Key, arc.TaskUpdate{Rack: new(testRack.Key)}),
 			)
-			before := retrieveTask(ctx, tsk.Key)
+			before := retrieveTask(ctx, db, tsk.Key)
 			client := crdt.New(2)
 			Expect(
 				svc.Dispatch(ctx, a.Key, "dk", toInsertActions(client.Insert(0, "x"))),

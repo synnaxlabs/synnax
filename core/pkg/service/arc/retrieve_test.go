@@ -17,11 +17,13 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Retrieve", func() {
 	Describe("Arc Retrieve", func() {
 		It("Should retrieve an Arc", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			a := arc.Arc{
 				Name:  "test-retrieve",
 				Mode:  arc.ModeText,
@@ -42,6 +44,7 @@ var _ = Describe("Retrieve", func() {
 		})
 
 		It("Should retrieve multiple Arcs", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			arcs := []arc.Arc{
 				{
 					Name:  "arc-multi-1",

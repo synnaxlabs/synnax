@@ -67,15 +67,13 @@ var _ = Describe("Status", Ordered, func() {
 			Group:    g,
 		}))
 	})
-	BeforeEach(func(ctx SpecContext) {
-		tx = db.OpenTx()
+	openTx := func() {
+		tx = DeferClose(db.OpenTx())
 		w = svc.NewWriter(tx)
-	})
-	AfterEach(func(ctx SpecContext) {
-		Expect(tx.Close()).To(Succeed())
-	})
+	}
 
 	Describe("Writer", func() {
+		BeforeEach(openTx)
 		Describe("Set", func() {
 			It("Should create a new status", func(ctx SpecContext) {
 				s := &status.Status[any]{
@@ -281,6 +279,7 @@ var _ = Describe("Status", Ordered, func() {
 	})
 
 	Describe("Retrieve", func() {
+		BeforeEach(openTx)
 		BeforeEach(func(ctx SpecContext) {
 			statuses := []status.Status[any]{
 				{
@@ -328,8 +327,7 @@ var _ = Describe("Status", Ordered, func() {
 			}
 			Expect(w.SetMany(ctx, &statuses)).To(Succeed())
 			Expect(tx.Commit(ctx)).To(Succeed())
-			tx = db.OpenTx()
-			w = svc.NewWriter(tx)
+			openTx()
 		})
 
 		Describe("WhereKeys", func() {
@@ -606,6 +604,7 @@ var _ = Describe("Status", Ordered, func() {
 	})
 
 	Describe("Generic Type Behavior", func() {
+		BeforeEach(openTx)
 		// This test suite documents how generic types work with Status[D] in gorp.
 		// All Status[D] types share the same gorp namespace because CustomTypeName()
 		// returns "Status" regardless of the type parameter D. This means:

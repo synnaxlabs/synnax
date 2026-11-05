@@ -475,6 +475,7 @@ var _ = Describe("Import", func() {
 	}
 
 	Describe("A whole bundle directory", func() {
+		BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 		// The fixture is a bundle as the Console writes one to disk: nested group
 		// directories, panels referencing members across them, an Arc and a task that
 		// only a panel tab pulls in, suffixed name collisions, and a stray file.
@@ -644,6 +645,7 @@ var _ = Describe("Import", func() {
 			leaf(resourceTab(grouped.ResourceID())),
 		)
 		files, _ := MustSucceed2(svc.Export(ctx, src.Key, xjson.Codec))
+		tx = DeferClose(db.OpenTx())
 		proj := importProject(ctx, files)
 		Expect(proj.Key).ToNot(Equal(src.Key))
 		Expect(proj.Name).To(Equal("Test Stand 12"))
@@ -664,6 +666,7 @@ var _ = Describe("Import", func() {
 	})
 
 	It("Should name the project from the manifest", func(ctx SpecContext) {
+		tx = DeferClose(db.OpenTx())
 		proj := importProject(ctx, zip.Files{"manifest.json": bundleManifest("Named")})
 		Expect(proj.Name).To(Equal("Named"))
 		Expect(childrenOf(ctx, project.ResourceID(proj.Key))).To(BeEmpty())
@@ -672,6 +675,7 @@ var _ = Describe("Import", func() {
 	It("Should fall back to the file name when the manifest is nameless", func(
 		ctx SpecContext,
 	) {
+		tx = DeferClose(db.OpenTx())
 		proj := MustSucceed(svc.Import(
 			ctx,
 			tx,
@@ -682,6 +686,7 @@ var _ = Describe("Import", func() {
 	})
 
 	It("Should recreate nested directories as nested groups", func(ctx SpecContext) {
+		tx = DeferClose(db.OpenTx())
 		proj := importProject(ctx, zip.Files{
 			"manifest.json":     bundleManifest("Grouped"),
 			"A/B/Pressure.json": bundleLog("Pressure"),
@@ -701,6 +706,7 @@ var _ = Describe("Import", func() {
 	})
 
 	It("Should place a panel under its directory's group", func(ctx SpecContext) {
+		tx = DeferClose(db.OpenTx())
 		proj := importProject(ctx, zip.Files{
 			"manifest.json":      bundleManifest("Paneled"),
 			"Deck/Pressure.json": bundleLog("Pressure"),
@@ -722,6 +728,7 @@ var _ = Describe("Import", func() {
 			ctx, "Controls", src.ResourceID(), leaf(resourceTab(t.ResourceID())),
 		)
 		files, _ := MustSucceed2(svc.Export(ctx, src.Key, xjson.Codec))
+		tx = DeferClose(db.OpenTx())
 		proj := importProject(ctx, files)
 		children := childrenOf(ctx, project.ResourceID(proj.Key))
 		Expect(children).To(HaveLen(1))
@@ -744,6 +751,7 @@ var _ = Describe("Import", func() {
 			ctx, "Controls", src.ResourceID(), leaf(resourceTab(a.ResourceID())),
 		)
 		files, _ := MustSucceed2(svc.Export(ctx, src.Key, xjson.Codec))
+		tx = DeferClose(db.OpenTx())
 		proj := importProject(ctx, files)
 		children := childrenOf(ctx, project.ResourceID(proj.Key))
 		Expect(children).To(HaveLen(1))
@@ -762,6 +770,7 @@ var _ = Describe("Import", func() {
 	})
 
 	It("Should ignore files that are not members", func(ctx SpecContext) {
+		tx = DeferClose(db.OpenTx())
 		proj := importProject(ctx, zip.Files{
 			"manifest.json": bundleManifest("Tidy"),
 			"Metrics.json":  bundleLog("Metrics"),
@@ -774,6 +783,7 @@ var _ = Describe("Import", func() {
 	It("Should allow equal member names in different directories", func(
 		ctx SpecContext,
 	) {
+		tx = DeferClose(db.OpenTx())
 		proj := importProject(ctx, zip.Files{
 			"manifest.json":   bundleManifest("Shadowed"),
 			"Pressure.json":   bundleLog("Pressure"),
@@ -784,6 +794,7 @@ var _ = Describe("Import", func() {
 
 	DescribeTable("Should reject an invalid bundle",
 		func(ctx SpecContext, files zip.Files, reason string) {
+			tx = DeferClose(db.OpenTx())
 			Expect(svc.Import(ctx, tx, files, "Fallback.zip")).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring(reason)),
@@ -818,6 +829,7 @@ var _ = Describe("Import", func() {
 	)
 
 	It("Should reject a member with no registered importer", func(ctx SpecContext) {
+		tx = DeferClose(db.OpenTx())
 		files := zip.Files{
 			"manifest.json": bundleManifest("Plots"),
 			"Plot.json":     []byte(`{"version":1,"type":"lineplot","name":"Plot"}`),
@@ -830,6 +842,7 @@ var _ = Describe("Import", func() {
 	})
 
 	It("Should reject a manifest version newer than supported", func(ctx SpecContext) {
+		tx = DeferClose(db.OpenTx())
 		files := zip.Files{"manifest.json": []byte(
 			`{"version":2,"type":"project","name":"Future"}`,
 		)}
@@ -842,6 +855,7 @@ var _ = Describe("Import", func() {
 	It("Should reject a panel referencing a file outside the bundle", func(
 		ctx SpecContext,
 	) {
+		tx = DeferClose(db.OpenTx())
 		files := zip.Files{
 			"manifest.json": bundleManifest("Dangling"),
 			"Controls.json": bundlePanel("Controls", "Missing.json"),
@@ -856,6 +870,7 @@ var _ = Describe("Import", func() {
 	It("Should reject a member that does not decode to an envelope", func(
 		ctx SpecContext,
 	) {
+		tx = DeferClose(db.OpenTx())
 		files := zip.Files{
 			"manifest.json": bundleManifest("Broken"),
 			"Bad.json":      []byte("not json"),
@@ -932,6 +947,7 @@ var _ = Describe("Legacy import", func() {
 	}
 
 	It("Should name the project after the file name", func(ctx SpecContext) {
+		tx = DeferClose(db.OpenTx())
 		proj := importLegacy(ctx, zip.Files{
 			"LAYOUT.json": legacyLayoutFile(nil),
 		})
@@ -941,6 +957,7 @@ var _ = Describe("Legacy import", func() {
 
 	DescribeTable("Should name a layout's component file after the layout",
 		func(ctx SpecContext, fileName string, extra map[string]any) {
+			tx = DeferClose(db.OpenTx())
 			proj := importLegacy(ctx, zip.Files{
 				"LAYOUT.json": legacyLayoutFile(logLayout),
 				fileName:      legacyLogState(extra),
@@ -959,6 +976,7 @@ var _ = Describe("Legacy import", func() {
 
 	DescribeTable("Should import a lone surrogate escape as U+FFFD",
 		func(ctx SpecContext, layout, member []byte, name string) {
+			tx = DeferClose(db.OpenTx())
 			proj := importLegacy(
 				ctx,
 				zip.Files{"LAYOUT.json": layout, "k1.json": member},
@@ -983,6 +1001,7 @@ var _ = Describe("Legacy import", func() {
 	It("Should skip layouts whose type is not a frozen legacy type", func(
 		ctx SpecContext,
 	) {
+		tx = DeferClose(db.OpenTx())
 		proj := importLegacy(ctx, zip.Files{
 			"LAYOUT.json": legacyLayoutFile(map[string]map[string]any{
 				"m1": {"key": "m1", "type": "mosaic", "name": "Main"},
@@ -996,6 +1015,7 @@ var _ = Describe("Legacy import", func() {
 	) {
 		t := createTask(ctx, "Sequence")
 		env := MustSucceed(imexSvc.Export(ctx, task.ResourceID(t.Key)))
+		tx = DeferClose(db.OpenTx())
 		proj := importLegacy(ctx, zip.Files{
 			"LAYOUT.json": legacyLayoutFile(map[string]map[string]any{
 				"t1": {"key": "t1", "type": "pagerduty_alert", "name": "Sequence"},
@@ -1015,6 +1035,7 @@ var _ = Describe("Legacy import", func() {
 	It("Should reject a layout whose component file is missing", func(
 		ctx SpecContext,
 	) {
+		tx = DeferClose(db.OpenTx())
 		files := zip.Files{"LAYOUT.json": legacyLayoutFile(logLayout)}
 		Expect(svc.Import(ctx, tx, files, "Legacy.zip")).Error().To(SatisfyAll(
 			MatchError(validate.ErrValidation),
@@ -1055,6 +1076,7 @@ func legacyLeaf(keys ...string) map[string]any {
 }
 
 var _ = Describe("Legacy tiling", func() {
+	BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 	importTiling := func(ctx SpecContext, files zip.Files) project.Project {
 		GinkgoHelper()
 		return MustSucceed(svc.Import(ctx, tx, files, "Legacy Project.zip"))
