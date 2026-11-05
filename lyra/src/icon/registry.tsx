@@ -194,6 +194,7 @@ import {
   PiSelectionPlusBold,
   PiTreeViewBold,
   PiUploadSimple,
+  PiWaveformBold,
   PiWaveSawtoothBold,
   PiWaveSineBold,
   PiWaveSquareBold,
@@ -547,6 +548,7 @@ export const StarOutlined = wrapSVGIcon(FaRegStar, "star-outlined");
 export const Heart = wrapSVGIcon(IoMdHeart, "heart");
 export const StrokeWidth = wrapSVGIcon(BsBorderWidth, "stroke-width");
 export const Downsample = wrapSVGIcon(MdBlurLinear, "downsample");
+export const Waveform = wrapSVGIcon(PiWaveformBold, "waveform");
 export const Terminal = wrapSVGIcon(IoTerminal, "terminal");
 export const TerminalOutline = wrapSVGIcon(IoTerminalOutline, "terminal-outline");
 export const Map = wrapSVGIcon(MdOutlineMap, "map");

@@ -178,6 +178,18 @@ func (u *Certificate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// Source returns the source of the active variant, or an empty source when there is
+// none.
+func (u Certificate) Source() secret.Source {
+	switch u.Variant.(type) {
+	case StoredCertificate:
+		return secret.SourceStored
+	case FileCertificate:
+		return secret.SourceFile
+	}
+	return ""
+}
+
 // Validate returns an error wrapping validate.ErrValidation if the active variant
 // violates its schema constraints.
 func (u Certificate) Validate() error {
