@@ -32,13 +32,16 @@ var _ = Describe("Service", func() {
 	var u user.User
 	BeforeEach(func(ctx SpecContext) { u = createUser(ctx) })
 
-	create := func(ctx SpecContext) device.Device {
+	create := func(ctx SpecContext, overrides ...func(*device.Device)) device.Device {
 		GinkgoHelper()
 		d := device.Device{
 			Rack:   svc.Rack.EmbeddedKey,
 			Name:   "PXI-6255",
 			Serial: uuid.New().String(),
 			Model:  "PXI-6255",
+		}
+		for _, override := range overrides {
+			override(&d)
 		}
 		Expect(svc.NI.Devices.NewWriter(nil).Create(ctx, &d)).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
@@ -186,9 +189,15 @@ var _ = Describe("Service", func() {
 			"Should filter by each request field",
 			func(ctx SpecContext, filter func(*apidevice.RetrieveRequest, device.Device)) {
 				d := create(ctx)
-				create(ctx)
+				other := rack.Rack{Name: "Other"}
+				Expect(svc.Rack.NewWriter(nil).Create(ctx, &other)).To(Succeed())
+				create(ctx, func(o *device.Device) {
+					o.Rack = other.Key
+					o.Name = "Other"
+					o.Model = "Other"
+				})
 				grant(ctx, access.ActionRetrieve, user.OntologyID(u.Key), deviceType)
-				req := apidevice.RetrieveRequest{Keys: []device.Key{d.Key}}
+				var req apidevice.RetrieveRequest
 				filter(&req, d)
 				res := MustSucceed(apiSvc.Retrieve(testutil.AuthedCtx(ctx, u), req))
 				Expect(res.Devices).To(HaveLen(1))
@@ -206,10 +215,18 @@ var _ = Describe("Service", func() {
 			Entry("search term", func(r *apidevice.RetrieveRequest, d device.Device) {
 				r.SearchTerm = d.Name
 			}),
-			Entry("limit", func(r *apidevice.RetrieveRequest, _ device.Device) {
-				r.Limit = 1
-			}),
 		)
+
+		It("Should cap the results at the limit", func(ctx SpecContext) {
+			d := create(ctx)
+			create(ctx)
+			grant(ctx, access.ActionRetrieve, user.OntologyID(u.Key), deviceType)
+			res := MustSucceed(apiSvc.Retrieve(
+				testutil.AuthedCtx(ctx, u),
+				apidevice.RetrieveRequest{Names: []string{d.Name}, Limit: 1},
+			))
+			Expect(res.Devices).To(HaveLen(1))
+		})
 
 		It("Should skip devices before the offset", func(ctx SpecContext) {
 			d := create(ctx)
