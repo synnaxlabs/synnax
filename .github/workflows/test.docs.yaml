@@ -11,6 +11,9 @@ name: Test - Docs
 
 on:
   workflow_call:
+    secrets:
+      TURBO_TOKEN:
+        required: false
   workflow_dispatch:
 
 concurrency:

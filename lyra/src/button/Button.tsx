@@ -36,7 +36,7 @@ export type ElementType = "button" | "a" | "div" | "label" | "textarea";
  * icon alone shows hover and press. Use it for an action inside another control, such
  * as a tab's close button.
  */
-export type Variant = "filled" | "outlined" | "text" | "glyph";
+export type Variant = "filled" | "outlined" | "text" | "glyph" | "card";
 
 /** The button-specific props {@link ButtonProps} adds to its element's own props. */
 export interface ExtensionProps
@@ -240,7 +240,9 @@ export const Button = <E extends ElementType = "button">(
     <Text.Text
       el={el}
       defaultEl={defaultEl}
-      direction="x"
+      direction={variant === "card" ? "y" : "x"}
+      align={variant === "card" ? "start" : undefined}
+      justify={variant === "card" ? "start" : undefined}
       className={CSS.cls(
         CSS.B(MODULE_CLASS),
         preventClick && CSS.BM(MODULE_CLASS, "prevent-click"),
@@ -262,11 +264,11 @@ export const Button = <E extends ElementType = "button">(
       style={pStyle}
       color={textColor}
       gap={size === "small" || size === "tiny" ? "small" : undefined}
-      bordered={variant === "filled" || variant === "outlined"}
+      bordered={variant === "filled" || variant === "outlined" || variant === "card"}
       level={level}
       variant={textVariant}
       square={square}
-      overflow="nowrap"
+      overflow={variant === "card" ? "wrap" : "nowrap"}
       status={status}
       href={href}
       draggable={draggable}

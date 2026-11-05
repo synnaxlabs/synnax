@@ -20,50 +20,83 @@ import (
 type Units = v2.Units
 
 const (
-	UnitsVolts                  Units = v2.UnitsVolts
-	UnitsAmps                   Units = v2.UnitsAmps
-	UnitsDegF                   Units = v2.UnitsDegF
-	UnitsDegC                   Units = v2.UnitsDegC
-	UnitsDegR                   Units = v2.UnitsDegR
-	UnitsKelvins                Units = v2.UnitsKelvins
-	UnitsStrain                 Units = v2.UnitsStrain
-	UnitsOhms                   Units = v2.UnitsOhms
-	UnitsHz                     Units = v2.UnitsHz
-	UnitsSeconds                Units = v2.UnitsSeconds
-	UnitsMeters                 Units = v2.UnitsMeters
-	UnitsInches                 Units = v2.UnitsInches
-	UnitsDegrees                Units = v2.UnitsDegrees
-	UnitsRadians                Units = v2.UnitsRadians
-	UnitsG                      Units = v2.UnitsG
+	// UnitsVolts is volts.
+	UnitsVolts Units = v2.UnitsVolts
+	// UnitsAmps is amperes.
+	UnitsAmps Units = v2.UnitsAmps
+	// UnitsDegF is degrees Fahrenheit.
+	UnitsDegF Units = v2.UnitsDegF
+	// UnitsDegC is degrees Celsius.
+	UnitsDegC Units = v2.UnitsDegC
+	// UnitsDegR is degrees Rankine.
+	UnitsDegR Units = v2.UnitsDegR
+	// UnitsKelvins is kelvins.
+	UnitsKelvins Units = v2.UnitsKelvins
+	// UnitsStrain is strain.
+	UnitsStrain Units = v2.UnitsStrain
+	// UnitsOhms is ohms.
+	UnitsOhms Units = v2.UnitsOhms
+	// UnitsHz is hertz.
+	UnitsHz Units = v2.UnitsHz
+	// UnitsSeconds is seconds.
+	UnitsSeconds Units = v2.UnitsSeconds
+	// UnitsMeters is meters.
+	UnitsMeters Units = v2.UnitsMeters
+	// UnitsInches is inches.
+	UnitsInches Units = v2.UnitsInches
+	// UnitsDegrees is degrees.
+	UnitsDegrees Units = v2.UnitsDegrees
+	// UnitsRadians is radians.
+	UnitsRadians Units = v2.UnitsRadians
+	// UnitsG is acceleration in g.
+	UnitsG Units = v2.UnitsG
+	// UnitsMetersPerSecondSquared is meters per second squared.
 	UnitsMetersPerSecondSquared Units = v2.UnitsMetersPerSecondSquared
-	UnitsNewtons                Units = v2.UnitsNewtons
-	UnitsPounds                 Units = v2.UnitsPounds
-	UnitsKilogramForce          Units = v2.UnitsKilogramForce
-	UnitsPoundsPerSquareInch    Units = v2.UnitsPoundsPerSquareInch
-	UnitsBar                    Units = v2.UnitsBar
-	UnitsPascals                Units = v2.UnitsPascals
-	UnitsVoltsPerVolt           Units = v2.UnitsVoltsPerVolt
-	UnitsMVoltsPerVolt          Units = v2.UnitsMVoltsPerVolt
-	UnitsNewtonMeters           Units = v2.UnitsNewtonMeters
-	UnitsInchPounds             Units = v2.UnitsInchPounds
-	UnitsInchOunces             Units = v2.UnitsInchOunces
-	UnitsFootPounds             Units = v2.UnitsFootPounds
+	// UnitsNewtons is newtons.
+	UnitsNewtons Units = v2.UnitsNewtons
+	// UnitsPounds is pounds.
+	UnitsPounds Units = v2.UnitsPounds
+	// UnitsKilogramForce is kilograms of force.
+	UnitsKilogramForce Units = v2.UnitsKilogramForce
+	// UnitsPoundsPerSquareInch is pounds per square inch.
+	UnitsPoundsPerSquareInch Units = v2.UnitsPoundsPerSquareInch
+	// UnitsBar is bar.
+	UnitsBar Units = v2.UnitsBar
+	// UnitsPascals is pascals.
+	UnitsPascals Units = v2.UnitsPascals
+	// UnitsVoltsPerVolt is volts per volt.
+	UnitsVoltsPerVolt Units = v2.UnitsVoltsPerVolt
+	// UnitsMVoltsPerVolt is millivolts per volt.
+	UnitsMVoltsPerVolt Units = v2.UnitsMVoltsPerVolt
+	// UnitsNewtonMeters is newton meters.
+	UnitsNewtonMeters Units = v2.UnitsNewtonMeters
+	// UnitsInchPounds is inch-pounds.
+	UnitsInchPounds Units = v2.UnitsInchPounds
+	// UnitsInchOunces is inch-ounces.
+	UnitsInchOunces Units = v2.UnitsInchOunces
+	// UnitsFootPounds is foot-pounds.
+	UnitsFootPounds Units = v2.UnitsFootPounds
 )
 
 // AccelSensitivityUnits are the units of an accelerometer's sensitivity rating.
 type AccelSensitivityUnits = v2.AccelSensitivityUnits
 
 const (
+	// AccelSensitivityUnitsMVoltsPerG is millivolts per g.
 	AccelSensitivityUnitsMVoltsPerG AccelSensitivityUnits = v2.AccelSensitivityUnitsMVoltsPerG
-	AccelSensitivityUnitsVoltsPerG  AccelSensitivityUnits = v2.AccelSensitivityUnitsVoltsPerG
+	// AccelSensitivityUnitsVoltsPerG is volts per g.
+	AccelSensitivityUnitsVoltsPerG AccelSensitivityUnits = v2.AccelSensitivityUnitsVoltsPerG
 )
 
 // AccelUnits are the engineering units for an acceleration measurement.
 type AccelUnits = v2.AccelUnits
 
 const (
-	AccelUnitsG                      AccelUnits = v2.AccelUnitsG
+	// AccelUnitsG is acceleration in g.
+	AccelUnitsG AccelUnits = v2.AccelUnitsG
+	// AccelUnitsMetersPerSecondSquared is meters per second squared.
 	AccelUnitsMetersPerSecondSquared AccelUnits = v2.AccelUnitsMetersPerSecondSquared
+	// AccelUnitsInchesPerSecondSquared is inches per second squared.
 	AccelUnitsInchesPerSecondSquared AccelUnits = v2.AccelUnitsInchesPerSecondSquared
 )
 
@@ -71,8 +104,11 @@ const (
 type ForceUnits = v2.ForceUnits
 
 const (
-	ForceUnitsNewtons       ForceUnits = v2.ForceUnitsNewtons
-	ForceUnitsPounds        ForceUnits = v2.ForceUnitsPounds
+	// ForceUnitsNewtons is newtons.
+	ForceUnitsNewtons ForceUnits = v2.ForceUnitsNewtons
+	// ForceUnitsPounds is pounds.
+	ForceUnitsPounds ForceUnits = v2.ForceUnitsPounds
+	// ForceUnitsKilogramForce is kilograms of force.
 	ForceUnitsKilogramForce ForceUnits = v2.ForceUnitsKilogramForce
 )
 
@@ -80,27 +116,37 @@ const (
 type ElectricalUnits = v2.ElectricalUnits
 
 const (
+	// ElectricalUnitsMVoltsPerVolt is millivolts per volt.
 	ElectricalUnitsMVoltsPerVolt ElectricalUnits = v2.ElectricalUnitsMVoltsPerVolt
-	ElectricalUnitsVoltsPerVolt  ElectricalUnits = v2.ElectricalUnitsVoltsPerVolt
+	// ElectricalUnitsVoltsPerVolt is volts per volt.
+	ElectricalUnitsVoltsPerVolt ElectricalUnits = v2.ElectricalUnitsVoltsPerVolt
 )
 
 // ExcitationSource selects the source of a sensor's excitation signal.
 type ExcitationSource = v2.ExcitationSource
 
 const (
+	// ExcitationSourceInternal is an internal excitation source.
 	ExcitationSourceInternal ExcitationSource = v2.ExcitationSourceInternal
+	// ExcitationSourceExternal is an external excitation source.
 	ExcitationSourceExternal ExcitationSource = v2.ExcitationSourceExternal
-	ExcitationSourceNone     ExcitationSource = v2.ExcitationSourceNone
+	// ExcitationSourceNone uses no excitation.
+	ExcitationSourceNone ExcitationSource = v2.ExcitationSourceNone
 )
 
 // TerminalConfig selects the terminal configuration for an analog input channel.
 type TerminalConfig = v2.TerminalConfig
 
 const (
+	// TerminalConfigCfgDefault uses the default terminal configuration of the port.
 	TerminalConfigCfgDefault TerminalConfig = v2.TerminalConfigCfgDefault
-	TerminalConfigRse        TerminalConfig = v2.TerminalConfigRse
-	TerminalConfigNrse       TerminalConfig = v2.TerminalConfigNrse
-	TerminalConfigDiff       TerminalConfig = v2.TerminalConfigDiff
+	// TerminalConfigRse is referenced single ended.
+	TerminalConfigRse TerminalConfig = v2.TerminalConfigRse
+	// TerminalConfigNrse is non-referenced single ended.
+	TerminalConfigNrse TerminalConfig = v2.TerminalConfigNrse
+	// TerminalConfigDiff is differential.
+	TerminalConfigDiff TerminalConfig = v2.TerminalConfigDiff
+	// TerminalConfigPseudoDiff is pseudo-differential.
 	TerminalConfigPseudoDiff TerminalConfig = v2.TerminalConfigPseudoDiff
 )
 
@@ -108,8 +154,11 @@ const (
 type BridgeConfig = v2.BridgeConfig
 
 const (
-	BridgeConfigFullBridge    BridgeConfig = v2.BridgeConfigFullBridge
-	BridgeConfigHalfBridge    BridgeConfig = v2.BridgeConfigHalfBridge
+	// BridgeConfigFullBridge is a full bridge.
+	BridgeConfigFullBridge BridgeConfig = v2.BridgeConfigFullBridge
+	// BridgeConfigHalfBridge is a half bridge.
+	BridgeConfigHalfBridge BridgeConfig = v2.BridgeConfigHalfBridge
+	// BridgeConfigQuarterBridge is a quarter bridge.
 	BridgeConfigQuarterBridge BridgeConfig = v2.BridgeConfigQuarterBridge
 )
 
@@ -118,8 +167,11 @@ const (
 type ShuntResistorLocation = v2.ShuntResistorLocation
 
 const (
-	ShuntResistorLocationDefault  ShuntResistorLocation = v2.ShuntResistorLocationDefault
+	// ShuntResistorLocationDefault uses the default location.
+	ShuntResistorLocationDefault ShuntResistorLocation = v2.ShuntResistorLocationDefault
+	// ShuntResistorLocationInternal uses an internal shunt resistor.
 	ShuntResistorLocationInternal ShuntResistorLocation = v2.ShuntResistorLocationInternal
+	// ShuntResistorLocationExternal uses an external shunt resistor.
 	ShuntResistorLocationExternal ShuntResistorLocation = v2.ShuntResistorLocationExternal
 )
 
@@ -127,35 +179,47 @@ const (
 type ForceSensitivityUnits = v2.ForceSensitivityUnits
 
 const (
+	// ForceSensitivityUnitsMVoltsPerNewton is millivolts per newton.
 	ForceSensitivityUnitsMVoltsPerNewton ForceSensitivityUnits = v2.ForceSensitivityUnitsMVoltsPerNewton
-	ForceSensitivityUnitsMVoltsPerPound  ForceSensitivityUnits = v2.ForceSensitivityUnitsMVoltsPerPound
+	// ForceSensitivityUnitsMVoltsPerPound is millivolts per pound.
+	ForceSensitivityUnitsMVoltsPerPound ForceSensitivityUnits = v2.ForceSensitivityUnitsMVoltsPerPound
 )
 
 // PressureUnits are the engineering units for a pressure measurement.
 type PressureUnits = v2.PressureUnits
 
 const (
+	// PressureUnitsPoundsPerSquareInch is pounds per square inch.
 	PressureUnitsPoundsPerSquareInch PressureUnits = v2.PressureUnitsPoundsPerSquareInch
-	PressureUnitsPascals             PressureUnits = v2.PressureUnitsPascals
-	PressureUnitsBar                 PressureUnits = v2.PressureUnitsBar
+	// PressureUnitsPascals is pascals.
+	PressureUnitsPascals PressureUnits = v2.PressureUnitsPascals
+	// PressureUnitsBar is bar.
+	PressureUnitsBar PressureUnits = v2.PressureUnitsBar
 )
 
 // TorqueUnits are the engineering units for a torque measurement.
 type TorqueUnits = v2.TorqueUnits
 
 const (
+	// TorqueUnitsNewtonMeters is newton meters.
 	TorqueUnitsNewtonMeters TorqueUnits = v2.TorqueUnitsNewtonMeters
-	TorqueUnitsInchOunces   TorqueUnits = v2.TorqueUnitsInchOunces
-	TorqueUnitsInchPounds   TorqueUnits = v2.TorqueUnitsInchPounds
-	TorqueUnitsFootPounds   TorqueUnits = v2.TorqueUnitsFootPounds
+	// TorqueUnitsInchOunces is inch-ounces.
+	TorqueUnitsInchOunces TorqueUnits = v2.TorqueUnitsInchOunces
+	// TorqueUnitsInchPounds is inch-pounds.
+	TorqueUnitsInchPounds TorqueUnits = v2.TorqueUnitsInchPounds
+	// TorqueUnitsFootPounds is foot-pounds.
+	TorqueUnitsFootPounds TorqueUnits = v2.TorqueUnitsFootPounds
 )
 
 // ResistanceConfig selects the number of wires used for a resistance measurement.
 type ResistanceConfig = v2.ResistanceConfig
 
 const (
+	// ResistanceConfigWire2 uses two wires.
 	ResistanceConfigWire2 ResistanceConfig = v2.ResistanceConfigWire2
+	// ResistanceConfigWire3 uses three wires.
 	ResistanceConfigWire3 ResistanceConfig = v2.ResistanceConfigWire3
+	// ResistanceConfigWire4 uses four wires.
 	ResistanceConfigWire4 ResistanceConfig = v2.ResistanceConfigWire4
 )
 
@@ -163,10 +227,14 @@ const (
 type TemperatureUnits = v2.TemperatureUnits
 
 const (
-	TemperatureUnitsDegC    TemperatureUnits = v2.TemperatureUnitsDegC
-	TemperatureUnitsDegF    TemperatureUnits = v2.TemperatureUnitsDegF
+	// TemperatureUnitsDegC is degrees Celsius.
+	TemperatureUnitsDegC TemperatureUnits = v2.TemperatureUnitsDegC
+	// TemperatureUnitsDegF is degrees Fahrenheit.
+	TemperatureUnitsDegF TemperatureUnits = v2.TemperatureUnitsDegF
+	// TemperatureUnitsKelvins is kelvins.
 	TemperatureUnitsKelvins TemperatureUnits = v2.TemperatureUnitsKelvins
-	TemperatureUnitsDegR    TemperatureUnits = v2.TemperatureUnitsDegR
+	// TemperatureUnitsDegR is degrees Rankine.
+	TemperatureUnitsDegR TemperatureUnits = v2.TemperatureUnitsDegR
 )
 
 // RTDType selects the resistance-temperature curve of an RTD sensor.
@@ -211,7 +279,11 @@ const (
 // CJC is the cold-junction compensation for a thermocouple. The source selects where
 // the reference temperature comes from.
 type CJC = v2.CJC
+
+// CJCVariant is implemented by every CJC variant.
 type CJCVariant = v2.CJCVariant
+
+// CJCType is the "source" value that selects a variant of CJC.
 type CJCType = v2.CJCType
 
 const (
@@ -236,7 +308,9 @@ type ChanCJC = v2.ChanCJC
 type VelocityUnits = v2.VelocityUnits
 
 const (
+	// VelocityUnitsMetersPerSecond is meters per second.
 	VelocityUnitsMetersPerSecond VelocityUnits = v2.VelocityUnitsMetersPerSecond
+	// VelocityUnitsInchesPerSecond is inches per second.
 	VelocityUnitsInchesPerSecond VelocityUnits = v2.VelocityUnitsInchesPerSecond
 )
 
@@ -245,7 +319,10 @@ const (
 type VelocitySensitivityUnits = v2.VelocitySensitivityUnits
 
 const (
-	VelocitySensitivityUnitsMVoltsPerMmPerSecond   VelocitySensitivityUnits = v2.VelocitySensitivityUnitsMVoltsPerMmPerSecond
+	// VelocitySensitivityUnitsMVoltsPerMmPerSecond is millivolts per millimeter per
+	// second.
+	VelocitySensitivityUnitsMVoltsPerMmPerSecond VelocitySensitivityUnits = v2.VelocitySensitivityUnitsMVoltsPerMmPerSecond
+	// VelocitySensitivityUnitsMVoltsPerInchPerSecond is millivolts per inch per second.
 	VelocitySensitivityUnitsMVoltsPerInchPerSecond VelocitySensitivityUnits = v2.VelocitySensitivityUnitsMVoltsPerInchPerSecond
 )
 
@@ -253,13 +330,19 @@ const (
 type ChargeUnits = v2.ChargeUnits
 
 const (
-	ChargeUnitsCoulombs     ChargeUnits = v2.ChargeUnitsCoulombs
+	// ChargeUnitsCoulombs is coulombs.
+	ChargeUnitsCoulombs ChargeUnits = v2.ChargeUnitsCoulombs
+	// ChargeUnitsPicoCoulombs is picocoulombs.
 	ChargeUnitsPicoCoulombs ChargeUnits = v2.ChargeUnitsPicoCoulombs
 )
 
 // Scale determines how raw sensor values are transformed to engineering units.
 type Scale = v2.Scale
+
+// ScaleVariant is implemented by every Scale variant.
 type ScaleVariant = v2.ScaleVariant
+
+// ScaleType is the "type" value that selects a variant of Scale.
 type ScaleType = v2.ScaleType
 
 const (
@@ -330,7 +413,11 @@ type BaseAIChannel = v2.BaseAIChannel
 // AIChannel is a single NI analog input channel. The type field selects the measurement
 // mode and the fields that accompany it.
 type AIChannel = v2.AIChannel
+
+// AIChannelVariant is implemented by every AIChannel variant.
 type AIChannelVariant = v2.AIChannelVariant
+
+// AIChannelType is the "type" value that selects a variant of AIChannel.
 type AIChannelType = v2.AIChannelType
 
 const (
@@ -608,7 +695,11 @@ type BaseCIChannel = v2.BaseCIChannel
 // CIChannel is a single NI counter input channel. The type field selects the
 // measurement mode and the fields that accompany it.
 type CIChannel = v2.CIChannel
+
+// CIChannelVariant is implemented by every CIChannel variant.
 type CIChannelVariant = v2.CIChannelVariant
+
+// CIChannelType is the "type" value that selects a variant of CIChannel.
 type CIChannelType = v2.CIChannelType
 
 const (
@@ -685,7 +776,11 @@ type BaseAOChannel = v2.BaseAOChannel
 // AOChannel is a single NI analog output channel. The type field selects the output
 // mode and the fields that accompany it.
 type AOChannel = v2.AOChannel
+
+// AOChannelVariant is implemented by every AOChannel variant.
 type AOChannelVariant = v2.AOChannelVariant
+
+// AOChannelType is the "type" value that selects a variant of AOChannel.
 type AOChannelType = v2.AOChannelType
 
 const (
@@ -747,7 +842,12 @@ func (s *ScanConfig) ApplyDefaults() {
 type AccelChargeSensitivityUnits = v2.AccelChargeSensitivityUnits
 
 const (
-	AccelChargeSensitivityUnitsPicoCoulombsPerG                      AccelChargeSensitivityUnits = v2.AccelChargeSensitivityUnitsPicoCoulombsPerG
+	// AccelChargeSensitivityUnitsPicoCoulombsPerG is picocoulombs per g.
+	AccelChargeSensitivityUnitsPicoCoulombsPerG AccelChargeSensitivityUnits = v2.AccelChargeSensitivityUnitsPicoCoulombsPerG
+	// AccelChargeSensitivityUnitsPicoCoulombsPerMetersPerSecondSquared is picocoulombs
+	// per meter per second squared.
 	AccelChargeSensitivityUnitsPicoCoulombsPerMetersPerSecondSquared AccelChargeSensitivityUnits = v2.AccelChargeSensitivityUnitsPicoCoulombsPerMetersPerSecondSquared
+	// AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared is picocoulombs
+	// per inch per second squared.
 	AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared AccelChargeSensitivityUnits = v2.AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared
 )

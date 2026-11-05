@@ -18,9 +18,15 @@ import "schemas/x/telem"
 @ts output  "client/ts/src/labjack"
 
 TemperatureUnits enum {
-    celsius    = "C"
-    fahrenheit = "F"
-    kelvin     = "K"
+    celsius    = "C" {
+        @doc value "is degrees Celsius."
+    }
+    fahrenheit = "F" {
+        @doc value "is degrees Fahrenheit."
+    }
+    kelvin     = "K" {
+        @doc value "is kelvins."
+    }
 
     @doc value "are the engineering units for a temperature measurement."
 }

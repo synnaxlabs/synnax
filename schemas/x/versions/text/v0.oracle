@@ -8,14 +8,30 @@
 // included in the file licenses/APL.txt.
 
 Level enum {
-    h1    = "h1"
-    h2    = "h2"
-    h3    = "h3"
-    h4    = "h4"
-    h5    = "h5"
-    p     = "p"
-    small = "small"
-    tiny  = "tiny"
+    h1    = "h1" {
+        @doc value "is the largest heading level."
+    }
+    h2    = "h2" {
+        @doc value "is the second heading level."
+    }
+    h3    = "h3" {
+        @doc value "is the third heading level."
+    }
+    h4    = "h4" {
+        @doc value "is the fourth heading level."
+    }
+    h5    = "h5" {
+        @doc value "is the smallest heading level."
+    }
+    p     = "p" {
+        @doc value "is the paragraph level."
+    }
+    small = "small" {
+        @doc value "is one step below the paragraph level."
+    }
+    tiny  = "tiny" {
+        @doc value "is the smallest level."
+    }
 
     @doc value """
         is a typography level identifier shared across visualizations. Mirrors the

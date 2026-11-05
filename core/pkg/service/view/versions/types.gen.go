@@ -19,7 +19,11 @@ type Key = v1.Key
 // View is a saved, named filter over a list of resources. The type selects the resource
 // the view lists and the shape of its query.
 type View = v1.View
+
+// ViewVariant is implemented by every View variant.
 type ViewVariant = v1.ViewVariant
+
+// ViewType is the "type" value that selects a variant of View.
 type ViewType = v1.ViewType
 
 const (

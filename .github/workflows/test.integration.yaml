@@ -28,6 +28,43 @@ on:
         required: false
         type: boolean
         default: true
+    secrets:
+      APPLE_CERTIFICATE:
+        required: false
+      APPLE_CERTIFICATE_PASSWORD:
+        required: false
+      APPLE_ID:
+        required: false
+      APPLE_ID_PASSWORD:
+        required: false
+      APPLE_TEAM_ID:
+        required: false
+      AZURE_CLIENT_ID:
+        required: false
+      AZURE_CLIENT_SECRET:
+        required: false
+      AZURE_TENANT_ID:
+        required: false
+      DOCKER_PASSWORD:
+        required: false
+      DOCKER_USERNAME:
+        required: false
+      KEYCHAIN_PASSWORD:
+        required: false
+      PAGERDUTY_API_KEY:
+        required: false
+      PAGERDUTY_ROUTING_KEY:
+        required: false
+      POSTHOG_CLI_API_KEY:
+        required: false
+      SYNNAX_LICENSE_TOKEN:
+        required: false
+      TAURI_KEY_PASSWORD:
+        required: false
+      TAURI_PRIVATE_KEY:
+        required: false
+      TURBO_TOKEN:
+        required: false
 
   workflow_dispatch:
     inputs:
@@ -160,7 +197,22 @@ jobs:
       driver_ref_run_id: ${{ needs.setup.outputs.DRIVER_REF_RUN_ID }}
       console_ref_run_id: ${{ needs.setup.outputs.CONSOLE_REF_RUN_ID }}
       core_ref_run_id: ${{ needs.setup.outputs.CORE_REF_RUN_ID }}
-    secrets: inherit
+    secrets:
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+      POSTHOG_CLI_API_KEY: ${{ secrets.POSTHOG_CLI_API_KEY }}
+      TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+      TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   # A free test bot takes the oldest queued job, so in a merge group the Windows test
   # bot jobs wait here until the groups ahead queued theirs.
@@ -210,7 +262,10 @@ jobs:
       os: windows-test-bot
       hosted_os: windows-2025
       flags: ${{ needs.setup.outputs.FLAGS }}
-    secrets: inherit
+    secrets:
+      PAGERDUTY_API_KEY: ${{ secrets.PAGERDUTY_API_KEY }}
+      PAGERDUTY_ROUTING_KEY: ${{ secrets.PAGERDUTY_ROUTING_KEY }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   test-ubuntu:
     name: Test (ubuntu)
@@ -227,7 +282,10 @@ jobs:
       ref_run_id: ${{ needs.setup.outputs.REF_RUN_ID }}
       os: ubuntu-test-bot
       flags: ${{ needs.setup.outputs.FLAGS }}
-    secrets: inherit
+    secrets:
+      PAGERDUTY_API_KEY: ${{ secrets.PAGERDUTY_API_KEY }}
+      PAGERDUTY_ROUTING_KEY: ${{ secrets.PAGERDUTY_ROUTING_KEY }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   binary-checks:
     name: Binary checks (${{ matrix.display }})
