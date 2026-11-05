@@ -199,7 +199,7 @@ struct WriteConfig : public PersistConfig {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-const synnax::resource::ID RESOURCE_TYPE("task", "");
+const synnax::resource::ID TYPE_RESOURCE_ID("task", "");
 
 inline synnax::resource::ID resource_id(const Key &key) {
     return synnax::resource::ID("task", key.to_string());

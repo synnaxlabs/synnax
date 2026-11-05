@@ -9,7 +9,7 @@
 
 from synnax.log.client import Client
 from synnax.log.types_gen import (
-    RESOURCE_TYPE,
+    TYPE_RESOURCE_ID,
     ChannelEntry,
     Key,
     Log,
@@ -18,7 +18,7 @@ from synnax.log.types_gen import (
 )
 
 __all__ = [
-    "RESOURCE_TYPE",
+    "TYPE_RESOURCE_ID",
     "ChannelEntry",
     "Client",
     "Key",

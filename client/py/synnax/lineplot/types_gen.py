@@ -289,7 +289,7 @@ class LinePlot(BaseModel):
         return hash(self.key)
 
 
-RESOURCE_TYPE = ID(type="lineplot")
+TYPE_RESOURCE_ID = ID(type="lineplot")
 
 
 def resource_id(key: Key) -> ID:

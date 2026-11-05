@@ -130,7 +130,7 @@ class Panel(BaseModel):
         return hash(self.key)
 
 
-RESOURCE_TYPE = ID(type="panel")
+TYPE_RESOURCE_ID = ID(type="panel")
 
 
 def resource_id(key: Key) -> ID:

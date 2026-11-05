@@ -39,7 +39,7 @@ class Group(BaseModel):
         return hash(self.key)
 
 
-RESOURCE_TYPE = ID(type="group")
+TYPE_RESOURCE_ID = ID(type="group")
 
 
 def resource_id(key: Key) -> ID:

@@ -9,7 +9,7 @@
 
 from synnax.rack.client import Client
 from synnax.rack.types_gen import (
-    RESOURCE_TYPE,
+    TYPE_RESOURCE_ID,
     Key,
     Rack,
     Status,
@@ -18,7 +18,7 @@ from synnax.rack.types_gen import (
 )
 
 __all__ = [
-    "RESOURCE_TYPE",
+    "TYPE_RESOURCE_ID",
     "Client",
     "Key",
     "Rack",

@@ -1786,7 +1786,7 @@ inline {{$d.TypeDef.Name}}::{{$d.TypeDef.Name}}() = default;
 {{- end}}
 {{- if .Resource}}
 
-const synnax::resource::ID RESOURCE_TYPE("{{.Resource.TypeName}}", "");
+const synnax::resource::ID TYPE_RESOURCE_ID("{{.Resource.TypeName}}", "");
 
 inline synnax::resource::ID resource_id(const {{.Resource.KeyType}}& key) {
     return synnax::resource::ID("{{.Resource.TypeName}}", {{.Resource.KeyConversion}});

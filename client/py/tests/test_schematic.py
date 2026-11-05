@@ -88,7 +88,7 @@ class TestSchematic:
         """Should build the resource ID of a schematic."""
         key = uuid4()
         id = schematic.resource_id(key)
-        assert id.type == schematic.RESOURCE_TYPE.type == "schematic"
+        assert id.type == schematic.TYPE_RESOURCE_ID.type == "schematic"
         assert id.key == str(key)
 
 
@@ -196,7 +196,7 @@ class TestSymbol:
     def test_resource_id(self) -> None:
         """Should build the resource ID of a symbol."""
         key = uuid4()
-        assert symbol.resource_id(key).type == symbol.RESOURCE_TYPE.type
+        assert symbol.resource_id(key).type == symbol.TYPE_RESOURCE_ID.type
         assert symbol.resource_id(key).key == str(key)
 
 

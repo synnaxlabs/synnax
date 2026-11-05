@@ -83,7 +83,7 @@ View = Annotated[
 ]
 
 
-RESOURCE_TYPE = ID(type="view")
+TYPE_RESOURCE_ID = ID(type="view")
 
 
 def resource_id(key: Key) -> ID:

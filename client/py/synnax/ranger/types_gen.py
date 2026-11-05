@@ -79,7 +79,7 @@ Ref = Annotated[
 Payload.model_rebuild()
 
 
-RESOURCE_TYPE = ID(type="range")
+TYPE_RESOURCE_ID = ID(type="range")
 
 
 def resource_id(key: Key) -> ID:

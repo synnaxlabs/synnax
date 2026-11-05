@@ -198,7 +198,7 @@ class WriteConfig(PersistConfig):
         return hash(self.key)
 
 
-RESOURCE_TYPE = ID(type="task")
+TYPE_RESOURCE_ID = ID(type="task")
 
 
 def resource_id(key: Key) -> ID:

@@ -77,7 +77,7 @@ class Rack(Base):
         return hash(self.key)
 
 
-RESOURCE_TYPE = ID(type="rack")
+TYPE_RESOURCE_ID = ID(type="rack")
 
 
 def resource_id(key: Key) -> ID:

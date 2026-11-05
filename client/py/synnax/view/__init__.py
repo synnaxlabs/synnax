@@ -9,7 +9,7 @@
 
 from synnax.view.client import Client
 from synnax.view.types_gen import (
-    RESOURCE_TYPE,
+    TYPE_RESOURCE_ID,
     Key,
     RangeQuery,
     RangeView,
@@ -20,7 +20,7 @@ from synnax.view.types_gen import (
 )
 
 __all__ = [
-    "RESOURCE_TYPE",
+    "TYPE_RESOURCE_ID",
     "Client",
     "Key",
     "RangeQuery",

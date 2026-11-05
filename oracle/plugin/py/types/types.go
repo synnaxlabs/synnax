@@ -2449,7 +2449,7 @@ class {{ .ClassName }}({{ range $i, $p := .Parents }}{{ if $i }}, {{ end }}{{ $p
 {{- if .Resource }}
 
 
-RESOURCE_TYPE = ID(type="{{ .Resource.TypeName }}")
+TYPE_RESOURCE_ID = ID(type="{{ .Resource.TypeName }}")
 
 
 def resource_id(key: {{ .Resource.KeyType }}) -> ID:

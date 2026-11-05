@@ -112,7 +112,7 @@ class Symbol(BaseModel):
         return hash(self.key)
 
 
-RESOURCE_TYPE = ID(type="schematic_symbol")
+TYPE_RESOURCE_ID = ID(type="schematic_symbol")
 
 
 def resource_id(key: Key) -> ID:

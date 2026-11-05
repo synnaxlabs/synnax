@@ -42,7 +42,7 @@ class User(BaseModel):
         return hash(self.key)
 
 
-RESOURCE_TYPE = ID(type="user")
+TYPE_RESOURCE_ID = ID(type="user")
 
 
 def resource_id(key: Key) -> ID:

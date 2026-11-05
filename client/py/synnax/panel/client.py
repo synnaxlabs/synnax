@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 from freighter import Empty, UnaryClient
 from synnax import ontology, resource
 from synnax.exceptions import NotFoundError
-from synnax.panel.types_gen import RESOURCE_TYPE, Key, Panel
+from synnax.panel.types_gen import TYPE_RESOURCE_ID, Key, Panel
 from x.lists import normalize
 
 
@@ -165,7 +165,7 @@ class Client:
         if parent is not None:
             keys = []
             for child in self._ontology.retrieve_children(parent):
-                if child.type != RESOURCE_TYPE.type:
+                if child.type != TYPE_RESOURCE_ID.type:
                     continue
                 if child.key is None:
                     raise ValueError(f"panel child of {parent} has no key")

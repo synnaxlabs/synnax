@@ -1314,7 +1314,7 @@ var _ = Describe("Python Types Plugin", func() {
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
 							`from synnax.resource import ID`,
-							`RESOURCE_TYPE = ID(type="policy")`,
+							`TYPE_RESOURCE_ID = ID(type="policy")`,
 							`def resource_id(key: Key) -> ID:`,
 						).
 						ToNotContain(`class Policy`)
@@ -1346,7 +1346,7 @@ var _ = Describe("Python Types Plugin", func() {
 				resp := MustGenerate(ctx, source, "view", loader, typesPlugin)
 				ExpectContent(resp, "types_gen.py").
 					ToContain(
-						`RESOURCE_TYPE = ID(type="view")`,
+						`TYPE_RESOURCE_ID = ID(type="view")`,
 						`def resource_id(key: Key) -> ID:`,
 					)
 			})
@@ -1375,7 +1375,7 @@ var _ = Describe("Python Types Plugin", func() {
 				`
 					resp := MustGenerate(ctx, source, "view", loader, typesPlugin)
 					ExpectContent(resp, "out/types_gen.py").
-						ToContain(`RESOURCE_TYPE = ID(type="view")`)
+						ToContain(`TYPE_RESOURCE_ID = ID(type="view")`)
 				},
 			)
 		})

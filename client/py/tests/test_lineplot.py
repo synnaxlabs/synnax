@@ -98,7 +98,7 @@ class TestLinePlot:
     def test_resource_id(self) -> None:
         """Should build the resource ID of a line plot."""
         key = uuid4()
-        assert lineplot.resource_id(key).type == lineplot.RESOURCE_TYPE.type
+        assert lineplot.resource_id(key).type == lineplot.TYPE_RESOURCE_ID.type
         assert lineplot.resource_id(key).key == str(key)
         p = lineplot.LinePlot(name="Pressure")
         assert hash(p) == hash(p.key)

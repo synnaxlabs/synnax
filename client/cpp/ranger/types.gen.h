@@ -64,7 +64,7 @@ struct Range {
     ranger::kv::Client kv;
 };
 
-const synnax::resource::ID RESOURCE_TYPE("range", "");
+const synnax::resource::ID TYPE_RESOURCE_ID("range", "");
 
 inline synnax::resource::ID resource_id(const Key &key) {
     return synnax::resource::ID("range", key.to_string());

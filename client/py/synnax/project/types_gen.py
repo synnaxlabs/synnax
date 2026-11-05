@@ -39,7 +39,7 @@ class Project(BaseModel):
         return hash(self.key)
 
 
-RESOURCE_TYPE = ID(type="project")
+TYPE_RESOURCE_ID = ID(type="project")
 
 
 def resource_id(key: Key) -> ID:

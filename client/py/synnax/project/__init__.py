@@ -9,14 +9,14 @@
 
 from synnax.project.client import Client
 from synnax.project.types_gen import (
-    RESOURCE_TYPE,
+    TYPE_RESOURCE_ID,
     Key,
     Project,
     resource_id,
 )
 
 __all__ = [
-    "RESOURCE_TYPE",
+    "TYPE_RESOURCE_ID",
     "Client",
     "Key",
     "Project",

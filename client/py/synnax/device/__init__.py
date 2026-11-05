@@ -10,7 +10,7 @@
 from synnax.device.client import Client
 from synnax.device.properties import ensure_object
 from synnax.device.types_gen import (
-    RESOURCE_TYPE,
+    TYPE_RESOURCE_ID,
     Device,
     Key,
     Status,
@@ -19,7 +19,7 @@ from synnax.device.types_gen import (
 )
 
 __all__ = [
-    "RESOURCE_TYPE",
+    "TYPE_RESOURCE_ID",
     "Client",
     "Device",
     "Key",

@@ -277,7 +277,7 @@ class Client:
         self.client.send(_DELETE_ENDPOINT, _DeleteRequest(keys=normalize(keys)), Empty)
 
 
-RESOURCE_TYPE = ID(type="status")
+TYPE_RESOURCE_ID = ID(type="status")
 
 
 def resource_id(key: str) -> ID:

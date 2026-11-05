@@ -9,7 +9,7 @@
 
 from synnax.table.client import Client
 from synnax.table.types_gen import (
-    RESOURCE_TYPE,
+    TYPE_RESOURCE_ID,
     Cell,
     CellConfig,
     Column,
@@ -23,7 +23,7 @@ from synnax.table.types_gen import (
 )
 
 __all__ = [
-    "RESOURCE_TYPE",
+    "TYPE_RESOURCE_ID",
     "Cell",
     "CellConfig",
     "Client",

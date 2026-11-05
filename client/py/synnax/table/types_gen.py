@@ -139,7 +139,7 @@ class Table(BaseModel):
         return hash(self.key)
 
 
-RESOURCE_TYPE = ID(type="table")
+TYPE_RESOURCE_ID = ID(type="table")
 
 
 def resource_id(key: Key) -> ID:

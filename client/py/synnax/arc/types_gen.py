@@ -58,7 +58,7 @@ class Payload(BaseModel):
         return hash(self.key)
 
 
-RESOURCE_TYPE = ID(type="arc")
+TYPE_RESOURCE_ID = ID(type="arc")
 
 
 def resource_id(key: Key) -> ID:

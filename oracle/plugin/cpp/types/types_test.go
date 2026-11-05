@@ -2245,7 +2245,7 @@ var _ = Describe("C++ Union Generation", func() {
 		resp := MustGenerate(ctx, source, "view", loader, cppPlugin)
 		ExpectContent(resp, "types.gen.h").
 			ToContain(
-				`const synnax::resource::ID RESOURCE_TYPE("view", "");`,
+				`const synnax::resource::ID TYPE_RESOURCE_ID("view", "");`,
 				`return synnax::resource::ID("view", key.to_string());`,
 			)
 	})

@@ -18,7 +18,7 @@ from synnax.resource import ID, CrudeID
 from x import color as color_
 from x.lists import normalize
 
-RESOURCE_TYPE = ID(type="label")
+TYPE_RESOURCE_ID = ID(type="label")
 
 
 def resource_id(key: Key) -> ID:

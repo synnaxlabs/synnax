@@ -8,10 +8,10 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.group.client import Client
-from synnax.group.types_gen import RESOURCE_TYPE, Group, Key, resource_id
+from synnax.group.types_gen import TYPE_RESOURCE_ID, Group, Key, resource_id
 
 __all__ = [
-    "RESOURCE_TYPE",
+    "TYPE_RESOURCE_ID",
     "Client",
     "Group",
     "Key",

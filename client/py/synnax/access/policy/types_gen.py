@@ -48,7 +48,7 @@ class Policy(BaseModel):
         return hash(self.key)
 
 
-RESOURCE_TYPE = ID(type="policy")
+TYPE_RESOURCE_ID = ID(type="policy")
 
 
 def resource_id(key: Key) -> ID:

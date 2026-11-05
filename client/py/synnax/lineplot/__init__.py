@@ -9,7 +9,7 @@
 
 from synnax.lineplot.client import Client
 from synnax.lineplot.types_gen import (
-    RESOURCE_TYPE,
+    TYPE_RESOURCE_ID,
     Aggregation,
     Axes,
     Axis,
@@ -30,7 +30,7 @@ from synnax.lineplot.types_gen import (
 )
 
 __all__ = [
-    "RESOURCE_TYPE",
+    "TYPE_RESOURCE_ID",
     "Aggregation",
     "Axes",
     "Axis",

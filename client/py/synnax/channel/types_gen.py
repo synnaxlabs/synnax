@@ -111,7 +111,7 @@ class Payload(BaseModel):
         return hash(self.key)
 
 
-RESOURCE_TYPE = ID(type="channel")
+TYPE_RESOURCE_ID = ID(type="channel")
 
 
 def resource_id(key: Key) -> ID:

@@ -80,7 +80,7 @@ class Device(BaseModel):
         return hash(self.key)
 
 
-RESOURCE_TYPE = ID(type="device")
+TYPE_RESOURCE_ID = ID(type="device")
 
 
 def resource_id(key: Key) -> ID:

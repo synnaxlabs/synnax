@@ -16,7 +16,7 @@ from synnax.arc.ir import Edge, Handle
 from synnax.arc.task import Task, TaskConfig
 from synnax.arc.text import Text
 from synnax.arc.types_gen import (
-    RESOURCE_TYPE,
+    TYPE_RESOURCE_ID,
     Key,
     Mode,
     Payload,
@@ -25,7 +25,7 @@ from synnax.arc.types_gen import (
 from x.spatial import XY as Position
 
 __all__ = [
-    "RESOURCE_TYPE",
+    "TYPE_RESOURCE_ID",
     "Arc",
     "Client",
     "Edge",

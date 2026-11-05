@@ -1921,7 +1921,7 @@ class Schematic(BaseModel):
         return hash(self.key)
 
 
-RESOURCE_TYPE = ID(type="schematic")
+TYPE_RESOURCE_ID = ID(type="schematic")
 
 
 def resource_id(key: Key) -> ID:

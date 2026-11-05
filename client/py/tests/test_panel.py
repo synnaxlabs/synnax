@@ -58,7 +58,7 @@ class TestPanel:
     def test_resource_id(self) -> None:
         """Should build the resource ID of a panel."""
         key = uuid4()
-        assert panel.resource_id(key).type == panel.RESOURCE_TYPE.type
+        assert panel.resource_id(key).type == panel.TYPE_RESOURCE_ID.type
         assert panel.resource_id(key).key == str(key)
         p = panel.Panel(name="Ops")
         assert hash(p) == hash(p.key)

@@ -9,8 +9,8 @@
 
 from synnax.status.client import (
     DELETE_CHANNEL,
-    RESOURCE_TYPE,
     SET_CHANNEL,
+    TYPE_RESOURCE_ID,
     Client,
     resource_id,
 )
@@ -28,8 +28,8 @@ from synnax.status.types_gen import (
 
 __all__ = [
     "DELETE_CHANNEL",
-    "RESOURCE_TYPE",
     "SET_CHANNEL",
+    "TYPE_RESOURCE_ID",
     "VARIANT_DISABLED",
     "VARIANT_ERROR",
     "VARIANT_INFO",

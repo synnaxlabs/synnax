@@ -9,7 +9,7 @@
 
 from synnax.schematic.symbol.client import Client
 from synnax.schematic.symbol.types_gen import (
-    RESOURCE_TYPE,
+    TYPE_RESOURCE_ID,
     Handle,
     Key,
     Region,
@@ -20,7 +20,7 @@ from synnax.schematic.symbol.types_gen import (
 )
 
 __all__ = [
-    "RESOURCE_TYPE",
+    "TYPE_RESOURCE_ID",
     "Client",
     "Handle",
     "Key",

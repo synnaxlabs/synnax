@@ -62,7 +62,7 @@ struct Arc {
     from_proto(const ::service::arc::pb::Arc &pb);
 };
 
-const synnax::resource::ID RESOURCE_TYPE("arc", "");
+const synnax::resource::ID TYPE_RESOURCE_ID("arc", "");
 
 inline synnax::resource::ID resource_id(const Key &key) {
     return synnax::resource::ID("arc", key.to_string());

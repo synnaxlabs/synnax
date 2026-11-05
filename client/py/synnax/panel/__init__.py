@@ -9,7 +9,7 @@
 
 from synnax.panel.client import Client
 from synnax.panel.types_gen import (
-    RESOURCE_TYPE,
+    TYPE_RESOURCE_ID,
     Key,
     LeafNode,
     Node,
@@ -25,7 +25,7 @@ from synnax.panel.types_gen import (
 )
 
 __all__ = [
-    "RESOURCE_TYPE",
+    "TYPE_RESOURCE_ID",
     "Client",
     "Key",
     "LeafNode",

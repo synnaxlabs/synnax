@@ -16,7 +16,7 @@ from synnax.task.client import (
     assign_keys,
 )
 from synnax.task.types_gen import (
-    RESOURCE_TYPE,
+    TYPE_RESOURCE_ID,
     Command,
     Key,
     KeyedConfig,
@@ -32,7 +32,7 @@ from synnax.task.types_gen import (
 )
 
 __all__ = [
-    "RESOURCE_TYPE",
+    "TYPE_RESOURCE_ID",
     "Client",
     "Command",
     "JSONConfigMixin",

@@ -45,7 +45,7 @@ class Role(BaseModel):
         return hash(self.key)
 
 
-RESOURCE_TYPE = ID(type="role")
+TYPE_RESOURCE_ID = ID(type="role")
 
 
 def resource_id(key: Key) -> ID:

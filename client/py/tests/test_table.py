@@ -56,7 +56,7 @@ class TestTable:
     def test_resource_id(self) -> None:
         """Should build the resource ID of a table."""
         key = uuid4()
-        assert table.resource_id(key).type == table.RESOURCE_TYPE.type
+        assert table.resource_id(key).type == table.TYPE_RESOURCE_ID.type
         assert table.resource_id(key).key == str(key)
         t = table.Table(name="Readings")
         assert hash(t) == hash(t.key)
