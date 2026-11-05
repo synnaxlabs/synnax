@@ -133,8 +133,7 @@ func (d *DynamicDeltaMultiplier[V]) Stopped() <-chan struct{} { return d.stopped
 // period. The Flow method handles dynamic connection and disconnection of output
 // streams through the connections and disconnections channels. If a send panics and
 // WithRetryOnPanic retries Flow, the retry disconnects the inlet that panicked and
-// keeps
-// every other connection.
+// keeps every other connection.
 func (d *DynamicDeltaMultiplier[v]) Flow(ctx signal.Context, opts ...Option) {
 	o := NewOptions(opts)
 	o.Signal = append(o.Signal, signal.Defer(d.stop, signal.WithKey("stop")))
