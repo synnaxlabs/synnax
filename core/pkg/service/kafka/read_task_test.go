@@ -793,6 +793,31 @@ var _ = Describe("Read task", func() {
 			record(1, 11e9, 2),
 			record(1, 13e9, 4),
 		).FirstErr()).To(Succeed())
+		// A consumer fetches as soon as one partition's offset loads, so only a fetch
+		// of both is served. A response with no session makes the next fetch name them
+		// all.
+		id := topicID(ctx, producer, topic)
+		cluster.ControlKey(
+			int16(kmsg.Fetch),
+			func(req kmsg.Request) (kmsg.Response, error, bool) {
+				fetch := req.(*kmsg.FetchRequest)
+				i := slices.IndexFunc(
+					fetch.Topics,
+					func(rt kmsg.FetchRequestTopic) bool {
+						return rt.TopicID == id || rt.Topic == topic
+					},
+				)
+				if i == -1 {
+					return nil, nil, false
+				}
+				if len(fetch.Topics[i].Partitions) == 2 {
+					cluster.DropControl()
+					return nil, nil, false
+				}
+				cluster.KeepControl()
+				return req.ResponseKind(), nil, true
+			},
+		)
 		dt, t := configure(ctx, kafka.ReadConfig{
 			Device:  dev.Key,
 			Topic:   topic,
