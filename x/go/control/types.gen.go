@@ -18,8 +18,10 @@ import "github.com/synnaxlabs/x/control/versions"
 type Concurrency = versions.Concurrency
 
 const (
+	// ConcurrencyExclusive allows one subject to act on the resource at a time.
 	ConcurrencyExclusive Concurrency = versions.ConcurrencyExclusive
-	ConcurrencyShared    Concurrency = versions.ConcurrencyShared
+	// ConcurrencyShared allows many subjects to act on the resource at once.
+	ConcurrencyShared Concurrency = versions.ConcurrencyShared
 )
 
 // Authority is a numeric value (0-255) representing the level of control authority a

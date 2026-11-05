@@ -14,7 +14,7 @@
 
 set -euxo pipefail
 
-GO_VERSION=1.27.2
+GO_VERSION=1.27.3
 NODE_MAJOR=24
 RUNNER_VERSION=2.338.2
 BAZELISK_VERSION=1.30.0
@@ -28,6 +28,7 @@ IDLE_MINUTES=${idle_minutes}
 SEAT=${seat}
 AGENT=${agent}
 RUNNERS=${runners}
+POOL=${pool}
 export DEBIAN_FRONTEND=noninteractive
 
 # Stops the instance once no job has run for the idle period. It goes first, so a
@@ -133,14 +134,19 @@ register() {
     if [ ! -e .service ]; then ./svc.sh install runner; fi
     ./svc.sh start
 }
-for i in \$(seq $RUNNERS); do register "\$i" "agent,agent-$AGENT,seat-$SEAT"; done
-if [ $AGENT = claude ]; then register classify "agent-classify,seat-$SEAT"; fi
+if [ $POOL = review ]; then
+    for i in \$(seq $RUNNERS); do register "\$i" "review,seat-$SEAT"; done
+else
+    for i in \$(seq $RUNNERS); do register "\$i" "agent,agent-$AGENT,seat-$SEAT"; done
+    if [ $AGENT = claude ]; then register classify "agent-classify,seat-$SEAT"; fi
+fi
 EOF
 chmod +x /usr/local/bin/register-agent-runners
 
-# Warms the Go build cache and the pnpm store before the first job. A failed warm only
-# makes the first job slower, so it must not stop the idle timer from being installed.
-if ! timeout 30m sudo -H -u runner bash -euxc "
+# Warms the Go build cache and the pnpm store before an agent seat's first job. Review
+# seats build nothing. A failed warm only makes the first job slower, so it must not
+# stop the idle timer from being installed.
+if [ $POOL = agent ] && ! timeout 30m sudo -H -u runner bash -euxc "
     cd $HOME_DIR
     git clone --depth 1 https://github.com/$REPO warm
     cd warm/core && /usr/local/go/bin/go build ./...

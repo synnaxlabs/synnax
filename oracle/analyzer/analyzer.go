@@ -205,6 +205,9 @@ type importUse struct {
 func reportUnusedImports(c *analysisCtx, imports []importUse) {
 	runs := defaultTokens(append([]parsedRule{c.ast}, c.copied...)...)
 	qualifiers := usedQualifiers(runs)
+	if declaresFilter(c.ast) {
+		qualifiers.Add(resolution.FilterNamespace)
+	}
 	names := usedQualifiedNames(runs)
 	byNS := make(map[string][]importUse)
 	for _, iu := range imports {
@@ -278,6 +281,9 @@ func analyze(c *analysisCtx) {
 		if u := def.UnionDef(); u != nil {
 			collectUnion(c, u)
 		}
+		if f := def.FilterDef(); f != nil {
+			collectFilter(c, f)
+		}
 	}
 
 	var imports []importUse
@@ -326,18 +332,18 @@ func analyze(c *analysisCtx) {
 	validateDeadOutputs(c, types)
 	validateNoVersionTag(c, types)
 	validateImex(c, types)
+	validateKeyTypes(c, types)
 	validateFieldOmits(c, types)
 	validateImportPlacement(c)
 	validateNoVersionFileActions(c)
 	for _, typ := range types {
-		for i, t := range c.table.Types {
-			if t.QualifiedName == typ.QualifiedName {
-				c.table.Types[i] = typ
-				break
-			}
-		}
+		replaceType(c.table, typ)
+	}
+	if reportCircularInheritance(c) {
+		return
 	}
 	omitRemovedFields(c)
+	expandFilters(c)
 
 	finalizeEnumExtensions(c)
 	finalizeUnionExtensions(c)
@@ -358,6 +364,7 @@ func analyze(c *analysisCtx) {
 	checkUnionDefaultConstructible(c)
 	checkDefaultGroups(c)
 	synthesizeCreateTypes(c)
+	synthesizeRetrieveTypes(c)
 }
 
 // desugarPartialOverrides rewrites each struct's typeless override fields into complete
@@ -376,9 +383,6 @@ func desugarPartialOverrides(c *analysisCtx) {
 		}
 		form, ok := typ.Form.(resolution.StructForm)
 		if !ok || len(form.Extends) == 0 {
-			continue
-		}
-		if hasCircularInheritance(typ, c.table, make(set.Set[string])) {
 			continue
 		}
 		parents := resolution.InheritedFields(form.Extends, c.table)
@@ -434,11 +438,6 @@ func desugarPartialOverrides(c *analysisCtx) {
 func validateFieldOverrides(c *analysisCtx, typ resolution.Type) {
 	form, ok := typ.Form.(resolution.StructForm)
 	if !ok {
-		return
-	}
-	// Resolving parent fields walks the extends chain; a cycle (already reported by
-	// validateExtends) would recur without bound, so skip it here.
-	if hasCircularInheritance(typ, c.table, make(set.Set[string])) {
 		return
 	}
 	parentFields := make(set.Set[string])
@@ -1862,11 +1861,6 @@ func validateExtends(c *analysisCtx, typ resolution.Type) {
 			c.report(d)
 			continue
 		}
-		if parent.QualifiedName == typ.QualifiedName {
-			d := diagnostics.Errorf(nil, "struct %s cannot extend itself", typ.Name)
-			c.report(d)
-			continue
-		}
 		if len(parentForm.TypeParams) > 0 {
 			requiredParams := 0
 			for _, tp := range parentForm.TypeParams {
@@ -1886,16 +1880,6 @@ func validateExtends(c *analysisCtx, typ resolution.Type) {
 				c.report(d)
 			}
 		}
-	}
-
-	if hasCircularInheritance(typ, c.table, make(set.Set[string])) {
-		d := diagnostics.Errorf(
-			nil,
-			"circular inheritance detected: struct %s",
-			typ.Name,
-		)
-		c.report(d)
-		return
 	}
 
 	reportInheritedFieldConflicts(
@@ -2369,6 +2353,36 @@ func validateVariantOmissions(
 			omitted,
 		))
 	}
+}
+
+// reportCircularInheritance reports each struct in the namespace whose extends chain
+// reaches a cycle. It returns whether any struct in the table does, imported ones
+// included, since passes that read inherited fields would recurse without bound.
+func reportCircularInheritance(c *analysisCtx) bool {
+	var found bool
+	for _, typ := range c.table.Types {
+		form, ok := typ.Form.(resolution.StructForm)
+		if !ok || !hasCircularInheritance(typ, c.table, set.New[string]()) {
+			continue
+		}
+		found = true
+		if typ.Namespace != c.namespace {
+			continue
+		}
+		if slices.ContainsFunc(form.Extends, func(ref resolution.TypeRef) bool {
+			base, _, ok := resolution.Dealias(ref, c.table)
+			return ok && base.QualifiedName == typ.QualifiedName
+		}) {
+			c.report(diagnostics.Errorf(
+				nil, "struct %s cannot extend itself", typ.Name,
+			))
+			continue
+		}
+		c.report(diagnostics.Errorf(
+			nil, "circular inheritance detected: struct %s", typ.Name,
+		))
+	}
+	return found
 }
 
 func hasCircularInheritance(
