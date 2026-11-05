@@ -12,7 +12,10 @@ package fs
 import (
 	"io"
 	"io/fs"
+	"os"
 	"path"
+
+	"github.com/synnaxlabs/x/errors"
 )
 
 type File interface {
@@ -88,4 +91,45 @@ func (s *subFS) Rename(oldName, newName string) error {
 
 func (s *subFS) Stat(name string) (FileInfo, error) {
 	return s.FS.Stat(path.Join(s.dir, name))
+}
+
+// CopyFile copies the file name in src to the same name in dst, replaces any file
+// there, and syncs the copy. The directory of name must exist in dst.
+func CopyFile(src, dst FS, name string) (err error) {
+	from, err := src.Open(name, os.O_RDONLY)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Combine(err, from.Close()) }()
+	to, err := dst.Open(name, os.O_CREATE|os.O_WRONLY|os.O_TRUNC)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Combine(err, to.Close()) }()
+	if _, err = io.Copy(to, from); err != nil {
+		return err
+	}
+	return to.Sync()
+}
+
+// Move moves the file or directory name in src to the same name in dst. src and dst
+// must be one FS, or come from Sub calls on one FS. It returns errors.ErrUnsupported
+// otherwise.
+func Move(src, dst FS, name string) error {
+	srcRoot, srcPath := resolve(src, name)
+	dstRoot, dstPath := resolve(dst, name)
+	if srcRoot != dstRoot {
+		return errors.Wrap(
+			errors.ErrUnsupported,
+			"cannot move between different file systems",
+		)
+	}
+	return srcRoot.Rename(srcPath, dstPath)
+}
+
+func resolve(f FS, name string) (FS, string) {
+	if sub, ok := f.(*subFS); ok {
+		return sub.FS, path.Join(sub.dir, name)
+	}
+	return f, name
 }
