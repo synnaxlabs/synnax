@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
+	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -51,6 +52,13 @@ type refDevice struct {
 
 func (d refDevice) GorpKey() string   { return d.Key }
 func (d refDevice) SetOptions() []any { return nil }
+
+// refDeviceName reads the table of refDevice as another entry type.
+type refDeviceName struct{ Key string }
+
+func (d refDeviceName) GorpKey() string      { return d.Key }
+func (d refDeviceName) SetOptions() []any    { return nil }
+func (refDeviceName) CustomTypeName() string { return types.Name[refDevice]() }
 
 type refOwner struct {
 	Table string
@@ -437,6 +445,16 @@ var _ = Describe("Reference", func() {
 			Expect(deviceRef.rack.Get(ctx, db, 9)).
 				To(ConsistOf("a"))
 		})
+
+		It("Should only check targets that a write changes", func(ctx SpecContext) {
+			Expect(devices.NewUncheckedWriter(db).
+				Set(ctx, refDevice{Key: "a", Rack: 9})).To(Succeed())
+			createLabels(ctx, "l1")
+			labeled := refDevice{Key: "a", Rack: 9, Labels: []string{"l1"}}
+			Expect(createDevice(ctx, labeled)).To(Succeed())
+			Expect(createDevice(ctx, refDevice{Key: "a", Rack: 8})).
+				To(MatchError(ContainSubstring("rack: rack 8 does not exist")))
+		})
 	})
 
 	Describe("Get", func() {
@@ -524,6 +542,84 @@ var _ = Describe("Reference", func() {
 					To(ConsistOf("a"))
 				return nil
 			})).To(Succeed())
+		})
+	})
+
+	Describe("FilterHolding", func() {
+		BeforeEach(func(ctx SpecContext) {
+			open(ctx)
+			createRack(ctx, 1)
+			createLabels(ctx, "l")
+			Expect(
+				createDevice(ctx, refDevice{Key: "a", Rack: 1, Labels: []string{"l"}}),
+			).
+				To(Succeed())
+			Expect(createDevice(ctx, refDevice{Key: "b", Rack: 1})).To(Succeed())
+		})
+		keysOf := func(ctx SpecContext, tx gorp.Tx, holding bool) []string {
+			GinkgoHelper()
+			var res []refDevice
+			Expect(devices.NewRetrieve().
+				Where(deviceRef.labels.FilterHolding(holding)).
+				Entries(&res).
+				Exec(ctx, tx)).To(Succeed())
+			return lo.Map(res, func(d refDevice, _ int) string { return d.Key })
+		}
+
+		It("Should find the entries that hold a target or none", func(ctx SpecContext) {
+			Expect(keysOf(ctx, db, true)).To(ConsistOf("a"))
+			Expect(keysOf(ctx, db, false)).To(ConsistOf("b"))
+		})
+
+		It("Should see writes staged in the same transaction", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
+			Expect(devices.NewCreate().
+				Entry(&refDevice{Key: "a", Rack: 1}).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(keysOf(ctx, tx, false)).To(ConsistOf("a", "b"))
+			Expect(keysOf(ctx, tx, true)).To(BeEmpty())
+		})
+
+		It("Should drop the entries a delete removes", func(ctx SpecContext) {
+			Expect(devices.NewDelete().
+				Where(gorp.MatchKeys[string, refDevice]("b")).
+				Exec(ctx, db)).To(Succeed())
+			Expect(keysOf(ctx, db, false)).To(BeEmpty())
+		})
+	})
+
+	Describe("FilterAs", func() {
+		BeforeEach(func(ctx SpecContext) {
+			open(ctx)
+			createRack(ctx, 1)
+			createRack(ctx, 2)
+			Expect(createDevice(ctx, refDevice{Key: "a", Rack: 1})).To(Succeed())
+			Expect(createDevice(ctx, refDevice{Key: "b", Rack: 2})).To(Succeed())
+		})
+
+		It(
+			"Should find the entries holding a target as another entry type",
+			func(ctx SpecContext) {
+				var res []refDeviceName
+				Expect(gorp.NewRetrieve[string, refDeviceName]().
+					Where(deviceRef.rack.FilterAs[refDeviceName](2)).
+					Entries(&res).
+					Exec(ctx, db)).To(Succeed())
+				Expect(res).To(Equal([]refDeviceName{{Key: "b"}}))
+			},
+		)
+
+		It("Should see writes staged in the same transaction", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
+			Expect(devices.NewCreate().
+				Entry(&refDevice{Key: "c", Rack: 2}).
+				Exec(ctx, tx)).To(Succeed())
+			var res []refDeviceName
+			Expect(gorp.NewRetrieve[string, refDeviceName]().
+				Where(deviceRef.rack.FilterAs[refDeviceName](2)).
+				Entries(&res).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res).To(ConsistOf(refDeviceName{Key: "b"}, refDeviceName{Key: "c"}))
 		})
 	})
 
@@ -862,12 +958,25 @@ var _ = Describe("Reference", func() {
 			})
 
 			It("Should fall back to a scan in a filter", func(ctx SpecContext) {
-				var res []refDevice
+				var racked, unlabeled []refDevice
 				Expect(devices.NewRetrieve().
 					Where(deviceRef.rack.Filter(1)).
-					Entries(&res).
+					Entries(&racked).
 					Exec(ctx, db)).To(Succeed())
-				Expect(res).To(HaveLen(1))
+				Expect(racked).To(HaveLen(1))
+				Expect(devices.NewRetrieve().
+					Where(deviceRef.labels.FilterHolding(false)).
+					Entries(&unlabeled).
+					Exec(ctx, db)).To(Succeed())
+				Expect(unlabeled).To(HaveLen(1))
+			})
+
+			It("Should fail a filter on another entry type", func(ctx SpecContext) {
+				var res []refDeviceName
+				Expect(gorp.NewRetrieve[string, refDeviceName]().
+					Where(deviceRef.rack.FilterAs[refDeviceName](1)).
+					Entries(&res).
+					Exec(ctx, db)).To(MatchError(gorp.ErrIndexInvalid))
 			})
 		})
 	})

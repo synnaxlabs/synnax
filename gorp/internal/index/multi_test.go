@@ -83,4 +83,82 @@ var _ = Describe("Multi", func() {
 		Expect(m.Get(nil, "a")).To(ConsistOf(1))
 		Expect(m.Get(txn, "a")).To(ConsistOf(1))
 	})
+
+	Describe("Holding", func() {
+		BeforeEach(func() { m.Set(3, nil) })
+
+		It("Should return the keys that hold values or none", func() {
+			Expect(m.Holding(nil, true)).To(ConsistOf(1, 2))
+			Expect(m.Holding(nil, false)).To(ConsistOf(3))
+		})
+
+		It("Should move a key between the two sets on a committed write", func() {
+			m.Set(1, nil)
+			m.Set(3, []string{"c"})
+			Expect(m.Holding(nil, true)).To(ConsistOf(2, 3))
+			Expect(m.Holding(nil, false)).To(ConsistOf(1))
+		})
+
+		It("Should drop a deleted key from both sets", func() {
+			m.Delete(3)
+			m.Delete(2)
+			Expect(m.Holding(nil, true)).To(ConsistOf(1))
+			Expect(m.Holding(nil, false)).To(BeEmpty())
+		})
+
+		It("Should show staged changes only to their scope", func() {
+			m.Stage(txn, 1, nil)
+			m.Stage(txn, 4, []string{"d"})
+			m.StageDelete(txn, 3)
+			Expect(m.Holding(txn, true)).To(ConsistOf(2, 4))
+			Expect(m.Holding(txn, false)).To(ConsistOf(1))
+			Expect(m.Holding(nil, false)).To(ConsistOf(3))
+		})
+
+		It("Should return the keys of a scope in its commit", func() {
+			m.Stage(txn, 1, nil)
+			m.Stage(txn, 4, []string{"d"})
+			Expect(m.CommittingHolding(false)).To(BeEmpty())
+			txn.committing = true
+			Expect(m.CommittingHolding(false)).To(ConsistOf(1))
+			Expect(m.CommittingHolding(true)).To(ConsistOf(4))
+		})
+
+		It("Should return the load error", func() {
+			failed := index.NewMulti[*scope, int, string]()
+			_, finish := failed.Populate()
+			finish(errLoad)
+			Expect(failed.Holding(nil, false)).Error().To(MatchError(errLoad))
+		})
+	})
+
+	Describe("Held", func() {
+		held := func(s *scope, key int) []string {
+			GinkgoHelper()
+			values, known := m.Held(s, key)
+			Expect(known).To(BeTrue())
+			return values
+		}
+
+		It("Should return the values a key holds", func() {
+			Expect(held(nil, 1)).To(Equal([]string{"a", "b"}))
+			Expect(held(nil, 9)).To(BeEmpty())
+		})
+
+		It("Should return the values that a scope staged", func() {
+			m.Stage(txn, 1, []string{"c"})
+			Expect(held(txn, 1)).To(Equal([]string{"c"}))
+			Expect(held(nil, 1)).To(Equal([]string{"a", "b"}))
+		})
+
+		It("Should not know the values before the load finishes", func() {
+			loading := index.NewMulti[*scope, int, string]()
+			_, finish := loading.Populate()
+			_, known := loading.Held(nil, 1)
+			Expect(known).To(BeFalse())
+			finish(errLoad)
+			_, known = loading.Held(nil, 1)
+			Expect(known).To(BeFalse())
+		})
+	})
 })

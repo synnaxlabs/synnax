@@ -134,6 +134,19 @@ func (d *delta[K, V]) merge(committed set.Set[K], values []V) []K {
 	return committed.Slice()
 }
 
+// applyHolding adds to keys each key that the delta leaves holding at least one value
+// when holding is true, or holding none when holding is false, and removes each other
+// key the delta changes.
+func (d *delta[K, V]) applyHolding(keys set.Set[K], holding bool) {
+	for k, s := range d.state {
+		if !s.deleted && (len(s.values) > 0) == holding {
+			keys.Add(k)
+		} else {
+			keys.Remove(k)
+		}
+	}
+}
+
 // holdsAny reports whether held contains any of values.
 func holdsAny[V comparable](held, values []V) bool {
 	return slices.ContainsFunc(held, func(v V) bool {

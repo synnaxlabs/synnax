@@ -13,8 +13,10 @@ import (
 	"context"
 	"slices"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp/internal/index"
 	"github.com/synnaxlabs/gorp/internal/key"
+	"github.com/synnaxlabs/gorp/internal/keyset"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
@@ -345,6 +347,66 @@ func (r *reference[K, E, T]) Filter(targets ...T) Filter[K, E] {
 	}, targets)
 }
 
+// FilterHolding returns a Filter matching entries that hold at least one target when
+// holding is true, and entries that hold none when holding is false. It sees the
+// changes staged in the transaction it runs in, and falls back to a scan when the
+// index failed to populate.
+func (r *reference[K, E, T]) FilterHolding(holding bool) Filter[K, E] {
+	return Filter[K, E]{
+		resolve: func(ctx context.Context, tx Tx) (resolved[K, E], error) {
+			if err := r.store.Wait(ctx); err != nil {
+				return resolved[K, E]{}, err
+			}
+			// eval drops the keys of a commit in flight that fails.
+			committing := r.store.CommittingHolding(holding)
+			keys, err := r.store.Holding(scopeOf(tx), holding)
+			if err != nil {
+				return resolved[K, E]{}, err
+			}
+			if len(committing) > 0 {
+				keys = lo.Uniq(append(keys, committing...))
+			}
+			return resolved[K, E]{keys: keyset.Hashed(keys)}, nil
+		},
+		eval: func(_ Context, e *E, _, _ []byte) (bool, error) {
+			return (len(r.targetsOf(e)) > 0) == holding, nil
+		},
+	}
+}
+
+// FilterAs returns a Filter on entries of type F that matches the entries holding any
+// of targets. Use it when the reference's table stores entries of type F, such as a
+// Status[D] read from a table of Status[any]. It sees the changes staged in the
+// transaction it runs in. Unlike Filter, it leaves out the commits in flight, and it
+// fails with ErrIndexInvalid instead of a scan when the index failed to populate.
+func (r *reference[K, E, T]) FilterAs[F Entry[K]](targets ...T) Filter[K, F] {
+	captured := slices.Clone(targets)
+	return Filter[K, F]{
+		resolve: func(ctx context.Context, tx Tx) (resolved[K, F], error) {
+			if err := r.store.Wait(ctx); err != nil {
+				return resolved[K, F]{}, err
+			}
+			keys, err := r.store.Get(scopeOf(tx), captured...)
+			if err != nil {
+				return resolved[K, F]{}, err
+			}
+			return resolved[K, F]{
+				keys: keyset.Hashed(keys),
+				eval: func(Context, *F, []byte, []byte) (bool, error) {
+					return true, nil
+				},
+			}, nil
+		},
+		eval: func(Context, *F, []byte, []byte) (bool, error) {
+			return false, errors.Wrapf(
+				ErrIndexInvalid,
+				"%q cannot scan entries",
+				r.name,
+			)
+		},
+	}
+}
+
 // dependents implements registeredReference.
 func (r *reference[K, E, T]) dependents(
 	ctx context.Context,
@@ -380,7 +442,11 @@ func (r *reference[K, E, T]) check(
 	e *E,
 ) error {
 	held := r.targetsOf(e)
+	stored, known := r.store.Held(scopeOf(tx), (*e).GorpKey())
 	for _, v := range held {
+		if known && slices.Contains(stored, v) {
+			continue
+		}
 		target := r.format(v)
 		if r.textKeys && !slices.Contains(r.tables, target.Table) {
 			return r.fieldErr(
