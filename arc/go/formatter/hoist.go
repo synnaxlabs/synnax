@@ -19,7 +19,12 @@ import (
 
 // LineMove moves the lines in [Start, End) to just before line Anchor, zero-based.
 type LineMove struct {
-	Start, End, Anchor int
+	// Start is the first line to move.
+	Start int
+	// End is the line after the last line to move.
+	End int
+	// Anchor is the line the moved lines go in front of.
+	Anchor int
 }
 
 // DeclarationHoists returns the moves that put each late declaration of a sequence
