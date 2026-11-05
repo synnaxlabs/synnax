@@ -235,6 +235,7 @@ func BootupCore(
 		Instrumentation: cfg.Child("storage"),
 		InMemory:        cfg.memBacked,
 		Dirname:         cfg.dataPath,
+		Version:         vsn,
 	})
 	if !ok(err, storageLayer) {
 		return err

@@ -10,10 +10,12 @@
 package fs_test
 
 import (
+	"io"
 	"os"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	invariants "github.com/synnaxlabs/x/io/fs/internal/invariants"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
@@ -33,6 +35,17 @@ var _ = Describe("FS", func() {
 					Expect(stats.Size()).To(Equal(int64(7)))
 					Expect(file.Close()).To(Succeed())
 					Expect(fs.Remove("test_file.txt")).To(Succeed())
+				})
+			})
+			Describe("Chmod", func() {
+				It("Should change the permission bits of a file", func() {
+					// Windows keeps only the write bit, so this mode reads back on
+					// every system.
+					mode := xfs.UserRW | xfs.GroupRW | xfs.OtherRW
+					f := MustSucceed(fs.Open("file", os.O_CREATE|os.O_RDONLY))
+					Expect(f.Chmod(mode)).To(Succeed())
+					Expect(f.Close()).To(Succeed())
+					Expect(MustSucceed(fs.Stat("file")).Mode().Perm()).To(Equal(mode))
 				})
 			})
 			Describe("Open", func() {
@@ -364,6 +377,10 @@ var _ = Describe("FS", func() {
 					Expect(fs.Exists("sub1")).To(BeTrue())
 					Expect(fs.Exists("sub2")).To(BeTrue())
 				})
+				It("Should make missing parent directories", func() {
+					Expect(fs.Sub("parent/child")).ToNot(BeNil())
+					Expect(fs.Exists("parent/child")).To(BeTrue())
+				})
 				It("Should give FS of subdirectories", func() {
 					Expect(fs.Sub("sub1")).ToNot(BeNil())
 					Expect(fs.Exists("sub1")).To(BeTrue())
@@ -382,6 +399,60 @@ var _ = Describe("FS", func() {
 					l := MustSucceed(fs.List(""))
 					Expect(l).To(HaveLen(1))
 					Expect(l[0].Name()).To(Equal("sub1"))
+				})
+			})
+			Describe("CopyFile", func() {
+				write := func(fs xfs.FS, name, data string) {
+					GinkgoHelper()
+					f := MustSucceed(fs.Open(name, os.O_CREATE|os.O_WRONLY|os.O_TRUNC))
+					MustSucceed(f.Write([]byte(data)))
+					Expect(f.Close()).To(Succeed())
+				}
+				It(
+					"Should copy a file and replace the file in the destination",
+					func() {
+						src, dst := MustSucceed(
+							fs.Sub("src"),
+						), MustSucceed(
+							fs.Sub("dst"),
+						)
+						write(src, "data.txt", "new")
+						write(dst, "data.txt", "older data")
+						Expect(xfs.CopyFile(src, dst, "data.txt")).To(Succeed())
+						f := MustSucceed(dst.Open("data.txt", os.O_RDONLY))
+						Expect(io.ReadAll(f)).To(Equal([]byte("new")))
+						Expect(f.Close()).To(Succeed())
+					},
+				)
+				It("Should give the copy the permission bits of the source", func() {
+					src, dst := MustSucceed(fs.Sub("src")), MustSucceed(fs.Sub("dst"))
+					f := MustSucceed(src.Open("key", os.O_CREATE|os.O_WRONLY))
+					MustSucceed(f.Write([]byte("secret")))
+					Expect(f.Chmod(xfs.UserRW)).To(Succeed())
+					Expect(f.Close()).To(Succeed())
+					Expect(xfs.CopyFile(src, dst, "key")).To(Succeed())
+					Expect(MustSucceed(dst.Stat("key")).Mode().Perm()).
+						To(Equal(MustSucceed(src.Stat("key")).Mode().Perm()))
+				})
+				It("Should return an error for a missing file", func() {
+					src, dst := MustSucceed(fs.Sub("src")), MustSucceed(fs.Sub("dst"))
+					Expect(xfs.CopyFile(src, dst, "data.txt")).
+						To(MatchError(os.ErrNotExist))
+				})
+			})
+			Describe("Move", func() {
+				It("Should move a directory between sub file systems", func() {
+					src, dst := MustSucceed(fs.Sub("src")), MustSucceed(fs.Sub("dst"))
+					MustSucceed(src.Sub("dir/child"))
+					Expect(xfs.Move(src, dst, "dir")).To(Succeed())
+					Expect(src.Exists("dir")).To(BeFalse())
+					Expect(dst.Exists("dir/child")).To(BeTrue())
+				})
+				It("Should not move between different file systems", func() {
+					MustSucceed(fs.Sub("dir"))
+					Expect(xfs.Move(fs, xfs.NewMem(), "dir")).
+						To(MatchError(errors.ErrUnsupported))
+					Expect(fs.Exists("dir")).To(BeTrue())
 				})
 			})
 			_ = Describe("Exists", func() {

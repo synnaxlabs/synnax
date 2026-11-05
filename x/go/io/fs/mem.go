@@ -80,7 +80,7 @@ func (y *MemFS) Open(fullName string, flag int) (File, error) {
 			return &os.PathError{Op: "open", Path: fullName, Err: os.ErrNotExist}
 		}
 
-		node := &memNode{name: frag}
+		node := newMemNode(frag, false)
 		dir.children[frag] = node
 		ret = &memFile{
 			n:     node,
@@ -107,11 +107,7 @@ func (y *MemFS) Sub(name string) (FS, error) {
 		}
 		child := dir.children[frag]
 		if child == nil {
-			dir.children[frag] = &memNode{
-				name:     frag,
-				children: make(map[string]*memNode),
-				isDir:    true,
-			}
+			dir.children[frag] = newMemNode(frag, true)
 			return nil
 		}
 		if !child.isDir {
@@ -248,19 +244,28 @@ type memNode struct {
 	//   can be concurrent with writing.
 	// - For a directory: children and syncedChildren. Concurrent writes are possible,
 	//   and these are protected using MemFS.mu.
+	// - For both: perm.
 	mu struct {
 		modTime    time.Time
 		data       []byte
 		syncedData []byte
+		perm       os.FileMode
 		sync.Mutex
 	}
 	refs  atomic.Int32
 	isDir bool
 }
 
-func newRootMemNode() *memNode {
-	return &memNode{name: sep, children: make(map[string]*memNode), isDir: true}
+func newMemNode(name string, isDir bool) *memNode {
+	n := &memNode{name: name, isDir: isDir}
+	if isDir {
+		n.children = make(map[string]*memNode)
+	}
+	n.mu.perm = defaultPerm
+	return n
 }
+
+func newRootMemNode() *memNode { return newMemNode(sep, true) }
 
 func (f *memNode) IsDir() bool { return f.isDir }
 
@@ -281,13 +286,13 @@ func (f *memNode) touch() {
 	f.mu.modTime = now
 }
 
-const standardPerm = UserRWX | GroupRX | OtherRX
-
 func (f *memNode) Mode() os.FileMode {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	if f.isDir {
-		return os.ModeDir | standardPerm
+		return os.ModeDir | f.mu.perm
 	}
-	return standardPerm
+	return f.mu.perm
 }
 
 func (f *memNode) Name() string { return f.name }
@@ -500,6 +505,13 @@ func (f *memFile) Truncate(size int64) error {
 }
 
 func (f *memFile) Stat() (os.FileInfo, error) { return f.n, nil }
+
+func (f *memFile) Chmod(mode os.FileMode) error {
+	f.n.mu.Lock()
+	defer f.n.mu.Unlock()
+	f.n.mu.perm = mode.Perm()
+	return nil
+}
 
 func (f *memFile) Sync() error {
 	if f.fs == nil {

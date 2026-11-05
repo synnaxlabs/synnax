@@ -12,7 +12,6 @@ package cesium
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"sync/atomic"
 
 	"github.com/synnaxlabs/cesium/internal/channel"
@@ -63,7 +62,7 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 			))
 			continue
 		}
-		key, err := strconv.ParseUint(i.Name(), 10, 32)
+		key, err := dirNameToKey(i.Name())
 		if err != nil {
 			db.L.Error(fmt.Sprintf(
 				"failed parsing existing folder <%s> to channel key",
@@ -74,7 +73,7 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 			continue
 		}
 
-		if err = db.openVirtualOrUnary(ctx, Channel{Key: ChannelKey(key)}); err != nil {
+		if err = db.openVirtualOrUnary(ctx, Channel{Key: key}); err != nil {
 			return nil, err
 		}
 	}
