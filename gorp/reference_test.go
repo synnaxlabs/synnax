@@ -424,14 +424,14 @@ var _ = Describe("Reference", func() {
 		)
 	})
 
-	Describe("NewWriter", func() {
+	Describe("NewUncheckedWriter", func() {
 		BeforeEach(func(ctx SpecContext) {
 			open(ctx, gorp.WithIndexObservable(observe.Noop[kv.TxReader]{}))
 		})
 
 		It("Should keep the indexes current without checks", func(ctx SpecContext) {
-			Expect(devices.NewWriter(db).Set(ctx, refDevice{Key: "a", Rack: 9})).
-				To(Succeed())
+			Expect(devices.NewUncheckedWriter(db).
+				Set(ctx, refDevice{Key: "a", Rack: 9})).To(Succeed())
 			Expect(gorp.WrapWriter[string, refDevice](db).
 				Set(ctx, refDevice{Key: "b", Rack: 9})).To(Succeed())
 			Expect(deviceRef.rack.Get(db, 9)).
