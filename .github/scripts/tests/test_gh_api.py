@@ -16,6 +16,7 @@ from scripts_common import FakeGH
 
 SCRIPT = Path(__file__).resolve().parents[1] / "gh_api.sh"
 EMPTY = "unexpected end of JSON input"
+TEXT = "invalid character 'S' looking for beginning of value"
 
 
 @pytest.fixture
@@ -51,6 +52,16 @@ class TestGhAPI:
         assert result.stdout == "open\n"
         assert EMPTY not in result.stderr
         assert len(gh.calls()) == failures + 1
+
+    def test_retries_a_plain_text_response(self, gh: FakeGH) -> None:
+        """Should retry a response body that is not JSON."""
+        gh.serve("api */pulls/7", {"state": "open"})
+        gh.fail("api */pulls/7", TEXT)
+        result = run(gh, "repos/a/b/pulls/7", "--jq", ".state")
+        assert result.returncode == 0
+        assert result.stdout == "open\n"
+        assert TEXT not in result.stderr
+        assert len(gh.calls()) == 2
 
     def test_gives_up_after_three_attempts(self, gh: FakeGH) -> None:
         """Should fail with gh's error when every attempt gets an empty response."""
