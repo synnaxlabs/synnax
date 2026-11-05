@@ -121,7 +121,9 @@ const rangeOf = (node: Node): Range => {
   return range;
 };
 
-const renderDescribedOptions = async (): Promise<DescribedOption[]> => {
+const renderDescribedOptions = async (
+  searchHidden = true,
+): Promise<DescribedOption[]> => {
   const { getByRole } = await renderThemed(
     <div style={{ width: TRIGGER_WIDTH, marginLeft: "auto" }}>
       <Select.Simple<string>
@@ -129,7 +131,7 @@ const renderDescribedOptions = async (): Promise<DescribedOption[]> => {
         value="low"
         onChange={() => {}}
         variant="floating"
-        searchHidden
+        searchHidden={searchHidden}
         initialVisible
       >
         {["low", "high"].map((key) => (
@@ -182,6 +184,13 @@ describe("Select", () => {
       expect(second.option.getBoundingClientRect().top).toBeGreaterThan(
         first.option.getBoundingClientRect().bottom,
       );
+    });
+
+    it("should hide the options a search leaves out, with no space above the rest", async () => {
+      const [low, high] = await renderDescribedOptions(false);
+      await userEvent.fill(page.getByPlaceholder("Search levels..."), "high");
+      await expect.poll(() => computed(low.option, "display")).toBe("none");
+      expect(computed(high.option, "margin-top")).toBe("0px");
     });
   });
 

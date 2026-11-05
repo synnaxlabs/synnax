@@ -47,16 +47,19 @@
 }
 
 /* The icon sits beside the name, and the description lines up under the name. The extra
-   class outranks the gap and alignment modifiers of the flex row. */
-.lyra-list__item.lyra-flex:has(> .lyra-select__item-description) {
+   class outranks the gap and alignment modifiers of the flex row. An option the search
+   hides keeps its display: none. */
+.lyra-list__item.lyra-flex:not([hidden]):has(> .lyra-select__item-description) {
     display: grid;
     grid-template-columns: auto 1fr;
     align-items: center;
     gap: 0.5rem 1rem;
 }
 
-.lyra-list__item:has(> .lyra-select__item-description)
-    + .lyra-list__item:has(> .lyra-select__item-description) {
+/* Only options the search leaves visible count, so the first one shown has no space
+   above it. */
+.lyra-list__item:not([hidden]):has(> .lyra-select__item-description)
+    ~ .lyra-list__item:not([hidden]):has(> .lyra-select__item-description) {
     margin-top: 1rem;
 }
 
