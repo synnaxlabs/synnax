@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("KV", Ordered, func() {
@@ -136,9 +137,14 @@ var _ = Describe("KV", Ordered, func() {
 	})
 
 	It("Should reject a pair on a range that does not exist", func(ctx SpecContext) {
-		Expect(kvSvc.NewWriter(tx).SetMany(ctx, []kv.Pair{
-			{Range: uuid.New(), Key: "key", Value: "value"},
-		})).To(MatchError(ContainSubstring("range")))
+		missing := uuid.New()
+		err := kvSvc.NewWriter(tx).SetMany(ctx, []kv.Pair{
+			{Range: missing, Key: "key", Value: "value"},
+		})
+		Expect(err).To(BeAssignableToTypeOf(validate.PathError{}))
+		Expect(err).To(MatchError(
+			"range: range " + missing.String() + " does not exist: validation error",
+		))
 	})
 
 	It("Should delete the pairs of a deleted range", func(ctx SpecContext) {

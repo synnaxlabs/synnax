@@ -137,29 +137,29 @@ var _ = Describe("Add and Remove", func() {
 	It("Should add labels to a range", func(ctx SpecContext) {
 		r, a, b := createRange(ctx), createLabel(ctx), createLabel(ctx)
 		actx := authed(ctx, resource.TypeRange)
-		Expect(apiSvc.Add(actx, nil, apilabel.AddRequest{
+		MustSucceed(apiSvc.Add(actx, nil, apilabel.AddRequest{
 			ID:     r.ResourceID(),
 			Labels: []label.Key{a.Key},
-		})).Error().ToNot(HaveOccurred())
-		Expect(apiSvc.Add(actx, nil, apilabel.AddRequest{
+		}))
+		MustSucceed(apiSvc.Add(actx, nil, apilabel.AddRequest{
 			ID:     r.ResourceID(),
 			Labels: []label.Key{b.Key},
-		})).Error().ToNot(HaveOccurred())
+		}))
 		Expect(rangeLabels(ctx, r.Key)).To(ConsistOf(a.Key, b.Key))
 	})
 
 	It("Should replace the labels of a range", func(ctx SpecContext) {
 		r, a, b := createRange(ctx), createLabel(ctx), createLabel(ctx)
 		actx := authed(ctx, resource.TypeRange)
-		Expect(apiSvc.Add(actx, nil, apilabel.AddRequest{
+		MustSucceed(apiSvc.Add(actx, nil, apilabel.AddRequest{
 			ID:     r.ResourceID(),
 			Labels: []label.Key{a.Key},
-		})).Error().ToNot(HaveOccurred())
-		Expect(apiSvc.Add(actx, nil, apilabel.AddRequest{
+		}))
+		MustSucceed(apiSvc.Add(actx, nil, apilabel.AddRequest{
 			ID:      r.ResourceID(),
 			Labels:  []label.Key{b.Key},
 			Replace: true,
-		})).Error().ToNot(HaveOccurred())
+		}))
 		Expect(rangeLabels(ctx, r.Key)).To(Equal([]label.Key{b.Key}))
 	})
 
@@ -175,14 +175,14 @@ var _ = Describe("Add and Remove", func() {
 			Expect(svc.Status.NewWriter(nil).Delete(ctx, s.Key)).To(Succeed())
 		})
 		actx := authed(ctx, resource.TypeStatus)
-		Expect(apiSvc.Add(actx, nil, apilabel.AddRequest{
+		MustSucceed(apiSvc.Add(actx, nil, apilabel.AddRequest{
 			ID:     s.ResourceID(),
 			Labels: []label.Key{a.Key, b.Key},
-		})).Error().ToNot(HaveOccurred())
-		Expect(apiSvc.Remove(actx, nil, apilabel.RemoveRequest{
+		}))
+		MustSucceed(apiSvc.Remove(actx, nil, apilabel.RemoveRequest{
 			ID:     s.ResourceID(),
 			Labels: []label.Key{a.Key},
-		})).Error().ToNot(HaveOccurred())
+		}))
 		var stored status.Status[any]
 		Expect(svc.Status.NewRetrieve[any]().
 			Where(status.MatchKeys[any](s.Key)).
@@ -194,14 +194,14 @@ var _ = Describe("Add and Remove", func() {
 	It("Should remove labels from a range", func(ctx SpecContext) {
 		r, a, b := createRange(ctx), createLabel(ctx), createLabel(ctx)
 		actx := authed(ctx, resource.TypeRange)
-		Expect(apiSvc.Add(actx, nil, apilabel.AddRequest{
+		MustSucceed(apiSvc.Add(actx, nil, apilabel.AddRequest{
 			ID:     r.ResourceID(),
 			Labels: []label.Key{a.Key, b.Key},
-		})).Error().ToNot(HaveOccurred())
-		Expect(apiSvc.Remove(actx, nil, apilabel.RemoveRequest{
+		}))
+		MustSucceed(apiSvc.Remove(actx, nil, apilabel.RemoveRequest{
 			ID:     r.ResourceID(),
 			Labels: []label.Key{a.Key},
-		})).Error().ToNot(HaveOccurred())
+		}))
 		Expect(rangeLabels(ctx, r.Key)).To(Equal([]label.Key{b.Key}))
 	})
 

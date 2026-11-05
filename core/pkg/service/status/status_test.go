@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Status", Ordered, func() {
@@ -150,7 +151,7 @@ var _ = Describe("Status", Ordered, func() {
 				func(ctx SpecContext) {
 					s := newStatus("")
 					Expect(w.Set(ctx, &s)).To(Succeed())
-					Expect(uuid.Parse(s.Key)).Error().ToNot(HaveOccurred())
+					MustSucceed(uuid.Parse(s.Key))
 				},
 			)
 			Context("Owner", func() {
@@ -188,14 +189,23 @@ var _ = Describe("Status", Ordered, func() {
 				It("Should reject an owner that does not exist", func(ctx SpecContext) {
 					s := newStatus("")
 					s.Owner = new(rack.Key(99).ResourceID())
-					Expect(w.Set(ctx, &s)).To(MatchError(ContainSubstring("owner")))
+					err := w.Set(ctx, &s)
+					Expect(err).To(BeAssignableToTypeOf(validate.PathError{}))
+					Expect(err).To(MatchError(
+						"owner: rack 99 does not exist: validation error",
+					))
 				})
 				It(
 					"Should reject an owner whose type cannot hold a status",
 					func(ctx SpecContext) {
 						s := newStatus("")
-						s.Owner = new(label.ResourceID(createLabel(ctx, "Owner")))
-						Expect(w.Set(ctx, &s)).To(MatchError(ContainSubstring("owner")))
+						l := createLabel(ctx, "Owner")
+						s.Owner = new(label.ResourceID(l))
+						err := w.Set(ctx, &s)
+						Expect(err).To(BeAssignableToTypeOf(validate.PathError{}))
+						Expect(err).To(MatchError(
+							"owner: status cannot reference label " + l.String() + ": validation error",
+						))
 					},
 				)
 				It(
@@ -240,8 +250,13 @@ var _ = Describe("Status", Ordered, func() {
 				)
 				It("Should reject a label that does not exist", func(ctx SpecContext) {
 					s := newStatus("missing-label-key")
-					s.Labels = []label.Key{uuid.New()}
-					Expect(w.Set(ctx, &s)).To(MatchError(ContainSubstring("labels")))
+					missing := uuid.New()
+					s.Labels = []label.Key{missing}
+					err := w.Set(ctx, &s)
+					Expect(err).To(BeAssignableToTypeOf(validate.PathError{}))
+					Expect(err).To(MatchError(
+						"labels: label " + missing.String() + " does not exist: validation error",
+					))
 				})
 				It(
 					"Should remove a deleted label from the statuses that hold it",

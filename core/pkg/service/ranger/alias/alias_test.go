@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Alias", Ordered, func() {
@@ -426,8 +427,12 @@ var _ = Describe("Alias", Ordered, func() {
 			func(ctx SpecContext) {
 				ch := createChannel(ctx)
 				tx := DeferClose(db.OpenTx())
-				Expect(aliasSvc.NewWriter(tx).Set(ctx, uuid.New(), ch.Key(), "Alias")).
-					To(MatchError(ContainSubstring("range")))
+				missing := uuid.New()
+				err := aliasSvc.NewWriter(tx).Set(ctx, missing, ch.Key(), "Alias")
+				Expect(err).To(BeAssignableToTypeOf(validate.PathError{}))
+				Expect(err).To(MatchError(
+					"range: range " + missing.String() + " does not exist: validation error",
+				))
 			},
 		)
 	})

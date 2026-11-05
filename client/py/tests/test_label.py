@@ -186,7 +186,7 @@ class TestLabelResource:
     ) -> None:
         """Should reject a resource that is not a range or a status."""
         lbl = client.labels.create(name=str(uuid4()), color="#FF0000")
-        with pytest.raises(sy.ValidationError):
+        with pytest.raises(sy.ValidationError, match="a channel cannot have labels"):
             client.labels.label(virtual_channel.resource_id, lbl.key)
 
     def test_delete_removes_from_range(self, client: sy.Synnax, rng: sy.Range) -> None:

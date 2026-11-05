@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Writer", func() {
@@ -155,21 +156,29 @@ var _ = Describe("Writer", func() {
 				})).To(ConsistOf(a.Key, b.Key))
 			})
 			It("Should reject a parent that does not exist", func(ctx SpecContext) {
+				missing := uuid.New()
 				r := ranger.Range{
 					Name:      "Range",
 					TimeRange: telem.SecondTS.SpanRange(telem.Second),
-					Parent:    new(uuid.New()),
+					Parent:    &missing,
 				}
-				Expect(w.Create(ctx, &r)).To(MatchError(ContainSubstring("parent")))
+				err := w.Create(ctx, &r)
+				Expect(err).To(BeAssignableToTypeOf(validate.PathError{}))
+				Expect(err).To(MatchError(
+					"parent: range " + missing.String() + " does not exist: validation error",
+				))
 			})
 			It("Should reject a parent that is a descendant", func(ctx SpecContext) {
 				grandparent := create(ctx, "Grandparent", nil)
 				parent := create(ctx, "Parent", &grandparent.Key)
 				child := create(ctx, "Child", &parent.Key)
 				grandparent.Parent = &child.Key
-				Expect(
-					w.Create(ctx, &grandparent),
-				).To(MatchError(ContainSubstring("parent")))
+				err := w.Create(ctx, &grandparent)
+				Expect(err).To(BeAssignableToTypeOf(validate.PathError{}))
+				Expect(err).To(MatchError(
+					"parent: range " + grandparent.Key.String() +
+						" would form a cycle: validation error",
+				))
 			})
 		})
 		Context("Labels", func() {
@@ -206,12 +215,17 @@ var _ = Describe("Writer", func() {
 				},
 			)
 			It("Should reject a label that does not exist", func(ctx SpecContext) {
+				missing := uuid.New()
 				r := &ranger.Range{
 					Name:      "Range",
 					TimeRange: telem.SecondTS.SpanRange(telem.Second),
-					Labels:    []label.Key{uuid.New()},
+					Labels:    []label.Key{missing},
 				}
-				Expect(w.Create(ctx, r)).To(MatchError(ContainSubstring("labels")))
+				err := w.Create(ctx, r)
+				Expect(err).To(BeAssignableToTypeOf(validate.PathError{}))
+				Expect(err).To(MatchError(
+					"labels: label " + missing.String() + " does not exist: validation error",
+				))
 			})
 			It("Should add and replace labels", func(ctx SpecContext) {
 				a, b := createLabel(ctx, "A"), createLabel(ctx, "B")

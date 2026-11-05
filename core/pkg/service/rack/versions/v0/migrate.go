@@ -41,7 +41,7 @@ func newMigration(cfg MigrationConfig) gorp.Migration {
 			if err := renameEmbeddedRack(ctx, tx, ins, cfg); err != nil {
 				return err
 			}
-			return backfillStatuses(ctx, tx, ins, cfg)
+			return backfillStatuses(ctx, tx, cfg)
 		},
 	)
 }
@@ -88,12 +88,7 @@ func renameEmbeddedRack(
 	return err
 }
 
-func backfillStatuses(
-	ctx context.Context,
-	tx gorp.Tx,
-	ins alamos.Instrumentation,
-	cfg MigrationConfig,
-) error {
+func backfillStatuses(ctx context.Context, tx gorp.Tx, cfg MigrationConfig) error {
 	reader := gorp.WrapReader[Key, Rack](tx)
 	iter, err := reader.OpenIterator(gorp.IterOptions{})
 	if err != nil {

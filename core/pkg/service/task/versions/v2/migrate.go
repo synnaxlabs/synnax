@@ -181,7 +181,10 @@ func rewriteStatuses(
 ) error {
 	var stale []status.Status[v1.StatusDetails]
 	if err := gorp.NewRetrieve[string, status.Status[v1.StatusDetails]]().
-		Where(gorp.Match(func(_ gorp.Context, s *status.Status[v1.StatusDetails]) (bool, error) {
+		Where(gorp.Match(func(
+			_ gorp.Context,
+			s *status.Status[v1.StatusDetails],
+		) (bool, error) {
 			return s.Owner != nil && s.Owner.Type == resource.TypeTask, nil
 		})).
 		Entries(&stale).

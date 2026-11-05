@@ -157,7 +157,7 @@ class Client:
         :param key: The key of one status to retrieve.
         :param keys: Keeps statuses with one of these keys.
         :param owners: Keeps the statuses these resources own.
-        :param search_term: Fuzzy matches status names and messages.
+        :param search_term: Fuzzy matches status names.
         :param offset: The number of matching statuses to skip.
         :param limit: The maximum number of statuses to return.
         :param has_labels: Keeps statuses that have one of these labels.

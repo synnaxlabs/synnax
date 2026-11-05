@@ -163,6 +163,7 @@ public:
 
     /// @brief Retrieves the status that owner holds.
     /// @tparam Details The type of custom details expected in the retrieved status.
+    /// @param owner The resource whose status to retrieve.
     /// @returns the status and a NOT_FOUND error when owner holds no status.
     template<typename Details = x::json::json>
     [[nodiscard]] std::pair<synnax::status::Status<Details>, x::errors::Error>
