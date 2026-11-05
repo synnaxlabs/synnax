@@ -31,7 +31,7 @@ Synnax Desktop is free for any use, including commercial use, up to 50 channels.
 runs on macOS (Apple silicon) and Windows, and includes a Console, a Core, and a Driver
 in one app.
 
-Every docs page is also served as Markdown at its URL plus \`.md\`.`;
+Every docs page without a flag is also served as Markdown at its URL plus \`.md\`.`;
 
 const PAGES_BY_ROUTE = new Map(PAGES.map((page) => [page.route, page]));
 
