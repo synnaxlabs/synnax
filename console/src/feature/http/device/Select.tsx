@@ -20,6 +20,7 @@ export const Select = () => {
       emptyContent="No HTTP servers connected"
       label="HTTP server"
       make={MAKE}
+      icon={NETWORK.icon}
       connect={{ title: NETWORK.title, open: () => openConnect() }}
     />
   );

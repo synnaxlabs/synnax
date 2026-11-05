@@ -140,6 +140,9 @@ export const Editable = ({
   // repaints from value, which still carries the old text until the caller's write
   // lands, so the committed text stands in until value moves off what it replaced.
   const committedRef = useRef<{ text: string; replaced: string } | null>(null);
+  // Enter and Escape give the focus back here, such as to a list that answers the arrow
+  // keys.
+  const returnFocusRef = useRef<HTMLElement | null>(null);
 
   // Writing modes like vertical-rl do not lay out again when the value or the inline
   // size changes, so a change forces a reflow.
@@ -204,7 +207,8 @@ export const Editable = ({
     if (ref.current == null) return;
     setEditable(false);
     handleUpdate(el, e.key === "Escape");
-    el.blur();
+    returnFocusRef.current?.focus({ preventScroll: true });
+    if (document.activeElement === el) el.blur();
   };
 
   const handleKeyUp = (e: KeyboardEvent<HTMLDivElement>): void => e.preventDefault();
@@ -215,6 +219,8 @@ export const Editable = ({
     const { current: el } = ref;
     // An edit runs over plain text, so the tint marks go.
     el.replaceChildren(el.textContent);
+    const active = document.activeElement;
+    returnFocusRef.current = active instanceof HTMLElement ? active : null;
     el.focus();
     const range = document.createRange();
     range.selectNodeContents(el);

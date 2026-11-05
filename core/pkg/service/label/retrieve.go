@@ -69,8 +69,8 @@ func resolveFor(
 
 // RetrieveFor retrieves all labels that are associated with the provided ontology ID.
 // If a tx is provided, RetrieveFor will use it to execute the query. Otherwise, it will
-// execute against the underlying gorp.DB. It returns query.ErrNotFound if the resource
-// or one of its labels does not exist.
+// execute against the underlying gorp.DB. A resource that does not exist has no labels.
+// It returns query.ErrNotFound if one of the resource's labels does not exist.
 func (s *Service) RetrieveFor(
 	ctx context.Context,
 	id ontology.ID,
