@@ -1007,6 +1007,34 @@ describe("StreamMultiChannelLog", () => {
       expect(samples.size).toBeLessThanOrEqual(1_000);
     });
 
+    it("should go live while samples stream during its reads", async () => {
+      const core = deep();
+      const [a] = core.data.map((c) => c.key);
+      let streaming = false;
+      const client = connect(core, {
+        readLatest: async (keys, count, tr) => {
+          const frame = core.readLatest(keys, count, tr);
+          if (streaming) core.advance(TimeSpan.seconds(1));
+          return frame;
+        },
+      });
+      const log = open(core, client, { channels: [a] }, undefined, 2_000);
+      await settle(log, 1_800);
+      await until(
+        () => log.loadOlder(),
+        () => !log.live,
+      );
+      streaming = true;
+      await until(
+        () => log.loadNewer(),
+        () => log.live,
+      );
+      streaming = false;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expectRun(core, a, log);
+      expect(valuesOf(entriesOf(log), a).at(-1)).toBe(textOf(core, a, 1)[0]);
+    });
+
     it("should stay live when it resumes during an older read", async () => {
       const core = deep();
       const [a] = core.data.map((c) => c.key);

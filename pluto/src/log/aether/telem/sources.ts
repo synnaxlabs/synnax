@@ -373,9 +373,17 @@ export class StreamMultiChannelLog
       lines += skipped[joined++].length;
     if (middle > span.start && lines > kept) return split();
     this.unread.shift();
-    // Past the last span, skipped lines are newer than the entries. The log stays not
-    // live until they all join.
-    const drained = this.unread.every(({ counts }) => counts.size === 0);
+    // Only the span of streamed samples is left. Reading it would never catch a fast
+    // stream, so the subscription gives it back once it fits in the entries and in the
+    // page each channel holds. Skipped lines past it are newer than the entries, and
+    // the log stays not live until they all join.
+    const [tail] = this.unread;
+    const tailCounts = [...tail.counts.values()];
+    const tailSize = tailCounts.reduce((total, count) => total + count, 0);
+    const drained =
+      this.unread.length === 1 &&
+      lines + tailSize <= kept &&
+      tailCounts.every((count) => count <= PAGE_SIZE);
     if (drained)
       while (
         joined < skipped.length &&
@@ -386,10 +394,23 @@ export class StreamMultiChannelLog
       this.skippedLines -= group.length;
       groups.push(group);
     }
-    if (drained && skipped.length === 0) this.unread = [];
+    const live = drained && skipped.length === 0;
+    if (live) this.unread = [];
     if (groups.length > 0) this.insert(groups);
     this.evict();
+    if (live) this.rejoin(tail);
     this.notify();
+  }
+
+  // Pulls the samples of a span the log only counted again, now that it is live.
+  private rejoin({ counts }: Unread): void {
+    counts.forEach((count, key) => {
+      const meta = this.metas.get(key);
+      if (meta == null) return;
+      meta.appended -= count + meta.pending.length;
+      meta.pending = [];
+    });
+    if (this.subscription != null) this.pull(this.subscription);
   }
 
   private async readOlder(
@@ -613,7 +634,7 @@ export class StreamMultiChannelLog
     snapshot: framer.Snapshot,
     receivedAt: TimeStamp,
   ): void {
-    if (meta.snapshot === snapshot) return;
+    if (meta.snapshot === snapshot && meta.appended === snapshot.appended) return;
     const { series, appended } = snapshot;
     if (appended == null)
       throw new UnexpectedError(`snapshot of channel ${key} has no appended count`);
