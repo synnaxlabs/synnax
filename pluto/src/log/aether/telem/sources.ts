@@ -665,6 +665,11 @@ export class StreamMultiChannelLog
       if (continuation !== true && this.metas.get(channelKey)?.stored === true)
         counts.set(channelKey, (counts.get(channelKey) ?? 0) + 1);
     const start = time(at - 1);
+    // A channel with no entries left reads older samples from below the unread span.
+    this.metas.forEach((m) => {
+      if (m.oldest != null && m.oldest.time > start)
+        m.oldest = { time: start + 1n, alignment: null };
+    });
     if (this.live) this.unread.push({ start: end, end, counts: new Map() });
     this.unread.unshift({ start, end, counts });
   }
