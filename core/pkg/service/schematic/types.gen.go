@@ -35,17 +35,28 @@ type SegmentedEdgeConfig = versions.SegmentedEdgeConfig
 // EdgeConfig is the per-edge configuration stored in the schematic configs map. The
 // variant selects the visual style of the connection.
 type EdgeConfig = versions.EdgeConfig
+
+// EdgeConfigVariant is implemented by every EdgeConfig variant.
 type EdgeConfigVariant = versions.EdgeConfigVariant
+
+// EdgeConfigType is the "variant" value that selects a variant of EdgeConfig.
 type EdgeConfigType = versions.EdgeConfigType
 
 const (
-	PipeEdgeConfigType      EdgeConfigType = versions.PipeEdgeConfigType
-	ElectricEdgeConfigType  EdgeConfigType = versions.ElectricEdgeConfigType
+	// PipeEdgeConfigType selects the PipeEdgeConfig variant.
+	PipeEdgeConfigType EdgeConfigType = versions.PipeEdgeConfigType
+	// ElectricEdgeConfigType selects the ElectricEdgeConfig variant.
+	ElectricEdgeConfigType EdgeConfigType = versions.ElectricEdgeConfigType
+	// SecondaryEdgeConfigType selects the SecondaryEdgeConfig variant.
 	SecondaryEdgeConfigType EdgeConfigType = versions.SecondaryEdgeConfigType
-	JacketedEdgeConfigType  EdgeConfigType = versions.JacketedEdgeConfigType
+	// JacketedEdgeConfigType selects the JacketedEdgeConfig variant.
+	JacketedEdgeConfigType EdgeConfigType = versions.JacketedEdgeConfigType
+	// HydraulicEdgeConfigType selects the HydraulicEdgeConfig variant.
 	HydraulicEdgeConfigType EdgeConfigType = versions.HydraulicEdgeConfigType
+	// PneumaticEdgeConfigType selects the PneumaticEdgeConfig variant.
 	PneumaticEdgeConfigType EdgeConfigType = versions.PneumaticEdgeConfigType
-	DataEdgeConfigType      EdgeConfigType = versions.DataEdgeConfigType
+	// DataEdgeConfigType selects the DataEdgeConfig variant.
+	DataEdgeConfigType EdgeConfigType = versions.DataEdgeConfigType
 )
 
 type PipeEdgeConfig = versions.PipeEdgeConfig
@@ -117,35 +128,69 @@ type StateMapping = versions.StateMapping
 // NodeConfig is the per-node configuration stored in the schematic configs map. The
 // variant selects the symbol rendered for the node and the fields that accompany it.
 type NodeConfig = versions.NodeConfig
+
+// NodeConfigVariant is implemented by every NodeConfig variant.
 type NodeConfigVariant = versions.NodeConfigVariant
+
+// NodeConfigType is the "variant" value that selects a variant of NodeConfig.
 type NodeConfigType = versions.NodeConfigType
 
 const (
-	CapNodeConfigType                           NodeConfigType = versions.CapNodeConfigType
-	FilterNodeConfigType                        NodeConfigType = versions.FilterNodeConfigType
-	FlowStraightenerNodeConfigType              NodeConfigType = versions.FlowStraightenerNodeConfigType
-	HeaterElementNodeConfigType                 NodeConfigType = versions.HeaterElementNodeConfigType
-	IsoCapNodeConfigType                        NodeConfigType = versions.IsoCapNodeConfigType
-	IsoFilterNodeConfigType                     NodeConfigType = versions.IsoFilterNodeConfigType
-	NozzleNodeConfigType                        NodeConfigType = versions.NozzleNodeConfigType
-	OrificeNodeConfigType                       NodeConfigType = versions.OrificeNodeConfigType
-	OrificePlateNodeConfigType                  NodeConfigType = versions.OrificePlateNodeConfigType
-	StrainerNodeConfigType                      NodeConfigType = versions.StrainerNodeConfigType
-	StrainerConeNodeConfigType                  NodeConfigType = versions.StrainerConeNodeConfigType
-	ThrusterNodeConfigType                      NodeConfigType = versions.ThrusterNodeConfigType
-	VentNodeConfigType                          NodeConfigType = versions.VentNodeConfigType
-	FlowmeterGeneralNodeConfigType              NodeConfigType = versions.FlowmeterGeneralNodeConfigType
-	FlowmeterElectromagneticNodeConfigType      NodeConfigType = versions.FlowmeterElectromagneticNodeConfigType
-	FlowmeterVariableAreaNodeConfigType         NodeConfigType = versions.FlowmeterVariableAreaNodeConfigType
-	FlowmeterCoriolisNodeConfigType             NodeConfigType = versions.FlowmeterCoriolisNodeConfigType
-	FlowmeterNozzleNodeConfigType               NodeConfigType = versions.FlowmeterNozzleNodeConfigType
-	FlowmeterVenturiNodeConfigType              NodeConfigType = versions.FlowmeterVenturiNodeConfigType
-	FlowmeterRingPistonNodeConfigType           NodeConfigType = versions.FlowmeterRingPistonNodeConfigType
+	// CapNodeConfigType selects the CapNodeConfig variant.
+	CapNodeConfigType NodeConfigType = versions.CapNodeConfigType
+	// FilterNodeConfigType selects the FilterNodeConfig variant.
+	FilterNodeConfigType NodeConfigType = versions.FilterNodeConfigType
+	// FlowStraightenerNodeConfigType selects the FlowStraightenerNodeConfig variant.
+	FlowStraightenerNodeConfigType NodeConfigType = versions.FlowStraightenerNodeConfigType
+	// HeaterElementNodeConfigType selects the HeaterElementNodeConfig variant.
+	HeaterElementNodeConfigType NodeConfigType = versions.HeaterElementNodeConfigType
+	// IsoCapNodeConfigType selects the IsoCapNodeConfig variant.
+	IsoCapNodeConfigType NodeConfigType = versions.IsoCapNodeConfigType
+	// IsoFilterNodeConfigType selects the IsoFilterNodeConfig variant.
+	IsoFilterNodeConfigType NodeConfigType = versions.IsoFilterNodeConfigType
+	// NozzleNodeConfigType selects the NozzleNodeConfig variant.
+	NozzleNodeConfigType NodeConfigType = versions.NozzleNodeConfigType
+	// OrificeNodeConfigType selects the OrificeNodeConfig variant.
+	OrificeNodeConfigType NodeConfigType = versions.OrificeNodeConfigType
+	// OrificePlateNodeConfigType selects the OrificePlateNodeConfig variant.
+	OrificePlateNodeConfigType NodeConfigType = versions.OrificePlateNodeConfigType
+	// StrainerNodeConfigType selects the StrainerNodeConfig variant.
+	StrainerNodeConfigType NodeConfigType = versions.StrainerNodeConfigType
+	// StrainerConeNodeConfigType selects the StrainerConeNodeConfig variant.
+	StrainerConeNodeConfigType NodeConfigType = versions.StrainerConeNodeConfigType
+	// ThrusterNodeConfigType selects the ThrusterNodeConfig variant.
+	ThrusterNodeConfigType NodeConfigType = versions.ThrusterNodeConfigType
+	// VentNodeConfigType selects the VentNodeConfig variant.
+	VentNodeConfigType NodeConfigType = versions.VentNodeConfigType
+	// FlowmeterGeneralNodeConfigType selects the FlowmeterGeneralNodeConfig variant.
+	FlowmeterGeneralNodeConfigType NodeConfigType = versions.FlowmeterGeneralNodeConfigType
+	// FlowmeterElectromagneticNodeConfigType selects the
+	// FlowmeterElectromagneticNodeConfig variant.
+	FlowmeterElectromagneticNodeConfigType NodeConfigType = versions.FlowmeterElectromagneticNodeConfigType
+	// FlowmeterVariableAreaNodeConfigType selects the FlowmeterVariableAreaNodeConfig
+	// variant.
+	FlowmeterVariableAreaNodeConfigType NodeConfigType = versions.FlowmeterVariableAreaNodeConfigType
+	// FlowmeterCoriolisNodeConfigType selects the FlowmeterCoriolisNodeConfig variant.
+	FlowmeterCoriolisNodeConfigType NodeConfigType = versions.FlowmeterCoriolisNodeConfigType
+	// FlowmeterNozzleNodeConfigType selects the FlowmeterNozzleNodeConfig variant.
+	FlowmeterNozzleNodeConfigType NodeConfigType = versions.FlowmeterNozzleNodeConfigType
+	// FlowmeterVenturiNodeConfigType selects the FlowmeterVenturiNodeConfig variant.
+	FlowmeterVenturiNodeConfigType NodeConfigType = versions.FlowmeterVenturiNodeConfigType
+	// FlowmeterRingPistonNodeConfigType selects the FlowmeterRingPistonNodeConfig
+	// variant.
+	FlowmeterRingPistonNodeConfigType NodeConfigType = versions.FlowmeterRingPistonNodeConfigType
+	// FlowmeterPositiveDisplacementNodeConfigType selects the
+	// FlowmeterPositiveDisplacementNodeConfig variant.
 	FlowmeterPositiveDisplacementNodeConfigType NodeConfigType = versions.FlowmeterPositiveDisplacementNodeConfigType
-	FlowmeterTurbineNodeConfigType              NodeConfigType = versions.FlowmeterTurbineNodeConfigType
-	FlowmeterPulseNodeConfigType                NodeConfigType = versions.FlowmeterPulseNodeConfigType
-	FlowmeterFloatSensorNodeConfigType          NodeConfigType = versions.FlowmeterFloatSensorNodeConfigType
-	FlowmeterOrificeNodeConfigType              NodeConfigType = versions.FlowmeterOrificeNodeConfigType
+	// FlowmeterTurbineNodeConfigType selects the FlowmeterTurbineNodeConfig variant.
+	FlowmeterTurbineNodeConfigType NodeConfigType = versions.FlowmeterTurbineNodeConfigType
+	// FlowmeterPulseNodeConfigType selects the FlowmeterPulseNodeConfig variant.
+	FlowmeterPulseNodeConfigType NodeConfigType = versions.FlowmeterPulseNodeConfigType
+	// FlowmeterFloatSensorNodeConfigType selects the FlowmeterFloatSensorNodeConfig
+	// variant.
+	FlowmeterFloatSensorNodeConfigType NodeConfigType = versions.FlowmeterFloatSensorNodeConfigType
+	// FlowmeterOrificeNodeConfigType selects the FlowmeterOrificeNodeConfig variant.
+	FlowmeterOrificeNodeConfigType NodeConfigType = versions.FlowmeterOrificeNodeConfigType
 	// BoxNodeConfigType is the configuration for box annotation symbols.
 	BoxNodeConfigType NodeConfigType = versions.BoxNodeConfigType
 	// ButtonNodeConfigType is the configuration for button symbols.
@@ -176,35 +221,65 @@ const (
 	StateIndicatorNodeConfigType NodeConfigType = versions.StateIndicatorNodeConfigType
 	// StringDisplayNodeConfigType is the configuration for live string display symbols.
 	StringDisplayNodeConfigType NodeConfigType = versions.StringDisplayNodeConfigType
-	SwitchNodeConfigType        NodeConfigType = versions.SwitchNodeConfigType
+	// SwitchNodeConfigType selects the SwitchNodeConfig variant.
+	SwitchNodeConfigType NodeConfigType = versions.SwitchNodeConfigType
 	// TextBoxNodeConfigType is the configuration for text box annotation symbols.
 	TextBoxNodeConfigType NodeConfigType = versions.TextBoxNodeConfigType
 	// ValueNodeConfigType is the configuration for live telemetry value symbols.
-	ValueNodeConfigType                     NodeConfigType = versions.ValueNodeConfigType
-	AgitatorNodeConfigType                  NodeConfigType = versions.AgitatorNodeConfigType
-	CrossBeamAgitatorNodeConfigType         NodeConfigType = versions.CrossBeamAgitatorNodeConfigType
-	FlatBladeAgitatorNodeConfigType         NodeConfigType = versions.FlatBladeAgitatorNodeConfigType
-	HeatExchangerGeneralNodeConfigType      NodeConfigType = versions.HeatExchangerGeneralNodeConfigType
-	HeatExchangerMNodeConfigType            NodeConfigType = versions.HeatExchangerMNodeConfigType
+	ValueNodeConfigType NodeConfigType = versions.ValueNodeConfigType
+	// AgitatorNodeConfigType selects the AgitatorNodeConfig variant.
+	AgitatorNodeConfigType NodeConfigType = versions.AgitatorNodeConfigType
+	// CrossBeamAgitatorNodeConfigType selects the CrossBeamAgitatorNodeConfig variant.
+	CrossBeamAgitatorNodeConfigType NodeConfigType = versions.CrossBeamAgitatorNodeConfigType
+	// FlatBladeAgitatorNodeConfigType selects the FlatBladeAgitatorNodeConfig variant.
+	FlatBladeAgitatorNodeConfigType NodeConfigType = versions.FlatBladeAgitatorNodeConfigType
+	// HeatExchangerGeneralNodeConfigType selects the HeatExchangerGeneralNodeConfig
+	// variant.
+	HeatExchangerGeneralNodeConfigType NodeConfigType = versions.HeatExchangerGeneralNodeConfigType
+	// HeatExchangerMNodeConfigType selects the HeatExchangerMNodeConfig variant.
+	HeatExchangerMNodeConfigType NodeConfigType = versions.HeatExchangerMNodeConfigType
+	// HeatExchangerStraightTubeNodeConfigType selects the
+	// HeatExchangerStraightTubeNodeConfig variant.
 	HeatExchangerStraightTubeNodeConfigType NodeConfigType = versions.HeatExchangerStraightTubeNodeConfigType
-	HelicalAgitatorNodeConfigType           NodeConfigType = versions.HelicalAgitatorNodeConfigType
-	PaddleAgitatorNodeConfigType            NodeConfigType = versions.PaddleAgitatorNodeConfigType
-	PropellerAgitatorNodeConfigType         NodeConfigType = versions.PropellerAgitatorNodeConfigType
-	RotaryMixerNodeConfigType               NodeConfigType = versions.RotaryMixerNodeConfigType
-	StaticMixerNodeConfigType               NodeConfigType = versions.StaticMixerNodeConfigType
-	CavityPumpNodeConfigType                NodeConfigType = versions.CavityPumpNodeConfigType
-	CentrifugalCompressorNodeConfigType     NodeConfigType = versions.CentrifugalCompressorNodeConfigType
-	CompressorNodeConfigType                NodeConfigType = versions.CompressorNodeConfigType
-	DiaphragmPumpNodeConfigType             NodeConfigType = versions.DiaphragmPumpNodeConfigType
-	EjectionPumpNodeConfigType              NodeConfigType = versions.EjectionPumpNodeConfigType
-	EjectorCompressorNodeConfigType         NodeConfigType = versions.EjectorCompressorNodeConfigType
-	LiquidRingCompressorNodeConfigType      NodeConfigType = versions.LiquidRingCompressorNodeConfigType
-	PistonPumpNodeConfigType                NodeConfigType = versions.PistonPumpNodeConfigType
-	PumpNodeConfigType                      NodeConfigType = versions.PumpNodeConfigType
-	RollerVaneCompressorNodeConfigType      NodeConfigType = versions.RollerVaneCompressorNodeConfigType
-	ScrewPumpNodeConfigType                 NodeConfigType = versions.ScrewPumpNodeConfigType
-	TurboCompressorNodeConfigType           NodeConfigType = versions.TurboCompressorNodeConfigType
-	VacuumPumpNodeConfigType                NodeConfigType = versions.VacuumPumpNodeConfigType
+	// HelicalAgitatorNodeConfigType selects the HelicalAgitatorNodeConfig variant.
+	HelicalAgitatorNodeConfigType NodeConfigType = versions.HelicalAgitatorNodeConfigType
+	// PaddleAgitatorNodeConfigType selects the PaddleAgitatorNodeConfig variant.
+	PaddleAgitatorNodeConfigType NodeConfigType = versions.PaddleAgitatorNodeConfigType
+	// PropellerAgitatorNodeConfigType selects the PropellerAgitatorNodeConfig variant.
+	PropellerAgitatorNodeConfigType NodeConfigType = versions.PropellerAgitatorNodeConfigType
+	// RotaryMixerNodeConfigType selects the RotaryMixerNodeConfig variant.
+	RotaryMixerNodeConfigType NodeConfigType = versions.RotaryMixerNodeConfigType
+	// StaticMixerNodeConfigType selects the StaticMixerNodeConfig variant.
+	StaticMixerNodeConfigType NodeConfigType = versions.StaticMixerNodeConfigType
+	// CavityPumpNodeConfigType selects the CavityPumpNodeConfig variant.
+	CavityPumpNodeConfigType NodeConfigType = versions.CavityPumpNodeConfigType
+	// CentrifugalCompressorNodeConfigType selects the CentrifugalCompressorNodeConfig
+	// variant.
+	CentrifugalCompressorNodeConfigType NodeConfigType = versions.CentrifugalCompressorNodeConfigType
+	// CompressorNodeConfigType selects the CompressorNodeConfig variant.
+	CompressorNodeConfigType NodeConfigType = versions.CompressorNodeConfigType
+	// DiaphragmPumpNodeConfigType selects the DiaphragmPumpNodeConfig variant.
+	DiaphragmPumpNodeConfigType NodeConfigType = versions.DiaphragmPumpNodeConfigType
+	// EjectionPumpNodeConfigType selects the EjectionPumpNodeConfig variant.
+	EjectionPumpNodeConfigType NodeConfigType = versions.EjectionPumpNodeConfigType
+	// EjectorCompressorNodeConfigType selects the EjectorCompressorNodeConfig variant.
+	EjectorCompressorNodeConfigType NodeConfigType = versions.EjectorCompressorNodeConfigType
+	// LiquidRingCompressorNodeConfigType selects the LiquidRingCompressorNodeConfig
+	// variant.
+	LiquidRingCompressorNodeConfigType NodeConfigType = versions.LiquidRingCompressorNodeConfigType
+	// PistonPumpNodeConfigType selects the PistonPumpNodeConfig variant.
+	PistonPumpNodeConfigType NodeConfigType = versions.PistonPumpNodeConfigType
+	// PumpNodeConfigType selects the PumpNodeConfig variant.
+	PumpNodeConfigType NodeConfigType = versions.PumpNodeConfigType
+	// RollerVaneCompressorNodeConfigType selects the RollerVaneCompressorNodeConfig
+	// variant.
+	RollerVaneCompressorNodeConfigType NodeConfigType = versions.RollerVaneCompressorNodeConfigType
+	// ScrewPumpNodeConfigType selects the ScrewPumpNodeConfig variant.
+	ScrewPumpNodeConfigType NodeConfigType = versions.ScrewPumpNodeConfigType
+	// TurboCompressorNodeConfigType selects the TurboCompressorNodeConfig variant.
+	TurboCompressorNodeConfigType NodeConfigType = versions.TurboCompressorNodeConfigType
+	// VacuumPumpNodeConfigType selects the VacuumPumpNodeConfig variant.
+	VacuumPumpNodeConfigType NodeConfigType = versions.VacuumPumpNodeConfigType
 	// BurstDiscNodeConfigType is the configuration for burst disc symbols.
 	BurstDiscNodeConfigType NodeConfigType = versions.BurstDiscNodeConfigType
 	// FlameArrestorNodeConfigType is the configuration for flame arrestor symbols.
@@ -523,35 +598,76 @@ type GroupBoxNodeConfig = versions.GroupBoxNodeConfig
 // ElementConfig is the per-element configuration stored in the schematic configs map: a
 // node config or an edge config, discriminated by variant.
 type ElementConfig = versions.ElementConfig
+
+// ElementConfigVariant is implemented by every ElementConfig variant.
 type ElementConfigVariant = versions.ElementConfigVariant
+
+// ElementConfigType is the "variant" value that selects a variant of ElementConfig.
 type ElementConfigType = versions.ElementConfigType
 
 const (
-	CapElementConfigType                           ElementConfigType = versions.CapElementConfigType
-	FilterElementConfigType                        ElementConfigType = versions.FilterElementConfigType
-	FlowStraightenerElementConfigType              ElementConfigType = versions.FlowStraightenerElementConfigType
-	HeaterElementElementConfigType                 ElementConfigType = versions.HeaterElementElementConfigType
-	IsoCapElementConfigType                        ElementConfigType = versions.IsoCapElementConfigType
-	IsoFilterElementConfigType                     ElementConfigType = versions.IsoFilterElementConfigType
-	NozzleElementConfigType                        ElementConfigType = versions.NozzleElementConfigType
-	OrificeElementConfigType                       ElementConfigType = versions.OrificeElementConfigType
-	OrificePlateElementConfigType                  ElementConfigType = versions.OrificePlateElementConfigType
-	StrainerElementConfigType                      ElementConfigType = versions.StrainerElementConfigType
-	StrainerConeElementConfigType                  ElementConfigType = versions.StrainerConeElementConfigType
-	ThrusterElementConfigType                      ElementConfigType = versions.ThrusterElementConfigType
-	VentElementConfigType                          ElementConfigType = versions.VentElementConfigType
-	FlowmeterGeneralElementConfigType              ElementConfigType = versions.FlowmeterGeneralElementConfigType
-	FlowmeterElectromagneticElementConfigType      ElementConfigType = versions.FlowmeterElectromagneticElementConfigType
-	FlowmeterVariableAreaElementConfigType         ElementConfigType = versions.FlowmeterVariableAreaElementConfigType
-	FlowmeterCoriolisElementConfigType             ElementConfigType = versions.FlowmeterCoriolisElementConfigType
-	FlowmeterNozzleElementConfigType               ElementConfigType = versions.FlowmeterNozzleElementConfigType
-	FlowmeterVenturiElementConfigType              ElementConfigType = versions.FlowmeterVenturiElementConfigType
-	FlowmeterRingPistonElementConfigType           ElementConfigType = versions.FlowmeterRingPistonElementConfigType
+	// CapElementConfigType selects the CapElementConfig variant.
+	CapElementConfigType ElementConfigType = versions.CapElementConfigType
+	// FilterElementConfigType selects the FilterElementConfig variant.
+	FilterElementConfigType ElementConfigType = versions.FilterElementConfigType
+	// FlowStraightenerElementConfigType selects the FlowStraightenerElementConfig
+	// variant.
+	FlowStraightenerElementConfigType ElementConfigType = versions.FlowStraightenerElementConfigType
+	// HeaterElementElementConfigType selects the HeaterElementElementConfig variant.
+	HeaterElementElementConfigType ElementConfigType = versions.HeaterElementElementConfigType
+	// IsoCapElementConfigType selects the IsoCapElementConfig variant.
+	IsoCapElementConfigType ElementConfigType = versions.IsoCapElementConfigType
+	// IsoFilterElementConfigType selects the IsoFilterElementConfig variant.
+	IsoFilterElementConfigType ElementConfigType = versions.IsoFilterElementConfigType
+	// NozzleElementConfigType selects the NozzleElementConfig variant.
+	NozzleElementConfigType ElementConfigType = versions.NozzleElementConfigType
+	// OrificeElementConfigType selects the OrificeElementConfig variant.
+	OrificeElementConfigType ElementConfigType = versions.OrificeElementConfigType
+	// OrificePlateElementConfigType selects the OrificePlateElementConfig variant.
+	OrificePlateElementConfigType ElementConfigType = versions.OrificePlateElementConfigType
+	// StrainerElementConfigType selects the StrainerElementConfig variant.
+	StrainerElementConfigType ElementConfigType = versions.StrainerElementConfigType
+	// StrainerConeElementConfigType selects the StrainerConeElementConfig variant.
+	StrainerConeElementConfigType ElementConfigType = versions.StrainerConeElementConfigType
+	// ThrusterElementConfigType selects the ThrusterElementConfig variant.
+	ThrusterElementConfigType ElementConfigType = versions.ThrusterElementConfigType
+	// VentElementConfigType selects the VentElementConfig variant.
+	VentElementConfigType ElementConfigType = versions.VentElementConfigType
+	// FlowmeterGeneralElementConfigType selects the FlowmeterGeneralElementConfig
+	// variant.
+	FlowmeterGeneralElementConfigType ElementConfigType = versions.FlowmeterGeneralElementConfigType
+	// FlowmeterElectromagneticElementConfigType selects the
+	// FlowmeterElectromagneticElementConfig variant.
+	FlowmeterElectromagneticElementConfigType ElementConfigType = versions.FlowmeterElectromagneticElementConfigType
+	// FlowmeterVariableAreaElementConfigType selects the
+	// FlowmeterVariableAreaElementConfig variant.
+	FlowmeterVariableAreaElementConfigType ElementConfigType = versions.FlowmeterVariableAreaElementConfigType
+	// FlowmeterCoriolisElementConfigType selects the FlowmeterCoriolisElementConfig
+	// variant.
+	FlowmeterCoriolisElementConfigType ElementConfigType = versions.FlowmeterCoriolisElementConfigType
+	// FlowmeterNozzleElementConfigType selects the FlowmeterNozzleElementConfig
+	// variant.
+	FlowmeterNozzleElementConfigType ElementConfigType = versions.FlowmeterNozzleElementConfigType
+	// FlowmeterVenturiElementConfigType selects the FlowmeterVenturiElementConfig
+	// variant.
+	FlowmeterVenturiElementConfigType ElementConfigType = versions.FlowmeterVenturiElementConfigType
+	// FlowmeterRingPistonElementConfigType selects the FlowmeterRingPistonElementConfig
+	// variant.
+	FlowmeterRingPistonElementConfigType ElementConfigType = versions.FlowmeterRingPistonElementConfigType
+	// FlowmeterPositiveDisplacementElementConfigType selects the
+	// FlowmeterPositiveDisplacementElementConfig variant.
 	FlowmeterPositiveDisplacementElementConfigType ElementConfigType = versions.FlowmeterPositiveDisplacementElementConfigType
-	FlowmeterTurbineElementConfigType              ElementConfigType = versions.FlowmeterTurbineElementConfigType
-	FlowmeterPulseElementConfigType                ElementConfigType = versions.FlowmeterPulseElementConfigType
-	FlowmeterFloatSensorElementConfigType          ElementConfigType = versions.FlowmeterFloatSensorElementConfigType
-	FlowmeterOrificeElementConfigType              ElementConfigType = versions.FlowmeterOrificeElementConfigType
+	// FlowmeterTurbineElementConfigType selects the FlowmeterTurbineElementConfig
+	// variant.
+	FlowmeterTurbineElementConfigType ElementConfigType = versions.FlowmeterTurbineElementConfigType
+	// FlowmeterPulseElementConfigType selects the FlowmeterPulseElementConfig variant.
+	FlowmeterPulseElementConfigType ElementConfigType = versions.FlowmeterPulseElementConfigType
+	// FlowmeterFloatSensorElementConfigType selects the
+	// FlowmeterFloatSensorElementConfig variant.
+	FlowmeterFloatSensorElementConfigType ElementConfigType = versions.FlowmeterFloatSensorElementConfigType
+	// FlowmeterOrificeElementConfigType selects the FlowmeterOrificeElementConfig
+	// variant.
+	FlowmeterOrificeElementConfigType ElementConfigType = versions.FlowmeterOrificeElementConfigType
 	// BoxElementConfigType is the configuration for box annotation symbols.
 	BoxElementConfigType ElementConfigType = versions.BoxElementConfigType
 	// ButtonElementConfigType is the configuration for button symbols.
@@ -583,35 +699,71 @@ const (
 	// StringDisplayElementConfigType is the configuration for live string display
 	// symbols.
 	StringDisplayElementConfigType ElementConfigType = versions.StringDisplayElementConfigType
-	SwitchElementConfigType        ElementConfigType = versions.SwitchElementConfigType
+	// SwitchElementConfigType selects the SwitchElementConfig variant.
+	SwitchElementConfigType ElementConfigType = versions.SwitchElementConfigType
 	// TextBoxElementConfigType is the configuration for text box annotation symbols.
 	TextBoxElementConfigType ElementConfigType = versions.TextBoxElementConfigType
 	// ValueElementConfigType is the configuration for live telemetry value symbols.
-	ValueElementConfigType                     ElementConfigType = versions.ValueElementConfigType
-	AgitatorElementConfigType                  ElementConfigType = versions.AgitatorElementConfigType
-	CrossBeamAgitatorElementConfigType         ElementConfigType = versions.CrossBeamAgitatorElementConfigType
-	FlatBladeAgitatorElementConfigType         ElementConfigType = versions.FlatBladeAgitatorElementConfigType
-	HeatExchangerGeneralElementConfigType      ElementConfigType = versions.HeatExchangerGeneralElementConfigType
-	HeatExchangerMElementConfigType            ElementConfigType = versions.HeatExchangerMElementConfigType
+	ValueElementConfigType ElementConfigType = versions.ValueElementConfigType
+	// AgitatorElementConfigType selects the AgitatorElementConfig variant.
+	AgitatorElementConfigType ElementConfigType = versions.AgitatorElementConfigType
+	// CrossBeamAgitatorElementConfigType selects the CrossBeamAgitatorElementConfig
+	// variant.
+	CrossBeamAgitatorElementConfigType ElementConfigType = versions.CrossBeamAgitatorElementConfigType
+	// FlatBladeAgitatorElementConfigType selects the FlatBladeAgitatorElementConfig
+	// variant.
+	FlatBladeAgitatorElementConfigType ElementConfigType = versions.FlatBladeAgitatorElementConfigType
+	// HeatExchangerGeneralElementConfigType selects the
+	// HeatExchangerGeneralElementConfig variant.
+	HeatExchangerGeneralElementConfigType ElementConfigType = versions.HeatExchangerGeneralElementConfigType
+	// HeatExchangerMElementConfigType selects the HeatExchangerMElementConfig variant.
+	HeatExchangerMElementConfigType ElementConfigType = versions.HeatExchangerMElementConfigType
+	// HeatExchangerStraightTubeElementConfigType selects the
+	// HeatExchangerStraightTubeElementConfig variant.
 	HeatExchangerStraightTubeElementConfigType ElementConfigType = versions.HeatExchangerStraightTubeElementConfigType
-	HelicalAgitatorElementConfigType           ElementConfigType = versions.HelicalAgitatorElementConfigType
-	PaddleAgitatorElementConfigType            ElementConfigType = versions.PaddleAgitatorElementConfigType
-	PropellerAgitatorElementConfigType         ElementConfigType = versions.PropellerAgitatorElementConfigType
-	RotaryMixerElementConfigType               ElementConfigType = versions.RotaryMixerElementConfigType
-	StaticMixerElementConfigType               ElementConfigType = versions.StaticMixerElementConfigType
-	CavityPumpElementConfigType                ElementConfigType = versions.CavityPumpElementConfigType
-	CentrifugalCompressorElementConfigType     ElementConfigType = versions.CentrifugalCompressorElementConfigType
-	CompressorElementConfigType                ElementConfigType = versions.CompressorElementConfigType
-	DiaphragmPumpElementConfigType             ElementConfigType = versions.DiaphragmPumpElementConfigType
-	EjectionPumpElementConfigType              ElementConfigType = versions.EjectionPumpElementConfigType
-	EjectorCompressorElementConfigType         ElementConfigType = versions.EjectorCompressorElementConfigType
-	LiquidRingCompressorElementConfigType      ElementConfigType = versions.LiquidRingCompressorElementConfigType
-	PistonPumpElementConfigType                ElementConfigType = versions.PistonPumpElementConfigType
-	PumpElementConfigType                      ElementConfigType = versions.PumpElementConfigType
-	RollerVaneCompressorElementConfigType      ElementConfigType = versions.RollerVaneCompressorElementConfigType
-	ScrewPumpElementConfigType                 ElementConfigType = versions.ScrewPumpElementConfigType
-	TurboCompressorElementConfigType           ElementConfigType = versions.TurboCompressorElementConfigType
-	VacuumPumpElementConfigType                ElementConfigType = versions.VacuumPumpElementConfigType
+	// HelicalAgitatorElementConfigType selects the HelicalAgitatorElementConfig
+	// variant.
+	HelicalAgitatorElementConfigType ElementConfigType = versions.HelicalAgitatorElementConfigType
+	// PaddleAgitatorElementConfigType selects the PaddleAgitatorElementConfig variant.
+	PaddleAgitatorElementConfigType ElementConfigType = versions.PaddleAgitatorElementConfigType
+	// PropellerAgitatorElementConfigType selects the PropellerAgitatorElementConfig
+	// variant.
+	PropellerAgitatorElementConfigType ElementConfigType = versions.PropellerAgitatorElementConfigType
+	// RotaryMixerElementConfigType selects the RotaryMixerElementConfig variant.
+	RotaryMixerElementConfigType ElementConfigType = versions.RotaryMixerElementConfigType
+	// StaticMixerElementConfigType selects the StaticMixerElementConfig variant.
+	StaticMixerElementConfigType ElementConfigType = versions.StaticMixerElementConfigType
+	// CavityPumpElementConfigType selects the CavityPumpElementConfig variant.
+	CavityPumpElementConfigType ElementConfigType = versions.CavityPumpElementConfigType
+	// CentrifugalCompressorElementConfigType selects the
+	// CentrifugalCompressorElementConfig variant.
+	CentrifugalCompressorElementConfigType ElementConfigType = versions.CentrifugalCompressorElementConfigType
+	// CompressorElementConfigType selects the CompressorElementConfig variant.
+	CompressorElementConfigType ElementConfigType = versions.CompressorElementConfigType
+	// DiaphragmPumpElementConfigType selects the DiaphragmPumpElementConfig variant.
+	DiaphragmPumpElementConfigType ElementConfigType = versions.DiaphragmPumpElementConfigType
+	// EjectionPumpElementConfigType selects the EjectionPumpElementConfig variant.
+	EjectionPumpElementConfigType ElementConfigType = versions.EjectionPumpElementConfigType
+	// EjectorCompressorElementConfigType selects the EjectorCompressorElementConfig
+	// variant.
+	EjectorCompressorElementConfigType ElementConfigType = versions.EjectorCompressorElementConfigType
+	// LiquidRingCompressorElementConfigType selects the
+	// LiquidRingCompressorElementConfig variant.
+	LiquidRingCompressorElementConfigType ElementConfigType = versions.LiquidRingCompressorElementConfigType
+	// PistonPumpElementConfigType selects the PistonPumpElementConfig variant.
+	PistonPumpElementConfigType ElementConfigType = versions.PistonPumpElementConfigType
+	// PumpElementConfigType selects the PumpElementConfig variant.
+	PumpElementConfigType ElementConfigType = versions.PumpElementConfigType
+	// RollerVaneCompressorElementConfigType selects the
+	// RollerVaneCompressorElementConfig variant.
+	RollerVaneCompressorElementConfigType ElementConfigType = versions.RollerVaneCompressorElementConfigType
+	// ScrewPumpElementConfigType selects the ScrewPumpElementConfig variant.
+	ScrewPumpElementConfigType ElementConfigType = versions.ScrewPumpElementConfigType
+	// TurboCompressorElementConfigType selects the TurboCompressorElementConfig
+	// variant.
+	TurboCompressorElementConfigType ElementConfigType = versions.TurboCompressorElementConfigType
+	// VacuumPumpElementConfigType selects the VacuumPumpElementConfig variant.
+	VacuumPumpElementConfigType ElementConfigType = versions.VacuumPumpElementConfigType
 	// BurstDiscElementConfigType is the configuration for burst disc symbols.
 	BurstDiscElementConfigType ElementConfigType = versions.BurstDiscElementConfigType
 	// FlameArrestorElementConfigType is the configuration for flame arrestor symbols.
@@ -704,14 +856,21 @@ const (
 	CustomStaticElementConfigType ElementConfigType = versions.CustomStaticElementConfigType
 	// GroupBoxElementConfigType is the configuration for a group box, the symbol that
 	// bounds a set of grouped symbols. Groups nest: a member may itself be a group.
-	GroupBoxElementConfigType  ElementConfigType = versions.GroupBoxElementConfigType
-	PipeElementConfigType      ElementConfigType = versions.PipeElementConfigType
-	ElectricElementConfigType  ElementConfigType = versions.ElectricElementConfigType
+	GroupBoxElementConfigType ElementConfigType = versions.GroupBoxElementConfigType
+	// PipeElementConfigType selects the PipeElementConfig variant.
+	PipeElementConfigType ElementConfigType = versions.PipeElementConfigType
+	// ElectricElementConfigType selects the ElectricElementConfig variant.
+	ElectricElementConfigType ElementConfigType = versions.ElectricElementConfigType
+	// SecondaryElementConfigType selects the SecondaryElementConfig variant.
 	SecondaryElementConfigType ElementConfigType = versions.SecondaryElementConfigType
-	JacketedElementConfigType  ElementConfigType = versions.JacketedElementConfigType
+	// JacketedElementConfigType selects the JacketedElementConfig variant.
+	JacketedElementConfigType ElementConfigType = versions.JacketedElementConfigType
+	// HydraulicElementConfigType selects the HydraulicElementConfig variant.
 	HydraulicElementConfigType ElementConfigType = versions.HydraulicElementConfigType
+	// PneumaticElementConfigType selects the PneumaticElementConfig variant.
 	PneumaticElementConfigType ElementConfigType = versions.PneumaticElementConfigType
-	DataElementConfigType      ElementConfigType = versions.DataElementConfigType
+	// DataElementConfigType selects the DataElementConfig variant.
+	DataElementConfigType ElementConfigType = versions.DataElementConfigType
 )
 
 type CapElementConfig = versions.CapElementConfig
