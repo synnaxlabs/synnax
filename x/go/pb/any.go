@@ -12,6 +12,7 @@ package pb
 import (
 	"encoding/json/v2"
 
+	"github.com/synnaxlabs/x/errors"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -21,7 +22,7 @@ import (
 // AnyFromPBAny converts *anypb.Any to any. It handles JSON values of every type
 // (structpb.Value), JSON objects sent by peers on releases before value packing
 // (structpb.Struct), and typed protos. For typed protos, it uses protojson to convert
-// to a JSON-compatible map.
+// to a JSON-compatible map keyed by the field names its schema declares.
 func AnyFromPBAny(a *anypb.Any) (any, error) {
 	if a == nil {
 		return nil, nil
@@ -45,7 +46,7 @@ func AnyFromPBAny(a *anypb.Any) (any, error) {
 	}
 
 	// Convert the proto message to JSON
-	jsonBytes, err := protojson.Marshal(msg)
+	jsonBytes, err := protojson.MarshalOptions{UseProtoNames: true}.Marshal(msg)
 	if err != nil {
 		return nil, err
 	}
@@ -92,4 +93,41 @@ func AnyToPBAny(v any) (*anypb.Any, error) {
 		}
 	}
 	return anypb.New(val)
+}
+
+// ToAny packs the JSON encoding of v into an *anypb.Any that holds a structpb.Value.
+// The JSON keys are the names in v's json tags, which FromAny and every client read.
+func ToAny[T any](v T) (*anypb.Any, error) {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return nil, err
+	}
+	var val structpb.Value
+	if err = protojson.Unmarshal(b, &val); err != nil {
+		return nil, err
+	}
+	return anypb.New(&val)
+}
+
+// FromAny decodes the JSON value in a into a T through T's json tags. It accepts a
+// structpb.Value, or the structpb.Struct that peers on releases before value packing
+// send. A nil a decodes to the zero T.
+func FromAny[T any](a *anypb.Any) (T, error) {
+	var v T
+	if a == nil {
+		return v, nil
+	}
+	var msg proto.Message = &structpb.Value{}
+	if err := a.UnmarshalTo(msg); err != nil {
+		msg = &structpb.Struct{}
+		if err = a.UnmarshalTo(msg); err != nil {
+			return v, errors.Wrapf(err, "failed to unpack Any of type %s", a.TypeUrl)
+		}
+	}
+	b, err := protojson.Marshal(msg)
+	if err != nil {
+		return v, err
+	}
+	err = json.Unmarshal(b, &v)
+	return v, err
 }

@@ -665,65 +665,6 @@ func {{pluralize .Name}}FromPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}
 	return result, nil
 }
 {{- end}}
-{{- range .AnyHelpers}}
-
-// {{.TypeName}}ToPBAny converts {{.TypeName}} to *anypb.Any for use with generic
-// translators. It wraps the value in structpb.Struct (JSON) for cross-language
-// compatibility.
-func {{.TypeName}}ToPBAny(v {{.GoType}}) (*anypb.Any, error) {
-	pb, err := {{.PBType}}ToPB(v)
-	if err != nil {
-		return nil, err
-	}
-	// Convert proto to JSON bytes, then to Struct for cross-language compatibility
-	jsonBytes, err := protojson.Marshal(pb)
-	if err != nil {
-		return nil, err
-	}
-	s := &structpb.Struct{}
-	if err := protojson.Unmarshal(jsonBytes, s); err != nil {
-		return nil, err
-	}
-	return anypb.New(s)
-}
-
-// {{.TypeName}}FromPBAny converts *anypb.Any to {{.TypeName}} for use with generic
-// translators. It handles typed protos and JSON (google.protobuf.Value, or
-// google.protobuf.Struct from peers on releases before value packing) for
-// cross-language compatibility.
-func {{.TypeName}}FromPBAny(a *anypb.Any) ({{.GoType}}, error) {
-	if a == nil {
-		return {{.GoType}}{}, nil
-	}
-	// First try typed proto
-	var pb {{.PBType}}
-	if err := a.UnmarshalTo(&pb); err == nil {
-		return {{.PBType}}FromPB(&pb)
-	}
-	// Fall back to JSON for cross-language compatibility
-	var (
-		msg proto.Message
-		v   structpb.Value
-		s   structpb.Struct
-	)
-	if err := a.UnmarshalTo(&v); err == nil {
-		msg = &v
-	} else if err := a.UnmarshalTo(&s); err != nil {
-		return {{.GoType}}{}, err
-	} else {
-		msg = &s
-	}
-	jsonBytes, err := protojson.Marshal(msg)
-	if err != nil {
-		return {{.GoType}}{}, err
-	}
-	var result {{.GoType}}
-	if err := json.Unmarshal(jsonBytes, &result); err != nil {
-		return {{.GoType}}{}, err
-	}
-	return result, nil
-}
-{{- end}}
 {{- range .DelegationTranslators}}
 
 // {{.Name}}ToPB delegates to the underlying type's translator.

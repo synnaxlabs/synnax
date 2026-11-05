@@ -148,7 +148,11 @@ TEST(TaskTests, testCreateTaskWithStatus) {
             .variant = synnax::status::VARIANT_SUCCESS,
             .message = "Task is running",
             .time = x::telem::TimeStamp::now(),
-            .details = task::StatusDetails{.running = true, .cmd = "start"}
+            .details = task::StatusDetails{
+                .running = true,
+                .cmd = "start",
+                .config_hash = "abc123",
+            }
         }
     };
     ASSERT_NIL(r.tasks.create(t));
@@ -159,6 +163,7 @@ TEST(TaskTests, testCreateTaskWithStatus) {
     ASSERT_EQ(t2.status.value().message, "Task is running");
     ASSERT_EQ(t2.status.value().details.running, true);
     ASSERT_EQ(t2.status.value().details.cmd, "start");
+    ASSERT_EQ(t2.status.value().details.config_hash, "abc123");
 }
 
 /// @brief it should correctly retrieve a task with status by name.
