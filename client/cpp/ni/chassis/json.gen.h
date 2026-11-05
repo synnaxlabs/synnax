@@ -72,7 +72,7 @@ inline Identity Identity::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Identity::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["rack"] = this->rack;
     j["serial"] = this->serial;
     j["model"] = this->model;
@@ -88,7 +88,7 @@ inline Configuration Configuration::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Configuration::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["name"] = this->name;
     return j;
 }
@@ -101,7 +101,7 @@ inline IdentityUpdate IdentityUpdate::parse(x::json::Parser parser) {
 }
 
 inline x::json::json IdentityUpdate::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     if (const auto parent = Identity::to_json(); parent.is_object()) j.update(parent);
     j["group"] = this->group;
     return j;
@@ -115,7 +115,7 @@ inline ConfigurationUpdate ConfigurationUpdate::parse(x::json::Parser parser) {
 }
 
 inline x::json::json ConfigurationUpdate::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     if (const auto parent = Configuration::to_json(); parent.is_object())
         j.update(parent);
     j["group"] = this->group;

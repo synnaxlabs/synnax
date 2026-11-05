@@ -307,8 +307,7 @@ type DeleteRequest struct {
 }
 
 // Delete removes the given chassis with their modules. It requires delete access on the
-// chassis and on each module, and returns a validation error when a task references a
-// module.
+// chassis and on each module.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,

@@ -70,13 +70,17 @@ func (c Configuration) Validate() error {
 	return v.Error()
 }
 
+// UpdateType is the "group" value that selects a variant of Update.
 type UpdateType string
 
 const (
-	IdentityUpdateType      UpdateType = "identity"
+	// IdentityUpdateType writes the fields that the scanner owns.
+	IdentityUpdateType UpdateType = "identity"
+	// ConfigurationUpdateType writes the fields that the user owns.
 	ConfigurationUpdateType UpdateType = "configuration"
 )
 
+// UpdateVariant is implemented by every Update variant.
 type UpdateVariant interface {
 	isUpdateVariant()
 }
@@ -175,7 +179,11 @@ func (u *Update) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.ConfigurationUpdate
 	default:
-		return errors.Newf("Update: unknown group %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Update: unknown group %q",
+			disc.Type,
+		)
 	}
 	return nil
 }
