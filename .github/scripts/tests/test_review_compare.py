@@ -258,6 +258,15 @@ class TestGreptileReviews:
         assert compare.greptile_reviews([{"editor": None, "diff": None}]) == {}
 
 
+class TestThreads:
+    """Tests reading the review threads of the reviewers."""
+
+    def test_should_skip_a_thread_with_no_comments(self) -> None:
+        node = thread(101, "greptile-apps", "Leaks a handle", 10, HEAD)
+        node["first"]["nodes"] = []
+        assert compare.threads([node]) == []
+
+
 class TestVerdict:
     """Tests deciding whether a finding was real."""
 
