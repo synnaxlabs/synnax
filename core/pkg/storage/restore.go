@@ -39,7 +39,7 @@ type Restored struct {
 //
 // Restore holds the lock on the data directory, so it fails while a Core runs on it. It
 // returns query.ErrNotFound when there is no complete backup with the name. A failed
-// Restore can run again.
+// Restore can run again, and OpenLayer does not open the data until one finishes.
 func Restore(dirname, name string) (res Restored, err error) {
 	fs, err := openDataDir(dirname)
 	if err != nil {
@@ -62,6 +62,9 @@ func Restore(dirname, name string) (res Restored, err error) {
 	if err != nil {
 		return Restored{}, err
 	}
+	if err = writeFile(fs, RestoreMarkerFile, []byte(name)); err != nil {
+		return Restored{}, err
+	}
 	orphaned, err := restoreTS(fs, src)
 	if err != nil {
 		return Restored{}, err
@@ -81,11 +84,31 @@ func Restore(dirname, name string) (res Restored, err error) {
 	if err != nil {
 		return Restored{}, err
 	}
+	if err = fs.Remove(RestoreMarkerFile); err != nil {
+		return Restored{}, err
+	}
 	res = Restored{Backup: b}
 	if orphaned != "" {
 		res.OrphanedDir = filepath.Join(dirname, filepath.FromSlash(orphaned))
 	}
 	return res, nil
+}
+
+// checkRestore returns an error when a Restore on the data directory did not finish.
+func checkRestore(cfg LayerConfig, rootFS xfs.FS) error {
+	fs, err := rootFS.Sub(cfg.Dirname)
+	if err != nil {
+		return err
+	}
+	name, found, err := readFile(fs, RestoreMarkerFile)
+	if err != nil || !found {
+		return err
+	}
+	return errors.Newf(
+		"The restore of backup %s did not finish. Run `synnax restore %s` again.",
+		name,
+		name,
+	)
 }
 
 // restoreTS puts back the Cesium metadata of the backup src. It returns the path of the

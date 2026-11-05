@@ -85,6 +85,11 @@ func writeFile(path, data string) {
 	Expect(os.WriteFile(path, []byte(data), 0o600)).To(Succeed())
 }
 
+func perm(path string) fs.FileMode {
+	GinkgoHelper()
+	return MustSucceed(os.Stat(path)).Mode().Perm()
+}
+
 func onlyBackup(dir string) string {
 	GinkgoHelper()
 	backups := MustSucceed(storage.ListBackups(dir))
@@ -112,6 +117,8 @@ var _ = Describe("Backup", func() {
 			Expect(entries(filepath.Join(backup, "kv"))).ToNot(BeEmpty())
 			Expect(readFile(filepath.Join(backup, storage.DriverKeyFile))).
 				To(Equal("driver key"))
+			Expect(perm(filepath.Join(backup, storage.DriverKeyFile))).
+				To(Equal(perm(filepath.Join(dir, storage.DriverKeyFile))))
 			Expect(entries(filepath.Join(backup, "cesium"))).To(HaveLen(2))
 		},
 	)
@@ -203,17 +210,67 @@ var _ = Describe("Restore", func() {
 		Expect(filepath.Join(dir, "VERSION")).ToNot(BeAnExistingFile())
 	})
 
-	It("Should finish a restore that was interrupted", func(ctx SpecContext) {
+	DescribeTable(
+		"Should not open the data until an interrupted restore runs again",
+		func(ctx SpecContext, interrupt func()) {
+			openAt(ctx, dir, "0.59.0")
+			l := openLayer(ctx, dir, "0.60.0")
+			Expect(l.KV.Set(ctx, []byte("key"), []byte("after"))).To(Succeed())
+			Expect(l.Close()).To(Succeed())
+			name := filepath.Base(onlyBackup(dir))
+			writeFile(filepath.Join(dir, storage.RestoreMarkerFile), name)
+			interrupt()
+			before := entries(dir)
+			Expect(storage.OpenLayer(
+				ctx,
+				storage.LayerConfig{Dirname: dir, Version: "0.60.0"},
+			)).Error().To(MatchError(ContainSubstring(
+				"Run `synnax restore %s` again", name,
+			)))
+			Expect(entries(dir)).To(Equal(before))
+			MustSucceed(storage.Restore(dir, name))
+			Expect(entries(dir)).ToNot(ContainElement(
+				Or(HavePrefix("kv."), Equal(storage.RestoreMarkerFile)),
+			))
+			Expect(entries(filepath.Join(dir, "kv"))).ToNot(ContainElement("stale"))
+			l = openLayer(ctx, dir, "0.59.0")
+			Expect(l.KV.Get(ctx, []byte("key"))).Error().
+				To(MatchError(query.ErrNotFound))
+			Expect(l.Close()).To(Succeed())
+		},
+		Entry("before it changed the data", func() {}),
+		Entry("after it moved the live store aside", func() {
+			Expect(os.Rename(filepath.Join(dir, "kv"), filepath.Join(dir, "kv.old"))).
+				To(Succeed())
+			Expect(os.MkdirAll(filepath.Join(dir, "kv.restore", "stale"), 0o700)).
+				To(Succeed())
+		}),
+		Entry("before it removed the old store", func() {
+			Expect(os.MkdirAll(filepath.Join(dir, "kv.old", "stale"), 0o700)).
+				To(Succeed())
+		}),
+		Entry("while it copied the store", func() {
+			Expect(os.MkdirAll(filepath.Join(dir, "kv.restore", "stale"), 0o700)).
+				To(Succeed())
+		}),
+	)
+
+	It("Should not open the data after a restore that failed", func(ctx SpecContext) {
 		openAt(ctx, dir, "0.59.0")
 		openAt(ctx, dir, "0.60.0")
-		// A restore that stopped after it moved the live store aside.
-		Expect(os.Rename(filepath.Join(dir, "kv"), filepath.Join(dir, "kv.old"))).
-			To(Succeed())
-		Expect(os.MkdirAll(filepath.Join(dir, "kv.restore", "stale"), 0o700)).
-			To(Succeed())
-		MustSucceed(storage.Restore(dir, filepath.Base(onlyBackup(dir))))
-		Expect(entries(dir)).ToNot(ContainElement(HavePrefix("kv.")))
-		Expect(entries(filepath.Join(dir, "kv"))).ToNot(ContainElement("stale"))
+		name := filepath.Base(onlyBackup(dir))
+		blocked := filepath.Join(dir, "VERSION.tmp", "blocked")
+		Expect(os.MkdirAll(blocked, 0o700)).To(Succeed())
+		Expect(storage.Restore(dir, name)).Error().
+			To(MatchError(ContainSubstring("VERSION.tmp")))
+		Expect(storage.OpenLayer(
+			ctx,
+			storage.LayerConfig{Dirname: dir, Version: "0.60.0"},
+		)).Error().To(MatchError(ContainSubstring(
+			"The restore of backup %s did not finish", name,
+		)))
+		Expect(os.RemoveAll(filepath.Dir(blocked))).To(Succeed())
+		MustSucceed(storage.Restore(dir, name))
 		openAt(ctx, dir, "0.59.0")
 	})
 
@@ -234,6 +291,8 @@ var _ = Describe("Restore", func() {
 			Expect(storage.Restore(dir, name)).Error().
 				To(MatchError(query.ErrNotFound))
 			Expect(recordedVersion(dir)).To(Equal("0.60.0"))
+			Expect(filepath.Join(dir, storage.RestoreMarkerFile)).
+				ToNot(BeAnExistingFile())
 		},
 		Entry("missing", "0000000001-0.59.0"),
 		Entry("unfinished", "0000000001-0.59.0.partial"),

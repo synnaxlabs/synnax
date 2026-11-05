@@ -202,7 +202,8 @@ To go back, restore the backup that the upgrade made:
 The restore puts back the metadata of the backup. Telemetry stays, including telemetry
 recorded after the backup. The restore moves the telemetry of channels created after the
 backup to an `orphaned-<time>` folder in the `backups` folder. The restore cannot run
-while a Core runs on the data folder.
+while a Core runs on the data folder. If a restore stops before it finishes, the Core
+does not start until you run the restore again.
 
 In Docker, run the restore with the image of the new version:
 
