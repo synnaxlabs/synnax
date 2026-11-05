@@ -201,6 +201,11 @@ env:
   # The proxy drops streams at times, so a failed fetch falls back to the source.
   GOPROXY: https://proxy.golang.org|direct
   RELEASE_TAG: ${{ inputs.release_tag }}
+  # Desktop Console update files that every Core embeds, downloaded one call each so a
+  # missing file fails the build. A Windows install updates with the installer it came
+  # from, so both stay. The manifest carries the signatures, so the .sig files stay out.
+  CONSOLE_UPDATE_FILES:
+    latest.json Synnax.app.tar.gz Synnax_*_x64-setup.exe Synnax_*_x64_en-US.msi
 
 permissions:
   contents: read
@@ -732,17 +737,15 @@ jobs:
             --pattern "console-web-*.tar.gz" --output console-web.tar.gz
           tar -xzf console-web.tar.gz -C core/pkg/console/dist
 
-      # Every Core serves the desktop Console update for every platform. A Windows
-      # install updates with the installer it came from, so the Core keeps both. The
-      # manifest carries the signatures, so the .sig files stay out.
       - name: Download Console update
         if: inputs.console_release != '' && inputs.core
         shell: bash
         run: |
-          gh release download "${{ inputs.console_release }}" \
-            --dir core/pkg/console/update --pattern latest.json \
-            --pattern Synnax.app.tar.gz --pattern "Synnax_*_x64-setup.exe" \
-            --pattern "Synnax_*_x64_en-US.msi"
+          read -ra FILES <<< "$CONSOLE_UPDATE_FILES"
+          for FILE in "${FILES[@]}"; do
+            gh release download "${{ inputs.console_release }}" \
+              --dir core/pkg/console/update --pattern "$FILE"
+          done
 
       - name: Set up pnpm and Node.js
         if: inputs.console && env.CONSOLE_REF_RUN_ID == ''
@@ -1145,10 +1148,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release download "${{ inputs.console_release }}" \
-            --dir core/pkg/console/update --pattern latest.json \
-            --pattern Synnax.app.tar.gz --pattern "Synnax_*_x64-setup.exe" \
-            --pattern "Synnax_*_x64_en-US.msi"
+          read -ra FILES <<< "$CONSOLE_UPDATE_FILES"
+          for FILE in "${FILES[@]}"; do
+            gh release download "${{ inputs.console_release }}" \
+              --dir core/pkg/console/update --pattern "$FILE"
+          done
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
