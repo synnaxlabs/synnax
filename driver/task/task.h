@@ -463,5 +463,8 @@ private:
         const synnax::task::Task &tsk,
         const synnax::task::Command &cmd
     );
+    /// @brief answers a command for a task with no live instance, so its sender does
+    /// not wait out a timeout.
+    void refuse_command(const Op &op, const std::shared_ptr<Entry> &entry);
 };
 }

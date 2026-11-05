@@ -648,6 +648,7 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
         case Op::Type::COMMAND: {
             if (entry->instance == nullptr) {
                 LOG(WARNING) << "no task for command " << op.task_key;
+                if (!op.cmd.key.empty()) this->refuse_command(op, entry);
                 return;
             }
             auto cmd = op.cmd;
@@ -721,6 +722,29 @@ void Manager::refuse_pinned_start(
         status.details.running = stored.details.running;
         status.details.config_hash = stored.details.config_hash;
     }
+    this->ctx->set_status(status);
+}
+
+void Manager::refuse_command(const Op &op, const std::shared_ptr<Entry> &entry) {
+    synnax::task::Status status;
+    // A latest error, such as a failed configure, says why the task is not running.
+    if (auto latest = this->statuses->latest(op.task_key);
+        latest.has_value() && latest->variant == synnax::status::VARIANT_ERROR)
+        status = std::move(*latest);
+    else {
+        status.key = synnax::task::ontology_id(op.task_key).string();
+        status.variant = synnax::status::VARIANT_ERROR;
+        status.message = "Task is not running";
+        status.description = "The task did not start on this Driver. Configure the "
+                             "task again, then retry.";
+        status.details.task = op.task_key;
+        std::lock_guard lock{entry->mu};
+        status.name = entry->row.name;
+        status.details.config_hash = entry->row.config_hash;
+    }
+    status.time = x::telem::TimeStamp::now();
+    status.details.running = false;
+    status.details.cmd = op.cmd.key;
     this->ctx->set_status(status);
 }
 
