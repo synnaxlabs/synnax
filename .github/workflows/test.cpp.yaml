@@ -71,6 +71,9 @@ on:
         required: false
         type: boolean
         default: false
+    secrets:
+      SYNNAX_LICENSE_TOKEN:
+        required: false
   workflow_dispatch:
     inputs: *inputs
 

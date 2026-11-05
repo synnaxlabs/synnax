@@ -18,25 +18,53 @@ import "schemas/x/telem"
 @ts output  "client/ts/src/http"
 
 Method enum {
-    get     = "GET"
-    head    = "HEAD"
-    post    = "POST"
-    put     = "PUT"
-    delete  = "DELETE"
-    patch   = "PATCH"
-    options = "OPTIONS"
-    trace   = "TRACE"
-    connect = "CONNECT"
+    get     = "GET" {
+        @doc value "reads a resource."
+    }
+    head    = "HEAD" {
+        @doc value "reads the headers of a resource, with no body."
+    }
+    post    = "POST" {
+        @doc value "submits data to a resource."
+    }
+    put     = "PUT" {
+        @doc value "replaces a resource."
+    }
+    delete  = "DELETE" {
+        @doc value "removes a resource."
+    }
+    patch   = "PATCH" {
+        @doc value "changes part of a resource."
+    }
+    options = "OPTIONS" {
+        @doc value "asks which communication options a resource supports."
+    }
+    trace   = "TRACE" {
+        @doc value "asks the server to echo the request it receives."
+    }
+    connect = "CONNECT" {
+        @doc value "opens a tunnel to the server."
+    }
 
     @doc value "is the HTTP method used when requesting an endpoint."
 }
 
 TimeFormat enum {
-    iso8601  = "iso8601"
-    unix_sec = "unix_sec"
-    unix_ms  = "unix_ms"
-    unix_us  = "unix_us"
-    unix_ns  = "unix_ns"
+    iso8601  = "iso8601" {
+        @doc value "is an ISO 8601 string."
+    }
+    unix_sec = "unix_sec" {
+        @doc value "is a count of seconds since the Unix epoch."
+    }
+    unix_ms  = "unix_ms" {
+        @doc value "is a count of milliseconds since the Unix epoch."
+    }
+    unix_us  = "unix_us" {
+        @doc value "is a count of microseconds since the Unix epoch."
+    }
+    unix_ns  = "unix_ns" {
+        @doc value "is a count of nanoseconds since the Unix epoch."
+    }
 
     @doc value "is the encoding of a timestamp value within a JSON body."
 }
@@ -178,16 +206,26 @@ ReadConfig struct extends task.PersistConfig {
 }
 
 JSONType enum {
-    number  = "number"
-    string  = "string"
-    boolean = "boolean"
+    number  = "number" {
+        @doc value "writes the value as a JSON number."
+    }
+    string  = "string" {
+        @doc value "writes the value as a JSON string."
+    }
+    boolean = "boolean" {
+        @doc value "writes the value as a JSON boolean."
+    }
 
     @doc value "is the JSON type a channel value is serialized as in a request body."
 }
 
 GeneratorType enum {
-    uuid      = "uuid"
-    timestamp = "timestamp"
+    uuid      = "uuid" {
+        @doc value "produces a new UUID for each request."
+    }
+    timestamp = "timestamp" {
+        @doc value "produces the time of the request."
+    }
 
     @doc value "is the kind of value produced for a generated write field."
 }

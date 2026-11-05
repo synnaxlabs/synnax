@@ -16,6 +16,7 @@ import (
 	"encoding/json/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka/versions"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // StartOffset is where a consumer group with no committed offset starts reading a
@@ -23,16 +24,21 @@ import (
 type StartOffset = versions.StartOffset
 
 const (
-	StartOffsetLatest   StartOffset = versions.StartOffsetLatest
+	// StartOffsetLatest starts at the end of the topic and reads only new records.
+	StartOffsetLatest StartOffset = versions.StartOffsetLatest
+	// StartOffsetEarliest starts at the oldest record the topic retains.
 	StartOffsetEarliest StartOffset = versions.StartOffsetEarliest
-	StartOffsetNone     StartOffset = versions.StartOffsetNone
+	// StartOffsetNone fails the start.
+	StartOffsetNone StartOffset = versions.StartOffsetNone
 )
 
 // RecordKey is the source of the key placed on every record a write task produces.
 type RecordKey = versions.RecordKey
 
 const (
-	RecordKeyNone        RecordKey = versions.RecordKeyNone
+	// RecordKeyNone writes records with no key.
+	RecordKeyNone RecordKey = versions.RecordKeyNone
+	// RecordKeyChannelName uses the name of the source channel as the key.
 	RecordKeyChannelName RecordKey = versions.RecordKeyChannelName
 )
 
@@ -67,15 +73,21 @@ type Credentials struct {
 	Password string `json:"password" msgpack:"password"`
 }
 
+// SASLType is the "mechanism" value that selects a variant of SASL.
 type SASLType string
 
 const (
-	NoneSASLType        SASLType = "none"
-	PlainSASLType       SASLType = "plain"
+	// NoneSASLType authenticates with no credentials.
+	NoneSASLType SASLType = "none"
+	// PlainSASLType authenticates with the PLAIN mechanism.
+	PlainSASLType SASLType = "plain"
+	// ScramSha256SASLType authenticates with the SCRAM-SHA-256 mechanism.
 	ScramSha256SASLType SASLType = "scram_sha_256"
+	// ScramSha512SASLType authenticates with the SCRAM-SHA-512 mechanism.
 	ScramSha512SASLType SASLType = "scram_sha_512"
 )
 
+// SASLVariant is implemented by every SASL variant.
 type SASLVariant interface {
 	isSASLVariant()
 }
@@ -199,7 +211,11 @@ func (u *SASL) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.ScramSha512SASL
 	default:
-		return errors.Newf("SASL: unknown mechanism %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"SASL: unknown mechanism %q",
+			disc.Type,
+		)
 	}
 	return nil
 }
