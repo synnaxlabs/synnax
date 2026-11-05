@@ -176,20 +176,20 @@ export const SearchField = ({ search }: SearchFieldProps): ReactElement => {
     if (e.shiftKey || e.altKey || e.ctrlKey || e.metaKey) return;
     e.preventDefault();
     results.focus();
-    // The focus comes back to a selected match. With none, the results answer the key
-    // that moved the focus, so it selects the first match.
+    // The focus comes back to a selected match. With none, the results get a Down key,
+    // so they select the first match.
     if (results.querySelector('[aria-selected="true"]') != null) return;
     results.dispatchEvent(
       new window.KeyboardEvent("keydown", {
-        key: e.key,
-        code: e.code,
+        key: "ArrowDown",
+        code: "ArrowDown",
         bubbles: true,
         cancelable: true,
       }),
     );
   };
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "ArrowDown") return enterResults(e);
+    if (e.key === "ArrowDown" || e.key === "Enter") return enterResults(e);
     if (e.key !== "Escape") return;
     e.stopPropagation();
     close();

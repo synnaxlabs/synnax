@@ -1183,21 +1183,25 @@ describe("Tree.Tree search", () => {
     const arrowDown = { key: "ArrowDown", code: "ArrowDown" };
     const field = (): HTMLElement => screen.getByPlaceholderText("Search groups");
 
-    it("should move into the results on ArrowDown and back on Escape", async () => {
-      const { root, tok, names } = await createSearchTree();
-      await renderSearchable(root);
-      searchTree(tok);
-      await findTreeRow(itemName(names.charlie));
-      const field = screen.getByPlaceholderText("Search groups");
-      fireEvent.keyDown(field, arrowDown);
-      fireEvent.keyUp(results(), arrowDown);
-      expect(document.activeElement).toBe(results());
-      const [first] = results().querySelectorAll(".lyra-tree__item");
-      expect(first.getAttribute("aria-selected")).toBe("true");
-      fireEvent.keyDown(results(), { key: "Escape", code: "Escape" });
-      expect(document.activeElement).toBe(field);
-      expect(hiddenTrees()).toBe(1);
-    });
+    it.each(["ArrowDown", "Enter"])(
+      "should move into the results on %s and back on Escape",
+      async (key) => {
+        const { root, tok, names } = await createSearchTree();
+        await renderSearchable(root);
+        searchTree(tok);
+        await findTreeRow(itemName(names.charlie));
+        const field = screen.getByPlaceholderText("Search groups");
+        fireEvent.keyDown(field, { key, code: key });
+        fireEvent.keyUp(results(), { key, code: key });
+        expect(document.activeElement).toBe(results());
+        const selected = results().querySelectorAll('[aria-selected="true"]');
+        expect(selected).toHaveLength(1);
+        expect(selected[0]).toBe(results().querySelector(".lyra-tree__item"));
+        fireEvent.keyDown(results(), { key: "Escape", code: "Escape" });
+        expect(document.activeElement).toBe(field);
+        expect(hiddenTrees()).toBe(1);
+      },
+    );
 
     it("should come back to the selected match on ArrowDown", async () => {
       const { root, tok, names } = await createSearchTree();
