@@ -11,6 +11,7 @@
 
 import re
 from collections import Counter
+from urllib.parse import quote
 
 from review.findings import SEVERITIES, Finding, Review
 
@@ -34,6 +35,16 @@ def badge(name: str, alt: str, *, themed: bool = False) -> str:
     return (
         f'<picture><source {scheme} srcset="{BADGES}/{name}-dark.svg">{img}</picture>'
     )
+
+
+def link(blob: str, path: str, line: int | None = None) -> str:
+    """Renders a link to a repository path, and to a line of it when given one.
+
+    :param blob: The URL that a repository path appends to, at the reviewed commit.
+    """
+    anchor = "" if line is None else f"#L{line}"
+    label = path if line is None else f"{path}:{line}"
+    return f"[`{label}`]({blob}/{quote(path)}{anchor})"
 
 
 def fence(text: str, info: str = "") -> str:
@@ -62,7 +73,7 @@ def comment(f: Finding, *, blob: str) -> str:
     if f.suggestion is not None:
         parts.append(fence(f.suggestion, "suggestion"))
     if f.rule is not None:
-        parts.append(f"**Rule:** [`{f.rule}`]({blob}/{f.rule})")
+        parts.append(f"**Rule:** {link(blob, f.rule)}")
     parts.append(VOTE)
     return "\n\n".join(parts)
 
@@ -74,7 +85,7 @@ def outside(findings: list[Finding], *, blob: str) -> str:
         return "\n".join([*lines, "No findings outside the diff remain."]) + "\n"
     lines += ["These findings could not be posted inline.", ""]
     for f in findings:
-        where = f"[`{f.path}:{f.line}`]({blob}/{f.path}#L{f.line})"
+        where = link(blob, f.path, f.line)
         body = f.body.replace("\n", "\n  ")
         lines += [f"- {heading(f)} {where}", "", f"  {body}", ""]
     return "\n".join(lines)
@@ -95,16 +106,23 @@ def reviews(body: str) -> int:
 
 
 def summary(
-    review: Review, *, count: int, commit: str, message: str, run_url: str
+    review: Review, *, count: int, commit: str, message: str, run_url: str, blob: str
 ) -> str:
     """Renders the summary that heads the pull request body.
 
     :param count: How many reviews the pull request has had, this one included.
     :param commit: The URL of the reviewed commit.
     :param message: The message of the reviewed commit.
+    :param blob: The URL that a repository path appends to, at the reviewed commit.
     """
     n = review.score
     bullets = [f"- {line}" for line in review.summary]
+    findings = [
+        f"{i}. {heading(f)} {link(blob, f.path, f.line)}"
+        for i, f in enumerate(review.findings, 1)
+    ]
+    if findings:
+        findings = ["<h3>Findings</h3>", "", *findings, ""]
     footer = (
         f"<sub>Reviews ({count}) · Last reviewed commit: "
         f"[{subject(message)}]({commit}) · [Run]({run_url})</sub>"
@@ -118,6 +136,7 @@ def summary(
             "",
             review.verdict,
             "",
+            *findings,
             "<h3>Summary</h3>",
             "",
             *bullets,
