@@ -782,10 +782,11 @@ describe("Arc queries", () => {
       });
 
       const rack = await client.racks.create({ name: "test-rack" });
+      const routingKey = uuid.create();
       const testTask = await rack.createTask({
         name: "arc-task",
         type: "pagerduty_alert",
-        config: { routingKey: "rk" },
+        config: { routingKey },
       });
 
       await client.ontology.addChildren(
@@ -802,7 +803,7 @@ describe("Arc queries", () => {
         timeout: 5000,
       });
       expect(result.current?.name).toEqual("arc-task");
-      expect(result.current?.config).toMatchObject({ routingKey: "rk" });
+      expect(result.current?.config).toMatchObject({ routingKey });
     });
 
     it("should update when a task is associated with arc", async () => {
