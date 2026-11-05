@@ -61,8 +61,9 @@ fi
 
 # The check run succeeds at any score. The score lives only in the description, which
 # the author can edit, so only the latest revision Greptile wrote counts, and only when
-# it names the head. Every score marker must be a 5: a commit title can quote one. The
-# diff field holds the whole description at that revision, not a delta.
+# its own block names the head: another reviewer's block can name it too. Every score
+# marker must be a 5: a commit title can quote one. The diff field holds the whole
+# description at that revision, not a delta.
 # shellcheck disable=SC2016 # The GraphQL query uses GraphQL variables.
 SCORE=$("$GH_API" graphql \
     -f query='query($owner: String!, $name: String!, $number: Int!) {
@@ -78,6 +79,8 @@ SCORE=$("$GH_API" graphql \
     --jq '[.data.repository.pullRequest.userContentEdits.nodes[]
             | select(.editor | .__typename == "Bot" and .login == "greptile-apps")]
         | (.[0].diff // "")
+        | ([match("<!-- greptile_comment -->[\\s\\S]*?<!-- /greptile_comment -->")
+            .string] | first // "")
         | select(contains("/commit/'"$HEAD"')"))
         | [scan("greptile_confidence_score:([0-9]+)")[]] | unique | join(" ")')
 if [ -z "$SCORE" ]; then

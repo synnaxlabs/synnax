@@ -90,22 +90,6 @@ permissions:
 jobs:
   test:
     name: Test (${{ matrix.os }})
-    # A service with an empty image does not start. Services run on Linux only, so the
-    # other runners get no image and skip tests tagged requires-core.
-    services:
-      synnax:
-        image: ${{ matrix.os == 'ubuntu-build-bot' && inputs.core_image || '' }}
-        env:
-          SYNNAX_LISTEN: localhost:9090
-          SYNNAX_VERBOSE: true
-          SYNNAX_INSECURE: true
-          SYNNAX_MEM: true
-          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
-        credentials:
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-        ports:
-          - 9090:9090
     strategy:
       fail-fast: false
       matrix:
@@ -120,6 +104,23 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+
+      - name: Start Core
+        if: runner.os == 'Linux' && inputs.core_image != ''
+        uses: ./.github/actions/start-service
+        env:
+          SYNNAX_LISTEN: localhost:9090
+          SYNNAX_VERBOSE: true
+          SYNNAX_INSECURE: true
+          SYNNAX_MEM: true
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+        with:
+          name: synnax
+          image: ${{ inputs.core_image }}
+          port: 9090
+          token: ${{ github.token }}
+          variables: >-
+            SYNNAX_LISTEN SYNNAX_VERBOSE SYNNAX_INSECURE SYNNAX_MEM SYNNAX_LICENSE_KEY
 
       - name: Install packages
         timeout-minutes: 10
@@ -237,6 +238,10 @@ jobs:
         if: always() && runner.os == 'Windows'
         shell: powershell
         run: integration/scripts/CleanBuildCaches.ps1 -MinFreeGB 30
+
+      - name: Stop the services
+        if: always() && runner.os == 'Linux'
+        run: docker rm --force synnax 2> /dev/null || true
 
   lint:
     name: Lint
