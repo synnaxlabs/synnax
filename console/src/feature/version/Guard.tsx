@@ -34,6 +34,11 @@ const Mismatch = ({ clientVersion, nodeVersion }: MismatchProps): ReactElement =
     target == null
       ? undefined
       : `${target.secure ? "https" : "http"}://${target.host}:${target.port}`;
+  const desktop = Session.Runtime.ENGINE === "tauri";
+  const handleChooseCore = (): void => {
+    if (!desktop) Core.disableDetection();
+    logout();
+  };
   return (
     <Shell.Frame className={CSS.B("version-mismatch")} connection={target}>
       <Flex.Box
@@ -64,17 +69,23 @@ const Mismatch = ({ clientVersion, nodeVersion }: MismatchProps): ReactElement =
             full="x"
             justify="center"
             href={url}
-            target="_blank"
+            target={desktop ? "_blank" : undefined}
           >
-            Open in browser
-            <Icon.OpenExternal />
+            {desktop ? (
+              <>
+                Open in browser
+                <Icon.OpenExternal />
+              </>
+            ) : (
+              "Open matching Console"
+            )}
           </Button.Button>
           <Button.Button
             variant="outlined"
             size="large"
             full="x"
             justify="center"
-            onClick={logout}
+            onClick={handleChooseCore}
           >
             Choose another Core
           </Button.Button>

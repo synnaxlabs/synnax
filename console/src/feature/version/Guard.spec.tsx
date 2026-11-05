@@ -8,12 +8,28 @@
 // included in the file licenses/APL.txt.
 
 import { connection } from "@synnaxlabs/client";
+import { clearMocks, mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import { fireEvent, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  onTestFinished,
+  vi,
+} from "vitest";
 
+const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "web" }));
+
+vi.mock("@/session/runtime/runtime", async (importOriginal) => {
+  const { mockRuntimeEngine } = await import("@/testutil/runtime");
+  return await mockRuntimeEngine(importOriginal, mocks);
+});
+
+import { Auth } from "@/feature/auth";
 import { Version } from "@/feature/version";
 import { findButton } from "@/platform/modals/testutil";
-import { Session } from "@/session";
 import {
   CONNECTION_PARAMS,
   createCore,
@@ -27,6 +43,9 @@ import {
 
 const WORKSPACE = "workspace";
 const TITLE = "Console 0.61.0 cannot work with Core 0.60.1";
+const CORE_NAME = "Local";
+const USERNAME_PLACEHOLDER = "synnax";
+const PAGE_URL = window.location.href;
 
 const INCOMPATIBLE_STATUS: connection.Status = {
   ...connection.DEFAULT_STATUS,
@@ -50,25 +69,44 @@ const COMPATIBLE_STATUS: connection.Status = {
   },
 };
 
+const pinEngine = (engine: "web" | "tauri"): void => {
+  mocks.engine = engine;
+  if (engine === "web") return;
+  mockWindows("main");
+  // A dev build version skips the update check.
+  mockIPC((cmd) => (cmd === "plugin:app|version" ? "0.0.0" : undefined));
+  onTestFinished(clearMocks);
+};
+
 const renderGuard = async (
   status: connection.Status,
   secure: boolean = false,
 ): Promise<StatusHarness> => {
-  const core = createCore("Local", { secure });
+  const core = createCore(CORE_NAME, { secure });
   return await renderWithStatus(
-    <Version.Guard>
-      <span>{WORKSPACE}</span>
-    </Version.Guard>,
+    <Auth.Guard>
+      <Version.Guard>
+        <span>{WORKSPACE}</span>
+      </Version.Guard>
+    </Auth.Guard>,
     { client: null, status, preloadedState: createCoreState([core], core.key) },
   );
 };
 
-const getOpenInBrowserLink = (): string | null =>
-  screen.getByRole("link", { name: /Open in browser/ }).getAttribute("href");
+const getLink = (name: string | RegExp): HTMLElement =>
+  screen.getByRole("link", { name });
 
 const { host, port } = CONNECTION_PARAMS;
 
 describe("Version.Guard", () => {
+  beforeEach(() => {
+    mocks.engine = "web";
+  });
+
+  afterEach(() => {
+    window.history.replaceState(null, "", PAGE_URL);
+  });
+
   it("should show the mismatch screen in place of the workspace", async () => {
     await renderGuard(INCOMPATIBLE_STATUS);
     expect(screen.getByText(TITLE)).toBeTruthy();
@@ -92,22 +130,39 @@ describe("Version.Guard", () => {
     expect(screen.queryByText(TITLE)).toBeNull();
   });
 
-  it("should open the Console that the Core serves", async () => {
+  it("should reload the matching Console in the same tab in a browser", async () => {
     await renderGuard(INCOMPATIBLE_STATUS);
-    expect(getOpenInBrowserLink()).toBe(`http://${host}:${port}`);
+    const link = getLink("Open matching Console");
+    expect(link.getAttribute("href")).toBe(`http://${host}:${port}`);
+    expect(link.getAttribute("target")).toBeNull();
   });
 
-  it("should open the served Console over TLS for a secure Core", async () => {
+  it("should open the matching Console over TLS for a secure Core", async () => {
     await renderGuard(INCOMPATIBLE_STATUS, true);
-    expect(getOpenInBrowserLink()).toBe(`https://${host}:${port}`);
+    expect(getLink("Open matching Console").getAttribute("href")).toBe(
+      `https://${host}:${port}`,
+    );
   });
 
-  it("should clear the selected Core to choose another one", async () => {
-    const { store } = await renderGuard(INCOMPATIBLE_STATUS);
-    expect(Session.Core.selectSelectedKey(store.getState())).toBeDefined();
-    fireEvent.click(findButton("Choose another Core"));
-    expect(Session.Core.selectSelectedKey(store.getState())).toBeUndefined();
+  it("should open the served Console in an external browser on desktop", async () => {
+    pinEngine("tauri");
+    await renderGuard(INCOMPATIBLE_STATUS);
+    const link = getLink(/Open in browser/);
+    expect(link.getAttribute("href")).toBe(`http://${host}:${port}`);
+    expect(link.getAttribute("target")).toBe("_blank");
   });
+
+  it.each(["web", "tauri"] as const)(
+    "should show the Cores list to choose another Core on %s",
+    async (engine) => {
+      pinEngine(engine);
+      await renderGuard(INCOMPATIBLE_STATUS);
+      fireEvent.click(findButton("Choose another Core"));
+      expect(screen.queryByText(TITLE)).toBeNull();
+      expect(await screen.findByText(CORE_NAME)).toBeTruthy();
+      expect(screen.queryByPlaceholderText(USERNAME_PLACEHOLDER)).toBeNull();
+    },
+  );
 
   it("should render the workspace before a check reports a version", async () => {
     await renderGuard(connection.DEFAULT_STATUS);
