@@ -732,8 +732,8 @@ void Manager::refuse_command(const Op &op) {
     if (status.variant != synnax::status::VARIANT_ERROR) {
         status.variant = synnax::status::VARIANT_ERROR;
         status.message = "Task is not running";
-        status.description = "The task did not start on this Driver. Configure the "
-                             "task again, then retry.";
+        status.description = "The task did not start on this Driver. Deploy the task "
+                             "again, then retry.";
     }
     status.time = x::telem::TimeStamp::now();
     status.details.running = false;

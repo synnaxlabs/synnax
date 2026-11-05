@@ -785,7 +785,7 @@ TEST_F(TaskManagerTest, CommandAfterRefusedPinnedStartAnswersNotRunning) {
     EXPECT_EQ(s.message, "Task is not running");
     EXPECT_EQ(
         s.description,
-        "The task did not start on this Driver. Configure the task again, then retry."
+        "The task did not start on this Driver. Deploy the task again, then retry."
     );
     EXPECT_FALSE(s.details.running);
 }
