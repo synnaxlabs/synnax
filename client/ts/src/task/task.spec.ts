@@ -1027,12 +1027,14 @@ describe("Task", async () => {
       const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
       onTestFinished(() => streamer.close());
       const wait = t.executeCommandSync({ type: "scan", timeout: TimeSpan.minutes(1) });
-      await readCommand(streamer, t.key);
-      await setDriverNotRunning(dying.key);
-      await expect(wait).rejects.toMatchObject({
+      // Handled before the outage, which can reject the wait before its write returns.
+      const ended = expect(wait).rejects.toMatchObject({
         message: "Driver not running",
         description: "The Core has not heard from the Driver.",
       });
+      await readCommand(streamer, t.key);
+      await setDriverNotRunning(dying.key);
+      await ended;
     });
 
     it("should end the wait of a command sent through the client", async () => {
@@ -1049,9 +1051,10 @@ describe("Task", async () => {
         timeout: TimeSpan.minutes(1),
         statusDataZ: z.unknown(),
       });
+      const ended = expect(wait).rejects.toThrow("Driver not running");
       await readCommand(streamer, t.key);
       await setDriverNotRunning(dying.key);
-      await expect(wait).rejects.toThrow("Driver not running");
+      await ended;
     });
 
     it("should end the wait of a batch that holds a deleted task", async () => {
@@ -1077,9 +1080,10 @@ describe("Task", async () => {
         timeout: TimeSpan.minutes(1),
         statusDataZ: z.unknown(),
       });
+      const ended = expect(wait).rejects.toThrow("Driver not running");
       await readCommand(streamer, live.key);
       await setDriverNotRunning(dying.key);
-      await expect(wait).rejects.toThrow("Driver not running");
+      await ended;
     });
 
     it("should keep waiting through a healthy status of the rack", async () => {
