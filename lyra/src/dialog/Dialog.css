@@ -21,13 +21,9 @@
 
     &.lyra--modal {
         position: relative;
+
         /* The surface takes the focus on open, with no ring. */
         outline: none;
-
-        &.lyra--hidden {
-            background: none;
-            border: none;
-        }
 
         &.lyra--visible {
             top: 15%;
@@ -42,6 +38,8 @@
             background: color-mix(in srgb, var(--pluto-gray-l0) 94%, transparent);
             -webkit-backdrop-filter: var(--pluto-frost);
             backdrop-filter: var(--pluto-frost);
+            transition: top 0.15s ease-in-out;
+            animation: var(--pluto-modal-animation);
 
             &.lyra-dialog--modal-position-shifted {
                 top: 8%;
@@ -49,11 +47,6 @@
 
             &.lyra-dialog--modal-position-slammed {
                 top: 0;
-            }
-
-            &:not(.lyra-dialog--passthrough) {
-                transition: top 0.15s ease-in-out;
-                animation: var(--pluto-modal-animation);
             }
         }
     }
@@ -79,16 +72,10 @@
         }
     }
 
-    &.lyra--hidden:not(.lyra-dialog--passthrough) {
+    &.lyra--hidden {
         opacity: 0;
         z-index: -1;
         pointer-events: none;
-    }
-
-    /* An unfocused passthrough tab is a pass-through box: its bg's sizing chain
-       already forces the content to fill, so the flex level is pure cost. */
-    &.lyra--modal.lyra-dialog--passthrough:not(.lyra--visible) {
-        display: block;
     }
 
     &.lyra--visible {
@@ -105,22 +92,6 @@
     width: 100%;
     height: 100%;
     background: transparent;
-
-    /* Only a visible modal centers its dialog; as a passthrough wrapper the
-       flex level just costs WebKit re-measurement on every ancestor resize. */
-    &:not(.lyra--visible) {
-        display: block;
-    }
-
-    &:not(.lyra--visible) > div {
-        width: 100%;
-        height: 100%;
-
-        & > div {
-            width: 100%;
-            height: 100%;
-        }
-    }
 
     &.lyra--visible {
         -webkit-user-select: none;

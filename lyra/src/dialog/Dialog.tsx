@@ -22,15 +22,11 @@ import { useCombinedRefs } from "@/hooks";
 import { getRootElement } from "@/util/rootElement";
 
 /** Props for {@link Dialog}. */
-export interface DialogProps extends Flex.BoxProps<"div"> {
-  /** Keeps the children mounted and hidden while closed, instead of unmounting them. */
-  passthrough?: boolean;
-}
+export interface DialogProps extends Flex.BoxProps<"div"> {}
 
 /**
- * The floating surface of a {@link Frame}. It mounts only while open, unless
- * `passthrough` is set, and portals itself to the document root when modal. A modal
- * holds the focus while open and gives it back on close.
+ * The floating surface of a {@link Frame}. It mounts only while open and portals itself
+ * to the document root. A modal holds the focus while open and gives it back on close.
  */
 export const Dialog = ({
   style,
@@ -38,7 +34,6 @@ export const Dialog = ({
   className,
   bordered = true,
   rounded = "small",
-  passthrough = false,
   children,
   ...rest
 }: DialogProps) => {
@@ -56,8 +51,8 @@ export const Dialog = ({
   const modal = variant === "modal";
   const trap = useFocusTrap(surfaceRef, modal && visible);
   const dialogStyle = { ...ctxStyle, ...style };
-  if (!visible && !passthrough) return null;
-  const actuallyVisible = visible && (Object.keys(ctxStyle).length > 0 || modal);
+  if (!visible) return null;
+  const actuallyVisible = modal || Object.keys(ctxStyle).length > 0;
   let dialog = (
     <Flex.Box
       pack
@@ -71,7 +66,6 @@ export const Dialog = ({
         CSS.BEM("dialog", "dialog", dialogCorner.x),
         CSS.BEM("dialog", "dialog", dialogCorner.y),
         CSS.visible(actuallyVisible),
-        passthrough && CSS.BM("dialog", "passthrough"),
         CSS.M(variant),
         modal && CSS.BM("dialog", "modal", "position", modalPosition.toString()),
         className,
@@ -95,6 +89,5 @@ export const Dialog = ({
         {dialog}
       </Background>
     );
-  if (passthrough) return dialog;
   return createPortal(dialog, getRootElement());
 };
