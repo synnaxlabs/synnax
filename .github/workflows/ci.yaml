@@ -23,6 +23,45 @@ on:
         required: false
         type: boolean
         default: false
+    secrets:
+      APPLE_CERTIFICATE:
+        required: false
+      APPLE_CERTIFICATE_PASSWORD:
+        required: false
+      APPLE_ID:
+        required: false
+      APPLE_ID_PASSWORD:
+        required: false
+      APPLE_TEAM_ID:
+        required: false
+      AZURE_CLIENT_ID:
+        required: false
+      AZURE_CLIENT_SECRET:
+        required: false
+      AZURE_TENANT_ID:
+        required: false
+      CODECOV_TOKEN:
+        required: false
+      DOCKER_PASSWORD:
+        required: false
+      DOCKER_USERNAME:
+        required: false
+      KEYCHAIN_PASSWORD:
+        required: false
+      PAGERDUTY_API_KEY:
+        required: false
+      PAGERDUTY_ROUTING_KEY:
+        required: false
+      POSTHOG_CLI_API_KEY:
+        required: false
+      SYNNAX_LICENSE_TOKEN:
+        required: false
+      TAURI_KEY_PASSWORD:
+        required: false
+      TAURI_PRIVATE_KEY:
+        required: false
+      TURBO_TOKEN:
+        required: false
   workflow_dispatch:
     inputs:
       full:
@@ -160,7 +199,8 @@ jobs:
       directory: alamos/go
       macos: &full ${{ inputs.full == true }}
       windows: *full
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   alamos-py:
     needs: changes
@@ -174,7 +214,9 @@ jobs:
       directory: alamos/py
       macos: *full
       windows: *full
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   alamos-py-lowest:
     needs: changes
@@ -185,7 +227,9 @@ jobs:
     with:
       directory: alamos/py
       lowest: true
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   alamos-ts:
     needs: changes
@@ -199,7 +243,10 @@ jobs:
       macos: *full
       package: alamos
       windows: *full
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   arc-cpp:
     needs: [changes, core-image]
@@ -217,7 +264,8 @@ jobs:
       targets: //arc/cpp/...
       test_flags: --spawn_strategy=local --jobs=1
       windows: *full
-    secrets: inherit
+    secrets:
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   arc-go:
     needs: changes
@@ -231,7 +279,8 @@ jobs:
       install_antlr4: true
       macos: *full
       windows: *full
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   aspen:
     needs: changes
@@ -244,7 +293,8 @@ jobs:
       directory: aspen
       macos: *full
       windows: *full
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   buildifier:
     needs: changes
@@ -252,7 +302,6 @@ jobs:
       inputs.full || needs.changes.outputs.buildifier == 'true' ||
       contains(fromJSON(needs.changes.outputs.ci), 'buildifier')
     uses: ./.github/workflows/lint.buildifier.yaml
-    secrets: inherit
 
   cesium:
     needs: changes
@@ -265,7 +314,8 @@ jobs:
       directory: cesium
       macos: *full
       windows: *full
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   ci-scripts:
     needs: changes
@@ -277,7 +327,9 @@ jobs:
       coverage_flag: ci-scripts
       coverage_module: .
       directory: .github/scripts
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   client-cpp:
     needs: [changes, core-image]
@@ -294,7 +346,8 @@ jobs:
       targets: //client/cpp/... //client/clib/...
       test_flags: --nocache_test_results
       windows: *full
-    secrets: inherit
+    secrets:
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   client-py:
     needs: [changes, core-image]
@@ -309,7 +362,9 @@ jobs:
       coverage_module: synnax
       directory: client/py
       type_check_dir: ./synnax ./examples ./tests
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   client-py-lowest:
     needs: [changes, core-image]
@@ -323,7 +378,9 @@ jobs:
       directory: client/py
       lowest: true
       type_check_dir: ./synnax ./examples ./tests
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   client-ts:
     needs: [changes, core-image]
@@ -337,7 +394,10 @@ jobs:
       coverage_flag: client-ts
       directory: client/ts
       package: client
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   console:
     needs: [changes, core-image]
@@ -352,7 +412,10 @@ jobs:
       directory: console
       package: console
       shards: 3
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   copyright:
     uses: ./.github/workflows/test.copyright.yaml
@@ -370,7 +433,8 @@ jobs:
       macos: *full
       shards: 3
       windows: *full
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   core-image:
     needs: changes
@@ -384,7 +448,6 @@ jobs:
     with:
       module: core
       repository: ghcr.io/synnaxlabs/synnax
-    secrets: inherit
 
   desktop-shell:
     needs: changes
@@ -419,6 +482,8 @@ jobs:
 
       - name: Upload coverage
         uses: codecov/codecov-action@v7
+        env:
+          CURL_HOME: ${{ github.workspace }}/.github/codecov
         with:
           disable_search: true
           fail_ci_if_error: true
@@ -439,7 +504,10 @@ jobs:
       macos: *full
       package: docs
       windows: *full
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   docs-site:
     needs: changes
@@ -447,7 +515,8 @@ jobs:
       inputs.full || needs.changes.outputs.docs == 'true' ||
       contains(fromJSON(needs.changes.outputs.ci), 'docs-site')
     uses: ./.github/workflows/test.docs.yaml
-    secrets: inherit
+    secrets:
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   drift:
     needs: changes
@@ -461,7 +530,10 @@ jobs:
       macos: *full
       package: drift
       windows: *full
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   driver:
     needs: [changes, core-image]
@@ -481,7 +553,8 @@ jobs:
       test_flags: --spawn_strategy=local --local_test_jobs=1
       test_tags: -hardware
       windows: *full
-    secrets: inherit
+    secrets:
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   # The EtherCAT bus runs on its own thread, and a streamer can set its channels
   # while it reads, so their suites also run under TSan. The GCC TSan runtime on the
@@ -500,7 +573,8 @@ jobs:
       targets: //client/cpp/framer:framer_test //driver/ethercat/...
       test_flags: --config=tsan-no-aslr
       test_tags: -hardware
-    secrets: inherit
+    secrets:
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   eslint-config:
     needs: changes
@@ -512,7 +586,10 @@ jobs:
       coverage_flag: eslint-config
       directory: configs/eslint
       package: eslint-config
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   exports-go:
     needs: changes
@@ -527,17 +604,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
-      # Type checking every module for three GOOS values fills the default disk.
-      - name: Free disk space
-        run: |
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
-            /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
-
+      # The check compiles nothing, and the modules download faster than a cache
+      # restores.
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
           go-version-file: x/go/go.mod
-          cache-dependency-path: "**/go.sum"
+          cache: false
 
       - name: Download the Go modules
         run: |
@@ -590,7 +663,10 @@ jobs:
       macos: *full
       package: foundation
       windows: *full
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   foundation-site:
     needs: changes
@@ -602,7 +678,8 @@ jobs:
     uses: ./.github/workflows/build.site.yaml
     with:
       site: foundation
-    secrets: inherit
+    secrets:
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   freighter-cpp:
     needs: changes
@@ -616,7 +693,8 @@ jobs:
       macos: *full
       targets: //freighter/cpp/...
       windows: *full
-    secrets: inherit
+    secrets:
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   freighter-go:
     needs: changes
@@ -629,7 +707,8 @@ jobs:
       directory: freighter/go
       macos: *full
       windows: *full
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   freighter-image:
     needs: changes
@@ -643,7 +722,6 @@ jobs:
     with:
       module: freighter/integration
       repository: ghcr.io/synnaxlabs/freighter-go-integration
-    secrets: inherit
 
   freighter-integration:
     needs: changes
@@ -656,7 +734,8 @@ jobs:
       directory: freighter/integration
       macos: *full
       windows: *full
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   freighter-py:
     needs: [changes, freighter-image]
@@ -670,7 +749,9 @@ jobs:
       coverage_module: freighter
       directory: freighter/py
       freighter_image: ${{ needs.freighter-image.outputs.image }}
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   freighter-py-lowest:
     needs: [changes, freighter-image]
@@ -683,7 +764,9 @@ jobs:
       directory: freighter/py
       freighter_image: ${{ needs.freighter-image.outputs.image }}
       lowest: true
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   freighter-ts:
     needs: [changes, freighter-image]
@@ -697,7 +780,10 @@ jobs:
       directory: freighter/ts
       freighter_image: ${{ needs.freighter-image.outputs.image }}
       package: freighter
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   gorp:
     needs: changes
@@ -710,7 +796,8 @@ jobs:
       directory: gorp
       macos: *full
       windows: *full
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   integration:
     needs: changes
@@ -725,7 +812,25 @@ jobs:
     uses: ./.github/workflows/test.integration.yaml
     with:
       ubuntu: *full
-    secrets: inherit
+    secrets:
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+      PAGERDUTY_API_KEY: ${{ secrets.PAGERDUTY_API_KEY }}
+      PAGERDUTY_ROUTING_KEY: ${{ secrets.PAGERDUTY_ROUTING_KEY }}
+      POSTHOG_CLI_API_KEY: ${{ secrets.POSTHOG_CLI_API_KEY }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+      TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   knip:
     needs: changes
@@ -762,7 +867,9 @@ jobs:
       coverage_flag: integration
       coverage_module: framework
       directory: integration
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   lyra:
     needs: changes
@@ -777,7 +884,10 @@ jobs:
       macos: *full
       package: lyra
       windows: *full
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   oracle:
     needs: changes
@@ -791,7 +901,8 @@ jobs:
       install_antlr4: true
       macos: *full
       windows: *full
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   oracle-check:
     needs: changes
@@ -799,7 +910,6 @@ jobs:
       inputs.full || needs.changes.outputs.oracle_check == 'true' ||
       contains(fromJSON(needs.changes.outputs.ci), 'oracle-check')
     uses: ./.github/workflows/check.oracle.yaml
-    secrets: inherit
 
   oracle-language:
     needs: changes
@@ -813,7 +923,10 @@ jobs:
       macos: *full
       package: oracle-language
       windows: *full
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   pluto:
     needs: [changes, core-image]
@@ -827,7 +940,10 @@ jobs:
       coverage_flag: pluto
       directory: pluto
       package: pluto
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   portal:
     needs: changes
@@ -841,7 +957,10 @@ jobs:
       macos: *full
       package: portal
       windows: *full
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   portal-site:
     needs: changes
@@ -853,7 +972,8 @@ jobs:
     uses: ./.github/workflows/build.site.yaml
     with:
       site: portal
-    secrets: inherit
+    secrets:
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   protobuf:
     needs: changes
@@ -861,7 +981,6 @@ jobs:
       inputs.full || needs.changes.outputs.protobuf == 'true' ||
       contains(fromJSON(needs.changes.outputs.ci), 'protobuf')
     uses: ./.github/workflows/test.protobuf.yaml
-    secrets: inherit
 
   py-packages:
     needs: changes
@@ -880,7 +999,9 @@ jobs:
       coverage_flag: scripts
       coverage_module: .
       directory: scripts
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   runners:
     needs: changes
@@ -892,7 +1013,9 @@ jobs:
       coverage_flag: runners
       coverage_module: .
       directory: scripts/runners
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   site-common:
     needs: changes
@@ -906,7 +1029,10 @@ jobs:
       macos: *full
       package: site-common
       windows: *full
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   soem:
     needs: changes
@@ -919,7 +1045,8 @@ jobs:
       sanitizers: false
       targets: //vendor/soem:all
       ubuntu: false
-    secrets: inherit
+    secrets:
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   stylelint:
     needs: changes
@@ -950,7 +1077,10 @@ jobs:
     with:
       directory: configs/stylelint
       package: stylelint-config
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   versions:
     uses: ./.github/workflows/test.updates.yaml
@@ -967,7 +1097,10 @@ jobs:
       macos: *full
       package: vite-plugin
       windows: *full
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   www:
     needs: changes
@@ -981,7 +1114,10 @@ jobs:
       macos: *full
       package: www
       windows: *full
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   www-site:
     needs: changes
@@ -993,7 +1129,8 @@ jobs:
     uses: ./.github/workflows/build.site.yaml
     with:
       site: www
-    secrets: inherit
+    secrets:
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   x-cpp:
     needs: changes
@@ -1007,7 +1144,8 @@ jobs:
       macos: *full
       targets: //x/cpp/...
       windows: *full
-    secrets: inherit
+    secrets:
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   x-go:
     needs: changes
@@ -1020,7 +1158,8 @@ jobs:
       directory: x/go
       macos: *full
       windows: *full
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   x-py:
     needs: changes
@@ -1034,7 +1173,9 @@ jobs:
       directory: x/py
       macos: *full
       windows: *full
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   x-py-lowest:
     needs: changes
@@ -1045,7 +1186,9 @@ jobs:
     with:
       directory: x/py
       lowest: true
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   x-ts:
     needs: changes
@@ -1059,7 +1202,10 @@ jobs:
       macos: *full
       package: x
       windows: *full
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   # A merge group cancels its run on the first failed job. The cancel frees the runners
   # that the other jobs hold, and OK then fails at once, so the queue ejects the group.

@@ -61,6 +61,9 @@ on:
         required: false
         type: boolean
         default: false
+    secrets:
+      CODECOV_TOKEN:
+        required: false
   workflow_dispatch:
     inputs: *inputs
 
@@ -374,6 +377,8 @@ jobs:
       - name: Upload coverage
         if: runner.os != 'macOS'
         uses: codecov/codecov-action@v7
+        env:
+          CURL_HOME: ${{ github.workspace }}/.github/codecov
         with:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}

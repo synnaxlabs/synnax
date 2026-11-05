@@ -301,6 +301,43 @@ describe("Select render isolation", () => {
     expect([...counts.keys()].sort()).toEqual(["key-3", "key-7"]);
   });
 
+  it("should re-render only the two items an arrow key moves the hover between", () => {
+    const { Counted, counts, reset } = createRenderCounter();
+    render(
+      <Triggers.Provider>
+        <Dialog.Frame visible>
+          <Select.Frame<string, undefined>
+            data={KEYS}
+            onChange={vi.fn()}
+            allowNone
+            initialHover={3}
+          >
+            <Select.List>
+              <Select.Items<string>>
+                {({ key, ...p }) => (
+                  <Counted key={key} id={p.itemKey}>
+                    <Select.Item {...p}>{p.itemKey}</Select.Item>
+                  </Counted>
+                )}
+              </Select.Items>
+            </Select.List>
+          </Select.Frame>
+        </Dialog.Frame>
+      </Triggers.Provider>,
+    );
+    reset();
+    act(() => {
+      fireEvent.keyDown(window, { code: "ArrowDown" });
+    });
+    act(() => {
+      fireEvent.keyUp(window, { code: "ArrowDown" });
+    });
+    expect([...counts.entries()].sort()).toEqual([
+      ["key-3", 1],
+      ["key-4", 1],
+    ]);
+  });
+
   it("should render only the fixed items whose visibility changes on a search", () => {
     const { Counted, counts, reset } = createRenderCounter();
     const c = render(

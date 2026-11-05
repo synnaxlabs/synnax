@@ -20,11 +20,8 @@ import { Select } from "@/feature/ni/device/Select";
 import { MAKE, SCHEMAS } from "@/feature/ni/device/types";
 import { digitalHardwareZ } from "@/feature/ni/task/checks";
 import { createNextDOChannel } from "@/feature/ni/task/createChannel";
-import {
-  DigitalChannelList,
-  type DigitalNameComponentProps,
-} from "@/feature/ni/task/DigitalChannelList";
 import { getDigitalChannelDeviceKey } from "@/feature/ni/task/getDigitalChannelDeviceKey";
+import { PORT_LINE_COLUMNS, PortLineCells } from "@/feature/ni/task/PortLine";
 import { digitalOutputName, digitalOutputStateName } from "@/feature/ni/task/ports";
 import { LinesView } from "@/feature/ni/task/PortsView";
 import {
@@ -36,7 +33,7 @@ import {
   type DOChannel,
 } from "@/feature/ni/task/types";
 import { Device as PlatformDevice } from "@/platform/device";
-import { Selector } from "@/platform/selector";
+import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const root = deep.path<Task.Values<DigitalWriteSchemas>>();
@@ -50,15 +47,9 @@ const Properties = () => (
   </>
 );
 
-interface NameComponentProps extends DigitalNameComponentProps<DOChannel> {}
-
-const NameComponent = ({
-  path,
-  itemKey,
-  cmdChannel,
-  stateChannel,
-  ...rest
-}: NameComponentProps) => {
+const ChannelListItem = ({ itemKey, ...rest }: Task.ChannelListItemProps) => {
+  const entry = root.config.channels[itemKey];
+  const ch = PForm.useFieldValue(entry);
   const device = useFromConfig();
   const skipped = Task.useSkipped(
     root.config.channels,
@@ -66,22 +57,22 @@ const NameComponent = ({
     getDigitalChannelDeviceKey,
   );
   return (
-    <Task.WriteChannelNames
+    <Task.Views.ListChannelItem
+      {...rest}
       itemKey={itemKey}
-      cmdChannel={cmdChannel}
-      cmdNamePath={path.cmdChannelName}
-      cmdDefaultName={device == null ? undefined : digitalOutputName(rest, device)}
-      stateChannel={stateChannel}
-      stateNamePath={path.stateChannelName}
-      stateDefaultName={
-        device == null ? undefined : digitalOutputStateName(rest, device)
-      }
+      path={entry}
+      channel={ch.cmdChannel}
+      defaultName={device == null ? undefined : digitalOutputName(ch, device)}
+      stateChannel={ch.stateChannel}
+      stateDefaultName={device == null ? undefined : digitalOutputStateName(ch, device)}
       skipped={skipped}
-    />
+    >
+      <PortLineCells path={entry} />
+    </Task.Views.ListChannelItem>
   );
 };
 
-const name = Component.renderProp(NameComponent);
+const listItem = Component.renderProp(ChannelListItem);
 
 const Form: FC = () => {
   const dev = useFromConfig();
@@ -93,28 +84,31 @@ const Form: FC = () => {
       PlatformDevice.ZERO_COMMAND_STATE_PAIR;
     return { cmdChannel: pair.command, stateChannel: pair.state };
   };
+  const map =
+    dev?.properties.hardware == null
+      ? undefined
+      : (props: Task.Views.PortsProps<DOChannel>) => (
+          <LinesView<DOChannel>
+            {...props}
+            device={dev}
+            direction="output"
+            create={(channels, placement) =>
+              createNextDOChannel(channels, placement, dev)
+            }
+            name={digitalOutputName}
+          />
+        );
   return (
-    <DigitalChannelList<DOChannel>
+    <Task.Views.List<DOChannel>
       path={root.config.channels}
       createChannel={(channels) => createNextDOChannel(channels, {}, dev)}
-      name={name}
+      listItem={listItem}
+      columns={PORT_LINE_COLUMNS}
+      channelColumns={Task.Views.LIST_WRITE_CHANNEL_COLUMNS}
+      checkable
       contextMenuItems={Task.writeChannelContextMenuItems}
       resolve={resolve}
-      ports={
-        dev?.properties.hardware == null
-          ? undefined
-          : (props) => (
-              <LinesView<DOChannel>
-                {...props}
-                device={dev}
-                direction="output"
-                create={(channels, placement) =>
-                  createNextDOChannel(channels, placement, dev)
-                }
-                name={digitalOutputName}
-              />
-            )
-      }
+      map={map}
     />
   );
 };
@@ -252,9 +246,10 @@ export const useCreateDigitalWrite = Task.createUseCreate({
   deviceMake: MAKE,
 });
 
-export const DigitalWriteSelectable = Selector.createSelectable({
+export const DigitalWriteSelectable: Selector.Selectable = {
   type: DIGITAL_WRITE_TYPE,
   title: "NI digital write task",
+  label: "Digital write",
   icon: <Icon.Logo.NI />,
   useOnSelect: useCreateDigitalWrite,
-});
+};
