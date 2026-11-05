@@ -610,7 +610,10 @@ func renderGoFile(
 			}
 			data.Decls = append(data.Decls, declData{Struct: &s})
 		case declUnion:
-			u := processUnion(d.typ, procData)
+			u, err := processUnion(d.typ, procData)
+			if err != nil {
+				return nil, nil, err
+			}
 			data.Decls = append(data.Decls, declData{Union: &u})
 		}
 	}
@@ -1489,22 +1492,26 @@ func ({{$s.Receiver}} {{$s.Instance}}) ToAny() {{$s.AnyInstance}} {
 {{- $u := .}}
 {{- if not .BorrowsEnum}}
 
+{{formatDoc .DiscType .DiscDoc}}
 type {{.DiscType}} string
 {{- if eq (len .Variants) 1}}
 {{- with index .Variants 0}}
 
+{{formatDoc .ConstName .ConstDoc}}
 const {{.ConstName}} {{$u.DiscType}} = "{{.Value}}"
 {{- end}}
 {{- else}}
 
 const (
 {{- range .Variants}}
+	{{formatFieldDoc .ConstName .ConstDoc | printf "%s"}}
 	{{.ConstName}} {{$u.DiscType}} = "{{.Value}}"
 {{- end}}
 )
 {{- end}}
 {{- end}}
 
+{{formatDoc .InterfaceName .InterfaceDoc}}
 type {{.InterfaceName}} interface {
 	{{.Marker}}()
 }
@@ -1679,10 +1686,27 @@ func (u *{{.Name}}) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		u.Variant = v.{{.TypeName}}
 {{- end}}
 	default:
-		return errors.Newf("{{.Name}}: unknown {{.DiscJSONName}} %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"{{.Name}}: unknown {{.DiscJSONName}} %q",
+			disc.Type,
+		)
 	}
 	return nil
 }
+{{- if .TagMethod}}
+
+{{formatDoc .TagMethod (printf "returns the %s of the active variant, or an empty %s when there is none." .DiscJSONName .DiscJSONName)}}
+func (u {{.Name}}) {{.TagMethod}}() {{.DiscType}} {
+	switch u.Variant.(type) {
+{{- range .Variants}}
+	case {{.TypeName}}:
+		return {{.ConstName}}
+{{- end}}
+	}
+	return ""
+}
+{{- end}}
 {{- if .NeedsApplyDefaults}}
 
 // ApplyDefaults fills the active variant's zero-valued fields with their

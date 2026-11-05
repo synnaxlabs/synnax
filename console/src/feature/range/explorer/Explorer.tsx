@@ -37,7 +37,7 @@ export const Explorer: Panel.Content = () => (
 
 const Internal = () => {
   const listProps = Ranger.useList({
-    initialQuery: View.useContext().getInitialView().query,
+    initialQuery: { where: View.useContext().getInitialView().where },
     sort: Ranger.sortByStage,
   });
   const openCreate = Range.useCreateModal();

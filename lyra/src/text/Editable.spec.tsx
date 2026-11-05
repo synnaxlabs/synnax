@@ -218,6 +218,45 @@ describe("Editable", () => {
     });
   });
 
+  describe("focus", () => {
+    const renderWithList = () => {
+      const c = render(
+        <div tabIndex={0} data-testid="list">
+          <Editable value="Hello" onChange={vi.fn()} />
+        </div>,
+      );
+      const list = c.getByTestId("list");
+      list.focus();
+      const text = c.getByText("Hello");
+      fireEvent.dblClick(text);
+      expect(document.activeElement).toBe(text);
+      return { list, text };
+    };
+
+    it("should give the focus back when Enter commits", () => {
+      const { list, text } = renderWithList();
+      text.innerText = "World";
+      fireEvent.keyDown(text, { key: "Enter" });
+      expect(document.activeElement).toBe(list);
+    });
+
+    it("should give the focus back when Escape reverts", () => {
+      const { list, text } = renderWithList();
+      text.innerText = "World";
+      fireEvent.keyDown(text, { key: "Escape" });
+      expect(document.activeElement).toBe(list);
+    });
+
+    it("should blur when nothing held the focus before the edit", () => {
+      const c = render(<Editable value="Hello" onChange={vi.fn()} />);
+      const text = c.getByText("Hello");
+      fireEvent.dblClick(text);
+      text.innerText = "World";
+      fireEvent.keyDown(text, { key: "Enter" });
+      expect(document.activeElement).toBe(document.body);
+    });
+  });
+
   describe("edit", () => {
     it("rejects asyncEdit when the element never appears", async () => {
       vi.useFakeTimers();

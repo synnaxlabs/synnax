@@ -36,7 +36,11 @@ type TimeRange = versions.TimeRange
 
 // Window is a window of time: a rolling span that ends now, or a fixed range.
 type Window = versions.Window
+
+// WindowVariant is implemented by every Window variant.
 type WindowVariant = versions.WindowVariant
+
+// WindowType is the "variant" value that selects a variant of Window.
 type WindowType = versions.WindowType
 
 const (
@@ -69,21 +73,32 @@ type DataType = versions.DataType
 type TimestampFormat = versions.TimestampFormat
 
 const (
-	TimestampFormatISO         TimestampFormat = versions.TimestampFormatISO
-	TimestampFormatISODate     TimestampFormat = versions.TimestampFormatISODate
-	TimestampFormatTime        TimestampFormat = versions.TimestampFormatTime
+	// TimestampFormatISO renders the full ISO 8601 timestamp.
+	TimestampFormatISO TimestampFormat = versions.TimestampFormatISO
+	// TimestampFormatISODate renders only the date of the ISO 8601 form.
+	TimestampFormatISODate TimestampFormat = versions.TimestampFormatISODate
+	// TimestampFormatTime renders the time of day to the second.
+	TimestampFormatTime TimestampFormat = versions.TimestampFormatTime
+	// TimestampFormatPreciseTime renders the time of day to the millisecond.
 	TimestampFormatPreciseTime TimestampFormat = versions.TimestampFormatPreciseTime
-	TimestampFormatDate        TimestampFormat = versions.TimestampFormatDate
+	// TimestampFormatDate renders the short month and the day.
+	TimestampFormatDate TimestampFormat = versions.TimestampFormatDate
+	// TimestampFormatPreciseDate renders the short month, the day, and the time to the
+	// millisecond.
 	TimestampFormatPreciseDate TimestampFormat = versions.TimestampFormatPreciseDate
-	TimestampFormatDateTime    TimestampFormat = versions.TimestampFormatDateTime
+	// TimestampFormatDateTime renders the short month, the day, and the time to the
+	// second.
+	TimestampFormatDateTime TimestampFormat = versions.TimestampFormatDateTime
 )
 
 // TimeZone is the time zone used when rendering timestamps.
 type TimeZone = versions.TimeZone
 
 const (
+	// TimeZoneLocal renders the time in the local time zone.
 	TimeZoneLocal TimeZone = versions.TimeZoneLocal
-	TimeZoneUTC   TimeZone = versions.TimeZoneUTC
+	// TimeZoneUTC renders the time in UTC.
+	TimeZoneUTC TimeZone = versions.TimeZoneUTC
 )
 
 // Alignment is a 64-bit index for positioning samples within multi-array structures.
@@ -98,8 +113,12 @@ type Alignment uint64
 type Aggregation string
 
 const (
-	AggregationMinMax   Aggregation = "min_max"
-	AggregationAverage  Aggregation = "average"
+	// AggregationMinMax keeps the lowest and highest sample of each group in the order
+	// they occurred.
+	AggregationMinMax Aggregation = "min_max"
+	// AggregationAverage keeps the mean of each group.
+	AggregationAverage Aggregation = "average"
+	// AggregationDecimate keeps the first sample of each group.
 	AggregationDecimate Aggregation = "decimate"
 )
 
@@ -114,13 +133,18 @@ func (a Aggregation) IsValid() bool {
 	}
 }
 
+// ReductionType is the "variant" value that selects a variant of Reduction.
 type ReductionType string
 
 const (
+	// StrideReductionType keeps every factor-th sample of each series read.
 	StrideReductionType ReductionType = "stride"
-	LimitReductionType  ReductionType = "limit"
+	// LimitReductionType reduces each group of samples so that each channel comes back
+	// as about point_limit points. Channels on one index reduce over the same groups.
+	LimitReductionType ReductionType = "limit"
 )
 
+// ReductionVariant is implemented by every Reduction variant.
 type ReductionVariant interface {
 	isReductionVariant()
 }
@@ -224,7 +248,11 @@ func (u *Reduction) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.LimitReduction
 	default:
-		return errors.Newf("Reduction: unknown variant %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Reduction: unknown variant %q",
+			disc.Type,
+		)
 	}
 	return nil
 }

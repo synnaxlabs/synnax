@@ -64,7 +64,15 @@ const (
 	// ResourceTypeUser identifies a user.
 	ResourceTypeUser ResourceType = v0.ResourceTypeUser
 	// ResourceTypeView identifies a view.
-	ResourceTypeView ResourceType = v0.ResourceTypeView
+	ResourceTypeView           ResourceType = v0.ResourceTypeView
+	ResourceTypeEthercatMaster ResourceType = v0.ResourceTypeEthercatMaster
+	ResourceTypeEthercatSlave  ResourceType = v0.ResourceTypeEthercatSlave
+	ResourceTypeHTTPServer     ResourceType = v0.ResourceTypeHTTPServer
+	ResourceTypeLabjackDevice  ResourceType = v0.ResourceTypeLabjackDevice
+	ResourceTypeModbusServer   ResourceType = v0.ResourceTypeModbusServer
+	ResourceTypeNiChassis      ResourceType = v0.ResourceTypeNiChassis
+	ResourceTypeNiDevice       ResourceType = v0.ResourceTypeNiDevice
+	ResourceTypeOpcuaServer    ResourceType = v0.ResourceTypeOpcuaServer
 )
 
 // RelationshipType is the kind of link between two resources.

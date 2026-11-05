@@ -12,6 +12,7 @@ import { userEvent } from "vitest/browser";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
+import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { computed, height, renderThemed, resolve } from "@/styletest";
 
@@ -26,6 +27,10 @@ const renderInput = async (
 };
 
 const background = (el: Element): string => computed(el, "background-color");
+
+// The left edge of the text, past the input's own padding.
+const textStart = (input: Element): number =>
+  input.getBoundingClientRect().left + parseFloat(computed(input, "padding-left"));
 
 describe("Input", () => {
   it("should paint from the outlined rest tokens", async () => {
@@ -73,6 +78,54 @@ describe("Input", () => {
     expect(getComputedStyle(input, "::placeholder").color).toBe(
       resolve("var(--pluto-text-disabled)"),
     );
+  });
+
+  describe("start icon", () => {
+    const renderIconInputs = async () => {
+      const { getByPlaceholder } = await renderThemed(
+        <>
+          <Input.Text value="" onChange={() => {}} placeholder="text" variant="text" />
+          <Input.Text
+            value=""
+            onChange={() => {}}
+            placeholder="text icon"
+            variant="text"
+            startContent={<Icon.Search />}
+          />
+          <Input.Text
+            value=""
+            onChange={() => {}}
+            placeholder="outlined icon"
+            startContent={<Icon.Search />}
+          />
+        </>,
+      );
+      const parts = (placeholder: string) => {
+        const input = getByPlaceholder(placeholder, { exact: true }).element();
+        const box = input.closest(`.${CSS.B("input")}`)!;
+        const icon = box.querySelector("svg")?.getBoundingClientRect();
+        return { input, left: box.getBoundingClientRect().left, icon };
+      };
+      return {
+        text: parts("text"),
+        textIcon: parts("text icon"),
+        outlinedIcon: parts("outlined icon"),
+      };
+    };
+
+    it("should sit in a text variant where its text sits without one", async () => {
+      const { text, textIcon } = await renderIconInputs();
+      expect(textIcon.icon!.left - textIcon.left).toBe(
+        textStart(text.input) - text.left,
+      );
+    });
+
+    it("should keep a text variant's text as clear as an outlined one", async () => {
+      const { textIcon, outlinedIcon } = await renderIconInputs();
+      expect(textStart(textIcon.input) - textIcon.icon!.right).toBe(
+        textStart(outlinedIcon.input) - outlinedIcon.icon!.right,
+      );
+    });
   });
 
   it("should stack above the packed button beside it", async () => {

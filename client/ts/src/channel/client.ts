@@ -427,6 +427,8 @@ export class Client extends query.Retriever<
           ? records[0]
           : this.composeAlias(records[0].payload, query.rangeKey),
       keyOf: (query) => query.key,
+      // Status-free fetches and the stream cache calculated channels with no status.
+      covers: (ch) => !ch.isCalculated || ch.status != null,
       single: true,
       watch: [
         query.watch(aliasStore, (event, query: RetrieveSingleParams) => {
