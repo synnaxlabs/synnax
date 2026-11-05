@@ -303,13 +303,14 @@ const selectColumn = (
   names: Record<string, string>,
 ): ReactElement<Input.TableColumnProps> => (
   <Input.TableColumn key={index} name={name} width={width} type="string">
-    {({ value, onChange, preview }) => (
+    {({ value, onChange, preview, variant, "aria-label": ariaLabel }) => (
       <Select.Simple<string>
         resourceName={resourceName}
         value={value}
         onChange={onChange}
         preview={preview}
         variant="floating"
+        triggerProps={{ variant, "aria-label": ariaLabel }}
       >
         {Object.entries(names).map(([key, label]) => (
           <Select.Item key={key} itemKey={key}>
