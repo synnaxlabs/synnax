@@ -917,8 +917,14 @@ class TestNIResources:
         assert sy.ni.chassis.ontology_id(self.KEY).type == "ni_chassis"
         assert sy.ni.chassis.ontology_id(self.KEY).key == str(self.KEY)
 
-    def test_chassis_requires_a_serial(self) -> None:
+    def test_chassis_requires_a_resource_name(self) -> None:
         with pytest.raises(ValidationError):
             sy.ni.chassis.Chassis.model_validate(
-                {"rack": 1, "name": "PXIe-1071", "model": "1071", "alias": "PXI1"}
+                {"rack": 1, "name": "PXIe-1071", "model": "1071", "serial": "01A"}
             )
+
+    def test_chassis_serial_defaults_to_empty(self) -> None:
+        chassis = sy.ni.chassis.Chassis(
+            rack=1, name="PXIe-1071", model="1071", resource_name="Mod1"
+        )
+        assert chassis.serial == ""
