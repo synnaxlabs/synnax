@@ -9,7 +9,7 @@
 
 import { isCalculated, isValidName } from "@/channel/payload";
 import { type Where } from "@/channel/types.gen";
-import { type Lines, serverComputed as linesServerComputed } from "@/channel/where.gen";
+import { type Lines, serverComputed as baseServerComputed } from "@/channel/where.gen";
 
 /**
  * The typed lines of a channel Where. A name pattern that is a valid channel name
@@ -31,4 +31,4 @@ const hasRegexNamePattern = (where?: Where): boolean =>
 
 /** @returns whether only the Core can check where. */
 export const serverComputed = (where?: Where): boolean =>
-  linesServerComputed(LINES, where) || hasRegexNamePattern(where);
+  baseServerComputed(LINES, where) || hasRegexNamePattern(where);

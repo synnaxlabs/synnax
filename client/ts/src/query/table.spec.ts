@@ -1944,6 +1944,31 @@ describe("Tombstones", () => {
     });
   });
 
+  describe("ingestDeletes", () => {
+    it("should tombstone an entry that a fetch found gone", () => {
+      const table = newTable();
+      table.set("k1", { key: "k1", name: "a" });
+      table.ingestDeletes(["k1"], table.stamp());
+      expect(table.status("k1")).toBe("tombstoned");
+    });
+
+    it("should keep an entry written after the stamp", () => {
+      const table = newTable();
+      const since = table.stamp();
+      table.set("k1", { key: "k1", name: "a" });
+      table.ingestDeletes(["k1"], since);
+      expect(table.get("k1")).toEqual({ key: "k1", name: "a" });
+    });
+
+    it("should skip a key that the table does not hold", () => {
+      const table = newTable();
+      const subscriber = vi.fn();
+      table.subscribe(subscriber);
+      table.ingestDeletes(["k1"], table.stamp());
+      expect(subscriber).not.toHaveBeenCalled();
+    });
+  });
+
   it("should keep a key deleted during its retrieve deleted", async () => {
     let release: (docs: Doc[]) => void = () => {};
     const fetch = vi.fn(

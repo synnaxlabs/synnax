@@ -247,6 +247,8 @@ export class Client extends query.Retriever<
       equal: (a, b) =>
         idsEqual(a.from, b.from) && idsEqual(a.to, b.to) && a.type === b.type,
       indexes: [relationshipIndexes.byTo, relationshipIndexes.byFrom],
+      // A relationship deleted and created again keeps its key.
+      revivable: true,
       listen: [
         query.createSetListener(RELATIONSHIP_SET_CHANNEL_NAME, relationshipZ, {
           key: (changed) => relationshipToString(changed),

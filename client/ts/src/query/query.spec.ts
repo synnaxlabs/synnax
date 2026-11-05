@@ -1095,6 +1095,25 @@ describe("Answers", () => {
       expect(fetch).toHaveBeenCalledTimes(2);
     });
 
+    it("notifies an edit to a member that matches cannot decide", async () => {
+      const table = newTable();
+      const answers = new Space<ListQ, Rec[], string, Rec>({
+        name: "things",
+        table,
+        fetch: async () => {
+          table.set("a", rec("a", 5));
+          return ["a"];
+        },
+        compose: (records) => records,
+        matches: (r, q) => (r.value < 0 ? null : r.value >= q.min),
+      });
+      const handler = vi.fn();
+      answers.onChange({ min: 3 }, handler);
+      await answers.retrieve({ min: 3 });
+      table.set("a", rec("a", -1));
+      expect(handler).toHaveBeenLastCalledWith([rec("a", -1)]);
+    });
+
     // Regression: membership is patched from table events, and an unmaintained
     // query received none, so a member that appeared during the gap is missing
     // from the answer a remount is served.

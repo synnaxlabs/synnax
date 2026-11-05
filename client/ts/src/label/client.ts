@@ -140,12 +140,22 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
           const since = relationships.stamp();
           const labels = await this.execRetrieve(req);
           if (id == null) return labels;
-          relationships.batch(() =>
-            labels.forEach((l) => {
+          // The response holds every label of id, so it replaces the cached set.
+          const fetched = new Map(
+            labels.map((l) => {
               const rel = labeledByRel(id, l.key);
-              relationships.ingest(ontology.relationshipToString(rel), rel, { since });
+              return [ontology.relationshipToString(rel), rel];
             }),
           );
+          const vanished = ontologyClient.cache
+            .relationshipsFrom(id)
+            .filter((r) => matchLabeledBy(r, id))
+            .map(ontology.relationshipToString)
+            .filter((key) => !fetched.has(key));
+          relationships.batch(() => {
+            relationships.ingestDeletes(vanished, since);
+            fetched.forEach((rel, key) => relationships.ingest(key, rel, { since }));
+          });
           labelSets.add(ontology.idToString(id));
           return labels;
         },

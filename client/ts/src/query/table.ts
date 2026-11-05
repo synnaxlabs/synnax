@@ -444,6 +444,17 @@ export class Table<
     return !this.tombstones.has(key) || (this.revivable && since != null);
   }
 
+  /**
+   * Tombstones the entries of the given keys, which a fetch that started at the given
+   * stamp found gone. Skips a key the table does not hold or wrote after the stamp.
+   */
+  ingestDeletes(keys: Key[], since: Stamp): void {
+    const vanished = keys.filter(
+      (key) => this.entries.has(key) && !this.writtenSince(key, since),
+    );
+    if (vanished.length > 0) this.remove(vanished, "confirmed");
+  }
+
   /** Returns every entry in the table, or every entry the filter accepts. */
   get(filter?: (value: Value) => boolean): Value[];
   get(key: Key): Value | undefined;

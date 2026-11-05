@@ -896,6 +896,7 @@ export class Space<
       const matched = entry == null ? false : matches!(entry, query.params);
       if (matched == null) {
         undecided = true;
+        touched ||= memberSet.has(key);
         continue;
       }
       if (matched === memberSet.has(key)) {
