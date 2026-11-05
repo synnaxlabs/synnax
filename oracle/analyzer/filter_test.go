@@ -830,6 +830,7 @@ var _ = Describe("Filter definitions", func() {
 			Entry("limit", "limit uint32", `"limit"`),
 			Entry("one", "one bool", `"one"`),
 			Entry("an include field", "include_labels bool", `"include_labels"`),
+			Entry("a camelCase include field", "includeLabels bool", `"includeLabels"`),
 		)
 
 		It("Should reject a derived name the schema already declares", func(
