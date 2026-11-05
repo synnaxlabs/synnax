@@ -171,7 +171,6 @@ class DevicesToolbar(ConsoleCase):
         properties: dict[str, JsonValue] | None = None,
     ) -> sy.Device:
         """Create a device with auto-suffixed key/name and track for teardown."""
-        parent_id = sy.resource.ID(type="device", key=parent) if parent else None
         dev = self.client.devices.create(
             sy.Device(
                 key=f"{key}-{self.suffix}",
@@ -182,7 +181,7 @@ class DevicesToolbar(ConsoleCase):
                 location=location,
                 configured=configured,
                 properties=properties or {},
-                parent=parent_id,
+                parent=parent or None,
             ),
         )
         self._live_keys.add(dev.key)
@@ -199,7 +198,7 @@ class DevicesToolbar(ConsoleCase):
                 model=device.model,
                 location=device.location,
                 properties=device.properties,
-                parent=sy.resource.ID(type="device", key=target_chassis.key),
+                parent=target_chassis.key,
             ),
         )
         self.console.devices.expand(target_chassis.name)
