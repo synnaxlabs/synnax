@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { log, type ontology } from "@synnaxlabs/client";
+import { log, type resource } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
@@ -31,20 +31,20 @@ describe("log/search", () => {
   it("opens the log as a tab when the search result is selected", async () => {
     const key = uuid.create();
     const name = uniqueName("log");
-    const resource = createResource(log.resourceID(key), name);
+    const item = createResource(log.resourceID(key), name);
     const SearchListItem = Log.SEARCH_LIST_ITEMS.log;
     if (SearchListItem == null) throw new Error("log SearchListItem is not defined");
     const Harness = (): ReactElement => {
-      const staticProps = List.useStaticData<string, ontology.Resource>({
-        data: [resource],
+      const staticProps = List.useStaticData<string, resource.Resource>({
+        data: [item],
       });
       return (
-        <Select.Frame<string, ontology.Resource>
+        <Select.Frame<string, resource.Resource>
           {...staticProps}
           value={undefined}
           onChange={() => {}}
         >
-          <SearchListItem key={resource.key} itemKey={resource.key} index={0} />
+          <SearchListItem key={item.key} itemKey={item.key} index={0} />
         </Select.Frame>
       );
     };

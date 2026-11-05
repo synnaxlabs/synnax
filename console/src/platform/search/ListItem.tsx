@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, type resource } from "@synnaxlabs/client";
+import { type resource } from "@synnaxlabs/client";
 import { type Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
@@ -18,12 +18,12 @@ import { Panel } from "@/platform/panel";
 
 interface BaseListItemProps extends Omit<Palette.ListItemProps, "onSelect"> {
   icon: Icon.ReactElement;
-  onSelect: (item: ontology.Resource) => void;
+  onSelect: (item: resource.Resource) => void;
 }
 
 const BaseListItem = ({ icon, onSelect, ...rest }: BaseListItemProps) => {
   const { itemKey } = rest;
-  const item = List.useItem<string, ontology.Resource>(itemKey);
+  const item = List.useItem<string, resource.Resource>(itemKey);
   if (item == null) return null;
   const { name } = item;
   return (
@@ -43,7 +43,7 @@ export interface ListItem extends FC<ListItemProps> {}
 export interface ListItems extends Partial<Record<resource.Type, ListItem>> {}
 
 export interface CreateListItemParams extends Pick<BaseListItemProps, "icon"> {
-  useOnSelect?: () => (item: ontology.Resource) => void;
+  useOnSelect?: () => (item: resource.Resource) => void;
 }
 
 export const createListItem = ({

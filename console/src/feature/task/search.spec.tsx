@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology } from "@synnaxlabs/client";
+import { type resource } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
@@ -39,20 +39,20 @@ const createTask = async () => {
 describe("task/search", () => {
   it("opens the task's resource tab when the search result is selected", async () => {
     const t = await createTask();
-    const resource = createResource(t.resourceID, t.name);
+    const item = createResource(t.resourceID, t.name);
     const SearchListItem = Task.SEARCH_LIST_ITEMS.task;
     if (SearchListItem == null) throw new Error("task SearchListItem is not defined");
     const Harness = (): ReactElement => {
-      const staticProps = List.useStaticData<string, ontology.Resource>({
-        data: [resource],
+      const staticProps = List.useStaticData<string, resource.Resource>({
+        data: [item],
       });
       return (
-        <Select.Frame<string, ontology.Resource>
+        <Select.Frame<string, resource.Resource>
           {...staticProps}
           value={undefined}
           onChange={() => {}}
         >
-          <SearchListItem key={resource.key} itemKey={resource.key} index={0} />
+          <SearchListItem key={item.key} itemKey={item.key} index={0} />
         </Select.Frame>
       );
     };

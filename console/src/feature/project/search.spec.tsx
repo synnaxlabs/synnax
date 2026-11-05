@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, project } from "@synnaxlabs/client";
+import { project, type resource } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
@@ -27,21 +27,21 @@ describe("project/search", () => {
     const p = await client.projects.create({
       name: uniqueName("project"),
     });
-    const resource = createResource(project.resourceID(p.key), p.name);
+    const item = createResource(project.resourceID(p.key), p.name);
     const SearchListItem = Project.SEARCH_LIST_ITEMS.project;
     if (SearchListItem == null)
       throw new Error("project SearchListItem is not defined");
     const Harness = (): ReactElement => {
-      const staticProps = List.useStaticData<string, ontology.Resource>({
-        data: [resource],
+      const staticProps = List.useStaticData<string, resource.Resource>({
+        data: [item],
       });
       return (
-        <Select.Frame<string, ontology.Resource>
+        <Select.Frame<string, resource.Resource>
           {...staticProps}
           value={undefined}
           onChange={() => {}}
         >
-          <SearchListItem key={resource.key} itemKey={resource.key} index={0} />
+          <SearchListItem key={item.key} itemKey={item.key} index={0} />
         </Select.Frame>
       );
     };

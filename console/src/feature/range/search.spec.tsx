@@ -7,18 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, ranger } from "@synnaxlabs/client";
+import { ranger, type resource } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
-import { screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Range } from "@/feature/range";
 import { createTestRange } from "@/platform/range/testutil";
 import { createResource } from "@/platform/tree/testutil";
-import { renderWithConsole } from "@/testutil";
+import { createConsoleWrapper } from "@/testutil";
 
 const client = createTestClient();
 
@@ -26,30 +26,29 @@ describe("range/search", () => {
   describe("SearchListItem", () => {
     it("renders the resource name and time range", async () => {
       const rng = await createTestRange(client);
-      const resource = createResource(ranger.resourceID(rng.key), rng.name, {
-        timeRange: rng.timeRange.numeric,
-      });
+      const item = createResource(ranger.resourceID(rng.key), rng.name);
       const SearchListItem = Range.SEARCH_LIST_ITEMS.range;
       if (SearchListItem == null)
         throw new Error("range SearchListItem is not defined");
       const Harness = (): ReactElement => {
-        const staticProps = List.useStaticData<string, ontology.Resource>({
-          data: [resource],
+        const staticProps = List.useStaticData<string, resource.Resource>({
+          data: [item],
         });
         return (
-          <Select.Frame<string, ontology.Resource>
+          <Select.Frame<string, resource.Resource>
             {...staticProps}
             value={undefined}
             onChange={() => {}}
           >
-            <SearchListItem key={resource.key} itemKey={resource.key} index={0} />
+            <SearchListItem key={item.key} itemKey={item.key} index={0} />
           </Select.Frame>
         );
       };
-      const { container } = await renderWithConsole(<Harness />);
+      const { wrapper } = await createConsoleWrapper({ client });
+      const { container } = render(<Harness />, { wrapper });
       expect(await screen.findByText(rng.name)).toBeTruthy();
       // createTestRange builds a range starting now, which formats as "Today ...".
-      expect(container.textContent).toContain("Today");
+      await waitFor(() => expect(container.textContent).toContain("Today"));
     });
   });
 });

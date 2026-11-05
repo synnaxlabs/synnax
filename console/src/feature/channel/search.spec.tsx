@@ -12,7 +12,7 @@ import {
   DataType,
   lineplot,
   log,
-  type ontology,
+  type resource,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
@@ -40,18 +40,18 @@ const createChannel = async (overrides: Partial<channelClient.New> = {}) =>
 const SearchListItem = Channel.SEARCH_LIST_ITEMS.channel;
 if (SearchListItem == null) throw new Error("channel SearchListItem is not defined");
 
-const renderSearchItem = async (resource: ontology.Resource) => {
+const renderSearchItem = async (item: resource.Resource) => {
   const Harness = (): ReactElement => {
-    const staticProps = List.useStaticData<string, ontology.Resource>({
-      data: [resource],
+    const staticProps = List.useStaticData<string, resource.Resource>({
+      data: [item],
     });
     return (
-      <Select.Frame<string, ontology.Resource>
+      <Select.Frame<string, resource.Resource>
         {...staticProps}
         value={undefined}
         onChange={() => {}}
       >
-        <SearchListItem key={resource.key} itemKey={resource.key} index={0} />
+        <SearchListItem key={item.key} itemKey={item.key} index={0} />
       </Select.Frame>
     );
   };
@@ -124,10 +124,7 @@ describe("channel/search", () => {
       name: uniqueName("proj"),
     });
     const store = await renderSearchItem(
-      createResource(channelClient.resourceID(ch.key), ch.name, {
-        virtual: true,
-        expression: "",
-      }),
+      createResource(channelClient.resourceID(ch.key), ch.name),
     );
     store.dispatch(Session.Project.select(proj.key));
     fireEvent.click(await screen.findByText(ch.name), { detail: 0 });
@@ -149,10 +146,7 @@ describe("channel/search", () => {
       name: uniqueName("log"),
     });
     const store = await renderSearchItem(
-      createResource(channelClient.resourceID(ch.key), ch.name, {
-        virtual: true,
-        expression: "",
-      }),
+      createResource(channelClient.resourceID(ch.key), ch.name),
     );
     const tabKey = uuid.create();
     const pan = await client.panels.create({
@@ -180,15 +174,16 @@ describe("channel/search", () => {
   });
 
   it("creates a line plot for a calculated channel", async () => {
-    const ch = await createChannel();
+    const ch = await createChannel({
+      isIndex: false,
+      virtual: true,
+      expression: "return 1",
+    });
     const proj = await client.projects.create({
       name: uniqueName("proj"),
     });
     const store = await renderSearchItem(
-      createResource(channelClient.resourceID(ch.key), ch.name, {
-        virtual: true,
-        expression: "return 1",
-      }),
+      createResource(channelClient.resourceID(ch.key), ch.name),
     );
     store.dispatch(Session.Project.select(proj.key));
     fireEvent.click(await screen.findByText(ch.name), { detail: 0 });

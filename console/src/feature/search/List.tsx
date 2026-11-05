@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology } from "@synnaxlabs/client";
+import { type resource } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List as Base } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Ontology } from "@synnaxlabs/pluto";
+import { Resource } from "@synnaxlabs/pluto";
+import { record } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Palette } from "@/platform/palette";
@@ -24,14 +25,14 @@ const emptyContent = (
   </Text.Text>
 );
 
-export interface ListProps extends Palette.ListProps<ontology.Resource> {
+export interface ListProps extends Palette.ListProps<resource.Resource> {
   items: Search.ListItems;
 }
 
 interface ListItemProps extends Base.ItemProps<string>, Pick<ListProps, "items"> {}
 
 const ListItem = ({ items, ...props }: ListItemProps): ReactElement | null => {
-  const item = Base.useItem<string, ontology.Resource>(props.itemKey);
+  const item = Base.useItem<string, resource.Resource>(props.itemKey);
   if (item == null) return null;
   const Item = items[item.id.type];
   if (Item == null) return null;
@@ -39,14 +40,16 @@ const ListItem = ({ items, ...props }: ListItemProps): ReactElement | null => {
 };
 
 export const List = ({ items, ...rest }: ListProps): ReactElement => {
-  const filter = (item: ontology.Resource) => items[item.id.type] != null;
   const listItem = ({ key, ...props }: Base.ItemProps<string>) => (
     <ListItem key={key} {...props} items={items} />
   );
-  const listProps = Ontology.useResourceList({ filter });
+  const listProps = Resource.useSearch({
+    initialQuery: { types: record.keys(items) },
+  });
   return (
     <Palette.BaseList
-      emptyContent={listProps.answered && emptyContent}
+      // An empty term matches nothing, so the list stays blank until the user types.
+      emptyContent={listProps.answered && rest.value !== "" && emptyContent}
       listItem={listItem}
       {...listProps}
       {...rest}
