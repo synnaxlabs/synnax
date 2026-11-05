@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, primitive } from "@synnaxlabs/x";
+import { array, primitive, sync } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { NotFoundError } from "@/errors";
@@ -143,13 +143,20 @@ export class Client extends query.Retriever<
       fetch: async (keys) =>
         (await this.execRetrieve({ keys, includeUses: true })).map(toUses),
     });
-    // The Core announces no change to uses.
+    // The Core announces no change to uses. The cache handles frames at the same time,
+    // so refetches run one at a time to keep an older reply from overwriting a newer
+    // one. A change that arrives while a refetch waits joins it.
+    const refetchMu = sync.newMutex({ waiting: false });
+    const refetchUses = async () => {
+      if (refetchMu.waiting) return;
+      refetchMu.waiting = true;
+      await refetchMu.runExclusive(async () => {
+        refetchMu.waiting = false;
+        await usesStore.reconcile();
+      });
+    };
     cfg.usesChannels.forEach((channel) =>
-      cache.listen({
-        channel,
-        schema: z.unknown(),
-        onChange: async () => await usesStore.reconcile(),
-      }),
+      cache.listen({ channel, schema: z.unknown(), onChange: refetchUses }),
     );
     const usesWatch = query.watch(
       usesStore,
