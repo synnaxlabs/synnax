@@ -34,6 +34,7 @@ export const Select = () => {
       emptyContent={EMPTY_CONTENT}
       label="MQTT broker"
       make={MAKE}
+      icon={NETWORK.icon}
       connect={connect}
     />
   );

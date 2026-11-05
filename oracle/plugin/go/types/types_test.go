@@ -95,6 +95,18 @@ var _ = Describe("Go Types Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		It("Should generate the recursive Where of a filter", func(ctx SpecContext) {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ctx, ThingFilter, "thing", loader, goPlugin)
+			ExpectContent(resp, "thing/types.gen.go").
+				ToBeValidGoSource().
+				ToContain(
+					"And []Where `json:\"and,omitzero\" msgpack:\"and,omitempty\"`",
+					"Or []Where `json:\"or,omitzero\" msgpack:\"or,omitempty\"`",
+					"Not *Where `json:\"not,omitzero\" msgpack:\"not,omitempty\"`",
+				)
+		})
+
 		Context("field-level omit", func() {
 			It("Should keep a wire-omitted field out of JSON and msgpack", func(
 				ctx SpecContext,
@@ -3116,6 +3128,107 @@ var _ = Describe("Go Union Generation", func() {
 	)
 
 	It(
+		"Should generate a method for the tag",
+		func(ctx SpecContext) {
+			source := `
+			@go output "out"
+
+			Base struct { name string }
+
+			View union on type extends Base {
+				first { size int32 }
+				second { count int32 }
+			}
+		`
+			resp := MustGenerate(ctx, source, "view", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain(
+					`// Type returns the type of the active variant, or an empty type when there is none.
+func (u View) Type() ViewType {
+	switch u.Variant.(type) {
+	case FirstView:
+		return FirstViewType
+	case SecondView:
+		return SecondViewType
+	}
+	return ""
+}`,
+				)
+		},
+	)
+
+	It(
+		"Should generate no method for a base that a variant drops a field from",
+		func(ctx SpecContext) {
+			source := `
+			@go output "out"
+
+			Base struct {
+				name string
+				size int32
+			}
+
+			View union on type extends Base {
+				first { -size }
+			}
+		`
+			resp := MustGenerate(ctx, source, "view", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain("func (u View) Type() ViewType").
+				ToNotContain("func (u View) Base() Base")
+		},
+	)
+
+	It(
+		"Should generate no tag method that collides with the Variant field",
+		func(ctx SpecContext) {
+			source := `
+			@go output "out"
+
+			Base struct { name string }
+
+			Config union on variant extends Base {
+				first { size int32 }
+			}
+		`
+			resp := MustGenerate(ctx, source, "view", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain("func (u Config) Base() Base").
+				ToNotContain("func (u Config) Variant()")
+		},
+	)
+
+	DescribeTable(
+		"Should reject a union getter that has the name of another union method",
+		func(ctx SpecContext, source, msg string) {
+			table, diag := Analyze(ctx, source, "view", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			req := &plugin.Request{Resolutions: table}
+			Expect(goPlugin.Generate(req)).Error().To(MatchError(
+				"failed to generate out: view.Shape: " + msg,
+			))
+		},
+		Entry("when the tag getter has the name of the base getter", `
+			@go output "out"
+
+			Detail struct { name string }
+
+			Shape union on base extends Detail {
+				first { size int32 }
+			}
+		`, "the getter for the discriminator base has the name of another union "+
+			"method; rename the discriminator"),
+		Entry("when the tag getter has the name of a method every union declares", `
+			@go output "out"
+
+			Shape union on validate {
+				first { size int32 }
+			}
+		`, "the getter for the discriminator validate has the name of another union "+
+			"method; rename the discriminator"),
+	)
+
+	It(
 		"Should emit a single discriminator constant on one line",
 		func(ctx SpecContext) {
 			source := `
@@ -3237,7 +3350,6 @@ var _ = Describe("Go Union Generation", func() {
 					`case LinearScale:`,
 					`}{Type: LinearScaleType, LinearScale: v})`,
 					`func (u *Scale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {`,
-					`Type ScaleType `+"`"+`json:"type"`+"`",
 					`case LinearScaleType:`,
 					`json.RejectUnknownMembers(false)`,
 					"LinearScale\n\t\t}",

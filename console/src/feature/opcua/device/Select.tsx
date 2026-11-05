@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/lyra/icon";
-
 import { NETWORK } from "@/feature/opcua/device/network";
 import { MAKE } from "@/feature/opcua/device/types";
 import { useConnectModal } from "@/feature/opcua/device/useConnectModal";
@@ -36,7 +34,7 @@ export const Select = () => {
       emptyContent={EMPTY_CONTENT}
       label="OPC UA server"
       make={MAKE}
-      icon={<Icon.Logo.OPCUA />}
+      icon={NETWORK.icon}
       connect={connect}
     />
   );

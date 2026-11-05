@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "schemas/synnax/label"
+import "schemas/synnax/versions/label/v0"
 import "schemas/x/versions/color/v0"
+import "schemas/x/versions/filter/v0"
 import "schemas/x/versions/telem/v0"
 
 Key = v0.Key
@@ -49,6 +50,20 @@ Range struct {
 
     @go marshal
     @go migrate
+}
+
+Where filter Range {
+    key
+    name
+    overlaps telem.TimeRange {
+        @doc value "matches ranges whose time range overlaps the given range."
+    }
+    labels   label.Key[]     {
+        @doc value "matches ranges that have any of the given labels."
+    }
+
+    @doc value  "is a filter that selects ranges."
+    @go marshal
 }
 
 Ref union on variant {
