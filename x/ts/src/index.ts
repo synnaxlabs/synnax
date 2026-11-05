@@ -43,6 +43,7 @@ export * from "@/record";
 export * from "@/require";
 export * from "@/runtime";
 export * from "@/scheduler";
+export * from "@/search";
 export * from "@/shallow";
 export * from "@/sleep";
 export * from "@/spatial";

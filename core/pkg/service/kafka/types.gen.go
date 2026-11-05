@@ -16,6 +16,7 @@ import (
 	"encoding/json/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka/versions"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // StartOffset is where a consumer group with no committed offset starts reading a
@@ -67,15 +68,21 @@ type Credentials struct {
 	Password string `json:"password" msgpack:"password"`
 }
 
+// SASLType is the "mechanism" value that selects a variant of SASL.
 type SASLType string
 
 const (
-	NoneSASLType        SASLType = "none"
-	PlainSASLType       SASLType = "plain"
+	// NoneSASLType authenticates with no credentials.
+	NoneSASLType SASLType = "none"
+	// PlainSASLType authenticates with the PLAIN mechanism.
+	PlainSASLType SASLType = "plain"
+	// ScramSha256SASLType authenticates with the SCRAM-SHA-256 mechanism.
 	ScramSha256SASLType SASLType = "scram_sha_256"
+	// ScramSha512SASLType authenticates with the SCRAM-SHA-512 mechanism.
 	ScramSha512SASLType SASLType = "scram_sha_512"
 )
 
+// SASLVariant is implemented by every SASL variant.
 type SASLVariant interface {
 	isSASLVariant()
 }
@@ -199,7 +206,11 @@ func (u *SASL) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.ScramSha512SASL
 	default:
-		return errors.Newf("SASL: unknown mechanism %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"SASL: unknown mechanism %q",
+			disc.Type,
+		)
 	}
 	return nil
 }

@@ -162,6 +162,14 @@ using WriteChannel = std::variant<AnalogWriteChannel, DigitalWriteChannel>;
 WriteChannel parse_write_channel(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const WriteChannel &value);
 
+/// @brief returns the fields every variant of the union shares.
+[[nodiscard]] inline const BaseWriteChannel &base(const WriteChannel &value) {
+    return std::visit(
+        [](const auto &v) -> const BaseWriteChannel & { return v; },
+        value
+    );
+}
+
 /// @brief AnalogReadChannel reads a voltage from an analog input port.
 struct AnalogReadChannel : public BaseReadChannel {
     std::string type = "analog";
@@ -225,6 +233,14 @@ using ReadChannel = std::
 
 ReadChannel parse_read_channel(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const ReadChannel &value);
+
+/// @brief returns the fields every variant of the union shares.
+[[nodiscard]] inline const BaseReadChannel &base(const ReadChannel &value) {
+    return std::visit(
+        [](const auto &v) -> const BaseReadChannel & { return v; },
+        value
+    );
+}
 
 /// @brief WriteConfig configures a LabJack write task.
 struct WriteConfig : public ::synnax::task::WriteConfig {

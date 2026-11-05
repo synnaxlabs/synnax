@@ -165,6 +165,37 @@ on:
         description: Console updater channel the app polls, stable or next
         type: string
         default: stable
+    secrets:
+      APPLE_CERTIFICATE:
+        required: false
+      APPLE_CERTIFICATE_PASSWORD:
+        required: false
+      APPLE_ID:
+        required: false
+      APPLE_ID_PASSWORD:
+        required: false
+      APPLE_TEAM_ID:
+        required: false
+      AZURE_CLIENT_ID:
+        required: false
+      AZURE_CLIENT_SECRET:
+        required: false
+      AZURE_TENANT_ID:
+        required: false
+      DOCKER_PASSWORD:
+        required: false
+      DOCKER_USERNAME:
+        required: false
+      KEYCHAIN_PASSWORD:
+        required: false
+      POSTHOG_CLI_API_KEY:
+        required: false
+      TAURI_KEY_PASSWORD:
+        required: false
+      TAURI_PRIVATE_KEY:
+        required: false
+      TURBO_TOKEN:
+        required: false
 
 env:
   # The proxy drops streams at times, so a failed fetch falls back to the source.
@@ -1153,7 +1184,20 @@ jobs:
       release_tag: ${{ inputs.release_tag }}
       use_simple_artifact_names: ${{ inputs.use_simple_artifact_names }}
       updater_channel: ${{ inputs.updater_channel }}
-    secrets: inherit
+    secrets:
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+      POSTHOG_CLI_API_KEY: ${{ secrets.POSTHOG_CLI_API_KEY }}
+      TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+      TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   build-desktop-tauri:
     name: Build Synnax Desktop
@@ -1171,4 +1215,17 @@ jobs:
       sign_binaries: ${{ inputs.sign_binaries }}
       use_simple_artifact_names: ${{ inputs.use_simple_artifact_names }}
       updater_channel: ${{ inputs.updater_channel }}
-    secrets: inherit
+    secrets:
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+      POSTHOG_CLI_API_KEY: ${{ secrets.POSTHOG_CLI_API_KEY }}
+      TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+      TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}

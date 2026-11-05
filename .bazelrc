@@ -135,6 +135,9 @@ build:windows --per_file_copt=vendor/.*,-.*\\.[sS]$,-.*\\.asm$@/WX-,/w
 # /Zm500 and /showIncludes come from the toolchain itself, so no copt scoping fixes it.
 # Build the C implementations on Windows instead.
 build:windows --@openssl//:use-no-asm-fallback=true
+# The no-asm sources omit winstore_store.c, yet the Windows configuration.h keeps the
+# provider on. Without this, defltprov.c references a store nothing defines.
+build:windows --@openssl//:no-winstore=true
 
 # Allow protobuf deprecation warnings without treating them as errors
 build:windows --copt=/wd4996  # disables warning C4996 (deprecated declarations) for MSVC

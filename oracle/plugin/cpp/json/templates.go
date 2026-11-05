@@ -41,7 +41,7 @@ template <typename {{.TypeParamNames}}>
 
 template <typename {{.TypeParamNames}}>
 x::json::json {{.Name}}<{{.TypeParamNames}}>::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
 {{- range .Fields}}
     {{.ToJSONExpr}}
 {{- end}}
@@ -61,7 +61,7 @@ inline {{.Name}} {{.Name}}::parse(x::json::Parser parser) {
 }
 
 inline x::json::json {{.Name}}::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
 {{- range .ParentTypes}}
     if (const auto parent = {{.QualifiedName}}::to_json(); parent.is_object()) j.update(parent);
 {{- end}}
@@ -81,7 +81,7 @@ inline {{.Name}} {{.Name}}::parse(x::json::Parser{{ if .Fields }} parser{{ end }
 }
 
 inline x::json::json {{.Name}}::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
 {{- range .Fields}}
     {{.ToJSONExpr}}
 {{- end}}

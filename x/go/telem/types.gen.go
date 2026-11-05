@@ -36,7 +36,11 @@ type TimeRange = versions.TimeRange
 
 // Window is a window of time: a rolling span that ends now, or a fixed range.
 type Window = versions.Window
+
+// WindowVariant is implemented by every Window variant.
 type WindowVariant = versions.WindowVariant
+
+// WindowType is the "variant" value that selects a variant of Window.
 type WindowType = versions.WindowType
 
 const (
@@ -114,13 +118,18 @@ func (a Aggregation) IsValid() bool {
 	}
 }
 
+// ReductionType is the "variant" value that selects a variant of Reduction.
 type ReductionType string
 
 const (
+	// StrideReductionType keeps every factor-th sample of each series read.
 	StrideReductionType ReductionType = "stride"
-	LimitReductionType  ReductionType = "limit"
+	// LimitReductionType reduces each group of samples so that each channel comes back
+	// as about point_limit points. Channels on one index reduce over the same groups.
+	LimitReductionType ReductionType = "limit"
 )
 
+// ReductionVariant is implemented by every Reduction variant.
 type ReductionVariant interface {
 	isReductionVariant()
 }
@@ -224,7 +233,11 @@ func (u *Reduction) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.LimitReduction
 	default:
-		return errors.Newf("Reduction: unknown variant %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Reduction: unknown variant %q",
+			disc.Type,
+		)
 	}
 	return nil
 }

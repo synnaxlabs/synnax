@@ -418,7 +418,7 @@ describe("Write", () => {
     expect(updated.properties.writeStateIndex).toBe(stateIndex.key);
   });
 
-  it("should show the names configuring gives each channel in the list", async () => {
+  it("should show the names deploying gives each channel in the list", async () => {
     const dev = await createLabJackDevice(client);
     const draft = await createDraft(
       client,
@@ -428,7 +428,7 @@ describe("Write", () => {
     const { identifier } = dev.properties;
     expect(await screen.findByText(`${identifier}_DIO4_cmd`)).toBeTruthy();
     expect(screen.getByText(`${identifier}_DIO4_state`)).toBeTruthy();
-    expect(screen.queryByText("No command channel")).toBeNull();
+    expect(screen.queryByText("No channel")).toBeNull();
   });
 
   it("should create the task with one channel", async () => {
