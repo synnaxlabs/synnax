@@ -796,6 +796,27 @@ describe("cached reads", () => {
         off();
       }
     });
+
+    it("should admit a renamed channel to a name query locally", async () => {
+      const ch = await createVirtual();
+      const name = `qry_wanted_${id.create()}`;
+      const params = { where: { namePatterns: [name] } };
+      const off = client.channels.onChange(params, vi.fn());
+      const send = spyOnSend(client);
+      try {
+        expect(await client.channels.retrieve(params)).toEqual([]);
+        send.mockClear();
+        await client.channels.rename(ch.key, name);
+        expect(expectLive(client.channels.getCached(params)).map((c) => c.key)).toEqual(
+          [ch.key],
+        );
+        await sleep.sleep(TimeSpan.milliseconds(250));
+        expect(send.mock.calls.map(([target]) => target)).toEqual(["/channel/rename"]);
+      } finally {
+        send.mockRestore();
+        off();
+      }
+    });
   });
 
   describe("calculated channel cached without a status", () => {

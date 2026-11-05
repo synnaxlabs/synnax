@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, id, uuid } from "@synnaxlabs/x";
+import { color, id, sleep, TimeSpan, uuid } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { label } from "@/label";
@@ -198,6 +198,40 @@ describe("cached reads", () => {
       await expect.poll(has).toBe(false);
       await remote.labels.remove(label.ontologyID(item.key), [lbl.key]);
       await expect.poll(has).toBe(true);
+    } finally {
+      off();
+    }
+  });
+
+  it("should update a for query from its own writes without a retrieve", async () => {
+    const fresh = createTestClient();
+    await fresh.connect();
+    const item = await fresh.labels.create({
+      name: `qry-item-${id.create()}`,
+      color: "#E774D0",
+    });
+    const lbl = await fresh.labels.create({
+      name: `qry-attached-${id.create()}`,
+      color: "#E774D0",
+    });
+    const itemID = label.ontologyID(item.key);
+    const params = { where: { for: itemID } };
+    const off = fresh.labels.onChange(params, vi.fn());
+    const send = spyOnSend(fresh);
+    try {
+      await fresh.labels.retrieve(params);
+      send.mockClear();
+      await fresh.labels.label(itemID, [lbl.key]);
+      expect(expectLive(fresh.labels.getCached(params)).map((l) => l.key)).toEqual([
+        lbl.key,
+      ]);
+      await fresh.labels.remove(itemID, [lbl.key]);
+      expect(expectLive(fresh.labels.getCached(params))).toEqual([]);
+      await sleep.sleep(TimeSpan.milliseconds(250));
+      expect(send.mock.calls.map(([target]) => target)).toEqual([
+        "/label/set",
+        "/label/remove",
+      ]);
     } finally {
       off();
     }
