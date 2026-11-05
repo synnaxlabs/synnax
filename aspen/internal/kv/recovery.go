@@ -114,7 +114,7 @@ func runRecovery(ctx context.Context, cfg Config) error {
 		}, signal.WithKeyf("node_%v", n.Key))
 	}
 	err := sCtx.Wait()
-	if err != nil {
+	if err != nil && !errors.Is(err, context.Canceled) {
 		cfg.L.Error("recovery failed", zap.Error(err))
 	}
 	return err

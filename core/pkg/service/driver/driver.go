@@ -290,10 +290,12 @@ func (d *Driver) handleStart(ctx context.Context, cmd task.Command) {
 	d.mu.RUnlock()
 	if !ok || inst.hash != tsk.ConfigHash {
 		if err := d.configure(ctx, tsk, cmd.Key); err != nil {
-			d.cfg.L.Error("failed to configure task",
-				zap.Stringer("task", tsk),
-				zap.Error(err),
-			)
+			if !errors.Is(err, context.Canceled) {
+				d.cfg.L.Error("failed to configure task",
+					zap.Stringer("task", tsk),
+					zap.Error(err),
+				)
+			}
 			// Factories answer their own failures. Neither of these reaches one:
 			// an unhandled type never gets to a factory, and a factory that ran
 			// out of time has no live context to write with.
@@ -375,7 +377,7 @@ func (d *Driver) exec(ctx context.Context, t Task, cmd task.Command) {
 		func(ctx context.Context) error { return t.Exec(ctx, cmd) },
 		signal.RecoverWithErrOnPanic(),
 	)
-	if err := sCtx.Wait(); err != nil {
+	if err := errors.Skip(sCtx.Wait(), context.Canceled); err != nil {
 		if errors.Is(err, ErrUnsupportedCommand) {
 			d.cfg.L.Warn(
 				"unsupported command",
@@ -424,7 +426,10 @@ func (d *Driver) configureExistingTasks(ctx context.Context) {
 	for _, t := range tasks {
 		sCtx.Go(
 			func(ctx context.Context) error {
-				if err := d.configure(ctx, t, NoCommand); err != nil {
+				if err := errors.Skip(
+					d.configure(ctx, t, NoCommand),
+					context.Canceled,
+				); err != nil {
 					d.cfg.L.Error("failed to configure task",
 						zap.Stringer("task", t),
 						zap.Error(err),
