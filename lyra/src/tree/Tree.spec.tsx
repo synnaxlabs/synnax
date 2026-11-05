@@ -459,6 +459,29 @@ describe("Tree keys", () => {
     expect(selected()).toEqual(["d"]);
   });
 
+  it("should open the selection out of view after a modifier click deselects", () => {
+    const onDoubleClick = vi.fn();
+    const nodes = Array.from({ length: 300 }, (_, i) => ({ key: `${i}` }));
+    const c = render(<Component nodes={nodes} onDoubleClick={onDoubleClick} />);
+    fireEvent.click(row("0"));
+    const scroller = c.container.querySelector<HTMLElement>(".lyra-list__scroll");
+    if (scroller == null) throw new Error("scroll container not found");
+    const scrollTo = (index: number) =>
+      act(() => {
+        scroller.scrollTop = index * 27;
+        fireEvent.scroll(scroller);
+      });
+    scrollTo(200);
+    fireEvent.keyDown(window, { code: "Control" });
+    fireEvent.click(row("200"));
+    fireEvent.click(row("200"));
+    fireEvent.keyUp(window, { code: "Control" });
+    scrollTo(201);
+    expect(screen.queryByText("1", { exact: true })).toBeNull();
+    press("Enter");
+    expect(onDoubleClick).toHaveBeenCalledExactlyOnceWith("0");
+  });
+
   it("should extend a shift-click range from the item the keys moved to", () => {
     render(
       <Component nodes={[{ key: "a" }, { key: "b" }, { key: "c" }, { key: "d" }]} />,

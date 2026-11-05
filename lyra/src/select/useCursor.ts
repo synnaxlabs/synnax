@@ -98,8 +98,11 @@ export interface UseCursorReturn<K extends record.Key> {
   setHover: (key: K) => void;
   /** Moves a selection cursor onto a clicked key. A hover follows the pointer. */
   setCursor: (key: K) => void;
-  /** The key the cursor rests on. A list keeps it mounted with `List.usePin`. */
-  current: K | undefined;
+  /**
+   * The key Enter acts on. A list keeps it mounted with `List.usePin`, so Enter reaches
+   * it out of view.
+   */
+  target: K | undefined;
   keyboard: KeyboardHandlers;
 }
 
@@ -188,7 +191,6 @@ export const useCursor = <K extends record.Key>(
   // changed without the cursor, as when a duplicate selects its copy, so the cursor
   // follows it. One that only lost keys keeps a key a modifier click deselected.
   const movedFromRef = useRef<K[]>([]);
-  const [current, setCurrent] = useState<K | undefined>(undefined);
   const follows = (moved: K): boolean =>
     selection == null ||
     selection.selected.includes(moved) ||
@@ -198,11 +200,20 @@ export const useCursor = <K extends record.Key>(
     if (moved != null && order.includes(moved) && follows(moved)) return moved;
     return startOf(order, initialHover, selection?.selected);
   };
+  // A modifier click can deselect the key the cursor rests on, and Enter then acts on
+  // the selection.
+  const targetOf = (order: K[]): K | undefined => {
+    const key = resolve(order);
+    if (key == null || selection == null || selection.selected.includes(key))
+      return key;
+    return startOf(order, initialHover, selection.selected);
+  };
+  const [target, setTarget] = useState<K | undefined>(undefined);
   useEffect(() => {
-    const update = (): void => setCurrent(resolve(getOrder()));
+    const update = (): void => setTarget(targetOf(getOrder()));
     update();
     return subscribe(update);
-  }, [subscribe, resolve, getOrder]);
+  }, [subscribe, targetOf, getOrder]);
   const { visible } = Dialog.useContext();
   const enabledRef = useSyncedRef<Triggers.Condition>(
     enableTriggers ?? (hovering ? visible : true),
@@ -210,7 +221,7 @@ export const useCursor = <K extends record.Key>(
 
   const moveTo = (key: K, direction: location.Y): void => {
     movedRef.current = key;
-    setCurrent(key);
+    setTarget(key);
     if (selection != null) {
       movedFromRef.current = selection.selected;
       selection.select(key);
@@ -233,15 +244,10 @@ export const useCursor = <K extends record.Key>(
     moveTo(to, order.indexOf(to) < at ? "bottom" : "top");
   };
   const activate = (): void => {
-    const order = getOrder();
-    const key = resolve(order);
+    const key = targetOf(getOrder());
     if (key == null) return;
-    if (selection == null) return click(key);
-    // A modifier click can deselect the key the cursor rests on.
-    const target = selection.selected.includes(key)
-      ? key
-      : startOf(order, initialHover, selection.selected);
-    if (target != null) selection.order.doubleClick(target);
+    if (selection == null) click(key);
+    else selection.order.doubleClick(key);
   };
   // The repeat outlives the render that started it, so it reads the latest step.
   const stepRef = useSyncedRef(step);
@@ -322,7 +328,7 @@ export const useCursor = <K extends record.Key>(
   }, [tracking]);
   const place = (key: K): void => {
     movedRef.current = key;
-    setCurrent(key);
+    setTarget(key);
   };
   const setHover = (key: K): void => {
     if (
@@ -339,10 +345,10 @@ export const useCursor = <K extends record.Key>(
     place(key);
   };
   return {
-    hover: hovering ? current : undefined,
+    hover: hovering ? target : undefined,
     setHover,
     setCursor,
-    current,
+    target,
     keyboard,
   };
 };
