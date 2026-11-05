@@ -9,6 +9,10 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-labjack-write__port-select {
-    width: 250px;
+.console-task-list__map {
+    border-bottom: var(--pluto-border);
+
+    &:empty {
+        display: none;
+    }
 }
