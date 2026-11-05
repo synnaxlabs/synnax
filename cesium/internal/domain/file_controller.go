@@ -20,7 +20,6 @@ import (
 	"sync/atomic"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/set"
@@ -44,6 +43,9 @@ type fileController struct {
 	counter     *xio.Int32Counter
 	release     chan struct{}
 	counterFile io.Closer
+	// descriptors counts open and opening file handles. A handle must reserve a place
+	// with reserveDescriptor before it opens, so the count never passes MaxDescriptors.
+	descriptors atomic.Int32
 	writers     struct {
 		open map[uint16]controlledWriter
 		// unopened is a set of file keys to files that are not oversize and do not have
@@ -144,9 +146,10 @@ func (fc *fileController) acquireWriter(
 
 	fc.writers.RUnlock()
 
-	if !fc.atDescriptorLimit() {
+	if fc.reserveDescriptor() {
 		w, size, err := fc.newWriter(ctx)
 		if err != nil {
+			fc.freeDescriptor()
 			return 0, size, nil, err
 		}
 		return w.fileKey, size, w, span.Error(err)
@@ -205,7 +208,7 @@ func (fc *fileController) newWriter(
 		}
 		w := controlledWriter{
 			TrackedWriteCloser: base,
-			controllerEntry:    newPoolEntry(key, fc.release, fc.Instrumentation),
+			controllerEntry:    newPoolEntry(key, fc),
 		}
 		fc.writers.open[key] = w
 		delete(fc.writers.unopened, key)
@@ -228,11 +231,7 @@ func (fc *fileController) newWriter(
 		}
 		w := controlledWriter{
 			TrackedWriteCloser: base,
-			controllerEntry: newPoolEntry(
-				lastFileKey,
-				fc.release,
-				fc.Instrumentation,
-			),
+			controllerEntry:    newPoolEntry(lastFileKey, fc),
 		}
 		fc.writers.open[lastFileKey] = w
 		delete(fc.writers.unopened, lastFileKey)
@@ -262,7 +261,7 @@ func (fc *fileController) newWriter(
 	}
 	w := controlledWriter{
 		TrackedWriteCloser: base,
-		controllerEntry:    newPoolEntry(nextKey, fc.release, fc.Instrumentation),
+		controllerEntry:    newPoolEntry(nextKey, fc),
 	}
 	fc.writers.open[nextKey] = w
 	return &w, 0, nil
@@ -289,8 +288,12 @@ func (fc *fileController) acquireReader(
 	}
 	fc.readers.RUnlock()
 
-	if !fc.atDescriptorLimit() {
-		return fc.newReader(ctx, key)
+	if fc.reserveDescriptor() {
+		r, err := fc.newReader(ctx, key)
+		if err != nil {
+			fc.freeDescriptor()
+		}
+		return r, err
 	}
 
 	ok, err := fc.gcReaders()
@@ -328,7 +331,7 @@ func (fc *fileController) newReader(
 
 	r := controlledReader{
 		ReaderAtCloser:  file,
-		controllerEntry: newPoolEntry(key, fc.release, fc.Instrumentation),
+		controllerEntry: newPoolEntry(key, fc),
 	}
 	fc.readers.Lock()
 	f, ok := fc.readers.files[key]
@@ -428,7 +431,7 @@ func (fc *fileController) rejuvenate(fileKey uint16) error {
 		if !w.tryAcquire() {
 			return newResourceInUseError("writer", fileKey)
 		}
-		if err := w.TrackedWriteCloser.Close(); err != nil {
+		if err := w.HardClose(); err != nil {
 			return err
 		}
 		delete(fc.writers.open, fileKey)
@@ -444,20 +447,26 @@ func (fc *fileController) rejuvenate(fileKey uint16) error {
 	return nil
 }
 
-func (fc *fileController) atDescriptorLimit() bool {
-	fc.writers.RLock()
-	fc.readers.RLock()
-	defer func() {
-		fc.readers.RUnlock()
-		fc.writers.RUnlock()
-	}()
-	readerCount := 0
-	for _, f := range fc.readers.files {
-		f.RLock()
-		readerCount += len(f.open)
-		f.RUnlock()
+// reserveDescriptor returns true if a place is free for a new file handle. The caller
+// must end the place with freeDescriptor or a hard close of the handle.
+func (fc *fileController) reserveDescriptor() bool {
+	for {
+		n := fc.descriptors.Load()
+		if int(n) >= fc.MaxDescriptors {
+			return false
+		}
+		if fc.descriptors.CompareAndSwap(n, n+1) {
+			return true
+		}
 	}
-	return readerCount+len(fc.writers.open) >= fc.MaxDescriptors
+}
+
+func (fc *fileController) freeDescriptor() {
+	fc.descriptors.Add(-1)
+	select {
+	case fc.release <- struct{}{}:
+	default:
+	}
 }
 
 func (fc *fileController) close() error {
@@ -507,11 +516,7 @@ func (c *controlledWriter) Close() error {
 }
 
 func (c *controlledWriter) HardClose() error {
-	if err := c.controllerEntry.Close(); err != nil {
-		return err
-	}
-
-	return c.TrackedWriteCloser.Close()
+	return c.hardClose(c.TrackedWriteCloser)
 }
 
 type controlledReader struct {
@@ -524,45 +529,38 @@ func (c *controlledReader) Close() error {
 }
 
 func (c *controlledReader) HardClose() error {
-	if err := c.controllerEntry.Close(); err != nil {
-		return err
-	}
-
-	return c.ReaderAtCloser.Close()
+	return c.hardClose(c.ReaderAtCloser)
 }
 
 type controllerEntry struct {
 	inUse   *atomic.Bool
-	release chan struct{}
-	ins     alamos.Instrumentation
+	fc      *fileController
 	fileKey uint16
 }
 
-func newPoolEntry(
-	key uint16,
-	release chan struct{},
-	ins alamos.Instrumentation,
-) controllerEntry {
-	ce := controllerEntry{
-		ins:     ins,
-		release: release,
-		fileKey: key,
-		inUse:   &atomic.Bool{},
-	}
+func newPoolEntry(key uint16, fc *fileController) controllerEntry {
+	ce := controllerEntry{fc: fc, fileKey: key, inUse: &atomic.Bool{}}
 	ce.inUse.Store(true)
 	return ce
 }
 
 func (ce *controllerEntry) Close() error {
 	if !ce.inUse.CompareAndSwap(true, false) {
-		ce.ins.L.DPanic(fmt.Sprintf("controller: entry %d already closed", ce.fileKey))
+		ce.fc.L.DPanic(fmt.Sprintf("controller: entry %d already closed", ce.fileKey))
 		return nil
 	}
 	select {
-	case ce.release <- struct{}{}:
+	case ce.fc.release <- struct{}{}:
 	default:
 	}
 	return nil
+}
+
+// hardClose closes f and frees its descriptor. The place is free before a waiter wakes.
+func (ce *controllerEntry) hardClose(f io.Closer) error {
+	err := f.Close()
+	ce.fc.descriptors.Add(-1)
+	return errors.Join(err, ce.Close())
 }
 
 func (ce *controllerEntry) tryAcquire() bool {

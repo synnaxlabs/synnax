@@ -11,6 +11,7 @@ package domain_test
 
 import (
 	"sync"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -215,6 +216,46 @@ var _ = Describe("File Controller", Ordered, func() {
 						Expect(fs.Exists("2.domain")).To(BeFalse())
 
 						Expect(w2.Close()).To(Succeed())
+					},
+				)
+
+				It(
+					"Should obey the file descriptor limit under concurrent opens",
+					func(ctx SpecContext) {
+						const (
+							limit = 4
+							opens = 64
+						)
+						db = MustSucceed(domain.Open(domain.Config{
+							FS:              fs,
+							MaxDescriptors:  limit,
+							Instrumentation: PanicLogger(),
+						}))
+						opened := make(chan *domain.Writer, opens)
+						for i := range opens {
+							go func() {
+								defer GinkgoRecover()
+								start := telem.TimeStamp(i+1) * telem.SecondTS
+								opened <- MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
+									Start: start,
+									End:   start + telem.SecondTS,
+								}))
+							}()
+						}
+						writers := make([]*domain.Writer, limit)
+						for i := range writers {
+							Eventually(opened).Should(Receive(&writers[i]))
+						}
+						Consistently(opened, 100*time.Millisecond).ShouldNot(Receive())
+						for _, w := range writers {
+							Expect(w.Close()).To(Succeed())
+						}
+						for range opens - limit {
+							var w *domain.Writer
+							Eventually(opened).Should(Receive(&w))
+							Expect(w.Close()).To(Succeed())
+						}
+						Expect(fs.Exists("5.domain")).To(BeFalse())
 					},
 				)
 
