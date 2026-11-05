@@ -46,6 +46,8 @@ jobs:
         with:
           app-id: ${{ secrets.CLAUDE_CODE_APP_ID }}
           private-key: ${{ secrets.CLAUDE_CODE_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
 
       # A pull_request_target checkout takes the base branch, so a pull request cannot
       # edit the script that decides its auto-merge.

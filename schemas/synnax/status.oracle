@@ -17,12 +17,24 @@ import "schemas/x/telem"
 @ts output  "client/ts/src/status"
 
 Variant enum {
-    success  = "success"
-    info     = "info"
-    warning  = "warning"
-    error    = "error"
-    loading  = "loading"
-    disabled = "disabled"
+    success  = "success" {
+        @doc value "reports that an operation succeeded."
+    }
+    info     = "info" {
+        @doc value "reports general information."
+    }
+    warning  = "warning" {
+        @doc value "reports a condition that needs attention."
+    }
+    error    = "error" {
+        @doc value "reports a failure."
+    }
+    loading  = "loading" {
+        @doc value "reports an operation in progress."
+    }
+    disabled = "disabled" {
+        @doc value "reports that the subject is not active."
+    }
 
     @doc value   "is the severity or type of a status message."
     @ts literals
