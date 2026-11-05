@@ -29,7 +29,13 @@ export interface RowProps extends PropsWithChildren {
 /** One bank or port of {@link Rows}: its label, then its grid. */
 export const Row = ({ label, children }: RowProps): ReactElement => (
   <div className={CSS.BE("port-rows", "row")}>
-    <Text.Text level="small" color={9} className={CSS.BE("port-rows", "label")}>
+    <Text.Text
+      level="small"
+      color={9}
+      align="center"
+      overflow="nowrap"
+      className={CSS.BE("port-rows", "label")}
+    >
       {label}
     </Text.Text>
     {children}

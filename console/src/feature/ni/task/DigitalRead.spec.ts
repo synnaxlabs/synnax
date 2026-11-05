@@ -222,6 +222,30 @@ describe("DigitalRead ports", () => {
     });
   });
 
+  it("should show the device's location apart from its line count", async () => {
+    const dev = await createNIDevice(client, {
+      properties: { hardware: createHardware() },
+    });
+    await renderDigitalRead(createConfig([createChannel(0, 0)], dev.key));
+    expect(await screen.findByText("1 of 16 lines used")).toBeTruthy();
+    expect(screen.getByText(dev.location)).toBeTruthy();
+  });
+
+  it("should wrap a port's lines eight to a row", async () => {
+    const dev = await createNIDevice(client, {
+      properties: {
+        hardware: {
+          ...createHardware(),
+          digitalPorts: [{ port: 0, lines: 32, input: true, output: true }],
+        },
+      },
+    });
+    await renderDigitalRead(createConfig([createChannel(0, 0)], dev.key));
+    const grid = await screen.findByRole("group", { name: "port0 lines" });
+    const line = within(grid).getByRole("button", { name: "port0/line9" });
+    expect([line.style.gridRow, line.style.gridColumn]).toEqual(["2", "2"]);
+  });
+
   it("should mark a line that two channels share", async () => {
     const dev = await createNIDevice(client, {
       properties: { hardware: createHardware() },
