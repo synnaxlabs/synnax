@@ -17,8 +17,7 @@ import { createTestClient } from "@/testutil";
 // Every document table declares a fetch that resolves keys against the cluster and
 // omits entries the cluster no longer has. Reconciliation and watch backfill ride that
 // contract (the reconcile pass itself is covered in cache.spec.ts); these tests pin it
-// per domain through the keys-only retrieve path, which resolves through the same table
-// fetch. Each test uses a fresh reader whose streamer opens after the writer's create
+// per domain through a filter on keys, which resolves through the same table fetch. Each test uses a fresh reader whose streamer opens after the writer's create
 // broadcast, so its cache stays cold and a hit proves a real cluster fetch.
 const writer = createTestClient();
 
@@ -41,35 +40,40 @@ const DOMAINS: Domain[] = [
     create: async () =>
       (await writer.schematics.create(proj.key, { name: `s-${id.create()}` })).key,
     del: async (key) => await writer.schematics.delete(key),
-    retrieveKeys: async (reader, keys) => await reader.schematics.retrieve(keys),
+    retrieveKeys: async (reader, keys) =>
+      await reader.schematics.retrieve({ where: { key: { in: keys } } }),
   },
   {
     name: "lineplot",
     create: async () =>
       (await writer.lineplots.create(proj.key, { name: `lp-${id.create()}` })).key,
     del: async (key) => await writer.lineplots.delete(key),
-    retrieveKeys: async (reader, keys) => await reader.lineplots.retrieve(keys),
+    retrieveKeys: async (reader, keys) =>
+      await reader.lineplots.retrieve({ where: { key: { in: keys } } }),
   },
   {
     name: "log",
     create: async () =>
       (await writer.logs.create(proj.key, { name: `log-${id.create()}` })).key,
     del: async (key) => await writer.logs.delete(key),
-    retrieveKeys: async (reader, keys) => await reader.logs.retrieve(keys),
+    retrieveKeys: async (reader, keys) =>
+      await reader.logs.retrieve({ where: { key: { in: keys } } }),
   },
   {
     name: "table",
     create: async () =>
       (await writer.tables.create(proj.key, { name: `t-${id.create()}` })).key,
     del: async (key) => await writer.tables.delete(key),
-    retrieveKeys: async (reader, keys) => await reader.tables.retrieve(keys),
+    retrieveKeys: async (reader, keys) =>
+      await reader.tables.retrieve({ where: { key: { in: keys } } }),
   },
   {
     name: "arc",
     create: async () =>
       (await writer.arcs.create({ name: `arc-${id.create()}`, mode: "graph" })).key,
     del: async (key) => await writer.arcs.delete(key),
-    retrieveKeys: async (reader, keys) => await reader.arcs.retrieve(keys),
+    retrieveKeys: async (reader, keys) =>
+      await reader.arcs.retrieve({ where: { key: { in: keys } } }),
   },
   {
     name: "panel",
@@ -81,7 +85,8 @@ const DOMAINS: Domain[] = [
         })
       ).key,
     del: async (key) => await writer.panels.delete(key),
-    retrieveKeys: async (reader, keys) => await reader.panels.retrieve(keys),
+    retrieveKeys: async (reader, keys) =>
+      await reader.panels.retrieve({ where: { key: { in: keys } } }),
   },
 ];
 

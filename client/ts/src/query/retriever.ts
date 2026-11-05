@@ -42,6 +42,13 @@ const whereIn = (where: unknown, field: string): unknown[] | null => {
   return op?.[0] === "in" && Array.isArray(op[1]) ? op[1] : null;
 };
 
+/** @returns the keys of a request whose only field is a `where` on keys, or null. */
+const whereKeys = (query: unknown): unknown[] | null => {
+  if (!isObject(query)) return null;
+  const field = soleMember(query);
+  return field?.[0] === "where" ? whereIn(field[1], "key") : null;
+};
+
 /**
  * Returns the keys of a request that addresses keys and nothing else: a `where` that
  * only matches keys in a list, or a non-empty `keys` field, with every other field
@@ -49,9 +56,9 @@ const whereIn = (where: unknown, field: string): unknown[] | null => {
  * request fetch. Returns null for any other request.
  */
 const keysOnly = (query: unknown): unknown[] | null => {
-  if (!isObject(query)) return null;
+  const keys = whereKeys(query);
+  if (keys != null || !isObject(query)) return keys;
   const field = soleMember(query);
-  if (field?.[0] === "where") return whereIn(field[1], "key");
   if (field?.[0] !== "keys" || !Array.isArray(field[1]) || field[1].length === 0)
     return null;
   return field[1];
@@ -189,10 +196,11 @@ export abstract class Retriever<
   Z extends z.ZodType<Params>,
   K extends record.Key,
   V extends Keyed<K>,
-  D extends Data = V,
+  D extends Keyed<K> = V,
   SingleInput = { key: K },
   SingleQuery extends Params = K,
 > {
+  private readonly name: string;
   private readonly singleSpace: Retrieves<Params, D | D[]>;
   private readonly requestSpace: Retrieves<Params, D | D[]>;
   private readonly trySingle: (params: unknown) => { query: SingleQuery } | null;
@@ -210,6 +218,7 @@ export abstract class Retriever<
       compose = (record: V) => record as unknown as D,
       single,
     } = params;
+    this.name = name;
     const {
       schema,
       fetch,
@@ -309,9 +318,11 @@ export abstract class Retriever<
    * Reads the record the params address, or every record matching them. Serves the
    * cache when the answer is fresh, fetching otherwise. A bare key is shorthand for `{
    * key }`; a bare key list is accepted by domains whose request schema unions in
-   * {@link keysRequestZ} or {@link keyListZ}.
-   * @throws {NotFoundError} if a single-record query matches nothing or the record was
-   * deleted.
+   * {@link keysRequestZ} or {@link keyListZ}. A bare key list read through
+   * {@link keysRequestZ} returns one record per key, in the order of the keys. A filter
+   * on keys returns the records that exist.
+   * @throws {NotFoundError} if a single-record query matches nothing, the record was
+   * deleted, or a key in a bare key list has no record.
    * @throws {ValidationError} if params contain `key` (or are a bare key) but fail the
    * single-query schema.
    */
@@ -322,7 +333,19 @@ export abstract class Retriever<
     options?: FetchOptions,
   ): Promise<D | D[]> {
     const [space, query] = this.route(params);
-    return await space.retrieve(query, options);
+    const res = await space.retrieve(query, options);
+    const keys = Array.isArray(params) ? (whereKeys(query) as K[] | null) : null;
+    return keys == null ? res : this.inKeyOrder(keys, res as D[]);
+  }
+
+  private inKeyOrder(keys: K[], records: D[]): D[] {
+    const byKey = new Map<K, D>(records.map((r) => [r.key, r]));
+    const missing = keys.filter((k) => !byKey.has(k));
+    if (missing.length === 1)
+      throw new NotFoundError(`${this.name} with key ${missing[0]} not found`);
+    if (missing.length > 1)
+      throw new NotFoundError(`${this.name} with keys ${missing.join(", ")} not found`);
+    return keys.map((k) => byKey.get(k) as D);
   }
 
   /**

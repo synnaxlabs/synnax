@@ -132,6 +132,15 @@ describe("Retriever", () => {
       expect(fetchKeys).toHaveBeenCalledWith(["a", "b"]);
     });
 
+    it("omits a missing key from a bare key array read as { keys }", async () => {
+      const client = new Client(
+        newCache(),
+        async () => [thing("a")],
+        async () => [],
+      );
+      expect(await client.retrieve(["a", "b"])).toEqual([thing("a")]);
+    });
+
     it("gives a bare array the meaning the schema assigns it", async () => {
       const namesZ = z.preprocess(
         (p) => (Array.isArray(p) ? { names: p } : p),
@@ -322,6 +331,33 @@ describe("Retriever", () => {
         expect(await client.retrieve([])).toEqual([]);
         expect(fetchKeys).not.toHaveBeenCalled();
         expect(fetchRequest).not.toHaveBeenCalled();
+      });
+
+      it("returns one record per key of a bare key list, in key order", async () => {
+        const fetchKeys = vi.fn(async (keys: string[]) => keys.map((k) => thing(k)));
+        const client = new KeysClient(newCache(), fetchKeys, async () => []);
+        const results = await client.retrieve(["b", "a", "b"]);
+        expect(results.map((t) => t.key)).toEqual(["b", "a", "b"]);
+      });
+
+      it("throws a NotFoundError naming the missing key of a bare key list", async () => {
+        const client = new KeysClient(newCache(), async () => [thing("a")], vi.fn());
+        await expect(client.retrieve(["a", "b"])).rejects.toThrow(
+          new NotFoundError("thing with key b not found"),
+        );
+      });
+
+      it("throws a NotFoundError naming every missing key of a bare key list", async () => {
+        const client = new KeysClient(newCache(), async () => [thing("a")], vi.fn());
+        await expect(client.retrieve(["b", "a", "c"])).rejects.toThrow(
+          new NotFoundError("thing with keys b, c not found"),
+        );
+      });
+
+      it("returns the records that exist for a filter on keys", async () => {
+        const client = new KeysClient(newCache(), async () => [thing("a")], vi.fn());
+        const results = await client.retrieve({ where: { key: { in: ["a", "b"] } } });
+        expect(results.map((t) => t.key)).toEqual(["a"]);
       });
     });
 
