@@ -667,6 +667,93 @@ var _ = Describe("Routing Table Runtime", func() {
 		)
 	})
 
+	Describe("Routing into a func", func() {
+		resolver := channelSymbols(map[string]channelDef{
+			"trigger": {types.U8(), 50},
+			"sensor":  {types.F64(), 100},
+			"out":     {types.F64(), 300},
+			"done_ch": {types.U8(), 400},
+		})
+		digests := []channels.Digest{
+			{Key: 50, DataType: telem.Uint8T},
+			{Key: 100, DataType: telem.Float64T},
+			{Key: 300, DataType: telem.Float64T},
+			{Key: 400, DataType: telem.Uint8T},
+		}
+		mixSource := demuxSource + `
+		func doubler() {v f64} f64 {
+		    return v * 2.0
+		}
+
+		func mix() {a f64, b f64} f64 {
+		    return a * 10.0 + b
+		}
+		`
+		written := func(h *runtimeHarness, key uint32) []float64 {
+			GinkgoHelper()
+			out, _ := h.Flush()
+			series := out.Get(key).Series
+			if len(series) == 0 {
+				return nil
+			}
+			return series[0].Unmarshal[float64]()
+		}
+		tick := func(ctx SpecContext, h *runtimeHarness) {
+			GinkgoHelper()
+			h.Tick(ctx, telem.Millisecond)
+			h.channelState.ClearReads()
+		}
+
+		It("Should feed the func from the entries that fire", func(ctx SpecContext) {
+			h := newRuntimeHarness(ctx, mixSource+`
+			sensor -> demux(threshold=50.0) -> {
+			    high: 1.0 -> doubler(): b,
+			    low: 2.0: a
+			} -> mix() -> out
+			`, resolver, digests...)
+			defer h.Close(ctx)
+
+			h.Ingest(100, telem.NewSeriesV(75.0))
+			tick(ctx, h)
+			Expect(written(h, 300)).To(BeEmpty())
+
+			h.Ingest(100, telem.NewSeriesV(25.0))
+			tick(ctx, h)
+			Expect(written(h, 300)).To(Equal([]float64{22.0}))
+
+			h.Ingest(100, telem.NewSeriesV(80.0))
+			tick(ctx, h)
+			Expect(written(h, 300)).To(Equal([]float64{22.0}))
+		})
+
+		It("Should advance a sequence step after the func runs", func(ctx SpecContext) {
+			h := newRuntimeHarness(ctx, mixSource+`
+			trigger => main
+
+			sequence main {
+			    sensor -> demux(threshold=50.0) -> {
+			        high: 1.0: a,
+			        low: 0.0: a
+			    } -> mix(b=5.0) -> out
+			    1 -> done_ch
+			}
+			`, resolver, digests...)
+			defer h.Close(ctx)
+
+			h.Ingest(50, telem.NewSeriesV[uint8](1))
+			tick(ctx, h)
+			h.Ingest(100, telem.NewSeriesV(75.0))
+			tick(ctx, h)
+			out, _ := h.Flush()
+			Expect(out.Get(300).Series).To(HaveLen(1))
+			Expect(
+				out.Get(300).Series[0].Unmarshal[float64](),
+			).To(Equal([]float64{15.0}))
+			Expect(out.Get(400).Series).To(HaveLen(1))
+			Expect(out.Get(400).Series[0].Unmarshal[uint8]()).To(Equal([]uint8{1}))
+		})
+	})
+
 	Describe("Chained Routing", func() {
 		It(
 			"Should route through a processing function with correct intermediate outputs",

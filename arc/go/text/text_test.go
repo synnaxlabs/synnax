@@ -4684,18 +4684,22 @@ time.wait(duration=500ms) -> output`
 				},
 			)
 
-			It(
-				"Should apply the entry param mapping to the entry's final node",
-				func(ctx SpecContext) {
-					resolver := []symbol.Symbol{
-						{
-							Name: "signal",
-							Kind: symbol.KindChannel,
-							Type: types.Chan(types.F64()),
-							ID:   10105,
-						},
-					}
-					source := `
+			Context("Func after the table", func() {
+				resolver := []symbol.Symbol{
+					{
+						Name: "signal",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   10105,
+					},
+					{
+						Name: "out",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   10106,
+					},
+				}
+				prelude := `
 				func demux(threshold f64) {value f64} (high f64, low f64) {
 				    if (value > threshold) {
 				        high = value
@@ -4704,30 +4708,112 @@ time.wait(duration=500ms) -> output`
 				    }
 				}
 
-				func doubler() {b f64} f64 {
-				    return b * 2.0
+				func doubler() {v f64} f64 {
+				    return v * 2.0
 				}
 
-				func mix() {a f64, b f64} {}
+				func mix() {a f64, b f64} f64 {
+				    return a + b
+				}
 
-				signal -> demux(threshold=100.0) -> {
-				    high: 1.0 -> doubler(): b
-				} -> mix()`
-					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-					_, diagnostics := text.Analyze(
-						ctx,
-						parsedText,
-						NewRoot(nil, resolver...),
+				func log() {v f64} {}
+				`
+				analyze := func(
+					ctx SpecContext, source string,
+				) (ir.IR, *diagnostics.Diagnostics) {
+					GinkgoHelper()
+					parsed := MustSucceed(text.Parse(text.Text{Raw: prelude + source}))
+					return text.Analyze(ctx, parsed, NewRoot(nil, resolver...))
+				}
+
+				It("Should feed each mapped entry's result into its trigger", func(
+					ctx SpecContext,
+				) {
+					inter, diagnostics := analyze(ctx, `
+					signal -> demux(threshold=100.0) -> {
+					    high: 1.0 -> doubler(): b,
+					    low: 2.0: a
+					} -> mix() -> out`)
+					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+					edges := ir.Edges(inter.Edges)
+					bEdge := MustBeOk(edges.FindByTarget(
+						ir.Handle{Node: "mix_0", Param: "b"},
+					))
+					Expect(bEdge.Source).To(Equal(
+						ir.Handle{Node: "doubler_0", Param: ir.DefaultOutputParam},
+					))
+					doublerIn := MustBeOk(edges.FindByTarget(
+						ir.Handle{Node: "doubler_0", Param: "v"},
+					))
+					Expect(findNodeByKey(inter.Nodes, doublerIn.Source.Node).Type).To(
+						Equal("constant"),
 					)
-					// The entry mapping resolves onto doubler's input 'b'. The text
-					// pipeline does not yet wire the func after the routing table, so
-					// whole-graph validation reports mix's inputs as unconnected.
-					Expect(diagnostics.Ok()).To(BeFalse())
-					Expect(diagnostics.String()).To(
-						ContainSubstring("missing required input 'a'"),
-					)
-				},
-			)
+					aEdge := MustBeOk(edges.FindByTarget(
+						ir.Handle{Node: "mix_0", Param: "a"},
+					))
+					aConst := findNodeByKey(inter.Nodes, aEdge.Source.Node)
+					Expect(aConst.Type).To(Equal("constant"))
+					lowEdge := findEdgeBySourceParam(inter.Edges, "low")
+					Expect(lowEdge.Target.Node).To(Equal(aConst.Key))
+					outEdge := MustBeOk(edges.FindByTarget(
+						ir.Handle{Node: "write_out_0", Param: "input"},
+					))
+					Expect(outEdge.Source.Node).To(Equal("mix_0"))
+				})
+
+				It("Should leave an unmapped trigger to its default", func(
+					ctx SpecContext,
+				) {
+					inter, diagnostics := analyze(ctx, `
+					func offset() {a f64, b f64 = 10.0} f64 {
+					    return a + b
+					}
+
+					signal -> demux(threshold=100.0) -> {
+					    high: 1.0: a,
+					    low: 0.0 -> out
+					} -> offset() -> out`)
+					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+					offset := findNodeByKey(inter.Nodes, "offset_0")
+					Expect(MustBeOk(offset.Inputs.Get("b")).Value).To(Equal(10.0))
+				})
+
+				DescribeTable("Should reject a malformed mapping",
+					func(ctx SpecContext, source, message string) {
+						_, diagnostics := analyze(ctx, source)
+						Expect(diagnostics.Ok()).To(BeFalse())
+						Expect(diagnostics.String()).To(ContainSubstring(message))
+					},
+					Entry("suffix after a channel write",
+						`signal -> demux(threshold=100.0) -> {
+						    high: 1.0 -> out: b,
+						    low: 2.0: a
+						} -> mix()`,
+						"routing entry has no value to map to parameter 'b'"),
+					Entry("suffix after a func with no output",
+						`signal -> demux(threshold=100.0) -> {
+						    high: 1.0 -> log(): b,
+						    low: 2.0: a
+						} -> mix()`,
+						"routing entry has no value to map to parameter 'b'"),
+					Entry("unmapped trigger with no default",
+						`signal -> demux(threshold=100.0) -> {
+						    high: 1.0 -> doubler(): b
+						} -> mix()`,
+						"missing required input 'a'"),
+					Entry("transition after the table",
+						`signal -> demux(threshold=100.0) -> {
+						    high: 1.0: a,
+						    low: 2.0: b
+						} => mix()`,
+						"'=>' cannot follow a routing table"),
+					Entry("channel after the table",
+						`signal -> demux(threshold=100.0) -> {
+						    high: 1.0 -> out
+						} -> out`,
+						"only a func invocation can follow a routing table"),
+				)
+			})
 
 			It(
 				"Should reject an explicit target param the func does not have",

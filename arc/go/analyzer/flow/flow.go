@@ -665,18 +665,22 @@ func analyzeOutputRoutingTable(
 		nextFunc     parser.IFunctionContext
 		nextFuncType types.Type
 	)
-	for _, node := range nodesAfter {
-		if fn := node.Function(); fn != nil {
-			nextFunc = fn
-			head, tail := parser.FunctionNameParts(nextFunc)
-			nextFuncScope, err := ctx.Scope.Resolve(ctx, head)
-			if err == nil && tail != "" {
-				nextFuncScope, err = nextFuncScope.Resolve(ctx, tail)
-			}
-			if err == nil && nextFuncScope.Kind == symbol.KindFunction {
-				nextFuncType = nextFuncScope.Type
-			}
-			break
+	if len(nodesAfter) > 0 {
+		nextFunc = nodesAfter[0].Function()
+		if nextFunc == nil {
+			ctx.Diagnostics.Add(diagnostics.Errorf(
+				nodesAfter[0],
+				"only a func invocation can follow a routing table",
+			))
+			return
+		}
+		head, tail := parser.FunctionNameParts(nextFunc)
+		nextFuncScope, err := ctx.Scope.Resolve(ctx, head)
+		if err == nil && tail != "" {
+			nextFuncScope, err = nextFuncScope.Resolve(ctx, tail)
+		}
+		if err == nil && nextFuncScope.Kind == symbol.KindFunction {
+			nextFuncType = nextFuncScope.Type
 		}
 	}
 

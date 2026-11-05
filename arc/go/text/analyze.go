@@ -1659,6 +1659,8 @@ type flowChainProcessor struct {
 	inlineMembers []ir.Member
 	// pendingTable is a routing table whose entries feed the next function node.
 	pendingTable parser.IRoutingTableContext
+	// pendingSource is the node whose outputs pendingTable routes.
+	pendingSource *ir.Node
 }
 
 func newFlowChainProcessor(
@@ -1837,8 +1839,8 @@ func (p *flowChainProcessor) consumeTransition(
 // processTableTarget lowers the function node a pending routing table feeds, then
 // the table's entries as edges into it.
 func (p *flowChainProcessor) processTableTarget(flowNode parser.IFlowNodeContext) bool {
-	rt := p.pendingTable
-	p.pendingTable = nil
+	rt, source := p.pendingTable, p.pendingSource
+	p.pendingTable, p.pendingSource = nil, nil
 	fn := flowNode.Function()
 	if fn == nil {
 		p.ctx.Diagnostics.Add(diagnostics.Errorf(
@@ -1850,14 +1852,26 @@ func (p *flowChainProcessor) processTableTarget(flowNode parser.IFlowNodeContext
 	if !ok {
 		return false
 	}
-	newNodes, newEdges, ok := analyzeInputRoutingTable(
-		p.ctx.Child(rt), target.node, p.kg, p.shell,
+	var (
+		newNodes      []ir.Node
+		newEdges      []ir.Edge
+		inlineMembers []ir.Member
 	)
+	if source != nil {
+		newNodes, newEdges, inlineMembers, ok = analyzeOutputRoutingTable(
+			p.ctx.Child(rt), *source, &target.node, p.kg, p.shell,
+		)
+	} else {
+		newNodes, newEdges, ok = analyzeInputRoutingTable(
+			p.ctx.Child(rt), target.node, p.kg, p.shell,
+		)
+	}
 	if !ok {
 		return false
 	}
 	p.nodes = append(p.nodes, newNodes...)
 	p.edges = append(p.edges, newEdges...)
+	p.inlineMembers = append(p.inlineMembers, inlineMembers...)
 	if len(target.node.Outputs) > 0 {
 		p.prevOutput = target.output
 	}
@@ -1867,13 +1881,17 @@ func (p *flowChainProcessor) processTableTarget(flowNode parser.IFlowNodeContext
 }
 
 func (p *flowChainProcessor) processRoutingTable(rt parser.IRoutingTableContext) bool {
-	if p.prevNode == nil {
+	children := p.ctx.AST.GetChildren()
+	if last, ok := children[len(children)-1].(parser.IRoutingTableContext); !ok ||
+		last != rt {
 		p.pendingTable = rt
+		p.pendingSource = p.prevNode
 		return true
 	}
 	newNodes, newEdges, inlineMembers, ok := analyzeOutputRoutingTable(
 		p.ctx.Child(rt),
 		*p.prevNode,
+		nil,
 		p.kg,
 		p.shell,
 	)
@@ -2225,9 +2243,13 @@ func analyzeInputRoutingTable(
 	return nodes, edges, true
 }
 
+// analyzeOutputRoutingTable lowers each `output: node -> ... [: param]` entry.
+// The routed output gates the entry; a `: param` suffix feeds the entry's result
+// into that trigger of target, the function after the table.
 func analyzeOutputRoutingTable(
 	ctx acontext.Context[parser.IRoutingTableContext],
 	sourceNode ir.Node,
+	target *ir.Node,
 	kg *keyGenerator,
 	shell *shellBuilder,
 ) ([]ir.Node, []ir.Edge, []ir.Member, bool) {
@@ -2257,6 +2279,12 @@ func analyzeOutputRoutingTable(
 		var targetParamName string
 		if entry.IDENTIFIER() != nil {
 			targetParamName = entry.IDENTIFIER().GetText()
+			if target == nil {
+				ctx.Diagnostics.Add(diagnostics.Errorf(
+					entry, "internal: parameter mapping has no target function",
+				))
+				return nil, nil, nil, false
+			}
 		}
 
 		edgeKinds := routingEntryEdgeKinds(entry)
@@ -2264,7 +2292,8 @@ func analyzeOutputRoutingTable(
 		prevOutputHandle := sourceOutput
 		for i, flowNode := range flowNodes {
 			isLast := i == len(flowNodes)-1
-			isSink := isLast && flowNode.Identifier() != nil
+			// A lone identifier with a param suffix is a source read, not a sink.
+			isSink := isLast && flowNode.Identifier() != nil && len(flowNodes) > 1
 
 			result, ok := analyzeFlowNode(
 				ctx.Child(flowNode), kg, shell, false, isSink,
@@ -2295,16 +2324,19 @@ func analyzeOutputRoutingTable(
 			})
 
 			if isLast && targetParamName != "" {
-				if !node.node.Inputs.Has(targetParamName) {
+				if isSink || len(node.node.Outputs) == 0 {
 					ctx.Diagnostics.Add(diagnostics.Errorf(
 						entry,
-						"node '%s' does not have input '%s'",
-						node.node.Key,
+						"routing entry has no value to map to parameter '%s'",
 						targetParamName,
 					))
 					return nil, nil, nil, false
 				}
-				edges[len(edges)-1].Target.Param = targetParamName
+				edges = append(edges, ir.Edge{
+					Source: node.output,
+					Target: ir.Handle{Node: target.Key, Param: targetParamName},
+					Kind:   ir.EdgeKindContinuous,
+				})
 			}
 
 			if len(node.node.Outputs) > 0 {

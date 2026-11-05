@@ -3155,6 +3155,28 @@ sequence main {
 			},
 		)
 
+		It("Should reject a channel after a routing table", func(bCtx SpecContext) {
+			ast := MustSucceed(parser.Parse(`
+			func demux() {value f64} (high f64, low f64) {
+			    if (value > 100.0) {
+			        high = value
+			    } else {
+			        low = value
+			    }
+			}
+
+			sensor_chan -> demux() -> {
+			    high: 1.0 -> output_chan
+			} -> output_chan`))
+			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Message).To(
+				ContainSubstring("only a func invocation can follow a routing table"),
+			)
+		})
+
 		Context("Input routing tables", func() {
 			It("Should feed an entry's chain head from the key", func(
 				bCtx SpecContext,
