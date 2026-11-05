@@ -23,7 +23,11 @@ type Range = v1.Range
 // Ref is the range a visualization shows: a range saved in the Core, or an inline
 // window.
 type Ref = v1.Ref
+
+// RefVariant is implemented by every Ref variant.
 type RefVariant = v1.RefVariant
+
+// RefType is the "variant" value that selects a variant of Ref.
 type RefType = v1.RefType
 
 const (

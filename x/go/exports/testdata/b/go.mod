@@ -1,6 +1,6 @@
 module example.com/b
 
-go 1.27.2
+go 1.27.3
 
 require example.com/a v0.0.0
 
