@@ -22,12 +22,18 @@ VOTE = "<sub>React 👍 if this is a real problem or 👎 if it is noise.</sub>"
 SUBJECT_CHARS = 48
 
 
-def badge(name: str, alt: str) -> str:
-    """Renders the light and dark variants of a badge as one image."""
+def badge(name: str, alt: str, *, themed: bool = False) -> str:
+    """Renders a badge image.
+
+    :param themed: The badge has a `-dark` variant for readers in dark mode.
+    """
+    img = f'<img alt="{alt}" src="{BADGES}/{name}.svg" align="top">'
+    if not themed:
+        return img
     scheme = 'media="(prefers-color-scheme: dark)"'
-    dark = f'<source {scheme} srcset="{BADGES}/{name}-dark.svg">'
-    light = f'<img alt="{alt}" src="{BADGES}/{name}.svg" align="top">'
-    return f"<picture>{dark}{light}</picture>"
+    return (
+        f'<picture><source {scheme} srcset="{BADGES}/{name}-dark.svg">{img}</picture>'
+    )
 
 
 def fence(text: str, info: str = "") -> str:
@@ -107,7 +113,8 @@ def summary(
         [
             SUMMARY_START,
             "",
-            f"<h2>{badge(f'score-{n}', f'{n} of 5')} Confidence Score: {n}/5</h2>",
+            f"<h2>{badge(f'score-{n}', f'{n} of 5', themed=True)} "
+            f"Confidence Score: {n}/5</h2>",
             "",
             review.verdict,
             "",

@@ -167,7 +167,7 @@ class TestInlineFindings:
         }
         assert second["line"] == 22
         assert "start_line" not in second
-        assert 'alt="P1"' in first["body"]
+        assert first["body"].startswith('<img alt="P1" src="')
         assert "**Samples return old data**" in first["body"]
         assert "```suggestion\ntwo\nthree\n```" in first["body"]
         rule = f"[`AGENTS.md`](https://github.com/{REPO}/blob/head/AGENTS.md)"
