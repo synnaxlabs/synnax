@@ -95,7 +95,7 @@ const fromReads = <D extends record.Keyed<record.Key>>(
     });
   };
   return {
-    retrieve: async () => convertList(await reads.retrieve()),
+    retrieve: async () => (await reads.retrieve()).filter(filter).map(convert),
     onChange: (handler) =>
       reads.onList((answer) => {
         if (query.isLive(answer)) handler(convertList(answer));
