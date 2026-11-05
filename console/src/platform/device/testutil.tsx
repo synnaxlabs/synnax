@@ -170,17 +170,20 @@ interface DeviceFormFixtureProps extends PropsWithChildren {
   deviceKey: string;
   selectableKey?: string;
   channels?: unknown[];
+  mode?: Form.Mode;
 }
 
 const DeviceFormFixture = ({
   deviceKey,
   selectableKey,
   channels = [],
+  mode,
   children,
 }: DeviceFormFixtureProps): ReactElement => {
   const methods = Form.use({
     schema: deviceFormSchema,
     values: { config: { device: deviceKey, channels } },
+    mode,
   });
   return (
     <Form.Form<typeof deviceFormSchema> {...methods}>
@@ -204,6 +207,8 @@ export interface RenderWithDeviceFormOptions {
   selectableKey?: string;
   /** The form's config.channels. Defaults to none. */
   channels?: unknown[];
+  /** Renders the form read-only with "preview". Defaults to "normal". */
+  mode?: Form.Mode;
   client?: Synnax | null;
 }
 
@@ -214,7 +219,13 @@ export interface RenderWithDeviceFormOptions {
  */
 export const renderWithDeviceForm = async (
   ui: ReactElement,
-  { deviceKey, selectableKey, channels, client = null }: RenderWithDeviceFormOptions,
+  {
+    deviceKey,
+    selectableKey,
+    channels,
+    mode,
+    client = null,
+  }: RenderWithDeviceFormOptions,
 ): Promise<RenderResult & { store: TestStore }> => {
   const { wrapper, store } = await createConsoleWrapper({ client });
   const rendered = render(
@@ -222,6 +233,7 @@ export const renderWithDeviceForm = async (
       deviceKey={deviceKey}
       selectableKey={selectableKey}
       channels={channels}
+      mode={mode}
     >
       {ui}
     </DeviceFormFixture>,

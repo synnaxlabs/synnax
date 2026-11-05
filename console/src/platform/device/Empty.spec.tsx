@@ -35,12 +35,14 @@ interface RenderNoneSelectedOptions extends Pick<
   "make" | "connect"
 > {
   onConfigure?: Device.NoneSelectedProps["onConfigure"];
+  mode?: Form.Mode;
 }
 
 const renderNoneSelected = async ({
   make,
   connect,
   onConfigure = vi.fn(),
+  mode,
 }: RenderNoneSelectedOptions): ReturnType<typeof renderWithDeviceForm> =>
   await renderWithDeviceForm(
     <>
@@ -53,7 +55,7 @@ const renderNoneSelected = async ({
       />
       <FormProbe />
     </>,
-    { deviceKey: "", client },
+    { deviceKey: "", client, mode },
   );
 
 const DEVICE = { key: "dev-key", name: "My Device" };
@@ -113,6 +115,28 @@ describe("device empty states", () => {
       const message = await screen.findByText("No device selected");
       fireEvent.click(within(message).getByText("Select device"));
       await screen.findByText(dev.name);
+    });
+
+    it("should not offer to connect a device in a read-only form", async () => {
+      await renderNoneSelected({
+        make: uniqueName("make"),
+        connect: { title: "test hardware", open: vi.fn() },
+        mode: "preview",
+      });
+      await screen.findByText("No test devices connected");
+      expect(screen.queryByText("Connect test hardware")).toBeNull();
+    });
+
+    it("should not offer to select a device in a read-only form", async () => {
+      const make = uniqueName("make");
+      await createTestDevice(client, { make });
+      await renderNoneSelected({
+        make,
+        connect: { title: "test hardware", open: vi.fn() },
+        mode: "preview",
+      });
+      const message = await screen.findByText("No device selected");
+      expect(within(message).queryByText("Select device")).toBeNull();
     });
   });
 

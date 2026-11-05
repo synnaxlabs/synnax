@@ -16,6 +16,7 @@ import { type ReactElement } from "react";
 import { type SelectConnect } from "@/platform/device/Select";
 import { useHandleChange } from "@/platform/device/useHandleChange";
 import { Empty } from "@/platform/empty";
+import { Task } from "@/platform/task";
 
 const path = deep.path<{ config: { device: device.Key } }>();
 
@@ -35,7 +36,7 @@ export interface NoneSelectedProps extends NoneSelectedParams {
 /**
  * The body of a task form that has no device. With no device of the make, it offers to
  * connect one and selects it. Otherwise, it opens the device select at
- * `config.device`.
+ * `config.device`. A read-only form offers neither.
  */
 export const NoneSelected = ({
   make,
@@ -44,6 +45,7 @@ export const NoneSelected = ({
   onConfigure,
 }: NoneSelectedProps): ReactElement | null => {
   const ctx = Form.useContext();
+  const isPreview = Task.useIsPreview(ctx);
   const canConnect = Access.useCreateGranted(device.TYPE_ONTOLOGY_ID);
   const handleChange = useHandleChange(onConfigure);
   const { data } = Device.useResultMultiple({ makes: [make], limit: 1 });
@@ -52,7 +54,7 @@ export const NoneSelected = ({
     return (
       <Empty.Action
         message="No device selected"
-        action="Select device"
+        action={isPreview ? "" : "Select device"}
         onClick={() => ctx.focus(path.config.device)}
       />
     );
@@ -65,7 +67,7 @@ export const NoneSelected = ({
   return (
     <Empty.Action
       message={emptyContent}
-      action={canConnect ? `Connect ${connect.title}` : ""}
+      action={canConnect && !isPreview ? `Connect ${connect.title}` : ""}
       onClick={() => void handleConnect()}
     />
   );
