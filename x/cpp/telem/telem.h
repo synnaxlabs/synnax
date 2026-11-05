@@ -302,7 +302,7 @@ public:
 /// @brief represents a 64-bit nanosecond-precision, UNIX Epoch UTC timestamp.
 class TimeStamp {
     /// @property value holds the internal, primitive value of the timestamp.
-    std::int64_t value;
+    std::int64_t value = 0;
 
 public:
     TimeStamp() = default;

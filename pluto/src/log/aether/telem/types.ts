@@ -18,10 +18,14 @@ export interface LogEntry {
   value: string;
   // True when this entry was produced by splitting a sample on \n;
   continuation?: boolean;
+  // The alignment of the sample, which tells apart samples that share a time.
+  alignment?: bigint;
 }
 
 export interface LogSource extends Source<LogEntry[]> {
   setChannels?: (channels: channel.Key[]) => void;
+  /** Reads entries older than the oldest one, if the channels store any. */
+  loadOlder?: () => void;
 }
 
 export const logSourceSpecZ = sourceSpecZ.extend({ valueType: z.literal("log") });

@@ -20,6 +20,7 @@ import (
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // PDOAddress addresses a PDO entry explicitly in the CoE object dictionary.
@@ -58,13 +59,18 @@ type BaseReadChannel struct {
 	Device device.Key `json:"device" msgpack:"device"`
 }
 
+// ReadChannelType is the "type" value that selects a variant of ReadChannel.
 type ReadChannelType string
 
 const (
+	// AutomaticReadChannelType resolves its PDO address from the slave's discovered
+	// PDOs.
 	AutomaticReadChannelType ReadChannelType = "automatic"
-	ManualReadChannelType    ReadChannelType = "manual"
+	// ManualReadChannelType specifies its PDO address inline.
+	ManualReadChannelType ReadChannelType = "manual"
 )
 
+// ReadChannelVariant is implemented by every ReadChannel variant.
 type ReadChannelVariant interface {
 	isReadChannelVariant()
 }
@@ -156,7 +162,11 @@ func (u *ReadChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.ManualReadChannel
 	default:
-		return errors.Newf("ReadChannel: unknown type %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"ReadChannel: unknown type %q",
+			disc.Type,
+		)
 	}
 	return nil
 }
@@ -216,13 +226,18 @@ type BaseWriteChannel struct {
 	Device device.Key `json:"device" msgpack:"device"`
 }
 
+// WriteChannelType is the "type" value that selects a variant of WriteChannel.
 type WriteChannelType string
 
 const (
+	// AutomaticWriteChannelType resolves its PDO address from the slave's discovered
+	// PDOs.
 	AutomaticWriteChannelType WriteChannelType = "automatic"
-	ManualWriteChannelType    WriteChannelType = "manual"
+	// ManualWriteChannelType specifies its PDO address inline.
+	ManualWriteChannelType WriteChannelType = "manual"
 )
 
+// WriteChannelVariant is implemented by every WriteChannel variant.
 type WriteChannelVariant interface {
 	isWriteChannelVariant()
 }
@@ -314,7 +329,11 @@ func (u *WriteChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.ManualWriteChannel
 	default:
-		return errors.Newf("WriteChannel: unknown type %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"WriteChannel: unknown type %q",
+			disc.Type,
+		)
 	}
 	return nil
 }

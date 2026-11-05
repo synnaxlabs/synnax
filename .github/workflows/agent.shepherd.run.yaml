@@ -23,6 +23,19 @@ on:
         description: The pull request number
         required: true
         type: number
+    secrets:
+      CLAUDE_CODE_APP_ID:
+        required: false
+      CLAUDE_CODE_APP_PRIVATE_KEY:
+        required: false
+      CLAUDE_CODE_OAUTH_TOKEN:
+        required: false
+      CODEX_APP_ID:
+        required: false
+      CODEX_APP_PRIVATE_KEY:
+        required: false
+      SYNNAX_LICENSE_TOKEN:
+        required: false
 
 permissions: {}
 
@@ -97,7 +110,13 @@ jobs:
       output: report
       pr: ${{ inputs.pr }}
       timeout-minutes: 60
-    secrets: inherit
+    secrets:
+      CLAUDE_CODE_APP_ID: ${{ secrets.CLAUDE_CODE_APP_ID }}
+      CLAUDE_CODE_APP_PRIVATE_KEY: ${{ secrets.CLAUDE_CODE_APP_PRIVATE_KEY }}
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      CODEX_APP_ID: ${{ secrets.CODEX_APP_ID }}
+      CODEX_APP_PRIVATE_KEY: ${{ secrets.CODEX_APP_PRIVATE_KEY }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   rerun:
     name: Rerun CI
