@@ -648,43 +648,20 @@ var _ = Describe("Device", func() {
 		})
 
 		It(
-			"Should keep the parent of a device written without one",
+			"Should clear the parent of a device written without one",
 			func(ctx SpecContext) {
 				chassis := createChassis(ctx, w, rackSvc.EmbeddedKey)
 				module := device.Device{
-					Key:      "pd-kept-module",
+					Key:      "pd-cleared-module",
 					Rack:     rackSvc.EmbeddedKey,
 					Location: "slot-1",
-					Name:     "Kept Module",
+					Name:     "Cleared Module",
 					Make:     "Test Make",
 					Model:    "Test Model",
 					Parent:   chassis,
 				}
 				Expect(w.Create(ctx, &module)).To(Succeed())
 				module.Parent = nil
-				Expect(w.Create(ctx, &module)).To(Succeed())
-				Expect(module.Parent).To(Equal(chassis))
-			},
-		)
-
-		It(
-			"Should clear the parent of a device moved to another rack",
-			func(ctx SpecContext) {
-				chassis := createChassis(ctx, w, rackSvc.EmbeddedKey)
-				module := device.Device{
-					Key:      "pd-rack-module",
-					Rack:     rackSvc.EmbeddedKey,
-					Location: "slot-1",
-					Name:     "Rack Module",
-					Make:     "Test Make",
-					Model:    "Test Model",
-					Parent:   chassis,
-				}
-				Expect(w.Create(ctx, &module)).To(Succeed())
-				r := rack.Rack{Name: "Other Rack"}
-				Expect(rackSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
-				module.Parent = nil
-				module.Rack = r.Key
 				Expect(w.Create(ctx, &module)).To(Succeed())
 				var res device.Device
 				Expect(svc.NewRetrieve().

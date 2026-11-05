@@ -96,12 +96,12 @@ func (w Writer) writeStatus(
 	return w.status.Set(ctx, d.Status)
 }
 
-// Create creates or updates the given device. An existing device keeps its group, and
-// its parent when sent with none, unless it moves to another rack. A status provided on
-// the device replaces the stored status if the device is new, renamed, or moved to
-// another rack or parent. With no provided status, the stored status stays, and only a
-// device with no stored status gets the default "unknown" status. Create sets
-// device.Status to the resulting status.
+// Create creates or updates the given device. Create writes the parent as sent, so an
+// update must carry the current parent. An existing device keeps its group unless it
+// moves to another rack. A status provided on the device replaces the stored status if
+// the device is new, renamed, or moved to another rack or parent. With no provided
+// status, the stored status stays, and only a device with no stored status gets the
+// default "unknown" status. Create sets device.Status to the resulting status.
 func (w Writer) Create(ctx context.Context, device *Device) error {
 	return w.inTx(ctx, func(w Writer) error { return w.create(ctx, device) })
 }
@@ -126,8 +126,6 @@ func (w Writer) create(ctx context.Context, device *Device) error {
 		device.Group = existing.Group
 		if device.Rack != existing.Rack {
 			device.Group = nil
-		} else if device.Parent == nil {
-			device.Parent = existing.Parent
 		}
 	}
 	if err = w.checkGroup(ctx, device.Group, *device); err != nil {

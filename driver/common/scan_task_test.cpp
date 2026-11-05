@@ -1382,6 +1382,59 @@ TEST(TestScanTask, TestNoUpdateWhenScannerOmitsParent) {
     EXPECT_TRUE(created_devices->empty());
 }
 
+/// @brief it should send the stored parent when it updates a device scanned with none.
+TEST(TestScanTask, TestUpdateKeepsStoredParent) {
+    synnax::device::Device remote;
+    remote.key = "device1";
+    remote.name = "Device 1";
+    remote.rack = 1;
+    remote.location = "slot-1";
+    remote.parent = "chassis-1";
+
+    synnax::device::Device scanned = remote;
+    scanned.parent = std::nullopt;
+    scanned.location = "slot-2";
+
+    auto scanner = std::make_unique<MockScanner>(
+        std::vector<std::vector<synnax::device::Device>>{{scanned}},
+        std::vector<x::errors::Error>{},
+        std::vector<x::errors::Error>{},
+        std::vector<x::errors::Error>{}
+    );
+
+    auto remote_devices = std::make_shared<std::vector<synnax::device::Device>>();
+    remote_devices->push_back(remote);
+
+    auto created_devices = std::make_shared<std::vector<synnax::device::Device>>();
+    auto cluster_api = std::make_unique<MockClusterAPI>(
+        remote_devices,
+        created_devices
+    );
+    auto *cluster_api_ptr = cluster_api.get();
+
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+
+    synnax::task::Task task;
+    task.key = x::uuid::create();
+    task.name = "Test Scan Task";
+
+    ScanTask scan_task(
+        std::move(scanner),
+        ctx,
+        task,
+        x::breaker::Config{},
+        x::telem::HERTZ * 1,
+        std::move(cluster_api)
+    );
+
+    ASSERT_NIL(scan_task.init());
+    ASSERT_NIL(scan_task.scan());
+    ASSERT_EQ(created_devices->size(), 1);
+    EXPECT_EQ(created_devices->at(0).location, "slot-2");
+    ASSERT_EQ(cluster_api_ptr->created_parents->size(), 1);
+    EXPECT_EQ(cluster_api_ptr->created_parents->at(0), "chassis-1");
+}
+
 /// @brief it should return expected config values from scanner.
 TEST(TestScanTask, testScannerConfigReturnsExpectedValues) {
     ScannerConfig cfg{.make = "test_make"};

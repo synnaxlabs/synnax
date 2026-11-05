@@ -57,11 +57,11 @@ for unrecognized types) and `configure_initial_tasks`; registered in
 
 A device's optional `parent` field holds the key of the device that holds it (e.g. an NI
 chassis); with no parent the device sits directly on its rack
-(`core/pkg/service/legacy/device/writer.go`). The common scan task
-(`driver/common/scan_task.h`) tracks parent changes between cycles and updates the
-device when the parent changes. Console decides node expandability via make-based
-dispatch (`console/src/feature/device/make.tsx`, e.g. NI `is_chassis`). Used today by NI
-(cDAQ chassis + modules).
+(`core/pkg/service/legacy/device/writer.go`). The Core writes `parent` as sent, so the
+common scan task (`driver/common/scan_task.h`) keeps the stored parent of a device
+scanned with none, and updates the device when the parent changes. Console decides node
+expandability via make-based dispatch (`console/src/feature/device/make.tsx`, e.g. NI
+`is_chassis`). Used today by NI (cDAQ chassis + modules).
 
 ## Tests
 
