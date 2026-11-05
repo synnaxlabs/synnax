@@ -271,7 +271,7 @@ func (s *Service) Retrieve(
 		q = q.Where(device.MatchParents(req.Parents...))
 	}
 	if req.Nested != nil {
-		q = q.Where(device.MatchNested(*req.Nested))
+		q = q.Where(device.MatchHasParent(*req.Nested))
 	}
 	var res RetrieveResponse
 	retErr := q.Entries(&res.Devices).Exec(ctx, nil)

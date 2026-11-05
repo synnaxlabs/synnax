@@ -171,7 +171,7 @@ func OpenService[E gorp.Entry[uuid.UUID]](
 		DB:              cfg.DB,
 		Name:            cfg.Type + "_config",
 		Migrations:      cfg.Migrations,
-		References:      []*gorp.Reference[uuid.UUID, E]{newTaskReference[E]()},
+		References:      []gorp.Reference[uuid.UUID, E]{newTaskReference[E]()},
 		Instrumentation: cfg.Instrumentation,
 	})
 	if err != nil {
@@ -181,14 +181,12 @@ func OpenService[E gorp.Entry[uuid.UUID]](
 }
 
 // newTaskReference returns the reference from a record to the task that shares its key.
-func newTaskReference[E gorp.Entry[uuid.UUID]]() *gorp.Reference[uuid.UUID, E] {
-	return gorp.NewReference(gorp.ReferenceConfig[uuid.UUID, E]{
+func newTaskReference[E gorp.Entry[uuid.UUID]]() *gorp.KeyReference[uuid.UUID, E, uuid.UUID] {
+	return gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, E, uuid.UUID]{
 		Name:     "key",
-		Tables:   []string{string(resource.TypeTask)},
+		Table:    string(resource.TypeTask),
 		OnDelete: gorp.Cascade,
-		Targets: func(e *E) []gorp.Target {
-			return []gorp.Target{gorp.To(string(resource.TypeTask), (*e).GorpKey())}
-		},
+		Targets:  func(e *E) []uuid.UUID { return []uuid.UUID{(*e).GorpKey()} },
 	})
 }
 

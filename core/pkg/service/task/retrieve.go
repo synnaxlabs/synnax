@@ -36,46 +36,40 @@ type Retrieve struct {
 
 // references holds the references a task holds to other records.
 type references struct {
-	rack *gorp.Reference[Key, Task]
-	rng  *gorp.Reference[Key, Task]
+	rack *gorp.KeyReference[Key, Task, rack.Key]
+	rng  *gorp.KeyReference[Key, Task, ranger.Key]
 }
 
 func newReferences() references {
 	return references{
-		rack: gorp.NewReference(gorp.ReferenceConfig[Key, Task]{
+		rack: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Task, rack.Key]{
 			Name:     "rack",
-			Tables:   []string{string(resource.TypeRack)},
+			Table:    string(resource.TypeRack),
 			OnDelete: gorp.Cascade,
 			// A draft holds rack zero, which names no rack.
-			Targets: func(t *Task) []gorp.Target {
+			Targets: func(t *Task) []rack.Key {
 				if t.Rack.IsZero() {
 					return nil
 				}
-				return []gorp.Target{rackTarget(t.Rack)}
+				return []rack.Key{t.Rack}
 			},
 		}),
-		rng: gorp.NewReference(gorp.ReferenceConfig[Key, Task]{
+		rng: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Task, ranger.Key]{
 			Name:     "range",
-			Tables:   []string{string(resource.TypeRange)},
+			Table:    string(resource.TypeRange),
 			OnDelete: gorp.Cascade,
-			Targets: func(t *Task) []gorp.Target {
+			Targets: func(t *Task) []ranger.Key {
 				if t.Range == nil {
 					return nil
 				}
-				return []gorp.Target{rangeTarget(*t.Range)}
+				return []ranger.Key{*t.Range}
 			},
 		}),
 	}
 }
 
-func (r references) all() []*gorp.Reference[Key, Task] {
-	return []*gorp.Reference[Key, Task]{r.rack, r.rng}
-}
-
-func rackTarget(k rack.Key) gorp.Target { return gorp.To(string(resource.TypeRack), k) }
-
-func rangeTarget(k ranger.Key) gorp.Target {
-	return gorp.To(string(resource.TypeRange), k)
+func (r references) all() []gorp.Reference[Key, Task] {
+	return []gorp.Reference[Key, Task]{r.rack, r.rng}
 }
 
 // Filter is a per-service filter that is bound to the Retrieve when passed to Where.
@@ -126,9 +120,7 @@ func MatchKeys(keys ...Key) Filter {
 // A draft on no rack matches no value.
 func MatchRacks(vals ...rack.Key) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Task] {
-		return r.refs.rack.Filter(lo.Map(vals, func(k rack.Key, _ int) gorp.Target {
-			return rackTarget(k)
-		})...)
+		return r.refs.rack.Filter(vals...)
 	}
 }
 
@@ -136,9 +128,7 @@ func MatchRacks(vals ...rack.Key) Filter {
 // values.
 func MatchRanges(vals ...ranger.Key) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Task] {
-		return r.refs.rng.Filter(lo.Map(vals, func(k ranger.Key, _ int) gorp.Target {
-			return rangeTarget(k)
-		})...)
+		return r.refs.rng.Filter(vals...)
 	}
 }
 

@@ -604,14 +604,14 @@ var _ = Describe("Device", func() {
 			Expect(svc.NewRetrieve().
 				Where(device.And(
 					device.MatchRacks(rackSvc.EmbeddedKey),
-					device.MatchNested(true),
+					device.MatchHasParent(true),
 				)).
 				Entries(&nested).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(svc.NewRetrieve().
 				Where(device.And(
 					device.MatchRacks(rackSvc.EmbeddedKey),
-					device.MatchNested(false),
+					device.MatchHasParent(false),
 				)).
 				Entries(&top).
 				Exec(ctx, tx)).To(Succeed())
