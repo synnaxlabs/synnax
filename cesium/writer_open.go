@@ -171,17 +171,11 @@ func (db *DB) NewStreamWriter(
 	ctx context.Context,
 	cfgs ...WriterConfig,
 ) (StreamWriter, error) {
-	if db.closed.Load() {
-		return nil, ErrDBClosed
-	}
 	return db.newStreamWriter(ctx, cfgs...)
 }
 
 // OpenWriter implements DB.
 func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (*Writer, error) {
-	if db.closed.Load() {
-		return nil, ErrDBClosed
-	}
 	iw, err := db.newStreamWriter(ctx, cfgs...)
 	if err != nil {
 		return nil, err
@@ -366,11 +360,17 @@ func (db *DB) notifyControlUpdate(ctx context.Context, update ControlUpdate) {
 
 // startOpen returns the DBs of the channels in cfg and of their indexes, so that a
 // writer can open on them with db.mu unlocked. Deleting one of the channels in cfg
-// fails with resource.ErrOpen until the caller runs the returned function. cfg comes
-// back with AutoIndex applied.
+// fails with resource.ErrOpen, and DB.Close waits, until the caller runs the returned
+// function. cfg comes back with AutoIndex applied. startOpen returns ErrDBClosed once
+// DB.Close has started.
 func (db *DB) startOpen(cfg WriterConfig) (WriterConfig, channelDBs, func(), error) {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
+	db.opening.Lock()
+	defer db.opening.Unlock()
+	if db.closed.Load() {
+		return WriterConfig{}, channelDBs{}, nil, ErrDBClosed
+	}
 	if *cfg.AutoIndex {
 		cfg = db.expandKeysForAutoIndex(cfg)
 	}
@@ -393,8 +393,6 @@ func (db *DB) startOpen(cfg WriterConfig) (WriterConfig, channelDBs, func(), err
 			dbs.unary[idxKey] = idx
 		}
 	}
-	db.opening.Lock()
-	defer db.opening.Unlock()
 	for _, key := range cfg.Channels {
 		db.opening.channels[key]++
 	}
@@ -405,6 +403,9 @@ func (db *DB) startOpen(cfg WriterConfig) (WriterConfig, channelDBs, func(), err
 			if db.opening.channels[key]--; db.opening.channels[key] == 0 {
 				delete(db.opening.channels, key)
 			}
+		}
+		if len(db.opening.channels) == 0 {
+			db.opening.drained.Broadcast()
 		}
 	}, nil
 }

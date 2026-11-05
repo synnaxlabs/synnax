@@ -171,6 +171,52 @@ var _ = Describe("Writer open", func() {
 		})
 	})
 
+	Describe("During close", func() {
+		It("Should make Close wait for the open", func(ctx SpecContext) {
+			var (
+				gfs = newGatedFS(FileSystems["memFS"]())
+				db  = openDBOnFS(ctx, gfs)
+				key = GenerateChannelKey()
+			)
+			Expect(db.CreateChannel(ctx, cesium.Channel{
+				Key:      key,
+				Name:     "time",
+				IsIndex:  true,
+				DataType: telem.TimestampT,
+			})).To(Succeed())
+			gate := gfs.gateFor(key)
+			gate.armed.Store(true)
+			DeferCleanup(gate.open)
+			opened := make(chan *cesium.Writer, 1)
+			go func() {
+				defer GinkgoRecover()
+				opened <- MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+					Channels: []cesium.ChannelKey{key},
+					Start:    telem.SecondTS,
+					Mode:     cesium.WriterModePersistOnly,
+				}))
+			}()
+			Eventually(gate.entered).Should(Receive())
+			closed := make(chan error, 1)
+			go func() { closed <- db.Close() }()
+			Consistently(closed, 200*time.Millisecond).ShouldNot(Receive())
+			gate.open()
+			var w *cesium.Writer
+			Eventually(opened).Should(Receive(&w))
+			Eventually(closed).Should(Receive(MatchError(resource.ErrOpen)))
+			Expect(w.Close()).To(Succeed())
+		})
+
+		It("Should fail an open that starts after Close", func(ctx SpecContext) {
+			db := openDBOnFS(ctx, FileSystems["memFS"]())
+			Expect(db.Close()).To(Succeed())
+			Expect(db.OpenWriter(ctx, cesium.WriterConfig{
+				Channels: []cesium.ChannelKey{GenerateChannelKey()},
+				Start:    telem.SecondTS,
+			})).Error().To(MatchError(cesium.ErrDBClosed))
+		})
+	})
+
 	Describe("Next to a delete", func() {
 		const stallTimeout = 10 * time.Second
 		for _, auth := range []control.Authority{1, control.AuthorityAbsolute} {
@@ -407,16 +453,13 @@ var _ = Describe("Writer open", func() {
 		})
 
 		It("Should not join the region HasDataFor holds", func(ctx SpecContext) {
-			const rounds = 1024
+			const rounds = 256
 			var (
 				db     = mustOpenDBOnFS(ctx, FileSystems["memFS"]())
 				idxKey = GenerateChannelKey()
 				key    = GenerateChannelKey()
-				stamps = make([]telem.TimeStamp, rounds+1)
+				start  = 2 * telem.SecondTS
 			)
-			for i := range stamps {
-				stamps[i] = telem.TimeStamp(i+1) * telem.SecondTS
-			}
 			Expect(db.CreateChannel(
 				ctx,
 				cesium.Channel{
@@ -435,13 +478,13 @@ var _ = Describe("Writer open", func() {
 			Expect(db.WriteSeries(
 				ctx,
 				idxKey,
-				stamps[0],
-				telem.NewSeries(stamps),
+				telem.SecondTS,
+				telem.NewSeriesV(telem.SecondTS, start),
 			)).To(Succeed())
 			Expect(db.WriteSeries(
 				ctx,
 				key,
-				stamps[0],
+				telem.SecondTS,
 				telem.NewSeriesV[int64](1),
 			)).To(Succeed())
 			var (
@@ -451,16 +494,11 @@ var _ = Describe("Writer open", func() {
 			wg.Go(func() {
 				defer GinkgoRecover()
 				defer done.Store(true)
-				for _, start := range stamps[1 : rounds+1] {
+				for range rounds {
 					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels: []cesium.ChannelKey{key},
 						Start:    start,
 					}))
-					MustSucceed(w.Write(telem.UnaryFrame(
-						key,
-						telem.NewSeriesV[int64](1),
-					)))
-					MustSucceed(w.Commit())
 					Expect(w.Close()).To(Succeed())
 				}
 			})

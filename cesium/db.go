@@ -72,6 +72,8 @@ type DB struct {
 	// unlocked, because the open can block on the file system.
 	opening struct {
 		channels map[ChannelKey]int
+		// drained signals that channels became empty.
+		drained sync.Cond
 		sync.Mutex
 	}
 }
@@ -166,6 +168,11 @@ func (db *DB) Close() error {
 	// Shut down without locking mutex to allow existing goroutines (e.g. GC) that
 	// require a mutex lock to exit.
 	err := db.shutdown.Close()
+	db.opening.Lock()
+	for len(db.opening.channels) > 0 {
+		db.opening.drained.Wait()
+	}
+	db.opening.Unlock()
 	db.mu.Lock()
 	defer db.mu.Unlock()
 	for _, u := range db.mu.dbs.unary {
