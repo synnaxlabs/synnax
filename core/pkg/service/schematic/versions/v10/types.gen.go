@@ -81,13 +81,17 @@ type HydraulicEdgeConfig = v9.HydraulicEdgeConfig
 type PneumaticEdgeConfig = v9.PneumaticEdgeConfig
 type DataEdgeConfig = v9.DataEdgeConfig
 
-// FlexAlignment is a cross-axis flex alignment for laid-out content.
+// FlexAlignment is a flex alignment for laid-out content.
 type FlexAlignment = v9.FlexAlignment
 
 const (
-	FlexAlignmentStart   FlexAlignment = v9.FlexAlignmentStart
-	FlexAlignmentCenter  FlexAlignment = v9.FlexAlignmentCenter
-	FlexAlignmentEnd     FlexAlignment = v9.FlexAlignmentEnd
+	// FlexAlignmentStart aligns content to the start.
+	FlexAlignmentStart FlexAlignment = v9.FlexAlignmentStart
+	// FlexAlignmentCenter aligns content to the center.
+	FlexAlignmentCenter FlexAlignment = v9.FlexAlignmentCenter
+	// FlexAlignmentEnd aligns content to the end.
+	FlexAlignmentEnd FlexAlignment = v9.FlexAlignmentEnd
+	// FlexAlignmentStretch stretches content to fill the available space.
 	FlexAlignmentStretch FlexAlignment = v9.FlexAlignmentStretch
 )
 
@@ -95,11 +99,16 @@ const (
 type ComponentSize = v9.ComponentSize
 
 const (
-	ComponentSizeTiny   ComponentSize = v9.ComponentSizeTiny
-	ComponentSizeSmall  ComponentSize = v9.ComponentSizeSmall
+	// ComponentSizeTiny is the smallest preset.
+	ComponentSizeTiny ComponentSize = v9.ComponentSizeTiny
+	// ComponentSizeSmall is the preset between tiny and medium.
+	ComponentSizeSmall ComponentSize = v9.ComponentSizeSmall
+	// ComponentSizeMedium is the default preset.
 	ComponentSizeMedium ComponentSize = v9.ComponentSizeMedium
-	ComponentSizeLarge  ComponentSize = v9.ComponentSizeLarge
-	ComponentSizeHuge   ComponentSize = v9.ComponentSizeHuge
+	// ComponentSizeLarge is the preset between medium and huge.
+	ComponentSizeLarge ComponentSize = v9.ComponentSizeLarge
+	// ComponentSizeHuge is the largest preset.
+	ComponentSizeHuge ComponentSize = v9.ComponentSizeHuge
 )
 
 // ButtonMode is the actuation behavior of a button: fire writes once on click,
@@ -107,9 +116,12 @@ const (
 type ButtonMode = v9.ButtonMode
 
 const (
-	ButtonModeFire      ButtonMode = v9.ButtonModeFire
+	// ButtonModeFire writes once on click.
+	ButtonModeFire ButtonMode = v9.ButtonModeFire
+	// ButtonModeMomentary writes on press and clears on release.
 	ButtonModeMomentary ButtonMode = v9.ButtonModeMomentary
-	ButtonModePulse     ButtonMode = v9.ButtonModePulse
+	// ButtonModePulse writes a one-cycle pulse.
+	ButtonModePulse ButtonMode = v9.ButtonModePulse
 )
 
 // LabelConfig is the text label configuration shared by schematic symbols.
@@ -9968,10 +9980,14 @@ type ScaleIndicatorConfig = v9.ScaleIndicatorConfig
 type PageType = v9.PageType
 
 const (
+	// PageTypeSchematic is a schematic page.
 	PageTypeSchematic PageType = v9.PageTypeSchematic
-	PageTypeLineplot  PageType = v9.PageTypeLineplot
-	PageTypeLog       PageType = v9.PageTypeLog
-	PageTypeTable     PageType = v9.PageTypeTable
+	// PageTypeLineplot is a line plot page.
+	PageTypeLineplot PageType = v9.PageTypeLineplot
+	// PageTypeLog is a log page.
+	PageTypeLog PageType = v9.PageTypeLog
+	// PageTypeTable is a table page.
+	PageTypeTable PageType = v9.PageTypeTable
 )
 
 // Page identifies a page an off-page reference links to.

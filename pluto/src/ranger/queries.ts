@@ -25,10 +25,7 @@ const PLURAL_KV_RESOURCE_NAME = "metadata";
 const PLURAL_CHILDREN_RESOURCE_NAME = "child ranges";
 const PARENT_RESOURCE_NAME = "parent range";
 
-export type RetrieveQuery = Pick<
-  ranger.RetrieveRequest,
-  "includeLabels" | "includeParent"
-> & {
+export type RetrieveQuery = {
   key: ranger.Key;
 };
 

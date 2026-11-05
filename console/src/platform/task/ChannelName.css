@@ -9,9 +9,11 @@
  * included in the file licenses/APL.txt.
  */
 
+/* The leading icon is 1em, so the lead sets the size it would otherwise inherit. */
 .console-task__channel-lead {
     min-width: 0;
     max-width: 100%;
+    font-size: var(--pluto-p-size);
 
     & > .console-task__channel-name {
         min-width: 0;
