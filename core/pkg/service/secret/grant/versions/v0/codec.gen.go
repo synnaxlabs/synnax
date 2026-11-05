@@ -13,13 +13,14 @@ package v0
 
 import (
 	"github.com/synnaxlabs/x/encoding/orc"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"uuid"
 )
 
 // EncodeOrc writes the value to w in the Orc binary format.
 func (g Grant) EncodeOrc(w *orc.Writer) error {
 	w.Write(g.Key[:])
-	if err := g.Rack.EncodeOrc(w); err != nil {
+	if err := g.Subject.EncodeOrc(w); err != nil {
 		return err
 	}
 	w.Bool(g.Secrets != nil)
@@ -29,7 +30,7 @@ func (g Grant) EncodeOrc(w *orc.Writer) error {
 			w.Write(g.Secrets[i][:])
 		}
 	}
-	w.Write(g.Session[:])
+	w.Int64(int64(g.ExpiresAt))
 	return nil
 }
 
@@ -39,7 +40,7 @@ func (g *Grant) DecodeOrc(r *orc.Reader) error {
 	if _, err := r.Read(g.Key[:]); err != nil {
 		return err
 	}
-	if err = g.Rack.DecodeOrc(r); err != nil {
+	if err = g.Subject.DecodeOrc(r); err != nil {
 		return err
 	}
 	{
@@ -60,8 +61,12 @@ func (g *Grant) DecodeOrc(r *orc.Reader) error {
 			}
 		}
 	}
-	if _, err := r.Read(g.Session[:]); err != nil {
-		return err
+	{
+		rawV, err := r.Int64()
+		if err != nil {
+			return err
+		}
+		g.ExpiresAt = telem.TimeStamp(rawV)
 	}
 	return nil
 }

@@ -86,6 +86,7 @@ const PORTS: Task.Port.Group[] = [
         column: 1,
         state: "used",
         channel: "a",
+        channels: ["a"],
         tooltip: "ai0: a",
       },
       {
@@ -95,6 +96,7 @@ const PORTS: Task.Port.Group[] = [
         row: 1,
         column: 2,
         state: "free",
+        channels: [],
         tooltip: "ai1 is free",
       },
     ],

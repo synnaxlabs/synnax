@@ -16,8 +16,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -34,8 +32,6 @@ import (
 type env struct {
 	db     *gorp.DB
 	otg    *ontology.Ontology
-	keys   *apikey.Service
-	auth   *auth.Service
 	grants *grant.Service
 	svc    *secret.Service
 	uses   []secret.Use
@@ -84,25 +80,8 @@ func newStore(ctx SpecContext) *env {
 	e := &env{now: telem.SecondTS * 1000}
 	e.db = DeferClose(gorp.Wrap(memkv.New()))
 	e.otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: e.db}))
-	e.keys = MustOpen(apikey.OpenService(ctx, apikey.ServiceConfig{DB: e.db}))
-	e.auth = MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
-		DB:             e.db,
-		Authenticators: map[auth.Method]auth.Authenticator{auth.MethodAPIKey: e.keys},
-	}))
-	e.grants = MustOpen(grant.OpenService(ctx, grant.ServiceConfig{
-		DB:   e.db,
-		Auth: e.auth,
-	}))
+	e.grants = MustOpen(grant.OpenService(ctx, grant.ServiceConfig{DB: e.db}))
 	return e
-}
-
-// login opens a session for a new user.
-func (e *env) login(ctx SpecContext) auth.Session {
-	GinkgoHelper()
-	user := ontology.ID{Type: ontology.ResourceTypeUser, Key: uuid.New().String()}
-	k, _ := MustSucceed2(e.keys.NewWriter(nil).Create(ctx, user, "Console"))
-	session, _ := MustSucceed2(e.auth.NewWriter(nil).Open(ctx, user, k.Key))
-	return session
 }
 
 func newEnv(ctx SpecContext) *env {

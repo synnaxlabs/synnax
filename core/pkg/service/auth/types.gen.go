@@ -76,6 +76,7 @@ func (a APIKeyCredentials) Validate() error {
 	return v.Error()
 }
 
+// ProofVariant is implemented by every Proof variant.
 type ProofVariant interface {
 	isProofVariant()
 }
@@ -175,7 +176,11 @@ func (u *Proof) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.APIKeyProof
 	default:
-		return errors.Newf("Proof: unknown method %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Proof: unknown method %q",
+			disc.Type,
+		)
 	}
 	return nil
 }

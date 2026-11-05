@@ -59,8 +59,7 @@ concurrency:
 
 permissions:
   actions: read
-  contents: write
-  packages: write
+  contents: read
 
 env:
   GH_REPO: ${{ github.repository }}
@@ -79,7 +78,26 @@ jobs:
     uses: ./.github/workflows/ci.yaml
     with:
       full: true
-    secrets: inherit
+    secrets:
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+      PAGERDUTY_API_KEY: ${{ secrets.PAGERDUTY_API_KEY }}
+      PAGERDUTY_ROUTING_KEY: ${{ secrets.PAGERDUTY_ROUTING_KEY }}
+      POSTHOG_CLI_API_KEY: ${{ secrets.POSTHOG_CLI_API_KEY }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+      TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   # A stored shape that changed without a migration stops the release before any draft.
   migration-audit:
@@ -89,7 +107,13 @@ jobs:
       contents: read
       id-token: write
     uses: ./.github/workflows/audit.migration.yaml
-    secrets: inherit
+    secrets:
+      CLAUDE_CODE_APP_ID: ${{ secrets.CLAUDE_CODE_APP_ID }}
+      CLAUDE_CODE_APP_PRIVATE_KEY: ${{ secrets.CLAUDE_CODE_APP_PRIVATE_KEY }}
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      CODEX_APP_ID: ${{ secrets.CODEX_APP_ID }}
+      CODEX_APP_PRIVATE_KEY: ${{ secrets.CODEX_APP_PRIVATE_KEY }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   resolve:
     name: Resolve versions
@@ -181,6 +205,9 @@ jobs:
     name: Draft Console
     needs: [resolve, ci, migration-audit]
     if: inputs.console
+    permissions:
+      actions: read
+      contents: write
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -214,11 +241,29 @@ jobs:
       version: ${{ needs.resolve.outputs.console_version }}
       release_tag: ${{ needs.resolve.outputs.console_tag }}
       updater_channel: ${{ inputs.prerelease && 'next' || 'stable' }}
-    secrets: inherit
+    secrets:
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+      POSTHOG_CLI_API_KEY: ${{ secrets.POSTHOG_CLI_API_KEY }}
+      TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+      TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   publish-console:
     name: Publish Console
     needs: [resolve, build-console]
+    permissions:
+      actions: read
+      contents: write
     runs-on: ubuntu-latest
     env:
       TAG: ${{ needs.resolve.outputs.console_tag }}
@@ -240,6 +285,9 @@ jobs:
     name: Draft Driver
     needs: [resolve, ci, migration-audit]
     if: inputs.driver
+    permissions:
+      actions: read
+      contents: write
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -272,11 +320,29 @@ jobs:
       use_simple_artifact_names: true
       version: ${{ needs.resolve.outputs.driver_version }}
       release_tag: ${{ needs.resolve.outputs.driver_tag }}
-    secrets: inherit
+    secrets:
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+      POSTHOG_CLI_API_KEY: ${{ secrets.POSTHOG_CLI_API_KEY }}
+      TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+      TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   publish-driver:
     name: Publish Driver
     needs: [resolve, build-driver]
+    permissions:
+      actions: read
+      contents: write
     runs-on: ubuntu-latest
     env:
       TAG: ${{ needs.resolve.outputs.driver_tag }}
@@ -294,6 +360,9 @@ jobs:
       needs.ci.result == 'success' && needs.migration-audit.result == 'success' &&
       (!inputs.console || needs.publish-console.result == 'success') && (!inputs.driver
       || needs.publish-driver.result == 'success')
+    permissions:
+      actions: read
+      contents: write
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -341,12 +410,30 @@ jobs:
       docker_channel:
         ${{ inputs.prerelease && 'next' || needs.resolve.outputs.core_latest == 'true'
         && 'latest' || '' }}
-    secrets: inherit
+    secrets:
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+      POSTHOG_CLI_API_KEY: ${{ secrets.POSTHOG_CLI_API_KEY }}
+      TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+      TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   windows-installer:
     name: Build Windows installer
     needs: [resolve, build-core]
     if: ${{ !cancelled() && needs.build-core.result == 'success' }}
+    permissions:
+      actions: read
+      contents: write
     runs-on: windows-latest
     env:
       TAG: ${{ needs.resolve.outputs.core_tag }}
@@ -400,6 +487,9 @@ jobs:
     name: Publish Core
     needs: [resolve, build-core, windows-installer]
     if: ${{ !cancelled() && needs.windows-installer.result == 'success' }}
+    permissions:
+      actions: read
+      contents: write
     runs-on: ubuntu-latest
     env:
       TAG: ${{ needs.resolve.outputs.core_tag }}

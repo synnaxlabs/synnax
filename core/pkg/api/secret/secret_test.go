@@ -27,7 +27,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
-	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -84,7 +83,6 @@ var _ = Describe("ServiceConfig", func() {
 	full := func() apisecret.ServiceConfig {
 		return apisecret.ServiceConfig{
 			Secret: &secret.Service{},
-			Grant:  &grant.Service{},
 			RBAC:   &rbac.Service{},
 		}
 	}
@@ -96,8 +94,6 @@ var _ = Describe("ServiceConfig", func() {
 		},
 		Entry("secret", func(c *apisecret.ServiceConfig) { c.Secret = nil },
 			"secret: must be non-nil"),
-		Entry("grant", func(c *apisecret.ServiceConfig) { c.Grant = nil },
-			"grant: must be non-nil"),
 		Entry("rbac", func(c *apisecret.ServiceConfig) { c.RBAC = nil },
 			"rbac: must be non-nil"),
 	)
@@ -106,7 +102,6 @@ var _ = Describe("ServiceConfig", func() {
 		Expect(cfg.Validate()).To(Succeed())
 		merged := apisecret.ServiceConfig{}.Override(cfg)
 		Expect(merged.Secret).To(BeIdenticalTo(cfg.Secret))
-		Expect(merged.Grant).To(BeIdenticalTo(cfg.Grant))
 		Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 	})
 })
@@ -395,19 +390,10 @@ var _ = Describe("Service", func() {
 			GinkgoHelper()
 			return MustSucceed(
 				apiSvc.CreateGrant(ctx, nil, apisecret.GrantCreateRequest{
-					Rack:    rk,
+					Subject: rk.OntologyID(),
 					Secrets: keys,
 				}),
 			)
-		}
-		retrieveGrant := func(ctx SpecContext, key grant.Key) grant.Grant {
-			GinkgoHelper()
-			var g grant.Grant
-			Expect(svc.Grant.NewRetrieve().
-				Where(grant.MatchKeys(key)).
-				Entry(&g).
-				Exec(ctx, nil)).To(Succeed())
-			return g
 		}
 
 		It("Should let the rack resolve the granted secrets in request order",
@@ -428,41 +414,25 @@ var _ = Describe("Service", func() {
 				}))
 			},
 		)
-		It("Should record the caller's session on the grant", func(ctx SpecContext) {
+		It("Should let the rack resolve a grant only once", func(ctx SpecContext) {
 			u := createUser(ctx)
 			allowDevices(ctx, u)
 			s := createSecret(ctx, "A", "v")
-			uCtx, session := sessionCtx(ctx, u)
+			uCtx, _ := sessionCtx(ctx, u)
 			res := createGrant(uCtx, s.Base().Key)
-			Expect(retrieveGrant(ctx, res.Grant)).To(Equal(grant.Grant{
-				Key:     res.Grant,
-				Rack:    rk.OntologyID(),
-				Secrets: []secret.Key{s.Base().Key},
-				Session: session,
-			}))
+			req := apisecret.ResolveRequest{
+				Keys:  []secret.Key{s.Base().Key},
+				Grant: res.Grant,
+			}
+			rCtx := SubjectCtx(ctx, rk.OntologyID())
+			MustSucceed(apiSvc.Resolve(rCtx, req))
+			Expect(apiSvc.Resolve(rCtx, req)).Error().To(SatisfyAll(
+				MatchError(access.ErrDenied),
+				MatchError(ContainSubstring(
+					"grant "+res.Grant.String()+" has ended or does not exist",
+				)),
+			))
 		})
-		It(
-			"Should end the grant when the caller's session ends",
-			func(ctx SpecContext) {
-				u := createUser(ctx)
-				allowDevices(ctx, u)
-				s := createSecret(ctx, "A", "v")
-				uCtx, session := sessionCtx(ctx, u)
-				res := createGrant(uCtx, s.Base().Key)
-				Expect(svc.Auth.Logout(ctx, session)).To(Succeed())
-				Expect(apiSvc.Resolve(SubjectCtx(ctx, rk.OntologyID()),
-					apisecret.ResolveRequest{
-						Keys:  []secret.Key{s.Base().Key},
-						Grant: res.Grant,
-					},
-				)).Error().To(SatisfyAll(
-					MatchError(access.ErrDenied),
-					MatchError(ContainSubstring(
-						"grant "+res.Grant.String()+" has ended or does not exist",
-					)),
-				))
-			},
-		)
 		It("Should deny a grant to a user who cannot create devices",
 			func(ctx SpecContext) {
 				u := createUser(ctx)
@@ -470,19 +440,16 @@ var _ = Describe("Service", func() {
 				s := createSecret(ctx, "A", "v")
 				uCtx, _ := sessionCtx(ctx, u)
 				Expect(apiSvc.CreateGrant(uCtx, nil, apisecret.GrantCreateRequest{
-					Rack:    rk,
+					Subject: rk.OntologyID(),
 					Secrets: []secret.Key{s.Base().Key},
 				})).Error().To(MatchError(access.ErrDenied))
-				Expect(svc.Grant.NewRetrieve().
-					Where(grant.MatchSessions(apiauth.GetSessionKey(uCtx))).
-					Count(ctx, nil)).To(BeZero())
 			},
 		)
 		It("Should deny a grant to a rack", func(ctx SpecContext) {
 			s := createSecret(ctx, "A", "v")
 			Expect(apiSvc.CreateGrant(SubjectCtx(ctx, rk.OntologyID()), nil,
 				apisecret.GrantCreateRequest{
-					Rack:    rk,
+					Subject: rk.OntologyID(),
 					Secrets: []secret.Key{s.Base().Key},
 				},
 			)).Error().To(SatisfyAll(
@@ -490,34 +457,6 @@ var _ = Describe("Service", func() {
 				MatchError(ContainSubstring("only a user can grant secrets")),
 			))
 		})
-		It("Should delete grants", func(ctx SpecContext) {
-			u := createUser(ctx)
-			allowDevices(ctx, u)
-			s := createSecret(ctx, "A", "v")
-			uCtx, _ := sessionCtx(ctx, u)
-			res := createGrant(uCtx, s.Base().Key)
-			MustSucceed(apiSvc.DeleteGrants(uCtx, nil, apisecret.GrantDeleteRequest{
-				Grants: []grant.Key{res.Grant, uuid.New()},
-			}))
-			Expect(svc.Grant.NewRetrieve().
-				Where(grant.MatchKeys(res.Grant)).
-				Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
-		})
-		It("Should deny a delete to a user who cannot create devices",
-			func(ctx SpecContext) {
-				owner := createUser(ctx)
-				allowDevices(ctx, owner)
-				s := createSecret(ctx, "A", "v")
-				ownerCtx, _ := sessionCtx(ctx, owner)
-				res := createGrant(ownerCtx, s.Base().Key)
-				u := createUser(ctx)
-				uCtx, _ := sessionCtx(ctx, u)
-				Expect(apiSvc.DeleteGrants(uCtx, nil, apisecret.GrantDeleteRequest{
-					Grants: []grant.Key{res.Grant},
-				})).Error().To(MatchError(access.ErrDenied))
-				Expect(retrieveGrant(ctx, res.Grant).Key).To(Equal(res.Grant))
-			},
-		)
 		It(
 			"Should deny resolve to a subject that is not a rack",
 			func(ctx SpecContext) {
