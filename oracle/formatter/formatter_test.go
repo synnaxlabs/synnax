@@ -724,6 +724,44 @@ var _ = Describe("Format", func() {
 		})
 	})
 
+	Describe("Filter Definitions", func() {
+		It("should format an empty filter", func() {
+			Expect(
+				format("Where filter Range {}\n"),
+			).To(Equal("Where filter Range {}\n"))
+		})
+
+		It("should align bare and typed lines", func() {
+			source := "Where   filter   Range {\n  key\n  name\n" +
+				"  overlaps telem.TimeRange\n  labels label.Key[]\n}\n"
+			Expect(format(source)).To(Equal("Where filter Range {\n" +
+				"    key\n" +
+				"    name\n" +
+				"    overlaps telem.TimeRange\n" +
+				"    labels   label.Key[]\n" +
+				"}\n"))
+		})
+
+		It("should format line and filter domains", func() {
+			source := "Where filter Range {\n  overlaps telem.TimeRange {\n" +
+				"    @doc value \"matches overlaps.\"\n  }\n" +
+				"  @response type APIRange\n}\n"
+			result := format(source)
+			Expect(result).To(ContainSubstring(
+				"    overlaps telem.TimeRange {\n" +
+					"        @doc value \"matches overlaps.\"\n    }\n",
+			))
+			Expect(result).To(ContainSubstring("\n\n    @response type APIRange\n}"))
+		})
+
+		It("should be idempotent", func() {
+			source := "Where filter Range {\n  key\n  labels label.Key[] {\n" +
+				"    @doc value \"matches labels.\"\n  }\n}\n"
+			once := format(source)
+			Expect(format(once)).To(Equal(once))
+		})
+	})
+
 	Describe("Union Definitions", func() {
 		It("should format an empty union", func() {
 			Expect(
