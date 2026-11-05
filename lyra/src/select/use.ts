@@ -105,7 +105,7 @@ export const hasModifier = (e: {
 /** Return value for the {@link useSingle} and {@link useMultiple} hooks. */
 export interface UseReturn<K extends record.Key> extends Omit<
   UseCursorReturn<K>,
-  "setCursor" | "current"
+  "setCursor" | "target"
 > {
   /** Applies a click on the given key, honoring the held modifier keys. */
   onSelect: (key: K) => void;
@@ -157,7 +157,7 @@ export const useSingle = <K extends record.Key>({
   const order = useOrder<K>();
   const { getOrder, subscribe } = order;
   const setSelected = (keys: K[]): void => onChange(keys[0], { clicked: null });
-  const { setCursor, current, ...rest } = useCursor({
+  const { setCursor, target, ...rest } = useCursor({
     order,
     selected: value == null ? [] : [value],
     select: (key) => setSelected([key]),
@@ -189,7 +189,7 @@ export const useSingle = <K extends record.Key>({
     onChange(key, { clicked: key });
     if (closeDialogOnSelect) close();
   };
-  List.usePin(current);
+  List.usePin(target);
   return { onSelect: handleSelect, setSelected, clear, ...rest };
 };
 
@@ -222,7 +222,7 @@ export const useMultiple = <K extends record.Key>({
     shiftValueRef.current = key;
     onChange([key], { clicked: null });
   };
-  const { setCursor, current, ...rest } = useCursor({
+  const { setCursor, target, ...rest } = useCursor({
     order,
     selected: value,
     select,
@@ -283,6 +283,6 @@ export const useMultiple = <K extends record.Key>({
   };
   const clear = (): void => onChange([], { clicked: null });
   const setSelected = (keys: K[]): void => onChange(keys, { clicked: null });
-  List.usePin(current);
+  List.usePin(target);
   return { onSelect, setSelected, clear, ...rest };
 };
