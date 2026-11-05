@@ -108,7 +108,7 @@ TEST(TestScanTask, testWritesDeviceHierarchyOnce) {
     synnax::device::Device child = chassis;
     child.key = "child_" + std::to_string(rack.key);
     child.location = "child";
-    child.parent = synnax::device::resource_id(chassis.key);
+    child.parent = chassis.key;
 
     auto scanner = std::make_unique<FixedScanner>(
         std::vector<synnax::device::Device>{chassis, child}

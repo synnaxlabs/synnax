@@ -62,8 +62,6 @@ map_device_keys(const std::vector<Device> &devices) {
 struct RetrieveOptions {
     /// @brief Whether to include status information in the retrieved devices.
     bool include_status = false;
-    /// @brief Whether to include parent resource ID in the retrieved devices.
-    bool include_parent = false;
 };
 
 /// @brief Request structure for retrieving devices with various filter options.
@@ -79,7 +77,6 @@ struct RetrieveRequest {
     std::uint32_t offset = 0;
     bool ignore_not_found = false;
     bool include_status = false;
-    bool include_parent = false;
 
     void to_proto(grpc::device::RetrieveRequest &request) const {
         request.set_ignore_not_found(ignore_not_found);
@@ -93,7 +90,6 @@ struct RetrieveRequest {
         request.mutable_racks()->Add(racks.begin(), racks.end());
         request.set_search(search);
         request.set_include_status(include_status);
-        request.set_include_parent(include_parent);
     }
 };
 

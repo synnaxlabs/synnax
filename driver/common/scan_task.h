@@ -153,7 +153,6 @@ struct SynnaxClusterAPI final : ClusterAPI {
         req.makes = {make};
         req.racks = {rack};
         req.include_status = true;
-        req.include_parent = true;
         return this->client->devices.retrieve(req);
     }
 
@@ -161,10 +160,7 @@ struct SynnaxClusterAPI final : ClusterAPI {
     retrieve_device(const std::string &key) override {
         return this->client->devices.retrieve(
             key,
-            synnax::device::RetrieveOptions{
-                .include_status = true,
-                .include_parent = true,
-            }
+            synnax::device::RetrieveOptions{.include_status = true}
         );
     }
 
@@ -559,9 +555,8 @@ public:
                 // The Core keeps the parent of a device written without one.
                 if (dev.parent.has_value() && dev.parent != remote_dev.parent) {
                     VLOG(1) << this->log_prefix << "device parent changed for "
-                            << dev.key << " from '"
-                            << (remote_dev.parent ? remote_dev.parent->string() : "")
-                            << "' to '" << dev.parent->string() << "'";
+                            << dev.key << " from '" << remote_dev.parent.value_or("")
+                            << "' to '" << *dev.parent << "'";
                     needs_update = true;
                 }
 
