@@ -14,11 +14,15 @@ package pb
 import (
 	"uuid"
 
+	"github.com/samber/lo"
 	graphpb "github.com/synnaxlabs/arc/graph/pb"
 	programpb "github.com/synnaxlabs/arc/program/pb"
 	textpb "github.com/synnaxlabs/arc/text/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/filter"
+	filterpb "github.com/synnaxlabs/x/filter/pb"
+	xpb "github.com/synnaxlabs/x/pb"
 )
 
 // ArcToPB converts Arc to Arc.
@@ -105,6 +109,189 @@ func ArcsFromPB(pbs []*Arc) ([]arc.Arc, error) {
 	for i, pb := range pbs {
 		var err error
 		result[i], err = ArcFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// UuidSetToPB converts filter.Set[uuid.UUID] to UuidSet.
+func UuidSetToPB(r filter.Set[uuid.UUID]) (*UuidSet, error) {
+	pb := &UuidSet{}
+	if r.Eq != nil {
+		v := r.Eq.String()
+		pb.Eq = &v
+	}
+	if r.In != nil {
+		pb.In = &UuidList{Values: lo.Map(r.In, func(u uuid.UUID, _ int) string { return uuid.UUID(u).String() })}
+	}
+	return pb, nil
+}
+
+// UuidSetFromPB converts UuidSet to filter.Set[uuid.UUID].
+func UuidSetFromPB(pb *UuidSet) (filter.Set[uuid.UUID], error) {
+	var r filter.Set[uuid.UUID]
+	if pb == nil {
+		return r, nil
+	}
+	if pb.Eq != nil {
+		v, err := uuid.Parse(*pb.Eq)
+		if err != nil {
+			return filter.Set[uuid.UUID]{}, err
+		}
+		r.Eq = &v
+	}
+	if pb.In != nil {
+		vals, err := func() ([]uuid.UUID, error) {
+			result := make([]uuid.UUID, len(pb.In.Values))
+			for i, s := range pb.In.Values {
+				parsed, err := uuid.Parse(s)
+				if err != nil {
+					return nil, err
+				}
+				result[i] = uuid.UUID(parsed)
+			}
+			return result, nil
+		}()
+		if err != nil {
+			return filter.Set[uuid.UUID]{}, err
+		}
+		r.In = xpb.ListValues(vals)
+	}
+	return r, nil
+}
+
+// UuidSetsToPB converts a slice of filter.Set[uuid.UUID] to UuidSet.
+func UuidSetsToPB(rs []filter.Set[uuid.UUID]) ([]*UuidSet, error) {
+	result := make([]*UuidSet, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = UuidSetToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// UuidSetsFromPB converts a slice of UuidSet to filter.Set[uuid.UUID].
+func UuidSetsFromPB(pbs []*UuidSet) ([]filter.Set[uuid.UUID], error) {
+	result := make([]filter.Set[uuid.UUID], len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = UuidSetFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// WhereToPB converts Where to Where.
+func WhereToPB(r arc.Where) (*Where, error) {
+	pb := &Where{}
+	if r.And != nil {
+		vals, err := WheresToPB(r.And)
+		if err != nil {
+			return nil, err
+		}
+		pb.And = &WhereList{Values: vals}
+	}
+	if r.Or != nil {
+		vals, err := WheresToPB(r.Or)
+		if err != nil {
+			return nil, err
+		}
+		pb.Or = &WhereList{Values: vals}
+	}
+	if r.Not != nil {
+		var err error
+		pb.Not, err = WhereToPB(*r.Not)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Key != nil {
+		var err error
+		pb.Key, err = UuidSetToPB(*r.Key)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Name != nil {
+		var err error
+		pb.Name, err = filterpb.StringToPB(*r.Name)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return pb, nil
+}
+
+// WhereFromPB converts Where to Where.
+func WhereFromPB(pb *Where) (arc.Where, error) {
+	var r arc.Where
+	if pb == nil {
+		return r, nil
+	}
+	if pb.And != nil {
+		vals, err := WheresFromPB(pb.And.Values)
+		if err != nil {
+			return arc.Where{}, err
+		}
+		r.And = xpb.ListValues(vals)
+	}
+	if pb.Or != nil {
+		vals, err := WheresFromPB(pb.Or.Values)
+		if err != nil {
+			return arc.Where{}, err
+		}
+		r.Or = xpb.ListValues(vals)
+	}
+	if pb.Not != nil {
+		val, err := WhereFromPB(pb.Not)
+		if err != nil {
+			return arc.Where{}, err
+		}
+		r.Not = &val
+	}
+	if pb.Key != nil {
+		val, err := UuidSetFromPB(pb.Key)
+		if err != nil {
+			return arc.Where{}, err
+		}
+		r.Key = &val
+	}
+	if pb.Name != nil {
+		val, err := filterpb.StringFromPB(pb.Name)
+		if err != nil {
+			return arc.Where{}, err
+		}
+		r.Name = &val
+	}
+	return r, nil
+}
+
+// WheresToPB converts a slice of Where to Where.
+func WheresToPB(rs []arc.Where) ([]*Where, error) {
+	result := make([]*Where, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = WhereToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// WheresFromPB converts a slice of Where to Where.
+func WheresFromPB(pbs []*Where) ([]arc.Where, error) {
+	result := make([]arc.Where, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = WhereFromPB(pb)
 		if err != nil {
 			return nil, err
 		}

@@ -15,6 +15,7 @@ from synnax.device.types_gen import (
     Key,
     Status,
     StatusDetails,
+    Where,
     ontology_id,
 )
 
@@ -25,6 +26,7 @@ __all__ = [
     "Key",
     "Status",
     "StatusDetails",
+    "Where",
     "ensure_object",
     "ontology_id",
 ]

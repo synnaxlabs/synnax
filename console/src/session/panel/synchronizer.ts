@@ -208,10 +208,7 @@ const createTabSelections = (
     const keys = new Set<string>(Object.keys(win.state.panels));
     if (win.state.selected != null) keys.add(win.state.selected);
     if (keys.size === 0) return;
-    const panels = await client.panels.retrieve({
-      keys: [...keys],
-      ignoreNotFoundError: true,
-    });
+    const panels = await client.panels.retrieve([...keys]);
     panels.forEach((pan) => reconcileTabs(store, leafGroups, pan));
   },
   listen: ({ client, store }) => {

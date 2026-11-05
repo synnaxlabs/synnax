@@ -91,7 +91,7 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
   });
   // A null query holds the fetch until the delay passes, so mouse sweeps fire nothing.
   const { data } = Channel.useResultMultiple(
-    visible && keys.length > 0 ? { keys } : null,
+    visible && keys.length > 0 ? { where: { key: { in: keys } } } : null,
   );
   if (!visible || (keys.length > 0 && data == null)) return null;
   const channels = CHANNEL_ROWS.flatMap(({ field, icon: RoleIcon }) => {

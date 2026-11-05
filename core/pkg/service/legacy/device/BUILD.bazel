@@ -17,6 +17,7 @@ proto_library(
     deps = [
         "//core/pkg/service/ontology:ontology_proto",
         "//core/pkg/service/status:status_proto",
+        "//x/go/filter:filter_proto",
         "@protobuf//:struct_proto",
     ],
 )
@@ -29,5 +30,6 @@ cpp_grpc_library(
     deps = [
         "//core/pkg/service/ontology:ontology_grpc",
         "//core/pkg/service/status:status_grpc",
+        "//x/go/filter:filter_grpc",
     ],
 )

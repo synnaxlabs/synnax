@@ -11,7 +11,6 @@ import { id, uuid } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
 import { group } from "@/group";
-import { NotFoundError } from "@/index";
 import { log } from "@/log";
 import { project } from "@/project";
 import { createTestClient } from "@/testutil";
@@ -59,18 +58,13 @@ describe("Project", () => {
         })
         .toEqual(names);
     });
-    test("omit missing keys when ignoring not found", async () => {
+    test("omit missing keys", async () => {
       const proj = await client.projects.create({ name: "survivor" });
-      const res = await client.projects.retrieve({
-        keys: [proj.key, uuid.create()],
-        ignoreNotFoundError: true,
-      });
+      const res = await client.projects.retrieve([proj.key, uuid.create()]);
       expect(res.map(({ key }) => key)).toEqual([proj.key]);
     });
-    test("throw on a missing key when not ignoring not found", async () => {
-      await expect(client.projects.retrieve({ keys: [uuid.create()] })).rejects.toThrow(
-        NotFoundError,
-      );
+    test("return no projects for a missing key", async () => {
+      expect(await client.projects.retrieve([uuid.create()])).toEqual([]);
     });
   });
   describe("export", () => {

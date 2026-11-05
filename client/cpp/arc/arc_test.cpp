@@ -118,6 +118,30 @@ TEST(TestArc, testRetrieveByKeys) {
     ASSERT_EQ(retrieved.size(), 2);
 }
 
+/// @brief it should retrieve the Arc programs that match a filter tree.
+TEST(TestArc, testRetrieveWhere) {
+    const auto client = new_test_client();
+    auto arcs = std::vector<Arc>{
+        Arc{.name = random_arc_name("where_a"), .mode = MODE_TEXT},
+        Arc{.name = random_arc_name("where_b"), .mode = MODE_TEXT},
+    };
+    ASSERT_NIL(client.arcs.create(arcs));
+    const auto retrieved = ASSERT_NIL_P(client.arcs.retrieve(
+        RetrieveRequest{
+            .where = Where{
+                .not_ = x::mem::indirect<Where>(
+                    Where{.key = x::filter::Set<Key>{.eq = arcs[0].key}}
+                ),
+                .key = x::filter::Set<Key>{
+                    .in = std::vector<Key>{arcs[0].key, arcs[1].key},
+                },
+            },
+        }
+    ));
+    ASSERT_EQ(retrieved.size(), 1);
+    ASSERT_EQ(retrieved[0].key, arcs[1].key);
+}
+
 /// @brief it should delete an Arc program by key.
 TEST(TestArc, testDelete) {
     const auto client = new_test_client();
@@ -141,10 +165,7 @@ TEST(TestArc, testDeleteMany) {
     std::vector<x::uuid::UUID> keys = {arcs[0].key, arcs[1].key};
     ASSERT_NIL(client.arcs.del(keys));
 
-    auto retrieved = ASSERT_OCCURRED_AS_P(
-        client.arcs.retrieve_by_keys(keys),
-        x::errors::NOT_FOUND
-    );
+    ASSERT_TRUE(ASSERT_NIL_P(client.arcs.retrieve_by_keys(keys)).empty());
 }
 
 /// @brief it should handle the program field correctly.
@@ -190,7 +211,7 @@ func calc() {val f32} f32 {
     ASSERT_NIL(client.arcs.create(arc));
 
     RetrieveOptions options;
-    options.compile = true;
+    options.include_program = true;
     auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_key(arc.key, options));
     ASSERT_EQ(retrieved.key, arc.key);
 
@@ -246,7 +267,7 @@ sequence main {
     auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_key(
         arc.key,
         synnax::arc::RetrieveOptions{
-            .compile = true,
+            .include_program = true,
         }
     ));
     ASSERT_FALSE(retrieved.program.value().wasm.empty());
