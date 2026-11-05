@@ -11,6 +11,7 @@ syntax = "proto3";
 
 package grpc.status;
 
+import "core/pkg/api/status/pb/status.proto";
 import "core/pkg/service/status/pb/status.proto";
 import "google/protobuf/empty.proto";
 
@@ -21,7 +22,7 @@ service StatusSetService {
 }
 
 service StatusRetrieveService {
-  rpc Exec(RetrieveRequest) returns (RetrieveResponse) {}
+  rpc Exec(RetrieveRequest) returns (api.status.pb.RetrieveResponse) {}
 }
 
 service StatusDeleteService {
@@ -42,18 +43,9 @@ message SetResponse {
 }
 
 message RetrieveRequest {
-  repeated string keys = 1;
-  string search_term = 2;
-  int32 offset = 3;
-  int32 limit = 4;
-  bool include_labels = 5;
-  repeated string has_labels = 6;
-  repeated string variants = 7;
-  bool ignore_not_found_error = 8;
-}
-
-message RetrieveResponse {
-  repeated service.status.pb.Status statuses = 1;
+  reserved 1 to 8;
+  reserved "keys", "search_term", "offset", "limit", "include_labels", "has_labels", "variants", "ignore_not_found_error";
+  api.status.pb.RetrieveRequest request = 9;
 }
 
 message DeleteRequest {

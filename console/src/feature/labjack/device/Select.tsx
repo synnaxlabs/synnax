@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/lyra/icon";
-
 import { HARDWARE } from "@/feature/labjack/device/hardware";
 import { MAKE } from "@/feature/labjack/device/types";
 import { Device } from "@/platform/device";
@@ -21,7 +19,7 @@ export const Select = () => {
       onConfigure={(deviceKey) => configure({ deviceKey, hardware: HARDWARE })}
       emptyContent="No LabJack devices connected"
       make={MAKE}
-      icon={<Icon.Logo.LabJack />}
+      icon={HARDWARE.icon}
       connect={{ title: HARDWARE.title, open: () => find({ hardware: HARDWARE }) }}
     />
   );

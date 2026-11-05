@@ -55,6 +55,14 @@ func (i indexes) all() []gorp.Index[Key, LinePlot] {
 	}
 }
 
+// MatchSearch matches the lineplots whose text matches term.
+// The closest match comes first.
+func MatchSearch(term string) Filter {
+	return func(r Retrieve) gorp.Filter[Key, LinePlot] {
+		return r.indexes.search.Filter(term)
+	}
+}
+
 // Filter is a per-service filter that is bound to the Retrieve when passed to
 // Where. Pure filters ignore the Retrieve argument; service-bound filters read
 // from it (e.g. r.indexes, r.label, r.hostProvider) to evaluate. Use Match to
@@ -93,8 +101,7 @@ func (r Retrieve) Search(term string) Retrieve {
 	if term == "" {
 		return r
 	}
-	r.gorp = r.gorp.Where(r.indexes.search.Filter(term))
-	return r
+	return r.Where(MatchSearch(term))
 }
 
 // MatchKeys returns a filter that restricts results to

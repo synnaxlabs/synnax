@@ -31,6 +31,12 @@ var _ = Describe("SugarDecodingError", func() {
 		)
 	})
 
+	It("Should keep the base error in the error chain", func() {
+		Expect(encoding.SugarDecodingError([]byte{1}, new(int), errBase)).To(
+			MatchError(errBase),
+		)
+	})
+
 	It("Should retain the base error in the verbose format", func() {
 		err := encoding.SugarDecodingError([]byte{1}, new(int), errBase)
 		Expect(fmt.Sprintf("%+v", err)).To(ContainSubstring("base failure"))
