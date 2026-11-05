@@ -42,8 +42,8 @@ fork's pull request cannot start them. Every 15 minutes, `Relay - Sweep` starts 
 classifier, the gate, and auto-merge and adds path labels for a fork or Dependabot pull
 request that changed in the last hour, and for any fork that does not have
 `review/human` yet. The classifier always raises a fork to `review/human`. To refresh
-the gate on an idle pull request, run `gh workflow run check.review.yaml -f
-pr=<number>`.
+the gate on an idle pull request, run
+`gh workflow run check.review.yaml -f pr=<number>`.
 
 ## Review tiers
 

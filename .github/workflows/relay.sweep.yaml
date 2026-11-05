@@ -61,18 +61,25 @@ jobs:
           PRS: ${{ steps.prs.outputs.prs }}
           REF: ${{ github.event.repository.default_branch }}
         run: |
+          classify() {
+            local sha run
+            sha=$(gh pr view "$1" --json headRefOid --jq .headRefOid) &&
+              run=$(gh run list --workflow check.classify.yaml --commit "$sha" \
+                --status completed --limit 20 --json databaseId,conclusion \
+                --jq 'map(select(.conclusion != "cancelled"))[0].databaseId // empty') &&
+              if [ -n "$run" ]; then
+                gh workflow run label.classify.yaml --ref "$REF" -f group="sweep-$1" \
+                  -f run_id="$run" -f head_sha="$sha" -f pr="$1"
+              fi
+          }
+          # A failure must not stop the rest, so the job fails only at the end.
+          failed=0
           for pr in $PRS; do
-            sha=$(gh pr view "$pr" --json headRefOid --jq .headRefOid)
-            run=$(gh run list --workflow check.classify.yaml --commit "$sha" \
-              --status completed --limit 20 --json databaseId,conclusion \
-              --jq '[.[] | select(.conclusion != "cancelled")][0].databaseId // empty')
-            if [ -n "$run" ]; then
-              gh workflow run label.classify.yaml --ref "$REF" -f group="sweep-$pr" \
-                -f run_id="$run" -f head_sha="$sha" -f pr="$pr"
-            fi
-            gh workflow run check.review.yaml --ref "$REF" -f pr="$pr"
-            gh workflow run merge.auto.yaml --ref "$REF" -f pr="$pr"
+            classify "$pr" || failed=1
+            gh workflow run check.review.yaml --ref "$REF" -f pr="$pr" || failed=1
+            gh workflow run merge.auto.yaml --ref "$REF" -f pr="$pr" || failed=1
           done
+          exit "$failed"
 
   label:
     name: Label pull requests
