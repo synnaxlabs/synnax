@@ -15,12 +15,9 @@ import (
 	"encoding/json/jsontext"
 	"io"
 	"slices"
-	"sort"
-	"sync"
 	"time"
 	"unicode/utf8"
 
-	paho "github.com/eclipse/paho.mqtt.golang"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
@@ -60,17 +57,6 @@ type testConnectionArgs struct {
 	// Device is the key of the broker device that the test edits. Empty for a broker
 	// that is not a device yet.
 	Device device.Key `json:"device"`
-}
-
-type browseArgs struct {
-	// Device is the key of the broker device to browse.
-	Device device.Key `json:"device"`
-	// Filter is the topic filter to subscribe to. Empty selects every topic.
-	Filter string `json:"filter"`
-	// Duration is the time to listen for, in milliseconds. Zero selects 3 s.
-	Duration int `json:"duration"`
-	// Limit is the largest count of topics to return. Zero selects 500.
-	Limit int `json:"limit"`
 }
 
 // browsedField is one scalar of a browsed JSON payload.
@@ -191,71 +177,28 @@ func probe(ctx context.Context, ins alamos.Instrumentation, cfg clientConfig) er
 }
 
 func (s *scanner) browse(ctx context.Context, cmd task.Command) (browseResult, error) {
-	var (
-		args browseArgs
-		res  = browseResult{Topics: []browsedTopic{}}
-	)
-	if err := cmd.Args.Unmarshal(&args); err != nil {
+	var req BrowseRequest
+	if err := cmd.Args.Unmarshal(&req); err != nil {
 		return browseResult{}, errors.Wrapf(
 			validate.ErrValidation, "invalid arguments: %s", err.Error(),
 		)
 	}
-	if args.Filter == "" {
-		args.Filter = defaultBrowseFilter
-	}
-	duration := browseDuration(args.Duration)
-	if args.Limit <= 0 {
-		args.Limit = defaultBrowseLimit
-	}
-	args.Limit = min(args.Limit, maxBrowseLimit)
-	_, _, cfg, err := s.browseConfig(ctx, args.Device)
+	heard, err := s.hear(ctx, req)
 	if err != nil {
 		return browseResult{}, err
 	}
-	var (
-		mu     sync.Mutex
-		topics = make(map[string]browsedTopic)
-	)
-	opts := newClientOptions(cfg)
-	opts.SetDefaultPublishHandler(func(_ paho.Client, m paho.Message) {
-		mu.Lock()
-		defer mu.Unlock()
-		if _, seen := topics[m.Topic()]; !seen && len(topics) >= args.Limit {
-			res.Truncated = true
-			return
+	res := browseResult{
+		Topics:    make([]browsedTopic, len(heard.topics)),
+		Truncated: heard.truncated,
+	}
+	for i, t := range heard.topics {
+		res.Topics[i] = browsedTopic{
+			Topic:    t.topic,
+			Payload:  payloadSample(t.last),
+			Fields:   payloadFields(t.last),
+			Retained: t.lastRetained,
 		}
-		topics[m.Topic()] = browsedTopic{
-			Topic:    m.Topic(),
-			Payload:  payloadSample(m.Payload()),
-			Fields:   payloadFields(m.Payload()),
-			Retained: m.Retained(),
-		}
-	})
-	client, disconnect, err := open(ctx, s.ins, opts)
-	if err != nil {
-		return browseResult{}, err
 	}
-	defer disconnect()
-	// The handler writes to res until the deferred disconnect, so an error path must
-	// not read it.
-	if err = waitSubscribe(ctx, client.Subscribe(args.Filter, 0, nil)); err != nil {
-		return browseResult{}, err
-	}
-	timer := time.NewTimer(duration)
-	defer timer.Stop()
-	select {
-	case <-ctx.Done():
-		return browseResult{}, ctx.Err()
-	case <-timer.C:
-	}
-	mu.Lock()
-	defer mu.Unlock()
-	for _, t := range topics {
-		res.Topics = append(res.Topics, t)
-	}
-	sort.Slice(res.Topics, func(i, j int) bool {
-		return res.Topics[i].Topic < res.Topics[j].Topic
-	})
 	return res, nil
 }
 
