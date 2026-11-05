@@ -33,13 +33,16 @@ export const useCreate = ({ project, tabKey }: UseCreateProps = {}): ((
     afterOptimistic: ({ data: { key } }) => {
       maybeChangeProject(project ?? getActiveProject());
       dispatch(Session.Schematic.create({ key, editable: true }));
+    },
+    // The Core refuses a panel tab for a schematic it does not hold yet.
+    afterSuccess: ({ data: { key } }) => {
       openTab({
         variant: "resource",
         resource: schematic.resourceID(key),
         key: tabKey,
       });
+      capture("schematic_created", {});
     },
-    afterSuccess: () => capture("schematic_created", {}),
   });
   return (params = {}) =>
     update({ name: "Schematic", ...params, project: project ?? getActiveProject() });

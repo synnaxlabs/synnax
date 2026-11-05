@@ -27,9 +27,11 @@ export const useCreate = ({ project, tabKey }: UseCreateProps = {}): ((
   const openTab = Panel.useOpenTab();
   const { capture } = Analytics.use();
   const { update } = LinePlot.useCreate({
-    afterOptimistic: ({ data: { key } }) =>
-      openTab({ variant: "resource", resource: lineplot.resourceID(key), key: tabKey }),
-    afterSuccess: () => capture("plot_created", {}),
+    // The Core refuses a panel tab for a line plot it does not hold yet.
+    afterSuccess: ({ data: { key } }) => {
+      openTab({ variant: "resource", resource: lineplot.resourceID(key), key: tabKey });
+      capture("plot_created", {});
+    },
   });
   return (params = {}) =>
     update({
