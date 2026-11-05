@@ -67,7 +67,7 @@ type HydraulicEdgeConfig = versions.HydraulicEdgeConfig
 type PneumaticEdgeConfig = versions.PneumaticEdgeConfig
 type DataEdgeConfig = versions.DataEdgeConfig
 
-// FlexAlignment is a cross-axis flex alignment for laid-out content.
+// FlexAlignment is a flex alignment for laid-out content.
 type FlexAlignment = versions.FlexAlignment
 
 const (

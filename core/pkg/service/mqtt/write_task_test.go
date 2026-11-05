@@ -381,6 +381,37 @@ var _ = Describe("Write task", func() {
 		)
 	})
 
+	DescribeTable("Should report a drop that strands a publish in the client",
+		func(ctx SpecContext, blocks bool) {
+			stall := newPublishStall(blocks)
+			factory = stall.factory()
+			ch := createVirtual(ctx, telem.Float64T)
+			t := start(ctx, writeConfig(
+				dev, plainTarget("plant/stalled", ch, "/v", "number"),
+			))
+			DeferCleanup(stall.release)
+			stall.armed.Store(true)
+			command(ctx, ch, telem.NewSeriesV(1.0), func(g Gomega) {
+				g.Expect(stall.stalled.Load()).To(BeTrue())
+			})
+			broker.dropClients()
+			Eventually(func(g Gomega) {
+				stat := taskStatus(ctx, t)
+				g.Expect(stat.Variant).To(Equal(status.VariantWarning))
+				g.Expect(stat.Description).To(ContainSubstring("not connected"))
+				g.Expect(stat.Details.Running).To(BeTrue())
+			}, 3*time.Second).Should(Succeed())
+			stall.release()
+			Eventually(
+				func() status.Variant { return taskStatus(ctx, t).Variant },
+				10*time.Second,
+			).
+				Should(Equal(status.VariantSuccess))
+		},
+		Entry("with a token that never completes", false),
+		Entry("with a call that blocks", true),
+	)
+
 	Describe("Configuration errors", func() {
 		expectRejected := func(
 			ctx context.Context,
