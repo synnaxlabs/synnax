@@ -43,6 +43,12 @@ var _ = Describe("Multi", func() {
 		Expect(m.Get(nil, "c")).To(ConsistOf(1))
 	})
 
+	It("Should ignore a write of the current values", func() {
+		m.Set(1, []string{"a", "b"})
+		Expect(m.Get(nil, "a")).To(ConsistOf(1))
+		Expect(m.Get(nil, "b")).To(ConsistOf(1, 2))
+	})
+
 	It("Should show staged changes only to their scope", func() {
 		m.Stage(txn, 1, []string{"b"})
 		m.Stage(txn, 3, []string{"a"})

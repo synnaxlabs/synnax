@@ -11,6 +11,7 @@ package gorp
 
 import (
 	"context"
+	"strconv"
 	"sync"
 
 	"github.com/synnaxlabs/x/errors"
@@ -51,6 +52,7 @@ type detachOp struct {
 
 // registry holds the tables of a DB that take part in references, by name.
 type registry struct {
+	// mu guards tables and referencing.
 	mu     sync.RWMutex
 	tables map[string]registeredTable
 	// referencing maps a table name to the references that may point at it.
@@ -74,8 +76,9 @@ func (r *registry) register(name string, table registeredTable) error {
 	return nil
 }
 
-// reference adds refs to the references that deletes of their target tables follow.
-func (r *registry) reference(refs []registeredReference) {
+// addReferences adds refs to the references that deletes of their target tables
+// follow.
+func (r *registry) addReferences(refs []registeredReference) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for _, ref := range refs {
@@ -114,7 +117,6 @@ func (r *registry) table(name string) (registeredTable, error) {
 	return t, nil
 }
 
-// deletePlan is the full effect of deleting a set of entries.
 // dependents returns the entries that hold target through any registered reference.
 func (r *registry) dependents(tx Tx, target Target) ([]Target, error) {
 	r.mu.RLock()
@@ -132,6 +134,7 @@ func (r *registry) dependents(tx Tx, target Target) ([]Target, error) {
 	return out, nil
 }
 
+// deletePlan is the full effect of deleting a set of entries.
 type deletePlan struct {
 	// deletes holds the text keys to delete, by table name. It includes the entries
 	// the caller asked to delete.
@@ -183,10 +186,14 @@ func (r *registry) plan(
 		detaches: make(map[Target][]detachOp),
 	}
 	tooLarge := func() error {
-		return errors.Newf(
-			"[gorp] - deleting %s %s would change more than %d entries",
-			table,
-			keys[0],
+		named := table + " " + keys[0]
+		if len(keys) > 1 {
+			named = strconv.Itoa(len(keys)) + " entries of " + table
+		}
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"deleting %s would change more than %d entries",
+			named,
 			limit,
 		)
 	}

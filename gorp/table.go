@@ -97,10 +97,11 @@ func (t *Table[K, E]) Close() error {
 // index from the same scan.
 //
 // idx.Filter inside Retrieve blocks the query until the index has finished populating.
-// After populate completes the index serves queries normally. If populate fails,
-// idx.Filter falls back to a sequential scan with a synthesized predicate so queries
-// continue to return correct results, and the failure is logged via
-// cfg.Instrumentation.
+// After populate completes the index serves queries normally. If populate fails, the
+// failure is logged via cfg.Instrumentation, and idx.Filter falls back to a sequential
+// scan with a synthesized predicate so queries continue to return correct results.
+// Every other read of a failed index returns ErrIndexInvalid: idx.Get, Dependents, and
+// the reference checks of each write and delete.
 func OpenTable[K Key, E Entry[K]](
 	ctx context.Context,
 	cfg TableConfig[K, E],
@@ -167,8 +168,7 @@ func OpenTable[K Key, E Entry[K]](
 }
 
 // runPopulate scans the table once and feeds every registered index from the same scan.
-// Populate failures are recoverable: queries fall back to sequential scan, and the
-// terminal scan error is logged and passed to each index's finish closure.
+// The terminal scan error is logged and passed to each index's finish closure.
 func (t *Table[K, E]) runPopulate(
 	ctx context.Context,
 	ins alamos.Instrumentation,
@@ -179,7 +179,8 @@ func (t *Table[K, E]) runPopulate(
 	defer func() {
 		if scanErr != nil {
 			ins.L.Error(
-				"gorp index populate failed; queries fall back to sequential scan",
+				"gorp index populate failed; filters fall back to a sequential scan, and "+
+					"reference checks fail",
 				zap.Error(scanErr),
 			)
 		}
@@ -234,7 +235,6 @@ func (db *DB) attachIndexObserver[K Key, E Entry[K]](
 func (t *Table[K, E]) NewCreate() Create[K, E] {
 	c := NewCreate[K, E]()
 	c.keyPrefix = t.keyPrefix
-	c.indexes = t.indexes
 	c.table = t
 	return c
 }
@@ -260,7 +260,6 @@ func (t *Table[K, E]) NewRetrieve() Retrieve[K, E] {
 func (t *Table[K, E]) NewUpdate() Update[K, E] {
 	u := NewUpdate[K, E]()
 	u.retrieve.keyPrefix = t.keyPrefix
-	u.indexes = t.indexes
 	u.table = t
 	return u
 }
@@ -271,7 +270,6 @@ func (t *Table[K, E]) NewUpdate() Update[K, E] {
 func (t *Table[K, E]) NewDelete() Delete[K, E] {
 	d := NewDelete[K, E]()
 	d.retrieve.keyPrefix = t.keyPrefix
-	d.indexes = t.indexes
 	d.table = t
 	return d
 }

@@ -50,11 +50,9 @@ type options struct {
 	// on tables opened against the DB. Per-table TableConfig.Observable
 	// takes precedence; when neither is set, the DB itself is used.
 	IndexObservable observe.Observable[kv.TxReader]
-	// MaxDeleteSize is the most entries one Delete may remove.
+	// MaxDeleteSize is the most entries that one Delete may delete or rewrite.
 	MaxDeleteSize int
 }
-
-func (o options) maxDeleteSize() int { return o.MaxDeleteSize }
 
 var defaultOptions = options{
 	Codec:         encoding.NewDecodeFallbackCodec(orc.Codec, msgpack.Codec),

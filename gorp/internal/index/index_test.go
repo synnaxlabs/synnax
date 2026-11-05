@@ -46,10 +46,33 @@ func populated(newEngine func() engine) engine {
 
 var errLoad = errors.New("load failed")
 
+// singleValue runs a Multi through the engine specs, with one value for each key.
+type singleValue struct {
+	*index.Multi[*scope, int, string]
+}
+
+func (m singleValue) Populate() (func(int, string), func(error)) {
+	insert, finish := m.Multi.Populate()
+	return func(k int, v string) { insert(k, []string{v}) }, finish
+}
+
+func (m singleValue) Set(key int, value string) { m.Multi.Set(key, []string{value}) }
+
+func (m singleValue) Stage(s *scope, key int, value string) {
+	m.Multi.Stage(s, key, []string{value})
+}
+
+func (m singleValue) Announce(key int, value string) uint64 {
+	return m.Multi.Announce(key, []string{value})
+}
+
 var _ = Describe("Index", func() {
 	engines := map[string]func() engine{
 		"Lookup": func() engine { return index.NewLookup[*scope, int, string]() },
 		"Sorted": func() engine { return index.NewSorted[*scope, int, string]() },
+		"Multi": func() engine {
+			return singleValue{index.NewMulti[*scope, int, string]()}
+		},
 	}
 	for name, newEngine := range engines {
 		Describe(name, func() {

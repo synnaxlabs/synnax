@@ -11,9 +11,9 @@
 package gorp
 
 import (
+	"bytes"
 	"context"
 	"slices"
-	"strings"
 
 	"github.com/synnaxlabs/gorp/internal/key"
 	"github.com/synnaxlabs/gorp/internal/keyset"
@@ -440,18 +440,22 @@ func (r *Retrieve[K, E]) execKeys(ctx context.Context, tx Tx) ([]K, error) {
 // storageOrder returns a copy of keys in the order a table scan visits them.
 func storageOrder[K Key](keys []K) []K {
 	type encoded struct {
-		key K
-		raw string
+		key        K
+		start, end int
 	}
-	codec := key.NewCodec[K](nil)
-	pairs := make([]encoded, len(keys))
-	for i, k := range keys {
-		pairs[i] = encoded{key: k, raw: string(codec.Encode(k))}
-	}
-	slices.SortFunc(
-		pairs,
-		func(a, b encoded) int { return strings.Compare(a.raw, b.raw) },
+	var (
+		codec = key.NewCodec[K](nil)
+		raw   []byte
+		pairs = make([]encoded, len(keys))
 	)
+	for i, k := range keys {
+		start := len(raw)
+		raw = append(raw, codec.Encode(k)...)
+		pairs[i] = encoded{key: k, start: start, end: len(raw)}
+	}
+	slices.SortFunc(pairs, func(a, b encoded) int {
+		return bytes.Compare(raw[a.start:a.end], raw[b.start:b.end])
+	})
 	sorted := make([]K, len(pairs))
 	for i, p := range pairs {
 		sorted[i] = p.key

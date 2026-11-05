@@ -32,18 +32,27 @@ const (
 
 // refInfo holds extracted data about a @ref-annotated field.
 type refInfo struct {
-	FieldName   string // oracle field name, used as the reference's name
-	GoName      string // PascalCase field name
-	StructField string // camelCase field on the indexes struct
-	ElemGoType  string // Go type of one target: a resource key type or the ID type
+	// FieldName is the Oracle field name, used as the reference's name.
+	FieldName string
+	// GoName is the PascalCase field name.
+	GoName string
+	// StructField is the camelCase field on the indexes struct.
+	StructField string
+	// ElemGoType is the Go type of one target: a resource key type or the ID type.
+	ElemGoType string
 	// Tables are the names of the tables the reference may point at.
-	Tables   []string
-	OnDelete string // "Restrict", "Cascade", or "Detach"
-	Unique   bool
-	Acyclic  bool
+	Tables []string
+	// OnDelete is "Restrict", "Cascade", or "Detach".
+	OnDelete string
+	// Unique is true when at most one entry may hold each target.
+	Unique bool
+	// Acyclic is true when a chain of references within the table may not return to
+	// its start.
+	Acyclic bool
 	// IsOptional is true when the field is a pointer.
 	IsOptional bool
-	IsSlice    bool
+	// IsSlice is true when the field is an array of targets.
+	IsSlice bool
 	// IsID is true when each target is a resource ID instead of the key of one table.
 	IsID bool
 }
@@ -76,11 +85,18 @@ var onDeleteNames = map[string]string{
 // type it identifies, and holds every resource type name.
 type resourceTypes struct {
 	byKey map[string]string
-	names set.Set[string]
+	// conflicts maps a key type that identifies more than one resource type to the
+	// second resource type it identifies.
+	conflicts map[string]string
+	names     set.Set[string]
 }
 
 func newResourceTypes(table *resolution.Table) resourceTypes {
-	rt := resourceTypes{byKey: make(map[string]string), names: make(set.Set[string])}
+	rt := resourceTypes{
+		byKey:     make(map[string]string),
+		conflicts: make(map[string]string),
+		names:     make(set.Set[string]),
+	}
 	for _, typ := range slices.Concat(table.StructTypes(), table.UnionTypes()) {
 		name := plugindomain.GetStringFromType(typ, resourceDomain, "type")
 		if name == "" {
@@ -89,7 +105,9 @@ func newResourceTypes(table *resolution.Table) resourceTypes {
 		rt.names.Add(name)
 		for _, f := range retrieveFields(typ, table) {
 			if plugindomain.HasDomainFromField(f, "key") {
-				if _, ok := rt.byKey[f.Type.Name]; !ok {
+				if _, ok := rt.byKey[f.Type.Name]; ok {
+					rt.conflicts[f.Type.Name] = name
+				} else {
 					rt.byKey[f.Type.Name] = name
 				}
 				break
@@ -98,6 +116,9 @@ func newResourceTypes(table *resolution.Table) resourceTypes {
 	}
 	return rt
 }
+
+// refExpressions are the expressions a @ref domain may hold.
+var refExpressions = set.New("on_delete", "types", "unique", "acyclic")
 
 func extractRef(
 	typ resolution.Type,
@@ -121,7 +142,16 @@ func extractRef(
 	if isSlice {
 		elem = elem.TypeArgs[0]
 	}
-	onDelete, ok := onDeleteNames[plugindomain.GetStringFromField(field, "ref", "on_delete")]
+	for _, expr := range field.Domains["ref"].Expressions {
+		if !refExpressions.Contains(expr.Name) {
+			return fail("has unknown expression %s", expr.Name)
+		}
+	}
+	onDelete, ok := onDeleteNames[plugindomain.GetStringFromField(
+		field,
+		"ref",
+		"on_delete",
+	)]
 	if !ok {
 		return fail("needs on_delete cascade, restrict, or detach")
 	}
@@ -163,6 +193,14 @@ func extractRef(
 		target, ok := rt.byKey[elem.Name]
 		if !ok {
 			return fail("needs the key type of a resource, not %s", elem.Name)
+		}
+		if other, ok := rt.conflicts[elem.Name]; ok {
+			return fail(
+				"has key type %s, which identifies both %s and %s",
+				elem.Name,
+				target,
+				other,
+			)
 		}
 		info.Tables = []string{target}
 	}

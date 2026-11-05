@@ -217,6 +217,55 @@ var _ = Describe("@ref", func() {
 				@filter
 			}`,
 			"@ref field rack has its own index and filter, so it cannot carry @index"),
+		Entry("with an unknown expression", `rack rack.Key? {
+				@ref {
+					on_delete cascade
+					uniqe
+				}
+			}`,
+			"@ref field rack has unknown expression uniqe"),
+		Entry("named search", `search rack.Key {
+				@ref on_delete restrict
+			}
+			name string @search`,
+			"@ref field search collides with the search index"),
+	)
+
+	It(
+		"Should reject a key type that identifies two resources",
+		func(ctx SpecContext) {
+			loader.Add("schemas/shelf", `
+				import "schemas/rack"
+
+				@go output "core/pkg/service/shelf"
+
+				Shelf struct {
+					key rack.Key {
+						@key
+					}
+					@resource type "shelf"
+				}
+			`)
+			req := MustGenerateRequest(ctx, `
+				import "schemas/rack"
+				import "schemas/shelf"
+
+				@go output "core/pkg/service/device"
+
+				Device struct {
+					key string {
+						@key
+					}
+					rack  rack.Key @ref on_delete restrict
+					shelf shelf.Shelf?
+					@resource type "device"
+					@retrieve
+				}
+			`, "device", loader)
+			Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
+				"@ref field rack has key type rack.Key, which identifies both rack and shelf",
+			)))
+		},
 	)
 
 	It(
@@ -307,7 +356,7 @@ var _ = Describe("@ref", func() {
 			`, "alias", loader, p)
 			ExpectContent(resp, "retrieve.gen.go").
 				ToContain("tag *gorp.Reference[string, Alias]").
-				ToNotContain(`"github.com/synnaxlabs/synnax/pkg/service/label"`)
+				ToNotContain(`"github.com/synnaxlabs/synnax/core/pkg/service/label"`)
 		})
 
 		DescribeTable(

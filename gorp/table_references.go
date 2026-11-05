@@ -47,7 +47,7 @@ func (t *Table[K, E]) registerReferences() {
 		refs[i] = r
 		t.indexes = append(t.indexes, r)
 	}
-	t.db.registry.reference(refs)
+	t.db.registry.addReferences(refs)
 }
 
 // unregister removes the table and its references from its DB's registry.
@@ -138,7 +138,7 @@ func (t *Table[K, E]) delete(ctx context.Context, tx Tx, keys []K) error {
 	for i, k := range keys {
 		formatted[i] = FormatKey(k)
 	}
-	plan, err := t.db.registry.plan(tx, t.name, formatted, tx.maxDeleteSize())
+	plan, err := t.db.registry.plan(tx, t.name, formatted, t.db.MaxDeleteSize)
 	if err != nil {
 		return err
 	}

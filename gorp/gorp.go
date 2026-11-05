@@ -116,8 +116,6 @@ func OverrideTx(
 type Tx interface {
 	kv.Tx
 	encoding.Codec
-	// maxDeleteSize returns the most entries one Delete may remove.
-	maxDeleteSize() int
 	// txIdentity returns a state handle scoped to this transaction's
 	// lifetime. The handle is stable from open through Commit or Close,
 	// so callers may use the pointer as a map key. A nil return means

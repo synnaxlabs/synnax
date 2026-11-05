@@ -127,6 +127,9 @@ func (m *Multi[S, K, V]) Announce(key K, values []V) uint64 {
 }
 
 func (m *Multi[S, K, V]) put(key K, values []V) {
+	if prev, ok := m.reverse[key]; ok && slices.Equal(prev, values) {
+		return
+	}
 	m.remove(key)
 	if len(values) == 0 {
 		return

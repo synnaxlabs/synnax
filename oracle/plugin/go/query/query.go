@@ -227,9 +227,8 @@ func (r retrieveInfo) HasIndexes() bool {
 	return len(r.Indexes) > 0 || len(r.Refs) > 0 || r.HasSearch()
 }
 
-// IDGoType returns the Go type of a resource ID, as the first @ref field holding
-// resource
-// IDs resolves it.
+// IDGoType returns the Go type of a resource ID, as the first @ref field that holds
+// resource IDs resolves it.
 func (r retrieveInfo) IDGoType() string {
 	for _, ref := range r.Refs {
 		if ref.IsID {
@@ -386,11 +385,8 @@ func extractRetrieveInfo(
 	indexesOnly := plugindomain.HasExprFromType(typ, "retrieve", "indexes")
 	entryType := goName
 	if form, ok := typ.Form.(resolution.StructForm); ok {
-		if params := resolution.NonDefaultedTypeParams(
-			form.TypeParams,
-		); len(
-			params,
-		) > 0 {
+		params := resolution.NonDefaultedTypeParams(form.TypeParams)
+		if len(params) > 0 {
 			if !indexesOnly {
 				return nil, errors.Newf(
 					"%s: a generic @retrieve type needs @retrieve indexes",

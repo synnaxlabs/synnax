@@ -24,9 +24,6 @@ type Delete[K Key, E Entry[K]] struct {
 	// guards is the chain of GuardFuncs checked against each matched entry; any non-nil
 	// error aborts the delete.
 	guards guards[K, E]
-	// indexes is the set of secondary indexes the query stages deletions against. Nil
-	// means deletions are not staged.
-	indexes []Index[K, E]
 	// table is the Table the query deletes from. Nil for a query that no Table built.
 	table *Table[K, E]
 }
@@ -95,7 +92,7 @@ func (d Delete[K, E]) Exec(ctx context.Context, tx Tx) error {
 	if d.table != nil {
 		return d.table.delete(ctx, tx, keys)
 	}
-	w := wrapWriter(tx, d.retrieve.keyPrefix, d.indexes)
+	w := wrapWriter[K, E](tx, d.retrieve.keyPrefix, nil)
 	return w.Delete(ctx, keys...)
 }
 

@@ -19,9 +19,6 @@ type Create[K Key, E Entry[K]] struct {
 	entries Entries[K, E]
 	// keyPrefix is the gorp key prefix for entry type E.
 	keyPrefix []byte
-	// indexes is the set of secondary indexes the query stages writes
-	// against. Nil means writes are not staged.
-	indexes []Index[K, E]
 	// table is the Table the query writes through. Nil for a query that no Table
 	// built.
 	table *Table[K, E]
@@ -52,6 +49,6 @@ func (c Create[K, E]) Exec(ctx context.Context, tx Tx) error {
 		w := c.table.writer(tx, true)
 		return w.Set(ctx, c.entries.All()...)
 	}
-	w := wrapWriter(tx, c.keyPrefix, c.indexes)
+	w := wrapWriter[K, E](tx, c.keyPrefix, nil)
 	return w.Set(ctx, c.entries.All()...)
 }
