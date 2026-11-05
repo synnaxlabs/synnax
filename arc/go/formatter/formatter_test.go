@@ -103,6 +103,33 @@ var _ = Describe("Formatter", func() {
 		))
 	})
 
+	DescribeTable(
+		"DeclarationHoists",
+		func(input string, expected []formatter.LineMove) {
+			Expect(formatter.DeclarationHoists(input)).To(Equal(expected))
+		},
+		Entry(
+			"one move per late declaration, anchored at the first step",
+			"sequence main {\n    a := 1\n    stage s {\n        true => next\n    }\n    b := 2\n    stage t {\n        wait(1s)\n    }\n    c $= 3\n}",
+			[]formatter.LineMove{
+				{Start: 5, End: 6, Anchor: 2},
+				{Start: 9, End: 10, Anchor: 2},
+			},
+		),
+		Entry(
+			"a multi-line declaration moves as a block",
+			"sequence main {\n    stage s {\n        true => next\n    }\n    a := 1 +\n        2\n    stage t {\n        wait(1s)\n    }\n}",
+			[]formatter.LineMove{{Start: 4, End: 6, Anchor: 1}},
+		),
+		Entry(
+			"no late declaration",
+			"sequence main {\n    a := 1\n    stage s {\n        wait(1s)\n    }\n}",
+			nil,
+		),
+		Entry("a body on one line", "sequence main { 1 -> out, x := 1, y := 2 }", nil),
+		Entry("unparsable content", "sequence main {\n    a := 1", nil),
+	)
+
 	It("hoists once and then holds", func() {
 		input := "sequence main {\n    stage s {\n        true => next\n    }\n    a := 1\n    stage t {\n        true => next\n    }\n    b := 2\n    stage u {\n        wait(1s)\n    }\n}"
 		once := formatter.HoistDeclarations(input)
