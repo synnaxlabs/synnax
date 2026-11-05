@@ -22,7 +22,12 @@ import (
 
 var _ = Describe("Update", func() {
 	identity := chassis.Update{Variant: chassis.IdentityUpdate{
-		Identity: chassis.Identity{Rack: 1, Serial: "01A", Model: "PXIe-1071"},
+		Identity: chassis.Identity{
+			Rack:         1,
+			Serial:       "01A",
+			ResourceName: "Mod1",
+			Model:        "PXIe-1071",
+		},
 	}}
 	configuration := chassis.Update{Variant: chassis.ConfigurationUpdate{
 		Configuration: chassis.Configuration{Name: "Chassis"},

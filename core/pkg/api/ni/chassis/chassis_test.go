@@ -36,10 +36,11 @@ var _ = Describe("Service", func() {
 	create := func(ctx SpecContext) chassis.Chassis {
 		GinkgoHelper()
 		d := chassis.Chassis{
-			Rack:   svc.Rack.EmbeddedKey,
-			Name:   "PXIe-1071",
-			Serial: uuid.New().String(),
-			Model:  "PXIe-1071",
+			Rack:         svc.Rack.EmbeddedKey,
+			Name:         "PXIe-1071",
+			Serial:       uuid.New().String(),
+			ResourceName: uuid.New().String(),
+			Model:        "PXIe-1071",
 		}
 		Expect(svc.NI.Chassis.NewWriter(nil).Create(ctx, &d)).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
@@ -99,9 +100,11 @@ var _ = Describe("Service", func() {
 				testutil.AuthedCtx(ctx, u),
 				nil,
 				apichassis.CreateRequest{Chassis: []chassis.Chassis{{
-					Rack:   svc.Rack.EmbeddedKey,
-					Name:   "Module",
-					Serial: uuid.New().String(),
+					Rack:         svc.Rack.EmbeddedKey,
+					Name:         "Module",
+					Serial:       uuid.New().String(),
+					ResourceName: uuid.New().String(),
+					Model:        "PXIe-1071",
 				}}},
 			))
 			Expect(res.Chassis[0].Key).ToNot(Equal(uuid.Nil()))
@@ -280,7 +283,12 @@ var _ = Describe("Service", func() {
 				apichassis.UpdateRequest{
 					Key: d.Key,
 					Update: chassis.Update{Variant: chassis.IdentityUpdate{
-						Identity: chassis.Identity{Rack: d.Rack, Serial: "02B"},
+						Identity: chassis.Identity{
+							Rack:         d.Rack,
+							Serial:       "02B",
+							ResourceName: d.ResourceName,
+							Model:        d.Model,
+						},
 					}},
 				},
 			)).Error().ToNot(HaveOccurred())

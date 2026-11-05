@@ -29,18 +29,16 @@ class Identity(BaseModel):
 
     Attributes:
         rack: Is the key of the rack the chassis is connected to.
-        serial: Is the serial number of the chassis, or its NI-MAX resource name when it
-            is simulated.
+        serial: Is the serial number of the chassis. Empty on simulated hardware.
+        resource_name: Is the NI-MAX resource name of the chassis, a GUID that survives
+            renames.
         model: Is the product name of the chassis.
-        alias: Is the DAQmx alias of the chassis.
-        simulated: Is true when the chassis is simulated in NI-MAX.
     """
 
     rack: rack_.Key = Field(ge=0, le=4294967295)
-    serial: str
+    serial: str = ""
+    resource_name: str
     model: str
-    alias: str
-    simulated: bool = False
 
 
 class Configuration(BaseModel):

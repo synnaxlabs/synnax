@@ -62,10 +62,9 @@ inline x::json::json StatusDetails::to_json() const {
 inline Identity Identity::parse(x::json::Parser parser) {
     return Identity{
         .rack = parser.field<::synnax::rack::Key>("rack"),
-        .serial = parser.field<std::string>("serial"),
+        .serial = parser.field<std::string>("serial", ""),
+        .resource_name = parser.field<std::string>("resource_name"),
         .model = parser.field<std::string>("model"),
-        .alias = parser.field<std::string>("alias"),
-        .simulated = parser.field<bool>("simulated", false),
     };
 }
 
@@ -73,9 +72,8 @@ inline x::json::json Identity::to_json() const {
     x::json::json j = x::json::json::object();
     j["rack"] = this->rack;
     j["serial"] = this->serial;
+    j["resource_name"] = this->resource_name;
     j["model"] = this->model;
-    j["alias"] = this->alias;
-    j["simulated"] = this->simulated;
     return j;
 }
 

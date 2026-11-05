@@ -20,17 +20,15 @@ import { status } from "@/status";
 export const identityZ = z.object({
   /** rack is the key of the rack the chassis is connected to. */
   rack: rack.keyZ.refine((v) => v !== 0, "rack is required"),
+  /** serial is the serial number of the chassis. Empty on simulated hardware. */
+  serial: z.string().default(""),
   /**
-   * serial is the serial number of the chassis, or its NI-MAX resource name when it is
-   * simulated.
+   * resourceName is the NI-MAX resource name of the chassis, a GUID that survives
+   * renames.
    */
-  serial: z.string().min(1, "serial is required"),
+  resourceName: z.string().min(1, "resource_name is required"),
   /** model is the product name of the chassis. */
-  model: z.string(),
-  /** alias is the DAQmx alias of the chassis. */
-  alias: z.string(),
-  /** simulated is true when the chassis is simulated in NI-MAX. */
-  simulated: z.boolean().default(false),
+  model: z.string().min(1, "model is required"),
 });
 export interface Identity extends z.infer<typeof identityZ> {}
 

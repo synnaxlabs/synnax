@@ -36,15 +36,13 @@ type Status = versions.Status
 type Identity struct {
 	// Rack is the key of the rack the chassis is connected to.
 	Rack rack.Key `json:"rack" msgpack:"rack"`
-	// Serial is the serial number of the chassis, or its NI-MAX resource name when it
-	// is simulated.
+	// Serial is the serial number of the chassis. Empty on simulated hardware.
 	Serial string `json:"serial" msgpack:"serial"`
+	// ResourceName is the NI-MAX resource name of the chassis, a GUID that survives
+	// renames.
+	ResourceName string `json:"resource_name" msgpack:"resource_name"`
 	// Model is the product name of the chassis.
 	Model string `json:"model" msgpack:"model"`
-	// Alias is the DAQmx alias of the chassis.
-	Alias string `json:"alias" msgpack:"alias"`
-	// Simulated is true when the chassis is simulated in NI-MAX.
-	Simulated bool `json:"simulated" msgpack:"simulated"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -52,7 +50,8 @@ type Identity struct {
 func (i Identity) Validate() error {
 	v := validate.New("Identity")
 	v.NonZero("rack", i.Rack)
-	v.NotEmptyString("serial", i.Serial)
+	v.NotEmptyString("resource_name", i.ResourceName)
+	v.NotEmptyString("model", i.Model)
 	return v.Error()
 }
 

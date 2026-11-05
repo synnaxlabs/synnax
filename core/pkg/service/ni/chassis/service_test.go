@@ -403,15 +403,40 @@ var _ = Describe("Service", func() {
 			c := create(ctx)
 			Expect(svc.NewWriter(tx).Apply(ctx, c.Key, chassis.Update{
 				Variant: chassis.IdentityUpdate{Identity: chassis.Identity{
-					Rack:   rackKey,
-					Serial: "02B",
-					Model:  "PXIe-1062",
+					Rack:         rackKey,
+					Serial:       "02B",
+					ResourceName: "Mod2",
+					Model:        "PXIe-1062",
 				}},
 			})).To(Succeed())
 			got := retrieve(ctx, c.Key)
 			Expect(got.Serial).To(Equal("02B"))
+			Expect(got.ResourceName).To(Equal("Mod2"))
 			Expect(got.Model).To(Equal("PXIe-1062"))
 			Expect(got.Name).To(Equal(c.Name))
+		})
+
+		It("Should accept an identity with no serial", func(ctx SpecContext) {
+			c := create(ctx)
+			Expect(svc.NewWriter(tx).Apply(ctx, c.Key, chassis.Update{
+				Variant: chassis.IdentityUpdate{Identity: chassis.Identity{
+					Rack:         rackKey,
+					ResourceName: c.ResourceName,
+					Model:        c.Model,
+				}},
+			})).To(Succeed())
+			Expect(retrieve(ctx, c.Key).Serial).To(BeEmpty())
+		})
+
+		It("Should reject an identity without a resource name", func(ctx SpecContext) {
+			c := create(ctx)
+			Expect(svc.NewWriter(tx).Apply(ctx, c.Key, chassis.Update{
+				Variant: chassis.IdentityUpdate{Identity: chassis.Identity{
+					Rack:   rackKey,
+					Serial: c.Serial,
+					Model:  c.Model,
+				}},
+			})).To(MatchError(ContainSubstring("resource_name: required")))
 		})
 
 		It("Should write configuration fields and keep identity", func(

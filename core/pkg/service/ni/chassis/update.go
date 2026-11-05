@@ -91,9 +91,8 @@ func (w Writer) Apply(ctx context.Context, key Key, update Update) error {
 		return w.Update(ctx, key, func(c Chassis) (Chassis, error) {
 			c.Rack = v.Rack
 			c.Serial = v.Serial
+			c.ResourceName = v.ResourceName
 			c.Model = v.Model
-			c.Alias = v.Alias
-			c.Simulated = v.Simulated
 			return c, nil
 		})
 	case ConfigurationUpdate:
