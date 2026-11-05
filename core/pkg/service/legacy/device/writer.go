@@ -177,19 +177,11 @@ func (w Writer) CreateMany(ctx context.Context, devices *[]Device) error {
 // SetGroup moves the devices with keys into g, or out of their group when g is nil. It
 // returns a validation error when g does not sit under a device's rack.
 func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
-	var devices []Device
-	if err := w.table.NewRetrieve().
-		Where(gorp.MatchKeys[Key, Device](keys...)).
-		Entries(&devices).
-		Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	for _, d := range devices {
-		if err := w.checkGroup(ctx, g, d); err != nil {
-			return err
-		}
-	}
-	return setGroup(w.table, g, keys...).Exec(ctx, w.tx)
+	return setGroup(w.table, g, keys...).
+		ChangeErr(func(ctx gorp.Context, d Device) (Device, error) {
+			return d, w.checkGroup(ctx, g, d)
+		}).
+		Exec(ctx, w.tx)
 }
 
 func (w Writer) checkGroup(ctx context.Context, key *group.Key, d Device) error {
