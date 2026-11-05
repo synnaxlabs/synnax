@@ -40,10 +40,11 @@
     --pluto-active-bg: var(--pluto-hover-bg);
 }
 
-/* The checkbox's own padding spaces it from the content, so it cancels the item's
-   default gap. */
+/* The checkbox's own padding spaces it from the edge and the content, so it cancels
+   part of the item's padding and all of its gap. The box then sits as far from the left
+   edge as from the top and bottom. */
 .lyra-select__item--checkable > .lyra-input__checkbox {
-    margin-inline-end: -1.5rem;
+    margin-inline: -1rem -1.5rem;
 }
 
 /* The icon sits beside the name, and the description lines up under the name. The extra

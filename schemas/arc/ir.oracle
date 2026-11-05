@@ -31,9 +31,15 @@ Handle struct {
 }
 
 EdgeKind enum {
-    unspecified = 0
-    continuous  = 1
-    conditional = 2
+    unspecified = 0 {
+        @doc value "has no kind set."
+    }
+    continuous  = 1 {
+        @doc value "fires on every output of the source."
+    }
+    conditional = 2 {
+        @doc value "fires only when the source output is truthy."
+    }
 
     @doc value "defines execution semantics for dataflow edges between nodes."
 }

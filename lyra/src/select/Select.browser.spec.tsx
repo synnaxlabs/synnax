@@ -12,6 +12,7 @@ import { page, userEvent } from "vitest/browser";
 
 import { Dialog } from "@/dialog";
 import { Icon } from "@/icon";
+import { List } from "@/list";
 import { Select } from "@/select";
 import { computed, renderThemed, resolve } from "@/styletest";
 import { Text } from "@/text";
@@ -71,6 +72,68 @@ const renderFixedLabel = async (): Promise<Record<string, Element>> => {
     fixed: get(".lyra-select__fixed-label"),
     caret: get(".lyra-caret-animated"),
   };
+};
+
+const renderEndContent = async (width: string): Promise<Record<string, Element>> => {
+  const { container } = await renderThemed(
+    <div style={{ width }}>
+      <Dialog.Frame>
+        <Select.Frame<string, undefined> value="time" onChange={() => {}}>
+          <Select.SingleTrigger
+            placeholder="Pick"
+            collapsible
+            renderEndContent={() => "Connected"}
+          />
+          <Select.Dialog>
+            <Select.Item itemKey="time">Time</Select.Item>
+          </Select.Dialog>
+        </Select.Frame>
+      </Dialog.Frame>
+    </div>,
+  );
+  const get = (selector: string): Element =>
+    container.querySelector(selector) as Element;
+  return {
+    trigger: get(".lyra-dialog__trigger"),
+    label: get(".lyra-select__label"),
+    end: get(".lyra-select-single-trigger__end"),
+    caret: get(".lyra-caret-animated"),
+  };
+};
+
+const CHECKABLE_COLUMNS: List.Column[] = [
+  { name: "Type", width: "20rem" },
+  { name: "Channel", width: "20rem" },
+];
+
+const renderCheckable = async (): Promise<(text: string) => Element> => {
+  const { getByText } = await renderThemed(
+    <Triggers.Provider>
+      <List.Columns columns={CHECKABLE_COLUMNS}>
+        <List.Headings checkable />
+        <Select.Frame<string, undefined>
+          multiple
+          data={["1"]}
+          value={["1"]}
+          onChange={() => {}}
+        >
+          <List.Scroll>
+            <List.Items<string>>
+              {({ key, ...p }) => (
+                <Select.Item key={key} {...p} checkable>
+                  <List.Cells>
+                    <List.Cell>type-{key}</List.Cell>
+                    <List.Cell>channel-{key}</List.Cell>
+                  </List.Cells>
+                </Select.Item>
+              )}
+            </List.Items>
+          </List.Scroll>
+        </Select.Frame>
+      </List.Columns>
+    </Triggers.Provider>,
+  );
+  return (text) => getByText(text, { exact: true }).element();
 };
 
 const FOOTER_HEIGHT = 100;
@@ -269,6 +332,22 @@ describe("Select", () => {
     });
   });
 
+  describe("end content", () => {
+    it("should sit right before the caret", async () => {
+      const { trigger, label, end, caret } = await renderEndContent("400px");
+      const gap = parseFloat(computed(trigger, "column-gap"));
+      expect(
+        end.getBoundingClientRect().left - label.getBoundingClientRect().right,
+      ).toBeCloseTo(gap, 0);
+      expect(computed(caret, "margin-left")).toBe("0px");
+    });
+
+    it("should hide in a collapsed trigger", async () => {
+      const { end } = await renderEndContent("100px");
+      expect(computed(end, "display")).toBe("none");
+    });
+  });
+
   describe("text buttons", () => {
     it("should mark the chosen button in the subtle selection tier", async () => {
       const button = await renderButtons("text");
@@ -327,6 +406,22 @@ describe("Select", () => {
       expect(bottom(last)).toBeGreaterThan(bottom(scroll));
       await userEvent.wheel(scroll, { delta: { y: 1000 } });
       await expect.poll(() => bottom(last)).toBeLessThanOrEqual(bottom(scroll));
+    });
+  });
+
+  describe("checkable items", () => {
+    const rect = (el: Element): DOMRect => el.getBoundingClientRect();
+
+    it("should inset the box as far from the left edge as from the top", async () => {
+      const item = (await renderCheckable())("type-1").closest(".lyra-list__item")!;
+      const box = rect(item.querySelector(".lyra-input__checkbox-indicator")!);
+      expect(box.left - rect(item).left).toBeCloseTo(box.top - rect(item).top, 0);
+    });
+
+    it("should keep each heading over its column", async () => {
+      const find = await renderCheckable();
+      expect(rect(find("Type")).left).toBeCloseTo(rect(find("type-1")).left, 0);
+      expect(rect(find("Channel")).left).toBeCloseTo(rect(find("channel-1")).left, 0);
     });
   });
 });
