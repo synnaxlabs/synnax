@@ -143,8 +143,8 @@ export class StreamMultiChannelLog
   private status = telem.SUCCESS_STATUS;
   private valid = false;
   private generation = 0;
-  // abort ends the running page read, whose results go stale on a channel
-  // change, a reset, or an eviction.
+  // abort ends the running page read, whose results go stale on a channel change, a
+  // reset, or an eviction.
   private abort: AbortController | null = null;
   // paging is true from the start of a read until the next read may start, reading only
   // while the read runs.
