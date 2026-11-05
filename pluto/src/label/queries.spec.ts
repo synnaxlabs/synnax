@@ -377,15 +377,16 @@ describe("queries", () => {
       const [kept, , added] = await createLabels();
       const { result } = renderHook(Label.useEditFor, { wrapper });
       await act(async () => {
-        await expect(
-          result.current.updateAsync({
+        expect(
+          await result.current.updateAsync({
             id: label.resourceID(kept.key),
             added: [added.key],
             removed: [],
           }),
-        ).rejects.toThrow("a label cannot have labels");
+        ).toBe(false);
       });
       expect(result.current.variant).toEqual("error");
+      expect(result.current.status.description).toContain("a label cannot have labels");
     });
   });
 
