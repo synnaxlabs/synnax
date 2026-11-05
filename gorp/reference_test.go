@@ -735,6 +735,23 @@ var _ = Describe("Reference", func() {
 		})
 
 		It(
+			"Should refuse a delete that more dependents restrict than the limit",
+			func(ctx SpecContext) {
+				createRack(ctx, 1)
+				for _, k := range []string{"a", "b", "c"} {
+					Expect(createDevice(ctx, refDevice{Key: k, Rack: 1})).To(Succeed())
+				}
+				Expect(racks.NewDelete().
+					Where(gorp.MatchKeys[uint32, refRack](1)).
+					Exec(ctx, db)).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("cannot delete rack 1 because device")),
+				))
+				Expect(rackExists(ctx, 1)).To(BeTrue())
+			},
+		)
+
+		It(
 			"Should count the entries the query names toward the limit",
 			func(ctx SpecContext) {
 				for _, k := range []uint32{1, 2, 3} {
@@ -941,83 +958,106 @@ var _ = Describe("Reference", func() {
 })
 
 var _ = Describe("Reference closure", func() {
+	var (
+		db         *gorp.DB
+		projects   *gorp.Table[string, refProject]
+		groups     *gorp.Table[string, refGroup]
+		schematics *gorp.Table[string, refSchematic]
+	)
+	// open opens a project that groups and schematics cascade from, and schematics
+	// that reference their group with policy.
+	open := func(ctx SpecContext, policy gorp.OnDelete, opts ...gorp.Option) {
+		db = DeferClose(
+			gorp.Wrap(memkv.New(), append(opts, gorp.WithCodec(msgpack.Codec))...),
+		)
+		projects = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, refProject]{
+			DB:   db,
+			Name: "project",
+		}))
+		groups = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, refGroup]{
+			DB:   db,
+			Name: "group",
+			References: []gorp.Reference[string, refGroup]{
+				gorp.NewKeyReference(gorp.KeyReferenceConfig[string, refGroup, string]{
+					Name:     "project",
+					Table:    "project",
+					OnDelete: gorp.Cascade,
+					Targets:  func(g *refGroup) []string { return []string{g.Project} },
+				}),
+			},
+		}))
+		group := gorp.KeyReferenceConfig[string, refSchematic, string]{
+			Name:     "group",
+			Table:    "group",
+			OnDelete: policy,
+			Targets: func(s *refSchematic) []string {
+				if s.Group == "" {
+					return nil
+				}
+				return []string{s.Group}
+			},
+		}
+		if policy == gorp.Detach {
+			group.Detach = func(s *refSchematic, _ string) { s.Group = "" }
+		}
+		schematics = MustOpen(gorp.OpenTable(
+			ctx,
+			gorp.TableConfig[string, refSchematic]{
+				DB:   db,
+				Name: "schematic",
+				References: []gorp.Reference[string, refSchematic]{
+					gorp.NewKeyReference(
+						gorp.KeyReferenceConfig[string, refSchematic, string]{
+							Name:     "project",
+							Table:    "project",
+							OnDelete: gorp.Cascade,
+							Targets: func(s *refSchematic) []string {
+								return []string{s.Project}
+							},
+						},
+					),
+					gorp.NewKeyReference(group),
+				},
+			},
+		))
+		Expect(projects.NewCreate().Entry(&refProject{Key: "p"}).Exec(ctx, db)).
+			To(Succeed())
+		Expect(groups.NewCreate().
+			Entry(&refGroup{Key: "g", Project: "p"}).
+			Exec(ctx, db)).To(Succeed())
+		Expect(schematics.NewCreate().
+			Entry(&refSchematic{Key: "s", Project: "p", Group: "g"}).
+			Exec(ctx, db)).To(Succeed())
+	}
+	deleteProject := func(ctx SpecContext) error {
+		return projects.NewDelete().
+			Where(gorp.MatchKeys[string, refProject]("p")).
+			Exec(ctx, db)
+	}
+	schematicExists := func(ctx SpecContext) bool {
+		return MustSucceed(schematics.NewRetrieve().
+			Where(gorp.MatchKeys[string, refSchematic]("s")).
+			Exists(ctx, db))
+	}
+
 	It(
 		"Should not restrict a delete on a dependent the delete removes",
 		func(ctx SpecContext) {
-			db := DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
-			projects := MustOpen(
-				gorp.OpenTable(ctx, gorp.TableConfig[string, refProject]{
-					DB:   db,
-					Name: "project",
-				}),
-			)
-			groups := MustOpen(
-				gorp.OpenTable(ctx, gorp.TableConfig[string, refGroup]{
-					DB:   db,
-					Name: "group",
-					References: []gorp.Reference[string, refGroup]{
-						gorp.NewKeyReference(
-							gorp.KeyReferenceConfig[string, refGroup, string]{
-								Name:     "project",
-								Table:    "project",
-								OnDelete: gorp.Cascade,
-								Targets: func(g *refGroup) []string {
-									return []string{g.Project}
-								},
-							},
-						),
-					},
-				}),
-			)
-			schematics := MustOpen(gorp.OpenTable(
-				ctx,
-				gorp.TableConfig[string, refSchematic]{
-					DB:   db,
-					Name: "schematic",
-					References: []gorp.Reference[string, refSchematic]{
-						gorp.NewKeyReference(
-							gorp.KeyReferenceConfig[string, refSchematic, string]{
-								Name:     "project",
-								Table:    "project",
-								OnDelete: gorp.Cascade,
-								Targets: func(s *refSchematic) []string {
-									return []string{s.Project}
-								},
-							},
-						),
-						gorp.NewKeyReference(
-							gorp.KeyReferenceConfig[string, refSchematic, string]{
-								Name:     "group",
-								Table:    "group",
-								OnDelete: gorp.Restrict,
-								Targets: func(s *refSchematic) []string {
-									return []string{s.Group}
-								},
-							},
-						),
-					},
-				},
-			))
-			Expect(projects.NewCreate().Entry(&refProject{Key: "p"}).Exec(ctx, db)).
-				To(Succeed())
-			Expect(
-				groups.NewCreate().
-					Entry(&refGroup{Key: "g", Project: "p"}).
-					Exec(ctx, db),
-			).
-				To(Succeed())
-			Expect(schematics.NewCreate().
-				Entry(&refSchematic{Key: "s", Project: "p", Group: "g"}).
-				Exec(ctx, db)).To(Succeed())
+			open(ctx, gorp.Restrict)
 			Expect(groups.NewDelete().
 				Where(gorp.MatchKeys[string, refGroup]("g")).
 				Exec(ctx, db)).To(MatchError(ContainSubstring("through group")))
-			Expect(projects.NewDelete().
-				Where(gorp.MatchKeys[string, refProject]("p")).
-				Exec(ctx, db)).To(Succeed())
-			Expect(schematics.NewRetrieve().
-				Where(gorp.MatchKeys[string, refSchematic]("s")).
-				Exists(ctx, db)).To(BeFalse())
+			Expect(deleteProject(ctx)).To(Succeed())
+			Expect(schematicExists(ctx)).To(BeFalse())
+		},
+	)
+
+	It(
+		"Should not detach a target from an entry the delete removes",
+		func(ctx SpecContext) {
+			open(ctx, gorp.Detach, gorp.WithMaxDeleteSize(3))
+			Expect(deleteProject(ctx)).To(Succeed())
+			Expect(schematicExists(ctx)).To(BeFalse())
 		},
 	)
 })

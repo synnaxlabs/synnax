@@ -149,7 +149,8 @@ type deletePlan struct {
 	// deletes holds the text keys to delete, by table name. It includes the entries
 	// the caller asked to delete.
 	deletes map[string]set.Set[string]
-	// detaches holds the targets to remove from each entry the delete keeps.
+	// detaches holds the targets to remove from each entry the delete keeps. An entry
+	// leaves detaches when the plan adds it to deletes.
 	detaches map[Target][]detachOp
 	// size is the number of entries the plan deletes.
 	size int
@@ -174,6 +175,7 @@ func (p *deletePlan) add(t Target) bool {
 	}
 	keys.Add(t.Key)
 	p.size++
+	delete(p.detaches, t)
 	return true
 }
 
@@ -221,7 +223,21 @@ func (r *registry) plan(
 		dependent Target
 		target    Target
 	}
-	var restrictions []restriction
+	var (
+		restrictions []restriction
+		restricted   = set.New[Target]()
+	)
+	refuse := func(rs restriction) error {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"cannot delete %s %s because %s %s references it through %s",
+			rs.target.Table,
+			rs.target.Key,
+			rs.dependent.Table,
+			rs.dependent.Key,
+			rs.ref.referenceName(),
+		)
+	}
 	for len(queue) > 0 {
 		target := queue[0]
 		queue = queue[1:]
@@ -239,11 +255,27 @@ func (r *registry) plan(
 					}
 					queue = append(queue, dep)
 				case Restrict:
+					if p.contains(dep) || restricted.Contains(dep) {
+						continue
+					}
+					restricted.Add(dep)
 					restrictions = append(
 						restrictions,
 						restriction{ref: ref, dependent: dep, target: target},
 					)
+					// The closure holds at most limit entries, so at least one
+					// restricted dependent stays outside it.
+					if len(restrictions) > limit {
+						for _, rs := range restrictions {
+							if !p.contains(rs.dependent) {
+								return nil, refuse(rs)
+							}
+						}
+					}
 				case Detach:
+					if p.contains(dep) {
+						continue
+					}
 					p.detaches[dep] = append(
 						p.detaches[dep],
 						detachOp{ref: ref.index(), target: target},
@@ -257,20 +289,7 @@ func (r *registry) plan(
 	}
 	for _, rs := range restrictions {
 		if !p.contains(rs.dependent) {
-			return nil, errors.Wrapf(
-				validate.ErrValidation,
-				"cannot delete %s %s because %s %s references it through %s",
-				rs.target.Table,
-				rs.target.Key,
-				rs.dependent.Table,
-				rs.dependent.Key,
-				rs.ref.referenceName(),
-			)
-		}
-	}
-	for dep := range p.detaches {
-		if p.contains(dep) {
-			delete(p.detaches, dep)
+			return nil, refuse(rs)
 		}
 	}
 	return p, nil
