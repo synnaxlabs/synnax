@@ -290,7 +290,8 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	l = &Layer{}
 	cleanup, ok := service.NewOpener(ctx, &l.closer)
 	defer func() { err = cleanup(err) }()
-	// The migrations of the tables below read the ontology of an upgraded store.
+	// The migrations of the tables below read the ontology of an upgraded store, and
+	// ontologyDropMigration deletes it once they have run.
 	if err = ontology.Migrate(
 		ctx,
 		cfg.Distribution.DB,
@@ -823,7 +824,10 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Instrumentation: cfg.Child("composition"),
 		DB:              cfg.Distribution.DB,
 		Namespace:       "Composition",
-		Migrations:      l.Panel.CompositionMigrations(),
+		Migrations: append(
+			l.Panel.CompositionMigrations(),
+			ontologyDropMigration,
+		),
 	}); !ok(err, nil) {
 		return nil, err
 	}

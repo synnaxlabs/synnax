@@ -1,0 +1,170 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package service_test
+
+import (
+	"context"
+	"uuid"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	groupv0 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v0"
+	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	rangerv0 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
+	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
+)
+
+func parentOf(from, to resource.ID) ontology.Relationship {
+	return ontology.Relationship{
+		From: from,
+		Type: ontology.RelationshipTypeParentOf,
+		To:   to,
+	}
+}
+
+func resources(ctx context.Context, db *gorp.DB) []ontology.Resource {
+	GinkgoHelper()
+	var out []ontology.Resource
+	Expect(gorp.NewRetrieve[string, ontology.Resource]().
+		Entries(&out).
+		Exec(ctx, db)).To(Succeed())
+	return out
+}
+
+func relationships(ctx context.Context, db *gorp.DB) []ontology.Relationship {
+	GinkgoHelper()
+	var out []ontology.Relationship
+	Expect(gorp.NewRetrieve[string, ontology.Relationship]().
+		Entries(&out).
+		Exec(ctx, db)).To(Succeed())
+	return out
+}
+
+var _ = Describe("Ontology drop", func() {
+	It("Should run after every other migration", func(ctx SpecContext) {
+		core, logs := observer.New(zapcore.InfoLevel)
+		logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+			ZapLogger: zap.New(core),
+		}))
+		MustOpen(svctestutil.OpenLayer(ctx, testutil.NewNode(ctx), service.LayerConfig{
+			Instrumentation: alamos.New("sy", alamos.WithLogger(logger)),
+		}))
+		ran := logs.FilterMessage("running migration").All()
+		Expect(ran).ToNot(BeEmpty())
+		last := ran[len(ran)-1]
+		Expect(last.LoggerName).To(Equal("composition"))
+		Expect(last.ContextMap()["migration"]).To(Equal("v61_drop_ontology"))
+	})
+
+	It(
+		"Should convert the edges of an upgraded store, then drop the ontology",
+		func(ctx SpecContext) {
+			node := testutil.NewNode(ctx)
+			legacyDB := gorp.Wrap(node.DB.KV(), gorp.WithCodec(msgpack.Codec))
+			rootID := resource.ID{Type: resource.TypeBuiltin, Key: "root"}
+			channels := groupv0.Group{Key: uuid.New(), Name: "Channels"}
+			sensors := groupv0.Group{Key: uuid.New(), Name: "Sensors"}
+			Expect(gorp.WrapWriter[groupv0.Key, groupv0.Group](legacyDB).
+				Set(ctx, channels, sensors)).To(Succeed())
+			tr := telem.TimeRange{
+				Start: telem.TimeStamp(5 * telem.Second),
+				End:   telem.TimeStamp(10 * telem.Second),
+			}
+			parent := rangerv0.Range{Key: uuid.New(), Name: "Parent", TimeRange: tr}
+			child := rangerv0.Range{Key: uuid.New(), Name: "Child", TimeRange: tr}
+			Expect(gorp.WrapWriter[rangerv0.Key, rangerv0.Range](legacyDB).
+				Set(ctx, parent, child)).To(Succeed())
+			channelsID := resource.ID{
+				Type: resource.TypeGroup,
+				Key:  channels.Key.String(),
+			}
+			sensorsID := resource.ID{
+				Type: resource.TypeGroup,
+				Key:  sensors.Key.String(),
+			}
+			Expect(gorp.WrapWriter[string, ontology.Resource](legacyDB).Set(
+				ctx,
+				ontology.Resource{ID: rootID},
+				ontology.Resource{ID: channelsID},
+				ontology.Resource{ID: sensorsID},
+				ontology.Resource{ID: parent.ResourceID()},
+				ontology.Resource{ID: child.ResourceID()},
+			)).To(Succeed())
+			Expect(gorp.WrapWriter[string, ontology.Relationship](legacyDB).Set(
+				ctx,
+				parentOf(rootID, channelsID),
+				parentOf(channelsID, sensorsID),
+				parentOf(parent.ResourceID(), child.ResourceID()),
+			)).To(Succeed())
+
+			layer := MustOpen(svctestutil.OpenLayer(ctx, node))
+
+			By("Converting the group and range edges into fields")
+			var g group.Group
+			Expect(layer.Group.NewRetrieve().
+				Where(group.MatchKeys(sensors.Key)).
+				Entry(&g).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(g.Scope).To(Equal(resource.TypeChannel))
+			Expect(g.Parent).To(BeNil())
+			var r ranger.Range
+			Expect(layer.Ranger.NewRetrieve().
+				Where(ranger.MatchKeys(child.Key)).
+				Entry(&r).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(r.Parent).To(HaveValue(Equal(parent.Key)))
+
+			By("Deleting the built-in root group")
+			Expect(layer.Group.NewRetrieve().
+				Where(group.MatchKeys(channels.Key)).
+				Exists(ctx, nil)).To(BeFalse())
+
+			By("Deleting every resource and relationship")
+			Expect(resources(ctx, node.DB)).To(BeEmpty())
+			Expect(relationships(ctx, node.DB)).To(BeEmpty())
+		},
+	)
+
+	It("Should not run again on a later open", func(ctx SpecContext) {
+		node := testutil.NewNode(ctx)
+		Expect(MustSucceed(svctestutil.OpenLayer(ctx, node)).Close()).To(Succeed())
+		builtin := group.Group{Name: "Builtin", Scope: resource.TypeBuiltin}
+		builtin.Key = uuid.New()
+		rel := parentOf(
+			resource.ID{Type: resource.TypeBuiltin, Key: "root"},
+			builtin.ResourceID(),
+		)
+		Expect(gorp.WrapWriter[group.Key, group.Group](node.DB).Set(ctx, builtin)).
+			To(Succeed())
+		Expect(gorp.WrapWriter[string, ontology.Resource](node.DB).
+			Set(ctx, ontology.Resource{ID: builtin.ResourceID()})).To(Succeed())
+		Expect(gorp.WrapWriter[string, ontology.Relationship](node.DB).Set(ctx, rel)).
+			To(Succeed())
+		layer := MustOpen(svctestutil.OpenLayer(ctx, node))
+		Expect(layer.Group.NewRetrieve().
+			Where(group.MatchKeys(builtin.Key)).
+			Exists(ctx, nil)).To(BeTrue())
+		Expect(resources(ctx, node.DB)).To(HaveLen(1))
+		Expect(relationships(ctx, node.DB)).To(ConsistOf(rel))
+	})
+})
