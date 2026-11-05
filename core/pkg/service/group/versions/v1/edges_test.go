@@ -69,6 +69,19 @@ var _ = Describe("ParentMigration", func() {
 		inRack   = uuid.New()
 		nested   = uuid.New()
 		orphan   = uuid.New()
+		implied  = uuid.New()
+		inImpl   = uuid.New()
+		mixed    = uuid.New()
+		unknown  = uuid.New()
+		inUnkn   = uuid.New()
+		channel  = resource.ID{Type: resource.TypeChannel, Key: "1"}
+		schem    = resource.ID{Type: resource.TypeSchematic, Key: uuid.New().String()}
+		members  = []ontology.Relationship{
+			parentOf(groupID(inImpl), channel),
+			parentOf(groupID(mixed), channel),
+			parentOf(groupID(mixed), schem),
+			parentOf(groupID(inUnkn), schem),
+		}
 		project  = resource.ID{Type: resource.TypeProject, Key: uuid.New().String()}
 		rack     = resource.ID{Type: resource.TypeRack, Key: "65537"}
 		toProj   = parentOf(rootID, project)
@@ -82,7 +95,9 @@ var _ = Describe("ParentMigration", func() {
 		names := map[uuid.UUID]string{
 			channels: "Channels", users: "Users", a: "A", b: "B", inUsers: "In Users",
 			inProj: "In Project", inRack: "In Rack", nested: "Nested", orphan: "Orphan",
-			ranges: "Ranges", inRanges: "In Ranges",
+			ranges: "Ranges", inRanges: "In Ranges", implied: "Implied",
+			inImpl: "In Implied", mixed: "Mixed", unknown: "Unknown",
+			inUnkn: "In Unknown",
 		}
 		for k, name := range names {
 			g := v0.Group{Key: k, Name: name}
@@ -98,10 +113,14 @@ var _ = Describe("ParentMigration", func() {
 			parentOf(project, groupID(inProj)),
 			parentOf(rack, groupID(inRack)),
 			parentOf(groupID(inProj), groupID(nested)),
+			parentOf(groupID(implied), groupID(inImpl)),
+			parentOf(rootID, groupID(unknown)),
+			parentOf(groupID(unknown), groupID(inUnkn)),
 			toProj,
 			toRanges,
 			inRange,
 		)
+		createEdges(ctx, db, members...)
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:         db,
 			Namespace:  "group",
@@ -137,14 +156,28 @@ var _ = Describe("ParentMigration", func() {
 			func() *resource.ID { return &rack }),
 		Entry("a group under a project group", &nested, resource.TypeProject,
 			func() *resource.ID { return new(groupID(inProj)) }),
-		Entry("a group with no parent edge", &orphan, resource.TypeBuiltin,
+		Entry("a group with no parent edge and no members", &orphan,
+			resource.TypeBuiltin, func() *resource.ID { return nil }),
+		Entry("a group with no parent edge whose members imply a scope", &implied,
+			resource.TypeChannel, func() *resource.ID { return nil }),
+		Entry("a group under a group placed by its members", &inImpl,
+			resource.TypeChannel, func() *resource.ID { return new(groupID(implied)) }),
+		Entry("a group whose members imply two scopes", &mixed, resource.TypeBuiltin,
+			func() *resource.ID { return nil }),
+		Entry("a root with an unknown name", &unknown, resource.TypeBuiltin,
+			func() *resource.ID { return nil }),
+		Entry("a group under an unknown root", &inUnkn, resource.TypeProject,
+			func() *resource.ID { return nil }),
+		Entry("a group under the legacy range root", &inRanges, resource.TypeBuiltin,
 			func() *resource.ID { return nil }),
 	)
 
 	It(
 		"Should delete the parent edges into groups and keep the rest",
 		func(ctx SpecContext) {
-			Expect(edges(ctx, db)).To(ConsistOf(toProj, toRanges, inRange))
+			Expect(edges(ctx, db)).To(ConsistOf(
+				append([]ontology.Relationship{toProj, toRanges, inRange}, members...),
+			))
 		},
 	)
 })
@@ -157,11 +190,13 @@ var _ = Describe("MembersMigration", func() {
 		project  = resource.ID{Type: resource.TypeProject, Key: uuid.New().String()}
 		projTop  = v1.Group{Key: uuid.New(), Name: "P", Scope: resource.TypeProject}
 		projLeaf = v1.Group{Key: uuid.New(), Name: "Leaf", Scope: resource.TypeProject}
+		chans    = v1.Group{Key: uuid.New(), Name: "Chans", Scope: resource.TypeChannel}
 		logs     = []log.Log{
 			{Key: uuid.New(), Name: "In root"},
 			{Key: uuid.New(), Name: "In top"},
 			{Key: uuid.New(), Name: "In project"},
 			{Key: uuid.New(), Name: "Owned"},
+			{Key: uuid.New(), Name: "In channel group"},
 		}
 		logID = func(i int) resource.ID {
 			return resource.ID{Type: resource.TypeLog, Key: logs[i].Key.String()}
@@ -195,7 +230,7 @@ var _ = Describe("MembersMigration", func() {
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		projTop.Parent = &project
 		projLeaf.Parent = new(groupID(projTop.Key))
-		groups := []v1.Group{root, top, projTop, projLeaf}
+		groups := []v1.Group{root, top, projTop, projLeaf, chans}
 		Expect(gorp.NewCreate[v1.Key, v1.Group]().Entries(&groups).Exec(ctx, db)).
 			To(Succeed())
 		created := append([]log.Log(nil), logs...)
@@ -206,6 +241,7 @@ var _ = Describe("MembersMigration", func() {
 			parentOf(groupID(top.Key), logID(1)),
 			parentOf(groupID(projLeaf.Key), logID(2)),
 			parentOf(project, logID(3)),
+			parentOf(groupID(chans.Key), logID(4)),
 		)
 	})
 
@@ -221,6 +257,13 @@ var _ = Describe("MembersMigration", func() {
 			out := migrate(ctx, false)
 			Expect(out[0].Group).To(BeNil())
 			Expect(out[3].Group).To(BeNil())
+		},
+	)
+
+	It(
+		"Should leave a member under a group of another scope with no group",
+		func(ctx SpecContext) {
+			Expect(migrate(ctx, false)[4].Group).To(BeNil())
 		},
 	)
 
