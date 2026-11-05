@@ -12,6 +12,7 @@
 
 #include "absl/log/log.h"
 
+#include "client/cpp/connection/checker.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/os/os.h"
 
@@ -111,7 +112,10 @@ x::errors::Error Config::load_remote() {
     this->rack = rack;
     this->rack.version = SYNNAX_DRIVER_VERSION;
     this->remote_info.cluster_key = cluster_key;
-    if (!core.client_server_compatible)
+    if (!synnax::connection::versions_compatible(
+            SYNNAX_DRIVER_VERSION,
+            core.node_version
+        ))
         this->incompatible_core_version = core.node_version;
     // A config can name an integration that this build leaves out.
     const auto built = built_integrations();
