@@ -714,6 +714,24 @@ describe("Status", () => {
       expect(results).toHaveLength(0);
     });
 
+    it("should filter statuses by a flat filter", async () => {
+      const prefix = `variant-flat-${Date.now()}`;
+      const keys = [`${prefix}-info`, `${prefix}-error`];
+      await client.statuses.set(
+        (["info", "error"] as const).map((variant, i) => ({
+          name: variant,
+          key: keys[i],
+          variant,
+          message: variant,
+          time: TimeStamp.now(),
+        })),
+      );
+
+      const results = await client.statuses.retrieve({ key: keys, variant: "error" });
+
+      expect(results.map((s) => s.key)).toEqual([keys[1]]);
+    });
+
     it("should filter statuses by a tree of filters", async () => {
       const prefix = `variant-tree-${Date.now()}`;
       const keys = [`${prefix}-info`, `${prefix}-error`, `${prefix}-success`];

@@ -190,6 +190,21 @@ describe("range", () => {
       expect(retrieved.key).toEqual(range.key);
       expect(retrieved.timeRange).toEqual(range.timeRange);
     });
+    it("should retrieve ranges by a flat filter", async () => {
+      const prefix = `flat-${id.create()}`;
+      const timeRange = TimeStamp.now().spanRange(TimeSpan.seconds(1));
+      const [labeled] = await client.ranges.create([
+        { name: `${prefix}-labeled`, timeRange },
+        { name: `${prefix}-plain`, timeRange },
+      ]);
+      const lbl = await client.labels.create({ name: prefix, color: "#E774D0" });
+      await labeled.addLabel(lbl.key);
+      const retrieved = await client.ranges.retrieve({
+        name: { startsWith: prefix },
+        labels: lbl.key,
+      });
+      expect(retrieved.map((r) => r.key)).toEqual([labeled.key]);
+    });
     it("should retrieve a range by name", async () => {
       const timeRange = TimeStamp.now().spanRange(TimeSpan.seconds(1));
       const range = await client.ranges.create({

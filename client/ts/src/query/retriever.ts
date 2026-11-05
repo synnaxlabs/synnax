@@ -68,7 +68,7 @@ const keysOnly = (query: unknown): unknown[] | null => {
  * The params a request schema accepts. A recursive `where` schema infers no input type,
  * so `where` takes its output type, which the schema also accepts.
  */
-type RequestInput<Z extends z.ZodType> =
+export type RequestInput<Z extends z.ZodType> =
   z.input<Z> extends infer I
     ? I extends unknown
       ? "where" extends keyof I

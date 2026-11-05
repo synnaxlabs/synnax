@@ -50,7 +50,12 @@ import {
   retrieveResponseZ,
 } from "@/ranger/types.gen";
 import { createLines, labelChangeAdmits } from "@/ranger/where";
-import { type Lines, matches, serverComputed } from "@/ranger/where.gen";
+import {
+  type Lines,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+} from "@/ranger/where.gen";
 import { Writer } from "@/ranger/writer";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
@@ -281,6 +286,7 @@ const retrieveMultiParamsZ = z.union([
     where: { overlaps },
   })),
   callerRequestZ,
+  retrieveInputZ(callerRequestZ.omit({ where: true }).shape),
 ]);
 
 /**
@@ -649,10 +655,15 @@ export class Client extends query.Retriever<
 
   async retrieve(params: Key | Name): Promise<Range>;
   async retrieve(
-    params: Key[] | Name[] | CrudeTimeRange | RetrieveMultipleParams,
+    params: Name[] | CrudeTimeRange | query.RequestInput<typeof retrieveMultiParamsZ>,
   ): Promise<Range[]>;
   async retrieve(
-    params: Key | Name | Key[] | Name[] | CrudeTimeRange | RetrieveMultipleParams,
+    params:
+      | Key
+      | Name
+      | Name[]
+      | CrudeTimeRange
+      | query.RequestInput<typeof retrieveMultiParamsZ>,
   ): Promise<Range | Range[]> {
     // The branches narrow params onto different base overloads.
     if (typeof params === "string") return await super.retrieve(params);

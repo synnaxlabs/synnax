@@ -25,7 +25,12 @@ import {
   type Status,
   statusZ,
 } from "@/status/types.gen";
-import { type Lines, matches, serverComputed } from "@/status/where.gen";
+import {
+  type Lines,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+} from "@/status/where.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 const setReqZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
@@ -46,17 +51,28 @@ const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const callerRequestZ = retrieveRequestZ.omit({ includeLabels: true });
 export type RetrieveMultipleParams = z.infer<typeof callerRequestZ>;
 
-const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), callerRequestZ]);
+const filterParamsZ = retrieveInputZ(callerRequestZ.omit({ where: true }).shape);
+type FilterParams = z.input<typeof filterParamsZ>;
+
+const retrieveMultiParamsZ = z.union([
+  query.keysRequestZ(keyZ),
+  callerRequestZ,
+  filterParamsZ,
+]);
 
 const singleRetrieveParamsZ = z
   .object({ key: keyZ })
   .transform(({ key }): RetrieveMultipleParams => ({ where: { key: { eq: key } } }));
 
 const retrieveParamsZ = z
-  .union([singleRetrieveParamsZ, callerRequestZ])
+  .union([singleRetrieveParamsZ, callerRequestZ, filterParamsZ])
   .transform((req): RetrieveRequest => ({ ...req, includeLabels: true }));
 
 export type SingleRetrieveParams = z.input<typeof singleRetrieveParamsZ>;
+
+/** True for params that address one status by a plain key. */
+const isSingleParams = (params: object): params is SingleRetrieveParams =>
+  "key" in params && typeof params.key === "string";
 export type RetrieveParams = SingleRetrieveParams | RetrieveMultipleParams;
 
 const retrieveResponseZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
@@ -168,15 +184,20 @@ export class Client extends query.Retriever<
     params: SingleRetrieveParams & { detailsSchema?: DetailsSchema },
   ): Promise<Status<DetailsSchema>>;
   async retrieve(params: Key | SingleRetrieveParams): Promise<Status>;
-  async retrieve(params: Key[] | RetrieveMultipleParams): Promise<Status[]>;
+  async retrieve(
+    params: query.RequestInput<typeof retrieveMultiParamsZ>,
+  ): Promise<Status[]>;
   async retrieve<DetailsSchema extends z.ZodType = z.ZodNever>(
-    rawParams: Key | Key[] | (RetrieveParams & { detailsSchema?: DetailsSchema }),
+    rawParams:
+      | Key
+      | Key[]
+      | ((RetrieveParams | FilterParams) & { detailsSchema?: DetailsSchema }),
   ): Promise<Status<DetailsSchema> | Status<DetailsSchema>[]> {
     if (Array.isArray(rawParams))
       return (await super.retrieve(rawParams)) as Status<DetailsSchema>[];
     const params = typeof rawParams === "string" ? { key: rawParams } : rawParams;
     const { detailsSchema, ...rest } = params;
-    const isSingle = "key" in rest;
+    const isSingle = isSingleParams(rest);
     // Schema-parametrized retrieves validate details for one caller; their
     // results are not shared through the cache.
     if (detailsSchema != null) {
@@ -303,7 +324,7 @@ export class Client extends query.Retriever<
   }
 
   private async execRetrieve<DetailsSchema extends z.ZodType = z.ZodNever>(
-    params: RetrieveParams & { detailsSchema?: DetailsSchema },
+    params: (RetrieveParams | FilterParams) & { detailsSchema?: DetailsSchema },
   ): Promise<Status<DetailsSchema>[]> {
     const res = await this.cfg.unary.send(
       "/status/retrieve",

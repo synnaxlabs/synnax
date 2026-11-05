@@ -60,6 +60,17 @@ describe("arc", () => {
       );
     });
 
+    it("should retrieve Arcs by a list of names in a flat filter", async () => {
+      const names = [`flat-${id.create()}`, `flat-${id.create()}`];
+      const created = await Promise.all(
+        names.map(async (n) => await client.arcs.create(newTextArc(n))),
+      );
+      const res = await client.arcs.retrieve({ name: names });
+      expect(res.map(({ key }) => key).sort()).toEqual(
+        created.map(({ key }) => key).sort(),
+      );
+    });
+
     it("should omit missing keys from a filter on keys", async () => {
       const created = await client.arcs.create(newTextArc(`missing-${id.create()}`));
       const res = await client.arcs.retrieve({
