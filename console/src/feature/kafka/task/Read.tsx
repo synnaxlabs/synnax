@@ -9,12 +9,7 @@
 
 import "@/feature/kafka/task/Task.css";
 
-import {
-  channel,
-  kafka,
-  NotFoundError,
-  type Synnax as Client,
-} from "@synnaxlabs/client";
+import { channel, kafka } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
@@ -22,7 +17,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { DataType, deep, errors, id, primitive } from "@synnaxlabs/x";
+import { DataType, deep, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { useFromConfig } from "@/feature/kafka/device/queries";
@@ -270,18 +265,6 @@ const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({
   return { name: "Kafka read task", type: READ_TYPE, config: cfg };
 };
 
-const retrieveChannel = async (
-  client: Client,
-  key: channel.Key,
-): Promise<channel.Channel | null> => {
-  try {
-    return await client.channels.retrieve(key);
-  } catch (e) {
-    if (NotFoundError.matches(e)) return null;
-    throw errors.fromUnknown(e);
-  }
-};
-
 /**
  * Creates the channels the enabled fields lack. Each record writes against one index:
  * its index field's channel when it has one, else an index stamped by Kafka.
@@ -296,9 +279,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
     const existing = new Map<string, channel.Channel>();
     for (const field of fields) {
       if (field.channel === 0) continue;
-      const ch = await retrieveChannel(client, field.channel);
-      if (ch == null) field.channel = 0;
-      else existing.set(field.key, ch);
+      existing.set(field.key, await client.channels.retrieve(field.channel));
     }
     if (fields.length === 0) continue;
     const stamp = fields.find((f) => f.key === rec.index);

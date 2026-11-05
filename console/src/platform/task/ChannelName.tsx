@@ -10,14 +10,13 @@
 import {
   type channel,
   channel as clientChannel,
-  NotFoundError,
   type status,
 } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
-import { Access, Channel, Flux } from "@synnaxlabs/pluto";
+import { Access, Channel } from "@synnaxlabs/pluto";
 import { type deep, type optional, primitive } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
@@ -104,7 +103,11 @@ const Resolved = ({
     );
   if (result.variant !== "error") return unresolved;
   return (
-    <Message variant="error" {...describe(result.status.details.error)}>
+    <Message
+      variant="error"
+      message="Failed to retrieve channel"
+      description={result.status.details.error.message}
+    >
       {unresolved}
     </Message>
   );
@@ -134,18 +137,6 @@ const Message = ({ variant, message, description, children }: MessageProps) => (
     {children}
   </Tooltip.Dialog>
 );
-
-const MISSING_DESCRIPTION =
-  "It may have been deleted. Configuring the task creates a new channel.";
-
-const describe = (error: Error): Pick<MessageProps, "message" | "description"> => {
-  if (Flux.DeletedError.matches(error) || NotFoundError.matches(error.cause))
-    return {
-      message: "Channel not found",
-      description: MISSING_DESCRIPTION,
-    };
-  return { message: "Failed to retrieve channel", description: error.message };
-};
 
 export const ChannelName = ({ namePath, ...rest }: ChannelNameProps): ReactElement => {
   if (rest.channel !== 0) return <Resolved {...rest} namePath={namePath} />;
