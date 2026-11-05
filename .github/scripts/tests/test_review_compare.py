@@ -441,6 +441,14 @@ class TestReport:
         assert "As of the newest review, at 2026-11-05 12:00 UTC:" in text
         assert "| `seven_day` | 81% | allowed_warning | 2026-11-09 18:00 UTC |" in text
 
+    def test_should_skip_a_newer_review_with_no_limits(self) -> None:
+        empty = limited(0.5, NOON)
+        empty["usage"]["limits"] = {}
+        recs = [limited(0.2, "2026-11-05T09:00:00+00:00"), empty]
+        text = compare.report([], recs, since=SINCE)
+        assert "As of the newest review, at 2026-11-05 09:00 UTC:" in text
+        assert "| `seven_day` | 20% |" in text
+
     def test_should_say_when_no_review_recorded_the_limits(self) -> None:
         text = compare.report([], [record(HEAD)], since=SINCE)
         assert "No review has recorded the usage limits yet." in text

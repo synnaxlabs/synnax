@@ -475,8 +475,9 @@ class _Tally:
 
 
 def _limits(recs: list[dict[str, Any]]) -> list[str]:
-    # Records written before reviews kept their limits have none.
-    newest = next((r for r in reversed(recs) if "limits" in r["usage"]), None)
+    # Records from before reviews kept their limits, and reviews that Claude Code
+    # reported no limits for, have none.
+    newest = next((r for r in reversed(recs) if r["usage"].get("limits")), None)
     if newest is None:
         return ["No review has recorded the usage limits yet."]
     at = datetime.fromisoformat(newest["at"])
