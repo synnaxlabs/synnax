@@ -94,7 +94,9 @@ Status struct {
 
 For each `@ref`, Oracle generates a `gorp.Reference` on the table and a `Match<Field>s`
 filter that reads its reverse index. `@ontology type` becomes `@resource type`, and it
-names the table in the Gorp registry.
+names the table in the Gorp registry. Oracle generates no reference nested in an array
+or a recursive type of a `@retrieve` struct, so `lineplot`, `log`, `panel`, and
+`channel.index` build theirs by hand with `gorp.NewReference`.
 
 ### 4.1 Gorp
 
@@ -128,8 +130,8 @@ probe waits for it. A failed fill fails each probe, with no fallback scan.
 A delete that would delete or rewrite more entries than `gorp.WithMaxDeleteSize`
 (default `1 << 20`, `gorp/options.go`) fails before any change. Detached dependents
 count. No service code runs inside a cascade (Ent issue #2031 shows hooks and store
-cascades that disagree). A side effect that is not data, such as freeing Cesium storage,
-follows the table's change stream.
+cascades that disagree). So a record whose delete has a side effect outside Gorp, such
+as a channel and its Cesium storage, is never a `cascade` target.
 
 **Errors**: A failed write check is a `validate.PathError` on the field, such as
 `rack: rack 1 does not exist`. A refused `restrict` is `validate.ErrValidation` with
@@ -158,11 +160,18 @@ commit. §7.0 keeps the lock design open.
 | `group.parent resource.ID?`    | cascade, acyclic | `parent` edge             |
 | `<subject>.roles role.Key[]`   | detach           | `parent` edge             |
 | `policy.role role.Key`         | cascade          | `parent` edge             |
+| task config channel and device | restrict         | nothing                   |
+| `channel.index channel.Key`    | restrict         | Cesium check              |
+| line plot and log channels     | detach           | nothing                   |
+| `panel` tabs                   | detach           | `parent` edge             |
+| PagerDuty `status` key         | detach           | nothing                   |
 
 `<labeled>` is a range or a status, and `<subject>` is a user or a rack. `<vis>` is each
 visualization: schematic, line plot, log, table, and panel. A visualization holds
 exactly one of `project` and `range`, and one shared validator checks it. Alias and
 key-value pairs keep their composite keys, which Oracle derives from the `@key` fields.
+A task config refuses the delete of a channel or device it reads or writes, so a running
+task never loses one. A detach from a line plot also clears the lines of that channel.
 
 ### 4.3 Groups
 
@@ -201,8 +210,10 @@ delete cascades to its visualizations. Rack delete keeps its refusals: `device.r
 The policy walk becomes the subject's `roles`, then `policy.retrieve({role})`. A role
 delete removes its policies and detaches its subjects, which closes the leak in §1.
 
-Channel delete frees Cesium storage from a subscriber on the channel table's delete
-stream, not in `core/pkg/service/channel/writer.go`, so a cascade takes the same path.
+Channel delete frees Cesium storage in the same call
+(`core/pkg/service/channel/writer.go`), so a delete while a writer is open fails and
+changes nothing. No reference cascades to a channel, and `/batch` refuses channel
+delete.
 
 ### 4.6 API and clients
 
@@ -210,11 +221,13 @@ The `/ontology/*` routes and their access checks are deleted. Group create, rena
 delete move to `/group/*`, and a move into a group updates the record's `group` field.
 
 Search and lookup across types move to a service in `core/pkg/service/resource`. Each
-domain registers its type with a text search and a name lookup by ID. The service holds
-no relationships. The Console palette searches every type in one request, and a screen
-that shows an ID of any type gets its name from it. Rejected: each client sends one
-request per type, which costs about twenty requests per palette keystroke and copies the
-fan-out into each client.
+domain gives its type a text search, a list, and a name lookup by ID, wired once in
+`core/pkg/service/layer.go`. The service holds no relationships. The Console palette
+searches every type in one request, and an empty term lists each type's records. A
+lookup leaves out an ID that names no record. A screen that shows an ID of any type gets
+its name from it, and the TypeScript client keeps an open search live through each
+type's change channels. Rejected: each client sends one request per type, which costs
+about twenty requests per palette keystroke and copies the fan-out into each client.
 
 `/batch` takes an ordered list of typed requests, each one an existing endpoint and its
 payload. It runs them in one `gorp.WithTx` and stops at the first error. It accepts only
@@ -241,7 +254,11 @@ One startup migration per table derives its reference fields from the old edges 
 - The status key becomes a UUIDv5 of the old key, and `owner` is parsed from the old
   key. Each node derives the same key, as RFC 0033 §4.2.5 requires.
 
-After each service opens, a step behind a marker key drops both ontology tables and the
+These migrations read edges through the frozen types in
+`core/pkg/service/ontology/versions/v0`. A record can already hold a key whose target is
+gone, and its next write would fail the check. One shared migration
+(`gorp.DropDangling`) removes such keys from `detach` fields and zeroes them in task
+configs. After each service opens, one last migration drops both ontology tables and the
 built-in groups. A visualization with no project and no range is deleted; no path
 reaches it today. The migration is one-way: a Core that ran it cannot go back to a
 release that reads the ontology.
@@ -249,20 +266,23 @@ release that reads the ontology.
 ## 5 Implementation phases
 
 Phase 1 is a mechanical rename, and Phase 2 adds the engine with no Core table on it.
-The ontology serves each domain that has not moved. Phase 8 adds references inside a
-record (`lineplot.channels`, task config keys, panel tabs, the PagerDuty `status` key)
-and `channel.index`. Gorp needs no change for them, because `Targets` is a function.
+The ontology serves each domain that has not moved, and Phase 10 deletes it. Phase 9
+adds references inside a record (line plot and log channels, task config keys, panel
+tabs, the PagerDuty `status` key) and `channel.index`. Gorp needs no change for them,
+because `Targets` is a function. Each phase stacks on the one before it.
 
-| Phase | Scope                                                     | Touches                                                                                                                                                                                              | Depends on |
-| ----- | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| 1     | Rename ontology IDs to resource IDs                       | `schemas`, `oracle`, `core/pkg/service`, `client/ts`, `client/py`, `client/cpp`                                                                                                                      | -          |
-| 2     | Add typed references to Gorp and Oracle                   | `gorp`, `oracle`, `docs/tech/rfc`                                                                                                                                                                    | 1          |
-| 3     | Move labels, statuses, and ranges to references           | `schemas`, `core/pkg/service/label`, `core/pkg/service/status`, `core/pkg/service/ranger`, `driver`, `client/ts`, `client/py`, `client/cpp`, `console`                                               | 2          |
-| 4     | Move groups, channels, and the Console tree to references | `schemas`, `core/pkg/service/group`, `core/pkg/service/channel`, `core/pkg/api`, `core/pkg/transport`, `client/ts`, `pluto`, `console`                                                               | 2          |
-| 5     | Move racks, devices, tasks, and Arc to references         | `schemas`, `core/pkg/service/rack`, `core/pkg/service/legacy/device`, `core/pkg/service/task`, `core/pkg/service/arc`, `client/ts`, `client/py`, `console`                                           | 2          |
-| 6     | Move projects and visualizations to references            | `schemas`, `core/pkg/service/project`, `core/pkg/service/schematic`, `core/pkg/service/lineplot`, `core/pkg/service/log`, `core/pkg/service/table`, `core/pkg/service/panel`, `client/ts`, `console` | 4          |
-| 7     | Move access to references and delete the ontology         | `schemas`, `core/pkg/service/access`, `core/pkg/service/user`, `core/pkg/service/rack`, `core/pkg/service/ontology`, `core/pkg/api`, `core/pkg/transport`, `client/ts`, `client/py`, `console`       | 3, 4, 5, 6 |
-| 8     | Add nested and channel references                         | `schemas`, `core/pkg/distribution/channel`, `core/pkg/service/lineplot`, `core/pkg/service/log`, `core/pkg/service/task`, `core/pkg/service/panel`, `core/pkg/service/pagerduty`                     | 2          |
+| Phase | Scope                                                     | Touches                                                                                                                                                                                                  | Depends on |
+| ----- | --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| 1     | Rename ontology IDs to resource IDs                       | `schemas`, `oracle`, `core/pkg/service`, `client/ts`, `client/py`, `client/cpp`                                                                                                                          | -          |
+| 2     | Add typed references to Gorp and Oracle                   | `gorp`, `oracle`, `docs/tech/rfc`                                                                                                                                                                        | 1          |
+| 3     | Move labels, statuses, and ranges to references           | `schemas`, `core/pkg/service/label`, `core/pkg/service/status`, `core/pkg/service/ranger`, `driver`, `client/ts`, `client/py`, `client/cpp`, `console`                                                   | 2          |
+| 4     | Move groups, channels, and the Console tree to references | `schemas`, `core/pkg/service/group`, `core/pkg/service/channel`, `core/pkg/api`, `core/pkg/transport`, `client/ts`, `pluto`, `console`                                                                   | 3          |
+| 5     | Move racks, devices, tasks, and Arc to references         | `schemas`, `core/pkg/service/rack`, `core/pkg/service/legacy/device`, `core/pkg/service/task`, `core/pkg/service/arc`, `client/ts`, `client/py`, `console`                                               | 4          |
+| 6     | Move projects and visualizations to references            | `schemas`, `core/pkg/service/project`, `core/pkg/service/schematic`, `core/pkg/service/lineplot`, `core/pkg/service/log`, `core/pkg/service/table`, `core/pkg/service/panel`, `client/ts`, `console`     | 5          |
+| 7     | Move roles and policies to references                     | `schemas`, `core/pkg/service/access`, `core/pkg/service/user`, `core/pkg/service/rack`, `core/pkg/api`, `core/pkg/transport`, `client/ts`, `client/py`, `pluto`, `console`                               | 6          |
+| 8     | Add the resource search and name service                  | `core/pkg/service/resource`, `core/pkg/service`, `core/pkg/api`, `core/pkg/transport`, `client/ts`, `client/py`, `pluto`, `console`                                                                      | 7          |
+| 9     | Add nested and channel references                         | `schemas`, `gorp`, `oracle`, `core/pkg/service/channel`, `core/pkg/service/lineplot`, `core/pkg/service/log`, `core/pkg/service/task`, `core/pkg/service/panel`, `core/pkg/service/pagerduty`, `console` | 8          |
+| 10    | Delete the ontology                                       | `core/pkg/service/ontology`, `core/pkg/service`, `core/pkg/api`, `core/pkg/transport`, `client/ts`, `client/py`, `client/cpp`, `pluto`, `console`, `integration`                                         | 9          |
 
 ## 6 Resolved decisions
 
@@ -311,12 +331,17 @@ rack per second, waits on any open delete.
 1. The `@ref` block grammar: newline-separated like `@ts { }`, or a delimiter.
 2. The default closure cap, from a measured worst case. A range can hold one alias per
    channel.
-3. Whether a reference can skip its reverse index. Phase 8 puts one over the channel
+3. Whether a reference can skip its reverse index. Phase 9 puts one over the channel
    table, up to about a million entries, but with no index a delete cannot find
    dependents.
 4. The device chassis policy: `cascade` for discovered modules, or `detach` for
    hand-made chassis.
 5. Whether `group.scope` can go once each group has a parent or a member.
+6. Whether a task config keeps `restrict` on its channels and devices, or moves to
+   `detach` with a binding the task form shows as broken.
+7. How an open editor learns of a detach. A detach writes no service action, so an open
+   line plot keeps a deleted channel until it reloads, and its next edit fails the
+   check.
 
 ## 8 What this RFC does not cover
 
@@ -326,3 +351,6 @@ rack per second, waits on any open delete.
   here comes from a migration that derives it.
 - Atomic channel create across Cesium and Gorp (RFC 0042 §7).
 - Template bindings. A later RFC builds them on these references.
+- Channel keys held in schematic symbol props, table cells, Arc programs,
+  `alias.channel`, calculated channel expressions, and device property maps. Each stays
+  unchecked.
