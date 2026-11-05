@@ -16,6 +16,7 @@ import { createCore, createCoreState } from "@/session/core/testutil";
 import {
   createStatusConsoleWrapper,
   INCOMPATIBLE_UNLICENSED_STATUS,
+  mockLocationReload,
   renderWithConsole,
   UNLICENSED_STATUS,
 } from "@/testutil";
@@ -27,8 +28,6 @@ const renderGuard = async (): Promise<void> => {
     </Guard>,
   );
 };
-
-const MISMATCH_TITLE = "Console 0.61.0 cannot work with Core 0.60.1";
 
 const renderCoreGuard = async (status: connection.Status): Promise<void> => {
   const core = createCore("Local");
@@ -59,9 +58,10 @@ describe("app/window/Guard", () => {
     expect(screen.queryByText("workspace")).toBeNull();
   });
 
-  it("should show the mismatch screen before the activation screen", async () => {
+  it("should reload on a version mismatch before the activation screen", async () => {
+    const reload = mockLocationReload();
     await renderCoreGuard(INCOMPATIBLE_UNLICENSED_STATUS);
-    expect(screen.getByText(MISMATCH_TITLE)).toBeTruthy();
+    expect(reload).toHaveBeenCalledOnce();
     expect(screen.queryByRole("textbox", { name: "License key" })).toBeNull();
   });
 });
