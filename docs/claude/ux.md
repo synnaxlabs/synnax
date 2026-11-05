@@ -263,6 +263,8 @@ bound, a log precision, or the line plot X channel.
 - An option with a description shows the icon beside the name and the description under
   the name. The dropdown is wide enough for each description on one line. Only a narrow
   window wraps it, and it is never cut.
+- A select with a few described options, such as the Arc performance level and the plot
+  line sampling, has no search. A user reads the options instead.
 - A select that shows only its icon is a square button, never a wide box.
 
 ### Lists with checkboxes
@@ -381,7 +383,7 @@ says why in a sentence, then gives the raw error.
   Each option says what it does to the plot in a few words ("Keeps spikes visible"), not
   how it works, so the dropdown stays narrow.
 - A waveform marks min/max, a sine wave marks average, and `Icon.Meter` marks the
-  detail. These selects have no search.
+  detail.
 - Icon buttons alone were rejected: a user must hover each one to learn it.
 
 ### Plot legend

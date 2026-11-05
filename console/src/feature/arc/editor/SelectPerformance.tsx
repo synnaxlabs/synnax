@@ -118,7 +118,7 @@ export const SelectPerformance = ({
     triggerProps={TRIGGER_PROPS}
     dialogProps={DIALOG_PROPS}
     resourceName="performance"
-    searchName="level"
+    searchHidden
   >
     {ITEMS}
   </Select.Simple>
