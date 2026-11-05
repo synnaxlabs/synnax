@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
@@ -35,6 +36,9 @@ import (
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -73,6 +77,33 @@ var _ = Describe("Layer", func() {
 			MatchError(license.ErrTooMany),
 			MatchError(ContainSubstring("limit is 50 channels")),
 		))
+	})
+
+	It("Should migrate device parents and task ranges after ranges", func(
+		ctx SpecContext,
+	) {
+		core, logs := observer.New(zapcore.InfoLevel)
+		logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+			ZapLogger: zap.New(core),
+		}))
+		MustOpen(svctestutil.OpenLayer(ctx, testutil.NewNode(ctx), service.LayerConfig{
+			Instrumentation: alamos.New("sy", alamos.WithLogger(logger)),
+		}))
+		lastRange, deviceParent, taskRange := -1, -1, -1
+		for i, e := range logs.FilterMessage("running migration").All() {
+			migration := e.ContextMap()["migration"]
+			switch {
+			case e.LoggerName == "ranger":
+				lastRange = i
+			case e.LoggerName == "device" && migration == "v61_device_parent":
+				deviceParent = i
+			case e.LoggerName == "task" && migration == "v61_task_range":
+				taskRange = i
+			}
+		}
+		Expect(lastRange).To(BeNumerically(">=", 0))
+		Expect(deviceParent).To(BeNumerically(">", lastRange))
+		Expect(taskRange).To(BeNumerically(">", lastRange))
 	})
 
 	It(
