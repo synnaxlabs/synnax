@@ -106,7 +106,8 @@ export interface Layout {
 export const operationsLayout = async (
   client: ReturnType<typeof fixtures.connect>,
 ): Promise<Layout> => {
-  const resources = await client.ontology.retrieve({
+  const resources = await client.resources.search({
+    term: "",
     types: ["panel", "lineplot", "schematic", "table", "log"],
   });
   const id = (name: string): resource.ID => {

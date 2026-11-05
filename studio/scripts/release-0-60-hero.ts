@@ -50,7 +50,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   const client = fixtures.connect();
   try {
     const { page } = session;
-    const panels = await client.ontology.retrieve({ types: ["panel"] });
+    const panels = await client.resources.search({ term: "", types: ["panel"] });
     for (const { id, name } of panels) {
       const look = ICONS[name];
       if (look == null) continue;
