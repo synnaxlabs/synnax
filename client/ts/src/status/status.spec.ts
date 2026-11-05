@@ -35,6 +35,13 @@ describe("Status", () => {
       expect(s.message).toBe("This is a test status");
     });
 
+    it("should give a status with no key a UUID key", async () => {
+      const s = await client.statuses.set({ variant: "info", message: "keyless" });
+      expect(z.uuid().safeParse(s.key).success).toBe(true);
+      const local = status.create({ variant: "info", message: "local" });
+      expect(z.uuid().safeParse(local.key).success).toBe(true);
+    });
+
     it("should update an existing status", async () => {
       const key = "test-status-update";
       await client.statuses.set({

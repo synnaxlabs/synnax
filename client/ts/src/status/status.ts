@@ -9,12 +9,12 @@
 
 import {
   errors,
-  id,
   narrow,
   type optional,
   primitive,
   record,
   TimeStamp,
+  uuid,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -255,7 +255,7 @@ export const create = <
   spec: Crude<DetailsSchema, V>,
 ): Status<DetailsSchema, z.ZodType<V>> =>
   ({
-    key: id.create(),
+    key: uuid.create(),
     time: TimeStamp.now(),
     name: "",
     labels: [] as label.Key[],

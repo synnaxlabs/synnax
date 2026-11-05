@@ -8,7 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, primitive, scheduler, TimeSpan } from "@synnaxlabs/x";
+import {
+  array,
+  type destructor,
+  primitive,
+  scheduler,
+  TimeSpan,
+  uuid,
+} from "@synnaxlabs/x";
 import z from "zod";
 
 import { label } from "@/label";
@@ -177,11 +184,16 @@ export class Client extends query.Retriever<
   ): Promise<Status<DetailsSchema> | Status<DetailsSchema>[]> {
     const isMany = Array.isArray(statuses);
     // Filling the schema defaults up front gives every status a key, so the cache can
-    // hold it before the Core answers.
+    // hold it before the Core answers. Status keys are UUIDs, not the short id that the
+    // schema default makes.
     const schema = statusZ<DetailsSchema>({ details: opts.detailsSchema });
-    const parsed = array
-      .toArray(statuses)
-      .map((status) => schema.parse(status) as Status<DetailsSchema>);
+    const parsed = array.toArray(statuses).map(
+      (status) =>
+        schema.parse({
+          ...status,
+          key: status.key ?? uuid.create(),
+        }) as Status<DetailsSchema>,
+    );
     const predicted = parsed.map((status) => this.predict(status));
     const sent = predicted.map((status, i) => status ?? parsed[i]);
     const apply = () => [this.store.set(predicted.filter((status) => status != null))];
