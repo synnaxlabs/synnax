@@ -57,6 +57,7 @@ func (b Base) Validate() error {
 	return v.Error()
 }
 
+// CertificateVariant is implemented by every Certificate variant.
 type CertificateVariant interface {
 	isCertificateVariant()
 }
@@ -168,7 +169,11 @@ func (u *Certificate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.FileCertificate
 	default:
-		return errors.Newf("Certificate: unknown source %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Certificate: unknown source %q",
+			disc.Type,
+		)
 	}
 	return nil
 }

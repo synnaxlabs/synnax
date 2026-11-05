@@ -25,6 +25,8 @@ type Base = v0.Base
 // Certificate is a public certificate that a device uses to secure a connection, with
 // the private key that proves it when there is one.
 type Certificate = v0.Certificate
+
+// CertificateVariant is implemented by every Certificate variant.
 type CertificateVariant = v0.CertificateVariant
 
 // StoredCertificate is a certificate whose contents the Core stores.
