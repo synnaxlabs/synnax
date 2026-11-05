@@ -12,7 +12,7 @@ export * from "@/list/Frame";
 export * from "@/list/Item";
 export * from "@/list/Items";
 export * from "@/list/pager";
-export { useClick, useInItems, usePin } from "@/list/scope";
+export { useGetElement, useInItems, usePin } from "@/list/scope";
 export * from "@/list/Scroll";
 export * from "@/list/useCombinedData";
 export * from "@/list/useMapData";

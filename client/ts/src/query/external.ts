@@ -27,7 +27,13 @@ export {
   type Watch,
   watch,
 } from "@/query/query";
-export { keyListZ, Retriever, type RetrieverParams } from "@/query/retriever";
+export {
+  keyListZ,
+  keysRequest,
+  keysRequestZ,
+  Retriever,
+  type RetrieverParams,
+} from "@/query/retriever";
 export { type Listener } from "@/query/streamer";
 export {
   createDeleteListener,
