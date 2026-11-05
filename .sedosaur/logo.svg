@@ -1,0 +1,33 @@
+<!--
+  Copyright 2026 Synnax Labs, Inc.
+
+  Use of this software is governed by the Business Source License included in the file
+  licenses/BSL.txt.
+
+  As of the Change Date specified in that file, in accordance with the Business Source
+  License, use of this software will be governed by the Apache License, Version 2.0,
+  included in the file licenses/APL.txt.
+  -->
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="ground" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#10007f"/>
+      <stop offset="1" stop-color="#0084e9"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" fill="url(#ground)"/>
+  <ellipse cx="64" cy="58" rx="24" ry="22" fill="#2fd3a8"/>
+  <path d="M48 40l5 -8l5 7l5 -9l5 9l5 -7l5 8" fill="#2fd3a8"/>
+  <circle cx="56" cy="56" r="7" fill="#fff"/>
+  <circle cx="74" cy="56" r="7" fill="#fff"/>
+  <circle cx="57.5" cy="57" r="3.6" fill="#1d2340"/>
+  <circle cx="75.5" cy="57" r="3.6" fill="#1d2340"/>
+  <circle cx="58.6" cy="55.8" r="1.1" fill="#fff"/>
+  <circle cx="76.6" cy="55.8" r="1.1" fill="#fff"/>
+  <path d="M60 68C63 71 67 71 70 68" stroke="#127a5f" stroke-width="2.5" fill="none"
+    stroke-linecap="round"/>
+  <path d="M30 76L40 68L50 78L60 68L70 78L80 68L90 78L98 70C100 76 100 82 98 88
+    C94 104 80 114 64 114C48 114 34 104 30 88C29 84 29 80 30 76Z" fill="#fff6e6"/>
+  <circle cx="48" cy="96" r="3" fill="#0084e9" opacity="0.25"/>
+  <circle cx="78" cy="100" r="4" fill="#0084e9" opacity="0.25"/>
+</svg>
