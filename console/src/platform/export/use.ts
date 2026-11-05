@@ -57,7 +57,7 @@ export const useResource = (): ((id: resource.ID) => void) => {
   return (id: resource.ID) => {
     handleError(async () => {
       if (client == null) throw new DisconnectedError();
-      const { name } = await client.ontology.retrieve(id);
+      const { name } = await client.resources.retrieve(id);
       export_({
         stream: async (client) => await client.imex.export(id, imex.JSON_OPTIONS),
         name,

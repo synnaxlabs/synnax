@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { lineplot } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Status } from "@synnaxlabs/lyra/status";
 import { act, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -17,7 +18,10 @@ import {
   captureBrowserDownloads,
   type CapturedDownloads,
   renderHookWithConsole,
+  uniqueName,
 } from "@/testutil";
+
+const client = createTestClient();
 
 let downloads: CapturedDownloads;
 
@@ -54,6 +58,17 @@ describe("Export.use", () => {
 });
 
 describe("Export.useResource", () => {
+  it("saves the export to a file named after the resource", async () => {
+    const proj = await client.projects.create({ name: uniqueName("project") });
+    const plot = await client.lineplots.create(proj.key, { name: uniqueName("plot") });
+    const { result } = await renderHookWithConsole(() => Export.useResource(), {
+      client,
+    });
+    act(() => result.current(lineplot.resourceID(plot.key)));
+    await waitFor(() => expect(downloads.anchors).toHaveLength(1));
+    expect(downloads.anchors[0].download).toEqual(`${plot.name}.json`);
+  });
+
   it("surfaces an error status and saves nothing when disconnected", async () => {
     const { result } = await renderHookWithConsole(() => ({
       run: Export.useResource(),

@@ -246,9 +246,17 @@ describe("Panel.TabMenuItems", () => {
       expect(screen.queryByText("Move to new window")).toBeNull();
     });
 
-    it("mints a panel holding the tab and opens a window showing it", async () => {
+    it("mints a panel named after the tab and opens a window showing it", async () => {
       mocks.engine = "tauri";
-      const moved = resourceTab();
+      const proj = await client.projects.create({ name: uniqueName("project") });
+      const sch = await client.schematics.create(proj.key, {
+        name: uniqueName("schematic"),
+      });
+      const moved: panel.Tab = {
+        variant: "resource",
+        key: uuid.create(),
+        resource: schematic.resourceID(sch.key),
+      };
       const stays = resourceTab();
       const existing = await createServerPanel(client, {
         variant: "leaf",
@@ -290,6 +298,7 @@ describe("Panel.TabMenuItems", () => {
         expect(panel.findTab(src.root, moved.key)).toBeUndefined();
         expect(panel.findTab(src.root, stays.key)).toBeDefined();
         expect(panel.findTab(dst.root, moved.key)).toEqual(moved);
+        expect(dst.name).toEqual(sch.name);
       });
     });
   });
