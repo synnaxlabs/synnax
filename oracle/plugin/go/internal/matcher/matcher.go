@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/oracle/domain/key"
 	plugindomain "github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
+	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/pluralize"
@@ -104,14 +105,16 @@ func Access(
 		method, ok := naming.UnionTagMethod(form)
 		return method + "()", ok
 	}
-	for _, b := range naming.UnionBases(form, table) {
-		base, _, ok := resolution.Dealias(b.Ref, table)
-		if ok && lo.ContainsBy(
-			resolution.UnifiedFields(base, table),
-			func(bf resolution.Field) bool { return bf.Name == f.Name },
-		) {
-			return b.Method + "()." + naming.GetFieldName(f), true
-		}
+	ref, ok := resolver.SharedBase(form, "go", table)
+	if !ok {
+		return "", false
+	}
+	base, _, ok := resolution.Dealias(ref, table)
+	if ok && lo.ContainsBy(
+		resolution.UnifiedFields(base, table),
+		func(bf resolution.Field) bool { return bf.Name == f.Name },
+	) {
+		return "Base()." + naming.GetFieldName(f), true
 	}
 	return "", false
 }

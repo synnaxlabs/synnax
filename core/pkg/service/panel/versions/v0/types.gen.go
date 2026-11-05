@@ -160,18 +160,6 @@ func (u *Tab) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// TabBase returns the TabBase of the active variant, or a zero TabBase when there is
-// none.
-func (u Tab) TabBase() TabBase {
-	switch v := u.Variant.(type) {
-	case ResourceTab:
-		return v.TabBase
-	case ViewTab:
-		return v.TabBase
-	}
-	return TabBase{}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if the active variant
 // violates its schema constraints.
 func (u Tab) Validate() error {
@@ -180,6 +168,31 @@ func (u Tab) Validate() error {
 		return variant.Validate()
 	}
 	return nil
+}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u Tab) Base() TabBase {
+	switch variant := u.Variant.(type) {
+	case ResourceTab:
+		return variant.TabBase
+	case ViewTab:
+		return variant.TabBase
+	}
+	return TabBase{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *Tab) SetBase(base TabBase) {
+	switch variant := u.Variant.(type) {
+	case ResourceTab:
+		variant.TabBase = base
+		u.Variant = variant
+	case ViewTab:
+		variant.TabBase = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("Tab: cannot set the base of variant %T", variant))
+	}
 }
 
 type NodeType string
