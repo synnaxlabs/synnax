@@ -307,6 +307,7 @@ export class Table<
     const next = state.executeSetter(value, prev);
     if (next == null || (prev != null && this.equal(next, prev, key))) return undefined;
     const prevTombstone = this.tombstones.get(key);
+    const prevStamp = this.writeStamps.get(key);
     this.tombstones.delete(key);
     this.show(key, next);
 
@@ -314,6 +315,7 @@ export class Table<
       if (prev === undefined) {
         this.applyDelete(key);
         if (prevTombstone != null) this.tombstones.set(key, prevTombstone);
+        if (prevStamp != null) this.writeStamps.set(key, prevStamp);
         this.notify({ variant: "delete", key });
       } else this.show(key, prev);
     };
