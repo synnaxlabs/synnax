@@ -10,10 +10,10 @@
 import { type APIRoute } from "astro";
 
 import { fromPage } from "@/util/markdown";
-import { PAGES } from "@/util/pages";
+import { PRERENDERED_PAGES } from "@/util/pages";
 
 export const getStaticPaths = () =>
-  PAGES.map(({ route }) => ({ params: { slug: route.slice(1) } }));
+  PRERENDERED_PAGES.map(({ route }) => ({ params: { slug: route.slice(1) } }));
 
 /** Serves a docs page as Markdown at its URL plus ".md", for LLMs and agents. */
 export const GET: APIRoute = async ({ params, rewrite, site }) => {

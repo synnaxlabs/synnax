@@ -20,20 +20,21 @@ set -euo pipefail
 
 PR=${1:?usage: check_review.sh <pr_number>}
 REPO=${GITHUB_REPOSITORY:?GITHUB_REPOSITORY is not set}
+GH_API="$(dirname "$0")/gh_api.sh"
 
 report() {
     printf '%s\t%s\n' "$1" "$2"
     exit 0
 }
 
-PULL=$(gh api "repos/${REPO}/pulls/${PR}" --jq '"\(.head.sha) \(.user.login) \(
+PULL=$("$GH_API" "repos/${REPO}/pulls/${PR}" --jq '"\(.head.sha) \(.user.login) \(
     [.labels[].name | select(startswith("review/"))] | join(","))"')
 read -r HEAD AUTHOR TIER <<< "$PULL"
 
 # Git author emails are free to set, so a commit counts as Dependabot's only when GitHub
 # also signed and committed it.
 if [ "$AUTHOR" = "dependabot[bot]" ]; then
-    OTHERS=$(gh api "repos/${REPO}/pulls/${PR}/commits?per_page=100" --paginate \
+    OTHERS=$("$GH_API" "repos/${REPO}/pulls/${PR}/commits?per_page=100" --paginate \
         --jq '.[] | select(.author.login != "dependabot[bot]"
             or .committer.login != "web-flow"
             or .commit.verification.verified != true) | .sha')
@@ -49,7 +50,8 @@ esac
 
 # Only a review of the head counts: a push after the review needs a new one. The latest
 # filter keeps a rerun's verdict from being shadowed by an earlier success.
-REVIEW=$(gh api "repos/${REPO}/commits/${HEAD}/check-runs?filter=latest&per_page=100" \
+REVIEW=$("$GH_API" \
+    "repos/${REPO}/commits/${HEAD}/check-runs?filter=latest&per_page=100" \
     --paginate \
     --jq '.check_runs[]
         | select(.name == "Greptile Review" and .conclusion == "success") | .id')
@@ -61,7 +63,8 @@ fi
 # the author can edit, so only the latest revision Greptile wrote counts, and only when
 # it names the head. Every score marker must be a 5: a commit title can quote one. The
 # diff field holds the whole description at that revision, not a delta.
-SCORE=$(gh api graphql \
+# shellcheck disable=SC2016 # The GraphQL query uses GraphQL variables.
+SCORE=$("$GH_API" graphql \
     -f query='query($owner: String!, $name: String!, $number: Int!) {
         repository(owner: $owner, name: $name) {
             pullRequest(number: $number) {

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { Dialog } from "@/dialog";
@@ -69,6 +69,33 @@ const renderFixedLabel = async (): Promise<Record<string, Element>> => {
   return {
     label: get(".lyra-select__label"),
     fixed: get(".lyra-select__fixed-label"),
+    caret: get(".lyra-caret-animated"),
+  };
+};
+
+const renderEndContent = async (width: string): Promise<Record<string, Element>> => {
+  const { container } = await renderThemed(
+    <div style={{ width }}>
+      <Dialog.Frame>
+        <Select.Frame<string, undefined> value="time" onChange={() => {}}>
+          <Select.SingleTrigger
+            placeholder="Pick"
+            collapsible
+            renderEndContent={() => "Connected"}
+          />
+          <Select.Dialog>
+            <Select.Item itemKey="time">Time</Select.Item>
+          </Select.Dialog>
+        </Select.Frame>
+      </Dialog.Frame>
+    </div>,
+  );
+  const get = (selector: string): Element =>
+    container.querySelector(selector) as Element;
+  return {
+    trigger: get(".lyra-dialog__trigger"),
+    label: get(".lyra-select__label"),
+    end: get(".lyra-select-single-trigger__end"),
     caret: get(".lyra-caret-animated"),
   };
 };
@@ -140,7 +167,65 @@ const renderFooter = async (): Promise<Element> => {
   return document.getElementById("footer") as Element;
 };
 
+const renderSearchless = async (
+  multiple: boolean,
+): Promise<ReturnType<typeof vi.fn>> => {
+  const onChange = vi.fn();
+  const items = ["low", "medium", "high"].map((key) => (
+    <Select.Item key={key} itemKey={key}>
+      {key}
+    </Select.Item>
+  ));
+  const { getByRole } = await renderThemed(
+    <Triggers.Provider>
+      {multiple ? (
+        <Select.Simple<string>
+          resourceName="level"
+          multiple
+          value={["low"]}
+          onChange={onChange}
+          searchHidden
+        >
+          {items}
+        </Select.Simple>
+      ) : (
+        <Select.Simple<string>
+          resourceName="level"
+          value="low"
+          onChange={onChange}
+          allowNone={false}
+          searchHidden
+        >
+          {items}
+        </Select.Simple>
+      )}
+    </Triggers.Provider>,
+  );
+  await userEvent.click(getByRole("button", { name: multiple ? "Levels" : /^Level/ }));
+  const dialog = getByRole("dialog").element();
+  await expect.poll(() => computed(dialog, "opacity")).toBe("1");
+  await userEvent.keyboard("{ArrowDown}{ArrowDown}{Enter}");
+  await expect.poll(() => onChange).toHaveBeenCalledOnce();
+  return onChange;
+};
+
 describe("Select", () => {
+  describe("searchless options", () => {
+    it("should close and stay closed when Enter picks an option", async () => {
+      const onChange = await renderSearchless(false);
+      expect(onChange.mock.calls[0][0]).toBe("medium");
+      await expect
+        .element(page.getByRole("button", { name: /^Level/ }))
+        .toHaveAttribute("aria-expanded", "false");
+    });
+
+    it("should stay open when Enter adds one of many options", async () => {
+      const onChange = await renderSearchless(true);
+      expect(onChange.mock.calls[0][0]).toEqual(["low", "medium"]);
+      await expect.element(page.getByRole("dialog")).toBeVisible();
+    });
+  });
+
   describe("footer", () => {
     it("should keep its height when the list overflows the dialog", async () => {
       const footer = await renderFooter();
@@ -155,6 +240,22 @@ describe("Select", () => {
         label.getBoundingClientRect().width,
       );
       expect(computed(caret, "margin-left")).toBe("0px");
+    });
+  });
+
+  describe("end content", () => {
+    it("should sit right before the caret", async () => {
+      const { trigger, label, end, caret } = await renderEndContent("400px");
+      const gap = parseFloat(computed(trigger, "column-gap"));
+      expect(
+        end.getBoundingClientRect().left - label.getBoundingClientRect().right,
+      ).toBeCloseTo(gap, 0);
+      expect(computed(caret, "margin-left")).toBe("0px");
+    });
+
+    it("should hide in a collapsed trigger", async () => {
+      const { end } = await renderEndContent("100px");
+      expect(computed(end, "display")).toBe("none");
     });
   });
 
