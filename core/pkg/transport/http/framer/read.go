@@ -66,7 +66,7 @@ func (frameEncoder) EncodeStream(ctx context.Context, w io.Writer, value any) er
 		return err
 	}
 	keys, dataTypes := keysAndDataTypes(res.Channels)
-	iter, err := res.OpenIterator(ctx, keys)
+	iter, err := res.OpenIterator(ctx, keys, res.Bounds)
 	if err != nil {
 		return err
 	}
@@ -79,11 +79,7 @@ func (frameEncoder) EncodeStream(ctx context.Context, w io.Writer, value any) er
 		}
 		return writeRecord(w, recordData, buf.Bytes())
 	}
-	read := drain
-	if res.Latest > 0 {
-		read = drainLatest
-	}
-	readErr := read(iter, write)
+	readErr := drainer(res)(iter, write)
 	var payload []byte
 	if readErr != nil {
 		if payload, err = json.Codec.Encode(
@@ -132,6 +128,29 @@ func drainLatest(iter *svcframer.Iterator, f func(Frame) error) error {
 	return errors.Combine(err, iter.Close())
 }
 
+// drainEarliest seeks iter to the start of its bounds and calls f with the frame it
+// reads, which holds up to the chunk size of iter for each channel. It always closes
+// iter, and it returns the read error that Close reports.
+func drainEarliest(iter *svcframer.Iterator, f func(Frame) error) error {
+	var err error
+	if iter.SeekFirst() && iter.Next(IteratorAutoSpan) {
+		err = f(iter.Value())
+	}
+	return errors.Combine(err, iter.Close())
+}
+
+// drainer returns the drain that reads the samples res asks for.
+func drainer(res ReadResponse) func(*svcframer.Iterator, func(Frame) error) error {
+	switch {
+	case res.Latest > 0:
+		return drainLatest
+	case res.Earliest > 0:
+		return drainEarliest
+	default:
+		return drain
+	}
+}
+
 func readResponse(value any) (ReadResponse, error) {
 	res, ok := value.(ReadResponse)
 	if !ok {
@@ -145,12 +164,6 @@ func readResponse(value any) (ReadResponse, error) {
 // It returns a validation error when res leaves out the index of a channel or carries a
 // limit reduction.
 func groupByIndex(res ReadResponse) ([][]channel.Channel, error) {
-	if res.Latest > 0 {
-		return nil, errors.Wrap(
-			validate.ErrValidation,
-			"a CSV or TDMS read cannot take latest",
-		)
-	}
 	if _, ok := res.Reduction.Variant.(telem.LimitReduction); ok {
 		// A limit leaves non-numeric channels raw beside their reduced index, so their
 		// samples have no row.
@@ -192,7 +205,9 @@ func groupByIndex(res ReadResponse) ([][]channel.Channel, error) {
 // iterator, one chunk at a time, so it never holds more than one chunk ahead of the
 // samples written.
 type column struct {
-	key      channel.Key
+	key channel.Key
+	// index is the key of the index channel that timestamps the column.
+	index    channel.Key
 	name     string
 	dataType telem.DataType
 	// size is the byte size of one sample, or 0 for a variable-length data type.
@@ -209,7 +224,12 @@ type column struct {
 }
 
 func newColumn(ch channel.Channel) column {
-	c := column{key: ch.Key(), name: ch.Name, dataType: ch.DataType}
+	c := column{
+		key:      ch.Key(),
+		index:    ch.Index(),
+		name:     ch.Name,
+		dataType: ch.DataType,
+	}
 	if !ch.DataType.IsVariable() {
 		c.size = int(ch.DataType.Density())
 	}
@@ -219,14 +239,55 @@ func newColumn(ch channel.Channel) column {
 // openColumns opens an iterator for every column. On failure, it closes the iterators
 // it opened.
 func openColumns(ctx context.Context, res ReadResponse, columns []*column) error {
+	bounds := make(map[channel.Key]telem.TimeRange)
 	for _, c := range columns {
-		iter, err := res.OpenIterator(ctx, channel.Keys{c.key})
+		b, ok := bounds[c.index]
+		if !ok {
+			var err error
+			if b, err = rowBounds(ctx, res, c.index); err != nil {
+				return errors.Combine(err, closeColumns(columns))
+			}
+			bounds[c.index] = b
+		}
+		iter, err := res.OpenIterator(ctx, channel.Keys{c.key}, b)
 		if err != nil {
 			return errors.Combine(err, closeColumns(columns))
 		}
 		c.iter, c.done = iter, !iter.SeekFirst()
 	}
 	return nil
+}
+
+// rowBounds returns the bounds of the rows of index: the bounds of res, narrowed to the
+// newest or oldest rows when res asks for them. The columns of an index read the same
+// bounds, so a channel that lags its index leaves its cells empty.
+func rowBounds(
+	ctx context.Context,
+	res ReadResponse,
+	index channel.Key,
+) (telem.TimeRange, error) {
+	if res.Latest == 0 && res.Earliest == 0 {
+		return res.Bounds, nil
+	}
+	iter, err := res.OpenIterator(ctx, channel.Keys{index}, res.Bounds)
+	if err != nil {
+		return telem.TimeRange{}, err
+	}
+	bounds := res.Bounds
+	err = drainer(res)(iter, func(fr Frame) error {
+		first, last := telem.TimeStampMax, telem.TimeStampMin
+		for _, s := range fr.Get(index).Series {
+			first = min(first, s.ValueAt[telem.TimeStamp](0))
+			last = max(last, s.ValueAt[telem.TimeStamp](-1))
+		}
+		if res.Latest > 0 {
+			bounds.Start = first
+		} else {
+			bounds.End = last.Add(telem.Nanosecond)
+		}
+		return nil
+	})
+	return bounds, err
 }
 
 // closeColumns closes the iterator of every column and returns their read errors.

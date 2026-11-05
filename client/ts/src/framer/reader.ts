@@ -32,6 +32,7 @@ const reqZ = z.object({
   reduction: reductionZ.optional(),
   timestampsIncluded: z.boolean(),
   latest: z.number().optional(),
+  earliest: z.number().optional(),
 });
 
 /** Options controlling how the Core resolves a read. */
@@ -40,12 +41,18 @@ export interface ReadOptions {
   reduction?: Reduction;
   /** Reads only the newest count of samples of each channel. */
   latest?: number;
+  /** Reads only the oldest count of samples of each channel. */
+  earliest?: number;
 }
 
 /** Options controlling how the Core resolves a CSV or TDMS read. */
 export interface ReadFileOptions {
   /** Keeps every factor-th sample of each channel. */
   reduction?: StrideReduction;
+  /** Reads only the newest count of rows of each index. */
+  latest?: number;
+  /** Reads only the oldest count of rows of each index. */
+  earliest?: number;
 }
 
 /**
@@ -166,6 +173,7 @@ export class Reader {
         reduction: opts.reduction,
         timestampsIncluded,
         latest: opts.latest,
+        earliest: opts.earliest,
       },
       reqZ,
       { encoding },

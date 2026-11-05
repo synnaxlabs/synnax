@@ -119,11 +119,37 @@ var _ = Describe("Framer", func() {
 				Keys:   channel.Keys{data.Key()},
 				Bounds: telem.TimeRangeMax,
 			}))
-			iter := MustSucceed(res.OpenIterator(ctx, channel.Keys{data.Key()}))
+			iter := MustSucceed(
+				res.OpenIterator(ctx, channel.Keys{data.Key()}, res.Bounds),
+			)
 			Expect(iter.Close()).To(Succeed())
 			Expect(res.Channels).To(HaveLen(1))
 			Expect(res.Channels[0].Key()).To(Equal(data.Key()))
 			Expect(res.Indexes).To(BeEmpty())
+		})
+
+		It("Should reject a read with both latest and earliest", func(
+			ctx SpecContext,
+		) {
+			Expect(apiSvc.Read(rootCtx(ctx), apiframer.ReadRequest{
+				Keys:     channel.Keys{data.Key()},
+				Bounds:   telem.TimeRangeMax,
+				Latest:   10,
+				Earliest: 10,
+			})).Error().To(MatchError(validate.ErrValidation))
+		})
+
+		It("Should reject a read with both earliest and a reduction", func(
+			ctx SpecContext,
+		) {
+			Expect(apiSvc.Read(rootCtx(ctx), apiframer.ReadRequest{
+				Keys:     channel.Keys{data.Key()},
+				Bounds:   telem.TimeRangeMax,
+				Earliest: 10,
+				Reduction: telem.Reduction{
+					Variant: telem.LimitReduction{PointLimit: 10},
+				},
+			})).Error().To(MatchError(validate.ErrValidation))
 		})
 
 		It("Should reject a read with both latest and a reduction", func(
@@ -187,7 +213,9 @@ var _ = Describe("Framer", func() {
 				Reduction: reduction,
 			}))
 			Expect(res.Reduction).To(Equal(reduction))
-			iter := MustSucceed(res.OpenIterator(ctx, channel.Keys{data.Key()}))
+			iter := MustSucceed(
+				res.OpenIterator(ctx, channel.Keys{data.Key()}, res.Bounds),
+			)
 			Expect(iter.SeekFirst()).To(BeTrue())
 			Expect(iter.Next(apiframer.IteratorAutoSpan)).To(BeTrue())
 			series := iter.Value().Get(data.Key()).Series
