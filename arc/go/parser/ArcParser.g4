@@ -177,6 +177,9 @@ routingTable
     : LBRACE routingEntry (COMMA routingEntry)* COMMA? RBRACE
     ;
 
+// SY-5483: a routingTable at the head of a flowStatement (an input table) and the
+// trailing `COLON IDENTIFIER` on an entry (a parameter mapping) parse but are not
+// supported or documented. The analyzer and the lowering reject both.
 routingEntry
     : routingKey COLON flowNode (flowOperator flowNode)* (COLON IDENTIFIER)?
     ;
