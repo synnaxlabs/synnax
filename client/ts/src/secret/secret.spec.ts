@@ -14,6 +14,7 @@ import { NotFoundError, PathError } from "@/index";
 import { type query } from "@/query";
 import { rack } from "@/rack";
 import { type secret } from "@/secret";
+import { task } from "@/task";
 import {
   CERTIFICATE,
   createTestClient,
@@ -168,6 +169,38 @@ describe("Secret", () => {
         );
       } finally {
         offAgain();
+      }
+    });
+
+    it("should update the uses of a secret when a task starts using it", async () => {
+      const client = createTestClient();
+      await waitForStreamLive(client.connection);
+      const s = await client.secrets.create({
+        name: "Routing key",
+        source: "stored",
+        value: "abc",
+      });
+      const q = { key: s.key, includeUses: true };
+      const off = client.secrets.onChange(q, () => {});
+      try {
+        expect((await client.secrets.retrieve(q)).uses).toEqual([]);
+        const r = await client.racks.create({ name: "Uses" });
+        const t = await r.createTask({
+          name: "Alerts",
+          type: "pagerduty_alert",
+          config: { routingKey: s.key },
+        });
+        await vi.waitFor(() =>
+          expect(expectLive(client.secrets.getCached(q)).uses).toEqual([
+            task.ontologyID(t.key),
+          ]),
+        );
+        await client.tasks.delete(t.key);
+        await vi.waitFor(() =>
+          expect(expectLive(client.secrets.getCached(q)).uses).toEqual([]),
+        );
+      } finally {
+        off();
       }
     });
 

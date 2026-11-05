@@ -332,7 +332,12 @@ export default class Synnax extends framer.Client {
       statusStore: this.statuses.store,
     });
     this.views = new view.Client({ unary, cache, ontology: this.ontology });
-    this.secrets = new secret.Client({ unary, cache, ontology: this.ontology });
+    this.secrets = new secret.Client({
+      unary,
+      cache,
+      ontology: this.ontology,
+      usesChannels: [task.ACTION_CHANNEL_NAME, task.DELETE_CHANNEL_NAME],
+    });
     this.certificates = new certificate.Client({
       unary,
       cache,
