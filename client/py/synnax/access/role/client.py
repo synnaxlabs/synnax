@@ -41,16 +41,6 @@ class _DeleteRequest(BaseModel):
     keys: list[UUID]
 
 
-class _AssignRequest(BaseModel):
-    user: UUID
-    role: UUID
-
-
-class _UnassignRequest(BaseModel):
-    user: UUID
-    role: UUID
-
-
 class Client:
     _client: UnaryClient
     instrumentation: Instrumentation
@@ -125,23 +115,3 @@ class Client:
     def delete(self, keys: UUID | list[UUID]) -> None:
         req = _DeleteRequest(keys=normalize(keys))
         self._client.send("/access/role/delete", req, Empty)
-
-    def assign(self, *, user: UUID, role: UUID) -> None:
-        """Assign a role to a user.
-
-        Args:
-            user: The UUID of the user to assign the role to
-            role: The UUID of the role to assign
-        """
-        req = _AssignRequest(user=user, role=role)
-        self._client.send("/access/role/assign", req, Empty)
-
-    def unassign(self, *, user: UUID, role: UUID) -> None:
-        """Remove a role from a user.
-
-        Args:
-            user: The UUID of the user to unassign the role from
-            role: The UUID of the role to unassign
-        """
-        req = _UnassignRequest(user=user, role=role)
-        self._client.send("/access/role/unassign", req, Empty)

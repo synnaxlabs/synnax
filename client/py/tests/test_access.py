@@ -18,7 +18,12 @@ import synnax as sy
 class TestAccessClient:
     @pytest.fixture(scope="class")
     @classmethod
-    def two_policies(cls, client: sy.Synnax) -> list[sy.Policy]:
+    def role(cls, client: sy.Synnax) -> sy.Role:
+        return client.access.roles.create(sy.Role(name="Policy Owner"))
+
+    @pytest.fixture(scope="class")
+    @classmethod
+    def two_policies(cls, client: sy.Synnax, role: sy.Role) -> list[sy.Policy]:
         return client.access.policies.create(
             [
                 sy.Policy(
@@ -28,6 +33,7 @@ class TestAccessClient:
                         sy.resource.ID(type="label", key=str(uuid.uuid4())),
                     ],
                     actions=["create"],
+                    role=role.key,
                 ),
                 sy.Policy(
                     name="Test Policy 2",
@@ -36,6 +42,7 @@ class TestAccessClient:
                         sy.resource.ID(type="label", key=str(uuid.uuid4())),
                     ],
                     actions=["create"],
+                    role=role.key,
                 ),
             ]
         )
@@ -47,7 +54,7 @@ class TestAccessClient:
             assert policy.key is not None
             assert policy.name is not None
 
-    def test_create_single(self, client: sy.Synnax) -> None:
+    def test_create_single(self, client: sy.Synnax, role: sy.Role) -> None:
         p = sy.Policy(
             name="Single Test Policy",
             objects=[
@@ -55,6 +62,7 @@ class TestAccessClient:
                 sy.resource.ID(type="label", key=str(uuid.uuid4())),
             ],
             actions=["create"],
+            role=role.key,
         )
         policy = client.access.policies.create(p)
         assert policy.key != ""
@@ -62,20 +70,44 @@ class TestAccessClient:
         assert policy.name == p.name
         assert policy.objects == p.objects
 
-    def test_retrieve_by_subject_not_found(self, client: sy.Synnax) -> None:
-        """Should handle retrieving policies for non-existent subjects."""
-        # Retrieving by subjects that don't exist returns empty list (no policies
-        # assigned)
-        # But if the subject itself is invalid, it may raise an error
-        # For now, just verify the call completes without crashing
-        try:
-            res = client.access.policies.retrieve(
-                subjects=[sy.resource.ID(type="channel", key="hehe")]
+    def test_create_without_stored_role(self, client: sy.Synnax) -> None:
+        """Should reject a policy whose role does not exist."""
+        with pytest.raises(sy.ValidationError, match="does not exist"):
+            client.access.policies.create(
+                sy.Policy(
+                    name="Orphan Policy",
+                    actions=["retrieve"],
+                    role=uuid.uuid4(),
+                )
             )
-            assert isinstance(res, list)
-        except sy.NotFoundError:
-            # Expected if the subject doesn't exist
-            pass
+
+    def test_retrieve_by_role(self, client: sy.Synnax) -> None:
+        """Should retrieve the policies of a role."""
+        role = client.access.roles.create(sy.Role(name="Policy Holder"))
+        policy = client.access.policies.create(
+            sy.Policy(name="Role Policy", actions=["retrieve"], role=role.key)
+        )
+        policies = client.access.policies.retrieve(roles=[role.key])
+        assert [p.key for p in policies] == [policy.key]
+
+    def test_retrieve_by_subject(self, client: sy.Synnax) -> None:
+        """Should retrieve the policies of the roles a user holds."""
+        role = client.access.roles.create(sy.Role(name="Subject Role"))
+        policy = client.access.policies.create(
+            sy.Policy(name="Subject Policy", actions=["retrieve"], role=role.key)
+        )
+        user = client.users.create(
+            username=str(uuid.uuid4()), password="testpass", roles=[role.key]
+        )
+        policies = client.access.policies.retrieve(subjects=[user.resource_id])
+        assert [p.key for p in policies] == [policy.key]
+
+    def test_retrieve_by_subject_not_found(self, client: sy.Synnax) -> None:
+        """Should raise when the subject does not exist."""
+        with pytest.raises(sy.NotFoundError):
+            client.access.policies.retrieve(
+                subjects=[sy.resource.ID(type="user", key=str(uuid.uuid4()))]
+            )
 
     def test_delete_by_key(
         self, two_policies: list[sy.Policy], client: sy.Synnax
@@ -86,7 +118,7 @@ class TestAccessClient:
         with pytest.raises(sy.NotFoundError):
             client.access.policies.retrieve(keys=[key])
 
-    def test_retrieve_by_internal_flag(self, client: sy.Synnax) -> None:
+    def test_retrieve_by_internal_flag(self, client: sy.Synnax, role: sy.Role) -> None:
         """Should filter policies by internal flag."""
         # Create a non-internal policy
         created = client.access.policies.create(
@@ -94,6 +126,7 @@ class TestAccessClient:
                 name="Test Non-Internal Policy",
                 objects=[sy.resource.ID(type="channel", key=str(uuid.uuid4()))],
                 actions=["retrieve"],
+                role=role.key,
             )
         )
         assert created.key is not None
@@ -166,18 +199,54 @@ class TestRoleClient:
         with pytest.raises(sy.NotFoundError):
             client.access.roles.retrieve(keys=[role.key])
 
-    def test_assign_role(self, two_roles: list[sy.Role], client: sy.Synnax) -> None:
-        """Should assign a role to a user."""
-        username = str(uuid.uuid4())
-        user = client.users.create(username=username, password="testpass")
-        assert user.key is not None
+    def test_delete_cascades(self, client: sy.Synnax) -> None:
+        """Should delete the policies of a role and take it from its users."""
+        role = client.access.roles.create(sy.Role(name="Doomed"))
+        kept = client.access.roles.create(sy.Role(name="Kept"))
+        policy = client.access.policies.create(
+            sy.Policy(name="Doomed Policy", actions=["retrieve"], role=role.key)
+        )
+        user = client.users.create(
+            username=str(uuid.uuid4()),
+            password="testpass",
+            roles=[role.key, kept.key],
+        )
+        client.access.roles.delete(role.key)
+        with pytest.raises(sy.NotFoundError):
+            client.access.policies.retrieve(keys=[policy.key])
+        assert client.users.retrieve(key=user.key).roles == [kept.key]
 
-        # Assign role to user
-        client.access.roles.assign(user=user.key, role=two_roles[0].key)
+    def test_assign_on_create(
+        self, two_roles: list[sy.Role], client: sy.Synnax
+    ) -> None:
+        """Should give a new user the roles it is created with."""
+        user = client.users.create(
+            username=str(uuid.uuid4()),
+            password="testpass",
+            roles=[two_roles[0].key],
+        )
+        assert user.roles == [two_roles[0].key]
+        assert client.users.retrieve(key=user.key).roles == [two_roles[0].key]
 
-        # Verify by retrieving policies for the user (via role)
-        # Note: This requires the policies to be attached to the role via ontology
-        # For now, we just verify the call doesn't error
+    def test_set_roles(self, two_roles: list[sy.Role], client: sy.Synnax) -> None:
+        """Should replace the roles of a user."""
+        user = client.users.create(
+            username=str(uuid.uuid4()),
+            password="testpass",
+            roles=[two_roles[0].key],
+        )
+        client.users.set_roles(user.key, roles=[two_roles[1].key])
+        assert client.users.retrieve(key=user.key).roles == [two_roles[1].key]
+
+    def test_retrieve_users_by_role(self, client: sy.Synnax) -> None:
+        """Should retrieve the users that hold a role."""
+        role = client.access.roles.create(sy.Role(name="Holders"))
+        holder = client.users.create(
+            username=str(uuid.uuid4()), password="testpass", roles=[role.key]
+        )
+        client.users.create(username=str(uuid.uuid4()), password="testpass")
+        users = client.users.retrieve(roles=[role.key])
+        assert [u.key for u in users] == [holder.key]
 
     def test_retrieve_by_internal_flag(self, client: sy.Synnax) -> None:
         """Should filter roles by internal flag."""

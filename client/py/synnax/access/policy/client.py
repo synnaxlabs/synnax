@@ -29,6 +29,7 @@ _CreateResponse = _CreateRequest
 class _RetrieveRequest(BaseModel):
     keys: list[UUID] | None
     subjects: list[ID] | None
+    roles: list[UUID] | None = None
     internal: bool | None = None
 
 
@@ -82,11 +83,22 @@ class Client:
         *,
         keys: list[UUID] | None = None,
         subjects: list[ID] | None = None,
+        roles: list[UUID] | None = None,
         internal: bool | None = None,
     ) -> list[Policy]:
+        """Retrieve policies matching every given filter.
+
+        Args:
+            keys: Keeps only the policies with these keys.
+            subjects: Keeps only the policies of the roles these subjects hold.
+            roles: Keeps only the policies of these roles.
+            internal: Keeps only built-in policies when true, and others when false.
+        """
         res = self._client.send(
             "/access/policy/retrieve",
-            _RetrieveRequest(keys=keys, subjects=subjects, internal=internal),
+            _RetrieveRequest(
+                keys=keys, subjects=subjects, roles=roles, internal=internal
+            ),
             _RetrieveResponse,
         )
         return res.policies

@@ -30,6 +30,7 @@ class _CreateResponse(BaseModel):
 class _RetrieveRequest(BaseModel):
     keys: list[UUID] | None = None
     usernames: list[str] | None = None
+    roles: list[UUID] | None = None
 
 
 class _RetrieveResponse(BaseModel):
@@ -50,6 +51,11 @@ class _ChangeNameRequest(BaseModel):
     name: str
 
 
+class _SetRolesRequest(BaseModel):
+    keys: list[UUID]
+    roles: list[UUID]
+
+
 class Client:
     client: UnaryClient
 
@@ -64,6 +70,7 @@ class Client:
         password: str,
         name: str = "",
         key: UUID | None = None,
+        roles: list[UUID] | None = None,
     ) -> User: ...
 
     @overload
@@ -80,6 +87,7 @@ class Client:
         password: str | None = None,
         name: str = "",
         key: UUID | None = None,
+        roles: list[UUID] | None = None,
         user: New | None = None,
         users: list[New] | None = None,
     ) -> User | list[User]:
@@ -91,6 +99,7 @@ class Client:
                 password=password,
                 name=name,
                 key=key,
+                roles=roles or [],
             )
         single = user is not None
         if user is not None:
@@ -114,6 +123,15 @@ class Client:
     def change_name(self, key: UUID, *, name: str) -> None:
         self.client.send("/user/rename", _ChangeNameRequest(key=key, name=name), Empty)
 
+    def set_roles(self, keys: UUID | list[UUID], *, roles: list[UUID]) -> None:
+        """Set the roles of the users with the given keys, replacing the roles they
+        hold."""
+        self.client.send(
+            "/user/set-roles",
+            _SetRolesRequest(keys=normalize(keys), roles=roles),
+            Empty,
+        )
+
     @overload
     def retrieve(self, *, key: UUID) -> User: ...
 
@@ -126,6 +144,9 @@ class Client:
     @overload
     def retrieve(self, *, usernames: list[str]) -> list[User]: ...
 
+    @overload
+    def retrieve(self, *, roles: list[UUID]) -> list[User]: ...
+
     @require_named_params(example_params=("username", "synnax"))
     def retrieve(
         self,
@@ -134,6 +155,7 @@ class Client:
         keys: list[UUID] | None = None,
         username: str | None = None,
         usernames: list[str] | None = None,
+        roles: list[UUID] | None = None,
     ) -> User | list[User]:
         if key is not None:
             keys = normalize(key)
@@ -142,7 +164,7 @@ class Client:
         single = key is not None or username is not None
         res = self.client.send(
             "/user/retrieve",
-            _RetrieveRequest(keys=keys, usernames=usernames),
+            _RetrieveRequest(keys=keys, usernames=usernames, roles=roles),
             _RetrieveResponse,
         )
         users = res.users
