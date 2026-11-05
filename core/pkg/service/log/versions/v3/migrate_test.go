@@ -10,6 +10,7 @@
 package v3_test
 
 import (
+	"strings"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -36,6 +37,17 @@ var _ = Describe("Migration", func() {
 		Entry("Should clamp a precision past the maximum", int32(40), new(uint8(17))),
 	)
 
+	It("Should keep an alias of 64 characters", func(ctx SpecContext) {
+		old := v2.ChannelEntry{Alias: strings.Repeat("😀", 64)}
+		Expect(MustSucceed(v3.MigrateChannelEntry(ctx, old)).Alias).
+			To(Equal(old.Alias))
+	})
+
+	It("Should cut a long alias on a character boundary", func(ctx SpecContext) {
+		old := v2.ChannelEntry{Alias: strings.Repeat("😀", 65)}
+		Expect(MustSucceed(v3.MigrateChannelEntry(ctx, old)).Alias).
+			To(Equal(strings.Repeat("😀", 64)))
+	})
 	DescribeTable("Should clamp the timestamp precision",
 		func(ctx SpecContext, old int32, expected uint8) {
 			got := MustSucceed(v3.MigrateLog(ctx, v2.Log{TimestampPrecision: old}))

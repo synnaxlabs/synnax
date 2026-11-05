@@ -204,7 +204,7 @@ func buildAliasDecls(d orderedDecl, prefix string, data *templateData) []aliasDe
 		}
 		name := naming.GetGoName(d.typ)
 		addType(name, doc.Get(d.typ.Domains), nil)
-		addType(name+"Variant", "", nil)
+		addType(name+"Variant", interfaceDoc(name), nil)
 		if form.BorrowsEnum() {
 			for _, v := range form.Variants {
 				addType(casing.VariantTypeName(name, v.Name), doc.Get(v.Domains), nil)
@@ -212,16 +212,18 @@ func buildAliasDecls(d orderedDecl, prefix string, data *templateData) []aliasDe
 			return decls
 		}
 		discType := name + "Type"
-		addType(discType, "", nil)
+		addType(discType, discDoc(name, casing.FieldSnake(form.Discriminator)), nil)
 		discDecl := len(decls) - 1
 		for _, v := range form.Variants {
-			addType(casing.VariantTypeName(name, v.Name), doc.Get(v.Domains), nil)
+			variantDoc := doc.Get(v.Domains)
+			variantType := casing.VariantTypeName(name, v.Name)
+			addType(variantType, variantDoc, nil)
 			constName := casing.VariantConstName(name, v.Name)
 			decls[discDecl].Consts = append(decls[discDecl].Consts, aliasConst{
 				Name:   constName,
 				Type:   discType,
 				Target: prefix + "." + constName,
-				Doc:    doc.Get(v.Domains),
+				Doc:    constDoc(variantDoc, variantType),
 			})
 		}
 	}

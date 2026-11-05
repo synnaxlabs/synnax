@@ -579,7 +579,8 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     // carries actions that the entry does not, such as fields the Core derives.
     const held = i === 0 && deep.equal(r.pending[0].actions, actions);
     if (i !== -1) r.pending.splice(i, 1);
-    if (!held) this.write(key, r);
+    if (held) this.docs.stampWrite(key);
+    else this.write(key, r);
     if (r.pending.length === 0) this.release(key);
     return { own: i !== -1, targets };
   }
