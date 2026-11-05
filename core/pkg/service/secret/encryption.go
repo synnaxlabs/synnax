@@ -99,18 +99,24 @@ func readEncryptionKey(path string) (EncryptionKey, error) {
 
 // createExclusive creates a file at path that holds data and that only its owner can
 // read. It returns an error that wraps os.ErrExist when the file exists. The file
-// appears with all of data, so a reader never sees it partly written.
+// appears with all of data, so a reader never sees it partly written, and it is on disk
+// when createExclusive returns.
 func createExclusive(path, data string) (err error) {
-	tmp, err := os.CreateTemp(filepath.Dir(path), filepath.Base(path)+".*.tmp")
+	dir := filepath.Dir(path)
+	tmp, err := os.CreateTemp(dir, filepath.Base(path)+".*.tmp")
 	if err != nil {
 		return err
 	}
 	defer func() { err = errors.Combine(err, os.Remove(tmp.Name())) }()
 	_, err = tmp.WriteString(data)
+	err = errors.Combine(err, tmp.Sync())
 	if err = errors.Combine(err, tmp.Close()); err != nil {
 		return err
 	}
-	return os.Link(tmp.Name(), path)
+	if err = os.Link(tmp.Name(), path); err != nil {
+		return err
+	}
+	return syncDir(dir)
 }
 
 var dataKeyKey = []byte("sy_secret_data_key")
