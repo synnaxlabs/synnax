@@ -1,0 +1,51 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-line-plot__toolbar-sampling,
+.console-line-plot__toolbar-sampling-trigger {
+    flex-shrink: 0;
+    width: max-content;
+}
+
+/* Each trigger fits its longest label, so the selects line up across lines. */
+.console-line-plot__toolbar-sampling--aggregation
+    .console-line-plot__toolbar-sampling-trigger {
+    min-width: 19rem;
+}
+
+.console-line-plot__toolbar-sampling--detail
+    .console-line-plot__toolbar-sampling-trigger {
+    min-width: 24rem;
+}
+
+/* Each description fits on one line. A narrow window wraps them instead. */
+.console-line-plot__toolbar-sampling-dialog {
+    width: max-content;
+    max-width: var(--pluto-dialog-available-width, 100vw);
+}
+
+/* The icon hangs beside the name, so the description lines up with the name. */
+.console-line-plot__toolbar-sampling-body {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 0.5rem 1rem;
+}
+
+.console-line-plot__toolbar-sampling-option
+    + .console-line-plot__toolbar-sampling-option {
+    margin-top: 1rem;
+}
+
+.console-line-plot__toolbar-sampling-description {
+    grid-column: 2;
+    text-wrap: pretty;
+}

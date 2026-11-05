@@ -40,18 +40,14 @@
     color: var(--pluto-auto-z);
 }
 
-.console-performance-select__bar {
-    fill: var(--pluto-gray-l5);
+.console-performance-select-meter--low {
+    color: var(--pluto-success-z);
 }
 
-.console-performance-select-meter--low .console--filled {
-    fill: var(--pluto-success-z);
+.console-performance-select-meter--medium {
+    color: var(--pluto-warning-z);
 }
 
-.console-performance-select-meter--medium .console--filled {
-    fill: var(--pluto-warning-z);
-}
-
-.console-performance-select-meter--high .console--filled {
-    fill: var(--pluto-error-z);
+.console-performance-select-meter--high {
+    color: var(--pluto-error-z);
 }
