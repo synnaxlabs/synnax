@@ -851,6 +851,19 @@ func (p *Plugin) buildMapValueConversion(
 		}
 	}
 
+	if inst, ok := instance.Of(valArg, data.Namespace, data.table); ok {
+		p.addInstance(inst, data)
+		return &mapValueConversionData{
+			GoMapType: fmt.Sprintf(
+				"map[%s]%s", keyType, p.resolveGoTypeLiteral(valArg, data),
+			),
+			PBMapType:         fmt.Sprintf("map[%s]*%s", keyType, inst.Name),
+			ForwardValueExpr:  fmt.Sprintf("%sToPB(v)", inst.Name),
+			BackwardValueExpr: fmt.Sprintf("%sFromPB(v)", inst.Name),
+			ForwardHasError:   true,
+			BackwardHasError:  true,
+		}
+	}
 	resolved, _, ok := resolution.Dealias(valArg, data.table)
 	if !ok {
 		return nil
