@@ -187,7 +187,7 @@ var _ = Describe("Delta", func() {
 				Eventually(disconnected).Should(BeClosed())
 			})
 
-			It("Should keep its connections when it retries a panic", func() {
+			It("Should drop only the inlet that panics", func() {
 				delta.Flow(
 					ctx,
 					RecoverWithErrOnPanic(),
@@ -196,12 +196,13 @@ var _ = Describe("Delta", func() {
 						o.Signal = append(
 							o.Signal,
 							signal.WithBaseRetryInterval(time.Millisecond),
+							signal.WithRetryScale(1e6),
 						)
 					},
 				)
 				delta.Connect(outputOne, outputTwo)
 				outputTwo.Close()
-				for _, v := range []int{1, 2} {
+				for v := range 5 {
 					Eventually(inputOne.Inlet()).Should(BeSent(v))
 					Eventually(outputOne.Outlet()).Should(Receive(Equal(v)))
 				}

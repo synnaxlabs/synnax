@@ -78,8 +78,11 @@ type DynamicDeltaMultiplier[V Value] struct {
 	connections    chan []Inlet[V]
 	disconnections chan []Inlet[V]
 	stopped        chan struct{}
-	Source         AbstractMultiSource[V]
-	timeout        time.Duration
+	// sending is the inlet of a send in progress. It stays set if the send panics, and
+	// only the Flow goroutine accesses it.
+	sending Inlet[V]
+	Source  AbstractMultiSource[V]
+	timeout time.Duration
 }
 
 // NewDynamicDeltaMultiplier creates a new DynamicDeltaMultiplier with the specified
@@ -128,12 +131,18 @@ func (d *DynamicDeltaMultiplier[V]) Stopped() <-chan struct{} { return d.stopped
 // stream and distributes them to all connected output streams. If a timeout is
 // configured, it will attempt to send values to downstream consumers within the timeout
 // period. The Flow method handles dynamic connection and disconnection of output
-// streams through the connections and disconnections channels. A panic retried through
-// WithRetryOnPanic keeps every connection.
+// streams through the connections and disconnections channels. If a send panics and
+// WithRetryOnPanic retries Flow, the retry disconnects the inlet that panicked and
+// keeps
+// every other connection.
 func (d *DynamicDeltaMultiplier[v]) Flow(ctx signal.Context, opts ...Option) {
 	o := NewOptions(opts)
 	o.Signal = append(o.Signal, signal.Defer(d.stop, signal.WithKey("stop")))
 	ctx.Go(func(ctx context.Context) error {
+		if d.sending != nil {
+			d.disconnect([]Inlet[v]{d.sending})
+			d.sending = nil
+		}
 		var timer *time.Timer
 		if d.timeout > 0 {
 			timer = time.NewTimer(d.timeout)
@@ -155,14 +164,7 @@ func (d *DynamicDeltaMultiplier[v]) Flow(ctx signal.Context, opts ...Option) {
 				if !ok {
 					return nil
 				}
-				var err error
-				if timer != nil {
-					timer.Reset(d.timeout)
-					err = d.Source.SendToEachWithTimeout(ctx, res, d.timeout, timer)
-				} else {
-					err = d.Source.SendToEach(ctx, res)
-				}
-				if err != nil {
+				if err := d.send(ctx, res, timer); err != nil {
 					if !errors.Is(err, timeout.ErrTimeout) {
 						return err
 					}
@@ -171,6 +173,42 @@ func (d *DynamicDeltaMultiplier[v]) Flow(ctx signal.Context, opts ...Option) {
 			}
 		}
 	}, o.Signal...)
+}
+
+// send sends v to each inlet. With a timer, an inlet that does not receive v before the
+// timer fires is skipped, the remaining inlets still receive v, and send returns
+// timeout.ErrTimeout.
+func (d *DynamicDeltaMultiplier[V]) send(
+	ctx context.Context,
+	v V,
+	timer *time.Timer,
+) error {
+	var expired <-chan time.Time
+	if timer != nil {
+		timer.Reset(d.timeout)
+		expired = timer.C
+	}
+	var timedOut Inlet[V]
+	for _, inlet := range d.Source.Out {
+		d.sending = inlet
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-expired:
+			timer.Reset(d.timeout)
+			timedOut = inlet
+		case inlet.Inlet() <- v:
+		}
+	}
+	d.sending = nil
+	if timedOut != nil {
+		return errors.Wrapf(
+			timeout.ErrTimeout,
+			"timed out sending to inlet %s",
+			timedOut.InletAddress(),
+		)
+	}
+	return nil
 }
 
 func (d *DynamicDeltaMultiplier[V]) stop() {
