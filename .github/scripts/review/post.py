@@ -88,6 +88,7 @@ def post(review: Review, *, target: Target, gh: GH) -> None:
         commit=f"https://github.com/{t.repo}/commit/{t.head}",
         message=message,
         run_url=t.run_url,
+        blob=blob,
     )
     body = render.splice(body.removesuffix("\n"), block)
     _write(gh, "PATCH", f"repos/{t.repo}/pulls/{t.pr}", {"body": body})
