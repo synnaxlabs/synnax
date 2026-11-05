@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -202,11 +201,8 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		if err := w.otg.DeleteResources(ctx, ids...); err != nil {
 			return err
 		}
-		return errors.Skip(
-			w.table.NewDelete().
-				Where(gorp.MatchKeys[Key, Device](keys...)).
-				Exec(ctx, w.tx),
-			query.ErrNotFound,
-		)
+		return w.table.NewDelete().
+			Where(gorp.MatchKeys[Key, Device](keys...)).
+			Exec(ctx, w.tx)
 	})
 }
