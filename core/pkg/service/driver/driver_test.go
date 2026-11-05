@@ -709,7 +709,7 @@ var _ = Describe("Driver", func() {
 					ctx SpecContext,
 				) {
 					sw := statusSvc.NewWriter(nil)
-					Expect(sw.Delete(ctx, MustSucceed(sw.KeyOf(ctx, t.ResourceID())))).
+					Expect(sw.DeleteOwned(ctx, t.ResourceID())).
 						To(Succeed())
 					writeCommand(ctx, task.Command{
 						Task:       t.Key,
@@ -1526,7 +1526,7 @@ var _ = Describe("Driver", func() {
 				key := embeddedRackKey(ctx)
 				renameRack(ctx, key, "Renamed Driver")
 				sw := statusSvc.NewWriter(nil)
-				Expect(sw.Delete(ctx, MustSucceed(sw.KeyOf(ctx, key.ResourceID())))).
+				Expect(sw.DeleteOwned(ctx, key.ResourceID())).
 					To(Succeed())
 				deletedAt := telem.Now()
 				Eventually(func(g Gomega) {

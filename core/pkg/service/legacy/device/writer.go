@@ -26,11 +26,12 @@ import (
 // method. If no transaction is provided, the writer will execute operations directly on
 // the database.
 type Writer struct {
-	tx     gorp.Tx
-	otg    ontology.Writer
-	group  group.Group
-	status status.Writer
-	table  *gorp.Table[Key, Device]
+	tx       gorp.Tx
+	otg      ontology.Writer
+	group    group.Group
+	status   status.Writer
+	statuses *status.Service
+	table    *gorp.Table[Key, Device]
 }
 
 func resolveStatus(d *Device, provided *Status) *Status {
@@ -64,19 +65,16 @@ func (w Writer) writeStatus(
 		d.Status = resolveStatus(d, provided)
 		return w.status.Set(ctx, d.Status)
 	}
-	key, err := w.status.KeyOf(ctx, d.ResourceID())
+	var stored Status
+	err := w.statuses.NewRetrieve[StatusDetails]().
+		Where(status.MatchOwners[StatusDetails](d.ResourceID())).
+		Entry(&stored).
+		Exec(ctx, w.tx)
 	if errors.Is(err, query.ErrNotFound) {
 		d.Status = resolveStatus(d, provided)
 		return w.status.Set(ctx, d.Status)
 	}
 	if err != nil {
-		return err
-	}
-	var stored Status
-	if err = gorp.NewRetrieve[string, Status]().
-		Where(gorp.MatchKeys[string, Status](key)).
-		Entry(&stored).
-		Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	d.Status = resolveStatus(d, &stored)
@@ -184,11 +182,10 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 		return err
 	}
 	// A missing status row is valid: the next Create heals it.
-	statusKey, err := w.status.KeyOf(ctx, ResourceID(key))
-	if err == nil {
-		err = w.status.Rename(ctx, statusKey, name)
-	}
-	return errors.Skip(err, query.ErrNotFound)
+	return errors.Skip(
+		w.status.RenameOwned(ctx, ResourceID(key), name),
+		query.ErrNotFound,
+	)
 }
 
 // Delete deletes the device with the given key and its associated status.

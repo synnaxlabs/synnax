@@ -958,7 +958,7 @@ var _ = Describe("Rack", Ordered, func() {
 				Expect(writer.Create(ctx, &r)).To(Succeed())
 
 				sw := stat.NewWriter(tx)
-				Expect(sw.Delete(ctx, MustSucceed(sw.KeyOf(ctx, r.ResourceID())))).
+				Expect(sw.DeleteOwned(ctx, r.ResourceID())).
 					To(Succeed())
 				Expect(retrieveStatusTx(ctx, stat, tx, r.Key)).Error().
 					To(MatchError(query.ErrNotFound))

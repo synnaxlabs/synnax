@@ -36,6 +36,8 @@ type Writer struct {
 	newKey func(context.Context) (Key, error)
 	// status is used to write status updates.
 	status status.Writer
+	// statuses retrieves the status that a rack holds.
+	statuses *status.Service
 	// table is the gorp table for rack entries.
 	table *gorp.Table[Key, Rack]
 	// driverRole is the role each new rack receives.
@@ -66,7 +68,11 @@ func (w Writer) healStatus(
 	ctx context.Context,
 	stat *Status,
 ) error {
-	if _, err := w.status.KeyOf(ctx, *stat.Owner); !errors.Is(err, query.ErrNotFound) {
+	var held []Status
+	if err := w.statuses.NewRetrieve[struct{}]().
+		Where(status.MatchOwners[struct{}](*stat.Owner)).
+		Entries(&held).
+		Exec(ctx, w.tx); err != nil || len(held) > 0 {
 		return err
 	}
 	return w.status.Set(ctx, stat)
@@ -150,11 +156,10 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 		return err
 	}
 	// A missing status row is valid: the next Create heals it.
-	statusKey, err := w.status.KeyOf(ctx, key.ResourceID())
-	if err == nil {
-		err = w.status.Rename(ctx, statusKey, name)
-	}
-	return errors.Skip(err, query.ErrNotFound)
+	return errors.Skip(
+		w.status.RenameOwned(ctx, key.ResourceID(), name),
+		query.ErrNotFound,
+	)
 }
 
 // DeleteGuard deletes the rack with the given key, and with it its status, if the

@@ -208,9 +208,7 @@ var _ = Describe("Retrieve", func() {
 		withStatus := createTask(ctx)
 		withoutStatus := createTask(ctx)
 		w := svc.Status.NewWriter(nil)
-		Expect(w.Delete(
-			ctx, MustSucceed(w.KeyOf(ctx, withoutStatus.ResourceID())),
-		)).To(Succeed())
+		Expect(w.DeleteOwned(ctx, withoutStatus.ResourceID())).To(Succeed())
 		grant(
 			ctx, access.ActionRetrieve, u.ResourceID(),
 			withStatus.ResourceID(), withoutStatus.ResourceID(),

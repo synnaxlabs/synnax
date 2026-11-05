@@ -311,6 +311,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		otg:        s.cfg.Ontology,
 		group:      s.group,
 		status:     s.cfg.Status.NewWriter(tx),
+		statuses:   s.cfg.Status,
 		table:      s.table,
 		configs:    s.cfg.Configs,
 		dispatcher: s.state.Dispatcher(),

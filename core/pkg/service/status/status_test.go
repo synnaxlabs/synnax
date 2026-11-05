@@ -294,24 +294,38 @@ var _ = Describe("Status", Ordered, func() {
 			})
 		})
 
-		Describe("KeyOf", func() {
-			It(
-				"Should return the key of the status an owner holds",
-				func(ctx SpecContext) {
-					owner := createRack(ctx, 4)
-					s := newStatus("")
-					s.Owner = &owner
-					Expect(w.Set(ctx, &s)).To(Succeed())
-					Expect(w.KeyOf(ctx, owner)).To(Equal(s.Key))
-				},
-			)
+		Describe("RenameOwned", func() {
+			It("Should rename the status an owner holds", func(ctx SpecContext) {
+				owner := createRack(ctx, 4)
+				s := newStatus("")
+				s.Owner = &owner
+				Expect(w.Set(ctx, &s)).To(Succeed())
+				Expect(w.RenameOwned(ctx, owner, "Renamed")).To(Succeed())
+				Expect(retrieve(ctx, s.Key).Name).To(Equal("Renamed"))
+			})
 			It(
 				"Should return a not found error for an owner with no status",
 				func(ctx SpecContext) {
-					Expect(w.KeyOf(ctx, createRack(ctx, 5))).Error().
+					Expect(w.RenameOwned(ctx, createRack(ctx, 5), "Renamed")).
 						To(MatchError(query.ErrNotFound))
 				},
 			)
+		})
+
+		Describe("DeleteOwned", func() {
+			It("Should delete the status an owner holds", func(ctx SpecContext) {
+				owner := createRack(ctx, 11)
+				s := newStatus("")
+				s.Owner = &owner
+				Expect(w.Set(ctx, &s)).To(Succeed())
+				Expect(w.DeleteOwned(ctx, owner)).To(Succeed())
+				Expect(svc.NewRetrieve[any]().
+					Where(status.MatchKeys[any](s.Key)).
+					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+			})
+			It("Should succeed for an owner with no status", func(ctx SpecContext) {
+				Expect(w.DeleteOwned(ctx, createRack(ctx, 12))).To(Succeed())
+			})
 		})
 
 		Describe("SetMany", func() {
@@ -967,7 +981,7 @@ var _ = Describe("Status", Ordered, func() {
 				Expect(svc.SetMissing(ctx, tx, backfill)).To(Succeed())
 				Expect(retrieve(ctx, existing.Key).Message).To(Equal("Running"))
 				key, _ := statusv2.MigrateKey(missing.String())
-				Expect(w.KeyOf(ctx, missing)).To(Equal(key))
+				Expect(retrieve(ctx, key).Owner).To(Equal(&missing))
 			},
 		)
 	})

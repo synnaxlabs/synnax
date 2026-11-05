@@ -65,9 +65,31 @@ func (w Writer) SetMany[D any](ctx context.Context, statuses *[]Status[D]) error
 	return nil
 }
 
-// KeyOf returns the key of the status that owner holds. It returns query.ErrNotFound
-// when owner holds no status.
-func (w Writer) KeyOf(ctx context.Context, owner resource.ID) (Key, error) {
+// RenameOwned renames the status that owner holds, keeping every other field. It
+// returns query.ErrNotFound if owner holds no status and a validation error if name is
+// empty.
+func (w Writer) RenameOwned(ctx context.Context, owner resource.ID, name string) error {
+	key, err := w.ownedKey(ctx, owner)
+	if err != nil {
+		return err
+	}
+	return w.Rename(ctx, key, name)
+}
+
+// DeleteOwned deletes the statuses that owners hold. DeleteOwned is idempotent.
+func (w Writer) DeleteOwned(ctx context.Context, owners ...resource.ID) error {
+	targets := make([]gorp.Target, len(owners))
+	for i, o := range owners {
+		targets[i] = resourceTarget(o)
+	}
+	keys, err := w.indexes.owner.Get(ctx, w.tx, targets...)
+	if err != nil {
+		return err
+	}
+	return w.Delete(ctx, keys...)
+}
+
+func (w Writer) ownedKey(ctx context.Context, owner resource.ID) (Key, error) {
 	keys, err := w.indexes.owner.Get(ctx, w.tx, resourceTarget(owner))
 	if err != nil {
 		return "", err
@@ -80,7 +102,7 @@ func (w Writer) KeyOf(ctx context.Context, owner resource.ID) (Key, error) {
 
 func (w Writer) resolve[D any](ctx context.Context, s *Status[D]) error {
 	if s.Owner != nil {
-		key, err := w.KeyOf(ctx, *s.Owner)
+		key, err := w.ownedKey(ctx, *s.Owner)
 		if err == nil {
 			s.Key = key
 		} else if !errors.Is(err, query.ErrNotFound) {

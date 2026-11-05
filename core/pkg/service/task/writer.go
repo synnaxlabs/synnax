@@ -35,6 +35,7 @@ type Writer struct {
 	otg        *ontology.Ontology
 	group      group.Group
 	status     status.Writer
+	statuses   *status.Service
 	table      *gorp.Table[Key, Task]
 	configs    config.Registry
 	dispatcher actions.Dispatcher[Key, Action]
@@ -78,13 +79,10 @@ func resolveStatus(t *Task, provided *Status, existed bool) *Status {
 // task's current name.
 func (w Writer) healStatus(ctx context.Context, stat *Status) (*Status, error) {
 	var existing Status
-	key, err := w.status.KeyOf(ctx, *stat.Owner)
-	if err == nil {
-		err = gorp.NewRetrieve[string, Status]().
-			Where(gorp.MatchKeys[string, Status](key)).
-			Entry(&existing).
-			Exec(ctx, w.tx)
-	}
+	err := w.statuses.NewRetrieve[StatusDetails]().
+		Where(status.MatchOwners[StatusDetails](*stat.Owner)).
+		Entry(&existing).
+		Exec(ctx, w.tx)
 	if err == nil {
 		if existing.Name != stat.Name {
 			if err = w.status.Rename(ctx, existing.Key, stat.Name); err != nil {
@@ -225,11 +223,10 @@ func (w Writer) CreateMany(ctx context.Context, tasks *[]Task) error {
 
 func (w Writer) renameStatus(ctx context.Context, key Key, name string) error {
 	// A missing status row is valid: the next Create heals it.
-	statusKey, err := w.status.KeyOf(ctx, ResourceID(key))
-	if err == nil {
-		err = w.status.Rename(ctx, statusKey, name)
-	}
-	return errors.Skip(err, query.ErrNotFound)
+	return errors.Skip(
+		w.status.RenameOwned(ctx, ResourceID(key), name),
+		query.ErrNotFound,
+	)
 }
 
 // apply applies the actions to the task with the given key and stores the result. It

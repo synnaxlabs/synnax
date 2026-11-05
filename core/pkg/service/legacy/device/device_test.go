@@ -391,10 +391,12 @@ var _ = Describe("Device", func() {
 				Expect(w.Create(ctx, &d)).To(Succeed())
 
 				sw := stat.NewWriter(tx)
-				Expect(sw.Delete(ctx, MustSucceed(sw.KeyOf(ctx, d.ResourceID())))).
+				Expect(sw.DeleteOwned(ctx, d.ResourceID())).
 					To(Succeed())
-				Expect(sw.KeyOf(ctx, d.ResourceID())).Error().
-					To(MatchError(query.ErrNotFound))
+				Expect(stat.NewRetrieve[any]().
+					Where(status.MatchOwners[any](d.ResourceID())).
+					Entry(new(status.Status[any])).
+					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 
 				reconfigured := device.Device{
 					Key:      d.Key,
@@ -1093,7 +1095,7 @@ var _ = Describe("Device", func() {
 			}
 			Expect(w.Create(ctx, &d)).To(Succeed())
 			sw := stat.NewWriter(tx)
-			Expect(sw.Delete(ctx, MustSucceed(sw.KeyOf(ctx, d.ResourceID())))).
+			Expect(sw.DeleteOwned(ctx, d.ResourceID())).
 				To(Succeed())
 			Expect(w.Rename(ctx, d.Key, "After")).To(Succeed())
 		})
@@ -1120,8 +1122,10 @@ var _ = Describe("Device", func() {
 						Exec(ctx, tx),
 				).
 					To(MatchError(query.ErrNotFound))
-				Expect(stat.NewWriter(tx).KeyOf(ctx, d.ResourceID())).Error().
-					To(MatchError(query.ErrNotFound))
+				Expect(stat.NewRetrieve[any]().
+					Where(status.MatchOwners[any](d.ResourceID())).
+					Entry(new(status.Status[any])).
+					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 			},
 		)
 		It(

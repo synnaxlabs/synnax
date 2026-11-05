@@ -274,6 +274,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		newKey:     s.newKey,
 		group:      s.group,
 		status:     s.Status.NewWriter(tx),
+		statuses:   s.Status,
 		table:      s.table,
 		driverRole: s.DriverRole,
 	}

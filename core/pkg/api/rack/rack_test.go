@@ -237,9 +237,7 @@ var _ = Describe("Retrieve", func() {
 		Expect(svc.Rack.NewWriter(nil).Create(ctx, &withStatus)).To(Succeed())
 		Expect(svc.Rack.NewWriter(nil).Create(ctx, &withoutStatus)).To(Succeed())
 		w := svc.Status.NewWriter(nil)
-		Expect(w.Delete(
-			ctx, MustSucceed(w.KeyOf(ctx, withoutStatus.ResourceID())),
-		)).To(Succeed())
+		Expect(w.DeleteOwned(ctx, withoutStatus.ResourceID())).To(Succeed())
 		grant(
 			ctx, access.ActionRetrieve, u.ResourceID(),
 			withStatus.ResourceID(), withoutStatus.ResourceID(),

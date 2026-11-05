@@ -281,12 +281,7 @@ func (g *Graph) clearRuntimeStatus(ctx context.Context, key channel.Key) error {
 }
 
 func (g *Graph) deleteStatus(ctx context.Context, tx gorp.Tx, key channel.Key) error {
-	w := g.status.NewWriter(tx)
-	statusKey, err := w.KeyOf(ctx, channel.ResourceID(key))
-	if err != nil {
-		return errors.Skip(err, query.ErrNotFound)
-	}
-	return w.Delete(ctx, statusKey)
+	return g.status.NewWriter(tx).DeleteOwned(ctx, channel.ResourceID(key))
 }
 
 // Close disconnects the graph from the channel observable.

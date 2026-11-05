@@ -59,14 +59,7 @@ var _ = Describe("StatusHandler", func() {
 
 	deleteStored := func(ctx SpecContext) {
 		GinkgoHelper()
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			w := statusSvc.NewWriter(tx)
-			key, err := w.KeyOf(ctx, t.ResourceID())
-			if err != nil {
-				return err
-			}
-			return w.Delete(ctx, key)
-		})).To(Succeed())
+		Expect(statusSvc.NewWriter(nil).DeleteOwned(ctx, t.ResourceID())).To(Succeed())
 	}
 
 	retrieve := func(ctx SpecContext) task.Status {
@@ -137,14 +130,8 @@ var _ = Describe("StatusHandler", func() {
 				"Started task",
 				"",
 			)).To(Succeed())
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				w := statusSvc.NewWriter(tx)
-				key, err := w.KeyOf(ctx, t.ResourceID())
-				if err != nil {
-					return err
-				}
-				return w.Rename(ctx, key, "renamed")
-			})).To(Succeed())
+			Expect(statusSvc.NewWriter(nil).RenameOwned(ctx, t.ResourceID(), "renamed")).
+				To(Succeed())
 			Expect(handler.Ack(ctx, "cmd-2", true)).To(Succeed())
 			Expect(retrieve(ctx).Name).To(Equal("renamed"))
 		})
@@ -381,8 +368,10 @@ var _ = Describe("StatusHandler", func() {
 		It("should write no status at boot for a task that does not start",
 			func(ctx SpecContext) {
 				reporter().Report(ctx, t, driver.NoCommand, false, cfgErr)
-				Expect(statusSvc.NewWriter(nil).KeyOf(ctx, t.ResourceID())).Error().
-					To(MatchError(query.ErrNotFound))
+				Expect(statusSvc.NewRetrieve[any]().
+					Where(status.MatchOwners[any](t.ResourceID())).
+					Entry(new(status.Status[any])).
+					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 			},
 		)
 	})
