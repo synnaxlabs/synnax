@@ -77,10 +77,7 @@ type Table[K Key, E Entry[K]] struct {
 // waits for it to exit, and releases related resources.
 func (t *Table[K, E]) Close() error {
 	var err error
-	if t.registered {
-		t.db.registry.unregister(t.name)
-		t.registered = false
-	}
+	t.unregister()
 	if t.populateShutdown != nil {
 		err = t.populateShutdown.Close()
 		t.populateShutdown = nil
@@ -108,14 +105,6 @@ func OpenTable[K Key, E Entry[K]](
 	ctx context.Context,
 	cfg TableConfig[K, E],
 ) (*Table[K, E], error) {
-	if err := Migrate(ctx, MigrateConfig{
-		DB:              cfg.DB,
-		Namespace:       types.Name[E](),
-		Migrations:      cfg.Migrations,
-		Instrumentation: cfg.Instrumentation,
-	}); err != nil {
-		return nil, err
-	}
 	t := &Table[K, E]{
 		db:         cfg.DB,
 		keyPrefix:  key.Prefix[E](),
@@ -126,9 +115,21 @@ func OpenTable[K Key, E Entry[K]](
 	if t.name == "" {
 		t.name = types.Name[E]()
 	}
+	// The migrations of other tables can write references to the table while its own
+	// migrations run.
 	if err := t.register(cfg.Name != ""); err != nil {
 		return nil, err
 	}
+	if err := Migrate(ctx, MigrateConfig{
+		DB:              cfg.DB,
+		Namespace:       types.Name[E](),
+		Migrations:      cfg.Migrations,
+		Instrumentation: cfg.Instrumentation,
+	}); err != nil {
+		t.unregister()
+		return nil, err
+	}
+	t.registerReferences()
 	if len(t.indexes) == 0 {
 		return t, nil
 	}

@@ -13,13 +13,17 @@ import (
 	"context"
 	"iter"
 	"slices"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/query"
@@ -804,4 +808,102 @@ var _ = Describe("Reference closure", func() {
 				Exists(ctx, db)).To(BeFalse())
 		},
 	)
+})
+
+var _ = Describe("Reference migrations", func() {
+	var db *gorp.DB
+	BeforeEach(func() { db = gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)) })
+	AfterEach(func() { Expect(db.Close()).To(Succeed()) })
+
+	It(
+		"Should let a migration write a reference to the table it migrates",
+		func(ctx SpecContext) {
+			devices := MustSucceed(gorp.OpenTable(
+				ctx,
+				gorp.TableConfig[string, refDevice]{
+					DB:         db,
+					Name:       "device",
+					References: deviceReferences(),
+				},
+			))
+			defer func() { Expect(devices.Close()).To(Succeed()) }()
+			racks := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[uint32, refRack]{
+				DB:   db,
+				Name: "rack",
+				Migrations: []gorp.Migration{
+					migrate.New(
+						"create_device",
+						func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
+							if err := gorp.WrapWriter[uint32, refRack](tx).
+								Set(ctx, refRack{Key: 1}); err != nil {
+								return err
+							}
+							return devices.NewCreate().
+								Entry(&refDevice{Key: "a", Rack: 1}).
+								Exec(ctx, tx)
+						},
+					),
+				},
+			}))
+			defer func() { Expect(racks.Close()).To(Succeed()) }()
+			Expect(devices.NewRetrieve().
+				Where(gorp.MatchKeys[string, refDevice]("a")).
+				Exists(ctx, db)).To(BeTrue())
+		},
+	)
+
+	It(
+		"Should not follow the references of a table while it migrates",
+		func(ctx SpecContext) {
+			racks := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[uint32, refRack]{
+				DB:   db,
+				Name: "rack",
+			}))
+			defer func() { Expect(racks.Close()).To(Succeed()) }()
+			Expect(racks.NewCreate().Entry(&refRack{Key: 1}).Exec(ctx, db)).
+				To(Succeed())
+			devices := MustSucceed(gorp.OpenTable(
+				ctx,
+				gorp.TableConfig[string, refDevice]{
+					DB:         db,
+					Name:       "device",
+					References: deviceReferences(),
+					Migrations: []gorp.Migration{
+						migrate.New(
+							"delete_rack",
+							func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
+								return racks.NewDelete().
+									Where(gorp.MatchKeys[uint32, refRack](1)).
+									Exec(ctx, tx)
+							},
+						),
+					},
+				},
+			))
+			defer func() { Expect(devices.Close()).To(Succeed()) }()
+			Expect(racks.NewRetrieve().
+				Where(gorp.MatchKeys[uint32, refRack](1)).
+				Exists(ctx, db)).To(BeFalse())
+		},
+		SpecTimeout(5*time.Second),
+	)
+
+	It("Should free the name of a table whose migrations fail", func(ctx SpecContext) {
+		_, err := gorp.OpenTable(ctx, gorp.TableConfig[uint32, refRack]{
+			DB:   db,
+			Name: "rack",
+			Migrations: []gorp.Migration{migrate.New(
+				"fail",
+				func(context.Context, gorp.Tx, alamos.Instrumentation) error {
+					return errors.New("migration failed")
+				},
+			)},
+		})
+		Expect(err).To(MatchError(ContainSubstring("migration failed")))
+		racks := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[uint32, refRack]{
+			DB:   db,
+			Name: "rack",
+		}))
+		Expect(racks.Close()).To(Succeed())
+	})
 })

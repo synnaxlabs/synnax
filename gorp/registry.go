@@ -64,23 +64,25 @@ func newRegistry() *registry {
 	}
 }
 
-func (r *registry) register(
-	name string,
-	table registeredTable,
-	refs []registeredReference,
-) error {
+func (r *registry) register(name string, table registeredTable) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if _, ok := r.tables[name]; ok {
 		return errors.Newf("[gorp] - table %q is already open", name)
 	}
 	r.tables[name] = table
+	return nil
+}
+
+// reference adds refs to the references that deletes of their target tables follow.
+func (r *registry) reference(refs []registeredReference) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	for _, ref := range refs {
 		for _, target := range ref.tables() {
 			r.referencing[target] = append(r.referencing[target], ref)
 		}
 	}
-	return nil
 }
 
 func (r *registry) unregister(name string) {

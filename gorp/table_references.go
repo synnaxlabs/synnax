@@ -25,20 +25,38 @@ func (t *Table[K, E]) register(named bool) error {
 	if !named && len(t.references) == 0 {
 		return nil
 	}
-	refs := make([]registeredReference, len(t.references))
 	for i, r := range t.references {
 		if err := r.validate(t.name); err != nil {
 			return err
 		}
 		r.owner, r.position = t.name, i
-		refs[i] = r
-		t.indexes = append(t.indexes, r)
 	}
-	if err := t.db.registry.register(t.name, t, refs); err != nil {
+	if err := t.db.registry.register(t.name, t); err != nil {
 		return err
 	}
 	t.registered = true
 	return nil
+}
+
+// registerReferences adds the table's references to its indexes and to its DB's
+// registry. Call it after the table's migrations: a delete that follows a reference
+// waits for its index to populate, which starts only after them.
+func (t *Table[K, E]) registerReferences() {
+	refs := make([]registeredReference, len(t.references))
+	for i, r := range t.references {
+		refs[i] = r
+		t.indexes = append(t.indexes, r)
+	}
+	t.db.registry.reference(refs)
+}
+
+// unregister removes the table and its references from its DB's registry.
+func (t *Table[K, E]) unregister() {
+	if !t.registered {
+		return
+	}
+	t.db.registry.unregister(t.name)
+	t.registered = false
 }
 
 // writer returns a Writer that stages against the table's indexes and checks the
