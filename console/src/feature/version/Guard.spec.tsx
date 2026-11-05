@@ -128,6 +128,15 @@ describe("Version.Guard", () => {
     );
   });
 
+  it("should link to the update guide", async () => {
+    await renderGuard(INCOMPATIBLE_STATUS);
+    const link = getLink(/Learn how to update/);
+    expect(link.getAttribute("href")).toBe(
+      "https://docs.synnaxlabs.com/reference/enterprise/upgrade#update-the-console-and-drivers",
+    );
+    expect(link.getAttribute("target")).toBe("_blank");
+  });
+
   it("should show the Cores list to choose another Core", async () => {
     await renderGuard(INCOMPATIBLE_STATUS);
     fireEvent.click(findButton("Choose another Core"));

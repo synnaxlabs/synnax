@@ -27,6 +27,9 @@ import { CSS } from "@/platform/css";
 import { Shell as PlatformShell } from "@/platform/shell";
 import { Session } from "@/session";
 
+const UPDATE_DOCS_URL =
+  "https://docs.synnaxlabs.com/reference/enterprise/upgrade#update-the-console-and-drivers";
+
 interface MismatchProps {
   clientVersion: string;
   nodeVersion: string;
@@ -61,6 +64,15 @@ const Mismatch = ({ clientVersion, nodeVersion }: MismatchProps): ReactElement =
           <Text.Text level="p" color={9} className={CSS.BE("version-mismatch", "text")}>
             The Console and the Core must have the same minor version.
           </Text.Text>
+          <Button.Button
+            variant="text"
+            size="small"
+            href={UPDATE_DOCS_URL}
+            target="_blank"
+          >
+            Learn how to update
+            <Icon.OpenExternal />
+          </Button.Button>
         </Flex.Box>
         <Flex.Box y gap="small" full="x">
           <Button.Button
