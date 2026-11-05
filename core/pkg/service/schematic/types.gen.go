@@ -67,13 +67,17 @@ type HydraulicEdgeConfig = versions.HydraulicEdgeConfig
 type PneumaticEdgeConfig = versions.PneumaticEdgeConfig
 type DataEdgeConfig = versions.DataEdgeConfig
 
-// FlexAlignment is a cross-axis flex alignment for laid-out content.
+// FlexAlignment is a flex alignment for laid-out content.
 type FlexAlignment = versions.FlexAlignment
 
 const (
-	FlexAlignmentStart   FlexAlignment = versions.FlexAlignmentStart
-	FlexAlignmentCenter  FlexAlignment = versions.FlexAlignmentCenter
-	FlexAlignmentEnd     FlexAlignment = versions.FlexAlignmentEnd
+	// FlexAlignmentStart aligns content to the start.
+	FlexAlignmentStart FlexAlignment = versions.FlexAlignmentStart
+	// FlexAlignmentCenter aligns content to the center.
+	FlexAlignmentCenter FlexAlignment = versions.FlexAlignmentCenter
+	// FlexAlignmentEnd aligns content to the end.
+	FlexAlignmentEnd FlexAlignment = versions.FlexAlignmentEnd
+	// FlexAlignmentStretch stretches content to fill the available space.
 	FlexAlignmentStretch FlexAlignment = versions.FlexAlignmentStretch
 )
 
@@ -81,11 +85,16 @@ const (
 type ComponentSize = versions.ComponentSize
 
 const (
-	ComponentSizeTiny   ComponentSize = versions.ComponentSizeTiny
-	ComponentSizeSmall  ComponentSize = versions.ComponentSizeSmall
+	// ComponentSizeTiny is the smallest preset.
+	ComponentSizeTiny ComponentSize = versions.ComponentSizeTiny
+	// ComponentSizeSmall is the preset between tiny and medium.
+	ComponentSizeSmall ComponentSize = versions.ComponentSizeSmall
+	// ComponentSizeMedium is the default preset.
 	ComponentSizeMedium ComponentSize = versions.ComponentSizeMedium
-	ComponentSizeLarge  ComponentSize = versions.ComponentSizeLarge
-	ComponentSizeHuge   ComponentSize = versions.ComponentSizeHuge
+	// ComponentSizeLarge is the preset between medium and huge.
+	ComponentSizeLarge ComponentSize = versions.ComponentSizeLarge
+	// ComponentSizeHuge is the largest preset.
+	ComponentSizeHuge ComponentSize = versions.ComponentSizeHuge
 )
 
 // ButtonMode is the actuation behavior of a button: fire writes once on click,
@@ -93,9 +102,12 @@ const (
 type ButtonMode = versions.ButtonMode
 
 const (
-	ButtonModeFire      ButtonMode = versions.ButtonModeFire
+	// ButtonModeFire writes once on click.
+	ButtonModeFire ButtonMode = versions.ButtonModeFire
+	// ButtonModeMomentary writes on press and clears on release.
 	ButtonModeMomentary ButtonMode = versions.ButtonModeMomentary
-	ButtonModePulse     ButtonMode = versions.ButtonModePulse
+	// ButtonModePulse writes a one-cycle pulse.
+	ButtonModePulse ButtonMode = versions.ButtonModePulse
 )
 
 // LabelConfig is the text label configuration shared by schematic symbols.
@@ -966,10 +978,14 @@ type ScaleIndicatorConfig = versions.ScaleIndicatorConfig
 type PageType = versions.PageType
 
 const (
+	// PageTypeSchematic is a schematic page.
 	PageTypeSchematic PageType = versions.PageTypeSchematic
-	PageTypeLineplot  PageType = versions.PageTypeLineplot
-	PageTypeLog       PageType = versions.PageTypeLog
-	PageTypeTable     PageType = versions.PageTypeTable
+	// PageTypeLineplot is a line plot page.
+	PageTypeLineplot PageType = versions.PageTypeLineplot
+	// PageTypeLog is a log page.
+	PageTypeLog PageType = versions.PageTypeLog
+	// PageTypeTable is a table page.
+	PageTypeTable PageType = versions.PageTypeTable
 )
 
 // Page identifies a page an off-page reference links to.

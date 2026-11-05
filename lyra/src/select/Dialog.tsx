@@ -24,7 +24,7 @@ import { Input } from "@/input";
 import { ClosedContext } from "@/select/scope";
 
 /** Props for {@link Dialog}. */
-export interface DialogProps extends Omit<BaseDialog.DialogProps, "passthrough"> {}
+export interface DialogProps extends BaseDialog.DialogProps {}
 
 const subscribe = (): destructor.Destructor => destructor.NOOP;
 const getSnapshot = (): boolean => true;

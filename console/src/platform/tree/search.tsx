@@ -21,6 +21,7 @@ import {
   type KeyboardEvent,
   type ReactElement,
   type ReactNode,
+  type RefObject,
   use,
 } from "react";
 
@@ -126,6 +127,12 @@ export interface Search {
   close: () => void;
   setTerm: (term: string) => void;
   setLayout: (layout: SearchLayout) => void;
+  /** Takes the focus back from the results on Escape. */
+  fieldRef: RefObject<HTMLInputElement | null>;
+  /** Takes the focus from the field on ArrowDown. */
+  resultsRef: RefObject<HTMLDivElement | null>;
+  /** Takes the focus when the search closes. */
+  treeRef: RefObject<HTMLDivElement | null>;
 }
 
 /** Runs the search of the tree under root. A null root searches nothing. */
@@ -150,8 +157,46 @@ export interface SearchFieldProps {
 
 /** Takes the place of the header title while the search is open. */
 export const SearchField = ({ search }: SearchFieldProps): ReactElement => {
-  const { term, setTerm, layout, setLayout, close, loading, noun } = search;
+  const {
+    term,
+    setTerm,
+    layout,
+    setLayout,
+    close,
+    loading,
+    noun,
+    answer,
+    fieldRef,
+    resultsRef,
+  } = search;
+  const enterResults = (e: KeyboardEvent<HTMLInputElement>) => {
+    // A key that is part of an IME word, such as the Enter that ends it, stays in the
+    // field. Safari marks that Enter only with the keyCode.
+    // eslint-disable-next-line @typescript-eslint/no-deprecated
+    if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+    const results = resultsRef.current;
+    if (results == null || answer?.variant !== "success") return;
+    if (answer.results.nodes.length === 0) return;
+    if (e.shiftKey || e.altKey || e.ctrlKey || e.metaKey) return;
+    e.preventDefault();
+    results.focus();
+    // The focus comes back to a selected match. With none, the results get a Down key,
+    // so they select the first match.
+    if (results.querySelector('[aria-selected="true"]') != null) return;
+    const down = {
+      key: "ArrowDown",
+      code: "ArrowDown",
+      bubbles: true,
+      cancelable: true,
+    };
+    results.dispatchEvent(new window.KeyboardEvent("keydown", down));
+    // A real Down gets its own release. Enter does not, so the Down it sends gets one,
+    // or the triggers keep Down held.
+    if (e.key === "Enter")
+      results.dispatchEvent(new window.KeyboardEvent("keyup", down));
+  };
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "ArrowDown" || e.key === "Enter") return enterResults(e);
     if (e.key !== "Escape") return;
     e.stopPropagation();
     close();
@@ -159,6 +204,7 @@ export const SearchField = ({ search }: SearchFieldProps): ReactElement => {
   return (
     <>
       <Input.Text
+        ref={fieldRef}
         className={CSS.BE("tree-search", "field")}
         size="small"
         level="p"

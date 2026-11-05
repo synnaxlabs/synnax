@@ -19,7 +19,6 @@ import { Panel } from "@/feature/panel";
 import { Panel as PlatformPanel } from "@/platform/panel";
 import { Selector } from "@/platform/selector";
 import { Session } from "@/session";
-import { Modals } from "@/session/modals";
 
 const PREVENT_DEFAULT_ON: Triggers.Trigger[] = [
   Palette.SEARCH_TRIGGER,
@@ -64,7 +63,6 @@ const CLOSE_WINDOW_TIMEOUT = TimeSpan.milliseconds(350);
 
 export const use = (): void => {
   const sessionDispatch = Session.useDispatch();
-  const modals = Modals.useStore("useTriggers");
   const getSelectedPanel = Session.Panel.useGetSelected();
   const getIsOverlaid = Session.Panel.useGetIsOverlaid();
   const getFocusedTab = Session.Panel.useGetFocusedTab();
@@ -106,7 +104,6 @@ export const use = (): void => {
         }
         return;
       }
-      if (modals.isAnyOpen()) return modals.closeTop();
       const panelKey = getSelectedPanel();
       const focused = getFocusedTab();
       if (canEditPanel && panelKey != null && focused != null) {

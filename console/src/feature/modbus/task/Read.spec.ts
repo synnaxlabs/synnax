@@ -458,7 +458,7 @@ describe("Read", () => {
       expect(within(getItems()[0]).getByText("400011")).toBeTruthy();
     });
 
-    it("should add a channel at the free address the map is clicked at", async () => {
+    it("should add and select a channel at the free address the map is clicked at", async () => {
       const { container } = await renderChannels([
         holding(0, "uint16"),
         holding(3, "uint16"),
@@ -475,6 +475,11 @@ describe("Read", () => {
         name: "Address",
       });
       expect(address.value).toBe("1");
+      expect(getItems().map((item) => item.getAttribute("aria-selected"))).toEqual([
+        "false",
+        "false",
+        "true",
+      ]);
     });
 
     it("should not add a channel from the map of a read-only task", async () => {
@@ -507,6 +512,23 @@ describe("Read", () => {
       if (segment == null) throw new Error("no segment");
       fireEvent.click(segment);
       expect(getItems()).toHaveLength(2);
+    });
+
+    it("should select a channel when its segment in the map is clicked", async () => {
+      const { container } = await renderChannels([coil(0), coil(1)]);
+      fireEvent.click(container.querySelectorAll(".console-modbus__segment")[1]);
+      expect(getItems().map((item) => item.getAttribute("aria-selected"))).toEqual([
+        "false",
+        "true",
+      ]);
+    });
+
+    it("should mark a channel's item while the pointer is on its segment", async () => {
+      const { container } = await renderChannels([coil(0), coil(1)]);
+      fireEvent.pointerEnter(container.querySelectorAll(".console-modbus__segment")[1]);
+      expect(
+        getItems().map((item) => item.classList.contains("lyra--hovered")),
+      ).toEqual([false, true]);
     });
 
     it("should open a channel's menu from its segment in the map", async () => {

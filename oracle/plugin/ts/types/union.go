@@ -98,7 +98,7 @@ func (p *Plugin) processUnion(
 	ud := unionData{
 		TSName:         tsName,
 		SchemaName:     casing.CamelAcronym(tsName) + "Z",
-		Discriminator:  fieldCamel(form.Discriminator),
+		Discriminator:  FieldName(form.Discriminator),
 		Doc:            doc.Get(entry.Domains),
 		TypesConst:     screaming + "_TYPES",
 		TypeSchemaName: casing.CamelAcronym(tsName) + "TypeZ",
