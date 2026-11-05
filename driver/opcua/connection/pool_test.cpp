@@ -758,6 +758,25 @@ TEST_F(ConnectionPoolTest, BrowseStopsAtChildLimit) {
     EXPECT_FALSE(again[0].truncated);
 }
 
+/// @brief it should stop sending the parts of a read once its deadline passes.
+TEST_F(ConnectionPoolTest, ReadStopsAtDeadline) {
+    server_cfg_.max_nodes_per_read = 1;
+    restart_server();
+    Pool pool(testutil::create_store());
+    const auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+    const auto id = ASSERT_NIL_P(types::NodeId::parse("ns=1;s=TestDouble"));
+    types::ReadRequestBuilder builder;
+    for (int i = 0; i < 20; ++i)
+        builder.add_node(id.resolve({}).value());
+    const auto req = builder.build();
+    server_->probe_delay = 100 * x::telem::MILLISECOND;
+    const auto deadline = std::chrono::steady_clock::now() +
+                          std::chrono::milliseconds(300);
+    ASSERT_OCCURRED_AS_P(conn.read(req, deadline), errors::DEADLINE_EXCEEDED);
+    server_->probe_delay = x::telem::TimeSpan{};
+    ASSERT_NIL_P(conn.read(req));
+}
+
 /// @brief it should stop following continuation points once its deadline passes, and
 /// mark each node that it cut short.
 TEST_F(ConnectionPoolTest, BrowseStopsAtDeadline) {

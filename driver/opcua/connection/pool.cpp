@@ -369,8 +369,12 @@ Pool::Connection::update_namespaces(const UA_DataValue &value) {
     return {true, x::errors::NIL};
 }
 
-std::pair<types::ReadResponse, x::errors::Error>
-Pool::Connection::read(const UA_ReadRequest &req) const {
+std::pair<types::ReadResponse, x::errors::Error> Pool::Connection::read(
+    const UA_ReadRequest &req,
+    const std::chrono::steady_clock::time_point deadline
+) const {
+    if (std::chrono::steady_clock::now() >= deadline)
+        return {types::ReadResponse(), errors::DEADLINE_EXCEEDED};
     const size_t limit = this->server_->max_nodes_per_read;
     const size_t total = req.nodesToReadSize;
     if (limit == 0 || total <= limit) {
@@ -393,7 +397,7 @@ Pool::Connection::read(const UA_ReadRequest &req) const {
         UA_ReadRequest part = req;
         part.nodesToRead = req.nodesToRead + offset;
         part.nodesToReadSize = std::min(limit, total - offset);
-        auto [res, err] = this->read(part);
+        auto [res, err] = this->read(part, deadline);
         if (err) return {types::ReadResponse(), err};
         auto &raw = *res.ptr();
         move_results(out.results + offset, raw.results, raw.resultsSize);
