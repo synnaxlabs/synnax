@@ -688,13 +688,31 @@ TEST_F(TaskManagerTest, CommandForUnconfigured) {
     });
 }
 
-/// @brief fails the configure of every synthetic task. It reports the failure with an
-/// error status when reports is true.
+/// @brief fails the configure of every synthetic task and reports the failure with an
+/// error status. At boot it creates a synthetic task on the rack, as a scanner does.
 class FailingConfigureFactory final : public Factory {
-    const bool reports;
-
 public:
-    explicit FailingConfigureFactory(const bool reports): reports(reports) {}
+    synnax::task::Task initial;
+
+    std::vector<std::pair<synnax::task::Task, std::unique_ptr<Task>>>
+    configure_initial_tasks(
+        const std::shared_ptr<Context> &ctx,
+        const synnax::rack::Rack &rack
+    ) override {
+        this->initial = {
+            .rack = rack.key,
+            .name = "scanner",
+            .type = SYNTHETIC_TASK_TYPE
+        };
+        if (const auto err = rack.tasks.create(this->initial)) {
+            ADD_FAILURE() << err;
+            return {};
+        }
+        auto [tsk, _] = this->configure_task(ctx, this->initial, NO_COMMAND);
+        std::vector<std::pair<synnax::task::Task, std::unique_ptr<Task>>> tasks;
+        tasks.emplace_back(this->initial, std::move(tsk));
+        return tasks;
+    }
 
     std::pair<std::unique_ptr<Task>, bool> configure_task(
         const std::shared_ptr<Context> &ctx,
@@ -702,18 +720,16 @@ public:
         const std::string &cmd_key
     ) override {
         if (task.type != SYNTHETIC_TASK_TYPE) return {nullptr, false};
-        if (this->reports) {
-            synnax::task::Status status{
-                .key = synnax::task::status_key(task),
-                .name = task.name,
-                .variant = synnax::status::VARIANT_ERROR,
-                .message = "Failed to configure task",
-                .description = "Npcap is not installed",
-                .details =
-                    {.task = task.key, .cmd = cmd_key, .config_hash = task.config_hash},
-            };
-            ctx->set_status(status);
-        }
+        synnax::task::Status status{
+            .key = synnax::task::status_key(task),
+            .name = task.name,
+            .variant = synnax::status::VARIANT_ERROR,
+            .message = "Failed to configure task",
+            .description = "Npcap is not installed",
+            .details =
+                {.task = task.key, .cmd = cmd_key, .config_hash = task.config_hash},
+        };
+        ctx->set_status(status);
         return {nullptr, true};
     }
 };
@@ -721,7 +737,7 @@ public:
 /// @brief it should answer a command for a task that failed to configure with the
 /// error of the configure.
 TEST_F(TaskManagerTest, CommandForFailedConfigureAnswersWithConfigureError) {
-    start_manager(std::make_unique<FailingConfigureFactory>(true));
+    start_manager(std::make_unique<FailingConfigureFactory>());
     auto task = synnax::task::Task{
         .rack = rack.key,
         .name = "t",
@@ -741,30 +757,36 @@ TEST_F(TaskManagerTest, CommandForFailedConfigureAnswersWithConfigureError) {
     EXPECT_EQ(s.details.rack, rack.key);
 }
 
-/// @brief it should answer a command for a task with no live instance and no error
-/// status that the task is not running.
-TEST_F(TaskManagerTest, CommandForTaskWithNoInstanceAnswersNotRunning) {
-    start_manager(std::make_unique<FailingConfigureFactory>(false));
+/// @brief it should answer a command for a task that a factory created at boot and
+/// failed to configure with the error of the configure.
+TEST_F(TaskManagerTest, CommandForFailedInitialTaskAnswersWithConfigureError) {
+    auto factory = std::make_unique<FailingConfigureFactory>();
+    const auto *f = factory.get();
+    start_manager(std::move(factory));
+    send_cmd(client, {.task = f->initial.key, .type = "scan", .key = "scan-cmd"});
+    auto s = WAIT_FOR_TASK_STATUS(
+        streamer,
+        f->initial,
+        [](const synnax::task::Status &s) { return s.details.cmd == "scan-cmd"; }
+    );
+    EXPECT_EQ(s.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(s.message, "Failed to configure task");
+    EXPECT_EQ(s.description, "Npcap is not installed");
+    EXPECT_FALSE(s.details.running);
+}
+
+/// @brief it should not answer a command for a task that this Driver never deployed,
+/// since another Driver may still run it after a rack move.
+TEST_F(TaskManagerTest, CommandForUndeployedTaskStaysSilent) {
+    start_manager(std::make_unique<EchoTaskFactory>());
     auto task = synnax::task::Task{
         .rack = rack.key,
         .name = "t",
         .type = SYNTHETIC_TASK_TYPE,
     };
     ASSERT_NIL(rack.tasks.create(task));
-    send_start(client, task);
-    send_cmd(client, {.task = task.key, .type = "scan", .key = "scan-cmd"});
-    auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
-        return s.details.cmd == "scan-cmd";
-    });
-    EXPECT_EQ(s.name, task.name);
-    EXPECT_EQ(s.variant, synnax::status::VARIANT_ERROR);
-    EXPECT_EQ(s.message, "Task is not running");
-    EXPECT_EQ(
-        s.description,
-        "The task did not start on this Driver. Configure the task again, then retry."
-    );
-    EXPECT_FALSE(s.details.running);
-    EXPECT_EQ(s.details.config_hash, task.config_hash);
+    send_cmd(client, {.task = task.key, .type = "tare", .key = "tare-cmd"});
+    expect_no_driver_status(task);
 }
 
 TEST_F(TaskManagerTest, RapidReconfigure) {

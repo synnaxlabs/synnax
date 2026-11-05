@@ -43,12 +43,12 @@ inline std::pair<bool, x::errors::Error> create_if_type_not_exists_on_rack(
 /// @param integration_name Name of the integration for logging purposes
 /// @return Vector of pairs containing:
 ///         - synnax::task::Task: The created Synnax task configuration
-///         - std::unique_ptr<task::Task>: The configured task implementation
+///         - std::unique_ptr<task::Task>: The configured task implementation, or null
+///           when its configuration fails
 /// @note
 /// - Returns an empty vector if:
 ///   1. A task of the specified type already exists
 ///   2. Task creation fails
-///   3. Task configuration fails
 /// - Logs errors and warnings
 template<typename F>
 std::vector<std::pair<synnax::task::Task, std::unique_ptr<task::Task>>>
@@ -80,11 +80,10 @@ configure_initial_factory_tasks(
         return tasks;
     }
     auto [task, _] = factory->configure_task(ctx, sy_task, driver::task::NO_COMMAND);
-    if (task != nullptr)
-        tasks.emplace_back(sy_task, std::move(task));
-    else
+    if (task == nullptr)
         VLOG(1) << "[" << integration_name
                 << "] failure to configure initial scan task";
+    tasks.emplace_back(sy_task, std::move(task));
     return tasks;
 }
 

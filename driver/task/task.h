@@ -171,6 +171,9 @@ inline constexpr auto NO_COMMAND = "";
 
 class Factory {
 public:
+    /// @brief creates the tasks this factory runs on every rack, such as a scanner.
+    /// @returns each created task with its live instance, or with null when its
+    /// configure failed.
     virtual std::vector<std::pair<synnax::task::Task, std::unique_ptr<Task>>>
     configure_initial_tasks(
         const std::shared_ptr<Context> &ctx,
@@ -463,8 +466,8 @@ private:
         const synnax::task::Task &tsk,
         const synnax::task::Command &cmd
     );
-    /// @brief answers a command for a task with no live instance, so its sender does
-    /// not wait out a timeout.
-    void refuse_command(const Op &op, const std::shared_ptr<Entry> &entry);
+    /// @brief answers a command for a task with no live instance with the task's latest
+    /// error, so its sender does not wait out a timeout.
+    void refuse_command(const Op &op);
 };
 }
