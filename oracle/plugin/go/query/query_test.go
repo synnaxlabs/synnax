@@ -915,7 +915,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain("\"context\"", "/gorp\"").
-						ToNotContain("service/search", "service/ontology")
+						ToNotContain("service/search", "service/resource")
 				},
 			)
 		})

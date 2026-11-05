@@ -24,8 +24,7 @@ import (
 // populate. Retrieve.Where(idx.Filter(...)) catches this sentinel and falls
 // back to a sequential scan with a synthesized predicate, so queries continue
 // to return correct results — just at scan cost. Direct callers of Get
-// receive the sentinel and are responsible for their own fallback (see
-// ontology.parentsByIndex for the canonical pattern).
+// receive the sentinel and are responsible for their own fallback.
 //
 // A populate failure is logged via the table's instrumentation and stays
 // sticky for the lifetime of the process: there is no automatic rebuild.

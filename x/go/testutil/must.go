@@ -102,7 +102,7 @@ func MustBeOk[T any](value T, ok bool) T {
 //
 // Example:
 //
-//	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+//	table := MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{DB: db}))
 func MustOpen[T io.Closer](v T, err error) T {
 	gomega.ExpectWithOffset(1, err).ToNot(gomega.HaveOccurred())
 	DeferClose(v)
