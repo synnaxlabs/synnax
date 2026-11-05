@@ -452,14 +452,15 @@ var _ = Describe("Factory", func() {
 				dead := createDevice(ctx, kafka.Properties{
 					Brokers: []string{"127.0.0.1:1"},
 				})
+				// A new device starts as a warning, so the wait matches the message.
 				Eventually(func(g Gomega) {
-					g.Expect(deviceStatus(ctx, live).Variant).
-						To(Equal(status.VariantSuccess))
-					g.Expect(deviceStatus(ctx, dead).Variant).
-						To(Equal(status.VariantWarning))
+					g.Expect(deviceStatus(ctx, live).Message).
+						To(Equal("Device connected"))
+					g.Expect(deviceStatus(ctx, dead).Message).
+						To(Equal("Failed to connect"))
 				}).WithTimeout(15 * time.Second).Should(Succeed())
-				Expect(deviceStatus(ctx, live).Message).To(Equal("Device connected"))
-				Expect(deviceStatus(ctx, dead).Message).To(Equal("Failed to connect"))
+				Expect(deviceStatus(ctx, live).Variant).To(Equal(status.VariantSuccess))
+				Expect(deviceStatus(ctx, dead).Variant).To(Equal(status.VariantWarning))
 			},
 		)
 	})
