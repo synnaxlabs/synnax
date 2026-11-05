@@ -22,7 +22,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // createUser creates a user to act as the subject of access requests.
@@ -543,6 +545,15 @@ var _ = Describe("Service", func() {
 				To(Equal([]role.Key{r.Key}))
 		})
 
+		It("Should return not found for a user that does not exist", func(
+			ctx SpecContext,
+		) {
+			subject := createUser(ctx, tx)
+			Expect(userSvc.NewWriter(tx).Delete(ctx, userKey(subject))).To(Succeed())
+			Expect(rbacSvc.RolesOf(ctx, tx, subject)).Error().
+				To(MatchError(query.ErrNotFound))
+		})
+
 		It(
 			"Should return a validation error for a subject that cannot hold roles",
 			func(ctx SpecContext) {
@@ -552,6 +563,38 @@ var _ = Describe("Service", func() {
 				})).Error().To(MatchError(ContainSubstring("cannot hold roles")))
 			},
 		)
+	})
+
+	Describe("Missing subjects", func() {
+		It("Should deny a user that was deleted", func(ctx SpecContext) {
+			r := &role.Role{Name: "reader"}
+			Expect(rbacSvc.Role.NewWriter(tx, true).Create(ctx, r)).To(Succeed())
+			Expect(rbacSvc.Policy.NewWriter(tx, true).Create(ctx, &policy.Policy{
+				Role:    r.Key,
+				Name:    "read-channels",
+				Objects: []resource.ID{{Type: resource.TypeChannel}},
+				Actions: []access.Action{access.ActionRetrieve},
+			})).To(Succeed())
+			subject := createUser(ctx, tx)
+			assignRole(ctx, tx, subject, r.Key)
+			req := access.Request{
+				Subject: subject,
+				Objects: []resource.ID{{Type: resource.TypeChannel, Key: "ch1"}},
+				Action:  access.ActionRetrieve,
+			}
+			Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, req)).To(Succeed())
+			Expect(userSvc.NewWriter(tx).Delete(ctx, userKey(subject))).To(Succeed())
+			Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, req)).
+				To(MatchError(access.ErrDenied))
+		})
+
+		It("Should reject a subject that cannot hold roles", func(ctx SpecContext) {
+			Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, access.Request{
+				Subject: resource.ID{Type: resource.TypeChannel, Key: "ch1"},
+				Objects: []resource.ID{{Type: resource.TypeChannel, Key: "ch1"}},
+				Action:  access.ActionRetrieve,
+			})).To(MatchError(validate.ErrValidation))
+		})
 	})
 
 	Describe("NewEnforcer", func() {

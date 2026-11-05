@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -239,6 +240,10 @@ func (e *Enforcer) retrievePolicies(
 	subject resource.ID,
 ) ([]policy.Policy, error) {
 	roles, err := e.svc.RolesOf(ctx, e.tx, subject)
+	// A subject that does not exist, such as a deleted user, holds no roles.
+	if errors.Is(err, query.ErrNotFound) {
+		return nil, nil
+	}
 	if err != nil || len(roles) == 0 {
 		return nil, err
 	}
@@ -262,7 +267,8 @@ func (s *Service) NewEnforcer(tx gorp.Tx) *Enforcer {
 }
 
 // Enforce allows the request when the policies of the subject's roles cover every
-// object for the action, and returns an error wrapping access.ErrDenied otherwise.
+// object for the action, and returns an error wrapping access.ErrDenied otherwise. A
+// subject that does not exist is denied.
 func (e *Enforcer) Enforce(ctx context.Context, req access.Request) error {
 	v, err := e.retrievePolicies(ctx, req.Subject)
 	if err != nil {
