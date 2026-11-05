@@ -11,10 +11,8 @@ package storage_test
 
 import (
 	"context"
-	"io/fs"
 	"os"
 	"path/filepath"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -103,8 +101,8 @@ var _ = Describe("Recorded version", func() {
 				ctx,
 				storage.LayerConfig{Dirname: dir, Version: current},
 			)).Error().To(MatchError("Data was last opened by Core " + recorded +
-				". Run Core " + recorded + " or newer, or restore a backup with " +
-				"`synnax restore`."))
+				". Run Core " + recorded + " or newer, or undo the update with " +
+				"`synnax update undo`."))
 			Expect(recordedVersion(dir)).To(Equal(recorded))
 			Expect(entries(filepath.Join(dir, "backups"))).To(BeEmpty())
 		},
@@ -153,41 +151,5 @@ var _ = Describe("Recorded version", func() {
 		openAt(ctx, dir, "0.60.0")
 		Expect(entries(filepath.Join(dir, "backups"))).
 			To(ConsistOf(HaveSuffix("-0.59.0")))
-	})
-})
-
-var _ = Describe("ListBackups", func() {
-	var dir string
-	BeforeEach(func() { dir = newDataDir() })
-
-	It("Should return an error for a missing data directory", func() {
-		Expect(storage.ListBackups(dir)).Error().To(MatchError(fs.ErrNotExist))
-	})
-
-	It("Should return nothing when there are no backups", func() {
-		Expect(os.MkdirAll(dir, 0o700)).To(Succeed())
-		Expect(MustSucceed(storage.ListBackups(dir))).To(BeEmpty())
-	})
-
-	It("Should list only complete backups, oldest first", func() {
-		backups := filepath.Join(dir, "backups")
-		for _, name := range []string{
-			"0000000002-0.60.0-rc.1",
-			"0000000001-unknown",
-			"0000000003-0.60.0.partial",
-			"orphaned-4",
-		} {
-			Expect(os.MkdirAll(filepath.Join(backups, name), 0o700)).To(Succeed())
-		}
-		Expect(os.WriteFile(filepath.Join(backups, "0000000005-0.61.0"), nil, 0o600)).
-			To(Succeed())
-		Expect(MustSucceed(storage.ListBackups(dir))).To(Equal([]storage.Backup{
-			{Name: "0000000001-unknown", Time: time.Unix(1, 0), Version: "unknown"},
-			{
-				Name:    "0000000002-0.60.0-rc.1",
-				Time:    time.Unix(2, 0),
-				Version: "0.60.0-rc.1",
-			},
-		}))
 	})
 })

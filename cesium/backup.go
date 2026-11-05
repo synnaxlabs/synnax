@@ -34,34 +34,36 @@ func BackupMeta(fs, backup xfs.FS) error {
 
 // RestoreMeta puts the metadata that BackupMeta copied to backup back into the database
 // in fs, and keeps the telemetry. It moves the directory of each channel that backup
-// has no metadata for to orphans, and returns the keys of those channels. orphans and
-// fs must allow xfs.Move between them. No DB may be open on fs.
-func RestoreMeta(fs, backup, orphans xfs.FS) ([]ChannelKey, error) {
+// has no metadata for into the directory orphans in fs, which it creates when needed.
+// No DB may be open on fs.
+func RestoreMeta(fs, backup xfs.FS, orphans string) error {
 	live, err := channelKeys(fs)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	backedUp, err := channelKeys(backup)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	known := set.New(backedUp...)
-	var moved []ChannelKey
 	for _, key := range live {
 		if known.Contains(key) {
 			continue
 		}
-		if err = xfs.Move(fs, orphans, keyToDirName(key)); err != nil {
-			return nil, err
+		if _, err = fs.Sub(orphans); err != nil {
+			return err
 		}
-		moved = append(moved, key)
+		dir := keyToDirName(key)
+		if err = fs.Rename(dir, path.Join(orphans, dir)); err != nil {
+			return err
+		}
 	}
 	for _, key := range backedUp {
 		if err = copyMeta(backup, fs, keyToDirName(key)); err != nil {
-			return nil, err
+			return err
 		}
 	}
-	return moved, nil
+	return nil
 }
 
 // channelKeys returns the keys of the channel directories in fs. It skips the

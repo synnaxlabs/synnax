@@ -37,8 +37,6 @@ type File interface {
 	Truncate(int64) error
 	Stat() (FileInfo, error)
 	Sync() error
-	// Chmod changes the permission bits of the file to those of mode.
-	Chmod(mode fs.FileMode) error
 }
 
 type FileInfo = fs.FileInfo
@@ -96,50 +94,74 @@ func (s *subFS) Stat(name string) (FileInfo, error) {
 }
 
 // CopyFile copies the file name in src to the same name in dst, replaces any file
-// there, and syncs the copy. The copy gets the permission bits of the source before
-// CopyFile writes data to it. The directory of name must exist in dst.
+// there, and syncs the copy. The directory of name must exist in dst.
 func CopyFile(src, dst FS, name string) (err error) {
 	from, err := src.Open(name, os.O_RDONLY)
 	if err != nil {
 		return err
 	}
 	defer func() { err = errors.Combine(err, from.Close()) }()
-	info, err := from.Stat()
-	if err != nil {
-		return err
-	}
 	to, err := dst.Open(name, os.O_CREATE|os.O_WRONLY|os.O_TRUNC)
 	if err != nil {
 		return err
 	}
 	defer func() { err = errors.Combine(err, to.Close()) }()
-	if err = to.Chmod(info.Mode().Perm()); err != nil {
-		return err
-	}
 	if _, err = io.Copy(to, from); err != nil {
 		return err
 	}
 	return to.Sync()
 }
 
-// Move moves the file or directory name in src to the same name in dst. src and dst
-// must be one FS, or come from Sub calls on one FS. It returns errors.ErrUnsupported
-// otherwise.
-func Move(src, dst FS, name string) error {
-	srcRoot, srcPath := resolve(src, name)
-	dstRoot, dstPath := resolve(dst, name)
-	if srcRoot != dstRoot {
-		return errors.Wrap(
-			errors.ErrUnsupported,
-			"cannot move between different file systems",
-		)
+// CopyDir copies the directory name in src, with everything in it, to the same name in
+// dst. An empty name copies all of src.
+func CopyDir(src, dst FS, name string) error {
+	if _, err := dst.Sub(name); err != nil {
+		return err
 	}
-	return srcRoot.Rename(srcPath, dstPath)
+	infos, err := src.List(name)
+	if err != nil {
+		return err
+	}
+	for _, info := range infos {
+		child := path.Join(name, info.Name())
+		if info.IsDir() {
+			err = CopyDir(src, dst, child)
+		} else {
+			err = CopyFile(src, dst, child)
+		}
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
-func resolve(f FS, name string) (FS, string) {
-	if sub, ok := f.(*subFS); ok {
-		return sub.FS, path.Join(sub.dir, name)
+// ReadFile returns the contents of the file name in fsys. The error matches
+// os.ErrNotExist when there is no such file.
+func ReadFile(fsys FS, name string) (_ []byte, err error) {
+	f, err := fsys.Open(name, os.O_RDONLY)
+	if err != nil {
+		return nil, err
 	}
-	return f, name
+	defer func() { err = errors.Combine(err, f.Close()) }()
+	return io.ReadAll(f)
+}
+
+// WriteFile replaces the file name in fsys with data through a temporary file and a
+// rename, so a crash of the process never leaves part of the file. It does not sync,
+// so a power loss can lose the write.
+func WriteFile(fsys FS, name string, data []byte) error {
+	tmp := name + ".tmp"
+	f, err := fsys.Open(tmp, os.O_CREATE|os.O_WRONLY|os.O_TRUNC)
+	if err != nil {
+		return err
+	}
+	_, err = f.Write(data)
+	if err = errors.Combine(err, f.Close()); err == nil {
+		err = fsys.Rename(tmp, name)
+	}
+	if err != nil {
+		return errors.Combine(err, fsys.Remove(tmp))
+	}
+	return nil
 }
