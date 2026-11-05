@@ -15,9 +15,9 @@ from pydantic_core import to_jsonable_python
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
 from synnax import rack as rack_
+from synnax import resource
 from synnax.device.types_gen import Device, Key
 from synnax.exceptions import NotFoundError
-from synnax.resource import ID as ResourceID
 from x.lists import all_none, normalize, override
 
 
@@ -80,7 +80,7 @@ class Client:
         make: str = "",
         model: str = "",
         configured: bool = False,
-        parent: ResourceID | None = None,
+        parent: resource.ID | None = None,
         properties: dict[str, Any] | None = None,
     ) -> Device: ...
 
@@ -107,7 +107,7 @@ class Client:
         make: str = "",
         model: str = "",
         configured: bool = False,
-        parent: ResourceID | None = None,
+        parent: resource.ID | None = None,
         properties: dict[str, Any] | None = None,
     ) -> Device | list[Device]:
         is_single = not isinstance(devices, list)

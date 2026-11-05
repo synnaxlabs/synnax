@@ -199,7 +199,7 @@ TEST(RangerTests, testKVDelete) {
 }
 
 /// @brief it should convert a range key to a resource ID
-TEST(RangerTests, testRangeOntologyId) {
+TEST(RangerTests, testRangeResourceID) {
     const auto key = ASSERT_NIL_P(
         x::uuid::UUID::parse("748d31e2-5732-4cb5-8bc9-64d4ad51efe8")
     );

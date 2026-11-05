@@ -218,7 +218,7 @@ TEST(TestChannel, testRetrieveManyNotFound) {
 }
 
 /// @brief it should convert a channel key to a resource ID
-TEST(TestChannel, testOntologyId) {
+TEST(TestChannel, testResourceID) {
     constexpr Key key = 42;
     const auto id = resource_id(key);
     ASSERT_EQ(id.type, "channel");

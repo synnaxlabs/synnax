@@ -78,7 +78,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.hold(2800);
 };
 
-/** key extracts a resource's key from its tree item's ontology-id DOM id. */
+/** key extracts a resource's key from the resource ID in its tree item's DOM id. */
 const key = async (item: Locator): Promise<string> => {
   const id = await item.getAttribute("id");
   if (id == null) throw new Error("tree item carries no id");

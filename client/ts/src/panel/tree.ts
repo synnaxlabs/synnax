@@ -70,19 +70,17 @@ export const findTab = (node: Node | undefined, key?: string): Tab | undefined =
  */
 export const findTabByResource = (
   node: Node | undefined,
-  resource: resource.ID,
+  id: resource.ID,
 ): Tab | undefined => {
   if (node == null) return undefined;
   if (node.variant === "leaf")
     return node.tabs.find(
       (t) =>
         t.variant === "resource" &&
-        t.resource.type === resource.type &&
-        t.resource.key === resource.key,
+        t.resource.type === id.type &&
+        t.resource.key === id.key,
     );
-  return (
-    findTabByResource(node.first, resource) ?? findTabByResource(node.last, resource)
-  );
+  return findTabByResource(node.first, id) ?? findTabByResource(node.last, id);
 };
 
 /**

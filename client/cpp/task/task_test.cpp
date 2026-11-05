@@ -127,7 +127,7 @@ TEST(TaskTests, testDeleteTask) {
 }
 
 /// @brief it should convert a task key to a resource ID
-TEST(TaskTests, testTaskOntologyId) {
+TEST(TaskTests, testTaskResourceID) {
     const auto key = x::uuid::create();
     const auto id = resource_id(key);
     ASSERT_EQ(id.type, "task");

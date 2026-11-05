@@ -209,8 +209,8 @@ export const useTabVariant = bindTabHook(
   ),
 );
 
-// useTabType selects the renderer type of the active tab: the resource's
-// ontology type for resource tabs, the view type for view tabs.
+// useTabType selects the renderer type of the active tab: the resource type for
+// resource tabs, the view type for view tabs.
 export const useTabType = bindTabHook(
   createSelector<string, TabContentParams>(({ root }, params) => {
     const tab = requireTab(root, params);
@@ -359,11 +359,11 @@ export const useMoveTabToPanel = (): ((
 // useSetCurrentTabResource swaps the current tab's content to the given resource,
 // clearing any view. The selector flow uses this to fill the tab in place once the
 // user picks a visualization.
-export const useSetCurrentTabResource = (): ((resource: resource.ID) => void) => {
+export const useSetCurrentTabResource = (): ((id: resource.ID) => void) => {
   const dispatch = useSingleDispatch();
   const tabKey = TabScope.use();
-  return (resource: resource.ID) =>
-    dispatch(panel.setTabResource({ key: tabKey, resource }));
+  return (id: resource.ID) =>
+    dispatch(panel.setTabResource({ key: tabKey, resource: id }));
 };
 
 // useSetCurrentTabView swaps the current tab's content to the given inline view,

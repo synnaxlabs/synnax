@@ -180,7 +180,7 @@ func OpenService(
 		return nil, err
 	}
 	// Task files carry the fine-grained type ("opc_read") while export routes under
-	// the coarse "task" ontology type, so the importer registers per config type.
+	// the coarse "task" resource type, so the importer registers per config type.
 	for _, t := range cfg.Configs.Types() {
 		if slices.Contains(cfg.ImExExcluded, t) {
 			continue

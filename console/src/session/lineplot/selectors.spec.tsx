@@ -144,10 +144,10 @@ describe("lineplot selector stability under dispatch", () => {
 describe("focused line plot", () => {
   const client = createTestClient();
 
-  const tabFor = (resource: resource.ID): panel.Tab => ({
+  const tabFor = (id: resource.ID): panel.Tab => ({
     variant: "resource",
     key: uuid.create(),
-    resource,
+    resource: id,
   });
 
   const createPanelWith = async (tabs: panel.Tab[]) =>

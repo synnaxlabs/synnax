@@ -10,4 +10,4 @@
 package v0
 
 // String implements fmt.Stringer.
-func (r Type) String() string { return string(r) }
+func (t Type) String() string { return string(t) }

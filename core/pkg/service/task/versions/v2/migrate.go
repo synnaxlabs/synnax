@@ -143,9 +143,9 @@ func migrateKeysToUUID(
 	return nil
 }
 
-// legacyKeyFromOntology parses a legacy uint64 task key out of an ontology key string,
-// returning false when the string is not a legacy key.
-func legacyKeyFromOntology(key string) (v1.Key, bool) {
+// parseLegacyKey parses a legacy uint64 task key out of a resource ID key, returning
+// false when the string is not a legacy key.
+func parseLegacyKey(key string) (v1.Key, bool) {
 	n, err := strconv.ParseUint(key, 10, 64)
 	if err != nil {
 		return 0, false
@@ -175,7 +175,7 @@ func rewriteStatuses(
 	del := gorp.WrapWriter[string, status.Status[v1.StatusDetails]](tx)
 	for _, s := range stale {
 		oldKey := s.Key
-		legacy, ok := legacyKeyFromOntology(strings.TrimPrefix(s.Key, statusKeyPrefix))
+		legacy, ok := parseLegacyKey(strings.TrimPrefix(s.Key, statusKeyPrefix))
 		if !ok {
 			continue
 		}
@@ -241,7 +241,7 @@ func rewriteResources(
 			oldKey    = r.GorpKey()
 			legacyStr = strings.TrimPrefix(r.ID.Key, statusKeyPrefix)
 		)
-		legacy, ok := legacyKeyFromOntology(legacyStr)
+		legacy, ok := parseLegacyKey(legacyStr)
 		if !ok {
 			continue
 		}
@@ -280,7 +280,7 @@ func rewriteRelationships(ctx context.Context, tx gorp.Tx, keys map[v1.Key]Key) 
 		default:
 			return id, false
 		}
-		legacy, ok := legacyKeyFromOntology(legacyStr)
+		legacy, ok := parseLegacyKey(legacyStr)
 		if !ok {
 			return id, false
 		}

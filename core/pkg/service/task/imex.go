@@ -30,7 +30,7 @@ var _ imex.Exporter = (*Service)(nil)
 // a task file directly as its config, so the config is not nested under a `config`
 // field; version, the fine-grained task type (e.g. "opc_read"), and name are stamped on
 // top. The version is the config type's own number line, taken from its config store.
-// Routing to this exporter still happens under the coarse "task" ontology type via
+// Routing to this exporter still happens under the coarse "task" resource type via
 // Type. It returns query.ErrNotFound if no task exists for id.Key, and a validation
 // error if the task's type has no file form.
 func (s *Service) Export(ctx context.Context, id resource.ID) (imex.Envelope, error) {

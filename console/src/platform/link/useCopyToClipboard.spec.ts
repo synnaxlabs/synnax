@@ -27,7 +27,7 @@ describe("Link.useCopyToClipboard", () => {
     await waitFor(() => expect(writeText).toHaveBeenCalledWith("synnax://cluster/abc"));
   });
 
-  it("appends the ontology type and key when an ID is given", async () => {
+  it("appends the resource type and key when an ID is given", async () => {
     const { result } = await renderHookWithConsole(() => Link.useCopyToClipboard());
     act(() =>
       result.current({

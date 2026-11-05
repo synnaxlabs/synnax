@@ -35,11 +35,11 @@ const createTestPlot = async (): Promise<lineplot.LinePlot> => {
   return await client.lineplots.create(project.key, { name: uniqueName("plot") });
 };
 
-// createFocusedPanel persists a panel whose only tab holds resource, and marks the
-// panel selected and the tab focused in the session store.
+// createFocusedPanel persists a panel whose only tab holds the resource id, and marks
+// the panel selected and the tab focused in the session store.
 const createFocusedPanel = async (
   store: TestStore,
-  resource: resource.ID,
+  id: resource.ID,
 ): Promise<panel.Panel> => {
   const tabKey = uuid.create();
   const created = await client.panels.create({
@@ -47,7 +47,7 @@ const createFocusedPanel = async (
     name: uniqueName("panel"),
     root: {
       variant: "leaf",
-      tabs: [{ variant: "resource", key: tabKey, resource }],
+      tabs: [{ variant: "resource", key: tabKey, resource: id }],
     },
     parent: await createPanelParent(client),
   });

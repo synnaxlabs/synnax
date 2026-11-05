@@ -342,9 +342,8 @@ export const tab = (page: Page, name: string): Locator =>
     .first();
 
 /**
- * treeItem returns a resource-tree item by its ontology type prefix (e.g.
- * "range:", "user:", "channel:") and display name, for clicks, drags, and
- * context menus.
+ * treeItem returns a resource-tree item by its resource type prefix (e.g. "range:",
+ * "user:", "channel:") and display name, for clicks, drags, and context menus.
  */
 export const treeItem = (page: Page, prefix: string, name: string): Locator =>
   page.locator(`div[id^='${prefix}']`).filter({ hasText: name }).first();

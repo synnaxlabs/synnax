@@ -39,7 +39,7 @@ export interface Rule {
   warningsDelayed?: boolean;
 }
 
-/** The rule of each feature that owns status keys, by the ontology type of its keys. */
+/** The rule of each feature that owns status keys, by the resource type of its keys. */
 export type Rules = Partial<Record<resource.Type, Rule>>;
 
 const WARNING_DELAY = TimeSpan.seconds(5);

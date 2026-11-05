@@ -14,8 +14,7 @@ import z from "zod";
 import { type Group, groupZ, type Key, keyZ, resourceID } from "@/group/types.gen";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
-import { type resource } from "@/resource";
-import { idZ as resourceIDZ } from "@/resource/payload";
+import { resource } from "@/resource";
 
 export const SET_CHANNEL_NAME = "sy_group_set";
 export const DELETE_CHANNEL_NAME = "sy_group_delete";
@@ -23,7 +22,7 @@ export const DELETE_CHANNEL_NAME = "sy_group_delete";
 const resZ = z.object({ group: groupZ });
 
 const createReqZ = z.object({
-  parent: resourceIDZ,
+  parent: resource.idZ,
   key: keyZ.optional(),
   name: z.string(),
 });
@@ -35,7 +34,7 @@ const deleteReqZ = z.object({ keys: z.array(keyZ) });
 export interface CreateParams extends z.infer<typeof createReqZ> {}
 
 const retrieveChildrenParamsZ = z.object({
-  parent: resourceIDZ,
+  parent: resource.idZ,
   offset: z.int().optional(),
   limit: z.int().optional(),
 });

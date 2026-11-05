@@ -26,7 +26,7 @@ import (
 // between entities, it is a service's responsibility to provide the entities themselves
 // when the ontology requests them.
 type Service interface {
-	// Type returns the [ResourceType] this service is responsible for.
+	// Type returns the [resource.Type] this service is responsible for.
 	Type() resource.Type
 	// RetrieveResource returns the resource with the given key. If the resource does
 	// not exist, returns [query.ErrNotFound].

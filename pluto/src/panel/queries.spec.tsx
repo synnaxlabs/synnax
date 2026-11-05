@@ -41,10 +41,10 @@ const newTab = (): panel.Tab => ({
 const asView = (tab?: panel.Tab | null): panel.ViewTab | undefined =>
   tab?.variant === "view" ? tab : undefined;
 
-const newResourceTab = (resource: resource.ID): panel.ResourceTab => ({
+const newResourceTab = (id: resource.ID): panel.ResourceTab => ({
   variant: "resource",
   key: uuid.create(),
-  resource,
+  resource: id,
 });
 
 describe("Panel queries", () => {
@@ -1055,7 +1055,7 @@ describe("Panel queries", () => {
       return { created, ops };
     };
 
-    it("useTabType resolves a resource tab to its ontology type", async () => {
+    it("useTabType resolves a resource tab to its resource type", async () => {
       const tab = newTab();
       const { created, ops } = await createTab(tab);
       const resource = { type: "schematic", key: uuid.create() } as const;

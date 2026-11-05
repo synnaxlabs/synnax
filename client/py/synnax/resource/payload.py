@@ -30,8 +30,8 @@ class ID(BaseModel):
             super().__init__(key=key.key, type=key.type)
         elif type is None and key is not None:
             type_str, key = key.split(":")
-            # cast satisfies mypy; pydantic validates the value against
-            # the Type literal at runtime.
+            # cast satisfies mypy; pydantic validates the value against the Type literal
+            # at runtime.
             super().__init__(key=key, type=cast(Type, type_str))
         else:
             super().__init__(key=key, type=type)

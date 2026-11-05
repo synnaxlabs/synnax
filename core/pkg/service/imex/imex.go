@@ -416,10 +416,10 @@ type Importer interface {
 	// markers Match tests are frozen — they describe historical file shapes. Importers
 	// with no typeless legacy formats return false.
 	Match(map[string]any) bool
-	// Type returns the broader ontology resource type the importer creates. For
-	// services with asymmetric registration (e.g. a task service registered under
-	// "http_read" and "opc_scan") this is the coarser ontology type ("task"); it is the
-	// resource type used for access control and ontology accounting.
+	// Type returns the broader resource type the importer creates. For services with
+	// asymmetric registration (e.g. a task service registered under "http_read" and
+	// "opc_scan") this is the coarser resource type ("task"); it is the resource type
+	// used for access control and ontology accounting.
 	Type() resource.Type
 }
 

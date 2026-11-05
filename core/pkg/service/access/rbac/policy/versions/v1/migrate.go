@@ -13,7 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp/migrate"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 )
 
 // Migration re-encodes stored policies from MessagePack to Orc.

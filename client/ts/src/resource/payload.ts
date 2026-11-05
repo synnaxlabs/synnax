@@ -23,7 +23,7 @@ export const stringIDZ = z.string().transform((v, ctx) => {
   return { type: res.data, key: key ?? "" };
 });
 
-/** Zod schema for {@link ID}, accepting either the object or the `"type:key"` string. */
+/** Zod schema for {@link ID}, accepting the object or the `"type:key"` string. */
 export const idZ = z.object({ type: typeZ, key: z.string() }).or(stringIDZ);
 
 /** Names one resource: what kind it is, and which one. */

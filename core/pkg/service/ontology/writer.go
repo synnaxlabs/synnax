@@ -31,8 +31,8 @@ type Writer struct {
 	relationshipTable *gorp.Table[string, Relationship]
 }
 
-// DefineResources defines one or more new resources with the given [ID]s. If any of the
-// resources already exist, DefineResources does nothing for those.
+// DefineResources defines one or more new resources with the given [resource.ID]s. If
+// any of the resources already exist, DefineResources does nothing for those.
 func (w Writer) DefineResources(ctx context.Context, ids ...resource.ID) error {
 	resources, err := lo.MapErr(ids, func(id resource.ID, _ int) (Resource, error) {
 		if id.Key == "" {
@@ -49,8 +49,8 @@ func (w Writer) DefineResources(ctx context.Context, ids ...resource.ID) error {
 	return w.resourceTable.NewCreate().Entries(&resources).Exec(ctx, w.tx)
 }
 
-// DeleteResources deletes one or more resources with the given [ID]s along with all of
-// their incoming and outgoing [Relationship]s.
+// DeleteResources deletes one or more resources with the given [resource.ID]s along
+// with all of their incoming and outgoing [Relationship]s.
 func (w Writer) DeleteResources(ctx context.Context, ids ...resource.ID) error {
 	keys, err := lo.MapErr(ids, func(id resource.ID, _ int) (string, error) {
 		if err := w.deleteIncomingRelationships(ctx, id); err != nil {
@@ -69,10 +69,10 @@ func (w Writer) DeleteResources(ctx context.Context, ids ...resource.ID) error {
 }
 
 // DefineRelationships defines a directional relationship of type t from the resource
-// with the given from [ID] to one or more to [ID]s. Already-existing relationships are
-// silently skipped. Returns [graph.ErrCyclicDependency] if any of the new relationships
-// would create a cycle (including the case where the reverse-direction relationship
-// already exists).
+// with the given from [resource.ID] to one or more to [resource.ID]s. Already-existing
+// relationships are silently skipped. Returns [graph.ErrCyclicDependency] if any of the
+// new relationships would create a cycle (including the case where the
+// reverse-direction relationship already exists).
 func (w Writer) DefineRelationships(
 	ctx context.Context,
 	from resource.ID,

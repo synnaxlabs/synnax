@@ -14,7 +14,6 @@ import "schemas/synnax/resource"
 @ts output "client/ts/src/ontology"
 
 RelationshipType string {
-    @cpp omit
     @go hand
     @py hand
     @ts hand
@@ -33,7 +32,6 @@ Resource struct {
         @go marshal omit
     }
 
-    @cpp omit
     @doc value  """
         is a resource in the ontology system with its identifier, name, and optional
         metadata.
@@ -55,7 +53,6 @@ Relationship struct {
         @doc value "is the target resource of the relationship."
     }
 
-    @cpp omit
     @doc value  """
         is a directional relationship between two resources in the ontology system.
     """
