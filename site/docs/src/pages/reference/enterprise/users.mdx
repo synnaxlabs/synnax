@@ -86,18 +86,17 @@ the user and register them again.
 
 ## Manage users from code
 
-Create a user, then give it a role:
+Create a user with a role:
 
 <Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
 ```python
-user = client.users.create(
-    username="jdoe", password="secret", first_name="Jane", last_name="Doe"
-)
 engineer = next(r for r in client.access.roles.retrieve() if r.name == "Engineer")
-client.access.roles.assign(user=user.key, role=engineer.key)
+user = client.users.create(
+    username="jdoe", password="secret", name="Jane Doe", roles=[engineer.key]
+)
 ```
 
   </Fragment>
@@ -105,24 +104,24 @@ client.access.roles.assign(user=user.key, role=engineer.key)
   <Fragment slot="typescript">
 
 ```typescript
+const roles = await client.access.roles.retrieve({});
+const engineer = roles.find((r) => r.name === "Engineer");
 const user = await client.users.create({
   username: "jdoe",
   password: "secret",
-  firstName: "Jane",
-  lastName: "Doe",
+  name: "Jane Doe",
+  roles: [engineer.key],
 });
-const roles = await client.access.roles.retrieve({});
-const engineer = roles.find((r) => r.name === "Engineer");
-await client.access.roles.assign({ user: user.key, role: engineer.key });
 ```
 
   </Fragment>
 
 </Client.Tabs>
 
-A user created from code has no role and no permissions until you assign one. A user can
-hold more than one role and gets the permissions of all of them. To take a role away,
-call `unassign` with the same arguments. To delete users, call `client.users.delete`
+A user created from code without roles has no permissions. A user can hold more than one
+role and gets the permissions of all of them. To change the roles of users, call
+`set_roles` in Python or `setRoles` in TypeScript with their keys and the new roles. The
+new roles replace the roles the users hold. To delete users, call `client.users.delete`
 with their keys.
 
 <Divider.Divider x />
