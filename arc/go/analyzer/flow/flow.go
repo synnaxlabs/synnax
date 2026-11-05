@@ -76,12 +76,19 @@ func Analyze(ctx context.Context[parser.IFlowStatementContext]) {
 	warnNumericTransitions(ctx)
 }
 
-// rejectTransitionIntoBranch blocks a `=>` feeding a routing table or select().
+// rejectTransitionIntoBranch blocks a `=>` on either side of a routing table or
+// feeding select().
 func rejectTransitionIntoBranch[T antlr.ParserRuleContext](ctx context.Context[T]) {
 	children := ctx.AST.GetChildren()
 	for i, child := range children {
 		op, ok := child.(parser.IFlowOperatorContext)
 		if !ok || op.TRANSITION() == nil || i+1 >= len(children) {
+			continue
+		}
+		if _, ok := children[i-1].(parser.IRoutingTableContext); ok {
+			ctx.Diagnostics.Add(diagnostics.Errorf(op,
+				"'=>' cannot follow a routing table, use '->'",
+			))
 			continue
 		}
 		switch next := children[i+1].(type) {
@@ -151,20 +158,55 @@ func parseFunction(
 	ctx context.Context[parser.IFunctionContext],
 	prevNode parser.IFlowNodeContext,
 ) {
+	call := analyzeCall(ctx, prevNode != nil)
+	if call == nil || prevNode == nil {
+		return
+	}
+	upstreamType, ok := resolveUpstreamType(ctx, prevNode, call.name)
+	if !ok {
+		return
+	}
+	call.consultTrigger(ctx, upstreamType)
+}
+
+// parseFedFunction analyzes a func node whose trigger is fed a value of
+// upstreamType by a routing entry.
+func parseFedFunction(
+	ctx context.Context[parser.IFunctionContext],
+	upstreamType types.Type,
+) {
+	if call := analyzeCall(ctx, true); call != nil {
+		call.consultTrigger(ctx, upstreamType)
+	}
+}
+
+// funcCall is a resolved func node whose call-site arguments were analyzed and
+// whose trigger still needs its upstream value checked.
+type funcCall struct {
+	sym   *symbol.Symbol
+	name  string
+	fresh types.Type
+	args  []symbol.Argument
+}
+
+// analyzeCall resolves ctx's func and checks its call-site arguments. fed reports
+// whether an upstream value fills the trigger. It returns nil when there is no
+// trigger to consult.
+func analyzeCall(ctx context.Context[parser.IFunctionContext], fed bool) *funcCall {
 	funcType, name := resolveFunc(ctx, ctx.AST)
 	if funcType == nil {
-		return
+		return nil
 	}
 	if funcType.Exec == symbol.ExecWASM {
 		analyzeWASMCall(ctx, funcType, name)
-		return
+		return nil
 	}
 
 	freshType := types.Freshen(funcType.Type, freshenKey(ctx.AST, name))
 	args := inputArguments(ctx, ctx.AST)
 
 	var externallySatisfied []string
-	if prevNode != nil && funcType.Trigger.Target != "" {
+	if fed && funcType.Trigger.Target != "" {
 		externallySatisfied = append(externallySatisfied, funcType.Trigger.Target)
 	}
 	if isFedByRoutingTable(ctx) {
@@ -183,26 +225,25 @@ func parseFunction(
 		funcType.Trigger.Target,
 		externallySatisfied...,
 	)
-
-	if prevNode == nil {
-		return
-	}
 	// TriggerOnly: the upstream is pure activation, so there is no input to
 	// type-check against its value (or absence).
 	if funcType.Trigger.Target == "" {
-		return
+		return nil
 	}
-	upstreamType, ok := resolveUpstreamType(ctx, prevNode, name)
-	if !ok {
-		return
-	}
+	return &funcCall{sym: funcType, name: name, fresh: freshType, args: args}
+}
+
+func (c *funcCall) consultTrigger(
+	ctx context.Context[parser.IFunctionContext],
+	upstreamType types.Type,
+) {
 	consultTrigger(
 		ctx,
-		funcType,
-		freshType,
-		name,
+		c.sym,
+		c.fresh,
+		c.name,
 		upstreamType,
-		suppliedNames(args, freshType, funcType.Trigger.Target),
+		suppliedNames(c.args, c.fresh, c.sym.Trigger.Target),
 	)
 }
 
@@ -214,31 +255,7 @@ func resolveUpstreamType(
 	name string,
 ) (types.Type, bool) {
 	if prevIDNode := prevNode.Identifier(); prevIDNode != nil {
-		idName := prevIDNode.IDENTIFIER().GetText()
-		idSym, err := ctx.Resolve(idName)
-		if err != nil {
-			ctx.Diagnostics.Add(diagnostics.Error(err, prevIDNode))
-			return types.Type{}, false
-		}
-		// A register-backed value variable feeds its current value.
-		if idSym.IsLiteral() {
-			return idSym.Type, true
-		}
-		isChanVar := idSym.Kind == symbol.KindVariable &&
-			idSym.Type.Kind == types.KindChan
-		if idSym.Kind != symbol.KindChannel && !isChanVar {
-			ctx.Diagnostics.Add(
-				diagnostics.Errorf(prevIDNode, "%s is not a channel", idName),
-			)
-			return types.Type{}, false
-		}
-		if idSym.Type.Kind != types.KindChan {
-			ctx.Diagnostics.Add(
-				diagnostics.Errorf(ctx.AST, "%s is not a valid channel", idName),
-			)
-			return types.Type{}, false
-		}
-		return idSym.Type.Unwrap(), true
+		return resolveSourceType(ctx, prevIDNode, prevIDNode.IDENTIFIER().GetText())
 	}
 	if prevExpr := prevNode.Expression(); prevExpr != nil {
 		return atypes.InferFromExpression(ctx.Child(prevExpr)).Unwrap(), true
@@ -263,6 +280,39 @@ func resolveUpstreamType(
 		return prevOutputType, true
 	}
 	return types.Type{}, false
+}
+
+// resolveSourceType returns the value type the channel or variable idName feeds
+// into a flow, and whether the caller should proceed. id locates diagnostics.
+func resolveSourceType[T antlr.ParserRuleContext](
+	ctx context.Context[T],
+	id antlr.ParserRuleContext,
+	idName string,
+) (types.Type, bool) {
+	idSym, err := ctx.Resolve(idName)
+	if err != nil {
+		ctx.Diagnostics.Add(diagnostics.Error(err, id))
+		return types.Type{}, false
+	}
+	// A register-backed value variable feeds its current value.
+	if idSym.IsLiteral() {
+		return idSym.Type, true
+	}
+	isChanVar := idSym.Kind == symbol.KindVariable &&
+		idSym.Type.Kind == types.KindChan
+	if idSym.Kind != symbol.KindChannel && !isChanVar {
+		ctx.Diagnostics.Add(
+			diagnostics.Errorf(id, "%s is not a channel", idName),
+		)
+		return types.Type{}, false
+	}
+	if idSym.Type.Kind != types.KindChan {
+		ctx.Diagnostics.Add(
+			diagnostics.Errorf(ctx.AST, "%s is not a valid channel", idName),
+		)
+		return types.Type{}, false
+	}
+	return idSym.Type.Unwrap(), true
 }
 
 // isFedByRoutingTable reports whether ctx's func node is the first func after a
@@ -539,16 +589,6 @@ func analyzeRoutingTable(ctx context.Context[parser.IRoutingTableContext]) {
 		return
 	}
 
-	tables := flowStmt.AllRoutingTable()
-
-	if len(tables) != 1 || tables[0] != ctx.AST {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
-			ctx.AST,
-			"unexpected routing table configuration",
-		))
-		return
-	}
-
 	var nodesBefore, nodesAfter []parser.IFlowNodeContext
 	foundRoutingTable := false
 
@@ -757,7 +797,7 @@ func checkEntryHeadParamMapping(
 		"routing table parameter mapping"); err != nil {
 		ctx.Diagnostics.Add(diagnostics.Errorf(
 			ctx.AST,
-			"type mismatch: output type %s does not match target parameter %s type %s",
+			"type mismatch: output type %s does not match parameter %s type %s",
 			headType,
 			targetParamName,
 			param.Type,
@@ -769,14 +809,7 @@ func analyzeInputRoutingTable(
 	ctx context.Context[parser.IRoutingTableContext],
 	nodes []parser.IFlowNodeContext,
 ) {
-	var nextFunc parser.IFunctionContext
-	for i := range nodes {
-		if fn := nodes[i].Function(); fn != nil {
-			nextFunc = fn
-			break
-		}
-	}
-
+	nextFunc := nodes[0].Function()
 	if nextFunc == nil {
 		ctx.Diagnostics.Add(
 			diagnostics.Errorf(
@@ -793,17 +826,21 @@ func analyzeInputRoutingTable(
 	}
 
 	for _, entry := range ctx.AST.AllRoutingEntry() {
-		flowNodes := entry.AllFlowNode()
-		if len(flowNodes) == 0 {
-			ctx.Diagnostics.Add(
-				diagnostics.Errorf(
-					entry,
-					"routing entry must have at least one target",
-				),
-			)
+		key := entry.RoutingKey()
+		if key.IDENTIFIER() == nil {
+			ctx.Diagnostics.Add(diagnostics.Errorf(
+				key,
+				"input routing key '%s' must be a channel or variable",
+				key.GetText(),
+			))
+			continue
+		}
+		sourceType, ok := resolveSourceType(ctx, key, key.GetText())
+		if !ok {
 			continue
 		}
 
+		flowNodes := entry.AllFlowNode()
 		lastNode := flowNodes[len(flowNodes)-1]
 		if lastNode.Identifier() == nil {
 			ctx.Diagnostics.Add(diagnostics.Errorf(
@@ -814,8 +851,7 @@ func analyzeInputRoutingTable(
 		}
 
 		paramName := lastNode.Identifier().IDENTIFIER().GetText()
-
-		paramType, exists := fnType.Type.Inputs.Get(paramName)
+		param, exists := fnType.Type.Inputs.Get(paramName)
 		if !exists {
 			ctx.Diagnostics.Add(diagnostics.Errorf(
 				lastNode,
@@ -826,14 +862,32 @@ func analyzeInputRoutingTable(
 			continue
 		}
 
-		// Analyze the flow chain: source (entry.IDENTIFIER) -> processing nodes ->
-		// parameter For type checking, we need to verify the output type of the chain
-		// matches paramType TODO: Implement full type checking for the flow chain See
-		// https://linear.app/synnax/issue/SY-3176/implement-full-type-checking-for-arc-flow-statements
-		_ = paramType
-
-		for i := 0; i < len(flowNodes)-1; i++ {
-			analyzeNode(ctx.Child(flowNodes[i]), nil, false)
+		// The key feeds the first processing node; each later node is fed by
+		// the one before it. The last processing node's result fills the param.
+		for i, flowNode := range flowNodes[:len(flowNodes)-1] {
+			child := ctx.Child(flowNode)
+			if i == 0 {
+				if fn := flowNode.Function(); fn != nil {
+					parseFedFunction(ctx.Child(fn), sourceType)
+				} else {
+					analyzeNode(child, nil, false)
+				}
+			} else {
+				analyzeRoutingTargetWithParam(
+					child, flowNodes[i-1], false, sourceType, types.Type{}, nil,
+				)
+			}
+			sourceType = inferFlowNodeOutputType(child)
+		}
+		if err := atypes.Check(ctx.Constraints, sourceType, param.Type, entry,
+			"input routing"); err != nil {
+			ctx.Diagnostics.Add(diagnostics.Errorf(
+				entry,
+				"type mismatch: value type %s does not match parameter %s type %s",
+				sourceType,
+				paramName,
+				param.Type,
+			))
 		}
 	}
 }
@@ -890,7 +944,7 @@ func analyzeRoutingTargetWithParam(
 					"routing table parameter mapping"); err != nil {
 					ctx.Diagnostics.Add(diagnostics.Errorf(
 						ctx.AST,
-						"type mismatch: func %s output type %s does not match target parameter %s type %s",
+						"type mismatch: func %s output type %s does not match parameter %s type %s",
 						fnName,
 						outputType,
 						*targetParam,

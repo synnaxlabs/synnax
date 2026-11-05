@@ -24,6 +24,7 @@ import (
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -4364,6 +4365,248 @@ time.wait(duration=500ms) -> output`
 						ContainSubstring("missing required argument for parameter 'b'"),
 					))
 				},
+			)
+		})
+
+		Context("Input Routing Tables", func() {
+			resolver := []symbol.Symbol{
+				{
+					Name: "a_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F64()),
+					ID:   10201,
+				},
+				{
+					Name: "b_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F64()),
+					ID:   10202,
+				},
+				{
+					Name: "flag_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.U8()),
+					ID:   10203,
+				},
+				{
+					Name: "out",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F64()),
+					ID:   10204,
+				},
+				{
+					Name: "c_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F64()),
+					ID:   10205,
+				},
+			}
+			combiner := `
+			func combiner() {a f64, b f64} f64 {
+			    return a + b
+			}
+			`
+			analyze := func(
+				ctx SpecContext, source string,
+			) (ir.IR, *diagnostics.Diagnostics) {
+				GinkgoHelper()
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: combiner + source}))
+				return text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+			}
+
+			It("Should wire each entry to the named trigger", func(ctx SpecContext) {
+				inter, diagnostics := analyze(ctx, `
+				{
+				    a_ch: a,
+				    b_ch: b
+				} -> combiner() -> out`)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				Expect(inter.Nodes).To(HaveLen(4))
+				Expect(inter.Edges).To(HaveLen(3))
+				edges := ir.Edges(inter.Edges)
+				aEdge := MustBeOk(edges.FindByTarget(
+					ir.Handle{Node: "combiner_0", Param: "a"},
+				))
+				Expect(aEdge.Source).To(Equal(
+					ir.Handle{Node: "on_a_ch_0", Param: ir.DefaultOutputParam},
+				))
+				Expect(aEdge.Kind).To(Equal(ir.EdgeKindContinuous))
+				bEdge := MustBeOk(edges.FindByTarget(
+					ir.Handle{Node: "combiner_0", Param: "b"},
+				))
+				Expect(bEdge.Source).To(Equal(
+					ir.Handle{Node: "on_b_ch_0", Param: ir.DefaultOutputParam},
+				))
+				outEdge := MustBeOk(edges.FindByTarget(
+					ir.Handle{Node: "write_out_0", Param: "input"},
+				))
+				Expect(outEdge.Source).To(Equal(
+					ir.Handle{Node: "combiner_0", Param: ir.DefaultOutputParam},
+				))
+			})
+
+			It("Should wire three entries", func(ctx SpecContext) {
+				inter, diagnostics := analyze(ctx, `
+				func sum3() {a f64, b f64, c f64} f64 {
+				    return a + b + c
+				}
+
+				{
+				    a_ch: a,
+				    b_ch: b,
+				    c_ch: c
+				} -> sum3() -> out`)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				edges := ir.Edges(inter.Edges)
+				for param, source := range map[string]string{
+					"a": "on_a_ch_0", "b": "on_b_ch_0", "c": "on_c_ch_0",
+				} {
+					edge := MustBeOk(edges.FindByTarget(
+						ir.Handle{Node: "sum3_0", Param: param},
+					))
+					Expect(edge.Source.Node).To(Equal(source))
+				}
+			})
+
+			It("Should read a top-level variable as a source", func(ctx SpecContext) {
+				inter, diagnostics := analyze(ctx, `
+				gain := 2.0
+
+				{
+				    gain: a,
+				    b_ch: b
+				} -> combiner() -> out`)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				aEdge := MustBeOk(ir.Edges(inter.Edges).FindByTarget(
+					ir.Handle{Node: "combiner_0", Param: "a"},
+				))
+				source := findNodeByKey(inter.Nodes, aEdge.Source.Node)
+				Expect(source.Type).To(Equal("constant"))
+				Expect(source.Inputs[0].Value).To(Equal(2.0))
+			})
+
+			It(
+				"Should leave a defaulted trigger out of the table",
+				func(ctx SpecContext) {
+					inter, diagnostics := analyze(ctx, `
+				func offset() {a f64, b f64 = 10.0} f64 {
+				    return a + b
+				}
+
+				{
+				    a_ch: a
+				} -> offset() -> out`)
+					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+					offset := findNodeByKey(inter.Nodes, "offset_0")
+					Expect(MustBeOk(offset.Inputs.Get("b")).Value).To(Equal(10.0))
+				},
+			)
+
+			It("Should run an entry's chain before the trigger", func(ctx SpecContext) {
+				inter, diagnostics := analyze(ctx, `
+				func scale(k f64) {v f64} f64 {
+				    return v * k
+				}
+
+				{
+				    a_ch: scale(k=2.0) -> a,
+				    b_ch: b
+				} -> combiner() -> out`)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				Expect(inter.Nodes).To(HaveLen(5))
+				Expect(inter.Edges).To(HaveLen(4))
+				edges := ir.Edges(inter.Edges)
+				scaleIn := MustBeOk(edges.FindByTarget(
+					ir.Handle{Node: "scale_0", Param: "v"},
+				))
+				Expect(scaleIn.Source.Node).To(Equal("on_a_ch_0"))
+				aEdge := MustBeOk(edges.FindByTarget(
+					ir.Handle{Node: "combiner_0", Param: "a"},
+				))
+				Expect(aEdge.Source).To(Equal(
+					ir.Handle{Node: "scale_0", Param: ir.DefaultOutputParam},
+				))
+			})
+
+			It("Should keep a conditional edge inside an entry", func(ctx SpecContext) {
+				inter, diagnostics := analyze(ctx, `
+				func above(limit f64) {v f64} bool {
+				    return v > limit
+				}
+
+				func latch() {hit bool, b f64} f64 {
+				    return b
+				}
+
+				{
+				    a_ch: above(limit=5.0) => hit,
+				    b_ch: b
+				} -> latch() -> out`)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				hitEdge := MustBeOk(ir.Edges(inter.Edges).FindByTarget(
+					ir.Handle{Node: "latch_0", Param: "hit"},
+				))
+				Expect(hitEdge.Source.Node).To(Equal("above_0"))
+				Expect(hitEdge.Kind).To(Equal(ir.EdgeKindConditional))
+			})
+
+			It("Should continue into an output routing table", func(ctx SpecContext) {
+				inter, diagnostics := analyze(ctx, `
+				func band(limit f64) {v f64} (low f64, high f64) {
+				    if v > limit {
+				        high = v
+				    } else {
+				        low = v
+				    }
+				}
+
+				{
+				    a_ch: a,
+				    b_ch: b
+				} -> combiner() -> band(limit=50.0) -> {
+				    low: 0.0 -> out,
+				    high: 1.0 -> out
+				}`)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				bandIn := MustBeOk(ir.Edges(inter.Edges).FindByTarget(
+					ir.Handle{Node: "band_0", Param: "v"},
+				))
+				Expect(bandIn.Source.Node).To(Equal("combiner_0"))
+				Expect(findEdgeBySourceParam(inter.Edges, "low").Source.Node).To(
+					Equal("band_0"),
+				)
+				Expect(findEdgeBySourceParam(inter.Edges, "high").Source.Node).To(
+					Equal("band_0"),
+				)
+			})
+
+			DescribeTable("Should reject a malformed input routing table",
+				func(ctx SpecContext, source, message string) {
+					_, diagnostics := analyze(ctx, source)
+					Expect(diagnostics.Ok()).To(BeFalse())
+					Expect(diagnostics.String()).To(ContainSubstring(message))
+				},
+				Entry("undefined key",
+					`{ nope: a, b_ch: b } -> combiner() -> out`,
+					"undefined symbol: nope"),
+				Entry("true key",
+					`{ true: a, b_ch: b } -> combiner() -> out`,
+					"input routing key 'true' must be a channel or variable"),
+				Entry("unknown parameter",
+					`{ a_ch: nosuch, b_ch: b } -> combiner() -> out`,
+					"does not have parameter 'nosuch'"),
+				Entry("table before a channel",
+					`{ a_ch: a } -> out`,
+					"input routing table must precede a func invocation"),
+				Entry("unbound trigger with no default",
+					`{ a_ch: a } -> combiner() -> out`,
+					"missing required input 'b'"),
+				Entry("value type mismatch",
+					`{ flag_ch: a, b_ch: b } -> combiner() -> out`,
+					"does not match parameter a"),
+				Entry("transition after the table",
+					`{ a_ch: a, b_ch: b } => combiner() -> out`,
+					"'=>' cannot follow a routing table"),
 			)
 		})
 

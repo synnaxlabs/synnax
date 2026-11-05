@@ -3156,6 +3156,68 @@ sequence main {
 		)
 
 		Context("Input routing tables", func() {
+			It("Should feed an entry's chain head from the key", func(
+				bCtx SpecContext,
+			) {
+				ast := MustSucceed(parser.Parse(`
+				func scale(k f64) {v f64} f64 {
+				    return v * k
+				}
+
+				func combiner() {a f64, b f64} f64 {
+				    return a + b
+				}
+
+				{
+				    sensor_chan: scale(k=2.0) -> a,
+				    output_chan: b
+				} -> combiner()`))
+				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
+				analyzer.AnalyzeProgram(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			})
+
+			DescribeTable("Should reject a malformed input routing table",
+				func(bCtx SpecContext, source, message string) {
+					ast := MustSucceed(parser.Parse(`
+					func combiner() {a f64, b f64} f64 {
+					    return a + b
+					}
+
+					func gate() {a bool, b f64} f64 {
+					    return b
+					}
+
+					func above() {v f64} bool {
+					    return v > 5.0
+					}
+					` + source))
+					ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
+					analyzer.AnalyzeProgram(ctx)
+					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+					Expect(*ctx.Diagnostics).To(HaveLen(1))
+					Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(message))
+				},
+				Entry("undefined key",
+					`{ nope: a, output_chan: b } -> combiner()`,
+					"undefined symbol: nope"),
+				Entry("true key",
+					`{ true: a, output_chan: b } -> combiner()`,
+					"input routing key 'true' must be a channel or variable"),
+				Entry("function key",
+					`{ processor: a, output_chan: b } -> combiner()`,
+					"processor is not a channel"),
+				Entry("value type mismatch",
+					`{ sensor_chan: a, output_chan: b } -> gate()`,
+					"does not match parameter a"),
+				Entry("chain result type mismatch",
+					`{ sensor_chan: above() -> a, output_chan: b } -> combiner()`,
+					"does not match parameter a"),
+				Entry("transition after the table",
+					`{ sensor_chan: a, output_chan: b } => combiner()`,
+					"'=>' cannot follow a routing table"),
+			)
+
 			It(
 				"Should analyze input routing table mapping sources to parameters",
 				func(bCtx SpecContext) {
@@ -3865,7 +3927,7 @@ var _ = Describe("Routing entry strictness", func() {
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(ctx.Diagnostics.String()).To(
-				ContainSubstring("does not match target parameter a"),
+				ContainSubstring("does not match parameter a"),
 			)
 		},
 	)

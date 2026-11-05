@@ -485,36 +485,49 @@ func analyzeIdentifierByRole(
 		}
 		return flowNodeResult{transition: &intent}, true
 	default:
-		if rn := shell.varNodes[sym].readNode(sym); rn != nil {
-			if isSink && isExprReadVar(sym) {
-				ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
-					"cannot write to channel-read variable '%s'", name))
-				return flowNodeResult{}, false
-			}
-			if isSink {
+		if isSink {
+			if rn := shell.varNodes[sym].readNode(sym); rn != nil {
+				if isExprReadVar(sym) {
+					ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+						"cannot write to channel-read variable '%s'", name))
+					return flowNodeResult{}, false
+				}
 				return flowNodeResult{node: varFeederRef(rn)}, true
 			}
-			if isFirst {
-				return flowNodeResult{node: varReadRef(rn)}, true
-			}
-			return flowNodeResult{node: buildVarReadNode(sym, rn, kg)}, true
-		}
-		if !isSink && isConstVar(sym) {
-			return flowNodeResult{node: buildVarConstNode(sym, kg)}, true
-		}
-		if isSink {
 			r, ok := buildChannelWriteNode(name, sym, kg)
 			if e := shell.varNodes[sym]; ok && e.register != nil {
 				bindWriteToAlias(shell, e.register, &r.node, sym)
 			}
 			return flowNodeResult{node: r}, ok
 		}
-		r, ok := buildChannelReadNode(name, sym, kg)
-		if e := shell.varNodes[sym]; ok && e.register != nil {
-			bindReadToAlias(shell, e.register, &r.node, sym)
-		}
+		r, ok := analyzeReadIdentifier(name, sym, kg, shell, isFirst)
 		return flowNodeResult{node: r}, ok
 	}
+}
+
+// analyzeReadIdentifier lowers a channel or variable read. A chain head reads a
+// value variable by reference; a later node reads it through its own node.
+func analyzeReadIdentifier(
+	name string,
+	sym *symbol.Symbol,
+	kg *keyGenerator,
+	shell *shellBuilder,
+	isFirst bool,
+) (nodeResult, bool) {
+	if rn := shell.varNodes[sym].readNode(sym); rn != nil {
+		if isFirst {
+			return varReadRef(rn), true
+		}
+		return buildVarReadNode(sym, rn, kg), true
+	}
+	if isConstVar(sym) {
+		return buildVarConstNode(sym, kg), true
+	}
+	r, ok := buildChannelReadNode(name, sym, kg)
+	if e := shell.varNodes[sym]; ok && e.register != nil {
+		bindReadToAlias(shell, e.register, &r.node, sym)
+	}
+	return r, ok
 }
 
 // bindReadToAlias feeds a read node's channel param from the alias's register
@@ -1644,6 +1657,8 @@ type flowChainProcessor struct {
 	// inlineMembers collects lowered inline-body scopes for placement as members
 	// of the scope enclosing this flow.
 	inlineMembers []ir.Member
+	// pendingTable is a routing table whose entries feed the next function node.
+	pendingTable parser.IRoutingTableContext
 }
 
 func newFlowChainProcessor(
@@ -1714,6 +1729,10 @@ func (p *flowChainProcessor) processFlowNode(flowNode parser.IFlowNodeContext) b
 	p.currentIndex++
 	isLast := p.currentIndex == p.totalFlowNodes
 	isSink := isLast && flowNode.Identifier() != nil
+
+	if p.pendingTable != nil {
+		return p.processTableTarget(flowNode)
+	}
 
 	// Inject implicit triggers for an expression as the first node. A function
 	// node only has a synthetic when its callee is WASM-only.
@@ -1815,13 +1834,42 @@ func (p *flowChainProcessor) consumeTransition(
 	return true
 }
 
-func (p *flowChainProcessor) processRoutingTable(rt parser.IRoutingTableContext) bool {
-	if p.prevNode == nil {
+// processTableTarget lowers the function node a pending routing table feeds, then
+// the table's entries as edges into it.
+func (p *flowChainProcessor) processTableTarget(flowNode parser.IFlowNodeContext) bool {
+	rt := p.pendingTable
+	p.pendingTable = nil
+	fn := flowNode.Function()
+	if fn == nil {
 		p.ctx.Diagnostics.Add(diagnostics.Errorf(
-			p.ctx.AST,
-			"input routing tables not yet implemented in text compiler",
+			flowNode, "internal: routing table target is not a function",
 		))
 		return false
+	}
+	target, ok := analyzeFunctionNode(p.ctx.Child(fn), p.kg, p.shell, true)
+	if !ok {
+		return false
+	}
+	newNodes, newEdges, ok := analyzeInputRoutingTable(
+		p.ctx.Child(rt), target.node, p.kg, p.shell,
+	)
+	if !ok {
+		return false
+	}
+	p.nodes = append(p.nodes, newNodes...)
+	p.edges = append(p.edges, newEdges...)
+	if len(target.node.Outputs) > 0 {
+		p.prevOutput = target.output
+	}
+	p.prevNode = &target.node
+	p.nodes = append(p.nodes, target.node)
+	return true
+}
+
+func (p *flowChainProcessor) processRoutingTable(rt parser.IRoutingTableContext) bool {
+	if p.prevNode == nil {
+		p.pendingTable = rt
+		return true
 	}
 	newNodes, newEdges, inlineMembers, ok := analyzeOutputRoutingTable(
 		p.ctx.Child(rt),
@@ -2102,6 +2150,79 @@ func routingEntryEdgeKinds(entry parser.IRoutingEntryContext) []ir.EdgeKind {
 		kinds[i+1] = flowOperatorEdgeKind(op)
 	}
 	return kinds
+}
+
+// analyzeInputRoutingTable lowers each `source: node -> ... -> param` entry into
+// a chain of edges that ends at the named trigger of target.
+func analyzeInputRoutingTable(
+	ctx acontext.Context[parser.IRoutingTableContext],
+	target ir.Node,
+	kg *keyGenerator,
+	shell *shellBuilder,
+) ([]ir.Node, []ir.Edge, bool) {
+	var (
+		nodes []ir.Node
+		edges []ir.Edge
+	)
+	for _, entry := range ctx.AST.AllRoutingEntry() {
+		key := entry.RoutingKey()
+		name := key.GetText()
+		sym, err := ctx.Scope.Resolve(ctx, name)
+		if err != nil {
+			ctx.Diagnostics.Add(diagnostics.Error(err, key))
+			return nil, nil, false
+		}
+		source, ok := analyzeReadIdentifier(name, sym, kg, shell, true)
+		if !ok {
+			return nil, nil, false
+		}
+		if source.node.Key != "" {
+			nodes = append(nodes, source.node)
+		}
+		flowNodes := entry.AllFlowNode()
+		edgeKinds := routingEntryEdgeKinds(entry)
+		prevOutput := source.output
+		for i, flowNode := range flowNodes[:len(flowNodes)-1] {
+			result, ok := analyzeFlowNode(ctx.Child(flowNode), kg, shell, false, false)
+			if !ok {
+				return nil, nil, false
+			}
+			if result.transition != nil {
+				ctx.Diagnostics.Add(diagnostics.Errorf(
+					flowNode, "input routing entry cannot transition",
+				))
+				return nil, nil, false
+			}
+			node := result.node
+			if len(node.node.Outputs) == 0 {
+				ctx.Diagnostics.Add(diagnostics.Errorf(
+					flowNode,
+					"function '%s' has no output to connect in flow chain",
+					node.node.Type,
+				))
+				return nil, nil, false
+			}
+			edges = append(edges, ir.Edge{
+				Source: prevOutput,
+				Target: node.input,
+				Kind:   edgeKinds[i],
+			})
+			prevOutput = node.output
+			if node.node.Key != "" {
+				nodes = append(nodes, node.node)
+			}
+		}
+		last := flowNodes[len(flowNodes)-1]
+		edges = append(edges, ir.Edge{
+			Source: prevOutput,
+			Target: ir.Handle{
+				Node:  target.Key,
+				Param: last.Identifier().IDENTIFIER().GetText(),
+			},
+			Kind: edgeKinds[len(flowNodes)-1],
+		})
+	}
+	return nodes, edges, true
 }
 
 func analyzeOutputRoutingTable(

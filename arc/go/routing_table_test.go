@@ -408,6 +408,265 @@ var _ = Describe("Routing Table Runtime", func() {
 		)
 	})
 
+	Describe("Input Routing", func() {
+		resolver := channelSymbols(map[string]channelDef{
+			"trigger": {types.U8(), 50},
+			"a_ch":    {types.F64(), 100},
+			"b_ch":    {types.F64(), 200},
+			"c_ch":    {types.F64(), 250},
+			"out":     {types.F64(), 300},
+			"done_ch": {types.U8(), 400},
+		})
+		digests := []channels.Digest{
+			{Key: 50, DataType: telem.Uint8T},
+			{Key: 100, DataType: telem.Float64T},
+			{Key: 200, DataType: telem.Float64T},
+			{Key: 250, DataType: telem.Float64T},
+			{Key: 300, DataType: telem.Float64T},
+			{Key: 400, DataType: telem.Uint8T},
+		}
+		combinerSource := `
+		func combiner() {a f64, b f64} f64 {
+		    return a + b
+		}
+		`
+		written := func(h *runtimeHarness, key uint32) []float64 {
+			GinkgoHelper()
+			out, _ := h.Flush()
+			series := out.Get(key).Series
+			if len(series) == 0 {
+				return nil
+			}
+			return series[0].Unmarshal[float64]()
+		}
+		tick := func(ctx SpecContext, h *runtimeHarness) {
+			GinkgoHelper()
+			h.Tick(ctx, telem.Millisecond)
+			h.channelState.ClearReads()
+		}
+
+		It(
+			"Should run once every trigger has a value and keep the latest of each",
+			func(ctx SpecContext) {
+				h := newRuntimeHarness(ctx, combinerSource+`
+				{
+				    a_ch: a,
+				    b_ch: b
+				} -> combiner() -> out
+			`, resolver, digests...)
+				defer h.Close(ctx)
+
+				h.Ingest(100, telem.NewSeriesV(1.0))
+				tick(ctx, h)
+				Expect(h.Output("combiner_0", 0).Len()).To(Equal(int64(0)))
+				Expect(written(h, 300)).To(BeEmpty())
+
+				h.Ingest(200, telem.NewSeriesV(2.0))
+				tick(ctx, h)
+				Expect(h.OutputTime("combiner_0", 0).Len()).To(Equal(int64(1)))
+				Expect(written(h, 300)).To(Equal([]float64{3.0}))
+
+				h.Ingest(100, telem.NewSeriesV(5.0))
+				tick(ctx, h)
+				Expect(written(h, 300)).To(Equal([]float64{7.0}))
+
+				h.Ingest(200, telem.NewSeriesV(-1.0))
+				tick(ctx, h)
+				Expect(written(h, 300)).To(Equal([]float64{4.0}))
+			},
+		)
+
+		It(
+			"Should run once when every trigger arrives in one cycle",
+			func(ctx SpecContext) {
+				h := newRuntimeHarness(ctx, combinerSource+`
+			{
+			    a_ch: a,
+			    b_ch: b
+			} -> combiner() -> out
+			`, resolver, digests...)
+				defer h.Close(ctx)
+
+				h.Ingest(100, telem.NewSeriesV(1.0))
+				h.Ingest(200, telem.NewSeriesV(2.0))
+				tick(ctx, h)
+				out, _ := h.Flush()
+				Expect(out.Get(300).Series).To(HaveLen(1))
+				Expect(
+					out.Get(300).Series[0].Unmarshal[float64](),
+				).To(Equal([]float64{3.0}))
+
+				tick(ctx, h)
+				Expect(written(h, 300)).To(BeEmpty())
+			},
+		)
+
+		It("Should wait for every trigger of three", func(ctx SpecContext) {
+			h := newRuntimeHarness(ctx, `
+			func sum3() {a f64, b f64, c f64} f64 {
+			    return a + b + c
+			}
+
+			{
+			    a_ch: a,
+			    b_ch: b,
+			    c_ch: c
+			} -> sum3() -> out
+			`, resolver, digests...)
+			defer h.Close(ctx)
+
+			h.Ingest(100, telem.NewSeriesV(1.0))
+			tick(ctx, h)
+			h.Ingest(200, telem.NewSeriesV(2.0))
+			tick(ctx, h)
+			Expect(written(h, 300)).To(BeEmpty())
+
+			h.Ingest(250, telem.NewSeriesV(3.0))
+			tick(ctx, h)
+			Expect(written(h, 300)).To(Equal([]float64{6.0}))
+		})
+
+		It(
+			"Should run on one trigger when the other has a default",
+			func(ctx SpecContext) {
+				h := newRuntimeHarness(ctx, `
+			func offset() {a f64, b f64 = 10.0} f64 {
+			    return a + b
+			}
+
+			{
+			    a_ch: a
+			} -> offset() -> out
+			`, resolver, digests...)
+				defer h.Close(ctx)
+
+				h.Ingest(100, telem.NewSeriesV(1.0))
+				tick(ctx, h)
+				Expect(written(h, 300)).To(Equal([]float64{11.0}))
+			},
+		)
+
+		It("Should run an entry's chain before the trigger", func(ctx SpecContext) {
+			h := newRuntimeHarness(ctx, combinerSource+`
+			func scale(k f64) {v f64} f64 {
+			    return v * k
+			}
+
+			{
+			    a_ch: scale(k=2.0) -> a,
+			    b_ch: b
+			} -> combiner() -> out
+			`, resolver, digests...)
+			defer h.Close(ctx)
+
+			h.Ingest(100, telem.NewSeriesV(1.0))
+			h.Ingest(200, telem.NewSeriesV(2.0))
+			tick(ctx, h)
+			Expect(written(h, 300)).To(Equal([]float64{4.0}))
+
+			h.Ingest(100, telem.NewSeriesV(3.0))
+			tick(ctx, h)
+			Expect(written(h, 300)).To(Equal([]float64{8.0}))
+		})
+
+		It(
+			"Should feed a conditional entry only on a true value",
+			func(ctx SpecContext) {
+				h := newRuntimeHarness(ctx, `
+			func above(limit f64) {v f64} bool {
+			    return v > limit
+			}
+
+			func latch() {hit bool, b f64} f64 {
+			    return b
+			}
+
+			{
+			    a_ch: above(limit=5.0) => hit,
+			    b_ch: b
+			} -> latch() -> out
+			`, resolver, digests...)
+				defer h.Close(ctx)
+
+				h.Ingest(200, telem.NewSeriesV(2.0))
+				tick(ctx, h)
+				h.Ingest(100, telem.NewSeriesV(1.0))
+				tick(ctx, h)
+				Expect(written(h, 300)).To(BeEmpty())
+
+				h.Ingest(100, telem.NewSeriesV(10.0))
+				tick(ctx, h)
+				Expect(written(h, 300)).To(Equal([]float64{2.0}))
+			},
+		)
+
+		It("Should continue into an output routing table", func(ctx SpecContext) {
+			h := newRuntimeHarness(ctx, combinerSource+`
+			func band(limit f64) {v f64} (low u8, high u8) {
+			    if v > limit {
+			        high = 1
+			    } else {
+			        low = 1
+			    }
+			}
+
+			{
+			    a_ch: a,
+			    b_ch: b
+			} -> combiner() -> band(limit=50.0) -> {
+			    low: 0.0 -> out,
+			    high: 1.0 -> out
+			}
+			`, resolver, digests...)
+			defer h.Close(ctx)
+
+			h.Ingest(100, telem.NewSeriesV(1.0))
+			h.Ingest(200, telem.NewSeriesV(2.0))
+			tick(ctx, h)
+			Expect(written(h, 300)).To(Equal([]float64{0.0}))
+
+			h.Ingest(100, telem.NewSeriesV(100.0))
+			tick(ctx, h)
+			Expect(written(h, 300)).To(Equal([]float64{1.0}))
+		})
+
+		It(
+			"Should advance a sequence step after the table's func runs",
+			func(ctx SpecContext) {
+				h := newRuntimeHarness(ctx, combinerSource+`
+			trigger => main
+
+			sequence main {
+			    {
+			        a_ch: a,
+			        b_ch: b
+			    } -> combiner() -> out
+			    1 -> done_ch
+			}
+			`, resolver, digests...)
+				defer h.Close(ctx)
+
+				h.Ingest(50, telem.NewSeriesV[uint8](1))
+				tick(ctx, h)
+				h.Ingest(100, telem.NewSeriesV(1.0))
+				tick(ctx, h)
+				out, _ := h.Flush()
+				Expect(out.Get(300).Series).To(BeEmpty())
+				Expect(out.Get(400).Series).To(BeEmpty())
+
+				h.Ingest(200, telem.NewSeriesV(2.0))
+				tick(ctx, h)
+				out, _ = h.Flush()
+				Expect(out.Get(300).Series).To(HaveLen(1))
+				Expect(
+					out.Get(300).Series[0].Unmarshal[float64](),
+				).To(Equal([]float64{3.0}))
+				Expect(out.Get(400).Series).To(HaveLen(1))
+				Expect(out.Get(400).Series[0].Unmarshal[uint8]()).To(Equal([]uint8{1}))
+			},
+		)
+	})
+
 	Describe("Chained Routing", func() {
 		It(
 			"Should route through a processing function with correct intermediate outputs",
