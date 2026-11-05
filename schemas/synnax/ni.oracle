@@ -295,37 +295,79 @@ TemperatureUnits enum {
 }
 
 RTDType enum {
-    pt_3750 = "Pt3750"
-    pt_3851 = "Pt3851"
-    pt_3911 = "Pt3911"
-    pt_3916 = "Pt3916"
-    pt_3920 = "Pt3920"
-    pt_3928 = "Pt3928"
+    pt_3750 = "Pt3750" {
+        @doc value "is a low-cost platinum RTD with a coefficient of 0.00375."
+    }
+    pt_3851 = "Pt3851" {
+        @doc value "is an IEC 60751 platinum RTD with a coefficient of 0.003851."
+    }
+    pt_3911 = "Pt3911" {
+        @doc value "is a platinum RTD with a coefficient of 0.003911."
+    }
+    pt_3916 = "Pt3916" {
+        @doc value "is a JISC 1604 platinum RTD with a coefficient of 0.003916."
+    }
+    pt_3920 = "Pt3920" {
+        @doc value "is a D-100 platinum RTD with a coefficient of 0.00392."
+    }
+    pt_3928 = "Pt3928" {
+        @doc value "is an ITS-90 platinum RTD with a coefficient of 0.003928."
+    }
 
     @doc value "selects the resistance-temperature curve of an RTD sensor."
 }
 
 StrainConfig enum {
-    full_bridge_i     = "FullBridgeI"
-    full_bridge_ii    = "FullBridgeII"
-    full_bridge_iii   = "FullBridgeIII"
-    half_bridge_i     = "HalfBridgeI"
-    half_bridge_ii    = "HalfBridgeII"
-    quarter_bridge_i  = "QuarterBridgeI"
-    quarter_bridge_ii = "QuarterBridgeII"
+    full_bridge_i     = "FullBridgeI" {
+        @doc value "measures bending strain with four active gauges."
+    }
+    full_bridge_ii    = "FullBridgeII" {
+        @doc value "measures bending strain with two Poisson gauges of four."
+    }
+    full_bridge_iii   = "FullBridgeIII" {
+        @doc value "measures axial strain with two Poisson gauges of four."
+    }
+    half_bridge_i     = "HalfBridgeI" {
+        @doc value "measures axial or bending strain with one Poisson gauge."
+    }
+    half_bridge_ii    = "HalfBridgeII" {
+        @doc value "measures bending strain with tension and compression gauges."
+    }
+    quarter_bridge_i  = "QuarterBridgeI" {
+        @doc value "measures axial or bending strain with one active gauge."
+    }
+    quarter_bridge_ii = "QuarterBridgeII" {
+        @doc value "pairs one active gauge with a dummy gauge for temperature."
+    }
 
     @doc value "selects the strain-gauge bridge configuration."
 }
 
 ThermocoupleType enum {
-    j = "J"
-    k = "K"
-    n = "N"
-    r = "R"
-    s = "S"
-    t = "T"
-    b = "B"
-    e = "E"
+    j = "J" {
+        @doc value "pairs iron with copper-nickel."
+    }
+    k = "K" {
+        @doc value "pairs nickel-chromium with nickel-aluminum."
+    }
+    n = "N" {
+        @doc value "pairs nickel-chromium-silicon with nickel-silicon-magnesium."
+    }
+    r = "R" {
+        @doc value "pairs platinum-13% rhodium with platinum."
+    }
+    s = "S" {
+        @doc value "pairs platinum-10% rhodium with platinum."
+    }
+    t = "T" {
+        @doc value "pairs copper with copper-nickel."
+    }
+    b = "B" {
+        @doc value "pairs platinum-30% rhodium with platinum-6% rhodium."
+    }
+    e = "E" {
+        @doc value "pairs nickel-chromium with copper-nickel."
+    }
 
     @doc value "selects the thermocouple alloy type."
 }

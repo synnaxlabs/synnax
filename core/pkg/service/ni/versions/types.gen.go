@@ -238,11 +238,17 @@ const (
 type RTDType = v3.RTDType
 
 const (
+	// RTDTypePt3750 is a low-cost platinum RTD with a coefficient of 0.00375.
 	RTDTypePt3750 RTDType = v3.RTDTypePt3750
+	// RTDTypePt3851 is an IEC 60751 platinum RTD with a coefficient of 0.003851.
 	RTDTypePt3851 RTDType = v3.RTDTypePt3851
+	// RTDTypePt3911 is a platinum RTD with a coefficient of 0.003911.
 	RTDTypePt3911 RTDType = v3.RTDTypePt3911
+	// RTDTypePt3916 is a JISC 1604 platinum RTD with a coefficient of 0.003916.
 	RTDTypePt3916 RTDType = v3.RTDTypePt3916
+	// RTDTypePt3920 is a D-100 platinum RTD with a coefficient of 0.00392.
 	RTDTypePt3920 RTDType = v3.RTDTypePt3920
+	// RTDTypePt3928 is an ITS-90 platinum RTD with a coefficient of 0.003928.
 	RTDTypePt3928 RTDType = v3.RTDTypePt3928
 )
 
@@ -250,12 +256,22 @@ const (
 type StrainConfig = v3.StrainConfig
 
 const (
-	StrainConfigFullBridgeI     StrainConfig = v3.StrainConfigFullBridgeI
-	StrainConfigFullBridgeIi    StrainConfig = v3.StrainConfigFullBridgeIi
-	StrainConfigFullBridgeIii   StrainConfig = v3.StrainConfigFullBridgeIii
-	StrainConfigHalfBridgeI     StrainConfig = v3.StrainConfigHalfBridgeI
-	StrainConfigHalfBridgeIi    StrainConfig = v3.StrainConfigHalfBridgeIi
-	StrainConfigQuarterBridgeI  StrainConfig = v3.StrainConfigQuarterBridgeI
+	// StrainConfigFullBridgeI measures bending strain with four active gauges.
+	StrainConfigFullBridgeI StrainConfig = v3.StrainConfigFullBridgeI
+	// StrainConfigFullBridgeIi measures bending strain with two Poisson gauges of four.
+	StrainConfigFullBridgeIi StrainConfig = v3.StrainConfigFullBridgeIi
+	// StrainConfigFullBridgeIii measures axial strain with two Poisson gauges of four.
+	StrainConfigFullBridgeIii StrainConfig = v3.StrainConfigFullBridgeIii
+	// StrainConfigHalfBridgeI measures axial or bending strain with one Poisson gauge.
+	StrainConfigHalfBridgeI StrainConfig = v3.StrainConfigHalfBridgeI
+	// StrainConfigHalfBridgeIi measures bending strain with tension and compression
+	// gauges.
+	StrainConfigHalfBridgeIi StrainConfig = v3.StrainConfigHalfBridgeIi
+	// StrainConfigQuarterBridgeI measures axial or bending strain with one active
+	// gauge.
+	StrainConfigQuarterBridgeI StrainConfig = v3.StrainConfigQuarterBridgeI
+	// StrainConfigQuarterBridgeIi pairs one active gauge with a dummy gauge for
+	// temperature.
 	StrainConfigQuarterBridgeIi StrainConfig = v3.StrainConfigQuarterBridgeIi
 )
 
@@ -263,13 +279,21 @@ const (
 type ThermocoupleType = v3.ThermocoupleType
 
 const (
+	// ThermocoupleTypeJ pairs iron with copper-nickel.
 	ThermocoupleTypeJ ThermocoupleType = v3.ThermocoupleTypeJ
+	// ThermocoupleTypeK pairs nickel-chromium with nickel-aluminum.
 	ThermocoupleTypeK ThermocoupleType = v3.ThermocoupleTypeK
+	// ThermocoupleTypeN pairs nickel-chromium-silicon with nickel-silicon-magnesium.
 	ThermocoupleTypeN ThermocoupleType = v3.ThermocoupleTypeN
+	// ThermocoupleTypeR pairs platinum-13% rhodium with platinum.
 	ThermocoupleTypeR ThermocoupleType = v3.ThermocoupleTypeR
+	// ThermocoupleTypeS pairs platinum-10% rhodium with platinum.
 	ThermocoupleTypeS ThermocoupleType = v3.ThermocoupleTypeS
+	// ThermocoupleTypeT pairs copper with copper-nickel.
 	ThermocoupleTypeT ThermocoupleType = v3.ThermocoupleTypeT
+	// ThermocoupleTypeB pairs platinum-30% rhodium with platinum-6% rhodium.
 	ThermocoupleTypeB ThermocoupleType = v3.ThermocoupleTypeB
+	// ThermocoupleTypeE pairs nickel-chromium with copper-nickel.
 	ThermocoupleTypeE ThermocoupleType = v3.ThermocoupleTypeE
 )
 
