@@ -33,6 +33,11 @@ func (s *lateSource) Flow(ctx signal.Context, opts ...confluence.Option) {
 	s.LinearTransform.Flow(ctx, opts...)
 }
 
+// panicSink panics in Flow.
+type panicSink struct{ confluence.UnarySink[int] }
+
+func (*panicSink) Flow(signal.Context, ...confluence.Option) { panic("bad flow") }
+
 var _ = Describe("Pipeline", func() {
 	var pipe *Pipeline
 	BeforeEach(func() { pipe = New() })
@@ -49,6 +54,28 @@ var _ = Describe("Pipeline", func() {
 			pipe.SetSink("sink", unarySink)
 			sink := MustSucceed(pipe.GetSink[int]("sink"))
 			Expect(sink).To(Equal(unarySink))
+		})
+	})
+
+	Describe("Panic in Flow", func() {
+		It("Should start the routines of the segments that flowed", func() {
+			ran := make(chan struct{})
+			source := &confluence.LinearTransform[int, int]{}
+			source.Transform = func(context.Context, int) (int, bool, error) {
+				close(ran)
+				return 0, false, nil
+			}
+			in := confluence.NewStream[int](1)
+			in.Inlet() <- 1
+			source.InFrom(in)
+			pipe.SetSource("source", source)
+			pipe.SetSink("sink", &panicSink{})
+			pipe.MustConnect[int]("source", "sink", 1)
+			sCtx, cancel := signal.Isolated()
+			Expect(func() { pipe.Flow(sCtx) }).To(PanicWith("bad flow"))
+			Eventually(ran).Should(BeClosed())
+			cancel()
+			Expect(sCtx.Wait()).To(MatchError(context.Canceled))
 		})
 	})
 

@@ -84,6 +84,8 @@ func (e entry) Flow(ctx signal.Context, opts ...cfs.Option) {
 
 func (p *Pipeline) Flow(ctx signal.Context, opts ...cfs.Option) {
 	held := &heldContext{Context: ctx}
+	// A transport recovers a panic in Flow, and these routines release what they own.
+	defer held.release()
 	for addr, e := range p.Sources {
 		e.Flow(held, append(opts, cfs.WithAddress(addr))...)
 	}
@@ -92,7 +94,6 @@ func (p *Pipeline) Flow(ctx signal.Context, opts ...cfs.Option) {
 			e.Flow(held, append(opts, cfs.WithAddress(addr))...)
 		}
 	}
-	held.release()
 }
 
 // heldContext holds back the routines of a Pipeline until each of its segments has
