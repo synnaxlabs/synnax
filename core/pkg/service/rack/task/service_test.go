@@ -52,7 +52,7 @@ var _ = Describe("Service", func() {
 
 	Describe("Normalize", func() {
 		It("Should import a config released Cores stamped at 1", func(ctx SpecContext) {
-			MustSucceed(svc.Status.Normalize(ctx, 1, msgpack.EncodedJSON{}))
+			MustSucceed(svc.Status.Normalize(ctx, nil, 1, msgpack.EncodedJSON{}))
 		})
 	})
 

@@ -80,6 +80,8 @@ var _ = Describe("Service", func() {
 		It("Should store a decoded read config under the given key", func(
 			ctx SpecContext,
 		) {
+			Expect(tasks.CreateDevice(ctx, "dev-1")).To(Succeed())
+			Expect(tasks.CreateChannels(ctx, 42)).To(Succeed())
 			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
 				"device":      "dev-1",
 				"sample_rate": 25,
@@ -202,8 +204,7 @@ var _ = Describe("Service", func() {
 		DescribeTable(
 			"Should make a v1 false follow the device and keep a v1 true",
 			func(ctx SpecContext, store func() config.Store) {
-				ch := channel(MustSucceed(store().Normalize(
-					ctx,
+				ch := channel(MustSucceed(store().Normalize(ctx, nil,
 					v1.Version,
 					msgpack.EncodedJSON{"channels": []any{register(map[string]any{
 						"bytes_swapped": false,
@@ -220,14 +221,16 @@ var _ = Describe("Service", func() {
 		It("Should make a released Console's swap_bytes false follow the device", func(
 			ctx SpecContext,
 		) {
-			ch := channel(MustSucceed(svc.Read.Normalize(ctx, 0, msgpack.EncodedJSON{
-				"channels": []any{map[string]any{
-					"type":       "holding_register_input",
-					"key":        "chan-1",
-					"swap_bytes": false,
-					"swap_words": true,
-				}},
-			})))
+			ch := channel(
+				MustSucceed(svc.Read.Normalize(ctx, nil, 0, msgpack.EncodedJSON{
+					"channels": []any{map[string]any{
+						"type":       "holding_register_input",
+						"key":        "chan-1",
+						"swap_bytes": false,
+						"swap_words": true,
+					}},
+				})),
+			)
 			Expect(ch).To(HaveKeyWithValue("type", "holding_register"))
 			Expect(ch).ToNot(HaveKey("bytes_swapped"))
 			Expect(ch).To(HaveKeyWithValue("words_swapped", true))
@@ -267,5 +270,108 @@ var _ = Describe("Service", func() {
 			Expect(chs[1]).To(HaveKeyWithValue("bytes_swapped", true))
 			Expect(chs[1]).ToNot(HaveKey("words_swapped"))
 		})
+	})
+	Describe("References", func() {
+		It("Should refuse a config that names a channel that does not exist", func(
+			ctx SpecContext,
+		) {
+			Expect(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type":    "coil",
+					"key":     "chan-1",
+					"channel": 4242,
+				}},
+			})).Error().To(MatchError(
+				ContainSubstring("channels.channel: channel 4242 does not exist"),
+			))
+		})
+
+		It("Should refuse a config that names a device that does not exist", func(
+			ctx SpecContext,
+		) {
+			Expect(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{
+				"device": "missing",
+			})).Error().To(MatchError(
+				ContainSubstring("device: device missing does not exist"),
+			))
+		})
+
+		It("Should drop the channels and devices that do not exist on normalize", func(
+			ctx SpecContext,
+		) {
+			Expect(tasks.CreateChannels(ctx, 4243)).To(Succeed())
+			out := MustSucceed(svc.Read.Normalize(ctx, nil, svc.Read.Version(),
+				msgpack.EncodedJSON{
+					"device": "missing",
+					"channels": []any{
+						map[string]any{"type": "coil", "key": "a", "channel": 4243},
+						map[string]any{"type": "coil", "key": "b", "channel": 4244},
+					},
+				},
+			))
+			Expect(out).To(HaveKeyWithValue("device", ""))
+			Expect(out["channels"]).To(HaveExactElements(
+				SatisfyAll(
+					HaveKeyWithValue("key", "a"),
+					HaveKeyWithValue("channel", BeEquivalentTo(4243)),
+				),
+				SatisfyAll(
+					HaveKeyWithValue("key", "b"),
+					HaveKeyWithValue("channel", BeEquivalentTo(0)),
+				),
+			))
+		})
+
+		It(
+			"Should reset the stored channels and devices that do not exist on open",
+			func(
+				ctx SpecContext,
+			) {
+				stored := DeferClose(gorp.Wrap(memkv.New()))
+				targets := MustOpen(
+					tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
+						DB: stored,
+					}),
+				)
+				Expect(targets.CreateChannels(ctx, 10)).To(Succeed())
+				Expect(targets.CreateDevice(ctx, "kept")).To(Succeed())
+				key := uuid.New()
+				read := modbus.ReadConfig{
+					Device: "gone",
+					Channels: []modbus.ReadChannel{
+						{Variant: modbus.CoilReadChannel{
+							BaseReadChannel: modbus.BaseReadChannel{
+								Key:     "a",
+								Channel: 9,
+							},
+						}},
+						{Variant: modbus.CoilReadChannel{
+							BaseReadChannel: modbus.BaseReadChannel{
+								Key:     "b",
+								Channel: 10,
+							},
+						}},
+					},
+				}
+				read.SetKey(key)
+				write := modbus.WriteConfig{Device: "kept"}
+				write.SetKey(key)
+				Expect(gorp.NewCreate[uuid.UUID, modbus.ReadConfig]().
+					Entry(&read).Exec(ctx, stored)).To(Succeed())
+				Expect(gorp.NewCreate[uuid.UUID, modbus.WriteConfig]().
+					Entry(&write).Exec(ctx, stored)).To(Succeed())
+				opened := MustOpen(
+					modbus.OpenService(ctx, modbus.ServiceConfig{DB: stored}),
+				)
+				data := MustSucceed(opened.Read.Read(ctx, nil, key))
+				Expect(data).To(HaveKeyWithValue("device", ""))
+				Expect(data["channels"]).To(HaveExactElements(
+					HaveKeyWithValue("channel", BeEquivalentTo(0)),
+					HaveKeyWithValue("channel", BeEquivalentTo(10)),
+				))
+				Expect(MustSucceed(opened.Write.Read(ctx, nil, key))).
+					To(HaveKeyWithValue("device", "kept"))
+			},
+		)
 	})
 })

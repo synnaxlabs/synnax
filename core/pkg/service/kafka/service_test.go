@@ -62,6 +62,7 @@ var _ = Describe("Service", func() {
 		It("Should store a decoded read config under the given key", func(
 			ctx SpecContext,
 		) {
+			Expect(tasks.CreateDevice(ctx, "dev-1")).To(Succeed())
 			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
 				"device": "dev-1",
 				"topic":  "telemetry",

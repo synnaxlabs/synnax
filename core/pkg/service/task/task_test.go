@@ -122,6 +122,14 @@ var _ = Describe("Task", Ordered, func() {
 		}))
 		testRack = &rack.Rack{Name: "Test Rack"}
 		Expect(rackService.NewWriter(db).Create(ctx, testRack)).To(Succeed())
+		for _, k := range []status.Key{"st-1", "st-2", "st-a", "st-b"} {
+			Expect(stat.NewWriter(nil).Set(ctx, &status.Status[any]{
+				Key:     k,
+				Name:    string(k),
+				Variant: status.VariantInfo,
+				Time:    telem.Now(),
+			})).To(Succeed())
+		}
 	})
 	openTx := func() {
 		tx = DeferClose(db.OpenTx())

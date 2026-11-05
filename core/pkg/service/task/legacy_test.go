@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/http"
@@ -44,6 +45,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
+	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -305,6 +307,66 @@ func expectSubset(path string, expected, actual any) {
 	}
 }
 
+// channelFields name the fields of a stored config that hold channel keys.
+var channelFields = set.New(
+	"channel",
+	"cmd_channel",
+	"state_channel",
+	"command_channel",
+)
+
+// createFixtureTargets creates the channels, devices, and statuses that the stored
+// fixtures in testdata/legacy/expected reference, so an import keeps every key.
+func createFixtureTargets(ctx context.Context, targets *tasktestutil.Targets) {
+	GinkgoHelper()
+	var (
+		channels []channel.Key
+		devices  = make(set.Set[device.Key])
+		statuses = make(set.Set[status.Key])
+		walk     func(v any)
+	)
+	walk = func(v any) {
+		switch v := v.(type) {
+		case map[string]any:
+			for k, f := range v {
+				switch key := f.(type) {
+				case float64:
+					if channelFields.Contains(k) && key != 0 {
+						channels = append(channels, channel.Key(key))
+					}
+				case string:
+					if k == "device" && key != "" {
+						devices.Add(device.Key(key))
+					}
+					if k == "status" && key != "" {
+						statuses.Add(status.Key(key))
+					}
+				}
+				walk(f)
+			}
+		case []any:
+			for _, e := range v {
+				walk(e)
+			}
+		}
+	}
+	paths := MustSucceed(
+		filepath.Glob(filepath.Join("testdata", "legacy", "expected", "*.json")),
+	)
+	for _, path := range paths {
+		var stored any
+		Expect(json.Unmarshal(MustSucceed(os.ReadFile(path)), &stored)).To(Succeed())
+		walk(stored)
+	}
+	Expect(targets.CreateChannels(ctx, channels...)).To(Succeed())
+	for d := range devices {
+		Expect(targets.CreateDevice(ctx, d)).To(Succeed())
+	}
+	for st := range statuses {
+		Expect(targets.CreateStatus(ctx, st)).To(Succeed())
+	}
+}
+
 var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 	var (
 		svc     *task.Service
@@ -357,6 +419,15 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 				Name: "arc_py",
 			},
 		}).Exec(ctx, db)).To(Succeed())
+		createFixtureTargets(ctx, MustOpen(tasktestutil.OpenTargets(
+			ctx,
+			tasktestutil.TargetsConfig{
+				DB:     db,
+				Device: deviceSvc,
+				Status: statusSvc,
+				Rack:   rackSvc.EmbeddedKey,
+			},
+		)))
 		var stores []config.Store
 		stores = append(
 			stores,
@@ -505,7 +576,7 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			Expect(json.Unmarshal(raw, &legacy)).To(Succeed())
 			delete(legacy, "type")
 			store := MustBeOk(configs.Store(env.Type))
-			expected := MustSucceed(store.Normalize(ctx, 0, legacy))
+			expected := MustSucceed(store.Normalize(ctx, nil, 0, legacy))
 			// The store assigns the key on write.
 			delete(expected, "key")
 			expectSubset(
@@ -516,12 +587,12 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 
 			// The rewrite and the ladder must leave their own output unchanged.
 			if reimportErr, ok := legacyReimportErrors[env.Type]; ok {
-				Expect(store.Normalize(ctx, 0, imported.Config)).Error().
+				Expect(store.Normalize(ctx, nil, 0, imported.Config)).Error().
 					To(MatchError(ContainSubstring(reimportErr)))
-				Expect(store.Normalize(ctx, store.Version(), imported.Config)).
+				Expect(store.Normalize(ctx, nil, store.Version(), imported.Config)).
 					To(Equal(imported.Config))
 			} else {
-				Expect(store.Normalize(ctx, 0, imported.Config)).
+				Expect(store.Normalize(ctx, nil, 0, imported.Config)).
 					To(Equal(imported.Config))
 			}
 

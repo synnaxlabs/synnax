@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/labjack"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/ni"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
@@ -35,6 +36,7 @@ import (
 	statusv2 "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
+	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
@@ -195,6 +197,23 @@ var _ = Describe("Migrations", func() {
 			}))
 			testRack := &rack.Rack{Name: "Decompose Test Rack"}
 			Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
+			targets := MustOpen(
+				tasktestutil.OpenTargets(ctx, tasktestutil.TargetsConfig{
+					DB: db,
+					Device: MustOpen(device.OpenService(ctx, device.ServiceConfig{
+						DB:       db,
+						Ontology: otg,
+						Group:    g,
+						Status:   stat,
+						Rack:     rackSvc,
+					})),
+					Status: stat,
+					Rack:   testRack.Key,
+				}),
+			)
+			Expect(targets.CreateDevice(ctx, "dev-ni")).To(Succeed())
+			Expect(targets.CreateDevice(ctx, "dev-lj")).To(Succeed())
+			Expect(targets.CreateChannels(ctx, 7, 8, 101, 102)).To(Succeed())
 
 			MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
 			arcModule := arc.Arc{Key: uuid.New(), Name: "Stored Arc"}

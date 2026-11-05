@@ -58,6 +58,7 @@ var _ = Describe("Service", func() {
 		It("Should store a decoded alert config under the given key", func(
 			ctx SpecContext,
 		) {
+			Expect(tasks.CreateStatus(ctx, "status-1")).To(Succeed())
 			key := MustSucceed(tasks.Create(ctx, svc.Alert, msgpack.EncodedJSON{
 				"routing_key": "rk-1",
 				"auto_start":  true,

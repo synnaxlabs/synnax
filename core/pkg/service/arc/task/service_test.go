@@ -111,11 +111,13 @@ var _ = Describe("Service", func() {
 		It(
 			"Should convert the loop mode of a v1 config to a performance level",
 			func(ctx SpecContext) {
-				data := MustSucceed(svc.Config.Normalize(ctx, 1, msgpack.EncodedJSON{
-					"arc_key":        uuid.New().String(),
-					"execution_mode": "BUSY_WAIT",
-					"rt_priority":    80,
-				}))
+				data := MustSucceed(
+					svc.Config.Normalize(ctx, nil, 1, msgpack.EncodedJSON{
+						"arc_key":        uuid.New().String(),
+						"execution_mode": "BUSY_WAIT",
+						"rt_priority":    80,
+					}),
+				)
 				Expect(data).To(HaveKeyWithValue("performance", "high"))
 				Expect(data).ToNot(HaveKey("execution_mode"))
 			},
@@ -124,8 +126,7 @@ var _ = Describe("Service", func() {
 		It("Should decode a current config without rewriting it", func(
 			ctx SpecContext,
 		) {
-			data := MustSucceed(svc.Config.Normalize(
-				ctx,
+			data := MustSucceed(svc.Config.Normalize(ctx, nil,
 				versions.Latest,
 				msgpack.EncodedJSON{
 					"performance":    "low",

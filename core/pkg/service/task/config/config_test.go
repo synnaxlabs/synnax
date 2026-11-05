@@ -410,22 +410,27 @@ var _ = Describe("Service", func() {
 		})
 
 		It("Should reject a version above the ladder's latest", func(ctx SpecContext) {
-			Expect(versioned.Normalize(
-				ctx, arcversions.Latest+1, msgpack.EncodedJSON{},
-			)).Error().To(MatchError(ContainSubstring(fmt.Sprintf(
-				"version: versioned_test version %d is newer than this Core supports "+
-					"(latest: %d): validation error",
-				arcversions.Latest+1,
-				arcversions.Latest,
-			))))
+			Expect(
+				versioned.Normalize(
+					ctx,
+					nil,
+					arcversions.Latest+1,
+					msgpack.EncodedJSON{},
+				),
+			).Error().
+				To(MatchError(ContainSubstring(fmt.Sprintf(
+					"version: versioned_test version %d is newer than this Core supports "+
+						"(latest: %d): validation error",
+					arcversions.Latest+1,
+					arcversions.Latest,
+				))))
 		})
 
 		It("Should decode current-version data into the current shape", func(
 			ctx SpecContext,
 		) {
 			arcKey := uuid.New()
-			out := MustSucceed(versioned.Normalize(
-				ctx,
+			out := MustSucceed(versioned.Normalize(ctx, nil,
 				arcversions.Latest,
 				msgpack.EncodedJSON{"arc_key": arcKey.String(), "unknown": 1},
 			))
@@ -438,7 +443,7 @@ var _ = Describe("Service", func() {
 				"ladder's first version",
 			func(ctx SpecContext) {
 				arcKey := uuid.New()
-				out := MustSucceed(versioned.Normalize(ctx, 0, msgpack.EncodedJSON{
+				out := MustSucceed(versioned.Normalize(ctx, nil, 0, msgpack.EncodedJSON{
 					"module":     arcKey.String(),
 					"dataSaving": true,
 				}))
@@ -461,7 +466,7 @@ var _ = Describe("Service", func() {
 				},
 			))
 			arcKey := uuid.New()
-			out := MustSucceed(eraOnly.Normalize(ctx, 0, msgpack.EncodedJSON{
+			out := MustSucceed(eraOnly.Normalize(ctx, nil, 0, msgpack.EncodedJSON{
 				"arcKey":     arcKey.String(),
 				"dataSaving": false,
 			}))
@@ -472,8 +477,7 @@ var _ = Describe("Service", func() {
 		It("Should apply the store's defaults to the normalized config", func(
 			ctx SpecContext,
 		) {
-			out := MustSucceed(svc.Normalize(
-				ctx,
+			out := MustSucceed(svc.Normalize(ctx, nil,
 				arcversions.Latest,
 				msgpack.EncodedJSON{"arc_key": uuid.New().String()},
 			))
@@ -484,8 +488,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			arcKey := uuid.New()
-			out := MustSucceed(versioned.Normalize(
-				ctx,
+			out := MustSucceed(versioned.Normalize(ctx, nil,
 				arcversions.ConfigLadder.First-1,
 				msgpack.EncodedJSON{"module": arcKey.String()},
 			))
@@ -495,12 +498,18 @@ var _ = Describe("Service", func() {
 		It("Should reject data that does not decode at its version", func(
 			ctx SpecContext,
 		) {
-			Expect(versioned.Normalize(
-				ctx, arcversions.Latest, msgpack.EncodedJSON{"arc_key": 12},
-			)).Error().To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("decoding versioned_test config")),
-			))
+			Expect(
+				versioned.Normalize(
+					ctx,
+					nil,
+					arcversions.Latest,
+					msgpack.EncodedJSON{"arc_key": 12},
+				),
+			).Error().
+				To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("decoding versioned_test config")),
+				))
 		})
 	})
 

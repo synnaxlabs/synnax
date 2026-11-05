@@ -126,6 +126,7 @@ func openDevices(
 		Ontology: otg,
 		Status:   statusSvc,
 		Rack:     rackSvc,
+		Device:   devices,
 	}
 }
 
@@ -319,6 +320,7 @@ var _ = Describe("Service", func() {
 		It("Should store a decoded read config under the given key", func(
 			ctx SpecContext,
 		) {
+			Expect(tasks.CreateChannels(ctx, 42)).To(Succeed())
 			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
 				"sample_rate": 25,
 				"channels": []any{map[string]any{
@@ -350,20 +352,31 @@ var _ = Describe("Service", func() {
 			Expect(channels[0]).To(HaveKeyWithValue("data_type", "int16"))
 		})
 
-		DescribeTable("Should leave a read channel unresolved",
-			func(ctx SpecContext, device, pdo string) {
-				channels := readChannels(ctx, map[string]any{
+		It("Should leave a read channel unresolved on a name the slave repeats", func(
+			ctx SpecContext,
+		) {
+			channels := readChannels(ctx, map[string]any{
+				"type":   "unresolved",
+				"key":    "a",
+				"device": "el1008",
+				"pdo":    "Input",
+			})
+			Expect(channels[0]).To(HaveKeyWithValue("type", "unresolved"))
+			Expect(channels[0]).To(HaveKeyWithValue("pdo", "Input"))
+		})
+
+		It("Should refuse a read channel on a missing device", func(ctx SpecContext) {
+			Expect(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
 					"type":   "unresolved",
 					"key":    "a",
-					"device": device,
-					"pdo":    pdo,
-				})
-				Expect(channels[0]).To(HaveKeyWithValue("type", "unresolved"))
-				Expect(channels[0]).To(HaveKeyWithValue("pdo", pdo))
-			},
-			Entry("on a name the slave repeats", "el1008", "Input"),
-			Entry("on a missing device", "gone", "Value"),
-		)
+					"device": "gone",
+					"pdo":    "Value",
+				}},
+			})).Error().To(MatchError(
+				ContainSubstring("channels.device: device gone does not exist"),
+			))
+		})
 
 		It("Should reject an unresolved channel on a slave with malformed PDOs", func(
 			ctx SpecContext,

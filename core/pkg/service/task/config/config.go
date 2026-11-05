@@ -12,10 +12,12 @@ package config
 import (
 	"context"
 	"encoding/json/v2"
+	"slices"
 	"uuid"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config/legacy"
@@ -59,11 +61,13 @@ type Store interface {
 	// query.ErrNotFound when from does not exist.
 	Copy(ctx context.Context, tx gorp.Tx, from, to uuid.UUID) error
 	// Normalize converts a config blob at the given version to the current stored
-	// shape with defaults applied. A version that predates the type's ladder runs the
+	// shape with defaults applied, and drops each target of the blob's references
+	// that does not exist in tx. A version that predates the type's ladder runs the
 	// type's legacy rewrite first. It returns a validation error when data does not
 	// decode at version or version is newer than the store's.
 	Normalize(
 		ctx context.Context,
+		tx gorp.Tx,
 		version imex.Version,
 		data msgpack.EncodedJSON,
 	) (msgpack.EncodedJSON, error)
@@ -102,6 +106,7 @@ type ServiceConfig[E gorp.Entry[uuid.UUID]] struct {
 	// a type whose stored shape has never changed.
 	Migrations []gorp.Migration
 	// References are the references the records hold, besides the one to their task.
+	// Opening the service drops each target that does not exist from stored entries.
 	// [OPTIONAL]
 	References []gorp.Reference[uuid.UUID, E]
 	// Ladder decodes typed config blobs at every version the type has exported and
@@ -172,10 +177,14 @@ func OpenService[E gorp.Entry[uuid.UUID]](
 	if err != nil {
 		return nil, err
 	}
+	migrations := cfg.Migrations
+	if len(cfg.References) > 0 {
+		migrations = append(slices.Clone(migrations), newDanglingMigration(cfg))
+	}
 	table, err := gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, E]{
-		DB:         cfg.DB,
-		Name:       cfg.Type + "_config",
-		Migrations: cfg.Migrations,
+		DB:              cfg.DB,
+		Name:            cfg.Type + "_config",
+		Migrations:      migrations,
 		References: append(
 			[]gorp.Reference[uuid.UUID, E]{newTaskReference[E]()},
 			cfg.References...,
@@ -196,6 +205,42 @@ func newTaskReference[E gorp.Entry[uuid.UUID]]() *gorp.KeyReference[uuid.UUID, E
 		OnDelete: gorp.Cascade,
 		Targets:  func(e *E) []uuid.UUID { return []uuid.UUID{(*e).GorpKey()} },
 	})
+}
+
+// newDanglingMigration returns the migration that drops the targets that do not exist
+// from stored entries, through the Detach of each reference. It decodes entries with
+// their current type, so it runs after the type's version chain.
+func newDanglingMigration[E gorp.Entry[uuid.UUID]](
+	cfg ServiceConfig[E],
+) gorp.Migration {
+	return migrate.New(
+		"dangling_references",
+		func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
+			var entries []E
+			if err := gorp.NewRetrieve[uuid.UUID, E]().
+				Entries(&entries).
+				Exec(ctx, tx); err != nil {
+				return err
+			}
+			changed := make([]E, 0, len(entries))
+			for i := range entries {
+				dropped, err := gorp.DropDangling(
+					ctx,
+					tx,
+					cfg.DB,
+					cfg.References,
+					&entries[i],
+				)
+				if err != nil {
+					return err
+				}
+				if dropped {
+					changed = append(changed, entries[i])
+				}
+			}
+			return gorp.NewCreate[uuid.UUID, E]().Entries(&changed).Exec(ctx, tx)
+		},
+	)
 }
 
 // Type implements Store.
@@ -319,6 +364,7 @@ func (s *Service[E]) Delete(
 // Normalize implements Store.
 func (s *Service[E]) Normalize(
 	ctx context.Context,
+	tx gorp.Tx,
 	version imex.Version,
 	data msgpack.EncodedJSON,
 ) (msgpack.EncodedJSON, error) {
@@ -340,6 +386,15 @@ func (s *Service[E]) Normalize(
 	}
 	if s.cfg.ApplyEntryDefaults != nil {
 		s.cfg.ApplyEntryDefaults(&e)
+	}
+	if _, err := gorp.DropDangling(
+		ctx,
+		gorp.OverrideTx(s.cfg.DB, tx),
+		s.cfg.DB,
+		s.cfg.References,
+		&e,
+	); err != nil {
+		return nil, err
 	}
 	return encode(e)
 }

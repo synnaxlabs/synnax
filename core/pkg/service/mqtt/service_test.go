@@ -66,9 +66,9 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext, store func(*mqtt.Service) config.Store) {
 				s := store(svc)
 				Expect(s.Version()).To(BeEquivalentTo(1))
-				MustSucceed(s.Normalize(ctx, 1, msgpack.EncodedJSON{}))
+				MustSucceed(s.Normalize(ctx, nil, 1, msgpack.EncodedJSON{}))
 				newer := " version 2 is newer than this Core supports (latest: 1)"
-				Expect(s.Normalize(ctx, 2, msgpack.EncodedJSON{})).Error().
+				Expect(s.Normalize(ctx, nil, 2, msgpack.EncodedJSON{})).Error().
 					To(MatchError(ContainSubstring(s.Type() + newer)))
 			},
 			Entry("read", func(s *mqtt.Service) config.Store { return s.Read }),
@@ -82,6 +82,7 @@ var _ = Describe("Service", func() {
 		It("Should store a plain read entry with its schema defaults", func(
 			ctx SpecContext,
 		) {
+			Expect(tasks.CreateDevice(ctx, "broker-1")).To(Succeed())
 			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
 				"device": "broker-1",
 				"entries": []any{map[string]any{

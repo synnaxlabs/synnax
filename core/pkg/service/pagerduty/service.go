@@ -70,6 +70,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if s.Alert, err = config.OpenService(
 		ctx, config.ServiceConfig[TaskConfig]{
 			DB:              cfg.DB,
+			References:      TaskConfigReferences(),
 			Instrumentation: cfg.Instrumentation,
 			Type:            AlertTaskType,
 			LegacyVersion:   legacy.LastVersion,

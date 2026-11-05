@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package testutil creates tasks for the specs of packages that store task configs.
+// Package testutil creates tasks, and the channels, devices, and statuses their
+// configs reference, for the specs of packages that store task configs.
 package testutil
 
 import (
@@ -17,16 +18,21 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // TasksConfig is the configuration for opening Tasks.
@@ -47,14 +53,21 @@ type TasksConfig struct {
 	//
 	// [OPTIONAL]
 	Rack *rack.Service
+	// Device stores the devices that configs reference. OpenTasks opens one on DB
+	// when it is nil.
+	//
+	// [OPTIONAL]
+	Device *device.Service
 	// Stores keep the configs of the tasks.
 	//
 	// [REQUIRED]
 	Stores []config.Store
 }
 
-// Tasks creates tasks through a task service.
+// Tasks creates tasks through a task service, and the targets their configs
+// reference.
 type Tasks struct {
+	*Targets
 	svc    *task.Service
 	closer xio.MultiCloser
 }
@@ -69,12 +82,26 @@ func OpenTasks(ctx context.Context, cfg TasksConfig) (*Tasks, error) {
 	return t, nil
 }
 
-func (t *Tasks) open(ctx context.Context, cfg TasksConfig) error {
+func (t *Tasks) open(ctx context.Context, cfg TasksConfig) (err error) {
 	if cfg.Rack == nil {
 		if err := t.openRack(ctx, &cfg); err != nil {
 			return err
 		}
 	}
+	if cfg.Device == nil {
+		if err := t.openDevice(ctx, &cfg); err != nil {
+			return err
+		}
+	}
+	if t.Targets, err = OpenTargets(ctx, TargetsConfig{
+		DB:     cfg.DB,
+		Device: cfg.Device,
+		Status: cfg.Status,
+		Rack:   cfg.Rack.EmbeddedKey,
+	}); err != nil {
+		return err
+	}
+	t.closer = append(t.closer, t.Targets)
 	configs, err := config.NewRegistry(cfg.Stores...)
 	if err != nil {
 		return err
@@ -128,6 +155,101 @@ func (t *Tasks) openRack(ctx context.Context, cfg *TasksConfig) (err error) {
 	}
 	t.closer = append(t.closer, cfg.Rack)
 	return nil
+}
+
+func (t *Tasks) openDevice(ctx context.Context, cfg *TasksConfig) (err error) {
+	groups, err := group.OpenService(ctx, group.ServiceConfig{
+		DB:       cfg.DB,
+		Ontology: cfg.Ontology,
+	})
+	if err != nil {
+		return err
+	}
+	t.closer = append(t.closer, groups)
+	if cfg.Device, err = device.OpenService(ctx, device.ServiceConfig{
+		DB:       cfg.DB,
+		Ontology: cfg.Ontology,
+		Group:    groups,
+		Status:   cfg.Status,
+		Rack:     cfg.Rack,
+	}); err != nil {
+		return err
+	}
+	t.closer = append(t.closer, cfg.Device)
+	return nil
+}
+
+// TargetsConfig is the configuration for opening Targets.
+type TargetsConfig struct {
+	// DB is the database the targets are stored in.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
+	// Device and Status store the devices and statuses that Targets creates.
+	//
+	// [REQUIRED]
+	Device *device.Service
+	Status *status.Service
+	// Rack is the rack that Targets creates devices on.
+	//
+	// [REQUIRED]
+	Rack rack.Key
+}
+
+// Targets creates the channels, devices, and statuses that task configs reference.
+type Targets struct {
+	cfg      TargetsConfig
+	channels *gorp.Table[channel.Key, channel.Channel]
+}
+
+// OpenTargets opens the table that channels are stored in on cfg.DB. Close the
+// returned Targets to close it.
+func OpenTargets(ctx context.Context, cfg TargetsConfig) (*Targets, error) {
+	channels, err := gorp.OpenTable(ctx, gorp.TableConfig[channel.Key, channel.Channel]{
+		DB:   cfg.DB,
+		Name: string(resource.TypeChannel),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &Targets{cfg: cfg, channels: channels}, nil
+}
+
+// Close closes the table that OpenTargets opened.
+func (t *Targets) Close() error { return t.channels.Close() }
+
+// CreateChannels stores a channel under each of keys for configs to reference. The
+// channels live only in the table that channels are stored in, with no time series
+// storage behind them.
+func (t *Targets) CreateChannels(ctx context.Context, keys ...channel.Key) error {
+	channels := make([]channel.Channel, len(keys))
+	for i, k := range keys {
+		channels[i] = channel.Channel{Leaseholder: k.Lease(), LocalKey: k.LocalKey()}
+	}
+	return t.channels.NewCreate().Entries(&channels).Exec(ctx, t.cfg.DB)
+}
+
+// CreateDevice creates a device with key on the embedded rack for configs to
+// reference.
+func (t *Targets) CreateDevice(ctx context.Context, key device.Key) error {
+	return t.cfg.Device.NewWriter(nil).Create(ctx, &device.Device{
+		Key:      key,
+		Rack:     t.cfg.Rack,
+		Name:     string(key),
+		Make:     "test",
+		Model:    "test",
+		Location: "test",
+	})
+}
+
+// CreateStatus creates a status with key for configs to reference.
+func (t *Targets) CreateStatus(ctx context.Context, key status.Key) error {
+	return t.cfg.Status.NewWriter(nil).Set(ctx, &status.Status[any]{
+		Key:     key,
+		Name:    string(key),
+		Variant: status.VariantInfo,
+		Time:    telem.Now(),
+	})
 }
 
 // Create creates a task with the config data in store. It returns the key of the task,
