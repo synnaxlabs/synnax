@@ -87,30 +87,10 @@ interface LastSampleProps {
   channel: channel.Key;
 }
 
-const UNITS: [TimeSpan, string][] = [
-  [TimeSpan.DAY, "d"],
-  [TimeSpan.HOUR, "h"],
-  [TimeSpan.MINUTE, "m"],
-  [TimeSpan.SECOND, "s"],
-];
-
-// The largest unit, with the next one down while its count has one digit.
-const sinceString = (span: TimeSpan): string => {
-  if (span.lessThan(TimeSpan.SECOND)) return "< 1s";
-  const i = UNITS.findIndex(([size]) => !span.lessThan(size));
-  const [major, majorUnit] = UNITS[i];
-  const majors = span.valueOf() / major.valueOf();
-  const text = `${majors}${majorUnit}`;
-  if (majors >= 10n || i === UNITS.length - 1) return text;
-  const [minor, minorUnit] = UNITS[i + 1];
-  const minors = (span.valueOf() % major.valueOf()) / minor.valueOf();
-  return minors > 0n ? `${text} ${minors}${minorUnit}` : text;
-};
-
 // Mounted only once the tooltip shows, so a mouse sweep creates no worker component.
 const LastSample = ({ channel }: LastSampleProps): ReactElement => {
   const time = LatestSample.use({ channel });
-  const since = sinceString(Telem.Text.useTimeSpanSince(time ?? 0));
+  const since = Telem.Text.useTimeSpanSince(time ?? 0).toString("semantic");
   return (
     <Description.List level="small" justify="between" className={LIST_CLASS}>
       <Row
