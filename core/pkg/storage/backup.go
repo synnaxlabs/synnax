@@ -97,8 +97,7 @@ func listBackups(fs xfs.FS) ([]Backup, error) {
 	return backups, nil
 }
 
-// backup copies the metadata in fs to a new backup labeled with version, then removes
-// unfinished backups and all but the newest keptBackups complete ones.
+// backup copies the metadata in fs to a new backup labeled with version.
 func backup(fs xfs.FS, version string) (Backup, error) {
 	now := time.Now()
 	b := Backup{
@@ -129,9 +128,10 @@ func backup(fs xfs.FS, version string) (Backup, error) {
 	if err = fs.Rename(partial, path.Join(backupsDir, b.Name)); err != nil {
 		return Backup{}, err
 	}
-	return b, prune(fs)
+	return b, nil
 }
 
+// prune removes unfinished backups and all but the newest keptBackups complete ones.
 func prune(fs xfs.FS) error {
 	infos, err := fs.List(backupsDir)
 	if err != nil {
