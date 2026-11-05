@@ -7,17 +7,113 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { createTestClient } from "@synnaxlabs/client/testutil";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { deep } from "@synnaxlabs/x";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Device } from "@/platform/device";
+import { createTestDevice, renderWithDeviceForm } from "@/platform/device/testutil";
+import { uniqueName } from "@/testutil";
+
+const client = createTestClient();
+
+const path = deep.path<{ rack: number; config: { device: string } }>();
+
+const FormProbe = (): ReactElement => {
+  const deviceKey = Form.useFieldValue(path.config.device);
+  const rack = Form.useFieldValue(path.rack, { optional: true });
+  return <div>{`device:${deviceKey} rack:${rack ?? "none"}`}</div>;
+};
+FormProbe.displayName = "FormProbe";
+
+interface RenderNoneSelectedOptions extends Pick<
+  Device.NoneSelectedProps,
+  "make" | "connect"
+> {
+  onConfigure?: Device.NoneSelectedProps["onConfigure"];
+}
+
+const renderNoneSelected = async ({
+  make,
+  connect,
+  onConfigure = vi.fn(),
+}: RenderNoneSelectedOptions): ReturnType<typeof renderWithDeviceForm> =>
+  await renderWithDeviceForm(
+    <>
+      <Device.Select make={make} icon={<Icon.Device />} onConfigure={vi.fn()} />
+      <Device.NoneSelected
+        make={make}
+        emptyContent="No test devices connected"
+        connect={connect}
+        onConfigure={onConfigure}
+      />
+      <FormProbe />
+    </>,
+    { deviceKey: "", client },
+  );
 
 const DEVICE = { key: "dev-key", name: "My Device" };
 
 describe("device empty states", () => {
-  it("should render the none-selected message", () => {
-    render(<Device.NoneSelected />);
-    expect(screen.getByText("No device selected")).toBeTruthy();
+  describe("NoneSelected", () => {
+    it("should offer to connect a device when no device of the make exists", async () => {
+      const open = vi.fn(async () => await Promise.resolve(null));
+      await renderNoneSelected({
+        make: uniqueName("make"),
+        connect: { title: "test hardware", open },
+      });
+      await screen.findByText("No test devices connected");
+      fireEvent.click(await screen.findByText("Connect test hardware"));
+      await waitFor(() => expect(open).toHaveBeenCalledTimes(1));
+      expect(screen.getByText("device: rack:none")).toBeTruthy();
+    });
+
+    it("should select the device that its connect action resolves with", async () => {
+      const make = uniqueName("make");
+      let rack = 0;
+      const open = vi.fn(async () => {
+        const dev = await createTestDevice(client, { make });
+        rack = dev.rack;
+        return dev.key;
+      });
+      await renderNoneSelected({ make, connect: { title: "test hardware", open } });
+      fireEvent.click(await screen.findByText("Connect test hardware"));
+      const key = await open.mock.results[0].value;
+      await screen.findByText(`device:${key} rack:${rack}`);
+    });
+
+    it("should configure a connected device that is not configured", async () => {
+      const make = uniqueName("make");
+      const onConfigure = vi.fn();
+      const open = vi.fn(
+        async () => (await createTestDevice(client, { make, configured: false })).key,
+      );
+      await renderNoneSelected({
+        make,
+        connect: { title: "test hardware", open },
+        onConfigure,
+      });
+      fireEvent.click(await screen.findByText("Connect test hardware"));
+      const key = await open.mock.results[0].value;
+      await waitFor(() => expect(onConfigure).toHaveBeenCalledWith(key));
+    });
+
+    it("should open the device select when a device of the make exists", async () => {
+      const make = uniqueName("make");
+      const dev = await createTestDevice(client, { make });
+      await renderNoneSelected({
+        make,
+        connect: { title: "test hardware", open: vi.fn() },
+      });
+      expect(screen.queryByText(dev.name)).toBeNull();
+      const message = await screen.findByText("No device selected");
+      fireEvent.click(within(message).getByText("Select device"));
+      await screen.findByText(dev.name);
+    });
   });
 
   it("should prompt to configure and hand the device key to onConfigure", () => {

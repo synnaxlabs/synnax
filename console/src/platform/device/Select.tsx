@@ -13,15 +13,15 @@ import { device } from "@synnaxlabs/client";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Form } from "@synnaxlabs/lyra/form";
 import { type Icon } from "@synnaxlabs/lyra/icon";
-import { Status } from "@synnaxlabs/lyra/status";
-import { Access, Device, Synnax } from "@synnaxlabs/pluto";
-import { deep, primitive } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { Access, Device } from "@synnaxlabs/pluto";
+import { deep } from "@synnaxlabs/x";
+import { type ReactElement, useState } from "react";
 
 import { Button } from "@/platform/button";
 import { CSS } from "@/platform/css";
+import { useHandleChange } from "@/platform/device/useHandleChange";
 
-const root = deep.path<{ rack: number; config: { device: device.Key } }>();
+const root = deep.path<{ config: { device: device.Key } }>();
 
 export interface SelectConnect {
   /** What the action connects, such as "OPC UA server". */
@@ -71,18 +71,10 @@ export const Select = ({
   icon,
   connect,
 }: SelectProps) => {
-  const client = Synnax.use();
   const canConnect = Access.useCreateGranted(device.TYPE_ONTOLOGY_ID);
-  const handleError = Status.useErrorHandler();
-  const handleDeviceChange = (key: device.Key, { set }: Form.ContextValue) => {
-    if (client == null || primitive.isZero(key)) return;
-    handleError(async () => {
-      const { configured, rack } = await client.devices.retrieve({ key });
-      set(root.rack, rack);
-      if (configured) return;
-      onConfigure(key);
-    }, "Failed to retrieve device");
-  };
+  const handleChange = useHandleChange(onConfigure);
+  const [visible, setVisible] = useState(false);
+  Form.useFocusHandler(path, () => setVisible(true));
   const filter = (d: device.Device) =>
     d.make === make &&
     (model == null || d.model === model) &&
@@ -92,7 +84,7 @@ export const Select = ({
       className={CSS.B("device-select")}
       grow
       label={label}
-      onChange={handleDeviceChange}
+      onChange={handleChange}
       path={path}
     >
       {({ value, onChange, preview }) => (
@@ -105,6 +97,8 @@ export const Select = ({
           grow
           icon={icon}
           preview={preview}
+          visible={visible}
+          onVisibleChange={setVisible}
           footer={
             connect != null &&
             canConnect && <ConnectButton {...connect} onChange={onChange} />
