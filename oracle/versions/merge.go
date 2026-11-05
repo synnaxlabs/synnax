@@ -596,7 +596,7 @@ func extractLive(source string) (*liveContent, error) {
 					collectField(fd, ex, "")
 				}
 				for _, d := range body.AllDomain() {
-					liveOwned(d, addType)
+					liveOwned(d, name, addType)
 				}
 			}
 		}
