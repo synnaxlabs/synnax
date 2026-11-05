@@ -82,17 +82,16 @@ The key of the range to end.
 - Output -> the key of the range, as a `str`.
 - Function form -> `ranges.end(key) str`.
 
-In a flow, `key` is a literal or a variable, never a channel. A channel gives the error
-`input value for 'key' must be a literal`. To end a range that the automation created,
-keep its key in a variable:
+In a flow, `key` is a literal, a variable, or an expression, never a channel. A channel
+gives the error `input value for 'key' cannot be a channel`. To end a range that the
+automation created, keep its key in a variable:
 
 ```arc channels="start_cmd, stop_cmd" bodies="test, run"
 import ranges
 
 sequence test {
-    key $= ""
+    key := ranges.create(name="Hotfire", color="#3bc454")
     stage run {
-        ranges.create(name="Hotfire", color="#3bc454") -> key
         stop_cmd == 1 => next
     }
     ranges.end(key=key)

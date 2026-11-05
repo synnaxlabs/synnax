@@ -209,11 +209,11 @@ A variable's kind is inferred from its initializer:
 
 - **Literal**: a held value (`gain := 6`). Resets to its initial value on each entry
   into its declaring scope. `$=` makes it stateful, keeping its value across entries.
-- **Computed**: an expression that reads no channel (`start := now()`, `gain := 2 * 3`).
-  It runs once on each entry into its declaring scope, at the same moment a literal
-  resets, and the variable holds the result. A later `=` replaces the value until the
-  next entry. At the top level it runs once when the program starts. With `$=` it runs
-  once, on the first entry, and the value persists.
+- **Computed**: an expression that reads no channel (`start := time.now()`,
+  `gain := 2 * 3`). It runs once on each entry into its declaring scope, at the same
+  moment a literal resets, and the variable holds the result. A later `=` replaces the
+  value until the next entry. At the top level it runs once when the program starts.
+  With `$=` it runs once, on the first entry, and the value persists.
 - **Channel read**: a read-only expression over one or more channels
   (`scaled := raw * 2`). It is reactive: when any channel it reads produces new data,
   the variable updates and every flow that reads it re-runs with the new value. A flow
