@@ -10,6 +10,7 @@
 package domain_test
 
 import (
+	"sync"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -49,6 +50,80 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					})
 					Expect(i.Valid()).To(BeFalse())
 					Expect(i.Close()).To(Succeed())
+				})
+			})
+			Describe("Commits during iteration", func() {
+				var (
+					first  = (20 * telem.SecondTS).SpanRange(10 * telem.Second)
+					second = (40 * telem.SecondTS).SpanRange(10 * telem.Second)
+					early  = (10 * telem.SecondTS).SpanRange(5 * telem.Second)
+				)
+				BeforeEach(func(ctx SpecContext) {
+					Expect(
+						testutil.WriteDomain(ctx, db, first, []byte{1}),
+					).To(Succeed())
+					Expect(
+						testutil.WriteDomain(ctx, db, second, []byte{2}),
+					).To(Succeed())
+				})
+
+				It("Should move to the next domain after an earlier insert", func(
+					ctx SpecContext,
+				) {
+					i := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
+					Expect(i.SeekGE(ctx, first.Start)).To(BeTrue())
+					Expect(
+						testutil.WriteDomain(ctx, db, early, []byte{3}),
+					).To(Succeed())
+					Expect(i.Next()).To(BeTrue())
+					Expect(i.TimeRange()).To(Equal(second))
+					Expect(i.Close()).To(Succeed())
+				})
+
+				It("Should move to the previous domain after an earlier insert", func(
+					ctx SpecContext,
+				) {
+					i := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
+					Expect(i.SeekGE(ctx, second.Start)).To(BeTrue())
+					Expect(
+						testutil.WriteDomain(ctx, db, early, []byte{3}),
+					).To(Succeed())
+					Expect(i.Prev()).To(BeTrue())
+					Expect(i.TimeRange()).To(Equal(first))
+					Expect(i.Close()).To(Succeed())
+				})
+
+				It("Should find a domain while earlier domains are inserted", func(
+					ctx SpecContext,
+				) {
+					const (
+						inserts = 512
+						seeks   = 4096
+					)
+					var wg sync.WaitGroup
+					wg.Go(func() {
+						defer GinkgoRecover()
+						for n := range inserts {
+							start := telem.TimeStamp(inserts-n) * telem.MillisecondTS
+							Expect(testutil.WriteDomain(
+								ctx,
+								db,
+								start.SpanRange(telem.Microsecond),
+								[]byte{1},
+							)).To(Succeed())
+						}
+					})
+					wg.Go(func() {
+						defer GinkgoRecover()
+						i := db.OpenIterator(
+							domain.IterRange(second.Start.SpanRange(0)),
+						)
+						for range seeks {
+							Expect(i.SeekFirst(ctx)).To(BeTrue())
+						}
+						Expect(i.Close()).To(Succeed())
+					})
+					wg.Wait()
 				})
 			})
 			Describe("SeekFirst + SeekLast", Ordered, func() {

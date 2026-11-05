@@ -39,15 +39,15 @@ func IterRange(tr telem.TimeRange) IteratorConfig { return IteratorConfig{Bounds
 //
 // It's important to note that an Iterator does NOT iterate over a snapshot of the DB,
 // and is not isolated from any writes that may be committed during the iterators
-// lifetime. This means that the position of an iterator may shift unexpectedly. There
-// are plans to implement MVCC in the future, but until then you have been warned.
+// lifetime. Next and Prev move by time, so a commit can add or remove the domains they
+// reach, but never moves the iterator off its own domain. There are plans to implement
+// MVCC in the future, but until then you have been warned.
 type Iterator struct {
 	// db is the DB that the iterator is iterating over.
 	db *DB
 	IteratorConfig
-	// position stores the current position of the iterator in the idx. NOTE: At the
-	// moment, this position may not hold a consistent reference to the same domain if
-	// the idx is modified during iteration.
+	// position is the place of currPtr in the idx when the iterator moved to it. A
+	// later insert or delete can make it stale.
 	position int
 	// currPtr stores the current domain that the iterator is pointing to. This value
 	// is only valid if the iterator is valid.
@@ -100,8 +100,7 @@ func (i *Iterator) SeekLE(ctx context.Context, stamp telem.TimeStamp) bool {
 		return false
 	}
 	i.valid = true
-	i.position = i.db.idx.searchLE(ctx, stamp)
-	return i.reload()
+	return i.load(i.db.idx.searchLE(ctx, stamp))
 }
 
 // SeekGE seeks to the domain whose TimeRange contain the provided timestamp. If no such
@@ -112,8 +111,7 @@ func (i *Iterator) SeekGE(ctx context.Context, stamp telem.TimeStamp) bool {
 		return false
 	}
 	i.valid = true
-	i.position = i.db.idx.searchGE(ctx, stamp)
-	return i.reload()
+	return i.load(i.db.idx.searchGE(ctx, stamp))
 }
 
 // Next advances the iterator to the next domain. If the iterator has been exhausted,
@@ -122,14 +120,7 @@ func (i *Iterator) Next() bool {
 	if !i.valid {
 		return false
 	}
-	i.position++
-	ok := i.reload()
-	// If we've reached the end of the iterator, back up the position so that we
-	// remain at the location of the last domain.
-	if !ok {
-		i.position--
-	}
-	return ok
+	return i.load(i.db.idx.next(i.currPtr.Start))
 }
 
 // Prev advances the iterator to the previous domain. If the iterator has been
@@ -138,13 +129,7 @@ func (i *Iterator) Prev() bool {
 	if !i.valid {
 		return false
 	}
-	// Check if the position is zero to avoid uint32 underflow.
-	if i.position == 0 {
-		i.valid = false
-		return i.valid
-	}
-	i.position--
-	return i.reload()
+	return i.load(i.db.idx.prev(i.currPtr.Start))
 }
 
 // Valid returns true if the iterator is currently pointing to a valid domain and has
@@ -181,18 +166,13 @@ func (i *Iterator) Close() error {
 	return nil
 }
 
-func (i *Iterator) reload() bool {
-	if i.position == -1 {
-		i.valid = false
-		return i.valid
-	}
-	ptr, ok := i.db.idx.get(i.position)
+// load moves the iterator to ptr. If ok is false or ptr is outside the iterator's
+// bounds, it invalidates the iterator and keeps the current domain.
+func (i *Iterator) load(position int, ptr pointer, ok bool) bool {
 	if !ok || !ptr.OverlapsWith(i.Bounds) {
 		i.valid = false
-		// it's important that we return here, so we don't clear the current current
-		// value of the iterator.
 		return i.valid
 	}
-	i.currPtr = ptr
+	i.position, i.currPtr = position, ptr
 	return i.valid
 }
