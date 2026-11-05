@@ -14,13 +14,19 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var apiLayer *api.Layer
+var (
+	apiLayer *api.Layer
+	svc      *service.Layer
+	db       *gorp.DB
+)
 
 func TestAPI(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -30,7 +36,8 @@ func TestAPI(t *testing.T) {
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := testutil.NewNode(ctx)
-	svc := MustOpen(svctestutil.OpenLayer(ctx, node))
+	db = node.DB
+	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
 	apiLayer = MustSucceed(api.NewLayer(api.LayerConfig{
 		Service:      svc,
 		Distribution: node.Layer,
