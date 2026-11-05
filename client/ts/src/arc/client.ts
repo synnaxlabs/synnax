@@ -308,8 +308,6 @@ export class Client extends query.Retriever<
       reapply: rename,
     });
     rename();
-    const tsk = await this.retrieveTask(key);
-    if (tsk != null) await this.cfg.tasks.rename(tsk.key, name);
   }
 
   private async retrieveTask(key: Key): Promise<task.Task | null> {

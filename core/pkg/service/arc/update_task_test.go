@@ -403,6 +403,53 @@ var _ = Describe("Task sync", func() {
 		})}
 	}
 
+	taskName := func(ctx SpecContext, key task.Key) func() string {
+		return func() string {
+			var tsk task.Task
+			if err := taskSvc.NewRetrieve().
+				Where(task.MatchKeys(key)).
+				Entry(&tsk).
+				Exec(ctx, nil); err != nil {
+				return ""
+			}
+			return tsk.Name
+		}
+	}
+
+	It("Should rename the task when a dispatch renames the Arc", func(ctx SpecContext) {
+		createArc(ctx, arc.ModeText)
+		tsk := MustSucceed(
+			writer.UpdateTask(
+				ctx,
+				a.Base().Key,
+				arc.TaskUpdate{Rack: new(testRack.Key)},
+			),
+		)
+		Expect(svc.Dispatch(ctx, a.Base().Key, "", []arc.Action{
+			arc.NewRenameAction(arc.RenamePayload{Name: "renamed_by_dispatch"}),
+		})).To(Succeed())
+		Eventually(taskName(ctx, tsk.Key)).Should(Equal("renamed_by_dispatch"))
+	})
+
+	It(
+		"Should rename the task when an overwrite renames the Arc",
+		func(ctx SpecContext) {
+			createArc(ctx, arc.ModeText)
+			tsk := MustSucceed(
+				writer.UpdateTask(
+					ctx,
+					a.Base().Key,
+					arc.TaskUpdate{Rack: new(testRack.Key)},
+				),
+			)
+			b := a.Base()
+			b.Name = "renamed_by_overwrite"
+			a.SetBase(b)
+			Expect(writer.Create(ctx, &a)).To(Succeed())
+			Expect(taskName(ctx, tsk.Key)()).To(Equal("renamed_by_overwrite"))
+		},
+	)
+
 	It(
 		"Should rewrite the task config when an edit changes the content",
 		func(ctx SpecContext) {

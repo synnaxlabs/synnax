@@ -318,15 +318,18 @@ describe("arc", () => {
     });
 
     it("renames the arc and its task", async () => {
+      const fresh = createTestClient();
+      await waitForStreamLive(fresh.connection);
       const rack = await client.racks.create({ name: `rack-${id.create()}` });
       const created = await client.arcs.create(newTextArc(`rename-${id.create()}`));
       const deployed = await client.arcs.updateTask(created.key, { rack: rack.key });
       if (deployed == null) throw new Error("expected a deployment task");
       const name = `renamed-${id.create()}`;
       await client.arcs.rename(created.key, name);
-      const fresh = createTestClient();
       expect((await fresh.arcs.retrieve(created.key)).name).toEqual(name);
-      expect((await fresh.tasks.retrieve(deployed.key)).name).toEqual(name);
+      await expect
+        .poll(async () => (await fresh.tasks.retrieve(deployed.key)).name)
+        .toEqual(name);
     });
 
     it("leaves the arc and its task unchanged when the name is used", async () => {

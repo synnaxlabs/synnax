@@ -342,9 +342,9 @@ func (w Writer) retrieveTask(
 	return tsk, cfg, tsk.Config.Unmarshal(&cfg)
 }
 
-// syncTask rewrites the arc's task in place when an edit changed the arc's semantic
-// hash, keeping the task config in step with the arc's content. A no-op for arcs with
-// no rack bound and for edits, like graph layout moves, that hash equally.
+// syncTask rewrites the arc's task in place when an edit changed the arc's name or
+// semantic hash, keeping the task in step with the arc. A no-op for arcs with no rack
+// bound and for edits, like graph layout moves, that change neither.
 func (w Writer) syncTask(ctx context.Context, a Base) error {
 	existing, err := w.childTaskKeys(ctx, a.Key)
 	if err != nil || len(existing) == 0 {
@@ -355,7 +355,7 @@ func (w Writer) syncTask(ctx context.Context, a Base) error {
 		return err
 	}
 	hash, err := Hash(a)
-	if err != nil || cfg.Hash == hash {
+	if err != nil || (cfg.Hash == hash && tsk.Name == a.Name) {
 		return err
 	}
 	cfg.Hash = hash
