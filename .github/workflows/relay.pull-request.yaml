@@ -49,8 +49,6 @@ jobs:
         run: gh workflow run check.review.yaml --ref "$REF" -f pr="$PR"
 
       - name: Start Merge - Auto
-        # Main has no dispatch trigger for this until these two merge.
-        if: ${{ !contains(fromJSON('[4466, 4467]'), github.event.pull_request.number) }}
         run: gh workflow run merge.auto.yaml --ref "$REF" -f pr="$PR"
 
       - name: Start Agent - Shepherd
