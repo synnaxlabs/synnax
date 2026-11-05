@@ -126,6 +126,11 @@ func (m *monitor) writeOutages(ctx context.Context) error {
 			continue
 		}
 		lastUpdated[r.Key] = state.lastUpdated
+		// A rename can commit after the outage and notify first. Its older status time
+		// must already differ, so it counts as a report and the outage is written
+		// again.
+		state.statusTime = state.lastUpdated
+		m.mu.racks[r.Key] = state
 		statuses = append(statuses, Status{
 			Key:     r.OntologyID().String(),
 			Name:    r.Name,

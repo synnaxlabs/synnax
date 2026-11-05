@@ -10,6 +10,7 @@
 package rack_test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"slices"
@@ -35,6 +36,8 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/search"
 	"github.com/synnaxlabs/x/telem"
@@ -150,6 +153,27 @@ var _ = Describe("Driver role", func() {
 		Expect(hasDriverRole(ctx, s.otg, s.driverRole, embedded)).To(BeTrue())
 	})
 })
+
+// gatedDB holds observers of a write whose value contains match until hold is done. The
+// write commits before its observers run.
+type gatedDB struct {
+	kv.DB
+	match []byte
+	hold  *sync.WaitGroup
+}
+
+func (d gatedDB) OnChange(
+	handler func(context.Context, kv.TxReader),
+) observe.Disconnect {
+	return d.DB.OnChange(func(ctx context.Context, reader kv.TxReader) {
+		for ch := range reader {
+			if bytes.Contains(ch.Value, d.match) {
+				d.hold.Wait()
+			}
+		}
+		handler(ctx, reader)
+	})
+}
 
 func retrieveStatus(
 	ctx context.Context,
@@ -1339,6 +1363,58 @@ var _ = Describe("Rack", Ordered, func() {
 					return w.Rename(ctx, k, n)
 				},
 			),
+		)
+
+		It(
+			"Should report a silent rack again when a rename outruns its outage",
+			func(ctx SpecContext) {
+				var hold sync.WaitGroup
+				hold.Add(1)
+				release := sync.OnceFunc(hold.Done)
+				gatedKV := gatedDB{
+					DB:    memkv.New(),
+					match: []byte("Driver not running"),
+					hold:  &hold,
+				}
+				gatedGorp := DeferClose(gorp.Wrap(gatedKV))
+				start := telem.Now()
+				var now atomic.Int64
+				now.Store(int64(start))
+				gated := DeferClose(openStack(ctx, gatedGorp, rack.ServiceConfig{
+					HealthCheckInterval: 10 * telem.Millisecond,
+					Now: func() telem.TimeStamp {
+						return telem.TimeStamp(now.Load())
+					},
+				}))
+				DeferCleanup(release)
+				r := rack.Rack{
+					Name: "outrun rack",
+					Status: &rack.Status{
+						Variant: status.VariantSuccess,
+						Message: "Driver is running",
+						Time:    telem.SecondTS,
+					},
+				}
+				Expect(gated.rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+				renameTx := DeferClose(gatedGorp.OpenTx())
+				Expect(gated.rack.NewWriter(renameTx).Rename(ctx, r.Key, "renamed")).
+					To(Succeed())
+				now.Store(int64(start.Add(12 * telem.Millisecond)))
+				Eventually(func(g Gomega) {
+					s := MustSucceed(retrieveStatus(ctx, gated.status, r.Key))
+					g.Expect(s.Message).To(Equal("Driver not running"))
+				}).Should(Succeed())
+
+				Expect(renameTx.Commit(ctx)).To(Succeed())
+				release()
+
+				now.Store(int64(start.Add(24 * telem.Millisecond)))
+				Eventually(func(g Gomega) {
+					s := MustSucceed(retrieveStatus(ctx, gated.status, r.Key))
+					g.Expect(s.Message).To(Equal("Driver not running"))
+					g.Expect(s.Name).To(Equal("renamed"))
+				}).Should(Succeed())
+			},
 		)
 
 		DescribeTable(
