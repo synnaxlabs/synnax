@@ -109,19 +109,18 @@ const (
 )
 
 // unreachedTypes are the resource types a bundle can hold that the walk over the
-// project's ontology descendants never reaches: a task parents under its rack's task
-// group and an Arc parents nowhere. A panel tab is the only way one enters a bundle,
-// and an import leaves each where its importer put it rather than under the directory
-// that held it.
+// project's members never reaches, since no project owns a task or an Arc. A panel tab
+// is the only way one enters a bundle, and an import leaves each where its importer
+// put it rather than under the directory that held it.
 var unreachedTypes = set.New(
 	resource.TypeTask,
 	resource.TypeArc,
 )
 
-// Export serializes the project identified by key and its ontology descendants as a
-// bundle: one envelope per member document and panel, group children as directories,
-// and a manifest naming the project at the root. It also returns the resource ID of
-// every resource that shaped the artifact — documents, panels, and groups — so a caller
+// Export serializes the project identified by key and the groups and visualizations it
+// owns as a bundle: one envelope per member document and panel, group children as
+// directories, and a manifest naming the project at the root. It also returns the
+// resource ID of every document, panel, and group that shaped the artifact, so a caller
 // can enforce access on them. The encoder decides both the serialization and the
 // extension every file takes.
 //
@@ -187,7 +186,7 @@ func (s *Service) Export(
 }
 
 // bundleWalk accumulates the bundle's members while directory recurses through the
-// project's ontology descendants.
+// project's groups.
 type bundleWalk struct {
 	svc *Service
 	// tx is the transaction every read in the walk runs on, so the bundle reflects one
@@ -304,26 +303,17 @@ func (w *bundleWalk) children(
 ) ([]ontology.Resource, error) {
 	var ids []resource.ID
 	if parent.Type == resource.TypeProject {
-		var groups []group.Group
-		if err := w.svc.cfg.Group.NewRetrieve().
-			Where(group.MatchParents(parent)).
-			Entries(&groups).
-			Exec(ctx, w.tx); err != nil {
+		key, err := project.KeyFromResourceID(parent)
+		if err != nil {
 			return nil, err
 		}
-		ids = group.ResourceIDsFromGroups(groups)
-		var members []ontology.Resource
-		if err := w.svc.cfg.Ontology.NewRetrieve().
-			WhereIDs(parent).
-			TraverseTo(ontology.ChildrenTraverser).
-			ExcludeFieldData(true).
-			Entries(&members).
-			Exec(ctx, w.tx); err != nil {
+		deps, err := w.svc.cfg.Project.Children(w.tx, key)
+		if err != nil {
 			return nil, err
 		}
-		for _, m := range members {
-			if !w.grouped.Contains(m.ID) {
-				ids = append(ids, m.ID)
+		for _, id := range deps {
+			if !w.grouped.Contains(id) {
+				ids = append(ids, id)
 			}
 		}
 	} else {
@@ -522,7 +512,7 @@ func (s *Service) Import(
 		if p.Name == "" {
 			p.Name = filename.Stem(m.path)
 		}
-		p.Parent = &projID
+		p.Project = &proj.Key
 		p.Group = groups[path.Dir(m.path)]
 		if err = panelWriter.Create(ctx, &p); err != nil {
 			return project.Project{}, errors.Wrap(err, m.path)
@@ -562,7 +552,7 @@ func (s *Service) importLegacy(
 		refs[m.LayoutKey] = id
 	}
 	if err = legacy.CreatePanels(
-		ctx, tx, s.cfg.Panel, projID, layoutData, refs,
+		ctx, tx, s.cfg.Panel, proj.Key, layoutData, refs,
 	); err != nil {
 		return project.Project{}, err
 	}

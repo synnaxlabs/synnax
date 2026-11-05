@@ -30,8 +30,7 @@ var _ = Describe("Create", func() {
 		rec := &Recorder[log.Key, log.Action]{}
 		DeferCleanup(svc.Log.OnAction(rec.Record))
 		res := MustSucceed(apiSvc.Create(AuthedCtx(ctx, u), nil, apilog.CreateRequest{
-			Project:     proj.Key,
-			Logs:        []log.Log{{Name: "broadcast"}},
+			Logs:        []log.Log{{Name: "broadcast", Project: &proj.Key}},
 			DispatchKey: "dk-create",
 		}))
 		frames := rec.Snapshot()

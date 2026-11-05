@@ -16,6 +16,7 @@ import { actions } from "@/actions";
 import { channel } from "@/channel";
 import { group } from "@/group";
 import { channelEntryZ, keyZ, type Log, logZ } from "@/log/types.gen";
+import { project } from "@/project";
 
 /**
  * Create replaces the document with the given created state. Emitted by the Core on
@@ -43,6 +44,16 @@ export const setGroupPayloadZ = z.object({
 });
 
 export type SetGroupPayload = z.infer<typeof setGroupPayloadZ>;
+
+/**
+ * SetProject moves the log into a project. Emitted by the Core when it moves the log;
+ * clients never dispatch it.
+ */
+export const setProjectPayloadZ = z.object({
+  project: project.keyZ,
+});
+
+export type SetProjectPayload = z.infer<typeof setProjectPayloadZ>;
 
 /**
  * AddChannel appends a default channel entry for the given channel. No-op when the
@@ -200,6 +211,7 @@ export type Action =
   | { type: "create"; create: CreatePayload }
   | { type: "rename"; rename: RenamePayload }
   | { type: "set_group"; setGroup: SetGroupPayload }
+  | { type: "set_project"; setProject: SetProjectPayload }
   | { type: "add_channel"; addChannel: AddChannelPayload }
   | { type: "remove_channel"; removeChannel: RemoveChannelPayload }
   | { type: "set_channel_entry"; setChannelEntry: SetChannelEntryPayload }
@@ -231,6 +243,7 @@ export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
   z.object({ type: z.literal("create"), create: createPayloadZ }),
   z.object({ type: z.literal("rename"), rename: renamePayloadZ }),
   z.object({ type: z.literal("set_group"), setGroup: setGroupPayloadZ }),
+  z.object({ type: z.literal("set_project"), setProject: setProjectPayloadZ }),
   z.object({ type: z.literal("add_channel"), addChannel: addChannelPayloadZ }),
   z.object({ type: z.literal("remove_channel"), removeChannel: removeChannelPayloadZ }),
   z.object({
@@ -295,6 +308,13 @@ export const setGroup = (payload: z.input<typeof setGroupPayloadZ>): Action => (
   type: "set_group",
   setGroup: zod.parse(setGroupPayloadZ, payload, {
     label: "log set_group action payload",
+  }),
+});
+
+export const setProject = (payload: z.input<typeof setProjectPayloadZ>): Action => ({
+  type: "set_project",
+  setProject: zod.parse(setProjectPayloadZ, payload, {
+    label: "log set_project action payload",
   }),
 });
 
@@ -426,6 +446,7 @@ export interface Handlers {
   create: (state: Draft<Log>, payload: CreatePayload) => HandlerResult;
   rename: (state: Draft<Log>, payload: RenamePayload) => HandlerResult;
   setGroup: (state: Draft<Log>, payload: SetGroupPayload) => HandlerResult;
+  setProject: (state: Draft<Log>, payload: SetProjectPayload) => HandlerResult;
   addChannel: (state: Draft<Log>, payload: AddChannelPayload) => HandlerResult;
   removeChannel: (state: Draft<Log>, payload: RemoveChannelPayload) => HandlerResult;
   setChannelEntry: (
@@ -481,6 +502,8 @@ export const createReduceAll = (handlers: Handlers) =>
         return handlers.rename(state, action.rename);
       case "set_group":
         return handlers.setGroup(state, action.setGroup);
+      case "set_project":
+        return handlers.setProject(state, action.setProject);
       case "add_channel":
         return handlers.addChannel(state, action.addChannel);
       case "remove_channel":

@@ -11,9 +11,11 @@ package v4
 
 import (
 	"context"
+	"uuid"
 
 	"github.com/synnaxlabs/gorp/migrate"
 	groupv1 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
+	projectv3 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v3"
 )
@@ -33,3 +35,13 @@ var MembersMigration = groupv1.NewMembersMigration(groupv1.MembersConfig[Key, Ta
 	SetGroup:     func(e *Table, g groupv1.Key) { e.Group = &g },
 	ProjectOwned: true,
 })
+
+// OwnersMigration sets the project or range of each stored table from the ontology
+// edge that owned it, and deletes each table with no owner.
+var OwnersMigration = projectv3.NewOwnersMigration(
+	projectv3.OwnersConfig[Key, Table]{
+		Name:     "v61_table_owner",
+		Type:     resource.TypeTable,
+		SetOwner: func(e *Table, p, r *uuid.UUID) { e.Project, e.Range = p, r },
+	},
+)

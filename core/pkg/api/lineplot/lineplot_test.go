@@ -31,8 +31,9 @@ var _ = Describe("Create", func() {
 		DeferCleanup(svc.LinePlot.OnAction(rec.Record))
 		res := MustSucceed(
 			apiSvc.Create(AuthedCtx(ctx, u), nil, apilineplot.CreateRequest{
-				Project:     proj.Key,
-				LinePlots:   []lineplot.LinePlot{{Name: "broadcast"}},
+				LinePlots: []lineplot.LinePlot{
+					{Name: "broadcast", Project: &proj.Key},
+				},
 				DispatchKey: "dk-create",
 			}),
 		)

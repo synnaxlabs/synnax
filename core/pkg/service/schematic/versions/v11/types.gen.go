@@ -13,6 +13,8 @@ package v11
 
 import (
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
+	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
+	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
 	v10 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v10"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -731,6 +733,12 @@ type Schematic struct {
 	Configs map[string]ElementConfig `json:"configs" msgpack:"configs"`
 	// Group is the group the schematic sits in, if any.
 	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
+	// Project is the project that owns the schematic, if any. Exactly one of project
+	// and range is set.
+	Project *project.Key `json:"project,omitzero" msgpack:"project,omitempty"`
+	// Range is the range that owns the schematic, if any. Exactly one of project and
+	// range is set.
+	Range *ranger.Key `json:"range,omitzero" msgpack:"range,omitempty"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.

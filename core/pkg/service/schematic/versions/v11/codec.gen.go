@@ -13,6 +13,8 @@ package v11
 
 import (
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
+	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
+	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -52,6 +54,18 @@ func (s Schematic) EncodeOrc(w *orc.Writer) error {
 	if s.Group != nil {
 		w.Bool(true)
 		w.Write((*s.Group)[:])
+	} else {
+		w.Bool(false)
+	}
+	if s.Project != nil {
+		w.Bool(true)
+		w.Write((*s.Project)[:])
+	} else {
+		w.Bool(false)
+	}
+	if s.Range != nil {
+		w.Bool(true)
+		w.Write((*s.Range)[:])
 	} else {
 		w.Bool(false)
 	}
@@ -141,6 +155,32 @@ func (s *Schematic) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			s.Group = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv project.Key
+			if _, err := r.Read(hv[:]); err != nil {
+				return err
+			}
+			s.Project = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv ranger.Key
+			if _, err := r.Read(hv[:]); err != nil {
+				return err
+			}
+			s.Range = &hv
 		}
 	}
 	return nil

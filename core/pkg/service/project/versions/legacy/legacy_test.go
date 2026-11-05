@@ -15,9 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/project/versions/legacy"
@@ -150,38 +148,22 @@ var _ = Describe("HasPanels", func() {
 
 var _ = Describe("CreatePanels", func() {
 	var (
-		parent resource.ID
-		refs   map[string]resource.ID
+		proj project.Key
+		refs map[string]resource.ID
 	)
 	BeforeEach(func(ctx SpecContext) {
-		g := group.Group{Name: "Legacy Parent", Scope: resource.TypeProject}
-		Expect(groupSvc.NewWriter(tx).Create(ctx, &g)).To(Succeed())
-		parent = g.ResourceID()
-		l := log.Log{Name: "Metrics"}
-		Expect(logSvc.NewWriter(tx).Create(ctx, project.Key{}, &l)).To(Succeed())
+		p := project.Project{Name: "Legacy Project"}
+		Expect(projectSvc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
+		proj = p.Key
+		l := log.Log{Name: "Metrics", Project: &proj}
+		Expect(logSvc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
 		refs = map[string]resource.ID{"k1": log.ResourceID(l.Key)}
 	})
-	panelsUnder := func(ctx SpecContext, parent resource.ID) []panel.Panel {
+	panelsOf := func(ctx SpecContext, proj project.Key) []panel.Panel {
 		GinkgoHelper()
-		var children []ontology.Resource
-		Expect(otg.NewRetrieve().
-			WhereIDs(parent).
-			TraverseTo(ontology.ChildrenTraverser).
-			Entries(&children).
-			Exec(ctx, tx)).To(Succeed())
-		var ids []resource.ID
-		for _, c := range children {
-			if c.ID.Type == resource.TypePanel {
-				ids = append(ids, c.ID)
-			}
-		}
-		if len(ids) == 0 {
-			return nil
-		}
-		keys := MustSucceed(panel.KeysFromResourceIDs(ids))
 		var panels []panel.Panel
 		Expect(panelSvc.NewRetrieve().
-			Where(panel.MatchKeys(keys...)).
+			Where(panel.MatchProjects(proj)).
 			Entries(&panels).
 			Exec(ctx, tx)).To(Succeed())
 		return panels
@@ -197,9 +179,9 @@ var _ = Describe("CreatePanels", func() {
 			"main": map[string]any{"root": leaf("k1")},
 		})
 		Expect(legacy.CreatePanels(
-			ctx, tx, panelSvc, parent, data, refs,
+			ctx, tx, panelSvc, proj, data, refs,
 		)).To(Succeed())
-		panels := panelsUnder(ctx, parent)
+		panels := panelsOf(ctx, proj)
 		Expect(panels).To(HaveLen(1))
 		Expect(panels[0].Name).To(Equal("Main"))
 		l, ok := panels[0].Root.Variant.(panel.LeafNode)
@@ -212,9 +194,9 @@ var _ = Describe("CreatePanels", func() {
 	) {
 		data := layoutFile(nil, map[string]any{"main": "garbage"})
 		Expect(legacy.CreatePanels(
-			ctx, tx, panelSvc, parent, data, refs,
+			ctx, tx, panelSvc, proj, data, refs,
 		)).To(Succeed())
-		Expect(panelsUnder(ctx, parent)).To(BeEmpty())
+		Expect(panelsOf(ctx, proj)).To(BeEmpty())
 	})
 
 	It("Should skip windows with no resolvable tabs", func(ctx SpecContext) {
@@ -222,8 +204,8 @@ var _ = Describe("CreatePanels", func() {
 			"w1": map[string]any{"root": leaf("missing")},
 		})
 		Expect(legacy.CreatePanels(
-			ctx, tx, panelSvc, parent, data, refs,
+			ctx, tx, panelSvc, proj, data, refs,
 		)).To(Succeed())
-		Expect(panelsUnder(ctx, parent)).To(BeEmpty())
+		Expect(panelsOf(ctx, proj)).To(BeEmpty())
 	})
 })

@@ -22,6 +22,7 @@ var _ = Describe("Retrieve", func() {
 	BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 	It("Should retrieve a Table", func(ctx SpecContext) {
 		s := table.Table{
+			Project: &proj.Key,
 			Name:    "test",
 			Rows:    []table.Row{{Key: "r0", Size: 30, Cells: []string{"a"}}},
 			Columns: []table.Column{{Key: "c0", Size: 80}},
@@ -29,7 +30,7 @@ var _ = Describe("Retrieve", func() {
 				"a": textCfg("hello"),
 			},
 		}
-		Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &s)).To(Succeed())
+		Expect(svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
 		var res table.Table
 		Expect(
 			svc.NewRetrieve().Where(table.MatchKeys(s.Key)).Entry(&res).Exec(ctx, tx),

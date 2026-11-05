@@ -9,6 +9,8 @@
 
 import "schemas/synnax/channel"
 import "schemas/synnax/group"
+import "schemas/synnax/project"
+import "schemas/synnax/ranger"
 import "schemas/synnax/symbol"
 import "schemas/x/border"
 import "schemas/x/color"
@@ -909,6 +911,20 @@ Schematic struct {
         @doc value     "is the group the schematic sits in, if any."
         @ref on_delete detach
     }
+    project  project.Key?               {
+        @doc value     """
+            is the project that owns the schematic, if any. Exactly one of project and
+            range is set.
+        """
+        @ref on_delete cascade
+    }
+    range    ranger.Key?                {
+        @doc value     """
+            is the range that owns the schematic, if any. Exactly one of project and
+            range is set.
+        """
+        @ref on_delete cascade
+    }
 
     action Create {
         schematic Schematic
@@ -931,6 +947,15 @@ Schematic struct {
         @doc value """
             moves the schematic into a group, or out of its group when group is empty.
             Emitted by the Core when it moves the schematic; clients never dispatch it.
+        """
+    }
+
+    action SetProject {
+        project project.Key
+
+        @doc value """
+            moves the schematic into a project. Emitted by the Core when it moves the
+            schematic; clients never dispatch it.
         """
     }
 

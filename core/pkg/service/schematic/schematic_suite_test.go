@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -32,12 +33,14 @@ func TestSchematic(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	db       *gorp.DB
-	groupSvc *group.Service
-	otg      *ontology.Ontology
-	proj     project.Project
-	svc      *schematic.Service
-	imexSvc  *imex.Service
+	db         *gorp.DB
+	groupSvc   *group.Service
+	otg        *ontology.Ontology
+	proj       project.Project
+	projectSvc *project.Service
+	rangerSvc  *ranger.Service
+	svc        *schematic.Service
+	imexSvc    *imex.Service
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -48,8 +51,13 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:       db,
 		Ontology: otg,
 	}))
+	rangerSvc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		Group:    groupSvc,
+	}))
 	imexSvc = imex.NewService()
-	projectSvc := MustOpen(project.OpenService(ctx, project.ServiceConfig{
+	projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 	}))

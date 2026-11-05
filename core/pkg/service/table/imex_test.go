@@ -37,8 +37,8 @@ var _ = Describe("ImEx", func() {
 
 	Describe("Export", func() {
 		It("Should export a table as a versioned envelope", func(ctx SpecContext) {
-			t := table.Table{Name: "exported"}
-			Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &t)).To(Succeed())
+			t := table.Table{Project: &proj.Key, Name: "exported"}
+			Expect(svc.NewWriter(nil).Create(ctx, &t)).To(Succeed())
 			env := MustSucceed(svc.Export(ctx, table.ResourceID(t.Key)))
 			Expect(env.Version).To(Equal(versions.Latest))
 			Expect(env.Type).To(Equal("table"))
@@ -177,12 +177,13 @@ var _ = Describe("ImEx", func() {
 			"Should preserve table content through export then import",
 			func(ctx SpecContext) {
 				original := table.Table{
+					Project: &proj.Key,
 					Name:    "round-trip",
 					Rows:    []table.Row{{Key: "r0", Size: 42, Cells: []string{"c1"}}},
 					Columns: []table.Column{{Key: "c0", Size: 77}},
 				}
 				Expect(
-					svc.NewWriter(nil).Create(ctx, proj.Key, &original),
+					svc.NewWriter(nil).Create(ctx, &original),
 				).To(Succeed())
 				env := MustSucceed(svc.Export(ctx, table.ResourceID(original.Key)))
 				id := MustSucceed(imexSvc.Import(

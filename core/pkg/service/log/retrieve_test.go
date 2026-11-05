@@ -23,7 +23,8 @@ var _ = Describe("Retrieve", func() {
 	It("Should retrieve a Log", func(ctx SpecContext) {
 		tx := DeferClose(db.OpenTx())
 		l := log.Log{
-			Name: "test",
+			Project: &proj.Key,
+			Name:    "test",
 			Channels: []log.ChannelEntry{
 				{
 					Channel:  channel.Key(1),
@@ -33,7 +34,7 @@ var _ = Describe("Retrieve", func() {
 			},
 			ChannelNamesHidden: true,
 		}
-		Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
+		Expect(svc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
 		var res log.Log
 		Expect(
 			svc.NewRetrieve().Where(log.MatchKeys(l.Key)).Entry(&res).Exec(ctx, tx),

@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/encoding/zip"
 	"github.com/synnaxlabs/x/errors"
@@ -181,13 +182,13 @@ type mosaicTab struct {
 }
 
 // CreatePanels recreates layoutData's tiling as panels on tx, one per window whose tabs
-// resolve through refs, main window first, each parented under parent. Best-effort: an
-// unrecognized tiling shape creates no panels instead of failing.
+// resolve through refs, main window first, each owned by the project proj. Best-effort:
+// an unrecognized tiling shape creates no panels instead of failing.
 func CreatePanels(
 	ctx context.Context,
 	tx gorp.Tx,
 	svc *panel.Service,
-	parent resource.ID,
+	proj project.Key,
 	layoutData []byte,
 	refs map[string]resource.ID,
 ) error {
@@ -205,9 +206,9 @@ func CreatePanels(
 			continue
 		}
 		p := panel.Panel{
-			Name:   panelName(slice.Layouts, windowKey),
-			Root:   *root,
-			Parent: &parent,
+			Name:    panelName(slice.Layouts, windowKey),
+			Root:    *root,
+			Project: &proj,
 		}
 		if err := writer.Create(ctx, &p); err != nil {
 			return errors.Wrap(err, LayoutFileName)

@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -80,8 +81,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 
 type (
 	CreateRequest struct {
-		Logs    []log.Log   `json:"logs"    msgpack:"logs"`
-		Project project.Key `json:"project" msgpack:"project"`
+		Logs []log.Log `json:"logs" msgpack:"logs"`
 		// DispatchKey is stamped onto the create broadcasts so the sender skips its
 		// echo.
 		DispatchKey string `json:"dispatch_key" msgpack:"dispatch_key"`
@@ -127,7 +127,7 @@ func (s *Service) Create(
 	}
 	if err := s.internal.NewWriter(tx).
 		WithDispatchKey(req.DispatchKey).
-		CreateMany(ctx, req.Project, &req.Logs); err != nil {
+		CreateMany(ctx, &req.Logs); err != nil {
 		return CreateResponse{}, err
 	}
 	return CreateResponse{Logs: req.Logs}, nil
@@ -164,6 +164,10 @@ type (
 		// Grouped keeps only the logs in a group when true, and only the logs in no
 		// group when false. Nil applies no filter.
 		Grouped *bool `json:"grouped" msgpack:"grouped"`
+		// Projects keeps only the logs owned by any of these projects.
+		Projects []project.Key `json:"projects" msgpack:"projects"`
+		// Ranges keeps only the logs owned by any of these ranges.
+		Ranges []ranger.Key `json:"ranges" msgpack:"ranges"`
 	}
 	RetrieveResponse struct {
 		Logs []log.Log `json:"logs" msgpack:"logs"`
@@ -189,6 +193,12 @@ func (s *Service) Retrieve(
 	}
 	if req.Grouped != nil {
 		q = q.Where(log.MatchHasGroup(*req.Grouped))
+	}
+	if len(req.Projects) > 0 {
+		q = q.Where(log.MatchProjects(req.Projects...))
+	}
+	if len(req.Ranges) > 0 {
+		q = q.Where(log.MatchRanges(req.Ranges...))
 	}
 	err := q.Entries(&res.Logs).Exec(ctx, nil)
 	if req.IgnoreNotFoundError && err != nil {
@@ -257,4 +267,27 @@ func (s *Service) SetGroup(
 		return struct{}{}, err
 	}
 	return struct{}{}, s.internal.NewWriter(tx).SetGroup(ctx, req.Group, req.Keys...)
+}
+
+// SetProjectRequest moves logs into Project.
+type SetProjectRequest struct {
+	Project project.Key `json:"project" msgpack:"project"`
+	Keys    []log.Key   `json:"keys"    msgpack:"keys"`
+}
+
+// SetProject moves the logs with the given keys into a project.
+func (s *Service) SetProject(
+	ctx context.Context,
+	tx gorp.Tx,
+	req SetProjectRequest,
+) (struct{}, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: log.ResourceIDs(req.Keys),
+	}); err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, s.internal.NewWriter(tx).
+		SetProject(ctx, req.Project, req.Keys...)
 }

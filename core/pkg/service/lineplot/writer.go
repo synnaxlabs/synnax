@@ -53,22 +53,15 @@ func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
 	})
 }
 
-// Create creates the given line plot within the project provided. If the line plot
-// does not have a key, a new key will be generated. An existing line plot keeps its
-// group.
-func (w Writer) Create(
-	ctx context.Context,
-	projectKey project.Key,
-	lp *LinePlot,
-) error {
-	return w.inTx(ctx, func(w Writer) error { return w.create(ctx, projectKey, lp) })
+// Create creates the given line plot, assigning a new key when lp.Key is zero. The line
+// plot
+// must belong to exactly one of a project and a range. An existing line plot keeps its
+// group, project, and range.
+func (w Writer) Create(ctx context.Context, lp *LinePlot) error {
+	return w.inTx(ctx, func(w Writer) error { return w.create(ctx, lp) })
 }
 
-func (w Writer) create(
-	ctx context.Context,
-	projectKey project.Key,
-	lp *LinePlot,
-) error {
+func (w Writer) create(ctx context.Context, lp *LinePlot) error {
 	var (
 		exists bool
 		err    error
@@ -85,7 +78,7 @@ func (w Writer) create(
 			return err
 		}
 		if exists = err == nil; exists {
-			lp.Group = stored.Group
+			lp.Group, lp.Project, lp.Range = stored.Group, stored.Project, stored.Range
 		}
 	}
 	if !exists {
@@ -106,6 +99,9 @@ func (w Writer) create(
 	if err := lp.Validate(); err != nil {
 		return err
 	}
+	if err = project.ValidateOwner(lp.Project, lp.Range); err != nil {
+		return err
+	}
 	if err := w.table.NewCreate().Entry(lp).Exec(ctx, w.tx); err != nil {
 		return err
 	}
@@ -113,16 +109,6 @@ func (w Writer) create(
 		otgID := lp.ResourceID()
 		if err := w.otg.DefineResources(ctx, otgID); err != nil {
 			return err
-		}
-		if projectKey != uuid.Nil() {
-			if err := w.otg.DefineRelationships(
-				ctx,
-				project.ResourceID(projectKey),
-				ontology.RelationshipTypeParentOf,
-				otgID,
-			); err != nil {
-				return err
-			}
 		}
 	}
 	w.dispatcher.NotifyOnCommit(
@@ -153,15 +139,35 @@ func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
 	return nil
 }
 
-// CreateMany creates the given line plots within the project provided. If line plots
-// with the same key already exist, they will be overwritten.
-func (w Writer) CreateMany(
-	ctx context.Context,
-	projectKey project.Key,
-	plots *[]LinePlot,
-) error {
+// SetProject moves the line plots with keys into the project p. It returns a validation
+// error when a line plot belongs to a range.
+func (w Writer) SetProject(ctx context.Context, p project.Key, keys ...Key) error {
+	if err := w.table.NewUpdate().
+		Where(gorp.MatchKeys[Key, LinePlot](keys...)).
+		ChangeErr(func(_ gorp.Context, e LinePlot) (LinePlot, error) {
+			e.Project = &p
+			return e, project.ValidateOwner(e.Project, e.Range)
+		}).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	for _, k := range keys {
+		w.dispatcher.NotifyOnCommit(
+			ctx,
+			w.tx,
+			k,
+			NewSetProjectAction(SetProjectPayload{Project: p}),
+		)
+	}
+	return nil
+}
+
+// CreateMany creates the given line plots. If line plots with the same key already
+// exist,
+// they will be overwritten.
+func (w Writer) CreateMany(ctx context.Context, plots *[]LinePlot) error {
 	for i := range *plots {
-		if err := w.Create(ctx, projectKey, &(*plots)[i]); err != nil {
+		if err := w.Create(ctx, &(*plots)[i]); err != nil {
 			return err
 		}
 	}

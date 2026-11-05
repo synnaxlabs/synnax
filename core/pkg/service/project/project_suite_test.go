@@ -16,8 +16,15 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
+	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic"
+	"github.com/synnaxlabs/synnax/pkg/service/table"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -29,11 +36,17 @@ func TestProject(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	db     *gorp.DB
-	otg    *ontology.Ontology
-	svc    *project.Service
-	writer project.Writer
-	tx     gorp.Tx
+	db           *gorp.DB
+	otg          *ontology.Ontology
+	svc          *project.Service
+	groupSvc     *group.Service
+	schematicSvc *schematic.Service
+	lineplotSvc  *lineplot.Service
+	logSvc       *log.Service
+	tableSvc     *table.Service
+	panelSvc     *panel.Service
+	writer       project.Writer
+	tx           gorp.Tx
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -46,4 +59,33 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Ontology: otg,
 	}))
 	writer = svc.NewWriter(nil)
+	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+	}))
+	schematicSvc = MustOpen(schematic.OpenService(ctx, schematic.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		Group:    groupSvc,
+		ImEx:     imex.NewService(),
+	}))
+	lineplotSvc = MustOpen(lineplot.OpenService(ctx, lineplot.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		ImEx:     imex.NewService(),
+	}))
+	logSvc = MustOpen(log.OpenService(ctx, log.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		ImEx:     imex.NewService(),
+	}))
+	tableSvc = MustOpen(table.OpenService(ctx, table.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		ImEx:     imex.NewService(),
+	}))
+	panelSvc = MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+	}))
 })

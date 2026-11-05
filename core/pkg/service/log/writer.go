@@ -56,15 +56,14 @@ func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
 	})
 }
 
-// Create creates the given log within the project provided. If the log does not have a
-// key, a new key will be generated. If projectKey is uuid.Nil(), the log is created
-// without a project ParentOf relationship; this is used by imports that supply no
-// parent project. An existing log keeps its group.
-func (w Writer) Create(ctx context.Context, projectKey project.Key, l *Log) error {
-	return w.inTx(ctx, func(w Writer) error { return w.create(ctx, projectKey, l) })
+// Create creates the given log, assigning a new key when l.Key is zero. The log
+// must belong to exactly one of a project and a range. An existing log keeps its
+// group, project, and range.
+func (w Writer) Create(ctx context.Context, l *Log) error {
+	return w.inTx(ctx, func(w Writer) error { return w.create(ctx, l) })
 }
 
-func (w Writer) create(ctx context.Context, projectKey project.Key, l *Log) error {
+func (w Writer) create(ctx context.Context, l *Log) error {
 	var (
 		exists bool
 		err    error
@@ -81,7 +80,7 @@ func (w Writer) create(ctx context.Context, projectKey project.Key, l *Log) erro
 			return err
 		}
 		if exists = err == nil; exists {
-			l.Group = stored.Group
+			l.Group, l.Project, l.Range = stored.Group, stored.Project, stored.Range
 		}
 	}
 	if !exists {
@@ -99,6 +98,9 @@ func (w Writer) create(ctx context.Context, projectKey project.Key, l *Log) erro
 	if err = l.Validate(); err != nil {
 		return err
 	}
+	if err = project.ValidateOwner(l.Project, l.Range); err != nil {
+		return err
+	}
 	if err = w.table.NewCreate().Entry(l).Exec(ctx, w.tx); err != nil {
 		return err
 	}
@@ -106,16 +108,6 @@ func (w Writer) create(ctx context.Context, projectKey project.Key, l *Log) erro
 		otgID := l.ResourceID()
 		if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
 			return err
-		}
-		if projectKey != uuid.Nil() {
-			if err = w.otgWriter.DefineRelationships(
-				ctx,
-				project.ResourceID(projectKey),
-				ontology.RelationshipTypeParentOf,
-				otgID,
-			); err != nil {
-				return err
-			}
 		}
 	}
 	w.dispatcher.NotifyOnCommit(
@@ -146,15 +138,34 @@ func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
 	return nil
 }
 
-// CreateMany creates the given logs within the project provided. If logs with the
-// same key already exist, they will be overwritten.
-func (w Writer) CreateMany(
-	ctx context.Context,
-	projectKey project.Key,
-	logs *[]Log,
-) error {
+// SetProject moves the logs with keys into the project p. It returns a validation
+// error when a log belongs to a range.
+func (w Writer) SetProject(ctx context.Context, p project.Key, keys ...Key) error {
+	if err := w.table.NewUpdate().
+		Where(gorp.MatchKeys[Key, Log](keys...)).
+		ChangeErr(func(_ gorp.Context, e Log) (Log, error) {
+			e.Project = &p
+			return e, project.ValidateOwner(e.Project, e.Range)
+		}).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	for _, k := range keys {
+		w.dispatcher.NotifyOnCommit(
+			ctx,
+			w.tx,
+			k,
+			NewSetProjectAction(SetProjectPayload{Project: p}),
+		)
+	}
+	return nil
+}
+
+// CreateMany creates the given logs. If logs with the same key already exist,
+// they will be overwritten.
+func (w Writer) CreateMany(ctx context.Context, logs *[]Log) error {
 	for i := range *logs {
-		if err := w.Create(ctx, projectKey, &(*logs)[i]); err != nil {
+		if err := w.Create(ctx, &(*logs)[i]); err != nil {
 			return err
 		}
 	}

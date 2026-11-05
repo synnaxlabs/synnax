@@ -19,6 +19,8 @@ from pydantic import BaseModel, Field
 
 from synnax import channel as channel_
 from synnax import group as group_
+from synnax import project as project_
+from synnax import ranger
 from synnax.resource import ID
 from synnax.schematic import symbol
 from x import border, spatial, text
@@ -1909,6 +1911,10 @@ class Schematic(BaseModel):
         configs: Contains per-element configuration keyed by node or edge key. The
             variant of each value selects the symbol or edge style it configures.
         group: Is the group the schematic sits in, if any.
+        project: Is the project that owns the schematic, if any. Exactly one of project
+            and range is set.
+        range: Is the range that owns the schematic, if any. Exactly one of project and
+            range is set.
     """
 
     key: Key = Field(default_factory=uuid4)
@@ -1918,6 +1924,8 @@ class Schematic(BaseModel):
     edges: list[Edge] = Field(default_factory=list)
     configs: dict[str, ElementConfig] = Field(default_factory=dict)
     group: group_.Key | None = None
+    project: project_.Key | None = None
+    range: ranger.Key | None = None
 
     @_override
     def __hash__(self) -> int:

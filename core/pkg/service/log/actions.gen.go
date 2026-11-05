@@ -14,6 +14,7 @@ package log
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/telem"
@@ -24,6 +25,7 @@ const (
 	ActionTypeCreate                    = "create"
 	ActionTypeRename                    = "rename"
 	ActionTypeSetGroup                  = "set_group"
+	ActionTypeSetProject                = "set_project"
 	ActionTypeAddChannel                = "add_channel"
 	ActionTypeRemoveChannel             = "remove_channel"
 	ActionTypeSetChannelEntry           = "set_channel_entry"
@@ -55,6 +57,12 @@ type RenamePayload struct {
 // Emitted by the Core when it moves the log; clients never dispatch it.
 type SetGroupPayload struct {
 	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
+}
+
+// SetProjectPayload moves the log into a project. Emitted by the Core when it moves the
+// log; clients never dispatch it.
+type SetProjectPayload struct {
+	Project project.Key `json:"project" msgpack:"project"`
 }
 
 // AddChannelPayload appends a default channel entry for the given channel. No-op when
@@ -158,6 +166,7 @@ type Action struct {
 	Create                    *CreatePayload                    `json:"create,omitzero" msgpack:"create,omitempty"`
 	Rename                    *RenamePayload                    `json:"rename,omitzero" msgpack:"rename,omitempty"`
 	SetGroup                  *SetGroupPayload                  `json:"set_group,omitzero" msgpack:"set_group,omitempty"`
+	SetProject                *SetProjectPayload                `json:"set_project,omitzero" msgpack:"set_project,omitempty"`
 	AddChannel                *AddChannelPayload                `json:"add_channel,omitzero" msgpack:"add_channel,omitempty"`
 	RemoveChannel             *RemoveChannelPayload             `json:"remove_channel,omitzero" msgpack:"remove_channel,omitempty"`
 	SetChannelEntry           *SetChannelEntryPayload           `json:"set_channel_entry,omitzero" msgpack:"set_channel_entry,omitempty"`
@@ -197,6 +206,11 @@ func Reduce(state Log, actions ...Action) (Log, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetGroup.Handle(state)
+		case ActionTypeSetProject:
+			if a.SetProject == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetProject.Handle(state)
 		case ActionTypeAddChannel:
 			if a.AddChannel == nil {
 				return state, union.MissingPayload(a.Type)
@@ -290,6 +304,11 @@ func NewRenameAction(p RenamePayload) Action {
 // NewSetGroupAction wraps a SetGroupPayload in an Action envelope.
 func NewSetGroupAction(p SetGroupPayload) Action {
 	return Action{Type: ActionTypeSetGroup, SetGroup: &p}
+}
+
+// NewSetProjectAction wraps a SetProjectPayload in an Action envelope.
+func NewSetProjectAction(p SetProjectPayload) Action {
+	return Action{Type: ActionTypeSetProject, SetProject: &p}
 }
 
 // NewAddChannelAction wraps a AddChannelPayload in an Action envelope.

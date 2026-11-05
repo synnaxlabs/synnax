@@ -224,7 +224,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		svc:        s,
 		tx:         tx,
 		otgWriter:  s.cfg.Ontology.NewWriter(tx),
-		otg:        s.cfg.Ontology,
 		table:      s.table,
 		dispatcher: s.state.Dispatcher(),
 	}

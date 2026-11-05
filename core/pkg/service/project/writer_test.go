@@ -19,8 +19,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
+	"github.com/synnaxlabs/synnax/pkg/service/log"
+	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic"
+	"github.com/synnaxlabs/synnax/pkg/service/table"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -79,7 +84,7 @@ var _ = Describe("Writer", func() {
 				To(MatchError(ContainSubstring("name: required")))
 		})
 	})
-	Describe("DeleteChannel", func() {
+	Describe("Delete", func() {
 		It("Should delete a project", func(ctx SpecContext) {
 			proj := project.Project{Name: "test"}
 			Expect(svc.NewWriter(tx).Create(ctx, &proj)).To(Succeed())
@@ -92,6 +97,86 @@ var _ = Describe("Writer", func() {
 					Exec(ctx, tx),
 			).To(MatchError(query.ErrNotFound))
 		})
+
+		It(
+			"Should delete the project's visualizations and groups",
+			func(ctx SpecContext) {
+				proj := project.Project{Name: "doomed"}
+				Expect(svc.NewWriter(tx).Create(ctx, &proj)).To(Succeed())
+				g := group.Group{Name: "folder", Parent: new(proj.ResourceID())}
+				Expect(groupSvc.NewWriter(tx).Create(ctx, &g)).To(Succeed())
+				s := schematic.Schematic{Name: "s", Project: &proj.Key}
+				Expect(schematicSvc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
+				Expect(schematicSvc.NewWriter(tx).SetGroup(ctx, &g.Key, s.Key)).
+					To(Succeed())
+				lp := lineplot.LinePlot{Name: "lp", Project: &proj.Key}
+				Expect(lineplotSvc.NewWriter(tx).Create(ctx, &lp)).To(Succeed())
+				l := log.Log{Name: "l", Project: &proj.Key}
+				Expect(logSvc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
+				t := table.Table{Name: "t", Project: &proj.Key}
+				Expect(tableSvc.NewWriter(tx).Create(ctx, &t)).To(Succeed())
+				p := panel.Panel{Name: "p", Project: &proj.Key}
+				Expect(panelSvc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
+				Expect(svc.NewWriter(tx).Delete(ctx, proj.Key)).To(Succeed())
+				Expect(groupSvc.NewRetrieve().
+					Where(group.MatchKeys(g.Key)).
+					Entry(&group.Group{}).
+					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+				Expect(schematicSvc.NewRetrieve().
+					Where(schematic.MatchKeys(s.Key)).
+					Entry(&schematic.Schematic{}).
+					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+				Expect(lineplotSvc.NewRetrieve().
+					Where(lineplot.MatchKeys(lp.Key)).
+					Entry(&lineplot.LinePlot{}).
+					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+				Expect(logSvc.NewRetrieve().
+					Where(log.MatchKeys(l.Key)).
+					Entry(&log.Log{}).
+					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+				Expect(tableSvc.NewRetrieve().
+					Where(table.MatchKeys(t.Key)).
+					Entry(&table.Table{}).
+					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+				Expect(panelSvc.NewRetrieve().
+					Where(panel.MatchKeys(p.Key)).
+					Entry(&panel.Panel{}).
+					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+			},
+		)
+
+		It("Should keep the visualizations of other projects", func(ctx SpecContext) {
+			doomed := project.Project{Name: "doomed"}
+			kept := project.Project{Name: "kept"}
+			Expect(svc.NewWriter(tx).Create(ctx, &doomed)).To(Succeed())
+			Expect(svc.NewWriter(tx).Create(ctx, &kept)).To(Succeed())
+			l := log.Log{Name: "l", Project: &kept.Key}
+			Expect(logSvc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
+			Expect(svc.NewWriter(tx).Delete(ctx, doomed.Key)).To(Succeed())
+			Expect(logSvc.NewRetrieve().
+				Where(log.MatchKeys(l.Key)).
+				Entry(&log.Log{}).
+				Exec(ctx, tx)).To(Succeed())
+		})
+	})
+
+	Describe("Children", func() {
+		It(
+			"Should return the project's groups and visualizations",
+			func(ctx SpecContext) {
+				proj := project.Project{Name: "parent"}
+				Expect(svc.NewWriter(tx).Create(ctx, &proj)).To(Succeed())
+				g := group.Group{Name: "folder", Parent: new(proj.ResourceID())}
+				Expect(groupSvc.NewWriter(tx).Create(ctx, &g)).To(Succeed())
+				l := log.Log{Name: "l", Project: &proj.Key}
+				Expect(logSvc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
+				p := panel.Panel{Name: "p", Project: &proj.Key}
+				Expect(panelSvc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
+				Expect(svc.Children(tx, proj.Key)).To(ConsistOf(
+					g.ResourceID(), l.ResourceID(), p.ResourceID(),
+				))
+			},
+		)
 	})
 	Describe("Group", func() {
 		createGroup := func(ctx context.Context, g group.Group) group.Group {

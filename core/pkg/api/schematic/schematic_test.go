@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/x/query"
@@ -38,8 +39,8 @@ type scopedAction = actions.Scoped[schematic.Key, schematic.Action]
 // access-control reads can observe the new ontology resource.
 func createSchematic(ctx context.Context, name string) schematic.Schematic {
 	GinkgoHelper()
-	s := schematic.Schematic{Name: name}
-	Expect(schematicSvc.NewWriter(nil).Create(ctx, proj.Key, &s)).To(Succeed())
+	s := schematic.Schematic{Project: &proj.Key, Name: name}
+	Expect(schematicSvc.NewWriter(nil).Create(ctx, &s)).To(Succeed())
 	return s
 }
 
@@ -60,8 +61,9 @@ var _ = Describe("Service", func() {
 				AuthedCtx(ctx, author),
 				db,
 				apischematic.CreateRequest{
-					Project:     proj.Key,
-					Schematics:  []schematic.Schematic{{Name: "broadcast"}},
+					Schematics: []schematic.Schematic{
+						{Name: "broadcast", Project: &proj.Key},
+					},
 					DispatchKey: "dk-create",
 				},
 			))
@@ -109,6 +111,43 @@ var _ = Describe("Service", func() {
 				Expect(res.Schematics).To(BeEmpty())
 			},
 		)
+	})
+
+	Describe("SetProject", func() {
+		It(
+			"Should reject the request when the subject has no update policy",
+			func(ctx SpecContext) {
+				s := createSchematic(ctx, "move-denied")
+				Expect(apiSvc.SetProject(
+					AuthedCtx(ctx, author),
+					nil,
+					apischematic.SetProjectRequest{
+						Project: proj.Key,
+						Keys:    []schematic.Key{s.Key},
+					},
+				)).Error().To(MatchError(access.ErrDenied))
+			},
+		)
+
+		It("Should move the schematics into the project", func(ctx SpecContext) {
+			dest := project.Project{Name: "destination"}
+			Expect(projectSvc.NewWriter(nil).Create(ctx, &dest)).To(Succeed())
+			s := createSchematic(ctx, "moved")
+			grantUpdateOn(ctx, author.ResourceID(), s.ResourceID())
+			Expect(apiSvc.SetProject(
+				AuthedCtx(ctx, author),
+				nil,
+				apischematic.SetProjectRequest{
+					Project: dest.Key,
+					Keys:    []schematic.Key{s.Key},
+				},
+			)).Error().To(Succeed())
+			var res schematic.Schematic
+			Expect(schematicSvc.NewRetrieve().
+				Where(schematic.MatchKeys(s.Key)).
+				Entry(&res).Exec(ctx, nil)).To(Succeed())
+			Expect(res.Project).To(HaveValue(Equal(dest.Key)))
+		})
 	})
 
 	Describe("Dispatch", func() {
@@ -255,7 +294,7 @@ var _ = Describe("Service", func() {
 					var snap schematic.Schematic
 					Expect(
 						schematicSvc.NewWriter(nil).
-							Copy(ctx, s.Key, "snap", true, &snap),
+							Copy(ctx, s.Key, "snap", true, nil, &snap),
 					).To(Succeed())
 					grantUpdateOn(ctx, author.ResourceID(), snap.ResourceID())
 					Expect(

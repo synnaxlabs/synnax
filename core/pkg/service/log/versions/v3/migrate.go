@@ -11,10 +11,12 @@ package v3
 
 import (
 	"context"
+	"uuid"
 
 	"github.com/synnaxlabs/gorp/migrate"
 	groupv1 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v2"
+	projectv3 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
@@ -56,3 +58,13 @@ var MembersMigration = groupv1.NewMembersMigration(groupv1.MembersConfig[Key, Lo
 	SetGroup:     func(e *Log, g groupv1.Key) { e.Group = &g },
 	ProjectOwned: true,
 })
+
+// OwnersMigration sets the project or range of each stored log from the ontology
+// edge that owned it, and deletes each log with no owner.
+var OwnersMigration = projectv3.NewOwnersMigration(
+	projectv3.OwnersConfig[Key, Log]{
+		Name:     "v61_log_owner",
+		Type:     resource.TypeLog,
+		SetOwner: func(e *Log, p, r *uuid.UUID) { e.Project, e.Range = p, r },
+	},
+)

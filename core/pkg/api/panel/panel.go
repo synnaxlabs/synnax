@@ -20,6 +20,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -82,8 +84,8 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 
 type (
 	CreateRequest struct {
-		// Panels are the panels to create. Each panel carries the Parent resource
-		// it attaches to in the ontology; a panel without a Parent is rejected.
+		// Panels are the panels to create. Each panel belongs to exactly one of a
+		// project and a range.
 		Panels []panel.Panel `json:"panels" msgpack:"panels"`
 		// DispatchKey is stamped onto the create broadcasts so the sender skips its
 		// echo.
@@ -94,24 +96,22 @@ type (
 	}
 )
 
-// Create persists the panels in req and returns them with their assigned keys,
-// parenting each to its Parent. It returns a validation error when any panel
-// has no Parent.
+// Create persists the panels in req and returns them with their assigned keys. It
+// requires create access on the panel type and on the owner of each panel, and returns
+// a validation error when a panel does not belong to exactly one project or range.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreateRequest,
 ) (res CreateResponse, err error) {
 	objects := []resource.ID{{Type: resource.TypePanel}}
-	for i := range req.Panels {
-		if req.Panels[i].Parent == nil || req.Panels[i].Parent.IsZero() {
-			return res, errors.Wrapf(
-				validate.ErrValidation,
-				"panel %q has no parent",
-				req.Panels[i].Name,
-			)
+	for _, p := range req.Panels {
+		if p.Project != nil {
+			objects = append(objects, project.ResourceID(*p.Project))
 		}
-		objects = append(objects, *req.Panels[i].Parent)
+		if p.Range != nil {
+			objects = append(objects, ranger.ResourceID(*p.Range))
+		}
 	}
 	enforcer := s.access.NewEnforcer(tx)
 	if err = enforcer.Enforce(ctx, access.Request{
@@ -163,6 +163,10 @@ type (
 		// Grouped keeps only the panels in a group when true, and only the panels in no
 		// group when false. Nil applies no filter.
 		Grouped *bool `json:"grouped" msgpack:"grouped"`
+		// Projects keeps only the panels owned by any of these projects.
+		Projects []project.Key `json:"projects" msgpack:"projects"`
+		// Ranges keeps only the panels owned by any of these ranges.
+		Ranges []ranger.Key `json:"ranges" msgpack:"ranges"`
 	}
 	RetrieveResponse struct {
 		Panels []panel.Panel `json:"panels" msgpack:"panels"`
@@ -188,6 +192,12 @@ func (s *Service) Retrieve(
 	}
 	if req.Grouped != nil {
 		q = q.Where(panel.MatchHasGroup(*req.Grouped))
+	}
+	if len(req.Projects) > 0 {
+		q = q.Where(panel.MatchProjects(req.Projects...))
+	}
+	if len(req.Ranges) > 0 {
+		q = q.Where(panel.MatchRanges(req.Ranges...))
 	}
 	err = q.Entries(&res.Panels).Exec(ctx, nil)
 	if req.IgnoreNotFoundError && err != nil {
@@ -277,4 +287,27 @@ func (s *Service) SetGroup(
 		return struct{}{}, err
 	}
 	return struct{}{}, s.internal.NewWriter(tx).SetGroup(ctx, req.Group, req.Keys...)
+}
+
+// SetProjectRequest moves panels into Project.
+type SetProjectRequest struct {
+	Project project.Key `json:"project" msgpack:"project"`
+	Keys    []panel.Key `json:"keys"    msgpack:"keys"`
+}
+
+// SetProject moves the panels with the given keys into a project.
+func (s *Service) SetProject(
+	ctx context.Context,
+	tx gorp.Tx,
+	req SetProjectRequest,
+) (struct{}, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: panel.ResourceIDs(req.Keys),
+	}); err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, s.internal.NewWriter(tx).
+		SetProject(ctx, req.Project, req.Keys...)
 }

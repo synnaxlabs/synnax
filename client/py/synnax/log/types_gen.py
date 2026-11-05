@@ -19,6 +19,8 @@ from pydantic import BaseModel, Field
 
 from synnax import channel as channel_
 from synnax import group as group_
+from synnax import project as project_
+from synnax import ranger
 from synnax.resource import ID
 from x import color as color_
 from x import notation as notation_
@@ -74,6 +76,10 @@ class Log(BaseModel):
         channel_names_hidden: Is true when channel names are hidden.
         timestamps_hidden: Is true when entry timestamps are hidden.
         group: Is the group the log sits in, if any.
+        project: Is the project that owns the log, if any. Exactly one of project and
+            range is set.
+        range: Is the range that owns the log, if any. Exactly one of project and range
+            is set.
     """
 
     key: Key = Field(default_factory=uuid4)
@@ -83,6 +89,8 @@ class Log(BaseModel):
     channel_names_hidden: bool = False
     timestamps_hidden: bool = False
     group: group_.Key | None = None
+    project: project_.Key | None = None
+    range: ranger.Key | None = None
 
     @_override
     def __hash__(self) -> int:

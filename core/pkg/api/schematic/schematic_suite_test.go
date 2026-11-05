@@ -26,7 +26,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
@@ -50,6 +49,7 @@ var (
 	schematicSvc *schematic.Service
 	apiSvc       *apischematic.Service
 	proj         project.Project
+	projectSvc   *project.Service
 	author       user.User
 )
 
@@ -75,11 +75,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 			auth.Credentials{Username: "suite-root", Password: "p"},
 		),
 	)
-	panelSvc := MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-	}))
-	projectSvc := MustOpen(project.OpenService(ctx, project.ServiceConfig{
+	projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 	}))

@@ -14,6 +14,8 @@ import { z } from "zod";
 
 import { channel } from "@/channel";
 import { group } from "@/group";
+import { project } from "@/project";
+import { ranger } from "@/ranger";
 import { resource } from "@/resource";
 
 /** TimestampConfig is per-channel timestamp display configuration. */
@@ -67,6 +69,16 @@ export const logZ = z.object({
   timestampsHidden: z.boolean().default(false),
   /** group is the group the log sits in, if any. */
   group: group.keyZ.optional(),
+  /**
+   * project is the project that owns the log, if any. Exactly one of project and range
+   * is set.
+   */
+  project: project.keyZ.optional(),
+  /**
+   * range is the range that owns the log, if any. Exactly one of project and range is
+   * set.
+   */
+  range: ranger.keyZ.optional(),
 });
 export interface Log extends z.infer<typeof logZ> {}
 export interface New extends z.input<typeof logZ> {}

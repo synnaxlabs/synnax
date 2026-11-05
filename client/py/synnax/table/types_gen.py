@@ -19,6 +19,8 @@ from pydantic import BaseModel, Field
 
 from synnax import channel as channel_
 from synnax import group as group_
+from synnax import project as project_
+from synnax import ranger
 from synnax.resource import ID
 from x import color, text
 from x import notation as notation_
@@ -128,6 +130,10 @@ class Table(BaseModel):
             derived from rows[*].cells[*] references; cells not referenced by any row
             are orphaned and will be pruned on the next structural edit.
         group: Is the group the table sits in, if any.
+        project: Is the project that owns the table, if any. Exactly one of project and
+            range is set.
+        range: Is the range that owns the table, if any. Exactly one of project and
+            range is set.
     """
 
     key: Key = Field(default_factory=uuid4)
@@ -136,6 +142,8 @@ class Table(BaseModel):
     columns: list[Column] = Field(default_factory=list)
     cells: dict[str, CellConfig] = Field(default_factory=dict)
     group: group_.Key | None = None
+    project: project_.Key | None = None
+    range: ranger.Key | None = None
 
     @_override
     def __hash__(self) -> int:

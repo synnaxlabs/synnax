@@ -13,6 +13,8 @@ import { color, spatial, uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { group } from "@/group";
+import { project } from "@/project";
+import { ranger } from "@/ranger";
 import { resource } from "@/resource";
 
 /**
@@ -143,11 +145,6 @@ export const panelZ = z.object({
   /** root is the root of the panel tree. */
   root: nodeZ.prefault({ variant: "leaf", tabs: [] }),
   /**
-   * parent is the parent resource for the panel in the ontology. Required on create and
-   * absent on retrieve.
-   */
-  parent: resource.idZ.optional(),
-  /**
    * icon is the key of the icon that marks the panel in lists. When null, the Console
    * draws its default panel icon.
    */
@@ -156,6 +153,16 @@ export const panelZ = z.object({
   color: color.colorZ.optional(),
   /** group is the group the panel sits in, if any. */
   group: group.keyZ.optional(),
+  /**
+   * project is the project that owns the panel, if any. Exactly one of project and
+   * range is set.
+   */
+  project: project.keyZ.optional(),
+  /**
+   * range is the range that owns the panel, if any. Exactly one of project and range is
+   * set.
+   */
+  range: ranger.keyZ.optional(),
 });
 export interface Panel extends z.infer<typeof panelZ> {}
 export interface New extends z.input<typeof panelZ> {}

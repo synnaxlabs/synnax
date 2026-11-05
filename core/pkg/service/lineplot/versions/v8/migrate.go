@@ -21,6 +21,7 @@ import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	groupv1 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v7"
+	projectv3 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
 	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
@@ -273,3 +274,13 @@ var MembersMigration = groupv1.NewMembersMigration(groupv1.MembersConfig[Key, Li
 	SetGroup:     func(e *LinePlot, g groupv1.Key) { e.Group = &g },
 	ProjectOwned: true,
 })
+
+// OwnersMigration sets the project or range of each stored line plot from the ontology
+// edge that owned it, and deletes each line plot with no owner.
+var OwnersMigration = projectv3.NewOwnersMigration(
+	projectv3.OwnersConfig[Key, LinePlot]{
+		Name:     "v61_lineplot_owner",
+		Type:     resource.TypeLineplot,
+		SetOwner: func(e *LinePlot, p, r *uuid.UUID) { e.Project, e.Range = p, r },
+	},
+)

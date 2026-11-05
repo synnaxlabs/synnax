@@ -16,6 +16,8 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 )
 
 // tableName names the Log table for references. Pass it as
@@ -35,8 +37,10 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	group  *gorp.KeyReference[Key, Log, group.Key]
-	search *gorp.SearchIndex[Key, Log]
+	group    *gorp.KeyReference[Key, Log, group.Key]
+	project  *gorp.KeyReference[Key, Log, project.Key]
+	rangeVal *gorp.KeyReference[Key, Log, ranger.Key]
+	search   *gorp.SearchIndex[Key, Log]
 }
 
 // newIndexes constructs a fresh indexes value, allocating one instance of each
@@ -55,6 +59,28 @@ func newIndexes() indexes {
 				return []group.Key{*e.Group}
 			},
 			Detach: func(e *Log, _ group.Key) { e.Group = nil },
+		}),
+		project: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Log, project.Key]{
+			Name:     "project",
+			Table:    "project",
+			OnDelete: gorp.Cascade,
+			Targets: func(e *Log) []project.Key {
+				if e.Project == nil {
+					return nil
+				}
+				return []project.Key{*e.Project}
+			},
+		}),
+		rangeVal: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Log, ranger.Key]{
+			Name:     "range",
+			Table:    "range",
+			OnDelete: gorp.Cascade,
+			Targets: func(e *Log) []ranger.Key {
+				if e.Range == nil {
+					return nil
+				}
+				return []ranger.Key{*e.Range}
+			},
 		}),
 		search: gorp.NewSearchIndex[Key, Log](
 			"search",
@@ -78,6 +104,8 @@ func (i indexes) all() []gorp.Index[Key, Log] {
 func (i indexes) references() []gorp.Reference[Key, Log] {
 	return []gorp.Reference[Key, Log]{
 		i.group,
+		i.project,
+		i.rangeVal,
 	}
 }
 
@@ -164,6 +192,40 @@ func setGroup(
 			e.Group = v
 			return e
 		})
+}
+
+// MatchProjects returns a filter for logs
+// whose Project matches any of the provided
+// values.
+func MatchProjects(vals ...project.Key) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Log] {
+		return r.indexes.project.Filter(vals...)
+	}
+}
+
+// MatchHasProject returns a filter for logs whose
+// Project holds a target when has is true, and holds none when has is false.
+func MatchHasProject(has bool) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Log] {
+		return r.indexes.project.FilterHolding(has)
+	}
+}
+
+// MatchRanges returns a filter for logs
+// whose Range matches any of the provided
+// values.
+func MatchRanges(vals ...ranger.Key) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Log] {
+		return r.indexes.rangeVal.Filter(vals...)
+	}
+}
+
+// MatchHasRange returns a filter for logs whose
+// Range holds a target when has is true, and holds none when has is false.
+func MatchHasRange(has bool) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Log] {
+		return r.indexes.rangeVal.FilterHolding(has)
+	}
 }
 
 // Where applies the provided filter to the query, binding it to the Retrieve

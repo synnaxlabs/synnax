@@ -32,12 +32,13 @@ func TestLinePlot(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	db       *gorp.DB
-	groupSvc *group.Service
-	otg      *ontology.Ontology
-	proj     project.Project
-	svc      *lineplot.Service
-	imexSvc  *imex.Service
+	db         *gorp.DB
+	groupSvc   *group.Service
+	otg        *ontology.Ontology
+	proj       project.Project
+	projectSvc *project.Service
+	svc        *lineplot.Service
+	imexSvc    *imex.Service
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -49,7 +50,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Ontology: otg,
 	}))
 	imexSvc = imex.NewService()
-	projectSvc := MustOpen(project.OpenService(ctx, project.ServiceConfig{
+	projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 	}))

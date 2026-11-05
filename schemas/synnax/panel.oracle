@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/group"
+import "schemas/synnax/project"
+import "schemas/synnax/ranger"
 import "schemas/synnax/resource"
 import "schemas/x/color"
 import "schemas/x/spatial"
@@ -118,37 +120,44 @@ Key = uuid {
 }
 
 Panel struct {
-    key    Key = create {
+    key     Key = create {
         @doc value "is the unique identifier for this panel."
         @key
     }
-    name   string       {
+    name    string       {
         @doc value         "is a human-readable name for the panel."
         @search
         @validate required
     }
-    root   Node = { variant = "leaf", tabs = [] } {
+    root    Node = { variant = "leaf", tabs = [] } {
         @doc value "is the root of the panel tree."
     }
-    parent resource.ID? {
-        @doc value  """
-            is the parent resource for the panel in the ontology. Required on create and
-            absent on retrieve.
-        """
-        @go marshal omit
-    }
-    icon   string?      {
+    icon    string?      {
         @doc value """
             is the key of the icon that marks the panel in lists. When null, the Console
             draws its default panel icon.
         """
     }
-    color  color.Color? {
+    color   color.Color? {
         @doc value "is the color of the panel's icon. When null, the theme picks it."
     }
-    group  group.Key?   {
+    group   group.Key?   {
         @doc value     "is the group the panel sits in, if any."
         @ref on_delete detach
+    }
+    project project.Key? {
+        @doc value     """
+            is the project that owns the panel, if any. Exactly one of project and range
+            is set.
+        """
+        @ref on_delete cascade
+    }
+    range   ranger.Key?  {
+        @doc value     """
+            is the range that owns the panel, if any. Exactly one of project and range
+            is set.
+        """
+        @ref on_delete cascade
     }
 
     action Create {
@@ -172,6 +181,15 @@ Panel struct {
         @doc value """
             moves the panel into a group, or out of its group when group is empty.
             Emitted by the Core when it moves the panel; clients never dispatch it.
+        """
+    }
+
+    action SetProject {
+        project project.Key
+
+        @doc value """
+            moves the panel into a project. Emitted by the Core when it moves the panel;
+            clients never dispatch it.
         """
     }
 

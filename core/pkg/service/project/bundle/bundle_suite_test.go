@@ -59,6 +59,7 @@ var (
 	taskSvc     *task.Service
 	arcSvc      *arc.Service
 	testRack    rack.Rack
+	projectSvc  *project.Service
 	writer      project.Writer
 	tx          gorp.Tx
 )
@@ -137,7 +138,7 @@ var (
 			Status:     statusSvc,
 			ImEx:       imexSvc,
 		}))
-		projectSvc := MustOpen(project.OpenService(ctx, project.ServiceConfig{
+		projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 		}))

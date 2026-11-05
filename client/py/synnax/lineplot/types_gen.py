@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 
 from synnax import channel, ranger
 from synnax import group as group_
+from synnax import project as project_
 from synnax.resource import ID
 from x import color as color_
 from x import spatial, text
@@ -274,6 +275,10 @@ class LinePlot(BaseModel):
             y-channel across every range the plot shows.
         rules: Holds annotation rules drawn over the plot.
         group: Is the group the line plot sits in, if any.
+        project: Is the project that owns the line plot, if any. Exactly one of project
+            and range is set.
+        range: Is the range that owns the line plot, if any. Exactly one of project and
+            range is set.
     """
 
     key: Key = Field(default_factory=uuid4)
@@ -286,6 +291,8 @@ class LinePlot(BaseModel):
     lines: list[Line] = Field(default_factory=list)
     rules: list[Rule] = Field(default_factory=list)
     group: group_.Key | None = None
+    project: project_.Key | None = None
+    range: ranger.Key | None = None
 
     @_override
     def __hash__(self) -> int:

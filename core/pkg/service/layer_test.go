@@ -238,19 +238,16 @@ var _ = Describe("Layer", func() {
 			Expect(ok).To(BeTrue())
 			Expect(rt.Resource).To(Equal(lpID))
 
-			By("Parenting the panel under the migrated project")
-			projectID := resource.ID{
-				Type: resource.TypeProject,
-				Key:  ws.Key.String(),
-			}
+			By("Giving the panel to the migrated project")
+			Expect(panels[0].Project).To(HaveValue(Equal(ws.Key)))
 			rel := ontology.Relationship{
-				From: projectID,
+				From: resource.ID{Type: resource.TypeProject, Key: ws.Key.String()},
 				Type: ontology.RelationshipTypeParentOf,
 				To:   panels[0].ResourceID(),
 			}
 			Expect(MustSucceed(gorp.NewRetrieve[string, ontology.Relationship]().
 				Where(gorp.MatchKeys[string, ontology.Relationship](rel.GorpKey())).
-				Exists(ctx, db))).To(BeTrue())
+				Exists(ctx, db))).To(BeFalse())
 		},
 	)
 

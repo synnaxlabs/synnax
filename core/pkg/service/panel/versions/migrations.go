@@ -19,6 +19,7 @@ import (
 	v2 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"uuid"
 )
 
 // compositionNamespace is the namespace of the service layer's composition pass, which
@@ -33,6 +34,7 @@ var Migrations = []gorp.Migration{
 	gorp.MovedMigration(compositionNamespace, v2.Migration),
 	v3.Migration,
 	v3.MembersMigration,
+	v3.OwnersMigration,
 }
 
 // CompositionMigrations returns the migrations the service layer runs after every
@@ -44,20 +46,16 @@ func CompositionMigrations(table *gorp.Table[Key, Panel]) []gorp.Migration {
 			if err != nil {
 				return err
 			}
+			owner, err := uuid.Parse(project.Key)
+			if err != nil {
+				return err
+			}
+			p.Project = &owner
 			if err = table.NewUncheckedWriter(tx).Set(ctx, p); err != nil {
 				return err
 			}
-			id := p.ResourceID()
-			if err = gorp.WrapWriter[string, ontology.Resource](tx).
-				Set(ctx, ontology.Resource{ID: id}); err != nil {
-				return err
-			}
-			return gorp.WrapWriter[string, ontology.Relationship](tx).
-				Set(ctx, ontology.Relationship{
-					From: project,
-					Type: ontology.RelationshipTypeParentOf,
-					To:   id,
-				})
+			return gorp.WrapWriter[string, ontology.Resource](tx).
+				Set(ctx, ontology.Resource{ID: p.ResourceID()})
 		},
 	)
 }

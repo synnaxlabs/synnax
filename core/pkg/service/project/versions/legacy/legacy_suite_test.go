@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -32,13 +33,14 @@ func TestLegacy(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	db       *gorp.DB
-	otg      *ontology.Ontology
-	groupSvc *group.Service
-	panelSvc *panel.Service
-	logSvc   *log.Service
-	imexSvc  *imex.Service
-	tx       gorp.Tx
+	db         *gorp.DB
+	otg        *ontology.Ontology
+	groupSvc   *group.Service
+	panelSvc   *panel.Service
+	logSvc     *log.Service
+	imexSvc    *imex.Service
+	projectSvc *project.Service
+	tx         gorp.Tx
 )
 
 var (
@@ -60,6 +62,10 @@ var (
 			DB:       db,
 			Ontology: otg,
 			ImEx:     imexSvc,
+		}))
+		projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
 		}))
 	})
 	_ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })

@@ -46,19 +46,19 @@ var _ = Describe("Legacy project bundles", func() {
 		l, db := openLayer(ctx)
 		tx := db.OpenTx()
 		defer func() { Expect(tx.Close()).To(Succeed()) }()
-		p := MustSucceed(l.Project.Import(ctx, tx, LoadBundle(path), fileName))
+		p := MustSucceed(l.Bundle.Import(ctx, tx, LoadBundle(path), fileName))
 		Expect(tx.Commit(ctx)).To(Succeed())
 		return l, p
 	}
 
 	childrenOf := func(
-		ctx SpecContext, l *service.Layer, id resource.ID,
+		ctx SpecContext, l *service.Layer, key project.Key,
 	) []ontology.Resource {
 		GinkgoHelper()
+		ids := MustSucceed(l.Project.Children(nil, key))
 		var children []ontology.Resource
 		Expect(l.Ontology.NewRetrieve().
-			WhereIDs(id).
-			TraverseTo(ontology.ChildrenTraverser).
+			WhereIDs(ids...).
 			Entries(&children).
 			Exec(ctx, nil)).To(Succeed())
 		return children
@@ -82,7 +82,7 @@ var _ = Describe("Legacy project bundles", func() {
 
 		It("Should recreate both schematics and the table", func(ctx SpecContext) {
 			l, p := importBundle(ctx, path, "Test Stand.zip")
-			children := childrenOf(ctx, l, project.ResourceID(p.Key))
+			children := childrenOf(ctx, l, p.Key)
 			Expect(typesOf(children)).To(ContainElements(
 				resource.TypeSchematic,
 				resource.TypeSchematic,
@@ -94,7 +94,7 @@ var _ = Describe("Legacy project bundles", func() {
 			ctx SpecContext,
 		) {
 			l, p := importBundle(ctx, path, "Test Stand.zip")
-			children := childrenOf(ctx, l, project.ResourceID(p.Key))
+			children := childrenOf(ctx, l, p.Key)
 			var panels []ontology.Resource
 			for _, c := range children {
 				if c.ID.Type == resource.TypePanel {
@@ -121,7 +121,7 @@ var _ = Describe("Legacy project bundles", func() {
 			ctx SpecContext,
 		) {
 			l, p := importBundle(ctx, path, "Hardware.zip")
-			children := childrenOf(ctx, l, project.ResourceID(p.Key))
+			children := childrenOf(ctx, l, p.Key)
 			Expect(typesOf(children)).To(ContainElements(
 				resource.TypeSchematic,
 				resource.TypeLineplot,
@@ -156,7 +156,7 @@ var _ = Describe("Legacy project bundles", func() {
 			// import fails rather than dropping it quietly.
 			l, db := openLayer(ctx)
 			tx := DeferClose(db.OpenTx())
-			Expect(l.Project.Import(
+			Expect(l.Bundle.Import(
 				ctx, tx, LoadBundle(path), "Dropped.zip",
 			)).Error().To(SatisfyAll(
 				MatchError(ContainSubstring("98dbf43a")),
@@ -172,7 +172,7 @@ var _ = Describe("Legacy project bundles", func() {
 			ctx SpecContext,
 		) {
 			l, p := importBundle(ctx, path, "Arc Workspace.zip")
-			children := childrenOf(ctx, l, project.ResourceID(p.Key))
+			children := childrenOf(ctx, l, p.Key)
 			Expect(typesOf(children)).To(ContainElement(
 				resource.TypeSchematic,
 			))

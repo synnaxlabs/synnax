@@ -59,8 +59,8 @@ func createProject(ctx SpecContext, name string) project.Project {
 
 func createLog(ctx SpecContext, proj project.Key, name string) log.Log {
 	GinkgoHelper()
-	l := log.Log{Name: name}
-	Expect(logSvc.NewWriter(nil).Create(ctx, proj, &l)).To(Succeed())
+	l := log.Log{Project: &proj, Name: name}
+	Expect(logSvc.NewWriter(nil).Create(ctx, &l)).To(Succeed())
 	DeferCleanup(func(ctx SpecContext) {
 		Expect(logSvc.NewWriter(nil).Delete(ctx, l.Key)).To(Succeed())
 	})
@@ -69,8 +69,8 @@ func createLog(ctx SpecContext, proj project.Key, name string) log.Log {
 
 func createLinePlot(ctx SpecContext, proj project.Key, name string) lineplot.LinePlot {
 	GinkgoHelper()
-	lp := lineplot.LinePlot{Name: name}
-	Expect(lineplotSvc.NewWriter(nil).Create(ctx, proj, &lp)).To(Succeed())
+	lp := lineplot.LinePlot{Project: &proj, Name: name}
+	Expect(lineplotSvc.NewWriter(nil).Create(ctx, &lp)).To(Succeed())
 	DeferCleanup(func(ctx SpecContext) {
 		Expect(lineplotSvc.NewWriter(nil).Delete(ctx, lp.Key)).To(Succeed())
 	})
@@ -112,10 +112,10 @@ func createArc(ctx SpecContext, name, source string) arc.Arc {
 }
 
 func createPanel(
-	ctx SpecContext, name string, parent resource.ID, root panel.Node,
+	ctx SpecContext, name string, proj project.Key, root panel.Node,
 ) panel.Panel {
 	GinkgoHelper()
-	p := panel.Panel{Name: name, Root: root, Parent: &parent}
+	p := panel.Panel{Name: name, Root: root, Project: &proj}
 	Expect(panelSvc.NewWriter(nil).Create(ctx, &p)).To(Succeed())
 	DeferCleanup(func(ctx SpecContext) {
 		Expect(panelSvc.NewWriter(nil).Delete(ctx, p.Key)).To(Succeed())
@@ -144,25 +144,18 @@ func childrenOf(ctx SpecContext, id resource.ID) []ontology.Resource {
 	GinkgoHelper()
 	var ids []resource.ID
 	if id.Type == resource.TypeProject {
-		var groups []group.Group
-		Expect(groupSvc.NewRetrieve().
-			Where(group.MatchParents(id)).
-			Entries(&groups).
-			Exec(ctx, tx)).To(Succeed())
-		ids = group.ResourceIDsFromGroups(groups)
+		key := MustSucceed(project.KeyFromResourceID(id))
+		deps := MustSucceed(projectSvc.Children(tx, key))
 		grouped := set.New[resource.ID]()
-		for _, g := range groups {
-			grouped.Add(descendants(ctx, g.Key)...)
+		for _, d := range deps {
+			if d.Type == resource.TypeGroup {
+				inner := MustSucceed(group.KeyFromResourceID(d))
+				grouped.Add(descendants(ctx, inner)...)
+			}
 		}
-		var members []ontology.Resource
-		Expect(otg.NewRetrieve().
-			WhereIDs(id).
-			TraverseTo(ontology.ChildrenTraverser).
-			Entries(&members).
-			Exec(ctx, tx)).To(Succeed())
-		for _, m := range members {
-			if !grouped.Contains(m.ID) {
-				ids = append(ids, m.ID)
+		for _, d := range deps {
+			if !grouped.Contains(d) {
+				ids = append(ids, d)
 			}
 		}
 	} else {
@@ -213,7 +206,7 @@ var _ = Describe("Export", func() {
 		proj := createProject(ctx, "Test Stand 12")
 		l := createLog(ctx, proj.Key, "Metrics Log")
 		p := createPanel(
-			ctx, "Controls", proj.ResourceID(), leaf(resourceTab(l.ResourceID())),
+			ctx, "Controls", proj.Key, leaf(resourceTab(l.ResourceID())),
 		)
 		files, members := MustSucceed2(svc.Export(ctx, proj.Key, xjson.Codec))
 		Expect(files).To(HaveLen(3))
@@ -234,7 +227,7 @@ var _ = Describe("Export", func() {
 		l := createLog(ctx, proj.Key, "Pressure")
 		moveToGroup(ctx, l, inner)
 		createPanel(
-			ctx, "Controls", proj.ResourceID(), leaf(resourceTab(l.ResourceID())),
+			ctx, "Controls", proj.Key, leaf(resourceTab(l.ResourceID())),
 		)
 		files, members := MustSucceed2(svc.Export(ctx, proj.Key, xjson.Codec))
 		Expect(files).To(HaveKey("Propulsion/Tanks/Pressure.json"))
@@ -260,7 +253,7 @@ var _ = Describe("Export", func() {
 		createPanel(
 			ctx,
 			"Controls",
-			proj.ResourceID(),
+			proj.Key,
 			leaf(resourceTab(l.ResourceID()), resourceTab(lp.ResourceID())),
 		)
 		files, members := MustSucceed2(svc.Export(ctx, proj.Key, xjson.Codec))
@@ -276,7 +269,7 @@ var _ = Describe("Export", func() {
 		proj := createProject(ctx, "Panel Tasks")
 		t := createTask(ctx, "Sequence")
 		p := createPanel(
-			ctx, "Controls", proj.ResourceID(), leaf(resourceTab(t.ResourceID())),
+			ctx, "Controls", proj.Key, leaf(resourceTab(t.ResourceID())),
 		)
 		files, members := MustSucceed2(svc.Export(ctx, proj.Key, xjson.Codec))
 		Expect(files).To(HaveKey("Sequence.json"))
@@ -293,7 +286,7 @@ var _ = Describe("Export", func() {
 		proj := createProject(ctx, "Panel Arcs")
 		a := createArc(ctx, "Startup", "x := 1")
 		p := createPanel(
-			ctx, "Controls", proj.ResourceID(), leaf(resourceTab(a.ResourceID())),
+			ctx, "Controls", proj.Key, leaf(resourceTab(a.ResourceID())),
 		)
 		files, members := MustSucceed2(svc.Export(ctx, proj.Key, xjson.Codec))
 		Expect(files).To(HaveKey("Startup.json"))
@@ -312,10 +305,10 @@ var _ = Describe("Export", func() {
 		proj := createProject(ctx, "Shared Task")
 		t := createTask(ctx, "Sequence")
 		createPanel(
-			ctx, "First", proj.ResourceID(), leaf(resourceTab(t.ResourceID())),
+			ctx, "First", proj.Key, leaf(resourceTab(t.ResourceID())),
 		)
 		createPanel(
-			ctx, "Second", proj.ResourceID(), leaf(resourceTab(t.ResourceID())),
+			ctx, "Second", proj.Key, leaf(resourceTab(t.ResourceID())),
 		)
 		files, members := MustSucceed2(svc.Export(ctx, proj.Key, xjson.Codec))
 		Expect(files).To(HaveLen(4))
@@ -335,7 +328,7 @@ var _ = Describe("Export", func() {
 			Type: resource.TypeTask,
 			Key:  uuid.New().String(),
 		}
-		createPanel(ctx, "Controls", proj.ResourceID(), leaf(resourceTab(dangling)))
+		createPanel(ctx, "Controls", proj.Key, leaf(resourceTab(dangling)))
 		files, _ := MustSucceed2(svc.Export(ctx, proj.Key, xjson.Codec))
 		Expect(files).To(HaveLen(2))
 		root := decode(files["Controls.json"])["root"].(map[string]any)
@@ -659,7 +652,7 @@ var _ = Describe("Import", func() {
 		createPanel(
 			ctx,
 			"Controls",
-			src.ResourceID(),
+			src.Key,
 			leaf(resourceTab(grouped.ResourceID())),
 		)
 		files, _ := MustSucceed2(svc.Export(ctx, src.Key, xjson.Codec))
@@ -743,7 +736,7 @@ var _ = Describe("Import", func() {
 		src := createProject(ctx, "Panel Tasks")
 		t := createTask(ctx, "Sequence")
 		createPanel(
-			ctx, "Controls", src.ResourceID(), leaf(resourceTab(t.ResourceID())),
+			ctx, "Controls", src.Key, leaf(resourceTab(t.ResourceID())),
 		)
 		files, _ := MustSucceed2(svc.Export(ctx, src.Key, xjson.Codec))
 		tx = DeferClose(db.OpenTx())
@@ -766,7 +759,7 @@ var _ = Describe("Import", func() {
 		src := createProject(ctx, "Panel Arcs")
 		a := createArc(ctx, "Startup", "x := 1")
 		createPanel(
-			ctx, "Controls", src.ResourceID(), leaf(resourceTab(a.ResourceID())),
+			ctx, "Controls", src.Key, leaf(resourceTab(a.ResourceID())),
 		)
 		files, _ := MustSucceed2(svc.Export(ctx, src.Key, xjson.Codec))
 		tx = DeferClose(db.OpenTx())

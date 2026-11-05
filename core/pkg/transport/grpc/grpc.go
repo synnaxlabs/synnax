@@ -124,6 +124,11 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.LogSetGroup = noop.UnaryServer[log.SetGroupRequest, struct{}]{}
 	t.TableSetGroup = noop.UnaryServer[table.SetGroupRequest, struct{}]{}
 	t.PanelSetGroup = noop.UnaryServer[panel.SetGroupRequest, struct{}]{}
+	t.SchematicSetProject = noop.UnaryServer[schematic.SetProjectRequest, struct{}]{}
+	t.LinePlotSetProject = noop.UnaryServer[lineplot.SetProjectRequest, struct{}]{}
+	t.LogSetProject = noop.UnaryServer[log.SetProjectRequest, struct{}]{}
+	t.TableSetProject = noop.UnaryServer[table.SetProjectRequest, struct{}]{}
+	t.PanelSetProject = noop.UnaryServer[panel.SetProjectRequest, struct{}]{}
 	t.Batch = noop.UnaryServer[batch.ExecRequest, batch.ExecResponse]{}
 
 	// PROJECT

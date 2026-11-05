@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
 	. "github.com/synnaxlabs/x/testutil"
@@ -33,34 +32,26 @@ func TestTable(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	db       *gorp.DB
-	groupSvc *group.Service
-	proj     project.Project
-	svc      *table.Service
-	imexSvc  *imex.Service
+	db         *gorp.DB
+	groupSvc   *group.Service
+	proj       project.Project
+	projectSvc *project.Service
+	svc        *table.Service
+	imexSvc    *imex.Service
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	db = DeferClose(gorp.Wrap(memkv.New()))
-	var (
-		otg      = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		panelSvc = MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-		}))
-	)
+	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 	}))
 	imexSvc = imex.NewService()
-	projectSvc := MustOpen(project.OpenService(ctx, project.ServiceConfig{
+	projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
-		Group:    groupSvc,
-		ImEx:     imexSvc,
-		Panel:    panelSvc,
 	}))
 	svc = MustOpen(table.OpenService(ctx, table.ServiceConfig{
 		DB:       db,

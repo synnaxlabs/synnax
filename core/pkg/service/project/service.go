@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
@@ -105,6 +106,20 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		otg:   s.cfg.Ontology.NewWriter(tx),
 		table: s.table,
 	}
+}
+
+// Children returns the ID of every record that references the project with key, as
+// seen by tx: the groups directly under it and every visualization it owns.
+func (s *Service) Children(tx gorp.Tx, key Key) ([]resource.ID, error) {
+	deps, err := s.table.Dependents(gorp.OverrideTx(s.cfg.DB, tx), key)
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]resource.ID, len(deps))
+	for i, d := range deps {
+		ids[i] = resource.ID{Type: resource.Type(d.Table), Key: d.Key}
+	}
+	return ids, nil
 }
 
 func (s *Service) NewRetrieve() Retrieve {

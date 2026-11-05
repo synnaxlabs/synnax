@@ -9,6 +9,7 @@
 
 import "schemas/synnax/channel"
 import "schemas/synnax/group"
+import "schemas/synnax/project"
 import "schemas/synnax/ranger"
 import "schemas/x/color"
 import "schemas/x/spatial"
@@ -307,6 +308,20 @@ LinePlot struct {
         @doc value     "is the group the line plot sits in, if any."
         @ref on_delete detach
     }
+    project  project.Key? {
+        @doc value     """
+            is the project that owns the line plot, if any. Exactly one of project and
+            range is set.
+        """
+        @ref on_delete cascade
+    }
+    range    ranger.Key?  {
+        @doc value     """
+            is the range that owns the line plot, if any. Exactly one of project and
+            range is set.
+        """
+        @ref on_delete cascade
+    }
 
     action Create {
         line_plot LinePlot
@@ -329,6 +344,15 @@ LinePlot struct {
         @doc value """
             moves the line plot into a group, or out of its group when group is empty.
             Emitted by the Core when it moves the line plot; clients never dispatch it.
+        """
+    }
+
+    action SetProject {
+        project project.Key
+
+        @doc value """
+            moves the line plot into a project. Emitted by the Core when it moves the
+            line plot; clients never dispatch it.
         """
     }
 

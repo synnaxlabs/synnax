@@ -271,6 +271,26 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1"+api.PathPanelSetGroup,
 		),
+		SchematicSetProject: unary[schematic.SetProjectRequest, struct{}](
+			router,
+			"/api/v1"+api.PathSchematicSetProject,
+		),
+		LinePlotSetProject: unary[lineplot.SetProjectRequest, struct{}](
+			router,
+			"/api/v1"+api.PathLinePlotSetProject,
+		),
+		LogSetProject: unary[log.SetProjectRequest, struct{}](
+			router,
+			"/api/v1"+api.PathLogSetProject,
+		),
+		TableSetProject: unary[table.SetProjectRequest, struct{}](
+			router,
+			"/api/v1"+api.PathTableSetProject,
+		),
+		PanelSetProject: unary[panel.SetProjectRequest, struct{}](
+			router,
+			"/api/v1"+api.PathPanelSetProject,
+		),
 		Batch: unary[batch.ExecRequest, batch.ExecResponse](
 			router,
 			"/api/v1/batch",

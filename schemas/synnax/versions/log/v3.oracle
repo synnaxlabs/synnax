@@ -9,6 +9,8 @@
 
 import "schemas/synnax/versions/channel/v0"
 import "schemas/synnax/versions/group/v1"
+import "schemas/synnax/versions/project/v3"
+import "schemas/synnax/versions/ranger/v1"
 import "schemas/x/versions/color/v0"
 import "schemas/x/versions/notation/v0"
 
@@ -65,6 +67,18 @@ Log struct {
     }
     group                group.Key?     {
         @doc value "is the group the log sits in, if any."
+    }
+    project              project.Key?   {
+        @doc value """
+            is the project that owns the log, if any. Exactly one of project and range
+            is set.
+        """
+    }
+    range                ranger.Key?    {
+        @doc value """
+            is the range that owns the log, if any. Exactly one of project and range is
+            set.
+        """
     }
 
     @doc value  """

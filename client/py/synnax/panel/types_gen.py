@@ -18,6 +18,8 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, Field
 
 from synnax import group as group_
+from synnax import project as project_
+from synnax import ranger
 from synnax import resource as resource_
 from synnax.resource import ID
 from x import color as color_
@@ -112,21 +114,24 @@ class Panel(BaseModel):
         key: Is the unique identifier for this panel.
         name: Is a human-readable name for the panel.
         root: Is the root of the panel tree.
-        parent: Is the parent resource for the panel in the ontology. Required on create
-            and absent on retrieve.
         icon: Is the key of the icon that marks the panel in lists. When null, the
             Console draws its default panel icon.
         color: Is the color of the panel's icon. When null, the theme picks it.
         group: Is the group the panel sits in, if any.
+        project: Is the project that owns the panel, if any. Exactly one of project and
+            range is set.
+        range: Is the range that owns the panel, if any. Exactly one of project and
+            range is set.
     """
 
     key: Key = Field(default_factory=uuid4)
     name: str
     root: Node = Field(default_factory=lambda: LeafNode(variant="leaf", tabs=[]))
-    parent: resource_.ID | None = None
     icon: str | None = None
     color: color_.Color | None = None
     group: group_.Key | None = None
+    project: project_.Key | None = None
+    range: ranger.Key | None = None
 
     @_override
     def __hash__(self) -> int:

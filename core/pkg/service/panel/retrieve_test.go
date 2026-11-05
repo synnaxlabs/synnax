@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -28,7 +29,7 @@ var _ = Describe("Retrieve", func() {
 		GinkgoHelper()
 		keys := make([]panel.Key, n)
 		for i := range keys {
-			p := panel.Panel{Name: "test", Root: leafNode(), Parent: &parentID}
+			p := panel.Panel{Name: "test", Root: leafNode(), Project: &proj.Key}
 			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 			keys[i] = p.Key
 		}
@@ -39,9 +40,9 @@ var _ = Describe("Retrieve", func() {
 		"Should retrieve a panel by key with its full tree intact",
 		func(ctx SpecContext) {
 			p := panel.Panel{
-				Name:   "test",
-				Root:   leafNode(tab(uuid.New())),
-				Parent: &parentID,
+				Name:    "test",
+				Root:    leafNode(tab(uuid.New())),
+				Project: &proj.Key,
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 			var res panel.Panel
@@ -52,12 +53,24 @@ var _ = Describe("Retrieve", func() {
 					Exec(ctx, tx),
 			).
 				To(Succeed())
-			// Parent lives in the ontology graph, not on the record, so it is absent
-			// on retrieve.
-			p.Parent = nil
 			Expect(res).To(Equal(p))
 		},
 	)
+
+	It("Should retrieve the panels of a project", func(ctx SpecContext) {
+		other := project.Project{Name: "retrieved"}
+		Expect(projectSvc.NewWriter(tx).Create(ctx, &other)).To(Succeed())
+		p := panel.Panel{Name: "owned", Project: &other.Key}
+		Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
+		createN(ctx, 1)
+		var res []panel.Panel
+		Expect(svc.NewRetrieve().
+			Where(panel.MatchProjects(other.Key)).
+			Entries(&res).
+			Exec(ctx, tx)).To(Succeed())
+		Expect(res).To(HaveLen(1))
+		Expect(res[0].Key).To(Equal(p.Key))
+	})
 
 	It("Should retrieve multiple panels via Entries", func(ctx SpecContext) {
 		keys := createN(ctx, 3)

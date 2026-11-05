@@ -23,6 +23,8 @@ import { z } from "zod";
 
 import { channel } from "@/channel";
 import { group } from "@/group";
+import { project } from "@/project";
+import { ranger } from "@/ranger";
 import { resource } from "@/resource";
 import { symbol } from "@/schematic/symbol";
 
@@ -3267,6 +3269,16 @@ export const schematicZ = z.object({
   ),
   /** group is the group the schematic sits in, if any. */
   group: group.keyZ.optional(),
+  /**
+   * project is the project that owns the schematic, if any. Exactly one of project and
+   * range is set.
+   */
+  project: project.keyZ.optional(),
+  /**
+   * range is the range that owns the schematic, if any. Exactly one of project and
+   * range is set.
+   */
+  range: ranger.keyZ.optional(),
 });
 export interface Schematic extends z.infer<typeof schematicZ> {}
 export interface New extends z.input<typeof schematicZ> {}

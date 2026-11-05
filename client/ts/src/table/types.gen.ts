@@ -14,6 +14,8 @@ import { z } from "zod";
 
 import { channel } from "@/channel";
 import { group } from "@/group";
+import { project } from "@/project";
+import { ranger } from "@/ranger";
 import { resource } from "@/resource";
 
 export const FLEX_ALIGNMENTS = ["start", "center", "end", "stretch"] as const;
@@ -169,6 +171,16 @@ export const tableZ = z.object({
   cells: caseconv.preserveKeys(z.record(z.string(), cellConfigZ).default(() => ({}))),
   /** group is the group the table sits in, if any. */
   group: group.keyZ.optional(),
+  /**
+   * project is the project that owns the table, if any. Exactly one of project and
+   * range is set.
+   */
+  project: project.keyZ.optional(),
+  /**
+   * range is the range that owns the table, if any. Exactly one of project and range is
+   * set.
+   */
+  range: ranger.keyZ.optional(),
 });
 export interface Table extends z.infer<typeof tableZ> {}
 export interface New extends z.input<typeof tableZ> {}

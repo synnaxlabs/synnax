@@ -119,8 +119,8 @@ var _ = Describe("Writer with no transaction", func() {
 			groups := make([]group.Group, 50)
 			for i := range groups {
 				groups[i] = group.Group{
-					Name:  fmt.Sprintf("Concurrent %d", i),
-					Scope: resource.TypeProject,
+					Name:   fmt.Sprintf("Concurrent %d", i),
+					Parent: new(project.ResourceID(proj.Key)),
 				}
 				Expect(groupSvc.NewWriter(nil).Create(ctx, &groups[i])).To(Succeed())
 			}
@@ -129,8 +129,8 @@ var _ = Describe("Writer with no transaction", func() {
 					Expect(groupSvc.NewWriter(nil).Delete(ctx, g.Key)).To(Succeed())
 				}
 			})
-			created := log.Log{Name: "concurrent"}
-			Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &created)).To(Succeed())
+			created := log.Log{Name: "concurrent", Project: &proj.Key}
+			Expect(svc.NewWriter(nil).Create(ctx, &created)).To(Succeed())
 			DeferCleanup(func(ctx SpecContext) {
 				Expect(svc.NewWriter(nil).Delete(ctx, created.Key)).To(Succeed())
 			})
@@ -152,7 +152,7 @@ var _ = Describe("Writer with no transaction", func() {
 					defer GinkgoRecover()
 					for !moved.Load() {
 						again := created
-						Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &again)).
+						Expect(svc.NewWriter(nil).Create(ctx, &again)).
 							To(Succeed())
 					}
 				})

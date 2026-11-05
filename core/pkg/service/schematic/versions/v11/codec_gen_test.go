@@ -18,6 +18,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
+	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
+	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v11"
 	color "github.com/synnaxlabs/x/color/versions/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
@@ -78,7 +80,9 @@ var _ = Describe("Codec", func() {
 						},
 					}},
 				},
-				Group: new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567821"))),
+				Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567821"))),
+				Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567822"))),
+				Range:   new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567823"))),
 			}),
 			Entry("zero values", v11.Schematic{
 				Key:      uuid.Nil(),
@@ -88,6 +92,8 @@ var _ = Describe("Codec", func() {
 				Edges:    []v11.Edge{},
 				Configs:  map[string]v11.ElementConfig{},
 				Group:    nil,
+				Project:  nil,
+				Range:    nil,
 			}),
 			Entry("empty collections", v11.Schematic{
 				Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -97,6 +103,8 @@ var _ = Describe("Codec", func() {
 				Edges:    []v11.Edge{},
 				Configs:  map[string]v11.ElementConfig{},
 				Group:    new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
+				Project:  new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"))),
+				Range:    new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"))),
 			}),
 		)
 	})
@@ -143,7 +151,9 @@ func BenchmarkEncodeDecodeSchematic(b *testing.B) {
 				},
 			}},
 		},
-		Group: new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567821"))),
+		Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567821"))),
+		Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567822"))),
+		Range:   new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567823"))),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -202,7 +212,9 @@ func FuzzDecodeSchematic(f *testing.F) {
 					},
 				}},
 			},
-			Group: new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567821"))),
+			Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567821"))),
+			Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567822"))),
+			Range:   new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567823"))),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -219,6 +231,8 @@ func FuzzDecodeSchematic(f *testing.F) {
 			Edges:    []v11.Edge{},
 			Configs:  map[string]v11.ElementConfig{},
 			Group:    nil,
+			Project:  nil,
+			Range:    nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -235,6 +249,8 @@ func FuzzDecodeSchematic(f *testing.F) {
 			Edges:    []v11.Edge{},
 			Configs:  map[string]v11.ElementConfig{},
 			Group:    new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
+			Project:  new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"))),
+			Range:    new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"))),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

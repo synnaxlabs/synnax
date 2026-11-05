@@ -19,8 +19,8 @@ import (
 var _ = Describe("Retrieve", func() {
 	It("Should retrieve a Schematic", func(ctx SpecContext) {
 		tx := DeferClose(db.OpenTx())
-		s := schematic.Schematic{Name: "test"}
-		Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &s)).To(Succeed())
+		s := schematic.Schematic{Project: &proj.Key, Name: "test"}
+		Expect(svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
 		var res schematic.Schematic
 		Expect(
 			svc.NewRetrieve().

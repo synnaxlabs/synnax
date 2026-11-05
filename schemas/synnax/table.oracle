@@ -9,6 +9,8 @@
 
 import "schemas/synnax/channel"
 import "schemas/synnax/group"
+import "schemas/synnax/project"
+import "schemas/synnax/ranger"
 import "schemas/x/color"
 import "schemas/x/notation"
 import "schemas/x/patch"
@@ -199,6 +201,20 @@ Table struct {
         @doc value     "is the group the table sits in, if any."
         @ref on_delete detach
     }
+    project project.Key?            {
+        @doc value     """
+            is the project that owns the table, if any. Exactly one of project and range
+            is set.
+        """
+        @ref on_delete cascade
+    }
+    range   ranger.Key?             {
+        @doc value     """
+            is the range that owns the table, if any. Exactly one of project and range
+            is set.
+        """
+        @ref on_delete cascade
+    }
 
     action Create {
         table Table
@@ -221,6 +237,15 @@ Table struct {
         @doc value """
             moves the table into a group, or out of its group when group is empty.
             Emitted by the Core when it moves the table; clients never dispatch it.
+        """
+    }
+
+    action SetProject {
+        project project.Key
+
+        @doc value """
+            moves the table into a project. Emitted by the Core when it moves the table;
+            clients never dispatch it.
         """
     }
 

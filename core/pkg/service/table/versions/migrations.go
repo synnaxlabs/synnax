@@ -27,4 +27,5 @@ var Migrations = []gorp.Migration{
 	v3.Migration,
 	v4.Migration,
 	v4.MembersMigration,
+	v4.OwnersMigration,
 }

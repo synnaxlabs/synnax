@@ -129,8 +129,8 @@ func createProject(ctx SpecContext, name string) project.Project {
 
 func createLog(ctx SpecContext, proj project.Key, name string) log.Log {
 	GinkgoHelper()
-	l := log.Log{Name: name}
-	Expect(logSvc.NewWriter(nil).Create(ctx, proj, &l)).To(Succeed())
+	l := log.Log{Project: &proj, Name: name}
+	Expect(logSvc.NewWriter(nil).Create(ctx, &l)).To(Succeed())
 	return l
 }
 

@@ -14,6 +14,7 @@ import { z } from "zod";
 
 import { actions } from "@/actions";
 import { group } from "@/group";
+import { project } from "@/project";
 import { cellConfigZ, cellZ, keyZ, type Table, tableZ } from "@/table/types.gen";
 
 /**
@@ -42,6 +43,16 @@ export const setGroupPayloadZ = z.object({
 });
 
 export type SetGroupPayload = z.infer<typeof setGroupPayloadZ>;
+
+/**
+ * SetProject moves the table into a project. Emitted by the Core when it moves the
+ * table; clients never dispatch it.
+ */
+export const setProjectPayloadZ = z.object({
+  project: project.keyZ,
+});
+
+export type SetProjectPayload = z.infer<typeof setProjectPayloadZ>;
 
 /**
  * AddRow inserts a row with the given key at the given index. Three flows:
@@ -237,6 +248,7 @@ export type Action =
   | { type: "create"; create: CreatePayload }
   | { type: "rename"; rename: RenamePayload }
   | { type: "set_group"; setGroup: SetGroupPayload }
+  | { type: "set_project"; setProject: SetProjectPayload }
   | { type: "add_row"; addRow: AddRowPayload }
   | { type: "remove_row"; removeRow: RemoveRowPayload }
   | { type: "add_col"; addCol: AddColPayload }
@@ -256,6 +268,7 @@ export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
   z.object({ type: z.literal("create"), create: createPayloadZ }),
   z.object({ type: z.literal("rename"), rename: renamePayloadZ }),
   z.object({ type: z.literal("set_group"), setGroup: setGroupPayloadZ }),
+  z.object({ type: z.literal("set_project"), setProject: setProjectPayloadZ }),
   z.object({ type: z.literal("add_row"), addRow: addRowPayloadZ }),
   z.object({ type: z.literal("remove_row"), removeRow: removeRowPayloadZ }),
   z.object({ type: z.literal("add_col"), addCol: addColPayloadZ }),
@@ -290,6 +303,13 @@ export const setGroup = (payload: z.input<typeof setGroupPayloadZ>): Action => (
   type: "set_group",
   setGroup: zod.parse(setGroupPayloadZ, payload, {
     label: "table set_group action payload",
+  }),
+});
+
+export const setProject = (payload: z.input<typeof setProjectPayloadZ>): Action => ({
+  type: "set_project",
+  setProject: zod.parse(setProjectPayloadZ, payload, {
+    label: "table set_project action payload",
   }),
 });
 
@@ -399,6 +419,7 @@ export interface Handlers {
   create: (state: Draft<Table>, payload: CreatePayload) => HandlerResult;
   rename: (state: Draft<Table>, payload: RenamePayload) => HandlerResult;
   setGroup: (state: Draft<Table>, payload: SetGroupPayload) => HandlerResult;
+  setProject: (state: Draft<Table>, payload: SetProjectPayload) => HandlerResult;
   addRow: (state: Draft<Table>, payload: AddRowPayload) => HandlerResult;
   removeRow: (state: Draft<Table>, payload: RemoveRowPayload) => HandlerResult;
   addCol: (state: Draft<Table>, payload: AddColPayload) => HandlerResult;
@@ -424,6 +445,8 @@ export const createReduceAll = (handlers: Handlers) =>
         return handlers.rename(state, action.rename);
       case "set_group":
         return handlers.setGroup(state, action.setGroup);
+      case "set_project":
+        return handlers.setProject(state, action.setProject);
       case "add_row":
         return handlers.addRow(state, action.addRow);
       case "remove_row":

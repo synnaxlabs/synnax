@@ -59,13 +59,14 @@ func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
 	})
 }
 
-// Create creates the given table within the project provided. If the table does not
-// have a key, a new key will be generated. An existing table keeps its group.
-func (w Writer) Create(ctx context.Context, projectKey project.Key, t *Table) error {
-	return w.inTx(ctx, func(w Writer) error { return w.create(ctx, projectKey, t) })
+// Create creates the given table, assigning a new key when t.Key is zero. The table
+// must belong to exactly one of a project and a range. An existing table keeps its
+// group, project, and range.
+func (w Writer) Create(ctx context.Context, t *Table) error {
+	return w.inTx(ctx, func(w Writer) error { return w.create(ctx, t) })
 }
 
-func (w Writer) create(ctx context.Context, projectKey project.Key, t *Table) error {
+func (w Writer) create(ctx context.Context, t *Table) error {
 	var (
 		exists bool
 		err    error
@@ -82,7 +83,7 @@ func (w Writer) create(ctx context.Context, projectKey project.Key, t *Table) er
 			return err
 		}
 		if exists = err == nil; exists {
-			t.Group = stored.Group
+			t.Group, t.Project, t.Range = stored.Group, stored.Project, stored.Range
 		}
 	}
 	if !exists {
@@ -99,6 +100,9 @@ func (w Writer) create(ctx context.Context, projectKey project.Key, t *Table) er
 	if err = t.Validate(); err != nil {
 		return err
 	}
+	if err = project.ValidateOwner(t.Project, t.Range); err != nil {
+		return err
+	}
 	if err = validateUniqueKeys(*t); err != nil {
 		return err
 	}
@@ -109,16 +113,6 @@ func (w Writer) create(ctx context.Context, projectKey project.Key, t *Table) er
 		otgID := t.ResourceID()
 		if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
 			return err
-		}
-		if projectKey != uuid.Nil() {
-			if err = w.otgWriter.DefineRelationships(
-				ctx,
-				project.ResourceID(projectKey),
-				ontology.RelationshipTypeParentOf,
-				otgID,
-			); err != nil {
-				return err
-			}
 		}
 	}
 	w.dispatcher.NotifyOnCommit(
@@ -149,15 +143,34 @@ func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
 	return nil
 }
 
-// CreateMany creates the given tables within the project provided. If tables with the
-// same key already exist, they will be overwritten.
-func (w Writer) CreateMany(
-	ctx context.Context,
-	projectKey project.Key,
-	tables *[]Table,
-) error {
+// SetProject moves the tables with keys into the project p. It returns a validation
+// error when a table belongs to a range.
+func (w Writer) SetProject(ctx context.Context, p project.Key, keys ...Key) error {
+	if err := w.tbl.NewUpdate().
+		Where(gorp.MatchKeys[Key, Table](keys...)).
+		ChangeErr(func(_ gorp.Context, e Table) (Table, error) {
+			e.Project = &p
+			return e, project.ValidateOwner(e.Project, e.Range)
+		}).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	for _, k := range keys {
+		w.dispatcher.NotifyOnCommit(
+			ctx,
+			w.tx,
+			k,
+			NewSetProjectAction(SetProjectPayload{Project: p}),
+		)
+	}
+	return nil
+}
+
+// CreateMany creates the given tables. If tables with the same key already exist,
+// they will be overwritten.
+func (w Writer) CreateMany(ctx context.Context, tables *[]Table) error {
 	for i := range *tables {
-		if err := w.Create(ctx, projectKey, &(*tables)[i]); err != nil {
+		if err := w.Create(ctx, &(*tables)[i]); err != nil {
 			return err
 		}
 	}

@@ -30,8 +30,7 @@ var _ = Describe("Create", func() {
 		rec := &Recorder[table.Key, table.Action]{}
 		DeferCleanup(svc.Table.OnAction(rec.Record))
 		res := MustSucceed(apiSvc.Create(AuthedCtx(ctx, u), nil, apitable.CreateRequest{
-			Project:     proj.Key,
-			Tables:      []table.Table{{Name: "broadcast"}},
+			Tables:      []table.Table{{Name: "broadcast", Project: &proj.Key}},
 			DispatchKey: "dk-create",
 		}))
 		frames := rec.Snapshot()

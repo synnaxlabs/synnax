@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -52,11 +53,8 @@ func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
 }
 
 // Create creates a new panel. If the panel's key is uuid.Nil(), a new key is generated.
-// An existing panel keeps its group. The panel is registered with the ontology.
-//
-// Set p.Parent to attach the panel to a parent resource in the ontology; when nil or
-// zero, the panel has no parent. Parent is not persisted on the record; parenthood
-// lives in the ontology graph.
+// The panel must belong to exactly one of a project and a range. An existing panel
+// keeps its group, project, and range.
 func (w Writer) Create(ctx context.Context, p *Panel) error {
 	return w.inTx(ctx, func(w Writer) error { return w.create(ctx, p) })
 }
@@ -78,7 +76,7 @@ func (w Writer) create(
 			return err
 		}
 		if exists = err == nil; exists {
-			p.Group = stored.Group
+			p.Group, p.Project, p.Range = stored.Group, stored.Project, stored.Range
 		}
 	}
 	if !exists {
@@ -103,22 +101,14 @@ func (w Writer) create(
 	if err := p.Validate(); err != nil {
 		return err
 	}
+	if err := project.ValidateOwner(p.Project, p.Range); err != nil {
+		return err
+	}
 	if err = w.table.NewCreate().Entry(p).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	otgID := p.ResourceID()
-	if err := w.otg.DefineResources(ctx, otgID); err != nil {
+	if err := w.otg.DefineResources(ctx, p.ResourceID()); err != nil {
 		return err
-	}
-	if p.Parent != nil && !p.Parent.IsZero() {
-		if err := w.otg.DefineRelationships(
-			ctx,
-			*p.Parent,
-			ontology.RelationshipTypeParentOf,
-			otgID,
-		); err != nil {
-			return err
-		}
 	}
 	w.dispatcher.NotifyOnCommit(
 		ctx,
@@ -148,8 +138,31 @@ func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
 	return nil
 }
 
+// SetProject moves the panels with keys into the project p. It returns a validation
+// error when a panel belongs to a range.
+func (w Writer) SetProject(ctx context.Context, p project.Key, keys ...Key) error {
+	if err := w.table.NewUpdate().
+		Where(gorp.MatchKeys[Key, Panel](keys...)).
+		ChangeErr(func(_ gorp.Context, e Panel) (Panel, error) {
+			e.Project = &p
+			return e, project.ValidateOwner(e.Project, e.Range)
+		}).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	for _, k := range keys {
+		w.dispatcher.NotifyOnCommit(
+			ctx,
+			w.tx,
+			k,
+			NewSetProjectAction(SetProjectPayload{Project: p}),
+		)
+	}
+	return nil
+}
+
 // CreateMany creates the given panels, applying the same key assignment, tree
-// defaulting, validation, and parenting as Create to each.
+// defaulting, and validation as Create to each.
 func (w Writer) CreateMany(ctx context.Context, ps *[]Panel) error {
 	for i := range *ps {
 		if err := w.Create(ctx, &(*ps)[i]); err != nil {

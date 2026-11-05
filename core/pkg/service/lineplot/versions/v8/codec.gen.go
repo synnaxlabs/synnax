@@ -14,6 +14,7 @@ package v8
 import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
+	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
 	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
 	color "github.com/synnaxlabs/x/color/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
@@ -167,6 +168,18 @@ func (lp LinePlot) EncodeOrc(w *orc.Writer) error {
 	} else {
 		w.Bool(false)
 	}
+	if lp.Project != nil {
+		w.Bool(true)
+		w.Write((*lp.Project)[:])
+	} else {
+		w.Bool(false)
+	}
+	if lp.Range != nil {
+		w.Bool(true)
+		w.Write((*lp.Range)[:])
+	} else {
+		w.Bool(false)
+	}
 	return nil
 }
 
@@ -256,6 +269,32 @@ func (lp *LinePlot) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			lp.Group = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv project.Key
+			if _, err := r.Read(hv[:]); err != nil {
+				return err
+			}
+			lp.Project = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv ranger.Key
+			if _, err := r.Read(hv[:]); err != nil {
+				return err
+			}
+			lp.Range = &hv
 		}
 	}
 	return nil

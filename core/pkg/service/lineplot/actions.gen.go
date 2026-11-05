@@ -14,6 +14,7 @@ package lineplot
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/spatial"
@@ -25,6 +26,7 @@ const (
 	ActionTypeCreate                = "create"
 	ActionTypeRename                = "rename"
 	ActionTypeSetGroup              = "set_group"
+	ActionTypeSetProject            = "set_project"
 	ActionTypeSetTitleVisible       = "set_title_visible"
 	ActionTypeSetTitleLevel         = "set_title_level"
 	ActionTypeSetLegendHidden       = "set_legend_hidden"
@@ -74,6 +76,12 @@ type RenamePayload struct {
 // empty. Emitted by the Core when it moves the line plot; clients never dispatch it.
 type SetGroupPayload struct {
 	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
+}
+
+// SetProjectPayload moves the line plot into a project. Emitted by the Core when it
+// moves the line plot; clients never dispatch it.
+type SetProjectPayload struct {
+	Project project.Key `json:"project" msgpack:"project"`
 }
 
 // SetTitleVisiblePayload sets whether the plot title is shown above the plot.
@@ -291,6 +299,7 @@ type Action struct {
 	Create                *CreatePayload                `json:"create,omitzero" msgpack:"create,omitempty"`
 	Rename                *RenamePayload                `json:"rename,omitzero" msgpack:"rename,omitempty"`
 	SetGroup              *SetGroupPayload              `json:"set_group,omitzero" msgpack:"set_group,omitempty"`
+	SetProject            *SetProjectPayload            `json:"set_project,omitzero" msgpack:"set_project,omitempty"`
 	SetTitleVisible       *SetTitleVisiblePayload       `json:"set_title_visible,omitzero" msgpack:"set_title_visible,omitempty"`
 	SetTitleLevel         *SetTitleLevelPayload         `json:"set_title_level,omitzero" msgpack:"set_title_level,omitempty"`
 	SetLegendHidden       *SetLegendHiddenPayload       `json:"set_legend_hidden,omitzero" msgpack:"set_legend_hidden,omitempty"`
@@ -348,6 +357,11 @@ func Reduce(state LinePlot, actions ...Action) (LinePlot, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetGroup.Handle(state)
+		case ActionTypeSetProject:
+			if a.SetProject == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetProject.Handle(state)
 		case ActionTypeSetTitleVisible:
 			if a.SetTitleVisible == nil {
 				return state, union.MissingPayload(a.Type)
@@ -531,6 +545,11 @@ func NewRenameAction(p RenamePayload) Action {
 // NewSetGroupAction wraps a SetGroupPayload in an Action envelope.
 func NewSetGroupAction(p SetGroupPayload) Action {
 	return Action{Type: ActionTypeSetGroup, SetGroup: &p}
+}
+
+// NewSetProjectAction wraps a SetProjectPayload in an Action envelope.
+func NewSetProjectAction(p SetProjectPayload) Action {
+	return Action{Type: ActionTypeSetProject, SetProject: &p}
 }
 
 // NewSetTitleVisibleAction wraps a SetTitleVisiblePayload in an Action envelope.
