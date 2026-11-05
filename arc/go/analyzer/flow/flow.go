@@ -315,24 +315,75 @@ func resolveSourceType[T antlr.ParserRuleContext](
 	return idSym.Type.Unwrap(), true
 }
 
-// rejectRemapped records param as mapped by entry and reports whether it was
-// free. A trigger takes one edge, so a second entry on it is an error.
-func rejectRemapped(
+// tableTarget is the func after a routing table, whose params the entries fill.
+type tableTarget struct {
+	name string
+	// fresh is the call's own instance of the signature, so entry types unify
+	// with the constraints its arguments added.
+	fresh types.Type
+	// supplied holds the params the call-site arguments bind.
+	supplied set.Set[string]
+	// mapped holds the params an entry already fills.
+	mapped set.Set[string]
+}
+
+// resolveTableTarget builds the tableTarget for fn, or nil when fn does not
+// resolve to a function. The node analysis already reports that.
+func resolveTableTarget(
+	ctx context.Context[parser.IRoutingTableContext],
+	fn parser.IFunctionContext,
+) *tableTarget {
+	head, tail := parser.FunctionNameParts(fn)
+	sym, err := ctx.ResolveQualified(head, tail)
+	if err != nil || sym.Kind != symbol.KindFunction {
+		return nil
+	}
+	name := head
+	if tail != "" {
+		name = head + "." + tail
+	}
+	fresh := types.Freshen(sym.Type, freshenKey(fn, name))
+	return &tableTarget{
+		name:  name,
+		fresh: fresh,
+		supplied: suppliedNames(
+			symbol.FunctionArguments(fn), fresh, sym.Trigger.Target,
+		),
+		mapped: set.New[string](),
+	}
+}
+
+// bindParam records that entry fills param and returns it. A param takes one
+// value, so one the func lacks, an argument binds, or another entry fills is an
+// error.
+func (t *tableTarget) bindParam(
 	ctx context.Context[parser.IRoutingTableContext],
 	entry parser.IRoutingEntryContext,
-	mapped set.Set[string],
 	param string,
-) bool {
-	if mapped.Contains(param) {
+) (types.Param, bool) {
+	p, exists := t.fresh.Inputs.Get(param)
+	switch {
+	case !exists:
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			entry, "func '%s' does not have parameter '%s'", t.name, param,
+		))
+	case t.supplied.Contains(param):
 		ctx.Diagnostics.Add(diagnostics.Errorf(
 			entry,
-			"parameter '%s' is mapped by more than one routing entry",
+			"parameter '%s' of func '%s' is bound by both a call-site argument "+
+				"and a routing entry",
 			param,
+			t.name,
 		))
-		return false
+	case t.mapped.Contains(param):
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			entry, "parameter '%s' is mapped by more than one routing entry", param,
+		))
+	default:
+		t.mapped.Add(param)
+		return p, true
 	}
-	mapped.Add(param)
-	return true
+	return types.Param{}, false
 }
 
 // isFedByRoutingTable reports whether ctx's func node directly follows a routing
@@ -602,20 +653,18 @@ func analyzeRoutingTable(ctx context.Context[parser.IRoutingTableContext]) {
 		return
 	}
 
-	var nodesBefore, nodesAfter []parser.IFlowNodeContext
-	foundRoutingTable := false
-
-	for _, child := range flowStmt.GetChildren() {
+	var (
+		nodesBefore []parser.IFlowNodeContext
+		children    = flowStmt.GetChildren()
+		index       = -1
+	)
+	for i, child := range children {
 		if rt, ok := child.(parser.IRoutingTableContext); ok && rt == ctx.AST {
-			foundRoutingTable = true
-			continue
+			index = i
+			break
 		}
 		if flowNode, ok := child.(parser.IFlowNodeContext); ok {
-			if foundRoutingTable {
-				nodesAfter = append(nodesAfter, flowNode)
-			} else {
-				nodesBefore = append(nodesBefore, flowNode)
-			}
+			nodesBefore = append(nodesBefore, flowNode)
 		}
 	}
 
@@ -624,10 +673,26 @@ func analyzeRoutingTable(ctx context.Context[parser.IRoutingTableContext]) {
 		warnNumericTransitions(ctx.Child(entry))
 	}
 
-	if len(nodesBefore) == 0 && len(nodesAfter) > 0 {
-		analyzeInputRoutingTable(ctx, nodesAfter)
-	} else if len(nodesBefore) > 0 {
-		analyzeOutputRoutingTable(ctx, nodesBefore, nodesAfter)
+	// The operator after the table is followed by the node it feeds.
+	var target *tableTarget
+	if index+2 < len(children) {
+		next, ok := children[index+2].(parser.IFlowNodeContext)
+		if !ok || next.Function() == nil {
+			ctx.Diagnostics.Add(diagnostics.Errorf(
+				children[index+2].(antlr.ParserRuleContext),
+				"only a func invocation can follow a routing table",
+			))
+			return
+		}
+		if target = resolveTableTarget(ctx, next.Function()); target == nil {
+			return
+		}
+	}
+
+	if len(nodesBefore) > 0 {
+		analyzeOutputRoutingTable(ctx, nodesBefore, target)
+	} else if target != nil {
+		analyzeInputRoutingTable(ctx, target)
 	} else {
 		ctx.Diagnostics.Add(diagnostics.Errorf(
 			ctx.AST,
@@ -639,7 +704,7 @@ func analyzeRoutingTable(ctx context.Context[parser.IRoutingTableContext]) {
 func analyzeOutputRoutingTable(
 	ctx context.Context[parser.IRoutingTableContext],
 	nodesBefore []parser.IFlowNodeContext,
-	nodesAfter []parser.IFlowNodeContext,
+	target *tableTarget,
 ) {
 	var PrevFunc parser.IFunctionContext
 	for _, n := range slices.Backward(nodesBefore) {
@@ -674,30 +739,10 @@ func analyzeOutputRoutingTable(
 		return
 	}
 
-	var (
-		nextFunc     parser.IFunctionContext
-		nextFuncType types.Type
-	)
-	if len(nodesAfter) > 0 {
-		nextFunc = nodesAfter[0].Function()
-		if nextFunc == nil {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
-				nodesAfter[0],
-				"only a func invocation can follow a routing table",
-			))
-			return
-		}
-		head, tail := parser.FunctionNameParts(nextFunc)
-		nextFuncScope, err := ctx.Scope.Resolve(ctx, head)
-		if err == nil && tail != "" {
-			nextFuncScope, err = nextFuncScope.Resolve(ctx, tail)
-		}
-		if err == nil && nextFuncScope.Kind == symbol.KindFunction {
-			nextFuncType = nextFuncScope.Type
-		}
+	var nextFuncType types.Type
+	if target != nil {
+		nextFuncType = target.fresh
 	}
-
-	mapped := set.New[string]()
 	for _, entry := range ctx.AST.AllRoutingEntry() {
 		outputName := entry.RoutingKey().GetText()
 
@@ -711,35 +756,34 @@ func analyzeOutputRoutingTable(
 			continue
 		}
 
+		flowNodes := entry.AllFlowNode()
+		if len(flowNodes) == 0 {
+			continue
+		}
+
 		var targetParamName string
 		if entry.IDENTIFIER() != nil {
 			targetParamName = entry.IDENTIFIER().GetText()
-
-			if nextFunc == nil {
+			if target == nil {
 				ctx.Diagnostics.Add(diagnostics.Errorf(
 					entry,
 					"parameter mapping requires a func after the routing table",
 				))
 				continue
 			}
-
-			if _, exists := nextFuncType.Inputs.Get(targetParamName); !exists {
+			if _, ok := target.bindParam(ctx, entry, targetParamName); !ok {
+				continue
+			}
+			// Only a func or an expression produces the value the param takes.
+			if last := flowNodes[len(flowNodes)-1]; last.Function() == nil &&
+				last.Expression() == nil {
 				ctx.Diagnostics.Add(diagnostics.Errorf(
 					entry,
-					"func '%s' does not have parameter '%s'",
-					parser.FunctionName(nextFunc),
+					"routing entry has no value to map to parameter '%s'",
 					targetParamName,
 				))
 				continue
 			}
-			if !rejectRemapped(ctx, entry, mapped, targetParamName) {
-				continue
-			}
-		}
-
-		flowNodes := entry.AllFlowNode()
-		if len(flowNodes) == 0 {
-			continue
 		}
 
 		// A routing key only gates its entry, so a bare target would never
@@ -827,26 +871,17 @@ func checkEntryHeadParamMapping(
 
 func analyzeInputRoutingTable(
 	ctx context.Context[parser.IRoutingTableContext],
-	nodes []parser.IFlowNodeContext,
+	target *tableTarget,
 ) {
-	nextFunc := nodes[0].Function()
-	if nextFunc == nil {
-		ctx.Diagnostics.Add(
-			diagnostics.Errorf(
-				ctx.AST,
-				"only a func invocation can follow a routing table",
-			),
-		)
-		return
-	}
-
-	fnType, fnName := resolveFunc(ctx, nextFunc)
-	if fnType == nil {
-		return
-	}
-
-	mapped := set.New[string]()
 	for _, entry := range ctx.AST.AllRoutingEntry() {
+		if entry.IDENTIFIER() != nil {
+			ctx.Diagnostics.Add(diagnostics.Errorf(
+				entry,
+				"input routing entry cannot carry a ': param' suffix, its last "+
+					"element is the parameter",
+			))
+			continue
+		}
 		key := entry.RoutingKey()
 		if key.IDENTIFIER() == nil {
 			ctx.Diagnostics.Add(diagnostics.Errorf(
@@ -872,23 +907,21 @@ func analyzeInputRoutingTable(
 		}
 
 		paramName := lastNode.Identifier().IDENTIFIER().GetText()
-		param, exists := fnType.Type.Inputs.Get(paramName)
-		if !exists {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
-				lastNode,
-				"func '%s' does not have parameter '%s'",
-				fnName,
-				paramName,
-			))
-			continue
-		}
-		if !rejectRemapped(ctx, entry, mapped, paramName) {
+		param, ok := target.bindParam(ctx, entry, paramName)
+		if !ok {
 			continue
 		}
 
 		// The key feeds the first processing node; each later node is fed by
 		// the one before it. The last processing node's result fills the param.
 		for i, flowNode := range flowNodes[:len(flowNodes)-1] {
+			if flowNode.Function() == nil && flowNode.Expression() == nil {
+				ctx.Diagnostics.Add(diagnostics.Errorf(
+					flowNode,
+					"input routing entry step must be a func or an expression",
+				))
+				break
+			}
 			child := ctx.Child(flowNode)
 			if i == 0 {
 				if fn := flowNode.Function(); fn != nil {
@@ -959,6 +992,13 @@ func analyzeRoutingTargetWithParam(
 					ctx.AST,
 					"func '%s' has named outputs and requires explicit output selection",
 					fnName,
+				))
+				return
+			} else {
+				ctx.Diagnostics.Add(diagnostics.Errorf(
+					ctx.AST,
+					"routing entry has no value to map to parameter '%s'",
+					*targetParam,
 				))
 				return
 			}

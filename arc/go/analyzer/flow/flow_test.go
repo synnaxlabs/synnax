@@ -3030,8 +3030,8 @@ sequence main {
 			}
 
 			sensor_chan -> demux() -> {
-			    high: output_chan: a,
-			    low: temp_sensor: b
+			    high: 1.0: a,
+			    low: 2.0: b
 			} -> combiner()`))
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 				analyzer.AnalyzeProgram(ctx)
@@ -3122,7 +3122,7 @@ sequence main {
 
 			sensor_chan -> demux() -> {
 			    high: 1.0 -> filter() -> amplifier(): input,
-			    low: output_chan: scale
+			    low: 2.0: scale
 			} -> scaler()`))
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 				analyzer.AnalyzeProgram(ctx)
@@ -3176,6 +3176,75 @@ sequence main {
 				ContainSubstring("only a func invocation can follow a routing table"),
 			)
 		})
+
+		DescribeTable("Should reject a mapping with no value for the parameter",
+			func(bCtx SpecContext, source, message string) {
+				ast := MustSucceed(parser.Parse(`
+				func demux() {value f64} (high f64, low f64) {
+				    if (value > 100.0) {
+				        high = value
+				    } else {
+				        low = value
+				    }
+				}
+
+				func combiner() {a f64, b f64} f64 {
+				    return a + b
+				}
+
+				func drop() {v f64} {}
+				` + source))
+				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
+				analyzer.AnalyzeProgram(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+				Expect(ctx.Diagnostics.String()).To(ContainSubstring(message))
+			},
+			Entry("lone channel",
+				`sensor_chan -> demux() -> {
+				    high: output_chan: a,
+				    low: 2.0: b
+				} -> combiner()`,
+				"routing entry has no value to map to parameter 'a'"),
+			Entry("chain ending in a channel write",
+				`sensor_chan -> demux() -> {
+				    high: 1.0 -> output_chan: a,
+				    low: 2.0: b
+				} -> combiner()`,
+				"routing entry has no value to map to parameter 'a'"),
+			Entry("chain ending in a func with no output",
+				`sensor_chan -> demux() -> {
+				    high: 1.0 -> drop(): a,
+				    low: 2.0: b
+				} -> combiner()`,
+				"routing entry has no value to map to parameter 'a'"),
+			Entry("transition",
+				`sequence s {
+				    stage one {
+				        sensor_chan -> demux() -> {
+				            high: true => next: a,
+				            low: 2.0: b
+				        } -> combiner()
+				    }
+				    stage two {
+				        sensor_chan -> output_chan
+				    }
+				}`,
+				"routing entry has no value to map to parameter 'a'"),
+			Entry("entry and argument on one trigger",
+				`sensor_chan -> demux() -> {
+				    high: 1.0: a,
+				    low: 2.0: b
+				} -> combiner(a=5.0)`,
+				"parameter 'a' of func 'combiner' is bound by both a call-site "+
+					"argument and a routing entry"),
+			Entry("table after the table",
+				`sensor_chan -> demux() -> {
+				    high: 1.0 -> output_chan
+				} -> {
+				    low: 2.0 -> output_chan
+				}`,
+				"only a func invocation can follow a routing table"),
+		)
 
 		Context("Input routing tables", func() {
 			It("Should feed an entry's chain head from the key", func(
@@ -3241,7 +3310,55 @@ sequence main {
 				Entry("two entries on one trigger",
 					`{ sensor_chan: a, output_chan: a } -> combiner()`,
 					"parameter 'a' is mapped by more than one routing entry"),
+				Entry("entry and argument on one trigger",
+					`{ sensor_chan: a, output_chan: b } -> combiner(a=5.0)`,
+					"parameter 'a' of func 'combiner' is bound by both a call-site "+
+						"argument and a routing entry"),
+				Entry("suffix on an input entry",
+					`{ sensor_chan: a: b, output_chan: b } -> combiner()`,
+					"input routing entry cannot carry a ': param' suffix"),
+				Entry("channel as a step",
+					`{ sensor_chan: output_chan -> a, temp_sensor: b } -> combiner()`,
+					"input routing entry step must be a func or an expression"),
+				Entry("table after the table",
+					`{ sensor_chan: a } -> { output_chan: b } -> combiner()`,
+					"only a func invocation can follow a routing table"),
 			)
+
+			It("Should give each table's generic call its own type", func(
+				bCtx SpecContext,
+			) {
+				localResolver := StaticResolver{
+					{
+						Name: "f_ch",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+					},
+					{
+						Name: "i_ch",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.I64()),
+					},
+					{
+						Name: "f_out",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+					},
+					{
+						Name: "i_out",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.I64()),
+					},
+				}
+				ast := MustSucceed(parser.Parse(`
+				import math
+
+				{ f_ch: input } -> math.avg() -> f_out
+				{ i_ch: input } -> math.avg() -> i_out`))
+				ctx := context.NewRoot(bCtx, ast, NewRoot(localResolver))
+				analyzer.AnalyzeProgram(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			})
 
 			It(
 				"Should analyze input routing table mapping sources to parameters",
@@ -3933,7 +4050,7 @@ var _ = Describe("Routing entry strictness", func() {
 			    return a + b
 			}
 			sensor_chan -> demux() -> {
-			    high: log_str: a,
+			    high: "hot": a,
 			    low: 1.0: b
 			} -> combiner()`))
 			resolver := StaticResolver{
@@ -3941,11 +4058,6 @@ var _ = Describe("Routing entry strictness", func() {
 					Name: "sensor_chan",
 					Kind: symbol.KindChannel,
 					Type: types.Chan(types.F64()),
-				},
-				{
-					Name: "log_str",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.String()),
 				},
 			}
 			ctx := context.NewRoot(bCtx, ast, NewRoot(resolver))

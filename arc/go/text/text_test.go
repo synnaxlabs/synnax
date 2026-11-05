@@ -4400,6 +4400,18 @@ time.wait(duration=500ms) -> output`
 					Type: types.Chan(types.F64()),
 					ID:   10205,
 				},
+				{
+					Name: "i_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.I64()),
+					ID:   10206,
+				},
+				{
+					Name: "i_out",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.I64()),
+					ID:   10207,
+				},
 			}
 			combiner := `
 			func combiner() {a f64, b f64} f64 {
@@ -4622,6 +4634,29 @@ time.wait(duration=500ms) -> output`
 				Expect(outEdge.Source.Node).To(Equal("encode_0"))
 			})
 
+			It("Should give each table's generic call its own type", func(
+				ctx SpecContext,
+			) {
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: `
+				import math
+
+				{ a_ch: input } -> math.avg() -> out
+				{ i_ch: input } -> math.avg() -> i_out`}))
+				inter, diagnostics := text.Analyze(
+					ctx, parsedText, NewRoot(nil, resolver...),
+				)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				edges := ir.Edges(inter.Edges)
+				fEdge := MustBeOk(edges.FindByTarget(
+					ir.Handle{Node: "math.avg_0", Param: "input"},
+				))
+				Expect(fEdge.Source.Node).To(Equal("on_a_ch_0"))
+				iEdge := MustBeOk(edges.FindByTarget(
+					ir.Handle{Node: "math.avg_1", Param: "input"},
+				))
+				Expect(iEdge.Source.Node).To(Equal("on_i_ch_0"))
+			})
+
 			DescribeTable("Should reject a malformed input routing table",
 				func(ctx SpecContext, source, message string) {
 					_, diagnostics := analyze(ctx, source)
@@ -4652,6 +4687,9 @@ time.wait(duration=500ms) -> output`
 				Entry("two entries on one trigger",
 					`{ a_ch: a, b_ch: a } -> combiner() -> out`,
 					"parameter 'a' is mapped by more than one routing entry"),
+				Entry("table after the table",
+					`{ a_ch: a } -> { b_ch: b } -> combiner() -> out`,
+					"only a func invocation can follow a routing table"),
 			)
 		})
 
@@ -4829,18 +4867,6 @@ time.wait(duration=500ms) -> output`
 						Expect(diagnostics.Ok()).To(BeFalse())
 						Expect(diagnostics.String()).To(ContainSubstring(message))
 					},
-					Entry("suffix after a channel write",
-						`signal -> demux(threshold=100.0) -> {
-						    high: 1.0 -> out: b,
-						    low: 2.0: a
-						} -> mix()`,
-						"routing entry has no value to map to parameter 'b'"),
-					Entry("suffix after a func with no output",
-						`signal -> demux(threshold=100.0) -> {
-						    high: 1.0 -> log(): b,
-						    low: 2.0: a
-						} -> mix()`,
-						"routing entry has no value to map to parameter 'b'"),
 					Entry("unmapped trigger with no default",
 						`signal -> demux(threshold=100.0) -> {
 						    high: 1.0 -> doubler(): b

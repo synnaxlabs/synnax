@@ -2292,8 +2292,7 @@ func analyzeOutputRoutingTable(
 		prevOutputHandle := sourceOutput
 		for i, flowNode := range flowNodes {
 			isLast := i == len(flowNodes)-1
-			// A lone identifier with a param suffix is a source read, not a sink.
-			isSink := isLast && flowNode.Identifier() != nil && len(flowNodes) > 1
+			isSink := isLast && flowNode.Identifier() != nil
 
 			result, ok := analyzeFlowNode(
 				ctx.Child(flowNode), kg, shell, false, isSink,
@@ -2324,14 +2323,6 @@ func analyzeOutputRoutingTable(
 			})
 
 			if isLast && targetParamName != "" {
-				if isSink || len(node.node.Outputs) == 0 {
-					ctx.Diagnostics.Add(diagnostics.Errorf(
-						entry,
-						"routing entry has no value to map to parameter '%s'",
-						targetParamName,
-					))
-					return nil, nil, nil, false
-				}
 				edges = append(edges, ir.Edge{
 					Source: node.output,
 					Target: ir.Handle{Node: target.Key, Param: targetParamName},
