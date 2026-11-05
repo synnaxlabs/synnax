@@ -15,7 +15,7 @@ import {
   type record,
   unique,
 } from "@synnaxlabs/x";
-import { useEffect, useRef } from "react";
+import { type KeyboardEvent, useEffect, useRef } from "react";
 
 import { Dialog } from "@/dialog";
 import { useSyncedRef } from "@/hooks/ref";
@@ -269,4 +269,12 @@ export const useMultiple = <K extends record.Key>({
   });
   List.usePin(hover.hover);
   return { onSelect, setSelected, clear, ...hover };
+};
+
+/**
+ * Stops Enter from clicking a focused trigger while its options are open, as
+ * {@link useHover} gives that Enter to the hovered option.
+ */
+export const preventEnterWhileOpen = (e: KeyboardEvent, visible: boolean): void => {
+  if (visible && e.key === "Enter") e.preventDefault();
 };

@@ -24,6 +24,7 @@ import { useContext, useSelected } from "@/select/Context";
 import { Label } from "@/select/Label";
 import { staticCanDrop } from "@/select/MultipleTrigger";
 import { useIsFixed, useText } from "@/select/registry";
+import { preventEnterWhileOpen } from "@/select/use";
 
 export interface SingleTriggerEntry<K extends record.Key> extends record.KeyedNamed<K> {
   icon?: Icon.ReactElement;
@@ -134,6 +135,7 @@ export const SingleTrigger = <K extends record.Key>({
   // The clear button is not a tab stop, so the focused trigger takes the key instead.
   const handleKeyDown = (e: KeyboardEvent<HTMLElement>): void => {
     onKeyDown?.(e);
+    preventEnterWhileOpen(e, visible);
     if (!canClear || (e.key !== "Delete" && e.key !== "Backspace")) return;
     e.preventDefault();
     clear();
