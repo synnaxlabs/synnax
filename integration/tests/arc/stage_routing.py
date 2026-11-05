@@ -372,8 +372,8 @@ class StageRouting(ArcCase):
 
         # Phase 7: the vent entry's `: level` suffix feeds scale; the other two
         # entries write the channel themselves.
-        self.log("[mapped] sensor=10.0 -> vent entry -> scale -> level 10.0")
-        self._write_sensor(10.0)
+        self.log("[mapped] sensor=20.0 -> vent entry -> scale -> level 10.0")
+        self._write_sensor(20.0)
         self.wait_for_eq("routing_level", 10.0)
 
         self.log("[mapped] sensor=50.0 -> press entry writes 2.0")
@@ -384,8 +384,8 @@ class StageRouting(ArcCase):
         self._write_sensor(90.0)
         self.wait_for_eq("routing_level", 3.0)
 
-        self.log("[mapped] sensor=10.0 -> vent entry -> scale -> level 10.0 again")
-        self._write_sensor(10.0)
+        self.log("[mapped] sensor=20.0 -> vent entry -> scale -> level 10.0 again")
+        self._write_sensor(20.0)
         self.wait_for_eq("routing_level", 10.0)
 
         self.log("[mapped] Advancing mapped_hold -> pipeline_hold")

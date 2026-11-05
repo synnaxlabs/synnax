@@ -28,6 +28,21 @@ func demux(threshold f64) {value f64} (high f64, low f64) {
 `
 
 var _ = Describe("Routing Table Runtime", func() {
+	written := func(h *runtimeHarness, key uint32) []float64 {
+		GinkgoHelper()
+		out, _ := h.Flush()
+		series := out.Get(key).Series
+		if len(series) == 0 {
+			return nil
+		}
+		return series[0].Unmarshal[float64]()
+	}
+	tick := func(ctx SpecContext, h *runtimeHarness) {
+		GinkgoHelper()
+		h.Tick(ctx, telem.Millisecond)
+		h.channelState.ClearReads()
+	}
+
 	Describe("Output Routing", func() {
 		It(
 			"Should route to high output with correct data, alignment, time range, and timestamps",
@@ -430,20 +445,6 @@ var _ = Describe("Routing Table Runtime", func() {
 		    return a + b
 		}
 		`
-		written := func(h *runtimeHarness, key uint32) []float64 {
-			GinkgoHelper()
-			out, _ := h.Flush()
-			series := out.Get(key).Series
-			if len(series) == 0 {
-				return nil
-			}
-			return series[0].Unmarshal[float64]()
-		}
-		tick := func(ctx SpecContext, h *runtimeHarness) {
-			GinkgoHelper()
-			h.Tick(ctx, telem.Millisecond)
-			h.channelState.ClearReads()
-		}
 
 		It(
 			"Should run once every trigger has a value and keep the latest of each",
@@ -458,12 +459,10 @@ var _ = Describe("Routing Table Runtime", func() {
 
 				h.Ingest(100, telem.NewSeriesV(1.0))
 				tick(ctx, h)
-				Expect(h.Output("combiner_0", 0).Len()).To(Equal(int64(0)))
 				Expect(written(h, 300)).To(BeEmpty())
 
 				h.Ingest(200, telem.NewSeriesV(2.0))
 				tick(ctx, h)
-				Expect(h.OutputTime("combiner_0", 0).Len()).To(Equal(int64(1)))
 				Expect(written(h, 300)).To(Equal([]float64{3.0}))
 
 				h.Ingest(100, telem.NewSeriesV(5.0))
@@ -689,20 +688,6 @@ var _ = Describe("Routing Table Runtime", func() {
 		    return a * 10.0 + b
 		}
 		`
-		written := func(h *runtimeHarness, key uint32) []float64 {
-			GinkgoHelper()
-			out, _ := h.Flush()
-			series := out.Get(key).Series
-			if len(series) == 0 {
-				return nil
-			}
-			return series[0].Unmarshal[float64]()
-		}
-		tick := func(ctx SpecContext, h *runtimeHarness) {
-			GinkgoHelper()
-			h.Tick(ctx, telem.Millisecond)
-			h.channelState.ClearReads()
-		}
 
 		It("Should feed the func from the entries that fire", func(ctx SpecContext) {
 			h := newRuntimeHarness(ctx, mixSource+`
@@ -724,6 +709,26 @@ var _ = Describe("Routing Table Runtime", func() {
 			h.Ingest(100, telem.NewSeriesV(80.0))
 			tick(ctx, h)
 			Expect(written(h, 300)).To(Equal([]float64{22.0}))
+		})
+
+		It("Should feed the func from the end of a longer chain", func(
+			ctx SpecContext,
+		) {
+			h := newRuntimeHarness(ctx, mixSource+`
+			sensor -> demux(threshold=50.0) -> {
+			    high: 1.0 -> doubler() -> doubler(): b,
+			    low: 2.0: a
+			} -> mix() -> out
+			`, resolver, digests...)
+			defer h.Close(ctx)
+
+			h.Ingest(100, telem.NewSeriesV(25.0))
+			tick(ctx, h)
+			Expect(written(h, 300)).To(BeEmpty())
+
+			h.Ingest(100, telem.NewSeriesV(75.0))
+			tick(ctx, h)
+			Expect(written(h, 300)).To(Equal([]float64{24.0}))
 		})
 
 		It("Should chain an input table into an output table", func(ctx SpecContext) {

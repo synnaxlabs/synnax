@@ -487,6 +487,15 @@ sequence main {
 			Expect((*ctx.CallEdges)[0].Callee.Name).To(Equal("compute"))
 		})
 
+		It("Should take its input as an argument, not from a routing table", func(
+			bCtx SpecContext,
+		) {
+			ctx := analyze(bCtx, `{ src_chan: input } -> compute() -> out_chan`)
+			Expect(ctx.Diagnostics.String()).To(ContainSubstring(
+				"missing required argument for parameter 'input' of func 'compute'",
+			))
+		})
+
 		It("Should type-check the call arguments", func(bCtx SpecContext) {
 			ctx := analyze(bCtx, `src_chan -> compute() -> out_chan`)
 			Expect(ctx.Diagnostics.String()).To(ContainSubstring(

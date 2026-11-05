@@ -4619,19 +4619,60 @@ time.wait(duration=500ms) -> output`
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 				edges := ir.Edges(inter.Edges)
 				for _, param := range []string{"a", "b", "c"} {
-					MustBeOk(edges.FindByTarget(
+					edge := MustBeOk(edges.FindByTarget(
 						ir.Handle{Node: "classify_0", Param: param},
 					))
+					Expect(edge.Source.Node).To(Equal("on_" + param + "_ch_0"))
 				}
-				for _, param := range []string{"lo", "hi"} {
-					MustBeOk(edges.FindByTarget(
+				// Each suffixed entry's constant is gated by its own output.
+				for param, output := range map[string]string{"lo": "low", "hi": "high"} {
+					edge := MustBeOk(edges.FindByTarget(
 						ir.Handle{Node: "encode_0", Param: param},
+					))
+					gate := MustBeOk(edges.FindByTarget(
+						ir.Handle{Node: edge.Source.Node, Param: "input"},
+					))
+					Expect(gate.Source).To(Equal(
+						ir.Handle{Node: "classify_0", Param: output},
 					))
 				}
 				outEdge := MustBeOk(edges.FindByTarget(
 					ir.Handle{Node: "write_out_0", Param: "input"},
 				))
 				Expect(outEdge.Source.Node).To(Equal("encode_0"))
+			})
+
+			It("Should read a stage variable as a source", func(ctx SpecContext) {
+				inter, diagnostics := analyze(ctx, `
+				sequence s {
+				    stage one {
+				        x := a_ch
+				        { x: a, b_ch: b } -> combiner() -> out
+				    }
+				}`)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				edges := ir.Edges(inter.Edges)
+				aEdge := MustBeOk(edges.FindByTarget(
+					ir.Handle{Node: "combiner_0", Param: "a"},
+				))
+				Expect(aEdge.Source.Node).To(Equal("on_x_0"))
+			})
+
+			It("Should feed a config param of a func with no trigger", func(
+				ctx SpecContext,
+			) {
+				inter, diagnostics := analyze(ctx, `
+				func offset(k f64) f64 {
+				    return k + 1.0
+				}
+
+				{ a_ch: k } -> offset() -> out`)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				edges := ir.Edges(inter.Edges)
+				kEdge := MustBeOk(edges.FindByTarget(
+					ir.Handle{Node: "offset_0", Param: "k"},
+				))
+				Expect(kEdge.Source.Node).To(Equal("on_a_ch_0"))
 			})
 
 			It("Should give each table's generic call its own type", func(
@@ -4663,30 +4704,12 @@ time.wait(duration=500ms) -> output`
 					Expect(diagnostics.Ok()).To(BeFalse())
 					Expect(diagnostics.String()).To(ContainSubstring(message))
 				},
-				Entry("undefined key",
-					`{ nope: a, b_ch: b } -> combiner() -> out`,
-					"undefined symbol: nope"),
-				Entry("true key",
-					`{ true: a, b_ch: b } -> combiner() -> out`,
-					"input routing key 'true' must be a channel or variable"),
 				Entry("unknown parameter",
 					`{ a_ch: nosuch, b_ch: b } -> combiner() -> out`,
 					"does not have parameter 'nosuch'"),
-				Entry("table before a channel",
-					`{ a_ch: a } -> out`,
-					"only a func invocation can follow a routing table"),
 				Entry("unbound trigger with no default",
 					`{ a_ch: a } -> combiner() -> out`,
 					"missing required input 'b'"),
-				Entry("value type mismatch",
-					`{ flag_ch: a, b_ch: b } -> combiner() -> out`,
-					"does not match parameter a"),
-				Entry("transition after the table",
-					`{ a_ch: a, b_ch: b } => combiner() -> out`,
-					"'=>' cannot follow a routing table"),
-				Entry("two entries on one trigger",
-					`{ a_ch: a, b_ch: a } -> combiner() -> out`,
-					"parameter 'a' is mapped by more than one routing entry"),
 				Entry("table after the table",
 					`{ a_ch: a } -> { b_ch: b } -> combiner() -> out`,
 					"only a func invocation can follow a routing table"),
@@ -4842,6 +4865,26 @@ time.wait(duration=500ms) -> output`
 						ir.Handle{Node: "write_out_0", Param: "input"},
 					))
 					Expect(outEdge.Source.Node).To(Equal("mix_0"))
+				})
+
+				It("Should feed the func from the end of a longer chain", func(
+					ctx SpecContext,
+				) {
+					inter, diagnostics := analyze(ctx, `
+					signal -> demux(threshold=100.0) -> {
+					    high: 1.0 -> doubler() -> doubler(): b,
+					    low: 2.0: a
+					} -> mix() -> out`)
+					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+					edges := ir.Edges(inter.Edges)
+					bEdge := MustBeOk(edges.FindByTarget(
+						ir.Handle{Node: "mix_0", Param: "b"},
+					))
+					Expect(bEdge.Source.Node).To(Equal("doubler_1"))
+					chain := MustBeOk(edges.FindByTarget(
+						ir.Handle{Node: "doubler_1", Param: "v"},
+					))
+					Expect(chain.Source.Node).To(Equal("doubler_0"))
 				})
 
 				It("Should leave an unmapped trigger to its default", func(

@@ -70,7 +70,7 @@ tank_pt -> bang_bang(sensor=tank_pt, cmd=press_vlv_cmd, low=280.0, high=300.0)
 ## Triggers
 
 In a flow, the value from upstream fills the first trigger. The parentheses fill the
-other triggers, such as `pt -> add(y=2.0)`, or an
+other triggers, such as `pt -> add(y=2.0)`. An
 [input routing table](/reference/control/arc/reference/flow#input-routing) maps a source
 to each trigger. A function with no triggers runs on each value from upstream, and does
 not use the value.
