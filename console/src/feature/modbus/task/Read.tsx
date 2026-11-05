@@ -13,7 +13,6 @@ import { channel, NotFoundError } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
-import { Header } from "@synnaxlabs/lyra/header";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { DataType, deep, errors, id, primitive } from "@synnaxlabs/x";
@@ -29,8 +28,6 @@ import { RegisterField } from "@/feature/modbus/task/Register";
 import {
   RegisterMap,
   RegisterMapProvider,
-  useHoveredRef,
-  useIsHovered,
   useOverlaps,
 } from "@/feature/modbus/task/RegisterMap";
 import {
@@ -77,8 +74,6 @@ const ChannelListItem = ({ itemKey, ...rest }: Task.ChannelListItemProps) => {
   const entry = path.config.channels[itemKey];
   const ch = PForm.useFieldValue(entry);
   const dev = useFromConfig();
-  const hovered = useIsHovered(itemKey);
-  const hoveredRef = useHoveredRef(itemKey);
   const overlapping = useOverlaps(path.config.channels, itemKey);
   return (
     <Task.Views.ListChannelItem
@@ -91,8 +86,6 @@ const ChannelListItem = ({ itemKey, ...rest }: Task.ChannelListItemProps) => {
           ? undefined
           : readChannelName(channel.escapeInvalidName(dev.name), ch)
       }
-      ref={hoveredRef}
-      hovered={hovered}
     >
       <List.Cell>
         <RegisterField path={entry} schemas={READ_CHANNEL_SCHEMAS} />
@@ -140,15 +133,13 @@ const createMapChannel = (type: ReadChannel["type"], address: number): ReadChann
 
 const listItem = Component.renderProp(ChannelListItem);
 
-const HEADER = (
-  <>
-    <Header.Header>
-      <Header.Title weight={500} color={10}>
-        Channels
-      </Header.Title>
-    </Header.Header>
-    <RegisterMap path={path.config.channels} createChannel={createMapChannel} />
-  </>
+const map = ({ selected, onSelect }: Task.Views.PortsProps<ReadChannel>) => (
+  <RegisterMap
+    path={path.config.channels}
+    createChannel={createMapChannel}
+    selected={selected}
+    onSelect={onSelect}
+  />
 );
 
 const Form: FC = () => {
@@ -163,7 +154,7 @@ const Form: FC = () => {
         contextMenuItems={Task.readChannelContextMenuItem}
         listItem={listItem}
         resolve={resolve}
-        header={HEADER}
+        map={map}
         columns={COLUMNS}
         checkable
       />

@@ -87,7 +87,7 @@ Transport::Transport(const uint16_t port, const std::string &ip, const bool secu
         grpc::channel::ChannelRetrieveService>>(pool, base_target);
     this->range_retrieve = std::make_unique<freighter::grpc::UnaryClient<
         grpc::ranger::RetrieveRequest,
-        grpc::ranger::RetrieveResponse,
+        ::api::ranger::pb::RetrieveResponse,
         grpc::ranger::RangeRetrieveService>>(pool, base_target);
     this->range_create = std::make_unique<freighter::grpc::UnaryClient<
         grpc::ranger::CreateRequest,
@@ -151,7 +151,7 @@ Transport::Transport(const uint16_t port, const std::string &ip, const bool secu
         grpc::control::ControlRetrieveService>>(pool, base_target);
     this->status_retrieve = std::make_shared<freighter::grpc::UnaryClient<
         grpc::status::RetrieveRequest,
-        grpc::status::RetrieveResponse,
+        ::api::status::pb::RetrieveResponse,
         grpc::status::StatusRetrieveService>>(pool, base_target);
     this->status_set = std::make_shared<freighter::grpc::UnaryClient<
         grpc::status::SetRequest,
