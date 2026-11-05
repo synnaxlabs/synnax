@@ -57,8 +57,8 @@ jobs:
       Review' && github.event.check_run.pull_requests[0])
     runs-on: ubuntu-latest
     steps:
-      # The check_run and workflow_run triggers run this file from main for a pull
-      # request into a release branch, which may lack gh_api.sh.
+      # The check_run trigger runs this file from main for a pull request into a release
+      # branch, which may lack gh_api.sh.
       - name: Checkout the main scripts
         uses: actions/checkout@v7
         with:

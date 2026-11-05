@@ -7,9 +7,9 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Starts the review gate and auto-merge for pull requests the other relays cannot reach:
-# a fork or Dependabot gets a token that cannot dispatch. It runs from the default
-# branch and reads pull requests only through the API.
+# Starts the review gate and auto-merge and adds path labels for pull requests the other
+# relays cannot reach: a fork or Dependabot gets a token that cannot dispatch or write.
+# It runs from the default branch and reads pull requests only through the API.
 
 name: Relay - Sweep
 
@@ -31,18 +31,45 @@ jobs:
     permissions:
       actions: write
       pull-requests: read
+    outputs:
+      prs: ${{ steps.prs.outputs.prs }}
+    env:
+      GH_REPO: ${{ github.repository }}
+      GH_TOKEN: ${{ github.token }}
     steps:
-      - name: Start the workflows
-        env:
-          GH_REPO: ${{ github.repository }}
-          GH_TOKEN: ${{ github.token }}
-          REF: ${{ github.event.repository.default_branch }}
+      - name: List the pull requests
+        id: prs
         run: |
-          gh pr list --state open --limit 5000 \
+          prs=$(gh pr list --state open --limit 5000 \
             --json number,isCrossRepository,author \
             --jq '.[] | select(.isCrossRepository or .author.login == "app/dependabot")
-              | .number' |
-            while read -r pr; do
-              gh workflow run check.review.yaml --ref "$REF" -f pr="$pr"
-              gh workflow run merge.auto.yaml --ref "$REF" -f pr="$pr"
-            done
+              | .number')
+          {
+            echo 'prs<<EOF'
+            echo "$prs"
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Start the workflows
+        env:
+          PRS: ${{ steps.prs.outputs.prs }}
+          REF: ${{ github.event.repository.default_branch }}
+        run: |
+          for pr in $PRS; do
+            gh workflow run check.review.yaml --ref "$REF" -f pr="$pr"
+            gh workflow run merge.auto.yaml --ref "$REF" -f pr="$pr"
+          done
+
+  label:
+    name: Label pull requests
+    needs: sweep
+    if: needs.sweep.outputs.prs != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Label from changed paths
+        uses: actions/labeler@bf12e9b00b37c5c0ca2b87b79b2daf7891dbda13 # v7
+        with:
+          pr-number: ${{ needs.sweep.outputs.prs }}
