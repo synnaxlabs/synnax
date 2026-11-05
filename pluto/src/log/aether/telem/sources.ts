@@ -153,6 +153,9 @@ export class StreamMultiChannelLog
   // unread holds the spans newer than the entries, oldest first. The log is live while
   // it is empty. Otherwise the last span counts the samples that stream past the log.
   private unread: Unread[] = [];
+  // skipped holds the streamed lines of channels that store nothing, which no read can
+  // find again, while the log is not live.
+  private skipped: LogEntry[][] = [];
   private readonly pageBreaker: breaker.Breaker;
   private pageFailure?: cstatus.Status;
   private _channels: channel.Key[] = [];
@@ -220,6 +223,7 @@ export class StreamMultiChannelLog
     this.cancelPage();
     if (this.live) return this.notify();
     this.unread = [];
+    this.skipped = [];
     this.entries = [];
     this.metas.forEach((meta) => {
       Object.assign(meta, {
@@ -356,6 +360,10 @@ export class StreamMultiChannelLog
     if (middle > span.start && lines > kept) return split();
     this.unread.shift();
     if (this.unread.every(({ counts }) => counts.size === 0)) this.unread = [];
+    const reached = ([{ timestamp }]: LogEntry[]): boolean =>
+      this.live || timestamp.valueOf() <= span.end;
+    groups.push(...this.skipped.filter(reached));
+    this.skipped = this.skipped.filter((group) => !reached(group));
     if (groups.length > 0) this.insert(groups);
     this.evict();
     this.notify();
@@ -538,14 +546,19 @@ export class StreamMultiChannelLog
   // last span, which a read splits when it holds more than one page.
   private skip(groups: LogEntry[][]): void {
     const last = this.unread.at(-1)!;
-    for (const [{ channelKey, timestamp }] of groups) {
-      if (this.metas.get(channelKey)?.stored !== true) continue;
+    for (const group of groups) {
+      const [{ channelKey, timestamp }] = group;
+      if (this.metas.get(channelKey)?.stored !== true) {
+        this.skipped.push(group);
+        continue;
+      }
       const time = timestamp.valueOf();
       const span =
         time > last.start ? last : this.unread.find(({ end }) => time <= end)!;
       if (time > span.end) span.end = time;
       span.counts.set(channelKey, (span.counts.get(channelKey) ?? 0) + 1);
     }
+    this.skipped.splice(0, this.skipped.length - this.maxEntries);
   }
 
   private scheduleRecheck(subscription: framer.Subscription, waiting: boolean): void {
@@ -736,6 +749,7 @@ export class StreamMultiChannelLog
     this.metas.clear();
     this.unresolved.clear();
     this.unread = [];
+    this.skipped = [];
     this.entries = [];
     this.status = telem.SUCCESS_STATUS;
     this.valid = false;

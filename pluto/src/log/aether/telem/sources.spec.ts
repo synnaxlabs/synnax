@@ -914,6 +914,31 @@ describe("StreamMultiChannelLog", () => {
       expect(valuesOf(entriesOf(log), a).at(-1)).toBe(textOf(core, a, 1)[0]);
     });
 
+    it("should keep virtual lines that stream past a log that is not live", async () => {
+      const core = createCore({
+        derived: true,
+        now: START.add(TimeSpan.seconds(STORED / 10)),
+      });
+      const [a] = core.data.map((c) => c.key);
+      const { key } = core.virtual!;
+      const log = open(core, connect(core), { channels: [a, key] }, undefined, 2_000);
+      await settle(log, 1_800);
+      await expect.poll(() => core.streams(key), POLL).toBe(true);
+      await until(
+        () => log.loadOlder(),
+        () => !log.live,
+      );
+      core.advance(TimeSpan.seconds(5));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(valuesOf(entriesOf(log), key)).toEqual([]);
+      await until(
+        () => log.loadNewer(),
+        () => log.live,
+      );
+      expect(valuesOf(entriesOf(log), key).length).toBeGreaterThan(0);
+      expect(sorted(entriesOf(log))).toBe(true);
+    });
+
     it("should stay live when it resumes during an older read", async () => {
       const core = deep();
       const [a] = core.data.map((c) => c.key);
