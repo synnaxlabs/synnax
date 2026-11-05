@@ -320,7 +320,7 @@ var _ = Describe("Service", func() {
 		It("Should store a decoded read config under the given key", func(
 			ctx SpecContext,
 		) {
-			Expect(tasks.CreateChannels(ctx, 42)).To(Succeed())
+			Expect(tasks.Channels.Create(ctx, 42)).To(Succeed())
 			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
 				"sample_rate": 25,
 				"channels": []any{map[string]any{

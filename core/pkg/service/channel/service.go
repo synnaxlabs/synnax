@@ -140,7 +140,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		Migrations: append(
 			slices.Clone(versions.Migrations),
 			migrate.DropDangling(
-				"dangling_index",
+				"v61_dangling_index",
 				cfg.DB,
 				[]gorp.ReferenceConfig[Key, Channel]{indexReference()},
 			),

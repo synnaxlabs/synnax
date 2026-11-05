@@ -61,7 +61,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			Expect(tasks.CreateDevice(ctx, "dev-1")).To(Succeed())
-			Expect(tasks.CreateChannels(ctx, 42)).To(Succeed())
+			Expect(tasks.Channels.Create(ctx, 42)).To(Succeed())
 			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
 				"device":      "dev-1",
 				"sample_rate": 25,

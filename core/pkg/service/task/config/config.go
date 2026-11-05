@@ -181,7 +181,7 @@ func OpenService[E gorp.Entry[uuid.UUID]](
 	if len(cfg.References) > 0 {
 		migrations = append(
 			slices.Clone(migrations),
-			migrate.DropDangling("dangling_references", cfg.DB, cfg.References),
+			migrate.DropDangling("v61_dangling_references", cfg.DB, cfg.References),
 		)
 	}
 	table, err := gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, E]{

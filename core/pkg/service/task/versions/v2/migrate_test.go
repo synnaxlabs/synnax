@@ -213,7 +213,7 @@ var _ = Describe("Migrations", func() {
 			)
 			Expect(targets.CreateDevice(ctx, "dev-ni")).To(Succeed())
 			Expect(targets.CreateDevice(ctx, "dev-lj")).To(Succeed())
-			Expect(targets.CreateChannels(ctx, 7, 8, 101, 102)).To(Succeed())
+			Expect(targets.Channels.Create(ctx, 7, 8, 101, 102)).To(Succeed())
 
 			MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
 			arcModule := arc.Arc{Key: uuid.New(), Name: "Stored Arc"}

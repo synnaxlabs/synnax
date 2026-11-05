@@ -81,7 +81,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			Expect(tasks.CreateDevice(ctx, "dev-1")).To(Succeed())
-			Expect(tasks.CreateChannels(ctx, 42)).To(Succeed())
+			Expect(tasks.Channels.Create(ctx, 42)).To(Succeed())
 			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
 				"device":      "dev-1",
 				"sample_rate": 25,
@@ -299,7 +299,7 @@ var _ = Describe("Service", func() {
 		It("Should drop the channels and devices that do not exist on normalize", func(
 			ctx SpecContext,
 		) {
-			Expect(tasks.CreateChannels(ctx, 4243)).To(Succeed())
+			Expect(tasks.Channels.Create(ctx, 4243)).To(Succeed())
 			out := MustSucceed(svc.Read.Normalize(ctx, nil, svc.Read.Version(),
 				msgpack.EncodedJSON{
 					"device": "missing",
@@ -333,7 +333,7 @@ var _ = Describe("Service", func() {
 						DB: stored,
 					}),
 				)
-				Expect(targets.CreateChannels(ctx, 10)).To(Succeed())
+				Expect(targets.Channels.Create(ctx, 10)).To(Succeed())
 				Expect(targets.CreateDevice(ctx, "kept")).To(Succeed())
 				key := uuid.New()
 				read := modbus.ReadConfig{

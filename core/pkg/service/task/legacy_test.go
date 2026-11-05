@@ -358,7 +358,7 @@ func createFixtureTargets(ctx context.Context, targets *tasktestutil.Targets) {
 		Expect(json.Unmarshal(MustSucceed(os.ReadFile(path)), &stored)).To(Succeed())
 		walk(stored)
 	}
-	Expect(targets.CreateChannels(ctx, channels...)).To(Succeed())
+	Expect(targets.Channels.Create(ctx, channels...)).To(Succeed())
 	for d := range devices {
 		Expect(targets.CreateDevice(ctx, d)).To(Succeed())
 	}

@@ -18,14 +18,13 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -198,36 +197,23 @@ type TargetsConfig struct {
 
 // Targets creates the channels, devices, and statuses that task configs reference.
 type Targets struct {
-	cfg      TargetsConfig
-	channels *gorp.Table[channel.Key, channel.Channel]
+	cfg TargetsConfig
+	// Channels stores the channels that configs reference.
+	Channels *channeltestutil.Table
 }
 
 // OpenTargets opens the table that channels are stored in on cfg.DB. Close the
 // returned Targets to close it.
 func OpenTargets(ctx context.Context, cfg TargetsConfig) (*Targets, error) {
-	channels, err := gorp.OpenTable(ctx, gorp.TableConfig[channel.Key, channel.Channel]{
-		DB:   cfg.DB,
-		Name: string(resource.TypeChannel),
-	})
+	channels, err := channeltestutil.OpenTable(ctx, cfg.DB)
 	if err != nil {
 		return nil, err
 	}
-	return &Targets{cfg: cfg, channels: channels}, nil
+	return &Targets{cfg: cfg, Channels: channels}, nil
 }
 
 // Close closes the table that OpenTargets opened.
-func (t *Targets) Close() error { return t.channels.Close() }
-
-// CreateChannels stores a channel under each of keys for configs to reference. The
-// channels live only in the table that channels are stored in, with no time series
-// storage behind them.
-func (t *Targets) CreateChannels(ctx context.Context, keys ...channel.Key) error {
-	channels := make([]channel.Channel, len(keys))
-	for i, k := range keys {
-		channels[i] = channel.Channel{Leaseholder: k.Lease(), LocalKey: k.LocalKey()}
-	}
-	return t.channels.NewCreate().Entries(&channels).Exec(ctx, t.cfg.DB)
-}
+func (t *Targets) Close() error { return t.Channels.Close() }
 
 // CreateDevice creates a device with key on the embedded rack for configs to
 // reference.
