@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -44,10 +43,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Rack *rack.Service
-	// Device stores and retrieves devices.
-	//
-	// [REQUIRED]
-	Device *device.Service
 	// Task stores and retrieves tasks.
 	//
 	// [REQUIRED]
@@ -75,7 +70,6 @@ var (
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Rack = override.Nil(c.Rack, other.Rack)
-	c.Device = override.Nil(c.Device, other.Device)
 	c.Task = override.Nil(c.Task, other.Task)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
@@ -87,7 +81,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.rack")
 	v.NotNil("rack", c.Rack)
-	v.NotNil("device", c.Device)
 	v.NotNil("task", c.Task)
 	v.NotNil("status", c.Status)
 	v.NotNil("rbac", c.RBAC)
@@ -99,7 +92,6 @@ type Service struct {
 	access *rbac.Service
 	auth   *svcauth.Service
 	rack   *rack.Service
-	device *device.Service
 	task   *task.Service
 	status *status.Service
 }
@@ -111,7 +103,6 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	}
 	return &Service{
 		rack:   cfg.Rack,
-		device: cfg.Device,
 		task:   cfg.Task,
 		status: cfg.Status,
 		access: cfg.RBAC,

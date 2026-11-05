@@ -222,10 +222,7 @@ var _ = Describe("Writer", func() {
 					Config: msgpack.EncodedJSON{"arc_key": a.Key.String()},
 				}
 				Expect(taskSvc.NewWriter(tx).Create(ctx, t)).To(Succeed())
-				Expect(
-					arcTaskSvc.Config.Read(ctx, tx, t.Key),
-				).Error().
-					ToNot(HaveOccurred())
+				MustSucceed(arcTaskSvc.Config.Read(ctx, tx, t.Key))
 				Expect(svc.NewWriter(tx).Delete(ctx, a.Key)).To(Succeed())
 				Expect(arcTaskSvc.Config.Read(ctx, tx, t.Key)).Error().
 					To(MatchError(query.ErrNotFound))

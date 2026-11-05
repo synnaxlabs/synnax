@@ -68,10 +68,10 @@ type Task struct {
 	Internal bool `json:"internal" msgpack:"internal"`
 	// Snapshot is true if this task is an immutable snapshot copy of another task.
 	Snapshot bool `json:"snapshot" msgpack:"snapshot"`
-	// Range is the range the task is a snapshot in, if any.
-	Range *ranger.Key `json:"range,omitzero" msgpack:"range,omitempty"`
 	// Status is the current execution status of the task.
 	Status *Status `json:"status,omitzero" msgpack:"status,omitempty"`
+	// Range is the range the task is a snapshot in, if any.
+	Range *ranger.Key `json:"range,omitzero" msgpack:"range,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

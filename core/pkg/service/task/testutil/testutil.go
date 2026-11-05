@@ -34,13 +34,18 @@ type TasksConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// Ontology, Status, and Rack are the services the task service runs on. OpenTasks
-	// opens all three on DB when Rack is nil.
+	// Ontology holds the task resources. OpenTasks opens one on DB when Rack is nil.
 	//
 	// [OPTIONAL]
 	Ontology *ontology.Ontology
-	Status   *status.Service
-	Rack     *rack.Service
+	// Status stores the task statuses. OpenTasks opens one on DB when Rack is nil.
+	//
+	// [OPTIONAL]
+	Status *status.Service
+	// Rack holds the racks the tasks deploy to. OpenTasks opens one on DB when nil.
+	//
+	// [OPTIONAL]
+	Rack *rack.Service
 	// Stores keep the configs of the tasks.
 	//
 	// [REQUIRED]
@@ -116,8 +121,8 @@ func (t *Tasks) openRack(ctx context.Context, cfg *TasksConfig) (err error) {
 	return nil
 }
 
-// Create creates a task whose config, data, lives in store. It returns the key of the
-// task, which is the key of its config record.
+// Create creates a task with the config data in store. It returns the key of the task,
+// which is the key of its config record.
 func (t *Tasks) Create(
 	ctx context.Context,
 	store config.Store,

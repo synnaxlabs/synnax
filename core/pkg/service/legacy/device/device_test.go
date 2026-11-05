@@ -136,7 +136,10 @@ var _ = Describe("Device", func() {
 					Make:     "Test Make",
 					Model:    "Test Model",
 				}
-				Expect(w.Create(ctx, &d)).To(MatchError(ContainSubstring("rack")))
+				Expect(w.Create(ctx, &d)).To(MatchError(fmt.Sprintf(
+					"rack: rack %d does not exist: validation error",
+					rack.NewKey(1, 999),
+				)))
 				Expect(svc.NewRetrieve().
 					Where(device.MatchKeys(d.Key)).
 					Exists(ctx, tx)).To(BeFalse())
@@ -704,7 +707,9 @@ var _ = Describe("Device", func() {
 				Parent:   &missing,
 			}
 			Expect(w.Create(ctx, &module)).
-				To(MatchError(ContainSubstring("parent")))
+				To(MatchError(
+					"parent: device pd-missing-chassis does not exist: validation error",
+				))
 		})
 
 		It("Should refuse a device that holds itself", func(ctx SpecContext) {
@@ -725,7 +730,10 @@ var _ = Describe("Device", func() {
 				Entry(&c).
 				Exec(ctx, tx)).To(Succeed())
 			c.Parent = &module.Key
-			Expect(w.Create(ctx, &c)).To(MatchError(ContainSubstring("cycle")))
+			Expect(w.Create(ctx, &c)).To(MatchError(fmt.Sprintf(
+				"parent: device %s would form a cycle: validation error",
+				*chassis,
+			)))
 		})
 
 		It("Should delete the devices a deleted device holds", func(ctx SpecContext) {
@@ -823,8 +831,14 @@ var _ = Describe("Device", func() {
 				Model:    "Test Model",
 			}
 			Expect(w.Create(ctx, &d)).To(Succeed())
-			Expect(rackSvc.NewWriter(tx).Delete(ctx, nil, r.Key)).
-				To(MatchError(validate.ErrValidation))
+			Expect(rackSvc.NewWriter(tx).Delete(ctx, nil, r.Key)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(fmt.Sprintf(
+					"cannot delete rack %d because device rack-held-device references "+
+						"it through rack",
+					r.Key,
+				))),
+			))
 			Expect(rackSvc.NewRetrieve().
 				Where(rack.MatchKeys(r.Key)).
 				Exists(ctx, tx)).To(BeTrue())

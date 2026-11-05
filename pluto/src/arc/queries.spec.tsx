@@ -478,7 +478,7 @@ describe("Arc queries", () => {
 
       const moved = await client.tasks.retrieve(first.key);
       expect(moved.rack).toBe(rack2.key);
-      const arcTasks = await client.tasks.retrieve({ types: [arc.TASK_TYPE] });
+      const arcTasks = await client.tasks.retrieve({ types: ["arc"] });
       expect(
         arcTasks.filter((t) => t.config.arcKey === created.key).map((t) => t.key),
       ).toEqual([first.key]);
@@ -757,7 +757,7 @@ describe("Arc queries", () => {
   describe("useTask", () => {
     const createArcTask = async (arcKey: arc.Key, name: string): Promise<task.Task> => {
       const rack = await client.racks.create({ name: `rack-${id.create()}` });
-      return await rack.createTask({ name, type: arc.TASK_TYPE, config: { arcKey } });
+      return await rack.createTask({ name, type: "arc", config: { arcKey } });
     };
 
     it("should return null when no task is associated with arc", async () => {

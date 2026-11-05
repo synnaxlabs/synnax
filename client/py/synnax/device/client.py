@@ -45,7 +45,7 @@ class _RetrieveRequest(BaseModel):
     models: list[str] | None = None
     locations: list[str] | None = None
     racks: list[int] | None = None
-    parents: list[str] | None = None
+    parents: list[Key] | None = None
     nested: bool | None = None
     groups: list[UUID] | None = None
     grouped: bool | None = None
@@ -267,7 +267,7 @@ class Client:
         models: list[str] | None = None,
         locations: list[str] | None = None,
         racks: list[int] | None = None,
-        parents: list[str] | None = None,
+        parents: list[Key] | None = None,
         nested: bool | None = None,
         groups: list[group_.Key] | None = None,
         grouped: bool | None = None,
@@ -292,7 +292,7 @@ class Client:
         models: list[str] | None = None,
         locations: list[str] | None = None,
         racks: list[int] | None = None,
-        parents: list[str] | None = None,
+        parents: list[Key] | None = None,
         nested: bool | None = None,
         groups: list[group_.Key] | None = None,
         grouped: bool | None = None,

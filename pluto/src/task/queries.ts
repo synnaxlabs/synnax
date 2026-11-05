@@ -196,9 +196,8 @@ export const { useUpdate: useCreateSnapshot } = Flux.createUpdate<SnapshotParams
     await Promise.all(
       array
         .toArray(tasks)
-        .map(
-          async ({ key, name }) =>
-            await client.tasks.copy(key, `${name} (Snapshot)`, true, range),
+        .map(({ key, name }) =>
+          client.tasks.copy(key, `${name} (Snapshot)`, true, range),
         ),
     );
     return data;

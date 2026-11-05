@@ -104,7 +104,7 @@ describe("arc", () => {
       const rack = await client.racks.create({ name: `rack-${id.create()}` });
       return await rack.createTask({
         name: `arc-task-${id.create()}`,
-        type: arc.TASK_TYPE,
+        type: "arc",
         config: { arcKey },
       });
     };

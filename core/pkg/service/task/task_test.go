@@ -1170,7 +1170,7 @@ var _ = Describe("Task", Ordered, func() {
 				}
 				Expect(w.Create(ctx, t)).To(Succeed())
 				store := MustBeOk(configs.Store(testType))
-				Expect(store.Read(ctx, tx, t.Key)).Error().ToNot(HaveOccurred())
+				MustSucceed(store.Read(ctx, tx, t.Key))
 				Expect(rackService.NewWriter(tx).Delete(
 					ctx,
 					svc.RackDeleteGuard,
@@ -1258,7 +1258,7 @@ var _ = Describe("Task", Ordered, func() {
 				}
 				Expect(w.Create(ctx, t)).To(Succeed())
 				store := MustBeOk(configs.Store(testType))
-				Expect(store.Read(ctx, tx, t.Key)).Error().ToNot(HaveOccurred())
+				MustSucceed(store.Read(ctx, tx, t.Key))
 				Expect(rangeSvc.NewWriter(tx).Delete(ctx, r.Key)).To(Succeed())
 				Expect(store.Read(ctx, tx, t.Key)).Error().
 					To(MatchError(query.ErrNotFound))

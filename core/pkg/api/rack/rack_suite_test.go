@@ -45,7 +45,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
 	apiSvc = MustSucceed(apirack.NewService(apirack.ServiceConfig{
 		Rack:   svc.Rack,
-		Device: svc.Device,
 		Task:   svc.Task,
 		Status: svc.Status,
 		RBAC:   svc.RBAC,

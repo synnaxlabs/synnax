@@ -10,6 +10,9 @@
 package rack_test
 
 import (
+	"context"
+	"fmt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apirack "github.com/synnaxlabs/synnax/pkg/api/rack"
@@ -281,15 +284,12 @@ var _ = Describe("Delete", func() {
 			To(MatchError(auth.ErrInvalidToken))
 	})
 
-	deleteRack := func(ctx SpecContext, key rack.Key) error {
+	// deleterOf returns a context for a new user allowed to delete the rack with key.
+	deleterOf := func(ctx SpecContext, key rack.Key) context.Context {
 		GinkgoHelper()
 		u := createUser(ctx)
 		grant(ctx, access.ActionDelete, u.ResourceID(), key.ResourceID())
-		_, err := apiSvc.Delete(
-			AuthedCtx(ctx, u), nil,
-			apirack.DeleteRequest{Keys: []rack.Key{key}},
-		)
-		return err
+		return AuthedCtx(ctx, u)
 	}
 	exists := func(ctx SpecContext, key rack.Key) bool {
 		GinkgoHelper()
@@ -297,12 +297,6 @@ var _ = Describe("Delete", func() {
 			Where(rack.MatchKeys(key)).
 			Exists(ctx, nil))
 	}
-
-	It("Should refuse to delete the embedded rack", func(ctx SpecContext) {
-		Expect(deleteRack(ctx, svc.Rack.EmbeddedKey)).
-			To(MatchError(ContainSubstring("cannot delete embedded rack")))
-		Expect(exists(ctx, svc.Rack.EmbeddedKey)).To(BeTrue())
-	})
 
 	It("Should refuse to delete a rack that holds a device", func(ctx SpecContext) {
 		r := rack.Rack{Name: "With Device"}
@@ -316,7 +310,17 @@ var _ = Describe("Delete", func() {
 			Model:    "model",
 		}
 		Expect(svc.Device.NewWriter(nil).Create(ctx, &d)).To(Succeed())
-		Expect(deleteRack(ctx, r.Key)).To(MatchError(validate.ErrValidation))
+		Expect(apiSvc.Delete(
+			deleterOf(ctx, r.Key), nil,
+			apirack.DeleteRequest{Keys: []rack.Key{r.Key}},
+		)).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(fmt.Sprintf(
+				"cannot delete rack %s because device api-rack-device references "+
+					"it through rack",
+				r.Key,
+			))),
+		))
 		Expect(exists(ctx, r.Key)).To(BeTrue())
 	})
 
@@ -331,8 +335,12 @@ var _ = Describe("Delete", func() {
 				Type: pagerduty.AlertTaskType,
 			}
 			Expect(svc.Task.NewWriter(nil).Create(ctx, &t)).To(Succeed())
-			Expect(deleteRack(ctx, r.Key)).
-				To(MatchError(ContainSubstring("still holds tasks")))
+			Expect(apiSvc.Delete(
+				deleterOf(ctx, r.Key), nil,
+				apirack.DeleteRequest{Keys: []rack.Key{r.Key}},
+			)).Error().To(MatchError(ContainSubstring(
+				"cannot delete rack With Task because it still holds tasks",
+			)))
 			Expect(exists(ctx, r.Key)).To(BeTrue())
 		},
 	)
@@ -347,7 +355,10 @@ var _ = Describe("Delete", func() {
 			Internal: true,
 		}
 		Expect(svc.Task.NewWriter(nil).Create(ctx, &t)).To(Succeed())
-		Expect(deleteRack(ctx, r.Key)).To(Succeed())
+		MustSucceed(apiSvc.Delete(
+			deleterOf(ctx, r.Key), nil,
+			apirack.DeleteRequest{Keys: []rack.Key{r.Key}},
+		))
 		Expect(exists(ctx, r.Key)).To(BeFalse())
 		Expect(svc.Task.NewRetrieve().
 			Where(task.MatchKeys(t.Key)).

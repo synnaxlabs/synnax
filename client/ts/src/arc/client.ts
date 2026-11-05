@@ -114,7 +114,7 @@ const requestFilter = (req: RetrieveRequest): ((a: Arc) => boolean) => {
 };
 
 /** The type of the task that runs an Arc. */
-export const TASK_TYPE = "arc";
+const TASK_TYPE = "arc";
 
 const taskConfigZ = z.object({ arcKey: keyZ });
 

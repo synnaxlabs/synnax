@@ -55,13 +55,13 @@ for unrecognized types) and `configure_initial_tasks`; registered in
 
 ## Device hierarchy
 
-Device create API takes optional `parent` resource ID (e.g. `"device:SERIAL"`),
-atomically creating the device + `ParentOf` relationship; defaults to the rack when
-absent (`core/pkg/service/device/writer.go`). The common scan task
-(`driver/common/scan_task.h`) tracks parent changes between cycles and re-creates the
+A device's optional `parent` field holds the key of the device that holds it (e.g. an NI
+chassis); with no parent the device sits directly on its rack
+(`core/pkg/service/legacy/device/writer.go`). The common scan task
+(`driver/common/scan_task.h`) tracks parent changes between cycles and updates the
 device when the parent changes. Console decides node expandability via make-based
-dispatch (`console/src/hardware/device/make.tsx`, e.g. NI `is_chassis`). Used today by
-NI (cDAQ chassis + modules).
+dispatch (`console/src/feature/device/make.tsx`, e.g. NI `is_chassis`). Used today by NI
+(cDAQ chassis + modules).
 
 ## Tests
 

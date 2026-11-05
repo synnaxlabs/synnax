@@ -135,8 +135,8 @@ class Payload(BaseModel):
             detect drift.
         internal: Is true if this is an internal system task.
         snapshot: Is true if this task is an immutable snapshot copy of another task.
-        range: Is the range the task is a snapshot in, if any.
         status: Is the current execution status of the task.
+        range: Is the range the task is a snapshot in, if any.
     """
 
     key: Key = Field(default_factory=uuid4)
@@ -147,8 +147,8 @@ class Payload(BaseModel):
     config_hash: str = ""
     internal: bool = False
     snapshot: bool = False
-    range: ranger.Key | None = None
     status: Status | None = None
+    range: ranger.Key | None = None
 
     @_override
     def __hash__(self) -> int:

@@ -381,7 +381,10 @@ class TestDeviceGroup:
         other = client.racks.create(name=str(uuid4()))
         g = client.groups.create(str(uuid4()), parent=sy.rack.resource_id(other.key))
         dev = client.devices.create(basic_device(rack.key, 1))
-        with pytest.raises(sy.ValidationError):
+        with pytest.raises(
+            sy.ValidationError,
+            match=f"group {g.name} does not sit under rack {rack.key}",
+        ):
             client.devices.set_group([dev.key], g.key)
 
 

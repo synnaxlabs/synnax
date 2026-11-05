@@ -344,9 +344,9 @@ const cacheRetrieveReqZ = retrieveReqZ.transform(
 const retrieveMultiParamsZ = cacheRetrieveReqZ.or(query.keyListZ(keyZ));
 
 /**
- * Client-side matching for a request: key, name, type, rack, range, and flag
- * filters. Server-computed shapes (search, pagination) never reach this
- * filter; they refetch instead.
+ * Client-side matching for a request: key, name, type, rack, range, and flag filters.
+ * Server-computed shapes (search, pagination) never reach this filter; they refetch
+ * instead.
  */
 const requestFilter = (
   req: RetrieveRequest,

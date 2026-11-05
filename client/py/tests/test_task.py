@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import re
 import threading
 from collections.abc import Callable
 from typing import Any, assert_type, cast
@@ -418,7 +419,9 @@ class TestTaskClient:
             original.key, str(uuid4()), snapshot=True, range_key=rng.key
         )
         client.ranges.delete(rng.key)
-        with pytest.raises(sy.NotFoundError):
+        with pytest.raises(
+            sy.NotFoundError, match=re.escape(f"Tasks with keys [{snap.key}] not found")
+        ):
             client.tasks.retrieve(key=snap.key)
 
 

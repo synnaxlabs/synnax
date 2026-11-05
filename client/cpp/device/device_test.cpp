@@ -559,7 +559,8 @@ TEST(DeviceTests, testParseFromJSONDefaults) {
     ASSERT_EQ(d.configured, false);
 }
 
-TEST(DeviceTests, testCreateWithParentResourceID) {
+/// @brief it should create a device held by another device.
+TEST(DeviceTests, testCreateWithParent) {
     const auto client = new_test_client();
     auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
@@ -649,7 +650,12 @@ TEST(DeviceTests, testCreateDeviceWithMissingParent) {
         .name = "orphan_" + rand,
         .parent = "missing_" + rand,
     };
-    ASSERT_OCCURRED_AS(client.devices.create(child), x::errors::VALIDATION);
+    const auto err = client.devices.create(child);
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    EXPECT_TRUE(err.data.contains(
+        "device missing_" + rand + " does not exist: validation error"
+    )) << err;
+    EXPECT_TRUE(err.data.contains(R"("path":["parent"])")) << err;
 }
 
 /// @brief it should create a device with no parent when none is given.

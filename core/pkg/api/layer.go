@@ -894,7 +894,6 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}
 	if l.Rack, err = rack.NewService(rack.ServiceConfig{
 		Rack:   cfg.Service.Rack,
-		Device: cfg.Service.Device,
 		Task:   cfg.Service.Task,
 		Status: cfg.Service.Status,
 		RBAC:   cfg.Service.RBAC,

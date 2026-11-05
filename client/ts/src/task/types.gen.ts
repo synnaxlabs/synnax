@@ -127,8 +127,8 @@ export const payloadZ = <
     configHash: z.string().default(""),
     internal: z.boolean().default(false),
     snapshot: z.boolean().default(false),
-    range: ranger.keyZ.optional(),
     status: status.statusZ({ details: statusDetailsZ(statusData) }).optional(),
+    range: ranger.keyZ.optional(),
   });
 export interface Payload<S extends PayloadSchemas = PayloadSchemas> {
   key: Key;
@@ -139,8 +139,8 @@ export interface Payload<S extends PayloadSchemas = PayloadSchemas> {
   configHash: string;
   internal: boolean;
   snapshot: boolean;
-  range?: ranger.Key;
   status?: Status<S["statusData"]>;
+  range?: ranger.Key;
 }
 
 export const persistConfigZ = startConfigZ.extend({

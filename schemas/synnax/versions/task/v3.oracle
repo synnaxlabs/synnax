@@ -80,12 +80,12 @@ Task struct<
     snapshot    bool = false {
         @doc value "is true if this task is an immutable snapshot copy of another task."
     }
-    range       ranger.Key?         {
-        @doc value "is the range the task is a snapshot in, if any."
-    }
     status      Status<StatusData>? {
         @doc value  "is the current execution status of the task."
         @go marshal omit
+    }
+    range       ranger.Key?         {
+        @doc value "is the range the task is a snapshot in, if any."
     }
 
     @doc value  """

@@ -105,14 +105,14 @@ Task struct<
         @doc value "is true if this task is an immutable snapshot copy of another task."
         @filter
     }
+    status      Status<StatusData>? {
+        @doc value  "is the current execution status of the task."
+        @go marshal omit
+    }
     range       ranger.Key?         {
         @cpp omit
         @doc value "is the range the task is a snapshot in, if any."
         @pb omit
-    }
-    status      Status<StatusData>? {
-        @doc value  "is the current execution status of the task."
-        @go marshal omit
     }
 
     action Create {

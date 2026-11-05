@@ -83,8 +83,7 @@ var _ = Describe("NewMigration", func() {
 		})).To(Succeed())
 	}
 
-	// run migrates the seeded tasks as the task table does when it opens, so that the
-	// records the migration stores can reference their tasks.
+	// run migrates the stored tasks as the task table does when it opens.
 	run := func(ctx SpecContext, stores ...config.Store) {
 		GinkgoHelper()
 		configs := MustSucceed(config.NewRegistry(stores...))

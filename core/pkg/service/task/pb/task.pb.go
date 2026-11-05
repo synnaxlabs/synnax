@@ -144,7 +144,7 @@ type Task struct {
 	// snapshot is true if this task is an immutable snapshot copy of another task.
 	Snapshot bool `protobuf:"varint,8,opt,name=snapshot,proto3" json:"snapshot,omitempty"`
 	// status is the current execution status of the task.
-	Status        *pb.Status `protobuf:"bytes,10,opt,name=status,proto3,oneof" json:"status,omitempty"`
+	Status        *pb.Status `protobuf:"bytes,9,opt,name=status,proto3,oneof" json:"status,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -359,10 +359,9 @@ const file_core_pkg_service_task_pb_task_proto_rawDesc = "" +
 	"configHash\x12\x1a\n" +
 	"\binternal\x18\a \x01(\bR\binternal\x12\x1a\n" +
 	"\bsnapshot\x18\b \x01(\bR\bsnapshot\x126\n" +
-	"\x06status\x18\n" +
-	" \x01(\v2\x19.service.status.pb.StatusH\x00R\x06status\x88\x01\x01B\t\n" +
-	"\a_statusJ\x04\b\t\x10\n" +
-	"\"\xa9\x01\n" +
+	"\x06status\x18\t \x01(\v2\x19.service.status.pb.StatusH\x00R\x06status\x88\x01\x01B\t\n" +
+	"\a_statusJ\x04\b\n" +
+	"\x10\v\"\xa9\x01\n" +
 	"\aCommand\x12\x12\n" +
 	"\x04task\x18\x01 \x01(\tR\x04task\x12\x12\n" +
 	"\x04type\x18\x02 \x01(\tR\x04type\x12\x10\n" +
