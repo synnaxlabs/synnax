@@ -29,6 +29,7 @@ import { type ReactElement } from "react";
 import { CSS } from "@/platform/css";
 
 const PRECISION_BOUNDS = { lower: 0, upper: 17 };
+const ALIAS_MAX_LENGTH = 64;
 
 const showsNumericFields = (dt: DataType | undefined): boolean =>
   dt != null && dt.isNumeric && !dt.equals(DataType.TIMESTAMP);
@@ -59,8 +60,14 @@ const ChannelRow = ({
   const showNumeric = showsNumericFields(dataType);
   const showTimestamp = isTimestamp(dataType);
 
+  // Spreading counts each character as one, which the input's maxLength does not.
   const handleAliasChange = (alias: string) =>
-    dispatch(log.setChannelAlias({ channel, alias }));
+    dispatch(
+      log.setChannelAlias({
+        channel,
+        alias: [...alias].slice(0, ALIAS_MAX_LENGTH).join(""),
+      }),
+    );
   const handleNotationChange = (notation: notation.Notation) =>
     dispatch(log.setChannelNotation({ channel, notation }));
   const handlePrecisionChange = (precision?: number) =>

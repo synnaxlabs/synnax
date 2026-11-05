@@ -9,6 +9,7 @@
 
 import "@/vis/legend/Grouped.css";
 
+import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Fragment, type ReactElement, useState } from "react";
@@ -85,7 +86,9 @@ export const Grouped = ({
               entryProps={entryProps}
             />
           </Flex.Box>
-          {i !== data.length - 1 && <div className={CSS.B("legend-divider")} />}
+          {i !== data.length - 1 && (
+            <Divider.Divider x padded className={CSS.B("legend-divider")} />
+          )}
         </Fragment>
       ))}
     </Container>

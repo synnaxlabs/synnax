@@ -17,11 +17,17 @@ import "github.com/synnaxlabs/synnax/pkg/service/status/versions/v1"
 type Variant = v1.Variant
 
 const (
-	VariantSuccess  Variant = v1.VariantSuccess
-	VariantInfo     Variant = v1.VariantInfo
-	VariantWarning  Variant = v1.VariantWarning
-	VariantError    Variant = v1.VariantError
-	VariantLoading  Variant = v1.VariantLoading
+	// VariantSuccess reports that an operation succeeded.
+	VariantSuccess Variant = v1.VariantSuccess
+	// VariantInfo reports general information.
+	VariantInfo Variant = v1.VariantInfo
+	// VariantWarning reports a condition that needs attention.
+	VariantWarning Variant = v1.VariantWarning
+	// VariantError reports a failure.
+	VariantError Variant = v1.VariantError
+	// VariantLoading reports an operation in progress.
+	VariantLoading Variant = v1.VariantLoading
+	// VariantDisabled reports that the subject is not active.
 	VariantDisabled Variant = v1.VariantDisabled
 )
 
@@ -33,3 +39,6 @@ type Key = v1.Key
 // component-specific details. A status is uniquely identified by a key and may carry a
 // human-readable name and labels for categorization and filtering.
 type Status[Details any] = v1.Status[Details]
+
+// Where is a filter that selects statuses.
+type Where = v1.Where

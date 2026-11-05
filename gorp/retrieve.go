@@ -53,6 +53,8 @@ type Retrieve[K Key, E Entry[K]] struct {
 	validators []Validator[K, E]
 	// keyPrefix is the gorp key prefix for entry type E.
 	keyPrefix []byte
+	// missingKeysSkipped is true when Exec treats a key with no entry as a non-match.
+	missingKeysSkipped bool
 }
 
 // NewRetrieve opens a new Retrieve query.
@@ -82,8 +84,17 @@ func (r Retrieve[K, E]) HasLimit() bool { return r.limit > 0 }
 // HasOffset returns true if an offset was set on the query.
 func (r Retrieve[K, E]) HasOffset() bool { return r.offset > 0 }
 
-// HasFilters returns true if any Where filters were added to the query.
-func (r Retrieve[K, E]) HasFilters() bool { return r.filter.present() }
+// IsBareKeys returns true if the filter is exactly Where(MatchKeys(...)), with no eval,
+// raw, or resolver filter layered on top.
+func (r Retrieve[K, E]) IsBareKeys() bool {
+	return r.filter.keys.Bounded() &&
+		r.filter.eval == nil &&
+		r.filter.raw == nil &&
+		r.filter.resolve == nil
+}
+
+// HasPrefix returns true if WherePrefix narrowed the query.
+func (r Retrieve[K, E]) HasPrefix() bool { return r.prefix != nil }
 
 // HasFilterKeys returns true if the resolved filter is bounded by a primary
 // key set — either set directly via Where(MatchKeys(...)) or carried by an
@@ -112,6 +123,14 @@ func (r Retrieve[K, E]) Limit(limit int) Retrieve[K, E] {
 // Offset sets the number of results that the query will skip before returning results.
 func (r Retrieve[K, E]) Offset(offset int) Retrieve[K, E] {
 	r.offset = offset
+	return r
+}
+
+// SkipMissingKeys makes a key with no entry a non-match, as for every other filter,
+// instead of a query.ErrNotFound from Exec. Exists then reports whether any key has an
+// entry.
+func (r Retrieve[K, E]) SkipMissingKeys() Retrieve[K, E] {
+	r.missingKeysSkipped = true
 	return r
 }
 
@@ -172,23 +191,18 @@ func (r Retrieve[K, E]) Entry(entry *E) Retrieve[K, E] {
 	return r
 }
 
-// isBareKeys reports whether the filter is exactly Where(MatchKeys(...))
-// with no eval, raw, or resolver layered on top.
-func (r Retrieve[K, E]) isBareKeys() bool {
-	return r.filter.keys.Bounded() &&
-		r.filter.eval == nil &&
-		r.filter.raw == nil &&
-		r.filter.resolve == nil
+// keysRequired reports whether every requested key must have an entry: the filter is
+// exactly Where(MatchKeys(...)), and SkipMissingKeys is not set.
+func (r Retrieve[K, E]) keysRequired() bool {
+	return r.IsBareKeys() && !r.missingKeysSkipped
 }
 
 // Exec executes the query against the provided transaction.
 //
-// If the filter is bare keys (Where(MatchKeys(...)) only) and any
-// requested key is missing, Exec returns query.ErrNotFound joined with
-// any other error encountered. Other filter shapes treat missing keys
-// as a normal empty slot in the result set, except that a single-entry
-// bound query with an empty result returns ErrNotFound regardless of
-// filter shape.
+// When the filter is exactly Where(MatchKeys(...)) and SkipMissingKeys is not set, Exec
+// returns query.ErrNotFound, joined with any other error, if a requested key has no
+// entry. Otherwise a missing key is a non-match. A query bound to a single entry with
+// no result returns query.ErrNotFound for any filter shape.
 func (r Retrieve[K, E]) Exec(ctx context.Context, tx Tx) error {
 	checkForNilTx("Retriever.Exec", tx)
 	if err := r.resolveFilter(ctx, tx); err != nil {
@@ -199,7 +213,7 @@ func (r Retrieve[K, E]) Exec(ctx context.Context, tx Tx) error {
 	}
 	if r.HasFilterKeys() {
 		notFound, err := r.execKeys(ctx, tx)
-		if r.isBareKeys() && len(notFound) > 0 {
+		if r.keysRequired() && len(notFound) > 0 {
 			return errors.Join(err, errors.Wrapf(
 				query.ErrNotFound,
 				"%s with keys %v not found",
@@ -253,8 +267,8 @@ func (r *Retrieve[K, E]) resolveFilter(ctx context.Context, tx Tx) error {
 	return nil
 }
 
-// Exists returns true if any record passes the filter. For bare-keys
-// queries this degenerates to "every requested key exists".
+// Exists returns true if any record passes the filter. When every requested key must
+// have an entry (see SkipMissingKeys), it returns true only if every key exists.
 func (r Retrieve[K, E]) Exists(ctx context.Context, tx Tx) (bool, error) {
 	if err := r.resolveFilter(ctx, tx); err != nil {
 		return false, err
@@ -269,7 +283,7 @@ func (r Retrieve[K, E]) Exists(ctx context.Context, tx Tx) (bool, error) {
 		if _, err := r.execKeys(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
 			return false, err
 		}
-		if r.isBareKeys() {
+		if r.keysRequired() {
 			return len(e) == len(keys), nil
 		}
 		return len(e) > 0, nil
@@ -388,7 +402,7 @@ func (r *Retrieve[K, E]) execKeys(ctx context.Context, tx Tx) ([]K, error) {
 		e          E
 		zero       E
 		capacity   = len(keys)
-		stops      = r.limit > 0 && !r.isBareKeys()
+		stops      = r.limit > 0 && !r.keysRequired()
 	)
 	if r.limit > 0 {
 		capacity = min(capacity, r.limit)

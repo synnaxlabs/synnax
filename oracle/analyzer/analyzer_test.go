@@ -2258,9 +2258,72 @@ Node union on variant {
 				}
 			`
 			table, diag := Analyze(ctx, source, "test", loader)
-			Expect(diag.Ok()).To(BeFalse())
 			Expect(table).To(BeNil())
+			Expect(diag.Flat().Errors()).To(HaveExactElements(
+				HaveField("Message", "struct Self cannot extend itself"),
+			))
 		})
+
+		It("Should report circular inheritance under a union", func(ctx SpecContext) {
+			source := `
+				A struct extends B {
+					a string
+				}
+				B struct extends A {
+					b string
+				}
+				U union on variant extends A {
+					x {}
+				}
+			`
+			_, diag := Analyze(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.Error()).To(ContainSubstring(
+				"circular inheritance detected: struct A",
+			))
+		})
+
+		DescribeTable(
+			"Should report circular inheritance in an imported struct",
+			func(ctx SpecContext, source string) {
+				loader.Add("schemas/cycle", `
+					A struct extends B {
+						a string
+					}
+					B struct extends A {
+						b string
+					}
+				`)
+				_, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.Error()).To(ContainSubstring(
+					"circular inheritance detected: struct A",
+				))
+			},
+			Entry("as a union base", `
+				import "schemas/cycle"
+
+				U union on variant extends cycle.A {
+					x {}
+				}
+			`),
+			Entry("as a variant payload", `
+				import "schemas/cycle"
+
+				U union on variant {
+					x cycle.A
+				}
+			`),
+			Entry("as an action base", `
+				import "schemas/cycle"
+
+				Schematic struct {
+					key uuid
+
+					action Rename extends cycle.A {}
+				}
+			`),
+		)
 
 		It("Should error on non-existent parent struct", func(ctx SpecContext) {
 			source := `

@@ -100,6 +100,23 @@ export interface ContextValue<Z extends z.ZodType = z.ZodType> {
    * @returns a function that removes the check.
    */
   addCheck: (path: deep.Target<unknown>, schema: z.ZodType) => destructor.Destructor;
+  /**
+   * Asks the field at the path to take focus. The field decides what that means: a
+   * select can open its list.
+   *
+   * @throws {Error} if no field at the path takes focus.
+   */
+  focus: (path: deep.Target<unknown>) => void;
+  /**
+   * Runs the handler when {@link ContextValue.focus} names the path. A later handler
+   * for the same path replaces it.
+   *
+   * @returns a function that removes the handler.
+   */
+  addFocusHandler: (
+    path: deep.Target<unknown>,
+    handler: () => void,
+  ) => destructor.Destructor;
   /** Takes the current values as the baseline, clearing the touched flag. */
   setCurrentStateAsInitialValues: () => void;
   getStatuses: () => Status.Crude[];
