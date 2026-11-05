@@ -36,3 +36,19 @@ type Finder func(ctx context.Context, tx gorp.Tx, keys []Key) ([]Use, error)
 func (s *Service) Uses(ctx context.Context, tx gorp.Tx, keys ...Key) ([]Use, error) {
 	return s.cfg.Uses(ctx, gorp.OverrideTx(s.cfg.DB, tx), keys)
 }
+
+// MultiFinder returns a Finder that returns the uses that each of finders returns, in
+// the order of finders. It returns the first error that a finder returns.
+func MultiFinder(finders ...Finder) Finder {
+	return func(ctx context.Context, tx gorp.Tx, keys []Key) ([]Use, error) {
+		var uses []Use
+		for _, find := range finders {
+			found, err := find(ctx, tx, keys)
+			if err != nil {
+				return nil, err
+			}
+			uses = append(uses, found...)
+		}
+		return uses, nil
+	}
+}
