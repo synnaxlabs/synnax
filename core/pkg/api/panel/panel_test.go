@@ -193,7 +193,6 @@ var _ = Describe("Service", func() {
 				Expect(
 					apiSvc.Dispatch(
 						AuthedCtx(ctx, author),
-						nil,
 						apipanel.DispatchRequest{
 							Key:         p.Key,
 							DispatchKey: "sess-1",
@@ -215,7 +214,6 @@ var _ = Describe("Service", func() {
 				Expect(
 					apiSvc.Dispatch(
 						AuthedCtx(ctx, author),
-						nil,
 						apipanel.DispatchRequest{
 							Key:         p.Key,
 							DispatchKey: "sess-1",

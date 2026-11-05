@@ -53,7 +53,6 @@ var _ = Describe("Dispatch", func() {
 		grant(ctx, access.ActionUpdate, u.ResourceID(), r.ResourceID())
 		MustSucceed(apiSvc.Dispatch(
 			AuthedCtx(ctx, u),
-			nil,
 			apiranger.DispatchRequest{Key: r.Key, DispatchKey: "dk", Actions: rename},
 		))
 		Expect(retrieveRange(ctx, r.Key).Name).To(Equal("Cold flow"))
@@ -63,7 +62,6 @@ var _ = Describe("Dispatch", func() {
 		r := createRange(ctx)
 		Expect(apiSvc.Dispatch(
 			AuthedCtx(ctx, u),
-			nil,
 			apiranger.DispatchRequest{Key: r.Key, DispatchKey: "dk", Actions: rename},
 		)).Error().To(MatchError(access.ErrDenied))
 		Expect(retrieveRange(ctx, r.Key).Name).To(Equal("Hot fire"))
@@ -74,7 +72,6 @@ var _ = Describe("Dispatch", func() {
 		grant(ctx, access.ActionUpdate, u.ResourceID(), ranger.ResourceID(key))
 		Expect(apiSvc.Dispatch(
 			AuthedCtx(ctx, u),
-			nil,
 			apiranger.DispatchRequest{Key: key, DispatchKey: "dk", Actions: rename},
 		)).Error().To(MatchError(query.ErrNotFound))
 	})

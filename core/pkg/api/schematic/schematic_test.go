@@ -119,7 +119,6 @@ var _ = Describe("Service", func() {
 					Expect(
 						apiSvc.Dispatch(
 							AuthedCtx(ctx, author),
-							db,
 							apischematic.DispatchRequest{
 								Key:         s.Key,
 								DispatchKey: "sess-1",
@@ -145,7 +144,6 @@ var _ = Describe("Service", func() {
 					Expect(
 						apiSvc.Dispatch(
 							AuthedCtx(ctx, author),
-							db,
 							apischematic.DispatchRequest{
 								Key:         s.Key,
 								DispatchKey: "sess-1",
@@ -179,7 +177,6 @@ var _ = Describe("Service", func() {
 					Expect(
 						apiSvc.Dispatch(
 							AuthedCtx(ctx, author),
-							db,
 							apischematic.DispatchRequest{
 								Key:         b.Key,
 								DispatchKey: "sess-1",
@@ -207,7 +204,6 @@ var _ = Describe("Service", func() {
 					Expect(
 						apiSvc.Dispatch(
 							AuthedCtx(ctx, author),
-							db,
 							apischematic.DispatchRequest{
 								Key:         s.Key,
 								DispatchKey: "sess-1",
@@ -264,7 +260,6 @@ var _ = Describe("Service", func() {
 					Expect(
 						apiSvc.Dispatch(
 							AuthedCtx(ctx, author),
-							db,
 							apischematic.DispatchRequest{
 								Key:         snap.Key,
 								DispatchKey: "sess-1",
@@ -294,7 +289,6 @@ var _ = Describe("Service", func() {
 					Expect(
 						apiSvc.Dispatch(
 							AuthedCtx(ctx, author),
-							db,
 							apischematic.DispatchRequest{
 								Key:         missing,
 								DispatchKey: "sess-1",
@@ -329,7 +323,6 @@ var _ = Describe("Service", func() {
 					Expect(
 						apiSvc.Dispatch(
 							AuthedCtx(ctx, author),
-							db,
 							apischematic.DispatchRequest{
 								Key:         s.Key,
 								DispatchKey: "session-marker-xyz",

@@ -144,10 +144,9 @@ type DispatchRequest = actions.DispatchRequest[ranger.Key, ranger.Action]
 // the range action signals receive the sequence after the transaction commits.
 func (s *Service) Dispatch(
 	ctx context.Context,
-	tx gorp.Tx,
 	req DispatchRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: []resource.ID{ranger.ResourceID(req.Key)},
@@ -261,10 +260,9 @@ type RenameRequest struct {
 
 func (s *Service) Rename(
 	ctx context.Context,
-	tx gorp.Tx,
 	req RenameRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: []resource.ID{ranger.ResourceID(req.Key)},
@@ -283,10 +281,9 @@ type SetEndRequest struct {
 
 func (s *Service) SetEnd(
 	ctx context.Context,
-	tx gorp.Tx,
 	req SetEndRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: []resource.ID{ranger.ResourceID(req.Key)},
