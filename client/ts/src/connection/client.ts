@@ -263,11 +263,6 @@ export class Client implements Handle {
     return this.current;
   }
 
-  /** @returns the current time on the Core's clock, which stamps every sample. */
-  now(): TimeStamp {
-    return TimeStamp.now().sub(this.current.details.clockSkew);
-  }
-
   /** Subscribes to material status changes. Returns an unsubscribe destructor. */
   onChange(callback: (status: Status) => void): destructor.Destructor {
     return this.observer.onChange(callback);

@@ -9,7 +9,7 @@
 
 import { type Instrumentation } from "@synnaxlabs/alamos";
 import { type framer, type Synnax } from "@synnaxlabs/client";
-import { type TimeStamp } from "@synnaxlabs/x";
+import { TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -57,7 +57,9 @@ export const createProvider = (
       this.closeFeed();
       let client: Client | null = null;
       if (core != null) {
-        const now = (): TimeStamp => core.connection.now();
+        const { connection } = core;
+        const now = (): TimeStamp =>
+          TimeStamp.now().sub(connection.status.details.clockSkew);
         this.feed = core.openFeed({
           instrumentation: i.instrumentation,
           now,

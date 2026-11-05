@@ -33,11 +33,11 @@ const TELEM_KEY = "telem";
 interface StubCore {
   openFeed: Mock;
   channels: telem.Client["channels"];
-  connection: { now: () => TimeStamp };
+  connection: { status: { details: { clockSkew: TimeSpan } } };
 }
 
 const stubCore = (clockSkew: TimeSpan = TimeSpan.ZERO): StubCore => ({
-  connection: { now: () => TimeStamp.now().sub(clockSkew) },
+  connection: { status: { details: { clockSkew } } },
   openFeed: vi.fn(() => ({
     close: async () => {},
   })),

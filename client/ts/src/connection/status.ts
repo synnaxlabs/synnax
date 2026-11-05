@@ -151,8 +151,6 @@ export interface Handle {
    * errors are not cleared: those rest until the user supplies something new.
    */
   retryNow: () => void;
-  /** @returns the current time on the Core's clock, which stamps every sample. */
-  now: () => TimeStamp;
 }
 
 const isSettled = ({ variant }: Status): boolean =>
