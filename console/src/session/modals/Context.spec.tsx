@@ -100,6 +100,16 @@ describe("Store", () => {
       expect(resolveA).not.toHaveBeenCalled();
     });
 
+    it("should leave a locked entry open", () => {
+      const store = new Modals.Store();
+      const resolve = vi.fn();
+      store.push(Noop, undefined, resolve);
+      store.getState()[0].setLocked(true);
+      store.closeTop();
+      expect(store.isAnyOpen()).toBe(true);
+      expect(resolve).not.toHaveBeenCalled();
+    });
+
     it("should be a no-op when the stack is empty", () => {
       const store = new Modals.Store();
       expect(() => store.closeTop()).not.toThrow();
@@ -118,6 +128,14 @@ describe("Store", () => {
       expect(store.isAnyOpen()).toBe(false);
       expect(resolveA).toHaveBeenCalledWith(null);
       expect(resolveB).toHaveBeenCalledWith(null);
+    });
+
+    it("should dismiss a locked entry", () => {
+      const store = new Modals.Store();
+      store.push(Noop, undefined, () => {});
+      store.getState()[0].setLocked(true);
+      store.clear();
+      expect(store.isAnyOpen()).toBe(false);
     });
   });
 

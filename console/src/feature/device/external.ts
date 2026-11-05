@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { CONNECT_COMMANDS } from "@/feature/device/commands";
+import { CONNECT_COMMANDS, CREATE_RACK_COMMAND } from "@/feature/device/commands";
 import { HTTP } from "@/feature/http";
 import { Kafka } from "@/feature/kafka";
 import { Modbus } from "@/feature/modbus";
@@ -26,6 +26,7 @@ export * from "@/platform/device/external";
 
 export const COMMANDS: Command.Command[] = [
   ...CONNECT_COMMANDS,
+  CREATE_RACK_COMMAND,
   ...HTTP.Device.COMMANDS,
   ...Kafka.Device.COMMANDS,
   ...Modbus.Device.COMMANDS,

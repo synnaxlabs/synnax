@@ -24,6 +24,7 @@ import {
 import {
   createConnectedConsoleWrapper,
   createConsoleWrapper,
+  createSessionConsoleWrapper,
   createStatusConsoleWrapper,
   renderWithConsole,
 } from "@/testutil";
@@ -108,6 +109,25 @@ describe("Core.Badge", () => {
     await within(dialog).findByText("Connected");
     // The stream can report the connection before the check reports the version.
     expect(await within(dialog).findByText(/^Core v/)).toBeTruthy();
+  });
+
+  it("should open the logged-in user's credentials from the dialog", async () => {
+    const core = createCore("Local");
+    const { wrapper } = await createSessionConsoleWrapper({
+      client: null,
+      preloadedState: createCoreState([core], core.key),
+    });
+    const { container } = render(
+      <Triggers.Provider>
+        <Core.Badge />
+        <Modals.Stack />
+      </Triggers.Provider>,
+      { wrapper },
+    );
+    clickCoreBadge(container);
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(await within(dialog).findByText("Manage credentials"));
+    expect(await screen.findByPlaceholderText("New password")).toBeTruthy();
   });
 
   it("should close the dialog and open the connect modal from the name row", async () => {
