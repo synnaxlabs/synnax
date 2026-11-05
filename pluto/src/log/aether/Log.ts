@@ -47,6 +47,7 @@ export const logStateZ = log.logZ
     resumedAt: z.number().default(0),
     empty: z.boolean(),
     loading: z.boolean().default(false),
+    blank: z.boolean().default(false),
     visible: z.boolean(),
     // channelNames: server-side display names (fetched fresh, never persisted)
     // channelDataTypes: server-side data types (fetched fresh, never persisted)
@@ -302,8 +303,14 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
   private syncStatus(s: status.Status): void {
     const loading = s.variant === "loading";
     const empty = this.entries.length === 0 && !loading;
-    if (empty === this.state.empty && loading === this.state.loading) return;
-    this.setState((p) => ({ ...p, empty, loading }));
+    const blank = this.entries.length === 0 && loading;
+    if (
+      empty === this.state.empty &&
+      loading === this.state.loading &&
+      blank === this.state.blank
+    )
+      return;
+    this.setState((p) => ({ ...p, empty, loading, blank }));
   }
 
   afterDelete(): void {

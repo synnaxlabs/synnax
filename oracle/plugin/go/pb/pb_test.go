@@ -157,7 +157,12 @@ var _ = Describe("Go PB Plugin", func() {
 			`, "thing", loader, pbPlugin)
 			ExpectContent(resp, "translator.gen.go").
 				ToBeValidGoSource().
-				ToContain("UuidSetToPB(v)", "UuidSetFromPB(v)").
+				ToContain(
+					"make(map[string]*UuidSet, len(r.Sets))",
+					"make(map[string]filter.Set[uuid.UUID], len(pb.Sets))",
+					"UuidSetToPB(v)",
+					"UuidSetFromPB(v)",
+				).
 				ToNotContain("filterpb.SetToPB", "filterpb.SetFromPB")
 		})
 
