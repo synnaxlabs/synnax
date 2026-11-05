@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package restore provides the command that lists and restores the metadata backups
-// of a Core.
+// Package restore provides the command that lists and restores the metadata backups of
+// a Core.
 package restore
 
 import (
@@ -30,7 +30,11 @@ func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "restore [backup]",
 		Short: "List or restore the metadata backups of a Core",
-		Long:  "Lists the metadata backups in the data directory, or restores the named backup. The Core backs up its metadata before a new version first opens the data. A backup holds no telemetry. Stop the Core before a restore. A restore moves the telemetry of channels that the backup does not know to an orphaned directory in the backups directory.",
+		Long: "Lists the metadata backups in the data directory, or restores the " +
+			"named backup. The Core backs up its metadata before a new version first " +
+			"opens the data. A backup holds no telemetry. Stop the Core before a " +
+			"restore. A restore moves the telemetry of channels that the backup does " +
+			"not know to an orphaned directory in the backups directory.",
 		Example: "synnax restore --data /mnt/ssd1\n" +
 			"synnax restore 1793000000-0.60.1 --data /mnt/ssd1",
 		Args: cobra.MaximumNArgs(1),

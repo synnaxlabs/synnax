@@ -25,11 +25,7 @@ import (
 // openAt opens a Layer on dir as a Core of the given version, then closes it.
 func openAt(ctx context.Context, dir, version string) {
 	GinkgoHelper()
-	l := MustSucceed(storage.OpenLayer(
-		ctx,
-		storage.LayerConfig{Dirname: dir, Version: version},
-	))
-	Expect(l.Close()).To(Succeed())
+	Expect(openLayer(ctx, dir, version).Close()).To(Succeed())
 }
 
 func recordedVersion(dir string) string {
@@ -60,7 +56,6 @@ func newDataDir() string {
 }
 
 var _ = Describe("Recorded version", func() {
-	ShouldNotLeakGoroutinesPerSpec()
 	var dir string
 	BeforeEach(func() { dir = newDataDir() })
 

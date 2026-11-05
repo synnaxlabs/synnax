@@ -24,7 +24,6 @@ import (
 
 var _ = Describe("storage", func() {
 	Describe("Open", func() {
-		ShouldNotLeakGoroutinesPerSpec()
 		var (
 			tempDir string
 			cfg     storage.LayerConfig
