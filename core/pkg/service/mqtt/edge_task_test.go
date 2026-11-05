@@ -227,6 +227,29 @@ var _ = Describe("Edge task", func() {
 		Entry("with a call that blocks", true),
 	)
 
+	It("Should release a publish that the broker never answers",
+		func(ctx SpecContext) {
+			stall := newPublishStall(false)
+			factory = stall.factory()
+			ch := createVirtual(ctx, telem.Float64T)
+			start(ctx, edgeConfig(dev, edgeTag("temp", ch, "double")))
+			DeferCleanup(stall.release)
+			stall.armed.Store(true)
+			stream(
+				ctx,
+				channel.Channel{},
+				ch,
+				telem.NewSeriesV(1.5),
+				func(g Gomega, _ []telem.TimeStamp) {
+					g.Expect(stall.stalled.Load()).To(BeTrue())
+				},
+			)
+			Expect(publishWatchers()).To(BeNumerically(">", 0))
+			Eventually(publishWatchers, 15*time.Second).Should(BeZero())
+		},
+		SpecTimeout(30*time.Second),
+	)
+
 	Describe("Birth", func() {
 		It("Should publish an NBIRTH on start that declares every tag",
 			func(ctx SpecContext) {

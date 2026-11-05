@@ -11,6 +11,8 @@ package mqtt_test
 
 import (
 	"context"
+	"runtime"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -50,6 +52,13 @@ func newFactory(queueSize int) driver.Factory {
 		DB:      db, Status: statusSvc,
 		QueueSize: queueSize,
 	}))
+}
+
+// publishWatchers returns the count of goroutines that watch a publish of a session.
+func publishWatchers() int {
+	stacks := make([]byte, 1<<22)
+	n := runtime.Stack(stacks, true)
+	return strings.Count(string(stacks[:n]), "(*session).Publish.func")
 }
 
 // stalledToken is the token of a publish that a connection drop strands in Paho.

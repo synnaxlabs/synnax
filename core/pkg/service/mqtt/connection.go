@@ -868,11 +868,15 @@ func (s *session) Publish(
 		// leave its token incomplete for good.
 		token := s.Client.Publish(topic, qos, retained, payload)
 		close(queued)
+		timer := time.NewTimer(operationTimeout)
+		defer timer.Stop()
 		select {
 		case <-token.Done():
 			d.err = token.Error()
 		case <-s.ended:
 			d.err = errNotConnected
+		case <-timer.C:
+			d.err = errBrokerTimeout
 		}
 	}()
 	select {
