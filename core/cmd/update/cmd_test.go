@@ -67,6 +67,13 @@ var _ = Describe("Update", func() {
 	})
 
 	Describe("Undo", func() {
+		BeforeEach(func() {
+			Expect(
+				os.WriteFile(filepath.Join(dir, "VERSION"), []byte("0.60.0"), 0o600),
+			).
+				To(Succeed())
+		})
+
 		It("Should restore the newest backup and name the Core to run", func() {
 			createBackup("0000000001-0.58.0")
 			createBackup("0000000002-0.59.0")
@@ -99,6 +106,14 @@ var _ = Describe("Update", func() {
 			createBackup("0000000001-unknown")
 			Expect(MustSucceed(run("undo"))).
 				To(ContainSubstring("The backup does not record its Core version."))
+		})
+
+		It("Should not undo the same update twice", func() {
+			createBackup("0000000001-0.59.0")
+			MustSucceed(run("undo"))
+			Expect(run("undo")).Error().To(MatchError(ContainSubstring(
+				"run `synnax update undo 0000000001-0.59.0`",
+			)))
 		})
 
 		It("Should return an error when there is no backup", func() {

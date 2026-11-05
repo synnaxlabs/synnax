@@ -218,3 +218,33 @@ var _ = Describe("Restore", func() {
 			To(MatchError(ContainSubstring("Failed to acquire lock")))
 	})
 })
+
+var _ = Describe("Undo", func() {
+	var dir string
+	BeforeEach(func() { dir = newDataDir() })
+
+	It("Should restore the newest backup", func(ctx SpecContext) {
+		openAt(ctx, dir, "0.58.0")
+		openAt(ctx, dir, "0.59.0")
+		openAt(ctx, dir, "0.60.0")
+		res := MustSucceed(newBackups(dir).Undo())
+		Expect(res.Backup.Version).To(Equal("0.59.0"))
+		Expect(recordedVersion(dir)).To(Equal("0.59.0"))
+	})
+
+	It("Should not undo the same update twice", func(ctx SpecContext) {
+		openAt(ctx, dir, "0.59.0")
+		openAt(ctx, dir, "0.60.0")
+		name := MustSucceed(newBackups(dir).Undo()).Backup.Name
+		Expect(newBackups(dir).Undo()).Error().To(MatchError(ContainSubstring(
+			"The last update is already undone. To restore backup %s again", name,
+		)))
+		MustSucceed(newBackups(dir).Restore(name))
+	})
+
+	It("Should return an error when there is no backup", func(ctx SpecContext) {
+		openAt(ctx, dir, "0.60.0")
+		Expect(newBackups(dir).Undo()).Error().
+			To(MatchError(ContainSubstring("there is no update to undo")))
+	})
+})

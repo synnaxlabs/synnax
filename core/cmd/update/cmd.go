@@ -86,22 +86,16 @@ func bindFlags(cmd *cobra.Command, _ []string) error {
 }
 
 func undo(w io.Writer, backups *storage.Backups, args []string) error {
-	var name string
+	var (
+		res storage.Restored
+		err error
+	)
 	if len(args) == 1 {
-		name = args[0]
-	} else {
-		all, err := backups.List()
-		if err != nil {
-			return err
+		if res, err = backups.Restore(args[0]); err != nil {
+			return errors.Wrapf(err, "failed to restore backup %s", args[0])
 		}
-		if len(all) == 0 {
-			return errors.New("there is no update to undo: the data has no backups")
-		}
-		name = all[len(all)-1].Name
-	}
-	res, err := backups.Restore(name)
-	if err != nil {
-		return errors.Wrapf(err, "failed to restore backup %s", name)
+	} else if res, err = backups.Undo(); err != nil {
+		return err
 	}
 	lines := []string{fmt.Sprintf("Restored backup %s.", res.Backup.Name)}
 	if res.OrphanedDir != "" {
