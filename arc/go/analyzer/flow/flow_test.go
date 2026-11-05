@@ -3238,6 +3238,9 @@ sequence main {
 				Entry("transition after the table",
 					`{ sensor_chan: a, output_chan: b } => combiner()`,
 					"'=>' cannot follow a routing table"),
+				Entry("two entries on one trigger",
+					`{ sensor_chan: a, output_chan: a } -> combiner()`,
+					"parameter 'a' is mapped by more than one routing entry"),
 			)
 
 			It(
@@ -3291,7 +3294,7 @@ sequence main {
 					Expect(*ctx.Diagnostics).To(HaveLen(1))
 					Expect(
 						(*ctx.Diagnostics)[0].Message,
-					).To(ContainSubstring("input routing table must precede a func invocation"))
+					).To(ContainSubstring("only a func invocation can follow a routing table"))
 				},
 			)
 

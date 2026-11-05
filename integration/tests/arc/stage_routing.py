@@ -37,6 +37,26 @@ func multi_route() {value f64} (first u8, second u8, third u8, fourth u8) {
     }
 }
 
+func combine() {a f64, b f64} f64 {
+    return a + b
+}
+
+func scale(k f64) {level f64} f64 {
+    return level * k
+}
+
+func classify() {a f64, b f64, c f64} (low u8, high u8) {
+    if (a + b + c > 50.0) {
+        high = 1
+    } else {
+        low = 1
+    }
+}
+
+func encode() {lo f64, hi f64} f64 {
+    return lo * 10.0 + hi
+}
+
 start_stage_routing_cmd => main
 
 sequence main {
@@ -110,6 +130,38 @@ sequence main {
             third: "multi_3" -> routing_multi_log_3,
             fourth: "multi_4" -> routing_multi_log_4
         }
+        next_cmd => input_hold
+    }
+
+    stage input_hold {
+        "input_hold" -> routing_stage_log
+        {
+            routing_a: a,
+            routing_b: b
+        } -> combine() -> routing_sum
+        next_cmd => mapped_hold
+    }
+
+    stage mapped_hold {
+        "mapped_hold" -> routing_stage_log
+        routing_sensor -> decide_stage(low=30.0, high=80.0) -> {
+            vent: 1.0: level,
+            press: 2.0 -> routing_level,
+            abort: 3.0 -> routing_level
+        } -> scale(k=10.0) -> routing_level
+        next_cmd => pipeline_hold
+    }
+
+    stage pipeline_hold {
+        "pipeline_hold" -> routing_stage_log
+        {
+            routing_a: a,
+            routing_b: b,
+            routing_c: c
+        } -> classify() -> {
+            low: 1.0: lo,
+            high: 2.0: hi
+        } -> encode() -> routing_code
         next_cmd => done
     }
 
@@ -133,7 +185,15 @@ class StageRouting(ArcCase):
     Phase 4 (SY-4460) uses select with `=>` transition case bodies, verifying that
     the transition operator drives stage jumps from inside a routing table.
     Phase 5 sets two of four outputs in one invocation, verifying that every set
-    output fires its entry in the same tick."""
+    output fires its entry in the same tick.
+    Phase 6 (SY-4075) feeds two triggers of one function from an input routing
+    table, verifying that the function runs once both have a value and reuses the
+    latest value of each.
+    Phase 7 (SY-4075) maps one entry of an output routing table to a trigger of
+    the function after the table with a `: param` suffix, next to entries that
+    write a channel.
+    Phase 8 (SY-4075) chains both in one flow: three sources into a two-output
+    function, whose entries feed two triggers of the function after the table."""
 
     arc_source = ARC_STAGE_ROUTING
     arc_name_prefix = "StageRouting"
@@ -144,6 +204,9 @@ class StageRouting(ArcCase):
         "routing_multi_log_2",
         "routing_multi_log_3",
         "routing_multi_log_4",
+        "routing_sum",
+        "routing_level",
+        "routing_code",
     ]
 
     def setup(self) -> None:
@@ -159,6 +222,17 @@ class StageRouting(ArcCase):
             [(f"routing_multi_log_{i}", sy.DataType.STRING) for i in range(1, 5)],
         )
         create_virtual_channel(self.client, "next_cmd", data_type=sy.DataType.UINT8)
+        create_indexed_pair(self.client, "routing_a", data_type=sy.DataType.FLOAT64)
+        create_indexed_pair(self.client, "routing_b", data_type=sy.DataType.FLOAT64)
+        create_indexed_pair(self.client, "routing_c", data_type=sy.DataType.FLOAT64)
+        create_virtual_channels(
+            self.client,
+            [
+                ("routing_sum", sy.DataType.FLOAT64),
+                ("routing_level", sy.DataType.FLOAT64),
+                ("routing_code", sy.DataType.FLOAT64),
+            ],
+        )
         super().setup()
 
     def _write_flag(self, value: int) -> None:
@@ -170,6 +244,9 @@ class StageRouting(ArcCase):
         self.writer.write(
             {"routing_sensor_time": sy.TimeStamp.now(), "routing_sensor": value}
         )
+
+    def _write_input(self, name: str, value: float) -> None:
+        self.writer.write({f"{name}_time": sy.TimeStamp.now(), name: value})
 
     def _advance(self) -> None:
         self.writer.write("next_cmd", 1)
@@ -270,6 +347,71 @@ class StageRouting(ArcCase):
         self.wait_for_eq("routing_multi_log_2", "multi_2")
         self.wait_for_eq("routing_multi_log_4", "multi_4")
 
-        self.log("[multi] Advancing multi_hold -> done")
+        self.log("[multi] Advancing multi_hold -> input_hold")
+        self._advance()
+        self.wait_for_eq("routing_stage_log", "input_hold")
+
+        # Phase 6: `{routing_a: a, routing_b: b} -> combine()` runs once both
+        # triggers have a value, then on each new value with the other latched.
+        self.log("[input] a=1.0, b=2.0 -> sum 3.0")
+        self._write_input("routing_a", 1.0)
+        self._write_input("routing_b", 2.0)
+        self.wait_for_eq("routing_sum", 3.0)
+
+        self.log("[input] a=5.0 with b latched -> sum 7.0")
+        self._write_input("routing_a", 5.0)
+        self.wait_for_eq("routing_sum", 7.0)
+
+        self.log("[input] b=-1.0 with a latched -> sum 4.0")
+        self._write_input("routing_b", -1.0)
+        self.wait_for_eq("routing_sum", 4.0)
+
+        self.log("[input] Advancing input_hold -> mapped_hold")
+        self._advance()
+        self.wait_for_eq("routing_stage_log", "mapped_hold")
+
+        # Phase 7: the vent entry's `: level` suffix feeds scale; the other two
+        # entries write the channel themselves.
+        self.log("[mapped] sensor=10.0 -> vent entry -> scale -> level 10.0")
+        self._write_sensor(10.0)
+        self.wait_for_eq("routing_level", 10.0)
+
+        self.log("[mapped] sensor=50.0 -> press entry writes 2.0")
+        self._write_sensor(50.0)
+        self.wait_for_eq("routing_level", 2.0)
+
+        self.log("[mapped] sensor=90.0 -> abort entry writes 3.0")
+        self._write_sensor(90.0)
+        self.wait_for_eq("routing_level", 3.0)
+
+        self.log("[mapped] sensor=10.0 -> vent entry -> scale -> level 10.0 again")
+        self._write_sensor(10.0)
+        self.wait_for_eq("routing_level", 10.0)
+
+        self.log("[mapped] Advancing mapped_hold -> pipeline_hold")
+        self._advance()
+        self.wait_for_eq("routing_stage_log", "pipeline_hold")
+
+        # Phase 8: `{a, b, c} -> classify() -> {low: lo, high: hi} -> encode()`.
+        # encode runs once both triggers have fired, then on each entry. A
+        # sentinel write separates the runs, since each one writes 12.0.
+        self.log("[pipeline] a=1, b=2, c=3 -> low -> lo only, no code yet")
+        self._write_input("routing_a", 1.0)
+        self._write_input("routing_b", 2.0)
+        self._write_input("routing_c", 3.0)
+        self.writer.write("routing_code", 0.0)
+        self.wait_for_eq("routing_code", 0.0)
+
+        self.log("[pipeline] c=100 -> high -> hi -> code 12.0")
+        self._write_input("routing_c", 100.0)
+        self.wait_for_eq("routing_code", 12.0)
+
+        self.writer.write("routing_code", 0.0)
+        self.wait_for_eq("routing_code", 0.0)
+        self.log("[pipeline] a=-60 -> low -> lo again -> code 12.0")
+        self._write_input("routing_a", -60.0)
+        self.wait_for_eq("routing_code", 12.0)
+
+        self.log("[pipeline] Advancing pipeline_hold -> done")
         self._advance()
         self.wait_for_eq("routing_stage_log", "done")

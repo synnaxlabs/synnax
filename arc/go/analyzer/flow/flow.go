@@ -315,8 +315,28 @@ func resolveSourceType[T antlr.ParserRuleContext](
 	return idSym.Type.Unwrap(), true
 }
 
-// isFedByRoutingTable reports whether ctx's func node is the first func after a
-// routing table, whose entries bind its inputs.
+// rejectRemapped records param as mapped by entry and reports whether it was
+// free. A trigger takes one edge, so a second entry on it is an error.
+func rejectRemapped(
+	ctx context.Context[parser.IRoutingTableContext],
+	entry parser.IRoutingEntryContext,
+	mapped set.Set[string],
+	param string,
+) bool {
+	if mapped.Contains(param) {
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			entry,
+			"parameter '%s' is mapped by more than one routing entry",
+			param,
+		))
+		return false
+	}
+	mapped.Add(param)
+	return true
+}
+
+// isFedByRoutingTable reports whether ctx's func node directly follows a routing
+// table, whose entries bind its inputs.
 func isFedByRoutingTable(ctx context.Context[parser.IFunctionContext]) bool {
 	parent := ctx.AST.GetParent()
 	if parent == nil {
@@ -330,21 +350,14 @@ func isFedByRoutingTable(ctx context.Context[parser.IFunctionContext]) bool {
 	if !ok {
 		return false
 	}
-	sawTable := false
-	for _, child := range flowStmt.GetChildren() {
-		if _, ok := child.(parser.IRoutingTableContext); ok {
-			sawTable = true
-			continue
-		}
+	children := flowStmt.GetChildren()
+	for i, child := range children {
 		flowNode, ok := child.(parser.IFlowNodeContext)
-		if !ok {
+		if !ok || flowNode.Function() != ctx.AST || i < 2 {
 			continue
 		}
-		if sawTable {
-			if fn := flowNode.Function(); fn != nil {
-				return fn == ctx.AST
-			}
-		}
+		_, ok = children[i-2].(parser.IRoutingTableContext)
+		return ok
 	}
 	return false
 }
@@ -684,7 +697,7 @@ func analyzeOutputRoutingTable(
 		}
 	}
 
-	// Analyze each routing entry
+	mapped := set.New[string]()
 	for _, entry := range ctx.AST.AllRoutingEntry() {
 		outputName := entry.RoutingKey().GetText()
 
@@ -717,6 +730,9 @@ func analyzeOutputRoutingTable(
 					parser.FunctionName(nextFunc),
 					targetParamName,
 				))
+				continue
+			}
+			if !rejectRemapped(ctx, entry, mapped, targetParamName) {
 				continue
 			}
 		}
@@ -818,7 +834,7 @@ func analyzeInputRoutingTable(
 		ctx.Diagnostics.Add(
 			diagnostics.Errorf(
 				ctx.AST,
-				"input routing table must precede a func invocation",
+				"only a func invocation can follow a routing table",
 			),
 		)
 		return
@@ -829,6 +845,7 @@ func analyzeInputRoutingTable(
 		return
 	}
 
+	mapped := set.New[string]()
 	for _, entry := range ctx.AST.AllRoutingEntry() {
 		key := entry.RoutingKey()
 		if key.IDENTIFIER() == nil {
@@ -863,6 +880,9 @@ func analyzeInputRoutingTable(
 				fnName,
 				paramName,
 			))
+			continue
+		}
+		if !rejectRemapped(ctx, entry, mapped, paramName) {
 			continue
 		}
 

@@ -709,7 +709,7 @@ func detectNesting(tokens []antlr.Token) NestingKind {
 		case parser.ArcLexerLBRACE:
 			// A routing table's entries are flow statements of the enclosing body.
 			kind := NestingFunction
-			if i > 0 && isArrow(tokens[i-1]) {
+			if (i > 0 && isArrow(tokens[i-1])) || opensRoutingTable(tokens, i) {
 				kind = NestingTopLevel
 				if len(stack) > 0 {
 					kind = stack[len(stack)-1].kind
@@ -726,6 +726,19 @@ func detectNesting(tokens []antlr.Token) NestingKind {
 		return NestingTopLevel
 	}
 	return stack[len(stack)-1].kind
+}
+
+// opensRoutingTable reports whether the brace at i starts a routing table, which
+// an entry key and its colon follow.
+func opensRoutingTable(tokens []antlr.Token, i int) bool {
+	if i+2 >= len(tokens) {
+		return false
+	}
+	switch tokens[i+1].GetTokenType() {
+	case parser.ArcLexerIDENTIFIER, parser.ArcLexerTRUE, parser.ArcLexerFALSE:
+		return tokens[i+2].GetTokenType() == parser.ArcLexerCOLON
+	}
+	return false
 }
 
 func isArrow(t antlr.Token) bool {

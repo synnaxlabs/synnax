@@ -246,6 +246,27 @@ var _ = Describe("Context Detection", func() {
 			lsp.ContextInputParamName,
 		),
 		Entry(
+			"input context in an input routing table",
+			"{\n    a: wait(",
+			uint32(1),
+			uint32(12),
+			lsp.ContextInputParamName,
+		),
+		Entry(
+			"input context in an input routing table in a stage",
+			"stage s {\n    {\n        a: wait(",
+			uint32(2),
+			uint32(16),
+			lsp.ContextInputParamName,
+		),
+		Entry(
+			"input context in the second entry of an input routing table",
+			"{\n    a: scale(k=1.0) -> x,\n    b: wait(",
+			uint32(2),
+			uint32(12),
+			lsp.ContextInputParamName,
+		),
+		Entry(
 			"input param value inside a routing table",
 			"flag -> select() -> {\n    true: wait(duration=",
 			uint32(1),

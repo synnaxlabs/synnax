@@ -4580,6 +4580,48 @@ time.wait(duration=500ms) -> output`
 				)
 			})
 
+			It("Should chain into an output table and the func after it", func(
+				ctx SpecContext,
+			) {
+				inter, diagnostics := analyze(ctx, `
+				func classify() {a f64, b f64, c f64} (low u8, high u8) {
+				    if a + b + c > 50.0 {
+				        high = 1
+				    } else {
+				        low = 1
+				    }
+				}
+
+				func encode() {lo f64, hi f64} f64 {
+				    return lo * 10.0 + hi
+				}
+
+				{
+				    a_ch: a,
+				    b_ch: b,
+				    c_ch: c
+				} -> classify() -> {
+				    low: 1.0: lo,
+				    high: 2.0: hi
+				} -> encode() -> out`)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				edges := ir.Edges(inter.Edges)
+				for _, param := range []string{"a", "b", "c"} {
+					MustBeOk(edges.FindByTarget(
+						ir.Handle{Node: "classify_0", Param: param},
+					))
+				}
+				for _, param := range []string{"lo", "hi"} {
+					MustBeOk(edges.FindByTarget(
+						ir.Handle{Node: "encode_0", Param: param},
+					))
+				}
+				outEdge := MustBeOk(edges.FindByTarget(
+					ir.Handle{Node: "write_out_0", Param: "input"},
+				))
+				Expect(outEdge.Source.Node).To(Equal("encode_0"))
+			})
+
 			DescribeTable("Should reject a malformed input routing table",
 				func(ctx SpecContext, source, message string) {
 					_, diagnostics := analyze(ctx, source)
@@ -4597,7 +4639,7 @@ time.wait(duration=500ms) -> output`
 					"does not have parameter 'nosuch'"),
 				Entry("table before a channel",
 					`{ a_ch: a } -> out`,
-					"input routing table must precede a func invocation"),
+					"only a func invocation can follow a routing table"),
 				Entry("unbound trigger with no default",
 					`{ a_ch: a } -> combiner() -> out`,
 					"missing required input 'b'"),
@@ -4607,6 +4649,9 @@ time.wait(duration=500ms) -> output`
 				Entry("transition after the table",
 					`{ a_ch: a, b_ch: b } => combiner() -> out`,
 					"'=>' cannot follow a routing table"),
+				Entry("two entries on one trigger",
+					`{ a_ch: a, b_ch: a } -> combiner() -> out`,
+					"parameter 'a' is mapped by more than one routing entry"),
 			)
 		})
 
@@ -4812,6 +4857,12 @@ time.wait(duration=500ms) -> output`
 						    high: 1.0 -> out
 						} -> out`,
 						"only a func invocation can follow a routing table"),
+					Entry("two entries on one trigger",
+						`signal -> demux(threshold=100.0) -> {
+						    high: 1.0: a,
+						    low: 2.0: a
+						} -> mix(b=0.0)`,
+						"parameter 'a' is mapped by more than one routing entry"),
 				)
 			})
 

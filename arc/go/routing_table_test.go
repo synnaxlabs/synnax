@@ -726,14 +726,65 @@ var _ = Describe("Routing Table Runtime", func() {
 			Expect(written(h, 300)).To(Equal([]float64{22.0}))
 		})
 
+		It("Should chain an input table into an output table", func(ctx SpecContext) {
+			h := newRuntimeHarness(ctx, `
+			func classify() {a f64, b f64, c f64} (low u8, high u8) {
+			    if a + b + c > 50.0 {
+			        high = 1
+			    } else {
+			        low = 1
+			    }
+			}
+
+			func encode() {lo f64, hi f64} f64 {
+			    return lo * 10.0 + hi
+			}
+
+			{
+			    sensor: a,
+			    b_ch: b,
+			    c_ch: c
+			} -> classify() -> {
+			    low: 1.0: lo,
+			    high: 2.0: hi
+			} -> encode() -> out
+			`, append(resolver, channelSymbols(map[string]channelDef{
+				"b_ch": {types.F64(), 500},
+				"c_ch": {types.F64(), 600},
+			})...), append(digests,
+				channels.Digest{Key: 500, DataType: telem.Float64T},
+				channels.Digest{Key: 600, DataType: telem.Float64T},
+			)...)
+			defer h.Close(ctx)
+
+			h.Ingest(100, telem.NewSeriesV(1.0))
+			h.Ingest(500, telem.NewSeriesV(2.0))
+			tick(ctx, h)
+			Expect(written(h, 300)).To(BeEmpty())
+
+			h.Ingest(600, telem.NewSeriesV(3.0))
+			tick(ctx, h)
+			Expect(written(h, 300)).To(BeEmpty())
+
+			h.Ingest(600, telem.NewSeriesV(100.0))
+			tick(ctx, h)
+			Expect(written(h, 300)).To(Equal([]float64{12.0}))
+
+			h.Ingest(100, telem.NewSeriesV(-60.0))
+			tick(ctx, h)
+			Expect(written(h, 300)).To(Equal([]float64{12.0}))
+
+			tick(ctx, h)
+			Expect(written(h, 300)).To(BeEmpty())
+		})
+
 		It("Should advance a sequence step after the func runs", func(ctx SpecContext) {
 			h := newRuntimeHarness(ctx, mixSource+`
 			trigger => main
 
 			sequence main {
 			    sensor -> demux(threshold=50.0) -> {
-			        high: 1.0: a,
-			        low: 0.0: a
+			        high: 1.0: a
 			    } -> mix(b=5.0) -> out
 			    1 -> done_ch
 			}

@@ -54,6 +54,7 @@ The first node of a flow is its source.
 | Literal                             | `1 -> press_vlv_cmd`                                                          |
 | Variable                            | `target -> setpoint_cmd`                                                      |
 | Function instance                   | `time.interval(period=1s) -> tick`                                            |
+| Routing table                       | `{ox_pt: a, fuel_pt: b} -> mean()`                                            |
 
 An expression source reads each channel in it. A literal source runs once when the
 automation starts, or each time its stage starts. See
@@ -126,6 +127,23 @@ For required parameters and defaults, see
 
 ## Routing tables
 
+### Input routing
+
+A routing table before a function fills its triggers. Each entry maps a channel or a
+variable to a trigger name, such as `ox_pt: a`. The function runs on each new value,
+once every trigger has one.
+
+```arc channels="ox_pt, fuel_pt, avg_pt" bodies="mean"
+func mean() {a f64, b f64} f64 {
+    return (a + b) / 2.0
+}
+
+{
+    ox_pt: a,
+    fuel_pt: b
+} -> mean() -> avg_pt
+```
+
 ### Output routing
 
 A routing table after a function with named outputs runs the entry of each output that
@@ -149,6 +167,10 @@ entry with only a target fails with
 
 An inline stage or sequence has no name. It cannot use `next`:
 `'next' is not valid inside an inline routing case body`.
+
+A `: parameter` after an entry, such as `high: 1.0: level`, passes the entry's result to
+that trigger of the function after the table. Each trigger takes one entry. Only a
+function can follow a table.
 
 ```arc channels="tank_pt, vent_vlv_cmd"
 import time
