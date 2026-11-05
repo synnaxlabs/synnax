@@ -154,3 +154,38 @@ ScanConfig struct extends KeyedConfig {
 
     @doc value "carries the fields shared by every scan task configuration."
 }
+
+Scale union on type {
+    linear {
+        slope  float64 = 1 {
+            @doc value "is the multiplier applied to the raw value."
+        }
+        offset float64 = 0 {
+            @doc value "is the offset added after scaling."
+        }
+
+        @doc value "maps raw values to engineering units with a slope and offset."
+    }
+    map {
+        pre_scaled_min float64 = 0 {
+            @doc value "is the lower bound of the raw input range."
+        }
+        pre_scaled_max float64 = 1 {
+            @doc value "is the upper bound of the raw input range."
+        }
+        scaled_min     float64 = 0 {
+            @doc value "is the lower bound of the scaled output range."
+        }
+        scaled_max     float64 = 1 {
+            @doc value "is the upper bound of the scaled output range."
+        }
+
+        @doc value "maps a raw range linearly onto a scaled range."
+    }
+    none {
+        @doc value "applies no scaling; the raw value is used directly."
+    }
+
+    @doc value  "determines how raw values are transformed to engineering units."
+    @go marshal
+}

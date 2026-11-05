@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { labjack } from "@synnaxlabs/client";
+import { type task } from "@synnaxlabs/client";
 import { deep } from "@synnaxlabs/x";
 import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -15,10 +15,10 @@ import { describe, expect, it } from "vitest";
 import { Task } from "@/platform/task";
 import { renderInTaskForm } from "@/platform/task/testutil";
 
-const SCALE = deep.path<{ scale: labjack.Scale }>().scale;
+const SCALE = deep.path<{ scale: task.Scale }>().scale;
 
-const renderScale = (scale: labjack.Scale) =>
-  renderInTaskForm(<Task.ScaleForm path={SCALE} schemas={labjack.SCALE_SCHEMAS} />, {
+const renderScale = (scale: task.Scale) =>
+  renderInTaskForm(<Task.ScaleForm path={SCALE} />, {
     values: { scale },
   });
 

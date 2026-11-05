@@ -27,6 +27,56 @@ export interface KeyedConfig extends z.infer<typeof keyedConfigZ> {}
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
+/** LinearScale maps raw values to engineering units with a slope and offset. */
+export const linearScaleZ = z.object({
+  type: z.literal("linear"),
+  /** slope is the multiplier applied to the raw value. */
+  slope: z.number().default(1),
+  /** offset is the offset added after scaling. */
+  offset: z.number().default(0),
+});
+export interface LinearScale extends z.infer<typeof linearScaleZ> {}
+
+/** MapScale maps a raw range linearly onto a scaled range. */
+export const mapScaleZ = z.object({
+  type: z.literal("map"),
+  /** preScaledMin is the lower bound of the raw input range. */
+  preScaledMin: z.number().default(0),
+  /** preScaledMax is the upper bound of the raw input range. */
+  preScaledMax: z.number().default(1),
+  /** scaledMin is the lower bound of the scaled output range. */
+  scaledMin: z.number().default(0),
+  /** scaledMax is the upper bound of the scaled output range. */
+  scaledMax: z.number().default(1),
+});
+export interface MapScale extends z.infer<typeof mapScaleZ> {}
+
+/** NoneScale applies no scaling; the raw value is used directly. */
+export const noneScaleZ = z.object({
+  type: z.literal("none"),
+});
+export interface NoneScale extends z.infer<typeof noneScaleZ> {}
+
+export const SCALE_TYPES = ["linear", "map", "none"] as const;
+export const scaleTypeZ = z.enum(SCALE_TYPES);
+export type ScaleType = z.infer<typeof scaleTypeZ>;
+
+/** Scale determines how raw values are transformed to engineering units. */
+export const scaleZ = z.discriminatedUnion("type", [
+  linearScaleZ,
+  mapScaleZ,
+  noneScaleZ,
+]);
+export type Scale = LinearScale | MapScale | NoneScale;
+
+export const SCALE_SCHEMAS: {
+  [K in ScaleType]: z.ZodType<Extract<Scale, { type: K }>>;
+} = {
+  linear: linearScaleZ,
+  map: mapScaleZ,
+  none: noneScaleZ,
+};
+
 export const startConfigZ = keyedConfigZ.extend({
   autoStart: z.boolean().default(false),
 });

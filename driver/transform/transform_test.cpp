@@ -231,6 +231,61 @@ TEST(ScaleTests, MapScale) {
     ASSERT_NEAR(frame.at<double>(1, 2), 1.0, 0.001);
 }
 
+/// @brief it should apply a linear scale from a task scale configuration.
+TEST(ScaleTests, LinearScaleConfig) {
+    Scale scale;
+    scale.add(
+        1,
+        x::telem::FLOAT64_T,
+        ::synnax::task::LinearScale{.slope = 2.0, .offset = 5.0}
+    );
+
+    x::telem::Frame frame(1);
+    auto series = x::telem::Series(x::telem::FLOAT64_T, 1);
+    series.write(10.0);
+    frame.emplace(1, std::move(series));
+
+    ASSERT_NIL(scale.transform(frame));
+    ASSERT_EQ(frame.at<double>(1, 0), 25.0);
+}
+
+/// @brief it should apply a map scale from a task scale configuration.
+TEST(ScaleTests, MapScaleConfig) {
+    Scale scale;
+    scale.add(
+        1,
+        x::telem::FLOAT64_T,
+        ::synnax::task::MapScale{
+            .pre_scaled_min = 0.0,
+            .pre_scaled_max = 100.0,
+            .scaled_min = 0.0,
+            .scaled_max = 1.0,
+        }
+    );
+
+    x::telem::Frame frame(1);
+    auto series = x::telem::Series(x::telem::FLOAT64_T, 1);
+    series.write(50.0);
+    frame.emplace(1, std::move(series));
+
+    ASSERT_NIL(scale.transform(frame));
+    ASSERT_NEAR(frame.at<double>(1, 0), 0.5, 0.001);
+}
+
+/// @brief it should leave the samples of a channel with no scale unchanged.
+TEST(ScaleTests, NoneScaleConfig) {
+    Scale scale;
+    scale.add(1, x::telem::FLOAT64_T, ::synnax::task::NoneScale{});
+
+    x::telem::Frame frame(1);
+    auto series = x::telem::Series(x::telem::FLOAT64_T, 1);
+    series.write(10.0);
+    frame.emplace(1, std::move(series));
+
+    ASSERT_NIL(scale.transform(frame));
+    ASSERT_EQ(frame.at<double>(1, 0), 10.0);
+}
+
 /// @brief it should correctly apply a scale to multiple channels.
 TEST(ScaleTests, MultipleChannels) {
     Scale scale;

@@ -140,9 +140,7 @@ struct InputChan {
     }
 
     /// @brief the scale applied to raw samples, when the channel carries one.
-    [[nodiscard]] virtual const ::synnax::labjack::Scale *scale() const {
-        return nullptr;
-    }
+    [[nodiscard]] virtual const ::synnax::task::Scale *scale() const { return nullptr; }
 };
 
 /// @brief the range of a thermocouple input on each model that supports
@@ -176,7 +174,7 @@ struct ThermocoupleChan final : InputChan {
     /// @brief units for the thermocouple reading
     const LJM_TemperatureUnits units;
     /// @brief the scale applied to the temperature after conversion.
-    const ::synnax::labjack::Scale scale_cfg;
+    const ::synnax::task::Scale scale_cfg;
     /// @brief the warning for a voltage outside the range of the thermocouple type.
     const common::Warning out_of_range;
     /// @brief the position of the CJC register in the registers of the task.
@@ -203,7 +201,7 @@ struct ThermocoupleChan final : InputChan {
                                       "NaN until the voltage is in range.",
         } {}
 
-    [[nodiscard]] const ::synnax::labjack::Scale *scale() const override {
+    [[nodiscard]] const ::synnax::task::Scale *scale() const override {
         return &this->scale_cfg;
     }
 
@@ -291,7 +289,7 @@ struct AIChan final : InputChan {
     /// @brief the negative channel for differential readings. 199 is single ended.
     const int neg_chan;
     /// @brief the scale applied to raw samples after acquisition.
-    const ::synnax::labjack::Scale scale_cfg;
+    const ::synnax::task::Scale scale_cfg;
 
     AIChan(const ::synnax::labjack::AnalogReadChannel &cfg, x::json::Parser &parser):
         InputChan(cfg), range(cfg.range), neg_chan(cfg.neg_chan), scale_cfg(cfg.scale) {
@@ -299,7 +297,7 @@ struct AIChan final : InputChan {
             parser.field_err("range", "Max voltage must be greater than 0");
     }
 
-    [[nodiscard]] const ::synnax::labjack::Scale *scale() const override {
+    [[nodiscard]] const ::synnax::task::Scale *scale() const override {
         return &this->scale_cfg;
     }
 
@@ -369,28 +367,6 @@ inline std::unique_ptr<InputChan> parse_input_chan(x::json::Parser &cfg) {
         );
     cfg.field_err("type", "unknown channel type: " + type);
     return nullptr;
-}
-
-/// @brief registers the channel's configured scale on the scale transform.
-inline void add_scale(
-    transform::Scale &scales,
-    const synnax::channel::Key key,
-    const x::telem::DataType &dt,
-    const ::synnax::labjack::Scale &scale
-) {
-    if (const auto *l = std::get_if<::synnax::labjack::LinearScale>(&scale))
-        scales.add(key, transform::UnaryLinearScale(l->slope, l->offset, dt));
-    else if (const auto *m = std::get_if<::synnax::labjack::MapScale>(&scale))
-        scales.add(
-            key,
-            transform::UnaryMapScale(
-                m->pre_scaled_min,
-                m->pre_scaled_max,
-                m->scaled_min,
-                m->scaled_max,
-                dt
-            )
-        );
 }
 
 /// @brief returns the scan backlog above which the task warns about skew. A zero
@@ -550,7 +526,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         auto scale_transform = std::make_unique<transform::Scale>();
         for (const auto &ch: this->channels)
             if (const auto *scale = ch->scale())
-                add_scale(*scale_transform, ch->ch.key, ch->ch.data_type, *scale);
+                scale_transform->add(ch->ch.key, ch->ch.data_type, *scale);
         this->transform.add(std::move(scale_transform));
     }
 

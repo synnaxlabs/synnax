@@ -19,6 +19,7 @@
 #include <vector>
 
 #include "client/cpp/channel/channel.h"
+#include "client/cpp/task/json.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/telem/series.h"
@@ -188,6 +189,27 @@ public:
     /// @brief registers the scale to apply to the given channel's series.
     void add(const synnax::channel::Key key, Unary scale) {
         this->scales.emplace(key, std::move(scale));
+    }
+
+    /// @brief registers the configured scale for the channel's samples of type dt.
+    /// Registers nothing for an unscaled channel.
+    void
+    add(const synnax::channel::Key key,
+        const x::telem::DataType &dt,
+        const ::synnax::task::Scale &scale) {
+        if (const auto *l = std::get_if<::synnax::task::LinearScale>(&scale))
+            this->add(key, UnaryLinearScale(l->slope, l->offset, dt));
+        else if (const auto *m = std::get_if<::synnax::task::MapScale>(&scale))
+            this->add(
+                key,
+                UnaryMapScale(
+                    m->pre_scaled_min,
+                    m->pre_scaled_max,
+                    m->scaled_min,
+                    m->scaled_max,
+                    dt
+                )
+            );
     }
 
     x::errors::Error transform(x::telem::Frame &frame) override {

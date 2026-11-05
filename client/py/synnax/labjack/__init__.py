@@ -24,12 +24,8 @@ from synnax.labjack.types_gen import (
     BaseWriteChannel,
     DigitalReadChannel,
     DigitalWriteChannel,
-    LinearScale,
-    MapScale,
-    NoneScale,
     ReadChannel,
     ReadConfig,
-    Scale,
     ScanConfig,
     TemperatureUnits,
     ThermocoupleReadChannel,
@@ -37,6 +33,7 @@ from synnax.labjack.types_gen import (
     WriteChannel,
     WriteConfig,
 )
+from synnax.task.types_gen import LinearScale, MapScale, NoneScale, Scale
 
 __all__ = [
     "MAKE",

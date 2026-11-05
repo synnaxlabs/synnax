@@ -52,7 +52,6 @@ import {
   READ_TYPE,
   type ReadChannel,
   type ReadSchemas,
-  SCALE_SCHEMAS,
 } from "@/feature/labjack/task/types";
 import { useConfigure } from "@/feature/labjack/task/useConfigure";
 import { Device as PlatformDevice } from "@/platform/device";
@@ -191,10 +190,7 @@ const ChannelDetails = ({ path, device }: ChannelDetailsProps) => {
       )}
       {"scale" in ch && (
         <PForm.Section title="Scale">
-          <Task.ScaleForm
-            path={deep.variant(path, "type", ch.type).scale}
-            schemas={SCALE_SCHEMAS}
-          />
+          <Task.ScaleForm path={deep.variant(path, "type", ch.type).scale} />
         </PForm.Section>
       )}
     </PForm.Sections>

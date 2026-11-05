@@ -7,35 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { task } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
 import { deep } from "@synnaxlabs/x";
 import { type FC } from "react";
-import { type z } from "zod";
 
-interface LinearScale {
-  type: "linear";
-  slope: number;
-  offset: number;
-}
-
-interface MapScale {
-  type: "map";
-  preScaledMin: number;
-  preScaledMax: number;
-  scaledMin: number;
-  scaledMax: number;
-}
-
-type Scale = LinearScale | MapScale | { type: "none" };
-
-type ScaleType = Scale["type"];
-
-/** The schema of each scale type, used to fill defaults when the type changes. */
-type ScaleSchemas = Record<ScaleType, z.ZodType<Scale>>;
-
-const SelectType = Form.buildSelectField<ScaleType>({
+const SelectType = Form.buildSelectField<task.ScaleType>({
   fieldProps: { label: "Scale" },
   inputProps: {
     resourceName: "scale type",
@@ -59,10 +38,10 @@ const SelectType = Form.buildSelectField<ScaleType>({
 });
 
 interface ParamsProps {
-  path: deep.Path<Scale>;
+  path: deep.Path<task.Scale>;
 }
 
-const PARAMS: Record<ScaleType, FC<ParamsProps>> = {
+const PARAMS: Record<task.ScaleType, FC<ParamsProps>> = {
   linear: ({ path }) => {
     const { offset, slope } = deep.variant(path, "type", "linear");
     return (
@@ -88,16 +67,14 @@ const PARAMS: Record<ScaleType, FC<ParamsProps>> = {
 
 export interface ScaleFormProps {
   /** The path of the scale field. */
-  path: deep.Target<Scale>;
-  /** The schema of each scale type the field accepts. */
-  schemas: ScaleSchemas;
+  path: deep.Target<task.Scale>;
 }
 
 /**
  * Edits a scale that is none, linear (slope and offset), or map (one range onto
  * another).
  */
-export const ScaleForm = ({ path, schemas }: ScaleFormProps) => {
+export const ScaleForm = ({ path }: ScaleFormProps) => {
   const scale = deep.widen(path);
   const type = Form.useFieldValue(scale.type);
   const Params = PARAMS[type];
@@ -106,7 +83,8 @@ export const ScaleForm = ({ path, schemas }: ScaleFormProps) => {
       <SelectType
         path={scale.type}
         onChange={(value, { set }) => {
-          if (type !== value) set(scale, schemas[value].parse({ type: value }));
+          if (type !== value)
+            set(scale, task.SCALE_SCHEMAS[value].parse({ type: value }));
         }}
       />
       <Params path={scale} />
