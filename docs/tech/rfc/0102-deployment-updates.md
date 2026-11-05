@@ -149,10 +149,9 @@ place of the workspace: "Console 0.61.0 cannot work with Core 0.60.1". The guard
 outside `License.Guard`: on an unlicensed Core, the user opens the matching web Console
 to activate the license. When the Core reports a matching version, the screen lifts by
 itself. The actions are "Update Console" (the §3.3 update, up or down), "Open in
-browser" (the Console that the Core serves, which always matches), and the Core list. In
-a web Console, the browser action loads the Core's Console in the same tab, and the Core
-list opens through `?select-core`, so the login does not pick the same Core again. The
-mismatch warning, its notification actions
+browser" (the Console that the Core serves, which always matches), and the Core list. A
+web Console reloads the page instead, because its Core serves the Console that matches
+it. The mismatch warning, its notification actions
 (`console/src/feature/core/notifications.tsx:22-47`), and the "Version mismatch" badge
 are deleted.
 
