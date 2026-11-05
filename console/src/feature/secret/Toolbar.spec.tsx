@@ -27,6 +27,7 @@ import {
 import { afterEach, assert, describe, expect, it } from "vitest";
 
 import { Secret } from "@/feature/secret";
+import { createSecret } from "@/feature/secret/testutil";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
 import { Tree } from "@/platform/tree";
@@ -64,16 +65,6 @@ afterEach(async () => {
   for (const key of createdSecrets.splice(0))
     await client.secrets.delete(key).catch(ignoreNotFound);
 });
-
-const createSecret = async (): Promise<secret.Secret> => {
-  const s = await client.secrets.create({
-    name: uniqueName("secret"),
-    source: "stored",
-    value: "hunter2",
-  });
-  createdSecrets.push(s.key);
-  return s;
-};
 
 /** Creates a certificate with a private key, which makes the key a used secret. */
 const createCertificate = async () => {
@@ -156,7 +147,7 @@ describe("secret/Toolbar", () => {
   });
 
   it("renames a secret through the inline editor", async () => {
-    const s = await createSecret();
+    const s = await createSecret(client, createdSecrets);
     await renderToolbar();
     await openContextMenu(s.name);
     await clickAndSettle("Rename");
@@ -169,7 +160,7 @@ describe("secret/Toolbar", () => {
   });
 
   it("replaces the value of a secret in place", async () => {
-    const s = await createSecret();
+    const s = await createSecret(client, createdSecrets);
     await renderToolbar();
     await openContextMenu(s.name);
     await clickAndSettle("Replace value");
@@ -185,7 +176,7 @@ describe("secret/Toolbar", () => {
   });
 
   it("keeps a rename that another user makes while the replacement is open", async () => {
-    const s = await createSecret();
+    const s = await createSecret(client, createdSecrets);
     await renderToolbar();
     await openContextMenu(s.name);
     await clickAndSettle("Replace value");
@@ -205,7 +196,7 @@ describe("secret/Toolbar", () => {
   });
 
   it("offers no replacement to a user who cannot create secrets", async () => {
-    const s = await createSecret();
+    const s = await createSecret(client, createdSecrets);
     const editor = await createTestClientWithGrants(client, {
       retrieve: [secret.TYPE_ONTOLOGY_ID],
       update: [secret.TYPE_ONTOLOGY_ID],
@@ -217,7 +208,7 @@ describe("secret/Toolbar", () => {
   });
 
   it("deletes a secret after confirmation", async () => {
-    const s = await createSecret();
+    const s = await createSecret(client, createdSecrets);
     await renderToolbar();
     await confirmDelete(s.name);
     await waitFor(async () => {

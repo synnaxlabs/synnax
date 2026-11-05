@@ -70,7 +70,10 @@ export const SecretMenu = ({
       {canUpdate && <ContextMenu.RenameItem onClick={() => onRename(s.key)} />}
       <Menu.Divider />
       {canReplace && s.source === "stored" && (
-        <Menu.Item itemKey="replace" onClick={() => openReplace({ replace: s.key })}>
+        <Menu.Item
+          itemKey="replace"
+          onClick={() => void openReplace({ replace: s.key })}
+        >
           <Icon.Refresh />
           Replace value
         </Menu.Item>

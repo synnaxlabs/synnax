@@ -29,7 +29,7 @@ const EmptyContent = (): ReactElement => {
     <Empty.Action
       message="No credentials"
       action={canCreate ? "Create secret" : undefined}
-      onClick={() => openCreate()}
+      onClick={() => void openCreate()}
     />
   );
 };
@@ -50,7 +50,7 @@ const Content = (): ReactElement => {
           <Toolbar.Actions>
             <Toolbar.CreateAction
               tooltip="Create secret"
-              onClick={() => openCreate()}
+              onClick={() => void openCreate()}
             />
           </Toolbar.Actions>
         )}
