@@ -299,6 +299,8 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		table:      s.table,
 		configs:    s.cfg.Configs,
 		dispatcher: s.state.Dispatcher(),
+		racks:      s.cfg.Rack.NewWriter(tx),
+		guardRack:  s.guardRack,
 	}
 }
 
@@ -312,9 +314,7 @@ func (s *Service) NewRetrieve() Retrieve {
 	}
 }
 
-// RackDeleteGuard refuses the delete of a rack that holds a task that is not internal.
-// Pass it to rack.Writer.Delete. The internal tasks of a deleted rack go with it.
-func (s *Service) RackDeleteGuard(ctx gorp.Context, r rack.Rack) error {
+func (s *Service) guardRack(ctx gorp.Context, r rack.Rack) error {
 	exists, err := s.NewRetrieve().
 		Where(And(MatchRacks(r.Key), MatchInternal(false))).
 		Exists(ctx, ctx.Tx)

@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -37,6 +38,8 @@ type Writer struct {
 	table      *gorp.Table[Key, Task]
 	configs    config.Registry
 	dispatcher actions.Dispatcher[Key, Action]
+	racks      rack.Writer
+	guardRack  gorp.GuardFunc[rack.Key, rack.Rack]
 }
 
 // WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
@@ -311,6 +314,13 @@ func (w Writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
 		return err
 	}
 	return w.otgWriter.DeleteResources(ctx, ResourceID(key))
+}
+
+// DeleteRacks deletes the racks with keys, their statuses, and the internal tasks they
+// hold. It returns a validation error when a rack is embedded, holds a device, or holds
+// a task that is not internal.
+func (w Writer) DeleteRacks(ctx context.Context, keys ...rack.Key) error {
+	return w.racks.Delete(ctx, w.guardRack, keys...)
 }
 
 // Copy stores a copy of the task with the given key under a new key and name, with its

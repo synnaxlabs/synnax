@@ -378,8 +378,7 @@ func (s *Service) Delete(
 	}); err != nil {
 		return struct{}{}, err
 	}
-	if err := s.rack.NewWriter(tx).
-		Delete(ctx, s.task.RackDeleteGuard, req.Keys...); err != nil {
+	if err := s.task.NewWriter(tx).DeleteRacks(ctx, req.Keys...); err != nil {
 		return struct{}{}, err
 	}
 	return struct{}{}, s.auth.NewWriter(tx).

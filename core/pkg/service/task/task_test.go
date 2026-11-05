@@ -1153,8 +1153,7 @@ var _ = Describe("Task", Ordered, func() {
 			elsewhere := &task.Task{Type: testType, Rack: testRack.Key, Name: "Kept"}
 			Expect(w.Create(ctx, internal)).To(Succeed())
 			Expect(w.Create(ctx, elsewhere)).To(Succeed())
-			Expect(rackService.NewWriter(tx).Delete(ctx, svc.RackDeleteGuard, r.Key)).
-				To(Succeed())
+			Expect(w.DeleteRacks(ctx, r.Key)).To(Succeed())
 			Expect(exists(ctx, internal.Key)).To(BeFalse())
 			Expect(exists(ctx, elsewhere.Key)).To(BeTrue())
 		})
@@ -1172,11 +1171,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(w.Create(ctx, t)).To(Succeed())
 				store := MustBeOk(configs.Store(testType))
 				MustSucceed(store.Read(ctx, tx, t.Key))
-				Expect(rackService.NewWriter(tx).Delete(
-					ctx,
-					svc.RackDeleteGuard,
-					r.Key,
-				)).To(Succeed())
+				Expect(w.DeleteRacks(ctx, r.Key)).To(Succeed())
 				Expect(store.Read(ctx, tx, t.Key)).Error().
 					To(MatchError(query.ErrNotFound))
 			},
@@ -1188,13 +1183,11 @@ var _ = Describe("Task", Ordered, func() {
 				r := createRack(ctx)
 				t := &task.Task{Type: testType, Rack: r.Key, Name: "User Task"}
 				Expect(w.Create(ctx, t)).To(Succeed())
-				Expect(rackService.NewWriter(tx).Delete(
-					ctx,
-					svc.RackDeleteGuard,
-					r.Key,
-				)).To(SatisfyAll(
+				Expect(w.DeleteRacks(ctx, r.Key)).To(SatisfyAll(
 					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring("still holds tasks")),
+					MatchError(ContainSubstring(
+						"cannot delete rack Other Rack because it still holds tasks",
+					)),
 				))
 				Expect(exists(ctx, t.Key)).To(BeTrue())
 				Expect(rackService.NewRetrieve().

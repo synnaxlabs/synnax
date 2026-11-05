@@ -200,9 +200,9 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 	)
 }
 
-// Delete deletes the racks with keys, their statuses, and the tasks they hold. It
+// Delete deletes the racks with keys, their statuses, and every task they hold. It
 // returns a validation error when a rack is embedded, holds a device, or fails guard.
-// A nil guard checks nothing.
+// Delete racks through task.Writer.DeleteRacks, which keeps the tasks of users.
 func (w Writer) Delete(
 	ctx context.Context,
 	guard gorp.GuardFunc[Key, Rack],
