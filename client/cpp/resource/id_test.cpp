@@ -161,13 +161,6 @@ TEST(ResourceID, testIsZeroPartialKey) {
     EXPECT_FALSE(id.is_zero());
 }
 
-/// @brief it should verify ROOT_ID constant.
-TEST(ResourceID, testRootIDConstant) {
-    EXPECT_EQ(ROOT_ID.type, "builtin");
-    EXPECT_EQ(ROOT_ID.key, "root");
-    EXPECT_EQ(ROOT_ID.string(), "builtin:root");
-}
-
 /// @brief it should parse an ID from JSON.
 TEST(ResourceID, testParseFromJSON) {
     x::json::json j = {{"type", "channel"}, {"key", "42"}};

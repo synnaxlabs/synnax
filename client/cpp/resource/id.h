@@ -67,9 +67,6 @@ struct ID {
     bool operator!=(const ID &other) const;
 };
 
-/// @brief The root ID used as the top-level parent in the ontology hierarchy.
-const ID ROOT_ID{.type = "builtin", .key = "root"};
-
 /// @brief Parses a vector of strings into a vector of IDs.
 /// @param strs The strings to parse, each in "type:key" format.
 /// @returns A pair containing the parsed IDs and an error. If any parse fails,
