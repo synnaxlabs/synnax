@@ -74,10 +74,11 @@ func (c *column) size(rows []row) int {
 // append converts raw into a sample and appends it. It returns an error wrapping
 // validate.ErrValidation when raw does not convert, and then appends nothing.
 func (c *column) append(raw jsontext.Value) error {
-	var err error
-	if c.data, err = c.decoder.Append(c.data, raw); err != nil {
+	data, err := c.decoder.Append(c.data, raw)
+	if err != nil {
 		return err
 	}
+	c.data = data
 	if c.density == 0 {
 		c.ends = append(c.ends, len(c.data))
 	}
