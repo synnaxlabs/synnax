@@ -224,10 +224,6 @@ func (e Envelope) Decode[T any](ctx context.Context) (T, error) {
 	return t, nil
 }
 
-// placementFields name the struct fields that say where a resource sits. They hold keys
-// local to the exporting Core, so Encode leaves them out.
-var placementFields = [...]string{"group", "project", "range"}
-
 // BodyExporter is implemented by a resource whose portable body differs from its stored
 // shape — an Arc, whose file carries the materialized source rather than the operation
 // log that reconstructs it. Encode reduces ExportBody's return in place of the
@@ -244,10 +240,11 @@ type BodyExporter interface {
 // error env is left untouched.
 //
 // data may be a map[string]any, which is merged flat; any other value must be a struct.
-// A BodyExporter is reduced through ExportBody instead of directly. A struct also loses
-// its top-level `group`, `project`, and `range`, since the importer places the resource
-// from ImportOptions.
-func (env *Envelope) Encode[T any](data T) error {
+// A BodyExporter is reduced through ExportBody instead of directly. references names
+// the
+// top-level fields that hold Gorp references. Encode leaves them out, since they hold
+// keys local to this Core.
+func (env *Envelope) Encode[T any](data T, references ...string) error {
 	value := any(data)
 	if b, ok := value.(BodyExporter); ok {
 		value = b.ExportBody()
@@ -261,9 +258,9 @@ func (env *Envelope) Encode[T any](data T) error {
 		if body, err = structToMap(value); err != nil {
 			return errors.Wrap(err, "encode envelope")
 		}
-		for _, field := range placementFields {
-			delete(body, field)
-		}
+	}
+	for _, ref := range references {
+		delete(body, ref)
 	}
 	// Importers mint a fresh key, so a key on the wire is noise at best and a collision
 	// hazard at worst.

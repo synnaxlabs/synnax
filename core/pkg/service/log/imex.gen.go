@@ -37,7 +37,7 @@ func (s *Service) Export(ctx context.Context, id resource.ID) (imex.Envelope, er
 	env := imex.Envelope{
 		Version: versions.Latest, Type: string(s.Type()), Name: v.Name,
 	}
-	if err = env.Encode(v); err != nil {
+	if err = env.Encode(v, "group", "project", "range"); err != nil {
 		return imex.Envelope{}, err
 	}
 	return env, nil
