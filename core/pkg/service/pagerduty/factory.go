@@ -33,7 +33,7 @@ type FactoryConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
-	// Secret resolves the routing key of a task on each send.
+	// Secret resolves the routing key of a task when the task starts.
 	//
 	// [REQUIRED]
 	Secret *secret.Service
@@ -103,10 +103,6 @@ func (f *factory) ConfigureTask(
 		return nil, err
 	}
 	if err := validateConfig(cfg); err != nil {
-		f.reporter.Report(ctx, t, cmdKey, cfg.AutoStart, err)
-		return nil, err
-	}
-	if _, err := resolveRoutingKey(ctx, f.cfg.Secret, t, *cfg.RoutingKey); err != nil {
 		f.reporter.Report(ctx, t, cmdKey, cfg.AutoStart, err)
 		return nil, err
 	}

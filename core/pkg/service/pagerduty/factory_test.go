@@ -16,7 +16,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	pd "github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
@@ -169,36 +168,6 @@ var _ = Describe("Factory", func() {
 					}
 					Expect(factory.ConfigureTask(ctx, t, "cmd-1")).Error().
 						To(MatchError(ContainSubstring("routing_key: required")))
-				},
-			)
-
-			It("Should return a validation error for a routing key that is not "+
-				"32 characters",
-				func(ctx context.Context) {
-					short := createRoutingKey(ctx, "tooshort")
-					t := storeTask(ctx, "test", pd.TaskConfig{
-						RoutingKey: &short,
-						Alerts:     []pd.Alert{{Status: "test-status"}},
-					})
-					Expect(factory.ConfigureTask(ctx, t, "cmd-1")).Error().
-						To(MatchError(ContainSubstring(
-							"routing_key: must be exactly 32 characters",
-						)))
-				},
-			)
-
-			It("Should refuse a routing key that the task's rack does not use",
-				func(ctx context.Context) {
-					cfg := encodeConfig(pd.TaskConfig{
-						RoutingKey: &routingKey,
-						Alerts:     []pd.Alert{{Status: "test-status"}},
-					})
-					t := task.Task{
-						Key: uuid.New(), Rack: testRack, Name: "test",
-						Type: pd.AlertTaskType, Config: cfg,
-					}
-					Expect(factory.ConfigureTask(ctx, t, "cmd-1")).Error().
-						To(MatchError(access.ErrDenied))
 				},
 			)
 
