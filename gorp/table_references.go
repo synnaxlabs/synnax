@@ -138,7 +138,7 @@ func (t *Table[K, E]) delete(ctx context.Context, tx Tx, keys []K) error {
 	for i, k := range keys {
 		formatted[i] = FormatKey(k)
 	}
-	plan, err := t.db.registry.plan(tx, t.name, formatted, t.db.MaxDeleteSize)
+	plan, err := t.db.registry.plan(ctx, tx, t.name, formatted, t.db.MaxDeleteSize)
 	if err != nil {
 		return err
 	}
@@ -146,9 +146,10 @@ func (t *Table[K, E]) delete(ctx context.Context, tx Tx, keys []K) error {
 }
 
 // Dependents returns the entries of every open table that hold a reference to the entry
-// with key k, as seen by tx.
-func (t *Table[K, E]) Dependents(tx Tx, k K) ([]Target, error) {
-	return t.db.registry.dependents(tx, Target{Table: t.name, Key: FormatKey(k)})
+// with key k, as seen by tx. It waits for each reference's index to populate, or for
+// ctx to end, and returns ErrIndexInvalid if one failed to populate.
+func (t *Table[K, E]) Dependents(ctx context.Context, tx Tx, k K) ([]Target, error) {
+	return t.db.registry.dependents(ctx, tx, Target{Table: t.name, Key: FormatKey(k)})
 }
 
 // check validates the references e holds against tx.

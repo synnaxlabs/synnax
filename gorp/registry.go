@@ -11,6 +11,7 @@ package gorp
 
 import (
 	"context"
+	"slices"
 	"strconv"
 	"sync"
 
@@ -41,7 +42,7 @@ type registeredReference interface {
 	onDeletePolicy() OnDelete
 	targetTables() []string
 	// dependents returns the text keys of the entries that hold target.
-	dependents(tx Tx, target Target) ([]string, error)
+	dependents(ctx context.Context, tx Tx, target Target) ([]string, error)
 }
 
 // detachOp removes target from the reference at index ref of an entry.
@@ -117,13 +118,22 @@ func (r *registry) table(name string) (registeredTable, error) {
 	return t, nil
 }
 
-// dependents returns the entries that hold target through any registered reference.
-func (r *registry) dependents(tx Tx, target Target) ([]Target, error) {
+// referencesTo returns the references that may point at the table named table.
+func (r *registry) referencesTo(table string) []registeredReference {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
+	return slices.Clone(r.referencing[table])
+}
+
+// dependents returns the entries that hold target through any registered reference.
+func (r *registry) dependents(
+	ctx context.Context,
+	tx Tx,
+	target Target,
+) ([]Target, error) {
 	var out []Target
-	for _, ref := range r.referencing[target.Table] {
-		keys, err := ref.dependents(tx, target)
+	for _, ref := range r.referencesTo(target.Table) {
+		keys, err := ref.dependents(ctx, tx, target)
 		if err != nil {
 			return nil, err
 		}
@@ -174,13 +184,12 @@ func (p *deletePlan) add(t Target) bool {
 // the delete keeps. plan reads only; it changes nothing. It fails when the delete would
 // delete or rewrite more than limit entries.
 func (r *registry) plan(
+	ctx context.Context,
 	tx Tx,
 	table string,
 	keys []string,
 	limit int,
 ) (*deletePlan, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
 	p := &deletePlan{
 		deletes:  make(map[string]set.Set[string]),
 		detaches: make(map[Target][]detachOp),
@@ -216,8 +225,8 @@ func (r *registry) plan(
 	for len(queue) > 0 {
 		target := queue[0]
 		queue = queue[1:]
-		for _, ref := range r.referencing[target.Table] {
-			deps, err := ref.dependents(tx, target)
+		for _, ref := range r.referencesTo(target.Table) {
+			deps, err := ref.dependents(ctx, tx, target)
 			if err != nil {
 				return nil, err
 			}

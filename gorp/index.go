@@ -96,11 +96,17 @@ func scopeOf(tx Tx) *txState {
 // against tx applied. A read outside a transaction can run after a commit writes and
 // before its index changes apply, so probe also includes the keys of each commit in
 // flight. Such a commit can fail, so a caller checks each key against storage.
+//
+// probe waits for store to populate, or for ctx to end.
 func probe[K Key, V comparable](
+	ctx context.Context,
 	store indexStore[K, V],
 	tx Tx,
 	values []V,
 ) ([]K, error) {
+	if err := store.Wait(ctx); err != nil {
+		return nil, err
+	}
 	committing := store.Committing(values...)
 	keys, err := store.Get(scopeOf(tx), values...)
 	if err != nil || len(committing) == 0 {
@@ -120,11 +126,8 @@ func indexFilter[K Key, E Entry[K], V comparable](
 	captured := append([]V(nil), values...)
 	return Filter[K, E]{
 		resolve: func(ctx context.Context, tx Tx) (resolved[K, E], error) {
-			if err := store.Wait(ctx); err != nil {
-				return resolved[K, E]{}, err
-			}
 			// eval drops the keys of a commit in flight that fails.
-			keys, err := probe(store, tx, captured)
+			keys, err := probe(ctx, store, tx, captured)
 			if err != nil {
 				return resolved[K, E]{}, err
 			}
@@ -197,15 +200,17 @@ func (l *LookupIndex[K, E, V]) stageDelete(tx Tx, key K) {
 
 // Get returns the primary keys of entries whose indexed field matches any of the
 // provided values, merging committed index state with any per-tx delta staged against
-// tx. Pass a nil tx to read committed state only.
+// tx. Pass a nil tx to read committed state only. Get includes the keys of a commit in
+// flight, which can fail, so check each key against storage.
 //
-// Get blocks until the index has finished populating. After populate settles, Get
-// returns ErrIndexInvalid if population failed; callers should fall back to a
-// sequential scan or surface the error.
-//
-// Returned slices are owned by the caller and may be freely retained.
-func (l *LookupIndex[K, E, V]) Get(tx Tx, values ...V) ([]K, error) {
-	return l.store.Get(scopeOf(tx), values...)
+// Get waits for the index to populate, or for ctx to end. It returns ErrIndexInvalid
+// if population failed. The caller owns the returned slice.
+func (l *LookupIndex[K, E, V]) Get(
+	ctx context.Context,
+	tx Tx,
+	values ...V,
+) ([]K, error) {
+	return probe(ctx, l.store, tx, values)
 }
 
 // Filter returns a Filter[K, E] matching entries whose indexed field is any of values.
@@ -281,11 +286,13 @@ func (s *SortedIndex[K, E, V]) stageDelete(tx Tx, key K) {
 }
 
 // Get returns the primary keys of entries whose indexed field matches any of the
-// provided values, merging committed index state with any per-tx delta staged against
-// tx. Pass a nil tx to read committed state only. See LookupIndex.Get for the
-// populate-failure contract.
-func (s *SortedIndex[K, E, V]) Get(tx Tx, values ...V) ([]K, error) {
-	return s.store.Get(scopeOf(tx), values...)
+// provided values. See LookupIndex.Get for its contract.
+func (s *SortedIndex[K, E, V]) Get(
+	ctx context.Context,
+	tx Tx,
+	values ...V,
+) ([]K, error) {
+	return probe(ctx, s.store, tx, values)
 }
 
 // Filter returns an exact-match Filter[K, E] matching entries whose indexed field is

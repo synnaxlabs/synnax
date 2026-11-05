@@ -434,7 +434,7 @@ var _ = Describe("Reference", func() {
 				Set(ctx, refDevice{Key: "a", Rack: 9})).To(Succeed())
 			Expect(gorp.WrapWriter[string, refDevice](db).
 				Set(ctx, refDevice{Key: "b", Rack: 9})).To(Succeed())
-			Expect(deviceRef.rack.Get(db, 9)).
+			Expect(deviceRef.rack.Get(ctx, db, 9)).
 				To(ConsistOf("a"))
 		})
 	})
@@ -453,7 +453,7 @@ var _ = Describe("Reference", func() {
 					context.Context,
 					iter.Seq[change.Change[string, refDevice]],
 				) {
-					found = MustSucceed(deviceRef.rack.Get(nil, 1))
+					found = MustSucceed(deviceRef.rack.Get(ctx, nil, 1))
 				}))
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return devices.NewCreate().
@@ -520,7 +520,7 @@ var _ = Describe("Reference", func() {
 					Exec(ctx, tx); err != nil {
 					return err
 				}
-				Expect(deviceRef.rack.Get(tx, 1)).
+				Expect(deviceRef.rack.Get(ctx, tx, 1)).
 					To(ConsistOf("a"))
 				return nil
 			})).To(Succeed())
@@ -538,7 +538,7 @@ var _ = Describe("Reference", func() {
 				Expect(statuses.NewCreate().
 					Entry(&refStatus{Key: "s", Owner: &refOwner{Table: "rack", Key: "1"}}).
 					Exec(ctx, db)).To(Succeed())
-				Expect(racks.Dependents(db, 1)).To(ConsistOf(
+				Expect(racks.Dependents(ctx, db, 1)).To(ConsistOf(
 					gorp.Target{Table: "device", Key: "a"},
 					gorp.Target{Table: "status", Key: "s"},
 				))
@@ -547,7 +547,7 @@ var _ = Describe("Reference", func() {
 
 		It("Should return nothing for a target no entry holds", func(ctx SpecContext) {
 			createRack(ctx, 1)
-			Expect(racks.Dependents(db, 1)).To(BeEmpty())
+			Expect(racks.Dependents(ctx, db, 1)).To(BeEmpty())
 		})
 
 		It("Should see writes staged in the same transaction", func(ctx SpecContext) {
@@ -557,8 +557,8 @@ var _ = Describe("Reference", func() {
 			Expect(devices.NewDelete().
 				Where(gorp.MatchKeys[string, refDevice]("a")).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(racks.Dependents(tx, 1)).To(BeEmpty())
-			Expect(racks.Dependents(db, 1)).To(HaveLen(1))
+			Expect(racks.Dependents(ctx, tx, 1)).To(BeEmpty())
+			Expect(racks.Dependents(ctx, db, 1)).To(HaveLen(1))
 		})
 	})
 
@@ -688,7 +688,7 @@ var _ = Describe("Reference", func() {
 					Entry(&d).
 					Exec(ctx, db)).To(Succeed())
 				Expect(d.Labels).To(Equal([]string{"l2"}))
-				keys := MustSucceed(deviceRef.labels.Get(nil, "l1"))
+				keys := MustSucceed(deviceRef.labels.Get(ctx, nil, "l1"))
 				Expect(keys).To(BeEmpty())
 			},
 		)
@@ -777,6 +777,31 @@ var _ = Describe("Reference", func() {
 			},
 		)
 
+		It(
+			"Should end a probe that waits for the index when its context ends",
+			func(ctx SpecContext) {
+				kvs := &blockingDB{DB: memkv.New(), release: make(chan struct{})}
+				db = DeferClose(gorp.Wrap(kvs, gorp.WithCodec(msgpack.Codec)))
+				racks = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[uint32, refRack]{
+					DB:   db,
+					Name: "rack",
+				}))
+				deviceRef = newDeviceRefs()
+				MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, refDevice]{
+					DB:         db,
+					Name:       "device",
+					References: deviceRef.all(),
+				}))
+				DeferCleanup(func() { close(kvs.release) })
+				canceled, cancel := context.WithCancel(ctx)
+				cancel()
+				Expect(deviceRef.rack.Get(canceled, nil, 1)).Error().
+					To(MatchError(context.Canceled))
+				Expect(racks.Dependents(canceled, db, 1)).Error().
+					To(MatchError(context.Canceled))
+			},
+		)
+
 		Describe("Failure", func() {
 			BeforeEach(func(ctx SpecContext) {
 				kvs := DeferClose(memkv.New())
@@ -805,10 +830,10 @@ var _ = Describe("Reference", func() {
 				}))
 			})
 
-			It("Should fail a probe of the reference", func() {
-				Expect(deviceRef.rack.Get(nil, 1)).Error().
+			It("Should fail a probe of the reference", func(ctx SpecContext) {
+				Expect(deviceRef.rack.Get(ctx, nil, 1)).Error().
 					To(MatchError(gorp.ErrIndexInvalid))
-				Expect(racks.Dependents(db, 1)).Error().
+				Expect(racks.Dependents(ctx, db, 1)).Error().
 					To(MatchError(gorp.ErrIndexInvalid))
 			})
 

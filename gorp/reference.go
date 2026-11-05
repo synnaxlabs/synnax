@@ -325,12 +325,14 @@ func (r *reference[K, E, T]) detachTarget(e *E, target Target) bool {
 }
 
 // Get returns the keys of the entries that hold any of targets, with the changes
-// staged against tx applied. Pass a nil tx to skip staged changes. Get includes the
-// keys of a commit in flight, which can fail, so check each key against storage. Get
-// blocks until the index has finished populating, and returns ErrIndexInvalid if
-// population failed.
-func (r *reference[K, E, T]) Get(tx Tx, targets ...T) ([]K, error) {
-	return probe(r.store, tx, targets)
+// staged against tx applied. Pass a nil tx to skip staged changes. See LookupIndex.Get
+// for its contract.
+func (r *reference[K, E, T]) Get(
+	ctx context.Context,
+	tx Tx,
+	targets ...T,
+) ([]K, error) {
+	return probe(ctx, r.store, tx, targets)
 }
 
 // Filter returns a Filter matching entries that hold any of targets. It sees the
@@ -344,12 +346,16 @@ func (r *reference[K, E, T]) Filter(targets ...T) Filter[K, E] {
 }
 
 // dependents implements registeredReference.
-func (r *reference[K, E, T]) dependents(tx Tx, target Target) ([]string, error) {
+func (r *reference[K, E, T]) dependents(
+	ctx context.Context,
+	tx Tx,
+	target Target,
+) ([]string, error) {
 	t, ok := r.parse(target)
 	if !ok {
 		return nil, nil
 	}
-	keys, err := r.store.Get(scopeOf(tx), t)
+	keys, err := probe(ctx, r.store, tx, []T{t})
 	if err != nil {
 		return nil, err
 	}
@@ -400,7 +406,7 @@ func (r *reference[K, E, T]) check(
 		}
 	}
 	if r.unique {
-		if err := r.checkUnique(tx, t.name, e, held); err != nil {
+		if err := r.checkUnique(ctx, tx, t.name, e, held); err != nil {
 			return err
 		}
 	}
@@ -410,10 +416,16 @@ func (r *reference[K, E, T]) check(
 	return nil
 }
 
-func (r *reference[K, E, T]) checkUnique(tx Tx, table string, e *E, held []T) error {
+func (r *reference[K, E, T]) checkUnique(
+	ctx context.Context,
+	tx Tx,
+	table string,
+	e *E,
+	held []T,
+) error {
 	self := (*e).GorpKey()
 	for _, v := range held {
-		holders, err := probe(r.store, tx, []T{v})
+		holders, err := probe(ctx, r.store, tx, []T{v})
 		if err != nil {
 			return err
 		}

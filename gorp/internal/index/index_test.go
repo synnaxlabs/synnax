@@ -98,6 +98,17 @@ var _ = Describe("Index", func() {
 					Expect(e.Wait(ctx)).To(MatchError(context.Canceled))
 				})
 
+				It("Should return the load result from Wait after ctx ends", func() {
+					e := newEngine()
+					_, finish := e.Populate()
+					finish(errLoad)
+					ctx, cancel := context.WithCancel(context.Background())
+					cancel()
+					for range 20 {
+						Expect(e.Wait(ctx)).To(MatchError(errLoad))
+					}
+				})
+
 				It(
 					"Should return the load error from every read",
 					func(ctx SpecContext) {

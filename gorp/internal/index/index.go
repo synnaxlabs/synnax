@@ -57,7 +57,14 @@ func (p *population) finish(err error) {
 	close(p.done)
 }
 
+// wait returns the load's error once the load finishes, or ctx.Err() if ctx ends first.
+// A finished load wins over an ended ctx.
 func (p *population) wait(ctx context.Context) error {
+	select {
+	case <-p.done:
+		return p.err
+	default:
+	}
 	select {
 	case <-p.done:
 		return p.err
