@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -47,3 +48,25 @@ var ontologyDropMigration = migrate.New(
 		return gorp.WrapWriter[group.Key, group.Group](tx).Delete(ctx, builtin...)
 	},
 )
+
+// ontologyChannelNames are the internal channels the Core announced ontology changes
+// on.
+var ontologyChannelNames = []string{
+	"sy_ontology_resource_set",
+	"sy_ontology_resource_delete",
+	"sy_ontology_relationship_set",
+	"sy_ontology_relationship_delete",
+}
+
+// deleteOntologyChannels deletes the ontology channels an upgraded store still holds.
+// It
+// does nothing when none exist.
+func deleteOntologyChannels(
+	ctx context.Context,
+	db *gorp.DB,
+	ch *channel.Service,
+) error {
+	return db.WithTx(ctx, func(tx gorp.Tx) error {
+		return ch.NewWriter(tx).DeleteManyByNames(ctx, ontologyChannelNames, true)
+	})
+}

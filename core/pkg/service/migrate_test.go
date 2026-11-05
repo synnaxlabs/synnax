@@ -17,8 +17,10 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	groupv0 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v0"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
@@ -166,5 +168,50 @@ var _ = Describe("Ontology drop", func() {
 			Exists(ctx, nil)).To(BeTrue())
 		Expect(resources(ctx, node.DB)).To(HaveLen(1))
 		Expect(relationships(ctx, node.DB)).To(ConsistOf(rel))
+	})
+
+	Describe("Channels", func() {
+		names := []string{
+			"sy_ontology_resource_set",
+			"sy_ontology_resource_delete",
+			"sy_ontology_relationship_set",
+			"sy_ontology_relationship_delete",
+		}
+		retrieve := func(ctx SpecContext, l *service.Layer) []channel.Channel {
+			GinkgoHelper()
+			var chs []channel.Channel
+			Expect(l.Channel.NewRetrieve().
+				Where(channel.MatchNames(names...)).
+				Entries(&chs).
+				Exec(ctx, nil)).To(Succeed())
+			return chs
+		}
+
+		It(
+			"Should delete the ontology channels of an upgraded store",
+			func(ctx SpecContext) {
+				n := testutil.NewNode(ctx)
+				first := MustSucceed(svctestutil.OpenLayer(ctx, n))
+				chs := make([]channel.Channel, len(names))
+				for i, name := range names {
+					chs[i] = channel.Channel{
+						Name:        name,
+						DataType:    telem.StringT,
+						Virtual:     true,
+						Internal:    true,
+						Leaseholder: node.KeyFree,
+					}
+				}
+				Expect(first.Channel.NewWriter(nil).CreateMany(ctx, &chs)).To(Succeed())
+				Expect(retrieve(ctx, first)).To(HaveLen(len(names)))
+				Expect(first.Close()).To(Succeed())
+				second := MustSucceed(svctestutil.OpenLayer(ctx, n))
+				Expect(retrieve(ctx, second)).To(BeEmpty())
+				Expect(second.Close()).To(Succeed())
+				By("Opening again with no channels to delete")
+				Expect(retrieve(ctx, MustOpen(svctestutil.OpenLayer(ctx, n)))).
+					To(BeEmpty())
+			},
+		)
 	})
 })

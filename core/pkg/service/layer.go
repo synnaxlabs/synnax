@@ -831,6 +831,13 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, nil) {
 		return nil, err
 	}
+	if err = deleteOntologyChannels(
+		ctx,
+		cfg.Distribution.DB,
+		l.Channel,
+	); !ok(err, nil) {
+		return nil, err
+	}
 	arcFactory, err := arctask.NewFactory(arctask.FactoryConfig{
 		Instrumentation: cfg.Child("arc.task"),
 		DB:              cfg.Distribution.DB,
