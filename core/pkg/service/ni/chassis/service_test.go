@@ -185,26 +185,19 @@ var _ = Describe("Service", func() {
 			Expect(retrieve(ctx, c.Key).Serial).To(Equal(c.Serial))
 		})
 
-		It("Should reject a chassis without a name", func(ctx SpecContext) {
-			c := newChassis()
-			c.Name = ""
-			Expect(svc.NewWriter(tx).Create(ctx, &c)).
-				To(MatchError(ContainSubstring("name: required")))
-		})
-
-		It("Should reject a chassis without a resource name", func(ctx SpecContext) {
-			c := newChassis()
-			c.ResourceName = ""
-			Expect(svc.NewWriter(tx).Create(ctx, &c)).
-				To(MatchError(ContainSubstring("resource_name: required")))
-		})
-
-		It("Should reject a chassis without a model", func(ctx SpecContext) {
-			c := newChassis()
-			c.Model = ""
-			Expect(svc.NewWriter(tx).Create(ctx, &c)).
-				To(MatchError(ContainSubstring("model: required")))
-		})
+		DescribeTable("Should reject a chassis without a required field",
+			func(ctx SpecContext, field string, clear func(*chassis.Chassis)) {
+				c := newChassis()
+				clear(&c)
+				Expect(svc.NewWriter(tx).Create(ctx, &c)).
+					To(MatchError(ContainSubstring(field + ": required")))
+			},
+			Entry("name", "name", func(c *chassis.Chassis) { c.Name = "" }),
+			Entry("resource name", "resource_name", func(c *chassis.Chassis) {
+				c.ResourceName = ""
+			}),
+			Entry("model", "model", func(c *chassis.Chassis) { c.Model = "" }),
+		)
 
 		It("Should store a simulated chassis without a serial", func(ctx SpecContext) {
 			c := newChassis()
