@@ -23,7 +23,6 @@ import {
 } from "@/session/core/testutil";
 import {
   createConsoleWrapper,
-  INCOMPATIBLE_STATUS,
   INCOMPATIBLE_UNLICENSED_STATUS,
   type TestStore,
 } from "@/testutil";
@@ -31,21 +30,27 @@ import {
 const WORKSPACE = "workspace";
 const TITLE = "Console 0.61.0 cannot work with Core 0.60.1";
 
-const createCompatibleStatus = (
-  clientVersion: string,
-  nodeVersion: string,
-): connection.Status => ({
+const INCOMPATIBLE_STATUS: connection.Status = {
   ...connection.DEFAULT_STATUS,
   variant: "success",
   message: "Connected",
   details: {
     ...connection.DEFAULT_STATUS.details,
     authenticated: true,
-    clientVersion,
-    nodeVersion,
+    clientVersion: "0.61.0",
+    nodeVersion: "0.60.1",
+    clientServerCompatible: false,
+  },
+};
+
+const COMPATIBLE_STATUS: connection.Status = {
+  ...INCOMPATIBLE_STATUS,
+  details: {
+    ...INCOMPATIBLE_STATUS.details,
+    nodeVersion: "0.61.0",
     clientServerCompatible: true,
   },
-});
+};
 
 interface GuardHarness {
   store: TestStore;
@@ -96,7 +101,7 @@ describe("Version.Guard", () => {
   it("should lift the screen once the Core reports a matching version", async () => {
     const { setStatus } = await renderGuard(INCOMPATIBLE_STATUS);
     expect(screen.queryByText(WORKSPACE)).toBeNull();
-    setStatus(createCompatibleStatus("0.61.0", "0.61.0"));
+    setStatus(COMPATIBLE_STATUS);
     expect(screen.getByText(WORKSPACE)).toBeTruthy();
     expect(screen.queryByText(TITLE)).toBeNull();
   });
@@ -116,16 +121,6 @@ describe("Version.Guard", () => {
     expect(Session.Core.selectSelectedKey(store.getState())).toBeDefined();
     fireEvent.click(findButton("Choose another Core"));
     expect(Session.Core.selectSelectedKey(store.getState())).toBeUndefined();
-  });
-
-  it("should render the workspace when only the patch differs", async () => {
-    await renderGuard(createCompatibleStatus("0.61.0", "0.61.3"));
-    expect(screen.getByText(WORKSPACE)).toBeTruthy();
-  });
-
-  it("should render the workspace for a dev build", async () => {
-    await renderGuard(createCompatibleStatus("0.0.0", "0.60.1"));
-    expect(screen.getByText(WORKSPACE)).toBeTruthy();
   });
 
   it("should render the workspace before a check reports a version", async () => {

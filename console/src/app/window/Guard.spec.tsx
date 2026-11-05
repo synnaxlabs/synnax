@@ -15,7 +15,6 @@ import { Guard } from "@/app/window/Guard";
 import { createCore, createCoreState } from "@/session/core/testutil";
 import {
   createStatusConsoleWrapper,
-  INCOMPATIBLE_STATUS,
   INCOMPATIBLE_UNLICENSED_STATUS,
   renderWithConsole,
   UNLICENSED_STATUS,
@@ -57,12 +56,6 @@ describe("app/window/Guard", () => {
   it("should show the activation screen when the Core is unlicensed", async () => {
     await renderCoreGuard(UNLICENSED_STATUS);
     expect(screen.getByRole("textbox", { name: "License key" })).toBeTruthy();
-    expect(screen.queryByText("workspace")).toBeNull();
-  });
-
-  it("should show the mismatch screen when the Core runs another minor", async () => {
-    await renderCoreGuard(INCOMPATIBLE_STATUS);
-    expect(screen.getByText(MISMATCH_TITLE)).toBeTruthy();
     expect(screen.queryByText("workspace")).toBeNull();
   });
 

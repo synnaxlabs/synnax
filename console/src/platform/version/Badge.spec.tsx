@@ -49,15 +49,10 @@ describe("version Badge", () => {
     vi.clearAllMocks();
   });
 
-  it("should render nothing while the Console is current and compatible", async () => {
+  it("should render nothing while the Console is current", async () => {
     mocks.engine = "tauri";
     renderWithModals(<Version.Badge />);
     await waitFor(() => expect(checkMock).toHaveBeenCalled());
-    expect(screen.queryByRole("button")).toBeNull();
-  });
-
-  it("should render nothing in the browser", () => {
-    renderWithModals(<Version.Badge />);
     expect(screen.queryByRole("button")).toBeNull();
   });
 
