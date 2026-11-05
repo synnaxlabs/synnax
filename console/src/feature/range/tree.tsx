@@ -150,7 +150,6 @@ const TreeItem = Tree.createItem({
   children: ({ client, id }) => [
     Tree.createSource(client.ranges, { parents: [id.key] }, toResource),
   ],
-  canDrop: () => true,
   haulItems,
   ContextMenu: TreeContextMenu,
 });
