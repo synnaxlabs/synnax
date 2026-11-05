@@ -30,6 +30,7 @@ import {
 import {
   INCOMPATIBLE_UNLICENSED_STATUS,
   mockLocationReload,
+  pinLocationOrigin,
   renderWithStatus,
   type StatusHarness,
 } from "@/testutil";
@@ -156,6 +157,7 @@ describe("Version.Guard", () => {
     });
 
     it("should reload the page when the Core changes to another minor version", async () => {
+      pinLocationOrigin(`http://${host}:${port}`);
       const reload = mockLocationReload();
       const { setStatus } = await renderGuard(COMPATIBLE_STATUS);
       expect(reload).not.toHaveBeenCalled();
@@ -163,6 +165,14 @@ describe("Version.Guard", () => {
       expect(reload).toHaveBeenCalledOnce();
       expect(screen.queryByText(TITLE)).toBeNull();
       expect(screen.queryByText(WORKSPACE)).toBeNull();
+    });
+
+    it("should show the mismatch screen when another Core served the page", async () => {
+      pinLocationOrigin(`http://${host}:${port + 1}`);
+      const reload = mockLocationReload();
+      await renderGuard(INCOMPATIBLE_STATUS);
+      expect(reload).not.toHaveBeenCalled();
+      expect(screen.getByText(TITLE)).toBeTruthy();
     });
   });
 });

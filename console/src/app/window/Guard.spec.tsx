@@ -16,7 +16,6 @@ import { createCore, createCoreState } from "@/session/core/testutil";
 import {
   createStatusConsoleWrapper,
   INCOMPATIBLE_UNLICENSED_STATUS,
-  mockLocationReload,
   renderWithConsole,
   UNLICENSED_STATUS,
 } from "@/testutil";
@@ -58,10 +57,11 @@ describe("app/window/Guard", () => {
     expect(screen.queryByText("workspace")).toBeNull();
   });
 
-  it("should reload on a version mismatch before the activation screen", async () => {
-    const reload = mockLocationReload();
+  it("should show the mismatch screen before the activation screen", async () => {
     await renderCoreGuard(INCOMPATIBLE_UNLICENSED_STATUS);
-    expect(reload).toHaveBeenCalledOnce();
+    expect(
+      screen.getByText("Console 0.61.0 cannot work with Core 0.60.1"),
+    ).toBeTruthy();
     expect(screen.queryByRole("textbox", { name: "License key" })).toBeNull();
   });
 });
