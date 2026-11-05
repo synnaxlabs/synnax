@@ -10,12 +10,12 @@
 package service_test
 
 import (
+	"strconv"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
@@ -26,19 +26,20 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	panelversions "github.com/synnaxlabs/synnax/pkg/service/panel/versions"
 	panelv0 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v0"
 	projectv0 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v0"
+	rangerv0 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
+	taskv0 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v0"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	userv0 "github.com/synnaxlabs/synnax/pkg/service/user/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
-	"go.uber.org/zap/zaptest/observer"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -79,31 +80,43 @@ var _ = Describe("Layer", func() {
 		))
 	})
 
-	It("Should migrate device parents and task ranges after ranges", func(
-		ctx SpecContext,
-	) {
-		core, logs := observer.New(zapcore.InfoLevel)
-		logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
-			ZapLogger: zap.New(core),
-		}))
-		MustOpen(svctestutil.OpenLayer(ctx, testutil.NewNode(ctx), service.LayerConfig{
-			Instrumentation: alamos.New("sy", alamos.WithLogger(logger)),
-		}))
-		lastRange, deviceParent, taskRange := -1, -1, -1
-		for i, e := range logs.FilterMessage("running migration").All() {
-			migration := e.ContextMap()["migration"]
-			switch {
-			case e.LoggerName == "ranger":
-				lastRange = i
-			case e.LoggerName == "device" && migration == "v61_device_parent":
-				deviceParent = i
-			case e.LoggerName == "task" && migration == "v61_task_range":
-				taskRange = i
-			}
+	It("Should put a stored snapshot in its stored range", func(ctx SpecContext) {
+		node := testutil.NewNode(ctx)
+		legacyDB := gorp.Wrap(node.DB.KV(), gorp.WithCodec(msgpack.Codec))
+		rng := rangerv0.Range{
+			Key:       uuid.New(),
+			Name:      "Range",
+			TimeRange: telem.TimeRange{Start: 1, End: 2},
 		}
-		Expect(lastRange).To(BeNumerically(">=", 0))
-		Expect(deviceParent).To(BeNumerically(">", lastRange))
-		Expect(taskRange).To(BeNumerically(">", lastRange))
+		Expect(gorp.WrapWriter[rangerv0.Key, rangerv0.Range](legacyDB).Set(ctx, rng)).
+			To(Succeed())
+		snap := taskv0.Task{
+			Key:      taskv0.Key(uint64(65537)<<32 | 1),
+			Name:     "Snapshot",
+			Type:     pagerduty.AlertTaskType,
+			Config:   msgpack.EncodedJSON{"routing_key": "rk"},
+			Snapshot: true,
+		}
+		Expect(gorp.WrapWriter[taskv0.Key, taskv0.Task](legacyDB).Set(ctx, snap)).
+			To(Succeed())
+		Expect(gorp.WrapWriter[string, ontology.Relationship](node.DB).Set(
+			ctx,
+			ontology.Relationship{
+				From: resource.ID{Type: resource.TypeRange, Key: rng.Key.String()},
+				Type: ontology.RelationshipTypeParentOf,
+				To: resource.ID{
+					Type: resource.TypeTask,
+					Key:  strconv.FormatUint(uint64(snap.Key), 10),
+				},
+			},
+		)).To(Succeed())
+		layer := MustOpen(svctestutil.OpenLayer(ctx, node))
+		var migrated task.Task
+		Expect(layer.Task.NewRetrieve().
+			Where(task.MatchNames("Snapshot")).
+			Entry(&migrated).
+			Exec(ctx, nil)).To(Succeed())
+		Expect(migrated.Range).To(HaveValue(Equal(rng.Key)))
 	})
 
 	It(

@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
+	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
@@ -58,9 +59,9 @@ var _ = Describe("RangeMigration", func() {
 		}
 		Expect(gorp.NewCreate[v2.Key, v2.Task]().Entries(&stored).Exec(ctx, db)).
 			To(Succeed())
-		resources := []ontology.Resource{{ID: rangeID(rng)}}
-		Expect(gorp.NewCreate[string, ontology.Resource]().
-			Entries(&resources).
+		ranges := []ranger.Range{{Key: rng, Name: "Range"}}
+		Expect(gorp.NewCreate[ranger.Key, ranger.Range]().
+			Entries(&ranges).
 			Exec(ctx, db)).To(Succeed())
 		toRack = parentOf(rackID, onRack)
 		edges := []ontology.Relationship{
@@ -111,5 +112,29 @@ var _ = Describe("RangeMigration", func() {
 
 	It("Should delete every edge from a range or an Arc to a task", func() {
 		Expect(retained).To(ConsistOf(toRack))
+	})
+})
+
+var _ = Describe("RangeMigration with a corrupt range key", func() {
+	It("Should fail on a range key that does not parse", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		t := v2.Task{Key: uuid.New(), Name: "Snapshot", Snapshot: true}
+		Expect(gorp.NewCreate[v2.Key, v2.Task]().Entry(&t).Exec(ctx, db)).
+			To(Succeed())
+		edge := ontology.Relationship{
+			From: resource.ID{Type: resource.TypeRange, Key: "not-a-range"},
+			Type: ontology.RelationshipTypeParentOf,
+			To:   resource.ID{Type: resource.TypeTask, Key: t.Key.String()},
+		}
+		Expect(gorp.NewCreate[string, ontology.Relationship]().
+			Entry(&edge).
+			Exec(ctx, db)).To(Succeed())
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:         db,
+			Namespace:  "Task",
+			Migrations: []gorp.Migration{v3.Migration, v3.RangeMigration},
+		})).To(MatchError(ContainSubstring(
+			"migration v61_task_range failed: range of task " + t.Key.String(),
+		)))
 	})
 })

@@ -13,82 +13,50 @@ import (
 	"context"
 	"uuid"
 
-	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
+	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/errors"
 )
 
 // Migration moves each stored task to the v3 shape, which adds a range.
 var Migration = migrate.NewEntry("v61_task_add_range", autoMigrateTask)
 
-// RangeMigration sets the range of each stored task from the parent edge that points
-// at it from a range the ontology holds. It then deletes every parent edge into a task
-// from a range or an Arc.
-var RangeMigration = migrate.New("v61_task_range", migrateRanges)
+// RangeMigration sets the range of each stored task from the parent edge that points at
+// it from a stored range. It then deletes every parent edge into a task from a range or
+// an Arc. It reads ranges in their v2 shape, so it runs after the range migrations.
+var RangeMigration = ontology.NewFieldMigration(ontology.FieldConfig[Key, Task]{
+	Name: "v61_task_range",
+	Converts: func(rel ontology.Relationship) bool {
+		return rel.Type == ontology.RelationshipTypeParentOf &&
+			rel.To.Type == resource.TypeTask &&
+			(rel.From.Type == resource.TypeRange || rel.From.Type == resource.TypeArc)
+	},
+	Holder: func(rel ontology.Relationship) string { return rel.To.Key },
+	Set:    setRange,
+})
 
-func migrateRanges(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
-	edges, err := collectEntries(
-		ctx,
-		gorp.WrapReader[string, ontology.Relationship](tx),
-		func(r ontology.Relationship) bool {
-			return r.Type == ontology.RelationshipTypeParentOf &&
-				r.To.Type == resource.TypeTask &&
-				(r.From.Type == resource.TypeRange || r.From.Type == resource.TypeArc)
-		},
-	)
-	if err != nil || len(edges) == 0 {
-		return err
+func setRange(
+	ctx context.Context,
+	tx gorp.Tx,
+	t *Task,
+	rel ontology.Relationship,
+) (bool, error) {
+	if rel.From.Type != resource.TypeRange || t.Range != nil {
+		return false, nil
 	}
-	ranges, err := collectEntries(
-		ctx,
-		gorp.WrapReader[string, ontology.Resource](tx),
-		func(r ontology.Resource) bool { return r.ID.Type == resource.TypeRange },
-	)
+	key, err := uuid.Parse(rel.From.Key)
 	if err != nil {
-		return err
+		return false, errors.Wrapf(err, "range of task %s", t.Key)
 	}
-	held := set.New[string]()
-	for _, r := range ranges {
-		held.Add(r.ID.Key)
+	exists, err := gorp.NewRetrieve[ranger.Key, ranger.Range]().
+		Where(gorp.MatchKeys[ranger.Key, ranger.Range](key)).
+		Exists(ctx, tx)
+	if err != nil || !exists {
+		return false, err
 	}
-	rangeOf := make(map[Key]uuid.UUID, len(edges))
-	for _, e := range edges {
-		if e.From.Type != resource.TypeRange || !held.Contains(e.From.Key) {
-			continue
-		}
-		taskKey, err := uuid.Parse(e.To.Key)
-		if err != nil {
-			continue
-		}
-		rangeKey, err := uuid.Parse(e.From.Key)
-		if err != nil {
-			continue
-		}
-		if _, ok := rangeOf[taskKey]; !ok {
-			rangeOf[taskKey] = rangeKey
-		}
-	}
-	tasks, err := collectEntries(
-		ctx,
-		gorp.WrapReader[Key, Task](tx),
-		func(t Task) bool { _, ok := rangeOf[t.Key]; return ok },
-	)
-	if err != nil {
-		return err
-	}
-	for i := range tasks {
-		rng := rangeOf[tasks[i].Key]
-		tasks[i].Range = &rng
-	}
-	if err = gorp.WrapWriter[Key, Task](tx).Set(ctx, tasks...); err != nil {
-		return err
-	}
-	keys := make([]string, len(edges))
-	for i, e := range edges {
-		keys[i] = e.GorpKey()
-	}
-	return gorp.WrapWriter[string, ontology.Relationship](tx).Delete(ctx, keys...)
+	t.Range = &key
+	return true, nil
 }
