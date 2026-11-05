@@ -100,6 +100,12 @@ export const useHover = <K extends record.Key>({
   const { visible } = Dialog.useContext();
   const enabledRef = useSyncedRef<Triggers.Condition>(enableTriggers ?? visible);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  useEffect(
+    () => () => {
+      if (intervalRef.current != null) clearInterval(intervalRef.current);
+    },
+    [],
+  );
 
   const handleTrigger = ({ triggers, stage }: Triggers.UseEvent) => {
     if (!Triggers.resolveCondition(enabledRef.current)) return;

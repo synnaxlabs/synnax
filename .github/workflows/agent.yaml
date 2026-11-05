@@ -60,6 +60,19 @@ on:
       report:
         description: "The agent's final message, for output report"
         value: ${{ jobs.run.outputs.report }}
+    secrets:
+      CLAUDE_CODE_APP_ID:
+        required: false
+      CLAUDE_CODE_APP_PRIVATE_KEY:
+        required: false
+      CLAUDE_CODE_OAUTH_TOKEN:
+        required: false
+      CODEX_APP_ID:
+        required: false
+      CODEX_APP_PRIVATE_KEY:
+        required: false
+      SYNNAX_LICENSE_TOKEN:
+        required: false
 
 permissions:
   contents: read

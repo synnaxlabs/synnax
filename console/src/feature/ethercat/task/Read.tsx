@@ -14,7 +14,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { deep, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { useSlavesByKeys } from "@/feature/ethercat/device/queries";
+import { useResultSlave, useSlavesByKeys } from "@/feature/ethercat/device/queries";
 import {
   ReadChannelDetails,
   ReadDetailsTitle,
@@ -28,21 +28,22 @@ import {
   addressKey,
   createReadChannel,
   deployReadConfigZ,
-  getEntryChannelName,
+  entryAt,
   getPortLabel,
   hasEntry,
   READ_SCHEMAS,
   READ_TYPE,
   type ReadChannel,
+  readChannelName,
   type ReadSchemas,
 } from "@/feature/ethercat/task/types";
-import { Selector } from "@/platform/selector";
+import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const path = deep.path<Task.Values<ReadSchemas>>();
 
 const Properties = () => (
-  <Flex.Box x grow>
+  <Flex.Box x grow wrap>
     <Task.Fields.SampleRate />
     <Task.Fields.StreamRate />
   </Flex.Box>
@@ -52,6 +53,9 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const entry = path.config.channels[itemKey];
   const ch = PForm.useFieldValue(entry);
+  const { data: slave } = useResultSlave(
+    primitive.isZero(ch.device) ? null : { key: ch.device },
+  );
   return (
     <Task.Views.ListAndDetailsChannelItem
       {...props}
@@ -60,6 +64,14 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
       status={ch.type === "unresolved" ? "error" : undefined}
       path={entry}
       channel={ch.channel}
+      defaultName={
+        slave != null &&
+        hasEntry(ch) &&
+        entryAt(slave.properties.pdos.inputs, ch) != null
+          ? readChannelName(slave, ch)
+          : undefined
+      }
+      skipped={ch.disabled}
       hasTareButton={false}
       canTare={false}
       portMaxChars={10}
@@ -120,12 +132,9 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
 
     if (toCreate.length > 0) {
       modified = true;
-      const { identifier, pdos } = slave.properties;
       const created = await client.channels.create(
         toCreate.map((ch) => ({
-          name: primitive.isNonZero(ch.name)
-            ? ch.name
-            : getEntryChannelName(identifier, pdos.inputs, ch),
+          name: readChannelName(slave, ch),
           dataType: ch.dataType,
           index: slave.properties.readIndex,
         })),
@@ -159,9 +168,10 @@ export const useCreateRead = Task.createUseCreate({
   getInitialValues,
 });
 
-export const ReadSelectable = Selector.createSelectable({
+export const ReadSelectable: Selector.Selectable = {
   type: READ_TYPE,
   title: "EtherCAT read task",
+  label: "Read",
   icon: <Icon.Logo.EtherCAT />,
   useOnSelect: useCreateRead,
-});
+};

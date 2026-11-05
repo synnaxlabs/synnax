@@ -30,7 +30,11 @@ type TimeRange = v0.TimeRange
 
 // Window is a window of time: a rolling span that ends now, or a fixed range.
 type Window = v0.Window
+
+// WindowVariant is implemented by every Window variant.
 type WindowVariant = v0.WindowVariant
+
+// WindowType is the "variant" value that selects a variant of Window.
 type WindowType = v0.WindowType
 
 const (

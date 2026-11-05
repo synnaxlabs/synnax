@@ -14,7 +14,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type Tree } from "@synnaxlabs/lyra/tree";
-import { id, unique } from "@synnaxlabs/x";
+import { id, search, unique } from "@synnaxlabs/x";
 import pluralize from "pluralize";
 import { type ReactNode, useState } from "react";
 
@@ -305,7 +305,7 @@ export const TopicPicker = ({
   onChange,
   onAddByName,
 }: TopicPickerProps) => {
-  const [search, setSearch] = useState("");
+  const [term, setTerm] = useState("");
   const [scope, setScope] = useState("");
   const [scopeDraft, setScopeDraft] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
@@ -324,10 +324,8 @@ export const TopicPicker = ({
   const topics = listing?.topics ?? NO_TOPICS;
 
   const taken = takenBy(entries, topics, single);
-  const trimmed = search.trim();
-  const q = trimmed.toLowerCase();
-  const visible =
-    q === "" ? topics : topics.filter((t) => t.topic.toLowerCase().includes(q));
+  const trimmed = term.trim();
+  const visible = topics.filter((t) => search.matches(t.topic, trimmed));
   const folders = buildFolders(visible);
   const paths = byPath(folders);
   const nodes = toNodes(folders);
@@ -366,7 +364,9 @@ export const TopicPicker = ({
         onPick={handlePick}
         emptyContent={
           <Empty.Action
-            message={q === "" ? NOTHING_PUBLISHED : `No topic matches “${trimmed}”.`}
+            message={
+              trimmed === "" ? NOTHING_PUBLISHED : `No topic matches “${trimmed}”.`
+            }
             className={CSS.BE("mqtt-discover", "notice")}
           />
         }
@@ -412,8 +412,8 @@ export const TopicPicker = ({
       <Picker.Status status={statusText} loading={loading} onListen={listen} />
       <Picker.Side>
         <Input.Text
-          value={search}
-          onChange={setSearch}
+          value={term}
+          onChange={setTerm}
           size="small"
           placeholder="Search topics"
           startContent={<Icon.Search />}

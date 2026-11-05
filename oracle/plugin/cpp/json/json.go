@@ -31,6 +31,7 @@ import (
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var primitiveMapper = cppprimitives.Mapper()
@@ -396,7 +397,8 @@ func checkStructMapKey(
 		strings.HasPrefix(base, "uint") {
 		return nil
 	}
-	return errors.Newf(
+	return errors.Wrapf(
+		validate.ErrValidation,
 		"%s.%s: C++ cannot serialize a map of structs keyed by %s",
 		s.QualifiedName,
 		field.Name,
@@ -602,6 +604,13 @@ func (p *Plugin) parseExprForField(
 				}
 				if field.Optional {
 					wrapperType = fmt.Sprintf("std::optional<%s>", wrapperType)
+				} else if isEmptyDefault(field.Default) {
+					return fmt.Sprintf(
+						`parser.field<%s>("%s", %s{})`,
+						wrapperType,
+						jsonName,
+						wrapperType,
+					)
 				}
 				return fmt.Sprintf(`parser.field<%s>("%s")`, wrapperType, jsonName)
 			}
@@ -769,6 +778,14 @@ func (p *Plugin) parseExprForField(
 					jsonName,
 				)
 			}
+			if isEmptyDefault(field.Default) {
+				return fmt.Sprintf(
+					`parser.field<%s>("%s", %s{})`,
+					structType,
+					jsonName,
+					structType,
+				)
+			}
 			return fmt.Sprintf(`parser.field<%s>("%s")`, structType, jsonName)
 		}
 		if union, ok := dealiasUnion(typeRef, data.table); ok {
@@ -837,6 +854,14 @@ func (p *Plugin) parseExprForField(
 							jsonName,
 						)
 					}
+					if isEmptyDefault(field.Default) {
+						return fmt.Sprintf(
+							`parser.field<%s>("%s", %s{})`,
+							aliasType,
+							jsonName,
+							aliasType,
+						)
+					}
 					return fmt.Sprintf(`parser.field<%s>("%s")`, aliasType, jsonName)
 				}
 			}
@@ -897,8 +922,30 @@ func (p *Plugin) parseExprForField(
 				defaultVal,
 			)
 		}
+		if isEmptyDefault(field.Default) {
+			return fmt.Sprintf(
+				`parser.field<%s>("%s", %s{})`,
+				cppType,
+				jsonName,
+				cppType,
+			)
+		}
 	}
 	return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
+}
+
+// isEmptyDefault reports whether val is the empty composite default {} or [].
+func isEmptyDefault(val *resolution.ExpressionValue) bool {
+	if val == nil {
+		return false
+	}
+	switch val.Kind {
+	case resolution.ValueKindStruct:
+		return len(val.Fields) == 0
+	case resolution.ValueKindArray:
+		return len(val.Elements) == 0
+	}
+	return false
 }
 
 func (p *Plugin) toJSONExprForField(
@@ -964,9 +1011,11 @@ func (p *Plugin) toJSONExprForField(
 		// JSON object keys are strings, and obj[key] with an integer key indexes an
 		// array.
 		key := "key"
-		switch resolution.PrimitiveBase(mapRef.TypeArgs[0], data.table) {
-		case "string":
-		case "uuid":
+		switch base := resolution.PrimitiveBase(mapRef.TypeArgs[0], data.table); {
+		case mapRef.TypeArgs[0].IsTypeParam():
+			key = "x::json::map_key(key)"
+		case base == "string":
+		case base == "uuid":
 			key = "key.to_string()"
 		default:
 			data.AddSystem("string")

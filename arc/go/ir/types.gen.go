@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Handle is a reference to a specific parameter on a specific node in the dataflow
@@ -72,14 +73,19 @@ const (
 	LivenessGated
 )
 
+// TargetType is the "type" value that selects a variant of Target.
 type TargetType string
 
 const (
-	ExitTargetType  TargetType = "exit"
-	StepTargetType  TargetType = "step"
+	// ExitTargetType leaves the scope and yields to its parent.
+	ExitTargetType TargetType = "exit"
+	// StepTargetType activates a sibling step of the same scope.
+	StepTargetType TargetType = "step"
+	// ScopeTargetType leaves the scope, then activates a top-level scope.
 	ScopeTargetType TargetType = "scope"
 )
 
+// TargetVariant is implemented by every Target variant.
 type TargetVariant interface {
 	isTargetVariant()
 }
@@ -184,7 +190,11 @@ func (u *Target) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.ScopeTarget
 	default:
-		return errors.Newf("Target: unknown type %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Target: unknown type %q",
+			disc.Type,
+		)
 	}
 	return nil
 }
