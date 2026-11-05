@@ -160,8 +160,9 @@ var _ = Describe("Edge task", func() {
 			})
 			return 0
 		}
-		var seen telem.TimeStamp
+		var seen, last telem.TimeStamp
 		stream(ctx, idx, ch, series, func(g Gomega, written []telem.TimeStamp) {
+			last = written[len(written)-1]
 			for _, stamp := range written {
 				if len(host.dataAt(stamp)) > 0 {
 					seen = stamp
@@ -170,6 +171,10 @@ var _ = Describe("Edge task", func() {
 			}
 			g.Expect(written).To(BeEmpty(), "no NDATA for a written stamp yet")
 		})
+		// A publish that races a dropped connection can block the task for the full
+		// operation timeout, so no attempt may stay in flight.
+		Eventually(func() []hostMessage { return host.dataAt(last) }).
+			ShouldNot(BeEmpty())
 		return seen
 	}
 
@@ -803,6 +808,7 @@ var _ = Describe("Edge task", func() {
 				idx, data := createIndexed(ctx, telem.Float64T)
 				_, t := start(ctx, edgeConfig(dev, edgeTag("temp", data[0], "double")))
 				streamValue(ctx, idx, data[0], telem.NewSeriesV(1.5))
+				broker.refusing.Store(true)
 				broker.dropClients()
 				Eventually(host.deaths).Should(HaveLen(1))
 				death := host.deaths()[0]
@@ -810,6 +816,7 @@ var _ = Describe("Edge task", func() {
 				Expect(death.retained).To(BeFalse())
 				Expect(death.bdSeq()).To(Equal(uint64(0)))
 				expectStatus(ctx, t, status.VariantWarning, "broker is not connected")
+				broker.refusing.Store(false)
 				Eventually(host.births, 10*time.Second).Should(HaveLen(2))
 				birth := host.births()[1]
 				Expect(birth.bdSeq()).To(Equal(uint64(1)))
