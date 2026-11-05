@@ -31,17 +31,6 @@ func (a Arc) OntologyID() ontology.ID {
 	return ontology.ID{Type: ontology.ResourceTypeArc, Key: a.Base().Key.String()}
 }
 
-// Type returns the type of the Arc's variant, or an empty type for an Arc without one.
-func (a Arc) Type() Type {
-	switch a.Variant.(type) {
-	case AutomationArc:
-		return TypeAutomation
-	case ModuleArc:
-		return TypeModule
-	}
-	return ""
-}
-
 // fileTypePrefix precedes the Arc's type in the type header of its file.
 const fileTypePrefix = "arc-"
 

@@ -12,6 +12,7 @@ package domain_test
 import (
 	"context"
 	"slices"
+	"sync"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -72,6 +73,101 @@ var _ = Describe("Index Persist", Ordered, func() {
 			})
 			AfterEach(func() {
 				Expect(db.Close()).To(Succeed())
+			})
+
+			Describe("Concurrent writers", func() {
+				It("Should persist every domain", func(ctx SpecContext) {
+					const (
+						workers = 8
+						commits = 128
+					)
+					var wg sync.WaitGroup
+					for w := range workers {
+						wg.Go(func() {
+							defer GinkgoRecover()
+							for c := range commits {
+								start := telem.TimeStamp(c*workers+w+1) * telem.SecondTS
+								w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
+									Start:            start,
+									End:              start + 1,
+									EnableAutoCommit: new(false),
+								}))
+								MustSucceed(w.Write([]byte{1}))
+								Expect(w.Commit(ctx, start+1)).To(Succeed())
+								Expect(w.Close()).To(Succeed())
+							}
+						})
+					}
+					wg.Wait()
+					Expect(db.Close()).To(Succeed())
+					db = MustSucceed(domain.Open(domain.Config{
+						FS:              fs,
+						FileSize:        5 * telem.Byte,
+						GCThreshold:     0,
+						Instrumentation: PanicLogger(),
+					}))
+					Expect(MustSucceed(
+						testutil.ReadDomain(ctx, db, telem.TimeRangeMax),
+					)).To(HaveLen(workers * commits))
+				})
+
+				It(
+					"Should run writes in the order they prepare",
+					func(ctx SpecContext) {
+						entered := make(chan struct{}, 1)
+						released, release := context.WithTimeout(ctx, 10*time.Second)
+						DeferCleanup(release)
+						cfg := domain.Config{
+							FS:              openFS(),
+							FileSize:        5 * telem.Byte,
+							GCThreshold:     0,
+							Instrumentation: PanicLogger(),
+						}
+						cfg.OnHistoryChange = func(context.Context, telem.TimeRange) {
+							defer GinkgoRecover()
+							entered <- struct{}{}
+							Eventually(
+								released.Done(),
+								10*time.Second,
+							).Should(BeClosed())
+						}
+						ordered := MustOpen(domain.Open(cfg))
+						write := func(start telem.TimeStamp) error {
+							w, err := ordered.OpenWriter(ctx, domain.WriterConfig{
+								Start:            start,
+								End:              start + 1,
+								EnableAutoCommit: new(false),
+							})
+							if err != nil {
+								return err
+							}
+							if _, err = w.Write([]byte{1}); err != nil {
+								return err
+							}
+							if err = w.Commit(ctx, start+1); err != nil {
+								return err
+							}
+							return w.Close()
+						}
+						Expect(write(20 * telem.SecondTS)).To(Succeed())
+
+						older, newer := make(chan error, 1), make(chan error, 1)
+						go func() { older <- write(10 * telem.SecondTS) }()
+						Eventually(entered).Should(Receive())
+						go func() { newer <- write(30 * telem.SecondTS) }()
+						Consistently(newer, 50*time.Millisecond).ShouldNot(Receive())
+						release()
+						Eventually(older).Should(Receive(BeNil()))
+						Eventually(newer).Should(Receive(BeNil()))
+
+						Expect(ordered.Close()).To(Succeed())
+						cfg.OnHistoryChange = nil
+						ordered = MustOpen(domain.Open(cfg))
+						Expect(MustSucceed(
+							testutil.ReadDomain(ctx, ordered, telem.TimeRangeMax),
+						)).To(HaveLen(3))
+					},
+				)
 			})
 
 			Describe("Happy path", func() {

@@ -120,6 +120,35 @@ var _ = Describe("Fields", func() {
 		omit.Fields(table, "ts", "cpp")
 		Expect(names(table)).To(Equal([]string{"key", "hash", "secret"}))
 	})
+
+	Describe("Filter lines", func() {
+		where := &resolution.Table{Types: []resolution.Type{{
+			QualifiedName: "auth.Where",
+			Form: resolution.StructForm{Fields: []resolution.Field{
+				field("key"), field("flag", "cpp"),
+			}},
+			Filter: &resolution.Filter{
+				Lines: []resolution.Field{field("key"), field("flag", "cpp")},
+			},
+		}}}
+		lines := func(t *resolution.Table) []string {
+			lines := t.MustGet("auth.Where").Filter.Lines
+			names := make([]string, len(lines))
+			for i, l := range lines {
+				names[i] = l.Name
+			}
+			return names
+		}
+
+		It("Should drop the lines of omitted fields", func() {
+			Expect(lines(omit.Fields(where, "cpp"))).To(Equal([]string{"key"}))
+		})
+
+		It("Should not modify the filter of the source table", func() {
+			omit.Fields(where, "cpp")
+			Expect(lines(where)).To(Equal([]string{"key", "flag"}))
+		})
+	})
 })
 
 var _ = Describe("IsField", func() {

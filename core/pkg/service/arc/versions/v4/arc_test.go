@@ -44,17 +44,6 @@ var _ = Describe("Arc", func() {
 		})
 	})
 
-	Describe("Type", func() {
-		It("Should return the type of each variant", func() {
-			Expect(automation.Type()).To(Equal(v4.TypeAutomation))
-			Expect(module.Type()).To(Equal(v4.TypeModule))
-		})
-
-		It("Should return no type for an Arc without a variant", func() {
-			Expect(v4.Arc{}.Type()).To(BeEmpty())
-		})
-	})
-
 	Describe("ExportBody", func() {
 		It("Should carry the Arc's type as the file type header", func() {
 			var body map[string]any

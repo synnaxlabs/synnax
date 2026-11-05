@@ -99,6 +99,10 @@ func (r *renderer) linef(format string, args ...any) {
 }
 
 func (r *renderer) renderType(t resolution.Type) {
+	if t.Filter != nil {
+		r.renderFilter(t, *t.Filter)
+		return
+	}
 	switch f := t.Form.(type) {
 	case resolution.StructForm:
 		r.renderStruct(t, f)
@@ -168,6 +172,45 @@ func (r *renderer) renderExtraBodyBlocks(typeName string) {
 	}
 }
 
+// renderFilter renders a filter definition from its lines, not from the struct it
+// expands into.
+func (r *renderer) renderFilter(t resolution.Type, f resolution.Filter) {
+	// Analysis fills in the defaulted type arguments of a generic target, but the
+	// grammar takes only a plain reference.
+	target := resolution.TypeRef{Name: f.Target.Name}
+	r.line(t.Name + " filter " + r.ref(target) + " {")
+	r.indent++
+	for _, l := range f.Lines {
+		head := l.Name
+		if l.HasType() {
+			head += " " + r.ref(l.Type)
+		}
+		r.renderMember(head, append(
+			r.keptExpressions(l.Domains),
+			r.extraFieldLines(t.Name, l.Name)...,
+		))
+	}
+	r.renderDomains(t.Domains, r.extraTypeLines(t.Name))
+	r.indent--
+	r.line("}")
+}
+
+// renderMember renders a member's head line, with a domain body when exprs is not
+// empty.
+func (r *renderer) renderMember(head string, exprs []string) {
+	if len(exprs) == 0 {
+		r.line(head)
+		return
+	}
+	r.line(head + " {")
+	r.indent++
+	for _, e := range exprs {
+		r.line(e)
+	}
+	r.indent--
+	r.line("}")
+}
+
 // renderOmissions writes the `-name` lines that drop inherited fields.
 func (r *renderer) renderOmissions(names []string) {
 	for _, name := range names {
@@ -186,21 +229,10 @@ func (r *renderer) renderField(typeName, keyPrefix string, f resolution.Field) {
 	if f.Default != nil {
 		head += " = " + r.value(*f.Default)
 	}
-	exprs := append(
+	r.renderMember(head, append(
 		r.keptExpressions(f.Domains),
 		r.extraFieldLines(typeName, keyPrefix+f.Name)...,
-	)
-	if len(exprs) == 0 {
-		r.line(head)
-		return
-	}
-	r.line(head + " {")
-	r.indent++
-	for _, e := range exprs {
-		r.line(e)
-	}
-	r.indent--
-	r.line("}")
+	))
 }
 
 func (r *renderer) renderEnum(t resolution.Type, f resolution.EnumForm) {

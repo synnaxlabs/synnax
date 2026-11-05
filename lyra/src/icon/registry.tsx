@@ -183,6 +183,7 @@ import {
 } from "react-icons/md";
 import {
   PiBinary,
+  PiBooks,
   PiCaretDown,
   PiCaretLeft,
   PiCaretRight,
@@ -494,6 +495,7 @@ export const Variable = wrapSVGIcon(TbVariable, "variable");
 export const Type = wrapSVGIcon(MdTypeSpecimen, "type");
 export const Array = wrapSVGIcon(MdDataArray, "array");
 export const Label = wrapSVGIcon(MdLabel, "label");
+export const Library = wrapSVGIcon(PiBooks, "library");
 export const Details = wrapSVGIcon(MdOutlineTableRows, "details");
 export const LinkExternal = wrapSVGIcon(BiLinkExternal, "link-external");
 export const Access = wrapSVGIcon(MdShield, "access");
@@ -691,6 +693,7 @@ const icons = {
   Type,
   Array,
   Label,
+  Library,
   Details,
   LinkExternal,
   Access,

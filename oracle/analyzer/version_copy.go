@@ -199,12 +199,6 @@ func omitRemovedFields(c *analysisCtx) {
 			union := c.table.MustGet(r.union)
 			bases = append(bases, union.Form.(resolution.UnionForm).Extends...)
 		}
-		if slices.ContainsFunc(bases, func(ref resolution.TypeRef) bool {
-			base, _, ok := resolution.Dealias(ref, c.table)
-			return ok && hasCircularInheritance(base, c.table, make(set.Set[string]))
-		}) {
-			return
-		}
 		for ancestor := range structAncestors(bases, c.table) {
 			if ar, ok := pending[ancestor]; ok {
 				apply(ar)

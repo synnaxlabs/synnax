@@ -20,7 +20,9 @@ type Key = versions.Key
 type Mode = versions.Mode
 
 const (
-	ModeText  Mode = versions.ModeText
+	// ModeText stores the module as Arc source text.
+	ModeText Mode = versions.ModeText
+	// ModeGraph stores the module as a visual dataflow graph.
 	ModeGraph Mode = versions.ModeGraph
 )
 
@@ -30,6 +32,8 @@ type Base = versions.Base
 // Arc is an Arc module combining visual graph representation and text-based source code
 // for reactive control systems. Compiles to WebAssembly for sandboxed execution.
 type Arc = versions.Arc
+
+// ArcVariant is implemented by every Arc variant.
 type ArcVariant = versions.ArcVariant
 
 // AutomationArc is an Arc that runs on a rack as a task.

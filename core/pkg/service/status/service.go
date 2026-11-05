@@ -77,11 +77,11 @@ func (c ServiceConfig) Validate() error {
 // mechanisms for creating, retrieving, updating, and deleting statuses. It also
 // provides mechanisms for listening to changes in statuses.
 type Service struct {
-	cfg    ServiceConfig
-	closer xio.MultiCloser
-	table  *gorp.Table[Key, Status[any]]
-	search *gorp.SearchIndex[Key, Status[any]]
-	group  group.Group
+	cfg     ServiceConfig
+	closer  xio.MultiCloser
+	table   *gorp.Table[Key, Status[any]]
+	indexes indexes
+	group   group.Group
 }
 
 // OpenService opens a new Service with the provided configuration. If error is nil, the
@@ -92,14 +92,14 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg, search: newSearchIndex()}
+	s = &Service{cfg: cfg, indexes: newIndexes()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(
 		ctx,
 		gorp.TableConfig[Key, Status[any]]{
 			DB:              cfg.DB,
-			Indexes:         []gorp.Index[Key, Status[any]]{s.search},
+			Indexes:         s.indexes.all(),
 			Instrumentation: cfg.Instrumentation,
 			Migrations:      versions.Migrations,
 		},
@@ -219,9 +219,9 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 // NewRetrieve opens a Retrieve query for statuses whose details are of type D.
 func (s *Service) NewRetrieve[D any]() Retrieve[D] {
 	return Retrieve[D]{
-		gorp:   gorp.NewRetrieve[Key, Status[D]](),
-		baseTX: s.cfg.DB,
-		search: s.search,
-		label:  s.cfg.Label,
+		gorp:    gorp.NewRetrieve[Key, Status[D]](),
+		baseTX:  s.cfg.DB,
+		indexes: s.indexes,
+		label:   s.cfg.Label,
 	}
 }

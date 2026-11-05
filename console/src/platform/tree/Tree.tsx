@@ -28,6 +28,7 @@ import { array, type destructor, type observe, unique } from "@synnaxlabs/x";
 import {
   type DragEvent,
   type FC,
+  type KeyboardEvent,
   type ReactElement,
   type ReactNode,
   useEffect,
@@ -35,6 +36,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { flushSync } from "react-dom";
 import { useStore } from "react-redux";
 
 import { ContextMenu } from "@/platform/context-menu";
@@ -72,7 +74,7 @@ import { type Action, type State } from "@/session/store";
 /** The resource types the tree sorts first and every search finds. */
 const FOLDER_TYPES = new Set<ontology.ResourceType>(["group", "arc_directory"]);
 
-interface InternalProps {
+interface InternalProps extends Pick<List.ScrollProps, "ref" | "onKeyDown"> {
   root: ontology.ID;
   emptyContent?: ReactNode;
   /** The menu for a right-click on empty space. */
@@ -260,6 +262,8 @@ const Internal = ({
   rootContextMenu: RootContextMenu = DefaultContextMenu,
   results,
   className,
+  ref,
+  onKeyDown,
 }: InternalProps): ReactElement => {
   const items = useItems();
   const resolveItem = (type: ontology.ResourceType): Item => items[type] ?? DefaultItem;
@@ -667,6 +671,8 @@ const Internal = ({
         className={className}
         pinned={pinned}
         onContextMenu={menuProps.open}
+        ref={ref}
+        onKeyDown={onKeyDown}
       >
         {itemRenderProp}
       </Base.Tree>
@@ -804,6 +810,9 @@ export const createSearch = ({
     const [open, setOpen] = useState(false);
     const [term, setTerm] = useState("");
     const [layout, setLayout] = useState<SearchLayout>("flat");
+    const fieldRef = useRef<HTMLInputElement>(null);
+    const resultsRef = useRef<HTMLDivElement>(null);
+    const treeRef = useRef<HTMLDivElement>(null);
     const searching = open && term.trim() !== "";
     const trimmed = useDebounced(term).trim();
     const sources = useMatches(
@@ -884,11 +893,18 @@ export const createSearch = ({
       answer,
       start: () => setOpen(true),
       close: () => {
-        setOpen(false);
-        setTerm("");
+        // A hidden tree cannot take the focus, so the close renders first.
+        flushSync(() => {
+          setOpen(false);
+          setTerm("");
+        });
+        treeRef.current?.focus({ preventScroll: true });
       },
       setTerm,
       setLayout,
+      fieldRef,
+      resultsRef,
+      treeRef,
     };
   };
   return useSearch;
@@ -905,14 +921,28 @@ const NoMatches = ({ noun, term }: NoMatchesProps): ReactElement => (
   </Text.Text>
 );
 
-interface ResultsProps {
+interface ResultsProps extends Pick<
+  Search,
+  "noun" | "layout" | "fieldRef" | "resultsRef"
+> {
   root: ontology.ID;
-  noun: string;
-  layout: SearchLayout;
   answer: SearchAnswer;
 }
 
-const Results = ({ root, noun, layout, answer }: ResultsProps): ReactElement => {
+const Results = ({
+  root,
+  noun,
+  layout,
+  answer,
+  fieldRef,
+  resultsRef,
+}: ResultsProps): ReactElement => {
+  // A second Escape, in the field, closes the search.
+  const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== "Escape" || e.target !== e.currentTarget) return;
+    e.stopPropagation();
+    fieldRef.current?.focus();
+  };
   if (answer.variant === "error")
     return (
       <Status.Summary
@@ -928,6 +958,8 @@ const Results = ({ root, noun, layout, answer }: ResultsProps): ReactElement => 
         key={layout}
         root={root}
         results={answer.results}
+        ref={resultsRef}
+        onKeyDown={handleKeyDown}
         emptyContent={<NoMatches noun={noun} term={answer.match.term} />}
       />
       {answer.more && (
@@ -965,10 +997,13 @@ export const Tree = ({
           noun={search.noun}
           layout={search.layout}
           answer={search.answer}
+          fieldRef={search.fieldRef}
+          resultsRef={search.resultsRef}
         />
       )}
       <Internal
         root={root}
+        ref={search?.treeRef}
         emptyContent={emptyContent}
         rootContextMenu={rootContextMenu}
         className={search?.answer != null ? CSS.BM("tree", "hidden") : undefined}

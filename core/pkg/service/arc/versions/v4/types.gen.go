@@ -30,7 +30,9 @@ type Key = v3.Key
 type Mode = v3.Mode
 
 const (
-	ModeText  Mode = v3.ModeText
+	// ModeText stores the module as Arc source text.
+	ModeText Mode = v3.ModeText
+	// ModeGraph stores the module as a visual dataflow graph.
 	ModeGraph Mode = v3.ModeGraph
 )
 
@@ -59,6 +61,7 @@ func (b Base) Validate() error {
 	return v.Error()
 }
 
+// ArcVariant is implemented by every Arc variant.
 type ArcVariant interface {
 	isArcVariant()
 }
@@ -160,9 +163,24 @@ func (u *Arc) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.ModuleArc
 	default:
-		return errors.Newf("Arc: unknown type %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Arc: unknown type %q",
+			disc.Type,
+		)
 	}
 	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u Arc) Type() Type {
+	switch u.Variant.(type) {
+	case AutomationArc:
+		return TypeAutomation
+	case ModuleArc:
+		return TypeModule
+	}
+	return ""
 }
 
 // Validate returns an error wrapping validate.ErrValidation if the active variant

@@ -28,8 +28,8 @@ inline Base Base::parse(x::json::Parser parser) {
         .key = parser.field<Key>("key", x::uuid::create()),
         .name = parser.field<std::string>("name"),
         .mode = parser.field<std::string>("mode"),
-        .graph = parser.field<::arc::graph::Graph>("graph"),
-        .text = parser.field<::arc::text::Text>("text"),
+        .graph = parser.field<::arc::graph::Graph>("graph", ::arc::graph::Graph{}),
+        .text = parser.field<::arc::text::Text>("text", ::arc::text::Text{}),
     };
 }
 
@@ -53,8 +53,7 @@ inline AutomationArc AutomationArc::parse(x::json::Parser parser) {
 
 inline x::json::json AutomationArc::to_json() const {
     x::json::json j = x::json::json::object();
-    for (auto &[k, v]: Base::to_json().items())
-        j[k] = v;
+    if (const auto parent = Base::to_json(); parent.is_object()) j.update(parent);
     if (this->program.has_value()) j["program"] = this->program->to_json();
     j["type"] = this->type;
     return j;
@@ -69,8 +68,7 @@ inline ModuleArc ModuleArc::parse(x::json::Parser parser) {
 
 inline x::json::json ModuleArc::to_json() const {
     x::json::json j = x::json::json::object();
-    for (auto &[k, v]: Base::to_json().items())
-        j[k] = v;
+    if (const auto parent = Base::to_json(); parent.is_object()) j.update(parent);
     j["type"] = this->type;
     return j;
 }

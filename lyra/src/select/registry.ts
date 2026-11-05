@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor, type record } from "@synnaxlabs/x";
+import { type destructor, type record, search } from "@synnaxlabs/x";
 import { useLayoutEffect, useReducer, useRef, useSyncExternalStore } from "react";
 
 import { context } from "@/context";
@@ -30,14 +30,12 @@ export interface ItemOptions {
   pinned?: boolean;
 }
 
-const matches = (text: string, term: string): boolean =>
-  term === "" || text.toLowerCase().includes(term.toLowerCase());
-
 const isHidden = (
   element: HTMLElement | null,
   { text, pinned = false }: ItemOptions,
   term: string,
-): boolean => !pinned && element != null && !matches(text ?? element.textContent, term);
+): boolean =>
+  !pinned && element != null && !search.matches(text ?? element.textContent, term);
 
 /**
  * Registry tracks the parts of a select that live outside its data: fixed items, the
