@@ -1757,6 +1757,32 @@ var _ = Describe("Control", func() {
 			Expect(g.PeekResource()).To(Equal(testResource{value: 2}))
 		})
 
+		It("Should let a waiting gate open the resource after a panic", func() {
+			var (
+				cfg       = gateCfg("panics", regionB, 1)
+				entered   = make(chan struct{})
+				proceed   = make(chan struct{})
+				recovered = make(chan any, 1)
+			)
+			cfg.OpenResource = func() (testResource, error) {
+				close(entered)
+				Eventually(proceed).Should(BeClosed())
+				panic("open failed")
+			}
+			go func() {
+				defer func() { recovered <- recover() }()
+				MustSucceed2(c.OpenGate(cfg))
+			}()
+			Eventually(entered).Should(BeClosed())
+			waiting := openAsync(gateCfg("waiting", regionB, 2))
+			Consistently(waiting, 50*time.Millisecond).ShouldNot(Receive())
+			close(proceed)
+			Eventually(recovered).Should(Receive(Equal("open failed")))
+			g, t := MustSucceed2(receive(waiting))
+			Expect(t.IsAcquire()).To(BeTrue())
+			Expect(g.PeekResource()).To(Equal(testResource{value: 2}))
+		})
+
 		It("Should fail a reach into the region", func() {
 			held, _ := MustSucceed2(c.OpenGate(gateCfg("held", regionA, 2)))
 			openBlocked(regionB, false)

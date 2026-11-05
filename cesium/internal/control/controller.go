@@ -292,23 +292,31 @@ func (c *Controller[R]) joinOrCreate(cfg GateConfig[R]) (
 }
 
 // finishOpening opens the resource of a region from joinOrCreate and its first gate. If
-// the resource fails to open, it removes the region.
+// the resource fails to open or panics, it removes the region.
 func (c *Controller[R]) finishOpening(
 	r *region[R],
 	cfg GateConfig[R],
 ) (g *Gate[R], t Transfer, err error) {
-	res, err := cfg.OpenResource()
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	opening := r.opening
-	r.opening = nil
-	defer close(opening)
-	if err != nil {
-		c.unsafeRemove(r)
-		return g, t, err
-	}
-	r.resource = res
-	return r.open(cfg)
+	var (
+		res    R
+		opened bool
+	)
+	defer func() {
+		c.mu.Lock()
+		defer c.mu.Unlock()
+		opening := r.opening
+		r.opening = nil
+		defer close(opening)
+		if !opened {
+			c.unsafeRemove(r)
+			return
+		}
+		r.resource = res
+		g, t, err = r.open(cfg)
+	}()
+	res, err = cfg.OpenResource()
+	opened = err == nil
+	return g, t, err
 }
 
 func (c *Controller[R]) moveStart(r *region[R], start telem.TimeStamp) error {
