@@ -1,0 +1,583 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { type record } from "@synnaxlabs/x";
+import { act, fireEvent, render, renderHook } from "@testing-library/react";
+import { type PropsWithChildren, type ReactElement, useState } from "react";
+import {
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  onTestFinished,
+  vi,
+} from "vitest";
+
+import { Dialog } from "@/dialog";
+import { List } from "@/list";
+import { Select } from "@/select";
+import { mockGeometry } from "@/testutil/dom";
+import { Triggers } from "@/triggers";
+
+const row = ({ key, ...rest }: List.ItemProps<string>): ReactElement => (
+  <Select.Item key={key} {...rest}>
+    {rest.itemKey}
+  </Select.Item>
+);
+
+describe("Select keyboard hover", () => {
+  const DATA = ["alpha", "bravo", "charlie"];
+
+  interface RenderHoverOptions {
+    initialHover?: number;
+    enableTriggers?: Triggers.Condition;
+    dialog?: boolean;
+  }
+
+  const renderHover = (
+    data: string[],
+    onSelect: (key: string) => void,
+    { initialHover, enableTriggers, dialog = true }: RenderHoverOptions = {},
+  ) => {
+    const wrapper = ({ children }: PropsWithChildren): ReactElement => {
+      const content = (
+        <Triggers.Provider>
+          <Select.Frame
+            data={data}
+            onChange={(key: string) => onSelect(key)}
+            initialHover={initialHover}
+            enableTriggers={enableTriggers}
+          >
+            {children}
+            <List.Scroll>
+              <Select.Items<string>>{row}</Select.Items>
+            </List.Scroll>
+          </Select.Frame>
+        </Triggers.Provider>
+      );
+      return dialog ? <Dialog.Frame visible>{content}</Dialog.Frame> : content;
+    };
+    const { result, unmount } = renderHook(() => Select.useContext<string>(), {
+      wrapper,
+    });
+    return { hover: () => result.current.getState().hover, unmount };
+  };
+
+  const keyDown = (code: string): void => {
+    fireEvent.keyDown(window, { code });
+  };
+  const keyUp = (code: string): void => {
+    fireEvent.keyUp(window, { code });
+  };
+
+  it("should shift the hover position of the list when the down arrow is pressed", () => {
+    const { hover } = renderHover(DATA, vi.fn());
+    keyDown("ArrowDown");
+    expect(hover()).toBe("alpha");
+  });
+
+  it("should accept an initial hover value", () => {
+    const { hover } = renderHover(DATA, vi.fn(), { initialHover: 1 });
+    expect(hover()).toBe("bravo");
+  });
+
+  it("should shift the hover position of the list when the up arrow is pressed", () => {
+    const { hover } = renderHover(DATA, vi.fn(), { initialHover: 1 });
+    keyDown("ArrowUp");
+    expect(hover()).toBe("alpha");
+  });
+
+  it("should select the item when the enter key is pressed", () => {
+    const onSelect = vi.fn();
+    renderHover(DATA, onSelect, { initialHover: 1 });
+    keyDown("Enter");
+    expect(onSelect).toHaveBeenCalledWith("bravo");
+  });
+
+  it("should move the hover index to 0 when the initial hover is beyond the length of the list", () => {
+    const { hover } = renderHover(DATA, vi.fn(), { initialHover: 10 });
+    expect(hover()).toBe("alpha");
+  });
+
+  const tap = (code: string): void => {
+    keyDown(code);
+    keyUp(code);
+  };
+
+  it("should move the hover to the ends on Home and End", () => {
+    const { hover } = renderHover(DATA, vi.fn());
+    tap("End");
+    expect(hover()).toBe("charlie");
+    tap("Home");
+    expect(hover()).toBe("alpha");
+  });
+
+  it("should leave Home and End to a focused text field", () => {
+    const { hover } = renderHover(DATA, vi.fn(), { initialHover: 1 });
+    const input = document.createElement("input");
+    document.body.appendChild(input);
+    onTestFinished(() => input.remove());
+    fireEvent.keyDown(input, { code: "End" });
+    expect(hover()).toBe("bravo");
+  });
+
+  it("should wrap around on a new press at either end", () => {
+    const { hover } = renderHover(DATA, vi.fn(), { initialHover: 2 });
+    tap("ArrowDown");
+    expect(hover()).toBe("alpha");
+    tap("ArrowUp");
+    expect(hover()).toBe("charlie");
+  });
+
+  describe("held key", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      onTestFinished(() => {
+        vi.useRealTimers();
+      });
+    });
+
+    it("should repeat until the last option, then stop", () => {
+      const { hover } = renderHover(DATA, vi.fn());
+      keyDown("ArrowDown");
+      expect(hover()).toBe("alpha");
+      act(() => {
+        vi.advanceTimersByTime(300);
+      });
+      expect(hover()).toBe("bravo");
+      act(() => {
+        vi.advanceTimersByTime(100);
+      });
+      expect(hover()).toBe("charlie");
+      act(() => {
+        vi.advanceTimersByTime(200);
+      });
+      expect(hover()).toBe("charlie");
+    });
+
+    it("should stop repeating when the keys turn off before the release", () => {
+      let enabled = true;
+      const { hover } = renderHover(DATA, vi.fn(), {
+        dialog: false,
+        enableTriggers: () => enabled,
+      });
+      keyDown("ArrowDown");
+      enabled = false;
+      keyUp("ArrowDown");
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+      expect(hover()).toBe("alpha");
+    });
+
+    it("should stop repeating after it unmounts", () => {
+      const { hover, unmount } = renderHover(DATA, vi.fn());
+      keyDown("ArrowDown");
+      act(() => {
+        vi.advanceTimersByTime(300);
+      });
+      expect(hover()).toBe("bravo");
+      unmount();
+      expect(vi.getTimerCount()).toBe(0);
+    });
+  });
+
+  describe("pointer", () => {
+    const move = (key: string, clientX: number): void => {
+      const item = document.getElementById(key);
+      if (item == null) throw new Error(`no item ${key}`);
+      fireEvent.pointerMove(item, { pointerType: "mouse", clientX });
+    };
+
+    // The first move only sets the position that the next move leaves.
+    const point = (key: string): void => {
+      move(key, 1);
+      move(key, 2);
+    };
+
+    it("should move the hover onto the item under the pointer", () => {
+      const { hover } = renderHover(DATA, vi.fn(), { initialHover: 0 });
+      point("bravo");
+      expect(hover()).toBe("bravo");
+    });
+
+    it("should move the arrow keys on from the item under the pointer", () => {
+      const { hover } = renderHover(DATA, vi.fn());
+      point("bravo");
+      keyDown("ArrowDown");
+      expect(hover()).toBe("charlie");
+    });
+
+    it("should select the item under the pointer when the enter key is pressed", () => {
+      const onSelect = vi.fn();
+      renderHover(DATA, onSelect, { initialHover: 0 });
+      point("charlie");
+      keyDown("Enter");
+      expect(onSelect).toHaveBeenCalledWith("charlie");
+    });
+
+    it("should ignore the pointer while the keyboard triggers are off", () => {
+      const { hover } = renderHover(DATA, vi.fn(), { dialog: false });
+      point("bravo");
+      expect(hover()).toBeUndefined();
+    });
+
+    it("should not watch the pointer while the keyboard triggers are turned off", () => {
+      const listen = vi.spyOn(window, "addEventListener");
+      onTestFinished(() => listen.mockRestore());
+      renderHover(DATA, vi.fn(), { enableTriggers: false });
+      const events = listen.mock.calls.map(([type]) => type);
+      expect(events).not.toContain("pointermove");
+    });
+
+    it("should ignore the first move after the list opens", () => {
+      const { hover } = renderHover(DATA, vi.fn(), { initialHover: 0 });
+      move("bravo", 1);
+      expect(hover()).toBe("alpha");
+    });
+
+    it("should ignore a move that leaves the pointer in place", () => {
+      const { hover } = renderHover(DATA, vi.fn());
+      point("alpha");
+      keyDown("ArrowDown");
+      move("charlie", 2);
+      expect(hover()).toBe("bravo");
+    });
+  });
+
+  describe("enableTriggers", () => {
+    it("should ignore keyboard triggers outside a dialog by default", () => {
+      const onSelect = vi.fn();
+      const { hover } = renderHover(DATA, onSelect, {
+        initialHover: 0,
+        dialog: false,
+      });
+      keyDown("ArrowDown");
+      expect(hover()).toBe("alpha");
+      keyDown("Enter");
+      expect(onSelect).not.toHaveBeenCalled();
+    });
+
+    it("should answer keyboard triggers outside a dialog when enabled", () => {
+      const onSelect = vi.fn();
+      const { hover } = renderHover(DATA, onSelect, {
+        initialHover: 0,
+        dialog: false,
+        enableTriggers: true,
+      });
+      keyDown("ArrowDown");
+      keyUp("ArrowDown");
+      expect(hover()).toBe("bravo");
+      keyDown("Enter");
+      expect(onSelect).toHaveBeenCalledWith("bravo");
+    });
+
+    it("should resolve a condition getter when the trigger fires", () => {
+      let enabled = false;
+      const { hover } = renderHover(DATA, vi.fn(), {
+        initialHover: 0,
+        dialog: false,
+        enableTriggers: () => enabled,
+      });
+      keyDown("ArrowDown");
+      keyUp("ArrowDown");
+      expect(hover()).toBe("alpha");
+      enabled = true;
+      keyDown("ArrowDown");
+      expect(hover()).toBe("bravo");
+    });
+  });
+
+  describe("Enter", () => {
+    beforeAll(() => mockGeometry(100, 100));
+
+    const renderRows = (
+      data: string[],
+      onChange: (key: string) => void,
+      item: (props: List.ItemProps<string>) => ReactElement = row,
+      virtual = false,
+    ) =>
+      render(
+        <Triggers.Provider>
+          <Dialog.Frame visible>
+            <Select.Frame
+              data={data}
+              onChange={(key: string) => onChange(key)}
+              initialHover={0}
+              itemHeight={33}
+              virtual={virtual}
+            >
+              <List.Scroll>
+                <Select.Items<string>>{item}</Select.Items>
+              </List.Scroll>
+            </Select.Frame>
+          </Dialog.Frame>
+        </Triggers.Provider>,
+      );
+
+    const pressEnter = (): void => {
+      act(() => {
+        fireEvent.keyDown(window, { code: "Enter" });
+      });
+      act(() => {
+        fireEvent.keyUp(window, { code: "Enter" });
+      });
+    };
+
+    it("should run the hovered item's own onSelect and onClick", () => {
+      const onChange = vi.fn();
+      const onSelect = vi.fn();
+      const onClick = vi.fn();
+      renderRows(DATA, onChange, ({ key, ...rest }) => (
+        <Select.Item key={key} {...rest} onSelect={onSelect} onClick={onClick}>
+          {rest.itemKey}
+        </Select.Item>
+      ));
+      pressEnter();
+      expect(onSelect).toHaveBeenCalledTimes(1);
+      expect(onSelect.mock.calls[0][0]).toBe("alpha");
+      expect(onClick).toHaveBeenCalledTimes(1);
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("should not select a hovered item that prevents clicks", () => {
+      const onChange = vi.fn();
+      renderRows(DATA, onChange, ({ key, ...rest }) => (
+        <Select.Item key={key} {...rest} preventClick>
+          {rest.itemKey}
+        </Select.Item>
+      ));
+      pressEnter();
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("should not fetch more when only the pinned last row is mounted", () => {
+      const onFetchMore = vi.fn();
+      const data = Array.from({ length: 300 }, (_, i) => `${i}`);
+      const c = render(
+        <Triggers.Provider>
+          <Dialog.Frame visible>
+            <Select.Frame
+              data={data}
+              onChange={vi.fn()}
+              onFetchMore={onFetchMore}
+              initialHover={data.length - 1}
+              itemHeight={33}
+              virtual
+            >
+              <List.Scroll>
+                <Select.Items<string>>{row}</Select.Items>
+              </List.Scroll>
+            </Select.Frame>
+          </Dialog.Frame>
+        </Triggers.Provider>,
+      );
+      const scroller = c.container.querySelector<HTMLElement>(".lyra-list__scroll");
+      if (scroller == null) throw new Error("scroll container not found");
+      act(() => {
+        scroller.scrollTop = 33;
+        fireEvent.scroll(scroller);
+      });
+      expect(c.queryByText("299", { exact: true })).not.toBeNull();
+      const calls = onFetchMore.mock.calls.length;
+      act(() => {
+        scroller.scrollTop = 66;
+        fireEvent.scroll(scroller);
+      });
+      expect(onFetchMore).toHaveBeenCalledTimes(calls);
+    });
+
+    it("should fetch more when the hovered last item scrolls into view", () => {
+      const onFetchMore = vi.fn();
+      const data = Array.from({ length: 300 }, (_, i) => `${i}`);
+      const c = render(
+        <Triggers.Provider>
+          <Dialog.Frame visible>
+            <Select.Frame
+              data={data}
+              onChange={vi.fn()}
+              onFetchMore={onFetchMore}
+              initialHover={data.length - 1}
+              itemHeight={33}
+              virtual
+            >
+              <List.Scroll>
+                <Select.Items<string>>{row}</Select.Items>
+              </List.Scroll>
+            </Select.Frame>
+          </Dialog.Frame>
+        </Triggers.Provider>,
+      );
+      const scroller = c.container.querySelector<HTMLElement>(".lyra-list__scroll");
+      if (scroller == null) throw new Error("scroll container not found");
+      const calls = onFetchMore.mock.calls.length;
+      act(() => {
+        scroller.scrollTop = data.length * 33 - 100;
+        fireEvent.scroll(scroller);
+      });
+      expect(onFetchMore.mock.calls.length).toBeGreaterThan(calls);
+    });
+
+    it("should click an initial hover that starts out of view", () => {
+      const onChange = vi.fn();
+      const data = Array.from({ length: 300 }, (_, i) => `${i}`);
+      const c = render(
+        <Triggers.Provider>
+          <Dialog.Frame visible>
+            <Select.Frame
+              data={data}
+              onChange={(key: string) => onChange(key)}
+              initialHover={200}
+              itemHeight={33}
+              virtual
+            >
+              <List.Scroll>
+                <Select.Items<string>>{row}</Select.Items>
+              </List.Scroll>
+            </Select.Frame>
+          </Dialog.Frame>
+        </Triggers.Provider>,
+      );
+      expect(c.queryByText("199", { exact: true })).toBeNull();
+      pressEnter();
+      expect(onChange).toHaveBeenCalledTimes(1);
+      expect(onChange).toHaveBeenCalledWith("200");
+    });
+
+    it("should keep the hovered row mounted and click it after it scrolls out of view", () => {
+      const onChange = vi.fn();
+      const data = Array.from({ length: 300 }, (_, i) => `${i}`);
+      const c = renderRows(data, onChange, row, true);
+      const scroller = c.container.querySelector<HTMLElement>(".lyra-list__scroll");
+      if (scroller == null) throw new Error("scroll container not found");
+      act(() => {
+        scroller.scrollTop = 200 * 33;
+        fireEvent.scroll(scroller);
+      });
+      expect(c.queryByText("1", { exact: true })).toBeNull();
+      expect(c.queryByText("0", { exact: true })).not.toBeNull();
+      pressEnter();
+      expect(onChange).toHaveBeenCalledTimes(1);
+      expect(onChange).toHaveBeenCalledWith("0");
+    });
+  });
+});
+
+describe("Select.useCursor", () => {
+  const OPTIONS = ["alpha", "bravo"];
+  const getOrder = () => OPTIONS;
+  const subscribe = () => () => {};
+
+  it("should move a hover through options outside a list", () => {
+    const click = vi.fn();
+    const { result } = renderHook(
+      () =>
+        Select.useCursor({
+          order: { getOrder, subscribe, scrollTo: vi.fn(), click },
+          enableTriggers: true,
+        }),
+      { wrapper: Triggers.Provider },
+    );
+    fireEvent.keyDown(window, { code: "ArrowDown" });
+    fireEvent.keyUp(window, { code: "ArrowDown" });
+    expect(result.current.hover).toBe("alpha");
+    fireEvent.keyDown(window, { code: "Enter" });
+    expect(click).toHaveBeenCalledExactlyOnceWith("alpha");
+  });
+});
+
+describe("Select keyboard selection", () => {
+  const DATA = ["alpha", "bravo", "charlie"];
+
+  const KeyList = ({ onDoubleClick }: { onDoubleClick: (key: string) => void }) => {
+    const keyboard = Select.useKeyboard();
+    return (
+      <List.Scroll tabIndex={0} aria-label="options" {...keyboard}>
+        <Select.Items<string>>
+          {({ key, ...rest }) => (
+            <Select.Item
+              key={key}
+              {...rest}
+              onDoubleClick={() => onDoubleClick(rest.itemKey)}
+            >
+              {rest.itemKey}
+            </Select.Item>
+          )}
+        </Select.Items>
+      </List.Scroll>
+    );
+  };
+
+  const Component = ({ onDoubleClick }: { onDoubleClick: (key: string) => void }) => {
+    const [value, setValue] = useState<string | null>(null);
+    return (
+      <Triggers.Provider>
+        <Select.Frame<string, record.Keyed<string>>
+          data={DATA}
+          value={value ?? undefined}
+          onChange={setValue}
+          allowNone
+          cursor="selection"
+        >
+          <KeyList onDoubleClick={onDoubleClick} />
+        </Select.Frame>
+        <button onClick={() => setValue("bravo")}>Select bravo</button>
+      </Triggers.Provider>
+    );
+  };
+
+  const renderList = (onDoubleClick: (key: string) => void = vi.fn()) => {
+    const c = render(<Component onDoubleClick={onDoubleClick} />);
+    const list = c.getByLabelText("options");
+    const press = (code: string): void => {
+      fireEvent.keyDown(list, { code });
+      fireEvent.keyUp(list, { code });
+    };
+    const selected = (): string[] =>
+      c
+        .queryAllByRole("option", { selected: true })
+        .map(({ textContent }) => textContent ?? "");
+    const selectBravo = () => fireEvent.click(c.getByText("Select bravo"));
+    return { press, selected, selectBravo };
+  };
+
+  it("should move the selection with the keys of the focused list", () => {
+    const { press, selected } = renderList();
+    press("ArrowDown");
+    press("ArrowDown");
+    expect(selected()).toEqual(["bravo"]);
+    press("Home");
+    expect(selected()).toEqual(["alpha"]);
+  });
+
+  it("should leave the selection alone on keys pressed elsewhere in the window", () => {
+    const { selected } = renderList();
+    fireEvent.keyDown(window, { code: "ArrowDown" });
+    expect(selected()).toEqual([]);
+  });
+
+  it("should move on from a selection that changes without the keys", () => {
+    const { press, selected, selectBravo } = renderList();
+    press("ArrowDown");
+    selectBravo();
+    press("ArrowDown");
+    expect(selected()).toEqual(["charlie"]);
+  });
+
+  it("should double-click the selected item on Enter", () => {
+    const onDoubleClick = vi.fn();
+    const { press } = renderList(onDoubleClick);
+    press("Enter");
+    expect(onDoubleClick).not.toHaveBeenCalled();
+    press("ArrowDown");
+    press("Enter");
+    expect(onDoubleClick).toHaveBeenCalledExactlyOnceWith("alpha");
+  });
+});

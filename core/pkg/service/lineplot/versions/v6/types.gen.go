@@ -29,8 +29,10 @@ type Key = v5.Key
 type TickType = v5.TickType
 
 const (
+	// TickTypeLinear labels ticks with numeric values.
 	TickTypeLinear TickType = v5.TickTypeLinear
-	TickTypeTime   TickType = v5.TickTypeTime
+	// TickTypeTime labels ticks with timestamps.
+	TickTypeTime TickType = v5.TickTypeTime
 )
 
 // DownsampleMode selects how a line condenses samples that map to the same pixel.
@@ -45,7 +47,9 @@ const (
 type XAxisKey = v5.XAxisKey
 
 const (
+	// XAxisKeyX1 is the x-axis at the bottom of the plot.
 	XAxisKeyX1 XAxisKey = v5.XAxisKeyX1
+	// XAxisKeyX2 is the x-axis at the top of the plot.
 	XAxisKeyX2 XAxisKey = v5.XAxisKeyX2
 )
 
@@ -53,9 +57,13 @@ const (
 type YAxisKey = v5.YAxisKey
 
 const (
+	// YAxisKeyY1 is a y-axis on the left of the plot.
 	YAxisKeyY1 YAxisKey = v5.YAxisKeyY1
+	// YAxisKeyY2 is a y-axis on the right of the plot.
 	YAxisKeyY2 YAxisKey = v5.YAxisKeyY2
+	// YAxisKeyY3 is a second y-axis on the left of the plot.
 	YAxisKeyY3 YAxisKey = v5.YAxisKeyY3
+	// YAxisKeyY4 is a second y-axis on the right of the plot.
 	YAxisKeyY4 YAxisKey = v5.YAxisKeyY4
 )
 
@@ -63,11 +71,17 @@ const (
 type AxisKey = v5.AxisKey
 
 const (
+	// AxisKeyX1 is the x-axis at the bottom of the plot.
 	AxisKeyX1 AxisKey = v5.AxisKeyX1
+	// AxisKeyX2 is the x-axis at the top of the plot.
 	AxisKeyX2 AxisKey = v5.AxisKeyX2
+	// AxisKeyY1 is a y-axis on the left of the plot.
 	AxisKeyY1 AxisKey = v5.AxisKeyY1
+	// AxisKeyY2 is a y-axis on the right of the plot.
 	AxisKeyY2 AxisKey = v5.AxisKeyY2
+	// AxisKeyY3 is a second y-axis on the left of the plot.
 	AxisKeyY3 AxisKey = v5.AxisKeyY3
+	// AxisKeyY4 is a second y-axis on the right of the plot.
 	AxisKeyY4 AxisKey = v5.AxisKeyY4
 )
 

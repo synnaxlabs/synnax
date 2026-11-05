@@ -46,6 +46,7 @@ export const SelectSlave = ({ path }: SelectSlaveProps): ReactElement => {
       emptyContent="No EtherCAT slaves discovered"
       make={MAKE}
       model={SLAVE_MODEL}
+      icon={HARDWARE.icon}
       filter={filter}
       connect={{
         title: HARDWARE.title,

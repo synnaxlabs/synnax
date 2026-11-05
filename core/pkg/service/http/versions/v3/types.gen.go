@@ -25,14 +25,23 @@ import (
 type Method = v2.Method
 
 const (
-	MethodGet     Method = v2.MethodGet
-	MethodHead    Method = v2.MethodHead
-	MethodPost    Method = v2.MethodPost
-	MethodPut     Method = v2.MethodPut
-	MethodDelete  Method = v2.MethodDelete
-	MethodPatch   Method = v2.MethodPatch
+	// MethodGet reads a resource.
+	MethodGet Method = v2.MethodGet
+	// MethodHead reads the headers of a resource, with no body.
+	MethodHead Method = v2.MethodHead
+	// MethodPost submits data to a resource.
+	MethodPost Method = v2.MethodPost
+	// MethodPut replaces a resource.
+	MethodPut Method = v2.MethodPut
+	// MethodDelete removes a resource.
+	MethodDelete Method = v2.MethodDelete
+	// MethodPatch changes part of a resource.
+	MethodPatch Method = v2.MethodPatch
+	// MethodOptions asks which communication options a resource supports.
 	MethodOptions Method = v2.MethodOptions
-	MethodTrace   Method = v2.MethodTrace
+	// MethodTrace asks the server to echo the request it receives.
+	MethodTrace Method = v2.MethodTrace
+	// MethodConnect opens a tunnel to the server.
 	MethodConnect Method = v2.MethodConnect
 )
 
@@ -40,11 +49,16 @@ const (
 type TimeFormat = v2.TimeFormat
 
 const (
+	// TimeFormatISO8601 is an ISO 8601 string.
 	TimeFormatISO8601 TimeFormat = v2.TimeFormatISO8601
+	// TimeFormatUnixSec is a count of seconds since the Unix epoch.
 	TimeFormatUnixSec TimeFormat = v2.TimeFormatUnixSec
-	TimeFormatUnixMs  TimeFormat = v2.TimeFormatUnixMs
-	TimeFormatUnixUs  TimeFormat = v2.TimeFormatUnixUs
-	TimeFormatUnixNs  TimeFormat = v2.TimeFormatUnixNs
+	// TimeFormatUnixMs is a count of milliseconds since the Unix epoch.
+	TimeFormatUnixMs TimeFormat = v2.TimeFormatUnixMs
+	// TimeFormatUnixUs is a count of microseconds since the Unix epoch.
+	TimeFormatUnixUs TimeFormat = v2.TimeFormatUnixUs
+	// TimeFormatUnixNs is a count of nanoseconds since the Unix epoch.
+	TimeFormatUnixNs TimeFormat = v2.TimeFormatUnixNs
 )
 
 // Header is a single HTTP header sent with a request.
@@ -103,8 +117,11 @@ func (r ReadConfig) Validate() error {
 type JSONType = v2.JSONType
 
 const (
-	JSONTypeNumber  JSONType = v2.JSONTypeNumber
-	JSONTypeString  JSONType = v2.JSONTypeString
+	// JSONTypeNumber writes the value as a JSON number.
+	JSONTypeNumber JSONType = v2.JSONTypeNumber
+	// JSONTypeString writes the value as a JSON string.
+	JSONTypeString JSONType = v2.JSONTypeString
+	// JSONTypeBoolean writes the value as a JSON boolean.
 	JSONTypeBoolean JSONType = v2.JSONTypeBoolean
 )
 
@@ -112,7 +129,9 @@ const (
 type GeneratorType = v2.GeneratorType
 
 const (
-	GeneratorTypeUUID      GeneratorType = v2.GeneratorTypeUUID
+	// GeneratorTypeUUID produces a new UUID for each request.
+	GeneratorTypeUUID GeneratorType = v2.GeneratorTypeUUID
+	// GeneratorTypeTimestamp produces the time of the request.
 	GeneratorTypeTimestamp GeneratorType = v2.GeneratorTypeTimestamp
 )
 
