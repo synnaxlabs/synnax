@@ -112,6 +112,8 @@ export const edit = (id: string, options?: AsyncEditOptions): void => {
 
 const getInnerText = (el: HTMLElement): string => el.innerText.trim();
 
+const HIGH_SURROGATE = /[\uD800-\uDBFF]/;
+
 // Input lands before the caret, so the characters past the limit are the ones just
 // before it.
 const dropOverflow = (el: HTMLElement, maxLength: number): void => {
@@ -127,8 +129,11 @@ const dropOverflow = (el: HTMLElement, maxLength: number): void => {
     before.setEnd(selection.focusNode, selection.focusOffset);
     caret = before.toString().length;
   }
-  const kept = Math.max(caret - overflow, 0);
-  el.textContent = text.slice(0, kept) + text.slice(kept + overflow);
+  const end = Math.max(caret, overflow);
+  let kept = end - overflow;
+  // Keep a surrogate pair whole, or the cut leaves half of an emoji.
+  if (kept > 0 && HIGH_SURROGATE.test(text[kept - 1])) kept--;
+  el.textContent = text.slice(0, kept) + text.slice(end);
   if (el.firstChild != null) selection?.collapse(el.firstChild, kept);
 };
 

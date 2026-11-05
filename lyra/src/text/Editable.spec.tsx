@@ -89,6 +89,14 @@ describe("Editable", () => {
       expect(text.textContent).toBe("abc");
     });
 
+    it("should drop a whole emoji rather than half of one", () => {
+      const text = renderField(3);
+      text.textContent = "abc🚀";
+      window.getSelection()?.collapse(text.firstChild, 5);
+      fireEvent.input(text);
+      expect(text.textContent).toBe("abc");
+    });
+
     it("should keep the start of text pasted over the limit", () => {
       const text = renderField(3);
       text.textContent = "abcdefgh";
