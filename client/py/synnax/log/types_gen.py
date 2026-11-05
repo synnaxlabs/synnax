@@ -55,7 +55,7 @@ class ChannelEntry(BaseModel):
     color: color_.Color
     notation: notation_.Notation = "standard"
     precision: int | None = Field(default=None, ge=0, le=17)
-    alias: str = ""
+    alias: str = Field(max_length=64, default="")
     timestamp: TimestampConfig = Field(
         default_factory=lambda: TimestampConfig(format="preciseDate", tz="local")
     )

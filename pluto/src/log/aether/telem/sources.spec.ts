@@ -218,12 +218,12 @@ describe("StreamMultiChannelLog", () => {
     const [a] = core.data.map((c) => c.key);
     const statuses: cstatus.Crude[] = [];
     const client = connect(core, {
-      readLatest: async (keys, count, tr) => {
-        const frame = core.readLatest(keys, count, tr);
-        if (keys.includes(core.index.key) && !keys.includes(a))
-          return new framer.Frame();
-        return frame;
-      },
+      readLatest: async (keys, count, tr) =>
+        core.readLatest(
+          keys.filter((key) => key !== core.index.key),
+          count,
+          tr,
+        ),
     });
     const log = open(
       core,
@@ -344,15 +344,21 @@ describe("StreamMultiChannelLog", () => {
     let calls = 0;
     const client = connect(core, {
       readLatest: async (keys, count, tr) => {
-        // A failed read of both channels reads each alone, so the data lands first.
-        if (calls++ === 0) throw new Error("read each channel alone");
-        if (keys.includes(core.index.key)) await released;
+        calls++;
+        // A read of the samples comes back without the index, so the index reads alone.
+        if (keys.includes(a))
+          return core.readLatest(
+            keys.filter((key) => key !== core.index.key),
+            count,
+            tr,
+          );
+        await released;
         return core.readLatest(keys, count, tr);
       },
     });
     const log = open(core, client, { channels: [a] });
     log.value();
-    await expect.poll(() => calls, POLL).toBe(3);
+    await expect.poll(() => calls, POLL).toBe(2);
     await new Promise((resolve) => setTimeout(resolve, 50));
     const streamed = 1_000;
     core.advance(TimeSpan.seconds(streamed / 10));

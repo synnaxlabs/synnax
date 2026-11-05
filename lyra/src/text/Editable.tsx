@@ -227,6 +227,11 @@ export const Editable = ({
     const selection = window.getSelection();
     selection?.removeAllRanges();
     selection?.addRange(range);
+    // Editing scrolls a cut field to the caret, so the end of an edit scrolls it back.
+    // Not scrollTo: WebKit ignores it until the field lays out again after a reflow.
+    return () => {
+      el.scrollLeft = 0;
+    };
   }, [editable]);
 
   // Editing replaces the text React rendered, so the shown text is written by hand.

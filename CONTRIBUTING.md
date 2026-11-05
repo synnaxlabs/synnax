@@ -37,7 +37,9 @@ person dispatches every release ([RFC 0058](docs/tech/rfc/0058-release-workflow.
 
 ## Review tiers
 
-A tier says if a human must read the PR. A reviewer can raise it by swapping the label.
+The author picks the tier. `Label - Classify` raises a PR to `review/human` when a
+report of a schema, client API, or Core or Driver config changes. A reviewer can raise
+it by swapping the label.
 
 | Label          | Review                          | Covers                                                                                                                                                                                                                                               |
 | -------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
