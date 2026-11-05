@@ -307,7 +307,6 @@ export class Table<
     if (next == null || (prev != null && this.equal(next, prev, key))) return undefined;
     const prevTombstone = this.tombstones.get(key);
     this.tombstones.delete(key);
-    this.pendingDeletes.delete(key);
     this.show(key, next);
 
     return () => {
@@ -536,6 +535,15 @@ export class Table<
     this.remove(keys, "confirmed");
   }
 
+  /**
+   * Stops {@link mirrorSet} skipping keys whose local delete waits for its stream
+   * delete. Called when the change stream opens or reopens, since a stream never
+   * delivers what the Core sent before it opened. Cache-internal surface.
+   */
+  clearPendingDeletes(): void {
+    this.pendingDeletes.clear();
+  }
+
   private remove(
     key: Key | Key[] | ((value: Value, key: Key) => boolean),
     removal: Removal,
@@ -589,15 +597,11 @@ export class Table<
   }
 
   /**
-   * Catches the table up after a gap in the change stream. {@link mirrorSet} stops
-   * skipping locally deleted keys, as the gap may have dropped their stream deletes.
-   * Then every cached entry is re-checked through the table's fetch: entries that still
-   * exist refresh, and entries that vanished are tombstoned. The re-check skips empty
-   * tables and tables without a fetch.
+   * Re-checks every cached entry against the cluster through the table's fetch:
+   * refreshes entries that still exist and tombstones entries that vanished. A no-op
+   * for empty tables and tables without a fetch.
    */
   async reconcile(): Promise<void> {
-    // Before the first await, so no frame from the reopened stream meets a stale mark.
-    this.pendingDeletes.clear();
     const { fetchEntries } = this;
     if (fetchEntries == null) return;
     const keys = this.keys();

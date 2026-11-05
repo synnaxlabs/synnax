@@ -1958,11 +1958,18 @@ describe("mirror", () => {
     expect(table.get("k1")).toEqual({ key: "k1", name: "a" });
   });
 
-  it("should apply a streamed set after a local set revives the key", () => {
+  it("should skip a streamed set for a locally re-created key", () => {
     const table = newDeleted();
     table.set("k1", { key: "k1", name: "b" });
-    table.mirrorSet("k1", { key: "k1", name: "c" });
-    expect(table.get("k1")).toEqual({ key: "k1", name: "c" });
+    table.mirrorSet("k1", { key: "k1", name: "a" });
+    expect(table.get("k1")).toEqual({ key: "k1", name: "b" });
+  });
+
+  it("should skip a streamed set after a failed re-create rolls back", () => {
+    const table = newDeleted();
+    table.set("k1", { key: "k1", name: "b" })();
+    table.mirrorSet("k1", { key: "k1", name: "a" });
+    expect(table.status("k1")).toBe("tombstoned");
   });
 
   it("should apply a streamed set after the delete is rolled back", () => {
@@ -1973,9 +1980,9 @@ describe("mirror", () => {
     expect(table.get("k1")).toEqual({ key: "k1", name: "b" });
   });
 
-  it("should apply a streamed set after a reconcile", async () => {
+  it("should apply a streamed set after the pending deletes clear", () => {
     const table = newDeleted();
-    await table.reconcile();
+    table.clearPendingDeletes();
     table.mirrorSet("k1", { key: "k1", name: "b" });
     expect(table.get("k1")).toEqual({ key: "k1", name: "b" });
   });
