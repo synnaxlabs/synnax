@@ -61,10 +61,15 @@ const createLatest = (
     },
     now: core.now,
     breaker: { baseInterval: TimeSpan.milliseconds(10) },
-    readLatest: async (key, count, tr) => {
-      await onRead(key);
-      reads++;
-      return readOf(key, core.readLatest([key], count, tr).get(key));
+    readLatest: async (keys, count, tr) => {
+      const frame = new framer.Frame();
+      for (const key of keys) {
+        await onRead(key);
+        reads++;
+        const read = readOf(key, core.readLatest([key], count, tr).get(key));
+        frame.push(key, ...read.series);
+      }
+      return frame;
     },
   };
   const open = (
@@ -777,6 +782,56 @@ describe("Latest", () => {
         expect(latest.value().series.series).toHaveLength(2);
         const [t0, t1, t2] = stamps.map((t) => t.valueOf());
         expect(timedOf(latest)).toEqual([t0, t0 + 1n, t1, t2, t2 + 1n]);
+      } finally {
+        latest.close();
+        await close();
+      }
+    });
+
+    it("should read the index with the samples when timeAt comes first", async () => {
+      const core = createCore();
+      const indexReads: bigint[] = [];
+      const { open, close } = createLatest(core, (key) => {
+        if (key === core.index.key) indexReads.push(0n);
+      });
+      const latest = open(100);
+      latest.timeAt(0n);
+      try {
+        await expect.poll(() => latest.value().series.length, POLL).toBe(100);
+        expect(timedOf(latest)).not.toContain(null);
+        expect(indexReads).toHaveLength(1);
+      } finally {
+        latest.close();
+        await close();
+      }
+    });
+
+    it("should read the samples alone when the Core refuses the index", async () => {
+      const core = createCore();
+      const { open, close } = createLatest(core, (key) => {
+        if (key === core.index.key) throw new UnsupportedError("no access");
+      });
+      const latest = open(100);
+      latest.timeAt(0n);
+      try {
+        await expect.poll(() => latest.value().series.length, POLL).toBe(100);
+        expect(latest.value().status.variant).toBe("success");
+      } finally {
+        latest.close();
+        await close();
+      }
+    });
+
+    it("should not read the index with the samples before timeAt", async () => {
+      const core = createCore();
+      const indexReads: bigint[] = [];
+      const { open, close } = createLatest(core, (key) => {
+        if (key === core.index.key) indexReads.push(0n);
+      });
+      const latest = open(100);
+      try {
+        await expect.poll(() => latest.value().series.length, POLL).toBe(100);
+        expect(indexReads).toHaveLength(0);
       } finally {
         latest.close();
         await close();

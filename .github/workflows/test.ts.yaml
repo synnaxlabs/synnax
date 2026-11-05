@@ -76,6 +76,13 @@ on:
         required: false
         type: boolean
         default: false
+    secrets:
+      CODECOV_TOKEN:
+        required: false
+      SYNNAX_LICENSE_TOKEN:
+        required: false
+      TURBO_TOKEN:
+        required: false
   workflow_dispatch:
     inputs: *inputs
 
@@ -158,11 +165,13 @@ jobs:
         if: matrix.lint && inputs.lint
         run: pnpm lint:${{ inputs.package }}
 
+      # Without a limit, a stuck mirror holds the merge queue for up to 6 hours.
       - name: Install browsers
         if: inputs.test && inputs.browsers
-        run: >-
-          pnpm install-browsers:${{ inputs.package }} ${{ runner.os == 'Linux' &&
-          '--with-deps' || '' }}
+        uses: ./.github/actions/setup-browsers
+        timeout-minutes: 20
+        with:
+          package: ${{ inputs.package }}
 
       - name: Test
         if: inputs.test

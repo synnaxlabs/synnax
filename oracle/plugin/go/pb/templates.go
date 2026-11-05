@@ -226,9 +226,9 @@ func {{.Name}}FromPB(pb *{{.PBType}}) ({{.GoType}}, error) {
 		if err != nil {
 			return {{$goType}}{}, err
 		}
-		r.{{.GoName}} = vals
+		r.{{.GoName}} = xpb.ListValues(vals)
 {{- else}}
-		r.{{.GoName}} = {{.BackwardExpr}}
+		r.{{.GoName}} = xpb.ListValues({{.BackwardExpr}})
 {{- end}}
 	}
 {{- else}}
@@ -603,9 +603,9 @@ func {{.Name}}FromPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}
 		if err != nil {
 			return {{$goType}}{}, err
 		}
-		r.{{.GoName}} = vals
+		r.{{.GoName}} = xpb.ListValues(vals)
 {{- else}}
-		r.{{.GoName}} = {{.BackwardExpr}}
+		r.{{.GoName}} = xpb.ListValues({{.BackwardExpr}})
 {{- end}}
 	}
 {{- else}}

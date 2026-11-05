@@ -33,9 +33,10 @@ import (
 // samples, then the samples. A channel whose name another channel of the read shares
 // takes its name and key, such as "temp (1048577)". Each group sets wf_xcolumns to mark
 // its first channel as its time channel. UUID, bytes, and JSON samples become TDMS
-// strings in their text form. A read of a channel whose index it does not include, or a
-// read under a limit reduction, fails before the first byte. A read that fails after
-// the first byte truncates the body.
+// strings in their text form. A latest or earliest read holds only the newest or oldest
+// rows of each index. A read of a channel whose index it does not include, or a read
+// under a limit reduction, fails before the first byte. A read that fails after the
+// first byte truncates the body.
 var TDMSEncoder tdmsEncoder
 
 type tdmsEncoder struct{}

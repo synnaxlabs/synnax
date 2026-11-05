@@ -228,3 +228,12 @@ class TestTier:
     def test_passes_a_human_tier_without_an_approval(self, harness: Harness) -> None:
         harness.pull("someone", "review/human")
         assert harness.run() == ("success", "Greptile scored the head 5/5")
+
+    @pytest.mark.parametrize(
+        "route", ["api */pulls/42", "api */check-runs*", "api graphql"]
+    )
+    def test_retries_an_empty_response(self, harness: Harness, route: str) -> None:
+        """Should decide from the retry when GitHub answers a read with nothing."""
+        harness.env["GH_API_RETRY_DELAY"] = "0"
+        harness.gh.fail(route, "unexpected end of JSON input")
+        assert harness.run() == ("success", "Greptile scored the head 5/5")

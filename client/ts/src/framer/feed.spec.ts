@@ -23,7 +23,7 @@ import { afterAll, describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
 import { type framer } from "@/framer";
-import { UnexpectedError } from "@/index";
+import { UnexpectedError, UnsupportedError } from "@/index";
 import { createTestClient, SyntheticCore } from "@/testutil";
 
 // More points than any window here holds samples, so every sample draws.
@@ -412,6 +412,31 @@ describe("Feed", () => {
         expect(calls).toEqual([[a, b], [b]]);
       } finally {
         subs.forEach(({ sub }) => sub.close());
+        await direct.close();
+      }
+    });
+
+    it("should load a subscription without times when the index read fails", async () => {
+      const core = createCore();
+      const direct = core.openFeed({
+        ...OPTIONS,
+        readLatest: async (keys, count, tr) => {
+          if (keys.includes(core.index.key)) throw new UnsupportedError("no access");
+          return core.readLatest(keys, count, tr);
+        },
+      });
+      const [a] = core.data.map((ch) => ch.key);
+      const timed = direct.subscribe(latest([a]));
+      timed.timeAt(a, 0n);
+      const plain = direct.subscribe(latest([a]));
+      try {
+        await loaded(plain, a);
+        await loaded(timed, a);
+        expect(plain.value(a).series.length).toBeGreaterThan(0);
+        expect(timed.value(a).series.length).toBeGreaterThan(0);
+      } finally {
+        timed.close();
+        plain.close();
         await direct.close();
       }
     });
