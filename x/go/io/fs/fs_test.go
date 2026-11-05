@@ -364,6 +364,10 @@ var _ = Describe("FS", func() {
 					Expect(fs.Exists("sub1")).To(BeTrue())
 					Expect(fs.Exists("sub2")).To(BeTrue())
 				})
+				It("Should make missing parent directories", func() {
+					Expect(fs.Sub("parent/child")).ToNot(BeNil())
+					Expect(fs.Exists("parent/child")).To(BeTrue())
+				})
 				It("Should give FS of subdirectories", func() {
 					Expect(fs.Sub("sub1")).ToNot(BeNil())
 					Expect(fs.Exists("sub1")).To(BeTrue())
