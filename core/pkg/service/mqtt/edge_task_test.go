@@ -160,8 +160,9 @@ var _ = Describe("Edge task", func() {
 			})
 			return 0
 		}
-		var seen telem.TimeStamp
+		var seen, last telem.TimeStamp
 		stream(ctx, idx, ch, series, func(g Gomega, written []telem.TimeStamp) {
+			last = written[len(written)-1]
 			for _, stamp := range written {
 				if len(host.dataAt(stamp)) > 0 {
 					seen = stamp
@@ -170,6 +171,10 @@ var _ = Describe("Edge task", func() {
 			}
 			g.Expect(written).To(BeEmpty(), "no NDATA for a written stamp yet")
 		})
+		// A publish that races a dropped connection can block the task for the full
+		// operation timeout, so no attempt may stay in flight.
+		Eventually(func() []hostMessage { return host.dataAt(last) }).
+			ShouldNot(BeEmpty())
 		return seen
 	}
 
@@ -194,6 +199,61 @@ var _ = Describe("Edge task", func() {
 			g.Expect(stat.Details.Running).To(BeTrue())
 		}, 10*time.Second).Should(Succeed())
 	}
+
+	DescribeTable("Should report a drop that strands a publish in the client",
+		func(ctx SpecContext, blocks bool) {
+			stall := newPublishStall(blocks)
+			factory = stall.factory()
+			ch := createVirtual(ctx, telem.Float64T)
+			_, t := start(ctx, edgeConfig(dev, edgeTag("temp", ch, "double")))
+			DeferCleanup(stall.release)
+			stall.armed.Store(true)
+			stream(
+				ctx,
+				channel.Channel{},
+				ch,
+				telem.NewSeriesV(1.5),
+				func(g Gomega, _ []telem.TimeStamp) {
+					g.Expect(stall.stalled.Load()).To(BeTrue())
+				},
+			)
+			broker.dropClients()
+			Eventually(func(g Gomega) {
+				stat := taskStatus(ctx, t)
+				g.Expect(stat.Variant).To(Equal(status.VariantWarning))
+				g.Expect(stat.Description).To(ContainSubstring("not connected"))
+				g.Expect(stat.Details.Running).To(BeTrue())
+			}, 3*time.Second).Should(Succeed())
+			stall.release()
+			Eventually(host.births, 10*time.Second).Should(HaveLen(2))
+			expectStatus(ctx, t, status.VariantSuccess, "")
+		},
+		Entry("with a token that never completes", false),
+		Entry("with a call that blocks", true),
+	)
+
+	It("Should release a publish that the broker never answers",
+		func(ctx SpecContext) {
+			stall := newPublishStall(false)
+			factory = stall.factory()
+			ch := createVirtual(ctx, telem.Float64T)
+			start(ctx, edgeConfig(dev, edgeTag("temp", ch, "double")))
+			DeferCleanup(stall.release)
+			stall.armed.Store(true)
+			stream(
+				ctx,
+				channel.Channel{},
+				ch,
+				telem.NewSeriesV(1.5),
+				func(g Gomega, _ []telem.TimeStamp) {
+					g.Expect(stall.stalled.Load()).To(BeTrue())
+				},
+			)
+			Expect(publishWatchers()).To(BeNumerically(">", 0))
+			Eventually(publishWatchers, 15*time.Second).Should(BeZero())
+		},
+		SpecTimeout(30*time.Second),
+	)
 
 	Describe("Birth", func() {
 		It("Should publish an NBIRTH on start that declares every tag",
@@ -748,6 +808,7 @@ var _ = Describe("Edge task", func() {
 				idx, data := createIndexed(ctx, telem.Float64T)
 				_, t := start(ctx, edgeConfig(dev, edgeTag("temp", data[0], "double")))
 				streamValue(ctx, idx, data[0], telem.NewSeriesV(1.5))
+				broker.refusing.Store(true)
 				broker.dropClients()
 				Eventually(host.deaths).Should(HaveLen(1))
 				death := host.deaths()[0]
@@ -755,6 +816,7 @@ var _ = Describe("Edge task", func() {
 				Expect(death.retained).To(BeFalse())
 				Expect(death.bdSeq()).To(Equal(uint64(0)))
 				expectStatus(ctx, t, status.VariantWarning, "broker is not connected")
+				broker.refusing.Store(false)
 				Eventually(host.births, 10*time.Second).Should(HaveLen(2))
 				birth := host.births()[1]
 				Expect(birth.bdSeq()).To(Equal(uint64(1)))

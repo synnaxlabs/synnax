@@ -20,6 +20,20 @@ import (
 )
 
 var _ = Describe("Any", func() {
+	Describe("NilToPBAny", func() {
+		It("Should return nil", func() {
+			Expect(pb.NilToPBAny(struct{}{})).To(BeNil())
+		})
+	})
+
+	Describe("NilFromPBAny", func() {
+		It("Should return the empty value for any input", func() {
+			a := MustSucceed(anypb.New(wrapperspb.String("hello")))
+			Expect(pb.NilFromPBAny(a)).To(Equal(struct{}{}))
+			Expect(pb.NilFromPBAny(nil)).To(Equal(struct{}{}))
+		})
+	})
+
 	Describe("AnyToPBAny", func() {
 		It("Should return nil for nil input", func() {
 			Expect(pb.AnyToPBAny(nil)).To(BeNil())

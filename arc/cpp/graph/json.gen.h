@@ -45,20 +45,24 @@ inline Edge Edge::parse(x::json::Parser parser) {
 
 inline x::json::json Edge::to_json() const {
     x::json::json j = x::json::json::object();
-    for (auto &[k, v]: ::arc::ir::Edge::to_json().items())
-        j[k] = v;
+    if (const auto parent = ::arc::ir::Edge::to_json(); parent.is_object())
+        j.update(parent);
     j["key"] = this->key;
     return j;
 }
 
 inline Graph Graph::parse(x::json::Parser parser) {
     return Graph{
-        .functions = parser.field<::arc::ir::Functions>("functions"),
-        .edges = parser.field<Edges>("edges"),
-        .nodes = parser.field<Nodes>("nodes"),
+        .functions = parser.field<::arc::ir::Functions>(
+            "functions",
+            ::arc::ir::Functions{}
+        ),
+        .edges = parser.field<Edges>("edges", Edges{}),
+        .nodes = parser.field<Nodes>("nodes", Nodes{}),
         .inputs = parser
                       .field<std::unordered_map<std::string, x::json::json::object_t>>(
-                          "inputs"
+                          "inputs",
+                          std::unordered_map<std::string, x::json::json::object_t>{}
                       ),
     };
 }

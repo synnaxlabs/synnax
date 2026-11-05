@@ -11,6 +11,7 @@ package v3_test
 
 import (
 	"io"
+	"strings"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -104,6 +105,24 @@ var _ = Describe("Log", func() {
 			},
 			Entry("above the maximum", uint8(18)),
 		)
+
+		It("Should accept an alias at the maximum length", func() {
+			l := v3.Log{
+				Name:     "valid",
+				Channels: []v3.ChannelEntry{{Alias: strings.Repeat("a", 64)}},
+			}
+			l.ApplyDefaults()
+			Expect(l.Validate()).To(Succeed())
+		})
+
+		It("Should reject an alias past the maximum length", func() {
+			l := v3.Log{
+				Name:     "valid",
+				Channels: []v3.ChannelEntry{{Alias: strings.Repeat("a", 65)}},
+			}
+			l.ApplyDefaults()
+			Expect(l.Validate()).To(MatchError(ContainSubstring("channels.0.alias")))
+		})
 
 		It("Should reject an empty name and an invalid timestamp precision", func() {
 			l := v3.Log{TimestampPrecision: 4}

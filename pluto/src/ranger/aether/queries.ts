@@ -13,7 +13,7 @@ import { type flux } from "@/flux/aether";
 
 const PLURAL_RESOURCE_NAME = "ranges";
 
-export type ListQuery = Omit<ranger.RetrieveRequest, "names">;
+export type ListQuery = ranger.RetrieveMultipleParams;
 
 export const listDefinition: flux.Definition<ListQuery, ranger.Range[]> = {
   name: PLURAL_RESOURCE_NAME,

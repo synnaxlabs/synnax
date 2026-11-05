@@ -590,6 +590,15 @@ func extractLive(source string) (*liveContent, error) {
 					}
 				}
 			}
+		case def.FilterDef() != nil:
+			if body := def.FilterDef().FilterBody(); body != nil {
+				for _, fd := range body.AllFieldDef() {
+					collectField(fd, ex, "")
+				}
+				for _, d := range body.AllDomain() {
+					liveOwned(d, addType)
+				}
+			}
 		}
 	}
 	return lc, nil
@@ -611,6 +620,8 @@ func definitionName(def parser.IDefinitionContext) (string, bool) {
 		return def.TypeDefDef().IDENT().GetText(), true
 	case def.UnionDef() != nil:
 		return def.UnionDef().AllIDENT()[0].GetText(), true
+	case def.FilterDef() != nil:
+		return def.FilterDef().AllIDENT()[0].GetText(), true
 	}
 	return "", false
 }

@@ -144,7 +144,7 @@ const ButtonItem = <K extends record.Key>({
   return (
     <Button.Toggle
       preview={preview}
-      variant={variant === "card" ? "outlined" : variant}
+      variant={variant}
       {...itemStatus}
       {...rest}
       ref={ref}
