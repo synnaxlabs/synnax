@@ -130,7 +130,7 @@ var _ = Describe("Ranger", func() {
 				}
 				Expect(svc.NewWriter(tx).Create(ctx, r)).To(Succeed())
 				var retrieveR ranger.Range
-				Expect(svc.NewRetrieve().Where(ranger.MatchOverlap(telem.TimeRange{
+				Expect(svc.NewRetrieve().Where(ranger.MatchOverlaps(telem.TimeRange{
 					Start: telem.TimeStamp(7 * telem.Second),
 					End:   telem.TimeStamp(9 * telem.Second),
 				})).Entry(&retrieveR).Exec(ctx, tx)).To(Succeed())
@@ -226,7 +226,7 @@ var _ = Describe("Ranger", func() {
 			},
 		)
 		It(
-			"Should compose MatchOverlap and MatchLabels under And via Where",
+			"Should compose MatchOverlaps and MatchLabels under And via Where",
 			func(ctx SpecContext) {
 				l := &label.Label{Name: "AndLabel"}
 				Expect(labelSvc.NewWriter(tx).Create(ctx, l)).To(Succeed())
@@ -264,7 +264,7 @@ var _ = Describe("Ranger", func() {
 				).To(Succeed())
 				var results []ranger.Range
 				Expect(svc.NewRetrieve().Where(ranger.And(
-					ranger.MatchOverlap(
+					ranger.MatchOverlaps(
 						telem.TimeRange{
 							Start: telem.TimeStamp(7 * telem.Second),
 							End:   telem.TimeStamp(9 * telem.Second),
@@ -277,7 +277,7 @@ var _ = Describe("Ranger", func() {
 			},
 		)
 		It(
-			"Should compose MatchOverlap and MatchNames under Or via Where",
+			"Should compose MatchOverlaps and MatchNames under Or via Where",
 			func(ctx SpecContext) {
 				rOverlap := &ranger.Range{
 					Name: "OrOverlap",
@@ -305,7 +305,7 @@ var _ = Describe("Ranger", func() {
 				Expect(svc.NewWriter(tx).Create(ctx, rNeither)).To(Succeed())
 				var results []ranger.Range
 				Expect(svc.NewRetrieve().Where(ranger.Or(
-					ranger.MatchOverlap(
+					ranger.MatchOverlaps(
 						telem.TimeRange{
 							Start: telem.TimeStamp(7 * telem.Second),
 							End:   telem.TimeStamp(9 * telem.Second),

@@ -76,77 +76,68 @@ std::pair<Arc, x::errors::Error> Client::retrieve_by_name(
     const std::string &name,
     const RetrieveOptions &options
 ) const {
-    auto req = grpc::arc::RetrieveRequest();
-    req.add_names(name);
-    options.apply(req);
-
-    auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
-    if (err) return {Arc{}, err};
-    if (res.arcs_size() == 0) return {Arc{}, errors::unexpected_missing_error("arc")};
-    if (res.arcs_size() > 1) return {Arc{}, errors::multiple_found_error("arc", name)};
-
-    return Arc::from_proto(res.arcs(0));
+    return this->retrieve_one(
+        {
+            .where = Where{.name = x::filter::String{.eq = name}},
+            .include_program = options.include_program,
+        },
+        "name " + name
+    );
 }
 
 std::pair<Arc, x::errors::Error> Client::retrieve_by_key(
     const x::uuid::UUID &key,
     const RetrieveOptions &options
 ) const {
-    auto req = grpc::arc::RetrieveRequest();
-    req.add_keys(key.to_string());
-    options.apply(req);
-
-    auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
-    if (err) return {Arc{}, err};
-    if (res.arcs_size() == 0) return {Arc{}, errors::unexpected_missing_error("arc")};
-
-    return Arc::from_proto(res.arcs(0));
+    return this->retrieve_one(
+        {
+            .where = Where{.key = x::filter::Set<Key>{.eq = key}},
+            .include_program = options.include_program,
+        },
+        "key " + key.to_string()
+    );
 }
 
 std::pair<std::vector<Arc>, x::errors::Error> Client::retrieve(
     const std::vector<std::string> &names,
     const RetrieveOptions &options
 ) const {
-    auto req = grpc::arc::RetrieveRequest();
-    for (const auto &name: names)
-        req.add_names(name);
-    options.apply(req);
-
-    auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
-    if (err) return {std::vector<Arc>(), err};
-
-    std::vector<Arc> arcs;
-    arcs.reserve(res.arcs_size());
-    for (const auto &pb: res.arcs()) {
-        auto [arc, from_err] = Arc::from_proto(pb);
-        if (from_err) return {std::vector<Arc>(), from_err};
-        arcs.push_back(arc);
-    }
-
-    return {arcs, x::errors::NIL};
+    return this->retrieve({
+        .where = Where{.name = x::filter::String{.in = names}},
+        .include_program = options.include_program,
+    });
 }
 
 std::pair<std::vector<Arc>, x::errors::Error> Client::retrieve_by_keys(
     const std::vector<x::uuid::UUID> &keys,
     const RetrieveOptions &options
 ) const {
-    auto req = grpc::arc::RetrieveRequest();
-    for (const auto &key: keys)
-        req.add_keys(key.to_string());
-    options.apply(req);
+    return this->retrieve({
+        .where = Where{.key = x::filter::Set<Key>{.in = keys}},
+        .include_program = options.include_program,
+    });
+}
 
-    auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
+std::pair<std::vector<Arc>, x::errors::Error>
+Client::retrieve(const RetrieveRequest &req) const {
+    auto [pb_req, pb_err] = req.to_proto();
+    if (pb_err) return {std::vector<Arc>(), pb_err};
+    grpc::arc::RetrieveRequest grpc_req;
+    *grpc_req.mutable_request() = pb_req;
+    auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, grpc_req);
     if (err) return {std::vector<Arc>(), err};
+    auto [decoded, proto_err] = RetrieveResponse::from_proto(res);
+    if (proto_err) return {std::vector<Arc>(), proto_err};
+    return {std::move(decoded.arcs), x::errors::NIL};
+}
 
-    std::vector<Arc> arcs;
-    arcs.reserve(res.arcs_size());
-    for (const auto &pb: res.arcs()) {
-        auto [arc, from_err] = Arc::from_proto(pb);
-        if (from_err) return {std::vector<Arc>(), from_err};
-        arcs.push_back(arc);
-    }
-
-    return {arcs, x::errors::NIL};
+std::pair<Arc, x::errors::Error>
+Client::retrieve_one(const RetrieveRequest &req, const std::string &query) const {
+    auto [arcs, err] = this->retrieve(req);
+    if (err) return {Arc{}, err};
+    if (arcs.empty()) return {Arc{}, errors::not_found_error("Arc", query)};
+    if (arcs.size() > 1) return {Arc{}, errors::multiple_found_error("arcs", query)};
+    return {std::move(arcs[0]), x::errors::NIL};
 }
 
 x::errors::Error Client::del(const x::uuid::UUID &key) const {

@@ -17,6 +17,7 @@ proto_library(
     deps = [
         "//core/pkg/service/label:label_proto",
         "//x/go/color:color_proto",
+        "//x/go/filter:filter_proto",
         "//x/go/telem:telem_proto",
     ],
 )
@@ -29,6 +30,7 @@ cpp_grpc_library(
     deps = [
         "//core/pkg/service/label:label_grpc",
         "//x/go/color:color_grpc",
+        "//x/go/filter:filter_grpc",
         "//x/go/telem:telem_grpc",
     ],
 )

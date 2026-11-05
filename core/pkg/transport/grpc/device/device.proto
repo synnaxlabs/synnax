@@ -11,6 +11,7 @@ syntax = "proto3";
 
 package grpc.device;
 
+import "core/pkg/api/device/pb/device.proto";
 import "core/pkg/service/legacy/device/pb/device.proto";
 import "google/protobuf/empty.proto";
 
@@ -21,7 +22,7 @@ service DeviceCreateService {
 }
 
 service DeviceRetrieveService {
-  rpc Exec(RetrieveRequest) returns (RetrieveResponse);
+  rpc Exec(RetrieveRequest) returns (api.device.pb.RetrieveResponse);
 }
 
 service DeviceDeleteService {
@@ -37,22 +38,9 @@ message CreateResponse {
 }
 
 message RetrieveRequest {
-  repeated string keys = 1;
-  repeated string names = 2;
-  repeated string makes = 3;
-  repeated string models = 4;
-  repeated string locations = 5;
-  repeated uint32 racks = 6;
-  string search = 7;
-  uint32 limit = 8;
-  uint32 offset = 9;
-  bool ignore_not_found = 10;
-  bool include_status = 11;
-  bool include_parent = 12;
-}
-
-message RetrieveResponse {
-  repeated service.device.pb.Device devices = 1;
+  reserved 1 to 12;
+  reserved "keys", "names", "makes", "models", "locations", "racks", "search", "limit", "offset", "ignore_not_found", "include_status", "include_parent";
+  api.device.pb.RetrieveRequest request = 13;
 }
 
 message DeleteRequest {

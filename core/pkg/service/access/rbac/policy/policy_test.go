@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -394,6 +395,49 @@ var _ = Describe("Retriever", func() {
 			Expect(keys).To(BeEmpty())
 		})
 
+		It("Should match the policies of a subject's roles", func(ctx SpecContext) {
+			var ps []policy.Policy
+			Expect(svc.NewRetrieve().
+				Where(policy.MatchSubjects(subject1)).
+				Entries(&ps).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(ps).To(ConsistOf(policies[0], policies[1]))
+		})
+
+		It("Should match no policies for a subject that does not exist", func(
+			ctx SpecContext,
+		) {
+			missing := ontology.ID{Type: "user", Key: uuid.New().String()}
+			var ps []policy.Policy
+			Expect(svc.NewRetrieve().
+				Where(policy.Or(
+					policy.MatchSubjects(missing),
+					policy.MatchKeys(policies[2].Key),
+				)).
+				Entries(&ps).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(ps).To(ConsistOf(policies[2]))
+		})
+
+		It("Should resolve no policies for a subject that does not exist", func(
+			ctx SpecContext,
+		) {
+			missing := ontology.ID{Type: "user", Key: uuid.New().String()}
+			Expect(svc.ResolveSubjects(ctx, tx, missing)).To(BeEmpty())
+		})
+
+		It("Should compose MatchSubjects under Not", func(ctx SpecContext) {
+			var ps []policy.Policy
+			Expect(svc.NewRetrieve().
+				Where(policy.And(
+					policy.MatchKeys(policies[0].Key, policies[1].Key, policies[2].Key),
+					policy.Not(policy.MatchSubjects(subject1)),
+				)).
+				Entries(&ps).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(ps).To(ConsistOf(policies[2]))
+		})
+
 		It("Should retrieve policies for multiple subjects", func(ctx SpecContext) {
 			rw := roleSvc.NewWriter(tx, true)
 			r2 := &role.Role{
@@ -626,7 +670,8 @@ var _ = Describe("Ontology Integration", func() {
 					Actions: []access.Action{access.ActionRetrieve},
 				}
 				Expect(svc.NewWriter(tx, false).Create(ctx, p)).To(Succeed())
-				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", 10)).Keys).
+				q := search.Query[ontology.ID]{Term: "turbopump", Limit: 10}
+				Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
 					To(Equal([]ontology.ID{p.OntologyID()}))
 			},
 		)

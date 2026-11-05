@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <set>
+
 #include "gtest/gtest.h"
 
 #include "client/cpp/synnax.h"
@@ -109,6 +111,49 @@ TEST(TaskTests, testListTasks) {
     ASSERT_EQ(tasks[0].name, "test_module");
     ASSERT_EQ(tasks[0].rack, r.key);
     ASSERT_FALSE(tasks[0].key.is_nil());
+}
+
+/// @brief it should retrieve the tasks on the client's rack that match any branch of
+/// an or.
+TEST(TaskTests, testRetrieveWhere) {
+    const auto client = new_test_client();
+    auto r = rack::Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    std::vector<Task> tasks;
+    for (int i = 0; i < 3; ++i) {
+        auto t = Task{
+            .name = "where_task_" + std::to_string(i),
+            .type = "pagerduty_alert",
+            .config = {{"routing_key", "rk"}}
+        };
+        ASSERT_NIL(r.tasks.create(t));
+        tasks.push_back(t);
+    }
+    auto other = rack::Rack{.name = "other_rack"};
+    ASSERT_NIL(client.racks.create(other));
+    auto off_rack = Task{
+        .name = tasks[0].name,
+        .type = "pagerduty_alert",
+        .config = {{"routing_key", "rk"}}
+    };
+    ASSERT_NIL(other.tasks.create(off_rack));
+    const auto retrieved = ASSERT_NIL_P(r.tasks.retrieve(
+        RetrieveRequest{
+            .where = Where{
+                .or_ = std::vector<Where>{
+                    Where{.name = x::filter::String{.eq = tasks[0].name}},
+                    Where{.key = x::filter::Set<Key>{.eq = tasks[1].key}},
+                },
+            },
+        }
+    ));
+    std::set<std::string> keys;
+    for (const auto &t: retrieved)
+        keys.insert(t.key.to_string());
+    ASSERT_EQ(
+        keys,
+        (std::set<std::string>{tasks[0].key.to_string(), tasks[1].key.to_string()})
+    );
 }
 
 /// @brief it should correctly delete a task from the rack.

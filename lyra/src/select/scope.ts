@@ -10,12 +10,19 @@
 import { type AriaAttributes } from "react";
 
 import { context } from "@/context";
+import { type KeyboardHandlers } from "@/select/useCursor";
 import { type Status } from "@/status";
 
 /** True inside a closed select dialog, whose children render into a detached node. */
 export const [ClosedContext, useClosed] = context.create<boolean>({
   defaultValue: false,
   displayName: "Select.ClosedContext",
+});
+
+/** True inside a `Select.List`. A fixed item outside one is pinned. */
+export const [ListContext, useInList] = context.create<boolean>({
+  defaultValue: false,
+  displayName: "Select.ListContext",
 });
 
 /** How a {@link Buttons} group draws its items. */
@@ -36,3 +43,17 @@ export const [ButtonsContext, useButtonsContext] =
     defaultValue: null,
     displayName: "Select.ButtonsContext",
   });
+
+const [KeyboardContext, useKeyboardContext] = context.create<KeyboardHandlers>({
+  displayName: "Select.KeyboardContext",
+  providerName: "Select.Frame",
+});
+export { KeyboardContext };
+
+/**
+ * Returns the key handlers that move the enclosing frame's selection. Spread them on
+ * the focusable element whose keys move it. Only a frame whose `cursor` is
+ * `"selection"` answers them.
+ */
+export const useKeyboard = (): KeyboardHandlers =>
+  useKeyboardContext("Select.useKeyboard");

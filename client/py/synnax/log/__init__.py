@@ -14,6 +14,7 @@ from synnax.log.types_gen import (
     Key,
     Log,
     TimestampConfig,
+    Where,
     ontology_id,
 )
 
@@ -24,5 +25,6 @@ __all__ = [
     "Key",
     "Log",
     "TimestampConfig",
+    "Where",
     "ontology_id",
 ]

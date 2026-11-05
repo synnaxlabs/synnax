@@ -30,9 +30,10 @@ const Content = (): ReactElement => {
         </Toolbar.Title>
         {hasCreatePermission && (
           <Toolbar.Actions>
-            <Toolbar.Action onClick={() => openRegister()} tooltip="Create user">
-              <Icon.Add />
-            </Toolbar.Action>
+            <Toolbar.CreateAction
+              onClick={() => openRegister()}
+              tooltip="Create user"
+            />
           </Toolbar.Actions>
         )}
       </Toolbar.Header>

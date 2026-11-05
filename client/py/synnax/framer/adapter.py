@@ -63,7 +63,7 @@ class ReadFrameAdapter:
 
     def update(self, channels: channel.Params) -> None:
         normal = channel.normalize_params(channels)
-        fetched = self.retriever.retrieve(normal.channels)
+        fetched = retrieve_required_channel(self.retriever, normal.channels)
         if self._timestamps_included:
             fetched += self._retrieve_missing_indexes(fetched)
         new_keys = [ch.key for ch in fetched]
@@ -84,16 +84,12 @@ class ReadFrameAdapter:
             self.keys = list(normal.channels)
         else:
             keys_by_name = {name: key for key, name in self._names.items()}
-            for name in normal.channels:
-                if name not in keys_by_name:
-                    raise KeyError(f"Channel {name} not found.")
             self.keys = [keys_by_name[name] for name in normal.channels]
         self.keys += [ch.key for ch in fetched if ch.key not in self.keys]
         self._rank = {}
         for i, key in enumerate(self.keys):
             self._rank.setdefault(key, i)
-            if key in self._names:
-                self._rank.setdefault(self._names[key], i)
+            self._rank.setdefault(self._names[key], i)
 
     def _time_indexed(self, ch: channel.Payload) -> bool:
         # A limit reduces the index but keeps every sample of a non-numeric channel.

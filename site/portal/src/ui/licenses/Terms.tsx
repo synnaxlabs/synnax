@@ -17,7 +17,7 @@ import { type ReactElement, useId } from "react";
 import { z } from "zod";
 
 import { type License, type Term } from "@/server/db/schema";
-import { VERSION_PATTERN } from "@/server/license/limits";
+import { MAX_LABEL_LENGTH, VERSION_PATTERN } from "@/server/license/limits";
 
 const path = deep.path<TermsValues>();
 
@@ -31,7 +31,11 @@ type TermChoice = z.infer<typeof termChoiceZ>;
 
 /** termsSchema is the unrefined shape; apply checkTerms to get the term rules. */
 export const termsSchema = z.object({
-  label: z.string().trim().min(1, "Give the license a label"),
+  label: z
+    .string()
+    .trim()
+    .min(1, "Give the license a label")
+    .max(MAX_LABEL_LENGTH, "Too long"),
   term: termChoiceZ,
   nodes: z.number().int().min(1, "At least one machine"),
   channelsLimited: z.boolean(),
@@ -146,7 +150,7 @@ export const TermsFields = (): ReactElement => {
       <Flex.Box y gap="small">
         <Form.Field path={path.term} label="Term" padHelpText={false}>
           {(p) => (
-            <Select.Simple<TermChoice> {...p} resourceName="Term">
+            <Select.Simple<TermChoice> {...p} resourceName="term">
               <Select.Item itemKey="subscription">Subscription</Select.Item>
               <Select.Item itemKey="updates">Perpetual with updates</Select.Item>
               <Select.Item itemKey="perpetual">Perpetual</Select.Item>

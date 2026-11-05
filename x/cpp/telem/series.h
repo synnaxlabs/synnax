@@ -137,7 +137,7 @@ public:
     ///   - The end of the time range is set to the nanosecond AFTER the last sample
     ///     in the array (exclusive).
     ///
-    TimeRange time_range = TimeRange();
+    TimeRange time_range;
     /// @brief alignment defines the location of the series relative to other series in
     /// a logical group. This is typically used to define the location of the series
     /// within a channel's data.

@@ -12,23 +12,27 @@ package kafka
 import (
 	"cmp"
 	"context"
+	"encoding/json/jsontext"
 	"fmt"
 	"io"
 	"net"
 	"slices"
 	"sync/atomic"
+	"time"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
+	"github.com/synnaxlabs/synnax/pkg/service/http"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
+	xjson "github.com/synnaxlabs/x/json"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -47,9 +51,13 @@ type readGroup struct {
 	// channels[i] is the channel fields[i] writes to.
 	channels []channel.Channel
 	// extractor resolves the fields' pointers in a record.
-	extractor *extractor
-	// found[i] is scratch space for whether a record holds fields[i].
-	found []bool
+	extractor *xjson.Extractor
+	// values[i] is scratch space for the JSON value of fields[i] in a record.
+	values []jsontext.Value
+	// columns[i] holds the current poll's samples of fields[i].
+	columns []column
+	// rows are the current poll's records, which columns hold in arrival order.
+	rows []row
 	// stamp is the position in fields of the field targeting the index channel, or
 	// -1 when records are stamped with their Kafka timestamp.
 	stamp int
@@ -67,8 +75,11 @@ type readGroup struct {
 // row is one record converted into a group's samples.
 type row struct {
 	ts telem.TimeStamp
-	// values[i] is the sample for fields[i].
-	values []any
+	// pos is the record's position in the group's columns.
+	pos int
+	// partition and offset locate the record in its topic.
+	partition int32
+	offset    int64
 }
 
 // readTask consumes a topic and writes record fields into channels.
@@ -87,17 +98,18 @@ type readTask struct {
 	closer io.Closer
 	// sCtx is the consumer's context. A consumer that fails cancels it.
 	sCtx signal.Context
-	// lastSkip is the last skip reported, so a repeated one is not rewritten.
-	lastSkip string
-	// skipped counts the records the current poll skipped, and skipReason is why the
-	// first was.
-	skipped    int
-	skipReason string
+	// failed is set before the consumer reports its failure. sCtx only cancels once the
+	// consumer exits, after the report.
+	failed atomic.Bool
+	// skips counts the records of the current run that the task reads and skips.
+	skips *driver.Skips
 	// reassigned is set when the group assigns partitions, which replay from the last
 	// committed offset.
 	reassigned atomic.Bool
 	// disconnected is true from a connection failure until records arrive again.
 	disconnected bool
+	// marks is the offsets the current poll consumed by partition.
+	marks map[string]map[int32]kgo.EpochOffset
 }
 
 var _ driver.Task = (*readTask)(nil)
@@ -127,6 +139,7 @@ func (f *factory) configureRead(ctx context.Context, t task.Task) (*readTask, er
 		cfg:        cfg,
 		status:     driver.NewStatusHandler(f.cfg.DB, f.cfg.Status, t),
 		groups:     groups,
+		marks:      map[string]map[int32]kgo.EpochOffset{cfg.Topic: {}},
 	}, nil
 }
 
@@ -179,6 +192,7 @@ func buildReadGroups(
 		}
 		claimed.Add(rec.RecordKey)
 		g := &readGroup{key: rec.RecordKey, stamp: -1, replaying: true}
+		var pointers []xjson.Pointer
 		for _, fld := range rec.Fields {
 			if fld.Disabled {
 				continue
@@ -205,21 +219,27 @@ func buildReadGroups(
 					fld.Key,
 				)
 			}
+			pointer, err := xjson.ParsePointer(fld.Pointer)
+			if err != nil {
+				return nil, errors.Wrapf(err, "field %q", fld.Key)
+			}
+			dec, err := newDecoder(fld, ch)
+			if err != nil {
+				return nil, errors.Wrapf(err, "field %q", fld.Key)
+			}
 			if fld.Key == rec.Index {
 				g.stamp = len(g.fields)
 			}
 			g.fields = append(g.fields, fld)
 			g.channels = append(g.channels, ch)
+			pointers = append(pointers, pointer)
+			g.columns = append(g.columns, newColumn(dec, ch.DataType))
 		}
 		if len(g.fields) == 0 {
 			continue
 		}
-		pointers := make([]string, len(g.fields))
-		for i, fld := range g.fields {
-			pointers[i] = fld.Pointer
-		}
-		g.extractor = newExtractor(pointers)
-		g.found = make([]bool, len(g.fields))
+		g.extractor = xjson.NewExtractor(pointers)
+		g.values = make([]jsontext.Value, len(g.fields))
 		if rec.Index != "" && g.stamp == -1 {
 			return nil, errors.Wrapf(
 				validate.ErrValidation,
@@ -266,6 +286,29 @@ func buildReadGroups(
 	return groups, nil
 }
 
+// newDecoder returns the decoder of fld, which writes to ch.
+func newDecoder(fld ReadField, ch channel.Channel) (*xjson.Decoder, error) {
+	f := xjson.Field{DataType: ch.DataType, Enums: enums(fld.EnumValues)}
+	if fld.TimeFormat != nil {
+		var err error
+		if f.TimeFormat, err = xjson.ParseTimeFormat(
+			string(*fld.TimeFormat),
+		); err != nil {
+			return nil, err
+		}
+	}
+	return xjson.NewDecoder(f)
+}
+
+// enums returns the labels of entries in the form xjson takes.
+func enums(entries []http.EnumEntry) []xjson.Enum {
+	out := make([]xjson.Enum, len(entries))
+	for i, e := range entries {
+		out[i] = xjson.Enum{Label: e.Label, Value: e.Value}
+	}
+	return out
+}
+
 // Exec implements driver.Task. Every command it handles ends in a status carrying the
 // command key, so a caller waiting on the command always resolves.
 func (t *readTask) Exec(ctx context.Context, cmd task.Command) error {
@@ -284,9 +327,11 @@ func (t *readTask) Stop(sendStatus bool) error {
 	return t.stop(context.TODO(), driver.NoCommand, sendStatus)
 }
 
-// isRunning reports whether the consumer is up. A consumer that failed on its own
-// cancels sCtx without releasing the closer.
-func (t *readTask) isRunning() bool { return t.closer != nil && t.sCtx.Err() == nil }
+// isRunning reports whether the consumer is up. A consumer that failed on its own sets
+// failed, and one that panicked cancels sCtx. Neither releases the closer.
+func (t *readTask) isRunning() bool {
+	return t.closer != nil && !t.failed.Load() && t.sCtx.Err() == nil
+}
 
 func (t *readTask) release() error {
 	err := t.closer.Close()
@@ -320,6 +365,8 @@ func (t *readTask) start(ctx context.Context, cmdKey string) error {
 		return err
 	}
 	t.setStatus(ctx, cmdKey, status.VariantSuccess, true, "Started task", "")
+	// The consumer writes statuses too, so it starts after this one to not be replaced.
+	t.sCtx.Go(t.consume, signal.RecoverWithErrOnPanic(), signal.CancelOnFail())
 	return nil
 }
 
@@ -370,8 +417,8 @@ func (t *readTask) group() string {
 	return "kafka-" + t.task.Key.String()
 }
 
-// open connects the consumer and starts the fetch loop. It writes no statuses: start
-// owns them.
+// open connects the consumer. It writes no statuses and does not start the fetch loop:
+// start owns both.
 func (t *readTask) open(ctx context.Context) (err error) {
 	props, err := resolveProperties(ctx, t.factoryCfg.Device, t.cfg.Device)
 	if err != nil {
@@ -429,13 +476,13 @@ func (t *readTask) open(ctx context.Context) (err error) {
 	}
 	t.client = cl
 	t.sCtx = sCtx
-	t.lastSkip = ""
+	t.failed.Store(false)
+	t.skips = driver.NewSkips("record")
 	t.disconnected = false
 	t.closer = xio.MultiCloser{
 		xio.CloserFunc(t.closeClient),
 		signal.NewHardShutdown(sCtx, cancel),
 	}
-	sCtx.Go(t.consume, signal.RecoverWithErrOnPanic(), signal.CancelOnFail())
 	return nil
 }
 
@@ -541,12 +588,16 @@ func (t *readTask) lastStored(
 // an error status.
 func (t *readTask) consume(ctx context.Context) error {
 	for {
-		fetches := t.client.PollFetches(ctx)
+		fetches := t.poll(ctx)
 		if ctx.Err() != nil || fetches.IsClientClosed() {
 			return nil
 		}
 		var fatal, transient error
 		fetches.EachError(func(topic string, partition int32, err error) {
+			// The deadline of poll ends a quiet poll, and is no failure.
+			if errors.Is(err, context.DeadlineExceeded) {
+				return
+			}
 			err = errors.Wrapf(err, "fetching %s/%d", topic, partition)
 			if isConnectionErr(err) {
 				transient = cmp.Or(transient, err)
@@ -555,21 +606,11 @@ func (t *readTask) consume(ctx context.Context) error {
 			}
 		})
 		if fatal != nil {
-			t.setStatus(
-				ctx,
-				driver.NoCommand,
-				status.VariantError,
-				false,
-				"Failed to fetch records",
-				fatal.Error(),
-			)
-			return fatal
+			return t.fail(ctx, "Failed to fetch records", fatal)
 		}
-		// A connection status replaces the last skip, so the next skip is reported
-		// again. Recovery is reported before the batch, so a skip in it stays visible.
+		// Recovery is reported before the batch, so a skip in it stays visible.
 		if transient != nil && !t.disconnected {
 			t.disconnected = true
-			t.lastSkip = ""
 			t.setStatus(
 				ctx,
 				driver.NoCommand,
@@ -581,7 +622,6 @@ func (t *readTask) consume(ctx context.Context) error {
 		}
 		if transient == nil && t.disconnected && fetches.NumRecords() > 0 {
 			t.disconnected = false
-			t.lastSkip = ""
 			t.setStatus(
 				ctx,
 				driver.NoCommand,
@@ -592,17 +632,28 @@ func (t *readTask) consume(ctx context.Context) error {
 			)
 		}
 		if err := t.process(ctx, fetches); err != nil {
-			t.setStatus(
-				ctx,
-				driver.NoCommand,
-				status.VariantError,
-				false,
-				"Failed to process records",
-				err.Error(),
-			)
-			return err
+			return t.fail(ctx, "Failed to process records", err)
 		}
 	}
+}
+
+// poll returns the next records. It returns early with a deadline error when the skip
+// warning must change.
+func (t *readTask) poll(ctx context.Context) kgo.Fetches {
+	if deadline, ok := t.skips.Deadline(); ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithDeadline(ctx, deadline)
+		defer cancel()
+	}
+	return t.client.PollFetches(ctx)
+}
+
+// fail reports the error that stops the consumer and returns it. A start that follows
+// the status replaces the consumer instead of acknowledging the failure.
+func (t *readTask) fail(ctx context.Context, message string, err error) error {
+	t.failed.Store(true)
+	t.setStatus(ctx, driver.NoCommand, status.VariantError, false, message, err.Error())
+	return err
 }
 
 // unavailable are the broker errors for a broker or coordinator that is down or
@@ -639,81 +690,110 @@ func (t *readTask) process(ctx context.Context, fetches kgo.Fetches) error {
 			g.replaying = g.index != 0
 		}
 	}
-	rows := make(map[*readGroup][]row)
-	fetches.EachRecord(func(rec *kgo.Record) {
-		if g, r, ok := t.convert(rec); ok {
-			rows[g] = append(rows[g], r)
+	for _, g := range t.groups {
+		g.reset()
+	}
+	marks := t.marks[t.cfg.Topic]
+	clear(marks)
+	fetches.EachPartition(func(p kgo.FetchTopicPartition) {
+		for _, rec := range p.Records {
+			t.convert(rec)
+		}
+		if len(p.Records) > 0 {
+			last := p.Records[len(p.Records)-1]
+			head := kgo.EpochOffset{Epoch: last.LeaderEpoch, Offset: last.Offset + 1}
+			if cur, ok := marks[p.Partition]; !ok || cur.Less(head) {
+				marks[p.Partition] = head
+			}
 		}
 	})
-	var fr frame.Frame
-	for g, rs := range rows {
-		if kept := t.keep(g, rs); len(kept) > 0 {
-			fr = g.appendFrame(fr, kept)
+	var keys, size int
+	for _, g := range t.groups {
+		t.keep(g)
+		if len(g.rows) > 0 {
+			keys += len(g.keys)
+			size += g.size()
 		}
 	}
-	t.reportSkips(ctx)
-	if !fr.Empty() {
-		if _, err := t.writer.Write(fr); err != nil {
+	t.reportSkips(ctx, time.Now())
+	if keys > 0 {
+		if _, err := t.writer.Write(t.frame(keys, size)); err != nil {
 			return errors.Wrap(err, "writing records")
 		}
 	}
-	t.client.MarkCommitRecords(fetches.Records()...)
+	if len(marks) > 0 {
+		t.client.MarkCommitOffsets(t.marks)
+	}
 	return nil
 }
 
-// convert parses rec into its group's samples. ok is false when the record is not
-// addressed to this task or was skipped with a status.
-func (t *readTask) convert(rec *kgo.Record) (g *readGroup, r row, ok bool) {
-	g, ok = t.groups[string(rec.Key)]
-	if !ok {
-		if g, ok = t.groups[""]; !ok {
-			return nil, row{}, false
+// frame builds the frame of the current poll out of one allocation of series data. The
+// relay reads a frame after Write returns, so nothing in it can be reused.
+func (t *readTask) frame(keyCount, size int) frame.Frame {
+	keys := make(channel.Keys, 0, keyCount)
+	series := make([]telem.Series, 0, keyCount)
+	data := make([]byte, 0, size)
+	for _, g := range t.groups {
+		if len(g.rows) > 0 {
+			keys = append(keys, g.keys...)
+			series, data = g.appendSeries(series, data)
 		}
 	}
-	r = row{values: make([]any, len(g.fields))}
-	if err := g.extractor.extract(rec.Value, r.values, g.found); err != nil {
-		t.skip("Record is not JSON: " + err.Error())
-		return nil, row{}, false
-	}
-	for i, fld := range g.fields {
-		if err := g.extractor.errs[i]; err != nil {
-			t.skip(err.Error())
-			return nil, row{}, false
-		}
-		if !g.found[i] {
-			t.skip(fmt.Sprintf("Record has no value at %s", fld.Pointer))
-			return nil, row{}, false
-		}
-		v, err := readSample(
-			r.values[i], g.channels[i].DataType, fld.TimeFormat, fld.EnumValues,
-		)
-		if err != nil {
-			t.skip(fmt.Sprintf("Value at %s: %s", fld.Pointer, err))
-			return nil, row{}, false
-		}
-		r.values[i] = v
-	}
-	if g.stamp == -1 {
-		r.ts = telem.NewTimeStamp(rec.Timestamp)
-	} else {
-		r.ts = r.values[g.stamp].(telem.TimeStamp)
-	}
-	return g, r, true
+	return frame.NewMulti(keys, series)
 }
 
-// keep sorts rows by timestamp and drops the replay. A body-stamped regression is
-// dropped with a status. Kafka timestamps only count milliseconds, so a regression of
-// one moves to a nanosecond past the last written stamp.
-func (t *readTask) keep(g *readGroup, rows []row) []row {
-	slices.SortStableFunc(rows, func(a, b row) int { return cmp.Compare(a.ts, b.ts) })
-	kept := rows[:0]
-	for _, r := range rows {
+// convert parses rec into its group's samples. A record that is not addressed to this
+// task leaves nothing, and neither does one that is skipped.
+func (t *readTask) convert(rec *kgo.Record) {
+	g, ok := t.groups[string(rec.Key)]
+	if !ok {
+		if g, ok = t.groups[""]; !ok {
+			return
+		}
+	}
+	t.skips.Read()
+	r := row{
+		ts:        telem.NewTimeStamp(rec.Timestamp),
+		pos:       len(g.rows),
+		partition: rec.Partition,
+		offset:    rec.Offset,
+	}
+	if err := g.extractor.Extract(rec.Value, g.values); err != nil {
+		t.skip(r, "Record is not JSON: "+err.Error())
+		return
+	}
+	for i, fld := range g.fields {
+		if g.values[i] == nil {
+			t.skip(r, fmt.Sprintf("Record has no value at %s", fld.Pointer))
+			g.truncate(r.pos)
+			return
+		}
+		col := &g.columns[i]
+		if err := col.append(g.values[i]); err != nil {
+			t.skip(r, fmt.Sprintf("Value at %s: %s", fld.Pointer, err))
+			g.truncate(r.pos)
+			return
+		}
+		if i == g.stamp {
+			r.ts = telem.TimeStamp(telem.ByteOrder.Uint64(col.sample(r.pos)))
+		}
+	}
+	g.rows = append(g.rows, r)
+}
+
+// keep sorts the group's rows by timestamp and drops the replay. A body-stamped
+// regression is dropped with a status. Kafka timestamps only count milliseconds, so a
+// regression of one moves to a nanosecond past the last written stamp.
+func (t *readTask) keep(g *readGroup) {
+	slices.SortStableFunc(g.rows, func(a, b row) int { return cmp.Compare(a.ts, b.ts) })
+	kept := g.rows[:0]
+	for _, r := range g.rows {
 		if r.ts <= g.last {
 			if g.replaying {
 				continue
 			}
 			if g.stamp != -1 {
-				t.skip(fmt.Sprintf(
+				t.skip(r, fmt.Sprintf(
 					"Record stamped %s is not after the last written %s for key %q",
 					r.ts, g.last, g.key,
 				))
@@ -725,62 +805,90 @@ func (t *readTask) keep(g *readGroup, rows []row) []row {
 		g.last = r.ts
 		kept = append(kept, r)
 	}
-	return kept
+	g.rows = kept
 }
 
-// appendFrame appends the series rows make for the group's keys to fr.
-func (g *readGroup) appendFrame(fr frame.Frame, rows []row) frame.Frame {
-	series := make([]telem.Series, 0, len(g.keys))
-	if g.index != 0 && g.stamp == -1 {
-		stamps := make([]telem.TimeStamp, len(rows))
-		for i, r := range rows {
-			stamps[i] = r.ts
+func (g *readGroup) reset() {
+	g.rows = g.rows[:0]
+	g.truncate(0)
+}
+
+func (g *readGroup) truncate(n int) {
+	for i := range g.columns {
+		g.columns[i].truncate(n)
+	}
+}
+
+// stamped returns true when the group's index samples come from Kafka timestamps.
+func (g *readGroup) stamped() bool { return g.index != 0 && g.stamp == -1 }
+
+func (g *readGroup) size() int {
+	var n int
+	if g.stamped() {
+		n = len(g.rows) * int(telem.TimestampT.Density())
+	}
+	for i := range g.columns {
+		n += g.columns[i].size(g.rows)
+	}
+	return n
+}
+
+// appendSeries appends a series per group key to series. Their data is appended to
+// data, and each series is capped so that an append to it cannot reach the next one.
+func (g *readGroup) appendSeries(
+	series []telem.Series,
+	data []byte,
+) ([]telem.Series, []byte) {
+	if g.stamped() {
+		start := len(data)
+		for _, r := range g.rows {
+			data = telem.ByteOrder.AppendUint64(data, uint64(r.ts))
 		}
-		series = append(series, telem.NewSeries(stamps))
+		series = append(series, telem.Series{
+			DataType: telem.TimestampT,
+			Data:     data[start:len(data):len(data)],
+		})
 	}
-	for i, ch := range g.channels {
-		s := telem.Series{DataType: ch.DataType}
-		for _, r := range rows {
-			sample := telem.NewSeriesFromAny(r.values[i], ch.DataType)
-			s.Data = append(s.Data, sample.Data...)
+	for i := range g.columns {
+		c := &g.columns[i]
+		start := len(data)
+		for _, r := range g.rows {
+			data = append(data, c.sample(r.pos)...)
 		}
-		series = append(series, s)
+		series = append(series, telem.Series{
+			DataType: c.dataType,
+			Data:     data[start:len(data):len(data)],
+		})
 	}
-	return fr.Extend(frame.NewMulti(g.keys, series))
+	return series, data
 }
 
-// skip counts a skipped record and why for reportSkips.
-func (t *readTask) skip(reason string) {
-	if t.skipped == 0 {
-		t.skipReason = reason
-	}
-	t.skipped++
+// skip counts the record of r as skipped. reason says why.
+func (t *readTask) skip(r row, reason string) {
+	t.skips.Skip(time.Now(), fmt.Sprintf(
+		"%s (partition %d, offset %d).", reason, r.partition, r.offset,
+	))
 }
 
-// reportSkips writes one status for the records the poll skipped, unless its reason
-// repeats the last one.
-func (t *readTask) reportSkips(ctx context.Context) {
-	n := t.skipped
-	if n == 0 {
+// reportSkips writes the skip warning at now, or clears it once it expires. It writes
+// nothing while the connection warning shows.
+func (t *readTask) reportSkips(ctx context.Context, now time.Time) {
+	w := t.skips.Warning(now)
+	if t.disconnected {
 		return
 	}
-	t.skipped = 0
-	if t.skipReason == t.lastSkip {
-		return
+	var err error
+	if w != nil {
+		err = t.status.Warn(ctx, *w)
+	} else {
+		err = t.status.ClearWarning(ctx)
 	}
-	t.lastSkip = t.skipReason
-	message := "Skipped record"
-	if n > 1 {
-		message = fmt.Sprintf("Skipped %d records", n)
+	if err != nil {
+		t.factoryCfg.L.Error("failed to write task warning",
+			zap.Stringer("task", t.task.Key),
+			zap.Error(err),
+		)
 	}
-	t.setStatus(
-		ctx,
-		driver.NoCommand,
-		status.VariantError,
-		true,
-		message,
-		t.skipReason,
-	)
 }
 
 // ackCurrent answers cmdKey with the task's current status, for a command that needs

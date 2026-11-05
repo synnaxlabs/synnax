@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, log } from "@synnaxlabs/client";
-import { Button } from "@synnaxlabs/lyra/button";
 import { Color } from "@synnaxlabs/lyra/color";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -30,6 +29,7 @@ import { type ReactElement } from "react";
 import { CSS } from "@/platform/css";
 
 const PRECISION_BOUNDS = { lower: 0, upper: 17 };
+const ALIAS_MAX_LENGTH = 64;
 
 const showsNumericFields = (dt: DataType | undefined): boolean =>
   dt != null && dt.isNumeric && !dt.equals(DataType.TIMESTAMP);
@@ -60,8 +60,14 @@ const ChannelRow = ({
   const showNumeric = showsNumericFields(dataType);
   const showTimestamp = isTimestamp(dataType);
 
+  // Spreading counts each character as one, which the input's maxLength does not.
   const handleAliasChange = (alias: string) =>
-    dispatch(log.setChannelAlias({ channel, alias }));
+    dispatch(
+      log.setChannelAlias({
+        channel,
+        alias: [...alias].slice(0, ALIAS_MAX_LENGTH).join(""),
+      }),
+    );
   const handleNotationChange = (notation: notation.Notation) =>
     dispatch(log.setChannelNotation({ channel, notation }));
   const handlePrecisionChange = (precision?: number) =>
@@ -125,7 +131,8 @@ const ChannelRow = ({
             <Input.Numeric
               value={precision}
               onChange={handlePrecisionChange}
-              placeholder="Auto"
+              onClear={() => handlePrecisionChange()}
+              endContent={precision == null ? <Input.AutoChip /> : undefined}
               bounds={PRECISION_BOUNDS}
               disabled={disabled}
               shrink={false}
@@ -135,18 +142,12 @@ const ChannelRow = ({
               className={CSS.BE("log", "channel-precision")}
               showDragHandle={false}
             >
-              <Button.Button
-                variant="outlined"
-                disabled={disabled || precision == null}
-                onClick={() => handlePrecisionChange()}
-                tooltip={
-                  precision == null
-                    ? "Type a number to disable auto precision"
-                    : "Enable auto precision"
-                }
-              >
-                <Icon.Auto />
-              </Button.Button>
+              {precision != null && (
+                <Input.AutoButton
+                  disabled={disabled}
+                  onClick={() => handlePrecisionChange()}
+                />
+              )}
             </Input.Numeric>
           </>
         )}
@@ -176,7 +177,7 @@ const ChannelRow = ({
 };
 
 const SELECT_CHANNEL_INITIAL_QUERY: Channel.ListQuery = {
-  internal: IS_DEV ? undefined : false,
+  where: { internal: IS_DEV ? undefined : { eq: false } },
 };
 
 const ADD_CHANNEL_TRIGGER_PROPS: Select.SingleTriggerProps = {

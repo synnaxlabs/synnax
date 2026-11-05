@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/cpp/json"
 	. "github.com/synnaxlabs/oracle/testutil"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("C++ JSON Plugin", func() {
@@ -45,6 +46,42 @@ var _ = Describe("C++ JSON Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		It("Should generate the recursive Where of a filter", func(ctx SpecContext) {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ctx, ThingFilter, "thing", loader, jsonPlugin)
+			ExpectContent(resp, "thing/json.gen.h").ToContain(
+				`.and_ = parser.field<std::optional<std::vector<Where>>>("and"),`,
+				`.not_ = parser.field<x::mem::indirect<Where>>("not"),`,
+				`if (this->and_.has_value()) j["and"] = x::json::to_array(*this->and_);`,
+				`if (this->not_.has_value()) j["not"] = this->not_->to_json();`,
+			)
+		})
+
+		It(
+			"Should serialize type parameter fields through x::json",
+			func(ctx SpecContext) {
+				source := `
+					@cpp output "x/cpp/thing"
+
+					Set struct<T> {
+						value T
+						eq    T?
+						in    T[]?
+						all   T[]
+					}
+				`
+				resp := MustGenerate(ctx, source, "thing", loader, jsonPlugin)
+				ExpectContent(resp, "json.gen.h").
+					ToContain(
+						`j["value"] = x::json::to_json(this->value);`,
+						`if (this->eq.has_value()) j["eq"] = x::json::to_json(*this->eq);`,
+						`if (this->in.has_value()) j["in"] = x::json::to_array(*this->in);`,
+						`j["all"] = x::json::to_array(this->all);`,
+					).
+					ToNotContain("is_same_v")
+			},
+		)
+
 		Context("field-level omit", func() {
 			It("Should leave out a field omitted in cpp", func(ctx SpecContext) {
 				source := `
@@ -88,6 +125,26 @@ var _ = Describe("C++ JSON Plugin", func() {
 				},
 			)
 		})
+
+		DescribeTable(
+			"Should start the JSON of a struct as an object",
+			func(ctx SpecContext, decls string) {
+				source := `
+				@cpp output "client/cpp/types"
+			` + decls
+				resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+				ExpectContent(resp, "json.gen.h").
+					ToContain("x::json::json j = x::json::json::object();").
+					ToNotContain("x::json::json j;")
+			},
+			Entry("for a plain struct", "Unit struct {\n name string?\n}"),
+			Entry("for a generic struct", "Status struct<D> {\n details D?\n}"),
+			Entry(
+				"for a struct that extends another",
+				"Base struct {\n name string?\n}\n"+
+					"Unit struct extends Base {\n scale float64?\n}",
+			),
+		)
 
 		Context("array alias fields (e.g., Params -> Param[])", func() {
 			It(
@@ -354,6 +411,97 @@ var _ = Describe("C++ JSON Plugin", func() {
 			)
 		})
 
+		Context("empty composite defaults", func() {
+			It("Should fall back to an empty map", func(ctx SpecContext) {
+				source := `
+					@cpp output "client/cpp/task"
+
+					Task struct {
+						metadata map<string, string> = {}
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+
+				ExpectContent(resp, "json.gen.h").
+					ToContain(`parser.field<std::unordered_map<std::string, std::string>>("metadata", std::unordered_map<std::string, std::string>{})`)
+			})
+			It("Should fall back to an empty struct", func(ctx SpecContext) {
+				source := `
+					@cpp output "client/cpp/task"
+
+					Ports struct {
+						index uint32
+					}
+
+					Task struct {
+						ports Ports = {}
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+
+				ExpectContent(resp, "json.gen.h").
+					ToContain(`parser.field<Ports>("ports", Ports{})`)
+			})
+			It("Should fall back to an empty struct alias", func(ctx SpecContext) {
+				source := `
+					@cpp output "client/cpp/task"
+
+					Ports struct {
+						index uint32
+					}
+
+					Inputs = Ports
+
+					Task struct {
+						inputs Inputs = {}
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+
+				ExpectContent(resp, "json.gen.h").
+					ToContain(`parser.field<Inputs>("inputs", Inputs{})`)
+			})
+			It("Should fall back to an empty array wrapper", func(ctx SpecContext) {
+				source := `
+					@cpp output "client/cpp/task"
+
+					Param struct {
+						name string
+					}
+
+					Params Param[]
+
+					Task struct {
+						params Params = []
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+
+				ExpectContent(resp, "json.gen.h").
+					ToContain(`parser.field<Params>("params", Params{})`)
+			})
+			It(
+				"Should leave a non-empty struct default required",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "client/cpp/task"
+
+					Ports struct {
+						index uint32
+					}
+
+					Task struct {
+						ports Ports = { index = 1 }
+					}
+				`
+					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+
+					ExpectContent(resp, "json.gen.h").
+						ToContain(`parser.field<Ports>("ports")`)
+				},
+			)
+		})
+
 		Context("map type handling", func() {
 			It(
 				"Should use std::unordered_map for Map types in json serialization",
@@ -372,6 +520,197 @@ var _ = Describe("C++ JSON Plugin", func() {
 						ToContain(
 							`parser.field<std::unordered_map<std::string, std::string>>("metadata")`,
 						)
+				},
+			)
+			It(
+				"Should serialize each value of a map of structs",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "client/cpp/task"
+
+					Pair struct {
+						left uint32
+					}
+
+					Task struct {
+						pairs map<string, Pair>
+					}
+				`
+					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+
+					ExpectContent(resp, "json.gen.h").
+						ToContain(
+							`for (const auto& [key, item] : this->pairs) obj[key] = item.to_json();`,
+							`j["pairs"] = obj;`,
+						)
+				},
+			)
+			It(
+				"Should unwrap an optional map of structs",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "client/cpp/task"
+
+					Pair struct {
+						left uint32
+					}
+
+					Task struct {
+						pairs map<string, Pair>?
+					}
+				`
+					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+
+					ExpectContent(resp, "json.gen.h").
+						ToContain(
+							`if (this->pairs.has_value()) {`,
+							`for (const auto& [key, item] : *this->pairs) obj[key] = item.to_json();`,
+						)
+				},
+			)
+			It(
+				"Should stringify the numeric keys of a map of structs",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "client/cpp/task"
+
+					Pair struct {
+						left uint32
+					}
+
+					Task struct {
+						pairs map<uint32, Pair>
+					}
+				`
+					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+
+					ExpectContent(resp, "json.gen.h").
+						ToContain(`obj[std::to_string(key)] = item.to_json();`)
+				},
+			)
+			It(
+				"Should write the UUID keys of a map of structs as strings",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "client/cpp/task"
+
+					Pair struct {
+						left uint32
+					}
+
+					Task struct {
+						pairs map<uuid, Pair>
+					}
+				`
+					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+
+					ExpectContent(resp, "json.gen.h").
+						ToContain(`obj[key.to_string()] = item.to_json();`)
+				},
+			)
+			It(
+				"Should defer the key check of a generic map of structs",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "client/cpp/task"
+
+					Pair struct {
+						left uint32
+					}
+
+					Pairs struct<K extends comparable> {
+						values map<K, Pair>
+					}
+				`
+					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+
+					ExpectContent(resp, "json.gen.h").
+						ToContain(`obj[x::json::map_key(key)] = item.to_json();`)
+				},
+			)
+			DescribeTable("Should reject a map of structs with an unsupported key",
+				func(ctx SpecContext, key string) {
+					req := MustGenerateRequest(ctx, `
+					@cpp output "client/cpp/task"
+
+					Units enum {
+						volts = "Volts"
+					}
+
+					Pair struct {
+						left uint32
+					}
+
+					Task struct {
+						pairs map<`+key+`, Pair>
+					}
+				`, "task", loader)
+					Expect(jsonPlugin.Generate(req)).Error().To(SatisfyAll(
+						MatchError(ContainSubstring("Task.pairs")),
+						MatchError(validate.ErrValidation),
+					))
+				},
+				Entry("string enum", "Units"),
+				Entry("float", "float64"),
+			)
+			It(
+				"Should serialize a map of structs declared through an alias",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "client/cpp/task"
+
+					Pair struct {
+						left uint32
+					}
+
+					Pairs = map<string, Pair>
+
+					Task struct {
+						pairs Pairs
+					}
+				`
+					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+
+					ExpectContent(resp, "json.gen.h").
+						ToContain(
+							`for (const auto& [key, item] : this->pairs) obj[key] = item.to_json();`,
+						)
+				},
+			)
+			It(
+				"Should merge a parent into a child without iterating a temporary",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "client/cpp/task"
+
+					Base struct {
+						left uint32
+					}
+
+					Child struct extends Base {
+						right uint32
+					}
+				`
+					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+
+					ExpectContent(resp, "json.gen.h").
+						ToContain(`if (const auto parent = Base::to_json(); parent.is_object()) j.update(parent);`)
+				},
+			)
+			It(
+				"Should assign a map of primitives directly",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "client/cpp/task"
+
+					Task struct {
+						metadata map<string, string>
+					}
+				`
+					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+
+					ExpectContent(resp, "json.gen.h").
+						ToContain(`j["metadata"] = this->metadata;`)
 				},
 			)
 		})

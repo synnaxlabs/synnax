@@ -36,10 +36,10 @@ class TorqueBridgeTable(Analog):
 
     def __init__(
         self,
-        *,
         layout: LayoutClient,
         name: str,
         device: str,
+        *,
         torque_units: (
             Literal["Newton meters", "Inch ounces", "Foot pounds"] | None
         ) = None,
