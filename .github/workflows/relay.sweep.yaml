@@ -9,8 +9,8 @@
 
 # Starts the classifier, the review gate, and auto-merge and adds path labels for pull
 # requests the other relays cannot reach: a fork or Dependabot gets a token that cannot
-# dispatch or write. It runs from the default branch and reads pull requests only
-# through the API.
+# dispatch or write. It skips a pull request that has not changed for an hour. It runs
+# from the default branch and reads pull requests only through the API.
 
 name: Relay - Sweep
 
@@ -41,10 +41,12 @@ jobs:
       - name: List the pull requests
         id: prs
         run: |
+          since=$(date -u -d '1 hour ago' +%FT%TZ)
           prs=$(gh pr list --state open --limit 5000 \
-            --json number,isCrossRepository,author \
-            --jq '.[] | select(.isCrossRepository or .author.login == "app/dependabot")
-              | .number')
+            --json number,isCrossRepository,author,updatedAt \
+            --jq ".[] | select(.isCrossRepository
+              or .author.login == \"app/dependabot\") | select(.updatedAt > \"$since\")
+              | .number")
           {
             echo 'prs<<EOF'
             echo "$prs"
@@ -59,10 +61,11 @@ jobs:
           for pr in $PRS; do
             sha=$(gh pr view "$pr" --json headRefOid --jq .headRefOid)
             run=$(gh run list --workflow check.classify.yaml --commit "$sha" \
-              --status completed --limit 1 --json databaseId --jq '.[].databaseId')
+              --status completed --limit 20 --json databaseId,conclusion \
+              --jq '[.[] | select(.conclusion != "cancelled")][0].databaseId // empty')
             if [ -n "$run" ]; then
               gh workflow run label.classify.yaml --ref "$REF" -f group="sweep-$pr" \
-                -f run_id="$run" -f head_sha="$sha"
+                -f run_id="$run" -f head_sha="$sha" -f pr="$pr"
             fi
             gh workflow run check.review.yaml --ref "$REF" -f pr="$pr"
             gh workflow run merge.auto.yaml --ref "$REF" -f pr="$pr"

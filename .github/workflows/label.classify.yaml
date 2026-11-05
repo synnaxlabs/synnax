@@ -33,6 +33,10 @@ on:
         description: Concurrency group of the pull request branch
         required: true
         type: string
+      pr:
+        description: The pull request, when the results cannot be trusted to name it
+        required: false
+        type: string
 
 permissions: {}
 
@@ -76,4 +80,5 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
           HEAD_SHA: ${{ inputs.head_sha }}
+          PR: ${{ inputs.pr }}
         run: python3 .github/scripts/classify.py "$RUNNER_TEMP/results"
