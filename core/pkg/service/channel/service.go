@@ -11,6 +11,7 @@ package channel
 
 import (
 	"context"
+	"slices"
 	"sync"
 
 	"github.com/synnaxlabs/alamos"
@@ -133,11 +134,17 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Channel]{
-		DB:              cfg.DB,
-		Name:            tableName,
-		Migrations:      versions.Migrations,
-		Indexes:         s.indexes.all(),
-		References:      s.indexes.references(),
+		DB:   cfg.DB,
+		Name: tableName,
+		Migrations: append(
+			slices.Clone(versions.Migrations),
+			newDanglingIndexMigration(cfg.DB),
+		),
+		Indexes: s.indexes.all(),
+		References: append(
+			s.indexes.references(),
+			gorp.NewReference(indexReference()),
+		),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err

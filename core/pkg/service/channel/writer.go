@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"slices"
 	"strconv"
 
 	"github.com/samber/lo"
@@ -534,6 +535,17 @@ func (w Writer) allocateAndWrite(
 			externalCreatedKeys = append(externalCreatedKeys, ch.Key())
 		}
 	}
+	// A data channel's index must exist before the data channel is written.
+	slices.SortStableFunc(toCreate, func(a, b Channel) int {
+		switch {
+		case a.IsIndex == b.IsIndex:
+			return 0
+		case a.IsIndex:
+			return -1
+		default:
+			return 1
+		}
+	})
 	if err := w.svc.table.NewCreate().Entries(&toCreate).Exec(ctx, w.tx); err != nil {
 		return err
 	}

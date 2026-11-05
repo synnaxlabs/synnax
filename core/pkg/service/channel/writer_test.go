@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
@@ -1152,9 +1153,12 @@ var _ = Describe("Writer", func() {
 				"Should not allow deletion of index channel with dependent channels",
 				func(ctx SpecContext) {
 					Expect(channelWriter.Delete(ctx, idxCh.Key(), true)).To(
-						MatchError(
-							ContainSubstring("because it indexes data in channel"),
-						),
+						MatchError(ContainSubstring(fmt.Sprintf(
+							"cannot delete channel %d because channel %d references "+
+								"it through local_index",
+							idxCh.Key(),
+							ch.Key(),
+						))),
 					)
 				},
 			)
@@ -1188,6 +1192,51 @@ var _ = Describe("Writer", func() {
 					).
 						Error().
 						To(MatchError(ts.ErrChannelNotFound))
+				},
+			)
+		})
+		Context("Calculated Channel Index", func() {
+			It(
+				"Should refuse an update that names an index that does not exist",
+				func(ctx SpecContext) {
+					calc := channel.Channel{
+						Name:       UniqueChannelName(),
+						DataType:   telem.Float64T,
+						Expression: "return 1 + 1",
+						Virtual:    true,
+					}
+					Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+					calc.LocalIndex = 99999
+					Expect(channelWriter.Create(ctx, &calc)).To(MatchError(
+						ContainSubstring(fmt.Sprintf(
+							"local_index: channel %d does not exist",
+							distchannel.NewKey(node.KeyFree, 99999),
+						)),
+					))
+				},
+			)
+			It(
+				"Should clear on open the index of a channel whose index does not exist",
+				func(ctx SpecContext) {
+					fresh := testutil.NewNode(ctx)
+					calc := channel.Channel{
+						Name:        "dangling_calc",
+						Leaseholder: node.KeyFree,
+						LocalKey:    7,
+						LocalIndex:  8,
+						DataType:    telem.Float64T,
+						Expression:  "return 1 + 1",
+						Virtual:     true,
+					}
+					Expect(gorp.WrapWriter[channel.Key, channel.Channel](fresh.DB).
+						Set(ctx, calc)).To(Succeed())
+					freshSvc, _ := openService(ctx, fresh)
+					var stored channel.Channel
+					Expect(freshSvc.NewRetrieve().
+						Where(channel.MatchKeys(calc.Key())).
+						Entry(&stored).
+						Exec(ctx, nil)).To(Succeed())
+					Expect(stored.LocalIndex).To(BeZero())
 				},
 			)
 		})
