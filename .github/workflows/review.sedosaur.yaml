@@ -8,10 +8,10 @@
 # included in the file licenses/APL.txt.
 
 # Reviews a pull request with Sedosaur on a review runner, and posts the review as the
-# sedosaur GitHub App. The scripts run from the commit that started this workflow, on
-# the default branch, and policy comes from `.sedosaur/` on the base branch. Claude Code
-# gets only read tools, a checkout of the head, and its OAuth token. The App token
-# reaches only the step that posts.
+# sedosaur GitHub App. The scripts and the policy in `.sedosaur/` come from the commit
+# that started this workflow, on the default branch, never from the pull request or its
+# base. Claude Code gets only read tools, a checkout of the head, and its OAuth token.
+# The App token reaches only the steps that write to GitHub.
 
 name: Review - Sedosaur
 run-name: ${{ inputs.pr }}
@@ -23,8 +23,16 @@ on:
         description: "Pull request to review"
         type: number
         required: true
+      comment:
+        description: "Comment that asked for the review, to react to"
+        type: string
+        required: false
 
 permissions: {}
+
+env:
+  RUN_URL:
+    ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
 # One review of a pull request at a time. A newer request replaces a queued one.
 concurrency:
@@ -42,6 +50,7 @@ jobs:
       head: ${{ steps.pr.outputs.head }}
       base: ${{ steps.pr.outputs.base }}
       fork: ${{ steps.pr.outputs.fork }}
+      check: ${{ steps.check.outputs.id }}
     steps:
       - name: Read the pull request
         id: pr
@@ -79,6 +88,52 @@ jobs:
             if [ "$previous" = stopped ]; then exit 0; fi
           done
 
+      - name: Mint the GitHub App token
+        id: app
+        if: steps.pr.outputs.fork == 'false'
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.SEDOSAUR_APP_ID }}
+          private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
+          permission-checks: write
+
+      # The check run shows on the pull request while the runner boots.
+      - name: Queue the check run
+        id: check
+        if: steps.pr.outputs.fork == 'false'
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          HEAD_SHA: ${{ steps.pr.outputs.head }}
+        run: |
+          id=$(gh api -X POST "repos/$GITHUB_REPOSITORY/check-runs" \
+            -f name="Sedosaur Review" -f head_sha="$HEAD_SHA" \
+            -f status=queued -f details_url="$RUN_URL" --jq .id)
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+
+  # A job of its own, so a deleted comment cannot stop the review.
+  react:
+    needs: start
+    if: needs.start.outputs.fork == 'false' && inputs.comment != ''
+    name: React to the request
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mint the GitHub App token
+        id: app
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.SEDOSAUR_APP_ID }}
+          private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
+          permission-pull-requests: write
+
+      # Greptile reacts with eyes, so Sedosaur reacts with a rocket.
+      - name: React with a rocket
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          COMMENT: ${{ inputs.comment }}
+        run: |
+          gh api -X POST "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT/reactions" \
+            -f content=rocket --silent
+
   review:
     needs: start
     # A fork's code never reaches a runner.
@@ -93,9 +148,7 @@ jobs:
       PR: ${{ inputs.pr }}
       HEAD_SHA: ${{ needs.start.outputs.head }}
       BASE_SHA: ${{ needs.start.outputs.base }}
-      RUN_URL:
-        ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id
-        }}
+      CHECK_RUN: ${{ needs.start.outputs.check }}
     steps:
       - name: Mint the GitHub App token
         id: app
@@ -109,31 +162,26 @@ jobs:
           permission-pull-requests: write
 
       - name: Start the check run
-        id: check
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
         run: |
-          id=$(gh api -X POST "repos/$GITHUB_REPOSITORY/check-runs" \
-            -f name="Sedosaur Review" -f head_sha="$HEAD_SHA" \
-            -f status=in_progress -f details_url="$RUN_URL" --jq .id)
-          echo "id=$id" >> "$GITHUB_OUTPUT"
+          gh api -X PATCH "repos/$GITHUB_REPOSITORY/check-runs/$CHECK_RUN" \
+            -f status=in_progress --silent
 
       # The runner keeps the clone between jobs, so each fetch is small. This checkout
-      # holds the scripts: a base branch other than the default one is not trusted.
-      - name: Check out the scripts
+      # holds the scripts and the policy: the pull request and its base are not trusted.
+      - name: Check out the scripts and the policy
         uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
 
-      # The config, prompt, and rules come from the base, never from the pull request.
-      # The runner empties its temporary directory after each job, so prune drops the
-      # checkouts of the last review.
-      - name: Check out the base and the head
+      # The diff needs the base commit. The runner empties its temporary directory after
+      # each job, so prune drops the checkout of the last review.
+      - name: Check out the head
         run: |
           git worktree prune
           git fetch --no-tags origin "$BASE_SHA" "$HEAD_SHA"
-          git worktree add --detach "$RUNNER_TEMP/base" "$BASE_SHA"
           git worktree add --detach "$RUNNER_TEMP/head" "$HEAD_SHA"
 
       # A runner can stay stopped for weeks, so a review takes the latest Claude Code.
@@ -144,9 +192,8 @@ jobs:
         working-directory: .github/scripts
         env:
           GH_TOKEN: ${{ github.token }}
-          CHECK_RUN: ${{ steps.check.outputs.id }}
           BOT: ${{ steps.app.outputs.app-slug }}
-          BASE_DIR: ${{ runner.temp }}/base
+          POLICY_DIR: ${{ github.workspace }}
           HEAD_DIR: ${{ runner.temp }}/head
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.SEDOSAUR_CLAUDE_CODE_OAUTH_TOKEN }}
         run: python3 -m review run "$RUNNER_TEMP/review.json"
@@ -155,18 +202,32 @@ jobs:
         working-directory: .github/scripts
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
-          CHECK_RUN: ${{ steps.check.outputs.id }}
           BOT: ${{ steps.app.outputs.app-slug }}
         run: python3 -m review post "$RUNNER_TEMP/review.json"
 
+  # A review that never gets a runner cannot close its own check run, so a hosted job
+  # closes it whenever the review did not succeed.
+  end:
+    needs: [start, review]
+    if: always() && needs.start.outputs.check != '' && needs.review.result != 'success'
+    name: End the check run
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mint the GitHub App token
+        id: app
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.SEDOSAUR_APP_ID }}
+          private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
+          permission-checks: write
+
       - name: End the check run
-        if: (failure() || cancelled()) && steps.check.outputs.id
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
-          CHECK_RUN: ${{ steps.check.outputs.id }}
-          STATUS: ${{ job.status }}
+          CHECK_RUN: ${{ needs.start.outputs.check }}
+          STATUS: ${{ needs.review.result }}
         run: |
           gh api -X PATCH "repos/$GITHUB_REPOSITORY/check-runs/$CHECK_RUN" \
             -f status=completed -f conclusion="$STATUS" \
             -f "output[title]=The review ended with $STATUS" \
-            -f "output[summary]=See the [run]($RUN_URL)."
+            -f "output[summary]=See the [run]($RUN_URL)." --silent

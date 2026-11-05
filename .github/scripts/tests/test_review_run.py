@@ -10,6 +10,7 @@
 import dataclasses
 import json
 import os
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +18,7 @@ import pytest
 
 from review import Config, Doc, Finding, PullRequest, load, run
 from review.__main__ import claude as launch
+from review.__main__ import main
 
 ROOT = Path(__file__).resolve().parents[3]
 WORK = Path("/work")
@@ -293,3 +295,77 @@ class TestLaunch:
         assert env["CLAUDE_CODE_OAUTH_TOKEN"] == "claude-token"
         assert "GH_TOKEN" not in env
         assert env["HOME"] == env["CLAUDE_CONFIG_DIR"] != os.environ["HOME"]
+
+
+def executable(path: Path, body: str) -> None:
+    path.write_text(f"#!/usr/bin/env python3\nimport json, sys\n{body}")
+    path.chmod(0o755)
+
+
+def git(cwd: Path, *args: str) -> str:
+    return subprocess.run(
+        ["git", "-c", "user.name=t", "-c", "user.email=t@t", *args],
+        cwd=cwd,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+
+class TestMain:
+    """Tests the `run` command with fake `gh` and `claude` executables."""
+
+    def test_should_review_the_head_with_the_policy_checkout(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        home = tmp_path / "policy" / ".sedosaur"
+        (home / "rules").mkdir(parents=True)
+        (home / "config.toml").write_text(
+            'model = "m"\neffort = "low"\ntools = []\nexcluded = []\n'
+            "diff_chars = 1000\ncaps = {}\ncontext = []\n"
+        )
+        (home / "prompt.md").write_text("Use the trusted policy.\n")
+        head = tmp_path / "head"
+        head.mkdir()
+        git(head, "init", "-q")
+        (head / "a.go").write_text("one\n")
+        git(head, "add", ".")
+        git(head, "commit", "-qm", "base")
+        base = git(head, "rev-parse", "HEAD")
+        (head / "a.go").write_text("one\ntwo\n")
+        git(head, "commit", "-qam", "head")
+        bindir = tmp_path / "bin"
+        bindir.mkdir()
+        executable(
+            bindir / "gh",
+            "if 'graphql' not in sys.argv:\n"
+            "    print(json.dumps({'title': 'Fix A', 'body': 'Fixes A.'}))\n",
+        )
+        prompt = tmp_path / "prompt.txt"
+        executable(
+            bindir / "claude",
+            f"open({str(prompt)!r}, 'w').write(sys.stdin.read())\n"
+            "print(json.dumps({'is_error': False, 'structured_output': {"
+            "'score': 5, 'verdict': 'Safe.', 'summary': ['S'], 'findings': []}}))\n",
+        )
+        env = {
+            "PATH": f"{bindir}{os.pathsep}{os.environ['PATH']}",
+            "GITHUB_REPOSITORY": "synnaxlabs/synnax",
+            "PR": "7",
+            "HEAD_SHA": git(head, "rev-parse", "HEAD"),
+            "BASE_SHA": base,
+            "CHECK_RUN": "1",
+            "RUN_URL": "https://example.com/run",
+            "BOT": "sedosaur",
+            "POLICY_DIR": str(tmp_path / "policy"),
+            "HEAD_DIR": str(head),
+            "CLAUDE_CODE_OAUTH_TOKEN": "claude-token",
+        }
+        for k, v in env.items():
+            monkeypatch.setenv(k, v)
+        out = tmp_path / "review.json"
+        main(["run", str(out)])
+        text = prompt.read_text()
+        assert text.startswith("Use the trusted policy.\n\n# Pull request #7: Fix A")
+        assert "     2 +two" in text
+        assert json.loads(out.read_text())["score"] == 5
