@@ -41,6 +41,7 @@ var (
 	userSvc     *user.Service
 	writer      user.Writer
 	apiSvc      *apiuser.Service
+	rbacSvc     *rbac.Service
 	root        user.User
 )
 
@@ -72,7 +73,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		),
 	)
 	writer = userSvc.NewWriter(nil)
-	rbacSvc := MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
+	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    groupSvc,

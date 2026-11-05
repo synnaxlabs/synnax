@@ -170,6 +170,14 @@ development logging. Do not use it in production. For debug logs, use `--verbose
 
 </Field.Item>
 
+<Field.Item name="--auth-methods" default='"password,api_key"' env="SYNNAX_AUTH_METHODS">
+
+The login methods the Core accepts. The Core refuses a method that is off at login and
+when a credential is created or changed, and keeps its stored credentials. The Core does
+not start with `api_key` off while the embedded Driver is on.
+
+</Field.Item>
+
 <Field.Item name="--session-idle-timeout" type="duration" default='"168h"' env="SYNNAX_SESSION_IDLE_TIMEOUT">
 
 Ends a login session after this long with no request from its client.

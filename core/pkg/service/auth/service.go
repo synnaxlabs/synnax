@@ -331,6 +331,19 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{svc: s, tx: gorp.OverrideTx(s.cfg.DB, tx)}
 }
 
+// Methods returns the methods the Service accepts, sorted.
+func (s *Service) Methods() []Method {
+	return slices.Sorted(maps.Keys(s.cfg.Authenticators))
+}
+
+// Accepts returns a validation error when the Service does not accept method.
+func (s *Service) Accepts(method Method) error {
+	if _, ok := s.cfg.Authenticators[method]; !ok {
+		return errors.Wrapf(validate.ErrValidation, "method %s is not accepted", method)
+	}
+	return nil
+}
+
 // Login checks the proof with the authenticator for its method and opens a session for
 // the identity it proves. It returns the session and its token, which is shown once. A
 // proof for a method with no authenticator is a validation error.
@@ -342,15 +355,10 @@ func (s *Service) Login(
 	if err != nil {
 		return Session{}, "", err
 	}
-	authenticator, ok := s.cfg.Authenticators[method]
-	if !ok {
-		return Session{}, "", errors.Wrapf(
-			validate.ErrValidation,
-			"method %s is not accepted",
-			method,
-		)
+	if err = s.Accepts(method); err != nil {
+		return Session{}, "", err
 	}
-	identity, err := authenticator.Authenticate(ctx, proof)
+	identity, err := s.cfg.Authenticators[method].Authenticate(ctx, proof)
 	if err != nil {
 		return Session{}, "", err
 	}
