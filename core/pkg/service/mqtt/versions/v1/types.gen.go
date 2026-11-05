@@ -318,6 +318,17 @@ func (u *ReadEntry) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u ReadEntry) Type() ReadEntryType {
+	switch u.Variant.(type) {
+	case PlainReadEntry:
+		return PlainReadEntryType
+	case SparkplugReadEntry:
+		return SparkplugReadEntryType
+	}
+	return ""
+}
+
 // ApplyDefaults fills the active variant's zero-valued fields with their
 // schema-declared defaults.
 func (u *ReadEntry) ApplyDefaults() {
@@ -627,6 +638,17 @@ func (u *WriteField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u WriteField) Type() WriteFieldType {
+	switch u.Variant.(type) {
+	case StaticWriteField:
+		return StaticWriteFieldType
+	case GeneratedWriteField:
+		return GeneratedWriteFieldType
+	}
+	return ""
+}
+
 // ApplyDefaults fills the active variant's zero-valued fields with their
 // schema-declared defaults.
 func (u *WriteField) ApplyDefaults() {
@@ -848,6 +870,17 @@ func (u *WriteTarget) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		)
 	}
 	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u WriteTarget) Type() WriteTargetType {
+	switch u.Variant.(type) {
+	case PlainWriteTarget:
+		return PlainWriteTargetType
+	case SparkplugWriteTarget:
+		return SparkplugWriteTargetType
+	}
+	return ""
 }
 
 // ApplyDefaults fills the active variant's zero-valued fields with their

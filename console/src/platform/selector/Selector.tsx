@@ -130,12 +130,14 @@ const Body = ({
   const searching = query.trim() !== "";
   const find = (type: string): HTMLElement | null | undefined =>
     rootRef.current?.querySelector<HTMLElement>(`[data-selectable="${type}"]`);
-  const { hover, setHover } = Select.useHover({
-    getOrder: () => order,
-    subscribe: NO_SUBSCRIBE,
+  const { hover, setHover } = Select.useCursor({
+    order: {
+      getOrder: () => order,
+      subscribe: NO_SUBSCRIBE,
+      click: (type) => find(type)?.click(),
+      scrollTo: (type) => find(type)?.scrollIntoView({ block: "nearest" }),
+    },
     initialHover: searching ? 0 : -1,
-    click: (type) => find(type)?.click(),
-    scrollTo: (type) => find(type)?.scrollIntoView({ block: "nearest" }),
     enableTriggers: () => document.activeElement === searchRef.current,
   });
   const dimmed = (selectables: Selectable[]): boolean =>

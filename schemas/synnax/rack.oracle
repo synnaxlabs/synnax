@@ -23,6 +23,7 @@ Key uint32 {
         named in its high bits, so writes route to the Core running its Driver.
     """
     @go marshal  flex
+    @key
 }
 
 StatusDetails struct {

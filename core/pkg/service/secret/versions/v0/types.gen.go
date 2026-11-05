@@ -174,6 +174,18 @@ func (u *Secret) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// Source returns the source of the active variant, or an empty source when there is
+// none.
+func (u Secret) Source() Source {
+	switch u.Variant.(type) {
+	case StoredSecret:
+		return SourceStored
+	case FileSecret:
+		return SourceFile
+	}
+	return ""
+}
+
 // Validate returns an error wrapping validate.ErrValidation if the active variant
 // violates its schema constraints.
 func (u Secret) Validate() error {

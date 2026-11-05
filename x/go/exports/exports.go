@@ -198,7 +198,8 @@ func load(
 	pkgs, err := packages.Load(&packages.Config{
 		Context: ctx,
 		Mode: packages.NeedName | packages.NeedFiles | packages.NeedSyntax |
-			packages.NeedTypes | packages.NeedTypesInfo | packages.NeedImports,
+			packages.NeedTypes | packages.NeedTypesInfo | packages.NeedImports |
+			packages.NeedDeps,
 		Env: append(
 			os.Environ(),
 			"GOOS="+goos, "GOWORK="+work, "GOFLAGS=-buildvcs=false",
