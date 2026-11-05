@@ -95,16 +95,23 @@ def reviews(body: str) -> int:
 
 
 def summary(
-    review: Review, *, count: int, commit: str, message: str, run_url: str
+    review: Review, *, count: int, commit: str, message: str, run_url: str, blob: str
 ) -> str:
     """Renders the summary that heads the pull request body.
 
     :param count: How many reviews the pull request has had, this one included.
     :param commit: The URL of the reviewed commit.
     :param message: The message of the reviewed commit.
+    :param blob: The URL that a repository path appends to, at the reviewed commit.
     """
     n = review.score
     bullets = [f"- {line}" for line in review.summary]
+    findings = [
+        f"{i}. {heading(f)} [`{f.path}:{f.line}`]({blob}/{f.path}#L{f.line})"
+        for i, f in enumerate(review.findings, 1)
+    ]
+    if findings:
+        findings = ["<h3>Findings</h3>", "", *findings, ""]
     footer = (
         f"<sub>Reviews ({count}) · Last reviewed commit: "
         f"[{subject(message)}]({commit}) · [Run]({run_url})</sub>"
@@ -118,6 +125,7 @@ def summary(
             "",
             review.verdict,
             "",
+            *findings,
             "<h3>Summary</h3>",
             "",
             *bullets,

@@ -245,6 +245,26 @@ class TestSummary:
         assert f"Reviews (1) · Last reviewed commit: [{label}]({commit})" in body
         assert body.endswith("<!-- /sedosaur_comment -->\n")
 
+    def test_should_list_each_finding_with_a_link(self, gh: FakeGH) -> None:
+        post(
+            review(finding(), finding(path="b.go", line=9, title="Gone")),
+            target=TARGET,
+            gh=gh,
+        )
+        [edit] = gh.written("PATCH", "pulls/7")
+        body = edit["body"]
+        blob = f"https://github.com/{REPO}/blob/head"
+        assert '1. <img alt="P1"' in body
+        assert f"**Samples return old data** [`a.go:2`]({blob}/a.go#L2)" in body
+        assert '2. <img alt="P1"' in body
+        assert f"**Gone** [`b.go:9`]({blob}/b.go#L9)" in body
+        assert body.index("<h3>Findings</h3>") < body.index("<h3>Summary</h3>")
+
+    def test_should_list_no_findings_when_there_are_none(self, gh: FakeGH) -> None:
+        post(review(score=5), target=TARGET, gh=gh)
+        [edit] = gh.written("PATCH", "pulls/7")
+        assert "<h3>Findings</h3>" not in edit["body"]
+
     def test_should_replace_it_in_place_and_count_each_review(self, gh: FakeGH) -> None:
         old = "\n".join(
             [
