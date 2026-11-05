@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 	. "github.com/synnaxlabs/x/testutil"
@@ -321,6 +322,27 @@ var _ = Describe("Runner", func() {
 				Expect(stat.Variant).To(Equal(status.VariantSuccess))
 				Expect(stat.Message).To(Equal("Started task"))
 				Expect(stat.Description).To(BeEmpty())
+			},
+		)
+
+		It("Should warn with the text and data of a Warning, and restore the data",
+			func(ctx SpecContext) {
+				r := open(waitRun)
+				Expect(r.Start(ctx, "cmd-1")).To(Succeed())
+				r.Report(ctx, "Failed to read data", driver.Warning{
+					Message:     "Skipped 1 of 2 records",
+					Description: "Record is not JSON",
+					Data:        msgpack.EncodedJSON{"stats": "counts"},
+				}.Degraded())
+				stat := retrieve(ctx)
+				Expect(stat.Variant).To(Equal(status.VariantWarning))
+				Expect(stat.Message).To(Equal("Skipped 1 of 2 records"))
+				Expect(stat.Description).To(Equal("Record is not JSON"))
+				Expect(stat.Details.Data).To(HaveKeyWithValue("stats", "counts"))
+				r.Report(ctx, "Failed to read data", nil)
+				stat = retrieve(ctx)
+				Expect(stat.Message).To(Equal("Started task"))
+				Expect(stat.Details.Data).To(BeNil())
 			},
 		)
 	})

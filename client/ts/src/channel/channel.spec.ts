@@ -855,7 +855,7 @@ describe("cached reads", () => {
       }
     });
 
-    it("should cost one fetch per query for a list", async () => {
+    it("should cost one fetch for a list", async () => {
       const calcs = await Promise.all([
         createCalculatedWithoutStatus(),
         createCalculatedWithoutStatus(),
@@ -870,8 +870,7 @@ describe("cached reads", () => {
       try {
         await Promise.all(keys.map(async (key) => await local.channels.retrieve(key)));
         await sleep.sleep(TimeSpan.milliseconds(REFETCH_WINDOW));
-        // A batch that misses a key retries each key alone.
-        expect(countOf(send, "/status/retrieve")).toBe(keys.length + 1);
+        expect(countOf(send, "/status/retrieve")).toBe(1);
       } finally {
         stops.forEach((stop) => stop());
       }

@@ -1,0 +1,90 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+String struct {
+    eq    string?   {
+        @doc value "matches a value equal to eq."
+    }
+    in    string[]? {
+        @doc value """
+            matches a value equal to an element of in.
+        """
+    }
+    regex string?   {
+        @doc value "matches a value that the RE2 pattern regex matches."
+    }
+
+    @doc value  "selects string values. A value must match every operator that is set."
+    @go marshal
+}
+
+Bool struct {
+    eq bool? {
+        @doc value "matches a value equal to eq."
+    }
+
+    @doc value  "selects boolean values."
+    @go marshal
+}
+
+Set struct<T> {
+    eq T?   {
+        @doc value "matches a value equal to eq."
+    }
+    in T[]? {
+        @doc value """
+            matches a value equal to an element of in.
+        """
+    }
+
+    @doc value  """
+        selects values that only compare for equality, such as keys, enum values, and
+        UUIDs. A value must match every operator that is set.
+    """
+    @go marshal
+}
+
+Ordered struct<T> {
+    eq  T?   {
+        @doc value "matches a value equal to eq."
+    }
+    in  T[]? {
+        @doc value """
+            matches a value equal to an element of in.
+        """
+    }
+    gt  T?   {
+        @doc value "matches a value greater than gt."
+    }
+    gte T?   {
+        @doc value "matches a value greater than or equal to gte."
+    }
+    lt  T?   {
+        @doc value "matches a value less than lt."
+    }
+    lte T?   {
+        @doc value "matches a value less than or equal to lte."
+    }
+
+    @doc value  """
+        selects numbers and times. A value must match every operator that is set.
+    """
+    @go marshal
+}
+
+Contains struct<T> {
+    any T[]? {
+        @doc value """
+            matches an array that holds an element of any.
+        """
+    }
+
+    @doc value  "selects arrays by the elements they hold."
+    @go marshal
+}

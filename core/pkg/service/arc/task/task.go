@@ -507,11 +507,10 @@ func (t *impl) setRuntimeError(ctx context.Context, nodeKey string, err error) {
 	if n, ok := t.prog.Program.Nodes.Find(nodeKey); ok {
 		nodeType = n.Type
 	}
-	if setErr := t.status.Warn(
-		ctx,
-		"Node failed",
-		fmt.Sprintf("The %s node failed: %v", nodeType, err),
-	); setErr != nil {
+	if setErr := t.status.Warn(ctx, driver.Warning{
+		Message:     "Node failed",
+		Description: fmt.Sprintf("The %s node failed: %v", nodeType, err),
+	}); setErr != nil {
 		t.factoryCfg.L.Error("failed to set error status", zap.Error(setErr))
 	}
 }
