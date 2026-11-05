@@ -16,17 +16,6 @@ import (
 
 var _ gorp.Entry[Key] = View{}
 
-// Type returns the type of the view's variant, or an empty type if it has none.
-func (v View) Type() ViewType {
-	switch v.Variant.(type) {
-	case RangeView:
-		return RangeViewType
-	case StatusView:
-		return StatusViewType
-	}
-	return ""
-}
-
 // WithKey returns a copy of the view with its key set to key.
 func (v View) WithKey(key Key) View {
 	switch variant := v.Variant.(type) {

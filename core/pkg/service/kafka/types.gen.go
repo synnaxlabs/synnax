@@ -220,6 +220,22 @@ func (u *SASL) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// Mechanism returns the mechanism of the active variant, or an empty mechanism when
+// there is none.
+func (u SASL) Mechanism() SASLType {
+	switch u.Variant.(type) {
+	case NoneSASL:
+		return NoneSASLType
+	case PlainSASL:
+		return PlainSASLType
+	case ScramSha256SASL:
+		return ScramSha256SASLType
+	case ScramSha512SASL:
+		return ScramSha512SASLType
+	}
+	return ""
+}
+
 // Properties configures the connection to a Kafka cluster device.
 type Properties struct {
 	// Brokers contains the bootstrap broker addresses, as host:port.
