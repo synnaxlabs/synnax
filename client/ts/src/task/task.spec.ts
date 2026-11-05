@@ -42,6 +42,15 @@ const COMMAND_DEADLINE = TimeSpan.seconds(10);
 
 describe("Task", async () => {
   const testRack = await client.racks.create({ name: "test" });
+  // The Core refuses an alert config that names a status it does not hold.
+  await client.statuses.set(
+    ["st1", "st-a", "st-b"].map((key) => ({
+      key,
+      name: key,
+      variant: "info" as const,
+      message: key,
+    })),
+  );
   describe("create", () => {
     it("should create a task on a rack", async () => {
       const m = await testRack.createTask({

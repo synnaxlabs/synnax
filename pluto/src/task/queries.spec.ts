@@ -643,6 +643,12 @@ describe("queries", () => {
       const rack = await client.racks.create({
         name: "configRack",
       });
+      await client.statuses.set({
+        key: "st1",
+        name: "st1",
+        variant: "info",
+        message: "st1",
+      });
       const complexConfig = {
         routingKey: "rk-preserved",
         autoStart: true,

@@ -86,6 +86,15 @@ describe("createDocumentForm", () => {
 
   beforeAll(async () => {
     testRack = await client.racks.create({ name: "document-form" });
+    // The Core refuses an alert config that names a status it does not hold.
+    await client.statuses.set(
+      ["st-a", "st-b", "st-c", "st-0", "st-1"].map((key) => ({
+        key,
+        name: key,
+        variant: "info" as const,
+        message: key,
+      })),
+    );
   });
 
   beforeEach(async () => {
