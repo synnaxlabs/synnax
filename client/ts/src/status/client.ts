@@ -18,6 +18,7 @@ import {
 } from "@synnaxlabs/x";
 import z from "zod";
 
+import { type batch } from "@/batch";
 import { label } from "@/label";
 import { type ontology } from "@/ontology";
 import { query } from "@/query";
@@ -183,6 +184,33 @@ export class Client extends query.Retriever<
     opts: SetOptions & { detailsSchema?: DetailsSchema } = {},
   ): Promise<Status<DetailsSchema> | Status<DetailsSchema>[]> {
     const isMany = Array.isArray(statuses);
+    const { endpoint, payload, apply } = this.setRequest(statuses, opts);
+    const res = await query.optimistic({
+      rollbacks: [apply()],
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
+        await this.cfg.unary.send(
+          endpoint,
+          payload,
+          setReqZ(opts.detailsSchema),
+          setResZ(opts.detailsSchema),
+        ),
+    });
+    const created = res.statuses as Status<DetailsSchema>[];
+    this.store.set(created);
+    return isMany ? created : created[0];
+  }
+
+  /**
+   * Builds a request that writes statuses, as set does. Its cache write holds each
+   * status whose stored form the client can predict.
+   */
+  setRequest<DetailsSchema extends z.ZodType = z.ZodNever>(
+    statuses: New<DetailsSchema> | New<DetailsSchema>[],
+    opts: { detailsSchema?: DetailsSchema } = {},
+  ): batch.Request<z.input<ReturnType<typeof setReqZ<DetailsSchema>>>> & {
+    apply: () => destructor.Destructor;
+  } {
     // Filling the schema defaults up front gives every status a key, so the cache can
     // hold it before the Core answers. Status keys are UUIDs, not the short id that the
     // schema default makes.
@@ -196,25 +224,15 @@ export class Client extends query.Retriever<
     );
     const predicted = parsed.map((status) => this.predict(status));
     const sent = predicted.map((status, i) => status ?? parsed[i]);
-    const apply = () => [this.store.set(predicted.filter((status) => status != null))];
-    const res = await query.optimistic({
-      rollbacks: apply(),
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.cfg.unary.send(
-          "/status/set",
-          {
-            statuses: sent as z.input<
-              ReturnType<typeof setReqZ<DetailsSchema>>
-            >["statuses"],
-          },
-          setReqZ(opts.detailsSchema),
-          setResZ(opts.detailsSchema),
-        ),
-    });
-    const created = res.statuses as Status<DetailsSchema>[];
-    this.store.set(created);
-    return isMany ? created : created[0];
+    return {
+      endpoint: "/status/set",
+      payload: {
+        statuses: sent as z.input<
+          ReturnType<typeof setReqZ<DetailsSchema>>
+        >["statuses"],
+      },
+      apply: () => this.store.set(predicted.filter((status) => status != null)),
+    };
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {

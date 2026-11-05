@@ -854,6 +854,60 @@ describe("Status queries", () => {
       );
     });
 
+    it("should replace the labels of an existing status on save", async () => {
+      const kept = await client.labels.create({ name: "Kept", color: "#FF0000" });
+      const dropped = await client.labels.create({ name: "Dropped", color: "#00FF00" });
+      const added = await client.labels.create({ name: "Added", color: "#0000FF" });
+      const key = uuid.create();
+      await client.statuses.set({
+        name: "Labeled",
+        key,
+        variant: "info",
+        message: "Labeled",
+        time: TimeStamp.now(),
+        labels: [kept.key, dropped.key],
+      });
+      const { result } = await renderHookSuspended(
+        () => Status.useForm({ query: { key } }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      act(() => {
+        result.current.form.set(path.labels, [kept.key, added.key]);
+      });
+      await act(async () => {
+        await result.current.saveAsync();
+      });
+      const stored = await createTestClient().statuses.retrieve({ key });
+      expect(stored.labels.toSorted()).toEqual([kept.key, added.key].toSorted());
+    });
+
+    it("should keep the status unchanged when its label change fails", async () => {
+      const key = uuid.create();
+      await client.statuses.set({
+        name: "Unchanged",
+        key,
+        variant: "info",
+        message: "Before",
+        time: TimeStamp.now(),
+      });
+      const { result } = await renderHookSuspended(
+        () => Status.useForm({ query: { key } }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      act(() => {
+        result.current.form.set(path.message, "After");
+        result.current.form.set(path.labels, [uuid.create()]);
+      });
+      await act(async () => {
+        await result.current.saveAsync();
+      });
+      expect(result.current.variant).toEqual("error");
+      const stored = await createTestClient().statuses.retrieve({ key });
+      expect(stored.message).toEqual("Before");
+    });
+
     it("should update form when status changes externally", async () => {
       const key = uuid.create();
       await client.statuses.set({

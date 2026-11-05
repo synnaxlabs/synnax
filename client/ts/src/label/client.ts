@@ -12,6 +12,7 @@ import { array, type destructor, primitive, unique, zod } from "@synnaxlabs/x";
 import z from "zod";
 
 import { actions } from "@/actions";
+import { type batch } from "@/batch";
 import { createOf, encode, reduceAll } from "@/label/actions";
 import {
   type Action,
@@ -128,17 +129,23 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
    * @throws {ValidationError} if the ID does not name a range or a status.
    */
   async label(id: resource.ID, labels: Key[], opts: SetOptions = {}): Promise<void> {
-    await this.relabel(
-      id,
-      (prev) => (opts.replace === true ? labels : unique.unique([...prev, ...labels])),
-      async () =>
-        await this.cfg.unary.send(
-          "/label/set",
-          { id, labels, replace: opts.replace },
-          setReqZ,
-          emptyResZ,
+    await this.send(this.labelRequest(id, labels, opts), setReqZ);
+  }
+
+  /** Builds a request that attaches labels, as label does. */
+  labelRequest(
+    id: resource.ID,
+    labels: Key[],
+    opts: SetOptions = {},
+  ): batch.Request<z.input<typeof setReqZ>> {
+    return {
+      endpoint: "/label/set",
+      payload: { id, labels, replace: opts.replace },
+      apply: () =>
+        this.relabel(id, (prev) =>
+          opts.replace === true ? labels : unique.unique([...prev, ...labels]),
         ),
-    );
+    };
   }
 
   /**
@@ -146,32 +153,35 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
    * @throws {ValidationError} if the ID does not name a range or a status.
    */
   async remove(id: resource.ID, labels: Key[]): Promise<void> {
-    await this.relabel(
-      id,
-      (prev) => prev.filter((key) => !labels.includes(key)),
-      async () =>
-        await this.cfg.unary.send(
-          "/label/remove",
-          { id, labels },
-          removeReqZ,
-          emptyResZ,
-        ),
+    await this.send(
+      {
+        endpoint: "/label/remove",
+        payload: { id, labels },
+        apply: () =>
+          this.relabel(id, (prev) => prev.filter((k) => !labels.includes(k))),
+      },
+      removeReqZ,
     );
   }
 
-  /**
-   * Applies update to the cached labels of the record before commit and again after,
-   * since a change that lands during commit can undo the first write. Rolls back when
-   * commit fails.
-   */
-  private async relabel(
+  private relabel(
     id: resource.ID,
     update: (labels: Key[]) => Key[],
-    commit: () => Promise<unknown>,
-  ): Promise<void> {
-    const apply = () => this.cfg.relabel[id.type]?.(id.key, update) ?? (() => {});
-    await query.optimistic({ rollbacks: [apply()], commit });
-    apply();
+  ): destructor.Destructor {
+    return this.cfg.relabel[id.type]?.(id.key, update) ?? (() => {});
+  }
+
+  /**
+   * Sends the request, applying its cache write before and again after the Core commits
+   * it, since a change that lands in between can undo the first write.
+   */
+  private async send<P>(request: batch.Request<P>, reqZ: z.ZodType<P>): Promise<void> {
+    const { endpoint, payload, apply } = request;
+    await query.optimistic({
+      rollbacks: apply == null ? [] : [apply()],
+      commit: async () => await this.cfg.unary.send(endpoint, payload, reqZ, emptyResZ),
+    });
+    apply?.();
   }
 
   async create(label: New, opts?: query.WriteOptions<Label[]>): Promise<Label>;

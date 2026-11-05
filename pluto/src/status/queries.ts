@@ -13,7 +13,6 @@ import { useEffect } from "react";
 import type z from "zod";
 
 import { Flux } from "@/flux";
-import { Label } from "@/label";
 import { Synnax } from "@/synnax";
 
 const RESOURCE_NAME = "status";
@@ -131,14 +130,12 @@ export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
     set(formPath.time, TimeStamp.now());
     const v = value();
     if (primitive.isZero(v.key)) v.key = uuid.create();
-    // An update keeps the stored labels, so the form edits them separately.
-    const res = await client.statuses.set(v);
-    await Label.editFor(client, {
-      id: status.resourceID(res.key),
-      added: v.labels.filter((key) => !res.labels.includes(key)),
-      removed: res.labels.filter((key) => !v.labels.includes(key)),
-    });
-    set(formPath.key, res.key);
+    // An update keeps the stored labels, so the same transaction replaces them.
+    await client.batch.send([
+      client.statuses.setRequest(v),
+      client.labels.labelRequest(status.resourceID(v.key), v.labels, { replace: true }),
+    ]);
+    set(formPath.key, v.key);
   },
   mountListeners: ({ client, query: { key }, reset, abandon }) =>
     client.statuses.onChange(key, (result) => {
