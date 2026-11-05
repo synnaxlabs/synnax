@@ -296,7 +296,7 @@ var _ = Describe("Service", func() {
 		readChannels := func(ctx SpecContext, channels ...any) []any {
 			GinkgoHelper()
 			key := uuid.New()
-			MustSucceed(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{
+			MustSucceed(svc.Read.Write(ctx, nil, key, "", msgpack.EncodedJSON{
 				"channels": channels,
 			}))
 			return MustSucceed(svc.Read.Read(ctx, nil, key))["channels"].([]any)
@@ -306,7 +306,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			MustSucceed(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{
+			MustSucceed(svc.Read.Write(ctx, nil, key, "", msgpack.EncodedJSON{
 				"sample_rate": 25,
 				"channels": []any{map[string]any{
 					"type":      "entry",
@@ -355,7 +355,7 @@ var _ = Describe("Service", func() {
 		It("Should reject an unresolved channel on a slave with malformed PDOs", func(
 			ctx SpecContext,
 		) {
-			Expect(svc.Read.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.Read.Write(ctx, nil, uuid.New(), "", msgpack.EncodedJSON{
 				"channels": []any{map[string]any{
 					"type":   "unresolved",
 					"key":    "a",
@@ -372,7 +372,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			MustSucceed(svc.Write.Write(ctx, nil, key, msgpack.EncodedJSON{
+			MustSucceed(svc.Write.Write(ctx, nil, key, "", msgpack.EncodedJSON{
 				"channels": []any{map[string]any{
 					"type":   "unresolved",
 					"key":    "c",
@@ -389,7 +389,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			MustSucceed(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{}))
+			MustSucceed(svc.Read.Write(ctx, nil, key, "", msgpack.EncodedJSON{}))
 			data := MustSucceed(svc.Read.Read(ctx, nil, key))
 			Expect(data["sample_rate"]).To(BeNumerically("==", 10))
 			Expect(data["stream_rate"]).To(BeNumerically("==", 5))
@@ -399,7 +399,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			MustSucceed(svc.Write.Write(ctx, nil, key, msgpack.EncodedJSON{}))
+			MustSucceed(svc.Write.Write(ctx, nil, key, "", msgpack.EncodedJSON{}))
 			data := MustSucceed(svc.Write.Read(ctx, nil, key))
 			Expect(data["state_rate"]).To(BeNumerically("==", 25))
 			Expect(data["execution_rate"]).To(BeNumerically("==", 1000))
@@ -409,7 +409,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			MustSucceed(svc.Scan.Write(ctx, nil, key, msgpack.EncodedJSON{}))
+			MustSucceed(svc.Scan.Write(ctx, nil, key, "", msgpack.EncodedJSON{}))
 			data := MustSucceed(svc.Scan.Read(ctx, nil, key))
 			Expect(data["rate"]).To(BeNumerically("==", 0.2))
 		})

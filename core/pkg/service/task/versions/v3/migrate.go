@@ -143,7 +143,7 @@ func migrateConfigsToRecords(
 			}
 			continue
 		}
-		stored, err := store.Write(ctx, tx, t.Key, converted)
+		stored, err := store.Write(ctx, tx, t.Key, t.Name, converted)
 		if err != nil {
 			if err := store.Delete(ctx, tx, t.Key); err != nil {
 				return err
