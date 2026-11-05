@@ -92,7 +92,8 @@ ReadField struct {
         @doc value "is true when the field is excluded from polling."
     }
     channel     channel.Key = 0 {
-        @doc value "is the Synnax channel the extracted value is written to."
+        @doc value     "is the Synnax channel the extracted value is written to."
+        @ref on_delete restrict
     }
     pointer     string = "" {
         @doc value "is the JSON Pointer to the value within the response body."
@@ -151,7 +152,8 @@ ReadEndpoint struct {
 
 ReadConfig struct extends task.PersistConfig {
     device           device.Key = "" {
-        @doc value "is the key of the HTTP server device to poll."
+        @doc value     "is the key of the HTTP server device to poll."
+        @ref on_delete restrict
     }
     rate             telem.Rate = 1 {
         @doc value "is the polling rate applied to all endpoints, in Hertz."
@@ -168,13 +170,14 @@ ReadConfig struct extends task.PersistConfig {
         """
     }
 
-    @doc value  """
+    @doc value           """
         configures an HTTP read task, which polls one or more endpoints on an HTTP
         server device and writes extracted JSON values to Synnax channels.
     """
-    @go imex    body
+    @go imex             body
     @go marshal
     @go migrate
+    @retrieve references
 }
 
 JSONType enum {
@@ -204,7 +207,8 @@ ChannelField struct {
         @doc value "is the JSON type the channel value is serialized as."
     }
     channel     channel.Key = 0 {
-        @doc value "is the Synnax command channel that triggers the request."
+        @doc value     "is the Synnax command channel that triggers the request."
+        @ref on_delete restrict
     }
     name        string = "" {
         @doc value "is the human-readable name of the command channel."
@@ -307,19 +311,21 @@ WriteEndpoint struct {
 
 WriteConfig struct extends task.StartConfig {
     device    device.Key = "" {
-        @doc value "is the key of the HTTP server device to write to."
+        @doc value     "is the key of the HTTP server device to write to."
+        @ref on_delete restrict
     }
     endpoints WriteEndpoint[] {
         @doc value "contains the endpoints to write to."
     }
 
-    @doc value  """
+    @doc value           """
         configures an HTTP write task, which sends an HTTP request whenever a value is
         written to an endpoint's command channel.
     """
-    @go imex    body
+    @go imex             body
     @go marshal
     @go migrate
+    @retrieve references
 }
 
 ScanConfig struct extends task.ScanConfig {

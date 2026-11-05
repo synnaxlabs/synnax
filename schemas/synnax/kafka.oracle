@@ -102,7 +102,8 @@ ReadField struct {
         @doc value "is the name given to the channel when the task creates it."
     }
     channel     channel.Key = 0 {
-        @doc value "is the Synnax channel the extracted value is written to."
+        @doc value     "is the Synnax channel the extracted value is written to."
+        @ref on_delete restrict
     }
     pointer     string = "" {
         @doc value "is the JSON Pointer to the value within the record value."
@@ -129,7 +130,8 @@ ReadField struct {
 
 ReadConfig struct extends task.PersistConfig {
     device       device.Key = "" {
-        @doc value "is the key of the Kafka cluster device to consume from."
+        @doc value     "is the key of the Kafka cluster device to consume from."
+        @ref on_delete restrict
     }
     topic        string = "" {
         @doc value "is the topic the task consumes."
@@ -147,13 +149,14 @@ ReadConfig struct extends task.PersistConfig {
         @doc value "contains the records the task reads, one per record key."
     }
 
-    @doc value  """
+    @doc value           """
         configures a Kafka read task, which consumes a topic and writes record fields
         into channels.
     """
-    @go imex    body
+    @go imex             body
     @go marshal
     @go migrate
+    @retrieve references
 }
 
 WriteChannel struct {
@@ -165,7 +168,8 @@ WriteChannel struct {
         @doc value "is true when the channel is excluded from the task."
     }
     channel     channel.Key = 0 {
-        @doc value "is the Synnax channel whose samples are produced."
+        @doc value     "is the Synnax channel whose samples are produced."
+        @ref on_delete restrict
     }
     json_type   http.JSONType = number {
         @doc value "is the JSON type the sample value is serialized as."
@@ -215,7 +219,8 @@ Record struct {
 
 WriteConfig struct extends task.StartConfig {
     device     device.Key = "" {
-        @doc value "is the key of the Kafka cluster device to produce to."
+        @doc value     "is the key of the Kafka cluster device to produce to."
+        @ref on_delete restrict
     }
     topic      string = "" {
         @doc value "is the topic the task produces to."
@@ -230,13 +235,14 @@ WriteConfig struct extends task.StartConfig {
         @doc value "contains the channels whose samples are produced."
     }
 
-    @doc value  """
+    @doc value           """
         configures a Kafka write task, which produces one record per sample of each
         channel to a topic.
     """
-    @go imex    body
+    @go imex             body
     @go marshal
     @go migrate
+    @retrieve references
 }
 
 ReadRecord struct {

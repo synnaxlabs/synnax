@@ -482,13 +482,15 @@ BaseAIChannel struct {
         @doc value "is true when the channel is excluded from acquisition."
     }
     channel  channel.Key = 0 {
-        @doc value "is the Synnax channel that raw samples are written to."
+        @doc value     "is the Synnax channel that raw samples are written to."
+        @ref on_delete restrict
     }
     port     int32 = 0 {
         @doc value "is the physical port the channel reads from."
     }
     device   device.Key = "" {
-        @doc value "is the key of the device the channel belongs to."
+        @doc value     "is the key of the device the channel belongs to."
+        @ref on_delete restrict
     }
 
     @doc value  "carries the fields every NI analog input channel shares."
@@ -934,13 +936,15 @@ BaseCIChannel struct {
         @doc value "is true when the channel is excluded from acquisition."
     }
     channel  channel.Key = 0 {
-        @doc value "is the Synnax channel that raw samples are written to."
+        @doc value     "is the Synnax channel that raw samples are written to."
+        @ref on_delete restrict
     }
     port     int32 = 0 {
         @doc value "is the physical counter the channel uses."
     }
     device   device.Key = "" {
-        @doc value "is the key of the device the counter belongs to."
+        @doc value     "is the key of the device the counter belongs to."
+        @ref on_delete restrict
     }
 
     @doc value  "carries the fields every NI counter input channel shares."
@@ -1236,10 +1240,12 @@ BaseAOChannel struct {
         @doc value "is true when the channel is excluded from the task."
     }
     cmd_channel        channel.Key = 0 {
-        @doc value "is the Synnax channel commands are read from."
+        @doc value     "is the Synnax channel commands are read from."
+        @ref on_delete restrict
     }
     state_channel      channel.Key = 0 {
-        @doc value "is the Synnax channel the output state is written to."
+        @doc value     "is the Synnax channel the output state is written to."
+        @ref on_delete restrict
     }
     cmd_channel_name   string = "" {
         @doc value "is the human-readable name of the command channel."
@@ -1298,7 +1304,8 @@ DIChannel struct {
         @doc value "is true when the channel is excluded from acquisition."
     }
     channel  channel.Key = 0 {
-        @doc value "is the Synnax channel that raw samples are written to."
+        @doc value     "is the Synnax channel that raw samples are written to."
+        @ref on_delete restrict
     }
     port     int32 = 0 {
         @doc value "is the physical port the channel reads from."
@@ -1320,10 +1327,12 @@ DOChannel struct {
         @doc value "is true when the channel is excluded from the task."
     }
     cmd_channel        channel.Key = 0 {
-        @doc value "is the Synnax channel commands are read from."
+        @doc value     "is the Synnax channel commands are read from."
+        @ref on_delete restrict
     }
     state_channel      channel.Key = 0 {
-        @doc value "is the Synnax channel the output state is written to."
+        @doc value     "is the Synnax channel the output state is written to."
+        @ref on_delete restrict
     }
     cmd_channel_name   string = "" {
         @doc value "is the human-readable name of the command channel."
@@ -1347,12 +1356,13 @@ AnalogReadConfig struct extends task.ReadConfig {
         @doc value "are the analog input channels the task acquires."
     }
 
-    @doc value  """
+    @doc value           """
         configures an NI analog read task. Each channel carries its own device.
     """
-    @go imex    body
+    @go imex             body
     @go marshal
     @go migrate
+    @retrieve references
 }
 
 CounterReadConfig struct extends task.ReadConfig {
@@ -1360,12 +1370,13 @@ CounterReadConfig struct extends task.ReadConfig {
         @doc value "are the counter input channels the task acquires."
     }
 
-    @doc value  """
+    @doc value           """
         configures an NI counter read task. Each channel carries its own device.
     """
-    @go imex    body
+    @go imex             body
     @go marshal
     @go migrate
+    @retrieve references
 }
 
 WriteConfig struct extends task.WriteConfig {
@@ -1383,24 +1394,27 @@ AnalogWriteConfig struct extends WriteConfig {
         @doc value "are the analog output channels the task drives."
     }
 
-    @doc value  "configures an NI analog write task."
-    @go imex    body
+    @doc value           "configures an NI analog write task."
+    @go imex             body
     @go marshal
     @go migrate
+    @retrieve references
 }
 
 DigitalReadConfig struct extends task.ReadConfig {
     device   device.Key = "" {
-        @doc value "is the key of the device the task acquires from."
+        @doc value     "is the key of the device the task acquires from."
+        @ref on_delete restrict
     }
     channels DIChannel[] {
         @doc value "are the digital input channels the task acquires."
     }
 
-    @doc value  "configures an NI digital read task."
-    @go imex    body
+    @doc value           "configures an NI digital read task."
+    @go imex             body
     @go marshal
     @go migrate
+    @retrieve references
 }
 
 DigitalWriteConfig struct extends WriteConfig {
@@ -1408,10 +1422,11 @@ DigitalWriteConfig struct extends WriteConfig {
         @doc value "are the digital output channels the task drives."
     }
 
-    @doc value  "configures an NI digital write task."
-    @go imex    body
+    @doc value           "configures an NI digital write task."
+    @go imex             body
     @go marshal
     @go migrate
+    @retrieve references
 }
 
 ScanConfig struct extends task.ScanConfig {

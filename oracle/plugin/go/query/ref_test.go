@@ -461,4 +461,361 @@ var _ = Describe("@ref", func() {
 			),
 		)
 	})
+	Describe("@retrieve references", func() {
+		BeforeEach(func() {
+			loader.Add("schemas/channel", `
+				@go output "core/pkg/service/channel"
+
+				Key = uint32
+
+				Channel struct {
+					key Key {
+						@key
+					}
+					@resource type "channel"
+				}
+			`)
+			loader.Add("schemas/kv", `
+				@go output "core/pkg/service/kv"
+
+				Key = string
+
+				Entry struct {
+					key Key {
+						@key
+					}
+					@resource type "kv"
+				}
+			`)
+		})
+
+		config := func(types, fields string) string {
+			var imports strings.Builder
+			for _, ns := range []string{"rack", "label", "channel", "kv", "resource"} {
+				if strings.Contains(types+fields, ns+".") {
+					imports.WriteString(`import "schemas/` + ns + `"` + "\n")
+				}
+			}
+			return imports.String() + `
+			@go output "core/pkg/service/modbus"
+
+			` + types + `
+
+			ReadConfig struct {
+				key uuid {
+					@key
+				}
+				` + fields + `
+				@retrieve references
+			}
+		`
+		}
+
+		generate := func(ctx SpecContext, types, fields string) *ContentExpectation {
+			GinkgoHelper()
+			resp := MustGenerate(ctx, config(types, fields), "modbus", loader, p)
+			return ExpectContent(resp, "retrieve.gen.go")
+		}
+
+		It("Should skip a zero key and reset it on detach", func(ctx SpecContext) {
+			generate(ctx, "", `
+				rack rack.Key = 0 @ref on_delete restrict
+			`).
+				ToContain(
+					"func ReadConfigReferences() []gorp.ReferenceConfig[uuid.UUID, ReadConfig]",
+					`Name:     "rack",`,
+					`Tables:   []string{"rack"},`,
+					"OnDelete: gorp.Restrict,",
+					"if e.Rack != 0 {",
+					`targets = append(targets, gorp.To("rack", e.Rack))`,
+					"Detach: func(e *ReadConfig, t gorp.Target) {",
+					`if gorp.To("rack", e.Rack) == t {`,
+					"e.Rack = 0",
+				).
+				ToNotContain(
+					"type Retrieve struct",
+					"type indexes struct",
+					`"context"`,
+					`"slices"`,
+					`"github.com/synnaxlabs/synnax/core/pkg/service/rack"`,
+				)
+		})
+
+		It("Should reset a zero string key", func(ctx SpecContext) {
+			generate(ctx, "", `
+				entry kv.Key = "" @ref on_delete restrict
+			`).
+				ToContain(`if e.Entry != "" {`, `e.Entry = ""`)
+		})
+
+		It("Should reset a zero UUID key to its composite zero", func(ctx SpecContext) {
+			generate(ctx, "", `
+				tag label.Key = "" @ref on_delete restrict
+			`).
+				ToContain("if e.Tag != (label.Key{}) {", "e.Tag = label.Key{}")
+		})
+
+		It("Should reach a key through a nested struct", func(ctx SpecContext) {
+			generate(ctx, `
+				Inner struct {
+					channel channel.Key = 0 @ref on_delete restrict
+				}
+			`, `
+				inner Inner
+			`).
+				ToContain(
+					`Name:     "inner.channel",`,
+					`Tables:   []string{"channel"},`,
+					"if e.Inner.Channel != 0 {",
+					`if gorp.To("channel", e.Inner.Channel) == t {`,
+					"e.Inner.Channel = 0",
+				)
+		})
+
+		It("Should reach a key through an optional struct", func(ctx SpecContext) {
+			generate(ctx, `
+				Inner struct {
+					channel channel.Key = 0 @ref on_delete restrict
+				}
+			`, `
+				inner Inner?
+			`).
+				ToContain("if e.Inner != nil {", "if e.Inner.Channel != 0 {")
+		})
+
+		It("Should range over an array of structs", func(ctx SpecContext) {
+			generate(ctx, `
+				Entry struct {
+					channel channel.Key = 0 @ref on_delete restrict
+				}
+			`, `
+				entries Entry[]
+			`).
+				ToContain(
+					`Name:     "entries.channel",`,
+					"for _, v1 := range e.Entries {",
+					"if v1.Channel != 0 {",
+					"for i2 := range e.Entries {",
+					`if gorp.To("channel", e.Entries[i2].Channel) == t {`,
+					"e.Entries[i2].Channel = 0",
+				)
+		})
+
+		It(
+			"Should switch over every variant of a union that holds the key",
+			func(ctx SpecContext) {
+				generate(ctx, `
+				Base struct {
+					channel channel.Key = 0 @ref on_delete restrict
+				}
+				Channel union on type extends Base {
+					coil {}
+					register {
+						address uint16
+					}
+				}
+			`, `
+				channels Channel[]
+			`).
+					ToContain(
+						`Name:     "channels.channel",`,
+						"switch v2 := v1.Variant.(type) {",
+						"case CoilChannel:",
+						"case RegisterChannel:",
+						"if v2.Channel != 0 {",
+						"switch v4 := e.Channels[i3].Variant.(type) {",
+						"e.Channels[i3].Variant = v4",
+					)
+			},
+		)
+
+		It(
+			"Should reach a key that only some variants of a union declare",
+			func(ctx SpecContext) {
+				generate(ctx, `
+				Entry union on type {
+					plain {
+						topic string
+					}
+					sparkplug {
+						channel channel.Key = 0 @ref on_delete restrict
+					}
+				}
+			`, `
+				entries Entry[]
+			`).
+					ToContain("case SparkplugEntry:", "if v2.Channel != 0 {").
+					ToNotContain("case PlainEntry:")
+			},
+		)
+
+		It(
+			"Should drop the array element that holds a required key",
+			func(ctx SpecContext) {
+				generate(ctx, `
+				Alert struct {
+					tag label.Key @ref on_delete detach
+					component string
+				}
+			`, `
+				alerts Alert[]
+			`).
+					ToContain(
+						`"slices"`,
+						`Name:     "alerts.tag",`,
+						"OnDelete: gorp.Detach,",
+						`targets = append(targets, gorp.To("label", v1.Tag))`,
+						"e.Alerts = slices.DeleteFunc(e.Alerts, func(v2 Alert) bool {",
+						`if gorp.To("label", v2.Tag) == t {`,
+						"return true",
+						"return false",
+					)
+			},
+		)
+
+		It("Should detach a key from a nested array of keys", func(ctx SpecContext) {
+			generate(ctx, `
+				Axes struct {
+					y1 channel.Key[] @ref on_delete detach
+				}
+			`, `
+				axes Axes
+			`).
+				ToContain(
+					"for _, k1 := range e.Axes.Y1 {",
+					"e.Axes.Y1 = slices.DeleteFunc(e.Axes.Y1, func(k2 channel.Key) bool {",
+					`"github.com/synnaxlabs/synnax/core/pkg/service/channel"`,
+				)
+		})
+
+		It("Should clear a nested optional key", func(ctx SpecContext) {
+			generate(ctx, `
+				Inner struct {
+					owner resource.ID? {
+						@ref {
+							on_delete detach
+							types     rack
+						}
+					}
+				}
+			`, `
+				inner Inner
+				rack  rack.Key = 0 @ref on_delete restrict
+			`).
+				ToContain(
+					`Name:     "inner.owner",`,
+					`Tables:   []string{"rack"},`,
+					"if e.Inner.Owner != nil {",
+					"Key: (*e.Inner.Owner).Key}",
+					"e.Inner.Owner = nil",
+				).
+				ToNotContain("resourceTarget")
+		})
+
+		It(
+			"Should leave out Detach when a required key has no array",
+			func(ctx SpecContext) {
+				generate(ctx, "", `
+				rack rack.Key @ref on_delete restrict
+			`).
+					ToContain(`targets = append(targets, gorp.To("rack", e.Rack))`).
+					ToNotContain("Detach:")
+			},
+		)
+
+		It(
+			"Should skip a recursive type that holds no reference",
+			func(ctx SpecContext) {
+				generate(ctx, `
+				Node struct {
+					children Node[]
+				}
+			`, `
+				tree Node
+				rack rack.Key = 0 @ref on_delete restrict
+			`).
+					ToContain(`Name:     "rack",`).
+					ToNotContain("tree.")
+			},
+		)
+
+		It(
+			"Should generate the references of several types in one package",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, config(`
+				WriteConfig struct {
+					key uuid {
+						@key
+					}
+					rack rack.Key = 0 @ref on_delete restrict
+					@retrieve references
+				}
+			`, `
+				rack rack.Key = 0 @ref on_delete restrict
+			`), "modbus", loader, p)
+				ExpectContent(resp, "retrieve.gen.go").ToContain(
+					"func ReadConfigReferences()",
+					"func WriteConfigReferences()",
+				)
+			},
+		)
+
+		DescribeTable(
+			"Should reject",
+			func(ctx SpecContext, types, fields, message string) {
+				req := MustGenerateRequest(ctx, config(types, fields), "modbus", loader)
+				Expect(
+					p.Generate(req),
+				).Error().
+					To(MatchError(ContainSubstring(message)))
+			},
+			Entry(
+				"a recursive type that holds a reference",
+				`Node struct {
+					rack     rack.Key = 0 @ref on_delete restrict
+					children Node[]
+				}`,
+				`tree Node`,
+				"@ref fields inside the recursive type Node are not supported",
+			),
+			Entry(
+				"detaching a required key outside an array",
+				`Inner struct {
+					rack rack.Key @ref on_delete detach
+				}`,
+				`inner Inner`,
+				"@ref field inner.rack needs to be optional, an array, zero by default, "+
+					"or inside an array to detach",
+			),
+			Entry(
+				"an acyclic reference",
+				"",
+				`rack rack.Key? {
+					@ref {
+						on_delete cascade
+						acyclic
+					}
+				}`,
+				"@ref field rack can be acyclic only when it references its own type",
+			),
+			Entry("a type with no reference", "", `name string`,
+				"@retrieve references needs a @ref field"),
+		)
+
+		It(
+			"Should reject a nested reference under a type that generates a Retrieve",
+			func(ctx SpecContext) {
+				req := MustGenerateRequest(ctx, device(`
+				inner Inner
+			`)+`
+				Inner struct {
+					rack rack.Key = 0 @ref on_delete restrict
+				}
+			`, "device", loader)
+				Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
+					"device.Inner: @ref field rack needs a @retrieve type to store it",
+				)))
+			},
+		)
+	})
 })

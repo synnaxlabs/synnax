@@ -68,6 +68,8 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	type entry struct {
 		path    string
 		structs []resolution.Type
+		// roots are the @retrieve references types, which several can share.
+		roots []resolution.Type
 	}
 	entries := make(map[string]*entry)
 	searched := make(set.Set[fieldDecl])
@@ -91,13 +93,22 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		if outputPath == "" {
 			continue
 		}
-		addDeclared(typ, req.Resolutions, "search", searched)
-		addDeclared(typ, req.Resolutions, "ref", referenced)
 		e, ok := entries[outputPath]
 		if !ok {
 			e = &entry{path: outputPath}
 			entries[outputPath] = e
 		}
+		if plugindomain.HasExprFromType(typ, "retrieve", "references") {
+			w := newRefWalker(req.Resolutions)
+			if _, err := w.walk(typ); err != nil {
+				return nil, err
+			}
+			referenced.Add(w.declared.Slice()...)
+			e.roots = append(e.roots, typ)
+			continue
+		}
+		addDeclared(typ, req.Resolutions, "search", searched)
+		addDeclared(typ, req.Resolutions, "ref", referenced)
 		e.structs = append(e.structs, typ)
 	}
 
@@ -142,6 +153,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		content, err := generateRetrieveFile(
 			e.path,
 			e.structs,
+			e.roots,
 			req.Resolutions,
 			rt,
 			req.RepoRoot,
@@ -267,6 +279,7 @@ func (r retrieveInfo) HasSortedIndex() bool {
 func generateRetrieveFile(
 	outputPath string,
 	structs []resolution.Type,
+	roots []resolution.Type,
 	table *resolution.Table,
 	rt resourceTypes,
 	repoRoot string,
@@ -274,7 +287,7 @@ func generateRetrieveFile(
 	pkg := naming.DerivePackageName(outputPath)
 	imps := imports.NewManager()
 
-	namespace := structs[0].Namespace
+	namespace := slices.Concat(structs, roots)[0].Namespace
 
 	ctx := &resolver.Context{
 		Table:                         table,
@@ -306,7 +319,16 @@ func generateRetrieveFile(
 		}
 	}
 
-	if len(infos) == 0 {
+	var refRoots []referencesInfo
+	for _, typ := range roots {
+		info, err := extractReferencesInfo(typ, table, rt, r, ctx)
+		if err != nil {
+			return nil, err
+		}
+		refRoots = append(refRoots, info)
+	}
+
+	if len(infos) == 0 && len(refRoots) == 0 {
 		return nil, nil
 	}
 
@@ -318,14 +340,16 @@ func generateRetrieveFile(
 		gomod.ResolveImportPath("gorp", repoRoot, gomod.DefaultModulePrefix),
 	)
 
-	if lo.SomeBy(infos, retrieveInfo.needsSlices) {
+	if lo.SomeBy(infos, retrieveInfo.needsSlices) ||
+		lo.SomeBy(refRoots, referencesInfo.needsSlices) {
 		imps.AddExternal("slices")
 	}
 
 	data := &templateData{
-		Package:   pkg,
-		Retrieves: infos,
-		Manager:   imps,
+		Package:    pkg,
+		Retrieves:  infos,
+		References: refRoots,
+		Manager:    imps,
 	}
 
 	var buf bytes.Buffer
@@ -632,8 +656,9 @@ func addDeclared(
 
 type templateData struct {
 	*imports.Manager
-	Package   string
-	Retrieves []retrieveInfo
+	Package    string
+	Retrieves  []retrieveInfo
+	References []referencesInfo
 }
 
 // pluralizeDistinct returns the plural form of a name. If the plural is the
@@ -1076,5 +1101,30 @@ func (r Retrieve) Exists(ctx context.Context, tx gorp.Tx) (bool, error) {
 	return r.gorp.Exists(ctx, gorp.OverrideTx(r.baseTX, tx))
 }
 {{- end}}
+{{end}}
+{{- range $root := .References}}
+// {{$root.GoName}}References returns the reference configs of {{$root.GoName}}.
+func {{$root.GoName}}References() []gorp.ReferenceConfig[{{$root.KeyType}}, {{$root.GoName}}] {
+	return []gorp.ReferenceConfig[{{$root.KeyType}}, {{$root.GoName}}]{
+{{- range $ref := $root.Refs}}
+		{
+			Name:     "{{$ref.FieldName}}",
+			Tables:   []string{ {{- $ref.QuotedTables -}} },
+			OnDelete: gorp.{{$ref.OnDelete}},
+{{- if $ref.Unique}}
+			Unique:   true,
+{{- end}}
+			Targets: func(e *{{$root.GoName}}) []gorp.Target {
+				{{$ref.TargetsBody}}
+			},
+{{- if $ref.DetachBody}}
+			Detach: func(e *{{$root.GoName}}, t gorp.Target) {
+				{{$ref.DetachBody -}}
+			},
+{{- end}}
+		},
+{{- end}}
+	}
+}
 {{end}}`),
 )

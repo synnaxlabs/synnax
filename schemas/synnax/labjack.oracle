@@ -90,7 +90,8 @@ BaseReadChannel struct {
         @doc value "is true when the channel is excluded from acquisition."
     }
     channel  channel.Key = 0 {
-        @doc value "is the Synnax channel that raw samples are written to."
+        @doc value     "is the Synnax channel that raw samples are written to."
+        @ref on_delete restrict
     }
     port     string = "" {
         @doc value "is the physical port the channel reads from (e.g. 'AIN0', 'DIO4')."
@@ -179,10 +180,12 @@ BaseWriteChannel struct {
         @doc value "is true when the channel is excluded from the task."
     }
     cmd_channel        channel.Key = 0 {
-        @doc value "is the Synnax channel commands are read from."
+        @doc value     "is the Synnax channel commands are read from."
+        @ref on_delete restrict
     }
     state_channel      channel.Key = 0 {
-        @doc value "is the Synnax channel the output state is written to."
+        @doc value     "is the Synnax channel the output state is written to."
+        @ref on_delete restrict
     }
     cmd_channel_name   string = "" {
         @doc value "is the human-readable name of the command channel."
@@ -218,7 +221,8 @@ WriteChannel union on type extends BaseWriteChannel {
 
 ReadConfig struct extends task.ReadConfig {
     device                            device.Key = "" {
-        @doc value "is the key of the device the task acquires from."
+        @doc value     "is the key of the device the task acquires from."
+        @ref on_delete restrict
     }
     channels                          ReadChannel[] {
         @doc value "are the channels the task acquires."
@@ -236,10 +240,11 @@ ReadConfig struct extends task.ReadConfig {
         """
     }
 
-    @doc value  "configures a LabJack read task."
-    @go imex    body
+    @doc value           "configures a LabJack read task."
+    @go imex             body
     @go marshal
     @go migrate
+    @retrieve references
 }
 
 WriteConfig struct extends task.WriteConfig {
@@ -251,10 +256,11 @@ WriteConfig struct extends task.WriteConfig {
         @doc value "are the channels the task drives."
     }
 
-    @doc value  "configures a LabJack write task."
-    @go imex    body
+    @doc value           "configures a LabJack write task."
+    @go imex             body
     @go marshal
     @go migrate
+    @retrieve references
 }
 
 ScanConfig struct extends task.ScanConfig {

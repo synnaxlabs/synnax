@@ -29,10 +29,12 @@ BaseReadChannel struct {
         @doc value "is true when the channel is excluded from acquisition."
     }
     channel  channel.Key = 0 {
-        @doc value "is the Synnax channel that raw samples are written to."
+        @doc value     "is the Synnax channel that raw samples are written to."
+        @ref on_delete restrict
     }
     device   device.Key = "" {
-        @doc value "is the key of the slave device the channel reads from."
+        @doc value     "is the key of the slave device the channel reads from."
+        @ref on_delete restrict
     }
 
     @doc value  "carries the fields every EtherCAT read channel shares."
@@ -84,10 +86,12 @@ BaseWriteChannel struct {
         @doc value "is true when the channel is excluded from the task."
     }
     cmd_channel        channel.Key = 0 {
-        @doc value "is the Synnax channel commands are read from."
+        @doc value     "is the Synnax channel commands are read from."
+        @ref on_delete restrict
     }
     state_channel      channel.Key = 0 {
-        @doc value "is the Synnax channel the output state is written to."
+        @doc value     "is the Synnax channel the output state is written to."
+        @ref on_delete restrict
     }
     cmd_channel_name   string = "" {
         @doc value "is the human-readable name of the command channel."
@@ -96,7 +100,8 @@ BaseWriteChannel struct {
         @doc value "is the human-readable name of the state channel."
     }
     device             device.Key = "" {
-        @doc value "is the key of the slave device the channel writes to."
+        @doc value     "is the key of the slave device the channel writes to."
+        @ref on_delete restrict
     }
 
     @doc value  "carries the fields every EtherCAT write channel shares."
@@ -141,13 +146,14 @@ ReadConfig struct extends task.ReadConfig {
         @doc value "are the channels the task acquires."
     }
 
-    @doc value  """
+    @doc value           """
         configures an EtherCAT read task. Each channel addresses a PDO entry on its own
         slave; all slaves must share one network interface.
     """
-    @go imex    body
+    @go imex             body
     @go marshal
     @go migrate
+    @retrieve references
 }
 
 WriteConfig struct extends task.PersistConfig {
@@ -163,13 +169,14 @@ WriteConfig struct extends task.PersistConfig {
         @doc value "are the channels the task drives."
     }
 
-    @doc value  """
+    @doc value           """
         configures an EtherCAT write task. Each channel addresses a PDO entry on its own
         slave; all slaves must share one network interface.
     """
-    @go imex    body
+    @go imex             body
     @go marshal
     @go migrate
+    @retrieve references
 }
 
 ScanConfig struct extends task.ScanConfig {

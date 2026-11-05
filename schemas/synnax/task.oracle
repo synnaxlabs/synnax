@@ -228,7 +228,8 @@ ReadConfig struct extends PersistConfig {
 
 WriteConfig struct extends PersistConfig {
     device device.Key = "" {
-        @doc value "is the key of the device the task writes to."
+        @doc value     "is the key of the device the task writes to."
+        @ref on_delete restrict
     }
 
     @doc value "carries the configuration fields shared by hardware control tasks."

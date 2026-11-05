@@ -20,7 +20,8 @@ Alert struct {
         @key
     }
     status          status.Key = "" {
-        @doc value "is the key of the Synnax status the alert watches."
+        @doc value     "is the key of the Synnax status the alert watches."
+        @ref on_delete detach
     }
     errors_critical bool = false {
         @doc value "is true when the error variant maps to PagerDuty critical."
@@ -50,11 +51,12 @@ TaskConfig struct extends task.StartConfig {
         @doc value "are the alerts the task evaluates."
     }
 
-    @doc value  """
+    @doc value           """
         configures a PagerDuty alert task, which forwards Synnax status changes to
         PagerDuty as events.
     """
-    @go imex    body
+    @go imex             body
     @go marshal
     @go migrate
+    @retrieve references
 }

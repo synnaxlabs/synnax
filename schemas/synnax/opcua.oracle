@@ -45,7 +45,8 @@ BaseChannel struct {
 
 ReadChannel struct extends BaseChannel {
     channel  channel.Key = 0 {
-        @doc value "is the Synnax channel that samples are written to."
+        @doc value     "is the Synnax channel that samples are written to."
+        @ref on_delete restrict
     }
     is_index bool = false {
         @doc value "is true when the channel's Synnax channel is the task's index."
@@ -57,7 +58,8 @@ ReadChannel struct extends BaseChannel {
 
 WriteChannel struct extends BaseChannel {
     cmd_channel channel.Key = 0 {
-        @doc value "is the Synnax channel commands are read from."
+        @doc value     "is the Synnax channel commands are read from."
+        @ref on_delete restrict
     }
 
     @doc value  "is a single OPC UA node the task drives."
@@ -74,7 +76,8 @@ ReadConfig struct extends task.ReadConfig {
         @ts type   "number"
     }
     device           device.Key = "" {
-        @doc value "is the key of the device representing the OPC UA server."
+        @doc value     "is the key of the device representing the OPC UA server."
+        @ref on_delete restrict
     }
     array_mode       bool = false {
         @doc value "is true when each read returns an array of samples per node."
@@ -92,10 +95,11 @@ ReadConfig struct extends task.ReadConfig {
         """
     }
 
-    @doc value  "configures an OPC UA read task."
-    @go imex    body
+    @doc value           "configures an OPC UA read task."
+    @go imex             body
     @go marshal
     @go migrate
+    @retrieve references
 }
 
 WriteConfig struct extends task.WriteConfig {
@@ -103,10 +107,11 @@ WriteConfig struct extends task.WriteConfig {
         @doc value "are the OPC UA nodes the task drives."
     }
 
-    @doc value  "configures an OPC UA write task."
-    @go imex    body
+    @doc value           "configures an OPC UA write task."
+    @go imex             body
     @go marshal
     @go migrate
+    @retrieve references
 }
 
 ScanConfig struct extends task.ScanConfig {
