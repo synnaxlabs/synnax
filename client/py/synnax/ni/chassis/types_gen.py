@@ -93,21 +93,19 @@ class Chassis(BaseModel):
         key: Uniquely identifies the chassis.
         rack: Is the key of the rack the chassis is connected to.
         name: Is a human-readable name for the chassis.
-        serial: Is the serial number of the chassis, or its NI-MAX resource name when it
-            is simulated.
+        serial: Is the serial number of the chassis. Empty on simulated hardware.
+        resource_name: Is the NI-MAX resource name of the chassis, a GUID that survives
+            renames.
         model: Is the product name of the chassis.
-        alias: Is the DAQmx alias of the chassis.
-        simulated: Is true when the chassis is simulated in NI-MAX.
         status: Is the current operational status of the chassis.
     """
 
     key: Key = Field(default_factory=uuid4)
     rack: rack_.Key = Field(ge=0, le=4294967295)
     name: str
-    serial: str
+    serial: str = ""
+    resource_name: str
     model: str
-    alias: str
-    simulated: bool = False
     status: Status | None = None
 
     @_override

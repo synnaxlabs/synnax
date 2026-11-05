@@ -26,10 +26,9 @@ inline Chassis Chassis::parse(x::json::Parser parser) {
         .key = parser.field<Key>("key", x::uuid::create()),
         .rack = parser.field<::synnax::rack::Key>("rack"),
         .name = parser.field<std::string>("name"),
-        .serial = parser.field<std::string>("serial"),
+        .serial = parser.field<std::string>("serial", ""),
+        .resource_name = parser.field<std::string>("resource_name"),
         .model = parser.field<std::string>("model"),
-        .alias = parser.field<std::string>("alias"),
-        .simulated = parser.field<bool>("simulated", false),
         .status = parser.field<std::optional<Status>>("status"),
     };
 }
@@ -40,9 +39,8 @@ inline x::json::json Chassis::to_json() const {
     j["rack"] = this->rack;
     j["name"] = this->name;
     j["serial"] = this->serial;
+    j["resource_name"] = this->resource_name;
     j["model"] = this->model;
-    j["alias"] = this->alias;
-    j["simulated"] = this->simulated;
     if (this->status.has_value()) j["status"] = this->status->to_json();
     return j;
 }

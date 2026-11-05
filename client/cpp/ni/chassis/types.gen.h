@@ -100,15 +100,13 @@ struct Chassis {
     ::synnax::rack::Key rack = 0;
     /// @brief name is a human-readable name for the chassis.
     std::string name;
-    /// @brief serial is the serial number of the chassis, or its NI-MAX resource name
-    /// when it is simulated.
-    std::string serial;
+    /// @brief serial is the serial number of the chassis. Empty on simulated hardware.
+    std::string serial = "";
+    /// @brief resource_name is the NI-MAX resource name of the chassis, a GUID that
+    /// survives renames.
+    std::string resource_name;
     /// @brief model is the product name of the chassis.
     std::string model;
-    /// @brief alias is the DAQmx alias of the chassis.
-    std::string alias;
-    /// @brief simulated is true when the chassis is simulated in NI-MAX.
-    bool simulated = false;
     /// @brief status is the current operational status of the chassis.
     std::optional<Status> status;
 

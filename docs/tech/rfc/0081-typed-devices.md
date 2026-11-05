@@ -169,14 +169,13 @@ The NI resources are the pattern for every discovered make:
 
 ```
 Chassis struct {
-    key       Key = create        { @key }
-    rack      rack.Key            { @filter }
-    name      string              { @filter @search }
-    serial    string              { @index lookup }
-    model     string              { @filter }
-    alias     string
-    simulated bool = false
-    status    Status?             { @go marshal omit }
+    key           Key = create    { @key }
+    rack          rack.Key        { @filter }
+    name          string          { @filter @search }
+    serial        string = ""     { @filter @index lookup }
+    resource_name string          { @filter @index lookup }
+    model         string          { @filter }
+    status        Status?         { @go marshal omit }
 
     @create
     @go marshal
@@ -274,9 +273,12 @@ path is `Update` over the configuration group. The shallow merge in
 
 Each scan matches found hardware to stored rows by a per-resource rule:
 
-- **NI chassis, NI device, LabJack device**: `serial` through the lookup index. A vendor
-  serial is unique within its make. A simulated NI resource has no serial, so the
-  scanner stores its NI-MAX resource name in `serial`, as it does for the key today
+- **NI chassis**: `serial` through the lookup index when set, else `resource_name`
+  through its lookup index. A simulated chassis has no serial, and its resource name
+  survives renames.
+- **NI device, LabJack device**: `serial` through the lookup index. A vendor serial is
+  unique within its make. A simulated NI resource has no serial, so the scanner stores
+  its NI-MAX resource name in `serial`, as it does for the key today
   (`driver/ni/scan_task.cpp:49-64,106`).
 - **EtherCAT slave**: `serial` through the lookup index, then `vendor_id` and
   `product_code` must match; today's key already carries all three
