@@ -63,6 +63,11 @@ func (cfg GCConfig) Validate() error {
 
 func keyToDirName(ch ChannelKey) string { return strconv.FormatUint(uint64(ch), 10) }
 
+func dirNameToKey(name string) (ChannelKey, error) {
+	key, err := strconv.ParseUint(name, 10, 32)
+	return ChannelKey(key), err
+}
+
 // DeleteChannel deletes a channel by its key.
 //
 // This method returns an error if there are other channels depending on the current

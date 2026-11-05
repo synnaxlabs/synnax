@@ -20,10 +20,10 @@ import (
 	"github.com/synnaxlabs/x/io/fs"
 )
 
-const (
-	metaFile     = "meta.json"
-	metaTempFile = "meta.json.tmp"
-)
+// File is the name of the metadata file in the directory of a channel.
+const File = "meta.json"
+
+const metaTempFile = "meta.json.tmp"
 
 // ErrIgnoreChannel lets callers know that this channel is no longer valid and should be
 // ignored when opening a DB.
@@ -40,7 +40,7 @@ func Open(
 	ch channel.Channel,
 	codec encoding.Codec,
 ) (channel.Channel, error) {
-	exists, err := fs.Exists(metaFile)
+	exists, err := fs.Exists(File)
 	if err != nil {
 		return channel.Channel{}, err
 	}
@@ -75,7 +75,7 @@ func Read(
 	if err != nil {
 		return channel.Channel{}, err
 	}
-	metaF, err := fs.Open(metaFile, os.O_RDONLY)
+	metaF, err := fs.Open(File, os.O_RDONLY)
 	if err != nil {
 		return channel.Channel{}, err
 	}
@@ -121,5 +121,5 @@ func Create(
 	if err = tempMetaF.Close(); err != nil {
 		return err
 	}
-	return fs.Rename(metaTempFile, metaFile)
+	return fs.Rename(metaTempFile, File)
 }
