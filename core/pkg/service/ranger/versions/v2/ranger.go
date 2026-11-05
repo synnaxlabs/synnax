@@ -22,7 +22,7 @@ func (r Range) GorpKey() Key { return r.Key }
 // SetOptions implements gorp.Entry.
 func (Range) SetOptions() []any { return nil }
 
-// ResourceID returns the semantic ID for this range to look it up from within the
+// ResourceID returns the ID of the range in the ontology.
 func (r Range) ResourceID() resource.ID {
 	return resource.ID{Type: resource.TypeRange, Key: r.Key.String()}
 }

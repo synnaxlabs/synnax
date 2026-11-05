@@ -28,6 +28,6 @@ func MigrateStatusKeys(_ context.Context, cfg TaskConfig) (TaskConfig, error) {
 
 // StatusKeysMigration runs MigrateStatusKeys on every stored alert config.
 var StatusKeysMigration = migrate.NewEntry[uuid.UUID, uuid.UUID](
-	"status_owner_keys",
+	"v61_status_owner_keys",
 	MigrateStatusKeys,
 )

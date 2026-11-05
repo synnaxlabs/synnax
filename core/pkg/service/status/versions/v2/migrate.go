@@ -12,7 +12,6 @@ package v2
 import (
 	"bytes"
 	"context"
-	"crypto/sha1"
 	"encoding/json"
 	"slices"
 	"uuid"
@@ -20,20 +19,18 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
-	label "github.com/synnaxlabs/synnax/pkg/service/label/versions/v0"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/status/versions/v1"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
+	xuuid "github.com/synnaxlabs/x/uuid"
 )
 
-// namespace is the UUIDv5 namespace of the keys that MigrateKey derives. Changing it
-// gives each node a different key for the same status.
+// namespace is the UUIDv5 namespace of the keys that MigrateKey derives. A change gives
+// each migrated status a different key than other Cores and clients derive.
 var namespace = uuid.MustParse("4a3c5e0e-6d0b-5f43-9a51-3c7e1f2b8d64")
-
-const labeledBy ontology.RelationshipType = "labeled_by"
 
 var ownerTypes = []resource.Type{
 	resource.TypeRack,
@@ -50,59 +47,64 @@ func MigrateKey(key Key) (Key, *resource.ID) {
 	if err != nil || !slices.Contains(ownerTypes, id.Type) {
 		return key, nil
 	}
-	h := sha1.New()
-	h.Write(namespace[:])
-	h.Write([]byte(key))
-	var u uuid.UUID
-	copy(u[:], h.Sum(nil))
-	u[6] = (u[6] & 0x0f) | 0x50
-	u[8] = (u[8] & 0x3f) | 0x80
-	return u.String(), &id
+	return xuuid.NewV5(namespace, key).String(), &id
 }
 
-// Migration moves each status to its MigrateKey key and owner, and moves its labels
-// from labeled_by ontology relationships into the labels field. It deletes a status
-// whose owner has no ontology resource, as an owner delete now deletes its status, and
-// drops labels with no ontology resource. It removes the owner's key from the details,
-// such as details.task on a task status. The ontology resource of each moved status,
-// and each relationship that touches it, follow the new key.
-var Migration = migrate.New("status_owner_labels", migrateStatuses)
+// Migrations move each status to its MigrateKey key and owner, then move its labels
+// from labeled_by ontology relationships into the labels field. They delete a status
+// whose owner has no ontology resource, and drop labels with no ontology resource. They
+// remove the owner's key from the details, such as details.task on a task status. The
+// ontology resource of each moved status, and each relationship that touches it,
+// follow the new key.
+var Migrations = []gorp.Migration{
+	migrate.New("v61_status_owners", migrateOwners),
+	ontology.NewFieldMigration(ontology.FieldConfig[Key, stored]{
+		Name: "v61_status_labels",
+		Converts: func(rel ontology.Relationship) bool {
+			return rel.Type == ontology.RelationshipTypeLabeledBy &&
+				rel.From.Type == resource.TypeStatus
+		},
+		Holder: func(rel ontology.Relationship) string { return rel.From.Key },
+		Set:    moveLabel,
+	}),
+}
 
 type stored = Status[json.RawMessage]
 
-func migrateStatuses(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
-	old, err := collect(ctx, gorp.WrapReader[Key, v1.Status[json.RawMessage]](tx))
+func moveLabel(
+	ctx context.Context,
+	tx gorp.Tx,
+	s *stored,
+	rel ontology.Relationship,
+) (bool, error) {
+	key, err := uuid.Parse(rel.To.Key)
 	if err != nil {
+		return false, errors.Wrapf(err, "label of status %s", rel.From.Key)
+	}
+	found, err := ontology.ResourceExists(ctx, tx, rel.To)
+	if !found || err != nil {
+		return false, err
+	}
+	s.Labels = append(s.Labels, key)
+	return true, nil
+}
+
+func migrateOwners(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
+	var old []v1.Status[json.RawMessage]
+	if err := gorp.NewRetrieve[Key, v1.Status[json.RawMessage]]().
+		Entries(&old).
+		Exec(ctx, tx); err != nil {
 		return err
 	}
-	rels, err := collect(ctx, gorp.WrapReader[string, ontology.Relationship](tx))
-	if err != nil {
-		return err
-	}
-	var (
-		labels    = make(map[resource.ID][]label.Key)
-		resources = gorp.WrapReader[string, ontology.Resource](tx)
-		relWriter = gorp.WrapWriter[string, ontology.Relationship](tx)
+	rels, err := ontology.RetrieveRelationships(
+		ctx,
+		tx,
+		func(ontology.Relationship) bool { return true },
 	)
-	for _, rel := range rels {
-		if rel.Type != labeledBy || rel.From.Type != resource.TypeStatus {
-			continue
-		}
-		if err = relWriter.Delete(ctx, rel.GorpKey()); err != nil {
-			return err
-		}
-		key, err := uuid.Parse(rel.To.Key)
-		if err != nil {
-			return errors.Wrapf(err, "label of status %s", rel.From.Key)
-		}
-		found, err := exists(ctx, resources, rel.To)
-		if err != nil {
-			return err
-		}
-		if found {
-			labels[rel.From] = append(labels[rel.From], key)
-		}
+	if err != nil {
+		return err
 	}
+	relWriter := gorp.WrapWriter[string, ontology.Relationship](tx)
 	var (
 		writer  = gorp.WrapWriter[Key, stored](tx)
 		moved   = make(map[resource.ID]resource.ID)
@@ -112,7 +114,7 @@ func migrateStatuses(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) 
 		id := resource.ID{Type: resource.TypeStatus, Key: o.Key}
 		key, owner := MigrateKey(o.Key)
 		if owner != nil {
-			found, err := exists(ctx, resources, *owner)
+			found, err := ontology.ResourceExists(ctx, tx, *owner)
 			if err != nil {
 				return err
 			}
@@ -136,7 +138,7 @@ func migrateStatuses(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) 
 				return errors.Wrapf(err, "details of status %s", o.Key)
 			}
 		}
-		next.Key, next.Owner, next.Labels = key, owner, labels[id]
+		next.Key, next.Owner = key, owner
 		if err = writer.Set(ctx, next); err != nil {
 			return err
 		}
@@ -196,9 +198,6 @@ func moveRelationships(
 	dropped set.Set[resource.ID],
 ) error {
 	for _, rel := range rels {
-		if rel.Type == labeledBy && rel.From.Type == resource.TypeStatus {
-			continue
-		}
 		oldKey := rel.GorpKey()
 		if dropped.Contains(rel.From) || dropped.Contains(rel.To) {
 			if err := writer.Delete(ctx, oldKey); err != nil {
@@ -241,33 +240,4 @@ func dropField(details json.RawMessage, name string) (json.RawMessage, error) {
 	}
 	delete(fields, name)
 	return json.Marshal(fields)
-}
-
-func exists(
-	ctx context.Context,
-	r gorp.Reader[string, ontology.Resource],
-	id resource.ID,
-) (bool, error) {
-	_, err := r.Get(ctx, id.String())
-	if errors.Is(err, query.ErrNotFound) {
-		return false, nil
-	}
-	return err == nil, err
-}
-
-func collect[K gorp.Key, E gorp.Entry[K]](
-	ctx context.Context,
-	r gorp.Reader[K, E],
-) (out []E, err error) {
-	iter, err := r.OpenIterator(gorp.IterOptions{})
-	if err != nil {
-		return nil, err
-	}
-	defer func() { err = errors.Combine(err, iter.Close()) }()
-	for iter.First(); iter.Valid(); iter.Next() {
-		if e := iter.Value(ctx); e != nil {
-			out = append(out, *e)
-		}
-	}
-	return out, iter.Error()
 }

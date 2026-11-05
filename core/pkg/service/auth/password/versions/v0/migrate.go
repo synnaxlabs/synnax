@@ -11,7 +11,6 @@ package v0
 
 import (
 	"context"
-	"crypto/sha1"
 	"uuid"
 
 	"github.com/synnaxlabs/alamos"
@@ -22,6 +21,7 @@ import (
 	userv0 "github.com/synnaxlabs/synnax/pkg/service/user/versions/v0"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
+	xuuid "github.com/synnaxlabs/x/uuid"
 	"go.uber.org/zap"
 )
 
@@ -29,14 +29,7 @@ var keyNamespace = uuid.MustParse("3f3a1b0e-7c2e-4a8f-9d6b-2a1c5e8f0b41")
 
 // migratedKey is a name-based UUID of the subject, so every node writes one record.
 func migratedKey(subject resource.ID) Key {
-	h := sha1.New()
-	h.Write(keyNamespace[:])
-	h.Write([]byte(subject.String()))
-	var key Key
-	copy(key[:], h.Sum(nil))
-	key[6] = (key[6] & 0x0f) | 0x50
-	key[8] = (key[8] & 0x3f) | 0x80
-	return key
+	return xuuid.NewV5(keyNamespace, subject.String())
 }
 
 // NewMove returns the migration that moves each stored credential to the user with its

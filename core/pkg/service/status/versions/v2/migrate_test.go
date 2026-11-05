@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/status/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
@@ -26,13 +26,11 @@ import (
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
-const labeledBy ontology.RelationshipType = "labeled_by"
-
 var _ = Describe("MigrateKey", func() {
 	DescribeTable("Should give a status owned by its key a UUIDv5 key and an owner",
 		func(owner resource.ID) {
 			key, got := v2.MigrateKey(owner.String())
-			Expect(uuid.Parse(key)).Error().ToNot(HaveOccurred())
+			MustSucceed(uuid.Parse(key))
 			Expect(got).To(HaveValue(Equal(owner)))
 		},
 		Entry("rack", resource.ID{Type: resource.TypeRack, Key: "3"}),
@@ -40,6 +38,11 @@ var _ = Describe("MigrateKey", func() {
 		Entry("device", resource.ID{Type: resource.TypeDevice, Key: "dev-1"}),
 		Entry("channel", resource.ID{Type: resource.TypeChannel, Key: "5"}),
 	)
+
+	It("Should derive the UUIDv5 of the old key", func() {
+		key, _ := v2.MigrateKey("rack:1")
+		Expect(key).To(Equal("5decc7ad-b3cc-5bde-8216-0d1df8f0ac55"))
+	})
 
 	It("Should derive the same key from the same old key", func() {
 		a, _ := v2.MigrateKey("rack:3")
@@ -87,7 +90,7 @@ var _ = Describe("Migration", func() {
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:         db,
 			Namespace:  "Status",
-			Migrations: []gorp.Migration{v2.Migration},
+			Migrations: v2.Migrations,
 		})).To(Succeed())
 	}
 	get := func(ctx SpecContext, key string) v2.Status[json.RawMessage] {
@@ -154,11 +157,31 @@ var _ = Describe("Migration", func() {
 		define(ctx, keptID)
 		write(ctx, stored("Alarm", "alarm", `null`))
 		relate(ctx,
-			ontology.Relationship{From: statusID("alarm"), Type: labeledBy, To: keptID},
-			ontology.Relationship{From: statusID("alarm"), Type: labeledBy, To: goneID},
+			ontology.Relationship{From: statusID("alarm"), Type: ontology.RelationshipTypeLabeledBy, To: keptID},
+			ontology.Relationship{From: statusID("alarm"), Type: ontology.RelationshipTypeLabeledBy, To: goneID},
 		)
 		migrate(ctx)
 		Expect(get(ctx, "alarm").Labels).To(Equal([]uuid.UUID{kept}))
+		var rels []ontology.Relationship
+		Expect(gorp.NewRetrieve[string, ontology.Relationship]().
+			Entries(&rels).
+			Exec(ctx, db)).To(Succeed())
+		Expect(rels).To(BeEmpty())
+	})
+
+	It("Should move the labels of a status that moves to a new key", func(ctx SpecContext) {
+		owner := resource.ID{Type: resource.TypeRack, Key: "4"}
+		lbl := resource.ID{Type: resource.TypeLabel, Key: uuid.New().String()}
+		define(ctx, owner, lbl)
+		write(ctx, stored("Rack", owner.String(), `null`))
+		relate(ctx, ontology.Relationship{
+			From: statusID(owner.String()),
+			Type: ontology.RelationshipTypeLabeledBy,
+			To:   lbl,
+		})
+		migrate(ctx)
+		key, _ := v2.MigrateKey(owner.String())
+		Expect(get(ctx, key).Labels).To(Equal([]uuid.UUID{uuid.MustParse(lbl.Key)}))
 		var rels []ontology.Relationship
 		Expect(gorp.NewRetrieve[string, ontology.Relationship]().
 			Entries(&rels).

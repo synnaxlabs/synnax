@@ -15,7 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -23,8 +23,6 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
-
-const labeledBy ontology.RelationshipType = "labeled_by"
 
 var _ = Describe("Migration", func() {
 	var db *gorp.DB
@@ -56,7 +54,7 @@ var _ = Describe("Migration", func() {
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:         db,
 			Namespace:  "Range",
-			Migrations: []gorp.Migration{v2.Migration},
+			Migrations: v2.Migrations,
 		})).To(Succeed())
 	}
 	get := func(ctx SpecContext, key uuid.UUID) v2.Range {
@@ -114,12 +112,12 @@ var _ = Describe("Migration", func() {
 			ctx,
 			ontology.Relationship{
 				From: rangeID(r.Key),
-				Type: labeledBy,
+				Type: ontology.RelationshipTypeLabeledBy,
 				To:   labelID(kept),
 			},
 			ontology.Relationship{
 				From: rangeID(r.Key),
-				Type: labeledBy,
+				Type: ontology.RelationshipTypeLabeledBy,
 				To:   labelID(gone),
 			},
 		)

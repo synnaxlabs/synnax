@@ -10,6 +10,8 @@
 package versions
 
 import (
+	"slices"
+
 	"github.com/synnaxlabs/gorp"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/status/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/status/versions/v1"
@@ -17,4 +19,7 @@ import (
 )
 
 // Migrations is the ordered migration chain for stored statuses.
-var Migrations = []gorp.Migration{v0.NormalizeKeys, v1.Migration, v2.Migration}
+var Migrations = slices.Concat(
+	[]gorp.Migration{v0.NormalizeKeys, v1.Migration},
+	v2.Migrations,
+)
