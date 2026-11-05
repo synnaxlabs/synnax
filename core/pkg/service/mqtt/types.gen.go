@@ -17,8 +17,11 @@ import "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions"
 type QoS = versions.QoS
 
 const (
-	QoSAtMostOnce  QoS = versions.QoSAtMostOnce
+	// QoSAtMostOnce is level 0, which delivers a message at most once.
+	QoSAtMostOnce QoS = versions.QoSAtMostOnce
+	// QoSAtLeastOnce is level 1, which delivers a message at least once.
 	QoSAtLeastOnce QoS = versions.QoSAtLeastOnce
+	// QoSExactlyOnce is level 2, which delivers a message exactly once.
 	QoSExactlyOnce QoS = versions.QoSExactlyOnce
 )
 
@@ -26,11 +29,16 @@ const (
 type TimeFormat = versions.TimeFormat
 
 const (
+	// TimeFormatISO8601 is an ISO 8601 string.
 	TimeFormatISO8601 TimeFormat = versions.TimeFormatISO8601
+	// TimeFormatUnixSec is a count of seconds since the Unix epoch.
 	TimeFormatUnixSec TimeFormat = versions.TimeFormatUnixSec
-	TimeFormatUnixMs  TimeFormat = versions.TimeFormatUnixMs
-	TimeFormatUnixUs  TimeFormat = versions.TimeFormatUnixUs
-	TimeFormatUnixNs  TimeFormat = versions.TimeFormatUnixNs
+	// TimeFormatUnixMs is a count of milliseconds since the Unix epoch.
+	TimeFormatUnixMs TimeFormat = versions.TimeFormatUnixMs
+	// TimeFormatUnixUs is a count of microseconds since the Unix epoch.
+	TimeFormatUnixUs TimeFormat = versions.TimeFormatUnixUs
+	// TimeFormatUnixNs is a count of nanoseconds since the Unix epoch.
+	TimeFormatUnixNs TimeFormat = versions.TimeFormatUnixNs
 )
 
 // EnumEntry maps a string label in a JSON payload to a numeric channel value for
@@ -41,18 +49,32 @@ type EnumEntry = versions.EnumEntry
 type SparkplugDataType = versions.SparkplugDataType
 
 const (
-	SparkplugDataTypeInt8     SparkplugDataType = versions.SparkplugDataTypeInt8
-	SparkplugDataTypeInt16    SparkplugDataType = versions.SparkplugDataTypeInt16
-	SparkplugDataTypeInt32    SparkplugDataType = versions.SparkplugDataTypeInt32
-	SparkplugDataTypeInt64    SparkplugDataType = versions.SparkplugDataTypeInt64
-	SparkplugDataTypeUint8    SparkplugDataType = versions.SparkplugDataTypeUint8
-	SparkplugDataTypeUint16   SparkplugDataType = versions.SparkplugDataTypeUint16
-	SparkplugDataTypeUint32   SparkplugDataType = versions.SparkplugDataTypeUint32
-	SparkplugDataTypeUint64   SparkplugDataType = versions.SparkplugDataTypeUint64
-	SparkplugDataTypeFloat    SparkplugDataType = versions.SparkplugDataTypeFloat
-	SparkplugDataTypeDouble   SparkplugDataType = versions.SparkplugDataTypeDouble
-	SparkplugDataTypeBoolean  SparkplugDataType = versions.SparkplugDataTypeBoolean
-	SparkplugDataTypeString   SparkplugDataType = versions.SparkplugDataTypeString
+	// SparkplugDataTypeInt8 is a signed 8-bit integer.
+	SparkplugDataTypeInt8 SparkplugDataType = versions.SparkplugDataTypeInt8
+	// SparkplugDataTypeInt16 is a signed 16-bit integer.
+	SparkplugDataTypeInt16 SparkplugDataType = versions.SparkplugDataTypeInt16
+	// SparkplugDataTypeInt32 is a signed 32-bit integer.
+	SparkplugDataTypeInt32 SparkplugDataType = versions.SparkplugDataTypeInt32
+	// SparkplugDataTypeInt64 is a signed 64-bit integer.
+	SparkplugDataTypeInt64 SparkplugDataType = versions.SparkplugDataTypeInt64
+	// SparkplugDataTypeUint8 is an unsigned 8-bit integer.
+	SparkplugDataTypeUint8 SparkplugDataType = versions.SparkplugDataTypeUint8
+	// SparkplugDataTypeUint16 is an unsigned 16-bit integer.
+	SparkplugDataTypeUint16 SparkplugDataType = versions.SparkplugDataTypeUint16
+	// SparkplugDataTypeUint32 is an unsigned 32-bit integer.
+	SparkplugDataTypeUint32 SparkplugDataType = versions.SparkplugDataTypeUint32
+	// SparkplugDataTypeUint64 is an unsigned 64-bit integer.
+	SparkplugDataTypeUint64 SparkplugDataType = versions.SparkplugDataTypeUint64
+	// SparkplugDataTypeFloat is a 32-bit floating point number.
+	SparkplugDataTypeFloat SparkplugDataType = versions.SparkplugDataTypeFloat
+	// SparkplugDataTypeDouble is a 64-bit floating point number.
+	SparkplugDataTypeDouble SparkplugDataType = versions.SparkplugDataTypeDouble
+	// SparkplugDataTypeBoolean is a true or false value.
+	SparkplugDataTypeBoolean SparkplugDataType = versions.SparkplugDataTypeBoolean
+	// SparkplugDataTypeString is a string.
+	SparkplugDataTypeString SparkplugDataType = versions.SparkplugDataTypeString
+	// SparkplugDataTypeDateTime is a point in time, as milliseconds since the Unix
+	// epoch.
 	SparkplugDataTypeDateTime SparkplugDataType = versions.SparkplugDataTypeDateTime
 )
 
@@ -65,7 +87,11 @@ type BaseReadEntry = versions.BaseReadEntry
 // ReadEntry is a single source of an MQTT read task. The type field selects a plain
 // topic with a JSON payload or a Sparkplug B tag.
 type ReadEntry = versions.ReadEntry
+
+// ReadEntryVariant is implemented by every ReadEntry variant.
 type ReadEntryVariant = versions.ReadEntryVariant
+
+// ReadEntryType is the "type" value that selects a variant of ReadEntry.
 type ReadEntryType = versions.ReadEntryType
 
 const (
@@ -89,8 +115,11 @@ type ReadConfig = versions.ReadConfig
 type JSONType = versions.JSONType
 
 const (
-	JSONTypeNumber  JSONType = versions.JSONTypeNumber
-	JSONTypeString  JSONType = versions.JSONTypeString
+	// JSONTypeNumber writes the value as a JSON number.
+	JSONTypeNumber JSONType = versions.JSONTypeNumber
+	// JSONTypeString writes the value as a JSON string.
+	JSONTypeString JSONType = versions.JSONTypeString
+	// JSONTypeBoolean writes the value as a JSON boolean.
 	JSONTypeBoolean JSONType = versions.JSONTypeBoolean
 )
 
@@ -98,7 +127,9 @@ const (
 type GeneratorType = versions.GeneratorType
 
 const (
-	GeneratorTypeUUID      GeneratorType = versions.GeneratorTypeUUID
+	// GeneratorTypeUUID produces a new UUID for each message.
+	GeneratorTypeUUID GeneratorType = versions.GeneratorTypeUUID
+	// GeneratorTypeTimestamp produces the time of the message.
 	GeneratorTypeTimestamp GeneratorType = versions.GeneratorTypeTimestamp
 )
 
@@ -111,7 +142,11 @@ type BaseWriteField = versions.BaseWriteField
 // WriteField is an additional payload field on a plain write target. The type field
 // selects whether the value is fixed or generated per publish.
 type WriteField = versions.WriteField
+
+// WriteFieldVariant is implemented by every WriteField variant.
 type WriteFieldVariant = versions.WriteFieldVariant
+
+// WriteFieldType is the "type" value that selects a variant of WriteField.
 type WriteFieldType = versions.WriteFieldType
 
 const (
@@ -134,7 +169,11 @@ type BaseWriteTarget = versions.BaseWriteTarget
 // WriteTarget is a single destination of an MQTT write task. The type field selects a
 // plain topic with a JSON payload or a Sparkplug B tag command.
 type WriteTarget = versions.WriteTarget
+
+// WriteTargetVariant is implemented by every WriteTarget variant.
 type WriteTargetVariant = versions.WriteTargetVariant
+
+// WriteTargetType is the "type" value that selects a variant of WriteTarget.
 type WriteTargetType = versions.WriteTargetType
 
 const (
