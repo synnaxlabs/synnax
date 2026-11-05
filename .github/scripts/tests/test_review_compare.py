@@ -16,19 +16,7 @@ from typing import Any
 
 import pytest
 
-from review.compare import (
-    NOISE,
-    OPEN,
-    REAL,
-    Item,
-    Thread,
-    greptile_reviews,
-    match,
-    pairs,
-    records,
-    report,
-    verdict,
-)
+from review import compare
 
 REPO = "o/r"
 HEAD = "a" * 40
@@ -215,7 +203,7 @@ class FakeGH:
         raise AssertionError(f"unexpected gh call: {args}")
 
 
-def t(**kw: Any) -> Thread:
+def t(**kw: Any) -> compare.Thread:
     fields: dict[str, Any] = {
         "id": 1,
         "bot": "sedosaur",
@@ -228,53 +216,57 @@ def t(**kw: Any) -> Thread:
         "down": 0,
         "last_reply": None,
     }
-    return Thread(**(fields | kw))
+    return compare.Thread(**(fields | kw))
 
 
-def item(path: str | None, line: int | None) -> Item:
-    return Item(severity="P2", title="T", path=path, line=line, verdict=OPEN)
+def item(path: str | None, line: int | None) -> compare.Item:
+    return compare.Item(
+        severity="P2", title="T", path=path, line=line, verdict=compare.OPEN
+    )
 
 
 class TestGreptileReviews:
     """Tests reading Greptile's reviews from the revisions of a pull request body."""
 
     def test_should_read_the_score_and_findings_of_a_commit(self) -> None:
-        assert greptile_reviews([edit(greptile_block(4))]) == {
+        assert compare.greptile_reviews([edit(greptile_block(4))]) == {
             HEAD: (4, [("P1", "Leaks a handle", 101), ("P2", "Reads a secret", None)])
         }
 
     def test_should_keep_the_newest_review_of_a_commit(self) -> None:
         edits = [edit(greptile_block(5)), edit(greptile_block(3))]
-        assert greptile_reviews(edits)[HEAD][0] == 5
+        assert compare.greptile_reviews(edits)[HEAD][0] == 5
 
     def test_should_ignore_a_revision_by_a_person(self) -> None:
         edits = [edit(greptile_block(5), kind="User"), edit(greptile_block(5), "pat")]
-        assert greptile_reviews(edits) == {}
+        assert compare.greptile_reviews(edits) == {}
 
     def test_should_ignore_a_deleted_revision(self) -> None:
-        assert greptile_reviews([{"editor": None, "diff": None}]) == {}
+        assert compare.greptile_reviews([{"editor": None, "diff": None}]) == {}
 
 
 class TestVerdict:
     """Tests deciding whether a finding was real."""
 
     def test_should_take_more_thumbs_down_as_noise(self) -> None:
-        assert verdict(t(up=1, down=2, resolved=True), {"a.go"}) == NOISE
+        assert (
+            compare.verdict(t(up=1, down=2, resolved=True), {"a.go"}) == compare.NOISE
+        )
 
     def test_should_take_more_thumbs_up_as_real(self) -> None:
-        assert verdict(t(up=1), set()) == REAL
+        assert compare.verdict(t(up=1), set()) == compare.REAL
 
     def test_should_keep_an_unresolved_thread_open(self) -> None:
-        assert verdict(t(), {"a.go"}) == OPEN
+        assert compare.verdict(t(), {"a.go"}) == compare.OPEN
 
     def test_should_take_a_fix_as_real(self) -> None:
-        assert verdict(t(resolved=True), {"a.go"}) == REAL
+        assert compare.verdict(t(resolved=True), {"a.go"}) == compare.REAL
 
     def test_should_take_a_resolve_without_a_fix_as_noise(self) -> None:
-        assert verdict(t(resolved=True), {"b.go"}) == NOISE
+        assert compare.verdict(t(resolved=True), {"b.go"}) == compare.NOISE
 
     def test_should_keep_a_thread_open_when_its_commit_left_the_history(self) -> None:
-        assert verdict(t(resolved=True), None) == OPEN
+        assert compare.verdict(t(resolved=True), None) == compare.OPEN
 
 
 class TestMatch:
@@ -283,12 +275,12 @@ class TestMatch:
     def test_should_pair_the_closest_findings_once(self) -> None:
         a = [item("a.go", 10), item("a.go", 20)]
         b = [item("a.go", 19), item("a.go", 11)]
-        assert sorted(match(a, b)) == [(0, 1), (1, 0)]
+        assert sorted(compare.match(a, b)) == [(0, 1), (1, 0)]
 
     def test_should_not_pair_other_files_or_far_lines(self) -> None:
         a = [item("a.go", 10), item("a.go", 30), item(None, None)]
         b = [item("b.go", 10), item("a.go", 40), item(None, None)]
-        assert match(a, b) == []
+        assert compare.match(a, b) == []
 
 
 class TestRecords:
@@ -302,7 +294,10 @@ class TestRecords:
             ("2026-11-05T12:00:00Z", "2"),
         ]
         gh.records = {run: record(run * 40) for run in ("1", "2", "3")}
-        assert [r["head"] for r in records(gh, REPO, SINCE)] == ["2" * 40, "3" * 40]
+        assert [r["head"] for r in compare.records(gh, REPO, SINCE)] == [
+            "2" * 40,
+            "3" * 40,
+        ]
 
 
 class TestPairs:
@@ -311,34 +306,34 @@ class TestPairs:
     def test_should_pair_a_commit_both_reviewed(self, repo: Repo) -> None:
         repo.commit({"a.go": "y\n"})
         gh = FakeGH(repo.head)
-        [p] = pairs(gh, repo.git, REPO, [record(repo.head), record("d" * 40)])
+        [p] = compare.pairs(gh, repo.git, REPO, [record(repo.head), record("d" * 40)])
         assert (p.pr, p.head, p.scores) == (7, repo.head, (4, 5))
         assert [(i.title, i.path, i.line, i.verdict) for i in p.greptile] == [
-            ("Leaks a handle", "a.go", 10, REAL),
-            ("Reads a secret", None, None, OPEN),
+            ("Leaks a handle", "a.go", 10, compare.REAL),
+            ("Reads a secret", None, None, compare.OPEN),
         ]
         assert [(i.title, i.verdict) for i in p.sedosaur] == [
-            ("Leaks a handle too", REAL),
-            ("Odd name", OPEN),
+            ("Leaks a handle too", compare.REAL),
+            ("Odd name", compare.OPEN),
         ]
         assert p.matches == [(0, 0)]
 
     def test_should_count_the_newest_record_of_a_commit(self, repo: Repo) -> None:
         gh = FakeGH(repo.head)
         recs = [record(repo.head, score=2), record(repo.head, score=4)]
-        [p] = pairs(gh, repo.git, REPO, recs)
+        [p] = compare.pairs(gh, repo.git, REPO, recs)
         assert p.scores == (4, 4)
 
     def test_should_take_a_resolve_without_a_fix_as_noise(self, repo: Repo) -> None:
         repo.commit({"c.go": "2\n"})
-        [p] = pairs(FakeGH(repo.head), repo.git, REPO, [record(repo.head)])
-        assert p.greptile[0].verdict == NOISE
-        assert p.sedosaur[0].verdict == NOISE
+        [p] = compare.pairs(FakeGH(repo.head), repo.git, REPO, [record(repo.head)])
+        assert p.greptile[0].verdict == compare.NOISE
+        assert p.sedosaur[0].verdict == compare.NOISE
 
     def test_should_not_count_a_merge_from_main_as_a_fix(self, repo: Repo) -> None:
         repo.merge_main({"a.go": "".join(f"{n}\n" for n in range(1, 8)) + "z\n"})
-        [p] = pairs(FakeGH(repo.head), repo.git, REPO, [record(repo.head)])
-        assert p.greptile[0].verdict == NOISE
+        [p] = compare.pairs(FakeGH(repo.head), repo.git, REPO, [record(repo.head)])
+        assert p.greptile[0].verdict == compare.NOISE
 
     def test_should_not_count_a_commit_after_the_last_reply(self, repo: Repo) -> None:
         repo.commit({"a.go": "y\n"}, date=NOON)
@@ -352,8 +347,8 @@ class TestPairs:
             resolved=True,
             replied="2026-11-05T11:00:00Z",
         )
-        [p] = pairs(gh, repo.git, REPO, [record(repo.head)])
-        assert p.greptile[0].verdict == NOISE
+        [p] = compare.pairs(gh, repo.git, REPO, [record(repo.head)])
+        assert p.greptile[0].verdict == compare.NOISE
 
     def test_should_keep_open_a_thread_on_a_commit_outside_the_history(
         self, repo: Repo
@@ -361,8 +356,8 @@ class TestPairs:
         gh = FakeGH(repo.head)
         gh.threads[0] = thread(101, "greptile-apps", "Leaks a handle", 10, "e" * 40)
         gh.threads[0]["isResolved"] = True
-        [p] = pairs(gh, repo.git, REPO, [record(repo.head)])
-        assert p.greptile[0].verdict == OPEN
+        [p] = compare.pairs(gh, repo.git, REPO, [record(repo.head)])
+        assert p.greptile[0].verdict == compare.OPEN
 
     def test_should_judge_each_review_by_its_own_thread(self, repo: Repo) -> None:
         later = repo.commit({"c.go": "2\n"})
@@ -372,9 +367,11 @@ class TestPairs:
             thread(201, "sedosaur", "Leaks a handle too", 12, repo.head, up=1),
             thread(202, "sedosaur", "Leaks a handle too", 12, later, down=1),
         ]
-        first, second = pairs(gh, repo.git, REPO, [record(repo.head), record(later)])
-        assert first.sedosaur[0].verdict == REAL
-        assert second.sedosaur[0].verdict == NOISE
+        first, second = compare.pairs(
+            gh, repo.git, REPO, [record(repo.head), record(later)]
+        )
+        assert first.sedosaur[0].verdict == compare.REAL
+        assert second.sedosaur[0].verdict == compare.NOISE
 
 
 class TestReport:
@@ -382,8 +379,8 @@ class TestReport:
 
     def test_should_report_coverage_and_precision(self, repo: Repo) -> None:
         repo.commit({"a.go": "y\n"})
-        ps = pairs(FakeGH(repo.head), repo.git, REPO, [record(repo.head)])
-        text = report(ps, since=SINCE)
+        ps = compare.pairs(FakeGH(repo.head), repo.git, REPO, [record(repo.head)])
+        text = compare.report(ps, since=SINCE)
         short = repo.head[:10]
         assert "1 commit on 1 pull request have a review from both." in text
         assert "| Precision | 1 of 1 (100%) | 1 of 1 (100%) |" in text
@@ -403,15 +400,19 @@ class TestReport:
         gh.threads = gh.threads[:1]
         r = record(repo.head)
         r["review"]["findings"] = []
-        text = report(pairs(gh, repo.git, REPO, [r]), since=SINCE)
+        text = compare.report(compare.pairs(gh, repo.git, REPO, [r]), since=SINCE)
         missed = text.split("### Real Greptile findings Sedosaur missed\n\n")[1]
         assert missed.startswith("- P1 **Leaks a handle** `a.go:10` (#7)")
 
     def test_should_say_when_no_finding_is_real_yet(self, repo: Repo) -> None:
         gh = FakeGH(repo.head)
         gh.threads[0]["isResolved"] = False
-        text = report(pairs(gh, repo.git, REPO, [record(repo.head)]), since=SINCE)
+        text = compare.report(
+            compare.pairs(gh, repo.git, REPO, [record(repo.head)]), since=SINCE
+        )
         assert "- **Coverage:** no real Greptile findings yet." in text
 
     def test_should_say_when_nothing_is_paired(self) -> None:
-        assert report([], since=SINCE).endswith("No commit has a review from both yet.")
+        assert compare.report([], since=SINCE).endswith(
+            "No commit has a review from both yet."
+        )
