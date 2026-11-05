@@ -10,7 +10,7 @@
 import { lineplot, panel, ranger, type resource } from "@synnaxlabs/client";
 import { createPanelProject, createTestClient } from "@synnaxlabs/client/testutil";
 import { LinePlot as PLinePlot } from "@synnaxlabs/pluto";
-import { uuid } from "@synnaxlabs/x";
+import { TimeRange, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { Provider } from "react-redux";
@@ -144,6 +144,26 @@ describe("lineplot selector stability under dispatch", () => {
 describe("focused line plot", () => {
   const client = createTestClient();
 
+  // The Core refuses a panel tab whose resource it does not hold.
+  const createPlotID = async () =>
+    lineplot.resourceID(
+      (
+        await client.lineplots.create({
+          name: uniqueName("plot"),
+          project: await createPanelProject(client),
+        })
+      ).key,
+    );
+
+  const createRangeID = async () => {
+    const start = TimeStamp.now();
+    const { key } = await client.ranges.create({
+      name: uniqueName("range"),
+      timeRange: new TimeRange(start, start.add(TimeSpan.seconds(1))),
+    });
+    return ranger.resourceID(key);
+  };
+
   const tabFor = (id: resource.ID): panel.Tab => ({
     variant: "resource",
     key: uuid.create(),
@@ -183,14 +203,14 @@ describe("focused line plot", () => {
   };
 
   it("should report the key when the focused tab shows a line plot", async () => {
-    const plot = lineplot.resourceID(uuid.create());
+    const plot = await createPlotID();
     const { result } = await renderFocused([tabFor(plot)]);
     await waitFor(() => expect(result.current.select).toBe(plot.key));
     expect(result.current.get()).toBe(plot.key);
   });
 
   it("should report nothing when the focused tab shows another resource", async () => {
-    const { result } = await renderFocused([tabFor(ranger.resourceID(uuid.create()))]);
+    const { result } = await renderFocused([tabFor(await createRangeID())]);
     await waitFor(() => expect(result.current.select).toBeUndefined());
     expect(result.current.get()).toBeUndefined();
   });
@@ -202,9 +222,9 @@ describe("focused line plot", () => {
   });
 
   it("should follow focus as it moves between a plot and another resource", async () => {
-    const plot = lineplot.resourceID(uuid.create());
+    const plot = await createPlotID();
     const plotTab = tabFor(plot);
-    const rangeTab = tabFor(ranger.resourceID(uuid.create()));
+    const rangeTab = tabFor(await createRangeID());
     const { result } = await renderFocused([plotTab, rangeTab]);
     await waitFor(() => expect(result.current.select).toBe(plot.key));
     act(() => {
@@ -220,11 +240,11 @@ describe("focused line plot", () => {
   });
 
   it("should follow the focused tab when its content changes in place", async () => {
-    const tab = tabFor(ranger.resourceID(uuid.create()));
+    const tab = tabFor(await createRangeID());
     const { result, pan } = await renderFocused([tab]);
     assertDefined(pan);
     await waitFor(() => expect(result.current.select).toBeUndefined());
-    const plot = lineplot.resourceID(uuid.create());
+    const plot = await createPlotID();
     await act(async () => {
       await client.panels.dispatch(
         pan.key,

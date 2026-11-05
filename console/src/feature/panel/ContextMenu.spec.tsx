@@ -61,11 +61,19 @@ import {
 const client = createTestClient();
 const roles = new RoleClients(client);
 
-const resourceTab = (): panel.Tab => ({
-  variant: "resource",
-  key: uuid.create(),
-  resource: schematic.resourceID(uuid.create()),
-});
+const tabProject = await client.projects.create({ name: uniqueName("project") });
+
+// The Core refuses a panel tab whose resource it does not hold.
+const resourceTab = async (): Promise<panel.Tab> => {
+  const sch = await client.schematics.create(tabProject.key, {
+    name: uniqueName("schematic"),
+  });
+  return {
+    variant: "resource",
+    key: uuid.create(),
+    resource: schematic.resourceID(sch.key),
+  };
+};
 
 const viewTab = (): panel.Tab => ({
   variant: "view",
@@ -110,7 +118,7 @@ describe("Panel.TabMenuItems", () => {
 
   describe("rename", () => {
     it("offers rename for a resource tab", async () => {
-      const tab = resourceTab();
+      const tab = await resourceTab();
       const { wrapper } = await setup([tab], tab.key);
       renderMenu(wrapper, [tab.key]);
       await waitFor(() => expect(screen.getByText("Rename")).toBeTruthy());
@@ -125,7 +133,7 @@ describe("Panel.TabMenuItems", () => {
     });
 
     it("starts editing the tab's name", async () => {
-      const tab = resourceTab();
+      const tab = await resourceTab();
       const { wrapper } = await setup([tab], tab.key);
       const service: Panel.EditableTabNameService = {
         useEnsure: vi.fn(),
@@ -158,8 +166,8 @@ describe("Panel.TabMenuItems", () => {
 
   describe("focus", () => {
     it("overlays the tab the menu was opened on, not the panel's front tab", async () => {
-      const front = resourceTab();
-      const background = resourceTab();
+      const front = await resourceTab();
+      const background = await resourceTab();
       const { wrapper, panelKey } = await setup([front, background], background.key);
 
       const { result } = renderHook(
@@ -190,7 +198,7 @@ describe("Panel.TabMenuItems", () => {
     };
 
     it("names the key that performs the action the entry offers", async () => {
-      const front = resourceTab();
+      const front = await resourceTab();
       const { wrapper } = await setup([front], front.key);
       renderMenu(wrapper, [front.key]);
       await waitFor(() => expect(screen.getByText("Focus")).toBeTruthy());
@@ -203,8 +211,8 @@ describe("Panel.TabMenuItems", () => {
     });
 
     it("withholds every hint from a menu open on a tab that is not focused", async () => {
-      const front = resourceTab();
-      const background = resourceTab();
+      const front = await resourceTab();
+      const background = await resourceTab();
       const { wrapper, panelKey, store } = await setup(
         [front, background],
         background.key,
@@ -228,7 +236,7 @@ describe("Panel.TabMenuItems", () => {
 
   describe("no tab", () => {
     it("offers only a console reload when the menu resolved no tab", async () => {
-      const tab = resourceTab();
+      const tab = await resourceTab();
       const { wrapper } = await setup([tab], tab.key);
       renderMenu(wrapper, []);
       await waitFor(() => expect(screen.getByText("Reload Console")).toBeTruthy());
@@ -239,7 +247,7 @@ describe("Panel.TabMenuItems", () => {
 
   describe("move to new window", () => {
     it("hides the item in the browser, which cannot open a window", async () => {
-      const tab = resourceTab();
+      const tab = await resourceTab();
       const { wrapper } = await setup([tab], tab.key);
       renderMenu(wrapper, [tab.key]);
       await waitFor(() => expect(screen.getByText("Move to panel")).toBeTruthy());
@@ -258,7 +266,7 @@ describe("Panel.TabMenuItems", () => {
         key: uuid.create(),
         resource: schematic.resourceID(sch.key),
       };
-      const stays = resourceTab();
+      const stays = await resourceTab();
       const existing = await createServerPanel(client, {
         variant: "leaf",
         tabs: [moved, stays],
@@ -308,7 +316,7 @@ describe("Panel.TabMenuItems", () => {
     it("opens the picker on the tab the menu was opened on", async () => {
       const projectKey = (await client.projects.create({ name: uniqueName("project") }))
         .key;
-      const [front, moved] = [resourceTab(), resourceTab()];
+      const [front, moved] = await Promise.all([resourceTab(), resourceTab()]);
       const source = await client.panels.create({
         key: uuid.create(),
         name: uniqueName("panel"),
@@ -404,7 +412,7 @@ describe("Panel.TabMenuItems permissions", () => {
   it.each<BuiltInRole>(["Viewer", "Operator"])(
     "should withhold rename and both moves from a %s",
     async (role) => {
-      const tab = resourceTab();
+      const tab = await resourceTab();
       const wrapper = await setupAs(await roles.get(role), tab);
       renderMenu(wrapper, [tab.key]);
       await waitFor(() => expect(screen.getByText("Reload Console")).toBeTruthy());
@@ -415,7 +423,7 @@ describe("Panel.TabMenuItems permissions", () => {
   );
 
   it("should offer rename and both moves to an engineer", async () => {
-    const tab = resourceTab();
+    const tab = await resourceTab();
     const wrapper = await setupAs(await roles.get("Engineer"), tab);
     renderMenu(wrapper, [tab.key]);
     expect(await screen.findByText("Rename")).toBeTruthy();
@@ -424,7 +432,7 @@ describe("Panel.TabMenuItems permissions", () => {
   });
 
   it("should withhold the tear-off from a subject who cannot create panels", async () => {
-    const tab = resourceTab();
+    const tab = await resourceTab();
     const editor = await createTestClientWithGrants(client, {
       retrieve: [
         panel.TYPE_RESOURCE_ID,

@@ -181,7 +181,10 @@ describe("Panel tab", () => {
       mount: (Name: Panel.TabName) => ReactElement = (Name) => <Name />,
       as: Client = client,
     ) => {
-      const resourceKey = uuid.create();
+      const project = (await client.projects.create({ name: uniqueName("proj") })).key;
+      const { key: resourceKey } = await client.schematics.create(project, {
+        name: uniqueName("schematic"),
+      });
       const tabKey = uuid.create();
       const existing = await createServerPanel(client, {
         variant: "leaf",
@@ -197,7 +200,7 @@ describe("Panel tab", () => {
         client: as,
         panelKey: existing.key,
         tabKey,
-        project: (await client.projects.create({ name: uniqueName("proj") })).key,
+        project,
       });
       await primePanel(Base, existing.key);
       const ensureRetrieved = vi.fn();

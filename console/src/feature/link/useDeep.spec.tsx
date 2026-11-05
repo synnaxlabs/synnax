@@ -38,8 +38,11 @@ import {
 
 const client = createTestClient();
 
-const createPanel = async (projectKey: project.Key): Promise<panel.Panel> =>
-  await client.panels.create({
+const createPanel = async (projectKey: project.Key): Promise<panel.Panel> => {
+  const sch = await client.schematics.create(projectKey, {
+    name: uniqueName("schematic"),
+  });
+  return await client.panels.create({
     key: uuid.create(),
     name: uniqueName("panel"),
     root: {
@@ -48,12 +51,13 @@ const createPanel = async (projectKey: project.Key): Promise<panel.Panel> =>
         {
           variant: "resource",
           key: uuid.create(),
-          resource: schematic.resourceID(uuid.create()),
+          resource: schematic.resourceID(sch.key),
         },
       ],
     },
     project: projectKey,
   });
+};
 
 interface Harness {
   connect: ReturnType<typeof vi.fn>;
