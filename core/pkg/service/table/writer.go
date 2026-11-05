@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
@@ -44,7 +45,7 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 }
 
 // Create creates the given table within the project provided. If the table does not
-// have a key, a new key will be generated.
+// have a key, a new key will be generated. An existing table keeps its group.
 func (w Writer) Create(ctx context.Context, projectKey project.Key, t *Table) error {
 	var (
 		exists bool
@@ -63,6 +64,17 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, t *Table) er
 		}
 		if exists = err == nil; exists {
 			t.Group = stored.Group
+		}
+	}
+	if !exists {
+		if err = group.CheckMember(
+			ctx,
+			w.tx,
+			t.Group,
+			resource.TypeTable,
+			nil,
+		); err != nil {
+			return err
 		}
 	}
 	if err = t.Validate(); err != nil {
@@ -101,13 +113,10 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, t *Table) er
 
 // SetGroup moves the tables with keys into g, or out of their group when g is nil.
 func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
-	if err := w.tbl.NewUpdate().
-		Where(gorp.MatchKeys[Key, Table](keys...)).
-		Change(func(_ gorp.Context, e Table) Table {
-			e.Group = g
-			return e
-		}).
-		Exec(ctx, w.tx); err != nil {
+	if err := group.CheckMember(ctx, w.tx, g, resource.TypeTable, nil); err != nil {
+		return err
+	}
+	if err := setGroup(w.tbl, g, keys...).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	for _, k := range keys {

@@ -12,6 +12,7 @@ package panel
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -137,8 +138,8 @@ type (
 		IgnoreNotFoundError bool        `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
 		// Groups keeps only the panels in any of these groups.
 		Groups []group.Key `json:"groups" msgpack:"groups"`
-		// Grouped keeps only the panels in a group when true, and only the panels in
-		// no group when false. Nil applies no filter.
+		// Grouped keeps only the panels in a group when true, and only the panels in no
+		// group when false. Nil applies no filter.
 		Grouped *bool `json:"grouped" msgpack:"grouped"`
 	}
 	RetrieveResponse struct {
@@ -164,7 +165,7 @@ func (s *Service) Retrieve(
 		q = q.Where(panel.MatchGroups(req.Groups...))
 	}
 	if req.Grouped != nil {
-		q = q.Where(panel.MatchGrouped(*req.Grouped))
+		q = q.Where(panel.MatchHasGroup(*req.Grouped))
 	}
 	err = q.Entries(&res.Panels).Exec(ctx, nil)
 	if req.IgnoreNotFoundError && err != nil {
@@ -235,10 +236,21 @@ func (s *Service) SetGroup(
 	tx gorp.Tx,
 	req SetGroupRequest,
 ) (struct{}, error) {
+	var panels []panel.Panel
+	if err := s.internal.NewRetrieve().
+		Where(panel.MatchKeys(req.Keys...)).
+		Entries(&panels).
+		Exec(ctx, tx); err != nil {
+		return struct{}{}, err
+	}
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: panel.ResourceIDs(req.Keys),
+		Objects: group.MoveObjects(
+			panel.ResourceIDs(req.Keys),
+			lo.Map(panels, func(e panel.Panel, _ int) *group.Key { return e.Group }),
+			req.Group,
+		),
 	}); err != nil {
 		return struct{}{}, err
 	}

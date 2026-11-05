@@ -12,6 +12,7 @@ package schematic
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -137,8 +138,7 @@ type (
 		// Groups keeps only the schematics in any of these groups.
 		Groups []group.Key `json:"groups" msgpack:"groups"`
 		// Grouped keeps only the schematics in a group when true, and only the
-		// schematics in
-		// no group when false. Nil applies no filter.
+		// schematics in no group when false. Nil applies no filter.
 		Grouped *bool `json:"grouped" msgpack:"grouped"`
 	}
 	RetrieveResponse struct {
@@ -146,10 +146,15 @@ type (
 	}
 )
 
+// Retrieve returns the schematics that match req. A request with no keys, groups, or
+// grouped filter matches nothing.
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
+	if len(req.Keys) == 0 && len(req.Groups) == 0 && req.Grouped == nil {
+		return RetrieveResponse{Schematics: []schematic.Schematic{}}, nil
+	}
 	var res RetrieveResponse
 	q := s.internal.NewRetrieve()
 	if len(req.Keys) > 0 {
@@ -159,7 +164,7 @@ func (s *Service) Retrieve(
 		q = q.Where(schematic.MatchGroups(req.Groups...))
 	}
 	if req.Grouped != nil {
-		q = q.Where(schematic.MatchGrouped(*req.Grouped))
+		q = q.Where(schematic.MatchHasGroup(*req.Grouped))
 	}
 	err := q.Entries(&res.Schematics).Exec(ctx, nil)
 	if req.IgnoreNotFoundError && err != nil {
@@ -247,10 +252,24 @@ func (s *Service) SetGroup(
 	tx gorp.Tx,
 	req SetGroupRequest,
 ) (struct{}, error) {
+	var schematics []schematic.Schematic
+	if err := s.internal.NewRetrieve().
+		Where(schematic.MatchKeys(req.Keys...)).
+		Entries(&schematics).
+		Exec(ctx, tx); err != nil {
+		return struct{}{}, err
+	}
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: schematic.ResourceIDs(req.Keys),
+		Objects: group.MoveObjects(
+			schematic.ResourceIDs(req.Keys),
+			lo.Map(
+				schematics,
+				func(e schematic.Schematic, _ int) *group.Key { return e.Group },
+			),
+			req.Group,
+		),
 	}); err != nil {
 		return struct{}{}, err
 	}

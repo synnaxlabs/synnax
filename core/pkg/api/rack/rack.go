@@ -13,6 +13,7 @@ import (
 	"context"
 	"slices"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -260,8 +261,8 @@ type (
 		IncludeStatus bool       `json:"include_status" msgpack:"include_status"`
 		// Groups keeps only the racks in any of these groups.
 		Groups []group.Key `json:"groups" msgpack:"groups"`
-		// Grouped keeps only the racks in a group when true, and only the racks in
-		// no group when false. Nil applies no filter.
+		// Grouped keeps only the racks in a group when true, and only the racks in no
+		// group when false. Nil applies no filter.
 		Grouped *bool `json:"grouped" msgpack:"grouped"`
 	}
 	RetrieveResponse struct {
@@ -311,7 +312,7 @@ func (s *Service) Retrieve(
 		q = q.Where(rack.MatchGroups(req.Groups...))
 	}
 	if req.Grouped != nil {
-		q = q.Where(rack.MatchGrouped(*req.Grouped))
+		q = q.Where(rack.MatchHasGroup(*req.Grouped))
 	}
 	if err := q.Entries(&resRacks).Exec(ctx, nil); err != nil {
 		return RetrieveResponse{}, err
@@ -431,10 +432,21 @@ func (s *Service) SetGroup(
 	tx gorp.Tx,
 	req SetGroupRequest,
 ) (struct{}, error) {
+	var racks []rack.Rack
+	if err := s.rack.NewRetrieve().
+		Where(rack.MatchKeys(req.Keys...)).
+		Entries(&racks).
+		Exec(ctx, tx); err != nil {
+		return struct{}{}, err
+	}
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: rack.ResourceIDs(req.Keys),
+		Objects: group.MoveObjects(
+			rack.ResourceIDs(req.Keys),
+			lo.Map(racks, func(e rack.Rack, _ int) *group.Key { return e.Group }),
+			req.Group,
+		),
 	}); err != nil {
 		return struct{}{}, err
 	}

@@ -92,7 +92,7 @@ func (s *Service) CreateOrRetrieve(
 		err := s.NewRetrieve().
 			Where(MatchNames(name)).
 			Where(MatchScopes(scope)).
-			Where(MatchNested(false)).
+			Where(MatchHasParent(false)).
 			Entry(&g).
 			Exec(ctx, tx)
 		if !errors.Is(err, query.ErrNotFound) {
@@ -200,22 +200,14 @@ func (s *Service) TopParent(
 	tx gorp.Tx,
 	key Key,
 ) (*resource.ID, error) {
-	for {
-		var g Group
-		if err := s.NewRetrieve().
-			Where(MatchKeys(key)).
-			Entry(&g).
-			Exec(ctx, tx); err != nil {
-			return nil, err
-		}
-		if g.Parent == nil || g.Parent.Type != resource.TypeGroup {
-			return g.Parent, nil
-		}
-		var err error
-		if key, err = KeyFromResourceID(*g.Parent); err != nil {
-			return nil, err
-		}
+	var g Group
+	if err := s.NewRetrieve().
+		Where(MatchKeys(key)).
+		Entry(&g).
+		Exec(ctx, tx); err != nil {
+		return nil, err
 	}
+	return topParent(ctx, gorp.OverrideTx(s.cfg.DB, tx), g)
 }
 
 func (s *Service) Close() error {
@@ -258,11 +250,19 @@ func (w Writer) Create(ctx context.Context, g *Group) error {
 	if errors.Skip(err, query.ErrNotFound) != nil {
 		return err
 	}
-	if err == nil && existing.Scope != g.Scope {
-		return validate.PathedError(
-			errors.Wrapf(validate.ErrValidation, "cannot change the scope of a group"),
-			"scope",
-		)
+	if err == nil {
+		if existing.Scope != g.Scope {
+			return validate.PathedError(
+				errors.Wrapf(
+					validate.ErrValidation,
+					"cannot change the scope of a group",
+				),
+				"scope",
+			)
+		}
+		if err = w.checkMove(ctx, existing, g.Parent); err != nil {
+			return err
+		}
 	}
 	if err = g.Validate(); err != nil {
 		return err
@@ -274,7 +274,8 @@ func (w Writer) Create(ctx context.Context, g *Group) error {
 }
 
 // SetParent moves the groups with keys under parent, or to the top level when parent is
-// nil. Each group's scope must match the scope of parent.
+// nil. Each group's scope must match the scope of parent. A group that holds a rack,
+// device, or project cannot move under a new top parent.
 func (w Writer) SetParent(ctx context.Context, parent *resource.ID, keys ...Key) error {
 	var scope resource.Type
 	if parent != nil {
@@ -285,7 +286,10 @@ func (w Writer) SetParent(ctx context.Context, parent *resource.ID, keys ...Key)
 	}
 	return w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Group](keys...)).
-		ChangeErr(func(_ gorp.Context, g Group) (Group, error) {
+		ChangeErr(func(ctx gorp.Context, g Group) (Group, error) {
+			if err := w.checkMove(ctx, g, parent); err != nil {
+				return g, err
+			}
 			g.Parent = parent
 			if parent == nil {
 				return g, nil
@@ -296,8 +300,7 @@ func (w Writer) SetParent(ctx context.Context, parent *resource.ID, keys ...Key)
 }
 
 // parentScope returns the scope a group takes under parent: the scope of a parent
-// group,
-// project for a project, and device for a rack.
+// group, project for a project, and device for a rack.
 func (w Writer) parentScope(
 	ctx context.Context,
 	parent resource.ID,
@@ -339,14 +342,14 @@ func checkScope(g Group, parentScope resource.Type) error {
 	}
 	return validate.PathedError(errors.Wrapf(
 		validate.ErrValidation,
-		"a %s group cannot sit in a %s group",
+		"a %s group cannot sit under a %s parent",
 		g.Scope,
 		parentScope,
 	), "parent")
 }
 
-// Delete deletes the groups with keys and every group under them. It returns a
-// validation error when a group holds a member or a group that keys does not name.
+// Delete deletes the groups with keys. It returns a validation error when a group holds
+// a member or a group that keys does not name.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	named := set.New(
 		lo.Map(keys, func(k Key, _ int) string { return gorp.FormatKey(k) })...,

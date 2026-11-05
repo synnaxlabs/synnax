@@ -12,6 +12,7 @@ package log
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -138,8 +139,8 @@ type (
 		IgnoreNotFoundError bool      `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
 		// Groups keeps only the logs in any of these groups.
 		Groups []group.Key `json:"groups" msgpack:"groups"`
-		// Grouped keeps only the logs in a group when true, and only the logs in
-		// no group when false. Nil applies no filter.
+		// Grouped keeps only the logs in a group when true, and only the logs in no
+		// group when false. Nil applies no filter.
 		Grouped *bool `json:"grouped" msgpack:"grouped"`
 	}
 	RetrieveResponse struct {
@@ -147,10 +148,15 @@ type (
 	}
 )
 
+// Retrieve returns the logs that match req. A request with no keys, groups, or grouped
+// filter matches nothing.
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
+	if len(req.Keys) == 0 && len(req.Groups) == 0 && req.Grouped == nil {
+		return RetrieveResponse{Logs: []log.Log{}}, nil
+	}
 	var res RetrieveResponse
 	q := s.internal.NewRetrieve()
 	if len(req.Keys) > 0 {
@@ -160,7 +166,7 @@ func (s *Service) Retrieve(
 		q = q.Where(log.MatchGroups(req.Groups...))
 	}
 	if req.Grouped != nil {
-		q = q.Where(log.MatchGrouped(*req.Grouped))
+		q = q.Where(log.MatchHasGroup(*req.Grouped))
 	}
 	err := q.Entries(&res.Logs).Exec(ctx, nil)
 	if req.IgnoreNotFoundError && err != nil {
@@ -210,10 +216,21 @@ func (s *Service) SetGroup(
 	tx gorp.Tx,
 	req SetGroupRequest,
 ) (struct{}, error) {
+	var logs []log.Log
+	if err := s.internal.NewRetrieve().
+		Where(log.MatchKeys(req.Keys...)).
+		Entries(&logs).
+		Exec(ctx, tx); err != nil {
+		return struct{}{}, err
+	}
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: log.ResourceIDs(req.Keys),
+		Objects: group.MoveObjects(
+			log.ResourceIDs(req.Keys),
+			lo.Map(logs, func(e log.Log, _ int) *group.Key { return e.Group }),
+			req.Group,
+		),
 	}); err != nil {
 		return struct{}{}, err
 	}

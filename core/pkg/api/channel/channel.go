@@ -229,8 +229,8 @@ type RetrieveRequest struct {
 	IncludeStatus bool `json:"include_status" msgpack:"include_status"`
 	// Groups keeps only the channels in any of these groups.
 	Groups []group.Key `json:"groups" msgpack:"groups"`
-	// Grouped keeps only the channels in a group when true, and only the channels in
-	// no group when false. Nil applies no filter.
+	// Grouped keeps only the channels in a group when true, and only the channels in no
+	// group when false. Nil applies no filter.
 	Grouped *bool `json:"grouped" msgpack:"grouped"`
 }
 
@@ -390,7 +390,7 @@ func (s *Service) filter(req RetrieveRequest, q channel.Retrieve) channel.Retrie
 		q = q.Where(channel.MatchGroups(req.Groups...))
 	}
 	if req.Grouped != nil {
-		q = q.Where(channel.MatchGrouped(*req.Grouped))
+		q = q.Where(channel.MatchHasGroup(*req.Grouped))
 	}
 	return q
 }
@@ -521,10 +521,24 @@ func (s *Service) SetGroup(
 	tx gorp.Tx,
 	req SetGroupRequest,
 ) (struct{}, error) {
+	var channels []channel.Channel
+	if err := s.internal.NewRetrieve().
+		Where(channel.MatchKeys(req.Keys...)).
+		Entries(&channels).
+		Exec(ctx, tx); err != nil {
+		return struct{}{}, err
+	}
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: channel.ResourceIDsFromKeys(req.Keys),
+		Objects: group.MoveObjects(
+			channel.ResourceIDsFromKeys(req.Keys),
+			lo.Map(
+				channels,
+				func(e channel.Channel, _ int) *group.Key { return e.Group },
+			),
+			req.Group,
+		),
 	}); err != nil {
 		return struct{}{}, err
 	}

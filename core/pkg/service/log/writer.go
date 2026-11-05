@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 )
@@ -43,7 +44,7 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 // Create creates the given log within the project provided. If the log does not have a
 // key, a new key will be generated. If projectKey is uuid.Nil(), the log is created
 // without a project ParentOf relationship; this is used by imports that supply no
-// parent project.
+// parent project. An existing log keeps its group.
 func (w Writer) Create(ctx context.Context, projectKey project.Key, l *Log) error {
 	var (
 		exists bool
@@ -62,6 +63,17 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, l *Log) erro
 		}
 		if exists = err == nil; exists {
 			l.Group = stored.Group
+		}
+	}
+	if !exists {
+		if err = group.CheckMember(
+			ctx,
+			w.tx,
+			l.Group,
+			resource.TypeLog,
+			nil,
+		); err != nil {
+			return err
 		}
 	}
 	l.ApplyDefaults()
@@ -98,13 +110,10 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, l *Log) erro
 
 // SetGroup moves the logs with keys into g, or out of their group when g is nil.
 func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
-	if err := w.table.NewUpdate().
-		Where(gorp.MatchKeys[Key, Log](keys...)).
-		Change(func(_ gorp.Context, e Log) Log {
-			e.Group = g
-			return e
-		}).
-		Exec(ctx, w.tx); err != nil {
+	if err := group.CheckMember(ctx, w.tx, g, resource.TypeLog, nil); err != nil {
+		return err
+	}
+	if err := setGroup(w.table, g, keys...).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	for _, k := range keys {

@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 )
@@ -45,6 +46,7 @@ func (w Writer) Create(
 	ctx context.Context,
 	p *Panel,
 ) (err error) {
+	var exists bool
 	if p.Key == uuid.Nil() {
 		p.Key = uuid.New()
 	} else {
@@ -56,8 +58,19 @@ func (w Writer) Create(
 		if errors.Skip(err, query.ErrNotFound) != nil {
 			return err
 		}
-		if err == nil {
+		if exists = err == nil; exists {
 			p.Group = stored.Group
+		}
+	}
+	if !exists {
+		if err := group.CheckMember(
+			ctx,
+			w.tx,
+			p.Group,
+			resource.TypePanel,
+			nil,
+		); err != nil {
+			return err
 		}
 	}
 	// Default a freshly-created panel to a single empty leaf so action dispatchers
@@ -99,13 +112,10 @@ func (w Writer) Create(
 
 // SetGroup moves the panels with keys into g, or out of their group when g is nil.
 func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
-	if err := w.table.NewUpdate().
-		Where(gorp.MatchKeys[Key, Panel](keys...)).
-		Change(func(_ gorp.Context, e Panel) Panel {
-			e.Group = g
-			return e
-		}).
-		Exec(ctx, w.tx); err != nil {
+	if err := group.CheckMember(ctx, w.tx, g, resource.TypePanel, nil); err != nil {
+		return err
+	}
+	if err := setGroup(w.table, g, keys...).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	for _, k := range keys {

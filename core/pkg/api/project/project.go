@@ -13,6 +13,7 @@ import (
 	"context"
 	"encoding/json/v2"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
@@ -134,8 +135,7 @@ type (
 		// Groups keeps only the projects in any of these groups.
 		Groups []group.Key `json:"groups" msgpack:"groups"`
 		// Grouped keeps only the projects in a group when true, and only the projects
-		// in
-		// no group when false. Nil applies no filter.
+		// in no group when false. Nil applies no filter.
 		Grouped *bool `json:"grouped" msgpack:"grouped"`
 	}
 	RetrieveResponse struct {
@@ -161,7 +161,7 @@ func (s *Service) Retrieve(
 		q = q.Where(project.MatchGroups(req.Groups...))
 	}
 	if req.Grouped != nil {
-		q = q.Where(project.MatchGrouped(*req.Grouped))
+		q = q.Where(project.MatchHasGroup(*req.Grouped))
 	}
 	err = q.Entries(&res.Projects).Exec(ctx, nil)
 	if req.IgnoreNotFoundError && err != nil {
@@ -328,10 +328,24 @@ func (s *Service) SetGroup(
 	tx gorp.Tx,
 	req SetGroupRequest,
 ) (struct{}, error) {
+	var projects []project.Project
+	if err := s.internal.NewRetrieve().
+		Where(project.MatchKeys(req.Keys...)).
+		Entries(&projects).
+		Exec(ctx, tx); err != nil {
+		return struct{}{}, err
+	}
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: project.ResourceIDs(req.Keys),
+		Objects: group.MoveObjects(
+			project.ResourceIDs(req.Keys),
+			lo.Map(
+				projects,
+				func(e project.Project, _ int) *group.Key { return e.Group },
+			),
+			req.Group,
+		),
 	}); err != nil {
 		return struct{}{}, err
 	}

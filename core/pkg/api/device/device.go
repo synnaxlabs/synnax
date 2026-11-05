@@ -12,6 +12,7 @@ package device
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -191,8 +192,8 @@ type RetrieveRequest struct {
 	IncludeParent  bool         `json:"include_parent"   msgpack:"include_parent"`
 	// Groups keeps only the devices in any of these groups.
 	Groups []group.Key `json:"groups" msgpack:"groups"`
-	// Grouped keeps only the devices in a group when true, and only the devices in
-	// no group when false. Nil applies no filter.
+	// Grouped keeps only the devices in a group when true, and only the devices in no
+	// group when false. Nil applies no filter.
 	Grouped *bool `json:"grouped" msgpack:"grouped"`
 }
 
@@ -243,13 +244,13 @@ func (s *Service) Retrieve(
 	if hasRacks {
 		q = q.Where(device.MatchRacks(req.Racks...))
 	}
-	var res RetrieveResponse
 	if len(req.Groups) > 0 {
 		q = q.Where(device.MatchGroups(req.Groups...))
 	}
 	if req.Grouped != nil {
-		q = q.Where(device.MatchGrouped(*req.Grouped))
+		q = q.Where(device.MatchHasGroup(*req.Grouped))
 	}
+	var res RetrieveResponse
 	retErr := q.Entries(&res.Devices).Exec(ctx, nil)
 
 	if req.IncludeStatus {
@@ -355,10 +356,21 @@ func (s *Service) SetGroup(
 	tx gorp.Tx,
 	req SetGroupRequest,
 ) (struct{}, error) {
+	var devices []device.Device
+	if err := s.device.NewRetrieve().
+		Where(device.MatchKeys(req.Keys...)).
+		Entries(&devices).
+		Exec(ctx, tx); err != nil {
+		return struct{}{}, err
+	}
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: device.ResourceIDs(req.Keys),
+		Objects: group.MoveObjects(
+			device.ResourceIDs(req.Keys),
+			lo.Map(devices, func(e device.Device, _ int) *group.Key { return e.Group }),
+			req.Group,
+		),
 	}); err != nil {
 		return struct{}{}, err
 	}

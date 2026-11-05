@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -30,7 +31,6 @@ type Writer struct {
 	// otg is a writer used to modify rack related resources and relationships within
 	// the ontology.
 	otg ontology.Writer
-	// group is the base group that racks will be created under.
 	// newKey returns a new key for a rack.
 	newKey func(context.Context) (Key, error)
 	// status is used to write status updates.
@@ -103,6 +103,14 @@ func (w Writer) Create(ctx context.Context, r *Rack) error {
 	exists := err == nil
 	if exists {
 		r.Group = existing.Group
+	} else if err = group.CheckMember(
+		ctx,
+		w.tx,
+		r.Group,
+		resource.TypeRack,
+		nil,
+	); err != nil {
+		return err
 	}
 	if err = w.table.NewCreate().Entry(r).Exec(ctx, w.tx); err != nil {
 		return err
@@ -134,13 +142,10 @@ func (w Writer) Create(ctx context.Context, r *Rack) error {
 
 // SetGroup moves the racks with keys into g, or out of their group when g is nil.
 func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
-	return w.table.NewUpdate().
-		Where(gorp.MatchKeys[Key, Rack](keys...)).
-		Change(func(_ gorp.Context, r Rack) Rack {
-			r.Group = g
-			return r
-		}).
-		Exec(ctx, w.tx)
+	if err := group.CheckMember(ctx, w.tx, g, resource.TypeRack, nil); err != nil {
+		return err
+	}
+	return setGroup(w.table, g, keys...).Exec(ctx, w.tx)
 }
 
 // CreateMany creates the given racks. If racks with the same key already exist, they

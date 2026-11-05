@@ -11,6 +11,7 @@ package group
 
 import (
 	"context"
+	"slices"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
@@ -89,12 +90,22 @@ func (s *Service) Create(
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	enforcer := s.access.NewEnforcer(tx)
+	if err := enforcer.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
 		Objects: []resource.ID{{Type: resource.TypeGroup}},
 	}); err != nil {
 		return CreateResponse{}, err
+	}
+	if req.Parent != nil {
+		if err := enforcer.Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionUpdate,
+			Objects: []resource.ID{*req.Parent},
+		}); err != nil {
+			return CreateResponse{}, err
+		}
 	}
 	g := group.Group{Key: req.Key, Name: req.Name, Scope: req.Scope, Parent: req.Parent}
 	if err := s.internal.NewWriter(tx).Create(ctx, &g); err != nil {
@@ -141,7 +152,7 @@ func (s *Service) Retrieve(
 		q = q.Where(group.MatchScopes(req.Scopes...))
 	}
 	if req.Nested != nil {
-		q = q.Where(group.MatchNested(*req.Nested))
+		q = q.Where(group.MatchHasParent(*req.Nested))
 	}
 	if req.Limit > 0 {
 		q = q.Limit(req.Limit)
@@ -217,15 +228,30 @@ type SetParentRequest struct {
 	Keys   []group.Key  `json:"keys"   msgpack:"keys"`
 }
 
+// SetParent moves the groups. It requires update access on the groups, on the parents
+// they leave, and on the parent they join.
 func (s *Service) SetParent(
 	ctx context.Context,
 	tx gorp.Tx,
 	req SetParentRequest,
 ) (struct{}, error) {
+	var groups []group.Group
+	if err := s.internal.NewRetrieve().
+		Where(group.MatchKeys(req.Keys...)).
+		Entries(&groups).
+		Exec(ctx, tx); err != nil {
+		return struct{}{}, err
+	}
+	objects := group.ResourceIDs(req.Keys)
+	for _, g := range append(groups, group.Group{Parent: req.Parent}) {
+		if g.Parent != nil && !slices.Contains(objects, *g.Parent) {
+			objects = append(objects, *g.Parent)
+		}
+	}
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: group.ResourceIDs(req.Keys),
+		Objects: objects,
 	}); err != nil {
 		return struct{}{}, err
 	}

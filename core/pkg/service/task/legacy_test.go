@@ -337,7 +337,6 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		deviceSvc := MustOpen(device.OpenService(ctx, device.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Group:    groupSvc,
 			Status:   statusSvc,
 			Rack:     rackSvc,
 		}))

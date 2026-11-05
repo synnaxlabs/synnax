@@ -111,7 +111,7 @@ var _ = Describe("Group", Ordered, func() {
 		Expect(channel.KeysFromChannels(grouped)).To(ConsistOf(in.Key()))
 		Expect(svc.NewRetrieve().
 			Where(channel.MatchKeys(in.Key(), out.Key())).
-			Where(channel.MatchGrouped(false)).
+			Where(channel.MatchHasGroup(false)).
 			Entries(&ungrouped).
 			Exec(ctx, nil)).To(Succeed())
 		Expect(channel.KeysFromChannels(ungrouped)).To(ConsistOf(out.Key()))

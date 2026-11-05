@@ -62,7 +62,6 @@ func openDevices(ctx SpecContext, db *gorp.DB) *device.Service {
 	devices := MustOpen(device.OpenService(ctx, device.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
-		Group:    groupSvc,
 		Status:   statusSvc,
 		Rack:     rackSvc,
 	}))

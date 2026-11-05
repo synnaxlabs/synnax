@@ -43,7 +43,8 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 }
 
 // Create creates the given schematic within the project provided. If the
-// schematic does not have a key, a new key will be generated.
+// schematic does not have a key, a new key will be generated. An existing schematic
+// keeps its group.
 func (w Writer) Create(
 	ctx context.Context,
 	projectKey project.Key,
@@ -63,6 +64,17 @@ func (w Writer) Create(
 		}
 		if exists = err == nil; exists {
 			s.Group = stored.Group
+		}
+	}
+	if !exists {
+		if err = group.CheckMember(
+			ctx,
+			w.tx,
+			s.Group,
+			resource.TypeSchematic,
+			nil,
+		); err != nil {
+			return err
 		}
 	}
 	s.ApplyDefaults()
@@ -99,13 +111,10 @@ func (w Writer) Create(
 
 // SetGroup moves the schematics with keys into g, or out of their group when g is nil.
 func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
-	if err := w.table.NewUpdate().
-		Where(gorp.MatchKeys[Key, Schematic](keys...)).
-		Change(func(_ gorp.Context, e Schematic) Schematic {
-			e.Group = g
-			return e
-		}).
-		Exec(ctx, w.tx); err != nil {
+	if err := group.CheckMember(ctx, w.tx, g, resource.TypeSchematic, nil); err != nil {
+		return err
+	}
+	if err := setGroup(w.table, g, keys...).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	for _, k := range keys {
@@ -156,8 +165,8 @@ func (w Writer) findParentProject(
 
 // Copy creates a copy of the schematic with the given key and name. If the
 // snapshot flag is set to true, the copy will be a snapshot and will no
-// longer be editable. The copied schematic will be bound into the result
-// parameter.
+// longer be editable. The copy sits in no group. The copied schematic will be bound
+// into the result parameter.
 func (w Writer) Copy(
 	ctx context.Context,
 	key Key,
@@ -172,6 +181,7 @@ func (w Writer) Copy(
 			s.Key = newKey
 			s.Name = name
 			s.Snapshot = snapshot
+			s.Group = nil
 			*result = s
 			return s
 		}).Exec(ctx, w.tx); err != nil {

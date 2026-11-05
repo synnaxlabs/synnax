@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
@@ -27,10 +28,13 @@ type Writer struct {
 	table *gorp.Table[Key, Project]
 }
 
+// Create creates p, or updates the stored project with p.Key. An existing project keeps
+// its group.
 func (w Writer) Create(
 	ctx context.Context,
 	p *Project,
 ) (err error) {
+	var exists bool
 	if p.Key == uuid.Nil() {
 		p.Key = uuid.New()
 	} else {
@@ -42,8 +46,19 @@ func (w Writer) Create(
 		if errors.Skip(err, query.ErrNotFound) != nil {
 			return err
 		}
-		if err == nil {
+		if exists = err == nil; exists {
 			p.Group = stored.Group
+		}
+	}
+	if !exists {
+		if err := group.CheckMember(
+			ctx,
+			w.tx,
+			p.Group,
+			resource.TypeProject,
+			nil,
+		); err != nil {
+			return err
 		}
 	}
 	if err = p.Validate(); err != nil {
@@ -57,13 +72,10 @@ func (w Writer) Create(
 
 // SetGroup moves the projects with keys into g, or out of their group when g is nil.
 func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
-	return w.table.NewUpdate().
-		Where(gorp.MatchKeys[Key, Project](keys...)).
-		Change(func(_ gorp.Context, p Project) Project {
-			p.Group = g
-			return p
-		}).
-		Exec(ctx, w.tx)
+	if err := group.CheckMember(ctx, w.tx, g, resource.TypeProject, nil); err != nil {
+		return err
+	}
+	return setGroup(w.table, g, keys...).Exec(ctx, w.tx)
 }
 
 // CreateMany creates the given projects. If projects with the same key already

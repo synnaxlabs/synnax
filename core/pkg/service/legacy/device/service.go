@@ -17,7 +17,6 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -44,10 +43,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Ontology *ontology.Ontology
-	// Group checks that a device's group sits under the device's rack.
-	//
-	// [REQUIRED]
-	Group *group.Service
 	// Status is used to define and process statuses for devices.
 	//
 	// [REQUIRED]
@@ -73,7 +68,6 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
-	c.Group = override.Nil(c.Group, other.Group)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Rack = override.Nil(c.Rack, other.Rack)
@@ -87,7 +81,6 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("device")
 	v.NotNil("db", c.DB)
 	v.NotNil("ontology", c.Ontology)
-	v.NotNil("group", c.Group)
 	v.NotNil("status", c.Status)
 	v.NotNil("rack", c.Rack)
 	return v.Error()
@@ -152,7 +145,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
 		tx:       tx,
 		otg:      s.cfg.Ontology.NewWriter(tx),
-		group:    s.cfg.Group,
 		status:   s.cfg.Status.NewWriter(tx),
 		statuses: s.cfg.Status,
 		table:    s.table,

@@ -69,7 +69,6 @@ var _ = Describe("Device", func() {
 		svc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Group:    groupSvc,
 			Status:   stat,
 			Rack:     rackSvc,
 		}))
@@ -1177,7 +1176,6 @@ var _ = Describe("Device", func() {
 			svc := MustOpen(device.OpenService(ctx, device.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
-				Group:    groupSvc,
 				Status:   stat,
 				Rack:     rackSvc,
 			}))
@@ -1236,7 +1234,6 @@ var _ = Describe("Device", func() {
 				svc := MustOpen(device.OpenService(ctx, device.ServiceConfig{
 					DB:       db,
 					Ontology: otg,
-					Group:    groupSvc,
 					Status:   stat,
 					Rack:     rackSvc,
 				}))

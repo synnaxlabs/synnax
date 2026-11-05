@@ -87,7 +87,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	deviceSvc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
-		Group:    groupSvc,
 		Status:   statusSvc,
 		Rack:     rackSvc,
 	}))

@@ -12,6 +12,7 @@ package symbol
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
@@ -79,8 +80,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 }
 
 type (
-	// CreateRequest carries the symbols to create and the resource to create them
-	// under. A zero Parent leaves the symbols unattached.
+	// CreateRequest carries the symbols to create.
 	CreateRequest struct {
 		// Symbols are the symbols to create. The Core mints a key for each.
 		Symbols []symbol.Symbol `json:"symbols" msgpack:"symbols"`
@@ -168,7 +168,7 @@ func (s *Service) Retrieve(
 		q = q.Where(symbol.MatchGroups(req.Groups...))
 	}
 	if req.Grouped != nil {
-		q = q.Where(symbol.MatchGrouped(*req.Grouped))
+		q = q.Where(symbol.MatchHasGroup(*req.Grouped))
 	}
 	if err := q.Entries(&res.Symbols).Exec(ctx, nil); err != nil {
 		return RetrieveResponse{}, err
@@ -371,10 +371,21 @@ func (s *Service) SetGroup(
 	tx gorp.Tx,
 	req SetGroupRequest,
 ) (struct{}, error) {
+	var symbols []symbol.Symbol
+	if err := s.internal.NewRetrieve().
+		Where(symbol.MatchKeys(req.Keys...)).
+		Entries(&symbols).
+		Exec(ctx, tx); err != nil {
+		return struct{}{}, err
+	}
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: symbol.ResourceIDs(req.Keys),
+		Objects: group.MoveObjects(
+			symbol.ResourceIDs(req.Keys),
+			lo.Map(symbols, func(e symbol.Symbol, _ int) *group.Key { return e.Group }),
+			req.Group,
+		),
 	}); err != nil {
 		return struct{}{}, err
 	}

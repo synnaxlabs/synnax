@@ -197,13 +197,13 @@ var _ = Describe("Group", Ordered, func() {
 			var nested, top []group.Group
 			Expect(svc.NewRetrieve().
 				Where(group.MatchKeys(parent.Key, child.Key)).
-				Where(group.MatchNested(true)).
+				Where(group.MatchHasParent(true)).
 				Entries(&nested).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(nested).To(ConsistOf(child))
 			Expect(svc.NewRetrieve().
 				Where(group.MatchKeys(parent.Key, child.Key)).
-				Where(group.MatchNested(false)).
+				Where(group.MatchHasParent(false)).
 				Entries(&top).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(top).To(ConsistOf(parent))

@@ -70,13 +70,10 @@ func OverwriteIfNameExistsAndDifferentProperties() CreateOption {
 
 // SetGroup moves the channels with keys into g, or out of their group when g is nil.
 func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
-	return w.svc.table.NewUpdate().
-		Where(gorp.MatchKeys[Key, Channel](keys...)).
-		Change(func(_ gorp.Context, c Channel) Channel {
-			c.Group = g
-			return c
-		}).
-		Exec(ctx, w.tx)
+	if err := group.CheckMember(ctx, w.tx, g, resource.TypeChannel, nil); err != nil {
+		return err
+	}
+	return setGroup(w.svc.table, g, keys...).Exec(ctx, w.tx)
 }
 
 // Create creates a single channel, inferring the DataType if it is calculated.
@@ -207,8 +204,17 @@ func (w Writer) create(
 	opts createOptions,
 ) error {
 	channels := *_channels
-	for i := range channels {
-		if err := channels[i].Validate(); err != nil {
+	for i, ch := range channels {
+		if err := ch.Validate(); err != nil {
+			return validate.PathedError(err, strconv.Itoa(i))
+		}
+		if err := group.CheckMember(
+			ctx,
+			w.tx,
+			ch.Group,
+			resource.TypeChannel,
+			nil,
+		); err != nil {
 			return validate.PathedError(err, strconv.Itoa(i))
 		}
 	}

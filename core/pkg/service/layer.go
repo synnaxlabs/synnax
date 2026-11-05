@@ -612,7 +612,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Instrumentation: cfg.Child("device"),
 		DB:              cfg.Distribution.DB,
 		Ontology:        l.Ontology,
-		Group:           l.Group,
 		Signals:         l.Signals,
 		Status:          l.Status,
 		Rack:            l.Rack,

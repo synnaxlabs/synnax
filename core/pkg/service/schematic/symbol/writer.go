@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 )
@@ -37,6 +38,7 @@ func (w Writer) Create(ctx context.Context, s *Symbol) error {
 	if err := s.Validate(); err != nil {
 		return err
 	}
+	var exists bool
 	if s.Key == uuid.Nil() {
 		s.Key = uuid.New()
 	} else {
@@ -48,8 +50,19 @@ func (w Writer) Create(ctx context.Context, s *Symbol) error {
 		if errors.Skip(err, query.ErrNotFound) != nil {
 			return err
 		}
-		if err == nil {
+		if exists = err == nil; exists {
 			s.Group = stored.Group
+		}
+	}
+	if !exists {
+		if err := group.CheckMember(
+			ctx,
+			w.tx,
+			s.Group,
+			resource.TypeSchematicSymbol,
+			nil,
+		); err != nil {
+			return err
 		}
 	}
 	if err := w.table.NewCreate().Entry(s).Exec(ctx, w.tx); err != nil {
@@ -71,13 +84,16 @@ func (w Writer) CreateMany(ctx context.Context, symbols *[]Symbol) error {
 
 // SetGroup moves the symbols with keys into g, or out of their group when g is nil.
 func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
-	return w.table.NewUpdate().
-		Where(gorp.MatchKeys[Key, Symbol](keys...)).
-		Change(func(_ gorp.Context, s Symbol) Symbol {
-			s.Group = g
-			return s
-		}).
-		Exec(ctx, w.tx)
+	if err := group.CheckMember(
+		ctx,
+		w.tx,
+		g,
+		resource.TypeSchematicSymbol,
+		nil,
+	); err != nil {
+		return err
+	}
+	return setGroup(w.table, g, keys...).Exec(ctx, w.tx)
 }
 
 // Rename renames the symbol with the given key to the provided name.

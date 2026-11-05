@@ -19,6 +19,7 @@ import (
 	v8 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v8"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 )
@@ -37,6 +38,9 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	return w
 }
 
+// Create creates the given line plot within the project provided. If the line plot
+// does not have a key, a new key will be generated. An existing line plot keeps its
+// group.
 func (w Writer) Create(
 	ctx context.Context,
 	projectKey project.Key,
@@ -59,6 +63,17 @@ func (w Writer) Create(
 		}
 		if exists = err == nil; exists {
 			lp.Group = stored.Group
+		}
+	}
+	if !exists {
+		if err = group.CheckMember(
+			ctx,
+			w.tx,
+			lp.Group,
+			resource.TypeLineplot,
+			nil,
+		); err != nil {
+			return err
 		}
 	}
 	// Materialize lines for any channel/range bindings supplied at creation so a plot
@@ -98,13 +113,10 @@ func (w Writer) Create(
 
 // SetGroup moves the line plots with keys into g, or out of their group when g is nil.
 func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
-	if err := w.table.NewUpdate().
-		Where(gorp.MatchKeys[Key, LinePlot](keys...)).
-		Change(func(_ gorp.Context, e LinePlot) LinePlot {
-			e.Group = g
-			return e
-		}).
-		Exec(ctx, w.tx); err != nil {
+	if err := group.CheckMember(ctx, w.tx, g, resource.TypeLineplot, nil); err != nil {
+		return err
+	}
+	if err := setGroup(w.table, g, keys...).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	for _, k := range keys {

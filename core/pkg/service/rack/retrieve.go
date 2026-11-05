@@ -39,11 +39,3 @@ func MatchNode(node node.Key) Filter {
 		})
 	}
 }
-
-// MatchGrouped returns a filter for racks that sit in a group when grouped is true,
-// and for racks in no group when grouped is false.
-func MatchGrouped(grouped bool) Filter {
-	return Match(func(_ gorp.Context, _ Retrieve, e *Rack) (bool, error) {
-		return (e.Group != nil) == grouped, nil
-	})
-}
