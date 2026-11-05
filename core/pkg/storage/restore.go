@@ -103,6 +103,34 @@ func (b *Backups) Restore(name string) (res Restored, err error) {
 	return res, nil
 }
 
+// Undo restores the newest backup. It returns an error when there is no backup, or
+// when an earlier undo already restored the newest backup.
+func (b *Backups) Undo() (Restored, error) {
+	backups, err := b.List()
+	if err != nil {
+		return Restored{}, err
+	}
+	if len(backups) == 0 {
+		return Restored{}, errors.New(
+			"there is no update to undo: the data has no backups",
+		)
+	}
+	newest := backups[len(backups)-1]
+	recorded, err := b.readVersion()
+	if err != nil {
+		return Restored{}, err
+	}
+	if recorded == newest.Version {
+		return Restored{}, errors.Newf(
+			"The last update is already undone. To restore backup %s again, run "+
+				"`synnax update undo %s`.",
+			newest.Name,
+			newest.Name,
+		)
+	}
+	return b.Restore(newest.Name)
+}
+
 // checkRestore returns an error when a Restore did not finish.
 func (b *Backups) checkRestore() error {
 	name, err := xfs.ReadFile(b.fs, restoreMarkerFile)

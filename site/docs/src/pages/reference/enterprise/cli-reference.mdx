@@ -496,7 +496,7 @@ with the same default as `start`. See
 ### update undo
 
 Restores the backup of the last update, or the named backup, and prints the Core version
-to run on the data:
+to run on the data. Without a name, it refuses if the last update is already undone:
 
 ```bash
 synnax update undo

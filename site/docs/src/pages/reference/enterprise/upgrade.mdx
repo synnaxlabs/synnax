@@ -188,13 +188,14 @@ To go back, undo the update:
    ```
 
    The command restores the backup of the last update and prints the Core version to
-   run.
+   run. It refuses if the last update is already undone.
 
 3. Install that version of the Core and start it.
 
-To go back further, list the backups with `synnax update history`, then run
-`synnax update undo <backup>`. Each backup is named `<time>-<version>`, where
-`<version>` is the Core that last ran on the data before the backup.
+To restore a backup again, or to go back further, list the backups with
+`synnax update history`, then run `synnax update undo <backup>`. Each backup is named
+`<time>-<version>`, where `<version>` is the Core that last ran on the data before the
+backup.
 
 The undo puts back the metadata of the backup. Telemetry stays, including telemetry
 recorded after the update. The undo moves the telemetry of channels created after the
