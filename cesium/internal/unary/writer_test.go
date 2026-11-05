@@ -10,6 +10,7 @@
 package unary_test
 
 import (
+	"context"
 	"os"
 	"runtime"
 	"strconv"
@@ -1553,7 +1554,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						writers []*unary.Writer
 						opened  chan *unary.Writer
 					)
-					open := func(ctx SpecContext, i int) *unary.Writer {
+					open := func(ctx context.Context, i int) *unary.Writer {
 						GinkgoHelper()
 						start := telem.TimeStamp(i+1) * telem.SecondTS
 						w, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
@@ -1585,7 +1586,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						opened = make(chan *unary.Writer, 1)
 						go func() {
 							defer GinkgoRecover()
-							opened <- open(ctx, len(writers))
+							opened <- open(context.Background(), len(writers))
 						}()
 						Eventually(acquiringWriter).Should(BeTrue())
 					})

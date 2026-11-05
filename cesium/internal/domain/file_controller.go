@@ -41,8 +41,13 @@ type fileReaders struct {
 
 type fileController struct {
 	counter     *xio.Int32Counter
-	release     chan struct{}
 	counterFile io.Closer
+	// released closes when a handle goes idle or a descriptor frees, waking every
+	// waiter to check again. It is nil while no waiter holds it.
+	released struct {
+		ch chan struct{}
+		sync.Mutex
+	}
 	// descriptors counts open and opening file handles. A handle must reserve a place
 	// with reserveDescriptor before it opens, so the count never passes MaxDescriptors.
 	descriptors atomic.Int32
@@ -78,7 +83,6 @@ func openFileController(cfg Config) (*fileController, error) {
 	}
 	fc.writers.open = make(map[uint16]controlledWriter, cfg.MaxDescriptors)
 	fc.readers.files = make(map[uint16]*fileReaders)
-	fc.release = make(chan struct{}, cfg.MaxDescriptors)
 	if fc.writers.unopened, err = fc.scanUnopenedFiles(); err != nil {
 		return nil, err
 	}
@@ -127,52 +131,92 @@ func (fc *fileController) scanUnopenedFiles() (set.Set[uint16], error) {
 // handle to a new file, as governed by counter.
 func (fc *fileController) acquireWriter(
 	ctx context.Context,
-) (uint16, int64, xio.TrackedWriteCloser, error) {
+) (key uint16, size int64, w xio.TrackedWriteCloser, err error) {
 	ctx, span := fc.T.Bench(ctx, "acquire_writer")
 	defer span.End()
+	err = fc.waitForHandle(ctx, func() (acquired bool, err error) {
+		key, size, w, acquired, err = fc.tryAcquireWriter(ctx)
+		return acquired, err
+	})
+	return key, size, w, span.Error(err)
+}
 
+func (fc *fileController) tryAcquireWriter(
+	ctx context.Context,
+) (uint16, int64, xio.TrackedWriteCloser, bool, error) {
 	fc.writers.RLock()
 	for fileKey, w := range fc.writers.open {
 		s, err := fc.FS.Stat(fileKeyToName(fileKey))
 		if err != nil {
-			return 0, 0, nil, err
+			fc.writers.RUnlock()
+			return 0, 0, nil, false, err
 		}
 		size := s.Size()
 		if size < int64(fc.FileSize) && w.tryAcquire() {
 			fc.writers.RUnlock()
-			return w.fileKey, size, &w, nil
+			return w.fileKey, size, &w, true, nil
 		}
 	}
-
 	fc.writers.RUnlock()
 
 	if fc.reserveDescriptor() {
 		w, size, err := fc.newWriter(ctx)
 		if err != nil {
-			fc.freeDescriptor()
-			return 0, size, nil, err
+			return 0, size, nil, false, err
 		}
-		return w.fileKey, size, w, span.Error(err)
+		return w.fileKey, size, w, true, nil
 	}
+	if _, err := fc.gcWriters(); err != nil {
+		return 0, 0, nil, false, err
+	}
+	_, err := fc.gcReaders()
+	return 0, 0, nil, false, err
+}
 
-	ok, err := fc.gcWriters()
-	if err != nil {
-		return 0, 0, nil, span.Error(err)
+// waitForHandle calls try until it acquires a handle, waiting for a handle to go idle
+// or a descriptor to free between calls. It holds no locks while it waits. It returns
+// ctx's error if ctx ends first.
+func (fc *fileController) waitForHandle(
+	ctx context.Context,
+	try func() (bool, error),
+) error {
+	var released <-chan struct{}
+	for {
+		acquired, err := try()
+		if acquired || err != nil {
+			return err
+		}
+		// Take the channel before the next try, so that a release after that try
+		// closes the channel this call waits on.
+		if released == nil {
+			released = fc.awaitRelease()
+			continue
+		}
+		select {
+		case <-released:
+			released = nil
+		case <-ctx.Done():
+			return errors.Wrap(ctx.Err(), "cannot acquire a file descriptor")
+		}
 	}
-	if ok {
-		return fc.acquireWriter(ctx)
-	}
+}
 
-	ok, err = fc.gcReaders()
-	if err != nil {
-		return 0, 0, nil, span.Error(err)
+func (fc *fileController) awaitRelease() <-chan struct{} {
+	fc.released.Lock()
+	defer fc.released.Unlock()
+	if fc.released.ch == nil {
+		fc.released.ch = make(chan struct{})
 	}
-	if ok {
-		return fc.acquireWriter(ctx)
-	}
+	return fc.released.ch
+}
 
-	<-fc.release
-	return fc.acquireWriter(ctx)
+func (fc *fileController) notifyRelease() {
+	fc.released.Lock()
+	defer fc.released.Unlock()
+	if fc.released.ch != nil {
+		close(fc.released.ch)
+		fc.released.ch = nil
+	}
 }
 
 // newWriter creates a new writing file handle from the file controller: it first
@@ -180,13 +224,16 @@ func (fc *fileController) acquireWriter(
 // capacity. If there is none, it creates a new file and increments the counter.
 func (fc *fileController) newWriter(
 	ctx context.Context,
-) (*controlledWriter, int64, error) {
+) (opened *controlledWriter, _ int64, _ error) {
 	_, span := fc.T.Bench(ctx, "new_writer")
 	fc.writers.Lock()
 
 	defer func() {
 		fc.writers.Unlock()
 		span.End()
+		if opened == nil {
+			fc.freeDescriptor()
+		}
 	}()
 
 	lastFileKey := uint16(0)
@@ -270,10 +317,20 @@ func (fc *fileController) newWriter(
 func (fc *fileController) acquireReader(
 	ctx context.Context,
 	key uint16,
-) (*controlledReader, error) {
+) (r *controlledReader, err error) {
 	ctx, span := fc.T.Bench(ctx, "acquire_reader")
 	defer span.End()
+	err = fc.waitForHandle(ctx, func() (acquired bool, err error) {
+		r, err = fc.tryAcquireReader(ctx, key)
+		return r != nil, err
+	})
+	return r, err
+}
 
+func (fc *fileController) tryAcquireReader(
+	ctx context.Context,
+	key uint16,
+) (*controlledReader, error) {
 	fc.readers.RLock()
 	if f, ok := fc.readers.files[key]; ok {
 		f.RLock()
@@ -289,38 +346,25 @@ func (fc *fileController) acquireReader(
 	fc.readers.RUnlock()
 
 	if fc.reserveDescriptor() {
-		r, err := fc.newReader(ctx, key)
-		if err != nil {
-			fc.freeDescriptor()
-		}
-		return r, err
+		return fc.newReader(ctx, key)
 	}
-
-	ok, err := fc.gcReaders()
-	if err != nil {
+	if _, err := fc.gcReaders(); err != nil {
 		return nil, err
 	}
-	if ok {
-		return fc.acquireReader(ctx, key)
-	}
-
-	ok, err = fc.gcWriters()
-	if err != nil {
-		return nil, err
-	}
-	if ok {
-		return fc.acquireReader(ctx, key)
-	}
-	<-fc.release
-	return fc.acquireReader(ctx, key)
+	return nil, fc.closeIdleWriter()
 }
 
 func (fc *fileController) newReader(
 	ctx context.Context,
 	key uint16,
-) (*controlledReader, error) {
+) (opened *controlledReader, _ error) {
 	_, span := fc.T.Bench(ctx, "new_reader")
-	defer span.End()
+	defer func() {
+		span.End()
+		if opened == nil {
+			fc.freeDescriptor()
+		}
+	}()
 	file, err := fc.FS.Open(
 		fileKeyToName(key),
 		os.O_RDONLY,
@@ -397,6 +441,31 @@ func (fc *fileController) gcWriters() (bool, error) {
 	return collected, nil
 }
 
+// closeIdleWriter closes one idle writer handle so that a reader can use its place. A
+// file with room stays open to writers through writers.unopened.
+func (fc *fileController) closeIdleWriter() error {
+	fc.writers.Lock()
+	defer fc.writers.Unlock()
+	for k, w := range fc.writers.open {
+		if !w.tryAcquire() {
+			continue
+		}
+		if err := w.HardClose(); err != nil {
+			return err
+		}
+		delete(fc.writers.open, k)
+		s, err := fc.FS.Stat(fileKeyToName(k))
+		if err != nil {
+			return err
+		}
+		if s.Size() < int64(fc.FileSize) {
+			fc.writers.unopened.Add(k)
+		}
+		return nil
+	}
+	return nil
+}
+
 // prepareForGC atomically checks whether a file can be garbage collected and, if so,
 // removes it from the writer pool to prevent a writer from opening on it during GC.
 // Returns whether GC can proceed and whether the file was in the unopened set (so
@@ -463,10 +532,7 @@ func (fc *fileController) reserveDescriptor() bool {
 
 func (fc *fileController) freeDescriptor() {
 	fc.descriptors.Add(-1)
-	select {
-	case fc.release <- struct{}{}:
-	default:
-	}
+	fc.notifyRelease()
 }
 
 func (fc *fileController) close() error {
@@ -549,10 +615,7 @@ func (ce *controllerEntry) Close() error {
 		ce.fc.L.DPanic(fmt.Sprintf("controller: entry %d already closed", ce.fileKey))
 		return nil
 	}
-	select {
-	case ce.fc.release <- struct{}{}:
-	default:
-	}
+	ce.fc.notifyRelease()
 	return nil
 }
 
