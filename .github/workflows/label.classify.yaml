@@ -8,13 +8,13 @@
 # included in the file licenses/APL.txt.
 
 # Raises a pull request to review/human when the results Check - Classify uploaded show
-# a changed interface, and keeps one comment with the evidence. Check - Classify
-# dispatches this. Otherwise the author picks the tier. A change to the classifier
-# itself always gets a human: it could forge the uploaded results. A fork cannot
-# dispatch this, so a maintainer labels it. The workflow runs from the default branch
-# and never checks out or runs pull request code: the artifacts are data. The label goes
-# on with an App token, because a label set with GITHUB_TOKEN starts no other workflow,
-# and the review gate and auto-merge wait for it.
+# a changed interface, and keeps one comment with the evidence. Otherwise the author
+# picks the tier. A fork, or a change to the classifier itself, always gets a human:
+# either could forge the uploaded results. Check - Classify dispatches this, and Relay -
+# Sweep does for a fork or Dependabot. The workflow runs from the default branch and
+# never checks out or runs pull request code: the artifacts are data. The label goes on
+# with an App token, because a label set with GITHUB_TOKEN starts no other workflow, and
+# the review gate and auto-merge wait for it.
 
 name: Label - Classify
 

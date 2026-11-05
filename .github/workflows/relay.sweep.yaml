@@ -7,9 +7,10 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Starts the review gate and auto-merge and adds path labels for pull requests the other
-# relays cannot reach: a fork or Dependabot gets a token that cannot dispatch or write.
-# It runs from the default branch and reads pull requests only through the API.
+# Starts the classifier, the review gate, and auto-merge and adds path labels for pull
+# requests the other relays cannot reach: a fork or Dependabot gets a token that cannot
+# dispatch or write. It runs from the default branch and reads pull requests only
+# through the API.
 
 name: Relay - Sweep
 
@@ -56,6 +57,13 @@ jobs:
           REF: ${{ github.event.repository.default_branch }}
         run: |
           for pr in $PRS; do
+            sha=$(gh pr view "$pr" --json headRefOid --jq .headRefOid)
+            run=$(gh run list --workflow check.classify.yaml --commit "$sha" \
+              --status completed --limit 1 --json databaseId --jq '.[].databaseId')
+            if [ -n "$run" ]; then
+              gh workflow run label.classify.yaml --ref "$REF" -f group="sweep-$pr" \
+                -f run_id="$run" -f head_sha="$sha"
+            fi
             gh workflow run check.review.yaml --ref "$REF" -f pr="$pr"
             gh workflow run merge.auto.yaml --ref "$REF" -f pr="$pr"
           done

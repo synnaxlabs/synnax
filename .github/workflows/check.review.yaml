@@ -103,6 +103,14 @@ jobs:
             state=failure
           fi
           echo "$state: $description"
+          # GitHub keeps 1000 statuses per commit and context, and the sweep repeats.
+          current=$(.github/scripts/gh_api.sh \
+            "repos/${GITHUB_REPOSITORY}/commits/${SHA}/status?per_page=100" \
+            --jq '.statuses[] | select(.context == "Review gate")
+              | "\(.state)\t\(.description)"')
+          if [ "$current" = "$state"$'\t'"$description" ]; then
+            exit 0
+          fi
           RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           .github/scripts/gh_api.sh "repos/${GITHUB_REPOSITORY}/statuses/${SHA}" \
             -f state="$state" \
