@@ -27,6 +27,14 @@ export const testStepZ = z.object({
 
 export interface TestStep extends z.infer<typeof testStepZ> {}
 
+/** The data that answers a connection test command of a scan task. */
+export const testResultZ = z.object({
+  /** steps are the stages that ran, in order. The last is the first that failed. */
+  steps: z.array(testStepZ),
+});
+
+export interface TestResult extends z.infer<typeof testResultZ> {}
+
 /** The encodings of a message payload. */
 export const FORMATS = ["json", "schema_registry", "text", "binary"] as const;
 
