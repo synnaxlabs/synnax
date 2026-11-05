@@ -290,8 +290,6 @@ export class Client extends query.Retriever<
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const tsk = await this.retrieveTask(key);
-    if (tsk != null) await this.cfg.tasks.rename(tsk.key, name);
     // Restores only the name, so the rollback cannot undo edits made after it.
     const rename = (): destructor.Destructor => {
       const prev = this.store.get(key)?.name ?? name;
@@ -310,6 +308,8 @@ export class Client extends query.Retriever<
       reapply: rename,
     });
     rename();
+    const tsk = await this.retrieveTask(key);
+    if (tsk != null) await this.cfg.tasks.rename(tsk.key, name);
   }
 
   private async retrieveTask(key: Key): Promise<task.Task | null> {

@@ -312,6 +312,38 @@ describe("arc", () => {
     });
   });
 
+  describe("rename", () => {
+    beforeAll(async () => {
+      await waitForStreamLive(client.connection);
+    });
+
+    it("renames the arc and its task", async () => {
+      const rack = await client.racks.create({ name: `rack-${id.create()}` });
+      const created = await client.arcs.create(newTextArc(`rename-${id.create()}`));
+      const deployed = await client.arcs.updateTask(created.key, { rack: rack.key });
+      if (deployed == null) throw new Error("expected a deployment task");
+      const name = `renamed-${id.create()}`;
+      await client.arcs.rename(created.key, name);
+      const fresh = createTestClient();
+      expect((await fresh.arcs.retrieve(created.key)).name).toEqual(name);
+      expect((await fresh.tasks.retrieve(deployed.key)).name).toEqual(name);
+    });
+
+    it("leaves the arc and its task unchanged when the name is used", async () => {
+      const rack = await client.racks.create({ name: `rack-${id.create()}` });
+      const taken = await client.arcs.create(newTextArc(`taken-${id.create()}`));
+      const created = await client.arcs.create(newTextArc(`rename-${id.create()}`));
+      const deployed = await client.arcs.updateTask(created.key, { rack: rack.key });
+      if (deployed == null) throw new Error("expected a deployment task");
+      await expect(client.arcs.rename(created.key, taken.name)).rejects.toThrow(
+        "is already used in this directory",
+      );
+      const fresh = createTestClient();
+      expect((await fresh.arcs.retrieve(created.key)).name).toEqual(created.name);
+      expect((await fresh.tasks.retrieve(deployed.key)).name).toEqual(deployed.name);
+    });
+  });
+
   describe("task sync", () => {
     // The writing client's task cache still holds the pre-dispatch copy, so assertions
     // read through a fresh client to reach the Core. That client learns of a rewrite
