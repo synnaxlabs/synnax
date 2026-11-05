@@ -79,12 +79,11 @@ func readAll(fs xfs.FS, name string) []byte {
 }
 
 var _ = Describe("Meta backup", func() {
-	var fs, backup, orphans xfs.FS
+	var fs, backup xfs.FS
 	BeforeEach(func() {
 		root := xfs.NewMem()
 		fs = MustSucceed(root.Sub("db"))
 		backup = MustSucceed(root.Sub("backup"))
-		orphans = MustSucceed(root.Sub("orphans"))
 	})
 
 	Describe("BackupMeta", func() {
@@ -150,11 +149,11 @@ var _ = Describe("Meta backup", func() {
 				)
 				Expect(db.Close()).To(Succeed())
 
-				Expect(cesium.RestoreMeta(fs, backup, orphans)).
-					To(Equal([]cesium.ChannelKey{metaAddedCh.Key}))
-				Expect(entryNames(fs, "")).To(ConsistOf("1", "2"))
-				Expect(entryNames(orphans, "")).To(ConsistOf("3"))
-				Expect(entryNames(orphans, "3")).To(ContainElement("meta.json"))
+				Expect(cesium.RestoreMeta(fs, backup, "orphans")).To(Succeed())
+				Expect(entryNames(fs, "")).To(ConsistOf("1", "2", "orphans"))
+				Expect(entryNames(fs, "orphans")).To(ConsistOf("3"))
+				Expect(entryNames(fs, "orphans/3")).To(ContainElement("meta.json"))
+				Expect(fs.Remove("orphans")).To(Succeed())
 
 				db = mustOpenDBOnFS(ctx, fs)
 				Expect(MustSucceed(db.RetrieveChannel(ctx, metaDataCh.Key)).Name).
@@ -175,8 +174,8 @@ var _ = Describe("Meta backup", func() {
 				Expect(db.Close()).To(Succeed())
 				Expect(cesium.BackupMeta(fs, backup)).To(Succeed())
 
-				Expect(cesium.RestoreMeta(fs, backup, orphans)).To(BeEmpty())
-				Expect(entryNames(orphans, "")).To(BeEmpty())
+				Expect(cesium.RestoreMeta(fs, backup, "orphans")).To(Succeed())
+				Expect(fs.Exists("orphans")).To(BeFalse())
 			},
 		)
 	})

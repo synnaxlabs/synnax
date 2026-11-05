@@ -30,7 +30,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -55,6 +54,8 @@ const grpcRootsEnv = "GRPC_DEFAULT_SSL_ROOTS_FILE_PATH"
 const stateFileName = "state.json"
 
 const configFileName = "config.json"
+
+const keyFileName = "embedded-driver-key"
 
 const apiKeyName = "Embedded Driver"
 
@@ -541,9 +542,7 @@ func writeFileAtomic(path string, data []byte) error {
 
 func (d *Driver) workDir() string { return filepath.Join(d.cfg.ParentDirname, "driver") }
 
-func (d *Driver) keyPath() string {
-	return filepath.Join(d.cfg.KeyDirname, storage.DriverKeyFile)
-}
+func (d *Driver) keyPath() string { return filepath.Join(d.cfg.KeyDirname, keyFileName) }
 
 // Close stops the Driver and waits for it to exit. It cancels the supervisor context,
 // which asks the subprocess to stop gracefully and escalates to a kill after
