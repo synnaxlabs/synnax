@@ -104,6 +104,12 @@ type GateConfig[R Resource] struct {
 	//
 	// [OPTIONAL] Defaults to false.
 	ErrOnUnauthorizedOpen *bool
+	// Sealed marks a gate whose resource must not be written to, such as one that only
+	// locks a time range. It must open a new region, so it needs ErrIfControlled. Other
+	// gates for the region wait until the gate releases, and then open a new resource.
+	//
+	// [OPTIONAL] Defaults to false.
+	Sealed *bool
 	// Bounded marks a gate that holds only TimeRange, and grows through Gate.Reach. A
 	// bounded gate is alone in its region: it fails to open with
 	// control.ErrUnauthorized where another region holds TimeRange, and no gate joins
@@ -136,6 +142,7 @@ func defaultGateConfig[R Resource]() GateConfig[R] {
 		ErrIfControlled:       new(false),
 		ErrOnUnauthorizedOpen: new(false),
 		Bounded:               new(false),
+		Sealed:                new(false),
 	}
 }
 
@@ -148,6 +155,7 @@ func (c GateConfig[R]) Validate() error {
 	v.NotNil("err_if_controlled", c.ErrIfControlled)
 	v.NotNil("err_on_unauthorized_open", c.ErrOnUnauthorizedOpen)
 	v.NotNil("bounded", c.Bounded)
+	v.NotNil("sealed", c.Sealed)
 	return v.Error()
 }
 
@@ -165,6 +173,7 @@ func (c GateConfig[R]) Override(other GateConfig[R]) GateConfig[R] {
 		other.ErrOnUnauthorizedOpen,
 	)
 	c.Bounded = override.Nil(c.Bounded, other.Bounded)
+	c.Sealed = override.Nil(c.Sealed, other.Sealed)
 	return c
 }
 
@@ -222,9 +231,9 @@ func (c *Controller[R]) resourceAt(
 // OpenGate opens a new gate for the region occupying the specified time range. If the
 // region exists, the new gate joins its authority chain. If not, OpenGate creates the
 // region and calls cfg.OpenResource, which can block, while it holds no locks. Gates
-// for a region that is opening wait for it, except that a gate with ErrIfControlled
-// fails at once. If cfg.OpenResource fails, the region is removed and a waiting gate
-// opens the resource itself.
+// for a region that is opening or sealed wait for it, except that a gate with
+// ErrIfControlled fails at once. If cfg.OpenResource fails, the region is removed and a
+// waiting gate opens the resource itself.
 func (c *Controller[R]) OpenGate(
 	cfg GateConfig[R],
 ) (g *Gate[R], t Transfer, err error) {
@@ -280,7 +289,7 @@ func (c *Controller[R]) joinOrCreate(cfg GateConfig[R]) (
 				if *cfg.ErrIfControlled {
 					return nil, t, nil, nil, errors.Wrapf(
 						control.ErrUnauthorized,
-						"cannot access time range %v because a writer is opening on it",
+						"cannot access time range %v because it is opening or sealed",
 						cfg.TimeRange.Intersection(reg.timeRange),
 					)
 				}
@@ -312,15 +321,16 @@ func (c *Controller[R]) finishOpening(
 	defer func() {
 		c.mu.Lock()
 		defer c.mu.Unlock()
-		opening := r.opening
-		r.opening = nil
-		defer close(opening)
 		if !opened {
 			c.unsafeRemove(r)
+			r.unsafeFinishOpening()
 			return
 		}
 		r.resource = res
 		g, t, err = r.open(cfg)
+		if !*cfg.Sealed {
+			r.unsafeFinishOpening()
+		}
 	}()
 	res, err = cfg.OpenResource()
 	opened = err == nil

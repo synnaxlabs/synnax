@@ -1730,8 +1730,55 @@ var _ = Describe("Control", func() {
 			expectReturns(func() {
 				Expect(c.OpenGate(cfg)).Error().To(SatisfyAll(
 					MatchError(xcontrol.ErrUnauthorized),
-					MatchError(ContainSubstring("a writer is opening")),
+					MatchError(ContainSubstring("opening or sealed")),
 				))
+			})
+		})
+
+		Describe("Sealed gates", func() {
+			sealed := func() *control.Gate[testResource] {
+				GinkgoHelper()
+				cfg := gateCfg("sealed", regionB, 1)
+				cfg.ErrIfControlled = new(true)
+				cfg.Sealed = new(true)
+				g, _ := MustSucceed2(c.OpenGate(cfg))
+				return g
+			}
+
+			It("Should make a gate wait, then open a new resource", func() {
+				g := sealed()
+				waiting := openAsync(gateCfg("waiting", regionB, 2))
+				Consistently(waiting, 50*time.Millisecond).ShouldNot(Receive())
+				g.Release()
+				joined, t := MustSucceed2(receive(waiting))
+				Expect(t.IsAcquire()).To(BeTrue())
+				Expect(joined.PeekResource()).To(Equal(testResource{value: 2}))
+			})
+
+			It("Should fail a gate that errors if the region is controlled", func() {
+				g := sealed()
+				cfg := gateCfg("exclusive", regionB, 2)
+				cfg.ErrIfControlled = new(true)
+				expectReturns(func() {
+					Expect(
+						c.OpenGate(cfg),
+					).Error().
+						To(MatchError(xcontrol.ErrUnauthorized))
+				})
+				g.Release()
+			})
+
+			It("Should make ResourceAt wait until the gate releases", func() {
+				g := sealed()
+				found := make(chan bool, 1)
+				go func() {
+					defer GinkgoRecover()
+					_, ok := c.ResourceAt(regionB)
+					found <- ok
+				}()
+				Consistently(found, 50*time.Millisecond).ShouldNot(Receive())
+				g.Release()
+				Eventually(found).Should(Receive(BeFalse()))
 			})
 		})
 
