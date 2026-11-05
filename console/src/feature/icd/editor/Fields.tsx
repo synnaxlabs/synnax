@@ -257,8 +257,8 @@ const uniqueFieldName = (fields: Field[]): string => {
 
 /**
  * Rebuilds the fields a grid shows from its rows. Each row updates the field at its
- * index and keeps that field's key, which other fields and tasks reference. Only changed
- * cells apply, so a cell that resets others keeps its effect.
+ * index and keeps that field's key, which other fields and tasks reference. Only
+ * changed cells apply, so a cell that resets others keeps its effect.
  */
 const fieldsFromRows = (
   encoding: Encoding,
@@ -275,7 +275,7 @@ const fieldsFromRows = (
     ),
   );
 
-/** A change to one of these replaces the whole field, as it changes the union member. */
+/** A change to one of these picks a new union member, so it replaces the field. */
 const DISCRIMINATORS = ["encoding", "type"] as const;
 
 /**
