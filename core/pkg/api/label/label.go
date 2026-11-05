@@ -251,11 +251,17 @@ func (s *Service) Add(
 		if err != nil {
 			return struct{}{}, err
 		}
-		return struct{}{}, s.ranger.NewWriter(tx).
-			SetLabels(ctx, key, req.Labels, req.Replace)
+		w := s.ranger.NewWriter(tx)
+		if req.Replace {
+			return struct{}{}, w.ReplaceLabels(ctx, key, req.Labels)
+		}
+		return struct{}{}, w.AddLabels(ctx, key, req.Labels)
 	case resource.TypeStatus:
-		return struct{}{}, s.status.NewWriter(tx).
-			SetLabels(ctx, req.ID.Key, req.Labels, req.Replace)
+		w := s.status.NewWriter(tx)
+		if req.Replace {
+			return struct{}{}, w.ReplaceLabels(ctx, req.ID.Key, req.Labels)
+		}
+		return struct{}{}, w.AddLabels(ctx, req.ID.Key, req.Labels)
 	}
 	return struct{}{}, unlabeled(req.ID)
 }

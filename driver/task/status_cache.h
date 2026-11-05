@@ -54,7 +54,7 @@ public:
     /// @param status a status whose owner is its task. Throws std::bad_optional_access
     /// when it has no owner.
     /// @returns the error of the write, or NIL for a task that left this Driver.
-    [[nodiscard]] x::errors::Error set(const synnax::task::Status &status);
+    [[nodiscard]] x::errors::Error set(synnax::task::Status &status);
 
     /// @brief sends the latest status of each task again, stamped now and with no
     /// command key. Waits for a write of a task's own status in progress, then sends

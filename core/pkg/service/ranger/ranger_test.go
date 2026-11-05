@@ -152,7 +152,7 @@ var _ = Describe("Ranger", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, r1)).To(Succeed())
 			Expect(svc.NewWriter(tx).Create(ctx, r2)).To(Succeed())
 			Expect(
-				svc.NewWriter(tx).SetLabels(ctx, r1.Key, []label.Key{l.Key}, false),
+				svc.NewWriter(tx).AddLabels(ctx, r1.Key, []label.Key{l.Key}),
 			).To(Succeed())
 			var results []ranger.Range
 			Expect(
@@ -208,11 +208,11 @@ var _ = Describe("Ranger", func() {
 				Expect(svc.NewWriter(tx).Create(ctx, rNone)).To(Succeed())
 				Expect(
 					svc.NewWriter(tx).
-						SetLabels(ctx, rA.Key, []label.Key{la.Key}, false),
+						AddLabels(ctx, rA.Key, []label.Key{la.Key}),
 				).To(Succeed())
 				Expect(
 					svc.NewWriter(tx).
-						SetLabels(ctx, rB.Key, []label.Key{lb.Key}, false),
+						AddLabels(ctx, rB.Key, []label.Key{lb.Key}),
 				).To(Succeed())
 				var results []ranger.Range
 				Expect(
@@ -257,11 +257,11 @@ var _ = Describe("Ranger", func() {
 				Expect(svc.NewWriter(tx).Create(ctx, rWrongLabel)).To(Succeed())
 				Expect(
 					svc.NewWriter(tx).
-						SetLabels(ctx, rHit.Key, []label.Key{l.Key}, false),
+						AddLabels(ctx, rHit.Key, []label.Key{l.Key}),
 				).To(Succeed())
 				Expect(
 					svc.NewWriter(tx).
-						SetLabels(ctx, rWrongTime.Key, []label.Key{l.Key}, false),
+						AddLabels(ctx, rWrongTime.Key, []label.Key{l.Key}),
 				).To(Succeed())
 				var results []ranger.Range
 				Expect(svc.NewRetrieve().Where(ranger.And(
@@ -334,7 +334,7 @@ var _ = Describe("Ranger", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, rPlain)).To(Succeed())
 			Expect(
 				svc.NewWriter(tx).
-					SetLabels(ctx, rLabeled.Key, []label.Key{l.Key}, false),
+					AddLabels(ctx, rLabeled.Key, []label.Key{l.Key}),
 			).To(Succeed())
 			var results []ranger.Range
 			Expect(svc.NewRetrieve().Where(

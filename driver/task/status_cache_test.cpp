@@ -246,12 +246,12 @@ TEST(StatusCacheTest, ResendSendsLatestStatusOfOwner) {
     const auto task = synnax::task::Task{.key = x::uuid::create(), .name = "task"};
     const auto transport = std::make_shared<HoldingSetClient>(synnax::resource::ID{});
     StatusCache cache(synnax::status::Client(nullptr, transport, nullptr, nullptr));
-    const synnax::task::Status first{
+    synnax::task::Status first{
         .variant = synnax::status::VARIANT_SUCCESS,
         .message = "Task configured",
         .owner = synnax::task::resource_id(task.key),
     };
-    const synnax::task::Status second{
+    synnax::task::Status second{
         .variant = synnax::status::VARIANT_SUCCESS,
         .message = "Started task",
         .owner = synnax::task::resource_id(task.key),
@@ -270,7 +270,7 @@ TEST(StatusCacheTest, ResendSendsLatestStatusOfOwner) {
 TEST(StatusCacheTest, SetRequiresOwner) {
     const auto transport = std::make_shared<HoldingSetClient>(synnax::resource::ID{});
     StatusCache cache(synnax::status::Client(nullptr, transport, nullptr, nullptr));
-    const synnax::task::Status ownerless{.variant = synnax::status::VARIANT_SUCCESS};
+    synnax::task::Status ownerless{.variant = synnax::status::VARIANT_SUCCESS};
     EXPECT_THROW((void) cache.set(ownerless), std::bad_optional_access);
     EXPECT_TRUE(transport->sent().empty());
 }

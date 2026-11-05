@@ -37,7 +37,8 @@ type Writer struct {
 
 // Set creates or updates a status. A status with an owner goes to the status its owner
 // holds, whatever key it carries. Otherwise, Set uses the status's key, or a new UUID
-// when the key is empty. An update keeps the stored labels and adds the ones s carries,
+// when the key is empty. A create stores the labels s carries. An update keeps the
+// stored labels, which change only through AddLabels, ReplaceLabels, and RemoveLabels,
 // and keeps the stored owner when s has none. On return, s holds what was stored.
 func (w Writer) Set[D any](ctx context.Context, s *Status[D]) error {
 	if err := w.validate(*s); err != nil {
@@ -120,7 +121,7 @@ func (w Writer) resolve[D any](ctx context.Context, s *Status[D]) error {
 	if err != nil {
 		return err
 	}
-	s.Labels = lo.Union(stored.Labels, s.Labels)
+	s.Labels = stored.Labels
 	if s.Owner == nil {
 		s.Owner = stored.Owner
 	}
@@ -139,20 +140,19 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 	return w.update(ctx, key, func(s *Status[json.RawMessage]) { s.Name = name })
 }
 
-// SetLabels adds labels to the status with the given key. With replace, labels become
-// the status's only labels. It returns query.ErrNotFound if no status has the key.
-func (w Writer) SetLabels(
-	ctx context.Context,
-	key Key,
-	labels []label.Key,
-	replace bool,
-) error {
+// AddLabels adds labels to the status with the given key. It returns
+// query.ErrNotFound if no status has the key.
+func (w Writer) AddLabels(ctx context.Context, key Key, labels []label.Key) error {
 	return w.update(ctx, key, func(s *Status[json.RawMessage]) {
-		if replace {
-			s.Labels = slices.Clone(labels)
-			return
-		}
 		s.Labels = lo.Union(s.Labels, labels)
+	})
+}
+
+// ReplaceLabels makes labels the only labels of the status with the given key. It
+// returns query.ErrNotFound if no status has the key.
+func (w Writer) ReplaceLabels(ctx context.Context, key Key, labels []label.Key) error {
+	return w.update(ctx, key, func(s *Status[json.RawMessage]) {
+		s.Labels = slices.Clone(labels)
 	})
 }
 

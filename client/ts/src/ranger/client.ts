@@ -476,8 +476,9 @@ export class Client extends query.Retriever<
   }
 
   /**
-   * Creates the ranges. Creating a range that exists keeps the labels it holds and adds
-   * the ones carried, and keeps its parent unless one is carried.
+   * Creates the ranges. Creating a range that exists keeps the labels it holds and
+   * ignores the carried ones, and keeps its parent unless one is carried. Change labels
+   * with the label client.
    */
   async create(range: New): Promise<Range>;
   async create(ranges: New[]): Promise<Range[]>;

@@ -88,12 +88,13 @@ class Client:
         self, status: Status[D] | list[Status[D]] | None = None
     ) -> Status[JsonValue] | list[Status[JsonValue]]:
         """Creates or updates one or more statuses. A status with an owner updates the
-        status that owner already holds, whatever its key. A set keeps the labels of the
-        stored status and adds the labels it carries.
+        status that owner already holds, whatever its key. A create stores the labels a
+        status carries. An update keeps the stored labels: change them with
+        ``client.labels.label`` and ``client.labels.remove``.
 
         :param status: A single status or a list of statuses to set.
-        :returns: Each status as stored, with its key resolved and its labels merged. A
-            single status when ``status`` is a single status.
+        :returns: Each status as stored, with its key and labels resolved. A single
+            status when ``status`` is a single status.
 
         Create a status that a task owns:
 

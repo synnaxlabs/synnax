@@ -150,7 +150,7 @@ describe("range", () => {
       });
       expect(rng.labels).toEqual([lbl.key]);
     });
-    it("should keep the labels of a range that is created again", async () => {
+    it("should keep the stored labels of a range that is created again", async () => {
       const [held, carried] = await client.labels.create([
         { name: "Held", color: "#E774D0" },
         { name: "Carried", color: "#E774D0" },
@@ -164,7 +164,7 @@ describe("range", () => {
         ...rng.payload,
         labels: [carried.key],
       });
-      expect(again.labels.toSorted()).toEqual([held.key, carried.key].toSorted());
+      expect(again.labels).toEqual([held.key]);
     });
   });
 

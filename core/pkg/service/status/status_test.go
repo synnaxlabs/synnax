@@ -215,18 +215,27 @@ var _ = Describe("Status", Ordered, func() {
 				)
 			})
 			Context("Labels", func() {
+				It("Should store the labels a create carries", func(ctx SpecContext) {
+					a := createLabel(ctx, "A")
+					s := newStatus("create-labels-key")
+					s.Labels = []label.Key{a}
+					Expect(w.Set(ctx, &s)).To(Succeed())
+					Expect(retrieve(ctx, "create-labels-key").Labels).
+						To(Equal([]label.Key{a}))
+				})
 				It(
-					"Should keep the stored labels and add the ones a set carries",
+					"Should keep the stored labels on an update and ignore the carried ones",
 					func(ctx SpecContext) {
 						a, b := createLabel(ctx, "A"), createLabel(ctx, "B")
-						s := newStatus("union-key")
+						s := newStatus("update-labels-key")
 						s.Labels = []label.Key{a}
 						Expect(w.Set(ctx, &s)).To(Succeed())
-						next := newStatus("union-key")
+						next := newStatus("update-labels-key")
 						next.Labels = []label.Key{b}
 						Expect(w.Set(ctx, &next)).To(Succeed())
-						Expect(next.Labels).To(ConsistOf(a, b))
-						Expect(retrieve(ctx, "union-key").Labels).To(ConsistOf(a, b))
+						Expect(next.Labels).To(Equal([]label.Key{a}))
+						Expect(retrieve(ctx, "update-labels-key").Labels).
+							To(Equal([]label.Key{a}))
 					},
 				)
 				It("Should reject a label that does not exist", func(ctx SpecContext) {
@@ -250,22 +259,32 @@ var _ = Describe("Status", Ordered, func() {
 			})
 		})
 
-		Describe("SetLabels", func() {
+		Describe("AddLabels", func() {
 			It("Should add labels to a status", func(ctx SpecContext) {
 				a, b := createLabel(ctx, "A"), createLabel(ctx, "B")
 				s := newStatus("set-labels-key")
 				s.Labels = []label.Key{a}
 				Expect(w.Set(ctx, &s)).To(Succeed())
-				Expect(w.SetLabels(ctx, "set-labels-key", []label.Key{b}, false)).
+				Expect(w.AddLabels(ctx, "set-labels-key", []label.Key{b})).
 					To(Succeed())
 				Expect(retrieve(ctx, "set-labels-key").Labels).To(ConsistOf(a, b))
 			})
+			It(
+				"Should return a not found error for a missing status",
+				func(ctx SpecContext) {
+					Expect(w.AddLabels(ctx, "missing-key", nil)).
+						To(MatchError(query.ErrNotFound))
+				},
+			)
+		})
+
+		Describe("ReplaceLabels", func() {
 			It("Should replace the labels of a status", func(ctx SpecContext) {
 				a, b := createLabel(ctx, "A"), createLabel(ctx, "B")
 				s := newStatus("replace-labels-key")
 				s.Labels = []label.Key{a}
 				Expect(w.Set(ctx, &s)).To(Succeed())
-				Expect(w.SetLabels(ctx, "replace-labels-key", []label.Key{b}, true)).
+				Expect(w.ReplaceLabels(ctx, "replace-labels-key", []label.Key{b})).
 					To(Succeed())
 				Expect(
 					retrieve(ctx, "replace-labels-key").Labels,
@@ -274,7 +293,7 @@ var _ = Describe("Status", Ordered, func() {
 			It(
 				"Should return a not found error for a missing status",
 				func(ctx SpecContext) {
-					Expect(w.SetLabels(ctx, "missing-key", nil, false)).
+					Expect(w.ReplaceLabels(ctx, "missing-key", nil)).
 						To(MatchError(query.ErrNotFound))
 				},
 			)

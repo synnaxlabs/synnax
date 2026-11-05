@@ -151,12 +151,12 @@ var _ = Describe("Retrieve", func() {
 		createRange(ctx)
 		Expect(
 			svc.Ranger.NewWriter(nil).
-				SetLabels(ctx, withA.Key, []label.Key{a.Key}, false),
+				AddLabels(ctx, withA.Key, []label.Key{a.Key}),
 		).
 			To(Succeed())
 		Expect(
 			svc.Ranger.NewWriter(nil).
-				SetLabels(ctx, withB.Key, []label.Key{b.Key}, false),
+				AddLabels(ctx, withB.Key, []label.Key{b.Key}),
 		).
 			To(Succeed())
 		res := MustSucceed(apiSvc.Retrieve(authed(ctx), apiranger.RetrieveRequest{

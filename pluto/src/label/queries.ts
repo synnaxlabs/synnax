@@ -7,12 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  label,
-  ranger,
-  type resource,
-  type Synnax as Client,
-} from "@synnaxlabs/client";
+import { label, type resource, type Synnax as Client } from "@synnaxlabs/client";
 import { color, deep, verbs } from "@synnaxlabs/x";
 import type z from "zod";
 
@@ -31,22 +26,13 @@ export interface EditForParams {
 
 /**
  * Adds and removes labels on a range or a status. The labels it holds that the edit
- * does not name stay in place. A range shows the edit before the Core answers.
- * @throws {Error} if the resource is not a range or a status.
+ * does not name stay in place.
+ * @throws {ValidationError} if the resource is not a range or a status.
  */
 export const editFor = async (
   client: Client,
   { id, added, removed }: EditForParams,
 ): Promise<void> => {
-  if (id.type === "range") {
-    const { labels } = await client.ranges.retrieve(id.key);
-    const kept = labels.filter((key) => !removed.includes(key));
-    const value = [...kept, ...added.filter((key) => !kept.includes(key))];
-    const action = ranger.set({ path: ["labels"], value });
-    if (!(await client.ranges.dispatch(id.key, action)))
-      throw new Error(`range ${id.key} left the cache before its labels changed`);
-    return;
-  }
   if (added.length > 0) await client.labels.label(id, added);
   if (removed.length > 0) await client.labels.remove(id, removed);
 };
@@ -145,7 +131,7 @@ export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRet
     return client.labels.onChange({ keys }, handler);
   },
   getCached: ({ client, query: { keys } }) => {
-    if (keys.length === 0) return undefined;
+    if (keys.length === 0) return [];
     return client.labels.getCached({ keys });
   },
 });

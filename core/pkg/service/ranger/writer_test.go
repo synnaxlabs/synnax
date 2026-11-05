@@ -189,7 +189,7 @@ var _ = Describe("Writer", func() {
 				return r.Labels
 			}
 			It(
-				"Should keep the stored labels and add the ones a create carries",
+				"Should keep the stored labels on an update and ignore the carried ones",
 				func(ctx SpecContext) {
 					a, b := createLabel(ctx, "A"), createLabel(ctx, "B")
 					r := &ranger.Range{
@@ -198,10 +198,11 @@ var _ = Describe("Writer", func() {
 						Labels:    []label.Key{a},
 					}
 					Expect(w.Create(ctx, r)).To(Succeed())
+					Expect(labelsOf(ctx, r.Key)).To(Equal([]label.Key{a}))
 					r.Labels = []label.Key{b}
 					Expect(w.Create(ctx, r)).To(Succeed())
-					Expect(r.Labels).To(ConsistOf(a, b))
-					Expect(labelsOf(ctx, r.Key)).To(ConsistOf(a, b))
+					Expect(r.Labels).To(Equal([]label.Key{a}))
+					Expect(labelsOf(ctx, r.Key)).To(Equal([]label.Key{a}))
 				},
 			)
 			It("Should reject a label that does not exist", func(ctx SpecContext) {
@@ -220,9 +221,9 @@ var _ = Describe("Writer", func() {
 					Labels:    []label.Key{a},
 				}
 				Expect(w.Create(ctx, r)).To(Succeed())
-				Expect(w.SetLabels(ctx, r.Key, []label.Key{b}, false)).To(Succeed())
+				Expect(w.AddLabels(ctx, r.Key, []label.Key{b})).To(Succeed())
 				Expect(labelsOf(ctx, r.Key)).To(ConsistOf(a, b))
-				Expect(w.SetLabels(ctx, r.Key, []label.Key{b}, true)).To(Succeed())
+				Expect(w.ReplaceLabels(ctx, r.Key, []label.Key{b})).To(Succeed())
 				Expect(labelsOf(ctx, r.Key)).To(Equal([]label.Key{b}))
 			})
 			It("Should remove labels", func(ctx SpecContext) {
@@ -466,7 +467,7 @@ var _ = Describe("Writer broadcasts", func() {
 		Expect(w.Create(ctx, r)).To(Succeed())
 		rec := &Recorder[ranger.Key, ranger.Action]{}
 		DeferCleanup(svc.OnAction(rec.Record))
-		Expect(w.SetLabels(ctx, r.Key, []label.Key{l.Key}, false)).To(Succeed())
+		Expect(w.AddLabels(ctx, r.Key, []label.Key{l.Key})).To(Succeed())
 		commit(ctx, r.Key)
 		DeferCleanup(func(ctx SpecContext) {
 			Expect(labelSvc.NewWriter(db).Delete(ctx, l.Key)).To(Succeed())

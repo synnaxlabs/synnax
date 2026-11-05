@@ -72,7 +72,7 @@ const applyPath = (state: Draft<Payload>, action: patch.Action): HandlerResult =
       if (next.parent == null) delete state.parent;
       else state.parent = next.parent;
       break;
-    default:
+    case "color":
       if (next.color == null) delete state.color;
       else state.color = next.color;
   }

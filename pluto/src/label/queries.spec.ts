@@ -10,7 +10,6 @@
 import { label, query, status } from "@synnaxlabs/client";
 import {
   createTestClient,
-  holdResponses,
   spyOnSend,
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
@@ -347,49 +346,44 @@ describe("queries", () => {
       expect(stored.labels.toSorted()).toEqual([kept.key, added.key].toSorted());
     });
 
-    it("should edit the labels of a range before the Core answers", async () => {
+    it("should edit the labels of a range and reach a client that caches it", async () => {
       const [kept, removed, added] = await createLabels();
       const rng = await client.ranges.create({
         name: "labeled",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
         labels: [kept.key, removed.key],
       });
-      const local = createTestClient();
-      const { result } = renderHook(Label.useEditFor, {
-        wrapper: await createAsyncSynnaxWrapper({ client: local }),
-      });
-      const { release } = holdResponses(local, "/range/dispatch");
-      let edit: Promise<unknown> = Promise.resolve();
-      act(() => {
-        edit = result.current.updateAsync({
+      const observer = createTestClient();
+      await observer.connect();
+      await waitForStreamLive(observer.connection);
+      await observer.ranges.retrieve(rng.key);
+      const { result } = renderHook(Label.useEditFor, { wrapper });
+      await act(async () => {
+        await result.current.updateAsync({
           id: rng.resourceID,
           added: [added.key],
           removed: [removed.key],
         });
       });
+      expect(result.current.variant).toEqual("success");
       const expected = [kept.key, added.key].toSorted();
       await waitFor(() => {
-        const cached = local.ranges.getCached(rng.key);
+        const cached = observer.ranges.getCached(rng.key);
         expect(query.isLive(cached) && cached.labels.toSorted()).toEqual(expected);
       });
-      release();
-      await act(async () => await edit);
-      expect(result.current.variant).toEqual("success");
-      const stored = await createTestClient().ranges.retrieve(rng.key);
-      expect(stored.labels.toSorted()).toEqual(expected);
     });
 
     it("should fail for a resource that cannot hold labels", async () => {
       const [kept, , added] = await createLabels();
       const { result } = renderHook(Label.useEditFor, { wrapper });
       await act(async () => {
-        await result.current
-          .updateAsync({
+        await expect(
+          result.current.updateAsync({
             id: label.resourceID(kept.key),
             added: [added.key],
             removed: [],
-          })
-          .catch(() => {});
+          }),
+        ).rejects.toThrow("a label cannot have labels");
       });
       expect(result.current.variant).toEqual("error");
     });

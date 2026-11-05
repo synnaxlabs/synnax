@@ -283,8 +283,8 @@ class TestStatusClient:
         )
         assert str(UUID(created.key)) == created.key
 
-    def test_set_merges_labels(self, client: sy.Synnax) -> None:
-        """Should keep the stored labels of a status and add the carried ones."""
+    def test_set_update_ignores_labels(self, client: sy.Synnax) -> None:
+        """Should keep the stored labels on an update and ignore the carried ones."""
         a = client.labels.create(name=str(uuid4()), color="#FF0000")
         b = client.labels.create(name=str(uuid4()), color="#FF0000")
         created = client.statuses.set(
@@ -298,9 +298,9 @@ class TestStatusClient:
                 labels=[b.key],
             )
         )
-        assert set(updated.labels) == {a.key, b.key}
+        assert updated.labels == [a.key]
         retrieved = client.statuses.retrieve(key=created.key)
-        assert set(retrieved.labels) == {a.key, b.key}
+        assert retrieved.labels == [a.key]
 
     def test_retrieve_has_labels(self, client: sy.Synnax) -> None:
         """Should keep only the statuses that have one of the labels."""

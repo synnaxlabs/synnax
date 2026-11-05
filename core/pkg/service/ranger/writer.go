@@ -39,10 +39,11 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	return w
 }
 
-// Create creates or updates the given range, assigning a new key when it has none. An
-// update keeps the stored labels and adds the ones r carries, and keeps the stored
-// parent when r has none. The parent and labels must exist, and the parent must not be
-// the range or one of its descendants. On return, r holds what was stored. After the
+// Create creates or updates the given range, assigning a new key when it has none. A
+// create stores the labels r carries. An update keeps the stored labels, which change
+// only through AddLabels, ReplaceLabels, and RemoveLabels, and keeps the stored parent
+// when r has none. The parent and labels must exist, and the parent must not be the
+// range or one of its descendants. On return, r holds what was stored. After the
 // transaction commits, Create broadcasts a create action that carries the stored range.
 func (w Writer) Create(ctx context.Context, r *Range) error {
 	if r.Key == uuid.Nil() {
@@ -61,7 +62,7 @@ func (w Writer) Create(ctx context.Context, r *Range) error {
 		Entry(&stored).
 		Exec(ctx, w.tx)
 	if err == nil {
-		r.Labels = lo.Union(stored.Labels, r.Labels)
+		r.Labels = stored.Labels
 		if r.Parent == nil {
 			r.Parent = stored.Parent
 		}
@@ -90,20 +91,21 @@ func (w Writer) CreateMany(ctx context.Context, ranges *[]Range) error {
 	return nil
 }
 
-// SetLabels adds labels to the range with the given key. With replace, labels become
-// the range's only labels. After the transaction commits, SetLabels broadcasts the
-// change as a set action. It returns query.ErrNotFound if no range has the key.
-func (w Writer) SetLabels(
-	ctx context.Context,
-	key Key,
-	labels []label.Key,
-	replace bool,
-) error {
+// AddLabels adds labels to the range with the given key. After the transaction
+// commits, AddLabels broadcasts the change as a set action. It returns
+// query.ErrNotFound if no range has the key.
+func (w Writer) AddLabels(ctx context.Context, key Key, labels []label.Key) error {
 	return w.editLabels(ctx, key, func(stored []label.Key) []label.Key {
-		if replace {
-			return slices.Clone(labels)
-		}
 		return lo.Union(stored, labels)
+	})
+}
+
+// ReplaceLabels makes labels the only labels of the range with the given key. After
+// the transaction commits, ReplaceLabels broadcasts the change as a set action. It
+// returns query.ErrNotFound if no range has the key.
+func (w Writer) ReplaceLabels(ctx context.Context, key Key, labels []label.Key) error {
+	return w.editLabels(ctx, key, func([]label.Key) []label.Key {
+		return slices.Clone(labels)
 	})
 }
 
@@ -121,23 +123,25 @@ func (w Writer) editLabels(
 	key Key,
 	edit func([]label.Key) []label.Key,
 ) error {
-	var stored Range
+	var labels []label.Key
 	if err := w.table.
-		NewRetrieve().
+		NewUpdate().
 		Where(gorp.MatchKeys[Key, Range](key)).
-		Entry(&stored).
+		Change(func(_ gorp.Context, r Range) Range {
+			labels = edit(r.Labels)
+			r.Labels = labels
+			return r
+		}).
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	act := NewSetAction(SetPayload{
-		Path:  []string{"labels"},
-		Value: edit(stored.Labels),
-	})
-	if err := w.apply(ctx, key, []Action{act}); err != nil {
-		return err
-	}
-	w.dispatcher.NotifyOnCommit(ctx, w.tx, key, act)
+	w.dispatcher.NotifyOnCommit(ctx, w.tx, key, labelsAction(labels))
 	return nil
+}
+
+// labelsAction returns the action that sets the labels of a range to labels.
+func labelsAction(labels []label.Key) Action {
+	return NewSetAction(SetPayload{Path: []string{"labels"}, Value: labels})
 }
 
 // apply applies the actions to the range with the given key and stores the result.

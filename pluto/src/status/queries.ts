@@ -131,13 +131,12 @@ export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
     set(formPath.time, TimeStamp.now());
     const v = value();
     if (primitive.isZero(v.key)) v.key = uuid.create();
-    // A set keeps the labels the stored status holds, so the ones the form dropped go.
+    // An update keeps the stored labels, so the form edits them separately.
     const res = await client.statuses.set(v);
-    const removed = res.labels.filter((key) => !v.labels.includes(key));
     await Label.editFor(client, {
       id: status.resourceID(res.key),
-      added: [],
-      removed,
+      added: v.labels.filter((key) => !res.labels.includes(key)),
+      removed: res.labels.filter((key) => !v.labels.includes(key)),
     });
     set(formPath.key, res.key);
   },

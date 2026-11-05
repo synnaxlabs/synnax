@@ -71,14 +71,6 @@ var _ = Describe("Actions", func() {
 			res := MustSucceed(ranger.Reduce(base, set([]string{"color"}, "#ff0000")))
 			Expect(res.Color).To(Equal(new(MustSucceed(color.FromHex("#ff0000")))))
 		})
-		It("Should set the labels", func() {
-			l := uuid.New()
-			res := MustSucceed(ranger.Reduce(
-				base,
-				set([]string{"labels"}, []string{l.String()}),
-			))
-			Expect(res.Labels).To(Equal([]label.Key{l}))
-		})
 		It("Should set the parent", func() {
 			parent := uuid.New()
 			res := MustSucceed(ranger.Reduce(
@@ -105,6 +97,11 @@ var _ = Describe("Actions", func() {
 				"a path outside the document",
 				[]string{"key"},
 				uuid.New().String(),
+			),
+			Entry(
+				"a set of the labels",
+				[]string{"labels"},
+				[]string{uuid.New().String()},
 			),
 			Entry(
 				"a value the time range cannot hold",

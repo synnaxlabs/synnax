@@ -29,7 +29,7 @@ StatusCache::entry_for(const synnax::task::Status &status) {
     return entry;
 }
 
-x::errors::Error StatusCache::set(const synnax::task::Status &status) {
+x::errors::Error StatusCache::set(synnax::task::Status &status) {
     const auto entry = this->entry_for(status);
     if (entry == nullptr) return x::errors::NIL;
     std::lock_guard lock{entry->mu};
@@ -37,10 +37,7 @@ x::errors::Error StatusCache::set(const synnax::task::Status &status) {
     if (entry->dropped) return x::errors::NIL;
     entry->status = status;
     entry->status.details.cmd.clear();
-    // The Core answers with the stored labels. A copy keeps them out of status, so a
-    // later write of status cannot restore a label that was removed.
-    auto sent = status;
-    return this->client.set<synnax::task::StatusDetails>(sent);
+    return this->client.set<synnax::task::StatusDetails>(status);
 }
 
 x::errors::Error StatusCache::resend() {
