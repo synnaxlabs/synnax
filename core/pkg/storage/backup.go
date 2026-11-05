@@ -156,8 +156,8 @@ func prune(fs xfs.FS) error {
 	return nil
 }
 
-// channelDirs returns the names of the channel directories in the Cesium directory
-// dir, or nothing when dir does not exist.
+// channelDirs returns the names of the channel directories in the Cesium directory dir,
+// or nothing when dir does not exist.
 func channelDirs(fs xfs.FS, dir string) ([]string, error) {
 	if exists, err := fs.Exists(dir); err != nil || !exists {
 		return nil, err

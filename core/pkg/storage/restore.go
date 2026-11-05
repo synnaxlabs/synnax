@@ -37,9 +37,9 @@ type Restored struct {
 // Cesium directory of each channel that the backup has no metadata for to
 // Restored.OrphanedDir, and keeps the telemetry of every other channel.
 //
-// Restore holds the lock on the data directory, so it fails while a Core runs on it.
-// It returns query.ErrNotFound when there is no complete backup with the name. A
-// failed Restore can run again.
+// Restore holds the lock on the data directory, so it fails while a Core runs on it. It
+// returns query.ErrNotFound when there is no complete backup with the name. A failed
+// Restore can run again.
 func Restore(dirname, name string) (res Restored, err error) {
 	fs, err := openDataDir(dirname)
 	if err != nil {
@@ -98,8 +98,8 @@ func Restore(dirname, name string) (res Restored, err error) {
 	return res, nil
 }
 
-// moveOrphans moves the Cesium directory of each channel that the backup at src has
-// no metadata for to a new directory in the backups directory, and returns the path of
+// moveOrphans moves the Cesium directory of each channel that the backup at src has no
+// metadata for to a new directory in the backups directory, and returns the path of
 // that directory, or an empty string when there were no such channels.
 func moveOrphans(fs xfs.FS, src string) (string, error) {
 	live, err := channelDirs(fs, cesiumDir)
@@ -164,5 +164,5 @@ func restoreDriverKey(fs xfs.FS, src string) error {
 	if !exists {
 		return fs.Remove(DriverKeyFile)
 	}
-	return copyFileInto(fs, key, "")
+	return copyFile(fs, key, DriverKeyFile)
 }

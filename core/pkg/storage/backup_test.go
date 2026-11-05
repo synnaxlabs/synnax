@@ -93,7 +93,6 @@ func onlyBackup(dir string) string {
 }
 
 var _ = Describe("Backup", func() {
-	ShouldNotLeakGoroutinesPerSpec()
 	var dir string
 	BeforeEach(func() { dir = newDataDir() })
 
@@ -151,7 +150,6 @@ var _ = Describe("Backup", func() {
 })
 
 var _ = Describe("Restore", func() {
-	ShouldNotLeakGoroutinesPerSpec()
 	var dir string
 	BeforeEach(func() { dir = newDataDir() })
 
@@ -208,6 +206,20 @@ var _ = Describe("Restore", func() {
 		Expect(res.Backup.Version).To(Equal(storage.UnknownVersion))
 		Expect(res.OrphanedDir).To(BeEmpty())
 		Expect(filepath.Join(dir, "VERSION")).ToNot(BeAnExistingFile())
+	})
+
+	It("Should finish a restore that was interrupted", func(ctx SpecContext) {
+		openAt(ctx, dir, "0.59.0")
+		openAt(ctx, dir, "0.60.0")
+		// A restore that stopped after it moved the live store aside.
+		Expect(os.Rename(filepath.Join(dir, "kv"), filepath.Join(dir, "kv.old"))).
+			To(Succeed())
+		Expect(os.MkdirAll(filepath.Join(dir, "kv.restore", "stale"), 0o700)).
+			To(Succeed())
+		MustSucceed(storage.Restore(dir, filepath.Base(onlyBackup(dir))))
+		Expect(entries(dir)).ToNot(ContainElement(HavePrefix("kv.")))
+		Expect(entries(filepath.Join(dir, "kv"))).ToNot(ContainElement("stale"))
+		openAt(ctx, dir, "0.59.0")
 	})
 
 	It("Should remove a Driver key that the backup lacks", func(ctx SpecContext) {

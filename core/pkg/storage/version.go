@@ -21,8 +21,8 @@ import (
 	"golang.org/x/mod/semver"
 )
 
-// versionFile is the file in the data directory that holds the version of the last
-// Core that opened it.
+// versionFile is the file in the data directory that holds the version of the last Core
+// that opened it.
 const versionFile = "VERSION"
 
 // UnknownVersion is the Backup.Version of data that no Core recorded a version for.
