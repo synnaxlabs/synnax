@@ -199,7 +199,8 @@ type Layer struct {
 // another storage layer or unrelated process accessing it), then Open will return a nil
 // Layer and an error. Open then checks the version recorded in the directory against
 // LayerConfig.Version, backing up the metadata before a newer Core opens it. It returns
-// an error when a newer Core last opened the directory.
+// an error when a newer Core last opened the directory, or when a Restore on it did not
+// finish.
 //
 // If the returned error is nil, then the Layer must be closed after use. None of the
 // services in the Layer should be used after Close is called. It is the caller's
@@ -241,6 +242,9 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}
 
 	if !*cfg.InMemory {
+		if err = checkRestore(cfg, tsFS); !ok(err, nil) {
+			return nil, err
+		}
 		if err = checkVersion(cfg, tsFS); !ok(err, nil) {
 			return nil, err
 		}

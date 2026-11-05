@@ -11,6 +11,7 @@ package storage
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path"
 	"regexp"
@@ -34,6 +35,11 @@ const (
 // DriverKeyFile is the file in the data directory that holds the API key of the
 // embedded Driver.
 const DriverKeyFile = "embedded-driver-key"
+
+// RestoreMarkerFile is the file in the data directory that marks a Restore that did not
+// finish. It holds the name of the backup. OpenLayer does not open the data while it
+// exists.
+const RestoreMarkerFile = "RESTORING"
 
 // backupName matches a complete backup: the Unix seconds of the backup, padded so that
 // names sort by time, and the version of the data.
@@ -184,6 +190,22 @@ func copyDir(src, dst xfs.FS, dir string) error {
 		}
 	}
 	return nil
+}
+
+// readFile returns the contents of the file name in fs, and whether it exists.
+func readFile(fs xfs.FS, name string) (data []byte, found bool, err error) {
+	if found, err = fs.Exists(name); err != nil || !found {
+		return nil, false, err
+	}
+	f, err := fs.Open(name, os.O_RDONLY)
+	if err != nil {
+		return nil, false, err
+	}
+	data, err = io.ReadAll(f)
+	if err = errors.Combine(err, f.Close()); err != nil {
+		return nil, false, err
+	}
+	return data, true, nil
 }
 
 func writeFile(fs xfs.FS, name string, data []byte) (err error) {

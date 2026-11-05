@@ -10,8 +10,6 @@
 package storage
 
 import (
-	"io"
-	"os"
 	"strings"
 
 	"github.com/synnaxlabs/x/errors"
@@ -84,19 +82,12 @@ func checkVersion(cfg LayerConfig, rootFS xfs.FS) error {
 	return writeVersion(fs, cfg.Version)
 }
 
-func readVersion(fs xfs.FS) (version string, found bool, err error) {
-	if found, err = fs.Exists(versionFile); err != nil || !found {
+func readVersion(fs xfs.FS) (string, bool, error) {
+	b, found, err := readFile(fs, versionFile)
+	if err != nil || !found {
 		return "", false, err
 	}
-	f, err := fs.Open(versionFile, os.O_RDONLY)
-	if err != nil {
-		return "", false, err
-	}
-	b, err := io.ReadAll(f)
-	if err = errors.Combine(err, f.Close()); err != nil {
-		return "", false, err
-	}
-	version = strings.TrimSpace(string(b))
+	version := strings.TrimSpace(string(b))
 	if !semver.IsValid(toSemver(version)) {
 		return "", false, errors.Newf("invalid version %q in %s", version, versionFile)
 	}
