@@ -25,6 +25,36 @@ import (
 // Key is a unique identifier for a saved view configuration.
 type Key = v0.Key
 
+// Base carries the fields shared by every view variant.
+type Base struct {
+	// Key is the unique identifier for this view.
+	Key Key `json:"key" msgpack:"key"`
+	// Name is a human-readable name for the view.
+	Name string `json:"name" msgpack:"name"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (b Base) Validate() error {
+	v := validate.New("Base")
+	v.NotEmptyString("name", b.Name)
+	return v.Error()
+}
+
+// RangeQuery filters the ranges shown by a range view.
+type RangeQuery struct {
+	// HasLabels restricts the view to ranges carrying any of these labels.
+	HasLabels []label.Key `json:"has_labels" msgpack:"has_labels"`
+}
+
+// StatusQuery filters the statuses shown by a status view.
+type StatusQuery struct {
+	// HasLabels restricts the view to statuses carrying any of these labels.
+	HasLabels []label.Key `json:"has_labels" msgpack:"has_labels"`
+	// Variants restricts the view to statuses of these variants.
+	Variants []status.Variant `json:"variants" msgpack:"variants"`
+}
+
 // ViewType is the "type" value that selects a variant of View.
 type ViewType string
 
@@ -148,6 +178,17 @@ func (u *View) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u View) Type() ViewType {
+	switch u.Variant.(type) {
+	case RangeView:
+		return RangeViewType
+	case StatusView:
+		return StatusViewType
+	}
+	return ""
+}
+
 // Validate returns an error wrapping validate.ErrValidation if the active variant
 // violates its schema constraints.
 func (u View) Validate() error {
@@ -183,34 +224,4 @@ func (u *View) SetBase(base Base) {
 	default:
 		panic(errors.Newf("View: cannot set the base of variant %T", variant))
 	}
-}
-
-// Base carries the fields shared by every view variant.
-type Base struct {
-	// Key is the unique identifier for this view.
-	Key Key `json:"key" msgpack:"key"`
-	// Name is a human-readable name for the view.
-	Name string `json:"name" msgpack:"name"`
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (b Base) Validate() error {
-	v := validate.New("Base")
-	v.NotEmptyString("name", b.Name)
-	return v.Error()
-}
-
-// RangeQuery filters the ranges shown by a range view.
-type RangeQuery struct {
-	// HasLabels restricts the view to ranges carrying any of these labels.
-	HasLabels []label.Key `json:"has_labels" msgpack:"has_labels"`
-}
-
-// StatusQuery filters the statuses shown by a status view.
-type StatusQuery struct {
-	// HasLabels restricts the view to statuses carrying any of these labels.
-	HasLabels []label.Key `json:"has_labels" msgpack:"has_labels"`
-	// Variants restricts the view to statuses of these variants.
-	Variants []status.Variant `json:"variants" msgpack:"variants"`
 }

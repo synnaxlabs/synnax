@@ -27,6 +27,15 @@ func copyType(
 	t.Namespace = ns
 	t.QualifiedName = ns + "." + t.Name
 	t.Form = copyForm(t.Form, rw)
+	if t.Filter != nil {
+		f := *t.Filter
+		f.Target = copyRef(f.Target, rw)
+		f.Lines = slices.Clone(f.Lines)
+		for i := range f.Lines {
+			f.Lines[i].Type = copyRef(f.Lines[i].Type, rw)
+		}
+		t.Filter = &f
+	}
 	return t
 }
 

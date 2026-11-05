@@ -11,6 +11,7 @@ syntax = "proto3";
 
 package grpc.ranger;
 
+import "core/pkg/api/ranger/pb/ranger.proto";
 import "core/pkg/service/ranger/pb/ranger.proto";
 import "google/protobuf/empty.proto";
 
@@ -21,7 +22,7 @@ service RangeCreateService {
 }
 
 service RangeRetrieveService {
-  rpc Exec(RetrieveRequest) returns (RetrieveResponse) {}
+  rpc Exec(RetrieveRequest) returns (api.ranger.pb.RetrieveResponse) {}
 }
 
 service RangeDeleteService {
@@ -49,12 +50,9 @@ message CreateResponse {
 }
 
 message RetrieveRequest {
-  repeated string keys = 1;
-  repeated string names = 2;
-}
-
-message RetrieveResponse {
-  repeated service.ranger.pb.Range ranges = 1;
+  reserved 1, 2;
+  reserved "keys", "names";
+  api.ranger.pb.RetrieveRequest request = 3;
 }
 
 message RenameRequest {
