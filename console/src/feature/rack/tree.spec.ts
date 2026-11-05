@@ -10,6 +10,7 @@
 import {
   arc,
   device,
+  group,
   ni,
   NotFoundError,
   rack,
@@ -18,6 +19,7 @@ import {
   task,
 } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
+import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { fireEvent, type RenderOptions, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -81,6 +83,34 @@ const createRackWriter = async (creatable: resource.ID) =>
   });
 
 describe("rack ontology service", () => {
+  describe("drop", () => {
+    const root = device.TYPE_RESOURCE_ID;
+    const destination = createResource(rack.resourceID(1), "rack");
+    const canDrop = (id: resource.ID, ancestors: resource.ID[]): boolean =>
+      Item.canDrop({
+        source: { key: "tree", type: PTree.HAUL_TYPE },
+        items: [PTree.createHaulItem(`${id.type}:${id.key}`)],
+        root,
+        destination,
+        ancestors: [root],
+        moved: [{ id, ancestors }],
+      });
+
+    it("should accept a device or group of its own rack", () => {
+      expect(canDrop(device.resourceID("d"), [rack.resourceID(1), root])).toBe(true);
+      expect(canDrop(group.resourceID("g"), [rack.resourceID(1), root])).toBe(true);
+    });
+
+    it("should refuse a device or group from another rack", () => {
+      expect(canDrop(device.resourceID("d"), [rack.resourceID(2), root])).toBe(false);
+      expect(canDrop(group.resourceID("g"), [rack.resourceID(2), root])).toBe(false);
+    });
+
+    it("should refuse a rack", () => {
+      expect(canDrop(rack.resourceID(2), [root])).toBe(false);
+    });
+  });
+
   it("should expose rename, arc creation, and delete for a single rack", async () => {
     const r = await createRack();
     await renderMenu([r]);

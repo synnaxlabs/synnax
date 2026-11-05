@@ -12,6 +12,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
+import { listTreeRoot } from "@/feature/project/tree";
 import { Empty } from "@/platform/empty";
 import { type Nav } from "@/platform/nav";
 import { Project as PlatformProject } from "@/platform/project";
@@ -45,7 +46,11 @@ const Content = (): ReactElement => (
 );
 
 const Body = (): ReactElement => (
-  <Tree.Tree root={project.TYPE_RESOURCE_ID} emptyContent={<EmptyContent />} />
+  <Tree.Tree
+    root={project.TYPE_RESOURCE_ID}
+    listRoot={listTreeRoot}
+    emptyContent={<EmptyContent />}
+  />
 );
 
 const EmptyContent = () => {

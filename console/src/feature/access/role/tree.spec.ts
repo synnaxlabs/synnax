@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { access, NotFoundError, user } from "@synnaxlabs/client";
+import { access, NotFoundError, resource, user } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { type Haul } from "@synnaxlabs/lyra/haul";
 import { Tree } from "@synnaxlabs/lyra/tree";
@@ -107,8 +107,19 @@ describe("role ontology service", () => {
   describe("drop", () => {
     const source: Haul.Item = { key: "tree", type: Tree.HAUL_TYPE };
     const destination = roleResource("r1", "role", false);
+    const root = access.role.TYPE_RESOURCE_ID;
     const canDrop = (items: Haul.Item[]): boolean =>
-      RoleItem.canDrop({ source, items, destination });
+      RoleItem.canDrop({
+        source,
+        items,
+        root,
+        destination,
+        ancestors: [root],
+        moved: Tree.filterHaulItems(items).map(({ key }) => ({
+          id: resource.parseID(key),
+          ancestors: [resource.parseID("role:r0"), root],
+        })),
+      });
     // A tree drag carries a tree item for each resource and the resource's own items.
     const dragUser = (rootUser: boolean): Haul.Item[] => [
       Tree.createHaulItem("user:u1"),
@@ -144,6 +155,7 @@ describe("role ontology service", () => {
       await renderOntologyTree({
         client,
         root: access.role.TYPE_RESOURCE_ID,
+        listRoot: Access.Role.listTreeRoot,
         items: { ...Access.Role.TREE_ITEMS, ...User.TREE_ITEMS },
       });
       await findTreeRow(from.name);
@@ -165,6 +177,7 @@ describe("role ontology service", () => {
     await renderOntologyTree({
       client,
       root: access.role.TYPE_RESOURCE_ID,
+      listRoot: Access.Role.listTreeRoot,
       items: Access.Role.TREE_ITEMS,
     });
     const cases: [string, string][] = [

@@ -15,7 +15,8 @@ import { Flux, Group } from "@synnaxlabs/pluto";
 import { uuid, verbs } from "@synnaxlabs/x";
 
 import { getResourcesToGroup } from "@/platform/group/getResourcesToGroup";
-import { moveRequests, placement } from "@/platform/group/move";
+import { moveRequests } from "@/platform/group/move";
+import { placement } from "@/platform/group/placement";
 import { type Tree } from "@/platform/tree";
 
 interface CreateParams extends Tree.ContextMenuProps {

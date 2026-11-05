@@ -12,7 +12,7 @@ import { type batch, type group, resource, type Synnax } from "@synnaxlabs/clien
 import { type Tree } from "@/platform/tree";
 
 /** The scopes of the trees that hold groups. A tree root names its scope by type. */
-export const SCOPES = ["channel", "device", "project"] as const;
+const SCOPES = ["channel", "device", "project"] as const;
 
 export type Scope = (typeof SCOPES)[number];
 
@@ -68,9 +68,23 @@ export const moveRequests = (
   });
 };
 
-/** Returns where a new group goes when created under the node of a tree. */
-export const placement = (
-  node: resource.ID,
-  root: resource.ID,
-): Pick<group.CreateParams, "parent" | "scope"> =>
-  resource.idsEqual(node, root) ? { scope: root.type } : { parent: node };
+const rackOf = (ids: resource.ID[]): resource.ID | undefined =>
+  ids.find(({ type }) => type === "rack");
+
+/**
+ * Returns whether moveRequests can move the dropped items under the destination. An
+ * item under a rack stays under that rack, and a rack goes only where no rack is above.
+ * @param ancestors - the tree ancestors of the destination.
+ */
+export const canMove = (
+  items: Tree.Dropped[],
+  destination: resource.ID,
+  ancestors: resource.ID[],
+): boolean => {
+  const rack = rackOf([destination, ...ancestors]);
+  return items.every(({ id, ancestors }) => {
+    if (id.type === "rack") return rack == null;
+    const from = rackOf(ancestors);
+    return from == null || rack == null ? from === rack : resource.idsEqual(from, rack);
+  });
+};

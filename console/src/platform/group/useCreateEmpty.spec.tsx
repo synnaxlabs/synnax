@@ -16,7 +16,7 @@ import { describe, expect, it } from "vitest";
 import { Group } from "@/platform/group";
 import { type Tree } from "@/platform/tree";
 import {
-  createScopeItems,
+  createScopeTree,
   getTreeRow,
   renderOntologyTree,
   retrieveChildGroupKeys,
@@ -50,7 +50,7 @@ const renderScopeTree = async () => {
   await renderOntologyTree({
     client,
     root: channel.TYPE_RESOURCE_ID,
-    items: createScopeItems(container.key, { ContextMenu: CreateUnderSelectionMenu }),
+    ...createScopeTree(container.key, { ContextMenu: CreateUnderSelectionMenu }),
   });
   await screen.findByText(child.name);
   return { container, child };

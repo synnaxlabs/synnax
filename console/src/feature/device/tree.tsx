@@ -9,7 +9,13 @@
 
 import "@/feature/device/tree.css";
 
-import { device, type ontology, type rack, resource, status } from "@synnaxlabs/client";
+import {
+  device,
+  type ontology,
+  type rack,
+  status,
+  type Synnax,
+} from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -134,16 +140,6 @@ const Content = ({ resource, className, icon: _icon, ...rest }: Tree.ContentProp
   );
 };
 
-// A rack carries a task client, so the tree keeps only its fields.
-export const toRackResource = ({
-  key,
-  name,
-  integrations,
-  embedded,
-  group,
-}: rack.Rack): ontology.Resource =>
-  Tree.toResource("rack")({ key, name, integrations, embedded, group });
-
 /** Lists the devices that sit in a group. */
 export const GROUP_MEMBER: Group.Member = {
   type: "device",
@@ -151,18 +147,22 @@ export const GROUP_MEMBER: Group.Member = {
     Tree.createSource(client.devices, { groups: [key] }, Tree.toResource("device")),
 };
 
-const children: Tree.Children = ({ client, id }) =>
-  resource.idsEqual(id, device.TYPE_RESOURCE_ID)
-    ? [
-        Tree.createSource(
-          client.groups,
-          { scopes: ["device"], nested: false },
-          Tree.toResource("group"),
-        ),
-        Tree.createSource(client.racks, { grouped: false }, toRackResource),
-      ]
-    : // A device lists its chassis modules through the ontology until PR 5.
-      [Tree.createOntologySource(client, id)];
+/** Lists the top level of the device tree: its groups and the racks in no group. */
+export const listTreeRoot = (client: Synnax): Tree.Source[] => [
+  Tree.createSource(
+    client.groups,
+    { scopes: ["device"], nested: false },
+    Tree.toResource("group"),
+  ),
+  Tree.createSource(client.racks, { grouped: false }, (r: rack.Rack) =>
+    Tree.toResource("rack")(r.payload),
+  ),
+];
+
+// A device lists its chassis modules through the ontology.
+const children: Tree.Children = ({ client, id }) => [
+  Tree.createOntologySource(client, id),
+];
 
 const TreeItem = Tree.createItem({
   type: "device",

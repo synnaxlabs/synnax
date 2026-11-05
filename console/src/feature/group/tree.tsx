@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, type ontology, resource } from "@synnaxlabs/client";
+import { group, resource } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
@@ -24,12 +24,6 @@ const useRename = Tree.createUseRename({
   resourceID: group.resourceID,
   convertKey: String,
 });
-
-const parseScope = (res?: ontology.Resource): PlatformGroup.Scope => {
-  const { scope } = group.groupZ.parse(res?.data);
-  if (!PlatformGroup.isScope(scope)) throw new Error(`no tree holds ${scope} groups`);
-  return scope;
-};
 
 interface UngroupParams extends Tree.ContextMenuProps {
   prevNodes?: PTree.Node<string>[];
@@ -82,9 +76,14 @@ const afterUngroupFailure = async ({
 export const createTreeItems = (
   members: PlatformGroup.Members,
 ): { group: Tree.Item } => {
-  const children: Tree.Children = ({ client, id, resource: res }) => [
+  const membersOf = ({ type }: resource.ID): PlatformGroup.Member[] => {
+    if (!PlatformGroup.isScope(type)) throw new Error(`no tree holds ${type} groups`);
+    return members[type];
+  };
+
+  const children: Tree.Children = ({ client, id, root }) => [
     Tree.createSource(client.groups, { parents: [id] }, Tree.toResource("group")),
-    ...members[parseScope(res)].map((m) => m.children(client, id.key)),
+    ...membersOf(root).map((m) => m.children(client, id.key)),
   ];
 
   const retrieveChildren = async (
@@ -107,15 +106,11 @@ export const createTreeItems = (
     update: async ({ client, data }) => {
       const {
         selection: { ids, parentID, rootID },
-        state: { getResource },
       } = data;
       const selected = new Set(resource.idToString(ids));
       const childIDs = (
         await Promise.all(
-          ids.map(
-            async (id) =>
-              await retrieveChildren({ client, id, resource: getResource(id) }),
-          ),
+          ids.map(async (id) => await retrieveChildren({ client, id, root: rootID })),
         )
       )
         .flat()
@@ -205,13 +200,14 @@ export const createTreeItems = (
     type: "group",
     icon: <Icon.Group />,
     children,
-    canDrop: ({ items, destination }) => {
+    canDrop: ({ root, destination, ancestors, moved }) => {
       const types = new Set<resource.Type>([
         "group",
-        ...members[parseScope(destination)].map(({ type }) => type),
+        ...membersOf(root).map(({ type }) => type),
       ]);
-      return PTree.filterHaulItems(items).every(({ key }) =>
-        types.has(resource.parseID(key).type),
+      return (
+        moved.every(({ id }) => types.has(id.type)) &&
+        PlatformGroup.canMove(moved, destination.id, ancestors)
       );
     },
     drop: async ({ client, destination, items }) => {

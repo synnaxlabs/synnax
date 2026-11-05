@@ -14,7 +14,7 @@ import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { type Flux, Group } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 
-import { placement } from "@/platform/group/move";
+import { placement } from "@/platform/group/placement";
 import { type Tree } from "@/platform/tree";
 
 export interface UseCreateEmptyProps {

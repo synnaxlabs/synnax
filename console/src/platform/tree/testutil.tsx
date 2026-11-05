@@ -130,30 +130,37 @@ export const createGroupItem = (
   });
 
 const listMembers = (client: Synnax, key: group.Key): Tree.Source[] => [
-  ...listChildGroups({ client, id: group.resourceID(key) }),
+  Tree.createSource(
+    client.groups,
+    { parents: [group.resourceID(key)] },
+    Tree.toResource("group"),
+  ),
   Tree.createSource(client.channels, { groups: [key] }, (ch) =>
     Tree.toResource("channel")(ch.payload),
   ),
 ];
 
+/** The items of a tree and the lister of its root. */
+export interface ScopeTree extends Required<
+  Pick<RenderOntologyTreeOptions, "items" | "listRoot">
+> {}
+
 /**
- * Builds the items of a tree rooted at the channel scope, which offers group creation.
- * The root lists the groups and channels in the container group instead of the whole
- * scope, and so does each group. groupParams override any part of the group item.
+ * Builds a tree rooted at the channel scope, which offers group creation. The root
+ * lists the groups and channels in the container group instead of the whole scope, and
+ * so does each group. groupParams override any part of the group item.
  */
-export const createScopeItems = (
+export const createScopeTree = (
   container: group.Key,
   groupParams: Partial<Tree.CreateItemParams> = {},
-): Tree.Items => ({
-  channel: Tree.createItem({
-    type: "channel",
-    children: ({ client }) => listMembers(client, container),
-    hasChildren: false,
-  }),
-  group: createGroupItem({
-    children: ({ client, id }) => listMembers(client, id.key),
-    ...groupParams,
-  }),
+): ScopeTree => ({
+  items: {
+    group: createGroupItem({
+      children: ({ client, id }) => listMembers(client, id.key),
+      ...groupParams,
+    }),
+  },
+  listRoot: (client) => listMembers(client, container),
 });
 
 /**
@@ -225,6 +232,7 @@ export interface RenderOntologyTreeOptions extends Pick<
   root: resource.ID | null;
   /** Real item overrides; every other resource type falls back to Tree.DefaultItem. */
   items?: Tree.Items;
+  listRoot?: Tree.TreeProps["listRoot"];
   /** Extra siblings rendered alongside the tree, e.g. CaptureStatuses. */
   extra?: ReactNode;
   /** The client that creates the session's project; defaults to the rendering one. */
@@ -246,6 +254,7 @@ export const renderOntologyTree = async ({
   client,
   root,
   items = {},
+  listRoot,
   extra,
   projectClient = client,
   onCaughtError,
@@ -256,7 +265,7 @@ export const renderOntologyTree = async ({
     <Triggers.Provider>
       <Haul.Provider>
         <Tree.Provider items={items}>
-          <Tree.Tree root={root} />
+          <Tree.Tree root={root} listRoot={listRoot} />
           <Modals.Stack />
         </Tree.Provider>
       </Haul.Provider>

@@ -13,6 +13,7 @@ import { Access } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { useConnectModal } from "@/feature/device/Connect";
+import { listTreeRoot } from "@/feature/device/tree";
 import { Empty } from "@/platform/empty";
 import { type Nav } from "@/platform/nav";
 import { Toolbar } from "@/platform/toolbar";
@@ -40,6 +41,7 @@ const Content = (): ReactElement => {
       <Toolbar.Body>
         <Tree.Tree
           root={device.TYPE_RESOURCE_ID}
+          listRoot={listTreeRoot}
           emptyContent={
             <Empty.Action
               message="No devices"

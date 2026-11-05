@@ -16,13 +16,18 @@ import {
 import { Component } from "@synnaxlabs/lyra/component";
 import { context } from "@synnaxlabs/lyra/context";
 import { Haul } from "@synnaxlabs/lyra/haul";
-import { useCombinedStateAndRef, useInitializerRef } from "@synnaxlabs/lyra/hooks";
+import {
+  useCombinedStateAndRef,
+  useInitializerRef,
+  useSyncedRef,
+} from "@synnaxlabs/lyra/hooks";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
+import { Store } from "@synnaxlabs/lyra/store";
 import { Tree as Base } from "@synnaxlabs/lyra/tree";
 import { Access, Synnax } from "@synnaxlabs/pluto";
-import { array, type destructor, type observe } from "@synnaxlabs/x";
+import { array, compare, type destructor, type observe } from "@synnaxlabs/x";
 import {
   type DragEvent,
   type FC,
@@ -52,9 +57,8 @@ import {
 import { useResources } from "@/platform/tree/useResource";
 import { type Action, type State } from "@/session/store";
 
-interface InternalProps {
+interface InternalProps extends Omit<TreeProps, "root"> {
   root: resource.ID;
-  emptyContent?: ReactNode;
 }
 
 interface ContextValue {
@@ -159,149 +163,329 @@ const findContainedKeys = (tree: Base.Node<string>[], keys: string[]): Set<strin
   return contained;
 };
 
-// A parent's child list says nothing about each child's own subtree, so a node
-// that is already in the tree keeps the children it has already loaded.
+// A list of children says nothing about each child's own subtree, so a node already in
+// the tree, under this parent or another, keeps the children it has loaded.
 const keepLoadedChildren = (
-  prev: Base.Node<string>[],
+  tree: Base.Node<string>[],
   next: Base.Node<string>[],
-): Base.Node<string>[] =>
-  next.map((node) => {
-    const existing = prev.find(({ key }) => key === node.key);
-    return existing == null ? node : { ...node, children: existing.children };
+): Base.Node<string>[] => {
+  const loaded = new Map<string, Base.Node<string>[]>();
+  const index = (nodes: Base.Node<string>[]) =>
+    nodes.forEach(({ key, children }) => {
+      if (children == null) return;
+      loaded.set(key, children);
+      index(children);
+    });
+  index(tree);
+  return next.map((node) => {
+    const children = loaded.get(node.key);
+    return children == null ? node : { ...node, children };
   });
+};
 
-const keysOf = (resources: ontology.Resource[]): Set<string> =>
-  new Set(resources.map(({ id }) => resource.idToString(id)));
+// Updates the children of every node under the key, since one resource can sit under
+// several parents.
+const updateChildren = (
+  tree: Base.Node<string>[],
+  key: string,
+  updater: (children: Base.Node<string>[]) => Base.Node<string>[],
+): Base.Node<string>[] => {
+  let changed = false;
+  const next = tree.map((node) => {
+    if (node.key === key) {
+      changed = true;
+      return { ...node, children: updater(node.children ?? []) };
+    }
+    if (node.children == null) return node;
+    const children = updateChildren(node.children, key, updater);
+    if (children === node.children) return node;
+    changed = true;
+    return { ...node, children };
+  });
+  return changed ? next : tree;
+};
+
+/** The live list of the children of a node. */
+interface Watch {
+  sources: Source[];
+  /** The latest answer of each source, undefined until the source answers. */
+  answers: Array<ontology.Resource[] | undefined>;
+  /** The keys of the latest whole list. */
+  keys: Set<string>;
+  /** The keys of the visible children of the latest whole list, in sorted order. */
+  order?: string[];
+  /** Ends the subscriptions of the sources. Absent while the node is collapsed. */
+  release?: destructor.Destructor;
+}
+
+interface Answer {
+  resources: ontology.Resource[];
+  /** The source that lists each key. */
+  sources: Map<string, Source>;
+}
 
 // A list of children is whole only once every source has answered.
-const combine = (
-  answers: Array<ontology.Resource[] | undefined>,
-): ontology.Resource[] | null => {
-  const combined: ontology.Resource[] = [];
-  for (const answer of answers) {
-    if (answer == null) return null;
-    combined.push(...answer);
+const combine = ({ sources, answers }: Watch): Answer | null => {
+  const answer: Answer = { resources: [], sources: new Map() };
+  for (const [i, resources] of answers.entries()) {
+    if (resources == null) return null;
+    resources.forEach((r) => {
+      answer.resources.push(r);
+      answer.sources.set(resource.idToString(r.id), sources[i]);
+    });
   }
-  return combined;
+  return answer;
 };
+
+const createWatch = (sources: Source[]): Watch => {
+  const watch: Watch = {
+    sources,
+    answers: sources.map((source) => source.getCached()),
+    keys: new Set(),
+  };
+  watch.keys = new Set(combine(watch)?.sources.keys());
+  return watch;
+};
+
+interface Owners {
+  /** Returns the source that rows read the key from. */
+  ownerOf: (key: string) => Source | undefined;
+  has: (key: string) => boolean;
+  /** Each returns whether the source that rows read the key from changed. */
+  own: (key: string, parent: string, source: Source) => boolean;
+  disown: (key: string, parent: string) => boolean;
+  /** Tells the rows of the keys that their source changed. */
+  notify: (keys: string[]) => void;
+  subscribe: (handler: () => void, key: string) => destructor.Destructor;
+}
+
+// Holds the sources that list each key, by the key of the parent that lists it.
+const useOwners = (seed: Watch | null, rootKey: string): Owners => {
+  const ownersRef = useInitializerRef(() => {
+    const owners = new Map<string, Map<string, Source>>();
+    if (seed == null) return owners;
+    combine(seed)?.sources.forEach((source, key) =>
+      owners.set(key, new Map([[rootKey, source]])),
+    );
+    return owners;
+  });
+  const { notifyListeners, subscribe } = Store.useKeyedListeners<string>();
+  const ownerOf = (key: string): Source | undefined =>
+    ownersRef.current.get(key)?.values().next().value;
+  const own = (key: string, parent: string, source: Source): boolean => {
+    const before = ownerOf(key);
+    const owners = ownersRef.current.get(key) ?? new Map<string, Source>();
+    owners.set(parent, source);
+    ownersRef.current.set(key, owners);
+    return ownerOf(key) !== before;
+  };
+  const disown = (key: string, parent: string): boolean => {
+    const owners = ownersRef.current.get(key);
+    if (owners?.delete(parent) !== true) return false;
+    if (owners.size === 0) ownersRef.current.delete(key);
+    return true;
+  };
+  return {
+    ownerOf,
+    has: (key) => ownersRef.current.has(key),
+    own,
+    disown,
+    notify: notifyListeners,
+    subscribe,
+  };
+};
+
+// Reads the resource of every node once, since a sort compares each one many times.
+const readResources = (
+  nodes: Base.Node<string>[],
+  read: (key: string) => ontology.Resource | undefined,
+): Map<string, ontology.Resource> => {
+  const resources = new Map<string, ontology.Resource>();
+  const visit = (level: Base.Node<string>[]) =>
+    level.forEach(({ key, children }) => {
+      const res = read(key);
+      if (res != null) resources.set(key, res);
+      if (children != null) visit(children);
+    });
+  visit(nodes);
+  return resources;
+};
+
+const filterVisible = (
+  resources: ontology.Resource[],
+  resolveItem: (type: resource.Type) => Item,
+): ontology.Resource[] =>
+  resources.filter((r) => {
+    const { visible } = resolveItem(r.id.type);
+    return visible == null || visible(r);
+  });
 
 const toNodes = (
   resources: ontology.Resource[],
   resolveItem: (type: resource.Type) => Item,
 ): Base.Node<string>[] =>
-  resources
-    .filter((r) => {
-      const svc = resolveItem(r.id.type);
-      return svc.visible == null || svc.visible(r);
-    })
-    .map((r) => ({
-      key: resource.idToString(r.id),
-      children: resolveItem(r.id.type).hasChildren ? [] : undefined,
-    }));
+  filterVisible(resources, resolveItem).map((r) => ({
+    key: resource.idToString(r.id),
+    children: resolveItem(r.id.type).hasChildren ? [] : undefined,
+  }));
 
-const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
+// Groups come first, then resources by name.
+const compareResources = (a: ontology.Resource, b: ontology.Resource): number => {
+  if (a.id.type === "group" && b.id.type !== "group") return -1;
+  if (a.id.type !== "group" && b.id.type === "group") return 1;
+  return a.name.localeCompare(b.name);
+};
+
+const Internal = ({ root, listRoot, emptyContent }: InternalProps): ReactElement => {
   const items = useItems();
   const resolveItem = (type: resource.Type): Item => items[type] ?? DefaultItem;
   const [selected, setSelected, selectedRef] = useCombinedStateAndRef<string[]>([]);
   const loadingRef = useRef<string | false>(false);
   const handleError = Status.useErrorHandler();
   const client = Synnax.use();
+  const rootKey = resource.idToString(root);
   // Placeholder resources back tree items (e.g. a just-created group awaiting its
   // inline rename) before the Core delivers the real resource.
   const placeholders = List.useMapData<string, ontology.Resource>();
 
-  const resolveSources = (
-    client: Client,
-    id: resource.ID,
-    res: ontology.Resource | undefined,
-  ): Source[] => {
+  const listChildren = (client: Client, id: resource.ID): Source[] => {
+    if (listRoot != null && resource.idsEqual(id, root)) return listRoot(client);
     const { children } = resolveItem(id.type);
     if (children == null) throw new Error(`no children resolver for ${id.type}`);
-    return children({ client, id, resource: res });
+    return children({ client, id, root });
   };
 
   // The retained answer seeds the first render, not an effect: an effect runs
   // after the commit paints, so the tree would still show one empty frame.
-  const [seed] = useState<ontology.Resource[] | null>(() =>
-    client == null
-      ? null
-      : combine(resolveSources(client, root, undefined).map((s) => s.getCached())),
+  const [seed] = useState<Watch | null>(() =>
+    client == null ? null : createWatch(listChildren(client, root)),
   );
-  // The resources that the latest answers deliver.
-  const answered = List.useMapData<string, ontology.Resource>({
-    initialData: seed ?? [],
-  });
-  // The keys of each parent's latest answer, by parent key.
-  const answerKeysRef = useInitializerRef(
-    () =>
-      new Map<string, Set<string>>(
-        seed == null ? [] : [[resource.idToString(root), keysOf(seed)]],
-      ),
+  const watchesRef = useInitializerRef(
+    () => new Map<string, Watch>(seed == null ? [] : [[rootKey, seed]]),
   );
-  const [nodes, setNodes, nodesRef] = useCombinedStateAndRef<Base.Node<string>[]>(() =>
-    seed == null ? [] : toNodes(seed, resolveItem),
+  const owners = useOwners(seed, rootKey);
+  const [nodes, setNodes, nodesRef] = useCombinedStateAndRef<Base.Node<string>[]>(
+    () => {
+      const answer = seed == null ? null : combine(seed);
+      return answer == null ? [] : toNodes(answer.resources, resolveItem);
+    },
   );
   // An unanswered root has no children yet and no empty content: they are the
   // same node list, and only the answer tells them apart.
-  const [rootAnswered, setRootAnswered] = useState(seed != null);
+  const [rootAnswered, setRootAnswered] = useState(
+    () => seed != null && combine(seed) != null,
+  );
   const loadingListenersRef = useInitializerRef(() => new Set<observe.Handler<void>>());
 
   const getResourceByKey = (key: string): ontology.Resource | undefined =>
-    answered.getItem(key) ?? placeholders.getItem(key);
+    owners.ownerOf(key)?.get(key) ?? placeholders.getItem(key);
 
+  // A row reads its resource from a source that lists it. When the key moves to another
+  // source, the row subscribes to that one.
   const subscribeResource = (
     handler: () => void,
     key: string,
   ): destructor.Destructor => {
+    let source: Source | undefined;
+    let releaseSource: destructor.Destructor | undefined;
+    const bind = () => {
+      const owner = owners.ownerOf(key);
+      if (owner === source) return;
+      releaseSource?.();
+      source = owner;
+      releaseSource = owner?.subscribe(key, handler);
+    };
+    bind();
+    const releaseOwner = owners.subscribe(() => {
+      bind();
+      handler();
+    }, key);
     const releasePlaceholder = placeholders.subscribe(handler, key);
-    const releaseAnswered = answered.subscribe(handler, key);
     return () => {
+      releaseSource?.();
+      releaseOwner();
       releasePlaceholder();
-      releaseAnswered();
     };
   };
 
-  const applyAnswer = (parent: resource.ID, resources: ontology.Resource[]) => {
+  // Ends the watch of a node, and the watches of the nodes under it that no other
+  // parent lists.
+  const dropWatch = (key: string): void => {
+    const watch = watchesRef.current.get(key);
+    if (watch == null) return;
+    watchesRef.current.delete(key);
+    watch.release?.();
+    owners.notify([...watch.keys].filter((child) => owners.disown(child, key)));
+    watch.keys.forEach((child) => {
+      if (!owners.has(child)) dropWatch(child);
+    });
+  };
+
+  // Ends the subscriptions under a hidden node. The answers stay, so a re-expand paints
+  // from them.
+  const pauseWatch = (key: string): void => {
+    const watch = watchesRef.current.get(key);
+    if (watch?.release == null) return;
+    watch.release();
+    watch.release = undefined;
+    watch.keys.forEach(pauseWatch);
+  };
+
+  const applyAnswer = (parent: resource.ID, watch: Watch): void => {
+    const answer = combine(watch);
+    if (answer == null) return;
     const parentKey = resource.idToString(parent);
-    const delivered = keysOf(resources);
-    const previous = answerKeysRef.current.get(parentKey) ?? new Set<string>();
-    answerKeysRef.current.set(parentKey, delivered);
-    answered.setItem(resources);
-    // A resource leaves with the last answer that delivered it, so a deleted resource
-    // stops resolving.
-    const answers = [...answerKeysRef.current.values()];
-    const left = [...previous].filter((key) => !answers.some((keys) => keys.has(key)));
-    if (left.length > 0) answered.deleteItem(left);
-    const next = toNodes(resources, resolveItem);
-    const nextKeys = new Set(next.map(({ key }) => key));
+    const previous = watch.keys;
+    watch.keys = new Set(answer.sources.keys());
+    const left = [...previous].filter((key) => !watch.keys.has(key));
+    owners.notify([
+      ...[...answer.sources]
+        .filter(([key, source]) => owners.own(key, parentKey, source))
+        .map(([key]) => key),
+      ...left.filter((key) => owners.disown(key, parentKey)),
+    ]);
     // A placeholder stands in only until the Core delivers the real resource, which
     // the answer carries.
-    const settled = [...delivered].filter(placeholders.hasItem);
+    const settled = [...watch.keys].filter(placeholders.hasItem);
     if (settled.length > 0) placeholders.deleteItem(settled);
+    const order = filterVisible(answer.resources, resolveItem)
+      .toSorted(compareResources)
+      .map(({ id }) => resource.idToString(id));
+    // An answer that moves no node leaves the node list alone, so a change to one
+    // resource renders only its own row.
+    const moves = watch.order == null || !compare.arraysEqual(order, watch.order);
+    watch.order = order;
+    const next = toNodes(answer.resources, resolveItem);
+    const nextKeys = new Set(next.map(({ key }) => key));
     // The answer is the authority on its parent's membership. A node it omits
     // survives only while a placeholder backs it, since an optimistic row the Core
     // has not heard about yet cannot be in any answer.
-    const merge = (prevChildren: Base.Node<string>[]): Base.Node<string>[] => [
-      ...prevChildren.filter(
-        ({ key }) => !nextKeys.has(key) && placeholders.hasItem(key),
-      ),
-      ...keepLoadedChildren(prevChildren, next),
-    ];
-    if (resource.idsEqual(parent, root)) {
-      setNodes(merge);
-      setRootAnswered(true);
-      return;
-    }
-    setNodes((prevNodes) => [
-      // The children subscription can outlive the parent's presence in the
-      // tree; a missing parent means the update is stale.
-      ...Base.updateNodeChildren({
-        tree: prevNodes,
-        parent: parentKey,
-        throwOnMissing: false,
-        updater: merge,
-      }),
-    ]);
+    if (moves)
+      setNodes((prevNodes) => {
+        const kept = keepLoadedChildren(prevNodes, next);
+        const merge = (prevChildren: Base.Node<string>[]): Base.Node<string>[] => [
+          ...prevChildren.filter(
+            ({ key }) => !nextKeys.has(key) && placeholders.hasItem(key),
+          ),
+          ...kept,
+        ];
+        if (parentKey === rootKey) return merge(prevNodes);
+        // The watch can outlive the parent's presence in the tree. A missing parent means
+        // the answer is stale.
+        return updateChildren(prevNodes, parentKey, merge);
+      });
+    if (parentKey === rootKey) setRootAnswered(true);
+    // A node that no answer lists has left the tree.
+    left.filter((key) => !owners.has(key)).forEach(dropWatch);
+    // An expanded node lists its children again when it comes back from another parent,
+    // or when its own parent expands again.
+    const expanded = new Set(expandedRef.current);
+    watch.keys.forEach((key) => {
+      if (!expanded.has(key)) return;
+      const child = watchesRef.current.get(key);
+      if (child == null ? previous.has(key) : child.release != null) return;
+      void watchChildren(resource.parseID(key));
+    });
   };
 
   const subscribeLoading = (handler: () => void) => {
@@ -318,66 +502,51 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     loadingListenersRef.current.forEach((callback) => callback());
   };
 
-  /** Live children subscriptions, keyed by the parent they answer for. */
-  const watchedRef = useInitializerRef(() => new Map<string, destructor.Destructor>());
+  // Subscribes the watch of the node, creating it when the node has none.
+  const startWatch = (client: Client, parent: resource.ID, existing?: Watch): Watch => {
+    const watch = existing ?? createWatch(listChildren(client, parent));
+    watchesRef.current.set(resource.idToString(parent), watch);
+    // Subscribe before fetching. A change landing between the two would otherwise
+    // reach neither the answer nor the tree.
+    const releases = watch.sources.map((source, i) =>
+      source.onChange((answer) => {
+        watch.answers[i] = answer;
+        applyAnswer(parent, watch);
+      }),
+    );
+    watch.release = () => releases.forEach((release) => release());
+    // A retained answer paints before the fetch that reconfirms it.
+    watch.sources.forEach((source, i) => {
+      watch.answers[i] = source.getCached() ?? watch.answers[i];
+    });
+    applyAnswer(parent, watch);
+    return watch;
+  };
 
   const watchChildren = async (parent: resource.ID): Promise<void> => {
     if (client == null) return;
     const key = resource.idToString(parent);
-    // An already-watched parent has nothing to wait for, and no fetch will come
-    // along to end the wait.
-    if (watchedRef.current.has(key)) {
+    const existing = watchesRef.current.get(key);
+    // A live watch has nothing to wait for, and no fetch will come along to end the
+    // wait.
+    if (existing?.release != null) {
       if (loadingRef.current === key) setLoading(false);
       return;
     }
     try {
-      const sources = resolveSources(client, parent, getResourceByKey(key));
-      const answers: Array<ontology.Resource[] | undefined> = sources.map(
-        () => undefined,
-      );
-      const deliver = () => {
-        const combined = combine(answers);
-        if (combined != null) applyAnswer(parent, combined);
-      };
-      // Subscribe before fetching. A change landing between the two would otherwise
-      // reach neither the answer nor the tree.
-      const releases = sources.map((source, i) =>
-        source.onChange((answer) => {
-          answers[i] = answer;
-          deliver();
-        }),
-      );
-      watchedRef.current.set(key, () => releases.forEach((release) => release()));
-      // A retained answer paints before the fetch that reconfirms it.
-      sources.forEach((source, i) => {
-        if (answers[i] == null) answers[i] = source.getCached();
-      });
-      deliver();
-      const fetched = await Promise.all(
-        sources.map(async (source) => await source.retrieve()),
-      );
-      // A release during the fetch means the answer is no longer wanted.
-      if (watchedRef.current.has(key)) {
-        fetched.forEach((answer, i) => (answers[i] = answer));
-        deliver();
-      }
+      const { sources } = startWatch(client, parent, existing);
+      // Each fetched answer reaches onChange, so only a failure needs the result.
+      await Promise.all(sources.map(async (source) => await source.retrieve()));
     } catch (e) {
       handleError(e, "Failed to retrieve resources");
     }
     if (loadingRef.current === key) setLoading(false);
   };
 
-  const releaseChildren = (keys: string[]) => {
-    keys.forEach((key) => {
-      watchedRef.current.get(key)?.();
-      watchedRef.current.delete(key);
-    });
-  };
-
   useEffect(() => {
     void watchChildren(root);
-    return () => releaseChildren([...watchedRef.current.keys()]);
-  }, [client, resource.idToString(root)]);
+    return () => [...watchesRef.current.keys()].forEach(dropWatch);
+  }, [client, rootKey]);
 
   // Selection drives the context menu, and a key with no node poisons every later
   // right-click, so a node that leaves the tree leaves the selection with it.
@@ -389,14 +558,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   }, [nodes, setSelected]);
 
   const handleExpand = ({ action, clicked }: Base.HandleExpandProps) => {
-    if (action === "contract") {
-      // A hidden subtree needs no maintenance. Its answers stay cached, so a
-      // re-expand paints from them.
-      const node = Base.findNode({ tree: nodesRef.current, key: clicked });
-      if (node != null)
-        releaseChildren(Base.getDescendants(node).map(({ key }) => key));
-      return;
-    }
+    if (action === "contract") return pauseWatch(clicked);
     setLoading(clicked);
     void watchChildren(resource.parseID(clicked));
   };
@@ -422,15 +584,15 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     (keys) => keys.map(getResourceByKey).filter((r) => r != null),
   );
 
+  const sorted = readResources(nodes, getResourceByKey);
+
   const sort = (a: Base.Node<string>, b: Base.Node<string>) => {
-    const aResource = getResourceByKey(a.key);
-    const bResource = getResourceByKey(b.key);
+    const aResource = sorted.get(a.key);
+    const bResource = sorted.get(b.key);
     if (aResource == null && bResource == null) return 0;
     if (aResource == null) return 1;
     if (bResource == null) return -1;
-    if (aResource.id.type === "group" && bResource.id.type !== "group") return -1;
-    if (aResource.id.type !== "group" && bResource.id.type === "group") return 1;
-    return aResource.name.localeCompare(bResource.name);
+    return compareResources(aResource, bResource);
   };
 
   const treeProps = Base.use({
@@ -440,7 +602,8 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     onSelectedChange: setSelected,
     sort,
   });
-  const { shape, expand, contract } = treeProps;
+  const { shape, expand, contract, expanded } = treeProps;
+  const expandedRef = useSyncedRef(expanded);
   // A placeholder's row stays mounted, so its rename can start out of view. Focusing
   // the editable then scrolls the row into view.
   const pinned = shape.keys.filter(placeholders.hasItem);
@@ -491,28 +654,27 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     const destination = getResourceByKey(key);
     if (destination == null) return [];
     const { canDrop, drop } = resolveItem(destination.id.type);
-    if (drop == null || !canDrop({ source, items, destination })) return [];
-
+    if (drop == null) return [];
     // An item inside another dragged item travels with it. Moving it explicitly
     // would re-parent it onto the destination as a sibling of its own parent.
-    const droppedKeys = dropped.map(({ key }) => key);
-    const contained = findContainedKeys(nodesSnapshot, droppedKeys);
-    const moved = dropped.filter(({ key }) => !contained.has(key));
+    const contained = findContainedKeys(
+      nodesSnapshot,
+      dropped.map(({ key }) => key),
+    );
+    const haulMoved = dropped.filter(({ key }) => !contained.has(key));
+    const moved = haulMoved.map(({ key }) => ({
+      id: resource.parseID(key),
+      ancestors: findAncestors(nodesSnapshot, key),
+    }));
+    const ancestors = findAncestors(nodesSnapshot, key);
     if (moved.length === 0) return [];
-    contract(...moved.map(({ key }) => key));
+    if (!canDrop({ source, items, root, destination, ancestors, moved })) return [];
+    contract(...haulMoved.map(({ key }) => key));
     handleError(
-      async () =>
-        await drop({
-          client,
-          destination,
-          items: moved.map(({ key }) => ({
-            id: resource.parseID(key),
-            ancestors: findAncestors(nodesSnapshot, key),
-          })),
-        }),
+      async () => await drop({ client, destination, items: moved }),
       "Failed to move resources",
     );
-    return moved;
+    return haulMoved;
   };
 
   const { startDrag, onDragEnd } = Haul.useDrag({ type: Base.HAUL_TYPE });
@@ -615,6 +777,11 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
 
 export interface TreeProps {
   root?: resource.ID | null;
+  /**
+   * Lists the children of the root. Defaults to the children the item of the root's
+   * type lists, for a root that is a resource.
+   */
+  listRoot?: (client: Client) => Source[];
   emptyContent?: ReactNode;
 }
 

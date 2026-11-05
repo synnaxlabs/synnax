@@ -23,7 +23,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { Tree } from "@/platform/tree";
 import {
   createGroupItem,
-  createScopeItems,
+  createScopeTree,
   expandTreeRow,
   findTreeRow,
   getTreeRow,
@@ -59,7 +59,11 @@ const renderTree = async (
   root: resource.ID | null,
   items: Tree.Items = GROUP_ITEMS,
   as: Client = client,
-) => render(<Tree.Tree root={root} />, { wrapper: await createWrapper(items, as) });
+  listRoot?: Tree.TreeProps["listRoot"],
+) =>
+  render(<Tree.Tree root={root} listRoot={listRoot} />, {
+    wrapper: await createWrapper(items, as),
+  });
 
 const NO_CHILDREN = "no children here";
 
@@ -409,9 +413,12 @@ describe("Tree.Tree", () => {
     });
 
     it("should start the rename of a new group outside the window", async () => {
+      const { items, listRoot } = createScopeTree(parentID.key);
       const { container } = await renderTree(
         channel.TYPE_RESOURCE_ID,
-        createScopeItems(parentID.key),
+        items,
+        client,
+        listRoot,
       );
       await findTreeRow(names[CHILD_COUNT - 1]);
       expect(screen.queryByText(names[0])).toBeNull();
@@ -435,9 +442,12 @@ describe("Tree.Tree", () => {
       });
       const name = uniqueName("grp");
       await client.groups.create({ parent: group.resourceID(root.key), name });
+      const { items, listRoot } = createScopeTree(root.key);
       const { container } = await renderTree(
         channel.TYPE_RESOURCE_ID,
-        createScopeItems(root.key),
+        items,
+        client,
+        listRoot,
       );
       await screen.findByText(name);
       const tree = container.querySelector(".lyra-tree");
@@ -799,6 +809,33 @@ describe("Tree.Tree", () => {
       await client.groups.rename(child.key, childRenamed);
       await screen.findByText(childRenamed);
       expect(counts.get(childName)).toBe(before);
+    });
+
+    it("should not re-render the siblings of a renamed row", async () => {
+      const container = await client.groups.create({
+        scope: "channel",
+        name: uniqueName("container"),
+      });
+      const containerID = group.resourceID(container.key);
+      const sibling = await client.groups.create({
+        parent: containerID,
+        name: uniqueName("sibling"),
+      });
+      const target = await client.groups.create({
+        parent: containerID,
+        name: uniqueName("target"),
+      });
+      const counts = new Map<string, number>();
+      await renderTree(containerID, countingItems(counts));
+      await screen.findByText(sibling.name);
+      await act(async () => {
+        await client.groups.retrieve({ parents: [containerID] });
+      });
+      const before = counts.get(sibling.name) ?? 0;
+      const renamed = uniqueName("target-renamed");
+      await client.groups.rename(target.key, renamed);
+      await screen.findByText(renamed);
+      expect(counts.get(sibling.name)).toBe(before);
     });
 
     it("should re-sort rows when an in-tree resource is renamed", async () => {

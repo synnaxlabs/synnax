@@ -15,12 +15,12 @@ import {
   project,
   resource,
   schematic,
+  type Synnax as Client,
   table,
 } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
-import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import {
   Access,
   LinePlot as PLinePlot,
@@ -202,31 +202,26 @@ export const GROUP_MEMBER: Group.Member = {
     Tree.createSource(client.projects, { groups: [key] }, Tree.toResource("project")),
 };
 
-const children: Tree.Children = ({ client, id }) => {
-  if (resource.idsEqual(id, project.TYPE_RESOURCE_ID))
-    return [
-      Tree.createSource(
-        client.groups,
-        { scopes: ["project"], nested: false },
-        Tree.toResource("group"),
-      ),
-      Tree.createSource(
-        client.projects,
-        { grouped: false },
-        Tree.toResource("project"),
-      ),
-    ];
-  return [
-    Tree.createSource(client.groups, { parents: [id] }, Tree.toResource("group")),
-    // A project lists its visualizations through the ontology until PR 6.
-    Tree.createOntologySource(
-      client,
-      id,
-      VISUALIZATION_TYPES,
-      ({ data }) => data?.group == null,
-    ),
-  ];
-};
+/** Lists the top level of the project tree: its groups and the projects in no group. */
+export const listTreeRoot = (client: Client): Tree.Source[] => [
+  Tree.createSource(
+    client.groups,
+    { scopes: ["project"], nested: false },
+    Tree.toResource("group"),
+  ),
+  Tree.createSource(client.projects, { grouped: false }, Tree.toResource("project")),
+];
+
+const children: Tree.Children = ({ client, id }) => [
+  Tree.createSource(client.groups, { parents: [id] }, Tree.toResource("group")),
+  // A project lists its visualizations through the ontology.
+  Tree.createOntologySource(
+    client,
+    id,
+    VISUALIZATION_TYPES,
+    ({ data }) => data?.group == null,
+  ),
+];
 
 const drop: Tree.Drop = async ({ client, destination, items }) => {
   await client.batch.send(
@@ -236,7 +231,7 @@ const drop: Tree.Drop = async ({ client, destination, items }) => {
       destination.id,
     ),
   );
-  // A visualization from another project moves its ontology edge until PR 6.
+  // A visualization from another project moves its ontology edge.
   const bySource = new Map<string, resource.ID[]>();
   items.forEach(({ id, ancestors }) => {
     if (id.type === "group") return;
@@ -263,10 +258,7 @@ const TreeItem = Tree.createItem({
   useOnSelect,
   children,
   ContextMenu: TreeContextMenu,
-  canDrop: ({ items }) =>
-    PTree.filterHaulItems(items).every(({ key }) =>
-      DROPPABLE_TYPES.has(resource.parseID(key).type),
-    ),
+  canDrop: ({ moved }) => moved.every(({ id }) => DROPPABLE_TYPES.has(id.type)),
   drop,
 });
 

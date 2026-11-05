@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, project } from "@synnaxlabs/client";
+import { NotFoundError, project, resource } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { type Haul } from "@synnaxlabs/lyra/haul";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
@@ -150,6 +150,7 @@ describe("project ontology service", () => {
     const { store } = await renderOntologyTree({
       client,
       root: project.TYPE_RESOURCE_ID,
+      listRoot: Project.listTreeRoot,
       items: Project.TREE_ITEMS,
     });
     fireEvent.doubleClick(await findTreeRow(p.name));
@@ -161,8 +162,16 @@ describe("project ontology service", () => {
   it("should only accept visualizations and groups on drop", () => {
     const source: Haul.Item = { key: "tree", type: PTree.HAUL_TYPE };
     const destination = projectResource("p1", "project");
+    const root = project.TYPE_RESOURCE_ID;
     const canDrop = (key: string): boolean =>
-      Item.canDrop({ source, items: [PTree.createHaulItem(key)], destination });
+      Item.canDrop({
+        source,
+        items: [PTree.createHaulItem(key)],
+        root,
+        destination,
+        ancestors: [root],
+        moved: [{ id: resource.parseID(key), ancestors: [root] }],
+      });
     expect(canDrop("log:abc")).toBe(true);
     expect(canDrop("schematic:abc")).toBe(true);
     expect(canDrop("group:abc")).toBe(true);

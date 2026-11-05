@@ -9,7 +9,14 @@
 
 import "@/feature/rack/tree.css";
 
-import { arc, device, rack, resource, task } from "@synnaxlabs/client";
+import {
+  arc,
+  device,
+  type ontology,
+  rack,
+  type resource,
+  task,
+} from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -162,11 +169,14 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   );
 };
 
+const toResource = (r: rack.Rack): ontology.Resource =>
+  Tree.toResource("rack")(r.payload);
+
 /** Lists the racks that sit in a group. */
 export const GROUP_MEMBER: Group.Member = {
   type: "rack",
   children: (client, key) =>
-    Tree.createSource(client.racks, { groups: [key] }, Device.toRackResource),
+    Tree.createSource(client.racks, { groups: [key] }, toResource),
 };
 
 const DROPPABLE_TYPES = new Set<resource.Type>(["group", "device"]);
@@ -182,10 +192,9 @@ const TreeItem = Tree.createItem({
       Tree.toResource("device"),
     ),
   ],
-  canDrop: ({ items }) =>
-    PTree.filterHaulItems(items).every(({ key }) =>
-      DROPPABLE_TYPES.has(resource.parseID(key).type),
-    ),
+  canDrop: ({ destination, ancestors, moved }) =>
+    moved.every(({ id }) => DROPPABLE_TYPES.has(id.type)) &&
+    Group.canMove(moved, destination.id, ancestors),
   drop: async ({ client, destination, items }) => {
     await client.batch.send(
       Group.moveRequests(

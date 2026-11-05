@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, group, resource } from "@synnaxlabs/client";
+import { channel, DataType, device, group, rack, resource } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { type Haul } from "@synnaxlabs/lyra/haul";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
@@ -16,7 +16,9 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Channel } from "@/feature/channel";
+import { Device } from "@/feature/device";
 import { Group } from "@/feature/group";
+import { Rack } from "@/feature/rack";
 import {
   createResource,
   renderTreeContextMenu,
@@ -56,12 +58,40 @@ describe("group ontology service", () => {
   it("should accept groups and the member types of its scope, and haul its own id", () => {
     const source: Haul.Item = { key: "tree", type: PTree.HAUL_TYPE };
     const res = groupResource({ key: uuid.create(), name: "g", scope: "channel" });
+    const root = channel.TYPE_RESOURCE_ID;
     const canDrop = (key: string): boolean =>
-      Item.canDrop({ source, items: [PTree.createHaulItem(key)], destination: res });
+      Item.canDrop({
+        source,
+        items: [PTree.createHaulItem(key)],
+        root,
+        destination: res,
+        ancestors: [root],
+        moved: [{ id: resource.parseID(key), ancestors: [root] }],
+      });
     expect(canDrop(`group:${uuid.create()}`)).toBe(true);
     expect(canDrop("channel:1")).toBe(true);
     expect(canDrop("device:d1")).toBe(false);
     expect(Item.haulItems(res)).toEqual([res.id]);
+  });
+
+  it("should refuse a rack into a group under a rack", () => {
+    const root = device.TYPE_RESOURCE_ID;
+    const DeviceItem = Group.createTreeItems({
+      channel: [],
+      device: [Device.GROUP_MEMBER, Rack.GROUP_MEMBER],
+      project: [],
+    }).group;
+    const canDrop = (ancestors: resource.ID[]): boolean =>
+      DeviceItem.canDrop({
+        source: { key: "tree", type: PTree.HAUL_TYPE },
+        items: [PTree.createHaulItem("rack:2")],
+        root,
+        destination: createResource(group.resourceID("g"), "g"),
+        ancestors,
+        moved: [{ id: rack.resourceID(2), ancestors: [root] }],
+      });
+    expect(canDrop([root])).toBe(true);
+    expect(canDrop([rack.resourceID(1), root])).toBe(false);
   });
 
   it("should offer Reload Console", async () => {

@@ -19,7 +19,7 @@ import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import {
-  createScopeItems,
+  createScopeTree,
   getTreeRow,
   renderOntologyTree,
 } from "@/platform/tree/testutil";
@@ -58,7 +58,7 @@ const setupMixedSelection = async (as: Client = client): Promise<MixedSelection>
     client: as,
     projectClient: client,
     root: channel.TYPE_RESOURCE_ID,
-    items: createScopeItems(container.key),
+    ...createScopeTree(container.key),
   });
   await screen.findByText(child.name);
   await screen.findByText(ch.name);

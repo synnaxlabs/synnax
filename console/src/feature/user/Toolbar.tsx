@@ -12,6 +12,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
+import { Role } from "@/feature/access/role";
 import { Empty } from "@/platform/empty";
 import { type Nav } from "@/platform/nav";
 import { Toolbar } from "@/platform/toolbar";
@@ -45,7 +46,11 @@ const Content = (): ReactElement => {
 };
 
 const Body = (): ReactElement => (
-  <Tree.Tree root={access.role.TYPE_RESOURCE_ID} emptyContent={<EmptyContent />} />
+  <Tree.Tree
+    root={access.role.TYPE_RESOURCE_ID}
+    listRoot={Role.listTreeRoot}
+    emptyContent={<EmptyContent />}
+  />
 );
 
 const EmptyContent = (): ReactElement => {

@@ -37,12 +37,15 @@ export interface ContentProps extends ItemProps {
 
 export interface Content extends FC<ContentProps> {}
 
-// Item renders a single resource row in the ontology tree. The component carries the
-// static, render-independent behavior for its resource type (children, drag, context
-// menu, visibility) as properties, read imperatively by the Tree.
 export interface CanDropProps extends Haul.DraggingState {
+  /** The root of the tree. */
+  root: resource.ID;
   /** The resource the items would drop onto. */
   destination: ontology.Resource;
+  /** The tree ancestors of the destination, nearest first, ending with the root. */
+  ancestors: resource.ID[];
+  /** The tree items the drop would move. */
+  moved: Dropped[];
 }
 
 /** Decides whether a node accepts the dragged items. */
@@ -67,6 +70,9 @@ export interface Drop {
   (props: DropProps): Promise<void>;
 }
 
+// Item renders a single resource row in the ontology tree. The component carries the
+// static, render-independent behavior for its resource type (children, drag, context
+// menu, visibility) as properties, read imperatively by the Tree.
 export interface Item extends FC<ItemProps> {
   type: resource.Type;
   hasChildren: boolean;
@@ -106,7 +112,7 @@ export interface CreateItemParams {
   type: resource.Type;
   icon?: Icon.ReactElement | ((resource: ontology.Resource) => Icon.ReactElement);
   useOnSelect?: () => (resource: ontology.Resource) => void;
-  /** Lists the children of a node of this type, or of the tree root it names. */
+  /** Lists the children of a node of this type. */
   children?: Children;
   /** Whether a node of this type expands. Defaults to whether it lists children. */
   hasChildren?: boolean;
@@ -154,5 +160,5 @@ export const createItem = ({
 };
 
 // DefaultItem is the fallback used for resource types with no registered Item: an
-// unadorned name row with expandable children and no drag or drop behavior.
+// unadorned name row with no children and no drag or drop behavior.
 export const DefaultItem: Item = createItem({ type: "builtin" });
