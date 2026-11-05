@@ -17,7 +17,7 @@ import {
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 
 import { Dialog } from "@/dialog";
-import { useSyncedRef } from "@/hooks";
+import { useDestructors, useSyncedRef } from "@/hooks";
 import { Triggers } from "@/triggers";
 import { isInputOrContentEditable } from "@/util/event";
 
@@ -251,12 +251,8 @@ export const useCursor = <K extends record.Key>(
   };
   // The repeat outlives the render that started it, so it reads the latest step.
   const stepRef = useSyncedRef(step);
-  const stopRef = useRef<(() => void) | null>(null);
-  const release = (): void => {
-    stopRef.current?.();
-    stopRef.current = null;
-  };
-  useEffect(() => () => stopRef.current?.(), []);
+  const repeat = useDestructors();
+  const release = repeat.cleanup;
   const press = (key: CursorKey): void => {
     release();
     if (key === "Enter") return activate();
@@ -270,14 +266,13 @@ export const useCursor = <K extends record.Key>(
       window.removeEventListener("blur", stop);
     };
     window.addEventListener("blur", stop);
-    stopRef.current = stop;
+    repeat.set(stop);
   };
 
-  const handleTrigger = ({ triggers, stage, target }: Triggers.UseEvent): void => {
-    if (stage === "end") return release();
-    const key = KEYS.find((k) => triggers.some((t) => t.includes(k)));
-    if (key == null || (CARET_KEYS.has(key) && isInputOrContentEditable({ target })))
-      return;
+  const handleTrigger = (e: Triggers.UseEvent): void => {
+    if (e.stage === "end") return release();
+    const key = KEYS.find((k) => e.triggers.some((t) => t.includes(k)));
+    if (key == null || (CARET_KEYS.has(key) && isInputOrContentEditable(e))) return;
     press(key);
   };
   Triggers.use({
