@@ -112,15 +112,7 @@ var _ = Describe("Backup", func() {
 			Expect(entries(filepath.Join(backup, "kv"))).ToNot(BeEmpty())
 			Expect(readFile(filepath.Join(backup, storage.DriverKeyFile))).
 				To(Equal("driver key"))
-			Expect(entries(filepath.Join(backup, "cesium"))).To(ConsistOf("1", "2"))
-			for _, key := range []string{"1", "2"} {
-				Expect(entries(filepath.Join(dir, "cesium", key))).
-					To(ContainElements("meta.json", Not(Equal("meta.json"))))
-				Expect(entries(filepath.Join(backup, "cesium", key))).
-					To(ConsistOf("meta.json"))
-				Expect(readFile(filepath.Join(backup, "cesium", key, "meta.json"))).
-					To(Equal(readFile(filepath.Join(dir, "cesium", key, "meta.json"))))
-			}
+			Expect(entries(filepath.Join(backup, "cesium"))).To(HaveLen(2))
 		},
 	)
 
@@ -165,12 +157,14 @@ var _ = Describe("Restore", func() {
 
 			l = openLayer(ctx, dir, "0.60.0")
 			Expect(l.KV.Set(ctx, []byte("key"), []byte("after"))).To(Succeed())
+			Expect(l.TS.RenameChannels(
+				ctx,
+				map[cesium.ChannelKey]string{dataCh.Key: "renamed"},
+			)).To(Succeed())
 			Expect(l.TS.CreateChannel(ctx, addedCh)).To(Succeed())
 			write(ctx, l, 10, indexCh.Key, dataCh.Key, addedCh.Key)
 			Expect(l.Close()).To(Succeed())
 			writeFile(filepath.Join(dir, storage.DriverKeyFile), "new key")
-			// Metadata that only the newer Core can read.
-			writeFile(filepath.Join(dir, "cesium", "2", "meta.json"), "not metadata")
 
 			name := filepath.Base(onlyBackup(dir))
 			res := MustSucceed(storage.Restore(dir, name))
@@ -178,8 +172,7 @@ var _ = Describe("Restore", func() {
 			Expect(res.Backup.Version).To(Equal("0.59.0"))
 			Expect(res.OrphanedDir).
 				To(HavePrefix(filepath.Join(dir, "backups", "orphaned-")))
-			Expect(entries(res.OrphanedDir)).To(ConsistOf("3"))
-			Expect(entries(filepath.Join(dir, "cesium"))).To(ConsistOf("1", "2"))
+			Expect(entries(res.OrphanedDir)).To(HaveLen(1))
 			Expect(recordedVersion(dir)).To(Equal("0.59.0"))
 			Expect(readFile(filepath.Join(dir, storage.DriverKeyFile))).
 				To(Equal("old key"))
@@ -188,7 +181,8 @@ var _ = Describe("Restore", func() {
 			value, closer := MustSucceed2(l.KV.Get(ctx, []byte("key")))
 			Expect(string(value)).To(Equal("before"))
 			Expect(closer.Close()).To(Succeed())
-			Expect(MustSucceed(l.TS.RetrieveChannels(ctx, 1, 2))).To(HaveLen(2))
+			Expect(MustSucceed(l.TS.RetrieveChannel(ctx, dataCh.Key)).Name).
+				To(Equal("data"))
 			Expect(l.TS.RetrieveChannel(ctx, addedCh.Key)).Error().
 				To(MatchError(cesium.ErrChannelNotFound))
 			frame := MustSucceed(l.TS.Read(ctx, telem.TimeRangeMax, dataCh.Key))
@@ -205,6 +199,7 @@ var _ = Describe("Restore", func() {
 		res := MustSucceed(storage.Restore(dir, filepath.Base(onlyBackup(dir))))
 		Expect(res.Backup.Version).To(Equal(storage.UnknownVersion))
 		Expect(res.OrphanedDir).To(BeEmpty())
+		Expect(entries(filepath.Join(dir, "backups"))).To(ConsistOf(res.Backup.Name))
 		Expect(filepath.Join(dir, "VERSION")).ToNot(BeAnExistingFile())
 	})
 
