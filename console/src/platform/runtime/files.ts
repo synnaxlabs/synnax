@@ -18,8 +18,8 @@ import { Session } from "@/session";
 export interface PickFilesParams {
   /** Titles the native dialog. */
   title: string;
-  /** Restricts the picker to files with this extension, without the leading dot. */
-  extension: string;
+  /** Restricts the picker to files with these extensions, without the leading dot. */
+  extension: string | string[];
   /** Whether the picker allows multiple file selection. */
   multiple?: boolean;
 }
@@ -55,10 +55,11 @@ export const toStream = (bytes: Uint8Array): ReadableStream<Uint8Array> =>
   });
 
 // The Tauri dialog wants a named filter group; the name is just the dialog's label for
-// the extension.
-const tauriFilters = (extension: string) => [
-  { name: extension.toUpperCase(), extensions: [extension] },
-];
+// the extensions.
+const tauriFilters = (extension: string | string[]) => {
+  const extensions = array.toArray(extension);
+  return [{ name: extensions.join(", ").toUpperCase(), extensions }];
+};
 
 /**
  * Resolves a settle callback after the user appears to have dismissed a file picker but
@@ -101,7 +102,10 @@ const pickFilesBrowser = ({
     const input = document.createElement("input");
     input.type = "file";
     if (multiple) input.multiple = true;
-    input.accept = `.${extension}`;
+    input.accept = array
+      .toArray(extension)
+      .map((ext) => `.${ext}`)
+      .join(",");
     let settled = false;
     const settle = (value: PickedFile[] | null) => {
       if (settled) return;

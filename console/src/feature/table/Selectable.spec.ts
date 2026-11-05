@@ -9,12 +9,13 @@
 
 import { table } from "@synnaxlabs/client";
 import { RoleClients } from "@synnaxlabs/client/testutil";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Table } from "@/feature/table";
 import { client, project } from "@/feature/table/testutil";
 import { createActiveState } from "@/platform/project/testutil";
+import { renderVisible, select } from "@/platform/selector/testutil";
 import { Session } from "@/session";
 import { documentIn } from "@/session/window/testutil";
 import { assertDefined, createConsoleWrapper, resolveFocusedTab } from "@/testutil";
@@ -22,7 +23,7 @@ import { assertDefined, createConsoleWrapper, resolveFocusedTab } from "@/testut
 const roles = new RoleClients(client);
 
 describe("table/Selectable", () => {
-  it("creates a table in the active project and opens its tab when clicked", async () => {
+  it("creates a table in the active project and opens its tab when selected", async () => {
     const proj = await client.projects.retrieve(await project());
     const { wrapper, store } = await createConsoleWrapper({
       client,
@@ -30,8 +31,7 @@ describe("table/Selectable", () => {
     });
     const Selectable = Table.SELECTABLES[0];
     expect(Selectable.type).toBe(table.TYPE_ONTOLOGY_ID.type);
-    render(<Selectable />, { wrapper });
-    fireEvent.click(await screen.findByText("Table"));
+    select(Selectable, wrapper);
     const tab = await resolveFocusedTab(store, client, (t) => t.variant === "resource");
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
     expect(tab.resource.type).toBe(table.TYPE_ONTOLOGY_ID.type);
@@ -55,21 +55,20 @@ describe("table/Selectable permissions", () => {
     return Selectable;
   };
 
-  it("should offer the tile to an engineer", async () => {
-    const Selectable = findSelectable();
+  it("should be visible to an engineer", async () => {
     const { wrapper } = await createConsoleWrapper({
       client: await roles.get("Engineer"),
     });
-    render(<Selectable />, { wrapper });
-    expect(await screen.findByText("Table")).toBeTruthy();
+    const { result } = renderVisible(findSelectable(), table.TYPE_ONTOLOGY_ID, wrapper);
+    await waitFor(() => expect(result.current.visible).toBe(true));
   });
 
-  it("should withhold the tile from a viewer", async () => {
-    const Selectable = findSelectable();
+  it("should not be visible to a viewer", async () => {
     const { wrapper } = await createConsoleWrapper({
       client: await roles.get("Viewer"),
     });
-    const { container } = render(<Selectable />, { wrapper });
-    await waitFor(() => expect(container.textContent).toBe(""));
+    const { result } = renderVisible(findSelectable(), table.TYPE_ONTOLOGY_ID, wrapper);
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+    expect(result.current.visible).toBe(false);
   });
 });
