@@ -88,8 +88,9 @@ type subscription struct {
 // attachment its own bounded queue. Safe for concurrent use.
 type connection struct {
 	// rebirths wakes the connect loop to send the rebirth requests of the host session.
-	rebirths chan struct{}
-	ins      alamos.Instrumentation
+	rebirths  chan struct{}
+	newClient clientFactory
+	ins       alamos.Instrumentation
 	// clock stamps arrivals in rising order. Only the delivery goroutine uses it.
 	clock telem.MonoClock
 	// subscribing orders each change to mu.subs with the broker call that carries it,
@@ -131,8 +132,13 @@ type connection struct {
 func newConnection(
 	ins alamos.Instrumentation,
 	rebirthInterval time.Duration,
+	newClient clientFactory,
 ) *connection {
-	c := &connection{ins: ins, rebirths: make(chan struct{}, 1)}
+	c := &connection{
+		ins:       ins,
+		newClient: newClient,
+		rebirths:  make(chan struct{}, 1),
+	}
 	c.mu.host = sparkplug.NewHost(rebirthInterval)
 	c.mu.nodes = make(map[sparkplug.NodeID]set.Set[*attachment])
 	c.mu.subs = make(map[string]*subscription)
@@ -201,14 +207,14 @@ func (c *connection) run(ctx context.Context, cfg clientConfig, settle func()) {
 	// connect carry the same timestamp.
 	var stateStamp telem.TimeStamp
 	reconnect(ctx, c.ins, reconnectHooks{
-		options: func(lost chan<- error) *paho.ClientOptions {
+		newClient: c.newClient,
+		options: func() *paho.ClientOptions {
 			stateStamp = telem.Now()
 			return withStateWill(newClientOptions(cfg), cfg.hostID, stateStamp).
 				// Ordered delivery keeps the samples of a topic in order. It requires
 				// that the handler never blocks.
 				SetOrderMatters(true).
-				SetDefaultPublishHandler(c.onMessage).
-				SetConnectionLostHandler(reportLost(lost))
+				SetDefaultPublishHandler(c.onMessage)
 		},
 		serve: func(ctx context.Context, client paho.Client, lost <-chan error) {
 			if err := c.setClient(ctx, client); err != nil {
@@ -237,23 +243,13 @@ func (c *connection) run(ctx context.Context, cfg clientConfig, settle func()) {
 
 // reconnectHooks are the parts of one reconnecting client that differ by use.
 type reconnectHooks struct {
-	// options builds the options of one connection attempt. lost must receive the
-	// error of a connection that drops.
-	options func(lost chan<- error) *paho.ClientOptions
+	newClient clientFactory
+	// options builds the options of one connection attempt.
+	options func() *paho.ClientOptions
 	// serve uses one connected client until ctx is cancelled or lost fires.
 	serve func(ctx context.Context, client paho.Client, lost <-chan error)
 	// failed runs after an attempt that could not connect. Optional.
 	failed func()
-}
-
-// reportLost returns a connection lost handler that sends the error to lost.
-func reportLost(lost chan<- error) paho.ConnectionLostHandler {
-	return func(_ paho.Client, err error) {
-		select {
-		case lost <- err:
-		default:
-		}
-	}
 }
 
 // reconnect connects with a backoff until ctx is cancelled, and connects again after
@@ -270,8 +266,7 @@ func reconnect(ctx context.Context, ins alamos.Instrumentation, hooks reconnectH
 		return
 	}
 	for {
-		lost := make(chan error, 1)
-		client, disconnect, err := open(ctx, ins, hooks.options(lost))
+		client, disconnect, err := open(ctx, ins, hooks.newClient, hooks.options())
 		if ctx.Err() != nil {
 			if err == nil {
 				disconnect()
@@ -290,7 +285,7 @@ func reconnect(ctx context.Context, ins alamos.Instrumentation, hooks reconnectH
 		}
 		connectedAt := time.Now()
 		ins.L.Info("connected to the MQTT broker")
-		hooks.serve(ctx, client, lost)
+		hooks.serve(ctx, client, client.lost)
 		disconnect()
 		// A connection that held is healthy again. One that did not keeps its backoff,
 		// so a broker that accepts and then drops the client is not hammered.
@@ -820,6 +815,113 @@ func waitSubscribe(ctx context.Context, token paho.Token) error {
 	return err
 }
 
+type session struct {
+	paho.Client
+	lost chan error
+	// ended closes when the connection drops or close runs.
+	ended chan struct{}
+	end   func()
+	// over is the token of a publish that the session ended under.
+	over *delivery
+	// calls is read-held for each publish. close write-holds it for good, so close
+	// returns after the last Paho call, and later publishes end at once.
+	calls sync.RWMutex
+}
+
+func newSession(newClient clientFactory, opts *paho.ClientOptions) *session {
+	ended := make(chan struct{})
+	s := &session{
+		lost:  make(chan error, 1),
+		ended: ended,
+		end:   sync.OnceFunc(func() { close(ended) }),
+		over:  &delivery{done: ended, err: errNotConnected},
+	}
+	s.Client = newClient(opts.SetConnectionLostHandler(
+		func(_ paho.Client, err error) {
+			s.end()
+			s.lost <- err
+		},
+	))
+	return s
+}
+
+// Publish implements paho.Client. It returns once the client holds the message, so
+// messages leave in the order of their calls, or once the session ends. A token ends
+// with errNotConnected when the session ends before it completes.
+func (s *session) Publish(
+	topic string,
+	qos byte,
+	retained bool,
+	payload any,
+) paho.Token {
+	if !s.calls.TryRLock() {
+		return s.over
+	}
+	var (
+		d      = &delivery{done: make(chan struct{})}
+		queued = make(chan struct{})
+	)
+	go func() {
+		defer s.calls.RUnlock()
+		defer close(d.done)
+		// A drop during this call can block it for the write timeout of the client, or
+		// leave its token incomplete for good.
+		token := s.Client.Publish(topic, qos, retained, payload)
+		close(queued)
+		timer := time.NewTimer(operationTimeout)
+		defer timer.Stop()
+		select {
+		case <-token.Done():
+			d.err = token.Error()
+		case <-s.ended:
+			d.err = errNotConnected
+		case <-timer.C:
+			d.err = errBrokerTimeout
+		}
+	}()
+	select {
+	case <-queued:
+		return d
+	case <-s.ended:
+		return s.over
+	}
+}
+
+func (s *session) close() {
+	s.end()
+	s.calls.Lock()
+}
+
+type delivery struct {
+	done chan struct{}
+	// err is set before done closes.
+	err error
+}
+
+var _ paho.Token = (*delivery)(nil)
+
+// Wait implements paho.Token.
+func (d *delivery) Wait() bool {
+	<-d.done
+	return true
+}
+
+// WaitTimeout implements paho.Token.
+func (d *delivery) WaitTimeout(timeout time.Duration) bool {
+	select {
+	case <-d.done:
+		return true
+	case <-time.After(timeout):
+		return false
+	}
+}
+
+// Done implements paho.Token.
+func (d *delivery) Done() <-chan struct{} { return d.done }
+
+// Error implements paho.Token.
+func (d *delivery) Error() error { return d.err }
+
 // wait blocks until token completes, ctx is cancelled, or operationTimeout passes.
 func wait(ctx context.Context, token paho.Token) error {
 	timer := time.NewTimer(operationTimeout)
@@ -842,6 +944,7 @@ type pool struct {
 	// rebirthInterval is the shortest time between two Sparkplug B rebirth requests to
 	// one edge node.
 	rebirthInterval time.Duration
+	newClient       clientFactory
 	mu              sync.Mutex
 }
 
@@ -849,12 +952,14 @@ func newPool(
 	ins alamos.Instrumentation,
 	devices *device.Service,
 	rebirthInterval time.Duration,
+	newClient clientFactory,
 ) *pool {
 	return &pool{
 		ins:             ins,
 		devices:         devices,
 		conns:           make(map[device.Key]*connection),
 		rebirthInterval: rebirthInterval,
+		newClient:       newClient,
 	}
 }
 
@@ -894,7 +999,7 @@ func (p *pool) connection(key device.Key) *connection {
 	defer p.mu.Unlock()
 	conn, ok := p.conns[key]
 	if !ok {
-		conn = newConnection(p.ins.Child(key), p.rebirthInterval)
+		conn = newConnection(p.ins.Child(key), p.rebirthInterval, p.newClient)
 		p.conns[key] = conn
 	}
 	return conn
@@ -1009,6 +1114,8 @@ func (p *pool) discard(key device.Key, conn *connection) {
 	}
 }
 
+type clientFactory func(*paho.ClientOptions) paho.Client
+
 // newClientOptions returns the options that every client of the broker of cfg uses.
 func newClientOptions(cfg clientConfig) *paho.ClientOptions {
 	return paho.NewClientOptions().
@@ -1032,18 +1139,20 @@ func newClientOptions(cfg clientConfig) *paho.ClientOptions {
 func open(
 	ctx context.Context,
 	ins alamos.Instrumentation,
+	newClient clientFactory,
 	opts *paho.ClientOptions,
-) (client paho.Client, disconnect func(), err error) {
+) (client *session, disconnect func(), err error) {
 	netCtx, closeNet := context.WithCancel(context.Background())
 	opts.SetCustomOpenConnectionFn(
 		func(uri *url.URL, opts paho.ClientOptions) (net.Conn, error) {
 			return dial(netCtx, ins, uri, opts)
 		},
 	)
-	client = paho.NewClient(opts)
+	client = newSession(newClient, opts)
 	disconnect = func() {
 		client.Disconnect(uint(disconnectQuiesce.Milliseconds()))
 		closeNet()
+		client.close()
 	}
 	token := client.Connect()
 	select {

@@ -504,13 +504,12 @@ describe("list", () => {
     });
 
     it("should move the query to an error state when the retrieveByKey fails to execute", async () => {
-      const retrieveMock = vi.fn().mockResolvedValue([{ key: 1 }, { key: 2 }]);
       const retrieveByKeyMock = vi.fn().mockRejectedValue(new Error("Test Error"));
       const { result } = renderHook(
         () => {
           const result = Flux.createList<{}, number, record.Keyed<number>>({
             name: "Resource",
-            retrieve: retrieveMock,
+            retrieve: async () => [],
             retrieveByKey: retrieveByKeyMock,
           })();
           const value = Flux.useListItem<number, record.Keyed<number>>({
@@ -522,9 +521,6 @@ describe("list", () => {
         },
         { wrapper },
       );
-      act(() => {
-        result.current.retrieve({}, { signal: controller.signal });
-      });
       await waitFor(() => {
         expect(result.current.variant).toEqual("error");
         expect(result.current.status.description).toEqual("Test Error");
