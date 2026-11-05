@@ -2339,11 +2339,24 @@ var _ = Describe("Scheduler", func() {
 					On:   ir.Handle{Node: "trigger", Param: "output"},
 					Kind: ir.EdgeKindConditional,
 				}}
-				onceNode := irNode("once_node", "output")
-				onceNode.Once = true
+				// An entry node feeding a stateful variable's f0 is a once node.
+				register := ir.Node{
+					Key:    "reg",
+					Type:   "stateful_variable",
+					Inputs: types.Params{{Name: "f0"}},
+				}
+				mock("reg")
 				prog := programOf(
-					[]ir.Node{irNode("trigger", "output"), onceNode},
-					nil,
+					[]ir.Node{
+						irNode("trigger", "output"),
+						irNode("once_node", "output"),
+						register,
+					},
+					[]ir.Edge{{
+						Source: ir.Handle{Node: "once_node", Param: "output"},
+						Target: ir.Handle{Node: "reg", Param: "f0"},
+						Kind:   ir.EdgeKindContinuous,
+					}},
 					rootScope(
 						ir.Member{NodeKey: new("trigger")},
 						ir.Member{Scope: new(main)},

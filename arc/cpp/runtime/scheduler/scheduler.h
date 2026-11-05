@@ -672,7 +672,7 @@ private:
             wrapper.key = ir_node.key;
             wrapper.idx = idx;
             wrapper.entry = ir::is_entry_node(this->s->prog, ir_node);
-            wrapper.once = ir_node.once;
+            wrapper.once = ir::is_once_node(this->s->prog, ir_node);
             const auto impl_it = node_impls.find(ir_node.key);
             if (impl_it != node_impls.end()) wrapper.node = std::move(impl_it->second);
             // Pre-seed outputs in the IR's declared order. Node impls

@@ -298,7 +298,6 @@ inline std::pair<::arc::ir::pb::Node, x::errors::Error> Node::to_proto() const {
         if (err) return {{}, err};
         *pb.mutable_channels() = v;
     }
-    pb.set_once(this->once);
     return {pb, x::errors::NIL};
 }
 
@@ -322,7 +321,6 @@ Node::from_proto(const ::arc::ir::pb::Node &pb) {
         if (err) return {{}, err};
         cpp.channels = v;
     }
-    cpp.once = pb.once();
     return {cpp, x::errors::NIL};
 }
 

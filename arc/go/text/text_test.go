@@ -2616,7 +2616,7 @@ var _ = Describe("Text", func() {
 		)
 
 		It(
-			"Should lower a computed stateful initializer as a once entry node in its scope",
+			"Should lower a computed stateful initializer as an entry node into f0",
 			func(ctx SpecContext) {
 				source := `
 			sequence main {
@@ -2642,7 +2642,7 @@ var _ = Describe("Text", func() {
 					}
 				}
 				Expect(init.Type).To(HavePrefix("expression_"))
-				Expect(init.Once).To(BeTrue(),
+				Expect(init.IsOnceNode(inter.Nodes, inter.Edges)).To(BeTrue(),
 					"a stateful initializer fires on the first entry only")
 				Expect(scopeNodeRefs(inter.Root)).ToNot(ContainElement(init.Key))
 				refs := scopeNodeRefs(findTopLevelScope(inter, "main"))

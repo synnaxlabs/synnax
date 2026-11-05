@@ -269,11 +269,14 @@ TEST_F(SchedulerTest, DoesNotReFireAOnceEntryNodeWhenItsScopeReActivates) {
     main.activations = {
         {.on = ir::Handle{"trigger", "output"}, .kind = ir::EdgeKind::Conditional}
     };
-    auto once_node = ir_node("once_node", {"output"});
-    once_node.once = true;
+    // An entry node feeding a stateful variable's f0 is a once node.
+    auto reg = ir_node("reg");
+    reg.type = "stateful_variable";
+    reg.inputs.push_back(arc::types::Param{.name = "f0"});
+    mock("reg");
     auto program = program_of(
-        {ir_node("trigger", {"output"}), once_node},
-        {},
+        {ir_node("trigger", {"output"}), ir_node("once_node", {"output"}), reg},
+        {continuous_edge("once_node", "output", "reg", "f0")},
         root_scope({ir::node_member("trigger"), ir::scope_member(std::move(main))})
     );
     const auto s = build(std::move(program));
