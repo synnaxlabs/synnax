@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, user } from "@synnaxlabs/client";
+import { NotFoundError } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -219,7 +219,7 @@ describe("queries", () => {
         description: "Assigned role",
       });
       const u = await createUser("for-user");
-      await client.access.roles.assign({ user: u.key, role: role.key });
+      await client.users.setRoles(u.key, [role.key]);
 
       const { result } = renderHook(() => Role.useResultForUser({ user: u.key }), {
         wrapper,
@@ -250,7 +250,7 @@ describe("queries", () => {
         name: `late-${id.create()}`,
         description: "Late role",
       });
-      await remote.access.roles.assign({ user: u.key, role: role.key });
+      await remote.users.setRoles(u.key, [role.key]);
       await waitFor(() => expect(result.current.data).toHaveLength(1));
       expect(result.current.data?.[0].key).toEqual(role.key);
     });
@@ -262,7 +262,7 @@ describe("queries", () => {
         description: "Before",
       });
       const u = await createUser("role-edit");
-      await client.access.roles.assign({ user: u.key, role: role.key });
+      await client.users.setRoles(u.key, [role.key]);
 
       const { result } = renderHook(() => Role.useResultForUser({ user: u.key }), {
         wrapper,
@@ -372,10 +372,7 @@ describe("queries", () => {
         name: "Test User",
         password: "password123",
       });
-      await client.access.roles.assign({
-        user: testUser.key,
-        role: role.key,
-      });
+      await client.users.setRoles(testUser.key, [role.key]);
 
       const { result } = await renderHookSuspended(
         () => Role.useChangeRoleForm({ query: { key: testUser.key } }),
@@ -416,10 +413,7 @@ describe("queries", () => {
         name: "Change Role",
         password: "password123",
       });
-      await client.access.roles.assign({
-        user: testUser.key,
-        role: role1.key,
-      });
+      await client.users.setRoles(testUser.key, [role1.key]);
 
       const { result } = await renderHookSuspended(
         () => Role.useChangeRoleForm({ query: { key: testUser.key } }),
@@ -439,13 +433,8 @@ describe("queries", () => {
 
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-      // Verify role changed via direct API call
-      const parents = await client.ontology.parents.retrieve({
-        ids: user.resourceID(testUser.key),
-        types: ["role"],
-      });
-      expect(parents.length).toEqual(1);
-      expect(parents[0].id.key).toEqual(role2.key);
+      const stored = await createTestClient().users.retrieve(testUser.key);
+      expect(stored.roles).toEqual([role2.key]);
     });
 
     it("should assign a role to a user with no previous role", async () => {
@@ -476,12 +465,8 @@ describe("queries", () => {
 
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-      const parents = await client.ontology.parents.retrieve({
-        ids: user.resourceID(testUser.key),
-        types: ["role"],
-      });
-      expect(parents.length).toEqual(1);
-      expect(parents[0].id.key).toEqual(role.key);
+      const stored = await createTestClient().users.retrieve(testUser.key);
+      expect(stored.roles).toEqual([role.key]);
     });
   });
 });

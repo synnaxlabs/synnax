@@ -172,11 +172,14 @@ describe("User queries", () => {
 
     it("should update the current user on a rename from another client", async () => {
       const username = id.create();
-      const u = await client.users.create({ username, password: "test" });
       const roles = await client.access.roles.retrieve({});
       const viewer = roles.find((r) => r.name === "Viewer");
       assert(viewer != null);
-      await client.access.roles.assign({ user: u.key, role: viewer.key });
+      const u = await client.users.create({
+        username,
+        password: "test",
+        roles: [viewer.key],
+      });
       const userClient = createTestClient({ username, password: "test" });
       const { result } = renderHook(() => User.useResult({}), {
         wrapper: createSynnaxWrapper({ client: userClient }),

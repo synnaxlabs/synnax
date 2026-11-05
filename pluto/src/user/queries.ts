@@ -47,7 +47,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   },
 });
 
-export const formSchema = user.newZ.extend({
+export const formSchema = user.newZ.omit({ roles: true }).extend({
   username: z.string().min(1, "username is required"),
   password: z.string().min(1, "Password is required"),
   name: z.string().min(1, "Name is required"),
@@ -72,13 +72,8 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   schema: formSchema,
   initialValues: ZERO_FORM_VALUES,
   update: async ({ client, value }) => {
-    const v = value();
-    const createdUser = await client.users.create({ key: uuid.create(), ...v });
-    if (v.role == null) return;
-    await client.access.roles.assign({
-      user: createdUser.key,
-      role: v.role,
-    });
+    const { role, ...rest } = value();
+    await client.users.create({ key: uuid.create(), ...rest, roles: [role] });
   },
 });
 

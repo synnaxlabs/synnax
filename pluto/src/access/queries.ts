@@ -140,7 +140,7 @@ export const {
   // settle into a wall the subject has to clear by hand.
   retryUnreachable: true,
   retrieve: async ({ client }) =>
-    await client.access.policies.retrieveForSubject(await retrieveSubject(client)),
+    await client.access.policies.retrieve({ for: await retrieveSubject(client) }),
   onChange: ({ client }, handler) =>
     subscribeForCurrent(
       client,

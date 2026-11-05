@@ -22,6 +22,7 @@ export const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
   objects: resource.idZ.array(),
   actions: access.actionZ.array(),
+  role: access.role.keyZ,
 });
 
 export const formPath = deep.path<z.infer<typeof formSchema>>();
@@ -94,6 +95,7 @@ export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
     name: "",
     objects: [],
     actions: [],
+    role: "",
   },
   retrieve: async ({ client, query: { key } }) =>
     await client.access.policies.retrieve(key),
