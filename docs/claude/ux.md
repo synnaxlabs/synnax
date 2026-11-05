@@ -374,6 +374,11 @@ says why in a sentence, then gives the raw error.
   set the x axis. Below a toolbar width of 144rem it takes its own row at the bottom.
 - The X1 dialog floats, so it can be wider than its trigger.
 
+### Plot legend
+
+- A padded Lyra `Divider` separates the axis groups: the shared border, with 0.5rem
+  above and below. A 1 px line with no space was too heavy.
+
 ## Interaction
 
 - Respond to every input in less than 100 ms. Show a spinner only after 150 to 300 ms,
