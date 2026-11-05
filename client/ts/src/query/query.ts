@@ -109,6 +109,8 @@ export interface Watch<P extends Params, K extends record.Key> {
     params: P,
     onEvent: (result: K[] | "refetch") => void,
   ) => destructor.Destructor;
+  /** The watched table's {@link Table.version}. */
+  version: () => number;
 }
 
 /**
@@ -141,6 +143,7 @@ export const watch = <
       }
       if (keys.length > 0) onEvent(keys);
     }),
+  version: () => table.version(),
 });
 
 /**
@@ -215,6 +218,11 @@ export interface SpaceHooks {
   /** Subscribes to connection-epoch changes; maintained answers refetch on bump. */
   onEpoch?: (callback: (epoch: number) => void) => destructor.Destructor;
   /**
+   * The connection epoch: 0 until the change stream is live, then bumped on every
+   * reconnect. Defaults to a stream that is always live.
+   */
+  epoch?: () => number;
+  /**
    * Whether change delivery keeps subscribed answers current. False when the
    * cache is detached or the cluster refused the stream. Defaults to true.
    */
@@ -232,6 +240,14 @@ export interface SpaceHooks {
 
 const DEFAULT_DEBOUNCE = TimeSpan.milliseconds(100);
 const DEFAULT_TEARDOWN_GRACE = TimeSpan.seconds(5);
+
+/** What an answer settled against: change delivery and the versions of the tables
+ *  that feed it. */
+interface Basis {
+  /** The connection epoch, or null when change delivery was off. */
+  epoch: number | null;
+  versions: number[];
+}
 
 type QueryState<K extends record.Key, D extends Data> =
   | { variant: "unfetched" }
@@ -262,6 +278,12 @@ interface Query<
   /** When the last subscriber left; the sweep tears the query down once this
    *  outlives the grace window. Cleared on resubscribe. */
   idleSince?: TimeStamp;
+  /** Present once the answer settled from a fetch. Maintenance reconfirms the answer
+   *  only when a change since then could have gone unobserved. */
+  basis?: Basis;
+  /** Set when a change asked an idle answer to refetch. The next subscriber or read
+   *  refetches instead. */
+  stale?: boolean;
   /** Answer interned against the records it was composed from, so repeated
    *  reads stay referentially stable for useSyncExternalStore consumers. A
    *  table replaces an entry only when its content changes, so a surviving entry
@@ -323,7 +345,11 @@ export class Space<
     const query = this.ensure(params);
     const { state } = query;
     if (state.variant === "loading") return state.promise;
-    if (query.teardown != null && this.hooks.maintained?.() !== false)
+    if (
+      query.teardown != null &&
+      query.stale !== true &&
+      this.hooks.maintained?.() !== false
+    )
       switch (state.variant) {
         case "ready":
           return Promise.resolve(this.composedOf(query, state.keys));
@@ -400,6 +426,7 @@ export class Space<
     query.handlers.add(handler);
     query.idleSince = undefined;
     if (query.teardown == null) this.maintain(query);
+    else if (query.stale === true) this.scheduleRefetch(query);
     return () => {
       query.handlers.delete(handler);
       if (query.handlers.size > 0) return;
@@ -612,6 +639,7 @@ export class Space<
     if (query.state !== expected) return;
     query.state = next;
     query.vacated = false;
+    if (next.variant === "ready") this.settleBasis(query);
     this.drainRechecks(query);
     if (next.variant === "error") {
       query.refetchOnSettle = false;
@@ -680,6 +708,11 @@ export class Space<
       clearTimeout(query.refetchTimer);
       query.refetchTimer = undefined;
     }
+    // An idle answer has no subscriber to refresh, so it waits for the next one.
+    if (query.handlers.size === 0) {
+      query.stale = true;
+      return;
+    }
     const before = query.state;
     let keys: K[];
     try {
@@ -697,7 +730,36 @@ export class Space<
     if (query.state !== before) return;
     query.state = { variant: "ready", keys };
     query.vacated = false;
+    this.settleBasis(query);
     this.touch(query);
+  }
+
+  private settleBasis(query: Query<P, K, D, V>): void {
+    query.stale = false;
+    query.basis = { epoch: this.liveEpoch(), versions: this.versions() };
+  }
+
+  /** The connection epoch, or null when change delivery is off. */
+  private liveEpoch(): number | null {
+    if (this.hooks.maintained?.() === false) return null;
+    const epoch = this.hooks.epoch?.() ?? 1;
+    return epoch === 0 ? null : epoch;
+  }
+
+  private versions(): number[] {
+    const { table, watch: watches = [] } = this.config;
+    return [table.version(), ...watches.map((w) => w.version())];
+  }
+
+  /**
+   * Returns whether a change may have reached the answer unobserved since it settled:
+   * change delivery was off or reconnected, or a table that feeds it changed.
+   */
+  private unconfirmed(query: Query<P, K, D, V>): boolean {
+    const { basis } = query;
+    if (query.stale === true || basis == null || basis.epoch == null) return true;
+    if (basis.epoch !== this.liveEpoch()) return true;
+    return !compare.arraysEqual(basis.versions, this.versions());
   }
 
   private scheduleRefetch(query: Query<P, K, D, V>): void {
@@ -741,10 +803,14 @@ export class Space<
     query.teardown = teardown;
     const { table, keyOf, matches, watch: watches } = this.config;
     const { params } = query;
-    // Rules 2 and 3 build membership from events, and nothing delivered them to a
-    // ready answer before now, so it must be reconfirmed. Rule 1 re-seeds from the
+    // Rules 2 and 3 build membership from events, and none reached a ready answer
+    // before now, so it is reconfirmed when one may have. Rule 1 re-seeds from the
     // table below and needs no network.
-    if (query.state.variant === "ready" && keyOf?.(params) == null)
+    if (
+      query.state.variant === "ready" &&
+      keyOf?.(params) == null &&
+      this.unconfirmed(query)
+    )
       this.scheduleRefetch(query);
 
     // A keys-only query whose members the table already holds seeds a ready answer:

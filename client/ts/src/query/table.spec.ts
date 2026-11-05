@@ -1106,6 +1106,28 @@ describe("Table", () => {
       });
     });
 
+    describe("version", () => {
+      it("should move on every set, delete, and reset", () => {
+        const table = new query.Table<string, { name: string }>({ onError: noopError });
+        const versions = [table.version()];
+        table.set("key1", { name: "a" });
+        versions.push(table.version());
+        table.delete("key1");
+        versions.push(table.version());
+        table.reset();
+        versions.push(table.version());
+        expect(new Set(versions).size).toBe(4);
+      });
+
+      it("should not move when the set value deep-equals the entry", () => {
+        const table = new query.Table<string, { name: string }>({ onError: noopError });
+        table.set("key1", { name: "a" });
+        const version = table.version();
+        table.set("key1", { name: "a" });
+        expect(table.version()).toBe(version);
+      });
+    });
+
     describe("Equality Silencing", () => {
       it("should not notify subscribers when the set value deep-equals the entry", () => {
         const table = new query.Table<string, { name: string }>({ onError: noopError });
