@@ -9,16 +9,20 @@
 
 """Compares Sedosaur's reviews with Greptile's reviews of the same commits.
 
-A finding is real when it has more 👍 than 👎, or when its thread was resolved after a
-later commit changed its file. It is noise when it has more 👎 than 👍, or when its
-thread was resolved with no change to its file. Otherwise it is open. A finding that
-matches one of the other reviewer's takes that one's verdict while its own is open.
+A finding is real when it has more 👍 than 👎, or when its thread was resolved and a
+later commit of the pull request changed its file. It is noise when it has more 👎 than
+👍, or when its thread was resolved with no such change. Otherwise it is open. GitHub
+does not say when a thread was resolved, so a commit made after the last reply to a
+thread does not count, and merge commits never count. A finding that matches one of the
+other reviewer's takes that one's verdict while its own is open.
 """
 
 import json
 import re
+import subprocess
 import tempfile
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path
@@ -26,6 +30,10 @@ from typing import Any
 
 from review import render
 from review.post import GH
+
+Git = Callable[..., str]
+"""Runs `git` in a clone of the repository with the given arguments, and returns its
+stdout."""
 
 GREPTILE = "greptile-apps"
 SEDOSAUR = "sedosaur"
@@ -35,20 +43,30 @@ NEAR = 5
 
 REAL, NOISE, OPEN = "real", "noise", "open"
 
-PULL = """query($o: String!, $r: String!, $p: Int!) {
+EDITS = """query($o: String!, $r: String!, $p: Int!, $endCursor: String) {
   repository(owner: $o, name: $r) {
     pullRequest(number: $p) {
-      headRefOid
-      userContentEdits(first: 100) { nodes { editor { __typename login } diff } }
-      reviewThreads(first: 100) {
+      userContentEdits(first: 100, after: $endCursor) {
+        pageInfo { hasNextPage endCursor }
+        nodes { editor { __typename login } diff }
+      }
+    }
+  }
+}"""
+THREADS = """query($o: String!, $r: String!, $p: Int!, $endCursor: String) {
+  repository(owner: $o, name: $r) {
+    pullRequest(number: $p) {
+      reviewThreads(first: 100, after: $endCursor) {
+        pageInfo { hasNextPage endCursor }
         nodes {
-          isResolved path line originalLine
-          comments(first: 1) {
+          isResolved path originalLine
+          first: comments(first: 1) {
             nodes {
               databaseId author { login } body originalCommit { oid }
               reactionGroups { content reactors { totalCount } }
             }
           }
+          last: comments(last: 10) { nodes { author { login } createdAt } }
         }
       }
     }
@@ -69,11 +87,14 @@ class Thread:
     bot: str
     path: str
     line: int | None
+    """The line at the thread's commit."""
     commit: str
     title: str | None
     resolved: bool
     up: int
     down: int
+    last_reply: datetime | None
+    """When a person last replied to the thread, if anyone did."""
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -133,39 +154,48 @@ def greptile_reviews(
 
 def threads(nodes: list[dict[str, Any]]) -> list[Thread]:
     """Returns the review threads that either reviewer started."""
+    bots = (GREPTILE, SEDOSAUR)
     out: list[Thread] = []
     for n in nodes:
-        [c] = n["comments"]["nodes"]
+        [c] = n["first"]["nodes"]
         login = (c["author"] or {}).get("login")
-        if login not in (GREPTILE, SEDOSAUR):
+        if login not in bots:
             continue
         votes = {g["content"]: g["reactors"]["totalCount"] for g in c["reactionGroups"]}
+        replies = [
+            r["createdAt"]
+            for r in n["last"]["nodes"]
+            if (r["author"] or {}).get("login") not in bots
+        ]
         out.append(
             Thread(
                 id=c["databaseId"],
                 bot=login,
                 path=n["path"],
-                line=n["line"] or n["originalLine"],
+                line=n["originalLine"],
                 commit=c["originalCommit"]["oid"],
                 title=render.title(c["body"]),
                 resolved=n["isResolved"],
                 up=votes.get("THUMBS_UP", 0),
                 down=votes.get("THUMBS_DOWN", 0),
+                last_reply=datetime.fromisoformat(max(replies)) if replies else None,
             )
         )
     return out
 
 
-def verdict(t: Thread, touched: set[str]) -> str:
+def verdict(t: Thread, touched: set[str] | None) -> str:
     """Decides whether a thread's finding was real.
 
-    :param touched: The files that changed after the thread's commit.
+    :param touched: The files that the pull request changed after the thread's commit
+        and before the last reply to it, or None when the commit is no longer in the
+        history of the pull request.
     """
     if t.down > t.up:
         return NOISE
     if t.up > t.down:
         return REAL
-    if not t.resolved:
+    if not t.resolved or touched is None:
         return OPEN
     return REAL if t.path in touched else NOISE
 
@@ -226,58 +256,102 @@ def records(gh: GH, repo: str, since: datetime) -> list[dict[str, Any]]:
     return out
 
 
-def pairs(gh: GH, repo: str, recs: list[dict[str, Any]]) -> list[Pair]:
+def git(*args: str) -> str:
+    return subprocess.run(
+        ["git", *args], capture_output=True, text=True, check=True
+    ).stdout
+
+
+def pairs(gh: GH, git: Git, repo: str, recs: list[dict[str, Any]]) -> list[Pair]:
     """Pairs each Sedosaur review with Greptile's review of the same commit.
 
+    :param git: Runs in a clone with full history. The pairing fetches the head of each
+        pull request into it as `refs/review/<number>`.
     :param recs: Review records, oldest first. The newest record of a commit counts.
     :returns: A pair for each commit that both reviewers reviewed.
     """
     latest = {(r["pr"], r["head"]): r for r in recs}
+    prs = sorted({pr for pr, _ in latest})
+    if not prs:
+        return []
+    git(
+        *("fetch", "--no-tags", "origin"),
+        *(f"+refs/pull/{pr}/head:refs/review/{pr}" for pr in prs),
+    )
     out: list[Pair] = []
-    for pr in sorted({pr for pr, _ in latest}):
+    for pr in prs:
         heads = {head: r for (n, head), r in latest.items() if n == pr}
-        out += _pull(gh, repo, pr, heads)
+        out += _pull(gh, git, repo, pr, heads)
     return out
 
 
-def _pull(gh: GH, repo: str, pr: int, heads: dict[str, dict[str, Any]]) -> list[Pair]:
+def _nodes(gh: GH, repo: str, pr: int, query: str, field: str) -> list[dict[str, Any]]:
     owner, name = repo.split("/")
-    data = json.loads(
-        gh(
-            "api",
-            "graphql",
-            "-f",
-            f"query={PULL}",
-            "-f",
-            f"o={owner}",
-            "-f",
-            f"r={name}",
-            "-F",
-            f"p={pr}",
-        )
-    )["data"]["repository"]["pullRequest"]
-    final = data["headRefOid"]
-    changed: dict[str, set[str]] = {final: set()}
+    out = gh(
+        "api",
+        "graphql",
+        "--paginate",
+        "-f",
+        f"query={query}",
+        "-f",
+        f"o={owner}",
+        "-f",
+        f"r={name}",
+        "-F",
+        f"p={pr}",
+        "--jq",
+        f".data.repository.pullRequest.{field}.nodes[] | tojson",
+    )
+    return [json.loads(line) for line in out.splitlines() if line]
+
+
+def _later(git: Git, ref: str, commit: str) -> list[tuple[datetime, set[str]]]:
+    """Returns when each commit after one on the first-parent line of a ref was made,
+    and the files it changed. A merge changes no files."""
+    out = git(
+        *("log", "--first-parent", "--diff-merges=off", "--name-only"),
+        *("--format=%x00%cI", ref, f"^{commit}"),
+    )
+    later: list[tuple[datetime, set[str]]] = []
+    for chunk in out.split("\0")[1:]:
+        date, *files = chunk.splitlines()
+        later.append((datetime.fromisoformat(date), {f for f in files if f}))
+    return later
+
+
+def _pull(
+    gh: GH, git: Git, repo: str, pr: int, heads: dict[str, dict[str, Any]]
+) -> list[Pair]:
+    ref = f"refs/review/{pr}"
+    line = set(git("rev-list", "--first-parent", ref).split())
+    later: dict[str, list[tuple[datetime, set[str]]]] = {}
 
     def judge(t: Thread | None) -> str:
         if t is None:
             return OPEN
-        if t.commit not in changed:
-            files = gh(
-                "api",
-                f"repos/{repo}/compare/{t.commit}...{final}",
-                "--jq",
-                ".files[].filename",
-            )
-            changed[t.commit] = set(files.splitlines())
-        return verdict(t, changed[t.commit])
+        if t.commit not in line:
+            return verdict(t, None)
+        if t.commit not in later:
+            later[t.commit] = _later(git, ref, t.commit)
+        cutoff = t.last_reply
+        touched = {
+            f
+            for at, files in later[t.commit]
+            if cutoff is None or at <= cutoff
+            for f in files
+        }
+        return verdict(t, touched)
 
-    reviews = greptile_reviews(data["userContentEdits"]["nodes"])
-    ts = threads(data["reviewThreads"]["nodes"])
+    reviews = greptile_reviews(_nodes(gh, repo, pr, EDITS, "userContentEdits"))
+    ts = threads(_nodes(gh, repo, pr, THREADS, "reviewThreads"))
     by_id = {t.id: t for t in ts}
-    ours = {(t.path, t.title): t for t in ts if t.bot == SEDOSAUR}
+    # Sedosaur opens a new thread for a finding only once its last one is resolved, so
+    # each review's finding belongs to the newest thread for it as of that review.
+    mine = sorted((t for t in ts if t.bot == SEDOSAUR), key=lambda t: t.id)
+    ours = {(t.path, t.title): t for t in mine if t.commit not in heads}
     out: list[Pair] = []
     for head, rec in heads.items():
+        ours |= {(t.path, t.title): t for t in mine if t.commit == head}
         if head not in reviews:
             continue
         score, found = reviews[head]
@@ -337,85 +411,123 @@ def _where(i: Item) -> str:
     return f"`{i.path}:{i.line}`" if i.path else "outside the diff"
 
 
+def _verdicts(items: list[Item]) -> tuple[int, int, int]:
+    return (
+        sum(i.verdict == REAL for i in items),
+        sum(i.verdict == NOISE for i in items),
+        sum(i.verdict == OPEN for i in items),
+    )
+
+
+@dataclass(frozen=True, kw_only=True)
+class _Tally:
+    reviews: int
+    greptile: tuple[int, int, int]
+    """Real, noise, and open findings."""
+    sedosaur: tuple[int, int, int]
+    """Real, noise, and open findings."""
+    found: int
+    """Real Greptile findings that Sedosaur also found."""
+    missed: list[tuple[Pair, Item]]
+    only: list[tuple[Pair, Item]]
+    """Real Sedosaur findings that Greptile did not find."""
+    equal: int
+    higher: int
+    cost_usd: float
+    duration_ms: int
+
+    @classmethod
+    def of(cls, ps: list[Pair]) -> "_Tally":
+        return cls(
+            reviews=len(ps),
+            greptile=_verdicts([i for p in ps for i in p.greptile]),
+            sedosaur=_verdicts([i for p in ps for i in p.sedosaur]),
+            found=sum(p.greptile[i].verdict == REAL for p in ps for i, _ in p.matches),
+            missed=[
+                (p, x)
+                for p in ps
+                for i, x in enumerate(p.greptile)
+                if x.verdict == REAL and i not in {m for m, _ in p.matches}
+            ],
+            only=[
+                (p, x)
+                for p in ps
+                for j, x in enumerate(p.sedosaur)
+                if x.verdict == REAL and j not in {m for _, m in p.matches}
+            ],
+            equal=sum(p.scores[0] == p.scores[1] for p in ps),
+            higher=sum(p.scores[1] > p.scores[0] for p in ps),
+            cost_usd=sum(p.cost_usd for p in ps),
+            duration_ms=sum(p.duration_ms for p in ps),
+        )
+
+    @property
+    def precision(self) -> str:
+        real, noise, _ = self.sedosaur
+        return _share(real, real + noise)
+
+    @property
+    def coverage(self) -> str:
+        return _share(self.found, self.greptile[0])
+
+
 def report(ps: list[Pair], *, since: datetime) -> str:
     """Renders the comparison of the paired reviews as Markdown."""
     lines = [f"## Sedosaur trial since {since:%Y-%m-%d %H:%M} UTC", ""]
     if not ps:
         return "\n".join([*lines, "No commit has a review from both yet."])
-    g = [i for p in ps for i in p.greptile]
-    s = [i for p in ps for i in p.sedosaur]
-    g_matched = [i for p in ps for i, _ in p.matches if p.greptile[i].verdict == REAL]
-    missed = [
-        (p, x)
-        for p in ps
-        for i, x in enumerate(p.greptile)
-        if x.verdict == REAL and i not in {m for m, _ in p.matches}
-    ]
-    only = [
-        (p, x)
-        for p in ps
-        for j, x in enumerate(p.sedosaur)
-        if x.verdict == REAL and j not in {m for _, m in p.matches}
-    ]
-    agree = sum(p.scores[0] == p.scores[1] for p in ps)
-    higher = sum(p.scores[1] > p.scores[0] for p in ps)
-
-    def counts(items: list[Item]) -> list[int]:
-        return [sum(i.verdict == v for i in items) for v in (REAL, NOISE, OPEN)]
-
-    (gr, gn, go), (sr, sn, so) = counts(g), counts(s)
+    t = _Tally.of(ps)
+    (gr, gn, go), (sr, sn, so) = t.greptile, t.sedosaur
     prs = _count(len({p.pr for p in ps}), "pull request")
     lines += [
         f"{_count(len(ps), 'commit')} on {prs} have a review from both.",
         "",
         "| | Greptile | Sedosaur |",
         "| --- | --- | --- |",
-        f"| Findings | {len(g)} | {len(s)} |",
+        f"| Findings | {gr + gn + go} | {sr + sn + so} |",
         f"| Real | {gr} | {sr} |",
         f"| Noise | {gn} | {sn} |",
         f"| Open | {go} | {so} |",
-        f"| Precision | {_share(gr, gr + gn)} | {_share(sr, sr + sn)} |",
+        f"| Precision | {_share(gr, gr + gn)} | {t.precision} |",
         "",
-        f"- **Scores:** equal on {_share(agree, len(ps))}. Sedosaur was higher on "
-        f"{higher} and lower on {len(ps) - agree - higher}.",
-        f"- **Coverage:** Sedosaur found {_share(len(g_matched), gr)} real Greptile "
-        "findings."
+        f"- **Scores:** equal on {_share(t.equal, len(ps))}. Sedosaur was higher on "
+        f"{t.higher} and lower on {len(ps) - t.equal - t.higher}.",
+        f"- **Coverage:** Sedosaur found {t.coverage} real Greptile findings."
         if gr
         else "- **Coverage:** no real Greptile findings yet.",
-        f"- **Only Sedosaur:** {_count(len(only), 'real finding')}.",
-        f"- **Cost:** ${sum(p.cost_usd for p in ps):.2f} for "
-        f"{_count(len(ps), 'review')}, "
-        f"{sum(p.duration_ms for p in ps) / len(ps) / 1000:.0f} s each on average.",
+        f"- **Only Sedosaur:** {_count(len(t.only), 'real finding')}.",
+        f"- **Cost:** ${t.cost_usd:.2f} for {_count(len(ps), 'review')}, "
+        f"{t.duration_ms / len(ps) / 1000:.0f} s each on average.",
         "",
         "### Real Greptile findings Sedosaur missed",
         "",
         *(
-            [f"- {x.severity} **{x.title}** {_where(x)} (#{p.pr})" for p, x in missed]
+            [f"- {x.severity} **{x.title}** {_where(x)} (#{p.pr})" for p, x in t.missed]
             or ["None."]
         ),
         "",
         "### Real findings only Sedosaur found",
         "",
         *(
-            [f"- {x.severity} **{x.title}** {_where(x)} (#{p.pr})" for p, x in only]
+            [f"- {x.severity} **{x.title}** {_where(x)} (#{p.pr})" for p, x in t.only]
             or ["None."]
         ),
         "",
         "### By policy",
         "",
-        "| Policy | Reviews | Equal scores | Coverage |",
-        "| --- | --- | --- | --- |",
+        "| Policy | Reviews | Precision | Coverage | Only Sedosaur | Equal scores "
+        "| Cost per review |",
+        "| --- | --- | --- | --- | --- | --- | --- |",
     ]
     by_policy: dict[str, list[Pair]] = defaultdict(list)
     for p in ps:
         by_policy[p.policy].append(p)
     for policy, group in by_policy.items():
-        real = sum(x.verdict == REAL for p in group for x in p.greptile)
-        found = sum(p.greptile[i].verdict == REAL for p in group for i, _ in p.matches)
-        same = sum(p.scores[0] == p.scores[1] for p in group)
+        g = _Tally.of(group)
         lines.append(
-            f"| `{policy[:10]}` | {len(group)} | {_share(same, len(group))} "
-            f"| {_share(found, real)} |"
+            f"| `{policy[:10]}` | {g.reviews} | {g.precision} | {g.coverage} "
+            f"| {len(g.only)} | {_share(g.equal, g.reviews)} "
+            f"| ${g.cost_usd / g.reviews:.2f} |"
         )
     lines += [
         "",

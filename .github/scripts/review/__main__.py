@@ -21,8 +21,8 @@ variable that reaches Claude Code.
 
 `run` writes a record of the review: the pull request, the commits, the policy commit,
 the usage, and the review. `post` posts the review in a record. `compare` takes only
-GH_TOKEN and GITHUB_REPOSITORY, and prints a Markdown comparison of the records of the
-last days with Greptile's reviews of the same commits.
+GH_TOKEN and GITHUB_REPOSITORY, runs in a clone with full history, and prints a Markdown
+comparison of the records of the last days with Greptile's reviews of the same commits.
 """
 
 import dataclasses
@@ -116,7 +116,7 @@ def main(argv: list[str]) -> None:
         since = datetime.now(UTC) - timedelta(days=int(argv[1]))
         repo = env["GITHUB_REPOSITORY"]
         recs = compare.records(gh, repo, since)
-        print(compare.report(compare.pairs(gh, repo, recs), since=since))
+        print(compare.report(compare.pairs(gh, compare.git, repo, recs), since=since))
         return
     target = Target(
         repo=env["GITHUB_REPOSITORY"],
