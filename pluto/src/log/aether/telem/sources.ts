@@ -193,7 +193,10 @@ export class StreamMultiChannelLog
     return { data: this.entries, status };
   }
 
-  /** Channels that stay keep their entries and samples, so none show twice. */
+  /**
+   * Channels that stay keep their entries and samples while the log is live, so none
+   * show twice. A log that is not live returns to the newest samples.
+   */
   setChannels(channels: channel.Key[]): void {
     if (compare.primitiveArrays(this._channels, channels) === compare.EQUAL) return;
     this._channels = channels;
