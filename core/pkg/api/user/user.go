@@ -116,8 +116,8 @@ type (
 )
 
 // Create registers the new users with the provided credentials. If successful, Create
-// returns a slice of the new users. Creating a user with roles also requires update
-// access on users.
+// returns a slice of the new users. Creating a user with roles also requires update on
+// users and on each of the roles.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -132,12 +132,18 @@ func (s *Service) Create(
 	}); err != nil {
 		return CreateResponse{}, err
 	}
-	hasRoles := func(u NewUser) bool { return len(u.Roles) > 0 }
-	if slices.ContainsFunc(req.Users, hasRoles) {
+	var roles []role.Key
+	for _, u := range req.Users {
+		roles = append(roles, u.Roles...)
+	}
+	if len(roles) > 0 {
 		if err := enforcer.Enforce(ctx, access.Request{
 			Subject: subject,
 			Action:  access.ActionUpdate,
-			Objects: []resource.ID{{Type: resource.TypeUser}},
+			Objects: append(
+				[]resource.ID{{Type: resource.TypeUser}},
+				role.ResourceIDs(roles)...,
+			),
 		}); err != nil {
 			return CreateResponse{}, err
 		}

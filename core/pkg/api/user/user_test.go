@@ -399,6 +399,39 @@ var _ = Describe("Service", func() {
 				})).Error().To(MatchError(access.ErrDenied))
 			},
 		)
+		It(
+			"Should deny giving a new user a role the subject cannot update",
+			func(ctx SpecContext) {
+				fctx, u := nonRootCtx(ctx)
+				grantOnUsers(ctx, u, access.ActionCreate)
+				grantOnUsers(ctx, u, access.ActionUpdate)
+				r := createRole(ctx)
+				Expect(apiSvc.Create(fctx, db, apiuser.CreateRequest{
+					Users: []apiuser.NewUser{{
+						Username: uuid.New().String(),
+						Password: "p",
+						Roles:    []role.Key{r},
+					}},
+				})).Error().To(beDeniedUpdateOn(r))
+			},
+		)
+		It(
+			"Should give a new user a role the subject can update",
+			func(ctx SpecContext) {
+				fctx, u := nonRootCtx(ctx)
+				grantOnUsers(ctx, u, access.ActionCreate)
+				r := createRole(ctx)
+				grantRoleChange(ctx, u, r)
+				res := MustSucceed(apiSvc.Create(fctx, db, apiuser.CreateRequest{
+					Users: []apiuser.NewUser{{
+						Username: uuid.New().String(),
+						Password: "p",
+						Roles:    []role.Key{r},
+					}},
+				}))
+				Expect(rolesOf(ctx, res.Users[0].Key)).To(Equal([]role.Key{r}))
+			},
+		)
 		It("Should remove and add roles on users", func(ctx SpecContext) {
 			b := rbacSvc.Builtin
 			u := createUser(ctx, "set-roles-"+uuid.New().String())
