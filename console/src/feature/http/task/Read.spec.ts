@@ -393,11 +393,18 @@ describe("Read", () => {
         await waitFor(() => expect(input).toHaveProperty("value", "off"));
       });
 
-      it("should take a number when the channel is a numeric channel", async () => {
-        const ch = await createChannel(DataType.INT32);
+      it("should show NaN when the channel is a float channel", async () => {
+        const ch = await createChannel(DataType.FLOAT32);
         await renderField({ optional: true, channel: ch.key, dataType: "string" });
         await screen.findByPlaceholderText("NaN");
         expect(screen.queryByPlaceholderText("Required")).toBeNull();
+      });
+
+      it("should require a fill value when the channel is not a float", async () => {
+        const ch = await createChannel(DataType.INT32);
+        await renderField({ optional: true, channel: ch.key, dataType: "float64" });
+        await screen.findByPlaceholderText("Required");
+        expect(screen.queryByPlaceholderText("NaN")).toBeNull();
       });
 
       it("should show a string fill value on a numeric channel", async () => {

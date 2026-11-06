@@ -106,7 +106,8 @@ const FillValueField: FC<FillValueFieldProps> = ({
     key === 0 ? null : { key },
   );
   const { set } = PForm.useContext();
-  const isString = DataType.STRING.equals(channelDataType ?? dataType);
+  const resolved = new DataType(channelDataType ?? dataType);
+  const isString = resolved.equals(DataType.STRING);
   const text = formatFillValue(value);
   const handleChange = (next: string) => {
     // A blur reports unedited text too, which must not retype the stored value.
@@ -120,7 +121,7 @@ const FillValueField: FC<FillValueFieldProps> = ({
         value={text}
         onChange={handleChange}
         onlyChangeOnBlur
-        placeholder={isString ? "Required" : "NaN"}
+        placeholder={resolved.isFloat ? "NaN" : "Required"}
         className={CSS.B("fill-value")}
       />
     </Input.Item>
