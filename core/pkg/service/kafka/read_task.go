@@ -90,7 +90,7 @@ type readTask struct {
 	// status is the authority on this instance's current status.
 	status *driver.StatusHandler
 	groups map[string]*readGroup
-	// writer writes every group's channels, nil while stopped.
+	// writer writes every group's channels, nil once the consumer exits.
 	writer *framer.Writer
 	// client is the consumer, nil while stopped.
 	client *kgo.Client
@@ -366,7 +366,12 @@ func (t *readTask) start(ctx context.Context, cmdKey string) error {
 	}
 	t.setStatus(ctx, cmdKey, status.VariantSuccess, true, "Started task", "")
 	// The consumer writes statuses too, so it starts after this one to not be replaced.
-	t.sCtx.Go(t.consume, signal.RecoverWithErrOnPanic(), signal.CancelOnFail())
+	t.sCtx.Go(
+		t.consume,
+		signal.RecoverWithErrOnPanic(),
+		signal.CancelOnFail(),
+		signal.DeferErr(t.closeWriter),
+	)
 	return nil
 }
 
@@ -469,8 +474,11 @@ func (t *readTask) open(ctx context.Context) (err error) {
 	sCtx, cancel := signal.Isolated(
 		signal.WithInstrumentation(t.factoryCfg.Instrumentation),
 	)
-	// The writer outlives the start command, so it opens in the consumer's context.
-	if t.writer, err = t.openWriter(sCtx); err != nil {
+	// The writer outlives the start command and sCtx: a stop cancels sCtx, and the
+	// consumer must finish its write. The consumer closes it on exit.
+	wCtx, cancelWriter := context.WithCancel(context.Background())
+	if t.writer, err = t.openWriter(wCtx); err != nil {
+		cancelWriter()
 		cancel()
 		return err
 	}
@@ -479,9 +487,17 @@ func (t *readTask) open(ctx context.Context) (err error) {
 	t.failed.Store(false)
 	t.skips = driver.NewSkips("record")
 	t.disconnected = false
+	stopConsumer := signal.NewHardShutdown(sCtx, cancel)
 	t.closer = xio.MultiCloser{
 		xio.CloserFunc(t.closeClient),
-		signal.NewHardShutdown(sCtx, cancel),
+		xio.CloserFunc(func() error {
+			defer cancelWriter()
+			defer time.AfterFunc(
+				t.factoryCfg.StopTimeout.Duration(),
+				cancelWriter,
+			).Stop()
+			return stopConsumer.Close()
+		}),
 	}
 	return nil
 }
@@ -514,7 +530,15 @@ func (t *readTask) checkCommitted(ctx context.Context, cl *kgo.Client) error {
 	return nil
 }
 
-// closeClient commits the marked offsets, closes the consumer, and closes the writers.
+// closeWriter releases the task's channels. It runs as the consumer exits, for any
+// reason, once no write is in progress.
+func (t *readTask) closeWriter() error {
+	err := t.writer.Close()
+	t.writer = nil
+	return err
+}
+
+// closeClient commits the marked offsets and closes the consumer.
 func (t *readTask) closeClient() (err error) {
 	ctx, cancel := context.WithTimeout(
 		context.Background(), t.factoryCfg.PingTimeout.Duration(),
@@ -522,8 +546,6 @@ func (t *readTask) closeClient() (err error) {
 	defer cancel()
 	err = t.client.CommitMarkedOffsets(ctx)
 	t.client.Close()
-	err = errors.Join(err, t.writer.Close())
-	t.writer = nil
 	return err
 }
 

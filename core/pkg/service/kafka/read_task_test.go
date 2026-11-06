@@ -30,6 +30,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/errors"
+	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -333,6 +335,134 @@ var _ = Describe("Read task", func() {
 		},
 	)
 
+	// holdWrite holds the first write to fs until release is called or the spec ends.
+	// The returned channel closes once that write is held.
+	holdWrite := func(fs *FaultyFS) (<-chan struct{}, func()) {
+		GinkgoHelper()
+		var (
+			writing = make(chan struct{})
+			resume  = make(chan struct{})
+			hold    = sync.OnceFunc(func() {
+				GinkgoHelper()
+				defer GinkgoRecover()
+				close(writing)
+				Eventually(resume).WithTimeout(40 * time.Second).Should(BeClosed())
+			})
+			release = sync.OnceFunc(func() { close(resume) })
+		)
+		fs.SetOptions(WithBeforeWrite(hold))
+		DeferCleanup(func() { fs.SetOptions() })
+		DeferCleanup(release)
+		return writing, release
+	}
+
+	It("Should give up on a peer that never answers when the task stops",
+		func(ctx SpecContext) {
+			f = newFactory(kafka.FactoryConfig{
+				StopTimeout: 100 * telem.Millisecond,
+			})
+			index := channel.Channel{
+				Name:        "idx_" + uuid.New().String()[:8],
+				DataType:    telem.TimestampT,
+				IsIndex:     true,
+				Leaseholder: peerKey,
+			}
+			Expect(channelSvc.NewWriter(nil).Create(ctx, &index)).To(Succeed())
+			data := channel.Channel{
+				Name:        "data_" + uuid.New().String()[:8],
+				DataType:    telem.Float64T,
+				LocalIndex:  index.LocalKey,
+				Leaseholder: peerKey,
+			}
+			Expect(channelSvc.NewWriter(nil).Create(ctx, &data)).To(Succeed())
+			Eventually(func() []channel.Channel {
+				var found []channel.Channel
+				if err := channelSvc.NewRetrieve().
+					Where(channel.MatchKeys(index.Key(), data.Key())).
+					Entries(&found).
+					Exec(ctx, nil); err != nil {
+					return nil
+				}
+				return found
+			}).WithTimeout(5 * time.Second).Should(HaveLen(2))
+			dev := createDevice(ctx, clusterProperties())
+			topic := newTopic()
+			group := "group-" + topic
+			dt, t := configure(ctx, kafka.ReadConfig{
+				Device:  dev.Key,
+				Topic:   topic,
+				Group:   group,
+				Records: single(stampedFields(index, data)),
+			})
+			offset := func() int64 {
+				GinkgoHelper()
+				res := MustSucceed(kadm.NewClient(producer).
+					FetchOffsetsForTopics(ctx, group, topic))
+				return MustBeOk(res.Lookup(topic, 0)).At
+			}
+			start(ctx, dt, t)
+			writing, release := holdWrite(peerFS)
+			produceJSON(ctx, producer, topic, "", map[string]any{"ts": 10e9, "v": 2.5})
+			Eventually(writing).WithTimeout(15 * time.Second).Should(BeClosed())
+			stopped := make(chan error, 1)
+			go func() { stopped <- dt.Stop(false) }()
+			Eventually(stopped).WithTimeout(5 * time.Second).Should(
+				Receive(MatchError(ContainSubstring("writer closed"))),
+			)
+			Expect(offset()).To(BeNumerically("<", 0))
+			release()
+			// The peer holds its control region until its held write ends.
+			Eventually(func() error {
+				w, err := framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:              channel.Keys{index.Key(), data.Key()},
+					Start:             telem.Now(),
+					ErrOnUnauthorized: new(true),
+					Sync:              new(true),
+				})
+				if err != nil {
+					return err
+				}
+				_, err = w.Commit()
+				return errors.Combine(err, w.Close())
+			}).WithTimeout(15 * time.Second).Should(Succeed())
+			start(ctx, dt, t)
+			Eventually(offset).WithTimeout(15 * time.Second).Should(Equal(int64(1)))
+			Expect(floats(stored(ctx, data.Key()))).To(Equal([]float64{2.5}))
+		},
+	)
+
+	It(
+		"Should finish the write in progress when the task stops",
+		func(ctx SpecContext) {
+			index, data := createIndexed(ctx, telem.Float64T)
+			dev := createDevice(ctx, clusterProperties())
+			topic := newTopic()
+			group := "group-" + topic
+			dt, t := configure(ctx, kafka.ReadConfig{
+				Device:  dev.Key,
+				Topic:   topic,
+				Group:   group,
+				Records: single(stampedFields(index, data)),
+			})
+			start(ctx, dt, t)
+			writing, release := holdWrite(faultyFS)
+			produceJSON(ctx, producer, topic, "", map[string]any{"ts": 10e9, "v": 2.5})
+			Eventually(writing).WithTimeout(15 * time.Second).Should(BeClosed())
+			stopped := make(chan error, 1)
+			go func() { stopped <- dt.Stop(false) }()
+			Consistently(
+				stopped,
+			).WithTimeout(100 * time.Millisecond).
+				ShouldNot(Receive())
+			release()
+			Eventually(stopped).WithTimeout(15 * time.Second).Should(Receive(Succeed()))
+			Expect(floats(stored(ctx, data.Key()))).To(Equal([]float64{2.5}))
+			res := MustSucceed(kadm.NewClient(producer).
+				FetchOffsetsForTopics(ctx, group, topic))
+			Expect(MustBeOk(res.Lookup(topic, 0)).At).To(Equal(int64(1)))
+		},
+	)
+
 	It("Should skip a record stamped at or before the last written timestamp",
 		func(ctx SpecContext) {
 			index, data := createIndexed(ctx, telem.Float64T)
@@ -508,6 +638,36 @@ var _ = Describe("Read task", func() {
 			Expect(stat.Details.Running).To(BeTrue())
 			produceJSON(ctx, producer, topic, "", map[string]any{"ts": 30e9, "v": 3.0})
 			Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{3}))
+		},
+		Entry("failed fetch", failFetch),
+		Entry("failed write", failWrite),
+	)
+
+	DescribeTable("Should release its channels when the consumer fails",
+		func(ctx SpecContext, fail func(context.Context, string)) {
+			index, data := createIndexed(ctx, telem.Float64T)
+			dev := createDevice(ctx, clusterProperties())
+			topic := newTopic()
+			dt, t := configure(ctx, kafka.ReadConfig{
+				Device:  dev.Key,
+				Topic:   topic,
+				Records: single(stampedFields(index, data)),
+			})
+			start(ctx, dt, t)
+			fail(ctx, topic)
+			Eventually(func() error {
+				w, err := framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:              channel.Keys{index.Key(), data.Key()},
+					Start:             telem.Now(),
+					ErrOnUnauthorized: new(true),
+				})
+				if err != nil {
+					return err
+				}
+				return w.Close()
+			}).WithTimeout(15 * time.Second).Should(Succeed())
+			dropRecords(ctx, topic)
+			start(ctx, dt, t)
 		},
 		Entry("failed fetch", failFetch),
 		Entry("failed write", failWrite),
