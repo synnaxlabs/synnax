@@ -459,6 +459,20 @@ TEST_F(EtherCATScanStatusTest, DisabledSlaveIsNotRediscovered) {
     EXPECT_EQ(this->master->call_count("deactivate"), 0);
 }
 
+/// @brief it should keep the chosen mode of a slave when a scan finds the slave again.
+TEST_F(EtherCATScanStatusTest, KeepsTheChosenModeOnARescan) {
+    auto dev = ASSERT_NIL_P(this->scanner->scan({.count = 0})).at(0);
+    const dc::Choice choice{.index = 1, .assign_activate = 0x0700};
+    dev.properties["op_mode"] = choice.to_json();
+    const std::unordered_map<std::string, synnax::device::Device> devices{
+        {dev.key, dev}
+    };
+    const auto rescanned = ASSERT_NIL_P(
+        this->scanner->scan({.count = 1, .devices = &devices})
+    );
+    EXPECT_EQ(rescanned.at(0).properties.at("op_mode"), choice.to_json());
+}
+
 /// @brief it should not discover the slaves again while every slave has its PDOs.
 TEST_F(EtherCATScanStatusTest, DiscoveredSlavesAreNotRediscovered) {
     for (size_t i = 0; i < 13; ++i)
@@ -615,6 +629,15 @@ TEST_F(EtherCATScanDeviceSetTest, PassesTheEnabledFlagToTheMaster) {
     this->scanner->on_device_set(dev);
     EXPECT_FALSE(this->master->slave_enabled(0));
     EXPECT_EQ(this->status(dev).message, "Device disabled");
+}
+
+/// @brief it should pass the chosen mode of a changed device to the master.
+TEST_F(EtherCATScanDeviceSetTest, PassesTheChosenModeToTheMaster) {
+    auto dev = this->create_slave(true);
+    const dc::Choice choice{.index = 1, .assign_activate = 0x0700};
+    dev.properties["op_mode"] = choice.to_json();
+    this->scanner->on_device_set(dev);
+    EXPECT_EQ(this->master->chosen_mode(0), choice);
 }
 
 /// @brief it should leave the master settings unchanged and report an error status

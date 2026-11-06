@@ -117,13 +117,20 @@ void Master::set_slave_config(const uint16_t position, slave::Config config) {
         this->disabled_slaves.erase(position);
     else
         this->disabled_slaves.insert(position);
+    if (config.op_mode)
+        this->chosen_modes[position] = *config.op_mode;
+    else
+        this->chosen_modes.erase(position);
 }
 
 void Master::replace_slave_configs(std::map<uint16_t, slave::Config> configs) {
     std::lock_guard lock(this->mu);
     this->disabled_slaves.clear();
-    for (auto &[position, config]: configs)
+    this->chosen_modes.clear();
+    for (auto &[position, config]: configs) {
         if (!config.enabled) this->disabled_slaves.insert(position);
+        if (config.op_mode) this->chosen_modes[position] = *config.op_mode;
+    }
 }
 
 x::errors::Error
@@ -142,6 +149,15 @@ Master::activate(x::telem::TimeSpan, const std::function<void()> &start_cycle) {
         {
             std::lock_guard lock(this->mu);
             if (this->disabled_slaves.contains(pos)) continue;
+            const auto choice = this->chosen_modes.find(pos);
+            if (choice != this->chosen_modes.end() &&
+                choice->second.assign_activate != 0)
+                return x::errors::Error(
+                    errors::SLAVE_CONFIG_ERROR,
+                    "slave " + std::to_string(pos) + " (" + slave.properties.name +
+                        ") cannot use its chosen mode: the IgH master does not run "
+                        "DC sync"
+                );
         }
         if (this->get_or_create_slave_config(pos) == nullptr)
             return x::errors::Error(

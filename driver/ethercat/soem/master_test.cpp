@@ -600,10 +600,12 @@ TEST_F(SOEMMasterTest, ActivateDCSyncRefusalAddsAdvice) {
         "failed to reach SAFE-OP: slave 1 (FirstSlave) is in PRE-OP: Invalid DC SYNC "
         "configuration; slave 2 (SecondSlave) is in PRE-OP: Invalid DC SYNC "
         "configuration. A slave that reports \"Invalid DC SYNC configuration\" "
-        "expects a synchronization mode that the Driver did not set up. The Driver "
-        "uses SM sync when a slave lists an SM mode, and DC sync when it lists only DC "
-        "modes. Set the slave to the mode that the Driver uses (in DewesoftX for "
-        "Dewesoft modules), or disable the slave so the rest of the bus can run."
+        "expects a synchronization mode that the Driver did not set up. Set the DC "
+        "mode of the slave in its device settings. With no setting, the Driver uses SM "
+        "sync when the slave lists an SM mode, and its first DC mode when it lists "
+        "only DC modes. If the slave does not list the mode it expects, change its "
+        "mode with the configuration tool of its vendor, or disable the slave so the "
+        "rest of the bus can run."
     );
 }
 
@@ -903,6 +905,42 @@ TEST_F(SOEMMasterTest, ActivateFailsWhenSYNC0EventsDoNotLineUpWithTheBusCycle) {
         "SYNC0 events do not line up with the bus cycle of 1ms: slave 1 (16xAO) every "
         "150us, slave 2 (16xLV) every 150us. Change the bus rate or the SYNC0 cycles "
         "so that a span of 100us or more divides the bus cycle and each SYNC0 cycle."
+    );
+    EXPECT_TRUE(this->mock->register_writes.empty());
+}
+
+/// @brief it should run the chosen DC mode of a slave that also lists an SM mode, with
+/// the chosen cycles.
+TEST_F(SOEMMasterTest, ActivateRunsTheChosenModeWithItsCycles) {
+    this->initialize_with_dc_slave({SM, DC_SECOND});
+    const dc::Choice choice{
+        .index = 1,
+        .assign_activate = 0x0700,
+        .cycles = {.sync1 = x::telem::SECOND * 2},
+    };
+    this->master->set_slave_config(1, {.op_mode = choice});
+    ASSERT_NIL(this->activate());
+    EXPECT_EQ(
+        this->master->dc_sync(),
+        std::vector{dc::resolve(DC_SECOND, PERIOD, choice.cycles).first}
+    );
+}
+
+/// @brief it should fail activation before it writes a DC register when the slave does
+/// not list its chosen mode, and list the modes it has.
+TEST_F(SOEMMasterTest, ActivateFailsWhenTheSlaveDoesNotListItsChosenMode) {
+    this->initialize_with_dc_slave({SM, DC_SECOND});
+    this->master->set_slave_config(
+        1,
+        {.op_mode = dc::Choice{.index = 2, .assign_activate = 0x0700}}
+    );
+    const auto err = this->activate();
+    ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "slave 1 (16xAO) cannot use its chosen mode: the slave does not list mode 2 "
+        "with AssignActivate 0x0700. It lists 0 \"SM-Synchron\" (AssignActivate "
+        "0x0000), 1 \"DC\" (AssignActivate 0x0700)."
     );
     EXPECT_TRUE(this->mock->register_writes.empty());
 }
