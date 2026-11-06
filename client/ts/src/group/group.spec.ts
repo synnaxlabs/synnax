@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, uuid } from "@synnaxlabs/x";
+import { destructor, id, uuid } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
 import { group } from "@/group";
@@ -210,6 +210,14 @@ describe("Group", () => {
         expect.objectContaining({ group: g.key }),
       );
       await sent;
+    });
+    it("should apply the cache writes again when the batch commits", async () => {
+      const g = await createTopLevel();
+      const apply = vi.fn(() => destructor.NOOP);
+      await client.batch.send([
+        { ...client.groups.renameRequest(g.key, "Renamed"), apply },
+      ]);
+      expect(apply).toHaveBeenCalledTimes(2);
     });
     it("should roll back the cache writes when the batch fails", async () => {
       const g = await createTopLevel();
