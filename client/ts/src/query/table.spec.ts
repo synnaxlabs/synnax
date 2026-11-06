@@ -1903,7 +1903,7 @@ describe("Tombstones", () => {
 
     it("should restore a key deleted before the stamp", () => {
       const table = newRevivable();
-      table.delete("k1");
+      table.mirrorDelete(["k1"]);
       table.ingest(fetched, { since: table.stamp() });
       expect(table.status("k1")).toBe("present");
       expect(table.get("k1")).toEqual(fetched);
@@ -2066,6 +2066,14 @@ describe("mirror", () => {
     table.mirrorDelete(["k1"]);
     table.mirrorSet("k1", { key: "k1", name: "b" });
     expect(table.get("k1")).toEqual({ key: "k1", name: "b" });
+  });
+
+  it("should skip a fetched value for a revivable key whose local delete is pending", () => {
+    const table = new query.Table<string, Doc>({ onError: noopError, revivable: true });
+    table.set("k1", { key: "k1", name: "a" });
+    table.delete("k1");
+    table.ingest("k1", { key: "k1", name: "a" }, { since: table.stamp() });
+    expect(table.status("k1")).toBe("tombstoned");
   });
 
   it("should apply a streamed set after the streamed delete", () => {

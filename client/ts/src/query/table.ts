@@ -403,7 +403,8 @@ export class Table<
    * one: "set" overwrites entries, "if-absent" leaves existing entries untouched. A
    * tombstoned key is skipped, as is a key written after the given stamp: the fetch may
    * predate the delete or the write, and only a {@link set} revives a deleted record.
-   * On a revivable table, a key deleted before the given stamp also revives.
+   * On a revivable table, a key deleted before the given stamp also revives, unless its
+   * local delete waits for its stream delete.
    * @returns A rollback that undoes the entries this call wrote.
    */
   ingest(
@@ -440,6 +441,7 @@ export class Table<
   }
 
   private ingestible(key: Key, since?: Stamp): boolean {
+    if (this.pendingDeletes.has(key)) return false;
     if (since != null && this.writtenSince(key, since)) return false;
     return !this.tombstones.has(key) || (this.revivable && since != null);
   }

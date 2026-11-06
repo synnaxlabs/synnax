@@ -524,6 +524,7 @@ export class Client extends query.Retriever<
 
   private async fetchAncestors({ ids, root }: AncestorRequest): Promise<string[]> {
     const table = this.cache.relationships;
+    const relationshipsStamp = table.stamp();
     const resourcesStamp = this.cache.resources.stamp();
     // A link written while the request is in flight is newer than the answer.
     const written = new Set<string>();
@@ -557,7 +558,7 @@ export class Client extends query.Retriever<
       .filter(({ type }) => type === PARENT_OF_RELATIONSHIP_TYPE)
       .map(relationshipToString)
       .filter((key) => !fetched.has(key) && !written.has(key));
-    if (stale.length > 0) table.delete(stale);
+    table.ingestDeletes(stale, relationshipsStamp);
     // The Core walks up from the IDs, so the reversed links reach the cache top down
     // and each one finds the path above it already cached.
     relationships
