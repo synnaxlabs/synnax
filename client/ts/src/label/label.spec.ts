@@ -10,6 +10,7 @@
 import { color, id, sleep, TimeSpan, uuid } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
+import { NotFoundError } from "@/errors";
 import { label } from "@/label";
 import { query } from "@/query";
 import {
@@ -71,9 +72,18 @@ describe("Label", () => {
       });
       expect(labels.map((l) => l.key)).toEqual([item.key]);
     });
-    it("should drop the keys that do not exist from a list retrieve", async () => {
+    it("should throw a NotFoundError for a missing key in a key list", async () => {
       const lbl = await client.labels.create({ name: "Label", color: "#E774D0" });
-      const labels = await client.labels.retrieve([lbl.key, uuid.create()]);
+      const missing = uuid.create();
+      await expect(client.labels.retrieve([lbl.key, missing])).rejects.toThrow(
+        new NotFoundError(`label with key ${missing} not found`),
+      );
+    });
+    it("should drop the keys that do not exist from a filter on keys", async () => {
+      const lbl = await client.labels.create({ name: "Label", color: "#E774D0" });
+      const labels = await client.labels.retrieve({
+        where: { key: { in: [lbl.key, uuid.create()] } },
+      });
       expect(labels.map((l) => l.key)).toEqual([lbl.key]);
     });
   });

@@ -176,7 +176,7 @@ describe("User", () => {
             await expect(client.users.delete(u.key as string)).resolves.toBeUndefined();
           await expect(
             client.users.retrieve(userArray.map((u) => u.key as string)),
-          ).resolves.toEqual([]);
+          ).rejects.toThrow(NotFoundError);
           const users = await client.users.create(userArray);
           users.forEach((u, i) => (userArray[i].key = u.key));
         });
@@ -274,7 +274,9 @@ describe("User", () => {
         client.users.delete(userArray.map((u) => u.key as string)),
       ).resolves.toBeUndefined();
       await expect(
-        client.users.retrieve(userArray.map((u) => u.key as string)),
+        client.users.retrieve({
+          where: { key: { in: userArray.map((u) => u.key as string) } },
+        }),
       ).resolves.toEqual([]);
     });
     test("one that doesn't exist", async () => {
