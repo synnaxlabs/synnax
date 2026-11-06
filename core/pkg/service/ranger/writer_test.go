@@ -11,6 +11,8 @@ package ranger_test
 
 import (
 	"context"
+	"fmt"
+	"sync"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -529,4 +531,57 @@ var _ = Describe("Writer broadcasts", func() {
 		Expect(uncommitted.Close()).To(Succeed())
 		Expect(rec.Snapshot()).To(BeEmpty())
 	})
+})
+
+var _ = Describe("Writer with no transaction", func() {
+	It(
+		"Should keep the labels that adds write during concurrent creates",
+		func(ctx SpecContext) {
+			labels := make([]label.Key, 20)
+			for i := range labels {
+				l := label.Label{Name: fmt.Sprintf("Concurrent %d", i)}
+				Expect(labelSvc.NewWriter(nil).Create(ctx, &l)).To(Succeed())
+				labels[i] = l.Key
+			}
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(labelSvc.NewWriter(nil).Delete(ctx, labels...)).To(Succeed())
+			})
+			r := ranger.Range{
+				Name: "Concurrent",
+				TimeRange: telem.TimeRange{
+					Start: telem.TimeStamp(5 * telem.Second),
+					End:   telem.TimeStamp(10 * telem.Second),
+				},
+			}
+			Expect(svc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(svc.NewWriter(nil).Delete(ctx, r.Key)).To(Succeed())
+			})
+			var wg sync.WaitGroup
+			wg.Go(func() {
+				defer GinkgoRecover()
+				for range 100 {
+					update := r
+					Expect(svc.NewWriter(nil).Create(ctx, &update)).To(Succeed())
+				}
+			})
+			wg.Go(func() {
+				defer GinkgoRecover()
+				for _, l := range labels {
+					Expect(svc.NewWriter(nil).AddLabels(
+						ctx,
+						r.Key,
+						[]label.Key{l},
+					)).To(Succeed())
+				}
+			})
+			wg.Wait()
+			var stored ranger.Range
+			Expect(svc.NewRetrieve().
+				Where(ranger.MatchKeys(r.Key)).
+				Entry(&stored).
+				Exec(ctx, db)).To(Succeed())
+			Expect(stored.Labels).To(ConsistOf(labels))
+		},
+	)
 })

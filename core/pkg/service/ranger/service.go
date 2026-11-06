@@ -195,6 +195,7 @@ func (s *Service) Close() error { return s.closer.Close() }
 // execute all operations directly against the underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
+		svc:        s,
 		tx:         gorp.OverrideTx(s.cfg.DB, tx),
 		otgWriter:  s.cfg.Ontology.NewWriter(tx),
 		table:      s.table,

@@ -24,8 +24,10 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Writer is used to create ranges within the DB.
+// Writer is used to create ranges within the DB. A Writer with no transaction runs each
+// Create in a transaction of its own.
 type Writer struct {
+	svc        *Service
 	tx         gorp.Tx
 	otgWriter  ontology.Writer
 	table      *gorp.Table[Key, Range]
@@ -39,6 +41,20 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	return w
 }
 
+// inTx calls f with w, or with a Writer on a transaction of its own that keeps the
+// dispatch key of w when w has no transaction.
+func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
+	db, ok := w.tx.(*gorp.DB)
+	if !ok {
+		return f(w)
+	}
+	return db.WithTx(ctx, func(tx gorp.Tx) error {
+		bound := w.svc.NewWriter(tx)
+		bound.dispatcher = w.dispatcher
+		return f(bound)
+	})
+}
+
 // Create creates or updates the given range, assigning a new key when it has none. A
 // create stores the labels r carries. An update keeps the stored labels, which change
 // only through AddLabels, ReplaceLabels, and RemoveLabels, and keeps the stored parent
@@ -46,6 +62,10 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 // range or one of its descendants. On return, r holds what was stored. After the
 // transaction commits, Create broadcasts a create action that carries the stored range.
 func (w Writer) Create(ctx context.Context, r *Range) error {
+	return w.inTx(ctx, func(w Writer) error { return w.create(ctx, r) })
+}
+
+func (w Writer) create(ctx context.Context, r *Range) error {
 	if r.Key == uuid.Nil() {
 		r.Key = uuid.New()
 	}
