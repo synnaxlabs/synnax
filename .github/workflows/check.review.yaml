@@ -125,8 +125,14 @@ jobs:
           fi
           echo "$state: $description"
           RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-          .github/scripts/gh_api.sh "repos/${GITHUB_REPOSITORY}/statuses/${SHA}" \
+          REPO="repos/${GITHUB_REPOSITORY}"
+          .github/scripts/gh_api.sh "$REPO/statuses/${SHA}" \
             -f state="$state" \
             -f context="Review gate" \
             -f description="$description" \
-            -f target_url="$RUN_URL" > /dev/null
+            -f target_url="$RUN_URL" > /dev/null && exit 0
+          # GitHub can answer an error after the status lands.
+          posted=$(.github/scripts/gh_api.sh "$REPO/commits/${SHA}/status" \
+            --jq '.statuses[] | select(.context == "Review gate") | .state')
+          echo "posted status after the error: ${posted:-none}"
+          [ "$posted" = "$state" ]

@@ -152,18 +152,24 @@ func (r *renderer) renderStruct(t resolution.Type, f resolution.StructForm) {
 	for _, field := range f.Fields {
 		r.renderField(t.Name, "", field)
 	}
-	if r.opts.ExtraBodyBlocks != nil {
-		for _, block := range r.opts.ExtraBodyBlocks(t.Name) {
-			r.line("")
-			// Blocks splice verbatim; the caller's formatter pass re-indents.
-			for line := range strings.SplitSeq(block, "\n") {
-				r.line(strings.TrimRight(line, " \t"))
-			}
-		}
-	}
+	r.renderExtraBodyBlocks(t.Name)
 	r.renderDomains(t.Domains, r.extraTypeLines(t.Name))
 	r.indent--
 	r.line("}")
+}
+
+// renderExtraBodyBlocks splices the live-owned blocks of typeName into its body.
+func (r *renderer) renderExtraBodyBlocks(typeName string) {
+	if r.opts.ExtraBodyBlocks == nil {
+		return
+	}
+	for _, block := range r.opts.ExtraBodyBlocks(typeName) {
+		r.line("")
+		// Blocks splice verbatim; the caller's formatter pass re-indents.
+		for line := range strings.SplitSeq(block, "\n") {
+			r.line(strings.TrimRight(line, " \t"))
+		}
+	}
 }
 
 // renderFilter renders a filter definition from its lines, not from the struct it
@@ -282,6 +288,7 @@ func (r *renderer) renderUnion(t resolution.Type, f resolution.UnionForm) {
 	for _, v := range variants {
 		r.renderVariant(t.Name, v)
 	}
+	r.renderExtraBodyBlocks(t.Name)
 	r.renderDomains(t.Domains, r.extraTypeLines(t.Name))
 	r.indent--
 	r.line("}")

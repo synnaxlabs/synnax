@@ -30,10 +30,13 @@ std::pair<Rack, x::errors::Error> Client::retrieve(const Key key) const {
 
 std::pair<Rack, x::errors::Error>
 Client::retrieve(const Key key, const RetrieveOptions &options) const {
-    auto req = grpc::rack::RetrieveRequest();
-    req.add_keys(key);
-    req.set_include_status(options.include_status);
-    return this->retrieve(req, "key " + std::to_string(key));
+    return this->retrieve_one(
+        {
+            .where = Where{.key = x::filter::Set<Key>{.eq = key}},
+            .include_status = options.include_status,
+        },
+        "key " + std::to_string(key)
+    );
 }
 
 std::pair<Rack, x::errors::Error> Client::retrieve(const std::string &name) const {
@@ -42,23 +45,37 @@ std::pair<Rack, x::errors::Error> Client::retrieve(const std::string &name) cons
 
 std::pair<Rack, x::errors::Error>
 Client::retrieve(const std::string &name, const RetrieveOptions &options) const {
-    auto req = grpc::rack::RetrieveRequest();
-    req.add_names(name);
-    req.set_include_status(options.include_status);
-    return this->retrieve(req, "name " + name);
+    return this->retrieve_one(
+        {
+            .where = Where{.name = x::filter::String{.eq = name}},
+            .include_status = options.include_status,
+        },
+        "name " + name
+    );
+}
+
+std::pair<std::vector<Rack>, x::errors::Error>
+Client::retrieve(const RetrieveRequest &req) const {
+    auto [pb_req, pb_err] = req.to_proto();
+    if (pb_err) return {std::vector<Rack>(), pb_err};
+    grpc::rack::RetrieveRequest grpc_req;
+    *grpc_req.mutable_request() = pb_req;
+    auto [res, err] = rack_retrieve_client->send("/rack/retrieve", grpc_req);
+    if (err) return {std::vector<Rack>(), err};
+    auto [decoded, proto_err] = RetrieveResponse::from_proto(res);
+    if (proto_err) return {std::vector<Rack>(), proto_err};
+    for (auto &rack: decoded.racks)
+        rack.tasks = this->tasks.scope_to_rack(rack.key);
+    return {std::move(decoded.racks), x::errors::NIL};
 }
 
 std::pair<Rack, x::errors::Error>
-Client::retrieve(grpc::rack::RetrieveRequest &req, const std::string &query) const {
-    auto [res, err] = rack_retrieve_client->send("/rack/retrieve", req);
+Client::retrieve_one(const RetrieveRequest &req, const std::string &query) const {
+    auto [racks, err] = this->retrieve(req);
     if (err) return {Rack{}, err};
-    if (res.racks_size() == 0) return {Rack{}, errors::not_found_error("Rack", query)};
-    if (res.racks_size() > 1)
-        return {Rack{}, errors::multiple_found_error("racks", query)};
-    auto [rack, proto_err] = Rack::from_proto(res.racks(0));
-    if (proto_err) return {Rack{}, proto_err};
-    rack.tasks = this->tasks.scope_to_rack(rack.key);
-    return {rack, x::errors::NIL};
+    if (racks.empty()) return {Rack{}, errors::not_found_error("Rack", query)};
+    if (racks.size() > 1) return {Rack{}, errors::multiple_found_error("racks", query)};
+    return {std::move(racks[0]), x::errors::NIL};
 }
 
 x::errors::Error Client::create(Rack &rack) const {

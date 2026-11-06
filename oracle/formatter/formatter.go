@@ -1600,7 +1600,8 @@ func (f *formatter) formatUnionDef(ctx parser.IUnionDefContext) {
 }
 
 func isEmptyUnionBody(ctx parser.IUnionBodyContext) bool {
-	return ctx == nil || (len(ctx.AllUnionVariant()) == 0 && len(ctx.AllDomain()) == 0)
+	return ctx == nil || (len(ctx.AllUnionVariant()) == 0 &&
+		len(ctx.AllActionDef()) == 0 && len(ctx.AllDomain()) == 0)
 }
 
 func (f *formatter) formatUnionBody(ctx parser.IUnionBodyContext) {
@@ -1621,7 +1622,19 @@ func (f *formatter) formatUnionBody(ctx parser.IUnionBodyContext) {
 		f.formatUnionVariant(v, maxNameLen)
 	}
 
-	if len(variants) > 0 && len(domains) > 0 {
+	actions := ctx.AllActionDef()
+	if len(variants) > 0 && len(actions) > 0 {
+		f.newline()
+	}
+	for i, action := range actions {
+		f.emitCommentsBefore(action.GetStart().GetTokenIndex())
+		f.formatActionDef(action)
+		if i < len(actions)-1 {
+			f.newline()
+		}
+	}
+
+	if (len(variants) > 0 || len(actions) > 0) && len(domains) > 0 {
 		f.newline()
 	}
 	f.formatDomains(domains)

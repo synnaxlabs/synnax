@@ -9,6 +9,7 @@
 
 import "schemas/synnax/access"
 import "schemas/synnax/ontology"
+import "schemas/x/filter"
 
 @go output "core/pkg/service/access/rbac/policy"
 @py output "client/py/synnax/access/policy"
@@ -50,4 +51,17 @@ Policy struct {
     @go migrate
     @ontology type   "policy"
     @retrieve custom
+}
+
+Where filter Policy {
+    key
+    internal
+    subjects ontology.ID[] {
+        @doc value """
+            matches the policies of the roles that any of the given subjects hold.
+        """
+    }
+
+    @doc value         "is a filter that selects policies."
+    @go request_output "core/pkg/api/access/policy"
 }

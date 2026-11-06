@@ -108,6 +108,7 @@ const createTables = (
 
   const aliases = cache.createTable<string, alias.Alias>({
     name: "range_aliases",
+    revivable: true,
     listen: [
       query.createSetListener(alias.SET_CHANNEL_NAME, alias.aliasZ, {
         key: (changed) => alias.createKey(changed),
@@ -234,7 +235,7 @@ export class Range {
   }
 
   async retrieveLabels(): Promise<label.Label[]> {
-    return await this.labelClient.retrieve({ for: ontologyID(this.key) });
+    return await this.labelClient.retrieve({ where: { for: ontologyID(this.key) } });
   }
 
   async addLabel(...labels: label.Key[]): Promise<void> {
