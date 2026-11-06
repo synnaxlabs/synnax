@@ -11,8 +11,10 @@
 
 #include <cstdint>
 #include <cstring>
+#include <functional>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "x/cpp/errors/errors.h"
@@ -112,6 +114,27 @@ public:
         void *p,
         int timeout
     ) = 0;
+
+    /// @brief writes to a slave object dictionary via SDO, returning a positive working
+    /// counter on success.
+    virtual int SDOwrite(
+        uint16_t slave,
+        uint16_t index,
+        uint8_t subindex,
+        bool ca,
+        int psize,
+        const void *p,
+        int timeout
+    ) = 0;
+
+    /// @brief moves the oldest entry of the SOEM error list into err, returning false
+    /// when the list is empty.
+    virtual bool poperror(ec_errort &err) = 0;
+
+    /// @brief makes SOEM call config in PRE-OP each time it maps the slave on the way
+    /// to SAFE-OP, including reconfiguration after a fault. Passing nullptr removes it.
+    virtual void
+    set_PO2SOconfig(uint16_t slave, std::function<void(uint16_t)> config) = 0;
 
     /// @brief finds SII category offset.
     virtual int16_t siifind(uint16_t slave, uint16_t cat) = 0;
@@ -218,6 +241,12 @@ public:
 /// @brief production implementation of soem::API wrapping ecx_contextt.
 class ProdAPI final : public API {
     ecx_contextt context{};
+    std::unordered_map<uint16_t, std::function<void(uint16_t)>> po2so_configs;
+
+    static int run_PO2SOconfig(ecx_contextt *context, const uint16 slave) {
+        static_cast<ProdAPI *>(context->userdata)->po2so_configs.at(slave)(slave);
+        return 1;
+    }
 
 public:
     ProdAPI() { std::memset(&this->context, 0, sizeof(this->context)); }
@@ -315,6 +344,43 @@ public:
             p,
             timeout
         );
+    }
+
+    int SDOwrite(
+        uint16_t slave,
+        uint16_t index,
+        uint8_t subindex,
+        bool ca,
+        int psize,
+        const void *p,
+        int timeout
+    ) override {
+        return ecx_SDOwrite(
+            &this->context,
+            slave,
+            index,
+            subindex,
+            ca,
+            psize,
+            p,
+            timeout
+        );
+    }
+
+    bool poperror(ec_errort &err) override {
+        return ecx_poperror(&this->context, &err) != 0;
+    }
+
+    void
+    set_PO2SOconfig(uint16_t slave, std::function<void(uint16_t)> config) override {
+        this->context.userdata = this;
+        if (config == nullptr) {
+            this->po2so_configs.erase(slave);
+            this->context.slavelist[slave].PO2SOconfig = nullptr;
+            return;
+        }
+        this->po2so_configs[slave] = std::move(config);
+        this->context.slavelist[slave].PO2SOconfig = &ProdAPI::run_PO2SOconfig;
     }
 
     int16_t siifind(uint16_t slave, uint16_t cat) override {
