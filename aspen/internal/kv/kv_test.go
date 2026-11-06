@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/aspen/internal/kv"
 	"github.com/synnaxlabs/aspen/internal/kv/testutil"
 	"github.com/synnaxlabs/aspen/internal/node"
+	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/change"
 	xkv "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
@@ -470,6 +471,32 @@ var _ = Describe("txn", func() {
 				cluster.Config{},
 			)).Error().To(MatchError(context.Canceled))
 			Expect(logs.FilterMessage("recovery failed").Len()).To(BeZero())
+		})
+
+		It("Should log a cancel that a peer returns on a live context", func(
+			ctx SpecContext,
+		) {
+			MustOpen(builder.New(ctx, kv.Config{}, cluster.Config{}))
+			for _, c := range builder.ClusterAPIs {
+				builder.RecoveryNet.StreamServer(c.Host().Address).BindHandler(func(
+					context.Context,
+					freighter.ServerStream[kv.RecoveryRequest, kv.RecoveryResponse],
+				) error {
+					return context.Canceled
+				})
+			}
+			core, logs := observer.New(zap.ErrorLevel)
+			logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+				ZapLogger: zap.New(core),
+			}))
+			Expect(builder.New(
+				ctx,
+				kv.Config{
+					Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
+				},
+				cluster.Config{},
+			)).Error().To(MatchError(context.Canceled))
+			Expect(logs.FilterMessage("recovery failed").Len()).To(Equal(1))
 		})
 
 		It("Should recover the state of the key-value store", func(ctx SpecContext) {
