@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
-from synnax.util import one
+from synnax.util import sole
 from synnax.view.types_gen import (
     Key,
     RetrieveRequest,
@@ -130,5 +130,5 @@ class Client:
         )
         views = res.views
         if is_single:
-            return one("View", key, views)
+            return sole("View", key, views)
         return views

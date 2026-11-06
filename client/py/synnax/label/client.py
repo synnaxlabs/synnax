@@ -15,7 +15,7 @@ from freighter import Empty, UnaryClient
 from synnax.exceptions import ValidationError
 from synnax.label.types_gen import Key, Label, RetrieveRequest, RetrieveResponse, Where
 from synnax.ontology.payload import ID, CrudeID
-from synnax.util import one
+from synnax.util import sole
 from x import color as color_
 from x import filter
 from x.lists import normalize
@@ -161,7 +161,7 @@ class Client:
         res = self._client.send("/label/retrieve", req, RetrieveResponse)
         if not is_single:
             return res.labels
-        return one("Label", key if key is not None else name, res.labels)
+        return sole("Label", key if key is not None else name, res.labels)
 
     def delete(self, keys: Key | list[Key]) -> None:
         """Deletes one or more labels and removes them from every resource. Deleting

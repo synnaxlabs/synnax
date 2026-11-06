@@ -14,7 +14,7 @@ from pydantic import BaseModel
 from freighter import Empty, UnaryClient
 from synnax import project as project_
 from synnax.table.types_gen import Key, RetrieveRequest, RetrieveResponse, Table, Where
-from synnax.util import one
+from synnax.util import sole
 from x import filter
 from x.lists import normalize
 
@@ -122,7 +122,7 @@ class Client:
         )
         if not is_single:
             return res.tables
-        return one("Table", key, res.tables)
+        return sole("Table", key, res.tables)
 
     def rename(self, key: Key, name: str) -> None:
         """Rename a table.

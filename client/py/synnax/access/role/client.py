@@ -20,7 +20,7 @@ from synnax.access.role.types_gen import (
     Role,
     Where,
 )
-from synnax.util import one
+from synnax.util import sole
 from x import filter
 from x.lists import normalize
 
@@ -127,7 +127,7 @@ class Client:
         res = self._client.send("/access/role/retrieve", req, RetrieveResponse)
         if not is_single:
             return res.roles
-        return one("Role", key, res.roles)
+        return sole("Role", key, res.roles)
 
     def delete(self, keys: UUID | list[UUID]) -> None:
         req = _DeleteRequest(keys=normalize(keys))

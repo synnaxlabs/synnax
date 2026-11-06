@@ -12,7 +12,7 @@ from collections.abc import Sequence
 from synnax.exceptions import MultipleFoundError, NotFoundError
 
 
-def one[T](name: str, query: object, results: Sequence[T]) -> T:
+def sole[T](name: str, query: object, results: Sequence[T]) -> T:
     """Returns the only record that a single retrieve found.
 
     :param name: The kind of record, such as "Range", for the error message.
@@ -21,13 +21,13 @@ def one[T](name: str, query: object, results: Sequence[T]) -> T:
     :raises NotFoundError: If no record matched.
     :raises MultipleFoundError: If more than one record matched.
     """
-    found = one_or_none(name, query, results)
+    found = sole_or_none(name, query, results)
     if found is None:
         raise NotFoundError(f"{name} matching {query} not found")
     return found
 
 
-def one_or_none[T](name: str, query: object, results: Sequence[T]) -> T | None:
+def sole_or_none[T](name: str, query: object, results: Sequence[T]) -> T | None:
     """Returns the only record that a single retrieve found, or None if no record
     matched.
 

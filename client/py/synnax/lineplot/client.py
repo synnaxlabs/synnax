@@ -20,7 +20,7 @@ from synnax.lineplot.types_gen import (
     RetrieveResponse,
     Where,
 )
-from synnax.util import one
+from synnax.util import sole
 from x import filter
 from x.lists import normalize
 
@@ -133,7 +133,7 @@ class Client:
         )
         if not is_single:
             return res.line_plots
-        return one("Line plot", key, res.line_plots)
+        return sole("Line plot", key, res.line_plots)
 
     def rename(self, key: Key, name: str) -> None:
         """Rename a line plot.

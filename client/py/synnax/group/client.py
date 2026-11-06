@@ -15,7 +15,7 @@ from pydantic import BaseModel
 from freighter import Empty, UnaryClient
 from synnax.group.types_gen import Group, RetrieveRequest, RetrieveResponse, Where
 from synnax.ontology.payload import ID, CrudeID
-from synnax.util import one
+from synnax.util import sole
 from x import filter
 
 
@@ -97,7 +97,7 @@ class Client:
         )
         if not is_single:
             return res.groups
-        return one("Group", key, res.groups)
+        return sole("Group", key, res.groups)
 
     def rename(self, key: UUID, name: str) -> Empty:
         return self._client.send(

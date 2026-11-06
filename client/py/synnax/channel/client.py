@@ -41,7 +41,7 @@ from synnax.telem import (
     MultiSeries,
     TimeRange,
 )
-from synnax.util import one
+from synnax.util import sole
 from x import control, filter
 from x.lists import normalize
 
@@ -481,7 +481,7 @@ class Client:
             return sug
         if len(res) > 1:
             raise _multiple_results_error(channel, res)
-        return one("Channel", channel, sug)
+        return sole("Channel", channel, sug)
 
     @overload
     def rename(self, keys: Key, names: str) -> None:
