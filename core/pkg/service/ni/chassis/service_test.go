@@ -328,32 +328,29 @@ var _ = Describe("Service", func() {
 			Expect(got.Message).To(Equal("Connected"))
 		})
 
-		It("Should keep the row when its status write fails without a tx", func(
+		It("Should write an unknown status when the status is missing", func(
 			ctx SpecContext,
 		) {
-			c := newChassis()
-			Expect(svc.NewWriter(nil).Create(ctx, &c)).To(Succeed())
-			DeferCleanup(func(ctx SpecContext) {
-				Expect(svc.NewWriter(nil).Delete(ctx, c.Key)).To(Succeed())
-			})
-			Expect(stat.NewWriter(nil).Delete(
+			c := create(ctx)
+			Expect(stat.NewWriter(tx).Delete(
 				ctx,
 				chassis.OntologyID(c.Key).String(),
 			)).To(Succeed())
-			Expect(svc.NewWriter(nil).Update(
+			Expect(svc.NewWriter(tx).Update(
 				ctx,
 				c.Key,
 				func(c chassis.Chassis) (chassis.Chassis, error) {
 					c.Name = "Renamed"
 					return c, nil
 				},
-			)).To(MatchError(query.ErrNotFound))
-			var got chassis.Chassis
-			Expect(svc.NewRetrieve().
-				Where(chassis.MatchKeys(c.Key)).
-				Entry(&got).
-				Exec(ctx, nil)).To(Succeed())
-			Expect(got.Name).To(Equal(c.Name))
+			)).To(Succeed())
+			s := retrieveStatus(ctx, c.Key)
+			Expect(s.Name).To(Equal("Renamed"))
+			Expect(s.Variant).To(Equal(status.VariantWarning))
+			Expect(s.Message).To(Equal("Status unknown"))
+			Expect(
+				s.Details,
+			).To(Equal(chassis.StatusDetails{Rack: rackKey, Chassis: c.Key}))
 		})
 
 		It("Should return the error change returns", func(ctx SpecContext) {
