@@ -107,8 +107,8 @@ inline std::optional<OpMode> select(const std::vector<OpMode> &modes) {
 /// @brief returns the DC register values of the mode at the bus period.
 /// @returns errors::SLAVE_CONFIG_ERROR, with the value and its limit, when the mode
 /// gives no SYNC0 cycle, a SYNC0 cycle that is not a whole number of nanoseconds, a
-/// SYNC1 cycle that is not a multiple of the SYNC0 cycle, or a cycle that a register
-/// cannot hold.
+/// SYNC1 cycle that is not a multiple of the SYNC0 cycle, a SYNC1 shift that puts
+/// SYNC1 before SYNC0, or a cycle that a register cannot hold.
 inline std::pair<Registers, x::errors::Error>
 resolve(const OpMode &mode, const x::telem::TimeSpan period) {
     const auto fail = [](const std::string &msg) {
