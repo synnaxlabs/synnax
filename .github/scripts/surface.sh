@@ -15,8 +15,9 @@
 #
 # Each checkout makes its report with its own generator. The script writes
 # <out-dir>/status (same, changed, or error) and <out-dir>/diff (the unified diff of the
-# two reports, or the tail of the failed generator's output). It exits non-zero on
-# error.
+# two reports, or the tail of the failed generator's output). It exits non-zero when the
+# head report fails. A base can predate a report, so a failed base report records error
+# and exits zero.
 
 set -euo pipefail
 
@@ -68,6 +69,7 @@ for side in base head; do
             tail -n 40 "$out/$side.log"
         } > "$out/diff"
         cat "$out/diff" >&2
+        [ "$side" = base ] && exit 0
         exit 1
     fi
 done
