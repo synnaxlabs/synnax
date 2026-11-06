@@ -13,7 +13,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
-// Resources returns the resource.Provider of tasks.
+// Resources returns the resource.Provider of tasks. Searches and lists leave out
+// internal tasks.
 func (s *Service) Resources() *resource.TableProvider[Key, Task] {
 	return resource.NewTableProvider(resource.TableProviderConfig[Key, Task]{
 		Table:  s.table,
@@ -21,5 +22,6 @@ func (s *Service) Resources() *resource.TableProvider[Key, Task] {
 		ID:     ResourceID,
 		Key:    resource.ParseUUIDKey,
 		Name:   func(t *Task) string { return t.Name },
+		Hidden: func(t *Task) bool { return t.Internal },
 	})
 }

@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/search"
+	"github.com/synnaxlabs/x/set"
 )
 
 // Provider searches the records of one type and retrieves them by ID.
@@ -74,6 +75,8 @@ type TableProviderConfig[K gorp.Key, E gorp.Entry[K]] struct {
 	Key func(ID) (K, error)
 	// Name returns the name of a record.
 	Name func(*E) string
+	// Hidden returns whether Search and List leave a record out. Nil hides nothing.
+	Hidden func(*E) bool
 }
 
 // TableProvider is a Provider for the records of one Gorp table.
@@ -88,13 +91,43 @@ func NewTableProvider[K gorp.Key, E gorp.Entry[K]](
 	return &TableProvider[K, E]{cfg: cfg}
 }
 
-// Search implements Provider.
+// Search implements Provider. It still returns q.Limit matches when that many records
+// are not hidden.
 func (p *TableProvider[K, E]) Search(
 	ctx context.Context,
 	tx gorp.Tx,
 	q search.Query[ID],
 ) (search.Result[ID], error) {
-	return SearchIndex(ctx, tx, p.cfg.Search, p.cfg.ID, q)
+	hidden := make(set.Set[K])
+	for {
+		res, err := p.cfg.Search.Search(ctx, tx, search.Query[K]{
+			Term: q.Term,
+			Except: func(key K) bool {
+				return hidden.Contains(key) ||
+					(q.Except != nil && q.Except(p.cfg.ID(key)))
+			},
+			Limit: q.Limit,
+		})
+		if err != nil || p.cfg.Hidden == nil {
+			return search.MapKeys(res, p.cfg.ID), err
+		}
+		var entries []E
+		if err = p.cfg.Table.NewRetrieve().
+			Where(gorp.MatchKeys[K, E](res.Keys...)).
+			Entries(&entries).
+			Exec(ctx, tx); err != nil {
+			return search.Result[ID]{}, err
+		}
+		n := len(hidden)
+		for _, e := range entries {
+			if p.cfg.Hidden(&e) {
+				hidden.Add(e.GorpKey())
+			}
+		}
+		if len(hidden) == n {
+			return search.MapKeys(res, p.cfg.ID), nil
+		}
+	}
 }
 
 // Retrieve implements Provider. It returns the error of the configured Key for an ID
@@ -126,9 +159,10 @@ func (p *TableProvider[K, E]) List(
 	except func(ID) bool,
 ) ([]Resource, error) {
 	q := p.cfg.Table.NewRetrieve().Limit(limit)
-	if except != nil {
+	if except != nil || p.cfg.Hidden != nil {
 		q = q.Where(gorp.Match(func(_ gorp.Context, e *E) (bool, error) {
-			return !except(p.cfg.ID((*e).GorpKey())), nil
+			hidden := p.cfg.Hidden != nil && p.cfg.Hidden(e)
+			return !hidden && (except == nil || !except(p.cfg.ID((*e).GorpKey()))), nil
 		}))
 	}
 	var entries []E

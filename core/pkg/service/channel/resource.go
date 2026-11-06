@@ -11,7 +11,8 @@ package channel
 
 import "github.com/synnaxlabs/synnax/pkg/service/resource"
 
-// Resources returns the resource.Provider of channels.
+// Resources returns the resource.Provider of channels. Searches and lists leave out
+// internal channels.
 func (s *Service) Resources() *resource.TableProvider[Key, Channel] {
 	return resource.NewTableProvider(resource.TableProviderConfig[Key, Channel]{
 		Table:  s.table,
@@ -19,5 +20,6 @@ func (s *Service) Resources() *resource.TableProvider[Key, Channel] {
 		ID:     ResourceID,
 		Key:    func(id resource.ID) (Key, error) { return ParseKey(id.Key) },
 		Name:   func(c *Channel) string { return c.Name },
+		Hidden: func(c *Channel) bool { return c.Internal },
 	})
 }

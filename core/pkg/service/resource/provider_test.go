@@ -84,13 +84,17 @@ func openFixture[E entry](
 
 // providerOf returns a TableProvider for the records of f that names them with t.
 func (f fixture[E]) providerOf(t resource.Type) *resource.TableProvider[string, E] {
-	return resource.NewTableProvider(resource.TableProviderConfig[string, E]{
+	return resource.NewTableProvider(f.config(t))
+}
+
+func (f fixture[E]) config(t resource.Type) resource.TableProviderConfig[string, E] {
+	return resource.TableProviderConfig[string, E]{
 		Table:  f.table,
 		Search: f.idx,
 		ID:     func(key string) resource.ID { return resource.ID{Type: t, Key: key} },
 		Key:    parseKey,
 		Name:   func(e *E) string { return (*e).name() },
-	})
+	}
 }
 
 func (f fixture[E]) id(key string) resource.ID {
@@ -223,6 +227,44 @@ var _ = Describe("TableProvider", func() {
 				MatchError(ContainSubstring(`invalid key "pump"`)),
 			))
 		})
+	})
+
+	Describe("Hidden", func() {
+		var provider *resource.TableProvider[string, channelEntry]
+		BeforeEach(func(ctx SpecContext) {
+			channels.create(
+				ctx,
+				db,
+				channelEntry{Key: "4", Name: "pump"},
+				channelEntry{Key: "5", Name: "pump"},
+				channelEntry{Key: "6", Name: "pump station"},
+			)
+			cfg := channels.config(resource.TypeChannel)
+			cfg.Hidden = func(e *channelEntry) bool {
+				return e.Key == "2" || e.Key == "4" || e.Key == "5"
+			}
+			provider = resource.NewTableProvider(cfg)
+		})
+
+		It("Should fill a search with the matches that are not hidden",
+			func(ctx SpecContext) {
+				Expect(MustSucceed(provider.Search(
+					ctx,
+					db,
+					search.Query[resource.ID]{Term: "pump", Limit: 2},
+				)).Keys).To(ConsistOf(channels.id("1"), channels.id("6")))
+			},
+		)
+
+		It("Should fill a list with the records that are not hidden",
+			func(ctx SpecContext) {
+				Expect(provider.List(ctx, db, 3, nil)).To(Equal([]resource.Resource{
+					{ID: channels.id("1"), Name: "pump pressure"},
+					{ID: channels.id("3"), Name: "valve"},
+					{ID: channels.id("6"), Name: "pump station"},
+				}))
+			},
+		)
 	})
 
 	Describe("List", func() {
