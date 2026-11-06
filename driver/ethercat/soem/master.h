@@ -139,6 +139,10 @@ private:
     bool
     scan_object_dictionary_for_pdos(uint16_t slave_pos, slave::DiscoveryResult &slave);
 
+    /// @brief writes zero to the DC activation registers (0x0980 and 0x0981) of every
+    /// enabled slave with a distributed clock.
+    x::errors::Error clear_dc_activation();
+
     /// @brief requests the state from all enabled slaves, then waits until they reach
     /// it, one of them refuses it, or the timeout in microseconds passes. Calls
     /// before_read, if set, before each read of the slave states.

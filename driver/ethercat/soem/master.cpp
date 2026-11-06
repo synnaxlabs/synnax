@@ -26,10 +26,13 @@
 #include "driver/ethercat/telem/telem.h"
 
 namespace driver::ethercat::soem {
-/// Timeout for EtherCAT state transitions (INIT->PRE_OP->SAFE_OP->OP) in microseconds.
+/// Timeout for the SAFE-OP, OP, and INIT transitions in microseconds.
 const int STATE_CHANGE_TIMEOUT = static_cast<int>(
     (x::telem::SECOND * 2).microseconds()
 );
+/// Timeout for the slaves to reach PRE-OP after discovery in microseconds. It stays
+/// at the PreopTimeout of the ESI files.
+const int PRE_OP_TIMEOUT = static_cast<int>((x::telem::SECOND * 2).microseconds());
 /// Timeout for cyclic process data exchange in microseconds.
 const int PROCESSDATA_TIMEOUT = static_cast<int>(x::telem::MILLISECOND.microseconds());
 /// Time between state reads while slaves move to a requested state.
@@ -94,6 +97,23 @@ constexpr uint16_t RXPDO_MAPPING_END = 0x17FF;
 
 /// @}
 
+namespace {
+std::string no_slaves_message(API &api, const std::string &iface) {
+    const auto found = "no EtherCAT slaves found on " + iface + ". ";
+    if (!api.dewesoft_filter_bound(iface.c_str()))
+        return found + "Check the cable and the power of the first device.";
+    return found + std::format(
+                       "The DewesoftX \"EthercatDAQ Filter\" is on adapter \"{0}\". "
+                       "After DewesoftX starts, the filter blocks EtherCAT replies, "
+                       "also after DewesoftX closes. Clear it in the properties of "
+                       "\"{0}\" (Settings > Network & internet > Advanced network "
+                       "settings > More network adapter options, then right-click the "
+                       "adapter > Properties).",
+                       api.adapter_name(iface.c_str()).value_or(iface)
+                   );
+}
+}
+
 Master::Master(std::unique_ptr<API> api, std::string interface_name):
     iface_name(std::move(interface_name)),
     api(std::move(api)),
@@ -128,10 +148,14 @@ x::errors::Error Master::initialize() {
         this->api->close();
         return x::errors::Error(
             errors::NO_SLAVES_FOUND,
-            "no EtherCAT slaves found on " + this->iface_name
+            no_slaves_message(*this->api, this->iface_name)
         );
     }
 
+    // config_init requests PRE-OP without waiting for it, and SOEM sends no mailbox
+    // request to a slave whose last read state is below PRE-OP.
+    this->api->statecheck(0, EC_STATE_PRE_OP, PRE_OP_TIMEOUT);
+    this->api->readstate();
     this->populate_slaves();
     this->initialized = true;
     return x::errors::NIL;
@@ -169,6 +193,8 @@ x::errors::Error Master::activate() {
                 this->disabled_slaves.contains(i) ? DISABLED_GROUP : ENABLED_GROUP
             );
     }
+
+    if (const auto err = this->clear_dc_activation()) return err;
 
     const int iomap_size = this->api->config_map_group(
         this->iomap.data(),
@@ -643,6 +669,7 @@ void Master::discover_pdos_sii(slave::DiscoveryResult &slave) {
             c++;
         }
     }
+    this->api->eeprom2pdi(props.position);
 
     if (props.input_pdos.empty() && props.output_pdos.empty()) {
         if (this->api->slave_Ibits(props.position) > 0 ||
@@ -920,6 +947,28 @@ bool Master::scan_object_dictionary_for_pdos(
             << " TxPDO objects, " << rxpdo_indices.size() << " RxPDO objects";
 
     return found_any;
+}
+
+x::errors::Error Master::clear_dc_activation() {
+    for (int i = 1; i <= this->api->slave_count(); ++i) {
+        if (this->api->slave_group(i) != ENABLED_GROUP || !this->api->slave_hasdc(i))
+            continue;
+        const auto pos = static_cast<uint16_t>(i);
+        // 0x0980 goes first: while it gives the sync unit to the PDI, the slave refuses
+        // writes to 0x0981.
+        for (const uint16_t address: {ECT_REG_DCCUC, ECT_REG_DCSYNCACT})
+            if (this->api->write_register(pos, address, {0}, EC_TIMEOUTRET) != 1)
+                return x::errors::Error(
+                    errors::ACTIVATION_ERROR,
+                    std::format(
+                        "slave {} ({}) did not take a write to DC register 0x{:04X}",
+                        pos,
+                        this->api->slave_name(pos),
+                        address
+                    )
+                );
+    }
+    return x::errors::NIL;
 }
 
 x::errors::Error Master::request_state(
