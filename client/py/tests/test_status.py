@@ -273,6 +273,71 @@ class TestStatusClient:
         """Should retrieve no statuses for an empty list of keys."""
         assert client.statuses.retrieve(keys=[]) == []
 
+    def test_variant_field(self, client: sy.Synnax) -> None:
+        """Should keep statuses whose variant is a plain value or in a list."""
+        created = client.statuses.set(
+            [
+                sy.Status(variant=sy.status.VARIANT_INFO, message="Field 0"),
+                sy.Status(variant=sy.status.VARIANT_ERROR, message="Field 1"),
+                sy.Status(variant=sy.status.VARIANT_SUCCESS, message="Field 2"),
+            ]
+        )
+        keys = [s.key for s in created]
+        errors = client.statuses.retrieve(key=keys, variant=sy.status.VARIANT_ERROR)
+        assert [s.key for s in errors] == [created[1].key]
+        res = client.statuses.retrieve(
+            key=keys, variant=[sy.status.VARIANT_INFO, sy.status.VARIANT_SUCCESS]
+        )
+        assert {s.key for s in res} == {created[0].key, created[2].key}
+
+    def test_labels_field(self, client: sy.Synnax) -> None:
+        """Should keep the statuses that hold a label given as a plain value."""
+        lbl = client.labels.create(name=str(uuid4()), color="#FF0000")
+        created = client.statuses.set(
+            [
+                sy.Status(variant=sy.status.VARIANT_INFO, message="Labeled"),
+                sy.Status(variant=sy.status.VARIANT_INFO, message="Unlabeled"),
+            ]
+        )
+        client.labels.label(sy.status.ontology_id(created[0].key), lbl.key)
+        res = client.statuses.retrieve(labels=lbl.key)
+        assert [s.key for s in res] == [created[0].key]
+
+    def test_plain_key_beside_fields(self, client: sy.Synnax) -> None:
+        """Should return one status for a plain key beside other fields."""
+        created = client.statuses.set(
+            sy.Status(variant=sy.status.VARIANT_INFO, message="Plain key")
+        )
+        found = client.statuses.retrieve(
+            key=created.key, variant=sy.status.VARIANT_INFO
+        )
+        assert found.key == created.key
+        with pytest.raises(sy.NotFoundError):
+            client.statuses.retrieve(key=created.key, variant=sy.status.VARIANT_ERROR)
+
+    def test_one(self, client: sy.Synnax) -> None:
+        """Should return one status for any filter when one is set."""
+        created = client.statuses.set(
+            [
+                sy.Status(variant=sy.status.VARIANT_INFO, message="One 0"),
+                sy.Status(variant=sy.status.VARIANT_ERROR, message="One 1"),
+            ]
+        )
+        found = client.statuses.retrieve(
+            key=[s.key for s in created], variant=sy.status.VARIANT_ERROR, one=True
+        )
+        assert found.key == created[1].key
+
+    def test_one_with_offset(self, client: sy.Synnax) -> None:
+        """Should reject one beside an offset, since a page could hide a match."""
+        with pytest.raises(sy.ValidationError, match="limit or offset"):
+            client.statuses.retrieve(key="a", offset=1)  # type: ignore[call-overload]
+
+    def test_none_field(self, client: sy.Synnax) -> None:
+        """Should reject a field set to None, since it would select every status."""
+        with pytest.raises(sy.ValidationError, match="variant is None"):
+            client.statuses.retrieve(variant=None)  # type: ignore[call-overload]
+
     def test_retrieve_with_no_matching_variants(self, client: sy.Synnax) -> None:
         """Should return empty when no statuses match the variant filter."""
         status: sy.Status[None] = sy.Status(
