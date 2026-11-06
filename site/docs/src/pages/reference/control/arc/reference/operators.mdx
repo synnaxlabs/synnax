@@ -65,7 +65,7 @@ Comparisons do not chain. Arc uses only the first two operands of a chain of `<`
 NaN fails every comparison except `!=`. If `pump_speed` is NaN, `pump_speed < 15` is
 `false`, so a stage that waits on it never moves on. Add a check to the condition:
 
-```arc channels="pump_speed"
+```arc channels="pump_speed, pump_stopped"
 import math
 
 sequence main {
