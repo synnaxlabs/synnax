@@ -51,6 +51,7 @@ class TestReadSurfaces:
     """Tests reading the uploaded surface results."""
 
     def test_reads_status_and_diff(self, tmp_path: Path) -> None:
+        (tmp_path / "jobs").write_text("")
         d = tmp_path / "surface-oracle"
         d.mkdir()
         (d / "status").write_text("changed\n")
@@ -61,10 +62,24 @@ class TestReadSurfaces:
         )
 
     def test_treats_a_missing_report_as_an_error(self, tmp_path: Path) -> None:
+        (tmp_path / "jobs").write_text("Compare core\n")
+        surfaces = {s.name: s for s in read_surfaces(tmp_path)}
+        assert surfaces["core"].status == "error"
+
+    def test_skips_a_surface_the_run_has_no_job_for(self, tmp_path: Path) -> None:
+        (tmp_path / "jobs").write_text("Compare core\n")
+        surfaces = {s.name: s for s in read_surfaces(tmp_path)}
+        assert surfaces["core-windows"].status == "skipped"
+
+    def test_treats_a_run_with_no_surface_jobs_as_an_error(
+        self, tmp_path: Path
+    ) -> None:
+        (tmp_path / "jobs").write_text("Compare ${{ matrix.surface }}\n")
         surfaces = {s.name: s for s in read_surfaces(tmp_path)}
         assert surfaces["core"].status == "error"
 
     def test_reads_a_skipped_report(self, tmp_path: Path) -> None:
+        (tmp_path / "jobs").write_text("Compare core\n")
         d = tmp_path / "surface-core"
         d.mkdir()
         (d / "status").write_text("skipped\n")
@@ -216,6 +231,8 @@ class TestMain:
     def gh(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> FakeGH:
         (tmp_path / "pr").mkdir()
         (tmp_path / "pr" / "number").write_text("5\n")
+        jobs = "".join(f"Compare {name}\n" for name in classify.SURFACES)
+        (tmp_path / "jobs").write_text(jobs)
         for name in classify.SURFACES:
             d = tmp_path / f"surface-{name}"
             d.mkdir()
