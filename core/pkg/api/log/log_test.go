@@ -10,14 +10,30 @@
 package log_test
 
 import (
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apilog "github.com/synnaxlabs/synnax/pkg/api/log"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
+	"github.com/synnaxlabs/x/filter"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+var _ = Describe("Retrieve", func() {
+	It("Should reject the request when retrieve is not granted on a match", func(
+		ctx SpecContext,
+	) {
+		r := log.Log{Name: "unretrievable"}
+		Expect(svc.Log.NewWriter(nil).Create(ctx, uuid.Nil(), &r)).To(Succeed())
+		Expect(apiSvc.Retrieve(AuthedCtx(ctx, author), apilog.RetrieveRequest{
+			Where: &log.Where{Key: &filter.Set[log.Key]{Eq: &r.Key}},
+		})).Error().To(MatchError(access.ErrDenied))
+	})
+})
 
 var _ = Describe("Create", func() {
 	It("Should stamp the dispatch key onto the create broadcast", func(

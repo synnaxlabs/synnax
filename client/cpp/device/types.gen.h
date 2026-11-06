@@ -11,22 +11,30 @@
 
 #pragma once
 
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 #include "client/cpp/ontology/id.h"
 #include "client/cpp/rack/key.h"
 #include "client/cpp/status/types.gen.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/filter/types.gen.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/mem/indirect.h"
 
+#include "core/pkg/api/device/pb/device.pb.h"
 #include "core/pkg/service/legacy/device/pb/device.pb.h"
 
 namespace synnax::device {
 
 struct StatusDetails;
+struct Where;
+struct RetrieveRequest;
+struct RetrieveResponse;
 
 using Key = std::string;
 
@@ -50,7 +58,64 @@ struct StatusDetails {
     from_proto(const ::service::device::pb::StatusDetails &pb);
 };
 
+/// @brief Where is a filter that selects devices.
+struct Where {
+    /// @brief and_ matches when every child matches.
+    std::optional<std::vector<Where>> and_;
+    /// @brief or_ matches when any child matches.
+    std::optional<std::vector<Where>> or_;
+    /// @brief not_ matches when the child does not match.
+    x::mem::indirect<Where> not_;
+    /// @brief key selects by key.
+    std::optional<::x::filter::Set<Key>> key;
+    /// @brief name selects by name.
+    std::optional<::x::filter::String> name;
+    /// @brief make selects by make.
+    std::optional<::x::filter::String> make;
+    /// @brief model selects by model.
+    std::optional<::x::filter::String> model;
+    /// @brief location selects by location.
+    std::optional<::x::filter::String> location;
+    /// @brief rack selects by rack.
+    std::optional<::x::filter::Set<::synnax::rack::Key>> rack;
+
+    static Where parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::device::pb::Where;
+    [[nodiscard]] std::pair<::service::device::pb::Where, x::errors::Error>
+    to_proto() const;
+    static std::pair<Where, x::errors::Error>
+    from_proto(const ::service::device::pb::Where &pb);
+};
+
 using Status = ::synnax::status::Status<StatusDetails>;
+
+/// @brief RetrieveRequest is a request to retrieve devices.
+struct RetrieveRequest {
+    /// @brief where selects the devices to retrieve. An absent where selects all of
+    /// them.
+    std::optional<Where> where;
+    /// @brief search_term keeps the devices that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief limit is the most devices to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief offset is the number of matching devices to skip.
+    std::uint32_t offset = 0;
+    /// @brief include_status includes the status of each record.
+    bool include_status = false;
+    /// @brief include_parent includes the parent of each record.
+    bool include_parent = false;
+
+    static RetrieveRequest parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::device::pb::RetrieveRequest;
+    [[nodiscard]] std::pair<::api::device::pb::RetrieveRequest, x::errors::Error>
+    to_proto() const;
+    static std::pair<RetrieveRequest, x::errors::Error>
+    from_proto(const ::api::device::pb::RetrieveRequest &pb);
+};
 
 /// @brief Device is a physical piece of hardware connected to Synnax through the Driver
 /// system. Devices represent external equipment like LabJack, National Instruments, OPC
@@ -89,6 +154,21 @@ struct Device {
     to_proto() const;
     static std::pair<Device, x::errors::Error>
     from_proto(const ::service::device::pb::Device &pb);
+};
+
+/// @brief RetrieveResponse holds the devices a RetrieveRequest selects.
+struct RetrieveResponse {
+    /// @brief devices are the devices the request selects.
+    std::vector<Device> devices;
+
+    static RetrieveResponse parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::device::pb::RetrieveResponse;
+    [[nodiscard]] std::pair<::api::device::pb::RetrieveResponse, x::errors::Error>
+    to_proto() const;
+    static std::pair<RetrieveResponse, x::errors::Error>
+    from_proto(const ::api::device::pb::RetrieveResponse &pb);
 };
 
 const synnax::ontology::ID ONTOLOGY_TYPE("device", "");
