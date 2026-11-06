@@ -111,18 +111,18 @@ func (c ServiceConfig) Validate() error {
 // Service stores certificates, reads their details, and reports their expiry as
 // statuses.
 type Service struct {
-	group  group.Group
-	table  *gorp.Table[Key, Certificate]
-	search *gorp.SearchIndex[Key, Certificate]
-	closer xio.MultiCloser
-	cfg    ServiceConfig
+	group   group.Group
+	table   *gorp.Table[Key, Certificate]
+	indexes indexes
+	closer  xio.MultiCloser
+	cfg     ServiceConfig
 }
 
 // OpenService opens a Service with the given configuration. The Service updates the
 // expiry status of every certificate when it opens and on each ExpiryCheckInterval. If
 // the error is nil, the Service must be closed with Close after use.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
-	s = &Service{search: newSearchIndex()}
+	s = &Service{indexes: newIndexes()}
 	if s.cfg, err = config.New(DefaultServiceConfig, cfgs...); err != nil {
 		return nil, err
 	}
@@ -137,7 +137,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Certificate]{
 		DB:              s.cfg.DB,
-		Indexes:         []gorp.Index[Key, Certificate]{s.search},
+		Indexes:         s.indexes.all(),
 		Instrumentation: s.cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
@@ -197,8 +197,8 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 // NewRetrieve opens a query that retrieves certificates.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		gorp:   s.table.NewRetrieve(),
-		baseTX: s.cfg.DB,
-		search: s.search,
+		gorp:    s.table.NewRetrieve(),
+		baseTX:  s.cfg.DB,
+		indexes: s.indexes,
 	}
 }

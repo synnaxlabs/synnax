@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, TimeStamp } from "@synnaxlabs/x";
+import { id, TimeStamp, uuid } from "@synnaxlabs/x";
 import { assert, describe, expect, it } from "vitest";
 
 import { NotFoundError, PathError, ValidationError } from "@/index";
@@ -86,7 +86,7 @@ describe("Certificate", () => {
       const { privateKey } = c;
       expect((await client.secrets.retrieve(privateKey)).uses).toBeUndefined();
       const [key] = await client.secrets.retrieve({
-        keys: [privateKey],
+        key: [privateKey],
         includeUses: true,
       });
       expect(key.uses).toEqual([{ type: "certificate", key: c.key }]);
@@ -147,11 +147,24 @@ describe("Certificate", () => {
         { name: "Retrieve 2", source: "file", certificatePath: "/tmp/a.crt" },
       ]);
       const keys = created.map((c) => c.key);
-      const retrieved = await createTestClient().certificates.retrieve({ keys });
+      const retrieved = await createTestClient().certificates.retrieve(keys);
       expect(retrieved).toHaveLength(2);
       expect(await createTestClient().certificates.retrieve(keys[0])).toEqual(
         created[0],
       );
+    });
+
+    it("should leave out a key that no certificate has in a filter", async () => {
+      const client = createTestClient();
+      const c = await client.certificates.create({
+        name: "Kept",
+        source: "file",
+        certificatePath: "/tmp/kept.crt",
+      });
+      const retrieved = await createTestClient().certificates.retrieve({
+        key: [c.key, uuid.create()],
+      });
+      expect(retrieved.map((r) => r.key)).toEqual([c.key]);
     });
 
     it("should search for certificates by name", async () => {
@@ -193,7 +206,7 @@ describe("Certificate", () => {
       await client.certificates.delete(c.key);
       const res = createTestClient().certificates.retrieve(c.key);
       await expect(res).rejects.toThrow(NotFoundError);
-      await expect(res).rejects.toThrow(`Certificates with keys [${c.key}] not found`);
+      await expect(res).rejects.toThrow(`certificate with key ${c.key} not found`);
     });
 
     it("should drop its private key from the secrets cache", async () => {

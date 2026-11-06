@@ -25,7 +25,28 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+// failingResolver fails every lookup with context.Canceled.
+type failingResolver struct{}
+
+func (failingResolver) Resolve(context.Context, string) (*symbol.Symbol, error) {
+	return nil, context.Canceled
+}
+
+func (failingResolver) Search(context.Context, string) ([]*symbol.Symbol, error) {
+	return nil, context.Canceled
+}
+
 var _ = Describe("Analyze", func() {
+	It("Should return an error of the resolver", func(ctx SpecContext) {
+		a := channel.NewCalculationAnalyzer(failingResolver{})
+		res, err := a.Analyze(ctx, channel.Channel{
+			Name:       "calc",
+			Expression: "return sensor + 1",
+		})
+		Expect(err).To(MatchError(context.Canceled))
+		Expect(res.Unresolved).To(BeEmpty())
+	})
+
 	Describe("Type Inference", func() {
 		It(
 			"Should infer the correct type for integer literal expressions",

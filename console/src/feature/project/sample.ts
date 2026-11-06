@@ -176,7 +176,7 @@ const createLinePlot = (ch: Channels): lineplot.New => ({
 
 const deploy = async (client: Synnax, key: arc.Key): Promise<void> => {
   const racks = await client.racks.retrieve({
-    integration: "arc",
+    integrations: "arc",
     embedded: true,
     hostIsNode: true,
   });
@@ -192,10 +192,7 @@ const deploy = async (client: Synnax, key: arc.Key): Promise<void> => {
 };
 
 export const exists = async (client: Synnax): Promise<boolean> => {
-  const found = await client.projects.retrieve({
-    keys: [KEYS.project],
-    ignoreNotFoundError: true,
-  });
+  const found = await client.projects.retrieve({ key: { eq: KEYS.project } });
   return found.length > 0;
 };
 
@@ -236,14 +233,14 @@ export const create = async (client: Synnax, programs: Programs): Promise<void> 
     {
       key: KEYS.simulator,
       name: "Tank simulator",
-      mode: "text",
-      text: { raw: programs.simulator },
+      type: "automation",
+      source: { mode: "text", text: { raw: programs.simulator } },
     },
     {
       key: KEYS.sequence,
       name: "Press sequence",
-      mode: "text",
-      text: { raw: programs.sequence },
+      type: "automation",
+      source: { mode: "text", text: { raw: programs.sequence } },
     },
   ]);
   await deploy(client, KEYS.simulator);

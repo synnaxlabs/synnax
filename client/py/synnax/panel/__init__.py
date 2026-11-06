@@ -21,6 +21,7 @@ from synnax.panel.types_gen import (
     TabKey,
     View,
     ViewTab,
+    Where,
     ontology_id,
 )
 
@@ -38,5 +39,6 @@ __all__ = [
     "TabKey",
     "View",
     "ViewTab",
+    "Where",
     "ontology_id",
 ]

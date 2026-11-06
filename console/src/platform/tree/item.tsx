@@ -9,7 +9,7 @@
 
 import "@/platform/tree/item.css";
 
-import { ontology } from "@synnaxlabs/client";
+import { ontology, type Synnax } from "@synnaxlabs/client";
 import { type Haul } from "@synnaxlabs/lyra/haul";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
@@ -37,6 +37,15 @@ export interface ContentProps extends ItemProps {
 
 export interface Content extends FC<ContentProps> {}
 
+export interface MoveParams {
+  source: ontology.ID;
+  destination: ontology.ID;
+  ids: ontology.ID[];
+}
+
+/** Move moves resources dropped onto a resource of the item's type. */
+export type Move = (client: Synnax, params: MoveParams) => Promise<void>;
+
 // Item renders a single resource row in the ontology tree. The component carries the
 // static, render-independent behavior for its resource type (children, drag, context
 // menu, visibility) as properties, read imperatively by the Tree.
@@ -47,6 +56,8 @@ export interface Item extends FC<ItemProps> {
   haulItems: (resource: ontology.Resource) => Haul.Item[];
   ContextMenu?: ContextMenu;
   visible?: (resource: ontology.Resource) => boolean;
+  /** move replaces the generic ontology move for drops onto this type. */
+  move?: Move;
 }
 
 export interface Items extends Partial<Record<ontology.ResourceType, Item>> {}
@@ -87,6 +98,7 @@ export interface CreateItemParams {
   haulItems?: (resource: ontology.Resource) => Haul.Item[];
   ContextMenu?: ContextMenu;
   visible?: (resource: ontology.Resource) => boolean;
+  move?: Move;
   Content?: Content;
 }
 
@@ -99,6 +111,7 @@ export const createItem = ({
   haulItems = () => [],
   ContextMenu,
   visible,
+  move,
   Content: ContentComp,
 }: CreateItemParams): Item => {
   const Row = ContentComp ?? DefaultRow;
@@ -117,6 +130,7 @@ export const createItem = ({
   item.haulItems = haulItems;
   item.ContextMenu = ContextMenu;
   item.visible = visible;
+  item.move = move;
   return item;
 };
 

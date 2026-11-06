@@ -18,11 +18,5 @@ import (
 )
 
 func autoMigrateArc(_ context.Context, old v3.Arc) (Arc, error) {
-	return Arc{
-		Key:   old.Key,
-		Name:  old.Name,
-		Mode:  old.Mode,
-		Graph: old.Graph,
-		Text:  old.Text,
-	}, nil
+	return Arc{}, nil
 }

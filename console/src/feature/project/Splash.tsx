@@ -79,7 +79,6 @@ export const Splash = (): ReactElement => {
     <ContextMenu {...props} getItem={getItem} />
   );
   const menuProps = Menu.useContextMenu();
-  const getIsAnyModalOpen = Session.Modals.useGetIsAnyOpen();
   const awaitingProject = Session.Link.useSelectAwaitingProject();
 
   return (
@@ -94,7 +93,7 @@ export const Splash = (): ReactElement => {
         getItem={getItem}
         subscribe={subscribe}
         onFetchMore={fetchMore}
-        enableTriggers={() => !getIsAnyModalOpen()}
+        enableTriggers
       >
         <Flex.Box
           y
