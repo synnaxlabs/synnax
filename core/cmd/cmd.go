@@ -38,7 +38,7 @@ var Cmd = &cobra.Command{
 
 func init() {
 	addFlags(Cmd)
-	Cmd.AddCommand(version.Cmd, cert.Cmd, start.Cmd, update.Cmd)
+	Cmd.AddCommand(version.Cmd, cert.Cmd, start.Cmd, update.NewCmd())
 	lo.Must0(viper.BindPFlags(Cmd.PersistentFlags()))
 	lo.Must0(viper.BindPFlags(Cmd.Flags()))
 	cobra.OnInitialize(initConfig)

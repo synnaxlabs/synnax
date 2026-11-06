@@ -49,14 +49,15 @@ var _ = Describe("Update", func() {
 
 	run := func(args ...string) (string, error) {
 		var out bytes.Buffer
-		update.Cmd.SetOut(&out)
-		update.Cmd.SetErr(io.Discard)
-		update.Cmd.SetArgs(append(
+		cmd := update.NewCmd()
+		cmd.SetOut(&out)
+		cmd.SetErr(io.Discard)
+		cmd.SetArgs(append(
 			args,
 			"--data", dir,
 			"--log-file-path", filepath.Join(dir, "logs", "synnax.log"),
 		))
-		err := update.Cmd.Execute()
+		err := cmd.Execute()
 		return out.String(), err
 	}
 
