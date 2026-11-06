@@ -300,7 +300,7 @@ true only for NaN. The `math` module has these members. They are not keywords, s
 channel or a variable can use the name `nan` or `inf`.
 
 - `math.is_nan(x)` - Returns `true` if `x` is NaN
-- `math.is_inf(x)` - Returns `true` if `x` is positive or negative infinity
+- `math.is_infinite(x)` - Returns `true` if `x` is positive or negative infinity
 - `math.is_finite(x)` - Returns `true` if `x` is not NaN and not infinite
 - `math.nan` - The NaN value
 - `math.inf` - The positive infinity value. `-math.inf` is negative infinity
