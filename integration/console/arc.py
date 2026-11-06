@@ -10,6 +10,7 @@
 from playwright.sync_api import Locator
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
+import synnax as sy
 from console.base import ResourceClient
 
 
@@ -43,13 +44,13 @@ class ArcClient(ResourceClient):
         controls.wait_for(state="visible", timeout=5000)
         return controls
 
-    def create(self, name: str, *, source: str, mode: str = "Text") -> None:
+    def create(self, name: str, *, source: str, mode: sy.arc.Mode = "text") -> None:
         """Create a new Arc automation via Console UI.
 
         Args:
             name: The name for the new Arc automation.
             source: The source code/content for the Arc.
-            mode: The Arc mode, either "Text" or "Diagram". Defaults to "Text".
+            mode: The Arc mode. Defaults to "text".
         """
         self._show_arc_panel()
 
@@ -61,7 +62,7 @@ class ArcClient(ResourceClient):
         name_input.fill(name)
 
         mode_btn = self.layout.page.locator(
-            f".console-arc-create-modal__mode-select-button:has-text('{mode}')"
+            f".console-arc-create-modal__mode-select-button:has-text('{mode.capitalize()}')"
         )
         mode_btn.wait_for(state="visible", timeout=5000)
         mode_btn.click()
@@ -71,7 +72,7 @@ class ArcClient(ResourceClient):
         create_btn.click()
         name_input.wait_for(state="hidden", timeout=10000)
 
-        if mode == "Text":
+        if mode == "text":
             editor = self.layout.page.locator("[data-mode-id='arc']")
             editor.wait_for(state="visible", timeout=10000)
             editor.click()

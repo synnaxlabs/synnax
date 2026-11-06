@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 
-from console.schematic.symbol import PropertyDict, Symbol
+from console.schematic.symbol import Properties, Symbol
 
 
 class Valve(Symbol):
@@ -91,15 +91,14 @@ class Valve(Symbol):
                 if current_state != show_control_chip:
                     chip_toggle.click()
 
-    def get_properties(self, *, tab: str = "Control") -> PropertyDict:
+    def get_properties(self, *, tab: str = "Control") -> Properties:
         """Get the current properties of the symbol"""
         super().get_properties(tab=tab)
 
-        props: PropertyDict = {
+        props: Properties = {
             "channel": "",
             "activation_delay": -1.0,
             "show_control_chip": False,
-            "mode": "",
         }
 
         state_channel = self.channel_trigger("State")
