@@ -309,23 +309,8 @@ func (c *Controller[R]) unsafeInsertNewRegion(
 	return r
 }
 
-func (c *Controller[R]) remove(r *region[R]) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	// Re-check that the region is still empty. Between the caller's
-	// r.Unlock() and this c.mu.Lock(), a concurrent OpenGate may have
-	// added a new gate. If so, skip removal — the region will be
-	// cleaned up when the new gate(s) are eventually released.
-	r.RLock()
-	hasGates := len(r.gates) > 0
-	r.RUnlock()
-	if hasGates {
-		return
-	}
-	for i, reg := range c.regions {
-		if reg == r {
-			c.regions = slices.Delete(c.regions, i, i+1)
-			break
-		}
-	}
+func (c *Controller[R]) unsafeRemove(r *region[R]) {
+	c.regions = slices.DeleteFunc(c.regions, func(reg *region[R]) bool {
+		return reg == r
+	})
 }

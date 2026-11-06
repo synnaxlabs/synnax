@@ -16,6 +16,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
@@ -782,26 +783,38 @@ var _ = Describe("Writer", func() {
 
 	Describe("Virtual Write Stamps", func() {
 		// writeAndReceive writes the series to the keys in one frame and returns the
-		// series streamed for each key with the instants that bound the write.
+		// series streamed for each key with the instants that bound the write. Each
+		// streamer runs on the leaseholder of its keys: an open ack does not cover a
+		// peer tap, which drops frames written before it subscribes.
 		writeAndReceive := func(
 			ctx SpecContext,
-			dist testutil.Node,
+			s scenario,
 			keys channel.Keys,
 			series ...telem.Series,
 		) (map[channel.Key][]telem.Series, telem.TimeStamp, telem.TimeStamp) {
 			GinkgoHelper()
 			unique := keys.Unique()
-			streamer := MustSucceed(dist.Framer.NewStreamer(framer.StreamerConfig{
-				Keys:        unique,
-				SendOpenAck: new(true),
-			}))
-			_, out := confluence.Attach(streamer, 10)
+			out := confluence.NewStream[framer.StreamerResponse](10)
 			sCtx, cancel := signal.WithCancel(ctx)
 			DeferCleanup(cancel)
-			streamer.Flow(sCtx)
 			var res framer.StreamerResponse
-			Eventually(out.Outlet()).Should(Receive(&res))
-			w := MustOpen(dist.Framer.OpenWriter(ctx, writer.Config{
+			for lease, leased := range lo.GroupBy(unique, channel.Key.Lease) {
+				leaseholder, ok := s.nodes[lease]
+				if !ok {
+					leaseholder = s.dist
+				}
+				streamer := MustSucceed(
+					leaseholder.Framer.NewStreamer(framer.StreamerConfig{
+						Keys:        leased,
+						SendOpenAck: new(true),
+					}),
+				)
+				streamer.InFrom(confluence.NewStream[framer.StreamerRequest](1))
+				streamer.OutTo(out)
+				streamer.Flow(sCtx)
+				Eventually(out.Outlet()).Should(Receive(&res))
+			}
+			w := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:  unique,
 				Start: 10 * telem.SecondTS,
 				Sync:  new(true),
@@ -840,7 +853,7 @@ var _ = Describe("Writer", func() {
 				s := DeferClose(open(ctx))
 				received, before, after := writeAndReceive(
 					ctx,
-					s.dist,
+					s,
 					s.keys,
 					pairs(s.keys)...,
 				)
@@ -869,7 +882,7 @@ var _ = Describe("Writer", func() {
 				for i := range series {
 					series[i] = telem.NewSeries(make([]int64, length))
 				}
-				received, _, _ := writeAndReceive(ctx, s.dist, s.keys, series...)
+				received, _, _ := writeAndReceive(ctx, s, s.keys, series...)
 				for _, k := range s.keys {
 					Expect(
 						received[k][0].TimeRange.Span(),
@@ -893,7 +906,7 @@ var _ = Describe("Writer", func() {
 				keys := channel.Keys{ch.Key()}
 				received, _, _ := writeAndReceive(
 					ctx,
-					s.dist,
+					s,
 					keys,
 					telem.NewSeriesV("a", "bcdef"),
 				)
@@ -909,7 +922,7 @@ var _ = Describe("Writer", func() {
 				s := DeferClose(gatewayOnlyScenario(ctx))
 				received, _, _ := writeAndReceive(
 					ctx,
-					s.dist,
+					s,
 					s.keys,
 					telem.NewSeriesV[int64](1),
 					telem.NewSeriesV[int64](1, 2),
@@ -931,7 +944,7 @@ var _ = Describe("Writer", func() {
 				k := s.keys[0]
 				received, _, _ := writeAndReceive(
 					ctx,
-					s.dist,
+					s,
 					channel.Keys{k, k},
 					telem.NewSeriesV[int64](1, 2),
 					telem.NewSeriesV[int64](3),
@@ -979,7 +992,7 @@ var _ = Describe("Writer", func() {
 				})
 				received, _, _ := writeAndReceive(
 					ctx,
-					s.dist,
+					s,
 					channel.Keys{
 						idx.Key(),
 						data.Key(),
@@ -1028,8 +1041,10 @@ func (r indexResolver) ResolveFreeIndexes(
 type scenario struct {
 	dist   testutil.Node
 	closer io.Closer
-	name   string
-	keys   channel.Keys
+	// nodes holds the cluster's nodes for a scenario that leases channels to peers.
+	nodes map[node.Key]testutil.Node
+	name  string
+	keys  channel.Keys
 }
 
 func (s scenario) Close() error { return s.closer.Close() }
@@ -1079,7 +1094,13 @@ func peerOnlyScenario(ctx context.Context) scenario {
 	}
 	channels = MustSucceed(dist.Channel.Create(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
-	return scenario{name: "Peer Only", keys: keys, dist: dist, closer: cluster}
+	return scenario{
+		name:   "Peer Only",
+		keys:   keys,
+		dist:   dist,
+		nodes:  cluster.Nodes,
+		closer: cluster,
+	}
 }
 
 func mixedScenario(ctx context.Context) scenario {
@@ -1097,6 +1118,7 @@ func mixedScenario(ctx context.Context) scenario {
 		name:   "Mixed Gateway and Peer",
 		keys:   keys,
 		dist:   dist,
+		nodes:  cluster.Nodes,
 		closer: cluster,
 	}
 }
