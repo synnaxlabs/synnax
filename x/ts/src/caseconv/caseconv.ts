@@ -397,7 +397,11 @@ export interface PathOptions {
 /** A path converted the way the converter of the same direction converts keys. */
 export interface ConvertedPath {
   path: string[];
-  /** Converts a value at the end of the path the way the document converts it. */
+  /**
+   * Converts a value at the end of the path the way the document converts it.
+   * @throws {z.ZodError} from snakeToCamelPath, if a schema marked with encodeWith
+   * rejects the value.
+   */
   convert: <V>(value: V) => V;
 }
 
@@ -466,7 +470,8 @@ const convertChild = <V>(
 /**
  * Converts a snake_case path into a document the way {@link snakeToCamel} converts the
  * keys of the whole document with the same schema. A segment into a list, into a record
- * with preserved keys, or under a preserved-case schema stays as it is.
+ * with preserved keys, or under a preserved-case schema stays as it is. Its convert
+ * throws a z.ZodError when a schema marked with encodeWith rejects the value.
  */
 export const snakeToCamelPath = createPathConverter(snakeToCamelStr, snakeToCamel);
 
