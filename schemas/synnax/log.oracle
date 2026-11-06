@@ -46,8 +46,8 @@ ChannelEntry struct {
     }
     precision        uint8?            {
         @doc value    """
-            is the number of decimal digits to display. Absent shows each sample as it
-            arrives; 17 is the maximum significant digits for a float64.
+            is the number of digits after the decimal point, from 0 to 17. Absent shows
+            each sample as it arrives.
         """
         @validate max 17
     }
@@ -78,7 +78,7 @@ Log struct {
         @validate required
     }
     channels             ChannelEntry[] = [] {
-        @doc value "are the channels displayed in this log, in order."
+        @doc value "are the channels displayed in this log."
     }
     timestamp_precision  uint8 = 0 {
         @doc value    "is the precision of displayed timestamps (0-3)."
@@ -144,8 +144,8 @@ Log struct {
 
         @doc value """
             sets the display color of the entry identified by channel. The zero color
-            resets it to a palette color assigned at render time. No-op when no entry
-            references the channel.
+            resets it to the text color of the log. No-op when no entry references the
+            channel.
         """
     }
 
@@ -164,8 +164,8 @@ Log struct {
         precision uint8?
 
         @doc value """
-            sets the number of decimal digits displayed for the entry identified by
-            channel. Absent clears it, so samples show as they arrive. No-op when no
+            sets the number of digits after the decimal point for the entry identified
+            by channel. Absent clears it, so samples show as they arrive. No-op when no
             entry references the channel.
         """
     }
@@ -198,15 +198,6 @@ Log struct {
         @doc value """
             sets the time zone of the values of the timestamp channel identified by
             channel. No-op when no entry references the channel.
-        """
-    }
-
-    action SetChannels {
-        channels ChannelEntry[]
-
-        @doc value """
-            replaces the entire ordered list of channel entries. Used for bulk channel
-            selection and reordering.
         """
     }
 

@@ -36,8 +36,8 @@ export const channelEntryZ = z.object({
   /** notation is the numeric notation used to render samples. */
   notation: notation.notationZ.default("standard"),
   /**
-   * precision is the number of decimal digits to display. Absent shows each sample as
-   * it arrives; 17 is the maximum significant digits for a float64.
+   * precision is the number of digits after the decimal point, from 0 to 17. Absent
+   * shows each sample as it arrives.
    */
   precision: zod.uint8.max(17).optional(),
   /** alias is a human-readable alias displayed in place of the channel name. */
@@ -86,7 +86,7 @@ export const logZ = z.object({
   key: keyZ.default(uuid.create),
   /** name is a human-readable name for the log. */
   name: z.string().min(1, "name is required"),
-  /** channels are the channels displayed in this log, in order. */
+  /** channels are the channels displayed in this log. */
   channels: channelEntryZ.array().default(() => []),
   /** timestampPrecision is the precision of displayed timestamps (0-3). */
   timestampPrecision: zod.uint8.max(3).default(0),
