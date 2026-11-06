@@ -48,6 +48,21 @@ var _ = Describe("Analyzer", func() {
 		loader = NewMockFileLoader()
 	})
 
+	Describe("Qualified type references", func() {
+		It("Should reject a namespace the file does not import", func(ctx SpecContext) {
+			source := `
+				@go output "out"
+				Key uuid
+				Entry struct {
+					channel channel.Key
+				}
+			`
+			_, diag := Analyze(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring("unresolved type: channel.Key"))
+		})
+	})
+
 	Describe("Retired version tag", func() {
 		It("Should reject a file-level @go version", func(ctx SpecContext) {
 			source := `
