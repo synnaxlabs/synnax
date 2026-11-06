@@ -12,6 +12,7 @@
 #include <atomic>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -60,6 +61,12 @@ public:
     /// @returns the first error of the writes. An error does not stop the writes of the
     /// other tasks.
     [[nodiscard]] x::errors::Error resend();
+
+    /// @brief returns the latest status of the task, with no command key, or nullopt
+    /// when the task has none or left this Driver. Waits for a write of the task's own
+    /// status in progress.
+    [[nodiscard]] std::optional<synnax::task::Status>
+    latest(const synnax::task::Key &key);
 
     /// @brief forgets the latest status of the task and discards its later statuses, so
     /// that neither a re-send nor a late report writes one. Call it once the task has

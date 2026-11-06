@@ -144,7 +144,7 @@ func (s *Service) Delete(
 		q = q.Where(channel.MatchKeys(req.Keys...))
 	}
 	if hasNames {
-		q = q.Where(channel.MatchNames(req.Names...))
+		q = q.Where(channel.MatchNamePatterns(req.Names...))
 	}
 	if err := q.Exec(ctx, tx); err != nil {
 		return struct{}{}, err
@@ -170,6 +170,15 @@ type ReadRequest struct {
 	// TimestampsIncluded also reads the index channels that timestamp Keys, when Keys
 	// leaves them out. A CSV read fails without it unless Keys holds every index.
 	TimestampsIncluded bool `json:"timestamps_included" msgpack:"timestamps_included"`
+	// Latest reads only the newest Latest samples of each channel in Bounds, when it is
+	// above 0. A CSV or TDMS read takes the newest Latest rows of each index instead. A
+	// read cannot combine it with Earliest or Reduction.
+	Latest uint32 `json:"latest" msgpack:"latest"`
+	// Earliest reads only the oldest Earliest samples of each channel in Bounds, when
+	// it
+	// is above 0. A CSV or TDMS read takes the oldest Earliest rows of each index
+	// instead. A read cannot combine it with Latest or Reduction.
+	Earliest uint32 `json:"earliest" msgpack:"earliest"`
 }
 
 // ReadResponse is the handle a read encoder drives to produce the response body. It is
@@ -181,17 +190,41 @@ type ReadResponse struct {
 	// requested channels, excluding any the caller already requested. It is empty
 	// unless the request set TimestampsIncluded.
 	Indexes []channel.Channel
+	// Bounds is the request's time range.
+	Bounds telem.TimeRange
 	// Reduction is the request's reduction.
 	Reduction telem.Reduction
-	// OpenIterator opens an iterator over keys within the read's bounds and under its
+	// Latest is the request's count of newest samples, or 0 to not limit the read to
+	// them.
+	Latest uint32
+	// Earliest is the request's count of oldest samples, or 0 to not limit the read to
+	// them.
+	Earliest uint32
+	// OpenIterator opens an iterator over keys within bounds and under the read's
 	// reduction. The caller must close it.
-	OpenIterator func(ctx context.Context, keys channel.Keys) (*framer.Iterator, error)
+	OpenIterator func(
+		ctx context.Context,
+		keys channel.Keys,
+		bounds telem.TimeRange,
+	) (*framer.Iterator, error)
 }
 
 // Read checks that the caller may read the channels in req, along with their index
 // channels when req sets TimestampsIncluded, and returns the response an encoder
 // reads them through.
 func (s *Service) Read(ctx context.Context, req ReadRequest) (ReadResponse, error) {
+	if req.Latest > 0 && req.Earliest > 0 {
+		return ReadResponse{}, errors.Wrap(
+			validate.ErrValidation,
+			"a read cannot take both latest and earliest",
+		)
+	}
+	if (req.Latest > 0 || req.Earliest > 0) && req.Reduction.Variant != nil {
+		return ReadResponse{}, errors.Wrap(
+			validate.ErrValidation,
+			"a read cannot take latest or earliest with a reduction",
+		)
+	}
 	if err := s.enforceRetrieve(ctx, req.Keys); err != nil {
 		return ReadResponse{}, err
 	}
@@ -220,15 +253,20 @@ func (s *Service) Read(ctx context.Context, req ReadRequest) (ReadResponse, erro
 	return ReadResponse{
 		Channels:  channels,
 		Indexes:   indexes,
+		Bounds:    req.Bounds,
 		Reduction: req.Reduction,
+		Latest:    req.Latest,
+		Earliest:  req.Earliest,
 		OpenIterator: func(
 			ctx context.Context,
 			keys channel.Keys,
+			bounds telem.TimeRange,
 		) (*framer.Iterator, error) {
 			return s.internal.OpenIterator(ctx, framer.IteratorConfig{
 				Keys:      keys,
-				Bounds:    req.Bounds,
+				Bounds:    bounds,
 				Reduction: req.Reduction,
+				ChunkSize: int64(max(req.Latest, req.Earliest)),
 			})
 		},
 	}, nil

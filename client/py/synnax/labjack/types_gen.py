@@ -116,33 +116,41 @@ class ScanConfig(task.ScanConfig):
         return hash(self.key)
 
 
-class LinearScale(BaseModel):
-    """Maps raw values to engineering units with a slope and offset."""
+class AnalogReadChannel(BaseReadChannel):
+    """Reads a voltage from an analog input port."""
 
-    type: Literal["linear"] = "linear"
-    slope: float = 1
-    offset: float = 0
-
-
-class MapScale(BaseModel):
-    """Maps a raw range linearly onto a scaled range."""
-
-    type: Literal["map"] = "map"
-    pre_scaled_min: float = 0
-    pre_scaled_max: float = 1
-    scaled_min: float = 0
-    scaled_max: float = 1
+    type: Literal["analog"] = "analog"
+    port: str = "AIN0"
+    range: float = 10
+    neg_chan: int = Field(default=199, ge=-2147483648, le=2147483647)
+    scale: task.Scale = Field(default_factory=lambda: task.NoneScale(type="none"))
 
 
-class NoneScale(BaseModel):
-    """Applies no scaling; the raw value is used directly."""
+class DigitalReadChannel(BaseReadChannel):
+    """Reads a digital input line."""
 
-    type: Literal["none"] = "none"
+    type: Literal["digital"] = "digital"
+    port: str = "DIO4"
 
 
-# Determines how raw sensor values are transformed to engineering units.
-Scale = Annotated[
-    LinearScale | MapScale | NoneScale,
+class ThermocoupleReadChannel(BaseReadChannel):
+    """Reads temperature from a thermocouple."""
+
+    type: Literal["thermocouple"] = "thermocouple"
+    port: str = "AIN0"
+    thermocouple_type: ThermocoupleType = "K"
+    neg_chan: int = Field(default=199, ge=-2147483648, le=2147483647)
+    cjc_source: str = "TEMPERATURE_DEVICE_K"
+    cjc_slope: float = 1
+    cjc_offset: float = 0
+    units: TemperatureUnits = "K"
+    scale: task.Scale = Field(default_factory=lambda: task.NoneScale(type="none"))
+
+
+# Is a single LabJack read channel. The type field selects the input mode and the
+# fields that accompany it.
+ReadChannel = Annotated[
+    AnalogReadChannel | DigitalReadChannel | ThermocoupleReadChannel,
     Field(discriminator="type"),
 ]
 
@@ -168,61 +176,6 @@ WriteChannel = Annotated[
 ]
 
 
-class AnalogReadChannel(BaseReadChannel):
-    """Reads a voltage from an analog input port."""
-
-    type: Literal["analog"] = "analog"
-    port: str = "AIN0"
-    range: float = 10
-    neg_chan: int = Field(default=199, ge=-2147483648, le=2147483647)
-    scale: Scale = Field(default_factory=lambda: NoneScale(type="none"))
-
-
-class DigitalReadChannel(BaseReadChannel):
-    """Reads a digital input line."""
-
-    type: Literal["digital"] = "digital"
-    port: str = "DIO4"
-
-
-class ThermocoupleReadChannel(BaseReadChannel):
-    """Reads temperature from a thermocouple."""
-
-    type: Literal["thermocouple"] = "thermocouple"
-    port: str = "AIN0"
-    thermocouple_type: ThermocoupleType = "K"
-    neg_chan: int = Field(default=199, ge=-2147483648, le=2147483647)
-    cjc_source: str = "TEMPERATURE_DEVICE_K"
-    cjc_slope: float = 1
-    cjc_offset: float = 0
-    units: TemperatureUnits = "K"
-    scale: Scale = Field(default_factory=lambda: NoneScale(type="none"))
-
-
-# Is a single LabJack read channel. The type field selects the input mode and the
-# fields that accompany it.
-ReadChannel = Annotated[
-    AnalogReadChannel | DigitalReadChannel | ThermocoupleReadChannel,
-    Field(discriminator="type"),
-]
-
-
-class WriteConfig(task.WriteConfig):
-    """Configures a LabJack write task.
-
-    Attributes:
-        state_rate: Is the rate at which output state is reported to Synnax, in Hertz.
-        channels: Are the channels the task drives.
-    """
-
-    state_rate: telem.Rate = telem.Rate(10)
-    channels: list[WriteChannel] = Field(default_factory=list)
-
-    @_override
-    def __hash__(self) -> int:
-        return hash(self.key)
-
-
 class ReadConfig(task.ReadConfig):
     """Configures a LabJack read task.
 
@@ -240,6 +193,22 @@ class ReadConfig(task.ReadConfig):
     channels: list[ReadChannel] = Field(default_factory=list)
     device_scan_backlog_warn_on_count: int = Field(default=0, ge=0, le=4294967295)
     ljm_scan_backlog_warn_on_count: int = Field(default=0, ge=0, le=4294967295)
+
+    @_override
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
+class WriteConfig(task.WriteConfig):
+    """Configures a LabJack write task.
+
+    Attributes:
+        state_rate: Is the rate at which output state is reported to Synnax, in Hertz.
+        channels: Are the channels the task drives.
+    """
+
+    state_rate: telem.Rate = telem.Rate(10)
+    channels: list[WriteChannel] = Field(default_factory=list)
 
     @_override
     def __hash__(self) -> int:
