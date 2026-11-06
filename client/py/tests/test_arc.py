@@ -228,6 +228,18 @@ class TestArcTask:
         assert payload.name == "Test Arc Task"
         assert payload.config["arc_key"] == str(arc.key)
 
+    def test_arc_task_keeps_stored_fields(self) -> None:
+        """Should keep the hash and data saving flag of a stored config."""
+        stored = {
+            "arc_key": str(uuid4()),
+            "hash": "abc",
+            "data_saving_disabled": True,
+        }
+        task = sy.arc.Task(internal=sy.task.Task(type="arc", config=stored))
+        config = task.to_payload().config
+        assert config["hash"] == "abc"
+        assert config["data_saving_disabled"] is True
+
     def test_arc_task_requires_arc_key(self) -> None:
         """Should raise error when arc_key is not provided."""
         with pytest.raises(ValueError, match="arc_key is required"):
