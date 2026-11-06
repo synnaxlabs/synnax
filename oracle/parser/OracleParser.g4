@@ -381,9 +381,9 @@ unionDef
     : IDENT UNION IDENT IDENT typeRef? (EXTENDS typeRefList)? nl* LBRACE nl* unionBody RBRACE
     ;
 
-// Union body contains variants and/or union-level domains
+// Union body contains variants, actions, and/or union-level domains
 unionBody
-    : ((unionVariant | domain) nl*)*
+    : ((actionDef | unionVariant | domain) nl*)*
     ;
 
 // Single variant: discriminator value + struct type + optional per-variant domains
@@ -398,10 +398,10 @@ unionBody
 //   }
 //   empty {}
 //
-// variantName accepts IDENT or any Oracle keyword so that discriminator string
-// values that collide with reserved words (e.g. "map" in NI's Scale union)
-// can be expressed without quoting. The value carried is always the raw
-// token text.
+// variantName accepts IDENT or any Oracle keyword except `action`, which starts an
+// action in a union body, so that discriminator string values that collide with
+// reserved words (e.g. "map" in NI's Scale union) can be expressed without quoting.
+// The value carried is always the raw token text.
 unionVariant
     : variantName typeRef unionVariantBody?                               # NamedVariant
     | variantName (EXTENDS typeRefList)? nl* LBRACE nl* structBody RBRACE # InlineVariant
@@ -415,7 +415,6 @@ variantName
     | ENUM
     | EXTENDS
     | IMPORT
-    | ACTION
     ;
 
 // Optional body for union variants (domains only)
