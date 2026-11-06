@@ -220,6 +220,10 @@ describe("log reducer", () => {
       expect(log.reduceAll(withEntries(), [action]).targets).toEqual(["channel:5"]);
     });
 
+    it.each(cases)("$name keys its undoable by channel", ({ action }) => {
+      expect(log.kindOf([action])).toEqual("channel:5");
+    });
+
     it.each(cases)("$name is a no-op when the channel is absent", ({ action }) => {
       const state = createEmpty({ channels: [createChannelEntry(6)] });
       expect(apply(state, action).channels).toEqual([createChannelEntry(6)]);
