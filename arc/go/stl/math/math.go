@@ -142,33 +142,48 @@ var (
 	isNaNDoc = doc.New(
 		doc.Paragraph("Returns true if a float value is NaN."),
 		doc.Divider(),
-		doc.Code("arc", "math.is_nan(pump_speed) => abort"),
+		doc.Code(
+			"arc",
+			"func clean() {x f64} f64 {\n    if math.is_nan(x) {\n        return 0.0\n    }\n    return x\n}",
+		),
 	)
 	isInfiniteDoc = doc.New(
 		doc.Paragraph(
 			"Returns true if a float value is positive or negative infinity.",
 		),
 		doc.Divider(),
-		doc.Code("arc", "math.is_infinite(temp_a) => abort"),
+		doc.Code(
+			"arc",
+			"func capped() {x f64} f64 {\n    if math.is_infinite(x) {\n        return 0.0\n    }\n    return x\n}",
+		),
 	)
 	isFiniteDoc = doc.New(
 		doc.Paragraph("Returns true if a float value is not NaN and not infinite."),
 		doc.Divider(),
-		doc.Code("arc", "not math.is_finite(pump_speed) or pump_speed < 15 => next"),
+		doc.Code(
+			"arc",
+			"sequence main {\n    stage spin_down {\n        not math.is_finite(pump_speed) or pump_speed < 15 => next\n    }\n    stage stopped {\n        1 -> pump_stopped\n    }\n}",
+		),
 	)
 	nanDoc = doc.New(
 		doc.Paragraph(
 			"The f32 or f64 NaN value. NaN fails every comparison except !=. Test for it with math.is_nan.",
 		),
 		doc.Divider(),
-		doc.Code("arc", "last f64 $= math.nan"),
+		doc.Code(
+			"arc",
+			"func invalid() {x f64} f64 {\n    if x < 0.0 {\n        return math.nan\n    }\n    return x\n}",
+		),
 	)
 	infDoc = doc.New(
 		doc.Paragraph(
 			"The f32 or f64 positive infinity value. Negate it for -math.inf.",
 		),
 		doc.Divider(),
-		doc.Code("arc", "lowest f64 $= math.inf"),
+		doc.Code(
+			"arc",
+			"func lowest() {x f64} f64 {\n    low f64 $= math.inf\n    if x < low {\n        low = x\n    }\n    return low\n}",
+		),
 	)
 	moduleDoc = doc.New(
 		doc.Paragraph(
