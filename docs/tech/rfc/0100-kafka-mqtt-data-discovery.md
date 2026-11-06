@@ -82,18 +82,19 @@ record, so they do not wait for typed devices (RFC 0081).
 
 | Task         | Command           | Arguments                      | Answer                                                                    |
 | ------------ | ----------------- | ------------------------------ | ------------------------------------------------------------------------- |
-| `kafka_scan` | `test_connection` | Cluster properties             | One step per stage: dial, TLS, SASL, metadata, each advertised broker     |
+| `kafka_scan` | `test_connection` | Cluster properties             | Status only; stages: dial, TLS, SASL, metadata, each advertised broker    |
 | `kafka_scan` | `browse`          | Device key                     | Topics with partitions, about how many records, newest time, rate, format |
 | `kafka_scan` | `sample`          | Device key, topics, count      | Records with key, time, headers, and payload; inferred shapes             |
 | `kafka_scan` | `preview`         | Device key, `ReadConfig` draft | Samples per channel and problems per record                               |
-| `mqtt_scan`  | `test_connection` | Broker properties              | One step per stage: dial, TLS, authentication                             |
+| `mqtt_scan`  | `test_connection` | Broker properties              | Status only; stages: dial, TLS, authentication                            |
 | `mqtt_scan`  | `browse`          | Device key, filter, duration   | Topics with message count, rate, last seen, last payload, format          |
 | `mqtt_scan`  | `sample`          | Device key, topics, count      | Messages per topic; inferred shapes                                       |
 | `mqtt_scan`  | `preview`         | Device key, `ReadConfig` draft | Samples per channel and problems per record                               |
 
-A failed test step carries what failed and what to do, split per the status text rule:
-"Authentication failed" as the message, and the cause and fix as the description. The
-status of a failed test takes the message and the description of its failed step.
+A test stops at the first stage that fails. Its status says what failed and what to do,
+split per the status text rule: "Authentication failed" as the message, and the cause
+and fix as the description. A test answers with no data, because no form shows more than
+one status.
 
 The Core stores each answer in the task status, so an answer keeps at most 1 MiB of
 JSON. Sample and preview take one record from each topic in turn, leave out a record
@@ -191,8 +192,8 @@ shape and the timestamp set as the index, or take the proposed rule, check the p
 then add to the task. MQTT browse gains count, rate, and last seen per topic, and a
 "keep listening" mode in place of the fixed 3 s window.
 
-The Kafka connect form sends `test_connection` and shows the failed step in one status.
-It follows `docs/claude/ux.md`: field rows and a checkbox for TLS.
+The Kafka connect form sends `test_connection` and shows the status of the answer. It
+follows `docs/claude/ux.md`: field rows and a checkbox for TLS.
 
 ### 4.5 Bad records
 
@@ -239,7 +240,7 @@ both read configs without a migration. Phases 5 to 7 come after the ICD cutover 
 | ----- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
 | 1     | Move Kafka onto `x/go/json` and `driver.Scanner`      | `x/go/json`, `core/pkg/service/kafka`, `core/pkg/service/mqtt`                                                                                                                                                                              | -          |
 | 2     | Warn on bad records with counts                       | `core/pkg/service/driver`, `core/pkg/service/kafka`, `core/pkg/service/mqtt`                                                                                                                                                                | 1          |
-| 3     | Add test, browse, and sample commands with inference  | `x/go/json`, `x/ts/src/json`, `core/pkg/service/driver`, `core/pkg/service/kafka`, `core/pkg/service/mqtt`, `schemas/synnax/task.oracle`, `client/ts/src/kafka`, `client/ts/src/mqtt`, `console/src/feature/mqtt/task`                      | 1          |
+| 3     | Add test, browse, and sample commands with inference  | `x/go/json`, `x/ts/src/json`, `core/pkg/service/driver`, `core/pkg/service/kafka`, `core/pkg/service/mqtt`, `client/ts/src/kafka`, `client/ts/src/mqtt`, `console/src/feature/mqtt/task`                                                    | 1          |
 | 4     | Move the connect forms and Add data onto the commands | `core/pkg/service/mqtt`, `console/src/feature/kafka/device`, `console/src/feature/mqtt`, `console/src/platform/task`                                                                                                                        | 3          |
 | 5     | Add the Kafka Add data dialog with inferred fields    | `console/src/feature/kafka/task`, `console/src/feature/mqtt/task`, `console/src/platform/task`                                                                                                                                              | 4          |
 | 6     | Preview drafts through the task's own parsing         | `core/pkg/service/kafka`, `core/pkg/service/mqtt`, `client/ts/src/kafka`, `client/ts/src/mqtt`, `console/src/platform/task`                                                                                                                 | 2, 5       |
