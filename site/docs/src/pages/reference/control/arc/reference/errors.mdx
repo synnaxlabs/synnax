@@ -166,6 +166,26 @@ This section lists the most common diagnostics without a code, not all of them.
   <Problem.Cause>A `$=` declaration is at the top level.</Problem.Cause>
   <Problem.Fix>Declare it in a sequence, a stage, or a function.</Problem.Fix>
 </Problem.Item>
+<Problem.Item
+  message={
+    "channels and channel-read expressions cannot be assigned to stateful variables"
+  }
+>
+  <Problem.Cause>
+    A `$=` in a sequence or stage starts from a channel, an expression that reads one,
+    or a read-only variable.
+  </Problem.Cause>
+  <Problem.Fix>
+    Start from a literal or an expression that reads no channel.
+  </Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"variable '<x>' of type <T> cannot have a computed initializer"}>
+  <Problem.Cause>
+    A `:=` or `$=` in a sequence or stage starts from an expression of a type with no
+    zero value, such as a series.
+  </Problem.Cause>
+  <Problem.Fix>Start from a literal, or compute the value in a function.</Problem.Fix>
+</Problem.Item>
 <Problem.Item message={"cannot assign to loop variable '<i>'"}>
   <Problem.Cause>The loop body changes the loop variable.</Problem.Cause>
   <Problem.Fix>Use a different variable.</Problem.Fix>
@@ -205,9 +225,9 @@ This section lists the most common diagnostics without a code, not all of them.
 
 <Problem.List>
 
-<Problem.Item message={"input value for '<p>' must be a literal"}>
-  <Problem.Cause>A parameter in `()` gets a channel or an expression.</Problem.Cause>
-  <Problem.Fix>Use a literal or a variable.</Problem.Fix>
+<Problem.Item message={"input value for '<p>' cannot be a channel"}>
+  <Problem.Cause>A parameter in `()` that is not a `chan` type gets a channel name.</Problem.Cause>
+  <Problem.Fix>Read the channel in an expression, or pass it to a `chan` parameter.</Problem.Fix>
 </Problem.Item>
 <Problem.Item message={"upstream value type <T> does not match func '<f>' trigger parameter '<p>' type <U>"}>
   <Problem.Cause>The flow sends the wrong type into the function, such as a `bool` into `control.set_authority`.</Problem.Cause>
@@ -326,7 +346,8 @@ failed to compile function 'f' body: failed to compile return expression: float 
   message={"cannot read '<name>': its initializer is not a compile-time constant"}
 >
   <Problem.Cause>
-    Code reads a top-level variable whose value is not a constant, such as a series.
+    A function reads a top-level variable whose value is not a constant, such as a
+    series or an expression.
   </Problem.Cause>
   <Problem.Fix>Declare the variable in the function or stage that uses it.</Problem.Fix>
 </Problem.Item>

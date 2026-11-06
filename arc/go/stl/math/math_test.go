@@ -29,7 +29,17 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func makeMathGraph(nodeType string, dt types.Type) graph.Graph {
+// nodeConfig encodes nodeType and its window params as graph inputs, so the node
+// state carries the values Next reads live.
+func nodeConfig(nodeType string, inputs types.Params) msgpack.EncodedJSON {
+	cfg := msgpack.EncodedJSON{"type": nodeType}
+	for _, p := range inputs {
+		cfg[p.Name] = p.Value
+	}
+	return cfg
+}
+
+func makeMathGraph(nodeType string, dt types.Type, inputs types.Params) graph.Graph {
 	return graph.Graph{
 		Nodes: []graph.Node{
 			{Key: "input"},
@@ -37,7 +47,7 @@ func makeMathGraph(nodeType string, dt types.Type) graph.Graph {
 		},
 		Inputs: map[string]msgpack.EncodedJSON{
 			"input": {"type": "input"},
-			"math":  {"type": nodeType},
+			"math":  nodeConfig(nodeType, inputs),
 		},
 		Edges: graph.Edges{{
 			Source: ir.Handle{Node: "input", Param: ir.DefaultOutputParam},
@@ -50,7 +60,11 @@ func makeMathGraph(nodeType string, dt types.Type) graph.Graph {
 	}
 }
 
-func makeMathGraphWithReset(nodeType string, dt, resetDt types.Type) graph.Graph {
+func makeMathGraphWithReset(
+	nodeType string,
+	dt, resetDt types.Type,
+	inputs types.Params,
+) graph.Graph {
 	return graph.Graph{
 		Nodes: []graph.Node{
 			{Key: "input"},
@@ -60,7 +74,7 @@ func makeMathGraphWithReset(nodeType string, dt, resetDt types.Type) graph.Graph
 		Inputs: map[string]msgpack.EncodedJSON{
 			"input":        {"type": "input"},
 			"reset_signal": {"type": "reset_signal"},
-			"math":         {"type": nodeType},
+			"math":         nodeConfig(nodeType, inputs),
 		},
 		Edges: graph.Edges{
 			{
@@ -98,7 +112,7 @@ func openMath(
 	inputs types.Params,
 ) mathSetup {
 	GinkgoHelper()
-	g := makeMathGraph(nodeType, dt)
+	g := makeMathGraph(nodeType, dt, inputs)
 	analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 	Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 	s := node.New(analyzed)
@@ -119,7 +133,7 @@ func openMathWithReset(
 	inputs types.Params,
 ) mathSetup {
 	GinkgoHelper()
-	g := makeMathGraphWithReset(nodeType, dt, types.Bool())
+	g := makeMathGraphWithReset(nodeType, dt, types.Bool(), inputs)
 	analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 	Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 	s := node.New(analyzed)
@@ -357,7 +371,7 @@ var _ = Describe("Math", func() {
 		It(
 			"Should create node for math.avg via CompoundFactory",
 			func(ctx SpecContext) {
-				g := makeMathGraph("avg", types.F64())
+				g := makeMathGraph("avg", types.F64(), nil)
 				analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 				Expect(diagnostics.Ok()).To(BeTrue())
 				s := node.New(analyzed)
@@ -375,7 +389,7 @@ var _ = Describe("Math", func() {
 		It(
 			"Should create node for math.derivative via CompoundFactory",
 			func(ctx SpecContext) {
-				g := makeMathGraph("derivative", types.F64())
+				g := makeMathGraph("derivative", types.F64(), nil)
 				analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 				Expect(diagnostics.Ok()).To(BeTrue())
 				s := node.New(analyzed)
@@ -772,7 +786,7 @@ var _ = Describe("Max", func() {
 		expectOutputTime(s.state, 6*telem.SecondTS)
 	})
 	It("Should reject a non-boolean reset signal", func(ctx SpecContext) {
-		g := makeMathGraphWithReset("max", types.I64(), types.U8())
+		g := makeMathGraphWithReset("max", types.I64(), types.U8(), nil)
 		_, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 		Expect(diagnostics.Ok()).To(BeFalse())
 		Expect(diagnostics.String()).To(ContainSubstring("type mismatch"))

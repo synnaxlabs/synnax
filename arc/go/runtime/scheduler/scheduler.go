@@ -62,6 +62,9 @@ type node struct {
 	// entry marks a node with no incoming edges and no channel reads. Entry
 	// nodes fire once per activation.
 	entry bool
+	// once marks an entry node whose fired flag survives scope reset, so it
+	// fires on the first activation only.
+	once bool
 	// done is the markedFlags index of the node's ir.DoneParam pseudo-output, -1
 	// when no transition waits on it.
 	done int
@@ -144,8 +147,9 @@ type Scheduler struct {
 	// replay on the next cycle. Cleared when the replay runs or when the
 	// owning member is deactivated.
 	selfChangedFlags []uint8
-	// firedFlags[i] is set when node i runs and cleared on (re)activation. An
-	// entry node with the flag set skips the unconditional stratum-0 dispatch.
+	// firedFlags[i] is set when node i runs and cleared on (re)activation, except
+	// for a once node. An entry node with the flag set skips the unconditional
+	// stratum-0 dispatch.
 	firedFlags []uint8
 	// markedFlags[i] is set when the (node, output) pair behind transition handle i
 	// fired this cycle. Cleared at end of cycle so transitions fire on fresh marks,
@@ -369,11 +373,14 @@ func (s *Scheduler) exit(ss *scope, i int) {
 	s.settled = false
 }
 
-// resetLeafNode clears selfChanged and fired and calls Reset on m's node.
+// resetLeafNode clears selfChanged and fired and calls Reset on m's node. A once
+// node keeps its fired flag.
 func (s *Scheduler) resetLeafNode(m *member) {
 	if n := m.node; m.isNode() && n != nil {
 		s.selfChangedFlags[n.idx] = 0
-		s.firedFlags[n.idx] = 0
+		if !n.once {
+			s.firedFlags[n.idx] = 0
+		}
 		n.Reset(s.nodeCtx)
 	}
 }
