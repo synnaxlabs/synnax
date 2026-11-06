@@ -304,8 +304,7 @@ func constDefaultValue[T antlr.ParserRuleContext](
 
 // CastConstValue folds a cast-of-literal or module-constant expression to its value for
 // t, returning nil when expr is not that shape. Foldable expressions lower as
-// constants,
-// so they must not register synthetic expression functions.
+// constants, so they must not register synthetic expression functions.
 func CastConstValue[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	expr parser.IExpressionContext,

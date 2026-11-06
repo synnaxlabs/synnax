@@ -345,10 +345,12 @@ void expect_all(const x::telem::DataType &dt) {
 }
 }
 
+/// @brief it should keep NaN and infinity in stored f32 values.
 TEST(StoredFloatTest, KeepsNonFiniteF32Values) {
     stored_float::expect_all<float>(x::telem::FLOAT32_T);
 }
 
+/// @brief it should keep NaN and infinity in stored f64 values.
 TEST(StoredFloatTest, KeepsNonFiniteF64Values) {
     stored_float::expect_all<double>(x::telem::FLOAT64_T);
 }
