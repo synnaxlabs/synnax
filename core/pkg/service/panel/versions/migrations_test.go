@@ -1,0 +1,183 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package versions_test
+
+import (
+	"context"
+	"encoding/json/v2"
+	"uuid"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/panel/versions"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v0"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v1"
+	v2 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v2"
+	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/spatial"
+	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
+)
+
+var _ = Describe("Migrations", func() {
+	var (
+		ctx context.Context
+		db  *gorp.DB
+	)
+	BeforeEach(func(sCtx SpecContext) {
+		ctx = sCtx
+		db = DeferClose(gorp.Wrap(memkv.New()))
+	})
+	// recordComposition marks the given migrations as run by the composition pass.
+	recordComposition := func(migrations ...gorp.Migration) {
+		GinkgoHelper()
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:         db,
+			Namespace:  "Composition",
+			Migrations: migrations,
+		})).To(Succeed())
+	}
+	openTable := func() *gorp.Table[versions.Key, versions.Panel] {
+		GinkgoHelper()
+		return MustOpen(
+			gorp.OpenTable(ctx, gorp.TableConfig[versions.Key, versions.Panel]{
+				DB:         db,
+				Migrations: versions.Migrations,
+			}),
+		)
+	}
+	retrieve := func(key versions.Key) versions.Panel {
+		GinkgoHelper()
+		var p versions.Panel
+		Expect(gorp.NewRetrieve[versions.Key, versions.Panel]().
+			Where(gorp.MatchKeys[versions.Key, versions.Panel](key)).
+			Entry(&p).
+			Exec(ctx, db)).To(Succeed())
+		return p
+	}
+
+	Describe("Table chain", func() {
+		It("Should lift the v0 panels of a v0.58 Core to the latest version", func() {
+			MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Panel]{
+				DB:         db,
+				Migrations: []gorp.Migration{v0.Migration},
+			}))
+			old := v0.Panel{
+				Key:  uuid.New(),
+				Name: "Main",
+				Root: v0.Node{Variant: v0.SplitNode{
+					Direction: spatial.DirectionX,
+					Size:      0.5,
+					First: v0.Node{Variant: v0.LeafNode{Tabs: []v0.Tab{
+						{Variant: v0.ViewTab{
+							Key:  uuid.New(),
+							Type: "docs",
+							Args: msgpack.EncodedJSON{"page": "intro"},
+						}},
+						{Variant: v0.ResourceTab{
+							Key:      uuid.New(),
+							Resource: resource.ID{Type: resource.TypeLog, Key: "a"},
+						}},
+					}}},
+					Last: v0.Node{Variant: v0.LeafNode{Tabs: []v0.Tab{
+						{Variant: v0.ResourceTab{
+							Key:      uuid.New(),
+							Resource: resource.ID{Type: resource.TypeTable, Key: "b"},
+						}},
+					}}},
+				}},
+			}
+			Expect(gorp.WrapWriter[v0.Key, v0.Panel](db).Set(ctx, old)).To(Succeed())
+			recordComposition(v0.ResourceTabTypesMigration)
+			openTable()
+			want := MustSucceed(v2.MigratePanel(
+				ctx, MustSucceed(v1.MigratePanel(ctx, old)),
+			))
+			Expect(retrieve(old.Key)).To(Equal(want))
+		})
+
+		It("Should not lift again the panels of a v0.60 Core", func() {
+			MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v2.Key, v2.Panel]{
+				DB:         db,
+				Migrations: []gorp.Migration{v0.Migration},
+			}))
+			icon := "valve"
+			stored := v2.Panel{
+				Key:   uuid.New(),
+				Name:  "Main",
+				Icon:  &icon,
+				Color: new(color.Color),
+				Root: v2.Node{Variant: v2.LeafNode{Tabs: []v2.Tab{
+					{Variant: v2.ViewTab{
+						TabBase: v2.TabBase{Key: uuid.New()},
+						View:    v2.View{Type: "docs"},
+					}},
+				}}},
+			}
+			recordComposition(
+				v0.ResourceTabTypesMigration,
+				v1.Migration,
+				v2.Migration,
+			)
+			Expect(gorp.WrapWriter[v2.Key, v2.Panel](db).Set(ctx, stored)).
+				To(Succeed())
+			openTable()
+			Expect(retrieve(stored.Key)).To(Equal(stored))
+		})
+	})
+
+	Describe("Composition", func() {
+		It("Should store each panel of a legacy layout at the latest version", func() {
+			lpKey := uuid.New().String()
+			lpID := resource.ID{Type: resource.TypeLineplot, Key: lpKey}
+			Expect(gorp.WrapWriter[string, ontology.Resource](db).
+				Set(ctx, ontology.Resource{ID: lpID})).To(Succeed())
+			projectKey := uuid.New()
+			blob := MustSucceed(json.Marshal(map[string]any{
+				"mosaics": map[string]any{
+					"main": map[string]any{"root": map[string]any{
+						"key":  1,
+						"tabs": []any{map[string]any{"tabKey": lpKey}},
+					}},
+				},
+				"layouts": map[string]any{
+					lpKey: map[string]any{"key": lpKey, "type": "lineplot"},
+				},
+			}))
+			Expect(db.Set(
+				ctx, []byte(project.LegacyLayoutKVPrefix+projectKey.String()), blob,
+			)).To(Succeed())
+			table := openTable()
+			recordComposition(versions.CompositionMigrations(table)...)
+
+			var panels []versions.Panel
+			Expect(table.NewRetrieve().Entries(&panels).Exec(ctx, db)).To(Succeed())
+			Expect(panels).To(HaveLen(1))
+			lf := panels[0].Root.Variant.(versions.LeafNode)
+			Expect(lf.Tabs).To(HaveLen(1))
+			Expect(lf.Tabs[0].Variant.(versions.ResourceTab).Resource).To(Equal(lpID))
+
+			By("Parenting the panel under the project")
+			rel := ontology.Relationship{
+				From: project.Project{Key: projectKey}.ResourceID(),
+				Type: ontology.RelationshipTypeParentOf,
+				To:   panels[0].ResourceID(),
+			}
+			Expect(gorp.NewRetrieve[string, ontology.Relationship]().
+				Where(gorp.MatchKeys[string, ontology.Relationship](rel.GorpKey())).
+				Exists(ctx, db)).To(BeTrue())
+		})
+	})
+})

@@ -109,6 +109,12 @@ func OpenService(
 
 func (s *Service) Close() error { return s.closer.Close() }
 
+// CompositionMigrations returns the panel migrations that read other services' staged
+// data. Run them once every service table is open.
+func (s *Service) CompositionMigrations() []gorp.Migration {
+	return versions.CompositionMigrations(s.table)
+}
+
 // OnAction subscribes the given handler to the action stream emitted by Dispatch. The
 // handler runs synchronously inside Dispatch after the underlying transaction commits.
 // The returned Disconnect removes the handler.
