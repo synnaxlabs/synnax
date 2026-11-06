@@ -306,6 +306,20 @@ describe("slack", () => {
         expect(note.links.map((l) => l.label)).toEqual(["Watch the replay"]);
       });
 
+      it("should name each zone when a visit crosses a daylight saving change", () => {
+        const note = recap(
+          {
+            ...VISIT,
+            start: new Date("2026-03-08T08:55:00Z"),
+            end: new Date("2026-03-08T09:10:00Z"),
+          },
+          null,
+        );
+        expect(note.facts.find((f) => f.label === "Time")?.value).toBe(
+          "01:55 MST to 03:10 MDT",
+        );
+      });
+
       it("should name a user Clerk does not know by their email", () => {
         const note = recap(VISIT, null);
         expect(note.title).toBe("ada@example.com used Synnax Desktop for 1 h 38 min");
