@@ -1489,7 +1489,7 @@ describe("log/aether/Log", () => {
           selectionEnd: 0,
         });
         log.render();
-        expect(log.state.selectedLines[0].text).toMatch(/^2026-01-05 01:02:03/);
+        expect(log.selectedLines()[0].text).toMatch(/^2026-01-05 01:02:03/);
       });
 
       it("should default to local time", () => {
@@ -1499,7 +1499,7 @@ describe("log/aether/Log", () => {
         });
         log.render();
         expect(log.state.timeZone).toBe("local");
-        expect(log.state.selectedLines[0].text).toMatch(/^2026-01-05 01:02:03/);
+        expect(log.selectedLines()[0].text).toMatch(/^2026-01-05 01:02:03/);
       });
     });
 
