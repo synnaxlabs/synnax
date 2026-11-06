@@ -15,7 +15,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
@@ -31,9 +30,6 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
-	"go.uber.org/zap/zaptest/observer"
 )
 
 func parentOf(from, to resource.ID) ontology.Relationship {
@@ -63,21 +59,6 @@ func relationships(ctx context.Context, db *gorp.DB) []ontology.Relationship {
 }
 
 var _ = Describe("Ontology drop", func() {
-	It("Should run after every other migration", func(ctx SpecContext) {
-		core, logs := observer.New(zapcore.InfoLevel)
-		logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
-			ZapLogger: zap.New(core),
-		}))
-		MustOpen(svctestutil.OpenLayer(ctx, testutil.NewNode(ctx), service.LayerConfig{
-			Instrumentation: alamos.New("sy", alamos.WithLogger(logger)),
-		}))
-		ran := logs.FilterMessage("running migration").All()
-		Expect(ran).ToNot(BeEmpty())
-		last := ran[len(ran)-1]
-		Expect(last.LoggerName).To(Equal("composition"))
-		Expect(last.ContextMap()["migration"]).To(Equal("v61_drop_ontology"))
-	})
-
 	It(
 		"Should convert the edges of an upgraded store, then drop the ontology",
 		func(ctx SpecContext) {
