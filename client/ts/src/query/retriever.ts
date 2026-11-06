@@ -80,12 +80,6 @@ const keysOnly = (query: unknown): unknown[] | null => {
   return field[1];
 };
 
-/** The filter fields that return one record when they hold a plain value. */
-interface Plain {
-  key: record.Key;
-  name: string;
-}
-
 /**
  * The query objects a request schema accepts that return a list. It leaves out a bare
  * key list, which each overload takes on its own, and a plain `key` or `name` value,
@@ -98,8 +92,11 @@ export type RequestInput<Z extends z.ZodType> =
       ? never
       : "where" extends keyof I
         ? Omit<I, "where"> & Pick<Extract<z.output<Z>, { where?: unknown }>, "where">
-        : Omit<I, keyof Plain> & {
-            [F in keyof Plain & keyof I]?: Exclude<I[F], Plain[F]>;
+        : Omit<I, "key" | "name"> & {
+            [F in ("key" | "name") & keyof I]?: Exclude<
+              I[F],
+              F extends "key" ? record.Key : string
+            >;
           }
     : never;
 
@@ -114,10 +111,10 @@ export type OneInput<Z extends z.ZodType> =
       : "where" extends keyof I
         ? never
         : {
-            [F in keyof Plain & keyof I]: Omit<I, F> & {
-              [P in F]: Extract<I[P], Plain[P]>;
+            [F in ("key" | "name") & keyof I]: Omit<I, F> & {
+              [P in F]: Extract<I[P], P extends "key" ? record.Key : string>;
             };
-          }[keyof Plain & keyof I]
+          }[("key" | "name") & keyof I]
     : never;
 
 /** True for params that are a bare record key rather than a query object. */
