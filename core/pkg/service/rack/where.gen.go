@@ -45,6 +45,9 @@ func MatchWhere(w Where) (Filter, error) {
 		fs = append(fs, Not(not))
 	}
 	if l := w.Key; l != nil {
+		if l.Eq == nil && l.In == nil {
+			return nil, validate.PathedError(filter.ErrNoOperator, "key")
+		}
 		if l.Eq != nil {
 			fs = append(fs, MatchKeys(*l.Eq))
 		}
@@ -53,6 +56,10 @@ func MatchWhere(w Where) (Filter, error) {
 		}
 	}
 	if l := w.Name; l != nil {
+		if l.Eq == nil && l.In == nil && l.Contains == nil && l.StartsWith == nil &&
+			l.Regex == nil {
+			return nil, validate.PathedError(filter.ErrNoOperator, "name")
+		}
 		text := *l
 		if !l.CaseInsensitive {
 			if l.Eq != nil {
@@ -80,11 +87,17 @@ func MatchWhere(w Where) (Filter, error) {
 		}
 	}
 	if l := w.Embedded; l != nil {
+		if l.Eq == nil {
+			return nil, validate.PathedError(filter.ErrNoOperator, "embedded")
+		}
 		if l.Eq != nil {
 			fs = append(fs, MatchEmbedded(*l.Eq))
 		}
 	}
 	if l := w.Integrations; l != nil {
+		if l.Any == nil {
+			return nil, validate.PathedError(filter.ErrNoOperator, "integrations")
+		}
 		if l.Any != nil {
 			anyOf := make([]Filter, len(l.Any))
 			for i, v := range l.Any {
