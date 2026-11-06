@@ -29,6 +29,11 @@
             "minimum": 2,
             "default": -1
           },
+          "isolated": {
+            "type": "boolean",
+            "description": "Runs alone on the first Core after other sequences end.",
+            "default": false
+          },
           "tests": {
             "type": "array",
             "items": {

@@ -9,12 +9,13 @@
 
 """Compares Sedosaur's reviews with Greptile's reviews of the same commits.
 
-A finding is real when it has more 👍 than 👎, or when its thread was resolved and a
-later commit of the pull request changed its file. It is noise when it has more 👎 than
-👍, or when its thread was resolved with no such change. Otherwise it is open. GitHub
-does not say when a thread was resolved, so a commit made after the last reply to a
-thread does not count, and merge commits never count. A finding that matches one of the
-other reviewer's takes that one's verdict while its own is open.
+A finding is real when it has more 👍 than 👎, when a person replied that it is fixed,
+or when its thread was resolved and a later commit of the pull request changed its file.
+It is noise when it has more 👎 than 👍, or when its thread was resolved with no such
+reply or change. Otherwise it is open. GitHub does not say when a thread was resolved,
+so a commit made after the last reply to a thread does not count, and merge commits
+never count. A finding that matches one of the other reviewer's takes that one's verdict
+while its own is open.
 """
 
 import json
@@ -66,13 +67,15 @@ THREADS = """query($o: String!, $r: String!, $p: Int!, $endCursor: String) {
               reactionGroups { content reactors { totalCount } }
             }
           }
-          last: comments(last: 10) { nodes { author { login } createdAt } }
+          last: comments(last: 100) { nodes { author { login } body createdAt } }
         }
       }
     }
   }
 }"""
 
+_FIXED = re.compile(r"^fixed\b", re.I | re.M)
+"""A reply line that says a finding is fixed, such as "Fixed in 1a2b3c"."""
 _BLOCK = re.compile(r"<!-- greptile_comment -->(.*?)<!-- /greptile_comment -->", re.S)
 _ITEM = re.compile(
     r'^\d+\. <img alt="(P\d)"[^>]*>.*?\*\*(.+?)\*\*(?:.*?#discussion_r(\d+))?', re.M
@@ -88,13 +91,17 @@ class Thread:
     path: str
     line: int | None
     """The line at the thread's commit."""
-    commit: str
+    commit: str | None
+    """The commit the thread started on, or None when it no longer exists."""
     title: str | None
     resolved: bool
     up: int
     down: int
     last_reply: datetime | None
     """When a person last replied to the thread, if anyone did."""
+    fixed: bool
+    """A person replied that the finding is fixed, perhaps in another file or pull
+    request."""
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -166,7 +173,7 @@ def threads(nodes: list[dict[str, Any]]) -> list[Thread]:
             continue
         votes = {g["content"]: g["reactors"]["totalCount"] for g in c["reactionGroups"]}
         replies = [
-            r["createdAt"]
+            r
             for r in n["last"]["nodes"]
             if (r["author"] or {}).get("login") not in bots
         ]
@@ -176,12 +183,17 @@ def threads(nodes: list[dict[str, Any]]) -> list[Thread]:
                 bot=login,
                 path=n["path"],
                 line=n["originalLine"],
-                commit=c["originalCommit"]["oid"],
+                commit=(c["originalCommit"] or {}).get("oid"),
                 title=render.title(c["body"]),
                 resolved=n["isResolved"],
                 up=votes.get("THUMBS_UP", 0),
                 down=votes.get("THUMBS_DOWN", 0),
-                last_reply=datetime.fromisoformat(max(replies)) if replies else None,
+                last_reply=(
+                    datetime.fromisoformat(max(r["createdAt"] for r in replies))
+                    if replies
+                    else None
+                ),
+                fixed=any(_FIXED.search(r["body"]) for r in replies),
             )
         )
     return out
@@ -196,7 +208,7 @@ def verdict(t: Thread, touched: set[str] | None) -> str:
     """
     if t.down > t.up:
         return NOISE
-    if t.up > t.down:
+    if t.up > t.down or t.fixed:
         return REAL
     if not t.resolved or touched is None:
         return OPEN
@@ -228,16 +240,22 @@ def match(a: list[Item], b: list[Item]) -> list[tuple[int, int]]:
 
 
 def records(gh: GH, repo: str, since: datetime) -> list[dict[str, Any]]:
-    """Downloads the records of the Sedosaur reviews since a time, oldest first."""
+    """Downloads the records of the Sedosaur reviews since a time, oldest first. Only a
+    run on `main` of the repository itself counts, so a fork cannot add a record."""
     listed = gh(
         "api",
         "--paginate",
         f"repos/{repo}/actions/artifacts?name={ARTIFACT}&per_page=100",
         "--jq",
-        ".artifacts[] | select(.expired | not)"
-        ' | "\\(.created_at) \\(.workflow_run.id)"',
+        ".artifacts[] | tojson",
     )
-    runs = sorted(tuple(line.split()) for line in listed.splitlines() if line)
+    runs = sorted(
+        (a["created_at"], str(w["id"]))
+        for a in map(json.loads, listed.splitlines())
+        if not a["expired"]
+        and (w := a["workflow_run"])["head_branch"] == "main"
+        and w["head_repository_id"] == w["repository_id"]
+    )
     out: list[dict[str, Any]] = []
     with tempfile.TemporaryDirectory() as tmp:
         for created, run in runs:

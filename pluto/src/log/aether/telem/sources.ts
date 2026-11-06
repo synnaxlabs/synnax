@@ -993,11 +993,12 @@ const readPage = async (
     window: staticWindow(range),
     limit: { variant: "latest", count },
   });
-  const data = await settled(subscription, key, signal);
-  if (data == null) {
+  const aborted = (): Page => {
     subscription.close();
     return { samples: [], full: false, missed: false, status: telem.SUCCESS_STATUS };
-  }
+  };
+  const data = await settled(subscription, key, signal);
+  if (data == null) return aborted();
   const read: Array<Omit<Sample, "receivedAt">> = [];
   for (const s of data.series.series)
     for (let i = 0; i < s.length; i++)
@@ -1014,6 +1015,8 @@ const readPage = async (
     signal,
     recheckInterval,
   );
+  // The feed can close the subscription just before the abort.
+  if (signal.aborted) return aborted();
   const samples: Page["samples"] = [];
   let missed = false;
   for (const p of read) {
