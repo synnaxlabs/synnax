@@ -1748,3 +1748,47 @@ var _ = Describe("Iterator Behavior", func() {
 		})
 	}
 })
+
+var _ = Describe("Iterator index lookups", func() {
+	It("Should read the index once for every channel on it", func(ctx SpecContext) {
+		rec := NewRecorder(fs.NewMem())
+		db := mustOpenDBOnFS(ctx, rec)
+		idxKey := GenerateChannelKey()
+		Expect(db.CreateChannel(ctx, cesium.Channel{
+			Key:      idxKey,
+			Name:     "Lovelace",
+			IsIndex:  true,
+			DataType: telem.TimestampT,
+		})).To(Succeed())
+		stamps := make([]telem.TimeStamp, 1000)
+		for i := range stamps {
+			stamps[i] = telem.TimeStamp(i) * telem.SecondTS
+		}
+		keys := []cesium.ChannelKey{idxKey}
+		series := []telem.Series{telem.NewSeries(stamps)}
+		for i := range 4 {
+			key := GenerateChannelKey()
+			Expect(db.CreateChannel(ctx, cesium.Channel{
+				Key:      key,
+				Name:     "Babbage" + strconv.Itoa(i),
+				Index:    idxKey,
+				DataType: telem.Float32T,
+			})).To(Succeed())
+			keys = append(keys, key)
+			series = append(series, telem.NewSeries(make([]float32, len(stamps))))
+		}
+		Expect(db.Write(ctx, 0, telem.MultiFrame(keys, series))).To(Succeed())
+		tr := (100 * telem.SecondTS).Range(900 * telem.SecondTS)
+		// Index probes are the only 8-byte reads, since data reads span many samples.
+		indexReads := func(keys ...cesium.ChannelKey) int {
+			GinkgoHelper()
+			rec.Reset()
+			fr := MustSucceed(db.Read(ctx, tr, keys...))
+			Expect(fr.Count()).To(Equal(len(keys)))
+			return rec.Count(MatchOp(OpReadAt), MatchLength(8))
+		}
+		one := indexReads(keys[1])
+		Expect(one).To(BeNumerically(">", 0))
+		Expect(indexReads(keys[1:]...)).To(Equal(one))
+	})
+})
