@@ -16,8 +16,10 @@ it with an error status when the task is started.
 import platform
 
 import synnax as sy
+from framework import resources
 from framework.hardware_case import HardwareCase
 from framework.test_case import TestCase
+from tests.driver.ni_task import retrieve_present_device
 from tests.driver.task import (
     DriverTask,
     assert_start_rejected,
@@ -38,13 +40,14 @@ class NIInvalidConfig(TestCase):
         4. Duplicate channel — two tasks using the same channel on the same port.
     """
 
+    @classmethod
+    def resources(cls) -> frozenset[str]:
+        return super().resources() | {resources.NI}
+
     def setup(self) -> None:
         if platform.system().lower() != "windows":
             self.skip("Windows DAQmx drivers required")
-        self.devices = {
-            loc: self.client.devices.retrieve(location=loc, one=True)
-            for loc in ["E101Mod4"]
-        }
+        self.devices = {"E101Mod4": retrieve_present_device(self.client, "E101Mod4")}
 
     def run(self) -> None:
         self.test_invalid_port()

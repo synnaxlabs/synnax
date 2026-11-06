@@ -9,7 +9,14 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-arc-list__search {
-    padding: 2rem;
-    height: fit-content;
+.console-version-mismatch__body {
+    width: 100%;
+    height: 100%;
+    padding: 6rem 5rem 3rem;
+}
+
+/* Text is a flex box, so align centers the box but not its wrapped lines. */
+.console-version-mismatch__text {
+    text-align: center;
+    text-wrap: balance;
 }

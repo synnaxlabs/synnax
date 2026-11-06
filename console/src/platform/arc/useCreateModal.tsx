@@ -71,6 +71,20 @@ const Create = ({
             showLabel={false}
             inputProps={NAME_INPUT_PROPS}
           />
+          <Form.Field path={path.type} label="Type">
+            {({ value, onChange }) => (
+              <Select.Buttons value={value} onChange={onChange} variant="outlined">
+                <Select.Item itemKey="automation">
+                  <Icon.Arc />
+                  Automation
+                </Select.Item>
+                <Select.Item itemKey="module">
+                  <Icon.Module />
+                  Module
+                </Select.Item>
+              </Select.Buttons>
+            )}
+          </Form.Field>
           <Form.Field path={path.mode} label="Editor mode" full="x">
             {({ value, onChange }) => (
               <Select.Buttons value={value} onChange={onChange} variant="card" full="x">

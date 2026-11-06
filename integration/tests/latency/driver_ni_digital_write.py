@@ -17,6 +17,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 import synnax as sy
+from framework import resources
 from tests.latency.latency import Latency
 from x import get_cpu_cores, get_machine_info, get_memory_info
 
@@ -33,6 +34,10 @@ class DriverNIDigitalWrite(Latency):
     Send a command to an NI DO (Write) channel and measure the latency between the
     core and loop-back (python) timestamp.
     """
+
+    @classmethod
+    def resources(cls) -> frozenset[str]:
+        return super().resources() | {resources.NI}
 
     def setup(self) -> None:
         if platform.system().lower() != "windows":
