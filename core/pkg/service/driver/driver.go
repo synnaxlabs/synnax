@@ -424,7 +424,9 @@ func (d *Driver) configureExistingTasks(ctx context.Context) {
 	for _, t := range tasks {
 		sCtx.Go(
 			func(ctx context.Context) error {
-				if err := d.configure(ctx, t, NoCommand); err != nil {
+				err := d.configure(ctx, t, NoCommand)
+				canceled := ctx.Err() != nil && errors.Is(err, context.Canceled)
+				if err != nil && !canceled {
 					d.cfg.L.Error("failed to configure task",
 						zap.Stringer("task", t),
 						zap.Error(err),

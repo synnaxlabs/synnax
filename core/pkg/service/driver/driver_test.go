@@ -275,7 +275,7 @@ var _ = Describe("Driver", func() {
 				defer cancel()
 				// Open checks ctx between its steps, so this log line is the last point
 				// that can cancel before the factories run.
-				core, _ := observer.New(zap.InfoLevel)
+				core, logs := observer.New(zap.InfoLevel)
 				logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
 					ZapLogger: zap.New(core, zap.Hooks(func(e zapcore.Entry) error {
 						if e.Message == "configuring existing tasks" {
@@ -287,6 +287,9 @@ var _ = Describe("Driver", func() {
 				cfg.Instrumentation = alamos.New("test", alamos.WithLogger(logger))
 				Expect(driver.Open(cCtx, cfg)).Error().To(MatchError(context.Canceled))
 				Expect(configured.Load()).To(BeFalse())
+				Expect(
+					logs.FilterMessage("failed to configure task").Len(),
+				).To(BeZero())
 			},
 			NodeTimeout(10*time.Second),
 		)
@@ -2083,6 +2086,111 @@ var _ = Describe("Driver", func() {
 				).Should(BeTrue())
 			},
 		)
+
+		Describe("Returned cancels", func() {
+			openLogged := func(
+				ctx context.Context,
+				factory driver.Factory,
+			) *observer.ObservedLogs {
+				GinkgoHelper()
+				core, logs := observer.New(zap.ErrorLevel)
+				logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+					ZapLogger: zap.New(core),
+				}))
+				MustOpen(driver.Open(ctx, driver.Config{
+					Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
+					DB:              node.DB,
+					Rack:            rackService,
+					Task:            taskService,
+					Framer:          framerSvc,
+					Channel:         channelSvc,
+					Status:          statusSvc,
+					Factories:       []driver.Factory{factory},
+					Host:            hostProvider,
+				}))
+				return logs
+			}
+
+			It("should log a cancel that a task returns", func(ctx SpecContext) {
+				logs := openLogged(ctx, &mockFactory{
+					name: "test",
+					configureFunc: func(
+						_ context.Context,
+						t task.Task,
+					) (driver.Task, error) {
+						return &mockTask{
+							key: t.Key,
+							execFunc: func(context.Context, task.Command) error {
+								return context.Canceled
+							},
+						}, nil
+					},
+				})
+				t := newTask(embeddedRackKey(ctx))
+				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				writeCommand(
+					ctx,
+					task.Command{Task: t.Key, Type: "start", Key: "cmd"},
+				)
+				Eventually(func() int {
+					return logs.FilterMessage("failed to execute command").Len()
+				}).Should(Equal(1))
+			})
+
+			It("should log a cancel that a factory returns", func(ctx SpecContext) {
+				key := uuid.New()
+				factory := &mockFactory{
+					name: "test",
+					configureFunc: func(
+						_ context.Context,
+						t task.Task,
+					) (driver.Task, error) {
+						if t.Key == key {
+							return nil, context.Canceled
+						}
+						return &mockTask{key: t.Key}, nil
+					},
+				}
+				logs := openLogged(ctx, factory)
+				t := newTask(embeddedRackKey(ctx))
+				t.Key = key
+				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				writeCommand(
+					ctx,
+					task.Command{Task: t.Key, Type: "start", Key: "cmd"},
+				)
+				Eventually(func() int {
+					return logs.FilterMessage("failed to configure task").Len()
+				}).Should(Equal(1))
+			})
+
+			It("should log a cancel that a factory returns during Open", func(
+				ctx SpecContext,
+			) {
+				key := uuid.New()
+				factory := &mockFactory{
+					name: "test",
+					configureFunc: func(
+						_ context.Context,
+						t task.Task,
+					) (driver.Task, error) {
+						if t.Key == key {
+							return nil, context.Canceled
+						}
+						return &mockTask{key: t.Key}, nil
+					},
+				}
+				d := openDriver(ctx, factory)
+				t := newTask(embeddedRackKey(ctx))
+				t.Key = key
+				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				Expect(d.Close()).To(Succeed())
+				logs := openLogged(ctx, factory)
+				Expect(
+					logs.FilterMessage("failed to configure task").Len(),
+				).To(Equal(1))
+			})
+		})
 
 		It(
 			"should start a task while a scanner command runs",
