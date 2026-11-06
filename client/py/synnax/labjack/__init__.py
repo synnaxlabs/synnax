@@ -33,7 +33,7 @@ from synnax.labjack.types_gen import (
     WriteChannel,
     WriteConfig,
 )
-from synnax.task.types_gen import (
+from synnax.task import (
     LinearScale,
     MapScale,
     NoneScale,
