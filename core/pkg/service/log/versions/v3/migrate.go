@@ -56,6 +56,7 @@ func MigrateChannelEntry(
 		out.Precision = &precision
 	}
 	out.Alias = cutToCharacters(old.Alias, 64)
+	out.ValueFormat = old.Timestamp
 	return out, nil
 }
 

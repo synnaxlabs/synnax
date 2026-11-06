@@ -817,7 +817,7 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     let value = entry.value;
     const isTimestampChannel = channelDataTypes[chKeyStr] === "timestamp";
     if (isTimestampChannel) {
-      const { format, tz } = cfg?.timestamp ?? { format: "preciseDate", tz: "local" };
+      const { format, tz } = cfg?.valueFormat ?? { format: "preciseDate", tz: "local" };
       try {
         value = new TimeStamp(BigInt(value)).toString(format, tz);
       } catch {

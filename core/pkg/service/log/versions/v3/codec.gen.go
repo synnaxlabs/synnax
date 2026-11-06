@@ -32,7 +32,7 @@ func (ce ChannelEntry) EncodeOrc(w *orc.Writer) error {
 		w.Bool(false)
 	}
 	w.String(ce.Alias)
-	if err := ce.Timestamp.EncodeOrc(w); err != nil {
+	if err := ce.ValueFormat.EncodeOrc(w); err != nil {
 		return err
 	}
 	return nil
@@ -74,7 +74,7 @@ func (ce *ChannelEntry) DecodeOrc(r *orc.Reader) error {
 	if ce.Alias, err = r.String(); err != nil {
 		return err
 	}
-	if err = ce.Timestamp.DecodeOrc(r); err != nil {
+	if err = ce.ValueFormat.DecodeOrc(r); err != nil {
 		return err
 	}
 	return nil

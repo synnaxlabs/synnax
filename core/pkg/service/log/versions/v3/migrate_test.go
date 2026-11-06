@@ -132,10 +132,10 @@ var _ = Describe("Migration", func() {
 		Expect(got.Tz).To(BeEquivalentTo(telem.TimeZoneLocal))
 		Expect(got.Channels).To(Equal([]v3.ChannelEntry{
 			{
-				Channel:   7,
-				Notation:  notation.NotationScientific,
-				Alias:     "pressure",
-				Timestamp: stored.Channels[0].Timestamp,
+				Channel:     7,
+				Notation:    notation.NotationScientific,
+				Alias:       "pressure",
+				ValueFormat: stored.Channels[0].Timestamp,
 			},
 			{Channel: 8, Precision: new(uint8(3))},
 		}))

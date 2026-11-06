@@ -24,8 +24,8 @@ import {
   setChannelNotation,
   setChannelPrecision,
   setChannels,
-  setChannelTimestampFormat,
-  setChannelTimestampTz,
+  setChannelValueFormat,
+  setChannelValueTz,
   setTimestampPrecision,
   setTimestampsHidden,
   setTz,
@@ -133,26 +133,26 @@ const handlers: Handlers = {
     return { inverse, targets: [`channel:${payload.channel}`] };
   },
 
-  setChannelTimestampFormat: (state, payload) => {
+  setChannelValueFormat: (state, payload) => {
     const entry = state.channels.find((e) => e.channel === payload.channel);
     if (entry == null) return actions.NO_OP_RESULT;
     const inverse = [
-      setChannelTimestampFormat({
+      setChannelValueFormat({
         channel: payload.channel,
-        format: entry.timestamp.format,
+        format: entry.valueFormat.format,
       }),
     ];
-    entry.timestamp.format = payload.format;
+    entry.valueFormat.format = payload.format;
     return { inverse, targets: [`channel:${payload.channel}`] };
   },
 
-  setChannelTimestampTz: (state, payload) => {
+  setChannelValueTz: (state, payload) => {
     const entry = state.channels.find((e) => e.channel === payload.channel);
     if (entry == null) return actions.NO_OP_RESULT;
     const inverse = [
-      setChannelTimestampTz({ channel: payload.channel, tz: entry.timestamp.tz }),
+      setChannelValueTz({ channel: payload.channel, tz: entry.valueFormat.tz }),
     ];
-    entry.timestamp.tz = payload.tz;
+    entry.valueFormat.tz = payload.tz;
     return { inverse, targets: [`channel:${payload.channel}`] };
   },
 
@@ -240,10 +240,10 @@ export const kindOf = (actions: Action[]): string => {
       return `channel:${a.setChannelPrecision.channel}`;
     case "set_channel_alias":
       return `channel:${a.setChannelAlias.channel}`;
-    case "set_channel_timestamp_format":
-      return `channel:${a.setChannelTimestampFormat.channel}`;
-    case "set_channel_timestamp_tz":
-      return `channel:${a.setChannelTimestampTz.channel}`;
+    case "set_channel_value_format":
+      return `channel:${a.setChannelValueFormat.channel}`;
+    case "set_channel_value_tz":
+      return `channel:${a.setChannelValueTz.channel}`;
     default:
       return a.type;
   }

@@ -113,30 +113,28 @@ export const setChannelAliasPayloadZ = z.object({
 export type SetChannelAliasPayload = z.infer<typeof setChannelAliasPayloadZ>;
 
 /**
- * SetChannelTimestampFormat sets the timestamp render format of the entry identified by
- * channel. No-op when no entry references the channel.
+ * SetChannelValueFormat sets the format of the values of the timestamp channel
+ * identified by channel. No-op when no entry references the channel.
  */
-export const setChannelTimestampFormatPayloadZ = z.object({
+export const setChannelValueFormatPayloadZ = z.object({
   channel: channel.keyZ,
   format: telem.timestampFormatZ,
 });
 
-export type SetChannelTimestampFormatPayload = z.infer<
-  typeof setChannelTimestampFormatPayloadZ
+export type SetChannelValueFormatPayload = z.infer<
+  typeof setChannelValueFormatPayloadZ
 >;
 
 /**
- * SetChannelTimestampTz sets the timestamp time zone of the entry identified by
- * channel. No-op when no entry references the channel.
+ * SetChannelValueTz sets the time zone of the values of the timestamp channel
+ * identified by channel. No-op when no entry references the channel.
  */
-export const setChannelTimestampTzPayloadZ = z.object({
+export const setChannelValueTzPayloadZ = z.object({
   channel: channel.keyZ,
   tz: telem.timeZoneZ,
 });
 
-export type SetChannelTimestampTzPayload = z.infer<
-  typeof setChannelTimestampTzPayloadZ
->;
+export type SetChannelValueTzPayload = z.infer<typeof setChannelValueTzPayloadZ>;
 
 /**
  * SetChannels replaces the entire ordered list of channel entries. Used for bulk
@@ -203,13 +201,10 @@ export type Action =
   | { type: "set_channel_precision"; setChannelPrecision: SetChannelPrecisionPayload }
   | { type: "set_channel_alias"; setChannelAlias: SetChannelAliasPayload }
   | {
-      type: "set_channel_timestamp_format";
-      setChannelTimestampFormat: SetChannelTimestampFormatPayload;
+      type: "set_channel_value_format";
+      setChannelValueFormat: SetChannelValueFormatPayload;
     }
-  | {
-      type: "set_channel_timestamp_tz";
-      setChannelTimestampTz: SetChannelTimestampTzPayload;
-    }
+  | { type: "set_channel_value_tz"; setChannelValueTz: SetChannelValueTzPayload }
   | { type: "set_channels"; setChannels: SetChannelsPayload }
   | { type: "swap_channel"; swapChannel: SwapChannelPayload }
   | {
@@ -249,12 +244,12 @@ export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
     setChannelAlias: setChannelAliasPayloadZ,
   }),
   z.object({
-    type: z.literal("set_channel_timestamp_format"),
-    setChannelTimestampFormat: setChannelTimestampFormatPayloadZ,
+    type: z.literal("set_channel_value_format"),
+    setChannelValueFormat: setChannelValueFormatPayloadZ,
   }),
   z.object({
-    type: z.literal("set_channel_timestamp_tz"),
-    setChannelTimestampTz: setChannelTimestampTzPayloadZ,
+    type: z.literal("set_channel_value_tz"),
+    setChannelValueTz: setChannelValueTzPayloadZ,
   }),
   z.object({ type: z.literal("set_channels"), setChannels: setChannelsPayloadZ }),
   z.object({ type: z.literal("swap_channel"), swapChannel: swapChannelPayloadZ }),
@@ -348,21 +343,21 @@ export const setChannelAlias = (
   }),
 });
 
-export const setChannelTimestampFormat = (
-  payload: z.input<typeof setChannelTimestampFormatPayloadZ>,
+export const setChannelValueFormat = (
+  payload: z.input<typeof setChannelValueFormatPayloadZ>,
 ): Action => ({
-  type: "set_channel_timestamp_format",
-  setChannelTimestampFormat: zod.parse(setChannelTimestampFormatPayloadZ, payload, {
-    label: "log set_channel_timestamp_format action payload",
+  type: "set_channel_value_format",
+  setChannelValueFormat: zod.parse(setChannelValueFormatPayloadZ, payload, {
+    label: "log set_channel_value_format action payload",
   }),
 });
 
-export const setChannelTimestampTz = (
-  payload: z.input<typeof setChannelTimestampTzPayloadZ>,
+export const setChannelValueTz = (
+  payload: z.input<typeof setChannelValueTzPayloadZ>,
 ): Action => ({
-  type: "set_channel_timestamp_tz",
-  setChannelTimestampTz: zod.parse(setChannelTimestampTzPayloadZ, payload, {
-    label: "log set_channel_timestamp_tz action payload",
+  type: "set_channel_value_tz",
+  setChannelValueTz: zod.parse(setChannelValueTzPayloadZ, payload, {
+    label: "log set_channel_value_tz action payload",
   }),
 });
 
@@ -443,13 +438,13 @@ export interface Handlers {
     state: Draft<Log>,
     payload: SetChannelAliasPayload,
   ) => HandlerResult;
-  setChannelTimestampFormat: (
+  setChannelValueFormat: (
     state: Draft<Log>,
-    payload: SetChannelTimestampFormatPayload,
+    payload: SetChannelValueFormatPayload,
   ) => HandlerResult;
-  setChannelTimestampTz: (
+  setChannelValueTz: (
     state: Draft<Log>,
-    payload: SetChannelTimestampTzPayload,
+    payload: SetChannelValueTzPayload,
   ) => HandlerResult;
   setChannels: (state: Draft<Log>, payload: SetChannelsPayload) => HandlerResult;
   swapChannel: (state: Draft<Log>, payload: SwapChannelPayload) => HandlerResult;
@@ -489,13 +484,10 @@ export const createReduceAll = (handlers: Handlers) =>
         return handlers.setChannelPrecision(state, action.setChannelPrecision);
       case "set_channel_alias":
         return handlers.setChannelAlias(state, action.setChannelAlias);
-      case "set_channel_timestamp_format":
-        return handlers.setChannelTimestampFormat(
-          state,
-          action.setChannelTimestampFormat,
-        );
-      case "set_channel_timestamp_tz":
-        return handlers.setChannelTimestampTz(state, action.setChannelTimestampTz);
+      case "set_channel_value_format":
+        return handlers.setChannelValueFormat(state, action.setChannelValueFormat);
+      case "set_channel_value_tz":
+        return handlers.setChannelValueTz(state, action.setChannelValueTz);
       case "set_channels":
         return handlers.setChannels(state, action.setChannels);
       case "swap_channel":

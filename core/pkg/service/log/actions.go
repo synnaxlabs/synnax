@@ -111,20 +111,20 @@ func (p SetChannelAliasPayload) Handle(state Log) (Log, error) {
 	return state, nil
 }
 
-// Handle sets the timestamp render format of the entry referencing the channel.
-// No-op when no entry references it.
-func (p SetChannelTimestampFormatPayload) Handle(state Log) (Log, error) {
+// Handle sets the format of the values of the timestamp channel. No-op when no entry
+// references it.
+func (p SetChannelValueFormatPayload) Handle(state Log) (Log, error) {
 	if i := channelEntryIndex(state.Channels, p.Channel); i != -1 {
-		state.Channels[i].Timestamp.Format = p.Format
+		state.Channels[i].ValueFormat.Format = p.Format
 	}
 	return state, nil
 }
 
-// Handle sets the timestamp time zone of the entry referencing the channel.
-// No-op when no entry references it.
-func (p SetChannelTimestampTzPayload) Handle(state Log) (Log, error) {
+// Handle sets the time zone of the values of the timestamp channel. No-op when no
+// entry references it.
+func (p SetChannelValueTzPayload) Handle(state Log) (Log, error) {
 	if i := channelEntryIndex(state.Channels, p.Channel); i != -1 {
-		state.Channels[i].Timestamp.Tz = p.Tz
+		state.Channels[i].ValueFormat.Tz = p.Tz
 	}
 	return state, nil
 }
@@ -188,7 +188,7 @@ func defaultChannelEntry(key channel.Key) ChannelEntry {
 	return ChannelEntry{
 		Channel:  key,
 		Notation: defaultNotation,
-		Timestamp: TimestampConfig{
+		ValueFormat: TimestampConfig{
 			Format: defaultTimestampFormat,
 			Tz:     defaultTimestampTimeZone,
 		},

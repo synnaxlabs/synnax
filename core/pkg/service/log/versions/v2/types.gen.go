@@ -25,11 +25,11 @@ import (
 // Key is a unique identifier for a log, represented as a UUID.
 type Key = v0.Key
 
-// TimestampConfig is per-channel timestamp display configuration.
+// TimestampConfig is how a timestamp channel shows its values.
 type TimestampConfig struct {
-	// Format controls how channel timestamps are rendered.
+	// Format is the format of the values of a timestamp channel.
 	Format telem.TimestampFormat `json:"format" msgpack:"format"`
-	// Tz is the time zone used when rendering timestamps.
+	// Tz is the time zone of the values of a timestamp channel.
 	Tz telem.TimeZone `json:"tz" msgpack:"tz"`
 }
 

@@ -185,15 +185,15 @@ describe("log reducer", () => {
         expected: "volts",
       },
       {
-        name: "setChannelTimestampFormat",
-        action: log.setChannelTimestampFormat({ channel: 5, format: "time" }),
-        read: (e) => e.timestamp.format,
+        name: "setChannelValueFormat",
+        action: log.setChannelValueFormat({ channel: 5, format: "time" }),
+        read: (e) => e.valueFormat.format,
         expected: "time",
       },
       {
-        name: "setChannelTimestampTz",
-        action: log.setChannelTimestampTz({ channel: 5, tz: "UTC" }),
-        read: (e) => e.timestamp.tz,
+        name: "setChannelValueTz",
+        action: log.setChannelValueTz({ channel: 5, tz: "UTC" }),
+        read: (e) => e.valueFormat.tz,
         expected: "UTC",
       },
     ];

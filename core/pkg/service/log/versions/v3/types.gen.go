@@ -25,7 +25,7 @@ import (
 // Key is a unique identifier for a log, represented as a UUID.
 type Key = v2.Key
 
-// TimestampConfig is per-channel timestamp display configuration.
+// TimestampConfig is how a timestamp channel shows its values.
 type TimestampConfig = v2.TimestampConfig
 
 // ChannelEntry is a per-channel display configuration entry within a log.
@@ -41,8 +41,8 @@ type ChannelEntry struct {
 	Precision *uint8 `json:"precision,omitzero" msgpack:"precision,omitempty"`
 	// Alias is a human-readable alias displayed in place of the channel name.
 	Alias string `json:"alias" msgpack:"alias"`
-	// Timestamp is the per-channel timestamp display configuration.
-	Timestamp TimestampConfig `json:"timestamp" msgpack:"timestamp"`
+	// ValueFormat is the format of the values of a timestamp channel.
+	ValueFormat TimestampConfig `json:"value_format" msgpack:"value_format"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -50,11 +50,11 @@ func (c *ChannelEntry) ApplyDefaults() {
 	if c.Notation == "" {
 		c.Notation = "standard"
 	}
-	if c.Timestamp.Format == "" {
-		c.Timestamp.Format = "preciseDate"
+	if c.ValueFormat.Format == "" {
+		c.ValueFormat.Format = "preciseDate"
 	}
-	if c.Timestamp.Tz == "" {
-		c.Timestamp.Tz = "local"
+	if c.ValueFormat.Tz == "" {
+		c.ValueFormat.Tz = "local"
 	}
 }
 
@@ -68,7 +68,7 @@ func (c ChannelEntry) Validate() error {
 		v.LessThanEq("precision", *c.Precision, 17)
 	}
 	v.MaxLength("alias", c.Alias, 64)
-	v.Exec(func() error { return validate.PathedError(c.Timestamp.Validate(), "timestamp") })
+	v.Exec(func() error { return validate.PathedError(c.ValueFormat.Validate(), "value_format") })
 	return v.Error()
 }
 
