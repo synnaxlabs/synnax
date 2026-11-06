@@ -56,16 +56,6 @@ func ParseUUIDKey(id ID) (uuid.UUID, error) {
 	return key, nil
 }
 
-// ParseIDs parses the given keys into IDs.
-func ParseIDs(keys []string) ([]ID, error) {
-	return lo.MapErr(keys, func(key string, _ int) (ID, error) { return ParseID(key) })
-}
-
-// IDsToKeys converts a slice of IDs to a slice of their string representations.
-func IDsToKeys(ids []ID) []string {
-	return lo.Map(ids, func(id ID, _ int) string { return id.String() })
-}
-
 // Dependents returns the ID of every record that references the entry of table with
 // key, as seen by tx. It blocks and fails as gorp.Table.Dependents does.
 func Dependents[K gorp.Key, E gorp.Entry[K]](
