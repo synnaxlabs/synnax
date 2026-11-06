@@ -220,6 +220,9 @@ x::errors::Error Master::activate(const std::function<void()> &start_cycle) {
 
     if (auto err = this->request_state(EC_STATE_SAFE_OP, STATE_CHANGE_TIMEOUT))
         return err;
+    // A slave with outputs refuses OP with a sync manager watchdog error until a frame
+    // passes it in SAFE-OP.
+    if (auto err = this->wait_for_frame(STATE_CHANGE_TIMEOUT)) return err;
     if (auto err = this->request_state(EC_STATE_OPERATIONAL, STATE_CHANGE_TIMEOUT))
         return err;
     this->cache_pdo_offsets();
@@ -253,6 +256,7 @@ x::errors::Error Master::receive() {
 
     if (wkc < 0)
         return x::errors::Error(errors::CYCLIC_ERROR, "process data receive failed");
+    this->frames.fetch_add(1, std::memory_order_release);
 
     if (wkc != this->expected_wkc)
         return x::errors::Error(
@@ -992,6 +996,22 @@ x::errors::Error Master::request_state(const uint16_t state, const int timeout) 
 bool Master::al_error(const uint16_t pos) const {
     return (this->api->slave_state(pos) & EC_STATE_ERROR) != 0 &&
            this->api->slave_ALstatuscode(pos) != 0;
+}
+
+x::errors::Error Master::wait_for_frame(const int timeout) {
+    // The next frame to come back can have left before the call.
+    const auto target = this->frames.load(std::memory_order_acquire) + 2;
+    const auto deadline = std::chrono::steady_clock::now() +
+                          std::chrono::microseconds(timeout);
+    while (this->frames.load(std::memory_order_acquire) < target) {
+        if (std::chrono::steady_clock::now() >= deadline)
+            return x::errors::Error(
+                errors::STATE_CHANGE_ERROR,
+                "failed to reach OP: no process data passed the slaves in SAFE-OP"
+            );
+        std::this_thread::sleep_for(STATE_POLL_INTERVAL.chrono());
+    }
+    return x::errors::NIL;
 }
 
 bool Master::refuses(const uint16_t pos, const uint16_t state) const {
