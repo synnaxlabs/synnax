@@ -72,7 +72,7 @@ def retrieve_present_device(client: sy.Synnax, location: str) -> sy.Device:
     """
     timer = sy.Timer()
     while True:
-        devices = client.devices.retrieve(locations=[location], include_status=True)
+        devices = client.devices.retrieve(location=location, include_status=True)
         present = [
             d for d in devices if d.status is not None and d.status.variant == "success"
         ]
