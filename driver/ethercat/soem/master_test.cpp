@@ -202,6 +202,25 @@ TEST_F(SOEMMasterTest, SIIDiscoveryUsesEntryDataTypes) {
     EXPECT_EQ(inputs[1].data_type, x::telem::FLOAT32_T);
 }
 
+/// @brief it should give the EEPROM back to the slave after it reads PDOs from the SII.
+TEST_F(SOEMMasterTest, SIIDiscoveryGivesTheEEPROMBackToTheSlave) {
+    MockSlaveInfo slave;
+    slave.state = EC_STATE_PRE_OP;
+    this->add_slave(slave);
+    constexpr uint16_t start = 0x40;
+    this->mock->sii_categories = {{ECT_SII_PDO, start}};
+    // One TxPDO, 0x1A00, with entry 0x6000:01 (INTEGER16).
+    const std::vector<uint8_t> category =
+        {8, 0, 0x00, 0x1A, 1, 3, 0, 0, 0, 0, 0x00, 0x60, 1, 0, 0x03, 16, 0, 0};
+    for (size_t i = 0; i < category.size(); ++i)
+        this->mock->sii_bytes[start + i] = category[i];
+
+    ASSERT_NIL(this->master->initialize());
+
+    ASSERT_EQ(this->master->slaves()[0].properties.input_pdos.size(), 1);
+    EXPECT_TRUE(this->mock->eeprom_held.empty());
+}
+
 ////////////////////// Activation //////////////////////
 
 TEST_F(SOEMMasterTest, ActivateHappyPath) {
