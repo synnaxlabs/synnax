@@ -255,6 +255,25 @@ TEST_F(SOEMMasterTest, InitializeReadsOpModesFromSII) {
     EXPECT_EQ(this->master->slaves()[0].properties.op_modes, expected);
 }
 
+/// @brief it should give the EEPROM back to the slave after it reads the OpModes.
+TEST_F(SOEMMasterTest, InitializeGivesTheEEPROMBackAfterReadingOpModes) {
+    MockSlaveInfo slave;
+    slave.state = EC_STATE_PRE_OP;
+    this->add_slave(slave);
+    constexpr uint16_t start = 0x200;
+    this->mock->sii_categories = {{60, start}};
+    // One SM mode with every field 0.
+    std::vector<uint8_t> category(26, 0);
+    category[0] = 12;
+    for (size_t i = 0; i < category.size(); ++i)
+        this->mock->sii_bytes[start + i] = category[i];
+
+    ASSERT_NIL(this->master->initialize());
+
+    ASSERT_EQ(this->master->slaves()[0].properties.op_modes.size(), 1);
+    EXPECT_TRUE(this->mock->eeprom_held.empty());
+}
+
 /// @brief it should read negative shift times and leave the name of a mode empty when
 /// the SII gives none.
 TEST_F(SOEMMasterTest, InitializeReadsSignedShiftsAndUnnamedOpModes) {

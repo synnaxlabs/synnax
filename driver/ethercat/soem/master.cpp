@@ -675,6 +675,7 @@ std::vector<dc::OpMode> Master::read_op_modes(const uint16_t position) {
         }
         modes.push_back(std::move(mode));
     }
+    this->api->eeprom2pdi(position);
     VLOG(1) << "Slave " << position << " lists " << modes.size() << " OpModes in SII";
     return modes;
 }
