@@ -11,7 +11,7 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, type destructor } from "@synnaxlabs/x";
 import z from "zod";
 
-import { AccessDeniedError } from "@/errors";
+import { AccessDeniedError, ValidationError } from "@/errors";
 import { label } from "@/label";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
@@ -201,6 +201,10 @@ export class Client extends query.Retriever<
     // Schema-parametrized retrieves validate details for one caller; their
     // results are not shared through the cache.
     if (detailsSchema != null) {
+      if (isSingle && Object.keys(rest).length > 1)
+        throw new ValidationError(
+          "status params address a single key but hold other fields.",
+        );
       const statuses = await this.execRetrieve<DetailsSchema>(params);
       checkForMultipleOrNoResults("Status", params, statuses, isSingle);
       return isSingle ? statuses[0] : statuses;

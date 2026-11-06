@@ -745,6 +745,15 @@ describe("Status", () => {
       );
     });
 
+    it("should reject a plain key beside other fields with a details schema", async () => {
+      const params = { key: "status", variant: "error", detailsSchema: z.object({}) };
+      await expect(client.statuses.retrieve(params)).rejects.toThrow(
+        new ValidationError(
+          "status params address a single key but hold other fields.",
+        ),
+      );
+    });
+
     it("should filter statuses by a tree of filters", async () => {
       const prefix = `variant-tree-${Date.now()}`;
       const keys = [`${prefix}-info`, `${prefix}-error`, `${prefix}-success`];
