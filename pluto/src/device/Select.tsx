@@ -19,7 +19,7 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { type ListParams, useList } from "@/device/queries";
-import { StatusChip } from "@/device/StatusChip";
+import { StatusBadge } from "@/device/StatusBadge";
 import { StatusIndicator } from "@/device/StatusIndicator";
 import { type Flux } from "@/flux";
 
@@ -65,7 +65,7 @@ const LOCATION_STYLE = { marginTop: "0.25rem" } as const;
 const DIALOG_PROPS = { className: CSS.BE("device-select", "dialog") };
 
 const renderStatus = (entry: unknown): ReactElement | undefined =>
-  entry == null ? undefined : <StatusChip status={(entry as device.Device).status} />;
+  entry == null ? undefined : <StatusBadge status={(entry as device.Device).status} />;
 
 export interface SelectSingleProps
   extends

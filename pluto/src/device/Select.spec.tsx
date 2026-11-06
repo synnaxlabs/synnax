@@ -43,7 +43,7 @@ describe("Device select", () => {
         key: device.statusKey(dev.key),
         variant: "error",
         message: "Failed to reach device",
-        details: { rack: rack.key, device: dev.key },
+        details: { rack: rack.key, device: dev.key, connected: false },
       }),
     );
     return dev;
@@ -54,8 +54,8 @@ describe("Device select", () => {
     const c = render(<Device.SelectSingle value={dev.key} onChange={vi.fn()} />, {
       wrapper,
     });
-    const chip = await c.findByText("Error");
-    expect(chip.closest(`.${END_CLASS}`)).not.toBeNull();
+    const badge = await c.findByText("Disconnected");
+    expect(badge.closest(`.${END_CLASS}`)).not.toBeNull();
   });
 
   it("should show no status without a selected device", async () => {
@@ -76,7 +76,7 @@ describe("Device select", () => {
       />,
       { wrapper },
     );
-    const chip = await c.findByText("Error");
-    expect(chip.closest(".custom")).not.toBeNull();
+    const badge = await c.findByText("Disconnected");
+    expect(badge.closest(".custom")).not.toBeNull();
   });
 });

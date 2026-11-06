@@ -9,5 +9,5 @@
 
 export * from "@/device/queries";
 export * from "@/device/Select";
-export * from "@/device/StatusChip";
+export * from "@/device/StatusBadge";
 export * from "@/device/StatusIndicator";

@@ -270,9 +270,11 @@ bound, a log precision, or the line plot X channel.
 - A select with a few described options, such as the Arc performance level and the plot
   line sampling, has no search. A user reads the options instead.
 - A select that shows only its icon is a square button, never a wide box.
-- A device select shows the selected device's status as a chip at the end of the
-  trigger, before the caret. The chip names the status variant in one word ("Connected",
-  "Warning", "Error"), and its tooltip shows the full message.
+- A device select shows the selected device's status as a badge at the end of the
+  trigger, before the caret (`Device.StatusBadge`). The badge says "Connected" or
+  "Disconnected" from the status `connected` flag, in the color of the status variant.
+  Its tooltip shows the message and the description. A word from the variant was
+  rejected, because one variant covers both states.
 
 ### Lists with checkboxes
 

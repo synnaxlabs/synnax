@@ -12,33 +12,32 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { type ReactElement } from "react";
 
-const WORDS: Record<Status.Variant, string> = {
-  success: "Connected",
-  info: "Info",
-  warning: "Warning",
-  error: "Error",
-  loading: "Loading",
-  disabled: "Unknown",
-};
-
-export interface StatusChipProps {
+export interface StatusBadgeProps {
   status?: device.Status;
   tooltipLocation?: Tooltip.DialogProps["location"];
 }
 
-/** Names a device's status in one word. A tooltip shows the full message. */
-export const StatusChip = ({
+/**
+ * Says whether the Driver can reach a device, in the color of its status. A tooltip
+ * shows the status message and description.
+ */
+export const StatusBadge = ({
   status,
   tooltipLocation = "bottom",
-}: StatusChipProps): ReactElement => {
+}: StatusBadgeProps): ReactElement => {
   const variant = status?.variant ?? "disabled";
-  const message = status?.message ?? "Device status unknown";
   return (
     <Tooltip.Dialog location={tooltipLocation}>
-      <Status.Summary variant={variant} hideIcon level="small" weight={450}>
-        {message}
-      </Status.Summary>
-      <Status.Chip variant={variant}>{WORDS[variant]}</Status.Chip>
+      <Status.Summary
+        variant={variant}
+        message={status?.message ?? "Device status unknown"}
+        description={status?.description}
+        hideIcon
+        level="small"
+      />
+      <Status.Chip variant={variant}>
+        {status?.details.connected === true ? "Connected" : "Disconnected"}
+      </Status.Chip>
     </Tooltip.Dialog>
   );
 };
