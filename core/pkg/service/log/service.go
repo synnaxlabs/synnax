@@ -167,7 +167,7 @@ func (s *Service) Dispatch(
 					if err != nil {
 						return Log{}, err
 					}
-					if err = reduced.Validate(); err != nil {
+					if err = validateWrite(reduced); err != nil {
 						return Log{}, err
 					}
 					return reduced, nil

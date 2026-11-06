@@ -136,8 +136,12 @@ func (p SetChannelsPayload) Handle(state Log) (Log, error) {
 }
 
 // Handle repoints the entry referencing From at To in place, preserving the entry's
-// position and display configuration. No-op when no entry references From.
+// position and display configuration. No-op when no entry references From or an entry
+// already references To.
 func (p SwapChannelPayload) Handle(state Log) (Log, error) {
+	if channelEntryIndex(state.Channels, p.To) != -1 {
+		return state, nil
+	}
 	if i := channelEntryIndex(state.Channels, p.From); i != -1 {
 		state.Channels[i].Channel = p.To
 	}

@@ -83,6 +83,7 @@ interface RegisteredTable {
   reconcile?: () => Promise<void>;
   reset: () => void;
   clearPendingDeletes: () => void;
+  close: () => void;
 }
 
 /** The cache-facing lifecycle of an answer space, generics erased. */
@@ -140,6 +141,7 @@ export class Cache {
       reconcile: config.fetch == null ? undefined : async () => await table.reconcile(),
       reset: () => table.reset(),
       clearPendingDeletes: () => table.clearPendingDeletes(),
+      close: () => table.close(),
     });
     return table;
   }
@@ -165,6 +167,7 @@ export class Cache {
       listeners: [],
       reset: () => table.reset(),
       clearPendingDeletes: () => table.clearPendingDeletes(),
+      close: () => table.close(),
     });
     return table;
   }
@@ -339,12 +342,13 @@ export class Cache {
   }
 
   /**
-   * Closes the change stream and every answer space this cache constructed.
-   * A no-op for the stream when streaming never started.
+   * Closes the change stream and every answer space this cache constructed, and rejects
+   * table fetches in progress. A no-op for the stream when streaming never started.
    */
   async close(): Promise<void> {
     this.detachers.forEach((detach) => detach());
     this.spaces.forEach((space) => space.close());
+    this.tables.forEach(({ close }) => close());
     if (this.streamer == null) return;
     await this.streamer.close();
   }

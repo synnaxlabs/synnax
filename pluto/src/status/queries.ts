@@ -89,7 +89,7 @@ export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRet
 >({
   name: PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query: { keys } }) =>
-    await client.statuses.retrieve({ where: { key: { in: keys } } }),
+    await client.statuses.retrieve({ key: keys }),
   onChange: ({ client, query: { keys } }, handler) =>
     client.statuses.onChange(keys, handler),
   getCached: ({ client, query: { keys } }) => client.statuses.getCached(keys),
@@ -130,7 +130,7 @@ export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
   retrieve: async ({ client, query }) => {
     const [stat, labels] = await Promise.all([
       client.statuses.retrieve(query),
-      client.labels.retrieve({ where: { for: status.ontologyID(query.key) } }),
+      client.labels.retrieve({ for: status.ontologyID(query.key) }),
     ]);
     return { ...stat, labels: labels.map((l) => l.key) };
   },
