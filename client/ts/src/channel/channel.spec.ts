@@ -251,10 +251,7 @@ describe("Channel", () => {
       await expect(
         client.channels.retrieve({ where: { name: { eq: name } } }),
       ).rejects.toThrow(
-        new PathError(
-          ["where", "name"],
-          new ValidationError("no operator set: validation error"),
-        ),
+        new PathError(["where", "name"], new ValidationError("no operator set")),
       );
     });
     test("retrieve by name", async () => {

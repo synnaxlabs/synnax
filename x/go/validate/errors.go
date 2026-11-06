@@ -112,7 +112,10 @@ func encode(ctx context.Context, err error) (errors.Payload, bool) {
 		}, true
 	}
 	if errors.CheapIs(err, ErrValidation) {
-		return errors.Payload{Type: "sy.validation", Data: err.Error()}, true
+		return errors.Payload{
+			Type: baseErrorType,
+			Data: errors.MessageWithout(err, ErrValidation),
+		}, true
 	}
 	return errors.Payload{}, false
 }
@@ -131,7 +134,7 @@ func decode(ctx context.Context, p errors.Payload) (error, bool) {
 			Err:  errors.Decode(ctx, errDecodedPath.Error),
 		}, true
 	}
-	return errors.Wrapf(ErrValidation, p.Data), true
+	return errors.Wrap(ErrValidation, p.Data), true
 }
 
 func init() { errors.Register(encode, decode) }

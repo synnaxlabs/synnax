@@ -16,6 +16,10 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+type fieldError struct{ msg string }
+
+func (e *fieldError) Error() string { return e.msg }
+
 var _ = Describe("Errors", func() {
 	Describe("PathedError", func() {
 		It("Should add a path to an error", func() {
@@ -74,6 +78,115 @@ var _ = Describe("Errors", func() {
 					).To(MatchError(ContainSubstring("parent.first: cat")))
 				},
 			)
+		})
+	})
+
+	Describe("Encoding + Decoding", func() {
+		It("Should send the message of a wrap", func(ctx SpecContext) {
+			err := errors.Wrap(validate.ErrValidation, "channel name already exists")
+			encoded := errors.Encode(ctx, err, false)
+			Expect(encoded).To(Equal(errors.Payload{
+				Type: "sy.validation",
+				Data: "channel name already exists",
+			}))
+			Expect(errors.Decode(ctx, encoded)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError("channel name already exists: validation error"),
+			))
+		})
+
+		It("Should send the formatted message of a wrapf", func(ctx SpecContext) {
+			err := errors.Wrapf(validate.ErrValidation, "rate of %d%% is too high", 50)
+			encoded := errors.Encode(ctx, err, false)
+			Expect(encoded.Data).To(Equal("rate of 50% is too high"))
+			Expect(errors.Decode(ctx, encoded)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError("rate of 50% is too high: validation error"),
+			))
+		})
+
+		It("Should send the message of a wrap of a wrap", func(ctx SpecContext) {
+			err := errors.Wrap(errors.Wrap(validate.ErrValidation, "inner"), "outer")
+			encoded := errors.Encode(ctx, err, false)
+			Expect(encoded.Data).To(Equal("outer: inner"))
+			Expect(errors.Decode(ctx, encoded)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError("outer: inner: validation error"),
+			))
+		})
+
+		DescribeTable(
+			"Should keep the message of a derived sentinel",
+			func(ctx SpecContext, err error, msg string) {
+				encoded := errors.Encode(ctx, err, false)
+				Expect(encoded.Data).To(Equal(msg))
+				Expect(errors.Decode(ctx, encoded)).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(msg+": validation error"),
+				))
+			},
+			Entry(
+				"required",
+				errors.Wrap(validate.ErrRequired, "name"),
+				"name: required",
+			),
+			Entry(
+				"conversion",
+				errors.Wrap(validate.ErrConversion, "rate"),
+				"rate: conversion error",
+			),
+			Entry(
+				"invalid type",
+				validate.NewInvalidTypeError("int", "string"),
+				"expected int but received string: invalid type",
+			),
+		)
+
+		It("Should send the message of a path error", func(ctx SpecContext) {
+			err := validate.PathedError(validate.ErrRequired, "name")
+			encoded := errors.Encode(ctx, err, false)
+			Expect(encoded).To(Equal(errors.Payload{
+				Type: "sy.validation.path",
+				Data: `{"error":{"type":"sy.validation","data":"required"},` +
+					`"path":["name"]}`,
+			}))
+			Expect(errors.Decode(ctx, encoded)).To(SatisfyAll(
+				BeAssignableToTypeOf(validate.PathError{}),
+				MatchError("name: required: validation error"),
+			))
+		})
+
+		It("Should send the message of each joined error", func(ctx SpecContext) {
+			err := errors.Join(
+				errors.Wrap(validate.ErrValidation, "first"),
+				errors.Wrap(validate.ErrValidation, "second"),
+			)
+			encoded := errors.Encode(ctx, err, false)
+			Expect(encoded.Data).To(Equal("first\nsecond"))
+			Expect(errors.Decode(ctx, encoded)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError("first\nsecond: validation error"),
+			))
+		})
+
+		It("Should send a join with a typed nil member", func(ctx SpecContext) {
+			err := errors.Join(
+				(*fieldError)(nil),
+				errors.Wrap(validate.ErrValidation, "second"),
+			)
+			Expect(errors.Encode(ctx, err, false)).To(Equal(errors.Payload{
+				Type: "sy.validation",
+				Data: "<nil>\nsecond",
+			}))
+		})
+
+		It("Should send an empty message for the bare sentinel", func(ctx SpecContext) {
+			encoded := errors.Encode(ctx, validate.ErrValidation, false)
+			Expect(encoded.Data).To(BeEmpty())
+			Expect(errors.Decode(ctx, encoded)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError("validation error"),
+			))
 		})
 	})
 

@@ -13,6 +13,7 @@ import (
 	stderrors "errors"
 	"fmt"
 	"reflect"
+	"strings"
 	"sync"
 
 	"github.com/cockroachdb/errors"
@@ -158,13 +159,21 @@ func unwrapJoin(err error) []error {
 	if reflect.TypeOf(err) == stackType {
 		bare = errors.UnwrapOnce(err)
 	}
-	if join, ok := bare.(*joinError); ok {
-		return join.members
-	}
-	if reflect.TypeOf(bare) == stdlibJoinType {
-		return bare.(multiCause).Unwrap()
+	if members, ok := joinMembers(bare); ok {
+		return members
 	}
 	return []error{err}
+}
+
+// joinMembers returns the members of err if err is a Join or a standard library join.
+func joinMembers(err error) ([]error, bool) {
+	if join, ok := err.(*joinError); ok {
+		return join.members, true
+	}
+	if reflect.TypeOf(err) == stdlibJoinType {
+		return err.(multiCause).Unwrap(), true
+	}
+	return nil, false
 }
 
 // multiCause is implemented by errors that carry more than one cause, such as the
@@ -183,6 +192,46 @@ func UnwrapMulti(err error) []error {
 		}
 	}
 	return nil
+}
+
+// MessageWithout returns the message of err without the message of ref or the ": "
+// before it. A join drops each member left with no message. A wrapper whose message
+// does not end with the message of its cause keeps its whole message.
+func MessageWithout(err, ref error) string {
+	if err == nil {
+		return ""
+	}
+	if reflect.TypeOf(ref).Comparable() && err == ref {
+		return ""
+	}
+	if members, ok := joinMembers(err); ok {
+		messages := make([]string, 0, len(members))
+		for _, member := range members {
+			// joinText recovers a panic in a member, as the message of the join does.
+			msg := joinText{member}.Error()
+			if CheapIs(member, ref) {
+				msg = MessageWithout(member, ref)
+			}
+			if msg != "" {
+				messages = append(messages, msg)
+			}
+		}
+		return strings.Join(messages, "\n")
+	}
+	msg := err.Error()
+	cause := errors.UnwrapOnce(err)
+	if cause == nil {
+		return msg
+	}
+	prefix, ok := strings.CutSuffix(msg, cause.Error())
+	if !ok || (prefix != "" && !strings.HasSuffix(prefix, ": ")) {
+		return msg
+	}
+	causeMsg := MessageWithout(cause, ref)
+	if causeMsg == "" {
+		return strings.TrimSuffix(prefix, ": ")
+	}
+	return prefix + causeMsg
 }
 
 // Combine returns:
