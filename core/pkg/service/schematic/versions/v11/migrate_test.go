@@ -165,16 +165,19 @@ var _ = Describe("Migration", func() {
 		)
 	})
 
-	It("Should set a stored button's level and stop its wrapping", func(ctx SpecContext) {
-		Expect(migrateStored(ctx, stored(msgpack.EncodedJSON{
-			"variant": "button",
-			"size":    "large",
-			"label":   map[string]any{"max_inline_size": 80.0},
-		}))).To(SatisfyAll(
-			HaveField("Level", Equal(text.LevelH5)),
-			HaveField("LabeledConfig.Label.MaxInlineSize", HaveValue(BeZero())),
-		))
-	})
+	It(
+		"Should set a stored button's level and stop its wrapping",
+		func(ctx SpecContext) {
+			Expect(migrateStored(ctx, stored(msgpack.EncodedJSON{
+				"variant": "button",
+				"size":    "large",
+				"label":   map[string]any{"max_inline_size": 80.0},
+			}))).To(SatisfyAll(
+				HaveField("Level", Equal(text.LevelH5)),
+				HaveField("LabeledConfig.Label.MaxInlineSize", HaveValue(BeZero())),
+			))
+		},
+	)
 
 	It("Should keep a button's 0 through a defaults fill", func(ctx SpecContext) {
 		out := MustSucceed(v11.MigrateSchematic(ctx, v10.Schematic{
@@ -344,6 +347,17 @@ var _ = Describe("Migration", func() {
 		out := MustSucceed(v11.MigrateNumericTelemConfig(ctx, v10.NumericTelemConfig{}))
 		Expect(out.Precision).To(HaveValue(BeZero()))
 	})
+
+	DescribeTable("Should keep the wrap width of a label config",
+		func(ctx SpecContext, width float64) {
+			out := MustSucceed(v11.MigrateLabelConfig(
+				ctx, v10.LabelConfig{MaxInlineSize: width},
+			))
+			Expect(out.MaxInlineSize).To(HaveValue(Equal(width)))
+		},
+		Entry("No wrapping", 0.0),
+		Entry("A set width", 220.0),
+	)
 
 	It("Should keep zero scale indicator bounds", func(ctx SpecContext) {
 		out := MustSucceed(

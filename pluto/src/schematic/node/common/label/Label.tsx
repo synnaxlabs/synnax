@@ -35,6 +35,10 @@ export const resolveMaxInlineSize = (size?: number): number | undefined => {
   return resolved === NO_WRAP ? undefined : resolved;
 };
 
+/** The CSS text-align of each label alignment. Stretch sets none. */
+export const TEXT_ALIGNS: Record<schematic.FlexAlignment, CSSProperties["textAlign"]> =
+  { start: "start", center: "center", end: "end", stretch: undefined };
+
 export interface LabelProps {
   config: Config;
   onChange?: (next: { label: Config }) => void;
@@ -50,7 +54,7 @@ const Internal = ({ config, onChange, style: baseStyle, ...rest }: InternalProps
   const handleLabelChange = (value: string) =>
     onChange?.({ label: { ...config, label: value } });
   const style = {
-    textAlign: align as CSSProperties["textAlign"],
+    textAlign: TEXT_ALIGNS[align],
     maxInlineSize: resolveMaxInlineSize(maxInlineSize),
     ...baseStyle,
   };

@@ -59,7 +59,7 @@ export const Button = ({
   const symbolColor = color.rgbaString(fillColor);
   const style: CSSProperties = {
     [Primitive.SYMBOL_COLOR]: symbolColor,
-    textAlign: label?.align as CSSProperties["textAlign"],
+    textAlign: label == null ? undefined : Label.TEXT_ALIGNS[label.align],
     maxInlineSize: Label.resolveMaxInlineSize(label?.maxInlineSize),
   };
   // The activation delay gates Base.Button's onClick, so single-shot actuation
