@@ -445,7 +445,7 @@ const createPathConverter =
       // A value read off the wire holds its encoded form, which the marked schema
       // parses back.
       if (!encodes && leaf != null && getEncoder(leaf) != null)
-        return (leaf as z.ZodType).parse(value) as V;
+        return leaf.parse(value) as V;
       return convertChild(value, leaf, converter, encodes);
     };
     return { path: out, convert };
