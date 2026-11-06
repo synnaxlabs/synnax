@@ -192,7 +192,7 @@ func (r *Resolver) file(ctx context.Context, livePath string, n int) (*File, err
 		if err != nil {
 			return nil, err
 		}
-		rw := rewriter("", pinRewrites(sib.Pins))
+		rw := seedRewriter(sib)
 		for _, t := range sib.Defined {
 			if err := b.table.Add(copyType(t, t.Namespace, rw)); err != nil {
 				return nil, errors.Wrapf(err, "failed to seed %s v%d", livePath, k)
