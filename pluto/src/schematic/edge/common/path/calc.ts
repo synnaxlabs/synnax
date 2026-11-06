@@ -13,7 +13,7 @@ const RADIUS = 6;
 /// @brief fillet radius rounding each foot of a hop into the run; arc plus fillets rise
 /// radius + FOOT, matching a plain semicircle's footprint.
 const FOOT = 2;
-/// @brief smallest radius a wide hop shrinks to near the end of a run.
+/// @brief smallest radius a wide hop shrinks to near a run's end or another hop.
 const MIN_HOP_RADIUS = 5;
 /// @brief largest perpendicular gap allowed when snapping a jump onto a run; generous
 /// since reconstructed jump points can sit a few pixels off the drawn line.
@@ -51,9 +51,12 @@ const straight = (from: xy.XY, to: xy.XY, hops: Hop[]): string => {
   const sweep = u.x - u.y > 0 ? 1 : 0;
   let path = "";
   let lastEnd = -Infinity;
-  for (const { offset: s, radius } of [...hops].sort((p, q) => p.offset - q.offset)) {
+  for (const { offset: s, radius: wanted } of hops.toSorted(
+    (p, q) => p.offset - q.offset,
+  )) {
+    const radius = Math.min(wanted, s - lastEnd - FOOT);
+    if (radius < Math.min(wanted, MIN_HOP_RADIUS)) continue;
     const span = radius + FOOT;
-    if (s - span < lastEnd) continue;
     lastEnd = s + span;
     const cx = from.x + s * u.x;
     const cy = from.y + s * u.y;
