@@ -152,9 +152,8 @@ class LayoutClient:
     def dialog(self) -> Locator:
         """The currently open dialog.
 
-        Closed dialogs unmount, except passthrough ones, which stay mounted at
-        opacity 0 and still expose their role; the open-state class excludes
-        them.
+        A dialog mounts hidden until its frame places it, and still exposes its role;
+        the open-state class excludes it until then.
         """
         return self.page.locator("[role='dialog'].lyra--visible")
 
@@ -314,8 +313,7 @@ class LayoutClient:
             True if a matching error was found, False otherwise.
         """
         for notification in self.notifications.check():
-            message = notification.get("message", "")
-            if match.lower() in message.lower():
+            if match.lower() in notification.message.lower():
                 self.notifications.close(notification_index=0)
                 return True
         return False

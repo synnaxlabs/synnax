@@ -207,6 +207,10 @@ bound, a log precision, or the line plot X channel.
   the way to enable the channel again.
 - A new task takes the only device of its make. With two or more, the device stays
   empty.
+- A task body without a device names the next step. With no device of its make, it says
+  so and offers to connect one ("Connect MQTT broker"), then selects the new device.
+  Otherwise it says "No device selected" and offers "Select device", which opens the
+  device select.
 - A task form is at most 1000 px wide. A task whose channel table needs more room sets
   `--console-task-form-max-width`. Modbus uses 1200 px.
 - Port banks sit side by side in columns eight ports wide, each under its title. They
@@ -261,8 +265,10 @@ bound, a log precision, or the line plot X channel.
 - A field in a list item uses the `shadow` variant: no box at rest, a border on hover,
   and a box while open. Fields in forms and detail panes keep their box.
 - An option with a description shows the icon beside the name and the description under
-  the name. The dropdown is wide enough for each description on one line. Only a narrow
-  window wraps it, and it is never cut.
+  the name, through `Select.ItemDescription`. The dropdown is wide enough for each
+  description on one line. Only a narrow window wraps it, and it is never cut.
+- A select with a few described options, such as the Arc performance level and the plot
+  line sampling, has no search. A user reads the options instead.
 - A select that shows only its icon is a square button, never a wide box.
 - A device select shows the selected device's status as a chip at the end of the
   trigger, before the caret. The chip names the status variant in one word ("Connected",
@@ -407,6 +413,21 @@ says why in a sentence, then gives the raw error.
   edge. X1, the field people change least, sits at the end of the Ranges row, as both
   set the x axis. Below a toolbar width of 144rem it takes its own row at the bottom.
 - The X1 dialog floats, so it can be wider than its trigger.
+
+### Plot lines tab
+
+- The aggregation and detail of a line are compact selects, not rows of buttons. The
+  trigger shows an icon and a label that says what it sets ("Min/max", "Medium detail").
+  Each option says what it does to the plot in a few words ("Keeps spikes visible"), not
+  how it works, so the dropdown stays narrow.
+- A waveform marks min/max, a sine wave marks average, and `Icon.Meter` marks the
+  detail.
+- Icon buttons alone were rejected: a user must hover each one to learn it.
+
+### Plot legend
+
+- A padded Lyra `Divider` separates the axis groups: the shared border, with 0.5rem
+  above and below. A 1 px line with no space was too heavy.
 
 ## Interaction
 

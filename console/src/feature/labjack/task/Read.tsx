@@ -15,7 +15,7 @@ import { deep, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { use } from "@/feature/labjack/device/queries";
-import { Select } from "@/feature/labjack/device/Select";
+import { Select, useNoneSelected } from "@/feature/labjack/device/Select";
 import {
   AI_PORT_TYPE,
   type AIPort,
@@ -38,7 +38,7 @@ import { getOpenPort } from "@/feature/labjack/task/getOpenPort";
 import { PortField } from "@/feature/labjack/task/PortField";
 import { maxTerminalChars, terminalOf } from "@/feature/labjack/task/ports";
 import { PortsView } from "@/feature/labjack/task/PortsView";
-import { CustomScaleForm, FORMS } from "@/feature/labjack/task/ReadChannelForms";
+import { FORMS } from "@/feature/labjack/task/ReadChannelForms";
 import {
   READ_CHANNEL_TYPE_ITEMS,
   READ_CHANNEL_TYPE_NAMES,
@@ -190,7 +190,7 @@ const ChannelDetails = ({ path, device }: ChannelDetailsProps) => {
       )}
       {"scale" in ch && (
         <PForm.Section title="Scale">
-          <CustomScaleForm path={deep.variant(path, "type", ch.type).scale} />
+          <Task.ScaleForm path={deep.variant(path, "type", ch.type).scale} />
         </PForm.Section>
       )}
     </PForm.Sections>
@@ -314,6 +314,7 @@ const ChannelsForm = ({ device }: ChannelsFormProps) => {
 const Form: FC = PlatformDevice.wrapTaskForm({
   use,
   useConfigure,
+  useNoneSelected,
   Content: ChannelsForm,
 });
 

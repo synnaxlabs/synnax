@@ -114,6 +114,7 @@ static std::string validate_health_response(
 
 void Scanner::set_device_status(
     synnax::device::Device &dev,
+    const bool connected,
     const std::string &variant,
     const std::string &message,
     const std::string &description
@@ -128,6 +129,7 @@ void Scanner::set_device_status(
         .details = {
             .rack = this->task.rack,
             .device = dev.key,
+            .connected = connected,
         },
     };
 }
@@ -146,6 +148,7 @@ std::optional<Scanner::PreparedHealthCheck> Scanner::prepare_health_check(
     if (parser.error()) {
         this->set_device_status(
             dev,
+            false,
             synnax::status::VARIANT_WARNING,
             "Invalid device properties",
             common::config_err_description(parser.error())
@@ -168,9 +171,21 @@ void Scanner::process_health_response(
     const Response &resp,
     const x::errors::Error &err
 ) const {
+    // A status code means the server answered before the transfer failed.
+    if (err && resp.status_code != 0) {
+        this->set_device_status(
+            dev,
+            true,
+            synnax::status::VARIANT_ERROR,
+            "Health check failed",
+            err.data
+        );
+        return;
+    }
     if (err) {
         this->set_device_status(
             dev,
+            false,
             synnax::status::VARIANT_WARNING,
             "Failed to reach server",
             err.data
@@ -180,6 +195,7 @@ void Scanner::process_health_response(
     if (const auto status_err = errors::from_status(resp.status_code)) {
         this->set_device_status(
             dev,
+            true,
             synnax::status::VARIANT_ERROR,
             "Health check failed",
             rejection_description(resp)
@@ -190,13 +206,19 @@ void Scanner::process_health_response(
         !v_err.empty()) {
         this->set_device_status(
             dev,
+            true,
             synnax::status::VARIANT_ERROR,
             "Health check failed",
             v_err
         );
         return;
     }
-    this->set_device_status(dev, synnax::status::VARIANT_SUCCESS, "Device connected");
+    this->set_device_status(
+        dev,
+        true,
+        synnax::status::VARIANT_SUCCESS,
+        "Device connected"
+    );
 }
 
 void Scanner::test_connection(const synnax::task::Command &cmd) const {

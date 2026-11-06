@@ -8,9 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { Menu } from "@synnaxlabs/lyra/menu";
+import { Status } from "@synnaxlabs/lyra/status";
+import { stubClipboardUnavailable, stubCopyCommand } from "@synnaxlabs/lyra/testutil";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { fireEvent, render, screen } from "@testing-library/react";
-import { type FC, type PropsWithChildren } from "react";
+import { box } from "@synnaxlabs/x";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Base } from "@/log/Base";
@@ -63,16 +66,21 @@ const DEFAULT_STATE = {
   selectionStart: -1,
   selectionEnd: -1,
   visibleStart: 0,
-  selectedText: "",
-  selectedLines: [],
   computedLineHeight: 16,
+  rowEntries: [],
 };
+
+const LINES = [
+  { text: "<one>", color: "" },
+  { text: "two", color: "#ff0000" },
+];
 
 const setupAether = (overrides: Record<string, unknown> = {}) => {
   const setState = vi.fn();
   const state = { ...DEFAULT_STATE, ...overrides };
-  mockAetherUse.mockReturnValue(["test-key", state, setState]);
-  return { setState, state };
+  const selectedLines = vi.fn(async () => LINES);
+  mockAetherUse.mockReturnValue(["test-key", state, setState, { selectedLines }]);
+  return { setState, state, selectedLines };
 };
 
 const renderLog = (props: Record<string, unknown> = {}) =>
@@ -392,33 +400,111 @@ describe("log/Base", () => {
   });
 
   describe("copy", () => {
-    it("should no-op onCopy when no text is selected", () => {
-      setupAether({ empty: false, selectedText: "" });
+    const SELECTED = { empty: false, selectionStart: 0, rowEntries: [0, 1] };
+
+    interface Item {
+      data: Record<string, Promise<Blob>>;
+    }
+
+    const Messages = (): ReactElement => {
+      const { statuses } = Status.useNotifications();
+      return (
+        <>
+          {statuses.map(({ key, message }) => (
+            <span key={key}>{message}</span>
+          ))}
+        </>
+      );
+    };
+
+    const stubClipboard = () => {
+      const write = vi.fn(async (_items: Item[]) => {});
+      Object.defineProperty(globalThis, "ClipboardItem", {
+        configurable: true,
+        value: class implements Item {
+          constructor(readonly data: Item["data"]) {}
+        },
+      });
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: { write },
+      });
+      return write;
+    };
+
+    it("should leave the copy event alone when nothing is selected", () => {
+      const { selectedLines } = setupAether({ empty: false });
       const { container } = renderLog();
-      const logDiv = getLogDiv(container);
-      const prevented = fireEvent.copy(logDiv);
-      expect(prevented).toBe(true);
+      expect(fireEvent.copy(getLogDiv(container))).toBe(true);
+      expect(selectedLines).not.toHaveBeenCalled();
     });
 
-    it("should write to clipboardData onCopy when text is selected", () => {
-      setupAether({
-        empty: false,
-        selectedText: "hello",
-        selectedLines: [{ text: "hello", color: "" }],
-      });
+    it("should leave the copy event alone when the log has no rows", () => {
+      setupAether({ ...SELECTED, selectionEnd: 0, rowEntries: [] });
       const { container } = renderLog();
-      const logDiv = getLogDiv(container);
-      const setData = vi.fn();
-      const event = new Event("copy", { bubbles: true });
-      Object.defineProperty(event, "clipboardData", {
-        value: { setData },
+      expect(fireEvent.copy(getLogDiv(container))).toBe(true);
+    });
+
+    it("should start the write within the copy event", async () => {
+      const write = stubClipboard();
+      setupAether({ ...SELECTED, selectionEnd: 1 });
+      const { container } = renderLog();
+      await act(async () => {
+        expect(fireEvent.copy(getLogDiv(container))).toBe(false);
+        expect(write).toHaveBeenCalledTimes(1);
       });
-      fireEvent(logDiv, event);
-      expect(setData).toHaveBeenCalledWith("text/plain", "hello");
-      expect(setData).toHaveBeenCalledWith(
-        "text/html",
-        expect.stringContaining("hello"),
-      );
+    });
+
+    it("should read the lines from the worker only on a copy", async () => {
+      const write = stubClipboard();
+      const { selectedLines } = setupAether({ ...SELECTED, selectionEnd: 1 });
+      const { container } = renderLog();
+      expect(selectedLines).not.toHaveBeenCalled();
+      await act(async () => {
+        fireEvent.copy(getLogDiv(container));
+      });
+      expect(selectedLines).toHaveBeenCalledTimes(1);
+      const [item] = write.mock.calls[0][0];
+      const text = await (await item.data["text/plain"]).text();
+      expect(text).toBe("<one>\ntwo");
+      const html = await (await item.data["text/html"]).text();
+      expect(html).toContain("&lt;one&gt;");
+      expect(html).toContain('<span style="color: #ff0000">two</span>');
+    });
+
+    it("should copy plain text in a context with no clipboard API", async () => {
+      Reflect.deleteProperty(globalThis, "ClipboardItem");
+      stubClipboardUnavailable();
+      const copied = stubCopyCommand();
+      setupAether({ ...SELECTED, selectionEnd: 1 });
+      const { container } = renderLog({ children: <Messages /> });
+      await act(async () => {
+        expect(fireEvent.copy(getLogDiv(container))).toBe(false);
+      });
+      expect(copied).toHaveBeenCalledWith("<one>\ntwo");
+      expect(await screen.findByText("Copied 2 lines to clipboard")).toBeDefined();
+    });
+
+    it("should report a copy the browser refuses", async () => {
+      Reflect.deleteProperty(globalThis, "ClipboardItem");
+      stubClipboardUnavailable();
+      stubCopyCommand(false);
+      setupAether({ ...SELECTED, selectionEnd: 1 });
+      const { container } = renderLog({ children: <Messages /> });
+      await act(async () => {
+        fireEvent.copy(getLogDiv(container));
+      });
+      expect(await screen.findByText("Failed to copy to clipboard")).toBeDefined();
+    });
+
+    it("should report the count of copied lines", async () => {
+      stubClipboard();
+      setupAether({ ...SELECTED, selectionEnd: 1 });
+      const { container } = renderLog({ children: <Messages /> });
+      await act(async () => {
+        fireEvent.copy(getLogDiv(container));
+      });
+      expect(await screen.findByText("Copied 2 lines to clipboard")).toBeDefined();
     });
   });
 
@@ -498,7 +584,6 @@ describe("log/Base", () => {
       empty: false,
       selectionStart: 2,
       selectionEnd: 7,
-      selectedText: "primed",
     };
 
     const findUpdaterResult = (
@@ -524,7 +609,7 @@ describe("log/Base", () => {
     const isSelectAll = (r: Record<string, unknown>) =>
       r.selectionStart === 0 && r.selectionEnd === Number.MAX_SAFE_INTEGER;
     const isClearSelection = (r: Record<string, unknown>) =>
-      r.selectionStart === -1 && r.selectionEnd === -1 && r.selectedText === "";
+      r.selectionStart === -1 && r.selectionEnd === -1;
 
     it("should fire setState selecting all entries on Ctrl+A when enableTriggers is true", () => {
       const { setState } = setupAether({ empty: false });
@@ -575,6 +660,36 @@ describe("log/Base", () => {
       const logDiv = getLogDiv(container);
       fireEvent.mouseDown(logDiv, { button: 0, clientY: 100 });
       expect(setState).toHaveBeenCalled();
+    });
+
+    it("should select the entry of a wrapped row", () => {
+      const { setState } = setupAether({
+        empty: false,
+        computedLineHeight: 16,
+        rowEntries: [4, 4, 4, 5],
+        region: box.construct({ x: 0, y: 0 }, { width: 400, height: 600 }),
+      });
+      const { container } = renderLog();
+      fireEvent.mouseDown(getLogDiv(container), { button: 0, clientY: 30 });
+      const update = setState.mock.calls[setState.mock.calls.length - 1][0];
+      expect(update({ selectionStart: -1, selectionEnd: -1 })).toMatchObject({
+        selectionStart: 4,
+      });
+    });
+
+    it("should select the last shown entry below the last row", () => {
+      const { setState } = setupAether({
+        empty: false,
+        computedLineHeight: 16,
+        rowEntries: [0, 0, 1],
+        region: box.construct({ x: 0, y: 0 }, { width: 400, height: 600 }),
+      });
+      const { container } = renderLog();
+      fireEvent.mouseDown(getLogDiv(container), { button: 0, clientY: 400 });
+      const update = setState.mock.calls[setState.mock.calls.length - 1][0];
+      expect(update({ selectionStart: -1, selectionEnd: -1 })).toMatchObject({
+        selectionStart: 1,
+      });
     });
 
     it("should compute entry index from clientY position", () => {

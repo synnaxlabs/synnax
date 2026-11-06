@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { Dialog } from "@/dialog";
+import { Icon } from "@/icon";
 import { List } from "@/list";
 import { Select } from "@/select";
 import { computed, renderThemed, resolve } from "@/styletest";
@@ -167,7 +168,153 @@ const renderFooter = async (): Promise<Element> => {
   return document.getElementById("footer") as Element;
 };
 
+const DESCRIPTION = "Wider than the minimum width of a select dialog";
+const TRIGGER_WIDTH = 100;
+
+interface DescribedOption {
+  option: Element;
+  icon: DOMRect;
+  name: DOMRect;
+  description: Element;
+}
+
+const rangeOf = (node: Node): Range => {
+  const range = document.createRange();
+  range.selectNodeContents(node);
+  return range;
+};
+
+const renderDescribedOptions = async (
+  searchHidden = true,
+): Promise<DescribedOption[]> => {
+  const { getByRole } = await renderThemed(
+    <div style={{ width: TRIGGER_WIDTH, marginLeft: "auto" }}>
+      <Select.Simple<string>
+        resourceName="level"
+        value="low"
+        onChange={() => {}}
+        variant="floating"
+        searchHidden={searchHidden}
+        initialVisible
+      >
+        {["low", "high"].map((key) => (
+          <Select.Item key={key} itemKey={key} label={key} textValue={key}>
+            <Icon.Auto />
+            {key}
+            <Select.ItemDescription>{DESCRIPTION}</Select.ItemDescription>
+          </Select.Item>
+        ))}
+      </Select.Simple>
+    </div>,
+  );
+  const dialog = getByRole("dialog").element();
+  await expect.poll(() => computed(dialog, "opacity")).toBe("1");
+  return getByRole("option")
+    .elements()
+    .map((option) => {
+      const name = Array.from(option.childNodes).find(
+        (node) => node.nodeType === Node.TEXT_NODE,
+      );
+      if (name == null) throw new Error("option name not found");
+      return {
+        option,
+        icon: option.querySelector(".lyra-icon")!.getBoundingClientRect(),
+        name: rangeOf(name).getBoundingClientRect(),
+        description: option.querySelector(".lyra-select__item-description")!,
+      };
+    });
+};
+
+const renderSearchless = async (
+  multiple: boolean,
+): Promise<ReturnType<typeof vi.fn>> => {
+  const onChange = vi.fn();
+  const items = ["low", "medium", "high"].map((key) => (
+    <Select.Item key={key} itemKey={key}>
+      {key}
+    </Select.Item>
+  ));
+  const { getByRole } = await renderThemed(
+    <Triggers.Provider>
+      {multiple ? (
+        <Select.Simple<string>
+          resourceName="level"
+          multiple
+          value={["low"]}
+          onChange={onChange}
+          searchHidden
+        >
+          {items}
+        </Select.Simple>
+      ) : (
+        <Select.Simple<string>
+          resourceName="level"
+          value="low"
+          onChange={onChange}
+          allowNone={false}
+          searchHidden
+        >
+          {items}
+        </Select.Simple>
+      )}
+    </Triggers.Provider>,
+  );
+  await userEvent.click(getByRole("button", { name: multiple ? "Levels" : /^Level/ }));
+  const dialog = getByRole("dialog").element();
+  await expect.poll(() => computed(dialog, "opacity")).toBe("1");
+  await userEvent.keyboard("{ArrowDown}{ArrowDown}{Enter}");
+  await expect.poll(() => onChange).toHaveBeenCalledOnce();
+  return onChange;
+};
+
 describe("Select", () => {
+  describe("described options", () => {
+    it("should put the icon beside the name and the description under it", async () => {
+      const [{ icon, name, description }] = await renderDescribedOptions();
+      const line = description.getBoundingClientRect();
+      expect(icon.right).toBeLessThan(name.left);
+      expect(line.left).toBeCloseTo(name.left, 0);
+      expect(line.top).toBeGreaterThanOrEqual(name.bottom);
+    });
+
+    it("should fit each description on one line", async () => {
+      const options = await renderDescribedOptions();
+      options.forEach(({ description }) =>
+        expect(rangeOf(description).getClientRects()).toHaveLength(1),
+      );
+    });
+
+    it("should space the options apart", async () => {
+      const [first, second] = await renderDescribedOptions();
+      expect(second.option.getBoundingClientRect().top).toBeGreaterThan(
+        first.option.getBoundingClientRect().bottom,
+      );
+    });
+
+    it("should hide the options a search leaves out, with no space above the rest", async () => {
+      const [low, high] = await renderDescribedOptions(false);
+      await userEvent.fill(page.getByPlaceholder("Search levels..."), "high");
+      await expect.poll(() => computed(low.option, "display")).toBe("none");
+      expect(computed(high.option, "margin-top")).toBe("0px");
+    });
+  });
+
+  describe("searchless options", () => {
+    it("should close and stay closed when Enter picks an option", async () => {
+      const onChange = await renderSearchless(false);
+      expect(onChange.mock.calls[0][0]).toBe("medium");
+      await expect
+        .element(page.getByRole("button", { name: /^Level/ }))
+        .toHaveAttribute("aria-expanded", "false");
+    });
+
+    it("should stay open when Enter adds one of many options", async () => {
+      const onChange = await renderSearchless(true);
+      expect(onChange.mock.calls[0][0]).toEqual(["low", "medium"]);
+      await expect.element(page.getByRole("dialog")).toBeVisible();
+    });
+  });
+
   describe("footer", () => {
     it("should keep its height when the list overflows the dialog", async () => {
       const footer = await renderFooter();

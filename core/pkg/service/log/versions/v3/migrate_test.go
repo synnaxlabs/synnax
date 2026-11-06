@@ -10,6 +10,7 @@
 package v3_test
 
 import (
+	"strings"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -36,6 +37,17 @@ var _ = Describe("Migration", func() {
 		Entry("Should clamp a precision past the maximum", int32(40), new(uint8(17))),
 	)
 
+	It("Should keep an alias of 64 characters", func(ctx SpecContext) {
+		old := v2.ChannelEntry{Alias: strings.Repeat("😀", 64)}
+		Expect(MustSucceed(v3.MigrateChannelEntry(ctx, old)).Alias).
+			To(Equal(old.Alias))
+	})
+
+	It("Should cut a long alias on a character boundary", func(ctx SpecContext) {
+		old := v2.ChannelEntry{Alias: strings.Repeat("😀", 65)}
+		Expect(MustSucceed(v3.MigrateChannelEntry(ctx, old)).Alias).
+			To(Equal(strings.Repeat("😀", 64)))
+	})
 	DescribeTable("Should clamp the timestamp precision",
 		func(ctx SpecContext, old int32, expected uint8) {
 			got := MustSucceed(v3.MigrateLog(ctx, v2.Log{TimestampPrecision: old}))
@@ -59,6 +71,23 @@ var _ = Describe("Migration", func() {
 		Expect(got.Channels).To(Equal([]v3.ChannelEntry{
 			{Channel: 1},
 			{Channel: 2, Precision: new(uint8(5))},
+		}))
+	})
+
+	It("Should drop channel 0 and keep the first entry of a channel", func(
+		ctx SpecContext,
+	) {
+		got := MustSucceed(v3.MigrateLog(ctx, v2.Log{
+			Channels: []v2.ChannelEntry{
+				{Channel: 0, Alias: "placeholder", Precision: -1},
+				{Channel: 1, Alias: "first", Precision: -1},
+				{Channel: 2, Precision: -1},
+				{Channel: 1, Alias: "second", Precision: -1},
+			},
+		}))
+		Expect(got.Channels).To(Equal([]v3.ChannelEntry{
+			{Channel: 1, Alias: "first"},
+			{Channel: 2},
 		}))
 	})
 

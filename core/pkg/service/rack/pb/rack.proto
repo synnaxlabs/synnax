@@ -14,6 +14,7 @@ syntax = "proto3";
 package service.rack.pb;
 
 import "core/pkg/service/status/pb/status.proto";
+import "x/go/filter/pb/filter.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/rack/pb";
 
@@ -38,4 +39,49 @@ message Rack {
   // integrations is the list of hardware integrations this rack supports (e.g., "ni",
   // "opc", "labjack"). An empty or nil list means the rack supports no integrations.
   repeated string integrations = 5;
+}
+message WhereList {
+  repeated Where values = 1;
+}
+message KeyList {
+  repeated uint32 values = 1;
+}
+
+// KeySet selects values that only compare for equality, such as keys, enum values, and
+// UUIDs. A value must match every operator that is set.
+message KeySet {
+  // eq matches a value equal to eq.
+  optional uint32 eq = 1;
+  // in matches a value equal to an element of in.
+  KeyList in = 2;
+}
+message StringList {
+  repeated string values = 1;
+}
+
+// StringContains selects arrays by the elements they hold.
+message StringContains {
+  // any matches an array that holds an element of any.
+  StringList any = 1;
+}
+
+// Where is a filter that selects racks.
+message Where {
+  // and matches when every child matches.
+  WhereList and = 1;
+  // or matches when any child matches.
+  WhereList or = 2;
+  // not matches when the child does not match.
+  optional Where not = 3;
+  // key selects by key.
+  optional KeySet key = 4;
+  // name selects by name.
+  optional .x.filter.pb.String name = 5;
+  // embedded selects by embedded.
+  optional .x.filter.pb.Bool embedded = 6;
+  // integrations selects by integrations.
+  optional StringContains integrations = 7;
+  // host_is_node matches racks on the Core that serves the request, or racks on other
+  // Cores when false.
+  optional bool host_is_node = 8;
 }

@@ -168,6 +168,49 @@ TEST(StatusCacheTest, ResendRepairsAWriteInProgress) {
     );
 }
 
+/// @brief it should report a failed write as stale until a re-send starts.
+TEST(StatusCacheTest, FailedWriteIsStaleUntilResend) {
+    const auto task = synnax::task::Task{.key = x::uuid::create(), .name = "lost"};
+    const auto transport = std::make_shared<HoldingSetClient>(
+        synnax::task::status_key(task)
+    );
+    StatusCache cache(synnax::status::Client(nullptr, transport, nullptr, nullptr));
+    synnax::task::Status status{
+        .key = synnax::task::status_key(task),
+        .variant = synnax::status::VARIANT_WARNING,
+        .details = {.task = task.key},
+    };
+    EXPECT_FALSE(cache.stale());
+    transport->release(freighter::UNREACHABLE);
+    ASSERT_OCCURRED_AS(cache.set(status), freighter::UNREACHABLE);
+    EXPECT_TRUE(cache.stale());
+    ASSERT_NIL(cache.resend());
+    EXPECT_FALSE(cache.stale());
+    EXPECT_EQ(transport->sent().size(), 2);
+}
+
+/// @brief it should stay stale after a failed re-send, until a re-send succeeds.
+TEST(StatusCacheTest, FailedResendStaysStale) {
+    const auto task = synnax::task::Task{.key = x::uuid::create(), .name = "lost"};
+    const auto transport = std::make_shared<HoldingSetClient>(
+        synnax::task::status_key(task)
+    );
+    StatusCache cache(synnax::status::Client(nullptr, transport, nullptr, nullptr));
+    synnax::task::Status status{
+        .key = synnax::task::status_key(task),
+        .variant = synnax::status::VARIANT_WARNING,
+        .details = {.task = task.key},
+    };
+    transport->release(freighter::UNREACHABLE);
+    ASSERT_OCCURRED_AS(cache.set(status), freighter::UNREACHABLE);
+    transport->release(freighter::UNREACHABLE);
+    ASSERT_OCCURRED_AS(cache.resend(), freighter::UNREACHABLE);
+    EXPECT_TRUE(cache.stale());
+    ASSERT_NIL(cache.resend());
+    EXPECT_FALSE(cache.stale());
+    EXPECT_EQ(transport->sent().size(), 3);
+}
+
 /// @brief it should write the status of a task while the re-send of another task's
 /// status hangs.
 TEST(StatusCacheTest, WriteDoesNotWaitOnResendOfAnotherTask) {
@@ -239,5 +282,47 @@ TEST(StatusCacheTest, ClaimWritesStatusesAgain) {
     ASSERT_NIL(cache.resend());
     const auto key = synnax::task::status_key(task);
     EXPECT_EQ(transport->sent(), (std::vector<std::vector<std::string>>{{key}, {key}}));
+}
+
+/// @brief it should return the latest status of a task without its command key.
+TEST(StatusCacheTest, LatestReturnsTheLatestStatusWithNoCommandKey) {
+    const auto task = synnax::task::Task{.key = x::uuid::create(), .name = "failed"};
+    const auto transport = std::make_shared<HoldingSetClient>("");
+    StatusCache cache(synnax::status::Client(nullptr, transport, nullptr, nullptr));
+    synnax::task::Status configured{
+        .key = synnax::task::status_key(task),
+        .variant = synnax::status::VARIANT_SUCCESS,
+        .message = "Task configured",
+        .details = {.task = task.key},
+    };
+    synnax::task::Status failed{
+        .key = synnax::task::status_key(task),
+        .variant = synnax::status::VARIANT_ERROR,
+        .message = "Failed to configure task",
+        .details = {.task = task.key, .cmd = "start-cmd"},
+    };
+    ASSERT_NIL(cache.set(configured));
+    ASSERT_NIL(cache.set(failed));
+    const auto latest = cache.latest(task.key);
+    ASSERT_TRUE(latest.has_value());
+    EXPECT_EQ(latest.value().message, "Failed to configure task");
+    EXPECT_TRUE(latest.value().details.cmd.empty());
+}
+
+/// @brief it should return no status for a task that left this Driver or never had one.
+TEST(StatusCacheTest, LatestReturnsNothingForADroppedOrUnknownTask) {
+    const auto task = synnax::task::Task{.key = x::uuid::create(), .name = "released"};
+    const auto transport = std::make_shared<HoldingSetClient>("");
+    StatusCache cache(synnax::status::Client(nullptr, transport, nullptr, nullptr));
+    synnax::task::Status configured{
+        .key = synnax::task::status_key(task),
+        .variant = synnax::status::VARIANT_SUCCESS,
+        .message = "Task configured",
+        .details = {.task = task.key},
+    };
+    ASSERT_NIL(cache.set(configured));
+    cache.drop(task.key);
+    EXPECT_FALSE(cache.latest(task.key).has_value());
+    EXPECT_FALSE(cache.latest(x::uuid::create()).has_value());
 }
 }

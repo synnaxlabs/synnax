@@ -20,7 +20,6 @@ import {
   color,
   DataType,
   type notation,
-  primitive,
   type TimestampFormat,
   type TimeZone,
 } from "@synnaxlabs/x";
@@ -29,6 +28,7 @@ import { type ReactElement } from "react";
 import { CSS } from "@/platform/css";
 
 const PRECISION_BOUNDS = { lower: 0, upper: 17 };
+const ALIAS_MAX_LENGTH = 64;
 
 const showsNumericFields = (dt: DataType | undefined): boolean =>
   dt != null && dt.isNumeric && !dt.equals(DataType.TIMESTAMP);
@@ -53,14 +53,21 @@ const ChannelRow = ({
   const theme = Theming.use();
   const defaultColor = theme.colors.gray.l11;
   const config = Log.useChannelEntry({ channel });
-  const query = channel > 0 ? { key: channel } : null;
+  const otherChannels = Log.useChannelKeys().filter((key) => key !== channel);
+  const query = { key: channel };
   const { data: dataType } = Channel.useResultDataType(query);
   const { data: chName } = Channel.useResultName(query);
   const showNumeric = showsNumericFields(dataType);
   const showTimestamp = isTimestamp(dataType);
 
+  // Spreading counts each character as one, which the input's maxLength does not.
   const handleAliasChange = (alias: string) =>
-    dispatch(log.setChannelAlias({ channel, alias }));
+    dispatch(
+      log.setChannelAlias({
+        channel,
+        alias: [...alias].slice(0, ALIAS_MAX_LENGTH).join(""),
+      }),
+    );
   const handleNotationChange = (notation: notation.Notation) =>
     dispatch(log.setChannelNotation({ channel, notation }));
   const handlePrecisionChange = (precision?: number) =>
@@ -96,11 +103,13 @@ const ChannelRow = ({
       preventClick
     >
       <Flex.Box x align="center" grow>
+        {/* The select reads its query once, so the key refreshes it. */}
         <Channel.SelectSingle
+          key={otherChannels.join()}
           value={channel}
           onChange={handleChannelChange}
           allowNone
-          initialQuery={SELECT_CHANNEL_INITIAL_QUERY}
+          initialQuery={selectQueryExcluding(otherChannels)}
           disabled={disabled}
           triggerProps={SHADOW_TRIGGER_PROPS}
           className={CSS.BE("log", "channel-select")}
@@ -120,7 +129,11 @@ const ChannelRow = ({
       <Flex.Box x align="center">
         {showNumeric && (
           <>
-            <Notation.Select value={notation} onChange={handleNotationChange} />
+            <Notation.Select
+              value={notation}
+              onChange={handleNotationChange}
+              disabled={disabled}
+            />
             <Input.Numeric
               value={precision}
               onChange={handlePrecisionChange}
@@ -149,12 +162,14 @@ const ChannelRow = ({
             <Telem.SelectTimestampFormat
               value={timestamp.format}
               onChange={handleFormatChange}
+              disabled={disabled}
               triggerProps={SHADOW_TRIGGER_PROPS}
             />
             <Telem.SelectTimeZone
               className={CSS.BE("log", "channel-tz")}
               value={timestamp.tz}
               onChange={handleTzChange}
+              disabled={disabled}
             />
           </>
         )}
@@ -162,6 +177,7 @@ const ChannelRow = ({
           value={hasCustomColor ? config.color : undefined}
           fallback={defaultColor}
           onChange={handleColorChange}
+          disabled={disabled}
           size="small"
         />
       </Flex.Box>
@@ -170,8 +186,15 @@ const ChannelRow = ({
 };
 
 const SELECT_CHANNEL_INITIAL_QUERY: Channel.ListQuery = {
-  internal: IS_DEV ? undefined : false,
+  where: { internal: IS_DEV ? undefined : { eq: false } },
 };
+
+const selectQueryExcluding = (keys: channel.Key[]): Channel.ListQuery =>
+  keys.length === 0
+    ? SELECT_CHANNEL_INITIAL_QUERY
+    : {
+        where: { ...SELECT_CHANNEL_INITIAL_QUERY.where, not: { key: { in: keys } } },
+      };
 
 const ADD_CHANNEL_TRIGGER_PROPS: Select.SingleTriggerProps = {
   placeholder: "Add channel",
@@ -210,11 +233,9 @@ export const Channels = (): ReactElement => {
       aria-label="Log channels"
       className={CSS.BE("log", "toolbar", "channels")}
     >
-      {channelKeys.map((ch, i) =>
-        primitive.isZero(ch) ? null : (
-          <ChannelRow key={ch} index={i} channel={ch} disabled={!hasUpdatePermission} />
-        ),
-      )}
+      {channelKeys.map((ch, i) => (
+        <ChannelRow key={ch} index={i} channel={ch} disabled={!hasUpdatePermission} />
+      ))}
       <AddChannelRow disabled={!hasUpdatePermission} />
     </Flex.Box>
   );
