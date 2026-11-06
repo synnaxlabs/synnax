@@ -24,7 +24,6 @@ import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/encoding/json"
-	"github.com/synnaxlabs/x/encoding/msgpack"
 	xhttp "github.com/synnaxlabs/x/http"
 )
 
@@ -143,7 +142,7 @@ func parseResponseCtx(
 }
 
 var (
-	defaultEncoders = []xhttp.Encoder{json.Codec, msgpack.Codec}
-	defaultDecoders = []xhttp.Decoder{json.Codec, msgpack.Codec}
-	defaultCodecs   = []xhttp.Codec{json.Codec, msgpack.Codec}
+	defaultEncoders = []xhttp.Encoder{json.Codec}
+	defaultDecoders = []xhttp.Decoder{json.Codec}
+	defaultCodecs   = []xhttp.Codec{json.Codec}
 )

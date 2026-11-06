@@ -8,7 +8,8 @@
 #  included in the file licenses/APL.txt.
 
 
-from console.schematic.symbol import Option, Symbol
+import synnax as sy
+from console.schematic.symbol import Symbol, option_text
 
 
 class StateIndicator(Symbol):
@@ -21,7 +22,7 @@ class StateIndicator(Symbol):
         *,
         label: str,
         channel_name: str,
-        options: list[Option] | None = None,
+        options: list[sy.schematic.StateMapping] | None = None,
     ):
         """Initialize a state indicator symbol with configuration.
 
@@ -42,7 +43,7 @@ class StateIndicator(Symbol):
         self,
         *,
         channel_name: str | None = None,
-        options: list[Option] | None = None,
+        options: list[sy.schematic.StateMapping] | None = None,
     ) -> None:
         self.click()
 
@@ -64,9 +65,9 @@ class StateIndicator(Symbol):
                 items = self.page.locator(".lyra-list__item").all()
                 last_item = items[-1]
                 name_input = last_item.locator("input").first
-                name_input.fill(option["name"])
+                name_input.fill(option.name)
                 value_input = last_item.locator("input").nth(1)
-                value_input.fill(str(option["value"]))
+                value_input.fill(option_text(option.value))
 
     def get_label(self) -> str:
         """Read the currently displayed state label text.
