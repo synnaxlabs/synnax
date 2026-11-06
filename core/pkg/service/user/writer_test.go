@@ -149,11 +149,9 @@ var _ = Describe("Writer", func() {
 			))
 		})
 		It("Should refuse to change the roles of a root user", func(ctx SpecContext) {
-			var root user.User
-			Expect(svc.NewRetrieve().
-				Where(user.MatchRootUser(true)).
-				Entry(&root).
-				Exec(ctx, tx)).To(Succeed())
+			root := user.User{Key: uuid.New(), Name: "root", RootUser: true}
+			Expect(gorp.WrapWriter[user.Key, user.User](tx).Set(ctx, root)).
+				To(Succeed())
 			Expect(w.SetRoles(ctx, []role.Key{createRole(ctx)}, nil, root.Key)).
 				To(SatisfyAll(
 					MatchError(validate.ErrValidation),
@@ -161,7 +159,7 @@ var _ = Describe("Writer", func() {
 						ContainSubstring("cannot change the roles of root user"),
 					),
 				))
-			Expect(rolesOf(ctx, root.Key)).To(Equal(root.Roles))
+			Expect(rolesOf(ctx, root.Key)).To(BeEmpty())
 		})
 		It("Should return not found for a user that does not exist", func(
 			ctx SpecContext,
