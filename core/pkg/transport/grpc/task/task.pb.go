@@ -16,6 +16,7 @@
 package task
 
 import (
+	pb1 "github.com/synnaxlabs/synnax/pkg/api/task/pb"
 	pb "github.com/synnaxlabs/synnax/pkg/service/task/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -122,11 +123,7 @@ func (x *CreateResponse) GetTasks() []*pb.Task {
 
 type RetrieveRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Rack          uint32                 `protobuf:"varint,1,opt,name=rack,proto3" json:"rack,omitempty"`
-	Keys          []string               `protobuf:"bytes,2,rep,name=keys,proto3" json:"keys,omitempty"`
-	Names         []string               `protobuf:"bytes,3,rep,name=names,proto3" json:"names,omitempty"`
-	Types         []string               `protobuf:"bytes,4,rep,name=types,proto3" json:"types,omitempty"`
-	IncludeStatus bool                   `protobuf:"varint,5,opt,name=include_status,json=includeStatus,proto3" json:"include_status,omitempty"`
+	Request       *pb1.RetrieveRequest   `protobuf:"bytes,6,opt,name=request,proto3" json:"request,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -161,81 +158,9 @@ func (*RetrieveRequest) Descriptor() ([]byte, []int) {
 	return file_core_pkg_transport_grpc_task_task_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *RetrieveRequest) GetRack() uint32 {
+func (x *RetrieveRequest) GetRequest() *pb1.RetrieveRequest {
 	if x != nil {
-		return x.Rack
-	}
-	return 0
-}
-
-func (x *RetrieveRequest) GetKeys() []string {
-	if x != nil {
-		return x.Keys
-	}
-	return nil
-}
-
-func (x *RetrieveRequest) GetNames() []string {
-	if x != nil {
-		return x.Names
-	}
-	return nil
-}
-
-func (x *RetrieveRequest) GetTypes() []string {
-	if x != nil {
-		return x.Types
-	}
-	return nil
-}
-
-func (x *RetrieveRequest) GetIncludeStatus() bool {
-	if x != nil {
-		return x.IncludeStatus
-	}
-	return false
-}
-
-type RetrieveResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Tasks         []*pb.Task             `protobuf:"bytes,1,rep,name=tasks,proto3" json:"tasks,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *RetrieveResponse) Reset() {
-	*x = RetrieveResponse{}
-	mi := &file_core_pkg_transport_grpc_task_task_proto_msgTypes[3]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *RetrieveResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*RetrieveResponse) ProtoMessage() {}
-
-func (x *RetrieveResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_transport_grpc_task_task_proto_msgTypes[3]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use RetrieveResponse.ProtoReflect.Descriptor instead.
-func (*RetrieveResponse) Descriptor() ([]byte, []int) {
-	return file_core_pkg_transport_grpc_task_task_proto_rawDescGZIP(), []int{3}
-}
-
-func (x *RetrieveResponse) GetTasks() []*pb.Task {
-	if x != nil {
-		return x.Tasks
+		return x.Request
 	}
 	return nil
 }
@@ -249,7 +174,7 @@ type DeleteRequest struct {
 
 func (x *DeleteRequest) Reset() {
 	*x = DeleteRequest{}
-	mi := &file_core_pkg_transport_grpc_task_task_proto_msgTypes[4]
+	mi := &file_core_pkg_transport_grpc_task_task_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -261,7 +186,7 @@ func (x *DeleteRequest) String() string {
 func (*DeleteRequest) ProtoMessage() {}
 
 func (x *DeleteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_transport_grpc_task_task_proto_msgTypes[4]
+	mi := &file_core_pkg_transport_grpc_task_task_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -274,7 +199,7 @@ func (x *DeleteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteRequest.ProtoReflect.Descriptor instead.
 func (*DeleteRequest) Descriptor() ([]byte, []int) {
-	return file_core_pkg_transport_grpc_task_task_proto_rawDescGZIP(), []int{4}
+	return file_core_pkg_transport_grpc_task_task_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *DeleteRequest) GetKeys() []string {
@@ -295,7 +220,7 @@ type CopyRequest struct {
 
 func (x *CopyRequest) Reset() {
 	*x = CopyRequest{}
-	mi := &file_core_pkg_transport_grpc_task_task_proto_msgTypes[5]
+	mi := &file_core_pkg_transport_grpc_task_task_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -307,7 +232,7 @@ func (x *CopyRequest) String() string {
 func (*CopyRequest) ProtoMessage() {}
 
 func (x *CopyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_transport_grpc_task_task_proto_msgTypes[5]
+	mi := &file_core_pkg_transport_grpc_task_task_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -320,7 +245,7 @@ func (x *CopyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CopyRequest.ProtoReflect.Descriptor instead.
 func (*CopyRequest) Descriptor() ([]byte, []int) {
-	return file_core_pkg_transport_grpc_task_task_proto_rawDescGZIP(), []int{5}
+	return file_core_pkg_transport_grpc_task_task_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *CopyRequest) GetKey() string {
@@ -353,7 +278,7 @@ type CopyResponse struct {
 
 func (x *CopyResponse) Reset() {
 	*x = CopyResponse{}
-	mi := &file_core_pkg_transport_grpc_task_task_proto_msgTypes[6]
+	mi := &file_core_pkg_transport_grpc_task_task_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -365,7 +290,7 @@ func (x *CopyResponse) String() string {
 func (*CopyResponse) ProtoMessage() {}
 
 func (x *CopyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_transport_grpc_task_task_proto_msgTypes[6]
+	mi := &file_core_pkg_transport_grpc_task_task_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -378,7 +303,7 @@ func (x *CopyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CopyResponse.ProtoReflect.Descriptor instead.
 func (*CopyResponse) Descriptor() ([]byte, []int) {
-	return file_core_pkg_transport_grpc_task_task_proto_rawDescGZIP(), []int{6}
+	return file_core_pkg_transport_grpc_task_task_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *CopyResponse) GetTask() *pb.Task {
@@ -392,19 +317,13 @@ var File_core_pkg_transport_grpc_task_task_proto protoreflect.FileDescriptor
 
 const file_core_pkg_transport_grpc_task_task_proto_rawDesc = "" +
 	"\n" +
-	"'core/pkg/transport/grpc/task/task.proto\x12\tgrpc.task\x1a#core/pkg/service/task/pb/task.proto\x1a\x1bgoogle/protobuf/empty.proto\"<\n" +
+	"'core/pkg/transport/grpc/task/task.proto\x12\tgrpc.task\x1a\x1fcore/pkg/api/task/pb/task.proto\x1a#core/pkg/service/task/pb/task.proto\x1a\x1bgoogle/protobuf/empty.proto\"<\n" +
 	"\rCreateRequest\x12+\n" +
 	"\x05tasks\x18\x01 \x03(\v2\x15.service.task.pb.TaskR\x05tasks\"=\n" +
 	"\x0eCreateResponse\x12+\n" +
-	"\x05tasks\x18\x01 \x03(\v2\x15.service.task.pb.TaskR\x05tasks\"\x8c\x01\n" +
-	"\x0fRetrieveRequest\x12\x12\n" +
-	"\x04rack\x18\x01 \x01(\rR\x04rack\x12\x12\n" +
-	"\x04keys\x18\x02 \x03(\tR\x04keys\x12\x14\n" +
-	"\x05names\x18\x03 \x03(\tR\x05names\x12\x14\n" +
-	"\x05types\x18\x04 \x03(\tR\x05types\x12%\n" +
-	"\x0einclude_status\x18\x05 \x01(\bR\rincludeStatus\"?\n" +
-	"\x10RetrieveResponse\x12+\n" +
-	"\x05tasks\x18\x01 \x03(\v2\x15.service.task.pb.TaskR\x05tasks\"#\n" +
+	"\x05tasks\x18\x01 \x03(\v2\x15.service.task.pb.TaskR\x05tasks\"y\n" +
+	"\x0fRetrieveRequest\x126\n" +
+	"\arequest\x18\x06 \x01(\v2\x1c.api.task.pb.RetrieveRequestR\arequestJ\x04\b\x01\x10\x06R\x04rackR\x04keysR\x05namesR\x05typesR\x0einclude_status\"#\n" +
 	"\rDeleteRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\tR\x04keys\"O\n" +
 	"\vCopyRequest\x12\x10\n" +
@@ -414,9 +333,9 @@ const file_core_pkg_transport_grpc_task_task_proto_rawDesc = "" +
 	"\fCopyResponse\x12)\n" +
 	"\x04task\x18\x01 \x01(\v2\x15.service.task.pb.TaskR\x04task2P\n" +
 	"\x11TaskCreateService\x12;\n" +
-	"\x04Exec\x12\x18.grpc.task.CreateRequest\x1a\x19.grpc.task.CreateResponse2V\n" +
-	"\x13TaskRetrieveService\x12?\n" +
-	"\x04Exec\x12\x1a.grpc.task.RetrieveRequest\x1a\x1b.grpc.task.RetrieveResponse2M\n" +
+	"\x04Exec\x12\x18.grpc.task.CreateRequest\x1a\x19.grpc.task.CreateResponse2X\n" +
+	"\x13TaskRetrieveService\x12A\n" +
+	"\x04Exec\x12\x1a.grpc.task.RetrieveRequest\x1a\x1d.api.task.pb.RetrieveResponse2M\n" +
 	"\x11TaskDeleteService\x128\n" +
 	"\x04Exec\x12\x18.grpc.task.DeleteRequest\x1a\x16.google.protobuf.Empty2J\n" +
 	"\x0fTaskCopyService\x127\n" +
@@ -436,31 +355,32 @@ func file_core_pkg_transport_grpc_task_task_proto_rawDescGZIP() []byte {
 	return file_core_pkg_transport_grpc_task_task_proto_rawDescData
 }
 
-var file_core_pkg_transport_grpc_task_task_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_core_pkg_transport_grpc_task_task_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_core_pkg_transport_grpc_task_task_proto_goTypes = []any{
-	(*CreateRequest)(nil),    // 0: grpc.task.CreateRequest
-	(*CreateResponse)(nil),   // 1: grpc.task.CreateResponse
-	(*RetrieveRequest)(nil),  // 2: grpc.task.RetrieveRequest
-	(*RetrieveResponse)(nil), // 3: grpc.task.RetrieveResponse
-	(*DeleteRequest)(nil),    // 4: grpc.task.DeleteRequest
-	(*CopyRequest)(nil),      // 5: grpc.task.CopyRequest
-	(*CopyResponse)(nil),     // 6: grpc.task.CopyResponse
-	(*pb.Task)(nil),          // 7: service.task.pb.Task
-	(*emptypb.Empty)(nil),    // 8: google.protobuf.Empty
+	(*CreateRequest)(nil),        // 0: grpc.task.CreateRequest
+	(*CreateResponse)(nil),       // 1: grpc.task.CreateResponse
+	(*RetrieveRequest)(nil),      // 2: grpc.task.RetrieveRequest
+	(*DeleteRequest)(nil),        // 3: grpc.task.DeleteRequest
+	(*CopyRequest)(nil),          // 4: grpc.task.CopyRequest
+	(*CopyResponse)(nil),         // 5: grpc.task.CopyResponse
+	(*pb.Task)(nil),              // 6: service.task.pb.Task
+	(*pb1.RetrieveRequest)(nil),  // 7: api.task.pb.RetrieveRequest
+	(*pb1.RetrieveResponse)(nil), // 8: api.task.pb.RetrieveResponse
+	(*emptypb.Empty)(nil),        // 9: google.protobuf.Empty
 }
 var file_core_pkg_transport_grpc_task_task_proto_depIdxs = []int32{
-	7, // 0: grpc.task.CreateRequest.tasks:type_name -> service.task.pb.Task
-	7, // 1: grpc.task.CreateResponse.tasks:type_name -> service.task.pb.Task
-	7, // 2: grpc.task.RetrieveResponse.tasks:type_name -> service.task.pb.Task
-	7, // 3: grpc.task.CopyResponse.task:type_name -> service.task.pb.Task
+	6, // 0: grpc.task.CreateRequest.tasks:type_name -> service.task.pb.Task
+	6, // 1: grpc.task.CreateResponse.tasks:type_name -> service.task.pb.Task
+	7, // 2: grpc.task.RetrieveRequest.request:type_name -> api.task.pb.RetrieveRequest
+	6, // 3: grpc.task.CopyResponse.task:type_name -> service.task.pb.Task
 	0, // 4: grpc.task.TaskCreateService.Exec:input_type -> grpc.task.CreateRequest
 	2, // 5: grpc.task.TaskRetrieveService.Exec:input_type -> grpc.task.RetrieveRequest
-	4, // 6: grpc.task.TaskDeleteService.Exec:input_type -> grpc.task.DeleteRequest
-	5, // 7: grpc.task.TaskCopyService.Exec:input_type -> grpc.task.CopyRequest
+	3, // 6: grpc.task.TaskDeleteService.Exec:input_type -> grpc.task.DeleteRequest
+	4, // 7: grpc.task.TaskCopyService.Exec:input_type -> grpc.task.CopyRequest
 	1, // 8: grpc.task.TaskCreateService.Exec:output_type -> grpc.task.CreateResponse
-	3, // 9: grpc.task.TaskRetrieveService.Exec:output_type -> grpc.task.RetrieveResponse
-	8, // 10: grpc.task.TaskDeleteService.Exec:output_type -> google.protobuf.Empty
-	6, // 11: grpc.task.TaskCopyService.Exec:output_type -> grpc.task.CopyResponse
+	8, // 9: grpc.task.TaskRetrieveService.Exec:output_type -> api.task.pb.RetrieveResponse
+	9, // 10: grpc.task.TaskDeleteService.Exec:output_type -> google.protobuf.Empty
+	5, // 11: grpc.task.TaskCopyService.Exec:output_type -> grpc.task.CopyResponse
 	8, // [8:12] is the sub-list for method output_type
 	4, // [4:8] is the sub-list for method input_type
 	4, // [4:4] is the sub-list for extension type_name
@@ -479,7 +399,7 @@ func file_core_pkg_transport_grpc_task_task_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_transport_grpc_task_task_proto_rawDesc), len(file_core_pkg_transport_grpc_task_task_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   7,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   4,
 		},

@@ -10,7 +10,7 @@
 import re
 from collections.abc import Callable
 from typing import cast, override
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import numpy as np
 import pydantic
@@ -23,6 +23,24 @@ from tests.channel import RetrieveCounter
 from x.params import RequiresNamedParams
 from x.strings import random_name
 from x.testutil import assert_eventually
+
+
+class TestWhere:
+    def test_partial_record(self) -> None:
+        key = uuid4()
+        record: ranger.WhereInput = {
+            "name": "a",
+            "labels": key,
+            "or": [{"key": [key]}, {"name": {"starts_with": "b"}}],
+        }
+        assert ranger.Where.model_validate(record) == ranger.Where(
+            name=sy.filter.String(eq="a"),
+            labels=[key],
+            or_=[
+                ranger.Where(key=sy.filter.Set[UUID](in_=[key])),
+                ranger.Where(name=sy.filter.String(starts_with="b")),
+            ],
+        )
 
 
 class TestRangeColor:
@@ -195,16 +213,21 @@ class TestRangeClient:
     def test_retrieve_by_name_not_found(
         self, two_ranges: list[sy.Range], client: sy.Synnax
     ) -> None:
-        """Should raise a NotFoundError when a range is not found"""
-        with pytest.raises(sy.NotFoundError):
+        """Should raise an error when a range is not found"""
+        with pytest.raises(
+            sy.NotFoundError, match=r"Range matching .*not_found.* not found"
+        ):
             client.ranges.retrieve(name="not_found")
 
-    def test_retrieve_by_name_multiple(self, client: sy.Synnax) -> None:
-        """Should raise a MultipleFoundError when more than one range matches"""
+    def test_retrieve_by_name_multiple_found(self, client: sy.Synnax) -> None:
+        """Should raise an error when more than one range has the name"""
         name = random_name()
         tr = sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND)
         client.ranges.create([sy.Range(name=name, time_range=tr) for _ in range(2)])
-        with pytest.raises(sy.MultipleFoundError):
+        with pytest.raises(
+            sy.MultipleFoundError,
+            match=rf"Expected one Range matching .*{name}.*, but found 2",
+        ):
             client.ranges.retrieve(name=name)
 
     def test_search(self, two_ranges: list[sy.Range], client: sy.Synnax) -> None:
@@ -480,7 +503,9 @@ class TestRangeClient:
                 name="test",
                 time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
             )
-            with pytest.raises(sy.NotFoundError):
+            with pytest.raises(
+                sy.NotFoundError, match="Channel matching not_found not found"
+            ):
                 rng["not_found"]
 
         def test_channel_not_found_on_set(self, client: sy.Synnax) -> None:
@@ -488,8 +513,53 @@ class TestRangeClient:
                 name="test",
                 time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
             )
-            with pytest.raises(sy.NotFoundError):
+            with pytest.raises(
+                sy.NotFoundError, match="Channel matching not_found not found"
+            ):
                 rng.set_alias("not_found", "test")
+
+        def test_scoped_channel_multiple_found(self, client: sy.Synnax) -> None:
+            """Should raise MultipleFoundError when a scoped channel matches two
+            channels and is used as one."""
+            prefix = random_name()
+            for suffix in ("a", "b"):
+                client.channels.create(
+                    name=f"{prefix}_{suffix}", data_type=sy.DataType.INT8, virtual=True
+                )
+            rng = client.ranges.create(
+                name=random_name(),
+                time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+            )
+            with pytest.raises(sy.MultipleFoundError, match="Multiple channels found"):
+                rng[f"{prefix}_.*"].to_numpy()
+
+        def test_set_alias_multiple_found(self, client: sy.Synnax) -> None:
+            """Should raise MultipleFoundError when a name matches two channels."""
+            prefix = random_name()
+            for suffix in ("a", "b"):
+                client.channels.create(
+                    name=f"{prefix}_{suffix}", data_type=sy.DataType.INT8, virtual=True
+                )
+            rng = client.ranges.create(
+                name=random_name(),
+                time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+            )
+            with pytest.raises(
+                sy.MultipleFoundError, match=f"Expected one Channel matching {prefix}_"
+            ):
+                rng.set_alias(f"{prefix}_.*", "test")
+
+        def test_resolve_missing_alias(self, client: sy.Synnax) -> None:
+            """Should raise NotFoundError when a single alias has no channel."""
+            rng = client.ranges.create(
+                name="test",
+                time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+            )
+            aliases = ranger.alias.Client(rng=rng.key, client=client._transport.unary)
+            with pytest.raises(
+                sy.NotFoundError, match="Alias matching not_found not found"
+            ):
+                aliases.resolve("not_found")
 
     @pytest.mark.ranger
     class TestRangeChildren:
@@ -633,18 +703,70 @@ def window_ranges(client: sy.Synnax, window: sy.TimeRange) -> list[sy.Range]:
 class TestRangeRetrieveFilters:
     """Tests the filters accepted by the range client's retrieve method."""
 
-    def test_rejects_mixed_selectors(self, client: sy.Synnax) -> None:
-        """Should reject a key or name combined with another selector or a list
-        filter
-        """
-        retrieve = cast(Callable[..., object], client.ranges.retrieve)
-        key = uuid4()
-        with pytest.raises(ValueError, match="cannot be combined; use keys"):
-            retrieve(key=key, name="a")
-        with pytest.raises(ValueError, match="cannot be combined with list filters"):
-            retrieve(key=key, limit=1)
-        with pytest.raises(ValueError, match="cannot be combined with list filters"):
-            retrieve(name="a", keys=[key])
+    def test_plain_key_beside_fields(
+        self, client: sy.Synnax, window: sy.TimeRange, window_ranges: list[sy.Range]
+    ) -> None:
+        """Should return one range for a plain key beside other fields"""
+        rng = window_ranges[0]
+        assert client.ranges.retrieve(key=rng.key, overlaps=window).key == rng.key
+        with pytest.raises(sy.NotFoundError):
+            client.ranges.retrieve(key=rng.key, name="other")
+
+    def test_name_operator(
+        self, client: sy.Synnax, window: sy.TimeRange, window_ranges: list[sy.Range]
+    ) -> None:
+        """Should keep the ranges whose name matches an operator"""
+        names = [r.name for r in window_ranges[:2]]
+        res = client.ranges.retrieve(name={"in": names}, overlaps=window)
+        assert {r.key for r in res} == {r.key for r in window_ranges[:2]}
+
+    def test_overlaps(
+        self, client: sy.Synnax, window: sy.TimeRange, window_ranges: list[sy.Range]
+    ) -> None:
+        """Should keep only ranges that overlap the overlaps field"""
+        tr = window.start.span_range(50 * sy.TimeSpan.SECOND)
+        res = client.ranges.retrieve(overlaps=tr)
+        assert {r.key for r in res} == {r.key for r in window_ranges[:2]}
+
+    def test_labels(self, client: sy.Synnax, window_ranges: list[sy.Range]) -> None:
+        """Should keep the ranges that hold a label given as a plain value"""
+        rng = window_ranges[2]
+        lbl = _create_label(client, rng)
+        assert [r.key for r in client.ranges.retrieve(labels=lbl.key)] == [rng.key]
+
+    def test_or(
+        self, client: sy.Synnax, window: sy.TimeRange, window_ranges: list[sy.Range]
+    ) -> None:
+        """Should keep the ranges that match any filter in or_"""
+        a, b = window_ranges[0], window_ranges[2]
+        res = client.ranges.retrieve(or_=[{"name": a.name}, {"key": [b.key]}])
+        assert {r.key for r in res} == {a.key, b.key}
+
+    def test_one(
+        self, client: sy.Synnax, window: sy.TimeRange, window_ranges: list[sy.Range]
+    ) -> None:
+        """Should return one range for any filter when one is set"""
+        rng = window_ranges[0]
+        found = client.ranges.retrieve(
+            name={"starts_with": rng.name}, overlaps=window, one=True
+        )
+        assert found.key == rng.key
+        assert client.ranges.retrieve(names=[rng.name], one=True).key == rng.key
+
+    def test_one_with_limit(self, client: sy.Synnax) -> None:
+        """Should reject one beside a limit, since a page could hide a match"""
+        with pytest.raises(sy.ValidationError, match="limit or offset"):
+            client.ranges.retrieve(key=uuid4(), limit=1)  # type: ignore[call-overload]
+
+    def test_none_field(self, client: sy.Synnax) -> None:
+        """Should reject a field set to None, since it would select every range"""
+        with pytest.raises(sy.ValidationError, match="name is None"):
+            client.ranges.retrieve(name=None)  # type: ignore[call-overload]
+
+    def test_unknown_field(self, client: sy.Synnax) -> None:
+        """Should reject a field that is not a range filter line"""
+        with pytest.raises(pydantic.ValidationError, match="nme"):
+            client.ranges.retrieve(nme="a")  # type: ignore[call-overload]
 
     def test_where(
         self,

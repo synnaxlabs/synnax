@@ -14,10 +14,13 @@ from pathlib import Path
 from typing import cast
 from uuid import uuid4
 
+import pydantic
 import pytest
 
 import synnax as sy
+from synnax import project
 from synnax.exceptions import NotFoundError
+from x import filter
 from x.testutil import assert_eventually
 
 
@@ -60,6 +63,16 @@ class TestProject:
         projects = client.projects.retrieve(keys=[p1.key, p2.key])
         assert len(projects) == 2
 
+    def test_retrieve_where(self, client: sy.Synnax) -> None:
+        """Should keep projects that match a filter tree and the given keys."""
+        p1 = client.projects.create(name="Where A")
+        p2 = client.projects.create(name="Where B")
+        where = project.Where(
+            not_=project.Where(key=filter.Set[project.Key](eq=p1.key))
+        )
+        projects = client.projects.retrieve(where=where, keys=[p1.key, p2.key])
+        assert [p.key for p in projects] == [p2.key]
+
     def test_retrieve_with_search_term(self, client: sy.Synnax) -> None:
         """Should search for projects by name."""
         prefix = f"searchable-project-{uuid4()}"
@@ -77,6 +90,26 @@ class TestProject:
 
         assert_eventually(check)
 
+    def test_retrieve_key_list(self, client: sy.Synnax) -> None:
+        """Should return a list for a list of keys, even with one key."""
+        a = client.projects.create(name="A")
+        res = client.projects.retrieve(key=[a.key])
+        assert [r.key for r in res] == [a.key]
+
+    def test_retrieve_plain_key_beside_fields(self, client: sy.Synnax) -> None:
+        """Should return one project for a plain key beside other fields."""
+        a = client.projects.create(name="A")
+        assert client.projects.retrieve(key=a.key, not_={"key": uuid4()}).key == a.key
+        with pytest.raises(NotFoundError, match=r"Project matching .* not found"):
+            client.projects.retrieve(key=a.key, not_={"key": a.key})
+
+    def test_retrieve_or(self, client: sy.Synnax) -> None:
+        """Should retrieve the projects that match any filter in or_."""
+        a = client.projects.create(name="A")
+        b = client.projects.create(name="B")
+        res = client.projects.retrieve(or_=[{"key": a.key}, {"key": [b.key]}])
+        assert {r.key for r in res} == {a.key, b.key}
+
     def test_rename(self, client: sy.Synnax) -> None:
         """Should rename a project."""
         p = client.projects.create(name="Before Rename")
@@ -91,7 +124,7 @@ class TestProject:
     def test_retrieve_rejects_author(self, client: sy.Synnax) -> None:
         """Should reject the removed author filter."""
         retrieve = cast(Callable[..., object], client.projects.retrieve)
-        with pytest.raises(TypeError):
+        with pytest.raises(pydantic.ValidationError, match="author"):
             retrieve(author=uuid4())
 
     def test_delete(self, client: sy.Synnax) -> None:
@@ -106,8 +139,7 @@ class TestProject:
         p1 = client.projects.create(name="Delete 1")
         p2 = client.projects.create(name="Delete 2")
         client.projects.delete([p1.key, p2.key])
-        with pytest.raises(NotFoundError):
-            client.projects.retrieve(keys=[p1.key, p2.key])
+        assert client.projects.retrieve(keys=[p1.key, p2.key]) == []
 
 
 def _create_log(client: sy.Synnax, tmp_path: Path, proj: sy.Project, name: str) -> None:
