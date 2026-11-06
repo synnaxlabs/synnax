@@ -13,6 +13,7 @@
 #include <format>
 #include <functional>
 #include <iterator>
+#include <string_view>
 #include <thread>
 
 #include "absl/log/log.h"
@@ -66,6 +67,15 @@ const x::telem::TimeStamp DC_EPOCH(x::telem::SECOND * 946684800);
 /// SOEM group 0 addresses every slave, so enabled and disabled slaves get their own.
 constexpr uint8_t ENABLED_GROUP = 1;
 constexpr uint8_t DISABLED_GROUP = 2;
+/// AL status code for "Invalid DC SYNC configuration".
+constexpr uint16_t AL_INVALID_DC_SYNC = 0x0030;
+constexpr std::string_view
+    DC_SYNC_ADVICE = "A slave that reports \"Invalid DC SYNC "
+                     "configuration\" needs DC sync, which the Driver "
+                     "does not support yet. If the slave has an SM sync "
+                     "mode, set it (in DewesoftX for Dewesoft modules). "
+                     "If not, disable the slave so the rest of the bus "
+                     "can run.";
 /// IOMap buffer size for process data image. This is local memory only - actual wire
 /// traffic is determined by slave PDO mappings. 128KB handles networks with hundreds
 /// of slaves or slaves with large PDO mappings (e.g., multi-axis drives).
@@ -1020,6 +1030,7 @@ Master::state_error(const std::vector<uint16_t> &failed, const uint16_t state) {
     const auto target = slave::slave_state_to_string(slave::from_al_state(state));
     std::string msg;
     bool refused = false;
+    bool dc_sync_refused = false;
     for (const auto pos: failed) {
         if (!msg.empty()) msg += "; ";
         msg += "slave " + std::to_string(pos) + " (" + this->api->slave_name(pos) +
@@ -1031,8 +1042,10 @@ Master::state_error(const std::vector<uint16_t> &failed, const uint16_t state) {
         const auto code = this->api->slave_ALstatuscode(pos);
         refused |= this->refuses(pos, state) &&
                    std::ranges::find(TRANSIENT_FAULTS, code) == TRANSIENT_FAULTS.end();
+        dc_sync_refused |= code == AL_INVALID_DC_SYNC;
         msg += ": " + std::string(ec_ALstatuscode2string(code));
     }
+    if (dc_sync_refused) msg.append(". ").append(DC_SYNC_ADVICE);
     return x::errors::Error(
         refused ? errors::STATE_CHANGE_REFUSED : errors::STATE_CHANGE_ERROR,
         "failed to reach " + target + ": " + msg
