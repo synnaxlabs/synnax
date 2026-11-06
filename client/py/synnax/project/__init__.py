@@ -13,6 +13,7 @@ from synnax.project.types_gen import (
     Key,
     Project,
     Where,
+    WhereInput,
     ontology_id,
 )
 
@@ -22,5 +23,6 @@ __all__ = [
     "Key",
     "Project",
     "Where",
+    "WhereInput",
     "ontology_id",
 ]

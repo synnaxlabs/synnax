@@ -192,7 +192,10 @@ func (r *Resolver) file(ctx context.Context, livePath string, n int) (*File, err
 		if err != nil {
 			return nil, err
 		}
-		rw := rewriter("", pinRewrites(sib.Pins))
+		rw, err := r.seedRewriter(ctx, livePath, sib)
+		if err != nil {
+			return nil, err
+		}
 		for _, t := range sib.Defined {
 			if err := b.table.Add(copyType(t, t.Namespace, rw)); err != nil {
 				return nil, errors.Wrapf(err, "failed to seed %s v%d", livePath, k)
@@ -425,6 +428,34 @@ func (r *Resolver) followAlias(
 		}
 		cur = next
 	}
+}
+
+// seedRewriter rewrites sib's references for the table of a later version. That table
+// seeds no aliases, so a reference to one of sib's aliases moves to its definer.
+func (r *Resolver) seedRewriter(
+	ctx context.Context,
+	livePath string,
+	sib *File,
+) (func(string) string, error) {
+	definers := make(map[string]string, len(sib.Aliases))
+	for name, alias := range sib.Aliases {
+		v, def, err := r.followAlias(ctx, livePath, sib.N, name, alias)
+		if err != nil {
+			return nil, err
+		}
+		definers[fmt.Sprintf("v%d.%s", sib.N, name)] = fmt.Sprintf(
+			"v%d.%s",
+			v,
+			def.Name,
+		)
+	}
+	rw := rewriter("", pinRewrites(sib.Pins))
+	return func(name string) string {
+		if definer, ok := definers[name]; ok {
+			return definer
+		}
+		return rw(name)
+	}, nil
 }
 
 // DefinedType returns f's full declaration for name, when the file redeclares it

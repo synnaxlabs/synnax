@@ -122,7 +122,7 @@ class MQTTEdgeTask(MQTTCase):
         ) as mirror:
             write_until(self.client, channel=channel, value=VALUE, watched=mirror)
         status = page.status()
-        assert status["level"] == "success", (
+        assert status.variant == "success", (
             f"The edge node should keep running, but the status is "
-            f"'{status['level']}': '{status['msg']}'"
+            f"'{status.variant}': '{status.message}'"
         )
