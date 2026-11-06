@@ -18,11 +18,11 @@ import (
 	"github.com/synnaxlabs/x/types"
 )
 
-// ResourceMigration re-encodes stored resources from MessagePack to Orc.
-var ResourceMigration = migrate.Codec[string, Resource]("msgpack_to_orc")
+// resourceMigration re-encodes stored resources from MessagePack to Orc.
+var resourceMigration = migrate.Codec[string, Resource]("msgpack_to_orc")
 
-// RelationshipMigration re-encodes stored relationships from MessagePack to Orc.
-var RelationshipMigration = migrate.Codec[string, Relationship]("msgpack_to_orc")
+// relationshipMigration re-encodes stored relationships from MessagePack to Orc.
+var relationshipMigration = migrate.Codec[string, Relationship]("msgpack_to_orc")
 
 // ResourceNormalizeKeys re-keys Resource rows stored under the pre-v0.54 key format.
 var ResourceNormalizeKeys = migrate.NormalizeKeys[string, Resource]("Resource")
@@ -35,12 +35,12 @@ var RelationshipNormalizeKeys = migrate.NormalizeKeys[
 ]("Relationship")
 
 // ResourceMigrations is the ordered migration chain for stored resources.
-var ResourceMigrations = []gorp.Migration{ResourceNormalizeKeys, ResourceMigration}
+var ResourceMigrations = []gorp.Migration{ResourceNormalizeKeys, resourceMigration}
 
 // RelationshipMigrations is the ordered migration chain for stored relationships.
 var RelationshipMigrations = []gorp.Migration{
 	RelationshipNormalizeKeys,
-	RelationshipMigration,
+	relationshipMigration,
 }
 
 // Migrate runs the migration chains of the resource and relationship tables in db, so
