@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -63,13 +64,13 @@ var _ = Describe("Module constants", func() {
 
 	It("Should give each reference its own type variable", func(bCtx SpecContext) {
 		ctx := infer(bCtx, "math.inf + math.nan")
-		names := make(map[string]bool)
+		names := make(set.Set[string])
 		for _, t := range ctx.TypeMap {
-			if t.Kind == types.KindVariable {
-				names[t.Name] = true
+			if strings.HasPrefix(t.Name, "const_") {
+				names.Add(t.Name)
 			}
 		}
-		Expect(len(names)).To(BeNumerically(">=", 2))
+		Expect(names).To(HaveLen(2))
 	})
 
 	It("Should default to f64", func(bCtx SpecContext) {
