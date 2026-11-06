@@ -204,15 +204,11 @@ class _TestConductor:
         self.state = _STATE.LOADING
         sequences, new_defs = self.config_client.load(target_filter)
         if self._shard is not None:
-
-            def resources_of(test: TestDefinition) -> frozenset[str]:
-                return self.config_client.load_test_class(test).resources()
-
             sequences = shards.select(
                 sequences,
                 self._shard,
                 durations=shards.load_durations(),
-                resources_of=resources_of,
+                resources_of=self.config_client.resources_of,
                 cores=self._cores,
                 browsers=self._browsers,
             )
