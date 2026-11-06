@@ -1147,6 +1147,23 @@ describe("Answers", () => {
       expect(expectDeleted(handler.mock.lastCall?.[0]).corpse).toEqual(6);
     });
 
+    it("revives a deleted answer when a new record matches", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => {
+        table.set("a", rec("a", 6));
+        return ["a"];
+      });
+      const answers = evictingSpace(table, fetch);
+      const handler = vi.fn();
+      answers.onChange(qA, handler);
+      await answers.retrieve(qA);
+      table.delete("a");
+      table.set("b", rec("b", 7));
+      expect(handler).toHaveBeenLastCalledWith(7);
+      expect(await answers.retrieve(qA)).toEqual(7);
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
     it("does not notify while the query is unfetched", () => {
       const table = newTable();
       const answers = evictingSpace(table, async () => []);

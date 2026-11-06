@@ -399,8 +399,8 @@ jobs:
         shell: bash
         run: |
           export MSYS_NO_PATHCONV=1
-          # shellcheck disable=SC2086 # Splits the flag lists into arguments.
-          scripts/run_bazel.sh build $BAZEL_BUILD_FLAGS $BAZEL_REMOTE_CACHE_FLAGS \
+          read -ra flags <<< "$BAZEL_BUILD_FLAGS $BAZEL_REMOTE_CACHE_FLAGS"
+          scripts/run_bazel.sh build "${flags[@]}" \
             ${{ !inputs.debug && '--config=opt-windows' || '--output_groups=+pdb_file' }} //driver
 
       - name: Upload Windows debug symbols
@@ -425,9 +425,8 @@ jobs:
           # The HTTP/2 client in Go stalls Bazelisk downloads on the Mac build bots.
           GODEBUG: http2client=0
         run: |
-          # shellcheck disable=SC2086 # Splits the flag lists into arguments.
-          bazel build $BAZEL_BUILD_FLAGS \
-            --config=opt-unix //driver
+          read -ra flags <<< "$BAZEL_BUILD_FLAGS"
+          bazel build "${flags[@]}" --config=opt-unix //driver
 
       - name: Extract debug symbols (macOS)
         if:
@@ -453,9 +452,9 @@ jobs:
       - name: Build Driver (NI Linux Real-Time)
         if: inputs.driver && inputs.nilinuxrt && matrix.os == 'ubuntu-build-bot'
         run: |
-          # shellcheck disable=SC2086 # Splits the flag lists into arguments.
-          bazel build $BAZEL_BUILD_FLAGS $BAZEL_REMOTE_CACHE_FLAGS \
-            --config=opt-unix --define=platform=nilinuxrt //driver
+          read -ra flags <<< "$BAZEL_BUILD_FLAGS $BAZEL_REMOTE_CACHE_FLAGS"
+          bazel build "${flags[@]}" --config=opt-unix --define=platform=nilinuxrt \
+            //driver
           mv bazel-bin/driver/driver bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-nilinuxrt
 
       - name: Extract debug symbols (NI Linux Real-Time)
@@ -522,9 +521,8 @@ jobs:
           inputs.driver && env.DRIVER_REF_RUN_ID == '' && matrix.os ==
           'ubuntu-build-bot'
         run: |
-          # shellcheck disable=SC2086 # Splits the flag lists into arguments.
-          bazel build $BAZEL_BUILD_FLAGS $BAZEL_REMOTE_CACHE_FLAGS \
-            --config=opt-unix //driver
+          read -ra flags <<< "$BAZEL_BUILD_FLAGS $BAZEL_REMOTE_CACHE_FLAGS"
+          bazel build "${flags[@]}" --config=opt-unix //driver
 
       - name: Extract debug symbols (Linux)
         if:
