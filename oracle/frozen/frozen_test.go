@@ -296,6 +296,14 @@ Doc struct {
 			}))
 		})
 
+		It("Should list a sum file in a domain with no chains", func() {
+			write(sumFile, "")
+			write("schemas/x/frozen/gone.sum", "")
+			Expect(MustSucceed(frozen.Orphans(owned, root))).To(Equal([]string{
+				"schemas/x/frozen/gone.sum",
+			}))
+		})
+
 		It("Should list nothing when no frozen directory exists", func() {
 			Expect(MustSucceed(frozen.Orphans(owned, root))).To(BeEmpty())
 		})

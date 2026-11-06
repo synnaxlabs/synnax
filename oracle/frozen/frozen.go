@@ -186,27 +186,28 @@ func Read(sumFile, repoRoot string) (map[int]Sum, error) {
 	return sums, nil
 }
 
-// Orphans returns the sorted sum files in the chains' frozen directories that no chain
-// owns, such as the file of a deleted chain.
+// Orphans returns the sorted sum files that no chain owns, such as the file of a
+// deleted chain. It searches the frozen directory of every domain under the chains'
+// schema roots, so a domain that lost its last chain is searched too.
 func Orphans(chains []Chain, repoRoot string) ([]string, error) {
 	owned := make(set.Set[string], len(chains))
-	dirs := make(set.Set[string])
+	roots := make(set.Set[string])
 	for _, c := range chains {
 		owned.Add(c.Path)
-		dirs.Add(path.Dir(c.Path))
+		roots.Add(path.Dir(path.Dir(path.Dir(c.Path))))
 	}
 	var orphans []string
-	for dir := range dirs {
-		entries, err := os.ReadDir(paths.Resolve(dir, repoRoot))
-		if errors.Is(err, fs.ErrNotExist) {
-			continue
-		}
+	for root := range roots {
+		matches, err := filepath.Glob(
+			filepath.Join(paths.Resolve(root, repoRoot), "*", "frozen", "*.sum"),
+		)
 		if err != nil {
 			return nil, err
 		}
-		for _, e := range entries {
-			sumFile := path.Join(dir, e.Name())
-			if path.Ext(sumFile) == ".sum" && !owned.Contains(sumFile) {
+		for _, m := range matches {
+			domain := filepath.Base(filepath.Dir(filepath.Dir(m)))
+			sumFile := path.Join(root, domain, "frozen", filepath.Base(m))
+			if !owned.Contains(sumFile) {
 				orphans = append(orphans, sumFile)
 			}
 		}
