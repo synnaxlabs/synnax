@@ -10,6 +10,7 @@
 package v3_test
 
 import (
+	"context"
 	"encoding/json/v2"
 	"math"
 	"uuid"
@@ -27,6 +28,14 @@ import (
 	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/validate"
 )
+
+// lift binds in to migrate, so a table entry can hold any migrate helper.
+func lift[I, O any](
+	migrate func(context.Context, I) (O, error),
+	in I,
+) func(context.Context) (any, error) {
+	return func(ctx context.Context) (any, error) { return migrate(ctx, in) }
+}
 
 var _ = Describe("ScanMigration", func() {
 	It("Should keep every scan config field and drop the ignored models",
@@ -139,71 +148,86 @@ var _ = Describe("Port and line migrations", func() {
 		},
 	)
 
-	Describe("A value outside the new range", func() {
-		const reason = "outside the range"
-		It("Should reject a negative port", func(ctx SpecContext) {
-			Expect(v3.MigrateBaseAIChannel(ctx, v2.BaseAIChannel{Key: "a", Port: -1})).
-				Error().To(And(
-				MatchError(ContainSubstring(reason)),
+	DescribeTable(
+		"Should reject a value outside the new range",
+		func(ctx SpecContext, migrate func(context.Context) (any, error)) {
+			Expect(migrate(ctx)).Error().To(And(
+				MatchError(ContainSubstring("outside the range")),
 				MatchError(validate.ErrValidation),
 			))
-		})
-		It("Should reject a port above 65535", func(ctx SpecContext) {
-			Expect(
-				v3.MigrateBaseCIChannel(ctx, v2.BaseCIChannel{Key: "a", Port: 65536}),
-			).
-				Error().
-				To(MatchError(ContainSubstring(reason)))
-		})
-		It("Should reject the highest stored port", func(ctx SpecContext) {
-			Expect(v3.MigrateBaseAOChannel(
-				ctx, v2.BaseAOChannel{Key: "a", Port: math.MaxInt32},
-			)).Error().To(MatchError(ContainSubstring(reason)))
-		})
-		It("Should reject a negative CJC port", func(ctx SpecContext) {
-			Expect(v3.MigrateCJC(ctx, v2.CJC{Variant: v2.ChanCJC{Port: -1}})).
-				Error().To(MatchError(ContainSubstring(reason)))
-		})
-		It("Should reject a digital input port above 65535", func(ctx SpecContext) {
-			Expect(v3.MigrateDIChannel(ctx, v2.DIChannel{Key: "a", Port: 65536})).
-				Error().To(MatchError(ContainSubstring(reason)))
-		})
-		It("Should reject a digital input line above 255", func(ctx SpecContext) {
-			Expect(v3.MigrateDIChannel(ctx, v2.DIChannel{Key: "a", Line: 256})).
-				Error().To(MatchError(ContainSubstring(reason)))
-		})
-		It("Should reject a digital output port above 65535", func(ctx SpecContext) {
-			Expect(v3.MigrateDOChannel(ctx, v2.DOChannel{Key: "a", Port: 65536})).
-				Error().To(MatchError(ContainSubstring(reason)))
-		})
-		It("Should reject a digital output line above 255", func(ctx SpecContext) {
-			Expect(v3.MigrateDOChannel(ctx, v2.DOChannel{Key: "a", Line: 256})).
-				Error().To(MatchError(ContainSubstring(reason)))
-		})
-		It("Should reject each config with such a channel", func(ctx SpecContext) {
-			Expect(v3.MigrateDigitalReadConfig(ctx, v2.DigitalReadConfig{
+		},
+		Entry(
+			"a negative analog input port",
+			lift(v3.MigrateBaseAIChannel, v2.BaseAIChannel{Key: "a", Port: -1}),
+		),
+		Entry(
+			"a counter input port above 65535",
+			lift(v3.MigrateBaseCIChannel, v2.BaseCIChannel{Key: "a", Port: 65536}),
+		),
+		Entry(
+			"the highest stored analog output port",
+			lift(
+				v3.MigrateBaseAOChannel,
+				v2.BaseAOChannel{Key: "a", Port: math.MaxInt32},
+			),
+		),
+		Entry(
+			"a negative CJC port",
+			lift(v3.MigrateCJC, v2.CJC{Variant: v2.ChanCJC{Port: -1}}),
+		),
+		Entry(
+			"a digital input port above 65535",
+			lift(v3.MigrateDIChannel, v2.DIChannel{Key: "a", Port: 65536}),
+		),
+		Entry(
+			"a digital input line above 255",
+			lift(v3.MigrateDIChannel, v2.DIChannel{Key: "a", Line: 256}),
+		),
+		Entry(
+			"a digital output port above 65535",
+			lift(v3.MigrateDOChannel, v2.DOChannel{Key: "a", Port: 65536}),
+		),
+		Entry(
+			"a digital output line above 255",
+			lift(v3.MigrateDOChannel, v2.DOChannel{Key: "a", Line: 256}),
+		),
+		Entry(
+			"a digital read config",
+			lift(v3.MigrateDigitalReadConfig, v2.DigitalReadConfig{
 				Channels: []v2.DIChannel{{Line: 256}},
-			})).Error().To(MatchError(ContainSubstring(reason)))
-			Expect(v3.MigrateDigitalWriteConfig(ctx, v2.DigitalWriteConfig{
+			}),
+		),
+		Entry(
+			"a digital write config",
+			lift(v3.MigrateDigitalWriteConfig, v2.DigitalWriteConfig{
 				Channels: []v2.DOChannel{{Line: 256}},
-			})).Error().To(MatchError(ContainSubstring(reason)))
-			Expect(v3.MigrateAnalogReadConfig(ctx, v2.AnalogReadConfig{
+			}),
+		),
+		Entry(
+			"an analog read config",
+			lift(v3.MigrateAnalogReadConfig, v2.AnalogReadConfig{
 				Channels: []v2.AIChannel{{Variant: v2.AIVoltageChannel{
 					BaseAIChannel: v2.BaseAIChannel{Port: -1},
 				}}},
-			})).Error().To(MatchError(ContainSubstring(reason)))
-			Expect(v3.MigrateAnalogWriteConfig(ctx, v2.AnalogWriteConfig{
+			}),
+		),
+		Entry(
+			"an analog write config",
+			lift(v3.MigrateAnalogWriteConfig, v2.AnalogWriteConfig{
 				Channels: []v2.AOChannel{{Variant: v2.AOVoltageChannel{
 					BaseAOChannel: v2.BaseAOChannel{Port: -1},
 				}}},
-			})).Error().To(MatchError(ContainSubstring(reason)))
-			Expect(v3.MigrateCounterReadConfig(ctx, v2.CounterReadConfig{
+			}),
+		),
+		Entry(
+			"a counter read config",
+			lift(v3.MigrateCounterReadConfig, v2.CounterReadConfig{
 				Channels: []v2.CIChannel{{Variant: v2.CIFrequencyChannel{
 					BaseCIChannel: v2.BaseCIChannel{Port: -1},
 				}}},
-			})).Error().To(MatchError(ContainSubstring(reason)))
-		})
-	})
+			}),
+		),
+	)
 
 	It("Should keep each source of a cold-junction config", func(ctx SpecContext) {
 		Expect(v3.MigrateCJC(ctx, v2.CJC{Variant: v2.ChanCJC{Port: 9}})).
