@@ -93,7 +93,9 @@ describe("log/toolbar/Properties time zone", () => {
     await waitFor(() => expect(showTimestamps().disabled).toBe(false));
     await waitFor(() => expect(isUTCDisabled()).toBe(false));
     fireEvent.click(screen.getByText("UTC"));
-    await waitFor(async () => expect((await client.logs.retrieve(key)).tz).toBe("UTC"));
+    await waitFor(async () =>
+      expect((await client.logs.retrieve(key)).timeZone).toBe("UTC"),
+    );
   });
 
   it("disables the time zone while timestamps are hidden", async () => {

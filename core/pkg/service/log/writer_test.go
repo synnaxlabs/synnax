@@ -628,22 +628,24 @@ var _ = Describe("Writer", func() {
 				),
 			)
 
-			It("Should set the time zone via SetTz", func(ctx SpecContext) {
+			It("Should set the time zone via SetTimeZone", func(ctx SpecContext) {
 				l := log.Log{Name: "test"}
 				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
-				Expect(retrieve(ctx, l.Key).Tz).To(Equal(telem.TimeZoneLocal))
+				Expect(retrieve(ctx, l.Key).TimeZone).To(Equal(telem.TimeZoneLocal))
 				Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
-					log.NewSetTzAction(log.SetTzPayload{Tz: telem.TimeZoneUTC}),
+					log.NewSetTimeZoneAction(
+						log.SetTimeZonePayload{TimeZone: telem.TimeZoneUTC},
+					),
 				})).To(Succeed())
-				Expect(retrieve(ctx, l.Key).Tz).To(Equal(telem.TimeZoneUTC))
+				Expect(retrieve(ctx, l.Key).TimeZone).To(Equal(telem.TimeZoneUTC))
 			})
 
 			It("Should reject an invalid time zone", func(ctx SpecContext) {
 				l := log.Log{Name: "test"}
 				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
 				Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
-					log.NewSetTzAction(log.SetTzPayload{Tz: "Mars"}),
-				})).To(MatchError(ContainSubstring("tz")))
+					log.NewSetTimeZoneAction(log.SetTimeZonePayload{TimeZone: "Mars"}),
+				})).To(MatchError(ContainSubstring("time_zone")))
 			})
 
 			It("Should toggle the display flags", func(ctx SpecContext) {

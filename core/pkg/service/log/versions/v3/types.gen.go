@@ -87,14 +87,14 @@ type Log struct {
 	ChannelNamesHidden bool `json:"channel_names_hidden" msgpack:"channel_names_hidden"`
 	// TimestampsHidden is true when entry timestamps are hidden.
 	TimestampsHidden bool `json:"timestamps_hidden" msgpack:"timestamps_hidden"`
-	// Tz is the time zone of the line times and day rows of the log.
-	Tz telem.TimeZone `json:"tz" msgpack:"tz"`
+	// TimeZone is the time zone of the line times and day rows of the log.
+	TimeZone telem.TimeZone `json:"time_zone" msgpack:"time_zone"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (l *Log) ApplyDefaults() {
-	if l.Tz == "" {
-		l.Tz = "local"
+	if l.TimeZone == "" {
+		l.TimeZone = "local"
 	}
 	for i := range l.Channels {
 		l.Channels[i].ApplyDefaults()
@@ -105,7 +105,7 @@ func (l *Log) ApplyDefaults() {
 // schema constraints.
 func (l Log) Validate() error {
 	v := validate.New("Log")
-	v.Ternaryf("tz", !l.Tz.IsValid(), "invalid tz: %v", l.Tz)
+	v.Ternaryf("time_zone", !l.TimeZone.IsValid(), "invalid time_zone: %v", l.TimeZone)
 	v.NotEmptyString("name", l.Name)
 	v.LessThanEq("timestamp_precision", l.TimestampPrecision, 3)
 	for i := range l.Channels {

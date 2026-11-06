@@ -88,8 +88,8 @@ export const logZ = z.object({
   channelNamesHidden: z.boolean().default(false),
   /** timestampsHidden is true when entry timestamps are hidden. */
   timestampsHidden: z.boolean().default(false),
-  /** tz is the time zone of the line times and day rows of the log. */
-  tz: telem.timeZoneZ.default("local"),
+  /** timeZone is the time zone of the line times and day rows of the log. */
+  timeZone: telem.timeZoneZ.default("local"),
 });
 export interface Log extends z.infer<typeof logZ> {}
 
