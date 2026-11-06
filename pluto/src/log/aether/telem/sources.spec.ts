@@ -237,8 +237,10 @@ describe("StreamMultiChannelLog", () => {
     await expect.poll(() => statuses.length, POLL).toBe(1);
     expect(statuses[0]).toMatchObject({
       variant: "warning",
+      name: core.data[0].name,
       message: "Dropped log samples with no time",
     });
+    expect(statuses[0].description).not.toContain(String(a));
     expect(entriesOf(log)).toEqual([]);
     expect(log.value().status.variant).toBe("success");
   });
