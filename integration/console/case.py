@@ -123,6 +123,10 @@ class ConsoleCase(TestCase):
         # A plain request finds the Console's port without a page load in the browser.
         with urlopen(f"http://{host}:{port}/", timeout=5) as res:
             if b"core built without embedded console" in res.read().lower():
+                # The dev Console connects to the Core whose port this key holds.
+                self.page.add_init_script(
+                    f"localStorage.setItem('synnax-dev-connection-port', '{port}')"
+                )
                 port = 5173
         self.page.goto(f"http://{host}:{port}/{query}", timeout=20000)
 

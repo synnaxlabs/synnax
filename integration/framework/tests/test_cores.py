@@ -20,8 +20,8 @@ pytestmark = pytest.mark.skipif(
     sys.platform == "win32", reason="the fake Core is a POSIX script"
 )
 
-# Prints its arguments, then the ready line unless told to exit, and runs until
-# interrupted.
+# Prints its arguments, then the license and ready lines unless told otherwise, and
+# runs until interrupted.
 FAKE_CORE = """#!/usr/bin/env python3
 import os
 import signal
@@ -31,6 +31,8 @@ import time
 print(" ".join(sys.argv[1:]), flush=True)
 if os.environ.get("FAKE_CORE_EXIT"):
     sys.exit(3)
+if not os.environ.get("FAKE_CORE_UNLICENSED"):
+    print("license active", flush=True)
 print("Synnax is running and available at here", flush=True)
 signal.signal(signal.SIGINT, lambda *_: sys.exit(0))
 while True:
@@ -75,6 +77,7 @@ class TestStart:
             assert ports == [first_port + 1, first_port + 2]
             log = processes[0].core.log_path.read_text()
             assert f"-l localhost:{first_port + 1}" in log
+            assert "--username synnax --password seldon" in log
             assert "--disable-integrations ni" in log
         finally:
             cores.stop(processes)
@@ -106,6 +109,44 @@ class TestStart:
             cores.start(
                 binary=binary,
                 first=SynnaxConnection(port=first_port),
+                count=1,
+                log_dir=tmp_path,
+            )
+
+    def test_login(self, binary: Path, first_port: int, tmp_path: Path) -> None:
+        """Should start each Core with the first Core's login."""
+        first = SynnaxConnection(port=first_port, username="admin", password="pw")
+        processes = cores.start(binary=binary, first=first, count=1, log_dir=tmp_path)
+        try:
+            log = processes[0].core.log_path.read_text()
+            assert "--username admin --password pw" in log
+            assert processes[0].core.connection.username == "admin"
+        finally:
+            cores.stop(processes)
+
+    def test_unlicensed(
+        self,
+        binary: Path,
+        first_port: int,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Should raise when a Core runs without a license."""
+        monkeypatch.setenv("FAKE_CORE_UNLICENSED", "1")
+        with pytest.raises(RuntimeError, match="has no active license"):
+            cores.start(
+                binary=binary,
+                first=SynnaxConnection(port=first_port),
+                count=1,
+                log_dir=tmp_path,
+            )
+
+    def test_secure(self, binary: Path, first_port: int, tmp_path: Path) -> None:
+        """Should refuse to start Cores beside a secure Core."""
+        with pytest.raises(ValueError, match="cannot test a secure Core"):
+            cores.start(
+                binary=binary,
+                first=SynnaxConnection(port=first_port, secure=True),
                 count=1,
                 log_dir=tmp_path,
             )
