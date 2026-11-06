@@ -11,17 +11,19 @@ package storage
 
 import (
 	"fmt"
-	"io"
-	"os"
 	"path"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/cockroachdb/pebble/v2/vfs"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium"
-	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/config"
 	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/validate"
 )
 
 const (
@@ -32,23 +34,15 @@ const (
 	keptBackups   = 3
 )
 
-// DriverKeyFile is the file in the data directory that holds the API key of the
-// embedded Driver.
-const DriverKeyFile = "embedded-driver-key"
+// backupFile matches the archive of a complete backup: the Unix seconds of the backup,
+// padded so that names sort by time, and the version of the data.
+var backupFile = regexp.MustCompile(`^((\d{10})-(.+))\.tar$`)
 
-// RestoreMarkerFile is the file in the data directory that marks a Restore that did not
-// finish. It holds the name of the backup. OpenLayer does not open the data while it
-// exists.
-const RestoreMarkerFile = "RESTORING"
-
-// backupName matches a complete backup: the Unix seconds of the backup, padded so that
-// names sort by time, and the version of the data.
-var backupName = regexp.MustCompile(`^(\d{10})-(.+)$`)
-
-// Backup is a copy of the metadata in a data directory: the key-value store, the
-// metadata of each Cesium channel, and the embedded Driver key. It holds no telemetry.
+// Backup is a copy of the metadata in a data directory: the key-value store and the
+// metadata of each Cesium channel. It holds no telemetry.
 type Backup struct {
-	// Name is the name of the backup directory in the backups directory.
+	// Name names the backup. Its archive in the backups directory is Name with a .tar
+	// extension.
 	Name string
 	// Time is when the backup was taken, to the second.
 	Time time.Time
@@ -57,165 +51,179 @@ type Backup struct {
 	Version string
 }
 
-// ListBackups returns the complete backups in the data directory at dirname, oldest
-// first.
-func ListBackups(dirname string) ([]Backup, error) {
-	fs, err := openDataDir(dirname)
+// BackupsConfig is the configuration for the metadata backups of a data directory.
+type BackupsConfig struct {
+	// Instrumentation is for logging, tracing, and metrics.
+	//
+	// [OPTIONAL] - Defaults to noop instrumentation.
+	alamos.Instrumentation
+	// Dirname is the data directory. It must exist.
+	//
+	// [REQUIRED]
+	Dirname string
+	// FS is the file system that holds Dirname.
+	//
+	// [OPTIONAL] - Defaults to xfs.Default.
+	FS xfs.FS
+	// LockFS is the file system that locks Dirname, so that a restore and a Core never
+	// run on the data at once.
+	//
+	// [OPTIONAL] - Defaults to vfs.Default.
+	LockFS vfs.FS
+}
+
+var _ config.Config[BackupsConfig] = BackupsConfig{}
+
+var defaultBackupsConfig = BackupsConfig{FS: xfs.Default, LockFS: vfs.Default}
+
+// Override implements config.Config.
+func (cfg BackupsConfig) Override(other BackupsConfig) BackupsConfig {
+	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
+	cfg.Dirname = override.String(cfg.Dirname, other.Dirname)
+	cfg.FS = override.Nil(cfg.FS, other.FS)
+	cfg.LockFS = override.Nil(cfg.LockFS, other.LockFS)
+	return cfg
+}
+
+// Validate implements config.Config.
+func (cfg BackupsConfig) Validate() error {
+	v := validate.New("storage.backups")
+	v.NotEmptyString("dirname", cfg.Dirname)
+	v.NotNil("fs", cfg.FS)
+	v.NotNil("lock_fs", cfg.LockFS)
+	return v.Error()
+}
+
+// Backups are the metadata backups of a data directory. A Core takes one before a new
+// version first opens the data, and keeps the newest three.
+type Backups struct {
+	cfg BackupsConfig
+	fs  xfs.FS
+}
+
+// NewBackups returns the backups of the data directory in the configuration. It returns
+// an error that matches fs.ErrNotExist when the data directory does not exist.
+func NewBackups(cfgs ...BackupsConfig) (*Backups, error) {
+	cfg, err := config.New(defaultBackupsConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	return listBackups(fs)
-}
-
-// openDataDir returns a file system rooted at the existing data directory dirname.
-func openDataDir(dirname string) (xfs.FS, error) {
-	if _, err := xfs.Default.Stat(dirname); err != nil {
+	if _, err = cfg.FS.Stat(cfg.Dirname); err != nil {
 		return nil, err
 	}
-	return xfs.Default.Sub(dirname)
-}
-
-func listBackups(fs xfs.FS) ([]Backup, error) {
-	if exists, err := fs.Exists(backupsDir); err != nil || !exists {
+	fs, err := cfg.FS.Sub(cfg.Dirname)
+	if err != nil {
 		return nil, err
 	}
-	infos, err := fs.List(backupsDir)
+	return &Backups{cfg: cfg, fs: fs}, nil
+}
+
+// List returns the complete backups, oldest first.
+func (b *Backups) List() ([]Backup, error) {
+	if exists, err := b.fs.Exists(backupsDir); err != nil || !exists {
+		return nil, err
+	}
+	infos, err := b.fs.List(backupsDir)
 	if err != nil {
 		return nil, err
 	}
 	var backups []Backup
 	for _, info := range infos {
-		match := backupName.FindStringSubmatch(info.Name())
-		if !info.IsDir() || match == nil || strings.HasSuffix(match[2], partialSuffix) {
+		match := backupFile.FindStringSubmatch(info.Name())
+		if info.IsDir() || match == nil {
 			continue
 		}
-		seconds, err := strconv.ParseInt(match[1], 10, 64)
+		seconds, err := strconv.ParseInt(match[2], 10, 64)
 		if err != nil {
 			return nil, err
 		}
 		backups = append(backups, Backup{
-			Name:    info.Name(),
+			Name:    match[1],
 			Time:    time.Unix(seconds, 0),
-			Version: match[2],
+			Version: match[3],
 		})
 	}
 	return backups, nil
 }
 
-// backup copies the metadata in fs to a new backup labeled with version.
-func backup(fs xfs.FS, version string) (Backup, error) {
+// create archives the metadata in a new backup labeled with version, then removes all
+// but the newest keptBackups backups.
+func (b *Backups) create(version string) (Backup, error) {
+	if err := b.removePartial(); err != nil {
+		return Backup{}, err
+	}
 	now := time.Now()
-	b := Backup{
+	backup := Backup{
 		Name:    fmt.Sprintf("%010d-%s", now.Unix(), version),
 		Time:    time.Unix(now.Unix(), 0),
 		Version: version,
 	}
-	partialDir := path.Join(backupsDir, b.Name+partialSuffix)
-	partial, err := fs.Sub(partialDir)
+	ts, err := b.fs.Sub(cesiumDir)
 	if err != nil {
 		return Backup{}, err
 	}
-	if err = copyDir(fs, partial, kvDir); err != nil {
-		return Backup{}, err
-	}
-	ts, err := fs.Sub(cesiumDir)
+	metaFiles, err := cesium.MetaFiles(ts)
 	if err != nil {
 		return Backup{}, err
 	}
-	tsBackup, err := partial.Sub(cesiumDir)
+	files, err := listFiles(b.fs, kvDir)
 	if err != nil {
 		return Backup{}, err
 	}
-	if err = cesium.BackupMeta(ts, tsBackup); err != nil {
+	for _, file := range metaFiles {
+		files = append(files, path.Join(cesiumDir, file))
+	}
+	if _, err = b.fs.Sub(backupsDir); err != nil {
 		return Backup{}, err
 	}
-	hasDriverKey, err := fs.Exists(DriverKeyFile)
-	if err != nil {
+	archive := path.Join(backupsDir, backup.Name+archiveExt)
+	partial := archive + partialSuffix
+	if err = writeArchive(
+		b.fs,
+		partial,
+		[]string{kvDir, cesiumDir},
+		files,
+	); err != nil {
 		return Backup{}, err
 	}
-	if hasDriverKey {
-		if err = xfs.CopyFile(fs, partial, DriverKeyFile); err != nil {
-			return Backup{}, err
-		}
-	}
-	if err = fs.Rename(partialDir, path.Join(backupsDir, b.Name)); err != nil {
+	if err = b.fs.Rename(partial, archive); err != nil {
 		return Backup{}, err
 	}
-	return b, nil
+	if err = b.prune(); err != nil {
+		return Backup{}, err
+	}
+	return backup, nil
 }
 
-// prune removes unfinished backups and all but the newest keptBackups complete ones.
-func prune(fs xfs.FS) error {
-	infos, err := fs.List(backupsDir)
+// removePartial removes the backups that a failed or interrupted create left.
+func (b *Backups) removePartial() error {
+	if exists, err := b.fs.Exists(backupsDir); err != nil || !exists {
+		return err
+	}
+	infos, err := b.fs.List(backupsDir)
 	if err != nil {
 		return err
 	}
 	for _, info := range infos {
 		if strings.HasSuffix(info.Name(), partialSuffix) {
-			if err = fs.Remove(path.Join(backupsDir, info.Name())); err != nil {
+			if err = b.fs.Remove(path.Join(backupsDir, info.Name())); err != nil {
 				return err
 			}
 		}
 	}
-	backups, err := listBackups(fs)
+	return nil
+}
+
+// prune removes all but the newest keptBackups backups.
+func (b *Backups) prune() error {
+	backups, err := b.List()
 	if err != nil {
 		return err
 	}
-	for _, b := range backups[:max(len(backups)-keptBackups, 0)] {
-		if err = fs.Remove(path.Join(backupsDir, b.Name)); err != nil {
+	for _, old := range backups[:max(len(backups)-keptBackups, 0)] {
+		if err = b.fs.Remove(path.Join(backupsDir, old.Name+archiveExt)); err != nil {
 			return err
 		}
 	}
 	return nil
-}
-
-// copyDir copies the directory dir in src, with everything in it, to dir in dst.
-func copyDir(src, dst xfs.FS, dir string) error {
-	if _, err := dst.Sub(dir); err != nil {
-		return err
-	}
-	infos, err := src.List(dir)
-	if err != nil {
-		return err
-	}
-	for _, info := range infos {
-		name := path.Join(dir, info.Name())
-		if info.IsDir() {
-			err = copyDir(src, dst, name)
-		} else {
-			err = xfs.CopyFile(src, dst, name)
-		}
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// readFile returns the contents of the file name in fs, and whether it exists.
-func readFile(fs xfs.FS, name string) (data []byte, found bool, err error) {
-	if found, err = fs.Exists(name); err != nil || !found {
-		return nil, false, err
-	}
-	f, err := fs.Open(name, os.O_RDONLY)
-	if err != nil {
-		return nil, false, err
-	}
-	data, err = io.ReadAll(f)
-	if err = errors.Combine(err, f.Close()); err != nil {
-		return nil, false, err
-	}
-	return data, true, nil
-}
-
-func writeFile(fs xfs.FS, name string, data []byte) (err error) {
-	f, err := fs.Open(name, os.O_CREATE|os.O_WRONLY|os.O_TRUNC)
-	if err != nil {
-		return err
-	}
-	defer func() { err = errors.Combine(err, f.Close()) }()
-	if _, err = f.Write(data); err != nil {
-		return err
-	}
-	return f.Sync()
 }

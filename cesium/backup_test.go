@@ -11,8 +11,8 @@ package cesium_test
 
 import (
 	"context"
-	"io"
 	"os"
+	"path"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -70,26 +70,26 @@ func entryNames(fs xfs.FS, dir string) []string {
 	)
 }
 
-func readAll(fs xfs.FS, name string) []byte {
+// backUpMeta copies the metadata files of the database in fs to backup.
+func backUpMeta(fs, backup xfs.FS) {
 	GinkgoHelper()
-	f := MustSucceed(fs.Open(name, os.O_RDONLY))
-	data := MustSucceed(io.ReadAll(f))
-	Expect(f.Close()).To(Succeed())
-	return data
+	for _, file := range MustSucceed(cesium.MetaFiles(fs)) {
+		MustSucceed(backup.Sub(path.Dir(file)))
+		Expect(xfs.CopyFile(fs, backup, file)).To(Succeed())
+	}
 }
 
 var _ = Describe("Meta backup", func() {
-	var fs, backup, orphans xfs.FS
+	var fs, backup xfs.FS
 	BeforeEach(func() {
 		root := xfs.NewMem()
 		fs = MustSucceed(root.Sub("db"))
 		backup = MustSucceed(root.Sub("backup"))
-		orphans = MustSucceed(root.Sub("orphans"))
 	})
 
-	Describe("BackupMeta", func() {
+	Describe("MetaFiles", func() {
 		It(
-			"Should copy the metadata of every channel and no telemetry",
+			"Should return the metadata file of every channel and no telemetry",
 			func(ctx SpecContext) {
 				db := openDBOnFS(ctx, fs)
 				Expect(db.CreateChannel(ctx, metaIndexCh, metaDataCh)).To(Succeed())
@@ -97,12 +97,7 @@ var _ = Describe("Meta backup", func() {
 				Expect(db.Close()).To(Succeed())
 				Expect(entryNames(fs, "2")).To(ContainElement(Not(Equal("meta.json"))))
 
-				Expect(cesium.BackupMeta(fs, backup)).To(Succeed())
-				Expect(entryNames(backup, "")).To(ConsistOf("1", "2"))
-				Expect(entryNames(backup, "1")).To(ConsistOf("meta.json"))
-				Expect(entryNames(backup, "2")).To(ConsistOf("meta.json"))
-				Expect(readAll(backup, "2/meta.json")).
-					To(Equal(readAll(fs, "2/meta.json")))
+				Expect(cesium.MetaFiles(fs)).To(ConsistOf("1/meta.json", "2/meta.json"))
 			},
 		)
 
@@ -118,8 +113,7 @@ var _ = Describe("Meta backup", func() {
 				MustSucceed(fs.Sub("notes"))
 				Expect(MustSucceed(fs.Open("5", os.O_CREATE)).Close()).To(Succeed())
 
-				Expect(cesium.BackupMeta(fs, backup)).To(Succeed())
-				Expect(entryNames(backup, "")).To(ConsistOf("1"))
+				Expect(cesium.MetaFiles(fs)).To(ConsistOf("1/meta.json"))
 			},
 		)
 	})
@@ -132,7 +126,7 @@ var _ = Describe("Meta backup", func() {
 				Expect(db.CreateChannel(ctx, metaIndexCh, metaDataCh)).To(Succeed())
 				writeSamples(ctx, db, 1, metaIndexCh.Key, metaDataCh.Key)
 				Expect(db.Close()).To(Succeed())
-				Expect(cesium.BackupMeta(fs, backup)).To(Succeed())
+				backUpMeta(fs, backup)
 
 				db = openDBOnFS(ctx, fs)
 				Expect(db.RenameChannels(
@@ -150,11 +144,11 @@ var _ = Describe("Meta backup", func() {
 				)
 				Expect(db.Close()).To(Succeed())
 
-				Expect(cesium.RestoreMeta(fs, backup, orphans)).
-					To(Equal([]cesium.ChannelKey{metaAddedCh.Key}))
-				Expect(entryNames(fs, "")).To(ConsistOf("1", "2"))
-				Expect(entryNames(orphans, "")).To(ConsistOf("3"))
-				Expect(entryNames(orphans, "3")).To(ContainElement("meta.json"))
+				Expect(cesium.RestoreMeta(fs, backup, "orphans")).To(Succeed())
+				Expect(entryNames(fs, "")).To(ConsistOf("1", "2", "orphans"))
+				Expect(entryNames(fs, "orphans")).To(ConsistOf("3"))
+				Expect(entryNames(fs, "orphans/3")).To(ContainElement("meta.json"))
+				Expect(fs.Remove("orphans")).To(Succeed())
 
 				db = mustOpenDBOnFS(ctx, fs)
 				Expect(MustSucceed(db.RetrieveChannel(ctx, metaDataCh.Key)).Name).
@@ -173,10 +167,10 @@ var _ = Describe("Meta backup", func() {
 				db := openDBOnFS(ctx, fs)
 				Expect(db.CreateChannel(ctx, metaIndexCh)).To(Succeed())
 				Expect(db.Close()).To(Succeed())
-				Expect(cesium.BackupMeta(fs, backup)).To(Succeed())
+				backUpMeta(fs, backup)
 
-				Expect(cesium.RestoreMeta(fs, backup, orphans)).To(BeEmpty())
-				Expect(entryNames(orphans, "")).To(BeEmpty())
+				Expect(cesium.RestoreMeta(fs, backup, "orphans")).To(Succeed())
+				Expect(fs.Exists("orphans")).To(BeFalse())
 			},
 		)
 	})

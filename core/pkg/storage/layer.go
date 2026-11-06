@@ -37,6 +37,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
+	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
@@ -48,7 +49,6 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
-	"golang.org/x/mod/semver"
 )
 
 type (
@@ -156,7 +156,7 @@ func (cfg LayerConfig) Validate() error {
 	v.Ternary("permissions", cfg.Perm == 0, "insufficient permission bits on directory")
 	v.Ternaryf(
 		"version",
-		!*cfg.InMemory && !isDev(cfg.Version) && !semver.IsValid(toSemver(cfg.Version)),
+		!*cfg.InMemory && !version.IsDev(cfg.Version) && !version.Valid(cfg.Version),
 		"invalid version %q",
 		cfg.Version,
 	)
@@ -242,10 +242,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}
 
 	if !*cfg.InMemory {
-		if err = checkRestore(cfg, tsFS); !ok(err, nil) {
-			return nil, err
-		}
-		if err = checkVersion(cfg, tsFS); !ok(err, nil) {
+		if err = checkData(cfg, kvFS, tsFS); !ok(err, nil) {
 			return nil, err
 		}
 	}
@@ -341,6 +338,24 @@ Failed to acquire lock on storage directory
 
 Is there another Synnax node using the same directory?
 `
+
+// checkData refuses data that a Restore did not finish or that a newer Core opened, and
+// backs up data that an older Core opened.
+func checkData(cfg LayerConfig, lockFS vfs.FS, fs xfs.FS) error {
+	backups, err := NewBackups(BackupsConfig{
+		Instrumentation: cfg.Child("backups"),
+		Dirname:         cfg.Dirname,
+		FS:              fs,
+		LockFS:          lockFS,
+	})
+	if err != nil {
+		return err
+	}
+	if err = backups.checkRestore(); err != nil {
+		return err
+	}
+	return backups.checkVersion(cfg.Version)
+}
 
 func acquireLock(dirname string, fs vfs.FS) (io.Closer, error) {
 	fName := filepath.Join(dirname, "LOCK")

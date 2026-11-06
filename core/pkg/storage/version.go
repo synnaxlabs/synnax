@@ -10,12 +10,13 @@
 package storage
 
 import (
+	"os"
 	"strings"
 
+	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"go.uber.org/zap"
-	"golang.org/x/mod/semver"
 )
 
 // versionFile is the file in the data directory that holds the version of the last Core
@@ -25,81 +26,61 @@ const versionFile = "VERSION"
 // UnknownVersion is the Backup.Version of data that no Core recorded a version for.
 const UnknownVersion = "unknown"
 
-// toSemver returns version in the form that the semver package parses.
-func toSemver(version string) string { return "v" + version }
-
-// isDev reports whether version belongs to a dev build, which neither checks nor
-// records the version. A dev version need not be valid semver, since its pre-release
-// can hold a commit hash with a leading zero.
-func isDev(version string) bool { return strings.HasPrefix(version, "0.0.") }
-
-func checkVersion(cfg LayerConfig, rootFS xfs.FS) error {
-	if isDev(cfg.Version) {
+// checkVersion compares current, the version of the Core that opens the data, with the
+// recorded version. It refuses data that a newer Core opened, and backs up data that an
+// older Core opened before it records current.
+func (b *Backups) checkVersion(current string) error {
+	if version.IsDev(current) {
 		return nil
 	}
-	fs, err := rootFS.Sub(cfg.Dirname)
+	recorded, err := b.readVersion()
 	if err != nil {
 		return err
 	}
-	recorded, found, err := readVersion(fs)
-	if err != nil {
-		return err
-	}
-	if found {
-		switch semver.Compare(toSemver(cfg.Version), toSemver(recorded)) {
+	if recorded != UnknownVersion {
+		switch version.Compare(current, recorded) {
 		case 0:
 			return nil
 		case -1:
 			return errors.Newf(
-				"Data was last opened by Core %s. Run Core %s or newer, or restore a "+
-					"backup with `synnax restore`.",
+				"Data was last opened by Core %s. Run Core %s or newer, or undo the "+
+					"update with `synnax update undo`.",
 				recorded,
 				recorded,
 			)
 		}
-	} else {
-		recorded = UnknownVersion
 	}
-	hasMetadata, err := fs.Exists(kvDir)
+	hasMetadata, err := b.fs.Exists(kvDir)
 	if err != nil {
 		return err
 	}
 	if hasMetadata {
-		cfg.L.Info(
+		b.cfg.L.Info(
 			"backing up metadata before the first start of a new version",
 			zap.String("from", recorded),
-			zap.String("to", cfg.Version),
+			zap.String("to", current),
 		)
-		b, err := backup(fs, recorded)
+		backup, err := b.create(recorded)
 		if err != nil {
 			return errors.Wrap(err, "failed to back up metadata")
 		}
-		cfg.L.Info("backed up metadata", zap.String("backup", b.Name))
-		if err = prune(fs); err != nil {
-			return errors.Wrap(err, "failed to prune old backups")
-		}
+		b.cfg.L.Info("backed up metadata", zap.String("backup", backup.Name))
 	}
-	return writeVersion(fs, cfg.Version)
+	return xfs.WriteFile(b.fs, versionFile, []byte(current))
 }
 
-func readVersion(fs xfs.FS) (string, bool, error) {
-	b, found, err := readFile(fs, versionFile)
-	if err != nil || !found {
-		return "", false, err
+// readVersion returns the recorded version, or UnknownVersion when there is none.
+func (b *Backups) readVersion() (string, error) {
+	data, err := xfs.ReadFile(b.fs, versionFile)
+	if errors.Is(err, os.ErrNotExist) {
+		return UnknownVersion, nil
 	}
-	version := strings.TrimSpace(string(b))
-	if !semver.IsValid(toSemver(version)) {
-		return "", false, errors.Newf("invalid version %q in %s", version, versionFile)
+	if err != nil {
+		return "", err
 	}
-	return version, true, nil
-}
-
-// writeVersion replaces the version file, so an interrupted write leaves the old file
-// in place.
-func writeVersion(fs xfs.FS, version string) error {
-	tmp := versionFile + ".tmp"
-	if err := writeFile(fs, tmp, []byte(version)); err != nil {
-		return err
+	recorded := strings.TrimSpace(string(data))
+	if !version.Valid(recorded) {
+		return "", errors.Newf("invalid version %q in %s", recorded, versionFile)
 	}
-	return fs.Rename(tmp, versionFile)
+	return recorded, nil
 }

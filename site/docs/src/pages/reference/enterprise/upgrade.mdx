@@ -177,40 +177,38 @@ has no license, so upgrade the Console with the Core.
 
 Synnax does not support a downgrade. A Core does not open data that a newer Core opened,
 and stops with a message such as
-`Data was last opened by Core 0.61.0. Run Core 0.61.0 or newer, or restore a backup with synnax restore.`
-To go back, restore the backup that the upgrade made:
+`Data was last opened by Core 0.61.0. Run Core 0.61.0 or newer, or undo the update with synnax update undo.`
+To go back, undo the update:
 
 1. Stop the Core.
-2. List the backups with the new binary. Use the same `--data` flag as `synnax start`:
+2. Undo the update with the new binary. Use the same `--data` flag as `synnax start`:
 
    ```bash
-   synnax restore --data <data folder>
+   synnax update undo --data <data folder>
    ```
 
-   Each backup is named `<time>-<version>`, where `<version>` is the Core that last ran
-   on the data before the backup.
+   The command restores the backup of the last update and prints the Core version to
+   run. It refuses if the last update is already undone.
 
-3. Restore the backup:
+3. Install that version of the Core and start it.
 
-   ```bash
-   synnax restore <backup> --data <data folder>
-   ```
+To restore a backup again, or to go back further, list the backups with
+`synnax update history`, then run `synnax update undo <backup>`. Each backup is named
+`<time>-<version>`, where `<version>` is the Core that last ran on the data before the
+backup.
 
-   The command prints the Core version to run.
+The undo puts back the metadata of the backup. Telemetry stays, including telemetry
+recorded after the update. The undo moves the telemetry of channels created after the
+update to an `orphaned-<time>` folder in the `backups` folder. Telemetry deleted after
+the update does not come back. The undo cannot run while a Core runs on the data folder.
+If an undo stops before it finishes, the Core does not start until you run the undo
+again.
 
-4. Install that version of the Core and start it.
-
-The restore puts back the metadata of the backup. Telemetry stays, including telemetry
-recorded after the backup. The restore moves the telemetry of channels created after the
-backup to an `orphaned-<time>` folder in the `backups` folder. The restore cannot run
-while a Core runs on the data folder. If a restore stops before it finishes, the Core
-does not start until you run the restore again.
-
-In Docker, run the restore with the image of the new version:
+In Docker, run the undo with the image of the new version, such as `0.61.0`:
 
 ```bash
 docker run --rm -v synnax-data:/synnax/synnax-data --entrypoint /synnax/synnax \
-  synnaxlabs/synnax:<version> restore <backup>
+  synnaxlabs/synnax:0.61.0 update undo
 ```
 
 To go back to the exact state before the upgrade, replace the data folder with the copy
