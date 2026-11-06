@@ -159,7 +159,8 @@ inline x::errors::Error check_cycles(const OpMode &mode, const Cycles &cycles) {
     const bool sync0 = (mode.assign_activate & SYNC0_ACTIVE) != 0;
     const bool pdi = (mode.assign_activate & PDI_SYNC_UNIT) != 0;
     if (sync0 && !pdi) return x::errors::NIL;
-    const auto reason = sync0 ? "gives the sync unit to the PDI" : "does not run SYNC0";
+    const auto *const reason = sync0 ? "gives the sync unit to the PDI"
+                                     : "does not run SYNC0";
     for (const auto &[name, cycle]:
          {std::pair{"SYNC0", cycles.sync0}, std::pair{"SYNC1", cycles.sync1}})
         if (cycle != 0)
