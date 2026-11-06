@@ -184,8 +184,9 @@ it in `<data>/drivers/`, which backups skip. A start flag turns the download off
 Core release also uploads one bundle per OS: the Core binary and the four Driver
 binaries (about 310 MB together). `synnax update --file` loads the Drivers from it.
 
-At each connect, a Driver whose version differs from the Core's Driver downloads it,
-checks the signature, and replaces itself. It never updates while tasks run. A Core
+At each connect, a Driver on another minor than the Core's Driver, or on an older patch,
+downloads the Core's Driver, checks the signature, and replaces itself, as the Console
+does (§3.3). A newer Driver hotfix stays. It never updates while tasks run. A Core
 update ends each Driver's stream, so the Driver stops its tasks and reconnects
 (`driver/task/manager.cpp:201`, `driver/rack/rack.cpp:38-53`). The version check and the
 update run at that connect, before any task starts again.
