@@ -282,6 +282,21 @@ describe("log/aether/Log", () => {
       expect(source.resumeCalls).toBeGreaterThan(0);
     });
 
+    it("should clear the loading state of a read that resuming cancels", () => {
+      const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
+      const { log, source, updateState } = setup(entries);
+      updateState({ scrolling: false, empty: false });
+      updateState({ scrolling: true, empty: false, wheelPos: 0 });
+      updateState({ scrolling: true, empty: false, wheelPos: 300 });
+      const { status } = source;
+      source.status = { ...status, variant: "loading" };
+      source.resume = () => {
+        source.status = status;
+      };
+      updateState({ scrolling: true, empty: false, wheelPos: 0 });
+      expect(log.state.loading).toBe(false);
+    });
+
     it("should stamp resumedAt only when it resumes on its own", () => {
       const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
       const { log, updateState } = setup(entries);
