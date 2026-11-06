@@ -42,7 +42,7 @@ func MigrateLog(ctx context.Context, old v2.Log) (Log, error) {
 
 // MigrateChannelEntry lifts a v2 channel entry to v3. The v2 sentinel precision of -1
 // becomes an absent precision, a larger one clamps to 17, an alias is cut to 64
-// characters, and an empty time zone becomes local.
+// characters, and an empty display field takes its schema default.
 func MigrateChannelEntry(
 	ctx context.Context,
 	old v2.ChannelEntry,
@@ -60,9 +60,7 @@ func MigrateChannelEntry(
 		Format:   old.Timestamp.Format,
 		TimeZone: old.Timestamp.Tz,
 	}
-	if out.ValueFormat.TimeZone == "" {
-		out.ValueFormat.TimeZone = telem.TimeZoneLocal
-	}
+	out.ApplyDefaults()
 	return out, nil
 }
 
