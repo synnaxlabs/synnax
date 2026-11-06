@@ -106,9 +106,9 @@ func Infer(docs []Document) []Shape {
 		}
 		src.docs = append(src.docs, parsedDocument{leaves: leaves, time: ref})
 		for _, l := range leaves {
-			if !src.fields.Contains(l.pointer) {
-				src.fields.Add(l.pointer)
-				src.order = append(src.order, l.pointer)
+			if !src.fields.Contains(l.key) {
+				src.fields.Add(l.key)
+				src.order = append(src.order, l.key)
 			}
 		}
 	}
@@ -149,9 +149,11 @@ type parsedDocument struct {
 
 // leaf is one scalar of a document.
 type leaf struct {
-	pointer string
-	kind    jsontext.Kind
-	raw     []byte
+	pointer Pointer
+	// key is the text form of pointer.
+	key  string
+	kind jsontext.Kind
+	raw  []byte
 }
 
 // parseLeaves returns the scalars of data in document order. It returns an error when
@@ -192,7 +194,8 @@ func walkLeaves(dec *jsontext.Decoder, pointer Pointer, leaves *[]leaf) error {
 			return err
 		}
 		*leaves = append(*leaves, leaf{
-			pointer: pointer.String(),
+			pointer: pointer,
+			key:     pointer.String(),
 			kind:    value.Kind(),
 			raw:     bytes.Clone(value),
 		})
@@ -214,13 +217,13 @@ func (g *inferGroup) add(src *inferSource) {
 	for _, doc := range src.docs {
 		g.count++
 		for _, l := range doc.leaves {
-			s, ok := g.fields[l.pointer]
+			s, ok := g.fields[l.key]
 			if !ok {
 				if len(g.order) == maxInferredFields {
 					continue
 				}
 				s = newFieldStats(l.pointer)
-				g.fields[l.pointer] = s
+				g.fields[l.key] = s
 				g.order = append(g.order, s)
 			}
 			s.add(src.name, l, doc.time)
@@ -276,10 +279,9 @@ type timeStats struct {
 	distance float64
 }
 
-func newFieldStats(pointer string) *fieldStats {
-	p, _ := ParsePointer(pointer)
-	s := &fieldStats{pointer: p, labels: make(set.Set[string])}
-	if len(p) > 0 && timeName(p[len(p)-1]) {
+func newFieldStats(pointer Pointer) *fieldStats {
+	s := &fieldStats{pointer: pointer, labels: make(set.Set[string])}
+	if len(pointer) > 0 && timeName(pointer[len(pointer)-1]) {
 		s.time = timeStats{
 			candidate: true,
 			rising:    true,
