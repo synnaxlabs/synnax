@@ -9,7 +9,7 @@
 
 import synnax as sy
 from console.case import ConsoleCase
-from console.schematic import Option, Schematic, Select, StateIndicator
+from console.schematic import Schematic, Select, StateIndicator
 from x import random_name
 
 
@@ -41,10 +41,10 @@ class SelectStateIndicator(ConsoleCase):
             retrieve_if_name_exists=True,
         )
 
-        options: list[Option] = [
-            {"name": "Open", "value": 1},
-            {"name": "Closed", "value": 2},
-            {"name": "Standby", "value": 3},
+        options = [
+            sy.schematic.StateMapping(key="open", name="Open", value=1),
+            sy.schematic.StateMapping(key="closed", name="Closed", value=2),
+            sy.schematic.StateMapping(key="standby", name="Standby", value=3),
         ]
 
         self.log("Creating schematic")

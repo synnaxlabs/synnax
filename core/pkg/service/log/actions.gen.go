@@ -149,7 +149,7 @@ type SetChannelsPayload struct {
 
 // SwapChannelPayload repoints the entry referencing the "from" channel at the "to"
 // channel in place, preserving the entry's position and display configuration. No-op
-// when no entry references "from".
+// when no entry references "from" or an entry already references "to".
 type SwapChannelPayload struct {
 	From channel.Key `json:"from" msgpack:"from"`
 	To   channel.Key `json:"to" msgpack:"to"`

@@ -85,4 +85,12 @@ Pool::discover_slaves(const std::string &key) {
     return {engine->slaves(), x::errors::NIL};
 }
 
+std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
+Pool::rediscover_slaves(const std::string &key) {
+    auto [engine, err] = this->acquire(key);
+    if (err) return {{}, err};
+    if (auto init_err = engine->rediscover()) return {{}, init_err};
+    return {engine->slaves(), x::errors::NIL};
+}
+
 }

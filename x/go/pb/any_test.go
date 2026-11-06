@@ -16,8 +16,15 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/typepb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
+
+type details struct {
+	ConfigHash string  `json:"config_hash"`
+	Running    bool    `json:"running"`
+	Rate       float64 `json:"rate,omitzero"`
+}
 
 var _ = Describe("Any", func() {
 	Describe("NilToPBAny", func() {
@@ -102,12 +109,72 @@ var _ = Describe("Any", func() {
 			Expect(m["num"]).To(BeNumerically("==", 42))
 		})
 
+		It("Should key a typed proto by the field names of its schema", func() {
+			packed := MustSucceed(anypb.New(&typepb.Field{JsonName: "hash"}))
+			Expect(pb.AnyFromPBAny(packed)).To(And(
+				HaveKeyWithValue("json_name", "hash"),
+				Not(HaveKey("jsonName")),
+			))
+		})
+
 		It("Should return nil for an unregistered type URL", func() {
 			packed := &anypb.Any{
 				TypeUrl: "type.googleapis.com/unknown.Type",
 				Value:   []byte{1, 2, 3},
 			}
 			Expect(pb.AnyFromPBAny(packed)).To(BeNil())
+		})
+	})
+
+	Describe("ToAny", func() {
+		It("Should key the JSON value by the json tags of the type", func() {
+			packed := MustSucceed(pb.ToAny(details{ConfigHash: "abc", Running: true}))
+			var v structpb.Value
+			Expect(packed.UnmarshalTo(&v)).To(Succeed())
+			Expect(v.AsInterface()).To(Equal(map[string]any{
+				"config_hash": "abc",
+				"running":     true,
+			}))
+		})
+	})
+
+	Describe("FromAny", func() {
+		It("Should return the zero value for nil input", func() {
+			Expect(pb.FromAny[details](nil)).To(Equal(details{}))
+		})
+
+		It("Should decode a structpb.Struct from an older peer", func() {
+			s := MustSucceed(structpb.NewStruct(map[string]any{
+				"config_hash": "abc",
+				"rate":        2.5,
+			}))
+			packed := MustSucceed(anypb.New(s))
+			Expect(pb.FromAny[details](packed)).
+				To(Equal(details{ConfigHash: "abc", Rate: 2.5}))
+		})
+
+		It("Should return an error for an Any that holds no JSON", func() {
+			packed := MustSucceed(anypb.New(wrapperspb.String("abc")))
+			Expect(pb.FromAny[details](packed)).Error().To(MatchError(ContainSubstring(
+				"failed to unpack Any of type type.googleapis.com/google.protobuf.StringValue",
+			)))
+		})
+
+		It("Should return the zero value when a later field fails to decode", func() {
+			v := MustSucceed(structpb.NewValue(map[string]any{
+				"config_hash": "abc",
+				"running":     "yes",
+			}))
+			packed := MustSucceed(anypb.New(v))
+			Expect(pb.FromAny[details](packed)).Error().To(MatchError(ContainSubstring(
+				`unmarshal JSON string into Go bool within "/running"`,
+			)))
+		})
+
+		It("Should round-trip a value through ToAny", func() {
+			original := details{ConfigHash: "abc", Running: true, Rate: 2.5}
+			packed := MustSucceed(pb.ToAny(original))
+			Expect(pb.FromAny[details](packed)).To(Equal(original))
 		})
 	})
 

@@ -21,7 +21,7 @@ import synnax as sy
 from console.base import ResourceClient
 from console.channels import ChannelClient
 from console.layout import LayoutClient
-from console.page import ConsolePage, PageType
+from console.page import ConsolePage, PageType, page_label
 from console.plot import Plot
 from console.project import ProjectClient
 from framework.utils import read_json_object, resolve_channel_placeholders
@@ -217,7 +217,9 @@ class PagesClient(ResourceClient):
         except PlaywrightTimeoutError:
             add_btn.dispatch_event("click")
             layout_selector.wait_for(state="visible", timeout=15000)
-        type_btn = self.layout.page.get_by_role("button", name=page_type).first
+        type_btn = self.layout.page.get_by_role(
+            "button", name=page_label(page_type)
+        ).first
         type_btn.wait_for(state="visible", timeout=5000)
         type_btn.click()
 
@@ -232,7 +234,7 @@ class PagesClient(ResourceClient):
         """
         self.layout.close_left_toolbar()
 
-        self.layout.command_palette(f"Create {page_type}")
+        self.layout.command_palette(f"Create {page_label(page_type)}")
         return self._handle_new_page(page_type, name)
 
     def _handle_new_page(
@@ -243,10 +245,10 @@ class PagesClient(ResourceClient):
         :returns: Tuple of (pane_locator, tab_locator, page_id).
         """
         modal_was_open = self.layout.is_modal_open()
-        tab_name: str = page_type
+        tab_name = page_label(page_type)
 
         if modal_was_open:
-            tab_name = name if name is not None else page_type
+            tab_name = name if name is not None else tab_name
             name_input = self.layout.page.get_by_role("textbox", name="Name")
             name_input.fill(tab_name)
             name_input.press("ControlOrMeta+Enter")
@@ -261,10 +263,10 @@ class PagesClient(ResourceClient):
             page_tab = self.layout.get_tab(name)
 
         pluto_labels = {
-            "Log": ".pluto-log",
-            "Line plot": ".pluto-line-plot",
-            "Schematic": ".pluto-schematic",
-            "Table": ".pluto-table",
+            "log": ".pluto-log",
+            "lineplot": ".pluto-line-plot",
+            "schematic": ".pluto-schematic",
+            "table": ".pluto-table",
         }
         pluto_label = pluto_labels.get(page_type, "")
         if pluto_label:

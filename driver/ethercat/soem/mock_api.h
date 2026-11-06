@@ -37,10 +37,23 @@ struct MockSlaveInfo {
     uint16_t mbx_proto = 0;
     uint16_t ALstatuscode = 0;
     bool lost = false;
+    /// @brief whether the slave has a distributed clock.
+    bool hasdc = false;
     /// @brief the state readstate() reports, or nullopt to report the current state.
     std::optional<uint16_t> bus_state;
     /// @brief the state last requested and not yet reached.
     std::optional<uint16_t> requested;
+};
+
+/// @brief a write through write_register.
+struct RegisterWrite {
+    uint16_t slave = 0;
+    uint16_t address = 0;
+    std::vector<uint8_t> data;
+    /// @brief true when the write came after config_map_group, which requests SAFE-OP.
+    bool mapped = false;
+
+    bool operator==(const RegisterWrite &) const = default;
 };
 
 /// @brief mock implementation of soem::API for unit testing.
@@ -101,6 +114,10 @@ public:
     std::vector<uint16_t> written_slaves;
     /// @brief the value count_bus_slaves returns, or nullopt for the slave count.
     std::optional<int> bus_slaves;
+    /// @brief writes through write_register, in call order.
+    std::vector<RegisterWrite> register_writes;
+    /// @brief the working counter write_register returns.
+    int write_register_return = 1;
     /// @brief whether the mapped group carries the reference clock time.
     bool hasdc = false;
     int configdc_count = 0;
@@ -184,6 +201,18 @@ public:
     }
 
     [[nodiscard]] int64_t dc_time() const override { return this->dc_time_value; }
+
+    int write_register(
+        uint16_t slave,
+        uint16_t address,
+        std::vector<uint8_t> data,
+        int
+    ) override {
+        this->register_writes.push_back(
+            {slave, address, std::move(data), this->mapped_group.has_value()}
+        );
+        return this->write_register_return;
+    }
 
     int reconfig_slave(uint16_t slave, int) override {
         this->reconfigured_slaves.push_back(slave);
@@ -364,6 +393,11 @@ public:
     [[nodiscard]] uint16_t slave_ALstatuscode(uint16_t pos) const override {
         if (pos == 0 || pos > this->slave_infos.size()) return 0;
         return this->slave_infos[pos - 1].ALstatuscode;
+    }
+
+    [[nodiscard]] bool slave_hasdc(uint16_t pos) const override {
+        if (pos == 0 || pos > this->slave_infos.size()) return false;
+        return this->slave_infos[pos - 1].hasdc;
     }
 
     [[nodiscard]] bool slave_lost(uint16_t pos) const override {

@@ -12,3 +12,4 @@ export * from "@/schematic/actions.gen";
 export * from "@/schematic/client";
 export * from "@/schematic/symbol";
 export * from "@/schematic/types.gen";
+export { type WhereInput } from "@/schematic/where.gen";

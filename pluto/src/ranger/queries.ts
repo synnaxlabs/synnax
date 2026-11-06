@@ -98,7 +98,8 @@ export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRet
   ranger.Range[]
 >({
   name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query: { keys } }) => await client.ranges.retrieve(keys),
+  retrieve: async ({ client, query: { keys } }) =>
+    await client.ranges.retrieve({ key: keys }),
   onChange: ({ client, query: { keys } }, handler) =>
     client.ranges.onChange(keys, handler),
   getCached: ({ client, query: { keys } }) => client.ranges.getCached(keys),

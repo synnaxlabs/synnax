@@ -107,6 +107,8 @@ class Test:
     ended_at: float | None = None
     # Absolute path to this test's bundle subdirectory under the run dir.
     bundle_dir: str | None = None
+    # Address of the Core the test ran on.
+    core: str | None = None
 
     def __str__(self) -> str:
         """Return display name for test result."""

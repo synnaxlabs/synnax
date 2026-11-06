@@ -13,9 +13,9 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
-from synnax.exceptions import NotFoundError
 from synnax.group.types_gen import Group, RetrieveRequest, RetrieveResponse, Where
 from synnax.ontology.payload import ID, CrudeID
+from synnax.util import one
 from x import filter
 
 
@@ -97,9 +97,7 @@ class Client:
         )
         if not is_single:
             return res.groups
-        if len(res.groups) == 0:
-            raise NotFoundError(f"Group matching {key} not found")
-        return res.groups[0]
+        return one("Group", key, res.groups)
 
     def rename(self, key: UUID, name: str) -> Empty:
         return self._client.send(
