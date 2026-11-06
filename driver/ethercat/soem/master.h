@@ -151,6 +151,11 @@ private:
     /// @brief whether the slave has its AL error flag set and gives an AL status code.
     [[nodiscard]] bool al_error(uint16_t pos) const;
 
+    /// @brief whether the slave refused the state: it stays below the state with an AL
+    /// error. A slave above the state can still show an error from before a request to
+    /// go down.
+    [[nodiscard]] bool refuses(uint16_t pos, uint16_t state) const;
+
     /// @brief transitions all enabled slaves to OP while exchanging process data, so
     /// slaves with a sync manager watchdog see valid outputs.
     x::errors::Error request_operational();
@@ -161,7 +166,8 @@ private:
     void recover(uint16_t pos);
 
     /// @brief builds the error for enabled slaves that did not reach a state. It is a
-    /// refusal when a slave gives an AL status code that is not a timing fault.
+    /// refusal when a slave refuses the state with an AL status code that is not a
+    /// timing fault.
     x::errors::Error state_error(const std::vector<uint16_t> &failed, uint16_t state);
 };
 

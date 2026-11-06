@@ -666,6 +666,20 @@ TEST_F(SOEMMasterTest, DeactivateRequestsInitState) {
     EXPECT_TRUE(found_init);
 }
 
+/// @brief it should wait for INIT when a slave still shows the error flag of a fault in
+/// SAFE-OP after the INIT request.
+TEST_F(SOEMMasterTest, DeactivateWaitsForInitAfterFault) {
+    this->initialize_with_slave();
+    this->activate_master();
+    this->mock->slave_infos[0].state = EC_STATE_SAFE_OP + EC_STATE_ERROR;
+    this->mock->slave_infos[0].ALstatuscode = 0x001B;
+    this->mock->statecheck_pending_polls[EC_STATE_INIT] = 2;
+    this->mock->readstate_count = 0;
+    this->master->deactivate();
+    EXPECT_EQ(this->mock->slave_infos[0].state, EC_STATE_INIT);
+    EXPECT_EQ(this->mock->readstate_count, 3);
+}
+
 TEST_F(SOEMMasterTest, DeactivateNotInitializedIsNoop) {
     this->master->deactivate();
     EXPECT_FALSE(this->mock->close_called);

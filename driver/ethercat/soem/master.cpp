@@ -930,8 +930,8 @@ x::errors::Error Master::request_state(
                 pending.push_back(i);
         if (pending.empty()) return x::errors::NIL;
         std::vector<uint16_t> refused;
-        std::ranges::copy_if(pending, std::back_inserter(refused), [this](auto pos) {
-            return this->al_error(pos);
+        std::ranges::copy_if(pending, std::back_inserter(refused), [&](auto pos) {
+            return this->refuses(pos, state);
         });
         if (!refused.empty()) return this->state_error(refused, state);
         if (std::chrono::steady_clock::now() >= deadline)
@@ -943,6 +943,11 @@ x::errors::Error Master::request_state(
 bool Master::al_error(const uint16_t pos) const {
     return (this->api->slave_state(pos) & EC_STATE_ERROR) != 0 &&
            this->api->slave_ALstatuscode(pos) != 0;
+}
+
+bool Master::refuses(const uint16_t pos, const uint16_t state) const {
+    return this->al_error(pos) &&
+           (this->api->slave_state(pos) & ~EC_STATE_ERROR) < state;
 }
 
 x::errors::Error Master::request_operational() {
@@ -969,7 +974,8 @@ Master::state_error(const std::vector<uint16_t> &failed, const uint16_t state) {
                );
         if (!this->al_error(pos)) continue;
         const auto code = this->api->slave_ALstatuscode(pos);
-        refused |= std::ranges::find(TIMING_FAULTS, code) == TIMING_FAULTS.end();
+        refused |= this->refuses(pos, state) &&
+                   std::ranges::find(TIMING_FAULTS, code) == TIMING_FAULTS.end();
         msg += ": " + std::string(ec_ALstatuscode2string(code));
     }
     return x::errors::Error(
