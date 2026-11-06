@@ -1433,12 +1433,16 @@ var _ = Describe("Writer with no transaction", func() {
 				Ontology: otg,
 				DB:       db,
 			}))
+			roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+			}))
 			rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 				DB:           db,
 				Ontology:     otg,
 				HostProvider: testutil.NewStaticHostProvider(1),
 				Status:       stat,
-				DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
+				DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
 			}))
 			svc := MustOpen(device.OpenService(ctx, device.ServiceConfig{
 				DB:       db,

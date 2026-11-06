@@ -1815,12 +1815,16 @@ var _ = Describe("Writer with no transaction", func() {
 			Ontology: otg,
 			DB:       db,
 		}))
+		roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+		}))
 		racks := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:           db,
 			Ontology:     otg,
 			HostProvider: testutil.NewStaticHostProvider(1),
 			Status:       stat,
-			DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
+			DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
 		}))
 		pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
 		svc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
