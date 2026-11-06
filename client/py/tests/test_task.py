@@ -28,7 +28,6 @@ def _device(rack: int) -> sy.Device:
     )
 
 
-@pytest.mark.task
 def _reply_to_next_command(
     client: sy.Synnax,
     ready: threading.Event,
@@ -55,6 +54,7 @@ def _reply_to_next_command(
         )
 
 
+@pytest.mark.task
 class TestTaskClient:
     def test_create_single(self, client: sy.Synnax) -> None:
         task = client.tasks.create(name="test", type="pagerduty_alert")
