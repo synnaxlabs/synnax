@@ -136,26 +136,31 @@ const StartupParameters = ({
         <Text.Text color={9}>
           The Driver writes these CoE values to the device each time the bus starts.
         </Text.Text>
-        <Input.Table value={rows} onChange={setRows} createRow={createRow}>
-          <Input.TableColumn name="Index" type="string">
+        <Input.Table
+          value={rows}
+          onChange={setRows}
+          createRow={createRow}
+          rowLabel={(i) => (i + 1).toString()}
+          resourceName="parameter"
+        >
+          <Input.TableColumn name="Index" type="string" width={13}>
             {(p) => <Input.Text {...p} placeholder="0x8000" />}
           </Input.TableColumn>
-          <Input.TableColumn name="Subindex" />
-          <Input.TableColumn name="Data type" type="string">
+          <Input.TableColumn name="Subindex" width={14} />
+          <Input.TableColumn name="Data type" type="string" width={20}>
             {({ value, onChange, preview, variant, "aria-label": ariaLabel }) => (
               <Telem.SelectDataType
                 value={value}
                 onChange={onChange}
                 preview={preview}
                 hideDataTypes={HIDDEN_DATA_TYPES}
+                variant="floating"
                 triggerProps={{ "aria-label": ariaLabel, variant }}
               />
             )}
           </Input.TableColumn>
-          <Input.TableColumn name="Value" />
-          <Input.TableColumn name="Name" type="string">
-            {(p) => <Input.Text {...p} placeholder="Filter settings" />}
-          </Input.TableColumn>
+          <Input.TableColumn name="Value" width={16} />
+          <Input.TableColumn name="Name" type="string" />
         </Input.Table>
         {imported != null && <Text.Text color={9}>{imported}</Text.Text>}
         {error != null && <Text.Text status="error">{error}</Text.Text>}
