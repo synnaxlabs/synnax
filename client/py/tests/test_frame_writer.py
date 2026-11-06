@@ -525,27 +525,23 @@ class TestWriter:
                 }
             )
 
-        low = client.open_writer(
+        with client.open_writer(
             start=start,
             channels=indexed_pair,
             authorities=100,
             enable_auto_commit=False,
-        )
-        try:
+        ) as low:
             low.write(frame(1))
             # The acknowledged command orders the write before the next writer opens.
             low.set_authority(100)
-            high = client.open_writer(
+            with client.open_writer(
                 start=start, channels=indexed_pair, authorities=200
-            )
-            assert not low.commit_result().authorized
-            high.close()
+            ):
+                assert not low.commit_result().authorized
             low.write(frame(2))
             granted = low.commit_result()
             assert granted.authorized
             assert granted.end == 2 * sy.TimeSpan.SECOND.nanoseconds + 1
-        finally:
-            low.close()
 
     def test_set_authority(
         self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]

@@ -344,18 +344,24 @@ describe("Writer", () => {
         authorities: 10,
         enableAutoCommit: false,
       });
-      await low.write(frame(5));
-      // The acknowledged command orders the write before the next writer opens.
-      await low.setAuthority(10);
-      const high = await client.openWriter({ start, channels, authorities: 20 });
-      const denied = await low.commitResult();
-      expect(denied.authorized).toBe(false);
-      await high.close();
-      await low.write(frame(6));
-      const granted = await low.commitResult();
-      expect(granted.authorized).toBe(true);
-      expect(granted.end).toEqual(TimeStamp.seconds(6).add(1));
-      await low.close();
+      try {
+        await low.write(frame(5));
+        // The acknowledged command orders the write before the next writer opens.
+        await low.setAuthority(10);
+        const high = await client.openWriter({ start, channels, authorities: 20 });
+        try {
+          const denied = await low.commitResult();
+          expect(denied.authorized).toBe(false);
+        } finally {
+          await high.close();
+        }
+        await low.write(frame(6));
+        const granted = await low.commitResult();
+        expect(granted.authorized).toBe(true);
+        expect(granted.end).toEqual(TimeStamp.seconds(6).add(1));
+      } finally {
+        await low.close();
+      }
     });
 
     test("setAuthority", async () => {
