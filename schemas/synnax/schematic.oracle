@@ -91,7 +91,9 @@ SegmentedEdgeConfig struct {
         @doc value "is the stroke color of the edge."
     }
     stroke_width float64 = 2 {
-        @doc value "is the stroke width of the edge in pixels."
+        @doc value    "is the stroke width of the edge in pixels."
+        @validate max 20
+        @validate min 1
     }
     segments     Segment[]    {
         @doc value """

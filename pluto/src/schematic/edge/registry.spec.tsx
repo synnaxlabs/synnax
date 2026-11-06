@@ -95,6 +95,15 @@ describe("edge registry", () => {
     },
   );
 
+  it.each(VARIANTS)("should reject a %s stroke width out of bounds", (variant) => {
+    const spec = Edge.resolveSpec(variant);
+    [0, -8, 21].forEach((strokeWidth) =>
+      expect(
+        spec.configZ.safeParse({ ...spec.defaultConfig(), strokeWidth }).success,
+      ).toBe(false),
+    );
+  });
+
   it("should keep the jacket clear of a wide core line", () => {
     const paths = (strokeWidth: number) =>
       Array.from(
