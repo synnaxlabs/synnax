@@ -159,14 +159,14 @@ jobs:
       x_py: ${{ steps.filter.outputs.x_py }}
       x_ts: ${{ steps.filter.outputs.x_ts }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: dorny/paths-filter@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4
         id: filter
         with:
           filters: .github/filters.yaml
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.3.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version: latest-known
 
@@ -459,17 +459,17 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install Rust
-        uses: actions-rust-lang/setup-rust-toolchain@v2
+        uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30 # v2
         with:
           cache-workspaces: console/src-tauri -> target
           cache-shared-key: ${{ runner.os }}-desktop-test
           components: llvm-tools-preview
 
       - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@v2
+        uses: taiki-e/install-action@c509219cf42fba86913069efd0ade2458c59337b # v2
         with:
           tool: cargo-llvm-cov
 
@@ -482,7 +482,7 @@ jobs:
         run: cargo llvm-cov --features desktop --lcov --output-path lcov.info
 
       - name: Upload coverage
-        uses: codecov/codecov-action@v7
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7
         env:
           CURL_HOME: ${{ github.workspace }}/.github/codecov
         with:
@@ -572,7 +572,7 @@ jobs:
       core_image: ${{ needs.core-image.outputs.image }}
       sanitizers: false
       targets: //client/cpp/framer:framer_test //driver/ethercat/...
-      test_flags: --config=tsan --run_under="setarch -R"
+      test_flags: --config=tsan-no-aslr
       test_tags: -hardware
     secrets:
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
@@ -603,12 +603,12 @@ jobs:
       GOPROXY: https://proxy.golang.org|direct
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       # The check compiles nothing, and the modules download faster than a cache
       # restores.
       - name: Set up Go
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: x/go/go.mod
           cache: false
@@ -637,10 +637,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.3.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version: latest-known
 
@@ -843,7 +843,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Set up pnpm and Node.js
         uses: ./.github/actions/setup-pnpm
@@ -1059,7 +1059,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Set up pnpm and Node.js
         uses: ./.github/actions/setup-pnpm
@@ -1327,3 +1327,23 @@ jobs:
           jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<< "$RESULTS"
           jq -e '[.[].result] | all(. == "success" or . == "skipped")' \
             <<< "$RESULTS" > /dev/null
+
+  # GitHub sends no event to the default branch for a failed run of a pull request.
+  shepherd:
+    name: Wake the shepherd
+    needs: ok
+    if:
+      ${{ failure() && github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository && github.actor
+      != 'dependabot[bot]' }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Start Agent - Shepherd
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          REF: ${{ github.event.repository.default_branch }}
+        run: gh workflow run agent.shepherd.yaml --ref "$REF" -f pr="$PR"
