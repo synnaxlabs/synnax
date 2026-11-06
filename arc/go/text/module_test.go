@@ -212,9 +212,12 @@ var _ = Describe("Loader", func() {
 				sources["m"] = `export sequence s { stage a { trig -> out8 } }`
 			})
 
-			It("Should activate by the qualified name", func(ctx SpecContext) {
+			It("Should reject a top-level activation", func(ctx SpecContext) {
 				diag := analyze(ctx, "import m\n\ntrig > 0 => m.s")
-				Expect(diag.Ok()).To(BeTrue(), diag.String())
+				Expect(diag.String()).To(ContainSubstring(
+					"'m.s' belongs to an imported module and cannot be activated " +
+						"from the top level yet",
+				))
 			})
 
 			It(
@@ -245,10 +248,16 @@ import m
 
 sequence s { stage a { trig -> out8 } }
 
-trig > 0 => m.s
+sequence main {
+    stage b { trig > 0 => m.s }
+}
 `)
 					Expect(diag.Ok()).To(BeTrue(), diag.String())
 					Expect(findTopLevelScope(i, "s").Activations).To(BeEmpty())
+					main := findTopLevelScope(i, "main")
+					Expect(main.Transitions[0].Target.Variant).To(
+						Equal(ir.ScopeTarget{Key: "m.s"}),
+					)
 				},
 			)
 		})

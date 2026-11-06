@@ -89,9 +89,6 @@ func (f *seqFrame) nextMember() string {
 type shellBuilder struct {
 	stack       []*seqFrame
 	activations map[string][]ir.Activation
-	// imported holds the activation keys of imported scopes. None binds until Phase
-	// 3 compiles module code into the importer.
-	imported set.Set[string]
 	// jumps holds the transitions of the top-level scope being analyzed, so every
 	// jump inside it exits that whole scope. Nil outside a top-level scope.
 	jumps *[]ir.Transition
@@ -143,7 +140,6 @@ func newShellBuilder(
 ) *shellBuilder {
 	return &shellBuilder{
 		activations: map[string][]ir.Activation{},
-		imported:    set.New[string](),
 		synthByAST:  synthByAST,
 		varNodes:    map[*symbol.Symbol]varEntry{},
 	}
@@ -1056,8 +1052,9 @@ func buildVarConstNode(sym *symbol.Symbol, kg *keyGenerator) nodeResult {
 //     directly under the file root). Register a cross-scope activation.
 //  3. Otherwise, X is unreachable — emit a diagnostic.
 //
-// An imported X is keyed by its qualified name, so no local scope binds it. It
-// activates nothing until Phase 3 compiles module code into the importer.
+// An imported X is keyed by its qualified name, so no local scope binds it. Inside
+// a top-level scope the jump survives as a transition. At the top level it is
+// rejected until Phase 3 compiles module scopes into the importer.
 //
 // This rule makes sequences behave as black boxes from the outside: you can
 // jump around inside your own nesting, you can call a top-level neighbor at
@@ -1070,7 +1067,18 @@ func analyzeNamedRef(
 ) (transitionIntent, bool) {
 	if sym.Root() != ctx.Scope.Root() {
 		key := parser.IdentifierName(ctx.AST)
-		shell.imported.Add(key)
+		if shell.jumps == nil {
+			// Phase 3 compiles module scopes into the importer. Until then a
+			// top-level activation has no scope to bind to, so it is rejected
+			// instead of dropped.
+			ctx.Diagnostics.Add(diagnostics.Errorf(
+				ctx.AST,
+				"'%s' belongs to an imported module and cannot be activated from "+
+					"the top level yet",
+				key,
+			))
+			return transitionIntent{}, false
+		}
 		return transitionIntent{activateKey: key}, true
 	}
 	if frame := shell.resolveTargetFrame(sym.Name); frame != nil {
@@ -1633,7 +1641,7 @@ func analyze(
 	// registered activation should bind. If one does not, something upstream
 	// registered an activation without going through analyzeNamedRef.
 	for key := range shell.activations {
-		if !bound.Contains(key) && !shell.imported.Contains(key) {
+		if !bound.Contains(key) {
 			aCtx.Diagnostics.Add(diagnostics.Errorf(
 				t.AST,
 				"internal: activation target '%s' did not bind to any "+
