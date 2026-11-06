@@ -24,7 +24,12 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { type z } from "zod";
 
 import { framer } from "@/framer";
-import { MultipleFoundError, NotFoundError, type Synnax } from "@/index";
+import {
+  MultipleFoundError,
+  NotFoundError,
+  type Synnax,
+  ValidationError,
+} from "@/index";
 import { label } from "@/label";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
@@ -1263,6 +1268,73 @@ describe("write-through", () => {
     await fetchBatch(ranges);
     expect(relationshipFlushes).toBe(1);
     expect(labelFlushes).toBe(1);
+  });
+});
+
+describe("relationship backfill", () => {
+  // Sets a parent relationship to a range the client lacks, so the client fetches it
+  // through retrieveRange.
+  const backfillParent = (retrieveRange: () => Promise<never>) => {
+    let fetched = (): void => {};
+    const fetching = new Promise<void>((resolve) => (fetched = resolve));
+    const unary: UnaryClient = {
+      use: () => {},
+      send: async <RQ extends z.ZodType, RS extends z.ZodType>(
+        target: string,
+        _req: z.input<RQ> | z.infer<RQ>,
+        _reqZ: RQ,
+        resZ: RS,
+      ): Promise<z.infer<RS>> => {
+        if (target !== "/range/retrieve") return resZ.parse({});
+        fetched();
+        return await retrieveRange();
+      },
+    };
+    const onError = vi.fn();
+    const cache = new query.Cache({ openStreamer: null, onError });
+    const ontologyClient = new ontology.Client({ unary, cache });
+    const labels = new label.Client({ unary, cache, ontology: ontologyClient });
+    const coreURL = new url.URL(TEST_CORE_ADDRESS);
+    new ranger.Client({
+      unary,
+      cache,
+      labels,
+      ontology: ontologyClient,
+      framer: new framer.Client({
+        stream: new WebSocketClient(coreURL, binary.JSON_CODEC),
+        unary,
+        file: new HTTPClient(coreURL, binary.JSON_CODEC),
+        retrieveChannels: async () => [],
+      }),
+      channels: async () => [],
+    });
+    const rel: ontology.Relationship = {
+      from: ranger.ontologyID(uuid.create()),
+      type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+      to: ranger.ontologyID(uuid.create()),
+    };
+    ontologyClient.cache.relationships.set(ontology.relationshipToString(rel), rel);
+    return { cache, onError, fetching };
+  };
+
+  it("should report no error when the client closes during a backfill", async () => {
+    const { cache, onError, fetching } = backfillParent(
+      async () => await new Promise(() => {}),
+    );
+    await fetching;
+    await cache.close();
+    // Lets the rejection reach the error handler.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("should report a backfill that fails for another reason", async () => {
+    const err = new ValidationError("bad request");
+    const { cache, onError } = backfillParent(async () => {
+      throw err;
+    });
+    await vi.waitFor(() => expect(onError).toHaveBeenCalledWith(err));
+    await cache.close();
   });
 });
 
