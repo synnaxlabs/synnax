@@ -1061,6 +1061,48 @@ describe("list", () => {
       expect(retrieve.mock.lastCall?.[0].query).not.toHaveProperty("region");
     });
 
+    it("should keep its query when the caller removes the query", async () => {
+      const retrieve = createRetrieve();
+      const { result, rerender } = renderList(createUseList(retrieve), { group: "b" });
+      act(() => result.current.fetchMore());
+      await waitFor(() => expect(result.current.data).toEqual([3, 4]));
+
+      rerender({ query: undefined });
+
+      await expectAlways(() => expect(retrieve).toHaveBeenCalledTimes(1));
+      expect(result.current.data).toEqual([3, 4]);
+    });
+
+    it("should use the new query's search term over the old one", async () => {
+      const retrieve = createRetrieve();
+      const { result, rerender } = renderList(createUseList(retrieve), {
+        searchTerm: "old",
+      });
+      act(() => result.current.fetchMore());
+      await waitFor(() => expect(retrieve).toHaveBeenCalledTimes(1));
+
+      rerender({ query: { searchTerm: "new" } });
+
+      await waitFor(() => expect(retrieve).toHaveBeenCalledTimes(2));
+      expect(retrieve.mock.lastCall?.[0].query).toEqual({
+        searchTerm: "new",
+        offset: 0,
+        limit: 10,
+      });
+    });
+
+    it("should not add a pager to a list that has none", async () => {
+      const retrieve = createRetrieve();
+      const { result, rerender } = renderList(createUseList(retrieve), { group: "a" });
+      act(() => result.current.retrieve((p) => p));
+      await waitFor(() => expect(result.current.data).toEqual([1, 2]));
+
+      rerender({ query: { group: "b" } });
+
+      await waitFor(() => expect(retrieve).toHaveBeenCalledTimes(2));
+      expect(retrieve.mock.lastCall?.[0].query).toEqual({ group: "b" });
+    });
+
     it("should not re-apply an unchanged query over a retrieve's query", async () => {
       const retrieve = createRetrieve();
       const { result, rerender } = renderList(createUseList(retrieve), { group: "a" });

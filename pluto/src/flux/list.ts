@@ -25,6 +25,7 @@ import {
   TimeSpan,
 } from "@synnaxlabs/x";
 import { useEffect, useRef, useSyncExternalStore } from "react";
+import { z } from "zod";
 
 import {
   errorResult,
@@ -114,9 +115,10 @@ export interface UseListParams<
   E extends record.Keyed<K>,
 > {
   /**
-   * The query that retrieves build on. When it changes by deep equality, the list reads
-   * the new query from its first page. Fields it does not name, such as a search term,
-   * stay. A list that has not retrieved waits for its first retrieve.
+   * The query that retrieves build on. When it changes by deep equality, it replaces
+   * the list's query and the list reads it from the first page. Only the search term
+   * and page size of the old query stay, unless the new query names them. A list that
+   * has not retrieved waits for its first retrieve. Removing it changes nothing.
    */
   query?: Query;
   filter?: (item: E) => boolean;
@@ -157,18 +159,19 @@ const chainSetters =
   (prev) =>
     state.executeSetter(second, state.executeSetter(first, prev));
 
-/** @returns the query moved from one caller query to the next, on its first page. */
+const pagerZ = z.object({
+  searchTerm: z.string().optional(),
+  limit: z.number().optional(),
+  offset: z.number().optional(),
+});
+
+/** @returns the new query, with the old query's pager state, on its first page. */
 const rebaseQuery = <Query extends query.Params>(
   current: Query | {},
-  from: Query | undefined,
-  to: Query | undefined,
+  to: Query,
 ): Query => {
-  const prev = current as record.Unknown;
-  const next = { ...prev };
-  Object.keys(from ?? {}).forEach((field) => delete next[field]);
-  Object.assign(next, to);
-  if ("offset" in prev) next.offset = 0;
-  return next as Query;
+  const { offset, ...pager } = pagerZ.parse(current);
+  return Object.assign(pager, to, offset == null ? {} : { offset: 0 });
 };
 
 /** One retrieved page: its query, answer keys, and live subscription. */
@@ -631,15 +634,16 @@ export const createList = <
     };
 
     useEffect(() => {
-      const from = callerQueryRef.current;
-      if (deep.equal(from, callerQuery)) return;
+      if (callerQuery == null || deep.equal(callerQueryRef.current, callerQuery))
+        return;
       callerQueryRef.current = callerQuery;
       callerQueryChangesRef.current += 1;
-      const next = normalized(rebaseQuery(queryRef.current ?? {}, from, callerQuery));
+      const rebase = (current: Query | {}) => rebaseQuery(current, callerQuery);
+      const next = normalized(rebase(queryRef.current ?? {}));
       queryRef.current = next;
       if (retrievedRef.current) {
         recordsStaleRef.current = true;
-        return retrieveSync((current) => current as Query);
+        return retrieveSync(rebase);
       }
       clearPages();
       setResult(loadingResult<Key[]>(`retrieving ${name}`));
