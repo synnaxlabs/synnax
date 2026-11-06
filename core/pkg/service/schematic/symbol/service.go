@@ -131,6 +131,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
+		svc:       s,
 		tx:        tx,
 		otgWriter: s.cfg.Ontology.NewWriter(tx),
 		table:     s.table,

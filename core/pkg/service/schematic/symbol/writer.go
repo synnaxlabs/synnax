@@ -26,14 +26,29 @@ import (
 // method. If no transaction is provided, the writer will execute operations directly
 // on the database.
 type Writer struct {
+	svc       *Service
 	tx        gorp.Tx
 	otgWriter ontology.Writer
 	table     *gorp.Table[Key, Symbol]
 }
 
+// inTx calls f with w, or with a Writer on a transaction of its own when w has no
+// transaction.
+func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
+	db, ok := w.tx.(*gorp.DB)
+	if !ok {
+		return f(w)
+	}
+	return db.WithTx(ctx, func(tx gorp.Tx) error { return f(w.svc.NewWriter(tx)) })
+}
+
 // Create creates the given symbol. If the symbol does not have a key, a new key will be
 // generated. An existing symbol keeps its group, and a new symbol takes s.Group.
 func (w Writer) Create(ctx context.Context, s *Symbol) error {
+	return w.inTx(ctx, func(w Writer) error { return w.create(ctx, s) })
+}
+
+func (w Writer) create(ctx context.Context, s *Symbol) error {
 	s.ApplyDefaults()
 	if err := s.Validate(); err != nil {
 		return err

@@ -11,6 +11,9 @@ package project_test
 
 import (
 	"context"
+	"fmt"
+	"sync"
+	"sync/atomic"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -154,4 +157,98 @@ var _ = Describe("Writer", func() {
 			},
 		)
 	})
+})
+
+var _ = Describe("Writer with no transaction", func() {
+	retrieveGroup := func(ctx context.Context, key project.Key) *group.Key {
+		GinkgoHelper()
+		var res project.Project
+		Expect(svc.NewRetrieve().
+			Where(project.MatchKeys(key)).
+			Entry(&res).
+			Exec(ctx, db)).To(Succeed())
+		return res.Group
+	}
+	createGroup := func(ctx context.Context, g group.Group) group.Group {
+		GinkgoHelper()
+		Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(groupSvc.NewWriter(nil).Delete(ctx, g.Key)).To(Succeed())
+		})
+		return g
+	}
+	createProject := func(ctx context.Context, name string) project.Project {
+		GinkgoHelper()
+		p := project.Project{Name: name}
+		Expect(svc.NewWriter(nil).Create(ctx, &p)).To(Succeed())
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(svc.NewWriter(nil).Delete(ctx, p.Key)).To(Succeed())
+		})
+		return p
+	}
+
+	It(
+		"Should keep the group that a move writes during concurrent creates",
+		func(ctx SpecContext) {
+			groups := make([]group.Group, 50)
+			for i := range groups {
+				groups[i] = createGroup(ctx, group.Group{
+					Name:  fmt.Sprintf("Concurrent %d", i),
+					Scope: resource.TypeProject,
+				})
+			}
+			proj := createProject(ctx, "concurrent")
+			var (
+				wg    sync.WaitGroup
+				moved atomic.Bool
+			)
+			for range 4 {
+				wg.Go(func() {
+					defer GinkgoRecover()
+					for !moved.Load() {
+						again := project.Project{Key: proj.Key, Name: proj.Name}
+						Expect(svc.NewWriter(nil).Create(ctx, &again)).To(Succeed())
+					}
+				})
+			}
+			wg.Go(func() {
+				defer GinkgoRecover()
+				defer moved.Store(true)
+				for _, g := range groups {
+					Expect(svc.NewWriter(nil).SetGroup(ctx, &g.Key, proj.Key)).
+						To(Succeed())
+					Expect(retrieveGroup(ctx, proj.Key)).To(Equal(&g.Key))
+				}
+			})
+			wg.Wait()
+			Expect(retrieveGroup(ctx, proj.Key)).To(Equal(&groups[len(groups)-1].Key))
+		},
+	)
+
+	It(
+		"Should not put a project in a group that moves under a project at once",
+		func(ctx SpecContext) {
+			owner := createProject(ctx, "owner")
+			for range 30 {
+				g := createGroup(ctx, group.Group{
+					Name:  "Moving",
+					Scope: resource.TypeProject,
+				})
+				proj := createProject(ctx, "joining")
+				var (
+					wg               sync.WaitGroup
+					joinErr, moveErr error
+				)
+				wg.Go(func() {
+					joinErr = svc.NewWriter(nil).SetGroup(ctx, &g.Key, proj.Key)
+				})
+				wg.Go(func() {
+					g.Parent = new(owner.ResourceID())
+					moveErr = groupSvc.NewWriter(nil).Create(ctx, &g)
+				})
+				wg.Wait()
+				Expect([]error{joinErr, moveErr}).To(ContainElement(HaveOccurred()))
+			}
+		},
+	)
 })

@@ -187,6 +187,7 @@ func (s *Service) Dispatch(
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
+		svc:        s,
 		tx:         tx,
 		otg:        s.cfg.Ontology.NewWriter(tx),
 		table:      s.table,

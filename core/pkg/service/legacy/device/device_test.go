@@ -11,6 +11,8 @@ package device_test
 
 import (
 	"context"
+	"fmt"
+	"sync"
 	"sync/atomic"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -1388,4 +1390,85 @@ var _ = Describe("Device", func() {
 			},
 		)
 	})
+})
+
+var _ = Describe("Writer with no transaction", func() {
+	It(
+		"Should keep the group that a move writes during concurrent creates",
+		func(ctx SpecContext) {
+			db := DeferClose(gorp.Wrap(memkv.New()))
+			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+			groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+			}))
+			stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+				Ontology: otg,
+				DB:       db,
+			}))
+			rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
+				DB:           db,
+				Ontology:     otg,
+				HostProvider: testutil.NewStaticHostProvider(1),
+				Status:       stat,
+				DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
+			}))
+			svc := MustOpen(device.OpenService(ctx, device.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+				Status:   stat,
+				Rack:     rackSvc,
+			}))
+			groups := make([]group.Group, 50)
+			for i := range groups {
+				groups[i] = group.Group{
+					Name:   fmt.Sprintf("Concurrent %d", i),
+					Parent: new(rackSvc.EmbeddedKey.ResourceID()),
+				}
+				Expect(groupSvc.NewWriter(nil).Create(ctx, &groups[i])).To(Succeed())
+			}
+			d := device.Device{
+				Key:      "concurrent",
+				Rack:     rackSvc.EmbeddedKey,
+				Location: "concurrent",
+				Name:     "concurrent",
+				Make:     "Test Make",
+				Model:    "Test Model",
+			}
+			Expect(svc.NewWriter(nil).Create(ctx, &d)).To(Succeed())
+			retrieveGroup := func() *group.Key {
+				GinkgoHelper()
+				var stored device.Device
+				Expect(svc.NewRetrieve().
+					Where(device.MatchKeys(d.Key)).
+					Entry(&stored).
+					Exec(ctx, nil)).To(Succeed())
+				return stored.Group
+			}
+			var (
+				wg    sync.WaitGroup
+				moved atomic.Bool
+			)
+			for range 4 {
+				wg.Go(func() {
+					defer GinkgoRecover()
+					for !moved.Load() {
+						again := d
+						Expect(svc.NewWriter(nil).Create(ctx, &again)).To(Succeed())
+					}
+				})
+			}
+			wg.Go(func() {
+				defer GinkgoRecover()
+				defer moved.Store(true)
+				for _, g := range groups {
+					Expect(svc.NewWriter(nil).SetGroup(ctx, &g.Key, d.Key)).
+						To(Succeed())
+					Expect(retrieveGroup()).To(Equal(&g.Key))
+				}
+			})
+			wg.Wait()
+			Expect(retrieveGroup()).To(Equal(&groups[len(groups)-1].Key))
+		},
+	)
 })

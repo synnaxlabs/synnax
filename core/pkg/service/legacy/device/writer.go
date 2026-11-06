@@ -27,11 +27,22 @@ import (
 // method. If no transaction is provided, the writer will execute operations directly on
 // the database.
 type Writer struct {
+	svc      *Service
 	tx       gorp.Tx
 	otg      ontology.Writer
 	status   status.Writer
 	statuses *status.Service
 	table    *gorp.Table[Key, Device]
+}
+
+// inTx calls f with w, or with a Writer on a transaction of its own when w has no
+// transaction.
+func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
+	db, ok := w.tx.(*gorp.DB)
+	if !ok {
+		return f(w)
+	}
+	return db.WithTx(ctx, func(tx gorp.Tx) error { return f(w.svc.NewWriter(tx)) })
 }
 
 func resolveStatus(d *Device, provided *Status) *Status {
@@ -91,6 +102,10 @@ func (w Writer) writeStatus(
 // stored status stays, and only a device with no stored status gets the default
 // "unknown" status. Create sets device.Status to the resulting status.
 func (w Writer) Create(ctx context.Context, device *Device) error {
+	return w.inTx(ctx, func(w Writer) error { return w.create(ctx, device) })
+}
+
+func (w Writer) create(ctx context.Context, device *Device) error {
 	if err := device.Validate(); err != nil {
 		return err
 	}

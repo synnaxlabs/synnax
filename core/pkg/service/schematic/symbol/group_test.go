@@ -10,6 +10,9 @@
 package symbol_test
 
 import (
+	"fmt"
+	"sync"
+	"sync/atomic"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -122,4 +125,67 @@ var _ = Describe("RetrieveGroupSymbols", func() {
 		Expect(svc.RetrieveGroupSymbols(ctx, tx, uuid.New())).Error().
 			To(MatchError(query.ErrNotFound))
 	})
+})
+
+var _ = Describe("Writer with no transaction", func() {
+	It(
+		"Should keep the group that a move writes during concurrent creates",
+		func(ctx SpecContext) {
+			groups := make([]group.Group, 50)
+			for i := range groups {
+				groups[i] = group.Group{
+					Name:  fmt.Sprintf("Concurrent %d", i),
+					Scope: resource.TypeSchematicSymbol,
+				}
+				Expect(groupSvc.NewWriter(nil).Create(ctx, &groups[i])).To(Succeed())
+			}
+			DeferCleanup(func(ctx SpecContext) {
+				for _, g := range groups {
+					Expect(groupSvc.NewWriter(nil).Delete(ctx, g.Key)).To(Succeed())
+				}
+			})
+			created := symbol.Symbol{
+				Name: "concurrent",
+				Data: symbol.Spec{SVG: "<svg/>", Variant: "valve"},
+			}
+			Expect(svc.NewWriter(nil).Create(ctx, &created)).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(svc.NewWriter(nil).Delete(ctx, created.Key)).To(Succeed())
+			})
+			retrieveGroup := func() *group.Key {
+				GinkgoHelper()
+				var res symbol.Symbol
+				Expect(svc.NewRetrieve().
+					Where(symbol.MatchKeys(created.Key)).
+					Entry(&res).
+					Exec(ctx, db)).To(Succeed())
+				return res.Group
+			}
+			var (
+				wg    sync.WaitGroup
+				moved atomic.Bool
+			)
+			for range 4 {
+				wg.Go(func() {
+					defer GinkgoRecover()
+					for !moved.Load() {
+						again := created
+						Expect(svc.NewWriter(nil).Create(ctx, &again)).
+							To(Succeed())
+					}
+				})
+			}
+			wg.Go(func() {
+				defer GinkgoRecover()
+				defer moved.Store(true)
+				for _, g := range groups {
+					Expect(svc.NewWriter(nil).SetGroup(ctx, &g.Key, created.Key)).
+						To(Succeed())
+					Expect(retrieveGroup()).To(Equal(&g.Key))
+				}
+			})
+			wg.Wait()
+			Expect(retrieveGroup()).To(Equal(&groups[len(groups)-1].Key))
+		},
+	)
 })

@@ -113,6 +113,7 @@ func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Group]] {
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
+		svc:       s,
 		tx:        gorp.OverrideTx(s.cfg.DB, tx),
 		otgWriter: s.cfg.Ontology.NewWriter(tx),
 		table:     s.table,
@@ -218,15 +219,30 @@ func (s *Service) Close() error {
 }
 
 type Writer struct {
+	svc       *Service
 	tx        gorp.Tx
 	otgWriter ontology.Writer
 	table     *gorp.Table[Key, Group]
+}
+
+// inTx calls f with w, or with a Writer on a transaction of its own when w has no
+// transaction.
+func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
+	db, ok := w.tx.(*gorp.DB)
+	if !ok {
+		return f(w)
+	}
+	return db.WithTx(ctx, func(tx gorp.Tx) error { return f(w.svc.NewWriter(tx)) })
 }
 
 // Create creates g, assigning a new key when g.Key is zero. A group with a parent takes
 // the parent's scope, and a scope that differs from the parent's is a validation error.
 // An existing group with g.Key keeps its scope.
 func (w Writer) Create(ctx context.Context, g *Group) error {
+	return w.inTx(ctx, func(w Writer) error { return w.create(ctx, g) })
+}
+
+func (w Writer) create(ctx context.Context, g *Group) error {
 	if g.Key == uuid.Nil() {
 		g.Key = uuid.New()
 	}

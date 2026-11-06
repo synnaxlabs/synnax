@@ -30,6 +30,7 @@ import (
 // method. If no transaction is provided, the writer will execute operations directly on
 // the database.
 type Writer struct {
+	svc        *Service
 	tx         gorp.Tx
 	otgWriter  ontology.Writer
 	otg        *ontology.Ontology
@@ -44,9 +45,27 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	return w
 }
 
+// inTx calls f with w, or with a Writer on a transaction of its own that keeps the
+// dispatch key of w when w has no transaction.
+func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
+	db, ok := w.tx.(*gorp.DB)
+	if !ok {
+		return f(w)
+	}
+	return db.WithTx(ctx, func(tx gorp.Tx) error {
+		bound := w.svc.NewWriter(tx)
+		bound.dispatcher = w.dispatcher
+		return f(bound)
+	})
+}
+
 // Create creates the given table within the project provided. If the table does not
 // have a key, a new key will be generated. An existing table keeps its group.
 func (w Writer) Create(ctx context.Context, projectKey project.Key, t *Table) error {
+	return w.inTx(ctx, func(w Writer) error { return w.create(ctx, projectKey, t) })
+}
+
+func (w Writer) create(ctx context.Context, projectKey project.Key, t *Table) error {
 	var (
 		exists bool
 		err    error

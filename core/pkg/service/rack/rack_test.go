@@ -1269,3 +1269,94 @@ var _ = Describe("Group", func() {
 		},
 	)
 })
+
+var _ = Describe("Writer with no transaction", func() {
+	var s stack
+	BeforeEach(func(ctx SpecContext) {
+		s = DeferClose(openStack(
+			ctx,
+			DeferClose(gorp.Wrap(memkv.New())),
+			rack.ServiceConfig{},
+		))
+	})
+	createGroup := func(ctx context.Context, g group.Group) group.Group {
+		GinkgoHelper()
+		Expect(s.group.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+		return g
+	}
+	retrieveGroup := func(ctx context.Context, key rack.Key) *group.Key {
+		GinkgoHelper()
+		var r rack.Rack
+		Expect(s.rack.NewRetrieve().
+			Where(rack.MatchKeys(key)).
+			Entry(&r).
+			Exec(ctx, nil)).To(Succeed())
+		return r.Group
+	}
+
+	It(
+		"Should keep the group that a move writes during concurrent creates",
+		func(ctx SpecContext) {
+			groups := make([]group.Group, 50)
+			for i := range groups {
+				groups[i] = createGroup(ctx, group.Group{
+					Name:  fmt.Sprintf("Concurrent %d", i),
+					Scope: resource.TypeDevice,
+				})
+			}
+			r := rack.Rack{Name: "concurrent"}
+			Expect(s.rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+			var (
+				wg    sync.WaitGroup
+				moved atomic.Bool
+			)
+			for range 4 {
+				wg.Go(func() {
+					defer GinkgoRecover()
+					for !moved.Load() {
+						again := rack.Rack{Key: r.Key, Name: r.Name}
+						Expect(s.rack.NewWriter(nil).Create(ctx, &again)).To(Succeed())
+					}
+				})
+			}
+			wg.Go(func() {
+				defer GinkgoRecover()
+				defer moved.Store(true)
+				for _, g := range groups {
+					Expect(s.rack.NewWriter(nil).SetGroup(ctx, &g.Key, r.Key)).
+						To(Succeed())
+					Expect(retrieveGroup(ctx, r.Key)).To(Equal(&g.Key))
+				}
+			})
+			wg.Wait()
+			Expect(retrieveGroup(ctx, r.Key)).To(Equal(&groups[len(groups)-1].Key))
+		},
+	)
+
+	It(
+		"Should not put a rack in a group that moves under another rack at once",
+		func(ctx SpecContext) {
+			for range 30 {
+				g := createGroup(ctx, group.Group{
+					Name:  "Moving",
+					Scope: resource.TypeDevice,
+				})
+				r := rack.Rack{Name: "joining"}
+				Expect(s.rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+				var (
+					wg               sync.WaitGroup
+					joinErr, moveErr error
+				)
+				wg.Go(func() {
+					joinErr = s.rack.NewWriter(nil).SetGroup(ctx, &g.Key, r.Key)
+				})
+				wg.Go(func() {
+					g.Parent = new(s.rack.EmbeddedKey.ResourceID())
+					moveErr = s.group.NewWriter(nil).Create(ctx, &g)
+				})
+				wg.Wait()
+				Expect([]error{joinErr, moveErr}).To(ContainElement(HaveOccurred()))
+			}
+		},
+	)
+})

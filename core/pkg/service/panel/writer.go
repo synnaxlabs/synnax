@@ -23,6 +23,7 @@ import (
 )
 
 type Writer struct {
+	svc        *Service
 	tx         gorp.Tx
 	otg        ontology.Writer
 	table      *gorp.Table[Key, Panel]
@@ -36,13 +37,31 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	return w
 }
 
+// inTx calls f with w, or with a Writer on a transaction of its own that keeps the
+// dispatch key of w when w has no transaction.
+func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
+	db, ok := w.tx.(*gorp.DB)
+	if !ok {
+		return f(w)
+	}
+	return db.WithTx(ctx, func(tx gorp.Tx) error {
+		bound := w.svc.NewWriter(tx)
+		bound.dispatcher = w.dispatcher
+		return f(bound)
+	})
+}
+
 // Create creates a new panel. If the panel's key is uuid.Nil(), a new key is generated.
 // An existing panel keeps its group. The panel is registered with the ontology.
 //
 // Set p.Parent to attach the panel to a parent resource in the ontology; when nil or
 // zero, the panel has no parent. Parent is not persisted on the record; parenthood
 // lives in the ontology graph.
-func (w Writer) Create(
+func (w Writer) Create(ctx context.Context, p *Panel) error {
+	return w.inTx(ctx, func(w Writer) error { return w.create(ctx, p) })
+}
+
+func (w Writer) create(
 	ctx context.Context,
 	p *Panel,
 ) (err error) {

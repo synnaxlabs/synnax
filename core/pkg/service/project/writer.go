@@ -23,14 +23,29 @@ import (
 )
 
 type Writer struct {
+	svc   *Service
 	tx    gorp.Tx
 	otg   ontology.Writer
 	table *gorp.Table[Key, Project]
 }
 
+// inTx calls f with w, or with a Writer on a transaction of its own when w has no
+// transaction.
+func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
+	db, ok := w.tx.(*gorp.DB)
+	if !ok {
+		return f(w)
+	}
+	return db.WithTx(ctx, func(tx gorp.Tx) error { return f(w.svc.NewWriter(tx)) })
+}
+
 // Create creates p, or updates the stored project with p.Key. An existing project keeps
 // its group.
-func (w Writer) Create(
+func (w Writer) Create(ctx context.Context, p *Project) error {
+	return w.inTx(ctx, func(w Writer) error { return w.create(ctx, p) })
+}
+
+func (w Writer) create(
 	ctx context.Context,
 	p *Project,
 ) (err error) {
@@ -72,10 +87,18 @@ func (w Writer) Create(
 
 // SetGroup moves the projects with keys into g, or out of their group when g is nil.
 func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
-	if err := group.CheckMember(ctx, w.tx, g, resource.TypeProject, nil); err != nil {
-		return err
-	}
-	return setGroup(w.table, g, keys...).Exec(ctx, w.tx)
+	return w.inTx(ctx, func(w Writer) error {
+		if err := group.CheckMember(
+			ctx,
+			w.tx,
+			g,
+			resource.TypeProject,
+			nil,
+		); err != nil {
+			return err
+		}
+		return setGroup(w.table, g, keys...).Exec(ctx, w.tx)
+	})
 }
 
 // CreateMany creates the given projects. If projects with the same key already

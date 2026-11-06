@@ -252,6 +252,7 @@ func (s *Service) Close() error { return s.closer.Close() }
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	tx = gorp.OverrideTx(s.DB, tx)
 	return Writer{
+		svc:        s,
 		tx:         tx,
 		otg:        s.Ontology.NewWriter(tx),
 		newKey:     s.newKey,
