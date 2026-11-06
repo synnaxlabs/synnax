@@ -25,7 +25,10 @@ import (
 )
 
 var _ = Describe("Migration", func() {
-	localFormat := v3.TimestampConfig{TimeZone: telem.TimeZoneLocal}
+	defaulted := func(e v3.ChannelEntry) v3.ChannelEntry {
+		e.ApplyDefaults()
+		return e
+	}
 
 	DescribeTable("Should map the v2 tz to time_zone",
 		func(ctx SpecContext, tz, expected telem.TimeZone) {
@@ -56,6 +59,11 @@ var _ = Describe("Migration", func() {
 		Entry("Should keep a set precision", int32(4), new(uint8(4))),
 		Entry("Should clamp a precision past the maximum", int32(40), new(uint8(17))),
 	)
+
+	It("Should fill empty display fields with their defaults", func(ctx SpecContext) {
+		got := MustSucceed(v3.MigrateChannelEntry(ctx, v2.ChannelEntry{Channel: 1}))
+		Expect(got.Validate()).To(Succeed())
+	})
 
 	It("Should keep an alias of 64 characters", func(ctx SpecContext) {
 		old := v2.ChannelEntry{Alias: strings.Repeat("😀", 64)}
@@ -89,8 +97,8 @@ var _ = Describe("Migration", func() {
 		got := MustSucceed(v3.MigrateLog(ctx, old))
 		Expect(got.Name).To(Equal("log"))
 		Expect(got.Channels).To(Equal([]v3.ChannelEntry{
-			{Channel: 1, ValueFormat: localFormat},
-			{Channel: 2, Precision: new(uint8(5)), ValueFormat: localFormat},
+			defaulted(v3.ChannelEntry{Channel: 1}),
+			defaulted(v3.ChannelEntry{Channel: 2, Precision: new(uint8(5))}),
 		}))
 	})
 
@@ -106,8 +114,8 @@ var _ = Describe("Migration", func() {
 			},
 		}))
 		Expect(got.Channels).To(Equal([]v3.ChannelEntry{
-			{Channel: 1, Alias: "first", ValueFormat: localFormat},
-			{Channel: 2, ValueFormat: localFormat},
+			defaulted(v3.ChannelEntry{Channel: 1, Alias: "first"}),
+			defaulted(v3.ChannelEntry{Channel: 2}),
 		}))
 	})
 
@@ -160,7 +168,7 @@ var _ = Describe("Migration", func() {
 					TimeZone: telem.TimeZoneUTC,
 				},
 			},
-			{Channel: 8, Precision: new(uint8(3)), ValueFormat: localFormat},
+			defaulted(v3.ChannelEntry{Channel: 8, Precision: new(uint8(3))}),
 		}))
 	})
 })
