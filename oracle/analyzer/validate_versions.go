@@ -46,15 +46,7 @@ func validateNoVersionFileActions(c *analysisCtx) {
 		return
 	}
 	for _, def := range c.ast.AllDefinition() {
-		sd := def.StructDef()
-		if sd == nil {
-			continue
-		}
-		full, ok := sd.(*parser.StructFullContext)
-		if !ok || full.StructBody() == nil {
-			continue
-		}
-		for _, ad := range full.StructBody().AllActionDef() {
+		for _, ad := range actionDefs(def) {
 			c.report(diagnostics.Errorf(ad,
 				"actions are live-owned; declare %q in the live schema, not a "+
 					"version file",
@@ -62,4 +54,15 @@ func validateNoVersionFileActions(c *analysisCtx) {
 			))
 		}
 	}
+}
+
+func actionDefs(def parser.IDefinitionContext) []parser.IActionDefContext {
+	if ud := def.UnionDef(); ud != nil && ud.UnionBody() != nil {
+		return ud.UnionBody().AllActionDef()
+	}
+	if full, ok := def.StructDef().(*parser.StructFullContext); ok &&
+		full.StructBody() != nil {
+		return full.StructBody().AllActionDef()
+	}
+	return nil
 }

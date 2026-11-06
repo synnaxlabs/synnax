@@ -19,8 +19,14 @@ export const stringZ = z.strictObject({
   eq: z.string().optional(),
   /** in matches a value equal to an element of in. */
   in: zod.nullToUndefined(z.string().array()),
-  /** regex matches a value that the RE2 pattern regex matches. */
+  /** contains matches a value that holds contains. */
+  contains: z.string().optional(),
+  /** startsWith matches a value that begins with starts_with. */
+  startsWith: z.string().optional(),
+  /** regex matches a value that the unanchored RE2 pattern regex matches. */
   regex: z.string().optional(),
+  /** caseInsensitive makes every operator on the slot ignore case. */
+  caseInsensitive: z.boolean().optional(),
 });
 export interface String extends z.infer<typeof stringZ> {}
 

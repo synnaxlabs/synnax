@@ -65,6 +65,20 @@ var _ = Describe("Writer", func() {
 			Entry("above maximum", uint8(18), "channels.0.precision: must be less"),
 		)
 
+		It("Should keep a channel precision of 0", func(ctx SpecContext) {
+			l := log.Log{
+				Name:     "test",
+				Channels: []log.ChannelEntry{{Channel: 5, Precision: new(uint8(0))}},
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
+			var res log.Log
+			Expect(svc.NewRetrieve().
+				Where(log.MatchKeys(l.Key)).
+				Entry(&res).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res.Channels[0].Precision).To(HaveValue(BeZero()))
+		})
+
 		It(
 			"Should establish a ParentOf relationship to the project",
 			func(ctx SpecContext) {

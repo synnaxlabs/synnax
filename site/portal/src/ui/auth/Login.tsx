@@ -175,9 +175,10 @@ export const Login = ({ target, invited }: LoginProps): ReactElement => {
           padHelpText={false}
           inputProps={{
             type: "email",
-            autoComplete: "email",
+            autoComplete: "username",
             autoFocus: invited == null,
-            disabled: invited != null,
+            // Password managers skip a disabled field.
+            readOnly: invited != null,
           }}
         />
         <Form.TextField

@@ -9,6 +9,7 @@
 
 import "schemas/synnax/ranger"
 import "schemas/synnax/status"
+import "schemas/x/filter"
 
 @go output "core/pkg/service/view"
 @py output "client/py/synnax/view"
@@ -18,7 +19,14 @@ Key = uuid {
     @doc value "is a unique identifier for a saved view configuration."
 }
 
-View union on type extends Base {
+Type enum {
+    range  = "range"
+    status = "status"
+
+    @doc value "names the resource that a view lists."
+}
+
+View union on type Type extends Base {
     range {
         where ranger.Where? {
             @doc value "selects the ranges the view shows. An absent where shows all."
@@ -35,14 +43,14 @@ View union on type extends Base {
     }
 
     @create
-    @doc value       """
+    @doc value     """
         is a saved, named filter over a list of resources. The type selects the resource
         the view lists and the shape of its where.
     """
     @go marshal
     @go migrate
-    @ontology type   "view"
-    @retrieve custom
+    @ontology type "view"
+    @retrieve
 }
 
 Base struct {
@@ -52,9 +60,19 @@ Base struct {
     }
     name string {
         @doc value         "is a human-readable name for the view."
+        @search
         @validate required
     }
 
     @doc value  "carries the fields shared by every view variant."
     @go marshal
+}
+
+Where filter View {
+    key
+    name
+    type
+
+    @doc value         "is a filter that selects views."
+    @go request_output "core/pkg/api/view"
 }

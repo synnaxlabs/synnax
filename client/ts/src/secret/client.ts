@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, primitive } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { NotFoundError } from "@/errors";
@@ -20,10 +20,14 @@ import {
   type Key,
   keyZ,
   ontologyID,
+  type RetrieveRequest,
+  retrieveRequestZ,
+  retrieveResponseZ,
   type Secret,
   secretZ,
   storedSecretZ,
 } from "@/secret/types.gen";
+import { matches, retrieveInputZ, serverComputed } from "@/secret/where.gen";
 
 export const SET_CHANNEL_NAME = "sy_secret_set";
 export const DELETE_CHANNEL_NAME = "sy_secret_delete";
@@ -54,14 +58,11 @@ const grantCreateReqZ = z.object({ subject: ontology.idZ, secrets: keyZ.array() 
 export interface GrantParams extends z.input<typeof grantCreateReqZ> {}
 const grantCreateResZ = z.object({ grant: grantKeyZ });
 
-const retrieveRequestZ = z.object({
-  keys: keyZ.array().optional(),
-  searchTerm: z.string().optional(),
-  offset: z.number().optional(),
-  limit: z.number().optional(),
-  includeUses: z.boolean().optional(),
-});
-const retrieveMultiParamsZ = retrieveRequestZ.or(query.keyListZ(keyZ));
+const retrieveMultiParamsZ = z.union([
+  query.keysRequestZ(keyZ),
+  retrieveRequestZ,
+  retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+]);
 
 export type RetrieveSingleParams = {
   key: Key;
@@ -70,9 +71,7 @@ export type RetrieveSingleParams = {
    */
   includeUses?: boolean;
 };
-export interface RetrieveMultipleParams extends z.input<typeof retrieveRequestZ> {}
-
-interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
+export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 
 /** Drops includeUses when unset so equivalent queries hash identically. */
 const normalizeSingle = ({
@@ -88,8 +87,6 @@ const singleQueryZ = z
   ])
   .transform(normalizeSingle);
 
-const retrieveResponseZ = z.object({ secrets: secretZ.array().default(() => []) });
-
 /** Query fields only the server can evaluate. */
 const SERVER_FIELDS = ["searchTerm", "limit", "offset", "includeUses"] as const;
 
@@ -97,11 +94,6 @@ const SERVER_FIELDS = ["searchTerm", "limit", "offset", "includeUses"] as const;
 type Uses = Pick<Base, "key" | "uses">;
 
 const stripUses = ({ uses: _, ...secret }: Secret): Secret => secret;
-
-const requestFilter = (req: RetrieveRequest): ((s: Secret) => boolean) => {
-  const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
-  return (s) => keySet == null || keySet.has(s.key);
-};
 
 export interface ClientConfig {
   unary: UnaryClient;
@@ -125,7 +117,7 @@ export class Client extends query.Retriever<
     const { cache } = cfg;
     const store = cache.createTable<Key, Secret>({
       name: "secrets",
-      fetch: async (keys) => await this.execRetrieve({ keys }),
+      fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
       listen: [
         query.createSetListener(SET_CHANNEL_NAME, secretZ),
         query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
@@ -155,7 +147,8 @@ export class Client extends query.Retriever<
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.fetchThrough(req),
-        matches: (secret, req) => requestFilter(req)(secret),
+        matches: (secret, req) => matches(secret, req.where),
+        serverComputed: (req) => serverComputed(req.where),
         serverFields: SERVER_FIELDS,
         watch: [usesWatch],
       },
@@ -274,7 +267,12 @@ export class Client extends query.Retriever<
   private async fetchSingle({ key, includeUses }: RetrieveSingleParams): Promise<Key> {
     if (includeUses === true) {
       const since = this.store.stamp();
-      const secrets = await this.fetchThrough({ keys: [key], includeUses });
+      const secrets = await this.fetchThrough({
+        where: { key: { eq: key } },
+        includeUses,
+      });
+      if (secrets.length === 0)
+        throw new NotFoundError(`secret with key ${key} not found`);
       this.store.ingest(secrets, { since });
       return key;
     }
@@ -283,10 +281,10 @@ export class Client extends query.Retriever<
     return key;
   }
 
-  private async execRetrieve(params: RetrieveMultipleParams): Promise<Secret[]> {
+  private async execRetrieve(req: RetrieveRequest): Promise<Secret[]> {
     const res = await this.cfg.unary.send(
       "/secret/retrieve",
-      params,
+      req,
       retrieveRequestZ,
       retrieveResponseZ,
     );
