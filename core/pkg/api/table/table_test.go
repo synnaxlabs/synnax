@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -40,10 +40,10 @@ var _ = Describe("Create", func() {
 	})
 })
 
-// createProjectGroup creates a project group with no top parent.
-func createProjectGroup(ctx SpecContext, name string) group.Group {
+// createGroup creates a group in the suite project.
+func createGroup(ctx SpecContext, name string) group.Group {
 	GinkgoHelper()
-	g := group.Group{Name: name, Scope: resource.TypeProject}
+	g := group.Group{Name: name, Parent: new(project.ResourceID(proj.Key))}
 	Expect(svc.Group.NewWriter(nil).Create(ctx, &g)).To(Succeed())
 	return g
 }
@@ -71,7 +71,7 @@ var _ = Describe("SetGroup", func() {
 		func(ctx SpecContext) {
 			u := newCreator(ctx)
 			t := createTable(ctx, "Set group denied")
-			g := createProjectGroup(ctx, "Set group denied")
+			g := createGroup(ctx, "Set group denied")
 			grant(ctx, access.ActionUpdate, u.ResourceID(), table.ResourceID(t.Key))
 			Expect(apiSvc.SetGroup(
 				AuthedCtx(ctx, u), nil,
@@ -85,7 +85,7 @@ var _ = Describe("SetGroup", func() {
 		func(ctx SpecContext) {
 			u := newCreator(ctx)
 			t := createTable(ctx, "Set group granted")
-			g := createProjectGroup(ctx, "Set group granted")
+			g := createGroup(ctx, "Set group granted")
 			grant(
 				ctx,
 				access.ActionUpdate,
@@ -107,7 +107,7 @@ var _ = Describe("Create in a group", func() {
 		"Should refuse the create without update on the group",
 		func(ctx SpecContext) {
 			u := newCreator(ctx)
-			g := createProjectGroup(ctx, "Create denied")
+			g := createGroup(ctx, "Create denied")
 			Expect(apiSvc.Create(AuthedCtx(ctx, u), nil, apitable.CreateRequest{
 				Tables: []table.Table{
 					{Project: &proj.Key, Name: "Denied", Group: &g.Key},
@@ -117,7 +117,7 @@ var _ = Describe("Create in a group", func() {
 	)
 	It("Should create the table with update on the group", func(ctx SpecContext) {
 		u := newCreator(ctx)
-		g := createProjectGroup(ctx, "Create granted")
+		g := createGroup(ctx, "Create granted")
 		grant(ctx, access.ActionUpdate, u.ResourceID(), g.ResourceID())
 		res := MustSucceed(apiSvc.Create(AuthedCtx(ctx, u), nil, apitable.CreateRequest{
 			Tables: []table.Table{{Project: &proj.Key, Name: "Granted", Group: &g.Key}},

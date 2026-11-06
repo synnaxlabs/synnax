@@ -25,13 +25,19 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
+	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
+	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
+	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	panelversions "github.com/synnaxlabs/synnax/pkg/service/panel/versions"
 	panelv0 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	projectv0 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v0"
 	rangerv0 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic"
+	"github.com/synnaxlabs/synnax/pkg/service/table"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	taskv0 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v0"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
@@ -218,6 +224,10 @@ var _ = Describe("Layer", func() {
 			}
 			Expect(gorp.WrapWriter[projectv0.Key, projectv0.Workspace](db).
 				Set(ctx, ws)).To(Succeed())
+			Expect(gorp.WrapWriter[string, ontology.Resource](db).Set(
+				ctx,
+				ontology.Resource{ID: resource.ID{Type: "workspace", Key: ws.Key.String()}},
+			)).To(Succeed())
 
 			MustOpen(svctestutil.OpenLayer(ctx, node))
 
@@ -290,6 +300,86 @@ var _ = Describe("Layer", func() {
 			w := layer.Group.NewWriter(nil)
 			Expect(w.Create(ctx, &g)).To(Succeed())
 			Expect(w.Delete(ctx, g.Key)).To(Succeed())
+		},
+	)
+})
+
+var _ = Describe("Group moves", Ordered, func() {
+	var (
+		l      *service.Layer
+		src    project.Project
+		dest   project.Project
+		g      group.Group
+		owners func(ctx SpecContext) []*project.Key
+	)
+
+	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
+		l = MustOpen(svctestutil.OpenLayer(ctx, testutil.NewNode(ctx)))
+		src = project.Project{Name: "Source"}
+		Expect(l.Project.NewWriter(nil).Create(ctx, &src)).To(Succeed())
+		dest = project.Project{Name: "Destination"}
+		Expect(l.Project.NewWriter(nil).Create(ctx, &dest)).To(Succeed())
+		g = group.Group{Name: "Moved", Parent: new(project.ResourceID(src.Key))}
+		Expect(l.Group.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+		sch := schematic.Schematic{Name: "Schematic", Group: &g.Key}
+		Expect(l.Schematic.NewWriter(nil).Create(ctx, &sch)).To(Succeed())
+		lp := lineplot.LinePlot{Name: "Plot", Group: &g.Key}
+		Expect(l.LinePlot.NewWriter(nil).Create(ctx, &lp)).To(Succeed())
+		lg := log.Log{Name: "Log", Group: &g.Key}
+		Expect(l.Log.NewWriter(nil).Create(ctx, &lg)).To(Succeed())
+		tb := table.Table{Name: "Table", Group: &g.Key}
+		Expect(l.Table.NewWriter(nil).Create(ctx, &tb)).To(Succeed())
+		pn := panel.Panel{Name: "Panel", Group: &g.Key}
+		Expect(l.Panel.NewWriter(nil).Create(ctx, &pn)).To(Succeed())
+		owners = func(ctx SpecContext) []*project.Key {
+			GinkgoHelper()
+			Expect(l.Schematic.NewRetrieve().
+				Where(schematic.MatchKeys(sch.Key)).Entry(&sch).Exec(ctx, nil)).
+				To(Succeed())
+			Expect(l.LinePlot.NewRetrieve().
+				Where(lineplot.MatchKeys(lp.Key)).Entry(&lp).Exec(ctx, nil)).
+				To(Succeed())
+			Expect(l.Log.NewRetrieve().
+				Where(log.MatchKeys(lg.Key)).Entry(&lg).Exec(ctx, nil)).
+				To(Succeed())
+			Expect(l.Table.NewRetrieve().
+				Where(table.MatchKeys(tb.Key)).Entry(&tb).Exec(ctx, nil)).
+				To(Succeed())
+			Expect(l.Panel.NewRetrieve().
+				Where(panel.MatchKeys(pn.Key)).Entry(&pn).Exec(ctx, nil)).
+				To(Succeed())
+			return []*project.Key{
+				sch.Project,
+				lp.Project,
+				lg.Project,
+				tb.Project,
+				pn.Project,
+			}
+		}
+	})
+
+	It(
+		"Should create each visualization in the project of its group",
+		func(ctx SpecContext) { Expect(owners(ctx)).To(HaveEach(Equal(&src.Key))) },
+	)
+
+	It(
+		"Should move the visualizations of a group into the project it moves under",
+		func(ctx SpecContext) {
+			Expect(l.Group.NewWriter(nil).
+				SetParent(ctx, new(project.ResourceID(dest.Key)), g.Key)).To(Succeed())
+			Expect(owners(ctx)).To(HaveEach(Equal(&dest.Key)))
+		},
+	)
+
+	It(
+		"Should reject a move of a group that holds visualizations to the top level",
+		func(ctx SpecContext) {
+			Expect(l.Group.NewWriter(nil).SetParent(ctx, nil, g.Key)).To(MatchError(
+				"group: a schematic sits only in a group under a project: validation error",
+			))
+			Expect(owners(ctx)).To(HaveEach(Equal(&dest.Key)))
 		},
 	)
 })

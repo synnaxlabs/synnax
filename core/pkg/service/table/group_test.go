@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
 	. "github.com/synnaxlabs/x/testutil"
@@ -31,21 +32,31 @@ var _ = Describe("SetGroup", func() {
 		other  table.Table
 	)
 	BeforeEach(func(ctx SpecContext) {
-		g = group.Group{Name: "grouped", Scope: resource.TypeProject}
+		g = group.Group{Name: "grouped", Parent: new(project.ResourceID(proj.Key))}
 		Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
 		target = table.Table{Name: "target", Project: &proj.Key}
 		Expect(svc.NewWriter(nil).Create(ctx, &target)).To(Succeed())
 		other = table.Table{Name: "other", Project: &proj.Key}
 		Expect(svc.NewWriter(nil).Create(ctx, &other)).To(Succeed())
 	})
-	retrieveGroup := func(ctx SpecContext, key table.Key) *group.Key {
+	retrieve := func(ctx SpecContext, key table.Key) table.Table {
 		GinkgoHelper()
 		var res table.Table
 		Expect(svc.NewRetrieve().
 			Where(table.MatchKeys(key)).
 			Entry(&res).
 			Exec(ctx, db)).To(Succeed())
-		return res.Group
+		return res
+	}
+	retrieveGroup := func(ctx SpecContext, key table.Key) *group.Key {
+		GinkgoHelper()
+		return retrieve(ctx, key).Group
+	}
+	createProject := func(ctx SpecContext) project.Project {
+		GinkgoHelper()
+		p := project.Project{Name: "destination"}
+		Expect(projectSvc.NewWriter(nil).Create(ctx, &p)).To(Succeed())
+		return p
 	}
 
 	It(
@@ -86,6 +97,72 @@ var _ = Describe("SetGroup", func() {
 				Exec(ctx, db)).To(Succeed())
 			Expect(ungrouped).To(HaveLen(1))
 			Expect(ungrouped[0].Key).To(Equal(other.Key))
+		},
+	)
+
+	It(
+		"Should move a table into the project that holds the group",
+		func(ctx SpecContext) {
+			dest := createProject(ctx)
+			inDest := group.Group{
+				Name:   "in destination",
+				Parent: new(project.ResourceID(dest.Key)),
+			}
+			Expect(groupSvc.NewWriter(nil).Create(ctx, &inDest)).To(Succeed())
+			Expect(svc.NewWriter(nil).SetGroup(ctx, &inDest.Key, target.Key)).
+				To(Succeed())
+			res := retrieve(ctx, target.Key)
+			Expect(res.Group).To(Equal(&inDest.Key))
+			Expect(res.Project).To(Equal(&dest.Key))
+		},
+	)
+
+	It("Should reject a group under no project", func(ctx SpecContext) {
+		top := group.Group{Name: "top", Scope: resource.TypeProject}
+		Expect(groupSvc.NewWriter(nil).Create(ctx, &top)).To(Succeed())
+		Expect(svc.NewWriter(nil).SetGroup(ctx, &top.Key, target.Key)).To(MatchError(
+			"group: a table sits only in a group under a project: validation error",
+		))
+		Expect(retrieveGroup(ctx, target.Key)).To(BeNil())
+	})
+
+	It(
+		"Should move a table out of its group when it moves into a project",
+		func(ctx SpecContext) {
+			Expect(svc.NewWriter(nil).SetGroup(ctx, &g.Key, target.Key)).To(Succeed())
+			dest := createProject(ctx)
+			Expect(svc.NewWriter(nil).SetProject(ctx, dest.Key, target.Key)).
+				To(Succeed())
+			res := retrieve(ctx, target.Key)
+			Expect(res.Group).To(BeNil())
+			Expect(res.Project).To(Equal(&dest.Key))
+		},
+	)
+
+	It(
+		"Should move the tables in a group into the project the group moves under",
+		func(ctx SpecContext) {
+			Expect(svc.NewWriter(nil).SetGroup(ctx, &g.Key, target.Key)).To(Succeed())
+			dest := createProject(ctx)
+			Expect(svc.MoveGroups(
+				ctx,
+				db,
+				[]group.Key{g.Key},
+				new(project.ResourceID(dest.Key)),
+			)).To(Succeed())
+			res := retrieve(ctx, target.Key)
+			Expect(res.Group).To(Equal(&g.Key))
+			Expect(res.Project).To(Equal(&dest.Key))
+		},
+	)
+
+	It(
+		"Should reject a group move that leaves a table under no project",
+		func(ctx SpecContext) {
+			Expect(svc.NewWriter(nil).SetGroup(ctx, &g.Key, target.Key)).To(Succeed())
+			Expect(svc.MoveGroups(ctx, db, []group.Key{g.Key}, nil)).To(MatchError(
+				"group: a table sits only in a group under a project: validation error",
+			))
 		},
 	)
 

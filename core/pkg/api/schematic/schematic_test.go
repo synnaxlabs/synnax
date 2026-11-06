@@ -387,10 +387,10 @@ var _ = Describe("Service", func() {
 	})
 })
 
-// createProjectGroup creates a project group with no top parent.
-func createProjectGroup(ctx SpecContext, name string) group.Group {
+// createGroup creates a group in the suite project.
+func createGroup(ctx SpecContext, name string) group.Group {
 	GinkgoHelper()
-	g := group.Group{Name: name, Scope: resource.TypeProject}
+	g := group.Group{Name: name, Parent: new(project.ResourceID(proj.Key))}
 	Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
 	return g
 }
@@ -410,7 +410,7 @@ var _ = Describe("SetGroup", func() {
 		"Should refuse the move without update on the destination group",
 		func(ctx SpecContext) {
 			s := createSchematic(ctx, "Set group denied")
-			g := createProjectGroup(ctx, "Set group denied")
+			g := createGroup(ctx, "Set group denied")
 			grantUpdateOn(ctx, author.ResourceID(), schematic.ResourceID(s.Key))
 			Expect(apiSvc.SetGroup(
 				AuthedCtx(ctx, author),
@@ -427,7 +427,7 @@ var _ = Describe("SetGroup", func() {
 		"Should move the schematic with update on the destination group",
 		func(ctx SpecContext) {
 			s := createSchematic(ctx, "Set group granted")
-			g := createProjectGroup(ctx, "Set group granted")
+			g := createGroup(ctx, "Set group granted")
 			grantUpdateOn(
 				ctx,
 				author.ResourceID(),
@@ -459,7 +459,7 @@ var _ = Describe("Create in a group", func() {
 	It(
 		"Should refuse the create without update on the group",
 		func(ctx SpecContext) {
-			g := createProjectGroup(ctx, "Create denied")
+			g := createGroup(ctx, "Create denied")
 			Expect(apiSvc.Create(
 				AuthedCtx(ctx, author), db,
 				apischematic.CreateRequest{
@@ -473,10 +473,10 @@ var _ = Describe("Create in a group", func() {
 	It(
 		"Should keep an existing schematic in its group without update on a group",
 		func(ctx SpecContext) {
-			g := createProjectGroup(ctx, "Create keeps group")
+			g := createGroup(ctx, "Create keeps group")
 			sc := schematic.Schematic{Project: &proj.Key, Name: "Kept", Group: &g.Key}
 			Expect(schematicSvc.NewWriter(nil).Create(ctx, &sc)).To(Succeed())
-			ignored := createProjectGroup(ctx, "Create ignores group")
+			ignored := createGroup(ctx, "Create ignores group")
 			sc.Name, sc.Group = "Renamed", &ignored.Key
 			Expect(apiSvc.Create(
 				AuthedCtx(ctx, author), db,
@@ -490,7 +490,7 @@ var _ = Describe("Create in a group", func() {
 		},
 	)
 	It("Should create the schematic with update on the group", func(ctx SpecContext) {
-		g := createProjectGroup(ctx, "Create granted")
+		g := createGroup(ctx, "Create granted")
 		grantUpdateOn(ctx, author.ResourceID(), g.ResourceID())
 		res := MustSucceed(apiSvc.Create(
 			AuthedCtx(ctx, author), db,

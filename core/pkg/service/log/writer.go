@@ -58,7 +58,7 @@ func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
 
 // Create creates the given log, assigning a new key when l.Key is zero. The log must
 // belong to exactly one of a project and a range. An existing log keeps its group,
-// project, and range.
+// project, and range. A new log in a group belongs to the project that holds the group.
 func (w Writer) Create(ctx context.Context, l *Log) error {
 	return w.inTx(ctx, func(w Writer) error { return w.create(ctx, l) })
 }
@@ -83,16 +83,12 @@ func (w Writer) create(ctx context.Context, l *Log) error {
 			l.Group, l.Project, l.Range = stored.Group, stored.Project, stored.Range
 		}
 	}
-	if !exists {
-		if err = group.CheckMember(
-			ctx,
-			w.tx,
-			l.Group,
-			resource.TypeLog,
-			nil,
-		); err != nil {
+	if !exists && l.Group != nil {
+		proj, err := project.GroupProject(ctx, w.tx, l.Group, resource.TypeLog)
+		if err != nil {
 			return err
 		}
+		l.Project = proj
 	}
 	l.ApplyDefaults()
 	if err = l.Validate(); err != nil {
@@ -119,38 +115,50 @@ func (w Writer) create(ctx context.Context, l *Log) error {
 	return nil
 }
 
-// SetGroup moves the logs with keys into g, or out of their group when g is nil.
+// SetGroup moves the logs with keys into g, or out of their group when g is nil. A log
+// in a group belongs to the project that holds the group.
 func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
-	if err := group.CheckMember(ctx, w.tx, g, resource.TypeLog, nil); err != nil {
+	p, err := project.GroupProject(ctx, w.tx, g, resource.TypeLog)
+	if err != nil {
 		return err
 	}
-	if err := setGroup(w.table, g, keys...).Exec(ctx, w.tx); err != nil {
+	if err = setGroup(w.table, g, keys...).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	for _, k := range keys {
-		w.dispatcher.NotifyOnCommit(
-			ctx,
-			w.tx,
-			k,
-			NewSetGroupAction(SetGroupPayload{Group: g}),
-		)
+	w.notifyGroup(ctx, g, keys)
+	if p == nil {
+		return nil
 	}
-	return nil
+	return w.setProject(ctx, *p, keys...)
 }
 
-// SetProject moves the logs with keys into the project p. It returns a validation error
-// when a log belongs to a range.
+// SetProject moves the logs with keys out of their group and into the project p. It
+// returns a validation error when a log belongs to a range.
 func (w Writer) SetProject(ctx context.Context, p project.Key, keys ...Key) error {
+	if err := setGroup(w.table, nil, keys...).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.notifyGroup(ctx, nil, keys)
+	return w.setProject(ctx, p, keys...)
+}
+
+// setProject moves the logs with keys into the project p, and notifies a project
+// change for each one that was not in p.
+func (w Writer) setProject(ctx context.Context, p project.Key, keys ...Key) error {
+	var moved []Key
 	if err := w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Log](keys...)).
 		ChangeErr(func(_ gorp.Context, e Log) (Log, error) {
+			if e.Project == nil || *e.Project != p {
+				moved = append(moved, e.Key)
+			}
 			e.Project = &p
 			return e, project.ValidateOwner(e.Project, e.Range)
 		}).
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	for _, k := range keys {
+	for _, k := range moved {
 		w.dispatcher.NotifyOnCommit(
 			ctx,
 			w.tx,
@@ -159,6 +167,17 @@ func (w Writer) SetProject(ctx context.Context, p project.Key, keys ...Key) erro
 		)
 	}
 	return nil
+}
+
+func (w Writer) notifyGroup(ctx context.Context, g *group.Key, keys []Key) {
+	for _, k := range keys {
+		w.dispatcher.NotifyOnCommit(
+			ctx,
+			w.tx,
+			k,
+			NewSetGroupAction(SetGroupPayload{Group: g}),
+		)
+	}
 }
 
 // CreateMany creates the given logs. If logs with the same key already exist, they will

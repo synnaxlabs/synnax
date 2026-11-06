@@ -303,6 +303,27 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Instrumentation: cfg.Child("group"),
 		DB:              cfg.Distribution.DB,
 		Ontology:        l.Ontology,
+		// The visualization services open after the group service, so the hook reads
+		// them when it runs.
+		MoveMembers: func(
+			ctx context.Context,
+			tx gorp.Tx,
+			groups []group.Key,
+			top *resource.ID,
+		) error {
+			for _, move := range []group.MoveMembers{
+				l.Schematic.MoveGroups,
+				l.LinePlot.MoveGroups,
+				l.Log.MoveGroups,
+				l.Table.MoveGroups,
+				l.Panel.MoveGroups,
+			} {
+				if err := move(ctx, tx, groups, top); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
 	}); !ok(err, l.Group) {
 		return nil, err
 	}

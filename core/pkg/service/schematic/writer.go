@@ -59,7 +59,8 @@ func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
 
 // Create creates the given schematic, assigning a new key when s.Key is zero. The
 // schematic must belong to exactly one of a project and a range. An existing schematic
-// keeps its group, project, and range.
+// keeps its group, project, and range. A new schematic in a group belongs to the
+// project that holds the group.
 func (w Writer) Create(ctx context.Context, s *Schematic) error {
 	return w.inTx(ctx, func(w Writer) error { return w.create(ctx, s) })
 }
@@ -81,16 +82,12 @@ func (w Writer) create(ctx context.Context, s *Schematic) (err error) {
 			s.Group, s.Project, s.Range = stored.Group, stored.Project, stored.Range
 		}
 	}
-	if !exists {
-		if err = group.CheckMember(
-			ctx,
-			w.tx,
-			s.Group,
-			resource.TypeSchematic,
-			nil,
-		); err != nil {
+	if !exists && s.Group != nil {
+		proj, err := project.GroupProject(ctx, w.tx, s.Group, resource.TypeSchematic)
+		if err != nil {
 			return err
 		}
+		s.Project = proj
 	}
 	s.ApplyDefaults()
 	if err = s.Validate(); err != nil {
@@ -117,37 +114,49 @@ func (w Writer) create(ctx context.Context, s *Schematic) (err error) {
 }
 
 // SetGroup moves the schematics with keys into g, or out of their group when g is nil.
+// A schematic in a group belongs to the project that holds the group.
 func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
-	if err := group.CheckMember(ctx, w.tx, g, resource.TypeSchematic, nil); err != nil {
+	p, err := project.GroupProject(ctx, w.tx, g, resource.TypeSchematic)
+	if err != nil {
 		return err
 	}
-	if err := setGroup(w.table, g, keys...).Exec(ctx, w.tx); err != nil {
+	if err = setGroup(w.table, g, keys...).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	for _, k := range keys {
-		w.dispatcher.NotifyOnCommit(
-			ctx,
-			w.tx,
-			k,
-			NewSetGroupAction(SetGroupPayload{Group: g}),
-		)
+	w.notifyGroup(ctx, g, keys)
+	if p == nil {
+		return nil
 	}
-	return nil
+	return w.setProject(ctx, *p, keys...)
 }
 
-// SetProject moves the schematics with keys into the project p. It returns a validation
-// error when a schematic belongs to a range.
+// SetProject moves the schematics with keys out of their group and into the project p.
+// It returns a validation error when a schematic belongs to a range.
 func (w Writer) SetProject(ctx context.Context, p project.Key, keys ...Key) error {
+	if err := setGroup(w.table, nil, keys...).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.notifyGroup(ctx, nil, keys)
+	return w.setProject(ctx, p, keys...)
+}
+
+// setProject moves the schematics with keys into the project p, and notifies a project
+// change for each one that was not in p.
+func (w Writer) setProject(ctx context.Context, p project.Key, keys ...Key) error {
+	var moved []Key
 	if err := w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Schematic](keys...)).
 		ChangeErr(func(_ gorp.Context, e Schematic) (Schematic, error) {
+			if e.Project == nil || *e.Project != p {
+				moved = append(moved, e.Key)
+			}
 			e.Project = &p
 			return e, project.ValidateOwner(e.Project, e.Range)
 		}).
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	for _, k := range keys {
+	for _, k := range moved {
 		w.dispatcher.NotifyOnCommit(
 			ctx,
 			w.tx,
@@ -156,6 +165,17 @@ func (w Writer) SetProject(ctx context.Context, p project.Key, keys ...Key) erro
 		)
 	}
 	return nil
+}
+
+func (w Writer) notifyGroup(ctx context.Context, g *group.Key, keys []Key) {
+	for _, k := range keys {
+		w.dispatcher.NotifyOnCommit(
+			ctx,
+			w.tx,
+			k,
+			NewSetGroupAction(SetGroupPayload{Group: g}),
+		)
+	}
 }
 
 // CreateMany creates the given schematics. If schematics with the same key already

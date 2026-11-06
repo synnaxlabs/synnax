@@ -317,10 +317,10 @@ var _ = Describe("Service", func() {
 	})
 })
 
-// createProjectGroup creates a project group with no top parent.
-func createProjectGroup(ctx SpecContext, name string) group.Group {
+// createGroup creates a group in the suite project.
+func createGroup(ctx SpecContext, name string) group.Group {
 	GinkgoHelper()
-	g := group.Group{Name: name, Scope: resource.TypeProject}
+	g := group.Group{Name: name, Parent: new(project.ResourceID(proj.Key))}
 	Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
 	return g
 }
@@ -341,7 +341,7 @@ var _ = Describe("SetGroup", func() {
 		func(ctx SpecContext) {
 			u := newUser(ctx)
 			p := createPanel(ctx, "Set group denied")
-			g := createProjectGroup(ctx, "Set group denied")
+			g := createGroup(ctx, "Set group denied")
 			grant(ctx, u.ResourceID(), access.ActionUpdate, panel.ResourceID(p.Key))
 			Expect(apiSvc.SetGroup(
 				AuthedCtx(ctx, u), nil,
@@ -355,7 +355,7 @@ var _ = Describe("SetGroup", func() {
 		func(ctx SpecContext) {
 			u := newUser(ctx)
 			p := createPanel(ctx, "Set group granted")
-			g := createProjectGroup(ctx, "Set group granted")
+			g := createGroup(ctx, "Set group granted")
 			grant(
 				ctx,
 				u.ResourceID(),
@@ -395,7 +395,7 @@ var _ = Describe("Create in a group", func() {
 		"Should refuse the create without update on the group",
 		func(ctx SpecContext) {
 			u := newUser(ctx)
-			g := createProjectGroup(ctx, "Create denied")
+			g := createGroup(ctx, "Create denied")
 			grantCreate(ctx, u.ResourceID())
 			Expect(apiSvc.Create(AuthedCtx(ctx, u), nil, apipanel.CreateRequest{
 				Panels: []panel.Panel{newPanel("Denied", g)},
@@ -404,7 +404,7 @@ var _ = Describe("Create in a group", func() {
 	)
 	It("Should create the panel with update on the group", func(ctx SpecContext) {
 		u := newUser(ctx)
-		g := createProjectGroup(ctx, "Create granted")
+		g := createGroup(ctx, "Create granted")
 		grantCreate(ctx, u.ResourceID())
 		grant(ctx, u.ResourceID(), access.ActionUpdate, g.ResourceID())
 		p := newPanel("Granted", g)

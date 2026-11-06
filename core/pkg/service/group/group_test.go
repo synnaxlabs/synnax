@@ -234,14 +234,17 @@ var _ = Describe("Group", Ordered, func() {
 		It("Should return nil when the top group has no parent", func(ctx SpecContext) {
 			root := create(ctx, "top-root", nil)
 			leaf := create(ctx, "top-leaf", &root)
-			Expect(svc.TopParent(ctx, nil, leaf.Key)).To(BeNil())
+			Expect(group.TopParent(ctx, db, leaf.Key)).To(BeNil())
 		})
 
 		It(
-			"Should return query.ErrNotFound for a missing group",
+			"Should return a validation error for a missing group",
 			func(ctx SpecContext) {
-				Expect(svc.TopParent(ctx, nil, uuid.New())).Error().
-					To(MatchError(query.ErrNotFound))
+				key := uuid.New()
+				Expect(group.TopParent(ctx, db, key)).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("group "+key.String()+" does not exist")),
+				))
 			},
 		)
 	})
