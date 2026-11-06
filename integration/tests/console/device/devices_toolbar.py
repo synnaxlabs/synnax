@@ -329,9 +329,8 @@ class DevicesToolbar(ConsoleCase):
             self.ethercat_dev,
         ]:
             status = self.console.devices.get_status(dev.name)
-            assert status["variant"] == "disabled", (
-                f"Expected 'disabled' variant for '{dev.name}', "
-                f"got '{status['variant']}'"
+            assert status.variant == "disabled", (
+                f"Expected 'disabled' variant for '{dev.name}', got '{status.variant}'"
             )
 
     def test_change_identifier(self) -> None:
