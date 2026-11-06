@@ -94,7 +94,8 @@ var (
 		),
 		doc.Divider(),
 		doc.Paragraph(
-			"In a graph, wire a bool signal to the reset input to clear the average. Text mode cannot wire it.",
+			"In a graph, wire a `bool` signal to the reset input to clear the "+
+				"average. Text mode cannot wire it.",
 		),
 	)
 	minDoc = doc.New(
