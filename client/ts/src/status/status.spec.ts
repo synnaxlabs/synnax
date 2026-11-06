@@ -13,7 +13,7 @@ import { describe, expect, it, onTestFinished, vi } from "vitest";
 import z from "zod";
 
 import { group } from "@/group";
-import { NotFoundError } from "@/index";
+import { NotFoundError, ValidationError } from "@/index";
 import { label } from "@/label";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
@@ -1201,7 +1201,9 @@ describe("toString", () => {
 });
 
 describe("label backfill", () => {
-  it("should report no error when the client closes during a backfill", async () => {
+  // Labels a status with a label the client lacks, so the client fetches it through
+  // retrieveLabel.
+  const backfillLabel = (retrieveLabel: () => Promise<never>) => {
     let fetched = (): void => {};
     const fetching = new Promise<void>((resolve) => (fetched = resolve));
     const unary: UnaryClient = {
@@ -1214,7 +1216,7 @@ describe("label backfill", () => {
       ): Promise<z.infer<RS>> => {
         if (target !== "/label/retrieve") return resZ.parse({});
         fetched();
-        return await new Promise(() => {});
+        return await retrieveLabel();
       },
     };
     const onError = vi.fn();
@@ -1228,10 +1230,28 @@ describe("label backfill", () => {
       to: label.ontologyID(uuid.create()),
     };
     ont.cache.relationships.set(ontology.relationshipToString(rel), rel);
+    return { cache, onError, fetching };
+  };
+
+  it("should report no error when the client closes during a backfill", async () => {
+    const { cache, onError, fetching } = backfillLabel(
+      async () => await new Promise(() => {}),
+    );
     await fetching;
     await cache.close();
     // Lets the rejection reach the error handler.
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("should report a backfill that fails for another reason", async () => {
+    const err = new ValidationError("bad request");
+    const { cache, onError } = backfillLabel(async () => {
+      throw err;
+    });
+    await vi.waitFor(() =>
+      expect(onError).toHaveBeenCalledWith(expect.objectContaining({ cause: err })),
+    );
+    await cache.close();
   });
 });

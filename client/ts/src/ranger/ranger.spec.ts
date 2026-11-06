@@ -24,7 +24,12 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { type z } from "zod";
 
 import { framer } from "@/framer";
-import { MultipleFoundError, NotFoundError, type Synnax } from "@/index";
+import {
+  MultipleFoundError,
+  NotFoundError,
+  type Synnax,
+  ValidationError,
+} from "@/index";
 import { label } from "@/label";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
@@ -1267,7 +1272,9 @@ describe("write-through", () => {
 });
 
 describe("relationship backfill", () => {
-  it("should report no error when the client closes during a backfill", async () => {
+  // Sets a parent relationship to a range the client lacks, so the client fetches it
+  // through retrieveRange.
+  const backfillParent = (retrieveRange: () => Promise<never>) => {
     let fetched = (): void => {};
     const fetching = new Promise<void>((resolve) => (fetched = resolve));
     const unary: UnaryClient = {
@@ -1280,7 +1287,7 @@ describe("relationship backfill", () => {
       ): Promise<z.infer<RS>> => {
         if (target !== "/range/retrieve") return resZ.parse({});
         fetched();
-        return await new Promise(() => {});
+        return await retrieveRange();
       },
     };
     const onError = vi.fn();
@@ -1307,11 +1314,27 @@ describe("relationship backfill", () => {
       to: ranger.ontologyID(uuid.create()),
     };
     ontologyClient.cache.relationships.set(ontology.relationshipToString(rel), rel);
+    return { cache, onError, fetching };
+  };
+
+  it("should report no error when the client closes during a backfill", async () => {
+    const { cache, onError, fetching } = backfillParent(
+      async () => await new Promise(() => {}),
+    );
     await fetching;
     await cache.close();
     // Lets the rejection reach the error handler.
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("should report a backfill that fails for another reason", async () => {
+    const err = new ValidationError("bad request");
+    const { cache, onError } = backfillParent(async () => {
+      throw err;
+    });
+    await vi.waitFor(() => expect(onError).toHaveBeenCalledWith(err));
+    await cache.close();
   });
 });
 
