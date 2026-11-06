@@ -133,6 +133,30 @@ var _ = Describe("Delta", func() {
 			Eventually(outputOne.Outlet()).Should(BeClosed())
 		})
 
+		Describe("Lossy", func() {
+			It("Should drop values only for a consumer that falls behind", func() {
+				delta := NewLossyDynamicDeltaMultiplier[int](Instrumentation("dev"))
+				stalled := NewStream[int](1)
+				stalled.SetInletAddress("stalled")
+				live := NewStream[int](10)
+				live.SetInletAddress("live")
+				input := NewStream[int](10)
+				delta.InFrom(input)
+				ctx, cancel := signal.Isolated()
+				defer cancel()
+				delta.Flow(ctx, CloseOutputInletsOnExit())
+				delta.Connect(stalled, live)
+				for v := range 10 {
+					Eventually(input.Inlet()).Should(BeSent(v))
+				}
+				for v := range 10 {
+					Eventually(live.Outlet()).Should(Receive(Equal(v)))
+				}
+				Eventually(stalled.Outlet()).Should(Receive(Equal(0)))
+				Consistently(stalled.Outlet()).ShouldNot(Receive())
+			})
+		})
+
 		Describe("Timeout", func() {
 			It(
 				"Should allow the delta to operate normally if a consumer receives within the timeout",

@@ -175,6 +175,54 @@ var _ = Describe("Relay", func() {
 			},
 		)
 	})
+	Describe("Slow streamers", func() {
+		It("Should not delay other streamers", func(ctx SpecContext) {
+			node := testutil.NewNode(ctx)
+			channels := MustSucceed(node.Channel.Create(ctx, newChannelSet()))
+			keys := channel.KeysFromChannels(channels)
+			openStreamer := func() confluence.Outlet[relay.Response] {
+				reader := MustSucceed(node.Framer.NewStreamer(relay.StreamerConfig{
+					Keys:        keys,
+					SendOpenAck: new(true),
+				}))
+				sCtx, cancel := signal.Isolated()
+				req, res := confluence.Attach(reader, 1)
+				reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+				DeferCleanup(func() {
+					req.Close()
+					cancel()
+					confluence.Drain(res)
+				})
+				Eventually(res.Outlet()).Should(Receive())
+				return res
+			}
+			openStreamer()
+			live := openStreamer()
+			w := MustOpen(node.Framer.OpenWriter(ctx, writer.Config{
+				Keys:  keys,
+				Start: 10 * telem.SecondTS,
+			}))
+			// The live streamer buffers every frame, so it drops none. Each frame
+			// waited
+			// 20 ms for the stalled streamer before the relay dropped it.
+			frameCount := relay.DefaultConfig.StreamerBufferSize
+			start := time.Now()
+			for range frameCount {
+				Expect(w.Write(frame.NewMulti(
+					keys,
+					[]telem.Series{
+						telem.NewSeriesV[int64](1),
+						telem.NewSeriesV[int64](2),
+						telem.NewSeriesV[int64](3),
+					},
+				))).To(BeTrue())
+			}
+			for range frameCount {
+				Eventually(live.Outlet()).Should(Receive())
+			}
+			Expect(time.Since(start)).To(BeNumerically("<", time.Second))
+		})
+	})
 	Describe("ExcludeGroups", Ordered, func() {
 		It(
 			"Should filter out frames from a matching group on gateway writes",
