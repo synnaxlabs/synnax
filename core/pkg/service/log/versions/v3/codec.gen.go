@@ -96,7 +96,7 @@ func (lv Log) EncodeOrc(w *orc.Writer) error {
 	w.Uint8(uint8(lv.TimestampPrecision))
 	w.Bool(lv.ChannelNamesHidden)
 	w.Bool(lv.TimestampsHidden)
-	w.String(string(lv.Tz))
+	w.String(string(lv.TimeZone))
 	return nil
 }
 
@@ -141,7 +141,33 @@ func (lv *Log) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		lv.Tz = telem.TimeZone(rawV)
+		lv.TimeZone = telem.TimeZone(rawV)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (tc TimestampConfig) EncodeOrc(w *orc.Writer) error {
+	w.String(string(tc.Format))
+	w.String(string(tc.TimeZone))
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (tc *TimestampConfig) DecodeOrc(r *orc.Reader) error {
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		tc.Format = telem.TimestampFormat(rawV)
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		tc.TimeZone = telem.TimeZone(rawV)
 	}
 	return nil
 }

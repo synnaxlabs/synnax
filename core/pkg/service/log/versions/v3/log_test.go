@@ -54,21 +54,23 @@ var _ = Describe("Log", func() {
 			Expect(l.Channels[0].ValueFormat.Format).To(
 				Equal(telem.TimestampFormat("preciseDate")),
 			)
-			Expect(l.Channels[0].ValueFormat.Tz).To(Equal(telem.TimeZone("local")))
+			Expect(
+				l.Channels[0].ValueFormat.TimeZone,
+			).To(Equal(telem.TimeZone("local")))
 			Expect(l.Channels[0].Precision).To(BeNil())
 		})
 
 		It("Should keep values that are already set", func() {
 			l := v3.Log{Channels: []v3.ChannelEntry{{
 				Notation:    "scientific",
-				ValueFormat: v3.TimestampConfig{Format: "ISO", Tz: "UTC"},
+				ValueFormat: v3.TimestampConfig{Format: "ISO", TimeZone: "UTC"},
 			}}}
 			l.ApplyDefaults()
 			Expect(l.Channels[0].Notation).To(Equal(notation.Notation("scientific")))
 			Expect(
 				l.Channels[0].ValueFormat.Format,
 			).To(Equal(telem.TimestampFormat("ISO")))
-			Expect(l.Channels[0].ValueFormat.Tz).To(Equal(telem.TimeZone("UTC")))
+			Expect(l.Channels[0].ValueFormat.TimeZone).To(Equal(telem.TimeZone("UTC")))
 		})
 	})
 
@@ -169,7 +171,7 @@ var _ = Describe("Log", func() {
 					Notation:    "standard",
 					Precision:   new(uint8(3)),
 					Alias:       "alias",
-					ValueFormat: v3.TimestampConfig{Format: "ISO", Tz: "UTC"},
+					ValueFormat: v3.TimestampConfig{Format: "ISO", TimeZone: "UTC"},
 				}},
 				TimestampPrecision: 2,
 			}.EncodeOrc(w)).To(Succeed())
@@ -204,7 +206,7 @@ var _ = Describe("Log", func() {
 			Entry("timestamp precision", 80),
 			Entry("channel names hidden", 81),
 			Entry("timestamps hidden", 82),
-			Entry("tz", 85),
+			Entry("time zone", 85),
 		)
 	})
 })

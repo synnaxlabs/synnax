@@ -214,7 +214,9 @@ var _ = Describe("ImEx", func() {
 				Expect(
 					res.Channels[0].ValueFormat.Format,
 				).To(Equal(telem.TimestampFormatISO))
-				Expect(res.Channels[0].ValueFormat.Tz).To(Equal(telem.TimeZoneUTC))
+				Expect(
+					res.Channels[0].ValueFormat.TimeZone,
+				).To(Equal(telem.TimeZoneUTC))
 				Expect(res.Channels[1].Channel).To(Equal(channel.Key(5)))
 			},
 		)

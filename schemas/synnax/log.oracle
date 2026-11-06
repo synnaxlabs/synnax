@@ -22,10 +22,10 @@ Key = uuid {
 }
 
 TimestampConfig struct {
-    format telem.TimestampFormat {
+    format    telem.TimestampFormat {
         @doc value "is the format of the values of a timestamp channel."
     }
-    tz     telem.TimeZone        {
+    time_zone telem.TimeZone        {
         @doc value "is the time zone of the values of a timestamp channel."
     }
 
@@ -57,7 +57,7 @@ ChannelEntry struct {
         """
         @validate max_length 64
     }
-    value_format TimestampConfig = { format = "preciseDate", tz = "local" } {
+    value_format TimestampConfig = { format = "preciseDate", time_zone = "local" } {
         @doc value "is the format of the values of a timestamp channel."
     }
 
@@ -88,7 +88,7 @@ Log struct {
     timestamps_hidden    bool = false {
         @doc value "is true when entry timestamps are hidden."
     }
-    tz                   telem.TimeZone = "local" {
+    time_zone            telem.TimeZone = "local" {
         @doc value "is the time zone of the line times and day rows of the log."
     }
 
@@ -189,9 +189,9 @@ Log struct {
         """
     }
 
-    action SetChannelValueTz {
-        channel channel.Key
-        tz      telem.TimeZone
+    action SetChannelValueTimeZone {
+        channel   channel.Key
+        time_zone telem.TimeZone
 
         @doc value """
             sets the time zone of the values of the timestamp channel identified by
@@ -228,8 +228,8 @@ Log struct {
         @doc value "sets whether entry timestamps are hidden."
     }
 
-    action SetTz {
-        tz telem.TimeZone
+    action SetTimeZone {
+        time_zone telem.TimeZone
 
         @doc value "sets the time zone of the line times and day rows of the log."
     }

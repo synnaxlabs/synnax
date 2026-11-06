@@ -17,7 +17,7 @@
       "alias": "temp",
       "value_format": {
         "format": "ISO",
-        "tz": "UTC"
+        "time_zone": "UTC"
       }
     },
     {
@@ -32,7 +32,7 @@
       "alias": "",
       "value_format": {
         "format": "",
-        "tz": ""
+        "time_zone": ""
       }
     }
   ],

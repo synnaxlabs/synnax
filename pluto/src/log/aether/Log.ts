@@ -40,7 +40,7 @@ export const logStateZ = log.logZ
     timestampPrecision: true,
     channelNamesHidden: true,
     timestampsHidden: true,
-    tz: true,
+    timeZone: true,
   })
   .extend({
     region: box.box,
@@ -182,17 +182,17 @@ const muteColor = (c: color.Crude, theme: theme.Theme): color.Color => {
   ]);
 };
 
-const dayText = ({ timestamp }: LogEntry, tz: TimeZone): string =>
+const dayText = ({ timestamp }: LogEntry, timeZone: TimeZone): string =>
   new Date(new TimeStamp(timestamp).milliseconds).toLocaleDateString("en-US", {
     weekday: "short",
     month: "short",
     day: "numeric",
     year: "numeric",
-    timeZone: tz === "UTC" ? "UTC" : undefined,
+    timeZone: timeZone === "UTC" ? "UTC" : undefined,
   });
 
-const sameDay = (a: LogEntry, b: LogEntry, tz: TimeZone): boolean =>
-  new TimeStamp(a.timestamp).isSameDay(new TimeStamp(b.timestamp), tz);
+const sameDay = (a: LogEntry, b: LogEntry, timeZone: TimeZone): boolean =>
+  new TimeStamp(a.timestamp).isSameDay(new TimeStamp(b.timestamp), timeZone);
 
 // East Asian characters take two columns of a monospace font. An emoji takes two already,
 // as a surrogate pair.
@@ -547,12 +547,12 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     if (this.state.timestampsHidden) return false;
     return (
       entry === 0 ||
-      !sameDay(this.entries[entry], this.entries[entry - 1], this.state.tz)
+      !sameDay(this.entries[entry], this.entries[entry - 1], this.state.timeZone)
     );
   }
 
   private dayRow(entry: number): Row {
-    const prefix = dayText(this.entries[entry], this.state.tz);
+    const prefix = dayText(this.entries[entry], this.state.timeZone);
     return { entry, prefix, value: "", channelKey: "", first: false, day: true };
   }
 
@@ -800,24 +800,23 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     line: string;
     channelKey: string;
   } {
-    const {
-      channelNamesHidden,
-      timestampsHidden,
-      channelDataTypes,
-      tz: lineTz,
-    } = this.state;
+    const { channelNamesHidden, timestampsHidden, channelDataTypes, timeZone } =
+      this.state;
     const { tsLen, configs } = this.internal;
     const chKeyStr = String(entry.channelKey);
     const cfg = configs[chKeyStr];
     const ts = !timestampsHidden
-      ? new TimeStamp(entry.timestamp).toString("preciseTime", lineTz).slice(0, tsLen)
+      ? new TimeStamp(entry.timestamp).toString("preciseTime", timeZone).slice(0, tsLen)
       : "";
     let value = entry.value;
     const isTimestampChannel = channelDataTypes[chKeyStr] === "timestamp";
     if (isTimestampChannel) {
-      const { format, tz } = cfg?.valueFormat ?? { format: "preciseDate", tz: "local" };
+      const { format, timeZone: valueTimeZone } = cfg?.valueFormat ?? {
+        format: "preciseDate",
+        timeZone: "local",
+      };
       try {
-        value = new TimeStamp(BigInt(value)).toString(format, tz);
+        value = new TimeStamp(BigInt(value)).toString(format, valueTimeZone);
       } catch {
         // Leave value as-is if it can't be parsed as a bigint.
       }
@@ -835,7 +834,7 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     else if (!channelNamesHidden) prefix = `${name}${pad}   `;
     else prefix = "";
     if (dated && ts !== "") {
-      const date = new TimeStamp(entry.timestamp).toString("ISODate", lineTz);
+      const date = new TimeStamp(entry.timestamp).toString("ISODate", timeZone);
       prefix = `${date} ${prefix}`;
     }
     // Continuation lines (\n) keep the prefix's alignment width as whitespace.
