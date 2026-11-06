@@ -155,6 +155,51 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					Expect(w.Close()).To(Succeed())
 				})
 
+				It("Should skip a domain that holds all of its domain", func(
+					ctx SpecContext,
+				) {
+					wider := (15 * telem.SecondTS).Range(30 * telem.SecondTS)
+					Expect(
+						testutil.WriteDomain(ctx, db, early, []byte{3}),
+					).To(Succeed())
+					i := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
+					Expect(i.SeekGE(ctx, first.Start)).To(BeTrue())
+					Expect(db.Delete(
+						ctx,
+						early.Start.Range(first.End),
+						fixedOffsetAndTimeStamp(0, early.Start),
+						fixedOffsetAndTimeStamp(2, first.End),
+					)).To(Succeed())
+					Expect(
+						testutil.WriteDomain(ctx, db, wider, []byte{4}),
+					).To(Succeed())
+					Expect(i.Prev()).To(BeFalse())
+					Expect(i.Close()).To(Succeed())
+				})
+
+				It("Should visit a domain that crosses the start of its domain", func(
+					ctx SpecContext,
+				) {
+					var (
+						head     = (20 * telem.SecondTS).Range(25 * telem.SecondTS)
+						crossing = (15 * telem.SecondTS).Range(25 * telem.SecondTS)
+					)
+					i := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
+					Expect(i.SeekGE(ctx, first.Start)).To(BeTrue())
+					Expect(db.Delete(
+						ctx,
+						head,
+						fixedOffsetAndTimeStamp(0, head.Start),
+						fixedOffsetAndTimeStamp(1, head.End),
+					)).To(Succeed())
+					Expect(
+						testutil.WriteDomain(ctx, db, crossing, []byte{4}),
+					).To(Succeed())
+					Expect(i.Prev()).To(BeTrue())
+					Expect(i.TimeRange()).To(Equal(crossing))
+					Expect(i.Close()).To(Succeed())
+				})
+
 				It("Should find a domain while earlier domains are inserted", func(
 					ctx SpecContext,
 				) {

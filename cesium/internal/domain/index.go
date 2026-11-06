@@ -240,12 +240,24 @@ func (idx *index) next(tr telem.TimeRange) (position int, p pointer, ok bool) {
 	return idx.unprotectedGet(i)
 }
 
-// prev returns the last domain that starts before start. ok is false if there is none.
-func (idx *index) prev(start telem.TimeStamp) (position int, p pointer, ok bool) {
+// prev returns the last domain that starts before tr.Start and ends before tr.End,
+// where tr is a domain the caller has seen. That skips a domain that replaced tr and
+// holds all of it. ok is false if there is no such domain.
+func (idx *index) prev(tr telem.TimeRange) (position int, p pointer, ok bool) {
 	idx.mu.RLock()
 	defer idx.mu.RUnlock()
-	i, exact := idx.unprotectedSearch(start.SpanRange(0))
-	if exact && idx.mu.pointers[i].Start == start {
+	i, _ := slices.BinarySearchFunc(
+		idx.mu.pointers,
+		tr.Start,
+		func(p pointer, start telem.TimeStamp) int {
+			if p.Start >= start {
+				return 1
+			}
+			return -1
+		},
+	)
+	i--
+	if i >= 0 && idx.mu.pointers[i].End >= tr.End {
 		i--
 	}
 	return idx.unprotectedGet(i)

@@ -129,7 +129,7 @@ func (i *Iterator) Prev() bool {
 	if !i.valid {
 		return false
 	}
-	return i.load(i.db.idx.prev(i.currPtr.Start))
+	return i.load(i.db.idx.prev(i.currPtr.TimeRange))
 }
 
 // Valid returns true if the iterator is currently pointing to a valid domain and has
