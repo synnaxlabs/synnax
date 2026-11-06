@@ -29,14 +29,17 @@ func (s *Service) Resources() *resource.TableProvider[Key, Project] {
 	})
 }
 
+// ResourceID returns the resource ID of the project with key k.
 func ResourceID(k Key) resource.ID {
 	return resource.ID{Type: resource.TypeProject, Key: k.String()}
 }
 
+// ResourceIDs returns the resource ID of the project with each key.
 func ResourceIDs(keys []Key) []resource.ID {
 	return lo.Map(keys, func(k Key, _ int) resource.ID { return ResourceID(k) })
 }
 
+// ResourceIDsFromProjects returns the resource ID of each project.
 func ResourceIDsFromProjects(projects []Project) []resource.ID {
 	return lo.Map(projects, func(p Project, _ int) resource.ID {
 		return p.ResourceID()

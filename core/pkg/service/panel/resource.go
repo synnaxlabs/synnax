@@ -25,18 +25,23 @@ func (s *Service) Resources() *resource.TableProvider[Key, Panel] {
 	})
 }
 
+// ResourceID returns the resource ID of the panel with key k.
 func ResourceID(k Key) resource.ID {
 	return resource.ID{Type: resource.TypePanel, Key: k.String()}
 }
 
+// ResourceIDs returns the resource ID of the panel with each key.
 func ResourceIDs(keys []Key) []resource.ID {
 	return lo.Map(keys, func(k Key, _ int) resource.ID { return ResourceID(k) })
 }
 
+// ResourceIDsFromPanels returns the resource ID of each panel.
 func ResourceIDsFromPanels(panels []Panel) []resource.ID {
 	return lo.Map(panels, func(p Panel, _ int) resource.ID { return p.ResourceID() })
 }
 
+// KeysFromResourceIDs returns the key of the panel that each ID names. A malformed key
+// is a validation error.
 func KeysFromResourceIDs(ids []resource.ID) ([]Key, error) {
 	keys := make([]Key, len(ids))
 	var err error

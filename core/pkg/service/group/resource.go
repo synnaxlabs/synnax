@@ -29,14 +29,17 @@ func (s *Service) Resources() *resource.TableProvider[Key, Group] {
 	})
 }
 
+// ResourceID returns the resource ID of the group with key.
 func ResourceID(key Key) resource.ID {
 	return resource.ID{Type: resource.TypeGroup, Key: key.String()}
 }
 
+// ResourceIDs returns the resource ID of the group with each key.
 func ResourceIDs(keys []Key) []resource.ID {
 	return lo.Map(keys, func(k Key, _ int) resource.ID { return ResourceID(k) })
 }
 
+// ResourceIDsFromGroups returns the resource ID of each group.
 func ResourceIDsFromGroups(groups []Group) []resource.ID {
 	return lo.Map(groups, func(g Group, _ int) resource.ID { return g.ResourceID() })
 }

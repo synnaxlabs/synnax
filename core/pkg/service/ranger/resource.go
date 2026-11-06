@@ -35,6 +35,8 @@ func ResourceIDs(keys []Key) []resource.ID {
 	return lo.Map(keys, func(k Key, _ int) resource.ID { return ResourceID(k) })
 }
 
+// KeyFromResourceID returns the key of the range that id names. A malformed key is a
+// validation error.
 func KeyFromResourceID(id resource.ID) (Key, error) { return resource.ParseUUIDKey(id) }
 
 // KeysFromResourceIDs converts a slice of resource IDs to a slice of keys, returning an

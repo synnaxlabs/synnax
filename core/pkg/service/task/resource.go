@@ -52,12 +52,15 @@ func ResourceIDs(keys []Key) []resource.ID {
 	return lo.Map(keys, func(key Key, _ int) resource.ID { return ResourceID(key) })
 }
 
+// ResourceIDsFromTasks returns the resource ID of each task.
 func ResourceIDsFromTasks(tasks []Task) []resource.ID {
 	return lo.Map(tasks, func(task Task, _ int) resource.ID {
 		return task.ResourceID()
 	})
 }
 
+// KeysFromResourceIDs returns the key of the task that each ID names. A malformed key
+// is a validation error.
 func KeysFromResourceIDs(ids []resource.ID) ([]Key, error) {
 	return lo.MapErr(ids, func(id resource.ID, _ int) (Key, error) {
 		return resource.ParseUUIDKey(id)

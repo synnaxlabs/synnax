@@ -40,4 +40,6 @@ func ResourceIDsFromUsers(users []User) []resource.ID {
 	return lo.Map(users, func(u User, _ int) resource.ID { return u.ResourceID() })
 }
 
+// KeyFromResourceID returns the key of the user that id names. A malformed key is a
+// validation error.
 func KeyFromResourceID(id resource.ID) (Key, error) { return resource.ParseUUIDKey(id) }
