@@ -65,10 +65,10 @@ jobs:
             paths: client/py scripts/surface_py.py scripts/pyproject.toml uv.lock
             uv: true
           - surface: client-py-cli
-            paths: client/py scripts/surface_py_cli.py uv.lock
+            paths: client/py scripts/surface_py_cli.py scripts/pyproject.toml uv.lock
             uv: true
           - surface: client-py-state
-            paths: client/py scripts/surface_py_state.py uv.lock
+            paths: client/py scripts/surface_py_state.py scripts/pyproject.toml uv.lock
             uv: true
           - surface: core
             paths: core x/go

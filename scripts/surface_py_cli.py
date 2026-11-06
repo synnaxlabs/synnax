@@ -11,9 +11,9 @@
 each, without help text.
 
 Compare the output of two revisions to see if a pull request changes the CLI. The script
-walks the real command tree, so it runs in the environment of the client.
+walks the real command tree.
 
-    uv run --project client/py python scripts/surface_py_cli.py
+    uv run --project scripts scripts/surface_py_cli.py
 """
 
 import json

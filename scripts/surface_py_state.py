@@ -12,9 +12,8 @@
 Compare the output of two revisions to see if a pull request changes what a client finds
 on disk after an upgrade. The script saves a cluster with the real client code, then
 prints each key of the config file with the type of its value, and each keyring entry.
-It runs in the environment of the client.
 
-    uv run --project client/py python scripts/surface_py_state.py
+    uv run --project scripts scripts/surface_py_state.py
 """
 
 import json
@@ -28,8 +27,6 @@ from keyring.backend import KeyringBackend
 from keyring.errors import PasswordDeleteError
 from synnax.config import Cluster, Clusters, File
 from synnax.options import Options
-
-ENTRY_KEY = "cluster"
 
 
 @dataclass
@@ -69,7 +66,7 @@ def report() -> str:
     keyring = MemoryKeyring()
     with TemporaryDirectory() as directory:
         file = File(config_dir=Path(directory))
-        Clusters(file, keyring).set(Cluster(options=options), key=ENTRY_KEY)
+        Clusters(file, keyring).set(Cluster(options=options))
         lines = flatten(
             json.loads(file.config_file.read_text()), path=file.config_file.name
         )
