@@ -102,7 +102,7 @@ var _ = Describe("Port and line migrations", func() {
 				Cjc:           v2.CJC{Variant: v2.ChanCJC{Port: 7}},
 			}},
 		}}
-		stored.Key = uuid.New()
+		stored.SetKey(uuid.New())
 		Expect(gorp.NewCreate[uuid.UUID, v2.AnalogReadConfig]().Entry(&stored).
 			Exec(ctx, db)).To(Succeed())
 		run(ctx, "ni_analog_read_config", v3.NewAnalogReadMigration(otg))
@@ -125,7 +125,7 @@ var _ = Describe("Port and line migrations", func() {
 			stored := v2.DigitalWriteConfig{Channels: []v2.DOChannel{
 				{Key: "a", Port: 2, Line: 255, StateChannel: 12, CmdChannel: 13},
 			}}
-			stored.Key = uuid.New()
+			stored.SetKey(uuid.New())
 			Expect(gorp.NewCreate[uuid.UUID, v2.DigitalWriteConfig]().Entry(&stored).
 				Exec(ctx, db)).To(Succeed())
 			run(ctx, "ni_digital_write_config", v3.NewDigitalWriteMigration(otg))
@@ -221,7 +221,7 @@ var _ = Describe("Port and line migrations", func() {
 				},
 			}},
 		}}
-		stored.Key = uuid.New()
+		stored.SetKey(uuid.New())
 		Expect(gorp.NewCreate[uuid.UUID, v2.AnalogWriteConfig]().Entry(&stored).
 			Exec(ctx, db)).To(Succeed())
 		run(ctx, "ni_analog_write_config", v3.NewAnalogWriteMigration(otg))
@@ -241,7 +241,7 @@ var _ = Describe("Port and line migrations", func() {
 				},
 			}},
 		}}
-		stored.Key = uuid.New()
+		stored.SetKey(uuid.New())
 		Expect(gorp.NewCreate[uuid.UUID, v2.CounterReadConfig]().Entry(&stored).
 			Exec(ctx, db)).To(Succeed())
 		run(ctx, "ni_counter_read_config", v3.NewCounterReadMigration(otg))
@@ -257,9 +257,9 @@ var _ = Describe("Port and line migrations", func() {
 	It("Should quarantine a config outside the range and keep the others",
 		func(ctx SpecContext) {
 			bad := v2.DigitalReadConfig{Channels: []v2.DIChannel{{Key: "a", Line: 300}}}
-			bad.Key = uuid.New()
+			bad.SetKey(uuid.New())
 			good := v2.DigitalReadConfig{Channels: []v2.DIChannel{{Key: "b", Line: 3}}}
-			good.Key = uuid.New()
+			good.SetKey(uuid.New())
 			Expect(gorp.NewCreate[uuid.UUID, v2.DigitalReadConfig]().
 				Entries(&[]v2.DigitalReadConfig{bad, good}).Exec(ctx, db)).To(Succeed())
 			createTask(ctx, bad.Key)
