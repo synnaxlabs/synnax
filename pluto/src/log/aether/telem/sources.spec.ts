@@ -1079,6 +1079,33 @@ describe("StreamMultiChannelLog", () => {
       expect(valuesOf(entriesOf(log), a)).toContain(oldest);
     });
 
+    it("should read older samples of a channel that first arrived in a newer read", async () => {
+      const core = deep();
+      const [a, b] = core.data.map((c) => c.key);
+      let hidden = true;
+      const client = connect(core, {
+        readLatest: async (keys, count, tr) =>
+          core.readLatest(hidden ? keys.filter((key) => key !== b) : keys, count, tr),
+      });
+      const log = open(core, client, { channels: [a, b] }, undefined, 2_000);
+      await settle(log, 1_800);
+      await until(
+        () => log.loadOlder(),
+        () => !log.live,
+      );
+      hidden = false;
+      await until(
+        () => log.loadNewer(),
+        () => log.live,
+      );
+      const [first] = valuesOf(entriesOf(log), b);
+      expect(first).toBeDefined();
+      await until(
+        () => log.loadOlder(),
+        () => valuesOf(entriesOf(log), b)[0] !== first,
+      );
+    });
+
     it("should stay live when it resumes during an older read", async () => {
       const core = deep();
       const [a] = core.data.map((c) => c.key);
