@@ -110,7 +110,11 @@ func CreateObjects[K comparable, E interface{ GorpKey() K }](
 // MoveObjects returns the resources that moving the visualizations with ids to the
 // owners in to needs update access on: the visualizations, each owner in from that
 // holds one of them, and each owner in to. A nil owner adds nothing.
-func MoveObjects(ids []resource.ID, from []*resource.ID, to ...*resource.ID) []resource.ID {
+func MoveObjects(
+	ids []resource.ID,
+	from []*resource.ID,
+	to ...*resource.ID,
+) []resource.ID {
 	objects := slices.Clone(ids)
 	added := set.New[resource.ID]()
 	for _, id := range slices.Concat(from, to) {

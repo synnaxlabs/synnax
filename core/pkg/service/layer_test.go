@@ -224,10 +224,9 @@ var _ = Describe("Layer", func() {
 			}
 			Expect(gorp.WrapWriter[projectv0.Key, projectv0.Workspace](db).
 				Set(ctx, ws)).To(Succeed())
-			Expect(gorp.WrapWriter[string, ontology.Resource](db).Set(
-				ctx,
-				ontology.Resource{ID: resource.ID{Type: "workspace", Key: ws.Key.String()}},
-			)).To(Succeed())
+			wsID := resource.ID{Type: "workspace", Key: ws.Key.String()}
+			Expect(gorp.WrapWriter[string, ontology.Resource](db).
+				Set(ctx, ontology.Resource{ID: wsID})).To(Succeed())
 
 			MustOpen(svctestutil.OpenLayer(ctx, node))
 

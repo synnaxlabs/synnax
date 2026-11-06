@@ -243,7 +243,9 @@ var _ = Describe("Group", Ordered, func() {
 				key := uuid.New()
 				Expect(group.TopParent(ctx, db, key)).Error().To(SatisfyAll(
 					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring("group "+key.String()+" does not exist")),
+					MatchError(
+						ContainSubstring("group "+key.String()+" does not exist"),
+					),
 				))
 			},
 		)

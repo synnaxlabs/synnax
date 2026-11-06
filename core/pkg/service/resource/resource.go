@@ -51,8 +51,8 @@ func IDsToKeys(ids []ID) []string {
 	return lo.Map(ids, func(id ID, _ int) string { return id.String() })
 }
 
-// Dependents returns the ID of every record that references the entry of table with key,
-// as seen by tx. It blocks and fails as gorp.Table.Dependents does.
+// Dependents returns the ID of every record that references the entry of table with
+// key, as seen by tx. It blocks and fails as gorp.Table.Dependents does.
 func Dependents[K gorp.Key, E gorp.Entry[K]](
 	ctx context.Context,
 	tx gorp.Tx,

@@ -166,11 +166,12 @@ var _ = Describe("OwnersMigration", func() {
 		))
 	})
 
-	It("Should delete the converted edges and the edges of deleted visualizations", func(
-		ctx SpecContext,
-	) {
-		Expect(retrieveAll[string, ontology.Relationship](ctx, db)).To(ConsistOf(
-			parentOf(projID, logID),
-		))
-	})
+	It(
+		"Should delete the converted edges and the edges of deleted visualizations",
+		func(ctx SpecContext) {
+			Expect(retrieveAll[string, ontology.Relationship](ctx, db)).To(ConsistOf(
+				parentOf(projID, logID),
+			))
+		},
+	)
 })
