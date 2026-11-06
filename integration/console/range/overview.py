@@ -198,6 +198,7 @@ class Overview(Surface):
             ) from e
         self.layout.press_escape()
         dropdown.wait_for(state="hidden", timeout=5000)
+        self._label_tag(label_name).wait_for(state="visible", timeout=5000)
 
     def remove_label(self, label_name: str) -> None:
         """Remove a label from the range in the overview.
@@ -209,6 +210,13 @@ class Overview(Surface):
         item.click(timeout=5000)
         self.layout.press_escape()
         dropdown.wait_for(state="hidden", timeout=5000)
+        self._label_tag(label_name).wait_for(state="hidden", timeout=5000)
+
+    def _label_tag(self, label_name: str) -> Locator:
+        labels_row = self.layout.page.locator(
+            ".console-range-overview__labels-select"
+        ).visible
+        return labels_row.locator(".lyra-tag").filter(has_text=label_name)
 
     def get_labels(self) -> list[str]:
         """Get the labels currently attached to the range in the overview.
