@@ -61,6 +61,22 @@ var _ = Describe("Analyzer", func() {
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.String()).To(ContainSubstring("unresolved type: channel.Key"))
 		})
+
+		It("Should keep a warning for an import with no loaded types", func(
+			ctx SpecContext,
+		) {
+			loader.Files["schemas/x/color"] = ""
+			source := `
+				import "schemas/x/color"
+				@go output "out"
+				Entry struct {
+					stroke color.Color
+				}
+			`
+			_, diag := Analyze(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			Expect(diag.String()).To(ContainSubstring("unresolved type: color.Color"))
+		})
 	})
 
 	Describe("Retired version tag", func() {

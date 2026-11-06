@@ -1779,7 +1779,7 @@ func resolveTypeRef(
 	}
 
 	_, isVersion := paths.Version(ns)
-	otherResource := len(parts) == 2 && !isVersion
+	otherResource := len(parts) == 2 && !isVersion && ns != resolution.FilterNamespace
 
 	if (resolution.IsPrimitive(name) || resolution.IsConstraint(name)) &&
 		len(parts) == 1 {
@@ -1792,7 +1792,7 @@ func resolveTypeRef(
 			params[i].Optional && !params[i].HasDefault(); i++ {
 			ref.TypeArgs = append(ref.TypeArgs, resolution.TypeRef{Name: "nil"})
 		}
-	} else if otherResource {
+	} else if otherResource && !importsNamespace(c, ns) {
 		c.report(diagnostics.Errorf(nil, "unresolved type: %s", ref.Name))
 	} else {
 		d := diagnostics.Warningf(nil, "unresolved type: %s", ref.Name)
@@ -1802,6 +1802,18 @@ func resolveTypeRef(
 	for i := range ref.TypeArgs {
 		resolveTypeRef(c, currentType, &ref.TypeArgs[i])
 	}
+}
+
+// importsNamespace reports whether the file imports namespace. A file can import a
+// namespace whose types are absent, because the LSP analyzes one file at a time.
+func importsNamespace(c *analysisCtx, namespace string) bool {
+	for _, imp := range c.ast.AllImportStmt() {
+		path := strings.Trim(imp.STRING_LIT().GetText(), `"`)
+		if paths.DeriveNamespace(path) == namespace {
+			return true
+		}
+	}
+	return false
 }
 
 // lookupRef resolves a reference. A name in another resource must exist in that
