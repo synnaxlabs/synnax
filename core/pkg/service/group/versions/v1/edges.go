@@ -63,7 +63,8 @@ const legacyRangesRoot = "Ranges"
 // builtin scope, as do the legacy range groups. A group under a project, a rack, or a
 // root in builtinScopes gets the scope they give. Any other group at the top of a chain
 // gets no parent and the one scope that the members under it imply. The migration logs
-// each group with no such scope and gives it the builtin scope.
+// each group with no such scope and gives it the builtin scope. It also logs each
+// membership outside the built-in roots that the member migrations drop.
 var ParentMigration = migrate.New("v61_group_parent_and_scope", migrateParents)
 
 // placement is the scope that ParentMigration gives a group.
@@ -220,6 +221,30 @@ func migrateParents(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation)
 			return byKey[key] != nil && byKey[key].Name == legacyRangesRoot
 		}
 		return parent.Type == resource.TypeGroup && underRanges(parent.Key, visited)
+	}
+	kept := set.New[resource.ID]()
+	for _, e := range edges {
+		if e.From.Type != resource.TypeGroup || e.To.Type == resource.TypeGroup {
+			continue
+		}
+		g, ok := byKey[e.From.Key]
+		if !ok ||
+			parents[e.From.Key] == ontology.RootID ||
+			underRanges(e.From.Key, set.New[string]()) {
+			continue
+		}
+		// The member migrations keep only the first group of a member.
+		if s, ok := memberScopes[e.To.Type]; ok && s == g.Scope &&
+			!kept.Contains(e.To) {
+			kept.Add(e.To)
+			continue
+		}
+		ins.L.Warn(
+			"dropped a member from a group that cannot hold it",
+			zap.Stringer("group", g.Key),
+			zap.String("group_name", g.Name),
+			zap.Stringer("member", e.To),
+		)
 	}
 	converted := slices.DeleteFunc(into, func(e ontology.Relationship) bool {
 		return underRanges(e.To.Key, set.New[string]())

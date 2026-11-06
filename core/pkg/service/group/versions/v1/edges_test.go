@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
@@ -23,6 +24,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 var rootID = resource.ID{Type: resource.TypeBuiltin, Key: "root"}
@@ -78,15 +82,28 @@ var _ = Describe("ParentMigration", func() {
 		wsRoot   = uuid.New()
 		inWsRoot = uuid.New()
 		ofWs     = uuid.New()
+		tasks    = uuid.New()
+		inTasks  = uuid.New()
 		ws       = uuid.New().String()
 		channel  = resource.ID{Type: resource.TypeChannel, Key: "1"}
+		twoGrps  = resource.ID{Type: resource.TypeChannel, Key: "2"}
 		schem    = resource.ID{Type: resource.TypeSchematic, Key: uuid.New().String()}
+		rootTask = resource.ID{Type: resource.TypeTask, Key: uuid.New().String()}
+		task     = resource.ID{Type: resource.TypeTask, Key: uuid.New().String()}
+		rng      = resource.ID{Type: resource.TypeRange, Key: uuid.New().String()}
 		members  = []ontology.Relationship{
+			parentOf(groupID(channels), channel),
 			parentOf(groupID(inImpl), channel),
 			parentOf(groupID(mixed), channel),
 			parentOf(groupID(mixed), schem),
 			parentOf(groupID(inUnkn), schem),
 			parentOf(groupID(ofWs), resource.ID{Type: "workspace", Key: ws}),
+			parentOf(groupID(inProj), channel),
+			parentOf(groupID(a), twoGrps),
+			parentOf(groupID(b), twoGrps),
+			parentOf(groupID(tasks), rootTask),
+			parentOf(groupID(inTasks), task),
+			parentOf(groupID(inRanges), rng),
 		}
 		project  = resource.ID{Type: resource.TypeProject, Key: uuid.New().String()}
 		rack     = resource.ID{Type: resource.TypeRack, Key: "65537"}
@@ -94,6 +111,7 @@ var _ = Describe("ParentMigration", func() {
 		toRanges = parentOf(rootID, groupID(ranges))
 		inRange  = parentOf(groupID(ranges), groupID(inRanges))
 		groups   map[uuid.UUID]v1.Group
+		logs     *observer.ObservedLogs
 	)
 
 	BeforeEach(func(ctx SpecContext) {
@@ -104,7 +122,8 @@ var _ = Describe("ParentMigration", func() {
 			ranges: "Ranges", inRanges: "In Ranges", implied: "Implied",
 			inImpl: "In Implied", mixed: "Mixed", unknown: "Unknown",
 			inUnkn: "In Unknown", inWs: "In Workspace", wsRoot: "Workspaces",
-			inWsRoot: "In Workspaces", ofWs: "Of Workspaces",
+			inWsRoot: "In Workspaces", ofWs: "Of Workspaces", tasks: "Tasks",
+			inTasks: "Task Folder",
 		}
 		for k, name := range names {
 			g := v0.Group{Key: k, Name: name}
@@ -126,15 +145,23 @@ var _ = Describe("ParentMigration", func() {
 			parentOf(resource.ID{Type: "workspace", Key: ws}, groupID(inWs)),
 			parentOf(rootID, groupID(wsRoot)),
 			parentOf(groupID(wsRoot), groupID(inWsRoot)),
+			parentOf(rootID, groupID(tasks)),
+			parentOf(groupID(tasks), groupID(inTasks)),
 			toProj,
 			toRanges,
 			inRange,
 		)
 		createEdges(ctx, db, members...)
+		var core zapcore.Core
+		core, logs = observer.New(zapcore.WarnLevel)
+		logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+			ZapLogger: zap.New(core),
+		}))
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-			DB:         db,
-			Namespace:  "group",
-			Migrations: []gorp.Migration{v1.Migration, v1.ParentMigration},
+			Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
+			DB:              db,
+			Namespace:       "group",
+			Migrations:      []gorp.Migration{v1.Migration, v1.ParentMigration},
 		})).To(Succeed())
 		var out []v1.Group
 		Expect(gorp.NewRetrieve[v1.Key, v1.Group]().Entries(&out).Exec(ctx, db)).
@@ -188,7 +215,36 @@ var _ = Describe("ParentMigration", func() {
 			resource.TypeProject, func() *resource.ID { return nil }),
 		Entry("a group whose members are workspaces", &ofWs, resource.TypeProject,
 			func() *resource.ID { return nil }),
+		Entry("a group of tasks", &inTasks, resource.TypeBuiltin,
+			func() *resource.ID { return nil }),
 	)
+
+	It("Should log each membership that the member migrations drop", func() {
+		dropped := func(g uuid.UUID, name string, member resource.ID) map[string]any {
+			return map[string]any{
+				"group":      g.String(),
+				"group_name": name,
+				"member":     member.String(),
+			}
+		}
+		second, secondName := b, "B"
+		if groupID(b).String() < groupID(a).String() {
+			second, secondName = a, "A"
+		}
+		var got []map[string]any
+		for _, e := range logs.FilterMessage(
+			"dropped a member from a group that cannot hold it",
+		).All() {
+			got = append(got, e.ContextMap())
+		}
+		Expect(got).To(ConsistOf(
+			dropped(mixed, "Mixed", channel),
+			dropped(mixed, "Mixed", schem),
+			dropped(inProj, "In Project", channel),
+			dropped(second, secondName, twoGrps),
+			dropped(inTasks, "Task Folder", task),
+		))
+	})
 
 	It(
 		"Should delete the parent edges into groups and keep the rest",
