@@ -179,6 +179,9 @@ export interface Interceptor<Key extends record.Key, Value> {
  * optimistic writes, idempotent backfills) are silenced by the equality check rather
  * than by writer identity.
  */
+const closedError = (): DisconnectedError =>
+  new DisconnectedError("The client is closed.");
+
 export class Table<
   Key extends record.Key = record.Key,
   Value extends state.State = state.State,
@@ -197,6 +200,7 @@ export class Table<
   private readonly fetchEntries?: (keys: Key[]) => Promise<Array<Keyed<Key, Value>>>;
   private readonly hydrateMode: HydrateMode;
   private readonly revivable: boolean;
+  private closed = false;
   private readonly fetchBatcher: scheduler.Batcher<
     Key[],
     Array<Keyed<Key, Value>>
@@ -518,6 +522,7 @@ export class Table<
       const misses =
         opts.refresh === true ? keys : keys.filter((key) => !this.entries.has(key));
       if (misses.length > 0) {
+        if (this.closed) throw closedError();
         const since = this.stamp();
         const fetched = await this.fetchBatcher.enqueue(misses);
         if (opts.refresh === true) {
@@ -646,11 +651,12 @@ export class Table<
   }
 
   /**
-   * Rejects every fetch in progress with a {@link DisconnectedError}. The table keeps
-   * its entries, and a later retrieve fetches again.
+   * Rejects every fetch in progress and every later fetch with a
+   * {@link DisconnectedError}. The table keeps its entries.
    */
   close(): void {
-    this.fetchBatcher?.close(new DisconnectedError("The client is closed."));
+    this.closed = true;
+    this.fetchBatcher?.close(closedError());
   }
 
   private refetch(keys: Key[]): void {

@@ -274,6 +274,26 @@ describe("Cache", () => {
       expect(onError).not.toHaveBeenCalled();
     });
 
+    it("should reject a table fetch that starts after the close", async () => {
+      const fetch = vi.fn(async (): Promise<Doc[]> => []);
+      const { cache, table } = setup(fetch);
+      await cache.close();
+      await expect(table.retrieve(["k1"])).rejects.toThrow(DisconnectedError);
+      expect(fetch).not.toHaveBeenCalled();
+    });
+
+    it("should not report a restore fetch that starts after the close", async () => {
+      const fetch = vi.fn(async (): Promise<Doc[]> => []);
+      const { cache, onError, table } = setup(fetch);
+      table.set("k1", { key: "k1", name: "a" });
+      const rollback = table.delete("k1");
+      await cache.close();
+      rollback();
+      await sleep.sleep(TimeSpan.milliseconds(30));
+      expect(fetch).not.toHaveBeenCalled();
+      expect(onError).not.toHaveBeenCalled();
+    });
+
     it("should keep the entries of a closed table", async () => {
       const { cache, table } = setup(async () => []);
       table.set("k1", { key: "k1", name: "a" });
