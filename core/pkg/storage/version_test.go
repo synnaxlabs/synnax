@@ -69,7 +69,7 @@ var _ = Describe("Recorded version", func() {
 		openAt(ctx, dir, "0.60.0")
 		Expect(recordedVersion(dir)).To(Equal("0.60.0"))
 		Expect(entries(filepath.Join(dir, "backups"))).
-			To(ConsistOf(HaveSuffix("-unknown")))
+			To(ConsistOf(HaveSuffix("-unknown.tar")))
 	})
 
 	DescribeTable(
@@ -80,7 +80,7 @@ var _ = Describe("Recorded version", func() {
 			Expect(recordedVersion(dir)).To(Equal(current))
 			backups := entries(filepath.Join(dir, "backups"))
 			if backedUp {
-				Expect(backups).To(ConsistOf(HaveSuffix("-" + recorded)))
+				Expect(backups).To(ConsistOf(HaveSuffix("-" + recorded + ".tar")))
 			} else {
 				Expect(backups).To(BeEmpty())
 			}
@@ -121,7 +121,7 @@ var _ = Describe("Recorded version", func() {
 			openAt(ctx, dir, dev)
 			Expect(recordedVersion(dir)).To(Equal("0.60.1"))
 			Expect(entries(filepath.Join(dir, "backups"))).
-				To(ConsistOf(HaveSuffix("-unknown")))
+				To(ConsistOf(HaveSuffix("-unknown.tar")))
 		},
 		Entry("unstamped", "0.0.0"),
 		Entry("dev build", "0.0.0-dev.0.60.1.abc1234"),
@@ -150,6 +150,6 @@ var _ = Describe("Recorded version", func() {
 		Expect(os.Remove(filepath.Join(dir, "backups"))).To(Succeed())
 		openAt(ctx, dir, "0.60.0")
 		Expect(entries(filepath.Join(dir, "backups"))).
-			To(ConsistOf(HaveSuffix("-0.59.0")))
+			To(ConsistOf(HaveSuffix("-0.59.0.tar")))
 	})
 })

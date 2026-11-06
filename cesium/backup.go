@@ -18,25 +18,32 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-// BackupMeta copies the metadata of every channel of the database in fs to backup,
-// without telemetry. No DB may be open on fs.
-func BackupMeta(fs, backup xfs.FS) error {
+// MetaFiles returns the paths in fs of the metadata files of every channel of the
+// database in fs. A copy of these files is a backup of the database without telemetry.
+// No DB may be open on fs.
+func MetaFiles(fs xfs.FS) ([]string, error) {
 	keys, err := channelKeys(fs)
 	if err != nil {
-		return err
+		return nil, err
 	}
+	files := make([]string, 0, len(keys))
 	for _, key := range keys {
-		if err = copyMeta(fs, backup, keyToDirName(key)); err != nil {
-			return err
+		file := path.Join(keyToDirName(key), meta.File)
+		exists, err := fs.Exists(file)
+		if err != nil {
+			return nil, err
+		}
+		if exists {
+			files = append(files, file)
 		}
 	}
-	return nil
+	return files, nil
 }
 
-// RestoreMeta puts the metadata that BackupMeta copied to backup back into the database
-// in fs, and keeps the telemetry. It moves the directory of each channel that backup
-// has no metadata for into the directory orphans in fs, which it creates when needed.
-// No DB may be open on fs.
+// RestoreMeta puts the metadata files in backup, at the paths that MetaFiles returns,
+// back into the database in fs, and keeps the telemetry. It moves the directory of each
+// channel that backup has no metadata for into the directory orphans in fs, which it
+// creates when needed. No DB may be open on fs.
 func RestoreMeta(fs, backup xfs.FS, orphans string) error {
 	live, err := channelKeys(fs)
 	if err != nil {

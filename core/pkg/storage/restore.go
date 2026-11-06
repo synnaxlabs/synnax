@@ -63,7 +63,8 @@ func (b *Backups) Restore(name string) (res Restored, err error) {
 	if !ok {
 		return Restored{}, errors.Wrapf(query.ErrNotFound, "backup %s", name)
 	}
-	src, err := b.fs.Sub(path.Join(backupsDir, name))
+	src, err := b.extract(name)
+	defer func() { err = errors.Combine(err, b.fs.Remove(extractedDir(name))) }()
 	if err != nil {
 		return Restored{}, err
 	}
@@ -129,6 +130,26 @@ func (b *Backups) Undo() (Restored, error) {
 		)
 	}
 	return b.Restore(newest.Name)
+}
+
+// extract unpacks the archive of the named backup into an empty directory and returns
+// it.
+func (b *Backups) extract(name string) (xfs.FS, error) {
+	dir := extractedDir(name)
+	if err := b.fs.Remove(dir); err != nil {
+		return nil, err
+	}
+	dst, err := b.fs.Sub(dir)
+	if err != nil {
+		return nil, err
+	}
+	archive := path.Join(backupsDir, name+archiveExt)
+	return dst, extractArchive(b.fs, archive, dst)
+}
+
+// extractedDir returns the directory that extract unpacks the named backup into.
+func extractedDir(name string) string {
+	return path.Join(backupsDir, name+".restore")
 }
 
 // checkRestore returns an error when a Restore did not finish.
