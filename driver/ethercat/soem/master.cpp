@@ -1288,6 +1288,18 @@ x::errors::Error Master::start_dc(const std::vector<DCSetup> &setups) {
         }};
         for (const auto &[address, data]: writes)
             if (auto err = this->write_dc_register(pos, address, data)) return err;
+        std::array<uint8_t, 1> activation{};
+        this->api->read_register(pos, ECT_REG_DCSYNCACT, activation, EC_TIMEOUTRET);
+        LOG(INFO) << std::format(
+            "[ethercat] slave {} ({}) DC sync: SYNC0 cycle {} ns, SYNC1 register {} "
+            "ns, first SYNC0 at {} ns, 0x0981 reads 0x{:02X}",
+            pos,
+            this->api->slave_name(pos),
+            regs.sync0_cycle,
+            regs.sync1_cycle,
+            start,
+            activation[0]
+        );
     }
     return x::errors::NIL;
 }
