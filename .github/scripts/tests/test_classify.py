@@ -234,7 +234,7 @@ class TestMain:
         (tmp_path / "surface-core" / "status").write_text("skipped\n")
         classify.main()
         assert not any(LABELS in args for args, _ in gh.writes)
-        assert "Not compared" in gh.writes[-1][1]
+        assert "Not compared" in str(gh.writes[-1][1])
 
     def test_raises_when_a_report_is_missing(self, gh: FakeGH, tmp_path: Path) -> None:
         (tmp_path / "surface-core" / "status").unlink()
