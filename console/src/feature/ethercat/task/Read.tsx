@@ -144,6 +144,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
   const { slaves, rack, channelsBySlaveKey } =
     await retrieveAndValidateSlaves<ReadChannel>(client, config.channels, "inputs");
 
+  const plans = [];
   for (const slave of slaves) {
     const channels = channelsBySlaveKey.get(slave.key) ?? [];
     const toCreate = await findChannelsToCreate(
@@ -154,8 +155,13 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
       readDataType,
     );
     const names = toCreate.map((ch) => readChannelName(slave, ch));
-    if (toCreate.length > 0) await checkNamesFree(client, names);
-    // The checks run first, so a failed one leaves no index that the device lacks.
+    plans.push({ slave, channels, toCreate, names });
+  }
+  const allNames = plans.flatMap((p) => p.names);
+  if (allNames.length > 0) await checkNamesFree(client, allNames);
+
+  // The checks run before any create, so a failed one leaves nothing behind.
+  for (const { slave, channels, toCreate, names } of plans) {
     let modified = await checkOrCreateIndex(client, slave, READ_INDEX_OPTIONS);
 
     if (toCreate.length > 0) {

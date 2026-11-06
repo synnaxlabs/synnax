@@ -638,6 +638,40 @@ describe("Read", () => {
     expect(updated.properties.read.channels).toEqual({});
   });
 
+  it("should reject a typed name that new channels of two slaves share", async () => {
+    const name = uniqueName("ecat_typed");
+    const slaves = await Promise.all(
+      [0, 1].map(
+        async () =>
+          await createSlaveDevice(client, testRack.key, {
+            identifier: createIdentifier(),
+            network: "eth0",
+            pdos: createPDOs(),
+          }),
+      ),
+    );
+    const { container, statuses } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: slaves.map((slave) =>
+        createEntryReadChannel(slave.key, STATUS_ENTRY, { name }),
+      ),
+    });
+    await clickDeploy(container);
+    await awaitStatus(
+      statuses,
+      new RegExp(`Two channels of the task use the name ${name}\\.`),
+    );
+    for (const slave of slaves) {
+      const updated = await client.devices.retrieve({
+        key: slave.key,
+        schemas: EtherCAT.Device.SLAVE_SCHEMAS,
+      });
+      expect(updated.properties.readIndex).toBe(0);
+      expect(updated.properties.read.channels).toEqual({});
+    }
+    expect(await client.channels.retrieve({ names: [name] })).toEqual([]);
+  });
+
   it("should deploy once the user fixes a rejected name", async () => {
     const name = uniqueName("ecat_typed");
     const pdos = createRepeatedNamePDOs();
