@@ -26,9 +26,10 @@ import (
 )
 
 // Writer is used to create and update statuses within the DB. Every write touches both
-// the status entry and its ontology resource, and the two land together only when the
-// Writer holds a transaction spanning them.
+// the status entry and its ontology resource. Set always writes the two together. Other
+// writes land them together only when the Writer holds a transaction spanning them.
 type Writer struct {
+	svc       *Service
 	tx        gorp.Tx
 	table     *gorp.Table[Key, Status[any]]
 	indexes   indexes
@@ -39,8 +40,15 @@ type Writer struct {
 // holds, whatever key it carries. Otherwise, Set uses the status's key, or a new UUID
 // when the key is empty. A create stores the labels s carries. An update keeps the
 // stored labels, which change only through AddLabels, ReplaceLabels, and RemoveLabels,
-// and keeps the stored owner when s has none. On return, s holds what was stored.
+// and keeps the stored owner when s has none. On return, s holds what was stored. A
+// Writer with no transaction runs each Set in one of its own, so concurrent Sets for an
+// owner write one status.
 func (w Writer) Set[D any](ctx context.Context, s *Status[D]) error {
+	if db, ok := w.tx.(*gorp.DB); ok {
+		return db.WithTx(ctx, func(tx gorp.Tx) error {
+			return w.svc.NewWriter(tx).Set(ctx, s)
+		})
+	}
 	if err := w.validate(*s); err != nil {
 		return err
 	}

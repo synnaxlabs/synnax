@@ -232,11 +232,11 @@ func (s *Service) NewMigrationWriter(tx gorp.Tx) *gorp.Writer[Key, Status[any]] 
 }
 
 // NewWriter opens a Writer for statuses. Pass a nil tx to write directly against the
-// service's DB. A status write spans the entry and its ontology resource, so the two
-// land together only when tx does.
+// service's DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
+		svc:       s,
 		tx:        tx,
 		table:     s.table,
 		indexes:   s.indexes,

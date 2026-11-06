@@ -11,6 +11,7 @@ package status_test
 
 import (
 	"context"
+	"sync"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -1021,6 +1022,34 @@ var _ = Describe("Status", Ordered, func() {
 					WhereIDs(status.ResourceID(key)).
 					Entry(&res).
 					Exec(ctx, tx)).To(Succeed())
+			},
+		)
+	})
+
+	Describe("Set with no transaction", func() {
+		It(
+			"Should write one status for an owner that concurrent sets write",
+			func(ctx SpecContext) {
+				Expect(racks.NewCreate().
+					Entry(&rack.Rack{Key: 13, Name: "Rack"}).
+					Exec(ctx, db)).To(Succeed())
+				owner := rack.Key(13).ResourceID()
+				var wg sync.WaitGroup
+				for range 10 {
+					wg.Go(func() {
+						defer GinkgoRecover()
+						s := newStatus("")
+						s.Owner = &owner
+						Expect(svc.NewWriter(nil).Set(ctx, &s)).To(Succeed())
+					})
+				}
+				wg.Wait()
+				var held []status.Status[any]
+				Expect(svc.NewRetrieve[any]().
+					Where(status.MatchOwners[any](owner)).
+					Entries(&held).
+					Exec(ctx, db)).To(Succeed())
+				Expect(held).To(HaveLen(1))
 			},
 		)
 	})
