@@ -94,9 +94,9 @@ func typeTakenError(kind, typ string) error {
 	return errors.Wrapf(ErrTypeTaken, "%s for type %q", kind, typ)
 }
 
-// ImporterType returns the resource type created by the Importer registered under t.
-// It returns a validation error scoped to the "type" field when no importer is
-// registered for t.
+// ImporterType returns the resource type created by the Importer registered under t. It
+// returns a validation error scoped to the "type" field when no importer is registered
+// for t.
 func (s *Service) ImporterType(t string) (resource.Type, error) {
 	s.mu.RLock()
 	imp, ok := s.importers[t]

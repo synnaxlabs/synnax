@@ -97,9 +97,9 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 }
 
 // Service is the top-level channel service. It owns the channel metadata table,
-// retrieval, search integration, and the create/delete/rename
-// orchestration, driving the distribution-layer allocator for key assignment and
-// storage. It also infers DataTypes for calculated channels on write.
+// retrieval, search integration, and the create/delete/rename orchestration, driving
+// the distribution-layer allocator for key assignment and storage. It also infers
+// DataTypes for calculated channels on write.
 type Service struct {
 	cfg     ServiceConfig
 	db      *gorp.DB
