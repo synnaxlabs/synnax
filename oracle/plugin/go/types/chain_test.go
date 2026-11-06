@@ -1028,7 +1028,7 @@ var _ = Describe("Stored references through the importing version file", func() 
 })
 
 var _ = Describe("Frozen enum that the live file omits", func() {
-	It("Should keep the enum while a frozen declaration stores it", func() {
+	It("Should keep an enum that a frozen declaration uses or defines alone", func() {
 		root := GinkgoT().TempDir()
 		write := func(rel, content string) {
 			GinkgoHelper()
@@ -1041,6 +1041,10 @@ Side enum {
 	left = "left"
 }
 
+Mode enum {
+	slow = "slow"
+}
+
 Doc struct {
 	key uuid @key
 	side Side
@@ -1049,6 +1053,10 @@ Doc struct {
 }
 `)
 		write("schemas/synnax/versions/doc/v1.oracle", `
+Mode enum {
+	fast = "fast"
+}
+
 Doc struct {
 	key uuid @key
 
@@ -1060,6 +1068,12 @@ Doc struct {
 
 Side enum {
 	left = "left"
+
+	@go omit
+}
+
+Mode enum {
+	fast = "fast"
 
 	@go omit
 }
@@ -1083,6 +1097,7 @@ Doc struct {
 		))
 		frozen := generatedFile(resp, "core/pkg/service/doc/versions/v0/types.gen.go")
 		Expect(frozen).To(ContainSubstring("type Side string"))
+		Expect(frozen).To(ContainSubstring("type Mode string"))
 	})
 })
 
@@ -1169,11 +1184,17 @@ Note struct {
 			docV0, "schemas/synnax/versions/doc/v1.oracle", `
 Side = v0.Side
 
+Note = v0.Note
+
 Doc = v0.Doc
 `, map[string]string{
 				"schemas/synnax/versions/doc/v0.oracle": `
 Side enum {
 	left = "left"
+}
+
+Note struct {
+	text string
 }
 
 Doc struct {
@@ -1187,6 +1208,12 @@ Doc struct {
 
 Side enum {
 	left = "left"
+
+	@go omit
+}
+
+Note struct {
+	text string
 
 	@go omit
 }
