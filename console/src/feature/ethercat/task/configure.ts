@@ -147,16 +147,13 @@ export const retrieveByName = async (
   names: string[],
 ): Promise<Map<string, channel.Channel>> => {
   if (names.length === 0) return new Map();
-  // Names with pattern characters match more than themselves.
-  const found = await client.channels.retrieve({ where: { namePatterns: names } });
-  return new Map(
-    found.filter(({ name }) => names.includes(name)).map((c) => [c.name, c]),
-  );
+  const found = await client.channels.retrieve({ where: { name: { in: names } } });
+  return new Map(found.map((c) => [c.name, c]));
 };
 
 /**
  * @throws {Error} if a device other than the slave uses the slave's identifier, or if
- * another slave uses the index.
+ * another slave uses the index for itself or for a command channel.
  */
 const checkIndexFree = async (
   client: Synnax,
@@ -164,27 +161,44 @@ const checkIndexFree = async (
   index: channel.Channel,
 ): Promise<void> => {
   const identifier = channel.escapeInvalidName(slave.properties.identifier);
-  const devices = await client.devices.retrieve({});
-  for (const { key, name, make, model, properties } of devices) {
-    if (key === slave.key) continue;
-    if (
+  const other = (await client.devices.retrieve({})).find(
+    ({ key, properties }) =>
+      key !== slave.key &&
       typeof properties?.identifier === "string" &&
-      channel.escapeInvalidName(properties.identifier) === identifier
-    )
-      throw new Error(
-        `Device ${name} has an identifier that gives the same channel names as ` +
-          `${slave.properties.identifier}. Change the identifier of one of them.`,
-      );
-    if (
-      make === MAKE &&
-      model === SLAVE_MODEL &&
-      (properties?.readIndex === index.key || properties?.writeStateIndex === index.key)
-    )
-      throw new Error(
-        `Slave ${name} uses the index channel ${index.name}. Change the identifier ` +
-          `of slave ${slave.name}.`,
-      );
-  }
+      channel.escapeInvalidName(properties.identifier) === identifier,
+  );
+  if (other != null)
+    throw new Error(
+      `Device ${other.name} has an identifier that gives the same channel names as ` +
+        `${slave.properties.identifier}. Change the identifier of one of them.`,
+    );
+  const others = (
+    await client.devices.retrieve({
+      where: { make: { eq: MAKE }, model: { eq: SLAVE_MODEL } },
+      schemas: SLAVE_SCHEMAS,
+    })
+  ).filter(({ key }) => key !== slave.key);
+  const commands = others.flatMap(({ properties }) =>
+    Object.values(properties.write.channels),
+  );
+  const indexes = new Map(
+    commands.length === 0
+      ? []
+      : (await client.channels.retrieve({ where: { key: { in: commands } } })).map(
+          (ch) => [ch.key, ch.index],
+        ),
+  );
+  const owner = others.find(
+    ({ properties: { readIndex, writeStateIndex, write } }) =>
+      readIndex === index.key ||
+      writeStateIndex === index.key ||
+      Object.values(write.channels).some((key) => indexes.get(key) === index.key),
+  );
+  if (owner != null)
+    throw new Error(
+      `Slave ${owner.name} uses the index channel ${index.name}. Change the ` +
+        `identifier of slave ${slave.name}.`,
+    );
 };
 
 /**
