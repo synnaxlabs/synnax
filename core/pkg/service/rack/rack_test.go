@@ -723,13 +723,14 @@ var _ = Describe("Rack", Ordered, func() {
 		)
 	})
 
-	Describe("RetrieveResources", func() {
+	Describe("Resources", func() {
+		BeforeEach(openTx)
 		It("Should return the ID and name of each rack", func(ctx SpecContext) {
 			a := rack.Rack{Name: "rack a"}
 			b := rack.Rack{Name: "rack b"}
 			Expect(writer.Create(ctx, &a)).To(Succeed())
 			Expect(writer.Create(ctx, &b)).To(Succeed())
-			Expect(svc.RetrieveResources(
+			Expect(svc.Resources().Retrieve(
 				ctx,
 				tx,
 				[]resource.ID{a.ResourceID(), b.ResourceID()},
@@ -739,40 +740,15 @@ var _ = Describe("Rack", Ordered, func() {
 			))
 		})
 
-		It("Should leave out a key that names no rack", func(ctx SpecContext) {
-			r := rack.Rack{Name: "kept"}
-			Expect(writer.Create(ctx, &r)).To(Succeed())
-			missing := resource.ID{Type: resource.TypeRack, Key: "4294967295"}
-			Expect(svc.RetrieveResources(
-				ctx,
-				tx,
-				[]resource.ID{missing, r.ResourceID()},
-			)).To(ConsistOf(resource.Resource{ID: r.ResourceID(), Name: "kept"}))
-		})
-
 		It("Should return an error for a key that is not a rack key",
 			func(ctx SpecContext) {
-				Expect(svc.RetrieveResources(
+				Expect(svc.Resources().Retrieve(
 					ctx,
 					tx,
 					[]resource.ID{{Type: resource.TypeRack, Key: "pump"}},
 				)).Error().To(MatchError(ContainSubstring(`parsing "pump"`)))
 			},
 		)
-	})
-
-	Describe("ListResources", func() {
-		It("Should list at most limit racks in the same order", func(ctx SpecContext) {
-			for _, name := range []string{"listed a", "listed b"} {
-				Expect(writer.Create(ctx, &rack.Rack{Name: name})).To(Succeed())
-			}
-			all := MustSucceed(svc.ListResources(ctx, tx, 1000))
-			Expect(all).To(ContainElements(
-				HaveField("Name", "listed a"),
-				HaveField("Name", "listed b"),
-			))
-			Expect(svc.ListResources(ctx, tx, 1)).To(Equal(all[:1]))
-		})
 	})
 
 	Describe("Create with Integrations", func() {

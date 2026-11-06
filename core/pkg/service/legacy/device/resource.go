@@ -9,58 +9,15 @@
 
 package device
 
-import (
-	"context"
+import "github.com/synnaxlabs/synnax/pkg/service/resource"
 
-	"github.com/samber/lo"
-	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/search"
-)
-
-var _ resource.Provider = (*Service)(nil)
-
-// Search implements resource.Provider.
-func (s *Service) Search(
-	ctx context.Context,
-	tx gorp.Tx,
-	q search.Query[resource.ID],
-) (search.Result[resource.ID], error) {
-	return resource.SearchIndex(ctx, tx, s.indexes.search, ResourceID, q)
-}
-
-// RetrieveResources implements resource.Provider.
-func (s *Service) RetrieveResources(
-	ctx context.Context,
-	tx gorp.Tx,
-	ids []resource.ID,
-) ([]resource.Resource, error) {
-	keys := KeysFromResourceIDs(ids)
-	var devices []Device
-	if err := s.NewRetrieve().
-		Where(MatchKeys(keys...)).
-		Entries(&devices).
-		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
-		return nil, err
-	}
-	return lo.Map(devices, toResource), nil
-}
-
-// ListResources implements resource.Provider.
-func (s *Service) ListResources(
-	ctx context.Context,
-	tx gorp.Tx,
-	limit int,
-) ([]resource.Resource, error) {
-	var devices []Device
-	if err := s.NewRetrieve().Limit(limit).Entries(&devices).Exec(ctx, tx); err != nil {
-		return nil, err
-	}
-	return lo.Map(devices, toResource), nil
-}
-
-func toResource(e Device, _ int) resource.Resource {
-	return resource.Resource{ID: e.ResourceID(), Name: e.Name}
+// Resources returns the resource.Provider of devices.
+func (s *Service) Resources() *resource.TableProvider[Key, Device] {
+	return resource.NewTableProvider(resource.TableProviderConfig[Key, Device]{
+		Table:  s.table,
+		Search: s.indexes.search,
+		ID:     ResourceID,
+		Key:    func(id resource.ID) (Key, error) { return id.Key, nil },
+		Name:   func(d *Device) string { return d.Name },
+	})
 }

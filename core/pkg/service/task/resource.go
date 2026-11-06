@@ -10,60 +10,18 @@
 package task
 
 import (
-	"context"
+	"uuid"
 
-	"github.com/samber/lo"
-	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/search"
 )
 
-var _ resource.Provider = (*Service)(nil)
-
-// Search implements resource.Provider.
-func (s *Service) Search(
-	ctx context.Context,
-	tx gorp.Tx,
-	q search.Query[resource.ID],
-) (search.Result[resource.ID], error) {
-	return resource.SearchIndex(ctx, tx, s.search, ResourceID, q)
-}
-
-// RetrieveResources implements resource.Provider.
-func (s *Service) RetrieveResources(
-	ctx context.Context,
-	tx gorp.Tx,
-	ids []resource.ID,
-) ([]resource.Resource, error) {
-	keys, err := KeysFromResourceIDs(ids)
-	if err != nil {
-		return nil, err
-	}
-	var tasks []Task
-	if err = s.NewRetrieve().
-		Where(MatchKeys(keys...)).
-		Entries(&tasks).
-		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
-		return nil, err
-	}
-	return lo.Map(tasks, toResource), nil
-}
-
-// ListResources implements resource.Provider.
-func (s *Service) ListResources(
-	ctx context.Context,
-	tx gorp.Tx,
-	limit int,
-) ([]resource.Resource, error) {
-	var tasks []Task
-	if err := s.NewRetrieve().Limit(limit).Entries(&tasks).Exec(ctx, tx); err != nil {
-		return nil, err
-	}
-	return lo.Map(tasks, toResource), nil
-}
-
-func toResource(e Task, _ int) resource.Resource {
-	return resource.Resource{ID: e.ResourceID(), Name: e.Name}
+// Resources returns the resource.Provider of tasks.
+func (s *Service) Resources() *resource.TableProvider[Key, Task] {
+	return resource.NewTableProvider(resource.TableProviderConfig[Key, Task]{
+		Table:  s.table,
+		Search: s.search,
+		ID:     ResourceID,
+		Key:    func(id resource.ID) (Key, error) { return uuid.Parse(id.Key) },
+		Name:   func(t *Task) string { return t.Name },
+	})
 }

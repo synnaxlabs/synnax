@@ -10,63 +10,18 @@
 package label
 
 import (
-	"context"
 	"uuid"
 
-	"github.com/samber/lo"
-	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/search"
 )
 
-var _ resource.Provider = (*Service)(nil)
-
-// Search implements resource.Provider.
-func (s *Service) Search(
-	ctx context.Context,
-	tx gorp.Tx,
-	q search.Query[resource.ID],
-) (search.Result[resource.ID], error) {
-	return resource.SearchIndex(ctx, tx, s.search, ResourceID, q)
-}
-
-// RetrieveResources implements resource.Provider.
-func (s *Service) RetrieveResources(
-	ctx context.Context,
-	tx gorp.Tx,
-	ids []resource.ID,
-) ([]resource.Resource, error) {
-	keys, err := lo.MapErr(ids, func(id resource.ID, _ int) (Key, error) {
-		return uuid.Parse(id.Key)
+// Resources returns the resource.Provider of labels.
+func (s *Service) Resources() *resource.TableProvider[Key, Label] {
+	return resource.NewTableProvider(resource.TableProviderConfig[Key, Label]{
+		Table:  s.table,
+		Search: s.search,
+		ID:     ResourceID,
+		Key:    func(id resource.ID) (Key, error) { return uuid.Parse(id.Key) },
+		Name:   func(l *Label) string { return l.Name },
 	})
-	if err != nil {
-		return nil, err
-	}
-	var labels []Label
-	if err = s.NewRetrieve().
-		Where(MatchKeys(keys...)).
-		Entries(&labels).
-		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
-		return nil, err
-	}
-	return lo.Map(labels, toResource), nil
-}
-
-// ListResources implements resource.Provider.
-func (s *Service) ListResources(
-	ctx context.Context,
-	tx gorp.Tx,
-	limit int,
-) ([]resource.Resource, error) {
-	var labels []Label
-	if err := s.NewRetrieve().Limit(limit).Entries(&labels).Exec(ctx, tx); err != nil {
-		return nil, err
-	}
-	return lo.Map(labels, toResource), nil
-}
-
-func toResource(e Label, _ int) resource.Resource {
-	return resource.Resource{ID: e.ResourceID(), Name: e.Name}
 }

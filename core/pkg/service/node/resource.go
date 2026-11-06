@@ -21,36 +21,28 @@ import (
 	"github.com/synnaxlabs/x/search"
 )
 
-var _ resource.Provider = (*Service)(nil)
+// Resources returns the resource.Provider of the nodes that the cluster holds when each
+// of its methods is called. The free node always exists.
+func (s *Service) Resources() resource.Provider { return provider{svc: s} }
 
-// Search implements resource.Provider. It searches the nodes that the cluster holds
-// when Search is called.
-func (s *Service) Search(
-	_ context.Context,
-	_ gorp.Tx,
+type provider struct{ svc *Service }
+
+// Search implements resource.Provider.
+func (p provider) Search(
+	ctx context.Context,
+	tx gorp.Tx,
 	q search.Query[resource.ID],
 ) (search.Result[resource.ID], error) {
-	nodes := s.cfg.Cluster.CopyState().Nodes
-	idx := search.New[Key]()
-	for _, key := range slices.Sorted(maps.Keys(nodes)) {
-		idx.Set(key, name(key))
-	}
-	res := idx.Search(search.Query[Key]{
-		Term:   q.Term,
-		Except: func(key Key) bool { return q.Except != nil && q.Except(ResourceID(key)) },
-		Limit:  q.Limit,
-	})
-	return search.MapKeys(res, ResourceID), nil
+	return p.svc.Search(ctx, tx, q)
 }
 
-// RetrieveResources implements resource.Provider. It reads the nodes that the cluster
-// holds when RetrieveResources is called. The free node always exists.
-func (s *Service) RetrieveResources(
+// Retrieve implements resource.Provider.
+func (p provider) Retrieve(
 	_ context.Context,
 	_ gorp.Tx,
 	ids []resource.ID,
 ) ([]resource.Resource, error) {
-	nodes := s.cfg.Cluster.CopyState().Nodes
+	nodes := p.svc.cfg.Cluster.CopyState().Nodes
 	resources := make([]resource.Resource, 0, len(ids))
 	for _, id := range ids {
 		k, err := strconv.ParseUint(id.Key, 10, 16)
@@ -68,14 +60,13 @@ func (s *Service) RetrieveResources(
 	return resources, nil
 }
 
-// ListResources implements resource.Provider. It lists the nodes that the cluster holds
-// when ListResources is called, in order of key.
-func (s *Service) ListResources(
+// List implements resource.Provider. It lists the nodes in order of key.
+func (p provider) List(
 	_ context.Context,
 	_ gorp.Tx,
 	limit int,
 ) ([]resource.Resource, error) {
-	keys := slices.Sorted(maps.Keys(s.cfg.Cluster.CopyState().Nodes))
+	keys := slices.Sorted(maps.Keys(p.svc.cfg.Cluster.CopyState().Nodes))
 	return lo.Map(keys[:min(limit, len(keys))], func(key Key, _ int) resource.Resource {
 		return resource.Resource{ID: ResourceID(key), Name: name(key)}
 	}), nil

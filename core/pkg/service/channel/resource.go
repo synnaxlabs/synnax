@@ -9,64 +9,15 @@
 
 package channel
 
-import (
-	"context"
+import "github.com/synnaxlabs/synnax/pkg/service/resource"
 
-	"github.com/samber/lo"
-	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/search"
-)
-
-var _ resource.Provider = (*Service)(nil)
-
-// Search implements resource.Provider.
-func (s *Service) Search(
-	ctx context.Context,
-	tx gorp.Tx,
-	q search.Query[resource.ID],
-) (search.Result[resource.ID], error) {
-	return resource.SearchIndex(ctx, tx, s.indexes.search, ResourceID, q)
-}
-
-// RetrieveResources implements resource.Provider.
-func (s *Service) RetrieveResources(
-	ctx context.Context,
-	tx gorp.Tx,
-	ids []resource.ID,
-) ([]resource.Resource, error) {
-	keys, err := KeysFromResourceIDs(ids)
-	if err != nil {
-		return nil, err
-	}
-	var channels []Channel
-	if err = s.NewRetrieve().
-		Where(MatchKeys(keys...)).
-		Entries(&channels).
-		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
-		return nil, err
-	}
-	return lo.Map(channels, toResource), nil
-}
-
-// ListResources implements resource.Provider.
-func (s *Service) ListResources(
-	ctx context.Context,
-	tx gorp.Tx,
-	limit int,
-) ([]resource.Resource, error) {
-	var channels []Channel
-	if err := s.NewRetrieve().
-		Limit(limit).
-		Entries(&channels).
-		Exec(ctx, tx); err != nil {
-		return nil, err
-	}
-	return lo.Map(channels, toResource), nil
-}
-
-func toResource(e Channel, _ int) resource.Resource {
-	return resource.Resource{ID: ResourceID(e.Key()), Name: e.Name}
+// Resources returns the resource.Provider of channels.
+func (s *Service) Resources() *resource.TableProvider[Key, Channel] {
+	return resource.NewTableProvider(resource.TableProviderConfig[Key, Channel]{
+		Table:  s.table,
+		Search: s.indexes.search,
+		ID:     ResourceID,
+		Key:    func(id resource.ID) (Key, error) { return ParseKey(id.Key) },
+		Name:   func(c *Channel) string { return c.Name },
+	})
 }

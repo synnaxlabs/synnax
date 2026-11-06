@@ -31,42 +31,6 @@ type Resource struct {
 	Name string `json:"name" msgpack:"name"`
 }
 
-// Provider searches the records of one type and retrieves them by ID.
-type Provider interface {
-	// Search returns the IDs of the records whose text matches q, closest match first.
-	// Search reads the changes staged against tx.
-	Search(
-		ctx context.Context,
-		tx gorp.Tx,
-		q search.Query[ID],
-	) (search.Result[ID], error)
-	// RetrieveResources returns the records that ids name. It leaves out each ID that
-	// names no record. Every ID has the type of the Provider.
-	RetrieveResources(ctx context.Context, tx gorp.Tx, ids []ID) ([]Resource, error)
-	// ListResources returns at most limit records, in the same order on every call.
-	ListResources(ctx context.Context, tx gorp.Tx, limit int) ([]Resource, error)
-}
-
-// SearchIndex searches idx as Provider.Search does. id returns the ID of the entry with
-// a key.
-func SearchIndex[K gorp.Key, E gorp.Entry[K]](
-	ctx context.Context,
-	tx gorp.Tx,
-	idx *gorp.SearchIndex[K, E],
-	id func(K) ID,
-	q search.Query[ID],
-) (search.Result[ID], error) {
-	res, err := idx.Search(ctx, tx, search.Query[K]{
-		Term:   q.Term,
-		Except: func(key K) bool { return q.Except != nil && q.Except(id(key)) },
-		Limit:  q.Limit,
-	})
-	if err != nil {
-		return search.Result[ID]{}, err
-	}
-	return search.MapKeys(res, id), nil
-}
-
 // ServiceConfig is the configuration for opening a Service.
 type ServiceConfig struct {
 	// DB is the database that a nil transaction reads from.
@@ -198,7 +162,7 @@ func (s *Service) list(
 		if len(types) > 0 && !slices.Contains(types, t) {
 			continue
 		}
-		res, err := s.cfg.Providers[t].ListResources(
+		res, err := s.cfg.Providers[t].List(
 			ctx,
 			tx,
 			offset+limit-len(resources),
@@ -257,7 +221,7 @@ func (s *Service) retrieve(
 		if !ok {
 			panic(fmt.Sprintf("[resource] - no provider for type %s", t))
 		}
-		res, err := p.RetrieveResources(ctx, tx, typeIDs)
+		res, err := p.Retrieve(ctx, tx, typeIDs)
 		if err != nil {
 			return nil, err
 		}

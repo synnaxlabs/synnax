@@ -9,72 +9,18 @@
 
 package alias
 
-import (
-	"context"
+import "github.com/synnaxlabs/synnax/pkg/service/resource"
 
-	"github.com/samber/lo"
-	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/search"
-)
-
-var _ resource.Provider = (*Service)(nil)
-
-// resourceID returns the resource ID of the alias with the given gorp key.
-func resourceID(key string) resource.ID {
-	return resource.ID{Type: resource.TypeRangeAlias, Key: key}
-}
-
-// Search implements resource.Provider.
-func (s *Service) Search(
-	ctx context.Context,
-	tx gorp.Tx,
-	q search.Query[resource.ID],
-) (search.Result[resource.ID], error) {
-	return resource.SearchIndex(ctx, tx, s.search, resourceID, q)
-}
-
-// RetrieveResources implements resource.Provider.
-func (s *Service) RetrieveResources(
-	ctx context.Context,
-	tx gorp.Tx,
-	ids []resource.ID,
-) ([]resource.Resource, error) {
-	keys, err := lo.MapErr(ids, func(id resource.ID, _ int) (string, error) {
-		r, ch, err := parseGorpKey(id.Key)
-		return Alias{Range: r, Channel: ch}.GorpKey(), err
+// Resources returns the resource.Provider of range aliases.
+func (s *Service) Resources() *resource.TableProvider[string, Alias] {
+	return resource.NewTableProvider(resource.TableProviderConfig[string, Alias]{
+		Table:  s.table,
+		Search: s.search,
+		ID:     resourceID,
+		Key: func(id resource.ID) (string, error) {
+			_, _, err := parseGorpKey(id.Key)
+			return id.Key, err
+		},
+		Name: func(a *Alias) string { return a.Alias },
 	})
-	if err != nil {
-		return nil, err
-	}
-	var aliases []Alias
-	if err = s.table.NewRetrieve().
-		Where(gorp.MatchKeys[string, Alias](keys...)).
-		Entries(&aliases).
-		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
-		return nil, err
-	}
-	return lo.Map(aliases, toResource), nil
-}
-
-// ListResources implements resource.Provider.
-func (s *Service) ListResources(
-	ctx context.Context,
-	tx gorp.Tx,
-	limit int,
-) ([]resource.Resource, error) {
-	var aliases []Alias
-	if err := s.table.NewRetrieve().
-		Limit(limit).
-		Entries(&aliases).
-		Exec(ctx, tx); err != nil {
-		return nil, err
-	}
-	return lo.Map(aliases, toResource), nil
-}
-
-func toResource(a Alias, _ int) resource.Resource {
-	return resource.Resource{ID: ResourceID(a.Range, a.Channel), Name: a.Alias}
 }

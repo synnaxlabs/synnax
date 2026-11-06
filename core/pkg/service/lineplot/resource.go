@@ -10,66 +10,18 @@
 package lineplot
 
 import (
-	"context"
 	"uuid"
 
-	"github.com/samber/lo"
-	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/search"
 )
 
-var _ resource.Provider = (*Service)(nil)
-
-// Search implements resource.Provider.
-func (s *Service) Search(
-	ctx context.Context,
-	tx gorp.Tx,
-	q search.Query[resource.ID],
-) (search.Result[resource.ID], error) {
-	return resource.SearchIndex(ctx, tx, s.indexes.search, ResourceID, q)
-}
-
-// RetrieveResources implements resource.Provider.
-func (s *Service) RetrieveResources(
-	ctx context.Context,
-	tx gorp.Tx,
-	ids []resource.ID,
-) ([]resource.Resource, error) {
-	keys, err := lo.MapErr(ids, func(id resource.ID, _ int) (Key, error) {
-		return uuid.Parse(id.Key)
+// Resources returns the resource.Provider of line plots.
+func (s *Service) Resources() *resource.TableProvider[Key, LinePlot] {
+	return resource.NewTableProvider(resource.TableProviderConfig[Key, LinePlot]{
+		Table:  s.table,
+		Search: s.indexes.search,
+		ID:     ResourceID,
+		Key:    func(id resource.ID) (Key, error) { return uuid.Parse(id.Key) },
+		Name:   func(l *LinePlot) string { return l.Name },
 	})
-	if err != nil {
-		return nil, err
-	}
-	var linePlots []LinePlot
-	if err = s.NewRetrieve().
-		Where(MatchKeys(keys...)).
-		Entries(&linePlots).
-		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
-		return nil, err
-	}
-	return lo.Map(linePlots, toResource), nil
-}
-
-// ListResources implements resource.Provider.
-func (s *Service) ListResources(
-	ctx context.Context,
-	tx gorp.Tx,
-	limit int,
-) ([]resource.Resource, error) {
-	var linePlots []LinePlot
-	if err := s.NewRetrieve().
-		Limit(limit).
-		Entries(&linePlots).
-		Exec(ctx, tx); err != nil {
-		return nil, err
-	}
-	return lo.Map(linePlots, toResource), nil
-}
-
-func toResource(e LinePlot, _ int) resource.Resource {
-	return resource.Resource{ID: e.ResourceID(), Name: e.Name}
 }

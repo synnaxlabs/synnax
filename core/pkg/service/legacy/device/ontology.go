@@ -20,6 +20,7 @@ import (
 	xchange "github.com/synnaxlabs/x/change"
 	xiter "github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/search"
 	"github.com/synnaxlabs/x/zyn"
 )
 
@@ -97,4 +98,13 @@ func (s *Service) OnChange(
 		f(ctx, xiter.Map(reader, translateChange))
 	}
 	return s.table.Observe().OnChange(handleChange)
+}
+
+// Search implements ontology.Service.
+func (s *Service) Search(
+	ctx context.Context,
+	tx gorp.Tx,
+	q search.Query[resource.ID],
+) (search.Result[resource.ID], error) {
+	return resource.SearchIndex(ctx, tx, s.indexes.search, ResourceID, q)
 }

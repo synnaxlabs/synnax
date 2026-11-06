@@ -151,17 +151,17 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	resourceSvc = MustSucceed(resource.NewService(resource.ServiceConfig{
 		DB: db,
 		Providers: map[resource.Type]resource.Provider{
-			resource.TypeArc:      arcSvc,
-			resource.TypeChannel:  channelSvc,
-			resource.TypeGroup:    groupSvc,
-			resource.TypeLabel:    labelSvc,
-			resource.TypeLineplot: lineplotSvc,
-			resource.TypeLog:      logSvc,
-			resource.TypePanel:    panelSvc,
-			resource.TypeProject:  projectSvc,
-			resource.TypeRack:     rackSvc,
-			resource.TypeStatus:   statusSvc,
-			resource.TypeTask:     taskSvc,
+			resource.TypeArc:      arcSvc.Resources(),
+			resource.TypeChannel:  channelSvc.Resources(),
+			resource.TypeGroup:    groupSvc.Resources(),
+			resource.TypeLabel:    labelSvc.Resources(),
+			resource.TypeLineplot: lineplotSvc.Resources(),
+			resource.TypeLog:      logSvc.Resources(),
+			resource.TypePanel:    panelSvc.Resources(),
+			resource.TypeProject:  projectSvc.Resources(),
+			resource.TypeRack:     rackSvc.Resources(),
+			resource.TypeStatus:   statusSvc.Resources(),
+			resource.TypeTask:     taskSvc.Resources(),
 		},
 	}))
 	svc = MustSucceed(bundle.NewService(bundle.Config{

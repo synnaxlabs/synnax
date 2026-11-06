@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"iter"
+	"maps"
 	"slices"
 	"strconv"
 
@@ -22,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/search"
 	"github.com/synnaxlabs/x/zyn"
 )
 
@@ -60,6 +62,26 @@ func (s *Service) RetrieveResource(
 		return ontology.Resource{}, err
 	}
 	return newResource(n), nil
+}
+
+// Search implements ontology.Service. It searches the nodes that the cluster holds
+// when Search is called.
+func (s *Service) Search(
+	_ context.Context,
+	_ gorp.Tx,
+	q search.Query[resource.ID],
+) (search.Result[resource.ID], error) {
+	nodes := s.cfg.Cluster.CopyState().Nodes
+	idx := search.New[Key]()
+	for _, key := range slices.Sorted(maps.Keys(nodes)) {
+		idx.Set(key, name(key))
+	}
+	res := idx.Search(search.Query[Key]{
+		Term:   q.Term,
+		Except: func(key Key) bool { return q.Except != nil && q.Except(ResourceID(key)) },
+		Limit:  q.Limit,
+	})
+	return search.MapKeys(res, ResourceID), nil
 }
 
 // OnChange implements ontology.Service.

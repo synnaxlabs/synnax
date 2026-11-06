@@ -10,196 +10,31 @@
 package resource_test
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
-type channelEntry struct{ Key, Name string }
-
-func (e channelEntry) GorpKey() string { return e.Key }
-
-func (channelEntry) SetOptions() []any { return nil }
-
-func (e channelEntry) name() string { return e.Name }
-
-type rackEntry struct{ Key, Name string }
-
-func (e rackEntry) GorpKey() string { return e.Key }
-
-func (rackEntry) SetOptions() []any { return nil }
-
-func (e rackEntry) name() string { return e.Name }
-
-type entry interface {
-	gorp.Entry[string]
-	name() string
-}
-
-// provider is a resource.Provider over a Gorp table of E.
-type provider[E entry] struct {
-	typ   resource.Type
-	table *gorp.Table[string, E]
-	idx   *gorp.SearchIndex[string, E]
-}
-
-func openProvider[E entry](
-	ctx context.Context,
-	db *gorp.DB,
-	typ resource.Type,
-) provider[E] {
-	GinkgoHelper()
-	idx := gorp.NewSearchIndex("name", func(e *E) []string {
-		return []string{(*e).name()}
-	})
-	table := MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, E]{
-		DB:      db,
-		Indexes: []gorp.Index[string, E]{idx},
-	}))
-	DeferClose(table)
-	return provider[E]{typ: typ, table: table, idx: idx}
-}
-
-func (p provider[E]) id(key string) resource.ID {
-	return resource.ID{Type: p.typ, Key: key}
-}
-
-func (p provider[E]) create(ctx context.Context, tx gorp.Tx, entries ...E) {
-	GinkgoHelper()
-	Expect(p.table.NewCreate().Entries(&entries).Exec(ctx, tx)).To(Succeed())
-}
-
-func (p provider[E]) Search(
-	ctx context.Context,
-	tx gorp.Tx,
-	q search.Query[resource.ID],
-) (search.Result[resource.ID], error) {
-	return resource.SearchIndex(ctx, tx, p.idx, p.id, q)
-}
-
-func (p provider[E]) RetrieveResources(
-	ctx context.Context,
-	tx gorp.Tx,
-	ids []resource.ID,
-) ([]resource.Resource, error) {
-	var entries []E
-	if err := p.table.NewRetrieve().
-		Where(gorp.MatchKeys[string, E](lo.Map(
-			ids,
-			func(id resource.ID, _ int) string { return id.Key },
-		)...)).
-		Entries(&entries).
-		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
-		return nil, err
-	}
-	return lo.Map(entries, func(e E, _ int) resource.Resource {
-		return resource.Resource{ID: p.id(e.GorpKey()), Name: e.name()}
-	}), nil
-}
-
-func (p provider[E]) ListResources(
-	ctx context.Context,
-	tx gorp.Tx,
-	limit int,
-) ([]resource.Resource, error) {
-	var entries []E
-	if err := p.table.NewRetrieve().
-		Limit(limit).
-		Entries(&entries).
-		Exec(ctx, tx); err != nil {
-		return nil, err
-	}
-	return lo.Map(entries, func(e E, _ int) resource.Resource {
-		return resource.Resource{ID: p.id(e.GorpKey()), Name: e.name()}
-	}), nil
-}
-
-var _ = Describe("SearchIndex", func() {
-	var (
-		db *gorp.DB
-		p  provider[channelEntry]
-	)
-	BeforeEach(func(ctx SpecContext) {
-		db = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
-		p = openProvider[channelEntry](ctx, db, resource.TypeChannel)
-		p.create(
-			ctx,
-			db,
-			channelEntry{Key: "a", Name: "turbopump inlet"},
-			channelEntry{Key: "b", Name: "turbopump"},
-		)
-	})
-
-	DescribeTable("Should return the IDs of at most limit matches, closest match first",
-		func(ctx SpecContext, limit int, expected []string) {
-			Expect(MustSucceed(resource.SearchIndex(
-				ctx,
-				db,
-				p.idx,
-				p.id,
-				search.Query[resource.ID]{Term: "turbopump", Limit: limit},
-			)).Keys).To(Equal(lo.Map(expected, func(k string, _ int) resource.ID {
-				return p.id(k)
-			})))
-		},
-		Entry("every match", 10, []string{"b", "a"}),
-		Entry("the first match", 1, []string{"b"}),
-	)
-
-	It("Should leave out the IDs that except names", func(ctx SpecContext) {
-		Expect(MustSucceed(resource.SearchIndex(
-			ctx,
-			db,
-			p.idx,
-			p.id,
-			search.Query[resource.ID]{
-				Term:   "turbopump inlet",
-				Except: func(id resource.ID) bool { return id == p.id("a") },
-			},
-		)).Keys).To(Equal([]resource.ID{p.id("b")}))
-	})
-
-	It("Should return the error of the index search", func(ctx SpecContext) {
-		canceled, cancel := context.WithCancel(ctx)
-		cancel()
-		Expect(resource.SearchIndex(
-			canceled,
-			db,
-			gorp.NewSearchIndex("unopened", func(e *channelEntry) []string {
-				return []string{e.Name}
-			}),
-			p.id,
-			search.Query[resource.ID]{Term: "turbopump", Limit: 10},
-		)).Error().To(MatchError(context.Canceled))
-	})
-})
-
 var _ = Describe("Service", func() {
 	var (
 		db       *gorp.DB
-		channels provider[channelEntry]
-		racks    provider[rackEntry]
+		channels fixture[channelEntry]
+		racks    fixture[rackEntry]
 		svc      *resource.Service
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
-		channels = openProvider[channelEntry](ctx, db, resource.TypeChannel)
-		racks = openProvider[rackEntry](ctx, db, resource.TypeRack)
+		channels = openFixture[channelEntry](ctx, db, resource.TypeChannel)
+		racks = openFixture[rackEntry](ctx, db, resource.TypeRack)
 		svc = MustSucceed(resource.NewService(resource.ServiceConfig{
 			DB: db,
 			Providers: map[resource.Type]resource.Provider{
-				resource.TypeChannel: channels,
-				resource.TypeRack:    racks,
+				resource.TypeChannel: channels.provider,
+				resource.TypeRack:    racks.provider,
 			},
 		}))
 		channels.create(
@@ -378,15 +213,10 @@ var _ = Describe("Service", func() {
 
 		It("Should panic when a Provider returns an ID of a type with no Provider",
 			func(ctx SpecContext) {
-				users := provider[channelEntry]{
-					typ:   resource.TypeUser,
-					table: channels.table,
-					idx:   channels.idx,
-				}
 				svc := MustSucceed(resource.NewService(resource.ServiceConfig{
 					DB: db,
 					Providers: map[resource.Type]resource.Provider{
-						resource.TypeChannel: users,
+						resource.TypeChannel: channels.providerOf(resource.TypeUser),
 					},
 				}))
 				Expect(func() {
