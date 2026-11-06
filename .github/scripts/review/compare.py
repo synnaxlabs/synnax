@@ -12,10 +12,10 @@
 A finding is real when it has more 👍 than 👎, when a person replied that it is fixed,
 or when its thread was resolved and a later commit of the pull request changed its file.
 It is noise when it has more 👎 than 👍, or when its thread was resolved with no such
-reply or change. Otherwise it is open. GitHub
-does not say when a thread was resolved, so a commit made after the last reply to a
-thread does not count, and merge commits never count. A finding that matches one of the
-other reviewer's takes that one's verdict while its own is open.
+reply or change. Otherwise it is open. GitHub does not say when a thread was resolved,
+so a commit made after the last reply to a thread does not count, and merge commits
+never count. A finding that matches one of the other reviewer's takes that one's verdict
+while its own is open.
 """
 
 import json
