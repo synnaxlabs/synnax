@@ -181,6 +181,7 @@ var _ = Describe("Relay", func() {
 			channels := MustSucceed(node.Channel.Create(ctx, newChannelSet()))
 			keys := channel.KeysFromChannels(channels)
 			openStreamer := func() confluence.Outlet[relay.Response] {
+				GinkgoHelper()
 				reader := MustSucceed(node.Framer.NewStreamer(relay.StreamerConfig{
 					Keys:        keys,
 					SendOpenAck: new(true),
@@ -196,31 +197,47 @@ var _ = Describe("Relay", func() {
 				Eventually(res.Outlet()).Should(Receive())
 				return res
 			}
-			openStreamer()
 			live := openStreamer()
 			w := MustOpen(node.Framer.OpenWriter(ctx, writer.Config{
 				Keys:  keys,
 				Start: 10 * telem.SecondTS,
 			}))
-			// The live streamer buffers every frame, so it drops none. Each frame
-			// waited
-			// 20 ms for the stalled streamer before the relay dropped it.
-			frameCount := relay.DefaultConfig.StreamerBufferSize
-			start := time.Now()
-			for range frameCount {
-				Expect(w.Write(frame.NewMulti(
-					keys,
-					[]telem.Series{
-						telem.NewSeriesV[int64](1),
-						telem.NewSeriesV[int64](2),
-						telem.NewSeriesV[int64](3),
-					},
-				))).To(BeTrue())
+			// stream writes enough frames to fill a stalled streamer's buffer three
+			// times over. The live streamer reads each batch before the next, so it
+			// drops none.
+			stream := func() time.Duration {
+				GinkgoHelper()
+				const batchSize = 50
+				batches := 3 * relay.DefaultConfig.StreamerBufferSize / batchSize
+				start := time.Now()
+				for range batches {
+					for range batchSize {
+						Expect(w.Write(frame.NewMulti(
+							keys,
+							[]telem.Series{
+								telem.NewSeriesV[int64](1),
+								telem.NewSeriesV[int64](2),
+								telem.NewSeriesV[int64](3),
+							},
+						))).To(BeTrue())
+					}
+					received := 0
+					Eventually(func() int {
+						for {
+							select {
+							case <-live.Outlet():
+								received++
+							default:
+								return received
+							}
+						}
+					}).Should(Equal(batchSize))
+				}
+				return time.Since(start)
 			}
-			for range frameCount {
-				Eventually(live.Outlet()).Should(Receive())
-			}
-			Expect(time.Since(start)).To(BeNumerically("<", time.Second))
+			alone := stream()
+			openStreamer()
+			Expect(stream()).To(BeNumerically("<", 2*alone))
 		})
 	})
 	Describe("ExcludeGroups", Ordered, func() {
