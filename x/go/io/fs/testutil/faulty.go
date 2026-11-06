@@ -50,6 +50,8 @@ type options struct {
 	fail map[FaultOp]set.Set[string]
 	// after holds every failure back until this operation has run.
 	after FaultOp
+	// beforeWrite runs at the start of every File.Write.
+	beforeWrite func()
 }
 
 func newOptions(opts ...FaultyFSOption) options {
@@ -108,6 +110,12 @@ func WithFailList(names ...string) FaultyFSOption { return failOn(FaultOpList, n
 // fail the second half of a sequence.
 func WithFailAfter(op FaultOp) FaultyFSOption {
 	return func(o *options) { o.after = op }
+}
+
+// WithBeforeWrite runs f at the start of every File.Write, and the write waits for f. A
+// test can use it to hold a write in progress.
+func WithBeforeWrite(f func()) FaultyFSOption {
+	return func(o *options) { o.beforeWrite = f }
 }
 
 // FaultyFS wraps an FS to fail the operations its options select. It also counts the
@@ -235,6 +243,12 @@ func (f *faultyFile) ReadAt(p []byte, off int64) (int, error) {
 }
 
 func (f *faultyFile) Write(p []byte) (int, error) {
+	f.fs.mu.Lock()
+	before := f.fs.mu.opts.beforeWrite
+	f.fs.mu.Unlock()
+	if before != nil {
+		before()
+	}
 	if err := f.fs.fault(FaultOpWrite, f.name); err != nil {
 		return 0, err
 	}

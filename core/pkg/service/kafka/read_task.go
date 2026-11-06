@@ -469,8 +469,9 @@ func (t *readTask) open(ctx context.Context) (err error) {
 	sCtx, cancel := signal.Isolated(
 		signal.WithInstrumentation(t.factoryCfg.Instrumentation),
 	)
-	// The writer outlives the start command, so it opens in the consumer's context.
-	if t.writer, err = t.openWriter(sCtx); err != nil {
+	// The writer outlives the start command and sCtx: a stop cancels sCtx, and the
+	// consumer must finish its write.
+	if t.writer, err = t.openWriter(context.Background()); err != nil {
 		cancel()
 		return err
 	}

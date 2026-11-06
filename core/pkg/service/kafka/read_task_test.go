@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -330,6 +331,44 @@ var _ = Describe("Read task", func() {
 			Expect(stat.Description).To(BeEmpty())
 			Expect(stat.Details.Data).To(BeNil())
 			Expect(stat.Details.Running).To(BeTrue())
+		},
+	)
+
+	It(
+		"Should finish the write in progress when the task stops",
+		func(ctx SpecContext) {
+			index, data := createIndexed(ctx, telem.Float64T)
+			dev := createDevice(ctx, clusterProperties())
+			topic := newTopic()
+			dt, t := configure(ctx, kafka.ReadConfig{
+				Device:  dev.Key,
+				Topic:   topic,
+				Records: single(stampedFields(index, data)),
+			})
+			start(ctx, dt, t)
+			var (
+				writing = make(chan struct{})
+				resume  = make(chan struct{})
+				hold    = sync.OnceFunc(func() {
+					close(writing)
+					<-resume
+				})
+				release = sync.OnceFunc(func() { close(resume) })
+			)
+			faultyFS.SetOptions(WithBeforeWrite(hold))
+			DeferCleanup(func() { faultyFS.SetOptions() })
+			DeferCleanup(release)
+			produceJSON(ctx, producer, topic, "", map[string]any{"ts": 10e9, "v": 2.5})
+			Eventually(writing).WithTimeout(15 * time.Second).Should(BeClosed())
+			stopped := make(chan error, 1)
+			go func() { stopped <- dt.Stop(false) }()
+			Consistently(
+				stopped,
+			).WithTimeout(100 * time.Millisecond).
+				ShouldNot(Receive())
+			release()
+			Eventually(stopped).WithTimeout(15 * time.Second).Should(Receive(Succeed()))
+			Expect(floats(stored(ctx, data.Key()))).To(Equal([]float64{2.5}))
 		},
 	)
 
