@@ -18,5 +18,5 @@
     "props": { "n1": { "key": "status.set", "key_or_name": "st2" } }
   },
   "text": { "raw": "" },
-  "mode": "text"
+  "mode": "graph"
 }

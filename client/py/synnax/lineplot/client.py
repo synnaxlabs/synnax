@@ -9,11 +9,19 @@
 
 from typing import Literal, overload
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
 from synnax import project as project_
-from synnax.lineplot.types_gen import Key, LinePlot
+from synnax.lineplot.types_gen import (
+    Key,
+    LinePlot,
+    RetrieveRequest,
+    RetrieveResponse,
+    Where,
+)
+from synnax.util import one
+from x import filter
 from x.lists import normalize
 
 
@@ -24,14 +32,6 @@ class _CreateRequest(BaseModel):
 
 class _CreateResponse(BaseModel):
     line_plots: list[LinePlot]
-
-
-class _RetrieveRequest(BaseModel):
-    keys: list[Key]
-
-
-class _RetrieveResponse(BaseModel):
-    line_plots: list[LinePlot] = Field(default_factory=list)
 
 
 class _DeleteRequest(BaseModel):
@@ -102,28 +102,38 @@ class Client:
     def retrieve(self, *, key: Key) -> LinePlot: ...
 
     @overload
-    def retrieve(self, *, keys: list[Key]) -> list[LinePlot]: ...
+    def retrieve(
+        self, *, keys: list[Key] | None = None, where: Where | None = None
+    ) -> list[LinePlot]: ...
 
     def retrieve(
         self,
         *,
         key: Key | None = None,
         keys: list[Key] | None = None,
+        where: Where | None = None,
     ) -> LinePlot | list[LinePlot]:
-        """Retrieve one or more line plots by key.
+        """Retrieves line plots. With no arguments, it retrieves all of them.
 
         :param key: The key of a single line plot to retrieve.
         :param keys: The keys of the line plots to retrieve.
-        :returns: The matching line plot when ``key`` is provided, otherwise a list of
-            matching line plots.
-        :raises NotFoundError: If any of the requested line plots does not exist.
+        :param where: A filter that the line plots must also match.
+        :returns: The line plot when ``key`` is provided, otherwise a list.
+            The list leaves out keys that do not exist.
+        :raises NotFoundError: If ``key`` is provided and no line plot has it.
         """
+        is_single = key is not None
+        if key is not None:
+            keys = [key]
+        flat = Where(key=None if keys is None else filter.Set[Key](in_=keys))
         res = self._client.send(
             "/lineplot/retrieve",
-            _RetrieveRequest(keys=normalize(key, keys)),
-            _RetrieveResponse,
+            RetrieveRequest(where=filter.merge(where, flat)),
+            RetrieveResponse,
         )
-        return res.line_plots[0] if key is not None else res.line_plots
+        if not is_single:
+            return res.line_plots
+        return one("Line plot", key, res.line_plots)
 
     def rename(self, key: Key, name: str) -> None:
         """Rename a line plot.

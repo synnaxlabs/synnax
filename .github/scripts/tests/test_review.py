@@ -8,11 +8,15 @@
 #  included in the file licenses/APL.txt.
 
 import json
+import os
+import subprocess
+from pathlib import Path
 from typing import Any
 
 import pytest
 
 from review import Finding, Review, Target, parse, post, reviewed
+from review import gh as call_gh
 
 REPO = "synnaxlabs/synnax"
 TARGET = Target(
@@ -325,3 +329,23 @@ class TestReviewed:
     def test_should_skip_an_edit_by_another_author(self, gh: FakeGH) -> None:
         gh.edits = [summary_edit("a" * 40, login="pat"), {"editor": None, "diff": None}]
         assert reviewed(TARGET, gh) == []
+
+
+class TestGH:
+    """Tests the helper that runs the `gh` executable."""
+
+    def test_should_show_the_error_of_a_failed_call(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capfd: pytest.CaptureFixture[str],
+    ) -> None:
+        fake = tmp_path / "gh"
+        fake.write_text(
+            "#!/bin/sh\necho 'HTTP 422: Unprocessable Entity' >&2\nexit 1\n"
+        )
+        fake.chmod(0o755)
+        monkeypatch.setenv("PATH", f"{tmp_path}{os.pathsep}{os.environ['PATH']}")
+        with pytest.raises(subprocess.CalledProcessError):
+            call_gh("api", "-X", "POST", f"repos/{REPO}/pulls/7/reviews")
+        assert "HTTP 422: Unprocessable Entity" in capfd.readouterr().err

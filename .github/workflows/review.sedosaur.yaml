@@ -11,9 +11,9 @@
 # sedosaur GitHub App. The scripts and the policy in `.sedosaur/` come from the commit
 # that started this workflow, on the default branch, never from the pull request or its
 # base. Claude Code gets only read tools, a checkout of the head, and its OAuth token.
-# The App token reaches only the steps that write to GitHub. A replay reviews any
-# commit, posts nothing, and keeps only the record. It can take the prompt and rules of
-# another ref, so a new policy can be tried on old commits before it merges.
+# The App token reaches only the steps that write to GitHub. A replay reviews any commit
+# against any base, posts nothing, and keeps only the record. It can take the prompt and
+# rules of another ref, so a new policy can be tried on old commits before it merges.
 
 name: Review - Sedosaur
 run-name: ${{ inputs.pr }}${{ inputs.replay && ' replay' || '' }}
@@ -31,6 +31,10 @@ on:
         required: false
       head:
         description: "Commit to review, if not the head of the pull request"
+        type: string
+        required: false
+      base:
+        description: "Commit to diff against, if not the base of the pull request"
         type: string
         required: false
       replay:
@@ -74,25 +78,32 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ inputs.pr }}
           HEAD: ${{ inputs.head }}
+          BASE: ${{ inputs.base }}
           POLICY: ${{ inputs.policy }}
           REPLAY: ${{ inputs.replay }}
         run: |
-          if [ -n "$HEAD" ] && ! [[ "$HEAD" =~ ^[0-9a-f]{40}$ ]]; then
-            echo "::error::head must be a full commit SHA."
-            exit 1
-          fi
+          for sha in "$HEAD" "$BASE"; do
+            if [ -n "$sha" ] && ! [[ "$sha" =~ ^[0-9a-f]{40}$ ]]; then
+              echo "::error::head and base must be full commit SHAs."
+              exit 1
+            fi
+          done
           if [ -n "$POLICY" ] && { [ "$REPLAY" != true ] ||
             ! [[ "$POLICY" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]*$ ]]; }; then
             echo "::error::policy must name a branch or commit, and only for a replay."
             exit 1
           fi
-          gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" | jq -r --arg head "$HEAD" '
-            "head=\(if $head == "" then .head.sha else $head end)", "base=\(.base.sha)",
-            "fork=\(.head.repo.full_name != .base.repo.full_name)"' >> "$GITHUB_OUTPUT"
+          set -o pipefail
+          gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" |
+            jq -r --arg head "$HEAD" --arg base "$BASE" '
+              "head=\(if $head == "" then .head.sha else $head end)",
+              "base=\(if $base == "" then .base.sha else $base end)",
+              "fork=\(.head.repo.full_name != .base.repo.full_name)"
+            ' >> "$GITHUB_OUTPUT"
 
       - name: Assume the runner start role
         if: steps.pr.outputs.fork == 'false'
-        uses: aws-actions/configure-aws-credentials@v6
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6
         with:
           role-to-assume: ${{ vars.AGENT_RUNNER_ROLE_ARN }}
           aws-region: us-east-1
@@ -119,7 +130,7 @@ jobs:
       - name: Mint the GitHub App token
         id: app
         if: steps.pr.outputs.fork == 'false'
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
         with:
           app-id: ${{ secrets.SEDOSAUR_APP_ID }}
           private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
@@ -147,7 +158,7 @@ jobs:
     steps:
       - name: Mint the GitHub App token
         id: app
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
         with:
           app-id: ${{ secrets.SEDOSAUR_APP_ID }}
           private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
@@ -180,7 +191,7 @@ jobs:
     steps:
       - name: Mint the GitHub App token
         id: app
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
         with:
           app-id: ${{ secrets.SEDOSAUR_APP_ID }}
           private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
@@ -200,7 +211,7 @@ jobs:
       # The runner keeps the clone between jobs, so each fetch is small. This checkout
       # holds the scripts and the policy: the pull request and its base are not trusted.
       - name: Check out the scripts and the policy
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -230,9 +241,14 @@ jobs:
           git fetch --no-tags origin "$BASE_SHA" "$HEAD_SHA"
           git worktree add --detach "$RUNNER_TEMP/head" "$HEAD_SHA"
 
-      # A runner can stay stopped for weeks, so a review takes the latest Claude Code.
-      - name: Update Claude Code
-        run: sudo npm install -g @anthropic-ai/claude-code@latest
+      # A runner can stay stopped for weeks, so each review installs the latest Claude
+      # Code. The runners on one machine review at the same time, so each review gets
+      # its own copy in the temporary directory, which the runner empties after the job.
+      - name: Install Claude Code
+        run: |
+          npm install --no-save --prefix "$RUNNER_TEMP/claude" \
+            @anthropic-ai/claude-code@latest
+          echo "$RUNNER_TEMP/claude/node_modules/.bin" >> "$GITHUB_PATH"
 
       - name: Review
         working-directory: .github/scripts
@@ -248,7 +264,7 @@ jobs:
 
       # The trial report compares these records with Greptile's reviews.
       - name: Keep the record
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: ${{ inputs.replay && 'sedosaur-replay' || 'sedosaur-review' }}
           path: ${{ runner.temp }}/review.json
@@ -273,7 +289,7 @@ jobs:
     steps:
       - name: Mint the GitHub App token
         id: app
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
         with:
           app-id: ${{ secrets.SEDOSAUR_APP_ID }}
           private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}

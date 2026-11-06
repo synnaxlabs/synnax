@@ -9,6 +9,7 @@
 
 import "schemas/synnax/channel"
 import "schemas/x/color"
+import "schemas/x/filter"
 import "schemas/x/notation"
 import "schemas/x/telem"
 
@@ -34,7 +35,8 @@ TimestampConfig struct {
 
 ChannelEntry struct {
     channel   channel.Key       {
-        @doc value "is the channel this entry references."
+        @doc value         "is the channel this entry references."
+        @validate required
     }
     color     color.Color       {
         @doc value "is the display color for the channel."
@@ -210,7 +212,7 @@ Log struct {
         @doc value """
             repoints the entry referencing the "from" channel at the "to" channel in
             place, preserving the entry's position and display configuration. No-op when
-            no entry references "from".
+            no entry references "from" or an entry already references "to".
         """
     }
 
@@ -242,4 +244,11 @@ Log struct {
     @go migrate
     @ontology type "log"
     @retrieve
+}
+
+Where filter Log {
+    key
+
+    @doc value         "is a filter that selects logs."
+    @go request_output "core/pkg/api/log"
 }
