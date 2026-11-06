@@ -111,10 +111,10 @@ func (w Writer) Create(ctx context.Context, c *Chassis) error {
 }
 
 // Update applies change to the chassis stored under key and stores the result. The
-// status and parent edge follow the chassis, and a missing status is written as
-// unknown. It returns an error wrapping query.ErrNotFound when no chassis is stored
-// under key and a validation error when the result is invalid. A transaction that
-// commits between the read and the write of this one is overwritten.
+// parent edge follows the chassis. A rename or rack move updates the status, or writes
+// it as unknown when it is missing. It returns an error wrapping query.ErrNotFound when
+// no chassis is stored under key and a validation error when the result is invalid. A
+// transaction that commits between the read and the write of this one is overwritten.
 func (w Writer) Update(
 	ctx context.Context,
 	key Key,
