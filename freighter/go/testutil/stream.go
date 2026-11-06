@@ -12,6 +12,7 @@ package testutil
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
@@ -277,6 +278,8 @@ type ClientStream[RQ, RS freighter.Payload] struct {
 	clientClosed chan struct{}
 	sendErr      error
 	receiveErr   error
+	// receiveFailed mirrors receiveErr for Send, which runs concurrently with Receive.
+	receiveFailed atomic.Bool
 }
 
 // Send implements the freighter.ClientStream interface.
@@ -284,7 +287,7 @@ func (cs *ClientStream[RQ, RS]) Send(req RQ) error {
 	if cs.sendErr != nil {
 		return cs.sendErr
 	}
-	if cs.receiveErr != nil {
+	if cs.receiveFailed.Load() {
 		return freighter.EOF
 	}
 	// A free buffer slot would otherwise win the race against an earlier cancel.
@@ -323,9 +326,8 @@ func (cs *ClientStream[RQ, RS]) Receive() (RS, error) {
 		// stream (i.e. serverClosed chan is serverClosed), so we don't need explicitly
 		// listen for its closure.
 		if msg.err.Type != errors.TypeEmpty {
-			if cs.receiveErr == nil {
-				cs.receiveErr = errors.Decode(cs.ctx, msg.err)
-			}
+			cs.receiveErr = errors.Decode(cs.ctx, msg.err)
+			cs.receiveFailed.Store(true)
 			return types.Zero[RS](), cs.receiveErr
 		}
 		return msg.payload, nil

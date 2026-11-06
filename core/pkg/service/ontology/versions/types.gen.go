@@ -73,6 +73,7 @@ const (
 	ResourceTypeNiChassis      ResourceType = v0.ResourceTypeNiChassis
 	ResourceTypeNiDevice       ResourceType = v0.ResourceTypeNiDevice
 	ResourceTypeOpcuaServer    ResourceType = v0.ResourceTypeOpcuaServer
+	ResourceTypeArcDirectory   ResourceType = v0.ResourceTypeArcDirectory
 )
 
 // RelationshipType is the kind of link between two resources.

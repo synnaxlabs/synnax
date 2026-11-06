@@ -27,6 +27,11 @@ common:windows --registry=https://bcr.bazel.build
 # enough to hit this. Collect duplicate entries only.
 common --repo_contents_cache_gc_max_age=0
 
+# A remote cache outage runs actions locally instead of failing the build with exit
+# code 34. A cache needs both flags, and neither acts without --remote_cache.
+build --remote_local_fallback
+build --incompatible_remote_local_fallback_for_remote_cache
+
 # Use OpenSSl instead of BoringSSL for grpc
 build --@grpc//third_party:grpc_use_openssl=true
 
@@ -254,6 +259,8 @@ build:tsan --copt=-fdebug-prefix-map=/proc/self/cwd=.
 build:tsan --linkopt=-fsanitize=thread
 build:tsan --test_env=TSAN_OPTIONS=halt_on_error=1:second_deadlock_stack=1
 build:tsan --test_timeout=120,600,1800,3600  # TSan adds ~5-15x overhead
+test:tsan-no-aslr --config=tsan
+test:tsan-no-aslr --run_under="setarch -R"
 
 # Combined sanitizers (recommended for local development)
 build:sanitize --config=asan
