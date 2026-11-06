@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <format>
 #include <functional>
@@ -32,6 +33,20 @@ const int STATE_CHANGE_TIMEOUT = static_cast<int>(
 const int PROCESSDATA_TIMEOUT = static_cast<int>(x::telem::MILLISECOND.microseconds());
 /// Time between state reads while slaves move to a requested state.
 const auto STATE_POLL_INTERVAL = x::telem::MILLISECOND;
+/// AL status codes of timing faults, which can clear on a new start.
+constexpr std::array<uint16_t, 11> TIMING_FAULTS = {
+    0x0018, // No valid inputs available
+    0x0019, // No valid outputs
+    0x001A, // Synchronization error
+    0x001B, // Sync manager watchdog
+    0x002A, // Background watchdog
+    0x002B, // No valid inputs and outputs
+    0x002C, // Fatal sync error
+    0x002D, // No sync error
+    0x0032, // PLL error
+    0x0033, // DC sync IO error
+    0x0034, // DC sync timeout error
+};
 /// Timeout for one recovery step on a slave in microseconds.
 const int RECOVERY_TIMEOUT = static_cast<int>(
     (x::telem::MILLISECOND * 500).microseconds()
@@ -907,9 +922,11 @@ x::errors::Error Master::request_state(
         if (before_read) before_read();
         this->api->readstate();
         std::vector<uint16_t> pending;
+        // Like ecx_statecheck, a slave in the state counts even with its error flag
+        // set: a request without the ACK bit leaves the flag as it is.
         for (int i = 1; i <= this->api->slave_count(); ++i)
             if (this->api->slave_group(i) == ENABLED_GROUP &&
-                this->api->slave_state(i) != state)
+                (this->api->slave_state(i) & ~EC_STATE_ERROR) != state)
                 pending.push_back(i);
         if (pending.empty()) return x::errors::NIL;
         std::vector<uint16_t> refused;
@@ -951,9 +968,9 @@ Master::state_error(const std::vector<uint16_t> &failed, const uint16_t state) {
                    slave::from_al_state(this->api->slave_state(pos))
                );
         if (!this->al_error(pos)) continue;
-        refused = true;
-        msg += ": " +
-               std::string(ec_ALstatuscode2string(this->api->slave_ALstatuscode(pos)));
+        const auto code = this->api->slave_ALstatuscode(pos);
+        refused |= std::ranges::find(TIMING_FAULTS, code) == TIMING_FAULTS.end();
+        msg += ": " + std::string(ec_ALstatuscode2string(code));
     }
     return x::errors::Error(
         refused ? errors::STATE_CHANGE_REFUSED : errors::STATE_CHANGE_ERROR,

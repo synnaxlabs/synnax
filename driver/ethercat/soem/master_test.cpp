@@ -294,15 +294,58 @@ TEST_F(SOEMMasterTest, ActivateOpRefusalReturnsAtOnce) {
     this->mock->ibytes = 4;
     this->mock->statecheck_overrides[EC_STATE_OPERATIONAL] = EC_STATE_SAFE_OP +
                                                              EC_STATE_ERROR;
-    this->mock->slave_infos[0].ALstatuscode = 0x001B;
+    this->mock->slave_infos[0].ALstatuscode = 0x0025;
     this->mock->readstate_count = 0;
     const auto err = this->master->activate();
     ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_REFUSED);
     EXPECT_EQ(
         err.data,
-        "failed to reach OP: slave 1 (TestSlave) is in SAFE-OP: Sync manager watchdog"
+        "failed to reach OP: slave 1 (TestSlave) is in SAFE-OP: Invalid output mapping"
     );
     // One read each for SAFE-OP, OP, and the recovery to SAFE-OP.
+    EXPECT_EQ(this->mock->readstate_count, 3);
+}
+
+/// @brief it should recover a slave that refused OP to SAFE-OP without forcing INIT,
+/// although its error flag stays set.
+TEST_F(SOEMMasterTest, ActivateOpRefusalRecoversToSafeOp) {
+    this->initialize_with_slave();
+    this->mock->obytes = 2;
+    this->mock->ibytes = 4;
+    this->mock->statecheck_overrides[EC_STATE_SAFE_OP] = EC_STATE_SAFE_OP +
+                                                         EC_STATE_ERROR;
+    this->mock->statecheck_overrides[EC_STATE_OPERATIONAL] = EC_STATE_SAFE_OP +
+                                                             EC_STATE_ERROR;
+    this->mock->slave_infos[0].ALstatuscode = 0x0025;
+    this->mock->state_change_requests.clear();
+    ASSERT_OCCURRED_AS(this->master->activate(), errors::STATE_CHANGE_REFUSED);
+    EXPECT_EQ(
+        this->mock->state_change_requests,
+        (std::vector<std::pair<uint16_t, uint16_t>>{
+            {1, EC_STATE_SAFE_OP},
+            {1, EC_STATE_OPERATIONAL},
+            {1, EC_STATE_SAFE_OP},
+        })
+    );
+}
+
+/// @brief it should return a timing fault at once, with its AL status, as an error that
+/// is not a refusal, so that the start is retried.
+TEST_F(SOEMMasterTest, ActivateOpTimingFaultIsNotARefusal) {
+    this->initialize_with_slave();
+    this->mock->obytes = 2;
+    this->mock->ibytes = 4;
+    this->mock->statecheck_overrides[EC_STATE_OPERATIONAL] = EC_STATE_SAFE_OP +
+                                                             EC_STATE_ERROR;
+    this->mock->slave_infos[0].ALstatuscode = 0x001B;
+    this->mock->readstate_count = 0;
+    const auto err = this->master->activate();
+    ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_ERROR);
+    EXPECT_FALSE(err.matches(errors::STATE_CHANGE_REFUSED));
+    EXPECT_EQ(
+        err.data,
+        "failed to reach OP: slave 1 (TestSlave) is in SAFE-OP: Sync manager watchdog"
+    );
     EXPECT_EQ(this->mock->readstate_count, 3);
 }
 
