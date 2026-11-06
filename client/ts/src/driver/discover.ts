@@ -15,8 +15,3 @@ export const FORMATS = ["json", "schema_registry", "text", "binary"] as const;
 export const formatZ = z.enum(FORMATS);
 
 export type Format = z.infer<typeof formatZ>;
-
-/** Decodes the base64 form of a message payload into its bytes. */
-export const payloadZ = z
-  .string()
-  .transform((encoded) => Uint8Array.from(atob(encoded), (c) => c.charCodeAt(0)));

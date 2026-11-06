@@ -797,8 +797,9 @@ var _ = Describe("Scan task", func() {
 			Topics []struct {
 				Topic    string `json:"topic"`
 				Messages []struct {
-					Payload  []byte `json:"payload"`
-					Retained bool   `json:"retained"`
+					Format   driver.Format `json:"format"`
+					Payload  string        `json:"payload"`
+					Retained bool          `json:"retained"`
 				} `json:"messages"`
 			} `json:"topics"`
 			Shapes    []xjson.Shape `json:"shapes"`
@@ -834,8 +835,9 @@ var _ = Describe("Scan task", func() {
 			Expect(res.Topics).To(HaveLen(2))
 			Expect(res.Topics[0].Topic).To(Equal("rig/1/temp"))
 			Expect(res.Topics[0].Messages[0].Retained).To(BeTrue())
+			Expect(res.Topics[0].Messages[0].Format).To(Equal(driver.FormatJSON))
 			Expect(res.Topics[0].Messages[0].Payload).
-				To(Equal(fmt.Appendf(nil, `{"value":1.5,"time":%d}`, now)))
+				To(Equal(fmt.Sprintf(`{"value":1.5,"time":%d}`, now)))
 			Expect(res.Shapes).To(HaveLen(1))
 			shape := res.Shapes[0]
 			Expect(shape.Sources).To(Equal([]string{"rig/1/temp", "rig/2/temp"}))

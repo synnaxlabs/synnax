@@ -13,6 +13,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/hex"
 	"encoding/json/jsontext"
 	"fmt"
 	"net"
@@ -133,4 +134,26 @@ func FormatOf(payload []byte) Format {
 	default:
 		return FormatBinary
 	}
+}
+
+// Display returns the format of payload and the start of payload as an answer shows
+// it, from at most limit bytes. A JSON or text payload shows as text, cut at a rune
+// boundary. Any other payload shows as hex digits.
+func Display(payload []byte, limit int) (Format, string) {
+	format := FormatOf(payload)
+	if format != FormatJSON && format != FormatText {
+		return format, hex.EncodeToString(payload[:min(len(payload), limit)])
+	}
+	return format, CutText(payload, limit)
+}
+
+// CutText returns at most limit bytes from the start of text, cut at a rune boundary.
+func CutText(text []byte, limit int) string {
+	if len(text) <= limit {
+		return string(text)
+	}
+	for limit > 0 && !utf8.RuneStart(text[limit]) {
+		limit--
+	}
+	return string(text[:limit])
 }

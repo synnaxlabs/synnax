@@ -76,8 +76,13 @@ export interface SampleArgs extends z.input<typeof sampleArgsZ> {}
 
 export const sampledMessageZ = z.object({
   time: TimeStamp.z,
-  /** payload holds at most the first 16 KiB of the message. */
-  payload: driver.payloadZ,
+  /** format is the format of the whole payload. */
+  format: driver.formatZ,
+  /**
+   * payload is the start of the payload, from at most 16 KiB: text when format is json
+   * or text, and hex digits otherwise.
+   */
+  payload: z.string(),
   retained: z.boolean(),
 });
 

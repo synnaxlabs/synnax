@@ -66,8 +66,13 @@ export const sampledRecordZ = z.object({
   key: z.string(),
   time: TimeStamp.z,
   headers: z.array(headerZ),
-  /** payload holds at most the first 16 KiB of the record value. */
-  payload: driver.payloadZ,
+  /** format is the format of the whole record value. */
+  format: driver.formatZ,
+  /**
+   * payload is the start of the record value, from at most 16 KiB: text when format is
+   * json or text, and hex digits otherwise.
+   */
+  payload: z.string(),
 });
 
 export interface SampledRecord extends z.infer<typeof sampledRecordZ> {}

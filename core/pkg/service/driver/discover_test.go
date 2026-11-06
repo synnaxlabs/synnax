@@ -138,4 +138,49 @@ var _ = Describe("Discover", func() {
 		Entry("text that is not JSON", []byte("ON"), driver.FormatText),
 		Entry("bytes that are not text", []byte{0xff, 0xfe, 0x01}, driver.FormatBinary),
 	)
+
+	DescribeTable(
+		"Display",
+		func(payload []byte, limit int, format driver.Format, shown string) {
+			f, s := driver.Display(payload, limit)
+			Expect(f).To(Equal(format))
+			Expect(s).To(Equal(shown))
+		},
+		Entry(
+			"a JSON payload as text",
+			[]byte(`{"v":1}`),
+			16,
+			driver.FormatJSON,
+			`{"v":1}`,
+		),
+		Entry(
+			"the start of a long text payload",
+			[]byte("abcdef"),
+			4,
+			driver.FormatText,
+			"abcd",
+		),
+		Entry("text cut at a rune boundary", []byte("ééé"), 5, driver.FormatText, "éé"),
+		Entry(
+			"a binary payload as hex",
+			[]byte{0xff, 0xfe, 0x01},
+			16,
+			driver.FormatBinary,
+			"fffe01",
+		),
+		Entry(
+			"the start of a binary payload",
+			[]byte{0xff, 0xfe, 0x01},
+			2,
+			driver.FormatBinary,
+			"fffe",
+		),
+		Entry(
+			"a Schema Registry frame as hex",
+			[]byte{0, 0, 0, 0, 1, 2},
+			16,
+			driver.FormatSchemaRegistry,
+			"000000000102",
+		),
+	)
 })

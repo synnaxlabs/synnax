@@ -248,18 +248,7 @@ func payloadSample(payload []byte) string {
 	if !utf8.Valid(payload) {
 		return ""
 	}
-	return cutText(payload, browsePayloadLimit)
-}
-
-// cutText returns at most limit bytes from the start of text, cut at a rune boundary.
-func cutText(text []byte, limit int) string {
-	if len(text) <= limit {
-		return string(text)
-	}
-	for limit > 0 && !utf8.RuneStart(text[limit]) {
-		limit--
-	}
-	return string(text[:limit])
+	return driver.CutText(payload, browsePayloadLimit)
 }
 
 // payloadFields returns the scalars of a JSON payload in document order, at most
@@ -317,7 +306,7 @@ func appendFields(
 	*fields = append(*fields, browsedField{
 		Pointer: pointer.String(),
 		Type:    t.String(),
-		Sample:  cutText(value, browseSampleLimit),
+		Sample:  driver.CutText(value, browseSampleLimit),
 	})
 	return nil
 }

@@ -275,8 +275,11 @@ type sampledRecord struct {
 	Time telem.TimeStamp `json:"time" msgpack:"time"`
 	// Headers are the headers of the record.
 	Headers []header `json:"headers" msgpack:"headers"`
-	// Payload is the start of the record value, at most 16 KiB.
-	Payload []byte `json:"payload" msgpack:"payload"`
+	// Format is the format of the whole record value.
+	Format driver.Format `json:"format" msgpack:"format"`
+	// Payload is the start of the record value, from at most 16 KiB: text when Format
+	// is json or text, and hex digits otherwise.
+	Payload string `json:"payload" msgpack:"payload"`
 }
 
 // sampledTopic is the sample of one topic.
@@ -403,8 +406,8 @@ func newSampledRecord(r *kgo.Record) sampledRecord {
 		Key:       strings.ToValidUTF8(string(r.Key), "�"),
 		Time:      telem.NewTimeStamp(r.Timestamp),
 		Headers:   make([]header, len(r.Headers)),
-		Payload:   r.Value[:min(len(r.Value), samplePayloadLimit)],
 	}
+	s.Format, s.Payload = driver.Display(r.Value, samplePayloadLimit)
 	for i, h := range r.Headers {
 		s.Headers[i] = header{
 			Key:   h.Key,

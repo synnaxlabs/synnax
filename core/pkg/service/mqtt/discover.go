@@ -279,8 +279,11 @@ type sampleArgs struct {
 type sampledMessage struct {
 	// Time is the time that the message arrived.
 	Time telem.TimeStamp `json:"time"`
-	// Payload is the start of the payload, at most 16 KiB.
-	Payload []byte `json:"payload"`
+	// Format is the format of the whole payload.
+	Format driver.Format `json:"format"`
+	// Payload is the start of the payload, from at most 16 KiB: text when Format is
+	// json or text, and hex digits otherwise.
+	Payload string `json:"payload"`
 	// Retained is true when the message is the retained message of its topic.
 	Retained bool `json:"retained"`
 }
@@ -357,12 +360,12 @@ func (s *scanner) sample(ctx context.Context, args sampleArgs) (sampleResult, er
 				return true
 			}
 			held += len(payload)
-			by[m.Topic()] = append(messages, heardMessage{
-				Time:     telem.Now(),
-				Payload:  payload[:min(len(payload), samplePayloadLimit)],
-				Retained: m.Retained(),
-				payload:  payload,
-			})
+			msg := sampledMessage{Time: telem.Now(), Retained: m.Retained()}
+			msg.Format, msg.Payload = driver.Display(payload, samplePayloadLimit)
+			by[m.Topic()] = append(
+				messages,
+				heardMessage{sampledMessage: msg, payload: payload},
+			)
 			if len(by[m.Topic()]) == count {
 				full++
 			}

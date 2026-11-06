@@ -49,7 +49,8 @@ type sampledTopic struct {
 		Offset  int64               `json:"offset"`
 		Key     string              `json:"key"`
 		Headers []map[string]string `json:"headers"`
-		Payload []byte              `json:"payload"`
+		Format  driver.Format       `json:"format"`
+		Payload string              `json:"payload"`
 	} `json:"records"`
 	Shapes []xjson.Shape `json:"shapes"`
 	Error  string        `json:"error"`
@@ -260,9 +261,8 @@ var _ = Describe("Discover", func() {
 			last := samples[0].Records[6]
 			Expect(last.Offset).To(Equal(int64(6)))
 			Expect(last.Key).To(Equal("tank-1"))
-			Expect(
-				last.Payload,
-			).To(Equal(fmt.Appendf(nil, `{"ts":%d,"psi":4}`, base+2)))
+			Expect(last.Format).To(Equal(driver.FormatJSON))
+			Expect(last.Payload).To(Equal(fmt.Sprintf(`{"ts":%d,"psi":4}`, base+2)))
 			Expect(last.Headers).
 				To(Equal([]map[string]string{{"key": "source", "value": "rig"}}))
 			shapes := samples[0].Shapes
