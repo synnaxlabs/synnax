@@ -530,19 +530,20 @@ inline x::json::json ScanConfig::to_json() const {
 
 inline AnalogInputPort AnalogInputPort::parse(x::json::Parser parser) {
     return AnalogInputPort{
-        .port = parser.field<std::int32_t>("port"),
+        .port = parser.field<std::uint16_t>("port"),
         .terminal_configs = parser.field<std::vector<std::string>>(
             "terminal_configs",
             std::vector<std::string>{}
         ),
-        .default_terminal_config = parser.field<std::optional<std::string>>(
-            "default_terminal_config"
+        .default_terminal_config = parser.field<std::string>(
+            "default_terminal_config",
+            "Cfg_Default"
         ),
         .types = parser.field<std::vector<std::string>>(
             "types",
             std::vector<std::string>{}
         ),
-        .negative = parser.field<std::optional<std::int32_t>>("negative"),
+        .negative = parser.field<std::uint16_t>("negative", 0),
     };
 }
 
@@ -550,16 +551,15 @@ inline x::json::json AnalogInputPort::to_json() const {
     x::json::json j = x::json::json::object();
     j["port"] = this->port;
     j["terminal_configs"] = this->terminal_configs;
-    if (this->default_terminal_config.has_value())
-        j["default_terminal_config"] = *this->default_terminal_config;
+    j["default_terminal_config"] = this->default_terminal_config;
     j["types"] = this->types;
-    if (this->negative.has_value()) j["negative"] = *this->negative;
+    j["negative"] = this->negative;
     return j;
 }
 
 inline AnalogOutputPort AnalogOutputPort::parse(x::json::Parser parser) {
     return AnalogOutputPort{
-        .port = parser.field<std::int32_t>("port"),
+        .port = parser.field<std::uint16_t>("port"),
         .terminal_configs = parser.field<std::vector<std::string>>(
             "terminal_configs",
             std::vector<std::string>{}
@@ -581,7 +581,7 @@ inline x::json::json AnalogOutputPort::to_json() const {
 
 inline CounterPort CounterPort::parse(x::json::Parser parser) {
     return CounterPort{
-        .port = parser.field<std::int32_t>("port"),
+        .port = parser.field<std::uint16_t>("port"),
         .types = parser.field<std::vector<std::string>>(
             "types",
             std::vector<std::string>{}
@@ -598,8 +598,8 @@ inline x::json::json CounterPort::to_json() const {
 
 inline DigitalPort DigitalPort::parse(x::json::Parser parser) {
     return DigitalPort{
-        .port = parser.field<std::int32_t>("port"),
-        .lines = parser.field<std::int32_t>("lines"),
+        .port = parser.field<std::uint16_t>("port"),
+        .lines = parser.field<std::uint8_t>("lines"),
         .input = parser.field<bool>("input", false),
         .output = parser.field<bool>("output", false),
     };
@@ -616,8 +616,6 @@ inline x::json::json DigitalPort::to_json() const {
 
 inline Hardware Hardware::parse(x::json::Parser parser) {
     return Hardware{
-        .product_category = parser.field<std::string>("product_category", ""),
-        .product_type = parser.field<std::string>("product_type", ""),
         .analog_inputs = parser.field<std::vector<AnalogInputPort>>(
             "analog_inputs",
             std::vector<AnalogInputPort>{}
@@ -642,14 +640,18 @@ inline Hardware Hardware::parse(x::json::Parser parser) {
             "terminals",
             std::vector<std::string>{}
         ),
-        .ai_min_rate = parser.field<std::optional<double>>("ai_min_rate"),
-        .ai_max_single_channel_rate = parser.field<std::optional<double>>(
-            "ai_max_single_channel_rate"
+        .ai_min_rate = parser
+                           .field<::x::telem::Rate>("ai_min_rate", ::x::telem::Rate(0)),
+        .ai_max_single_channel_rate = parser.field<::x::telem::Rate>(
+            "ai_max_single_channel_rate",
+            ::x::telem::Rate(0)
         ),
-        .ai_max_multi_channel_rate = parser.field<std::optional<double>>(
-            "ai_max_multi_channel_rate"
+        .ai_max_multi_channel_rate = parser.field<::x::telem::Rate>(
+            "ai_max_multi_channel_rate",
+            ::x::telem::Rate(0)
         ),
-        .ao_max_rate = parser.field<std::optional<double>>("ao_max_rate"),
+        .ao_max_rate = parser
+                           .field<::x::telem::Rate>("ao_max_rate", ::x::telem::Rate(0)),
         .ai_voltage_ranges = parser.field<std::vector<::x::spatial::Bounds>>(
             "ai_voltage_ranges",
             std::vector<::x::spatial::Bounds>{}
@@ -671,20 +673,16 @@ inline Hardware Hardware::parse(x::json::Parser parser) {
 
 inline x::json::json Hardware::to_json() const {
     x::json::json j = x::json::json::object();
-    j["product_category"] = this->product_category;
-    j["product_type"] = this->product_type;
     j["analog_inputs"] = x::json::to_array(this->analog_inputs);
     j["analog_outputs"] = x::json::to_array(this->analog_outputs);
     j["counter_inputs"] = x::json::to_array(this->counter_inputs);
     j["counter_outputs"] = x::json::to_array(this->counter_outputs);
     j["digital_ports"] = x::json::to_array(this->digital_ports);
     j["terminals"] = this->terminals;
-    if (this->ai_min_rate.has_value()) j["ai_min_rate"] = *this->ai_min_rate;
-    if (this->ai_max_single_channel_rate.has_value())
-        j["ai_max_single_channel_rate"] = *this->ai_max_single_channel_rate;
-    if (this->ai_max_multi_channel_rate.has_value())
-        j["ai_max_multi_channel_rate"] = *this->ai_max_multi_channel_rate;
-    if (this->ao_max_rate.has_value()) j["ao_max_rate"] = *this->ao_max_rate;
+    j["ai_min_rate"] = this->ai_min_rate;
+    j["ai_max_single_channel_rate"] = this->ai_max_single_channel_rate;
+    j["ai_max_multi_channel_rate"] = this->ai_max_multi_channel_rate;
+    j["ao_max_rate"] = this->ao_max_rate;
     j["ai_voltage_ranges"] = x::json::to_array(this->ai_voltage_ranges);
     j["ai_current_ranges"] = x::json::to_array(this->ai_current_ranges);
     j["ao_voltage_ranges"] = x::json::to_array(this->ao_voltage_ranges);
