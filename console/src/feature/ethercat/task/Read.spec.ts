@@ -9,6 +9,7 @@
 
 import {
   channel,
+  device,
   type ethercat,
   type rack,
   type Synnax,
@@ -509,6 +510,151 @@ describe("Read", () => {
       schemas: EtherCAT.Device.SLAVE_SCHEMAS,
     });
     expect(updated.properties.read.channels[`${0x6000}_2`]).toBeUndefined();
+  });
+
+  it("should reject an index name that another slave's index holds", async () => {
+    const base = createIdentifier();
+    const index = await client.channels.create({
+      name: `${base}_state_time`,
+      dataType: "timestamp",
+      isIndex: true,
+    });
+    const owner = await createSlaveDevice(client, testRack.key, {
+      identifier: base,
+      network: "eth0",
+      writeStateIndex: index.key,
+    });
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: `${base}_state`,
+      network: "eth0",
+      pdos: { inputs: [STATUS_ENTRY], outputs: [] },
+    });
+    const { container, statuses } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [createEntryReadChannel(slave.key, STATUS_ENTRY)],
+    });
+    await clickDeploy(container);
+    await awaitStatus(
+      statuses,
+      new RegExp(
+        `Slave ${owner.name} uses the index channel ${base}_state_time\\. Change ` +
+          "the identifier",
+      ),
+    );
+  });
+
+  it("should reject a custom name that the slave's index holds", async () => {
+    const identifier = createIdentifier();
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier,
+      network: "eth0",
+      pdos: { inputs: [STATUS_ENTRY], outputs: [] },
+    });
+    const { container, statuses } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [
+        createEntryReadChannel(slave.key, STATUS_ENTRY, { name: `${identifier}_time` }),
+      ],
+    });
+    await clickDeploy(container);
+    await awaitStatus(
+      statuses,
+      new RegExp(
+        `A channel named ${identifier}_time already exists\\. Give the channel ` +
+          "another name\\.",
+      ),
+    );
+  });
+
+  it("should reject an index name that another slave's command index holds", async () => {
+    const base = createIdentifier();
+    const index = await client.channels.create({
+      name: `${base}_cmd_time`,
+      dataType: "timestamp",
+      isIndex: true,
+    });
+    const cmd = await client.channels.create({
+      name: `${base}_cmd`,
+      dataType: "uint8",
+      index: index.key,
+    });
+    const deleted = await client.channels.create({
+      name: `${base}_deleted_cmd`,
+      dataType: "uint8",
+      index: index.key,
+    });
+    await client.channels.delete(deleted.key);
+    const owner = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      write: { channels: { [`${0x7000}_1`]: deleted.key, [`${0x7000}_2`]: cmd.key } },
+    });
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: `${base}_cmd`,
+      network: "eth0",
+      pdos: { inputs: [STATUS_ENTRY], outputs: [] },
+    });
+    const { container, statuses } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [createEntryReadChannel(slave.key, STATUS_ENTRY)],
+    });
+    await clickDeploy(container);
+    await awaitStatus(
+      statuses,
+      new RegExp(
+        `Slave ${owner.name} uses the index channel ${base}_cmd_time\\. Change the ` +
+          "identifier",
+      ),
+    );
+  });
+
+  it("should reject the index that a renamed slave keeps", async () => {
+    const identifier = createIdentifier();
+    const pdos = { inputs: [STATUS_ENTRY], outputs: [] };
+    const renamed = await createSlaveDevice(client, testRack.key, {
+      identifier,
+      network: "eth0",
+      pdos,
+    });
+    const first = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [createEntryReadChannel(renamed.key, STATUS_ENTRY)],
+    });
+    await deployAndAwaitTask(
+      client,
+      first.container,
+      first.draft.key,
+      EtherCAT.Task.READ_SCHEMAS,
+    );
+    first.unmount();
+    const deployed = await client.devices.retrieve({
+      key: renamed.key,
+      schemas: EtherCAT.Device.SLAVE_SCHEMAS,
+    });
+    await client.devices.create(
+      {
+        ...device.toUpdate(deployed),
+        properties: { ...deployed.properties, identifier: createIdentifier() },
+      },
+      EtherCAT.Device.SLAVE_SCHEMAS,
+    );
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier,
+      network: "eth0",
+      pdos,
+    });
+    const { container, statuses } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [createEntryReadChannel(slave.key, STATUS_ENTRY)],
+    });
+    await clickDeploy(container);
+    await awaitStatus(
+      statuses,
+      new RegExp(
+        `Slave ${renamed.name} uses the index channel ${identifier}_time\\. Change ` +
+          "the identifier",
+      ),
+    );
   });
 
   it("should reuse the existing index and channels when redeployed", async () => {
