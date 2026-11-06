@@ -11,16 +11,17 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias
+from typing import Any, TypeAlias, TypedDict
 from typing import override as _override
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from synnax import ontology
 from synnax.access import action
 from synnax.ontology.payload import ID
 from x import filter
+from x.filter import shorthand
 
 Key: TypeAlias = UUID
 
@@ -69,6 +70,27 @@ class Where(BaseModel):
     key: filter.Set[Key] | None = None
     internal: filter.Bool | None = None
     subjects: list[ontology.ID] | None = None
+
+    @field_validator("subjects", mode="before")
+    @classmethod
+    def _read_lists(cls, value: Any) -> Any:
+        return shorthand.read_list(value)
+
+
+# WhereInput is a Where written as a partial record.
+# A plain value or a list stands for an operator.
+WhereInput = TypedDict(
+    "WhereInput",
+    {
+        "and": list["WhereInput"],
+        "or": list["WhereInput"],
+        "not": "WhereInput",
+        "key": filter.SetInput[Key],
+        "internal": filter.BoolInput,
+        "subjects": ontology.ID | list[ontology.ID],
+    },
+    total=False,
+)
 
 
 class RetrieveResponse(BaseModel):

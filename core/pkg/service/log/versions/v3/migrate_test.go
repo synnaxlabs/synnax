@@ -88,6 +88,23 @@ var _ = Describe("Migration", func() {
 		}))
 	})
 
+	It("Should drop channel 0 and keep the first entry of a channel", func(
+		ctx SpecContext,
+	) {
+		got := MustSucceed(v3.MigrateLog(ctx, v2.Log{
+			Channels: []v2.ChannelEntry{
+				{Channel: 0, Alias: "placeholder", Precision: -1},
+				{Channel: 1, Alias: "first", Precision: -1},
+				{Channel: 2, Precision: -1},
+				{Channel: 1, Alias: "second", Precision: -1},
+			},
+		}))
+		Expect(got.Channels).To(Equal([]v3.ChannelEntry{
+			{Channel: 1, Alias: "first"},
+			{Channel: 2},
+		}))
+	})
+
 	It("Should lift stored logs and keep every other field", func(ctx SpecContext) {
 		stored := v2.Log{
 			Key:                    uuid.New(),
@@ -126,6 +143,7 @@ var _ = Describe("Migration", func() {
 		Expect(got.TimestampPrecision).To(Equal(uint8(stored.TimestampPrecision)))
 		Expect(got.ChannelNamesHidden).To(BeTrue())
 		Expect(got.TimestampsHidden).To(BeTrue())
+		Expect(got.TimeZone).To(BeEquivalentTo(telem.TimeZoneLocal))
 		Expect(got.Channels).To(Equal([]v3.ChannelEntry{
 			{
 				Channel:   7,

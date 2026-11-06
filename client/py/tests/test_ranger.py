@@ -10,7 +10,7 @@
 import re
 from collections.abc import Callable
 from typing import cast, override
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import numpy as np
 import pydantic
@@ -23,6 +23,24 @@ from tests.channel import RetrieveCounter
 from x.params import RequiresNamedParams
 from x.strings import random_name
 from x.testutil import assert_eventually
+
+
+class TestWhere:
+    def test_partial_record(self) -> None:
+        key = uuid4()
+        record: ranger.WhereInput = {
+            "name": "a",
+            "labels": key,
+            "or": [{"key": [key]}, {"name": {"starts_with": "b"}}],
+        }
+        assert ranger.Where.model_validate(record) == ranger.Where(
+            name=sy.filter.String(eq="a"),
+            labels=[key],
+            or_=[
+                ranger.Where(key=sy.filter.Set[UUID](in_=[key])),
+                ranger.Where(name=sy.filter.String(starts_with="b")),
+            ],
+        )
 
 
 class TestRangeColor:
