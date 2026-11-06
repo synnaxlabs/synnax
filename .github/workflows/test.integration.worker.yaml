@@ -140,14 +140,18 @@ jobs:
         if: runner.os == 'Windows'
         id: test-conductor-win
         timeout-minutes: 30
+        # The self-hosted Windows test bots have no bash. !TC_ARGS! expands after cmd
+        # parses the line, so the flags cannot add commands.
         shell: cmd
         working-directory: integration
         env:
           PYTHONIOENCODING: utf-8
           PAGERDUTY_ROUTING_KEY: ${{ secrets.PAGERDUTY_ROUTING_KEY }}
           PAGERDUTY_API_KEY: ${{ secrets.PAGERDUTY_API_KEY }}
-        run: >-
-          uv run test-conductor --name tc_win ${{ matrix.target || inputs.flags }}
+          TC_ARGS: ${{ matrix.target || inputs.flags }}
+        run: |
+          setlocal EnableDelayedExpansion
+          uv run test-conductor --name tc_win !TC_ARGS!
 
       - name: Test conductor (Ubuntu)
         if: runner.os == 'Linux'
@@ -157,8 +161,10 @@ jobs:
         env:
           PAGERDUTY_ROUTING_KEY: ${{ secrets.PAGERDUTY_ROUTING_KEY }}
           PAGERDUTY_API_KEY: ${{ secrets.PAGERDUTY_API_KEY }}
-        run: >-
-          uv run test-conductor --name tc_unix ${{ matrix.target || inputs.flags }}
+          TC_ARGS: ${{ matrix.target || inputs.flags }}
+        run: |
+          read -ra args <<< "$TC_ARGS"
+          uv run test-conductor --name tc_unix "${args[@]}"
 
       # A failed measurement must not fail the tests it measured.
       - name: Report resource use

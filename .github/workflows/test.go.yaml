@@ -135,7 +135,9 @@ jobs:
             ${{ steps.key.outputs.module }}
 
       - name: Download the Go modules
-        run: .github/scripts/go_mod_download.sh ${{ inputs.directory }}
+        env:
+          DIRECTORY: ${{ inputs.directory }}
+        run: .github/scripts/go_mod_download.sh "$DIRECTORY"
 
       - name: Build the custom golangci-lint binary
         uses: golangci/golangci-lint-action@v9
@@ -277,7 +279,9 @@ jobs:
 
       - name: Download the Go modules
         shell: bash
-        run: .github/scripts/go_mod_download.sh ${{ inputs.directory }}
+        env:
+          DIRECTORY: ${{ inputs.directory }}
+        run: .github/scripts/go_mod_download.sh "$DIRECTORY"
 
       - name: Install stringer
         if: matrix.codegen
@@ -291,14 +295,19 @@ jobs:
 
       - name: Verify `go generate` is up to date
         if: matrix.codegen
-        run: scripts/check_go_generate.sh ${{ inputs.directory }}
+        env:
+          DIRECTORY: ${{ inputs.directory }}
+        run: scripts/check_go_generate.sh "$DIRECTORY"
 
       # go test reuses a result only while each file the test read keeps its
       # modification time, which a checkout resets. Runs after go generate, which
       # rewrites files.
       - name: Pin the modification times
         if: inputs.cached
-        run: python3 -I .github/scripts/pin_mtimes.py ${{ inputs.directory }}
+        shell: bash
+        env:
+          DIRECTORY: ${{ inputs.directory }}
+        run: python3 -I .github/scripts/pin_mtimes.py "$DIRECTORY"
 
       # macOS skips race and cover until it runs on stronger machines.
       - name: Test

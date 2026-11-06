@@ -174,7 +174,12 @@ jobs:
             { echo "::error::Run scripts/fix.sh to format the changed files."; exit 1; }
 
       - name: Check types
-        run: uv run mypy ${{ inputs.type_check_dir }}
+        shell: bash
+        env:
+          TYPE_CHECK_DIR: ${{ inputs.type_check_dir }}
+        run: |
+          read -ra directories <<< "$TYPE_CHECK_DIR"
+          uv run mypy "${directories[@]}"
 
       # Only the newest Python measures coverage.
       - name: Test
@@ -185,7 +190,10 @@ jobs:
 
       - name: Test with coverage
         if: inputs.test && inputs.coverage_module != '' && matrix.python != 'oldest'
-        run: uv run pytest --cov=${{ inputs.coverage_module }} --cov-report=xml
+        shell: bash
+        env:
+          COVERAGE_MODULE: ${{ inputs.coverage_module }}
+        run: uv run pytest --cov="$COVERAGE_MODULE" --cov-report=xml
 
       - name: Upload coverage
         if: inputs.test && inputs.coverage_flag != '' && matrix.python != 'oldest'
