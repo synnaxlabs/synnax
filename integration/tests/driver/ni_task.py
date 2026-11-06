@@ -85,7 +85,7 @@ class _NITaskMixin(TaskCase[TaskT]):
         # Resolve all locations upfront so concrete tests can use
         # devices[location] in create_channels without additional retrieves.
         self.devices = {
-            loc: self.client.devices.retrieve(location=loc)
+            loc: self.client.devices.retrieve(location=loc, one=True)
             for loc in self.device_locations
         }
         # TaskCase.setup() retrieves by name — use the first device.

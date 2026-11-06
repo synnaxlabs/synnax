@@ -42,7 +42,8 @@ class NIInvalidConfig(TestCase):
         if platform.system().lower() != "windows":
             self.skip("Windows DAQmx drivers required")
         self.devices = {
-            loc: self.client.devices.retrieve(location=loc) for loc in ["E101Mod4"]
+            loc: self.client.devices.retrieve(location=loc, one=True)
+            for loc in ["E101Mod4"]
         }
 
     def run(self) -> None:

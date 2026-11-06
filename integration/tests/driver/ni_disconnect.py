@@ -228,7 +228,7 @@ class _NIReadDisconnectMixin(ReadTaskCase[ReadTaskT]):
 
         tsk = self.tsk
         dev = self.disconnect_device
-        device = self.client.devices.retrieve(location=dev)
+        device = self.client.devices.retrieve(location=dev, one=True)
 
         # Phase 1: Verify normal operation and reset recovery
         self.log(f"Test 1 - Assert samples ({dev})")
@@ -322,7 +322,7 @@ class _NIWriteDisconnectMixin(WriteTaskCase[TaskT]):
 
         tsk = self.tsk
         dev = self.disconnect_device
-        device = self.client.devices.retrieve(location=dev)
+        device = self.client.devices.retrieve(location=dev, one=True)
 
         # Phase 1: Verify normal operation and reset recovery
         self.log(f"Test 1 - Send commands ({dev})")

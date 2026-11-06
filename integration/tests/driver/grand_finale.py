@@ -132,7 +132,8 @@ class GrandFinale(SimulatorCase):
             "USB-6289",  # USB counter
         ]
         devices = {
-            loc: self.client.devices.retrieve(location=loc) for loc in ni_locations
+            loc: self.client.devices.retrieve(location=loc, one=True)
+            for loc in ni_locations
         }
 
         self.read_tasks.extend(
