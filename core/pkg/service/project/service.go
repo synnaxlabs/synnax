@@ -115,15 +115,7 @@ func (s *Service) Children(
 	tx gorp.Tx,
 	key Key,
 ) ([]resource.ID, error) {
-	deps, err := s.table.Dependents(ctx, gorp.OverrideTx(s.cfg.DB, tx), key)
-	if err != nil {
-		return nil, err
-	}
-	ids := make([]resource.ID, len(deps))
-	for i, d := range deps {
-		ids[i] = resource.ID{Type: resource.Type(d.Table), Key: d.Key}
-	}
-	return ids, nil
+	return resource.Dependents(ctx, gorp.OverrideTx(s.cfg.DB, tx), s.table, key)
 }
 
 func (s *Service) NewRetrieve() Retrieve {

@@ -115,12 +115,11 @@ func CheckMember(
 // pinnedMember returns the first member of a pinned type that sits in the group with
 // key or in a group under it, or nil when there is none.
 func (w Writer) pinnedMember(ctx context.Context, key Key) (*resource.ID, error) {
-	deps, err := w.table.Dependents(ctx, w.tx, key)
+	deps, err := resource.Dependents(ctx, w.tx, w.table, key)
 	if err != nil {
 		return nil, err
 	}
-	for _, d := range deps {
-		id := resource.ID{Type: resource.Type(d.Table), Key: d.Key}
+	for _, id := range deps {
 		if id.Type != resource.TypeGroup {
 			if memberRules[id.Type].pinned {
 				return &id, nil

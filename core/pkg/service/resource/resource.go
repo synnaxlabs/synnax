@@ -10,9 +10,11 @@
 package resource
 
 import (
+	"context"
 	"strings"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -47,4 +49,21 @@ func ParseIDs(keys []string) ([]ID, error) {
 // IDsToKeys converts a slice of IDs to a slice of their string representations.
 func IDsToKeys(ids []ID) []string {
 	return lo.Map(ids, func(id ID, _ int) string { return id.String() })
+}
+
+// Dependents returns the ID of every record that references the entry of table with key,
+// as seen by tx. It blocks and fails as gorp.Table.Dependents does.
+func Dependents[K gorp.Key, E gorp.Entry[K]](
+	ctx context.Context,
+	tx gorp.Tx,
+	table *gorp.Table[K, E],
+	key K,
+) ([]ID, error) {
+	deps, err := table.Dependents(ctx, tx, key)
+	if err != nil {
+		return nil, err
+	}
+	return lo.Map(deps, func(d gorp.Target, _ int) ID {
+		return ID{Type: Type(d.Table), Key: d.Key}
+	}), nil
 }
