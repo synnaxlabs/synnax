@@ -16,7 +16,7 @@ import "github.com/synnaxlabs/synnax/pkg/service/table/versions/v3"
 // Key is a unique identifier for a table, represented as a UUID.
 type Key = v3.Key
 
-// FlexAlignment is a cross-axis flex alignment for laid-out content.
+// FlexAlignment is a flex alignment for laid-out content.
 type FlexAlignment = v3.FlexAlignment
 
 const (

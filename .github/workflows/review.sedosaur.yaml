@@ -1,0 +1,248 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Reviews a pull request with Sedosaur on a review runner, and posts the review as the
+# sedosaur GitHub App. The scripts and the policy in `.sedosaur/` come from the commit
+# that started this workflow, on the default branch, never from the pull request or its
+# base. Claude Code gets only read tools, a checkout of the head, and its OAuth token.
+# The App token reaches only the steps that write to GitHub.
+
+name: Review - Sedosaur
+run-name: ${{ inputs.pr }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: "Pull request to review"
+        type: number
+        required: true
+      comment:
+        description: "Comment that asked for the review, to react to"
+        type: string
+        required: false
+
+permissions: {}
+
+env:
+  RUN_URL:
+    ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+# One review of a pull request at a time. A newer request replaces a queued one.
+concurrency:
+  group: review-sedosaur-${{ inputs.pr }}
+  cancel-in-progress: false
+
+jobs:
+  start:
+    name: Start a runner
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      pull-requests: read
+    outputs:
+      head: ${{ steps.pr.outputs.head }}
+      base: ${{ steps.pr.outputs.base }}
+      fork: ${{ steps.pr.outputs.fork }}
+      check: ${{ steps.check.outputs.id }}
+    steps:
+      - name: Read the pull request
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ inputs.pr }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" --jq '
+            "head=\(.head.sha)", "base=\(.base.sha)",
+            "fork=\(.head.repo.full_name != .base.repo.full_name)"' >> "$GITHUB_OUTPUT"
+
+      - name: Assume the runner start role
+        if: steps.pr.outputs.fork == 'false'
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AGENT_RUNNER_ROLE_ARN }}
+          aws-region: us-east-1
+
+      # Idle runners stop themselves, so a review starts one stopped runner. Only one of
+      # two concurrent starts sees an instance's previous state as stopped, so the other
+      # tries again. The job waits for any runner when none is stopped.
+      - name: Start a stopped runner
+        if: steps.pr.outputs.fork == 'false'
+        run: |
+          for _ in 1 2 3; do
+            ids=$(aws ec2 describe-instances --output text \
+              --filters Name=tag:project,Values=synnax-agents \
+              Name=tag:pool,Values=review Name=instance-state-name,Values=stopped \
+              --query 'Reservations[].Instances[].InstanceId')
+            if [ -z "$ids" ]; then exit 0; fi
+            read -ra stopped <<< "$ids"
+            id=$(shuf -n 1 -e "${stopped[@]}")
+            previous=$(aws ec2 start-instances --instance-ids "$id" --output text \
+              --query 'StartingInstances[0].PreviousState.Name')
+            if [ "$previous" = stopped ]; then exit 0; fi
+          done
+
+      - name: Mint the GitHub App token
+        id: app
+        if: steps.pr.outputs.fork == 'false'
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.SEDOSAUR_APP_ID }}
+          private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
+          permission-checks: write
+
+      # The check run shows on the pull request while the runner boots.
+      - name: Queue the check run
+        id: check
+        if: steps.pr.outputs.fork == 'false'
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          HEAD_SHA: ${{ steps.pr.outputs.head }}
+        run: |
+          id=$(gh api -X POST "repos/$GITHUB_REPOSITORY/check-runs" \
+            -f name="Sedosaur Review" -f head_sha="$HEAD_SHA" \
+            -f status=queued -f details_url="$RUN_URL" --jq .id)
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+
+  # A job of its own, so a deleted comment cannot stop the review.
+  react:
+    needs: start
+    if: needs.start.outputs.fork == 'false' && inputs.comment != ''
+    name: React to the request
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mint the GitHub App token
+        id: app
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.SEDOSAUR_APP_ID }}
+          private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
+          permission-pull-requests: write
+
+      # Greptile reacts with eyes, so Sedosaur reacts with a rocket.
+      - name: React with a rocket
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          COMMENT: ${{ inputs.comment }}
+        run: |
+          gh api -X POST "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT/reactions" \
+            -f content=rocket --silent
+
+  review:
+    needs: start
+    # A fork's code never reaches a runner.
+    if: needs.start.outputs.fork == 'false'
+    name: Review
+    runs-on: [self-hosted, review]
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: read
+    env:
+      PR: ${{ inputs.pr }}
+      HEAD_SHA: ${{ needs.start.outputs.head }}
+      BASE_SHA: ${{ needs.start.outputs.base }}
+      CHECK_RUN: ${{ needs.start.outputs.check }}
+    steps:
+      - name: Mint the GitHub App token
+        id: app
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.SEDOSAUR_APP_ID }}
+          private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
+          permission-checks: write
+          permission-contents: read
+          permission-issues: write
+          permission-pull-requests: write
+
+      - name: Start the check run
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+        run: |
+          gh api -X PATCH "repos/$GITHUB_REPOSITORY/check-runs/$CHECK_RUN" \
+            -f status=in_progress --silent
+
+      # The runner keeps the clone between jobs, so each fetch is small. This checkout
+      # holds the scripts and the policy: the pull request and its base are not trusted.
+      - name: Check out the scripts and the policy
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      # The diff needs the base commit. The runner empties its temporary directory after
+      # each job, so prune drops the checkout of the last review.
+      - name: Check out the head
+        run: |
+          git worktree prune
+          git fetch --no-tags origin "$BASE_SHA" "$HEAD_SHA"
+          git worktree add --detach "$RUNNER_TEMP/head" "$HEAD_SHA"
+
+      # A runner can stay stopped for weeks, so each review installs the latest Claude
+      # Code. The runners on one machine review at the same time, so each review gets
+      # its own copy in the temporary directory, which the runner empties after the job.
+      - name: Install Claude Code
+        run: |
+          npm install --no-save --prefix "$RUNNER_TEMP/claude" \
+            @anthropic-ai/claude-code@latest
+          echo "$RUNNER_TEMP/claude/node_modules/.bin" >> "$GITHUB_PATH"
+
+      - name: Review
+        working-directory: .github/scripts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BOT: ${{ steps.app.outputs.app-slug }}
+          POLICY_DIR: ${{ github.workspace }}
+          POLICY_SHA: ${{ github.sha }}
+          HEAD_DIR: ${{ runner.temp }}/head
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.SEDOSAUR_CLAUDE_CODE_OAUTH_TOKEN }}
+        run: python3 -m review run "$RUNNER_TEMP/review.json"
+
+      # The trial report compares these records with Greptile's reviews.
+      - name: Keep the record
+        uses: actions/upload-artifact@v7
+        with:
+          name: sedosaur-review
+          path: ${{ runner.temp }}/review.json
+          retention-days: 90
+          overwrite: true
+
+      - name: Post the review
+        working-directory: .github/scripts
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          BOT: ${{ steps.app.outputs.app-slug }}
+        run: python3 -m review post "$RUNNER_TEMP/review.json"
+
+  # A review that never gets a runner cannot close its own check run, so a hosted job
+  # closes it whenever the review did not succeed.
+  end:
+    needs: [start, review]
+    if: always() && needs.start.outputs.check != '' && needs.review.result != 'success'
+    name: End the check run
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mint the GitHub App token
+        id: app
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.SEDOSAUR_APP_ID }}
+          private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
+          permission-checks: write
+
+      - name: End the check run
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          CHECK_RUN: ${{ needs.start.outputs.check }}
+          STATUS: ${{ needs.review.result }}
+        run: |
+          gh api -X PATCH "repos/$GITHUB_REPOSITORY/check-runs/$CHECK_RUN" \
+            -f status=completed -f conclusion="$STATUS" \
+            -f "output[title]=The review ended with $STATUS" \
+            -f "output[summary]=See the [run]($RUN_URL)." --silent

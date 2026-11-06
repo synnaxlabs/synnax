@@ -25,7 +25,9 @@ const SCAN_SCHEMAS = {
 const TIMEOUT = TimeSpan.seconds(10);
 
 const retrieveScanTask = async () => {
-  const [rack] = await client.racks.retrieve({ integration: "kafka", embedded: true });
+  const [rack] = await client.racks.retrieve({
+    where: { embedded: { eq: true }, integrations: { any: ["kafka"] } },
+  });
   return await client.tasks.retrieve({
     type: SCAN_SCHEMAS.type.value,
     rack: rack.key,

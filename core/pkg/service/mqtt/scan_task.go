@@ -19,6 +19,7 @@ import (
 	"unicode/utf8"
 	"uuid"
 
+	paho "github.com/eclipse/paho.mqtt.golang"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
@@ -175,7 +176,7 @@ func unmarshalArgs(cmd task.Command, args any) error {
 
 // probe reports whether a client can connect to the broker of cfg.
 func probe(ctx context.Context, ins alamos.Instrumentation, cfg clientConfig) error {
-	_, disconnect, err := open(ctx, ins, newClientOptions(cfg))
+	_, disconnect, err := open(ctx, ins, paho.NewClient, newClientOptions(cfg))
 	if err != nil {
 		return err
 	}

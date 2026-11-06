@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
+  DisconnectedError,
   NotFoundError,
   ontology,
   query,
@@ -42,7 +43,10 @@ import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Errors } from "@/platform/errors";
 import { Panel } from "@/platform/panel";
-import { DefaultContextMenu } from "@/platform/tree/DefaultContextMenu";
+import {
+  DefaultContextMenu,
+  type DefaultContextMenuProps,
+} from "@/platform/tree/DefaultContextMenu";
 import { DefaultItem, type Item } from "@/platform/tree/item";
 import { MultipleSelectionContextMenu } from "@/platform/tree/MultipleSelectionContextMenu";
 import { useItems } from "@/platform/tree/Provider";
@@ -68,11 +72,13 @@ import { useResources } from "@/platform/tree/useResource";
 import { type Action, type State } from "@/session/store";
 
 /** The resource types the tree sorts first and every search finds. */
-const FOLDER_TYPES = new Set<ontology.ResourceType>(["group"]);
+const FOLDER_TYPES = new Set<ontology.ResourceType>(["group", "arc_directory"]);
 
 interface InternalProps extends Pick<List.ScrollProps, "ref" | "onKeyDown"> {
   root: ontology.ID;
   emptyContent?: ReactNode;
+  /** The menu for a right-click on empty space. */
+  rootContextMenu?: FC<DefaultContextMenuProps>;
   results?: ResultNodes;
   className?: string;
 }
@@ -253,6 +259,7 @@ const toNodes = (
 const Internal = ({
   root,
   emptyContent,
+  rootContextMenu: RootContextMenu = DefaultContextMenu,
   results,
   className,
   ref,
@@ -560,13 +567,15 @@ const Internal = ({
       bySource.set(sourceKey, ids);
     });
     contract(...moved.map(({ key }) => key));
-    bySource.forEach((ids, sourceKey) =>
-      moveChildren({
-        source: ontology.parseID(sourceKey),
-        destination,
-        ids,
-      }),
-    );
+    bySource.forEach((ids, sourceKey) => {
+      const params = { source: ontology.parseID(sourceKey), destination, ids };
+      const { move } = svc;
+      if (move == null) return moveChildren(params);
+      handleError(async () => {
+        if (client == null) throw new DisconnectedError();
+        await move(client, params);
+      }, "Failed to move resources");
+    });
     return moved;
   };
 
@@ -590,7 +599,7 @@ const Internal = ({
 
   const renderContextMenu = ({ keys: clicked }: Menu.ContextMenuMenuProps) => {
     if (client == null) return <FallbackContextMenu />;
-    if (clicked.length === 0) return <DefaultContextMenu root={root} state={state} />;
+    if (clicked.length === 0) return <RootContextMenu root={root} state={state} />;
     const rightClickedButNotSelected = clicked.find((v) => !selected.includes(v));
     // A right-click outside the selection shows a menu for that item alone. Otherwise
     // the selection state gives the keys, since the virtual tree can lack the DOM
@@ -965,6 +974,8 @@ const Results = ({
 export interface TreeProps {
   root?: ontology.ID | null;
   emptyContent?: ReactNode;
+  /** The menu for a right-click on empty space. */
+  rootContextMenu?: FC<DefaultContextMenuProps>;
   /** Shows the search answer in place of the tree while the search has one. */
   search?: Search;
 }
@@ -972,6 +983,7 @@ export interface TreeProps {
 export const Tree = ({
   root,
   emptyContent,
+  rootContextMenu,
   search,
 }: TreeProps): ReactElement | null => {
   if (root == null) return null;
@@ -993,6 +1005,7 @@ export const Tree = ({
         root={root}
         ref={search?.treeRef}
         emptyContent={emptyContent}
+        rootContextMenu={rootContextMenu}
         className={search?.answer != null ? CSS.BM("tree", "hidden") : undefined}
       />
     </>

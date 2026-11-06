@@ -267,6 +267,8 @@ bound, a log precision, or the line plot X channel.
 - An option with a description shows the icon beside the name and the description under
   the name. The dropdown is wide enough for each description on one line. Only a narrow
   window wraps it, and it is never cut.
+- A select with a few described options, such as the Arc performance level and the plot
+  line sampling, has no search. A user reads the options instead.
 - A select that shows only its icon is a square button, never a wide box.
 
 ### Lists with checkboxes
@@ -408,6 +410,21 @@ says why in a sentence, then gives the raw error.
   edge. X1, the field people change least, sits at the end of the Ranges row, as both
   set the x axis. Below a toolbar width of 144rem it takes its own row at the bottom.
 - The X1 dialog floats, so it can be wider than its trigger.
+
+### Plot lines tab
+
+- The aggregation and detail of a line are compact selects, not rows of buttons. The
+  trigger shows an icon and a label that says what it sets ("Min/max", "Medium detail").
+  Each option says what it does to the plot in a few words ("Keeps spikes visible"), not
+  how it works, so the dropdown stays narrow.
+- A waveform marks min/max, a sine wave marks average, and `Icon.Meter` marks the
+  detail.
+- Icon buttons alone were rejected: a user must hover each one to learn it.
+
+### Plot legend
+
+- A padded Lyra `Divider` separates the axis groups: the shared border, with 0.5rem
+  above and below. A 1 px line with no space was too heavy.
 
 ## Interaction
 

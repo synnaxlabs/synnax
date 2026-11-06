@@ -32,6 +32,7 @@ import {
 } from "react-icons/bi";
 import {
   BsBorderWidth,
+  BsBox,
   BsFillInfoSquareFill,
   BsLightbulbFill,
   BsShift,
@@ -193,6 +194,7 @@ import {
   PiSelectionPlusBold,
   PiTreeViewBold,
   PiUploadSimple,
+  PiWaveformBold,
   PiWaveSawtoothBold,
   PiWaveSineBold,
   PiWaveSquareBold,
@@ -544,6 +546,7 @@ export const StarOutlined = wrapSVGIcon(FaRegStar, "star-outlined");
 export const Heart = wrapSVGIcon(IoMdHeart, "heart");
 export const StrokeWidth = wrapSVGIcon(BsBorderWidth, "stroke-width");
 export const Downsample = wrapSVGIcon(MdBlurLinear, "downsample");
+export const Waveform = wrapSVGIcon(PiWaveformBold, "waveform");
 export const Terminal = wrapSVGIcon(IoTerminal, "terminal");
 export const TerminalOutline = wrapSVGIcon(IoTerminalOutline, "terminal-outline");
 export const Map = wrapSVGIcon(MdOutlineMap, "map");
@@ -551,6 +554,7 @@ export const Linear = wrapSVGIcon(MdOutlineLinearScale, "linear");
 export const None = wrapSVGIcon(TbCircleDashed, "none");
 export const Arc = wrapSVGIcon(TbChartArcs, "arc");
 export const ArcFlow = wrapSVGIcon(IoIosArrowRoundForward, "arc-flow");
+export const Module = wrapSVGIcon(BsBox, "module");
 export const ArcFunc = wrapSVGIcon(LuSquareFunction, "arc-func");
 export const Select = wrapSVGIcon(TbArrowsSplit, "select");
 export const Notification = wrapSVGIcon(IoNotifications, "notification");
@@ -744,6 +748,7 @@ const icons = {
   TerminalOutline,
   Arc,
   ArcFlow,
+  Module,
   ArcFunc,
   Select,
   Notification,

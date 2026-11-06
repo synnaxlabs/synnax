@@ -14,7 +14,6 @@ import (
 	"slices"
 
 	"github.com/synnaxlabs/gorp/internal/keyset"
-	"github.com/synnaxlabs/x/errors"
 )
 
 // Filter is a composable query filter applied to entries during a
@@ -102,6 +101,22 @@ func MatchRaw[K Key, E Entry[K]](f func(key, value []byte) (bool, error)) Filter
 // nothing.
 func MatchKeys[K Key, E Entry[K]](keys ...K) Filter[K, E] {
 	return Filter[K, E]{keys: keyset.Of(keys)}
+}
+
+// MatchKeysFunc returns a Filter that restricts results to the keys that f returns.
+// Exec, Count, and Exists each call f with the open transaction, so f can read state
+// the transaction staged. A key with no entry is a non-match, while a bare MatchKeys
+// fails Exec with query.ErrNotFound.
+func MatchKeysFunc[K Key, E Entry[K]](f func(ctx Context) ([]K, error)) Filter[K, E] {
+	return Filter[K, E]{
+		resolve: func(ctx context.Context, tx Tx) (resolved[K, E], error) {
+			keys, err := f(Context{Context: ctx, Tx: tx})
+			if err != nil {
+				return resolved[K, E]{}, err
+			}
+			return resolved[K, E]{keys: keyset.Hashed(keys)}, nil
+		},
+	}
 }
 
 // And returns a filter that matches when ALL children match. Each
@@ -298,13 +313,9 @@ func Not[K Key, E Entry[K]](f Filter[K, E]) Filter[K, E] {
 	// Resolver-backed child: defer eval construction until Exec so it
 	// can close over a fresh materialized copy of f. Sharing the
 	// captured f across Execs would race resolve's writes against
-	// concurrent eval reads. The construction-time eval is the
-	// sequential-scan fallback used when resolveFilter swallows
-	// ErrIndexInvalid: f.keys stays unbounded, so evalChild skips the keys
-	// check and dispatches to f's scan-fallback eval.
+	// concurrent eval reads.
 	if f.resolve != nil {
 		return Filter[K, E]{
-			eval: notEval(f),
 			resolve: func(ctx context.Context, tx Tx) (resolved[K, E], error) {
 				res, err := f.resolve(ctx, tx)
 				if err != nil {
@@ -386,9 +397,6 @@ func anyHasResolver[K Key, E Entry[K]](filters []Filter[K, E]) bool {
 // mutated. Resolver-returned eval overrides are installed on the copy
 // so Or / Not's per-call eval closures see the right predicate for
 // each child.
-//
-// A child whose index failed to populate is copied through unchanged, so its
-// scan-fallback eval applies while its siblings keep their resolved keys.
 func materializeFilters[K Key, E Entry[K]](
 	ctx context.Context,
 	tx Tx,
@@ -401,10 +409,6 @@ func materializeFilters[K Key, E Entry[K]](
 			continue
 		}
 		res, err := child.resolve(ctx, tx)
-		if errors.Is(err, ErrIndexInvalid) {
-			out[i] = child
-			continue
-		}
 		if err != nil {
 			return nil, err
 		}

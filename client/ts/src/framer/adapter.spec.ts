@@ -11,6 +11,7 @@ import { array, DataType, id, Series, TimeStamp } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
+import { NotFoundError } from "@/errors";
 import { type ChannelRetriever, ReadAdapter, WriteAdapter } from "@/framer/adapter";
 import { Frame } from "@/index";
 import { createTestClient } from "@/testutil";
@@ -586,6 +587,19 @@ describe("ReadFrameAdapter", () => {
       await adapter.update([timeCh.key, dataCh.key]);
       const hasChanged = await adapter.update([timeCh.name, dataCh.name]);
       expect(hasChanged).toBe(false);
+    });
+
+    it("should throw a NotFoundError when updating with a key that does not exist", async () => {
+      const update = adapter.update([timeCh.key, 999999]);
+      await expect(update).rejects.toThrow(NotFoundError);
+      await expect(update).rejects.toThrow("channels not found matching [999999]");
+    });
+
+    it("should throw a NotFoundError when updating with a name that does not exist", async () => {
+      const name = id.create();
+      const update = adapter.update([timeCh.name, name]);
+      await expect(update).rejects.toThrow(NotFoundError);
+      await expect(update).rejects.toThrow(`channels not found matching ["${name}"]`);
     });
   });
 });

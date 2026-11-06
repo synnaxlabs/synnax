@@ -432,7 +432,7 @@ func (s *scanner) listen(
 			once.Do(func() { close(stopped) })
 		}
 	})
-	client, disconnect, err := open(ctx, s.ins, opts)
+	client, disconnect, err := open(ctx, s.ins, paho.NewClient, opts)
 	if err != nil {
 		return err
 	}

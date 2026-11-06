@@ -15,7 +15,7 @@ import { NotFoundError } from "@/index";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { type schematic } from "@/schematic";
-import { createTestClient, expectLive } from "@/testutil";
+import { createTestClient, expectLive, spyOnSend } from "@/testutil";
 
 const client = createTestClient();
 
@@ -106,9 +106,9 @@ describe("Symbol Client", () => {
         parent: group.ontologyID(symbolGroup.key),
       });
 
-      const retrieved = await client.schematics.symbols.retrieve({
-        keys: created.map((s) => s.key),
-      });
+      const retrieved = await client.schematics.symbols.retrieve(
+        created.map((s) => s.key),
+      );
       expect(retrieved).toHaveLength(2);
     });
 
@@ -130,6 +130,26 @@ describe("Symbol Client", () => {
           return results.map((s) => s.name).sort();
         })
         .toEqual(names);
+    });
+
+    it("should retrieve symbols by where", async () => {
+      const prefix = `where-symbol-${id.create()}`;
+      const [first] = await client.schematics.symbols.create({
+        symbols: [
+          { name: `${prefix}-1`, data: SYMBOL_DATA },
+          { name: `${prefix}-2`, data: SYMBOL_DATA },
+        ],
+        parent: group.ontologyID(symbolGroup.key),
+      });
+      await expect
+        .poll(async () => {
+          const results = await client.schematics.symbols.retrieve({
+            searchTerm: prefix,
+            where: { not: { key: { eq: first.key } } },
+          });
+          return results.map((s) => s.name);
+        })
+        .toEqual([`${prefix}-2`]);
     });
   });
 
@@ -175,6 +195,45 @@ describe("Symbol Client", () => {
           return results.map((s) => s.name);
         })
         .toEqual([`${prefix}-valve`]);
+    });
+
+    it("should combine a parent scope with a where", async () => {
+      const parent = await createParent();
+      const [kept] = await client.schematics.symbols.create({
+        symbols: [
+          { name: "valve", data: SYMBOL_DATA },
+          { name: "pump", data: SYMBOL_DATA },
+        ],
+        parent,
+      });
+      const outsider = await client.schematics.symbols.create({
+        name: "valve",
+        data: SYMBOL_DATA,
+        parent: await createParent(),
+      });
+      const retrieved = await client.schematics.symbols.retrieve({
+        parent,
+        where: { key: { in: [kept.key, outsider.key] } },
+      });
+      expect(retrieved.map((s) => s.key)).toEqual([kept.key]);
+    });
+
+    it.each([
+      ["a bare parent request", {}],
+      ["a parent request with a zero offset", { offset: 0 }],
+    ])("should answer %s from cached children", async (_, extra) => {
+      const local = createTestClient();
+      const parent = await createParent();
+      const created = await local.schematics.symbols.create({
+        symbols: [{ name: "cached", data: SYMBOL_DATA }],
+        parent,
+      });
+      const send = spyOnSend(local);
+      const retrieved = await local.schematics.symbols.retrieve({ parent, ...extra });
+      expect(retrieved.map((s) => s.key)).toEqual(created.map((s) => s.key));
+      expect(
+        send.mock.calls.filter(([target]) => target === "/schematic/symbol/retrieve"),
+      ).toHaveLength(0);
     });
 
     it("should return an empty list for a childless parent", async () => {
