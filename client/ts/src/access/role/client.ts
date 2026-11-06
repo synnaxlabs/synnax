@@ -22,7 +22,12 @@ import {
   type Role,
   roleZ,
 } from "@/access/role/types.gen";
-import { matches, retrieveInputZ, serverComputed } from "@/access/role/where.gen";
+import {
+  matches,
+  retrieveInputZ,
+  serverComputed,
+  shortcutZ,
+} from "@/access/role/where.gen";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { user } from "@/user";
@@ -31,7 +36,6 @@ export const SET_CHANNEL_NAME = "sy_role_set";
 export const DELETE_CHANNEL_NAME = "sy_role_delete";
 
 const retrieveMultiParamsZ = z.union([
-  query.keysRequestZ(keyZ),
   retrieveRequestZ,
   retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
 ]);
@@ -102,6 +106,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ro
     super(cache, {
       name: "role",
       table: store,
+      shortcut: shortcutZ,
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),

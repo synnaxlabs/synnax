@@ -56,13 +56,9 @@ export interface SelectProps
     >,
     Flux.UseListParams<ListQuery, access.role.Key, access.role.Role> {}
 
-export const Select = ({
-  initialQuery,
-  filter,
-  ...props
-}: SelectProps): ReactElement => {
+export const Select = ({ query, filter, ...props }: SelectProps): ReactElement => {
   const { data, retrieve, getItem, subscribe, status } = useList({
-    initialQuery,
+    query,
     filter,
   });
   const { fetchMore, search } = List.usePager({ retrieve });
