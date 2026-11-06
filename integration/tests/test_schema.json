@@ -29,6 +29,11 @@
             "minimum": 2,
             "default": -1
           },
+          "isolated": {
+            "type": "boolean",
+            "description": "Runs on the first Core after every other sequence ends, with nothing else running, as a timing test needs.",
+            "default": false
+          },
           "tests": {
             "type": "array",
             "items": {

@@ -20,10 +20,13 @@ from pydantic import BaseModel
 import synnax as sy
 from framework import models, resources
 from framework.config_client import ConfigClient
+from framework.cores import Core
 from framework.execution_client import ExecutionClient
 from framework.models import DEFAULT_OPTIONS, STATUS, SynnaxConnection
 from framework.resources import Resources
 from framework.target_filter import TargetFilter
+
+FIRST_PORT = 9090
 
 # A case that records when and on which Core it ran. It skips the TestCase
 # constructor, which connects to a Core.
@@ -71,6 +74,7 @@ class Hold(TestCase):
 
 CASES = {
     "plain": "",
+    "ni": "resources.NI",
     "sim": 'resources.simulator("sim")',
     "browser": "resources.BROWSER",
 }
@@ -101,30 +105,49 @@ def cases_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]
             del sys.modules[name]
 
 
-def run(cases_dir: Path, *cases: str, browsers: int | None = None) -> dict[str, Span]:
-    """Runs the cases as one asynchronous sequence, so each starts at once."""
-    sequence = {
-        "sequence_name": "a",
-        "sequence_order": "asynchronous",
+def sequence(
+    name: str,
+    *cases: str,
+    hold: float = 0.3,
+    order: str = "sequential",
+    isolated: bool = False,
+) -> dict[str, object]:
+    return {
+        "sequence_name": name,
+        "sequence_order": order,
+        "isolated": isolated,
         "tests": [
             {
                 "case": f"lanes_spec/{case}",
-                "name": f"a_{i}",
-                "parameters": {"hold": 0.3, "record": "record.jsonl"},
+                "name": f"{name}_{i}",
+                "parameters": {"hold": hold, "record": "record.jsonl"},
             }
             for i, case in enumerate(cases)
         ],
     }
-    (cases_dir / "lanes_tests.json").write_text(json.dumps({"sequences": [sequence]}))
+
+
+def run(
+    cases_dir: Path,
+    *sequences: dict[str, object],
+    cores: int = 2,
+    browsers: int | None = None,
+) -> dict[str, Span]:
+    (cases_dir / "lanes_tests.json").write_text(json.dumps({"sequences": sequences}))
     config = ConfigClient(tests_dir=cases_dir)
     loaded, _ = config.load(TargetFilter(file_filter=["lanes"]))
     results: list[models.Test] = []
     client = ExecutionClient(
         config_client=config,
-        synnax_connection=SynnaxConnection(),
+        cores=[
+            Core(
+                connection=SynnaxConnection(port=FIRST_PORT + i),
+                log_path=cases_dir / f"core-{i}.log",
+            )
+            for i in range(cores)
+        ],
         resources=Resources({resources.BROWSER: browsers}),
         options=DEFAULT_OPTIONS,
-        server_log_path=cases_dir / "core.log",
         run_dir=cases_dir.parent / "run",
         # Only a conductor range needs the client, and these runs have none.
         client=cast(sy.Synnax, None),
@@ -147,20 +170,70 @@ def run(cases_dir: Path, *cases: str, browsers: int | None = None) -> dict[str, 
 class TestExecutionClient:
     def test_free_resources(self, cases_dir: Path) -> None:
         """Should run tests that hold nothing at the same time."""
-        spans = run(cases_dir, "plain", "plain")
+        spans = run(cases_dir, sequence("a", "plain", "plain", order="asynchronous"))
         assert spans["a_0"].overlaps(spans["a_1"])
 
-    def test_shared_simulator(self, cases_dir: Path) -> None:
-        """Should never run two tests that hold one simulator at the same time."""
-        spans = run(cases_dir, "sim", "sim")
-        assert not spans["a_0"].overlaps(spans["a_1"])
-
-    def test_browser_limit(self, cases_dir: Path) -> None:
-        """Should run no more Console tests at once than the browser limit."""
-        spans = run(cases_dir, "browser", "browser", browsers=1)
+    def test_shared_simulator_in_a_sequence(self, cases_dir: Path) -> None:
+        """Should never run two tests of a sequence that hold one simulator at the
+        same time."""
+        spans = run(cases_dir, sequence("a", "sim", "sim", order="asynchronous"))
         assert not spans["a_0"].overlaps(spans["a_1"])
 
     def test_no_browser_limit(self, cases_dir: Path) -> None:
         """Should run Console tests at the same time with no browser limit."""
-        spans = run(cases_dir, "browser", "browser")
+        spans = run(
+            cases_dir, sequence("a", "browser", "browser", order="asynchronous")
+        )
         assert spans["a_0"].overlaps(spans["a_1"])
+
+    def test_sequences_at_once(self, cases_dir: Path) -> None:
+        """Should run two sequences at the same time on different Cores."""
+        spans = run(cases_dir, sequence("a", "plain"), sequence("b", "plain"))
+        assert spans["a_0"].overlaps(spans["b_0"])
+        assert spans["a_0"].port != spans["b_0"].port
+
+    def test_order_in_a_sequence(self, cases_dir: Path) -> None:
+        """Should run the tests of a sequence one after another on one Core."""
+        spans = run(cases_dir, sequence("a", "plain", "plain", hold=0.1))
+        assert spans["a_0"].end <= spans["a_1"].start
+        assert spans["a_0"].port == spans["a_1"].port
+
+    def test_one_core(self, cases_dir: Path) -> None:
+        """Should run sequences in order with one Core."""
+        spans = run(cases_dir, sequence("a", "plain"), sequence("b", "plain"), cores=1)
+        assert spans["a_0"].end <= spans["b_0"].start
+
+    def test_ni_on_first_core(self, cases_dir: Path) -> None:
+        """Should run a sequence that holds NI on the first Core only."""
+        spans = run(
+            cases_dir,
+            sequence("a", "plain"),
+            sequence("b", "plain"),
+            sequence("c", "ni"),
+            cores=3,
+        )
+        assert spans["c_0"].port == FIRST_PORT
+
+    def test_shared_simulator(self, cases_dir: Path) -> None:
+        """Should never run two tests that hold one simulator at the same time."""
+        spans = run(cases_dir, sequence("a", "sim"), sequence("b", "sim"))
+        assert not spans["a_0"].overlaps(spans["b_0"])
+
+    def test_browser_limit(self, cases_dir: Path) -> None:
+        """Should run no more Console tests at once than the browser limit."""
+        spans = run(
+            cases_dir, sequence("a", "browser"), sequence("b", "browser"), browsers=1
+        )
+        assert not spans["a_0"].overlaps(spans["b_0"])
+
+    def test_isolated_last(self, cases_dir: Path) -> None:
+        """Should run an isolated sequence alone on the first Core after the
+        others."""
+        spans = run(
+            cases_dir,
+            sequence("t", "plain", isolated=True),
+            sequence("a", "plain"),
+            sequence("b", "plain"),
+        )
+        assert spans["t_0"].start >= max(spans["a_0"].end, spans["b_0"].end)
+        assert spans["t_0"].port == FIRST_PORT
