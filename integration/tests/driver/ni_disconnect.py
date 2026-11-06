@@ -30,6 +30,7 @@ import nisyscfg
 
 import synnax as sy
 from tests.driver.ni_read import NIDigitalRead, NIReadCurrentVoltage
+from tests.driver.ni_task import retrieve_present_device
 from tests.driver.ni_write import NIDigitalWrite
 from tests.driver.task import (
     ReadTaskCase,
@@ -228,7 +229,7 @@ class _NIReadDisconnectMixin(ReadTaskCase[ReadTaskT]):
 
         tsk = self.tsk
         dev = self.disconnect_device
-        device = self.client.devices.retrieve(location=dev)
+        device = retrieve_present_device(self.client, dev)
 
         # Phase 1: Verify normal operation and reset recovery
         self.log(f"Test 1 - Assert samples ({dev})")
@@ -322,7 +323,7 @@ class _NIWriteDisconnectMixin(WriteTaskCase[TaskT]):
 
         tsk = self.tsk
         dev = self.disconnect_device
-        device = self.client.devices.retrieve(location=dev)
+        device = retrieve_present_device(self.client, dev)
 
         # Phase 1: Verify normal operation and reset recovery
         self.log(f"Test 1 - Send commands ({dev})")

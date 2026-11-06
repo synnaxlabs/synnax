@@ -9,7 +9,6 @@
 
 #pragma once
 
-#include <chrono>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -140,6 +139,10 @@ private:
     bool
     scan_object_dictionary_for_pdos(uint16_t slave_pos, slave::DiscoveryResult &slave);
 
+    /// @brief writes zero to the DC activation registers (0x0980 and 0x0981) of every
+    /// enabled slave with a distributed clock.
+    x::errors::Error clear_dc_activation();
+
     /// @brief requests the state from all enabled slaves, then waits until they reach
     /// it, one of them refuses it, or the timeout in microseconds passes.
     x::errors::Error request_state(uint16_t state, int timeout);
@@ -147,25 +150,19 @@ private:
     /// @brief whether the slave has its AL error flag set and gives an AL status code.
     [[nodiscard]] bool al_error(uint16_t pos) const;
 
-    /// @brief requests OP from all enabled slaves, then waits until they reach it, one
-    /// of them refuses it, or the timeout passes. The caller cycles the bus meanwhile,
-    /// so slaves with a sync manager watchdog see valid outputs.
-    x::errors::Error request_operational();
+    /// @brief whether the slave refused the state: it stays below the state with an AL
+    /// error. A slave above the state can still show an error from before a request to
+    /// go down.
+    [[nodiscard]] bool refuses(uint16_t pos, uint16_t state) const;
 
     /// @brief takes one recovery step for a slave that is not in OP, following the SOEM
     /// ecatcheck sample: acknowledge an error, request OP, reconfigure, or restore a
     /// slave that lost power.
     void recover(uint16_t pos);
 
-    /// @brief returns the error for slaves that have not reached a state: a refusal as
-    /// soon as one of them refuses, a timeout once the deadline passes, else NIL.
-    x::errors::Error pending_error(
-        const std::vector<uint16_t> &pending,
-        uint16_t state,
-        std::chrono::steady_clock::time_point deadline
-    );
-
-    /// @brief builds the error for enabled slaves that did not reach a state.
+    /// @brief builds the error for enabled slaves that did not reach a state. It is a
+    /// refusal when a slave refuses the state with an AL status code that a new start
+    /// cannot clear.
     x::errors::Error state_error(const std::vector<uint16_t> &failed, uint16_t state);
 };
 
