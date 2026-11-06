@@ -16,9 +16,9 @@ import { describe, expect, it } from "vitest";
 import { Channels } from "@/feature/log/toolbar/Channels";
 import { client, renderLog } from "@/feature/log/toolbar/testutil";
 
-const createChannel = async (): Promise<channel.Key> => {
+const createChannel = async (name: string = id.create()): Promise<channel.Key> => {
   const ch = await client.channels.create({
-    name: id.create(),
+    name,
     dataType: DataType.FLOAT32,
     virtual: true,
   });
@@ -130,6 +130,22 @@ describe("log/toolbar/Channels", () => {
     expect(await screen.findByLabelText(`Clear ${toCh.name}`)).toBeDefined();
     expect(screen.queryByLabelText(`Clear ${fromCh.name}`)).toBeNull();
     expect(channelRows()).toHaveLength(1);
+  });
+
+  it("omits a channel already in the log from a row's select", async () => {
+    const prefix = id.create();
+    const row = await createChannel(`${prefix}_row`);
+    const other = await createChannel(`${prefix}_other`);
+    await createChannel(`${prefix}_free`);
+    await renderChannels([entry(row), entry(other)]);
+    await screen.findByLabelText(`Clear ${prefix}_row`);
+    fireEvent.click(screen.getAllByText(`${prefix}_row`)[0]);
+    const search = await screen.findByPlaceholderText("Search channels...");
+    fireEvent.change(search, { target: { value: prefix } });
+    await screen.findByRole("option", { name: new RegExp(`${prefix}_free`) });
+    expect(
+      screen.queryByRole("option", { name: new RegExp(`${prefix}_other`) }),
+    ).toBeNull();
   });
 
   it("removes the row of a deleted channel with the clear button", async () => {

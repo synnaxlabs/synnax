@@ -20,7 +20,6 @@ import {
   color,
   DataType,
   type notation,
-  primitive,
   type TimestampFormat,
   type TimeZone,
 } from "@synnaxlabs/x";
@@ -54,7 +53,8 @@ const ChannelRow = ({
   const theme = Theming.use();
   const defaultColor = theme.colors.gray.l11;
   const config = Log.useChannelEntry({ channel });
-  const query = channel > 0 ? { key: channel } : null;
+  const channelKeys = Log.useChannelKeys();
+  const query = { key: channel };
   const { data: dataType } = Channel.useResultDataType(query);
   const { data: chName } = Channel.useResultName(query);
   const showNumeric = showsNumericFields(dataType);
@@ -79,6 +79,8 @@ const ChannelRow = ({
   // The log stores a zero color for a channel that follows the theme.
   const handleColorChange = (c?: color.Color) =>
     dispatch(log.setChannelColor({ channel, color: c ?? color.ZERO }));
+  const isSelectable = ({ key }: channel.Channel) =>
+    key === channel || !channelKeys.includes(key);
   // Clearing the row's channel removes the row.
   const handleChannelChange = (to: channel.Key | null) =>
     dispatch(
@@ -106,6 +108,7 @@ const ChannelRow = ({
         <Channel.SelectSingle
           value={channel}
           onChange={handleChannelChange}
+          filter={isSelectable}
           allowNone
           initialQuery={SELECT_CHANNEL_INITIAL_QUERY}
           disabled={disabled}
@@ -217,11 +220,9 @@ export const Channels = (): ReactElement => {
       aria-label="Log channels"
       className={CSS.BE("log", "toolbar", "channels")}
     >
-      {channelKeys.map((ch, i) =>
-        primitive.isZero(ch) ? null : (
-          <ChannelRow key={ch} index={i} channel={ch} disabled={!hasUpdatePermission} />
-        ),
-      )}
+      {channelKeys.map((ch, i) => (
+        <ChannelRow key={ch} index={i} channel={ch} disabled={!hasUpdatePermission} />
+      ))}
       <AddChannelRow disabled={!hasUpdatePermission} />
     </Flex.Box>
   );
