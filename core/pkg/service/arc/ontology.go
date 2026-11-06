@@ -38,7 +38,7 @@ func ResourceIDs(keys []Key) []resource.ID {
 // KeysFromResourceIDs extracts the keys of the arcs from the resource IDs.
 func KeysFromResourceIDs(ids []resource.ID) ([]Key, error) {
 	return lo.MapErr(ids, func(id resource.ID, _ int) (Key, error) {
-		return uuid.Parse(id.Key)
+		return resource.ParseUUIDKey(id)
 	})
 }
 

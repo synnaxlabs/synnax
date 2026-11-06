@@ -18,7 +18,9 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/search"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Resources returns the resource.Provider of the nodes that the cluster holds when each
@@ -47,7 +49,11 @@ func (p provider) Retrieve(
 	for _, id := range ids {
 		k, err := strconv.ParseUint(id.Key, 10, 16)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(
+				validate.ErrValidation,
+				"invalid node key %q",
+				id.Key,
+			)
 		}
 		key := Key(k)
 		if _, ok := nodes[key]; ok || key.IsFree() {

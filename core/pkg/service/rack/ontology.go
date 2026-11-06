@@ -19,9 +19,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	xchange "github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/errors"
 	xiter "github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/search"
+	"github.com/synnaxlabs/x/validate"
 	"github.com/synnaxlabs/x/zyn"
 )
 
@@ -33,10 +35,12 @@ func ResourceIDsFromRacks(racks []Rack) []resource.ID {
 	return lo.Map(racks, func(r Rack, _ int) resource.ID { return r.ResourceID() })
 }
 
+// KeyFromResourceID parses the key of a rack resource ID. A malformed key is a
+// validation error.
 func KeyFromResourceID(id resource.ID) (Key, error) {
 	k, err := strconv.ParseUint(id.Key, 10, 32)
 	if err != nil {
-		return 0, err
+		return 0, errors.Wrapf(validate.ErrValidation, "invalid rack key %q", id.Key)
 	}
 	return Key(k), nil
 }

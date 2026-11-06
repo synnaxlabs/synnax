@@ -41,7 +41,7 @@ func ResourceIDsFromUsers(users []User) []resource.ID {
 	return lo.Map(users, func(u User, _ int) resource.ID { return u.ResourceID() })
 }
 
-func KeyFromResourceID(id resource.ID) (Key, error) { return uuid.Parse(id.Key) }
+func KeyFromResourceID(id resource.ID) (Key, error) { return resource.ParseUUIDKey(id) }
 
 var schema = zyn.Object(map[string]zyn.Schema{
 	"key":       zyn.UUID(),

@@ -21,23 +21,34 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
 	"github.com/synnaxlabs/x/zyn"
 )
 
 const keySeparator = "---"
 
+// parseGorpKey parses the range and channel out of an alias key. A malformed key is a
+// validation error.
 func parseGorpKey(key string) (ranger.Key, channel.Key, error) {
 	split := strings.Split(key, keySeparator)
 	if len(split) != 2 {
-		return uuid.Nil(), 0, errors.Newf("[alias] - invalid key")
+		return uuid.Nil(), 0, errors.Wrapf(
+			validate.ErrValidation,
+			"invalid range alias key %q",
+			key,
+		)
 	}
 	r, err := uuid.Parse(split[0])
 	if err != nil {
-		return uuid.Nil(), 0, errors.Wrapf(err, "[alias] - invalid range")
+		return uuid.Nil(), 0, errors.Wrapf(
+			validate.ErrValidation,
+			"invalid range in range alias key %q",
+			key,
+		)
 	}
 	c, err := channel.ParseKey(split[1])
 	if err != nil {
-		return uuid.Nil(), 0, errors.Wrapf(err, "[alias] - invalid channel")
+		return uuid.Nil(), 0, errors.Wrapf(err, "invalid channel in range alias key")
 	}
 	return r, c, nil
 }

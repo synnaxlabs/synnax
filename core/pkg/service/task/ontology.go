@@ -57,7 +57,7 @@ func ResourceIDsFromTasks(tasks []Task) []resource.ID {
 
 func KeysFromResourceIDs(ids []resource.ID) ([]Key, error) {
 	return lo.MapErr(ids, func(id resource.ID, _ int) (Key, error) {
-		return uuid.Parse(id.Key)
+		return resource.ParseUUIDKey(id)
 	})
 }
 

@@ -45,7 +45,7 @@ func ResourceIDsFromPolicies(policies []Policy) []resource.ID {
 // KeysFromResourceIDs extracts the Policy keys from the given resource.IDs.
 func KeysFromResourceIDs(ids []resource.ID) ([]Key, error) {
 	return lo.MapErr(ids, func(id resource.ID, _ int) (Key, error) {
-		return uuid.Parse(id.Key)
+		return resource.ParseUUIDKey(id)
 	})
 }
 

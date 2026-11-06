@@ -10,8 +10,6 @@
 package policy
 
 import (
-	"uuid"
-
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
@@ -21,7 +19,7 @@ func (s *Service) Resources() *resource.TableProvider[Key, Policy] {
 		Table:  s.table,
 		Search: s.indexes.search,
 		ID:     ResourceID,
-		Key:    func(id resource.ID) (Key, error) { return uuid.Parse(id.Key) },
+		Key:    resource.ParseUUIDKey,
 		Name:   func(p *Policy) string { return p.Name },
 	})
 }

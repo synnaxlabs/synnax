@@ -42,7 +42,7 @@ func KeysFromResourceIDs(ids []resource.ID) ([]Key, error) {
 	keys := make([]Key, len(ids))
 	var err error
 	for i, id := range ids {
-		if keys[i], err = uuid.Parse(id.Key); err != nil {
+		if keys[i], err = resource.ParseUUIDKey(id); err != nil {
 			return nil, err
 		}
 	}

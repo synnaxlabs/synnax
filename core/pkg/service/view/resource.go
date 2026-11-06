@@ -10,8 +10,6 @@
 package view
 
 import (
-	"uuid"
-
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
@@ -21,7 +19,7 @@ func (s *Service) Resources() *resource.TableProvider[Key, View] {
 		Table:  s.table,
 		Search: s.search,
 		ID:     ResourceID,
-		Key:    func(id resource.ID) (Key, error) { return uuid.Parse(id.Key) },
+		Key:    resource.ParseUUIDKey,
 		Name:   func(v *View) string { return v.Base().Name },
 	})
 }

@@ -47,6 +47,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/types"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // stack is a rack service and the services it depends on. Closing it closes all of
@@ -740,13 +741,16 @@ var _ = Describe("Rack", Ordered, func() {
 			))
 		})
 
-		It("Should return an error for a key that is not a rack key",
+		It("Should return a validation error for a key that is not a rack key",
 			func(ctx SpecContext) {
 				Expect(svc.Resources().Retrieve(
 					ctx,
 					tx,
 					[]resource.ID{{Type: resource.TypeRack, Key: "pump"}},
-				)).Error().To(MatchError(ContainSubstring(`parsing "pump"`)))
+				)).Error().To(And(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(`invalid rack key "pump"`)),
+				))
 			},
 		)
 	})

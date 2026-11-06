@@ -37,7 +37,7 @@ func ResourceIDs(keys []Key) []resource.ID {
 	return lo.Map(keys, func(k Key, _ int) resource.ID { return ResourceID(k) })
 }
 
-func KeyFromResourceID(id resource.ID) (Key, error) { return uuid.Parse(id.Key) }
+func KeyFromResourceID(id resource.ID) (Key, error) { return resource.ParseUUIDKey(id) }
 
 // KeysFromResourceIDs converts a slice of resource IDs to a slice of keys, returning an
 // error if any of the IDs are invalid.

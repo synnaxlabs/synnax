@@ -10,8 +10,6 @@
 package label
 
 import (
-	"uuid"
-
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
@@ -21,7 +19,7 @@ func (s *Service) Resources() *resource.TableProvider[Key, Label] {
 		Table:  s.table,
 		Search: s.search,
 		ID:     ResourceID,
-		Key:    func(id resource.ID) (Key, error) { return uuid.Parse(id.Key) },
+		Key:    resource.ParseUUIDKey,
 		Name:   func(l *Label) string { return l.Name },
 	})
 }
