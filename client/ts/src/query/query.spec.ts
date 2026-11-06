@@ -1435,6 +1435,35 @@ describe("Answers", () => {
       expect(fetch).toHaveBeenCalledTimes(2);
     });
 
+    it("fetches a read after a refetch that a change asked for failed", async () => {
+      const table = newTable();
+      const foreign = newTable();
+      const fetch = vi
+        .fn<() => Promise<string[]>>()
+        .mockImplementationOnce(async () => {
+          table.ingest("a", rec("a", 5));
+          return ["a"];
+        })
+        .mockRejectedValueOnce(new Error("refetch failed"))
+        .mockImplementation(async () => {
+          table.ingest([rec("a", 5), rec("b", 5)]);
+          return ["a", "b"];
+        });
+      const answers = new Space<ListQ, Rec[], string, Rec>({
+        name: "things",
+        table,
+        fetch,
+        compose: (records) => records,
+        matches: (r, q) => r.value >= q.min,
+        watch: [query.watch(foreign, () => "refetch")],
+      });
+      answers.onChange({ min: 3 }, vi.fn());
+      expect(await answers.retrieve({ min: 3 })).toEqual([rec("a", 5)]);
+      foreign.set("f", rec("f", 1));
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
+      expect(await answers.retrieve({ min: 3 })).toEqual([rec("a", 5), rec("b", 5)]);
+    });
+
     it("fetches a read after a reconfirm that failed", async () => {
       const table = newTable();
       const fetch = vi

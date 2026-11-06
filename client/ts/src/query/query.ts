@@ -754,8 +754,8 @@ export class Space<
     } catch (reason) {
       if (query.state !== before) return;
       // A refetch revalidates an answer the caller already has. Failing to
-      // confirm it is not grounds for taking it away.
-      if (before.variant === "ready") return;
+      // confirm it is not grounds for taking it away, but reads stop trusting it.
+      if (before.variant === "ready") return this.markStale(query);
       query.state = { variant: "error", error: errors.fromUnknown(reason) };
       return;
     }
