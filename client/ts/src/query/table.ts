@@ -156,8 +156,11 @@ const fetchSurvivors = async <Key extends record.Key, Value extends state.State>
 
 const DEFAULT_FETCH_DEBOUNCE = TimeSpan.milliseconds(10);
 
-const closedError = (): DisconnectedError =>
-  new DisconnectedError("The client is closed.");
+const closedError = (cause?: unknown): DisconnectedError => {
+  const err = new DisconnectedError("The client is closed.");
+  err.cause = cause;
+  return err;
+};
 
 // "confirmed" tombstones a key the Core no longer holds. "local" tombstones a key this
 // client deleted ahead of the change stream.
@@ -687,7 +690,7 @@ export class Table<
         if (this.closed) throw closedError();
         return fetched;
       } catch (exc) {
-        throw this.closed ? closedError() : errors.fromUnknown(exc);
+        throw this.closed ? closedError(exc) : errors.fromUnknown(exc);
       }
     }, keys);
     const present = new Set<Key>(values.map(({ key }) => key));

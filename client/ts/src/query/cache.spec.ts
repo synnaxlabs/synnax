@@ -294,6 +294,20 @@ describe("Cache", () => {
       expect(onError).not.toHaveBeenCalled();
     });
 
+    it("should keep the failure of a fetch that ends a reconcile", async () => {
+      const held = Promise.withResolvers<Doc[]>();
+      const fetch = vi.fn(async () => await held.promise);
+      const { cache, table } = setup(fetch);
+      table.set("k1", { key: "k1", name: "a" });
+      const reconciled = table.reconcile();
+      await expect.poll(() => fetch.mock.calls.length).toBe(1);
+      await cache.close();
+      const failure = new Error("no credentials");
+      const rejected = expect(reconciled).rejects.toMatchObject({ cause: failure });
+      held.reject(failure);
+      await rejected;
+    });
+
     describe("with a reconcile running", () => {
       const setupReconcile = async () => {
         const held = Promise.withResolvers<Doc[]>();
