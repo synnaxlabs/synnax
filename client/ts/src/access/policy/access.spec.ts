@@ -11,7 +11,7 @@ import { id, uuid } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { policy } from "@/access/policy";
-import { type role } from "@/access/role";
+import { role } from "@/access/role";
 import { AccessDeniedError, NotFoundError } from "@/index";
 import { query } from "@/query";
 import {
@@ -119,12 +119,11 @@ describe("policy", () => {
       expect(retrieved.actions).toEqual(randomPolicy.actions);
     });
 
-    it("should allow the caller to create policies with the correct policy", async () => {
-      const userClient = await createTestClientWithPolicy(client, {
-        name: "test",
-        objects: [policy.resourceID("")],
-        actions: ["create"],
-      });
+    it("should allow the caller to create policies on a role it can update", async () => {
+      const userClient = await createTestClientWithPolicy(client, [
+        { name: "test", objects: [policy.resourceID("")], actions: ["create"] },
+        { name: "role", objects: [role.resourceID(owner.key)], actions: ["update"] },
+      ]);
       await userClient.access.policies.create({
         role: owner.key,
         name: "test",
@@ -150,12 +149,11 @@ describe("policy", () => {
       ).rejects.toSatisfy(AccessDeniedError.matches);
     });
 
-    it("should allow the caller to delete policies with the correct policy", async () => {
-      const userClient = await createTestClientWithPolicy(client, {
-        name: "test",
-        objects: [policy.resourceID("")],
-        actions: ["delete"],
-      });
+    it("should allow the caller to delete policies on a role it can update", async () => {
+      const userClient = await createTestClientWithPolicy(client, [
+        { name: "test", objects: [policy.resourceID("")], actions: ["delete"] },
+        { name: "role", objects: [role.resourceID(owner.key)], actions: ["update"] },
+      ]);
       const randomPolicy = await client.access.policies.create({
         role: owner.key,
         name: "test",
