@@ -182,4 +182,33 @@ TEST(Resolve, RefusesASYNC1ShiftBeforeSYNC0) {
     ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
     EXPECT_EQ(err.data, "SYNC1 shift of -100us is under the limit of 0ns");
 }
+
+/// @brief it should mark process data with a SYNC0 cycle of 100 us or more, and not
+/// with a faster SYNC0 or with SYNC0 off.
+TEST(Registers, MarkDataWithASYNC0CycleOf100usOrMore) {
+    EXPECT_TRUE((Registers{.sync0_cycle = 100'000}).marks_data());
+    EXPECT_FALSE((Registers{.sync0_cycle = 99'999}).marks_data());
+    EXPECT_FALSE(Registers{}.marks_data());
+}
+
+/// @brief it should divide a SYNC0 cycle into the period of 300 Hz, which misses a
+/// third of 10 ms by a third of a nanosecond.
+TEST(Grid, DividesTheRoundedPeriodWithinANanosecond) {
+    EXPECT_DOUBLE_EQ(
+        grid(x::telem::Rate(300).period(), {x::telem::MILLISECOND * 10}),
+        10'000'000.0 / 3
+    );
+}
+
+/// @brief it should give a grid of 1 ns at 300 Hz for SYNC0 cycles of 10 ms and
+/// 3,333,333 ns, whose events drift apart by 100 ns each second.
+TEST(Grid, IsANanosecondForSYNC0CyclesThatDriftApart) {
+    EXPECT_DOUBLE_EQ(
+        grid(
+            x::telem::Rate(300).period(),
+            {x::telem::TimeSpan(3'333'333), x::telem::MILLISECOND * 10}
+        ),
+        1
+    );
+}
 }

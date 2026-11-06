@@ -881,6 +881,32 @@ TEST_F(SOEMMasterTest, ActivateFailsWhenTheDCModeCannotRunAtThePeriod) {
     EXPECT_EQ(this->mock->mapped_group, std::nullopt);
 }
 
+/// @brief it should fail activation before it writes a DC register when the SYNC0
+/// events of the slaves do not line up with the bus cycle, and name each slave with its
+/// SYNC0 cycle.
+TEST_F(SOEMMasterTest, ActivateFailsWhenSYNC0EventsDoNotLineUpWithTheBusCycle) {
+    MockSlaveInfo slave;
+    slave.state = EC_STATE_PRE_OP;
+    slave.hasdc = true;
+    slave.name = "16xAO";
+    this->add_slave(slave);
+    slave.name = "16xLV";
+    this->add_slave(slave);
+    this->set_op_modes(
+        {{.name = "DC", .assign_activate = 0x0300, .sync0_cycle = 150'000}}
+    );
+    ASSERT_NIL(this->master->initialize());
+    const auto err = this->activate();
+    ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "SYNC0 events do not line up with the bus cycle of 1ms: slave 1 (16xAO) every "
+        "150us, slave 2 (16xLV) every 150us. Change the bus rate or the SYNC0 cycles "
+        "so that a span of 100us or more divides the bus cycle and each SYNC0 cycle."
+    );
+    EXPECT_TRUE(this->mock->register_writes.empty());
+}
+
 /// @brief it should write only 0x0980 on a slave whose mode gives the sync unit to the
 /// PDI.
 TEST_F(SOEMMasterTest, ActivateLeavesASyncUnitThePDIOwns) {

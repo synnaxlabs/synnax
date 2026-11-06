@@ -196,7 +196,8 @@ private:
     /// @brief returns the DC registers of each enabled slave that dc::select puts in a
     /// DC mode, at a bus cycle of period.
     /// @returns errors::SLAVE_CONFIG_ERROR when a mode gives values the registers
-    /// cannot hold.
+    /// cannot hold, or when the SYNC0 cycles that mark process data share no
+    /// dc::MIN_EVENT_CYCLE grid or longer with the period.
     std::pair<std::vector<DCSetup>, x::errors::Error>
     resolve_dc(x::telem::TimeSpan period) const;
 

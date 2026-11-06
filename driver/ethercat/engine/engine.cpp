@@ -245,11 +245,12 @@ void Engine::run() {
                 timer = x::loop::Timer(sched->rate.period());
                 std::vector<PhaseLock::Sync0> syncs;
                 for (const auto &regs: this->master->dc_sync())
-                    syncs.push_back({
-                        .cycle = x::telem::TimeSpan(regs.sync0_cycle),
-                        .event = master::DC_EPOCH +
-                                 x::telem::TimeSpan(regs.sync0_shift),
-                    });
+                    if (regs.marks_data())
+                        syncs.push_back({
+                            .cycle = x::telem::TimeSpan(regs.sync0_cycle),
+                            .event = master::DC_EPOCH +
+                                     x::telem::TimeSpan(regs.sync0_shift),
+                        });
                 if (syncs.empty())
                     phase.reset();
                 else
