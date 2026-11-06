@@ -107,7 +107,7 @@ const ChannelRow = ({
           value={channel}
           onChange={handleChannelChange}
           allowNone
-          initialQuery={SELECT_CHANNEL_INITIAL_QUERY}
+          query={SELECT_CHANNEL_INITIAL_QUERY}
           disabled={disabled}
           triggerProps={SHADOW_TRIGGER_PROPS}
           className={CSS.BE("log", "channel-select")}
@@ -203,7 +203,7 @@ const AddChannelRow = ({ disabled }: AddChannelRowProps): ReactElement => {
       <Channel.SelectSingle
         allowNone
         onChange={handleAdd}
-        initialQuery={SELECT_CHANNEL_INITIAL_QUERY}
+        query={SELECT_CHANNEL_INITIAL_QUERY}
         disabled={disabled}
         triggerProps={ADD_CHANNEL_TRIGGER_PROPS}
         className={CSS.BE("log", "channel-select")}

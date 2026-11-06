@@ -118,7 +118,7 @@ export interface UseListParams<
    * the new query from its first page. Fields it does not name, such as a search term,
    * stay. A list that has not retrieved waits for its first retrieve.
    */
-  initialQuery?: Query;
+  query?: Query;
   filter?: (item: E) => boolean;
   sort?: compare.Comparator<E>;
   retrieveDebounce?: CrudeTimeSpan;
@@ -201,7 +201,7 @@ export const createList = <
     const {
       filter = defaultFilter,
       sort,
-      initialQuery,
+      query: callerQuery,
       retrieveDebounce = DEFAULT_RETRIEVE_DEBOUNCE,
       useCachedList = true,
     } = params;
@@ -213,9 +213,9 @@ export const createList = <
       () => new Map(),
     );
     const queryRef = useRef<Query | null>(
-      initialQuery != null ? normalized(initialQuery) : null,
+      callerQuery != null ? normalized(callerQuery) : null,
     );
-    const callerQueryRef = useRef(initialQuery);
+    const callerQueryRef = useRef(callerQuery);
     const retrievedRef = useRef(false);
     const pagesRef = useRef<Page<Key>[]>([]);
     const itemSubsRef = useInitializerRef<Map<Key, destructor.Destructor>>(
@@ -612,9 +612,9 @@ export const createList = <
 
     useEffect(() => {
       const from = callerQueryRef.current;
-      if (deep.equal(from, initialQuery)) return;
-      callerQueryRef.current = initialQuery;
-      const rebase = (current: Query | {}) => rebaseQuery(current, from, initialQuery);
+      if (deep.equal(from, callerQuery)) return;
+      callerQueryRef.current = callerQuery;
+      const rebase = (current: Query | {}) => rebaseQuery(current, from, callerQuery);
       if (retrievedRef.current) return retrieveSync(rebase);
       const next = normalized(rebase(queryRef.current ?? {}));
       queryRef.current = next;
@@ -622,7 +622,7 @@ export const createList = <
       setResult(loadingResult<Key[]>(`retrieving ${name}`));
       createCachedPage(next);
       coverRecords();
-    }, [initialQuery]);
+    }, [callerQuery]);
 
     return {
       retrieve: retrieveSync,
