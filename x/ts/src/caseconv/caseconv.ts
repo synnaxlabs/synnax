@@ -78,8 +78,10 @@ export const preserveKeys = <T extends z.ZodType>(schema: T): T => {
 
 /**
  * Marks a Zod schema so camelToSnake writes each array value it parses through encode,
- * as a color tuple is written as a hex string. snakeToCamel leaves the value as it is.
- * The mark carries through optional, nullable, and default wrappers.
+ * as a color tuple is written as a hex string. snakeToCamel leaves the value as it is,
+ * except that snakeToCamelPath parses a value at the end of a path through the schema,
+ * which must accept the encoded form. The mark carries through optional, nullable, and
+ * default wrappers.
  */
 export const encodeWith = <T extends z.ZodType>(
   schema: T,
@@ -433,8 +435,15 @@ const createPathConverter =
       const obj = narrow.isObject(d) ? d : undefined;
       d = obj?.[seg] ?? obj?.[next];
     }
-    const convert = <V>(value: V): V =>
-      preserved ? value : convertChild(value, s, converter, encodes);
+    const leaf = s;
+    const convert = <V>(value: V): V => {
+      if (preserved) return value;
+      // A value read off the wire holds its encoded form, which the marked schema
+      // parses back.
+      if (!encodes && leaf != null && getEncoder(leaf) != null)
+        return (leaf as z.ZodType).parse(value) as V;
+      return convertChild(value, leaf, converter, encodes);
+    };
     return { path: out, convert };
   };
 

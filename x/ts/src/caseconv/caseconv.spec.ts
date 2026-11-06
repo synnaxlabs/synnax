@@ -381,11 +381,18 @@ describe("caseconv", () => {
       expect(convert([1, 2])).toEqual("1:2");
     });
 
-    it("Should leave a marked value at the end of a camel case path", () => {
+    it("Should decode a marked value at the end of a camel case path", () => {
+      const decodablePairZ = caseconv.encodeWith(
+        z
+          .union([z.tuple([z.number(), z.number()]), z.string()])
+          .transform((v) => (typeof v === "string" ? v.split(":").map(Number) : v)),
+        ([a, b]) => `${a}:${b}`,
+      );
       const { convert } = caseconv.snakeToCamelPath(["nested", "inner_pair"], {
-        schema,
+        schema: z.object({ nested: z.object({ innerPair: decodablePairZ }) }),
       });
-      expect(convert([1, 2])).toEqual([1, 2]);
+      expect(convert("1:2")).toEqual([1, 2]);
+      expect(convert([3, 4])).toEqual([3, 4]);
     });
   });
 

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { caseconv, type patch } from "@synnaxlabs/x";
+import { caseconv, color, type patch } from "@synnaxlabs/x";
 import { type Draft, produce } from "immer";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -124,6 +124,22 @@ describe("applyPath", () => {
     expect(next.maxSize).toBe(2);
     expect(inverse).toEqual([
       { type: "set", set: { path: ["max_size"], value: 1, guards: [] } },
+    ]);
+  });
+
+  it("should store a color edit as a tuple and invert it to hex", () => {
+    const colorDocZ = z.object({ fillColor: color.colorZ });
+    let inverse: patch.Action[] = [];
+    const next = produce({ fillColor: color.construct("#000000ff") }, (draft) => {
+      inverse = actions.applyPath(
+        draft,
+        { type: "set", set: { path: ["fill_color"], value: "#ff000080", guards: [] } },
+        colorDocZ,
+      );
+    });
+    expect(next.fillColor).toEqual([255, 0, 0, 128]);
+    expect(inverse).toEqual([
+      { type: "set", set: { path: ["fill_color"], value: "#000000ff", guards: [] } },
     ]);
   });
 
