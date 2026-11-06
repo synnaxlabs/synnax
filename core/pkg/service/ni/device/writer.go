@@ -118,11 +118,11 @@ func (w Writer) Create(ctx context.Context, d *Device) error {
 }
 
 // Update applies change to the device stored under key and stores the result, so a
-// caller changes one field group and keeps the other as stored. The status and parent
-// edge follow the device, and a missing status is written as unknown. It returns an
-// error wrapping query.ErrNotFound when no device is stored under key and a validation
-// error when the result is invalid. A transaction that commits between the read and the
-// write of this one is overwritten.
+// caller changes one field group and keeps the other as stored. The parent edge follows
+// the device. A rename or rack move updates the status, or writes it as unknown when it
+// is missing. It returns an error wrapping query.ErrNotFound when no device is stored
+// under key and a validation error when the result is invalid. A transaction that
+// commits between the read and the write of this one is overwritten.
 func (w Writer) Update(
 	ctx context.Context,
 	key Key,
