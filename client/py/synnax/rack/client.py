@@ -15,7 +15,7 @@ from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
 from synnax.exceptions import NotFoundError
 from synnax.rack.types_gen import Key, Rack, RetrieveRequest, Where
-from synnax.util import one
+from synnax.util import sole
 from x import filter
 from x.lists import all_none, override
 
@@ -191,7 +191,7 @@ class Client:
         res = self._client.send("/rack/retrieve", req, _RetrieveResponse)
         if not is_single:
             return res.racks
-        return one("Rack", key if key is not None else name, res.racks)
+        return sole("Rack", key if key is not None else name, res.racks)
 
     def retrieve_embedded_rack(self) -> Rack:
         if self._embedded_rack is None:

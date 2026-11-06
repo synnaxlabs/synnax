@@ -17,6 +17,7 @@ from synnax.secret.types_gen import (
     Source,
     StoredSecret,
     Where,
+    WhereInput,
     ontology_id,
 )
 
@@ -32,5 +33,6 @@ __all__ = [
     "Source",
     "StoredSecret",
     "Where",
+    "WhereInput",
     "ontology_id",
 ]
