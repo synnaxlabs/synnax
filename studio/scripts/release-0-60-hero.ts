@@ -50,15 +50,13 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   const client = fixtures.connect();
   try {
     const { page } = session;
-    const panels = await client.resources.search({ searchTerm: "", types: ["panel"] });
-    for (const { id, name } of panels) {
+    const panels = await client.panels.retrieve({});
+    for (const { key, name } of panels) {
       const look = ICONS[name];
       if (look == null) continue;
-      // Dispatch applies to a cached panel only, and a retrieve caches it.
-      await client.panels.retrieve(id.key);
       const actions = [panel.setIcon({ icon: look.icon })];
       if (look.color != null) actions.push(panel.setColor({ color: look.color }));
-      const applied = await client.panels.dispatch(id.key, actions);
+      const applied = await client.panels.dispatch(key, actions);
       if (!applied) throw new Error(`the ${name} panel is not cached`);
     }
     const layout = await operationsLayout(client);

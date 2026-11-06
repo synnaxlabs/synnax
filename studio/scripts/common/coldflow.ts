@@ -106,19 +106,19 @@ export interface Layout {
 export const operationsLayout = async (
   client: ReturnType<typeof fixtures.connect>,
 ): Promise<Layout> => {
-  const resources = await client.resources.search({
-    searchTerm: "",
-    types: ["panel", "lineplot", "schematic", "table", "log"],
-  });
-  const id = (name: string): resource.ID => {
-    const resource = resources.find((r) => r.name === name);
-    if (resource == null) throw new Error(`the TPC world has no "${name}"`);
-    return resource.id;
+  const id = async (name: string): Promise<resource.ID> => {
+    const found = await client.resources.search({
+      searchTerm: name,
+      types: ["panel", "lineplot", "schematic", "table", "log"],
+    });
+    const match = found.find((r) => r.name === name);
+    if (match == null) throw new Error(`the TPC world has no "${name}"`);
+    return match.id;
   };
-  const key = id(PANEL).key;
+  const { key } = await id(PANEL);
   const leaf = async (name: string): Promise<{ tab: string; path: number }> => {
     const { root } = await client.panels.retrieve(key);
-    const tab = panel.findTabByResource(root, id(name));
+    const tab = panel.findTabByResource(root, await id(name));
     const path = tab == null ? undefined : panel.tabLeafPath(root, tab.key);
     if (tab == null || path == null) throw new Error(`${PANEL} has no "${name}" tab`);
     return { tab: tab.key, path };
