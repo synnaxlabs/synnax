@@ -12,6 +12,7 @@
 
 #include <include/gtest/gtest.h>
 
+#include "client/cpp/channel/json.gen.h"
 #include "client/cpp/synnax.h"
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/errors/errors.h"
@@ -160,6 +161,18 @@ TEST(TestChannel, testRetrieveByNameNotFound) {
     );
 }
 
+/// @brief it should reject a name pattern that matches more than one channel.
+TEST(TestChannel, testRetrieveByNameMultipleFound) {
+    const auto client = new_test_client();
+    const auto prefix = make_unique_channel_name("retrieve_by_name_multiple");
+    ASSERT_NIL_P(client.channels.create(prefix + "_a", x::telem::FLOAT64_T, true));
+    ASSERT_NIL_P(client.channels.create(prefix + "_b", x::telem::FLOAT64_T, true));
+    ASSERT_OCCURRED_AS_P(
+        client.channels.retrieve(prefix + "_.*"),
+        x::errors::MULTIPLE_RESULTS
+    );
+}
+
 /// @brief it should retrieve many channels by their key.
 TEST(TestChannel, testRetrieveMany) {
     auto client = new_test_client();
@@ -298,4 +311,16 @@ TEST(TestChannel, testOntologyId) {
     ASSERT_EQ(id.key, "42");
 }
 
+/// @brief it should fall back to exclusive concurrency when the JSON omits it.
+TEST(TestChannel, testParseMissingConcurrency) {
+    x::json::Parser parser(
+        x::json::json{
+            {"name", "sensor"},
+            {"data_type", "float64"},
+        }
+    );
+    const auto ch = Channel::parse(parser);
+    ASSERT_NIL(parser.error());
+    EXPECT_EQ(ch.concurrency, x::control::Concurrency::Exclusive);
+}
 }

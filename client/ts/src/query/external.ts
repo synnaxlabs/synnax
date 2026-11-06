@@ -31,6 +31,7 @@ export {
   keyListZ,
   keysRequest,
   keysRequestZ,
+  type RequestInput,
   Retriever,
   type RetrieverParams,
 } from "@/query/retriever";

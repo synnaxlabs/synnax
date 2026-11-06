@@ -81,7 +81,7 @@ const SCROLLBAR_WIDTH = 6;
 // height falls below a pixel.
 const SCROLLBAR_MIN_HEIGHT = 32;
 const CANVAS: render.Canvas2DVariant = "lower2d";
-// A paused view this many lines or fewer from the oldest entry reads older entries.
+// A paused view this many lines or fewer from either end of the entries reads more.
 const LOAD_MARGIN = 200;
 const CONTENT_PADDING = 6;
 // The fewest characters of a value beside its prefix. With less room, the value starts
@@ -303,7 +303,7 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     // Always call setChannels — the source short-circuits if unchanged.
     // This handles both initial setup (where prevState === state) and subsequent changes.
     i.telem.wrapped.setChannels?.(channelKeys);
-    const { data, status } = i.telem.value();
+    const { data } = i.telem.value();
     this.entries = data;
 
     // Compute display names (alias takes priority over server name) and padding.
@@ -351,34 +351,42 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
       // taken at the bottom starts there, so it takes a return or a downward scroll.
       if (scrollState.offset < this.entries.length || scrollState.tail > 0)
         scrollState.awayFromEnd = true;
-      else if (scrollState.awayFromEnd || dist < 0)
+      else if (
+        i.telem.wrapped.live !== false &&
+        (scrollState.awayFromEnd || dist < 0)
+      ) {
         this.setState((s) => ({
           ...s,
           scrolling: false,
           resumedAt: performance.now(),
         }));
+        i.telem.wrapped.resume?.();
+      }
     }
 
     this.setAnchors(this.state.selectionStart, this.state.selectionEnd);
-    this.syncStatus(status);
+    this.syncStatus(i.telem.value().status);
     i.stopListeningTelem?.();
     i.stopListeningTelem = i.telem.onChange(() => {
       const { data, status } = this.internal.telem.value();
       this.entries = data;
       this.reanchor();
       this.syncStatus(status);
-      this.loadOlderNearTop();
+      this.loadNearEdges();
       if (this.state.visible) this.requestRender();
     });
-    this.loadOlderNearTop();
+    if (!scrolling && this.prevState.scrolling) i.telem.wrapped.resume?.();
+    this.loadNearEdges();
     if (!this.state.visible && !wasVisible) return;
     this.requestRender();
   }
 
-  private loadOlderNearTop(): void {
+  private loadNearEdges(): void {
     if (!this.state.scrolling) return;
-    if (this.scrollState.offset - this.visibleLineCount <= LOAD_MARGIN)
-      this.internal.telem.wrapped.loadOlder?.();
+    const { wrapped } = this.internal.telem;
+    const { offset } = this.scrollState;
+    if (offset - this.visibleLineCount <= LOAD_MARGIN) wrapped.loadOlder?.();
+    if (this.entries.length - offset <= LOAD_MARGIN) wrapped.loadNewer?.();
   }
 
   // A loading log is not empty, since its stored entries have not arrived yet.
@@ -601,17 +609,43 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     const clearScissor = renderCtx.scissor(reg, xy.ZERO, [CANVAS]);
     this.renderSelection(draw2d, rowEntries, lh);
     this.renderElements(draw2d, rows, lh);
-    this.renderScrollbar(draw2d);
+    this.renderScrollbar(draw2d, rows);
     clearScissor();
     const eraseRegion = box.copy(this.state.region);
     return ({ canvases }) =>
       renderCtx.erase(eraseRegion, this.state.overshoot, ...canvases);
   }
 
-  private renderScrollbar(draw2d: Draw2D): void {
+  // Returns where the rows sit in the times the source stores, from 0 to 1, or null
+  // when the source does not know its oldest time.
+  private timeShare(rows: Row[]): { top: number; bottom: number } | null {
+    const range = this.internal.telem.wrapped.timeRange;
+    if (range == null || rows.length === 0) return null;
+    const start = range.start.valueOf();
+    const total = Number(range.end.valueOf() - start);
+    if (total <= 0) return null;
+    const share = (row: Row): number =>
+      Number(this.entries[row.entry].timestamp.valueOf() - start) / total;
+    const clamp = (value: number): number =>
+      bounds.clamp({ lower: 0, upper: 1 }, value);
+    return { top: clamp(share(rows[0])), bottom: clamp(share(rows[rows.length - 1])) };
+  }
+
+  private renderScrollbar(draw2d: Draw2D, rows: Row[]): void {
     if (!this.state.scrolling) return;
     const reg = this.state.region;
     const regHeight = box.height(reg);
+    const shown = this.timeShare(rows);
+    // A view that spans the stored times can still hide lines, which only line counts
+    // can place.
+    if (shown != null && shown.bottom - shown.top < SCROLLBAR_RENDER_THRESHOLD) {
+      const proportional = (shown.bottom - shown.top) * regHeight;
+      const height = Math.min(Math.max(proportional, SCROLLBAR_MIN_HEIGHT), regHeight);
+      const outside = shown.top + 1 - shown.bottom;
+      const progress = outside <= 0 ? 0 : shown.top / outside;
+      this.drawThumb(draw2d, box.top(reg) + progress * (regHeight - height), height);
+      return;
+    }
     const { totalHeight } = this;
     if (totalHeight <= 0) return;
     const top = this.calcTop(this.internal.lineHeight);
@@ -633,7 +667,15 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
       scrollRange <= 0
         ? 0
         : bounds.clamp({ lower: 0, upper: 1 }, distFromEnd / scrollRange);
-    const y = box.bottom(reg) - height - progress * (regHeight - height);
+    this.drawThumb(
+      draw2d,
+      box.bottom(reg) - height - progress * (regHeight - height),
+      height,
+    );
+  }
+
+  private drawThumb(draw2d: Draw2D, y: number, height: number): void {
+    const reg = this.state.region;
     draw2d.container({
       region: box.construct(
         { x: box.right(reg) - SCROLLBAR_WIDTH, y },

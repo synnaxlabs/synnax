@@ -13,8 +13,8 @@ from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
 from synnax import project as project_
-from synnax.exceptions import NotFoundError
 from synnax.table.types_gen import Key, RetrieveRequest, RetrieveResponse, Table, Where
+from synnax.util import one
 from x import filter
 from x.lists import normalize
 
@@ -122,9 +122,7 @@ class Client:
         )
         if not is_single:
             return res.tables
-        if len(res.tables) == 0:
-            raise NotFoundError(f"Table {key} not found")
-        return res.tables[0]
+        return one("Table", key, res.tables)
 
     def rename(self, key: Key, name: str) -> None:
         """Rename a table.
