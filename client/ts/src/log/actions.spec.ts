@@ -274,6 +274,18 @@ describe("log reducer", () => {
         createChannelEntry(1),
       ]);
     });
+    it("should be a no-op when the to channel has an entry", () => {
+      const channels = [
+        createChannelEntry(1, { alias: "one" }),
+        createChannelEntry(2, { alias: "two" }),
+      ];
+      const state = createEmpty({ channels });
+      const { next, inverse } = log.reduceAll(state, [
+        log.swapChannel({ from: 1, to: 2 }),
+      ]);
+      expect(next.channels).toEqual(channels);
+      expect(inverse).toEqual([]);
+    });
     it("should round-trip through the reverse swap", () => {
       const state = createEmpty({
         channels: [createChannelEntry(1), createChannelEntry(2)],
