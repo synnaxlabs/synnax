@@ -169,6 +169,9 @@ func rhsTracksChannel[T antlr.ParserRuleContext](
 	if isLiteralExpression(childCtx) {
 		return false
 	}
+	if _, ok := ctx.FloatConstant(expr); ok {
+		return false
+	}
 	// A bare reference that resolves to a channel, channel-read/write, or channel-read
 	// variable.
 	if primary := parser.GetPrimaryExpression(
