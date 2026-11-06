@@ -222,6 +222,23 @@ var _ = Describe("Frame", func() {
 			},
 		)
 
+		It("Should size a filtered frame by the frame, not the key set", func() {
+			keys := make([]int32, 130)
+			series := make([]telem.Series, 130)
+			kept := make(set.Set[int32], 10_000)
+			for i := range int32(130) {
+				keys[i] = i
+				series[i] = telem.NewSeriesV(i)
+			}
+			for i := range int32(10_000) {
+				kept.Add(i)
+			}
+			filtered := telem.MultiFrame(keys, series).KeepKeys(kept)
+			Expect(filtered.KeysSlice()).To(Equal(keys))
+			Expect(cap(filtered.RawKeys())).To(Equal(130))
+			Expect(cap(filtered.RawSeries())).To(Equal(130))
+		})
+
 		It("Should correctly filter a frame multiple times", func() {
 			fr := telem.MultiFrame(
 				[]int32{1, 2, 3},
@@ -339,6 +356,19 @@ var _ = Describe("Frame", func() {
 				}))
 			},
 		)
+
+		It("Should size a filtered frame by the frame, not the key set", func() {
+			keys := make([]int32, 130)
+			series := make([]telem.Series, 130)
+			for i := range int32(130) {
+				keys[i] = i
+				series[i] = telem.NewSeriesV(i)
+			}
+			filtered := telem.MultiFrame(keys, series).ExcludeKeys([]int32{0})
+			Expect(filtered.KeysSlice()).To(Equal(keys[1:]))
+			Expect(cap(filtered.RawKeys())).To(Equal(130))
+			Expect(cap(filtered.RawSeries())).To(Equal(130))
+		})
 
 		It("Should correctly exclude keys from a frame multiple times", func() {
 			fr := telem.MultiFrame(
