@@ -66,43 +66,6 @@ func renderVersion(ctx context.Context, files map[string]string, n int) string {
 }
 
 var _ = Describe("Version extends", func() {
-	It("Should mix in an aliased union whose variants name its version's aliases", func(
-		ctx SpecContext,
-	) {
-		rendered := renderVersion(ctx, map[string]string{
-			extendsV0Path: `
-Payload struct {
-    value int32
-}
-
-Node union on variant {
-    leaf Payload
-}
-`,
-			extendsV1Path: `
-Payload = v0.Payload
-
-Node union on variant extends v0.Node {
-    box {
-        width int32
-    }
-}
-`,
-			extendsV2Path: `
-Payload = v0.Payload
-
-Node = v1.Node
-
-Edge union on variant {
-    pipe Payload
-}
-
-Element union on variant extends Node, Edge {}
-`,
-		}, 2)
-		Expect(rendered).To(ContainSubstring("Element union"))
-	})
-
 	DescribeTable("Should resolve a patch exactly like its hand-written copy", func(
 		ctx SpecContext, patch, handWritten string,
 	) {

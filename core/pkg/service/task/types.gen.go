@@ -51,6 +51,48 @@ type WriteConfig = versions.WriteConfig
 // ScanConfig carries the fields shared by every scan task configuration.
 type ScanConfig = versions.ScanConfig
 
+// Scale determines how the raw values of a hardware read channel are transformed to
+// engineering units.
+type Scale = versions.Scale
+
+// ScaleVariant is implemented by every Scale variant.
+type ScaleVariant = versions.ScaleVariant
+
+// ScaleType is the "type" value that selects a variant of Scale.
+type ScaleType = versions.ScaleType
+
+const (
+	// LinearScaleType maps raw values to engineering units with a slope and offset.
+	LinearScaleType ScaleType = versions.LinearScaleType
+	// MapScaleType maps a raw range linearly onto a scaled range.
+	MapScaleType ScaleType = versions.MapScaleType
+	// PolynomialScaleType maps raw values to engineering units with a polynomial.
+	PolynomialScaleType ScaleType = versions.PolynomialScaleType
+	// TableScaleType maps raw values to engineering units by linear interpolation
+	// between the breakpoints, and clips raw values outside the table to its first or
+	// last scaled value.
+	TableScaleType ScaleType = versions.TableScaleType
+	// NoneScaleType applies no scaling; the raw value is used directly.
+	NoneScaleType ScaleType = versions.NoneScaleType
+)
+
+// LinearScale maps raw values to engineering units with a slope and offset.
+type LinearScale = versions.LinearScale
+
+// MapScale maps a raw range linearly onto a scaled range.
+type MapScale = versions.MapScale
+
+// PolynomialScale maps raw values to engineering units with a polynomial.
+type PolynomialScale = versions.PolynomialScale
+
+// TableScale maps raw values to engineering units by linear interpolation between the
+// breakpoints, and clips raw values outside the table to its first or last scaled
+// value.
+type TableScale = versions.TableScale
+
+// NoneScale applies no scaling; the raw value is used directly.
+type NoneScale = versions.NoneScale
+
 // Where is a filter that selects tasks.
 type Where struct {
 	// And matches when every child matches.

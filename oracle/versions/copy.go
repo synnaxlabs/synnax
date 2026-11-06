@@ -10,7 +10,6 @@
 package versions
 
 import (
-	"fmt"
 	"maps"
 	"regexp"
 	"slices"
@@ -166,21 +165,6 @@ func rewriter(selfNS string, byNamespace map[string]string) func(string) string 
 			return to + name[i:]
 		}
 		return name
-	}
-}
-
-// seedRewriter rewrites sib's references for the table of a later version. That table
-// seeds no aliases, so a reference to one of sib's aliases moves to its definer.
-func seedRewriter(sib *File) func(string) string {
-	rw := rewriter("", pinRewrites(sib.Pins))
-	prefix := fmt.Sprintf("v%d.", sib.N)
-	return func(name string) string {
-		if member, ok := strings.CutPrefix(name, prefix); ok {
-			if alias, isAlias := sib.Aliases[member]; isAlias {
-				return fmt.Sprintf("v%d.%s", alias.Version, alias.Name)
-			}
-		}
-		return rw(name)
 	}
 }
 

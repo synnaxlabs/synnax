@@ -251,8 +251,6 @@ func autoMigrateElementConfig(ctx context.Context, old v10.ElementConfig) (Eleme
 			StrokeColor:   variant.StrokeColor,
 			FillColor:     variant.FillColor,
 			Dimensions:    variant.Dimensions,
-			BorderRadius:  variant.BorderRadius,
-			StrokeWidth:   variant.StrokeWidth,
 		}}, nil
 	case v10.ButtonElementConfig:
 		labeledConfig, err := MigrateLabeledConfig(ctx, variant.LabeledConfig)
@@ -262,7 +260,6 @@ func autoMigrateElementConfig(ctx context.Context, old v10.ElementConfig) (Eleme
 		return ElementConfig{Variant: ButtonElementConfig{
 			LabeledConfig:  labeledConfig,
 			Size:           variant.Size,
-			Level:          variant.Level,
 			OnClickDelay:   variant.OnClickDelay,
 			CommandChannel: variant.CommandChannel,
 			Mode:           variant.Mode,
@@ -279,20 +276,22 @@ func autoMigrateElementConfig(ctx context.Context, old v10.ElementConfig) (Eleme
 			Radius:        variant.Radius,
 			StrokeColor:   variant.StrokeColor,
 			FillColor:     variant.FillColor,
-			StrokeWidth:   variant.StrokeWidth,
 		}}, nil
 	case v10.GaugeElementConfig:
 		labeledConfig, err := MigrateLabeledConfig(ctx, variant.LabeledConfig)
 		if err != nil {
 			return ElementConfig{}, err
 		}
+		numericTelemConfig, err := MigrateNumericTelemConfig(ctx, variant.NumericTelemConfig)
+		if err != nil {
+			return ElementConfig{}, err
+		}
 		return ElementConfig{Variant: GaugeElementConfig{
 			LabeledConfig:      labeledConfig,
-			NumericTelemConfig: variant.NumericTelemConfig,
+			NumericTelemConfig: numericTelemConfig,
 			StalenessConfig:    variant.StalenessConfig,
 			Position:           variant.Position,
 			StrokeColor:        variant.StrokeColor,
-			Bounds:             variant.Bounds,
 			BarWidth:           variant.BarWidth,
 			Location:           variant.Location,
 			Units:              variant.Units,
@@ -334,8 +333,6 @@ func autoMigrateElementConfig(ctx context.Context, old v10.ElementConfig) (Eleme
 		return ElementConfig{Variant: LineElementConfig{
 			StrokeColor: variant.StrokeColor,
 			Start:       variant.Start,
-			End:         variant.End,
-			StrokeWidth: variant.StrokeWidth,
 		}}, nil
 	case v10.OffPageReferenceElementConfig:
 		labeledConfig, err := MigrateLabeledConfig(ctx, variant.LabeledConfig)
@@ -361,7 +358,6 @@ func autoMigrateElementConfig(ctx context.Context, old v10.ElementConfig) (Eleme
 			CornerRounding: variant.CornerRounding,
 			StrokeColor:    variant.StrokeColor,
 			FillColor:      variant.FillColor,
-			StrokeWidth:    variant.StrokeWidth,
 		}}, nil
 	case v10.SelectElementConfig:
 		labeledConfig, err := MigrateLabeledConfig(ctx, variant.LabeledConfig)
@@ -386,9 +382,13 @@ func autoMigrateElementConfig(ctx context.Context, old v10.ElementConfig) (Eleme
 		if err != nil {
 			return ElementConfig{}, err
 		}
+		scaleIndicatorConfig, err := MigrateScaleIndicatorConfig(ctx, variant.ScaleIndicatorConfig)
+		if err != nil {
+			return ElementConfig{}, err
+		}
 		return ElementConfig{Variant: ScaleElementConfig{
 			LabeledConfig:        labeledConfig,
-			ScaleIndicatorConfig: variant.ScaleIndicatorConfig,
+			ScaleIndicatorConfig: scaleIndicatorConfig,
 			Position:             variant.Position,
 			Dimensions:           variant.Dimensions,
 		}}, nil
@@ -467,9 +467,13 @@ func autoMigrateElementConfig(ctx context.Context, old v10.ElementConfig) (Eleme
 		if err != nil {
 			return ElementConfig{}, err
 		}
+		numericTelemConfig, err := MigrateNumericTelemConfig(ctx, variant.NumericTelemConfig)
+		if err != nil {
+			return ElementConfig{}, err
+		}
 		return ElementConfig{Variant: ValueElementConfig{
 			LabeledConfig:      labeledConfig,
-			NumericTelemConfig: variant.NumericTelemConfig,
+			NumericTelemConfig: numericTelemConfig,
 			StalenessConfig:    variant.StalenessConfig,
 			Position:           variant.Position,
 			StrokeColor:        variant.StrokeColor,
@@ -953,11 +957,9 @@ func autoMigrateElementConfig(ctx context.Context, old v10.ElementConfig) (Eleme
 			LabeledConfig:    labeledConfig,
 			Channel:          variant.Channel,
 			RollingAverage:   variant.RollingAverage,
-			Precision:        variant.Precision,
 			Notation:         variant.Notation,
 			StalenessTimeout: variant.StalenessTimeout,
 			StalenessColor:   variant.StalenessColor,
-			Bounds:           variant.Bounds,
 			LevelColor:       variant.LevelColor,
 			AxisColor:        variant.AxisColor,
 			TextColor:        variant.TextColor,
@@ -969,7 +971,6 @@ func autoMigrateElementConfig(ctx context.Context, old v10.ElementConfig) (Eleme
 			StrokeColor:      variant.StrokeColor,
 			FillColor:        variant.FillColor,
 			Dimensions:       variant.Dimensions,
-			BorderRadius:     variant.BorderRadius,
 			CaretVisible:     variant.CaretVisible,
 			ScaleVisible:     variant.ScaleVisible,
 			Side:             variant.Side,
@@ -1100,6 +1101,35 @@ func autoMigrateLabeledConfig(ctx context.Context, old v10.LabeledConfig) (Label
 	return LabeledConfig{
 		Label:       label,
 		Orientation: old.Orientation,
+	}, nil
+}
+
+func autoMigrateNumericTelemConfig(_ context.Context, old v10.NumericTelemConfig) (NumericTelemConfig, error) {
+	return NumericTelemConfig{
+		Channel:        old.Channel,
+		RollingAverage: old.RollingAverage,
+		Notation:       old.Notation,
+	}, nil
+}
+
+func autoMigrateScaleIndicatorConfig(ctx context.Context, old v10.ScaleIndicatorConfig) (ScaleIndicatorConfig, error) {
+	numericTelemConfig, err := MigrateNumericTelemConfig(ctx, old.NumericTelemConfig)
+	if err != nil {
+		return ScaleIndicatorConfig{}, err
+	}
+	return ScaleIndicatorConfig{
+		NumericTelemConfig: numericTelemConfig,
+		StalenessConfig:    old.StalenessConfig,
+		LevelColor:         old.LevelColor,
+		AxisColor:          old.AxisColor,
+		TextColor:          old.TextColor,
+		Units:              old.Units,
+		LevelHidden:        old.LevelHidden,
+		CaretHidden:        old.CaretHidden,
+		ScaleHidden:        old.ScaleHidden,
+		Side:               old.Side,
+		CaretSide:          old.CaretSide,
+		Level:              old.Level,
 	}, nil
 }
 

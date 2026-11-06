@@ -107,14 +107,19 @@ export const TelemForm = ({ allowNone = false }: TelemFormProps): ReactElement =
         />
       </Base.Section>
       <Base.Section title="Range">
-        <NodeForm.BoundsFields path={root.bounds} padHelpText={false} />
+        <NodeForm.BoundsFields
+          path={root.bounds}
+          fallback={NodeForm.DEFAULT_BOUNDS}
+          padHelpText={false}
+        />
       </Base.Section>
       <Base.Section title="Format">
         <Base.Field path={root.notation} label="Notation" padHelpText={false}>
           {NotationSelect}
         </Base.Field>
-        <Base.NumericField
+        <NodeForm.NumericField
           path={root.precision}
+          fallback={NodeForm.DEFAULT_PRECISION}
           label="Precision"
           padHelpText={false}
           inputProps={PRECISION_INPUT_PROPS}

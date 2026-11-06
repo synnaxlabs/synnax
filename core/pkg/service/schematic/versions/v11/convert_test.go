@@ -34,8 +34,8 @@ var _ = Describe("DecodeWithDefaults", func() {
 			"variant": "line",
 			"end":     map[string]any{"x": 0.0, "y": 40.0},
 		})).Variant.(v11.LineElementConfig)
-		Expect(cfg.End).To(Equal(spatial.XY{X: 0, Y: 40}))
-		Expect(cfg.StrokeWidth).To(BeEquivalentTo(2))
+		Expect(cfg.End).To(HaveValue(Equal(spatial.XY{X: 0, Y: 40})))
+		Expect(cfg.StrokeWidth).To(BeNil())
 	})
 
 	It("Should fill an edge's default stroke width when the config omits it", func() {

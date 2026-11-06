@@ -19,18 +19,31 @@
 #include <unordered_map>
 #include <vector>
 
+#include "x/cpp/telem/telem.h"
+
 #include "driver/ethercat/master/master.h"
 #include "driver/ethercat/pdo/pdo.h"
 #include "driver/ethercat/soem/api.h"
 #include "driver/ethercat/telem/telem.h"
 
 namespace driver::ethercat::soem {
+/// @brief how long the master waits for slaves to change state.
+struct Config {
+    /// @brief how long the slaves get to reach PRE-OP after discovery. The default is
+    /// the PreopTimeout of the ESI files.
+    x::telem::TimeSpan pre_op_timeout = x::telem::SECOND * 2;
+    /// @brief how long the slaves get to reach SAFE-OP, OP, or INIT.
+    x::telem::TimeSpan state_change_timeout = x::telem::SECOND * 2;
+};
+
 /// @brief SOEM-based implementation of the Master interface.
 class Master final : public master::Master {
     /// @brief the network interface name (e.g., "eth0", "enp3s0").
     std::string iface_name;
     /// @brief API abstraction for SOEM operations.
     std::unique_ptr<API> api;
+    /// @brief how long the master waits for slaves to change state.
+    Config cfg;
     /// @brief IOmap buffer for PDO exchange.
     std::vector<uint8_t> iomap;
     /// @brief input size in bytes (TxPDO, slave->master).
@@ -58,8 +71,8 @@ class Master final : public master::Master {
     bool has_dc = false;
 
 public:
-    /// @brief constructs a SOEM master with injected API and interface name.
-    Master(std::unique_ptr<API> api, std::string interface_name);
+    /// @brief constructs a SOEM master with injected API, interface name, and config.
+    Master(std::unique_ptr<API> api, std::string interface_name, Config cfg = {});
 
     ~Master() override;
 
