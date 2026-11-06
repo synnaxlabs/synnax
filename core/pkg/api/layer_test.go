@@ -48,13 +48,13 @@ func newUser(ctx context.Context, types ...resource.Type) user.User {
 	r := &role.Role{Name: "role-" + uuid.New().String(), Description: "test"}
 	Expect(roleWriter.Create(ctx, r)).To(Succeed())
 	p := &policy.Policy{
+		Role:    r.Key,
 		Name:    "policy-" + uuid.New().String(),
 		Objects: objects,
 		Actions: access.AllActions,
 	}
 	Expect(policyWriter.Create(ctx, p)).To(Succeed())
-	Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
-	Expect(roleWriter.AssignRole(ctx, u.ResourceID(), r.Key)).To(Succeed())
+	Expect(svc.User.NewWriter(nil).AssignRole(ctx, r.Key, u.Key)).To(Succeed())
 	return u
 }
 

@@ -13,7 +13,6 @@ import (
 	"context"
 	"slices"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -257,9 +256,7 @@ func (s *Service) Retrieve(
 		q = q.Where(user.MatchKeys(keys...))
 	}
 	if len(req.Roles) > 0 {
-		q = q.Where(user.Or(lo.Map(req.Roles, func(r role.Key, _ int) user.Filter {
-			return user.MatchRole(r)
-		})...))
+		q = q.Where(user.MatchRoles(req.Roles...))
 	}
 	var users []user.User
 	if err := q.Entries(&users).Exec(ctx, nil); err != nil {

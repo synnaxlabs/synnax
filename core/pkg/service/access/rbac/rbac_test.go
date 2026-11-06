@@ -487,6 +487,7 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("Role deletion", func() {
+		BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 		It("Should delete the role's policies and remove it from its users", func(
 			ctx SpecContext,
 		) {
@@ -533,6 +534,7 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("RolesOf", func() {
+		BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 		It("Should return the roles of several subjects once each", func(
 			ctx SpecContext,
 		) {
@@ -566,6 +568,7 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("Missing subjects", func() {
+		BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 		It("Should deny a user that was deleted", func(ctx SpecContext) {
 			r := &role.Role{Name: "reader"}
 			Expect(rbacSvc.Role.NewWriter(tx, true).Create(ctx, r)).To(Succeed())

@@ -46,7 +46,6 @@ var (
 	groupSvc     *group.Service
 	otg          *ontology.Ontology
 	rbacSvc      *rbac.Service
-	userSvc      *user.Service
 	schematicSvc *schematic.Service
 	apiSvc       *apischematic.Service
 	proj         project.Project

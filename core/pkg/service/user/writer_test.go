@@ -142,7 +142,7 @@ var _ = Describe("Writer", func() {
 			MustSucceed(w.Create(ctx, user.User{Name: "b"}))
 			var users []user.User
 			Expect(svc.NewRetrieve().
-				Where(user.MatchRole(r)).
+				Where(user.MatchRoles(r)).
 				Entries(&users).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(users).To(HaveExactElements(HaveField("Key", u.Key)))
