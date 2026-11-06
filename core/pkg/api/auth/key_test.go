@@ -150,20 +150,47 @@ var _ = Describe("API keys", func() {
 			res := MustSucceed(create(ctx, rootToken, bob.ResourceID()))
 			Expect(res.Key.Subject).To(Equal(bob.ResourceID()))
 		})
-		It("Should reject a subject that does not exist", func(ctx SpecContext) {
-			missing := resource.ID{Type: resource.TypeRack, Key: "4000000000"}
-			Expect(create(ctx, rootToken, missing)).Error().
-				To(MatchError(query.ErrNotFound))
-		})
-		It("Should reject a subject with a malformed key", func(ctx SpecContext) {
-			malformed := resource.ID{Type: resource.TypeRack, Key: "missing"}
-			Expect(create(ctx, rootToken, malformed)).Error().
-				To(MatchError(validate.ErrValidation))
-		})
+		DescribeTable("Should reject a subject that is malformed or missing",
+			func(ctx SpecContext, subject resource.ID, sentinel error, message string) {
+				Expect(create(ctx, rootToken, subject)).Error().To(SatisfyAll(
+					MatchError(sentinel),
+					MatchError(ContainSubstring(message)),
+				))
+			},
+			Entry(
+				"malformed user",
+				resource.ID{Type: resource.TypeUser, Key: "missing"},
+				validate.ErrValidation,
+				`invalid user key "missing"`,
+			),
+			Entry(
+				"malformed rack",
+				resource.ID{Type: resource.TypeRack, Key: "missing"},
+				validate.ErrValidation,
+				`invalid rack key "missing"`,
+			),
+			Entry(
+				"missing user",
+				resource.ID{
+					Type: resource.TypeUser,
+					Key:  "00000000-0000-0000-0000-000000000001",
+				},
+				query.ErrNotFound,
+				"user:00000000-0000-0000-0000-000000000001",
+			),
+			Entry(
+				"missing rack",
+				resource.ID{Type: resource.TypeRack, Key: "4000000000"},
+				query.ErrNotFound,
+				"rack:4000000000",
+			),
+		)
 		It("Should reject a subject that is not a user or rack", func(ctx SpecContext) {
 			channel := resource.ID{Type: resource.TypeChannel, Key: "1"}
-			Expect(create(ctx, rootToken, channel)).Error().
-				To(MatchError(validate.ErrValidation))
+			Expect(create(ctx, rootToken, channel)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("an API key cannot log in as a channel")),
+			))
 		})
 	})
 	Describe("RetrieveKeys", func() {

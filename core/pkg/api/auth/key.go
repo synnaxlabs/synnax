@@ -60,8 +60,7 @@ type KeyCreateResponse struct {
 // CreateKey creates an API key for the caller, or for another user or rack when the
 // caller may create that subject. It returns a validation error when the subject is not
 // a user or rack or has a malformed key, and an error wrapping query.ErrNotFound when
-// it
-// does not exist.
+// it does not exist.
 func (s *Service) CreateKey(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -69,14 +68,6 @@ func (s *Service) CreateKey(
 ) (KeyCreateResponse, error) {
 	caller := GetSubject(ctx)
 	subject := lo.Ternary(req.Subject.IsZero(), caller, req.Subject)
-	if subject.Type != resource.TypeUser &&
-		subject.Type != resource.TypeRack {
-		return KeyCreateResponse{}, errors.Wrapf(
-			validate.ErrValidation,
-			"an API key cannot log in as a %s",
-			subject.Type,
-		)
-	}
 	if err := s.enforceOthers(
 		ctx,
 		caller,
@@ -104,27 +95,26 @@ func (s *Service) subjectExists(
 	tx gorp.Tx,
 	subject resource.ID,
 ) (bool, error) {
-	if subject.Type == resource.TypeUser {
+	switch subject.Type {
+	case resource.TypeUser:
 		key, err := user.KeyFromResourceID(subject)
 		if err != nil {
-			return false, malformedSubjectError(subject)
+			return false, err
 		}
 		return s.user.NewRetrieve().Where(user.MatchKeys(key)).Exists(ctx, tx)
+	case resource.TypeRack:
+		key, err := rack.KeyFromResourceID(subject)
+		if err != nil {
+			return false, err
+		}
+		return s.rack.NewRetrieve().Where(rack.MatchKeys(key)).Exists(ctx, tx)
+	default:
+		return false, errors.Wrapf(
+			validate.ErrValidation,
+			"an API key cannot log in as a %s",
+			subject.Type,
+		)
 	}
-	key, err := rack.KeyFromResourceID(subject)
-	if err != nil {
-		return false, malformedSubjectError(subject)
-	}
-	return s.rack.NewRetrieve().Where(rack.MatchKeys(key)).Exists(ctx, tx)
-}
-
-func malformedSubjectError(subject resource.ID) error {
-	return errors.Wrapf(
-		validate.ErrValidation,
-		"%q is not a valid %s key",
-		subject.Key,
-		subject.Type,
-	)
 }
 
 // KeyRetrieveRequest selects API keys to list.
