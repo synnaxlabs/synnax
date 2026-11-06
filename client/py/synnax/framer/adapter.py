@@ -53,7 +53,7 @@ class ReadFrameAdapter:
             isinstance(reduction, LimitReduction) and reduction.aggregation == "min_max"
         )
         self._limited = isinstance(reduction, LimitReduction)
-        self._timestamps_included = timestamps_included and self._aligned
+        self._timestamps_included = timestamps_included
         self._by_name = False
         self._names = {}
         self._indexes = {}
