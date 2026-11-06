@@ -172,6 +172,39 @@ describe("Select.Item", () => {
     });
   });
 
+  describe("disabled", () => {
+    it("should ignore a click on a button", () => {
+      const onChange = vi.fn();
+      const c = render(
+        <Select.Buttons value={1} onChange={onChange} disabled>
+          <Select.Item itemKey={1}>Option 1</Select.Item>
+          <Select.Item itemKey={2}>Option 2</Select.Item>
+        </Select.Buttons>,
+      );
+      fireEvent.click(c.getByText("Option 2"));
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("should ignore the keys", () => {
+      const onChange = vi.fn();
+      render(
+        <Triggers.Provider>
+          <Dialog.Frame visible>
+            <Select.Buttons value={undefined} onChange={onChange} allowNone disabled>
+              <Select.Item itemKey={1}>Option 1</Select.Item>
+              <Select.Item itemKey={2}>Option 2</Select.Item>
+            </Select.Buttons>
+          </Dialog.Frame>
+        </Triggers.Provider>,
+      );
+      act(() => {
+        fireEvent.keyDown(window, { code: "ArrowDown" });
+        fireEvent.keyDown(window, { code: "Enter" });
+      });
+      expect(onChange).not.toHaveBeenCalled();
+    });
+  });
+
   describe("preview", () => {
     const renderButtons = (preview?: boolean, onChange = vi.fn()) =>
       render(

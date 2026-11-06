@@ -45,7 +45,7 @@ import {
 
 /** The slice of a Synnax client that remote telemetry sources consume. */
 export interface Client {
-  feed: Pick<framer.Feed, "subscribe">;
+  feed: Pick<framer.Feed, "subscribe" | "firstTime">;
   channels: {
     retrieve: (ch: channel.Key | channel.Name) => Promise<channel.Channel>;
   };

@@ -11,7 +11,7 @@ import { crdt, id, uuid } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { arc } from "@/arc";
-import { AccessDeniedError } from "@/index";
+import { AccessDeniedError, NotFoundError } from "@/index";
 import { query } from "@/query";
 import { status } from "@/status";
 import { task } from "@/task";
@@ -61,9 +61,30 @@ describe("arc", () => {
       expect(res.map(({ key }) => key)).toEqual([b.key]);
     });
 
-    it("should omit missing keys", async () => {
+    it("should throw a NotFoundError for a missing key in a key list", async () => {
       const created = await client.arcs.create(newTextArc(`missing-${id.create()}`));
-      const res = await client.arcs.retrieve([created.key, uuid.create()]);
+      const missing = uuid.create();
+      await expect(client.arcs.retrieve([created.key, missing])).rejects.toThrow(
+        new NotFoundError(`Arc with key ${missing} not found`),
+      );
+    });
+
+    it("should retrieve Arcs by a list of names in a flat filter", async () => {
+      const names = [`flat-${id.create()}`, `flat-${id.create()}`];
+      const created = await Promise.all(
+        names.map(async (n) => await client.arcs.create(newTextArc(n))),
+      );
+      const res = await client.arcs.retrieve({ name: names });
+      expect(res.map(({ key }) => key).sort()).toEqual(
+        created.map(({ key }) => key).sort(),
+      );
+    });
+
+    it("should omit missing keys from a filter on keys", async () => {
+      const created = await client.arcs.create(newTextArc(`missing-${id.create()}`));
+      const res = await client.arcs.retrieve({
+        where: { key: { in: [created.key, uuid.create()] } },
+      });
       expect(res.map(({ key }) => key)).toEqual([created.key]);
     });
   });

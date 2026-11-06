@@ -124,6 +124,13 @@ class TestCase(ABC):
 
     log_client: LogClient
 
+    @classmethod
+    def resources(cls) -> frozenset[str]:
+        """Returns the machine resources the case uses while it runs, from
+        `framework.resources`. The conductor runs a case only when its resources are
+        free. An override joins its resources with super().resources()."""
+        return frozenset()
+
     def __init__(
         self,
         *,

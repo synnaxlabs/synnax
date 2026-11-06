@@ -22,6 +22,7 @@
 #include "client/cpp/ranger/kv/kv.h"
 #include "x/cpp/color/color.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/filter/field.h"
 #include "x/cpp/filter/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/mem/indirect.h"
@@ -79,13 +80,38 @@ struct Where {
     /// @brief not_ matches when the child does not match.
     x::mem::indirect<Where> not_;
     /// @brief key selects by key.
-    std::optional<::x::filter::Set<Key>> key;
+    ::x::filter::Field<::x::filter::Set<Key>> key;
     /// @brief name selects by name.
-    std::optional<::x::filter::String> name;
+    ::x::filter::Field<::x::filter::String> name;
     /// @brief overlaps matches ranges whose time range overlaps the given range.
     std::optional<::x::telem::TimeRange> overlaps;
     /// @brief labels matches ranges that have any of the given labels.
-    std::optional<std::vector<::synnax::label::Key>> labels;
+    ::x::filter::List<::synnax::label::Key> labels;
+
+    /// @brief returns a filter that matches when both a and b match.
+    friend Where operator&&(Where a, Where b) {
+        Where w;
+        w.and_.emplace();
+        w.and_->push_back(std::move(a));
+        w.and_->push_back(std::move(b));
+        return w;
+    }
+
+    /// @brief returns a filter that matches when a or b matches.
+    friend Where operator||(Where a, Where b) {
+        Where w;
+        w.or_.emplace();
+        w.or_->push_back(std::move(a));
+        w.or_->push_back(std::move(b));
+        return w;
+    }
+
+    /// @brief returns a filter that matches when a does not match.
+    friend Where operator!(Where a) {
+        Where w;
+        w.not_ = std::move(a);
+        return w;
+    }
 
     static Where parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
