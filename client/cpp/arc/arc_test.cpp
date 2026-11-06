@@ -106,6 +106,21 @@ TEST(TestArc, testRetrieveByKey) {
     ASSERT_EQ(base(retrieved).name, name);
 }
 
+/// @brief it should reject a limit or an offset on a retrieve of one Arc.
+TEST(TestArc, testRetrieveRejectsPage) {
+    const auto client = new_test_client();
+    for (const auto &options:
+         {RetrieveOptions{.limit = 1}, RetrieveOptions{.offset = 1}}) {
+        const auto [_, err] = client.arcs.retrieve("arc", options);
+        ASSERT_MATCHES(err, x::errors::VALIDATION);
+        ASSERT_EQ(
+            err.data,
+            "a query for one record takes no limit or offset, since a page could "
+            "hide a second match"
+        );
+    }
+}
+
 /// @brief it should retrieve multiple Arc programs by names.
 TEST(TestArc, testRetrieveMany) {
     const auto client = new_test_client();
