@@ -11,6 +11,8 @@ package domain_test
 
 import (
 	"math"
+	"os"
+	"sync/atomic"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -22,6 +24,25 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+// pausedFS holds an armed read open of a domain file after the file opens, until resume
+// closes.
+type pausedFS struct {
+	fs.FS
+	opened chan struct{}
+	resume chan struct{}
+	armed  atomic.Bool
+}
+
+func (p *pausedFS) Open(name string, flag int) (fs.File, error) {
+	f, err := p.FS.Open(name, flag)
+	if err == nil && flag == os.O_RDONLY && name == "1.domain" &&
+		p.armed.CompareAndSwap(true, false) {
+		p.opened <- struct{}{}
+		Eventually(p.resume).Should(BeClosed())
+	}
+	return f, err
+}
 
 var _ = Describe("Garbage Collection", Ordered, func() {
 	for fsName, openFS := range FileSystems {
@@ -38,23 +59,23 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 			})
 
 			Context("An iterator seeks before the collection", func() {
-				It("Should read its domain at the new offset", func(ctx SpecContext) {
-					db = MustSucceed(domain.Open(domain.Config{
-						FS:              fs,
-						FileSize:        9 * telem.Byte,
-						GCThreshold:     math.SmallestNonzeroFloat32,
-						Instrumentation: PanicLogger(),
-					}))
-					var (
-						first  = (10 * telem.SecondTS).Range(14 * telem.SecondTS)
-						second = (20 * telem.SecondTS).Range(26 * telem.SecondTS)
-						data   = []byte{20, 21, 22, 23, 24, 25}
-					)
+				var (
+					i      *domain.Iterator
+					first  = (10 * telem.SecondTS).Range(14 * telem.SecondTS)
+					second = (20 * telem.SecondTS).Range(26 * telem.SecondTS)
+					data   = []byte{20, 21, 22, 23, 24, 25}
+				)
+				openOn := func(ctx SpecContext, cfg domain.Config) {
+					GinkgoHelper()
+					cfg.FileSize = 9 * telem.Byte
+					cfg.GCThreshold = math.SmallestNonzeroFloat32
+					cfg.Instrumentation = PanicLogger()
+					db = MustSucceed(domain.Open(cfg))
 					Expect(
 						testutil.WriteDomain(ctx, db, first, []byte{10, 11, 12, 13}),
 					).To(Succeed())
 					Expect(testutil.WriteDomain(ctx, db, second, data)).To(Succeed())
-					i := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
+					i = db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
 					Expect(i.SeekGE(ctx, second.Start)).To(BeTrue())
 					Expect(db.Delete(
 						ctx,
@@ -62,14 +83,60 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 						fixedOffset(0),
 						fixedOffset(4),
 					)).To(Succeed())
-					Expect(db.GarbageCollect(ctx)).To(Succeed())
-					Expect(MustSucceed(fs.Stat("1.domain")).Size()).To(Equal(int64(6)))
-					r := MustSucceed(i.OpenReader(ctx))
-					read := make([]byte, len(data))
+				}
+				expectRead := func(r *domain.Reader, want []byte) {
+					GinkgoHelper()
+					Expect(r.Size()).To(Equal(telem.Size(len(want))))
+					read := make([]byte, len(want))
 					MustSucceed(r.ReadAt(read, 0))
-					Expect(read).To(Equal(data))
+					Expect(read).To(Equal(want))
 					Expect(r.Close()).To(Succeed())
 					Expect(i.Close()).To(Succeed())
+				}
+
+				It("Should read its domain at the new offset", func(ctx SpecContext) {
+					openOn(ctx, domain.Config{FS: fs})
+					Expect(db.GarbageCollect(ctx)).To(Succeed())
+					Expect(MustSucceed(fs.Stat("1.domain")).Size()).To(Equal(int64(6)))
+					expectRead(MustSucceed(i.OpenReader(ctx)), data)
+				})
+
+				It("Should read only what remains after a tail delete", func(
+					ctx SpecContext,
+				) {
+					openOn(ctx, domain.Config{FS: fs})
+					Expect(db.Delete(
+						ctx,
+						(23 * telem.SecondTS).Range(second.End),
+						fixedOffset(3),
+						fixedOffset(6),
+					)).To(Succeed())
+					Expect(db.GarbageCollect(ctx)).To(Succeed())
+					expectRead(MustSucceed(i.OpenReader(ctx)), data[:3])
+				})
+
+				It("Should not keep a handle opened before the collection", func(
+					ctx SpecContext,
+				) {
+					paused := &pausedFS{
+						FS:     fs,
+						opened: make(chan struct{}, 1),
+						resume: make(chan struct{}),
+					}
+					openOn(ctx, domain.Config{FS: paused})
+					paused.armed.Store(true)
+					readers := make(chan *domain.Reader, 1)
+					go func() {
+						defer GinkgoRecover()
+						readers <- MustSucceed(i.OpenReader(ctx))
+					}()
+					Eventually(paused.opened).Should(Receive())
+					Expect(db.GarbageCollect(ctx)).To(Succeed())
+					Expect(MustSucceed(fs.Stat("1.domain")).Size()).To(Equal(int64(6)))
+					close(paused.resume)
+					var r *domain.Reader
+					Eventually(readers).Should(Receive(&r))
+					expectRead(r, data)
 				})
 			})
 

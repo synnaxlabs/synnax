@@ -412,6 +412,7 @@ func (db *DB) garbageCollectFile(key uint16, size int64) (bool, error) {
 			}
 		}
 
+		db.fc.rewrites.Add(1)
 		if err := db.cfg.FS.Rename(name, name+"_temp"); err != nil {
 			return err
 		}

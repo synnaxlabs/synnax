@@ -41,6 +41,8 @@ type fileReaders struct {
 }
 
 type fileController struct {
+	// rewrites counts the files that GC has replaced.
+	rewrites    atomic.Uint64
 	counter     *xio.Int32Counter
 	release     chan struct{}
 	counterFile io.Closer
@@ -318,29 +320,37 @@ func (fc *fileController) newReader(
 ) (*controlledReader, error) {
 	_, span := fc.T.Bench(ctx, "new_reader")
 	defer span.End()
-	file, err := fc.FS.Open(
-		fileKeyToName(key),
-		os.O_RDONLY,
-	)
-	if err != nil {
-		return nil, span.Error(err)
+	for {
+		rewrites := fc.rewrites.Load()
+		file, err := fc.FS.Open(fileKeyToName(key), os.O_RDONLY)
+		if err != nil {
+			return nil, span.Error(err)
+		}
+		r := controlledReader{
+			ReaderAtCloser:  file,
+			controllerEntry: newPoolEntry(key, fc.release, fc.Instrumentation),
+		}
+		// GC holds fc.readers while it rewrites a file, so a rewrite that this open
+		// could have missed shows here. Its handle may be on the old file.
+		fc.readers.Lock()
+		if fc.rewrites.Load() != rewrites {
+			fc.readers.Unlock()
+			if err = file.Close(); err != nil {
+				return nil, span.Error(err)
+			}
+			continue
+		}
+		f, ok := fc.readers.files[key]
+		if !ok {
+			fc.readers.files[key] = &fileReaders{open: []controlledReader{r}}
+		} else {
+			f.Lock()
+			fc.readers.files[key].open = append(fc.readers.files[key].open, r)
+			f.Unlock()
+		}
+		fc.readers.Unlock()
+		return &r, nil
 	}
-
-	r := controlledReader{
-		ReaderAtCloser:  file,
-		controllerEntry: newPoolEntry(key, fc.release, fc.Instrumentation),
-	}
-	fc.readers.Lock()
-	f, ok := fc.readers.files[key]
-	if !ok {
-		fc.readers.files[key] = &fileReaders{open: []controlledReader{r}}
-	} else {
-		f.Lock()
-		fc.readers.files[key].open = append(fc.readers.files[key].open, r)
-		f.Unlock()
-	}
-	fc.readers.Unlock()
-	return &r, err
 }
 
 func (fc *fileController) gcReaders() (successful bool, err error) {
