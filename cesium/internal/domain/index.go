@@ -239,6 +239,17 @@ func (idx *index) unprotectedSearch(tr telem.TimeRange) (int, bool) {
 	return end, false
 }
 
+// startingAt returns the domain that starts at ts, reporting false if there is none.
+func (idx *index) startingAt(ts telem.TimeStamp) (pointer, bool) {
+	idx.mu.RLock()
+	defer idx.mu.RUnlock()
+	i, exact := idx.unprotectedSearch(ts.SpanRange(0))
+	if !exact || idx.mu.pointers[i].Start != ts {
+		return pointer{}, false
+	}
+	return idx.mu.pointers[i], true
+}
+
 func (idx *index) get(i int) (pointer, bool) {
 	idx.mu.RLock()
 	if i < 0 || i >= len(idx.mu.pointers) {

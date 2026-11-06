@@ -37,6 +37,42 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 				Expect(db.Close()).To(Succeed())
 			})
 
+			Context("An iterator seeks before the collection", func() {
+				It("Should read its domain at the new offset", func(ctx SpecContext) {
+					db = MustSucceed(domain.Open(domain.Config{
+						FS:              fs,
+						FileSize:        9 * telem.Byte,
+						GCThreshold:     math.SmallestNonzeroFloat32,
+						Instrumentation: PanicLogger(),
+					}))
+					var (
+						first  = (10 * telem.SecondTS).Range(14 * telem.SecondTS)
+						second = (20 * telem.SecondTS).Range(26 * telem.SecondTS)
+						data   = []byte{20, 21, 22, 23, 24, 25}
+					)
+					Expect(
+						testutil.WriteDomain(ctx, db, first, []byte{10, 11, 12, 13}),
+					).To(Succeed())
+					Expect(testutil.WriteDomain(ctx, db, second, data)).To(Succeed())
+					i := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
+					Expect(i.SeekGE(ctx, second.Start)).To(BeTrue())
+					Expect(db.Delete(
+						ctx,
+						first,
+						fixedOffset(0),
+						fixedOffset(4),
+					)).To(Succeed())
+					Expect(db.GarbageCollect(ctx)).To(Succeed())
+					Expect(MustSucceed(fs.Stat("1.domain")).Size()).To(Equal(int64(6)))
+					r := MustSucceed(i.OpenReader(ctx))
+					read := make([]byte, len(data))
+					MustSucceed(r.ReadAt(read, 0))
+					Expect(read).To(Equal(data))
+					Expect(r.Close()).To(Succeed())
+					Expect(i.Close()).To(Succeed())
+				})
+			})
+
 			Context("Happy path - one file", func() {
 				It("Should garbage collect one tombstone", func(ctx SpecContext) {
 					db = MustSucceed(domain.Open(domain.Config{

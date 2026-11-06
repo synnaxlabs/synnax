@@ -32,6 +32,13 @@ func (db *DB) newReader(ctx context.Context, ptr pointer) (*Reader, error) {
 	if err != nil {
 		return nil, err
 	}
+	// GC moves domains within a file. The handle keeps GC off the file from here on.
+	if current, ok := db.idx.startingAt(
+		ptr.Start,
+	); ok &&
+		current.fileKey == ptr.fileKey {
+		ptr.offset, ptr.size = current.offset, min(ptr.size, current.size)
+	}
 	r := &Reader{internal: internal, ptr: ptr}
 	r.section = *io.NewSectionReader(internal, int64(ptr.offset), int64(ptr.size))
 	return r, nil
