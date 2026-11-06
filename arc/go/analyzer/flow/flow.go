@@ -214,8 +214,8 @@ func resolveUpstreamType(
 	name string,
 ) (types.Type, bool) {
 	if prevIDNode := prevNode.Identifier(); prevIDNode != nil {
-		idName := prevIDNode.IDENTIFIER().GetText()
-		idSym, err := ctx.Resolve(idName)
+		idName := parser.IdentifierName(prevIDNode)
+		idSym, err := ctx.ResolveQualified(parser.IdentifierParts(prevIDNode))
 		if err != nil {
 			ctx.Diagnostics.Add(diagnostics.Error(err, prevIDNode))
 			return types.Type{}, false
@@ -350,8 +350,8 @@ func analyzeIdentifier(
 	prevNode parser.IFlowNodeContext,
 	isLastNode bool,
 ) {
-	name := ctx.AST.IDENTIFIER().GetText()
-	sym, err := ctx.Resolve(name)
+	name := parser.IdentifierName(ctx.AST)
+	sym, err := ctx.ResolveQualified(parser.IdentifierParts(ctx.AST))
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return
@@ -367,6 +367,9 @@ func analyzeIdentifier(
 			d := diagnostics.Errorf(ctx.AST, "%s is not a channel", name)
 			if sym.Kind == symbol.KindFunction {
 				d = d.WithNote("use " + name + "() to instantiate the function")
+			}
+			if sym.Kind == symbol.KindConstant {
+				d = d.WithNote("use (" + name + ") to send its value")
 			}
 			ctx.Diagnostics.Add(d)
 			return
@@ -419,8 +422,8 @@ func flowSourceType(
 		return exprType, fmt.Sprintf("expression type %s", exprType)
 	}
 	if prevID := prevNode.Identifier(); prevID != nil {
-		srcName := prevID.IDENTIFIER().GetText()
-		srcSym, err := ctx.Resolve(srcName)
+		srcName := parser.IdentifierName(prevID)
+		srcSym, err := ctx.ResolveQualified(parser.IdentifierParts(prevID))
 		if err != nil {
 			return types.Type{}, ""
 		}
@@ -815,7 +818,7 @@ func analyzeInputRoutingTable(
 			continue
 		}
 
-		paramName := lastNode.Identifier().IDENTIFIER().GetText()
+		paramName := parser.IdentifierName(lastNode.Identifier())
 
 		paramType, exists := fnType.Type.Inputs.Get(paramName)
 		if !exists {
@@ -934,7 +937,7 @@ func inferFlowNodeOutputType(ctx context.Context[parser.IFlowNodeContext]) types
 			"the next node in the chain expects an input")
 	}
 	if idNode := ctx.AST.Identifier(); idNode != nil {
-		sym, err := ctx.Resolve(idNode.IDENTIFIER().GetText())
+		sym, err := ctx.ResolveQualified(parser.IdentifierParts(idNode))
 		if err != nil || sym.Kind != symbol.KindChannel {
 			return types.Type{}
 		}
