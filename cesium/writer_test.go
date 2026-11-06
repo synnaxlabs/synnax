@@ -4438,6 +4438,57 @@ var _ = Describe("Writer Behavior", func() {
 						),
 					)
 				})
+
+				It(
+					"Should return no end from a partly applied commit",
+					func(ctx SpecContext) {
+						// Indexes commit in map order, so repeat until the healthy
+						// index commits before the conflicting one.
+						conflict := MatchError(domain.ErrWriteConflict)
+						healthyCommittedFirst := func() bool {
+							var (
+								healthy     = GenerateChannelKey()
+								conflicting = GenerateChannelKey()
+								keys        = []cesium.ChannelKey{healthy, conflicting}
+							)
+							Expect(db.CreateChannel(
+								ctx,
+								cesium.Channel{
+									Key:      healthy,
+									Name:     "Clark",
+									DataType: telem.TimestampT,
+									IsIndex:  true,
+								},
+								cesium.Channel{
+									Key:      conflicting,
+									Name:     "Lewis",
+									DataType: telem.TimestampT,
+									IsIndex:  true,
+								},
+							)).To(Succeed())
+							Expect(db.WriteSeries(
+								ctx,
+								conflicting,
+								10*telem.SecondTS,
+								telem.NewSeriesSecondsTSV(10, 11),
+							)).To(Succeed())
+							w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+								Channels:         keys,
+								Start:            1 * telem.SecondTS,
+								EnableAutoCommit: new(false),
+							}))
+							Expect(w.Write(telem.MultiFrame(keys, []telem.Series{
+								telem.NewSeriesSecondsTSV(1, 30),
+								telem.NewSeriesSecondsTSV(1, 30),
+							}))).To(BeTrue())
+							Expect(w.Commit()).Error().To(conflict)
+							Expect(w.Close()).To(conflict)
+							fr := MustSucceed(db.Read(ctx, telem.TimeRangeMax, healthy))
+							return fr.HasData()
+						}
+						Eventually(healthyCommittedFirst).Should(BeTrue())
+					},
+				)
 			})
 
 			Describe("Index Errors", func() {
