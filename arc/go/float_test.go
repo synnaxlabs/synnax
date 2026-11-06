@@ -163,7 +163,7 @@ var _ = Describe("NaN and infinity", func() {
 		h := newRuntimeHarness(ctx, `
 		import math
 		x -> -math.inf -> low
-		x -> math.nan -> bad`, channelSymbols(map[string]channelDef{
+		x -> (math.nan) -> bad`, channelSymbols(map[string]channelDef{
 			"x":   {types.F32(), 100},
 			"low": {types.F32(), 200},
 			"bad": {types.F32(), 201},
@@ -180,6 +180,19 @@ var _ = Describe("NaN and infinity", func() {
 		Expect(math.IsInf(float64(low), -1)).To(BeTrue())
 		bad := out.Get(201).Series[0].Unmarshal[float32]()[0]
 		Expect(math.IsNaN(float64(bad))).To(BeTrue())
+	})
+
+	It("Should point a bare constant in a flow at parentheses", func(ctx SpecContext) {
+		root := symbol.NewRoot(nil, append(stl.NewSymbols(), &symbol.Symbol{
+			Name: "x", Kind: symbol.KindChannel, Type: types.Chan(types.F64()),
+		}, &symbol.Symbol{
+			Name: "y", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 1,
+		}))
+		Expect(arc.CompileText(
+			ctx,
+			arc.Text{Raw: "import math\nx -> math.nan -> y"},
+			root,
+		)).Error().To(MatchError(ContainSubstring("use (math.nan) to send its value")))
 	})
 
 	Describe("Mixed float and integer literals", func() {

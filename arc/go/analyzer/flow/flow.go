@@ -368,6 +368,9 @@ func analyzeIdentifier(
 			if sym.Kind == symbol.KindFunction {
 				d = d.WithNote("use " + name + "() to instantiate the function")
 			}
+			if sym.Kind == symbol.KindConstant {
+				d = d.WithNote("use (" + name + ") to send its value")
+			}
 			ctx.Diagnostics.Add(d)
 			return
 		}
