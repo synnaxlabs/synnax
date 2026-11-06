@@ -555,6 +555,48 @@ describe("Read", () => {
     );
   });
 
+  it("should reject an index name that another slave's command index holds", async () => {
+    const base = createIdentifier();
+    const index = await client.channels.create({
+      name: `${base}_cmd_time`,
+      dataType: "timestamp",
+      isIndex: true,
+    });
+    const cmd = await client.channels.create({
+      name: `${base}_cmd`,
+      dataType: "uint8",
+      index: index.key,
+    });
+    const deleted = await client.channels.create({
+      name: `${base}_deleted_cmd`,
+      dataType: "uint8",
+      index: index.key,
+    });
+    await client.channels.delete(deleted.key);
+    const owner = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      write: { channels: { [`${0x7000}_1`]: deleted.key, [`${0x7000}_2`]: cmd.key } },
+    });
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: `${base}_cmd`,
+      network: "eth0",
+      pdos: { inputs: [STATUS_ENTRY], outputs: [] },
+    });
+    const { container, statuses } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [createEntryReadChannel(slave.key, STATUS_ENTRY)],
+    });
+    await clickDeploy(container);
+    await awaitStatus(
+      statuses,
+      new RegExp(
+        `Slave ${owner.name} uses the index channel ${base}_cmd_time\\. Change the ` +
+          "identifier",
+      ),
+    );
+  });
+
   it("should reject the index that a renamed slave keeps", async () => {
     const identifier = createIdentifier();
     const pdos = { inputs: [STATUS_ENTRY], outputs: [] };

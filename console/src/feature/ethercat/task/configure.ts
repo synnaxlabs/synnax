@@ -150,7 +150,7 @@ export const retrieveByName = async (
 
 /**
  * @throws {Error} if a device other than the slave uses the slave's identifier, or if
- * another slave uses the index.
+ * another slave uses the index for itself or for a command channel.
  */
 const checkIndexFree = async (
   client: Synnax,
@@ -158,27 +158,48 @@ const checkIndexFree = async (
   index: channel.Channel,
 ): Promise<void> => {
   const identifier = channel.escapeInvalidName(slave.properties.identifier);
-  const devices = await client.devices.retrieve({});
-  for (const { key, name, make, model, properties } of devices) {
-    if (key === slave.key) continue;
-    if (
+  const other = (await client.devices.retrieve({})).find(
+    ({ key, properties }) =>
+      key !== slave.key &&
       typeof properties?.identifier === "string" &&
-      channel.escapeInvalidName(properties.identifier) === identifier
-    )
-      throw new Error(
-        `Device ${name} has an identifier that gives the same channel names as ` +
-          `${slave.properties.identifier}. Change the identifier of one of them.`,
-      );
-    if (
-      make === Device.MAKE &&
-      model === Device.SLAVE_MODEL &&
-      (properties?.readIndex === index.key || properties?.writeStateIndex === index.key)
-    )
-      throw new Error(
-        `Slave ${name} uses the index channel ${index.name}. Change the identifier ` +
-          `of slave ${slave.name}.`,
-      );
-  }
+      channel.escapeInvalidName(properties.identifier) === identifier,
+  );
+  if (other != null)
+    throw new Error(
+      `Device ${other.name} has an identifier that gives the same channel names as ` +
+        `${slave.properties.identifier}. Change the identifier of one of them.`,
+    );
+  const others = (
+    await client.devices.retrieve({
+      makes: [Device.MAKE],
+      models: [Device.SLAVE_MODEL],
+      schemas: Device.SLAVE_SCHEMAS,
+    })
+  ).filter(({ key }) => key !== slave.key);
+  const indexes = new Map<channel.Key, channel.Key>();
+  // A key list fails when one key is missing, and a slave can map a deleted channel.
+  await Promise.all(
+    others
+      .flatMap(({ properties }) => Object.values(properties.write.channels))
+      .map(async (key) => {
+        try {
+          indexes.set(key, (await client.channels.retrieve(key)).index);
+        } catch (e) {
+          if (!NotFoundError.matches(e)) throw errors.fromUnknown(e);
+        }
+      }),
+  );
+  const owner = others.find(
+    ({ properties: { readIndex, writeStateIndex, write } }) =>
+      readIndex === index.key ||
+      writeStateIndex === index.key ||
+      Object.values(write.channels).some((key) => indexes.get(key) === index.key),
+  );
+  if (owner != null)
+    throw new Error(
+      `Slave ${owner.name} uses the index channel ${index.name}. Change the ` +
+        `identifier of slave ${slave.name}.`,
+    );
 };
 
 /**
