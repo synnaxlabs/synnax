@@ -76,6 +76,8 @@ message WriterResponse {
   int32 counter = 3;
   errors.PBPayload error = 4;
   int64 end = 5;
+  // authorized is false when the writer lacks control of a channel at this commit.
+  bool authorized = 6;
 }
 
 message StreamerRequest {
