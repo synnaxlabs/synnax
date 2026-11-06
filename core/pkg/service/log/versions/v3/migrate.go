@@ -29,7 +29,7 @@ func MigrateLog(ctx context.Context, old v2.Log) (Log, error) {
 	}
 	out.TimestampPrecision = uint8(min(max(old.TimestampPrecision, 0), 3))
 	out.TimestampsHidden = old.ReceiptTimestampHidden
-	out.Tz = telem.TimeZoneLocal
+	out.TimeZone = telem.TimeZoneLocal
 	out.Channels = lo.UniqBy(
 		lo.Reject(
 			out.Channels,

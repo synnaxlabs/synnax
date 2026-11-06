@@ -96,7 +96,7 @@ func (lv Log) EncodeOrc(w *orc.Writer) error {
 	w.Uint8(uint8(lv.TimestampPrecision))
 	w.Bool(lv.ChannelNamesHidden)
 	w.Bool(lv.TimestampsHidden)
-	w.String(string(lv.Tz))
+	w.String(string(lv.TimeZone))
 	return nil
 }
 
@@ -141,7 +141,7 @@ func (lv *Log) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		lv.Tz = telem.TimeZone(rawV)
+		lv.TimeZone = telem.TimeZone(rawV)
 	}
 	return nil
 }

@@ -204,7 +204,7 @@ var _ = Describe("Log", func() {
 			Entry("timestamp precision", 80),
 			Entry("channel names hidden", 81),
 			Entry("timestamps hidden", 82),
-			Entry("tz", 85),
+			Entry("time zone", 85),
 		)
 	})
 })

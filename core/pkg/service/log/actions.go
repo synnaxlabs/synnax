@@ -167,8 +167,8 @@ func (p SetTimestampsHiddenPayload) Handle(state Log) (Log, error) {
 }
 
 // Handle sets the time zone of the line times and day rows.
-func (p SetTzPayload) Handle(state Log) (Log, error) {
-	state.Tz = p.Tz
+func (p SetTimeZonePayload) Handle(state Log) (Log, error) {
+	state.TimeZone = p.TimeZone
 	return state, nil
 }
 

@@ -108,7 +108,7 @@ class Log(BaseModel):
         timestamp_precision: Is the precision of displayed timestamps (0-3).
         channel_names_hidden: Is true when channel names are hidden.
         timestamps_hidden: Is true when entry timestamps are hidden.
-        tz: Is the time zone of the line times and day rows of the log.
+        time_zone: Is the time zone of the line times and day rows of the log.
     """
 
     key: Key = Field(default_factory=uuid4)
@@ -117,7 +117,7 @@ class Log(BaseModel):
     timestamp_precision: int = Field(default=0, ge=0, le=3)
     channel_names_hidden: bool = False
     timestamps_hidden: bool = False
-    tz: telem.TimeZone = "local"
+    time_zone: telem.TimeZone = "local"
 
     @_override
     def __hash__(self) -> int:
