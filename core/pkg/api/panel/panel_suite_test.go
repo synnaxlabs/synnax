@@ -39,15 +39,16 @@ func TestAPIPanel(t *testing.T) {
 }
 
 var (
-	db       *gorp.DB
-	groupSvc *group.Service
-	otg      *ontology.Ontology
-	rbacSvc  *rbac.Service
-	panelSvc *panel.Service
-	userSvc  *user.Service
-	apiSvc   *apipanel.Service
-	author   user.User
-	proj     project.Project
+	db         *gorp.DB
+	groupSvc   *group.Service
+	otg        *ontology.Ontology
+	rbacSvc    *rbac.Service
+	panelSvc   *panel.Service
+	userSvc    *user.Service
+	apiSvc     *apipanel.Service
+	author     user.User
+	proj       project.Project
+	projectSvc *project.Service
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -88,7 +89,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	author = MustSucceed(
 		userSvc.NewWriter(nil).Create(ctx, user.User{Name: "test"}),
 	)
-	projectSvc := MustOpen(project.OpenService(ctx, project.ServiceConfig{
+	projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 	}))
@@ -133,6 +134,13 @@ func grant(
 	Expect(policyWriter.Create(ctx, p)).To(Succeed())
 	Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
 	Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
+}
+
+// grantCreate lets subject create panels in the suite project.
+func grantCreate(ctx SpecContext, subject resource.ID) {
+	GinkgoHelper()
+	grant(ctx, subject, access.ActionCreate, resource.ID{Type: resource.TypePanel})
+	grant(ctx, subject, access.ActionUpdate, proj.ResourceID())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

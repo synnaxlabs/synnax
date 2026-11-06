@@ -11,6 +11,7 @@ package lineplot
 
 import (
 	"context"
+	"slices"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
@@ -115,10 +116,19 @@ func (s *Service) Create(
 	if err := enforcer.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: group.CreateObjects(
-			req.LinePlots,
-			stored,
-			func(e lineplot.LinePlot) *group.Key { return e.Group },
+		Objects: slices.Concat(
+			group.CreateObjects(
+				req.LinePlots,
+				stored,
+				func(e lineplot.LinePlot) *group.Key { return e.Group },
+			),
+			project.CreateObjects(
+				req.LinePlots,
+				stored,
+				func(e lineplot.LinePlot) *resource.ID {
+					return project.OwnerID(e.Project, e.Range)
+				},
+			),
 		),
 	}); err != nil {
 		return CreateResponse{}, err
@@ -280,16 +290,30 @@ type SetProjectRequest struct {
 	Keys    []lineplot.Key `json:"keys"    msgpack:"keys"`
 }
 
-// SetProject moves the line plots with the given keys into a project.
+// SetProject moves the line plots with the given keys out of their group and into a
+// project. It requires update access on the line plots, their owners, and the project.
 func (s *Service) SetProject(
 	ctx context.Context,
 	tx gorp.Tx,
 	req SetProjectRequest,
 ) (struct{}, error) {
+	var stored []lineplot.LinePlot
+	if err := s.internal.NewRetrieve().
+		Where(lineplot.MatchKeys(req.Keys...)).
+		Entries(&stored).
+		Exec(ctx, tx); err != nil {
+		return struct{}{}, err
+	}
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: lineplot.ResourceIDs(req.Keys),
+		Objects: project.MoveObjects(
+			lineplot.ResourceIDs(req.Keys),
+			lo.Map(stored, func(e lineplot.LinePlot, _ int) *resource.ID {
+				return project.OwnerID(e.Project, e.Range)
+			}),
+			new(project.ResourceID(req.Project)),
+		),
 	}); err != nil {
 		return struct{}{}, err
 	}

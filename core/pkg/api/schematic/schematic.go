@@ -11,6 +11,7 @@ package schematic
 
 import (
 	"context"
+	"slices"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
@@ -114,10 +115,19 @@ func (s *Service) Create(
 	if err := enforcer.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: group.CreateObjects(
-			req.Schematics,
-			stored,
-			func(e schematic.Schematic) *group.Key { return e.Group },
+		Objects: slices.Concat(
+			group.CreateObjects(
+				req.Schematics,
+				stored,
+				func(e schematic.Schematic) *group.Key { return e.Group },
+			),
+			project.CreateObjects(
+				req.Schematics,
+				stored,
+				func(e schematic.Schematic) *resource.ID {
+					return project.OwnerID(e.Project, e.Range)
+				},
+			),
 		),
 	}); err != nil {
 		return CreateResponse{}, err
@@ -269,10 +279,20 @@ func (s *Service) Copy(
 		Copy(ctx, req.Key, req.Name, req.Snapshot, req.Range, &res.Schematic); err != nil {
 		return CopyResponse{}, err
 	}
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	enforcer := s.access.NewEnforcer(tx)
+	if err := enforcer.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
 		Objects: []resource.ID{schematic.ResourceID(res.Schematic.Key)},
+	}); err != nil {
+		return CopyResponse{}, err
+	}
+	if err := enforcer.Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []resource.ID{
+			*project.OwnerID(res.Schematic.Project, res.Schematic.Range),
+		},
 	}); err != nil {
 		return CopyResponse{}, err
 	}
@@ -321,16 +341,30 @@ type SetProjectRequest struct {
 	Keys    []schematic.Key `json:"keys"    msgpack:"keys"`
 }
 
-// SetProject moves the schematics with the given keys into a project.
+// SetProject moves the schematics with the given keys out of their group and into a
+// project. It requires update access on the schematics, their owners, and the project.
 func (s *Service) SetProject(
 	ctx context.Context,
 	tx gorp.Tx,
 	req SetProjectRequest,
 ) (struct{}, error) {
+	var stored []schematic.Schematic
+	if err := s.internal.NewRetrieve().
+		Where(schematic.MatchKeys(req.Keys...)).
+		Entries(&stored).
+		Exec(ctx, tx); err != nil {
+		return struct{}{}, err
+	}
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: schematic.ResourceIDs(req.Keys),
+		Objects: project.MoveObjects(
+			schematic.ResourceIDs(req.Keys),
+			lo.Map(stored, func(e schematic.Schematic, _ int) *resource.ID {
+				return project.OwnerID(e.Project, e.Range)
+			}),
+			new(project.ResourceID(req.Project)),
+		),
 	}); err != nil {
 		return struct{}{}, err
 	}

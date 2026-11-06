@@ -52,18 +52,25 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	Expect(svc.Project.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
 })
 
-// newCreator creates a user that may create tables.
-func newCreator(ctx SpecContext) user.User {
+// newUser creates a user with no policies.
+func newUser(ctx SpecContext) user.User {
 	GinkgoHelper()
-	u := MustSucceed(svc.User.NewWriter(nil).Create(ctx, user.User{
+	return MustSucceed(svc.User.NewWriter(nil).Create(ctx, user.User{
 		Name: "user-" + uuid.New().String(),
 	}))
+}
+
+// newCreator creates a user that may create tables in the suite project.
+func newCreator(ctx SpecContext) user.User {
+	GinkgoHelper()
+	u := newUser(ctx)
 	grant(
 		ctx,
 		access.ActionCreate,
 		u.ResourceID(),
 		resource.ID{Type: resource.TypeTable},
 	)
+	grant(ctx, access.ActionUpdate, u.ResourceID(), project.ResourceID(proj.Key))
 	return u
 }
 

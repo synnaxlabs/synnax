@@ -51,6 +51,7 @@ var (
 	proj         project.Project
 	projectSvc   *project.Service
 	author       user.User
+	userSvc      *user.Service
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -62,7 +63,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Ontology: otg,
 	}))
 	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
-	userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
+	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    groupSvc,
@@ -127,6 +128,14 @@ func grantOn(
 	Expect(policyWriter.Create(ctx, p)).To(Succeed())
 	Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
 	Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
+}
+
+// newUser creates a user with no policies.
+func newUser(ctx SpecContext) user.User {
+	GinkgoHelper()
+	return MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
+		Name: "user-" + uuid.New().String(),
+	}))
 }
 
 func grantUpdateOn(ctx SpecContext, subject resource.ID, objects ...resource.ID) {

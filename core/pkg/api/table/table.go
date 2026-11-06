@@ -11,6 +11,7 @@ package table
 
 import (
 	"context"
+	"slices"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
@@ -117,10 +118,19 @@ func (s *Service) Create(
 	if err := enforcer.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: group.CreateObjects(
-			req.Tables,
-			stored,
-			func(e table.Table) *group.Key { return e.Group },
+		Objects: slices.Concat(
+			group.CreateObjects(
+				req.Tables,
+				stored,
+				func(e table.Table) *group.Key { return e.Group },
+			),
+			project.CreateObjects(
+				req.Tables,
+				stored,
+				func(e table.Table) *resource.ID {
+					return project.OwnerID(e.Project, e.Range)
+				},
+			),
 		),
 	}); err != nil {
 		return CreateResponse{}, err
@@ -280,16 +290,30 @@ type SetProjectRequest struct {
 	Keys    []table.Key `json:"keys"    msgpack:"keys"`
 }
 
-// SetProject moves the tables with the given keys into a project.
+// SetProject moves the tables with the given keys out of their group and into a
+// project. It requires update access on the tables, their owners, and the project.
 func (s *Service) SetProject(
 	ctx context.Context,
 	tx gorp.Tx,
 	req SetProjectRequest,
 ) (struct{}, error) {
+	var stored []table.Table
+	if err := s.internal.NewRetrieve().
+		Where(table.MatchKeys(req.Keys...)).
+		Entries(&stored).
+		Exec(ctx, tx); err != nil {
+		return struct{}{}, err
+	}
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: table.ResourceIDs(req.Keys),
+		Objects: project.MoveObjects(
+			table.ResourceIDs(req.Keys),
+			lo.Map(stored, func(e table.Table, _ int) *resource.ID {
+				return project.OwnerID(e.Project, e.Range)
+			}),
+			new(project.ResourceID(req.Project)),
+		),
 	}); err != nil {
 		return struct{}{}, err
 	}

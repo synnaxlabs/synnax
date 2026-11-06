@@ -19,6 +19,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -122,4 +124,81 @@ var _ = Describe("Create in a group", func() {
 		}))
 		Expect(retrieveLog(ctx, res.Logs[0].Key).Group).To(Equal(&g.Key))
 	})
+})
+
+var _ = Describe("Create with an owner", func() {
+	It("Should refuse the create without update on the owner", func(ctx SpecContext) {
+		u := newUser(ctx)
+		grant(
+			ctx,
+			access.ActionCreate,
+			u.ResourceID(),
+			resource.ID{Type: resource.TypeLog},
+		)
+		Expect(apiSvc.Create(AuthedCtx(ctx, u), nil, apilog.CreateRequest{
+			Logs: []log.Log{{Project: &proj.Key, Name: "Denied"}},
+		})).Error().To(MatchError(access.ErrDenied))
+	})
+})
+
+var _ = Describe("SetProject", func() {
+	createProject := func(ctx SpecContext) project.Project {
+		GinkgoHelper()
+		p := project.Project{Name: "destination"}
+		Expect(svc.Project.NewWriter(nil).Create(ctx, &p)).To(Succeed())
+		return p
+	}
+	setProject := func(ctx SpecContext, u user.User, to project.Key, key log.Key) error {
+		GinkgoHelper()
+		_, err := apiSvc.SetProject(AuthedCtx(ctx, u), nil, apilog.SetProjectRequest{
+			Project: to,
+			Keys:    []log.Key{key},
+		})
+		return err
+	}
+	It(
+		"Should refuse the move without update on the destination project",
+		func(ctx SpecContext) {
+			u := newCreator(ctx)
+			e := createLog(ctx, "Set project denied")
+			dest := createProject(ctx)
+			grant(ctx, access.ActionUpdate, u.ResourceID(), log.ResourceID(e.Key))
+			Expect(setProject(ctx, u, dest.Key, e.Key)).To(MatchError(access.ErrDenied))
+			Expect(retrieveLog(ctx, e.Key).Project).To(Equal(&proj.Key))
+		},
+	)
+	It(
+		"Should refuse the move without update on the source project",
+		func(ctx SpecContext) {
+			u := newUser(ctx)
+			e := createLog(ctx, "Set project denied")
+			dest := createProject(ctx)
+			grant(
+				ctx,
+				access.ActionUpdate,
+				u.ResourceID(),
+				log.ResourceID(e.Key),
+				project.ResourceID(dest.Key),
+			)
+			Expect(setProject(ctx, u, dest.Key, e.Key)).To(MatchError(access.ErrDenied))
+			Expect(retrieveLog(ctx, e.Key).Project).To(Equal(&proj.Key))
+		},
+	)
+	It(
+		"Should move the log with update on both projects",
+		func(ctx SpecContext) {
+			u := newCreator(ctx)
+			e := createLog(ctx, "Set project granted")
+			dest := createProject(ctx)
+			grant(
+				ctx,
+				access.ActionUpdate,
+				u.ResourceID(),
+				log.ResourceID(e.Key),
+				project.ResourceID(dest.Key),
+			)
+			Expect(setProject(ctx, u, dest.Key, e.Key)).To(Succeed())
+			Expect(retrieveLog(ctx, e.Key).Project).To(Equal(&dest.Key))
+		},
+	)
 })

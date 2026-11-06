@@ -18,7 +18,9 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -124,4 +126,81 @@ var _ = Describe("Create in a group", func() {
 		}))
 		Expect(retrieveTable(ctx, res.Tables[0].Key).Group).To(Equal(&g.Key))
 	})
+})
+
+var _ = Describe("Create with an owner", func() {
+	It("Should refuse the create without update on the owner", func(ctx SpecContext) {
+		u := newUser(ctx)
+		grant(
+			ctx,
+			access.ActionCreate,
+			u.ResourceID(),
+			resource.ID{Type: resource.TypeTable},
+		)
+		Expect(apiSvc.Create(AuthedCtx(ctx, u), nil, apitable.CreateRequest{
+			Tables: []table.Table{{Project: &proj.Key, Name: "Denied"}},
+		})).Error().To(MatchError(access.ErrDenied))
+	})
+})
+
+var _ = Describe("SetProject", func() {
+	createProject := func(ctx SpecContext) project.Project {
+		GinkgoHelper()
+		p := project.Project{Name: "destination"}
+		Expect(svc.Project.NewWriter(nil).Create(ctx, &p)).To(Succeed())
+		return p
+	}
+	setProject := func(ctx SpecContext, u user.User, to project.Key, key table.Key) error {
+		GinkgoHelper()
+		_, err := apiSvc.SetProject(AuthedCtx(ctx, u), nil, apitable.SetProjectRequest{
+			Project: to,
+			Keys:    []table.Key{key},
+		})
+		return err
+	}
+	It(
+		"Should refuse the move without update on the destination project",
+		func(ctx SpecContext) {
+			u := newCreator(ctx)
+			e := createTable(ctx, "Set project denied")
+			dest := createProject(ctx)
+			grant(ctx, access.ActionUpdate, u.ResourceID(), table.ResourceID(e.Key))
+			Expect(setProject(ctx, u, dest.Key, e.Key)).To(MatchError(access.ErrDenied))
+			Expect(retrieveTable(ctx, e.Key).Project).To(Equal(&proj.Key))
+		},
+	)
+	It(
+		"Should refuse the move without update on the source project",
+		func(ctx SpecContext) {
+			u := newUser(ctx)
+			e := createTable(ctx, "Set project denied")
+			dest := createProject(ctx)
+			grant(
+				ctx,
+				access.ActionUpdate,
+				u.ResourceID(),
+				table.ResourceID(e.Key),
+				project.ResourceID(dest.Key),
+			)
+			Expect(setProject(ctx, u, dest.Key, e.Key)).To(MatchError(access.ErrDenied))
+			Expect(retrieveTable(ctx, e.Key).Project).To(Equal(&proj.Key))
+		},
+	)
+	It(
+		"Should move the table with update on both projects",
+		func(ctx SpecContext) {
+			u := newCreator(ctx)
+			e := createTable(ctx, "Set project granted")
+			dest := createProject(ctx)
+			grant(
+				ctx,
+				access.ActionUpdate,
+				u.ResourceID(),
+				table.ResourceID(e.Key),
+				project.ResourceID(dest.Key),
+			)
+			Expect(setProject(ctx, u, dest.Key, e.Key)).To(Succeed())
+			Expect(retrieveTable(ctx, e.Key).Project).To(Equal(&dest.Key))
+		},
+	)
 })

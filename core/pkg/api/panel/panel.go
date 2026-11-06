@@ -11,6 +11,7 @@ package panel
 
 import (
 	"context"
+	"slices"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
@@ -97,27 +98,19 @@ type (
 )
 
 // Create persists the panels in req and returns them with their assigned keys. It
-// requires create access on the panel type and on the owner of each panel, and returns
-// a validation error when a panel does not belong to exactly one project or range.
+// requires create access on the panel type and update access on the group and owner of
+// each new panel, and returns a validation error when a panel does not belong to
+// exactly one project or range.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreateRequest,
 ) (res CreateResponse, err error) {
-	objects := []resource.ID{{Type: resource.TypePanel}}
-	for _, p := range req.Panels {
-		if p.Project != nil {
-			objects = append(objects, project.ResourceID(*p.Project))
-		}
-		if p.Range != nil {
-			objects = append(objects, ranger.ResourceID(*p.Range))
-		}
-	}
 	enforcer := s.access.NewEnforcer(tx)
 	if err = enforcer.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: objects,
+		Objects: []resource.ID{{Type: resource.TypePanel}},
 	}); err != nil {
 		return res, err
 	}
@@ -134,10 +127,19 @@ func (s *Service) Create(
 	if err = enforcer.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: group.CreateObjects(
-			req.Panels,
-			stored,
-			func(p panel.Panel) *group.Key { return p.Group },
+		Objects: slices.Concat(
+			group.CreateObjects(
+				req.Panels,
+				stored,
+				func(p panel.Panel) *group.Key { return p.Group },
+			),
+			project.CreateObjects(
+				req.Panels,
+				stored,
+				func(p panel.Panel) *resource.ID {
+					return project.OwnerID(p.Project, p.Range)
+				},
+			),
 		),
 	}); err != nil {
 		return res, err
@@ -295,16 +297,30 @@ type SetProjectRequest struct {
 	Keys    []panel.Key `json:"keys"    msgpack:"keys"`
 }
 
-// SetProject moves the panels with the given keys into a project.
+// SetProject moves the panels with the given keys out of their group and into a
+// project. It requires update access on the panels, their owners, and the project.
 func (s *Service) SetProject(
 	ctx context.Context,
 	tx gorp.Tx,
 	req SetProjectRequest,
 ) (struct{}, error) {
+	var stored []panel.Panel
+	if err := s.internal.NewRetrieve().
+		Where(panel.MatchKeys(req.Keys...)).
+		Entries(&stored).
+		Exec(ctx, tx); err != nil {
+		return struct{}{}, err
+	}
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: panel.ResourceIDs(req.Keys),
+		Objects: project.MoveObjects(
+			panel.ResourceIDs(req.Keys),
+			lo.Map(stored, func(e panel.Panel, _ int) *resource.ID {
+				return project.OwnerID(e.Project, e.Range)
+			}),
+			new(project.ResourceID(req.Project)),
+		),
 	}); err != nil {
 		return struct{}{}, err
 	}
