@@ -128,8 +128,11 @@ func FromAny[T any](a *anypb.Any) (T, error) {
 	if err != nil {
 		return v, err
 	}
-	err = json.Unmarshal(b, &v)
-	return v, err
+	if err = json.Unmarshal(b, &v); err != nil {
+		var zero T
+		return zero, err
+	}
+	return v, nil
 }
 
 // NilToPBAny converts the value of a nil type argument to *anypb.Any. A nil type

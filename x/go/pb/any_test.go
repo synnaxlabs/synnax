@@ -160,6 +160,19 @@ var _ = Describe("Any", func() {
 			)))
 		})
 
+		It("Should return the zero value when a later field fails to decode", func() {
+			v := MustSucceed(structpb.NewValue(map[string]any{
+				"config_hash": "abc",
+				"running":     "yes",
+			}))
+			packed := MustSucceed(anypb.New(v))
+			res, err := pb.FromAny[details](packed)
+			Expect(err).To(MatchError(ContainSubstring(
+				`cannot unmarshal JSON string into Go bool within "/running"`,
+			)))
+			Expect(res).To(Equal(details{}))
+		})
+
 		It("Should round-trip a value through ToAny", func() {
 			original := details{ConfigHash: "abc", Running: true, Rate: 2.5}
 			packed := MustSucceed(pb.ToAny(original))
