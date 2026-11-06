@@ -17,8 +17,7 @@ import (
 )
 
 // MigrateSchematic lifts a v10 schematic to v11, which stores every color alpha as a
-// 0-255
-// byte.
+// 0-255 byte.
 func MigrateSchematic(ctx context.Context, old v10.Schematic) (Schematic, error) {
 	return autoMigrateSchematic(ctx, old)
 }

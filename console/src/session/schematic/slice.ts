@@ -78,7 +78,7 @@ const windowStateZ = z.record(z.string(), stateZ).default({});
 // liftV0Alpha converts a version 0 legend color alpha, stored on the 0-1 scale, to a
 // byte. A non-zero alpha stays non-zero, as the Core's color migration does.
 const liftV0Alpha = (a: number): number =>
-  a > 0 ? Math.max(1, Math.round(a * 255)) : 0;
+  a > 0 ? Math.max(1, Math.round(Math.min(a, 1) * 255)) : 0;
 
 // migrateV0 lifts a version 0 slice to version 1, which stores each legend color alpha
 // as a 0-255 byte. Any other value passes through for the schema to judge.
