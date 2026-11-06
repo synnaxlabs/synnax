@@ -134,18 +134,14 @@ func (s *scanner) test(
 		return steps, nil
 	}
 	if inUse && held.clientID == cfg.clientID {
-		return append(steps, task.TestStep{
-			Stage:   stageConnect,
-			Address: addr,
-			Variant: status.VariantWarning,
-			Message: "Login not tested",
-			Description: fmt.Sprintf(
-				"A running task of this broker connects with client ID %q, and the "+
-					"broker would drop that task to let the test log in with the "+
-					"same ID. Stop the tasks of this broker to test these settings.",
+		return append(steps, failure(
+			stageConnect, addr, "Client ID in use", fmt.Sprintf(
+				"A running task of this broker connects with client ID %q. The broker "+
+					"would drop that task to let the test log in with the same ID. "+
+					"Stop the tasks of this broker to test these settings.",
 				cfg.clientID,
 			),
-		}), nil
+		)), nil
 	}
 	if err = probe(ctx, s.ins, cfg); err != nil {
 		return append(steps, connectFailure(addr, err)), nil

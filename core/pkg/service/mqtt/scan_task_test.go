@@ -393,11 +393,10 @@ var _ = Describe("Scan task", func() {
 						"port": broker.port, "client_id": "line-9", "username": "ops",
 					},
 				})
-				expectSuccess(stat)
-				steps := stepsOf(stat)
-				Expect(stages(steps)).
-					To(Equal([]string{"dial:success", "connect:warning"}))
-				Expect(steps[1].Message).To(Equal("Login not tested"))
+				expectFailedStep(
+					stat, "Client ID in use", "dial:success", "connect:error",
+				)
+				Expect(stat.Description).To(ContainSubstring(`"line-9"`))
 				Expect(broker.connectedIDs()).To(Equal([]string{"line-9"}))
 			},
 		)
