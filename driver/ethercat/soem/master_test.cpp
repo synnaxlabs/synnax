@@ -66,7 +66,7 @@ const std::string DC_SYNC_ADVICE =
     "settings. With no setting, the Driver uses SM sync when the slave lists an SM "
     "mode, and its first DC mode when it lists only DC modes. If the slave does not "
     "list the mode it expects, change its mode with the configuration tool of its "
-    "vendor, or disable the slave so the rest of the bus can run.";
+    "vendor.";
 }
 
 class SOEMMasterTest : public ::testing::Test {
@@ -640,14 +640,12 @@ TEST_F(SOEMMasterTest, PdoOffsetGivesTheDCSyncAdviceOfALeftOutSlave) {
     this->master->leave_out(refusals);
     this->mock->statecheck_overrides.clear();
     ASSERT_NIL(this->activate());
-    const auto err = this->master
-                         ->pdo_offset(
-                             pdo::Entry(2, 0x6000, 1, 16, true, x::telem::INT16_T)
-                         )
-                         .second;
-    ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_REFUSED);
+    const auto res = this->master->pdo_offset(
+        pdo::Entry(2, 0x6000, 1, 16, true, x::telem::INT16_T)
+    );
+    ASSERT_OCCURRED_AS_P(res, errors::STATE_CHANGE_REFUSED);
     EXPECT_EQ(
-        err.data,
+        res.second.data,
         "Slave 2 (RefusingSlave) is not on the network: it refused SAFE-OP: Invalid DC "
         "SYNC configuration. " +
             DC_SYNC_ADVICE +
@@ -706,8 +704,7 @@ TEST_F(SOEMMasterTest, ActivateDCSyncRefusalAddsAdvice) {
         "mode of the slave in its device settings. With no setting, the Driver uses SM "
         "sync when the slave lists an SM mode, and its first DC mode when it lists "
         "only DC modes. If the slave does not list the mode it expects, change its "
-        "mode with the configuration tool of its vendor, or disable the slave so the "
-        "rest of the bus can run."
+        "mode with the configuration tool of its vendor."
     );
 }
 
@@ -881,14 +878,12 @@ TEST_F(SOEMMasterTest, PdoOffsetReturnsTheErrorOfALeftOutSlave) {
     this->add_two_slaves();
     this->master->leave_out({{2, "refused SAFE-OP: Inconsistent settings."}});
     ASSERT_NIL(this->activate());
-    const auto err = this->master
-                         ->pdo_offset(
-                             pdo::Entry(2, 0x6000, 1, 16, true, x::telem::INT16_T)
-                         )
-                         .second;
-    ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_REFUSED);
+    const auto res = this->master->pdo_offset(
+        pdo::Entry(2, 0x6000, 1, 16, true, x::telem::INT16_T)
+    );
+    ASSERT_OCCURRED_AS_P(res, errors::STATE_CHANGE_REFUSED);
     EXPECT_EQ(
-        err.data,
+        res.second.data,
         "Slave 2 (Second) is not on the network: it refused SAFE-OP: Inconsistent "
         "settings. Fix the device, then stop every task on the network to try it "
         "again."

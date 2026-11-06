@@ -181,14 +181,12 @@ TEST_F(IGHMasterTest, ActivateLeavesOutASlave) {
     this->master_instance->leave_out({{1, "refused SAFE-OP: Inconsistent settings."}});
     this->activate_with_domains();
     EXPECT_EQ(this->mock_api->slave_config_count(), 1u);
-    const auto err = this->master_instance
-                         ->pdo_offset(
-                             pdo::Entry(1, 0x6000, 1, 16, true, x::telem::INT16_T)
-                         )
-                         .second;
-    ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_REFUSED);
+    const auto res = this->master_instance->pdo_offset(
+        pdo::Entry(1, 0x6000, 1, 16, true, x::telem::INT16_T)
+    );
+    ASSERT_OCCURRED_AS_P(res, errors::STATE_CHANGE_REFUSED);
     EXPECT_EQ(
-        err.data,
+        res.second.data,
         "Slave 1 (S1) is not on the network: it refused SAFE-OP: Inconsistent "
         "settings. Fix the device, then stop every task on the network to try it "
         "again."

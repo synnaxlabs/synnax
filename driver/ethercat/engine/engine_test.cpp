@@ -657,18 +657,14 @@ TEST_F(EngineTest, StartsWithoutASlaveThatRefusesAState) {
 TEST_F(EngineTest, ReaderOnALeftOutSlaveFails) {
     this->master->add_slave(io_slave(1));
     this->master->refuse(1, REFUSAL);
-    const auto [reader, err] = this->engine->open_reader(
-        {on_slave(IN_I16, 1)},
-        x::telem::Rate(100),
-        1
-    );
-    ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_REFUSED);
+    auto res = this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1);
     EXPECT_EQ(
-        err.data,
+        res.second.data,
         "Slave 1 (Slave1) is not on the network: it refused SAFE-OP: Inconsistent "
         "settings. Fix the device, then stop every task on the network to try it "
         "again."
     );
+    ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_REFUSED);
     EXPECT_FALSE(this->engine->running());
 }
 

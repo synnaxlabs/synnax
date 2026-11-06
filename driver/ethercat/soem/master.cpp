@@ -99,8 +99,7 @@ constexpr std::string_view
                      "the slave lists an SM mode, and its first DC mode when "
                      "it lists only DC modes. If the slave does not list the "
                      "mode it expects, change its mode with the configuration "
-                     "tool of its vendor, or disable the slave so the rest of "
-                     "the bus can run.";
+                     "tool of its vendor.";
 /// IOMap buffer size for process data image. This is local memory only - actual wire
 /// traffic is determined by slave PDO mappings. 128KB handles networks with hundreds
 /// of slaves or slaves with large PDO mappings (e.g., multi-axis drives).
