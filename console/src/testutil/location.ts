@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { onTestFinished } from "vitest";
+import { type Mock, onTestFinished, vi } from "vitest";
 
 /**
  * pinLocationOrigin pins window.location.origin and search for the duration of the
@@ -27,4 +27,24 @@ export const pinLocationOrigin = (origin: string, search: string = ""): void => 
       value: original,
     });
   });
+};
+
+/**
+ * mockLocationReload replaces window.location.reload with a mock for the duration of the
+ * calling test, because jsdom does not implement navigation. It returns the mock.
+ */
+export const mockLocationReload = (): Mock<() => void> => {
+  const original = window.location;
+  const reload = vi.fn<() => void>();
+  Object.defineProperty(window, "location", {
+    configurable: true,
+    value: { ...original, reload },
+  });
+  onTestFinished(() => {
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: original,
+    });
+  });
+  return reload;
 };

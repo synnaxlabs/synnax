@@ -9,21 +9,27 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any, Literal, overload
 from uuid import UUID
 
-from pydantic import BaseModel, PrivateAttr
+from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
 from synnax.arc.graph import Graph
-from synnax.arc.program import Program
 from synnax.arc.text import Text
 from synnax.arc.types_gen import (
+    AutomationPayload,
+    GraphSource,
     Key,
     Mode,
+    ModulePayload,
     Payload,
     RetrieveRequest,
     RetrieveResponse,
+    Source,
+    TextSource,
+    Type,
     Where,
     WhereInput,
     ontology_id,
@@ -32,7 +38,6 @@ from synnax.ontology.payload import ID
 from synnax.util import request_where, returns_one, sole
 from x import filter
 from x.lists import normalize
-from x.uuid import NIL
 
 
 class _CreateRequest(BaseModel):
@@ -47,49 +52,46 @@ class _DeleteRequest(BaseModel):
     keys: list[UUID]
 
 
-class Arc(Payload):
-    """An Arc is a user-defined automation sequence or control program.
+class Automation(AutomationPayload):
+    """An Arc that runs on a rack as a task. It is written in one of two modes:
 
-    Arcs can be created in two modes:
     - 'text': Source code written in the Arc programming language
     - 'graph': Visual programming using a node-based editor
     """
-
-    _client: Client | None = PrivateAttr(None)
-
-    def __init__(
-        self,
-        *,
-        key: UUID = NIL,
-        name: str = "",
-        graph: Graph | None = None,
-        text: Text | None = None,
-        mode: Mode = "text",
-        program: Program | None = None,
-        _client: Client | None = None,
-    ):
-        super().__init__(
-            key=key,
-            name=name,
-            graph=graph if graph is not None else Graph(),
-            text=text if text is not None else Text(),
-            mode=mode,
-            program=program,
-        )
-        self._client = _client
 
     @property
     def ontology_id(self) -> ID:
         return ontology_id(self.key)
 
-    def to_payload(self) -> Payload:
-        return Payload(
-            key=self.key,
-            name=self.name,
-            graph=self.graph,
-            text=self.text,
-            mode=self.mode,
-        )
+
+class Module(ModulePayload):
+    """An Arc that holds code for other Arcs to import."""
+
+    @property
+    def ontology_id(self) -> ID:
+        return ontology_id(self.key)
+
+
+Arc = Automation | Module
+
+_PAYLOADS: dict[Type, type[AutomationPayload] | type[ModulePayload]] = {
+    "automation": AutomationPayload,
+    "module": ModulePayload,
+}
+_ARCS: dict[Type, type[Automation] | type[Module]] = {
+    "automation": Automation,
+    "module": Module,
+}
+
+
+def _source(mode: Mode, text: Text | None, graph: Graph | None) -> Source:
+    if mode == "graph":
+        if text is not None:
+            raise ValueError("a graph-mode Arc takes no text")
+        return GraphSource(graph=graph if graph is not None else Graph())
+    if graph is not None:
+        raise ValueError("a text-mode Arc takes no graph")
+    return TextSource(text=text if text is not None else Text())
 
 
 class Client:
@@ -108,39 +110,33 @@ class Client:
         graph: Graph | None = None,
         text: Text | None = None,
         mode: Mode = "text",
+        type: Type = "automation",
     ) -> Arc: ...
 
     @overload
     def create(self, arc: Arc) -> Arc: ...
 
     @overload
-    def create(self, arc: list[Arc]) -> list[Arc]: ...
+    def create(self, arc: Sequence[Arc]) -> list[Arc]: ...
 
     def create(
         self,
-        arc: Arc | list[Arc] | None = None,
+        arc: Arc | Sequence[Arc] | None = None,
         *,
         name: str = "",
         graph: Graph | None = None,
         text: Text | None = None,
         mode: Mode = "text",
+        type: Type = "automation",
     ) -> Arc | list[Arc]:
-        is_single = True
-        if arc is not None:
-            if isinstance(arc, list):
-                is_single = False
-                to_create = [a.to_payload() for a in arc]
-            else:
-                to_create = [arc.to_payload()]
+        is_single = not isinstance(arc, Sequence)
+        to_create: list[Payload]
+        if isinstance(arc, Sequence):
+            to_create = list(arc)
+        elif arc is not None:
+            to_create = [arc]
         else:
-            to_create = [
-                Payload(
-                    name=name,
-                    graph=graph if graph is not None else Graph(),
-                    text=text if text is not None else Text(),
-                    mode=mode,
-                )
-            ]
+            to_create = [_PAYLOADS[type](name=name, source=_source(mode, text, graph))]
 
         res = self._client.send(
             "/arc/create", _CreateRequest(arcs=to_create), _CreateResponse
@@ -243,8 +239,8 @@ class Client:
         :param search_term: A fuzzy search term matched against Arc names.
         :param limit: The maximum number of Arcs to retrieve.
         :param offset: The number of Arcs to skip.
-        :param include_program: Whether the Core compiles each Arc and sets its
-            program. The Core raises an error if any Arc fails to compile.
+        :param include_program: Whether the Core compiles each automation and sets
+            its program. The Core raises an error if any automation fails to compile.
         :param one: Returns one Arc for any filter.
         :returns: One Arc for a plain ``key`` or ``name`` or when ``one`` is set,
             otherwise a list of Arcs. The list leaves out keys that do not exist.
@@ -276,15 +272,4 @@ class Client:
         self._client.send("/arc/delete", _DeleteRequest(keys=normalize(keys)), Empty)
 
     def _sugar(self, payloads: list[Payload]) -> list[Arc]:
-        return [
-            Arc(
-                key=p.key,
-                name=p.name,
-                graph=p.graph,
-                text=p.text,
-                mode=p.mode,
-                program=p.program,
-                _client=self,
-            )
-            for p in payloads
-        ]
+        return [_ARCS[p.type].model_validate(p, from_attributes=True) for p in payloads]

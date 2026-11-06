@@ -73,8 +73,17 @@ func Fields(table *resolution.Table, domainNames ...string) *resolution.Table {
 		Imports: table.Imports,
 		Types:   make([]resolution.Type, len(table.Types)),
 	}
+	stripActions := func(actions []resolution.Action) []resolution.Action {
+		return lo.Map(actions, func(a resolution.Action, _ int) resolution.Action {
+			a.Fields = lo.Reject(a.Fields, func(f resolution.Field, _ int) bool {
+				return omitted(f)
+			})
+			return a
+		})
+	}
 	for i, typ := range table.Types {
-		if form, ok := typ.Form.(resolution.StructForm); ok {
+		switch form := typ.Form.(type) {
+		case resolution.StructForm:
 			dropped := make(set.Set[string])
 			for _, f := range resolution.UnifiedFields(typ, table) {
 				if omitted(f) {
@@ -84,14 +93,7 @@ func Fields(table *resolution.Table, domainNames ...string) *resolution.Table {
 			form.Fields = lo.Reject(form.Fields, func(f resolution.Field, _ int) bool {
 				return dropped.Contains(f.Name)
 			})
-			actions := make([]resolution.Action, len(form.Actions))
-			for j, a := range form.Actions {
-				a.Fields = lo.Reject(a.Fields, func(f resolution.Field, _ int) bool {
-					return omitted(f)
-				})
-				actions[j] = a
-			}
-			form.Actions = actions
+			form.Actions = stripActions(form.Actions)
 			typ.Form = form
 			if typ.Filter != nil {
 				filter := *typ.Filter
@@ -101,6 +103,9 @@ func Fields(table *resolution.Table, domainNames ...string) *resolution.Table {
 				)
 				typ.Filter = &filter
 			}
+		case resolution.UnionForm:
+			form.Actions = stripActions(form.Actions)
+			typ.Form = form
 		}
 		stripped.Types[i] = typ
 	}

@@ -194,6 +194,11 @@ describe("User", () => {
         });
         expect(res.map((u) => u.key)).toEqual([keys[1]]);
       });
+      test("flat not and key", async () => {
+        const keys = userArray.map((u) => u.key as string);
+        const res = await client.users.retrieve({ not: { key: keys[0] }, key: keys });
+        expect(res.map((u) => u.key)).toEqual([keys[1]]);
+      });
       test("search term", async () => {
         const res = await client.users.retrieve({
           where: { key: { eq: userOne.key as string } },

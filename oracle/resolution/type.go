@@ -113,6 +113,17 @@ type Filter struct {
 	Request, Response string
 }
 
+// Actions returns the actions of a struct or union type, and nil for any other form.
+func (t Type) Actions() []Action {
+	switch form := t.Form.(type) {
+	case StructForm:
+		return form.Actions
+	case UnionForm:
+		return form.Actions
+	}
+	return nil
+}
+
 type TypeForm interface {
 	typeForm()
 }
@@ -182,6 +193,8 @@ type UnionForm struct {
 	// Included names the unions this union takes the variants of. The analyzer
 	// moves them out of Extends, which readers take as struct bases.
 	Included []TypeRef
+	// Actions are the wire mutations declared in the union body.
+	Actions []Action
 }
 
 func (UnionForm) typeForm() {}

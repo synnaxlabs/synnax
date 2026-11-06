@@ -26,7 +26,12 @@ import {
   setNodePosition,
 } from "@/arc/actions.gen";
 import { type ir } from "@/arc/ir";
-import { type Arc, arcZ } from "@/arc/types.gen";
+import {
+  type Arc,
+  type GraphSource,
+  graphSourceZ,
+  type TextSource,
+} from "@/arc/types.gen";
 
 const idToString = (id: crdt.ID): string => `${id.replica}:${id.counter}`;
 
@@ -36,9 +41,34 @@ const sameEndpoints = (a: ir.Edge, source: ir.Handle, target: ir.Handle): boolea
   a.target.node === target.node &&
   a.target.param === target.param;
 
+const wrongMode = (state: Draft<Arc>, edit: string): Error =>
+  new Error(
+    `${state.name} is a ${state.source.mode} Arc and cannot take a ${edit} edit`,
+  );
+
+// graphSourceOf returns the source of a graph-mode Arc, throwing for a text-mode one.
+const graphSourceOf = (state: Draft<Arc>): Draft<GraphSource> => {
+  if (state.source.mode !== "graph") throw wrongMode(state, "graph");
+  return state.source;
+};
+
+const graphOf = (state: Draft<Arc>): Draft<GraphSource["graph"]> =>
+  graphSourceOf(state).graph;
+
+// textOf returns the text of a text-mode Arc, throwing for a graph-mode one.
+const textOf = (state: Draft<Arc>): Draft<TextSource["text"]> => {
+  if (state.source.mode !== "text") throw wrongMode(state, "text");
+  return state.source.text;
+};
+
 // Path actions edit only the graph's node inputs.
 const applyPath = (state: Draft<Arc>, action: patch.Action): HandlerResult =>
-  actions.applyEntryPath(state, action, ["graph", "inputs"], arcZ);
+  actions.applyEntryPath(
+    graphSourceOf(state),
+    action,
+    ["graph", "inputs"],
+    graphSourceZ,
+  );
 
 const handlers: Handlers = {
   create: (state, payload) => {
@@ -52,20 +82,22 @@ const handlers: Handlers = {
     return { inverse: [rename({ name: oldName })], targets: [state.key] };
   },
   setNode: (state, payload) => {
-    const idx = state.graph.nodes.findIndex((n) => n.key === payload.node.key);
+    const graph = graphOf(state);
+    const idx = graph.nodes.findIndex((n) => n.key === payload.node.key);
     if (idx === -1) {
-      state.graph.nodes.push(payload.node);
+      graph.nodes.push(payload.node);
       return {
         inverse: [removeNode({ key: payload.node.key })],
         targets: [payload.node.key],
       };
     }
-    const oldNode = actions.snapshotDraft(state.graph.nodes[idx]);
-    state.graph.nodes[idx] = payload.node;
+    const oldNode = actions.snapshotDraft(graph.nodes[idx]);
+    graph.nodes[idx] = payload.node;
     return { inverse: [setNode({ node: oldNode })], targets: [payload.node.key] };
   },
   setNodePosition: (state, payload) => {
-    const node = state.graph.nodes.find((n) => n.key === payload.key);
+    const graph = graphOf(state);
+    const node = graph.nodes.find((n) => n.key === payload.key);
     if (node == null) return actions.NO_OP_RESULT;
     const oldPosition = { x: node.position.x, y: node.position.y };
     node.position = payload.position;
@@ -80,16 +112,17 @@ const handlers: Handlers = {
   // added by the action remain on undo as phantom fields. A future ReplaceNodeInputs
   // action can close the gap by enabling wholesale replacement.
   setNodeInputs: (state, payload) => {
-    const existingRaw = state.graph.inputs[payload.key];
+    const graph = graphOf(state);
+    const existingRaw = graph.inputs[payload.key];
     if (existingRaw == null) {
-      state.graph.inputs[payload.key] = payload.inputs;
+      graph.inputs[payload.key] = payload.inputs;
       return { inverse: [], targets: [payload.key] };
     }
     const existing = actions.snapshotDraft(existingRaw);
     const restoreFields: record.Unknown = {};
     for (const k of Object.keys(payload.inputs))
       if (existing[k] !== undefined) restoreFields[k] = existing[k];
-    state.graph.inputs[payload.key] = { ...existing, ...payload.inputs };
+    graph.inputs[payload.key] = { ...existing, ...payload.inputs };
     if (Object.keys(restoreFields).length === 0)
       return { inverse: [], targets: [payload.key] };
     return {
@@ -98,16 +131,17 @@ const handlers: Handlers = {
     };
   },
   removeNode: (state, payload) => {
-    const idx = state.graph.nodes.findIndex((n) => n.key === payload.key);
+    const graph = graphOf(state);
+    const idx = graph.nodes.findIndex((n) => n.key === payload.key);
     if (idx === -1) return actions.NO_OP_RESULT;
-    const oldNode = actions.snapshotDraft(state.graph.nodes[idx]);
-    const oldInputs = actions.snapshotDraft(state.graph.inputs[payload.key]);
-    const removedEdges = state.graph.edges
+    const oldNode = actions.snapshotDraft(graph.nodes[idx]);
+    const oldInputs = actions.snapshotDraft(graph.inputs[payload.key]);
+    const removedEdges = graph.edges
       .filter((e) => e.source.node === payload.key || e.target.node === payload.key)
       .map((e) => actions.snapshotDraft(e));
-    state.graph.nodes.splice(idx, 1);
-    delete state.graph.inputs[payload.key];
-    state.graph.edges = state.graph.edges.filter(
+    graph.nodes.splice(idx, 1);
+    delete graph.inputs[payload.key];
+    graph.edges = graph.edges.filter(
       (e) => e.source.node !== payload.key && e.target.node !== payload.key,
     );
     const inverse: Action[] = [setNode({ node: oldNode })];
@@ -117,21 +151,24 @@ const handlers: Handlers = {
     return { inverse, targets: [payload.key] };
   },
   addEdge: (state, payload) => {
+    const graph = graphOf(state);
     const { edge } = payload;
-    if (state.graph.edges.some((e) => sameEndpoints(e, edge.source, edge.target)))
+    if (graph.edges.some((e) => sameEndpoints(e, edge.source, edge.target)))
       return actions.NO_OP_RESULT;
-    state.graph.edges.push(edge);
+    graph.edges.push(edge);
     return { inverse: [removeEdge({ key: edge.key })], targets: [edge.key] };
   },
   removeEdge: (state, payload) => {
-    const idx = state.graph.edges.findIndex((e) => e.key === payload.key);
+    const graph = graphOf(state);
+    const idx = graph.edges.findIndex((e) => e.key === payload.key);
     if (idx === -1) return actions.NO_OP_RESULT;
-    const oldEdge = actions.snapshotDraft(state.graph.edges[idx]);
-    state.graph.edges.splice(idx, 1);
+    const oldEdge = actions.snapshotDraft(graph.edges[idx]);
+    graph.edges.splice(idx, 1);
     return { inverse: [addEdge({ edge: oldEdge })], targets: [payload.key] };
   },
   reconnectEdge: (state, payload) => {
-    const edge = state.graph.edges.find((e) => e.key === payload.key);
+    const graph = graphOf(state);
+    const edge = graph.edges.find((e) => e.key === payload.key);
     if (edge == null) return actions.NO_OP_RESULT;
     const oldSource = actions.snapshotDraft(edge.source);
     const oldTarget = actions.snapshotDraft(edge.target);
@@ -147,11 +184,13 @@ const handlers: Handlers = {
   // Undo/redo is handled the editor, which emits the corresponding
   // insertChar, deleteChar actions.
   insertChar: (state, payload) => {
-    state.text.doc.inserts.push(payload);
+    const text = textOf(state);
+    text.doc.inserts.push(payload);
     return { inverse: [], targets: [] };
   },
   deleteChar: (state, payload) => {
-    state.text.doc.deletes.push(payload);
+    const text = textOf(state);
+    text.doc.deletes.push(payload);
     return { inverse: [], targets: [] };
   },
   // Server-emitted maintenance: drop the insert and delete ops of already-deleted
@@ -159,13 +198,10 @@ const handlers: Handlers = {
   // not change the materialized text.
   forgetChars: (state, payload) => {
     if (payload.ids.length === 0) return { inverse: [], targets: [] };
+    const text = textOf(state);
     const forget = new Set(payload.ids.map(idToString));
-    state.text.doc.inserts = state.text.doc.inserts.filter(
-      (i) => !forget.has(idToString(i.id)),
-    );
-    state.text.doc.deletes = state.text.doc.deletes.filter(
-      (d) => !forget.has(idToString(d.id)),
-    );
+    text.doc.inserts = text.doc.inserts.filter((i) => !forget.has(idToString(i.id)));
+    text.doc.deletes = text.doc.deletes.filter((d) => !forget.has(idToString(d.id)));
     return { inverse: [], targets: [] };
   },
   ...actions.createPathHandlers(applyPath),
@@ -183,7 +219,7 @@ export const encode = (state: Arc, action: Action): Action => {
     case "remove":
     case "insert":
     case "move":
-      return patch.camelToSnake(action, { schema: arcZ, data: state });
+      return patch.camelToSnake(action, { schema: graphSourceZ, data: state.source });
     default:
       return action;
   }

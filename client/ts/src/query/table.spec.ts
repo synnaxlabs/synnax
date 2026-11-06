@@ -1903,7 +1903,7 @@ describe("Tombstones", () => {
 
     it("should restore a key deleted before the stamp", () => {
       const table = newRevivable();
-      table.delete("k1");
+      table.mirrorDelete(["k1"]);
       table.ingest(fetched, { since: table.stamp() });
       expect(table.status("k1")).toBe("present");
       expect(table.get("k1")).toEqual(fetched);
@@ -1941,6 +1941,31 @@ describe("Tombstones", () => {
       table.delete("k1");
       table.ingest(fetched);
       expect(table.status("k1")).toBe("tombstoned");
+    });
+  });
+
+  describe("ingestDeletes", () => {
+    it("should tombstone an entry that a fetch found gone", () => {
+      const table = newTable();
+      table.set("k1", { key: "k1", name: "a" });
+      table.ingestDeletes(["k1"], table.stamp());
+      expect(table.status("k1")).toBe("tombstoned");
+    });
+
+    it("should keep an entry written after the stamp", () => {
+      const table = newTable();
+      const since = table.stamp();
+      table.set("k1", { key: "k1", name: "a" });
+      table.ingestDeletes(["k1"], since);
+      expect(table.get("k1")).toEqual({ key: "k1", name: "a" });
+    });
+
+    it("should skip a key that the table does not hold", () => {
+      const table = newTable();
+      const subscriber = vi.fn();
+      table.subscribe(subscriber);
+      table.ingestDeletes(["k1"], table.stamp());
+      expect(subscriber).not.toHaveBeenCalled();
     });
   });
 
@@ -2030,6 +2055,25 @@ describe("mirror", () => {
     table.mirrorSet("k1", { key: "k1", name: "a" });
     expect(table.status("k1")).toBe("tombstoned");
     expect(subscriber).not.toHaveBeenCalled();
+  });
+
+  it("should skip a streamed set for a locally deleted key in a table without a fetch", () => {
+    const table = new query.Table<string, Doc>({ onError: noopError });
+    table.set("k1", { key: "k1", name: "a" });
+    table.delete("k1");
+    table.mirrorSet("k1", { key: "k1", name: "a" });
+    expect(table.status("k1")).toBe("tombstoned");
+    table.mirrorDelete(["k1"]);
+    table.mirrorSet("k1", { key: "k1", name: "b" });
+    expect(table.get("k1")).toEqual({ key: "k1", name: "b" });
+  });
+
+  it("should skip a fetched value for a revivable key whose local delete is pending", () => {
+    const table = new query.Table<string, Doc>({ onError: noopError, revivable: true });
+    table.set("k1", { key: "k1", name: "a" });
+    table.delete("k1");
+    table.ingest("k1", { key: "k1", name: "a" }, { since: table.stamp() });
+    expect(table.status("k1")).toBe("tombstoned");
   });
 
   it("should apply a streamed set after the streamed delete", () => {
@@ -2139,10 +2183,11 @@ describe("mirror", () => {
       expect(table.get("k1")).toEqual({ key: "k1", name: "b" });
     });
 
-    it("should apply a streamed set to a deleted key in a table with no fetch", () => {
+    it("should apply a streamed set to a deleted key in a table with no fetch once the stream reopens", () => {
       const table = new query.Table<string, Doc>({ onError: noopError });
       table.set("k1", { key: "k1", name: "a" });
       table.delete("k1");
+      table.clearPendingDeletes();
       table.mirrorSet("k1", { key: "k1", name: "b" });
       expect(table.get("k1")).toEqual({ key: "k1", name: "b" });
     });

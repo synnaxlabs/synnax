@@ -23,11 +23,7 @@ export const PREFIX = "labjack";
 
 export const SCAN_TYPE = `${PREFIX}_scan`;
 
-export type Scale = labjack.Scale;
-export type ScaleType = labjack.ScaleType;
-export const SCALE_SCHEMAS = labjack.SCALE_SCHEMAS;
-
-const NO_SCALE: Scale = { type: "none" };
+const NO_SCALE: task.Scale = { type: "none" };
 
 export type TemperatureUnits = labjack.TemperatureUnits;
 export type ThermocoupleType = labjack.ThermocoupleType;
