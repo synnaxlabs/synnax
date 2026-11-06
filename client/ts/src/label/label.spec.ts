@@ -18,6 +18,7 @@ import {
   expectDeleted,
   expectLive,
   FAST_RETRY,
+  holdResponses,
   spyOnSend,
   waitForStreamLive,
 } from "@/testutil";
@@ -372,6 +373,24 @@ describe("cached reads", () => {
         await expect.poll(keys).toEqual(both);
         await rename();
         expect(keys()).toEqual(both);
+      } finally {
+        off();
+      }
+    }, 30000);
+
+    it("should keep a label attached during the gap when an older fetch lands late", async () => {
+      const { local, itemID, params, changed, keys, duringGap } = await setup();
+      const { responded, release } = holdResponses(local, "/label/retrieve");
+      const stale = local.labels.retrieve(params);
+      const off = local.labels.onChange(params, vi.fn());
+      try {
+        await responded;
+        spyOnSend(local).mockRestore();
+        await duringGap(async () => await remote.labels.label(itemID, [changed.key]));
+        await expect.poll(keys).toEqual([changed.key]);
+        release();
+        await stale;
+        expect(keys()).toEqual([changed.key]);
       } finally {
         off();
       }
