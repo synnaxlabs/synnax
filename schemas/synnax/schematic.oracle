@@ -1146,7 +1146,7 @@ NumericTelemConfig struct {
     rolling_average int32?            {
         @doc value "is the sample window for rolling-average smoothing."
     }
-    precision       float64?          {
+    precision       uint8?            {
         @doc value """
             is the number of decimal places shown. Absent shows the default of 2.
         """

@@ -2673,7 +2673,7 @@ type TankNodeConfig struct {
 	// RollingAverage is the sample window for rolling-average smoothing.
 	RollingAverage *int32 `json:"rolling_average,omitzero" msgpack:"rolling_average,omitempty"`
 	// Precision is the number of decimal places shown. Absent shows the default of 2.
-	Precision *float64 `json:"precision,omitzero" msgpack:"precision,omitempty"`
+	Precision *uint8 `json:"precision,omitzero" msgpack:"precision,omitempty"`
 	// Notation is the numeric notation used to format the value.
 	Notation notation.Notation `json:"notation" msgpack:"notation"`
 	// StalenessTimeout is the duration in seconds after which the value is considered
@@ -7424,7 +7424,7 @@ type TankElementConfig struct {
 	// RollingAverage is the sample window for rolling-average smoothing.
 	RollingAverage *int32 `json:"rolling_average,omitzero" msgpack:"rolling_average,omitempty"`
 	// Precision is the number of decimal places shown. Absent shows the default of 2.
-	Precision *float64 `json:"precision,omitzero" msgpack:"precision,omitempty"`
+	Precision *uint8 `json:"precision,omitzero" msgpack:"precision,omitempty"`
 	// Notation is the numeric notation used to format the value.
 	Notation notation.Notation `json:"notation" msgpack:"notation"`
 	// StalenessTimeout is the duration in seconds after which the value is considered
@@ -9952,7 +9952,7 @@ type NumericTelemConfig struct {
 	// RollingAverage is the sample window for rolling-average smoothing.
 	RollingAverage *int32 `json:"rolling_average,omitzero" msgpack:"rolling_average,omitempty"`
 	// Precision is the number of decimal places shown. Absent shows the default of 2.
-	Precision *float64 `json:"precision,omitzero" msgpack:"precision,omitempty"`
+	Precision *uint8 `json:"precision,omitzero" msgpack:"precision,omitempty"`
 	// Notation is the numeric notation used to format the value.
 	Notation notation.Notation `json:"notation" msgpack:"notation"`
 }

@@ -148,6 +148,19 @@ var _ = Describe("Migration", func() {
 		Expect(out.Precision).To(HaveValue(BeZero()))
 	})
 
+	DescribeTable("Should round a stored precision into a byte",
+		func(ctx SpecContext, stored float64, want uint8) {
+			out := MustSucceed(v11.MigrateNumericTelemConfig(
+				ctx, v10.NumericTelemConfig{Precision: stored},
+			))
+			Expect(out.Precision).To(HaveValue(Equal(want)))
+		},
+		Entry("whole", 3.0, uint8(3)),
+		Entry("fraction", 2.6, uint8(3)),
+		Entry("negative", -1.0, uint8(0)),
+		Entry("too large", 300.0, uint8(255)),
+	)
+
 	It("Should keep zero scale indicator bounds", func(ctx SpecContext) {
 		out := MustSucceed(
 			v11.MigrateScaleIndicatorConfig(ctx, v10.ScaleIndicatorConfig{}),

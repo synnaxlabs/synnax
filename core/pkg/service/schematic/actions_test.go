@@ -33,7 +33,7 @@ var zeroBounds = spatial.Bounds{Lower: -10}
 // zeroConfigs returns one valid config per symbol with a field that accepts 0, with
 // every such field set to 0.
 func zeroConfigs() map[string]schematic.ElementConfig {
-	precision := schematic.NumericTelemConfig{Precision: new(0.0)}
+	precision := schematic.NumericTelemConfig{Precision: new(uint8(0))}
 	configs := map[string]schematic.ElementConfig{
 		"box": {Variant: schematic.BoxElementConfig{
 			BorderRadius: new(0.0),
@@ -56,7 +56,7 @@ func zeroConfigs() map[string]schematic.ElementConfig {
 			},
 		}},
 		"tank": {Variant: schematic.TankElementConfig{
-			Precision:    new(0.0),
+			Precision:    new(uint8(0)),
 			Bounds:       new(zeroBounds),
 			BorderRadius: new(border.Radius{}),
 		}},
