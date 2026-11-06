@@ -64,12 +64,8 @@ export const useListChildren = Flux.createList<
   },
 });
 
-export type RetrieveParentQuery = {
-  key: ranger.Key;
-};
-
 export const { use: useParent, useResult: useResultParent } = Flux.createRetrieve<
-  RetrieveParentQuery,
+  RetrieveQuery,
   ranger.Range | null
 >({
   name: PARENT_RESOURCE_NAME,
