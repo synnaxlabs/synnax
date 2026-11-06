@@ -3013,6 +3013,7 @@ dev = [
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "ruff" },
+    { name = "synnax" },
     { name = "synnax-scripts-common" },
 ]
 
@@ -3026,6 +3027,7 @@ dev = [
     { name = "pytest", specifier = ">=9.1.1,<10" },
     { name = "pytest-cov", specifier = ">=7.1.0,<8" },
     { name = "ruff", specifier = ">=0.17.1,<1" },
+    { name = "synnax", editable = "client/py" },
     { name = "synnax-scripts-common", editable = "scripts/common" },
 ]
 

@@ -99,6 +99,62 @@ var _ = Describe("C++ Types Plugin", func() {
 				ToNotContain("x::mem::indirect<std::vector<Where>>")
 		})
 
+		It("Should type filter lines to take plain values", func(ctx SpecContext) {
+			AddFilterSchema(loader)
+			source := `
+				import "schemas/x/filter"
+
+				@cpp output "client/cpp/thing"
+
+				Thing struct {
+					key  uint32
+					name string
+				}
+
+				Where filter Thing {
+					key
+					name
+					tags   string[]
+					active bool
+				}
+			`
+			resp := MustGenerate(ctx, source, "thing", loader, cppPlugin)
+			ExpectContent(resp, "thing/types.gen.h").ToContain(
+				`#include "x/cpp/filter/field.h"`,
+				"::x::filter::Field<::x::filter::Ordered<std::uint32_t>> key;",
+				"::x::filter::Field<::x::filter::String> name;",
+				"::x::filter::List<std::string> tags;",
+				"std::optional<bool> active;",
+			)
+		})
+
+		It("Should combine filters with &&, ||, and !", func(ctx SpecContext) {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ctx, ThingFilter, "thing", loader, cppPlugin)
+			ExpectContent(resp, "thing/types.gen.h").ToContain(
+				"friend Where operator&&(Where a, Where b) {",
+				"w.and_->push_back(std::move(a));",
+				"friend Where operator||(Where a, Where b) {",
+				"w.or_->push_back(std::move(b));",
+				"friend Where operator!(Where a) {",
+				"w.not_ = std::move(a);",
+			)
+		})
+
+		It("Should not combine a struct that is not a filter", func(ctx SpecContext) {
+			source := `
+				@cpp output "out"
+
+				Thing struct {
+					name string?
+				}
+			`
+			resp := MustGenerate(ctx, source, "thing", loader, cppPlugin)
+			ExpectContent(resp, "types.gen.h").
+				ToContain("std::optional<std::string> name;").
+				ToNotContain("operator&&", "x/cpp/filter/field.h")
+		})
+
 		Context("field-level omit", func() {
 			It("Should leave out a field omitted in cpp", func(ctx SpecContext) {
 				source := `

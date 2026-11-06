@@ -9,9 +9,11 @@
 
 from uuid import uuid4
 
+import pydantic
 import pytest
 
 import synnax as sy
+from synnax import label
 
 
 @pytest.fixture
@@ -71,6 +73,14 @@ class TestLabelClient:
         res = client.labels.retrieve(keys=[a.key, b.key])
         assert {lbl.key for lbl in res} == {a.key, b.key}
 
+    def test_retrieve_where(self, client: sy.Synnax) -> None:
+        """Should keep the labels that match the where and the other filters."""
+        a = client.labels.create(name=str(uuid4()), color="#FF0000")
+        b = client.labels.create(name=str(uuid4()), color="#FF0000")
+        where = label.Where(not_=label.Where(key=sy.filter.Set[label.Key](eq=a.key)))
+        res = client.labels.retrieve(where=where, names=[a.name, b.name])
+        assert [r.key for r in res] == [b.key]
+
     def test_retrieve_by_name(self, client: sy.Synnax) -> None:
         """Should retrieve a label by its name."""
         lbl = client.labels.create(name=str(uuid4()), color="#FF0000")
@@ -106,6 +116,54 @@ class TestLabelClient:
         """Should raise NotFoundError when no label has the name."""
         with pytest.raises(sy.NotFoundError):
             client.labels.retrieve(name=str(uuid4()))
+
+    def test_retrieve_name_operator(self, client: sy.Synnax) -> None:
+        """Should retrieve the labels whose name matches an operator."""
+        prefix = str(uuid4())
+        a = client.labels.create(name=f"{prefix}-a", color="#FF0000")
+        b = client.labels.create(name=f"{prefix}-b", color="#FF0000")
+        res = client.labels.retrieve(name={"starts_with": prefix})
+        assert sorted(lbl.key for lbl in res) == sorted([a.key, b.key])
+
+    def test_retrieve_name_list(self, client: sy.Synnax) -> None:
+        """Should return a list for a list of names, even with one name."""
+        lbl = client.labels.create(name=str(uuid4()), color="#FF0000")
+        assert client.labels.retrieve(name=[lbl.name]) == [lbl]
+
+    def test_retrieve_plain_key_beside_fields(self, client: sy.Synnax) -> None:
+        """Should return one label for a plain key beside other fields."""
+        lbl = client.labels.create(name=str(uuid4()), color="#FF0000")
+        assert client.labels.retrieve(key=lbl.key, name={"in": [lbl.name]}) == lbl
+        with pytest.raises(sy.NotFoundError):
+            client.labels.retrieve(key=lbl.key, name="other")
+
+    def test_retrieve_or(self, client: sy.Synnax) -> None:
+        """Should retrieve the labels that match any filter in or_."""
+        a = client.labels.create(name=str(uuid4()), color="#FF0000")
+        b = client.labels.create(name=str(uuid4()), color="#FF0000")
+        res = client.labels.retrieve(or_=[{"name": a.name}, {"key": [b.key]}])
+        assert sorted(lbl.key for lbl in res) == sorted([a.key, b.key])
+
+    def test_retrieve_one(self, client: sy.Synnax) -> None:
+        """Should return one label for any filter when one is set."""
+        lbl = client.labels.create(name=str(uuid4()), color="#FF0000")
+        assert client.labels.retrieve(name={"starts_with": lbl.name}, one=True) == lbl
+        assert client.labels.retrieve(keys=[lbl.key], one=True) == lbl
+
+    def test_retrieve_one_with_limit(self, client: sy.Synnax) -> None:
+        """Should reject one beside a limit, since a page could hide a match."""
+        with pytest.raises(sy.ValidationError, match="limit or offset"):
+            client.labels.retrieve(name={"starts_with": "a"}, one=True, limit=1)  # type: ignore[call-overload]
+
+    def test_retrieve_none_field(self, client: sy.Synnax) -> None:
+        """Should reject a field set to None, since it would select every label."""
+        with pytest.raises(sy.ValidationError, match="name is None"):
+            client.labels.retrieve(name=None)  # type: ignore[call-overload]
+
+    def test_retrieve_unknown_field(self, client: sy.Synnax) -> None:
+        """Should reject a field that is not a label filter line."""
+        with pytest.raises(pydantic.ValidationError, match="nme"):
+            client.labels.retrieve(nme="a")  # type: ignore[call-overload]
 
     def test_delete(self, client: sy.Synnax) -> None:
         """Should delete a label."""

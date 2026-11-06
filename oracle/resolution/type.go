@@ -70,8 +70,15 @@ var operatorMembers = map[string][]string{
 	OperatorSet:      {"eq", "in"},
 	OperatorOrdered:  {"eq", "in", "gt", "gte", "lt", "lte"},
 	OperatorContains: {"any"},
-	OperatorString:   {"eq", "in", "regex"},
-	OperatorBool:     {"eq"},
+	OperatorString: {
+		"eq",
+		"in",
+		"contains",
+		"starts_with",
+		"regex",
+		"case_insensitive",
+	},
+	OperatorBool: {"eq"},
 }
 
 // OperatorMembers returns the members that the interpreters of the operator type op
@@ -104,6 +111,17 @@ type Filter struct {
 	// Request and Response are the qualified names of the derived retrieve request and
 	// response, or empty when the analyzer derived none.
 	Request, Response string
+}
+
+// Actions returns the actions of a struct or union type, and nil for any other form.
+func (t Type) Actions() []Action {
+	switch form := t.Form.(type) {
+	case StructForm:
+		return form.Actions
+	case UnionForm:
+		return form.Actions
+	}
+	return nil
 }
 
 type TypeForm interface {
@@ -175,6 +193,8 @@ type UnionForm struct {
 	// Included names the unions this union takes the variants of. The analyzer
 	// moves them out of Extends, which readers take as struct bases.
 	Included []TypeRef
+	// Actions are the wire mutations declared in the union body.
+	Actions []Action
 }
 
 func (UnionForm) typeForm() {}

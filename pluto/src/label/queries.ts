@@ -36,7 +36,7 @@ export const setLabelsFor = async ({
 }: SetLabelsForParams): Promise<label.Label[]> => {
   await client.labels.label(id, labels, { replace: true });
   if (labels.length === 0) return [];
-  return await client.labels.retrieve({ keys: labels });
+  return await client.labels.retrieve(labels);
 };
 
 export const { useResult: useResultLabelsOf } = Flux.createRetrieve<
@@ -147,7 +147,9 @@ export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRet
   label.Label[]
 >({
   name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.labels.retrieve(query),
-  onChange: ({ client, query }, handler) => client.labels.onChange(query, handler),
-  getCached: ({ client, query }) => client.labels.getCached(query),
+  retrieve: async ({ client, query: { keys } }) =>
+    await client.labels.retrieve({ key: keys }),
+  onChange: ({ client, query: { keys } }, handler) =>
+    client.labels.onChange(keys, handler),
+  getCached: ({ client, query: { keys } }) => client.labels.getCached(keys),
 });
