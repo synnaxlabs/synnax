@@ -38,7 +38,7 @@ OPEN_THREADS = (
 
 def gh(*args: str, stdin: str | None = None) -> str:
     return subprocess.run(
-        ["gh", *args], input=stdin, capture_output=True, text=True, check=True
+        ["gh", *args], input=stdin, stdout=subprocess.PIPE, text=True, check=True
     ).stdout
 
 
@@ -50,8 +50,9 @@ class Target:
     pr: int
     head: str
     base: str
-    check_run: int
-    """The check run that the review completes."""
+    check_run: int | None
+    """The check run that the review completes, or None for a replay, which posts
+    nothing."""
     run_url: str
     bot: str
     """The slug of the GitHub App the review posts as."""

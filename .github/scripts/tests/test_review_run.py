@@ -364,9 +364,10 @@ def git(cwd: Path, *args: str) -> str:
 class TestMain:
     """Tests the `run` command with fake `gh` and `claude` executables."""
 
-    def test_should_review_the_head_with_the_policy_checkout(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    @pytest.fixture
+    def env(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, str]:
+        """Sets the environment of a review. The fake `gh` logs each call to
+        `gh.log`, and the fake `claude` writes its prompt to `prompt.txt`."""
         home = tmp_path / "policy" / ".sedosaur"
         (home / "rules").mkdir(parents=True)
         (home / "config.toml").write_text(
@@ -387,6 +388,7 @@ class TestMain:
         bindir.mkdir()
         executable(
             bindir / "gh",
+            f"open({str(tmp_path / 'gh.log')!r}, 'a').write(' '.join(sys.argv))\n"
             "if 'graphql' not in sys.argv:\n"
             "    print(json.dumps({'title': 'Fix A', 'body': 'Fixes A.'}))\n",
         )
@@ -417,16 +419,22 @@ class TestMain:
         }
         for k, v in env.items():
             monkeypatch.setenv(k, v)
+        return env
+
+    def test_should_review_the_head_with_the_policy_checkout(
+        self, tmp_path: Path, env: dict[str, str]
+    ) -> None:
         out = tmp_path / "review.json"
         main(["run", str(out)])
-        text = prompt.read_text()
+        assert "graphql" in (tmp_path / "gh.log").read_text()
+        text = (tmp_path / "prompt.txt").read_text()
         assert text.startswith("Use the trusted policy.\n\n# Pull request #7: Fix A")
         assert "     2 +two" in text
         record = json.loads(out.read_text())
         assert record["at"].endswith("+00:00")
         assert record["pr"] == 7
         assert record["head"] == env["HEAD_SHA"]
-        assert record["base"] == base
+        assert record["base"] == env["BASE_SHA"]
         assert record["policy"] == "policy"
         assert record["review"]["score"] == 5
         assert record["usage"] == {
@@ -439,3 +447,13 @@ class TestMain:
             "cache_creation_tokens": 6,
             "limits": {},
         }
+
+    def test_should_replay_without_the_open_threads_or_a_check_run(
+        self, tmp_path: Path, env: dict[str, str], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("REPLAY", "true")
+        monkeypatch.delenv("CHECK_RUN")
+        out = tmp_path / "review.json"
+        main(["run", str(out)])
+        assert "graphql" not in (tmp_path / "gh.log").read_text()
+        assert json.loads(out.read_text())["review"]["score"] == 5
