@@ -70,8 +70,7 @@ func renderVersion(ctx context.Context, files map[string]string, n int) string {
 func elementVariants(ctx context.Context, files map[string]string) map[string]string {
 	GinkgoHelper()
 	f := MustSucceed(resolverFor(files).File(ctx, "schemas/synnax/channel", 2))
-	element, ok := versions.DefinedType(f, "Element")
-	Expect(ok).To(BeTrue())
+	element := MustBeOk(versions.DefinedType(f, "Element"))
 	form := element.Form.(resolution.UnionForm)
 	variants := make(map[string]string, len(form.Variants))
 	for _, v := range form.Variants {
