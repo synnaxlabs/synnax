@@ -253,6 +253,13 @@ class TestChannel:
         results = client.channels.retrieve(fake_names)
         assert len(results) == 0
 
+    def test_retrieve_empty_list(self, client: sy.Synnax) -> None:
+        """Should retrieve no channels for an empty list."""
+        client.channels.create(
+            name=channel_name(), data_type=sy.DataType.FLOAT32, virtual=True
+        )
+        assert client.channels.retrieve([]) == []
+
     def test_retrieve_list_of_keys_not_found(self, client: sy.Synnax) -> None:
         """Should retrieve an empty list when can't find channels"""
         fake_keys = [1234, 5781, 99123]
