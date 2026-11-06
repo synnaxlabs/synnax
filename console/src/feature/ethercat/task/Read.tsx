@@ -20,6 +20,7 @@ import {
   ReadDetailsTitle,
 } from "@/feature/ethercat/task/ChannelDetails";
 import {
+  bindOrphanedChannels,
   checkOrCreateIndex,
   findChannelsToCreate,
   retrieveAndValidateSlaves,
@@ -28,6 +29,7 @@ import {
   addressKey,
   createReadChannel,
   deployReadConfigZ,
+  type EntryReadChannel,
   getEntryChannelName,
   getPortLabel,
   hasEntry,
@@ -111,20 +113,29 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
   for (const slave of slaves) {
     const channels = channelsBySlaveKey.get(slave.key) ?? [];
     let modified = await checkOrCreateIndex(client, slave, READ_INDEX_OPTIONS);
-    const toCreate = await findChannelsToCreate(
+    const missing = await findChannelsToCreate(
       client,
       channels,
       slave.properties.read.channels,
     );
+    if (missing.length > 0) modified = true;
+    const { identifier, pdos } = slave.properties;
+    const channelName = (ch: EntryReadChannel) =>
+      primitive.isNonZero(ch.name)
+        ? ch.name
+        : getEntryChannelName(identifier, pdos.inputs, ch);
+    const toCreate = await bindOrphanedChannels({
+      client,
+      channels: missing,
+      names: missing.map(channelName),
+      index: () => slave.properties.readIndex,
+      map: slave.properties.read.channels,
+    });
 
     if (toCreate.length > 0) {
-      modified = true;
-      const { identifier, pdos } = slave.properties;
       const created = await client.channels.create(
         toCreate.map((ch) => ({
-          name: primitive.isNonZero(ch.name)
-            ? ch.name
-            : getEntryChannelName(identifier, pdos.inputs, ch),
+          name: channelName(ch),
           dataType: ch.dataType,
           index: slave.properties.readIndex,
         })),
