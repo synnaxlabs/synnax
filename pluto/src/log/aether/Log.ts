@@ -351,12 +351,17 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
       // taken at the bottom starts there, so it takes a return or a downward scroll.
       if (scrollState.offset < this.entries.length || scrollState.tail > 0)
         scrollState.awayFromEnd = true;
-      else if (i.telem.wrapped.live !== false && (scrollState.awayFromEnd || dist < 0))
+      else if (
+        i.telem.wrapped.live !== false &&
+        (scrollState.awayFromEnd || dist < 0)
+      ) {
         this.setState((s) => ({
           ...s,
           scrolling: false,
           resumedAt: performance.now(),
         }));
+        i.telem.wrapped.resume?.();
+      }
     }
 
     this.setAnchors(this.state.selectionStart, this.state.selectionEnd);
