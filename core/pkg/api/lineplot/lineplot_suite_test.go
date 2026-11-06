@@ -39,6 +39,8 @@ var (
 	svc    *service.Layer
 	apiSvc *apilineplot.Service
 	proj   project.Project
+	// author has no role assignments.
+	author user.User
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -50,6 +52,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	proj = project.Project{Name: "test-project"}
 	Expect(svc.Project.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
+	author = MustSucceed(svc.User.NewWriter(nil).Create(ctx, user.User{
+		Name: "author",
+	}))
 })
 
 // newUser creates a user with no policies.

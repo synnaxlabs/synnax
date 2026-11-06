@@ -19,6 +19,7 @@ from synnax.status.types_gen import (
     Key,
     Status,
     Variant,
+    Where,
     resource_id,
 )
 
@@ -36,5 +37,6 @@ __all__ = [
     "Key",
     "Status",
     "Variant",
+    "Where",
     "resource_id",
 ]

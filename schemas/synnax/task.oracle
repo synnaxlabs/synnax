@@ -11,6 +11,7 @@ import "schemas/synnax/device"
 import "schemas/synnax/rack"
 import "schemas/synnax/ranger"
 import "schemas/synnax/status"
+import "schemas/x/filter"
 import "schemas/x/patch"
 import "schemas/x/telem"
 
@@ -75,6 +76,7 @@ Task struct<
     }
     name        string              {
         @doc value         "is a human-readable name for the task."
+        @search
         @validate required
     }
     type        Type                {
@@ -82,6 +84,7 @@ Task struct<
             is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan').
             Determines which hardware integration handles the task.
         """
+        @search
     }
     config      Config              {
         @doc value """
@@ -104,6 +107,7 @@ Task struct<
     status      Status<StatusData>? {
         @doc value  "is the current execution status of the task."
         @go marshal omit
+        @include
     }
     range       ranger.Key?         {
         @cpp omit
@@ -151,6 +155,26 @@ Task struct<
     @ts coalesce_type_params
     @ts concrete_types
     @ts name                 "Payload"
+}
+
+Where filter Task {
+    key
+    name
+    type
+    rack
+    internal
+    snapshot
+    ranges   ranger.Key[] {
+        @cpp omit
+        @doc value "matches the tasks that are snapshots in any of the given ranges."
+    }
+    arcs     uuid[]       {
+        @cpp omit
+        @doc value "matches the tasks that run any of the Arcs with the given keys."
+    }
+
+    @doc value         "is a filter that selects tasks."
+    @go request_output "core/pkg/api/task"
 }
 
 Command struct {
@@ -245,5 +269,72 @@ ScanConfig struct extends KeyedConfig {
     }
 
     @doc value "carries the fields shared by every scan task configuration."
+    @pb omit
+}
+
+Scale union on type {
+    linear {
+        slope  float64 = 1 {
+            @doc value "is the multiplier applied to the raw value."
+        }
+        offset float64 = 0 {
+            @doc value "is the offset added after scaling."
+        }
+
+        @doc value "maps raw values to engineering units with a slope and offset."
+    }
+    map {
+        pre_scaled_min float64 = 0 {
+            @default group "pre_scaled"
+            @doc value     "is the lower bound of the raw input range."
+        }
+        pre_scaled_max float64 = 1 {
+            @default group "pre_scaled"
+            @doc value     "is the upper bound of the raw input range."
+        }
+        scaled_min     float64 = 0 {
+            @default group "scaled"
+            @doc value     "is the lower bound of the scaled output range."
+        }
+        scaled_max     float64 = 1 {
+            @default group "scaled"
+            @doc value     "is the upper bound of the scaled output range."
+        }
+
+        @doc value "maps a raw range linearly onto a scaled range."
+    }
+    polynomial {
+        coeffs float64[] = [] {
+            @doc value """
+                are the coefficients from the constant term up, so that index i holds
+                the coefficient of x^i.
+            """
+        }
+
+        @doc value "maps raw values to engineering units with a polynomial."
+    }
+    table {
+        pre_scaled_vals float64[] = [] {
+            @doc value "are the raw breakpoints, in increasing order."
+        }
+        scaled_vals     float64[] = [] {
+            @doc value "are the engineering-unit values at each breakpoint."
+        }
+
+        @doc value """
+            maps raw values to engineering units by linear interpolation between the
+            breakpoints, and clips raw values outside the table to its first or last
+            scaled value.
+        """
+    }
+    none {
+        @doc value "applies no scaling; the raw value is used directly."
+    }
+
+    @doc value  """
+        determines how the raw values of a hardware read channel are transformed to
+        engineering units.
+    """
+    @go marshal
     @pb omit
 }

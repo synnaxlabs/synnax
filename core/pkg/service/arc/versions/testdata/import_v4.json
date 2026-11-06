@@ -3,7 +3,5 @@
   "type": "arc",
   "key": "11111111-2222-3333-4444-555555555555",
   "name": "Current text",
-  "mode": "text",
-  "graph": { "nodes": [], "edges": [], "inputs": {} },
-  "text": { "raw": "sensor -> scale(factor=2.0) -> out" }
+  "source": { "mode": "text", "text": { "raw": "sensor -> scale(factor=2.0) -> out" } }
 }

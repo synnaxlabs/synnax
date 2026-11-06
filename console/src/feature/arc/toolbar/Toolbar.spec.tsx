@@ -31,8 +31,8 @@ const client = createTestClient();
 const createArc = async () =>
   await client.arcs.create({
     name: uniqueName("arc"),
-    mode: "graph",
-    graph: { nodes: [], edges: [] },
+    type: "automation",
+    source: { mode: "graph", graph: { nodes: [], edges: [] } },
   });
 
 const renderToolbar = async (): Promise<{ store: TestStore }> => {

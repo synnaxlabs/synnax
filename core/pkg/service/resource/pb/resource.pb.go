@@ -60,6 +60,15 @@ const (
 	Type_TYPE_TASK             Type = 21
 	Type_TYPE_USER             Type = 22
 	Type_TYPE_VIEW             Type = 23
+	Type_TYPE_ETHERCAT_MASTER  Type = 24
+	Type_TYPE_ETHERCAT_SLAVE   Type = 25
+	Type_TYPE_HTTP_SERVER      Type = 26
+	Type_TYPE_LABJACK_DEVICE   Type = 27
+	Type_TYPE_MODBUS_SERVER    Type = 28
+	Type_TYPE_NI_CHASSIS       Type = 29
+	Type_TYPE_NI_DEVICE        Type = 30
+	Type_TYPE_OPCUA_SERVER     Type = 31
+	Type_TYPE_ARC_DIRECTORY    Type = 32
 )
 
 // Enum value maps for Type.
@@ -89,6 +98,15 @@ var (
 		21: "TYPE_TASK",
 		22: "TYPE_USER",
 		23: "TYPE_VIEW",
+		24: "TYPE_ETHERCAT_MASTER",
+		25: "TYPE_ETHERCAT_SLAVE",
+		26: "TYPE_HTTP_SERVER",
+		27: "TYPE_LABJACK_DEVICE",
+		28: "TYPE_MODBUS_SERVER",
+		29: "TYPE_NI_CHASSIS",
+		30: "TYPE_NI_DEVICE",
+		31: "TYPE_OPCUA_SERVER",
+		32: "TYPE_ARC_DIRECTORY",
 	}
 	Type_value = map[string]int32{
 		"TYPE_ARC":              0,
@@ -115,6 +133,15 @@ var (
 		"TYPE_TASK":             21,
 		"TYPE_USER":             22,
 		"TYPE_VIEW":             23,
+		"TYPE_ETHERCAT_MASTER":  24,
+		"TYPE_ETHERCAT_SLAVE":   25,
+		"TYPE_HTTP_SERVER":      26,
+		"TYPE_LABJACK_DEVICE":   27,
+		"TYPE_MODBUS_SERVER":    28,
+		"TYPE_NI_CHASSIS":       29,
+		"TYPE_NI_DEVICE":        30,
+		"TYPE_OPCUA_SERVER":     31,
+		"TYPE_ARC_DIRECTORY":    32,
 	}
 )
 
@@ -215,7 +242,7 @@ const file_core_pkg_service_resource_pb_resource_proto_rawDesc = "" +
 	"+core/pkg/service/resource/pb/resource.proto\x12\x13service.resource.pb\"E\n" +
 	"\x02ID\x12-\n" +
 	"\x04type\x18\x01 \x01(\x0e2\x19.service.resource.pb.TypeR\x04type\x12\x10\n" +
-	"\x03key\x18\x02 \x01(\tR\x03key*\x9e\x03\n" +
+	"\x03key\x18\x02 \x01(\tR\x03key*\xf0\x04\n" +
 	"\x04Type\x12\f\n" +
 	"\bTYPE_ARC\x10\x00\x12\x10\n" +
 	"\fTYPE_BUILTIN\x10\x01\x12\x10\n" +
@@ -246,7 +273,16 @@ const file_core_pkg_service_resource_pb_resource_proto_rawDesc = "" +
 	"TYPE_TABLE\x10\x14\x12\r\n" +
 	"\tTYPE_TASK\x10\x15\x12\r\n" +
 	"\tTYPE_USER\x10\x16\x12\r\n" +
-	"\tTYPE_VIEW\x10\x17B\xcc\x01\n" +
+	"\tTYPE_VIEW\x10\x17\x12\x18\n" +
+	"\x14TYPE_ETHERCAT_MASTER\x10\x18\x12\x17\n" +
+	"\x13TYPE_ETHERCAT_SLAVE\x10\x19\x12\x14\n" +
+	"\x10TYPE_HTTP_SERVER\x10\x1a\x12\x17\n" +
+	"\x13TYPE_LABJACK_DEVICE\x10\x1b\x12\x16\n" +
+	"\x12TYPE_MODBUS_SERVER\x10\x1c\x12\x13\n" +
+	"\x0fTYPE_NI_CHASSIS\x10\x1d\x12\x12\n" +
+	"\x0eTYPE_NI_DEVICE\x10\x1e\x12\x15\n" +
+	"\x11TYPE_OPCUA_SERVER\x10\x1f\x12\x16\n" +
+	"\x12TYPE_ARC_DIRECTORY\x10 B\xcc\x01\n" +
 	"\x17com.service.resource.pbB\rResourceProtoP\x01Z4github.com/synnaxlabs/synnax/pkg/service/resource/pb\xa2\x02\x03SRP\xaa\x02\x13Service.Resource.Pb\xca\x02\x13Service\\Resource\\Pb\xe2\x02\x1fService\\Resource\\Pb\\GPBMetadata\xea\x02\x15Service::Resource::Pbb\x06proto3"
 
 var (

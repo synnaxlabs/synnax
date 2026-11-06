@@ -12,6 +12,7 @@ import "@/select/Item.css";
 import { type record } from "@synnaxlabs/x";
 import {
   type MouseEvent,
+  type ReactElement,
   type ReactNode,
   type RefObject,
   useLayoutEffect,
@@ -33,6 +34,7 @@ import {
   useInList,
 } from "@/select/scope";
 import { hasModifier } from "@/select/use";
+import { Text } from "@/text";
 
 /** Props for {@link Item}. */
 export type ItemProps<
@@ -144,7 +146,7 @@ const ButtonItem = <K extends record.Key>({
   return (
     <Button.Toggle
       preview={preview}
-      variant={variant === "card" ? "outlined" : variant}
+      variant={variant}
       {...itemStatus}
       {...rest}
       ref={ref}
@@ -255,3 +257,31 @@ export const Item = <
   if (buttons != null) return <ButtonItem {...rest} buttons={buttons} />;
   return <FixedItem item={rest} text={textValue} label={label ?? rest.children} />;
 };
+
+/** Props for {@link ItemDescription}. */
+export type ItemDescriptionProps = Text.TextProps;
+
+/**
+ * A short line under the name of an {@link Item} that says what the option does. The
+ * item's first child is its icon, which then sits beside the name. Give the item a
+ * `label` and a `textValue`, so the trigger and the search use only the name.
+ *
+ * @example
+ * <Select.Item itemKey="high" label="High" textValue="High">
+ *   <Icon.Meter.High />
+ *   High
+ *   <Select.ItemDescription>Most detail.</Select.ItemDescription>
+ * </Select.Item>
+ */
+export const ItemDescription = ({
+  className,
+  ...rest
+}: ItemDescriptionProps): ReactElement => (
+  <Text.Text
+    className={CSS.cls(CSS.BE("select", "item-description"), className)}
+    color={9}
+    level="small"
+    overflow="wrap"
+    {...rest}
+  />
+);

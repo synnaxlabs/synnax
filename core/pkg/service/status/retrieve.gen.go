@@ -24,7 +24,7 @@ import (
 const tableName = "status"
 
 // indexes bundles the per-Service secondary indexes registered on the
-// Status table. Each index is constructed via newIndexes and threaded
+// Status[any] table. Each index is constructed via newIndexes and threaded
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
@@ -92,4 +92,12 @@ func (i indexes) references() []gorp.Reference[Key, Status[any]] {
 // resourceTarget returns the gorp.Target of the resource that id identifies.
 func resourceTarget(id resource.ID) gorp.Target {
 	return gorp.Target{Table: string(id.Type), Key: id.Key}
+}
+
+// MatchSearch matches the statuses whose text matches term.
+// The closest match comes first.
+func MatchSearch(term string) Filter[any] {
+	return func(r Retrieve[any]) gorp.Filter[Key, Status[any]] {
+		return r.indexes.search.Filter(term)
+	}
 }

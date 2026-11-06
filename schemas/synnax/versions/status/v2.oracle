@@ -9,6 +9,7 @@
 
 import "schemas/synnax/versions/label/v0"
 import "schemas/synnax/versions/resource/v0"
+import "schemas/x/versions/filter/v0"
 import "schemas/x/versions/telem/v0"
 
 Variant = v0.Variant
@@ -73,5 +74,19 @@ Status struct<Details?, V extends Variant = Variant> {
         details. A status is uniquely identified by a key, may name the resource that
         owns it, and may carry a human-readable name and labels.
     """
+    @go marshal
+}
+
+Where filter Status {
+    key
+    variant
+    labels  label.Key[]   {
+        @doc value "matches statuses that have any of the given labels."
+    }
+    owners  resource.ID[] {
+        @doc value "matches the statuses that the given resources own."
+    }
+
+    @doc value  "is a filter that selects statuses."
     @go marshal
 }

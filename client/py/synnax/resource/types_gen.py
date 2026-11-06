@@ -61,6 +61,24 @@ TYPE_USER: Literal["user"] = "user"
 
 TYPE_VIEW: Literal["view"] = "view"
 
+TYPE_ETHERCAT_MASTER: Literal["ethercat_master"] = "ethercat_master"
+
+TYPE_ETHERCAT_SLAVE: Literal["ethercat_slave"] = "ethercat_slave"
+
+TYPE_HTTP_SERVER: Literal["http_server"] = "http_server"
+
+TYPE_LABJACK_DEVICE: Literal["labjack_device"] = "labjack_device"
+
+TYPE_MODBUS_SERVER: Literal["modbus_server"] = "modbus_server"
+
+TYPE_NI_CHASSIS: Literal["ni_chassis"] = "ni_chassis"
+
+TYPE_NI_DEVICE: Literal["ni_device"] = "ni_device"
+
+TYPE_OPCUA_SERVER: Literal["opcua_server"] = "opcua_server"
+
+TYPE_ARC_DIRECTORY: Literal["arc_directory"] = "arc_directory"
+
 
 Type = Literal[
     "arc",
@@ -87,4 +105,13 @@ Type = Literal[
     "task",
     "user",
     "view",
+    "ethercat_master",
+    "ethercat_slave",
+    "http_server",
+    "labjack_device",
+    "modbus_server",
+    "ni_chassis",
+    "ni_device",
+    "opcua_server",
+    "arc_directory",
 ]

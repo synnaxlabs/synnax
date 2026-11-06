@@ -12,15 +12,38 @@ import { describe, expect, it, onTestFinished, vi } from "vitest";
 import z from "zod";
 
 import { channel } from "@/channel";
-import { DataType, NotFoundError } from "@/index";
+import { DataType, NotFoundError, ValidationError } from "@/index";
 import { query } from "@/query";
 import { status } from "@/status";
-import { createTestClient, expectLive, spyOnSend, waitForStreamLive } from "@/testutil";
+import {
+  createTestClient,
+  expectLive,
+  holdResponses,
+  spyOnSend,
+  waitForStreamLive,
+} from "@/testutil";
 
 const client = createTestClient();
 
 describe("Status", () => {
   describe("set", () => {
+    it("should keep a set that lands before an older fetch", async () => {
+      const s = await client.statuses.set({ variant: "info", message: "before" });
+      const local = createTestClient();
+      await local.connect();
+      await waitForStreamLive(local.connection);
+      await local.statuses.retrieve(s.key);
+      const { responded, release } = holdResponses(local, "/status/retrieve");
+      const fetching = local.statuses.retrieve({ where: { key: { eq: s.key } } });
+      await responded;
+      await client.statuses.set({ ...s, message: "after" });
+      await expect
+        .poll(() => expectLive(local.statuses.getCached(s.key)).message)
+        .toBe("after");
+      release();
+      await fetching;
+      expect(expectLive(local.statuses.getCached(s.key)).message).toBe("after");
+    });
     it("should create a new status", async () => {
       const s = await client.statuses.set({
         name: "Test Status",
@@ -438,9 +461,7 @@ describe("Status", () => {
         },
       ]);
 
-      const statuses = await client.statuses.retrieve({
-        keys: ["multi-1", "multi-2"],
-      });
+      const statuses = await client.statuses.retrieve(["multi-1", "multi-2"]);
 
       expect(statuses).toHaveLength(2);
       const keys = statuses.map((s) => s.key);
@@ -482,13 +503,13 @@ describe("Status", () => {
       }
 
       const page1 = await client.statuses.retrieve({
-        keys,
+        where: { key: { in: keys } },
         limit: 2,
         offset: 0,
       });
 
       const page2 = await client.statuses.retrieve({
-        keys,
+        where: { key: { in: keys } },
         limit: 2,
         offset: 2,
       });
@@ -610,8 +631,9 @@ describe("Status", () => {
 
       await client.statuses.delete(keys);
 
-      const results = await client.statuses.retrieve({ keys }).catch(() => []);
-      expect(results).toHaveLength(0);
+      expect(
+        await client.statuses.retrieve({ where: { key: { in: keys } } }),
+      ).toHaveLength(0);
     });
 
     it("should be idempotent", async () => {
@@ -662,7 +684,7 @@ describe("Status", () => {
       );
     });
 
-    it("should update a subscribed hasLabels answer when labels change", async () => {
+    it("should update a subscribed labels answer when labels change", async () => {
       const lbl = await client.labels.create({
         name: "Membership Label",
         color: color.construct("#00FF00"),
@@ -686,7 +708,7 @@ describe("Status", () => {
         },
       ]);
       await client.labels.label(status.resourceID(member), [lbl.key]);
-      const params = { hasLabels: [lbl.key] };
+      const params = { where: { labels: [lbl.key] } };
       const off = client.statuses.onChange(params, () => {});
       try {
         const initial = await client.statuses.retrieve(params);
@@ -739,8 +761,10 @@ describe("Status", () => {
       ]);
 
       const results = await client.statuses.retrieve({
-        keys: [`${prefix}-success`, `${prefix}-error`, `${prefix}-warning`],
-        variants: ["error"],
+        where: {
+          key: { in: [`${prefix}-success`, `${prefix}-error`, `${prefix}-warning`] },
+          variant: { eq: "error" },
+        },
       });
 
       expect(results).toHaveLength(1);
@@ -774,8 +798,10 @@ describe("Status", () => {
       ]);
 
       const results = await client.statuses.retrieve({
-        keys: [`${prefix}-info`, `${prefix}-error`, `${prefix}-success`],
-        variants: ["info", "success"],
+        where: {
+          key: { in: [`${prefix}-info`, `${prefix}-error`, `${prefix}-success`] },
+          variant: { in: ["info", "success"] },
+        },
       });
 
       expect(results).toHaveLength(2);
@@ -796,11 +822,68 @@ describe("Status", () => {
       });
 
       const results = await client.statuses.retrieve({
-        keys: [`${prefix}-info`],
-        variants: ["error"],
+        where: { key: { eq: `${prefix}-info` }, variant: { eq: "error" } },
       });
 
       expect(results).toHaveLength(0);
+    });
+
+    it("should filter statuses by a flat filter", async () => {
+      const prefix = `variant-flat-${Date.now()}`;
+      const keys = [`${prefix}-info`, `${prefix}-error`];
+      await client.statuses.set(
+        (["info", "error"] as const).map((variant, i) => ({
+          name: variant,
+          key: keys[i],
+          variant,
+          message: variant,
+          time: TimeStamp.now(),
+        })),
+      );
+
+      const results = await client.statuses.retrieve({ key: keys, variant: "error" });
+
+      expect(results.map((s) => s.key)).toEqual([keys[1]]);
+    });
+
+    it("should reject a plain key beside other fields", async () => {
+      await expect(
+        // @ts-expect-error - a plain key addresses one status, so it takes no filter.
+        client.statuses.retrieve({ key: "status", variant: "error" }),
+      ).rejects.toThrow(
+        new ValidationError(
+          "status params address a single key but hold other fields.",
+        ),
+      );
+    });
+
+    it("should reject a plain key beside other fields with a details schema", async () => {
+      const params = { key: "status", variant: "error", detailsSchema: z.object({}) };
+      await expect(client.statuses.retrieve(params)).rejects.toThrow(
+        new ValidationError(
+          "status params address a single key but hold other fields.",
+        ),
+      );
+    });
+
+    it("should filter statuses by a tree of filters", async () => {
+      const prefix = `variant-tree-${Date.now()}`;
+      const keys = [`${prefix}-info`, `${prefix}-error`, `${prefix}-success`];
+      await client.statuses.set(
+        (["info", "error", "success"] as const).map((variant, i) => ({
+          name: variant,
+          key: keys[i],
+          variant,
+          message: variant,
+          time: TimeStamp.now(),
+        })),
+      );
+
+      const results = await client.statuses.retrieve({
+        where: { key: { in: keys }, not: { variant: { eq: "error" } } },
+      });
+
+      expect(results.map((s) => s.key).sort()).toEqual([keys[0], keys[2]].sort());
     });
   });
 
@@ -917,6 +1000,15 @@ describe("fromException", () => {
     const s = status.fromException(new CustomError("boom"), HEADING);
     expect(s.message).toBe(HEADING);
     expect(s.description).toBe("Failed to parse task config. the formatted breakdown");
+  });
+
+  it("should leave out a toStatus() message that repeats the heading", () => {
+    const s = status.fromException(
+      new CustomError("boom"),
+      "Failed to parse task config",
+    );
+    expect(s.message).toBe("Failed to parse task config");
+    expect(s.description).toBe("the formatted breakdown");
   });
 
   it("should keep the error text when toStatus() gives no description", () => {

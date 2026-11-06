@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -116,7 +117,9 @@ var _ = Describe("Service", func() {
 				u := createUser(ctx, "retrieve-by-key-"+uuid.New().String())
 				res := MustSucceed(
 					apiSvc.Retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
-						Keys: []user.Key{u.Key},
+						Where: &user.Where{
+							Key: &filter.Set[user.Key]{In: []user.Key{u.Key}},
+						},
 					}),
 				)
 				Expect(res.Users).To(ConsistOf(u))
@@ -128,7 +131,7 @@ var _ = Describe("Service", func() {
 			username := "retrieve-by-username-" + uuid.New().String()
 			u := createUser(ctx, username)
 			res := MustSucceed(apiSvc.Retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
-				Usernames: []string{username},
+				Where: &user.Where{Usernames: []string{username}},
 			}))
 			Expect(res.Users).To(ConsistOf(u))
 		})
@@ -143,18 +146,20 @@ var _ = Describe("Service", func() {
 				Password: "p",
 			})).To(Succeed())
 			res := MustSucceed(apiSvc.Retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
-				Usernames: []string{password},
+				Where: &user.Where{Usernames: []string{password}},
 			}))
 			Expect(res.Users).To(HaveLen(1))
 			Expect(res.Users[0].Key).To(Equal(u.Key))
 			res = MustSucceed(apiSvc.Retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
-				Usernames: []string{name},
+				Where: &user.Where{Usernames: []string{name}},
 			}))
 			Expect(res.Users).To(BeEmpty())
 		})
 		It("Should return no users for an unknown username", func(ctx SpecContext) {
 			res := MustSucceed(apiSvc.Retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
-				Usernames: []string{"unknown-" + uuid.New().String()},
+				Where: &user.Where{
+					Usernames: []string{"unknown-" + uuid.New().String()},
+				},
 			}))
 			Expect(res.Users).To(BeEmpty())
 		})
@@ -164,18 +169,37 @@ var _ = Describe("Service", func() {
 				u := createUser(ctx, "retrieve-denied-"+uuid.New().String())
 				fctx, _ := nonRootCtx(ctx)
 				Expect(apiSvc.Retrieve(fctx, apiuser.RetrieveRequest{
-					Keys: []user.Key{u.Key},
+					Where: &user.Where{Key: &filter.Set[user.Key]{Eq: &u.Key}},
 				})).Error().To(MatchError(access.ErrDenied))
 			},
 		)
 		It(
-			"Should return query.ErrNotFound when any requested key does not exist",
+			"Should return no users for a key that does not exist",
 			func(ctx SpecContext) {
-				Expect(apiSvc.Retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
-					Keys: []user.Key{uuid.New()},
-				})).Error().To(MatchError(query.ErrNotFound))
+				res := MustSucceed(
+					apiSvc.Retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
+						Where: &user.Where{
+							Key: &filter.Set[user.Key]{Eq: new(uuid.New())},
+						},
+					}),
+				)
+				Expect(res.Users).To(BeEmpty())
 			},
 		)
+		It("Should search users by name", func(ctx SpecContext) {
+			name := "searchable-" + uuid.New().String()
+			u := MustSucceed(writer.Create(ctx, user.User{Name: name}))
+			other := MustSucceed(writer.Create(ctx, user.User{
+				Name: "hidden-" + uuid.New().String(),
+			}))
+			res := MustSucceed(apiSvc.Retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
+				Where: &user.Where{
+					Key: &filter.Set[user.Key]{In: []user.Key{u.Key, other.Key}},
+				},
+				SearchTerm: name,
+			}))
+			Expect(res.Users).To(ConsistOf(u))
+		})
 	})
 
 	Describe("Rename", func() {
@@ -228,7 +252,9 @@ var _ = Describe("Service", func() {
 
 				res := MustSucceed(apiSvc.Retrieve(
 					rootCtx(ctx),
-					apiuser.RetrieveRequest{Usernames: []string{newName}},
+					apiuser.RetrieveRequest{
+						Where: &user.Where{Usernames: []string{newName}},
+					},
 				))
 				Expect(res.Users).To(ConsistOf(u))
 				MustSucceed(login(ctx, newName, "p"))

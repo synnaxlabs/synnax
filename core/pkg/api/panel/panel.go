@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -153,66 +152,26 @@ func (s *Service) Create(
 	return res, nil
 }
 
-type (
-	RetrieveRequest struct {
-		SearchTerm          string      `json:"search_term"            msgpack:"search_term"`
-		Keys                []panel.Key `json:"keys"                   msgpack:"keys"`
-		Limit               int         `json:"limit"                  msgpack:"limit"`
-		Offset              int         `json:"offset"                 msgpack:"offset"`
-		IgnoreNotFoundError bool        `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
-		// Groups keeps only the panels in any of these groups.
-		Groups []group.Key `json:"groups" msgpack:"groups"`
-		// Grouped keeps only the panels in a group when true, and only the panels in no
-		// group when false. Nil applies no filter.
-		Grouped *bool `json:"grouped" msgpack:"grouped"`
-		// Projects keeps only the panels owned by any of these projects.
-		Projects []project.Key `json:"projects" msgpack:"projects"`
-		// Ranges keeps only the panels owned by any of these ranges.
-		Ranges []ranger.Key `json:"ranges" msgpack:"ranges"`
-	}
-	RetrieveResponse struct {
-		Panels []panel.Panel `json:"panels" msgpack:"panels"`
-	}
-)
-
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
-) (res RetrieveResponse, err error) {
-	q := s.internal.NewRetrieve().Search(req.SearchTerm)
-	if len(req.Keys) > 0 {
-		q = q.Where(panel.MatchKeys(req.Keys...))
+) (RetrieveResponse, error) {
+	var res RetrieveResponse
+	q, err := req.Apply(s.internal.NewRetrieve().Entries(&res.Panels))
+	if err != nil {
+		return RetrieveResponse{}, err
 	}
-	if req.Limit > 0 {
-		q = q.Limit(req.Limit)
+	if err := q.Exec(ctx, nil); err != nil {
+		return RetrieveResponse{}, err
 	}
-	if req.Offset > 0 {
-		q = q.Offset(req.Offset)
-	}
-	if len(req.Groups) > 0 {
-		q = q.Where(panel.MatchGroups(req.Groups...))
-	}
-	if req.Grouped != nil {
-		q = q.Where(panel.MatchHasGroup(*req.Grouped))
-	}
-	if len(req.Projects) > 0 {
-		q = q.Where(panel.MatchProjects(req.Projects...))
-	}
-	if len(req.Ranges) > 0 {
-		q = q.Where(panel.MatchRanges(req.Ranges...))
-	}
-	err = q.Entries(&res.Panels).Exec(ctx, nil)
-	if req.IgnoreNotFoundError && err != nil {
-		err = errors.Skip(err, query.ErrNotFound)
-	}
-	if eErr := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: panel.ResourceIDsFromPanels(res.Panels),
-	}); eErr != nil {
-		return RetrieveResponse{}, eErr
+	}); err != nil {
+		return RetrieveResponse{}, err
 	}
-	return res, err
+	return res, nil
 }
 
 // DispatchRequest carries an action sequence to apply to a single panel.

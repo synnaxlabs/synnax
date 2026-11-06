@@ -182,7 +182,7 @@ func (s *scanner) testConnection(ctx context.Context, cmd task.Command) error {
 
 // probe reports whether a client can connect to the broker of cfg.
 func probe(ctx context.Context, ins alamos.Instrumentation, cfg clientConfig) error {
-	_, disconnect, err := open(ctx, ins, newClientOptions(cfg))
+	_, disconnect, err := open(ctx, ins, paho.NewClient, newClientOptions(cfg))
 	if err != nil {
 		return err
 	}
@@ -231,7 +231,7 @@ func (s *scanner) browse(ctx context.Context, cmd task.Command) (browseResult, e
 			Retained: m.Retained(),
 		}
 	})
-	client, disconnect, err := open(ctx, s.ins, opts)
+	client, disconnect, err := open(ctx, s.ins, paho.NewClient, opts)
 	if err != nil {
 		return browseResult{}, err
 	}

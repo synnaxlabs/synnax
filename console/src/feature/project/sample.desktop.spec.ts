@@ -61,6 +61,11 @@ const retrieveSample = async (key: project.Key): Promise<Sample> => {
   };
 };
 
+const textOf = (a: arc.Arc): arc.text.Text => {
+  if (a.source.mode !== "text") throw new Error("expected a text-mode Arc");
+  return a.source.text;
+};
+
 const retrieveSequence = async (sample: Sample): Promise<arc.Arc> => {
   const arcs = await client.arcs.retrieve(sample.arcs);
   const sequence = arcs.find((a) => a.name === "Press sequence");
@@ -220,10 +225,8 @@ describe("Sample project", () => {
     const { sample, open, waitForOpened } = await openFromPalette();
     await client.projects.rename(sample.project, "My tank");
     const sequence = await retrieveSequence(sample);
-    await client.arcs.create({
-      ...sequence,
-      text: { raw: sequence.text.raw.replace("duration=10s", "duration=20s") },
-    });
+    const raw = textOf(sequence).raw.replace("duration=10s", "duration=20s");
+    await client.arcs.create({ ...sequence, source: { mode: "text", text: { raw } } });
     await open();
     expect(await screen.findByText(CONFIRM)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Reset" }));
@@ -233,7 +236,7 @@ describe("Sample project", () => {
       ),
     );
     await waitFor(async () =>
-      expect((await retrieveSequence(sample)).text.raw).toContain("duration=10s"),
+      expect(textOf(await retrieveSequence(sample)).raw).toContain("duration=10s"),
     );
     await waitForOpened(sample);
     expect((await retrieveSample(sample.project)).arcs).toEqual(sample.arcs);

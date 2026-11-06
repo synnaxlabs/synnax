@@ -9,12 +9,14 @@
 
 import { Button } from "@synnaxlabs/lyra/button";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { lazy, type ReactElement } from "react";
-import { describe, expect, it } from "vitest";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
+import { act, fireEvent, renderHook, screen, waitFor } from "@testing-library/react";
+import { lazy, type PropsWithChildren, type ReactElement } from "react";
+import { describe, expect, it, vi } from "vitest";
 
 import { Modals } from "@/platform/modals";
-import { renderWithModals } from "@/platform/modals/testutil";
+import { renderWithModals, Wrapper } from "@/platform/modals/testutil";
+import { Session } from "@/session";
 
 interface OpenerProps {
   text: string;
@@ -105,5 +107,65 @@ describe("Stack", () => {
     renderWithModals(<LazyOpener />);
     clickText("open-lazy");
     await waitFor(() => expect(screen.getByText("lazy loaded")).toBeTruthy());
+  });
+
+  describe("triggers", () => {
+    const Noop: Modals.Content = () => null;
+
+    const press = (...codes: string[]): void => {
+      codes.forEach((code) => fireEvent.keyDown(window, { code }));
+      [...codes].reverse().forEach((code) => fireEvent.keyUp(window, { code }));
+    };
+
+    /** Renders a page trigger inside the stack, as the window renders its page. */
+    const renderPage = (trigger: Triggers.Trigger) => {
+      const callback = vi.fn();
+      const StackWrapper = ({ children }: PropsWithChildren): ReactElement => (
+        <Wrapper>
+          <Triggers.Provider>
+            <Modals.Stack>{children}</Modals.Stack>
+          </Triggers.Provider>
+        </Wrapper>
+      );
+      const { result } = renderHook(
+        () => {
+          Triggers.use({
+            triggers: [trigger],
+            loose: true,
+            callback: ({ stage }) => {
+              if (stage === "start") callback();
+            },
+          });
+          return Session.Modals.useStore("Stack.spec");
+        },
+        { wrapper: StackWrapper },
+      );
+      return { callback, modals: result.current };
+    };
+
+    it("should withhold page triggers while a modal is open", () => {
+      const { callback, modals } = renderPage(["Control", "T"]);
+      act(() => modals.push(Noop, {}, () => {}));
+      press("ControlLeft", "KeyT");
+      expect(callback).not.toHaveBeenCalled();
+      act(() => modals.closeTop());
+      press("ControlLeft", "KeyT");
+      expect(callback).toHaveBeenCalledOnce();
+    });
+
+    it("should close the top modal on the close trigger, out of the page's hearing", () => {
+      const { callback, modals } = renderPage(["Control", "W"]);
+      act(() => {
+        modals.push(Noop, {}, () => {});
+        modals.push(Noop, {}, () => {});
+      });
+      act(() => press("ControlLeft", "KeyW"));
+      expect(modals.getState()).toHaveLength(1);
+      act(() => press("ControlLeft", "KeyW"));
+      expect(modals.isAnyOpen()).toBe(false);
+      expect(callback).not.toHaveBeenCalled();
+      press("ControlLeft", "KeyW");
+      expect(callback).toHaveBeenCalledOnce();
+    });
   });
 });

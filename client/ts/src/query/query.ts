@@ -154,12 +154,13 @@ export const watch = <
  * 1. exact-key — `keyOf` returns a key: track that entry; deletion flips the
  *    answer to deleted.
  * 2. client-checkable — `matches` compares a record against the query:
- *    admit/evict exactly, no network. A positive `limit` keeps rule 2: below the
- *    limit the answer holds every match; at the limit it holds some `limit` of
- *    them, not necessarily the server's first. A full answer that loses a member
- *    refetches to fill the slot.
+ *    admit/evict exactly, no network. A record `matches` cannot decide refetches. A
+ *    positive `limit` keeps rule 2: below the limit the answer holds every match; at
+ *    the limit it holds some `limit` of them, not necessarily the server's first. A
+ *    full answer that loses a member refetches to fill the slot.
  * 3. server-computed — any other field named in `serverFields` is set on the
- *    query (or neither `keyOf` nor `matches` applies): debounced wholesale refetch.
+ *    query, `serverComputed` holds, or neither `keyOf` nor `matches` applies:
+ *    debounced wholesale refetch.
  */
 export interface SpaceConfig<
   P extends Params,
@@ -192,21 +193,27 @@ export interface SpaceConfig<
    * subscribe, so a fully cached key set never fetches.
    */
   keysOf?: (params: P) => K[] | null;
-  /** Rule 2: whether a record satisfies the query. Pure; no network. */
-  matches?: (record: V, params: P) => boolean;
+  /**
+   * Rule 2: whether a record satisfies the query. Pure; no network. Null when the
+   * client cannot decide the record, which refetches the query.
+   */
+  matches?: (record: V, params: P) => boolean | null;
   /**
    * Query fields only the server can evaluate (searchTerm, limit, offset).
    * A query instance with any of them set is maintained by rule 3, except a
    * positive `limit` alone (see rule 2).
    */
   serverFields?: readonly string[];
+  /** Rule 3: whether only the server can evaluate the query, such as a regex. */
+  serverComputed?: (params: P) => boolean;
   /** Foreign tables whose events affect this space's answers. */
   watch?: Watch<P, K>[];
   /**
-   * Marks a space whose answer addresses one record and cannot compose an
-   * empty membership: rule-2 eviction of the last member flips the query to
-   * deleted (when the entry tombstoned) or invalidates it, instead of
-   * composing []. Leave unset for spaces where [] is a valid answer.
+   * Marks a space whose answer addresses one record and cannot compose an empty
+   * membership: rule-2 eviction of the last member flips the query to deleted (when the
+   * entry tombstoned) or invalidates it, instead of composing []. Admitting a second
+   * member also invalidates it, so the next read asks the Core again. Leave unset for
+   * spaces where [] is a valid answer.
    */
   single?: boolean;
 }
@@ -241,17 +248,19 @@ export interface SpaceHooks {
 const DEFAULT_DEBOUNCE = TimeSpan.milliseconds(100);
 const DEFAULT_TEARDOWN_GRACE = TimeSpan.seconds(5);
 
-/** What an answer settled against: change delivery and the versions of the tables
- *  that feed it. */
+/** What a fetch answers against, taken when it starts. */
 interface Basis {
   /** The connection epoch, or null when change delivery was off. */
   epoch: number | null;
+  /** The versions of the tables that feed the answer. */
   versions: number[];
+  /** The newest stale mark when the fetch started. */
+  mark: number;
 }
 
 type QueryState<K extends record.Key, D extends Data> =
   | { variant: "unfetched" }
-  | { variant: "loading"; promise: Promise<D> }
+  | { variant: "loading"; promise: Promise<D>; basis: Basis }
   | { variant: "ready"; keys: K[] }
   | { variant: "error"; error: Error }
   | { variant: "deleted"; key: K };
@@ -278,12 +287,13 @@ interface Query<
   /** When the last subscriber left; the sweep tears the query down once this
    *  outlives the grace window. Cleared on resubscribe. */
   idleSince?: TimeStamp;
-  /** Present once the answer settled from a fetch. Maintenance reconfirms the answer
-   *  only when a change since then could have gone unobserved. */
+  /** The basis of the fetch behind the answer. Maintenance reconfirms the answer only
+   *  when a change since then could have gone unobserved. */
   basis?: Basis;
-  /** Set when a change asked an idle answer to refetch. The next subscriber or read
-   *  refetches instead. */
-  stale?: boolean;
+  /** The mark of the newest change that may have outdated the answer. A fetch that
+   *  starts after it clears it. Until then, reads fetch instead of trusting the
+   *  answer, and a new subscriber refetches. */
+  stale?: number;
   /** Answer interned against the records it was composed from, so repeated
    *  reads stay referentially stable for useSyncExternalStore consumers. A
    *  table replaces an entry only when its content changes, so a surviving entry
@@ -318,6 +328,8 @@ export class Space<
   private readonly detachEpoch?: destructor.Destructor;
   private readonly grace: TimeSpan;
   private sweepTimer?: ReturnType<typeof setTimeout>;
+  /** Counts stale marks. */
+  private marks = 0;
 
   constructor(config: SpaceConfig<P, D, K, V>, hooks: SpaceHooks = {}) {
     this.config = config;
@@ -347,7 +359,7 @@ export class Space<
     if (state.variant === "loading") return state.promise;
     if (
       query.teardown != null &&
-      query.stale !== true &&
+      query.stale == null &&
       this.hooks.maintained?.() !== false
     )
       switch (state.variant) {
@@ -426,7 +438,7 @@ export class Space<
     query.handlers.add(handler);
     query.idleSince = undefined;
     if (query.teardown == null) this.maintain(query);
-    else if (query.stale === true) this.scheduleRefetch(query);
+    else if (this.staleFor(query)) this.scheduleRefetch(query);
     return () => {
       query.handlers.delete(handler);
       if (query.handlers.size > 0) return;
@@ -634,12 +646,11 @@ export class Space<
     query: Query<P, K, D, V>,
     expected: QueryState<K, D>,
     next: QueryState<K, D>,
+    basis: Basis,
   ): void {
     // A late promise resolution must not clobber a maintenance update.
     if (query.state !== expected) return;
-    query.state = next;
-    query.vacated = false;
-    if (next.variant === "ready") this.settleBasis(query);
+    this.confirm(query, next, basis);
     this.drainRechecks(query);
     if (next.variant === "error") {
       query.refetchOnSettle = false;
@@ -650,6 +661,19 @@ export class Space<
       if (query.teardown != null) this.scheduleRefetch(query);
     }
     this.touch(query);
+  }
+
+  /** Publishes a fetch's answer, which covers every change before the fetch started. */
+  private confirm(
+    query: Query<P, K, D, V>,
+    next: QueryState<K, D>,
+    basis: Basis,
+  ): void {
+    query.state = next;
+    query.vacated = false;
+    if (next.variant === "error") return;
+    query.basis = basis;
+    if (!this.staleFor(query, basis)) query.stale = undefined;
   }
 
   /**
@@ -666,6 +690,13 @@ export class Space<
   }
 
   private fetch(query: Query<P, K, D, V>, options?: FetchOptions): Promise<D> {
+    // This fetch covers what a pending refetch would confirm, and a refetch that fails
+    // during this fetch would replace its loading state.
+    if (query.refetchTimer != null) {
+      clearTimeout(query.refetchTimer);
+      query.refetchTimer = undefined;
+    }
+    const basis = this.basis();
     const promise = this.config.fetch(query.params, options).then(
       (keys) => {
         const { table, single, name } = this.config;
@@ -676,22 +707,24 @@ export class Space<
           keys.length === 1 &&
           table.status(keys[0]) === "tombstoned"
         ) {
-          this.settle(query, loading, { variant: "deleted", key: keys[0] });
+          this.settle(query, loading, { variant: "deleted", key: keys[0] }, basis);
           throw new NotFoundError(`${name} was deleted`);
         }
-        this.settle(query, loading, { variant: "ready", keys });
+        this.settle(query, loading, { variant: "ready", keys }, basis);
         // The settle drains membership changes that raced the fetch, so the answer
-        // comes off the query: the keys the fetch returned are already stale.
+        // comes off the query: the keys the fetch returned are already stale. A drain
+        // that leaves the query unfetched asks the server again.
         const { state } = query;
+        if (state.variant === "unfetched") return this.fetch(query, options);
         return this.composedOf(query, state.variant === "ready" ? state.keys : keys);
       },
       (reason: unknown) => {
         const error = errors.fromUnknown(reason);
-        this.settle(query, loading, { variant: "error", error });
+        this.settle(query, loading, { variant: "error", error }, basis);
         throw error;
       },
     );
-    const loading: QueryState<K, D> = { variant: "loading", promise };
+    const loading: QueryState<K, D> = { variant: "loading", promise, basis };
     query.state = loading;
     return promise;
   }
@@ -710,9 +743,10 @@ export class Space<
     }
     // An idle answer has no subscriber to refresh, so it waits for the next one.
     if (query.handlers.size === 0) {
-      query.stale = true;
+      this.markStale(query);
       return;
     }
+    const basis = this.basis();
     const before = query.state;
     let keys: K[];
     try {
@@ -720,23 +754,16 @@ export class Space<
     } catch (reason) {
       if (query.state !== before) return;
       // A refetch revalidates an answer the caller already has. Failing to
-      // confirm it is not grounds for taking it away.
-      if (before.variant === "ready") return;
+      // confirm it is not grounds for taking it away, but reads stop trusting it.
+      if (before.variant === "ready") return this.markStale(query);
       query.state = { variant: "error", error: errors.fromUnknown(reason) };
       return;
     }
     // Only apply if maintenance hasn't been torn down and no newer fetch
     // superseded this one.
     if (query.state !== before) return;
-    query.state = { variant: "ready", keys };
-    query.vacated = false;
-    this.settleBasis(query);
+    this.confirm(query, { variant: "ready", keys }, basis);
     this.touch(query);
-  }
-
-  private settleBasis(query: Query<P, K, D, V>): void {
-    query.stale = false;
-    query.basis = { epoch: this.liveEpoch(), versions: this.versions() };
   }
 
   /** The connection epoch, or null when change delivery is off. */
@@ -746,20 +773,42 @@ export class Space<
     return epoch === 0 ? null : epoch;
   }
 
-  private versions(): number[] {
+  private basis(): Basis {
     const { table, watch: watches = [] } = this.config;
-    return [table.version(), ...watches.map((w) => w.version())];
+    const versions = [table.version(), ...watches.map((w) => w.version())];
+    return { epoch: this.liveEpoch(), versions, mark: this.marks };
+  }
+
+  private markStale(query: Query<P, K, D, V>): void {
+    query.stale = ++this.marks;
+  }
+
+  /** The basis of the fetch in flight, or else of the fetch behind the answer. */
+  private fetchBasis(query: Query<P, K, D, V>): Basis | undefined {
+    return query.state.variant === "loading" ? query.state.basis : query.basis;
+  }
+
+  /** Returns whether a stale mark came after the fetch behind basis started. */
+  private staleFor(
+    query: Query<P, K, D, V>,
+    basis: Basis | undefined = this.fetchBasis(query),
+  ): boolean {
+    return query.stale != null && (basis == null || query.stale > basis.mark);
   }
 
   /**
-   * Returns whether a change may have reached the answer unobserved since it settled:
-   * change delivery was off or reconnected, or a table that feeds it changed.
+   * Returns whether a change may have reached the answer, or the fetch in flight,
+   * without the query seeing it: the query was marked stale, change delivery was off
+   * or reconnected, or a table that feeds the answer changed.
    */
-  private unconfirmed(query: Query<P, K, D, V>): boolean {
-    const { basis } = query;
-    if (query.stale === true || basis == null || basis.epoch == null) return true;
-    if (basis.epoch !== this.liveEpoch()) return true;
-    return !compare.arraysEqual(basis.versions, this.versions());
+  private unobserved(query: Query<P, K, D, V>): boolean {
+    const basis = this.fetchBasis(query);
+    if (basis == null || basis.epoch == null || this.staleFor(query, basis))
+      return true;
+    const now = this.basis();
+    return (
+      basis.epoch !== now.epoch || !compare.arraysEqual(basis.versions, now.versions)
+    );
   }
 
   private scheduleRefetch(query: Query<P, K, D, V>): void {
@@ -778,7 +827,8 @@ export class Space<
   }
 
   private isServerComputed(params: P): boolean {
-    const { serverFields } = this.config;
+    const { serverFields, serverComputed } = this.config;
+    if (serverComputed?.(params) === true) return true;
     if (serverFields == null || serverFields.length === 0) return false;
     if (typeof params !== "object" || params === null) return false;
     const limited = this.limitOf(params) != null;
@@ -803,15 +853,18 @@ export class Space<
     query.teardown = teardown;
     const { table, keyOf, matches, watch: watches } = this.config;
     const { params } = query;
-    // Rules 2 and 3 build membership from events, and none reached a ready answer
-    // before now, so it is reconfirmed when one may have. Rule 1 re-seeds from the
-    // table below and needs no network.
+    // Rules 2 and 3 build membership from events, and none reached the answer or the
+    // fetch in flight before now, so it is reconfirmed when one may have. Rule 1
+    // re-seeds from the table below and needs no network.
+    const { variant } = query.state;
     if (
-      query.state.variant === "ready" &&
+      (variant === "ready" || variant === "loading") &&
       keyOf?.(params) == null &&
-      this.unconfirmed(query)
-    )
+      this.unobserved(query)
+    ) {
+      this.markStale(query);
       this.scheduleRefetch(query);
+    }
 
     // A keys-only query whose members the table already holds seeds a ready answer:
     // rules 2 and 3 gate notifications on a ready state, so without the seed an
@@ -924,10 +977,10 @@ export class Space<
 
   /**
    * Applies membership rechecks for the given keys against the table's current entries,
-   * without notifying. Admissions append in iteration order up to the query's limit;
-   * evicting a single space's last member flips the query to deleted or unfetched.
-   * Returns whether the answer changed: membership moved, or a member's content was
-   * touched.
+   * without notifying. Admissions append in iteration order up to the query's limit. In
+   * a single space, evicting the last member flips the query to deleted or unfetched,
+   * and admitting a second member flips it to unfetched. Returns whether the answer
+   * changed: membership moved, or a member's content was touched.
    */
   private applyRechecks(query: Query<P, K, D, V>, keys: Iterable<K>): boolean {
     if (query.state.variant === "loading") {
@@ -941,9 +994,15 @@ export class Space<
     const admitted: K[] = [];
     let lastEvicted: K | null = null;
     let touched = false;
+    let undecided = false;
     for (const key of new Set(keys)) {
       const entry = table.get(key);
-      const matched = entry != null && matches!(entry, query.params);
+      const matched = entry == null ? false : matches!(entry, query.params);
+      if (matched == null) {
+        undecided = true;
+        touched ||= memberSet.has(key);
+        continue;
+      }
       if (matched === memberSet.has(key)) {
         touched ||= matched;
         continue;
@@ -956,6 +1015,7 @@ export class Space<
         lastEvicted = key;
       }
     }
+    if (undecided) this.scheduleRefetch(query);
     if (admitted.length === 0 && lastEvicted == null) return touched;
     const limit = this.limitOf(query.params);
     const kept = query.state.keys.filter((k) => memberSet.has(k));
@@ -976,6 +1036,7 @@ export class Space<
         table.status(lastEvicted) === "tombstoned"
           ? { variant: "deleted", key: lastEvicted }
           : { variant: "unfetched" };
+    else if (single === true && next.length > 1) query.state = { variant: "unfetched" };
     else query.state = { variant: "ready", keys: next };
     return true;
   }

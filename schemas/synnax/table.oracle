@@ -12,6 +12,7 @@ import "schemas/synnax/group"
 import "schemas/synnax/project"
 import "schemas/synnax/ranger"
 import "schemas/x/color"
+import "schemas/x/filter"
 import "schemas/x/notation"
 import "schemas/x/patch"
 import "schemas/x/text"
@@ -25,12 +26,20 @@ Key = uuid {
 }
 
 FlexAlignment enum {
-    start   = "start"
-    center  = "center"
-    end     = "end"
-    stretch = "stretch"
+    start   = "start" {
+        @doc value "aligns content to the start."
+    }
+    center  = "center" {
+        @doc value "aligns content to the center."
+    }
+    end     = "end" {
+        @doc value "aligns content to the end."
+    }
+    stretch = "stretch" {
+        @doc value "stretches content to fill the available space."
+    }
 
-    @doc value "is a cross-axis flex alignment for laid-out content."
+    @doc value "is a flex alignment for laid-out content."
 }
 
 CellConfig union on variant {
@@ -411,4 +420,23 @@ Table struct {
     @go migrate
     @resource type "table"
     @retrieve
+}
+
+Where filter Table {
+    key
+    groups   group.Key[]   {
+        @doc value "matches the tables in any of the given groups."
+    }
+    grouped  bool          {
+        @doc value "matches the tables in a group, or in no group when false."
+    }
+    projects project.Key[] {
+        @doc value "matches the tables owned by any of the given projects."
+    }
+    ranges   ranger.Key[]  {
+        @doc value "matches the tables owned by any of the given ranges."
+    }
+
+    @doc value         "is a filter that selects tables."
+    @go request_output "core/pkg/api/table"
 }

@@ -15,9 +15,14 @@ import (
 	"encoding/json/v2"
 	"uuid"
 
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
+	"github.com/synnaxlabs/x/filter"
+	filterpb "github.com/synnaxlabs/x/filter/pb"
+	xpb "github.com/synnaxlabs/x/pb"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -71,6 +76,319 @@ func StatusDetailsListFromPB(pbs []*StatusDetails) ([]device.StatusDetails, erro
 	for i, pb := range pbs {
 		var err error
 		result[i], err = StatusDetailsFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// StringSetToPB converts filter.Set[string] to StringSet.
+func StringSetToPB(r filter.Set[string]) (*StringSet, error) {
+	pb := &StringSet{}
+	if r.Eq != nil {
+		pb.Eq = r.Eq
+	}
+	if r.In != nil {
+		pb.In = &StringList{Values: r.In}
+	}
+	return pb, nil
+}
+
+// StringSetFromPB converts StringSet to filter.Set[string].
+func StringSetFromPB(pb *StringSet) (filter.Set[string], error) {
+	var r filter.Set[string]
+	if pb == nil {
+		return r, nil
+	}
+	if pb.Eq != nil {
+		r.Eq = pb.Eq
+	}
+	if pb.In != nil {
+		r.In = xpb.ListValues(pb.In.Values)
+	}
+	return r, nil
+}
+
+// StringSetsToPB converts a slice of filter.Set[string] to StringSet.
+func StringSetsToPB(rs []filter.Set[string]) ([]*StringSet, error) {
+	result := make([]*StringSet, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = StringSetToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// StringSetsFromPB converts a slice of StringSet to filter.Set[string].
+func StringSetsFromPB(pbs []*StringSet) ([]filter.Set[string], error) {
+	result := make([]filter.Set[string], len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = StringSetFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// RackKeySetToPB converts filter.Set[rack.Key] to RackKeySet.
+func RackKeySetToPB(r filter.Set[rack.Key]) (*RackKeySet, error) {
+	pb := &RackKeySet{}
+	if r.Eq != nil {
+		v := uint32(*r.Eq)
+		pb.Eq = &v
+	}
+	if r.In != nil {
+		pb.In = &RackKeyList{Values: lo.Map(r.In, func(v rack.Key, _ int) uint32 { return uint32(v) })}
+	}
+	return pb, nil
+}
+
+// RackKeySetFromPB converts RackKeySet to filter.Set[rack.Key].
+func RackKeySetFromPB(pb *RackKeySet) (filter.Set[rack.Key], error) {
+	var r filter.Set[rack.Key]
+	if pb == nil {
+		return r, nil
+	}
+	if pb.Eq != nil {
+		v := rack.Key(*pb.Eq)
+		r.Eq = &v
+	}
+	if pb.In != nil {
+		r.In = xpb.ListValues(lo.Map(pb.In.Values, func(v uint32, _ int) rack.Key { return rack.Key(v) }))
+	}
+	return r, nil
+}
+
+// RackKeySetsToPB converts a slice of filter.Set[rack.Key] to RackKeySet.
+func RackKeySetsToPB(rs []filter.Set[rack.Key]) ([]*RackKeySet, error) {
+	result := make([]*RackKeySet, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = RackKeySetToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// RackKeySetsFromPB converts a slice of RackKeySet to filter.Set[rack.Key].
+func RackKeySetsFromPB(pbs []*RackKeySet) ([]filter.Set[rack.Key], error) {
+	result := make([]filter.Set[rack.Key], len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = RackKeySetFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// WhereToPB converts Where to Where.
+func WhereToPB(r device.Where) (*Where, error) {
+	pb := &Where{}
+	if r.And != nil {
+		vals, err := WheresToPB(r.And)
+		if err != nil {
+			return nil, err
+		}
+		pb.And = &WhereList{Values: vals}
+	}
+	if r.Or != nil {
+		vals, err := WheresToPB(r.Or)
+		if err != nil {
+			return nil, err
+		}
+		pb.Or = &WhereList{Values: vals}
+	}
+	if r.Not != nil {
+		var err error
+		pb.Not, err = WhereToPB(*r.Not)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Key != nil {
+		var err error
+		pb.Key, err = StringSetToPB(*r.Key)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Name != nil {
+		var err error
+		pb.Name, err = filterpb.StringToPB(*r.Name)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Make != nil {
+		var err error
+		pb.Make, err = filterpb.StringToPB(*r.Make)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Model != nil {
+		var err error
+		pb.Model, err = filterpb.StringToPB(*r.Model)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Location != nil {
+		var err error
+		pb.Location, err = filterpb.StringToPB(*r.Location)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Rack != nil {
+		var err error
+		pb.Rack, err = RackKeySetToPB(*r.Rack)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Groups != nil {
+		pb.Groups = &GroupKeyList{Values: lo.Map(r.Groups, func(u group.Key, _ int) string { return uuid.UUID(u).String() })}
+	}
+	if r.Grouped != nil {
+		pb.Grouped = r.Grouped
+	}
+	if r.Parents != nil {
+		pb.Parents = &KeyList{Values: r.Parents}
+	}
+	if r.Nested != nil {
+		pb.Nested = r.Nested
+	}
+	return pb, nil
+}
+
+// WhereFromPB converts Where to Where.
+func WhereFromPB(pb *Where) (device.Where, error) {
+	var r device.Where
+	if pb == nil {
+		return r, nil
+	}
+	if pb.And != nil {
+		vals, err := WheresFromPB(pb.And.Values)
+		if err != nil {
+			return device.Where{}, err
+		}
+		r.And = xpb.ListValues(vals)
+	}
+	if pb.Or != nil {
+		vals, err := WheresFromPB(pb.Or.Values)
+		if err != nil {
+			return device.Where{}, err
+		}
+		r.Or = xpb.ListValues(vals)
+	}
+	if pb.Not != nil {
+		val, err := WhereFromPB(pb.Not)
+		if err != nil {
+			return device.Where{}, err
+		}
+		r.Not = &val
+	}
+	if pb.Key != nil {
+		val, err := StringSetFromPB(pb.Key)
+		if err != nil {
+			return device.Where{}, err
+		}
+		r.Key = &val
+	}
+	if pb.Name != nil {
+		val, err := filterpb.StringFromPB(pb.Name)
+		if err != nil {
+			return device.Where{}, err
+		}
+		r.Name = &val
+	}
+	if pb.Make != nil {
+		val, err := filterpb.StringFromPB(pb.Make)
+		if err != nil {
+			return device.Where{}, err
+		}
+		r.Make = &val
+	}
+	if pb.Model != nil {
+		val, err := filterpb.StringFromPB(pb.Model)
+		if err != nil {
+			return device.Where{}, err
+		}
+		r.Model = &val
+	}
+	if pb.Location != nil {
+		val, err := filterpb.StringFromPB(pb.Location)
+		if err != nil {
+			return device.Where{}, err
+		}
+		r.Location = &val
+	}
+	if pb.Rack != nil {
+		val, err := RackKeySetFromPB(pb.Rack)
+		if err != nil {
+			return device.Where{}, err
+		}
+		r.Rack = &val
+	}
+	if pb.Groups != nil {
+		vals, err := func() ([]group.Key, error) {
+			result := make([]group.Key, len(pb.Groups.Values))
+			for i, s := range pb.Groups.Values {
+				parsed, err := uuid.Parse(s)
+				if err != nil {
+					return nil, err
+				}
+				result[i] = group.Key(parsed)
+			}
+			return result, nil
+		}()
+		if err != nil {
+			return device.Where{}, err
+		}
+		r.Groups = xpb.ListValues(vals)
+	}
+	if pb.Grouped != nil {
+		r.Grouped = pb.Grouped
+	}
+	if pb.Parents != nil {
+		r.Parents = xpb.ListValues(pb.Parents.Values)
+	}
+	if pb.Nested != nil {
+		r.Nested = pb.Nested
+	}
+	return r, nil
+}
+
+// WheresToPB converts a slice of Where to Where.
+func WheresToPB(rs []device.Where) ([]*Where, error) {
+	result := make([]*Where, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = WhereToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// WheresFromPB converts a slice of Where to Where.
+func WheresFromPB(pbs []*Where) ([]device.Where, error) {
+	result := make([]device.Where, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = WhereFromPB(pb)
 		if err != nil {
 			return nil, err
 		}

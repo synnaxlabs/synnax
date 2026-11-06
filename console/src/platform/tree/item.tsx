@@ -19,6 +19,7 @@ import { type FC, type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { type Children } from "@/platform/tree/children";
+import { MatchGroup, useHighlight } from "@/platform/tree/search";
 import { type ContextMenu } from "@/platform/tree/types";
 
 // ItemProps are the props the Tree passes to a resource type's Item. The Item owns its
@@ -92,19 +93,24 @@ const DefaultRow = ({
   icon,
   loading,
   ...rest
-}: ContentProps): ReactElement => (
-  <Base.Item {...rest} onDoubleClick={onDoubleClick}>
-    {icon}
-    <Text.MaybeEditable
-      id={List.itemNameID(resource.key)}
-      value={resource.name}
-      onChange
-      allowDoubleClick={false}
-      className={CSS.BE("tree-item", "name")}
-      overflow="fade"
-    />
-  </Base.Item>
-);
+}: ContentProps): ReactElement => {
+  const highlight = useHighlight();
+  return (
+    <Base.Item {...rest} onDoubleClick={onDoubleClick}>
+      {icon}
+      <Text.MaybeEditable
+        id={List.itemNameID(resource.key)}
+        value={resource.name}
+        onChange
+        allowDoubleClick={false}
+        className={CSS.BE("tree-item", "name")}
+        overflow="fade"
+        highlight={highlight}
+      />
+      <MatchGroup id={resource.id} />
+    </Base.Item>
+  );
+};
 
 const noop = (): void => {};
 

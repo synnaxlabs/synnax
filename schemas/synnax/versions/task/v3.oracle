@@ -108,3 +108,5 @@ ReadConfig = v2.ReadConfig
 WriteConfig = v2.WriteConfig
 
 ScanConfig = v2.ScanConfig
+
+Scale = v2.Scale

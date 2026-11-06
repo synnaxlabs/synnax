@@ -9,80 +9,11 @@
 
 package label
 
-import (
-	"context"
-
-	"github.com/samber/lo"
-	"github.com/synnaxlabs/gorp"
-)
+import "github.com/synnaxlabs/gorp"
 
 // Retrieve is a builder for querying labels.
 type Retrieve struct {
-	baseTx gorp.Tx
-	gorp   gorp.Retrieve[Key, Label]
-	search *gorp.SearchIndex[Key, Label]
-}
-
-// Search filters the labels to those whose name matches term, closest match first. An
-// empty term adds no filter.
-func (r Retrieve) Search(term string) Retrieve {
-	if term == "" {
-		return r
-	}
-	r.gorp = r.gorp.Where(r.search.Filter(term))
-	return r
-}
-
-// Limit limits the number of results that Retrieve will return.
-func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); return r }
-
-// Offset marks the starting index of results that Retrieve will return.
-func (r Retrieve) Offset(
-	offset int,
-) Retrieve {
-	r.gorp = r.gorp.Offset(offset)
-	return r
-}
-
-// Entry binds the Label that Retrieve will fill results into. If multiple results match
-// the query, only the first result will be filled into the provided Label.
-func (r Retrieve) Entry(
-	label *Label,
-) Retrieve {
-	r.gorp = r.gorp.Entry(label)
-	return r
-}
-
-// Entries binds a slice that Retrieve will fill results into.
-func (r Retrieve) Entries(
-	labels *[]Label,
-) Retrieve {
-	r.gorp = r.gorp.Entries(labels)
-	return r
-}
-
-// Where applies the provided filter to the query. To compose multiple filters,
-// chain Where calls or pass a combined filter via gorp.And / gorp.Or.
-func (r Retrieve) Where(filter gorp.Filter[Key, Label]) Retrieve {
-	r.gorp = r.gorp.Where(filter)
-	return r
-}
-
-// MatchKeys returns a filter that restricts results to labels whose key matches
-// any of the provided values.
-func MatchKeys(keys ...Key) gorp.Filter[Key, Label] {
-	return gorp.MatchKeys[Key, Label](keys...)
-}
-
-// MatchNames returns a filter for labels whose Name matches any of the provided values.
-func MatchNames(names ...string) gorp.Filter[Key, Label] {
-	return gorp.Match(func(_ gorp.Context, l *Label) (bool, error) {
-		return lo.Contains(names, l.Name), nil
-	})
-}
-
-// Exec executes the Retrieve query. If a tx is provided, Exec will use it to execute
-// the query. Otherwise, it will execute against the underlying gorp.DB.
-func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
-	return r.gorp.Exec(ctx, gorp.OverrideTx(r.baseTx, tx))
+	baseTX  gorp.Tx
+	gorp    gorp.Retrieve[Key, Label]
+	indexes indexes
 }

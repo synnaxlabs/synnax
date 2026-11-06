@@ -78,7 +78,7 @@ describe("Schematic", () => {
         name: "Schematic",
       });
       await client.batch.send([client.schematics.setProjectRequest(v.key, dest.key)]);
-      const res = await client.schematics.retrieve({ keys: [v.key] });
+      const res = await client.schematics.retrieve([v.key]);
       expect(res[0].project).toEqual(dest.key);
     });
 

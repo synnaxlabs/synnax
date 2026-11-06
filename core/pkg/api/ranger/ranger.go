@@ -21,15 +21,15 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
 type (
-	Key   = ranger.Key
+	// Key is a unique identifier for a range.
+	Key = ranger.Key
+	// Range is a user-defined region of time.
 	Range = ranger.Range
 )
 
@@ -158,76 +158,27 @@ func (s *Service) Dispatch(
 	return struct{}{}, s.internal.Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
 }
 
-type (
-	RetrieveRequest struct {
-		Keys                []ranger.Key    `json:"keys"                   msgpack:"keys"`
-		Names               []string        `json:"names"                  msgpack:"names"`
-		SearchTerm          string          `json:"search_term"            msgpack:"search_term"`
-		HasLabels           []label.Key     `json:"has_labels"             msgpack:"has_labels"`
-		Parents             []ranger.Key    `json:"parents"                msgpack:"parents"`
-		OverlapsWith        telem.TimeRange `json:"overlaps_with"          msgpack:"overlaps_with"`
-		Limit               int             `json:"limit"                  msgpack:"limit"`
-		Offset              int             `json:"offset"                 msgpack:"offset"`
-		IgnoreNotFoundError bool            `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
-	}
-	RetrieveResponse struct {
-		Ranges []Range `json:"ranges" msgpack:"ranges"`
-	}
-)
-
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
-	var (
-		ranges          []Range
-		q               = s.internal.NewRetrieve().Entries(&ranges)
-		hasNames        = len(req.Names) > 0
-		hasKeys         = len(req.Keys) > 0
-		hasSearch       = req.SearchTerm != ""
-		hasOverlapsWith = !req.OverlapsWith.IsZero()
-		hasLabels       = len(req.HasLabels) > 0
-	)
-	if hasOverlapsWith {
-		q = q.Where(ranger.MatchOverlap(req.OverlapsWith))
-	}
-	if hasNames {
-		q = q.Where(ranger.MatchNames(req.Names...))
-	}
-	if hasKeys {
-		q = q.Where(ranger.MatchKeys(req.Keys...))
-	}
-	if hasLabels {
-		q = q.Where(ranger.MatchLabels(req.HasLabels...))
-	}
-	if len(req.Parents) > 0 {
-		q = q.Where(ranger.MatchParents(req.Parents...))
-	}
-	if hasSearch {
-		q = q.Search(req.SearchTerm)
-	}
-	if req.Limit > 0 {
-		q = q.Limit(req.Limit)
-	}
-	if req.Offset > 0 {
-		q = q.Offset(req.Offset)
-	}
-	err := q.Exec(ctx, nil)
-	if req.IgnoreNotFoundError && err != nil {
-		err = errors.Skip(err, query.ErrNotFound)
-	}
+	var res RetrieveResponse
+	q, err := req.Apply(s.internal.NewRetrieve().Entries(&res.Ranges))
 	if err != nil {
+		return RetrieveResponse{}, err
+	}
+	if err := q.Exec(ctx, nil); err != nil {
 		return RetrieveResponse{}, err
 	}
 	// A range holds only the keys of its labels, so reading it needs no access to them.
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: rangeAccessResourceIDs(ranges),
+		Objects: rangeAccessResourceIDs(res.Ranges),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
-	return RetrieveResponse{Ranges: ranges}, nil
+	return res, nil
 }
 
 type RenameRequest struct {

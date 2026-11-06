@@ -54,10 +54,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB: db, Ontology: otg,
 	}))
-	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB: db, Ontology: otg, Group: groupSvc,
-	}))
 	passwordSvc = MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
+	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
+		DB: db, Ontology: otg, Group: groupSvc, Password: passwordSvc,
+	}))
 	root, _ = MustSucceed2(user.ProvisionRoot(ctx, userSvc, passwordSvc, creds))
 	apiKeySvc = MustOpen(apikey.OpenService(ctx, apikey.ServiceConfig{DB: db}))
 	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{

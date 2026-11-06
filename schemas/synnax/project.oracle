@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/group"
+import "schemas/x/filter"
 
 @go output "core/pkg/service/project"
 @py output "client/py/synnax/project"
@@ -41,4 +42,17 @@ Project struct {
     @go migrate
     @resource type "project"
     @retrieve
+}
+
+Where filter Project {
+    key
+    groups  group.Key[] {
+        @doc value "matches the projects in any of the given groups."
+    }
+    grouped bool        {
+        @doc value "matches the projects in a group, or in no group when false."
+    }
+
+    @doc value         "is a filter that selects projects."
+    @go request_output "core/pkg/api/project"
 }

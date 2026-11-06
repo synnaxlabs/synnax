@@ -20,12 +20,10 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// ErrIndexInvalid indicates that a registered secondary index failed to
-// populate. Retrieve.Where(idx.Filter(...)) catches this sentinel and falls
-// back to a sequential scan with a synthesized predicate, so queries continue
-// to return correct results — just at scan cost. Direct callers of Get
-// receive the sentinel and are responsible for their own fallback (see
-// ontology.parentsByIndex for the canonical pattern).
+// ErrIndexInvalid indicates that a registered secondary index failed to populate. The
+// Filter of the index catches this sentinel and falls back to a sequential scan, so
+// queries continue to return correct results at scan cost. Direct callers of Get
+// receive the sentinel and are responsible for their own fallback.
 //
 // A populate failure is logged via the table's instrumentation and stays
 // sticky for the lifetime of the process: there is no automatic rebuild.
@@ -116,8 +114,9 @@ func probe[K Key, V comparable](
 }
 
 // indexFilter returns a Filter matching entries that hold any of values. The filter
-// resolves its keys through store at Exec time and carries holds as the eval predicate
-// for the sequential-scan fallback.
+// resolves its keys through store at Exec time. When store failed to populate, it
+// leaves
+// its keys unbounded, so holds, its eval predicate, scans every entry.
 func indexFilter[K Key, E Entry[K], V comparable](
 	store indexStore[K, V],
 	holds func(e *E, values []V) bool,
@@ -128,6 +127,9 @@ func indexFilter[K Key, E Entry[K], V comparable](
 		resolve: func(ctx context.Context, tx Tx) (resolved[K, E], error) {
 			// eval drops the keys of a commit in flight that fails.
 			keys, err := probe(ctx, store, tx, captured)
+			if errors.Is(err, ErrIndexInvalid) {
+				return resolved[K, E]{}, nil
+			}
 			if err != nil {
 				return resolved[K, E]{}, err
 			}
@@ -220,9 +222,8 @@ func (l *LookupIndex[K, E, V]) Get(
 // only.
 //
 // Filter blocks the Retrieve until the index has finished populating. If population
-// fails, the resolver returns ErrIndexInvalid; Retrieve catches the sentinel and falls
-// back to a sequential scan using the eval predicate carried alongside the resolver, so
-// queries continue to return correct results at scan cost.
+// fails, the Filter falls back to a sequential scan, so queries continue to return
+// correct results at scan cost.
 func (l *LookupIndex[K, E, V]) Filter(values ...V) Filter[K, E] {
 	return indexFilter[K, E](l.store, holdsValue(l.extract), values)
 }

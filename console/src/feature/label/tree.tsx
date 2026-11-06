@@ -13,7 +13,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Tree } from "@/platform/tree";
 
 const children: Tree.Children = ({ client, id }) => {
-  const q = { hasLabels: [id.key] };
+  const q = { labels: [id.key] };
   return [
     Tree.createSource(client.ranges, q, (range: ranger.Range) =>
       Tree.toResource("range")(range.payload),
