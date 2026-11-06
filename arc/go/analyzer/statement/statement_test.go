@@ -420,13 +420,29 @@ var _ = Describe("Statement", func() {
 			Entry("with a variable", "y series f32 := [1.5 + v]", types.F32(), 1),
 			Entry("after a variable", "y series f32 := [v, 1.5]", types.F32(), 1),
 			Entry("reassigned", "y series f32 := [1.5]\ny = [2.5]", types.F32(), 2),
+			Entry("untyped float first", "y := [1.5, 2.0, 3]", types.F64(), 3),
+			Entry("untyped integer first", "y := [1, 2.0, 2.5]", types.F64(), 3),
 		)
 
 		It(
 			"Should reject a float element in an integer series",
 			func(specCtx SpecContext) {
 				ctx := analyze(specCtx, "y series i32 := [1.5]")
-				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+				Expect(*ctx.Diagnostics).To(HaveLen(1))
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(
+					"cannot assign series float to 'y' (type series i32)",
+				))
+			},
+		)
+
+		It(
+			"Should report an incompatible element once",
+			func(specCtx SpecContext) {
+				ctx := analyze(specCtx, "a i32 := 1\nx := [a, 12.5]")
+				Expect(*ctx.Diagnostics).To(HaveLen(1))
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(
+					"series element 2 has incompatible type",
+				))
 			},
 		)
 	})

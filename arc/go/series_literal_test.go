@@ -82,6 +82,17 @@ var _ = Describe("Typed series literals", func() {
 		Entry("into a func", "return head([1.5])", float32(1.5)),
 	)
 
+	DescribeTable("Should read an untyped f64 element",
+		func(ctx SpecContext, body string, expected float64) {
+			got := first(ctx, types.F64(), telem.Float64T, body)
+			Expect(got.Unmarshal[float64]()[0]).To(Equal(expected))
+		},
+		Entry("float, exact float, integer", "s := [1.5, 2.0, 3]\nreturn s[2]", 3.0),
+		Entry("integer, float", "s := [1, 2.5]\nreturn s[1]", 2.5),
+		Entry("integer, exact float, float", "s := [1, 2.0, 2.5]\nreturn s[2]", 2.5),
+		Entry("integer, float", "s := [3, 1.5]\nreturn s[1]", 1.5),
+	)
+
 	DescribeTable("Should read an i32 element",
 		func(ctx SpecContext, body string, expected int32) {
 			got := first(ctx, types.I32(), telem.Int32T, body)
@@ -92,6 +103,11 @@ var _ = Describe("Typed series literals", func() {
 		Entry("with a variable", "y series i32 := [1 + v]\nreturn y[0]", int32(3)),
 		Entry("reassigned", "y series i32 := [3]\ny = [4]\nreturn y[0]", int32(4)),
 	)
+
+	It("Should keep an integer-only series as i64", func(ctx SpecContext) {
+		got := first(ctx, types.I64(), telem.Int64T, "s := [1, 2]\nreturn s[1]")
+		Expect(got.Unmarshal[int64]()[0]).To(Equal(int64(2)))
+	})
 
 	DescribeTable("Should read a u8 element",
 		func(ctx SpecContext, body string, expected uint8) {
