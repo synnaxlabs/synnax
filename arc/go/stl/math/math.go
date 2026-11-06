@@ -170,14 +170,20 @@ var (
 			"The f32 or f64 NaN value. NaN fails every comparison except !=. Test for it with math.is_nan.",
 		),
 		doc.Divider(),
-		doc.Code("arc", "last f64 $= math.nan"),
+		doc.Code(
+			"arc",
+			"func invalid() {x f64} f64 {\n    if x < 0.0 {\n        return math.nan\n    }\n    return x\n}",
+		),
 	)
 	infDoc = doc.New(
 		doc.Paragraph(
 			"The f32 or f64 positive infinity value. Negate it for -math.inf.",
 		),
 		doc.Divider(),
-		doc.Code("arc", "lowest f64 $= math.inf"),
+		doc.Code(
+			"arc",
+			"func lowest() {x f64} f64 {\n    low f64 $= math.inf\n    if x < low {\n        low = x\n    }\n    return low\n}",
+		),
 	)
 	moduleDoc = doc.New(
 		doc.Paragraph(

@@ -23,7 +23,7 @@ import (
 
 var _ = Describe("Hover examples", func() {
 	// The float members only: the math.avg reset example does not compile today.
-	members := set.New("is_nan", "is_infinite", "is_finite")
+	members := set.New("is_nan", "is_infinite", "is_finite", "nan", "inf")
 
 	It("Should compile every float member example", func(ctx SpecContext) {
 		var examples []string
