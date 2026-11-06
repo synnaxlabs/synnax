@@ -77,6 +77,8 @@ struct Warning {
     std::string description;
 
     [[nodiscard]] bool empty() const { return this->message.empty(); }
+
+    bool operator==(const Warning &) const = default;
 };
 
 /// @brief the warning a source reports when it falls behind the hardware. It holds no
@@ -125,8 +127,8 @@ class ReadTask final : public driver::task::Task {
     class InternalSource final : public driver::pipeline::Source {
         /// @brief the parent read task.
         ReadTask &p;
-        /// @brief the description of the warning last written to the log.
-        std::string logged_warning;
+        /// @brief the warning last written to the log. Empty if there is none.
+        Warning logged_warning;
 
     public:
         /// @brief the wrapped, hardware-specific source.
@@ -136,7 +138,7 @@ class ReadTask final : public driver::task::Task {
             p(p), internal(std::move(internal)) {}
 
         /// @brief forgets the logged warning, so the next run logs it again.
-        void reset() { this->logged_warning.clear(); }
+        void forget_warning() { this->logged_warning = {}; }
 
         void stopped_with_err(const x::errors::Error &err) override {
             this->p.state.error(err, "Failed to read data");
@@ -156,7 +158,7 @@ class ReadTask final : public driver::task::Task {
             // 2. We have a critical error, in which case we return it directly.
             // 3. We have a warning, in which case we communicate it and return nil.
             if (err) {
-                this->logged_warning.clear();
+                this->forget_warning();
                 if (err.matches(errors::TEMPORARY_HARDWARE_ERROR)) {
                     auto description = err.data;
                     if (const auto retry = breaker.next_retry(); !retry.empty()) {
@@ -171,13 +173,13 @@ class ReadTask final : public driver::task::Task {
                 return err;
             }
             if (!warning.empty()) {
-                if (warning.description != this->logged_warning)
+                if (warning != this->logged_warning)
                     LOG(WARNING) << this->p.name() << ": " << warning.message << ": "
                                  << warning.description;
-                this->logged_warning = warning.description;
+                this->logged_warning = warning;
                 this->p.state.send_warning(warning.message, warning.description);
             } else {
-                this->logged_warning.clear();
+                this->forget_warning();
                 this->p.state.clear_warning();
             }
             return this->p.tare.transform(fr);
@@ -270,7 +272,7 @@ public:
             return false;
         }
         this->state.reset();
-        this->source->reset();
+        this->source->forget_warning();
         const auto start_ok = !this->state.error(
             this->source->internal->start(),
             "Failed to start task"

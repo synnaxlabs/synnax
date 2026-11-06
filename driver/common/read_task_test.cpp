@@ -759,7 +759,6 @@ TEST(TestCommonReadTask, testRemovalSendsNoQueuedStatus) {
     EXPECT_EQ(ctx->snapshot().size(), 2);
 }
 
-/// @brief it should parse valid base read task configuration.
 /// @brief it should log a warning that repeats only once.
 TEST(TestCommonReadTask, testRepeatedWarningLogsOnce) {
     WarningSink sink;
@@ -777,6 +776,25 @@ TEST(TestCommonReadTask, testChangedWarningLogs) {
     ).run(5);
     EXPECT_EQ(sink.count(FIRST_WARNING.description), 2);
     EXPECT_EQ(sink.count(SECOND_WARNING.description), 1);
+}
+
+/// @brief it should log a warning again when only its message changes.
+TEST(TestCommonReadTask, testChangedWarningMessageLogs) {
+    WarningSink sink;
+    const Warning changed{
+        .message = "Slow read",
+        .description = FIRST_WARNING.description,
+    };
+    ScriptedRead({{.warning = FIRST_WARNING}, {.warning = changed}}).run(5);
+    EXPECT_EQ(sink.count(FIRST_WARNING.message), 1);
+    EXPECT_EQ(sink.count(changed.message), 1);
+}
+
+/// @brief it should log a warning that has no description only once.
+TEST(TestCommonReadTask, testWarningWithoutDescriptionLogsOnce) {
+    WarningSink sink;
+    ScriptedRead({{.warning = {.message = FIRST_WARNING.message}}}).run(5);
+    EXPECT_EQ(sink.count(FIRST_WARNING.message), 1);
 }
 
 /// @brief it should log a warning again when it returns after a clean read.
@@ -807,6 +825,7 @@ TEST(TestCommonReadTask, testWarningLogsOnceEachRun) {
     EXPECT_EQ(sink.count(FIRST_WARNING.description), 2);
 }
 
+/// @brief it should parse valid base read task configuration.
 TEST(BaseReadTaskConfigTest, testValidConfig) {
     const x::json::json j{
         {"data_saving_disabled", true},
