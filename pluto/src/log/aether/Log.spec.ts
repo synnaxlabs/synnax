@@ -1218,6 +1218,14 @@ describe("log/aether/Log", () => {
       expect(shown("true", "boolean", { precision: 2 })).toBe("true");
     });
 
+    it("should keep a float sample of a channel that became an integer", () => {
+      expect(shown("3.14", "int32", { precision: 2 })).toBe("3.14");
+    });
+
+    it("should keep text of a channel that became a float", () => {
+      expect(shown("12 volts", "float32", { precision: 2 })).toBe("12 volts");
+    });
+
     it("should show the raw value before the data type loads", () => {
       expect(shown("3.14159", undefined, { precision: 2 })).toBe("3.14159");
     });

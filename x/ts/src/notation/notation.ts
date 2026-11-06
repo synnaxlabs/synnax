@@ -86,7 +86,8 @@ export const stringifyNumber = (
   // truncated by definition, so coercing bigint to number is safe.
   if (typeof value === "bigint" && notation === "standard")
     return precision === 0 ? value.toString() : `${value}.${"0".repeat(precision)}`;
-  if (typeof value === "bigint") value = Number(value);
+  if (typeof value === "bigint")
+    return stringifyNumber(Number(value), precision, notation);
   if (notation === "standard") return value.toFixed(precision);
   if (value === 0) {
     if (precision === 0) return "0ᴇ0";

@@ -328,6 +328,11 @@ const TEST_CASES: TestCase[] = [
 ];
 
 describe("stringifyNumber", () => {
+  it("should write a bigint past the float range as infinity", () => {
+    expect(notation.stringifyNumber(10n ** 309n, 2, "scientific")).toBe("∞");
+    expect(notation.stringifyNumber(-(10n ** 309n), 2, "engineering")).toBe("-∞");
+  });
+
   describe("undefined precision", () => {
     const CASES: Array<[number | bigint, notation.Notation, string]> = [
       [1234.5, "standard", "1234.5"],

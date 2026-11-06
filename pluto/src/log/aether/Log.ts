@@ -213,8 +213,11 @@ const wrapStarts = (value: string, columns: number): number[] => {
   return starts;
 };
 
-// Returns the sample in the number format of its channel. A sample of a channel that
-// holds no numbers, or whose data type has not loaded, shows as it arrives.
+const INTEGER = /^-?\d+$/;
+
+// Returns the sample in the number format of its channel. A sample shows as it arrives
+// when the channel holds no numbers, its data type has not loaded, or a calculated
+// channel changed type after the sample arrived.
 const formatNumber = (
   value: string,
   dataType: string | undefined,
@@ -222,8 +225,11 @@ const formatNumber = (
 ): string => {
   if (dataType == null) return value;
   const type = new DataType(dataType);
-  if (!type.isInteger && !type.isFloat) return value;
-  const number = type.isInteger ? BigInt(value) : parseFloat(value);
+  if (type.isInteger && INTEGER.test(value))
+    return notation.stringifyNumber(BigInt(value), precision, valueNotation);
+  if (!type.isFloat) return value;
+  const number = Number(value);
+  if (Number.isNaN(number)) return value;
   return notation.stringifyNumber(number, precision, valueNotation);
 };
 
