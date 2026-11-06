@@ -138,6 +138,27 @@ var _ = Describe("NaN and infinity", func() {
 		Expect(out.Get(200).Series[0].Unmarshal[bool]()[0]).To(BeTrue())
 	})
 
+	It("Should store constants in an f32 series", func(ctx SpecContext) {
+		h := newRuntimeHarness(ctx, `
+		import math
+		func check() {v f32} bool {
+			data series f32 := [math.inf, -math.inf, math.nan]
+			return data[0] > v and data[1] < v and math.is_nan(data[2])
+		}
+		x -> check() -> out`, channelSymbols(map[string]channelDef{
+			"x":   {types.F32(), 100},
+			"out": {types.Bool(), 200},
+		}),
+			channels.Digest{Key: 100, DataType: telem.Float32T},
+			channels.Digest{Key: 200, DataType: telem.BooleanT},
+		)
+		defer h.Close(ctx)
+		h.Ingest(100, telem.NewSeriesV[float32](1))
+		h.Tick(ctx, telem.Millisecond)
+		out, _ := h.Flush()
+		Expect(out.Get(200).Series[0].Unmarshal[bool]()[0]).To(BeTrue())
+	})
+
 	It("Should write a constant to a channel from a flow", func(ctx SpecContext) {
 		h := newRuntimeHarness(ctx, `
 		import math

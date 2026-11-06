@@ -376,6 +376,7 @@ TEST(MathFloatTest, ChecksClassifyNaNInfinityAndNumbers) {
     EXPECT_TRUE(f.check_both("is_finite", 1.5));
 }
 
+/// @brief it should give NaN and negative infinity at both float widths.
 TEST(MathFloatTest, ConstantsHaveTheirFloatWidth) {
     FloatFixture f;
     EXPECT_TRUE(std::isnan(f.func("nan_f32").call(f.store, {}).unwrap()[0].f32()));
