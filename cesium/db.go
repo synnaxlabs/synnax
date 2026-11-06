@@ -72,8 +72,8 @@ type DB struct {
 	// unlocked, because the open can block on the file system.
 	opening struct {
 		channels map[ChannelKey]int
-		// drained signals that channels became empty.
-		drained sync.Cond
+		// finished signals that an open ended.
+		finished sync.Cond
 		sync.Mutex
 	}
 }
@@ -170,7 +170,7 @@ func (db *DB) Close() error {
 	err := db.shutdown.Close()
 	db.opening.Lock()
 	for len(db.opening.channels) > 0 {
-		db.opening.drained.Wait()
+		db.opening.finished.Wait()
 	}
 	db.opening.Unlock()
 	db.mu.Lock()

@@ -68,7 +68,6 @@ func (db *DB) lockControllerForNonWriteOp(
 ) (release func(), err error) {
 	g, _, err := db.controller.OpenGate(control.GateConfig[*controlledWriter]{
 		ErrIfControlled: new(true),
-		Sealed:          new(true),
 		TimeRange:       tr,
 		Authority:       xcontrol.AuthorityAbsolute,
 		Subject:         xcontrol.Subject{Key: uuid.New().String(), Name: opName},

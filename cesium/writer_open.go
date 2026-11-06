@@ -404,9 +404,7 @@ func (db *DB) startOpen(cfg WriterConfig) (WriterConfig, channelDBs, func(), err
 				delete(db.opening.channels, key)
 			}
 		}
-		if len(db.opening.channels) == 0 {
-			db.opening.drained.Broadcast()
-		}
+		db.opening.finished.Broadcast()
 	}, nil
 }
 

@@ -46,9 +46,8 @@ type region[R Resource] struct {
 	// [not safe for unprotected concurrent access]
 	counter uint
 	// opening is non-nil from when the region is created until its resource opens or
-	// fails to, and closes at that point. A sealed region keeps it until its gate
-	// releases. Gates and ResourceAt cannot use a region that has it. Guarded by
-	// controller.mu.
+	// fails to, and closes at that point. A region that is opening has no gates and no
+	// resource. Guarded by controller.mu.
 	opening chan struct{}
 	// use serializes access to resource by authorized gates.
 	use sync.Mutex
@@ -175,18 +174,8 @@ func (r *region[R]) release(g *Gate[R]) (res R, transfer Transfer) {
 	}
 	if transfer.IsRelease() {
 		r.controller.unsafeRemove(r)
-		if r.opening != nil {
-			r.unsafeFinishOpening()
-		}
 	}
 	return r.resource, transfer
-}
-
-// unsafeFinishOpening wakes every gate that waits on the region. The caller must hold
-// controller.mu.
-func (r *region[R]) unsafeFinishOpening() {
-	close(r.opening)
-	r.opening = nil
 }
 
 // update a gate's authority.

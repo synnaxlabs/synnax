@@ -16,12 +16,14 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -212,6 +214,36 @@ func (db *DB) removeChannel(ch ChannelKey) error {
 	return nil
 }
 
+// lockWithoutOpens locks db.mu once no writer is opening on chs or on a channel that
+// one of them indexes. It waits for an open with db.mu unlocked, so a blocked open
+// stops only the caller. A steady run of overlapping opens can delay it without limit.
+func (db *DB) lockWithoutOpens(chs []ChannelKey) {
+	for {
+		db.mu.Lock()
+		deleted := set.New(chs...)
+		for key, u := range db.mu.dbs.unary {
+			if deleted.Contains(u.Channel().Index) {
+				deleted.Add(key)
+			}
+		}
+		opening := func() bool {
+			return lo.SomeBy(deleted.Slice(), func(key ChannelKey) bool {
+				return db.opening.channels[key] > 0
+			})
+		}
+		db.opening.Lock()
+		if !opening() {
+			db.opening.Unlock()
+			return
+		}
+		db.mu.Unlock()
+		for opening() {
+			db.opening.finished.Wait()
+		}
+		db.opening.Unlock()
+	}
+}
+
 // DeleteTimeRange deletes a time range of data in the database in the given channels
 // This method return an error if the channel to be deleted is an index channel and
 // there are other channels depending on it in the time range. DeleteTimeRange is
@@ -221,7 +253,7 @@ func (db *DB) DeleteTimeRange(
 	chs []ChannelKey,
 	tr telem.TimeRange,
 ) error {
-	db.mu.Lock()
+	db.lockWithoutOpens(chs)
 	defer db.mu.Unlock()
 	var (
 		indexChannels = make([]ChannelKey, 0, len(chs))
@@ -257,10 +289,8 @@ func (db *DB) DeleteTimeRange(
 			if otherDBKey == ch || otherDB.Channel().Index != ch {
 				continue
 			}
-			// Read before HasDataFor: a finished open leaves a gate that it can see.
-			opening := db.writerOpening(otherDBKey)
 			hasOverlap, err := otherDB.HasDataFor(ctx, tr)
-			if opening || err != nil || hasOverlap {
+			if err != nil || hasOverlap {
 				return errors.Newf(
 					"cannot delete index channel %v "+
 						"with channel %v depending on it on the time range %s",
