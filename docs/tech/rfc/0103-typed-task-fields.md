@@ -16,10 +16,10 @@ HTTP rejects JSON, UUID, and bytes channels. OPC UA `array_size` and Modbus
 Each field becomes a union on a shared `Kind`, in a new X package, `payload`. The Core
 checks each kind against the channel on write. No schema holds `any`.
 
-**Releases hold until Phase 15 lands.** http v4, Kafka v0, MQTT v1, and OPC UA v2 are
-not in `core/v0.60.1`, so they change in place, with no v5. A release before Phase 15
-ships the flat shapes and owes a migration for each. Modbus v2 shipped, so Modbus gets a
-v3 and does not hold releases.
+**Releases hold until every phase from 1 to 15 has landed.** http v4, Kafka v0, MQTT v1,
+and OPC UA v2 are not in `core/v0.60.1`, so they change in place, with no v5. A release
+before then ships flat shapes and owes a migration for each. Modbus v2 shipped, so
+Modbus gets a v3 and does not hold releases.
 
 ## 1 Schema
 
@@ -86,10 +86,7 @@ and its `WriteChannel` stays an alias.
 Sampling union on type { unary {}  array { size int32 = 1 } }
 ReadConfig struct extends task.ReadConfig { sampling Sampling = unary ... }
 RegisterString struct { length int32  bytes_swapped bool? }
-ReadChannel union on type extends v1.BaseReadChannel {
-    ...  holding_register_string extends RegisterString {}
-    input_register_string extends RegisterString {}
-}
+ReadChannel gains holding_register_string and input_register_string extends RegisterString
 ```
 
 ## 2 Integers
@@ -113,15 +110,17 @@ becomes one encoded sample, compared exactly.
 
 ## 3 Bytes
 
-With a pointer, bytes are standard base64 text in the document, as `AppendSampleText`
-writes today. With an empty pointer, the payload is raw and is not JSON. A raw read
-field is the only enabled field of its endpoint, record, or entry. A raw channel field
-is the whole payload, and on Kafka this is an empty `value_pointer`.
+With a pointer, bytes are standard base64 text, as `AppendSampleText` writes today. An
+empty pointer stays the JSON root value on each other kind, so a bare `99.0` body stays
+valid. Only on `bytes` does it mean a raw payload that is not JSON. A raw read field is
+the only enabled field of its endpoint, record, or entry. A raw channel field is the
+whole payload, and on Kafka this is an empty `value_pointer`.
 
 - **`x/go/json`**: `NewDecoder` rejects `BytesT`, and `Encoder` quotes raw bytes.
-- **Kafka**: `read_task.go:159` and `write_task.go:261` reject an empty pointer.
-- **MQTT and HTTP**: A raw field skips `readTopic.extract` and the body parse.
-  `driver/http/read_task.cpp:112` drops its rejection.
+- **Kafka**: `read_task.go:159` and `write_task.go:261` reject an empty pointer. They
+  keep rejecting it on each kind but `bytes`.
+- **MQTT and HTTP**: A `bytes` field with an empty pointer skips `readTopic.extract` and
+  the body parse. `driver/http/read_task.cpp:112` drops its rejection.
 - **`x/cpp`**: `to_sample_value` needs `BYTES_T`, and `x::base64::decode` needs a strict
   form. `Series(string, DataType)` and `at<std::string>` reject `BYTES_T`.
   `variable_samples` (`driver/opcua/telem/telem.cpp:99`) moves to `Series`.
@@ -154,8 +153,8 @@ does not allow, a fill or entry that does not fit the channel's width, and a fil
 index channel. It clears `data_type`.
 
 **Core config**, in `ValidateEntry`: A `label` fill is in the field's own entries.
-Labels and channel field values are unique. `json` text and `bytes` text are valid. An
-empty pointer needs `bytes` and no other enabled field.
+Labels and channel field values are unique. `json` text and `bytes` text are valid. A
+`bytes` field with an empty pointer has no other enabled field.
 
 **Kafka and MQTT** run in the Core. The `ch.DataType` check at task configure becomes a
 kind check. Both gain fill: Kafka skips an absent value today (`read_task.go:767`).
@@ -181,8 +180,7 @@ entries become `value != 0`. `string` drops its entries, as no conversion read t
 kind.
 
 - **Entries**: A `float64` entry converts when it is whole and fits the kind. Others
-  drop with a warning, as they failed at run time. Digits already lost past 2^53 do not
-  return.
+  drop with a warning, as they failed at run time.
 - **#4594 fill**: `optional` with no fill is `nan`. A number is `value`, and an enum
   label is `label`.
 - **Channel field**: A stored `timestamp` data type wins. `json_type: string` with
@@ -214,13 +212,15 @@ because frozen packages do not change. Dev Cores are not owed a migration.
 
 ## 7 Implementation phases
 
-#4594 merges before Phase 2. Each phase is one PR. Phases 1 to 15 hold releases, and the
-others do not.
+#4594 merges before Phase 2. Each phase is one PR. Releases hold until every phase from
+1 to 15 has landed. Phase 13 removes `EnumEntry`, `JSONType`, and `GeneratorType`.
 
 No schema or test uses a qualified variant `extends` or borrowed discriminator. Phase 1
 tests both, and the fallbacks are `integer payload.IntegerRead` and one `Kind` per
 integration. Phase 2 moves Kafka, MQTT, and http v4 together, because a lagging pin
-fails `oracle/check/versions_gate.go`.
+fails `oracle/check/versions_gate.go`. An older Driver reads an absent `array_mode` as
+false and runs an array task as unary with no error, so the Core and the Driver must
+upgrade together for these shapes.
 
 | Phase | Scope                                                 | Touches                                                                                                               | Depends on         |
 | ----- | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------------ |
@@ -236,7 +236,7 @@ fails `oracle/check/versions_gate.go`.
 | 10    | Retype MQTT write channel fields                      | `schemas/synnax/versions/mqtt`, `core/pkg/service/mqtt`, `console/src/feature/mqtt`, `client`                         | 8                  |
 | 11    | Share a typed `WriteField` and migrate `http_write`   | `schemas`, `core/pkg/service`, `driver/http`, `console/src/platform/task/payload`, `client`                           | 8, 10              |
 | 12    | Cut over HTTP read fields                             | `schemas/synnax/versions/http`, `core/pkg/service/http`, `driver/http`, `console/src/feature/http/task`, `client`     | 2, 3, 6            |
-| 13    | Cut over the HTTP `ChannelField`                      | `schemas`, `core/pkg/service/http`, `driver/http`, `console/src/feature/http/task`, `client`                          | 11                 |
+| 13    | Cut over the HTTP `ChannelField`                      | `schemas`, `core/pkg/service/http`, `driver/http`, `console/src/feature/http/task`, `client`                          | 7, 9, 11, 12       |
 | 14    | Retype the HTTP task forms and delete the adapter     | `console/src/feature/http/task`                                                                                       | 12, 13             |
 | 15    | Replace OPC UA array fields with a `Sampling` union   | `schemas/synnax/versions/opcua`, `core/pkg/service/opcua`, `driver/opcua`, `console/src/feature/opcua/task`, `client` | -                  |
 | 16    | Convert JSON, UUID, and bytes samples in the Driver   | `x/cpp/json`, `x/cpp/base64`, `x/cpp/telem`, `driver/opcua/telem`                                                     | -                  |
