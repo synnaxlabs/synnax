@@ -934,6 +934,38 @@ describe("log/aether/Log", () => {
       expect(log.state.selectedText).toMatch(/\d{2}:\d{2}:\d{2} {2}log {3}v$/);
     });
 
+    describe("timestamp channels", () => {
+      const NANOS = BigInt(TimeStamp.seconds(1).valueOf());
+      const copied = (channels: clientLog.ChannelEntry[]): string => {
+        const entries = [
+          { channelKey: 1, timestamp: TimeStamp.seconds(1), value: String(NANOS) },
+        ];
+        const { log } = setup(entries, REGION_500, {
+          channels,
+          channelDataTypes: { "1": "timestamp" },
+          timestampsHidden: true,
+          channelNamesHidden: true,
+          selectionStart: 0,
+          selectionEnd: 0,
+        });
+        log.render();
+        return log.state.selectedText;
+      };
+
+      it("should format the value with the channel's value format", () => {
+        const entry = clientLog.channelEntryZ.parse({
+          channel: 1,
+          color: color.ZERO,
+          valueFormat: { format: "ISO", tz: "UTC" },
+        });
+        expect(copied([entry])).toBe(new TimeStamp(NANOS).toString("ISO", "UTC"));
+      });
+
+      it("should use the default format for a channel with no entry", () => {
+        expect(copied([])).toBe(new TimeStamp(NANOS).toString("preciseDate", "local"));
+      });
+    });
+
     it("should apply precision formatting when channelConfig has precision", () => {
       const entries: LogEntry[] = [
         {
