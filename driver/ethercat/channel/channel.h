@@ -105,6 +105,19 @@ protected:
             );
             return;
         }
+        // An output entry narrower than its float type holds an integer.
+        const auto bits = data_type.density() * 8;
+        if (!this->is_input &&
+            data_type.matches({x::telem::FLOAT32_T, x::telem::FLOAT64_T}) &&
+            pdo->bit_length < bits) {
+            parser.field_err(
+                path + "data_type",
+                "data type " + data_type.name() + " needs a " + std::to_string(bits) +
+                    " bit entry, but " + entry + " holds " +
+                    std::to_string(pdo->bit_length) + " bits. Pick an integer type."
+            );
+            return;
+        }
         this->index = index;
         this->sub_index = sub_index;
         this->bit_length = pdo->bit_length;

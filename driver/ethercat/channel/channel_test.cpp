@@ -98,6 +98,13 @@ slave::Properties wide_output_slave() {
              .is_input = false,
              .name = "Setpoint",
              .data_type = x::telem::FLOAT32_T},
+            {.pdo_index = 0x1600,
+             .index = 0x7000,
+             .sub_index = 3,
+             .bit_length = 24,
+             .is_input = false,
+             .name = "Position",
+             .data_type = x::telem::UINT32_T},
         },
     };
 }
@@ -554,6 +561,21 @@ TEST(Output, ReportsAFloat32StopValueOutsideItsRange) {
         "stop value 1e+100 does not fit entry 0x7000:02 on slave EL2252. Pick a value "
         "from -3.4028235e+38 to 3.4028235e+38."
     );
+}
+
+/// @brief it should reject a float32 output channel on a 24-bit entry.
+TEST(Output, ReportsAFloatTypeOnANarrowerEntry) {
+    const auto j = write_entry(0x7000, 3, "float32");
+    auto parser = x::json::Parser(j);
+    const auto ch = output(wide_output_slave(), parser);
+    const auto [path, message] = only_error(parser);
+    ASSERT_EQ(path, "data_type");
+    ASSERT_EQ(
+        message,
+        "data type float32 needs a 32 bit entry, but entry 0x7000:03 on slave EL2252 "
+        "holds 24 bits. Pick an integer type."
+    );
+    ASSERT_EQ(ch->index, 0);
 }
 
 /// @brief it should list each matching address when an unresolved name matches more
