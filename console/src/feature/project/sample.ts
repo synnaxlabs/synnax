@@ -190,7 +190,9 @@ const deploy = async (client: Synnax, key: arc.Key): Promise<void> => {
 };
 
 export const exists = async (client: Synnax): Promise<boolean> => {
-  const found = await client.projects.retrieve([KEYS.project]);
+  const found = await client.projects.retrieve({
+    where: { key: { eq: KEYS.project } },
+  });
   return found.length > 0;
 };
 

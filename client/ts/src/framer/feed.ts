@@ -56,6 +56,8 @@ export interface FeedProps
     Omit<MultiplexedStreamerProps, "store" | "joins" | "onWait" | "openStreamer"> {
   openStreamer: StreamOpener;
   readLatest: RemoteLatestReader;
+  /** Reads the first stored sample of each channel. */
+  readFirst: (keys: channel.Key[]) => Promise<Frame>;
   /**
    * The key of the Core node the client connects to, once known. History signals keep
    * the blocks of only the channels stored on it.
@@ -75,7 +77,13 @@ export interface FeedProps
 /** The part of {@link FeedProps} a caller sets. The client supplies the rest. */
 export interface FeedOptions extends Omit<
   FeedProps,
-  "readRemote" | "retrieveChannels" | "openStreamer" | "readLatest" | "onRetry" | "node"
+  | "readRemote"
+  | "retrieveChannels"
+  | "openStreamer"
+  | "readLatest"
+  | "readFirst"
+  | "onRetry"
+  | "node"
 > {}
 
 /**
@@ -199,6 +207,21 @@ export class Feed {
 
   private get now(): () => TimeStamp {
     return this.props.now ?? (() => TimeStamp.now());
+  }
+
+  /**
+   * @returns the start of the oldest stored domain of the channels, or null when they
+   * store no samples.
+   * @throws {NotFoundError} if a channel does not exist.
+   * @throws {AccessDeniedError} if the caller may not retrieve a channel.
+   */
+  async firstTime(keys: channel.Key[]): Promise<TimeStamp | null> {
+    const frame = await this.props.readFirst(keys);
+    const firsts = keys.flatMap((key) => {
+      const series = frame.get(key);
+      return series.series.length === 0 ? [] : [series.timeRange.start];
+    });
+    return firsts.length === 0 ? null : firsts.reduce((a, b) => TimeStamp.min(a, b));
   }
 
   /**
