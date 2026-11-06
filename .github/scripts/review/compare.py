@@ -113,6 +113,9 @@ class Item:
     path: str | None
     line: int | None
     verdict: str
+    repeat: bool = False
+    """Whether an earlier paired commit listed its thread. A repeat can match a finding
+    of the other reviewer, but no count includes it."""
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -374,12 +377,11 @@ def _pull(
     # each thread counts once, on the first paired commit that lists it.
     counted: set[int] = set()
 
-    def first(t: Thread | None) -> bool:
-        if t is None:
-            return True
-        if t.id in counted:
+    def repeat(t: Thread | None) -> bool:
+        if t is None or t.id not in counted:
+            if t is not None:
+                counted.add(t.id)
             return False
-        counted.add(t.id)
         return True
 
     out: list[Pair] = []
@@ -391,8 +393,6 @@ def _pull(
         g: list[Item] = []
         for severity, title, d in found:
             t = by_id.get(d) if d is not None else None
-            if not first(t):
-                continue
             g.append(
                 Item(
                     severity=severity,
@@ -400,13 +400,12 @@ def _pull(
                     path=t.path if t else None,
                     line=t.line if t else None,
                     verdict=judge(t),
+                    repeat=repeat(t),
                 )
             )
         s: list[Item] = []
         for f in rec["review"]["findings"]:
             t = ours.get((f["path"], f["title"]))
-            if not first(t):
-                continue
             s.append(
                 Item(
                     severity=f["severity"],
@@ -414,6 +413,7 @@ def _pull(
                     path=f["path"],
                     line=f["line"],
                     verdict=judge(t),
+                    repeat=repeat(t),
                 )
             )
         matches = match(g, s)
@@ -479,20 +479,28 @@ class _Tally:
     def of(cls, ps: list[Pair]) -> "_Tally":
         return cls(
             reviews=len(ps),
-            greptile=_verdicts([i for p in ps for i in p.greptile]),
-            sedosaur=_verdicts([i for p in ps for i in p.sedosaur]),
-            found=sum(p.greptile[i].verdict == REAL for p in ps for i, _ in p.matches),
+            greptile=_verdicts([i for p in ps for i in p.greptile if not i.repeat]),
+            sedosaur=_verdicts([i for p in ps for i in p.sedosaur if not i.repeat]),
+            found=sum(
+                p.greptile[i].verdict == REAL and not p.greptile[i].repeat
+                for p in ps
+                for i, _ in p.matches
+            ),
             missed=[
                 (p, x)
                 for p in ps
                 for i, x in enumerate(p.greptile)
-                if x.verdict == REAL and i not in {m for m, _ in p.matches}
+                if x.verdict == REAL
+                and not x.repeat
+                and i not in {m for m, _ in p.matches}
             ],
             only=[
                 (p, x)
                 for p in ps
                 for j, x in enumerate(p.sedosaur)
-                if x.verdict == REAL and j not in {m for _, m in p.matches}
+                if x.verdict == REAL
+                and not x.repeat
+                and j not in {m for _, m in p.matches}
             ],
             equal=sum(p.scores[0] == p.scores[1] for p in ps),
             higher=sum(p.scores[1] > p.scores[0] for p in ps),
@@ -609,9 +617,19 @@ def report(ps: list[Pair], recs: list[dict[str, Any]], *, since: datetime) -> st
         "| --- | --- | --- | --- | --- | --- | --- |",
     ]
     for p in ps:
-        both = len(p.matches)
+        matched_g = {i for i, _ in p.matches}
+        matched_s = {j for _, j in p.matches}
+        both = sum(
+            not (p.greptile[i].repeat and p.sedosaur[j].repeat) for i, j in p.matches
+        )
+        only_g = sum(
+            not x.repeat for i, x in enumerate(p.greptile) if i not in matched_g
+        )
+        only_s = sum(
+            not x.repeat for j, x in enumerate(p.sedosaur) if j not in matched_s
+        )
         lines.append(
             f"| #{p.pr} | `{p.head[:10]}` | {p.scores[0]}/5 | {p.scores[1]}/5 | {both} "
-            f"| {len(p.greptile) - both} | {len(p.sedosaur) - both} |"
+            f"| {only_g} | {only_s} |"
         )
     return "\n".join(lines)
