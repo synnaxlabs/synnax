@@ -115,14 +115,15 @@ protected:
         return times;
     }
 
-    /// @brief samples, every 20 ms for 3 s, how far the latest frame passed the
+    /// @brief samples, every 2 ms for 400 ms, how far the latest frame passed the
     /// reference clock from half a period after a SYNC0 event. Returns the share of
-    /// samples within a quarter period.
+    /// samples within a quarter period. A 1 ms period that drifts 0.5% slips through
+    /// two whole periods in that time.
     [[nodiscard]] double share_in_phase(const x::telem::TimeSpan period) const {
-        constexpr int SAMPLES = 150;
+        constexpr int SAMPLES = 200;
         int in_phase = 0;
         for (int i = 0; i < SAMPLES; ++i) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
             const auto dc = this->master->dc_time().value_or(master::DC_EPOCH);
             if (((dc - master::DC_EPOCH) % period - period / 2).abs() < period / 4)
                 ++in_phase;
@@ -213,21 +214,21 @@ TEST_F(EngineTest, ReadStampsSamplesWithTheDistributedClockSpacing) {
 TEST_F(EngineTest, LocksTheCycleToTheDistributedClock) {
     this->master->set_host_dc(1.005);
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(1000), 1)
     );
-    EXPECT_GT(this->share_in_phase(x::telem::MILLISECOND * 10), 0.8);
+    EXPECT_GT(this->share_in_phase(x::telem::MILLISECOND), 0.8);
 }
 
 /// @brief it should lock the cycle to the distributed clock while the slaves move to
 /// OP and the working counter falls short.
 TEST_F(EngineTest, LocksTheCycleWhileTheSlavesMoveToOP) {
     this->master->set_host_dc(1.005);
-    this->master->set_start_frames(400);
+    this->master->set_start_frames(1000);
     std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> res;
     std::thread start([&] {
-        res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
+        res = this->engine->open_reader({IN_I16}, x::telem::Rate(1000), 1);
     });
-    EXPECT_GT(this->share_in_phase(x::telem::MILLISECOND * 10), 0.8);
+    EXPECT_GT(this->share_in_phase(x::telem::MILLISECOND), 0.8);
     EXPECT_EQ(this->master->call_count("op"), 0);
     start.join();
     ASSERT_NIL(res.second);
@@ -238,12 +239,12 @@ TEST_F(EngineTest, LocksTheCycleWhileTheSlavesMoveToOP) {
 TEST_F(EngineTest, ShortFramesAfterTheStartDoNotMoveTheCycle) {
     this->master->set_host_dc(1.005);
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(1000), 1)
     );
     this->master->inject_receive_error(
         x::errors::Error(errors::WORKING_COUNTER_ERROR, "expected 3, got 1")
     );
-    EXPECT_LT(this->share_in_phase(x::telem::MILLISECOND * 10), 0.8);
+    EXPECT_LT(this->share_in_phase(x::telem::MILLISECOND), 0.8);
 }
 
 TEST_F(EngineTest, ReadReturnsNilWhenBreakerStopped) {
