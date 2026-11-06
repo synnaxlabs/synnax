@@ -12,8 +12,6 @@
 package pb
 
 import (
-	"encoding/json/v2"
-
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	ontologypb "github.com/synnaxlabs/synnax/pkg/service/ontology/pb"
@@ -22,9 +20,6 @@ import (
 	"github.com/synnaxlabs/x/filter"
 	filterpb "github.com/synnaxlabs/x/filter/pb"
 	xpb "github.com/synnaxlabs/x/pb"
-	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -380,7 +375,7 @@ func DeviceToPB(
 	}
 	if r.Status != nil {
 		var err error
-		pb.Status, err = statuspb.StatusToPB(*r.Status, StatusDetailsToPBAny)
+		pb.Status, err = statuspb.StatusToPB(*r.Status, xpb.ToAny[device.StatusDetails])
 		if err != nil {
 			return nil, err
 		}
@@ -413,7 +408,7 @@ func DeviceFromPB(
 	r.Name = pb.Name
 	r.Configured = pb.Configured
 	if pb.Status != nil {
-		val, err := statuspb.StatusFromPB(pb.Status, StatusDetailsFromPBAny)
+		val, err := statuspb.StatusFromPB(pb.Status, xpb.FromAny[device.StatusDetails])
 		if err != nil {
 			return device.Device{}, err
 		}
@@ -455,63 +450,6 @@ func DevicesFromPB(
 		if err != nil {
 			return nil, err
 		}
-	}
-	return result, nil
-}
-
-// StatusDetailsToPBAny converts StatusDetails to *anypb.Any for use with generic
-// translators. It wraps the value in structpb.Struct (JSON) for cross-language
-// compatibility.
-func StatusDetailsToPBAny(v device.StatusDetails) (*anypb.Any, error) {
-	pb, err := StatusDetailsToPB(v)
-	if err != nil {
-		return nil, err
-	}
-	// Convert proto to JSON bytes, then to Struct for cross-language compatibility
-	jsonBytes, err := protojson.Marshal(pb)
-	if err != nil {
-		return nil, err
-	}
-	s := &structpb.Struct{}
-	if err := protojson.Unmarshal(jsonBytes, s); err != nil {
-		return nil, err
-	}
-	return anypb.New(s)
-}
-
-// StatusDetailsFromPBAny converts *anypb.Any to StatusDetails for use with generic
-// translators. It handles typed protos and JSON (google.protobuf.Value, or
-// google.protobuf.Struct from peers on releases before value packing) for
-// cross-language compatibility.
-func StatusDetailsFromPBAny(a *anypb.Any) (device.StatusDetails, error) {
-	if a == nil {
-		return device.StatusDetails{}, nil
-	}
-	// First try typed proto
-	var pb StatusDetails
-	if err := a.UnmarshalTo(&pb); err == nil {
-		return StatusDetailsFromPB(&pb)
-	}
-	// Fall back to JSON for cross-language compatibility
-	var (
-		msg proto.Message
-		v   structpb.Value
-		s   structpb.Struct
-	)
-	if err := a.UnmarshalTo(&v); err == nil {
-		msg = &v
-	} else if err := a.UnmarshalTo(&s); err != nil {
-		return device.StatusDetails{}, err
-	} else {
-		msg = &s
-	}
-	jsonBytes, err := protojson.Marshal(msg)
-	if err != nil {
-		return device.StatusDetails{}, err
-	}
-	var result device.StatusDetails
-	if err := json.Unmarshal(jsonBytes, &result); err != nil {
-		return device.StatusDetails{}, err
 	}
 	return result, nil
 }

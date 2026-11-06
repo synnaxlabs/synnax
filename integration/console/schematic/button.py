@@ -7,12 +7,14 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Literal
-
 import synnax as sy
-from console.schematic.symbol import PropertyDict, Symbol
+from console.schematic.symbol import Properties, Symbol
 
-ButtonMode = Literal["Fire", "Momentary", "Pulse"]
+_MODE_LABELS: dict[sy.schematic.ButtonMode, str] = {
+    "fire": "Fire",
+    "momentary": "Momentary",
+    "pulse": "Pulse",
+}
 
 
 class Button(Symbol):
@@ -27,7 +29,7 @@ class Button(Symbol):
         channel_name: str,
         activation_delay: float | None = None,
         show_control_chip: bool | None = None,
-        mode: ButtonMode = "Fire",
+        mode: sy.schematic.ButtonMode = "fire",
         symbol_type: str = "Button",
     ):
         """Initialize a button symbol with configuration.
@@ -38,7 +40,7 @@ class Button(Symbol):
             activation_delay: Milliseconds the button must be held before it
                 fires (optional)
             show_control_chip: Whether to show the control chip (optional)
-            mode: Button mode - "Fire", "Momentary", or "Pulse" (optional)
+            mode: Button mode (optional)
             symbol_type: The type of symbol (default: "Button")
         """
         super().__init__(label=label, symbol_type=symbol_type, rotatable=False)
@@ -62,7 +64,7 @@ class Button(Symbol):
         channel_name: str | None = None,
         activation_delay: float | None = None,
         show_control_chip: bool | None = None,
-        mode: ButtonMode = "Fire",
+        mode: sy.schematic.ButtonMode = "fire",
     ) -> None:
         """Set Button properties including channel settings."""
         self.click()
@@ -93,17 +95,13 @@ class Button(Symbol):
                     chip_toggle.click()
 
         if mode is not None:
-            self.page.get_by_role("button", name=mode, exact=True).click()
+            self.page.get_by_role("button", name=_MODE_LABELS[mode], exact=True).click()
 
-    def get_properties(self, *, tab: str = "Control") -> PropertyDict:
+    def get_properties(self, *, tab: str = "Control") -> Properties:
         """Get the current properties of the symbol"""
         super().get_properties(tab=tab)
 
-        props: PropertyDict = {
-            "channel": "",
-            "show_control_chip": False,
-            "mode": "",
-        }
+        props: Properties = {"channel": "", "show_control_chip": False}
 
         # Channel name
         channel_display = self.channel_trigger("Command")
@@ -128,14 +126,13 @@ class Button(Symbol):
             props["show_control_chip"] = chip_toggle.is_checked()
 
         # Mode
-        mode_options = ["Fire", "Momentary", "Pulse"]
-        for option in mode_options:
+        for mode, label in _MODE_LABELS.items():
             try:
-                button = self.page.get_by_text(option).first
+                button = self.page.get_by_text(label).first
                 if button.count() > 0:
                     class_name = button.get_attribute("class") or ""
                     if "lyra--selected" in class_name:
-                        props["mode"] = option
+                        props["mode"] = mode
                         break
             except Exception as e:
                 raise RuntimeError("Error getting mode property") from e

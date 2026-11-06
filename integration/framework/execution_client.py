@@ -7,7 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import dataclasses
 import random
 import threading
 import time
@@ -187,7 +186,10 @@ class ExecutionClient:
     def _fits(self, sequence: Sequence, core: Core) -> bool:
         if core is self._cores[0]:
             return True
-        return not any(resources.NI in self._resources_of(td) for td in sequence.tests)
+        return not any(
+            resources.NI in self._config_client.resources_of(td)
+            for td in sequence.tests
+        )
 
     def _run_sequence(self, sequence: Sequence, core: Core) -> None:
         if self.should_stop:
@@ -230,7 +232,7 @@ class ExecutionClient:
             if len(defs) == 0:
                 continue
             retry_keys.update(str(td) for td in defs)
-            retries.append(dataclasses.replace(seq, tests=defs))
+            retries.append(seq.model_copy(update={"tests": defs}))
 
         if len(retries) == 0:
             return
@@ -374,18 +376,10 @@ class ExecutionClient:
             error_message=message,
         )
 
-    def _resources_of(self, test_def: TestDefinition) -> frozenset[str]:
-        try:
-            return self._config_client.load_test_class(test_def).resources()
-        except Exception:
-            # A case that cannot load holds nothing. It fails with the error when it
-            # runs.
-            return frozenset()
-
     def _test_runner_thread(
         self, test_def: TestDefinition, core: Core, future: Future[Test]
     ) -> None:
-        held = self._resources_of(test_def)
+        held = self._config_client.resources_of(test_def)
         start = time.monotonic()
         try:
             self._resources.acquire(held)

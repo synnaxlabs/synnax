@@ -445,7 +445,8 @@ func (p *printer) isInputValuesParen(idx int, tokens []antlr.Token) bool {
 		}
 		switch t {
 		case parser.ArcLexerIF, parser.ArcLexerFOR, parser.ArcLexerELSE,
-			parser.ArcLexerFUNC, parser.ArcLexerSTAGE, parser.ArcLexerSEQUENCE:
+			parser.ArcLexerFUNC, parser.ArcLexerSTAGE, parser.ArcLexerSEQUENCE,
+			parser.ArcLexerEXPORT:
 			return false
 		case parser.ArcLexerLBRACE, parser.ArcLexerRBRACE,
 			parser.ArcLexerCOLON, parser.ArcLexerARROW,
@@ -1092,8 +1093,12 @@ func (p *printer) handleDefault(tok antlr.Token, idx int, tokens []antlr.Token) 
 }
 
 func (p *printer) needsNewlineBefore(tokType int) bool {
+	if p.lastTokenType == parser.ArcLexerEXPORT {
+		return false
+	}
 	switch tokType {
-	case parser.ArcLexerFUNC, parser.ArcLexerSEQUENCE, parser.ArcLexerAUTHORITY:
+	case parser.ArcLexerEXPORT, parser.ArcLexerFUNC, parser.ArcLexerSEQUENCE,
+		parser.ArcLexerAUTHORITY:
 		return p.prevToken != nil && p.lastTokenType != parser.ArcLexerRBRACE
 	case parser.ArcLexerSTAGE:
 		return p.prevToken != nil
@@ -1255,7 +1260,7 @@ func (p *printer) isKeyword(tokType int) bool {
 		parser.ArcLexerFOR, parser.ArcLexerRETURN,
 		parser.ArcLexerSEQUENCE, parser.ArcLexerSTAGE,
 		parser.ArcLexerNEXT, parser.ArcLexerNOT, parser.ArcLexerAUTHORITY,
-		parser.ArcLexerIMPORT, parser.ArcLexerAS:
+		parser.ArcLexerIMPORT, parser.ArcLexerEXPORT, parser.ArcLexerAS:
 		return true
 	}
 	return false

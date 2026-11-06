@@ -77,6 +77,14 @@ public:
         this->slave_states[pos] = slave::State::INIT;
     }
 
+    /// @brief makes the PDO discovery of the slave at position fail with error.
+    void fail_pdo_discovery(const uint16_t position, const std::string &error) {
+        std::lock_guard lock(this->mu);
+        for (auto &slave: this->slave_list)
+            if (slave.properties.position == position)
+                slave.status.pdo_discovery_error = error;
+    }
+
     /// @brief injects an error to be returned by initialize().
     void inject_init_error(const x::errors::Error &err) {
         std::lock_guard lock(this->mu);
