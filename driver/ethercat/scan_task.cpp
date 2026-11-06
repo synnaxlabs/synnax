@@ -303,6 +303,22 @@ void Scanner::on_device_set(const synnax::device::Device &dev) {
                      << "failed to update device status: " << status_err;
 }
 
+void Scanner::on_device_delete(const synnax::device::Device &dev) {
+    if (dev.model != SLAVE_DEVICE_MODEL) return;
+    // A deleted device's other properties can be invalid. Only its network matters.
+    const auto network = parse_properties(dev.properties).first.network;
+    if (network.empty()) return;
+    if (const auto [eng, err] = acquire_engine(
+            *this->pool,
+            this->ctx->client,
+            this->task.rack,
+            network
+        );
+        err)
+        LOG(WARNING) << SCAN_LOG_PREFIX << "failed to drop the settings of " << dev.name
+                     << ": " << err;
+}
+
 void Scanner::test_interface(const synnax::task::Command &cmd) const {
     x::json::Parser parser(cmd.args);
     TestInterfaceArgs args(parser);

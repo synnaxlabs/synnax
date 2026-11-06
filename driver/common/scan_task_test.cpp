@@ -1401,6 +1401,8 @@ public:
     mutable std::mutex mu;
     std::vector<std::unordered_map<std::string, synnax::device::Device>>
         captured_devices;
+    /// @brief the names of the devices passed to on_device_delete.
+    std::vector<std::string> deleted_names;
 
     explicit DeviceCapturingScanner(ScannerConfig config):
         scanner_config(std::move(config)) {}
@@ -1432,6 +1434,16 @@ public:
         std::lock_guard lock(mu);
         if (captured_devices.empty()) return false;
         return captured_devices.back().contains(key);
+    }
+
+    void on_device_delete(const synnax::device::Device &dev) override {
+        std::lock_guard lock(mu);
+        deleted_names.push_back(dev.name);
+    }
+
+    std::vector<std::string> deleted() {
+        std::lock_guard lock(mu);
+        return deleted_names;
     }
 };
 
@@ -1506,7 +1518,8 @@ TEST(TestScanTask, testSignalMonitoringAddsDevicesToContext) {
     scan_task.stop();
 }
 
-/// @brief it should remove devices from context when device delete signal arrives.
+/// @brief it should remove devices from context when device delete signal arrives, and
+/// pass the last state of each one to the scanner.
 TEST(TestScanTask, testSignalMonitoringRemovesDevicesFromContext) {
     synnax::channel::Channel device_set_ch;
     device_set_ch.key = 100;
@@ -1574,6 +1587,8 @@ TEST(TestScanTask, testSignalMonitoringRemovesDevicesFromContext) {
 
     // Wait for signal thread to process and device to be removed
     ASSERT_EVENTUALLY_FALSE(scanner_ptr->has_device("device-to-delete"));
+    ASSERT_EVENTUALLY_EQ(scanner_ptr->deleted().size(), 1);
+    EXPECT_EQ(scanner_ptr->deleted(), std::vector<std::string>{"Device to Delete"});
 
     scan_task.stop();
 }

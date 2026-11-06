@@ -71,13 +71,6 @@ std::unique_ptr<master::Manager> default_manager() {
     return std::make_unique<soem::Manager>();
 }
 
-namespace {
-/// @brief acquires the engine for the network and replaces its slave settings with the
-/// ones saved on the rack for that network. A task can start the bus before the scanner
-/// first runs, and a cached engine must not keep the settings of a deleted device.
-/// Returns errors::SLAVE_CONFIG_ERROR when a slave on the network has invalid
-/// properties, since the bus starts every slave on it, or when two devices at one
-/// position have different settings.
 std::pair<std::shared_ptr<engine::Engine>, x::errors::Error> acquire_engine(
     engine::Pool &pool,
     const std::shared_ptr<synnax::Synnax> &client,
@@ -140,7 +133,6 @@ std::pair<std::shared_ptr<engine::Engine>, x::errors::Error> acquire_engine(
     }
     eng->replace_slave_configs(std::move(configs));
     return {eng, x::errors::NIL};
-}
 }
 
 Factory::Factory(std::shared_ptr<x::thread::rt::Manager> rt_manager):
