@@ -18,20 +18,26 @@ import { Direction } from "@/direction";
 import { type Config } from "@/schematic/node/common/label/Label";
 
 const LABEL_INPUT_FIELD_PROPS: Partial<Input.TextProps> = { selectOnFocus: true };
+const MULTILINE_INPUT_FIELD_PROPS: Partial<Input.TextProps> = {
+  ...LABEL_INPUT_FIELD_PROPS,
+  area: true,
+};
 
 interface FormProps {
   path: deep.Path<Config>;
   omit?: string[];
+  /** Makes the label field a text area, so a user can enter newlines. */
+  multiline?: boolean;
 }
 
-export const Form = ({ path, omit = [] }: FormProps): ReactElement => (
+export const Form = ({ path, omit = [], multiline }: FormProps): ReactElement => (
   <Flex.Box x align="stretch">
     <Base.TextField
       path={path.label}
       label="Label"
       padHelpText={false}
       grow
-      inputProps={LABEL_INPUT_FIELD_PROPS}
+      inputProps={multiline ? MULTILINE_INPUT_FIELD_PROPS : LABEL_INPUT_FIELD_PROPS}
     />
     <Base.NumericField
       visible={!omit.includes("maxInlineSize")}
