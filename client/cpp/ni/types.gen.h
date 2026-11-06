@@ -260,7 +260,7 @@ struct BaseAIChannel {
     /// @brief channel is the Synnax channel that raw samples are written to.
     ::synnax::channel::Key channel = ::synnax::channel::Key(0);
     /// @brief port is the physical port the channel reads from.
-    std::int32_t port = 0;
+    std::uint16_t port = 0;
     /// @brief device is the key of the device the channel belongs to.
     ::synnax::device::Key device = "";
 
@@ -279,7 +279,7 @@ struct BaseCIChannel {
     /// @brief channel is the Synnax channel that raw samples are written to.
     ::synnax::channel::Key channel = ::synnax::channel::Key(0);
     /// @brief port is the physical counter the channel uses.
-    std::int32_t port = 0;
+    std::uint16_t port = 0;
     /// @brief device is the key of the device the counter belongs to.
     ::synnax::device::Key device = "";
 
@@ -302,7 +302,7 @@ struct BaseAOChannel {
     /// @brief state_channel_name is the human-readable name of the state channel.
     std::string state_channel_name = "";
     /// @brief port is the physical port the channel writes to.
-    std::int32_t port = 0;
+    std::uint16_t port = 0;
 
     static BaseAOChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -319,9 +319,9 @@ struct DIChannel {
     /// @brief channel is the Synnax channel that raw samples are written to.
     ::synnax::channel::Key channel = ::synnax::channel::Key(0);
     /// @brief port is the physical port the channel reads from.
-    std::int32_t port = 0;
+    std::uint16_t port = 0;
     /// @brief line is the digital line within the port the channel reads from.
-    std::int32_t line = 0;
+    std::uint8_t line = 0;
 
     static DIChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -342,9 +342,9 @@ struct DOChannel {
     /// @brief state_channel_name is the human-readable name of the state channel.
     std::string state_channel_name = "";
     /// @brief port is the physical port the channel writes to.
-    std::int32_t port = 0;
+    std::uint16_t port = 0;
     /// @brief line is the digital line within the port the channel writes to.
-    std::int32_t line = 0;
+    std::uint8_t line = 0;
 
     static DOChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -416,7 +416,7 @@ struct ConstValCJC {
 struct ChanCJC {
     std::string source = "chan";
     /// @brief port is the port of the channel that measures the reference.
-    std::int32_t port = 0;
+    std::uint16_t port = 0;
 
     static ChanCJC parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

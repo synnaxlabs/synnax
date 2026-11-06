@@ -629,6 +629,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.NI, err = ni.OpenService(ctx, ni.ServiceConfig{
 		Instrumentation: cfg.Child("ni"),
 		DB:              cfg.Distribution.DB,
+		Ontology:        l.Ontology,
 	}); !ok(err, l.NI) {
 		return nil, err
 	}

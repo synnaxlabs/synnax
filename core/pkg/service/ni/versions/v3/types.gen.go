@@ -12,8 +12,16 @@
 package v3
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"strconv"
+
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ni/versions/v2"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Units enumerates the engineering units for NI analog channel values.
@@ -300,33 +308,146 @@ const (
 	ThermocoupleTypeE ThermocoupleType = v2.ThermocoupleTypeE
 )
 
-// CJC is the cold-junction compensation for a thermocouple. The source selects where
-// the reference temperature comes from.
-type CJC = v2.CJC
-
-// CJCVariant is implemented by every CJC variant.
-type CJCVariant = v2.CJCVariant
-
 // CJCType is the "source" value that selects a variant of CJC.
-type CJCType = v2.CJCType
+type CJCType string
 
 const (
 	// BuiltInCJCType reads the reference temperature from the device's own sensor.
-	BuiltInCJCType CJCType = v2.BuiltInCJCType
+	BuiltInCJCType CJCType = "built_in"
 	// ConstValCJCType uses a fixed reference temperature.
-	ConstValCJCType CJCType = v2.ConstValCJCType
+	ConstValCJCType CJCType = "const_val"
 	// ChanCJCType reads the reference temperature from another channel.
-	ChanCJCType CJCType = v2.ChanCJCType
+	ChanCJCType CJCType = "chan"
 )
 
+// CJCVariant is implemented by every CJC variant.
+type CJCVariant interface {
+	isCJCVariant()
+}
+
 // BuiltInCJC reads the reference temperature from the device's own sensor.
-type BuiltInCJC = v2.BuiltInCJC
+type BuiltInCJC struct {
+}
+
+func (BuiltInCJC) isCJCVariant() {}
 
 // ConstValCJC uses a fixed reference temperature.
-type ConstValCJC = v2.ConstValCJC
+type ConstValCJC struct {
+	// Val is the reference temperature, in the channel's units.
+	Val float64 `json:"val" msgpack:"val"`
+}
+
+func (ConstValCJC) isCJCVariant() {}
 
 // ChanCJC reads the reference temperature from another channel.
-type ChanCJC = v2.ChanCJC
+type ChanCJC struct {
+	// Port is the port of the channel that measures the reference.
+	Port uint16 `json:"port" msgpack:"port"`
+}
+
+func (ChanCJC) isCJCVariant() {}
+
+// CJC is the cold-junction compensation for a thermocouple. The source selects where
+// the reference temperature comes from.
+type CJC struct {
+	Variant CJCVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "source" tag injected.
+func (u CJC) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case BuiltInCJC:
+		return json.MarshalEncode(enc, struct {
+			Type CJCType `json:"source"`
+			BuiltInCJC
+		}{Type: BuiltInCJCType, BuiltInCJC: v})
+	case ConstValCJC:
+		return json.MarshalEncode(enc, struct {
+			Type CJCType `json:"source"`
+			ConstValCJC
+		}{Type: ConstValCJCType, ConstValCJC: v})
+	case ChanCJC:
+		return json.MarshalEncode(enc, struct {
+			Type CJCType `json:"source"`
+			ChanCJC
+		}{Type: ChanCJCType, ChanCJC: v})
+	default:
+		return errors.Newf("CJC: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "source" field.
+func (u *CJC) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type CJCType `json:"source"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case BuiltInCJCType:
+		var v struct {
+			Type CJCType `json:"source"`
+			BuiltInCJC
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.BuiltInCJC
+	case ConstValCJCType:
+		var v struct {
+			Type CJCType `json:"source"`
+			ConstValCJC
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.ConstValCJC
+	case ChanCJCType:
+		var v struct {
+			Type CJCType `json:"source"`
+			ChanCJC
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.ChanCJC
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"CJC: unknown source %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Source returns the source of the active variant, or an empty source when there is
+// none.
+func (u CJC) Source() CJCType {
+	switch u.Variant.(type) {
+	case BuiltInCJC:
+		return BuiltInCJCType
+	case ConstValCJC:
+		return ConstValCJCType
+	case ChanCJC:
+		return ChanCJCType
+	}
+	return ""
+}
 
 // VelocityUnits are the engineering units for a velocity measurement.
 type VelocityUnits = v2.VelocityUnits
@@ -432,185 +553,1958 @@ type TwoPointLin = v2.TwoPointLin
 type CustomScale = v2.CustomScale
 
 // BaseAIChannel carries the fields every NI analog input channel shares.
-type BaseAIChannel = v2.BaseAIChannel
-
-// AIChannel is a single NI analog input channel. The type field selects the measurement
-// mode and the fields that accompany it.
-type AIChannel = v2.AIChannel
-
-// AIChannelVariant is implemented by every AIChannel variant.
-type AIChannelVariant = v2.AIChannelVariant
+type BaseAIChannel struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name string `json:"name" msgpack:"name"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled bool `json:"disabled" msgpack:"disabled"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel channel.Key `json:"channel" msgpack:"channel"`
+	// Port is the physical port the channel reads from.
+	Port uint16 `json:"port" msgpack:"port"`
+	// Device is the key of the device the channel belongs to.
+	Device device.Key `json:"device" msgpack:"device"`
+}
 
 // AIChannelType is the "type" value that selects a variant of AIChannel.
-type AIChannelType = v2.AIChannelType
+type AIChannelType string
 
 const (
 	// AIVoltageChannelType reads a voltage.
-	AIVoltageChannelType AIChannelType = v2.AIVoltageChannelType
+	AIVoltageChannelType AIChannelType = "ai_voltage"
 	// AIAccelChannelType reads acceleration from an accelerometer.
-	AIAccelChannelType AIChannelType = v2.AIAccelChannelType
+	AIAccelChannelType AIChannelType = "ai_accel"
 	// AIBridgeChannelType reads a generic bridge-based sensor.
-	AIBridgeChannelType AIChannelType = v2.AIBridgeChannelType
+	AIBridgeChannelType AIChannelType = "ai_bridge"
 	// AICurrentChannelType reads a current.
-	AICurrentChannelType AIChannelType = v2.AICurrentChannelType
+	AICurrentChannelType AIChannelType = "ai_current"
 	// AIForceBridgeTableChannelType reads force from a bridge with a calibration table.
-	AIForceBridgeTableChannelType AIChannelType = v2.AIForceBridgeTableChannelType
+	AIForceBridgeTableChannelType AIChannelType = "ai_force_bridge_table"
 	// AIForceBridgeTwoPointLinChannelType reads force from a bridge with two-point
 	// linear calibration.
-	AIForceBridgeTwoPointLinChannelType AIChannelType = v2.AIForceBridgeTwoPointLinChannelType
+	AIForceBridgeTwoPointLinChannelType AIChannelType = "ai_force_bridge_two_point_lin"
 	// AIForceIEPEChannelType reads force from an IEPE sensor.
-	AIForceIEPEChannelType AIChannelType = v2.AIForceIEPEChannelType
+	AIForceIEPEChannelType AIChannelType = "ai_force_iepe"
 	// AIMicrophoneChannelType reads sound pressure from a microphone.
-	AIMicrophoneChannelType AIChannelType = v2.AIMicrophoneChannelType
+	AIMicrophoneChannelType AIChannelType = "ai_microphone"
 	// AIPressureBridgeTableChannelType reads pressure from a bridge with a calibration
 	// table.
-	AIPressureBridgeTableChannelType AIChannelType = v2.AIPressureBridgeTableChannelType
+	AIPressureBridgeTableChannelType AIChannelType = "ai_pressure_bridge_table"
 	// AIPressureBridgeTwoPointLinChannelType reads pressure from a bridge with
 	// two-point linear calibration.
-	AIPressureBridgeTwoPointLinChannelType AIChannelType = v2.AIPressureBridgeTwoPointLinChannelType
+	AIPressureBridgeTwoPointLinChannelType AIChannelType = "ai_pressure_bridge_two_point_lin"
 	// AIResistanceChannelType reads a resistance.
-	AIResistanceChannelType AIChannelType = v2.AIResistanceChannelType
+	AIResistanceChannelType AIChannelType = "ai_resistance"
 	// AIRTDChannelType reads temperature from an RTD.
-	AIRTDChannelType AIChannelType = v2.AIRTDChannelType
+	AIRTDChannelType AIChannelType = "ai_rtd"
 	// AIStrainGaugeChannelType reads strain from a strain gauge.
-	AIStrainGaugeChannelType AIChannelType = v2.AIStrainGaugeChannelType
+	AIStrainGaugeChannelType AIChannelType = "ai_strain_gauge"
 	// AITempBuiltinChannelType reads temperature from the device's built-in sensor.
-	AITempBuiltinChannelType AIChannelType = v2.AITempBuiltinChannelType
+	AITempBuiltinChannelType AIChannelType = "ai_temp_builtin"
 	// AIThermocoupleChannelType reads temperature from a thermocouple.
-	AIThermocoupleChannelType AIChannelType = v2.AIThermocoupleChannelType
+	AIThermocoupleChannelType AIChannelType = "ai_thermocouple"
 	// AITorqueBridgeTableChannelType reads torque from a bridge with a calibration
 	// table.
-	AITorqueBridgeTableChannelType AIChannelType = v2.AITorqueBridgeTableChannelType
+	AITorqueBridgeTableChannelType AIChannelType = "ai_torque_bridge_table"
 	// AITorqueBridgeTwoPointLinChannelType reads torque from a bridge with two-point
 	// linear calibration.
-	AITorqueBridgeTwoPointLinChannelType AIChannelType = v2.AITorqueBridgeTwoPointLinChannelType
+	AITorqueBridgeTwoPointLinChannelType AIChannelType = "ai_torque_bridge_two_point_lin"
 	// AIVelocityIEPEChannelType reads velocity from an IEPE sensor.
-	AIVelocityIEPEChannelType AIChannelType = v2.AIVelocityIEPEChannelType
+	AIVelocityIEPEChannelType AIChannelType = "ai_velocity_iepe"
 	// AIAccel4WireDCVoltageChannelType reads acceleration from a 4-wire DC-voltage
 	// accelerometer.
-	AIAccel4WireDCVoltageChannelType AIChannelType = v2.AIAccel4WireDCVoltageChannelType
+	AIAccel4WireDCVoltageChannelType AIChannelType = "ai_accel_4_wire_dc_voltage"
 	// AIAccelChargeChannelType reads acceleration from a charge-mode accelerometer.
-	AIAccelChargeChannelType AIChannelType = v2.AIAccelChargeChannelType
+	AIAccelChargeChannelType AIChannelType = "ai_accel_charge"
 	// AIChargeChannelType reads a raw charge.
-	AIChargeChannelType AIChannelType = v2.AIChargeChannelType
+	AIChargeChannelType AIChannelType = "ai_charge"
 	// AICurrentRMSChannelType reads RMS current.
-	AICurrentRMSChannelType AIChannelType = v2.AICurrentRMSChannelType
+	AICurrentRMSChannelType AIChannelType = "ai_current_rms"
 	// AIForceBridgePolynomialChannelType reads force from a bridge with polynomial
 	// calibration.
-	AIForceBridgePolynomialChannelType AIChannelType = v2.AIForceBridgePolynomialChannelType
+	AIForceBridgePolynomialChannelType AIChannelType = "ai_force_bridge_polynomial"
 	// AIFreqVoltageChannelType reads frequency from a voltage signal.
-	AIFreqVoltageChannelType AIChannelType = v2.AIFreqVoltageChannelType
+	AIFreqVoltageChannelType AIChannelType = "ai_freq_voltage"
 	// AIPressureBridgePolynomialChannelType reads pressure from a bridge with
 	// polynomial calibration.
-	AIPressureBridgePolynomialChannelType AIChannelType = v2.AIPressureBridgePolynomialChannelType
+	AIPressureBridgePolynomialChannelType AIChannelType = "ai_pressure_bridge_polynomial"
 	// AIThermistorIexChannelType reads temperature from a current-excited thermistor.
-	AIThermistorIexChannelType AIChannelType = v2.AIThermistorIexChannelType
+	AIThermistorIexChannelType AIChannelType = "ai_thermistor_iex"
 	// AIThermistorVexChannelType reads temperature from a voltage-excited thermistor.
-	AIThermistorVexChannelType AIChannelType = v2.AIThermistorVexChannelType
+	AIThermistorVexChannelType AIChannelType = "ai_thermistor_vex"
 	// AITorqueBridgePolynomialChannelType reads torque from a bridge with polynomial
 	// calibration.
-	AITorqueBridgePolynomialChannelType AIChannelType = v2.AITorqueBridgePolynomialChannelType
+	AITorqueBridgePolynomialChannelType AIChannelType = "ai_torque_bridge_polynomial"
 	// AIVoltageRMSChannelType reads RMS voltage.
-	AIVoltageRMSChannelType AIChannelType = v2.AIVoltageRMSChannelType
+	AIVoltageRMSChannelType AIChannelType = "ai_voltage_rms"
 	// AIVoltageWithExcitChannelType reads a voltage with excitation.
-	AIVoltageWithExcitChannelType AIChannelType = v2.AIVoltageWithExcitChannelType
+	AIVoltageWithExcitChannelType AIChannelType = "ai_voltage_with_excit"
 )
 
+// AIChannelVariant is implemented by every AIChannel variant.
+type AIChannelVariant interface {
+	isAIChannelVariant()
+}
+
 // AIVoltageChannel reads a voltage.
-type AIVoltageChannel = v2.AIVoltageChannel
+type AIVoltageChannel struct {
+	BaseAIChannel
+	MinMaxVal
+	Terminal
+	CustomScale
+}
+
+func (AIVoltageChannel) isAIChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *AIVoltageChannel) ApplyDefaults() {
+	a.MinMaxVal.ApplyDefaults()
+	a.Terminal.ApplyDefaults()
+	a.CustomScale.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AIVoltageChannel) Validate() error {
+	v := validate.New("AIVoltageChannel")
+	v.Exec(a.Terminal.Validate)
+	v.Exec(a.CustomScale.Validate)
+	return v.Error()
+}
 
 // AIAccelChannel reads acceleration from an accelerometer.
-type AIAccelChannel = v2.AIAccelChannel
+type AIAccelChannel struct {
+	BaseAIChannel
+	MinMaxVal
+	Terminal
+	Sensitivity
+	CurrentExcitation
+	CustomScale
+	// Units are the units of the acceleration measurement.
+	Units AccelUnits `json:"units" msgpack:"units"`
+	// SensitivityUnits are the units of the accelerometer sensitivity.
+	SensitivityUnits AccelSensitivityUnits `json:"sensitivity_units" msgpack:"sensitivity_units"`
+}
+
+func (AIAccelChannel) isAIChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *AIAccelChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = AccelUnitsG
+	}
+	if a.SensitivityUnits == "" {
+		a.SensitivityUnits = AccelSensitivityUnitsMVoltsPerG
+	}
+	a.MinMaxVal.ApplyDefaults()
+	a.Terminal.ApplyDefaults()
+	a.CurrentExcitation.ApplyDefaults()
+	a.CustomScale.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AIAccelChannel) Validate() error {
+	v := validate.New("AIAccelChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
+	v.Ternaryf("sensitivity_units", !a.SensitivityUnits.IsValid(), "invalid sensitivity_units: %v", a.SensitivityUnits)
+	v.Exec(a.Terminal.Validate)
+	v.Exec(a.CurrentExcitation.Validate)
+	v.Exec(a.CustomScale.Validate)
+	return v.Error()
+}
 
 // AIBridgeChannel reads a generic bridge-based sensor.
-type AIBridgeChannel = v2.AIBridgeChannel
+type AIBridgeChannel struct {
+	BaseAIChannel
+	MinMaxVal
+	Bridge
+	VoltageExcitation
+	CustomScale
+	// Units are the electrical output units of the bridge.
+	Units ElectricalUnits `json:"units" msgpack:"units"`
+}
+
+func (AIBridgeChannel) isAIChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *AIBridgeChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = ElectricalUnitsMVoltsPerVolt
+	}
+	a.MinMaxVal.ApplyDefaults()
+	a.Bridge.ApplyDefaults()
+	a.VoltageExcitation.ApplyDefaults()
+	a.CustomScale.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AIBridgeChannel) Validate() error {
+	v := validate.New("AIBridgeChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
+	v.Exec(a.Bridge.Validate)
+	v.Exec(a.VoltageExcitation.Validate)
+	v.Exec(a.CustomScale.Validate)
+	return v.Error()
+}
 
 // AICurrentChannel reads a current.
-type AICurrentChannel = v2.AICurrentChannel
+type AICurrentChannel struct {
+	BaseAIChannel
+	MinMaxVal
+	Terminal
+	CustomScale
+	// ShuntResistorLoc selects where the shunt resistor is located.
+	ShuntResistorLoc ShuntResistorLocation `json:"shunt_resistor_loc" msgpack:"shunt_resistor_loc"`
+	// ExtShuntResistorVal is the external shunt resistor value, in Ohms.
+	ExtShuntResistorVal float64 `json:"ext_shunt_resistor_val" msgpack:"ext_shunt_resistor_val"`
+}
+
+func (AICurrentChannel) isAIChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *AICurrentChannel) ApplyDefaults() {
+	if a.ShuntResistorLoc == "" {
+		a.ShuntResistorLoc = ShuntResistorLocationDefault
+	}
+	if a.ExtShuntResistorVal == 0 {
+		a.ExtShuntResistorVal = 1
+	}
+	a.MinMaxVal.ApplyDefaults()
+	a.Terminal.ApplyDefaults()
+	a.CustomScale.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AICurrentChannel) Validate() error {
+	v := validate.New("AICurrentChannel")
+	v.Ternaryf("shunt_resistor_loc", !a.ShuntResistorLoc.IsValid(), "invalid shunt_resistor_loc: %v", a.ShuntResistorLoc)
+	v.Exec(a.Terminal.Validate)
+	v.Exec(a.CustomScale.Validate)
+	return v.Error()
+}
 
 // AIForceBridgeTableChannel reads force from a bridge with a calibration table.
-type AIForceBridgeTableChannel = v2.AIForceBridgeTableChannel
+type AIForceBridgeTableChannel struct {
+	BaseAIChannel
+	MinMaxVal
+	Bridge
+	VoltageExcitation
+	Table
+	CustomScale
+	// Units are the units of the force measurement.
+	Units ForceUnits `json:"units" msgpack:"units"`
+	// PhysicalUnits are the physical units of the calibration table.
+	PhysicalUnits ForceUnits `json:"physical_units" msgpack:"physical_units"`
+}
+
+func (AIForceBridgeTableChannel) isAIChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *AIForceBridgeTableChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = ForceUnitsNewtons
+	}
+	if a.PhysicalUnits == "" {
+		a.PhysicalUnits = ForceUnitsNewtons
+	}
+	a.MinMaxVal.ApplyDefaults()
+	a.Bridge.ApplyDefaults()
+	a.VoltageExcitation.ApplyDefaults()
+	a.Table.ApplyDefaults()
+	a.CustomScale.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AIForceBridgeTableChannel) Validate() error {
+	v := validate.New("AIForceBridgeTableChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
+	v.Ternaryf("physical_units", !a.PhysicalUnits.IsValid(), "invalid physical_units: %v", a.PhysicalUnits)
+	v.Exec(a.Bridge.Validate)
+	v.Exec(a.VoltageExcitation.Validate)
+	v.Exec(a.Table.Validate)
+	v.Exec(a.CustomScale.Validate)
+	return v.Error()
+}
 
 // AIForceBridgeTwoPointLinChannel reads force from a bridge with two-point linear
 // calibration.
-type AIForceBridgeTwoPointLinChannel = v2.AIForceBridgeTwoPointLinChannel
+type AIForceBridgeTwoPointLinChannel struct {
+	BaseAIChannel
+	MinMaxVal
+	Bridge
+	VoltageExcitation
+	TwoPointLin
+	CustomScale
+	// Units are the units of the force measurement.
+	Units ForceUnits `json:"units" msgpack:"units"`
+	// PhysicalUnits are the physical units of the two-point calibration.
+	PhysicalUnits ForceUnits `json:"physical_units" msgpack:"physical_units"`
+}
+
+func (AIForceBridgeTwoPointLinChannel) isAIChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *AIForceBridgeTwoPointLinChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = ForceUnitsNewtons
+	}
+	if a.PhysicalUnits == "" {
+		a.PhysicalUnits = ForceUnitsNewtons
+	}
+	a.MinMaxVal.ApplyDefaults()
+	a.Bridge.ApplyDefaults()
+	a.VoltageExcitation.ApplyDefaults()
+	a.TwoPointLin.ApplyDefaults()
+	a.CustomScale.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AIForceBridgeTwoPointLinChannel) Validate() error {
+	v := validate.New("AIForceBridgeTwoPointLinChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
+	v.Ternaryf("physical_units", !a.PhysicalUnits.IsValid(), "invalid physical_units: %v", a.PhysicalUnits)
+	v.Exec(a.Bridge.Validate)
+	v.Exec(a.VoltageExcitation.Validate)
+	v.Exec(a.TwoPointLin.Validate)
+	v.Exec(a.CustomScale.Validate)
+	return v.Error()
+}
 
 // AIForceIEPEChannel reads force from an IEPE sensor.
-type AIForceIEPEChannel = v2.AIForceIEPEChannel
+type AIForceIEPEChannel struct {
+	BaseAIChannel
+	MinMaxVal
+	Terminal
+	Sensitivity
+	CurrentExcitation
+	CustomScale
+	// Units are the units of the force measurement.
+	Units ForceUnits `json:"units" msgpack:"units"`
+	// SensitivityUnits are the units of the IEPE sensor sensitivity.
+	SensitivityUnits ForceSensitivityUnits `json:"sensitivity_units" msgpack:"sensitivity_units"`
+}
+
+func (AIForceIEPEChannel) isAIChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *AIForceIEPEChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = ForceUnitsNewtons
+	}
+	if a.SensitivityUnits == "" {
+		a.SensitivityUnits = ForceSensitivityUnitsMVoltsPerNewton
+	}
+	a.MinMaxVal.ApplyDefaults()
+	a.Terminal.ApplyDefaults()
+	a.CurrentExcitation.ApplyDefaults()
+	a.CustomScale.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AIForceIEPEChannel) Validate() error {
+	v := validate.New("AIForceIEPEChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
+	v.Ternaryf("sensitivity_units", !a.SensitivityUnits.IsValid(), "invalid sensitivity_units: %v", a.SensitivityUnits)
+	v.Exec(a.Terminal.Validate)
+	v.Exec(a.CurrentExcitation.Validate)
+	v.Exec(a.CustomScale.Validate)
+	return v.Error()
+}
 
 // AIMicrophoneChannel reads sound pressure from a microphone.
-type AIMicrophoneChannel = v2.AIMicrophoneChannel
+type AIMicrophoneChannel struct {
+	BaseAIChannel
+	Terminal
+	CurrentExcitation
+	CustomScale
+	// MicSensitivity is the microphone sensitivity, in mV/Pa.
+	MicSensitivity float64 `json:"mic_sensitivity" msgpack:"mic_sensitivity"`
+	// MaxSndPressLevel is the maximum expected sound pressure level, in dB.
+	MaxSndPressLevel float64 `json:"max_snd_press_level" msgpack:"max_snd_press_level"`
+}
+
+func (AIMicrophoneChannel) isAIChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *AIMicrophoneChannel) ApplyDefaults() {
+	a.Terminal.ApplyDefaults()
+	a.CurrentExcitation.ApplyDefaults()
+	a.CustomScale.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AIMicrophoneChannel) Validate() error {
+	v := validate.New("AIMicrophoneChannel")
+	v.Exec(a.Terminal.Validate)
+	v.Exec(a.CurrentExcitation.Validate)
+	v.Exec(a.CustomScale.Validate)
+	return v.Error()
+}
 
 // AIPressureBridgeTableChannel reads pressure from a bridge with a calibration table.
-type AIPressureBridgeTableChannel = v2.AIPressureBridgeTableChannel
+type AIPressureBridgeTableChannel struct {
+	BaseAIChannel
+	MinMaxVal
+	Bridge
+	VoltageExcitation
+	Table
+	CustomScale
+	// Units are the units of the pressure measurement.
+	Units PressureUnits `json:"units" msgpack:"units"`
+	// PhysicalUnits are the physical units of the calibration table.
+	PhysicalUnits PressureUnits `json:"physical_units" msgpack:"physical_units"`
+}
+
+func (AIPressureBridgeTableChannel) isAIChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *AIPressureBridgeTableChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = PressureUnitsPoundsPerSquareInch
+	}
+	if a.PhysicalUnits == "" {
+		a.PhysicalUnits = PressureUnitsPoundsPerSquareInch
+	}
+	a.MinMaxVal.ApplyDefaults()
+	a.Bridge.ApplyDefaults()
+	a.VoltageExcitation.ApplyDefaults()
+	a.Table.ApplyDefaults()
+	a.CustomScale.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AIPressureBridgeTableChannel) Validate() error {
+	v := validate.New("AIPressureBridgeTableChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
+	v.Ternaryf("physical_units", !a.PhysicalUnits.IsValid(), "invalid physical_units: %v", a.PhysicalUnits)
+	v.Exec(a.Bridge.Validate)
+	v.Exec(a.VoltageExcitation.Validate)
+	v.Exec(a.Table.Validate)
+	v.Exec(a.CustomScale.Validate)
+	return v.Error()
+}
 
 // AIPressureBridgeTwoPointLinChannel reads pressure from a bridge with two-point linear
 // calibration.
-type AIPressureBridgeTwoPointLinChannel = v2.AIPressureBridgeTwoPointLinChannel
+type AIPressureBridgeTwoPointLinChannel struct {
+	BaseAIChannel
+	MinMaxVal
+	Bridge
+	VoltageExcitation
+	TwoPointLin
+	CustomScale
+	// Units are the units of the pressure measurement.
+	Units PressureUnits `json:"units" msgpack:"units"`
+	// PhysicalUnits are the physical units of the two-point calibration.
+	PhysicalUnits PressureUnits `json:"physical_units" msgpack:"physical_units"`
+}
+
+func (AIPressureBridgeTwoPointLinChannel) isAIChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *AIPressureBridgeTwoPointLinChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = PressureUnitsPoundsPerSquareInch
+	}
+	if a.PhysicalUnits == "" {
+		a.PhysicalUnits = PressureUnitsPoundsPerSquareInch
+	}
+	a.MinMaxVal.ApplyDefaults()
+	a.Bridge.ApplyDefaults()
+	a.VoltageExcitation.ApplyDefaults()
+	a.TwoPointLin.ApplyDefaults()
+	a.CustomScale.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AIPressureBridgeTwoPointLinChannel) Validate() error {
+	v := validate.New("AIPressureBridgeTwoPointLinChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
+	v.Ternaryf("physical_units", !a.PhysicalUnits.IsValid(), "invalid physical_units: %v", a.PhysicalUnits)
+	v.Exec(a.Bridge.Validate)
+	v.Exec(a.VoltageExcitation.Validate)
+	v.Exec(a.TwoPointLin.Validate)
+	v.Exec(a.CustomScale.Validate)
+	return v.Error()
+}
 
 // AIResistanceChannel reads a resistance.
-type AIResistanceChannel = v2.AIResistanceChannel
+type AIResistanceChannel struct {
+	BaseAIChannel
+	MinMaxVal
+	Resistance
+	CurrentExcitation
+	CustomScale
+}
+
+func (AIResistanceChannel) isAIChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *AIResistanceChannel) ApplyDefaults() {
+	a.MinMaxVal.ApplyDefaults()
+	a.Resistance.ApplyDefaults()
+	a.CurrentExcitation.ApplyDefaults()
+	a.CustomScale.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AIResistanceChannel) Validate() error {
+	v := validate.New("AIResistanceChannel")
+	v.Exec(a.Resistance.Validate)
+	v.Exec(a.CurrentExcitation.Validate)
+	v.Exec(a.CustomScale.Validate)
+	return v.Error()
+}
 
 // AIRTDChannel reads temperature from an RTD.
-type AIRTDChannel = v2.AIRTDChannel
+type AIRTDChannel struct {
+	BaseAIChannel
+	MinMaxVal
+	Resistance
+	CurrentExcitation
+	// Units are the units of the temperature measurement.
+	Units TemperatureUnits `json:"units" msgpack:"units"`
+	// RtdType selects the RTD resistance-temperature curve.
+	RtdType RTDType `json:"rtd_type" msgpack:"rtd_type"`
+	// R0 is the sensor resistance at 0 degrees Celsius, in Ohms.
+	R0 float64 `json:"r0" msgpack:"r0"`
+}
+
+func (AIRTDChannel) isAIChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *AIRTDChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = TemperatureUnitsDegC
+	}
+	if a.RtdType == "" {
+		a.RtdType = RTDTypePt3750
+	}
+	a.MinMaxVal.ApplyDefaults()
+	a.Resistance.ApplyDefaults()
+	a.CurrentExcitation.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AIRTDChannel) Validate() error {
+	v := validate.New("AIRTDChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
+	v.Ternaryf("rtd_type", !a.RtdType.IsValid(), "invalid rtd_type: %v", a.RtdType)
+	v.Exec(a.Resistance.Validate)
+	v.Exec(a.CurrentExcitation.Validate)
+	return v.Error()
+}
 
 // AIStrainGaugeChannel reads strain from a strain gauge.
-type AIStrainGaugeChannel = v2.AIStrainGaugeChannel
+type AIStrainGaugeChannel struct {
+	BaseAIChannel
+	MinMaxVal
+	VoltageExcitation
+	CustomScale
+	// StrainConfig selects the strain-gauge bridge configuration.
+	StrainConfig StrainConfig `json:"strain_config" msgpack:"strain_config"`
+	// GageFactor is the gauge factor of the strain gauge.
+	GageFactor float64 `json:"gage_factor" msgpack:"gage_factor"`
+	// InitialBridgeVoltage is the bridge output voltage in the unloaded state.
+	InitialBridgeVoltage float64 `json:"initial_bridge_voltage" msgpack:"initial_bridge_voltage"`
+	// NominalGageResistance is the nominal gauge resistance, in Ohms.
+	NominalGageResistance float64 `json:"nominal_gage_resistance" msgpack:"nominal_gage_resistance"`
+	// PoissonRatio is the Poisson ratio of the measured material.
+	PoissonRatio float64 `json:"poisson_ratio" msgpack:"poisson_ratio"`
+	// LeadWireResistance is the resistance of the lead wires, in Ohms.
+	LeadWireResistance float64 `json:"lead_wire_resistance" msgpack:"lead_wire_resistance"`
+}
+
+func (AIStrainGaugeChannel) isAIChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *AIStrainGaugeChannel) ApplyDefaults() {
+	if a.StrainConfig == "" {
+		a.StrainConfig = StrainConfigFullBridgeI
+	}
+	a.MinMaxVal.ApplyDefaults()
+	a.VoltageExcitation.ApplyDefaults()
+	a.CustomScale.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AIStrainGaugeChannel) Validate() error {
+	v := validate.New("AIStrainGaugeChannel")
+	v.Ternaryf("strain_config", !a.StrainConfig.IsValid(), "invalid strain_config: %v", a.StrainConfig)
+	v.Exec(a.VoltageExcitation.Validate)
+	v.Exec(a.CustomScale.Validate)
+	return v.Error()
+}
 
 // AITempBuiltinChannel reads temperature from the device's built-in sensor.
-type AITempBuiltinChannel = v2.AITempBuiltinChannel
+type AITempBuiltinChannel struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name string `json:"name" msgpack:"name"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled bool `json:"disabled" msgpack:"disabled"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel channel.Key `json:"channel" msgpack:"channel"`
+	// Device is the key of the device the channel belongs to.
+	Device device.Key `json:"device" msgpack:"device"`
+	// Units are the units of the temperature measurement.
+	Units TemperatureUnits `json:"units" msgpack:"units"`
+}
+
+func (AITempBuiltinChannel) isAIChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *AITempBuiltinChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = TemperatureUnitsDegC
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AITempBuiltinChannel) Validate() error {
+	v := validate.New("AITempBuiltinChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
+	return v.Error()
+}
 
 // AIThermocoupleChannel reads temperature from a thermocouple.
-type AIThermocoupleChannel = v2.AIThermocoupleChannel
+type AIThermocoupleChannel struct {
+	BaseAIChannel
+	MinMaxVal
+	// Units are the units of the temperature measurement.
+	Units TemperatureUnits `json:"units" msgpack:"units"`
+	// ThermocoupleType selects the thermocouple alloy type.
+	ThermocoupleType ThermocoupleType `json:"thermocouple_type" msgpack:"thermocouple_type"`
+	// Cjc is the cold-junction compensation applied to the reading.
+	Cjc CJC `json:"cjc" msgpack:"cjc"`
+}
+
+func (AIThermocoupleChannel) isAIChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *AIThermocoupleChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = TemperatureUnitsDegC
+	}
+	if a.ThermocoupleType == "" {
+		a.ThermocoupleType = ThermocoupleTypeJ
+	}
+	if a.Cjc.Variant == nil {
+		a.Cjc.Variant = BuiltInCJC{}
+	}
+	a.MinMaxVal.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AIThermocoupleChannel) Validate() error {
+	v := validate.New("AIThermocoupleChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
+	v.Ternaryf("thermocouple_type", !a.ThermocoupleType.IsValid(), "invalid thermocouple_type: %v", a.ThermocoupleType)
+	return v.Error()
+}
 
 // AITorqueBridgeTableChannel reads torque from a bridge with a calibration table.
-type AITorqueBridgeTableChannel = v2.AITorqueBridgeTableChannel
+type AITorqueBridgeTableChannel struct {
+	BaseAIChannel
+	MinMaxVal
+	Bridge
+	VoltageExcitation
+	Table
+	CustomScale
+	// Units are the units of the torque measurement.
+	Units TorqueUnits `json:"units" msgpack:"units"`
+	// PhysicalUnits are the physical units of the calibration table.
+	PhysicalUnits TorqueUnits `json:"physical_units" msgpack:"physical_units"`
+}
+
+func (AITorqueBridgeTableChannel) isAIChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *AITorqueBridgeTableChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = TorqueUnitsNewtonMeters
+	}
+	if a.PhysicalUnits == "" {
+		a.PhysicalUnits = TorqueUnitsNewtonMeters
+	}
+	a.MinMaxVal.ApplyDefaults()
+	a.Bridge.ApplyDefaults()
+	a.VoltageExcitation.ApplyDefaults()
+	a.Table.ApplyDefaults()
+	a.CustomScale.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AITorqueBridgeTableChannel) Validate() error {
+	v := validate.New("AITorqueBridgeTableChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
+	v.Ternaryf("physical_units", !a.PhysicalUnits.IsValid(), "invalid physical_units: %v", a.PhysicalUnits)
+	v.Exec(a.Bridge.Validate)
+	v.Exec(a.VoltageExcitation.Validate)
+	v.Exec(a.Table.Validate)
+	v.Exec(a.CustomScale.Validate)
+	return v.Error()
+}
 
 // AITorqueBridgeTwoPointLinChannel reads torque from a bridge with two-point linear
 // calibration.
-type AITorqueBridgeTwoPointLinChannel = v2.AITorqueBridgeTwoPointLinChannel
+type AITorqueBridgeTwoPointLinChannel struct {
+	BaseAIChannel
+	MinMaxVal
+	Bridge
+	VoltageExcitation
+	TwoPointLin
+	CustomScale
+	// Units are the units of the torque measurement.
+	Units TorqueUnits `json:"units" msgpack:"units"`
+	// PhysicalUnits are the physical units of the two-point calibration.
+	PhysicalUnits TorqueUnits `json:"physical_units" msgpack:"physical_units"`
+}
+
+func (AITorqueBridgeTwoPointLinChannel) isAIChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *AITorqueBridgeTwoPointLinChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = TorqueUnitsNewtonMeters
+	}
+	if a.PhysicalUnits == "" {
+		a.PhysicalUnits = TorqueUnitsNewtonMeters
+	}
+	a.MinMaxVal.ApplyDefaults()
+	a.Bridge.ApplyDefaults()
+	a.VoltageExcitation.ApplyDefaults()
+	a.TwoPointLin.ApplyDefaults()
+	a.CustomScale.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AITorqueBridgeTwoPointLinChannel) Validate() error {
+	v := validate.New("AITorqueBridgeTwoPointLinChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
+	v.Ternaryf("physical_units", !a.PhysicalUnits.IsValid(), "invalid physical_units: %v", a.PhysicalUnits)
+	v.Exec(a.Bridge.Validate)
+	v.Exec(a.VoltageExcitation.Validate)
+	v.Exec(a.TwoPointLin.Validate)
+	v.Exec(a.CustomScale.Validate)
+	return v.Error()
+}
 
 // AIVelocityIEPEChannel reads velocity from an IEPE sensor.
-type AIVelocityIEPEChannel = v2.AIVelocityIEPEChannel
+type AIVelocityIEPEChannel struct {
+	BaseAIChannel
+	MinMaxVal
+	Terminal
+	Sensitivity
+	CurrentExcitation
+	CustomScale
+	// Units are the units of the velocity measurement.
+	Units VelocityUnits `json:"units" msgpack:"units"`
+	// SensitivityUnits are the units of the IEPE sensor sensitivity.
+	SensitivityUnits VelocitySensitivityUnits `json:"sensitivity_units" msgpack:"sensitivity_units"`
+}
+
+func (AIVelocityIEPEChannel) isAIChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *AIVelocityIEPEChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = VelocityUnitsMetersPerSecond
+	}
+	if a.SensitivityUnits == "" {
+		a.SensitivityUnits = VelocitySensitivityUnitsMVoltsPerMmPerSecond
+	}
+	a.MinMaxVal.ApplyDefaults()
+	a.Terminal.ApplyDefaults()
+	a.CurrentExcitation.ApplyDefaults()
+	a.CustomScale.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AIVelocityIEPEChannel) Validate() error {
+	v := validate.New("AIVelocityIEPEChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
+	v.Ternaryf("sensitivity_units", !a.SensitivityUnits.IsValid(), "invalid sensitivity_units: %v", a.SensitivityUnits)
+	v.Exec(a.Terminal.Validate)
+	v.Exec(a.CurrentExcitation.Validate)
+	v.Exec(a.CustomScale.Validate)
+	return v.Error()
+}
 
 // AIAccel4WireDCVoltageChannel reads acceleration from a 4-wire DC-voltage
 // accelerometer.
-type AIAccel4WireDCVoltageChannel = v2.AIAccel4WireDCVoltageChannel
+type AIAccel4WireDCVoltageChannel struct {
+	BaseAIChannel
+	MinMaxVal
+	Terminal
+	Sensitivity
+	VoltageExcitation
+	CustomScale
+	// Units are the units of the acceleration measurement.
+	Units AccelUnits `json:"units" msgpack:"units"`
+	// SensitivityUnits are the units of the accelerometer sensitivity.
+	SensitivityUnits AccelSensitivityUnits `json:"sensitivity_units" msgpack:"sensitivity_units"`
+	// ScaledByExcitation is true when the excitation voltage is used to scale the
+	// reading.
+	ScaledByExcitation bool `json:"scaled_by_excitation" msgpack:"scaled_by_excitation"`
+}
+
+func (AIAccel4WireDCVoltageChannel) isAIChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *AIAccel4WireDCVoltageChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = AccelUnitsG
+	}
+	if a.SensitivityUnits == "" {
+		a.SensitivityUnits = AccelSensitivityUnitsMVoltsPerG
+	}
+	a.MinMaxVal.ApplyDefaults()
+	a.Terminal.ApplyDefaults()
+	a.VoltageExcitation.ApplyDefaults()
+	a.CustomScale.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AIAccel4WireDCVoltageChannel) Validate() error {
+	v := validate.New("AIAccel4WireDCVoltageChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
+	v.Ternaryf("sensitivity_units", !a.SensitivityUnits.IsValid(), "invalid sensitivity_units: %v", a.SensitivityUnits)
+	v.Exec(a.Terminal.Validate)
+	v.Exec(a.VoltageExcitation.Validate)
+	v.Exec(a.CustomScale.Validate)
+	return v.Error()
+}
 
 // AIAccelChargeChannel reads acceleration from a charge-mode accelerometer.
-type AIAccelChargeChannel = v2.AIAccelChargeChannel
+type AIAccelChargeChannel struct {
+	BaseAIChannel
+	MinMaxVal
+	Terminal
+	Sensitivity
+	CustomScale
+	// Units are the units of the acceleration measurement.
+	Units AccelUnits `json:"units" msgpack:"units"`
+	// SensitivityUnits are the units of the accelerometer sensitivity.
+	SensitivityUnits AccelChargeSensitivityUnits `json:"sensitivity_units" msgpack:"sensitivity_units"`
+}
+
+func (AIAccelChargeChannel) isAIChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *AIAccelChargeChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = AccelUnitsG
+	}
+	if a.SensitivityUnits == "" {
+		a.SensitivityUnits = AccelChargeSensitivityUnitsPicoCoulombsPerG
+	}
+	a.MinMaxVal.ApplyDefaults()
+	a.Terminal.ApplyDefaults()
+	a.CustomScale.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AIAccelChargeChannel) Validate() error {
+	v := validate.New("AIAccelChargeChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
+	v.Ternaryf("sensitivity_units", !a.SensitivityUnits.IsValid(), "invalid sensitivity_units: %v", a.SensitivityUnits)
+	v.Exec(a.Terminal.Validate)
+	v.Exec(a.CustomScale.Validate)
+	return v.Error()
+}
 
 // AIChargeChannel reads a raw charge.
-type AIChargeChannel = v2.AIChargeChannel
+type AIChargeChannel struct {
+	BaseAIChannel
+	MinMaxVal
+	Terminal
+	CustomScale
+	// Units are the units of the charge measurement.
+	Units ChargeUnits `json:"units" msgpack:"units"`
+}
+
+func (AIChargeChannel) isAIChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *AIChargeChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = ChargeUnitsCoulombs
+	}
+	a.MinMaxVal.ApplyDefaults()
+	a.Terminal.ApplyDefaults()
+	a.CustomScale.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AIChargeChannel) Validate() error {
+	v := validate.New("AIChargeChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
+	v.Exec(a.Terminal.Validate)
+	v.Exec(a.CustomScale.Validate)
+	return v.Error()
+}
 
 // AICurrentRMSChannel reads RMS current.
-type AICurrentRMSChannel = v2.AICurrentRMSChannel
+type AICurrentRMSChannel struct {
+	BaseAIChannel
+	MinMaxVal
+	Terminal
+	CustomScale
+	// ShuntResistorLoc selects where the shunt resistor is located.
+	ShuntResistorLoc ShuntResistorLocation `json:"shunt_resistor_loc" msgpack:"shunt_resistor_loc"`
+	// ExtShuntResistorVal is the external shunt resistor value, in Ohms.
+	ExtShuntResistorVal float64 `json:"ext_shunt_resistor_val" msgpack:"ext_shunt_resistor_val"`
+}
+
+func (AICurrentRMSChannel) isAIChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *AICurrentRMSChannel) ApplyDefaults() {
+	if a.ShuntResistorLoc == "" {
+		a.ShuntResistorLoc = ShuntResistorLocationDefault
+	}
+	if a.ExtShuntResistorVal == 0 {
+		a.ExtShuntResistorVal = 1
+	}
+	a.MinMaxVal.ApplyDefaults()
+	a.Terminal.ApplyDefaults()
+	a.CustomScale.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AICurrentRMSChannel) Validate() error {
+	v := validate.New("AICurrentRMSChannel")
+	v.Ternaryf("shunt_resistor_loc", !a.ShuntResistorLoc.IsValid(), "invalid shunt_resistor_loc: %v", a.ShuntResistorLoc)
+	v.Exec(a.Terminal.Validate)
+	v.Exec(a.CustomScale.Validate)
+	return v.Error()
+}
 
 // AIForceBridgePolynomialChannel reads force from a bridge with polynomial calibration.
-type AIForceBridgePolynomialChannel = v2.AIForceBridgePolynomialChannel
+type AIForceBridgePolynomialChannel struct {
+	BaseAIChannel
+	MinMaxVal
+	Bridge
+	VoltageExcitation
+	BridgePolynomial
+	CustomScale
+	// Units are the units of the force measurement.
+	Units ForceUnits `json:"units" msgpack:"units"`
+	// PhysicalUnits are the physical units of the polynomial calibration.
+	PhysicalUnits ForceUnits `json:"physical_units" msgpack:"physical_units"`
+}
+
+func (AIForceBridgePolynomialChannel) isAIChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *AIForceBridgePolynomialChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = ForceUnitsNewtons
+	}
+	if a.PhysicalUnits == "" {
+		a.PhysicalUnits = ForceUnitsNewtons
+	}
+	a.MinMaxVal.ApplyDefaults()
+	a.Bridge.ApplyDefaults()
+	a.VoltageExcitation.ApplyDefaults()
+	a.BridgePolynomial.ApplyDefaults()
+	a.CustomScale.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AIForceBridgePolynomialChannel) Validate() error {
+	v := validate.New("AIForceBridgePolynomialChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
+	v.Ternaryf("physical_units", !a.PhysicalUnits.IsValid(), "invalid physical_units: %v", a.PhysicalUnits)
+	v.Exec(a.Bridge.Validate)
+	v.Exec(a.VoltageExcitation.Validate)
+	v.Exec(a.BridgePolynomial.Validate)
+	v.Exec(a.CustomScale.Validate)
+	return v.Error()
+}
 
 // AIFreqVoltageChannel reads frequency from a voltage signal.
-type AIFreqVoltageChannel = v2.AIFreqVoltageChannel
+type AIFreqVoltageChannel struct {
+	BaseAIChannel
+	MinMaxVal
+	CustomScale
+	// ThresholdLevel is the voltage level at which a cycle is counted.
+	ThresholdLevel float64 `json:"threshold_level" msgpack:"threshold_level"`
+	// Hysteresis is the hysteresis applied around the threshold level.
+	Hysteresis float64 `json:"hysteresis" msgpack:"hysteresis"`
+}
+
+func (AIFreqVoltageChannel) isAIChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *AIFreqVoltageChannel) ApplyDefaults() {
+	a.MinMaxVal.ApplyDefaults()
+	a.CustomScale.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AIFreqVoltageChannel) Validate() error {
+	v := validate.New("AIFreqVoltageChannel")
+	v.Exec(a.CustomScale.Validate)
+	return v.Error()
+}
 
 // AIPressureBridgePolynomialChannel reads pressure from a bridge with polynomial
 // calibration.
-type AIPressureBridgePolynomialChannel = v2.AIPressureBridgePolynomialChannel
+type AIPressureBridgePolynomialChannel struct {
+	BaseAIChannel
+	MinMaxVal
+	Bridge
+	VoltageExcitation
+	BridgePolynomial
+	CustomScale
+	// Units are the units of the pressure measurement.
+	Units PressureUnits `json:"units" msgpack:"units"`
+	// PhysicalUnits are the physical units of the polynomial calibration.
+	PhysicalUnits PressureUnits `json:"physical_units" msgpack:"physical_units"`
+}
+
+func (AIPressureBridgePolynomialChannel) isAIChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *AIPressureBridgePolynomialChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = PressureUnitsPoundsPerSquareInch
+	}
+	if a.PhysicalUnits == "" {
+		a.PhysicalUnits = PressureUnitsPoundsPerSquareInch
+	}
+	a.MinMaxVal.ApplyDefaults()
+	a.Bridge.ApplyDefaults()
+	a.VoltageExcitation.ApplyDefaults()
+	a.BridgePolynomial.ApplyDefaults()
+	a.CustomScale.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AIPressureBridgePolynomialChannel) Validate() error {
+	v := validate.New("AIPressureBridgePolynomialChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
+	v.Ternaryf("physical_units", !a.PhysicalUnits.IsValid(), "invalid physical_units: %v", a.PhysicalUnits)
+	v.Exec(a.Bridge.Validate)
+	v.Exec(a.VoltageExcitation.Validate)
+	v.Exec(a.BridgePolynomial.Validate)
+	v.Exec(a.CustomScale.Validate)
+	return v.Error()
+}
 
 // AIThermistorIexChannel reads temperature from a current-excited thermistor.
-type AIThermistorIexChannel = v2.AIThermistorIexChannel
+type AIThermistorIexChannel struct {
+	BaseAIChannel
+	MinMaxVal
+	Resistance
+	CurrentExcitation
+	// Units are the units of the temperature measurement.
+	Units TemperatureUnits `json:"units" msgpack:"units"`
+	// A is the first Steinhart-Hart coefficient.
+	A float64 `json:"a" msgpack:"a"`
+	// B is the second Steinhart-Hart coefficient.
+	B float64 `json:"b" msgpack:"b"`
+	// C is the third Steinhart-Hart coefficient.
+	C float64 `json:"c" msgpack:"c"`
+}
+
+func (AIThermistorIexChannel) isAIChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *AIThermistorIexChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = TemperatureUnitsDegC
+	}
+	a.MinMaxVal.ApplyDefaults()
+	a.Resistance.ApplyDefaults()
+	a.CurrentExcitation.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AIThermistorIexChannel) Validate() error {
+	v := validate.New("AIThermistorIexChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
+	v.Exec(a.Resistance.Validate)
+	v.Exec(a.CurrentExcitation.Validate)
+	return v.Error()
+}
 
 // AIThermistorVexChannel reads temperature from a voltage-excited thermistor.
-type AIThermistorVexChannel = v2.AIThermistorVexChannel
+type AIThermistorVexChannel struct {
+	BaseAIChannel
+	MinMaxVal
+	Resistance
+	VoltageExcitation
+	// Units are the units of the temperature measurement.
+	Units TemperatureUnits `json:"units" msgpack:"units"`
+	// A is the first Steinhart-Hart coefficient.
+	A float64 `json:"a" msgpack:"a"`
+	// B is the second Steinhart-Hart coefficient.
+	B float64 `json:"b" msgpack:"b"`
+	// C is the third Steinhart-Hart coefficient.
+	C float64 `json:"c" msgpack:"c"`
+	// R1 is the reference resistor value, in Ohms.
+	R1 float64 `json:"r1" msgpack:"r1"`
+}
+
+func (AIThermistorVexChannel) isAIChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *AIThermistorVexChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = TemperatureUnitsDegC
+	}
+	a.MinMaxVal.ApplyDefaults()
+	a.Resistance.ApplyDefaults()
+	a.VoltageExcitation.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AIThermistorVexChannel) Validate() error {
+	v := validate.New("AIThermistorVexChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
+	v.Exec(a.Resistance.Validate)
+	v.Exec(a.VoltageExcitation.Validate)
+	return v.Error()
+}
 
 // AITorqueBridgePolynomialChannel reads torque from a bridge with polynomial
 // calibration.
-type AITorqueBridgePolynomialChannel = v2.AITorqueBridgePolynomialChannel
+type AITorqueBridgePolynomialChannel struct {
+	BaseAIChannel
+	MinMaxVal
+	Bridge
+	VoltageExcitation
+	BridgePolynomial
+	CustomScale
+	// Units are the units of the torque measurement.
+	Units TorqueUnits `json:"units" msgpack:"units"`
+	// PhysicalUnits are the physical units of the polynomial calibration.
+	PhysicalUnits TorqueUnits `json:"physical_units" msgpack:"physical_units"`
+}
+
+func (AITorqueBridgePolynomialChannel) isAIChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *AITorqueBridgePolynomialChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = TorqueUnitsNewtonMeters
+	}
+	if a.PhysicalUnits == "" {
+		a.PhysicalUnits = TorqueUnitsNewtonMeters
+	}
+	a.MinMaxVal.ApplyDefaults()
+	a.Bridge.ApplyDefaults()
+	a.VoltageExcitation.ApplyDefaults()
+	a.BridgePolynomial.ApplyDefaults()
+	a.CustomScale.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AITorqueBridgePolynomialChannel) Validate() error {
+	v := validate.New("AITorqueBridgePolynomialChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
+	v.Ternaryf("physical_units", !a.PhysicalUnits.IsValid(), "invalid physical_units: %v", a.PhysicalUnits)
+	v.Exec(a.Bridge.Validate)
+	v.Exec(a.VoltageExcitation.Validate)
+	v.Exec(a.BridgePolynomial.Validate)
+	v.Exec(a.CustomScale.Validate)
+	return v.Error()
+}
 
 // AIVoltageRMSChannel reads RMS voltage.
-type AIVoltageRMSChannel = v2.AIVoltageRMSChannel
+type AIVoltageRMSChannel struct {
+	BaseAIChannel
+	MinMaxVal
+	Terminal
+	CustomScale
+}
+
+func (AIVoltageRMSChannel) isAIChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *AIVoltageRMSChannel) ApplyDefaults() {
+	a.MinMaxVal.ApplyDefaults()
+	a.Terminal.ApplyDefaults()
+	a.CustomScale.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AIVoltageRMSChannel) Validate() error {
+	v := validate.New("AIVoltageRMSChannel")
+	v.Exec(a.Terminal.Validate)
+	v.Exec(a.CustomScale.Validate)
+	return v.Error()
+}
 
 // AIVoltageWithExcitChannel reads a voltage with excitation.
-type AIVoltageWithExcitChannel = v2.AIVoltageWithExcitChannel
+type AIVoltageWithExcitChannel struct {
+	BaseAIChannel
+	MinMaxVal
+	Terminal
+	VoltageExcitation
+	CustomScale
+	// BridgeConfig selects the physical bridge wiring.
+	BridgeConfig BridgeConfig `json:"bridge_config" msgpack:"bridge_config"`
+	// ScaledByExcitation is true when the excitation voltage is used to scale the
+	// reading.
+	ScaledByExcitation bool `json:"scaled_by_excitation" msgpack:"scaled_by_excitation"`
+}
+
+func (AIVoltageWithExcitChannel) isAIChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *AIVoltageWithExcitChannel) ApplyDefaults() {
+	if a.BridgeConfig == "" {
+		a.BridgeConfig = BridgeConfigFullBridge
+	}
+	a.MinMaxVal.ApplyDefaults()
+	a.Terminal.ApplyDefaults()
+	a.VoltageExcitation.ApplyDefaults()
+	a.CustomScale.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AIVoltageWithExcitChannel) Validate() error {
+	v := validate.New("AIVoltageWithExcitChannel")
+	v.Ternaryf("bridge_config", !a.BridgeConfig.IsValid(), "invalid bridge_config: %v", a.BridgeConfig)
+	v.Exec(a.Terminal.Validate)
+	v.Exec(a.VoltageExcitation.Validate)
+	v.Exec(a.CustomScale.Validate)
+	return v.Error()
+}
+
+// AIChannel is a single NI analog input channel. The type field selects the measurement
+// mode and the fields that accompany it.
+type AIChannel struct {
+	Variant AIChannelVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u AIChannel) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case AIVoltageChannel:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelType `json:"type"`
+			AIVoltageChannel
+		}{Type: AIVoltageChannelType, AIVoltageChannel: v})
+	case AIAccelChannel:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelType `json:"type"`
+			AIAccelChannel
+		}{Type: AIAccelChannelType, AIAccelChannel: v})
+	case AIBridgeChannel:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelType `json:"type"`
+			AIBridgeChannel
+		}{Type: AIBridgeChannelType, AIBridgeChannel: v})
+	case AICurrentChannel:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelType `json:"type"`
+			AICurrentChannel
+		}{Type: AICurrentChannelType, AICurrentChannel: v})
+	case AIForceBridgeTableChannel:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelType `json:"type"`
+			AIForceBridgeTableChannel
+		}{Type: AIForceBridgeTableChannelType, AIForceBridgeTableChannel: v})
+	case AIForceBridgeTwoPointLinChannel:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelType `json:"type"`
+			AIForceBridgeTwoPointLinChannel
+		}{Type: AIForceBridgeTwoPointLinChannelType, AIForceBridgeTwoPointLinChannel: v})
+	case AIForceIEPEChannel:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelType `json:"type"`
+			AIForceIEPEChannel
+		}{Type: AIForceIEPEChannelType, AIForceIEPEChannel: v})
+	case AIMicrophoneChannel:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelType `json:"type"`
+			AIMicrophoneChannel
+		}{Type: AIMicrophoneChannelType, AIMicrophoneChannel: v})
+	case AIPressureBridgeTableChannel:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelType `json:"type"`
+			AIPressureBridgeTableChannel
+		}{Type: AIPressureBridgeTableChannelType, AIPressureBridgeTableChannel: v})
+	case AIPressureBridgeTwoPointLinChannel:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelType `json:"type"`
+			AIPressureBridgeTwoPointLinChannel
+		}{Type: AIPressureBridgeTwoPointLinChannelType, AIPressureBridgeTwoPointLinChannel: v})
+	case AIResistanceChannel:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelType `json:"type"`
+			AIResistanceChannel
+		}{Type: AIResistanceChannelType, AIResistanceChannel: v})
+	case AIRTDChannel:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelType `json:"type"`
+			AIRTDChannel
+		}{Type: AIRTDChannelType, AIRTDChannel: v})
+	case AIStrainGaugeChannel:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelType `json:"type"`
+			AIStrainGaugeChannel
+		}{Type: AIStrainGaugeChannelType, AIStrainGaugeChannel: v})
+	case AITempBuiltinChannel:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelType `json:"type"`
+			AITempBuiltinChannel
+		}{Type: AITempBuiltinChannelType, AITempBuiltinChannel: v})
+	case AIThermocoupleChannel:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelType `json:"type"`
+			AIThermocoupleChannel
+		}{Type: AIThermocoupleChannelType, AIThermocoupleChannel: v})
+	case AITorqueBridgeTableChannel:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelType `json:"type"`
+			AITorqueBridgeTableChannel
+		}{Type: AITorqueBridgeTableChannelType, AITorqueBridgeTableChannel: v})
+	case AITorqueBridgeTwoPointLinChannel:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelType `json:"type"`
+			AITorqueBridgeTwoPointLinChannel
+		}{Type: AITorqueBridgeTwoPointLinChannelType, AITorqueBridgeTwoPointLinChannel: v})
+	case AIVelocityIEPEChannel:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelType `json:"type"`
+			AIVelocityIEPEChannel
+		}{Type: AIVelocityIEPEChannelType, AIVelocityIEPEChannel: v})
+	case AIAccel4WireDCVoltageChannel:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelType `json:"type"`
+			AIAccel4WireDCVoltageChannel
+		}{Type: AIAccel4WireDCVoltageChannelType, AIAccel4WireDCVoltageChannel: v})
+	case AIAccelChargeChannel:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelType `json:"type"`
+			AIAccelChargeChannel
+		}{Type: AIAccelChargeChannelType, AIAccelChargeChannel: v})
+	case AIChargeChannel:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelType `json:"type"`
+			AIChargeChannel
+		}{Type: AIChargeChannelType, AIChargeChannel: v})
+	case AICurrentRMSChannel:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelType `json:"type"`
+			AICurrentRMSChannel
+		}{Type: AICurrentRMSChannelType, AICurrentRMSChannel: v})
+	case AIForceBridgePolynomialChannel:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelType `json:"type"`
+			AIForceBridgePolynomialChannel
+		}{Type: AIForceBridgePolynomialChannelType, AIForceBridgePolynomialChannel: v})
+	case AIFreqVoltageChannel:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelType `json:"type"`
+			AIFreqVoltageChannel
+		}{Type: AIFreqVoltageChannelType, AIFreqVoltageChannel: v})
+	case AIPressureBridgePolynomialChannel:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelType `json:"type"`
+			AIPressureBridgePolynomialChannel
+		}{Type: AIPressureBridgePolynomialChannelType, AIPressureBridgePolynomialChannel: v})
+	case AIThermistorIexChannel:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelType `json:"type"`
+			AIThermistorIexChannel
+		}{Type: AIThermistorIexChannelType, AIThermistorIexChannel: v})
+	case AIThermistorVexChannel:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelType `json:"type"`
+			AIThermistorVexChannel
+		}{Type: AIThermistorVexChannelType, AIThermistorVexChannel: v})
+	case AITorqueBridgePolynomialChannel:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelType `json:"type"`
+			AITorqueBridgePolynomialChannel
+		}{Type: AITorqueBridgePolynomialChannelType, AITorqueBridgePolynomialChannel: v})
+	case AIVoltageRMSChannel:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelType `json:"type"`
+			AIVoltageRMSChannel
+		}{Type: AIVoltageRMSChannelType, AIVoltageRMSChannel: v})
+	case AIVoltageWithExcitChannel:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelType `json:"type"`
+			AIVoltageWithExcitChannel
+		}{Type: AIVoltageWithExcitChannelType, AIVoltageWithExcitChannel: v})
+	default:
+		return errors.Newf("AIChannel: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type AIChannelType `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case AIVoltageChannelType:
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AIVoltageChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AIVoltageChannel
+	case AIAccelChannelType:
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AIAccelChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AIAccelChannel
+	case AIBridgeChannelType:
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AIBridgeChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AIBridgeChannel
+	case AICurrentChannelType:
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AICurrentChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AICurrentChannel
+	case AIForceBridgeTableChannelType:
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AIForceBridgeTableChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AIForceBridgeTableChannel
+	case AIForceBridgeTwoPointLinChannelType:
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AIForceBridgeTwoPointLinChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AIForceBridgeTwoPointLinChannel
+	case AIForceIEPEChannelType:
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AIForceIEPEChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AIForceIEPEChannel
+	case AIMicrophoneChannelType:
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AIMicrophoneChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AIMicrophoneChannel
+	case AIPressureBridgeTableChannelType:
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AIPressureBridgeTableChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AIPressureBridgeTableChannel
+	case AIPressureBridgeTwoPointLinChannelType:
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AIPressureBridgeTwoPointLinChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AIPressureBridgeTwoPointLinChannel
+	case AIResistanceChannelType:
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AIResistanceChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AIResistanceChannel
+	case AIRTDChannelType:
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AIRTDChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AIRTDChannel
+	case AIStrainGaugeChannelType:
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AIStrainGaugeChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AIStrainGaugeChannel
+	case AITempBuiltinChannelType:
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AITempBuiltinChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AITempBuiltinChannel
+	case AIThermocoupleChannelType:
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AIThermocoupleChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AIThermocoupleChannel
+	case AITorqueBridgeTableChannelType:
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AITorqueBridgeTableChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AITorqueBridgeTableChannel
+	case AITorqueBridgeTwoPointLinChannelType:
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AITorqueBridgeTwoPointLinChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AITorqueBridgeTwoPointLinChannel
+	case AIVelocityIEPEChannelType:
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AIVelocityIEPEChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AIVelocityIEPEChannel
+	case AIAccel4WireDCVoltageChannelType:
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AIAccel4WireDCVoltageChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AIAccel4WireDCVoltageChannel
+	case AIAccelChargeChannelType:
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AIAccelChargeChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AIAccelChargeChannel
+	case AIChargeChannelType:
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AIChargeChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AIChargeChannel
+	case AICurrentRMSChannelType:
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AICurrentRMSChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AICurrentRMSChannel
+	case AIForceBridgePolynomialChannelType:
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AIForceBridgePolynomialChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AIForceBridgePolynomialChannel
+	case AIFreqVoltageChannelType:
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AIFreqVoltageChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AIFreqVoltageChannel
+	case AIPressureBridgePolynomialChannelType:
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AIPressureBridgePolynomialChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AIPressureBridgePolynomialChannel
+	case AIThermistorIexChannelType:
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AIThermistorIexChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AIThermistorIexChannel
+	case AIThermistorVexChannelType:
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AIThermistorVexChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AIThermistorVexChannel
+	case AITorqueBridgePolynomialChannelType:
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AITorqueBridgePolynomialChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AITorqueBridgePolynomialChannel
+	case AIVoltageRMSChannelType:
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AIVoltageRMSChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AIVoltageRMSChannel
+	case AIVoltageWithExcitChannelType:
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AIVoltageWithExcitChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AIVoltageWithExcitChannel
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"AIChannel: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u AIChannel) Type() AIChannelType {
+	switch u.Variant.(type) {
+	case AIVoltageChannel:
+		return AIVoltageChannelType
+	case AIAccelChannel:
+		return AIAccelChannelType
+	case AIBridgeChannel:
+		return AIBridgeChannelType
+	case AICurrentChannel:
+		return AICurrentChannelType
+	case AIForceBridgeTableChannel:
+		return AIForceBridgeTableChannelType
+	case AIForceBridgeTwoPointLinChannel:
+		return AIForceBridgeTwoPointLinChannelType
+	case AIForceIEPEChannel:
+		return AIForceIEPEChannelType
+	case AIMicrophoneChannel:
+		return AIMicrophoneChannelType
+	case AIPressureBridgeTableChannel:
+		return AIPressureBridgeTableChannelType
+	case AIPressureBridgeTwoPointLinChannel:
+		return AIPressureBridgeTwoPointLinChannelType
+	case AIResistanceChannel:
+		return AIResistanceChannelType
+	case AIRTDChannel:
+		return AIRTDChannelType
+	case AIStrainGaugeChannel:
+		return AIStrainGaugeChannelType
+	case AITempBuiltinChannel:
+		return AITempBuiltinChannelType
+	case AIThermocoupleChannel:
+		return AIThermocoupleChannelType
+	case AITorqueBridgeTableChannel:
+		return AITorqueBridgeTableChannelType
+	case AITorqueBridgeTwoPointLinChannel:
+		return AITorqueBridgeTwoPointLinChannelType
+	case AIVelocityIEPEChannel:
+		return AIVelocityIEPEChannelType
+	case AIAccel4WireDCVoltageChannel:
+		return AIAccel4WireDCVoltageChannelType
+	case AIAccelChargeChannel:
+		return AIAccelChargeChannelType
+	case AIChargeChannel:
+		return AIChargeChannelType
+	case AICurrentRMSChannel:
+		return AICurrentRMSChannelType
+	case AIForceBridgePolynomialChannel:
+		return AIForceBridgePolynomialChannelType
+	case AIFreqVoltageChannel:
+		return AIFreqVoltageChannelType
+	case AIPressureBridgePolynomialChannel:
+		return AIPressureBridgePolynomialChannelType
+	case AIThermistorIexChannel:
+		return AIThermistorIexChannelType
+	case AIThermistorVexChannel:
+		return AIThermistorVexChannelType
+	case AITorqueBridgePolynomialChannel:
+		return AITorqueBridgePolynomialChannelType
+	case AIVoltageRMSChannel:
+		return AIVoltageRMSChannelType
+	case AIVoltageWithExcitChannel:
+		return AIVoltageWithExcitChannelType
+	}
+	return ""
+}
+
+// ApplyDefaults fills the active variant's zero-valued fields with their
+// schema-declared defaults.
+func (u *AIChannel) ApplyDefaults() {
+	switch variant := u.Variant.(type) {
+	case AIVoltageChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case AIAccelChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case AIBridgeChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case AICurrentChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case AIForceBridgeTableChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case AIForceBridgeTwoPointLinChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case AIForceIEPEChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case AIMicrophoneChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case AIPressureBridgeTableChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case AIPressureBridgeTwoPointLinChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case AIResistanceChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case AIRTDChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case AIStrainGaugeChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case AITempBuiltinChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case AIThermocoupleChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case AITorqueBridgeTableChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case AITorqueBridgeTwoPointLinChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case AIVelocityIEPEChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case AIAccel4WireDCVoltageChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case AIAccelChargeChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case AIChargeChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case AICurrentRMSChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case AIForceBridgePolynomialChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case AIFreqVoltageChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case AIPressureBridgePolynomialChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case AIThermistorIexChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case AIThermistorVexChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case AITorqueBridgePolynomialChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case AIVoltageRMSChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case AIVoltageWithExcitChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if the active variant
+// violates its schema constraints.
+func (u AIChannel) Validate() error {
+	switch variant := u.Variant.(type) {
+	case AIVoltageChannel:
+		return variant.Validate()
+	case AIAccelChannel:
+		return variant.Validate()
+	case AIBridgeChannel:
+		return variant.Validate()
+	case AICurrentChannel:
+		return variant.Validate()
+	case AIForceBridgeTableChannel:
+		return variant.Validate()
+	case AIForceBridgeTwoPointLinChannel:
+		return variant.Validate()
+	case AIForceIEPEChannel:
+		return variant.Validate()
+	case AIMicrophoneChannel:
+		return variant.Validate()
+	case AIPressureBridgeTableChannel:
+		return variant.Validate()
+	case AIPressureBridgeTwoPointLinChannel:
+		return variant.Validate()
+	case AIResistanceChannel:
+		return variant.Validate()
+	case AIRTDChannel:
+		return variant.Validate()
+	case AIStrainGaugeChannel:
+		return variant.Validate()
+	case AITempBuiltinChannel:
+		return variant.Validate()
+	case AIThermocoupleChannel:
+		return variant.Validate()
+	case AITorqueBridgeTableChannel:
+		return variant.Validate()
+	case AITorqueBridgeTwoPointLinChannel:
+		return variant.Validate()
+	case AIVelocityIEPEChannel:
+		return variant.Validate()
+	case AIAccel4WireDCVoltageChannel:
+		return variant.Validate()
+	case AIAccelChargeChannel:
+		return variant.Validate()
+	case AIChargeChannel:
+		return variant.Validate()
+	case AICurrentRMSChannel:
+		return variant.Validate()
+	case AIForceBridgePolynomialChannel:
+		return variant.Validate()
+	case AIFreqVoltageChannel:
+		return variant.Validate()
+	case AIPressureBridgePolynomialChannel:
+		return variant.Validate()
+	case AIThermistorIexChannel:
+		return variant.Validate()
+	case AIThermistorVexChannel:
+		return variant.Validate()
+	case AITorqueBridgePolynomialChannel:
+		return variant.Validate()
+	case AIVoltageRMSChannel:
+		return variant.Validate()
+	case AIVoltageWithExcitChannel:
+		return variant.Validate()
+	}
+	return nil
+}
 
 // CIEdge selects the signal edge a counter responds to.
 type CIEdge = v2.CIEdge
@@ -748,75 +2642,918 @@ const (
 type ZIndex = v2.ZIndex
 
 // BaseCIChannel carries the fields every NI counter input channel shares.
-type BaseCIChannel = v2.BaseCIChannel
-
-// CIChannel is a single NI counter input channel. The type field selects the
-// measurement mode and the fields that accompany it.
-type CIChannel = v2.CIChannel
-
-// CIChannelVariant is implemented by every CIChannel variant.
-type CIChannelVariant = v2.CIChannelVariant
+type BaseCIChannel struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name string `json:"name" msgpack:"name"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled bool `json:"disabled" msgpack:"disabled"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel channel.Key `json:"channel" msgpack:"channel"`
+	// Port is the physical counter the channel uses.
+	Port uint16 `json:"port" msgpack:"port"`
+	// Device is the key of the device the counter belongs to.
+	Device device.Key `json:"device" msgpack:"device"`
+}
 
 // CIChannelType is the "type" value that selects a variant of CIChannel.
-type CIChannelType = v2.CIChannelType
+type CIChannelType string
 
 const (
 	// CIFrequencyChannelType measures signal frequency.
-	CIFrequencyChannelType CIChannelType = v2.CIFrequencyChannelType
+	CIFrequencyChannelType CIChannelType = "ci_frequency"
 	// CIEdgeCountChannelType counts signal edges.
-	CIEdgeCountChannelType CIChannelType = v2.CIEdgeCountChannelType
+	CIEdgeCountChannelType CIChannelType = "ci_edge_count"
 	// CIPeriodChannelType measures signal period.
-	CIPeriodChannelType CIChannelType = v2.CIPeriodChannelType
+	CIPeriodChannelType CIChannelType = "ci_period"
 	// CIPulseWidthChannelType measures pulse width.
-	CIPulseWidthChannelType CIChannelType = v2.CIPulseWidthChannelType
+	CIPulseWidthChannelType CIChannelType = "ci_pulse_width"
 	// CISemiPeriodChannelType measures semi-period.
-	CISemiPeriodChannelType CIChannelType = v2.CISemiPeriodChannelType
+	CISemiPeriodChannelType CIChannelType = "ci_semi_period"
 	// CITwoEdgeSepChannelType measures the separation between two edges.
-	CITwoEdgeSepChannelType CIChannelType = v2.CITwoEdgeSepChannelType
+	CITwoEdgeSepChannelType CIChannelType = "ci_two_edge_sep"
 	// CIVelocityLinearChannelType measures linear velocity from an encoder.
-	CIVelocityLinearChannelType CIChannelType = v2.CIVelocityLinearChannelType
+	CIVelocityLinearChannelType CIChannelType = "ci_velocity_linear"
 	// CIVelocityAngularChannelType measures angular velocity from an encoder.
-	CIVelocityAngularChannelType CIChannelType = v2.CIVelocityAngularChannelType
+	CIVelocityAngularChannelType CIChannelType = "ci_velocity_angular"
 	// CIPositionLinearChannelType measures linear position from an encoder.
-	CIPositionLinearChannelType CIChannelType = v2.CIPositionLinearChannelType
+	CIPositionLinearChannelType CIChannelType = "ci_position_linear"
 	// CIPositionAngularChannelType measures angular position from an encoder.
-	CIPositionAngularChannelType CIChannelType = v2.CIPositionAngularChannelType
+	CIPositionAngularChannelType CIChannelType = "ci_position_angular"
 	// CIDutyCycleChannelType measures the duty cycle of a signal.
-	CIDutyCycleChannelType CIChannelType = v2.CIDutyCycleChannelType
+	CIDutyCycleChannelType CIChannelType = "ci_duty_cycle"
 )
 
+// CIChannelVariant is implemented by every CIChannel variant.
+type CIChannelVariant interface {
+	isCIChannelVariant()
+}
+
 // CIFrequencyChannel measures signal frequency.
-type CIFrequencyChannel = v2.CIFrequencyChannel
+type CIFrequencyChannel struct {
+	BaseCIChannel
+	CustomScale
+	MinMaxVal
+	// Units are the units of the frequency measurement.
+	Units CIFreqUnits `json:"units" msgpack:"units"`
+	// Edge selects the edge the counter responds to.
+	Edge CIEdge `json:"edge" msgpack:"edge"`
+	// MeasMethod selects the measurement method.
+	MeasMethod CIMeasMethod `json:"meas_method" msgpack:"meas_method"`
+	// MeasTime is the averaging window for high-frequency measurement, in seconds.
+	MeasTime float64 `json:"meas_time" msgpack:"meas_time"`
+	// Divisor is the counter divisor for large-range measurement.
+	Divisor int32 `json:"divisor" msgpack:"divisor"`
+	// Terminal is the terminal the counter signal is wired to.
+	Terminal string `json:"terminal" msgpack:"terminal"`
+}
+
+func (CIFrequencyChannel) isCIChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (c *CIFrequencyChannel) ApplyDefaults() {
+	if c.Units == "" {
+		c.Units = CIFreqUnitsHz
+	}
+	if c.Edge == "" {
+		c.Edge = CIEdgeRising
+	}
+	if c.MeasMethod == "" {
+		c.MeasMethod = CIMeasMethodDynamicAvg
+	}
+	if c.MeasTime == 0 {
+		c.MeasTime = 6e-06
+	}
+	if c.Divisor == 0 {
+		c.Divisor = 4
+	}
+	if c.MinVal == 0 && c.MaxVal == 0 {
+		c.MinVal = 2
+		c.MaxVal = 100
+	}
+	c.CustomScale.ApplyDefaults()
+	c.MinMaxVal.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (c CIFrequencyChannel) Validate() error {
+	v := validate.New("CIFrequencyChannel")
+	v.Ternaryf("units", !c.Units.IsValid(), "invalid units: %v", c.Units)
+	v.Ternaryf("edge", !c.Edge.IsValid(), "invalid edge: %v", c.Edge)
+	v.Ternaryf("meas_method", !c.MeasMethod.IsValid(), "invalid meas_method: %v", c.MeasMethod)
+	v.Exec(c.CustomScale.Validate)
+	return v.Error()
+}
 
 // CIEdgeCountChannel counts signal edges.
-type CIEdgeCountChannel = v2.CIEdgeCountChannel
+type CIEdgeCountChannel struct {
+	BaseCIChannel
+	// ActiveEdge selects the edge that increments the count.
+	ActiveEdge CIEdge `json:"active_edge" msgpack:"active_edge"`
+	// CountDirection selects the direction the counter counts.
+	CountDirection CICountDirection `json:"count_direction" msgpack:"count_direction"`
+	// InitialCount is the value the counter starts at.
+	InitialCount float64 `json:"initial_count" msgpack:"initial_count"`
+	// Terminal is the terminal the counter signal is wired to.
+	Terminal string `json:"terminal" msgpack:"terminal"`
+}
+
+func (CIEdgeCountChannel) isCIChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (c *CIEdgeCountChannel) ApplyDefaults() {
+	if c.ActiveEdge == "" {
+		c.ActiveEdge = CIEdgeRising
+	}
+	if c.CountDirection == "" {
+		c.CountDirection = CICountDirectionCountUp
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (c CIEdgeCountChannel) Validate() error {
+	v := validate.New("CIEdgeCountChannel")
+	v.Ternaryf("active_edge", !c.ActiveEdge.IsValid(), "invalid active_edge: %v", c.ActiveEdge)
+	v.Ternaryf("count_direction", !c.CountDirection.IsValid(), "invalid count_direction: %v", c.CountDirection)
+	return v.Error()
+}
 
 // CIPeriodChannel measures signal period.
-type CIPeriodChannel = v2.CIPeriodChannel
+type CIPeriodChannel struct {
+	BaseCIChannel
+	CustomScale
+	MinMaxVal
+	// Units are the units of the period measurement.
+	Units CITimeUnits `json:"units" msgpack:"units"`
+	// StartingEdge selects the edge that starts a period measurement.
+	StartingEdge CIEdge `json:"starting_edge" msgpack:"starting_edge"`
+	// MeasMethod selects the measurement method.
+	MeasMethod CIMeasMethod `json:"meas_method" msgpack:"meas_method"`
+	// MeasTime is the averaging window for high-frequency measurement, in seconds.
+	MeasTime float64 `json:"meas_time" msgpack:"meas_time"`
+	// Divisor is the counter divisor for large-range measurement.
+	Divisor int32 `json:"divisor" msgpack:"divisor"`
+	// Terminal is the terminal the counter signal is wired to.
+	Terminal string `json:"terminal" msgpack:"terminal"`
+}
+
+func (CIPeriodChannel) isCIChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (c *CIPeriodChannel) ApplyDefaults() {
+	if c.Units == "" {
+		c.Units = CITimeUnitsSeconds
+	}
+	if c.StartingEdge == "" {
+		c.StartingEdge = CIEdgeRising
+	}
+	if c.MeasMethod == "" {
+		c.MeasMethod = CIMeasMethodDynamicAvg
+	}
+	if c.MeasTime == 0 {
+		c.MeasTime = 0.001
+	}
+	if c.Divisor == 0 {
+		c.Divisor = 4
+	}
+	if c.MinVal == 0 && c.MaxVal == 0 {
+		c.MinVal = 1e-06
+		c.MaxVal = 0.1
+	}
+	c.CustomScale.ApplyDefaults()
+	c.MinMaxVal.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (c CIPeriodChannel) Validate() error {
+	v := validate.New("CIPeriodChannel")
+	v.Ternaryf("units", !c.Units.IsValid(), "invalid units: %v", c.Units)
+	v.Ternaryf("starting_edge", !c.StartingEdge.IsValid(), "invalid starting_edge: %v", c.StartingEdge)
+	v.Ternaryf("meas_method", !c.MeasMethod.IsValid(), "invalid meas_method: %v", c.MeasMethod)
+	v.Exec(c.CustomScale.Validate)
+	return v.Error()
+}
 
 // CIPulseWidthChannel measures pulse width.
-type CIPulseWidthChannel = v2.CIPulseWidthChannel
+type CIPulseWidthChannel struct {
+	BaseCIChannel
+	CustomScale
+	MinMaxVal
+	// Units are the units of the pulse-width measurement.
+	Units CITimeUnits `json:"units" msgpack:"units"`
+	// StartingEdge selects the edge that starts a pulse-width measurement.
+	StartingEdge CIEdge `json:"starting_edge" msgpack:"starting_edge"`
+	// Terminal is the terminal the counter signal is wired to.
+	Terminal string `json:"terminal" msgpack:"terminal"`
+}
+
+func (CIPulseWidthChannel) isCIChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (c *CIPulseWidthChannel) ApplyDefaults() {
+	if c.Units == "" {
+		c.Units = CITimeUnitsSeconds
+	}
+	if c.StartingEdge == "" {
+		c.StartingEdge = CIEdgeRising
+	}
+	if c.MinVal == 0 && c.MaxVal == 0 {
+		c.MinVal = 1e-06
+		c.MaxVal = 0.1
+	}
+	c.CustomScale.ApplyDefaults()
+	c.MinMaxVal.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (c CIPulseWidthChannel) Validate() error {
+	v := validate.New("CIPulseWidthChannel")
+	v.Ternaryf("units", !c.Units.IsValid(), "invalid units: %v", c.Units)
+	v.Ternaryf("starting_edge", !c.StartingEdge.IsValid(), "invalid starting_edge: %v", c.StartingEdge)
+	v.Exec(c.CustomScale.Validate)
+	return v.Error()
+}
 
 // CISemiPeriodChannel measures semi-period.
-type CISemiPeriodChannel = v2.CISemiPeriodChannel
+type CISemiPeriodChannel struct {
+	BaseCIChannel
+	CustomScale
+	MinMaxVal
+	// Units are the units of the semi-period measurement.
+	Units CITimeUnits `json:"units" msgpack:"units"`
+	// Terminal is the terminal the counter signal is wired to.
+	Terminal string `json:"terminal" msgpack:"terminal"`
+}
+
+func (CISemiPeriodChannel) isCIChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (c *CISemiPeriodChannel) ApplyDefaults() {
+	if c.Units == "" {
+		c.Units = CITimeUnitsSeconds
+	}
+	if c.MinVal == 0 && c.MaxVal == 0 {
+		c.MinVal = 1e-06
+		c.MaxVal = 0.1
+	}
+	c.CustomScale.ApplyDefaults()
+	c.MinMaxVal.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (c CISemiPeriodChannel) Validate() error {
+	v := validate.New("CISemiPeriodChannel")
+	v.Ternaryf("units", !c.Units.IsValid(), "invalid units: %v", c.Units)
+	v.Exec(c.CustomScale.Validate)
+	return v.Error()
+}
 
 // CITwoEdgeSepChannel measures the separation between two edges.
-type CITwoEdgeSepChannel = v2.CITwoEdgeSepChannel
+type CITwoEdgeSepChannel struct {
+	BaseCIChannel
+	CustomScale
+	MinMaxVal
+	// Units are the units of the two-edge-separation measurement.
+	Units CITimeUnits `json:"units" msgpack:"units"`
+	// FirstEdge selects the edge that starts the measurement.
+	FirstEdge CIEdge `json:"first_edge" msgpack:"first_edge"`
+	// SecondEdge selects the edge that stops the measurement.
+	SecondEdge CIEdge `json:"second_edge" msgpack:"second_edge"`
+	// FirstTerminal is the terminal the first edge's signal is wired to.
+	FirstTerminal string `json:"first_terminal" msgpack:"first_terminal"`
+	// SecondTerminal is the terminal the second edge's signal is wired to.
+	SecondTerminal string `json:"second_terminal" msgpack:"second_terminal"`
+}
+
+func (CITwoEdgeSepChannel) isCIChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (c *CITwoEdgeSepChannel) ApplyDefaults() {
+	if c.Units == "" {
+		c.Units = CITimeUnitsSeconds
+	}
+	if c.FirstEdge == "" {
+		c.FirstEdge = CIEdgeRising
+	}
+	if c.SecondEdge == "" {
+		c.SecondEdge = CIEdgeFalling
+	}
+	if c.MinVal == 0 && c.MaxVal == 0 {
+		c.MinVal = 1e-06
+		c.MaxVal = 1
+	}
+	c.CustomScale.ApplyDefaults()
+	c.MinMaxVal.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (c CITwoEdgeSepChannel) Validate() error {
+	v := validate.New("CITwoEdgeSepChannel")
+	v.Ternaryf("units", !c.Units.IsValid(), "invalid units: %v", c.Units)
+	v.Ternaryf("first_edge", !c.FirstEdge.IsValid(), "invalid first_edge: %v", c.FirstEdge)
+	v.Ternaryf("second_edge", !c.SecondEdge.IsValid(), "invalid second_edge: %v", c.SecondEdge)
+	v.Exec(c.CustomScale.Validate)
+	return v.Error()
+}
 
 // CIVelocityLinearChannel measures linear velocity from an encoder.
-type CIVelocityLinearChannel = v2.CIVelocityLinearChannel
+type CIVelocityLinearChannel struct {
+	BaseCIChannel
+	CustomScale
+	MinMaxVal
+	// Units are the units of the velocity measurement.
+	Units CILinearVelocityUnits `json:"units" msgpack:"units"`
+	// DecodingType selects the encoder decoding type.
+	DecodingType CIDecodingType `json:"decoding_type" msgpack:"decoding_type"`
+	// DistPerPulse is the linear distance per encoder pulse.
+	DistPerPulse float64 `json:"dist_per_pulse" msgpack:"dist_per_pulse"`
+	// TerminalA is the terminal for encoder channel A.
+	TerminalA string `json:"terminal_a" msgpack:"terminal_a"`
+	// TerminalB is the terminal for encoder channel B.
+	TerminalB string `json:"terminal_b" msgpack:"terminal_b"`
+}
+
+func (CIVelocityLinearChannel) isCIChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (c *CIVelocityLinearChannel) ApplyDefaults() {
+	if c.Units == "" {
+		c.Units = CILinearVelocityUnitsMPerS
+	}
+	if c.DecodingType == "" {
+		c.DecodingType = CIDecodingTypeX4
+	}
+	if c.DistPerPulse == 0 {
+		c.DistPerPulse = 0.001
+	}
+	if c.MinVal == 0 && c.MaxVal == 0 {
+		c.MaxVal = 1
+	}
+	c.CustomScale.ApplyDefaults()
+	c.MinMaxVal.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (c CIVelocityLinearChannel) Validate() error {
+	v := validate.New("CIVelocityLinearChannel")
+	v.Ternaryf("units", !c.Units.IsValid(), "invalid units: %v", c.Units)
+	v.Ternaryf("decoding_type", !c.DecodingType.IsValid(), "invalid decoding_type: %v", c.DecodingType)
+	v.Exec(c.CustomScale.Validate)
+	return v.Error()
+}
 
 // CIVelocityAngularChannel measures angular velocity from an encoder.
-type CIVelocityAngularChannel = v2.CIVelocityAngularChannel
+type CIVelocityAngularChannel struct {
+	BaseCIChannel
+	CustomScale
+	MinMaxVal
+	// Units are the units of the velocity measurement.
+	Units CIAngularVelocityUnits `json:"units" msgpack:"units"`
+	// DecodingType selects the encoder decoding type.
+	DecodingType CIDecodingType `json:"decoding_type" msgpack:"decoding_type"`
+	// PulsesPerRev is the number of encoder pulses per revolution.
+	PulsesPerRev float64 `json:"pulses_per_rev" msgpack:"pulses_per_rev"`
+	// TerminalA is the terminal for encoder channel A.
+	TerminalA string `json:"terminal_a" msgpack:"terminal_a"`
+	// TerminalB is the terminal for encoder channel B.
+	TerminalB string `json:"terminal_b" msgpack:"terminal_b"`
+}
+
+func (CIVelocityAngularChannel) isCIChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (c *CIVelocityAngularChannel) ApplyDefaults() {
+	if c.Units == "" {
+		c.Units = CIAngularVelocityUnitsRpm
+	}
+	if c.DecodingType == "" {
+		c.DecodingType = CIDecodingTypeX4
+	}
+	if c.PulsesPerRev == 0 {
+		c.PulsesPerRev = 24
+	}
+	if c.MinVal == 0 && c.MaxVal == 0 {
+		c.MaxVal = 1
+	}
+	c.CustomScale.ApplyDefaults()
+	c.MinMaxVal.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (c CIVelocityAngularChannel) Validate() error {
+	v := validate.New("CIVelocityAngularChannel")
+	v.Ternaryf("units", !c.Units.IsValid(), "invalid units: %v", c.Units)
+	v.Ternaryf("decoding_type", !c.DecodingType.IsValid(), "invalid decoding_type: %v", c.DecodingType)
+	v.Exec(c.CustomScale.Validate)
+	return v.Error()
+}
 
 // CIPositionLinearChannel measures linear position from an encoder.
-type CIPositionLinearChannel = v2.CIPositionLinearChannel
+type CIPositionLinearChannel struct {
+	BaseCIChannel
+	CustomScale
+	ZIndex
+	// Units are the units of the position measurement.
+	Units CILinearPositionUnits `json:"units" msgpack:"units"`
+	// DecodingType selects the encoder decoding type.
+	DecodingType CIDecodingType `json:"decoding_type" msgpack:"decoding_type"`
+	// DistPerPulse is the linear distance per encoder pulse.
+	DistPerPulse float64 `json:"dist_per_pulse" msgpack:"dist_per_pulse"`
+	// InitialPos is the position the encoder starts at.
+	InitialPos float64 `json:"initial_pos" msgpack:"initial_pos"`
+	// TerminalA is the terminal for encoder channel A.
+	TerminalA string `json:"terminal_a" msgpack:"terminal_a"`
+	// TerminalB is the terminal for encoder channel B.
+	TerminalB string `json:"terminal_b" msgpack:"terminal_b"`
+}
+
+func (CIPositionLinearChannel) isCIChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (c *CIPositionLinearChannel) ApplyDefaults() {
+	if c.Units == "" {
+		c.Units = CILinearPositionUnitsMeters
+	}
+	if c.DecodingType == "" {
+		c.DecodingType = CIDecodingTypeX4
+	}
+	if c.DistPerPulse == 0 {
+		c.DistPerPulse = 1e-06
+	}
+	c.CustomScale.ApplyDefaults()
+	c.ZIndex.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (c CIPositionLinearChannel) Validate() error {
+	v := validate.New("CIPositionLinearChannel")
+	v.Ternaryf("units", !c.Units.IsValid(), "invalid units: %v", c.Units)
+	v.Ternaryf("decoding_type", !c.DecodingType.IsValid(), "invalid decoding_type: %v", c.DecodingType)
+	v.Exec(c.CustomScale.Validate)
+	v.Exec(c.ZIndex.Validate)
+	return v.Error()
+}
 
 // CIPositionAngularChannel measures angular position from an encoder.
-type CIPositionAngularChannel = v2.CIPositionAngularChannel
+type CIPositionAngularChannel struct {
+	BaseCIChannel
+	CustomScale
+	ZIndex
+	// Units are the units of the position measurement.
+	Units CIAngularPositionUnits `json:"units" msgpack:"units"`
+	// DecodingType selects the encoder decoding type.
+	DecodingType CIDecodingType `json:"decoding_type" msgpack:"decoding_type"`
+	// PulsesPerRev is the number of encoder pulses per revolution.
+	PulsesPerRev float64 `json:"pulses_per_rev" msgpack:"pulses_per_rev"`
+	// InitialAngle is the angle the encoder starts at.
+	InitialAngle float64 `json:"initial_angle" msgpack:"initial_angle"`
+	// TerminalA is the terminal for encoder channel A.
+	TerminalA string `json:"terminal_a" msgpack:"terminal_a"`
+	// TerminalB is the terminal for encoder channel B.
+	TerminalB string `json:"terminal_b" msgpack:"terminal_b"`
+}
+
+func (CIPositionAngularChannel) isCIChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (c *CIPositionAngularChannel) ApplyDefaults() {
+	if c.Units == "" {
+		c.Units = CIAngularPositionUnitsDegrees
+	}
+	if c.DecodingType == "" {
+		c.DecodingType = CIDecodingTypeX4
+	}
+	if c.PulsesPerRev == 0 {
+		c.PulsesPerRev = 24
+	}
+	c.CustomScale.ApplyDefaults()
+	c.ZIndex.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (c CIPositionAngularChannel) Validate() error {
+	v := validate.New("CIPositionAngularChannel")
+	v.Ternaryf("units", !c.Units.IsValid(), "invalid units: %v", c.Units)
+	v.Ternaryf("decoding_type", !c.DecodingType.IsValid(), "invalid decoding_type: %v", c.DecodingType)
+	v.Exec(c.CustomScale.Validate)
+	v.Exec(c.ZIndex.Validate)
+	return v.Error()
+}
 
 // CIDutyCycleChannel measures the duty cycle of a signal.
-type CIDutyCycleChannel = v2.CIDutyCycleChannel
+type CIDutyCycleChannel struct {
+	BaseCIChannel
+	CustomScale
+	MinMaxVal
+	// ActiveEdge selects the edge the counter responds to.
+	ActiveEdge CIEdge `json:"active_edge" msgpack:"active_edge"`
+	// Terminal is the terminal the counter signal is wired to.
+	Terminal string `json:"terminal" msgpack:"terminal"`
+}
+
+func (CIDutyCycleChannel) isCIChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (c *CIDutyCycleChannel) ApplyDefaults() {
+	if c.ActiveEdge == "" {
+		c.ActiveEdge = CIEdgeRising
+	}
+	if c.MinVal == 0 && c.MaxVal == 0 {
+		c.MinVal = 2
+		c.MaxVal = 10000
+	}
+	c.CustomScale.ApplyDefaults()
+	c.MinMaxVal.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (c CIDutyCycleChannel) Validate() error {
+	v := validate.New("CIDutyCycleChannel")
+	v.Ternaryf("active_edge", !c.ActiveEdge.IsValid(), "invalid active_edge: %v", c.ActiveEdge)
+	v.Exec(c.CustomScale.Validate)
+	return v.Error()
+}
+
+// CIChannel is a single NI counter input channel. The type field selects the
+// measurement mode and the fields that accompany it.
+type CIChannel struct {
+	Variant CIChannelVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u CIChannel) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case CIFrequencyChannel:
+		return json.MarshalEncode(enc, struct {
+			Type CIChannelType `json:"type"`
+			CIFrequencyChannel
+		}{Type: CIFrequencyChannelType, CIFrequencyChannel: v})
+	case CIEdgeCountChannel:
+		return json.MarshalEncode(enc, struct {
+			Type CIChannelType `json:"type"`
+			CIEdgeCountChannel
+		}{Type: CIEdgeCountChannelType, CIEdgeCountChannel: v})
+	case CIPeriodChannel:
+		return json.MarshalEncode(enc, struct {
+			Type CIChannelType `json:"type"`
+			CIPeriodChannel
+		}{Type: CIPeriodChannelType, CIPeriodChannel: v})
+	case CIPulseWidthChannel:
+		return json.MarshalEncode(enc, struct {
+			Type CIChannelType `json:"type"`
+			CIPulseWidthChannel
+		}{Type: CIPulseWidthChannelType, CIPulseWidthChannel: v})
+	case CISemiPeriodChannel:
+		return json.MarshalEncode(enc, struct {
+			Type CIChannelType `json:"type"`
+			CISemiPeriodChannel
+		}{Type: CISemiPeriodChannelType, CISemiPeriodChannel: v})
+	case CITwoEdgeSepChannel:
+		return json.MarshalEncode(enc, struct {
+			Type CIChannelType `json:"type"`
+			CITwoEdgeSepChannel
+		}{Type: CITwoEdgeSepChannelType, CITwoEdgeSepChannel: v})
+	case CIVelocityLinearChannel:
+		return json.MarshalEncode(enc, struct {
+			Type CIChannelType `json:"type"`
+			CIVelocityLinearChannel
+		}{Type: CIVelocityLinearChannelType, CIVelocityLinearChannel: v})
+	case CIVelocityAngularChannel:
+		return json.MarshalEncode(enc, struct {
+			Type CIChannelType `json:"type"`
+			CIVelocityAngularChannel
+		}{Type: CIVelocityAngularChannelType, CIVelocityAngularChannel: v})
+	case CIPositionLinearChannel:
+		return json.MarshalEncode(enc, struct {
+			Type CIChannelType `json:"type"`
+			CIPositionLinearChannel
+		}{Type: CIPositionLinearChannelType, CIPositionLinearChannel: v})
+	case CIPositionAngularChannel:
+		return json.MarshalEncode(enc, struct {
+			Type CIChannelType `json:"type"`
+			CIPositionAngularChannel
+		}{Type: CIPositionAngularChannelType, CIPositionAngularChannel: v})
+	case CIDutyCycleChannel:
+		return json.MarshalEncode(enc, struct {
+			Type CIChannelType `json:"type"`
+			CIDutyCycleChannel
+		}{Type: CIDutyCycleChannelType, CIDutyCycleChannel: v})
+	default:
+		return errors.Newf("CIChannel: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *CIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type CIChannelType `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case CIFrequencyChannelType:
+		var v struct {
+			Type CIChannelType `json:"type"`
+			CIFrequencyChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.CIFrequencyChannel
+	case CIEdgeCountChannelType:
+		var v struct {
+			Type CIChannelType `json:"type"`
+			CIEdgeCountChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.CIEdgeCountChannel
+	case CIPeriodChannelType:
+		var v struct {
+			Type CIChannelType `json:"type"`
+			CIPeriodChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.CIPeriodChannel
+	case CIPulseWidthChannelType:
+		var v struct {
+			Type CIChannelType `json:"type"`
+			CIPulseWidthChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.CIPulseWidthChannel
+	case CISemiPeriodChannelType:
+		var v struct {
+			Type CIChannelType `json:"type"`
+			CISemiPeriodChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.CISemiPeriodChannel
+	case CITwoEdgeSepChannelType:
+		var v struct {
+			Type CIChannelType `json:"type"`
+			CITwoEdgeSepChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.CITwoEdgeSepChannel
+	case CIVelocityLinearChannelType:
+		var v struct {
+			Type CIChannelType `json:"type"`
+			CIVelocityLinearChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.CIVelocityLinearChannel
+	case CIVelocityAngularChannelType:
+		var v struct {
+			Type CIChannelType `json:"type"`
+			CIVelocityAngularChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.CIVelocityAngularChannel
+	case CIPositionLinearChannelType:
+		var v struct {
+			Type CIChannelType `json:"type"`
+			CIPositionLinearChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.CIPositionLinearChannel
+	case CIPositionAngularChannelType:
+		var v struct {
+			Type CIChannelType `json:"type"`
+			CIPositionAngularChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.CIPositionAngularChannel
+	case CIDutyCycleChannelType:
+		var v struct {
+			Type CIChannelType `json:"type"`
+			CIDutyCycleChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.CIDutyCycleChannel
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"CIChannel: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u CIChannel) Type() CIChannelType {
+	switch u.Variant.(type) {
+	case CIFrequencyChannel:
+		return CIFrequencyChannelType
+	case CIEdgeCountChannel:
+		return CIEdgeCountChannelType
+	case CIPeriodChannel:
+		return CIPeriodChannelType
+	case CIPulseWidthChannel:
+		return CIPulseWidthChannelType
+	case CISemiPeriodChannel:
+		return CISemiPeriodChannelType
+	case CITwoEdgeSepChannel:
+		return CITwoEdgeSepChannelType
+	case CIVelocityLinearChannel:
+		return CIVelocityLinearChannelType
+	case CIVelocityAngularChannel:
+		return CIVelocityAngularChannelType
+	case CIPositionLinearChannel:
+		return CIPositionLinearChannelType
+	case CIPositionAngularChannel:
+		return CIPositionAngularChannelType
+	case CIDutyCycleChannel:
+		return CIDutyCycleChannelType
+	}
+	return ""
+}
+
+// ApplyDefaults fills the active variant's zero-valued fields with their
+// schema-declared defaults.
+func (u *CIChannel) ApplyDefaults() {
+	switch variant := u.Variant.(type) {
+	case CIFrequencyChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case CIEdgeCountChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case CIPeriodChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case CIPulseWidthChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case CISemiPeriodChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case CITwoEdgeSepChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case CIVelocityLinearChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case CIVelocityAngularChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case CIPositionLinearChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case CIPositionAngularChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case CIDutyCycleChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if the active variant
+// violates its schema constraints.
+func (u CIChannel) Validate() error {
+	switch variant := u.Variant.(type) {
+	case CIFrequencyChannel:
+		return variant.Validate()
+	case CIEdgeCountChannel:
+		return variant.Validate()
+	case CIPeriodChannel:
+		return variant.Validate()
+	case CIPulseWidthChannel:
+		return variant.Validate()
+	case CISemiPeriodChannel:
+		return variant.Validate()
+	case CITwoEdgeSepChannel:
+		return variant.Validate()
+	case CIVelocityLinearChannel:
+		return variant.Validate()
+	case CIVelocityAngularChannel:
+		return variant.Validate()
+	case CIPositionLinearChannel:
+		return variant.Validate()
+	case CIPositionAngularChannel:
+		return variant.Validate()
+	case CIDutyCycleChannel:
+		return variant.Validate()
+	}
+	return nil
+}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u CIChannel) Base() BaseCIChannel {
+	switch variant := u.Variant.(type) {
+	case CIFrequencyChannel:
+		return variant.BaseCIChannel
+	case CIEdgeCountChannel:
+		return variant.BaseCIChannel
+	case CIPeriodChannel:
+		return variant.BaseCIChannel
+	case CIPulseWidthChannel:
+		return variant.BaseCIChannel
+	case CISemiPeriodChannel:
+		return variant.BaseCIChannel
+	case CITwoEdgeSepChannel:
+		return variant.BaseCIChannel
+	case CIVelocityLinearChannel:
+		return variant.BaseCIChannel
+	case CIVelocityAngularChannel:
+		return variant.BaseCIChannel
+	case CIPositionLinearChannel:
+		return variant.BaseCIChannel
+	case CIPositionAngularChannel:
+		return variant.BaseCIChannel
+	case CIDutyCycleChannel:
+		return variant.BaseCIChannel
+	}
+	return BaseCIChannel{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *CIChannel) SetBase(base BaseCIChannel) {
+	switch variant := u.Variant.(type) {
+	case CIFrequencyChannel:
+		variant.BaseCIChannel = base
+		u.Variant = variant
+	case CIEdgeCountChannel:
+		variant.BaseCIChannel = base
+		u.Variant = variant
+	case CIPeriodChannel:
+		variant.BaseCIChannel = base
+		u.Variant = variant
+	case CIPulseWidthChannel:
+		variant.BaseCIChannel = base
+		u.Variant = variant
+	case CISemiPeriodChannel:
+		variant.BaseCIChannel = base
+		u.Variant = variant
+	case CITwoEdgeSepChannel:
+		variant.BaseCIChannel = base
+		u.Variant = variant
+	case CIVelocityLinearChannel:
+		variant.BaseCIChannel = base
+		u.Variant = variant
+	case CIVelocityAngularChannel:
+		variant.BaseCIChannel = base
+		u.Variant = variant
+	case CIPositionLinearChannel:
+		variant.BaseCIChannel = base
+		u.Variant = variant
+	case CIPositionAngularChannel:
+		variant.BaseCIChannel = base
+		u.Variant = variant
+	case CIDutyCycleChannel:
+		variant.BaseCIChannel = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("CIChannel: cannot set the base of variant %T", variant))
+	}
+}
 
 // WaveType selects the waveform a function generator produces.
 type WaveType = v2.WaveType
@@ -833,61 +3570,418 @@ const (
 )
 
 // BaseAOChannel carries the fields every NI analog output channel shares.
-type BaseAOChannel = v2.BaseAOChannel
-
-// AOChannel is a single NI analog output channel. The type field selects the output
-// mode and the fields that accompany it.
-type AOChannel = v2.AOChannel
-
-// AOChannelVariant is implemented by every AOChannel variant.
-type AOChannelVariant = v2.AOChannelVariant
+type BaseAOChannel struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Disabled is true when the channel is excluded from the task.
+	Disabled bool `json:"disabled" msgpack:"disabled"`
+	// CmdChannel is the Synnax channel commands are read from.
+	CmdChannel channel.Key `json:"cmd_channel" msgpack:"cmd_channel"`
+	// StateChannel is the Synnax channel the output state is written to.
+	StateChannel channel.Key `json:"state_channel" msgpack:"state_channel"`
+	// CmdChannelName is the human-readable name of the command channel.
+	CmdChannelName string `json:"cmd_channel_name" msgpack:"cmd_channel_name"`
+	// StateChannelName is the human-readable name of the state channel.
+	StateChannelName string `json:"state_channel_name" msgpack:"state_channel_name"`
+	// Port is the physical port the channel writes to.
+	Port uint16 `json:"port" msgpack:"port"`
+}
 
 // AOChannelType is the "type" value that selects a variant of AOChannel.
-type AOChannelType = v2.AOChannelType
+type AOChannelType string
 
 const (
 	// AOCurrentChannelType drives a current output.
-	AOCurrentChannelType AOChannelType = v2.AOCurrentChannelType
+	AOCurrentChannelType AOChannelType = "ao_current"
 	// AOFuncGenChannelType drives a function-generator output.
-	AOFuncGenChannelType AOChannelType = v2.AOFuncGenChannelType
+	AOFuncGenChannelType AOChannelType = "ao_func_gen"
 	// AOVoltageChannelType drives a voltage output.
-	AOVoltageChannelType AOChannelType = v2.AOVoltageChannelType
+	AOVoltageChannelType AOChannelType = "ao_voltage"
 )
 
+// AOChannelVariant is implemented by every AOChannel variant.
+type AOChannelVariant interface {
+	isAOChannelVariant()
+}
+
 // AOCurrentChannel drives a current output.
-type AOCurrentChannel = v2.AOCurrentChannel
+type AOCurrentChannel struct {
+	BaseAOChannel
+	MinMaxVal
+	CustomScale
+}
+
+func (AOCurrentChannel) isAOChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *AOCurrentChannel) ApplyDefaults() {
+	a.MinMaxVal.ApplyDefaults()
+	a.CustomScale.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AOCurrentChannel) Validate() error {
+	v := validate.New("AOCurrentChannel")
+	v.Exec(a.CustomScale.Validate)
+	return v.Error()
+}
 
 // AOFuncGenChannel drives a function-generator output.
-type AOFuncGenChannel = v2.AOFuncGenChannel
+type AOFuncGenChannel struct {
+	BaseAOChannel
+	// WaveType selects the waveform to generate.
+	WaveType WaveType `json:"wave_type" msgpack:"wave_type"`
+	// Frequency is the waveform frequency, in Hertz.
+	Frequency float64 `json:"frequency" msgpack:"frequency"`
+	// Amplitude is the waveform amplitude.
+	Amplitude float64 `json:"amplitude" msgpack:"amplitude"`
+	// Offset is the waveform DC offset.
+	Offset float64 `json:"offset" msgpack:"offset"`
+}
+
+func (AOFuncGenChannel) isAOChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *AOFuncGenChannel) ApplyDefaults() {
+	if a.WaveType == "" {
+		a.WaveType = WaveTypeSine
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AOFuncGenChannel) Validate() error {
+	v := validate.New("AOFuncGenChannel")
+	v.Ternaryf("wave_type", !a.WaveType.IsValid(), "invalid wave_type: %v", a.WaveType)
+	return v.Error()
+}
 
 // AOVoltageChannel drives a voltage output.
-type AOVoltageChannel = v2.AOVoltageChannel
+type AOVoltageChannel struct {
+	BaseAOChannel
+	MinMaxVal
+	CustomScale
+}
+
+func (AOVoltageChannel) isAOChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *AOVoltageChannel) ApplyDefaults() {
+	a.MinMaxVal.ApplyDefaults()
+	a.CustomScale.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AOVoltageChannel) Validate() error {
+	v := validate.New("AOVoltageChannel")
+	v.Exec(a.CustomScale.Validate)
+	return v.Error()
+}
+
+// AOChannel is a single NI analog output channel. The type field selects the output
+// mode and the fields that accompany it.
+type AOChannel struct {
+	Variant AOChannelVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u AOChannel) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case AOCurrentChannel:
+		return json.MarshalEncode(enc, struct {
+			Type AOChannelType `json:"type"`
+			AOCurrentChannel
+		}{Type: AOCurrentChannelType, AOCurrentChannel: v})
+	case AOFuncGenChannel:
+		return json.MarshalEncode(enc, struct {
+			Type AOChannelType `json:"type"`
+			AOFuncGenChannel
+		}{Type: AOFuncGenChannelType, AOFuncGenChannel: v})
+	case AOVoltageChannel:
+		return json.MarshalEncode(enc, struct {
+			Type AOChannelType `json:"type"`
+			AOVoltageChannel
+		}{Type: AOVoltageChannelType, AOVoltageChannel: v})
+	default:
+		return errors.Newf("AOChannel: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *AOChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type AOChannelType `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case AOCurrentChannelType:
+		var v struct {
+			Type AOChannelType `json:"type"`
+			AOCurrentChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AOCurrentChannel
+	case AOFuncGenChannelType:
+		var v struct {
+			Type AOChannelType `json:"type"`
+			AOFuncGenChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AOFuncGenChannel
+	case AOVoltageChannelType:
+		var v struct {
+			Type AOChannelType `json:"type"`
+			AOVoltageChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AOVoltageChannel
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"AOChannel: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u AOChannel) Type() AOChannelType {
+	switch u.Variant.(type) {
+	case AOCurrentChannel:
+		return AOCurrentChannelType
+	case AOFuncGenChannel:
+		return AOFuncGenChannelType
+	case AOVoltageChannel:
+		return AOVoltageChannelType
+	}
+	return ""
+}
+
+// ApplyDefaults fills the active variant's zero-valued fields with their
+// schema-declared defaults.
+func (u *AOChannel) ApplyDefaults() {
+	switch variant := u.Variant.(type) {
+	case AOCurrentChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case AOFuncGenChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case AOVoltageChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if the active variant
+// violates its schema constraints.
+func (u AOChannel) Validate() error {
+	switch variant := u.Variant.(type) {
+	case AOCurrentChannel:
+		return variant.Validate()
+	case AOFuncGenChannel:
+		return variant.Validate()
+	case AOVoltageChannel:
+		return variant.Validate()
+	}
+	return nil
+}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u AOChannel) Base() BaseAOChannel {
+	switch variant := u.Variant.(type) {
+	case AOCurrentChannel:
+		return variant.BaseAOChannel
+	case AOFuncGenChannel:
+		return variant.BaseAOChannel
+	case AOVoltageChannel:
+		return variant.BaseAOChannel
+	}
+	return BaseAOChannel{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *AOChannel) SetBase(base BaseAOChannel) {
+	switch variant := u.Variant.(type) {
+	case AOCurrentChannel:
+		variant.BaseAOChannel = base
+		u.Variant = variant
+	case AOFuncGenChannel:
+		variant.BaseAOChannel = base
+		u.Variant = variant
+	case AOVoltageChannel:
+		variant.BaseAOChannel = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("AOChannel: cannot set the base of variant %T", variant))
+	}
+}
 
 // DIChannel is a digital input channel the task acquires from.
-type DIChannel = v2.DIChannel
+type DIChannel struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name string `json:"name" msgpack:"name"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled bool `json:"disabled" msgpack:"disabled"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel channel.Key `json:"channel" msgpack:"channel"`
+	// Port is the physical port the channel reads from.
+	Port uint16 `json:"port" msgpack:"port"`
+	// Line is the digital line within the port the channel reads from.
+	Line uint8 `json:"line" msgpack:"line"`
+}
 
 // DOChannel is a digital output channel the task drives.
-type DOChannel = v2.DOChannel
+type DOChannel struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Disabled is true when the channel is excluded from the task.
+	Disabled bool `json:"disabled" msgpack:"disabled"`
+	// CmdChannel is the Synnax channel commands are read from.
+	CmdChannel channel.Key `json:"cmd_channel" msgpack:"cmd_channel"`
+	// StateChannel is the Synnax channel the output state is written to.
+	StateChannel channel.Key `json:"state_channel" msgpack:"state_channel"`
+	// CmdChannelName is the human-readable name of the command channel.
+	CmdChannelName string `json:"cmd_channel_name" msgpack:"cmd_channel_name"`
+	// StateChannelName is the human-readable name of the state channel.
+	StateChannelName string `json:"state_channel_name" msgpack:"state_channel_name"`
+	// Port is the physical port the channel writes to.
+	Port uint16 `json:"port" msgpack:"port"`
+	// Line is the digital line within the port the channel writes to.
+	Line uint8 `json:"line" msgpack:"line"`
+}
 
 // AnalogReadConfig configures an NI analog read task. Each channel carries its own
 // device.
-type AnalogReadConfig = v2.AnalogReadConfig
+type AnalogReadConfig struct {
+	task.ReadConfig
+	// Channels are the analog input channels the task acquires.
+	Channels []AIChannel `json:"channels" msgpack:"channels"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *AnalogReadConfig) ApplyDefaults() {
+	a.ReadConfig.ApplyDefaults()
+	for i := range a.Channels {
+		a.Channels[i].ApplyDefaults()
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AnalogReadConfig) Validate() error {
+	v := validate.New("AnalogReadConfig")
+	for i := range a.Channels {
+		v.Exec(func() error { return validate.PathedError(a.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}
 
 // CounterReadConfig configures an NI counter read task. Each channel carries its own
 // device.
-type CounterReadConfig = v2.CounterReadConfig
+type CounterReadConfig struct {
+	task.ReadConfig
+	// Channels are the counter input channels the task acquires.
+	Channels []CIChannel `json:"channels" msgpack:"channels"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (c *CounterReadConfig) ApplyDefaults() {
+	c.ReadConfig.ApplyDefaults()
+	for i := range c.Channels {
+		c.Channels[i].ApplyDefaults()
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (c CounterReadConfig) Validate() error {
+	v := validate.New("CounterReadConfig")
+	for i := range c.Channels {
+		v.Exec(func() error { return validate.PathedError(c.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}
 
 // WriteConfig carries the configuration fields shared by NI write tasks.
 type WriteConfig = v2.WriteConfig
 
 // AnalogWriteConfig configures an NI analog write task.
-type AnalogWriteConfig = v2.AnalogWriteConfig
+type AnalogWriteConfig struct {
+	WriteConfig
+	// Channels are the analog output channels the task drives.
+	Channels []AOChannel `json:"channels" msgpack:"channels"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *AnalogWriteConfig) ApplyDefaults() {
+	a.WriteConfig.ApplyDefaults()
+	for i := range a.Channels {
+		a.Channels[i].ApplyDefaults()
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AnalogWriteConfig) Validate() error {
+	v := validate.New("AnalogWriteConfig")
+	for i := range a.Channels {
+		v.Exec(func() error { return validate.PathedError(a.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}
 
 // DigitalReadConfig configures an NI digital read task.
-type DigitalReadConfig = v2.DigitalReadConfig
+type DigitalReadConfig struct {
+	task.ReadConfig
+	// Device is the key of the device the task acquires from.
+	Device device.Key `json:"device" msgpack:"device"`
+	// Channels are the digital input channels the task acquires.
+	Channels []DIChannel `json:"channels" msgpack:"channels"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (d *DigitalReadConfig) ApplyDefaults() {
+	d.ReadConfig.ApplyDefaults()
+}
 
 // DigitalWriteConfig configures an NI digital write task.
-type DigitalWriteConfig = v2.DigitalWriteConfig
+type DigitalWriteConfig struct {
+	WriteConfig
+	// Channels are the digital output channels the task drives.
+	Channels []DOChannel `json:"channels" msgpack:"channels"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (d *DigitalWriteConfig) ApplyDefaults() {
+	d.WriteConfig.ApplyDefaults()
+}
 
 // ScanConfig configures the NI device scanner task.
 type ScanConfig struct {

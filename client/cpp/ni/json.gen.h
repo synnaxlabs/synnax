@@ -222,7 +222,7 @@ inline BaseAIChannel BaseAIChannel::parse(x::json::Parser parser) {
             "channel",
             ::synnax::channel::Key(0)
         ),
-        .port = parser.field<std::int32_t>("port", 0),
+        .port = parser.field<std::uint16_t>("port", 0),
         .device = parser.field<::synnax::device::Key>("device", ""),
     };
 }
@@ -265,7 +265,7 @@ inline BaseCIChannel BaseCIChannel::parse(x::json::Parser parser) {
             "channel",
             ::synnax::channel::Key(0)
         ),
-        .port = parser.field<std::int32_t>("port", 0),
+        .port = parser.field<std::uint16_t>("port", 0),
         .device = parser.field<::synnax::device::Key>("device", ""),
     };
 }
@@ -295,7 +295,7 @@ inline BaseAOChannel BaseAOChannel::parse(x::json::Parser parser) {
         ),
         .cmd_channel_name = parser.field<std::string>("cmd_channel_name", ""),
         .state_channel_name = parser.field<std::string>("state_channel_name", ""),
-        .port = parser.field<std::int32_t>("port", 0),
+        .port = parser.field<std::uint16_t>("port", 0),
     };
 }
 
@@ -320,8 +320,8 @@ inline DIChannel DIChannel::parse(x::json::Parser parser) {
             "channel",
             ::synnax::channel::Key(0)
         ),
-        .port = parser.field<std::int32_t>("port", 0),
-        .line = parser.field<std::int32_t>("line", 0),
+        .port = parser.field<std::uint16_t>("port", 0),
+        .line = parser.field<std::uint8_t>("line", 0),
     };
 }
 
@@ -350,8 +350,8 @@ inline DOChannel DOChannel::parse(x::json::Parser parser) {
         ),
         .cmd_channel_name = parser.field<std::string>("cmd_channel_name", ""),
         .state_channel_name = parser.field<std::string>("state_channel_name", ""),
-        .port = parser.field<std::int32_t>("port", 0),
-        .line = parser.field<std::int32_t>("line", 0),
+        .port = parser.field<std::uint16_t>("port", 0),
+        .line = parser.field<std::uint8_t>("line", 0),
     };
 }
 
@@ -718,7 +718,7 @@ inline x::json::json ConstValCJC::to_json() const {
 
 inline ChanCJC ChanCJC::parse(x::json::Parser parser) {
     ChanCJC result;
-    result.port = parser.field<std::int32_t>("port", 0);
+    result.port = parser.field<std::uint16_t>("port", 0);
     result.source = parser.field<std::string>("source");
     return result;
 }

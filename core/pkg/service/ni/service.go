@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ni/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/versions/legacy"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/ni/versions/v3"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
@@ -30,6 +31,10 @@ type ServiceConfig struct {
 	// DB is the database config records are stored in.
 	// [REQUIRED]
 	DB *gorp.DB
+	// Ontology defines the task resources that migrations remove when they quarantine
+	// a config record.
+	// [REQUIRED]
+	Ontology *ontology.Ontology
 	alamos.Instrumentation
 }
 
@@ -38,6 +43,7 @@ var _ xconfig.Config[ServiceConfig] = ServiceConfig{}
 // Override implements xconfig.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
+	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
 }
@@ -46,6 +52,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("ni.service")
 	v.NotNil("db", c.DB)
+	v.NotNil("ontology", c.Ontology)
 	return v.Error()
 }
 
@@ -79,12 +86,15 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	defer func() { err = cleanup(err) }()
 	if s.AnalogRead, err = config.OpenService(
 		ctx, config.ServiceConfig[AnalogReadConfig]{
-			DB:                 cfg.DB,
-			Instrumentation:    cfg.Instrumentation,
-			Type:               "ni_analog_read",
-			LegacyVersion:      legacy.LastVersion,
-			Ladder:             versions.AnalogReadConfigLadder,
-			Legacy:             &legacy.AnalogRead,
+			DB:              cfg.DB,
+			Instrumentation: cfg.Instrumentation,
+			Type:            "ni_analog_read",
+			LegacyVersion:   legacy.LastVersion,
+			Ladder:          versions.AnalogReadConfigLadder,
+			Legacy:          &legacy.AnalogRead,
+			Migrations: []gorp.Migration{
+				v3.NewAnalogReadMigration(cfg.Ontology),
+			},
 			SetEntryKey:        (*AnalogReadConfig).SetKey,
 			ApplyEntryDefaults: (*AnalogReadConfig).ApplyDefaults,
 			ValidateEntry:      (*AnalogReadConfig).Validate,
@@ -94,12 +104,15 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	if s.AnalogWrite, err = config.OpenService(
 		ctx, config.ServiceConfig[AnalogWriteConfig]{
-			DB:                 cfg.DB,
-			Instrumentation:    cfg.Instrumentation,
-			Type:               "ni_analog_write",
-			LegacyVersion:      legacy.LastVersion,
-			Ladder:             versions.AnalogWriteConfigLadder,
-			Legacy:             &legacy.AnalogWrite,
+			DB:              cfg.DB,
+			Instrumentation: cfg.Instrumentation,
+			Type:            "ni_analog_write",
+			LegacyVersion:   legacy.LastVersion,
+			Ladder:          versions.AnalogWriteConfigLadder,
+			Legacy:          &legacy.AnalogWrite,
+			Migrations: []gorp.Migration{
+				v3.NewAnalogWriteMigration(cfg.Ontology),
+			},
 			SetEntryKey:        (*AnalogWriteConfig).SetKey,
 			ApplyEntryDefaults: (*AnalogWriteConfig).ApplyDefaults,
 			ValidateEntry:      (*AnalogWriteConfig).Validate,
@@ -109,12 +122,15 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	if s.CounterRead, err = config.OpenService(
 		ctx, config.ServiceConfig[CounterReadConfig]{
-			DB:                 cfg.DB,
-			Instrumentation:    cfg.Instrumentation,
-			Type:               "ni_counter_read",
-			LegacyVersion:      legacy.LastVersion,
-			Ladder:             versions.CounterReadConfigLadder,
-			Legacy:             &legacy.CounterRead,
+			DB:              cfg.DB,
+			Instrumentation: cfg.Instrumentation,
+			Type:            "ni_counter_read",
+			LegacyVersion:   legacy.LastVersion,
+			Ladder:          versions.CounterReadConfigLadder,
+			Legacy:          &legacy.CounterRead,
+			Migrations: []gorp.Migration{
+				v3.NewCounterReadMigration(cfg.Ontology),
+			},
 			SetEntryKey:        (*CounterReadConfig).SetKey,
 			ApplyEntryDefaults: (*CounterReadConfig).ApplyDefaults,
 			ValidateEntry:      (*CounterReadConfig).Validate,
@@ -124,12 +140,15 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	if s.DigitalRead, err = config.OpenService(
 		ctx, config.ServiceConfig[DigitalReadConfig]{
-			DB:                 cfg.DB,
-			Instrumentation:    cfg.Instrumentation,
-			Type:               "ni_digital_read",
-			LegacyVersion:      legacy.LastVersion,
-			Ladder:             versions.DigitalReadConfigLadder,
-			Legacy:             &legacy.Digital,
+			DB:              cfg.DB,
+			Instrumentation: cfg.Instrumentation,
+			Type:            "ni_digital_read",
+			LegacyVersion:   legacy.LastVersion,
+			Ladder:          versions.DigitalReadConfigLadder,
+			Legacy:          &legacy.Digital,
+			Migrations: []gorp.Migration{
+				v3.NewDigitalReadMigration(cfg.Ontology),
+			},
 			SetEntryKey:        (*DigitalReadConfig).SetKey,
 			ApplyEntryDefaults: (*DigitalReadConfig).ApplyDefaults,
 		},
@@ -138,12 +157,15 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	if s.DigitalWrite, err = config.OpenService(
 		ctx, config.ServiceConfig[DigitalWriteConfig]{
-			DB:                 cfg.DB,
-			Instrumentation:    cfg.Instrumentation,
-			Type:               "ni_digital_write",
-			LegacyVersion:      legacy.LastVersion,
-			Ladder:             versions.DigitalWriteConfigLadder,
-			Legacy:             &legacy.Digital,
+			DB:              cfg.DB,
+			Instrumentation: cfg.Instrumentation,
+			Type:            "ni_digital_write",
+			LegacyVersion:   legacy.LastVersion,
+			Ladder:          versions.DigitalWriteConfigLadder,
+			Legacy:          &legacy.Digital,
+			Migrations: []gorp.Migration{
+				v3.NewDigitalWriteMigration(cfg.Ontology),
+			},
 			SetEntryKey:        (*DigitalWriteConfig).SetKey,
 			ApplyEntryDefaults: (*DigitalWriteConfig).ApplyDefaults,
 		},
