@@ -222,7 +222,7 @@ const formatNumber = (
 ): string => {
   if (dataType == null) return value;
   const type = new DataType(dataType);
-  if (!type.isNumeric) return value;
+  if (!type.isInteger && !type.isFloat) return value;
   const number = type.isInteger ? BigInt(value) : parseFloat(value);
   return notation.stringifyNumber(number, precision, valueNotation);
 };

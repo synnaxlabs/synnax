@@ -1214,6 +1214,10 @@ describe("log/aether/Log", () => {
       expect(shown("1234", "string", { notation: "scientific" })).toBe("1234");
     });
 
+    it("should keep the value of a boolean channel with a precision", () => {
+      expect(shown("true", "boolean", { precision: 2 })).toBe("true");
+    });
+
     it("should show the raw value before the data type loads", () => {
       expect(shown("3.14159", undefined, { precision: 2 })).toBe("3.14159");
     });
