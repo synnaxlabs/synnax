@@ -7,10 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package filter generates the TypeScript matcher of a filter definition, which keeps
-// cached lists live. matches checks a record against a Where, and serverComputed tells
-// whether only the Core can check one. The hand-written client passes in a Lines table
-// with a function, or an explicit null, for each typed line.
+// Package filter generates the TypeScript matcher and input of a filter definition. The
+// matcher keeps cached lists live: matches checks a record against a Where, and
+// serverComputed tells whether only the Core can check one. The hand-written client
+// passes in a Lines table with a function, or an explicit null, for each typed line.
+// The input reads a partial record, in which a plain value or a list stands for an
+// operator, into a Where, beside options that the client gives.
 package filter
 
 import (
@@ -18,6 +20,7 @@ import (
 	"text/template"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/domain"
@@ -72,7 +75,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		if outputPath == "" {
 			continue
 		}
-		content, err := generateFile(typ, outputPath, req.Resolutions)
+		content, err := generateFile(typ, outputPath, req)
 		if err != nil {
 			return nil, err
 		}
@@ -93,6 +96,16 @@ var checks = map[string]string{
 	resolution.OperatorString:   "matchesString",
 }
 
+// inputs maps each operator type to the x/ts/src/filter schema that reads it from a
+// plain value, a list, or the operator.
+var inputs = map[string]string{
+	resolution.OperatorSet:      "setInputZ",
+	resolution.OperatorBool:     "boolInputZ",
+	resolution.OperatorOrdered:  "orderedInputZ",
+	resolution.OperatorContains: "containsInputZ",
+	resolution.OperatorString:   "stringInputZ",
+}
+
 type templateData struct {
 	*imports.Manager
 	// Record is the TypeScript type of a cached record.
@@ -110,6 +123,10 @@ type lineData struct {
 	Field string
 	// Regex is true when the line's operator has a regex, which only the Core checks.
 	Regex bool
+	// Input is the Zod schema that reads the line from a partial record.
+	Input string
+	// Doc is the line's doc comment.
+	Doc string
 }
 
 // HasTyped reports whether the filter has a typed line.
@@ -120,8 +137,9 @@ func (d templateData) HasTyped() bool {
 func generateFile(
 	where resolution.Type,
 	outputPath string,
-	table *resolution.Table,
+	req *plugin.Request,
 ) ([]byte, error) {
+	table := req.Resolutions
 	fail := func(format string, args ...any) ([]byte, error) {
 		return nil, errors.Newf(
 			"filter %s: "+format,
@@ -160,11 +178,28 @@ func generateFile(
 		Manager: imports.NewManager(),
 		Record:  domain.GetName(record, "ts"),
 	}
+	fp := &tstypes.FieldProcessor{
+		Imports:    data.Manager,
+		Namespace:  where.Namespace,
+		OutputPath: outputPath,
+		Request:    req,
+	}
+	// zodOf returns the Zod schema of a plain, required value of ref.
+	zodOf := func(ref resolution.TypeRef) string {
+		fp.CollectTypeImports(&ref)
+		return fp.ProcessField(resolution.Field{Type: ref}, where).ZodType
+	}
 	form := where.Form.(resolution.StructForm)
 	for _, line := range where.Filter.Lines {
-		ld := lineData{Name: tstypes.FieldName(line.Name)}
-		if !line.HasType() {
-			field, ok := lo.Find(fields, func(f resolution.Field) bool {
+		field := lo.Must(form.Field(line.Name))
+		ld := lineData{Name: tstypes.FieldName(line.Name), Doc: doc.Get(field.Domains)}
+		if line.HasType() {
+			ld.Input = zodOf(field.Type)
+			if field.Type.Name == "Array" && field.Type.ArraySize == nil {
+				ld.Input = "filter.listInputZ(" + zodOf(field.Type.TypeArgs[0]) + ")"
+			}
+		} else {
+			recordField, ok := lo.Find(fields, func(f resolution.Field) bool {
 				return f.Name == line.Name
 			})
 			if !ok {
@@ -174,7 +209,7 @@ func generateFile(
 					record.Name,
 				)
 			}
-			opRef := lo.Must(form.Field(line.Name)).Type
+			opRef := field.Type
 			op, ok := table.Get(opRef.Name)
 			if !ok {
 				return fail(
@@ -213,15 +248,18 @@ func generateFile(
 					)
 				}
 			}
-			ld.Field = tstypes.FieldName(field.Name)
+			ld.Field = tstypes.FieldName(recordField.Name)
 			ld.Regex = lo.Contains(ms, "regex")
+			ld.Input = "filter." + inputs[op.QualifiedName]
+			if len(opRef.TypeArgs) == 1 {
+				ld.Input += "(" + zodOf(opRef.TypeArgs[0]) + ")"
+			}
 		}
 		data.Lines = append(data.Lines, ld)
 	}
 
-	if lo.SomeBy(data.Lines, func(l lineData) bool { return l.Check != "" }) {
-		data.AddImport(tspaths.CalculateImport(outputPath, "x/ts/src/filter"), "filter")
-	}
+	data.AddImport("zod", "z")
+	data.AddImport(tspaths.CalculateImport(outputPath, "x/ts/src/filter"), "filter")
 	data.AddImport(
 		tspaths.CalculateImport(outputPath, outputPath)+"/types.gen",
 		"Where",
@@ -238,12 +276,17 @@ func generateFile(
 }
 
 var fileTemplate = template.Must(
-	template.New("ts-filter").Parse(`// Code generated by Oracle. DO NOT EDIT.
+	template.New("ts-filter").
+		Funcs(template.FuncMap{"formatDoc": doc.FormatTS}).
+		Parse(`// Code generated by Oracle. DO NOT EDIT.
 {{- range .SynnaxImports }}
-import { {{ range $i, $name := .Names }}{{ if $i }}, {{ end }}{{ $name }}{{ end }} } from "{{ .Path }}";
+import {{ if .Namespace }}* as {{ .Namespace }}{{ else }}{ {{ range $i, $name := .Names }}{{ if $i }}, {{ end }}{{ $name }}{{ end }} }{{ end }} from "{{ .Path }}";
+{{- end }}
+{{- range .ExternalNamedImports }}
+import {{ if .Namespace }}* as {{ .Namespace }}{{ else }}{ {{ range $i, $name := .Names }}{{ if $i }}, {{ end }}{{ $name }}{{ end }} }{{ end }} from "{{ .Path }}";
 {{- end }}
 {{- range .InternalNamedImports }}
-import { {{ range $i, $name := .Names }}{{ if $i }}, {{ end }}{{ $name }}{{ end }} } from "{{ .Path }}";
+import {{ if .Namespace }}* as {{ .Namespace }}{{ else }}{ {{ range $i, $name := .Names }}{{ if $i }}, {{ end }}{{ $name }}{{ end }} }{{ end }} from "{{ .Path }}";
 {{- end }}
 
 {{- $lines := "" }}
@@ -308,5 +351,52 @@ export const serverComputed = ({{ if .HasTyped }}lines: Lines, {{ end }}where?: 
   (where.{{ .Name }} != null && lines.{{ .Name }} == null)
 {{- end }}
 {{- end }});
+
+const inputs = {
+{{- range .Lines }}
+{{- if .Doc }}
+  {{ formatDoc .Name .Doc 2 }}
+{{- end }}
+  {{ .Name }}: {{ .Input }}.exactOptional(),
+{{- end }}
+};
+
+/** WhereInput is a Where that takes a value or a list in place of an operator. */
+export type WhereInput = filter.Input<typeof inputs> & {
+  and?: WhereInput[];
+  or?: WhereInput[];
+  not?: WhereInput;
+};
+
+const whereInputZ: z.ZodType<Where, WhereInput> = z.strictObject({
+  get and() {
+    return whereInputZ.array().exactOptional();
+  },
+  get or() {
+    return whereInputZ.array().exactOptional();
+  },
+  get not() {
+    return whereInputZ.exactOptional();
+  },
+  ...inputs,
+});
+
+/**
+ * retrieveInputZ reads the fields of a WhereInput and the given options, side by side,
+ * into a request whose where holds the fields. A field set to undefined throws, since
+ * dropping it would select every record.
+ */
+export const retrieveInputZ = <O extends z.core.$ZodShape>(options: O) =>
+  z
+    .strictObject({
+      and: whereInputZ.array().exactOptional(),
+      or: whereInputZ.array().exactOptional(),
+      not: whereInputZ.exactOptional(),
+      ...inputs,
+      ...options,
+    })
+    .transform((input) =>
+      filter.split(input, ["and", "or", "not"{{ range .Lines }}, "{{ .Name }}"{{ end }}]),
+    );
 `),
 )

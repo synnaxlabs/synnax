@@ -48,6 +48,8 @@ export interface ContextMenuProps extends BaseProps {
     parentID: ontology.ID | null;
     rootID: ontology.ID;
     ids: ontology.ID[];
+    /** The shallowest selected items, without any inside another selected item. */
+    top: ontology.ID[];
   };
   state: TreeState;
 }

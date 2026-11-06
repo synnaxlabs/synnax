@@ -27,9 +27,10 @@ export const { use, useEnsure, useTombstone, createSelector } = Flux.createRetri
   schematic.Schematic
 >({
   name: RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.schematics.retrieve(query),
-  onChange: ({ client, query }, handler) => client.schematics.onChange(query, handler),
-  getCached: ({ client, query }) => client.schematics.getCached(query),
+  retrieve: async ({ client, query }) => await client.schematics.retrieve(query.key),
+  onChange: ({ client, query }, handler) =>
+    client.schematics.onChange(query.key, handler),
+  getCached: ({ client, query }) => client.schematics.getCached(query.key),
   awaitCreation: true,
 });
 

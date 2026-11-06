@@ -32,6 +32,7 @@ class Harness:
             "SHEPHERD_RETRY_SECONDS": "0",
         }
         self.pull()
+        self.ok()
         self.runs()
         self.threads()
         self.comments()
@@ -41,9 +42,13 @@ class Harness:
             "api */pulls/7", {"head": {"sha": "head"}, "mergeable_state": state}
         )
 
-    def runs(self, *conclusions: str) -> None:
+    def runs(self, *conclusions: str | None) -> None:
         runs = [{"id": i + 1, "conclusion": c} for i, c in enumerate(conclusions)]
         self.gh.serve("api */actions/*", {"workflow_runs": runs})
+
+    def ok(self, conclusion: str | None = None) -> None:
+        jobs = [{"name": "OK", "conclusion": conclusion}]
+        self.gh.serve("api */jobs*", {"jobs": jobs})
 
     def threads(self, count: int = 0) -> None:
         last = {"author": {"login": "someone", "__typename": "User"}}
@@ -96,6 +101,19 @@ class TestShepherdWork:
     def test_should_ignore_a_ci_run_still_in_progress(self, gh: Harness) -> None:
         gh.runs("")
         assert gh.run() == []
+
+    def test_should_report_a_failed_ok_job_in_a_run_in_progress(
+        self, gh: Harness
+    ) -> None:
+        gh.runs(None)
+        gh.ok("failure")
+        assert gh.run() == ["ci 1"]
+
+    def test_should_skip_the_ok_job_without_a_ci_run(self, gh: Harness) -> None:
+        gh.pull(state="dirty")
+        gh.runs()
+        gh.ok("failure")
+        assert gh.run() == ["conflict"]
 
     def test_should_report_threads_that_need_action(self, gh: Harness) -> None:
         gh.threads(count=2)

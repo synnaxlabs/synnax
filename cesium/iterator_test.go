@@ -13,6 +13,8 @@ import (
 	"context"
 	"slices"
 	"strconv"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -28,6 +30,41 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+// sendFailContext cancels once for the first send that finds full true, and cancels
+// nothing before or after that send. failed closes when the next send starts.
+type sendFailContext struct {
+	context.Context
+	full     func() bool
+	canceled atomic.Bool
+	failed   chan struct{}
+	report   sync.Once
+}
+
+func newSendFailContext(ctx context.Context, full func() bool) *sendFailContext {
+	return &sendFailContext{Context: ctx, full: full, failed: make(chan struct{})}
+}
+
+func (c *sendFailContext) Done() <-chan struct{} {
+	if c.canceled.Load() {
+		c.report.Do(func() { close(c.failed) })
+		return nil
+	}
+	if !c.full() {
+		return nil
+	}
+	c.canceled.Store(true)
+	done := make(chan struct{})
+	close(done)
+	return done
+}
+
+func (c *sendFailContext) Err() error {
+	if c.canceled.Load() {
+		return context.Canceled
+	}
+	return nil
+}
 
 var _ = Describe("Iterator Behavior", func() {
 	for fsName, openFS := range FileSystems {
@@ -1650,70 +1687,44 @@ var _ = Describe("Iterator Behavior", func() {
 							[]cesium.ChannelKey{key},
 							[]telem.Series{telem.NewSeriesSecondsTSV(10, 11, 12)},
 						))).To(Succeed())
-						// A cancel races the sends, so an attempt may prove nothing. It
-						// reports whether the send failed.
-						attempt := func() bool {
-							GinkgoHelper()
-							iter := MustSucceed(
-								subDB.NewStreamIterator(cesium.IteratorConfig{
-									Bounds:   telem.TimeRangeMax,
-									Channels: []channel.Key{key},
-								}),
-							)
-							var (
-								sCtx, cancel = signal.Isolated()
-								requests     = confluence.NewStream[cesium.IteratorRequest](
-									1,
-								)
-								responses = confluence.NewStream[cesium.IteratorResponse](
-									1,
-								)
-							)
-							defer cancel()
-							iter.InFrom(requests)
-							iter.OutTo(responses)
-							iter.Flow(sCtx, confluence.CloseOutputInletsOnExit())
-							requests.Inlet() <- cesium.IteratorRequest{
-								Command: cesium.IteratorCommandSeekFirst,
-							}
-							Eventually(responses.Outlet()).Should(Receive())
-							// A full stream holds the data of the read back.
-							responses.Inlet() <- cesium.IteratorResponse{}
-							requests.Inlet() <- cesium.IteratorRequest{
-								Command: cesium.IteratorCommandNext,
-								Span:    span,
-							}
-							Eventually(func() int {
-								return len(requests.Outlet())
-							}).Should(BeZero())
-							cancel()
-							failed := false
-							Eventually(func() bool {
-								for {
-									select {
-									case res, ok := <-responses.Outlet():
-										if !ok {
-											return true
-										}
-										if res.Err != nil {
-											Expect(
-												res.Err,
-											).To(MatchError(context.Canceled))
-											Expect(res.Ack).To(BeFalse())
-											failed = true
-										}
-									default:
-										return false
-									}
-								}
-							}).Should(BeTrue())
-							Expect(sCtx.Wait()).To(MatchError(context.Canceled))
-							return failed
+						iter := MustSucceed(
+							subDB.NewStreamIterator(cesium.IteratorConfig{
+								Bounds:   telem.TimeRangeMax,
+								Channels: []channel.Key{key},
+							}),
+						)
+						var (
+							requests  = confluence.NewStream[cesium.IteratorRequest](2)
+							responses = confluence.NewStream[cesium.IteratorResponse](1)
+						)
+						requests.Inlet() <- cesium.IteratorRequest{
+							Command: cesium.IteratorCommandSeekFirst,
 						}
-						Eventually(
-							attempt,
-						).WithTimeout(30 * time.Second).
-							Should(BeTrue())
+						requests.Inlet() <- cesium.IteratorRequest{
+							Command: cesium.IteratorCommandNext,
+							Span:    span,
+						}
+						// The ack of the seek fills responses for the data of the read.
+						failCtx := newSendFailContext(ctx, func() bool {
+							return len(requests.Outlet()) == 0 &&
+								len(responses.Outlet()) == cap(responses.Outlet())
+						})
+						sCtx := signal.Wrap(failCtx)
+						iter.InFrom(requests)
+						iter.OutTo(responses)
+						iter.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+						Eventually(failCtx.failed).Should(BeClosed())
+						Eventually(responses.Outlet()).Should(Receive(
+							HaveField("Command", cesium.IteratorCommandSeekFirst),
+						))
+						var ack cesium.IteratorResponse
+						Eventually(responses.Outlet()).Should(Receive(&ack))
+						Expect(ack.Variant).To(Equal(cesium.IteratorResponseVariantAck))
+						Expect(ack.Err).To(MatchError(context.Canceled))
+						Expect(ack.Ack).To(BeFalse())
+						requests.Close()
+						Eventually(sCtx.Stopped()).Should(BeClosed())
+						Expect(sCtx.Wait()).To(Succeed())
 						Expect(subDB.Close()).To(Succeed())
 					},
 					Entry("automatic span", cesium.AutoSpan),
