@@ -99,6 +99,17 @@ func (idx *index) unprotectedNextID() uint64 {
 	return idx.mu.lastID
 }
 
+// unprotectedCut gives kept, the part of from that a delete retains, its id. It stays
+// from's domain only if it holds all of from's bytes.
+func (idx *index) unprotectedCut(from, kept pointer) pointer {
+	if kept.offset == from.offset && kept.size == from.size {
+		kept.id = from.id
+	} else {
+		kept.id = idx.unprotectedNextID()
+	}
+	return kept
+}
+
 func (idx *index) overlap(tr telem.TimeRange) bool {
 	idx.mu.RLock()
 	defer idx.mu.RUnlock()

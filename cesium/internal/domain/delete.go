@@ -161,8 +161,10 @@ func (db *DB) Delete(
 	// A garbage collection may have moved these domains within their file since the
 	// lookup above. The partial pointers below inherit their offsets, so take the ones
 	// the index holds now.
-	start.offset = db.idx.mu.pointers[startDomain].offset
-	end.offset = db.idx.mu.pointers[endDomain].offset
+	start.offset, start.id = db.idx.mu.pointers[startDomain].offset,
+		db.idx.mu.pointers[startDomain].id
+	end.offset, end.id = db.idx.mu.pointers[endDomain].offset,
+		db.idx.mu.pointers[endDomain].id
 
 	// Calculate size of removed pointers.
 	var removedSize int64
@@ -177,25 +179,23 @@ func (db *DB) Delete(
 	)
 
 	if startOffset != 0 {
-		newPointers = append(newPointers, pointer{
+		newPointers = append(newPointers, db.idx.unprotectedCut(start, pointer{
 			Start:   start.Start,
 			End:     tr.Start,
 			fileKey: start.fileKey,
 			offset:  start.offset,
 			size:    uint32(startOffset), // size from start.Start to tr.Start
-			id:      db.idx.unprotectedNextID(),
-		})
+		}))
 	}
 
 	if endOffset != 0 {
-		newPointers = append(newPointers, pointer{
+		newPointers = append(newPointers, db.idx.unprotectedCut(end, pointer{
 			Start:   tr.End,
 			End:     end.End,
 			fileKey: end.fileKey,
 			offset:  end.offset + end.size - uint32(endOffset),
 			size:    uint32(endOffset), // size from tr.End to end.End
-			id:      db.idx.unprotectedNextID(),
-		})
+		}))
 	}
 
 	// Calculate size of new partial pointers and update totalSize.

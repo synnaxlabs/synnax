@@ -161,6 +161,13 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 						telem.Size(3),
 					),
 					Entry(
+						"Middle",
+						22*telem.SecondTS,
+						24*telem.SecondTS,
+						telem.Size(2),
+						telem.Size(4),
+					),
+					Entry(
 						"Whole",
 						20*telem.SecondTS,
 						26*telem.SecondTS,
@@ -193,8 +200,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 						Expect(db.GarbageCollect(ctx)).To(Succeed())
 						Expect(MustSucceed(fs.Stat("1.domain")).Size()).To(BeZero())
 						// This writer holds the idle handle on the rollover file, so
-						// the new
-						// domain lands in the collected file.
+						// the new domain lands in the collected file.
 						w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
 							Start: 100 * telem.SecondTS,
 						}))
@@ -254,6 +260,71 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 						expectRead(MustSucceed(i.OpenReader(ctx)), data[:3])
 					},
 				)
+
+				Describe("A delete that keeps every byte of the domain", func() {
+					writeBoth := func(ctx SpecContext) {
+						GinkgoHelper()
+						db = MustSucceed(domain.Open(domain.Config{
+							FS:              fs,
+							FileSize:        9 * telem.Byte,
+							GCThreshold:     math.SmallestNonzeroFloat32,
+							Instrumentation: PanicLogger(),
+						}))
+						Expect(
+							testutil.WriteDomain(
+								ctx,
+								db,
+								first,
+								[]byte{10, 11, 12, 13},
+							),
+						).To(Succeed())
+						Expect(
+							testutil.WriteDomain(ctx, db, second, data),
+						).To(Succeed())
+						i = db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
+					}
+
+					It(
+						"Should read a domain the delete ends at",
+						func(ctx SpecContext) {
+							writeBoth(ctx)
+							Expect(i.SeekGE(ctx, second.Start)).To(BeTrue())
+							Expect(db.Delete(
+								ctx,
+								first.Start.Range(second.Start),
+								fixedOffset(0),
+								fixedOffset(0),
+							)).To(Succeed())
+							Expect(db.GarbageCollect(ctx)).To(Succeed())
+							Expect(
+								MustSucceed(fs.Stat("1.domain")).Size(),
+							).To(Equal(int64(6)))
+							expectRead(MustSucceed(i.OpenReader(ctx)), data)
+						},
+					)
+
+					It(
+						"Should read a domain the delete starts after",
+						func(ctx SpecContext) {
+							writeBoth(ctx)
+							Expect(i.SeekGE(ctx, first.Start)).To(BeTrue())
+							Expect(db.Delete(
+								ctx,
+								(first.End - 1).Range(second.End),
+								fixedOffsetAndTimeStamp(4, first.End),
+								fixedOffsetAndTimeStamp(6, second.End),
+							)).To(Succeed())
+							Expect(db.GarbageCollect(ctx)).To(Succeed())
+							Expect(
+								MustSucceed(fs.Stat("1.domain")).Size(),
+							).To(Equal(int64(4)))
+							expectRead(
+								MustSucceed(i.OpenReader(ctx)),
+								[]byte{10, 11, 12, 13},
+							)
+						},
+					)
+				})
 
 				It("Should ignore a collection of another file", func(ctx SpecContext) {
 					db = MustSucceed(domain.Open(domain.Config{
