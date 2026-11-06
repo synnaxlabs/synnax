@@ -18,10 +18,10 @@ import { afterAll, beforeAll, vi } from "vitest";
 
 import { installTestWebSocket } from "@/testutil/websocket";
 
-// Live-Core round-trips share the single test Core with the rest of the suite, so allow
-// more than the 1s waitFor default.
 shortenKeepAlive();
 
+// Live-Core round-trips share the single test Core with the rest of the suite, so allow
+// more than the 1s waitFor default.
 configure({ asyncUtilTimeout: 5000 });
 
 failOnConsoleOutput();
