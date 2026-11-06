@@ -204,20 +204,20 @@ class DevicesClient(ResourceClient):
         self.tree.wait_for_removal(self.DEVICE_PREFIX, name, exact=False)
 
     # Map CSS color variables to status variants.
-    _COLOR_TO_VARIANT: ClassVar[dict[str, str]] = {
+    _COLOR_TO_VARIANT: ClassVar[dict[str, sy.status.Variant]] = {
         "--pluto-primary-z": "success",
         "--pluto-gray-l8": "disabled",
         "--pluto-warning-m1": "warning",
         "--pluto-error-m1": "error",
     }
 
-    def get_status(self, name: str) -> dict[str, str]:
+    def get_status(self, name: str) -> sy.Status:
         """Get the status of a device or rack by hovering over its status indicator.
 
         Automatically detects whether the item is a rack or device and uses
         the appropriate status icon selector and variant detection.
 
-        :returns: Dict with 'variant' (str) and 'message' (str).
+        :returns: The status, with its variant and message.
         """
         self.show_toolbar()
         item = self._find_item(self.DEVICE_PREFIX, name)
@@ -235,20 +235,19 @@ class DevicesClient(ResourceClient):
         tooltip = self.layout.page.locator(".lyra-tooltip:not(.lyra--closing)")
         tooltip.wait_for(state="visible", timeout=5000)
         message = tooltip.inner_text().strip()
+        variant: sy.status.Variant = "disabled"
         if is_device:
             color_attr = status_icon.get_attribute("color") or ""
-            variant = "disabled"
             for css_var, v in self._COLOR_TO_VARIANT.items():
                 if css_var in color_attr:
                     variant = v
                     break
         else:
             class_attr = status_icon.get_attribute("class") or ""
-            variant = (
-                "success" if "pluto-rack__heartbeat--beat" in class_attr else "disabled"
-            )
+            if "pluto-rack__heartbeat--beat" in class_attr:
+                variant = "success"
         self.layout.page.mouse.move(0, 0)
-        return {"variant": variant, "message": message}
+        return sy.Status(variant=variant, message=message)
 
     def rename(self, *, old_name: str, new_name: str) -> None:
         """Rename a device via context menu inline edit."""

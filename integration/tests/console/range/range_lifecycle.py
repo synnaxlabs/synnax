@@ -518,7 +518,7 @@ class RangeLifecycle(ConsoleCase):
 
         self.console.ranges.overview.copy_python_code()
         notifications = self.console.notifications.check(timeout=10)
-        messages = [n.get("message", "") for n in notifications]
+        messages = [n.message for n in notifications]
         assert "Copied Python code to clipboard" in messages, (
             "Should show Python code copied notification"
         )
@@ -534,7 +534,7 @@ class RangeLifecycle(ConsoleCase):
 
         self.console.ranges.overview.copy_typescript_code()
         notifications = self.console.notifications.check(timeout=2)
-        messages = [n.get("message", "") for n in notifications]
+        messages = [n.message for n in notifications]
         assert "Copied TypeScript code to clipboard" in messages, (
             "Should show TypeScript code copied notification"
         )
@@ -550,7 +550,7 @@ class RangeLifecycle(ConsoleCase):
 
         self.console.ranges.overview.copy_link()
         notifications = self.console.notifications.check(timeout=2)
-        messages = [n.get("message", "") for n in notifications]
+        messages = [n.message for n in notifications]
         assert "Copied link to clipboard" in messages, (
             "Should show link copied notification"
         )
