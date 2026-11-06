@@ -11,14 +11,14 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { text } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { readoutLevel } from "@/schematic/node/common/primitive/Readout";
+import { Primitive } from "@/schematic/node/common/primitive";
 import { SIZE_LEVELS } from "@/schematic/node/common/size";
 
 describe("readoutLevel", () => {
   it.each(Component.SIZES)(
     "should keep a saved %s field at its readout level",
     (size) =>
-      expect(readoutLevel(size, Component.SIZE_TEXT_LEVELS[size])).toBe(
+      expect(Primitive.readoutLevel(size, Component.SIZE_TEXT_LEVELS[size])).toBe(
         text.downLevel(Component.SIZE_TEXT_LEVELS[size]),
       ),
   );
@@ -30,6 +30,6 @@ describe("readoutLevel", () => {
     ["large", "h4"],
     ["huge", "h3"],
   ] as const)("should fit a standard %s field's readout at %s", (size, level) =>
-    expect(readoutLevel(size, SIZE_LEVELS[size])).toBe(level),
+    expect(Primitive.readoutLevel(size, SIZE_LEVELS[size])).toBe(level),
   );
 });

@@ -15,13 +15,12 @@ import { type text } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
-import { Readout } from "@/schematic/node/common/primitive/Readout";
+import { Primitive } from "@/schematic/node/common/primitive";
 import { SIZE_LEVELS } from "@/schematic/node/common/size";
-import { Button } from "@/schematic/node/general/button/Primitive";
-import { Input } from "@/schematic/node/general/input/Primitive";
-import { spec as selectSpec } from "@/schematic/node/general/select/external";
-import { Select } from "@/schematic/node/general/select/Primitive";
-import { Setpoint } from "@/schematic/node/general/setpoint/Primitive";
+import { Button } from "@/schematic/node/general/button";
+import { Input } from "@/schematic/node/general/input";
+import { Select } from "@/schematic/node/general/select";
+import { Setpoint } from "@/schematic/node/general/setpoint";
 
 interface SymbolProps {
   size: Component.Size;
@@ -30,18 +29,29 @@ interface SymbolProps {
 
 const SYMBOLS: Record<string, (props: SymbolProps) => ReactElement> = {
   button: (props) => (
-    <Button {...props} label={schematic.labelConfigZ.parse({ label: "Text" })} />
-  ),
-  input: (props) => <Input {...props} value="Text" onSend={() => {}} />,
-  select: (props) => (
-    <Select
-      {...props}
-      options={[{ key: "a", name: "Text", value: 1, color: [0, 0, 0, 1] }]}
-      value="a"
-      onSend={() => {}}
+    <Button.spec.Preview
+      {...schematic.buttonNodeConfigZ.parse({
+        ...props,
+        variant: "button",
+        label: { label: "Text" },
+      })}
     />
   ),
-  setpoint: (props) => <Setpoint {...props} value={1} onSend={() => {}} />,
+  input: (props) => (
+    <Input.spec.Preview
+      {...schematic.inputNodeConfigZ.parse({ ...props, variant: "input" })}
+    />
+  ),
+  select: (props) => (
+    <Select.spec.Preview
+      {...schematic.selectNodeConfigZ.parse({ ...props, variant: "select" })}
+    />
+  ),
+  setpoint: (props) => (
+    <Setpoint.spec.Preview
+      {...schematic.setpointNodeConfigZ.parse({ ...props, variant: "setpoint" })}
+    />
+  ),
 };
 
 const FIELD_SELECTORS: Record<string, string> = {
@@ -110,18 +120,6 @@ describe("symbol text scale", () => {
     expect(fontSize(getByText("Label").element())).toBeCloseTo(px, 0);
   });
 
-  it("should render the select preview at the medium level", async () => {
-    const { Preview } = selectSpec;
-    const config = schematic.selectNodeConfigZ.parse({
-      variant: "select",
-      level: "h4",
-    });
-    const { container } = await renderThemed(<Preview {...config} />);
-    const trigger = container.querySelector(".lyra-btn");
-    if (trigger == null) throw new Error("expected a select trigger");
-    expect(fontSize(trigger)).toBeCloseTo(16, 0);
-  });
-
   describe("readout", () => {
     const SCALES = Component.SIZES.flatMap((size): [Component.Size, text.Level][] => [
       [size, SIZE_LEVELS[size]],
@@ -132,7 +130,7 @@ describe("symbol text scale", () => {
       "should fit %s text inside the readout at field level %s",
       async (size, level) => {
         const { container } = await renderThemed(
-          <Readout size={size} level={level} value="100.0" />,
+          <Primitive.Readout size={size} level={level} value="100.0" />,
         );
         const readout = container.querySelector<HTMLElement>(
           ".pluto-symbol-field__readout",

@@ -12,7 +12,7 @@ import { deep } from "@synnaxlabs/x";
 import { fireEvent, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { ScaledSizeField } from "@/schematic/node/common/form/Size";
+import { Form } from "@/schematic/node/common/form";
 import { renderForm } from "@/testutil";
 
 const path = deep.path<schematic.SetpointNodeConfig>();
@@ -23,10 +23,10 @@ const SAVED = schematic.setpointNodeConfigZ.parse({
   level: "h5",
 });
 
-describe("ScaledSizeField", () => {
+describe("Form.ScaledSizeField", () => {
   it("should apply the standard level when the selected size is clicked", async () => {
     const { getByText, value } = renderForm(
-      <ScaledSizeField />,
+      <Form.ScaledSizeField />,
       SAVED,
       schematic.setpointNodeConfigZ,
     );
@@ -39,7 +39,7 @@ describe("ScaledSizeField", () => {
 
   it("should set the standard level with the size", async () => {
     const { getByText, value } = renderForm(
-      <ScaledSizeField />,
+      <Form.ScaledSizeField />,
       SAVED,
       schematic.setpointNodeConfigZ,
     );
