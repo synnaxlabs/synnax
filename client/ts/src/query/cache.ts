@@ -111,6 +111,7 @@ export class Cache {
   private streamer: Streamer | null = null;
   private epochCount = 0;
   private unmaintained = false;
+  private closed = false;
 
   /**
    * Stable error sink for machinery built on this cache (dispatch
@@ -295,8 +296,9 @@ export class Cache {
         try {
           await reconcile();
         } catch (exc) {
-          // The next reopen reconciles again, so an unreachable cluster is churn.
-          if (isConnectionError(exc)) return;
+          // The next reopen reconciles again, so an unreachable cluster is churn. A
+          // close ends the session, which fails the fetch and leaves nothing to mirror.
+          if (isConnectionError(exc) || this.closed) return;
           this.onError(new Error(`failed to reconcile ${name} cache`, { cause: exc }));
         }
       }),
@@ -346,6 +348,7 @@ export class Cache {
    * table fetches in progress. A no-op for the stream when streaming never started.
    */
   async close(): Promise<void> {
+    this.closed = true;
     this.detachers.forEach((detach) => detach());
     this.spaces.forEach((space) => space.close());
     this.tables.forEach(({ close }) => close());

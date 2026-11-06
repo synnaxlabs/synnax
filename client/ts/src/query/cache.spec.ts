@@ -294,6 +294,28 @@ describe("Cache", () => {
       expect(onError).not.toHaveBeenCalled();
     });
 
+    it("should not report a reconcile that fails after the close", async () => {
+      const held = Promise.withResolvers<Doc[]>();
+      const fetch = vi.fn(async () => await held.promise);
+      const first = new MockStreamer();
+      let opens = 0;
+      const onError = vi.fn();
+      const cache = new query.Cache({
+        openStreamer: async () => (opens++ === 0 ? first : new MockStreamer()),
+        breaker: { baseInterval: TimeSpan.milliseconds(1) },
+        onError,
+      });
+      const table = cache.createTable<string, Doc>({ name: "docs", fetch });
+      table.set("k1", { key: "k1", name: "a" });
+      await cache.ensureStreaming();
+      first.drop();
+      await expect.poll(() => fetch.mock.calls.length).toBe(1);
+      await cache.close();
+      held.reject(new Error("no credentials"));
+      await sleep.sleep(TimeSpan.milliseconds(30));
+      expect(onError).not.toHaveBeenCalled();
+    });
+
     it("should keep the entries of a closed table", async () => {
       const { cache, table } = setup(async () => []);
       table.set("k1", { key: "k1", name: "a" });
