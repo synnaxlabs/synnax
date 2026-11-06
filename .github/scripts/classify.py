@@ -12,10 +12,10 @@
     python3 classify.py <artifacts-dir>
 
 A pull request needs review/human when a surface report differs between its base and
-head, a report is missing, or a trust check fails. A branch older than a report does not
-compare it, and that alone does not raise the tier. Otherwise the author picks the tier,
-so the script adds no label. The script only raises: it never removes review/human. It
-reads the pull request number from PR, or else <artifacts-dir>/pr/number, and refuses it
+head, a report is missing, or a trust check fails. A surface the head predates reports
+skipped, which does not raise the tier. Otherwise the author picks the tier, so the
+script adds no label. The script only raises: it never removes review/human. It reads
+the pull request number from PR, or else <artifacts-dir>/pr/number, and refuses it
 unless the pull request's head is HEAD_SHA. Environment: GH_TOKEN, GITHUB_REPOSITORY,
 HEAD_SHA, and optionally PR.
 """
@@ -36,11 +36,10 @@ BOT = "review/bot"
 HUMAN_TIERS = {HUMAN, "review/light", "review/thorough"}
 # Files that make or judge the reports. A pull request that changes one could forge
 # its own result, so it always gets a human.
-CHECK_WORKFLOW = ".github/workflows/check.classify.yaml"
 CLASSIFIER_PATHS = (
     ".github/scripts/classify.py",
     ".github/scripts/surface.sh",
-    CHECK_WORKFLOW,
+    ".github/workflows/check.classify.yaml",
     ".github/workflows/label.classify.yaml",
     ".github/actions/",
     "client/ts/scripts/surface.sh",
@@ -76,19 +75,14 @@ class Surface:
     diff: str
 
 
-def read_surfaces(root: Path, *, workflow: str) -> list[Surface]:
-    """Reads the uploaded results. workflow is the head's copy of the check workflow. A
-    pull request cannot drop a surface from it unseen, because a change to that file
-    fails the trust check."""
+def read_surfaces(root: Path) -> list[Surface]:
     out = []
     for name in SURFACES:
         d = root / f"surface-{name}"
         status = (d / "status").read_text().strip() if (d / "status").exists() else ""
         diff = (d / "diff").read_text() if (d / "diff").exists() else ""
         if status not in STATUS_TEXT:
-            listed = re.search(rf"surface: {re.escape(name)}$", workflow, re.MULTILINE)
-            status = "error" if listed else "skipped"
-            diff = "No report: the job did not finish.\n" if listed else ""
+            status, diff = "error", "No report: the job did not finish.\n"
         out.append(Surface(name=name, status=status, diff=diff))
     return out
 
@@ -186,15 +180,6 @@ def gh_lines(*args: str) -> list[Any]:
     return [json.loads(line) for line in gh(*args).splitlines() if line]
 
 
-def read_workflow(repo: str, *, sha: str) -> str:
-    return gh(
-        "api",
-        "-H",
-        "Accept: application/vnd.github.raw+json",
-        f"repos/{repo}/contents/{CHECK_WORKFLOW}?ref={sha}",
-    )
-
-
 def find_comment(repo: str, *, number: int) -> dict[str, Any] | None:
     comments = gh_lines(
         "api",
@@ -245,7 +230,7 @@ def main() -> None:
     )
     comment = find_comment(repo, number=number)
     reasons = trust_reasons(pull, files=files)
-    surfaces = read_surfaces(root, workflow=read_workflow(repo, sha=head_sha))
+    surfaces = read_surfaces(root)
     # A push during the reads leaves the reports stale: check the head before writing.
     pull = json.loads(gh("api", f"repos/{repo}/pulls/{number}"))
     if pull["head"]["sha"] != head_sha:

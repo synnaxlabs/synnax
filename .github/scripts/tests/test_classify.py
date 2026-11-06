@@ -55,18 +55,21 @@ class TestReadSurfaces:
         d.mkdir()
         (d / "status").write_text("changed\n")
         (d / "diff").write_text("+a\n")
-        surfaces = {s.name: s for s in read_surfaces(tmp_path, workflow="")}
+        surfaces = {s.name: s for s in read_surfaces(tmp_path)}
         assert surfaces["oracle"] == Surface(
             name="oracle", status="changed", diff="+a\n"
         )
 
     def test_treats_a_missing_report_as_an_error(self, tmp_path: Path) -> None:
-        surfaces = read_surfaces(tmp_path, workflow="  - surface: core\n")
-        assert {s.name: s for s in surfaces}["core"].status == "error"
+        surfaces = {s.name: s for s in read_surfaces(tmp_path)}
+        assert surfaces["core"].status == "error"
 
-    def test_skips_a_surface_the_head_does_not_compare(self, tmp_path: Path) -> None:
-        surfaces = read_surfaces(tmp_path, workflow="  - surface: core-windows\n")
-        assert {s.name: s for s in surfaces}["core"].status == "skipped"
+    def test_reads_a_skipped_report(self, tmp_path: Path) -> None:
+        d = tmp_path / "surface-core"
+        d.mkdir()
+        (d / "status").write_text("skipped\n")
+        surfaces = {s.name: s for s in read_surfaces(tmp_path)}
+        assert surfaces["core"].status == "skipped"
 
 
 class TestNeedsHuman:
@@ -188,7 +191,6 @@ class FakeGH:
     def __init__(self) -> None:
         self.heads = ["abc", "abc"]
         self.files = ["core/main.go"]
-        self.compared = set(classify.SURFACES)
         self.labels: list[str] = []
         self.comments: list[dict[str, Any]] = []
         self.writes: list[tuple[tuple[str, ...], str | None]] = []
@@ -199,8 +201,6 @@ class FakeGH:
             head = {**same, "sha": self.heads.pop(0)}
             labels = [{"name": n} for n in self.labels]
             return json.dumps({"head": head, "base": same, "labels": labels})
-        if any(a.startswith(f"repos/{REPO}/contents/") for a in args):
-            return "".join(f"- surface: {name}\n" for name in sorted(self.compared))
         if f"repos/{REPO}/pulls/5/files" in args:
             return "".join(json.dumps(file(name)) + "\n" for name in self.files)
         if args[:3] == ("api", "--paginate", COMMENTS):
@@ -231,15 +231,12 @@ class TestMain:
         self, gh: FakeGH, tmp_path: Path
     ) -> None:
         gh.labels = [BOT]
-        gh.compared.discard("core")
-        (tmp_path / "surface-core" / "status").unlink()
+        (tmp_path / "surface-core" / "status").write_text("skipped\n")
         classify.main()
         assert not any(LABELS in args for args, _ in gh.writes)
         assert "Not compared" in gh.writes[-1][1]
 
-    def test_raises_a_surface_the_head_compares_but_did_not_report(
-        self, gh: FakeGH, tmp_path: Path
-    ) -> None:
+    def test_raises_when_a_report_is_missing(self, gh: FakeGH, tmp_path: Path) -> None:
         (tmp_path / "surface-core" / "status").unlink()
         classify.main()
         assert any(LABELS in args for args, _ in gh.writes)

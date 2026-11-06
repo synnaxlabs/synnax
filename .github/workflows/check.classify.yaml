@@ -137,6 +137,13 @@ jobs:
             echo error > "out/surface-$SURFACE/status"
             exit 0
           fi
+          # This workflow comes from the merge ref, so it can name a surface the head
+          # predates. Dropping one from the script fails the trust check.
+          if ! grep -Fq -- "$SURFACE" .github/scripts/surface.sh; then
+            mkdir -p "out/surface-$SURFACE"
+            echo skipped > "out/surface-$SURFACE/status"
+            exit 0
+          fi
           git worktree add --detach ../base "$BASE"
           .github/scripts/surface.sh "$SURFACE" ../base . "out/surface-$SURFACE"
 
