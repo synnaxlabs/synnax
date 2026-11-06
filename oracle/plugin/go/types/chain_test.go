@@ -1479,6 +1479,43 @@ Doc struct {
 }
 `,
 			}, "schemas/synnax/doc"),
+		Entry("when an omitted field holds a declaration with a live rule",
+			docV0, "schemas/synnax/versions/doc/v1.oracle", `
+Note = v0.Note
+
+Doc = v0.Doc
+`, map[string]string{
+				"schemas/synnax/versions/doc/v0.oracle": `
+Note struct {
+	name string
+}
+
+Doc struct {
+	key uuid @key
+	preview Note {
+		@go marshal omit
+	}
+
+	@go marshal
+}
+`,
+				"schemas/synnax/doc.oracle": `
+@go output "core/pkg/service/doc"
+
+Note struct {
+	name string {
+		@validate required
+	}
+}
+
+Doc struct {
+	key uuid @key
+	preview Note {
+		@go marshal omit
+	}
+}
+`,
+			}, "schemas/synnax/doc"),
 		Entry("when an omitted field resolves a dependency",
 			docV0, "schemas/synnax/versions/doc/v1.oracle", `
 import "schemas/x/versions/color/v0"

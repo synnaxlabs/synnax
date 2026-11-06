@@ -360,6 +360,9 @@ func frozenFile(
 	if err != nil {
 		return plugin.File{}, err
 	}
+	if err = withLiveMethods(ctx, req, latest, ns, livePath, f.Chain, k); err != nil {
+		return plugin.File{}, err
+	}
 	// Another resource's codec can reach a declaration its own chain does not, so a
 	// frozen package splits its pinned references on the closure a current one uses.
 	closure := PersistedClosure(table)
