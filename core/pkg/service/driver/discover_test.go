@@ -141,7 +141,6 @@ var _ = Describe("Discover", func() {
 		},
 		Entry("JSON as text", []byte(`{"v":1}`), driver.FormatJSON, 16, `{"v":1}`),
 		Entry("the start of text", []byte("abcdef"), driver.FormatText, 4, "abcd"),
-		Entry("text cut at a rune boundary", []byte("ééé"), driver.FormatText, 5, "éé"),
 		Entry(
 			"binary as hex",
 			[]byte{0xff, 0xfe, 0x01},
@@ -156,5 +155,15 @@ var _ = Describe("Discover", func() {
 			2,
 			"fffe",
 		),
+	)
+
+	DescribeTable("CutText",
+		func(text string, limit int, cut string) {
+			Expect(driver.CutText([]byte(text), limit)).To(Equal(cut))
+		},
+		Entry("text that fits", "abc", 3, "abc"),
+		Entry("the start of long text", "abcdef", 4, "abcd"),
+		Entry("text cut at a rune boundary", "ééé", 5, "éé"),
+		Entry("a rune longer than the limit", "é", 1, ""),
 	)
 })
