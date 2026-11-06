@@ -10,16 +10,16 @@
 HTTP, Kafka, and MQTT tasks describe a JSON value with flat fields and an `any` value.
 The Core stores any mix, and each runtime handles a bad one differently. Numbers are
 `float64`, so they lose digits past 2^53 on 64-bit channels. HTTP rejects JSON, UUID,
-and bytes channels. OPC UA `array_size` and Modbus `string_length` have the same shape
-problem.
+and bytes channels. OPC UA and Modbus have flat fields too.
 
-Each field becomes a union on a shared `Kind`, in a new X package, `payload`. The Core
-checks each kind against the channel on write. No schema holds `any`.
+Each field becomes a union on a shared `Kind` in a new X package, `payload`.
 
 **Releases hold until every phase from 1 to 15 has landed.** http v4, Kafka v0, MQTT v1,
 and OPC UA v2 are not in `core/v0.60.1`, so they change in place, with no v5. A release
-before then ships flat shapes and owes a migration for each. Modbus v2 shipped, so
-Modbus gets a v3 and does not hold releases.
+before then owes a migration for each. `CONTRIBUTING.md` says `main` "is always
+releasable" and that "unfinished work ships dark behind a flag", but a stored shape
+cannot ship dark: once a stable release writes it, compatibility is owed. Modbus v2
+shipped, so Modbus gets a v3 and does not hold releases.
 
 ## 1 Schema
 
@@ -223,28 +223,28 @@ standalone Drivers with the Core for these shapes, and the release notes for the
 that ends the hold must say so. PR #4493 would reject a lagging Driver, but this RFC
 does not depend on it.
 
-| Phase | Scope                                                 | Touches                                                                                                               | Depends on         |
-| ----- | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------------ |
-| 1     | Add the `payload` schema with today's shared types    | `schemas/x`, `x/go/payload`, `x/ts/src/payload`, `x/py/x/payload`, `x/cpp/payload`, `oracle/analyzer`                 | -                  |
-| 2     | Point Kafka, MQTT, and HTTP v4 at `payload`           | `schemas/synnax`, `core/pkg/service`, `client`, `console/src/platform/task/payload`                                   | 1                  |
-| 3     | Key JSON enums by sample and keep 64-bit values exact | `x/go/json`, `x/cpp/json`                                                                                             | -                  |
-| 4     | Convert bytes as base64 in `x/go/json`                | `x/go/json`                                                                                                           | -                  |
-| 5     | Pass `tx` to `Normalize` and add `ReconcileEntry`     | `core/pkg/service/task`                                                                                               | -                  |
-| 6     | Inject channels into the HTTP, Kafka, and MQTT stores | `x/go/payload`, `core/pkg/service`                                                                                    | 1, 5               |
-| 7     | Retype Kafka read fields                              | `schemas/synnax/versions/kafka`, `core/pkg/service/kafka`, `console/src/feature/kafka`, `client`                      | 2, 3, 4, 6         |
-| 8     | Retype Kafka write channels                           | `schemas/synnax/versions/kafka`, `core/pkg/service/kafka`, `x/go/json`, `console/src/feature/kafka`, `client`         | 2, 3, 4, 6         |
-| 9     | Retype MQTT read fields                               | `schemas/synnax/versions/mqtt`, `core/pkg/service/mqtt`, `console/src/feature/mqtt`, `client`                         | 2, 3, 4, 6         |
-| 10    | Retype MQTT write channel fields                      | `schemas/synnax/versions/mqtt`, `core/pkg/service/mqtt`, `console/src/feature/mqtt`, `client`                         | 8                  |
-| 11    | Share a typed `WriteField` and migrate `http_write`   | `schemas`, `core/pkg/service`, `driver/http`, `console/src/platform/task/payload`, `client`                           | 8, 10              |
-| 12    | Cut over HTTP read fields                             | `schemas/synnax/versions/http`, `core/pkg/service/http`, `driver/http`, `console/src/feature/http/task`, `client`     | 2, 3, 6            |
-| 13    | Cut over the HTTP `ChannelField`                      | `schemas`, `core/pkg/service/http`, `driver/http`, `console/src/feature/http/task`, `client`                          | 7, 9, 11, 12       |
-| 14    | Retype the HTTP task forms and delete the adapter     | `console/src/feature/http/task`                                                                                       | 12, 13             |
-| 15    | Replace OPC UA array fields with a `Sampling` union   | `schemas/synnax/versions/opcua`, `core/pkg/service/opcua`, `driver/opcua`, `console/src/feature/opcua/task`, `client` | -                  |
-| 16    | Convert JSON, UUID, and bytes samples in the Driver   | `x/cpp/json`, `x/cpp/base64`, `x/cpp/telem`, `driver/opcua/telem`                                                     | -                  |
-| 17    | Read JSON, UUID, and bytes channels on HTTP           | `driver/http`, `console/src/feature/http/task`                                                                        | 14, 16             |
-| 18    | Write JSON, UUID, and bytes channels on HTTP          | `driver/http`, `console/src/feature/http/task`                                                                        | 14, 16             |
-| 19    | Read and write raw bytes payloads on Kafka and MQTT   | `core/pkg/service/kafka`, `core/pkg/service/mqtt`                                                                     | 7, 8, 9, 10        |
-| 20    | Read and write raw bytes payloads on HTTP             | `driver/http`                                                                                                         | 17, 18             |
-| 21    | Add Modbus v3 string register variants                | `schemas/synnax/versions/modbus`, `core/pkg/service/modbus`, `driver/modbus`, `console/src/feature/modbus/task`       | -                  |
-| 22    | Remove config-only checks from the Driver             | `driver/http`                                                                                                         | 12, 13             |
-| 23    | Update the task docs for typed fields                 | `site/docs/src/pages/reference/hardware`                                                                              | 14, 15, 19, 20, 21 |
+| Phase | Scope                                                 | Touches                                                                                                                   | Depends on         |
+| ----- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| 1     | Add the `payload` schema with today's shared types    | `schemas/x`, `x/go/payload`, `x/ts/src/payload`, `x/py/x/payload`, `x/cpp/payload`, `oracle/analyzer`                     | -                  |
+| 2     | Point Kafka, MQTT, and HTTP v4 at `payload`           | `schemas/synnax`, `core/pkg/service`, `client`, `console/src/platform/task/payload`                                       | 1                  |
+| 3     | Key JSON enums by sample and keep 64-bit values exact | `x/go/json`, `x/cpp/json`                                                                                                 | -                  |
+| 4     | Convert bytes as base64 in `x/go/json`                | `x/go/json`                                                                                                               | -                  |
+| 5     | Pass `tx` to `Normalize` and add `ReconcileEntry`     | `core/pkg/service/task`                                                                                                   | -                  |
+| 6     | Inject channels into the HTTP, Kafka, and MQTT stores | `x/go/payload`, `core/pkg/service`                                                                                        | 1, 5               |
+| 7     | Retype Kafka read fields                              | `schemas/synnax/versions/kafka`, `core/pkg/service/kafka`, `console/src/feature/kafka`, `client`                          | 2, 3, 4, 6         |
+| 8     | Retype Kafka write channels                           | `schemas/synnax/versions/kafka`, `core/pkg/service/kafka`, `x/go/json`, `console/src/feature/kafka`, `client`             | 2, 3, 4, 6         |
+| 9     | Retype MQTT read fields                               | `schemas/synnax/versions/mqtt`, `core/pkg/service/mqtt`, `console/src/feature/mqtt`, `client`                             | 2, 3, 4, 6         |
+| 10    | Retype MQTT write channel fields                      | `schemas/synnax/versions/mqtt`, `core/pkg/service/mqtt`, `console/src/feature/mqtt`, `client`                             | 8                  |
+| 11    | Share a typed `WriteField` and migrate `http_write`   | `schemas`, `core/pkg/service`, `driver/http`, `console/src/platform/task/payload`, `client`                               | 8, 10              |
+| 12    | Cut over HTTP read fields                             | `schemas/synnax/versions/http`, `core/pkg/service/http`, `driver/http`, `console/src/feature/http/task`, `client`         | 2, 3, 6            |
+| 13    | Cut over the HTTP `ChannelField`                      | `schemas`, `core/pkg/service/http`, `driver/http`, `console/src/feature/http/task`, `client`                              | 7, 9, 11, 12       |
+| 14    | Retype the HTTP task forms and delete the adapter     | `console/src/feature/http/task`                                                                                           | 12, 13             |
+| 15    | Replace OPC UA array fields with a `Sampling` union   | `schemas/synnax/versions/opcua`, `core/pkg/service/opcua`, `driver/opcua`, `console/src/feature/opcua/task`, `client`     | -                  |
+| 16    | Convert JSON, UUID, and bytes samples in the Driver   | `x/cpp/json`, `x/cpp/base64`, `x/cpp/telem`, `driver/opcua/telem`                                                         | -                  |
+| 17    | Read JSON, UUID, and bytes channels on HTTP           | `driver/http`, `console/src/feature/http/task`                                                                            | 14, 16             |
+| 18    | Write JSON, UUID, and bytes channels on HTTP          | `driver/http`, `console/src/feature/http/task`                                                                            | 14, 16             |
+| 19    | Read and write raw bytes payloads on Kafka and MQTT   | `core/pkg/service/kafka`, `core/pkg/service/mqtt`                                                                         | 7, 8, 9, 10        |
+| 20    | Read and write raw bytes payloads on HTTP             | `driver/http`                                                                                                             | 17, 18             |
+| 21    | Add Modbus v3 string register variants                | `schemas/synnax/versions/modbus`, `core/pkg/service/modbus`, `driver/modbus`, `console/src/feature/modbus/task`, `client` | -                  |
+| 22    | Remove config-only checks from the Driver             | `driver/http`                                                                                                             | 12, 13             |
+| 23    | Update the task docs for typed fields                 | `site/docs/src/pages/reference/hardware`                                                                                  | 14, 15, 19, 20, 21 |
