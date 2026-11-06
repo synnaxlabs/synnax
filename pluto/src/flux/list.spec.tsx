@@ -969,16 +969,16 @@ describe("list", () => {
 
     const renderList = (
       useList: ReturnType<typeof createUseList>,
-      initialQuery?: TestQuery,
+      query?: TestQuery,
     ) => {
-      const useTest = (props: { initialQuery?: TestQuery }) => {
+      const useTest = (props: { query?: TestQuery }) => {
         const list = useList(props);
         const { fetchMore, search } = List.usePager({
           retrieve: list.retrieve,
         });
         return { ...list, fetchMore, search };
       };
-      return renderHook(useTest, { wrapper, initialProps: { initialQuery } });
+      return renderHook(useTest, { wrapper, initialProps: { query } });
     };
 
     it("should re-fetch and replace the data when the query changes", async () => {
@@ -987,7 +987,7 @@ describe("list", () => {
       act(() => result.current.fetchMore());
       await waitFor(() => expect(result.current.data).toEqual([1, 2]));
 
-      rerender({ initialQuery: { group: "b" } });
+      rerender({ query: { group: "b" } });
 
       await waitFor(() => expect(result.current.data).toEqual([3, 4]));
       expect(result.current.variant).toEqual("success");
@@ -995,12 +995,12 @@ describe("list", () => {
 
     it("should not re-fetch for a new object that is deeply equal", async () => {
       const retrieve = createRetrieve();
-      const initialQuery = { group: "a", region: "x" };
-      const { result, rerender } = renderList(createUseList(retrieve), initialQuery);
+      const query = { group: "a", region: "x" };
+      const { result, rerender } = renderList(createUseList(retrieve), query);
       act(() => result.current.fetchMore());
       await waitFor(() => expect(result.current.data).toEqual([1, 2]));
 
-      for (let i = 0; i < 5; i++) rerender({ initialQuery: { ...initialQuery } });
+      for (let i = 0; i < 5; i++) rerender({ query: { ...query } });
 
       await expectAlways(() => expect(retrieve).toHaveBeenCalledTimes(1));
     });
@@ -1016,7 +1016,7 @@ describe("list", () => {
       await waitFor(() => expect(retrieve).toHaveBeenCalledTimes(3));
       expect(retrieve.mock.lastCall?.[0].query.offset).toEqual(10);
 
-      rerender({ initialQuery: { group: "b" } });
+      rerender({ query: { group: "b" } });
 
       await waitFor(() => expect(retrieve).toHaveBeenCalledTimes(4));
       expect(retrieve.mock.lastCall?.[0].query).toEqual({
@@ -1032,7 +1032,7 @@ describe("list", () => {
       const { result, rerender } = renderList(createUseList(retrieve), { group: "a" });
       act(() => result.current.fetchMore());
       await waitFor(() => expect(result.current.data).toEqual([1, 2]));
-      rerender({ initialQuery: { group: "b" } });
+      rerender({ query: { group: "b" } });
       await waitFor(() => expect(result.current.data).toEqual([3, 4]));
 
       act(() => result.current.fetchMore());
@@ -1055,7 +1055,7 @@ describe("list", () => {
       act(() => result.current.fetchMore());
       await waitFor(() => expect(result.current.data).toEqual([1, 2]));
 
-      rerender({ initialQuery: { group: "b" } });
+      rerender({ query: { group: "b" } });
 
       await waitFor(() => expect(retrieve).toHaveBeenCalledTimes(2));
       expect(retrieve.mock.lastCall?.[0].query).not.toHaveProperty("region");
@@ -1067,7 +1067,7 @@ describe("list", () => {
       act(() => result.current.fetchMore());
       await waitFor(() => expect(result.current.data).toEqual([3, 4]));
 
-      rerender({ initialQuery: undefined });
+      rerender({ query: undefined });
 
       await expectAlways(() => expect(retrieve).toHaveBeenCalledTimes(1));
       expect(result.current.data).toEqual([3, 4]);
@@ -1081,7 +1081,7 @@ describe("list", () => {
       act(() => result.current.fetchMore());
       await waitFor(() => expect(retrieve).toHaveBeenCalledTimes(1));
 
-      rerender({ initialQuery: { searchTerm: "new" } });
+      rerender({ query: { searchTerm: "new" } });
 
       await waitFor(() => expect(retrieve).toHaveBeenCalledTimes(2));
       expect(retrieve.mock.lastCall?.[0].query).toEqual({
@@ -1097,7 +1097,7 @@ describe("list", () => {
       act(() => result.current.retrieve((p) => p));
       await waitFor(() => expect(result.current.data).toEqual([1, 2]));
 
-      rerender({ initialQuery: { group: "b" } });
+      rerender({ query: { group: "b" } });
 
       await waitFor(() => expect(retrieve).toHaveBeenCalledTimes(2));
       expect(retrieve.mock.lastCall?.[0].query).toEqual({ group: "b" });
@@ -1109,7 +1109,7 @@ describe("list", () => {
       act(() => result.current.retrieve((p) => ({ ...p, group: "b" })));
       await waitFor(() => expect(result.current.data).toEqual([3, 4]));
 
-      rerender({ initialQuery: { group: "a" } });
+      rerender({ query: { group: "a" } });
 
       await expectAlways(() => expect(retrieve).toHaveBeenCalledTimes(1));
       expect(result.current.data).toEqual([3, 4]);
@@ -1124,7 +1124,7 @@ describe("list", () => {
       act(() => result.current.fetchMore());
       await waitFor(() => expect(retrieve).toHaveBeenCalledTimes(1));
 
-      rerender({ initialQuery: { group: "b" } });
+      rerender({ query: { group: "b" } });
       await waitFor(() => expect(result.current.data).toEqual([3, 4]));
 
       await act(async () => old.resolve(GROUPS.a));
@@ -1136,7 +1136,7 @@ describe("list", () => {
       const useList = createUseList(retrieve);
       const { result, rerender } = renderHook(
         ({ group }: { group: string }) => {
-          const list = useList({ initialQuery: { group } });
+          const list = useList({ query: { group } });
           const { retrieve: run } = list;
           useEffect(() => run({ group }), [group]);
           return list;
@@ -1156,8 +1156,8 @@ describe("list", () => {
       const retrieve = createRetrieve();
       const useList = createUseList(retrieve);
       const { result, rerender } = renderHook(
-        ({ initialQuery }: { initialQuery: TestQuery }) => {
-          const list = useList({ initialQuery });
+        ({ query }: { query: TestQuery }) => {
+          const list = useList({ query });
           const { subscribe, getItem } = list;
           const item = Flux.useListItem<number, TestItem>({
             subscribe,
@@ -1166,12 +1166,12 @@ describe("list", () => {
           });
           return { ...list, item };
         },
-        { wrapper, initialProps: { initialQuery: { group: "a" } } },
+        { wrapper, initialProps: { query: { group: "a" } } },
       );
       act(() => result.current.retrieve((p) => p));
       await waitFor(() => expect(result.current.data).toEqual([1, 2]));
 
-      rerender({ initialQuery: { group: "b" } });
+      rerender({ query: { group: "b" } });
 
       await waitFor(() => expect(result.current.data).toEqual([3, 4]));
       expect(result.current.item).toEqual(GROUPS.a[0]);
@@ -1191,8 +1191,8 @@ describe("list", () => {
         onChangeByKey,
       });
       const { result, rerender } = renderHook(
-        ({ initialQuery }: { initialQuery: TestQuery }) => {
-          const list = useList({ initialQuery });
+        ({ query }: { query: TestQuery }) => {
+          const list = useList({ query });
           const { subscribe, getItem } = list;
           const item = Flux.useListItem<number, TestItem>({
             subscribe,
@@ -1201,12 +1201,12 @@ describe("list", () => {
           });
           return { ...list, item };
         },
-        { wrapper, initialProps: { initialQuery: { group: "a" } } },
+        { wrapper, initialProps: { query: { group: "a" } } },
       );
       act(() => result.current.retrieve((p) => p));
       await waitFor(() => expect(result.current.item).toEqual(GROUPS.a[0]));
 
-      rerender({ initialQuery: { group: "b" } });
+      rerender({ query: { group: "b" } });
 
       await waitFor(() => expect(result.current.item?.group).toEqual("read again"));
       expect(retrieveByKey).toHaveBeenLastCalledWith(
@@ -1230,16 +1230,16 @@ describe("list", () => {
         onChangeByKey: () => () => {},
       });
       const { result, rerender } = renderHook(
-        ({ initialQuery }: { initialQuery: TestQuery }) => {
-          const { subscribe, getItem } = useList({ initialQuery });
+        ({ query }: { query: TestQuery }) => {
+          const { subscribe, getItem } = useList({ query });
           return Flux.useListItem<number, TestItem>({ subscribe, getItem, key: 1 });
         },
-        { wrapper, initialProps: { initialQuery: { group: "a" } } },
+        { wrapper, initialProps: { query: { group: "a" } } },
       );
       await waitFor(() => expect(result.current?.group).toEqual("read again"));
       retrieveByKey.mockClear();
 
-      rerender({ initialQuery: { group: "b" } });
+      rerender({ query: { group: "b" } });
 
       await waitFor(() => expect(retrieveByKey).toHaveBeenCalled());
       expect(retrieveByKey).toHaveBeenLastCalledWith(
@@ -1261,19 +1261,19 @@ describe("list", () => {
         onChangeByKey: () => () => {},
       });
       const { result, rerender } = renderHook(
-        ({ initialQuery }: { initialQuery: TestQuery }) => {
-          const { subscribe, getItem } = useList({ initialQuery });
+        ({ query }: { query: TestQuery }) => {
+          const { subscribe, getItem } = useList({ query });
           return Flux.useListItem<number, TestItem>({ subscribe, getItem, key: 1 });
         },
-        { wrapper, initialProps: { initialQuery: { group: "a" } } },
+        { wrapper, initialProps: { query: { group: "a" } } },
       );
       await waitFor(() => expect(reads.has("a")).toBe(true));
       await act(async () => reads.get("a")?.resolve({ key: 1, group: "a" }));
       await waitFor(() => expect(result.current?.group).toEqual("a"));
 
-      rerender({ initialQuery: { group: "b" } });
+      rerender({ query: { group: "b" } });
       await waitFor(() => expect(reads.has("b")).toBe(true));
-      rerender({ initialQuery: { group: "c" } });
+      rerender({ query: { group: "c" } });
       await waitFor(() => expect(reads.has("c")).toBe(true));
 
       await act(async () => reads.get("c")?.resolve({ key: 1, group: "c" }));
@@ -1296,15 +1296,15 @@ describe("list", () => {
         onChangeByKey: () => () => {},
       });
       const { result, rerender } = renderHook(
-        ({ initialQuery }: { initialQuery: TestQuery }) => {
-          const { subscribe, getItem } = useList({ initialQuery });
+        ({ query }: { query: TestQuery }) => {
+          const { subscribe, getItem } = useList({ query });
           return Flux.useListItem<number, TestItem>({ subscribe, getItem, key: 1 });
         },
-        { wrapper, initialProps: { initialQuery: { group: "a" } } },
+        { wrapper, initialProps: { query: { group: "a" } } },
       );
       await waitFor(() => expect(reads.has("a")).toBe(true));
 
-      rerender({ initialQuery: { group: "b" } });
+      rerender({ query: { group: "b" } });
 
       await waitFor(() => expect(reads.has("b")).toBe(true));
       await act(async () => reads.get("b")?.resolve({ key: 1, group: "b" }));
@@ -1315,7 +1315,7 @@ describe("list", () => {
       const retrieve = createRetrieve();
       const { result, rerender } = renderList(createUseList(retrieve), { group: "a" });
 
-      rerender({ initialQuery: { group: "b" } });
+      rerender({ query: { group: "b" } });
       await expectAlways(() => expect(retrieve).not.toHaveBeenCalled());
 
       act(() => result.current.fetchMore());
@@ -1331,12 +1331,12 @@ describe("list", () => {
         getCached: ({ query }) => (query.group === "a" ? changed(GROUPS.a) : undefined),
       });
       const { result, rerender } = renderHook(
-        (props: { initialQuery: TestQuery }) => useList(props),
-        { wrapper, initialProps: { initialQuery: { group: "a" } } },
+        (props: { query: TestQuery }) => useList(props),
+        { wrapper, initialProps: { query: { group: "a" } } },
       );
       expect(result.current.data).toEqual([1, 2]);
 
-      rerender({ initialQuery: { group: "b" } });
+      rerender({ query: { group: "b" } });
 
       expect(result.current.data).toEqual([]);
       expect(result.current.answered).toBe(false);
@@ -1350,12 +1350,12 @@ describe("list", () => {
         getCached: ({ query }) => changed(GROUPS[query.group ?? "a"]),
       });
       const { result, rerender } = renderHook(
-        (props: { initialQuery: TestQuery }) => useList(props),
-        { wrapper, initialProps: { initialQuery: { group: "a" } } },
+        (props: { query: TestQuery }) => useList(props),
+        { wrapper, initialProps: { query: { group: "a" } } },
       );
       expect(result.current.data).toEqual([1, 2]);
 
-      rerender({ initialQuery: { group: "b" } });
+      rerender({ query: { group: "b" } });
 
       expect(result.current.data).toEqual([3, 4]);
     });
@@ -1466,7 +1466,7 @@ describe("list", () => {
             retrieve: async () => [],
             retrieveByKey: async ({ key }) => ({ key }),
             getCached,
-          })({ initialQuery: { searchTerm: "test" } }),
+          })({ query: { searchTerm: "test" } }),
         { wrapper },
       );
 
@@ -1755,6 +1755,116 @@ describe("list", () => {
       });
     });
 
+    it("should subscribe to the query before its retrieve lands", async () => {
+      const subscribe = vi.fn().mockReturnValue(() => {});
+      let release!: (items: record.Keyed<number>[]) => void;
+      const retrieve = vi.fn(
+        async () =>
+          await new Promise<record.Keyed<number>[]>((resolve) => (release = resolve)),
+      );
+      const { result } = renderHook(
+        () =>
+          Flux.createList<{}, number, record.Keyed<number>>({
+            name: "Resource",
+            retrieve,
+            retrieveByKey: async ({ key }) => ({ key }),
+            onChange: subscribe,
+          })(),
+        { wrapper },
+      );
+      let retrieved!: Promise<void>;
+      act(() => {
+        retrieved = result.current.retrieveAsync({});
+      });
+      await waitFor(() => expect(retrieve).toHaveBeenCalled());
+      expect(subscribe).toHaveBeenCalledTimes(1);
+      await act(async () => {
+        release([{ key: 1 }]);
+        await retrieved;
+      });
+      expect(subscribe).toHaveBeenCalledTimes(1);
+      expect(result.current.data).toEqual([1]);
+    });
+
+    it("should keep one live page when two retrieves of one query overlap", async () => {
+      const closed: boolean[] = [];
+      const subscribe = vi.fn(() => {
+        const index = closed.push(false) - 1;
+        return () => {
+          closed[index] = true;
+        };
+      });
+      const releases: Array<(items: record.Keyed<number>[]) => void> = [];
+      const retrieve = vi.fn(
+        async () =>
+          await new Promise<record.Keyed<number>[]>((resolve) =>
+            releases.push(resolve),
+          ),
+      );
+      const { result } = renderHook(
+        () =>
+          Flux.createList<{}, number, record.Keyed<number>>({
+            name: "Resource",
+            retrieve,
+            retrieveByKey: async ({ key }) => ({ key }),
+            onChange: subscribe,
+          })(),
+        { wrapper },
+      );
+      const q = {};
+      let first!: Promise<void>;
+      let second!: Promise<void>;
+      act(() => {
+        first = result.current.retrieveAsync(q);
+        second = result.current.retrieveAsync(q);
+      });
+      await waitFor(() => expect(retrieve).toHaveBeenCalledTimes(2));
+      await act(async () => {
+        releases[0]([{ key: 1 }]);
+        await first;
+      });
+      await act(async () => {
+        releases[1]([{ key: 2 }]);
+        await second;
+      });
+      expect(closed).toEqual([true, false]);
+      expect(result.current.data).toEqual([2]);
+    });
+
+    it("should apply an answer that arrived while its retrieve ran", async () => {
+      let deliver!: (answer: record.Keyed<number>[]) => void;
+      const subscribe = vi.fn((_, handler: typeof deliver) => {
+        deliver = handler;
+        return () => {};
+      });
+      let release!: (items: record.Keyed<number>[]) => void;
+      const retrieve = vi.fn(
+        async () =>
+          await new Promise<record.Keyed<number>[]>((resolve) => (release = resolve)),
+      );
+      const { result } = renderHook(
+        () =>
+          Flux.createList<{}, number, record.Keyed<number>>({
+            name: "Resource",
+            retrieve,
+            retrieveByKey: async ({ key }) => ({ key }),
+            onChange: subscribe,
+          })(),
+        { wrapper },
+      );
+      let retrieved!: Promise<void>;
+      act(() => {
+        retrieved = result.current.retrieveAsync({});
+      });
+      await waitFor(() => expect(retrieve).toHaveBeenCalled());
+      deliver([{ key: 1 }, { key: 2 }]);
+      await act(async () => {
+        release([{ key: 1 }]);
+        await retrieved;
+      });
+      expect(result.current.data).toEqual([1, 2]);
+    });
+
     it("should subscribe to an item when retrieving it before any list", async () => {
       const onChangeByKey = vi.fn().mockReturnValue(() => {});
       const retrieveByKey = vi.fn().mockResolvedValue({ key: 1 });
@@ -1953,7 +2063,7 @@ describe("list", () => {
             retrieve,
             retrieveByKey: async ({ key }) => ({ key }),
             onChangeByKey,
-          })({ initialQuery: { filter: "active" } }),
+          })({ query: { filter: "active" } }),
         { wrapper },
       );
 
@@ -2204,7 +2314,7 @@ describe("list", () => {
       const { result } = renderHook(
         () => {
           const { getItem, subscribe } = useRangeList({
-            initialQuery: { where: { key: { in: [rng.key] } } },
+            query: { where: { key: { in: [rng.key] } } },
           });
           return Flux.useListItem<ranger.Key, ranger.Range>({
             subscribe,
@@ -2226,7 +2336,7 @@ describe("list", () => {
       const { result } = renderHook(
         () => {
           const { getItem, subscribe } = useRangeList({
-            initialQuery: { where: { name: { in: [name] } } },
+            query: { where: { name: { in: [name] } } },
           });
           return Flux.useListItem<ranger.Key, ranger.Range>({
             subscribe,
@@ -2247,7 +2357,7 @@ describe("list", () => {
       const { result } = renderHook(
         () => {
           const { getItem, subscribe } = useRangeList({
-            initialQuery: { where: { key: { in: [rng.key] } } },
+            query: { where: { key: { in: [rng.key] } } },
           });
           return Flux.useListItem<ranger.Key, ranger.Range>({
             subscribe,
@@ -2271,7 +2381,7 @@ describe("list", () => {
         const { result, rerender } = renderHook(
           ({ key }: { key: ranger.Key }) => {
             const { getItem, subscribe, retrieveAsync } = useRangeList({
-              initialQuery: { where: { key: { in: [rng.key, other.key] } } },
+              query: { where: { key: { in: [rng.key, other.key] } } },
             });
             const value = Flux.useListItem<ranger.Key, ranger.Range>({
               subscribe,
@@ -2302,7 +2412,7 @@ describe("list", () => {
       const { result } = renderHook(
         () => {
           const { getItem, subscribe, retrieveAsync } = useRangeList({
-            initialQuery: { where: { key: { in: [rng.key, other.key] } } },
+            query: { where: { key: { in: [rng.key, other.key] } } },
           });
           const value = Flux.useListItem<ranger.Key, ranger.Range>({
             subscribe,

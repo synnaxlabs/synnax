@@ -90,7 +90,7 @@ describe("Channel select", () => {
       });
       const props = { value: 0, onChange: vi.fn(), virtual: false };
       const c = render(
-        <Channel.SelectSingle {...props} initialQuery={excluding(first.key)} />,
+        <Channel.SelectSingle {...props} query={excluding(first.key)} />,
         { wrapper: Wrapper },
       );
       fireEvent.click(c.getByRole("button"));
@@ -99,9 +99,7 @@ describe("Channel select", () => {
       await c.findByText(second.name);
       expect(c.queryByText(first.name)).toBeNull();
 
-      c.rerender(
-        <Channel.SelectSingle {...props} initialQuery={excluding(second.key)} />,
-      );
+      c.rerender(<Channel.SelectSingle {...props} query={excluding(second.key)} />);
 
       await c.findByText(first.name);
       expect(c.queryByText(second.name)).toBeNull();

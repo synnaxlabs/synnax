@@ -215,7 +215,7 @@ class TestRangeClient:
     ) -> None:
         """Should raise an error when a range is not found"""
         with pytest.raises(
-            sy.NotFoundError, match="Range matching not_found not found"
+            sy.NotFoundError, match=r"Range matching .*not_found.* not found"
         ):
             client.ranges.retrieve(name="not_found")
 
@@ -226,7 +226,7 @@ class TestRangeClient:
         client.ranges.create([sy.Range(name=name, time_range=tr) for _ in range(2)])
         with pytest.raises(
             sy.MultipleFoundError,
-            match=f"Expected one Range matching {name}, but found 2",
+            match=rf"Expected one Range matching .*{name}.*, but found 2",
         ):
             client.ranges.retrieve(name=name)
 
@@ -703,18 +703,70 @@ def window_ranges(client: sy.Synnax, window: sy.TimeRange) -> list[sy.Range]:
 class TestRangeRetrieveFilters:
     """Tests the filters accepted by the range client's retrieve method."""
 
-    def test_rejects_mixed_selectors(self, client: sy.Synnax) -> None:
-        """Should reject a key or name combined with another selector or a list
-        filter
-        """
-        retrieve = cast(Callable[..., object], client.ranges.retrieve)
-        key = uuid4()
-        with pytest.raises(ValueError, match="cannot be combined; use keys"):
-            retrieve(key=key, name="a")
-        with pytest.raises(ValueError, match="cannot be combined with list filters"):
-            retrieve(key=key, limit=1)
-        with pytest.raises(ValueError, match="cannot be combined with list filters"):
-            retrieve(name="a", keys=[key])
+    def test_plain_key_beside_fields(
+        self, client: sy.Synnax, window: sy.TimeRange, window_ranges: list[sy.Range]
+    ) -> None:
+        """Should return one range for a plain key beside other fields"""
+        rng = window_ranges[0]
+        assert client.ranges.retrieve(key=rng.key, overlaps=window).key == rng.key
+        with pytest.raises(sy.NotFoundError):
+            client.ranges.retrieve(key=rng.key, name="other")
+
+    def test_name_operator(
+        self, client: sy.Synnax, window: sy.TimeRange, window_ranges: list[sy.Range]
+    ) -> None:
+        """Should keep the ranges whose name matches an operator"""
+        names = [r.name for r in window_ranges[:2]]
+        res = client.ranges.retrieve(name={"in": names}, overlaps=window)
+        assert {r.key for r in res} == {r.key for r in window_ranges[:2]}
+
+    def test_overlaps(
+        self, client: sy.Synnax, window: sy.TimeRange, window_ranges: list[sy.Range]
+    ) -> None:
+        """Should keep only ranges that overlap the overlaps field"""
+        tr = window.start.span_range(50 * sy.TimeSpan.SECOND)
+        res = client.ranges.retrieve(overlaps=tr)
+        assert {r.key for r in res} == {r.key for r in window_ranges[:2]}
+
+    def test_labels(self, client: sy.Synnax, window_ranges: list[sy.Range]) -> None:
+        """Should keep the ranges that hold a label given as a plain value"""
+        rng = window_ranges[2]
+        lbl = _create_label(client, rng)
+        assert [r.key for r in client.ranges.retrieve(labels=lbl.key)] == [rng.key]
+
+    def test_or(
+        self, client: sy.Synnax, window: sy.TimeRange, window_ranges: list[sy.Range]
+    ) -> None:
+        """Should keep the ranges that match any filter in or_"""
+        a, b = window_ranges[0], window_ranges[2]
+        res = client.ranges.retrieve(or_=[{"name": a.name}, {"key": [b.key]}])
+        assert {r.key for r in res} == {a.key, b.key}
+
+    def test_one(
+        self, client: sy.Synnax, window: sy.TimeRange, window_ranges: list[sy.Range]
+    ) -> None:
+        """Should return one range for any filter when one is set"""
+        rng = window_ranges[0]
+        found = client.ranges.retrieve(
+            name={"starts_with": rng.name}, overlaps=window, one=True
+        )
+        assert found.key == rng.key
+        assert client.ranges.retrieve(names=[rng.name], one=True).key == rng.key
+
+    def test_one_with_limit(self, client: sy.Synnax) -> None:
+        """Should reject one beside a limit, since a page could hide a match"""
+        with pytest.raises(sy.ValidationError, match="limit or offset"):
+            client.ranges.retrieve(key=uuid4(), limit=1)  # type: ignore[call-overload]
+
+    def test_none_field(self, client: sy.Synnax) -> None:
+        """Should reject a field set to None, since it would select every range"""
+        with pytest.raises(sy.ValidationError, match="name is None"):
+            client.ranges.retrieve(name=None)  # type: ignore[call-overload]
+
+    def test_unknown_field(self, client: sy.Synnax) -> None:
+        """Should reject a field that is not a range filter line"""
+        with pytest.raises(pydantic.ValidationError, match="nme"):
+            client.ranges.retrieve(nme="a")  # type: ignore[call-overload]
 
     def test_where(
         self,
