@@ -523,6 +523,43 @@ var _ = Describe("Writer", func() {
 			Entry("on the gateway", 0),
 			Entry("on a peer", 1),
 		)
+		It("Should return no end from a commit that fails", func(ctx SpecContext) {
+			gw := testutil.NewCluster(ctx, 1).Nodes[1]
+			// Commits walk a map of indexes, so most commit before the one that fails.
+			channels := make([]channel.Channel, 8)
+			series := make([]telem.Series, len(channels))
+			for i := range channels {
+				channels[i] = channel.Channel{
+					Name:        fmt.Sprintf("time_%d", i),
+					IsIndex:     true,
+					DataType:    telem.TimestampT,
+					Leaseholder: 1,
+				}
+				series[i] = telem.NewSeriesSecondsTSV(1, 30)
+			}
+			keys := channel.KeysFromChannels(
+				MustSucceed(gw.Channel.Create(ctx, channels)),
+			)
+			live := MustSucceed(gw.Framer.OpenWriter(ctx, writer.Config{
+				Keys:  keys[:1],
+				Start: 10 * telem.SecondTS,
+				Sync:  new(true),
+			}))
+			fill := MustSucceed(gw.Framer.OpenWriter(ctx, writer.Config{
+				Keys:             keys,
+				Start:            1 * telem.SecondTS,
+				Mode:             ts.WriterModePersistOnly,
+				EnableAutoCommit: new(false),
+				Sync:             new(true),
+			}))
+			Expect(fill.Write(frame.NewMulti(keys, series))).To(BeTrue())
+			Expect(fill.Commit()).Error().To(And(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("cannot write to time range")),
+			))
+			Expect(fill.Close()).To(MatchError(validate.ErrValidation))
+			Expect(live.Close()).To(Succeed())
+		})
 		It("Should report a commit that fails", func(ctx SpecContext) {
 			gw := testutil.NewCluster(ctx, 1).Nodes[1]
 			idx := MustSucceed(gw.Channel.Create(ctx, []channel.Channel{{

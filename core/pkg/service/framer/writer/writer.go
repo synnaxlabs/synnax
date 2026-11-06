@@ -131,7 +131,7 @@ func (w *Writer) exec(req Request, sync bool) (Response, error) {
 	select {
 	case res = <-w.responses.Outlet():
 		if res.Err != nil {
-			return res, w.close(res.Err)
+			return Response{}, w.close(res.Err)
 		}
 	case w.requests.Inlet() <- req:
 		if !sync {
@@ -139,7 +139,7 @@ func (w *Writer) exec(req Request, sync bool) (Response, error) {
 		}
 		for res = range w.responses.Outlet() {
 			if res.Err != nil {
-				return res, w.close(res.Err)
+				return Response{}, w.close(res.Err)
 			}
 			if res.Command == req.Command {
 				return res, nil
@@ -147,9 +147,9 @@ func (w *Writer) exec(req Request, sync bool) (Response, error) {
 		}
 	}
 	if err := w.close(nil); err != nil {
-		return res, err
+		return Response{}, err
 	}
-	return res, errors.Wrap(ErrClosed, "writer exited without a response")
+	return Response{}, errors.Wrap(ErrClosed, "writer exited without a response")
 }
 
 // Close closes the writer, releasing its control over the written region. Close returns

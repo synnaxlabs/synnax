@@ -350,8 +350,9 @@ var _ = Describe("Read task", func() {
 				writing = make(chan struct{})
 				resume  = make(chan struct{})
 				hold    = sync.OnceFunc(func() {
+					defer GinkgoRecover()
 					close(writing)
-					<-resume
+					Eventually(resume).WithTimeout(40 * time.Second).Should(BeClosed())
 				})
 				release = sync.OnceFunc(func() { close(resume) })
 			)

@@ -69,6 +69,41 @@ var _ = Describe("Writer", func() {
 		return ch
 	}
 
+	It("Should return no end from a commit that fails", func(ctx SpecContext) {
+		// Commits walk a map of indexes, so most commit before the one that fails.
+		keys := make(channel.Keys, 8)
+		series := make([]telem.Series, len(keys))
+		for i := range keys {
+			ch := channel.Channel{
+				Name:     UniqueChannelName(),
+				DataType: telem.TimestampT,
+				IsIndex:  true,
+			}
+			Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
+			keys[i] = ch.Key()
+			series[i] = telem.NewSeriesSecondsTSV(1, 30)
+		}
+		live := MustSucceed(writerSvc.Open(ctx, writer.Config{
+			Keys:  keys[:1],
+			Start: 10 * telem.SecondTS,
+			Sync:  new(true),
+		}))
+		fill := MustSucceed(writerSvc.Open(ctx, writer.Config{
+			Keys:             keys,
+			Start:            1 * telem.SecondTS,
+			Mode:             writer.ModePersistOnly,
+			EnableAutoCommit: new(false),
+			Sync:             new(true),
+		}))
+		Expect(fill.Write(frame.NewMulti(keys, series))).To(BeTrue())
+		Expect(fill.Commit()).Error().To(And(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("cannot write to time range")),
+		))
+		Expect(fill.Close()).To(MatchError(validate.ErrValidation))
+		Expect(live.Close()).To(Succeed())
+	})
+
 	DescribeTable("Should return ErrClosed when a canceled context ends the pipeline",
 		func(ctx SpecContext, exec func(*writer.Writer, frame.Frame)) {
 			idxCh, dataCh := createIndexed(ctx, telem.Float64T)
