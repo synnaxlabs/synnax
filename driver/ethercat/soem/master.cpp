@@ -642,8 +642,6 @@ void Master::discover_pdos_sii(slave::DiscoveryResult &slave) {
 constexpr uint16_t SII_DC_CATEGORY = 60;
 /// Size in bytes of one mode in the SII DC category.
 constexpr uint32_t SII_OP_MODE_SIZE = 24;
-/// Bytes after the name index of a mode: a description index and 4 reserved bytes.
-constexpr uint16_t SII_OP_MODE_TAIL = 5;
 
 std::vector<dc::OpMode> Master::read_op_modes(const uint16_t position) {
     const uint16_t start = this->api->siifind(position, SII_DC_CATEGORY);
@@ -657,8 +655,10 @@ std::vector<dc::OpMode> Master::read_op_modes(const uint16_t position) {
         return value;
     };
     const uint32_t length = read(2) * 2;
+    const uint16_t data = addr;
     std::vector<dc::OpMode> modes;
     for (uint32_t off = 0; off + SII_OP_MODE_SIZE <= length; off += SII_OP_MODE_SIZE) {
+        addr = static_cast<uint16_t>(data + off);
         dc::OpMode mode;
         mode.sync0_cycle = read(4);
         mode.sync0_shift = static_cast<int32_t>(read(4));
@@ -667,7 +667,6 @@ std::vector<dc::OpMode> Master::read_op_modes(const uint16_t position) {
         mode.assign_activate = static_cast<uint16_t>(read(2));
         mode.sync0_factor = static_cast<int16_t>(read(2));
         const auto name_index = static_cast<uint16_t>(read(1));
-        addr += SII_OP_MODE_TAIL;
         if (name_index > 0) {
             char name[EC_MAXNAME + 1] = {0};
             this->api->siistring(name, position, name_index);
