@@ -73,7 +73,7 @@ export const use = ({
   const channels = rawChannels ?? [];
   const numericChannels = channels
     .map((e) => e.channel)
-    .filter((ch): ch is number => typeof ch === "number" && ch > 0);
+    .filter((ch): ch is number => typeof ch === "number");
   const { data: retrievedChannels } = Channel.useResultMultiple({
     where: { key: { in: numericChannels } },
   });

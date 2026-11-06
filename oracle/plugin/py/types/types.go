@@ -1595,6 +1595,12 @@ func importLocalHand(typ resolution.Type, name string, data *templateData) strin
 }
 
 func addCrossNamespaceImport(modulePath, typeName string, data *templateData) string {
+	// An ancestor package imports this module before it binds its own names, so a child
+	// reads the ancestor's generated module directly.
+	if strings.HasPrefix(toPythonModulePath(data.OutputPath)+".", modulePath+".") {
+		alias := data.imports.addModuleImport(modulePath, "types_gen")
+		return fmt.Sprintf("%s.%s", alias, typeName)
+	}
 	parts := strings.Split(modulePath, ".")
 	if len(parts) >= 2 {
 		parentPath := strings.Join(parts[:len(parts)-1], ".")

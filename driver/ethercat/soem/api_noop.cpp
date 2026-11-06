@@ -13,4 +13,12 @@ namespace driver::ethercat::soem {
 x::errors::Error ProdAPI::check_socket(const char *) {
     return x::errors::NIL;
 }
+
+bool ProdAPI::dewesoft_filter_bound(const char *) {
+    return false;
+}
+
+std::optional<std::string> ProdAPI::adapter_name(const char *) {
+    return std::nullopt;
+}
 }

@@ -1916,6 +1916,29 @@ var _ = Describe("Python Types Plugin", func() {
 					)
 				})
 
+			It("Should read an ancestor package through its generated module",
+				func(ctx SpecContext) {
+					loader.Add("schemas/arc", `
+						@py output "client/py/synnax/arc"
+
+						Key = uuid
+					`)
+					source := `
+						import "schemas/arc"
+
+						@py output "client/py/synnax/arc/task"
+
+						Config struct {
+							arc_key arc.Key
+						}
+					`
+					resp := MustGenerate(ctx, source, "arc_task", loader, typesPlugin)
+					ExpectContent(resp, "arc/task/types_gen.py").ToContain(
+						`from synnax.arc import types_gen`,
+						`arc_key: types_gen.Key`,
+					)
+				})
+
 			DescribeTable(
 				"Should bind a hand-written type apart from a generated import",
 				func(ctx SpecContext, name, imported, field string) {
