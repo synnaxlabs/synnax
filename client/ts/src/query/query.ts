@@ -151,10 +151,10 @@ export const watch = <
  * 1. exact-key — `keyOf` returns a key: track that entry; deletion flips the
  *    answer to deleted.
  * 2. client-checkable — `matches` compares a record against the query:
- *    admit/evict exactly, no network. A positive `limit` keeps rule 2: below the
- *    limit the answer holds every match; at the limit it holds some `limit` of
- *    them, not necessarily the server's first. A full answer that loses a member
- *    refetches to fill the slot.
+ *    admit/evict exactly, no network. A record `matches` cannot decide refetches. A
+ *    positive `limit` keeps rule 2: below the limit the answer holds every match; at
+ *    the limit it holds some `limit` of them, not necessarily the server's first. A
+ *    full answer that loses a member refetches to fill the slot.
  * 3. server-computed — any other field named in `serverFields` is set on the
  *    query, `serverComputed` holds, or neither `keyOf` nor `matches` applies:
  *    debounced wholesale refetch.
@@ -190,8 +190,11 @@ export interface SpaceConfig<
    * subscribe, so a fully cached key set never fetches.
    */
   keysOf?: (params: P) => K[] | null;
-  /** Rule 2: whether a record satisfies the query. Pure; no network. */
-  matches?: (record: V, params: P) => boolean;
+  /**
+   * Rule 2: whether a record satisfies the query. Pure; no network. Null when the
+   * client cannot decide the record, which refetches the query.
+   */
+  matches?: (record: V, params: P) => boolean | null;
   /**
    * Query fields only the server can evaluate (searchTerm, limit, offset).
    * A query instance with any of them set is maintained by rule 3, except a
@@ -256,7 +259,8 @@ interface Query<
   handlers: Set<ChangeHandler<D>>;
   /** Rule teardown; present exactly while the query is maintained. */
   teardown?: destructor.Destructor[];
-  /** Set when maintenance ends: changes since then went unobserved. */
+  /** Set from when maintenance ends until a maintained fetch confirms the answer: the
+   *  query may have missed changes. */
   unmaintained?: boolean;
   /** Keys whose membership a fetch in flight deferred; drained on settle. */
   pendingRechecks?: Set<K>;
@@ -330,7 +334,11 @@ export class Space<
     const query = this.ensure(params);
     const { state } = query;
     if (state.variant === "loading") return state.promise;
-    if (query.teardown != null && this.hooks.maintained?.() !== false)
+    if (
+      query.teardown != null &&
+      query.unmaintained !== true &&
+      this.hooks.maintained?.() !== false
+    )
       switch (state.variant) {
         case "ready":
           return Promise.resolve(this.composedOf(query, state.keys));
@@ -618,8 +626,7 @@ export class Space<
   ): void {
     // A late promise resolution must not clobber a maintenance update.
     if (query.state !== expected) return;
-    query.state = next;
-    query.vacated = false;
+    this.confirm(query, next);
     this.drainRechecks(query);
     if (next.variant === "error") {
       query.refetchOnSettle = false;
@@ -630,6 +637,13 @@ export class Space<
       if (query.teardown != null) this.scheduleRefetch(query);
     }
     this.touch(query);
+  }
+
+  /** Publishes a fetch's answer, which covers every change before the fetch ran. */
+  private confirm(query: Query<P, K, D, V>, next: QueryState<K, D>): void {
+    query.state = next;
+    query.vacated = false;
+    if (query.teardown != null) query.unmaintained = false;
   }
 
   /**
@@ -646,6 +660,12 @@ export class Space<
   }
 
   private fetch(query: Query<P, K, D, V>, options?: FetchOptions): Promise<D> {
+    // This fetch covers what a pending refetch would confirm, and a refetch that fails
+    // during this fetch would replace its loading state.
+    if (query.refetchTimer != null) {
+      clearTimeout(query.refetchTimer);
+      query.refetchTimer = undefined;
+    }
     const promise = this.config.fetch(query.params, options).then(
       (keys) => {
         const { table, single, name } = this.config;
@@ -705,8 +725,7 @@ export class Space<
     // Only apply if maintenance hasn't been torn down and no newer fetch
     // superseded this one.
     if (query.state !== before) return;
-    query.state = { variant: "ready", keys };
-    query.vacated = false;
+    this.confirm(query, { variant: "ready", keys });
     this.touch(query);
   }
 
@@ -761,7 +780,7 @@ export class Space<
       keyOf?.(params) == null
     )
       this.scheduleRefetch(query);
-    query.unmaintained = false;
+    else query.unmaintained = false;
 
     // A keys-only query whose members the table already holds seeds a ready answer:
     // rules 2 and 3 gate notifications on a ready state, so without the seed an
@@ -894,9 +913,15 @@ export class Space<
     const admitted: K[] = [];
     let lastEvicted: K | null = null;
     let touched = false;
+    let undecided = false;
     for (const key of new Set(keys)) {
       const entry = table.get(key);
-      const matched = entry != null && matches!(entry, query.params);
+      const matched = entry == null ? false : matches!(entry, query.params);
+      if (matched == null) {
+        undecided = true;
+        touched ||= memberSet.has(key);
+        continue;
+      }
       if (matched === memberSet.has(key)) {
         touched ||= matched;
         continue;
@@ -909,6 +934,7 @@ export class Space<
         lastEvicted = key;
       }
     }
+    if (undecided) this.scheduleRefetch(query);
     if (admitted.length === 0 && lastEvicted == null) return touched;
     const limit = this.limitOf(query.params);
     const kept = members.filter((k) => memberSet.has(k));

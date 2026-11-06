@@ -1127,6 +1127,48 @@ describe("Answers", () => {
       expect(handler).toHaveBeenLastCalledWith([rec("a", 5), rec("b", 4)]);
     });
 
+    it("refetches for a record that matches cannot decide", async () => {
+      const table = newTable();
+      let members: Rec[] = [];
+      const fetch = vi.fn(async () => {
+        table.set(members);
+        return members.map(({ key }) => key);
+      });
+      const answers = new Space<ListQ, Rec[], string, Rec>({
+        name: "things",
+        table,
+        fetch,
+        compose: (records) => records,
+        matches: (r, q) => (r.value < 0 ? null : r.value >= q.min),
+      });
+      answers.onChange({ min: 3 }, vi.fn());
+      await answers.retrieve({ min: 3 });
+      members = [rec("a", -1)];
+      table.set("a", rec("a", -1));
+      expect(answers.getCached({ min: 3 })).toEqual([]);
+      await expect.poll(() => answers.getCached({ min: 3 })).toEqual([rec("a", -1)]);
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
+    it("notifies an edit to a member that matches cannot decide", async () => {
+      const table = newTable();
+      const answers = new Space<ListQ, Rec[], string, Rec>({
+        name: "things",
+        table,
+        fetch: async () => {
+          table.set("a", rec("a", 5));
+          return ["a"];
+        },
+        compose: (records) => records,
+        matches: (r, q) => (r.value < 0 ? null : r.value >= q.min),
+      });
+      const handler = vi.fn();
+      answers.onChange({ min: 3 }, handler);
+      await answers.retrieve({ min: 3 });
+      table.set("a", rec("a", -1));
+      expect(handler).toHaveBeenLastCalledWith([rec("a", -1)]);
+    });
+
     // Regression: membership is patched from table events, and an unmaintained
     // query received none, so a member that appeared during the gap is missing
     // from the answer a remount is served.
@@ -1144,6 +1186,45 @@ describe("Answers", () => {
       members = [rec("a", 5)];
       answers.onChange({ min: 3 }, vi.fn());
       await expect.poll(() => answers.getCached({ min: 3 })).toEqual([rec("a", 5)]);
+    });
+
+    it("fetches a read that beats the refetch after an unmaintained gap", async () => {
+      const table = newTable();
+      let members: Rec[] = [];
+      const fetch = vi.fn(async () => {
+        table.set(members);
+        return members.map(({ key }) => key);
+      });
+      const answers = listSpace(table, fetch, { teardownGrace: TimeSpan.ZERO });
+      const unsubscribe = answers.onChange({ min: 3 }, vi.fn());
+      expect(await answers.retrieve({ min: 3 })).toEqual([]);
+      unsubscribe();
+      members = [rec("a", 5)];
+      answers.onChange({ min: 3 }, vi.fn());
+      expect(await answers.retrieve({ min: 3 })).toEqual([rec("a", 5)]);
+    });
+
+    it("cancels the refetch after an unmaintained gap when a read fetches", async () => {
+      const table = newTable();
+      const fetch = vi
+        .fn<() => Promise<string[]>>()
+        .mockResolvedValueOnce([])
+        .mockImplementationOnce(async () => {
+          await wait(250);
+          table.set([rec("a", 5)]);
+          return ["a"];
+        })
+        .mockRejectedValue(new Error("refetch failed"));
+      const answers = listSpace(table, fetch, { teardownGrace: TimeSpan.ZERO });
+      const unsubscribe = answers.onChange({ min: 3 }, vi.fn());
+      await answers.retrieve({ min: 3 });
+      unsubscribe();
+      const handler = vi.fn();
+      answers.onChange({ min: 3 }, handler);
+      expect(await answers.retrieve({ min: 3 })).toEqual([rec("a", 5)]);
+      expect(fetch).toHaveBeenCalledTimes(2);
+      expect(answers.getCached({ min: 3 })).toEqual([rec("a", 5)]);
+      expect(handler).toHaveBeenLastCalledWith([rec("a", 5)]);
     });
 
     // Regression: membership is patched only on a ready query, so a record that

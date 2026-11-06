@@ -304,7 +304,6 @@ const CHILDREN_SERVER_FIELDS = ["limit", "offset"] as const;
 const normalizeChildren = (params: ChildrenParams): ChildrenRequest =>
   typeof params === "string" ? { key: params } : params;
 
-/** True for params that address one range by a plain key. */
 const isKeyParams = (params: object): params is { key: Key } =>
   "key" in params && typeof params.key === "string";
 
