@@ -73,12 +73,12 @@ export interface SelectSingleProps
 
 export const SelectSingle = ({
   filter,
-  initialQuery,
+  query,
   ...rest
 }: SelectSingleProps): ReactElement => {
   const { data, retrieve, getItem, subscribe, status } = useList({
     filter,
-    initialQuery,
+    query,
   });
   const { fetchMore, search } = List.usePager({ retrieve });
   return (

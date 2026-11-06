@@ -100,6 +100,7 @@ interface Failure {
 }
 
 interface Meta {
+  name: string;
   // The snapshot and the count of appended samples that entries were last read up to.
   snapshot?: framer.Snapshot;
   appended: number;
@@ -238,6 +239,14 @@ export class StreamMultiChannelLog
     // Samples written after the read of start can be older than it.
     const start = TimeStamp.min(this.start, this.entries[0]?.timestamp ?? this.start);
     return new TimeRange(start, new TimeStamp(end));
+  }
+
+  /** Whether the entries hold the oldest stored sample of each channel. */
+  get exhausted(): boolean {
+    const metas = [...this.metas.values()];
+    return (
+      metas.length > 0 && metas.every((m) => m.exhausted && m.pending.length === 0)
+    );
   }
 
   /** Whether the entries end at the newest samples, so that new samples join them. */
@@ -765,8 +774,11 @@ export class StreamMultiChannelLog
     meta.dropWarned = true;
     this.onStatusChange?.({
       variant: "warning",
+      name: meta.name,
       message: "Dropped log samples with no time",
-      description: `The time of the samples of channel ${key} did not arrive.`,
+      description:
+        "The times of these samples did not arrive. Check that what writes to this " +
+        "channel also writes to its index channel.",
     });
   }
 
@@ -894,6 +906,7 @@ export class StreamMultiChannelLog
 const toMeta = (ch: channel.Channel): Meta => {
   const stored = ch.isIndex || (ch.index !== 0 && (!ch.virtual || ch.isCalculated));
   return {
+    name: ch.name,
     stored,
     appended: 0,
     pending: [],
@@ -993,11 +1006,12 @@ const readPage = async (
     window: staticWindow(range),
     limit: { variant: "latest", count },
   });
-  const data = await settled(subscription, key, signal);
-  if (data == null) {
+  const aborted = (): Page => {
     subscription.close();
     return { samples: [], full: false, missed: false, status: telem.SUCCESS_STATUS };
-  }
+  };
+  const data = await settled(subscription, key, signal);
+  if (data == null) return aborted();
   const read: Array<Omit<Sample, "receivedAt">> = [];
   for (const s of data.series.series)
     for (let i = 0; i < s.length; i++)
@@ -1014,6 +1028,8 @@ const readPage = async (
     signal,
     recheckInterval,
   );
+  // The feed can close the subscription just before the abort.
+  if (signal.aborted) return aborted();
   const samples: Page["samples"] = [];
   let missed = false;
   for (const p of read) {
