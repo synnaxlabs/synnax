@@ -44,8 +44,9 @@ func documents(source string, n int, data func(i int) string) []xjson.Document {
 	return docs
 }
 
-// field returns the field of shape at pointer.
+// fieldAt returns the field of shape at pointer.
 func fieldAt(shape xjson.Shape, pointer string) xjson.InferredField {
+	GinkgoHelper()
 	for _, f := range shape.Fields {
 		if f.Pointer.String() == pointer {
 			return f
