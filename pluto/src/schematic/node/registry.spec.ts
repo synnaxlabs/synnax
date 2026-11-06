@@ -247,6 +247,23 @@ describe("Schematic.Node.changeConfig", () => {
     expect(changed.label.maxInlineSize).toBe(80);
   });
 
+  it("should keep a sized symbol with no level off the button scale", () => {
+    const setpoint = schematic.setpointNodeConfigZ.parse({
+      variant: "setpoint",
+      size: "large",
+    });
+    const changed = changeConfig(setpoint, { variant: "button" });
+    expect(changed.size).toBe("large");
+    expect(changed.level).toBeUndefined();
+  });
+
+  it("should give a symbol with no size the default button level", () => {
+    const changed = changeConfig(createConfig({ variant: "tank" }), {
+      variant: "button",
+    });
+    expect(changed.level).toBe(SIZE_LEVELS.medium);
+  });
+
   it("should keep each field the new variant accepts", () => {
     const valve = createConfig({
       variant: "valve",
