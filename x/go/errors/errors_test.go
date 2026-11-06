@@ -30,6 +30,12 @@ func (e *aggregateError) Error() string { return "aggregate" }
 
 func (e *aggregateError) Unwrap() []error { return e.errs }
 
+//go:noinline
+func createFirstMember() error { return errors.New("err1") }
+
+//go:noinline
+func createSecondMember() error { return errors.New("err2") }
+
 var _ = Describe("ErrUnsupported", func() {
 	It("Should be the standard library sentinel", func() {
 		Expect(errors.ErrUnsupported).To(MatchError("unsupported operation"))
@@ -237,11 +243,10 @@ var _ = Describe("Is", func() {
 		})
 
 		It("Should keep the member stacks in the verbose format", func() {
-			joined := errors.Join(errors.New("err1"), errors.New("err2"))
+			joined := errors.Join(createFirstMember(), createSecondMember())
 			Expect(fmt.Sprintf("%+v", joined)).To(SatisfyAll(
-				ContainSubstring("err1"),
-				ContainSubstring("err2"),
-				ContainSubstring("errors_test.go"),
+				ContainSubstring("errors_test.createFirstMember"),
+				ContainSubstring("errors_test.createSecondMember"),
 			))
 		})
 
