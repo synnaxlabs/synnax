@@ -32,7 +32,7 @@ import {
   retrieveResponseZ,
   type Where,
 } from "@/label/types.gen";
-import { type Lines, matches, serverComputed } from "@/label/where.gen";
+import { type Lines, matches, retrieveInputZ, serverComputed } from "@/label/where.gen";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 
@@ -55,7 +55,11 @@ export interface SetOptions extends Pick<SetReq, "replace"> {}
 const removeReqZ = setReqZ.omit({ replace: true });
 const emptyResZ = z.object({});
 
-const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), retrieveRequestZ]);
+const retrieveMultiParamsZ = z.union([
+  query.keysRequestZ(keyZ),
+  retrieveRequestZ,
+  retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+]);
 
 /** @returns the resources that the for lines of where name. */
 const forIDs = (where: Where): ontology.ID[] => [
@@ -74,7 +78,7 @@ const labelsOf = ({ where, ...rest }: RetrieveRequest): ontology.ID | null => {
 /** Names one label. */
 export type RetrieveSingleParams = { key: Key };
 /** Everything a multi-label retrieval can filter on, including the resource labeled. */
-export type RetrieveMultipleParams = RetrieveRequest;
+export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 /** Params for a label retrieval, single or multiple. */
 export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 
