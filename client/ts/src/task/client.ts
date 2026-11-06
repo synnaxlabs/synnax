@@ -59,7 +59,7 @@ import {
   statusZ,
   type Where,
 } from "@/task/types.gen";
-import { matches, retrieveInputZ, serverComputed } from "@/task/where.gen";
+import { matches, retrieveInputZ, serverComputed, shortcutZ } from "@/task/where.gen";
 import { checkForMultipleOrNoResults, singleQueryError } from "@/util/retrieve";
 
 export type { PayloadSchemas as Schemas } from "@/task/types.gen";
@@ -370,7 +370,6 @@ const singleQueryZ = z
 // includeStatus does not change a request's identity either: cached fetches
 // always request it, so the schema strips it before hashing.
 const retrieveMultiParamsZ = z.union([
-  query.keysRequestZ(keyZ),
   retrieveRequestZ.transform(({ includeStatus: _, ...rest }) => rest),
   filterParamsZ.transform(({ includeStatus: _, ...rest }) => rest),
 ]);
@@ -516,6 +515,7 @@ export class Client extends query.Retriever<
     super(cache, {
       name: "task",
       table: store,
+      shortcut: shortcutZ,
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.fetchThrough(req),
@@ -651,8 +651,9 @@ export class Client extends query.Retriever<
   ): Promise<Task<S> | Task<S>[]> {
     if (Array.isArray(rawParams))
       return (await super.retrieve(rawParams)) as unknown as Task<S>[];
-    const { schemas, ...params } =
-      typeof rawParams === "string" ? { key: rawParams } : rawParams;
+    if (typeof rawParams === "string")
+      return (await super.retrieve(rawParams)) as Task<S>;
+    const { schemas, ...params } = rawParams;
     const isSingle = z.validate(singleRetrieveParamsZ, params);
     // Schema-parametrized retrieves validate config/status for one caller;
     // their results are not shared through the cache.

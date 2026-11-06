@@ -37,6 +37,33 @@ describe("Label", () => {
       const retrieved = await client.labels.retrieve(v.key);
       expect(retrieved).toEqual(v);
     });
+    it("should retrieve a label by its name", async () => {
+      const v = await client.labels.create({
+        name: `named-label-${id.create()}`,
+        color: "#E774D0",
+      });
+      expect(await client.labels.retrieve(v.name)).toEqual(v);
+    });
+    it("should retrieve labels by a list of names", async () => {
+      const prefix = `named-labels-${id.create()}`;
+      const created = await client.labels.create([
+        { name: `${prefix}-1`, color: "#E774D0" },
+        { name: `${prefix}-2`, color: "#E774D0" },
+      ]);
+      const retrieved = await client.labels.retrieve(created.map((l) => l.name));
+      expect(retrieved.map((l) => l.name).sort()).toEqual([
+        `${prefix}-1`,
+        `${prefix}-2`,
+      ]);
+    });
+    it("should throw a NotFoundError for a name that no label has", async () => {
+      const name = `missing-label-${id.create()}`;
+      await expect(client.labels.retrieve(name)).rejects.toThrow(
+        new NotFoundError(
+          `label not found matching {"where":{"name":{"eq":"${name}"}}}`,
+        ),
+      );
+    });
     it("should retrieve labels by search term", async () => {
       const prefix = `searchable-label-${id.create()}`;
       const names = [`${prefix}-1`, `${prefix}-2`];
