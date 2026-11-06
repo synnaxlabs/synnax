@@ -114,6 +114,7 @@ struct Choice {
     /// @brief the AssignActivate of the mode, which shows that the index is stale when
     /// the slave lists other modes.
     uint16_t assign_activate = 0;
+    /// @brief the cycles that replace the cycles of the mode.
     Cycles cycles;
 
     bool operator==(const Choice &) const = default;
