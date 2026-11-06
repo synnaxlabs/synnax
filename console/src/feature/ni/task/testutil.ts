@@ -97,6 +97,7 @@ export const createHardware = (): ni.Hardware =>
       { port: 1, lines: 8, input: true, output: true },
     ],
     terminals: ["PFI0", "PFI1", "PFI2", "PFI3"],
+    aiMinRate: 1,
     aiMaxSingleChannelRate: 2_000_000,
     aiMaxMultiChannelRate: 1_000_000,
   });
