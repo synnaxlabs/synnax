@@ -740,10 +740,12 @@ jobs:
       - name: Download Console update
         if: inputs.console_release != '' && inputs.core
         shell: bash
+        env:
+          RELEASE: ${{ inputs.console_release }}
         run: |
           read -ra FILES <<< "$CONSOLE_UPDATE_FILES"
           for FILE in "${FILES[@]}"; do
-            gh release download "${{ inputs.console_release }}" \
+            gh release download "$RELEASE" \
               --dir core/pkg/console/update --pattern "$FILE"
           done
 
@@ -1147,10 +1149,11 @@ jobs:
         if: inputs.console_release != ''
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE: ${{ inputs.console_release }}
         run: |
           read -ra FILES <<< "$CONSOLE_UPDATE_FILES"
           for FILE in "${FILES[@]}"; do
-            gh release download "${{ inputs.console_release }}" \
+            gh release download "$RELEASE" \
               --dir core/pkg/console/update --pattern "$FILE"
           done
 
