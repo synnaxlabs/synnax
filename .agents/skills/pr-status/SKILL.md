@@ -36,12 +36,15 @@ Q='query($n:Int!){repository(owner:"synnaxlabs",name:"synnax"){pullRequest(numbe
 }}}'
 for n in $PRS; do
   gh api graphql -f query="$Q" -F n="$n" --jq '.data.repository.pullRequest
-    | .headRefOid as $sha | {
+    | .headRefOid as $sha
+    | ((.body // "")
+      | [match("<!-- greptile_comment -->[\\s\\S]*?<!-- /greptile_comment -->").string]
+      | first // "") as $greptile | {
     number, url, title, state, draft: .isDraft, mergeable,
     head: .headRefName, base: .baseRefName, mergeCommit: .mergeCommit.oid,
     tier: ([.labels.nodes[].name | select(startswith("review/"))] | first),
-    greptile: ((.body // "") | [scan("Confidence Score: ([0-9])/5")] | first | first),
-    greptileCurrent: ((.body // "") | contains("commit/" + $sha)),
+    greptile: ($greptile | [scan("Confidence Score: ([0-9])/5")] | first | first),
+    greptileCurrent: ($greptile | contains("commit/" + $sha)),
     humans: [.latestOpinionatedReviews.nodes[]
       | select(.author.login | endswith("[bot]") | not)
       | {login: .author.login, state}],

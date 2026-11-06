@@ -10,6 +10,7 @@
 import { rack, user } from "@synnaxlabs/client";
 import {
   createTestClient,
+  createTestClientAs,
   createTestClientWithRole,
 } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
@@ -32,6 +33,19 @@ const type = async (placeholder: string, value: string): Promise<void> => {
   fireEvent.change(await screen.findByPlaceholderText(placeholder), {
     target: { value },
   });
+};
+
+const expectPassword = async (username: string, password: string): Promise<void> => {
+  await expect
+    .poll(async () => {
+      try {
+        await createTestClientAs(username, password).auth.retrieveSessions();
+        return true;
+      } catch {
+        return false;
+      }
+    })
+    .toBe(true);
 };
 
 describe("useModal", () => {
@@ -171,19 +185,7 @@ describe("useModal", () => {
     await type("Current password", "test");
     await type("New password", "changed123");
     fireEvent.click(findButton("Set password"));
-    await expect
-      .poll(async () => {
-        try {
-          await createTestClient({
-            username,
-            password: "changed123",
-          }).auth.retrieveSessions();
-          return true;
-        } catch {
-          return false;
-        }
-      })
-      .toBe(true);
+    await expectPassword(username, "changed123");
   });
 
   it("should let an owner set another user's password", async () => {
@@ -200,18 +202,6 @@ describe("useModal", () => {
     expect(await screen.findByText("Successfully changed password")).toBeTruthy();
     await type("New password", "again");
     expect(screen.queryByText("Successfully changed password")).toBeNull();
-    await expect
-      .poll(async () => {
-        try {
-          await createTestClient({
-            username,
-            password: "changed123",
-          }).auth.retrieveSessions();
-          return true;
-        } catch {
-          return false;
-        }
-      })
-      .toBe(true);
+    await expectPassword(username, "changed123");
   });
 });

@@ -41,10 +41,15 @@ type Name = v0.Name
 type OperationType = v0.OperationType
 
 const (
-	OperationTypeMin        OperationType = v0.OperationTypeMin
-	OperationTypeMax        OperationType = v0.OperationTypeMax
-	OperationTypeAvg        OperationType = v0.OperationTypeAvg
-	OperationTypeNone       OperationType = v0.OperationTypeNone
+	// OperationTypeMin keeps the lowest sample since the last reset.
+	OperationTypeMin OperationType = v0.OperationTypeMin
+	// OperationTypeMax keeps the highest sample since the last reset.
+	OperationTypeMax OperationType = v0.OperationTypeMax
+	// OperationTypeAvg keeps the mean of the samples since the last reset.
+	OperationTypeAvg OperationType = v0.OperationTypeAvg
+	// OperationTypeNone applies no aggregation.
+	OperationTypeNone OperationType = v0.OperationTypeNone
+	// OperationTypeDerivative computes the rate of change of the samples.
 	OperationTypeDerivative OperationType = v0.OperationTypeDerivative
 )
 

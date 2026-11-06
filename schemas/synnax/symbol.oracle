@@ -9,6 +9,7 @@
 
 import "schemas/synnax/group"
 import "schemas/x/color"
+import "schemas/x/filter"
 import "schemas/x/spatial"
 
 @go output "core/pkg/service/schematic/symbol"
@@ -138,4 +139,17 @@ Symbol struct {
     @go marshal
     @resource type "schematic_symbol"
     @retrieve
+}
+
+Where filter Symbol {
+    key
+    groups  group.Key[] {
+        @doc value "matches the symbols in any of the given groups."
+    }
+    grouped bool        {
+        @doc value "matches the symbols in a group, or in no group when false."
+    }
+
+    @doc value         "is a filter that selects schematic symbols."
+    @go request_output "core/pkg/api/schematic/symbol"
 }

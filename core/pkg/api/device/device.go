@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
@@ -171,129 +170,43 @@ func (s *Service) attachStatuses(
 	tx gorp.Tx,
 	devices []device.Device,
 ) error {
-	ids := device.ResourceIDsFromDevices(devices)
-	statuses := make([]device.Status, 0, len(devices))
-	// A status row can be missing, so the resource keeps a nil status.
-	if err := s.status.NewRetrieve[device.StatusDetails]().
-		Where(status.MatchOwners[device.StatusDetails](ids...)).
-		Entries(&statuses).
-		Exec(ctx, tx); err != nil {
+	statuses, err := s.status.Join[device.StatusDetails](
+		ctx,
+		tx,
+		device.ResourceIDsFromDevices(devices),
+	)
+	if err != nil {
 		return err
 	}
-	byOwner := make(map[resource.ID]*device.Status, len(statuses))
-	for i := range statuses {
-		byOwner[*statuses[i].Owner] = &statuses[i]
-	}
-	for i, id := range ids {
-		devices[i].Status = byOwner[id]
+	for i, st := range statuses {
+		devices[i].Status = st
 	}
 	return nil
-}
-
-type RetrieveRequest struct {
-	SearchTerm     string       `json:"search_term"      msgpack:"search_term"`
-	Keys           []device.Key `json:"keys"             msgpack:"keys"`
-	Names          []string     `json:"names"            msgpack:"names"`
-	Makes          []string     `json:"makes"            msgpack:"makes"`
-	Models         []string     `json:"models"           msgpack:"models"`
-	Locations      []string     `json:"locations"        msgpack:"locations"`
-	Racks          []rack.Key   `json:"racks"            msgpack:"racks"`
-	Limit          int          `json:"limit"            msgpack:"limit"`
-	Offset         int          `json:"offset"           msgpack:"offset"`
-	IgnoreNotFound bool         `json:"ignore_not_found" msgpack:"ignore_not_found"`
-	IncludeStatus  bool         `json:"include_status"   msgpack:"include_status"`
-	// Parents keeps only the devices held by any of these devices.
-	Parents []device.Key `json:"parents" msgpack:"parents"`
-	// Nested keeps only the devices held by another device when true, and only the
-	// devices that sit directly on their rack when false. Nil applies no filter.
-	Nested *bool `json:"nested" msgpack:"nested"`
-	// Groups keeps only the devices in any of these groups.
-	Groups []group.Key `json:"groups" msgpack:"groups"`
-	// Grouped keeps only the devices in a group when true, and only the devices in no
-	// group when false. Nil applies no filter.
-	Grouped *bool `json:"grouped" msgpack:"grouped"`
-}
-
-type RetrieveResponse struct {
-	Devices []device.Device `json:"devices" msgpack:"devices"`
 }
 
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
-	var (
-		hasSearch    = len(req.SearchTerm) > 0
-		hasKeys      = len(req.Keys) > 0
-		hasNames     = len(req.Names) > 0
-		hasMakes     = len(req.Makes) > 0
-		hasLimit     = req.Limit > 0
-		hasOffset    = req.Offset > 0
-		hasLocations = len(req.Locations) > 0
-		hasModels    = len(req.Models) > 0
-		hasRacks     = len(req.Racks) > 0
-	)
-	q := s.device.NewRetrieve()
-	if hasKeys {
-		q = q.Where(device.MatchKeys(req.Keys...))
-	}
-	if hasSearch {
-		q = q.Search(req.SearchTerm)
-	}
-	if hasNames {
-		q = q.Where(device.MatchNames(req.Names...))
-	}
-	if hasLimit {
-		q = q.Limit(req.Limit)
-	}
-	if hasOffset {
-		q = q.Offset(req.Offset)
-	}
-	if hasMakes {
-		q = q.Where(device.MatchMakes(req.Makes...))
-	}
-	if hasLocations {
-		q = q.Where(device.MatchLocations(req.Locations...))
-	}
-	if hasModels {
-		q = q.Where(device.MatchModels(req.Models...))
-	}
-	if hasRacks {
-		q = q.Where(device.MatchRacks(req.Racks...))
-	}
-	if len(req.Groups) > 0 {
-		q = q.Where(device.MatchGroups(req.Groups...))
-	}
-	if req.Grouped != nil {
-		q = q.Where(device.MatchHasGroup(*req.Grouped))
-	}
-	if len(req.Parents) > 0 {
-		q = q.Where(device.MatchParents(req.Parents...))
-	}
-	if req.Nested != nil {
-		q = q.Where(device.MatchHasParent(*req.Nested))
-	}
 	var res RetrieveResponse
-	retErr := q.Entries(&res.Devices).Exec(ctx, nil)
-
+	q, err := req.Apply(s.device.NewRetrieve().Entries(&res.Devices))
+	if err != nil {
+		return RetrieveResponse{}, err
+	}
+	if err := q.Exec(ctx, nil); err != nil {
+		return RetrieveResponse{}, err
+	}
 	if req.IncludeStatus {
 		if err := s.attachStatuses(ctx, nil, res.Devices); err != nil {
 			return RetrieveResponse{}, err
 		}
 	}
-
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: device.ResourceIDsFromDevices(res.Devices),
 	}); err != nil {
 		return RetrieveResponse{}, err
-	}
-	if retErr != nil && req.IgnoreNotFound {
-		retErr = errors.Skip(retErr, query.ErrNotFound)
-	}
-	if retErr != nil {
-		return RetrieveResponse{}, retErr
 	}
 	return res, nil
 }

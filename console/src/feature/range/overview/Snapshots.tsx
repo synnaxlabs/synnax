@@ -90,7 +90,7 @@ const taskKeyOf = (id: string): task.Key | null => {
 /** Lists the task snapshots in the range as resources, keyed by resource ID. */
 const useTaskSnapshots = (rangeKey: ranger.Key) => {
   const { retrieve, status, ...source } = Task.useList({
-    initialQuery: { ranges: [rangeKey], snapshot: true },
+    initialQuery: { where: { ranges: [rangeKey], snapshot: { eq: true } } },
   });
   const data = List.useTransformedData({
     source,

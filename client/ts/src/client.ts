@@ -328,6 +328,7 @@ export default class Synnax extends framer.Client {
     this.arcs = new arc.Client({
       unary,
       stream: this.transport.stream,
+      ontology: this.ontology,
       tasks: this.tasks,
       cache,
       statuses: this.statuses,

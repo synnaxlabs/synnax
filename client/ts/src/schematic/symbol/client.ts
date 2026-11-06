@@ -12,7 +12,7 @@ import {
   type UnaryClient,
   type UploadBody,
 } from "@synnaxlabs/freighter";
-import { array, primitive } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { group } from "@/group";
@@ -22,9 +22,13 @@ import {
   type Key,
   keyZ,
   type New,
+  type RetrieveRequest,
+  retrieveRequestZ,
+  retrieveResponseZ,
   type Symbol,
   symbolZ,
 } from "@/schematic/symbol/types.gen";
+import { matches, retrieveInputZ, serverComputed } from "@/schematic/symbol/where.gen";
 
 export const SET_CHANNEL_NAME = "sy_schematic_symbol_set";
 export const DELETE_CHANNEL_NAME = "sy_schematic_symbol_delete";
@@ -33,25 +37,16 @@ const createReqZ = z.object({ symbols: symbolZ.array() });
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
-const retrieveRequestZ = group.memberFilterZ.extend({
-  keys: keyZ.array().optional(),
-  searchTerm: z.string().optional(),
-});
-const retrieveMultiParamsZ = retrieveRequestZ.or(query.keyListZ(keyZ));
+const retrieveMultiParamsZ = z.union([
+  query.keysRequestZ(keyZ),
+  retrieveRequestZ,
+  retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+]);
+export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 
-const singleRetrieveParamsZ = z
-  .object({ key: keyZ })
-  .transform(({ key }) => ({ keys: [key] }));
-
-const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveRequestZ]);
-
-export type RetrieveSingleParams = z.input<typeof singleRetrieveParamsZ>;
-export type RetrieveMultipleParams = z.input<typeof retrieveRequestZ>;
+export type RetrieveSingleParams = { key: Key };
 export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 
-interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
-
-const retrieveResZ = z.object({ symbols: symbolZ.array().default(() => []) });
 const createResZ = z.object({ symbols: symbolZ.array() });
 const emptyResZ = z.object({});
 const exportGroupReqZ = z.object({ key: group.keyZ, encoding: imex.encodingZ });
@@ -64,19 +59,6 @@ export interface CreateParams extends New {}
 export interface CreateMultipleParams {
   symbols: New[];
 }
-
-/** Query fields only the server can evaluate. */
-const SERVER_FIELDS = ["searchTerm"] as const;
-
-/**
- * Client-side matching for a request: key and group sets. Server-computed shapes
- * (search) never reach this filter; they refetch instead.
- */
-const requestFilter = (req: RetrieveRequest): ((s: Symbol) => boolean) => {
-  const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
-  const inGroup = group.createMemberMatcher(req);
-  return (s) => (keySet == null || keySet.has(s.key)) && inGroup(s);
-};
 
 export interface ClientConfig {
   unary: UnaryClient;
@@ -95,7 +77,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
     const { cache } = cfg;
     const store = cache.createTable<Key, Symbol>({
       name: "schematicSymbols",
-      fetch: async (keys) => await this.execRetrieve({ keys }),
+      fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
       listen: [
         query.createSetListener(SET_CHANNEL_NAME, symbolZ),
         query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
@@ -107,8 +89,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
-        matches: (sym, req) => requestFilter(req)(sym),
-        serverFields: SERVER_FIELDS,
+        matches: (sym, req) => matches(group.MEMBER_LINES, sym, req.where),
+        serverComputed: (req) => serverComputed(group.MEMBER_LINES, req.where),
       },
     });
     this.cfg = cfg;
@@ -232,12 +214,12 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
     drop();
   }
 
-  private async execRetrieve(params: RetrieveParams): Promise<Symbol[]> {
+  private async execRetrieve(req: RetrieveRequest): Promise<Symbol[]> {
     const res = await this.cfg.unary.send(
       "/schematic/symbol/retrieve",
-      params,
-      retrieveParamsZ,
-      retrieveResZ,
+      req,
+      retrieveRequestZ,
+      retrieveResponseZ,
     );
     return res.symbols;
   }

@@ -16,9 +16,11 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/view"
+	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
@@ -80,11 +82,28 @@ var _ = Describe("View", func() {
 				"Should reject a status view with an invalid variant",
 				func(ctx SpecContext) {
 					s := view.View{Variant: view.StatusView{
-						Base:  view.Base{Name: "Bogus"},
-						Query: view.StatusQuery{Variants: []status.Variant{"bogus"}},
+						Base: view.Base{Name: "Bogus"},
+						Where: &status.Where{Or: []status.Where{
+							{Variant: &filter.Set[status.Variant]{
+								In: []status.Variant{"bogus"},
+							}},
+						}},
 					}}
-					Expect(w.Create(ctx, &s)).
-						To(MatchError(ContainSubstring(`invalid status variant "bogus"`)))
+					Expect(w.Create(ctx, &s)).To(MatchError(ContainSubstring(
+						`where.or.0.variant.in.0: invalid variant "bogus"`,
+					)))
+				},
+			)
+			It(
+				"Should reject a range view with an invalid regex",
+				func(ctx SpecContext) {
+					s := view.View{Variant: view.RangeView{
+						Base:  view.Base{Name: "Bad"},
+						Where: &ranger.Where{Name: &filter.String{Regex: new("(")}},
+					}}
+					Expect(w.Create(ctx, &s)).To(MatchError(ContainSubstring(
+						"where.name.regex: error parsing regexp: missing closing )",
+					)))
 				},
 			)
 			It("Should reject a view with no name", func(ctx SpecContext) {
@@ -98,9 +117,9 @@ var _ = Describe("View", func() {
 				Expect(w.Create(ctx, &s)).To(Succeed())
 				updated := view.View{Variant: view.StatusView{
 					Base: view.Base{Key: s.GorpKey(), Name: "Updated Name"},
-					Query: view.StatusQuery{
-						Variants: []status.Variant{status.VariantError},
-					},
+					Where: &status.Where{Variant: &filter.Set[status.Variant]{
+						Eq: new(status.VariantError),
+					}},
 				}}
 				Expect(w.Create(ctx, &updated)).To(Succeed())
 				var retrieved view.View
@@ -133,8 +152,10 @@ var _ = Describe("View", func() {
 				"Should rename a view, keeping every other field",
 				func(ctx SpecContext) {
 					s := view.View{Variant: view.StatusView{
-						Base:  view.Base{Key: uuid.New(), Name: "Before"},
-						Query: view.StatusQuery{Variants: []status.Variant{"success"}},
+						Base: view.Base{Key: uuid.New(), Name: "Before"},
+						Where: &status.Where{Variant: &filter.Set[status.Variant]{
+							In: []status.Variant{status.VariantSuccess},
+						}},
 					}}
 					Expect(w.Create(ctx, &s)).To(Succeed())
 					Expect(w.Rename(ctx, s.GorpKey(), "After")).To(Succeed())
@@ -239,7 +260,7 @@ var _ = Describe("View", func() {
 				var resViews []view.View
 				Expect(
 					svc.NewRetrieve().
-						Where(view.MatchTypes(view.RangeViewType)).
+						Where(view.MatchTypes(view.TypeRange)).
 						Entries(&resViews).
 						Exec(ctx, tx),
 				).To(Succeed())
@@ -249,13 +270,29 @@ var _ = Describe("View", func() {
 				var resViews []view.View
 				Expect(
 					svc.NewRetrieve().
-						Where(view.MatchTypes(view.RangeViewType)).
+						Where(view.MatchTypes(view.TypeRange)).
 						Where(view.MatchKeys(views[0].GorpKey())).
 						Entries(&resViews).
 						Exec(ctx, tx),
 				).To(Succeed())
 				Expect(resViews).To(HaveLen(1))
 				Expect(resViews[0].GorpKey()).To(Equal(views[0].GorpKey()))
+			})
+		})
+
+		Describe("MatchWhere", func() {
+			It("Should match views by type and name", func(ctx SpecContext) {
+				var resViews []view.View
+				Expect(svc.NewRetrieve().
+					Where(MustSucceed(view.MatchWhere(view.Where{
+						Type: &filter.Set[view.Type]{Eq: new(view.TypeRange)},
+						Name: &filter.String{Regex: new("B$")},
+					}))).
+					Entries(&resViews).
+					Exec(ctx, tx),
+				).To(Succeed())
+				Expect(resViews).To(HaveLen(1))
+				Expect(resViews[0].GorpKey()).To(Equal(views[1].GorpKey()))
 			})
 		})
 
@@ -291,7 +328,7 @@ var _ = Describe("View", func() {
 				Expect(
 					svc.NewRetrieve().Search("View A").Entries(&resViews).Exec(ctx, db),
 				).To(Succeed())
-				Expect(len(resViews)).To(BeNumerically(">", 1))
+				Expect(resViews).To(HaveLen(1))
 				Expect(resViews[0].GorpKey()).To(Equal(views[0].GorpKey()))
 			})
 		})

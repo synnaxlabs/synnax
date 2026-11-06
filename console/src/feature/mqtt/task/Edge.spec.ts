@@ -10,7 +10,7 @@
 import { mqtt, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { MQTT } from "@/feature/mqtt";
@@ -19,6 +19,7 @@ import {
   clickDeploy,
   createChannelReadOnlyClient,
   deployAndAwaitTask,
+  findChannelListItem,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
 } from "@/platform/task/testutil";
@@ -99,6 +100,7 @@ const addCommandChannel = async (): Promise<void> => {
 
 describe("MQTT Edge form", () => {
   it("should ask for a broker before it shows the form body", async () => {
+    await createBroker(client);
     await renderTaskFormTab(MQTT.Task.Edge, { task: ZERO_DRAFT });
     await screen.findByText("No device selected");
     expect(screen.queryByText("Tags")).toBeNull();
@@ -190,7 +192,28 @@ describe("MQTT Edge form", () => {
         { commandChannel: 0, commandChannelName: cmdName },
       ]),
     );
-    expect(await client.channels.retrieve({ names: [cmdName] })).toEqual([]);
+    expect(
+      await client.channels.retrieve({ where: { name: { eq: cmdName } } }),
+    ).toEqual([]);
+  });
+
+  it("should mark a new command channel, unless its tag is disabled", async () => {
+    const ch = await createDataChannel();
+    const on = uniqueName("a_cmd");
+    const off = uniqueName("b_cmd");
+    await renderEdge([
+      createTag("t1", { name: "a", channel: ch.key, commandChannelName: on }),
+      createTag("t2", {
+        name: "b",
+        channel: ch.key,
+        commandChannelName: off,
+        disabled: true,
+      }),
+    ]);
+    const onItem = await findChannelListItem(on);
+    expect(within(onItem).getByRole("img", { name: "New channel" })).toBeTruthy();
+    const offItem = await findChannelListItem(off);
+    expect(within(offItem).queryByRole("img", { name: "New channel" })).toBeNull();
   });
 
   it("should refuse a command channel for a tag with no name", async () => {
@@ -401,7 +424,9 @@ describe("MQTT Edge form", () => {
         MQTT.Task.EDGE_SCHEMAS,
       );
       expect(created.config.tags[1].commandChannel).toBe(0);
-      expect(await client.channels.retrieve({ names: [disabledName] })).toEqual([]);
+      expect(
+        await client.channels.retrieve({ where: { name: { eq: disabledName } } }),
+      ).toEqual([]);
     });
 
     it("should reuse the command channel of a failed deploy after the form reopens", async () => {
@@ -440,7 +465,9 @@ describe("MQTT Edge form", () => {
         first.draft.key,
         MQTT.Task.EDGE_SCHEMAS,
       );
-      const named = await client.channels.retrieve({ names: [cmdName] });
+      const named = await client.channels.retrieve({
+        where: { name: { eq: cmdName } },
+      });
       expect(named.map(({ key }) => key)).toEqual([
         created.config.tags[0].commandChannel,
       ]);

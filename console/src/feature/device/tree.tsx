@@ -45,7 +45,7 @@ const useRename = Tree.createUseRename({
 
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
-    selection: { ids, rootID },
+    selection: { ids, rootID, parentID },
     state,
   } = props;
   const resourceIDs = ids.map((id) => device.resourceID(id.key));
@@ -71,6 +71,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
           ids={ids}
           shape={state.shape}
           rootID={rootID}
+          parentID={parentID}
           onClick={() => group(props)}
         />
       )}
@@ -144,23 +145,31 @@ const Content = ({ resource, className, icon: _icon, ...rest }: Tree.ContentProp
 export const GROUP_MEMBER: Group.Member = {
   type: "device",
   children: (client, key) =>
-    Tree.createSource(client.devices, { groups: [key] }, Tree.toResource("device")),
+    Tree.createSource(
+      client.devices,
+      { where: { groups: [key] } },
+      Tree.toResource("device"),
+    ),
 };
 
 /** Lists the top level of the device tree: its groups and the racks in no group. */
 export const listTreeRoot = (client: Synnax): Tree.Source[] => [
   Tree.createSource(
     client.groups,
-    { scopes: ["device"], nested: false },
+    { scope: "device", nested: false },
     Tree.toResource("group"),
   ),
-  Tree.createSource(client.racks, { grouped: false }, (r: rack.Rack) =>
+  Tree.createSource(client.racks, { where: { grouped: false } }, (r: rack.Rack) =>
     Tree.toResource("rack")(r.payload),
   ),
 ];
 
 const children: Tree.Children = ({ client, id }) => [
-  Tree.createSource(client.devices, { parents: [id.key] }, Tree.toResource("device")),
+  Tree.createSource(
+    client.devices,
+    { where: { parents: [id.key] } },
+    Tree.toResource("device"),
+  ),
 ];
 
 const TreeItem = Tree.createItem({

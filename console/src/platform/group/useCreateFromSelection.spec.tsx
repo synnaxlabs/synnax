@@ -14,20 +14,23 @@ import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Group } from "@/platform/group";
-import { type Tree } from "@/platform/tree";
+import { Tree } from "@/platform/tree";
 import {
   createScopeTree,
   expandTreeRow,
   findTreeRow,
   getTreeRow,
+  itemName,
   renderOntologyTree,
   retrieveChildGroupKeys,
+  searchTree,
 } from "@/platform/tree/testutil";
 import {
   awaitTextEditingElement,
   awaitTextEditingExit,
   commitTextEdit,
   uniqueName,
+  uniqueToken,
   withControlHeld,
 } from "@/testutil";
 
@@ -38,15 +41,39 @@ const GroupSelectionMenu = (props: Tree.ContextMenuProps): ReactElement => {
   return <button onClick={() => createFromSelection(props)}>group selection</button>;
 };
 
+const useGroupSearch = Tree.createSearch({ noun: "groups" });
+
 const createContainer = async () =>
   await client.groups.create({ scope: "channel", name: uniqueName("container") });
 
-const renderScopeTree = async (container: group.Group) =>
+const renderScopeTree = async (container: group.Group, search?: Tree.UseSearch) =>
   await renderOntologyTree({
     client,
     root: channel.TYPE_RESOURCE_ID,
+    search,
     ...createScopeTree(container.key, { ContextMenu: GroupSelectionMenu }),
   });
+
+// a and b sit in sub, which sits in the container. Only a and b match the token.
+const setupSearch = async () => {
+  const tok = uniqueToken();
+  const container = await createContainer();
+  const sub = await client.groups.create({
+    parent: group.resourceID(container.key),
+    name: uniqueName("sub"),
+  });
+  const subID = group.resourceID(sub.key);
+  const a = await client.groups.create({ parent: subID, name: `${tok} a` });
+  const b = await client.groups.create({ parent: subID, name: `${tok} b` });
+  await renderScopeTree(container, useGroupSearch);
+  searchTree(tok);
+  fireEvent.click(await findTreeRow(itemName(a.name)));
+  const rowB = await findTreeRow(itemName(b.name));
+  withControlHeld(() => fireEvent.click(rowB));
+  fireEvent.contextMenu(rowB);
+  fireEvent.click(await screen.findByText("group selection"));
+  return { tok, subID, a, b };
+};
 
 const groupSelection = async (first: string, last: string) => {
   fireEvent.click(await findTreeRow(first));
@@ -120,6 +147,36 @@ describe("useCreateFromSelection", () => {
     await screen.findByText(b.name);
     const editable = await groupSelection(a.name, b.name);
     const name = uniqueName("grp");
+    await act(async () => {
+      commitTextEdit(editable, name);
+    });
+    const created = await findGroup(name);
+    expect(created.parent).toEqual(subID);
+    await expectGrouped(created.key, [a, b]);
+  });
+
+  it("should group search results under their real parent", async () => {
+    const { subID, a, b } = await setupSearch();
+    const editable = await awaitTextEditingElement();
+    const name = uniqueName("grp");
+    await act(async () => {
+      commitTextEdit(editable, name);
+    });
+    const created = await findGroup(name);
+    expect(created.parent).toEqual(subID);
+    await waitFor(async () =>
+      expect(await retrieveChildGroupKeys(client, subID)).toEqual([created.key]),
+    );
+    await expectGrouped(created.key, [a, b]);
+  });
+
+  it("should keep the new group in search results while a match arrives", async () => {
+    const { tok, subID, a, b } = await setupSearch();
+    await awaitTextEditingElement();
+    const late = await client.groups.create({ parent: subID, name: `${tok} c` });
+    await findTreeRow(itemName(late.name));
+    const name = uniqueName("grp");
+    const editable = await awaitTextEditingElement();
     await act(async () => {
       commitTextEdit(editable, name);
     });

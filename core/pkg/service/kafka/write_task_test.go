@@ -12,6 +12,7 @@ package kafka_test
 import (
 	"context"
 	"encoding/json/v2"
+	"fmt"
 	"math"
 	"time"
 	"uuid"
@@ -287,14 +288,17 @@ var _ = Describe("Write task", func() {
 		Entry(
 			"a channel pointer equal to the value pointer",
 			kafka.Record{ValuePointer: "/value", ChannelPointer: new("/value")},
-			`record.value_pointer "/value" and record.channel_pointer "/value" overlap`,
+			`record.value_pointer "/value" and record.channel_pointer "/value" `+
+				`overlap`,
 		),
 		Entry("a channel pointer nested inside the value pointer",
 			kafka.Record{ValuePointer: "/value", ChannelPointer: new("/value/name")},
-			`record.channel_pointer "/value/name" overlap`),
+			`record.value_pointer "/value" and `+
+				`record.channel_pointer "/value/name" overlap`),
 		Entry("a timestamp pointer lacking its leading slash",
 			kafka.Record{TimestampPointer: new("timestamp")},
-			`record.timestamp_pointer: pointer "timestamp" must start with '/'`),
+			`record.timestamp_pointer: json pointer "timestamp" must be empty or `+
+				`start with "/"`),
 		Entry("a field pointer that contains the value pointer",
 			kafka.Record{
 				ValuePointer: "/meta/value",
@@ -307,7 +311,8 @@ var _ = Describe("Write task", func() {
 					Value:    "synnax",
 				}}},
 			},
-			`record.value_pointer "/meta/value" and field "source" "/meta" overlap`),
+			`record.value_pointer "/meta/value" and field "source" "/meta" `+
+				`overlap`),
 	)
 
 	// startOne configures and starts a write task producing one channel of dt.
@@ -518,12 +523,32 @@ var _ = Describe("Write task", func() {
 		Entry("infinity as a number",
 			telem.Float64T, telem.NewSeriesV(math.Inf(1)), kafka.WriteChannel{},
 			"+Inf is not a JSON number"),
-		Entry("a string as a number",
-			telem.StringT, telem.NewSeriesV("hi"), kafka.WriteChannel{},
-			"only serializes as a string"),
-		Entry("a UUID as a number",
-			telem.UUIDT, telem.NewSeriesV(writeUUID), kafka.WriteChannel{},
-			"only serializes as a string"),
+	)
+
+	DescribeTable("Should reject a JSON type that a channel cannot serialize as",
+		func(ctx SpecContext, dt telem.DataType, jsonType http.JSONType) {
+			_, data := createIndexed(ctx, dt)
+			dev := createDevice(ctx, clusterProperties())
+			cfg := kafka.WriteConfig{
+				Device: dev.Key,
+				Topic:  "t",
+				Channels: []kafka.WriteChannel{
+					{Key: "c1", Channel: data.Key(), JSONType: jsonType},
+				},
+			}
+			Expect(
+				f.ConfigureTask(ctx, newTask(ctx, kafka.WriteTaskType, cfg), "cmd-1"),
+			).
+				Error().
+				To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(fmt.Sprintf(
+						`channel "c1": data type %s only serializes as a string`, dt,
+					))),
+				))
+		},
+		Entry("a string as a number", telem.StringT, http.JSONTypeNumber),
+		Entry("a UUID as a boolean", telem.UUIDT, http.JSONTypeBoolean),
 	)
 
 	DescribeTable("Should reject an invalid config",

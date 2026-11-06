@@ -248,6 +248,8 @@ export class Client extends query.Retriever<
       equal: (a, b) =>
         idsEqual(a.from, b.from) && idsEqual(a.to, b.to) && a.type === b.type,
       indexes: [relationshipIndexes.byTo, relationshipIndexes.byFrom],
+      // A relationship deleted and created again keeps its key.
+      revivable: true,
       listen: [
         query.createSetListener(RELATIONSHIP_SET_CHANNEL_NAME, relationshipZ, {
           key: (changed) => relationshipToString(changed),
@@ -523,6 +525,7 @@ export class Client extends query.Retriever<
 
   private async fetchAncestors({ ids, root }: AncestorRequest): Promise<string[]> {
     const table = this.cache.relationships;
+    const relationshipsStamp = table.stamp();
     const resourcesStamp = this.cache.resources.stamp();
     // A link written while the request is in flight is newer than the answer.
     const written = new Set<string>();
@@ -556,7 +559,7 @@ export class Client extends query.Retriever<
       .filter(({ type }) => type === PARENT_OF_RELATIONSHIP_TYPE)
       .map(relationshipToString)
       .filter((key) => !fetched.has(key) && !written.has(key));
-    if (stale.length > 0) table.delete(stale);
+    table.ingestDeletes(stale, relationshipsStamp);
     // The Core walks up from the IDs, so the reversed links reach the cache top down
     // and each one finds the path above it already cached.
     relationships

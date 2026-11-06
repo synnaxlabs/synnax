@@ -149,6 +149,16 @@ class TestClient:
         plots = client.line_plots.retrieve(keys=[p1.key, p2.key])
         assert {p.key for p in plots} == {p1.key, p2.key}
 
+    def test_retrieve_where(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should keep the line plots that match the where and the other filters."""
+        a = client.line_plots.create(project.key, name="A")
+        b = client.line_plots.create(project.key, name="B")
+        where = lineplot.Where(
+            not_=lineplot.Where(key=sy.filter.Set[lineplot.Key](eq=a.key))
+        )
+        res = client.line_plots.retrieve(where=where, keys=[a.key, b.key, uuid4()])
+        assert [r.key for r in res] == [b.key]
+
     def test_retrieve_missing_raises(self, client: sy.Synnax) -> None:
         """Should raise NotFoundError when retrieving a missing line plot by key."""
         with pytest.raises(NotFoundError):
@@ -172,5 +182,4 @@ class TestClient:
         p1 = client.line_plots.create(project.key, name="Delete 1")
         p2 = client.line_plots.create(project.key, name="Delete 2")
         client.line_plots.delete([p1.key, p2.key])
-        with pytest.raises(NotFoundError):
-            client.line_plots.retrieve(keys=[p1.key, p2.key])
+        assert client.line_plots.retrieve(keys=[p1.key, p2.key]) == []

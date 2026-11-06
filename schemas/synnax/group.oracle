@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/resource"
+import "schemas/x/filter"
 
 @go output "core/pkg/service/group"
 @py output "client/py/synnax/group"
@@ -50,4 +51,21 @@ Group struct {
     @go migrate
     @resource type "group"
     @retrieve
+}
+
+Where filter Group {
+    key
+    name
+    scope
+    parents resource.ID[] {
+        @doc value "matches the groups that sit in any of the given resources."
+    }
+    nested  bool          {
+        @doc value """
+            matches the groups that sit in a parent, or the top groups when false.
+        """
+    }
+
+    @doc value         "is a filter that selects groups."
+    @go request_output "core/pkg/api/group"
 }

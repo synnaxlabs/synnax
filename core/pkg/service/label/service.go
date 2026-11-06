@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
@@ -73,11 +72,11 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Service is the main entry point for managing labels within Synnax. It provides
 // mechanisms for creating, deleting, retrieving, and listening to changes on labels.
 type Service struct {
-	cfg    ServiceConfig
-	closer xio.MultiCloser
-	table  *gorp.Table[Key, Label]
-	search *gorp.SearchIndex[Key, Label]
-	state  *actions.State[Key, Action]
+	cfg     ServiceConfig
+	closer  xio.MultiCloser
+	table   *gorp.Table[Key, Label]
+	indexes indexes
+	state   *actions.State[Key, Action]
 }
 
 // OpenService opens a new label service using the provided configuration. If error
@@ -89,16 +88,16 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	s = &Service{
-		cfg:    cfg,
-		search: newSearchIndex(),
-		state:  actions.NewState[Key, Action](cfg.DB),
+		cfg:     cfg,
+		indexes: newIndexes(),
+		state:   actions.NewState[Key, Action](cfg.DB),
 	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Label]{
 		DB:              cfg.DB,
-		Name:            string(resource.TypeLabel),
-		Indexes:         []gorp.Index[Key, Label]{s.search},
+		Name:            tableName,
+		Indexes:         s.indexes.all(),
 		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
@@ -149,9 +148,9 @@ func (s *Service) Dispatch(
 // NewRetrieve opens a new Retrieve query to fetch labels.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		baseTx: s.cfg.DB,
-		gorp:   s.table.NewRetrieve(),
-		search: s.search,
+		baseTX:  s.cfg.DB,
+		gorp:    s.table.NewRetrieve(),
+		indexes: s.indexes,
 	}
 }
 

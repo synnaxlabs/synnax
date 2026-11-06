@@ -26,6 +26,7 @@ class MockStreamer implements framer.Streamer {
   keys: channel.Key[] = [];
   private readonly frames: framer.Frame[];
   private done = false;
+  private dropped = false;
 
   constructor(frames: framer.Frame[] = []) {
     this.frames = [...frames];
@@ -37,12 +38,25 @@ class MockStreamer implements framer.Streamer {
     this.done = true;
   }
 
+  /** Delivers the frame after the frames already queued. */
+  push(frame: framer.Frame): void {
+    this.frames.push(frame);
+  }
+
+  /** Fails the read after the queued frames, forcing a reopen. */
+  drop(): void {
+    this.dropped = true;
+  }
+
   async next(): Promise<IteratorResult<framer.Frame>> {
-    const fr = this.frames.shift();
-    if (fr != null) return { done: false, value: fr };
     // Block until closed so the read loop stays alive like a real stream.
-    while (!this.done) await new Promise((resolve) => setTimeout(resolve, 5));
-    return { done: true, value: undefined };
+    while (true) {
+      const fr = this.frames.shift();
+      if (fr != null) return { done: false, value: fr };
+      if (this.dropped) throw new Error("conn dropped");
+      if (this.done) return { done: true, value: undefined };
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
   }
 
   async read(): Promise<framer.Frame> {
@@ -284,6 +298,56 @@ describe("Cache", () => {
       await cache.close();
     });
 
+    it("keeps a deleted key deleted when its earlier set streams late", async () => {
+      const schema = z.object({ key: z.string(), name: z.string() });
+      const streamer = new MockStreamer();
+      const cache = makeEngine(async () => streamer);
+      const table = cache.createTable<string, Doc>({
+        name: "docs",
+        fetch: async () => [],
+        listen: [
+          query.createSetListener("docs_set", schema),
+          query.createDeleteListener("docs_delete", z.string()),
+        ],
+      });
+      await cache.ensureStreaming();
+      table.set("k1", { key: "k1", name: "a" });
+      table.delete("k1");
+      const subscriber = vi.fn();
+      table.subscribe(subscriber);
+      streamer.push(
+        new framer.Frame({ docs_set: new Series([{ key: "k1", name: "a" }]) }),
+      );
+      streamer.push(new framer.Frame({ docs_delete: new Series(["k1"]) }));
+      await expect.poll(() => subscriber.mock.calls.length).toBe(1);
+      expect(subscriber.mock.calls).toEqual([[{ variant: "delete", key: "k1" }]]);
+      expect(table.status("k1")).toBe("tombstoned");
+      await cache.close();
+    });
+
+    it("applies streamed sets to keys deleted before the stream opens", async () => {
+      const schema = z.object({ key: z.string(), name: z.string() });
+      const cache = makeEngine(
+        async () =>
+          new MockStreamer([
+            new framer.Frame({ docs_set: new Series([{ key: "k1", name: "b" }]) }),
+          ]),
+      );
+      const table = cache.createTable<string, Doc>({
+        name: "docs",
+        fetch: async () => [],
+        listen: [
+          query.createSetListener("docs_set", schema),
+          query.createDeleteListener("docs_delete", z.string()),
+        ],
+      });
+      table.set("k1", { key: "k1", name: "a" });
+      table.delete("k1");
+      await cache.ensureStreaming();
+      await expect.poll(() => table.get("k1")).toEqual({ key: "k1", name: "b" });
+      await cache.close();
+    });
+
     it("refetches announced keys via a declared fetch listener", async () => {
       const fetch = vi.fn(async (keys: string[]) =>
         keys.map((k) => ({ key: k, name: `${k}-fresh` })),
@@ -505,6 +569,30 @@ describe("Cache", () => {
       await cache.ensureStreaming();
       await expect.poll(() => cache.epoch).toBe(2);
       expect(table.get("k1")).toEqual({ key: "k1", name: "a" });
+      await cache.close();
+    });
+
+    it("applies streamed sets to locally deleted keys after a reopen", async () => {
+      const schema = z.object({ key: z.string(), name: z.string() });
+      const first = new MockStreamer();
+      const second = new MockStreamer([
+        new framer.Frame({ docs_set: new Series([{ key: "k1", name: "b" }]) }),
+      ]);
+      let opens = 0;
+      const cache = makeEngine(async () => (opens++ === 0 ? first : second));
+      const table = cache.createTable<string, Doc>({
+        name: "docs",
+        fetch: async () => [],
+        listen: [
+          query.createSetListener("docs_set", schema),
+          query.createDeleteListener("docs_delete", z.string()),
+        ],
+      });
+      await cache.ensureStreaming();
+      table.set("k1", { key: "k1", name: "a" });
+      table.delete("k1");
+      first.drop();
+      await expect.poll(() => table.get("k1")).toEqual({ key: "k1", name: "b" });
       await cache.close();
     });
 

@@ -114,71 +114,60 @@ func (s *Service) Create(
 	return CreateResponse{Group: g}, nil
 }
 
-type (
-	RetrieveRequest struct {
-		// Nested keeps only groups with a parent when true, and only groups with no
-		// parent when false. Nil applies no filter.
-		Nested     *bool           `json:"nested"      msgpack:"nested"`
-		SearchTerm string          `json:"search_term" msgpack:"search_term"`
-		Keys       []group.Key     `json:"keys"        msgpack:"keys"`
-		Parents    []resource.ID   `json:"parents"     msgpack:"parents"`
-		Scopes     []resource.Type `json:"scopes"      msgpack:"scopes"`
-		Limit      int             `json:"limit"       msgpack:"limit"`
-		Offset     int             `json:"offset"      msgpack:"offset"`
-		// Ancestors adds every group above the returned groups to the response.
-		Ancestors bool `json:"ancestors" msgpack:"ancestors"`
-	}
-	RetrieveResponse struct {
-		Groups    []group.Group `json:"groups"              msgpack:"groups"`
-		Ancestors []group.Group `json:"ancestors,omitempty" msgpack:"ancestors,omitempty"`
-	}
-)
-
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
-	var (
-		res RetrieveResponse
-		q   = s.internal.NewRetrieve().Search(req.SearchTerm)
-	)
-	if len(req.Keys) > 0 {
-		q = q.Where(group.MatchKeys(req.Keys...))
-	}
-	if len(req.Parents) > 0 {
-		q = q.Where(group.MatchParents(req.Parents...))
-	}
-	if len(req.Scopes) > 0 {
-		q = q.Where(group.MatchScopes(req.Scopes...))
-	}
-	if req.Nested != nil {
-		q = q.Where(group.MatchHasParent(*req.Nested))
-	}
-	if req.Limit > 0 {
-		q = q.Limit(req.Limit)
-	}
-	if req.Offset > 0 {
-		q = q.Offset(req.Offset)
-	}
-	if err := q.Entries(&res.Groups).Exec(ctx, nil); err != nil {
+	var res RetrieveResponse
+	q, err := req.Apply(s.internal.NewRetrieve().Entries(&res.Groups))
+	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	if req.Ancestors && len(res.Groups) > 0 {
-		var err error
-		if res.Ancestors, err = s.internal.Ancestors(
-			ctx,
-			nil,
-			group.KeysFromGroups(res.Groups)...,
-		); err != nil {
-			return RetrieveResponse{}, err
-		}
+	if err := q.Exec(ctx, nil); err != nil {
+		return RetrieveResponse{}, err
 	}
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: group.ResourceIDsFromGroups(append(res.Groups, res.Ancestors...)),
+		Objects: group.ResourceIDsFromGroups(res.Groups),
 	}); err != nil {
 		return RetrieveResponse{}, err
+	}
+	return res, nil
+}
+
+type (
+	RetrieveAncestorsRequest struct {
+		Keys []group.Key `json:"keys" msgpack:"keys"`
+	}
+	RetrieveAncestorsResponse struct {
+		Groups []group.Group `json:"groups" msgpack:"groups"`
+	}
+)
+
+// RetrieveAncestors returns every group above the groups with the requested keys.
+func (s *Service) RetrieveAncestors(
+	ctx context.Context,
+	req RetrieveAncestorsRequest,
+) (RetrieveAncestorsResponse, error) {
+	var (
+		res RetrieveAncestorsResponse
+		err error
+	)
+	if len(req.Keys) > 0 {
+		if res.Groups, err = s.internal.Ancestors(ctx, nil, req.Keys...); err != nil {
+			return RetrieveAncestorsResponse{}, err
+		}
+	}
+	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionRetrieve,
+		Objects: append(
+			group.ResourceIDs(req.Keys),
+			group.ResourceIDsFromGroups(res.Groups)...,
+		),
+	}); err != nil {
+		return RetrieveAncestorsResponse{}, err
 	}
 	return res, nil
 }

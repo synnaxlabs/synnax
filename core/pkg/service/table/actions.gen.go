@@ -18,23 +18,40 @@ import (
 )
 
 const (
-	ActionTypeCreate     = "create"
-	ActionTypeRename     = "rename"
-	ActionTypeSetGroup   = "set_group"
-	ActionTypeAddRow     = "add_row"
-	ActionTypeRemoveRow  = "remove_row"
-	ActionTypeAddCol     = "add_col"
-	ActionTypeRemoveCol  = "remove_col"
-	ActionTypeResizeRow  = "resize_row"
-	ActionTypeResizeCol  = "resize_col"
-	ActionTypeMoveRow    = "move_row"
-	ActionTypeMoveCol    = "move_col"
-	ActionTypeSetCell    = "set_cell"
+	// ActionTypeCreate is the Type of an Action that carries CreatePayload.
+	ActionTypeCreate = "create"
+	// ActionTypeRename is the Type of an Action that carries RenamePayload.
+	ActionTypeRename = "rename"
+	// ActionTypeSetGroup is the Type of an Action that carries SetGroupPayload.
+	ActionTypeSetGroup = "set_group"
+	// ActionTypeAddRow is the Type of an Action that carries AddRowPayload.
+	ActionTypeAddRow = "add_row"
+	// ActionTypeRemoveRow is the Type of an Action that carries RemoveRowPayload.
+	ActionTypeRemoveRow = "remove_row"
+	// ActionTypeAddCol is the Type of an Action that carries AddColPayload.
+	ActionTypeAddCol = "add_col"
+	// ActionTypeRemoveCol is the Type of an Action that carries RemoveColPayload.
+	ActionTypeRemoveCol = "remove_col"
+	// ActionTypeResizeRow is the Type of an Action that carries ResizeRowPayload.
+	ActionTypeResizeRow = "resize_row"
+	// ActionTypeResizeCol is the Type of an Action that carries ResizeColPayload.
+	ActionTypeResizeCol = "resize_col"
+	// ActionTypeMoveRow is the Type of an Action that carries MoveRowPayload.
+	ActionTypeMoveRow = "move_row"
+	// ActionTypeMoveCol is the Type of an Action that carries MoveColPayload.
+	ActionTypeMoveCol = "move_col"
+	// ActionTypeSetCell is the Type of an Action that carries SetCellPayload.
+	ActionTypeSetCell = "set_cell"
+	// ActionTypeEraseCells is the Type of an Action that carries EraseCellsPayload.
 	ActionTypeEraseCells = "erase_cells"
-	ActionTypeSet        = "set"
-	ActionTypeRemove     = "remove"
-	ActionTypeInsert     = "insert"
-	ActionTypeMove       = "move"
+	// ActionTypeSet is the Type of an Action that carries SetPayload.
+	ActionTypeSet = "set"
+	// ActionTypeRemove is the Type of an Action that carries RemovePayload.
+	ActionTypeRemove = "remove"
+	// ActionTypeInsert is the Type of an Action that carries InsertPayload.
+	ActionTypeInsert = "insert"
+	// ActionTypeMove is the Type of an Action that carries MovePayload.
+	ActionTypeMove = "move"
 )
 
 // CreatePayload replaces the document with the given created state. Emitted by the Core

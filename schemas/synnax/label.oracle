@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/x/color"
+import "schemas/x/filter"
 import "schemas/x/patch"
 
 @cpp output "client/cpp/label"
@@ -27,6 +28,7 @@ Label struct {
     }
     name  string      {
         @doc value           "is a human-readable name for the label."
+        @search
         @validate min_length 1
     }
     color color.Color {
@@ -61,11 +63,22 @@ Label struct {
     }
 
     @create
-    @doc value     """
+    @doc value       """
         is a tagging and categorization entity with a name and associated color. Labels
         can be attached to resources like ranges for organization and filtering.
     """
     @go marshal
     @go migrate
-    @resource type "label"
+    @resource type   "label"
+    @retrieve custom
+}
+
+Where filter Label {
+    key
+    name
+
+    @cpp omit
+    @doc value         "is a filter that selects labels."
+    @go request_output "core/pkg/api/label"
+    @pb omit
 }

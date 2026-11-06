@@ -75,6 +75,9 @@ class Sequence:
     order: str  # "sequential" | "random" | "asynchronous"
     pool_size: int
     tests: list[TestDefinition]
+    isolated: bool = False
+    """Runs on the first Core after every other sequence ends, with nothing else
+    running, as a timing test needs."""
 
 
 class _TestEntry(BaseModel):
@@ -93,6 +96,7 @@ class _SequenceEntry(BaseModel):
     sequence_name: str | None = None
     sequence_order: str = "sequential"
     pool_size: int = -1
+    isolated: bool = False
     tests: list[_TestEntry] = Field(default_factory=list)
 
 
@@ -268,6 +272,7 @@ class ConfigClient:
                     order=seq_order,
                     pool_size=pool_size,
                     tests=expanded_tests,
+                    isolated=seq_dict.isolated,
                 )
                 sequences.append(seq)
 

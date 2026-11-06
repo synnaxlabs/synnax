@@ -10,6 +10,7 @@
 import "schemas/synnax/group"
 import "schemas/synnax/resource"
 import "schemas/x/color"
+import "schemas/x/filter"
 import "schemas/x/spatial"
 
 @go output "core/pkg/service/panel"
@@ -292,4 +293,17 @@ Panel struct {
     @go migrate
     @resource type "panel"
     @retrieve
+}
+
+Where filter Panel {
+    key
+    groups  group.Key[] {
+        @doc value "matches the panels in any of the given groups."
+    }
+    grouped bool        {
+        @doc value "matches the panels in a group, or in no group when false."
+    }
+
+    @doc value         "is a filter that selects panels."
+    @go request_output "core/pkg/api/panel"
 }

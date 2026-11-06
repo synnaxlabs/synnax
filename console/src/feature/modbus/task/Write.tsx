@@ -12,7 +12,6 @@ import "@/feature/modbus/task/Task.css";
 import { channel, type modbus, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
-import { Header } from "@synnaxlabs/lyra/header";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { DataType, deep, errors, id, primitive } from "@synnaxlabs/x";
@@ -28,8 +27,6 @@ import { RegisterField } from "@/feature/modbus/task/Register";
 import {
   RegisterMap,
   RegisterMapProvider,
-  useHoveredRef,
-  useIsHovered,
   useOverlaps,
 } from "@/feature/modbus/task/RegisterMap";
 import {
@@ -43,7 +40,7 @@ import {
   type WriteChannelType,
   type WriteSchemas,
 } from "@/feature/modbus/task/types";
-import { Selector } from "@/platform/selector";
+import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const path = deep.path<Task.Values<WriteSchemas>>();
@@ -53,8 +50,12 @@ const Properties = () => <SelectDevice />;
 const COLUMNS: List.Column[] = [
   { name: "Type", width: "30rem", field: true },
   { name: "Address", width: "24rem", field: true },
-  { name: "Data type", width: "32rem", field: true },
-  { name: "Byte order", width: "27rem", field: true },
+  { name: "Data type", width: "26rem", field: true },
+  {
+    name: "Byte order",
+    width: "var(--console-modbus-byte-order-width, 27rem)",
+    field: true,
+  },
 ];
 
 // Auto-generated channel names and device map keys keep the released type
@@ -122,8 +123,6 @@ const ChannelListItem = ({ itemKey, ...rest }: Task.ChannelListItemProps) => {
   const entry = path.config.channels[itemKey];
   const ch = PForm.useFieldValue(entry);
   const dev = useFromConfig();
-  const hovered = useIsHovered(itemKey);
-  const hoveredRef = useHoveredRef(itemKey);
   const overlapping = useOverlaps(path.config.channels, itemKey);
   return (
     <Task.Views.ListChannelItem
@@ -134,8 +133,6 @@ const ChannelListItem = ({ itemKey, ...rest }: Task.ChannelListItemProps) => {
       defaultName={
         dev == null ? undefined : commandName(channel.escapeInvalidName(dev.name), ch)
       }
-      ref={hoveredRef}
-      hovered={hovered}
     >
       <List.Cell>
         <RegisterField path={entry} schemas={WRITE_CHANNEL_SCHEMAS} />
@@ -168,7 +165,11 @@ const getOpenChannel = (channels: WriteChannel[]): WriteChannel => {
       ...WRITE_CHANNEL_SCHEMAS.coil.parse({ type: "coil" }),
       key: id.create(),
     };
-  return { ...nextChannel(channels[channels.length - 1]), key: id.create(), name: "" };
+  return {
+    ...nextChannel(channels[channels.length - 1]),
+    ...Task.READ_CHANNEL_OVERRIDE,
+    key: id.create(),
+  };
 };
 
 const createMapChannel = (type: WriteChannelType, address: number): WriteChannel => ({
@@ -178,15 +179,13 @@ const createMapChannel = (type: WriteChannelType, address: number): WriteChannel
 
 const listItem = Component.renderProp(ChannelListItem);
 
-const HEADER = (
-  <>
-    <Header.Header>
-      <Header.Title weight={500} color={10}>
-        Channels
-      </Header.Title>
-    </Header.Header>
-    <RegisterMap path={path.config.channels} createChannel={createMapChannel} />
-  </>
+const map = ({ selected, onSelect }: Task.Views.PortsProps<WriteChannel>) => (
+  <RegisterMap
+    path={path.config.channels}
+    createChannel={createMapChannel}
+    selected={selected}
+    onSelect={onSelect}
+  />
 );
 
 const Form: FC = () => {
@@ -203,7 +202,7 @@ const Form: FC = () => {
         contextMenuItems={Task.readChannelContextMenuItem}
         listItem={listItem}
         resolve={resolve}
-        header={HEADER}
+        map={map}
         columns={COLUMNS}
         checkable
       />
@@ -294,9 +293,10 @@ export const useCreateWrite = Task.createUseCreate({
   deviceMake: MAKE,
 });
 
-export const WriteSelectable = Selector.createSelectable({
+export const WriteSelectable: Selector.Selectable = {
   type: WRITE_TYPE,
   title: "Modbus write task",
+  label: "Write",
   icon: <Icon.Logo.Modbus />,
   useOnSelect: useCreateWrite,
-});
+};

@@ -38,6 +38,9 @@ export const setupBrowser = (): void => {
     document.body.appendChild(corner);
     await userEvent.hover(corner, { force: true });
     corner.remove();
+    // WebKit can draw no frames for seconds after the first pointer move, and a forced
+    // hover does not wait for them. The next spec then waits on a frame that is late.
+    await new Promise((resolve) => requestAnimationFrame(resolve));
   });
 };
 
