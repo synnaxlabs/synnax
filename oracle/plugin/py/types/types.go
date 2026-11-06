@@ -63,7 +63,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	gen := &framework.Generator{
 		Domain:          "py",
 		FilePattern:     p.Options.FileNamePattern,
-		FileGenerator:   &pyFileGenerator{},
+		FileGenerator:   &pyFileGenerator{fileNamePattern: p.Options.FileNamePattern},
 		MergeByName:     true,
 		CollectTypeDefs: true,
 		CollectEnums:    true,
@@ -73,12 +73,13 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 }
 
 // pyFileGenerator implements framework.FileGenerator for Python code generation.
-type pyFileGenerator struct{}
+type pyFileGenerator struct{ fileNamePattern string }
 
 func (g *pyFileGenerator) GenerateFile(ctx *framework.GenerateContext) (string, error) {
 	content, err := generatePyFile(
 		ctx.Namespace,
 		ctx.OutputPath,
+		g.fileNamePattern,
 		ctx.Structs,
 		ctx.Enums,
 		ctx.TypeDefs,
@@ -94,6 +95,7 @@ func (g *pyFileGenerator) GenerateFile(ctx *framework.GenerateContext) (string, 
 func generatePyFile(
 	namespace string,
 	outputPath string,
+	fileNamePattern string,
 	structs []resolution.Type,
 	enums []resolution.Type,
 	typeDefs []resolution.Type,
@@ -101,13 +103,14 @@ func generatePyFile(
 	table *resolution.Table,
 ) ([]byte, error) {
 	data := &templateData{
-		Namespace:   namespace,
-		OutputPath:  outputPath,
-		Structs:     make([]structData, 0, len(structs)),
-		Enums:       make([]enumData, 0, len(enums)),
-		TypeDefs:    make([]typeDefData, 0, len(typeDefs)),
-		SortedDecls: make([]sortedDeclData, 0),
-		imports:     newImportManager(),
+		Namespace:       namespace,
+		OutputPath:      outputPath,
+		GeneratedModule: strings.TrimSuffix(fileNamePattern, ".py"),
+		Structs:         make([]structData, 0, len(structs)),
+		Enums:           make([]enumData, 0, len(enums)),
+		TypeDefs:        make([]typeDefData, 0, len(typeDefs)),
+		SortedDecls:     make([]sortedDeclData, 0),
+		imports:         newImportManager(),
 
 		missingIncludes: make(set.Set[string]),
 	}
@@ -547,7 +550,7 @@ func constraintToPython(
 				outputPath = resolved.Namespace
 			}
 			modulePath := toPythonModulePath(outputPath)
-			return addCrossNamespaceImport(modulePath, resolved.Name, data)
+			return addCrossNamespaceImport(resolved, modulePath, resolved.Name, data)
 		}
 		return resolved.Name
 	}
@@ -559,7 +562,7 @@ func constraintToPython(
 				outputPath = resolved.Namespace
 			}
 			modulePath := toPythonModulePath(outputPath)
-			return addCrossNamespaceImport(modulePath, resolved.Name, data)
+			return addCrossNamespaceImport(resolved, modulePath, resolved.Name, data)
 		}
 		return resolved.Name
 	}
@@ -907,6 +910,7 @@ func buildExtendsExpr(
 			outputPath = parent.Namespace
 		}
 		baseName = addCrossNamespaceImport(
+			parent,
 			toPythonModulePath(outputPath),
 			baseName,
 			data,
@@ -1399,6 +1403,7 @@ func pyStructLiteral(
 			outputPath = resolved.Namespace
 		}
 		className = addCrossNamespaceImport(
+			resolved,
 			toPythonModulePath(outputPath),
 			className,
 			data,
@@ -1507,7 +1512,7 @@ func enumVariantToPython(
 			outputPath = ev.Type.Namespace
 		}
 		modulePath := toPythonModulePath(outputPath)
-		qualifiedEnum := addCrossNamespaceImport(modulePath, enumName, data)
+		qualifiedEnum := addCrossNamespaceImport(ev.Type, modulePath, enumName, data)
 		variantRef = fmt.Sprintf("%s.%s", qualifiedEnum, ev.Variant.Name)
 	}
 	return variantRef
@@ -1528,7 +1533,12 @@ func unionVariantToPython(
 	if outputPath == "" {
 		outputPath = uv.Type.Namespace
 	}
-	return addCrossNamespaceImport(toPythonModulePath(outputPath), variantName, data)
+	return addCrossNamespaceImport(
+		uv.Type,
+		toPythonModulePath(outputPath),
+		variantName,
+		data,
+	)
 }
 
 // resolveDistinctWrapper returns the Python type name for a distinct type that wraps
@@ -1594,11 +1604,17 @@ func importLocalHand(typ resolution.Type, name string, data *templateData) strin
 	return data.imports.addModuleImport(toPythonModulePath(module), name)
 }
 
-func addCrossNamespaceImport(modulePath, typeName string, data *templateData) string {
+func addCrossNamespaceImport(
+	typ resolution.Type,
+	modulePath, typeName string,
+	data *templateData,
+) string {
 	// An ancestor package imports this module before it binds its own names, so a child
-	// reads the ancestor's generated module directly.
-	if strings.HasPrefix(toPythonModulePath(data.OutputPath)+".", modulePath+".") {
-		alias := data.imports.addModuleImport(modulePath, "types_gen")
+	// reads the ancestor's generated module directly. A hand-written type is not in that
+	// module, so it stays on the package.
+	if !omit.IsSkipped(typ, "py") &&
+		strings.HasPrefix(toPythonModulePath(data.OutputPath)+".", modulePath+".") {
+		alias := data.imports.addModuleImport(modulePath, data.GeneratedModule)
 		return fmt.Sprintf("%s.%s", alias, typeName)
 	}
 	parts := strings.Split(modulePath, ".")
@@ -1676,7 +1692,7 @@ func typeToPython(
 				outputPath = resolved.Namespace
 			}
 			modulePath := toPythonModulePath(outputPath)
-			pyName = addCrossNamespaceImport(modulePath, pyName, data)
+			pyName = addCrossNamespaceImport(resolved, modulePath, pyName, data)
 		}
 		return pyName + typeArgsToPython(resolved, typeRef.TypeArgs, table, data)
 
@@ -1687,7 +1703,7 @@ func typeToPython(
 				outputPath = resolved.Namespace
 			}
 			modulePath := toPythonModulePath(outputPath)
-			return addCrossNamespaceImport(modulePath, pyName, data)
+			return addCrossNamespaceImport(resolved, modulePath, pyName, data)
 		}
 		return pyName
 
@@ -1698,7 +1714,7 @@ func typeToPython(
 				outputPath = resolved.Namespace
 			}
 			modulePath := toPythonModulePath(outputPath)
-			return addCrossNamespaceImport(modulePath, pyName, data)
+			return addCrossNamespaceImport(resolved, modulePath, pyName, data)
 		}
 		return pyName
 
@@ -1723,7 +1739,7 @@ func typeToPython(
 				outputPath = resolved.Namespace
 			}
 			modulePath := toPythonModulePath(outputPath)
-			pyName = addCrossNamespaceImport(modulePath, pyName, data)
+			pyName = addCrossNamespaceImport(resolved, modulePath, pyName, data)
 		}
 		return pyName
 
@@ -1734,7 +1750,7 @@ func typeToPython(
 				outputPath = resolved.Namespace
 			}
 			modulePath := toPythonModulePath(outputPath)
-			return addCrossNamespaceImport(modulePath, pyName, data)
+			return addCrossNamespaceImport(resolved, modulePath, pyName, data)
 		}
 		return pyName
 
@@ -1784,7 +1800,7 @@ func typeRefToPythonAlias(
 			outputPath = resolved.Namespace
 		}
 		modulePath := toPythonModulePath(outputPath)
-		baseName = addCrossNamespaceImport(modulePath, pyName, data)
+		baseName = addCrossNamespaceImport(resolved, modulePath, pyName, data)
 	} else {
 		baseName = pyName
 	}
@@ -2040,16 +2056,18 @@ func (m *importManager) AddImport(category, path, name string) {
 }
 
 type templateData struct {
-	imports       *importManager
-	Ontology      *ontologyData
-	Namespace     string
-	OutputPath    string
-	Structs       []structData
-	Enums         []enumData
-	TypeDefs      []typeDefData
-	SortedDecls   []sortedDeclData
-	TypeVars      []typeVarData
-	RebuildModels []string
+	imports    *importManager
+	Ontology   *ontologyData
+	Namespace  string
+	OutputPath string
+	// GeneratedModule is the module name of each generated file.
+	GeneratedModule string
+	Structs         []structData
+	Enums           []enumData
+	TypeDefs        []typeDefData
+	SortedDecls     []sortedDeclData
+	TypeVars        []typeVarData
+	RebuildModels   []string
 	// missingIncludes holds the hand-written types referenced in this namespace that
 	// declare no @py include module, so generation fails.
 	missingIncludes set.Set[string]
