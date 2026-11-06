@@ -21,7 +21,9 @@ const shorthandZ = <O extends z.ZodType, T extends z.ZodType>(op: O, t: T) =>
 /** Reads a set line written as a value, a list of values, or a set operator. */
 export const setInputZ = <T extends z.ZodType>(t: T) => shorthandZ(setZ(t), t);
 
-/** Reads an ordered line written as a value, a list of values, or an ordered operator. */
+/**
+ * Reads an ordered line written as a value, a list of values, or an ordered operator.
+ */
 export const orderedInputZ = <T extends z.ZodType>(t: T) => shorthandZ(orderedZ(t), t);
 
 /** Reads a string line written as a value, a list of values, or a string operator. */
