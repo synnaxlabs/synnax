@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include <chrono>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -140,8 +140,13 @@ private:
     scan_object_dictionary_for_pdos(uint16_t slave_pos, slave::DiscoveryResult &slave);
 
     /// @brief requests the state from all enabled slaves, then waits until they reach
-    /// it, one of them refuses it, or the timeout in microseconds passes.
-    x::errors::Error request_state(uint16_t state, int timeout);
+    /// it, one of them refuses it, or the timeout in microseconds passes. Calls
+    /// before_read, if set, before each read of the slave states.
+    x::errors::Error request_state(
+        uint16_t state,
+        int timeout,
+        const std::function<void()> &before_read = nullptr
+    );
 
     /// @brief whether the slave has its AL error flag set and gives an AL status code.
     [[nodiscard]] bool al_error(uint16_t pos) const;
@@ -154,14 +159,6 @@ private:
     /// ecatcheck sample: acknowledge an error, request OP, reconfigure, or restore a
     /// slave that lost power.
     void recover(uint16_t pos);
-
-    /// @brief returns the error for slaves that have not reached a state: a refusal as
-    /// soon as one of them refuses, a timeout once the deadline passes, else NIL.
-    x::errors::Error pending_error(
-        const std::vector<uint16_t> &pending,
-        uint16_t state,
-        std::chrono::steady_clock::time_point deadline
-    );
 
     /// @brief builds the error for enabled slaves that did not reach a state.
     x::errors::Error state_error(const std::vector<uint16_t> &failed, uint16_t state);

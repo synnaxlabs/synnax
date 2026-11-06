@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <chrono>
 #include <format>
+#include <functional>
 #include <iterator>
 #include <thread>
 
@@ -29,12 +30,8 @@ const int STATE_CHANGE_TIMEOUT = static_cast<int>(
 );
 /// Timeout for cyclic process data exchange in microseconds.
 const int PROCESSDATA_TIMEOUT = static_cast<int>(x::telem::MILLISECOND.microseconds());
-/// Timeout for one state read while a slave moves to a requested state in microseconds.
-const int STATE_POLL_TIMEOUT = static_cast<int>(
-    (x::telem::MILLISECOND * 10).microseconds()
-);
-/// Time between state reads while slaves move to OP.
-const auto OP_POLL_INTERVAL = x::telem::MILLISECOND;
+/// Time between state reads while slaves move to a requested state.
+const auto STATE_POLL_INTERVAL = x::telem::MILLISECOND;
 /// Timeout for one recovery step on a slave in microseconds.
 const int RECOVERY_TIMEOUT = static_cast<int>(
     (x::telem::MILLISECOND * 500).microseconds()
@@ -894,22 +891,35 @@ bool Master::scan_object_dictionary_for_pdos(
     return found_any;
 }
 
-x::errors::Error Master::request_state(const uint16_t state, const int timeout) {
-    std::vector<uint16_t> pending;
+x::errors::Error Master::request_state(
+    const uint16_t state,
+    const int timeout,
+    const std::function<void()> &before_read
+) {
     for (int i = 1; i <= this->api->slave_count(); ++i) {
         if (this->api->slave_group(i) != ENABLED_GROUP) continue;
         this->api->set_slave_state(i, state);
         this->api->writestate(i);
-        pending.push_back(i);
     }
     const auto deadline = std::chrono::steady_clock::now() +
                           std::chrono::microseconds(timeout);
     while (true) {
-        std::erase_if(pending, [&](const uint16_t pos) {
-            return this->api->statecheck(pos, state, STATE_POLL_TIMEOUT) == state;
-        });
+        if (before_read) before_read();
+        this->api->readstate();
+        std::vector<uint16_t> pending;
+        for (int i = 1; i <= this->api->slave_count(); ++i)
+            if (this->api->slave_group(i) == ENABLED_GROUP &&
+                this->api->slave_state(i) != state)
+                pending.push_back(i);
         if (pending.empty()) return x::errors::NIL;
-        if (auto err = this->pending_error(pending, state, deadline); err) return err;
+        std::vector<uint16_t> refused;
+        std::ranges::copy_if(pending, std::back_inserter(refused), [this](auto pos) {
+            return this->al_error(pos);
+        });
+        if (!refused.empty()) return this->state_error(refused, state);
+        if (std::chrono::steady_clock::now() >= deadline)
+            return this->state_error(pending, state);
+        std::this_thread::sleep_for(STATE_POLL_INTERVAL.chrono());
     }
 }
 
@@ -919,45 +929,13 @@ bool Master::al_error(const uint16_t pos) const {
 }
 
 x::errors::Error Master::request_operational() {
-    // Slaves with outputs need one valid process data frame before they enter OP.
-    this->api->send_processdata(ENABLED_GROUP);
-    this->api->receive_processdata(ENABLED_GROUP, PROCESSDATA_TIMEOUT);
-    for (int i = 1; i <= this->api->slave_count(); ++i) {
-        if (this->api->slave_group(i) != ENABLED_GROUP) continue;
-        this->api->set_slave_state(i, EC_STATE_OPERATIONAL);
-        this->api->writestate(i);
-    }
-    const auto deadline = std::chrono::steady_clock::now() +
-                          std::chrono::microseconds(STATE_CHANGE_TIMEOUT);
-    while (true) {
+    const auto exchange = [this] {
         this->api->send_processdata(ENABLED_GROUP);
         this->api->receive_processdata(ENABLED_GROUP, PROCESSDATA_TIMEOUT);
-        this->api->readstate();
-        std::vector<uint16_t> pending;
-        for (int i = 1; i <= this->api->slave_count(); ++i)
-            if (this->api->slave_group(i) == ENABLED_GROUP &&
-                this->api->slave_state(i) != EC_STATE_OPERATIONAL)
-                pending.push_back(i);
-        if (pending.empty()) return x::errors::NIL;
-        auto err = this->pending_error(pending, EC_STATE_OPERATIONAL, deadline);
-        if (err) return err;
-        std::this_thread::sleep_for(OP_POLL_INTERVAL.chrono());
-    }
-}
-
-x::errors::Error Master::pending_error(
-    const std::vector<uint16_t> &pending,
-    const uint16_t state,
-    const std::chrono::steady_clock::time_point deadline
-) {
-    std::vector<uint16_t> refused;
-    std::ranges::copy_if(pending, std::back_inserter(refused), [this](auto pos) {
-        return this->al_error(pos);
-    });
-    if (!refused.empty()) return this->state_error(refused, state);
-    if (std::chrono::steady_clock::now() >= deadline)
-        return this->state_error(pending, state);
-    return x::errors::NIL;
+    };
+    // Slaves with outputs need one valid process data frame before they enter OP.
+    exchange();
+    return this->request_state(EC_STATE_OPERATIONAL, STATE_CHANGE_TIMEOUT, exchange);
 }
 
 x::errors::Error

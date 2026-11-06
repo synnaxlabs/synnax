@@ -234,7 +234,7 @@ TEST_F(SOEMMasterTest, ActivateSafeOpRefusalReturnsAtOnce) {
     this->mock->statecheck_overrides[EC_STATE_SAFE_OP] = EC_STATE_PRE_OP +
                                                          EC_STATE_ERROR;
     this->mock->slave_infos[0].ALstatuscode = 0x001D;
-    this->mock->statecheck_count = 0;
+    this->mock->readstate_count = 0;
     const auto err = this->master->activate();
     ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_REFUSED);
     EXPECT_EQ(
@@ -242,7 +242,7 @@ TEST_F(SOEMMasterTest, ActivateSafeOpRefusalReturnsAtOnce) {
         "failed to reach SAFE-OP: slave 1 (TestSlave) is in PRE-OP: Invalid output "
         "configuration"
     );
-    EXPECT_EQ(this->mock->statecheck_count, 1);
+    EXPECT_EQ(this->mock->readstate_count, 1);
 }
 
 /// @brief it should not report a refusal or its AL status when a slave stays in PRE-OP
@@ -259,8 +259,8 @@ TEST_F(SOEMMasterTest, ActivateSafeOpTimeoutIsNotARefusal) {
     EXPECT_EQ(err.data, "failed to reach SAFE-OP: slave 1 (TestSlave) is in PRE-OP");
 }
 
-/// @brief it should request SAFE-OP from every slave before it waits, and name only the
-/// slave that refused.
+/// @brief it should name only the slave that refused SAFE-OP, from one read of the
+/// slave states.
 TEST_F(SOEMMasterTest, ActivateNamesOnlyTheRefusingSlave) {
     MockSlaveInfo pending;
     pending.state = EC_STATE_PRE_OP;
@@ -276,7 +276,7 @@ TEST_F(SOEMMasterTest, ActivateNamesOnlyTheRefusingSlave) {
     this->mock->ibytes = 4;
     this->mock->statecheck_overrides[EC_STATE_SAFE_OP] = EC_STATE_PRE_OP +
                                                          EC_STATE_ERROR;
-    this->mock->statecheck_count = 0;
+    this->mock->readstate_count = 0;
     const auto err = this->master->activate();
     ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_REFUSED);
     EXPECT_EQ(
@@ -284,7 +284,7 @@ TEST_F(SOEMMasterTest, ActivateNamesOnlyTheRefusingSlave) {
         "failed to reach SAFE-OP: slave 2 (RefusingSlave) is in PRE-OP: Inconsistent "
         "settings"
     );
-    EXPECT_EQ(this->mock->statecheck_count, 2);
+    EXPECT_EQ(this->mock->readstate_count, 1);
 }
 
 /// @brief it should return a refusal as soon as a slave refuses OP.
@@ -302,7 +302,8 @@ TEST_F(SOEMMasterTest, ActivateOpRefusalReturnsAtOnce) {
         err.data,
         "failed to reach OP: slave 1 (TestSlave) is in SAFE-OP: Sync manager watchdog"
     );
-    EXPECT_EQ(this->mock->readstate_count, 1);
+    // One read each for SAFE-OP, OP, and the recovery to SAFE-OP.
+    EXPECT_EQ(this->mock->readstate_count, 3);
 }
 
 TEST_F(SOEMMasterTest, ActivateOpTransitionFails) {

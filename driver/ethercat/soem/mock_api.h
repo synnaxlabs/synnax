@@ -83,7 +83,6 @@ public:
     /// @brief object names returned by readODdescription, keyed by index.
     std::map<uint16_t, std::string> od_names;
     int readstate_count = 0;
-    int statecheck_count = 0;
     /// @brief the state reconfig_slave returns.
     int reconfig_return = EC_STATE_SAFE_OP;
     std::vector<uint16_t> reconfigured_slaves;
@@ -179,7 +178,6 @@ public:
     }
 
     uint16_t statecheck(uint16_t slave, uint16_t reqstate, int) override {
-        this->statecheck_count++;
         const uint16_t state = this->reach(slave, reqstate);
         if (slave > 0 && slave <= this->slave_infos.size()) {
             auto &info = this->slave_infos[slave - 1];
