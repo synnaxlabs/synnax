@@ -366,8 +366,12 @@ modules, then start the task again.
 The Driver sets the SYNC0 and SYNC1 cycles of a module in DC sync from the cycle rate
 when the network starts, so the rate stays the same while the network runs. A task that
 needs another rate does not start. Use a sample rate that the network rate is a multiple
-of, or an execution rate at or below the network rate. To change the rate, stop every
-task on the port, then start the task with the fastest rate first.
+of, or an execution rate at or below the network rate.
+
+To change the rate, stop every task on the port. The first task that starts again sets
+the rate, so start first a task at a rate that every task fits. For example, read tasks
+at 300 Hz and 200 Hz need 600 Hz, so start a write task at an execution rate of 600 Hz
+first.
 
 ### "slave ... maps ... input and ... output bits, but its discovered PDO entries hold ... and ..."
 

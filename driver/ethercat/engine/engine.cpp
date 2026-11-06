@@ -40,9 +40,9 @@ uint64_t millihertz(const x::telem::Rate rate) {
     return static_cast<uint64_t>(std::llround(rate.hz() * 1000));
 }
 
-/// @brief returns the slowest bus rate that is a multiple of every read rate, at least
-/// every write rate, and at least MIN_CYCLE_RATE.
-std::pair<x::telem::Rate, x::errors::Error> bus_rate(
+/// @brief returns the slowest bus rate in millihertz that is a multiple of every read
+/// rate, at least every write rate, and at least MIN_CYCLE_RATE.
+std::pair<uint64_t, x::errors::Error> bus_rate(
     const std::vector<x::telem::Rate> &reads,
     const std::vector<x::telem::Rate> &writes,
     const std::string &interface_name
@@ -53,7 +53,7 @@ std::pair<x::telem::Rate, x::errors::Error> bus_rate(
         floor = std::max(floor, millihertz(rate));
     if (floor > max)
         return {
-            x::telem::Rate(0),
+            0,
             x::errors::Error(
                 errors::RATE_MISMATCH,
                 std::format(
@@ -72,7 +72,7 @@ std::pair<x::telem::Rate, x::errors::Error> bus_rate(
         const double error = std::abs(rate.hz() * 1000 - static_cast<double>(mhz));
         if (mhz == 0 || error > static_cast<double>(mhz) * 1e-6)
             return {
-                x::telem::Rate(0),
+                0,
                 x::errors::Error(
                     errors::RATE_MISMATCH,
                     std::format(
@@ -87,12 +87,12 @@ std::pair<x::telem::Rate, x::errors::Error> bus_rate(
         if (base > max) break;
     }
     const uint64_t rate = (floor + base - 1) / base * base;
-    if (rate <= max) return {x::telem::Rate(static_cast<double>(rate) / 1000), {}};
+    if (rate <= max) return {rate, {}};
     std::string rates;
     for (const auto &r: reads)
         rates += (rates.empty() ? "" : ", ") + std::format("{} Hz", r.hz());
     return {
-        x::telem::Rate(0),
+        0,
         x::errors::Error(
             errors::RATE_MISMATCH,
             std::format(
@@ -106,14 +106,13 @@ std::pair<x::telem::Rate, x::errors::Error> bus_rate(
     };
 }
 
-/// @brief true when rate is a multiple of every read rate and at least every write
-/// rate.
+/// @brief true when a bus rate of mhz millihertz is a multiple of every read rate and
+/// at least every write rate.
 bool serves(
-    const x::telem::Rate rate,
+    const uint64_t mhz,
     const std::vector<x::telem::Rate> &reads,
     const std::vector<x::telem::Rate> &writes
 ) {
-    const auto mhz = millihertz(rate);
     return std::ranges::all_of(
                reads,
                [mhz](const x::telem::Rate r) { return mhz % millihertz(r) == 0; }
@@ -371,15 +370,15 @@ void Engine::supervise() {
     }
 }
 
-x::errors::Error Engine::start_locked(const x::telem::Rate rate) {
-    const auto start_cycle = [this, rate] {
+x::errors::Error Engine::start_locked(const uint64_t mhz) {
+    const auto start_cycle = [this, mhz] {
         {
             std::lock_guard lock(this->write_mu);
             const auto size = this->master->output_data().size();
             this->write_staging.assign(size, 0);
             this->write_active.assign(size, 0);
         }
-        this->publish_schedule_locked(rate);
+        this->publish_schedule_locked(mhz);
         this->starting.store(true, std::memory_order_release);
         this->bus.start();
         this->cycle_thread = std::thread(&Engine::run, this);
@@ -389,7 +388,10 @@ x::errors::Error Engine::start_locked(const x::telem::Rate rate) {
     while (true) {
         auto err = this->master->initialize();
         if (!err) {
-            err = this->master->activate(rate.period(), start_cycle);
+            err = this->master->activate(
+                x::telem::Rate(static_cast<double>(mhz) / 1000).period(),
+                start_cycle
+            );
             if (!err) break;
             if (this->bus.running())
                 this->stop_locked();
@@ -414,7 +416,7 @@ void Engine::stop_locked() {
     this->cycle_thread.join();
     if (this->supervisor_thread.joinable()) this->supervisor_thread.join();
     this->master->deactivate();
-    this->cycle_hz.store(0, std::memory_order_release);
+    this->cycle_mhz.store(0, std::memory_order_release);
     {
         std::lock_guard lock(this->schedule_mu);
         this->schedule.reset();
@@ -440,11 +442,11 @@ std::vector<x::telem::Rate> Engine::write_rates_locked() const {
     return rates;
 }
 
-void Engine::publish_schedule_locked(const x::telem::Rate rate) {
+void Engine::publish_schedule_locked(const uint64_t mhz) {
     auto next = std::make_shared<Schedule>();
-    next->rate = rate;
+    next->rate = x::telem::Rate(static_cast<double>(mhz) / 1000);
     for (const auto &input: this->inputs)
-        next->inputs.emplace_back(input, millihertz(rate) / millihertz(input->rate));
+        next->inputs.emplace_back(input, mhz / millihertz(input->rate));
     std::shared_ptr<const Schedule> retired;
     {
         std::lock_guard lock(this->schedule_mu);
@@ -452,21 +454,21 @@ void Engine::publish_schedule_locked(const x::telem::Rate rate) {
         this->schedule = std::move(next);
         this->schedule_version.fetch_add(1, std::memory_order_release);
     }
-    this->cycle_hz.store(rate.hz(), std::memory_order_release);
+    this->cycle_mhz.store(mhz, std::memory_order_release);
 }
 
-std::pair<x::telem::Rate, x::errors::Error> Engine::rate_locked(
+std::pair<uint64_t, x::errors::Error> Engine::rate_locked(
     const std::vector<x::telem::Rate> &reads,
     const std::vector<x::telem::Rate> &writes
 ) const {
     const auto iface = this->master->interface_name();
-    auto [rate, err] = bus_rate(reads, writes, iface);
-    if (err || !this->running() || !this->master->dc_sync()) return {rate, err};
+    auto [mhz, err] = bus_rate(reads, writes, iface);
+    if (err || !this->running() || !this->master->dc_sync()) return {mhz, err};
     // The SYNC0 and SYNC1 cycles came from the bus period at activation.
-    const auto fixed = this->cycle_rate();
+    const auto fixed = this->cycle_mhz.load(std::memory_order_acquire);
     if (serves(fixed, reads, writes)) return {fixed, x::errors::NIL};
     return {
-        x::telem::Rate(0),
+        0,
         x::errors::Error(
             errors::RATE_MISMATCH,
             std::format(
@@ -475,7 +477,7 @@ std::pair<x::telem::Rate, x::errors::Error> Engine::rate_locked(
                 "rate that {1} Hz is a multiple of, or an execution rate of at most "
                 "{1} Hz.",
                 iface,
-                fixed.hz()
+                static_cast<double>(fixed) / 1000
             )
         )
     };
@@ -487,11 +489,9 @@ void Engine::reschedule_locked() {
         return;
     }
     // Rates that had a bus rate keep one when a task leaves.
-    const auto rate = this->rate_locked(
-        this->read_rates_locked(),
-        this->write_rates_locked()
+    this->publish_schedule_locked(
+        this->rate_locked(this->read_rates_locked(), this->write_rates_locked()).first
     );
-    this->publish_schedule_locked(rate.first);
 }
 
 void Engine::write_outputs() {
@@ -569,11 +569,11 @@ std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> Engine::open_reader
     std::lock_guard lock(this->mu);
     auto reads = this->read_rates_locked();
     reads.push_back(sample_rate);
-    const auto [rate, rate_err] = this->rate_locked(reads, this->write_rates_locked());
+    const auto [mhz, rate_err] = this->rate_locked(reads, this->write_rates_locked());
     if (rate_err) return {nullptr, rate_err};
     const bool started = !this->running();
     if (started)
-        if (auto err = this->start_locked(rate); err) return {nullptr, err};
+        if (auto err = this->start_locked(mhz); err) return {nullptr, err};
     auto [offsets, err] = resolve_offsets(
         *this->master,
         entries,
@@ -590,7 +590,7 @@ std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> Engine::open_reader
         samples_per_read
     );
     this->inputs.push_back(input);
-    this->publish_schedule_locked(rate);
+    this->publish_schedule_locked(mhz);
     return {std::make_unique<Reader>(*this, std::move(input)), x::errors::NIL};
 }
 
@@ -601,11 +601,11 @@ std::pair<std::unique_ptr<Engine::Writer>, x::errors::Error> Engine::open_writer
     std::lock_guard lock(this->mu);
     auto writes = this->write_rates_locked();
     writes.push_back(execution_rate);
-    const auto [rate, rate_err] = this->rate_locked(this->read_rates_locked(), writes);
+    const auto [mhz, rate_err] = this->rate_locked(this->read_rates_locked(), writes);
     if (rate_err) return {nullptr, rate_err};
     const bool started = !this->running();
     if (started)
-        if (auto err = this->start_locked(rate); err) return {nullptr, err};
+        if (auto err = this->start_locked(mhz); err) return {nullptr, err};
     auto [offsets, err] = resolve_offsets(
         *this->master,
         entries,
@@ -622,12 +622,14 @@ std::pair<std::unique_ptr<Engine::Writer>, x::errors::Error> Engine::open_writer
         .commands = std::vector<std::optional<Command>>(entries.size()),
     });
     this->outputs.push_back(output);
-    this->publish_schedule_locked(rate);
+    this->publish_schedule_locked(mhz);
     return {std::make_unique<Writer>(*this, std::move(output)), x::errors::NIL};
 }
 
 x::telem::Rate Engine::cycle_rate() const {
-    return x::telem::Rate(this->cycle_hz.load(std::memory_order_acquire));
+    return x::telem::Rate(
+        static_cast<double>(this->cycle_mhz.load(std::memory_order_acquire)) / 1000
+    );
 }
 
 x::errors::Error Engine::ensure_initialized() {

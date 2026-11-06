@@ -125,7 +125,8 @@ class Engine {
     /// @brief true while the slaves move to OP, when the working counter is expected to
     /// fall short.
     std::atomic<bool> starting{false};
-    std::atomic<double> cycle_hz{0};
+    /// @brief the bus rate in millihertz, or zero when the bus is not running.
+    std::atomic<uint64_t> cycle_mhz{0};
     std::thread cycle_thread;
     std::thread supervisor_thread;
 
@@ -152,16 +153,18 @@ class Engine {
     void run();
     void supervise();
     void apply_rt(x::telem::TimeSpan period) const;
-    [[nodiscard]] x::errors::Error start_locked(x::telem::Rate rate);
+    /// @param mhz the bus rate in millihertz.
+    [[nodiscard]] x::errors::Error start_locked(uint64_t mhz);
     void stop_locked();
     [[nodiscard]] std::vector<x::telem::Rate> read_rates_locked() const;
     [[nodiscard]] std::vector<x::telem::Rate> write_rates_locked() const;
-    void publish_schedule_locked(x::telem::Rate rate);
-    /// @brief returns the bus rate for tasks at reads and writes: the slowest rate they
-    /// allow, or the current rate while a slave runs DC sync.
+    /// @param mhz the bus rate in millihertz.
+    void publish_schedule_locked(uint64_t mhz);
+    /// @brief returns the bus rate in millihertz for tasks at reads and writes: the
+    /// slowest rate they allow, or the current rate while a slave runs DC sync.
     /// @returns errors::RATE_MISMATCH when no rate serves them, or when a slave runs DC
     /// sync and the current rate does not serve them.
-    [[nodiscard]] std::pair<x::telem::Rate, x::errors::Error> rate_locked(
+    [[nodiscard]] std::pair<uint64_t, x::errors::Error> rate_locked(
         const std::vector<x::telem::Rate> &reads,
         const std::vector<x::telem::Rate> &writes
     ) const;
