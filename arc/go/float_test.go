@@ -11,6 +11,7 @@ package arc_test
 
 import (
 	"math"
+	"strconv"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -193,6 +194,48 @@ var _ = Describe("NaN and infinity", func() {
 			arc.Text{Raw: "import math\nx -> math.nan -> y"},
 			root,
 		)).Error().To(MatchError(ContainSubstring("use (math.nan) to send its value")))
+	})
+
+	DescribeTable("Should mix constants and literals in a series",
+		func(ctx SpecContext, dt types.Type, body string, last int, expected float64) {
+			h := newRuntimeHarness(ctx, `
+			import math
+			func check() {v f64} f64 {
+				data series `+dt.String()+` := `+body+`
+				return f64(data[`+strconv.Itoa(last)+`])
+			}
+			x -> check() -> out`, channelSymbols(map[string]channelDef{
+				"x":   {types.F64(), 100},
+				"out": {types.F64(), 200},
+			}),
+				channels.Digest{Key: 100, DataType: telem.Float64T},
+				channels.Digest{Key: 200, DataType: telem.Float64T},
+			)
+			defer h.Close(ctx)
+			h.Ingest(100, telem.NewSeriesV(1.0))
+			h.Tick(ctx, telem.Millisecond)
+			out, _ := h.Flush()
+			Expect(out.Get(200).Series[0].Unmarshal[float64]()[0]).To(Equal(expected))
+		},
+		Entry("integer then inf, f64", types.F64(), "[1, math.inf]", 1, inf),
+		Entry("integer then inf, f32", types.F32(), "[1, math.inf]", 1, inf),
+		Entry("nan then integer, f64", types.F64(), "[math.nan, 2]", 1, 2.0),
+		Entry("nan then integer, f32", types.F32(), "[math.nan, 2]", 1, 2.0),
+		Entry("float, inf, integer, f64", types.F64(), "[1.5, math.inf, 3]", 1, inf),
+		Entry("float, inf, integer, f32", types.F32(), "[1.5, math.inf, 3]", 1, inf),
+		Entry("negated inf first, f64", types.F64(), "[-math.inf, 1]", 0, -inf),
+	)
+
+	It("Should reject a constant at the start of a flow", func(ctx SpecContext) {
+		root := symbol.NewRoot(nil, append(stl.NewSymbols(), &symbol.Symbol{
+			Name: "y", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 1,
+		}))
+		_, err := arc.CompileText(
+			ctx,
+			arc.Text{Raw: "import math\nmath.inf -> y"},
+			root,
+		)
+		Expect(err).To(MatchError(ContainSubstring("math.inf is not a channel")))
 	})
 
 	Describe("Mixed float and integer literals", func() {
