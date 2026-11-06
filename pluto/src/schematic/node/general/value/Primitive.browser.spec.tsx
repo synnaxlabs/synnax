@@ -10,6 +10,7 @@
 import "@xyflow/react/dist/base.css";
 import "@/schematic/Schematic.css";
 
+import { schematic } from "@synnaxlabs/client";
 import { renderThemed } from "@synnaxlabs/lyra/styletest";
 import { color, type xy } from "@synnaxlabs/x";
 import {
@@ -26,29 +27,27 @@ import { type ReactElement, useEffect } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { CSS } from "@/css";
-import { DRAG_HANDLE_CLASS } from "@/schematic/node/common/grid/Grid";
-import { Value } from "@/schematic/node/general/value/Primitive";
-import { resolveEndpoint } from "@/vis/diagram/util";
+import { Grid } from "@/schematic/node/common/grid";
+import { Value } from "@/schematic/node/general/value";
+import { Diagram } from "@/vis/diagram";
 
 const LEFT = "1";
 const RIGHT = "2";
-const WIDENED = 160;
+const UNITS = "mbar";
+const WIDE_UNITS = "mbar per square second";
 const RIGHT_HANDLE = `.react-flow__node[data-id="a"] [data-handleid="${RIGHT}"]`;
 const RING_RADIUS = 4.5;
 const ZOOMS = [0.5, 0.75, 1, 1.5];
 const COLOR = color.construct("#00ff00");
 
 type Store = ReturnType<typeof useStoreApi>;
-type ValueNode = Node<{ width: number }, "custom">;
+type ValueNode = Node<{ units: string }, "custom">;
 
 const ValueNodeRenderer = ({ data }: NodeProps<ValueNode>): ReactElement => (
-  <div className={DRAG_HANDLE_CLASS}>
-    <Value
-      strokeColor={COLOR}
-      orientation="left"
-      units="mbar"
-      inlineSize={data.width}
-      dimensions={{ height: 27, width: data.width }}
+  <div className={Grid.DRAG_HANDLE_CLASS}>
+    <Value.spec.Preview
+      {...schematic.valueNodeConfigZ.parse({ variant: "value", strokeColor: COLOR })}
+      units={data.units}
     />
   </div>
 );
@@ -56,8 +55,8 @@ const ValueNodeRenderer = ({ data }: NodeProps<ValueNode>): ReactElement => (
 const NODE_TYPES = { custom: ValueNodeRenderer };
 
 const NODES: ValueNode[] = [
-  { id: "a", type: "custom", position: { x: 50, y: 50 }, data: { width: 70 } },
-  { id: "b", type: "custom", position: { x: 500, y: 50 }, data: { width: 70 } },
+  { id: "a", type: "custom", position: { x: 50, y: 50 }, data: { units: UNITS } },
+  { id: "b", type: "custom", position: { x: 500, y: 50 }, data: { units: UNITS } },
 ];
 
 interface Context {
@@ -129,7 +128,7 @@ const renderFlow = async (zoom: number, editable: boolean): Promise<Rendered> =>
     },
     widen: async () => {
       const before = anchor(store, "a", RIGHT).x;
-      flow.updateNodeData("a", { width: WIDENED });
+      flow.updateNodeData("a", { units: WIDE_UNITS });
       await vi.waitFor(() =>
         expect(anchor(store, "a", RIGHT).x).toBeGreaterThan(before),
       );
@@ -161,7 +160,7 @@ const internalNode = (store: Store, nodeKey: string): InternalNode => {
 /** @returns the point a pipe attaches to, in flow coordinates. */
 const anchor = (store: Store, nodeKey: string, handle: string): xy.XY => {
   const { internals } = internalNode(store, nodeKey);
-  const endpoint = resolveEndpoint(internals, handle);
+  const endpoint = Diagram.resolveEndpoint(internals, handle);
   if (endpoint == null) throw new Error(`handle ${handle} not found`);
   return endpoint.position;
 };
@@ -187,12 +186,14 @@ const rightEdge = (store: Store, nodeKey: string): xy.XY => {
   return toFlow(store, nodeKey, { x: right, y: (top + bottom) / 2 });
 };
 
-const expectOnRightEdge = (store: Store, nodeKey: string): void => {
-  const edge = rightEdge(store, nodeKey);
-  const point = anchor(store, nodeKey, RIGHT);
-  expect(point.x - handleWidth(store, nodeKey, RIGHT) / 2).toBeCloseTo(edge.x, 0);
-  expect(point.y).toBeCloseTo(edge.y, 0);
-};
+// The symbol can resize after mount, and React Flow measures it again a frame later.
+const expectOnRightEdge = async (store: Store, nodeKey: string): Promise<void> =>
+  await vi.waitFor(() => {
+    const edge = rightEdge(store, nodeKey);
+    const point = anchor(store, nodeKey, RIGHT);
+    expect(point.x - handleWidth(store, nodeKey, RIGHT) / 2).toBeCloseTo(edge.x, 0);
+    expect(point.y).toBeCloseTo(edge.y, 0);
+  });
 
 describe("value symbol connection points", () => {
   describe.each([
@@ -201,13 +202,13 @@ describe("value symbol connection points", () => {
   ])("while $mode", ({ editable }) => {
     it.each(ZOOMS)("should sit on the outer right edge at zoom %s", async (zoom) => {
       const { store } = await renderFlow(zoom, editable);
-      expectOnRightEdge(store, "a");
+      await expectOnRightEdge(store, "a");
     });
 
     it.each(ZOOMS)("should follow the widened edge at zoom %s", async (zoom) => {
       const { store, widen } = await renderFlow(zoom, editable);
       await widen();
-      expectOnRightEdge(store, "a");
+      await expectOnRightEdge(store, "a");
     });
   });
 
@@ -233,6 +234,6 @@ describe("value symbol connection points", () => {
     const expected = anchor(store, "a", RIGHT);
     await rezoom(1.5);
     expect(anchor(store, "a", RIGHT)).toEqual(expected);
-    expectOnRightEdge(store, "a");
+    await expectOnRightEdge(store, "a");
   });
 });
