@@ -129,7 +129,9 @@ yet.
   read task's sample rate and at least each write task's execution rate. The rate is
   always between 100 Hz and 10 kHz. For example, read tasks at 250 Hz and 1 kHz make the
   network cycle at 1 kHz. If no rate in that range is a multiple of every read rate,
-  such as for 3 kHz and 4 kHz, the task fails to start.
+  such as for 3 kHz and 4 kHz, the task fails to start. While a module runs in DC sync,
+  the rate does not change until every task on the port stops. See
+  ["cycles at ... Hz while a slave runs DC sync"](#the-bus-on--cycles-at--hz-while-a-slave-runs-dc-sync).
 - **Outputs** -> Each output holds the last value a write task commanded. When a write
   task stops, its outputs go to zero. An output that another running write task
   commanded keeps the last value of that task instead.
@@ -358,6 +360,14 @@ faster, for example with a write task at an execution rate of 250 Hz or more.
 The clock of a module in DC sync stayed more than 10 µs off the reference clock for two
 seconds, so the Driver did not start SYNC0. Check the cables and the power of the
 modules, then start the task again.
+
+### "the bus on ... cycles at ... Hz while a slave runs DC sync"
+
+The Driver sets the SYNC0 and SYNC1 cycles of a module in DC sync from the cycle rate
+when the network starts, so the rate stays the same while the network runs. A task that
+needs another rate does not start. Use a sample rate that the network rate is a multiple
+of, or an execution rate at or below the network rate. To change the rate, stop every
+task on the port, then start the task with the fastest rate first.
 
 ### "slave ... maps ... input and ... output bits, but its discovered PDO entries hold ... and ..."
 
