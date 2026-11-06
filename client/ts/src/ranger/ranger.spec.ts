@@ -1266,6 +1266,55 @@ describe("write-through", () => {
   });
 });
 
+describe("relationship backfill", () => {
+  it("should report no error when the client closes during a backfill", async () => {
+    let fetched = (): void => {};
+    const fetching = new Promise<void>((resolve) => (fetched = resolve));
+    const unary: UnaryClient = {
+      use: () => {},
+      send: async <RQ extends z.ZodType, RS extends z.ZodType>(
+        target: string,
+        _req: z.input<RQ> | z.infer<RQ>,
+        _reqZ: RQ,
+        resZ: RS,
+      ): Promise<z.infer<RS>> => {
+        if (target !== "/range/retrieve") return resZ.parse({});
+        fetched();
+        return await new Promise(() => {});
+      },
+    };
+    const onError = vi.fn();
+    const cache = new query.Cache({ openStreamer: null, onError });
+    const ontologyClient = new ontology.Client({ unary, cache });
+    const labels = new label.Client({ unary, cache, ontology: ontologyClient });
+    const coreURL = new url.URL(TEST_CORE_ADDRESS);
+    new ranger.Client({
+      unary,
+      cache,
+      labels,
+      ontology: ontologyClient,
+      framer: new framer.Client({
+        stream: new WebSocketClient(coreURL, binary.JSON_CODEC),
+        unary,
+        file: new HTTPClient(coreURL, binary.JSON_CODEC),
+        retrieveChannels: async () => [],
+      }),
+      channels: async () => [],
+    });
+    const rel: ontology.Relationship = {
+      from: ranger.ontologyID(uuid.create()),
+      type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+      to: ranger.ontologyID(uuid.create()),
+    };
+    ontologyClient.cache.relationships.set(ontology.relationshipToString(rel), rel);
+    await fetching;
+    await cache.close();
+    // Lets the rejection reach the error handler.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(onError).not.toHaveBeenCalled();
+  });
+});
+
 describe("dispatch", () => {
   beforeAll(async () => {
     await client.connect();
