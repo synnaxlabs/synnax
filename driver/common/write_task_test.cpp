@@ -123,6 +123,37 @@ TEST(TestCommonWriteTask, testSetStateUsesLastSample) {
     ASSERT_TRUE(write_task.stop(stop_cmd_key, true));
 }
 
+/// @brief a command that arrives while the state loop is not waiting should still wake
+/// the next state read instead of waiting out the full state period.
+TEST(TestCommonWriteTask, ReadWakesForCommandSetBeforeWait) {
+    synnax::channel::Channel state;
+    state.key = 3;
+    state.data_type = x::telem::UINT8_T;
+    state.index = 2;
+    for (const double hz: {1.0, 10.0, 100.0}) {
+        const auto rate = x::telem::HERTZ * hz;
+        SCOPED_TRACE(std::to_string(hz) + " Hz");
+        MockSink sink(
+            rate,
+            {{1, state}},
+            false,
+            std::make_shared<x::sync::List<x::telem::Frame>>(),
+            std::make_shared<std::vector<x::errors::Error>>()
+        );
+        x::telem::Frame cmd(1);
+        cmd.emplace(1, x::telem::Series(static_cast<uint8_t>(1)));
+        ASSERT_NIL(sink.write(cmd));
+        x::breaker::Breaker breaker;
+        x::telem::Frame fr;
+        pipeline::Authorities authorities;
+        const auto start = std::chrono::steady_clock::now();
+        ASSERT_NIL(sink.read(breaker, fr, authorities));
+        const auto elapsed = std::chrono::steady_clock::now() - start;
+        EXPECT_EQ(fr.at<uint8_t>(3, 0), 1);
+        EXPECT_LT(elapsed, rate.period().chrono() / 2);
+    }
+}
+
 /// @brief it should stream every command channel but report state only for the outputs
 /// that have a state channel.
 TEST(TestCommonWriteTask, OutputWithoutStateChannelReportsNoState) {
