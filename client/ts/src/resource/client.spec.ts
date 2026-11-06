@@ -34,7 +34,7 @@ describe("Resource", () => {
       const exact = await createGroup(token);
       const partial = await createLabel(`${token} pump`);
       await expect
-        .poll(async () => await client.resources.search({ term: token }))
+        .poll(async () => await client.resources.search({ searchTerm: token }))
         .toEqual([
           { key: `group:${exact.key}`, id: exact, name: token },
           { key: `label:${partial.key}`, id: partial, name: `${token} pump` },
@@ -47,7 +47,7 @@ describe("Resource", () => {
       const l = await createLabel(token);
       await expect
         .poll(async () =>
-          (await client.resources.search({ term: token, types: ["label"] })).map(
+          (await client.resources.search({ searchTerm: token, types: ["label"] })).map(
             (r) => r.id,
           ),
         )
@@ -58,7 +58,7 @@ describe("Resource", () => {
       const token = randomToken();
       for (const suffix of ["a", "b", "c"]) await createGroup(`${token} ${suffix}`);
       const page = async (offset: number): Promise<number> =>
-        (await client.resources.search({ term: token, limit: 2, offset })).length;
+        (await client.resources.search({ searchTerm: token, limit: 2, offset })).length;
       await expect.poll(async () => await page(0)).toEqual(2);
       expect(await page(2)).toEqual(1);
     });
@@ -67,7 +67,7 @@ describe("Resource", () => {
       await createLabel(randomToken());
       await createLabel(randomToken());
       const page = await client.resources.search({
-        term: "",
+        searchTerm: "",
         types: ["label"],
         limit: 2,
       });
@@ -75,7 +75,7 @@ describe("Resource", () => {
       expect(page.every((r) => r.id.type === "label")).toBe(true);
       expect(
         await client.resources.search({
-          term: "",
+          searchTerm: "",
           types: ["label"],
           limit: 1,
           offset: 1,
@@ -85,7 +85,7 @@ describe("Resource", () => {
 
     it("should refuse a type that the Core cannot search", async () => {
       await expect(
-        client.resources.search({ term: "pump", types: ["builtin"] }),
+        client.resources.search({ searchTerm: "pump", types: ["builtin"] }),
       ).rejects.toSatisfy(
         (e) =>
           ValidationError.matches(e) &&
@@ -110,7 +110,7 @@ describe("Resource", () => {
     };
 
     it("should add a created resource to a subscribed list", async () => {
-      const read = await subscribe({ term: "", types: ["group"] });
+      const read = await subscribe({ searchTerm: "", types: ["group"] });
       const g = await createGroup(randomToken());
       await expect.poll(() => read()?.map((r) => r.id)).toContainEqual(g);
     });
@@ -119,7 +119,10 @@ describe("Resource", () => {
     // off the answer that a spec subscribes to.
     const awaitIndexed = async (term: string, count: number): Promise<void> => {
       await expect
-        .poll(async () => (await client.resources.search({ term, limit: 10 })).length)
+        .poll(
+          async () =>
+            (await client.resources.search({ searchTerm: term, limit: 10 })).length,
+        )
         .toEqual(count);
     };
 
@@ -128,7 +131,7 @@ describe("Resource", () => {
       const proj = await client.projects.create({ name: randomToken() });
       const plot = await client.lineplots.create({ project: proj.key, name: token });
       await awaitIndexed(token, 1);
-      const read = await subscribe({ term: token, types: ["lineplot"] });
+      const read = await subscribe({ searchTerm: token, types: ["lineplot"] });
       await client.lineplots.rename(plot.key, `${token} renamed`);
       const key = resource.idToString(lineplot.resourceID(plot.key));
       await expect
@@ -141,7 +144,7 @@ describe("Resource", () => {
       const proj = await client.projects.create({ name: randomToken() });
       const plot = await client.lineplots.create({ project: proj.key, name: token });
       await awaitIndexed(token, 1);
-      const read = await subscribe({ term: token, types: ["lineplot"] });
+      const read = await subscribe({ searchTerm: token, types: ["lineplot"] });
       await client.lineplots.delete(plot.key);
       await expect.poll(() => read()).toEqual([]);
     });

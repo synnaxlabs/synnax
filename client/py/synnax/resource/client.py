@@ -26,7 +26,7 @@ class Resource(BaseModel):
 
 
 class _SearchRequest(BaseModel):
-    term: str
+    search_term: str
     types: list[Type] | None = None
     limit: int | None = None
     offset: int | None = None
@@ -50,7 +50,7 @@ class Client:
 
     def search(
         self,
-        term: str,
+        search_term: str = "",
         *,
         types: list[Type] | None = None,
         limit: int | None = None,
@@ -58,8 +58,8 @@ class Client:
     ) -> list[Resource]:
         """Searches the records of every type for a term.
 
-        :param term: The text that a resource must match. An empty term matches every
-            resource.
+        :param search_term: The text that a resource must match. An empty term lists
+            the resources in order of type.
         :param types: Limits the search to resources of these types.
         :param limit: The maximum number of resources to return, at most 1000.
             Defaults to 100.
@@ -68,7 +68,9 @@ class Client:
         :raises ValidationError: If a type is unknown, or the limit or offset is out of
             bounds.
         """
-        req = _SearchRequest(term=term, types=types, limit=limit, offset=offset)
+        req = _SearchRequest(
+            search_term=search_term, types=types, limit=limit, offset=offset
+        )
         return self._client.send("/resource/search", req, _Response).resources
 
     @overload

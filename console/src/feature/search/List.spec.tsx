@@ -72,7 +72,7 @@ describe("Search.List", () => {
       virtual: true,
     });
     const [first] = await client.resources.search({
-      term: "",
+      searchTerm: "",
       types: ["channel"],
       limit: 1,
     });

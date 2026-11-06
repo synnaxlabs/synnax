@@ -14,28 +14,20 @@ import { Flux } from "@/flux";
 
 const PLURAL_RESOURCE_NAME = "resources";
 
-export type SearchQuery = List.PagerParams & {
-  /** Limits the search to resources of these types. Empty searches every type. */
+export type ListQuery = List.PagerParams & {
+  /** Limits the list to resources of these types. Empty lists every type. */
   types?: resource.Type[];
 };
 
-const toParams = ({
-  searchTerm = "",
-  types,
-  limit,
-  offset,
-}: SearchQuery): resource.SearchParams => ({ term: searchTerm, types, limit, offset });
-
 /**
- * Searches the records of every type for the search term, closest match first. An
+ * Lists the records of every type that match the search term, closest match first. An
  * empty term lists the records in order of type. The list stays current while it is
  * mounted.
  */
-export const useSearch = Flux.createList<SearchQuery, string, resource.Resource>({
+export const useList = Flux.createList<ListQuery, string, resource.Resource>({
   name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.resources.search(toParams(query)),
+  retrieve: async ({ client, query }) => await client.resources.search(query),
   retrieveByKey: async ({ client, key }) =>
     await client.resources.retrieve(resource.parseID(key)),
-  onChange: ({ client, query }, handler) =>
-    client.resources.onChange(toParams(query), handler),
+  onChange: ({ client, query }, handler) => client.resources.onChange(query, handler),
 });

@@ -73,9 +73,9 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 type (
 	// SearchRequest selects the resources that Search returns.
 	SearchRequest struct {
-		// Term is the text that a resource must match. An empty term lists resources in
-		// order of type.
-		Term string `json:"term" msgpack:"term"`
+		// SearchTerm is the text that a resource must match. An empty term lists
+		// resources in order of type.
+		SearchTerm string `json:"search_term" msgpack:"search_term"`
 		// Types limits the search to resources of these types. Empty searches every
 		// type.
 		Types []resource.Type `json:"types" msgpack:"types"`
@@ -107,7 +107,7 @@ func (s *Service) Search(
 		return SearchResponse{}, err
 	}
 	resources, err := s.internal.Search(ctx, nil, resource.SearchQuery{
-		Term:   req.Term,
+		Term:   req.SearchTerm,
 		Types:  req.Types,
 		Limit:  req.Limit,
 		Offset: req.Offset,

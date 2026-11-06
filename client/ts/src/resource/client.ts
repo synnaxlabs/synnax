@@ -24,8 +24,8 @@ import { type Type, typeZ } from "@/resource/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 const searchReqZ = z.object({
-  /** The text that a resource must match. An empty term matches every resource. */
-  term: z.string(),
+  /** The text that a resource must match. An empty term lists resources by type. */
+  searchTerm: z.string().optional(),
   /** Limits the search to resources of these types. Empty searches every type. */
   types: typeZ.array().optional(),
   /** The maximum number of resources to return, at most 1000. Zero returns 100. */
@@ -38,7 +38,7 @@ export interface SearchParams extends z.input<typeof searchReqZ> {}
 
 /** A search with its zero fields left out, so equal searches share one answer. */
 type Search = {
-  term?: string;
+  searchTerm?: string;
   types?: Type[];
   limit: number;
   offset?: number;
@@ -49,14 +49,14 @@ const DEFAULT_LIMIT = 100;
 
 // A search with no limit still has the Core's cap, so the cache must know it to fill a
 // slot that a delete empties.
-const normalize = ({ term, types, limit, offset }: SearchParams): Search => ({
-  ...(term !== "" && { term }),
+const normalize = ({ searchTerm, types, limit, offset }: SearchParams): Search => ({
+  ...(searchTerm != null && searchTerm !== "" && { searchTerm }),
   ...(types != null && types.length > 0 && { types }),
   limit: limit != null && limit > 0 ? limit : DEFAULT_LIMIT,
   ...(offset != null && offset > 0 && { offset }),
 });
 
-const SERVER_FIELDS = ["term", "limit", "offset"] as const;
+const SERVER_FIELDS = ["searchTerm", "limit", "offset"] as const;
 
 const retrieveReqZ = z.object({ ids: idZ.array() });
 const resZ = z.object({ resources: resourceZ.array().default(() => []) });
@@ -197,10 +197,10 @@ export class Client {
     return false;
   }
 
-  private async execSearch({ term = "", ...rest }: Search): Promise<Resource[]> {
+  private async execSearch(q: Search): Promise<Resource[]> {
     const { resources } = await this.client.send(
       "/resource/search",
-      { term, ...rest },
+      q,
       searchReqZ,
       resZ,
     );

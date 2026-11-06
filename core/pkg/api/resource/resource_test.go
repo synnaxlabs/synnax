@@ -48,8 +48,8 @@ var _ = Describe("Resource", func() {
 				u := createUser(ctx)
 				grant(ctx, u.ResourceID(), lbl.ResourceID(), rck.ResourceID())
 				Expect(apiSvc.Search(AuthedCtx(ctx, u), apiresource.SearchRequest{
-					Term:  term,
-					Types: []resource.Type{resource.TypeLabel, resource.TypeRack},
+					SearchTerm: term,
+					Types:      []resource.Type{resource.TypeLabel, resource.TypeRack},
 				})).To(Equal(apiresource.SearchResponse{Resources: []resource.Resource{
 					{ID: lbl.ResourceID(), Name: lbl.Name},
 					{ID: rck.ResourceID(), Name: rck.Name},
@@ -62,8 +62,8 @@ var _ = Describe("Resource", func() {
 				u := createUser(ctx)
 				grant(ctx, u.ResourceID(), lbl.ResourceID())
 				Expect(apiSvc.Search(AuthedCtx(ctx, u), apiresource.SearchRequest{
-					Term:  term,
-					Types: []resource.Type{resource.TypeLabel, resource.TypeRack},
+					SearchTerm: term,
+					Types:      []resource.Type{resource.TypeLabel, resource.TypeRack},
 				})).To(Equal(apiresource.SearchResponse{Resources: []resource.Resource{
 					{ID: lbl.ResourceID(), Name: lbl.Name},
 				}}))
@@ -94,8 +94,11 @@ var _ = Describe("Resource", func() {
 				res := MustSucceed(apiSvc.Search(
 					AuthedCtx(ctx, u),
 					apiresource.SearchRequest{
-						Term:  term,
-						Types: []resource.Type{resource.TypeChannel, resource.TypeTask},
+						SearchTerm: term,
+						Types: []resource.Type{
+							resource.TypeChannel,
+							resource.TypeTask,
+						},
 						Limit: 2,
 					},
 				))
@@ -123,8 +126,8 @@ var _ = Describe("Resource", func() {
 			Expect(apiSvc.Search(
 				AuthedCtx(ctx, u),
 				apiresource.SearchRequest{
-					Term:  term,
-					Types: []resource.Type{"turbine"},
+					SearchTerm: term,
+					Types:      []resource.Type{"turbine"},
 				},
 			)).Error().To(MatchError(`types: unknown resource type "turbine"`))
 		})

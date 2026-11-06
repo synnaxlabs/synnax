@@ -43,7 +43,7 @@ export const List = ({ items, ...rest }: ListProps): ReactElement => {
   const listItem = ({ key, ...props }: Base.ItemProps<string>) => (
     <ListItem key={key} {...props} items={items} />
   );
-  const listProps = Resource.useSearch({
+  const listProps = Resource.useList({
     initialQuery: { types: record.keys(items) },
   });
   return (

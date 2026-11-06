@@ -27,12 +27,12 @@ const createLabel = async (name: string): Promise<resource.ID> =>
   label.resourceID((await client.labels.create({ name, color: "#E87E04" })).key);
 
 describe("Resource Queries", () => {
-  describe("useSearch", () => {
+  describe("useList", () => {
     it("should list the matches of every type for the search term", async () => {
       const token = randomToken();
       const g = await createGroup(token);
       const l = await createLabel(`${token} pump`);
-      const { result } = renderHook(() => Resource.useSearch(), { wrapper });
+      const { result } = renderHook(() => Resource.useList(), { wrapper });
       await waitFor(async () => {
         await act(
           async () => await result.current.retrieveAsync({ searchTerm: token }),
@@ -51,7 +51,7 @@ describe("Resource Queries", () => {
       const token = randomToken();
       await createGroup(token);
       const l = await createLabel(token);
-      const { result } = renderHook(() => Resource.useSearch(), { wrapper });
+      const { result } = renderHook(() => Resource.useList(), { wrapper });
       await waitFor(async () => {
         await act(
           async () =>
@@ -64,11 +64,11 @@ describe("Resource Queries", () => {
     it("should list the resources of the given types for an empty term", async () => {
       await createLabel(randomToken());
       const expected = await client.resources.search({
-        term: "",
+        searchTerm: "",
         types: ["label"],
         limit: 3,
       });
-      const { result } = renderHook(() => Resource.useSearch(), { wrapper });
+      const { result } = renderHook(() => Resource.useList(), { wrapper });
       await act(
         async () => await result.current.retrieveAsync({ types: ["label"], limit: 3 }),
       );
@@ -76,7 +76,7 @@ describe("Resource Queries", () => {
     });
 
     it("should add a resource created while the list is mounted", async () => {
-      const { result } = renderHook(() => Resource.useSearch(), { wrapper });
+      const { result } = renderHook(() => Resource.useList(), { wrapper });
       await act(async () => await result.current.retrieveAsync({ types: ["group"] }));
       const g = await createGroup(randomToken());
       await waitFor(() =>
@@ -87,7 +87,7 @@ describe("Resource Queries", () => {
     it("should look up a resource outside the page by its key", async () => {
       const name = randomToken();
       const l = await createLabel(name);
-      const { result } = renderHook(() => Resource.useSearch(), { wrapper });
+      const { result } = renderHook(() => Resource.useList(), { wrapper });
       act(() => {
         result.current.getItem(resource.idToString(l));
       });
