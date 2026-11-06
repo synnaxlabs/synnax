@@ -14,7 +14,6 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { assert, describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
-import { analogReadHardwareZ } from "@/feature/ni/task/checks";
 import {
   awaitStatusDescription,
   createHardware,
@@ -545,16 +544,21 @@ describe("AnalogRead ports", () => {
 
   it("should name the values that fit in no range", async () => {
     const dev = await createDevice();
-    const config = {
-      ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
-      channels: [
-        createChannel("ai_voltage", 0, { device: dev.key, minVal: 0, maxVal: 20 }),
-      ],
-    };
-    const { error } = analogReadHardwareZ([dev]).safeParse(config);
-    expect(error?.issues.map(({ path, message }) => [path, message])).toEqual([
-      [["channels", 0, "maxVal"], "The device has no range from 0 to 20 V"],
+    await renderWith([
+      createChannel("ai_voltage", 0, {
+        device: dev.key,
+        name: "chan_ranged",
+        minVal: 0,
+        maxVal: 20,
+      }),
     ]);
+    fireEvent.click(await findChannelListItem("chan_ranged"));
+    await waitFor(() => expect(fieldInvalid("Maximum value")).toBe(true));
+
+    fireEvent.pointerEnter(screen.getByLabelText("Maximum value"));
+    expect(
+      await screen.findByText("The device has no range from 0 to 20 V"),
+    ).toBeTruthy();
   });
 
   it.each<[string, () => ni.Hardware, Partial<NI.Task.AIChannel>]>([
