@@ -60,6 +60,18 @@ constexpr std::array<uint16_t, 16> TRANSIENT_FAULTS = {
 /// Time from the read of a slave's DC system time to its first SYNC0 event, so the
 /// slave takes the start time before the event passes.
 const auto DC_START_DELAY = x::telem::MILLISECOND * 100;
+/// The bit of an AssignActivate value that turns SYNC1 on.
+constexpr uint16_t SYNC1_ACTIVATE = 0x0400;
+/// ESC register with the number of FMMUs, followed by the number of sync managers.
+constexpr uint16_t ESC_REG_FMMU_COUNT = 0x0004;
+/// Sizes and field offsets of the ESC's FMMU and sync manager register blocks.
+constexpr size_t FMMU_SIZE = 16;
+constexpr size_t FMMU_LENGTH = 4;
+constexpr size_t FMMU_PHYSICAL_START = 8;
+constexpr size_t FMMU_ACTIVATE = 12;
+constexpr size_t SM_SIZE = 8;
+constexpr size_t SM_LENGTH = 2;
+constexpr size_t SM_ACTIVATE = 6;
 /// System time difference (0x092C) in nanoseconds under which a slave clock is settled.
 constexpr uint32_t DC_SETTLED_DIFF = 10000;
 /// How long activation waits for the clocks of the DC slaves to settle.
@@ -240,6 +252,10 @@ void Master::set_slave_config(const uint16_t position, slave::Config config) {
         this->dc_modes[position] = *config.dc_mode;
     else
         this->dc_modes.erase(position);
+    if (config.sync1_cycle)
+        this->sync1_cycles[position] = *config.sync1_cycle;
+    else
+        this->sync1_cycles.erase(position);
 }
 
 void Master::replace_slave_configs(std::map<uint16_t, slave::Config> configs) {
@@ -247,10 +263,12 @@ void Master::replace_slave_configs(std::map<uint16_t, slave::Config> configs) {
     this->disabled_slaves.clear();
     this->startup_parameters.clear();
     this->dc_modes.clear();
+    this->sync1_cycles.clear();
     for (auto &[position, config]: configs) {
         if (!config.enabled) this->disabled_slaves.insert(position);
         this->startup_parameters[position] = std::move(config.startup_parameters);
         if (config.dc_mode) this->dc_modes[position] = *config.dc_mode;
+        if (config.sync1_cycle) this->sync1_cycles[position] = *config.sync1_cycle;
     }
 }
 
@@ -328,6 +346,7 @@ x::errors::Error Master::activate(
             errors::ACTIVATION_ERROR,
             "failed to configure PDO mapping"
         );
+    if (const auto err = this->disable_unmapped_sync_managers()) return err;
 
     {
         std::lock_guard lock(this->mu);
@@ -1183,6 +1202,73 @@ x::errors::Error Master::clear_dc_activation() {
     return x::errors::NIL;
 }
 
+x::errors::Error Master::disable_unmapped_sync_managers() {
+    const auto u16 = [](const uint8_t *b) {
+        return static_cast<uint16_t>(b[0] | (b[1] << 8));
+    };
+    for (int i = 1; i <= this->api->slave_count(); ++i) {
+        if (this->api->slave_group(i) != ENABLED_GROUP) continue;
+        const auto pos = static_cast<uint16_t>(i);
+        const auto fail = [&](const std::string &what) {
+            return x::errors::Error(
+                errors::ACTIVATION_ERROR,
+                std::format(
+                    "slave {} ({}) did not {}",
+                    pos,
+                    this->api->slave_name(pos),
+                    what
+                )
+            );
+        };
+        std::array<uint8_t, 2> counts{};
+        if (this->api->read_register(pos, ESC_REG_FMMU_COUNT, counts, EC_TIMEOUTRET) !=
+            1)
+            return fail("answer a read of its FMMU and sync manager counts");
+        if (counts[1] <= 2) continue;
+        std::vector<uint8_t> fmmus(counts[0] * FMMU_SIZE);
+        std::vector<uint8_t> sms(counts[1] * SM_SIZE);
+        if (this->api->read_register(pos, ECT_REG_FMMU0, fmmus, EC_TIMEOUTRET) != 1 ||
+            this->api->read_register(pos, ECT_REG_SM0, sms, EC_TIMEOUTRET) != 1)
+            return fail("answer a read of its FMMU and sync manager registers");
+        for (size_t n = 2; n < counts[1]; ++n) {
+            const uint8_t *sm = sms.data() + n * SM_SIZE;
+            const uint16_t start = u16(sm);
+            if (start == 0 || (sm[SM_ACTIVATE] & 0x01) == 0) continue;
+            bool mapped = false;
+            for (size_t f = 0; f < counts[0] && !mapped; ++f) {
+                const uint8_t *fmmu = fmmus.data() + f * FMMU_SIZE;
+                const uint16_t physical = u16(fmmu + FMMU_PHYSICAL_START);
+                mapped = (fmmu[FMMU_ACTIVATE] & 0x01) != 0 && start >= physical &&
+                         start < physical + u16(fmmu + FMMU_LENGTH);
+            }
+            if (mapped) continue;
+            const auto address = static_cast<uint16_t>(ECT_REG_SM0 + n * SM_SIZE);
+            if (this->api->write_register(
+                    pos,
+                    address + SM_ACTIVATE,
+                    {0},
+                    EC_TIMEOUTRET
+                ) != 1 ||
+                this->api->write_register(
+                    pos,
+                    address + SM_LENGTH,
+                    {0, 0},
+                    EC_TIMEOUTRET
+                ) != 1)
+                return fail(
+                    std::format("take the write that turns off sync manager {}", n)
+                );
+            LOG(INFO) << std::format(
+                "[ethercat] slave {} ({}): turned off sync manager {}, which no FMMU maps",
+                pos,
+                this->api->slave_name(pos),
+                n
+            );
+        }
+    }
+    return x::errors::NIL;
+}
+
 std::pair<std::vector<Master::DCSetup>, x::errors::Error>
 Master::resolve_dc(const x::telem::TimeSpan period) {
     const auto fail = [](const slave::Properties &props, const std::string &msg) {
@@ -1226,6 +1312,21 @@ Master::resolve_dc(const x::telem::TimeSpan period) {
                     err.data
                 )
             );
+        if (const auto it = this->sync1_cycles.find(props.position);
+            it != this->sync1_cycles.end() && regs.sync0_cycle > 0) {
+            if (it->second <= regs.sync0_cycle)
+                return fail(
+                    props,
+                    std::format(
+                        "has a SYNC1 cycle of {} ns, which must be longer than its "
+                        "SYNC0 cycle of {} ns",
+                        it->second,
+                        regs.sync0_cycle
+                    )
+                );
+            regs.assign_activate |= SYNC1_ACTIVATE;
+            regs.sync1_cycle = it->second - regs.sync0_cycle;
+        }
         setups.push_back({.position = props.position, .registers = regs});
     }
     return {setups, x::errors::NIL};

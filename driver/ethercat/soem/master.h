@@ -53,6 +53,8 @@ class Master final : public master::Master {
     /// @brief the index of the synchronization mode set for each slave, keyed by
     /// position. A slave missing from the map gets the mode dc::select picks.
     std::map<uint16_t, uint16_t> dc_modes;
+    /// @brief the SYNC1 cycle in nanoseconds set for each slave, keyed by position.
+    std::map<uint16_t, uint32_t> sync1_cycles;
 
     /// @brief the DC registers of one slave that runs in a DC mode.
     struct DCSetup {
@@ -182,6 +184,12 @@ private:
     /// @brief writes zero to the DC activation registers (0x0980 and 0x0981) of every
     /// enabled slave with a distributed clock.
     x::errors::Error clear_dc_activation();
+
+    /// @brief turns off each process data sync manager of an enabled slave that no
+    /// FMMU maps. SOEM leaves a sync manager with no PDOs at its SII size, and some
+    /// slaves refuse SAFE-OP while one is on.
+    /// @returns errors::ACTIVATION_ERROR when a slave does not answer or take a write.
+    x::errors::Error disable_unmapped_sync_managers();
 
     /// @brief returns the DC registers of each enabled slave whose synchronization
     /// mode uses a distributed clock, at a bus cycle of period.
