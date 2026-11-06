@@ -105,7 +105,7 @@ func writeAndCommit(w *framer.Writer, key channel.Key, stamps ...telem.TimeStamp
 	GinkgoHelper()
 	Expect(w.Write(frame.NewUnary(key, telem.NewSeriesSecondsTSV(stamps...)))).
 		To(BeTrue())
-	MustSucceed(w.Commit())
+	MustCommit(w)
 }
 
 // write writes stamps to key in one writer and closes it, releasing control so a later

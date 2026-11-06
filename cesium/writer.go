@@ -60,9 +60,15 @@ func (w *Writer) Write(frame Frame) (authorized bool, err error) {
 	return authorized, err
 }
 
-func (w *Writer) Commit() (telem.TimeStamp, error) {
+// Commit makes the written samples available to reads and returns the end of the
+// commit. authorized is false if the writer lacks control of a channel it writes. The
+// end is then zero, and the writer stays open so that it can regain control.
+func (w *Writer) Commit() (end telem.TimeStamp, authorized bool, err error) {
 	res, err := w.exec(WriterRequest{Command: WriterCommandCommit}, true)
-	return res.End, err
+	if err != nil {
+		return 0, false, err
+	}
+	return res.End, res.Authorized, nil
 }
 
 // SetAuthority is synchronous. Naming a data channel also moves its written index to

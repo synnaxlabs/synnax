@@ -63,7 +63,7 @@ var _ = Describe("Writer", func() {
 						telem.NewSeriesV[int64](5, 6, 7),
 					},
 				))).To(BeTrue())
-				MustSucceed(writer.Commit())
+				MustCommit(writer)
 				Expect(writer.Write(frame.NewMulti(
 					s.keys,
 					[]telem.Series{
@@ -72,7 +72,7 @@ var _ = Describe("Writer", func() {
 						telem.NewSeriesV[int64](5, 6, 7),
 					},
 				))).To(BeTrue())
-				MustSucceed(writer.Commit())
+				MustCommit(writer)
 			})
 		}
 	})
@@ -118,7 +118,7 @@ var _ = Describe("Writer", func() {
 					telem.NewSeriesV("hello", "world", "foo"),
 				},
 			))).To(BeTrue())
-			MustSucceed(w.Commit())
+			MustCommit(w)
 			iter := MustOpen(s.dist.Framer.OpenIterator(ctx, iterator.Config{
 				Keys:   []channel.Key{strCh.Key()},
 				Bounds: telem.TimeRangeMax,
@@ -152,7 +152,7 @@ var _ = Describe("Writer", func() {
 					telem.NewSeriesV("a", "b", "c"),
 				},
 			))).To(BeTrue())
-			MustSucceed(w.Commit())
+			MustCommit(w)
 			iter := MustOpen(s.dist.Framer.OpenIterator(ctx, iterator.Config{
 				Keys:   []channel.Key{strCh.Key()},
 				Bounds: (20 * telem.SecondTS).Range(23 * telem.SecondTS),
@@ -418,10 +418,10 @@ var _ = Describe("Writer", func() {
 					Sync:  new(true),
 				}))
 				Expect(w.Write(frameAt(10, 11))).To(BeTrue())
-				MustSucceed(w.Commit())
+				MustCommit(w)
 				Expect(w.EndDomain(channel.Keys{localIdx, peerIdx})).To(BeTrue())
 				Expect(w.Write(frameAt(20, 21))).To(BeTrue())
-				MustSucceed(w.Commit())
+				MustCommit(w)
 				fill := MustSucceed(gw.Framer.OpenWriter(ctx, writer.Config{
 					Keys:  keys,
 					Start: 12 * telem.SecondTS,
@@ -429,7 +429,7 @@ var _ = Describe("Writer", func() {
 					Sync:  new(true),
 				}))
 				Expect(fill.Write(frameAt(12, 13))).To(BeTrue())
-				MustSucceed(fill.Commit())
+				MustCommit(fill)
 				Expect(fill.Close()).To(Succeed())
 				Expect(w.Close()).To(Succeed())
 			},
@@ -474,6 +474,62 @@ var _ = Describe("Writer", func() {
 				))).To(BeTrue())
 				Expect(w.EndDomain(keys)).To(BeFalse())
 				Expect(holder.Close()).To(Succeed())
+				Expect(w.Close()).To(Succeed())
+			},
+			Entry("on the gateway", 0),
+			Entry("on a peer", 1),
+		)
+		DescribeTable(
+			"Should report commits without control until control returns",
+			func(ctx SpecContext, refusing int) {
+				gw := testutil.NewCluster(ctx, 2).Nodes[1]
+				keys := channel.KeysFromChannels(
+					MustSucceed(gw.Channel.Create(ctx, []channel.Channel{
+						{
+							Name:        "gateway_time",
+							IsIndex:     true,
+							DataType:    telem.TimestampT,
+							Leaseholder: 1,
+						},
+						{
+							Name:        "peer_time",
+							IsIndex:     true,
+							DataType:    telem.TimestampT,
+							Leaseholder: 2,
+						},
+					})),
+				)
+				frameAt := func(second telem.TimeStamp) frame.Frame {
+					return frame.NewMulti(keys, []telem.Series{
+						telem.NewSeriesSecondsTSV(second),
+						telem.NewSeriesSecondsTSV(second),
+					})
+				}
+				w := MustSucceed(gw.Framer.OpenWriter(ctx, writer.Config{
+					ControlSubject:   control.Subject{Key: "low"},
+					Keys:             keys,
+					Start:            10 * telem.SecondTS,
+					Authorities:      []control.Authority{1},
+					EnableAutoCommit: new(false),
+					Sync:             new(true),
+				}))
+				Expect(w.Write(frameAt(10))).To(BeTrue())
+				holder := MustSucceed(gw.Framer.OpenWriter(ctx, writer.Config{
+					ControlSubject: control.Subject{Key: "high"},
+					Keys:           channel.Keys{keys[refusing]},
+					Start:          10 * telem.SecondTS,
+					Authorities:    []control.Authority{control.AuthorityAbsolute},
+					Sync:           new(true),
+				}))
+				// A peer opens its writer after OpenWriter returns.
+				MustCommit(holder)
+				for range 2 {
+					_, authorized := MustSucceed2(w.Commit())
+					Expect(authorized).To(BeFalse())
+				}
+				Expect(holder.Close()).To(Succeed())
+				Expect(w.Write(frameAt(11))).To(BeTrue())
+				Expect(MustCommit(w)).To(Equal(11*telem.SecondTS + 1))
 				Expect(w.Close()).To(Succeed())
 			},
 			Entry("on the gateway", 0),
@@ -557,7 +613,7 @@ var _ = Describe("Writer", func() {
 					data.Key(),
 					telem.NewSeriesV(1.1, 2.2, 3.3),
 				))).To(BeTrue())
-				MustSucceed(w.Commit())
+				MustCommit(w)
 				Expect(w.Close()).To(Succeed())
 				after := telem.Now()
 

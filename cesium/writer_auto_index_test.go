@@ -73,7 +73,7 @@ var _ = Describe("Writer AutoIndex", func() {
 								),
 							),
 						)
-						MustSucceed(w.Commit())
+						MustCommit(w)
 						after := telem.Now()
 
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx))
@@ -129,7 +129,7 @@ var _ = Describe("Writer AutoIndex", func() {
 								),
 							),
 						)
-						MustSucceed(w.Commit())
+						MustCommit(w)
 
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx))
 						ts := f.SeriesAt(0).Unmarshal[telem.TimeStamp]()
@@ -177,7 +177,7 @@ var _ = Describe("Writer AutoIndex", func() {
 								telem.NewSeriesV[float64](1, 2, 3),
 							},
 						)))
-						MustSucceed(w.Commit())
+						MustCommit(w)
 
 						f := MustSucceed(
 							db.Read(
@@ -283,7 +283,7 @@ var _ = Describe("Writer AutoIndex", func() {
 								telem.UnaryFrame(data, telem.NewSeriesV[float64](2)),
 							),
 						).To(BeTrue())
-						MustSucceed(w.Commit())
+						MustCommit(w)
 
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx))
 						ts := f.SeriesAt(0).Unmarshal[telem.TimeStamp]()
@@ -337,7 +337,7 @@ var _ = Describe("Writer AutoIndex", func() {
 								telem.NewSeriesV[int64](10, 20, 30),
 							},
 						)))
-						MustSucceed(w.Commit())
+						MustCommit(w)
 
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx))
 						ts := f.SeriesAt(0).Unmarshal[telem.TimeStamp]()
@@ -389,7 +389,7 @@ var _ = Describe("Writer AutoIndex", func() {
 								telem.NewSeriesV[float64](4, 5, 6),
 							},
 						)))
-						MustSucceed(w.Commit())
+						MustCommit(w)
 
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx))
 						ts := f.SeriesAt(0).Unmarshal[telem.TimeStamp]()
@@ -448,7 +448,7 @@ var _ = Describe("Writer AutoIndex", func() {
 								telem.NewSeriesV[float64](10, 20, 30, 40),
 							},
 						)))
-						MustSucceed(w.Commit())
+						MustCommit(w)
 
 						ts1 := MustSucceed(
 							db.Read(ctx, telem.TimeRangeMax, idx1),
@@ -513,7 +513,7 @@ var _ = Describe("Writer AutoIndex", func() {
 								telem.NewSeriesV[float64](4, 5, 6),
 							},
 						)))
-						MustSucceed(w.Commit())
+						MustCommit(w)
 
 						ts1 := MustSucceed(
 							db.Read(ctx, telem.TimeRangeMax, idx1),
@@ -576,7 +576,7 @@ var _ = Describe("Writer AutoIndex", func() {
 								telem.NewSeriesV[float64](3, 4),
 							},
 						)))
-						MustSucceed(w.Commit())
+						MustCommit(w)
 
 						ts1 := MustSucceed(
 							db.Read(
@@ -637,7 +637,7 @@ var _ = Describe("Writer AutoIndex", func() {
 								),
 							),
 						)
-						MustSucceed(w.Commit())
+						MustCommit(w)
 
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx))
 						ts := f.SeriesAt(0).Unmarshal[telem.TimeStamp]()
@@ -681,7 +681,7 @@ var _ = Describe("Writer AutoIndex", func() {
 								telem.NewSeriesV[float64](1),
 							},
 						)))
-						MustSucceed(w.Commit())
+						MustCommit(w)
 						Expect(w.Close()).To(Succeed())
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx))
 						Expect(f.SeriesAt(0)).To(telem.MatchSeriesData(
@@ -724,7 +724,7 @@ var _ = Describe("Writer AutoIndex", func() {
 							telem.NewSeriesV[float64](1, 2),
 						},
 					)))
-					MustSucceed(w.Commit())
+					MustCommit(w)
 					Expect(w.Close()).To(Succeed())
 
 					f := MustSucceed(

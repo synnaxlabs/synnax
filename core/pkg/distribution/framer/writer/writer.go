@@ -41,9 +41,12 @@ func (w *Writer) Write(frame frame.Frame) (authorized bool, err error) {
 	return authorized, err
 }
 
-func (w *Writer) Commit() (telem.TimeStamp, error) {
+func (w *Writer) Commit() (end telem.TimeStamp, authorized bool, err error) {
 	res, err := w.exec(Request{Command: CommandCommit}, true)
-	return res.End, err
+	if err != nil {
+		return 0, false, err
+	}
+	return res.End, res.Authorized, nil
 }
 
 func (w *Writer) SetAuthority(cfg Config) error {

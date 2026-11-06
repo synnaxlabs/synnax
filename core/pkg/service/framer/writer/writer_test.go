@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -65,6 +66,50 @@ var _ = Describe("Writer", func() {
 		Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
 		return ch
 	}
+
+	It(
+		"Should report commits without control until control returns",
+		func(ctx SpecContext) {
+			ch := channel.Channel{
+				Name:     UniqueChannelName(),
+				DataType: telem.TimestampT,
+				IsIndex:  true,
+			}
+			Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
+			keys := channel.Keys{ch.Key()}
+			w := MustSucceed(writerSvc.Open(ctx, writer.Config{
+				ControlSubject:   control.Subject{Key: "low"},
+				Keys:             keys,
+				Start:            10 * telem.SecondTS,
+				Authorities:      []control.Authority{1},
+				EnableAutoCommit: new(false),
+				Sync:             new(true),
+			}))
+			Expect(w.Write(frame.NewUnary(
+				ch.Key(),
+				telem.NewSeriesSecondsTSV(10),
+			))).To(BeTrue())
+			holder := MustSucceed(writerSvc.Open(ctx, writer.Config{
+				ControlSubject: control.Subject{Key: "high"},
+				Keys:           keys,
+				Start:          10 * telem.SecondTS,
+				Authorities:    []control.Authority{control.AuthorityAbsolute},
+				Sync:           new(true),
+			}))
+			for range 2 {
+				end, authorized := MustSucceed2(w.Commit())
+				Expect(authorized).To(BeFalse())
+				Expect(end).To(BeZero())
+			}
+			Expect(holder.Close()).To(Succeed())
+			Expect(w.Write(frame.NewUnary(
+				ch.Key(),
+				telem.NewSeriesSecondsTSV(11),
+			))).To(BeTrue())
+			Expect(MustCommit(w)).To(Equal(11*telem.SecondTS + 1))
+			Expect(w.Close()).To(Succeed())
+		},
+	)
 
 	Describe("Open Errors", func() {
 		It(
@@ -193,10 +238,10 @@ var _ = Describe("Writer", func() {
 			keys := channel.Keys{idx.Key(), data.Key()}
 			w := openWriter(ctx, keys)
 			Expect(w.Write(frameAt(keys, 10, 11))).To(BeTrue())
-			MustSucceed(w.Commit())
+			MustCommit(w)
 			Expect(w.EndDomain(channel.Keys{idx.Key()})).To(BeTrue())
 			Expect(w.Write(frameAt(keys, 20, 21))).To(BeTrue())
-			MustSucceed(w.Commit())
+			MustCommit(w)
 			fill := MustSucceed(writerSvc.Open(ctx, writer.Config{
 				Keys:  keys,
 				Start: 12 * telem.SecondTS,
@@ -204,7 +249,7 @@ var _ = Describe("Writer", func() {
 				Sync:  new(true),
 			}))
 			Expect(fill.Write(frameAt(keys, 12, 13))).To(BeTrue())
-			MustSucceed(fill.Commit())
+			MustCommit(fill)
 			Expect(fill.Close()).To(Succeed())
 			Expect(w.Close()).To(Succeed())
 		})
@@ -214,7 +259,7 @@ var _ = Describe("Writer", func() {
 			holder := openWriter(ctx, keys)
 			other := openWriter(ctx, keys)
 			Expect(holder.Write(frameAt(keys, 10, 11))).To(BeTrue())
-			MustSucceed(holder.Commit())
+			MustCommit(holder)
 			Expect(other.EndDomain(channel.Keys{idx.Key()})).To(BeFalse())
 			Expect(other.Close()).To(Succeed())
 			Expect(holder.Close()).To(Succeed())

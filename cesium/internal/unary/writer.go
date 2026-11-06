@@ -440,6 +440,14 @@ func (w *Writer) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	return ts, nil
 }
 
+// Authorize returns control.ErrUnauthorized if the writer does not have control of its
+// channel.
+func (w *Writer) Authorize() error {
+	return w.wrapError(
+		w.control.Authorize(func(*controlledWriter) error { return nil }),
+	)
+}
+
 func (w *Writer) CommitWithEnd(ctx context.Context, end telem.TimeStamp) (err error) {
 	if w.closed {
 		return w.wrapError(ErrWriterClosed)
