@@ -65,9 +65,10 @@ const keysOnly = (query: unknown): unknown[] | null => {
 };
 
 /**
- * The query objects a request schema accepts, leaving out a bare key list. A recursive
- * `where` schema infers no input type, so `where` takes its output type, which the
- * schema also accepts.
+ * The query objects a request schema accepts. It leaves out a bare key list, which each
+ * overload takes on its own, and a plain `key` value, which addresses one record. A
+ * recursive `where` schema infers no input type, so `where` takes its output type,
+ * which the schema also accepts.
  */
 export type RequestInput<Z extends z.ZodType> =
   z.input<Z> extends infer I
@@ -75,7 +76,9 @@ export type RequestInput<Z extends z.ZodType> =
       ? never
       : "where" extends keyof I
         ? Omit<I, "where"> & Pick<Extract<z.output<Z>, { where?: unknown }>, "where">
-        : I
+        : "key" extends keyof I
+          ? Omit<I, "key"> & { key?: Exclude<I["key"], record.Key> }
+          : I
     : never;
 
 /** True for params that are a bare record key rather than a query object. */
