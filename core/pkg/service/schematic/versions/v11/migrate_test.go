@@ -136,6 +136,25 @@ var _ = Describe("Migration", func() {
 		))
 	})
 
+	It("Should keep the zero fields of an element config", func(ctx SpecContext) {
+		old := stored(msgpack.EncodedJSON{"variant": "polygon", "stroke_width": 0.0})
+		out := MustSucceed(v11.MigrateElementConfig(ctx, old))
+		variant := out.Variant.(v11.PolygonElementConfig)
+		Expect(variant.StrokeWidth).To(HaveValue(BeZero()))
+	})
+
+	It("Should keep a zero numeric telemetry precision", func(ctx SpecContext) {
+		out := MustSucceed(v11.MigrateNumericTelemConfig(ctx, v10.NumericTelemConfig{}))
+		Expect(out.Precision).To(HaveValue(BeZero()))
+	})
+
+	It("Should keep zero scale indicator bounds", func(ctx SpecContext) {
+		out := MustSucceed(
+			v11.MigrateScaleIndicatorConfig(ctx, v10.ScaleIndicatorConfig{}),
+		)
+		Expect(out.Bounds).To(HaveValue(BeZero()))
+	})
+
 	It("Should not reuse a v10 migration key", func() {
 		Expect(v11.Migration.Key()).ToNot(Equal(v10.Migration.Key()))
 	})
