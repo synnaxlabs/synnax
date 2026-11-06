@@ -22,8 +22,10 @@ from framework.models import SynnaxConnection
 
 _READY_TIMEOUT = 60.0
 _STOP_TIMEOUT = 15.0
-# A licensed Core logs this once its embedded Driver has started.
+# A Core logs this once its embedded Driver has started, with or without a license.
 _READY_LINE = b"Synnax is running and available at"
+# A licensed Core logs this at startup, before the ready line.
+_LICENSE_LINE = b"license active"
 
 
 @dataclass(frozen=True)
@@ -48,6 +50,8 @@ class Process:
         self._log = open(core.log_path, "wb")
         # Only the first Core's Driver reads the NI devices.
         args = [str(binary), "start", "-mi", "-l", core.address, "-d", str(self._data)]
+        args += ["--username", core.connection.username]
+        args += ["--password", core.connection.password]
         args += ["--disable-integrations", "ni"]
         flags = 0
         if sys.platform == "win32":
@@ -60,7 +64,8 @@ class Process:
     def wait_ready(self) -> None:
         """Blocks until the Core and its Driver are running.
 
-        :raises RuntimeError: If the Core exits or does not start in time.
+        :raises RuntimeError: If the Core exits, does not start in time, or runs
+            without a license.
         """
         deadline = time.monotonic() + _READY_TIMEOUT
         while time.monotonic() < deadline:
@@ -69,7 +74,14 @@ class Process:
                     f"Core at {self.core.address} exited with code "
                     f"{self._popen.returncode}. See {self.core.log_path}"
                 )
-            if _READY_LINE in self.core.log_path.read_bytes():
+            log = self.core.log_path.read_bytes()
+            if _READY_LINE in log:
+                if _LICENSE_LINE not in log:
+                    raise RuntimeError(
+                        f"Core at {self.core.address} has no active license, so it "
+                        f"rejects API calls. Set SYNNAX_LICENSE_KEY. See "
+                        f"{self.core.log_path}"
+                    )
                 return
             time.sleep(0.5)
         raise RuntimeError(
@@ -98,11 +110,17 @@ class Process:
 def start(
     *, binary: Path, first: SynnaxConnection, count: int, log_dir: Path
 ) -> list[Process]:
-    """Starts count Cores on the ports after the first Core's port, and waits until
-    each runs. Each Core keeps its data in memory.
+    """Starts count Cores on the ports after the first Core's port, with its login,
+    and waits until each runs. Each Core keeps its data in memory.
 
+    :raises ValueError: If the first Core is secure, as the Cores started here are
+        not.
     :raises RuntimeError: If a port is taken, or a Core does not start.
     """
+    if first.secure:
+        raise ValueError(
+            "Extra Cores run without TLS, so they cannot test a secure Core"
+        )
     connections = [
         dataclasses.replace(first, port=first.port + i) for i in range(1, count + 1)
     ]
