@@ -7,10 +7,14 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from uuid import UUID
+
 import pytest
 from pydantic import ValidationError
 
 import synnax as sy
+import synnax.ni.chassis
+import synnax.ni.device
 
 
 @pytest.mark.ni
@@ -888,3 +892,39 @@ class TestNIDeviceHelpers:
         )
         assert isinstance(device.properties, dict)
         assert device.properties["identifier"] == "test_id"
+
+
+@pytest.mark.ni
+class TestNIResources:
+    """Tests for the NI device and chassis resources."""
+
+    KEY = UUID("11111111-1111-4111-8111-111111111111")
+
+    def test_device_defaults(self) -> None:
+        device = sy.ni.device.Device(
+            rack=1, name="PXI-6255", serial="01A", model="PXI-6255", alias="Mod1"
+        )
+        assert device.identifier == ""
+        assert device.chassis is None
+        assert device.analog_input == sy.ni.device.InputPorts()
+        assert device.analog_output == sy.ni.device.OutputPorts()
+
+    def test_device_ontology_id(self) -> None:
+        assert sy.ni.device.ontology_id(self.KEY).type == "ni_device"
+        assert sy.ni.device.ontology_id(self.KEY).key == str(self.KEY)
+
+    def test_chassis_ontology_id(self) -> None:
+        assert sy.ni.chassis.ontology_id(self.KEY).type == "ni_chassis"
+        assert sy.ni.chassis.ontology_id(self.KEY).key == str(self.KEY)
+
+    def test_chassis_requires_a_resource_name(self) -> None:
+        with pytest.raises(ValidationError):
+            sy.ni.chassis.Chassis.model_validate(
+                {"rack": 1, "name": "PXIe-1071", "model": "1071", "serial": "01A"}
+            )
+
+    def test_chassis_serial_defaults_to_empty(self) -> None:
+        chassis = sy.ni.chassis.Chassis(
+            rack=1, name="PXIe-1071", model="1071", resource_name="Mod1"
+        )
+        assert chassis.serial == ""
