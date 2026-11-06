@@ -262,7 +262,7 @@ class Synnax(framer.Client):
         self.users = user.Client(self._transport.unary)
         self.statuses = status.Client(self._transport.unary)
         self.license = LicenseClient(self._transport.unary)
-        self.arcs = arc.Client(self._transport.unary)
+        self.arcs = arc.Client(self._transport.unary, self.ontology)
         self.access = AccessClient(self._transport.unary)
 
     def close(self) -> None:

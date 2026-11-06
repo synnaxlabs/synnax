@@ -114,7 +114,9 @@ var _ = Describe("Loader", func() {
 		It("Should hide a member that is not exported", func(ctx SpecContext) {
 			sources["m"] = `func f() i64 { return 1 }`
 			diag := analyze(ctx, "import m\n\ntrig -> m.f() -> out")
-			Expect(diag.String()).To(ContainSubstring("undefined symbol: f"))
+			Expect(diag.String()).To(
+				ContainSubstring(`'f' is not exported by module "m"`),
+			)
 		})
 
 		It("Should bind an alias", func(ctx SpecContext) {

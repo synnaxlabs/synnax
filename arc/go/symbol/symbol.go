@@ -647,9 +647,11 @@ func (s *Symbol) resolveMember(
 	opts resolveOpts,
 ) (*Symbol, error) {
 	child := s.FindChild(name)
-	if child == nil || (!opts.includeInternal &&
-		(child.Internal || (s.UserDefined && !child.Exported))) {
+	if child == nil || (!opts.includeInternal && child.Internal) {
 		return nil, &UndefinedSymbolError{ctx: ctx, Name: name, scope: s}
+	}
+	if !opts.includeInternal && s.UserDefined && !child.Exported {
+		return nil, &NotExportedError{Name: name, Module: s.Name}
 	}
 	return child, nil
 }

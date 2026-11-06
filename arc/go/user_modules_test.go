@@ -19,19 +19,22 @@ import (
 
 var _ = Describe("User modules", func() {
 	const (
-		trig   uint32 = 100
-		fnOut  uint32 = 101
-		seqOut uint32 = 102
+		trig    uint32 = 100
+		fnOut   uint32 = 101
+		seqOut  uint32 = 102
+		textOut uint32 = 103
 	)
 	resolver := channelSymbols(map[string]channelDef{
-		"trig":    {types.U8(), int(trig)},
-		"fn_out":  {types.I64(), int(fnOut)},
-		"seq_out": {types.U8(), int(seqOut)},
+		"trig":     {types.U8(), int(trig)},
+		"fn_out":   {types.I64(), int(fnOut)},
+		"seq_out":  {types.U8(), int(seqOut)},
+		"text_out": {types.String(), int(textOut)},
 	})
 	digests := []channels.Digest{
 		{Key: trig, DataType: telem.Uint8T},
 		{Key: fnOut, DataType: telem.Int64T},
 		{Key: seqOut, DataType: telem.Uint8T},
+		{Key: textOut, DataType: telem.StringT},
 	}
 	last := func(fr telem.Frame[uint32], key uint32) telem.Series {
 		GinkgoHelper()
@@ -99,6 +102,22 @@ export doubled := i64(trig) * 2
 		defer h.Close(ctx)
 		out := run(ctx, h, 1)
 		Expect(last(out, fnOut).Unmarshal[int64]()).To(Equal([]int64{2}))
+	})
+
+	It("Should run an exported function that formats a channel it reads", func(
+		ctx SpecContext,
+	) {
+		h := newModuleRuntimeHarness(ctx, `
+import m
+
+m.reactive() -> text_out
+`, map[string]string{"m": `
+export func reactive() str { return f"Data: {trig}" }
+`}, resolver, digests...)
+		defer h.Close(ctx)
+		out := run(ctx, h, 1)
+		texts := last(out, textOut).Unmarshal[string]()
+		Expect(texts[len(texts)-1]).To(Equal("Data: 1"))
 	})
 
 	It("Should activate a module sequence from inside a sequence", func(

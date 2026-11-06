@@ -15,6 +15,18 @@ import (
 	"strings"
 )
 
+// NotExportedError is returned when a user module holds the member but does not
+// export it.
+type NotExportedError struct {
+	Name   string
+	Module string
+}
+
+// Error implements the error interface.
+func (e *NotExportedError) Error() string {
+	return fmt.Sprintf("'%s' is not exported by module %q", e.Name, e.Module)
+}
+
 // UndefinedSymbolError is returned when a symbol cannot be resolved. It lazily
 // computes "did you mean" suggestions only when GetHint() is called, avoiding
 // expensive search operations on the common path where the error is discarded

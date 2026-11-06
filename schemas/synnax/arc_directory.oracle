@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 @go output "core/pkg/service/arc/directory"
+@py output "client/py/synnax/arc/directory"
 @ts output "client/ts/src/arc/directory"
 
 Key = uuid {
