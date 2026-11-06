@@ -308,6 +308,10 @@ const CHILDREN_SERVER_FIELDS = ["limit", "offset"] as const;
 const normalizeChildren = (params: ChildrenParams): ChildrenRequest =>
   typeof params === "string" ? { key: params } : params;
 
+/** True for params that address one range by a plain key. */
+const isKeyParams = (params: object): params is { key: Key } =>
+  "key" in params && typeof params.key === "string";
+
 const isParentChange = (rel: ontology.Relationship, id: ontology.ID): boolean =>
   ontology.matchRelationship(rel, {
     type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
@@ -673,7 +677,8 @@ export class Client extends query.Retriever<
       | query.RequestInput<typeof retrieveMultiParamsZ>,
   ): Promise<Range | Range[]> {
     // The branches narrow params onto different base overloads.
-    if (typeof params === "string") return await super.retrieve(params);
+    if (typeof params === "string" || isKeyParams(params))
+      return await super.retrieve(params);
     return await super.retrieve(params);
   }
 

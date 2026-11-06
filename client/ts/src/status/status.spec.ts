@@ -12,7 +12,7 @@ import { describe, expect, it, onTestFinished, vi } from "vitest";
 import z from "zod";
 
 import { group } from "@/group";
-import { NotFoundError } from "@/index";
+import { NotFoundError, ValidationError } from "@/index";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { status } from "@/status";
@@ -730,6 +730,19 @@ describe("Status", () => {
       const results = await client.statuses.retrieve({ key: keys, variant: "error" });
 
       expect(results.map((s) => s.key)).toEqual([keys[1]]);
+    });
+
+    it("should reject a plain key beside other fields", async () => {
+      await expect(
+        // @ts-expect-error - a plain key addresses one status, so it takes no filter.
+        client.statuses.retrieve({ key: "status", variant: "error" }),
+      ).rejects.toThrow(
+        new ValidationError(
+          "status params address a single key but do not match the single-query " +
+            "schema.\nFailed to parse status single query params (1 issue)\n\n  {\n" +
+            '    "key": "status",\n  ✗ "variant": "error"  × unexpected key\n  }',
+        ),
+      );
     });
 
     it("should filter statuses by a tree of filters", async () => {
