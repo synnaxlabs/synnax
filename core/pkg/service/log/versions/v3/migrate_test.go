@@ -38,7 +38,7 @@ var _ = Describe("Migration", func() {
 					Tz:     tz,
 				},
 			}))
-			Expect(got.ValueFormat).To(Equal(v3.TimestampConfig{
+			Expect(got.TimestampConfig).To(Equal(v3.TimestampConfig{
 				Format:   telem.TimestampFormatISO,
 				TimeZone: expected,
 			}))
@@ -163,7 +163,7 @@ var _ = Describe("Migration", func() {
 				Channel:  7,
 				Notation: notation.NotationScientific,
 				Alias:    "pressure",
-				ValueFormat: v3.TimestampConfig{
+				TimestampConfig: v3.TimestampConfig{
 					Format:   telem.TimestampFormatPreciseDate,
 					TimeZone: telem.TimeZoneUTC,
 				},

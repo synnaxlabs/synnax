@@ -55,8 +55,9 @@ type ChannelEntry struct {
 	Precision *uint8 `json:"precision,omitzero" msgpack:"precision,omitempty"`
 	// Alias is a human-readable alias displayed in place of the channel name.
 	Alias string `json:"alias" msgpack:"alias"`
-	// ValueFormat is the format of the values of a timestamp channel.
-	ValueFormat TimestampConfig `json:"value_format" msgpack:"value_format"`
+	// TimestampConfig formats the values of a timestamp channel. It has no effect on
+	// line times.
+	TimestampConfig TimestampConfig `json:"timestamp_config" msgpack:"timestamp_config"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -64,11 +65,11 @@ func (c *ChannelEntry) ApplyDefaults() {
 	if c.Notation == "" {
 		c.Notation = "standard"
 	}
-	if c.ValueFormat.Format == "" {
-		c.ValueFormat.Format = "preciseDate"
+	if c.TimestampConfig.Format == "" {
+		c.TimestampConfig.Format = "preciseDate"
 	}
-	if c.ValueFormat.TimeZone == "" {
-		c.ValueFormat.TimeZone = "local"
+	if c.TimestampConfig.TimeZone == "" {
+		c.TimestampConfig.TimeZone = "local"
 	}
 }
 
@@ -82,7 +83,7 @@ func (c ChannelEntry) Validate() error {
 		v.LessThanEq("precision", *c.Precision, 17)
 	}
 	v.MaxLength("alias", c.Alias, 64)
-	v.Exec(func() error { return validate.PathedError(c.ValueFormat.Validate(), "value_format") })
+	v.Exec(func() error { return validate.PathedError(c.TimestampConfig.Validate(), "timestamp_config") })
 	return v.Error()
 }
 

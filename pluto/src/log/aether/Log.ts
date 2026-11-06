@@ -830,7 +830,7 @@ export class Log
     let value = entry.value;
     const isTimestampChannel = channelDataTypes[chKeyStr] === "timestamp";
     if (isTimestampChannel) {
-      const { format, timeZone: valueTimeZone } = cfg?.valueFormat ?? {
+      const { format, timeZone: valueTimeZone } = cfg?.timestampConfig ?? {
         format: "preciseDate",
         timeZone: "local",
       };

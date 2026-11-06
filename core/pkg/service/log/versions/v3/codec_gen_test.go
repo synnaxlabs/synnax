@@ -49,7 +49,7 @@ var _ = Describe("Codec", func() {
 				Notation:  notation.Notation("standard"),
 				Precision: new(uint8(9)),
 				Alias:     "test_9",
-				ValueFormat: v3.TimestampConfig{
+				TimestampConfig: v3.TimestampConfig{
 					Format:   telem.TimestampFormat("ISO"),
 					TimeZone: telem.TimeZone("local"),
 				},
@@ -65,7 +65,7 @@ var _ = Describe("Codec", func() {
 				Notation:  notation.Notation(""),
 				Precision: nil,
 				Alias:     "",
-				ValueFormat: v3.TimestampConfig{
+				TimestampConfig: v3.TimestampConfig{
 					Format:   telem.TimestampFormat(""),
 					TimeZone: telem.TimeZone(""),
 				},
@@ -98,7 +98,7 @@ var _ = Describe("Codec", func() {
 						Notation:  notation.Notation("standard"),
 						Precision: new(uint8(12)),
 						Alias:     "test_12",
-						ValueFormat: v3.TimestampConfig{
+						TimestampConfig: v3.TimestampConfig{
 							Format:   telem.TimestampFormat("ISO"),
 							TimeZone: telem.TimeZone("local"),
 						},
@@ -164,7 +164,7 @@ func BenchmarkEncodeDecodeChannelEntry(b *testing.B) {
 		Notation:  notation.Notation("standard"),
 		Precision: new(uint8(9)),
 		Alias:     "test_9",
-		ValueFormat: v3.TimestampConfig{
+		TimestampConfig: v3.TimestampConfig{
 			Format:   telem.TimestampFormat("ISO"),
 			TimeZone: telem.TimeZone("local"),
 		},
@@ -200,7 +200,7 @@ func BenchmarkEncodeDecodeLog(b *testing.B) {
 				Notation:  notation.Notation("standard"),
 				Precision: new(uint8(12)),
 				Alias:     "test_12",
-				ValueFormat: v3.TimestampConfig{
+				TimestampConfig: v3.TimestampConfig{
 					Format:   telem.TimestampFormat("ISO"),
 					TimeZone: telem.TimeZone("local"),
 				},
@@ -259,7 +259,7 @@ func FuzzDecodeChannelEntry(f *testing.F) {
 			Notation:  notation.Notation("standard"),
 			Precision: new(uint8(9)),
 			Alias:     "test_9",
-			ValueFormat: v3.TimestampConfig{
+			TimestampConfig: v3.TimestampConfig{
 				Format:   telem.TimestampFormat("ISO"),
 				TimeZone: telem.TimeZone("local"),
 			},
@@ -282,7 +282,7 @@ func FuzzDecodeChannelEntry(f *testing.F) {
 			Notation:  notation.Notation(""),
 			Precision: nil,
 			Alias:     "",
-			ValueFormat: v3.TimestampConfig{
+			TimestampConfig: v3.TimestampConfig{
 				Format:   telem.TimestampFormat(""),
 				TimeZone: telem.TimeZone(""),
 			},
@@ -332,7 +332,7 @@ func FuzzDecodeLog(f *testing.F) {
 					Notation:  notation.Notation("standard"),
 					Precision: new(uint8(12)),
 					Alias:     "test_12",
-					ValueFormat: v3.TimestampConfig{
+					TimestampConfig: v3.TimestampConfig{
 						Format:   telem.TimestampFormat("ISO"),
 						TimeZone: telem.TimeZone("local"),
 					},

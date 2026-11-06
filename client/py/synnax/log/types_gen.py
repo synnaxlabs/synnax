@@ -66,7 +66,8 @@ class ChannelEntry(BaseModel):
         precision: Is the number of digits after the decimal point, from 0 to 17. Absent
             shows each sample as it arrives.
         alias: Is a human-readable alias displayed in place of the channel name.
-        value_format: Is the format of the values of a timestamp channel.
+        timestamp_config: Formats the values of a timestamp channel. It has no effect on
+            line times.
     """
 
     channel: channel_.Key = Field(ge=0, le=4294967295)
@@ -74,7 +75,7 @@ class ChannelEntry(BaseModel):
     notation: notation_.Notation = "standard"
     precision: int | None = Field(default=None, ge=0, le=17)
     alias: str = Field(max_length=64, default="")
-    value_format: TimestampConfig = Field(
+    timestamp_config: TimestampConfig = Field(
         default_factory=lambda: TimestampConfig(format="preciseDate", time_zone="local")
     )
 

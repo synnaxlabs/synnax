@@ -101,18 +101,18 @@ func (p SetChannelAliasPayload) Handle(state Log) (Log, error) {
 
 // Handle sets the format of the values of the timestamp channel. No-op when no entry
 // references it.
-func (p SetChannelValueFormatPayload) Handle(state Log) (Log, error) {
+func (p SetChannelTimestampFormatPayload) Handle(state Log) (Log, error) {
 	if i := channelEntryIndex(state.Channels, p.Channel); i != -1 {
-		state.Channels[i].ValueFormat.Format = p.Format
+		state.Channels[i].TimestampConfig.Format = p.Format
 	}
 	return state, nil
 }
 
 // Handle sets the time zone of the values of the timestamp channel. No-op when no
 // entry references it.
-func (p SetChannelValueTimeZonePayload) Handle(state Log) (Log, error) {
+func (p SetChannelTimestampTimeZonePayload) Handle(state Log) (Log, error) {
 	if i := channelEntryIndex(state.Channels, p.Channel); i != -1 {
-		state.Channels[i].ValueFormat.TimeZone = p.TimeZone
+		state.Channels[i].TimestampConfig.TimeZone = p.TimeZone
 	}
 	return state, nil
 }
@@ -164,7 +164,7 @@ func channelEntryIndex(entries []ChannelEntry, key channel.Key) int {
 }
 
 // defaultChannelEntry builds a channel entry with the schema's default display
-// configuration. A zero color renders in the theme text color.
+// configuration. A zero color renders in the text color of the log.
 func defaultChannelEntry(key channel.Key) ChannelEntry {
 	e := ChannelEntry{Channel: key}
 	e.ApplyDefaults()

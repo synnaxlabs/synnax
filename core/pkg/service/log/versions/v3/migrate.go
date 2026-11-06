@@ -56,7 +56,7 @@ func MigrateChannelEntry(
 		out.Precision = &precision
 	}
 	out.Alias = cutToCharacters(old.Alias, 64)
-	out.ValueFormat = TimestampConfig{
+	out.TimestampConfig = TimestampConfig{
 		Format:   old.Timestamp.Format,
 		TimeZone: old.Timestamp.Tz,
 	}

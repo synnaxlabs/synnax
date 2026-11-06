@@ -26,7 +26,7 @@ class TestLog:
         entry = lg.channels[0]
         assert entry.precision is None
         assert entry.notation == "standard"
-        assert entry.value_format == log.TimestampConfig(
+        assert entry.timestamp_config == log.TimestampConfig(
             format="preciseDate", time_zone="local"
         )
         assert log.Log.model_validate_json(lg.model_dump_json()) == lg
@@ -87,7 +87,7 @@ class TestClient:
             channel=virtual_channel.key,
             color=sy.Color("#FF0000"),
             alias="pressure",
-            value_format=sy.log.TimestampConfig(format="ISO", time_zone="UTC"),
+            timestamp_config=sy.log.TimestampConfig(format="ISO", time_zone="UTC"),
         )
         log = client.logs.create(
             project.key,
@@ -97,17 +97,19 @@ class TestClient:
         assert retrieved.channels == [entry]
         assert retrieved.timestamp_precision == 2
 
-    def test_create_default_value_format(
+    def test_create_default_timestamp_config(
         self,
         client: sy.Synnax,
         project: sy.Project,
         virtual_channel: sy.Channel,
     ) -> None:
-        """Should store the default value format of a channel entry."""
+        """Should store the default timestamp config of a channel entry."""
         entry = sy.log.ChannelEntry(channel=virtual_channel.key, color=sy.Color())
         log = client.logs.create(project.key, sy.Log(name="Default", channels=[entry]))
-        value_format = client.logs.retrieve(key=log.key).channels[0].value_format
-        assert value_format == sy.log.TimestampConfig(
+        timestamp_config = (
+            client.logs.retrieve(key=log.key).channels[0].timestamp_config
+        )
+        assert timestamp_config == sy.log.TimestampConfig(
             format="preciseDate", time_zone="local"
         )
 
