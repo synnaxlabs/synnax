@@ -46,7 +46,12 @@ import {
   statusZ,
 } from "@/channel/types.gen";
 import { LINES } from "@/channel/where";
-import { matches, retrieveInputZ, serverComputed } from "@/channel/where.gen";
+import {
+  matches,
+  retrieveInputZ,
+  serverComputed,
+  shortcutZ,
+} from "@/channel/where.gen";
 import { type Writer } from "@/channel/writer";
 import { NotFoundError, ValidationError } from "@/errors";
 import { type framer } from "@/framer";
@@ -555,10 +560,7 @@ export class Client extends query.Retriever<
     const rangeKey = options?.rangeKey;
     if (isSingle && variant === "keys")
       return await super.retrieve({ key: normalized[0] as Key, rangeKey });
-    const where =
-      variant === "keys"
-        ? { key: { in: normalized as Key[] } }
-        : { name: { in: normalized as string[] } };
+    const { where } = shortcutZ.parse(normalized);
     const res = await super.retrieve(
       rangeKey == null ? { where } : { where, rangeKey },
     );
