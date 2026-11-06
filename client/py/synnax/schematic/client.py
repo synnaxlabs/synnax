@@ -138,6 +138,7 @@ class Client:
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
         where: Where | None = ...,
+        keys: list[Key] | None = ...,
         one: Literal[True],
     ) -> Schematic: ...
 

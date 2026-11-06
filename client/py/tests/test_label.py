@@ -148,6 +148,7 @@ class TestLabelClient:
         """Should return one label for any filter when one is set."""
         lbl = client.labels.create(name=str(uuid4()), color="#FF0000")
         assert client.labels.retrieve(name={"starts_with": lbl.name}, one=True) == lbl
+        assert client.labels.retrieve(keys=[lbl.key], one=True) == lbl
 
     def test_retrieve_one_with_limit(self, client: sy.Synnax) -> None:
         """Should reject one beside a limit, since a page could hide a match."""

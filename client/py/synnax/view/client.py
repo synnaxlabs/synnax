@@ -123,6 +123,8 @@ class Client:
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
         where: Where | None = ...,
+        keys: list[Key] | None = ...,
+        types: list[Type] | None = ...,
         search_term: str = ...,
         one: Literal[True],
     ) -> View: ...
