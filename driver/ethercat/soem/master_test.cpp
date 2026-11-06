@@ -174,6 +174,34 @@ TEST_F(SOEMMasterTest, CoEDiscoveryUsesEntryNamesAndDataTypes) {
     EXPECT_EQ(inputs[1].data_type, x::telem::FLOAT32_T);
 }
 
+/// @brief it should wait for the slaves to reach PRE-OP before it reads PDOs from the
+/// CoE object dictionary.
+TEST_F(SOEMMasterTest, CoEDiscoveryWaitsForPreOp) {
+    MockSlaveInfo slave;
+    slave.state = EC_STATE_INIT;
+    slave.bus_state = EC_STATE_INIT;
+    slave.mbx_proto = ECT_MBXPROT_COE;
+    this->add_slave(slave);
+    this->mock->sdo_objects = {
+        {{ECT_SDO_TXPDOASSIGN, 0}, 1},
+        {{ECT_SDO_TXPDOASSIGN, 1}, 0x1A00},
+        {{0x1A00, 0}, 1},
+        {{0x1A00, 1}, 0x60000110},
+        {{ECT_SDO_RXPDOASSIGN, 0}, 0},
+    };
+
+    ASSERT_NIL(this->master->initialize());
+
+    const auto slaves = this->master->slaves();
+    ASSERT_EQ(slaves.size(), 1);
+    EXPECT_TRUE(slaves[0].status.pdo_discovery_error.empty());
+    const auto &inputs = slaves[0].properties.input_pdos;
+    ASSERT_EQ(inputs.size(), 1);
+    EXPECT_EQ(inputs[0].index, 0x6000);
+    EXPECT_EQ(inputs[0].sub_index, 1);
+    EXPECT_EQ(inputs[0].bit_length, 16);
+}
+
 /// @brief it should type each PDO entry from the data type in the SII of the slave.
 TEST_F(SOEMMasterTest, SIIDiscoveryUsesEntryDataTypes) {
     MockSlaveInfo slave;
