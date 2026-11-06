@@ -950,6 +950,7 @@ describe("log/aether/Log", () => {
             precision: 2,
           }),
         ],
+        channelDataTypes: { "1": "float64" },
         selectionStart: 0,
         selectionEnd: 0,
       });
@@ -991,6 +992,7 @@ describe("log/aether/Log", () => {
             precision: 2,
           }),
         ],
+        channelDataTypes: { "1": "float64" },
         selectionStart: 0,
         selectionEnd: 0,
       });
@@ -1170,6 +1172,92 @@ describe("log/aether/Log", () => {
       expect(lines[1]).not.toContain("log");
       expect(lines[1]).toMatch(/^\s*$/);
       expect(lines[1].length).toBe(lines[0].indexOf("data"));
+    });
+  });
+
+  describe("number formatting", () => {
+    // Returns the value drawn for a sample of a channel with the given settings.
+    const shown = (
+      value: string,
+      dataType: string | undefined,
+      overrides: Partial<clientLog.ChannelEntry>,
+    ): string => {
+      const { log, recorder } = setup(
+        [{ ...makeEntry(0), value }],
+        box.construct({ x: 0, y: 0 }, { width: 1000, height: 500 }),
+        {
+          channels: [
+            clientLog.channelEntryZ.parse({
+              channel: 1,
+              color: color.ZERO,
+              ...overrides,
+            }),
+          ],
+          channelDataTypes: dataType == null ? {} : { "1": dataType },
+          channelNamesHidden: true,
+          timestampsHidden: true,
+        },
+      );
+      recorder.clear();
+      log.render();
+      return recorder.lower2d.calls
+        .filter(({ op }) => op === "fillText")
+        .map(({ args }) => String(args[0]))
+        .join("");
+    };
+
+    it("should keep the text of a string channel with a precision", () => {
+      expect(shown("12 volts", "string", { precision: 2 })).toBe("12 volts");
+    });
+
+    it("should keep the text of a string channel with a notation", () => {
+      expect(shown("1234", "string", { notation: "scientific" })).toBe("1234");
+    });
+
+    it("should keep the value of a boolean channel with a precision", () => {
+      expect(shown("true", "boolean", { precision: 2 })).toBe("true");
+    });
+
+    it("should keep a float sample of a channel that became an integer", () => {
+      expect(shown("3.14", "int32", { precision: 2 })).toBe("3.14");
+    });
+
+    it("should keep text of a channel that became a float", () => {
+      expect(shown("12 volts", "float32", { precision: 2 })).toBe("12 volts");
+    });
+
+    it("should keep a blank line of a channel that became a float", () => {
+      expect(shown("  ", "float32", { precision: 2 })).toBe("  ");
+    });
+
+    it("should show the raw value before the data type loads", () => {
+      expect(shown("3.14159", undefined, { precision: 2 })).toBe("3.14159");
+    });
+
+    it("should apply a precision to a float channel", () => {
+      expect(shown("3.14159", "float64", { precision: 2 })).toBe("3.14");
+    });
+
+    it("should keep every digit at auto precision in scientific notation", () => {
+      expect(shown("1234.5", "float64", { notation: "scientific" })).toBe("1.2345ᴇ3");
+    });
+
+    it("should keep every digit at auto precision in engineering notation", () => {
+      expect(shown("12345.6", "float64", { notation: "engineering" })).toBe(
+        "12.3456ᴇ3",
+      );
+    });
+
+    it("should keep every digit of a large integer at a precision", () => {
+      expect(shown("9007199254740993", "int64", { precision: 1 })).toBe(
+        "9007199254740993.0",
+      );
+    });
+
+    it("should keep every digit of a large integer at auto precision", () => {
+      expect(shown("18446744073709551615", "uint64", { notation: "scientific" })).toBe(
+        "1.8446744073709551615ᴇ19",
+      );
     });
   });
 

@@ -13,6 +13,7 @@ import {
   bounds,
   box,
   color,
+  DataType,
   type destructor,
   notation,
   text,
@@ -210,6 +211,26 @@ const wrapStarts = (value: string, columns: number): number[] => {
     used += width;
   }
   return starts;
+};
+
+const INTEGER = /^-?\d+$/;
+
+// Returns the sample in the number format of its channel. A sample shows as it arrives
+// when the channel holds no numbers, its data type has not loaded, or a calculated
+// channel changed type after the sample arrived.
+const formatNumber = (
+  value: string,
+  dataType: string | undefined,
+  { precision, notation: valueNotation }: log.ChannelEntry,
+): string => {
+  if (dataType == null) return value;
+  const type = new DataType(dataType);
+  if (type.isInteger && INTEGER.test(value))
+    return notation.stringifyNumber(BigInt(value), precision, valueNotation);
+  if (!type.isFloat || value.trim() === "") return value;
+  const number = Number(value);
+  if (Number.isNaN(number)) return value;
+  return notation.stringifyNumber(number, precision, valueNotation);
 };
 
 const sameEntries = (a: number[], b: number[]): boolean =>
@@ -812,11 +833,8 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
       } catch {
         // Leave value as-is if it can't be parsed as a bigint.
       }
-    } else if (cfg != null && (cfg.precision != null || cfg.notation !== "standard")) {
-      const num = parseFloat(value);
-      if (!isNaN(num))
-        value = notation.stringifyNumber(num, cfg.precision ?? 0, cfg.notation);
-    }
+    } else if (cfg != null && (cfg.precision != null || cfg.notation !== "standard"))
+      value = formatNumber(value, channelDataTypes[chKeyStr], cfg);
     const { displayNames, namePadding } = this.internal;
     const name = displayNames[chKeyStr] ?? chKeyStr;
     const pad = namePadding[chKeyStr] ?? "";
