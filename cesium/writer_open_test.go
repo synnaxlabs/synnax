@@ -244,6 +244,92 @@ var _ = Describe("Writer open", func() {
 		})
 	})
 
+	Describe("During a rename", func() {
+		var (
+			gfs        *gatedFS
+			db         *cesium.DB
+			key, vKey  cesium.ChannelKey
+			writerKeys []cesium.ChannelKey
+		)
+		BeforeEach(func(ctx SpecContext) {
+			gfs = newGatedFS(FileSystems["memFS"]())
+			db = mustOpenDBOnFS(ctx, gfs)
+			key, vKey = GenerateChannelKey(), GenerateChannelKey()
+			writerKeys = []cesium.ChannelKey{key, vKey}
+			Expect(db.CreateChannel(
+				ctx,
+				cesium.Channel{
+					Key:      key,
+					Name:     "time",
+					IsIndex:  true,
+					DataType: telem.TimestampT,
+				},
+				cesium.Channel{
+					Key:      vKey,
+					Name:     "virtual",
+					Virtual:  true,
+					DataType: telem.Int64T,
+				},
+			)).To(Succeed())
+		})
+
+		It("Should rename a channel while an open is blocked", func(ctx SpecContext) {
+			gate := gfs.gateFor(key)
+			gate.armed.Store(true)
+			DeferCleanup(gate.open)
+			opened := make(chan *cesium.Writer, 1)
+			go func() {
+				defer GinkgoRecover()
+				opened <- MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+					Channels: writerKeys,
+					Start:    telem.SecondTS,
+				}))
+			}()
+			Eventually(gate.entered).Should(Receive())
+			Expect(db.RenameChannels(ctx, map[cesium.ChannelKey]string{
+				key:  "renamed",
+				vKey: "renamed virtual",
+			})).To(Succeed())
+			gate.open()
+			var w *cesium.Writer
+			Eventually(opened).Should(Receive(&w))
+			Expect(w.Close()).To(Succeed())
+			Expect(
+				MustSucceed(db.RetrieveChannel(ctx, key)).Name,
+			).To(Equal("renamed"))
+		})
+
+		It("Should not race a rename with an open", func(ctx SpecContext) {
+			const rounds = 256
+			var (
+				wg   sync.WaitGroup
+				done atomic.Bool
+			)
+			wg.Go(func() {
+				defer GinkgoRecover()
+				defer done.Store(true)
+				for range rounds {
+					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+						Channels: writerKeys,
+						Start:    telem.SecondTS,
+					}))
+					Expect(w.Close()).To(Succeed())
+				}
+			})
+			wg.Go(func() {
+				defer GinkgoRecover()
+				for n := 0; !done.Load(); n++ {
+					name := strconv.Itoa(n)
+					Expect(db.RenameChannels(ctx, map[cesium.ChannelKey]string{
+						key:  name,
+						vKey: name,
+					})).To(Succeed())
+				}
+			})
+			wg.Wait()
+		})
+	})
+
 	Describe("Next to a delete", func() {
 		const stallTimeout = 10 * time.Second
 		for _, auth := range []control.Authority{1, control.AuthorityAbsolute} {
