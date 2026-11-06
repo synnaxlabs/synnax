@@ -1304,6 +1304,27 @@ x::errors::Error Master::disable_unmapped_sync_managers() {
         if (this->api->read_register(pos, ECT_REG_FMMU0, fmmus, EC_TIMEOUTRET) != 1 ||
             this->api->read_register(pos, ECT_REG_SM0, sms, EC_TIMEOUTRET) != 1)
             return fail("answer a read of its FMMU and sync manager registers");
+        // Demo: turn off SOEM's FMMU that maps the mailbox status into the frame.
+        if (this->api->slave_Ibits(pos) > 0)
+            for (size_t f = 0; f < counts[0]; ++f) {
+                uint8_t *fmmu = fmmus.data() + f * FMMU_SIZE;
+                if ((fmmu[FMMU_ACTIVATE] & 0x01) == 0 ||
+                    u16(fmmu + FMMU_PHYSICAL_START) != ECT_REG_SM1STAT)
+                    continue;
+                const auto address = static_cast<uint16_t>(
+                    ECT_REG_FMMU0 + f * FMMU_SIZE + FMMU_ACTIVATE
+                );
+                if (this->api->write_register(pos, address, {0}, EC_TIMEOUTRET) != 1)
+                    return fail("take the write that turns off its mailbox FMMU");
+                fmmu[FMMU_ACTIVATE] = 0;
+                LOG(INFO) << std::format(
+                    "[ethercat] slave {} ({}): turned off FMMU {}, which maps the "
+                    "mailbox status",
+                    pos,
+                    this->api->slave_name(pos),
+                    f
+                );
+            }
         for (size_t n = 2; n < counts[1]; ++n) {
             const uint8_t *sm = sms.data() + n * SM_SIZE;
             const uint16_t start = u16(sm);
