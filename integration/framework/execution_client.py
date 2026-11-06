@@ -21,7 +21,7 @@ from framework import resources, server_log
 from framework.config_client import ConfigClient, Sequence, TestDefinition
 from framework.cores import Core
 from framework.models import STATUS, Log, RunOptions, Test
-from framework.resources import Resources
+from framework.resources import Resources, Unavailable
 from framework.test_case import TestCase
 from framework.watchdog import Slots, Timeout, Watchdog, interrupt
 
@@ -41,8 +41,6 @@ _COLORS: list[str] = [
     "#000033",
 ]
 
-# Seconds past its timeout a test has to finish before the conductor stops waiting on
-# it.
 _TIMEOUT_GRACE = 60.0
 
 # Seconds a test can wait for its resources before the conductor logs the wait.
@@ -73,9 +71,13 @@ class ExecutionClient:
         log: Log,
         on_status_change: Callable[[Test], None],
         on_test_ran: Callable[[], None],
+        timeout_grace: float = _TIMEOUT_GRACE,
     ) -> None:
         """:param cores: The Cores to run tests on. The first one is the only Core
-        whose Driver reads NI devices."""
+        whose Driver reads NI devices.
+        :param timeout_grace: Seconds past its timeout a test has to finish before the
+        client stops waiting on it.
+        """
         self._config_client = config_client
         self._cores = cores
         self._resources = resources
@@ -95,7 +97,8 @@ class ExecutionClient:
         self._total_tests = 0
         self._tests_offset = 0
         self._timeout_thread: threading.Thread | None = None
-        self._watchdog = Watchdog(_TIMEOUT_GRACE)
+        self._watchdog = Watchdog(timeout_grace)
+        self._abandoned: dict[threading.Thread, str] = {}
 
     def run(self, sequences: list[Sequence]) -> None:
         """Execute all sequences."""
@@ -140,15 +143,19 @@ class ExecutionClient:
         runs the isolated sequences one at a time."""
         pending = [s for s in sequences if not s.isolated]
         lock = threading.Lock()
+        errors: list[BaseException] = []
 
         def lane(core: Core) -> None:
-            while not self.should_stop:
-                with lock:
-                    seq = next((s for s in pending if self._fits(s, core)), None)
-                    if seq is None:
-                        return
-                    pending.remove(seq)
-                self._run_sequence(seq, core)
+            try:
+                while not self.should_stop and not errors:
+                    with lock:
+                        seq = next((s for s in pending if self._fits(s, core)), None)
+                        if seq is None:
+                            return
+                        pending.remove(seq)
+                    self._run_sequence(seq, core)
+            except BaseException as e:
+                errors.append(e)
 
         lanes = [
             threading.Thread(target=lane, args=(core,), name=f"lane {core.address}")
@@ -159,10 +166,23 @@ class ExecutionClient:
         for t in lanes:
             while t.is_alive():
                 t.join(timeout=1.0)
+        if errors:
+            raise errors[0]
 
         for seq in sequences:
-            if seq.isolated and not self.should_stop:
+            if not seq.isolated or self.should_stop:
+                continue
+            with self._tests_lock:
+                running = sorted(
+                    {n for t, n in self._abandoned.items() if t.is_alive()}
+                )
+            if not running:
                 self._run_sequence(seq, self._cores[0])
+                continue
+            message = f"Abandoned tests still run: {', '.join(running)}"
+            self._log(f"Skipping isolated sequence '{seq.name}'. {message}")
+            for td in seq.tests:
+                self._record(td, self._result(td, STATUS.FAILED, message))
 
     def _fits(self, sequence: Sequence, core: Core) -> bool:
         if core is self._cores[0]:
@@ -256,7 +276,7 @@ class ExecutionClient:
             while t.is_alive() and not self._watchdog.abandoned(t):
                 t.join(timeout=1.0)
             if t.is_alive():
-                self._resources.free(t)
+                self._abandon(t, test_def)
 
             self._collect_result(test_def, future)
 
@@ -317,7 +337,7 @@ class ExecutionClient:
                 if self._watchdog.abandoned(t):
                     if slots is not None:
                         slots.free(t)
-                    self._resources.free(t)
+                    self._abandon(t, td)
                     self._collect_result(td, ft)
                 elif not t.is_alive():
                     self._collect_result(td, ft)
@@ -329,36 +349,52 @@ class ExecutionClient:
 
     # ----- Single test execution -----
 
+    def _abandon(self, thread: threading.Thread, test_def: TestDefinition) -> None:
+        self._resources.abandon(thread, str(test_def))
+        with self._tests_lock:
+            self._abandoned[thread] = str(test_def)
+
     def _collect_result(self, test_def: TestDefinition, future: Future[Test]) -> None:
         if future.done():
-            result = future.result()
-        else:
-            result = Test(
-                test_name=test_def.case,
-                name=test_def.display_name,
-                status=STATUS.TIMEOUT,
-                error_message=(
-                    f"Test exceeded its timeout ({test_def.timeout}s) and did not stop"
-                ),
-            )
+            self._record(test_def, future.result())
+            return
+        message = f"Test exceeded its timeout ({test_def.timeout}s) and did not stop"
+        self._record(test_def, self._result(test_def, STATUS.TIMEOUT, message))
 
+    def _record(self, test_def: TestDefinition, result: Test) -> None:
         with self._tests_lock:
-            already_recorded = any(str(r) == str(test_def) for r in self._tests)
-            if already_recorded:
+            if any(str(r) == str(test_def) for r in self._tests):
                 return
             self._tests.append(result)
-        self._on_test_ran()
+            self._on_test_ran()
+
+    @staticmethod
+    def _result(test_def: TestDefinition, status: STATUS, message: str) -> Test:
+        return Test(
+            test_name=test_def.case,
+            name=test_def.display_name,
+            status=status,
+            error_message=message,
+        )
 
     def _test_runner_thread(
         self, test_def: TestDefinition, core: Core, future: Future[Test]
     ) -> None:
         held = self._config_client.resources_of(test_def)
         start = time.monotonic()
-        self._resources.acquire(held)
+        try:
+            self._resources.acquire(held)
+        except Unavailable as e:
+            future.set_result(self._result(test_def, STATUS.FAILED, str(e)))
+            return
         waited = time.monotonic() - start
         if waited > _WAIT_LOGGED:
             self._log(f"{test_def} waited {waited:.1f}s for {', '.join(sorted(held))}")
         try:
+            if self.should_stop:
+                message = "The run stopped before the test started"
+                future.set_result(self._result(test_def, STATUS.KILLED, message))
+                return
             future.set_result(self._execute_single_test(test_def, core))
         finally:
             self._resources.free(threading.current_thread())

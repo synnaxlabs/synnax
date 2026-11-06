@@ -10,8 +10,10 @@
 import threading
 import time
 
+import pytest
+
 from framework import resources
-from framework.resources import Resources
+from framework.resources import Resources, Unavailable
 
 WAIT = 5.0
 # Long enough for a thread that would wrongly acquire to do so.
@@ -24,13 +26,18 @@ class Holder:
     def __init__(self, pool: Resources, names: frozenset[str]) -> None:
         self.acquired = threading.Event()
         self.released = threading.Event()
+        self.error: Unavailable | None = None
         self._pool = pool
         self._names = names
         self.thread = threading.Thread(target=self._run, daemon=True)
         self.thread.start()
 
     def _run(self) -> None:
-        self._pool.acquire(self._names)
+        try:
+            self._pool.acquire(self._names)
+        except Unavailable as e:
+            self.error = e
+            return
         self.acquired.set()
         self.released.wait(WAIT)
         self._pool.free(threading.current_thread())
@@ -58,6 +65,10 @@ class TestResources:
         pool = Resources({resources.BROWSER: 2})
         names = frozenset({resources.BROWSER})
         holders = [Holder(pool, names) for _ in range(3)]
+        deadline = time.monotonic() + WAIT
+        while sum(h.acquired.is_set() for h in holders) < 2:
+            assert time.monotonic() < deadline
+            time.sleep(0.01)
         time.sleep(SETTLE)
         assert sum(h.acquired.is_set() for h in holders) == 2
         for h in holders:
@@ -97,17 +108,44 @@ class TestResources:
         assert both.acquired.wait(WAIT)
         both.stop()
 
-    def test_free_from_another_thread(self) -> None:
-        """Should free the resources of a thread that another thread names, as the
-        conductor does for an abandoned test."""
+    def test_abandoned(self) -> None:
+        """Should keep the resources of an abandoned holder, and fail each thread
+        that waits for them."""
         pool = Resources()
         stuck = Holder(pool, frozenset({"a"}))
         assert stuck.acquired.wait(WAIT)
-        pool.free(stuck.thread)
         waiting = Holder(pool, frozenset({"a"}))
-        assert waiting.acquired.wait(WAIT)
-        waiting.stop()
+        time.sleep(SETTLE)
+        pool.abandon(stuck.thread, "stuck")
+        waiting.thread.join(WAIT)
+        assert str(waiting.error) == "Abandoned tests still hold a: stuck"
+        with pytest.raises(Unavailable, match=r"^Abandoned tests still hold a: stuck$"):
+            pool.acquire(frozenset({"a"}))
         stuck.stop()
+
+    def test_abandoned_under_limit(self) -> None:
+        """Should admit a holder while abandoned holders leave room under the
+        limit."""
+        pool = Resources({resources.BROWSER: 2})
+        names = frozenset({resources.BROWSER})
+        stuck = Holder(pool, names)
+        assert stuck.acquired.wait(WAIT)
+        pool.abandon(stuck.thread, "stuck")
+        holder = Holder(pool, names)
+        assert holder.acquired.wait(WAIT)
+        holder.stop()
+        stuck.stop()
+
+    def test_abandoned_frees(self) -> None:
+        """Should admit holders again once an abandoned holder frees."""
+        pool = Resources()
+        stuck = Holder(pool, frozenset({"a"}))
+        assert stuck.acquired.wait(WAIT)
+        pool.abandon(stuck.thread, "stuck")
+        stuck.stop()
+        holder = Holder(pool, frozenset({"a"}))
+        assert holder.acquired.wait(WAIT)
+        holder.stop()
 
     def test_free_without_holding(self) -> None:
         """Should do nothing when a thread that holds nothing frees."""
