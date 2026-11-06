@@ -25,6 +25,8 @@
 #include "driver/ethercat/slave/slave.h"
 
 namespace driver::ethercat::master {
+/// @brief the distributed clock epoch, 2000-01-01, as a Unix timestamp.
+inline const x::telem::TimeStamp DC_EPOCH(x::telem::SECOND * 946684800);
 
 /// @brief information about an available EtherCAT master or network.
 struct Info {
@@ -69,7 +71,8 @@ public:
     /// @brief returns the distributed clock system time, as a Unix timestamp, at which
     /// the latest received frame passed the reference clock. Returns nullopt when no
     /// enabled slave has a distributed clock or the master does not read it. The DC
-    /// clock is not aligned to the host clock. Valid after a successful receive().
+    /// clock is not aligned to the host clock. Valid after a receive() that returns NIL
+    /// or errors::WORKING_COUNTER_ERROR.
     [[nodiscard]] virtual std::optional<x::telem::TimeStamp> dc_time() const = 0;
 
     /// @brief returns the input data buffer (TxPDO, slave→master).
