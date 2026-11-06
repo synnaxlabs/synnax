@@ -206,6 +206,48 @@ var _ = Describe("Deleter", Ordered, func() {
 		)
 
 		It(
+			"Should leave the data of a canceled delete in place",
+			func(ctx SpecContext) {
+				w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+					Keys:  s.keys,
+					Start: 10 * telem.SecondTS,
+					Sync:  new(true),
+				}))
+				Expect(w.Write(frame.NewMulti(
+					s.keys,
+					[]telem.Series{
+						telem.NewSeriesSecondsTSV(10, 11, 12),
+						telem.NewSeriesSecondsTSV(10, 11, 12),
+						telem.NewSeriesSecondsTSV(10, 11, 12),
+					},
+				))).To(BeTrue())
+				Expect(MustSucceed(w.Commit())).To(Equal(telem.SecondTS*12 + 1))
+				Expect(w.Close()).To(Succeed())
+
+				canceled, cancel := context.WithCancel(ctx)
+				cancel()
+				Expect(
+					s.dist.Framer.DeleteTimeRange(canceled, s.keys, telem.TimeRangeMax),
+				).To(MatchError(context.Canceled))
+
+				i := MustSucceed(s.dist.Framer.OpenIterator(ctx, iterator.Config{
+					Keys:   s.keys,
+					Bounds: telem.TimeRangeMax,
+				}))
+				Expect(i.SeekFirst()).To(BeTrue())
+				Expect(i.Next(telem.TimeSpanMax)).To(BeTrue())
+				for _, key := range s.keys {
+					Expect(i.Value().Get(key).Len()).To(Equal(int64(3)))
+				}
+				Expect(i.Close()).To(Succeed())
+
+				Expect(
+					s.dist.Framer.DeleteTimeRange(ctx, s.keys, telem.TimeRangeMax),
+				).To(Succeed())
+			},
+		)
+
+		It(
 			"Should delete all data across gateway and peer nodes",
 			func(ctx SpecContext) {
 				w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{

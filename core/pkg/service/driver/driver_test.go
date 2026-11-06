@@ -19,6 +19,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -33,6 +34,9 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 var _ = Describe("Driver", func() {
@@ -239,6 +243,50 @@ var _ = Describe("Driver", func() {
 					},
 				}}
 				Expect(driver.Open(cCtx, cfg)).Error().To(MatchError(context.Canceled))
+			},
+			NodeTimeout(10*time.Second),
+		)
+
+		It(
+			"should configure no task when the context is canceled before configuring",
+			func(ctx SpecContext) {
+				cfg := driver.Config{
+					DB:        node.DB,
+					Rack:      rackService,
+					Task:      taskService,
+					Framer:    framerSvc,
+					Channel:   channelSvc,
+					Status:    statusSvc,
+					Factories: []driver.Factory{&mockFactory{name: "test"}},
+					Host:      hostProvider,
+				}
+				Expect(MustSucceed(driver.Open(ctx, cfg)).Close()).To(Succeed())
+				t := newTask(embeddedRackKey(ctx))
+				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				var configured atomic.Bool
+				cfg.Factories = []driver.Factory{&mockFactory{
+					name: "test",
+					configureFunc: func(context.Context, task.Task) (driver.Task, error) {
+						configured.Store(true)
+						return nil, driver.ErrTaskNotHandled
+					},
+				}}
+				cCtx, cancel := context.WithCancel(ctx)
+				defer cancel()
+				// Open checks ctx between its steps, so this log line is the last point
+				// that can cancel before the factories run.
+				core, _ := observer.New(zap.InfoLevel)
+				logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+					ZapLogger: zap.New(core, zap.Hooks(func(e zapcore.Entry) error {
+						if e.Message == "configuring existing tasks" {
+							cancel()
+						}
+						return nil
+					})),
+				}))
+				cfg.Instrumentation = alamos.New("test", alamos.WithLogger(logger))
+				Expect(driver.Open(cCtx, cfg)).Error().To(MatchError(context.Canceled))
+				Expect(configured.Load()).To(BeFalse())
 			},
 			NodeTimeout(10*time.Second),
 		)

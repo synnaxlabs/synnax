@@ -505,6 +505,23 @@ var _ = Describe("Relay", func() {
 		)
 
 		It(
+			"Should exit at once when the streamer flows in a canceled context",
+			func(ctx SpecContext) {
+				chs := newFreeChannels(ctx, 1)
+				reader := MustSucceed(svc.Framer.NewStreamer(relay.StreamerConfig{
+					Keys:        channel.KeysFromChannels(chs),
+					SendOpenAck: new(true),
+				}))
+				sCtx, cancel := signal.Isolated()
+				cancel()
+				_, res := confluence.Attach(reader, 10)
+				reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+				Expect(sCtx.Wait()).To(MatchError(context.Canceled))
+				Eventually(res.Outlet()).Should(BeClosed())
+			},
+		)
+
+		It(
 			"Should serve concurrent streamers on overlapping free channels without deadlocking",
 			func(ctx SpecContext) {
 				chs := newFreeChannels(ctx, 2)

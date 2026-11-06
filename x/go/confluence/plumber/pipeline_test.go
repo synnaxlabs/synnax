@@ -11,6 +11,7 @@ package plumber_test
 
 import (
 	"context"
+	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -22,6 +23,40 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+// startedContext records that a routine has started.
+type startedContext struct {
+	signal.Context
+	started atomic.Bool
+}
+
+func (c *startedContext) Go(
+	f func(ctx context.Context) error,
+	opts ...signal.RoutineOption,
+) {
+	c.started.Store(true)
+	c.Context.Go(f, opts...)
+}
+
+// sequentialSource sends one value. It flows only after every routine that has started
+// exits.
+type sequentialSource struct {
+	confluence.AbstractUnarySource[int]
+	ctx *startedContext
+}
+
+func (s *sequentialSource) Flow(ctx signal.Context, opts ...confluence.Option) {
+	GinkgoHelper()
+	if s.ctx.started.Load() {
+		Eventually(ctx.Stopped()).Should(BeClosed())
+	}
+	o := confluence.NewOptions(opts)
+	o.AttachClosables(s.Out)
+	ctx.Go(func(context.Context) error {
+		s.Out.Inlet() <- 1
+		return nil
+	}, o.Signal...)
+}
 
 var _ = Describe("Pipeline", func() {
 	var pipe *Pipeline
@@ -39,6 +74,36 @@ var _ = Describe("Pipeline", func() {
 			pipe.SetSink("sink", unarySink)
 			sink := MustSucceed(pipe.GetSink[int]("sink"))
 			Expect(sink).To(Equal(unarySink))
+		})
+	})
+
+	Describe("Shared outlets", func() {
+		It("Should stay open until every source has flowed", func() {
+			sCtx, cancel := signal.Isolated()
+			defer cancel()
+			var (
+				ctx   = &startedContext{Context: sCtx}
+				pipe  = New()
+				addrs = []address.Address{"first", "second"}
+			)
+			for _, addr := range addrs {
+				pipe.SetSource(addr, &sequentialSource{ctx: ctx})
+			}
+			pipe.SetSink("sink", &confluence.UnarySink[int]{
+				Sink: func(context.Context, int) error { return nil },
+			})
+			MultiRouter[int]{
+				SourceTargets: addrs,
+				SinkTargets:   []address.Address{"sink"},
+				Capacity:      len(addrs),
+				Stitch:        StitchUnary,
+			}.MustRoute(pipe)
+			pipe.Flow(
+				ctx,
+				confluence.CloseOutputInletsOnExit(),
+				confluence.RecoverWithErrOnPanic(),
+			)
+			Expect(sCtx.Wait()).To(Succeed())
 		})
 	})
 

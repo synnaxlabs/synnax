@@ -164,12 +164,14 @@ func (s *streamIterator) Flow(sCtx signal.Context, opts ...confluence.Option) {
 					return s.close()
 				}
 				ok, err := s.exec(ctx, req)
-				s.Out.Inlet() <- IteratorResponse{
+				if err := signal.SendUnderContext(ctx, s.Out.Inlet(), IteratorResponse{
 					Variant: IteratorResponseVariantAck,
 					Command: req.Command,
 					SeqNum:  req.SeqNum,
 					Ack:     ok,
 					Err:     err,
+				}); err != nil {
+					return errors.Combine(s.close(), err)
 				}
 			}
 		}
@@ -186,7 +188,8 @@ func (s *streamIterator) exec(
 	switch req.Command {
 	case IteratorCommandNext:
 		if s.limited || req.Span == AutoSpan {
-			ok = s.execWithResponse(
+			ok, err = s.execWithResponse(
+				ctx,
 				req.SeqNum,
 				func(i *unary.Iterator) bool { return i.Next(ctx, req.Span) },
 			)
@@ -195,7 +198,8 @@ func (s *streamIterator) exec(
 		}
 	case IteratorCommandPrev:
 		if s.limited || req.Span == AutoSpan {
-			ok = s.execWithResponse(
+			ok, err = s.execWithResponse(
+				ctx,
 				req.SeqNum,
 				func(i *unary.Iterator) bool { return i.Prev(ctx, req.Span) },
 			)
@@ -233,9 +237,10 @@ func (s *streamIterator) exec(
 // execWithResponse runs f on each iterator and sends the data of every iterator that f
 // moves as one response.
 func (s *streamIterator) execWithResponse(
+	ctx context.Context,
 	seqNum int,
 	f func(i *unary.Iterator) bool,
-) (ok bool) {
+) (ok bool, err error) {
 	var fr Frame
 	for _, i := range s.internal {
 		if f(i) {
@@ -243,8 +248,10 @@ func (s *streamIterator) execWithResponse(
 			fr = fr.Extend(i.Value())
 		}
 	}
-	s.send(seqNum, fr)
-	return ok
+	if err = s.send(ctx, seqNum, fr); err != nil {
+		return false, err
+	}
+	return ok, nil
 }
 
 // readInChunks runs a Next or Prev with a fixed span. It reads the range of each
@@ -296,7 +303,9 @@ func (s *streamIterator) readInChunks(
 				chunk = chunk.Extend(i.Value())
 			}
 		}
-		s.send(req.SeqNum, chunk)
+		if err = s.send(ctx, req.SeqNum, chunk); err != nil {
+			return false, err
+		}
 		if end >= last {
 			return ok, nil
 		}
@@ -304,16 +313,16 @@ func (s *streamIterator) readInChunks(
 }
 
 // send sends fr as a data response unless it holds no series.
-func (s *streamIterator) send(seqNum int, fr Frame) {
+func (s *streamIterator) send(ctx context.Context, seqNum int, fr Frame) error {
 	if fr.Empty() {
-		return
+		return nil
 	}
-	s.Out.Inlet() <- IteratorResponse{
+	return signal.SendUnderContext(ctx, s.Out.Inlet(), IteratorResponse{
 		Variant: IteratorResponseVariantData,
 		Command: IteratorCommandNext,
 		SeqNum:  seqNum,
 		Frame:   fr,
-	}
+	})
 }
 
 func (s *streamIterator) execWithoutResponse(f func(i *unary.Iterator) bool) (ok bool) {

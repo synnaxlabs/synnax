@@ -461,6 +461,10 @@ func (d *Driver) configure(ctx context.Context, t task.Task, cmdKey string) erro
 	defer cancel()
 
 	sCtx.Go(func(ctx context.Context) error {
+		// A factory can start the task, and a canceled Open stops no task.
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		for _, f := range d.cfg.Factories {
 			newTask, err := f.ConfigureTask(ctx, t, cmdKey)
 			if errors.Is(err, ErrTaskNotHandled) {
