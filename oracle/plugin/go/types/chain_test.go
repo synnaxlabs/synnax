@@ -10,6 +10,7 @@
 package types_test
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
 
@@ -1024,4 +1025,253 @@ var _ = Describe("Stored references through the importing version file", func() 
 		Expect(v0).To(ContainSubstring(`x/go/color/versions/v0"`))
 		Expect(v0).ToNot(ContainSubstring(`color/versions/v1"`))
 	})
+})
+
+var _ = Describe("Minting on top of a version", func() {
+	generate := func(files map[string]string, live []string) *plugin.Response {
+		GinkgoHelper()
+		root := GinkgoT().TempDir()
+		for rel, content := range files {
+			full := filepath.Join(root, rel)
+			Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
+			Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
+		}
+		chains := MustSucceed(versions.Discover(root))
+		loader := analyzer.NewStandardFileLoader(root)
+		table, diag := analyzer.Analyze(GinkgoT().Context(), live, loader)
+		Expect(diag.Ok()).To(BeTrue(), diag.String())
+		return MustSucceed(gotypes.New(gotypes.DefaultOptions()).Generate(
+			&plugin.Request{
+				Resolutions: table,
+				RepoRoot:    root,
+				Versions:    versions.NewResolver(chains, loader),
+			},
+		))
+	}
+	const (
+		docV0 = "core/pkg/service/doc/versions/v0/types.gen.go"
+		docV1 = "core/pkg/service/doc/versions/v1/types.gen.go"
+		color = `
+Color struct {
+	r uint8
+
+	@go marshal
+}
+`
+		colorLive = `
+@go output "x/go/color"
+
+Color struct {
+	r uint8
+
+	@go marshal
+}
+`
+	)
+	DescribeTable("Should leave the earlier version's file byte-identical",
+		func(demoted, mintPath, mint string, files map[string]string, live ...string) {
+			before := generatedFile(generate(files, live), demoted)
+			minted := maps.Clone(files)
+			minted[mintPath] = mint
+			Expect(generatedFile(generate(minted, live), demoted)).To(Equal(before))
+		},
+		Entry("when the live file declares in another order",
+			docV0, "schemas/synnax/versions/doc/v1.oracle", `
+Note = v0.Note
+
+Doc = v0.Doc
+`, map[string]string{
+				"schemas/synnax/versions/doc/v0.oracle": `
+Note struct {
+	text string
+}
+
+Doc struct {
+	key uuid @key
+	note Note
+
+	@go marshal
+}
+`,
+				"schemas/synnax/doc.oracle": `
+@go output "core/pkg/service/doc"
+
+Doc struct {
+	key uuid @key
+	note Note
+}
+
+Note struct {
+	text string
+}
+`,
+			}, "schemas/synnax/doc"),
+		Entry("when the live file omits a declaration",
+			docV0, "schemas/synnax/versions/doc/v1.oracle", `
+Side = v0.Side
+
+Doc = v0.Doc
+`, map[string]string{
+				"schemas/synnax/versions/doc/v0.oracle": `
+Side enum {
+	left = "left"
+}
+
+Doc struct {
+	key uuid @key
+
+	@go marshal
+}
+`,
+				"schemas/synnax/doc.oracle": `
+@go output "core/pkg/service/doc"
+
+Side enum {
+	left = "left"
+
+	@go omit
+}
+
+Doc struct {
+	key uuid @key
+}
+`,
+			}, "schemas/synnax/doc"),
+		Entry("when a declaration holds a live rule from an older definer",
+			docV1, "schemas/synnax/versions/doc/v2.oracle", `
+Base = v0.Base
+
+Doc = v1.Doc
+`, map[string]string{
+				"schemas/synnax/versions/doc/v0.oracle": `
+Base struct {
+	name string
+}
+`,
+				"schemas/synnax/versions/doc/v1.oracle": `
+Base = v0.Base
+
+Doc struct extends Base {
+	key uuid @key
+
+	@go marshal
+}
+`,
+				"schemas/synnax/doc.oracle": `
+@go output "core/pkg/service/doc"
+
+Base struct {
+	name string {
+		@validate required
+	}
+}
+
+Doc struct extends Base {
+	key uuid @key
+}
+`,
+			}, "schemas/synnax/doc"),
+		Entry("when an omitted field resolves a dependency",
+			docV0, "schemas/synnax/versions/doc/v1.oracle", `
+import "schemas/x/versions/color/v0"
+
+Doc struct {
+	key uuid @key
+	tint color.Color {
+		@go marshal omit
+	}
+	name string
+
+	@go marshal
+}
+`, map[string]string{
+				"schemas/x/versions/color/v0.oracle": color,
+				"schemas/x/color.oracle":             colorLive,
+				"schemas/synnax/versions/doc/v0.oracle": `
+import "schemas/x/versions/color/v0"
+
+Doc struct {
+	key uuid @key
+	tint color.Color {
+		@go marshal omit
+	}
+
+	@go marshal
+}
+`,
+				"schemas/synnax/doc.oracle": `
+import "schemas/x/color"
+
+@go output "core/pkg/service/doc"
+
+Doc struct {
+	key uuid @key
+	tint color.Color {
+		@go marshal omit
+	}
+
+	@go marshal
+}
+`,
+			}, "schemas/x/color", "schemas/synnax/doc"),
+		Entry("when only another resource stores a declaration",
+			docV0, "schemas/synnax/versions/doc/v1.oracle", `
+Config = v0.Config
+
+Doc = v0.Doc
+`, map[string]string{
+				"schemas/x/versions/color/v0.oracle": color,
+				"schemas/x/color.oracle":             colorLive,
+				"schemas/synnax/versions/doc/v0.oracle": `
+import "schemas/x/versions/color/v0"
+
+Config struct {
+	tint color.Color
+}
+
+Doc struct {
+	key uuid @key
+
+	@go marshal
+}
+`,
+				"schemas/synnax/doc.oracle": `
+import "schemas/x/color"
+
+@go output "core/pkg/service/doc"
+
+Config struct {
+	tint color.Color
+}
+
+Doc struct {
+	key uuid @key
+
+	@go marshal
+}
+`,
+				"schemas/synnax/versions/job/v0.oracle": `
+import "schemas/synnax/versions/doc/v0"
+
+Job struct {
+	key uuid @key
+	config doc.Config
+
+	@go marshal
+}
+`,
+				"schemas/synnax/job.oracle": `
+import "schemas/synnax/doc"
+
+@go output "core/pkg/service/job"
+
+Job struct {
+	key uuid @key
+	config doc.Config
+
+	@go marshal
+}
+`,
+			}, "schemas/x/color", "schemas/synnax/doc", "schemas/synnax/job"),
+	)
 })

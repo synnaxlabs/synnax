@@ -16,7 +16,8 @@ import (
 	"encoding/json/v2"
 	"strconv"
 
-	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	ontologyv0 "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v0"
 	"github.com/synnaxlabs/x/errors"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
@@ -59,7 +60,7 @@ type ResourceTab struct {
 	TabBase
 	// Resource is the visualization resource displayed by this tab, set via
 	// SetTabResource.
-	Resource ontology.ID `json:"resource" msgpack:"resource"`
+	Resource ontologyv0.ID `json:"resource" msgpack:"resource"`
 }
 
 func (ResourceTab) isTabVariant() {}

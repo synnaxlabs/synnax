@@ -96,6 +96,10 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	if err != nil {
 		return nil, err
 	}
+	orders, err := chainOrders(context.Background(), req)
+	if err != nil {
+		return nil, err
+	}
 	currentPaths := make(set.Set[string], len(pathMap))
 	for _, current := range pathMap {
 		currentPaths.Add(current)
@@ -112,6 +116,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		FilePattern: p.Options.FileNamePattern,
 		FileGenerator: &goFileGenerator{
 			preds:    preds,
+			orders:   orders,
 			original: req.Resolutions,
 			pathMap:  pathMap,
 			closure:  closure,
@@ -152,7 +157,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	// frozen packages still need regeneration.
 	if len(pathMap) == 0 {
 		frozen, err := chainFrozenFiles(
-			context.Background(), req, p.Options.FileNamePattern,
+			context.Background(), req, p.Options.FileNamePattern, closure,
 		)
 		if err != nil {
 			return nil, err
@@ -231,7 +236,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	}
 	resp.Files = append(resp.Files, selectorResp.Files...)
 	frozen, err := chainFrozenFiles(
-		context.Background(), req, p.Options.FileNamePattern,
+		context.Background(), req, p.Options.FileNamePattern, closure,
 	)
 	if err != nil {
 		return nil, err
@@ -271,6 +276,9 @@ type goFileGenerator struct {
 	// preds maps current version output paths to their predecessor alias split; types
 	// in the split alias the predecessor instead of defining.
 	preds map[string]predecessor
+	// orders maps current version output paths to their version file's declaration
+	// order.
+	orders map[string]map[string]int
 	// original is the unrewritten table; set only for the versioned pass, where
 	// transient declarations resolve against it (self path rewritten) so their
 	// dependency references track the latest version.
@@ -311,7 +319,7 @@ func (g *goFileGenerator) GenerateFile(ctx *framework.GenerateContext) (string, 
 	content, err := generateGoFile(
 		ctx.OutputPath, ctx.Structs, ctx.Enums, ctx.TypeDefs, ctx.Unions,
 		ctx.Table, ctx.RepoRoot, g.preds[ctx.OutputPath], latest, g.closure,
-		transient, nil, pinned,
+		transient, g.orders[ctx.OutputPath], pinned,
 	)
 	if err != nil {
 		return "", err

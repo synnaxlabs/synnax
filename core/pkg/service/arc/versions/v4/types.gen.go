@@ -36,6 +36,26 @@ const (
 	ModeGraph Mode = v3.ModeGraph
 )
 
+// Type specifies whether an Arc runs on a rack as an automation or holds code for other
+// Arcs to import as a module.
+type Type string
+
+const (
+	TypeAutomation Type = "automation"
+	TypeModule     Type = "module"
+)
+
+// IsValid reports whether t is one of the defined Type
+// values.
+func (t Type) IsValid() bool {
+	switch t {
+	case TypeAutomation, TypeModule:
+		return true
+	default:
+		return false
+	}
+}
+
 // SourceVariant is implemented by every Source variant.
 type SourceVariant interface {
 	isSourceVariant()
@@ -364,25 +384,5 @@ func (u *Arc) SetBase(base Base) {
 		u.Variant = variant
 	default:
 		panic(errors.Newf("Arc: cannot set the base of variant %T", variant))
-	}
-}
-
-// Type specifies whether an Arc runs on a rack as an automation or holds code for other
-// Arcs to import as a module.
-type Type string
-
-const (
-	TypeAutomation Type = "automation"
-	TypeModule     Type = "module"
-)
-
-// IsValid reports whether t is one of the defined Type
-// values.
-func (t Type) IsValid() bool {
-	switch t {
-	case TypeAutomation, TypeModule:
-		return true
-	default:
-		return false
 	}
 }
