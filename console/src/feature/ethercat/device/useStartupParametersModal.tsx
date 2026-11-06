@@ -103,7 +103,7 @@ const StartupParameters = ({
       const file = await Runtime.pickFiles({ title: IMPORT_LABEL, extension: "xml" });
       if (file == null) return;
       const xml = new TextDecoder().decode(await Runtime.toBytes(await file.read()));
-      const parsed = parseRows(rows);
+      const parsed = parseRows(rows.filter(([index]) => String(index).trim() !== ""));
       if (typeof parsed === "string") return setError(parsed);
       const { device, parameters, skipped } = parseStartupCommands(
         xml,
