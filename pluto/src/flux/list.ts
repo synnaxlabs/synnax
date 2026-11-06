@@ -217,6 +217,7 @@ export const createList = <
     );
     const callerQueryRef = useRef(callerQuery);
     const retrievedRef = useRef(false);
+    const recordsStaleRef = useRef(false);
     const pagesRef = useRef<Page<Key>[]>([]);
     const itemSubsRef = useInitializerRef<Map<Key, destructor.Destructor>>(
       () => new Map(),
@@ -354,6 +355,47 @@ export const createList = <
       });
     };
 
+    const retrieveSingle = async (
+      key: Key,
+      options: query.FetchOptions = {},
+    ): Promise<void> => {
+      const { signal } = options;
+      // The compiler rejects `?.`, `??`, and `?:` in a try, so the body is a closure.
+      const apply = async (): Promise<void> => {
+        if (client == null || primitive.isZero(key)) return;
+        const item = await retrieveByKey({
+          client,
+          key,
+          query: queryRef.current ?? {},
+        });
+        if (signal?.aborted || item == null) return;
+        openItemSub(key);
+        if (!filterRef.current(item)) {
+          dataRef.current.set(key, null);
+          return;
+        }
+        dataRef.current.set(key, item);
+        notifyListeners(key);
+      };
+      try {
+        await apply();
+      } catch (error) {
+        if (signal?.aborted) return;
+        dataRef.current.set(key, null);
+        setResult(errorResult(`retrieve ${name}`, error));
+      }
+    };
+
+    /**
+     * Reads each record that no page holds under the current query, on a new feed. A
+     * record can depend on the query, such as a channel's alias on its range.
+     */
+    const refreshRecords = () => {
+      clearItemSubs();
+      coverRecords();
+      itemSubsRef.current.forEach((_, key) => void retrieveSingle(key));
+    };
+
     const openPage = (q: Query, keys: Key[], cached = false): void => {
       const hash = query.hash(q);
       const existing = pagesRef.current.find((p) => p.hash === hash);
@@ -421,7 +463,9 @@ export const createList = <
         value.forEach((v) => dataRef.current.set(v.key, v));
         openPage(query, keys);
         keys.forEach(notifyListeners);
-        coverRecords();
+        if (recordsStaleRef.current) refreshRecords();
+        else coverRecords();
+        recordsStaleRef.current = false;
 
         // If we've already retrieved the initial data, and it's the same as the
         // data we just retrieved, then don't notify listeners.
@@ -503,37 +547,6 @@ export const createList = <
       if (query != null) void retrieveAsyncRef.current(query);
     }, [client]);
 
-    const retrieveSingle = async (
-      key: Key,
-      options: query.FetchOptions = {},
-    ): Promise<void> => {
-      const { signal } = options;
-      // The compiler rejects `?.`, `??`, and `?:` in a try, so the body is a closure.
-      const apply = async (): Promise<void> => {
-        if (client == null || primitive.isZero(key)) return;
-        const item = await retrieveByKey({
-          client,
-          key,
-          query: queryRef.current ?? {},
-        });
-        if (signal?.aborted || item == null) return;
-        openItemSub(key);
-        if (!filterRef.current(item)) {
-          dataRef.current.set(key, null);
-          return;
-        }
-        dataRef.current.set(key, item);
-        notifyListeners(key);
-      };
-      try {
-        await apply();
-      } catch (error) {
-        if (signal?.aborted) return;
-        dataRef.current.set(key, null);
-        setResult(errorResult(`retrieve ${name}`, error));
-      }
-    };
-
     const getOne = (key?: Key) => {
       // Zero-value keys that are not null or undefined are common as initialized
       // fields in various data structures ("", 0, etc.). A 'zero-value' is never
@@ -614,14 +627,16 @@ export const createList = <
       const from = callerQueryRef.current;
       if (deep.equal(from, callerQuery)) return;
       callerQueryRef.current = callerQuery;
-      const rebase = (current: Query | {}) => rebaseQuery(current, from, callerQuery);
-      if (retrievedRef.current) return retrieveSync(rebase);
-      const next = normalized(rebase(queryRef.current ?? {}));
+      const next = normalized(rebaseQuery(queryRef.current ?? {}, from, callerQuery));
       queryRef.current = next;
+      if (retrievedRef.current) {
+        recordsStaleRef.current = true;
+        return retrieveSync((current) => current as Query);
+      }
       clearPages();
       setResult(loadingResult<Key[]>(`retrieving ${name}`));
       createCachedPage(next);
-      coverRecords();
+      refreshRecords();
     }, [callerQuery]);
 
     return {
