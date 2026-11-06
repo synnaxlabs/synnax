@@ -512,6 +512,49 @@ TEST_F(EngineTest, StateChangeRefusalSkipsRetries) {
     EXPECT_FALSE(this->engine->running());
 }
 
+/// @brief it should cycle the bus while the slaves move to OP.
+TEST_F(EngineTest, StartCyclesTheBusBeforeTheSlavesReachOP) {
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    const auto log = this->master->call_log();
+    const auto op = std::ranges::find(log, "op");
+    ASSERT_NE(op, log.end());
+    EXPECT_LT(std::ranges::find(log, "send"), op);
+}
+
+/// @brief it should run no slave recovery while the slaves move to OP, and stop the
+/// cycle before it deactivates the master when a slave refuses a state.
+TEST_F(EngineTest, RefusedStartStopsTheCycleBeforeDeactivating) {
+    this->engine = std::make_shared<Engine>(this->master, quick_start_config());
+    this->master->inject_state_change_error(
+        x::errors::Error(errors::STATE_CHANGE_REFUSED, "invalid DC SYNC configuration")
+    );
+    const auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
+    ASSERT_OCCURRED_AS(res.second, errors::STATE_CHANGE_REFUSED);
+    const auto log = this->master->call_log();
+    EXPECT_GE(std::ranges::count(log, "send"), 1);
+    EXPECT_EQ(std::ranges::count(log, "check"), 0);
+    EXPECT_EQ(std::ranges::count(log, "deactivate"), 1);
+    EXPECT_EQ(log.back(), "deactivate");
+    EXPECT_FALSE(this->engine->running());
+    EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(0));
+}
+
+/// @brief it should stop the cycle and retry when the slaves do not reach OP in time.
+TEST_F(EngineTest, StartRetriesAfterTheSlavesMissOP) {
+    this->engine = std::make_shared<Engine>(this->master, quick_start_config());
+    this->master->inject_state_change_error(
+        x::errors::Error(errors::STATE_CHANGE_ERROR, "failed to reach OP")
+    );
+    const auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
+    ASSERT_OCCURRED_AS(res.second, errors::STATE_CHANGE_ERROR);
+    EXPECT_EQ(this->master->call_count("activate"), 3);
+    EXPECT_EQ(this->master->call_count("deactivate"), 3);
+    EXPECT_EQ(this->master->call_log().back(), "deactivate");
+    EXPECT_FALSE(this->engine->running());
+}
+
 /// @brief it should retry activation of the master until it succeeds, then open the
 /// task.
 TEST_F(EngineTest, StartRetriesUntilActivationSucceeds) {

@@ -10,6 +10,7 @@
 #pragma once
 
 #include <chrono>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -72,7 +73,7 @@ public:
 
     void set_slave_enabled(uint16_t position, bool enabled) override;
 
-    x::errors::Error activate() override;
+    x::errors::Error activate(const std::function<void()> &start_cycle) override;
 
     void deactivate() override;
 
@@ -146,8 +147,9 @@ private:
     /// @brief whether the slave has its AL error flag set and gives an AL status code.
     [[nodiscard]] bool al_error(uint16_t pos) const;
 
-    /// @brief transitions all enabled slaves to OP while exchanging process data, so
-    /// slaves with a sync manager watchdog see valid outputs.
+    /// @brief requests OP from all enabled slaves, then waits until they reach it, one
+    /// of them refuses it, or the timeout passes. The caller cycles the bus meanwhile,
+    /// so slaves with a sync manager watchdog see valid outputs.
     x::errors::Error request_operational();
 
     /// @brief takes one recovery step for a slave that is not in OP, following the SOEM
