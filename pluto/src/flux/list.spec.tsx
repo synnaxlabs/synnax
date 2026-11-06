@@ -1205,6 +1205,70 @@ describe("list", () => {
       );
     });
 
+    it("should ignore an item read for an old query that lands late", async () => {
+      const reads = new Map<string, PromiseWithResolvers<TestItem>>();
+      const retrieveByKey = vi.fn(({ query }: { query: Partial<TestQuery> }) => {
+        const read = Promise.withResolvers<TestItem>();
+        reads.set(query.group ?? "", read);
+        return read.promise;
+      });
+      const useList = Flux.createList<TestQuery, number, TestItem>({
+        name: "Resource",
+        retrieve: createRetrieve(),
+        retrieveByKey,
+        onChangeByKey: () => () => {},
+      });
+      const { result, rerender } = renderHook(
+        ({ query }: { query: TestQuery }) => {
+          const { subscribe, getItem } = useList({ query });
+          return Flux.useListItem<number, TestItem>({ subscribe, getItem, key: 1 });
+        },
+        { wrapper, initialProps: { query: { group: "a" } } },
+      );
+      await waitFor(() => expect(reads.has("a")).toBe(true));
+      await act(async () => reads.get("a")?.resolve({ key: 1, group: "a" }));
+      await waitFor(() => expect(result.current?.group).toEqual("a"));
+
+      rerender({ query: { group: "b" } });
+      await waitFor(() => expect(reads.has("b")).toBe(true));
+      rerender({ query: { group: "c" } });
+      await waitFor(() => expect(reads.has("c")).toBe(true));
+
+      await act(async () => reads.get("c")?.resolve({ key: 1, group: "c" }));
+      await waitFor(() => expect(result.current?.group).toEqual("c"));
+      await act(async () => reads.get("b")?.resolve({ key: 1, group: "b" }));
+      await expectAlways(() => expect(result.current?.group).toEqual("c"));
+    });
+
+    it("should read an item again when a query change drops its read", async () => {
+      const reads = new Map<string, PromiseWithResolvers<TestItem>>();
+      const retrieveByKey = vi.fn(({ query }: { query: Partial<TestQuery> }) => {
+        const read = Promise.withResolvers<TestItem>();
+        reads.set(query.group ?? "", read);
+        return read.promise;
+      });
+      const useList = Flux.createList<TestQuery, number, TestItem>({
+        name: "Resource",
+        retrieve: createRetrieve(),
+        retrieveByKey,
+        onChangeByKey: () => () => {},
+      });
+      const { result, rerender } = renderHook(
+        ({ query }: { query: TestQuery }) => {
+          const { subscribe, getItem } = useList({ query });
+          return Flux.useListItem<number, TestItem>({ subscribe, getItem, key: 1 });
+        },
+        { wrapper, initialProps: { query: { group: "a" } } },
+      );
+      await waitFor(() => expect(reads.has("a")).toBe(true));
+
+      rerender({ query: { group: "b" } });
+
+      await waitFor(() => expect(reads.has("b")).toBe(true));
+      await act(async () => reads.get("b")?.resolve({ key: 1, group: "b" }));
+      await waitFor(() => expect(result.current?.group).toEqual("b"));
+    });
+
     it("should not fetch until something asks for the list", async () => {
       const retrieve = createRetrieve();
       const { result, rerender } = renderList(createUseList(retrieve), { group: "a" });
