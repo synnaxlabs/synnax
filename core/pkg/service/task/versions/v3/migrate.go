@@ -111,12 +111,17 @@ func migrateConfigsToRecords(
 	if err != nil || len(tasks) == 0 {
 		return err
 	}
-	rows := gorp.WrapWriter[v2.Key, v2.Task](tx)
+	var (
+		rows    = gorp.WrapWriter[v2.Key, v2.Task](tx)
+		removed []resource.ID
+	)
 	for _, t := range tasks {
+		id := resource.ID{Type: resource.TypeTask, Key: t.Key.String()}
 		if retiredTypes.Contains(t.Type) {
 			if err := retire(ctx, tx, ins, cfg.Status, t); err != nil {
 				return err
 			}
+			removed = append(removed, id)
 			continue
 		}
 		newType := t.Type
@@ -130,6 +135,7 @@ func migrateConfigsToRecords(
 			); err != nil {
 				return err
 			}
+			removed = append(removed, id)
 			continue
 		}
 		// Stored blobs are all console-era, which every store's legacy rewrite
@@ -141,6 +147,7 @@ func migrateConfigsToRecords(
 			); err != nil {
 				return err
 			}
+			removed = append(removed, id)
 			continue
 		}
 		rec, err := store.Prepare(ctx, tx, t.Key, converted)
@@ -156,6 +163,7 @@ func migrateConfigsToRecords(
 			); err != nil {
 				return err
 			}
+			removed = append(removed, id)
 			continue
 		}
 		stored := rec.Data()
@@ -167,20 +175,13 @@ func migrateConfigsToRecords(
 		if err := rows.Set(ctx, t); err != nil {
 			return err
 		}
-		taskID := resource.ID{
-			Type: resource.TypeTask,
-			Key:  t.Key.String(),
-		}
-		if err := ontology.DefineResources(ctx, tx, taskID); err != nil {
-			return err
-		}
 	}
-	return nil
+	return ontology.DeleteResources(ctx, tx, removed...)
 }
 
 // stageAndRemove stages the JSON encoding of the legacy row in KV and removes the
-// row, its status, and its ontology presence. A config JSON cannot encode (a NaN
-// float) is staged without the config rather than aborting boot.
+// row and its status. A config JSON cannot encode (a NaN float) is staged without the
+// config rather than aborting boot.
 func stageAndRemove(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -210,11 +211,10 @@ func stageAndRemove(
 	if err := gorp.WrapWriter[v2.Key, v2.Task](tx).Delete(ctx, t.Key); err != nil {
 		return err
 	}
-	taskID := resource.ID{Type: resource.TypeTask, Key: t.Key.String()}
-	if err := statuses.NewWriter(tx).DeleteOwned(ctx, taskID); err != nil {
-		return err
-	}
-	return ontology.DeleteResources(ctx, tx, taskID)
+	return statuses.NewWriter(tx).DeleteOwned(
+		ctx,
+		resource.ID{Type: resource.TypeTask, Key: t.Key.String()},
+	)
 }
 
 // unconvertibleReason frames a raw conversion or encode error as a quarantine reason

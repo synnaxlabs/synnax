@@ -148,6 +148,9 @@ func DefineResources(ctx context.Context, tx gorp.Tx, ids ...resource.ID) error 
 // DeleteResources deletes the resources with ids and every relationship from or to
 // them.
 func DeleteResources(ctx context.Context, tx gorp.Tx, ids ...resource.ID) error {
+	if len(ids) == 0 {
+		return nil
+	}
 	deleted := set.New(ids...)
 	rels, err := RetrieveRelationships(ctx, tx, func(r Relationship) bool {
 		return deleted.Contains(r.From) || deleted.Contains(r.To)
