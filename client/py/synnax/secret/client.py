@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import overload
+from typing import Any, Literal, overload
 
 from pydantic import BaseModel
 
@@ -20,8 +20,9 @@ from synnax.secret.types_gen import (
     RetrieveResponse,
     Secret,
     Where,
+    WhereInput,
 )
-from synnax.util import one
+from synnax.util import request_where, returns_one, sole
 from x import filter
 from x.lists import normalize
 
@@ -121,56 +122,97 @@ class Client:
         self._client.send("/secret/rename", _RenameRequest(key=key, name=name), Empty)
 
     @overload
-    def retrieve(self, *, key: Key) -> Secret: ...
+    def retrieve(self, key: Key) -> Secret: ...
 
     @overload
     def retrieve(
         self,
         *,
-        where: Where | None = None,
-        keys: list[Key] | None = None,
-        search_term: str = "",
-        limit: int | None = None,
-        offset: int = 0,
+        key: Key,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        search_term: str = ...,
+        one: bool = ...,
+    ) -> Secret: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        key: filter.SetInput[Key] = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        keys: list[Key] | None = ...,
+        search_term: str = ...,
+        one: Literal[True],
+    ) -> Secret: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        keys: list[Key] | None = ...,
+        search_term: str = ...,
+        limit: int | None = ...,
+        offset: int = ...,
+        one: Literal[False] = ...,
     ) -> list[Secret]: ...
 
     def retrieve(
         self,
+        key: filter.SetInput[Key] | None = None,
         *,
-        key: Key | None = None,
         where: Where | None = None,
         keys: list[Key] | None = None,
         search_term: str = "",
         limit: int | None = None,
         offset: int = 0,
+        one: bool = False,
+        **fields: Any,
     ) -> Secret | list[Secret]:
-        """Retrieves secrets, without their values.
+        """Retrieves secrets, without their values. With no arguments, retrieves every
+        secret.
 
-        :param key: The key of the one secret to retrieve.
-        :param where: A filter that selects the secrets, combined with ``keys``.
-        :param keys: The keys of the secrets to retrieve. A key that no secret has is
-            left out.
+        Each filter field takes a value, a list of values, or an operator, and a secret
+        must match every field. A plain ``key``, by position or by keyword, returns one
+        secret.
+
+        :param key: Keeps secrets with this key.
+        :param and_: Keeps secrets that match every filter in the list.
+        :param or_: Keeps secrets that match any filter in the list.
+        :param not_: Keeps secrets that do not match the filter.
+        :param where: A filter tree that the secrets must also match.
+        :param keys: Keeps secrets with one of these keys.
         :param search_term: Keeps the secrets whose names match, closest match first.
         :param limit: The most secrets to return.
         :param offset: The number of matching secrets to skip.
-        :returns: The secret when ``key`` is given, otherwise a list.
-        :raises NotFoundError: If ``key`` is given and no secret has it.
+        :param one: Returns one secret for any filter.
+        :returns: One secret for a plain ``key`` or when ``one`` is set, otherwise a
+            list of secrets. The list leaves out keys that no secret has.
+        :raises NotFoundError: If one secret is wanted and none matches.
+        :raises MultipleFoundError: If one secret is wanted and more than one matches.
+        :raises ValidationError: If a filter field is None, or if one secret is wanted
+            beside a limit or an offset.
         :raises AccessDenied: If the caller cannot retrieve one of the secrets.
         """
-        is_single = key is not None
         if key is not None:
-            keys = [key]
+            fields["key"] = key
+        single = returns_one(fields, one, limit, offset)
         flat = Where(key=None if keys is None else filter.Set[Key](in_=keys))
-        res = self._client.send(
-            "/secret/retrieve",
-            RetrieveRequest(
-                where=filter.merge(where, flat),
-                search_term=search_term,
-                limit=limit,
-                offset=offset,
-            ),
-            RetrieveResponse,
+        req = RetrieveRequest(
+            where=request_where(Where, filter.merge(where, flat), fields),
+            search_term=search_term,
+            limit=limit,
+            offset=offset,
         )
-        if is_single:
-            return one("Secret", key, res.secrets)
-        return res.secrets
+        res = self._client.send("/secret/retrieve", req, RetrieveResponse)
+        return sole("Secret", fields, res.secrets) if single else res.secrets
