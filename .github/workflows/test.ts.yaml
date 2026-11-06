@@ -127,7 +127,7 @@ jobs:
           exit 1
 
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Start Core
         if: runner.os == 'Linux' && inputs.core_image != ''
@@ -210,7 +210,7 @@ jobs:
 
       - name: Upload coverage
         if: inputs.test && inputs.coverage_flag != ''
-        uses: codecov/codecov-action@v7
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7
         env:
           CURL_HOME: ${{ github.workspace }}/.github/codecov
         with:
