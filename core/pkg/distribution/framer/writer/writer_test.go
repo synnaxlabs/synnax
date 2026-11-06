@@ -164,6 +164,50 @@ var _ = Describe("Writer", func() {
 		})
 	})
 
+	Describe("Canceled Context", Ordered, func() {
+		var s scenario
+		BeforeAll(func(ctx SpecContext) {
+			ShouldNotLeakGoroutines()
+			s = DeferClose(gatewayOnlyScenario(ctx))
+		})
+		DescribeTable("Should return ErrClosed when the pipeline ends first",
+			func(ctx SpecContext, exec func(*writer.Writer, frame.Frame)) {
+				cfg := writer.Config{
+					Keys:              s.keys,
+					Start:             10 * telem.SecondTS,
+					Authorities:       []control.Authority{control.AuthorityAbsolute},
+					ErrOnUnauthorized: new(true),
+					Sync:              new(true),
+				}
+				cCtx, cancel := context.WithCancel(ctx)
+				defer cancel()
+				w := MustSucceed(s.dist.Framer.OpenWriter(cCtx, cfg))
+				cancel()
+				Eventually(func() error {
+					next, err := s.dist.Framer.OpenWriter(ctx, cfg)
+					if err != nil {
+						return err
+					}
+					return next.Close()
+				}).Should(Succeed())
+				exec(w, frame.NewMulti(s.keys, []telem.Series{
+					telem.NewSeriesV[int64](1),
+					telem.NewSeriesV[int64](2),
+					telem.NewSeriesV[int64](3),
+				}))
+				Expect(w.Close()).To(Succeed())
+			},
+			Entry("Write", func(w *writer.Writer, fr frame.Frame) {
+				GinkgoHelper()
+				Expect(w.Write(fr)).Error().To(MatchError(writer.ErrClosed))
+			}),
+			Entry("Commit", func(w *writer.Writer, _ frame.Frame) {
+				GinkgoHelper()
+				Expect(w.Commit()).Error().To(MatchError(writer.ErrClosed))
+			}),
+		)
+	})
+
 	Describe("Open Errors", Ordered, func() {
 		var s scenario
 		BeforeAll(func(ctx SpecContext) {

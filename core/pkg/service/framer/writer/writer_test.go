@@ -10,6 +10,8 @@
 package writer_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
@@ -22,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -65,6 +68,44 @@ var _ = Describe("Writer", func() {
 		Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
 		return ch
 	}
+
+	DescribeTable("Should return ErrClosed when a canceled context ends the pipeline",
+		func(ctx SpecContext, exec func(*writer.Writer, frame.Frame)) {
+			idxCh, dataCh := createIndexed(ctx, telem.Float64T)
+			keys := channel.Keys{idxCh.Key(), dataCh.Key()}
+			cfg := writer.Config{
+				Keys:              keys,
+				Start:             telem.SecondTS,
+				Authorities:       []control.Authority{control.AuthorityAbsolute},
+				ErrOnUnauthorized: new(true),
+				Sync:              new(true),
+			}
+			cCtx, cancel := context.WithCancel(ctx)
+			defer cancel()
+			w := MustSucceed(writerSvc.Open(cCtx, cfg))
+			cancel()
+			Eventually(func() error {
+				next, err := writerSvc.Open(ctx, cfg)
+				if err != nil {
+					return err
+				}
+				return next.Close()
+			}).Should(Succeed())
+			exec(w, frame.NewMulti(keys, []telem.Series{
+				telem.NewSeriesSecondsTSV(1),
+				telem.NewSeriesV(1.0),
+			}))
+			Expect(w.Close()).To(Succeed())
+		},
+		Entry("Write", func(w *writer.Writer, fr frame.Frame) {
+			GinkgoHelper()
+			Expect(w.Write(fr)).Error().To(MatchError(writer.ErrClosed))
+		}),
+		Entry("Commit", func(w *writer.Writer, _ frame.Frame) {
+			GinkgoHelper()
+			Expect(w.Commit()).Error().To(MatchError(writer.ErrClosed))
+		}),
+	)
 
 	Describe("Open Errors", func() {
 		It(
