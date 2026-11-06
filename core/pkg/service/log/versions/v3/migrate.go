@@ -76,4 +76,4 @@ func cutToCharacters(s string, n int) string {
 }
 
 // Migration lifts stored logs from v2 to v3.
-var Migration = migrate.NewEntry("v60_optional_channel_precision", MigrateLog)
+var Migration = migrate.NewEntry("v61_optional_channel_precision", MigrateLog)
