@@ -109,6 +109,31 @@ var _ = Describe("Typed series literals", func() {
 		Expect(got.Unmarshal[int64]()[0]).To(Equal(int64(2)))
 	})
 
+	DescribeTable("Should accept an empty series of any element type",
+		func(ctx SpecContext, element string) {
+			for _, body := range []string{
+				"y series " + element + " := []\nreturn len(y)",
+				"y series " + element + " := []\ny = []\nreturn len(y)",
+			} {
+				got := first(ctx, types.I64(), telem.Int64T, body)
+				Expect(got.Unmarshal[int64]()[0]).To(Equal(int64(0)), body)
+			}
+		},
+		Entry("bool", "bool"),
+		Entry("str", "str"),
+		Entry("f32", "f32"),
+		Entry("f64", "f64"),
+		Entry("i8", "i8"),
+		Entry("i16", "i16"),
+		Entry("i32", "i32"),
+		Entry("i64", "i64"),
+		Entry("u8", "u8"),
+		Entry("u16", "u16"),
+		Entry("u32", "u32"),
+		Entry("u64", "u64"),
+		Entry("timestamp", "i64 ns"),
+	)
+
 	DescribeTable("Should read a u8 element",
 		func(ctx SpecContext, body string, expected uint8) {
 			got := first(ctx, types.U8(), telem.Uint8T, body)
