@@ -13,6 +13,7 @@ import (
 	"context"
 	"slices"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -455,6 +456,43 @@ var _ = Describe("Index Persist", Ordered, func() {
 						hooked.writeAt = nil
 						Expect(writeSecond(ctx, 3)).To(Succeed())
 						expectDomains(ctx, []byte{1, 2, 3}, secondRanges(1, 2, 3)...)
+					},
+				)
+
+				It(
+					"Should fail a queued write after an earlier write fails",
+					func(ctx SpecContext) {
+						Expect(writeSecond(ctx, 1)).To(Succeed())
+						entered := make(chan struct{}, 1)
+						released, release := context.WithTimeout(ctx, 10*time.Second)
+						DeferCleanup(release)
+						var blocked atomic.Bool
+						hooked.writeAt = func([]byte) error {
+							if blocked.Swap(true) {
+								return nil
+							}
+							entered <- struct{}{}
+							<-released.Done()
+							return ErrFault
+						}
+						earlier, queued := make(chan error, 1), make(chan error, 1)
+						go func() { earlier <- writeSecond(ctx, 2) }()
+						Eventually(entered).Should(Receive())
+						go func() { queued <- writeSecond(ctx, 3) }()
+						Consistently(queued, 50*time.Millisecond).ShouldNot(Receive())
+						release()
+						Eventually(earlier).Should(Receive(MatchError(ErrFault)))
+						Eventually(queued).Should(Receive(MatchError(
+							ContainSubstring("earlier write of the index failed"),
+						)))
+						hooked.writeAt = nil
+
+						Expect(writeSecond(ctx, 4)).To(Succeed())
+						expectDomains(
+							ctx,
+							[]byte{1, 2, 3, 4},
+							secondRanges(1, 2, 3, 4)...,
+						)
 					},
 				)
 

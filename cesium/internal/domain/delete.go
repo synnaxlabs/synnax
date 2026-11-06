@@ -408,6 +408,7 @@ func (db *DB) garbageCollectFile(key uint16, size int64) (bool, error) {
 					offsetDeltaMap,
 				); ok {
 					db.idx.mu.pointers[i].offset = ptr.offset - deltaOffset
+					db.idx.persistHead = min(db.idx.persistHead, i)
 				}
 			}
 		}
