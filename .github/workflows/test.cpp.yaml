@@ -209,12 +209,10 @@ jobs:
           TEST_FLAGS: ${{ inputs.test_flags }}
         run: |
           lsan="$GITHUB_WORKSPACE/scripts/sanitizers/lsan_suppressions.txt"
-          # shellcheck disable=SC2086 # Splits the flag list into arguments.
-          bazel test $BAZEL_REMOTE_CACHE_FLAGS --jobs=4 \
+          read -ra args <<< "$BAZEL_REMOTE_CACHE_FLAGS $TARGETS $TAG_FLAG $TEST_FLAGS"
+          bazel test --jobs=4 \
             ${{ inputs.sanitizers && '--config=asan-leak' || '' }} --test_output=all \
-            --test_env=LSAN_OPTIONS=suppressions="$lsan" \
-            $TARGETS $TAG_FLAG \
-            $TEST_FLAGS
+            --test_env=LSAN_OPTIONS=suppressions="$lsan" "${args[@]}"
 
       - name: Test (Windows)
         if: runner.os == 'Windows'
@@ -225,10 +223,8 @@ jobs:
           TEST_FLAGS: ${{ inputs.test_flags }}
         run: |
           export MSYS_NO_PATHCONV=1
-          # shellcheck disable=SC2086 # Splits the flag list into arguments.
-          scripts/run_bazel.sh test $BAZEL_REMOTE_CACHE_FLAGS --test_output=all \
-            $TARGETS $TAG_FLAG \
-            $TEST_FLAGS
+          read -ra args <<< "$BAZEL_REMOTE_CACHE_FLAGS $TARGETS $TAG_FLAG $TEST_FLAGS"
+          scripts/run_bazel.sh test --test_output=all "${args[@]}"
 
       - name: Clean build caches (Ubuntu)
         if: always() && runner.os == 'Linux'
@@ -284,9 +280,8 @@ jobs:
         env:
           TARGETS: ${{ inputs.targets }}
         run: |
-          # shellcheck disable=SC2086 # Splits the flag list into arguments.
-          bazel build $BAZEL_REMOTE_CACHE_FLAGS --jobs=8 --config=clang-tidy \
-            --keep_going $TARGETS
+          read -ra args <<< "$BAZEL_REMOTE_CACHE_FLAGS $TARGETS"
+          bazel build --jobs=8 --config=clang-tidy --keep_going "${args[@]}"
 
       - name: Clean build caches
         if: always()

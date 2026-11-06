@@ -46,6 +46,12 @@ const findThumb = (recorder: ReturnType<typeof canvasTest.record>) => {
   return { x, y, width, height };
 };
 
+const selectedText = (log: Log): string =>
+  log
+    .selectedLines()
+    .map(({ text }) => text)
+    .join("\n");
+
 let testIdCounter = 0;
 
 const baseInput = (
@@ -330,8 +336,6 @@ describe("log/aether/Log", () => {
       });
       expect(parsed.selectionStart).toBe(-1);
       expect(parsed.selectionEnd).toBe(-1);
-      expect(parsed.selectedText).toBe("");
-      expect(parsed.selectedLines).toEqual([]);
       expect(parsed.computedLineHeight).toBe(0);
     });
 
@@ -576,7 +580,7 @@ describe("log/aether/Log", () => {
 
       expect(log.state.selectionStart).toBe(-1);
       expect(log.state.selectionEnd).toBe(-1);
-      expect(log.state.selectedText).toBe("");
+      expect(log.selectedLines()).toEqual([]);
     });
 
     it("should not modify selection when no entries are evicted", () => {
@@ -995,7 +999,7 @@ describe("log/aether/Log", () => {
         selectionEnd: 0,
       });
       log.render();
-      expect(log.state.selectedText).toContain("Sensor1");
+      expect(selectedText(log)).toContain("Sensor1");
     });
 
     it("should format entries without channel names when channelNamesHidden is true", () => {
@@ -1006,7 +1010,7 @@ describe("log/aether/Log", () => {
         selectionEnd: 0,
       });
       log.render();
-      expect(log.state.selectedText).not.toContain("Sensor1");
+      expect(selectedText(log)).not.toContain("Sensor1");
     });
 
     it("should put two spaces after the time and three before the value", () => {
@@ -1021,7 +1025,7 @@ describe("log/aether/Log", () => {
         selectionEnd: 0,
       });
       log.render();
-      expect(log.state.selectedText).toMatch(/\d{2}:\d{2}:\d{2} {2}log {3}v$/);
+      expect(selectedText(log)).toMatch(/\d{2}:\d{2}:\d{2} {2}log {3}v$/);
     });
 
     it("should apply precision formatting when channelConfig has precision", () => {
@@ -1040,11 +1044,12 @@ describe("log/aether/Log", () => {
             precision: 2,
           }),
         ],
+        channelDataTypes: { "1": "float64" },
         selectionStart: 0,
         selectionEnd: 0,
       });
       log.render();
-      expect(log.state.selectedText).toContain("3.14");
+      expect(selectedText(log)).toContain("3.14");
     });
 
     it("should show the value as it arrives when the precision is absent", () => {
@@ -1061,7 +1066,7 @@ describe("log/aether/Log", () => {
         selectionEnd: 0,
       });
       log.render();
-      expect(log.state.selectedText).toContain("3.14159265");
+      expect(selectedText(log)).toContain("3.14159265");
     });
 
     it("should apply scientific notation when configured", () => {
@@ -1081,12 +1086,13 @@ describe("log/aether/Log", () => {
             precision: 2,
           }),
         ],
+        channelDataTypes: { "1": "float64" },
         selectionStart: 0,
         selectionEnd: 0,
       });
       log.render();
       // Should contain scientific notation (uses unicode ᴇ)
-      expect(log.state.selectedText).toMatch(/[eEᴇ]/);
+      expect(selectedText(log)).toMatch(/[eEᴇ]/);
     });
 
     it("should render continuation entries without name/timestamp but aligned to the value column", () => {
@@ -1109,7 +1115,7 @@ describe("log/aether/Log", () => {
         selectionEnd: 2,
       });
       log.render();
-      const lines = log.state.selectedLines.map((l) => l.text);
+      const lines = log.selectedLines().map((l) => l.text);
       expect(lines[0]).toContain("log");
       expect(lines[0]).toContain("hello");
       // Continuation: no name, but leading whitespace preserves value alignment.
@@ -1133,7 +1139,7 @@ describe("log/aether/Log", () => {
         selectionEnd: 0,
       });
       log.render();
-      const [line] = log.state.selectedLines.map((l) => l.text);
+      const [line] = log.selectedLines().map((l) => l.text);
       expect(line).toContain("log");
     });
 
@@ -1162,7 +1168,7 @@ describe("log/aether/Log", () => {
         selectionEnd: 2,
       });
       log.render();
-      const lines = log.state.selectedLines.map((l) => l.text);
+      const lines = log.selectedLines().map((l) => l.text);
       expect(lines[0]).toContain("sensor");
       expect(lines[0]).toContain("first");
       const valueCol = lines[0].indexOf("first");
@@ -1190,7 +1196,7 @@ describe("log/aether/Log", () => {
         selectionEnd: 1,
       });
       log.render();
-      const lines = log.state.selectedLines.map((l) => l.text);
+      const lines = log.selectedLines().map((l) => l.text);
       expect(lines[0]).toBe("line1");
       expect(lines[1]).toBe("line2");
     });
@@ -1224,7 +1230,7 @@ describe("log/aether/Log", () => {
         selectionEnd: 3,
       });
       log.render();
-      const lines = log.state.selectedLines.map((l) => l.text);
+      const lines = log.selectedLines().map((l) => l.text);
       expect(lines[0]).toContain("chA");
       expect(lines[0]).toContain("a1");
       expect(lines[1]).not.toContain("chA");
@@ -1254,12 +1260,98 @@ describe("log/aether/Log", () => {
         selectionEnd: 1,
       });
       log.render();
-      const lines = log.state.selectedLines.map((l) => l.text);
+      const lines = log.selectedLines().map((l) => l.text);
       expect(lines[0]).toContain("log");
       expect(lines[0]).toContain("data");
       expect(lines[1]).not.toContain("log");
       expect(lines[1]).toMatch(/^\s*$/);
       expect(lines[1].length).toBe(lines[0].indexOf("data"));
+    });
+  });
+
+  describe("number formatting", () => {
+    // Returns the value drawn for a sample of a channel with the given settings.
+    const shown = (
+      value: string,
+      dataType: string | undefined,
+      overrides: Partial<clientLog.ChannelEntry>,
+    ): string => {
+      const { log, recorder } = setup(
+        [{ ...makeEntry(0), value }],
+        box.construct({ x: 0, y: 0 }, { width: 1000, height: 500 }),
+        {
+          channels: [
+            clientLog.channelEntryZ.parse({
+              channel: 1,
+              color: color.ZERO,
+              ...overrides,
+            }),
+          ],
+          channelDataTypes: dataType == null ? {} : { "1": dataType },
+          channelNamesHidden: true,
+          timestampsHidden: true,
+        },
+      );
+      recorder.clear();
+      log.render();
+      return recorder.lower2d.calls
+        .filter(({ op }) => op === "fillText")
+        .map(({ args }) => String(args[0]))
+        .join("");
+    };
+
+    it("should keep the text of a string channel with a precision", () => {
+      expect(shown("12 volts", "string", { precision: 2 })).toBe("12 volts");
+    });
+
+    it("should keep the text of a string channel with a notation", () => {
+      expect(shown("1234", "string", { notation: "scientific" })).toBe("1234");
+    });
+
+    it("should keep the value of a boolean channel with a precision", () => {
+      expect(shown("true", "boolean", { precision: 2 })).toBe("true");
+    });
+
+    it("should keep a float sample of a channel that became an integer", () => {
+      expect(shown("3.14", "int32", { precision: 2 })).toBe("3.14");
+    });
+
+    it("should keep text of a channel that became a float", () => {
+      expect(shown("12 volts", "float32", { precision: 2 })).toBe("12 volts");
+    });
+
+    it("should keep a blank line of a channel that became a float", () => {
+      expect(shown("  ", "float32", { precision: 2 })).toBe("  ");
+    });
+
+    it("should show the raw value before the data type loads", () => {
+      expect(shown("3.14159", undefined, { precision: 2 })).toBe("3.14159");
+    });
+
+    it("should apply a precision to a float channel", () => {
+      expect(shown("3.14159", "float64", { precision: 2 })).toBe("3.14");
+    });
+
+    it("should keep every digit at auto precision in scientific notation", () => {
+      expect(shown("1234.5", "float64", { notation: "scientific" })).toBe("1.2345ᴇ3");
+    });
+
+    it("should keep every digit at auto precision in engineering notation", () => {
+      expect(shown("12345.6", "float64", { notation: "engineering" })).toBe(
+        "12.3456ᴇ3",
+      );
+    });
+
+    it("should keep every digit of a large integer at a precision", () => {
+      expect(shown("9007199254740993", "int64", { precision: 1 })).toBe(
+        "9007199254740993.0",
+      );
+    });
+
+    it("should keep every digit of a large integer at auto precision", () => {
+      expect(shown("18446744073709551615", "uint64", { notation: "scientific" })).toBe(
+        "1.8446744073709551615ᴇ19",
+      );
     });
   });
 
@@ -1476,7 +1568,7 @@ describe("log/aether/Log", () => {
         selectionEnd: 1,
       });
       log.render();
-      expect(log.state.selectedLines[0].text).toMatch(/^2026-01-05 01:00:00/);
+      expect(log.selectedLines()[0].text).toMatch(/^2026-01-05 01:00:00/);
     });
 
     it("should keep dates off copied lines when timestamps are hidden", () => {
@@ -1487,42 +1579,80 @@ describe("log/aether/Log", () => {
         selectionEnd: 0,
       });
       log.render();
-      expect(log.state.selectedLines[0].text).toBe("v");
+      expect(log.selectedLines()[0].text).toBe("v");
     });
   });
 
-  describe("selectedText and selectedLines", () => {
-    it("should clear selectedText when selection is negative", () => {
+  describe("per-frame selection cost", () => {
+    it("should cover entries that arrive after a select-all", () => {
+      const { log, source, updateState } = setup([makeEntry(0)]);
+      updateState({ selectionStart: 0, selectionEnd: SELECT_ALL_END });
+      source.push(makeEntry(1));
+      source.notify();
+      expect(log.selectedLines()).toHaveLength(2);
+    });
+
+    const countReads = (count: number) => {
+      const reads = { count: 0 };
+      const entries = Array.from({ length: count }, (_, i) =>
+        Object.defineProperty(makeEntry(i), "value", {
+          get: () => {
+            reads.count++;
+            return String(i);
+          },
+        }),
+      );
+      return { reads, entries };
+    };
+
+    it("should not read the selected entries off screen on a frame", () => {
+      const small = countReads(1_000);
+      const large = countReads(20_000);
+      const frameReads = ({ reads, entries }: typeof small): number => {
+        const { log } = setup(entries, REGION_500, {
+          selectionStart: 0,
+          selectionEnd: SELECT_ALL_END,
+        });
+        reads.count = 0;
+        log.render();
+        return reads.count;
+      };
+      expect(frameReads(large)).toBe(frameReads(small));
+    });
+  });
+
+  describe("selectedLines", () => {
+    it("should be empty when selection is negative", () => {
       const entries = Array.from({ length: 5 }, (_, i) => makeEntry(i));
       const { log } = setup(entries, REGION_500, {
         selectionStart: -1,
         selectionEnd: -1,
       });
       log.render();
-      expect(log.state.selectedText).toBe("");
-      expect(log.state.selectedLines).toEqual([]);
+      expect(selectedText(log)).toBe("");
+      expect(log.selectedLines()).toEqual([]);
     });
 
-    it("should set selectedText for a single selected entry", () => {
+    it("should return a single selected entry", () => {
       const entries = Array.from({ length: 10 }, (_, i) => makeEntry(i));
       const { log } = setup(entries, REGION_500, {
         selectionStart: 0,
         selectionEnd: 0,
       });
       log.render();
-      expect(log.state.selectedText.length).toBeGreaterThan(0);
-      expect(log.state.selectedLines).toHaveLength(1);
+      expect(selectedText(log).length).toBeGreaterThan(0);
+      expect(log.selectedLines()).toHaveLength(1);
     });
 
-    it("should set selectedText for a range of selected entries", () => {
+    it("should return a range of selected entries", () => {
       const entries = Array.from({ length: 10 }, (_, i) => makeEntry(i));
       const { log } = setup(entries, REGION_500, {
         selectionStart: 2,
         selectionEnd: 5,
       });
       log.render();
-      expect(log.state.selectedLines).toHaveLength(4);
-      expect(log.state.selectedText).toContain("\n");
+      expect(log.selectedLines()).toHaveLength(4);
+      expect(selectedText(log)).toContain("\n");
     });
 
     it("should clamp a select-to-end sentinel to all entries", () => {
@@ -1532,7 +1662,7 @@ describe("log/aether/Log", () => {
         selectionEnd: Number.MAX_SAFE_INTEGER,
       });
       log.render();
-      expect(log.state.selectedLines).toHaveLength(10);
+      expect(log.selectedLines()).toHaveLength(10);
     });
 
     it("should handle reversed selection (end < start)", () => {
@@ -1542,10 +1672,10 @@ describe("log/aether/Log", () => {
         selectionEnd: 2,
       });
       log.render();
-      expect(log.state.selectedLines).toHaveLength(4);
+      expect(log.selectedLines()).toHaveLength(4);
     });
 
-    it("should include color in selectedLines when channel has custom color", () => {
+    it("should include the color of a channel with a custom color", () => {
       const entries = Array.from({ length: 5 }, (_, i) => makeEntry(i));
       const { log } = setup(entries, REGION_500, {
         channels: [
@@ -1558,17 +1688,17 @@ describe("log/aether/Log", () => {
         selectionEnd: 0,
       });
       log.render();
-      expect(log.state.selectedLines[0].color).not.toBe("");
+      expect(log.selectedLines()[0].color).not.toBe("");
     });
 
-    it("should have empty color in selectedLines when no custom color", () => {
+    it("should have an empty color when a channel has no custom color", () => {
       const entries = Array.from({ length: 5 }, (_, i) => makeEntry(i));
       const { log } = setup(entries, REGION_500, {
         selectionStart: 0,
         selectionEnd: 0,
       });
       log.render();
-      expect(log.state.selectedLines[0].color).toBe("");
+      expect(log.selectedLines()[0].color).toBe("");
     });
   });
 
@@ -1726,10 +1856,10 @@ describe("log/aether/Log", () => {
         selectionEnd: 3,
       });
       log.render();
-      expect(log.state.selectedLines).toHaveLength(4);
-      expect(log.state.selectedText).toContain("Temperature");
-      expect(log.state.selectedText).toContain("Pressure");
-      expect(log.state.selectedText).toContain("Humidity");
+      expect(log.selectedLines()).toHaveLength(4);
+      expect(selectedText(log)).toContain("Temperature");
+      expect(selectedText(log)).toContain("Pressure");
+      expect(selectedText(log)).toContain("Humidity");
     });
 
     it("should apply per-channel colors from channelConfigs", () => {
@@ -1749,11 +1879,9 @@ describe("log/aether/Log", () => {
         selectionEnd: 1,
       });
       log.render();
-      expect(log.state.selectedLines[0].color).not.toBe("");
-      expect(log.state.selectedLines[1].color).not.toBe("");
-      expect(log.state.selectedLines[0].color).not.toBe(
-        log.state.selectedLines[1].color,
-      );
+      expect(log.selectedLines()[0].color).not.toBe("");
+      expect(log.selectedLines()[1].color).not.toBe("");
+      expect(log.selectedLines()[0].color).not.toBe(log.selectedLines()[1].color);
     });
   });
 

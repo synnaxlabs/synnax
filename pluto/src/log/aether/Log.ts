@@ -13,6 +13,7 @@ import {
   bounds,
   box,
   color,
+  DataType,
   type destructor,
   notation,
   text,
@@ -63,14 +64,20 @@ export const logStateZ = log.logZ
     selectionStart: z.number().default(-1),
     selectionEnd: z.number().default(-1),
     visibleStart: z.number().default(0),
-    selectedText: z.string().default(""),
-    selectedLines: z
-      .array(z.object({ text: z.string(), color: z.string() }))
-      .default([]),
     computedLineHeight: z.number().default(0),
     // The entry index of each row on screen, top to bottom.
     rowEntries: z.array(z.number()).default([]),
   });
+
+const lineZ = z.object({ text: z.string(), color: z.string() });
+
+/** A selected line as a copy writes it. An empty color follows the theme. */
+export interface Line extends z.infer<typeof lineZ> {}
+
+export const methodsZ = {
+  /** Returns the selected lines at the time of the call. */
+  selectedLines: z.function({ input: z.tuple([]), output: z.array(lineZ) }),
+};
 
 /**
  * A selection end that follows the newest entry, so select-all needs no entry count
@@ -215,6 +222,26 @@ const wrapStarts = (value: string, columns: number): number[] => {
   return starts;
 };
 
+const INTEGER = /^-?\d+$/;
+
+// Returns the sample in the number format of its channel. A sample shows as it arrives
+// when the channel holds no numbers, its data type has not loaded, or a calculated
+// channel changed type after the sample arrived.
+const formatNumber = (
+  value: string,
+  dataType: string | undefined,
+  { precision, notation: valueNotation }: log.ChannelEntry,
+): string => {
+  if (dataType == null) return value;
+  const type = new DataType(dataType);
+  if (type.isInteger && INTEGER.test(value))
+    return notation.stringifyNumber(BigInt(value), precision, valueNotation);
+  if (!type.isFloat || value.trim() === "") return value;
+  const number = Number(value);
+  if (Number.isNaN(number)) return value;
+  return notation.stringifyNumber(number, precision, valueNotation);
+};
+
 const sameEntries = (a: number[], b: number[]): boolean =>
   a.length === b.length && a.every((entry, i) => entry === b[i]);
 
@@ -225,10 +252,14 @@ const wrapPoint = (value: string, at: number): number => {
   return code >= 0xdc00 && code <= 0xdfff ? at + 1 : at;
 };
 
-export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
+export class Log
+  extends aether.Leaf<typeof logStateZ, InternalState, typeof methodsZ>
+  implements aether.HandlersFromSchema<typeof methodsZ>
+{
   static readonly TYPE = "log";
   static readonly z = logStateZ;
   schema = Log.z;
+  methods = methodsZ;
   entries: LogEntry[] = [];
   // Copied, not shared: the scrollback branch mutates this in place.
   scrollState: ScrollbackState = { ...ZERO_SCROLLBACK };
@@ -618,8 +649,6 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
         rowEntries,
       }));
 
-    this.updateSelectedText();
-
     const reg = this.state.region;
     const clearScissor = renderCtx.scissor(reg, xy.ZERO, [CANVAS]);
     this.renderSelection(draw2d, rowEntries, lh);
@@ -755,23 +784,13 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     const newEnd = end == null ? selectionEnd : this.locate(end);
     if (newStart < 0 && newEnd < 0) {
       this.anchors = { scroll: this.anchors.scroll };
-      this.setState((s) => ({
-        ...s,
-        selectionStart: -1,
-        selectionEnd: -1,
-        selectedText: "",
-      }));
+      this.setState((s) => ({ ...s, selectionStart: -1, selectionEnd: -1 }));
       return;
     }
     const [nextStart, nextEnd] = [Math.max(0, newStart), Math.max(0, newEnd)];
     this.setAnchors(nextStart, nextEnd);
     if (nextStart === selectionStart && nextEnd === selectionEnd) return;
-    this.setState((s) => ({
-      ...s,
-      selectionStart: nextStart,
-      selectionEnd: nextEnd,
-      selectedText: "",
-    }));
+    this.setState((s) => ({ ...s, selectionStart: nextStart, selectionEnd: nextEnd }));
   }
 
   // Waits at the oldest entry while older pages can still reach the time. When no stored
@@ -851,11 +870,8 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
       } catch {
         // Leave value as-is if it can't be parsed as a bigint.
       }
-    } else if (cfg != null && (cfg.precision != null || cfg.notation !== "standard")) {
-      const num = parseFloat(value);
-      if (!isNaN(num))
-        value = notation.stringifyNumber(num, cfg.precision ?? 0, cfg.notation);
-    }
+    } else if (cfg != null && (cfg.precision != null || cfg.notation !== "standard"))
+      value = formatNumber(value, channelDataTypes[chKeyStr], cfg);
     const { displayNames, namePadding } = this.internal;
     const name = displayNames[chKeyStr] ?? chKeyStr;
     const pad = namePadding[chKeyStr] ?? "";
@@ -873,26 +889,17 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     return { prefix, value, line: prefix + value, channelKey: chKeyStr };
   }
 
-  private updateSelectedText(): void {
+  selectedLines(): Line[] {
     const { selectionStart, selectionEnd } = this.state;
-    if (selectionStart < 0 || selectionEnd < 0) {
-      if (this.state.selectedText !== "")
-        this.setState((s) => ({ ...s, selectedText: "", selectedLines: [] }));
-      return;
-    }
+    if (selectionStart < 0 || selectionEnd < 0) return [];
     const selMin = Math.min(selectionStart, selectionEnd);
     const selMax = Math.max(selectionStart, selectionEnd);
-    const selected = this.entries.slice(selMin, selMax + 1);
-    const formatted = selected.map((e) => this.formatEntry(e, true));
-    const text = formatted.map((f) => f.line).join("\n");
-    if (text !== this.state.selectedText) {
-      const { valueColors } = this.internal;
-      const selectedLines = formatted.map((f) => ({
-        text: f.line,
-        color: f.channelKey in valueColors ? color.hex(valueColors[f.channelKey]) : "",
-      }));
-      this.setState((s) => ({ ...s, selectedText: text, selectedLines }));
-    }
+    const { valueColors } = this.internal;
+    return this.entries.slice(selMin, selMax + 1).map((entry) => {
+      const { line, channelKey } = this.formatEntry(entry, true);
+      const lineColor = valueColors[channelKey];
+      return { text: line, color: lineColor == null ? "" : color.hex(lineColor) };
+    });
   }
 
   private renderElements(draw2D: Draw2D, rows: Row[], lh: number): void {

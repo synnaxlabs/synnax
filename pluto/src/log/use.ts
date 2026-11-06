@@ -9,13 +9,16 @@
 
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
-import { box, type optional } from "@synnaxlabs/x";
+import { box, type optional, TimeSpan } from "@synnaxlabs/x";
 import { type Dispatch, type SetStateAction, useEffect, useRef } from "react";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
 import { Channel } from "@/channel";
 import { log } from "@/log/aether";
+
+// Formatting the entry cap takes seconds on a slow machine.
+const COPY_TIMEOUT = TimeSpan.seconds(30);
 
 export interface UseProps
   extends
@@ -33,8 +36,6 @@ export interface UseProps
         | "selectionEnd"
         | "visibleStart"
         | "rowEntries"
-        | "selectedText"
-        | "selectedLines"
         | "computedLineHeight"
         | "channelNames"
         | "channelDataTypes"
@@ -61,6 +62,7 @@ export type LogState = z.output<typeof log.logStateZ>;
 export interface UseReturn {
   state: LogState;
   setState: Dispatch<SetStateAction<LogState>>;
+  methods: { selectedLines: () => Promise<log.Line[]> };
 }
 
 export const use = ({
@@ -81,7 +83,7 @@ export const use = ({
   const channels = rawChannels ?? [];
   const numericChannels = channels
     .map((e) => e.channel)
-    .filter((ch): ch is number => typeof ch === "number" && ch > 0);
+    .filter((ch): ch is number => typeof ch === "number");
   const { data: retrievedChannels } = Channel.useResultMultiple({
     where: { key: { in: numericChannels } },
   });
@@ -118,10 +120,12 @@ export const use = ({
     if (holdRef.current != null) onHold?.(false);
   };
 
-  const [, state, setState] = Aether.use({
+  const [, state, setState, methods] = Aether.use({
     aetherKey,
     type: log.Log.TYPE,
     schema: log.logStateZ,
+    methods: log.methodsZ,
+    invokeTimeout: COPY_TIMEOUT,
     initialState: {
       empty: true,
       region: box.ZERO,
@@ -144,5 +148,5 @@ export const use = ({
     [onLeaveRef, stateRef],
   );
 
-  return { state, setState };
+  return { state, setState, methods };
 };
