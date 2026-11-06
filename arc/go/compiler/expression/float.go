@@ -18,8 +18,8 @@ import (
 	"github.com/synnaxlabs/arc/types"
 )
 
-// floatCheck tests |x| against +Inf with op. NaN fails every comparison, so a check
-// that must pass for NaN negates a comparison that passes for all other values.
+// floatCheck tests |x| against +Inf with op. Each op is false for NaN, so a check that
+// must pass for NaN negates a comparison that passes for all other values.
 type floatCheck struct {
 	op      string
 	negated bool
