@@ -55,14 +55,18 @@ class TestReadSurfaces:
         d.mkdir()
         (d / "status").write_text("changed\n")
         (d / "diff").write_text("+a\n")
-        surfaces = {s.name: s for s in read_surfaces(tmp_path)}
+        surfaces = {s.name: s for s in read_surfaces(tmp_path, workflow="")}
         assert surfaces["oracle"] == Surface(
             name="oracle", status="changed", diff="+a\n"
         )
 
     def test_treats_a_missing_report_as_an_error(self, tmp_path: Path) -> None:
-        surfaces = {s.name: s for s in read_surfaces(tmp_path)}
-        assert surfaces["core"].status == "error"
+        surfaces = read_surfaces(tmp_path, workflow="  - surface: core\n")
+        assert {s.name: s for s in surfaces}["core"].status == "error"
+
+    def test_skips_a_surface_the_head_does_not_compare(self, tmp_path: Path) -> None:
+        surfaces = read_surfaces(tmp_path, workflow="  - surface: core-windows\n")
+        assert {s.name: s for s in surfaces}["core"].status == "skipped"
 
 
 class TestNeedsHuman:
@@ -80,6 +84,10 @@ class TestNeedsHuman:
             [*ALL_SAME, Surface(name="core", status="error", diff="")],
             reasons=[],
         )
+
+    def test_is_false_when_a_surface_was_skipped(self) -> None:
+        skipped = Surface(name="core", status="skipped", diff="")
+        assert not needs_human([*ALL_SAME, skipped], reasons=[])
 
     def test_is_true_when_a_reason_applies(self) -> None:
         assert needs_human(ALL_SAME, reasons=["fork"])
@@ -183,6 +191,8 @@ class FakeGH:
             head = {**same, "sha": self.heads.pop(0)}
             labels = [{"name": n} for n in self.labels]
             return json.dumps({"head": head, "base": same, "labels": labels})
+        if any(a.startswith(f"repos/{REPO}/contents/") for a in args):
+            return "".join(f"- surface: {name}\n" for name in classify.SURFACES)
         if f"repos/{REPO}/pulls/5/files" in args:
             return "".join(json.dumps(file(name)) + "\n" for name in self.files)
         if args[:3] == ("api", "--paginate", COMMENTS):

@@ -12,7 +12,8 @@
     python3 classify.py <artifacts-dir>
 
 A pull request needs review/human when a surface report differs between its base and
-head, or a trust check fails. Otherwise the author picks the tier, so the script adds no
+head, a report is missing, or a trust check fails. A branch older than a report does not
+compare it, and that alone does not raise the tier. Otherwise the author picks the tier, so the script adds no
 label. The script only raises: it never removes review/human. It reads the pull request
 number from PR, or else <artifacts-dir>/pr/number, and refuses it unless the pull
 request's head is HEAD_SHA. Environment: GH_TOKEN, GITHUB_REPOSITORY, HEAD_SHA, and
@@ -35,10 +36,11 @@ BOT = "review/bot"
 HUMAN_TIERS = {HUMAN, "review/light", "review/thorough"}
 # Files that make or judge the reports. A pull request that changes one could forge
 # its own result, so it always gets a human.
+CHECK_WORKFLOW = ".github/workflows/check.classify.yaml"
 CLASSIFIER_PATHS = (
     ".github/scripts/classify.py",
     ".github/scripts/surface.sh",
-    ".github/workflows/check.classify.yaml",
+    CHECK_WORKFLOW,
     ".github/workflows/label.classify.yaml",
     ".github/actions/",
     "client/ts/scripts/surface.sh",
@@ -57,7 +59,13 @@ SURFACES = {
     "core-windows": "Core commands and flags on Windows",
     "driver": "Driver commands and config keys",
 }
-STATUS_TEXT = {"same": "No change", "changed": "Changed", "error": "Report failed"}
+STATUS_TEXT = {
+    "same": "No change",
+    "changed": "Changed",
+    "error": "Report failed",
+    "skipped": "Not compared: the branch predates this report",
+}
+FLAGGED = {"changed", "error"}
 MAX_DIFF_CHARS = 12_000
 
 
@@ -68,14 +76,19 @@ class Surface:
     diff: str
 
 
-def read_surfaces(root: Path) -> list[Surface]:
+def read_surfaces(root: Path, *, workflow: str) -> list[Surface]:
+    """Reads the uploaded results. workflow is the head's copy of the check workflow. A
+    pull request cannot drop a surface from it unseen, because a change to that file
+    fails the trust check."""
     out = []
     for name in SURFACES:
         d = root / f"surface-{name}"
         status = (d / "status").read_text().strip() if (d / "status").exists() else ""
         diff = (d / "diff").read_text() if (d / "diff").exists() else ""
         if status not in STATUS_TEXT:
-            status, diff = "error", "No report: the job did not finish.\n"
+            listed = re.search(rf"surface: {re.escape(name)}$", workflow, re.MULTILINE)
+            status = "error" if listed else "skipped"
+            diff = "No report: the job did not finish.\n" if listed else ""
         out.append(Surface(name=name, status=status, diff=diff))
     return out
 
@@ -95,7 +108,7 @@ def trust_reasons(pull: dict[str, Any], *, files: list[dict[str, Any]]) -> list[
 
 
 def needs_human(surfaces: list[Surface], *, reasons: list[str]) -> bool:
-    return any(s.status != "same" for s in surfaces) or bool(reasons)
+    return any(s.status in FLAGGED for s in surfaces) or bool(reasons)
 
 
 def plan_labels(current: set[str], *, human: bool) -> tuple[list[str], list[str]]:
@@ -122,7 +135,7 @@ def render(
     reasons: list[str],
     kept: bool,
 ) -> str:
-    changed = any(s.status != "same" for s in surfaces)
+    changed = any(s.status in FLAGGED for s in surfaces)
     tier = f"`{HUMAN}`" if changed or reasons or kept else "the author picks"
     if changed:
         summary = "This pull request changes a user-facing interface."
@@ -146,7 +159,7 @@ def render(
         *rows,
     ]
     for s in surfaces:
-        if s.status == "same":
+        if s.status not in FLAGGED:
             continue
         lines += [
             "",
@@ -171,6 +184,15 @@ def gh(*args: str, stdin: str | None = None) -> str:
 
 def gh_lines(*args: str) -> list[Any]:
     return [json.loads(line) for line in gh(*args).splitlines() if line]
+
+
+def read_workflow(repo: str, *, sha: str) -> str:
+    return gh(
+        "api",
+        "-H",
+        "Accept: application/vnd.github.raw+json",
+        f"repos/{repo}/contents/{CHECK_WORKFLOW}?ref={sha}",
+    )
 
 
 def find_comment(repo: str, *, number: int) -> dict[str, Any] | None:
@@ -223,7 +245,7 @@ def main() -> None:
     )
     comment = find_comment(repo, number=number)
     reasons = trust_reasons(pull, files=files)
-    surfaces = read_surfaces(root)
+    surfaces = read_surfaces(root, workflow=read_workflow(repo, sha=head_sha))
     # A push during the reads leaves the reports stale: check the head before writing.
     pull = json.loads(gh("api", f"repos/{repo}/pulls/{number}"))
     if pull["head"]["sha"] != head_sha:
