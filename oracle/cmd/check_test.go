@@ -69,7 +69,7 @@ Thing struct { other string }
 		writeSchema("warn", `
 @go output "x/go/warn"
 Thing struct {
-    other other.Missing
+    other Missing
 }
 `)
 		_, code := runOracleCheck("--gates=analyze", "--warnings-as-errors")
@@ -155,7 +155,7 @@ var _ = Describe("check command flag paths", func() {
 		BeforeEach(func() {
 			_, cleanup = setupMiniRepo(map[string]string{
 				"warn.oracle": "@go output \"x/go/warn\"\n" +
-					"Thing struct {\n    other other.Missing\n}\n",
+					"Thing struct {\n    other Missing\n}\n",
 			})
 		})
 

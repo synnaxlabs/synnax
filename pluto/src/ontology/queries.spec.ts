@@ -44,7 +44,7 @@ describe("Ontology Queries", () => {
       const { result } = renderHook(
         () =>
           Ontology.useListChildren({
-            initialQuery: { id: group.ontologyID(parent.key) },
+            query: { id: group.ontologyID(parent.key) },
           }),
         { wrapper },
       );
@@ -72,7 +72,7 @@ describe("Ontology Queries", () => {
       const { result } = renderHook(
         () =>
           Ontology.useListChildren({
-            initialQuery: { id: group.ontologyID(parent.key) },
+            query: { id: group.ontologyID(parent.key) },
           }),
         { wrapper },
       );
@@ -122,7 +122,7 @@ describe("Ontology Queries", () => {
       const { result } = renderHook(
         () =>
           Ontology.useListChildren({
-            initialQuery: { id: group.ontologyID(parent.key) },
+            query: { id: group.ontologyID(parent.key) },
           }),
         { wrapper },
       );
