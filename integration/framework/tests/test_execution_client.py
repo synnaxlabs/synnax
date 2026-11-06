@@ -12,14 +12,14 @@ import sys
 import threading
 from collections.abc import Iterator
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import pytest
 from pydantic import BaseModel
 
 import synnax as sy
 from framework import models, resources
-from framework.config_client import ConfigClient
+from framework.config_client import ConfigClient, Sequence
 from framework.cores import Core
 from framework.execution_client import ExecutionClient
 from framework.models import DEFAULT_OPTIONS, STATUS, SynnaxConnection
@@ -127,17 +127,20 @@ def sequence(
     }
 
 
-def run(
+def client(
     cases_dir: Path,
     *sequences: dict[str, object],
     cores: int = 2,
     browsers: int | None = None,
-) -> dict[str, Span]:
+    active: list[tuple[Any, ...]] | None = None,
+) -> tuple[ExecutionClient, list[Sequence], list[models.Test]]:
+    """Returns a client for the sequences, with the sequences to run and the list it
+    records results in."""
     (cases_dir / "lanes_tests.json").write_text(json.dumps({"sequences": sequences}))
     config = ConfigClient(tests_dir=cases_dir)
     loaded, _ = config.load(TargetFilter(file_filter=["lanes"]))
     results: list[models.Test] = []
-    client = ExecutionClient(
+    execution = ExecutionClient(
         config_client=config,
         cores=[
             Core(
@@ -154,17 +157,33 @@ def run(
         conductor_range=None,
         tests=results,
         tests_lock=threading.Lock(),
-        active_tests=[],
+        active_tests=active if active is not None else [],
         active_tests_lock=threading.Lock(),
         log=lambda message, /, *, use_name=True: None,
         on_status_change=lambda _: None,
         on_test_ran=lambda: None,
     )
-    client.run(loaded)
+    return execution, loaded, results
+
+
+def spans(cases_dir: Path) -> dict[str, Span]:
+    record = cases_dir.parent / "record.jsonl"
+    lines = record.read_text().splitlines() if record.exists() else []
+    return {s.name: s for s in map(Span.model_validate_json, lines)}
+
+
+def run(
+    cases_dir: Path,
+    *sequences: dict[str, object],
+    cores: int = 2,
+    browsers: int | None = None,
+) -> dict[str, Span]:
+    execution, loaded, results = client(
+        cases_dir, *sequences, cores=cores, browsers=browsers
+    )
+    execution.run(loaded)
     assert [t.status for t in results] == [STATUS.PASSED] * len(results)
-    lines = (cases_dir.parent / "record.jsonl").read_text().splitlines()
-    spans = [Span.model_validate_json(line) for line in lines]
-    return {s.name: s for s in spans}
+    return spans(cases_dir)
 
 
 class TestExecutionClient:
@@ -237,3 +256,28 @@ class TestExecutionClient:
         )
         assert spans["t_0"].start >= max(spans["a_0"].end, spans["b_0"].end)
         assert spans["t_0"].port == FIRST_PORT
+
+    # A stop ends the running test's thread with SystemExit.
+    @pytest.mark.filterwarnings("ignore::pytest.PytestUnhandledThreadExceptionWarning")
+    def test_stop_waiting(self, cases_dir: Path) -> None:
+        """Should not start a test that waits for a resource when the run stops."""
+        active: list[tuple[Any, ...]] = []
+        execution, loaded, results = client(
+            cases_dir,
+            sequence("a", "sim", "sim", hold=1, order="asynchronous"),
+            active=active,
+        )
+        runner = threading.Thread(target=execution.run, args=(loaded,))
+        runner.start()
+        timer = sy.Timer()
+        while not active:
+            assert timer.elapsed() < 5 * sy.TimeSpan.SECOND
+            sy.sleep(0.01)
+        execution.stop()
+        runner.join(timeout=10)
+        assert not runner.is_alive()
+        assert spans(cases_dir) == {}
+        assert sorted((t.status, t.error_message or "") for t in results) == [
+            (STATUS.KILLED, "Test was manually killed"),
+            (STATUS.KILLED, "The run stopped before the test started"),
+        ]
