@@ -67,7 +67,7 @@ THREADS = """query($o: String!, $r: String!, $p: Int!, $endCursor: String) {
               reactionGroups { content reactors { totalCount } }
             }
           }
-          last: comments(last: 10) { nodes { author { login } body createdAt } }
+          last: comments(last: 100) { nodes { author { login } body createdAt } }
         }
       }
     }
@@ -240,16 +240,22 @@ def match(a: list[Item], b: list[Item]) -> list[tuple[int, int]]:
 
 
 def records(gh: GH, repo: str, since: datetime) -> list[dict[str, Any]]:
-    """Downloads the records of the Sedosaur reviews since a time, oldest first."""
+    """Downloads the records of the Sedosaur reviews since a time, oldest first. Only a
+    run on `main` of the repository itself counts, so a fork cannot add a record."""
     listed = gh(
         "api",
         "--paginate",
         f"repos/{repo}/actions/artifacts?name={ARTIFACT}&per_page=100",
         "--jq",
-        ".artifacts[] | select(.expired | not)"
-        ' | "\\(.created_at) \\(.workflow_run.id)"',
+        ".artifacts[] | tojson",
     )
-    runs = sorted(tuple(line.split()) for line in listed.splitlines() if line)
+    runs = sorted(
+        (a["created_at"], str(w["id"]))
+        for a in map(json.loads, listed.splitlines())
+        if not a["expired"]
+        and (w := a["workflow_run"])["head_branch"] == "main"
+        and w["head_repository_id"] == w["repository_id"]
+    )
     out: list[dict[str, Any]] = []
     with tempfile.TemporaryDirectory() as tmp:
         for created, run in runs:

@@ -199,7 +199,7 @@ class FakeGH:
             thread(101, "greptile-apps", "Leaks a handle", 10, head, resolved=True),
             thread(201, "sedosaur", "Leaks a handle too", 12, head),
         ]
-        self.artifacts: list[tuple[str, str]] = []
+        self.artifacts: list[dict[str, Any]] = []
         self.records: dict[str, dict[str, Any]] = {}
 
     def __call__(self, *args: str, stdin: str | None = None) -> str:
@@ -213,13 +213,33 @@ class FakeGH:
             "--paginate",
             f"repos/{REPO}/actions/artifacts?name=sedosaur-review&per_page=100",
         ):
-            return "".join(f"{created} {run}\n" for created, run in self.artifacts)
+            return "".join(f"{json.dumps(a)}\n" for a in self.artifacts)
         if args[:2] == ("run", "download"):
             into = Path(args[args.index("--dir") + 1])
             into.mkdir(parents=True)
             (into / "review.json").write_text(json.dumps(self.records[args[2]]))
             return ""
         raise AssertionError(f"unexpected gh call: {args}")
+
+
+def artifact(
+    created: str,
+    run: int,
+    *,
+    branch: str = "main",
+    repository: int = 5,
+    expired: bool = False,
+) -> dict[str, Any]:
+    return {
+        "created_at": created,
+        "expired": expired,
+        "workflow_run": {
+            "id": run,
+            "head_branch": branch,
+            "repository_id": 5,
+            "head_repository_id": repository,
+        },
+    }
 
 
 def t(**kw: Any) -> compare.Thread:
@@ -347,15 +367,26 @@ class TestRecords:
     def test_should_read_the_records_since_a_time_oldest_first(self) -> None:
         gh = FakeGH()
         gh.artifacts = [
-            ("2026-11-06T10:00:00Z", "3"),
-            ("2026-11-04T10:00:00Z", "1"),
-            ("2026-11-05T12:00:00Z", "2"),
+            artifact("2026-11-06T10:00:00Z", 3),
+            artifact("2026-11-04T10:00:00Z", 1),
+            artifact("2026-11-05T12:00:00Z", 2),
         ]
         gh.records = {run: record(run * 40) for run in ("1", "2", "3")}
         assert [r["head"] for r in compare.records(gh, REPO, SINCE)] == [
             "2" * 40,
             "3" * 40,
         ]
+
+    def test_should_skip_a_record_from_a_fork_another_branch_or_expired(
+        self,
+    ) -> None:
+        gh = FakeGH()
+        gh.artifacts = [
+            artifact("2026-11-06T10:00:00Z", 1, repository=99),
+            artifact("2026-11-06T10:00:00Z", 2, branch="pat/main"),
+            artifact("2026-11-06T10:00:00Z", 3, expired=True),
+        ]
+        assert compare.records(gh, REPO, SINCE) == []
 
 
 class TestPairs:
