@@ -29,7 +29,7 @@ from pathlib import Path
 from typing import Any
 
 from review import render
-from review.post import GH
+from review.post import EDITS, GH
 
 Git = Callable[..., str]
 """Runs `git` in a clone of the repository with the given arguments, and returns its
@@ -43,16 +43,6 @@ NEAR = 5
 
 REAL, NOISE, OPEN = "real", "noise", "open"
 
-EDITS = """query($o: String!, $r: String!, $p: Int!, $endCursor: String) {
-  repository(owner: $o, name: $r) {
-    pullRequest(number: $p) {
-      userContentEdits(first: 100, after: $endCursor) {
-        pageInfo { hasNextPage endCursor }
-        nodes { editor { __typename login } diff }
-      }
-    }
-  }
-}"""
 THREADS = """query($o: String!, $r: String!, $p: Int!, $endCursor: String) {
   repository(owner: $o, name: $r) {
     pullRequest(number: $p) {

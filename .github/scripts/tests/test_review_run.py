@@ -426,7 +426,7 @@ class TestMain:
     ) -> None:
         out = tmp_path / "review.json"
         main(["run", str(out)])
-        assert "graphql" in (tmp_path / "gh.log").read_text()
+        assert "reviewThreads" in (tmp_path / "gh.log").read_text()
         text = (tmp_path / "prompt.txt").read_text()
         assert text.startswith("Use the trusted policy.\n\n# Pull request #7: Fix A")
         assert "     2 +two" in text
@@ -455,5 +455,26 @@ class TestMain:
         monkeypatch.delenv("CHECK_RUN")
         out = tmp_path / "review.json"
         main(["run", str(out)])
-        assert "graphql" not in (tmp_path / "gh.log").read_text()
+        assert "reviewThreads" not in (tmp_path / "gh.log").read_text()
         assert json.loads(out.read_text())["review"]["score"] == 5
+
+    def test_should_show_the_commits_since_the_last_review(
+        self, tmp_path: Path, env: dict[str, str]
+    ) -> None:
+        block = (
+            "<!-- sedosaur_comment -->\n[c](https://github.com/o/r/commit/"
+            f"{env['BASE_SHA']})\n<!-- /sedosaur_comment -->"
+        )
+        edit = {"editor": {"__typename": "Bot", "login": "sedosaur"}, "diff": block}
+        executable(
+            tmp_path / "bin" / "gh",
+            "if 'graphql' not in sys.argv:\n"
+            "    print(json.dumps({'title': 'Fix A', 'body': 'Fixes A.'}))\n"
+            "elif any('userContentEdits' in a for a in sys.argv):\n"
+            f"    print(json.dumps({edit!r}))\n",
+        )
+        main(["run", str(tmp_path / "review.json")])
+        text = (tmp_path / "prompt.txt").read_text()
+        new = text.split("# Commits since your last review", 1)[1].split("# Rules")[0]
+        assert f"commit {env['HEAD_SHA']}\n\nhead\n" in new
+        assert "+two" in new

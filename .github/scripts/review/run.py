@@ -140,6 +140,8 @@ class PullRequest:
     """The diff from the merge base to the head."""
     open: set[tuple[str, str]]
     """The path and title of each finding of an earlier review still open."""
+    new: str = ""
+    """The patches of the pull request's own commits after the last review, if any."""
 
 
 def load(root: Path) -> Config:
@@ -218,6 +220,16 @@ def _prompt(config: Config, pr: PullRequest, shown: str, rest: str) -> str:
             "# Earlier findings still open",
             "\n".join(f"- `{path}`: {title}" for path, title in sorted(pr.open)),
         ]
+    if pr.new:
+        shown_new, cut = _cut(pr.new, config.diff_chars // 3)
+        parts += [
+            "# Commits since your last review",
+            "Review these changes first, as new code: a fix for an earlier finding can "
+            "add a bug. Anchor findings to the line numbers of the full diff.",
+            fence(shown_new, "diff"),
+        ]
+        if cut:
+            parts.append("The commits go on past this point. The full diff has them.")
     parts.append("# Rules")
     parts += [
         f"## `{d.path}`: {d.description}\n\n{d.text.strip()}"

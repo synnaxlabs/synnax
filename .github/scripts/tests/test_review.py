@@ -12,7 +12,7 @@ from typing import Any
 
 import pytest
 
-from review import Finding, Review, Target, parse, post
+from review import Finding, Review, Target, parse, post, reviewed
 
 REPO = "synnaxlabs/synnax"
 TARGET = Target(
@@ -65,6 +65,7 @@ class FakeGH:
             {"filename": "image.png", "patch": None},
         ]
         self.threads: list[dict[str, Any]] = []
+        self.edits: list[dict[str, Any]] = []
         self.comments: list[dict[str, Any]] = []
         self.body = "Fixes the thing."
         self.writes: list[tuple[str, str, dict[str, Any]]] = []
@@ -78,7 +79,8 @@ class FakeGH:
         if path.startswith(f"repos/{REPO}/compare/base...head"):
             return lines(self.files)
         if path == "graphql":
-            return lines(self.threads)
+            query = next(a for a in args if a.startswith("query="))
+            return lines(self.edits if "userContentEdits" in query else self.threads)
         if path == f"repos/{REPO}/issues/7/comments":
             return lines(self.comments)
         if path == f"repos/{REPO}/commits/head":
@@ -304,3 +306,22 @@ class TestSummary:
         assert done["conclusion"] == "success"
         assert done["output"]["title"] == "Confidence Score: 4/5"
         assert done["output"]["summary"].endswith("Findings: 1 P1, 1 P2.")
+
+
+def summary_edit(commit: str, login: str = "sedosaur") -> dict[str, Any]:
+    block = f"[c](https://github.com/{REPO}/commit/{commit})"
+    body = f"Fixes A.\n<!-- sedosaur_comment -->\n{block}\n<!-- /sedosaur_comment -->"
+    return {"editor": {"__typename": "Bot", "login": login}, "diff": body}
+
+
+class TestReviewed:
+    """Tests reading the commits that the bot reviewed."""
+
+    def test_should_list_them_newest_first_once_each(self, gh: FakeGH) -> None:
+        a, b = "a" * 40, "b" * 40
+        gh.edits = [summary_edit(b), summary_edit(a), summary_edit(b)]
+        assert reviewed(TARGET, gh) == [b, a]
+
+    def test_should_skip_an_edit_by_another_author(self, gh: FakeGH) -> None:
+        gh.edits = [summary_edit("a" * 40, login="pat"), {"editor": None, "diff": None}]
+        assert reviewed(TARGET, gh) == []
