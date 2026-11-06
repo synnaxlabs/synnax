@@ -45,6 +45,33 @@ public:
     }
 };
 
+/// @brief a status set transport that fails the first lost task status writes, and
+/// echoes every other write.
+class LostTaskWriteSetClient final : public synnax::status::SetClient {
+    const std::string rack_key;
+    const int lost;
+
+public:
+    std::atomic<int> beats = 0;
+    std::atomic<int> task_writes = 0;
+
+    explicit LostTaskWriteSetClient(std::string rack_key, const int lost = 1):
+        rack_key(std::move(rack_key)), lost(lost) {}
+
+    void use(std::shared_ptr<freighter::Middleware>) override {}
+
+    std::pair<grpc::status::SetResponse, x::errors::Error>
+    send(const std::string &, grpc::status::SetRequest &req) override {
+        if (req.statuses(0).key() == this->rack_key)
+            this->beats++;
+        else if (this->task_writes++ < this->lost)
+            return {{}, freighter::UNREACHABLE};
+        grpc::status::SetResponse res;
+        *res.mutable_statuses() = req.statuses();
+        return {res, x::errors::NIL};
+    }
+};
+
 /// @brief a status set transport that holds the second rack heartbeat past LATE_GAP,
 /// and echoes every write.
 class SlowSetClient final : public synnax::status::SetClient {
@@ -278,5 +305,66 @@ TEST(stateTests, ResendsTaskStatusesAfterALateHeartbeat) {
         std::chrono::milliseconds(10)
     );
     EXPECT_EQ(transport->task_writes.load(), 2);
+}
+
+/// @brief it should send task statuses again, and only once, after a task status write
+/// fails while every heartbeat succeeds.
+TEST(stateTests, ResendsTaskStatusesAfterAFailedWrite) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    const synnax::rack::Rack rack{.key = 1, .name = "test_rack"};
+    const auto transport = std::make_shared<LostTaskWriteSetClient>(
+        synnax::rack::ontology_id(rack.key).string()
+    );
+    client->statuses = synnax::status::Client(nullptr, transport, nullptr, nullptr);
+    const auto ctx = std::make_shared<driver::task::SynnaxContext>(
+        client,
+        std::make_shared<driver::task::StatusCache>(client->statuses)
+    );
+    Task hb(
+        rack,
+        synnax::task::Task{.name = "state", .type = TASK_TYPE, .internal = true},
+        ctx
+    );
+    x::defer::defer stop([&hb]() { hb.stop(false); });
+    // Beat 1 re-sends the started status, and beat 2 sends nothing. Beat 3 starts once
+    // beat 2 is done.
+    ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
+        transport->beats.load(),
+        3,
+        std::chrono::seconds(10),
+        std::chrono::milliseconds(10)
+    );
+    EXPECT_EQ(transport->task_writes.load(), 2);
+}
+
+/// @brief it should send task statuses again on the next heartbeat after a re-send
+/// fails while every heartbeat succeeds.
+TEST(stateTests, RetriesAFailedResend) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    const synnax::rack::Rack rack{.key = 1, .name = "test_rack"};
+    const auto transport = std::make_shared<LostTaskWriteSetClient>(
+        synnax::rack::ontology_id(rack.key).string(),
+        2
+    );
+    client->statuses = synnax::status::Client(nullptr, transport, nullptr, nullptr);
+    const auto ctx = std::make_shared<driver::task::SynnaxContext>(
+        client,
+        std::make_shared<driver::task::StatusCache>(client->statuses)
+    );
+    Task hb(
+        rack,
+        synnax::task::Task{.name = "state", .type = TASK_TYPE, .internal = true},
+        ctx
+    );
+    x::defer::defer stop([&hb]() { hb.stop(false); });
+    // Beat 1 fails its re-send, beat 2 repairs it, and beat 3 sends nothing. Beat 4
+    // starts once beat 3 is done.
+    ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
+        transport->beats.load(),
+        4,
+        std::chrono::seconds(10),
+        std::chrono::milliseconds(10)
+    );
+    EXPECT_EQ(transport->task_writes.load(), 3);
 }
 }
