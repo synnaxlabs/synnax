@@ -72,6 +72,9 @@ public:
     std::map<uint16_t, uint8_t> sii_bytes;
     /// @brief SII strings returned by siistring, keyed by string index.
     std::map<uint16_t, std::string> sii_strings;
+    /// @brief the slaves whose EEPROM the master controls: siigetbyte adds the slave,
+    /// eeprom2pdi removes it.
+    std::set<uint16_t> eeprom_held;
     int readODlist_return = 0;
     bool close_called = false;
     bool init_called = false;
@@ -242,7 +245,8 @@ public:
         return it == this->sii_categories.end() ? 0 : it->second;
     }
 
-    uint8_t siigetbyte(uint16_t, uint16_t address) override {
+    uint8_t siigetbyte(uint16_t slave, uint16_t address) override {
+        this->eeprom_held.insert(slave);
         const auto it = this->sii_bytes.find(address);
         return it == this->sii_bytes.end() ? 0 : it->second;
     }
@@ -253,6 +257,8 @@ public:
         std::strncpy(str, value.c_str(), EC_MAXNAME);
         str[EC_MAXNAME] = '\0';
     }
+
+    void eeprom2pdi(uint16_t slave) override { this->eeprom_held.erase(slave); }
 
     int readODlist(uint16_t, ec_ODlistt *) override { return this->readODlist_return; }
 

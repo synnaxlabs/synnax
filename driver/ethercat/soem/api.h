@@ -112,6 +112,10 @@ public:
     /// @brief reads string from slave EEPROM.
     virtual void siistring(char *str, uint16_t slave, uint16_t sn) = 0;
 
+    /// @brief gives control of the slave EEPROM back to the slave. siigetbyte takes
+    /// control and keeps it.
+    virtual void eeprom2pdi(uint16_t slave) = 0;
+
     /// @brief reads object dictionary list from slave.
     virtual int readODlist(uint16_t slave, ec_ODlistt *od_list) = 0;
 
@@ -295,6 +299,8 @@ public:
     void siistring(char *str, uint16_t slave, uint16_t sn) override {
         ecx_siistring(&this->context, str, slave, sn);
     }
+
+    void eeprom2pdi(uint16_t slave) override { ecx_eeprom2pdi(&this->context, slave); }
 
     int readODlist(uint16_t slave, ec_ODlistt *od_list) override {
         return ecx_readODlist(&this->context, slave, od_list);

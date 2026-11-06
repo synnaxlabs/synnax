@@ -633,6 +633,7 @@ void Master::discover_pdos_sii(slave::DiscoveryResult &slave) {
             c++;
         }
     }
+    this->api->eeprom2pdi(props.position);
 
     if (props.input_pdos.empty() && props.output_pdos.empty()) {
         if (this->api->slave_Ibits(props.position) > 0 ||
