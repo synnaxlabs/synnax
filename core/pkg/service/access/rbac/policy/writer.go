@@ -22,6 +22,7 @@ import (
 )
 
 type Writer struct {
+	svc           *Service
 	tx            gorp.Tx
 	otg           ontology.Writer
 	allowInternal bool
@@ -29,11 +30,27 @@ type Writer struct {
 	roles         *role.Service
 }
 
+// inTx calls f with w, or with a Writer on a transaction of its own that keeps the
+// internal write permission of w when w has no transaction.
+func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
+	db, ok := w.tx.(*gorp.DB)
+	if !ok {
+		return f(w)
+	}
+	return db.WithTx(ctx, func(tx gorp.Tx) error {
+		return f(w.svc.NewWriter(tx, w.allowInternal))
+	})
+}
+
 // Create creates or overwrites a policy. It returns a validation error when the
 // policy's role does not exist. A writer that does not allow internal writes also
 // returns a validation error for an internal policy, a policy of a built-in role, and a
 // policy that would overwrite one of a built-in role.
 func (w Writer) Create(ctx context.Context, p *Policy) error {
+	return w.inTx(ctx, func(w Writer) error { return w.create(ctx, p) })
+}
+
+func (w Writer) create(ctx context.Context, p *Policy) error {
 	if p.Key == uuid.Nil() {
 		p.Key = uuid.New()
 	}

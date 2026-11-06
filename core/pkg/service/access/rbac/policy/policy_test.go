@@ -10,6 +10,7 @@
 package policy_test
 
 import (
+	"sync"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -614,4 +615,66 @@ var _ = Describe("Ontology Integration", func() {
 			},
 		)
 	})
+})
+
+var _ = Describe("Writer with no transaction", func() {
+	It(
+		"Should not overwrite a policy that moves to a built-in role at once",
+		func(ctx SpecContext) {
+			custom := role.Role{Name: "custom"}
+			builtin := role.Role{Name: "built-in", Internal: true}
+			Expect(roleSvc.NewWriter(nil, true).Create(ctx, &custom)).To(Succeed())
+			Expect(roleSvc.NewWriter(nil, true).Create(ctx, &builtin)).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(
+					roleSvc.NewWriter(nil, true).Delete(ctx, custom.Key),
+				).To(Succeed())
+				Expect(
+					roleSvc.NewWriter(nil, true).Delete(ctx, builtin.Key),
+				).To(Succeed())
+			})
+			for range 30 {
+				key := uuid.New()
+				newPolicy := func(r role.Key) policy.Policy {
+					return policy.Policy{
+						Key:     key,
+						Role:    r,
+						Name:    "moving",
+						Objects: []resource.ID{{Type: "channel", Key: "ch1"}},
+						Actions: []access.Action{access.ActionRetrieve},
+					}
+				}
+				p := newPolicy(custom.Key)
+				Expect(svc.NewWriter(nil, false).Create(ctx, &p)).To(Succeed())
+				var (
+					wg      sync.WaitGroup
+					userErr error
+				)
+				wg.Go(func() {
+					defer GinkgoRecover()
+					internal := newPolicy(builtin.Key)
+					Expect(
+						svc.NewWriter(nil, true).Create(ctx, &internal),
+					).To(Succeed())
+				})
+				wg.Go(func() {
+					user := newPolicy(custom.Key)
+					userErr = svc.NewWriter(nil, false).Create(ctx, &user)
+				})
+				wg.Wait()
+				Expect(userErr).To(Or(
+					Succeed(),
+					MatchError(
+						ContainSubstring("cannot change the policies of built-in"),
+					),
+				))
+				var stored policy.Policy
+				Expect(svc.NewRetrieve().
+					Where(policy.MatchKeys(key)).
+					Entry(&stored).
+					Exec(ctx, nil)).To(Succeed())
+				Expect(stored.Role).To(Equal(builtin.Key))
+			}
+		},
+	)
 })
