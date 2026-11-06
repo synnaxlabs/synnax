@@ -25,20 +25,25 @@ namespace driver::ethercat {
 namespace {
 /// An interface that had no slaves is probed again this many scans later.
 constexpr size_t EMPTY_INTERFACE_PROBE_INTERVAL = 6;
+/// An interface with a slave whose PDO discovery failed is discovered again this many
+/// scans later.
+constexpr size_t PDO_REDISCOVERY_INTERVAL = 6;
 
 std::string get_pdo_error_guidance(const std::string &error) {
-    if (error.contains("CoE") || error.contains("mailbox"))
-        return "Check the slave's CoE mailbox and scan again. Channels can use only "
-               "the entries a scan discovers.";
     if (error.contains("SII") || error.contains("fallback"))
         return "PDO order may be unreliable. Verify data correctness after configuration.";
-    return "Channels can use only the entries a scan discovers. Scan again if entries "
-           "are missing.";
+    return "Channels can use only the entries a scan discovers. The Driver tries again "
+           "while no task uses the port.";
 }
 
-/// @brief sets the variant, message, and description of status from the condition of an
-/// enabled slave on a running bus.
+bool pdo_discovery_failed(const slave::DiscoveryResult &slave) {
+    return !slave.status.pdos_discovered || !slave.status.pdo_discovery_error.empty();
+}
+
+/// @brief sets the variant, message, description, and connection of status from the
+/// condition of an enabled slave on a running bus.
 void set_live_status(const slave::Health &health, synnax::device::Status &status) {
+    status.details.connected = !health.lost;
     if (health.operational()) {
         status.variant = synnax::status::VARIANT_SUCCESS;
         status.message = "Operational";
@@ -129,7 +134,11 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
         if (const auto it = this->next_probes.find(key);
             it != this->next_probes.end() && scan_ctx.count < it->second)
             continue;
-        auto [slaves, err] = this->pool->discover_slaves(key);
+        const auto due = this->next_rediscoveries.find(key);
+        const bool scheduled = due != this->next_rediscoveries.end();
+        const bool rediscover = scheduled && scan_ctx.count >= due->second;
+        auto [slaves, err] = rediscover ? this->pool->rediscover_slaves(key)
+                                        : this->pool->discover_slaves(key);
         // One permission covers every master (CAP_NET_RAW for SOEM, one udev rule for
         // all IgH devices), so the other masters fail the same way.
         if (err.matches(errors::PERMISSION_DENIED)) return {{}, err};
@@ -143,8 +152,17 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
             continue;
         }
         const auto health = this->pool->health(key);
-        for (const auto &slave: slaves)
-            devices.push_back(this->create_slave_device(slave, health, key, scan_ctx));
+        bool rediscovery_needed = false;
+        for (const auto &slave: slaves) {
+            auto dev = this->create_slave_device(slave, health, key, scan_ctx);
+            rediscovery_needed |= pdo_discovery_failed(slave) &&
+                                  dev.properties.at("enabled").get<bool>();
+            devices.push_back(std::move(dev));
+        }
+        if (!rediscovery_needed)
+            this->next_rediscoveries.erase(key);
+        else if (!scheduled || rediscover)
+            this->next_rediscoveries[key] = scan_ctx.count + PDO_REDISCOVERY_INTERVAL;
     }
 
     if (failures.empty()) return {devices, x::errors::NIL};
@@ -197,7 +215,7 @@ synnax::device::Device Scanner::create_slave_device(
         .key = synnax::device::status_key(dev),
         .name = dev.name,
         .time = x::telem::TimeStamp::now(),
-        .details = {.rack = rack_key, .device = dev.key},
+        .details = {.rack = rack_key, .device = dev.key, .connected = is_enabled},
     };
     const auto live = std::ranges::find(
         health,
@@ -209,7 +227,7 @@ synnax::device::Device Scanner::create_slave_device(
         status.variant = synnax::status::VARIANT_DISABLED;
     } else if (live != health.end())
         set_live_status(*live, status);
-    else if (sts.pdos_discovered && sts.pdo_discovery_error.empty()) {
+    else if (!pdo_discovery_failed(slave)) {
         const auto objects = [](const std::vector<pdo::Properties> &pdos) {
             return std::to_string(std::ranges::count_if(pdos, [](const auto &p) {
                 return !p.is_padding();
@@ -266,6 +284,13 @@ void Scanner::on_device_set(const synnax::device::Device &dev) {
     LOG(INFO) << SCAN_LOG_PREFIX << "setting slave " << props.position << " on "
               << props.network << " enabled=" << (props.enabled ? "true" : "false");
     engine->set_slave_enabled(props.position, props.enabled);
+    const auto health = engine->health();
+    const auto live = std::ranges::find(
+        health,
+        props.position,
+        &slave::Health::position
+    );
+    const bool connected = props.enabled && (live == health.end() || !live->lost);
 
     synnax::device::Status status{
         .key = synnax::device::status_key(dev),
@@ -274,7 +299,7 @@ void Scanner::on_device_set(const synnax::device::Device &dev) {
                                  : synnax::status::VARIANT_DISABLED,
         .message = props.enabled ? "Device enabled" : "Device disabled",
         .time = x::telem::TimeStamp::now(),
-        .details = {.rack = dev.rack, .device = dev.key},
+        .details = {.rack = dev.rack, .device = dev.key, .connected = connected},
     };
     if (auto status_err = this->ctx->client->statuses.set(status); status_err)
         LOG(WARNING) << SCAN_LOG_PREFIX

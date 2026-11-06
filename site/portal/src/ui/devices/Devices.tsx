@@ -17,11 +17,12 @@ import { type ReactElement } from "react";
 import { type License } from "@/server/db/schema";
 import { type Machine } from "@/server/license/desktop";
 import { LogOutDialog } from "@/ui/devices/LogOutDialog";
-import { date, machineName, statusOf } from "@/ui/format";
+import { type Clock, machineName, statusOf } from "@/ui/format";
 import { Licenses } from "@/ui/licenses";
 import { DOWNLOAD_URL } from "@/ui/links";
 import { Empty, Page } from "@/ui/Page";
 import { Row, Table } from "@/ui/Table";
+import { useClock } from "@/ui/useClock";
 
 export interface DevicesProps {
   /** machines are the machines logged in from the Desktop app that hold a seat. */
@@ -32,64 +33,67 @@ export interface DevicesProps {
 const COLUMNS = "minmax(0, 2fr) 14rem 16rem 16rem 18rem";
 
 /** validity says how much longer a machine keeps working. */
-const validity = (lic: License, now: Date): string =>
+const validity = (lic: License, now: Date, clock: Clock): string =>
   statusOf(lic, now) === "expired"
-    ? `Expired ${date(lic.expiresAt)}. Open the app on that machine to renew.`
-    : `Valid until ${date(lic.expiresAt)}`;
+    ? `Expired ${clock.date(lic.expiresAt)}. Open the app on that machine to renew.`
+    : `Valid until ${clock.date(lic.expiresAt)}`;
 
 /** Devices lists the machines a personal user logged in from Synnax Desktop. */
-export const Devices = ({ machines, now }: DevicesProps): ReactElement => (
-  <Page title="Devices" subtitle="Machines logged in from Synnax Desktop">
-    {machines.length === 0 ? (
-      <Empty
-        icon={<Icon.Computer />}
-        message="No machines yet"
-        description="Log in from the Synnax Desktop app and the machine appears here"
-        action={
-          <Button.Button variant="filled" href={DOWNLOAD_URL}>
-            <Icon.Download />
-            Download Synnax Desktop
-          </Button.Button>
-        }
-      />
-    ) : (
-      <Table
-        columns={COLUMNS}
-        head={["Machine", "Status", "First seen", "Last renewal", ""]}
-      >
-        {machines.map(({ activation: a, license: lic }) => (
-          <Row key={a.key} columns={COLUMNS}>
-            <Flex.Box y gap="tiny" className="portal-list__stack">
-              <Text.Text level="p" overflow="fade">
-                {machineName(a)}
+export const Devices = ({ machines, now }: DevicesProps): ReactElement => {
+  const clock = useClock();
+  return (
+    <Page title="Devices" subtitle="Machines logged in from Synnax Desktop">
+      {machines.length === 0 ? (
+        <Empty
+          icon={<Icon.Computer />}
+          message="No machines yet"
+          description="Log in from the Synnax Desktop app and the machine appears here"
+          action={
+            <Button.Button variant="filled" href={DOWNLOAD_URL}>
+              <Icon.Download />
+              Download Synnax Desktop
+            </Button.Button>
+          }
+        />
+      ) : (
+        <Table
+          columns={COLUMNS}
+          head={["Machine", "Status", "First seen", "Last renewal", ""]}
+        >
+          {machines.map(({ activation: a, license: lic }) => (
+            <Row key={a.key} columns={COLUMNS}>
+              <Flex.Box y gap="tiny" className="portal-list__stack">
+                <Text.Text level="p" overflow="fade">
+                  {machineName(a)}
+                </Text.Text>
+                <Text.Text level="small" color={9} overflow="fade">
+                  {validity(lic, now, clock)}
+                </Text.Text>
+              </Flex.Box>
+              <Flex.Box>
+                <Licenses.StatusTag status={statusOf(lic, now)} />
+              </Flex.Box>
+              <Text.Text level="p" color={9}>
+                {clock.date(a.firstSeen)}
               </Text.Text>
-              <Text.Text level="small" color={9} overflow="fade">
-                {validity(lic, now)}
+              <Text.Text level="p" color={9}>
+                {clock.date(a.lastSeen)}
               </Text.Text>
-            </Flex.Box>
-            <Flex.Box>
-              <Licenses.StatusTag status={statusOf(lic, now)} />
-            </Flex.Box>
-            <Text.Text level="p" color={9}>
-              {date(a.firstSeen)}
-            </Text.Text>
-            <Text.Text level="p" color={9}>
-              {date(a.lastSeen)}
-            </Text.Text>
-            <Flex.Box x justify="end" gap="small">
-              <Licenses.RenameDialog
-                activation={a}
-                trigger={
-                  <Dialog.Trigger variant="text" size="small" hideCaret>
-                    Rename
-                  </Dialog.Trigger>
-                }
-              />
-              <LogOutDialog activation={a} />
-            </Flex.Box>
-          </Row>
-        ))}
-      </Table>
-    )}
-  </Page>
-);
+              <Flex.Box x justify="end" gap="small">
+                <Licenses.RenameDialog
+                  activation={a}
+                  trigger={
+                    <Dialog.Trigger variant="text" size="small" hideCaret>
+                      Rename
+                    </Dialog.Trigger>
+                  }
+                />
+                <LogOutDialog activation={a} />
+              </Flex.Box>
+            </Row>
+          ))}
+        </Table>
+      )}
+    </Page>
+  );
+};

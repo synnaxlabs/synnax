@@ -10,12 +10,26 @@
 import { group, ontology } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Group } from "@/feature/group";
-import { createResource, renderTreeContextMenu } from "@/platform/tree/testutil";
-import { assertDefined, uniqueName } from "@/testutil";
+import { Tree } from "@/platform/tree";
+import {
+  createResource,
+  findTreeRow,
+  itemName,
+  renderOntologyTree,
+  renderTreeContextMenu,
+  searchTree,
+} from "@/platform/tree/testutil";
+import {
+  assertDefined,
+  awaitTextEditingElement,
+  commitTextEdit,
+  uniqueName,
+  uniqueToken,
+} from "@/testutil";
 
 const client = createTestClient();
 const roles = new RoleClients(client);
@@ -193,6 +207,80 @@ describe("group ontology service", () => {
     expect(await screen.findByText("Rename")).toBeTruthy();
     expect(screen.getByText("Delete")).toBeTruthy();
     expect(screen.queryByText("Ungroup")).toBeNull();
+  });
+});
+
+describe("a group and its child selected in flat search results", () => {
+  // The item reads Delete until the group loads its children.
+  const UNGROUP = /^(Ungroup|Delete)$/;
+
+  const childrenOf = async (key: string): Promise<string[]> => {
+    const ids = group.ontologyID(key);
+    return (await client.ontology.children.retrieve({ ids })).map((c) => c.name);
+  };
+
+  const openMenu = async () => {
+    const tok = uniqueToken();
+    const root = await createGroup(ontology.ROOT_ID);
+    const rootID = group.ontologyID(root.key);
+    const outer = await client.groups.create({ parent: rootID, name: `${tok} outer` });
+    const outerID = group.ontologyID(outer.key);
+    const inner = await client.groups.create({ parent: outerID, name: `${tok} inner` });
+    const sibling = await createGroup(outerID);
+    await renderOntologyTree({
+      client,
+      root: rootID,
+      items: Group.TREE_ITEMS,
+      search: Tree.createSearch({ noun: "groups" }),
+    });
+    searchTree(tok);
+    const innerRow = await findTreeRow(itemName(inner.name));
+    // The inner row shows the outer name as its group, so the ID finds the outer row.
+    const outerRow = document.querySelector(
+      `.lyra-tree:not(.console-tree--hidden) [id="${ontology.idToString(outerID)}"]`,
+    );
+    assertDefined(outerRow);
+    fireEvent.click(innerRow);
+    // A Shift-click selects without opening the group.
+    fireEvent.keyDown(window, { key: "Shift", code: "ShiftLeft" });
+    fireEvent.click(outerRow);
+    fireEvent.keyUp(window, { key: "Shift", code: "ShiftLeft" });
+    await act(async () => {
+      fireEvent.contextMenu(outerRow);
+    });
+    return { root, outer, inner, sibling };
+  };
+
+  it("should offer to group and ungroup the selection", async () => {
+    await openMenu();
+    expect(await screen.findByText("Group selection")).toBeTruthy();
+    expect(screen.getByText(UNGROUP)).toBeTruthy();
+  });
+
+  it("should move the group alone into a new group", async () => {
+    const { root, outer, inner } = await openMenu();
+    fireEvent.click(await screen.findByText("Group selection"));
+    const editable = await awaitTextEditingElement();
+    const name = uniqueName("grp");
+    await act(async () => {
+      commitTextEdit(editable, name);
+    });
+    await waitFor(async () => expect(await childrenOf(root.key)).toEqual([name]));
+    const [created] = await client.ontology.children.retrieve({
+      ids: group.ontologyID(root.key),
+    });
+    await waitFor(async () =>
+      expect(await childrenOf(created.id.key)).toEqual([outer.name]),
+    );
+    expect(await childrenOf(outer.key)).toContain(inner.name);
+  });
+
+  it("should move what is left of the group to its parent", async () => {
+    const { root, sibling } = await openMenu();
+    fireEvent.click(await screen.findByText(UNGROUP));
+    await waitFor(async () =>
+      expect(await childrenOf(root.key)).toEqual([sibling.name]),
+    );
   });
 });
 

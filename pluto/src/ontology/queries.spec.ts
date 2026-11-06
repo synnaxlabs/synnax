@@ -44,7 +44,7 @@ describe("Ontology Queries", () => {
       const { result } = renderHook(
         () =>
           Ontology.useListChildren({
-            initialQuery: { id: group.ontologyID(parent.key) },
+            query: { id: group.ontologyID(parent.key) },
           }),
         { wrapper },
       );
@@ -72,7 +72,7 @@ describe("Ontology Queries", () => {
       const { result } = renderHook(
         () =>
           Ontology.useListChildren({
-            initialQuery: { id: group.ontologyID(parent.key) },
+            query: { id: group.ontologyID(parent.key) },
           }),
         { wrapper },
       );
@@ -122,7 +122,7 @@ describe("Ontology Queries", () => {
       const { result } = renderHook(
         () =>
           Ontology.useListChildren({
-            initialQuery: { id: group.ontologyID(parent.key) },
+            query: { id: group.ontologyID(parent.key) },
           }),
         { wrapper },
       );
@@ -347,6 +347,29 @@ describe("Ontology Queries", () => {
       await act(async () => rerender({ id: group.ontologyID(parent2.key) }));
 
       await waitFor(() => expect(result.current).toHaveLength(2));
+    });
+  });
+
+  describe("useRootChildID", () => {
+    it("should resolve a root child by name", async () => {
+      const name = `root-child-${id.create()}`;
+      const created = await client.groups.create({ parent: ontology.ROOT_ID, name });
+      const { result } = await renderHookSuspended(
+        () => Ontology.useRootChildID({ name }),
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(result.current).toEqual(group.ontologyID(created.key)),
+      );
+    });
+
+    it("should return undefined when the root has no child with the name", async () => {
+      const name = `missing-${id.create()}`;
+      const { result } = await renderHookSuspended(
+        () => Ontology.useRootChildID({ name }),
+        { wrapper },
+      );
+      expect(result.current).toBeUndefined();
     });
   });
 

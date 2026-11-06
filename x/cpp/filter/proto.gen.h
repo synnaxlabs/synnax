@@ -30,7 +30,10 @@ inline std::pair<::x::filter::pb::String, x::errors::Error> String::to_proto() c
         for (const auto &item: *this->in)
             wrapper->add_values(item);
     }
+    if (this->contains.has_value()) pb.set_contains(*this->contains);
+    if (this->starts_with.has_value()) pb.set_starts_with(*this->starts_with);
     if (this->regex.has_value()) pb.set_regex(*this->regex);
+    pb.set_case_insensitive(this->case_insensitive);
     return {pb, x::errors::NIL};
 }
 
@@ -43,7 +46,10 @@ String::from_proto(const ::x::filter::pb::String &pb) {
         for (const auto &item: pb.in().values())
             cpp.in->push_back(item);
     }
+    if (pb.has_contains()) cpp.contains = pb.contains();
+    if (pb.has_starts_with()) cpp.starts_with = pb.starts_with();
     if (pb.has_regex()) cpp.regex = pb.regex();
+    cpp.case_insensitive = pb.case_insensitive();
     return {cpp, x::errors::NIL};
 }
 

@@ -25,7 +25,7 @@ via the NI-MAX software.
 # See https://docs.synnaxlabs.com/reference/client/quick-start for more information.
 client = sy.Synnax()
 
-dev = client.devices.retrieve(model="NI 9326")
+dev = client.devices.retrieve(model="NI 9326", one=True)
 
 # Create an index channel that will be used to store the timestamps
 # for the counter read data.

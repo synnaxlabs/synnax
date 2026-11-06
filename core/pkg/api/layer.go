@@ -21,7 +21,8 @@ import (
 	"github.com/synnaxlabs/freighter/alamos"
 	fgorp "github.com/synnaxlabs/freighter/gorp"
 	"github.com/synnaxlabs/freighter/recovery"
-	"github.com/synnaxlabs/synnax/pkg/api/access"
+	"github.com/synnaxlabs/synnax/pkg/api/access/policy"
+	"github.com/synnaxlabs/synnax/pkg/api/access/role"
 	"github.com/synnaxlabs/synnax/pkg/api/arc"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
@@ -83,7 +84,7 @@ type Transport struct {
 	UserRetrieve       freighter.UnaryServer[user.RetrieveRequest, user.RetrieveResponse]
 	// CHANNEL
 	ChannelCreate        freighter.UnaryServer[channel.CreateRequest, channel.CreateResponse]
-	ChannelRetrieve      freighter.UnaryServer[channel.RetrieveRequest, channel.RetrieveResponse]
+	ChannelRetrieve      freighter.UnaryServer[channel.AliasedRetrieveRequest, channel.RetrieveResponse]
 	ChannelDelete        freighter.UnaryServer[channel.DeleteRequest, struct{}]
 	ChannelRename        freighter.UnaryServer[channel.RenameRequest, struct{}]
 	ChannelRetrieveGroup freighter.UnaryServer[channel.RetrieveGroupRequest, channel.RetrieveGroupResponse]
@@ -213,14 +214,14 @@ type Transport struct {
 	NIChassisUpdate   freighter.UnaryServer[nichassis.UpdateRequest, struct{}]
 	NIChassisDelete   freighter.UnaryServer[nichassis.DeleteRequest, struct{}]
 	// ACCESS
-	AccessCreatePolicy   freighter.UnaryServer[access.CreatePolicyRequest, access.CreatePolicyResponse]
-	AccessDeletePolicy   freighter.UnaryServer[access.DeletePolicyRequest, struct{}]
-	AccessRetrievePolicy freighter.UnaryServer[access.RetrievePolicyRequest, access.RetrievePolicyResponse]
-	AccessCreateRole     freighter.UnaryServer[access.CreateRoleRequest, access.CreateRoleResponse]
-	AccessDeleteRole     freighter.UnaryServer[access.DeleteRoleRequest, struct{}]
-	AccessRetrieveRole   freighter.UnaryServer[access.RetrieveRoleRequest, access.RetrieveRoleResponse]
-	AccessAssignRole     freighter.UnaryServer[access.AssignRoleRequest, struct{}]
-	AccessUnassignRole   freighter.UnaryServer[access.UnassignRoleRequest, struct{}]
+	AccessCreatePolicy   freighter.UnaryServer[policy.CreateRequest, policy.CreateResponse]
+	AccessDeletePolicy   freighter.UnaryServer[policy.DeleteRequest, struct{}]
+	AccessRetrievePolicy freighter.UnaryServer[policy.RetrieveRequest, policy.RetrieveResponse]
+	AccessCreateRole     freighter.UnaryServer[role.CreateRequest, role.CreateResponse]
+	AccessDeleteRole     freighter.UnaryServer[role.DeleteRequest, struct{}]
+	AccessRetrieveRole   freighter.UnaryServer[role.RetrieveRequest, role.RetrieveResponse]
+	AccessAssignRole     freighter.UnaryServer[role.AssignRequest, struct{}]
+	AccessUnassignRole   freighter.UnaryServer[role.UnassignRequest, struct{}]
 	// STATUS
 	StatusSet      freighter.UnaryServer[status.SetRequest, status.SetResponse]
 	StatusRetrieve freighter.UnaryServer[status.RetrieveRequest, status.RetrieveResponse]
@@ -229,12 +230,16 @@ type Transport struct {
 	StatusRename         freighter.UnaryServer[status.RenameRequest, struct{}]
 	StatusSetByKeyOrName freighter.UnaryServer[status.SetByKeyOrNameRequest, status.SetByKeyOrNameResponse]
 	// ARC
-	ArcCreate     freighter.UnaryServer[arc.CreateRequest, arc.CreateResponse]
-	ArcDelete     freighter.UnaryServer[arc.DeleteRequest, struct{}]
-	ArcRetrieve   freighter.UnaryServer[arc.RetrieveRequest, arc.RetrieveResponse]
-	ArcDispatch   freighter.UnaryServer[arc.DispatchRequest, struct{}]
-	ArcUpdateTask freighter.UnaryServer[arc.UpdateTaskRequest, arc.UpdateTaskResponse]
-	ArcLSP        freighter.StreamServer[arc.LSPMessage, arc.LSPMessage]
+	ArcCreate          freighter.UnaryServer[arc.CreateRequest, arc.CreateResponse]
+	ArcDelete          freighter.UnaryServer[arc.DeleteRequest, struct{}]
+	ArcRetrieve        freighter.UnaryServer[arc.RetrieveRequest, arc.RetrieveResponse]
+	ArcDispatch        freighter.UnaryServer[arc.DispatchRequest, struct{}]
+	ArcUpdateTask      freighter.UnaryServer[arc.UpdateTaskRequest, arc.UpdateTaskResponse]
+	ArcCreateDirectory freighter.UnaryServer[arc.CreateDirectoryRequest, arc.CreateDirectoryResponse]
+	ArcRenameDirectory freighter.UnaryServer[arc.RenameDirectoryRequest, struct{}]
+	ArcDeleteDirectory freighter.UnaryServer[arc.DeleteDirectoryRequest, struct{}]
+	ArcMove            freighter.UnaryServer[arc.MoveRequest, struct{}]
+	ArcLSP             freighter.StreamServer[arc.LSPMessage, arc.LSPMessage]
 	// VIEW
 	ViewCreate   freighter.UnaryServer[view.CreateRequest, view.CreateResponse]
 	ViewRetrieve freighter.UnaryServer[view.RetrieveRequest, view.RetrieveResponse]
@@ -275,7 +280,8 @@ type Layer struct {
 	Device       *device.Service
 	NIDevice     *nidevice.Service
 	NIChassis    *nichassis.Service
-	Access       *access.Service
+	Policy       *policy.Service
+	Role         *role.Service
 	Arc          *arc.Service
 	Status       *status.Service
 	ImEx         *imex.Service
@@ -504,6 +510,10 @@ func (l *Layer) BindTo(t Transport) {
 		t.ArcRetrieve,
 		t.ArcDispatch,
 		t.ArcUpdateTask,
+		t.ArcCreateDirectory,
+		t.ArcRenameDirectory,
+		t.ArcDeleteDirectory,
+		t.ArcMove,
 		t.ArcLSP,
 
 		// IMPORT/EXPORT
@@ -702,24 +712,24 @@ func (l *Layer) BindTo(t Transport) {
 
 	// ACCESS
 	t.AccessCreatePolicy.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Access.CreatePolicy),
+		fgorp.CreateWriteUnaryHandler(db, l.Policy.Create),
 	)
 	t.AccessDeletePolicy.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Access.DeletePolicy),
+		fgorp.CreateWriteUnaryHandler(db, l.Policy.Delete),
 	)
-	t.AccessRetrievePolicy.BindHandler(l.Access.RetrievePolicy)
+	t.AccessRetrievePolicy.BindHandler(l.Policy.Retrieve)
 	t.AccessCreateRole.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Access.CreateRole),
+		fgorp.CreateWriteUnaryHandler(db, l.Role.Create),
 	)
 	t.AccessDeleteRole.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Access.DeleteRole),
+		fgorp.CreateWriteUnaryHandler(db, l.Role.Delete),
 	)
-	t.AccessRetrieveRole.BindHandler(l.Access.RetrieveRole)
+	t.AccessRetrieveRole.BindHandler(l.Role.Retrieve)
 	t.AccessAssignRole.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Access.AssignRole),
+		fgorp.CreateWriteUnaryHandler(db, l.Role.Assign),
 	)
 	t.AccessUnassignRole.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Access.UnassignRole),
+		fgorp.CreateWriteUnaryHandler(db, l.Role.Unassign),
 	)
 
 	// STATUS
@@ -743,6 +753,16 @@ func (l *Layer) BindTo(t Transport) {
 	t.ArcRetrieve.BindHandler(l.Arc.Retrieve)
 	t.ArcDispatch.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Arc.Dispatch))
 	t.ArcUpdateTask.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Arc.UpdateTask))
+	t.ArcCreateDirectory.BindHandler(
+		fgorp.CreateWriteUnaryHandler(db, l.Arc.CreateDirectory),
+	)
+	t.ArcRenameDirectory.BindHandler(
+		fgorp.CreateWriteUnaryHandler(db, l.Arc.RenameDirectory),
+	)
+	t.ArcDeleteDirectory.BindHandler(
+		fgorp.CreateWriteUnaryHandler(db, l.Arc.DeleteDirectory),
+	)
+	t.ArcMove.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Arc.Move))
 	t.ArcLSP.BindHandler(l.Arc.LSP)
 
 	// IMPORT/EXPORT
@@ -777,7 +797,12 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}); err != nil {
 		return nil, err
 	}
-	if l.Access, err = access.NewService(access.ServiceConfig{
+	if l.Policy, err = policy.NewService(policy.ServiceConfig{
+		RBAC: cfg.Service.RBAC,
+	}); err != nil {
+		return nil, err
+	}
+	if l.Role, err = role.NewService(role.ServiceConfig{
 		RBAC: cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err
@@ -796,9 +821,8 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	if l.Channel, err = channel.NewService(channel.ServiceConfig{
 		RBAC:    cfg.Service.RBAC,
 		Channel: cfg.Service.Channel,
-		Ranger:  cfg.Service.Ranger,
-		Alias:   cfg.Service.Alias,
 		Status:  cfg.Service.Status,
+		Alias:   cfg.Service.Alias,
 	}); err != nil {
 		return nil, err
 	}

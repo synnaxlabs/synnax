@@ -7,13 +7,22 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Literal, overload
+from typing import Any, Literal, overload
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
 from synnax import project as project_
-from synnax.lineplot.types_gen import Key, LinePlot
+from synnax.lineplot.types_gen import (
+    Key,
+    LinePlot,
+    RetrieveRequest,
+    RetrieveResponse,
+    Where,
+    WhereInput,
+)
+from synnax.util import request_where, returns_one, sole
+from x import filter
 from x.lists import normalize
 
 
@@ -24,14 +33,6 @@ class _CreateRequest(BaseModel):
 
 class _CreateResponse(BaseModel):
     line_plots: list[LinePlot]
-
-
-class _RetrieveRequest(BaseModel):
-    keys: list[Key]
-
-
-class _RetrieveResponse(BaseModel):
-    line_plots: list[LinePlot] = Field(default_factory=list)
 
 
 class _DeleteRequest(BaseModel):
@@ -99,31 +100,77 @@ class Client:
         return res.line_plots[0] if is_single else res.line_plots
 
     @overload
-    def retrieve(self, *, key: Key) -> LinePlot: ...
+    def retrieve(
+        self,
+        *,
+        key: Key,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        one: bool = ...,
+    ) -> LinePlot: ...
 
     @overload
-    def retrieve(self, *, keys: list[Key]) -> list[LinePlot]: ...
+    def retrieve(
+        self,
+        *,
+        key: filter.SetInput[Key] = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        keys: list[Key] | None = ...,
+        one: Literal[True],
+    ) -> LinePlot: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        keys: list[Key] | None = ...,
+        one: Literal[False] = ...,
+    ) -> list[LinePlot]: ...
 
     def retrieve(
         self,
         *,
-        key: Key | None = None,
         keys: list[Key] | None = None,
+        where: Where | None = None,
+        one: bool = False,
+        **fields: Any,
     ) -> LinePlot | list[LinePlot]:
-        """Retrieve one or more line plots by key.
+        """Retrieves line plots. With no arguments, retrieves every line plot.
 
-        :param key: The key of a single line plot to retrieve.
-        :param keys: The keys of the line plots to retrieve.
-        :returns: The matching line plot when ``key`` is provided, otherwise a list of
-            matching line plots.
-        :raises NotFoundError: If any of the requested line plots does not exist.
+        Each filter field takes a value, a list of values, or an operator, and a line
+        plot must match every field. A plain ``key`` returns one line plot.
+
+        :param key: Keeps line plots with this key.
+        :param and_: Keeps line plots that match every filter in the list.
+        :param or_: Keeps line plots that match any filter in the list.
+        :param not_: Keeps line plots that do not match the filter.
+        :param where: A filter tree that the line plots must also match.
+        :param keys: Keeps line plots with one of these keys.
+        :param one: Returns one line plot for any filter.
+        :returns: One line plot for a plain ``key`` or when ``one`` is set, otherwise a
+            list of line plots. The list leaves out keys that do not exist.
+        :raises NotFoundError: If one line plot is wanted and none matches.
+        :raises MultipleFoundError: If one line plot is wanted and more than one
+            matches.
+        :raises ValidationError: If a filter field is None.
         """
-        res = self._client.send(
-            "/lineplot/retrieve",
-            _RetrieveRequest(keys=normalize(key, keys)),
-            _RetrieveResponse,
+        single = returns_one(fields, one, None, 0)
+        flat = Where(key=None if keys is None else filter.Set[Key](in_=keys))
+        req = RetrieveRequest(
+            where=request_where(Where, filter.merge(where, flat), fields)
         )
-        return res.line_plots[0] if key is not None else res.line_plots
+        res = self._client.send("/lineplot/retrieve", req, RetrieveResponse)
+        return sole("Line plot", fields, res.line_plots) if single else res.line_plots
 
     def rename(self, key: Key, name: str) -> None:
         """Rename a line plot.

@@ -26,6 +26,7 @@ from examples.modbus import ModbusSim
 from examples.opcua import OPCUASim
 
 import synnax as sy
+from framework import resources
 from synnax import modbus, opcua
 from tests.driver.modbus_read import ModbusReadCoil, ModbusReadInputRegister
 from tests.driver.modbus_write import ModbusWriteCoil
@@ -35,6 +36,7 @@ from tests.driver.ni_read import (
     NIDigitalRead,
     NIReadTemperature,
 )
+from tests.driver.ni_task import retrieve_present_device
 from tests.driver.opcua_read import OPCUAReadFloat
 from tests.driver.opcua_write import OPCUAWriteFloat
 from tests.driver.simulator_case import SimulatorCase
@@ -60,6 +62,10 @@ class GrandFinale(SimulatorCase):
     SAMPLE_RATE = 50 * sy.Rate.HZ
     STREAM_RATE = 10 * sy.Rate.HZ
     TASK_DURATION = 2 * sy.TimeSpan.SECOND
+
+    @classmethod
+    def resources(cls) -> frozenset[str]:
+        return super().resources() | {resources.NI}
 
     def setup(self) -> None:
         self.read_tasks: list[ReadTask] = []
@@ -132,7 +138,7 @@ class GrandFinale(SimulatorCase):
             "USB-6289",  # USB counter
         ]
         devices = {
-            loc: self.client.devices.retrieve(location=loc) for loc in ni_locations
+            loc: retrieve_present_device(self.client, loc) for loc in ni_locations
         }
 
         self.read_tasks.extend(

@@ -186,7 +186,8 @@ A filter never returns `ErrNotFound`. `Apply` sets Gorp's `SkipMissingKeys` opti
 the retrieve, so a key with no record is a non-match anywhere in the tree. A typed line
 that names another resource, such as `subjects` on policies or `for` on labels, matches
 nothing when that resource does not exist. Lookups that the Core does for itself stay
-strict. The `ignore_not_found_error` field goes away.
+strict, except that a traversal from a resource that does not exist finds nothing. The
+`ignore_not_found_error` field goes away.
 
 The channel filter has a `name_patterns` line. A valid channel name matches exactly, and
 any other pattern is a regular expression, anchored when unanchored. Clients send names
@@ -236,8 +237,13 @@ A client method that returns one record raises not-found when no record matches,
 multiple-found when more than one matches. This is true in every client and language, as
 in Django `get`, SQLAlchemy `one`, and Entity Framework `Single`. In Python,
 `ignore_not_found=True` returns `None` when no record matches, and still raises when
-more than one matches. A list retrieve drops missing keys. A caller that needs every
-record checks for itself, as the framer and the C++ channel client do.
+more than one matches.
+
+A filter drops missing keys, since a filter never raises (§2.3). A list of keys given in
+place of a filter, as in `retrieve([a, b])`, is strict: the client raises not-found with
+the missing keys and returns the records in the order of the list. The Core keeps the
+one filter rule, and each client adds the check. The shipped `keys=` in Python and
+`{ keys }` in TypeScript stay strict until they are removed.
 
 The error states the filter as a sentence of one form in every client, with the field
 names of the client's language:
@@ -510,6 +516,14 @@ and its flat fields go away together, since a client must match the Core's versi
     all return every record for an empty query, and an empty `and` matching every record
     keeps the tree rules free of special cases. No delete or update takes a filter, so
     an empty filter cannot destroy data.
+22. **Regex as the only text operator, rejected**: A regex can do the work of
+    `contains`, `starts_with`, and `case_insensitive`, but the TypeScript cache cannot
+    run one. Go and JavaScript regex syntax differ, so a regex filter is server-computed
+    and refetches on each change (§2.4), while `contains` and `starts_with` match in the
+    cache. Plain text also needs escaping to become a regex, which each client language
+    does differently, and C++ has no standard escape. Prisma, the Linear SDK, and
+    Directus have no regex in a query, and only MongoDB relies on regex alone. The trade
+    is real: `filter.String` carries three members that a regex could replace.
 
 ## 6 Open questions
 
