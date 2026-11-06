@@ -23,7 +23,7 @@ from synnax.device.types_gen import (
     Where,
 )
 from synnax.ontology.payload import ID as OntologyID
-from synnax.util import one, one_or_none
+from synnax.util import sole, sole_or_none
 from x import filter
 from x.lists import all_none, normalize, override
 
@@ -332,5 +332,5 @@ class Client:
             return res.devices
         query = next(v for v in (key, name, make, model, location) if v is not None)
         if ignore_not_found:
-            return one_or_none("Device", query, res.devices)
-        return one("Device", query, res.devices)
+            return sole_or_none("Device", query, res.devices)
+        return sole("Device", query, res.devices)

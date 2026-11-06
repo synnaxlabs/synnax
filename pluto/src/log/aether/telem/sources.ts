@@ -239,6 +239,14 @@ export class StreamMultiChannelLog
     return new TimeRange(start, new TimeStamp(end));
   }
 
+  /** Whether the entries hold the oldest stored sample of each channel. */
+  get exhausted(): boolean {
+    const metas = [...this.metas.values()];
+    return (
+      metas.length > 0 && metas.every((m) => m.exhausted && m.pending.length === 0)
+    );
+  }
+
   /** Whether the entries end at the newest samples, so that new samples join them. */
   get live(): boolean {
     return this.unread.length === 0;

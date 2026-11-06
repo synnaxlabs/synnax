@@ -41,6 +41,7 @@ export interface UseProps
         | "computedLineHeight"
         | "channelNames"
         | "channelDataTypes"
+        | "position"
       >,
       "visible"
     >,
@@ -52,6 +53,11 @@ export interface UseProps
    * trigger pauses it, scrolling back to the bottom resumes it. Controlled callers
    * must reflect the value back through hold. */
   onHold?: (hold: boolean) => void;
+  /** Where a log that mounts paused opens, as reported to onLeave. */
+  position?: string;
+  /** Called when the log unmounts, with the position of a paused view. A live log
+   * reports an empty position. */
+  onLeave?: (position: string) => void;
 }
 
 export type LogState = z.output<typeof log.logStateZ>;
@@ -75,6 +81,8 @@ export const use = ({
   telem,
   hold,
   onHold,
+  position,
+  onLeave,
 }: UseProps): UseReturn => {
   const channels = rawChannels ?? [];
   const { data: retrievedChannels } = Channel.useResultMultiple({
@@ -125,6 +133,7 @@ export const use = ({
       region: box.ZERO,
       scrolling: false,
       wheelPos: 0,
+      position,
       ...memoProps,
     },
     onAetherChange: handleAetherChange,
@@ -133,6 +142,13 @@ export const use = ({
   useEffect(() => {
     setState((s) => ({ ...s, ...memoProps }));
   }, [memoProps, setState]);
+
+  const stateRef = useSyncedRef(state);
+  const onLeaveRef = useSyncedRef(onLeave);
+  useEffect(
+    () => () => onLeaveRef.current?.(stateRef.current.position),
+    [onLeaveRef, stateRef],
+  );
 
   return { state, setState, methods };
 };
