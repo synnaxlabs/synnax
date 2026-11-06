@@ -132,8 +132,9 @@ export class Client extends query.Retriever<
 > {
   /** The signed-in user. */
   readonly current: Current;
+  /** The users that the client holds, by key. */
+  readonly store: query.Table<Key, User>;
   private readonly cfg: ClientConfig;
-  private readonly store: query.Table<Key, User>;
 
   constructor(cfg: ClientConfig) {
     const { cache } = cfg;

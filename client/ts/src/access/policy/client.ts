@@ -23,6 +23,7 @@ import { role } from "@/access/role";
 import { type ontology } from "@/ontology";
 import { query } from "@/query";
 import { resource } from "@/resource";
+import { user } from "@/user";
 
 export const SET_CHANNEL_NAME = "sy_policy_set";
 export const DELETE_CHANNEL_NAME = "sy_policy_delete";
@@ -94,7 +95,14 @@ export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
   ontology: ontology.Client;
+  /** Holds the roles of users, so a role change refetches the policies of a user. */
+  users: user.Client;
 }
+
+const isForUser = (req: RetrieveRequest, key: user.Key): boolean =>
+  req.subjects?.some(
+    ({ type, key: k }) => type === user.TYPE_RESOURCE_ID.type && k === key,
+  ) === true;
 
 export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Policy> {
   private readonly cfg: ClientConfig;
@@ -118,6 +126,11 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Po
         fetch: async (req) => await this.execRetrieve(req),
         matches: (policy, req) => requestFilter(req)(policy),
         serverFields: SERVER_FIELDS,
+        watch: [
+          query.watch(cfg.users.store, ({ key }, req: RetrieveRequest) =>
+            isForUser(req, key) ? "refetch" : null,
+          ),
+        ],
       },
     });
     this.cfg = cfg;

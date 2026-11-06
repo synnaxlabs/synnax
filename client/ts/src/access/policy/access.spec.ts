@@ -20,6 +20,7 @@ import {
   expectDeleted,
   expectLive,
 } from "@/testutil";
+import { user } from "@/user";
 
 const client = createTestClient();
 
@@ -252,6 +253,28 @@ describe("cached reads", () => {
           })
           .toBe(true);
         expect(handler).toHaveBeenCalled();
+      } finally {
+        off();
+      }
+    });
+
+    it("refetches the policies of a user whose roles change", async () => {
+      const p = await createPolicy();
+      const u = await client.users.create({
+        username: id.create(),
+        password: "test",
+      });
+      const subject = user.resourceID(u.key);
+      const off = client.access.policies.onChange({ for: subject }, () => {});
+      try {
+        expect(await client.access.policies.retrieve({ for: subject })).toEqual([]);
+        await remote.users.setRoles(u.key, { add: [owner.key] });
+        await expect
+          .poll(() => {
+            const cached = client.access.policies.getCached({ for: subject });
+            return query.isLive(cached) && cached.some(({ key }) => key === p.key);
+          })
+          .toBe(true);
       } finally {
         off();
       }

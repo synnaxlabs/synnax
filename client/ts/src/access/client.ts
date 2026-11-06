@@ -14,11 +14,13 @@ import { policy } from "@/access/policy";
 import { role } from "@/access/role";
 import { type ontology } from "@/ontology";
 import { type query } from "@/query";
+import { type user } from "@/user";
 
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
   ontology: ontology.Client;
+  users: user.Client;
 }
 
 export class Client {
