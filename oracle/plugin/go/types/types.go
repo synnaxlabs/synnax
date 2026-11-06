@@ -837,23 +837,24 @@ func processStruct(entry resolution.Type, data *templateData) (structData, error
 		if !genMethods {
 			continue
 		}
+		fd := data.forField(field)
 		if defaultGroupName(field) == "" {
-			sd.DefaultFills = append(sd.DefaultFills, goDefaultFills(field, data)...)
+			sd.DefaultFills = append(sd.DefaultFills, goDefaultFills(field, fd)...)
 		}
-		if step, ok := goRecurseStep(field, data, defaultsHasOwn, neverSkip); ok {
+		if step, ok := goRecurseStep(field, fd, defaultsHasOwn, neverSkip); ok {
 			sd.DefaultRecurse = append(sd.DefaultRecurse, step)
 		}
-		if validateSkip(field, data) {
+		if validateSkip(field, fd) {
 			continue
 		}
-		if chk, ok := goEnumCheck(field, data); ok {
+		if chk, ok := goEnumCheck(field, fd); ok {
 			sd.EnumChecks = append(sd.EnumChecks, chk)
 		}
 		sd.ConstraintChecks = append(
 			sd.ConstraintChecks,
-			goConstraintChecks(field, data)...,
+			goConstraintChecks(field, fd)...,
 		)
-		if step, ok := goRecurseStep(field, data, validateHasOwn, validateSkip); ok {
+		if step, ok := goRecurseStep(field, fd, validateHasOwn, validateSkip); ok {
 			sd.ValidateRecurse = append(sd.ValidateRecurse, step)
 		}
 	}
@@ -980,11 +981,18 @@ func constraintToGo(constraint resolution.TypeRef, data *templateData) string {
 	return data.resolver.ResolveTypeRef(constraint, data.ctx)
 }
 
-func processField(field resolution.Field, data *templateData) fieldData {
-	if data.latest != nil &&
-		domain.GetStringFromField(field, "go", "marshal") == "omit" {
-		data = data.latest
+// forField returns the data that resolves field. An omitted field resolves against the
+// latest table, so its type, defaults, and checks track its dependencies' current
+// versions together.
+func (d *templateData) forField(field resolution.Field) *templateData {
+	if d.latest != nil && domain.GetStringFromField(field, "go", "marshal") == "omit" {
+		return d.latest
 	}
+	return d
+}
+
+func processField(field resolution.Field, data *templateData) fieldData {
+	data = data.forField(field)
 	goType := data.resolver.ResolveTypeRef(field.Type, data.ctx)
 	if field.Optional && !typemap.Nilable(field.Type, data.table) {
 		goType = "*" + goType

@@ -871,7 +871,8 @@ func goDefaultGroups(
 		if name == "" || f.Default == nil || f.Optional {
 			continue
 		}
-		member, ok := groupMember(f, data)
+		fd := data.forField(f)
+		member, ok := groupMember(f, fd)
 		if !ok {
 			continue
 		}
@@ -882,7 +883,7 @@ func goDefaultGroups(
 			order = append(order, name)
 		}
 		g.Members = append(g.Members, member)
-		g.Fills = append(g.Fills, goDefaultFills(f, data)...)
+		g.Fills = append(g.Fills, goDefaultFills(f, fd)...)
 	}
 	groups := make([]defaultGroupData, 0, len(order))
 	for _, name := range order {
