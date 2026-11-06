@@ -30,13 +30,16 @@
 #include "driver/ethercat/telem/telem.h"
 
 namespace driver::ethercat::soem {
-/// @brief how long the master waits for slaves to change state.
+/// @brief how long the master waits for the slaves.
 struct Config {
     /// @brief how long the slaves get to reach PRE-OP after discovery. The default is
     /// the PreopTimeout of the ESI files.
     x::telem::TimeSpan pre_op_timeout = x::telem::SECOND * 2;
     /// @brief how long the slaves get to reach SAFE-OP, OP, or INIT.
     x::telem::TimeSpan state_change_timeout = x::telem::SECOND * 2;
+    /// @brief how long the clocks of the slaves in a DC mode get to settle on the
+    /// reference clock before SYNC0 starts.
+    x::telem::TimeSpan dc_settle_timeout = x::telem::SECOND * 2;
 };
 
 /// @brief SOEM-based implementation of the Master interface.
@@ -75,6 +78,14 @@ class Master final : public master::Master {
     /// @brief the process data frames that came back to the master.
     std::atomic<uint64_t> frames{0};
 
+    /// @brief the DC registers of one slave that runs in a DC mode.
+    struct DCSetup {
+        uint16_t position = 0;
+        dc::Registers registers;
+    };
+    /// @brief the DC setup of each enabled slave in a DC mode, set at activation.
+    std::vector<DCSetup> dc_setups;
+
 public:
     /// @brief constructs a SOEM master with injected API, interface name, and config.
     Master(std::unique_ptr<API> api, std::string interface_name, Config cfg = {});
@@ -90,7 +101,10 @@ public:
 
     void set_slave_enabled(uint16_t position, bool enabled) override;
 
-    x::errors::Error activate(const std::function<void()> &start_cycle) override;
+    x::errors::Error activate(
+        x::telem::TimeSpan period,
+        const std::function<void()> &start_cycle
+    ) override;
 
     void deactivate() override;
 
@@ -161,9 +175,38 @@ private:
     bool
     scan_object_dictionary_for_pdos(uint16_t slave_pos, slave::DiscoveryResult &slave);
 
+    /// @brief writes data to a DC register of a slave.
+    /// @returns errors::ACTIVATION_ERROR when the slave does not take the write.
+    x::errors::Error
+    write_dc_register(uint16_t pos, uint16_t address, std::vector<uint8_t> data);
+
+    /// @brief reads a DC register of a slave into data.
+    /// @returns errors::ACTIVATION_ERROR when the slave does not answer.
+    x::errors::Error
+    read_dc_register(uint16_t pos, uint16_t address, std::span<uint8_t> data);
+
     /// @brief writes zero to the DC activation registers (0x0980 and 0x0981) of every
     /// enabled slave with a distributed clock.
     x::errors::Error clear_dc_activation();
+
+    /// @brief returns the DC registers of each enabled slave that dc::select puts in a
+    /// DC mode, at a bus cycle of period.
+    /// @returns errors::SLAVE_CONFIG_ERROR when a mode gives values the registers
+    /// cannot hold.
+    std::pair<std::vector<DCSetup>, x::errors::Error>
+    resolve_dc(x::telem::TimeSpan period) const;
+
+    /// @brief waits until the clock of each slave in dc_setups is within 10 µs of the
+    /// reference clock.
+    /// @returns errors::ACTIVATION_ERROR when a slave does not answer, or when a clock
+    /// does not settle within Config::dc_settle_timeout.
+    x::errors::Error wait_for_dc_settle();
+
+    /// @brief starts SYNC0 on each slave in dc_setups, with its first SYNC0 event on a
+    /// whole SYNC0 cycle of DC time at least 100 ms after its system time. Call it
+    /// while the bus cycles and before SAFE-OP.
+    /// @returns errors::ACTIVATION_ERROR when a slave does not take a write.
+    x::errors::Error start_dc();
 
     /// @brief requests the state from all enabled slaves, then waits until they reach
     /// it, one of them refuses it, or the timeout in microseconds passes.

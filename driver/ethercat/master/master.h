@@ -53,11 +53,14 @@ public:
     virtual void set_slave_enabled(uint16_t position, bool enabled) = 0;
 
     /// @brief maps the process data of every enabled slave, calls start_cycle once
-    /// send() and receive() work, then moves the enabled slaves to OP while the caller
-    /// cycles the bus. After an error, the caller stops the cycle it started before it
-    /// calls deactivate().
+    /// send() and receive() work, starts the DC sync of each slave in a DC mode for a
+    /// bus cycle of period, then moves the enabled slaves to OP while the caller cycles
+    /// the bus. After an error, the caller stops the cycle it started before it calls
+    /// deactivate().
+    /// @returns errors::SLAVE_CONFIG_ERROR when the DC mode of a slave gives values its
+    /// registers cannot hold at the period.
     [[nodiscard]] virtual x::errors::Error
-    activate(const std::function<void()> &start_cycle) = 0;
+    activate(x::telem::TimeSpan period, const std::function<void()> &start_cycle) = 0;
 
     /// @brief deactivates the master and stops cyclic communication.
     virtual void deactivate() = 0;

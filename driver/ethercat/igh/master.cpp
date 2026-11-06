@@ -119,7 +119,8 @@ void Master::set_slave_enabled(const uint16_t position, const bool enabled) {
         this->disabled_slaves.erase(position);
 }
 
-x::errors::Error Master::activate(const std::function<void()> &start_cycle) {
+x::errors::Error
+Master::activate(x::telem::TimeSpan, const std::function<void()> &start_cycle) {
     if (!this->initialized)
         return x::errors::Error(errors::ACTIVATION_ERROR, "not initialized");
     if (this->activated) {

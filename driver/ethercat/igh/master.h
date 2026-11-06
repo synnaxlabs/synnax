@@ -88,7 +88,10 @@ public:
 
     void set_slave_enabled(uint16_t position, bool enabled) override;
 
-    x::errors::Error activate(const std::function<void()> &start_cycle) override;
+    x::errors::Error activate(
+        x::telem::TimeSpan period,
+        const std::function<void()> &start_cycle
+    ) override;
 
     void deactivate() override;
 

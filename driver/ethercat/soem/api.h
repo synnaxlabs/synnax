@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <cstring>
 #include <optional>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -104,6 +105,15 @@ public:
         uint16_t slave,
         uint16_t address,
         std::vector<uint8_t> data,
+        int timeout
+    ) = 0;
+
+    /// @brief reads a register of a slave into data with a timeout in microseconds,
+    /// returning the working counter, which is 1 when the slave answered.
+    virtual int read_register(
+        uint16_t slave,
+        uint16_t address,
+        std::span<uint8_t> data,
         int timeout
     ) = 0;
 
@@ -288,6 +298,22 @@ public:
         int timeout
     ) override {
         return ecx_FPWR(
+            &this->context.port,
+            this->context.slavelist[slave].configadr,
+            address,
+            static_cast<uint16_t>(data.size()),
+            data.data(),
+            timeout
+        );
+    }
+
+    int read_register(
+        uint16_t slave,
+        uint16_t address,
+        std::span<uint8_t> data,
+        int timeout
+    ) override {
+        return ecx_FPRD(
             &this->context.port,
             this->context.slavelist[slave].configadr,
             address,

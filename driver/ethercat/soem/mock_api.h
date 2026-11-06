@@ -14,6 +14,7 @@
 #include <map>
 #include <optional>
 #include <set>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -122,6 +123,14 @@ public:
     std::vector<RegisterWrite> register_writes;
     /// @brief the working counter write_register returns.
     int write_register_return = 1;
+    /// @brief the number of state change requests before each register write, in the
+    /// order of register_writes.
+    std::vector<size_t> requests_before_write;
+    /// @brief the bytes read_register gives, keyed by slave and address. A register
+    /// missing from the map reads as zeros.
+    std::map<std::pair<uint16_t, uint16_t>, std::vector<uint8_t>> register_values;
+    /// @brief the working counter read_register returns.
+    int read_register_return = 1;
     /// @brief whether the mapped group carries the reference clock time.
     bool hasdc = false;
     int configdc_count = 0;
@@ -220,7 +229,25 @@ public:
         this->register_writes.push_back(
             {slave, address, std::move(data), this->mapped_group.has_value()}
         );
+        this->requests_before_write.push_back(this->state_change_requests.size());
         return this->write_register_return;
+    }
+
+    int read_register(
+        uint16_t slave,
+        uint16_t address,
+        std::span<uint8_t> data,
+        int
+    ) override {
+        std::ranges::fill(data, 0);
+        const auto it = this->register_values.find({slave, address});
+        if (it != this->register_values.end())
+            std::copy_n(
+                it->second.begin(),
+                std::min(it->second.size(), data.size()),
+                data.begin()
+            );
+        return this->read_register_return;
     }
 
     int reconfig_slave(uint16_t slave, int) override {
