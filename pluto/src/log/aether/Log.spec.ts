@@ -1690,7 +1690,7 @@ describe("log/aether/Log", () => {
       vi.useFakeTimers({ toFake: ["requestAnimationFrame"] });
       const { h, recorder } = setup([makeEntry(0)]);
       const loop = new render.Loop({ handleError: vi.fn() });
-      recorder.loop.set = (req) => loop.set(req as render.Request);
+      recorder.loop.set = (req) => loop.set(req);
       h.setState((s) => ({ ...s }));
       vi.advanceTimersToNextFrame();
       h.setState((s) => ({ ...s, region: box.translate(s.region, "x", 100) }));
