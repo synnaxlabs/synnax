@@ -98,8 +98,8 @@ const assignHops = (
 };
 
 /// @brief builds a rounded-corner SVG path through coords, arcing a hop wherever a jump
-/// falls on a run. No jumps reproduces the plain rounded path exactly. snapMargin widens
-/// the snap distance for a path drawn offset from the line its crossings sit on.
+/// falls on a run. No jumps reproduces the plain rounded path exactly. snapMargin
+/// widens the snap distance for a path drawn offset from the line its crossings sit on.
 export const rounded = (
   coords: xy.XY[],
   crossings: Crossing[] = [],
