@@ -63,6 +63,11 @@ type FactoryConfig struct {
 	//
 	// [OPTIONAL] - Defaults to 5 seconds.
 	FetchMaxWait telem.TimeSpan
+	// StopTimeout bounds how long a stopping read task waits for its write in progress.
+	// A write that takes longer fails, and its records replay on the next start.
+	//
+	// [OPTIONAL] - Defaults to 5 seconds.
+	StopTimeout telem.TimeSpan
 	alamos.Instrumentation
 }
 
@@ -71,6 +76,7 @@ var (
 	DefaultFactoryConfig                              = FactoryConfig{
 		PingTimeout:  10 * telem.Second,
 		FetchMaxWait: 5 * telem.Second,
+		StopTimeout:  5 * telem.Second,
 	}
 )
 
@@ -84,6 +90,7 @@ func (c FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 	c.Status = override.Nil(c.Status, other.Status)
 	c.PingTimeout = override.Numeric(c.PingTimeout, other.PingTimeout)
 	c.FetchMaxWait = override.Numeric(c.FetchMaxWait, other.FetchMaxWait)
+	c.StopTimeout = override.Numeric(c.StopTimeout, other.StopTimeout)
 	return c
 }
 
@@ -97,6 +104,7 @@ func (c FactoryConfig) Validate() error {
 	v.NotNil("status", c.Status)
 	v.Positive("ping_timeout", c.PingTimeout)
 	v.Positive("fetch_max_wait", c.FetchMaxWait)
+	v.Positive("stop_timeout", c.StopTimeout)
 	return v.Error()
 }
 

@@ -476,7 +476,9 @@ func (t *readTask) open(ctx context.Context) (err error) {
 	)
 	// The writer outlives the start command and sCtx: a stop cancels sCtx, and the
 	// consumer must finish its write. The consumer closes it on exit.
-	if t.writer, err = t.openWriter(context.Background()); err != nil {
+	wCtx, cancelWriter := context.WithCancel(context.Background())
+	if t.writer, err = t.openWriter(wCtx); err != nil {
+		cancelWriter()
 		cancel()
 		return err
 	}
@@ -485,9 +487,17 @@ func (t *readTask) open(ctx context.Context) (err error) {
 	t.failed.Store(false)
 	t.skips = driver.NewSkips("record")
 	t.disconnected = false
+	stopConsumer := signal.NewHardShutdown(sCtx, cancel)
 	t.closer = xio.MultiCloser{
 		xio.CloserFunc(t.closeClient),
-		signal.NewHardShutdown(sCtx, cancel),
+		xio.CloserFunc(func() error {
+			defer cancelWriter()
+			defer time.AfterFunc(
+				t.factoryCfg.StopTimeout.Duration(),
+				cancelWriter,
+			).Stop()
+			return stopConsumer.Close()
+		}),
 	}
 	return nil
 }

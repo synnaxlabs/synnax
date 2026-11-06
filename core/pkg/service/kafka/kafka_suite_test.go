@@ -21,6 +21,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
+	distnode "github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
@@ -54,7 +55,11 @@ var (
 	db        *gorp.DB
 	statusSvc *status.Service
 	// faultyFS holds the time-series data, so a spec can hold a write in progress.
-	faultyFS   *FaultyFS
+	faultyFS *FaultyFS
+	// peerFS holds the time-series data of the peer at peerKey, so a spec can hold a
+	// peer's answer to a write.
+	peerFS     *FaultyFS
+	peerKey    distnode.Key
 	rackSvc    *rack.Service
 	deviceSvc  *device.Service
 	channelSvc *channel.Service
@@ -74,10 +79,17 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		KV: DeferClose(memkv.New()),
 		TS: DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: faultyFS}))),
 	}
-	node := testutil.NewCluster(ctx, 0).Provision(
+	peerFS = WrapFaultyFS(xfs.NewMem())
+	peerStore := &storage.Layer{
+		KV: DeferClose(memkv.New()),
+		TS: DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: peerFS}))),
+	}
+	nodes := testutil.NewCluster(ctx, 0)
+	node := nodes.Provision(ctx, distribution.LayerConfig{Storage: store})
+	peerKey = nodes.Provision(
 		ctx,
-		distribution.LayerConfig{Storage: store},
-	)
+		distribution.LayerConfig{Storage: peerStore},
+	).Cluster.HostKey()
 	db = node.DB
 	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
