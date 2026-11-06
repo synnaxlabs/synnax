@@ -327,6 +327,23 @@ x::errors::Error Master::activate(
     this->api->statecheck(0, EC_STATE_PRE_OP, PRE_OP_TIMEOUT);
     this->api->readstate();
     LOG(INFO) << "[ethercat] ran config_init again before mapping";
+    for (int i = 1; i <= this->api->slave_count(); ++i) {
+        const auto pos = static_cast<uint16_t>(i);
+        if (this->disabled_slaves.contains(pos)) continue;
+        for (const uint8_t sub: {uint8_t{1}, uint8_t{9}}) {
+            uint32_t value = 0;
+            int size = sizeof(value);
+            const int wkc = this->api
+                                ->SDOread(pos, 0x8020, sub, 0, &size, &value, 700000);
+            LOG(INFO) << std::format(
+                "[ethercat] slave {} 0x8020:{:02X} wkc {} value {}",
+                i,
+                sub,
+                wkc,
+                value
+            );
+        }
+    }
 
     std::vector<uint16_t> parameterized;
     {
