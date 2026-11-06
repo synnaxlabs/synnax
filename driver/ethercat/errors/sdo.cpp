@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include "driver/ethercat/errors/errors.h"
+
 extern "C" {
 #include "soem/soem.h"
 }
-
-#include "driver/ethercat/errors/errors.h"
 
 namespace driver::ethercat::errors {
 std::string sdo_abort_reason(const uint32_t code) {
