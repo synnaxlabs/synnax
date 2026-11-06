@@ -13,6 +13,7 @@
 
 #include <cstdint>
 #include <string>
+#include <variant>
 #include <vector>
 
 #include "client/cpp/device/key.h"
@@ -256,6 +257,105 @@ inline x::json::json RetrieveResponse::to_json() const {
     x::json::json j = x::json::json::object();
     j["tasks"] = x::json::to_array(this->tasks);
     return j;
+}
+
+inline LinearScale LinearScale::parse(x::json::Parser parser) {
+    LinearScale result;
+    result.slope = parser.field<double>("slope", 1);
+    result.offset = parser.field<double>("offset", 0);
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json LinearScale::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["slope"] = this->slope;
+    j["offset"] = this->offset;
+    j["type"] = this->type;
+    return j;
+}
+
+inline MapScale MapScale::parse(x::json::Parser parser) {
+    MapScale result;
+    result.pre_scaled_min = parser.field<double>("pre_scaled_min", 0);
+    result.pre_scaled_max = parser.field<double>("pre_scaled_max", 1);
+    result.scaled_min = parser.field<double>("scaled_min", 0);
+    result.scaled_max = parser.field<double>("scaled_max", 1);
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json MapScale::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["pre_scaled_min"] = this->pre_scaled_min;
+    j["pre_scaled_max"] = this->pre_scaled_max;
+    j["scaled_min"] = this->scaled_min;
+    j["scaled_max"] = this->scaled_max;
+    j["type"] = this->type;
+    return j;
+}
+
+inline PolynomialScale PolynomialScale::parse(x::json::Parser parser) {
+    PolynomialScale result;
+    result.coeffs = parser.field<std::vector<double>>("coeffs", std::vector<double>{});
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json PolynomialScale::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["coeffs"] = this->coeffs;
+    j["type"] = this->type;
+    return j;
+}
+
+inline TableScale TableScale::parse(x::json::Parser parser) {
+    TableScale result;
+    result.pre_scaled_vals = parser.field<std::vector<double>>(
+        "pre_scaled_vals",
+        std::vector<double>{}
+    );
+    result.scaled_vals = parser.field<std::vector<double>>(
+        "scaled_vals",
+        std::vector<double>{}
+    );
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json TableScale::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["pre_scaled_vals"] = this->pre_scaled_vals;
+    j["scaled_vals"] = this->scaled_vals;
+    j["type"] = this->type;
+    return j;
+}
+
+inline NoneScale NoneScale::parse(x::json::Parser parser) {
+    NoneScale result;
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json NoneScale::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["type"] = this->type;
+    return j;
+}
+
+inline Scale parse_scale(x::json::Parser parser) {
+    const auto discriminator = parser.field<std::string>("type");
+    if (discriminator == "linear") return LinearScale::parse(parser);
+    if (discriminator == "map") return MapScale::parse(parser);
+    if (discriminator == "polynomial") return PolynomialScale::parse(parser);
+    if (discriminator == "table") return TableScale::parse(parser);
+    if (discriminator == "none") return NoneScale::parse(parser);
+    parser.field_err("type", "unknown Scale type: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const Scale &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 
 }
