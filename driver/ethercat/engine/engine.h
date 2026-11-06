@@ -157,8 +157,16 @@ class Engine {
     [[nodiscard]] std::vector<x::telem::Rate> read_rates_locked() const;
     [[nodiscard]] std::vector<x::telem::Rate> write_rates_locked() const;
     void publish_schedule_locked(x::telem::Rate rate);
+    /// @brief returns the bus rate for tasks at reads and writes: the slowest rate they
+    /// allow, or the current rate while a slave runs DC sync.
+    /// @returns errors::RATE_MISMATCH when no rate serves them, or when a slave runs DC
+    /// sync and the current rate does not serve them.
+    [[nodiscard]] std::pair<x::telem::Rate, x::errors::Error> rate_locked(
+        const std::vector<x::telem::Rate> &reads,
+        const std::vector<x::telem::Rate> &writes
+    ) const;
     /// @brief stops the bus when no reader or writer is open, and otherwise moves it to
-    /// the slowest rate the open ones allow.
+    /// the rate that rate_locked() gives the open ones.
     void reschedule_locked();
     void write_outputs();
     void rebuild_outputs_locked();

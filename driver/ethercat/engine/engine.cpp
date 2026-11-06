@@ -106,6 +106,23 @@ std::pair<x::telem::Rate, x::errors::Error> bus_rate(
     };
 }
 
+/// @brief true when rate is a multiple of every read rate and at least every write
+/// rate.
+bool serves(
+    const x::telem::Rate rate,
+    const std::vector<x::telem::Rate> &reads,
+    const std::vector<x::telem::Rate> &writes
+) {
+    const auto mhz = millihertz(rate);
+    return std::ranges::all_of(
+               reads,
+               [mhz](const x::telem::Rate r) { return mhz % millihertz(r) == 0; }
+           ) &&
+           std::ranges::all_of(writes, [mhz](const x::telem::Rate w) {
+               return millihertz(w) <= mhz;
+           });
+}
+
 /// @brief looks up the offset of each entry in a process image of the given size.
 std::pair<std::vector<pdo::Offset>, x::errors::Error> resolve_offsets(
     const master::Master &master,
@@ -438,16 +455,41 @@ void Engine::publish_schedule_locked(const x::telem::Rate rate) {
     this->cycle_hz.store(rate.hz(), std::memory_order_release);
 }
 
+std::pair<x::telem::Rate, x::errors::Error> Engine::rate_locked(
+    const std::vector<x::telem::Rate> &reads,
+    const std::vector<x::telem::Rate> &writes
+) const {
+    const auto iface = this->master->interface_name();
+    auto [rate, err] = bus_rate(reads, writes, iface);
+    if (err || !this->running() || !this->master->dc_sync()) return {rate, err};
+    // The SYNC0 and SYNC1 cycles came from the bus period at activation.
+    const auto fixed = this->cycle_rate();
+    if (serves(fixed, reads, writes)) return {fixed, x::errors::NIL};
+    return {
+        x::telem::Rate(0),
+        x::errors::Error(
+            errors::RATE_MISMATCH,
+            std::format(
+                "the bus on {0} cycles at {1} Hz while a slave runs DC sync, and the "
+                "rate cannot change until every task on the port stops. Use a sample "
+                "rate that {1} Hz is a multiple of, or an execution rate of at most "
+                "{1} Hz.",
+                iface,
+                fixed.hz()
+            )
+        )
+    };
+}
+
 void Engine::reschedule_locked() {
     if (this->inputs.empty() && this->outputs.empty()) {
         this->stop_locked();
         return;
     }
     // Rates that had a bus rate keep one when a task leaves.
-    const auto rate = bus_rate(
+    const auto rate = this->rate_locked(
         this->read_rates_locked(),
-        this->write_rates_locked(),
-        this->master->interface_name()
+        this->write_rates_locked()
     );
     this->publish_schedule_locked(rate.first);
 }
@@ -527,11 +569,7 @@ std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> Engine::open_reader
     std::lock_guard lock(this->mu);
     auto reads = this->read_rates_locked();
     reads.push_back(sample_rate);
-    const auto [rate, rate_err] = bus_rate(
-        reads,
-        this->write_rates_locked(),
-        this->master->interface_name()
-    );
+    const auto [rate, rate_err] = this->rate_locked(reads, this->write_rates_locked());
     if (rate_err) return {nullptr, rate_err};
     const bool started = !this->running();
     if (started)
@@ -563,11 +601,7 @@ std::pair<std::unique_ptr<Engine::Writer>, x::errors::Error> Engine::open_writer
     std::lock_guard lock(this->mu);
     auto writes = this->write_rates_locked();
     writes.push_back(execution_rate);
-    const auto [rate, rate_err] = bus_rate(
-        this->read_rates_locked(),
-        writes,
-        this->master->interface_name()
-    );
+    const auto [rate, rate_err] = this->rate_locked(this->read_rates_locked(), writes);
     if (rate_err) return {nullptr, rate_err};
     const bool started = !this->running();
     if (started)
