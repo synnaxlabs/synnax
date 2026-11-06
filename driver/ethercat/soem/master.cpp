@@ -61,8 +61,6 @@ const auto DC_START_DELAY = x::telem::MILLISECOND * 100;
 const auto DC_SETTLED_DIFF = x::telem::MICROSECOND * 10;
 /// Time between reads of the system time differences while the clocks settle.
 const auto DC_SETTLE_POLL_INTERVAL = x::telem::MILLISECOND * 10;
-/// The AssignActivate bit (0x0980 bit 0) that gives the sync unit to the PDI.
-constexpr uint16_t PDI_SYNC_UNIT = 0x0001;
 namespace {
 /// @brief converts a span to the microseconds that SOEM timeouts take.
 int micros(const x::telem::TimeSpan span) {
@@ -349,7 +347,7 @@ std::optional<x::telem::TimeStamp> Master::dc_time() const {
 std::vector<dc::Registers> Master::dc_sync() const {
     std::vector<dc::Registers> syncs;
     for (const auto &[pos, regs]: this->dc_setups)
-        if (regs.sync0_cycle > 0 && (regs.assign_activate & PDI_SYNC_UNIT) == 0)
+        if (regs.sync0_cycle > 0 && (regs.assign_activate & dc::PDI_SYNC_UNIT) == 0)
             syncs.push_back(regs);
     return syncs;
 }
@@ -1156,7 +1154,8 @@ Master::resolve_dc(const x::telem::TimeSpan period) const {
                 )
             };
         setups.push_back({.position = props.position, .registers = regs});
-        if (!regs.marks_data() || (regs.assign_activate & PDI_SYNC_UNIT) != 0) continue;
+        if (!regs.marks_data() || (regs.assign_activate & dc::PDI_SYNC_UNIT) != 0)
+            continue;
         cycles.emplace_back(regs.sync0_cycle);
         if (!events.empty()) events += ", ";
         events += std::format(
@@ -1239,7 +1238,7 @@ x::errors::Error Master::start_dc() {
         const auto act = static_cast<uint8_t>(regs.assign_activate >> 8);
         if (auto err = this->write_dc_register(pos, ECT_REG_DCCUC, {cuc})) return err;
         // While 0x0980 gives the sync unit to the PDI, the PDI sets it up.
-        if ((regs.assign_activate & PDI_SYNC_UNIT) != 0) continue;
+        if ((regs.assign_activate & dc::PDI_SYNC_UNIT) != 0) continue;
         std::array<uint8_t, 8> raw{};
         if (auto err = this->read_dc_register(pos, ECT_REG_DCSYSTIME, raw)) return err;
         const int64_t cycle = regs.sync0_cycle;
