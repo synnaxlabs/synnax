@@ -305,13 +305,10 @@ class LinePlot(ConsoleCase):
         assert_envelope(
             exported, envelope_type="lineplot", min_version=1, name=plot.page_name
         )
-        channels = exported.get("channels")
-        assert isinstance(channels, dict), "Exported JSON should contain 'channels'"
-        y1_channels = channels.get("y1")
-        assert isinstance(y1_channels, list), "Channels should include 'y1' axis"
+        channels = sy.lineplot.Channels.model_validate(exported.get("channels"))
 
         data_channel = self.client.channels.retrieve(data_name)
-        assert data_channel.key in y1_channels, (
+        assert data_channel.key in channels.y1, (
             f"Y1 should contain channel key {data_channel.key}"
         )
 
@@ -369,7 +366,7 @@ class LinePlot(ConsoleCase):
         assert_envelope(
             exported, envelope_type="lineplot", min_version=1, name=self.ctx_plot_name
         )
-        assert "channels" in exported, "Exported JSON should contain 'channels'"
+        sy.lineplot.Channels.model_validate(exported.get("channels"))
 
         self.log("Testing rename plot via context menu")
         new_name = f"Renamed Plot {self.suffix}"
