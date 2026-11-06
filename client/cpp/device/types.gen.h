@@ -22,6 +22,7 @@
 #include "client/cpp/rack/key.h"
 #include "client/cpp/status/types.gen.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/filter/field.h"
 #include "x/cpp/filter/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/mem/indirect.h"
@@ -67,17 +68,42 @@ struct Where {
     /// @brief not_ matches when the child does not match.
     x::mem::indirect<Where> not_;
     /// @brief key selects by key.
-    std::optional<::x::filter::Set<Key>> key;
+    ::x::filter::Field<::x::filter::Set<Key>> key;
     /// @brief name selects by name.
-    std::optional<::x::filter::String> name;
+    ::x::filter::Field<::x::filter::String> name;
     /// @brief make selects by make.
-    std::optional<::x::filter::String> make;
+    ::x::filter::Field<::x::filter::String> make;
     /// @brief model selects by model.
-    std::optional<::x::filter::String> model;
+    ::x::filter::Field<::x::filter::String> model;
     /// @brief location selects by location.
-    std::optional<::x::filter::String> location;
+    ::x::filter::Field<::x::filter::String> location;
     /// @brief rack selects by rack.
-    std::optional<::x::filter::Set<::synnax::rack::Key>> rack;
+    ::x::filter::Field<::x::filter::Set<::synnax::rack::Key>> rack;
+
+    /// @brief returns a filter that matches when both a and b match.
+    friend Where operator&&(Where a, Where b) {
+        Where w;
+        w.and_.emplace();
+        w.and_->push_back(std::move(a));
+        w.and_->push_back(std::move(b));
+        return w;
+    }
+
+    /// @brief returns a filter that matches when a or b matches.
+    friend Where operator||(Where a, Where b) {
+        Where w;
+        w.or_.emplace();
+        w.or_->push_back(std::move(a));
+        w.or_->push_back(std::move(b));
+        return w;
+    }
+
+    /// @brief returns a filter that matches when a does not match.
+    friend Where operator!(Where a) {
+        Where w;
+        w.not_ = std::move(a);
+        return w;
+    }
 
     static Where parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
