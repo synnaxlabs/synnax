@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { resource, type user } from "@synnaxlabs/client";
+import { access, resource, type user } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -57,6 +57,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
     selection: { ids },
   } = props;
   const hasUpdatePermission = Access.useUpdateGranted(ids);
+  const hasRoleUpdatePermission = Access.useUpdateGranted(access.role.TYPE_RESOURCE_ID);
   const hasDeletePermission = Access.useDeleteGranted(ids);
   const handleDelete = useDelete(props);
   const rename = useRename(props);
@@ -77,7 +78,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
             <Icon.Rename />
             Rename
           </Menu.Item>
-          {!isRootUser && (
+          {!isRootUser && hasRoleUpdatePermission && (
             <Menu.Item itemKey="assignRole" onClick={() => handleAssignRole(props)}>
               <Icon.Role />
               Change role

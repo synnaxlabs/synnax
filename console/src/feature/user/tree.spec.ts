@@ -8,7 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { access, NotFoundError, user } from "@synnaxlabs/client";
-import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
+import {
+  createTestClient,
+  createTestClientWithPolicy,
+  RoleClients,
+} from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -152,7 +156,34 @@ describe("permission to write the user", () => {
     });
     expect(await screen.findByText("Copy properties")).toBeTruthy();
     expect(screen.queryByText("Rename")).toBeNull();
-    expect(screen.queryByText("Change Role")).toBeNull();
+    expect(screen.queryByText("Change role")).toBeNull();
     expect(screen.queryByText("Delete")).toBeNull();
+  });
+
+  it("should withhold a role change from a subject that cannot update roles", async () => {
+    const u = await createUser();
+    const editor = await createTestClientWithPolicy(client, [
+      {
+        name: uniqueName("policy"),
+        objects: [
+          user.TYPE_RESOURCE_ID,
+          access.role.TYPE_RESOURCE_ID,
+          access.policy.TYPE_RESOURCE_ID,
+        ],
+        actions: ["retrieve"],
+      },
+      {
+        name: uniqueName("policy"),
+        objects: [user.TYPE_RESOURCE_ID],
+        actions: ["update"],
+      },
+    ]);
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
+      client: editor,
+      resources: [userResource(u.key, u.name)],
+    });
+    expect(await screen.findByText("Rename")).toBeTruthy();
+    expect(screen.queryByText("Change role")).toBeNull();
   });
 });
