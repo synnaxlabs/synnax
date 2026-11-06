@@ -19,8 +19,7 @@ import (
 	apischematic "github.com/synnaxlabs/synnax/pkg/api/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -102,10 +101,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	Expect(projectSvc.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
 })
 
-// grantOn creates a policy granting the given action on the given objects to a
-// fresh role and assigns the role to the given subject. Writes commit directly
-// to the database so the api enforcers (which read committed state with no
-// transaction) can observe them.
+// grantOn grants the action on the objects to the subject through a new role.
 func grantOn(
 	ctx SpecContext,
 	subject resource.ID,
@@ -113,22 +109,9 @@ func grantOn(
 	objects ...resource.ID,
 ) {
 	GinkgoHelper()
-	roleWriter := rbacSvc.Role.NewWriter(nil, true)
-	policyWriter := rbacSvc.Policy.NewWriter(nil, true)
-	r := &role.Role{
-		Name:        string(action) + "-" + uuid.New().String(),
-		Description: "test",
-	}
-	Expect(roleWriter.Create(ctx, r)).To(Succeed())
-	p := &policy.Policy{
-		Role:    r.Key,
-		Name:    string(action) + "-policy-" + uuid.New().String(),
-		Objects: objects,
-		Actions: []access.Action{action},
-	}
-	Expect(policyWriter.Create(ctx, p)).To(Succeed())
 	key := MustSucceed(user.KeyFromResourceID(subject))
-	Expect(userSvc.NewWriter(nil).AssignRole(ctx, r.Key, key)).To(Succeed())
+	actions := []access.Action{action}
+	MustSucceed(rbactestutil.Grant(ctx, rbacSvc, userSvc, key, actions, objects...))
 }
 
 // newUser creates a user with no policies.

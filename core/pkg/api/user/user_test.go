@@ -17,8 +17,8 @@ import (
 	"github.com/synnaxlabs/freighter"
 	apiuser "github.com/synnaxlabs/synnax/pkg/api/user"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -49,18 +49,17 @@ func createUser(ctx SpecContext, username string) user.User {
 	return u
 }
 
-// grantOnUsers gives u a new role whose policy allows action on every user.
+// grantOnUsers grants the action on every user to u through a new role.
 func grantOnUsers(ctx SpecContext, u user.User, action access.Action) {
 	GinkgoHelper()
-	r := &role.Role{Name: "grant-" + uuid.New().String()}
-	Expect(rbacSvc.Role.NewWriter(nil, true).Create(ctx, r)).To(Succeed())
-	Expect(rbacSvc.Policy.NewWriter(nil, true).Create(ctx, &policy.Policy{
-		Role:    r.Key,
-		Name:    "grant-" + uuid.New().String(),
-		Objects: []resource.ID{{Type: resource.TypeUser}},
-		Actions: []access.Action{action},
-	})).To(Succeed())
-	Expect(writer.AssignRole(ctx, r.Key, u.Key)).To(Succeed())
+	MustSucceed(rbactestutil.Grant(
+		ctx,
+		rbacSvc,
+		userSvc,
+		u.Key,
+		[]access.Action{action},
+		resource.ID{Type: resource.TypeUser},
+	))
 }
 
 func rolesOf(ctx SpecContext, key user.Key) []role.Key {

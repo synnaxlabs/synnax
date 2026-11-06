@@ -20,8 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/batch"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
@@ -43,18 +42,14 @@ func newUser(ctx context.Context, types ...resource.Type) user.User {
 	for i, t := range types {
 		objects[i] = resource.ID{Type: t}
 	}
-	roleWriter := svc.RBAC.Role.NewWriter(nil, true)
-	policyWriter := svc.RBAC.Policy.NewWriter(nil, true)
-	r := &role.Role{Name: "role-" + uuid.New().String(), Description: "test"}
-	Expect(roleWriter.Create(ctx, r)).To(Succeed())
-	p := &policy.Policy{
-		Role:    r.Key,
-		Name:    "policy-" + uuid.New().String(),
-		Objects: objects,
-		Actions: access.AllActions,
-	}
-	Expect(policyWriter.Create(ctx, p)).To(Succeed())
-	Expect(svc.User.NewWriter(nil).AssignRole(ctx, r.Key, u.Key)).To(Succeed())
+	MustSucceed(rbactestutil.Grant(
+		ctx,
+		svc.RBAC,
+		svc.User,
+		u.Key,
+		access.AllActions,
+		objects...,
+	))
 	return u
 }
 

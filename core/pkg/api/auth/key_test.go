@@ -18,8 +18,8 @@ import (
 	"github.com/synnaxlabs/gorp"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -47,6 +47,7 @@ func assignBuiltin(ctx context.Context, subject user.Key, name string) {
 	Expect(userSvc.NewWriter(nil).AssignRole(ctx, r.Key, subject)).To(Succeed())
 }
 
+// grant grants the action on the object to the subject through a new role.
 func grant(
 	ctx context.Context,
 	subject user.Key,
@@ -54,17 +55,8 @@ func grant(
 	object resource.ID,
 ) {
 	GinkgoHelper()
-	r := &role.Role{Name: string(action) + "-" + uuid.New().String()}
-	Expect(rbacSvc.Role.NewWriter(nil, true).Create(ctx, r)).To(Succeed())
-	p := &policy.Policy{
-		Role:    r.Key,
-		Name:    string(action) + "-policy-" + uuid.New().String(),
-		Objects: []resource.ID{object},
-		Actions: []access.Action{action},
-	}
-	policies := rbacSvc.Policy.NewWriter(nil, true)
-	Expect(policies.Create(ctx, p)).To(Succeed())
-	Expect(userSvc.NewWriter(nil).AssignRole(ctx, r.Key, subject)).To(Succeed())
+	actions := []access.Action{action}
+	MustSucceed(rbactestutil.Grant(ctx, rbacSvc, userSvc, subject, actions, object))
 }
 
 var _ = Describe("API keys", func() {

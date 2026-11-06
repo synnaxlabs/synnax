@@ -19,8 +19,7 @@ import (
 	apipanel "github.com/synnaxlabs/synnax/pkg/api/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -108,10 +107,7 @@ func newUser(ctx SpecContext) user.User {
 	}))
 }
 
-// grant creates a policy permitting action on the given objects, binds it to a
-// fresh role, and assigns the role to subject. Writes commit directly to the
-// database (nil tx) so the api enforcer - which reads committed state - observes
-// them.
+// grant grants the action on the objects to the subject through a new role.
 func grant(
 	ctx SpecContext,
 	subject resource.ID,
@@ -119,22 +115,9 @@ func grant(
 	objects ...resource.ID,
 ) {
 	GinkgoHelper()
-	roleWriter := rbacSvc.Role.NewWriter(nil, true)
-	policyWriter := rbacSvc.Policy.NewWriter(nil, true)
-	r := &role.Role{
-		Name:        string(action) + "-" + uuid.New().String(),
-		Description: "test",
-	}
-	Expect(roleWriter.Create(ctx, r)).To(Succeed())
-	p := &policy.Policy{
-		Role:    r.Key,
-		Name:    string(action) + "-policy-" + uuid.New().String(),
-		Objects: objects,
-		Actions: []access.Action{action},
-	}
-	Expect(policyWriter.Create(ctx, p)).To(Succeed())
 	key := MustSucceed(user.KeyFromResourceID(subject))
-	Expect(userSvc.NewWriter(nil).AssignRole(ctx, r.Key, key)).To(Succeed())
+	actions := []access.Action{action}
+	MustSucceed(rbactestutil.Grant(ctx, rbacSvc, userSvc, key, actions, objects...))
 }
 
 // grantCreate lets subject create panels in the suite project.

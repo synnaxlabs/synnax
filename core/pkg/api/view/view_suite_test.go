@@ -19,8 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -57,21 +56,10 @@ func createUser(ctx SpecContext) user.User {
 	}))
 }
 
-// grantUpdateOn grants update access on the given objects to the subject through a
-// fresh role.
+// grantUpdateOn grants update on the objects to the subject through a new role.
 func grantUpdateOn(ctx SpecContext, subject resource.ID, objects ...resource.ID) {
 	GinkgoHelper()
-	roleWriter := svc.RBAC.Role.NewWriter(nil, true)
-	policyWriter := svc.RBAC.Policy.NewWriter(nil, true)
-	r := &role.Role{Name: "role-" + uuid.New().String(), Description: "test"}
-	Expect(roleWriter.Create(ctx, r)).To(Succeed())
-	p := &policy.Policy{
-		Role:    r.Key,
-		Name:    "policy-" + uuid.New().String(),
-		Objects: objects,
-		Actions: []access.Action{access.ActionUpdate},
-	}
-	Expect(policyWriter.Create(ctx, p)).To(Succeed())
 	key := MustSucceed(user.KeyFromResourceID(subject))
-	Expect(svc.User.NewWriter(nil).AssignRole(ctx, r.Key, key)).To(Succeed())
+	actions := []access.Action{access.ActionUpdate}
+	MustSucceed(rbactestutil.Grant(ctx, svc.RBAC, svc.User, key, actions, objects...))
 }

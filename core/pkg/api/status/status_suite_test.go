@@ -19,8 +19,7 @@ import (
 	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -87,8 +86,7 @@ func freshUser(ctx SpecContext) user.User {
 	)
 }
 
-// grantOn assigns a role granting the given actions on the given objects to the
-// subject. Mirrors the schematic suite helper.
+// grantOn grants the actions on the objects to the subject through a new role.
 func grantOn(
 	ctx SpecContext,
 	subject resource.ID,
@@ -96,17 +94,6 @@ func grantOn(
 	objects ...resource.ID,
 ) {
 	GinkgoHelper()
-	roleWriter := rbacSvc.Role.NewWriter(nil, true)
-	policyWriter := rbacSvc.Policy.NewWriter(nil, true)
-	r := &role.Role{Name: "role-" + uuid.New().String(), Description: "test"}
-	Expect(roleWriter.Create(ctx, r)).To(Succeed())
-	p := &policy.Policy{
-		Role:    r.Key,
-		Name:    "policy-" + uuid.New().String(),
-		Objects: objects,
-		Actions: actions,
-	}
-	Expect(policyWriter.Create(ctx, p)).To(Succeed())
 	key := MustSucceed(user.KeyFromResourceID(subject))
-	Expect(userSvc.NewWriter(nil).AssignRole(ctx, r.Key, key)).To(Succeed())
+	MustSucceed(rbactestutil.Grant(ctx, rbacSvc, userSvc, key, actions, objects...))
 }
