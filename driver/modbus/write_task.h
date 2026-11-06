@@ -11,7 +11,6 @@
 
 #include <string>
 #include <unordered_map>
-#include <variant>
 
 #include "client/cpp/modbus/json.gen.h"
 
@@ -204,12 +203,7 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
         std::vector<channel::OutputRegisterBit> bits;
         cfg.iter("channels", [&](x::json::Parser &ch) {
             const auto parsed = ::synnax::modbus::parse_write_channel(ch);
-            const auto &base = std::visit(
-                [](const auto &c) -> const ::synnax::modbus::BaseWriteChannel & {
-                    return c;
-                },
-                parsed
-            );
+            const auto &base = ::synnax::modbus::base(parsed);
             if (base.disabled) return;
             if (base.channel == 0) {
                 ch.field_err("channel", "channel must be specified");

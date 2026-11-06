@@ -83,8 +83,13 @@ interface HeaderProps {
 
 const Header = ({ isSnapshot }: HeaderProps) => (
   <>
-    <Flex.Box x justify="between">
-      <PForm.Field path={formPath.name} showLabel={false} padHelpText={false} grow>
+    <div className={CSS.BE("task-configure", "header")}>
+      <PForm.Field
+        path={formPath.name}
+        showLabel={false}
+        padHelpText={false}
+        className={CSS.BE("task-configure", "name")}
+      >
         {(p) => (
           <Input.Text
             variant="text"
@@ -95,13 +100,13 @@ const Header = ({ isSnapshot }: HeaderProps) => (
           />
         )}
       </PForm.Field>
-      <Flex.Box align="end" gap="small" className={CSS.BE("task-configure", "actions")}>
+      <div className={CSS.BE("task-configure", "rack")}>
+        <Rack />
+      </div>
+      <div className={CSS.BE("task-configure", "actions")}>
         <UtilityButtons />
-        <div className={CSS.BE("task-configure", "rack")}>
-          <Rack />
-        </div>
-      </Flex.Box>
-    </Flex.Box>
+      </div>
+    </div>
     {!isSnapshot && <ParentRangeButton />}
   </>
 );

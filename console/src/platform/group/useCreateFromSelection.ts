@@ -14,7 +14,6 @@ import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { Flux, Group } from "@synnaxlabs/pluto";
 import { uuid, verbs } from "@synnaxlabs/x";
 
-import { getResourcesToGroup } from "@/platform/group/getResourcesToGroup";
 import { type Tree } from "@/platform/tree";
 
 interface CreateParams extends Tree.ContextMenuProps {
@@ -26,17 +25,13 @@ const base = Flux.createUpdate<CreateParams>({
   verbs: verbs.CREATE,
   update: async ({ client, data }) => {
     const {
-      selection: { parentID, ids },
-      state: { shape },
+      selection: { parentID, top },
       group: { name, key },
     } = data;
-    const resourcesToGroup = getResourcesToGroup(ids, shape);
+    if (parentID == null)
+      throw new Error("Cannot group items that sit under more than one parent");
     await client.groups.create({ parent: parentID, name, key });
-    await client.ontology.moveChildren(
-      parentID,
-      group.resourceID(key),
-      ...resourcesToGroup,
-    );
+    await client.ontology.moveChildren(parentID, group.resourceID(key), ...top);
     return data;
   },
 });
@@ -46,20 +41,23 @@ const beforeUpdate = async ({
   rollbacks,
 }: Flux.BeforeUpdateParams<CreateParams>) => {
   const {
-    selection,
-    state: { nodes, setNodes, setSelection, shape, setResource },
+    selection: { top },
+    state: { nodes, setNodes, setSelection, setResource },
     group: { key },
   } = data;
   const newID = group.resourceID(key);
   const newIDString = resource.idToString(newID);
-  const resourcesToGroup = getResourcesToGroup(selection.ids, shape);
   const prevNodes = PTree.deepCopy(nodes);
   rollbacks.push(() => setNodes(prevNodes));
   const res: ontology.Resource = { key: newIDString, id: newID, name: "" };
   setResource(res);
-  const destination = resource.idsEqual(selection.rootID, selection.parentID)
-    ? null
-    : resource.idToString(selection.parentID);
+  // The new group shows where the selection shows. In flat search results, that is the
+  // top of the tree, while the real parent is a group.
+  const destination =
+    PTree.findNodeParent({
+      tree: nodes,
+      key: resource.idToString(top[0]),
+    })?.key ?? null;
   let nextNodes = PTree.setNode({
     tree: nodes,
     destination,
@@ -68,7 +66,7 @@ const beforeUpdate = async ({
   nextNodes = PTree.moveNode({
     tree: nextNodes,
     destination: newIDString,
-    keys: resourcesToGroup.map((id) => resource.idToString(id)),
+    keys: top.map((id) => resource.idToString(id)),
   });
   setNodes([...nextNodes]);
   setSelection([newIDString]);

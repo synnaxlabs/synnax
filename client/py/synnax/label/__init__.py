@@ -8,12 +8,13 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.label.client import TYPE_RESOURCE_ID, Client, resource_id
-from synnax.label.types_gen import Key, Label
+from synnax.label.types_gen import Key, Label, Where
 
 __all__ = [
     "TYPE_RESOURCE_ID",
     "Client",
     "Key",
     "Label",
+    "Where",
     "resource_id",
 ]

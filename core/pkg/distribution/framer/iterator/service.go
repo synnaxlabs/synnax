@@ -162,7 +162,12 @@ func (s *Service) Open(ctx context.Context, cfg Config) (*Iterator, error) {
 		confluence.CancelOnFail(),
 		confluence.RecoverWithErrOnPanic(),
 	)
-	return &Iterator{requests: req, responses: res, shutdown: cancel, wg: sCtx}, nil
+	return &Iterator{pipeline: Pipeline{
+		Requests:  req,
+		Responses: res,
+		Shutdown:  cancel,
+		WaitGroup: sCtx,
+	}}, nil
 }
 
 // NewStream returns an iterator for reading historical data from a Synnax cluster. The

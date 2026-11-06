@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 	. "github.com/synnaxlabs/x/testutil"
@@ -235,6 +236,74 @@ var _ = Describe("Runner", func() {
 				Expect(stat.Details.Cmd).To(Equal("cmd-2"))
 			},
 		)
+
+		Describe("Given a run that fails while a repeat start writes its answer",
+			func() {
+				// failDuringAnswer holds the commit of the answer to a repeat start
+				// until release runs, and ends the run during that hold.
+				failDuringAnswer := func(ctx context.Context) (
+					r *driver.Runner,
+					started chan error,
+					release func(),
+				) {
+					GinkgoHelper()
+					gated := &gatedDB{
+						DB:      db.KV(),
+						held:    make(chan struct{}),
+						release: make(chan struct{}),
+					}
+					fail, ended := make(chan struct{}), make(chan struct{})
+					r = openOn(gorp.Wrap(gated), func(ctx context.Context) error {
+						defer close(ended)
+						select {
+						case <-fail:
+							return errors.New("boom")
+						case <-ctx.Done():
+							return nil
+						}
+					})
+					// Cleanup runs in reverse, so a failed spec opens the gate before
+					// the stop waits on the start that holds it.
+					release = sync.OnceFunc(func() { close(gated.release) })
+					DeferCleanup(release)
+					Expect(r.Start(ctx, "cmd-1")).To(Succeed())
+					gated.gated.Store(true)
+					started = make(chan error, 1)
+					go func() { started <- r.Start(ctx, "cmd-2") }()
+					Eventually(gated.held).Should(BeClosed())
+					close(fail)
+					Eventually(ended).Should(BeClosed())
+					return r, started, release
+				}
+
+				It("Should keep the error status of the run", func(ctx SpecContext) {
+					_, started, release := failDuringAnswer(ctx)
+					Consistently(started).ShouldNot(Receive())
+					release()
+					Eventually(started).Should(Receive(BeNil()))
+					Eventually(func(g Gomega) {
+						stat := retrieve(ctx)
+						g.Expect(stat.Variant).To(Equal(status.VariantError))
+						g.Expect(stat.Message).To(Equal("Failed to run task"))
+						g.Expect(stat.Details.Running).To(BeFalse())
+					}).Should(Succeed())
+				})
+
+				It("Should let a stop finish once the answer commits",
+					func(ctx SpecContext) {
+						r, started, release := failDuringAnswer(ctx)
+						stopped := make(chan error, 1)
+						go func() { stopped <- r.Stop(false) }()
+						Consistently(stopped).ShouldNot(Receive())
+						release()
+						Eventually(started).Should(Receive(BeNil()))
+						// A stop that passes the end of the run returns its error.
+						result := Or(BeNil(), MatchError("boom"))
+						Eventually(stopped).Should(Receive(result))
+					},
+				)
+			},
+		)
 	})
 
 	Describe("Report", func() {
@@ -253,6 +322,27 @@ var _ = Describe("Runner", func() {
 				Expect(stat.Variant).To(Equal(status.VariantSuccess))
 				Expect(stat.Message).To(Equal("Started task"))
 				Expect(stat.Description).To(BeEmpty())
+			},
+		)
+
+		It("Should warn with the text and data of a Warning, and restore the data",
+			func(ctx SpecContext) {
+				r := open(waitRun)
+				Expect(r.Start(ctx, "cmd-1")).To(Succeed())
+				r.Report(ctx, "Failed to read data", driver.Warning{
+					Message:     "Skipped 1 of 2 records",
+					Description: "Record is not JSON",
+					Data:        msgpack.EncodedJSON{"stats": "counts"},
+				}.Degraded())
+				stat := retrieve(ctx)
+				Expect(stat.Variant).To(Equal(status.VariantWarning))
+				Expect(stat.Message).To(Equal("Skipped 1 of 2 records"))
+				Expect(stat.Description).To(Equal("Record is not JSON"))
+				Expect(stat.Details.Data).To(HaveKeyWithValue("stats", "counts"))
+				r.Report(ctx, "Failed to read data", nil)
+				stat = retrieve(ctx)
+				Expect(stat.Message).To(Equal("Started task"))
+				Expect(stat.Details.Data).To(BeNil())
 			},
 		)
 	})

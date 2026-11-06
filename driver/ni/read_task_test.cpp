@@ -1375,6 +1375,60 @@ TEST(ReadTaskConfigTest, testCrossDeviceChannelLocations) {
     EXPECT_TRUE(unique_locs.contains("cDAQ1Mod2"));
 }
 
+/// @brief Verify a cross-device task fails to parse when a channel's device is missing.
+TEST(ReadTaskConfigTest, testCrossDeviceMissingDevice) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
+    auto dev = synnax::device::Device{
+        .key = "missing_cross_d1",
+        .rack = rack.key,
+        .location = "cDAQ1Mod1",
+        .make = "ni",
+        .model = "NI 9229",
+        .name = "dev1",
+    };
+    ASSERT_NIL(client->devices.create(dev));
+    auto ch1 = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("ch1"),
+        x::telem::FLOAT64_T,
+        true
+    ));
+    auto ch2 = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("ch2"),
+        x::telem::FLOAT64_T,
+        true
+    ));
+    const auto voltage_channel = [](const synnax::channel::Key key,
+                                    const std::string &device) {
+        return x::json::json{
+            {"type", "ai_voltage"},
+            {"key", "key" + std::to_string(key)},
+            {"port", 0},
+            {"disabled", false},
+            {"channel", key},
+            {"terminal_config", "Cfg_Default"},
+            {"min_val", -10},
+            {"max_val", 10},
+            {"custom_scale", {{"type", "none"}}},
+            {"device", device},
+        };
+    };
+    x::json::json j{
+        {"data_saving_disabled", true},
+        {"sample_rate", 25},
+        {"stream_rate", 25},
+        {"device", "cross-device"},
+        {"channels",
+         x::json::json::array(
+             {voltage_channel(ch1.key, dev.key),
+              voltage_channel(ch2.key, "missing_cross_none")}
+         )}
+    };
+    auto p = x::json::Parser(j);
+    auto cfg = std::make_unique<ni::ReadTaskConfig>(client, p, "ni_analog_read");
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
+}
+
 /// @brief Verify a counter read config without a top-level device binds each
 /// channel's own device, the wire shape produced by per-channel-device consoles.
 TEST(ReadTaskConfigTest, testCounterReadCrossDeviceChannelLocations) {

@@ -443,8 +443,8 @@ var _ = Describe("ScanTask", func() {
 				st := open(time.Hour)
 				Expect(st.Exec(ctx, task.Command{Type: "tare", Key: "cmd-4"})).
 					To(Succeed())
-				// Commands run one at a time, so the answer to cmd-5 comes after cmd-4
-				// is done.
+				// Commands run in no fixed order, so the writes stay under watch after
+				// the answer to cmd-5.
 				Expect(st.Exec(ctx, task.Command{
 					Type: "test_connection", Key: "cmd-5",
 				})).To(Succeed())
@@ -478,10 +478,15 @@ var _ = Describe("ScanTask", func() {
 			Eventually(scanner.waiting.Load).Should(BeEquivalentTo(1))
 			Consistently(scanner.waiting.Load, 50*time.Millisecond).
 				Should(BeEquivalentTo(1))
+			answered := func() string { return taskStatus(ctx).Details.Cmd }
 			Eventually(scanner.release).Should(BeSent(struct{}{}))
+			Eventually(answered).Should(BeElementOf("cmd-7", "cmd-8"))
+			first := answered()
 			Eventually(scanner.release).Should(BeSent(struct{}{}))
-			Eventually(func() string { return taskStatus(ctx).Details.Cmd }).
-				Should(Equal("cmd-8"))
+			Eventually(answered).Should(And(
+				BeElementOf("cmd-7", "cmd-8"),
+				Not(Equal(first)),
+			))
 			Expect(scanner.peak.Load()).To(BeEquivalentTo(1))
 		})
 

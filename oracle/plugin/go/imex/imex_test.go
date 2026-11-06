@@ -191,6 +191,70 @@ var _ = Describe("Go ImEx Plugin", func() {
 		)
 
 		It(
+			"Should read the name of an exported union through its Base accessor",
+			func(ctx SpecContext) {
+				live := `
+@go output "core/pkg/service/log"
+
+Base struct {
+	key  uuid @key
+	name string
+}
+
+Log union on type extends Base {
+	info {}
+	failure {
+		code int32
+	}
+	@go imex
+}
+`
+				chain := "Base struct {\n\tkey uuid @key\n\tname string\n}\n\n" +
+					"Log union on type extends Base {\n\tinfo {}\n\tfailure {\n" +
+					"\t\tcode int32\n\t}\n\t@go imex\n}\n"
+				req := chainRequest(
+					ctx, GinkgoT().TempDir(), live, map[int]string{0: chain},
+				)
+				resp := MustSucceed(p.Generate(req))
+				ExpectContent(resp, "core/pkg/service/log/imex.gen.go").
+					ToContain("Name: v.Base().Name,").
+					ToBeValidGoSource()
+			},
+		)
+
+		It(
+			"Should error when the variants of an exported union share no base",
+			func(ctx SpecContext) {
+				live := `
+@go output "core/pkg/service/log"
+
+Base struct {
+	key  uuid @key
+	name string
+}
+
+Log union on type extends Base {
+	info {}
+	failure {
+		-name
+	}
+	@go imex
+}
+`
+				chain := "Base struct {\n\tkey uuid @key\n\tname string\n}\n\n" +
+					"Log union on type extends Base {\n\tinfo {}\n\tfailure {\n" +
+					"\t\t-name\n\t}\n\t@go imex\n}\n"
+				req := chainRequest(
+					ctx, GinkgoT().TempDir(), live, map[int]string{0: chain},
+				)
+				Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
+					"log.Log: an exported union needs one base that every variant " +
+						"inherits",
+				)))
+			},
+		)
+
+		It(
 			"Should delete constants in version directories below the floor",
 			func(ctx SpecContext) {
 				tmpDir := GinkgoT().TempDir()

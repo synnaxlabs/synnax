@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
@@ -140,3 +141,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	writer = svc.NewWriter(nil)
 })
+
+// textOf returns the text of the text-mode Arc b, failing the spec otherwise.
+func textOf(b arc.Base) text.Text {
+	GinkgoHelper()
+	src, ok := b.Source.Variant.(arc.TextSource)
+	Expect(ok).To(BeTrue(), "expected a text source, got %T", b.Source.Variant)
+	return src.Text
+}

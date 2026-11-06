@@ -44,9 +44,12 @@ export interface BaseProps {
 
 export interface ContextMenuProps extends BaseProps {
   selection: {
-    parentID: resource.ID;
+    /** Null when the top selected items sit under more than one parent. */
+    parentID: resource.ID | null;
     rootID: resource.ID;
     ids: resource.ID[];
+    /** The shallowest selected items, without any inside another selected item. */
+    top: resource.ID[];
   };
   state: TreeState;
 }

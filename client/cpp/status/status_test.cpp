@@ -9,6 +9,7 @@
 
 #include "gtest/gtest.h"
 
+#include "client/cpp/status/json.gen.h"
 #include "client/cpp/status/status.h"
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/json/testutil/testutil.h"
@@ -123,6 +124,47 @@ TEST(StatusTest, RetrieveMultipleStatuses) {
     }
 }
 
+/// @brief it should retrieve the statuses that match a tree with an or and a not.
+TEST(StatusTest, RetrieveWhere) {
+    const auto client = new_test_client();
+    const auto suffix = x::uuid::create().to_string();
+    std::vector<Status<x::json::json>> statuses;
+    for (const auto &variant: {VARIANT_INFO, VARIANT_ERROR, VARIANT_WARNING}) {
+        Status<x::json::json> s;
+        s.key = std::string("test-where-") + variant + "-" + suffix;
+        s.variant = variant;
+        s.message = "Where";
+        s.time = x::telem::TimeStamp::now();
+        statuses.push_back(s);
+    }
+    ASSERT_NIL(client.statuses.set(statuses));
+    const auto retrieved = ASSERT_NIL_P(client.statuses.retrieve(
+        RetrieveRequest{
+            .where = Where{
+                .or_ =
+                    std::vector<Where>{
+                        Where{
+                            .variant = x::filter::Set<std::string>{.eq = VARIANT_ERROR}
+                        },
+                        Where{.key = x::filter::Set<Key>{.eq = statuses[2].key}},
+                    },
+                .not_ = x::mem::indirect<Where>(
+                    Where{.variant = x::filter::Set<std::string>{.eq = VARIANT_WARNING}}
+                ),
+                .key = x::filter::Set<Key>{
+                    .in = std::vector<Key>{
+                        statuses[0].key,
+                        statuses[1].key,
+                        statuses[2].key,
+                    },
+                },
+            },
+        }
+    ));
+    ASSERT_EQ(retrieved.size(), 1);
+    ASSERT_EQ(retrieved[0].key, statuses[1].key);
+}
+
 /// @brief it should update an existing status with new values.
 TEST(StatusTest, UpdateExistingStatus) {
     const auto client = new_test_client();
@@ -172,7 +214,7 @@ TEST(StatusTest, DeleteMultipleStatuses) {
         "test-multi-delete-2"
     };
     ASSERT_NIL(client.statuses.del(keys));
-    ASSERT_OCCURRED_AS_P(client.statuses.retrieve(keys), x::errors::NOT_FOUND);
+    EXPECT_TRUE(ASSERT_NIL_P(client.statuses.retrieve(keys)).empty());
 }
 
 /// @brief it should round-trip status details through JSON.
@@ -439,4 +481,18 @@ TEST(StatusTest, SetByKeyOrNameInvalidVariant) {
     EXPECT_TRUE(res.key.empty());
 }
 
+/// @brief it should fall back to the current time when the JSON omits it.
+TEST(StatusTest, ParsesMissingTime) {
+    const auto before = x::telem::TimeStamp::now();
+    x::json::Parser parser(
+        x::json::json{
+            {"variant", "info"},
+            {"message", "Started task"},
+            {"details", nullptr},
+        }
+    );
+    const auto status = Status<>::parse(parser);
+    ASSERT_NIL(parser.error());
+    EXPECT_GE(status.time, before);
+}
 }

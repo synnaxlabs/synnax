@@ -14,6 +14,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/graph"
+	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
@@ -44,6 +46,7 @@ var (
 	otg        *ontology.Ontology
 	svc        *arc.Service
 	writer     arc.Writer
+	groupSvc   *group.Service
 	channelSvc *channel.Service
 	taskSvc    *task.Service
 	statusSvc  *status.Service
@@ -58,7 +61,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	node := testutil.NewNode(ctx)
 	db = node.DB
 	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 	}))
@@ -121,3 +124,35 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	writer = svc.NewWriter(nil)
 })
+
+// newAutomation returns an automation that holds b.
+func newAutomation(b arc.Base) arc.Arc {
+	return arc.Arc{Variant: arc.AutomationArc{Base: b}}
+}
+
+// newModule returns a module that holds b.
+func newModule(b arc.Base) arc.Arc { return arc.Arc{Variant: arc.ModuleArc{Base: b}} }
+
+// newArc returns an Arc of type t that holds b.
+func newArc(t arc.Type, b arc.Base) arc.Arc {
+	if t == arc.TypeModule {
+		return newModule(b)
+	}
+	return newAutomation(b)
+}
+
+// textOf returns the text of the text-mode Arc b, failing the spec otherwise.
+func textOf(b arc.Base) text.Text {
+	GinkgoHelper()
+	src, ok := b.Source.Variant.(arc.TextSource)
+	Expect(ok).To(BeTrue(), "expected a text source, got %T", b.Source.Variant)
+	return src.Text
+}
+
+// graphOf returns the graph of the graph-mode Arc b, failing the spec otherwise.
+func graphOf(b arc.Base) graph.Graph {
+	GinkgoHelper()
+	src, ok := b.Source.Variant.(arc.GraphSource)
+	Expect(ok).To(BeTrue(), "expected a graph source, got %T", b.Source.Variant)
+	return src.Graph
+}

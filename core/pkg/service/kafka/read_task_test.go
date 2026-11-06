@@ -14,14 +14,14 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"math"
-	"net"
 	"slices"
-	"strconv"
+	"sync"
 	"time"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -33,6 +33,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
+	"github.com/twmb/franz-go/pkg/kadm"
 	"github.com/twmb/franz-go/pkg/kerr"
 	"github.com/twmb/franz-go/pkg/kfake"
 	"github.com/twmb/franz-go/pkg/kgo"
@@ -73,13 +74,13 @@ var _ = Describe("Read task", func() {
 		return dt, t
 	}
 
+	// start starts the task. The first poll can already have replaced the start status
+	// with a skip, which keeps the task running.
 	start := func(ctx context.Context, dt driver.Task, t task.Task) {
 		GinkgoHelper()
 		Expect(dt.Exec(ctx, task.Command{Task: t.Key, Type: "start", Key: "cmd-2"})).
 			To(Succeed())
-		stat := taskStatus(ctx, t)
-		Expect(stat.Variant).To(Equal(status.VariantSuccess))
-		Expect(stat.Details.Running).To(BeTrue())
+		Expect(taskStatus(ctx, t).Details.Running).To(BeTrue())
 	}
 
 	// stored returns every sample persisted in key.
@@ -284,7 +285,29 @@ var _ = Describe("Read task", func() {
 		},
 	)
 
-	It("Should skip a record lacking a field with an error status",
+	It("Should skip a record lacking a field with a warning", func(ctx SpecContext) {
+		index, data := createIndexed(ctx, telem.Float64T)
+		dev := createDevice(ctx, clusterProperties())
+		topic := newTopic()
+		dt, t := configure(ctx, kafka.ReadConfig{
+			Device:  dev.Key,
+			Topic:   topic,
+			Records: single(stampedFields(index, data)),
+		})
+		start(ctx, dt, t)
+		produceJSON(ctx, producer, topic, "", map[string]any{"ts": 10e9})
+		produceJSON(ctx, producer, topic, "", map[string]any{"ts": 11e9, "v": 2.5})
+		Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{2.5}))
+		stat := taskStatus(ctx, t)
+		Expect(stat.Variant).To(Equal(status.VariantWarning))
+		// The two records can arrive in one poll or in two.
+		Expect(stat.Message).To(HavePrefix("Skipped 1 of "))
+		Expect(stat.Description).
+			To(Equal("Record has no value at /v (partition 0, offset 0)."))
+		Expect(stat.Details.Running).To(BeTrue())
+	})
+
+	It("Should clear the warning 5 seconds after the last skipped record",
 		func(ctx SpecContext) {
 			index, data := createIndexed(ctx, telem.Float64T)
 			dev := createDevice(ctx, clusterProperties())
@@ -296,12 +319,16 @@ var _ = Describe("Read task", func() {
 			})
 			start(ctx, dt, t)
 			produceJSON(ctx, producer, topic, "", map[string]any{"ts": 10e9})
-			produceJSON(ctx, producer, topic, "", map[string]any{"ts": 11e9, "v": 2.5})
-			Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{2.5}))
+			Eventually(func() status.Variant { return taskStatus(ctx, t).Variant }).
+				WithTimeout(15 * time.Second).Should(Equal(status.VariantWarning))
+			skipped := time.Now()
+			Eventually(func() status.Variant { return taskStatus(ctx, t).Variant }).
+				WithTimeout(15 * time.Second).Should(Equal(status.VariantSuccess))
+			Expect(time.Since(skipped)).To(BeNumerically(">=", 4*time.Second))
 			stat := taskStatus(ctx, t)
-			Expect(stat.Variant).To(Equal(status.VariantError))
-			Expect(stat.Message).To(Equal("Skipped record"))
-			Expect(stat.Description).To(Equal("Record has no value at /v"))
+			Expect(stat.Message).To(Equal("Started task"))
+			Expect(stat.Description).To(BeEmpty())
+			Expect(stat.Details.Data).To(BeNil())
 			Expect(stat.Details.Running).To(BeTrue())
 		},
 	)
@@ -375,6 +402,142 @@ var _ = Describe("Read task", func() {
 		},
 	)
 
+	// failFetch makes the next fetch of topic fail. A control handles one request, and
+	// a consumer another spec left behind can still fetch, so only a fetch of this
+	// topic
+	// fails. A fetch in a session names no topics, so the control resets the session to
+	// make the consumer name them.
+	failFetch := func(ctx context.Context, topic string) {
+		GinkgoHelper()
+		id := topicID(ctx, producer, topic)
+		cluster.ControlKey(
+			int16(kmsg.Fetch),
+			func(req kmsg.Request) (kmsg.Response, error, bool) {
+				fetch := req.(*kmsg.FetchRequest)
+				if fetch.SessionEpoch > 0 && len(fetch.Topics) == 0 {
+					cluster.KeepControl()
+					res := req.ResponseKind().(*kmsg.FetchResponse)
+					res.ErrorCode = kerr.FetchSessionIDNotFound.Code
+					return res, nil, true
+				}
+				ours := slices.ContainsFunc(
+					fetch.Topics,
+					func(rt kmsg.FetchRequestTopic) bool {
+						return rt.TopicID == id || rt.Topic == topic
+					},
+				)
+				if !ours {
+					return nil, nil, false
+				}
+				cluster.DropControl()
+				res := req.ResponseKind().(*kmsg.FetchResponse)
+				for _, rt := range fetch.Topics {
+					st := kmsg.NewFetchResponseTopic()
+					st.Topic, st.TopicID = rt.Topic, rt.TopicID
+					for _, rp := range rt.Partitions {
+						sp := kmsg.NewFetchResponseTopicPartition()
+						sp.Partition = rp.Partition
+						sp.ErrorCode = kerr.TopicAuthorizationFailed.Code
+						st.Partitions = append(st.Partitions, sp)
+					}
+					res.Topics = append(res.Topics, st)
+				}
+				return res, nil, true
+			},
+		)
+	}
+
+	// failWrite makes the task's next write fail with a record stamped at the last
+	// representable time, which leaves no room for a domain end.
+	failWrite := func(ctx context.Context, topic string) {
+		GinkgoHelper()
+		doc := map[string]any{"ts": int64(math.MaxInt64), "v": 9.0}
+		produceJSON(ctx, producer, topic, "", doc)
+	}
+
+	// dropRecords removes the records of topic, so a consumer that starts next does not
+	// replay one that failed its write.
+	dropRecords := func(ctx context.Context, topic string) {
+		GinkgoHelper()
+		var offsets kadm.Offsets
+		offsets.AddOffset(topic, 0, -1, -1)
+		res := MustSucceed(kadm.NewClient(producer).DeleteRecords(ctx, offsets))
+		Expect(res.Error()).To(Succeed())
+	}
+
+	DescribeTable("Should restart a consumer that fails while start is called",
+		func(ctx SpecContext, fail func(context.Context, string)) {
+			gated := &gatedDB{
+				DB:      db.KV(),
+				held:    make(chan struct{}),
+				release: make(chan struct{}),
+			}
+			f = newFactory(kafka.FactoryConfig{DB: gorp.Wrap(gated)})
+			index, data := createIndexed(ctx, telem.Float64T)
+			dev := createDevice(ctx, clusterProperties())
+			topic := newTopic()
+			dt, t := configure(ctx, kafka.ReadConfig{
+				Device:  dev.Key,
+				Topic:   topic,
+				Records: single(stampedFields(index, data)),
+			})
+			// Cleanup runs in reverse, so a failed spec opens the gate before the stop
+			// waits on the consumer that holds it.
+			release := sync.OnceFunc(func() { close(gated.release) })
+			DeferCleanup(release)
+			start(ctx, dt, t)
+			gated.gated.Store(true)
+			fail(ctx, topic)
+			Eventually(gated.held).WithTimeout(15 * time.Second).Should(BeClosed())
+			Expect(taskStatus(ctx, t).Message).To(Equal("Started task"))
+			dropRecords(ctx, topic)
+			started := make(chan error, 1)
+			go func() {
+				started <- dt.Exec(
+					ctx,
+					task.Command{Task: t.Key, Type: "start", Key: "cmd-3"},
+				)
+			}()
+			Consistently(started).ShouldNot(Receive())
+			release()
+			Eventually(started).WithTimeout(15 * time.Second).Should(Receive(BeNil()))
+			stat := taskStatus(ctx, t)
+			Expect(stat.Variant).To(Equal(status.VariantSuccess))
+			Expect(stat.Message).To(Equal("Started task"))
+			Expect(stat.Details.Cmd).To(Equal("cmd-3"))
+			Expect(stat.Details.Running).To(BeTrue())
+			produceJSON(ctx, producer, topic, "", map[string]any{"ts": 30e9, "v": 3.0})
+			Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{3}))
+		},
+		Entry("failed fetch", failFetch),
+		Entry("failed write", failWrite),
+	)
+
+	It("Should consume again when started after a failed write",
+		func(ctx SpecContext) {
+			index, data := createIndexed(ctx, telem.Float64T)
+			dev := createDevice(ctx, clusterProperties())
+			topic := newTopic()
+			dt, t := configure(ctx, kafka.ReadConfig{
+				Device:  dev.Key,
+				Topic:   topic,
+				Records: single(stampedFields(index, data)),
+			})
+			start(ctx, dt, t)
+			failWrite(ctx, topic)
+			Eventually(func(g Gomega) {
+				stat := taskStatus(ctx, t)
+				g.Expect(stat.Variant).To(Equal(status.VariantError))
+				g.Expect(stat.Message).To(Equal("Failed to process records"))
+				g.Expect(stat.Details.Running).To(BeFalse())
+			}).WithTimeout(15 * time.Second).Should(Succeed())
+			dropRecords(ctx, topic)
+			start(ctx, dt, t)
+			produceJSON(ctx, producer, topic, "", map[string]any{"ts": 10e9, "v": 1.0})
+			Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{1}))
+		},
+	)
+
 	It("Should consume again when started after a failed fetch",
 		func(ctx SpecContext) {
 			index, data := createIndexed(ctx, telem.Float64T)
@@ -386,37 +549,7 @@ var _ = Describe("Read task", func() {
 				Records: single(stampedFields(index, data)),
 			})
 			start(ctx, dt, t)
-			// A control handles one request, and a consumer another spec left
-			// behind can still fetch, so only a fetch of this topic fails.
-			id := topicID(ctx, producer, topic)
-			cluster.ControlKey(
-				int16(kmsg.Fetch),
-				func(req kmsg.Request) (kmsg.Response, error, bool) {
-					fetch := req.(*kmsg.FetchRequest)
-					ours := slices.ContainsFunc(
-						fetch.Topics,
-						func(rt kmsg.FetchRequestTopic) bool {
-							return rt.TopicID == id || rt.Topic == topic
-						},
-					)
-					if !ours {
-						return nil, nil, false
-					}
-					res := req.ResponseKind().(*kmsg.FetchResponse)
-					for _, rt := range fetch.Topics {
-						st := kmsg.NewFetchResponseTopic()
-						st.Topic, st.TopicID = rt.Topic, rt.TopicID
-						for _, rp := range rt.Partitions {
-							sp := kmsg.NewFetchResponseTopicPartition()
-							sp.Partition = rp.Partition
-							sp.ErrorCode = kerr.TopicAuthorizationFailed.Code
-							st.Partitions = append(st.Partitions, sp)
-						}
-						res.Topics = append(res.Topics, st)
-					}
-					return res, nil, true
-				},
-			)
+			failFetch(ctx, topic)
 			Eventually(func() string { return taskStatus(ctx, t).Message }).
 				WithTimeout(15 * time.Second).Should(Equal("Failed to fetch records"))
 			start(ctx, dt, t)
@@ -427,18 +560,13 @@ var _ = Describe("Read task", func() {
 
 	It("Should resume consuming without duplicates when the cluster comes back",
 		func(ctx SpecContext) {
-			// The broker persists to dir, so its restart keeps the topic and its ID.
-			dir := GinkgoT().TempDir()
-			first := MustSucceed(kfake.NewCluster(
-				kfake.NumBrokers(1),
-				kfake.DataDir(dir),
-			))
-			DeferCleanup(first.Close)
-			addr := first.ListenAddrs()[0]
+			broker := MustSucceed(kfake.NewCluster(kfake.NumBrokers(1)))
+			DeferCleanup(broker.Close)
+			addr := broker.ListenAddrs()[0]
 			index, data := createIndexed(ctx, telem.Float64T)
 			dev := createDevice(ctx, kafka.Properties{Brokers: []string{addr}})
 			topic := uniqueTopic()
-			Expect(first.CreateTopic(topic, 1, nil)).To(Succeed())
+			Expect(broker.CreateTopic(topic, 1, nil)).To(Succeed())
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device:  dev.Key,
 				Topic:   topic,
@@ -455,23 +583,25 @@ var _ = Describe("Read task", func() {
 					Timestamp: time.UnixMilli(ms),
 				}).FirstErr()).To(Succeed())
 			}
-			// The cluster closes before the offset commits, so the rejoined group
+			// The outage starts before the offset commits, so the rejoined group
 			// replays this record.
 			produce(10_000, 1)
 			expectStored(ctx, data.Key(), 1)
-			first.Close()
+			rejoined := broker.Fault(kfake.Fault{
+				Keys:    []kmsg.Key{kmsg.SyncGroup},
+				Observe: true,
+				Count:   -1,
+			})
+			restore := cutConnections(broker)
 			Eventually(func() string { return taskStatus(ctx, t).Message }).
 				WithTimeout(15 * time.Second).
 				Should(Equal("Lost connection to cluster"))
 			stat := taskStatus(ctx, t)
 			Expect(stat.Variant).To(Equal(status.VariantWarning))
 			Expect(stat.Details.Running).To(BeTrue())
-			_, port := MustSucceed2(net.SplitHostPort(addr))
-			second := MustSucceed(kfake.NewCluster(
-				kfake.Ports(MustSucceed(strconv.Atoi(port))),
-				kfake.DataDir(dir),
-			))
-			DeferCleanup(second.Close)
+			restore()
+			Eventually(rejoined.Hits).
+				WithTimeout(15 * time.Second).Should(BeNumerically(">", 0))
 			produce(11_000, 2)
 			Expect(floats(expectStored(ctx, data.Key(), 2))).To(Equal([]float64{1, 2}))
 			Expect(timestamps(stored(ctx, index.Key()))).To(Equal(
@@ -489,17 +619,13 @@ var _ = Describe("Read task", func() {
 
 	It("Should report a record skipped in the first poll after reconnecting",
 		func(ctx SpecContext) {
-			dir := GinkgoT().TempDir()
-			first := MustSucceed(kfake.NewCluster(
-				kfake.NumBrokers(1),
-				kfake.DataDir(dir),
-			))
-			DeferCleanup(first.Close)
-			addr := first.ListenAddrs()[0]
+			broker := MustSucceed(kfake.NewCluster(kfake.NumBrokers(1)))
+			DeferCleanup(broker.Close)
+			addr := broker.ListenAddrs()[0]
 			index, data := createIndexed(ctx, telem.Float64T)
 			dev := createDevice(ctx, kafka.Properties{Brokers: []string{addr}})
 			topic := uniqueTopic()
-			Expect(first.CreateTopic(topic, 1, nil)).To(Succeed())
+			Expect(broker.CreateTopic(topic, 1, nil)).To(Succeed())
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device:  dev.Key,
 				Topic:   topic,
@@ -512,35 +638,30 @@ var _ = Describe("Read task", func() {
 				defer pr.Close()
 				produceJSON(ctx, pr, topic, "", doc)
 			}
-			// The same skip before the drop must not hide the one after it.
 			produce(map[string]any{"ts": 5e9})
 			Eventually(func() string { return taskStatus(ctx, t).Message }).
-				WithTimeout(15 * time.Second).Should(Equal("Skipped record"))
-			first.Close()
+				WithTimeout(15 * time.Second).Should(Equal("Skipped 1 of 1 record"))
+			restore := cutConnections(broker)
 			Eventually(func() string { return taskStatus(ctx, t).Message }).
 				WithTimeout(15 * time.Second).
 				Should(Equal("Lost connection to cluster"))
-			_, port := MustSucceed2(net.SplitHostPort(addr))
-			second := MustSucceed(kfake.NewCluster(
-				kfake.Ports(MustSucceed(strconv.Atoi(port))),
-				kfake.DataDir(dir),
-			))
-			DeferCleanup(second.Close)
+			restore()
 			produce(map[string]any{"ts": 11e9})
 			produce(map[string]any{"ts": 12e9, "v": 1.0})
 			Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{1}))
 			// The rejoined group may replay the first skipped record too.
 			stat := taskStatus(ctx, t)
 			Expect(stat.Message).To(HavePrefix("Skipped"))
-			Expect(stat.Description).To(Equal("Record has no value at /v"))
-			Expect(stat.Variant).To(Equal(status.VariantError))
+			Expect(stat.Description).
+				To(HavePrefix("Record has no value at /v (partition 0, offset "))
+			Expect(stat.Variant).To(Equal(status.VariantWarning))
 			Expect(stat.Details.Running).To(BeTrue())
 			// The offsets commit on stop, which needs the cluster cleanup closes.
 			Expect(dt.Stop(false)).To(Succeed())
 		},
 	)
 
-	It("Should write one status for the records a poll skips", func(ctx SpecContext) {
+	It("Should count the records it reads and skips", func(ctx SpecContext) {
 		index, data := createIndexed(ctx, telem.Float64T)
 		dev := createDevice(ctx, clusterProperties())
 		topic := newTopic()
@@ -554,12 +675,16 @@ var _ = Describe("Read task", func() {
 			Topic:   topic,
 			Records: single(stampedFields(index, data)),
 		})
-		// The first poll can report the skips before the start status is read.
-		Expect(dt.Exec(ctx, task.Command{Task: t.Key, Type: "start", Key: "cmd-2"})).
-			To(Succeed())
+		start(ctx, dt, t)
 		Eventually(func() string { return taskStatus(ctx, t).Message }).
-			WithTimeout(15 * time.Second).Should(Equal("Skipped 3 records"))
-		Expect(taskStatus(ctx, t).Description).To(Equal("Record has no value at /v"))
+			WithTimeout(15 * time.Second).Should(Equal("Skipped 3 of 3 records"))
+		stat := taskStatus(ctx, t)
+		Expect(stat.Description).
+			To(Equal("Record has no value at /v (partition 0, offset 2)."))
+		Expect(stat.Details.Data).To(HaveKeyWithValue("stats", SatisfyAll(
+			HaveKeyWithValue("read", BeNumerically("==", 3)),
+			HaveKeyWithValue("skipped", BeNumerically("==", 3)),
+		)))
 	})
 
 	It("Should route keyed records to their groups", func(ctx SpecContext) {
@@ -678,6 +803,69 @@ var _ = Describe("Read task", func() {
 		Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{3}))
 	})
 
+	It("Should write one poll's partitions in timestamp order", func(ctx SpecContext) {
+		index, data := createIndexed(ctx, telem.Float64T)
+		dev := createDevice(ctx, clusterProperties())
+		topic := uniqueTopic()
+		Expect(cluster.CreateTopic(topic, 2, nil)).To(Succeed())
+		partitioned := newKafkaClient(kgo.RecordPartitioner(kgo.ManualPartitioner()))
+		record := func(partition int32, stamp, value float64) *kgo.Record {
+			GinkgoHelper()
+			doc := map[string]any{"ts": stamp, "v": value}
+			return &kgo.Record{
+				Topic:     topic,
+				Partition: partition,
+				Value:     MustSucceed(json.Marshal(doc)),
+			}
+		}
+		// Producing before the start puts both partitions in the task's first poll.
+		Expect(partitioned.ProduceSync(ctx,
+			record(0, 10e9, 1),
+			record(0, 12e9, 3),
+			record(1, 11e9, 2),
+			record(1, 13e9, 4),
+		).FirstErr()).To(Succeed())
+		// A consumer fetches as soon as one partition's offset loads, so only a fetch
+		// of both is served. A response with no session makes the next fetch name them
+		// all.
+		id := topicID(ctx, producer, topic)
+		cluster.ControlKey(
+			int16(kmsg.Fetch),
+			func(req kmsg.Request) (kmsg.Response, error, bool) {
+				fetch := req.(*kmsg.FetchRequest)
+				i := slices.IndexFunc(
+					fetch.Topics,
+					func(rt kmsg.FetchRequestTopic) bool {
+						return rt.TopicID == id || rt.Topic == topic
+					},
+				)
+				if i == -1 {
+					return nil, nil, false
+				}
+				if len(fetch.Topics[i].Partitions) == 2 {
+					cluster.DropControl()
+					return nil, nil, false
+				}
+				cluster.KeepControl()
+				return req.ResponseKind(), nil, true
+			},
+		)
+		dt, t := configure(ctx, kafka.ReadConfig{
+			Device:  dev.Key,
+			Topic:   topic,
+			Records: single(stampedFields(index, data)),
+		})
+		start(ctx, dt, t)
+		Expect(floats(expectStored(ctx, data.Key(), 4))).
+			To(Equal([]float64{1, 2, 3, 4}))
+		Expect(timestamps(stored(ctx, index.Key()))).To(Equal([]telem.TimeStamp{
+			10 * telem.SecondTS,
+			11 * telem.SecondTS,
+			12 * telem.SecondTS,
+			13 * telem.SecondTS,
+		}))
+	})
+
 	It("Should read a record that repeats a name no field addresses",
 		func(ctx SpecContext) {
 			index, data := createIndexed(ctx, telem.Float64T)
@@ -721,25 +909,13 @@ var _ = Describe("Read task", func() {
 		},
 	)
 
-	It("Should read one array element into fields that spell its index differently",
+	It("Should not read an array index written with a leading zero",
 		func(ctx SpecContext) {
 			index, data := createIndexed(ctx, telem.Float64T)
-			other := channel.Channel{
-				Name:       "other_" + uuid.New().String()[:8],
-				DataType:   telem.Float64T,
-				LocalIndex: index.LocalKey,
-			}
-			Expect(channelSvc.NewWriter(nil).Create(ctx, &other)).To(Succeed())
 			dev := createDevice(ctx, clusterProperties())
 			topic := newTopic()
 			fields := stampedFields(index, data)
-			fields[1].Pointer = "/vals/1"
-			fields = append(fields, kafka.ReadField{
-				Key:      "w",
-				Channel:  other.Key(),
-				Pointer:  "/vals/01",
-				DataType: telem.Float64T,
-			})
+			fields[1].Pointer = "/vals/01"
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device:  dev.Key,
 				Topic:   topic,
@@ -749,8 +925,11 @@ var _ = Describe("Read task", func() {
 			produceJSON(ctx, producer, topic, "", map[string]any{
 				"ts": 10e9, "vals": []any{1.0, 2.5},
 			})
-			Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{2.5}))
-			Expect(floats(expectStored(ctx, other.Key(), 1))).To(Equal([]float64{2.5}))
+			Eventually(func() string { return taskStatus(ctx, t).Description }).
+				WithTimeout(15 * time.Second).
+				Should(Equal(
+					"Record has no value at /vals/01 (partition 0, offset 0).",
+				))
 		},
 	)
 
@@ -1023,26 +1202,6 @@ var _ = Describe("Read task", func() {
 		Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{2}))
 	})
 
-	It("Should skip a record when a pointer lacks its leading slash",
-		func(ctx SpecContext) {
-			index, data := createIndexed(ctx, telem.Float64T)
-			dev := createDevice(ctx, clusterProperties())
-			topic := newTopic()
-			fields := stampedFields(index, data)
-			fields[1].Pointer = "v"
-			dt, t := configure(ctx, kafka.ReadConfig{
-				Device:  dev.Key,
-				Topic:   topic,
-				Records: single(fields),
-			})
-			start(ctx, dt, t)
-			produceJSON(ctx, producer, topic, "", map[string]any{"ts": 10e9, "v": 1.0})
-			Eventually(func() string { return taskStatus(ctx, t).Description }).
-				WithTimeout(15 * time.Second).
-				Should(ContainSubstring(`pointer "v" must start with '/'`))
-		},
-	)
-
 	onOff := []http.EnumEntry{{Label: "OFF", Value: 0}, {Label: "ON", Value: 1}}
 	readUUID := uuid.MustParse("6f1c2a4e-8d3b-4f5a-9c7e-2b1d0e3f4a5b")
 
@@ -1177,7 +1336,7 @@ var _ = Describe("Read task", func() {
 			Eventually(func() string { return taskStatus(ctx, t).Description }).
 				WithTimeout(15 * time.Second).Should(ContainSubstring(msg))
 			stat := taskStatus(ctx, t)
-			Expect(stat.Variant).To(Equal(status.VariantError))
+			Expect(stat.Variant).To(Equal(status.VariantWarning))
 			Expect(stat.Details.Running).To(BeTrue())
 		},
 		Entry("a number where an ISO 8601 timestamp is expected",
@@ -1187,9 +1346,12 @@ var _ = Describe("Read task", func() {
 			telem.Float64T, http.TimeFormatISO8601, nil,
 			map[string]any{"ts": "yesterday", "v": 1.5},
 			"invalid ISO 8601 timestamp"),
-		Entry("a string where a numeric timestamp is expected",
+		Entry("a boolean where a numeric timestamp is expected",
 			telem.Float64T, http.TimeFormatUnixNs, nil,
-			map[string]any{"ts": "10", "v": 1.5}, "expected a number"),
+			map[string]any{"ts": true, "v": 1.5}, "expected a number, got a boolean"),
+		Entry("a string that holds no number where a numeric timestamp is expected",
+			telem.Float64T, http.TimeFormatUnixNs, nil,
+			map[string]any{"ts": "soon", "v": 1.5}, `invalid number "soon"`),
 		Entry("an unknown enum label",
 			telem.Uint8T, http.TimeFormatUnixNs, onOff,
 			map[string]any{"ts": 10e9, "v": "MAYBE"}, "unknown enum label"),
@@ -1218,10 +1380,10 @@ var _ = Describe("Read task", func() {
 		Entry("a fraction into an integer channel",
 			telem.Int32T, http.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": 1.5}, "1.5 is not an integer"),
-		Entry("a float beyond the integer channel's range",
+		Entry("an exponent beyond the integer channel's range",
 			telem.Int64T, http.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": jsontext.Value("1e19")},
-			"1e+19 is out of range for int64"),
+			"10000000000000000000 is out of range for int64"),
 		Entry("a number beyond float32",
 			telem.Float32T, http.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": 1e39}, "1e+39 overflows float32"),
@@ -1236,7 +1398,7 @@ var _ = Describe("Read task", func() {
 		Entry("a floating-point timestamp beyond the nanosecond range",
 			telem.Float64T, http.TimeFormatUnixSec, nil,
 			map[string]any{"ts": jsontext.Value("1e13"), "v": 1.5},
-			"1e+13 is out of range for a unix_sec timestamp"),
+			"1e13 is out of range for a unix_sec timestamp"),
 	)
 
 	DescribeTable("Should reject an invalid config",
@@ -1271,6 +1433,25 @@ var _ = Describe("Read task", func() {
 			func(_ context.Context, _, data channel.Channel) []kafka.ReadField {
 				return []kafka.ReadField{{Key: "v", Channel: data.Key()}}
 			}, "pointer"),
+		Entry("a pointer without a leading slash",
+			func(_ context.Context, _, data channel.Channel) []kafka.ReadField {
+				return []kafka.ReadField{{
+					Key:      "v",
+					Channel:  data.Key(),
+					Pointer:  "v",
+					DataType: telem.Float64T,
+				}}
+			}, `field "v": json pointer "v" must be empty or start with "/"`),
+		Entry("a bytes channel",
+			func(ctx context.Context, _, _ channel.Channel) []kafka.ReadField {
+				_, data := createIndexed(ctx, telem.BytesT)
+				return []kafka.ReadField{{
+					Key:      "v",
+					Channel:  data.Key(),
+					Pointer:  "/v",
+					DataType: telem.BytesT,
+				}}
+			}, `field "v": cannot convert a JSON value to bytes`),
 		Entry("data type mismatch",
 			func(_ context.Context, _, data channel.Channel) []kafka.ReadField {
 				return []kafka.ReadField{{

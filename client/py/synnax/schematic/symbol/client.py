@@ -9,12 +9,20 @@
 
 from typing import overload
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
 from synnax import group
 from synnax.resource import ID, CrudeID
-from synnax.schematic.symbol.types_gen import Key, Symbol
+from synnax.schematic.symbol.types_gen import (
+    Key,
+    RetrieveRequest,
+    RetrieveResponse,
+    Symbol,
+    Where,
+)
+from synnax.util import one
+from x import filter
 from x.lists import normalize
 
 
@@ -25,15 +33,6 @@ class _CreateRequest(BaseModel):
 
 class _CreateResponse(BaseModel):
     symbols: list[Symbol]
-
-
-class _RetrieveRequest(BaseModel):
-    keys: list[Key] | None = None
-    search_term: str | None = None
-
-
-class _RetrieveResponse(BaseModel):
-    symbols: list[Symbol] = Field(default_factory=list)
 
 
 class _RenameRequest(BaseModel):
@@ -97,7 +96,8 @@ class Client:
         self,
         *,
         keys: list[Key] | None = None,
-        search_term: str | None = None,
+        where: Where | None = None,
+        search_term: str = "",
     ) -> list[Symbol]: ...
 
     def retrieve(
@@ -105,26 +105,31 @@ class Client:
         *,
         key: Key | None = None,
         keys: list[Key] | None = None,
-        search_term: str | None = None,
+        where: Where | None = None,
+        search_term: str = "",
     ) -> Symbol | list[Symbol]:
         """Retrieves one or more symbols. With no arguments, it retrieves every symbol.
 
         :param key: The key of a single symbol to retrieve.
         :param keys: The keys of the symbols to retrieve.
+        :param where: A filter that the symbols must also match.
         :param search_term: A fuzzy search term matched against symbol names.
         :returns: The matching symbol when ``key`` is provided, otherwise a list of
-            matching symbols.
-        :raises NotFoundError: If a requested key does not exist.
+            matching symbols. The list leaves out keys that do not exist.
+        :raises NotFoundError: If ``key`` is provided and no symbol has it.
         """
         is_single = key is not None
         if key is not None:
             keys = [key]
+        flat = Where(key=None if keys is None else filter.Set[Key](in_=keys))
         res = self._client.send(
             "/schematic/symbol/retrieve",
-            _RetrieveRequest(keys=keys, search_term=search_term),
-            _RetrieveResponse,
+            RetrieveRequest(where=filter.merge(where, flat), search_term=search_term),
+            RetrieveResponse,
         )
-        return res.symbols[0] if is_single else res.symbols
+        if not is_single:
+            return res.symbols
+        return one("Symbol", key, res.symbols)
 
     def rename(self, key: Key, name: str) -> None:
         """Renames a symbol.

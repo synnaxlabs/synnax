@@ -11,5 +11,6 @@ export * from "@/label/actions";
 export * from "@/label/actions.gen";
 export * from "@/label/client";
 export * from "@/label/payload";
-export { cachedLabelsOf, matchLabeledBy } from "@/label/store";
+export { cachedLabeledByAny, cachedLabelsOf, matchLabeledBy } from "@/label/store";
 export * from "@/label/types.gen";
+export { type WhereInput } from "@/label/where.gen";

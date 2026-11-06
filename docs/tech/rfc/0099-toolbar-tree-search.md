@@ -91,40 +91,51 @@ ranked set, and every filter, `offset`, and `limit` apply to that set.
 ### 2.3 Tree search mode
 
 A toolbar declares its search at module scope, the same way `Tree.createItem` takes
-`useOnSelect` and `Nav.Toolbar` takes `useVisible`. The default match rule is the scoped
-ontology search of §2.1. Channels matches groups with it, and channels with the channel
-search, so aliases under the active range match what the tree shows
-(`console/src/feature/channel/tree.tsx:208-213` on `main`):
+`useOnSelect` and `Nav.Toolbar` takes `useVisible`. `Tree.createSearch` returns a hook
+that the toolbar calls with the tree root. The hook holds the term, the requests, and
+the last answer, and the header and the tree only read it. The default match rule is the
+scoped ontology search of §2.1 over the folder types, which the tree also sorts first,
+and the `types` the toolbar gives. A toolbar whose resources have a Core search index
+needs only `Tree.createSearch({ noun, types })`. Channels matches groups with the
+default rule, and channels with the channel search, so aliases under the active range
+match what the tree shows (`console/src/feature/channel/tree.tsx:208-213` on `main`):
 
 ```tsx
-const SEARCH = Tree.createSearch({ noun: "channels", useMatches: useChannelMatches });
+const useSearch = Tree.createSearch({
+  noun: "channels",
+  useMatches: useChannelMatches,
+});
 
 const Content = () => {
-  const search = Tree.useSearch(SEARCH);
+  // Does not suspend, so the header stays painted while the body reads the group.
+  const channels = Channel.useResultGroup({});
+  const search = useSearch(
+    channels.variant === "success" ? group.ontologyID(channels.data.key) : null,
+  );
   return (
     <Toolbar.Content>
       <Toolbar.Header>
         {search.open ? <Tree.SearchField search={search} /> : <Title search={search} />}
       </Toolbar.Header>
       <Toolbar.Body>
-        <Tree.Tree root={root} search={search} />
+        <Body search={search} />
       </Toolbar.Body>
     </Toolbar.Content>
   );
 };
 ```
 
-| Concern       | Behavior                                                                         |
-| ------------- | -------------------------------------------------------------------------------- |
-| Order         | Groups first, then the other matches, each in rank order                         |
-| Limit         | Each source asks for 101. At most 100 show, with a closing line when more exist  |
-| Flat layout   | Each match shows the name of its parent group, from its first path               |
-| Groups layout | Path groups start open and hold only matches. A matched group shows all children |
-| Many parents  | The groups layout shows a match under each parent. The flat layout shows it once |
-| Actions       | Every tree action works. The parent is the last group of the match's path        |
-| Live          | Matches refetch on change (RFC 0047 §5.1, rule 3). Paths follow §2.0             |
-| Errors        | A failed search shows a status in place of the results                           |
-| Close         | The browse tree stays mounted, hidden with a class, so it comes back as it was   |
+| Concern       | Behavior                                                                                                                             |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Order         | Groups first, then the other matches, each in rank order                                                                             |
+| Limit         | Each source asks for 101. At most 100 show, with a closing line when more exist                                                      |
+| Flat layout   | Each match shows the name of its parent group, from its first path                                                                   |
+| Groups layout | Path groups start open and hold only matches. A matched group shows all children                                                     |
+| Many parents  | The groups layout shows a match under each parent. The flat layout shows it once                                                     |
+| Actions       | Every tree action works. The parent is the last group of the match's path. Group and ungroup need one parent for the whole selection |
+| Live          | Matches refetch on change (RFC 0047 §5.1, rule 3). Paths follow §2.0                                                                 |
+| Errors        | A failed search shows a status in place of the results                                                                               |
+| Close         | The browse tree stays mounted, hidden with a class, so it comes back as it was                                                       |
 
 The closing line reads "Showing the first 100 matches. Type more to narrow the search."
 The error status has the message "Failed to search channels" and the error text as its
@@ -134,10 +145,12 @@ the item IDs, so the tree helpers in `integration/console/` work on them.
 
 ### 2.4 Tinted names and rename
 
-Lyra `Text` takes a `highlight` term. It tints the substrings that match a term token,
-with the tokens split the same way as the Core search (`x/go/search/token.go:23`). A
-match within one edit shows no tint. `Text.Editable` shows the tint while you are not
-editing, and plain text while you are, so rename works on a result.
+Lyra `Text` takes a `highlight` term. It tints the start of each word that a term token
+begins, with the words split the same way as the Core search
+(`x/go/search/token.go:23`). A separator between two wholly tinted words is tinted too,
+so a typed name such as `press_pt_0` tints as one run. A match within one edit shows no
+tint. `Text.Editable` shows the tint while you are not editing, and plain text while you
+are, so rename works on a result.
 
 ## 3 Implementation phases
 
@@ -150,10 +163,10 @@ children (`client/ts/src/group/client.ts:184-199`). No Console code sends it.
 Phase 2 is the whole interaction. It is large, near 900 lines with specs. A split has no
 seam: the Lyra tint and the tree mode have no user without the Channels toolbar.
 
-| Phase | Scope                                                | Touches                                                                                                                                                                              | Depends on |
-| ----- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------- |
-| 1     | Add ancestors and scoped search to ontology retrieve | `x/go/search`, `core/pkg/service/ontology`, `core/pkg/api/ontology`, `core/pkg/api/channel`, `client/ts/src/ontology`, `client/ts/src/group`, `pluto/src/group`, `pluto/src/project` | -          |
-| 2     | Search the Channels toolbar tree                     | `lyra/src/text`, `pluto/src/ontology`, `console/src/platform/tree`, `console/src/feature/channel`, `docs/claude/ux.md`, `integration/console`                                        | 1          |
+| Phase | Scope                                                | Touches                                                                                                                                                                                                                                                                | Depends on |
+| ----- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| 1     | Add ancestors and scoped search to ontology retrieve | `x/go/search`, `core/pkg/service/ontology`, `core/pkg/api/ontology`, `core/pkg/api/channel`, `client/ts/src/ontology`, `client/ts/src/group`, `pluto/src/group`, `pluto/src/project`                                                                                   | -          |
+| 2     | Search the Channels toolbar tree                     | `lyra/src/text`, `lyra/src/icon`, `pluto/src/ontology`, `pluto/src/channel`, `console/src/platform/tree`, `console/src/platform/toolbar`, `console/src/platform/group`, `console/src/feature/channel`, `docs/claude/ux.md`, `integration/console`, `integration/tests` | 1          |
 
 Every field is additive. A request that sent `types`, `limit`, or `offset` with a search
 term now gets what it asked for. The palette is the only such caller.

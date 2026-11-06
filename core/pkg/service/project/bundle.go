@@ -39,9 +39,9 @@ const (
 
 // unreachedTypes are the resource types a bundle can hold that the walk over the
 // project's ontology descendants never reaches: a task parents under its rack's task
-// group and an Arc parents nowhere. A panel tab is the only way one enters a bundle,
-// and an import leaves each where its importer put it rather than under the directory
-// that held it.
+// group and an Arc under the root Arcs directory. A panel tab is the only way one
+// enters a bundle, and an import leaves each where its importer put it rather than
+// under the directory that held it.
 var unreachedTypes = set.New(
 	resource.TypeTask,
 	resource.TypeArc,

@@ -11,11 +11,11 @@ from synnax.view.client import Client
 from synnax.view.types_gen import (
     TYPE_RESOURCE_ID,
     Key,
-    RangeQuery,
     RangeView,
-    StatusQuery,
     StatusView,
+    Type,
     View,
+    Where,
     resource_id,
 )
 
@@ -23,10 +23,10 @@ __all__ = [
     "TYPE_RESOURCE_ID",
     "Client",
     "Key",
-    "RangeQuery",
     "RangeView",
-    "StatusQuery",
     "StatusView",
+    "Type",
     "View",
+    "Where",
     "resource_id",
 ]

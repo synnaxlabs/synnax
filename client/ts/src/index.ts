@@ -15,7 +15,8 @@ export { arc } from "@/arc";
 export type { Param } from "@/arc/types/types.gen";
 export { auth } from "@/auth";
 export { channel } from "@/channel";
-export { Channel, isCalculated } from "@/channel/client";
+export { Channel } from "@/channel/client";
+export { isCalculated } from "@/channel/payload";
 export {
   type ConnectOptions,
   default as Synnax,
