@@ -247,6 +247,7 @@ std::vector<std::uint8_t> run(const double speed) {
 }
 }
 
+/// @brief it should pass the guarded transition when the value is NaN.
 TEST(FloatGuardTest, PassesATransitionOnNaN) {
     EXPECT_EQ(
         float_guard::run(std::numeric_limits<double>::quiet_NaN()),
@@ -254,6 +255,7 @@ TEST(FloatGuardTest, PassesATransitionOnNaN) {
     );
 }
 
+/// @brief it should pass the guarded transition when the value is infinite.
 TEST(FloatGuardTest, PassesATransitionOnInfinity) {
     EXPECT_EQ(
         float_guard::run(std::numeric_limits<double>::infinity()),
@@ -261,6 +263,7 @@ TEST(FloatGuardTest, PassesATransitionOnInfinity) {
     );
 }
 
+/// @brief it should hold the guarded transition for a finite value over the limit.
 TEST(FloatGuardTest, HoldsATransitionOverTheLimit) {
     EXPECT_TRUE(float_guard::run(20).empty());
 }
@@ -282,6 +285,7 @@ bool run(const std::string &expr, const x::telem::DataType &dt) {
 }
 }
 
+/// @brief it should compare two f32 NaN channel values as IEEE 754 requires.
 TEST(NaNEqualityTest, FollowsIEEE754ForF32) {
     using namespace nan_equality;
     EXPECT_FALSE(run<float>("v == y", x::telem::FLOAT32_T));
@@ -289,6 +293,7 @@ TEST(NaNEqualityTest, FollowsIEEE754ForF32) {
     EXPECT_TRUE(run<float>("v != v", x::telem::FLOAT32_T));
 }
 
+/// @brief it should compare two f64 NaN channel values as IEEE 754 requires.
 TEST(NaNEqualityTest, FollowsIEEE754ForF64) {
     using namespace nan_equality;
     EXPECT_FALSE(run<double>("v == y", x::telem::FLOAT64_T));

@@ -65,9 +65,9 @@ func compileFloatConstant[T antlr.ParserRuleContext](
 	if !ok {
 		return types.Type{}, errors.Newf("constant %s has no float value", sym.Name)
 	}
-	t := ctx.TypeMap[ctx.AST]
+	t := ctx.Hint.UnwrapChan()
 	if !t.IsFloat() {
-		t = ctx.Hint.UnwrapChan()
+		t = ctx.TypeMap[ctx.AST]
 	}
 	if !t.IsFloat() {
 		t = types.F64()

@@ -319,7 +319,7 @@ func SoleOperand(node antlr.Tree) (IPrimaryExpressionContext, bool) {
 		return nil, false
 	}
 	primary, negated := SoleOperand(sole)
-	if isUnary && unary.MINUS() != nil {
+	if primary != nil && isUnary && unary.MINUS() != nil {
 		negated = !negated
 	}
 	return primary, negated

@@ -10,12 +10,15 @@
 package context_test
 
 import (
+	"math"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
 	analyzerContext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/testutil"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
@@ -39,6 +42,82 @@ var _ = Describe("Context", func() {
 			Expect(ctx.AST).To(Equal(ast))
 			Expect(ctx.TypeHint).To(Equal(types.Type{}))
 			Expect(ctx.InTypeInferenceMode).To(BeFalse())
+		})
+	})
+
+	Describe("FloatConstant", func() {
+		newContext := func(
+			specCtx SpecContext,
+			code string,
+		) analyzerContext.Context[parser.IExpressionContext] {
+			GinkgoHelper()
+			custom := &symbol.Symbol{Name: "custom", Kind: symbol.KindModule}
+			custom.AddChild(&symbol.Symbol{
+				Name:         "text",
+				Kind:         symbol.KindConstant,
+				DefaultValue: "text",
+			})
+			root := symbol.NewRoot(nil, append(stl.NewSymbols(), custom))
+			symbol.AutoImportModules(root)
+			return analyzerContext.NewRoot(
+				specCtx,
+				MustSucceed(parser.ParseExpression(code)),
+				root,
+			)
+		}
+
+		DescribeTable("Should return the value",
+			func(specCtx SpecContext, code string, expected float64) {
+				ctx := newContext(specCtx, code)
+				value, ok := ctx.FloatConstant(ctx.AST)
+				Expect(ok).To(BeTrue())
+				Expect(value).To(Equal(expected))
+			},
+			Entry("a constant", "math.inf", math.Inf(1)),
+			Entry("a negated constant", "-math.inf", math.Inf(-1)),
+			Entry("a double negation", "--math.inf", math.Inf(1)),
+			Entry("parentheses", "((math.inf))", math.Inf(1)),
+		)
+
+		It("Should return NaN for math.nan", func(specCtx SpecContext) {
+			ctx := newContext(specCtx, "-(math.nan)")
+			value, ok := ctx.FloatConstant(ctx.AST)
+			Expect(ok).To(BeTrue())
+			Expect(math.IsNaN(value)).To(BeTrue())
+		})
+
+		DescribeTable("Should return false",
+			func(specCtx SpecContext, code string) {
+				ctx := newContext(specCtx, code)
+				_, ok := ctx.FloatConstant(ctx.AST)
+				Expect(ok).To(BeFalse())
+			},
+			Entry("a binary expression", "math.inf + 1.0"),
+			Entry("a bare name", "x"),
+			Entry("a literal", "1.5"),
+			Entry("an undefined head", "nope.inf"),
+			Entry("an undefined member", "math.nope"),
+			Entry("a member that is not a constant", "math.avg"),
+			Entry("a constant without a float value", "custom.text"),
+		)
+	})
+
+	Describe("ScopedKey", func() {
+		It("Should name the enclosing function", func(specCtx SpecContext) {
+			ast := MustSucceed(parser.Parse("func f() {\n    x := 1\n}"))
+			ctx := analyzerContext.NewRoot(specCtx, ast, nil)
+			fn := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+				Name: "f",
+				Kind: symbol.KindFunction,
+			}))
+			block := MustSucceed(fn.Add(ctx, symbol.Symbol{Kind: symbol.KindBlock}))
+			Expect(ctx.WithScope(block).ScopedKey("call", ast)).To(Equal("call_f_1_0"))
+		})
+
+		It("Should leave the function empty outside one", func(specCtx SpecContext) {
+			ast := MustSucceed(parser.Parse("x -> y"))
+			ctx := analyzerContext.NewRoot(specCtx, ast, nil)
+			Expect(ctx.ScopedKey("call", ast)).To(Equal("call__1_0"))
 		})
 	})
 
