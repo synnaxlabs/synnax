@@ -338,6 +338,41 @@ describe("Write", () => {
     expect(rebound.stateChannel).not.toBe(0);
   });
 
+  it("should reuse the channels of a deleted slave with the same identifier", async () => {
+    const identifier = createIdentifier();
+    const deploySlave = async () => {
+      const slave = await createSlaveDevice(client, testRack.key, {
+        identifier,
+        network: "eth0",
+        pdos: createPDOs(),
+      });
+      const { container, draft, unmount } = await renderWrite({
+        ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
+        channels: [createEntryWriteChannel(slave.key, CONTROL_ENTRY)],
+      });
+      const deployed = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        EtherCAT.Task.WRITE_SCHEMAS,
+      );
+      unmount();
+      const updated = await client.devices.retrieve({
+        key: slave.key,
+        schemas: EtherCAT.Device.SLAVE_SCHEMAS,
+      });
+      return { slave: updated, channel: deployed.config.channels[0] };
+    };
+    const first = await deploySlave();
+    await client.devices.delete(first.slave.key);
+    const second = await deploySlave();
+    expect(second.channel.cmdChannel).toBe(first.channel.cmdChannel);
+    expect(second.channel.stateChannel).toBe(first.channel.stateChannel);
+    expect(second.slave.properties.writeStateIndex).toBe(
+      first.slave.properties.writeStateIndex,
+    );
+  });
+
   it("should surface an error when slaves are on different networks", async () => {
     const slaveA = await createSlaveDevice(client, testRack.key, {
       identifier: createIdentifier(),
