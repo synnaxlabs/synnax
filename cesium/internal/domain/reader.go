@@ -28,9 +28,10 @@ type Reader struct {
 	ptr pointer
 }
 
-// newReader opens a reader on ptr, read from the index when rewrites held the rewrite
-// count. It follows ptr if GC moved it, and returns ErrChanged if a delete also changed
-// it. With no rewrite, ptr's bytes are still in place even if a delete removed them.
+// newReader opens a reader on ptr, read from the index when rewrites was the rewrite
+// count of its file. It follows ptr if GC moved it, and returns ErrChanged if a delete
+// also changed it. With no rewrite, ptr's bytes are in place even if a delete removed
+// them.
 func (db *DB) newReader(
 	ctx context.Context,
 	ptr pointer,
@@ -41,7 +42,7 @@ func (db *DB) newReader(
 		return nil, err
 	}
 	// The handle keeps GC off the file from here on.
-	if db.fc.rewrites.Load() != rewrites {
+	if db.fc.rewriteCount(ptr.fileKey) != rewrites {
 		current, ok := db.idx.startingAt(ptr.Start)
 		if !ok || current.fileKey != ptr.fileKey || current.size < ptr.size {
 			return nil, errors.Combine(ErrChanged, internal.Close())

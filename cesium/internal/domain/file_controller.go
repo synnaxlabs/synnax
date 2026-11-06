@@ -41,8 +41,11 @@ type fileReaders struct {
 }
 
 type fileController struct {
-	// rewrites counts the files that GC has replaced.
-	rewrites    atomic.Uint64
+	// rewrites counts how many times GC has replaced each file.
+	rewrites struct {
+		counts map[uint16]uint64
+		sync.RWMutex
+	}
 	counter     *xio.Int32Counter
 	release     chan struct{}
 	counterFile io.Closer
@@ -78,6 +81,7 @@ func openFileController(cfg Config) (*fileController, error) {
 	}
 	fc.writers.open = make(map[uint16]controlledWriter, cfg.MaxDescriptors)
 	fc.readers.files = make(map[uint16]*fileReaders)
+	fc.rewrites.counts = make(map[uint16]uint64)
 	fc.release = make(chan struct{}, cfg.MaxDescriptors)
 	if fc.writers.unopened, err = fc.scanUnopenedFiles(); err != nil {
 		return nil, err
@@ -321,12 +325,12 @@ func (fc *fileController) newReader(
 	_, span := fc.T.Bench(ctx, "new_reader")
 	defer span.End()
 	for {
-		rewrites := fc.rewrites.Load()
+		rewrites := fc.rewriteCount(key)
 		file, err := fc.FS.Open(fileKeyToName(key), os.O_RDONLY)
 		// GC holds fc.readers during a rewrite, so this waits out any rewrite that the
 		// open overlapped. The open may have missed the file or found the old one.
 		fc.readers.Lock()
-		if fc.rewrites.Load() != rewrites {
+		if fc.rewriteCount(key) != rewrites {
 			fc.readers.Unlock()
 			if err == nil {
 				if err = file.Close(); err != nil {
@@ -354,6 +358,18 @@ func (fc *fileController) newReader(
 		fc.readers.Unlock()
 		return &r, nil
 	}
+}
+
+func (fc *fileController) rewriteCount(key uint16) uint64 {
+	fc.rewrites.RLock()
+	defer fc.rewrites.RUnlock()
+	return fc.rewrites.counts[key]
+}
+
+func (fc *fileController) countRewrite(key uint16) {
+	fc.rewrites.Lock()
+	defer fc.rewrites.Unlock()
+	fc.rewrites.counts[key]++
 }
 
 func (fc *fileController) gcReaders() (successful bool, err error) {

@@ -52,7 +52,7 @@ type Iterator struct {
 	// currPtr stores the current domain that the iterator is pointing to. This value
 	// is only valid if the iterator is valid.
 	currPtr pointer
-	// rewrites is the GC rewrite count from before the iterator read currPtr.
+	// rewrites is the GC rewrite count of currPtr's file when the iterator read it.
 	rewrites uint64
 	// valid stores whether the iterator is currently valid.
 	valid bool
@@ -188,8 +188,18 @@ func (i *Iterator) reload() bool {
 		i.valid = false
 		return i.valid
 	}
-	rewrites := i.db.fc.rewrites.Load()
-	ptr, ok := i.db.idx.get(i.position)
+	var (
+		ptr      pointer
+		rewrites uint64
+		ok       bool
+	)
+	// GC counts a rewrite under the index lock, so ptr and the count agree.
+	i.db.idx.read(func() {
+		if i.position < len(i.db.idx.mu.pointers) {
+			ptr, ok = i.db.idx.mu.pointers[i.position], true
+			rewrites = i.db.fc.rewriteCount(ptr.fileKey)
+		}
+	})
 	if !ok || !ptr.OverlapsWith(i.Bounds) {
 		i.valid = false
 		// it's important that we return here, so we don't clear the current current

@@ -250,17 +250,6 @@ func (idx *index) startingAt(ts telem.TimeStamp) (pointer, bool) {
 	return idx.mu.pointers[i], true
 }
 
-func (idx *index) get(i int) (pointer, bool) {
-	idx.mu.RLock()
-	if i < 0 || i >= len(idx.mu.pointers) {
-		idx.mu.RUnlock()
-		return pointer{}, false
-	}
-	v := idx.mu.pointers[i]
-	idx.mu.RUnlock()
-	return v, true
-}
-
 func (idx *index) read(f func()) {
 	idx.mu.RLock()
 	f()

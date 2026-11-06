@@ -183,6 +183,40 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					},
 				)
 
+				It("Should ignore a collection of another file", func(ctx SpecContext) {
+					db = MustSucceed(domain.Open(domain.Config{
+						FS:              fs,
+						FileSize:        3 * telem.Byte,
+						GCThreshold:     math.SmallestNonzeroFloat32,
+						Instrumentation: PanicLogger(),
+					}))
+					Expect(
+						testutil.WriteDomain(ctx, db, first, []byte{10, 11, 12, 13}),
+					).To(Succeed())
+					Expect(testutil.WriteDomain(ctx, db, second, data)).To(Succeed())
+					held := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
+					Expect(held.SeekGE(ctx, second.Start)).To(BeTrue())
+					heldReader := MustSucceed(held.OpenReader(ctx))
+					i = db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
+					Expect(i.SeekGE(ctx, second.Start)).To(BeTrue())
+					Expect(
+						db.Delete(ctx, first, fixedOffset(0), fixedOffset(4)),
+					).To(Succeed())
+					Expect(db.Delete(
+						ctx,
+						(23 * telem.SecondTS).Range(second.End),
+						fixedOffset(3),
+						fixedOffset(6),
+					)).To(Succeed())
+					Expect(db.GarbageCollect(ctx)).To(Succeed())
+					Expect(MustSucceed(fs.Stat("1.domain")).Size()).To(BeZero())
+					Expect(MustSucceed(fs.Stat("2.domain")).Size()).To(Equal(int64(6)))
+					r := MustSucceed(i.OpenReader(ctx))
+					Expect(heldReader.Close()).To(Succeed())
+					Expect(held.Close()).To(Succeed())
+					expectRead(r, data)
+				})
+
 				// Windows cannot rename a file with an open handle.
 				if fsName != "memFS" {
 					return
