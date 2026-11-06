@@ -10,66 +10,73 @@
 package math_test
 
 import (
+	"fmt"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/lsp/doc"
 	"github.com/synnaxlabs/x/set"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Hover examples", func() {
-	// The float members only: the math.avg reset example does not compile today.
-	members := set.New("is_nan", "is_infinite", "is_finite", "nan", "inf")
+// hoverExamples returns one table entry for each Arc code block in the hover docs of
+// the float members of the math module.
+func hoverExamples() []TableEntry {
+	// The math.avg reset example does not compile on this branch.
+	floatMembers := set.New("is_nan", "is_infinite", "is_finite", "nan", "inf")
+	var entries []TableEntry
+	add := func(name string, d doc.Doc) {
+		for i, block := range d.Blocks() {
+			if code, ok := strings.CutPrefix(block.Render(), "```arc\n"); ok {
+				entries = append(entries, Entry(
+					fmt.Sprintf("%s block %d", name, i),
+					strings.TrimSuffix(code, "\n```"),
+				))
+			}
+		}
+	}
+	for _, s := range stl.NewSymbols() {
+		if s.Name != "math" || s.Kind != symbol.KindModule {
+			continue
+		}
+		for _, member := range s.Children() {
+			if floatMembers.Contains(member.Name) {
+				add("math."+member.Name, member.Doc)
+			}
+		}
+	}
+	return entries
+}
 
-	It("Should compile every float member example", func(ctx SpecContext) {
-		var examples []string
-		for _, s := range stl.NewSymbols() {
-			if s.Name != "math" || s.Kind != symbol.KindModule {
-				continue
-			}
-			for _, member := range s.Children() {
-				if !members.Contains(member.Name) {
-					continue
-				}
-				for _, block := range member.Doc.Blocks() {
-					text := block.Render()
-					if body, ok := strings.CutPrefix(text, "```arc\n"); ok {
-						examples = append(examples, strings.TrimSuffix(body, "\n```"))
-					}
-				}
-			}
-		}
-		Expect(examples).To(HaveLen(len(members)))
-		channels := map[string]types.Type{
-			"sensor":       types.F64(),
-			"output":       types.F64(),
-			"rate_output":  types.F64(),
-			"reset_signal": types.U8(),
-			"pump_speed":   types.F64(),
-			"pump_stopped": types.U8(),
-		}
-		for _, example := range examples {
-			ambient := stl.NewSymbols()
-			id := 1
-			for name, t := range channels {
-				ambient = append(ambient, &symbol.Symbol{
-					Name: name,
-					Kind: symbol.KindChannel,
-					Type: types.Chan(t),
-					ID:   id,
-				})
-				id++
-			}
-			_, err := arc.CompileText(
+// newExampleRoot returns a root with the channels the hover examples use.
+func newExampleRoot() *symbol.Symbol {
+	ambient := stl.NewSymbols()
+	for i, name := range []string{
+		"sensor", "output", "rate_output", "pump_speed", "pump_stopped",
+	} {
+		ambient = append(ambient, &symbol.Symbol{
+			Name: name,
+			Kind: symbol.KindChannel,
+			Type: types.Chan(types.F64()),
+			ID:   i + 1,
+		})
+	}
+	return symbol.NewRoot(nil, ambient)
+}
+
+var _ = Describe("Hover examples", func() {
+	DescribeTable("Should compile",
+		func(ctx SpecContext, code string) {
+			MustSucceed(arc.CompileText(
 				ctx,
-				arc.Text{Raw: "import math\n" + example},
-				symbol.NewRoot(nil, ambient),
-			)
-			Expect(err).ToNot(HaveOccurred(), example)
-		}
-	})
+				arc.Text{Raw: "import math\n" + code},
+				newExampleRoot(),
+			))
+		},
+		hoverExamples(),
+	)
 })
