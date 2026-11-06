@@ -7,8 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
+#include <array>
 #include <chrono>
 #include <format>
+#include <functional>
+#include <iterator>
 #include <thread>
 
 #include "absl/log/log.h"
@@ -30,8 +34,28 @@ const int STATE_CHANGE_TIMEOUT = static_cast<int>(
 const int PRE_OP_TIMEOUT = static_cast<int>((x::telem::SECOND * 2).microseconds());
 /// Timeout for cyclic process data exchange in microseconds.
 const int PROCESSDATA_TIMEOUT = static_cast<int>(x::telem::MILLISECOND.microseconds());
-/// Time between state reads while slaves move to OP.
-const auto OP_POLL_INTERVAL = x::telem::MILLISECOND;
+/// Time between state reads while slaves move to a requested state.
+const auto STATE_POLL_INTERVAL = x::telem::MILLISECOND;
+/// AL status codes of faults that a new start can clear. The start takes every slave
+/// back through INIT with an acknowledgment.
+constexpr std::array<uint16_t, 16> TRANSIENT_FAULTS = {
+    0x0018, // No valid inputs available
+    0x0019, // No valid outputs
+    0x001A, // Synchronization error
+    0x001B, // Sync manager watchdog
+    0x0021, // Slave needs INIT
+    0x0022, // Slave needs PREOP
+    0x0023, // Slave needs SAFEOP
+    0x002A, // Background watchdog
+    0x002B, // No valid inputs and outputs
+    0x002C, // Fatal sync error
+    0x002D, // No sync error
+    0x0032, // PLL error
+    0x0033, // DC sync IO error
+    0x0034, // DC sync timeout error
+    0x0052, // External hardware not ready
+    0x0060, // Slave restarted locally
+};
 /// Timeout for one recovery step on a slave in microseconds.
 const int RECOVERY_TIMEOUT = static_cast<int>(
     (x::telem::MILLISECOND * 500).microseconds()
@@ -296,8 +320,8 @@ std::vector<slave::Health> Master::check(const x::breaker::Breaker &breaker) {
                 .lost = this->api->slave_lost(i),
             }
         );
-        if (const auto code = this->api->slave_ALstatuscode(i); h.faulted && code != 0)
-            h.al_status = ec_ALstatuscode2string(code);
+        if (this->al_error(i))
+            h.al_status = ec_ALstatuscode2string(this->api->slave_ALstatuscode(i));
         if (breaker.running()) this->recover(static_cast<uint16_t>(i));
     }
     return health;
@@ -937,49 +961,65 @@ x::errors::Error Master::clear_dc_activation() {
     return x::errors::NIL;
 }
 
-x::errors::Error Master::request_state(const uint16_t state, const int timeout) {
-    std::vector<uint16_t> failed;
+x::errors::Error Master::request_state(
+    const uint16_t state,
+    const int timeout,
+    const std::function<void()> &before_read
+) {
     for (int i = 1; i <= this->api->slave_count(); ++i) {
         if (this->api->slave_group(i) != ENABLED_GROUP) continue;
         this->api->set_slave_state(i, state);
         this->api->writestate(i);
-        if (this->api->statecheck(i, state, timeout) != state) failed.push_back(i);
     }
-    if (failed.empty()) return x::errors::NIL;
-    return this->state_error(failed, state);
+    const auto deadline = std::chrono::steady_clock::now() +
+                          std::chrono::microseconds(timeout);
+    while (true) {
+        if (before_read) before_read();
+        this->api->readstate();
+        std::vector<uint16_t> pending;
+        // Like ecx_statecheck, a slave in the state counts even with its error flag
+        // set: a request without the ACK bit leaves the flag as it is.
+        for (int i = 1; i <= this->api->slave_count(); ++i)
+            if (this->api->slave_group(i) == ENABLED_GROUP &&
+                (this->api->slave_state(i) & ~EC_STATE_ERROR) != state)
+                pending.push_back(i);
+        if (pending.empty()) return x::errors::NIL;
+        std::vector<uint16_t> refused;
+        std::ranges::copy_if(pending, std::back_inserter(refused), [&](auto pos) {
+            return this->refuses(pos, state);
+        });
+        if (!refused.empty()) return this->state_error(refused, state);
+        if (std::chrono::steady_clock::now() >= deadline)
+            return this->state_error(pending, state);
+        std::this_thread::sleep_for(STATE_POLL_INTERVAL.chrono());
+    }
+}
+
+bool Master::al_error(const uint16_t pos) const {
+    return (this->api->slave_state(pos) & EC_STATE_ERROR) != 0 &&
+           this->api->slave_ALstatuscode(pos) != 0;
+}
+
+bool Master::refuses(const uint16_t pos, const uint16_t state) const {
+    return this->al_error(pos) &&
+           (this->api->slave_state(pos) & ~EC_STATE_ERROR) < state;
 }
 
 x::errors::Error Master::request_operational() {
-    // Slaves with outputs need one valid process data frame before they enter OP.
-    this->api->send_processdata(ENABLED_GROUP);
-    this->api->receive_processdata(ENABLED_GROUP, PROCESSDATA_TIMEOUT);
-    for (int i = 1; i <= this->api->slave_count(); ++i) {
-        if (this->api->slave_group(i) != ENABLED_GROUP) continue;
-        this->api->set_slave_state(i, EC_STATE_OPERATIONAL);
-        this->api->writestate(i);
-    }
-    const auto deadline = std::chrono::steady_clock::now() +
-                          std::chrono::microseconds(STATE_CHANGE_TIMEOUT);
-    while (true) {
+    const auto exchange = [this] {
         this->api->send_processdata(ENABLED_GROUP);
         this->api->receive_processdata(ENABLED_GROUP, PROCESSDATA_TIMEOUT);
-        this->api->readstate();
-        std::vector<uint16_t> pending;
-        for (int i = 1; i <= this->api->slave_count(); ++i)
-            if (this->api->slave_group(i) == ENABLED_GROUP &&
-                this->api->slave_state(i) != EC_STATE_OPERATIONAL)
-                pending.push_back(i);
-        if (pending.empty()) return x::errors::NIL;
-        if (std::chrono::steady_clock::now() >= deadline)
-            return this->state_error(pending, EC_STATE_OPERATIONAL);
-        std::this_thread::sleep_for(OP_POLL_INTERVAL.chrono());
-    }
+    };
+    // Slaves with outputs need one valid process data frame before they enter OP.
+    exchange();
+    return this->request_state(EC_STATE_OPERATIONAL, STATE_CHANGE_TIMEOUT, exchange);
 }
 
 x::errors::Error
 Master::state_error(const std::vector<uint16_t> &failed, const uint16_t state) {
     const auto target = slave::slave_state_to_string(slave::from_al_state(state));
     std::string msg;
+    bool refused = false;
     for (const auto pos: failed) {
         if (!msg.empty()) msg += "; ";
         msg += "slave " + std::to_string(pos) + " (" + this->api->slave_name(pos) +
@@ -987,11 +1027,14 @@ Master::state_error(const std::vector<uint16_t> &failed, const uint16_t state) {
                slave::slave_state_to_string(
                    slave::from_al_state(this->api->slave_state(pos))
                );
-        if (const auto code = this->api->slave_ALstatuscode(pos); code != 0)
-            msg += ": " + std::string(ec_ALstatuscode2string(code));
+        if (!this->al_error(pos)) continue;
+        const auto code = this->api->slave_ALstatuscode(pos);
+        refused |= this->refuses(pos, state) &&
+                   std::ranges::find(TRANSIENT_FAULTS, code) == TRANSIENT_FAULTS.end();
+        msg += ": " + std::string(ec_ALstatuscode2string(code));
     }
     return x::errors::Error(
-        errors::STATE_CHANGE_ERROR,
+        refused ? errors::STATE_CHANGE_REFUSED : errors::STATE_CHANGE_ERROR,
         "failed to reach " + target + ": " + msg
     );
 }
