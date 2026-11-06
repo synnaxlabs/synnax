@@ -11,9 +11,9 @@
 # sedosaur GitHub App. The scripts and the policy in `.sedosaur/` come from the commit
 # that started this workflow, on the default branch, never from the pull request or its
 # base. Claude Code gets only read tools, a checkout of the head, and its OAuth token.
-# The App token reaches only the steps that write to GitHub. A replay reviews any commit,
-# posts nothing, and keeps only the record. It can take the prompt and rules of another
-# ref, so a new policy can be tried on old commits before it merges.
+# The App token reaches only the steps that write to GitHub. A replay reviews any
+# commit, posts nothing, and keeps only the record. It can take the prompt and rules of
+# another ref, so a new policy can be tried on old commits before it merges.
 
 name: Review - Sedosaur
 run-name: ${{ inputs.pr }}${{ inputs.replay && ' replay' || '' }}
@@ -141,7 +141,7 @@ jobs:
   # A job of its own, so a deleted comment cannot stop the review.
   react:
     needs: start
-    if: needs.start.outputs.fork == 'false' && inputs.comment != ''
+    if: needs.start.outputs.fork == 'false' && inputs.comment != '' && !inputs.replay
     name: React to the request
     runs-on: ubuntu-latest
     steps:
