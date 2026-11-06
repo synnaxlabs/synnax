@@ -60,6 +60,21 @@ TEST(RackTests, testRetrieveRackByName) {
     ASSERT_EQ(r.key, r2.key);
 }
 
+/// @brief it should reject a limit or an offset on a retrieve of one rack.
+TEST(RackTests, testRetrieveRackRejectsPage) {
+    const auto client = new_test_client();
+    for (const auto &options:
+         {RetrieveOptions{.limit = 1}, RetrieveOptions{.offset = 1}}) {
+        const auto [_, err] = client.racks.retrieve("rack", options);
+        ASSERT_MATCHES(err, x::errors::VALIDATION);
+        ASSERT_EQ(
+            err.data,
+            "a query for one record takes no limit or offset, since a page could "
+            "hide a second match"
+        );
+    }
+}
+
 TEST(RackTests, testCreateTaskOnCreatedRack) {
     const auto client = new_test_client();
     auto r = Rack{.name = "test_rack"};
