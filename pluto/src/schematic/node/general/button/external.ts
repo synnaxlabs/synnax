@@ -9,6 +9,7 @@
 
 import { type schematic } from "@synnaxlabs/client";
 
+import { SIZE_LEVELS } from "@/schematic/node/common/size";
 import { ButtonForm, colorFallbacks } from "@/schematic/node/general/button/Form";
 import { Button } from "@/schematic/node/general/button/Primitive";
 import { Symbol } from "@/schematic/node/general/button/Symbol";
@@ -19,6 +20,7 @@ const NAME = "Button";
 export const spec: Spec<"button", schematic.ButtonNodeConfig> = {
   key: "button",
   name: NAME,
+  defaults: { level: SIZE_LEVELS.medium },
   Form: ButtonForm,
   Node: Symbol,
   Preview: Button,

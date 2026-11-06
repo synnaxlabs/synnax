@@ -10,6 +10,7 @@
 import { NotFoundError, schematic } from "@synnaxlabs/client";
 import { describe, expect, it } from "vitest";
 
+import { SIZE_LEVELS } from "@/schematic/node/common/size";
 import { GroupBox } from "@/schematic/node/groupBox";
 import {
   changeConfig,
@@ -142,6 +143,12 @@ describe("Schematic.Node.createConfig", () => {
     expect(config.specKey).toBe("spec-1");
     expect(config.stateOverrides).toEqual([]);
   });
+
+  it("should start a new button on the medium text level", () =>
+    expect(createConfig({ variant: "button" }).level).toBe(SIZE_LEVELS.medium));
+
+  it("should let the input override a spec default", () =>
+    expect(createConfig({ variant: "button", level: "h2" }).level).toBe("h2"));
 
   it("should reject an unknown variant", () => {
     expect(() => createConfig({ variant: "not-a-symbol" } as never)).toThrow();
