@@ -1402,6 +1402,21 @@ var _ = Describe("Device", func() {
 			},
 		)
 	})
+	Describe("Resources", func() {
+		It("Should name each device by its name", func(ctx SpecContext) {
+			d := device.Device{
+				Key:      "resource-device",
+				Rack:     rackSvc.EmbeddedKey,
+				Location: "dev1",
+				Name:     "Dog",
+				Make:     "Test Make",
+				Model:    "Test Model",
+			}
+			Expect(w.Create(ctx, &d)).To(Succeed())
+			Expect(svc.Resources().Retrieve(ctx, tx, []resource.ID{d.ResourceID()})).
+				To(Equal([]resource.Resource{{ID: d.ResourceID(), Name: d.Name}}))
+		})
+	})
 })
 
 // createChassis creates a device on rackKey and returns its key.

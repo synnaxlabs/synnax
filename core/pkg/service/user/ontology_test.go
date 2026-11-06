@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Ontology", func() {
@@ -77,7 +78,10 @@ var _ = Describe("Ontology", func() {
 			Expect(user.KeyFromResourceID(resource.ID{
 				Type: resource.TypeUser,
 				Key:  "not-a-uuid",
-			})).Error().To(MatchError("invalid uuid"))
+			})).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(`invalid user key "not-a-uuid"`)),
+			))
 		})
 	})
 	Describe("Type", func() {
