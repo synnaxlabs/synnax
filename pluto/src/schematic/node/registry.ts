@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError, schematic } from "@synnaxlabs/client";
-import { type Component } from "@synnaxlabs/lyra/component";
-import { deep, record, type text } from "@synnaxlabs/x";
+import { deep, record } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import {
@@ -71,14 +70,13 @@ export const isConfig = (config: schematic.ElementConfig): config is Config =>
 
 /**
  * Builds a fresh config from the schema input. Every unset value comes from the
- * spec's defaults, then the schema, except the label, which names the symbol unless the
- * input sets it.
+ * schema, except the label, which names the symbol unless the input sets it.
  * @param input - The variant plus any fields to set on top of the schema defaults.
  * @throws {NotFoundError} if no spec is registered for the variant.
  */
 export const createConfig = <V extends Variant>(input: Input<V>): ConfigOf<V> => {
+  const config = configZ.parse(input) as ConfigOf<V>;
   const spec = resolveSpec(input.variant);
-  const config = configZ.parse({ ...spec.defaults, ...input }) as ConfigOf<V>;
   const labeled = input as { label?: { label?: string } };
   if ("label" in config && labeled.label?.label == null)
     config.label.label = spec.label ?? spec.name;
@@ -123,8 +121,6 @@ export const symbolKey = (config: Config): string =>
 /**
  * Changes the config to the variant the input names. Each field the new variant
  * accepts keeps its value, except the spec key and state overrides of a custom symbol.
- * A sized symbol with no level takes no default level, so it keeps its rendered text
- * size.
  * @param config - The config to change.
  * @param input - The variant to change to, plus any fields to set on top.
  * @throws {NotFoundError} if no spec is registered for the variant.
@@ -132,23 +128,12 @@ export const symbolKey = (config: Config): string =>
 export const changeConfig = <V extends Variant>(
   config: Config,
   input: Input<V>,
-): ConfigOf<V> => {
-  const next = deep.overrideValidItems(
+): ConfigOf<V> =>
+  deep.overrideValidItems(
     createConfig(input),
     record.omit(config as record.Unknown, "specKey", "stateOverrides"),
     schematic.NODE_CONFIG_SCHEMAS[input.variant],
   );
-  const spec = resolveSpec(input.variant);
-  const { size, level } = config as { size?: Component.Size; level?: text.Level };
-  if (
-    spec.defaults != null &&
-    "level" in spec.defaults &&
-    size != null &&
-    level == null
-  )
-    (next as { level?: text.Level }).level = undefined;
-  return next;
-};
 
 /// STATIC_SPECS lists every Spec in the registry that is NOT a custom-symbol
 /// variant. Used by the symbols toolbar to render the built-in catalog.

@@ -10,7 +10,6 @@
 import { NotFoundError, schematic } from "@synnaxlabs/client";
 import { describe, expect, it } from "vitest";
 
-import { SIZE_LEVELS } from "@/schematic/node/common/size";
 import { GroupBox } from "@/schematic/node/groupBox";
 import {
   changeConfig,
@@ -144,12 +143,6 @@ describe("Schematic.Node.createConfig", () => {
     expect(config.stateOverrides).toEqual([]);
   });
 
-  it("should start a new button on the medium text level", () =>
-    expect(createConfig({ variant: "button" }).level).toBe(SIZE_LEVELS.medium));
-
-  it("should let the input override a spec default", () =>
-    expect(createConfig({ variant: "button", level: "h2" }).level).toBe("h2"));
-
   it("should reject an unknown variant", () => {
     expect(() => createConfig({ variant: "not-a-symbol" } as never)).toThrow();
   });
@@ -182,25 +175,6 @@ describe("Schematic.Node.symbolKey", () => {
 });
 
 describe("Schematic.Node.changeConfig", () => {
-  it("should keep a sized symbol with no level off the button scale", () => {
-    const setpoint = createConfig({ variant: "setpoint", size: "large" });
-    const changed = changeConfig(setpoint, { variant: "button" });
-    expect(changed.size).toBe("large");
-    expect(changed.level).toBeUndefined();
-  });
-
-  it("should give a symbol with no size or level the default button level", () => {
-    const changed = changeConfig(createConfig({ variant: "valve" }), {
-      variant: "button",
-    });
-    expect(changed.level).toBe(SIZE_LEVELS.medium);
-  });
-
-  it("should keep the level of a symbol with no size", () => {
-    const value = createConfig({ variant: "value", level: "h2" });
-    expect(changeConfig(value, { variant: "button" }).level).toBe("h2");
-  });
-
   it("should keep each field the new variant accepts", () => {
     const valve = createConfig({
       variant: "valve",
