@@ -14,7 +14,8 @@ from pydantic import BaseModel, Field
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
 from synnax.exceptions import NotFoundError
-from synnax.rack.types_gen import Key, Rack
+from synnax.rack.types_gen import Key, Rack, RetrieveRequest, Where
+from x import filter
 from x.lists import all_none, override
 
 
@@ -33,18 +34,6 @@ class _RenameRequest(BaseModel):
 
 class _DeleteRequest(BaseModel):
     keys: list[int]
-
-
-class _RetrieveRequest(BaseModel):
-    keys: list[int] | None = None
-    names: list[str] | None = None
-    integration: str | None = None
-    search_term: str | None = None
-    embedded: bool | None = None
-    host_is_node: bool | None = None
-    offset: int | None = None
-    limit: int | None = None
-    include_status: bool = False
 
 
 class _RetrieveResponse(BaseModel):
@@ -119,14 +108,15 @@ class Client:
     def retrieve(
         self,
         *,
+        where: Where | None = None,
         keys: list[int] | None = None,
         names: list[str] | None = None,
-        search_term: str | None = None,
+        search_term: str = "",
         integration: str | None = None,
         embedded: bool | None = None,
         host_is_node: bool | None = None,
         limit: int | None = None,
-        offset: int | None = None,
+        offset: int = 0,
         include_status: bool = False,
     ) -> list[Rack]: ...
 
@@ -135,19 +125,27 @@ class Client:
         key: int | None = None,
         *,
         name: str | None = None,
+        where: Where | None = None,
         keys: list[int] | None = None,
         names: list[str] | None = None,
-        search_term: str | None = None,
+        search_term: str = "",
         integration: str | None = None,
         embedded: bool | None = None,
         host_is_node: bool | None = None,
         limit: int | None = None,
-        offset: int | None = None,
+        offset: int = 0,
         include_status: bool = False,
     ) -> Rack | list[Rack]:
         """Retrieves racks matching the given filters. Returns one rack when a key or
-        name is given, and a list otherwise.
+        name is given, and a list otherwise. A filter left as None does not filter.
 
+        :param where: Keeps racks that match this filter tree.
+        :param keys: Keeps racks with one of these keys.
+        :param names: Keeps racks with one of these names.
+        :param integration: Keeps racks that support this integration.
+        :param embedded: Keeps racks that are, or are not, embedded in a Core.
+        :param host_is_node: Keeps racks on the Core that serves the request, or racks
+            on other Cores when False.
         :param search_term: A fuzzy search term matched against rack names.
         :param limit: The maximum number of racks to return.
         :param offset: The number of racks to skip.
@@ -159,35 +157,36 @@ class Client:
         is_single = not all_none(key, name)
         if sum(v is not None for v in (key, name)) > 1:
             raise ValueError("only one of key and name can be given")
-        if is_single and not all_none(
-            keys,
-            names,
-            search_term,
-            integration,
-            embedded,
-            host_is_node,
-            limit,
-            offset,
+        if is_single and (
+            search_term
+            or offset
+            or not all_none(
+                where, keys, names, integration, embedded, host_is_node, limit
+            )
         ):
             raise ValueError(
                 "key and name cannot be combined with list filters; use keys or "
                 "names instead"
             )
-        res = self._client.send(
-            "/rack/retrieve",
-            _RetrieveRequest(
-                keys=override(key, keys),
-                names=override(name, names),
-                search_term=search_term,
-                limit=limit,
-                offset=offset,
-                integration=integration,
-                host_is_node=host_is_node,
-                embedded=embedded,
-                include_status=include_status,
+        keys = override(key, keys)
+        names = override(name, names)
+        flat = Where(
+            key=None if keys is None else filter.Set[Key](in_=keys),
+            name=None if names is None else filter.String(in_=names),
+            integrations=(
+                None if integration is None else filter.Contains[str](any=[integration])
             ),
-            _RetrieveResponse,
+            embedded=None if embedded is None else filter.Bool(eq=embedded),
+            host_is_node=host_is_node,
         )
+        req = RetrieveRequest(
+            where=filter.merge(where, flat),
+            search_term=search_term,
+            limit=limit,
+            offset=offset,
+            include_status=include_status,
+        )
+        res = self._client.send("/rack/retrieve", req, _RetrieveResponse)
         if is_single:
             if len(res.racks) > 0:
                 return res.racks[0]

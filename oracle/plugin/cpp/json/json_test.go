@@ -480,26 +480,66 @@ var _ = Describe("C++ JSON Plugin", func() {
 				ExpectContent(resp, "json.gen.h").
 					ToContain(`parser.field<Params>("params", Params{})`)
 			})
-			It(
-				"Should leave a non-empty struct default required",
-				func(ctx SpecContext) {
-					source := `
+			It("Should fall back to a non-empty struct", func(ctx SpecContext) {
+				source := `
 					@cpp output "client/cpp/task"
 
 					Ports struct {
 						index uint32
+						rate  uint32
 					}
 
 					Task struct {
-						ports Ports = { index = 1 }
+						ports Ports = { rate = 2, index = 1 }
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+				resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
 
-					ExpectContent(resp, "json.gen.h").
-						ToContain(`parser.field<Ports>("ports")`)
-				},
-			)
+				ExpectContent(resp, "json.gen.h").ToContain(
+					`parser.field<Ports>("ports", Ports{.index = 1, .rate = 2})`,
+				)
+			})
+			It("Should fall back to an int enum variant", func(ctx SpecContext) {
+				source := `
+					@cpp output "client/cpp/task"
+
+					Mode enum {
+						off = 0
+						on = 1
+					}
+
+					Task struct {
+						mode Mode = off
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+
+				ExpectContent(resp, "json.gen.h").
+					ToContain(`parser.field<Mode>("mode", Mode::Off)`)
+			})
+			It("Should fall back to the current time", func(ctx SpecContext) {
+				loader.Add("schemas/telem", `
+					@cpp output "x/cpp/telem"
+
+					TimeStamp int64 {
+						@cpp hand
+					}
+				`)
+				source := `
+					import "schemas/telem"
+
+					@cpp output "client/cpp/task"
+
+					Task struct {
+						time telem.TimeStamp = now
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+
+				ExpectContent(resp, "json.gen.h").ToContain(
+					`"time", x::telem::TimeStamp::now()`,
+				)
+			})
 		})
 
 		Context("map type handling", func() {

@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/x/filter"
+
 @go output "core/pkg/service/group"
 @py output "client/py/synnax/group"
 @ts output "client/ts/src/group"
@@ -35,4 +37,11 @@ Group struct {
     @go migrate
     @ontology type "group"
     @retrieve
+}
+
+Where filter Group {
+    key
+
+    @doc value         "is a filter that selects groups."
+    @go request_output "core/pkg/api/group"
 }

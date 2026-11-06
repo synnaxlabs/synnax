@@ -12,7 +12,6 @@ package channel
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"strconv"
 
 	"github.com/samber/lo"
@@ -153,14 +152,15 @@ func (w Writer) DeleteMany(ctx context.Context, keys []Key, allowInternal bool) 
 	return w.delete(ctx, keys, allowInternal)
 }
 
-// DeleteManyByNames deletes the channels matching the given names. Unless allowInternal
-// is true, deleting any internal channel returns an error and no channels are deleted.
-func (w Writer) DeleteManyByNames(
-	ctx context.Context, names []string, allowInternal bool,
+// DeleteManyByNamePatterns deletes the channels whose names match any of the given
+// patterns, as MatchNamePatterns matches them. Unless allowInternal is true, deleting
+// any internal channel returns an error and no channels are deleted.
+func (w Writer) DeleteManyByNamePatterns(
+	ctx context.Context, patterns []string, allowInternal bool,
 ) error {
 	var res []Channel
 	if err := w.svc.newRetrieve().
-		Where(MatchNames(names...)).
+		Where(MatchNamePatterns(patterns...)).
 		Entries(&res).
 		Exec(ctx, w.tx); err != nil {
 		return err
@@ -536,15 +536,9 @@ func (w Writer) allocateAndWrite(
 	return nil
 }
 
-// validNamePattern matches valid channel names: a leading letter or underscore followed
-// by letters, digits, and underscores. Because every stored channel name is accepted by
-// this pattern, MatchNames also uses it to decide whether an input is a literal
-// exact-match target (routable through the name index) or a regex pattern.
-var validNamePattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
-
 // validateChannelNames rejects a create/rename request whose proposed names are empty,
-// contain characters outside validNamePattern, duplicate each other, or collide with an
-// existing channel under a different key.
+// are not identifiers, duplicate each other, or collide with an existing channel under
+// a different key.
 func (w Writer) validateChannelNames(
 	ctx context.Context,
 	keys Keys,
@@ -558,7 +552,7 @@ func (w Writer) validateChannelNames(
 				fmt.Sprintf("[%d]", i), "name",
 			)
 		}
-		if !validNamePattern.MatchString(name) {
+		if !validate.IsIdentifier(name) {
 			return validate.PathedError(
 				errors.Wrapf(
 					validate.ErrValidation,
