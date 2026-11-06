@@ -107,3 +107,23 @@ export const { useUpdate: useUpdateStartupParameters } = Flux.createUpdate<
     );
   },
 });
+
+export interface UpdateSyncModeParams {
+  key: device.Key;
+  dcMode?: number;
+}
+
+export const { useUpdate: useUpdateSyncMode } = Flux.createUpdate<
+  UpdateSyncModeParams,
+  SlaveDevice
+>({
+  name: "synchronization mode",
+  verbs: verbs.UPDATE,
+  update: async ({ data: { key, dcMode }, client }) => {
+    const slave = await client.devices.retrieve({ key, schemas: SLAVE_SCHEMAS });
+    return await client.devices.create(
+      { ...slave, properties: { ...slave.properties, dcMode } },
+      SLAVE_SCHEMAS,
+    );
+  },
+});

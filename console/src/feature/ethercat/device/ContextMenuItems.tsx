@@ -14,6 +14,7 @@ import { Access } from "@synnaxlabs/pluto";
 
 import { useEnabledState, useToggleEnabled } from "@/feature/ethercat/device/queries";
 import { useStartupParametersModal } from "@/feature/ethercat/device/useStartupParametersModal";
+import { useSyncModeModal } from "@/feature/ethercat/device/useSyncModeModal";
 import { Task } from "@/feature/ethercat/task";
 import { FLAGS } from "@/flags";
 import { Device } from "@/platform/device";
@@ -45,6 +46,16 @@ const StartupParametersItem = ({ deviceKey }: StartupParametersItemProps) => {
   );
 };
 
+const SyncModeItem = ({ deviceKey }: StartupParametersItemProps) => {
+  const open = useSyncModeModal();
+  return (
+    <Menu.Item itemKey="ethercat.syncMode" onClick={() => open({ deviceKey })}>
+      <Icon.Time />
+      Set synchronization mode
+    </Menu.Item>
+  );
+};
+
 export const ContextMenuItems = (props: Device.ContextMenuItemsProps) => {
   const keys = props.selection.ids.map((id) => id.key);
   const hasUpdatePermission = Access.useUpdateGranted(device.ontologyID(keys));
@@ -69,6 +80,9 @@ export const ContextMenuItems = (props: Device.ContextMenuItemsProps) => {
       <Menu.Divider />
       {FLAGS.ethercatStartupParameters && hasUpdatePermission && keys.length === 1 && (
         <StartupParametersItem deviceKey={keys[0]} />
+      )}
+      {FLAGS.ethercatStartupParameters && hasUpdatePermission && keys.length === 1 && (
+        <SyncModeItem deviceKey={keys[0]} />
       )}
       {hasUpdatePermission && !allDisabled && (
         <Menu.Item itemKey="ethercat.disable" onClick={handleDisable}>

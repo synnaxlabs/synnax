@@ -37,6 +37,18 @@ const startupParameterZ = z.object({
 });
 export interface StartupParameter extends z.infer<typeof startupParameterZ> {}
 
+/** A synchronization mode that the slave lists in its SII. */
+const opModeZ = z.object({
+  name: z.string().default(""),
+  assignActivate: z.number(),
+  sync0Cycle: z.number(),
+  sync0Factor: z.number(),
+  sync0Shift: z.number(),
+  sync1Factor: z.number(),
+  sync1Shift: z.number(),
+});
+export interface OpMode extends z.infer<typeof opModeZ> {}
+
 /** Formats a CoE object index as four hexadecimal digits, such as 0x1C12. */
 export const formatIndex = (index: number): string =>
   `0x${index.toString(16).toUpperCase().padStart(4, "0")}`;
@@ -67,6 +79,9 @@ export const slavePropertiesZ = z.object({
     .default(() => ({ channels: {} })),
   enabled: z.boolean().optional().default(true),
   startupParameters: z.array(startupParameterZ).default(() => []),
+  opModes: z.array(opModeZ).default(() => []),
+  /** The index in opModes of the mode the Driver sets up. Unset means automatic. */
+  dcMode: z.number().optional(),
 });
 export interface SlaveProperties extends z.infer<typeof slavePropertiesZ> {}
 
@@ -86,6 +101,7 @@ export const ZERO_SLAVE_PROPERTIES: SlaveProperties = {
   write: { channels: {} },
   enabled: true,
   startupParameters: [],
+  opModes: [],
 };
 
 export interface SlaveDevice extends device.Device<
