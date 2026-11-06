@@ -10,7 +10,6 @@
 package v2_test
 
 import (
-	"slices"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -28,17 +27,25 @@ import (
 var _ = Describe("RoleMigration", func() {
 	var db *gorp.DB
 	BeforeEach(func() { db = DeferClose(gorp.Wrap(memkv.New())) })
-	createRole := func(ctx SpecContext) role.Key {
+	createRoleWithKey := func(ctx SpecContext, key role.Key) role.Key {
 		GinkgoHelper()
-		r := role.Role{Key: uuid.New(), Name: "role"}
+		r := role.Role{Key: key, Name: "role"}
 		Expect(gorp.NewCreate[role.Key, role.Role]().Entry(&r).Exec(ctx, db)).
 			To(Succeed())
 		return r.Key
 	}
-	createPolicy := func(ctx SpecContext, parents ...role.Key) v2.Policy {
+	createRole := func(ctx SpecContext) role.Key {
+		GinkgoHelper()
+		return createRoleWithKey(ctx, uuid.New())
+	}
+	createPolicyWithKey := func(
+		ctx SpecContext,
+		key v2.Key,
+		parents ...role.Key,
+	) v2.Policy {
 		GinkgoHelper()
 		p := v2.Policy{
-			Key:     uuid.New(),
+			Key:     key,
 			Name:    "policy",
 			Objects: []resource.ID{{Type: resource.TypeChannel}},
 			Actions: []access.Action{access.ActionRetrieve},
@@ -56,6 +63,10 @@ var _ = Describe("RoleMigration", func() {
 		Expect(gorp.WrapWriter[string, ontology.Relationship](db).
 			Set(ctx, edges...)).To(Succeed())
 		return p
+	}
+	createPolicy := func(ctx SpecContext, parents ...role.Key) v2.Policy {
+		GinkgoHelper()
+		return createPolicyWithKey(ctx, uuid.New(), parents...)
 	}
 	migrate := func(ctx SpecContext) []v2.Policy {
 		GinkgoHelper()
@@ -84,27 +95,30 @@ var _ = Describe("RoleMigration", func() {
 	})
 
 	It("Should copy a policy under each role after the first", func(ctx SpecContext) {
-		roles := []role.Key{createRole(ctx), createRole(ctx)}
-		slices.SortFunc(roles, func(a, b role.Key) int { return a.Compare(b) })
-		p := createPolicy(ctx, roles[1], roles[0])
-		first, copied := p, p
-		first.Role = roles[0]
-		copied.Key, copied.Role = v2.CopyKey(p.Key, roles[1]), roles[1]
-		Expect(migrate(ctx)).To(ConsistOf(first, copied))
+		first := createRoleWithKey(
+			ctx,
+			uuid.MustParse("00000000-0000-4000-8000-000000000001"),
+		)
+		second := createRoleWithKey(
+			ctx,
+			uuid.MustParse("00000000-0000-4000-8000-000000000002"),
+		)
+		p := createPolicyWithKey(
+			ctx,
+			uuid.MustParse("11111111-1111-4111-8111-111111111111"),
+			second,
+			first,
+		)
+		original, copied := p, p
+		original.Role = first
+		copied.Key = uuid.MustParse("bcb81ae2-13bf-5b3a-8c8d-0e781e78a81c")
+		copied.Role = second
+		Expect(migrate(ctx)).To(ConsistOf(original, copied))
 	})
 
 	It("Should delete a policy that no stored role holds", func(ctx SpecContext) {
 		createPolicy(ctx)
 		createPolicy(ctx, uuid.New())
 		Expect(migrate(ctx)).To(BeEmpty())
-	})
-})
-
-var _ = Describe("CopyKey", func() {
-	It("Should derive one key for each policy and role", func() {
-		p, r := uuid.New(), uuid.New()
-		Expect(v2.CopyKey(p, r)).To(Equal(v2.CopyKey(p, r)))
-		Expect(v2.CopyKey(p, r)).ToNot(Equal(v2.CopyKey(p, uuid.New())))
-		Expect(v2.CopyKey(p, r)).ToNot(Equal(p))
 	})
 })

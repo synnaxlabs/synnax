@@ -21,4 +21,7 @@ import (
 var V0Migrations = []gorp.Migration{v0.NormalizeKeys, v0.Migration}
 
 // Migrations is the ordered migration chain for stored users.
-var Migrations = slices.Concat(V0Migrations, []gorp.Migration{v1.Migration})
+var Migrations = slices.Concat(
+	V0Migrations,
+	[]gorp.Migration{v1.Migration, v1.RolesMigration},
+)

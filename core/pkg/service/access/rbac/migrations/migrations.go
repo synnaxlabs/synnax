@@ -13,7 +13,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/builtin"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/migrations/v0"
-	v1 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/migrations/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 )
@@ -36,6 +35,5 @@ func New(cfg Config) []gorp.Migration {
 			Ontology: cfg.Ontology,
 			Roles:    cfg.Roles,
 		}),
-		v1.NewMigration(v1.MigrationConfig{User: cfg.User}),
 	}
 }

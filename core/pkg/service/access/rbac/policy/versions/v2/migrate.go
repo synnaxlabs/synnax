@@ -11,7 +11,6 @@ package v2
 
 import (
 	"context"
-	"crypto/sha1"
 	"slices"
 	"uuid"
 
@@ -23,46 +22,46 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
+	xuuid "github.com/synnaxlabs/x/uuid"
 )
 
 // Migration re-encodes each stored policy with an empty role.
 var Migration = migrate.NewEntry("v61_add_role", autoMigratePolicy)
 
 // RoleMigration moves each policy's parent role edge into its role field and deletes
-// the edge. A policy under several roles is copied under each extra role with CopyKey,
-// and a policy under no role is deleted.
+// the edge. A policy under several roles is copied under each extra role, with a key
+// that every node derives the same way from the policy and the role. A policy under no
+// role is deleted.
 var RoleMigration = migrate.New("v61_policy_role", migrateRoles)
 
-// copyNamespace is the UUIDv5 namespace of the keys that CopyKey derives. Changing it
+// copyNamespace is the UUIDv5 namespace of the keys that copyKey derives. Changing it
 // gives each node a different key for the same copy.
 var copyNamespace = uuid.MustParse("6f1d2a8c-3b4e-5c7a-9d21-8e4f0b6a1c35")
 
-// CopyKey returns the key of the copy of the policy with key policy that the migration
-// makes under the role with key r.
-func CopyKey(policy Key, r role.Key) Key {
-	h := sha1.New()
-	h.Write(copyNamespace[:])
-	h.Write(policy[:])
-	h.Write(r[:])
-	var k uuid.UUID
-	copy(k[:], h.Sum(nil))
-	k[6] = (k[6] & 0x0f) | 0x50
-	k[8] = (k[8] & 0x3f) | 0x80
-	return k
+func copyKey(policy Key, r role.Key) Key {
+	return xuuid.NewV5(copyNamespace, policy.String()+"/"+r.String())
 }
 
 func migrateRoles(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
-	edges, err := collect(ctx, tx, func(r ontology.Relationship) bool {
-		return r.Type == ontology.RelationshipTypeParentOf &&
-			r.From.Type == resource.TypeRole &&
-			r.To.Type == resource.TypePolicy
-	})
+	edges, err := ontology.RetrieveRelationships(
+		ctx,
+		tx,
+		func(r ontology.Relationship) bool {
+			return r.Type == ontology.RelationshipTypeParentOf &&
+				r.From.Type == resource.TypeRole &&
+				r.To.Type == resource.TypePolicy
+		},
+	)
 	if err != nil {
 		return err
 	}
-	policies, err := collect(ctx, tx, func(Policy) bool { return true })
-	if err != nil || (len(policies) == 0 && len(edges) == 0) {
+	var policies []Policy
+	if err = gorp.NewRetrieve[Key, Policy]().Entries(&policies).
+		Exec(ctx, tx); err != nil {
 		return err
+	}
+	if len(policies) == 0 && len(edges) == 0 {
+		return nil
 	}
 	roles := gorp.WrapReader[role.Key, role.Role](tx)
 	byPolicy := make(map[Key][]role.Key, len(policies))
@@ -100,7 +99,7 @@ func migrateRoles(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) err
 			c.Objects = slices.Clone(p.Objects)
 			c.Actions = slices.Clone(p.Actions)
 			if i > 0 {
-				c.Key = CopyKey(p.Key, r)
+				c.Key = copyKey(p.Key, r)
 			}
 			set = append(set, c)
 		}
@@ -111,27 +110,5 @@ func migrateRoles(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) err
 	if err = gorp.WrapWriter[Key, Policy](tx).Delete(ctx, deleted...); err != nil {
 		return err
 	}
-	keys := make([]string, len(edges))
-	for i, e := range edges {
-		keys[i] = e.GorpKey()
-	}
-	return gorp.WrapWriter[string, ontology.Relationship](tx).Delete(ctx, keys...)
-}
-
-func collect[K gorp.Key, E gorp.Entry[K]](
-	ctx context.Context,
-	tx gorp.Tx,
-	keep func(E) bool,
-) (out []E, err error) {
-	iter, err := gorp.WrapReader[K, E](tx).OpenIterator(gorp.IterOptions{})
-	if err != nil {
-		return nil, err
-	}
-	defer func() { err = errors.Combine(err, iter.Close()) }()
-	for iter.First(); iter.Valid(); iter.Next() {
-		if e := iter.Value(ctx); e != nil && keep(*e) {
-			out = append(out, *e)
-		}
-	}
-	return out, iter.Error()
+	return ontology.DeleteRelationships(ctx, tx, edges...)
 }
