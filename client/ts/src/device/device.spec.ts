@@ -12,7 +12,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { device } from "@/device";
-import { NotFoundError } from "@/index";
+import { NotFoundError, ValidationError } from "@/index";
 import { query } from "@/query";
 import { status } from "@/status";
 import {
@@ -391,6 +391,51 @@ describe("Device", async () => {
       expect(retrieved.length).toBe(2);
       expect(retrieved[0].key).toBe(d1.key);
       expect(retrieved[1].key).toBe(d2.key);
+    });
+
+    it("should retrieve devices by a key list in key order", async () => {
+      const [d1, d2] = await client.devices.create(
+        ["Dev1", "Dev2"].map((location) => ({
+          key: id.create(),
+          rack: testRack.key,
+          location,
+          name: location,
+          make: "ni",
+          model: "dog",
+          properties: {},
+        })),
+      );
+      const retrieved = await client.devices.retrieve([d2.key, d1.key]);
+      expect(retrieved.map(({ key }) => key)).toEqual([d2.key, d1.key]);
+    });
+
+    it("should throw a NotFoundError for a missing key in a key list", async () => {
+      const d = await client.devices.create({
+        key: id.create(),
+        rack: testRack.key,
+        location: "Dev1",
+        name: "test",
+        make: "ni",
+        model: "dog",
+        properties: {},
+      });
+      const missing = id.create();
+      await expect(client.devices.retrieve([d.key, missing])).rejects.toThrow(
+        new NotFoundError(`device with key ${missing} not found`),
+      );
+    });
+
+    it("should reject a plain key beside other fields", async () => {
+      await expect(
+        // @ts-expect-error - a plain key addresses one device, so it takes no filter.
+        client.devices.retrieve({ key: "device", make: "ni" }),
+      ).rejects.toThrow(
+        new ValidationError(
+          "device params address a single key but do not match the single-query " +
+            "schema.\nFailed to parse device single query params (1 issue)\n\n  {\n" +
+            '    "key": "device",\n  ✗ "make": "ni"  × unexpected key\n  }',
+        ),
+      );
     });
 
     it("should treat a missing key as a non-match", async () => {
@@ -784,6 +829,15 @@ describe("Device", async () => {
         });
         expect(retrieved.map(({ key }) => key)).toEqual([d.key]);
         expect(retrieved[0].properties.rate).toBe(100);
+      });
+
+      it("should reject a plain key beside other fields", async () => {
+        const params = { key: id.create(), make: "ni", schemas };
+        await expect(client.devices.retrieve(params)).rejects.toThrow(
+          new ValidationError(
+            "device params address a single key but hold other fields.",
+          ),
+        );
       });
 
       it("should create and retrieve with typed make and model", async () => {

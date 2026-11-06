@@ -24,6 +24,7 @@ import {
   statusZ,
 } from "@/device/types.gen";
 import { matches, retrieveInputZ, serverComputed } from "@/device/where.gen";
+import { ValidationError } from "@/errors";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { type status } from "@/status";
@@ -55,7 +56,7 @@ const emptyResZ = z.object({});
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
 const filterParamsZ = retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape);
-type FilterParams = z.input<typeof filterParamsZ>;
+type FilterParams = query.RequestInput<typeof filterParamsZ>;
 
 const retrieveMultiParamsZ = z.union([
   query.keysRequestZ(keyZ),
@@ -241,7 +242,7 @@ export class Client extends query.Retriever<
   ): Promise<Array<Device<Properties, Make, Model>>>;
 
   async retrieve(
-    params: query.RequestInput<typeof retrieveMultiParamsZ>,
+    params: Key[] | query.RequestInput<typeof retrieveMultiParamsZ>,
   ): Promise<Array<Device>>;
 
   async retrieve(
@@ -255,6 +256,10 @@ export class Client extends query.Retriever<
     // Schemas are not hashable, so schema-typed retrieves bypass the query
     // cache and hit the network, still writing records through.
     if (schemas != null) {
+      if (!isSingle && "key" in rest && typeof rest.key === "string")
+        throw new ValidationError(
+          "device params address a single key but hold other fields.",
+        );
       const devices = await this.fetchThrough(rest, schemas);
       checkForMultipleOrNoResults("Device", rest, devices, isSingle);
       return isSingle ? devices[0] : devices;

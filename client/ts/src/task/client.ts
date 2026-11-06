@@ -25,6 +25,7 @@ import {
 import { z } from "zod";
 
 import { actions } from "@/actions";
+import { ValidationError } from "@/errors";
 import { type framer } from "@/framer";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
@@ -317,9 +318,14 @@ const singleRetrieveParamsZ = z.union([
       includeStatus,
     })),
   z
-    .strictObject({ type: z.string(), rack: rackKeyZ.optional() })
-    .transform(({ type, rack }): RetrieveRequest => ({
+    .strictObject({
+      type: z.string(),
+      rack: rackKeyZ.optional(),
+      includeStatus: z.boolean().optional(),
+    })
+    .transform(({ type, rack, includeStatus }): RetrieveRequest => ({
       where: singleWhere({ type, rack }),
+      includeStatus,
     })),
 ]);
 /** Names one task: by key, by name, or by type and rack. */
@@ -329,7 +335,7 @@ export type RetrieveSingleParams = z.input<typeof singleRetrieveParamsZ>;
 export type RetrieveMultipleParams = RetrieveRequest;
 
 const filterParamsZ = retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape);
-type FilterParams = z.input<typeof filterParamsZ>;
+type FilterParams = query.RequestInput<typeof filterParamsZ>;
 
 const retrieveParamsZ = z.union([
   singleRetrieveParamsZ,
@@ -353,7 +359,11 @@ const singleQueryZ = z
   .union([
     z.strictObject({ key: keyZ, includeStatus: z.boolean().optional() }),
     z.strictObject({ name: z.string(), includeStatus: z.boolean().optional() }),
-    z.strictObject({ type: z.string(), rack: rackKeyZ.optional() }),
+    z.strictObject({
+      type: z.string(),
+      rack: rackKeyZ.optional(),
+      includeStatus: z.boolean().optional(),
+    }),
     keyZ.transform((key) => ({ key })),
   ])
   .transform(normalizeSingle);
@@ -635,7 +645,7 @@ export class Client extends query.Retriever<
     params: (RetrieveMultipleParams | FilterParams) & RetrieveSchemas<S>,
   ): Promise<Task<S>[]>;
   async retrieve(
-    params: query.RequestInput<typeof retrieveMultiParamsZ>,
+    params: Key[] | query.RequestInput<typeof retrieveMultiParamsZ>,
   ): Promise<Task[]>;
   async retrieve<S extends Schemas = Schemas>(
     rawParams: Key | Key[] | ((RetrieveParams | FilterParams) & RetrieveSchemas<S>),
@@ -648,6 +658,10 @@ export class Client extends query.Retriever<
     // Schema-parametrized retrieves validate config/status for one caller;
     // their results are not shared through the cache.
     if (schemas != null) {
+      if (!isSingle && "key" in params && typeof params.key === "string")
+        throw new ValidationError(
+          "task params address a single key but hold other fields.",
+        );
       const sugared = await this.execRetrieve<S>(params, schemas);
       checkForMultipleOrNoResults("Task", params, sugared, isSingle);
       return isSingle ? sugared[0] : sugared;
