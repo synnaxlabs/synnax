@@ -236,6 +236,19 @@ export class Client extends query.Retriever<
     rename();
   }
 
+  /**
+   * Changes the labels of the cached status under the key with update, and returns the
+   * rollback. It skips a status the cache does not hold.
+   */
+  relabel(
+    key: Key,
+    update: (labels: label.Key[]) => label.Key[],
+  ): destructor.Destructor {
+    return this.store.set(key, (p) =>
+      p == null ? undefined : { ...p, labels: update(p.labels) },
+    );
+  }
+
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const drop = () => [this.store.delete(keysArr)];

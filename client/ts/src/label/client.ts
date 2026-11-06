@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, primitive, zod } from "@synnaxlabs/x";
+import { array, type destructor, primitive, unique, zod } from "@synnaxlabs/x";
 import z from "zod";
 
 import { actions } from "@/actions";
@@ -61,10 +61,21 @@ export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 
 interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
 
+/**
+ * Changes the labels of the cached record under the key with update, and returns the
+ * rollback. It skips a record the cache does not hold.
+ */
+export type Relabel = (
+  key: string,
+  update: (labels: Key[]) => Key[],
+) => destructor.Destructor;
+
 /** Config for {@link Client}. */
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
+  /** Changes the cached labels of the records of each resource type that holds them. */
+  relabel: Record<string, Relabel>;
 }
 
 /**
@@ -117,11 +128,16 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
    * @throws {ValidationError} if the ID does not name a range or a status.
    */
   async label(id: resource.ID, labels: Key[], opts: SetOptions = {}): Promise<void> {
-    await this.cfg.unary.send(
-      "/label/set",
-      { id, labels, replace: opts.replace },
-      setReqZ,
-      emptyResZ,
+    await this.relabel(
+      id,
+      (prev) => (opts.replace === true ? labels : unique.unique([...prev, ...labels])),
+      async () =>
+        await this.cfg.unary.send(
+          "/label/set",
+          { id, labels, replace: opts.replace },
+          setReqZ,
+          emptyResZ,
+        ),
     );
   }
 
@@ -130,7 +146,32 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
    * @throws {ValidationError} if the ID does not name a range or a status.
    */
   async remove(id: resource.ID, labels: Key[]): Promise<void> {
-    await this.cfg.unary.send("/label/remove", { id, labels }, removeReqZ, emptyResZ);
+    await this.relabel(
+      id,
+      (prev) => prev.filter((key) => !labels.includes(key)),
+      async () =>
+        await this.cfg.unary.send(
+          "/label/remove",
+          { id, labels },
+          removeReqZ,
+          emptyResZ,
+        ),
+    );
+  }
+
+  /**
+   * Applies update to the cached labels of the record before commit and again after,
+   * since a change that lands during commit can undo the first write. Rolls back when
+   * commit fails.
+   */
+  private async relabel(
+    id: resource.ID,
+    update: (labels: Key[]) => Key[],
+    commit: () => Promise<unknown>,
+  ): Promise<void> {
+    const apply = () => this.cfg.relabel[id.type]?.(id.key, update) ?? (() => {});
+    await query.optimistic({ rollbacks: [apply()], commit });
+    apply();
   }
 
   async create(label: New, opts?: query.WriteOptions<Label[]>): Promise<Label>;

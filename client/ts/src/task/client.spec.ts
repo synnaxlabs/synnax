@@ -79,7 +79,7 @@ const createStreamedClient = async () => {
   });
   onTestFinished(async () => await cache.close());
   const ont = new ontology.Client({ unary, cache });
-  const labels = new label.Client({ unary, cache });
+  const labels = new label.Client({ unary, cache, relabel: {} });
   const coreURL = new url.URL(TEST_CORE_ADDRESS);
   const frames = new framer.Client({
     stream: new WebSocketClient(coreURL, binary.JSON_CODEC),

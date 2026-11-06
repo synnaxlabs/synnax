@@ -464,6 +464,19 @@ export class Client extends query.Retriever<
   }
 
   /**
+   * Changes the labels of the cached range under the key with update, and returns the
+   * rollback. It skips a range the cache does not hold.
+   */
+  relabel(
+    key: Key,
+    update: (labels: label.Key[]) => label.Key[],
+  ): destructor.Destructor {
+    return this.store.set(key, (p) =>
+      p == null ? undefined : this.sugarOne({ ...p.payload, labels: update(p.labels) }),
+    );
+  }
+
+  /**
    * Applies actions to the cached range and sends them to the Core. Paths and values
    * take the camelCase form of the cached range. Returns false without side effects
    * when the range is not cached.
