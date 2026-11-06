@@ -151,10 +151,10 @@ export const watch = <
  * 1. exact-key — `keyOf` returns a key: track that entry; deletion flips the
  *    answer to deleted.
  * 2. client-checkable — `matches` compares a record against the query:
- *    admit/evict exactly, no network. A positive `limit` keeps rule 2: below the
- *    limit the answer holds every match; at the limit it holds some `limit` of
- *    them, not necessarily the server's first. A full answer that loses a member
- *    refetches to fill the slot.
+ *    admit/evict exactly, no network. A record `matches` cannot decide refetches. A
+ *    positive `limit` keeps rule 2: below the limit the answer holds every match; at
+ *    the limit it holds some `limit` of them, not necessarily the server's first. A
+ *    full answer that loses a member refetches to fill the slot.
  * 3. server-computed — any other field named in `serverFields` is set on the
  *    query, `serverComputed` holds, or neither `keyOf` nor `matches` applies:
  *    debounced wholesale refetch.
@@ -190,8 +190,11 @@ export interface SpaceConfig<
    * subscribe, so a fully cached key set never fetches.
    */
   keysOf?: (params: P) => K[] | null;
-  /** Rule 2: whether a record satisfies the query. Pure; no network. */
-  matches?: (record: V, params: P) => boolean;
+  /**
+   * Rule 2: whether a record satisfies the query. Pure; no network. Null when the
+   * client cannot decide the record, which refetches the query.
+   */
+  matches?: (record: V, params: P) => boolean | null;
   /**
    * Query fields only the server can evaluate (searchTerm, limit, offset).
    * A query instance with any of them set is maintained by rule 3, except a
@@ -887,9 +890,15 @@ export class Space<
     const admitted: K[] = [];
     let lastEvicted: K | null = null;
     let touched = false;
+    let undecided = false;
     for (const key of new Set(keys)) {
       const entry = table.get(key);
-      const matched = entry != null && matches!(entry, query.params);
+      const matched = entry == null ? false : matches!(entry, query.params);
+      if (matched == null) {
+        undecided = true;
+        touched ||= memberSet.has(key);
+        continue;
+      }
       if (matched === memberSet.has(key)) {
         touched ||= matched;
         continue;
@@ -902,6 +911,7 @@ export class Space<
         lastEvicted = key;
       }
     }
+    if (undecided) this.scheduleRefetch(query);
     if (admitted.length === 0 && lastEvicted == null) return touched;
     const limit = this.limitOf(query.params);
     const kept = query.state.keys.filter((k) => memberSet.has(k));
