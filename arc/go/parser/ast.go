@@ -291,6 +291,40 @@ func GetPrimaryExpression(expr IExpressionContext) IPrimaryExpressionContext {
 	return postfix.PrimaryExpression()
 }
 
+// SoleOperand returns the primary expression node reduces to after removing parentheses
+// and unary minus, and whether the minus signs negate it. Returns nil if node contains
+// any other operator.
+func SoleOperand(node antlr.Tree) (IPrimaryExpressionContext, bool) {
+	if primary, ok := node.(IPrimaryExpressionContext); ok {
+		if primary.LPAREN() != nil && primary.Expression() != nil {
+			return SoleOperand(primary.Expression())
+		}
+		return primary, false
+	}
+	unary, isUnary := node.(IUnaryExpressionContext)
+	if isUnary && unary.NOT() != nil {
+		return nil, false
+	}
+	var sole antlr.Tree
+	for _, child := range node.GetChildren() {
+		if _, ok := child.(antlr.TerminalNode); ok {
+			continue
+		}
+		if sole != nil {
+			return nil, false
+		}
+		sole = child
+	}
+	if sole == nil {
+		return nil, false
+	}
+	primary, negated := SoleOperand(sole)
+	if primary != nil && isUnary && unary.MINUS() != nil {
+		negated = !negated
+	}
+	return primary, negated
+}
+
 // QualifiedNameParts returns the head and tail of a qualified identifier
 // (e.g., "math" and "avg" for `math.avg`). Reads the terminal children
 // directly so it works when either side is a lexer keyword (AUTHORITY on

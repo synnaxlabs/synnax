@@ -22,6 +22,46 @@ var _ = Describe("AST Utilities", func() {
 		return MustSucceed(parser.ParseExpression(code))
 	}
 
+	Describe("SoleOperand", func() {
+		DescribeTable("Should remove parentheses and minus signs",
+			func(code, name string, expected bool) {
+				primary, negated := parser.SoleOperand(parseExpr(code))
+				Expect(primary).ToNot(BeNil())
+				Expect(primary.GetText()).To(Equal(name))
+				Expect(negated).To(Equal(expected))
+			},
+			Entry("bare name", "x", "x", false),
+			Entry("qualified name", "math.nan", "math.nan", false),
+			Entry("parentheses", "(x)", "x", false),
+			Entry("nested parentheses", "((x))", "x", false),
+			Entry("minus", "-x", "x", true),
+			Entry("double minus", "--x", "x", false),
+			Entry("minus on parentheses", "-(x)", "x", true),
+			Entry("minus in parentheses", "(-x)", "x", true),
+			Entry("minus on both sides", "-(-x)", "x", false),
+			Entry("literal", "1.5", "1.5", false),
+		)
+
+		DescribeTable("Should reject any other operator",
+			func(code string) {
+				primary, negated := parser.SoleOperand(parseExpr(code))
+				Expect(primary).To(BeNil())
+				Expect(negated).To(BeFalse())
+			},
+			Entry("not", "not x"),
+			Entry("not in parentheses", "(not x)"),
+			Entry("minus on not", "-(not x)"),
+			Entry("addition", "x + y"),
+			Entry("multiplication", "x * y"),
+			Entry("power", "x ^ 2"),
+			Entry("equality", "x == y"),
+			Entry("comparison", "x < y"),
+			Entry("logical", "x and y"),
+			Entry("call", "f(x)"),
+			Entry("index", "x[0]"),
+		)
+	})
+
 	Describe("IsLiteral", func() {
 		DescribeTable(
 			"true cases",

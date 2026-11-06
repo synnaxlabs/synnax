@@ -29,6 +29,20 @@ In the messages below, `<name>` stands for a value that changes.
 <Problem.List>
 
 <Problem.Item
+  code="ARC2004"
+  severity="warning"
+  message={[
+    "== with math.nan is always false, use math.is_nan instead",
+    "!= with math.nan is always true, use math.is_nan instead",
+  ]}
+>
+  <Problem.Cause>
+    The code compares a value to `math.nan`. NaN is not equal to any value.
+  </Problem.Cause>
+  <Problem.Fix>Use `math.is_nan(x)`.</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item
   code="ARC3001"
   severity="error"
   message={[
