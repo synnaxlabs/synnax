@@ -33,9 +33,17 @@ var _ = Describe("Task links", func() {
 
 	newArc := func(ctx SpecContext, tx gorp.Tx) arc.Arc {
 		GinkgoHelper()
-		created := arc.Arc{Name: "linked", Mode: arc.ModeText, Text: newText("a -> b")}
+		created := newAutomation(arc.Base{
+			Name:   "linked-" + uuid.New().String(),
+			Source: arc.Source{Variant: arc.TextSource{Text: newText("a -> b")}},
+		})
 		Expect(svc.NewWriter(tx).Create(ctx, &created)).To(Succeed())
 		return created
+	}
+	editText := func(a *arc.Arc) {
+		b := a.Base()
+		b.Source.Variant = arc.TextSource{Text: newText("c -> d")}
+		a.SetBase(b)
 	}
 	newTask := func(key arc.Key) task.Task {
 		return task.Task{
@@ -77,13 +85,13 @@ var _ = Describe("Task links", func() {
 
 	Describe("Create", func() {
 		It("Should link a task to the Arc its config names", func(ctx SpecContext) {
-			t := createTask(ctx, tx, a.Key)
-			Expect(taskKeys(ctx, tx, a.Key)).To(ConsistOf([]task.Key{t.Key}))
+			t := createTask(ctx, tx, a.Base().Key)
+			Expect(taskKeys(ctx, tx, a.Base().Key)).To(ConsistOf([]task.Key{t.Key}))
 		})
 		It(
 			"Should keep one link when the task is written again",
 			func(ctx SpecContext) {
-				t := createTask(ctx, tx, a.Key)
+				t := createTask(ctx, tx, a.Base().Key)
 				Expect(otg.NewWriter(tx).DefineRelationships(
 					ctx,
 					a.OntologyID(),
@@ -91,18 +99,20 @@ var _ = Describe("Task links", func() {
 					t.OntologyID(),
 				)).To(Succeed())
 				Expect(taskSvc.NewWriter(tx).Create(ctx, &t)).To(Succeed())
-				Expect(taskKeys(ctx, tx, a.Key)).To(ConsistOf([]task.Key{t.Key}))
+				Expect(taskKeys(ctx, tx, a.Base().Key)).To(ConsistOf([]task.Key{t.Key}))
 			},
 		)
 		It(
 			"Should move the link when the task names another Arc",
 			func(ctx SpecContext) {
-				t := createTask(ctx, tx, a.Key)
+				t := createTask(ctx, tx, a.Base().Key)
 				other := newArc(ctx, tx)
-				t.Config = msgpack.EncodedJSON{"arc_key": other.Key.String()}
+				t.Config = msgpack.EncodedJSON{"arc_key": other.Base().Key.String()}
 				Expect(taskSvc.NewWriter(tx).Create(ctx, &t)).To(Succeed())
-				Expect(taskKeys(ctx, tx, a.Key)).To(BeEmpty())
-				Expect(taskKeys(ctx, tx, other.Key)).To(ConsistOf([]task.Key{t.Key}))
+				Expect(taskKeys(ctx, tx, a.Base().Key)).To(BeEmpty())
+				Expect(
+					taskKeys(ctx, tx, other.Base().Key),
+				).To(ConsistOf([]task.Key{t.Key}))
 			},
 		)
 		It("Should link nothing when the config names no Arc", func(ctx SpecContext) {
@@ -123,8 +133,8 @@ var _ = Describe("Task links", func() {
 			))
 		})
 		It("Should reject a task that names a deleted Arc", func(ctx SpecContext) {
-			Expect(svc.NewWriter(tx).Delete(ctx, a.Key)).To(Succeed())
-			t := newTask(a.Key)
+			Expect(svc.NewWriter(tx).Delete(ctx, a.Base().Key)).To(Succeed())
+			t := newTask(a.Base().Key)
 			Expect(taskSvc.NewWriter(tx).Create(ctx, &t)).
 				To(MatchError(validate.ErrValidation))
 		})
@@ -133,22 +143,26 @@ var _ = Describe("Task links", func() {
 	Describe("Dispatch", func() {
 		It("Should move the link when a set names another Arc", func(ctx SpecContext) {
 			first, second := newArc(ctx, nil), newArc(ctx, nil)
-			t := createTask(ctx, nil, first.Key)
-			Expect(setArcKey(ctx, t, second.Key)).To(Succeed())
-			Expect(taskKeys(ctx, nil, first.Key)).To(BeEmpty())
-			Expect(taskKeys(ctx, nil, second.Key)).To(ConsistOf([]task.Key{t.Key}))
+			t := createTask(ctx, nil, first.Base().Key)
+			Expect(setArcKey(ctx, t, second.Base().Key)).To(Succeed())
+			Expect(taskKeys(ctx, nil, first.Base().Key)).To(BeEmpty())
+			Expect(
+				taskKeys(ctx, nil, second.Base().Key),
+			).To(ConsistOf([]task.Key{t.Key}))
 		})
 		It("Should reject a set that names a missing Arc", func(ctx SpecContext) {
 			first := newArc(ctx, nil)
-			t := createTask(ctx, nil, first.Key)
+			t := createTask(ctx, nil, first.Base().Key)
 			Expect(setArcKey(ctx, t, uuid.New())).To(MatchError(validate.ErrValidation))
-			Expect(taskKeys(ctx, nil, first.Key)).To(ConsistOf([]task.Key{t.Key}))
+			Expect(
+				taskKeys(ctx, nil, first.Base().Key),
+			).To(ConsistOf([]task.Key{t.Key}))
 		})
 		It("Should rename a task whose Arc is gone", func(ctx SpecContext) {
 			first := newArc(ctx, nil)
-			t := createTask(ctx, nil, first.Key)
-			unlink(ctx, nil, first.Key, t)
-			Expect(svc.NewWriter(nil).Delete(ctx, first.Key)).To(Succeed())
+			t := createTask(ctx, nil, first.Base().Key)
+			unlink(ctx, nil, first.Base().Key, t)
+			Expect(svc.NewWriter(nil).Delete(ctx, first.Base().Key)).To(Succeed())
 			MustSucceed(taskSvc.Dispatch(ctx, t.Key, "", []task.Action{
 				task.NewSetAction(task.SetPayload{
 					Path:  []string{"name"},
@@ -160,19 +174,19 @@ var _ = Describe("Task links", func() {
 
 	Describe("Copy", func() {
 		It("Should link a copy to the Arc", func(ctx SpecContext) {
-			t := createTask(ctx, tx, a.Key)
+			t := createTask(ctx, tx, a.Base().Key)
 			c := MustSucceed(taskSvc.NewWriter(tx).Copy(ctx, t.Key, "copy", false))
-			Expect(taskKeys(ctx, tx, a.Key)).To(ConsistOf(t.Key, c.Key))
+			Expect(taskKeys(ctx, tx, a.Base().Key)).To(ConsistOf(t.Key, c.Key))
 		})
 		It(
 			"Should sync the task and its copy after an Arc edit",
 			func(ctx SpecContext) {
 				linked := newArc(ctx, nil)
-				t := createTask(ctx, nil, linked.Key)
+				t := createTask(ctx, nil, linked.Base().Key)
 				c := MustSucceed(taskSvc.NewWriter(nil).Copy(ctx, t.Key, "copy", false))
-				linked.Text = newText("c -> d")
+				editText(&linked)
 				Expect(svc.NewWriter(nil).Create(ctx, &linked)).To(Succeed())
-				hash := MustSucceed(arc.Hash(linked))
+				hash := MustSucceed(arc.Hash(linked.Base()))
 				for _, key := range []task.Key{t.Key, c.Key} {
 					var stored task.Task
 					Expect(taskSvc.NewRetrieve().
@@ -184,10 +198,10 @@ var _ = Describe("Task links", func() {
 			},
 		)
 		It("Should not link a snapshot, so Arc delete keeps it", func(ctx SpecContext) {
-			t := createTask(ctx, tx, a.Key)
+			t := createTask(ctx, tx, a.Base().Key)
 			c := MustSucceed(taskSvc.NewWriter(tx).Copy(ctx, t.Key, "copy", true))
-			Expect(taskKeys(ctx, tx, a.Key)).To(ConsistOf([]task.Key{t.Key}))
-			Expect(svc.NewWriter(tx).Delete(ctx, a.Key)).To(Succeed())
+			Expect(taskKeys(ctx, tx, a.Base().Key)).To(ConsistOf([]task.Key{t.Key}))
+			Expect(svc.NewWriter(tx).Delete(ctx, a.Base().Key)).To(Succeed())
 			Expect(taskSvc.NewRetrieve().
 				Where(task.MatchKeys(c.Key)).
 				Exec(ctx, tx)).To(Succeed())
@@ -199,25 +213,27 @@ var _ = Describe("Task links", func() {
 			"Should not undo a task move that lands during a sync",
 			func(ctx SpecContext) {
 				first, second := newArc(ctx, nil), newArc(ctx, nil)
-				t := createTask(ctx, nil, first.Key)
+				t := createTask(ctx, nil, first.Base().Key)
 				var fired atomic.Bool
 				moved := make(chan error, 1)
 				hook := func(written task.Task) {
 					if written.Key != t.Key || !fired.CompareAndSwap(false, true) {
 						return
 					}
-					go func() { moved <- setArcKey(ctx, t, second.Key) }()
+					go func() { moved <- setArcKey(ctx, t, second.Base().Key) }()
 					time.Sleep(100 * time.Millisecond)
 				}
 				onTaskLink.Store(&hook)
 				DeferCleanup(func() { onTaskLink.Store(nil) })
-				first.Text = newText("c -> d")
+				editText(&first)
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return svc.NewWriter(tx).Create(ctx, &first)
 				})).To(Succeed())
 				Eventually(moved).Should(Receive(BeNil()))
-				Expect(taskKeys(ctx, nil, first.Key)).To(BeEmpty())
-				Expect(taskKeys(ctx, nil, second.Key)).To(ConsistOf([]task.Key{t.Key}))
+				Expect(taskKeys(ctx, nil, first.Base().Key)).To(BeEmpty())
+				Expect(
+					taskKeys(ctx, nil, second.Base().Key),
+				).To(ConsistOf([]task.Key{t.Key}))
 			},
 		)
 	})
@@ -227,17 +243,17 @@ var _ = Describe("Task links", func() {
 			t := task.Task{
 				Key:    uuid.New(),
 				Type:   "other",
-				Config: msgpack.EncodedJSON{"arc_key": a.Key.String()},
+				Config: msgpack.EncodedJSON{"arc_key": a.Base().Key.String()},
 			}
 			Expect(arc.NewTaskLink(otg)(ctx, tx, t)).To(Succeed())
-			Expect(taskKeys(ctx, tx, a.Key)).To(BeEmpty())
+			Expect(taskKeys(ctx, tx, a.Base().Key)).To(BeEmpty())
 		})
 	})
 
 	Describe("Delete", func() {
 		It("Should delete a task that had no ontology call", func(ctx SpecContext) {
-			t := createTask(ctx, tx, a.Key)
-			Expect(svc.NewWriter(tx).Delete(ctx, a.Key)).To(Succeed())
+			t := createTask(ctx, tx, a.Base().Key)
+			Expect(svc.NewWriter(tx).Delete(ctx, a.Base().Key)).To(Succeed())
 			Expect(taskSvc.NewRetrieve().
 				Where(task.MatchKeys(t.Key)).
 				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
@@ -252,16 +268,16 @@ var _ = Describe("Task links", func() {
 			)).To(Succeed())
 		}
 		It("Should link a stored task with no link", func(ctx SpecContext) {
-			t := createTask(ctx, tx, a.Key)
-			unlink(ctx, tx, a.Key, t)
-			Expect(taskKeys(ctx, tx, a.Key)).To(BeEmpty())
+			t := createTask(ctx, tx, a.Base().Key)
+			unlink(ctx, tx, a.Base().Key, t)
+			Expect(taskKeys(ctx, tx, a.Base().Key)).To(BeEmpty())
 			run(ctx)
-			Expect(taskKeys(ctx, tx, a.Key)).To(ConsistOf([]task.Key{t.Key}))
+			Expect(taskKeys(ctx, tx, a.Base().Key)).To(ConsistOf([]task.Key{t.Key}))
 		})
 		It("Should skip a task whose Arc is gone", func(ctx SpecContext) {
-			t := createTask(ctx, tx, a.Key)
-			unlink(ctx, tx, a.Key, t)
-			Expect(svc.NewWriter(tx).Delete(ctx, a.Key)).To(Succeed())
+			t := createTask(ctx, tx, a.Base().Key)
+			unlink(ctx, tx, a.Base().Key, t)
+			Expect(svc.NewWriter(tx).Delete(ctx, a.Base().Key)).To(Succeed())
 			run(ctx)
 			Expect(taskSvc.NewRetrieve().
 				Where(task.MatchKeys(t.Key)).

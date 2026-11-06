@@ -216,12 +216,16 @@ type Transport struct {
 	StatusRename         freighter.UnaryServer[status.RenameRequest, struct{}]
 	StatusSetByKeyOrName freighter.UnaryServer[status.SetByKeyOrNameRequest, status.SetByKeyOrNameResponse]
 	// ARC
-	ArcCreate     freighter.UnaryServer[arc.CreateRequest, arc.CreateResponse]
-	ArcDelete     freighter.UnaryServer[arc.DeleteRequest, struct{}]
-	ArcRetrieve   freighter.UnaryServer[arc.RetrieveRequest, arc.RetrieveResponse]
-	ArcDispatch   freighter.UnaryServer[arc.DispatchRequest, struct{}]
-	ArcUpdateTask freighter.UnaryServer[arc.UpdateTaskRequest, arc.UpdateTaskResponse]
-	ArcLSP        freighter.StreamServer[arc.LSPMessage, arc.LSPMessage]
+	ArcCreate          freighter.UnaryServer[arc.CreateRequest, arc.CreateResponse]
+	ArcDelete          freighter.UnaryServer[arc.DeleteRequest, struct{}]
+	ArcRetrieve        freighter.UnaryServer[arc.RetrieveRequest, arc.RetrieveResponse]
+	ArcDispatch        freighter.UnaryServer[arc.DispatchRequest, struct{}]
+	ArcUpdateTask      freighter.UnaryServer[arc.UpdateTaskRequest, arc.UpdateTaskResponse]
+	ArcCreateDirectory freighter.UnaryServer[arc.CreateDirectoryRequest, arc.CreateDirectoryResponse]
+	ArcRenameDirectory freighter.UnaryServer[arc.RenameDirectoryRequest, struct{}]
+	ArcDeleteDirectory freighter.UnaryServer[arc.DeleteDirectoryRequest, struct{}]
+	ArcMove            freighter.UnaryServer[arc.MoveRequest, struct{}]
+	ArcLSP             freighter.StreamServer[arc.LSPMessage, arc.LSPMessage]
 	// VIEW
 	ViewCreate   freighter.UnaryServer[view.CreateRequest, view.CreateResponse]
 	ViewRetrieve freighter.UnaryServer[view.RetrieveRequest, view.RetrieveResponse]
@@ -478,6 +482,10 @@ func (l *Layer) BindTo(t Transport) {
 		t.ArcRetrieve,
 		t.ArcDispatch,
 		t.ArcUpdateTask,
+		t.ArcCreateDirectory,
+		t.ArcRenameDirectory,
+		t.ArcDeleteDirectory,
+		t.ArcMove,
 		t.ArcLSP,
 
 		// IMPORT/EXPORT
@@ -705,6 +713,16 @@ func (l *Layer) BindTo(t Transport) {
 	t.ArcRetrieve.BindHandler(l.Arc.Retrieve)
 	t.ArcDispatch.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Arc.Dispatch))
 	t.ArcUpdateTask.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Arc.UpdateTask))
+	t.ArcCreateDirectory.BindHandler(
+		fgorp.CreateWriteUnaryHandler(db, l.Arc.CreateDirectory),
+	)
+	t.ArcRenameDirectory.BindHandler(
+		fgorp.CreateWriteUnaryHandler(db, l.Arc.RenameDirectory),
+	)
+	t.ArcDeleteDirectory.BindHandler(
+		fgorp.CreateWriteUnaryHandler(db, l.Arc.DeleteDirectory),
+	)
+	t.ArcMove.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Arc.Move))
 	t.ArcLSP.BindHandler(l.Arc.LSP)
 
 	// IMPORT/EXPORT
