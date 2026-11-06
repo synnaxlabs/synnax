@@ -30,7 +30,6 @@ import { ontology } from "@/ontology";
 import { query } from "@/query";
 import {
   type Key as RackKey,
-  keyZ as rackKeyZ,
   ontologyID as rackOntologyID,
   statusZ as rackStatusZ,
 } from "@/rack/types.gen";
@@ -301,14 +300,11 @@ export class Task<S extends Schemas = Schemas> {
   }
 }
 
-/** Names one task in the cache: by key, by name, or by type and rack. */
-type SingleRequest = { key: Key } | { name: string } | { type: string; rack?: RackKey };
+/** Names one task in the cache: by key or by name. */
+type SingleRequest = { key: Key } | { name: string };
 
-const singleWhere = (q: SingleRequest): Where => {
-  if ("key" in q) return { key: { eq: q.key } };
-  if ("name" in q) return { name: { eq: q.name } };
-  return { type: { eq: q.type }, rack: q.rack == null ? undefined : { eq: q.rack } };
-};
+const singleWhere = (q: SingleRequest): Where =>
+  "key" in q ? { key: { eq: q.key } } : { name: { eq: q.name } };
 
 const singleRetrieveParamsZ = z.union([
   z
@@ -323,18 +319,8 @@ const singleRetrieveParamsZ = z.union([
       where: singleWhere({ name }),
       includeStatus,
     })),
-  z
-    .strictObject({
-      type: z.string(),
-      rack: rackKeyZ.optional(),
-      includeStatus: z.boolean().optional(),
-    })
-    .transform(({ type, rack, includeStatus }): RetrieveRequest => ({
-      where: singleWhere({ type, rack }),
-      includeStatus,
-    })),
 ]);
-/** Names one task: by key, by name, or by type and rack. */
+/** Names one task: by key or by name. */
 export type RetrieveSingleParams = z.input<typeof singleRetrieveParamsZ>;
 
 /** Everything a multi-task retrieval can filter on. */
@@ -353,23 +339,13 @@ export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 
 // includeStatus does not change a query's identity: cached fetches always
 // request it, so it is stripped before hashing.
-const normalizeSingle = (params: RetrieveSingleParams): SingleRequest => {
-  if ("key" in params) return { key: params.key };
-  if ("name" in params) return { name: params.name };
-  return params.rack == null
-    ? { type: params.type }
-    : { type: params.type, rack: params.rack };
-};
+const normalizeSingle = (params: RetrieveSingleParams): SingleRequest =>
+  "key" in params ? { key: params.key } : { name: params.name };
 
 const singleQueryZ = z
   .union([
     z.strictObject({ key: keyZ, includeStatus: z.boolean().optional() }),
     z.strictObject({ name: z.string(), includeStatus: z.boolean().optional() }),
-    z.strictObject({
-      type: z.string(),
-      rack: rackKeyZ.optional(),
-      includeStatus: z.boolean().optional(),
-    }),
     keyZ.transform((key) => ({ key })),
   ])
   .transform(normalizeSingle);
