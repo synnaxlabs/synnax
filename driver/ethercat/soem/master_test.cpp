@@ -521,6 +521,15 @@ TEST_F(SOEMMasterTest, ActivateStartsTheCycleBeforeSAFEOP) {
     EXPECT_TRUE(requests.value().empty());
 }
 
+/// @brief it should map the slaves with no SAFE-OP request from SOEM, so the slaves
+/// enter SAFE-OP only once the bus cycles, and let the next config_init request PRE-OP.
+TEST_F(SOEMMasterTest, ActivateMapsTheSlavesWithoutASAFEOPRequest) {
+    this->initialize_with_slave();
+    this->activate_master();
+    EXPECT_EQ(this->mock->manual_at_map, true);
+    EXPECT_FALSE(this->mock->manual_state_change);
+}
+
 /// @brief it should fail activation without a request for OP when no frame passes the
 /// slaves in SAFE-OP, since a slave with outputs refuses OP until one does.
 TEST_F(SOEMMasterTest, ActivateRequestsOPOnlyAfterAFramePassesInSAFEOP) {
