@@ -439,6 +439,13 @@ integration:
   - .github/workflows/test.integration.yaml
   - integration/**
 
+# Every file except a unit test outside integration/. No unit test is part of a build,
+# so a merge group that changes only unit tests skips integration. The '!(...)' extglob
+# matches every name it does not list.
+non_spec:
+  - "**/!(*_test.go|*_test.cpp|*.spec.ts|*.spec.tsx|test_*.py)"
+  - integration/**
+
 core_image:
   - *arc_cpp
   - *client_cpp

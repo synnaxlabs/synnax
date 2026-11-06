@@ -138,6 +138,7 @@ jobs:
       knip: ${{ steps.filter.outputs.knip }}
       lint_integration: ${{ steps.filter.outputs.lint_integration }}
       lyra: ${{ steps.filter.outputs.lyra }}
+      non_spec: ${{ steps.filter.outputs.non_spec }}
       oracle: ${{ steps.filter.outputs.oracle }}
       oracle_check: ${{ steps.filter.outputs.oracle_check }}
       oracle_language: ${{ steps.filter.outputs.oracle_language }}
@@ -799,10 +800,12 @@ jobs:
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
+  # A merge group that changes only unit tests skips integration.
   integration:
     needs: changes
     if:
-      inputs.full || (github.event_name == 'merge_group' || inputs.integration) &&
+      inputs.full || (github.event_name == 'merge_group' &&
+      needs.changes.outputs.non_spec == 'true' || inputs.integration) &&
       (needs.changes.outputs.integration == 'true' ||
       contains(fromJSON(needs.changes.outputs.ci), 'integration'))
     permissions:
