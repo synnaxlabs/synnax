@@ -1147,24 +1147,32 @@ describe("Table", () => {
       });
     });
 
-    describe("stamp", () => {
+    describe("version", () => {
       it("should move on every set, delete, and reset", () => {
         const table = new query.Table<string, { name: string }>({ onError: noopError });
-        const stamps = [table.stamp()];
+        const versions = [table.version()];
         table.set("key1", { name: "a" });
-        stamps.push(table.stamp());
+        versions.push(table.version());
         table.delete("key1");
-        stamps.push(table.stamp());
+        versions.push(table.version());
         table.reset();
-        stamps.push(table.stamp());
-        expect(new Set(stamps).size).toBe(4);
+        versions.push(table.version());
+        expect(new Set(versions).size).toBe(4);
       });
 
-      it("should not move when a fetch ingests records", () => {
+      it("should not move when the set value deep-equals the entry", () => {
         const table = new query.Table<string, { name: string }>({ onError: noopError });
-        const stamp = table.stamp();
+        table.set("key1", { name: "a" });
+        const version = table.version();
+        table.set("key1", { name: "a" });
+        expect(table.version()).toBe(version);
+      });
+
+      it("should move when a fetch ingests a new record", () => {
+        const table = new query.Table<string, { name: string }>({ onError: noopError });
+        const version = table.version();
         table.ingest("key1", { name: "a" });
-        expect(table.stamp()).toBe(stamp);
+        expect(table.version()).not.toBe(version);
       });
     });
 

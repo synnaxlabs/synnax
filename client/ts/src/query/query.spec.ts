@@ -1277,8 +1277,9 @@ describe("Answers", () => {
       expect(handler).toHaveBeenLastCalledWith([rec("a", 5)]);
     });
 
-    it("fetches once when nothing changed between the read and the first subscriber", async () => {
+    it("fetches once when the table did not change between the read and the first subscriber", async () => {
       const table = newTable();
+      table.set("a", rec("a", 5));
       const fetch = vi.fn(async () => {
         table.ingest("a", rec("a", 5));
         return ["a"];
@@ -1293,6 +1294,7 @@ describe("Answers", () => {
 
     it("refetches an answer a watched table changed before the first subscriber", async () => {
       const table = newTable();
+      table.set("a", rec("a", 5));
       const foreign = newTable();
       const fetch = vi.fn(async () => {
         table.ingest("a", rec("a", 5));
@@ -1314,6 +1316,7 @@ describe("Answers", () => {
 
     it("refetches an answer that settled before change delivery was live", async () => {
       const table = newTable();
+      table.set("a", rec("a", 5));
       let epoch = 0;
       const fetch = vi.fn(async () => {
         table.ingest("a", rec("a", 5));
@@ -1328,6 +1331,7 @@ describe("Answers", () => {
 
     it("refetches an answer that a write raced before the first subscriber", async () => {
       const table = newTable();
+      table.set("a", rec("a", 5));
       let members = [rec("a", 5)];
       let release!: () => void;
       const gate = new Promise<void>((resolve) => (release = resolve));
@@ -1347,6 +1351,64 @@ describe("Answers", () => {
       await expect
         .poll(() => answers.getCached({ min: 3 }))
         .toEqual([rec("a", 5), rec("b", 5)]);
+    });
+
+    it("refetches an answer that another read changed before the first subscriber", async () => {
+      const table = newTable();
+      table.set("a", rec("a", 5));
+      const fetch = vi.fn(async () => table.keys());
+      const answers = listSpace(table, fetch);
+      expect(await answers.retrieve({ min: 3 })).toEqual([rec("a", 5)]);
+      table.ingest("b", rec("b", 5));
+      answers.onChange({ min: 3 }, vi.fn());
+      await expect
+        .poll(() => answers.getCached({ min: 3 }))
+        .toEqual([rec("a", 5), rec("b", 5)]);
+    });
+
+    it("refetches when a write raced a read that the first subscriber joins", async () => {
+      const table = newTable();
+      table.set("a", rec("a", 5));
+      let members = [rec("a", 5)];
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      const fetch = vi.fn(async () => {
+        const read = members;
+        await gate;
+        table.ingest(read);
+        return read.map(({ key }) => key);
+      });
+      const answers = listSpace(table, fetch);
+      const answer = answers.retrieve({ min: 3 });
+      members = [rec("a", 5), rec("b", 5)];
+      table.set("b", rec("b", 5));
+      answers.onChange({ min: 3 }, vi.fn());
+      release();
+      expect(await answer).toEqual([rec("a", 5)]);
+      await expect
+        .poll(() => answers.getCached({ min: 3 }))
+        .toEqual([rec("a", 5), rec("b", 5)]);
+    });
+
+    it("fetches a read made while a reconfirm runs", async () => {
+      const table = newTable();
+      const fetch = vi
+        .fn<() => Promise<string[]>>()
+        .mockImplementationOnce(async () => [])
+        .mockImplementationOnce(async () => {
+          await wait(250);
+          return ["a"];
+        })
+        .mockImplementation(async () => ["a"]);
+      const answers = listSpace(table, fetch, { teardownGrace: TimeSpan.ZERO });
+      const unsubscribe = answers.onChange({ min: 3 }, vi.fn());
+      expect(await answers.retrieve({ min: 3 })).toEqual([]);
+      unsubscribe();
+      table.set("a", rec("a", 5));
+      answers.onChange({ min: 3 }, vi.fn());
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
+      expect(await answers.retrieve({ min: 3 })).toEqual([rec("a", 5)]);
+      expect(fetch).toHaveBeenCalledTimes(3);
     });
 
     it("fetches once for a subscriber that joins a read that reconfirms the answer", async () => {
