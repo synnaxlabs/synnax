@@ -15,7 +15,6 @@ import (
 	"slices"
 	"strconv"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
@@ -71,9 +70,17 @@ func (p provider) List(
 	_ context.Context,
 	_ gorp.Tx,
 	limit int,
+	except func(resource.ID) bool,
 ) ([]resource.Resource, error) {
 	keys := slices.Sorted(maps.Keys(p.svc.cfg.Cluster.CopyState().Nodes))
-	return lo.Map(keys[:min(limit, len(keys))], func(key Key, _ int) resource.Resource {
-		return resource.Resource{ID: ResourceID(key), Name: name(key)}
-	}), nil
+	resources := make([]resource.Resource, 0, min(limit, len(keys)))
+	for _, key := range keys {
+		if len(resources) == limit {
+			break
+		}
+		if id := ResourceID(key); except == nil || !except(id) {
+			resources = append(resources, resource.Resource{ID: id, Name: name(key)})
+		}
+	}
+	return resources, nil
 }

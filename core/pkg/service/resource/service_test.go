@@ -105,6 +105,19 @@ var _ = Describe("Service", func() {
 			}))
 		})
 
+		It("Should fill the page with the matches that Except keeps",
+			func(ctx SpecContext) {
+				Expect(MustSucceed(svc.Search(ctx, nil, resource.SearchQuery{
+					Term:   "pump",
+					Limit:  2,
+					Except: func(id resource.ID) bool { return id.Type == resource.TypeRack },
+				}))).To(Equal([]resource.Resource{
+					{ID: channels.id("2"), Name: "pump"},
+					{ID: channels.id("1"), Name: "pump pressure"},
+				}))
+			},
+		)
+
 		It("Should return nothing for an offset past the last match",
 			func(ctx SpecContext) {
 				Expect(MustSucceed(svc.Search(ctx, nil, resource.SearchQuery{
@@ -146,6 +159,19 @@ var _ = Describe("Service", func() {
 					{ID: racks.id("1"), Name: "pump"},
 				}))
 			})
+
+			It("Should fill the page with the resources that Except keeps",
+				func(ctx SpecContext) {
+					Expect(MustSucceed(svc.Search(ctx, nil, resource.SearchQuery{
+						Limit:  3,
+						Except: func(id resource.ID) bool { return id == channels.id("2") },
+					}))).To(Equal([]resource.Resource{
+						{ID: channels.id("1"), Name: "pump pressure"},
+						{ID: channels.id("3"), Name: "valve"},
+						{ID: racks.id("1"), Name: "pump"},
+					}))
+				},
+			)
 
 			It("Should return nothing for an offset past the last resource",
 				func(ctx SpecContext) {

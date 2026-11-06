@@ -336,35 +336,43 @@ func (e *Enforcer) Enforce(ctx context.Context, req access.Request) error {
 	)
 }
 
+// Allowed returns a function that reports whether the policies of the subject's roles
+// cover an object for the action. It reads the policies once, when Allowed is called. A
+// subject that does not exist holds no policies.
+func (e *Enforcer) Allowed(
+	ctx context.Context,
+	subject resource.ID,
+	action access.Action,
+) (func(resource.ID) bool, error) {
+	policies, err := e.retrievePolicies(ctx, subject)
+	if err != nil {
+		return nil, err
+	}
+	return func(obj resource.ID) bool { return covers(policies, action, obj) }, nil
+}
+
 // firstDenied returns the first object in the request that no policy covers, and
 // whether there was one. A request is allowed only when every object is covered.
 func firstDenied(req access.Request, policies []policy.Policy) (resource.ID, bool) {
-	for _, requestedObj := range req.Objects {
-		found := false
-		for _, p := range policies {
-			hasAction := lo.Contains(p.Actions, req.Action)
-			if !hasAction {
-				continue
-			}
-			for _, policyObj := range p.Objects {
-				if policyObj.IsType() {
-					if policyObj.Type == requestedObj.Type {
-						found = true
-						break
-					}
-				} else if policyObj.Type == requestedObj.Type &&
-					policyObj.Key == requestedObj.Key {
-					found = true
-					break
-				}
-			}
-			if found {
-				break
-			}
-		}
-		if !found {
-			return requestedObj, true
+	for _, obj := range req.Objects {
+		if !covers(policies, req.Action, obj) {
+			return obj, true
 		}
 	}
 	return resource.ID{}, false
+}
+
+// covers returns whether a policy allows the action on obj, by its ID or by its type.
+func covers(policies []policy.Policy, action access.Action, obj resource.ID) bool {
+	for _, p := range policies {
+		if !lo.Contains(p.Actions, action) {
+			continue
+		}
+		for _, o := range p.Objects {
+			if o.Type == obj.Type && (o.IsType() || o.Key == obj.Key) {
+				return true
+			}
+		}
+	}
+	return false
 }

@@ -31,8 +31,15 @@ type Provider interface {
 	// Retrieve returns the records that ids name. It leaves out each ID that names no
 	// record. Every ID has the type of the Provider.
 	Retrieve(ctx context.Context, tx gorp.Tx, ids []ID) ([]Resource, error)
-	// List returns at most limit records, in the same order on every call.
-	List(ctx context.Context, tx gorp.Tx, limit int) ([]Resource, error)
+	// List returns at most limit records, in the same order on every call. It leaves
+	// out the records whose IDs except returns true for, and still returns limit
+	// records when that many remain. A nil except leaves out nothing.
+	List(
+		ctx context.Context,
+		tx gorp.Tx,
+		limit int,
+		except func(ID) bool,
+	) ([]Resource, error)
 }
 
 // SearchIndex searches idx as Provider.Search does. id returns the ID of the entry with
@@ -116,12 +123,16 @@ func (p *TableProvider[K, E]) List(
 	ctx context.Context,
 	tx gorp.Tx,
 	limit int,
+	except func(ID) bool,
 ) ([]Resource, error) {
+	q := p.cfg.Table.NewRetrieve().Limit(limit)
+	if except != nil {
+		q = q.Where(gorp.Match(func(_ gorp.Context, e *E) (bool, error) {
+			return !except(p.cfg.ID((*e).GorpKey())), nil
+		}))
+	}
 	var entries []E
-	if err := p.cfg.Table.NewRetrieve().
-		Limit(limit).
-		Entries(&entries).
-		Exec(ctx, tx); err != nil {
+	if err := q.Entries(&entries).Exec(ctx, tx); err != nil {
 		return nil, err
 	}
 	return p.resources(entries), nil

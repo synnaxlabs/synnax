@@ -92,22 +92,28 @@ type (
 	}
 )
 
-// Search returns the resources that match req, closest match first. It returns
-// access.ErrDenied when the caller cannot retrieve one of them.
+// Search returns the resources that match req and that the caller can retrieve,
+// closest match first. It leaves out the rest and still fills each page.
 func (s *Service) Search(
 	ctx context.Context,
 	req SearchRequest,
 ) (SearchResponse, error) {
+	allowed, err := s.access.NewEnforcer(nil).Allowed(
+		ctx,
+		auth.GetSubject(ctx),
+		access.ActionRetrieve,
+	)
+	if err != nil {
+		return SearchResponse{}, err
+	}
 	resources, err := s.internal.Search(ctx, nil, resource.SearchQuery{
 		Term:   req.Term,
 		Types:  req.Types,
 		Limit:  req.Limit,
 		Offset: req.Offset,
+		Except: func(id resource.ID) bool { return !allowed(id) },
 	})
 	if err != nil {
-		return SearchResponse{}, err
-	}
-	if err = s.enforce(ctx, resources); err != nil {
 		return SearchResponse{}, err
 	}
 	return SearchResponse{Resources: resources}, nil
@@ -135,18 +141,14 @@ func (s *Service) Retrieve(
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	if err = s.enforce(ctx, resources); err != nil {
-		return RetrieveResponse{}, err
-	}
-	return RetrieveResponse{Resources: resources}, nil
-}
-
-func (s *Service) enforce(ctx context.Context, resources []resource.Resource) error {
-	return s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
+	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: lo.Map(resources, func(r resource.Resource, _ int) resource.ID {
 			return r.ID
 		}),
-	})
+	}); err != nil {
+		return RetrieveResponse{}, err
+	}
+	return RetrieveResponse{Resources: resources}, nil
 }

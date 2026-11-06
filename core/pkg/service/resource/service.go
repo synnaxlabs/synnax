@@ -100,6 +100,9 @@ type SearchQuery struct {
 	Limit int
 	// Offset is the number of closest matches to skip, at most 10000.
 	Offset int
+	// Except, when non-nil, leaves out the resources whose IDs it returns true for.
+	// Search still fills each page with the resources that remain.
+	Except func(ID) bool
 }
 
 // Search returns the resources that match q, closest match first. For an empty term,
@@ -128,7 +131,7 @@ func (s *Service) Search(
 		limit = defaultSearchLimit
 	}
 	if q.Term == "" {
-		return s.list(ctx, tx, q.Types, q.Offset, limit)
+		return s.list(ctx, tx, q, limit)
 	}
 	results := make([]search.Result[ID], 0, len(s.types))
 	for _, t := range s.types {
@@ -136,8 +139,9 @@ func (s *Service) Search(
 			continue
 		}
 		res, err := s.cfg.Providers[t].Search(ctx, tx, search.Query[ID]{
-			Term:  q.Term,
-			Limit: q.Offset + limit,
+			Term:   q.Term,
+			Except: q.Except,
+			Limit:  q.Offset + limit,
 		})
 		if err != nil {
 			return nil, err
@@ -151,28 +155,29 @@ func (s *Service) Search(
 func (s *Service) list(
 	ctx context.Context,
 	tx gorp.Tx,
-	types []Type,
-	offset, limit int,
+	q SearchQuery,
+	limit int,
 ) ([]Resource, error) {
 	resources := make([]Resource, 0, limit)
 	for _, t := range s.types {
-		if len(resources) >= offset+limit {
+		if len(resources) >= q.Offset+limit {
 			break
 		}
-		if len(types) > 0 && !slices.Contains(types, t) {
+		if len(q.Types) > 0 && !slices.Contains(q.Types, t) {
 			continue
 		}
 		res, err := s.cfg.Providers[t].List(
 			ctx,
 			tx,
-			offset+limit-len(resources),
+			q.Offset+limit-len(resources),
+			q.Except,
 		)
 		if err != nil {
 			return nil, err
 		}
 		resources = append(resources, res...)
 	}
-	return resources[min(offset, len(resources)):], nil
+	return resources[min(q.Offset, len(resources)):], nil
 }
 
 // Retrieve returns the resources that ids name, in the order of ids. It leaves out each

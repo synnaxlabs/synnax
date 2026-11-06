@@ -10,6 +10,7 @@
 package resource_test
 
 import (
+	"fmt"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -17,9 +18,14 @@ import (
 	apiresource "github.com/synnaxlabs/synnax/pkg/api/resource"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Resource", func() {
@@ -51,14 +57,64 @@ var _ = Describe("Resource", func() {
 			},
 		)
 
-		It("Should deny the request when one match cannot be retrieved",
+		It("Should leave out the matches that the caller cannot retrieve",
 			func(ctx SpecContext) {
 				u := createUser(ctx)
 				grant(ctx, u.ResourceID(), lbl.ResourceID())
 				Expect(apiSvc.Search(AuthedCtx(ctx, u), apiresource.SearchRequest{
 					Term:  term,
 					Types: []resource.Type{resource.TypeLabel, resource.TypeRack},
-				})).Error().To(MatchError(access.ErrDenied))
+				})).To(Equal(apiresource.SearchResponse{Resources: []resource.Resource{
+					{ID: lbl.ResourceID(), Name: lbl.Name},
+				}}))
+			},
+		)
+
+		It("Should fill a page with channels when the caller cannot read the tasks",
+			func(ctx SpecContext) {
+				tsk := task.Task{
+					Type:     pagerduty.AlertTaskType,
+					Rack:     svc.Rack.EmbeddedKey,
+					Name:     term,
+					Snapshot: true,
+				}
+				Expect(svc.Task.NewWriter(nil).Create(ctx, &tsk)).To(Succeed())
+				channels := make([]channel.Channel, 3)
+				for i := range channels {
+					channels[i] = channel.Channel{
+						Name:     fmt.Sprintf("%s_%d", term, i),
+						DataType: telem.Float64T,
+						Virtual:  true,
+					}
+					Expect(svc.Channel.NewWriter(nil).Create(ctx, &channels[i])).
+						To(Succeed())
+				}
+				u := createUser(ctx)
+				grant(ctx, u.ResourceID(), resource.ID{Type: resource.TypeChannel})
+				res := MustSucceed(apiSvc.Search(
+					AuthedCtx(ctx, u),
+					apiresource.SearchRequest{
+						Term:  term,
+						Types: []resource.Type{resource.TypeChannel, resource.TypeTask},
+						Limit: 2,
+					},
+				))
+				Expect(res.Resources).To(HaveLen(2))
+				Expect(res.Resources).To(HaveEach(
+					HaveField("ID.Type", resource.TypeChannel),
+				))
+			},
+		)
+
+		It("Should list only the resources that the caller can retrieve",
+			func(ctx SpecContext) {
+				u := createUser(ctx)
+				grant(ctx, u.ResourceID(), rck.ResourceID())
+				Expect(apiSvc.Search(AuthedCtx(ctx, u), apiresource.SearchRequest{
+					Types: []resource.Type{resource.TypeLabel, resource.TypeRack},
+				})).To(Equal(apiresource.SearchResponse{Resources: []resource.Resource{
+					{ID: rck.ResourceID(), Name: rck.Name},
+				}}))
 			},
 		)
 

@@ -228,9 +228,24 @@ var _ = Describe("TableProvider", func() {
 	Describe("List", func() {
 		It("Should return at most limit records in the order of their keys",
 			func(ctx SpecContext) {
-				Expect(channels.provider.List(ctx, db, 2)).To(Equal([]resource.Resource{
-					{ID: channels.id("1"), Name: "pump pressure"},
+				Expect(channels.provider.List(ctx, db, 2, nil)).
+					To(Equal([]resource.Resource{
+						{ID: channels.id("1"), Name: "pump pressure"},
+						{ID: channels.id("2"), Name: "pump"},
+					}))
+			},
+		)
+
+		It("Should fill the limit with the records that except keeps",
+			func(ctx SpecContext) {
+				Expect(channels.provider.List(
+					ctx,
+					db,
+					2,
+					func(id resource.ID) bool { return id == channels.id("1") },
+				)).To(Equal([]resource.Resource{
 					{ID: channels.id("2"), Name: "pump"},
+					{ID: channels.id("3"), Name: "valve"},
 				}))
 			},
 		)

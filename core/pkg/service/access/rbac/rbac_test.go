@@ -331,6 +331,82 @@ var _ = Describe("Service", func() {
 			)
 		})
 
+		Describe("Allowed", func() {
+			grant := func(ctx SpecContext, objects ...resource.ID) {
+				GinkgoHelper()
+				r := &role.Role{Name: "test-role", Description: "Test role"}
+				Expect(roleWriter.Create(ctx, r)).To(Succeed())
+				Expect(policyWriter.Create(ctx, &policy.Policy{
+					Role:    r.Key,
+					Name:    "allow-read",
+					Objects: objects,
+					Actions: []access.Action{access.ActionRetrieve},
+				})).To(Succeed())
+				assignRole(ctx, tx, subject, r.Key)
+			}
+
+			It(
+				"Should allow only the objects that a policy names",
+				func(ctx SpecContext) {
+					grant(ctx, obj1)
+					allowed := MustSucceed(rbacSvc.NewEnforcer(tx).Allowed(
+						ctx,
+						subject,
+						access.ActionRetrieve,
+					))
+					Expect(allowed(obj1)).To(BeTrue())
+					Expect(allowed(obj2)).To(BeFalse())
+				},
+			)
+
+			It("Should allow every object of a type that a policy names",
+				func(ctx SpecContext) {
+					grant(ctx, resource.ID{Type: "channel"})
+					allowed := MustSucceed(rbacSvc.NewEnforcer(tx).Allowed(
+						ctx,
+						subject,
+						access.ActionRetrieve,
+					))
+					Expect(allowed(obj1)).To(BeTrue())
+					Expect(allowed(resource.ID{Type: "task", Key: "1"})).To(BeFalse())
+				},
+			)
+
+			It("Should allow nothing for an action that no policy names",
+				func(ctx SpecContext) {
+					grant(ctx, obj1)
+					allowed := MustSucceed(rbacSvc.NewEnforcer(tx).Allowed(
+						ctx,
+						subject,
+						access.ActionDelete,
+					))
+					Expect(allowed(obj1)).To(BeFalse())
+				},
+			)
+
+			It("Should allow nothing for a subject that does not exist",
+				func(ctx SpecContext) {
+					allowed := MustSucceed(rbacSvc.NewEnforcer(tx).Allowed(
+						ctx,
+						user.ResourceID(uuid.New()),
+						access.ActionRetrieve,
+					))
+					Expect(allowed(obj1)).To(BeFalse())
+				},
+			)
+
+			It("Should reject a subject that cannot hold roles", func(ctx SpecContext) {
+				Expect(rbacSvc.NewEnforcer(tx).Allowed(
+					ctx,
+					obj1,
+					access.ActionRetrieve,
+				)).Error().To(And(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("cannot hold roles")),
+				))
+			})
+		})
+
 		Describe("Enforce with multiple roles", func() {
 			It("Should allow access via role assignment", func(ctx SpecContext) {
 				r := &role.Role{
