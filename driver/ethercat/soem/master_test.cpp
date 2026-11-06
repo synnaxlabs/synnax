@@ -759,7 +759,7 @@ TEST_F(SOEMMasterTest, ActivateMapsSlavesWithManualStateChange) {
 }
 
 /// @brief it should start SYNC0 and SYNC1 on a slave that lists only a DC mode, before
-/// it requests SAFE-OP, with the first SYNC0 event on a whole SYNC0 cycle at least
+/// it requests SAFE-OP, with the first SYNC0 event on a whole SYNC1 period at least
 /// 100 ms after the system time of the slave.
 TEST_F(SOEMMasterTest, ActivateStartsSyncOnASlaveWithOnlyADCMode) {
     this->initialize_with_dc_slave({DC_ONLY});
@@ -775,7 +775,7 @@ TEST_F(SOEMMasterTest, ActivateStartsSyncOnASlaveWithOnlyADCMode) {
          .mapped = true},
         {.slave = 1,
          .address = 0x0990,
-         .data = bytes<uint64_t>(5'100'001'000),
+         .data = bytes<uint64_t>(6'000'000'000),
          .mapped = true},
         {.slave = 1, .address = 0x0981, .data = {0x07}, .mapped = true},
     };
