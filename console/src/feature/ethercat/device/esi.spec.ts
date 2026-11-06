@@ -111,7 +111,8 @@ describe("parseStartupCommands", () => {
     expect(() =>
       parseStartupCommands(ESI, { productCode: 252, revision: 0x00020000 }),
     ).toThrow(
-      "The ESI file lists no device with product code 0x00FC and revision 0x00020000.",
+      "The ESI file lists no device with product code 0x00FC and revision " +
+        "0x00020000. It is for IOLITEr 6xSTG, SIRIUSe 8xAI.",
     );
   });
 

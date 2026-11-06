@@ -104,12 +104,20 @@ export const parseStartupCommands = (
       parseHexDec(type.getAttribute("RevisionNo")) === revision
     );
   });
-  if (found == null)
+  if (found == null) {
+    const names = [...new Set(types.map((t) => t?.textContent?.trim() ?? ""))].filter(
+      (n) => n !== "",
+    );
+    const listed =
+      names.length > 3
+        ? `${names.slice(0, 3).join(", ")}, and others`
+        : names.join(", ");
     throw new Error(
       `The ESI file lists no device with product code ${formatIndex(productCode)} ` +
-        `and ` +
-        `revision 0x${revision.toString(16).toUpperCase().padStart(8, "0")}.`,
+        `and revision 0x${revision.toString(16).toUpperCase().padStart(8, "0")}. ` +
+        `It is for ${listed}.`,
     );
+  }
   const commands = Array.from(found.getElementsByTagName("InitCmd")).filter(
     (cmd) => cmd.parentElement?.tagName === "CoE",
   );
