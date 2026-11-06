@@ -8,14 +8,19 @@
 // included in the file licenses/APL.txt.
 
 /**
- * Static build-time flags that hide unfinished work in production. Vite replaces
- * `import.meta.env.VITE_*` statically, so dark code tree-shakes out of production, and
- * dev builds turn every flag on. Only the exact string "true" enables a flag. Each
- * entry names its owner, its Linear umbrella issue, and the release that removes it:
+ * Static build-time flags that hide unfinished work in the Console build. Vite replaces
+ * `FLAGS_ON` and `import.meta.env.VITE_*` statically, so dark code tree-shakes out of
+ * the Console build. `FLAGS_ON` turns every flag on in dev, Desktop, and spec builds.
+ * Only the exact string "true" enables a flag. Each entry names its owner, its Linear
+ * umbrella issue, and the release that removes it:
  *
- * `example: IS_DEV || import.meta.env.VITE_FLAG_EXAMPLE === "true", // Owner: Name.
+ * `example: FLAGS_ON || import.meta.env.VITE_FLAG_EXAMPLE === "true", // Owner: Name.
  * Umbrella: SY-1234. Removed in 0.60.`
  */
-export const FLAGS = {} as const satisfies Record<string, boolean>;
+export const FLAGS = {
+  // Owner: Emiliano Bonilla. Umbrella: SY-5210. Removed in 0.61.
+  ethercatStartupParameters:
+    FLAGS_ON || import.meta.env.VITE_FLAG_ETHERCAT_STARTUP_PARAMETERS === "true",
+} as const satisfies Record<string, boolean>;
 
 export type Flag = keyof typeof FLAGS;

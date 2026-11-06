@@ -11,10 +11,15 @@ import { type device } from "@synnaxlabs/client";
 import { Device, Flux } from "@synnaxlabs/pluto";
 import { array, primitive, verbs } from "@synnaxlabs/x";
 
-import { SLAVE_SCHEMAS, type SlaveDevice } from "@/feature/ethercat/device/types";
+import {
+  SLAVE_SCHEMAS,
+  type SlaveDevice,
+  type StartupParameter,
+} from "@/feature/ethercat/device/types";
 import { type Channel } from "@/feature/ethercat/task/types";
 
-export const { useResult: useResultSlave } = Device.createRetrieve(SLAVE_SCHEMAS);
+export const { use: useSlave, useResult: useResultSlave } =
+  Device.createRetrieve(SLAVE_SCHEMAS);
 
 const { use: useSlaves, useResult: useResultSlaves } =
   Device.createRetrieveMultiple(SLAVE_SCHEMAS);
@@ -80,5 +85,25 @@ export const { useUpdate: useToggleEnabled } = Flux.createUpdate<
     return await client.devices.create(updated, SLAVE_SCHEMAS, {
       onOptimistic: async () => await onOptimisticComplete(updated),
     });
+  },
+});
+
+export interface UpdateStartupParametersParams {
+  key: device.Key;
+  startupParameters: StartupParameter[];
+}
+
+export const { useUpdate: useUpdateStartupParameters } = Flux.createUpdate<
+  UpdateStartupParametersParams,
+  SlaveDevice
+>({
+  name: "startup parameters",
+  verbs: verbs.UPDATE,
+  update: async ({ data: { key, startupParameters }, client }) => {
+    const slave = await client.devices.retrieve({ key, schemas: SLAVE_SCHEMAS });
+    return await client.devices.create(
+      { ...slave, properties: { ...slave.properties, startupParameters } },
+      SLAVE_SCHEMAS,
+    );
   },
 });

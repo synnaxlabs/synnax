@@ -19,6 +19,8 @@ declare const CORE_PORT: number;
 declare const DESKTOP: boolean;
 /** True only in a Desktop release that CI builds. Local and test builds leave it off. */
 declare const RELEASE: boolean;
+/** True in dev, Desktop, and spec builds, where every flag in `flags.ts` is on. */
+declare const FLAGS_ON: boolean;
 
 interface MonacoEnvironment {
   getWorker: (moduleId: string, label: string) => Worker;
