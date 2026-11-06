@@ -23,6 +23,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/oracle/codegen"
 	"github.com/synnaxlabs/oracle/format"
+	"github.com/synnaxlabs/oracle/frozen"
 	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/pipeline"
 	"github.com/synnaxlabs/x/errors"
@@ -30,12 +31,17 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+const syncRefreezeFlag = "refreeze"
+
 func newSyncCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "sync",
 		Short: "Sync generated code, only writing changed files",
 		RunE:  func(cmd *cobra.Command, _ []string) error { return runSync(cmd) },
 	}
+	cmd.Flags().Bool(syncRefreezeFlag, false,
+		"Accept changes to frozen version packages whose schemas did not change")
+	return cmd
 }
 
 func runSync(cmd *cobra.Command) error {
@@ -119,6 +125,18 @@ func runSync(cmd *cobra.Command) error {
 				printDim(fmt.Sprintf("remove %s: %v", deletePath, err))
 			}
 		}
+	}
+
+	chains, err := frozen.Compute(ctx, result, repoRoot)
+	if err != nil {
+		return errors.Wrap(err, "compute frozen sums")
+	}
+	refreeze, err := cmd.Flags().GetBool(syncRefreezeFlag)
+	if err != nil {
+		return err
+	}
+	if err := frozen.Update(chains, repoRoot, refreeze); err != nil {
+		return errors.Wrap(err, "update frozen sums")
 	}
 
 	changedProtos := syncResult.ByPlugin["pb/types"]

@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -165,6 +166,122 @@ var _ = Describe("check command flag paths", func() {
 				check.FailureCodes["analyze"],
 				"--gates=analyze", "--warnings-as-errors",
 			)).To(ContainSubstring("1 gate(s) failed"))
+		})
+	})
+})
+
+var _ = Describe("frozen gate", func() {
+	const (
+		liveHead = "@go output \"core/pkg/service/doc\"\n\n"
+		base     = "Base struct {\n    name string\n\n    @go marshal\n}\n\n"
+		v0Source = base + "Doc struct {\n    key uuid @key\n    base Base\n\n" +
+			"    @go marshal\n}\n"
+		v1Source = "Base = v0.Base\n\nDoc struct {\n    key uuid @key\n" +
+			"    base Base\n    title string\n\n    @go marshal\n}\n"
+		liveDoc = "Doc struct {\n    key uuid @key\n    base Base\n" +
+			"    title string\n\n    @go marshal\n}\n"
+		ruledBase = "Base struct {\n    name string {\n        @validate required\n" +
+			"    }\n\n    @go marshal\n}\n\n"
+		frozenPackage = "core/pkg/service/doc/versions/v0"
+	)
+	var (
+		repoDir string
+		cleanup func()
+	)
+	AfterEach(func() { cleanup() })
+	write := func(rel, content string) {
+		GinkgoHelper()
+		Expect(os.WriteFile(
+			filepath.Join(repoDir, rel), []byte(content), 0o644,
+		)).To(Succeed())
+	}
+	// The mini repo has no buf configuration, so sync exits 1 after the sums are
+	// written.
+	syncRepo := func(args ...string) {
+		GinkgoHelper()
+		Expect(fail(1, append([]string{"sync"}, args...)...)).
+			To(ContainSubstring("buf generate"))
+	}
+	gateCode := check.FailureCodes["frozen"]
+
+	Describe("with a frozen version", func() {
+		BeforeEach(func() {
+			repoDir, cleanup = setupMiniRepo(map[string]string{
+				"synnax/versions/doc/v0.oracle": v0Source,
+				"synnax/versions/doc/v1.oracle": v1Source,
+				"synnax/doc.oracle":             liveHead + base + liveDoc,
+			})
+			syncRepo()
+		})
+
+		It("passes after a sync", func() {
+			succeed("check", "--gates=frozen")
+		})
+
+		It("fails on a hand edit of a frozen file", func() {
+			path := filepath.Join(repoDir, frozenPackage, "types.gen.go")
+			content := string(MustSucceed(os.ReadFile(path)))
+			Expect(os.WriteFile(path, []byte(content+"// edit\n"), 0o644)).To(Succeed())
+			Expect(failGate(gateCode, "--gates=frozen")).
+				To(ContainSubstring("frozen package changed"))
+		})
+
+		It("fails when a generated change reaches a frozen file", func() {
+			write("schemas/synnax/doc.oracle", liveHead+ruledBase+liveDoc)
+			syncRepo()
+			Expect(failGate(gateCode, "--gates=frozen")).
+				To(ContainSubstring(frozenPackage))
+		})
+
+		It("keeps failing on a later sync, and passes after a refreeze", func() {
+			write("schemas/synnax/doc.oracle", liveHead+ruledBase+liveDoc)
+			syncRepo()
+			syncRepo()
+			failGate(gateCode, "--gates=frozen")
+			syncRepo("--refreeze")
+			succeed("check", "--gates=frozen")
+		})
+
+		It("accepts a change to the version file by itself", func() {
+			write(
+				"schemas/synnax/versions/doc/v0.oracle",
+				"// Edited.\n"+v0Source,
+			)
+			syncRepo()
+			succeed("check", "--gates=frozen")
+		})
+	})
+
+	Describe("with a mint on top of a current version", func() {
+		const ruledDoc = "Doc struct {\n    key uuid @key\n    name string {\n" +
+			"        @validate required\n    }\n\n    @go marshal\n}\n"
+		const plainDoc = "Doc struct {\n    key uuid @key\n    name string\n\n" +
+			"    @go marshal\n}\n"
+		BeforeEach(func() {
+			repoDir, cleanup = setupMiniRepo(map[string]string{
+				"synnax/versions/doc/v0.oracle": plainDoc,
+				"synnax/doc.oracle":             liveHead + ruledDoc,
+			})
+			syncRepo()
+			write(
+				"schemas/synnax/versions/doc/v1.oracle",
+				"Doc struct extends v0.Doc {\n    title string\n}\n",
+			)
+			write("schemas/synnax/doc.oracle", liveHead+strings.Replace(
+				ruledDoc, "\n\n    @go", "\n    title string\n\n    @go", 1,
+			))
+			syncRepo()
+		})
+
+		It("fails when the demoted package loses a live rule", func() {
+			Expect(failGate(gateCode, "--gates=frozen")).
+				To(ContainSubstring(frozenPackage))
+		})
+
+		It("passes once the version file records the rule", func() {
+			write("schemas/synnax/versions/doc/v0.oracle", ruledDoc)
+			syncRepo()
+			succeed("check", "--gates=frozen")
 		})
 	})
 })
