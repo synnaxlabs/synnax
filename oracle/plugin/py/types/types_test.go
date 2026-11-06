@@ -1963,7 +1963,7 @@ var _ = Describe("Python Types Plugin", func() {
 					)
 				})
 
-			It("Should keep a hand-written ancestor type on the package",
+			It("Should read a hand-written ancestor type from its include module",
 				func(ctx SpecContext) {
 					loader.Add("schemas/arc", `
 						@py output "client/py/synnax/arc"
@@ -1984,10 +1984,9 @@ var _ = Describe("Python Types Plugin", func() {
 						}
 					`
 					resp := MustGenerate(ctx, source, "arc_task", loader, typesPlugin)
-					ExpectContent(resp, "arc/task/types_gen.py").ToContain(
-						`from synnax import arc`,
-						`arc_key: arc.Key`,
-					)
+					ExpectContent(resp, "arc/task/types_gen.py").
+						ToContain(`from synnax.arc.key import Key`, `arc_key: Key`).
+						ToNotContain("from synnax import arc\n")
 				})
 
 			DescribeTable(

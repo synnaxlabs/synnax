@@ -1610,12 +1610,16 @@ func addCrossNamespaceImport(
 	data *templateData,
 ) string {
 	// An ancestor package imports this module before it binds its own names, so a child
-	// reads the ancestor's generated module directly. A hand-written type is not in that
-	// module, so it stays on the package.
-	if !omit.IsSkipped(typ, "py") &&
-		strings.HasPrefix(toPythonModulePath(data.OutputPath)+".", modulePath+".") {
-		alias := data.imports.addModuleImport(modulePath, data.GeneratedModule)
-		return fmt.Sprintf("%s.%s", alias, typeName)
+	// reads the module that declares the type: the generated module, or the `@py
+	// include` module of a hand-written type.
+	if strings.HasPrefix(toPythonModulePath(data.OutputPath)+".", modulePath+".") {
+		if !omit.IsSkipped(typ, "py") {
+			alias := data.imports.addModuleImport(modulePath, data.GeneratedModule)
+			return fmt.Sprintf("%s.%s", alias, typeName)
+		}
+		if module := domain.GetStringFromType(typ, "py", "include"); module != "" {
+			return data.imports.addModuleImport(toPythonModulePath(module), typeName)
+		}
 	}
 	parts := strings.Split(modulePath, ".")
 	if len(parts) >= 2 {
