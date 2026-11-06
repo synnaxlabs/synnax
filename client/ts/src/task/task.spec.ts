@@ -178,6 +178,16 @@ describe("Task", async () => {
     });
   });
   describe("retrieve", () => {
+    it("retrieves a task by its name", async () => {
+      const created = await testRack.createTask({
+        name: `named-task-${id.create()}`,
+        config: { routingKey: "dog" },
+        type: "pagerduty_alert",
+      });
+      const retrieved = await client.tasks.retrieve(created.name);
+      expect(retrieved.key).toEqual(created.key);
+    });
+
     it("coalesces concurrent single retrieves into one request", async () => {
       const created = [
         await testRack.createTask({

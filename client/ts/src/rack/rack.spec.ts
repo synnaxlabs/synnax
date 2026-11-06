@@ -152,6 +152,24 @@ describe("Rack", () => {
     });
   });
   describe("retrieve", () => {
+    it("retrieves a rack by its name", async () => {
+      const created = await client.racks.create({ name: `named-rack-${id.create()}` });
+      const retrieved = await client.racks.retrieve(created.name);
+      expect(retrieved.key).toEqual(created.key);
+    });
+
+    it("retrieves racks by a list of names", async () => {
+      const prefix = `named-racks-${id.create()}`;
+      const created = await client.racks.create([
+        { name: `${prefix}-a` },
+        { name: `${prefix}-b` },
+      ]);
+      const retrieved = await client.racks.retrieve(created.map((r) => r.name));
+      expect(retrieved.map((r) => r.key).sort()).toEqual(
+        created.map((r) => r.key).sort(),
+      );
+    });
+
     it("coalesces concurrent single retrieves into one request", async () => {
       const created = [
         await client.racks.create({ name: "coalesce-a" }),

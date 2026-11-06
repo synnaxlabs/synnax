@@ -55,6 +55,7 @@ import {
   matches,
   retrieveInputZ,
   serverComputed,
+  shortcutZ,
 } from "@/ranger/where.gen";
 import { Writer } from "@/ranger/writer";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
@@ -277,11 +278,6 @@ export type RetrieveMultipleParams = z.infer<typeof callerRequestZ>;
  * comes before the request, which would read a time range as an empty request.
  */
 const retrieveMultiParamsZ = z.union([
-  query.keysRequestZ(keyZ),
-  z
-    .string()
-    .array()
-    .transform((names): RetrieveMultipleParams => ({ where: { name: { in: names } } })),
   TimeRange.z.transform((overlaps): RetrieveMultipleParams => ({
     where: { overlaps },
   })),
@@ -425,7 +421,7 @@ export class Client extends query.Retriever<
   Key,
   Range,
   Range,
-  Key | Name | { key: Key }
+  { key: Key }
 > {
   readonly type: string = "range";
   /** The range alias table; injected into sibling clients at wiring. */
@@ -493,18 +489,18 @@ export class Client extends query.Retriever<
         ),
       ],
     });
-    const single = cache.queries<Key | Name, Range, Key, Range>({
+    const single = cache.queries<Key, Range, Key, Range>({
       name: "range",
       table: composed,
-      fetch: async (query) => [(await this.fetchSingle(query)).key],
+      fetch: async (key) => [(await this.fetchSingle(key)).key],
       compose: ([record]) => record,
-      keyOf: (query) => (z.validate(keyZ, query) ? query : null),
-      matches: (r, query) => r.key === query || r.name === query,
+      keyOf: (key) => key,
       single: true,
     });
     super(cache, {
       name: "range",
       table: ranges,
+      shortcut: shortcutZ,
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (query) => await this.fetchRequest(query),
@@ -518,7 +514,7 @@ export class Client extends query.Retriever<
       compose: (r) => this.composeOne(r),
       single: {
         schema: z.union([
-          z.string(),
+          keyZ,
           z.strictObject({ key: keyZ }).transform(({ key }) => key),
         ]),
         space: single,
@@ -793,19 +789,12 @@ export class Client extends query.Retriever<
     return ranges;
   }
 
-  private async fetchSingle(query: Key | Name): Promise<Range> {
-    const cached = this.store.get(query);
+  private async fetchSingle(key: Key): Promise<Range> {
+    const cached = this.store.get(key);
     if (cached != null) return this.composeOne(cached);
-    if (z.validate(keyZ, query)) {
-      const ranges = await this.store.retrieve([query]);
-      checkForMultipleOrNoResults("Range", query, ranges, true);
-      return this.composeOne(ranges[0]);
-    }
-    const since = this.store.stamp();
-    const ranges = await this.execRetrieve({ where: { name: { eq: query } } });
-    checkForMultipleOrNoResults("Range", query, ranges, true);
-    this.hydrateMany(ranges, since);
-    return ranges[0];
+    const ranges = await this.store.retrieve([key]);
+    checkForMultipleOrNoResults("Range", key, ranges, true);
+    return this.composeOne(ranges[0]);
   }
 
   /**

@@ -37,7 +37,7 @@ import {
   retrieveRequestZ,
   retrieveResponseZ,
 } from "@/arc/types.gen";
-import { matches, retrieveInputZ, serverComputed } from "@/arc/where.gen";
+import { matches, retrieveInputZ, serverComputed, shortcutZ } from "@/arc/where.gen";
 import { NotFoundError } from "@/errors";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
@@ -53,7 +53,6 @@ export const DELETE_CHANNEL_NAME = "sy_arc_delete";
 const cachedRequestZ = retrieveRequestZ.omit({ includeProgram: true });
 export type RetrieveMultipleParams = z.infer<typeof cachedRequestZ>;
 const retrieveMultiParamsZ = z.union([
-  query.keysRequestZ(keyZ),
   cachedRequestZ,
   retrieveInputZ(cachedRequestZ.omit({ where: true }).shape),
 ]);
@@ -175,6 +174,7 @@ export class Client extends query.Retriever<
     super(cache, {
       name: "Arc",
       table: store,
+      shortcut: shortcutZ,
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) =>
