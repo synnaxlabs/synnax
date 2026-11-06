@@ -120,7 +120,6 @@ var _ = Describe("Typed series literals", func() {
 			}
 		},
 		Entry("bool", "bool"),
-		Entry("str", "str"),
 		Entry("f32", "f32"),
 		Entry("f64", "f64"),
 		Entry("i8", "i8"),

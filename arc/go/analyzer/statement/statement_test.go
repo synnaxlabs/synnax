@@ -435,6 +435,19 @@ var _ = Describe("Statement", func() {
 			},
 		)
 
+		DescribeTable("Should accept an empty series of any element type",
+			func(specCtx SpecContext, element string) {
+				ctx := analyze(specCtx, "y series "+element+" := []\ny = []")
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			},
+			Entry("bool", "bool"),
+			Entry("str", "str"),
+			Entry("f32", "f32"),
+			Entry("i8", "i8"),
+			Entry("u64", "u64"),
+			Entry("timestamp", "i64 ns"),
+		)
+
 		It(
 			"Should report an incompatible element once",
 			func(specCtx SpecContext) {
