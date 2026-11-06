@@ -76,10 +76,9 @@ TEST(TestArc, testModule) {
     const auto client = new_test_client();
     Arc arc = ModuleArc{{.name = random_arc_name("module_test")}};
     ASSERT_NIL(client.arcs.create(arc));
-    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_key(
-        base(arc).key,
-        RetrieveOptions{.include_program = true}
-    ));
+    auto retrieved = ASSERT_NIL_P(
+        client.arcs.retrieve(base(arc).key, RetrieveOptions{.include_program = true})
+    );
     ASSERT_TRUE(std::holds_alternative<ModuleArc>(retrieved));
 }
 
@@ -90,7 +89,7 @@ TEST(TestArc, testRetrieveByName) {
     Arc created = AutomationArc{{.name = name}};
     ASSERT_NIL(client.arcs.create(created));
 
-    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_name(name));
+    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve(name));
     ASSERT_EQ(base(retrieved).key, base(created).key);
     ASSERT_EQ(base(retrieved).name, name);
 }
@@ -102,7 +101,7 @@ TEST(TestArc, testRetrieveByKey) {
     Arc created = AutomationArc{{.name = name}};
     ASSERT_NIL(client.arcs.create(created));
 
-    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_key(base(created).key));
+    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve(base(created).key));
     ASSERT_EQ(base(retrieved).key, base(created).key);
     ASSERT_EQ(base(retrieved).name, name);
 }
@@ -132,7 +131,7 @@ TEST(TestArc, testRetrieveByKeys) {
     ASSERT_NIL(client.arcs.create(arcs));
 
     std::vector<x::uuid::UUID> keys = {base(arcs[0]).key, base(arcs[1]).key};
-    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_keys(keys));
+    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve(keys));
     ASSERT_EQ(retrieved.size(), 2);
 }
 
@@ -145,16 +144,8 @@ TEST(TestArc, testRetrieveWhere) {
     };
     ASSERT_NIL(client.arcs.create(arcs));
     const auto retrieved = ASSERT_NIL_P(client.arcs.retrieve(
-        RetrieveRequest{
-            .where = Where{
-                .not_ = x::mem::indirect<Where>(
-                    Where{.key = x::filter::Set<Key>{.eq = base(arcs[0]).key}}
-                ),
-                .key = x::filter::Set<Key>{
-                    .in = std::vector<Key>{base(arcs[0]).key, base(arcs[1]).key},
-                },
-            },
-        }
+        !Where{.key = base(arcs[0]).key} &&
+        Where{.key = {base(arcs[0]).key, base(arcs[1]).key}}
     ));
     ASSERT_EQ(retrieved.size(), 1);
     ASSERT_EQ(base(retrieved[0]).key, base(arcs[1]).key);
@@ -168,10 +159,7 @@ TEST(TestArc, testDelete) {
 
     ASSERT_NIL(client.arcs.del(base(arc).key));
 
-    ASSERT_OCCURRED_AS_P(
-        client.arcs.retrieve_by_key(base(arc).key),
-        x::errors::NOT_FOUND
-    );
+    ASSERT_OCCURRED_AS_P(client.arcs.retrieve(base(arc).key), x::errors::NOT_FOUND);
 }
 
 /// @brief it should delete multiple Arc programs by keys.
@@ -186,7 +174,7 @@ TEST(TestArc, testDeleteMany) {
     std::vector<x::uuid::UUID> keys = {base(arcs[0]).key, base(arcs[1]).key};
     ASSERT_NIL(client.arcs.del(keys));
 
-    ASSERT_TRUE(ASSERT_NIL_P(client.arcs.retrieve_by_keys(keys)).empty());
+    ASSERT_TRUE(ASSERT_NIL_P(client.arcs.retrieve(keys)).empty());
 }
 
 /// @brief it should handle the program field correctly.
@@ -199,7 +187,7 @@ TEST(TestArc, testProgramField) {
 
     ASSERT_NIL(client.arcs.create(arc));
 
-    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_key(base(arc).key));
+    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve(base(arc).key));
     ASSERT_EQ(base(retrieved).key, base(arc).key);
     ASSERT_FALSE(std::get<AutomationArc>(retrieved).program.has_value());
 }
@@ -235,7 +223,7 @@ func calc() {val f32} f32 {
 
     RetrieveOptions options;
     options.include_program = true;
-    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_key(base(arc).key, options));
+    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve(base(arc).key, options));
     ASSERT_EQ(base(retrieved).key, base(arc).key);
     const auto &program = std::get<AutomationArc>(retrieved).program.value();
 
@@ -284,7 +272,7 @@ sequence main {
 
     ASSERT_NIL(client.arcs.create(arc));
 
-    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_key(
+    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve(
         base(arc).key,
         synnax::arc::RetrieveOptions{
             .include_program = true,
