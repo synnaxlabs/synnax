@@ -1931,12 +1931,12 @@ var _ = Describe("Expressions", func() {
 				expectSuccess(ctx, body(statement), extras)
 			},
 			Entry("is_nan f64", "a := math.is_nan(v)"),
-			Entry("is_inf f32", "a := math.is_inf(w)"),
+			Entry("is_infinite f32", "a := math.is_infinite(w)"),
 			Entry("is_finite of a channel", "a := math.is_finite(nan)"),
 			Entry("is_nan in a boolean", "a := not math.is_nan(v) and v > 1.0"),
 			Entry("integer literal", "a := math.is_nan(3)"),
 			Entry("negated integer literal", "a := math.is_finite(-3)"),
-			Entry("integer arithmetic", "a := math.is_inf(1 + 2)"),
+			Entry("integer arithmetic", "a := math.is_infinite(1 + 2)"),
 			Entry("f32 constant", "a f32 := math.inf"),
 			Entry("f64 constant", "a f64 := -math.inf"),
 			Entry("default f64", "a := math.nan\nb f64 := a"),
@@ -1950,7 +1950,7 @@ var _ = Describe("Expressions", func() {
 				expectFailure(ctx, body(statement), extras, message)
 			},
 			Entry("i32 argument", "a := math.is_nan(n)", "is not compatible"),
-			Entry("bool argument", "a := math.is_inf(true)", "is not compatible"),
+			Entry("bool argument", "a := math.is_infinite(true)", "is not compatible"),
 			Entry("series argument",
 				"a := math.is_finite([1.5, 2.5])", "is not compatible"),
 			Entry("two arguments", "a := math.is_nan(v, v)", "too many arguments"),
