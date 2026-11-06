@@ -93,8 +93,9 @@ with the date as `YYYY-MM-DD`.
 
 ## Limits
 
-- A log keeps up to 100,000 lines. Past that, it removes the oldest lines, and it reads
-  no older values when you scroll up.
+- A log holds up to 100,000 lines at a time, and it reads others as you scroll, so you
+  can reach every stored value. The scrollbar shows your place in the lines held.
+- A virtual channel stores no values, so its removed lines do not come back.
 - A value with more than one line of text shows as several lines.
 - A value wider than the log wraps. Copied lines stay in one piece.
 

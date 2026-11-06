@@ -81,7 +81,7 @@ const SCROLLBAR_WIDTH = 6;
 // height falls below a pixel.
 const SCROLLBAR_MIN_HEIGHT = 32;
 const CANVAS: render.Canvas2DVariant = "lower2d";
-// A paused view this many lines or fewer from the oldest entry reads older entries.
+// A paused view this many lines or fewer from either end of the entries reads more.
 const LOAD_MARGIN = 200;
 const CONTENT_PADDING = 6;
 // The fewest characters of a value beside its prefix. With less room, the value starts
@@ -303,7 +303,7 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     // Always call setChannels — the source short-circuits if unchanged.
     // This handles both initial setup (where prevState === state) and subsequent changes.
     i.telem.wrapped.setChannels?.(channelKeys);
-    const { data, status } = i.telem.value();
+    const { data } = i.telem.value();
     this.entries = data;
 
     // Compute display names (alias takes priority over server name) and padding.
@@ -351,34 +351,42 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
       // taken at the bottom starts there, so it takes a return or a downward scroll.
       if (scrollState.offset < this.entries.length || scrollState.tail > 0)
         scrollState.awayFromEnd = true;
-      else if (scrollState.awayFromEnd || dist < 0)
+      else if (
+        i.telem.wrapped.live !== false &&
+        (scrollState.awayFromEnd || dist < 0)
+      ) {
         this.setState((s) => ({
           ...s,
           scrolling: false,
           resumedAt: performance.now(),
         }));
+        i.telem.wrapped.resume?.();
+      }
     }
 
     this.setAnchors(this.state.selectionStart, this.state.selectionEnd);
-    this.syncStatus(status);
+    this.syncStatus(i.telem.value().status);
     i.stopListeningTelem?.();
     i.stopListeningTelem = i.telem.onChange(() => {
       const { data, status } = this.internal.telem.value();
       this.entries = data;
       this.reanchor();
       this.syncStatus(status);
-      this.loadOlderNearTop();
+      this.loadNearEdges();
       if (this.state.visible) this.requestRender();
     });
-    this.loadOlderNearTop();
+    if (!scrolling && this.prevState.scrolling) i.telem.wrapped.resume?.();
+    this.loadNearEdges();
     if (!this.state.visible && !wasVisible) return;
     this.requestRender();
   }
 
-  private loadOlderNearTop(): void {
+  private loadNearEdges(): void {
     if (!this.state.scrolling) return;
-    if (this.scrollState.offset - this.visibleLineCount <= LOAD_MARGIN)
-      this.internal.telem.wrapped.loadOlder?.();
+    const { wrapped } = this.internal.telem;
+    const { offset } = this.scrollState;
+    if (offset - this.visibleLineCount <= LOAD_MARGIN) wrapped.loadOlder?.();
+    if (this.entries.length - offset <= LOAD_MARGIN) wrapped.loadNewer?.();
   }
 
   // A loading log is not empty, since its stored entries have not arrived yet.

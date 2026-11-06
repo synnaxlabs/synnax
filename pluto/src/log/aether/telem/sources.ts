@@ -69,14 +69,26 @@ interface Oldest {
   alignment: bigint | null;
 }
 
-// An older page of a channel: its timed samples, oldest first.
+// A page of a channel: its timed samples, oldest first.
 interface Page {
   samples: Array<Omit<Sample, "receivedAt"> & { time: TimeStamp }>;
-  // full is true when the read reached its count, so older samples can exist.
+  // full is true when the read reached its count, so more samples can exist.
   full: boolean;
   // missed is true when the index read left out samples of the page.
   missed: boolean;
   status: cstatus.Status;
+}
+
+// A span of time newer than the entries, after start up to and including end. counts
+// holds how many stored samples each channel has in it, which is what a read needs.
+interface Unread {
+  start: bigint;
+  end: bigint;
+  counts: Map<channel.Key, number>;
+  // The lines of the samples that streamed into the span.
+  lines?: number;
+  // Whether a read of the span missed times, which a second read does not wait out.
+  missed?: boolean;
 }
 
 // A channel whose retrieval failed. A definitive failure is not retried.
@@ -106,8 +118,9 @@ interface Meta {
 
 /**
  * Shows the samples of several channels in one list, sorted by sample time. A log reads
- * the newest stored samples of each channel when it opens, then streams. The list keeps
- * the newest maxEntries entries.
+ * the newest stored samples of each channel when it opens, then streams. The list holds
+ * at most maxEntries entries of a window that moves over the stored samples: reading in
+ * one direction evicts entries from the other, and a later read finds them again.
  */
 export class StreamMultiChannelLog
   extends telem.AbstractSource<typeof streamMultiChannelLogPropsZ>
@@ -132,15 +145,20 @@ export class StreamMultiChannelLog
   private status = telem.SUCCESS_STATUS;
   private valid = false;
   private generation = 0;
-  // abort ends the running older page read, whose results go stale on a channel
-  // change, a reset, or an eviction.
+  // abort ends the running page read, whose results go stale on a channel change, a
+  // reset, or an eviction.
   private abort: AbortController | null = null;
   // paging is true from the start of a read until the next read may start, reading only
   // while the read runs.
   private paging = false;
   private reading = false;
-  // full is true once an older page passed maxEntries.
-  private full = false;
+  // unread holds the spans newer than the entries, oldest first. The log is live while
+  // it is empty. Otherwise the last span counts the samples that stream past the log.
+  private unread: Unread[] = [];
+  // skipped holds the streamed lines of channels that store nothing, which no read can
+  // find again, while the log is not live.
+  private skipped: LogEntry[][] = [];
+  private skippedLines = 0;
   private readonly pageBreaker: breaker.Breaker;
   private pageFailure?: cstatus.Status;
   private _channels: channel.Key[] = [];
@@ -177,7 +195,10 @@ export class StreamMultiChannelLog
     return { data: this.entries, status };
   }
 
-  /** Channels that stay keep their entries and samples, so none show twice. */
+  /**
+   * Channels that stay keep their entries and samples while the log is live, so none
+   * show twice. A log that is not live returns to the newest samples.
+   */
   setChannels(channels: channel.Key[]): void {
     if (compare.primitiveArrays(this._channels, channels) === compare.EQUAL) return;
     this._channels = channels;
@@ -190,48 +211,81 @@ export class StreamMultiChannelLog
         this.unresolved.delete(key);
       }
     if (channels.length === 0) this.reset();
-    else if (this.valid) void this.resolve();
+    else {
+      this.resume();
+      if (this.valid) void this.resolve();
+    }
+    this.notify();
+  }
+
+  /** Whether the entries end at the newest samples, so that new samples join them. */
+  get live(): boolean {
+    return this.unread.length === 0;
+  }
+
+  /** Moves a log that is not live back to the newest samples. */
+  resume(): void {
+    // A late older page could evict the newest entries of a live log.
+    this.cancelPage();
+    if (this.live) return this.notify();
+    this.unread = [];
+    this.skipped = [];
+    this.skippedLines = 0;
+    this.entries = [];
+    this.metas.forEach((meta) => {
+      Object.assign(meta, {
+        snapshot: undefined,
+        appended: 0,
+        pending: [],
+        oldest: undefined,
+        exhausted: !meta.stored,
+        pageSize: OLDER_PAGE_SIZE,
+      });
+    });
+    if (this.subscription != null) this.pull(this.subscription);
     this.notify();
   }
 
   /**
+   * Reads the next span of newer samples that the entries do not hold. Does nothing
+   * while a page read runs or the log is live.
+   */
+  loadNewer(): void {
+    const { client } = this;
+    const [span] = this.unread;
+    if (this.paging || client == null || span == null) return;
+    if (this.unread.length === 1)
+      this.unread.push({ start: span.end, end: span.end, counts: new Map() });
+    void this.readNewer(client, span);
+  }
+
+  /**
    * Reads the next older page of each channel whose first stored sample the entries do
-   * not hold. Does nothing while a page read runs or the entries are full.
+   * not hold. Does nothing while a page read runs.
    */
   loadOlder(): void {
     const { client } = this;
-    if (this.paging || this.full || client == null) return;
+    if (this.paging || client == null) return;
     const metas = [...this.metas].filter(
       ([, m]) => !m.exhausted && m.oldest != null && m.stored,
     );
     if (metas.length > 0) void this.readOlder(client, metas);
   }
 
-  /** Never rejects. A failed read waits under the breaker before the next one. */
-  private async readOlder(
-    client: telem.Client,
-    metas: Array<[channel.Key, Meta]>,
-  ): Promise<void> {
+  /**
+   * Never rejects. Returns the pages, or null when the read aborts or fails. A failed
+   * read waits under the breaker before the next one.
+   */
+  private async readPages(
+    read: (signal: AbortSignal) => Array<Promise<Page>>,
+  ): Promise<Page[] | null> {
     const abort = new AbortController();
     [this.abort, this.paging, this.reading] = [abort, true, true];
     this.notify();
     const { signal } = abort;
-    const oldests = metas.map(([, { oldest }]) => oldest!);
-    const read = await Promise.all(
-      metas.map(
-        async ([key, { pageSize }], i) =>
-          await readPage(
-            client,
-            key,
-            oldests[i],
-            pageSize,
-            signal,
-            this.recheckInterval,
-          ),
-      ),
-    );
-    if (signal.aborted) return;
-    const failed = read.find((p) => p.status.variant === "error")?.status;
+    const pages = await Promise.all(read(signal));
+    if (signal.aborted) return null;
+    const failed = pages.find((p) => p.status.variant === "error")?.status;
     if (failed != null) {
       if (failed.description !== this.pageFailure?.description)
         this.onStatusChange?.(failed);
@@ -239,10 +293,161 @@ export class StreamMultiChannelLog
       this.reading = false;
       this.notify();
       if ((await this.pageBreaker.wait()) && !signal.aborted) this.paging = false;
-      return;
+      return null;
     }
     [this.paging, this.reading, this.pageFailure] = [false, false, undefined];
     this.pageBreaker.reset();
+    return pages;
+  }
+
+  private async readNewer(client: telem.Client, span: Unread): Promise<void> {
+    // A span counts what the log saw arrive, and an outage can hide more. A page that
+    // fills its count may hide samples, so the span splits, and one time reads more.
+    const middle = (span.start + span.end) / 2n;
+    const limit = middle > span.start ? PAGE_SIZE : Number.MAX_SAFE_INTEGER;
+    const counts = [...this.metas]
+      .filter(([, { stored }]) => stored)
+      .map(([key]): [channel.Key, number] => [
+        key,
+        Math.min(Math.max(span.counts.get(key) ?? 0, OLDER_PAGE_SIZE), limit) + 1,
+      ]);
+    const size = (): number => [...span.counts.values()].reduce((a, b) => a + b, 0);
+    const before = size();
+    const range = new TimeRange(
+      new TimeStamp(span.start + 1n),
+      new TimeStamp(span.end + 1n),
+    );
+    const read = await this.readPages((signal) =>
+      counts.map(
+        async ([key, count]) =>
+          await readPage(
+            client,
+            key,
+            range,
+            count,
+            () => true,
+            signal,
+            this.recheckInterval,
+          ),
+      ),
+    );
+    if (read == null) return;
+    // A span stays when a late sample changed the spans during the read, or its times
+    // did not all arrive. A second read that misses times leaves those samples out, so
+    // the log can move past them.
+    const missed = read.some(({ missed }) => missed);
+    if (
+      this.unread[0] !== span ||
+      size() !== before ||
+      (missed && span.missed !== true)
+    ) {
+      if (this.unread[0] === span) span.missed = missed;
+      this.notify();
+      return;
+    }
+    const split = (): void => {
+      const half = (start: bigint, end: bigint): Unread => ({
+        start,
+        end,
+        counts: new Map(span.counts),
+      });
+      if (middle > span.start)
+        this.unread.splice(0, 1, half(span.start, middle), half(middle, span.end));
+      else counts.forEach(([key, count]) => span.counts.set(key, count * 2));
+      this.notify();
+    };
+    if (read.some(({ full }) => full)) return split();
+    const groups = counts.flatMap(([key], i) =>
+      read[i].samples.map((p) => toEntries(key, p, p.time)),
+    );
+    // The entries keep this many lines after an eviction, so a longer read would evict
+    // lines of its own before they show. Skipped lines count, since they join in time.
+    const kept = this.keptLines;
+    const { skipped } = this;
+    // A pull adds its groups one channel at a time.
+    skipped.sort((a, b) => compareTimes(a[0], b[0]));
+    let lines = groups.reduce((total, group) => total + group.length, 0);
+    let joined = 0;
+    while (
+      joined < skipped.length &&
+      skipped[joined][0].timestamp.valueOf() <= span.end
+    )
+      lines += skipped[joined++].length;
+    if (middle > span.start && lines > kept) return split();
+    counts.forEach(([key], i) => {
+      const meta = this.metas.get(key);
+      if (meta == null) return;
+      for (const p of read[i].samples) meta.oldest = older(meta.oldest, p, p.time);
+    });
+    this.unread.shift();
+    // Only the span of streamed samples is left. Reading it would never catch a fast
+    // stream, so the subscription gives it back once it fits in the entries and in the
+    // page each channel holds. Skipped lines past it are newer than the entries, and
+    // the log stays not live until they all join.
+    const [tail] = this.unread;
+    const drained =
+      this.unread.length === 1 &&
+      lines + (tail.lines ?? 0) <= kept &&
+      [...tail.counts.values()].every((count) => count <= PAGE_SIZE);
+    if (drained)
+      while (
+        joined < skipped.length &&
+        (lines === 0 || lines + skipped[joined].length <= kept)
+      )
+        lines += skipped[joined++].length;
+    for (const group of skipped.splice(0, joined)) {
+      this.skippedLines -= group.length;
+      groups.push(group);
+    }
+    const live = drained && skipped.length === 0;
+    if (live) this.unread = [];
+    if (groups.length > 0) this.insert(groups);
+    this.evict();
+    if (live) this.rejoin(tail);
+    this.notify();
+  }
+
+  // The lines the entries keep after an eviction.
+  private get keptLines(): number {
+    return this.maxEntries - Math.floor(this.maxEntries * EVICTION_HEADROOM);
+  }
+
+  // Pulls the samples of a span the log only counted again, now that it is live.
+  private rejoin({ counts }: Unread): void {
+    counts.forEach((count, key) => {
+      const meta = this.metas.get(key);
+      if (meta == null) return;
+      meta.appended -= count + meta.pending.length;
+      meta.pending = [];
+    });
+    if (this.subscription != null) this.pull(this.subscription);
+  }
+
+  private async readOlder(
+    client: telem.Client,
+    metas: Array<[channel.Key, Meta]>,
+  ): Promise<void> {
+    const oldests = metas.map(([, { oldest }]) => oldest!);
+    const read = await this.readPages((signal) =>
+      metas.map(
+        async ([key, { pageSize }], i) =>
+          await readPage(
+            client,
+            key,
+            new TimeRange(
+              TimeStamp.MIN,
+              // A null alignment excludes the samples at the time, which could fill
+              // the page.
+              new TimeStamp(oldests[i].time + (oldests[i].alignment == null ? 0n : 1n)),
+            ),
+            pageSize,
+            (p) => before(p, oldests[i]),
+            signal,
+            this.recheckInterval,
+          ),
+      ),
+    );
+    if (read == null) return;
     // A full page reaches back only to its oldest sample, or to the oldest time held if
     // it has none, so the entries keep only the times that every full page covers.
     let boundary: bigint | null = null;
@@ -259,23 +464,17 @@ export class StreamMultiChannelLog
           items.push({ meta, p, group: toEntries(key, p, p.time) });
     });
     items.sort((x, y) => compareTimes(x.group[0], y.group[0]));
-    // A page that passes maxEntries keeps its newest times that fit, and the log reads
-    // no older page after it.
-    let lines = items.reduce((n, { group }) => n + group.length, 0);
-    let cut = 0;
-    while (lines > this.maxEntries - this.entries.length && cut < items.length)
-      lines -= items[cut++].group.length;
-    while (
-      cut > 0 &&
-      cut < items.length &&
-      items[cut].p.time.equals(items[cut - 1].p.time)
-    )
-      lines -= items[cut++].group.length;
-    if (cut > 0) this.full = true;
-    const shown = items.slice(cut);
+    // An eviction keeps the oldest lines, so a page longer than half of them could
+    // evict the lines the view sits on. The next page reads what this one leaves out.
+    const limit = Math.floor(this.keptLines / 2);
+    let start = items.length - 1;
+    let lines = items.at(-1)?.group.length ?? 0;
+    while (start > 0 && lines + items[start - 1].group.length <= limit)
+      lines += items[--start].group.length;
+    items.splice(0, start);
     metas.forEach(([, meta], i) => {
       const { samples, full, missed } = read[i];
-      const own = shown.filter((item) => item.meta === meta);
+      const own = items.filter((item) => item.meta === meta);
       if (own.length > 0) {
         const [{ time, alignment }] = own.map((item) => item.p);
         meta.oldest = { time: time.valueOf(), alignment };
@@ -287,11 +486,12 @@ export class StreamMultiChannelLog
       else if (meta.pageSize >= this.maxEntries) meta.exhausted = true;
       else meta.pageSize *= 2;
     });
-    if (shown.length > 0)
+    if (items.length > 0)
       this.insert(
-        shown.map(({ group }) => group),
+        items.map(({ group }) => group),
         true,
       );
+    this.evictNewest();
     this.notify();
   }
 
@@ -302,7 +502,6 @@ export class StreamMultiChannelLog
 
   private endPaging(): void {
     this.cancelPage();
-    this.full = false;
     this.pageBreaker.reset();
   }
 
@@ -391,9 +590,42 @@ export class StreamMultiChannelLog
     this.status = worst;
     this.failures.observe(worst);
     if (groups.length === 0) return statusChanged;
+    if (!this.live) {
+      const [{ start }] = this.unread;
+      const held = groups.filter(([{ timestamp }]) => timestamp.valueOf() <= start);
+      this.skip(groups.filter(([{ timestamp }]) => timestamp.valueOf() > start));
+      if (held.length === 0) return statusChanged;
+      this.insert(held);
+      this.evictNewest();
+      return true;
+    }
     this.insert(groups);
     this.evict();
     return true;
+  }
+
+  // Counts the streamed samples that a log which is not live leaves out. Most join the
+  // last span, which a read splits when it holds more than one page.
+  private skip(groups: LogEntry[][]): void {
+    const last = this.unread.at(-1)!;
+    for (const group of groups) {
+      const [{ channelKey, timestamp }] = group;
+      if (this.metas.get(channelKey)?.stored !== true) {
+        this.skipped.push(group);
+        this.skippedLines += group.length;
+        continue;
+      }
+      const time = timestamp.valueOf();
+      const span =
+        time > last.start ? last : this.unread.find(({ end }) => time <= end)!;
+      if (time > span.end) span.end = time;
+      span.counts.set(channelKey, (span.counts.get(channelKey) ?? 0) + 1);
+      span.lines = (span.lines ?? 0) + group.length;
+    }
+    let excess = 0;
+    while (this.skippedLines > this.maxEntries)
+      this.skippedLines -= this.skipped[excess++].length;
+    this.skipped.splice(0, excess);
   }
 
   private scheduleRecheck(subscription: framer.Subscription, waiting: boolean): void {
@@ -421,7 +653,7 @@ export class StreamMultiChannelLog
     snapshot: framer.Snapshot,
     receivedAt: TimeStamp,
   ): void {
-    if (meta.snapshot === snapshot) return;
+    if (meta.snapshot === snapshot && meta.appended === snapshot.appended) return;
     const { series, appended } = snapshot;
     if (appended == null)
       throw new UnexpectedError(`snapshot of channel ${key} has no appended count`);
@@ -505,6 +737,34 @@ export class StreamMultiChannelLog
     this.entries = merged;
   }
 
+  // Evicts the newest entries past maxEntries, which a later read finds again. The cut
+  // falls between two times.
+  private evictNewest(): void {
+    const { entries } = this;
+    if (entries.length <= this.maxEntries) return;
+    const headroom = Math.floor(this.maxEntries * EVICTION_HEADROOM);
+    let at = this.maxEntries - headroom;
+    const time = (i: number): bigint => entries[i].timestamp.valueOf();
+    while (at > 0 && time(at) === time(at - 1)) at--;
+    // One time that fills the entries stays whole, since a read finds a time whole.
+    if (at === 0) at = bound(entries, time(0), false);
+    if (at === entries.length) return;
+    const evicted = entries.splice(at);
+    const end = evicted[evicted.length - 1].timestamp.valueOf();
+    const counts = new Map<channel.Key, number>();
+    for (const { channelKey, continuation } of evicted)
+      if (continuation !== true && this.metas.get(channelKey)?.stored === true)
+        counts.set(channelKey, (counts.get(channelKey) ?? 0) + 1);
+    const start = time(at - 1);
+    // A channel with no entries left reads older samples from below the unread span.
+    this.metas.forEach((m) => {
+      if (m.oldest != null && m.oldest.time > start)
+        m.oldest = { time: start + 1n, alignment: null };
+    });
+    if (this.live) this.unread.push({ start: end, end, counts: new Map() });
+    this.unread.unshift({ start, end, counts });
+  }
+
   // Evicts the oldest entries past maxEntries. The cut falls between two times, so the
   // entries keep every sample at or after it, and an older page reads before it. When
   // the newest time alone passes maxEntries, the cut falls between two of its samples.
@@ -555,6 +815,9 @@ export class StreamMultiChannelLog
     this.subscription = null;
     this.metas.clear();
     this.unresolved.clear();
+    this.unread = [];
+    this.skipped = [];
+    this.skippedLines = 0;
     this.entries = [];
     this.status = telem.SUCCESS_STATUS;
     this.valid = false;
@@ -581,7 +844,7 @@ const toMeta = (ch: channel.Channel): Meta => {
 
 const older = (
   oldest: Oldest | undefined,
-  { alignment }: Sample,
+  { alignment }: Pick<Sample, "alignment">,
   time: TimeStamp,
 ): Oldest | undefined => {
   const t = time.valueOf();
@@ -652,21 +915,21 @@ const waitFor = async (
     run();
   });
 
-// Reads the newest count stored samples of the channel up to the oldest one held, and
-// returns those older than it. A sample that gets no time is left out. An aborted read
-// returns an empty page.
+// Reads the newest count stored samples of the channel in the range, and returns those
+// that keep accepts. A sample that gets no time is left out. An aborted read returns an
+// empty page.
 const readPage = async (
   client: telem.Client,
   key: channel.Key,
-  oldest: Oldest,
+  range: TimeRange,
   count: number,
+  keep: (sample: { time: TimeStamp; alignment: bigint }) => boolean,
   signal: AbortSignal,
   recheckInterval: TimeSpan,
 ): Promise<Page> => {
-  const end = oldest.alignment == null ? oldest.time : oldest.time + 1n;
   const subscription = client.feed.subscribe({
     keys: [key],
-    window: staticWindow(new TimeRange(TimeStamp.MIN, new TimeStamp(end))),
+    window: staticWindow(range),
     limit: { variant: "latest", count },
   });
   const data = await settled(subscription, key, signal);
@@ -695,7 +958,7 @@ const readPage = async (
   for (const p of read) {
     const time = timeOf(p);
     if (time == null) missed = true;
-    else if (before({ ...p, time }, oldest)) samples.push({ ...p, time });
+    else if (keep({ ...p, time })) samples.push({ ...p, time });
   }
   const full = data.series.length >= count;
   subscription.close();

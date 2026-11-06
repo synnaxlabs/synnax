@@ -271,6 +271,32 @@ describe("log/aether/Log", () => {
       expect(log.state.scrolling).toBe(false);
     });
 
+    it("should resume the source when it resumes on its own", () => {
+      const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
+      const { source, updateState } = setup(entries);
+      updateState({ scrolling: false, empty: false });
+      updateState({ scrolling: true, empty: false, wheelPos: 0 });
+      updateState({ scrolling: true, empty: false, wheelPos: 300 });
+      expect(source.resumeCalls).toBe(0);
+      updateState({ scrolling: true, empty: false, wheelPos: 0 });
+      expect(source.resumeCalls).toBeGreaterThan(0);
+    });
+
+    it("should clear the loading state of a read that resuming cancels", () => {
+      const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
+      const { log, source, updateState } = setup(entries);
+      updateState({ scrolling: false, empty: false });
+      updateState({ scrolling: true, empty: false, wheelPos: 0 });
+      updateState({ scrolling: true, empty: false, wheelPos: 300 });
+      const { status } = source;
+      source.status = { ...status, variant: "loading" };
+      source.resume = () => {
+        source.status = status;
+      };
+      updateState({ scrolling: true, empty: false, wheelPos: 0 });
+      expect(log.state.loading).toBe(false);
+    });
+
     it("should stamp resumedAt only when it resumes on its own", () => {
       const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
       const { log, updateState } = setup(entries);
@@ -722,6 +748,37 @@ describe("log/aether/Log", () => {
 
     it("should read older entries when the paused view nears the oldest", () => {
       expect(pause(20_000).loadOlderCalls).toBeGreaterThan(0);
+    });
+
+    it("should read newer entries when the paused view nears the newest", () => {
+      expect(pause(0).loadNewerCalls).toBeGreaterThan(0);
+    });
+
+    it("should not read newer entries after the view moves far from the newest", () => {
+      expect(pause(20_000).loadNewerCalls).toBe(1);
+    });
+
+    it("should stay paused at the newest entry of a source that is not live", () => {
+      const entries = Array.from({ length: 1000 }, (_, i) => makeEntry(i));
+      const { log, source, updateState } = setup(entries);
+      source.live = false;
+      const base = { region: REGION_500, empty: false, visible: true };
+      updateState({ ...base, wheelPos: 0, scrolling: false });
+      updateState({ ...base, wheelPos: 0, scrolling: true });
+      updateState({ ...base, wheelPos: 200, scrolling: true });
+      updateState({ ...base, wheelPos: 0, scrolling: true });
+      expect(log.state.scrolling).toBe(true);
+    });
+
+    it("should resume the source when the log leaves its paused view", () => {
+      const entries = Array.from({ length: 1000 }, (_, i) => makeEntry(i));
+      const { source, updateState } = setup(entries);
+      const base = { region: REGION_500, empty: false, visible: true };
+      updateState({ ...base, wheelPos: 0, scrolling: false });
+      updateState({ ...base, wheelPos: 0, scrolling: true });
+      expect(source.resumeCalls).toBe(0);
+      updateState({ ...base, wheelPos: 0, scrolling: false });
+      expect(source.resumeCalls).toBe(1);
     });
 
     it("should not read older entries while live", () => {
