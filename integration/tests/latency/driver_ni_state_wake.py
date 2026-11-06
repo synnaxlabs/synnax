@@ -45,12 +45,16 @@ class DriverNIStateWake(Latency):
         client = self.client
         # Sim device must be set up in NI MAX
         dev = client.devices.retrieve(location="SYMod1")
-        cmd_time = client.channels.create(
-            name="dsw_cmd_time",
-            is_index=True,
-            data_type=sy.DataType.TIMESTAMP,
-            retrieve_if_name_exists=True,
-        )
+        # Each command gets its own index, so one command can be written alone.
+        cmd_times = [
+            client.channels.create(
+                name=f"dsw_{line}_cmd_time",
+                is_index=True,
+                data_type=sy.DataType.TIMESTAMP,
+                retrieve_if_name_exists=True,
+            )
+            for line in range(2)
+        ]
         state_time = client.channels.create(
             name="dsw_state_time",
             is_index=True,
@@ -64,7 +68,7 @@ class DriverNIStateWake(Latency):
                 client.channels.create(
                     name=f"dsw_{line}_cmd",
                     data_type=sy.DataType.UINT8,
-                    index=cmd_time.key,
+                    index=cmd_times[line].key,
                     retrieve_if_name_exists=True,
                 )
             )
