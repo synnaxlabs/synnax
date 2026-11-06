@@ -41,7 +41,7 @@ const retrieveMultiParamsZ = z.union([
 ]);
 
 export type RetrieveSingleParams = { key: Key };
-export type RetrieveMultipleParams = RetrieveRequest;
+export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 
 // Policies do not carry their subjects, so only the Core can check them.
 const LINES: Lines = { subjects: null };

@@ -74,7 +74,7 @@ const forIDs = (where: Where): ontology.ID[] => [
 /** Names one label. */
 export type RetrieveSingleParams = { key: Key };
 /** Everything a multi-label retrieval can filter on, including the resource labeled. */
-export type RetrieveMultipleParams = RetrieveRequest;
+export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 /** Params for a label retrieval, single or multiple. */
 export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 

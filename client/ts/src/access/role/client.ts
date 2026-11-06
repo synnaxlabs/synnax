@@ -47,7 +47,7 @@ export type CreateParams = z.input<typeof createParamsZ>;
 const createResZ = z.object({ roles: roleZ.array() });
 
 export type RetrieveSingleParams = { key: Key };
-export type RetrieveMultipleParams = RetrieveRequest;
+export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 
 const deleteResZ = z.object({});
