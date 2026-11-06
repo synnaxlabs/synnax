@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, record } from "@synnaxlabs/x";
+import { type destructor, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { query } from "@/query";
@@ -72,6 +72,8 @@ export interface Channels {
   delete: string;
 }
 
+const isID = (target: ID | SearchParams): target is ID => "type" in target;
+
 /** Configuration for a {@link Client}. */
 export interface ClientConfig {
   unary: UnaryClient;
@@ -92,6 +94,7 @@ export class Client {
   private readonly client: UnaryClient;
   private readonly table: query.Table<string, Resource>;
   private readonly searches: query.Space<Search, Resource[], string, Resource>;
+  private readonly byKey: query.Retrieves<string, Resource>;
 
   constructor({ unary, cache, channels }: ClientConfig) {
     this.client = unary;
@@ -115,6 +118,18 @@ export class Client {
       matches: (r, q) => q.types == null || q.types.includes(r.id.type),
       serverFields: SERVER_FIELDS,
     });
+    this.byKey = cache.queries<string, Resource, string, Resource>({
+      name: "Resource",
+      table: this.table,
+      fetch: async (key) => {
+        const resources = await this.table.retrieve([key]);
+        checkForMultipleOrNoResults("Resource", parseID(key), resources, true);
+        return [key];
+      },
+      compose: ([r]) => r,
+      keyOf: (key) => key,
+      single: true,
+    });
   }
 
   /**
@@ -128,15 +143,36 @@ export class Client {
   }
 
   /**
-   * Calls the handler with the new answer of the search each time it changes. Renames,
-   * creates, and deletes of the types that the client has change channels for change
-   * the answer.
+   * @returns the cached answer of the search, or undefined when nothing is cached. The
+   * answer may be stale when no subscriber keeps the search current.
    */
+  getCached(params: SearchParams): query.Cached<Resource[]> | undefined {
+    return this.searches.getCached(normalize(params));
+  }
+
+  /**
+   * Calls the handler with the new answer each time it changes: the resource that the
+   * ID names, or the answer of the search. Renames, creates, and deletes of the types
+   * that the client has change channels for change the answer.
+   */
+  onChange(id: ID, handler: query.ChangeHandler<Resource>): destructor.Destructor;
   onChange(
     params: SearchParams,
     handler: query.ChangeHandler<Resource[]>,
+  ): destructor.Destructor;
+  onChange(
+    target: ID | SearchParams,
+    handler: query.ChangeHandler<Resource> | query.ChangeHandler<Resource[]>,
   ): destructor.Destructor {
-    return this.searches.onChange(normalize(params), handler);
+    if (isID(target))
+      return this.byKey.onChange(
+        idToString(target),
+        handler as query.ChangeHandler<Resource>,
+      );
+    return this.searches.onChange(
+      normalize(target),
+      handler as query.ChangeHandler<Resource[]>,
+    );
   }
 
   /**
@@ -148,10 +184,8 @@ export class Client {
   async retrieve(id: ID): Promise<Resource>;
   async retrieve(ids: ID[]): Promise<Resource[]>;
   async retrieve(ids: ID | ID[]): Promise<Resource | Resource[]> {
-    const isSingle = !Array.isArray(ids);
-    const resources = await this.execRetrieve(array.toArray(ids));
-    checkForMultipleOrNoResults("Resource", ids, resources, isSingle);
-    return isSingle ? resources[0] : resources;
+    if (Array.isArray(ids)) return await this.table.retrieve(idToString(ids));
+    return await this.byKey.retrieve(idToString(ids));
   }
 
   private listeners(

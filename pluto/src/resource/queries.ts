@@ -30,4 +30,7 @@ export const useList = Flux.createList<ListQuery, string, resource.Resource>({
   retrieveByKey: async ({ client, key }) =>
     await client.resources.retrieve(resource.parseID(key)),
   onChange: ({ client, query }, handler) => client.resources.onChange(query, handler),
+  getCached: ({ client, query }) => client.resources.getCached(query),
+  onChangeByKey: ({ client, key }, handler) =>
+    client.resources.onChange(resource.parseID(key), handler),
 });

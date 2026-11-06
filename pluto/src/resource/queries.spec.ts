@@ -12,6 +12,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { Flux } from "@/flux";
 import { Resource } from "@/resource";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
 
@@ -94,6 +95,38 @@ describe("Resource Queries", () => {
       await waitFor(() =>
         expect(result.current.getItem(resource.idToString(l))?.name).toEqual(name),
       );
+    });
+
+    it("should show the cached answer of a search before the round trip", async () => {
+      const token = randomToken();
+      const l = await createLabel(token);
+      const query: Resource.ListQuery = { searchTerm: token, types: ["label"] };
+      await expect
+        .poll(async () => (await client.resources.search(query)).length)
+        .toEqual(1);
+      const { result } = renderHook(() => Resource.useList({ initialQuery: query }), {
+        wrapper,
+      });
+      expect(result.current.data).toEqual([resource.idToString(l)]);
+    });
+
+    it("should update a resource read by key when it is renamed", async () => {
+      const g = await client.groups.create({ scope: "channel", name: randomToken() });
+      const key = resource.idToString(group.resourceID(g.key));
+      const { result } = renderHook(
+        () => {
+          const list = Resource.useList();
+          return Flux.useListItem({
+            subscribe: list.subscribe,
+            getItem: list.getItem,
+            key,
+          });
+        },
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current?.name).toEqual(g.name));
+      await act(async () => await client.groups.rename(g.key, "renamed"));
+      await waitFor(() => expect(result.current?.name).toEqual("renamed"));
     });
   });
 });

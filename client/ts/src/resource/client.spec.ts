@@ -185,6 +185,42 @@ describe("Resource", () => {
     });
   });
 
+  describe("getCached", () => {
+    it("should return the answer of a search read before", async () => {
+      const token = randomToken();
+      const l = await createLabel(token);
+      const params: resource.SearchParams = { searchTerm: token, types: ["label"] };
+      await expect
+        .poll(async () => (await client.resources.search(params)).map((r) => r.id))
+        .toEqual([l]);
+      const cached = client.resources.getCached(params);
+      expect(query.isLive(cached) && cached.map((r) => r.id)).toEqual([l]);
+    });
+
+    it("should return undefined for a search never read", () => {
+      expect(client.resources.getCached({ searchTerm: randomToken() })).toBeUndefined();
+    });
+  });
+
+  describe("onChange by ID", () => {
+    it("should call the handler with the new name of a renamed resource", async () => {
+      const proj = await client.projects.create({ name: randomToken() });
+      const plot = await client.lineplots.create({
+        project: proj.key,
+        name: randomToken(),
+      });
+      const id = lineplot.resourceID(plot.key);
+      let latest: resource.Resource | undefined;
+      const off = client.resources.onChange(id, (answer) => {
+        if (query.isLive(answer)) latest = answer;
+      });
+      onTestFinished(off);
+      await client.resources.retrieve(id);
+      await client.lineplots.rename(plot.key, "renamed");
+      await expect.poll(() => latest?.name).toEqual("renamed");
+    });
+  });
+
   describe("retrieve", () => {
     it("should retrieve the name of a single resource", async () => {
       const name = randomToken();
