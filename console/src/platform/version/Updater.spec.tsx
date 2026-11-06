@@ -76,11 +76,12 @@ describe("version Updater", () => {
       expect(Version.Notification.match(spec("versionUpdate-123"))).toBe(true);
     });
 
-    it("should render an update action for a version update status", () => {
+    it("should open the version info modal from its update action", async () => {
       renderWithModals(
         <Version.Notification status={spec("versionUpdate-123")} silence={vi.fn()} />,
       );
-      expect(screen.getByRole("button", { name: "Update" })).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: "Update" }));
+      await waitFor(() => expect(screen.getByText("Up to date")).toBeTruthy());
     });
 
     it("should be registered in NOTIFICATIONS", () => {
@@ -142,14 +143,6 @@ describe("version Updater", () => {
         Version.useCheckForUpdates(),
       );
       await waitFor(() => expect(result.current).toBe(true));
-    });
-  });
-
-  describe("OpenUpdateDialogAction", () => {
-    it("should open the version info modal when the Update button is clicked", async () => {
-      renderWithModals(<Version.OpenUpdateDialogAction />);
-      fireEvent.click(screen.getByRole("button", { name: "Update" }));
-      await waitFor(() => expect(screen.getByText("Up to date")).toBeTruthy());
     });
   });
 });

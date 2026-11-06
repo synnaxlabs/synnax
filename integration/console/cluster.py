@@ -101,35 +101,12 @@ class ClusterClient:
         )
         self.layout.wait_for_hidden(self.modal)
 
-    def edit_connection(self, *, host: str, port: int) -> None:
-        """Repoint the active cluster through the badge's "Edit connection".
-
-        The edit button reveals on hovering the name row.
-        """
-        self.open_badge()
-        self.badge_dialog.locator(".console-core-badge__name").hover()
-        self.badge_dialog.get_by_role("button", name="Edit connection").click(
-            timeout=5000
-        )
-        self.fill_connect_modal(host=host, port=port)
-
     # ------------------------------------------------------ cold takeover
 
     @property
     def trouble(self) -> Locator:
         """The cold-connect trouble card that replaces the workspace."""
         return self.page.locator(self.TROUBLE_SELECTOR)
-
-    def wait_for_trouble(self, *, timeout: float = 20000) -> None:
-        self.layout.wait_for_visible(self.trouble)
-        self.trouble.get_by_role("button", name="Retry now").wait_for(
-            state="visible", timeout=timeout
-        )
-
-    def edit_connection_from_trouble(self, *, host: str, port: int) -> None:
-        """Repoint the cluster from the trouble card's "Edit connection"."""
-        self.trouble.get_by_role("button", name="Edit connection").click(timeout=5000)
-        self.fill_connect_modal(host=host, port=port)
 
     # ------------------------------------------- pre-login cluster list
 

@@ -403,7 +403,8 @@ export class Table<
    * one: "set" overwrites entries, "if-absent" leaves existing entries untouched. A
    * tombstoned key is skipped, as is a key written after the given stamp: the fetch may
    * predate the delete or the write, and only a {@link set} revives a deleted record.
-   * On a revivable table, a key deleted before the given stamp also revives.
+   * On a revivable table, a key deleted before the given stamp also revives, unless its
+   * local delete waits for its stream delete.
    * @returns A rollback that undoes the entries this call wrote.
    */
   ingest(
@@ -440,8 +441,20 @@ export class Table<
   }
 
   private ingestible(key: Key, since?: Stamp): boolean {
+    if (this.pendingDeletes.has(key)) return false;
     if (since != null && this.writtenSince(key, since)) return false;
     return !this.tombstones.has(key) || (this.revivable && since != null);
+  }
+
+  /**
+   * Tombstones the entries of the given keys, which a fetch that started at the given
+   * stamp found gone. Skips a key the table does not hold or wrote after the stamp.
+   */
+  ingestDeletes(keys: Key[], since: Stamp): void {
+    const vanished = keys.filter(
+      (key) => this.entries.has(key) && !this.writtenSince(key, since),
+    );
+    if (vanished.length > 0) this.remove(vanished, "confirmed");
   }
 
   /** Returns every entry in the table, or every entry the filter accepts. */
@@ -532,8 +545,8 @@ export class Table<
 
   /**
    * Deletes entries and notifies subscribers. Deleted values are retained as tombstones
-   * until a subsequent set for the key. In a table with a fetch, {@link mirrorSet}
-   * skips a deleted key until the change stream delivers its delete.
+   * until a subsequent set for the key. {@link mirrorSet} skips a deleted key until the
+   * change stream delivers its delete.
    * @param key - The key(s) to delete or a filter function
    * @returns A rollback that restores the deleted entries, then fetches them again: an
    * entry misses every change made while it was deleted.
@@ -600,10 +613,9 @@ export class Table<
         this.applyDelete(k);
         if (removal !== "evict" && value != null) {
           this.tombstones.set(k, new Deleted(value, TimeStamp.now()));
-          // The Core sends no delete for a key it already lost. Only the reconcile of a
-          // table with a fetch finds such a key and clears its mark.
-          if (removal === "local" && this.fetchEntries != null)
-            this.pendingDeletes.add(k);
+          // The Core sends no delete for a key it already lost. Its mark then holds
+          // until the stream reopens, or until a reconcile finds the key gone.
+          if (removal === "local") this.pendingDeletes.add(k);
         }
         // A repeat marks the delete as committed, so it also counts as a write.
         if (removal !== "evict" && this.tombstones.has(k))
