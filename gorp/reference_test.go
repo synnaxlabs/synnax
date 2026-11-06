@@ -443,7 +443,7 @@ var _ = Describe("Reference", func() {
 			Expect(gorp.WrapWriter[string, refDevice](db).
 				Set(ctx, refDevice{Key: "b", Rack: 9})).To(Succeed())
 			Expect(deviceRef.rack.Get(ctx, db, 9)).
-				To(ConsistOf("a"))
+				To(ConsistOf("a", "b"))
 		})
 
 		It("Should only check targets that a write changes", func(ctx SpecContext) {

@@ -1234,6 +1234,51 @@ var _ = Describe("Index", func() {
 				Expect(nameIdx.Get(ctx, nil, "zeta")).To(BeEmpty())
 			},
 		)
+
+		It("Should index the sets of a raw writer on commit", func(ctx SpecContext) {
+			tx := noopDB.OpenTx()
+			Expect(gorp.WrapWriter[int32, indexedEntry](tx).
+				Set(ctx, indexedEntry{ID: 7, Name: "eta"})).To(Succeed())
+			Expect(nameIdx.Get(ctx, nil, "eta")).To(BeEmpty())
+			Expect(tx.Commit(ctx)).To(Succeed())
+			Expect(tx.Close()).To(Succeed())
+			Expect(nameIdx.Get(ctx, nil, "eta")).To(ConsistOf(int32(7)))
+		})
+
+		It("Should drop the deletes of a raw writer on commit", func(ctx SpecContext) {
+			Expect(table.NewCreate().
+				Entry(&indexedEntry{ID: 8, Name: "theta"}).
+				Exec(ctx, noopDB)).To(Succeed())
+			tx := noopDB.OpenTx()
+			Expect(gorp.WrapWriter[int32, indexedEntry](tx).Delete(ctx, 8)).
+				To(Succeed())
+			Expect(tx.Commit(ctx)).To(Succeed())
+			Expect(tx.Close()).To(Succeed())
+			Expect(nameIdx.Get(ctx, nil, "theta")).To(BeEmpty())
+		})
+
+		It(
+			"Should drop the deletes of a query that no table binds",
+			func(ctx SpecContext) {
+				Expect(table.NewCreate().
+					Entry(&indexedEntry{ID: 9, Name: "iota"}).
+					Exec(ctx, noopDB)).To(Succeed())
+				Expect(gorp.NewDelete[int32, indexedEntry]().
+					Where(gorp.MatchKeys[int32, indexedEntry](9)).
+					Exec(ctx, noopDB)).To(Succeed())
+				Expect(nameIdx.Get(ctx, nil, "iota")).To(BeEmpty())
+			},
+		)
+
+		It(
+			"Should stop indexing raw writes once the table closes",
+			func(ctx SpecContext) {
+				Expect(table.Close()).To(Succeed())
+				Expect(gorp.WrapWriter[int32, indexedEntry](noopDB).
+					Set(ctx, indexedEntry{ID: 10, Name: "kappa"})).To(Succeed())
+				Expect(nameIdx.Get(ctx, nil, "kappa")).To(BeEmpty())
+			},
+		)
 	})
 })
 

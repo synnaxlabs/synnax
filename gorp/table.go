@@ -80,6 +80,9 @@ type Table[K Key, E Entry[K]] struct {
 func (t *Table[K, E]) Close() error {
 	var err error
 	t.unregister()
+	if len(t.indexes) > 0 {
+		t.db.registry.removeIndexed(t.keyPrefix, t)
+	}
 	if t.populateShutdown != nil {
 		err = t.populateShutdown.Close()
 		t.populateShutdown = nil
@@ -151,6 +154,8 @@ func OpenTable[K Key, E Entry[K]](
 		inserts = append(inserts, insert)
 		finishes = append(finishes, finish)
 	}
+	// From here on, a writer that no table binds stages its writes against the indexes.
+	cfg.DB.registry.addIndexed(t.keyPrefix, t)
 	t.disconnectObserver = cfg.DB.attachIndexObserver(
 		override.Nil[observe.Observable[kv.TxReader]](cfg.DB, cfg.DB.IndexObservable),
 		t.indexes,
