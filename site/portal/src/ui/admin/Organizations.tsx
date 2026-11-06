@@ -14,7 +14,7 @@ import { type ReactElement, useState } from "react";
 
 import { type Summary } from "@/server/organization";
 import { RegisterDialog } from "@/ui/admin/RegisterDialog";
-import { date, standing } from "@/ui/format";
+import { expiry, standing } from "@/ui/format";
 import { Empty, Page } from "@/ui/Page";
 import { Row, Table } from "@/ui/Table";
 
@@ -85,7 +85,7 @@ export const Organizations = ({ teams, now }: OrganizationsProps): ReactElement 
                       {s.active === 0 ? "" : `${s.seats} of ${s.capacity}`}
                     </Text.Text>
                     <Text.Text level="p" color={9}>
-                      {s.nextExpiry == null ? "" : date(s.nextExpiry)}
+                      {s.nextExpiry == null ? "" : expiry(s.nextExpiry)}
                     </Text.Text>
                   </Row>
                 );

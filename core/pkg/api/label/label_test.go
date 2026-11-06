@@ -20,9 +20,71 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+var _ = Describe("Retrieve", func() {
+	var (
+		lbl     label.Label
+		rangeID ontology.ID
+		labels  ontology.ID
+	)
+	BeforeEach(func(ctx SpecContext) {
+		lbl = label.Label{Name: "Pressurized"}
+		Expect(svc.Label.NewWriter(nil).Create(ctx, &lbl)).To(Succeed())
+		rng := ranger.Range{
+			Name: "Hotfire",
+			TimeRange: telem.TimeRange{
+				Start: telem.TimeStamp(5 * telem.Second),
+				End:   telem.TimeStamp(10 * telem.Second),
+			},
+		}
+		Expect(svc.Ranger.NewWriter(nil).Create(ctx, &rng)).To(Succeed())
+		rangeID = rng.OntologyID()
+		Expect(svc.Label.NewWriter(nil).Label(
+			ctx, rangeID, []label.Key{lbl.Key},
+		)).To(Succeed())
+		labels = ontology.ID{Type: ontology.ResourceTypeLabel}
+	})
+
+	DescribeTable(
+		"Should deny the retrieve when a for line names a resource without access",
+		func(ctx SpecContext, where func(id ontology.ID) label.Where) {
+			u := createUser(ctx)
+			grant(ctx, access.ActionRetrieve, u.OntologyID(), labels)
+			Expect(apiSvc.Retrieve(AuthedCtx(ctx, u), apilabel.RetrieveRequest{
+				Where: new(where(rangeID)),
+			})).Error().To(MatchError(access.ErrDenied))
+		},
+		Entry("alone", func(id ontology.ID) label.Where {
+			return label.Where{For: &id}
+		}),
+		Entry("under or", func(id ontology.ID) label.Where {
+			return label.Where{Or: []label.Where{
+				{For: &id},
+				{Name: &filter.String{Eq: new("Depressurized")}},
+			}}
+		}),
+		Entry("under not", func(id ontology.ID) label.Where {
+			return label.Where{Not: &label.Where{For: &id}}
+		}),
+	)
+
+	It("Should return the labels of a resource the subject can retrieve", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		grant(ctx, access.ActionRetrieve, u.OntologyID(), labels, rangeID)
+		res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), apilabel.RetrieveRequest{
+			Where: &label.Where{For: &rangeID},
+		}))
+		Expect(res.Labels).To(ConsistOf(HaveField("Key", lbl.Key)))
+	})
+})
 
 func createLabel(ctx SpecContext) label.Label {
 	GinkgoHelper()

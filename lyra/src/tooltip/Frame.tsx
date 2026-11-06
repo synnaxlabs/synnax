@@ -69,6 +69,10 @@ export const Frame = ({
     let prefer = PREFERENCES;
     if (prevPlacementRef.current != null)
       prefer = [prevPlacementRef.current, ...PREFERENCES];
+    // A fixed box near the right edge shrinks to the space left there, so it is
+    // measured at the origin, where the whole window is available.
+    el.style.left = "0px";
+    el.style.top = "0px";
     const { adjustedDialog, ...placement } = position.position({
       target,
       // offset* ignores the entrance animation's scale, unlike getBoundingClientRect.
@@ -80,7 +84,8 @@ export const Frame = ({
     });
     prevPlacementRef.current = placement;
     const rounded = box.round(adjustedDialog);
-    el.style.left = CSS.px(box.left(rounded));
+    const maxLeft = Math.max(0, window.innerWidth - box.width(rounded));
+    el.style.left = CSS.px(Math.min(box.left(rounded), maxLeft));
     el.style.top = CSS.px(box.top(rounded));
     el.style.transformOrigin = `${placement.dialogCorner.x} ${placement.dialogCorner.y}`;
   };
