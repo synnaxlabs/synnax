@@ -148,6 +148,7 @@ x::errors::Error Master::activate() {
         );
 
     this->api->configdc();
+    this->api->set_group_dc(ENABLED_GROUP);
     this->has_dc = this->api->group_hasdc(ENABLED_GROUP);
 
     this->input_sz = this->api->group_Ibytes(ENABLED_GROUP);

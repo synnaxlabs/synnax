@@ -36,6 +36,8 @@ struct MockSlaveInfo {
     uint16_t mbx_proto = 0;
     uint16_t ALstatuscode = 0;
     bool lost = false;
+    /// @brief whether the slave has a distributed clock.
+    bool hasdc = false;
     /// @brief the state readstate() reports, or nullopt to report the current state.
     std::optional<uint16_t> bus_state;
     /// @brief the state last requested and not yet reached.
@@ -93,8 +95,9 @@ public:
     std::vector<uint16_t> written_slaves;
     /// @brief the value count_bus_slaves returns, or nullopt for the slave count.
     std::optional<int> bus_slaves;
-    /// @brief whether the mapped group carries the reference clock time.
-    bool hasdc = false;
+    /// @brief the groups whose process data frames read the reference clock time,
+    /// keyed by group, with the position of the reference slave.
+    std::map<uint8_t, uint16_t> dc_groups;
     int configdc_count = 0;
     /// @brief the value dc_time returns.
     int64_t dc_time_value = 0;
@@ -162,7 +165,12 @@ public:
 
     bool configdc() override {
         this->configdc_count++;
-        return this->hasdc;
+        for (size_t i = 0; i < this->slave_infos.size(); ++i)
+            if (this->slave_infos[i].hasdc) {
+                this->dc_groups[this->slave_infos[i].group] = i + 1;
+                return true;
+            }
+        return false;
     }
 
     [[nodiscard]] int64_t dc_time() const override { return this->dc_time_value; }
@@ -362,7 +370,15 @@ public:
     }
 
     [[nodiscard]] bool group_hasdc(uint8_t group) const override {
-        return group == this->mapped_group && this->hasdc;
+        return this->dc_groups.contains(group);
+    }
+
+    void set_group_dc(uint8_t group) override {
+        for (size_t i = 0; i < this->slave_infos.size(); ++i)
+            if (this->slave_infos[i].hasdc) {
+                this->dc_groups[group] = i + 1;
+                return;
+            }
     }
 };
 
