@@ -98,6 +98,8 @@ public:
     /// @brief the groups whose process data frames read the reference clock time,
     /// keyed by group, with the position of the reference slave.
     std::map<uint8_t, uint16_t> dc_groups;
+    /// @brief the position of the reference slave that configdc found, or 0.
+    uint16_t dc_reference = 0;
     int configdc_count = 0;
     /// @brief the value dc_time returns.
     int64_t dc_time_value = 0;
@@ -165,9 +167,11 @@ public:
 
     bool configdc() override {
         this->configdc_count++;
+        this->dc_reference = 0;
         for (size_t i = 0; i < this->slave_infos.size(); ++i)
             if (this->slave_infos[i].hasdc) {
-                this->dc_groups[this->slave_infos[i].group] = i + 1;
+                this->dc_reference = static_cast<uint16_t>(i + 1);
+                this->dc_groups[this->slave_infos[i].group] = this->dc_reference;
                 return true;
             }
         return false;
@@ -374,11 +378,10 @@ public:
     }
 
     void set_group_dc(uint8_t group) override {
-        for (size_t i = 0; i < this->slave_infos.size(); ++i)
-            if (this->slave_infos[i].hasdc) {
-                this->dc_groups[group] = i + 1;
-                return;
-            }
+        if (this->dc_reference == 0)
+            this->dc_groups.erase(group);
+        else
+            this->dc_groups[group] = this->dc_reference;
     }
 };
 

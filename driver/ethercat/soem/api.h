@@ -187,7 +187,8 @@ public:
     [[nodiscard]] virtual bool group_hasdc(uint8_t grp) const = 0;
 
     /// @brief makes the process data frames of a group read the reference clock time.
-    /// configdc does this only for the group of the reference slave.
+    /// configdc does this only for the group of the reference slave. Call it after
+    /// configdc.
     virtual void set_group_dc(uint8_t grp) = 0;
 };
 
