@@ -14,6 +14,8 @@ import (
 	"fmt"
 	"math"
 	"slices"
+	"sync"
+	"sync/atomic"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -1771,4 +1773,131 @@ var _ = Describe("Task", Ordered, func() {
 			},
 		)
 	})
+})
+
+var _ = Describe("Writer with no transaction", func() {
+	var (
+		db       *gorp.DB
+		svc      *task.Service
+		testRack rack.Rack
+		hashes   map[string]string
+	)
+	routingKey := func(i int) string { return fmt.Sprintf("rk-%d", i) }
+	newTask := func(key task.Key, i int) task.Task {
+		return task.Task{
+			Key:    key,
+			Type:   testType,
+			Rack:   testRack.Key,
+			Name:   "Concurrent",
+			Config: msgpack.EncodedJSON{"routing_key": routingKey(i)},
+		}
+	}
+	BeforeEach(func(ctx SpecContext) {
+		db = DeferClose(gorp.Wrap(memkv.New()))
+		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+		}))
+		MustOpen(label.OpenService(ctx, label.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Group:    g,
+		}))
+		stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+			Ontology: otg,
+			DB:       db,
+		}))
+		racks := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
+			DB:           db,
+			Ontology:     otg,
+			HostProvider: testutil.NewStaticHostProvider(1),
+			Status:       stat,
+			DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
+		}))
+		pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
+		svc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Rack:     racks,
+			Status:   stat,
+			ImEx:     imex.NewService(),
+			Configs:  MustSucceed(config.NewRegistry(pd.Stores()...)),
+		}))
+		testRack = rack.Rack{Name: "Test Rack"}
+		Expect(racks.NewWriter(nil).Create(ctx, &testRack)).To(Succeed())
+		hashes = make(map[string]string)
+		for i := range 4 {
+			t := newTask(uuid.New(), i)
+			Expect(svc.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+			hashes[routingKey(i)] = t.ConfigHash
+		}
+	})
+	expectStoredHash := func(ctx context.Context, key task.Key) {
+		GinkgoHelper()
+		var t task.Task
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewRetrieve().Where(task.MatchKeys(key)).Entry(&t).Exec(ctx, tx)
+		})).To(Succeed())
+		Expect(t.ConfigHash).To(Equal(hashes[t.Config["routing_key"].(string)]))
+	}
+	createUntil := func(ctx context.Context, done *atomic.Bool, key task.Key) func() {
+		return func() {
+			defer GinkgoRecover()
+			for i := 0; !done.Load(); i++ {
+				t := newTask(key, i%len(hashes))
+				Expect(svc.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+			}
+		}
+	}
+
+	It(
+		"Should store the hash of the stored config during concurrent creates",
+		func(ctx SpecContext) {
+			t := newTask(uuid.New(), 0)
+			Expect(svc.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+			var (
+				wg   sync.WaitGroup
+				done atomic.Bool
+			)
+			for range 4 {
+				wg.Go(createUntil(ctx, &done, t.Key))
+			}
+			wg.Go(func() {
+				defer GinkgoRecover()
+				defer done.Store(true)
+				for range 200 {
+					expectStoredHash(ctx, t.Key)
+				}
+			})
+			wg.Wait()
+			expectStoredHash(ctx, t.Key)
+		},
+	)
+
+	It(
+		"Should copy the config that matches the copied hash during concurrent creates",
+		func(ctx SpecContext) {
+			src := newTask(uuid.New(), 0)
+			Expect(svc.NewWriter(nil).Create(ctx, &src)).To(Succeed())
+			var (
+				wg   sync.WaitGroup
+				done atomic.Bool
+			)
+			for range 2 {
+				wg.Go(createUntil(ctx, &done, src.Key))
+			}
+			wg.Go(func() {
+				defer GinkgoRecover()
+				defer done.Store(true)
+				for range 50 {
+					c := MustSucceed(
+						svc.NewWriter(nil).Copy(ctx, src.Key, "Copy", false, nil),
+					)
+					expectStoredHash(ctx, c.Key)
+				}
+			})
+			wg.Wait()
+		},
+	)
 })

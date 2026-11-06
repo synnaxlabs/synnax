@@ -30,6 +30,7 @@ import (
 )
 
 type Writer struct {
+	svc        *Service
 	tx         gorp.Tx
 	otgWriter  ontology.Writer
 	otg        *ontology.Ontology
@@ -47,6 +48,20 @@ type Writer struct {
 func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	w.dispatcher = w.dispatcher.WithDispatchKey(dispatchKey)
 	return w
+}
+
+// inTx calls f with w, or with a Writer on a transaction of its own that keeps the
+// dispatch key of w when w has no transaction.
+func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
+	db, ok := w.tx.(*gorp.DB)
+	if !ok {
+		return f(w)
+	}
+	return db.WithTx(ctx, func(tx gorp.Tx) error {
+		bound := w.svc.NewWriter(tx)
+		bound.dispatcher = w.dispatcher
+		return f(bound)
+	})
 }
 
 // resolveStatus returns the status to persist for t. Without a provided status, a task
@@ -111,6 +126,10 @@ func (w Writer) healStatus(ctx context.Context, stat *Status) (*Status, error) {
 // missing). After the transaction commits, Create broadcasts a create action that
 // carries the stored task.
 func (w Writer) Create(ctx context.Context, t *Task) error {
+	return w.inTx(ctx, func(w Writer) error { return w.create(ctx, t) })
+}
+
+func (w Writer) create(ctx context.Context, t *Task) error {
 	if t.Key == uuid.Nil() {
 		t.Key = uuid.New()
 	}
@@ -343,6 +362,21 @@ func (w Writer) DeleteRacks(ctx context.Context, keys ...rack.Key) error {
 // returns query.ErrNotFound if no task with the key exists, and a validation error when
 // rng is set for a copy that is not a snapshot.
 func (w Writer) Copy(
+	ctx context.Context,
+	key Key,
+	name string,
+	snapshot bool,
+	rng *ranger.Key,
+) (Task, error) {
+	var res Task
+	err := w.inTx(ctx, func(w Writer) (err error) {
+		res, err = w.copy(ctx, key, name, snapshot, rng)
+		return err
+	})
+	return res, err
+}
+
+func (w Writer) copy(
 	ctx context.Context,
 	key Key,
 	name string,
