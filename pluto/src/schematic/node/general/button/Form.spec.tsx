@@ -16,7 +16,12 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { ButtonForm } from "@/schematic/node/general/button/Form";
 import { createConfig } from "@/schematic/node/registry";
-import { createAsyncSynnaxWrapper, createSynnaxWrapper, renderForm } from "@/testutil";
+import {
+  createAsyncSynnaxWrapper,
+  createSynnaxWrapper,
+  renderForm,
+  type RenderFormResult,
+} from "@/testutil";
 
 const path = deep.path<schematic.ButtonNodeConfig>();
 
@@ -48,7 +53,7 @@ describe("ButtonForm", () => {
 });
 
 describe("ButtonForm label", () => {
-  const renderStyleTab = (): ReturnType<typeof renderForm> =>
+  const renderStyleTab = (): RenderFormResult =>
     renderForm(
       <ButtonForm tab="style" onTabChange={vi.fn()} />,
       createConfig({ variant: "button" }),
@@ -80,4 +85,38 @@ describe("ButtonForm label", () => {
     fireEvent.click(start);
     await waitFor(() => expect(value(path.label.align)).toBe("start"));
   });
+});
+
+describe("ButtonForm size", () => {
+  const renderStyle = (config: schematic.ButtonNodeConfig): RenderFormResult =>
+    renderForm(
+      <ButtonForm tab="style" onTabChange={vi.fn()} />,
+      config,
+      schematic.buttonNodeConfigZ,
+    );
+
+  const SAVED = schematic.buttonNodeConfigZ.parse({
+    variant: "button",
+    label: { label: "Saved" },
+    size: "large",
+  });
+
+  it.each([
+    ["XS", "tiny", "small"],
+    ["S", "small", "h5"],
+    ["M", "medium", "h4"],
+    ["L", "large", "h3"],
+    ["XL", "huge", "h2"],
+  ])("should give %s the text level labels use", async (option, size, level) => {
+    const start = size === "huge" ? "tiny" : "huge";
+    const { getByText, value } = renderStyle({ ...SAVED, size: start });
+    fireEvent.click(getByText(option));
+    await waitFor(() => {
+      expect(value(path.size)).toBe(size);
+      expect(value(path.level)).toBe(level);
+    });
+  });
+
+  it("should leave a saved button without a level until a size is picked", () =>
+    expect(renderStyle(SAVED).value(path.level)).toBeUndefined());
 });
