@@ -44,15 +44,15 @@ import { Range } from "@/platform/range";
 import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 
-const haulItems = ({ name, id: otgID, data }: Tree.Resource): Haul.Item[] => {
+const haulItems = ({ name, id: { key }, data }: Tree.Resource): Haul.Item[] => {
   const items = [
     PSchematic.createHaulItem({
       key: id.create(),
-      config: { variant: "value", label: { label: name }, channel: Number(otgID.key) },
+      config: { variant: "value", label: { label: name }, channel: Number(key) },
     }),
   ];
   if (data?.internal === true) return items;
-  return [PChannel.createHaulItem(Number(otgID.key))];
+  return [PChannel.createHaulItem(Number(key))];
 };
 
 const allowRename: Tree.AllowRename = ({ data }) => data?.internal !== true;

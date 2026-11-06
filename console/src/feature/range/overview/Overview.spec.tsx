@@ -179,8 +179,8 @@ describe("range/overview/Overview", () => {
     );
     fireEvent.click(item);
     await waitFor(() => expect(onSnapshotClick).toHaveBeenCalledTimes(1));
-    const [resource] = onSnapshotClick.mock.calls[0] as [resource.Resource];
-    expect(resource.id.key).toBe(snapID.key);
+    const [clicked] = onSnapshotClick.mock.calls[0] as [resource.Resource];
+    expect(clicked.id.key).toBe(snapID.key);
     await act(async () => {});
     expect(statuses).not.toContainEqual(
       expect.objectContaining({ message: "Failed to open snapshot" }),
@@ -199,8 +199,8 @@ describe("range/overview/Overview", () => {
     const { onSnapshotClick } = await renderOverview(rng.key);
     fireEvent.click(await screen.findByText(snap.name));
     await waitFor(() => expect(onSnapshotClick).toHaveBeenCalledTimes(1));
-    const [resource] = onSnapshotClick.mock.calls[0] as [resource.Resource];
-    expect(resource.id).toEqual({ type: "task", key: snap.key });
+    const [clicked] = onSnapshotClick.mock.calls[0] as [resource.Resource];
+    expect(clicked.id).toEqual({ type: "task", key: snap.key });
   });
 
   it("deletes a snapshot through its service after confirmation", async () => {

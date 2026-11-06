@@ -70,9 +70,11 @@ export interface Drop {
   (props: DropProps): Promise<void>;
 }
 
-// Item renders a single resource row in the resource tree. The component carries the
-// static, render-independent behavior for its resource type (children, drag, context
-// menu, visibility) as properties, read imperatively by the Tree.
+/**
+ * Item renders a single resource row in the resource tree. The component carries the
+ * static, render-independent behavior for its resource type (children, drag, context
+ * menu, visibility) as properties, read imperatively by the Tree.
+ */
 export interface Item extends FC<ItemProps> {
   type: resource.Type;
   hasChildren: boolean;
