@@ -29,14 +29,14 @@ export interface StreamReceiver<RS extends z.ZodType> {
 /** Interface for an entity that sends a stream of requests. */
 export interface StreamSender<RQ extends z.ZodType> {
   /**
-   * Sends a request to the stream. It is not safe to call send concurrently with
-   * closeSend or send.
+   * Sends a request to the stream. Waits while the transport holds too many unsent
+   * bytes. It is not safe to call send concurrently with closeSend or send.
    * @throws freighter.EOF: if the server closed the stream. The caller can discover the
    * error returned by the server by calling receive().
    * @throws freighter.StreamClosed: if the client called closeSend().
    * @throws Error: if the transport fails.
    */
-  send: (req: z.input<RQ> | z.infer<RQ>) => void;
+  send: (req: z.input<RQ> | z.infer<RQ>) => Promise<void>;
 }
 
 /**

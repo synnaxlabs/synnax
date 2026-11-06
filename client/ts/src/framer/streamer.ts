@@ -143,7 +143,7 @@ export const createStreamOpener =
       cfg.excludeGroups,
       cfg.keepAlive,
     );
-    stream.send({
+    await stream.send({
       keys: Array.from(adapter.keys),
       downsampleFactor: cfg.downsampleFactor,
       throttleRate: cfg.throttleRate,
@@ -267,7 +267,7 @@ class BaseStreamer implements Streamer {
     if (this.failure != null) throw this.failure;
     if (!hasChanged && !waitForAck) return;
     this.adapter.advance();
-    this.stream.send({
+    await this.stream.send({
       keys: Array.from(this.adapter.keys),
       downsampleFactor: this.downsampleFactor,
       throttleRate: this.throttleRate,
