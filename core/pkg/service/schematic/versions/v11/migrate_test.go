@@ -104,6 +104,7 @@ var _ = Describe("Migrate functions", func() {
 			Expect(migrate(ctx)).To(Equal(want))
 		},
 		Entry("MigrateSchematic", func(ctx context.Context) *colorv2.Color {
+			GinkgoHelper()
 			out := MustSucceed(v11.MigrateSchematic(ctx, v10.Schematic{
 				Configs: map[string]v10.ElementConfig{
 					"n": {Variant: v10.CapElementConfig{
@@ -114,6 +115,7 @@ var _ = Describe("Migrate functions", func() {
 			return out.Configs["n"].Variant.(v11.CapElementConfig).StrokeColor
 		}),
 		Entry("MigrateElementConfig", func(ctx context.Context) *colorv2.Color {
+			GinkgoHelper()
 			out := MustSucceed(v11.MigrateElementConfig(ctx, v10.ElementConfig{
 				Variant: v10.PipeElementConfig{
 					SegmentedEdgeConfig: v10.SegmentedEdgeConfig{StrokeColor: half()},
@@ -122,26 +124,31 @@ var _ = Describe("Migrate functions", func() {
 			return out.Variant.(v11.PipeElementConfig).StrokeColor
 		}),
 		Entry("MigrateStaticSymbolConfig", func(ctx context.Context) *colorv2.Color {
+			GinkgoHelper()
 			return MustSucceed(v11.MigrateStaticSymbolConfig(
 				ctx, v10.StaticSymbolConfig{StrokeColor: half()},
 			)).StrokeColor
 		}),
 		Entry("MigrateToggleSymbolConfig", func(ctx context.Context) *colorv2.Color {
+			GinkgoHelper()
 			return MustSucceed(v11.MigrateToggleSymbolConfig(
 				ctx, v10.ToggleSymbolConfig{StrokeColor: half()},
 			)).StrokeColor
 		}),
 		Entry("MigrateStalenessConfig", func(ctx context.Context) *colorv2.Color {
+			GinkgoHelper()
 			return MustSucceed(v11.MigrateStalenessConfig(
 				ctx, v10.StalenessConfig{StalenessColor: half()},
 			)).StalenessColor
 		}),
 		Entry("MigrateStateMapping", func(ctx context.Context) *colorv2.Color {
+			GinkgoHelper()
 			return MustSucceed(v11.MigrateStateMapping(
 				ctx, v10.StateMapping{Color: half()},
 			)).Color
 		}),
 		Entry("MigrateScaleIndicatorConfig", func(ctx context.Context) *colorv2.Color {
+			GinkgoHelper()
 			return MustSucceed(v11.MigrateScaleIndicatorConfig(
 				ctx, v10.ScaleIndicatorConfig{LevelColor: half()},
 			)).LevelColor
@@ -155,11 +162,13 @@ var _ = Describe("Migrate functions", func() {
 			},
 		),
 		Entry("MigrateToggleConfig", func(ctx context.Context) *colorv2.Color {
+			GinkgoHelper()
 			return MustSucceed(v11.MigrateToggleConfig(
 				ctx, v10.ToggleConfig{StalenessColor: half()},
 			)).StalenessColor
 		}),
 		Entry("MigrateSegmentedEdgeConfig", func(ctx context.Context) *colorv2.Color {
+			GinkgoHelper()
 			return MustSucceed(v11.MigrateSegmentedEdgeConfig(
 				ctx, v10.SegmentedEdgeConfig{StrokeColor: half()},
 			)).StrokeColor

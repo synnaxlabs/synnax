@@ -12,6 +12,7 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/color/color.h"
+#include "x/cpp/testutil/testutil.h"
 
 namespace x::color {
 namespace {
@@ -180,8 +181,7 @@ TEST(ColorJSON, RoundTripsEveryAlpha) {
 /// @brief it should pack a color into one proto field.
 TEST(ColorProto, PacksTheColorIntoOneField) {
     const Color c{.r = 0x12, .g = 0x34, .b = 0x56, .a = 0x78};
-    auto [pb, err] = c.to_proto();
-    ASSERT_FALSE(err);
+    const auto pb = ASSERT_NIL_P(c.to_proto());
     EXPECT_EQ(pb.rgba(), 0x12345678u);
 }
 
@@ -189,12 +189,10 @@ TEST(ColorProto, PacksTheColorIntoOneField) {
 TEST(ColorProto, RoundTripsEveryAlphaThroughTheWire) {
     for (int a = 0; a < 256; a++) {
         const Color c{.r = 10, .g = 20, .b = 30, .a = static_cast<std::uint8_t>(a)};
-        auto [pb, err] = c.to_proto();
-        ASSERT_FALSE(err);
+        const auto pb = ASSERT_NIL_P(c.to_proto());
         ::x::color::pb::Color decoded_pb;
         ASSERT_TRUE(decoded_pb.ParseFromString(pb.SerializeAsString()));
-        auto [decoded, decode_err] = Color::from_proto(decoded_pb);
-        ASSERT_FALSE(decode_err);
+        const auto decoded = ASSERT_NIL_P(Color::from_proto(decoded_pb));
         EXPECT_EQ(decoded.rgba(), c.rgba());
     }
 }
