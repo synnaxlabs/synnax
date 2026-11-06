@@ -24,6 +24,7 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 import synnax as sy
 from console.console import Console
+from framework import resources
 from framework.models import STATUS
 from framework.test_case import Config, TestCase, param
 
@@ -44,6 +45,10 @@ class ConsoleCase(TestCase):
     default_timeout: int
     default_nav_timeout: int
     console: Console
+
+    @classmethod
+    def resources(cls) -> frozenset[str]:
+        return super().resources() | {resources.BROWSER}
 
     def __init__(self, **kwargs: Unpack[Config]) -> None:
         super().__init__(**kwargs)
