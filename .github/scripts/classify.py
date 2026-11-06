@@ -45,6 +45,7 @@ CLASSIFIER_PATHS = (
     "core/cmd/surface/",
     "oracle/cmd/surface.go",
     "oracle/surface/",
+    "scripts/surface_cpp.py",
     "scripts/surface_driver.py",
     "scripts/surface_py.py",
 )
@@ -55,6 +56,7 @@ SURFACES = {
     "client-py": "Python client API",
     "core": "Core flags and config keys",
     "driver": "Driver commands and config keys",
+    "client-cpp": "C++ client API",
 }
 STATUS_TEXT = {"same": "No change", "changed": "Changed", "error": "Report failed"}
 MAX_DIFF_CHARS = 12_000
