@@ -65,11 +65,26 @@ func renderVersion(ctx context.Context, files map[string]string, n int) string {
 	return versions.Render(decls, versions.RenderOptions{Resolve: f.Table.Get})
 }
 
+// elementVariants returns the payload type of each variant of Element at version 2 of
+// the channel chain.
+func elementVariants(ctx context.Context, files map[string]string) map[string]string {
+	GinkgoHelper()
+	f := MustSucceed(resolverFor(files).File(ctx, "schemas/synnax/channel", 2))
+	element, ok := versions.DefinedType(f, "Element")
+	Expect(ok).To(BeTrue())
+	form := element.Form.(resolution.UnionForm)
+	variants := make(map[string]string, len(form.Variants))
+	for _, v := range form.Variants {
+		variants[v.Name] = v.Type.Name
+	}
+	return variants
+}
+
 var _ = Describe("Version extends", func() {
 	It("Should mix in an aliased union whose variants name its version's aliases", func(
 		ctx SpecContext,
 	) {
-		rendered := renderVersion(ctx, map[string]string{
+		variants := elementVariants(ctx, map[string]string{
 			extendsV0Path: `
 Payload struct {
     value int32
@@ -99,8 +114,36 @@ Edge union on variant {
 
 Element union on variant extends Node, Edge {}
 `,
-		}, 2)
-		Expect(rendered).To(ContainSubstring("Element union"))
+		})
+		Expect(variants).To(HaveKeyWithValue("leaf", "v0.Payload"))
+		Expect(variants).To(HaveKeyWithValue("pipe", "v2.Payload"))
+	})
+
+	It("Should mix in an aliased union whose variants name a chained alias", func(
+		ctx SpecContext,
+	) {
+		variants := elementVariants(ctx, map[string]string{
+			extendsV0Path: `
+Payload struct {
+    value int32
+}
+`,
+			extendsV1Path: `
+Payload = v0.Payload
+
+Node union on variant {
+    leaf Payload
+}
+`,
+			extendsV2Path: `
+Payload = v1.Payload
+
+Node = v1.Node
+
+Element union on variant extends Node {}
+`,
+		})
+		Expect(variants).To(HaveKeyWithValue("leaf", "v0.Payload"))
 	})
 
 	DescribeTable("Should resolve a patch exactly like its hand-written copy", func(
