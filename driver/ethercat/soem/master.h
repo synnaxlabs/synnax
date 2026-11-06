@@ -186,7 +186,8 @@ private:
     read_dc_register(uint16_t pos, uint16_t address, std::span<uint8_t> data);
 
     /// @brief writes zero to the DC activation registers (0x0980 and 0x0981) of every
-    /// enabled slave with a distributed clock.
+    /// enabled slave with a distributed clock, also after a slave fails a write.
+    /// @returns errors::ACTIVATION_ERROR that names each slave that failed a write.
     x::errors::Error clear_dc_activation();
 
     /// @brief returns the DC registers of each enabled slave that dc::select puts in a

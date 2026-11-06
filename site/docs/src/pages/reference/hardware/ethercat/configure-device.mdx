@@ -121,9 +121,9 @@ yet.
   every enabled module on the port reaches OP. If one module does not, no task on the
   port starts. To run the other modules, [disable](#disable-a-device) that module.
 - **DC sync** -> The Driver runs a module in SM sync when the module lists an SM sync
-  mode. It runs a module that lists only DC sync modes in DC sync, and starts SYNC0 and
-  SYNC1 before the module goes to SAFE-OP. A module that is set to DC sync but also
-  lists an SM sync mode does not start. See
+  mode. With the built-in master, it runs a module that lists only DC sync modes in DC
+  sync, and starts SYNC0 and SYNC1 before the module goes to SAFE-OP. A module that is
+  set to DC sync but also lists an SM sync mode does not start. See
   ["Invalid DC SYNC configuration"](#failed-to-reach-safe-op--invalid-dc-sync-configuration).
 - **Cycle rate** -> The network cycles at the slowest rate that is a multiple of each
   read task's sample rate and at least each write task's execution rate. The rate is
