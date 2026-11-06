@@ -13,6 +13,7 @@ import (
 	"reflect"
 	"slices"
 
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	v8 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v8"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
@@ -23,25 +24,19 @@ import (
 // Handle returns an error wrapping validate.ErrValidation, as only the Core creates a
 // line plot.
 func (CreatePayload) Handle(LinePlot) (LinePlot, error) {
-	return LinePlot{}, errors.Wrap(
-		validate.ErrValidation, "only the Core dispatches a line plot create",
-	)
+	return LinePlot{}, actions.CoreOnlyError("a line plot create")
 }
 
 // Handle rejects a client dispatch. The Core moves a line plot into a group through its
 // writer and emits this action itself.
 func (SetGroupPayload) Handle(LinePlot) (LinePlot, error) {
-	return LinePlot{}, errors.Wrap(
-		validate.ErrValidation, "only the Core dispatches a line plot group change",
-	)
+	return LinePlot{}, actions.CoreOnlyError("a line plot group change")
 }
 
 // Handle rejects a client dispatch. The Core moves a line plot into a project through
 // its writer and emits this action itself.
 func (SetProjectPayload) Handle(LinePlot) (LinePlot, error) {
-	return LinePlot{}, errors.Wrap(
-		validate.ErrValidation, "only the Core dispatches a line plot project change",
-	)
+	return LinePlot{}, actions.CoreOnlyError("a line plot project change")
 }
 
 // Handle replaces the line plot's name.

@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/set"
@@ -71,25 +72,19 @@ func colIndex(cols []Column, key string) int {
 // Handle returns an error wrapping validate.ErrValidation, as only the Core creates a
 // table.
 func (CreatePayload) Handle(Table) (Table, error) {
-	return Table{}, errors.Wrap(
-		validate.ErrValidation, "only the Core dispatches a table create",
-	)
+	return Table{}, actions.CoreOnlyError("a table create")
 }
 
 // Handle rejects a client dispatch. The Core moves a table into a group through its
 // writer and emits this action itself.
 func (SetGroupPayload) Handle(Table) (Table, error) {
-	return Table{}, errors.Wrap(
-		validate.ErrValidation, "only the Core dispatches a table group change",
-	)
+	return Table{}, actions.CoreOnlyError("a table group change")
 }
 
 // Handle rejects a client dispatch. The Core moves a table into a project through its
 // writer and emits this action itself.
 func (SetProjectPayload) Handle(Table) (Table, error) {
-	return Table{}, errors.Wrap(
-		validate.ErrValidation, "only the Core dispatches a table project change",
-	)
+	return Table{}, actions.CoreOnlyError("a table project change")
 }
 
 // Handle replaces the table's name.

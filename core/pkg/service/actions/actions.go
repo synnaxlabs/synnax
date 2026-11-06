@@ -24,9 +24,17 @@ import (
 	"sync/atomic"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/observe"
 	xsync "github.com/synnaxlabs/x/sync"
+	"github.com/synnaxlabs/x/validate"
 )
+
+// CoreOnlyError returns the validation error that rejects a client dispatch of an
+// action only the Core emits. what names the action, such as "a log create".
+func CoreOnlyError(what string) error {
+	return errors.Wrapf(validate.ErrValidation, "only the Core dispatches %s", what)
+}
 
 // Scoped wraps an action sequence with the targeted entry key, the
 // dispatch-batch identifier supplied by the originating client, and a

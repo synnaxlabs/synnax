@@ -14,6 +14,7 @@ import (
 	"encoding/json/v2"
 	"slices"
 
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	v10 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v10"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
@@ -24,25 +25,19 @@ import (
 // Handle returns an error wrapping validate.ErrValidation, as only the Core creates a
 // schematic.
 func (CreatePayload) Handle(Schematic) (Schematic, error) {
-	return Schematic{}, errors.Wrap(
-		validate.ErrValidation, "only the Core dispatches a schematic create",
-	)
+	return Schematic{}, actions.CoreOnlyError("a schematic create")
 }
 
 // Handle rejects a client dispatch. The Core moves a schematic into a group through its
 // writer and emits this action itself.
 func (SetGroupPayload) Handle(Schematic) (Schematic, error) {
-	return Schematic{}, errors.Wrap(
-		validate.ErrValidation, "only the Core dispatches a schematic group change",
-	)
+	return Schematic{}, actions.CoreOnlyError("a schematic group change")
 }
 
 // Handle rejects a client dispatch. The Core moves a schematic into a project through
 // its writer and emits this action itself.
 func (SetProjectPayload) Handle(Schematic) (Schematic, error) {
-	return Schematic{}, errors.Wrap(
-		validate.ErrValidation, "only the Core dispatches a schematic project change",
-	)
+	return Schematic{}, actions.CoreOnlyError("a schematic project change")
 }
 
 // Handle replaces the schematic's name.

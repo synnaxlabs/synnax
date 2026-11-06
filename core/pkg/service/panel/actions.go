@@ -10,33 +10,27 @@
 package panel
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/spatial"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // Handle returns an error wrapping validate.ErrValidation, as only the Core creates a
 // panel.
 func (CreatePayload) Handle(Panel) (Panel, error) {
-	return Panel{}, errors.Wrap(
-		validate.ErrValidation, "only the Core dispatches a panel create",
-	)
+	return Panel{}, actions.CoreOnlyError("a panel create")
 }
 
 // Handle rejects a client dispatch. The Core moves a panel into a group through its
 // writer and emits this action itself.
 func (SetGroupPayload) Handle(Panel) (Panel, error) {
-	return Panel{}, errors.Wrap(
-		validate.ErrValidation, "only the Core dispatches a panel group change",
-	)
+	return Panel{}, actions.CoreOnlyError("a panel group change")
 }
 
 // Handle rejects a client dispatch. The Core moves a panel into a project through its
 // writer and emits this action itself.
 func (SetProjectPayload) Handle(Panel) (Panel, error) {
-	return Panel{}, errors.Wrap(
-		validate.ErrValidation, "only the Core dispatches a panel project change",
-	)
+	return Panel{}, actions.CoreOnlyError("a panel project change")
 }
 
 // Handle replaces the panel's name.
