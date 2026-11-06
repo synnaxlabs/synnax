@@ -7,6 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from synnax.util.retrieve import sole, sole_or_none
+from synnax.util.retrieve import request_where, returns_one, sole, sole_or_none
 
-__all__ = ["sole", "sole_or_none"]
+__all__ = ["request_where", "returns_one", "sole", "sole_or_none"]
