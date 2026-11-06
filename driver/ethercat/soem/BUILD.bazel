@@ -29,14 +29,33 @@ cc_library(
     name = "soem_api",
     srcs = select({
         "@platforms//os:linux": ["api_linux.cpp"],
+        "@platforms//os:windows": ["api_windows.cpp"],
         "//conditions:default": ["api_noop.cpp"],
     }),
     hdrs = ["api.h"],
+    linkopts = select({
+        "@platforms//os:windows": ["/DEFAULTLIB:advapi32.lib"],
+        "//conditions:default": [],
+    }),
     visibility = ["//driver/ethercat:__subpackages__"],
     deps = [
         "//driver/ethercat/errors",
         "//vendor/soem",
         "//x/cpp/errors",
+    ] + select({
+        "@platforms//os:windows": [":util"],
+        "//conditions:default": [],
+    }),
+)
+
+cc_test(
+    name = "api_windows_test",
+    srcs = ["api_windows_test.cpp"],
+    linkopts = ["/DEFAULTLIB:iphlpapi.lib"],
+    target_compatible_with = ["@platforms//os:windows"],
+    deps = [
+        ":soem_api",
+        "@googletest//:gtest_main",
     ],
 )
 
