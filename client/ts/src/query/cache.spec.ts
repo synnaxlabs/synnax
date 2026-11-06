@@ -308,6 +308,7 @@ describe("Cache", () => {
         });
         const table = cache.createTable<string, Doc>({ name: "docs", fetch });
         table.set("k1", { key: "k1", name: "a" });
+        table.set("k2", { key: "k2", name: "b" });
         await cache.ensureStreaming();
         first.drop();
         await expect.poll(() => fetch.mock.calls.length).toBe(1);
@@ -335,6 +336,7 @@ describe("Cache", () => {
         held.resolve([]);
         await sleep.sleep(TimeSpan.milliseconds(30));
         expect(table.get("k1")).toEqual({ key: "k1", name: "a" });
+        expect(table.get("k2")).toEqual({ key: "k2", name: "b" });
       });
     });
 

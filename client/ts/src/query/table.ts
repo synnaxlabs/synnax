@@ -201,7 +201,6 @@ export class Table<
   private readonly hydrateMode: HydrateMode;
   private readonly revivable: boolean;
   private closed = false;
-  private readonly closing = Promise.withResolvers<never>();
   private readonly fetchBatcher: scheduler.Batcher<
     Key[],
     Array<Keyed<Key, Value>>
@@ -223,8 +222,6 @@ export class Table<
     indexes = [],
     revivable = false,
   }: TableParams<Key, Value>) {
-    // Only reconcile awaits this, so a close with none running must not go unhandled.
-    this.closing.promise.catch(() => {});
     this.onError = onError;
     this.equal = equal;
     this.fetchEntries = fetch;
@@ -655,11 +652,11 @@ export class Table<
 
   /**
    * Rejects every fetch in progress and every later fetch with a
-   * {@link DisconnectedError}, reconciles included. The table keeps its entries.
+   * {@link DisconnectedError}. A running reconcile fails with it once its fetch settles.
+   * The table keeps its entries.
    */
   close(): void {
     this.closed = true;
-    this.closing.reject(closedError());
     this.fetchBatcher?.close(closedError());
   }
 
@@ -685,7 +682,13 @@ export class Table<
     const since = this.stamp();
     const values = await fetchSurvivors(async (keys: Key[]) => {
       if (this.closed) throw closedError();
-      return await Promise.race([fetchEntries(keys), this.closing.promise]);
+      try {
+        const fetched = await fetchEntries(keys);
+        if (this.closed) throw closedError();
+        return fetched;
+      } catch (exc) {
+        throw this.closed ? closedError() : exc;
+      }
     }, keys);
     const present = new Set<Key>(values.map(({ key }) => key));
     const missing = keys.filter((k) => !present.has(k));
