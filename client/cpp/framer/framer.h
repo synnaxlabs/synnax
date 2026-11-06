@@ -355,7 +355,7 @@ private:
 
 /// @brief the result of a commit.
 struct CommitResult {
-    /// @brief the end of the committed time range. Zero if the commit has no control.
+    /// @brief the end of the committed time range. Only valid when authorized is true.
     x::telem::TimeStamp end;
     /// @brief whether the writer had control of every channel it writes at the commit.
     bool authorized = false;
@@ -430,8 +430,8 @@ public:
 
     /// @brief commits like commit(), and also reports whether the writer had control.
     /// @returns the result of the commit. When authorized is false, the writer lacks
-    /// control of a channel, the end is zero, and the writer stays open so that it can
-    /// regain control.
+    /// control of a channel, other channels may have committed, and the end is not
+    /// valid. The writer stays open so that it can regain control.
     [[nodiscard]] std::pair<CommitResult, x::errors::Error> commit_result();
 
     /// @brief closes the writer and releases any resources associated with it. A
