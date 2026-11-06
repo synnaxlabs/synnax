@@ -9,10 +9,13 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cerrno>
 #include <cstdint>
 #include <cstring>
 #include <map>
+#include <span>
+#include <tuple>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -115,6 +118,22 @@ public:
     std::vector<SDOWrite> sdo_downloads;
     /// @brief SDOs added to slave configs, in call order.
     std::vector<SDOWrite> config_sdos;
+    /// @brief the object dictionary of each slave, keyed by position, index, and
+    /// sub-index. A download writes to it, and an upload of a missing object aborts.
+    std::map<std::tuple<uint16_t, uint16_t, uint8_t>, uint32_t> objects;
+    /// @brief one entry of a PDO passed to slave_config_pdos.
+    struct ConfiguredEntry {
+        uint16_t position;
+        uint8_t sync_index;
+        uint16_t pdo_index;
+        uint16_t index;
+        uint8_t sub_index;
+        uint8_t bit_length;
+
+        bool operator==(const ConfiguredEntry &) const = default;
+    };
+    /// @brief the PDO entries passed to slave_config_pdos, in call order.
+    std::vector<ConfiguredEntry> configured_entries;
 
     MockAPI(): API(MockTag{}), request_master_result(this->sentinel_master) {}
 
@@ -349,6 +368,29 @@ public:
         return 0;
     }
 
+    int slave_config_pdos(
+        ec_slave_config_t *sc,
+        unsigned int n_syncs,
+        const ec_sync_info_t syncs[]
+    ) const override {
+        auto *self = const_cast<MockAPI *>(this);
+        for (const auto &[pos, config]: this->created_slave_configs) {
+            if (config != sc) continue;
+            for (const auto &sync: std::span(syncs, n_syncs))
+                for (const auto &pdo: std::span(sync.pdos, sync.n_pdos))
+                    for (const auto &entry: std::span(pdo.entries, pdo.n_entries))
+                        self->configured_entries.push_back({
+                            .position = pos,
+                            .sync_index = sync.index,
+                            .pdo_index = pdo.index,
+                            .index = entry.index,
+                            .sub_index = entry.subindex,
+                            .bit_length = entry.bit_length,
+                        });
+        }
+        return 0;
+    }
+
     int master_sdo_download(
         ec_master_t *,
         uint16_t slave_position,
@@ -363,9 +405,37 @@ public:
             {slave_position, index, subindex, std::vector(data, data + data_size)}
         );
         const auto it = this->sdo_download_aborts.find({index, subindex});
-        if (it == this->sdo_download_aborts.end()) return 0;
-        *abort_code = it->second;
-        return -EIO;
+        if (it != this->sdo_download_aborts.end()) {
+            *abort_code = it->second;
+            return -EIO;
+        }
+        uint32_t value = 0;
+        for (size_t i = 0; i < data_size && i < sizeof(value); i++)
+            value |= static_cast<uint32_t>(data[i]) << (8 * i);
+        self->objects[{slave_position, index, subindex}] = value;
+        return 0;
+    }
+
+    int master_sdo_upload(
+        ec_master_t *,
+        uint16_t slave_position,
+        uint16_t index,
+        uint8_t subindex,
+        uint8_t *target,
+        size_t target_size,
+        size_t *result_size,
+        uint32_t *abort_code
+    ) const override {
+        const auto it = this->objects.find({slave_position, index, subindex});
+        if (it == this->objects.end()) {
+            *abort_code = 0x06020000;
+            return -EIO;
+        }
+        const size_t size = std::min(target_size, sizeof(it->second));
+        for (size_t i = 0; i < size; i++)
+            target[i] = static_cast<uint8_t>(it->second >> (8 * i));
+        *result_size = size;
+        return 0;
     }
 
     int slave_config_state(
