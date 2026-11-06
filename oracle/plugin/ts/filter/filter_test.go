@@ -218,13 +218,14 @@ var _ = Describe("TS Filter Plugin", func() {
 				}
 			`, "thing", loader, p)
 			ExpectContent(resp, "where.gen.ts").ToContain(
-				"export const shortcutZ = z.union([\n"+
-					"  z.uuid().transform((key) => ({ where: { key: { eq: key } } })),\n"+
-					"  z.string().transform((name) => ({ where: { name: { eq: name } } })),\n"+
-					"  z.uuid().array().transform((keys) => ({ where: { key: { in: keys } } "+
-					"})),\n"+
-					"  z.string().array().transform((names) => ({ where: { name: { in: "+
-					"names } } })),\n]);",
+				"export const shortcutZ = z.union([",
+				"z.uuid().transform((key) => ({ where: { key: { eq: key } } })),",
+				"z.string().transform((name) => ({ where: { name: { eq: name } } "+
+					"})),",
+				"z.uuid().array().transform((keys) => ({ where: { key: { in: keys } "+
+					"} })),",
+				"z.string().array().transform((names) => ({ where: { name: { in: "+
+					"names } } })),",
 			)
 		})
 
