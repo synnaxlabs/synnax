@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { Log as Base, Panel as PPanel } from "@synnaxlabs/pluto";
-import { primitive } from "@synnaxlabs/x";
 
 import { Controls } from "@/feature/log/Controls";
 import { ContextMenu } from "@/platform/context-menu";
@@ -22,8 +21,7 @@ const Internal: Panel.Content = () => {
   const key = Base.useKey();
   const dispatch = Session.useDispatch();
   const visible = Session.Panel.useSelectIsTabVisible();
-  const channelKeys = Base.useChannelKeys();
-  const hasChannels = channelKeys.some((k) => !primitive.isZero(k));
+  const hasChannels = Base.useChannelKeys().length > 0;
   const hold = Session.Log.useSelectHold();
 
   const handleDoubleClick = () => {

@@ -207,7 +207,7 @@ const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
   const devices = unique.unique(config.channels.map((c) => c.device));
   let rackKey: rack.Key | undefined;
   const allDevices = await client.devices.retrieve({
-    where: { key: { in: devices } },
+    key: devices,
     schemas: SCHEMAS,
   });
   PlatformDevice.checkFound(devices, allDevices);
