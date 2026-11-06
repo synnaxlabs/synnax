@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -347,6 +348,22 @@ var _ = Describe("Group", Ordered, func() {
 				Expect(groups).To(BeEmpty())
 			},
 		)
+	})
+
+	Describe("BuiltinDeleteMigration", func() {
+		It("Should delete every group with the builtin scope", func(ctx SpecContext) {
+			builtin := group.Group{Name: "builtin-to-delete", Scope: resource.TypeBuiltin}
+			Expect(w.Create(ctx, &builtin)).To(Succeed())
+			kept := create(ctx, "kept-by-builtin-delete", nil)
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.BuiltinDeleteMigration().
+					Run(ctx, tx, alamos.Instrumentation{})
+			})).To(Succeed())
+			Expect(svc.NewRetrieve().
+				Where(group.MatchScopes(resource.TypeBuiltin)).
+				Exists(ctx, nil)).To(BeFalse())
+			Expect(retrieve(ctx, kept.Key).Name).To(Equal("kept-by-builtin-delete"))
+		})
 	})
 
 	Describe("Observe", func() {

@@ -16,36 +16,15 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/x/errors"
 )
 
-// ontologyDropMigration deletes every stored ontology resource and relationship, and
-// the built-in root groups that the group migration gave the builtin scope. It must run
-// after every migration that reads the ontology.
+// ontologyDropMigration deletes every stored ontology resource and relationship. It
+// must run after every migration that reads the ontology.
 var ontologyDropMigration = migrate.New(
 	"v61_drop_ontology",
-	func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) (err error) {
-		if err = ontology.Drop(ctx, tx); err != nil {
-			return err
-		}
-		iter, err := gorp.WrapReader[group.Key, group.Group](tx).
-			OpenIterator(gorp.IterOptions{})
-		if err != nil {
-			return err
-		}
-		var builtin []group.Key
-		for iter.First(); iter.Valid(); iter.Next() {
-			if g := iter.Value(ctx); g != nil && g.Scope == resource.TypeBuiltin {
-				builtin = append(builtin, g.Key)
-			}
-		}
-		if err = errors.Combine(iter.Error(), iter.Close()); err != nil {
-			return err
-		}
-		return gorp.WrapWriter[group.Key, group.Group](tx).Delete(ctx, builtin...)
+	func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
+		return ontology.Drop(ctx, tx)
 	},
 )
 
@@ -59,8 +38,7 @@ var ontologyChannelNames = []string{
 }
 
 // deleteOntologyChannels deletes the ontology channels an upgraded store still holds.
-// It
-// does nothing when none exist.
+// It does nothing when none exist.
 func deleteOntologyChannels(
 	ctx context.Context,
 	db *gorp.DB,

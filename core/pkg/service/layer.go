@@ -827,6 +827,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Migrations: append(
 			l.Panel.CompositionMigrations(),
 			ontologyDropMigration,
+			l.Group.BuiltinDeleteMigration(),
 		),
 	}); !ok(err, nil) {
 		return nil, err

@@ -17,6 +17,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/group/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
@@ -87,6 +88,21 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 		return nil, err
 	}
 	return s, nil
+}
+
+// BuiltinDeleteMigration returns a migration that deletes every group with the builtin
+// scope. The service layer runs it after the ontology drop.
+func (s *Service) BuiltinDeleteMigration() gorp.Migration {
+	return migrate.New(
+		"v61_delete_builtin_groups",
+		func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
+			return s.table.NewDelete().
+				Where(gorp.Match(func(_ gorp.Context, g *Group) (bool, error) {
+					return g.Scope == resource.TypeBuiltin, nil
+				})).
+				Exec(ctx, tx)
+		},
+	)
 }
 
 // CreateOrRetrieve returns the top-level group of scope named name, creating it when no
