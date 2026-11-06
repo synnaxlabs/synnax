@@ -13,7 +13,7 @@ import { z } from "zod";
 
 import { channel } from "@/channel";
 import { framer } from "@/framer";
-import { MultipleFoundError, NotFoundError } from "@/index";
+import { MultipleFoundError, NotFoundError, ValidationError } from "@/index";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { rack } from "@/rack";
@@ -1070,15 +1070,15 @@ describe("Task", async () => {
         config: z.object({}),
         statusData: z.unknown(),
       };
-      const message = (label: string) =>
-        `Failed to parse ${label} (1 issue)\n\n  {\n` +
-        '  ✗ "key": "not-a-uuid"  × unexpected key\n  }';
-      await expect(client.tasks.retrieve({ key: "not-a-uuid" })).rejects.toThrow(
-        message("task query"),
+      const err = new ValidationError(
+        "task params address a single key but do not match the single-query " +
+          "schema.\nFailed to parse task single query params (1 issue)\n\n  {\n" +
+          '  ✗ "key": "not-a-uuid"  × expected uuid format\n  }',
       );
+      await expect(client.tasks.retrieve({ key: "not-a-uuid" })).rejects.toThrow(err);
       await expect(
         client.tasks.retrieve({ key: "not-a-uuid", schemas }),
-      ).rejects.toThrow(message("value"));
+      ).rejects.toThrow(err);
     });
 
     it("should retrieve one task by type and rack when one is set", async () => {

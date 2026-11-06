@@ -156,7 +156,8 @@ describe("Label", () => {
         client.labels.retrieve({ name: { startsWith: "x" }, one: true, limit: 1 }),
       ).rejects.toThrow(
         new ValidationError(
-          "one rejects a limit or an offset, since a page could hide a second match",
+          "a query for one record takes no limit or offset, since a page could " +
+            "hide a second match",
         ),
       );
     });

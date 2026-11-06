@@ -10,7 +10,7 @@
 import { id, sleep, TimeStamp, zod } from "@synnaxlabs/x";
 import { describe, expect, it, onTestFinished } from "vitest";
 
-import { NotFoundError } from "@/index";
+import { NotFoundError, ValidationError } from "@/index";
 import { query } from "@/query";
 import { rack } from "@/rack";
 import { status } from "@/status";
@@ -213,6 +213,19 @@ describe("Rack", () => {
       const retrieved = await client.racks.retrieve({ name });
       expect(retrieved.key).toBe(r.key);
       expect(retrieved.name).toEqual(name);
+    });
+    it("should reject a page on a plain name", async () => {
+      const name = `rack-page-${id.create()}`;
+      await client.racks.create([{ name }, { name }]);
+      await expect(
+        // @ts-expect-error - a page could hide a second rack with the name.
+        client.racks.retrieve({ name, limit: 1 }),
+      ).rejects.toThrow(
+        new ValidationError(
+          "a query for one record takes no limit or offset, since a page could hide a " +
+            "second match",
+        ),
+      );
     });
     it("should retrieve racks that match any branch of an or", async () => {
       const [a, b, c] = await client.racks.create([

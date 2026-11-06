@@ -294,7 +294,8 @@ describe("Retriever", () => {
         client.retrieve({ minSize: 2, one: true, offset: 1 } as never),
       ).rejects.toThrow(
         new ValidationError(
-          "one rejects a limit or an offset, since a page could hide a second match",
+          "a query for one record takes no limit or offset, since a page could " +
+            "hide a second match",
         ),
       );
       expect(fetchRequest).not.toHaveBeenCalled();
@@ -739,7 +740,7 @@ describe("Retriever", () => {
         }
       }
 
-      it("rejects key-bearing params that no schema accepts", async () => {
+      it("rejects key-bearing params that fail the single schema", async () => {
         const fetchRequest = vi.fn(async () => []);
         const client = new StrictSingleClient(
           newCache(),
@@ -750,12 +751,13 @@ describe("Retriever", () => {
           .retrieve({ key: "a", detailsSchema: undefined } as never)
           .then(() => null)
           .catch((exc: unknown) => exc);
-        assert(err instanceof zod.ParseError);
+        assert(err instanceof ValidationError);
         expect(err.message).toBe(
-          "Failed to parse thing query (2 issues)\n\n  {\n" +
-            '  ✗ "key": "a",                     × unexpected key\n' +
-            '  ✗ "detailsSchema": "[undefined]"  × unexpected key\n  }',
+          "thing params address a single key but do not match the single-query " +
+            "schema.\nFailed to parse thing single query params (1 issue)\n\n  {\n" +
+            '    "key": "a",\n  ✗ "detailsSchema": "[undefined]"  × unexpected key\n  }',
         );
+        expect(err.cause).toBeInstanceOf(zod.ParseError);
         expect(fetchRequest).not.toHaveBeenCalled();
       });
 
@@ -838,9 +840,11 @@ describe("Retriever", () => {
           .retrieve("a")
           .then(() => null)
           .catch((exc: unknown) => exc);
-        assert(err instanceof zod.ParseError);
+        assert(err instanceof ValidationError);
         expect(err.message).toBe(
-          'Failed to parse thing query (1 issue)\n\n  × expected object, received "a"',
+          "thing params address a single key but do not match the single-query " +
+            "schema.\nFailed to parse thing single query params (1 issue)\n\n" +
+            '  × expected object, received "a"',
         );
         expect(fetchRequest).not.toHaveBeenCalled();
       });
