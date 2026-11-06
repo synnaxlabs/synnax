@@ -19,7 +19,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
-	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/x/change"
@@ -32,7 +31,6 @@ import (
 	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap/zapcore"
 )
 
 type refRack struct{ Key uint32 }
@@ -1425,6 +1423,18 @@ var _ = Describe("DropDangling", func() {
 			},
 		)
 
+		It(
+			"Should skip a reference with no Detach when its table is not open",
+			func(ctx SpecContext) {
+				missingTable := func(*refDevice) []gorp.Target {
+					return []gorp.Target{gorp.NewTarget("channel", uint32(1))}
+				}
+				devices := open(ctx, refs(missingTable, nil))
+				d := refDevice{Key: "d"}
+				Expect(devices.DropDangling(ctx, db, &d)).To(BeFalse())
+			},
+		)
+
 		It("Should fail when a target's table is not open", func(ctx SpecContext) {
 			missingTable := func(*refDevice) []gorp.Target {
 				return []gorp.Target{gorp.NewTarget("channel", uint32(1))}
@@ -1457,43 +1467,6 @@ var _ = Describe("DropDangling", func() {
 					refDevice{Key: "d1", Labels: []string{"a"}},
 					refDevice{Key: "d2", Rack: 1, Labels: []string{}},
 				))
-			},
-		)
-
-		It(
-			"Should log each missing target that its reference cannot drop",
-			func(ctx SpecContext) {
-				Expect(gorp.WrapWriter[string, refDevice](db).
-					Set(ctx, refDevice{Key: "d", Rack: 2})).To(Succeed())
-				ins, logs := ObservedInstrumentation(zapcore.WarnLevel)
-				devices := MustOpen(
-					gorp.OpenTable(ctx, gorp.TableConfig[string, refDevice]{
-						DB:         db,
-						Name:       "device",
-						References: refs(rackTarget, nil),
-						Migrations: []gorp.Migration{
-							gorp.DanglingMigration("drop"),
-						},
-						Instrumentation: ins,
-					}),
-				)
-				var d refDevice
-				Expect(devices.NewRetrieve().
-					Where(gorp.MatchKeys[string, refDevice]("d")).
-					Entry(&d).
-					Exec(ctx, db)).To(Succeed())
-				Expect(d.Rack).To(Equal(uint32(2)))
-				kept := logs.FilterMessage(
-					"kept a missing target that its reference cannot drop",
-				).All()
-				Expect(kept).To(HaveLen(1))
-				Expect(kept[0].ContextMap()).To(Equal(map[string]any{
-					"migration": "drop",
-					"table":     "device",
-					"entry":     "d",
-					"reference": "rack",
-					"target":    "rack 2",
-				}))
 			},
 		)
 

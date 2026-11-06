@@ -303,12 +303,11 @@ These migrations read edges through the frozen types in
 `core/pkg/service/ontology/versions/v0`. A record can already hold a key whose target is
 gone, and its next write would fail the check. `gorp.DanglingMigration` runs
 `Table.DropDangling` on each entry of a table: it removes each missing target through
-the `Detach` of its reference. It keeps a missing target that its reference cannot
-remove, and logs it. An import runs `Table.DropDangling` on the record before it writes
-it. After each service opens, one last migration drops both ontology tables and the
-built-in groups. A visualization with no project and no range is deleted; no path
-reaches it today. The migration is one-way: a Core that ran it cannot go back to a
-release that reads the ontology.
+the `Detach` of its reference, and skips a reference with no `Detach`. An import runs
+`Table.DropDangling` on the record before it writes it. After each service opens, one
+last migration drops both ontology tables and the built-in groups. A visualization with
+no project and no range is deleted; no path reaches it today. The migration is one-way:
+a Core that ran it cannot go back to a release that reads the ontology.
 
 ## 5 Implementation phases
 

@@ -76,6 +76,8 @@ type Reference[K Key, E Entry[K]] interface {
 	// detachTarget removes target from e. It reports false when the reference has no
 	// Detach.
 	detachTarget(e *E, target Target) bool
+	// canDetach reports whether the reference has a Detach.
+	canDetach() bool
 	// check validates the targets that e holds against tx, for a write of e to t.
 	check(ctx context.Context, tx Tx, t *Table[K, E], e *E) error
 	registeredReference
@@ -127,6 +129,8 @@ func (s *referenceSpec) validate(table string, targets bool) error {
 	)
 	return v.Error()
 }
+
+func (s *referenceSpec) canDetach() bool { return s.detachable }
 
 // fieldErr returns a validation error on the reference's field.
 func (s *referenceSpec) fieldErr(format string, args ...any) error {

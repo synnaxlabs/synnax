@@ -15,27 +15,19 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp/internal/progress"
 	"github.com/synnaxlabs/x/errors"
-	"go.uber.org/zap"
 )
 
 // DropDangling removes from e each target of the table's references that does not exist
-// in tx, through the Detach of the reference that holds it. It keeps a missing target
-// whose reference has no Detach, which the write check of e then rejects. A target
-// whose key is not in the text form of its table's keys does not exist. DropDangling
-// reports whether it removed a target.
+// in tx, through the Detach of the reference that holds it. It skips each reference
+// with no Detach, whose targets the write check of e verifies. A target whose key is
+// not in the text form of its table's keys does not exist. DropDangling reports whether
+// it removed a target.
 func (t *Table[K, E]) DropDangling(ctx context.Context, tx Tx, e *E) (bool, error) {
-	return t.dropDangling(ctx, tx, e, func(Reference[K, E], Target) {})
-}
-
-// dropDangling is DropDangling that calls kept with each missing target it keeps.
-func (t *Table[K, E]) dropDangling(
-	ctx context.Context,
-	tx Tx,
-	e *E,
-	kept func(Reference[K, E], Target),
-) (bool, error) {
 	dropped := false
 	for _, ref := range t.references {
+		if !ref.canDetach() {
+			continue
+		}
 		for _, target := range ref.targets(e) {
 			table, err := t.db.registry.table(target.Table)
 			if err != nil {
@@ -50,20 +42,16 @@ func (t *Table[K, E]) dropDangling(
 					continue
 				}
 			}
-			if ref.detachTarget(e, target) {
-				dropped = true
-			} else {
-				kept(ref, target)
-			}
+			ref.detachTarget(e, target)
+			dropped = true
 		}
 	}
 	return dropped, nil
 }
 
 // DanglingMigration returns a migration identified by key that runs DropDangling on
-// every entry of the table, writes each entry it changes, and logs each missing target
-// it keeps. It decodes entries as E, so it runs after the migrations that convert them
-// to E.
+// every entry of the table and writes each entry it changes. It decodes entries as E,
+// so it runs after the migrations that convert them to E.
 func (t *Table[K, E]) DanglingMigration(key string) Migration {
 	return danglingMigration{key: key, run: t.dropAllDangling}
 }
@@ -130,19 +118,7 @@ func (t *Table[K, E]) dropAllDangling(
 		if err = iter.Error(); err != nil {
 			return err
 		}
-		if dropped, err = t.dropDangling(ctx, tx, e, func(
-			ref Reference[K, E],
-			target Target,
-		) {
-			ins.L.Warn(
-				"kept a missing target that its reference cannot drop",
-				zap.String("migration", key),
-				zap.String("table", t.name),
-				zap.String("entry", FormatKey((*e).GorpKey())),
-				zap.String("reference", ref.referenceName()),
-				zap.String("target", target.Table+" "+target.Key),
-			)
-		}); err != nil {
+		if dropped, err = t.DropDangling(ctx, tx, e); err != nil {
 			return err
 		}
 		if dropped {
