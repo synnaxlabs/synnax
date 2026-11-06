@@ -1331,7 +1331,9 @@ describe("StreamMultiChannelLog", () => {
         () => log.loadOlder(),
         () => !log.live,
       );
-      await new Promise((resolve) => setTimeout(resolve, 20));
+      // The last step can start a read. A read that runs through the switch waits out
+      // real timers, which blocks loadNewer.
+      await expect.poll(() => log.value().status.variant, POLL).toBe("success");
       stamped = false;
       vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
       try {
@@ -1345,6 +1347,43 @@ describe("StreamMultiChannelLog", () => {
       } finally {
         vi.useRealTimers();
       }
+    });
+
+    it("should end a read that waits for times when the feed closes", async () => {
+      const core = deep();
+      const [a] = core.data.map((c) => c.key);
+      let stamped = true;
+      const client = telemTest.createClient(core, {
+        ...OPTIONS,
+        readLatest: async (keys, count, tr) =>
+          core.readLatest(
+            stamped ? keys : keys.filter((key) => key !== core.index.key),
+            count,
+            tr,
+          ),
+      });
+      const log = open(core, client, { channels: [a] });
+      await settle(log, PAGE);
+      stamped = false;
+      const subscribe = vi.spyOn(client.feed, "subscribe");
+      log.loadOlder();
+      const read = subscribe.mock.results[0].value as framer.Subscription;
+      await expect.poll(() => read.value(a).status.variant, POLL).toBe("success");
+      const rejections: unknown[] = [];
+      const onRejection = (reason: unknown): void => {
+        rejections.push(reason);
+      };
+      process.on("unhandledRejection", onRejection);
+      try {
+        // The telemetry provider closes the feed, then swaps out the log.
+        const closed = client.feed.close();
+        log.cleanup();
+        await closed;
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      } finally {
+        process.off("unhandledRejection", onRejection);
+      }
+      expect(rejections).toEqual([]);
     });
 
     it("should return to the newest samples when it resumes", async () => {
