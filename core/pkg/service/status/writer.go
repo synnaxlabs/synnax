@@ -26,8 +26,8 @@ import (
 )
 
 // Writer is used to create and update statuses within the DB. Every write touches both
-// the status entry and its ontology resource. Set always writes the two together. Other
-// writes land them together only when the Writer holds a transaction spanning them.
+// the status entry and its ontology resource. A Writer with no transaction runs each
+// call in a transaction of its own.
 type Writer struct {
 	svc       *Service
 	tx        gorp.Tx
@@ -36,29 +36,35 @@ type Writer struct {
 	otgWriter ontology.Writer
 }
 
+// inTx calls f with w, or with a Writer on a transaction of its own when w has no
+// transaction.
+func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
+	if db, ok := w.tx.(*gorp.DB); ok {
+		return db.WithTx(ctx, func(tx gorp.Tx) error { return f(w.svc.NewWriter(tx)) })
+	}
+	return f(w)
+}
+
 // Set creates or updates a status. A status with an owner goes to the status its owner
 // holds, whatever key it carries. Otherwise, Set uses the status's key, or a new UUID
 // when the key is empty. A create stores the labels s carries. An update keeps the
 // stored labels, which change only through AddLabels, ReplaceLabels, and RemoveLabels,
-// and keeps the stored owner when s has none. On return, s holds what was stored. A
-// Writer with no transaction runs each Set in one of its own, so concurrent Sets for an
-// owner write one status.
+// and keeps the stored owner when s has none. On return, s holds what was stored.
 func (w Writer) Set[D any](ctx context.Context, s *Status[D]) error {
-	if db, ok := w.tx.(*gorp.DB); ok {
-		return db.WithTx(ctx, func(tx gorp.Tx) error {
-			return w.svc.NewWriter(tx).Set(ctx, s)
-		})
-	}
-	if err := w.validate(*s); err != nil {
-		return err
-	}
-	if err := w.resolve(ctx, s); err != nil {
-		return err
-	}
-	if err := w.table.NewCreate().Entry(new(s.ToAny())).Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	return w.otgWriter.DefineResources(ctx, s.ResourceID())
+	return w.inTx(ctx, func(w Writer) error {
+		if err := w.validate(*s); err != nil {
+			return err
+		}
+		if err := w.resolve(ctx, s); err != nil {
+			return err
+		}
+		if err := w.table.NewCreate().
+			Entry(new(s.ToAny())).
+			Exec(ctx, w.tx); err != nil {
+			return err
+		}
+		return w.otgWriter.DefineResources(ctx, s.ResourceID())
+	})
 }
 
 // SetMany calls Set for each status, in order.
@@ -66,23 +72,27 @@ func (w Writer) SetMany[D any](ctx context.Context, statuses *[]Status[D]) error
 	if statuses == nil {
 		return nil
 	}
-	for i := range *statuses {
-		if err := w.Set(ctx, &(*statuses)[i]); err != nil {
-			return err
+	return w.inTx(ctx, func(w Writer) error {
+		for i := range *statuses {
+			if err := w.Set(ctx, &(*statuses)[i]); err != nil {
+				return err
+			}
 		}
-	}
-	return nil
+		return nil
+	})
 }
 
 // RenameOwned renames the status that owner holds, keeping every other field. It
 // returns query.ErrNotFound if owner holds no status and a validation error if name is
 // empty.
 func (w Writer) RenameOwned(ctx context.Context, owner resource.ID, name string) error {
-	key, err := w.ownedKey(ctx, owner)
-	if err != nil {
-		return err
-	}
-	return w.Rename(ctx, key, name)
+	return w.inTx(ctx, func(w Writer) error {
+		key, err := w.ownedKey(ctx, owner)
+		if err != nil {
+			return err
+		}
+		return w.Rename(ctx, key, name)
+	})
 }
 
 // DeleteOwned deletes the statuses that owners hold. DeleteOwned is idempotent.
@@ -91,11 +101,13 @@ func (w Writer) DeleteOwned(ctx context.Context, owners ...resource.ID) error {
 	for i, o := range owners {
 		targets[i] = resourceTarget(o)
 	}
-	keys, err := w.indexes.owner.Get(ctx, w.tx, targets...)
-	if err != nil {
-		return err
-	}
-	return w.Delete(ctx, keys...)
+	return w.inTx(ctx, func(w Writer) error {
+		keys, err := w.indexes.owner.Get(ctx, w.tx, targets...)
+		if err != nil {
+			return err
+		}
+		return w.Delete(ctx, keys...)
+	})
 }
 
 func (w Writer) ownedKey(ctx context.Context, owner resource.ID) (Key, error) {
@@ -179,12 +191,14 @@ func (w Writer) update(
 	key Key,
 	change func(*Status[json.RawMessage]),
 ) error {
-	s, err := w.retrieveRaw(ctx, key)
-	if err != nil {
-		return err
-	}
-	change(&s)
-	return w.table.NewCreate().Entry(new(s.ToAny())).Exec(ctx, w.tx)
+	return w.inTx(ctx, func(w Writer) error {
+		s, err := w.retrieveRaw(ctx, key)
+		if err != nil {
+			return err
+		}
+		change(&s)
+		return w.table.NewCreate().Entry(new(s.ToAny())).Exec(ctx, w.tx)
+	})
 }
 
 func (w Writer) retrieveRaw(
@@ -201,12 +215,14 @@ func (w Writer) retrieveRaw(
 
 // Delete deletes the statuses with the given keys. Delete is idempotent.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
-	if err := w.table.NewDelete().
-		Where(gorp.MatchKeys[Key, Status[any]](keys...)).
-		Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	return w.otgWriter.DeleteResources(ctx, ResourceIDs(keys)...)
+	return w.inTx(ctx, func(w Writer) error {
+		if err := w.table.NewDelete().
+			Where(gorp.MatchKeys[Key, Status[any]](keys...)).
+			Exec(ctx, w.tx); err != nil {
+			return err
+		}
+		return w.otgWriter.DeleteResources(ctx, ResourceIDs(keys)...)
+	})
 }
 
 func (w Writer) validate[D any](s Status[D]) error {

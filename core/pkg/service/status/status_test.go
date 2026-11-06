@@ -11,6 +11,7 @@ package status_test
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"uuid"
 
@@ -1026,7 +1027,7 @@ var _ = Describe("Status", Ordered, func() {
 		)
 	})
 
-	Describe("Set with no transaction", func() {
+	Describe("Writer with no transaction", func() {
 		It(
 			"Should write one status for an owner that concurrent sets write",
 			func(ctx SpecContext) {
@@ -1050,6 +1051,37 @@ var _ = Describe("Status", Ordered, func() {
 					Entries(&held).
 					Exec(ctx, db)).To(Succeed())
 				Expect(held).To(HaveLen(1))
+			},
+		)
+		It(
+			"Should keep every label that concurrent adds write",
+			func(ctx SpecContext) {
+				s := newStatus("concurrent-labels-key")
+				Expect(svc.NewWriter(nil).Set(ctx, &s)).To(Succeed())
+				labels := make([]label.Key, 10)
+				for i := range labels {
+					l := &label.Label{Name: fmt.Sprintf("Concurrent %d", i)}
+					Expect(labelSvc.NewWriter(nil).Create(ctx, l)).To(Succeed())
+					labels[i] = l.Key
+				}
+				var wg sync.WaitGroup
+				for _, l := range labels {
+					wg.Go(func() {
+						defer GinkgoRecover()
+						Expect(svc.NewWriter(nil).AddLabels(
+							ctx,
+							s.Key,
+							[]label.Key{l},
+						)).To(Succeed())
+					})
+				}
+				wg.Wait()
+				var stored status.Status[any]
+				Expect(svc.NewRetrieve[any]().
+					Where(status.MatchKeys[any](s.Key)).
+					Entry(&stored).
+					Exec(ctx, db)).To(Succeed())
+				Expect(stored.Labels).To(ConsistOf(labels))
 			},
 		)
 	})
