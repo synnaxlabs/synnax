@@ -46,8 +46,9 @@ type sequentialSource struct {
 }
 
 func (s *sequentialSource) Flow(ctx signal.Context, opts ...confluence.Option) {
+	GinkgoHelper()
 	if s.ctx.started.Load() {
-		<-ctx.Stopped()
+		Eventually(ctx.Stopped()).Should(BeClosed())
 	}
 	o := confluence.NewOptions(opts)
 	o.AttachClosables(s.Out)
@@ -57,7 +58,6 @@ func (s *sequentialSource) Flow(ctx signal.Context, opts ...confluence.Option) {
 	}, o.Signal...)
 }
 
-// panicSink panics in Flow.
 type panicSink struct{ confluence.UnarySink[int] }
 
 func (*panicSink) Flow(signal.Context, ...confluence.Option) { panic("bad flow") }
