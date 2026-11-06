@@ -30,7 +30,7 @@ export type Key = z.infer<typeof keyZ>;
 /** ChannelEntry is a per-channel display configuration entry within a log. */
 export const channelEntryZ = z.object({
   /** channel is the channel this entry references. */
-  channel: channel.keyZ,
+  channel: channel.keyZ.refine((v) => v !== 0, "channel is required"),
   /** color is the display color for the channel. */
   color: color.colorZ,
   /** notation is the numeric notation used to render samples. */

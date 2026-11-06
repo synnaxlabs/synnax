@@ -151,7 +151,7 @@ export type SetChannelsPayload = z.infer<typeof setChannelsPayloadZ>;
 /**
  * SwapChannel repoints the entry referencing the "from" channel at the "to" channel in
  * place, preserving the entry's position and display configuration. No-op when no entry
- * references "from".
+ * references "from" or an entry already references "to".
  */
 export const swapChannelPayloadZ = z.object({
   from: channel.keyZ,

@@ -78,6 +78,8 @@ class Sequence:
     isolated: bool = False
     """Runs on the first Core after every other sequence ends, with nothing else
     running, as a timing test needs."""
+    independent: bool = False
+    """No test needs another test of the sequence, so shards can split it."""
 
 
 class _TestEntry(BaseModel):
@@ -97,6 +99,7 @@ class _SequenceEntry(BaseModel):
     sequence_order: str = "sequential"
     pool_size: int = -1
     isolated: bool = False
+    independent: bool = False
     tests: list[_TestEntry] = Field(default_factory=list)
 
 
@@ -163,7 +166,8 @@ class ConfigClient:
     def _load_json(self, file_filter: list[str] | None) -> list[_SequenceEntry]:
         """Load raw sequence dicts from JSON files."""
         if not file_filter:
-            test_files = glob.glob(str(self._tests_dir / "*_tests.json"))
+            # Sorted, as shards split the suite by its order and must agree on it.
+            test_files = sorted(glob.glob(str(self._tests_dir / "*_tests.json")))
             if not test_files:
                 raise FileNotFoundError(
                     "No *_tests.json files found for auto-discovery"
@@ -273,6 +277,7 @@ class ConfigClient:
                     pool_size=pool_size,
                     tests=expanded_tests,
                     isolated=seq_dict.isolated,
+                    independent=seq_dict.independent,
                 )
                 sequences.append(seq)
 
@@ -480,3 +485,11 @@ class ConfigClient:
         """Load a single test class (first match) from a case identifier."""
         classes = self._load_test_classes(test_def)
         return classes[0]
+
+    def resources_of(self, test_def: TestDefinition) -> frozenset[str]:
+        """Returns the resources the test holds while it runs. A case that cannot
+        load holds nothing, so it fails with its error only when it runs."""
+        try:
+            return self.load_test_class(test_def).resources()
+        except Exception:
+            return frozenset()
