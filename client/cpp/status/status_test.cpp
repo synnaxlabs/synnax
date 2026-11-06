@@ -147,6 +147,69 @@ TEST(StatusTest, RetrieveWhere) {
     ASSERT_EQ(retrieved[0].key, statuses[1].key);
 }
 
+/// @brief it should retrieve the one status that a filter matches.
+TEST(StatusTest, RetrieveOneWhere) {
+    const auto client = new_test_client();
+    Status<x::json::json> s;
+    s.key = "test-one-where-" + x::uuid::create().to_string();
+    s.variant = VARIANT_INFO;
+    s.time = x::telem::TimeStamp::now();
+    ASSERT_NIL(client.statuses.set(s));
+    const auto got = ASSERT_NIL_P(
+        client.statuses.retrieve(Where{.key = s.key}, x::filter::one)
+    );
+    ASSERT_EQ(got.key, s.key);
+}
+
+/// @brief it should name the filter in the error when no status matches it.
+TEST(StatusTest, RetrieveOneWhereNotFound) {
+    const auto client = new_test_client();
+    const auto key = "test-one-none-" + x::uuid::create().to_string();
+    const auto [_, err] = client.statuses.retrieve(Where{.key = key}, x::filter::one);
+    ASSERT_MATCHES(err, x::errors::NOT_FOUND);
+    ASSERT_EQ(
+        err.data,
+        R"(status matching {"key":{"eq":")" + key + R"("}} not found.)"
+    );
+}
+
+/// @brief it should return an error when more than one status matches a filter.
+TEST(StatusTest, RetrieveOneWhereMultipleFound) {
+    const auto client = new_test_client();
+    const auto suffix = x::uuid::create().to_string();
+    std::vector<Status<x::json::json>> statuses(2);
+    for (size_t i = 0; i < statuses.size(); i++) {
+        statuses[i].key = "test-one-twice-" + std::to_string(i) + "-" + suffix;
+        statuses[i].variant = VARIANT_INFO;
+        statuses[i].time = x::telem::TimeStamp::now();
+    }
+    ASSERT_NIL(client.statuses.set(statuses));
+    ASSERT_OCCURRED_AS_P(
+        client.statuses
+            .retrieve(Where{.key = {statuses[0].key, statuses[1].key}}, x::filter::one),
+        x::errors::MULTIPLE_RESULTS
+    );
+}
+
+/// @brief it should reject a limit or an offset on a retrieve of one status.
+TEST(StatusTest, RetrieveRejectsPage) {
+    const auto client = new_test_client();
+    for (const auto &options:
+         {RetrieveOptions{.limit = 1}, RetrieveOptions{.offset = 1}}) {
+        for (const auto &err:
+             {client.statuses.retrieve("status", options).second,
+              client.statuses.retrieve(Where{.key = "status"}, x::filter::one, options)
+                  .second}) {
+            ASSERT_MATCHES(err, x::errors::VALIDATION);
+            ASSERT_EQ(
+                err.data,
+                "a query for one record takes no limit or offset, since a page could "
+                "hide a second match"
+            );
+        }
+    }
+}
+
 /// @brief it should update an existing status with new values.
 TEST(StatusTest, UpdateExistingStatus) {
     const auto client = new_test_client();

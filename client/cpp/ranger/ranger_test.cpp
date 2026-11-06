@@ -175,6 +175,66 @@ TEST(RangerTests, testRetrieveWhere) {
     ASSERT_EQ(got[0].key, a.key);
 }
 
+/// @brief it should retrieve the one range that a filter matches.
+TEST(RangerTests, testRetrieveOneWhere) {
+    const auto client = new_test_client();
+    const auto range = ASSERT_NIL_P(client.ranges.create(
+        std::to_string(gen_rand()),
+        x::telem::TimeRange(x::telem::TimeStamp(10), x::telem::TimeStamp(100))
+    ));
+    const auto got = ASSERT_NIL_P(
+        client.ranges.retrieve({.name = range.name}, x::filter::one)
+    );
+    ASSERT_EQ(got.key, range.key);
+}
+
+/// @brief it should name the filter in the error when no range matches it.
+TEST(RangerTests, testRetrieveOneWhereNotFound) {
+    const auto client = new_test_client();
+    const auto name = std::to_string(gen_rand());
+    const auto [_, err] = client.ranges.retrieve({.name = name}, x::filter::one);
+    ASSERT_MATCHES(err, x::errors::NOT_FOUND);
+    ASSERT_EQ(
+        err.data,
+        R"(range matching {"name":{"case_insensitive":false,"eq":")" + name +
+            R"("}} not found.)"
+    );
+}
+
+/// @brief it should return an error when more than one range matches a filter.
+TEST(RangerTests, testRetrieveOneWhereMultipleFound) {
+    const auto client = new_test_client();
+    const auto name = std::to_string(gen_rand());
+    for (int i = 0; i < 2; i++)
+        ASSERT_NIL_P(client.ranges.create(
+            name,
+            x::telem::TimeRange(x::telem::TimeStamp(10), x::telem::TimeStamp(100))
+        ));
+    ASSERT_OCCURRED_AS_P(
+        client.ranges.retrieve({.name = name}, x::filter::one),
+        x::errors::MULTIPLE_RESULTS
+    );
+}
+
+/// @brief it should reject a limit or an offset on a retrieve of one range.
+TEST(RangerTests, testRetrieveRejectsPage) {
+    const auto client = new_test_client();
+    for (const auto &options:
+         {RetrieveOptions{.limit = 1}, RetrieveOptions{.offset = 1}}) {
+        for (const auto &err:
+             {client.ranges.retrieve("range", options).second,
+              client.ranges.retrieve({.name = "range"}, x::filter::one, options)
+                  .second}) {
+            ASSERT_MATCHES(err, x::errors::VALIDATION);
+            ASSERT_EQ(
+                err.data,
+                "a query for one record takes no limit or offset, since a page could "
+                "hide a second match"
+            );
+        }
+    }
+}
+
 /// @brief it should set a key-value pair on the range.
 TEST(RangerTests, testSet) {
     const auto client = new_test_client();
