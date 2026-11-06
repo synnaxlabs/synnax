@@ -81,6 +81,9 @@ struct OpMode {
 constexpr uint16_t SYNC0_ACTIVE = 0x0200;
 /// @brief the AssignActivate bit that turns on SYNC1.
 constexpr uint16_t SYNC1_ACTIVE = 0x0400;
+/// @brief the AssignActivate bit that gives the sync unit to the PDI, so the master
+/// writes no cycle registers.
+constexpr uint16_t PDI_SYNC_UNIT = 0x0001;
 /// @brief the largest time a 32-bit DC register holds.
 const x::telem::TimeSpan REGISTER_LIMIT(std::numeric_limits<uint32_t>::max());
 /// @brief the shortest SYNC0 cycle whose events mark when a slave takes or applies
@@ -150,19 +153,24 @@ struct Cycles {
 
 namespace details {
 /// @brief returns errors::SLAVE_CONFIG_ERROR when cycles gives a cycle to a mode that
-/// does not run SYNC0.
+/// cannot use it: one that does not run SYNC0, or one that gives the sync unit to the
+/// PDI.
 inline x::errors::Error check_cycles(const OpMode &mode, const Cycles &cycles) {
-    if ((mode.assign_activate & SYNC0_ACTIVE) != 0) return x::errors::NIL;
+    const bool sync0 = (mode.assign_activate & SYNC0_ACTIVE) != 0;
+    const bool pdi = (mode.assign_activate & PDI_SYNC_UNIT) != 0;
+    if (sync0 && !pdi) return x::errors::NIL;
+    const auto reason = sync0 ? "gives the sync unit to the PDI" : "does not run SYNC0";
     for (const auto &[name, cycle]:
          {std::pair{"SYNC0", cycles.sync0}, std::pair{"SYNC1", cycles.sync1}})
         if (cycle != 0)
             return x::errors::Error(
                 errors::SLAVE_CONFIG_ERROR,
                 std::format(
-                    "mode {}(AssignActivate 0x{:04X}) does not run SYNC0, so it cannot "
-                    "use a {} cycle of {}",
+                    "mode {}(AssignActivate 0x{:04X}) {}, so it cannot use a {} cycle "
+                    "of {}",
                     mode.name.empty() ? "" : "\"" + mode.name + "\" ",
                     mode.assign_activate,
+                    reason,
                     name,
                     cycle.to_string()
                 )
@@ -215,7 +223,7 @@ struct Choice {
 /// it is the first DC mode of a slave that lists no SM mode.
 /// @returns errors::SLAVE_CONFIG_ERROR, with the modes of the slave, when modes has no
 /// mode at the index of choice with its AssignActivate, or when choice gives a cycle to
-/// a mode that does not run SYNC0.
+/// a mode that cannot use it.
 inline std::pair<std::optional<OpMode>, x::errors::Error>
 select(const std::vector<OpMode> &modes, const std::optional<Choice> &choice = {}) {
     if (!choice) {
@@ -255,7 +263,7 @@ select(const std::vector<OpMode> &modes, const std::optional<Choice> &choice = {
 /// @brief returns the DC register values of the mode at the bus period. A nonzero cycle
 /// in cycles replaces the cycle that the mode gives.
 /// @returns errors::SLAVE_CONFIG_ERROR, with the value and its limit, when cycles gives
-/// a cycle to a mode that does not run SYNC0, or the mode gives no SYNC0 cycle, a SYNC0
+/// a cycle to a mode that cannot use it, or the mode gives no SYNC0 cycle, a SYNC0
 /// cycle that is not a whole number of nanoseconds, a SYNC1 cycle that is not a
 /// multiple of the SYNC0 cycle, a SYNC1 shift that puts SYNC1 before SYNC0, or a cycle
 /// that a register cannot hold.

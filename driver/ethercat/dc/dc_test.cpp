@@ -215,6 +215,20 @@ TEST(Resolve, RejectsAChosenSYNC1CycleForAModeWithoutSYNC0) {
     );
 }
 
+/// @brief it should reject a chosen cycle for a mode that gives the sync unit to the
+/// PDI, as the master writes no cycle registers for it.
+TEST(Resolve, RejectsAChosenCycleForAModeWhosePDIOwnsTheSyncUnit) {
+    const OpMode pdi{.name = "DC", .assign_activate = 0x0301, .sync0_factor = 1};
+    const Cycles cycles{.sync0 = x::telem::MILLISECOND};
+    const auto err = resolve(pdi, x::telem::MILLISECOND, cycles).second;
+    ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "mode \"DC\" (AssignActivate 0x0301) gives the sync unit to the PDI, so it "
+        "cannot use a SYNC0 cycle of 1ms"
+    );
+}
+
 /// @brief it should reject a chosen SYNC1 cycle that is not a multiple of the SYNC0
 /// cycle.
 TEST(Resolve, RejectsAChosenSYNC1ThatIsNotAMultipleOfSYNC0) {
