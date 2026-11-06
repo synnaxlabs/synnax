@@ -24,7 +24,7 @@ interface Thing extends record.Keyed<string> {
 
 const thing = (key: string, size = 1): Thing => ({ key, name: `${key}-name`, size });
 
-const requestZ = z.object({
+const requestZ = z.strictObject({
   keys: z.string().array().optional(),
   where: z
     .object({
@@ -39,7 +39,13 @@ const requestZ = z.object({
 });
 interface Request extends z.infer<typeof requestZ> {}
 
-const paramsZ = requestZ.or(query.keyListZ(z.string()));
+const paramsZ = z.union([
+  requestZ,
+  query.keyListZ(z.string()),
+  z
+    .strictObject({ key: z.string().array() })
+    .transform(({ key }): Request => ({ where: { key: { in: key } } })),
+]);
 
 // A live but silent stream: subscribed answers stay maintained, so reads
 // serve from the cache without a network fetch.
@@ -207,6 +213,25 @@ describe("Retriever", () => {
         async () => [],
       );
       await expect(client.retrieve({ key: "missing" })).rejects.toThrow(NotFoundError);
+    });
+
+    it("routes a list on key to the request space", async () => {
+      const fetchKeys = vi.fn(async (keys: string[]) => keys.map((k) => thing(k)));
+      const fetchRequest = vi.fn(async () => []);
+      const client = new Client(newCache(), fetchKeys, fetchRequest);
+      const result = await client.retrieve({ key: ["a", "b"] });
+      expect(result).toEqual([thing("a"), thing("b")]);
+      expect(fetchKeys).toHaveBeenCalledWith(["a", "b"]);
+      expect(fetchRequest).not.toHaveBeenCalled();
+    });
+
+    it("rejects a plain key beside other fields", async () => {
+      const fetchRequest = vi.fn(async () => []);
+      const client = new Client(newCache(), async () => [], fetchRequest);
+      await expect(client.retrieve({ key: "a", minSize: 2 } as never)).rejects.toThrow(
+        new ValidationError("thing params address a single key but hold other fields."),
+      );
+      expect(fetchRequest).not.toHaveBeenCalled();
     });
 
     it("delivers deletion through onChange and flips retrieve to not-found", async () => {
@@ -602,7 +627,7 @@ describe("Retriever", () => {
 
     describe("malformed single params", () => {
       class StrictSingleClient extends query.Retriever<
-        typeof requestZ,
+        typeof paramsZ,
         string,
         Thing,
         Thing,
@@ -632,7 +657,7 @@ describe("Retriever", () => {
             name: "thing",
             table: store,
             request: {
-              schema: requestZ,
+              schema: paramsZ,
               fetch: async (req) => await fetchRequest(req),
             },
             single: {
@@ -663,6 +688,15 @@ describe("Retriever", () => {
         expect(ValidationError.matches(err)).toBe(true);
         expect(err.message).toContain("Failed to parse");
         expect(err.cause).toBeInstanceOf(zod.ParseError);
+        expect(fetchRequest).not.toHaveBeenCalled();
+      });
+
+      it("routes a list on key past the single schema", async () => {
+        const fetchKeys = vi.fn(async (keys: string[]) => keys.map((k) => thing(k)));
+        const fetchRequest = vi.fn(async () => []);
+        const client = new StrictSingleClient(newCache(), fetchKeys, fetchRequest);
+        const result = await client.retrieve({ key: ["a"] });
+        expect(result).toEqual([thing("a")]);
         expect(fetchRequest).not.toHaveBeenCalled();
       });
 

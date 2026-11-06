@@ -16,4 +16,12 @@ namespace driver::ethercat::soem {
 x::errors::Error ProdAPI::check_socket(const char *ifname) {
     return check_bpf_access(ifname, ::open);
 }
+
+bool ProdAPI::dewesoft_filter_bound(const char *) {
+    return false;
+}
+
+std::optional<std::string> ProdAPI::adapter_name(const char *) {
+    return std::nullopt;
+}
 }

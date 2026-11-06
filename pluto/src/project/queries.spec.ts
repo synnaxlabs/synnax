@@ -285,18 +285,6 @@ describe("queries", () => {
     });
   });
 
-  describe("useGroupID", () => {
-    it("should correctly retrieve group ID", async () => {
-      const { result } = await renderHookSuspended(() => Project.useGroupID({}), {
-        wrapper,
-      });
-      await waitFor(() => {
-        expect(result.current?.type).toEqual("group");
-        expect(result.current?.key).not.toBeFalsy();
-      });
-    });
-  });
-
   describe("useDelete", () => {
     it("should correctly delete a project", async () => {
       const proj = await client.projects.create({

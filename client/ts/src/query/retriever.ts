@@ -20,6 +20,7 @@ import {
 } from "@/query/query";
 import { type Keyed, type Table } from "@/query/table";
 import { type Data, type FetchOptions, type Params } from "@/query/types";
+import { singleQueryError } from "@/util/retrieve";
 
 /** Query fields only the server can evaluate, shared by most request shapes. */
 const DEFAULT_SERVER_FIELDS = ["searchTerm", "limit", "offset"] as const;
@@ -65,21 +66,32 @@ const keysOnly = (query: unknown): unknown[] | null => {
 };
 
 /**
- * The params a request schema accepts. A recursive `where` schema infers no input type,
- * so `where` takes its output type, which the schema also accepts.
+ * The query objects a request schema accepts. It leaves out a bare key list, which each
+ * overload takes on its own, and a plain `key` value, which addresses one record. A
+ * recursive `where` schema infers no input type, so `where` takes its output type,
+ * which the schema also accepts.
  */
-type RequestInput<Z extends z.ZodType> =
+export type RequestInput<Z extends z.ZodType> =
   z.input<Z> extends infer I
-    ? I extends unknown
-      ? "where" extends keyof I
+    ? I extends readonly unknown[]
+      ? never
+      : "where" extends keyof I
         ? Omit<I, "where"> & Pick<Extract<z.output<Z>, { where?: unknown }>, "where">
-        : I
-      : never
+        : "key" extends keyof I
+          ? Omit<I, "key"> & { key?: Exclude<I["key"], record.Key> }
+          : I
     : never;
 
 /** True for params that are a bare record key rather than a query object. */
 const isBareKey = (params: unknown): params is record.Key =>
   typeof params === "string" || typeof params === "number";
+
+/**
+ * True for params that address one record: a bare key, or an object whose `key` is a
+ * plain value. A list or an operator on `key` is a filter.
+ */
+const addressesKey = (params: unknown): boolean =>
+  isBareKey(params) || (isObject(params) && isBareKey(params.key));
 
 /**
  * Request schema arm reading a bare key list as `{ keys }`. Union it onto a domain's
@@ -146,8 +158,11 @@ export type RetrieverParams<
      * declared mode.
      */
     fetch: (query: z.output<Z>, options?: FetchOptions) => Promise<V[]>;
-    /** Rule 2: whether a record satisfies the query. Pure; no network. */
-    matches?: (record: V, query: z.output<Z>) => boolean;
+    /**
+     * Rule 2: whether a record satisfies the query. Pure; no network. Null when the
+     * client cannot decide the record, which refetches the query.
+     */
+    matches?: (record: V, query: z.output<Z>) => boolean | null;
     /** Overrides {@link DEFAULT_SERVER_FIELDS} for this request shape. */
     serverFields?: readonly string[];
     /** Rule 3: whether only the server can evaluate the query, such as a regex. */
@@ -249,24 +264,12 @@ export abstract class Retriever<
     if (single != null) {
       this.singleSpace = single.space as Retrieves<Params, D | D[]>;
       const singleSchema = single.schema;
-      // Params carrying `key` that fail the single schema are malformed single queries;
-      // falling through would silently fetch every record.
+      // Params addressing a key that fail the single schema are malformed single
+      // queries; falling through would silently fetch every record.
       this.trySingle = (p) => {
         const res = singleSchema.safeParse(p);
         if (res.success) return { query: res.data };
-        if (isBareKey(p) || (typeof p === "object" && p !== null && "key" in p)) {
-          const cause = new zod.ParseError({
-            issues: res.error.issues,
-            input: p,
-            label: `${name} single query params`,
-            cause: res.error,
-          });
-          throw new ValidationError(
-            `${name} params address a single key but do not match the ` +
-              `single-query schema.\n${cause.message}`,
-            { cause },
-          );
-        }
+        if (addressesKey(p)) throw singleQueryError(name, p, res.error);
         return null;
       };
     } else {
@@ -287,9 +290,12 @@ export abstract class Retriever<
       }) as Retrieves<Params, D | D[]>;
       this.trySingle = (p) => {
         if (isBareKey(p)) return { query: p as Params as SingleQuery };
-        return typeof p === "object" && p !== null && "key" in p
-          ? { query: (p as { key: K }).key as Params as SingleQuery }
-          : null;
+        if (!isObject(p) || !isBareKey(p.key)) return null;
+        if (soleMember(p)?.[0] === "key")
+          return { query: p.key as Params as SingleQuery };
+        throw new ValidationError(
+          `${name} params address a single key but hold other fields.`,
+        );
       };
     }
   }
@@ -323,8 +329,8 @@ export abstract class Retriever<
    * A filter on keys returns the records that exist.
    * @throws {NotFoundError} if a single-record query matches nothing, the record was
    * deleted, or a key in a bare key list has no record.
-   * @throws {ValidationError} if params contain `key` (or are a bare key) but fail the
-   * single-query schema.
+   * @throws {ValidationError} if params address a single key (a bare key, or a plain
+   * `key` value) but fail the single-query schema.
    */
   retrieve(params: K | SingleInput, options?: FetchOptions): Promise<D>;
   retrieve(params: K[] | RequestInput<Z>, options?: FetchOptions): Promise<D[]>;
