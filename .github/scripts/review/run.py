@@ -13,6 +13,7 @@ import tomllib
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
+from typing import Any
 
 from review.findings import SCHEMA, Review, parse
 from review.render import fence
@@ -72,6 +73,60 @@ class Config:
     """The highest score a review can give while it has a finding of the severity."""
     prompt: str
     docs: list[Doc]
+
+
+@dataclass(frozen=True, kw_only=True)
+class Window:
+    """A usage limit window of the Claude subscription, such as `seven_day`."""
+
+    status: str
+    utilization: float
+    """The share of the window's limit in use, from 0 to 1."""
+    resets_at: int
+    """When the window resets, in Unix seconds."""
+
+
+@dataclass(frozen=True, kw_only=True)
+class Usage:
+    """What one review cost, as Claude Code reports it."""
+
+    cost_usd: float
+    duration_ms: int
+    turns: int
+    input_tokens: int
+    output_tokens: int
+    cache_read_tokens: int
+    cache_creation_tokens: int
+    limits: dict[str, Window]
+    """The subscription's limit windows after the review, by name. Empty when Claude
+    Code reports none, as with an API key."""
+
+    @classmethod
+    def of(cls, out: dict[str, Any], messages: list[dict[str, Any]]) -> "Usage":
+        """Reads the usage from Claude Code's result and the rate limit events among
+        the messages it streamed."""
+        u = out["usage"]
+        events = [
+            m["rate_limit_info"] for m in messages if m["type"] == "rate_limit_event"
+        ]
+        windows = events[-1]["unifiedWindows"] if events else {}
+        return cls(
+            cost_usd=out["total_cost_usd"],
+            duration_ms=out["duration_ms"],
+            turns=out["num_turns"],
+            input_tokens=u["input_tokens"],
+            output_tokens=u["output_tokens"],
+            cache_read_tokens=u["cache_read_input_tokens"],
+            cache_creation_tokens=u["cache_creation_input_tokens"],
+            limits={
+                name: Window(
+                    status=w["status"],
+                    utilization=w["utilization"],
+                    resets_at=w["resetsAt"],
+                )
+                for name, w in windows.items()
+            },
+        )
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -205,7 +260,8 @@ def _command(config: Config, *, head: Path) -> list[str]:
         "--effort",
         config.effort,
         "--output-format",
-        "json",
+        "stream-json",
+        "--verbose",
         "--json-schema",
         json.dumps(SCHEMA),
         "--no-session-persistence",
@@ -218,8 +274,10 @@ def _cap(review: Review, caps: dict[str, int]) -> Review:
     return replace(review, score=min(review.score, limit))
 
 
-def run(config: Config, pr: PullRequest, *, claude: Claude, workdir: Path) -> Review:
-    """Reviews a pull request.
+def run(
+    config: Config, pr: PullRequest, *, claude: Claude, workdir: Path
+) -> tuple[Review, Usage]:
+    """Reviews a pull request, and returns the review with what it cost.
 
     :param workdir: An empty directory that Claude Code starts in and can read.
     :raises RuntimeError: If Claude Code ends with an error.
@@ -228,7 +286,10 @@ def run(config: Config, pr: PullRequest, *, claude: Claude, workdir: Path) -> Re
     if rest:
         (workdir / REST).write_text(rest)
     text = _prompt(config, pr, shown, rest)
-    out = json.loads(claude(_command(config, head=pr.head), text, workdir))
+    stream = claude(_command(config, head=pr.head), text, workdir)
+    messages = [json.loads(line) for line in stream.splitlines() if line]
+    [out] = [m for m in messages if m["type"] == "result"]
     if out["is_error"]:
         raise RuntimeError(f"claude ended with {out['subtype']}: {out.get('result')}")
-    return _cap(parse(out["structured_output"]), config.caps)
+    review = _cap(parse(out["structured_output"]), config.caps)
+    return review, Usage.of(out, messages)

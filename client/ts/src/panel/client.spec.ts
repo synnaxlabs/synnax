@@ -42,6 +42,20 @@ describe("Panel Client", () => {
       });
       expect(retrieved.map((p) => p.key)).toEqual([kept.key]);
     });
+
+    it("should combine a parent scope with a flat filter", async () => {
+      const scope = await createPanelParent(client);
+      const [kept] = await client.panels.create([
+        { name: `panel-${id.create()}`, parent: scope },
+        { name: `panel-${id.create()}`, parent: scope },
+      ]);
+      const outsider = await createPanel();
+      const retrieved = await client.panels.retrieve({
+        parent: scope,
+        key: [kept.key, outsider.key],
+      });
+      expect(retrieved.map((p) => p.key)).toEqual([kept.key]);
+    });
   });
 
   describe("optimistic rename", () => {

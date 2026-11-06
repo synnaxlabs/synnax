@@ -14,8 +14,9 @@
 A pull request needs review/human when a surface report differs between its base and
 head, or a trust check fails. Otherwise the author picks the tier, so the script adds no
 label. The script only raises: it never removes review/human. It reads the pull request
-number from <artifacts-dir>/pr/number and refuses it unless the pull request's head
-is HEAD_SHA. Environment: GH_TOKEN, GITHUB_REPOSITORY, and HEAD_SHA.
+number from PR, or else <artifacts-dir>/pr/number, and refuses it unless the pull
+request's head is HEAD_SHA. Environment: GH_TOKEN, GITHUB_REPOSITORY, HEAD_SHA, and
+optionally PR.
 """
 
 import json
@@ -185,6 +186,8 @@ def find_comment(repo: str, *, number: int) -> dict[str, Any] | None:
 def write_comment(
     repo: str, *, number: int, comment: dict[str, Any] | None, body: str
 ) -> None:
+    if comment is not None and comment["body"] == body:
+        return
     target = (
         f"repos/{repo}/issues/{number}/comments"
         if comment is None
@@ -205,7 +208,7 @@ def main() -> None:
     root = Path(sys.argv[1])
     repo = os.environ["GITHUB_REPOSITORY"]
     head_sha = os.environ["HEAD_SHA"]
-    number = int((root / "pr" / "number").read_text().strip())
+    number = int(os.environ.get("PR") or (root / "pr" / "number").read_text().strip())
     pull = json.loads(gh("api", f"repos/{repo}/pulls/{number}"))
     if pull["head"]["sha"] != head_sha:
         print(f"#{number} moved past {head_sha}; a newer run classifies it")

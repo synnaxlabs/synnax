@@ -17,8 +17,14 @@ type String struct {
 	Eq *string `json:"eq,omitzero" msgpack:"eq,omitempty"`
 	// In matches a value equal to an element of in.
 	In []string `json:"in,omitzero" msgpack:"in,omitempty"`
-	// Regex matches a value that the RE2 pattern regex matches.
+	// Contains matches a value that holds contains.
+	Contains *string `json:"contains,omitzero" msgpack:"contains,omitempty"`
+	// StartsWith matches a value that begins with starts_with.
+	StartsWith *string `json:"starts_with,omitzero" msgpack:"starts_with,omitempty"`
+	// Regex matches a value that the unanchored RE2 pattern regex matches.
 	Regex *string `json:"regex,omitzero" msgpack:"regex,omitempty"`
+	// CaseInsensitive makes every operator on the slot ignore case.
+	CaseInsensitive bool `json:"case_insensitive" msgpack:"case_insensitive"`
 }
 
 // Bool selects boolean values.

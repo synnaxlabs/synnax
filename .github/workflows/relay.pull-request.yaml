@@ -49,6 +49,10 @@ jobs:
         run: gh workflow run check.review.yaml --ref "$REF" -f pr="$PR"
 
       - name: Start Merge - Auto
-        # Main has no dispatch trigger for this until #4466 merges.
-        if: github.event.pull_request.number != 4466
         run: gh workflow run merge.auto.yaml --ref "$REF" -f pr="$PR"
+
+      - name: Start Agent - Shepherd
+        if:
+          github.event.action == 'unlabeled' && github.event.label.name ==
+          'agent/needs-human'
+        run: gh workflow run agent.shepherd.yaml --ref "$REF" -f pr="$PR"

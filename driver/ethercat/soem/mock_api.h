@@ -10,12 +10,11 @@
 #pragma once
 
 #include <algorithm>
-#include <chrono>
 #include <cstring>
 #include <map>
 #include <optional>
+#include <set>
 #include <string>
-#include <thread>
 #include <vector>
 
 #include "driver/ethercat/soem/api.h"
@@ -38,10 +37,23 @@ struct MockSlaveInfo {
     uint16_t mbx_proto = 0;
     uint16_t ALstatuscode = 0;
     bool lost = false;
+    /// @brief whether the slave has a distributed clock.
+    bool hasdc = false;
     /// @brief the state readstate() reports, or nullopt to report the current state.
     std::optional<uint16_t> bus_state;
     /// @brief the state last requested and not yet reached.
     std::optional<uint16_t> requested;
+};
+
+/// @brief a write through write_register.
+struct RegisterWrite {
+    uint16_t slave = 0;
+    uint16_t address = 0;
+    std::vector<uint8_t> data;
+    /// @brief true when the write came after config_map_group, which requests SAFE-OP.
+    bool mapped = false;
+
+    bool operator==(const RegisterWrite &) const = default;
 };
 
 /// @brief mock implementation of soem::API for unit testing.
@@ -49,6 +61,10 @@ class MockAPI final : public API {
 public:
     std::vector<MockSlaveInfo> slave_infos;
     x::errors::Error check_socket_err = x::errors::NIL;
+    /// @brief the interfaces whose adapters the DewesoftX filter is bound to.
+    std::set<std::string> filtered_interfaces;
+    /// @brief the Windows adapter names that adapter_name returns, keyed by interface.
+    std::map<std::string, std::string> adapter_names;
     int init_return = 1;
     int config_init_return = 1;
     int config_map_return = 64;
@@ -69,6 +85,9 @@ public:
     std::map<uint16_t, uint8_t> sii_bytes;
     /// @brief SII strings returned by siistring, keyed by string index.
     std::map<uint16_t, std::string> sii_strings;
+    /// @brief the slaves whose EEPROM the master controls: siigetbyte adds the slave,
+    /// eeprom2pdi removes it.
+    std::set<uint16_t> eeprom_held;
     int readODlist_return = 0;
     bool close_called = false;
     bool init_called = false;
@@ -85,7 +104,6 @@ public:
     /// @brief object names returned by readODdescription, keyed by index.
     std::map<uint16_t, std::string> od_names;
     int readstate_count = 0;
-    int statecheck_count = 0;
     /// @brief the state reconfig_slave returns.
     int reconfig_return = EC_STATE_SAFE_OP;
     std::vector<uint16_t> reconfigured_slaves;
@@ -96,6 +114,10 @@ public:
     std::vector<uint16_t> written_slaves;
     /// @brief the value count_bus_slaves returns, or nullopt for the slave count.
     std::optional<int> bus_slaves;
+    /// @brief writes through write_register, in call order.
+    std::vector<RegisterWrite> register_writes;
+    /// @brief the working counter write_register returns.
+    int write_register_return = 1;
     /// @brief whether the mapped group carries the reference clock time.
     bool hasdc = false;
     int configdc_count = 0;
@@ -108,6 +130,16 @@ private:
 public:
     x::errors::Error check_socket(const char *) override {
         return this->check_socket_err;
+    }
+
+    bool dewesoft_filter_bound(const char *ifname) override {
+        return this->filtered_interfaces.contains(ifname);
+    }
+
+    std::optional<std::string> adapter_name(const char *ifname) override {
+        const auto it = this->adapter_names.find(ifname);
+        if (it == this->adapter_names.end()) return std::nullopt;
+        return it->second;
     }
 
     int init(const char *) override {
@@ -170,6 +202,18 @@ public:
 
     [[nodiscard]] int64_t dc_time() const override { return this->dc_time_value; }
 
+    int write_register(
+        uint16_t slave,
+        uint16_t address,
+        std::vector<uint8_t> data,
+        int
+    ) override {
+        this->register_writes.push_back(
+            {slave, address, std::move(data), this->mapped_group.has_value()}
+        );
+        return this->write_register_return;
+    }
+
     int reconfig_slave(uint16_t slave, int) override {
         this->reconfigured_slaves.push_back(slave);
         return this->reconfig_return;
@@ -180,13 +224,15 @@ public:
         return this->recover_return;
     }
 
-    /// @brief like ecx_statecheck, waits for the timeout when the slave does not reach
-    /// reqstate.
-    uint16_t statecheck(uint16_t slave, uint16_t reqstate, int timeout) override {
-        this->statecheck_count++;
+    /// @brief like ecx_statecheck, a group check (slave 0) that reaches reqstate
+    /// leaves each slave's state for the next readstate to update.
+    uint16_t statecheck(uint16_t slave, uint16_t reqstate, int) override {
         const uint16_t state = this->reach(slave, reqstate);
-        if (state != reqstate)
-            std::this_thread::sleep_for(std::chrono::microseconds(timeout));
+        if (slave == 0 && state == reqstate)
+            for (auto &info: this->slave_infos) {
+                info.bus_state.reset();
+                info.requested = reqstate;
+            }
         if (slave > 0 && slave <= this->slave_infos.size()) {
             auto &info = this->slave_infos[slave - 1];
             info.state = state;
@@ -206,7 +252,7 @@ public:
     }
 
     int SDOread(
-        uint16_t,
+        uint16_t slave,
         uint16_t index,
         uint8_t sub_index,
         int,
@@ -214,6 +260,9 @@ public:
         void *p,
         int
     ) override {
+        // SOEM sends no mailbox request to a slave whose last read state is below
+        // PRE-OP.
+        if ((this->slave_state(slave) & 0x0F) < EC_STATE_PRE_OP) return 0;
         const auto it = this->sdo_objects.find({index, sub_index});
         if (it == this->sdo_objects.end()) return 0;
         std::memcpy(p, &it->second, *psize);
@@ -225,7 +274,8 @@ public:
         return it == this->sii_categories.end() ? 0 : it->second;
     }
 
-    uint8_t siigetbyte(uint16_t, uint16_t address) override {
+    uint8_t siigetbyte(uint16_t slave, uint16_t address) override {
+        this->eeprom_held.insert(slave);
         const auto it = this->sii_bytes.find(address);
         return it == this->sii_bytes.end() ? 0 : it->second;
     }
@@ -236,6 +286,8 @@ public:
         std::strncpy(str, value.c_str(), EC_MAXNAME);
         str[EC_MAXNAME] = '\0';
     }
+
+    void eeprom2pdi(uint16_t slave) override { this->eeprom_held.erase(slave); }
 
     int readODlist(uint16_t, ec_ODlistt *) override { return this->readODlist_return; }
 
@@ -341,6 +393,11 @@ public:
     [[nodiscard]] uint16_t slave_ALstatuscode(uint16_t pos) const override {
         if (pos == 0 || pos > this->slave_infos.size()) return 0;
         return this->slave_infos[pos - 1].ALstatuscode;
+    }
+
+    [[nodiscard]] bool slave_hasdc(uint16_t pos) const override {
+        if (pos == 0 || pos > this->slave_infos.size()) return false;
+        return this->slave_infos[pos - 1].hasdc;
     }
 
     [[nodiscard]] bool slave_lost(uint16_t pos) const override {

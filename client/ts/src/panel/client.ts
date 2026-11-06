@@ -33,7 +33,7 @@ import {
   retrieveResponseZ,
   type Where,
 } from "@/panel/types.gen";
-import { matches, serverComputed } from "@/panel/where.gen";
+import { matches, retrieveInputZ, serverComputed } from "@/panel/where.gen";
 import { query } from "@/query";
 
 export const SET_CHANNEL_NAME = "sy_panel_set";
@@ -42,11 +42,13 @@ export const DELETE_CHANNEL_NAME = "sy_panel_delete";
 const parentRequestZ = retrieveRequestZ.extend({
   parent: ontology.idZ.optional(),
 });
-export type RetrieveMultipleParams = z.infer<typeof parentRequestZ>;
+type Request = z.infer<typeof parentRequestZ>;
 const retrieveMultiParamsZ = z.union([
-  keyZ.array().transform((keys): RetrieveMultipleParams => query.keysRequest(keys)),
+  keyZ.array().transform((keys): Request => query.keysRequest(keys)),
   parentRequestZ,
+  retrieveInputZ(parentRequestZ.omit({ where: true }).shape),
 ]);
+export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 const createReqZ = z.object({ dispatchKey: z.string(), panels: panelZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
@@ -102,18 +104,15 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
           (req.parent == null || this.isCachedChild(req.parent, panel.key)),
         serverComputed: (req) => serverComputed(req.where),
         watch: [
-          query.watch(
-            ontologyClient.cache.relationships,
-            (event, req: RetrieveMultipleParams) => {
-              if (req.parent == null) return null;
-              const rel =
-                event.variant === "set"
-                  ? event.value
-                  : ontology.relationshipZ.parse(event.key);
-              if (!isChildOf(rel, req.parent)) return null;
-              return [rel.to.key];
-            },
-          ),
+          query.watch(ontologyClient.cache.relationships, (event, req: Request) => {
+            if (req.parent == null) return null;
+            const rel =
+              event.variant === "set"
+                ? event.value
+                : ontology.relationshipZ.parse(event.key);
+            if (!isChildOf(rel, req.parent)) return null;
+            return [rel.to.key];
+          }),
         ],
       },
     });
@@ -296,10 +295,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
 
   // Parent queries resolve membership through the ontology graph, then fetch
   // the member panels; the panel retrieve endpoint knows nothing of parents.
-  private async fetchRequest({
-    parent,
-    ...req
-  }: RetrieveMultipleParams): Promise<Panel[]> {
+  private async fetchRequest({ parent, ...req }: Request): Promise<Panel[]> {
     if (parent == null) return await this.execRetrieve(req);
     const children = await this.cfg.ontology.children.retrieve({
       ids: parent,

@@ -10,14 +10,14 @@
 import { describe } from "vitest";
 
 import { channel } from "@/channel";
-import { LINES } from "@/channel/where";
-import { matches, serverComputed } from "@/channel/where.gen";
+import { LINES, serverComputed } from "@/channel/where";
+import { matches } from "@/channel/where.gen";
 import { itMatchesVectors, readVectors } from "@/testutil/vectors";
 
 describe("Where", () => {
   itMatchesVectors(
     readVectors("channels", channel.payloadZ, channel.whereZ),
     (c, where) => matches(LINES, c, where),
-    (where) => serverComputed(LINES, where),
+    serverComputed,
   );
 });
