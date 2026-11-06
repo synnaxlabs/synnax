@@ -435,10 +435,10 @@ export class Log
   }
 
   afterDelete(): void {
-    const { telem, render: renderCtx, stopListeningRestore } = this.internal;
+    const { telem, stopListeningRestore } = this.internal;
     stopListeningRestore?.();
     telem.cleanup?.();
-    renderCtx.erase(box.construct(this.state.region), xy.ZERO, CANVAS);
+    this.requestRender();
   }
 
   private requestRender(): void {
@@ -613,7 +613,7 @@ export class Log
   render(): render.Cleanup | undefined {
     const { render: renderCtx, lineHeight: lh, draw2d } = this.internal;
     const region = this.state.region;
-    if (box.areaIsZero(region)) return undefined;
+    if (this.deleted || box.areaIsZero(region)) return undefined;
     if (!this.state.visible) return () => renderCtx.erase(region, xy.ZERO, CANVAS);
 
     const end = this.state.scrolling ? this.scrollState.offset : this.entries.length;

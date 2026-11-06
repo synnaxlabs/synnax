@@ -8,6 +8,39 @@
 #  included in the file licenses/APL.txt.
 
 from x.filter.merge import merge
-from x.filter.types_gen import Bool, Contains, Ordered, Set, String
+from x.filter.types_gen import (
+    Bool,
+    BoolDict,
+    BoolInput,
+    Contains,
+    ContainsDict,
+    ContainsInput,
+    Ordered,
+    OrderedDict,
+    OrderedInput,
+    Set,
+    SetDict,
+    SetInput,
+    String,
+    StringDict,
+    StringInput,
+)
 
-__all__ = ["Bool", "Contains", "Ordered", "Set", "String", "merge"]
+__all__ = [
+    "Bool",
+    "BoolDict",
+    "BoolInput",
+    "Contains",
+    "ContainsDict",
+    "ContainsInput",
+    "Ordered",
+    "OrderedDict",
+    "OrderedInput",
+    "Set",
+    "SetDict",
+    "SetInput",
+    "String",
+    "StringDict",
+    "StringInput",
+    "merge",
+]

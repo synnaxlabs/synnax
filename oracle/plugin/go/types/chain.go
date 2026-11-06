@@ -379,8 +379,7 @@ func frozenFile(
 }
 
 // sharedMembers returns the names that version k and the chain's current version
-// resolve
-// to the same definition.
+// resolve to the same definition.
 func sharedMembers(
 	ctx context.Context,
 	req *plugin.Request,
@@ -428,6 +427,9 @@ func referencedAt(table *resolution.Table, ns string) set.Set[string] {
 				walk(field.Type)
 			}
 		case resolution.UnionForm:
+			if form.BorrowsEnum() {
+				walk(form.Enum)
+			}
 			for _, ext := range form.Extends {
 				walk(ext)
 			}
