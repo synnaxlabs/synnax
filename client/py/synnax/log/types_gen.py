@@ -63,8 +63,8 @@ class ChannelEntry(BaseModel):
         channel: Is the channel this entry references.
         color: Is the display color for the channel.
         notation: Is the numeric notation used to render samples.
-        precision: Is the number of decimal digits to display. Absent shows each sample
-            as it arrives; 17 is the maximum significant digits for a float64.
+        precision: Is the number of digits after the decimal point, from 0 to 17. Absent
+            shows each sample as it arrives.
         alias: Is a human-readable alias displayed in place of the channel name.
         value_format: Is the format of the values of a timestamp channel.
     """
@@ -104,7 +104,7 @@ class Log(BaseModel):
     Attributes:
         key: Is the unique identifier for this log.
         name: Is a human-readable name for the log.
-        channels: Are the channels displayed in this log, in order.
+        channels: Are the channels displayed in this log.
         timestamp_precision: Is the precision of displayed timestamps (0-3).
         channel_names_hidden: Is true when channel names are hidden.
         timestamps_hidden: Is true when entry timestamps are hidden.

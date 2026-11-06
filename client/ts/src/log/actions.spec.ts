@@ -226,33 +226,6 @@ describe("log reducer", () => {
     });
   });
 
-  describe("setChannels", () => {
-    it("should replace the entire ordered list", () => {
-      const state = createEmpty({ channels: [createChannelEntry(1)] });
-      const out = apply(
-        state,
-        log.setChannels({ channels: [createChannelEntry(2), createChannelEntry(3)] }),
-      );
-      expect(out.channels).toEqual([createChannelEntry(2), createChannelEntry(3)]);
-    });
-    it("should round-trip the previous list through its inverse", () => {
-      const state = createEmpty({
-        channels: [createChannelEntry(1), createChannelEntry(2)],
-      });
-      expect(
-        roundTrip(state, log.setChannels({ channels: [createChannelEntry(3)] }))
-          .channels,
-      ).toEqual(state.channels);
-    });
-    it("should target every channel in the old and new lists", () => {
-      const state = createEmpty({ channels: [createChannelEntry(1)] });
-      const { targets } = log.reduceAll(state, [
-        log.setChannels({ channels: [createChannelEntry(2)] }),
-      ]);
-      expect(new Set(targets)).toEqual(new Set(["channel:1", "channel:2"]));
-    });
-  });
-
   describe("swapChannel", () => {
     it("should repoint a channel in place, keeping position and config", () => {
       const state = createEmpty({

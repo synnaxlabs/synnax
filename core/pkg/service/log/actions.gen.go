@@ -50,8 +50,6 @@ const (
 	// ActionTypeSetChannelValueTz is the Type of an Action that carries
 	// SetChannelValueTzPayload.
 	ActionTypeSetChannelValueTz = "set_channel_value_tz"
-	// ActionTypeSetChannels is the Type of an Action that carries SetChannelsPayload.
-	ActionTypeSetChannels = "set_channels"
 	// ActionTypeSwapChannel is the Type of an Action that carries SwapChannelPayload.
 	ActionTypeSwapChannel = "swap_channel"
 	// ActionTypeSetTimestampPrecision is the Type of an Action that carries
@@ -99,8 +97,8 @@ type SetChannelEntryPayload struct {
 }
 
 // SetChannelColorPayload sets the display color of the entry identified by channel. The
-// zero color resets it to a palette color assigned at render time. No-op when no entry
-// references the channel.
+// zero color resets it to the theme text color. No-op when no entry references the
+// channel.
 type SetChannelColorPayload struct {
 	Channel channel.Key `json:"channel" msgpack:"channel"`
 	Color   color.Color `json:"color" msgpack:"color"`
@@ -113,9 +111,9 @@ type SetChannelNotationPayload struct {
 	Notation notation.Notation `json:"notation" msgpack:"notation"`
 }
 
-// SetChannelPrecisionPayload sets the number of decimal digits displayed for the entry
-// identified by channel. Absent clears it, so samples show as they arrive. No-op when
-// no entry references the channel.
+// SetChannelPrecisionPayload sets the number of digits after the decimal point for the
+// entry identified by channel. Absent clears it, so samples show as they arrive. No-op
+// when no entry references the channel.
 type SetChannelPrecisionPayload struct {
 	Channel   channel.Key `json:"channel" msgpack:"channel"`
 	Precision *uint8      `json:"precision,omitzero" msgpack:"precision,omitempty"`
@@ -141,12 +139,6 @@ type SetChannelValueFormatPayload struct {
 type SetChannelValueTzPayload struct {
 	Channel channel.Key    `json:"channel" msgpack:"channel"`
 	Tz      telem.TimeZone `json:"tz" msgpack:"tz"`
-}
-
-// SetChannelsPayload replaces the entire ordered list of channel entries. Used for bulk
-// channel selection and reordering.
-type SetChannelsPayload struct {
-	Channels []ChannelEntry `json:"channels" msgpack:"channels"`
 }
 
 // SwapChannelPayload repoints the entry referencing the "from" channel at the "to"
@@ -192,7 +184,6 @@ type Action struct {
 	SetChannelAlias       *SetChannelAliasPayload       `json:"set_channel_alias,omitzero" msgpack:"set_channel_alias,omitempty"`
 	SetChannelValueFormat *SetChannelValueFormatPayload `json:"set_channel_value_format,omitzero" msgpack:"set_channel_value_format,omitempty"`
 	SetChannelValueTz     *SetChannelValueTzPayload     `json:"set_channel_value_tz,omitzero" msgpack:"set_channel_value_tz,omitempty"`
-	SetChannels           *SetChannelsPayload           `json:"set_channels,omitzero" msgpack:"set_channels,omitempty"`
 	SwapChannel           *SwapChannelPayload           `json:"swap_channel,omitzero" msgpack:"swap_channel,omitempty"`
 	SetTimestampPrecision *SetTimestampPrecisionPayload `json:"set_timestamp_precision,omitzero" msgpack:"set_timestamp_precision,omitempty"`
 	SetChannelNamesHidden *SetChannelNamesHiddenPayload `json:"set_channel_names_hidden,omitzero" msgpack:"set_channel_names_hidden,omitempty"`
@@ -263,11 +254,6 @@ func Reduce(state Log, actions ...Action) (Log, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetChannelValueTz.Handle(state)
-		case ActionTypeSetChannels:
-			if a.SetChannels == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetChannels.Handle(state)
 		case ActionTypeSwapChannel:
 			if a.SwapChannel == nil {
 				return state, union.MissingPayload(a.Type)
@@ -356,11 +342,6 @@ func NewSetChannelValueFormatAction(p SetChannelValueFormatPayload) Action {
 // NewSetChannelValueTzAction wraps a SetChannelValueTzPayload in an Action envelope.
 func NewSetChannelValueTzAction(p SetChannelValueTzPayload) Action {
 	return Action{Type: ActionTypeSetChannelValueTz, SetChannelValueTz: &p}
-}
-
-// NewSetChannelsAction wraps a SetChannelsPayload in an Action envelope.
-func NewSetChannelsAction(p SetChannelsPayload) Action {
-	return Action{Type: ActionTypeSetChannels, SetChannels: &p}
 }
 
 // NewSwapChannelAction wraps a SwapChannelPayload in an Action envelope.

@@ -36,8 +36,8 @@ type ChannelEntry struct {
 	Color color.Color `json:"color" msgpack:"color"`
 	// Notation is the numeric notation used to render samples.
 	Notation notation.Notation `json:"notation" msgpack:"notation"`
-	// Precision is the number of decimal digits to display. Absent shows each sample as
-	// it arrives; 17 is the maximum significant digits for a float64.
+	// Precision is the number of digits after the decimal point, from 0 to 17. Absent
+	// shows each sample as it arrives.
 	Precision *uint8 `json:"precision,omitzero" msgpack:"precision,omitempty"`
 	// Alias is a human-readable alias displayed in place of the channel name.
 	Alias string `json:"alias" msgpack:"alias"`
@@ -79,7 +79,7 @@ type Log struct {
 	Key Key `json:"key" msgpack:"key"`
 	// Name is a human-readable name for the log.
 	Name string `json:"name" msgpack:"name"`
-	// Channels are the channels displayed in this log, in order.
+	// Channels are the channels displayed in this log.
 	Channels []ChannelEntry `json:"channels" msgpack:"channels"`
 	// TimestampPrecision is the precision of displayed timestamps (0-3).
 	TimestampPrecision uint8 `json:"timestamp_precision" msgpack:"timestamp_precision"`

@@ -23,7 +23,6 @@ import {
   setChannelNamesHidden,
   setChannelNotation,
   setChannelPrecision,
-  setChannels,
   setChannelValueFormat,
   setChannelValueTz,
   setTimestampPrecision,
@@ -154,15 +153,6 @@ const handlers: Handlers = {
     ];
     entry.valueFormat.tz = payload.tz;
     return { inverse, targets: [`channel:${payload.channel}`] };
-  },
-
-  setChannels: (state, payload) => {
-    const oldChannels = actions.snapshotDraft(state.channels);
-    const targets = new Set<string>();
-    oldChannels.forEach((e) => targets.add(`channel:${e.channel}`));
-    payload.channels.forEach((e) => targets.add(`channel:${e.channel}`));
-    state.channels = payload.channels;
-    return { inverse: [setChannels({ channels: oldChannels })], targets: [...targets] };
   },
 
   swapChannel: (state, payload) => {
