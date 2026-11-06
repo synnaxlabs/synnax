@@ -29,7 +29,8 @@ jobs:
       label: preview/docs
       project: prj_G9x2ZoIrsFQym5DqbqZIM8jUsSer
       title: Docs
-    secrets: inherit
+    secrets:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
   foundation:
     permissions:
@@ -40,7 +41,8 @@ jobs:
       label: preview/foundation
       project: prj_plE67kbtkjRiCik08iGvDTcValXJ
       title: Foundation
-    secrets: inherit
+    secrets:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
   landing:
     permissions:
@@ -51,7 +53,8 @@ jobs:
       label: preview/landing
       project: prj_WYVMLkCJBhccVrmuYikwgc9QzW46
       title: Landing
-    secrets: inherit
+    secrets:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
   portal:
     permissions:
@@ -62,4 +65,5 @@ jobs:
       label: preview/portal
       project: prj_inpbFHTjJgWYTZrPYJ0p7QgpMMyl
       title: Portal
-    secrets: inherit
+    secrets:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}

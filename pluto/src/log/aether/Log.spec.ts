@@ -21,6 +21,7 @@ import {
 import { type LogEntry } from "@/log/aether/telem/types";
 import { telem } from "@/telem/aether";
 import { renderAether } from "@/testutil/renderAether";
+import { render } from "@/vis/render";
 import { canvasTest } from "@/vis/render/testutil";
 
 const THEME: theme.Theme = theme.themeZ.parse(theme.SYNNAX_DARK);
@@ -45,6 +46,12 @@ const findThumb = (recorder: ReturnType<typeof canvasTest.record>) => {
   const [x, y, width, height] = call.args as number[];
   return { x, y, width, height };
 };
+
+const selectedText = (log: Log): string =>
+  log
+    .selectedLines()
+    .map(({ text }) => text)
+    .join("\n");
 
 let testIdCounter = 0;
 
@@ -330,8 +337,6 @@ describe("log/aether/Log", () => {
       });
       expect(parsed.selectionStart).toBe(-1);
       expect(parsed.selectionEnd).toBe(-1);
-      expect(parsed.selectedText).toBe("");
-      expect(parsed.selectedLines).toEqual([]);
       expect(parsed.computedLineHeight).toBe(0);
     });
 
@@ -576,7 +581,7 @@ describe("log/aether/Log", () => {
 
       expect(log.state.selectionStart).toBe(-1);
       expect(log.state.selectionEnd).toBe(-1);
-      expect(log.state.selectedText).toBe("");
+      expect(log.selectedLines()).toEqual([]);
     });
 
     it("should not modify selection when no entries are evicted", () => {
@@ -789,6 +794,95 @@ describe("log/aether/Log", () => {
     });
   });
 
+  describe("position", () => {
+    const entries = Array.from({ length: 200 }, (_, i) => makeEntry(i));
+    const positionOf = ({ timestamp }: LogEntry): string =>
+      timestamp.valueOf().toString();
+
+    it("should return a log that mounts paused to its position", () => {
+      const { log, source } = setup(entries, REGION_500, {
+        scrolling: true,
+        position: positionOf(entries[120]),
+      });
+      source.notify();
+      expect(log.scrollState).toMatchObject({ offset: 121, tail: 0 });
+    });
+
+    it("should stay at the last entry of a time that entries share", () => {
+      const shared = [...entries.slice(0, 121), makeEntry(120), ...entries.slice(121)];
+      const { log, source } = setup(shared, REGION_500, {
+        scrolling: true,
+        position: positionOf(entries[120]),
+      });
+      source.notify();
+      expect(log.scrollState.offset).toBe(122);
+    });
+
+    it("should load older entries until they reach the position", () => {
+      const { log, source } = setup(entries.slice(50), REGION_500, {
+        scrolling: true,
+        position: positionOf(entries[100]),
+      });
+      source.setEntries(entries.slice(150));
+      source.notify();
+      expect(source.loadOlderCalls).toBeGreaterThan(0);
+      source.setEntries([...entries]);
+      source.notify();
+      expect(log.scrollState.offset).toBe(101);
+    });
+
+    it("should show the oldest entries when no stored sample reaches back", () => {
+      const { log, source } = setup(entries.slice(150), REGION_500, {
+        scrolling: true,
+        position: positionOf(entries[100]),
+      });
+      source.exhausted = true;
+      source.notify();
+      log.render();
+      const bottom = log.state.rowEntries.at(-1) ?? -1;
+      expect(log.state.position).toBe(positionOf(entries[150 + bottom]));
+    });
+
+    it("should leave the view to a wheel that moves while the log waits", () => {
+      const { h, log, source } = setup(entries.slice(150), REGION_500, {
+        scrolling: true,
+        position: positionOf(entries[100]),
+      });
+      source.notify();
+      h.setState((s) => ({ ...s, wheelPos: s.wheelPos - log.lineHeight }));
+      source.setEntries([...entries]);
+      source.notify();
+      expect(log.scrollState.offset).not.toBe(101);
+    });
+
+    it("should ignore the position of a log that is not paused", () => {
+      const { log, source } = setup(entries, REGION_500, {
+        position: positionOf(entries[120]),
+      });
+      source.notify();
+      log.render();
+      expect(log.state.rowEntries.at(-1)).toBe(199);
+      expect(log.state.position).toBe("");
+    });
+
+    it("should report the entry at the bottom of a paused view", () => {
+      const { h, log } = setup(entries);
+      h.setState((s) => ({ ...s, scrolling: true }));
+      h.setState((s) => ({ ...s, wheelPos: s.wheelPos + log.lineHeight * 3 }));
+      log.render();
+      expect(log.state.position).toBe(positionOf(entries[196]));
+    });
+
+    it("should clear the position when the log resumes", () => {
+      const { h, log } = setup(entries);
+      h.setState((s) => ({ ...s, scrolling: true }));
+      log.render();
+      h.setState((s) => ({ ...s, scrolling: false }));
+      log.render();
+      expect(log.state.position).toBe("");
+    });
+  });
+
   describe("after the 2D canvases are restored", () => {
     it("should request a render until deleted", () => {
       const { h, recorder } = setup([makeEntry(1)]);
@@ -905,7 +999,7 @@ describe("log/aether/Log", () => {
         selectionEnd: 0,
       });
       log.render();
-      expect(log.state.selectedText).toContain("Sensor1");
+      expect(selectedText(log)).toContain("Sensor1");
     });
 
     it("should format entries without channel names when channelNamesHidden is true", () => {
@@ -916,7 +1010,7 @@ describe("log/aether/Log", () => {
         selectionEnd: 0,
       });
       log.render();
-      expect(log.state.selectedText).not.toContain("Sensor1");
+      expect(selectedText(log)).not.toContain("Sensor1");
     });
 
     it("should put two spaces after the time and three before the value", () => {
@@ -931,7 +1025,7 @@ describe("log/aether/Log", () => {
         selectionEnd: 0,
       });
       log.render();
-      expect(log.state.selectedText).toMatch(/\d{2}:\d{2}:\d{2} {2}log {3}v$/);
+      expect(selectedText(log)).toMatch(/\d{2}:\d{2}:\d{2} {2}log {3}v$/);
     });
 
     it("should apply precision formatting when channelConfig has precision", () => {
@@ -950,11 +1044,12 @@ describe("log/aether/Log", () => {
             precision: 2,
           }),
         ],
+        channelDataTypes: { "1": "float64" },
         selectionStart: 0,
         selectionEnd: 0,
       });
       log.render();
-      expect(log.state.selectedText).toContain("3.14");
+      expect(selectedText(log)).toContain("3.14");
     });
 
     it("should show the value as it arrives when the precision is absent", () => {
@@ -971,7 +1066,7 @@ describe("log/aether/Log", () => {
         selectionEnd: 0,
       });
       log.render();
-      expect(log.state.selectedText).toContain("3.14159265");
+      expect(selectedText(log)).toContain("3.14159265");
     });
 
     it("should apply scientific notation when configured", () => {
@@ -991,12 +1086,13 @@ describe("log/aether/Log", () => {
             precision: 2,
           }),
         ],
+        channelDataTypes: { "1": "float64" },
         selectionStart: 0,
         selectionEnd: 0,
       });
       log.render();
       // Should contain scientific notation (uses unicode ᴇ)
-      expect(log.state.selectedText).toMatch(/[eEᴇ]/);
+      expect(selectedText(log)).toMatch(/[eEᴇ]/);
     });
 
     it("should render continuation entries without name/timestamp but aligned to the value column", () => {
@@ -1019,7 +1115,7 @@ describe("log/aether/Log", () => {
         selectionEnd: 2,
       });
       log.render();
-      const lines = log.state.selectedLines.map((l) => l.text);
+      const lines = log.selectedLines().map((l) => l.text);
       expect(lines[0]).toContain("log");
       expect(lines[0]).toContain("hello");
       // Continuation: no name, but leading whitespace preserves value alignment.
@@ -1043,7 +1139,7 @@ describe("log/aether/Log", () => {
         selectionEnd: 0,
       });
       log.render();
-      const [line] = log.state.selectedLines.map((l) => l.text);
+      const [line] = log.selectedLines().map((l) => l.text);
       expect(line).toContain("log");
     });
 
@@ -1072,7 +1168,7 @@ describe("log/aether/Log", () => {
         selectionEnd: 2,
       });
       log.render();
-      const lines = log.state.selectedLines.map((l) => l.text);
+      const lines = log.selectedLines().map((l) => l.text);
       expect(lines[0]).toContain("sensor");
       expect(lines[0]).toContain("first");
       const valueCol = lines[0].indexOf("first");
@@ -1100,7 +1196,7 @@ describe("log/aether/Log", () => {
         selectionEnd: 1,
       });
       log.render();
-      const lines = log.state.selectedLines.map((l) => l.text);
+      const lines = log.selectedLines().map((l) => l.text);
       expect(lines[0]).toBe("line1");
       expect(lines[1]).toBe("line2");
     });
@@ -1134,7 +1230,7 @@ describe("log/aether/Log", () => {
         selectionEnd: 3,
       });
       log.render();
-      const lines = log.state.selectedLines.map((l) => l.text);
+      const lines = log.selectedLines().map((l) => l.text);
       expect(lines[0]).toContain("chA");
       expect(lines[0]).toContain("a1");
       expect(lines[1]).not.toContain("chA");
@@ -1164,12 +1260,98 @@ describe("log/aether/Log", () => {
         selectionEnd: 1,
       });
       log.render();
-      const lines = log.state.selectedLines.map((l) => l.text);
+      const lines = log.selectedLines().map((l) => l.text);
       expect(lines[0]).toContain("log");
       expect(lines[0]).toContain("data");
       expect(lines[1]).not.toContain("log");
       expect(lines[1]).toMatch(/^\s*$/);
       expect(lines[1].length).toBe(lines[0].indexOf("data"));
+    });
+  });
+
+  describe("number formatting", () => {
+    // Returns the value drawn for a sample of a channel with the given settings.
+    const shown = (
+      value: string,
+      dataType: string | undefined,
+      overrides: Partial<clientLog.ChannelEntry>,
+    ): string => {
+      const { log, recorder } = setup(
+        [{ ...makeEntry(0), value }],
+        box.construct({ x: 0, y: 0 }, { width: 1000, height: 500 }),
+        {
+          channels: [
+            clientLog.channelEntryZ.parse({
+              channel: 1,
+              color: color.ZERO,
+              ...overrides,
+            }),
+          ],
+          channelDataTypes: dataType == null ? {} : { "1": dataType },
+          channelNamesHidden: true,
+          timestampsHidden: true,
+        },
+      );
+      recorder.clear();
+      log.render();
+      return recorder.lower2d.calls
+        .filter(({ op }) => op === "fillText")
+        .map(({ args }) => String(args[0]))
+        .join("");
+    };
+
+    it("should keep the text of a string channel with a precision", () => {
+      expect(shown("12 volts", "string", { precision: 2 })).toBe("12 volts");
+    });
+
+    it("should keep the text of a string channel with a notation", () => {
+      expect(shown("1234", "string", { notation: "scientific" })).toBe("1234");
+    });
+
+    it("should keep the value of a boolean channel with a precision", () => {
+      expect(shown("true", "boolean", { precision: 2 })).toBe("true");
+    });
+
+    it("should keep a float sample of a channel that became an integer", () => {
+      expect(shown("3.14", "int32", { precision: 2 })).toBe("3.14");
+    });
+
+    it("should keep text of a channel that became a float", () => {
+      expect(shown("12 volts", "float32", { precision: 2 })).toBe("12 volts");
+    });
+
+    it("should keep a blank line of a channel that became a float", () => {
+      expect(shown("  ", "float32", { precision: 2 })).toBe("  ");
+    });
+
+    it("should show the raw value before the data type loads", () => {
+      expect(shown("3.14159", undefined, { precision: 2 })).toBe("3.14159");
+    });
+
+    it("should apply a precision to a float channel", () => {
+      expect(shown("3.14159", "float64", { precision: 2 })).toBe("3.14");
+    });
+
+    it("should keep every digit at auto precision in scientific notation", () => {
+      expect(shown("1234.5", "float64", { notation: "scientific" })).toBe("1.2345ᴇ3");
+    });
+
+    it("should keep every digit at auto precision in engineering notation", () => {
+      expect(shown("12345.6", "float64", { notation: "engineering" })).toBe(
+        "12.3456ᴇ3",
+      );
+    });
+
+    it("should keep every digit of a large integer at a precision", () => {
+      expect(shown("9007199254740993", "int64", { precision: 1 })).toBe(
+        "9007199254740993.0",
+      );
+    });
+
+    it("should keep every digit of a large integer at auto precision", () => {
+      expect(shown("18446744073709551615", "uint64", { notation: "scientific" })).toBe(
+        "1.8446744073709551615ᴇ19",
+      );
     });
   });
 
@@ -1371,6 +1553,46 @@ describe("log/aether/Log", () => {
       expect(shown(recorder).filter((t) => t.includes("2026"))).toHaveLength(1);
     });
 
+    describe("time zone", () => {
+      it("should split day rows at midnight in UTC", () => {
+        const entries = [entry("2026-11-03T23:00:00Z"), entry("2026-11-04T01:00:00Z")];
+        const { log, recorder } = setup(entries, REGION_500, { timeZone: "UTC" });
+        log.render();
+        const texts = shown(recorder);
+        expect(texts).toContain("Tue, Nov 3, 2026");
+        expect(texts).toContain("Wed, Nov 4, 2026");
+      });
+
+      it("should show one day row for entries of one UTC day", () => {
+        const entries = [entry("2026-11-04T01:00:00Z"), entry("2026-11-04T23:00:00Z")];
+        const { log, recorder } = setup(entries, REGION_500, { timeZone: "UTC" });
+        log.render();
+        expect(shown(recorder).filter((t) => t.includes("2026"))).toEqual([
+          "Wed, Nov 4, 2026",
+        ]);
+      });
+
+      it("should show line times and copied dates in UTC", () => {
+        const { log } = setup([entry("2026-01-05T01:02:03Z")], REGION_500, {
+          timeZone: "UTC",
+          selectionStart: 0,
+          selectionEnd: 0,
+        });
+        log.render();
+        expect(log.selectedLines()[0].text).toMatch(/^2026-01-05 01:02:03/);
+      });
+
+      it("should default to local time", () => {
+        const { log } = setup([entry("2026-01-05T01:02:03")], REGION_500, {
+          selectionStart: 0,
+          selectionEnd: 0,
+        });
+        log.render();
+        expect(log.state.timeZone).toBe("local");
+        expect(log.selectedLines()[0].text).toMatch(/^2026-01-05 01:02:03/);
+      });
+    });
+
     it("should show no day rows when timestamps are hidden", () => {
       const { log, recorder } = setup([entry("2026-11-04T12:00:00")], REGION_500, {
         timestampsHidden: true,
@@ -1386,7 +1608,7 @@ describe("log/aether/Log", () => {
         selectionEnd: 1,
       });
       log.render();
-      expect(log.state.selectedLines[0].text).toMatch(/^2026-01-05 01:00:00/);
+      expect(log.selectedLines()[0].text).toMatch(/^2026-01-05 01:00:00/);
     });
 
     it("should keep dates off copied lines when timestamps are hidden", () => {
@@ -1397,42 +1619,80 @@ describe("log/aether/Log", () => {
         selectionEnd: 0,
       });
       log.render();
-      expect(log.state.selectedLines[0].text).toBe("v");
+      expect(log.selectedLines()[0].text).toBe("v");
     });
   });
 
-  describe("selectedText and selectedLines", () => {
-    it("should clear selectedText when selection is negative", () => {
+  describe("per-frame selection cost", () => {
+    it("should cover entries that arrive after a select-all", () => {
+      const { log, source, updateState } = setup([makeEntry(0)]);
+      updateState({ selectionStart: 0, selectionEnd: SELECT_ALL_END });
+      source.push(makeEntry(1));
+      source.notify();
+      expect(log.selectedLines()).toHaveLength(2);
+    });
+
+    const countReads = (count: number) => {
+      const reads = { count: 0 };
+      const entries = Array.from({ length: count }, (_, i) =>
+        Object.defineProperty(makeEntry(i), "value", {
+          get: () => {
+            reads.count++;
+            return String(i);
+          },
+        }),
+      );
+      return { reads, entries };
+    };
+
+    it("should not read the selected entries off screen on a frame", () => {
+      const small = countReads(1_000);
+      const large = countReads(20_000);
+      const frameReads = ({ reads, entries }: typeof small): number => {
+        const { log } = setup(entries, REGION_500, {
+          selectionStart: 0,
+          selectionEnd: SELECT_ALL_END,
+        });
+        reads.count = 0;
+        log.render();
+        return reads.count;
+      };
+      expect(frameReads(large)).toBe(frameReads(small));
+    });
+  });
+
+  describe("selectedLines", () => {
+    it("should be empty when selection is negative", () => {
       const entries = Array.from({ length: 5 }, (_, i) => makeEntry(i));
       const { log } = setup(entries, REGION_500, {
         selectionStart: -1,
         selectionEnd: -1,
       });
       log.render();
-      expect(log.state.selectedText).toBe("");
-      expect(log.state.selectedLines).toEqual([]);
+      expect(selectedText(log)).toBe("");
+      expect(log.selectedLines()).toEqual([]);
     });
 
-    it("should set selectedText for a single selected entry", () => {
+    it("should return a single selected entry", () => {
       const entries = Array.from({ length: 10 }, (_, i) => makeEntry(i));
       const { log } = setup(entries, REGION_500, {
         selectionStart: 0,
         selectionEnd: 0,
       });
       log.render();
-      expect(log.state.selectedText.length).toBeGreaterThan(0);
-      expect(log.state.selectedLines).toHaveLength(1);
+      expect(selectedText(log).length).toBeGreaterThan(0);
+      expect(log.selectedLines()).toHaveLength(1);
     });
 
-    it("should set selectedText for a range of selected entries", () => {
+    it("should return a range of selected entries", () => {
       const entries = Array.from({ length: 10 }, (_, i) => makeEntry(i));
       const { log } = setup(entries, REGION_500, {
         selectionStart: 2,
         selectionEnd: 5,
       });
       log.render();
-      expect(log.state.selectedLines).toHaveLength(4);
-      expect(log.state.selectedText).toContain("\n");
+      expect(log.selectedLines()).toHaveLength(4);
+      expect(selectedText(log)).toContain("\n");
     });
 
     it("should clamp a select-to-end sentinel to all entries", () => {
@@ -1442,7 +1702,7 @@ describe("log/aether/Log", () => {
         selectionEnd: Number.MAX_SAFE_INTEGER,
       });
       log.render();
-      expect(log.state.selectedLines).toHaveLength(10);
+      expect(log.selectedLines()).toHaveLength(10);
     });
 
     it("should handle reversed selection (end < start)", () => {
@@ -1452,10 +1712,10 @@ describe("log/aether/Log", () => {
         selectionEnd: 2,
       });
       log.render();
-      expect(log.state.selectedLines).toHaveLength(4);
+      expect(log.selectedLines()).toHaveLength(4);
     });
 
-    it("should include color in selectedLines when channel has custom color", () => {
+    it("should include the color of a channel with a custom color", () => {
       const entries = Array.from({ length: 5 }, (_, i) => makeEntry(i));
       const { log } = setup(entries, REGION_500, {
         channels: [
@@ -1468,17 +1728,17 @@ describe("log/aether/Log", () => {
         selectionEnd: 0,
       });
       log.render();
-      expect(log.state.selectedLines[0].color).not.toBe("");
+      expect(log.selectedLines()[0].color).not.toBe("");
     });
 
-    it("should have empty color in selectedLines when no custom color", () => {
+    it("should have an empty color when a channel has no custom color", () => {
       const entries = Array.from({ length: 5 }, (_, i) => makeEntry(i));
       const { log } = setup(entries, REGION_500, {
         selectionStart: 0,
         selectionEnd: 0,
       });
       log.render();
-      expect(log.state.selectedLines[0].color).toBe("");
+      expect(log.selectedLines()[0].color).toBe("");
     });
   });
 
@@ -1636,10 +1896,10 @@ describe("log/aether/Log", () => {
         selectionEnd: 3,
       });
       log.render();
-      expect(log.state.selectedLines).toHaveLength(4);
-      expect(log.state.selectedText).toContain("Temperature");
-      expect(log.state.selectedText).toContain("Pressure");
-      expect(log.state.selectedText).toContain("Humidity");
+      expect(log.selectedLines()).toHaveLength(4);
+      expect(selectedText(log)).toContain("Temperature");
+      expect(selectedText(log)).toContain("Pressure");
+      expect(selectedText(log)).toContain("Humidity");
     });
 
     it("should apply per-channel colors from channelConfigs", () => {
@@ -1659,11 +1919,9 @@ describe("log/aether/Log", () => {
         selectionEnd: 1,
       });
       log.render();
-      expect(log.state.selectedLines[0].color).not.toBe("");
-      expect(log.state.selectedLines[1].color).not.toBe("");
-      expect(log.state.selectedLines[0].color).not.toBe(
-        log.state.selectedLines[1].color,
-      );
+      expect(log.selectedLines()[0].color).not.toBe("");
+      expect(log.selectedLines()[1].color).not.toBe("");
+      expect(log.selectedLines()[0].color).not.toBe(log.selectedLines()[1].color);
     });
   });
 
@@ -1678,13 +1936,27 @@ describe("log/aether/Log", () => {
   });
 
   describe("afterDelete", () => {
-    it("should clean up telem and erase render region", () => {
-      const entries = Array.from({ length: 5 }, (_, i) => makeEntry(i));
-      const { h, source, recorder } = setup(entries);
+    it("should clean up telem", () => {
+      const { h, source } = setup([makeEntry(0)]);
       const cleanupSpy = vi.spyOn(source, "cleanup");
       h.unmount();
       expect(cleanupSpy).toHaveBeenCalled();
-      expect(recorder.eraseCalls.length).toBeGreaterThan(0);
+    });
+
+    it("should erase the last drawn region, and draw no render left pending", () => {
+      vi.useFakeTimers({ toFake: ["requestAnimationFrame"] });
+      const { h, recorder } = setup([makeEntry(0)]);
+      const loop = new render.Loop({ handleError: vi.fn() });
+      recorder.loop.set = (req) => loop.set(req);
+      h.setState((s) => ({ ...s }));
+      vi.advanceTimersToNextFrame();
+      h.setState((s) => ({ ...s, region: box.translate(s.region, "x", 100) }));
+      recorder.clear();
+      h.unmount();
+      vi.advanceTimersToNextFrame();
+      vi.useRealTimers();
+      expect(recorder.eraseCalls.map(({ region }) => region)).toEqual([REGION_500]);
+      expect(recorder.lower2d.calls).toEqual([]);
     });
   });
 });
