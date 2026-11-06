@@ -333,7 +333,17 @@ export type RetrieveSingleParams = z.input<typeof singleRetrieveParamsZ>;
 /** Everything a multi-task retrieval can filter on. */
 export type RetrieveMultipleParams = RetrieveRequest;
 
-const filterParamsZ = retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape);
+const filterParamsZ = query.shippedZ(
+  retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+  {
+    /** @deprecated Use `key`. */
+    keys: "key",
+    /** @deprecated Use `name`. */
+    names: "name",
+    /** @deprecated Use `type`. */
+    types: "type",
+  },
+);
 type FilterParams = query.RequestInput<typeof filterParamsZ>;
 
 const retrieveParamsZ = z.union([

@@ -54,7 +54,23 @@ const deleteReqZ = z.object({ keys: keyZ.array() });
 const emptyResZ = z.object({});
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
-const filterParamsZ = retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape);
+const filterParamsZ = query.shippedZ(
+  retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+  {
+    /** @deprecated Use `key`. */
+    keys: "key",
+    /** @deprecated Use `name`. */
+    names: "name",
+    /** @deprecated Use `make`. */
+    makes: "make",
+    /** @deprecated Use `model`. */
+    models: "model",
+    /** @deprecated Use `location`. */
+    locations: "location",
+    /** @deprecated Use `rack`. */
+    racks: "rack",
+  },
+);
 type FilterParams = query.RequestInput<typeof filterParamsZ>;
 
 const retrieveMultiParamsZ = z.union([

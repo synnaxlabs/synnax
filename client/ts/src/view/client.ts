@@ -38,7 +38,12 @@ const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const retrieveMultiParamsZ = z.union([
   query.keysRequestZ(keyZ),
   retrieveRequestZ,
-  retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+  query.shippedZ(retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape), {
+    /** @deprecated Use `key`. */
+    keys: "key",
+    /** @deprecated Use `type`. */
+    types: "type",
+  }),
 ]);
 
 export type RetrieveSingleParams = { key: Key };

@@ -37,7 +37,10 @@ export const DELETE_CHANNEL_NAME = "sy_policy_delete";
 const retrieveMultiParamsZ = z.union([
   query.keysRequestZ(keyZ),
   retrieveRequestZ,
-  retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+  query.shippedZ(retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape), {
+    /** @deprecated Use `key`. */
+    keys: "key",
+  }),
 ]);
 
 export type RetrieveSingleParams = { key: Key };

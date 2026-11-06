@@ -32,7 +32,10 @@ import { type Lines, matches, retrieveInputZ, serverComputed } from "@/user/wher
 const retrieveMultiParamsZ = z.union([
   query.keysRequestZ(keyZ),
   retrieveRequestZ,
-  retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+  query.shippedZ(retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape), {
+    /** @deprecated Use `key`. */
+    keys: "key",
+  }),
 ]);
 
 const keyRetrieveRequestZ = z

@@ -37,7 +37,12 @@ export const DELETE_CHANNEL_NAME = "sy_project_delete";
 const retrieveMultiParamsZ = z.union([
   query.keysRequestZ(keyZ),
   retrieveRequestZ,
-  retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+  query.shippedZ(retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape), {
+    /** @deprecated Use `key`. */
+    keys: "key",
+    /** @deprecated A list retrieve drops missing keys. */
+    ignoreNotFoundError: query.ignoreNotFoundError,
+  }),
 ]);
 export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 const createReqZ = z.object({ projects: projectZ.array() });

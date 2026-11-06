@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { id, uuid } from "@synnaxlabs/x";
-import { describe, expect, it, test } from "vitest";
+import { describe, expect, it, test, vi } from "vitest";
 
 import { NotFoundError } from "@/index";
 import { lineplot } from "@/lineplot";
@@ -48,6 +48,19 @@ describe("LinePlot", () => {
       await client.lineplots.delete(linePlot.key);
       await expect(client.lineplots.retrieve(linePlot.key)).rejects.toThrow(
         NotFoundError,
+      );
+    });
+  });
+  describe("shipped fields", () => {
+    test("read keys as key, where an empty list matches nothing", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const plot = await seedPlot();
+      expect(
+        (await client.lineplots.retrieve({ keys: [plot.key] })).map((p) => p.key),
+      ).toEqual([plot.key]);
+      expect(await client.lineplots.retrieve({ keys: [] })).toEqual([]);
+      expect(warn).toHaveBeenCalledWith(
+        "keys is deprecated and will be removed in v0.62. Use key.",
       );
     });
   });

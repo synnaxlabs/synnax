@@ -370,6 +370,55 @@ describe("Channel", () => {
     });
   });
 
+  describe("shipped fields", () => {
+    const createPair = async (): Promise<[channel.Channel, channel.Channel]> => {
+      const prefix = `shipped_${id.create()}`;
+      const [a, b] = await client.channels.create([
+        { name: `${prefix}_a`, virtual: true, dataType: DataType.FLOAT32 },
+        { name: `${prefix}_b`, virtual: true, dataType: DataType.FLOAT64 },
+      ]);
+      return [a, b];
+    };
+    const pattern = (ch: channel.Channel): string => ch.name.replace(/_a$|_b$/, "_.*");
+
+    test("read names as name patterns", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const [a, b] = await createPair();
+      const res = await client.channels.retrieve({ names: [pattern(a)] });
+      expect(res.map((ch) => ch.key).sort()).toEqual([a.key, b.key].sort());
+      expect(warn).toHaveBeenCalledWith(
+        "names is deprecated and will be removed in v0.62. Use namePatterns.",
+      );
+    });
+
+    test("read dataTypes and notDataTypes as data type conditions", async () => {
+      vi.spyOn(console, "warn").mockImplementation(() => {});
+      const [a, b] = await createPair();
+      const names = [pattern(a)];
+      expect(
+        (await client.channels.retrieve({ names, dataTypes: [DataType.FLOAT32] })).map(
+          (ch) => ch.key,
+        ),
+      ).toEqual([a.key]);
+      expect(
+        (
+          await client.channels.retrieve({ names, notDataTypes: [DataType.FLOAT32] })
+        ).map((ch) => ch.key),
+      ).toEqual([b.key]);
+    });
+
+    test("read a zero nodeKey and legacyCalculated as unset", async () => {
+      vi.spyOn(console, "warn").mockImplementation(() => {});
+      const [a, b] = await createPair();
+      const res = await client.channels.retrieve({
+        names: [pattern(a)],
+        nodeKey: 0,
+        legacyCalculated: true,
+      });
+      expect(res.map((ch) => ch.key).sort()).toEqual([a.key, b.key].sort());
+    });
+  });
+
   describe("delete", async () => {
     test("delete by key", async () => {
       const channel = await client.channels.create({

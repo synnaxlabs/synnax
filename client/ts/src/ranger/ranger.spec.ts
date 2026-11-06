@@ -245,6 +245,52 @@ describe("range", () => {
     });
   });
 
+  describe("shipped fields", () => {
+    it("should read names and hasLabels as their replacements", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const prefix = `shipped-${id.create()}`;
+      const timeRange = TimeStamp.now().spanRange(TimeSpan.seconds(1));
+      const [labeled, plain] = await client.ranges.create([
+        { name: `${prefix}-labeled`, timeRange },
+        { name: `${prefix}-plain`, timeRange },
+      ]);
+      const lbl = await client.labels.create({ name: prefix, color: "#E774D0" });
+      await labeled.addLabel(lbl.key);
+      const names = [labeled.name, plain.name];
+      expect(
+        (await client.ranges.retrieve({ names })).map((r) => r.key).sort(),
+      ).toEqual([labeled.key, plain.key].sort());
+      expect(
+        (await client.ranges.retrieve({ names, hasLabels: [lbl.key] })).map(
+          (r) => r.key,
+        ),
+      ).toEqual([labeled.key]);
+      expect(warn).toHaveBeenCalledWith(
+        "hasLabels is deprecated and will be removed in v0.62. Use labels.",
+      );
+    });
+
+    it("should read a zero overlapsWith as unset", async () => {
+      vi.spyOn(console, "warn").mockImplementation(() => {});
+      const range = await client.ranges.create({
+        name: `shipped-${id.create()}`,
+        timeRange: TimeStamp.hours(700).spanRange(TimeSpan.seconds(1)),
+      });
+      const names = [range.name];
+      expect(
+        (await client.ranges.retrieve({ names, overlapsWith: TimeRange.ZERO })).map(
+          (r) => r.key,
+        ),
+      ).toEqual([range.key]);
+      expect(
+        await client.ranges.retrieve({
+          names,
+          overlapsWith: TimeStamp.hours(900).spanRange(TimeSpan.seconds(1)),
+        }),
+      ).toEqual([]);
+    });
+  });
+
   describe("retrieveParent", () => {
     it("should retrieve the parent of a range", async () => {
       const parentRange = await client.ranges.create({
