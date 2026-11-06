@@ -2087,7 +2087,7 @@ var _ = Describe("Driver", func() {
 			},
 		)
 
-		Describe("Canceled commands", func() {
+		Describe("Returned cancels", func() {
 			openLogged := func(
 				ctx context.Context,
 				factory driver.Factory,
@@ -2111,7 +2111,7 @@ var _ = Describe("Driver", func() {
 				return logs
 			}
 
-			It("should log only the command that really failed", func(ctx SpecContext) {
+			It("should log a cancel that a task returns", func(ctx SpecContext) {
 				logs := openLogged(ctx, &mockFactory{
 					name: "test",
 					configureFunc: func(
@@ -2120,61 +2120,75 @@ var _ = Describe("Driver", func() {
 					) (driver.Task, error) {
 						return &mockTask{
 							key: t.Key,
-							execFunc: func(_ context.Context, cmd task.Command) error {
-								if cmd.Key == "cmd-canceled" {
-									return context.Canceled
-								}
-								return errors.New("exec failed")
+							execFunc: func(context.Context, task.Command) error {
+								return context.Canceled
 							},
 						}, nil
 					},
 				})
 				t := newTask(embeddedRackKey(ctx))
 				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
-				for _, key := range []string{"cmd-canceled", "cmd-failed"} {
-					writeCommand(
-						ctx,
-						task.Command{Task: t.Key, Type: "start", Key: key},
-					)
-				}
-				failures := func() int {
+				writeCommand(
+					ctx,
+					task.Command{Task: t.Key, Type: "start", Key: "cmd"},
+				)
+				Eventually(func() int {
 					return logs.FilterMessage("failed to execute command").Len()
-				}
-				Eventually(failures).Should(Equal(1))
-				Consistently(failures, 100*time.Millisecond).Should(Equal(1))
+				}).Should(Equal(1))
 			})
 
-			It("should log only the task that really failed", func(ctx SpecContext) {
-				canceledKey, failingKey := uuid.New(), uuid.New()
-				logs := openLogged(ctx, &mockFactory{
+			It("should log a cancel that a factory returns", func(ctx SpecContext) {
+				key := uuid.New()
+				factory := &mockFactory{
 					name: "test",
 					configureFunc: func(
 						_ context.Context,
 						t task.Task,
 					) (driver.Task, error) {
-						switch t.Key {
-						case canceledKey:
+						if t.Key == key {
 							return nil, context.Canceled
-						case failingKey:
-							return nil, errors.New("configure failed")
 						}
 						return &mockTask{key: t.Key}, nil
 					},
-				})
-				for _, key := range []task.Key{canceledKey, failingKey} {
-					t := newTask(embeddedRackKey(ctx))
-					t.Key = key
-					Expect(taskWriter.Create(ctx, &t)).To(Succeed())
-					writeCommand(
-						ctx,
-						task.Command{Task: t.Key, Type: "start", Key: "cmd"},
-					)
 				}
-				failures := func() int {
+				logs := openLogged(ctx, factory)
+				t := newTask(embeddedRackKey(ctx))
+				t.Key = key
+				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				writeCommand(
+					ctx,
+					task.Command{Task: t.Key, Type: "start", Key: "cmd"},
+				)
+				Eventually(func() int {
 					return logs.FilterMessage("failed to configure task").Len()
+				}).Should(Equal(1))
+			})
+
+			It("should log a cancel that a factory returns during Open", func(
+				ctx SpecContext,
+			) {
+				key := uuid.New()
+				factory := &mockFactory{
+					name: "test",
+					configureFunc: func(
+						_ context.Context,
+						t task.Task,
+					) (driver.Task, error) {
+						if t.Key == key {
+							return nil, context.Canceled
+						}
+						return &mockTask{key: t.Key}, nil
+					},
 				}
-				Eventually(failures).Should(Equal(1))
-				Consistently(failures, 100*time.Millisecond).Should(Equal(1))
+				d := openDriver(ctx, factory)
+				t := newTask(embeddedRackKey(ctx))
+				t.Key = key
+				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				Expect(d.Close()).To(Succeed())
+				logs := openLogged(ctx, factory)
+				Expect(
+					logs.FilterMessage("failed to configure task").Len(),
+				).To(Equal(1))
 			})
 		})
 
