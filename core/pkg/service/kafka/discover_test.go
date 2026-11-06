@@ -393,6 +393,16 @@ var _ = Describe("Discover", func() {
 			},
 		)
 
+		It("Should reject a sample with no topics", func(ctx SpecContext) {
+			stat := command(ctx, "sample", map[string]any{
+				"device": createDevice(ctx, clusterProperties()).Key,
+			}, &struct{}{})
+			Expect(stat.Variant).To(Equal(status.VariantError))
+			Expect(
+				stat.Message,
+			).To(Equal("topics: must be non-empty: validation error"))
+		})
+
 		It("Should reject a sample that repeats a topic", func(ctx SpecContext) {
 			topic := uniqueTopic()
 			Expect(cluster.CreateTopic(topic, 1, nil)).To(Succeed())

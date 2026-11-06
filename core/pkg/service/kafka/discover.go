@@ -338,6 +338,11 @@ func sampleTopics(
 	props Properties,
 	args sampleArgs,
 ) (sampleResult, error) {
+	if len(args.Topics) == 0 {
+		return sampleResult{}, errors.Wrap(
+			validate.ErrValidation, "topics: must be non-empty",
+		)
+	}
 	for i, topic := range args.Topics {
 		if slices.Index(args.Topics, topic) < i {
 			return sampleResult{}, errors.Wrapf(
