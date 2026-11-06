@@ -652,8 +652,8 @@ export class Table<
 
   /**
    * Rejects every fetch in progress and every later fetch with a
-   * {@link DisconnectedError}. A running reconcile fails with it once its fetch settles.
-   * The table keeps its entries.
+   * {@link DisconnectedError}. A running reconcile fails with it once its fetch
+   * settles. The table keeps its entries.
    */
   close(): void {
     this.closed = true;
@@ -687,7 +687,7 @@ export class Table<
         if (this.closed) throw closedError();
         return fetched;
       } catch (exc) {
-        throw this.closed ? closedError() : exc;
+        throw this.closed ? closedError() : errors.fromUnknown(exc);
       }
     }, keys);
     const present = new Set<Key>(values.map(({ key }) => key));
