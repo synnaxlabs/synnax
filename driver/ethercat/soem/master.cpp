@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <chrono>
 #include <format>
+#include <iterator>
 #include <thread>
 
 #include "absl/log/log.h"
@@ -27,6 +29,10 @@ const int STATE_CHANGE_TIMEOUT = static_cast<int>(
 );
 /// Timeout for cyclic process data exchange in microseconds.
 const int PROCESSDATA_TIMEOUT = static_cast<int>(x::telem::MILLISECOND.microseconds());
+/// Timeout for one state read while a slave moves to a requested state in microseconds.
+const int STATE_POLL_TIMEOUT = static_cast<int>(
+    (x::telem::MILLISECOND * 10).microseconds()
+);
 /// Time between state reads while slaves move to OP.
 const auto OP_POLL_INTERVAL = x::telem::MILLISECOND;
 /// Timeout for one recovery step on a slave in microseconds.
@@ -270,8 +276,8 @@ std::vector<slave::Health> Master::check(const x::breaker::Breaker &breaker) {
                 .lost = this->api->slave_lost(i),
             }
         );
-        if (const auto code = this->api->slave_ALstatuscode(i); h.faulted && code != 0)
-            h.al_status = ec_ALstatuscode2string(code);
+        if (this->al_error(i))
+            h.al_status = ec_ALstatuscode2string(this->api->slave_ALstatuscode(i));
         if (breaker.running()) this->recover(static_cast<uint16_t>(i));
     }
     return health;
@@ -889,15 +895,27 @@ bool Master::scan_object_dictionary_for_pdos(
 }
 
 x::errors::Error Master::request_state(const uint16_t state, const int timeout) {
-    std::vector<uint16_t> failed;
+    std::vector<uint16_t> pending;
     for (int i = 1; i <= this->api->slave_count(); ++i) {
         if (this->api->slave_group(i) != ENABLED_GROUP) continue;
         this->api->set_slave_state(i, state);
         this->api->writestate(i);
-        if (this->api->statecheck(i, state, timeout) != state) failed.push_back(i);
+        pending.push_back(i);
     }
-    if (failed.empty()) return x::errors::NIL;
-    return this->state_error(failed, state);
+    const auto deadline = std::chrono::steady_clock::now() +
+                          std::chrono::microseconds(timeout);
+    while (true) {
+        std::erase_if(pending, [&](const uint16_t pos) {
+            return this->api->statecheck(pos, state, STATE_POLL_TIMEOUT) == state;
+        });
+        if (pending.empty()) return x::errors::NIL;
+        if (auto err = this->pending_error(pending, state, deadline); err) return err;
+    }
+}
+
+bool Master::al_error(const uint16_t pos) const {
+    return (this->api->slave_state(pos) & EC_STATE_ERROR) != 0 &&
+           this->api->slave_ALstatuscode(pos) != 0;
 }
 
 x::errors::Error Master::request_operational() {
@@ -921,16 +939,32 @@ x::errors::Error Master::request_operational() {
                 this->api->slave_state(i) != EC_STATE_OPERATIONAL)
                 pending.push_back(i);
         if (pending.empty()) return x::errors::NIL;
-        if (std::chrono::steady_clock::now() >= deadline)
-            return this->state_error(pending, EC_STATE_OPERATIONAL);
+        auto err = this->pending_error(pending, EC_STATE_OPERATIONAL, deadline);
+        if (err) return err;
         std::this_thread::sleep_for(OP_POLL_INTERVAL.chrono());
     }
+}
+
+x::errors::Error Master::pending_error(
+    const std::vector<uint16_t> &pending,
+    const uint16_t state,
+    const std::chrono::steady_clock::time_point deadline
+) {
+    std::vector<uint16_t> refused;
+    std::ranges::copy_if(pending, std::back_inserter(refused), [this](auto pos) {
+        return this->al_error(pos);
+    });
+    if (!refused.empty()) return this->state_error(refused, state);
+    if (std::chrono::steady_clock::now() >= deadline)
+        return this->state_error(pending, state);
+    return x::errors::NIL;
 }
 
 x::errors::Error
 Master::state_error(const std::vector<uint16_t> &failed, const uint16_t state) {
     const auto target = slave::slave_state_to_string(slave::from_al_state(state));
     std::string msg;
+    bool refused = false;
     for (const auto pos: failed) {
         if (!msg.empty()) msg += "; ";
         msg += "slave " + std::to_string(pos) + " (" + this->api->slave_name(pos) +
@@ -938,11 +972,13 @@ Master::state_error(const std::vector<uint16_t> &failed, const uint16_t state) {
                slave::slave_state_to_string(
                    slave::from_al_state(this->api->slave_state(pos))
                );
-        if (const auto code = this->api->slave_ALstatuscode(pos); code != 0)
-            msg += ": " + std::string(ec_ALstatuscode2string(code));
+        if (!this->al_error(pos)) continue;
+        refused = true;
+        msg += ": " +
+               std::string(ec_ALstatuscode2string(this->api->slave_ALstatuscode(pos)));
     }
     return x::errors::Error(
-        errors::STATE_CHANGE_ERROR,
+        refused ? errors::STATE_CHANGE_REFUSED : errors::STATE_CHANGE_ERROR,
         "failed to reach " + target + ": " + msg
     );
 }

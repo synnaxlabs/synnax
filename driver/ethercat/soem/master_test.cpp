@@ -225,7 +225,29 @@ TEST_F(SOEMMasterTest, ActivateConfigMapFails) {
     ASSERT_OCCURRED_AS(this->master->activate(), errors::ACTIVATION_ERROR);
 }
 
-TEST_F(SOEMMasterTest, ActivateSafeOpTransitionFails) {
+/// @brief it should return a refusal with the AL status as soon as a slave refuses
+/// SAFE-OP, without waiting for the state change timeout.
+TEST_F(SOEMMasterTest, ActivateSafeOpRefusalReturnsAtOnce) {
+    this->initialize_with_slave();
+    this->mock->obytes = 2;
+    this->mock->ibytes = 4;
+    this->mock->statecheck_overrides[EC_STATE_SAFE_OP] = EC_STATE_PRE_OP +
+                                                         EC_STATE_ERROR;
+    this->mock->slave_infos[0].ALstatuscode = 0x001D;
+    this->mock->statecheck_count = 0;
+    const auto err = this->master->activate();
+    ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_REFUSED);
+    EXPECT_EQ(
+        err.data,
+        "failed to reach SAFE-OP: slave 1 (TestSlave) is in PRE-OP: Invalid output "
+        "configuration"
+    );
+    EXPECT_EQ(this->mock->statecheck_count, 1);
+}
+
+/// @brief it should not report a refusal or its AL status when a slave stays in PRE-OP
+/// without the error flag, even if an old AL status code remains.
+TEST_F(SOEMMasterTest, ActivateSafeOpTimeoutIsNotARefusal) {
     this->initialize_with_slave();
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
@@ -233,11 +255,54 @@ TEST_F(SOEMMasterTest, ActivateSafeOpTransitionFails) {
     this->mock->slave_infos[0].ALstatuscode = 0x001D;
     const auto err = this->master->activate();
     ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_ERROR);
+    EXPECT_FALSE(err.matches(errors::STATE_CHANGE_REFUSED));
+    EXPECT_EQ(err.data, "failed to reach SAFE-OP: slave 1 (TestSlave) is in PRE-OP");
+}
+
+/// @brief it should request SAFE-OP from every slave before it waits, and name only the
+/// slave that refused.
+TEST_F(SOEMMasterTest, ActivateNamesOnlyTheRefusingSlave) {
+    MockSlaveInfo pending;
+    pending.state = EC_STATE_PRE_OP;
+    pending.name = "PendingSlave";
+    this->add_slave(pending);
+    MockSlaveInfo refusing;
+    refusing.state = EC_STATE_PRE_OP;
+    refusing.name = "RefusingSlave";
+    refusing.ALstatuscode = 0x0026;
+    this->add_slave(refusing);
+    ASSERT_NIL(this->master->initialize());
+    this->mock->obytes = 2;
+    this->mock->ibytes = 4;
+    this->mock->statecheck_overrides[EC_STATE_SAFE_OP] = EC_STATE_PRE_OP +
+                                                         EC_STATE_ERROR;
+    this->mock->statecheck_count = 0;
+    const auto err = this->master->activate();
+    ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_REFUSED);
     EXPECT_EQ(
         err.data,
-        "failed to reach SAFE-OP: slave 1 (TestSlave) is in PRE-OP: Invalid output "
-        "configuration"
+        "failed to reach SAFE-OP: slave 2 (RefusingSlave) is in PRE-OP: Inconsistent "
+        "settings"
     );
+    EXPECT_EQ(this->mock->statecheck_count, 2);
+}
+
+/// @brief it should return a refusal as soon as a slave refuses OP.
+TEST_F(SOEMMasterTest, ActivateOpRefusalReturnsAtOnce) {
+    this->initialize_with_slave();
+    this->mock->obytes = 2;
+    this->mock->ibytes = 4;
+    this->mock->statecheck_overrides[EC_STATE_OPERATIONAL] = EC_STATE_SAFE_OP +
+                                                             EC_STATE_ERROR;
+    this->mock->slave_infos[0].ALstatuscode = 0x001B;
+    this->mock->readstate_count = 0;
+    const auto err = this->master->activate();
+    ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_REFUSED);
+    EXPECT_EQ(
+        err.data,
+        "failed to reach OP: slave 1 (TestSlave) is in SAFE-OP: Sync manager watchdog"
+    );
+    EXPECT_EQ(this->mock->readstate_count, 1);
 }
 
 TEST_F(SOEMMasterTest, ActivateOpTransitionFails) {

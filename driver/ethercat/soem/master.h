@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -138,8 +139,12 @@ private:
     bool
     scan_object_dictionary_for_pdos(uint16_t slave_pos, slave::DiscoveryResult &slave);
 
-    /// @brief transitions all enabled slaves to the specified state.
+    /// @brief requests the state from all enabled slaves, then waits until they reach
+    /// it, one of them refuses it, or the timeout in microseconds passes.
     x::errors::Error request_state(uint16_t state, int timeout);
+
+    /// @brief whether the slave has its AL error flag set and gives an AL status code.
+    [[nodiscard]] bool al_error(uint16_t pos) const;
 
     /// @brief transitions all enabled slaves to OP while exchanging process data, so
     /// slaves with a sync manager watchdog see valid outputs.
@@ -149,6 +154,14 @@ private:
     /// ecatcheck sample: acknowledge an error, request OP, reconfigure, or restore a
     /// slave that lost power.
     void recover(uint16_t pos);
+
+    /// @brief returns the error for slaves that have not reached a state: a refusal as
+    /// soon as one of them refuses, a timeout once the deadline passes, else NIL.
+    x::errors::Error pending_error(
+        const std::vector<uint16_t> &pending,
+        uint16_t state,
+        std::chrono::steady_clock::time_point deadline
+    );
 
     /// @brief builds the error for enabled slaves that did not reach a state.
     x::errors::Error state_error(const std::vector<uint16_t> &failed, uint16_t state);
