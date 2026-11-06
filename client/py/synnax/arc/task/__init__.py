@@ -10,4 +10,6 @@
 from synnax.arc.task.types import Task
 from synnax.arc.task.types_gen import Config, Performance
 
-__all__ = ["Config", "Performance", "Task"]
+TaskConfig = Config
+
+__all__ = ["Config", "Performance", "Task", "TaskConfig"]

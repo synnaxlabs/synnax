@@ -14,7 +14,8 @@ from __future__ import annotations
 from typing import Literal
 from typing import override as _override
 
-from synnax import arc, task
+from synnax import task
+from synnax.arc import types_gen
 
 PERFORMANCE_AUTO: Literal["auto"] = "auto"
 
@@ -37,7 +38,7 @@ class Config(task.PersistConfig):
         performance: Sets how closely the runtime holds timer deadlines.
     """
 
-    arc_key: arc.Key
+    arc_key: types_gen.Key
     hash: str = ""
     performance: Performance = "auto"
 

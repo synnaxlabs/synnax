@@ -13,6 +13,7 @@ from synnax.arc.graph import Edge as GraphEdge
 from synnax.arc.graph import Graph
 from synnax.arc.graph import Node as GraphNode
 from synnax.arc.ir import Edge, Handle
+from synnax.arc.task import Task, TaskConfig
 from synnax.arc.text import Text
 from synnax.arc.types_gen import (
     ONTOLOGY_TYPE,
@@ -26,11 +27,6 @@ from synnax.arc.types_gen import (
     ontology_id,
 )
 from x.spatial import XY as Position
-
-# isort: split
-# The task config resolves `arc.Key` at import, so `Key` must bind first.
-from synnax.arc.task import Config as TaskConfig
-from synnax.arc.task import Task
 
 __all__ = [
     "ONTOLOGY_TYPE",
