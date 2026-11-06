@@ -423,6 +423,7 @@ TEST(HTTPScanTask, ScanHealthyDevice) {
     ASSERT_EQ(result.size(), 1);
     EXPECT_EQ(result[0].status.value().variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(result[0].status.value().message, "Device connected");
+    EXPECT_TRUE(result[0].status.value().details.connected);
 
     server.stop();
 }
@@ -495,6 +496,7 @@ TEST(HTTPScanTask, ScanFailsOnNon2xxStatus) {
     ASSERT_EQ(result.size(), 1);
     EXPECT_EQ(result[0].status.value().variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(result[0].status.value().message, "Health check failed");
+    EXPECT_TRUE(result[0].status.value().details.connected);
     EXPECT_EQ(
         result[0].status.value().description,
         "The server responded with HTTP 503: Service Unavailable"
@@ -542,6 +544,7 @@ TEST(HTTPScanTask, ScanRepeatedScans) {
     ASSERT_EQ(result.size(), 1);
     EXPECT_EQ(result[0].status.value().variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(result[0].status.value().message, "Failed to reach server");
+    EXPECT_FALSE(result[0].status.value().details.connected);
 }
 
 TEST(HTTPScanTask, ScanUnreachableDevice) {
@@ -813,6 +816,7 @@ TEST(HTTPScanTask, ScanInvalidHealthCheck) {
     ASSERT_EQ(result.size(), 1);
     EXPECT_EQ(result[0].status.value().variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(result[0].status.value().message, "Invalid device properties");
+    EXPECT_FALSE(result[0].status.value().details.connected);
     EXPECT_NE(
         result[0].status.value().description.find("health_check"),
         std::string::npos

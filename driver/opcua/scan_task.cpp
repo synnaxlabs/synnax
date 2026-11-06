@@ -160,12 +160,13 @@ x::errors::Error Scanner::check_device_health(synnax::device::Device &dev) {
         .variant = synnax::status::VARIANT_SUCCESS,
         .message = "Server connected",
         .time = ::x::telem::TimeStamp::now(),
-        .details = {.rack = rack_key, .device = dev.key},
+        .details = {.rack = rack_key, .device = dev.key, .connected = true},
     };
     if (parser.error()) {
         status.variant = synnax::status::VARIANT_WARNING;
         status.message = "Invalid device properties";
         status.description = common::config_err_description(parser.error());
+        status.details.connected = false;
         dev.status = status;
         return parser.error();
     }
@@ -183,6 +184,7 @@ x::errors::Error Scanner::check_device_health(synnax::device::Device &dev) {
                                ? synnax::status::VARIANT_ERROR
                                : synnax::status::VARIANT_WARNING;
             status.description = conn_err.data;
+            status.details.connected = false;
             dev.status = status;
             return x::errors::NIL;
         }

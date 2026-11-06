@@ -420,6 +420,7 @@ TEST_F(EtherCATScanStatusTest, SlaveOnStoppedBusShowsDiscovery) {
     const auto status = this->scan_status();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(status.message, "Discovered (1 inputs, 0 outputs)");
+    EXPECT_TRUE(status.details.connected);
 }
 
 /// @brief it should show a failed PDO discovery as a warning that says the Driver tries
@@ -429,6 +430,7 @@ TEST_F(EtherCATScanStatusTest, FailedPDODiscoveryShowsAWarning) {
     const auto status = this->scan_status();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(status.message, "Failed to discover PDOs");
+    EXPECT_TRUE(status.details.connected);
     EXPECT_EQ(
         status.description,
         "No PDO objects found in object dictionary. Channels can use only the entries "
@@ -476,6 +478,7 @@ TEST_F(EtherCATScanStatusTest, SlaveInOpShowsOperational) {
     const auto status = this->scan_status();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(status.message, "Operational");
+    EXPECT_TRUE(status.details.connected);
 }
 
 /// @brief it should show a faulted slave as an error and put its AL status in the
@@ -530,6 +533,7 @@ TEST_F(EtherCATScanStatusTest, LostSlaveShowsNotResponding) {
     const auto status = this->scan_status();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(status.message, "Not responding");
+    EXPECT_FALSE(status.details.connected);
     EXPECT_EQ(status.description, "Check the power and cabling of the device.");
 }
 
