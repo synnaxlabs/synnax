@@ -170,14 +170,6 @@ var _ = Describe("Loader", func() {
 			Expect(diag.String()).To(ContainSubstring(`module "m" does not compile`))
 		})
 
-		It("Should not activate an imported sequence yet", func(ctx SpecContext) {
-			sources["m"] = `export sequence s { stage a { trig -> out8 } }`
-			diag := analyze(ctx, "import m\n\ntrig => m.s")
-			Expect(diag.String()).To(ContainSubstring(
-				"'m.s' belongs to an imported module and cannot be activated yet",
-			))
-		})
-
 		It("Should not search import paths", func(ctx SpecContext) {
 			loader := text.NewLoader(text.LoaderConfig{})
 			Expect(loader.Search(ctx, "m")).To(BeEmpty())

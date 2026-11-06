@@ -1064,14 +1064,6 @@ func analyzeNamedRef(
 	if frame := shell.resolveTargetFrame(sym.Name); frame != nil {
 		return transitionIntent{memberKey: sym.Name, targetFrame: frame}, true
 	}
-	if sym.Root() != ctx.Scope.Root() {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
-			ctx.AST,
-			"'%s' belongs to an imported module and cannot be activated yet",
-			parser.IdentifierName(ctx.AST),
-		))
-		return transitionIntent{}, false
-	}
 	if isRootLevelScope(sym) {
 		if seqDecl, ok := sym.AST.(parser.ISequenceDeclarationContext); ok {
 			if len(seqDecl.AllSequenceItem()) == 0 {
