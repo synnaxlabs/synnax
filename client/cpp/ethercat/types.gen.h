@@ -86,6 +86,9 @@ struct EntryReadChannel : public BaseReadChannel {
     std::uint8_t sub_index = 0;
     /// @brief data_type is the data type of the PDO entry.
     ::x::telem::DataType data_type;
+    /// @brief scale is the scale applied to raw samples after acquisition. A scaled
+    /// channel writes to a float Synnax channel.
+    ::synnax::task::Scale scale = ::synnax::task::NoneScale{};
 
     static EntryReadChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

@@ -119,6 +119,20 @@ export const DIRECTIONS: Record<PDOType, string> = {
 export const addressKey = ({ index, subIndex }: Address): string =>
   `${index}_${subIndex}`;
 
+/** @returns whether the read channel scales its samples. */
+const isScaled = (ch: EntryReadChannel): boolean => ch.scale.type !== "none";
+
+/**
+ * @returns the device properties key of the read channel's Synnax channel. A scaled
+ * channel writes float64 samples, so it maps to its own Synnax channel.
+ */
+export const readKey = (ch: EntryReadChannel): string =>
+  isScaled(ch) ? `scaled_${addressKey(ch)}` : addressKey(ch);
+
+/** @returns the data type of the read channel's Synnax channel. */
+export const readDataType = (ch: EntryReadChannel): string =>
+  isScaled(ch) ? "float64" : ch.dataType;
+
 /** @returns the device properties key of the write state channel at the address. */
 export const stateKey = (address: Address): string => `state_${addressKey(address)}`;
 
@@ -223,15 +237,19 @@ export const getEntryChannelName = (
   return channel.escapeInvalidName(`${identifier}_${part}`);
 };
 
-/** The name deploying the task gives a read channel. */
-export const readChannelName = (slave: SlaveDevice, ch: EntryReadChannel): string =>
-  primitive.isNonZero(ch.name)
-    ? ch.name
-    : getEntryChannelName(
-        slave.properties.identifier,
-        slave.properties.pdos.inputs,
-        ch,
-      );
+/**
+ * The name deploying the task gives a read channel. The default name of a scaled
+ * channel ends in `_scaled`, apart from the raw channel of its entry.
+ */
+export const readChannelName = (slave: SlaveDevice, ch: EntryReadChannel): string => {
+  if (primitive.isNonZero(ch.name)) return ch.name;
+  const name = getEntryChannelName(
+    slave.properties.identifier,
+    slave.properties.pdos.inputs,
+    ch,
+  );
+  return isScaled(ch) ? `${name}_scaled` : name;
+};
 
 /** The names deploying the task gives a write channel's command and state channels. */
 export const writeChannelNames = (

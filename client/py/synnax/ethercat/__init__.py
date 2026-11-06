@@ -29,6 +29,14 @@ from synnax.ethercat.types_gen import (
     WriteChannel,
     WriteConfig,
 )
+from synnax.task import (
+    LinearScale,
+    MapScale,
+    NoneScale,
+    PolynomialScale,
+    Scale,
+    TableScale,
+)
 
 __all__ = [
     "MAKE",
@@ -38,11 +46,17 @@ __all__ = [
     "Device",
     "EntryReadChannel",
     "EntryWriteChannel",
+    "LinearScale",
+    "MapScale",
+    "NoneScale",
     "PDOEntry",
+    "PolynomialScale",
     "ReadChannel",
     "ReadConfig",
     "ReadTask",
+    "Scale",
     "ScanConfig",
+    "TableScale",
     "UnresolvedReadChannel",
     "UnresolvedWriteChannel",
     "WriteChannel",

@@ -24,6 +24,7 @@
 
 #include "driver/ethercat/slave/slave.h"
 #include "driver/ethercat/telem/telem.h"
+#include "driver/transform/transform.h"
 
 namespace driver::ethercat::channel {
 /// @brief base class for EtherCAT PDO channel configurations.
@@ -159,6 +160,8 @@ struct Input final : Channel {
     synnax::channel::Key synnax_key;
     /// @brief the Synnax channel object (populated after remote lookup).
     synnax::channel::Channel ch;
+    /// @brief the scale applied to raw samples after acquisition.
+    ::synnax::task::Scale scale = ::synnax::task::NoneScale{};
 
     Input(
         const ::synnax::ethercat::EntryReadChannel &cfg,
@@ -166,8 +169,12 @@ struct Input final : Channel {
         const x::json::Parser &parser,
         const std::string &path = ""
     ):
-        Channel(slave, true, cfg.disabled, cfg.device), synnax_key(cfg.channel) {
+        Channel(slave, true, cfg.disabled, cfg.device),
+        synnax_key(cfg.channel),
+        scale(cfg.scale) {
         this->bind_entry(cfg.index, cfg.sub_index, cfg.data_type, slave, parser, path);
+        if (this->enabled)
+            transform::validate_scale(parser, path + "scale", this->scale);
     }
 
     Input(
@@ -183,6 +190,11 @@ struct Input final : Channel {
     /// @brief binds remote channel information retrieved from Synnax.
     void bind_remote_info(const synnax::channel::Channel &remote_ch) {
         this->ch = remote_ch;
+    }
+
+    /// @brief whether the channel scales its raw samples.
+    [[nodiscard]] bool scaled() const {
+        return !std::holds_alternative<::synnax::task::NoneScale>(this->scale);
     }
 };
 

@@ -139,6 +139,39 @@ class TestEtherCATReadTask:
         )
         assert task.config.channels[0].key != ""
 
+    def test_entry_channel_scale_defaults_to_none(self) -> None:
+        """Should leave an entry channel unscaled unless a scale is given."""
+        ch = sy.ethercat.EntryReadChannel(
+            index=0x6000, sub_index=1, data_type=sy.DataType.INT16
+        )
+        assert isinstance(ch.scale, sy.ethercat.NoneScale)
+
+    @pytest.mark.parametrize(
+        ("scale", "cls"),
+        [
+            ({"type": "linear", "slope": 2.5, "offset": -10}, sy.ethercat.LinearScale),
+            (
+                {
+                    "type": "map",
+                    "pre_scaled_min": 4,
+                    "pre_scaled_max": 20,
+                    "scaled_min": 0,
+                    "scaled_max": 100,
+                },
+                sy.ethercat.MapScale,
+            ),
+        ],
+    )
+    def test_entry_channel_scale_round_trip(
+        self, scale: dict[str, object], cls: type
+    ) -> None:
+        """Should parse each scale into the class named by its type and dump it back."""
+        ch = sy.ethercat.EntryReadChannel.model_validate(
+            {"index": 0x6000, "sub_index": 1, "data_type": "int16", "scale": scale}
+        )
+        assert isinstance(ch.scale, cls)
+        assert ch.model_dump()["scale"] == scale
+
     @pytest.mark.parametrize("field", ["index", "sub_index", "data_type"])
     def test_entry_channel_requires_address(self, field: str) -> None:
         """Should reject an entry channel without its full address and type."""

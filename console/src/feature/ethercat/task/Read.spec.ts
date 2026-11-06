@@ -187,6 +187,32 @@ describe("Read", () => {
     });
   });
 
+  it("should save the scale picked for a selected channel", async () => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: createPDOs(),
+    });
+    const { draft } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [createEntryReadChannel(slave.key, STATUS_ENTRY)],
+    });
+    fireEvent.click(await screen.findByRole("option", { name: /0x6000:01/ }));
+    expect(await screen.findByText("Scale", { selector: "label" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /None/ }));
+    fireEvent.click(await screen.findByRole("option", { name: /Linear/ }));
+    expect(await screen.findByText("Slope")).toBeTruthy();
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: draft.key,
+        schemas: EtherCAT.Task.READ_SCHEMAS,
+      });
+      expect(saved.config.channels[0]).toMatchObject({
+        scale: { type: "linear", slope: 1, offset: 0 },
+      });
+    });
+  });
+
   it("should show why an unresolved channel cannot run", async () => {
     const slave = await createRepeatedNameSlave(client, testRack.key);
     await renderRead({
@@ -688,6 +714,248 @@ describe("Read", () => {
     );
   });
 
+  it("should give a scaled entry a float64 channel apart from its raw channel", async () => {
+    const identifier = createIdentifier();
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier,
+      network: "eth0",
+      pdos: createPDOs(),
+    });
+    const raw = createEntryReadChannel(slave.key, STATUS_ENTRY);
+    const first = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [raw],
+    });
+    const rawTask = await deployAndAwaitTask(
+      client,
+      first.container,
+      first.draft.key,
+      EtherCAT.Task.READ_SCHEMAS,
+    );
+    first.unmount();
+
+    const second = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [{ ...raw, scale: { type: "linear", slope: 2, offset: 0 } }],
+    });
+    const scaledTask = await deployAndAwaitTask(
+      client,
+      second.container,
+      second.draft.key,
+      EtherCAT.Task.READ_SCHEMAS,
+    );
+    const rawKey = rawTask.config.channels[0].channel;
+    const scaledKey = scaledTask.config.channels[0].channel;
+    expect(scaledKey).not.toBe(rawKey);
+    const scaled = await client.channels.retrieve(scaledKey);
+    expect(scaled.name).toBe(`${identifier}_Status_scaled`);
+    expect(scaled.dataType.toString()).toBe("float64");
+    const updated = await client.devices.retrieve({
+      key: slave.key,
+      schemas: EtherCAT.Device.SLAVE_SCHEMAS,
+    });
+    expect(updated.properties.read.channels[`${0x6000}_1`]).toBe(rawKey);
+    expect(updated.properties.read.channels[`scaled_${0x6000}_1`]).toBe(scaledKey);
+  });
+
+  describe("a typed name that the other channel of the entry holds", () => {
+    type Overrides = Parameters<typeof createEntryReadChannel>[2];
+    const LINEAR = { type: "linear", slope: 2, offset: 0 } as const;
+
+    const expectSecondDeployRejected = async (first: Overrides, second: Overrides) => {
+      const name = uniqueName("ecat_typed");
+      const slave = await createSlaveDevice(client, testRack.key, {
+        identifier: createIdentifier(),
+        network: "eth0",
+        pdos: createPDOs(),
+      });
+      const render = async (overrides: Overrides) =>
+        await renderRead({
+          ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+          channels: [
+            createEntryReadChannel(slave.key, STATUS_ENTRY, { name, ...overrides }),
+          ],
+        });
+      const initial = await render(first);
+      await deployAndAwaitTask(
+        client,
+        initial.container,
+        initial.draft.key,
+        EtherCAT.Task.READ_SCHEMAS,
+      );
+      initial.unmount();
+      const { container, statuses } = await render(second);
+      await clickDeploy(container);
+      await awaitStatus(
+        statuses,
+        new RegExp(
+          `A channel named ${name} already exists\\. Give the channel another name\\.`,
+        ),
+      );
+    };
+
+    it("should reject it for a scaled channel when the raw channel holds it", async () => {
+      await expectSecondDeployRejected({}, { scale: LINEAR });
+    });
+
+    it("should reject it for a raw channel when the scaled channel holds it", async () => {
+      await expectSecondDeployRejected({ scale: LINEAR }, {});
+    });
+  });
+
+  it("should reject two new channels that share a typed name", async () => {
+    const name = uniqueName("ecat_typed");
+    const pdos = createRepeatedNamePDOs();
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos,
+    });
+    const { container, statuses } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: pdos.inputs
+        .slice(0, 2)
+        .map((entry) => createEntryReadChannel(slave.key, entry, { name })),
+    });
+    await clickDeploy(container);
+    await awaitStatus(
+      statuses,
+      new RegExp(
+        `Two channels of the task use the name ${name}\\. Choose another name for ` +
+          "one of them\\.",
+      ),
+    );
+    const updated = await client.devices.retrieve({
+      key: slave.key,
+      schemas: EtherCAT.Device.SLAVE_SCHEMAS,
+    });
+    expect(updated.properties.read.channels).toEqual({});
+  });
+
+  it("should reject a typed name that new channels of two slaves share", async () => {
+    const name = uniqueName("ecat_typed");
+    const slaves = await Promise.all(
+      [0, 1].map(
+        async () =>
+          await createSlaveDevice(client, testRack.key, {
+            identifier: createIdentifier(),
+            network: "eth0",
+            pdos: createPDOs(),
+          }),
+      ),
+    );
+    const { container, statuses } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: slaves.map((slave) =>
+        createEntryReadChannel(slave.key, STATUS_ENTRY, { name }),
+      ),
+    });
+    await clickDeploy(container);
+    await awaitStatus(
+      statuses,
+      new RegExp(`Two channels of the task use the name ${name}\\.`),
+    );
+    for (const slave of slaves) {
+      const updated = await client.devices.retrieve({
+        key: slave.key,
+        schemas: EtherCAT.Device.SLAVE_SCHEMAS,
+      });
+      expect(updated.properties.readIndex).toBe(0);
+      expect(updated.properties.read.channels).toEqual({});
+    }
+    expect(await client.channels.retrieve({ where: { name: { eq: name } } })).toEqual(
+      [],
+    );
+  });
+
+  it("should deploy once the user fixes a rejected name", async () => {
+    const name = uniqueName("ecat_typed");
+    const pdos = createRepeatedNamePDOs();
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos,
+    });
+    const render = async (second: string) =>
+      await renderRead({
+        ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+        channels: [
+          createEntryReadChannel(slave.key, pdos.inputs[0], { name }),
+          createEntryReadChannel(slave.key, pdos.inputs[1], { name: second }),
+        ],
+      });
+    const rejected = await render(name);
+    await clickDeploy(rejected.container);
+    await awaitStatus(rejected.statuses, /Two channels of the task use the name/);
+    rejected.unmount();
+    const fixed = await render(`${name}_2`);
+    const deployed = await deployAndAwaitTask(
+      client,
+      fixed.container,
+      fixed.draft.key,
+      EtherCAT.Task.READ_SCHEMAS,
+    );
+    const created = await client.channels.retrieve(
+      deployed.config.channels.map(({ channel }) => channel),
+    );
+    expect(created.map((c) => c.name).toSorted()).toEqual([name, `${name}_2`]);
+  });
+
+  it("should keep a typed name for a scaled channel when no raw channel holds it", async () => {
+    const name = uniqueName("ecat_typed");
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: createPDOs(),
+    });
+    const { container, draft } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [
+        createEntryReadChannel(slave.key, STATUS_ENTRY, {
+          name,
+          scale: { type: "linear", slope: 2, offset: 0 },
+        }),
+      ],
+    });
+    const deployed = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      EtherCAT.Task.READ_SCHEMAS,
+    );
+    const scaled = await client.channels.retrieve(deployed.config.channels[0].channel);
+    expect(scaled.name).toBe(name);
+  });
+
+  it("should reuse a scaled entry's float64 channel when redeployed", async () => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: createPDOs(),
+    });
+    const config = {
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [
+        createEntryReadChannel(slave.key, STATUS_ENTRY, {
+          scale: { type: "linear", slope: 2, offset: 0 },
+        }),
+      ],
+    };
+    const deploy = async () => {
+      const rendered = await renderRead(config);
+      const deployed = await deployAndAwaitTask(
+        client,
+        rendered.container,
+        rendered.draft.key,
+        EtherCAT.Task.READ_SCHEMAS,
+      );
+      rendered.unmount();
+      return deployed.config.channels[0].channel;
+    };
+    const first = await deploy();
+    expect(await deploy()).toBe(first);
+  });
+
   it("should reject a data type that differs from the mapped channel's", async () => {
     const slave = await createSlaveDevice(client, testRack.key, {
       identifier: createIdentifier(),
@@ -766,6 +1034,44 @@ describe("Read", () => {
       expect(second.slave.properties.read.channels[`${0x6000}_1`]).toBe(first.channel);
     });
 
+    it("should reuse the scaled channel of the deleted slave", async () => {
+      const identifier = createIdentifier();
+      const deploy = async () => {
+        const slave = await createSlaveDevice(client, testRack.key, {
+          identifier,
+          network: "eth0",
+          pdos: createPDOs(),
+        });
+        const { container, draft, unmount } = await renderRead({
+          ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+          channels: [
+            createEntryReadChannel(slave.key, STATUS_ENTRY, {
+              scale: { type: "linear", slope: 2, offset: 0 },
+            }),
+          ],
+        });
+        const deployed = await deployAndAwaitTask(
+          client,
+          container,
+          draft.key,
+          EtherCAT.Task.READ_SCHEMAS,
+        );
+        unmount();
+        return { slave, channel: deployed.config.channels[0].channel };
+      };
+      const first = await deploy();
+      await client.devices.delete(first.slave.key);
+      const second = await deploy();
+      expect(second.channel).toBe(first.channel);
+      const updated = await client.devices.retrieve({
+        key: second.slave.key,
+        schemas: EtherCAT.Device.SLAVE_SCHEMAS,
+      });
+      expect(updated.properties.read.channels[`scaled_${0x6000}_1`]).toBe(
+        first.channel,
+      );
+    });
+
     it("should reject two entries that share the name of a deleted slave's channel", async () => {
       const identifier = createIdentifier();
       const name = uniqueName("ecat_shared");
@@ -796,7 +1102,7 @@ describe("Read", () => {
       await clickDeploy(container);
       await awaitStatus(
         statuses,
-        new RegExp(`A channel named ${name} already exists\\.`),
+        new RegExp(`Two channels of the task use the name ${name}\\.`),
       );
     });
 

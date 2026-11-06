@@ -19,6 +19,7 @@ cc_library(
         "//client/cpp/ethercat",
         "//driver/ethercat/master",
         "//driver/ethercat/telem",
+        "//driver/transform",
         "//x/cpp/json",
         "//x/cpp/telem",
     ],

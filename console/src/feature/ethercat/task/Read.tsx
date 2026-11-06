@@ -26,7 +26,6 @@ import {
   retrieveAndValidateSlaves,
 } from "@/feature/ethercat/task/configure";
 import {
-  addressKey,
   createReadChannel,
   deployReadConfigZ,
   entryAt,
@@ -36,6 +35,8 @@ import {
   READ_TYPE,
   type ReadChannel,
   readChannelName,
+  readDataType,
+  readKey,
   type ReadSchemas,
 } from "@/feature/ethercat/task/types";
 import { type Selector } from "@/platform/selector";
@@ -91,7 +92,7 @@ const Form: FC = () => {
   const resolve = (ch: ReadChannel) => {
     const slave = slaves?.find(({ key }) => key === ch.device);
     if (slave == null || !hasEntry(ch)) return null;
-    return { channel: slave.properties.read.channels[addressKey(ch)] ?? 0 };
+    return { channel: slave.properties.read.channels[readKey(ch)] ?? 0 };
   };
   return (
     <Task.Views.ListAndDetails<ReadChannel>
@@ -118,18 +119,44 @@ const READ_INDEX_OPTIONS = {
   nameSuffix: "_time" as const,
 };
 
+/** @throws when two new channels of the task share a name. */
+const checkNamesUnique = (names: string[]): void => {
+  const repeated = names.find((name, i) => names.indexOf(name) !== i);
+  if (repeated != null)
+    throw new Error(
+      `Two channels of the task use the name ${repeated}. Choose another name for ` +
+        "one of them.",
+    );
+};
+
 const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
   const { slaves, rack, channelsBySlaveKey } =
     await retrieveAndValidateSlaves<ReadChannel>(client, config.channels, "inputs");
 
+  // The checks run before any create, so a failed one leaves nothing behind.
+  const plans = [];
   for (const slave of slaves) {
     const channels = channelsBySlaveKey.get(slave.key) ?? [];
-    let modified = await checkOrCreateIndex(client, slave, READ_INDEX_OPTIONS);
     const missing = await findChannelsToCreate(
       client,
       channels,
       slave.properties.read.channels,
+      readKey,
+      readDataType,
     );
+    plans.push({ slave, channels, missing });
+  }
+  checkNamesUnique(
+    plans.flatMap(({ slave, missing }) =>
+      missing.map((ch) => readChannelName(slave, ch)),
+    ),
+  );
+
+  for (const plan of plans) {
+    const { slave, channels } = plan;
+    let modified = await checkOrCreateIndex(client, slave, READ_INDEX_OPTIONS);
+    // A new index clears the slave's channel map, so every channel is missing.
+    const missing = modified ? channels : plan.missing;
     if (missing.length > 0) modified = true;
     const toCreate = await bindOrphanedChannels({
       client,
@@ -137,26 +164,28 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
       names: missing.map((ch) => readChannelName(slave, ch)),
       index: () => slave.properties.readIndex,
       map: slave.properties.read.channels,
+      mapKey: readKey,
+      getDataType: readDataType,
     });
 
     if (toCreate.length > 0) {
       const created = await client.channels.create(
         toCreate.map((ch) => ({
           name: readChannelName(slave, ch),
-          dataType: ch.dataType,
+          dataType: readDataType(ch),
           index: slave.properties.readIndex,
         })),
       );
 
       created.forEach((c, i) => {
-        slave.properties.read.channels[addressKey(toCreate[i])] = c.key;
+        slave.properties.read.channels[readKey(toCreate[i])] = c.key;
       });
     }
 
     if (modified) await client.devices.create(slave);
 
     channels.forEach((ch) => {
-      ch.channel = slave.properties.read.channels[addressKey(ch)];
+      ch.channel = slave.properties.read.channels[readKey(ch)];
     });
   }
 
