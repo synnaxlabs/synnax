@@ -103,6 +103,26 @@ describe("group ontology service", () => {
     expect(canDrop([rack.resourceID(1), root])).toBe(false);
   });
 
+  it("should refuse a device under another device into a group", () => {
+    const root = device.TYPE_RESOURCE_ID;
+    const DeviceItem = Group.createTreeItems({
+      channel: [],
+      device: [Device.GROUP_MEMBER, Rack.GROUP_MEMBER],
+      project: [],
+    }).group;
+    const canDrop = (ancestors: resource.ID[]): boolean =>
+      DeviceItem.canDrop({
+        source: { key: "tree", type: PTree.HAUL_TYPE },
+        items: [PTree.createHaulItem("device:d")],
+        root,
+        destination: createResource(group.resourceID("g"), "g"),
+        ancestors: [rack.resourceID(1), root],
+        moved: [{ id: device.resourceID("d"), ancestors }],
+      });
+    expect(canDrop([rack.resourceID(1), root])).toBe(true);
+    expect(canDrop([device.resourceID("p"), rack.resourceID(1), root])).toBe(false);
+  });
+
   it("should refuse a project into a group under a project", () => {
     const root = project.TYPE_RESOURCE_ID;
     const ProjectItem = Group.createTreeItems({

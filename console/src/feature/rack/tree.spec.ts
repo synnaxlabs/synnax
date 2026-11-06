@@ -112,6 +112,16 @@ describe("rack ontology service", () => {
       expect(canDrop(group.resourceID("g"), [rack.resourceID(2), root])).toBe(false);
     });
 
+    it("should refuse a device under another device", () => {
+      expect(
+        canDrop(device.resourceID("d"), [
+          device.resourceID("p"),
+          rack.resourceID(1),
+          root,
+        ]),
+      ).toBe(false);
+    });
+
     it("should refuse a rack", () => {
       expect(canDrop(rack.resourceID(2), [root])).toBe(false);
     });

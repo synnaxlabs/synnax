@@ -73,8 +73,8 @@ const rackOf = (ids: resource.ID[]): resource.ID | undefined =>
 
 /**
  * Returns whether moveRequests can move the dropped items under the destination. An
- * item under a rack stays under that rack. A rack or project goes only into a group
- * that has no rack or project above it.
+ * item under a rack stays under that rack, and a device under another device stays
+ * there. A rack or project goes only into a group with no rack or project above it.
  */
 export const canMove = ({
   root,
@@ -92,6 +92,7 @@ export const canMove = ({
   const rack = rackOf(above);
   return moved.every(({ id, ancestors }) => {
     if (id.type === "rack" || id.type === "project") return atRoot;
+    if (id.type === "device" && ancestors[0]?.type === "device") return false;
     const from = rackOf(ancestors);
     return from == null || rack == null ? from === rack : resource.idsEqual(from, rack);
   });
