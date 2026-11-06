@@ -46,7 +46,8 @@ type WriteConfig = v2.WriteConfig
 // ScanConfig carries the fields shared by every scan task configuration.
 type ScanConfig = v2.ScanConfig
 
-// Scale determines how raw values are transformed to engineering units.
+// Scale determines how the raw values of a hardware read channel are transformed to
+// engineering units.
 type Scale = v2.Scale
 
 // ScaleVariant is implemented by every Scale variant.

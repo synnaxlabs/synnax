@@ -118,7 +118,8 @@ struct NoneScale {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief Scale determines how raw values are transformed to engineering units.
+/// @brief Scale determines how the raw values of a hardware read channel are
+/// transformed to engineering units.
 using Scale = std::
     variant<LinearScale, MapScale, PolynomialScale, TableScale, NoneScale>;
 

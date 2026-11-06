@@ -318,7 +318,10 @@ Scale union on type {
         @doc value "applies no scaling; the raw value is used directly."
     }
 
-    @doc value  "determines how raw values are transformed to engineering units."
+    @doc value  """
+        determines how the raw values of a hardware read channel are transformed to
+        engineering units.
+    """
     @go marshal
     @pb omit
 }

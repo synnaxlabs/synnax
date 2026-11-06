@@ -82,7 +82,8 @@ class NoneScale(BaseModel):
     type: Literal["none"] = "none"
 
 
-# Determines how raw values are transformed to engineering units.
+# Determines how the raw values of a hardware read channel are transformed to
+# engineering units.
 Scale = Annotated[
     LinearScale | MapScale | PolynomialScale | TableScale | NoneScale,
     Field(discriminator="type"),

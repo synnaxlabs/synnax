@@ -51,7 +51,8 @@ type WriteConfig = versions.WriteConfig
 // ScanConfig carries the fields shared by every scan task configuration.
 type ScanConfig = versions.ScanConfig
 
-// Scale determines how raw values are transformed to engineering units.
+// Scale determines how the raw values of a hardware read channel are transformed to
+// engineering units.
 type Scale = versions.Scale
 
 // ScaleVariant is implemented by every Scale variant.

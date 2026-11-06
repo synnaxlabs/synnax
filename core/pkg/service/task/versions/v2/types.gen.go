@@ -240,7 +240,8 @@ type NoneScale struct {
 
 func (NoneScale) isScaleVariant() {}
 
-// Scale determines how raw values are transformed to engineering units.
+// Scale determines how the raw values of a hardware read channel are transformed to
+// engineering units.
 type Scale struct {
 	Variant ScaleVariant
 }

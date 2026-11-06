@@ -95,7 +95,10 @@ export const SCALE_TYPES = ["linear", "map", "polynomial", "table", "none"] as c
 export const scaleTypeZ = z.enum(SCALE_TYPES);
 export type ScaleType = z.infer<typeof scaleTypeZ>;
 
-/** Scale determines how raw values are transformed to engineering units. */
+/**
+ * Scale determines how the raw values of a hardware read channel are transformed to
+ * engineering units.
+ */
 export const scaleZ = z.discriminatedUnion("type", [
   linearScaleZ,
   mapScaleZ,
