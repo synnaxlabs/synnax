@@ -81,3 +81,31 @@ class TestGhAPI:
         assert result.returncode == 1
         assert result.stderr == "gh: Not Found (HTTP 404)\n"
         assert len(gh.calls()) == 1
+
+    @pytest.mark.parametrize(
+        "error",
+        [
+            "gh: Server Error (HTTP 500)",
+            "could not create workflow dispatch event: HTTP 502 (https://x/dispatches)",
+            'Post "https://x": dial tcp: lookup api.github.com: no such host',
+            "read tcp 10.0.0.1:443: read: connection reset by peer",
+        ],
+    )
+    def test_retries_a_server_or_network_error(self, gh: FakeGH, error: str) -> None:
+        """Should retry an HTTP 5xx or network failure and print the success."""
+        gh.serve("api */dispatches")
+        gh.fail("api */dispatches", error)
+        result = run(gh, "repos/a/b/actions/workflows/c.yaml/dispatches", "-X", "POST")
+        assert result.returncode == 0
+        assert error not in result.stderr
+        assert len(gh.calls()) == 2
+
+    def test_fails_a_rejected_dispatch_at_once(self, gh: FakeGH) -> None:
+        """Should not retry a 422, such as a workflow with no dispatch trigger."""
+        error = "gh: Workflow does not have 'workflow_dispatch' trigger (HTTP 422)"
+        gh.serve("api */dispatches")
+        gh.fail("api */dispatches", error)
+        result = run(gh, "repos/a/b/actions/workflows/c.yaml/dispatches", "-X", "POST")
+        assert result.returncode == 1
+        assert result.stderr == f"{error}\n"
+        assert len(gh.calls()) == 1
