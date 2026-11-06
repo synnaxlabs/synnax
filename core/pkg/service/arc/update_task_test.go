@@ -531,13 +531,18 @@ var _ = Describe("Task sync", func() {
 		})
 
 		It("Should return no task when the commit fails", func(ctx SpecContext) {
-			cCtx, cancel := context.WithCancel(ctx)
-			defer cancel()
+			var cancel context.CancelFunc
 			hook := func(task.Task) { cancel() }
 			onTaskLink.Store(&hook)
 			DeferCleanup(func() { onTaskLink.Store(nil) })
-			Expect(svc.UpdateTask(cCtx, a.Key, bind)).Error().
-				To(MatchError(context.Canceled))
+			// A canceled commit fails only when cancel wins the select of its send.
+			Eventually(func(g Gomega) {
+				var cCtx context.Context
+				cCtx, cancel = context.WithCancel(ctx)
+				defer cancel()
+				g.Expect(svc.UpdateTask(cCtx, a.Key, bind)).Error().
+					To(MatchError(context.Canceled))
+			}).Should(Succeed())
 		})
 
 		It("Should wait for a write that holds the task", func(ctx SpecContext) {
