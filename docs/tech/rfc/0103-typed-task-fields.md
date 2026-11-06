@@ -243,7 +243,7 @@ does not depend on it.
 | 16    | Convert JSON, UUID, and bytes samples in the Driver   | `x/cpp/json`, `x/cpp/base64`, `x/cpp/telem`, `driver/opcua/telem`                                                     | -                  |
 | 17    | Read JSON, UUID, and bytes channels on HTTP           | `driver/http`, `console/src/feature/http/task`                                                                        | 14, 16             |
 | 18    | Write JSON, UUID, and bytes channels on HTTP          | `driver/http`, `console/src/feature/http/task`                                                                        | 14, 16             |
-| 19    | Read and write raw bytes payloads on Kafka and MQTT   | `core/pkg/service/kafka`, `core/pkg/service/mqtt`                                                                     | 8, 10              |
+| 19    | Read and write raw bytes payloads on Kafka and MQTT   | `core/pkg/service/kafka`, `core/pkg/service/mqtt`                                                                     | 7, 8, 9, 10        |
 | 20    | Read and write raw bytes payloads on HTTP             | `driver/http`                                                                                                         | 17, 18             |
 | 21    | Add Modbus v3 string register variants                | `schemas/synnax/versions/modbus`, `core/pkg/service/modbus`, `driver/modbus`, `console/src/feature/modbus/task`       | -                  |
 | 22    | Remove config-only checks from the Driver             | `driver/http`                                                                                                         | 12, 13             |
