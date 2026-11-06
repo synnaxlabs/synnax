@@ -10,8 +10,7 @@
 // Package check is the read-only validation layer for Oracle. It runs a set of named
 // gates - format drift, analyzer diagnostics, generated-output drift, persistence
 // violations, cache coherence, versions drift, frozen drift - against a pipeline Result
-// and produces
-// a structured Report. It does not modify any file.
+// and produces a structured Report. It does not modify any file.
 //
 // Each gate is an independently testable Checker implementation. The Checker contract
 // is intentionally narrow: take a pipeline Result, look at the on-disk projection of

@@ -60,6 +60,23 @@ func (c Chain) Package(n int) string {
 	return path.Join(c.Root, paths.VersionsDirName, fmt.Sprintf("v%d", n))
 }
 
+// Moved reports whether frozen version n no longer matches its recorded sum while its
+// version files stand still. A package that stopped generating counts as moved.
+func (c Chain) Moved(n int, recorded Sum) bool {
+	if n >= c.Current {
+		return false
+	}
+	sum, ok := c.Sums[n]
+	return !ok || (sum.Schema == recorded.Schema && sum.Output != recorded.Output)
+}
+
+// Versions returns every version in c.Sums or recorded, ascending.
+func (c Chain) Versions(recorded map[int]Sum) []int {
+	merged := maps.Clone(c.Sums)
+	maps.Copy(merged, recorded)
+	return slices.Sorted(maps.Keys(merged))
+}
+
 // Compute returns the current sums of every chain with a Go output, ordered by path. It
 // reads generated files from disk, so it sees a hand edit that res does not hold.
 func Compute(
@@ -176,13 +193,14 @@ func Update(chains []Chain, repoRoot string, refreeze bool) error {
 		}
 		var b strings.Builder
 		b.WriteString(header)
-		for _, n := range slices.Sorted(maps.Keys(c.Sums)) {
-			sum := c.Sums[n]
-			if old, ok := recorded[n]; ok && !refreeze &&
-				n < c.Current && old.Schema == sum.Schema {
-				sum = old
+		for _, n := range c.Versions(recorded) {
+			sum, current := c.Sums[n]
+			if old, ok := recorded[n]; ok && !refreeze && c.Moved(n, old) {
+				sum, current = old, true
 			}
-			fmt.Fprintf(&b, "v%d %s %s\n", n, sum.Schema, sum.Output)
+			if current {
+				fmt.Fprintf(&b, "v%d %s %s\n", n, sum.Schema, sum.Output)
+			}
 		}
 		abs := paths.Resolve(c.Path, repoRoot)
 		if err := os.MkdirAll(filepath.Dir(abs), 0o755); err != nil {

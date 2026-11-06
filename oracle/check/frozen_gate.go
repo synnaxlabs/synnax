@@ -11,8 +11,6 @@ package check
 
 import (
 	"context"
-	"maps"
-	"slices"
 
 	"github.com/synnaxlabs/oracle/frozen"
 	"github.com/synnaxlabs/oracle/pipeline"
@@ -31,9 +29,9 @@ func (frozenGate) Name() string { return "frozen" }
 
 func (g frozenGate) Run(
 	ctx context.Context, res *pipeline.Result, env Env,
-) GateReport {
+) (r GateReport) {
 	start := telem.Now()
-	r := GateReport{Gate: g.Name(), Status: StatusPass}
+	r = GateReport{Gate: g.Name(), Status: StatusPass}
 	defer func() { r.Elapsed = telem.Since(start) }()
 	if res.Resolutions == nil || res.Versions == nil {
 		return r
@@ -49,7 +47,7 @@ func (g frozenGate) Run(
 			r.fail(Finding{Path: c.Path, Severity: SeverityError, Message: err.Error()})
 			continue
 		}
-		for _, n := range slices.Sorted(maps.Keys(c.Sums)) {
+		for _, n := range c.Versions(recorded) {
 			checkSum(&r, c, n, recorded)
 		}
 	}
@@ -57,12 +55,12 @@ func (g frozenGate) Run(
 }
 
 func checkSum(r *GateReport, c frozen.Chain, n int, recorded map[int]frozen.Sum) {
-	sum := c.Sums[n]
+	sum, current := c.Sums[n]
 	old, ok := recorded[n]
-	if ok && old == sum {
+	if ok && current && old == sum {
 		return
 	}
-	if ok && n < c.Current && old.Schema == sum.Schema {
+	if ok && c.Moved(n, old) {
 		r.fail(Finding{
 			Path:     c.Package(n),
 			Severity: SeverityError,
