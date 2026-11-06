@@ -89,7 +89,10 @@ export const sampledTopicZ = z.object({
   records: z.array(sampledRecordZ),
   /** shapes group the records read by the set of fields that their values hold. */
   shapes: z.array(json.shapeZ),
-  /** error says why the topic could not be read. Empty when it was read. */
+  /**
+   * error says why the sample could not read the topic, or all of the records that it
+   * asked for. Empty when it read them.
+   */
   error: z.string(),
 });
 

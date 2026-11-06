@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/errors"
 	xjson "github.com/synnaxlabs/x/json"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -330,6 +331,43 @@ var _ = Describe("Discover", func() {
 			Expect(samples[0].Shapes).To(HaveLen(1))
 			Expect(samples[0].Shapes[0].Count).To(Equal(18))
 		})
+
+		It("Should report a topic whose records do not arrive in time",
+			func(ctx SpecContext) {
+				topic := uniqueTopic()
+				slow := MustSucceed(kfake.NewCluster(
+					kfake.NumBrokers(1),
+					kfake.SeedTopics(1, topic),
+				))
+				DeferCleanup(slow.Close)
+				produceJSON(
+					ctx,
+					newKafkaClient(kgo.SeedBrokers(slow.ListenAddrs()...)),
+					topic,
+					"",
+					map[string]int{"v": 1},
+				)
+				slow.ControlKey(
+					int16(kmsg.Fetch),
+					func(kmsg.Request) (kmsg.Response, error, bool) {
+						slow.KeepControl()
+						return nil, errors.New("fetch cut"), true
+					},
+				)
+				var res struct {
+					Topics []sampledTopic `json:"topics"`
+				}
+				dev := createDevice(ctx, kafka.Properties{Brokers: slow.ListenAddrs()})
+				stat := command(ctx, "sample", map[string]any{
+					"device": dev.Key,
+					"topics": []string{topic},
+				}, &res)
+				Expect(stat.Variant).To(Equal(status.VariantSuccess))
+				Expect(res.Topics[0].Records).To(BeEmpty())
+				Expect(res.Topics[0].Error).
+					To(Equal("The cluster did not send every record within 3s."))
+			},
+		)
 
 		It("Should report a topic that does not exist and read the rest",
 			func(ctx SpecContext) {

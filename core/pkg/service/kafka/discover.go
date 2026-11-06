@@ -307,7 +307,8 @@ type sampledTopic struct {
 	// Shapes are the shapes of the JSON values of the records. The source of a shape is
 	// a record key.
 	Shapes []xjson.Shape `json:"shapes" msgpack:"shapes"`
-	// Error says why the topic could not be read. Empty when it was read.
+	// Error says why the sample could not read the topic, or all of the records that it
+	// asked for. Empty when it read them.
 	Error string `json:"error" msgpack:"error"`
 }
 
@@ -524,7 +525,8 @@ type fetchRange struct {
 // fetch reads the records of ranges with one consumer, with no consumer group and no
 // commits, and calls visit with each record in offset order. It skips control records.
 // It returns the first error of each topic, once it has read every range or
-// fetchTimeout passes.
+// fetchTimeout passes. A topic with a range that it did not read in that time gets an
+// error.
 func fetch(
 	ctx context.Context,
 	props Properties,
@@ -564,7 +566,7 @@ func fetch(
 		return nil, err
 	}
 	defer cl.Close()
-	ctx, cancel := context.WithTimeout(ctx, fetchTimeout)
+	fetchCtx, cancel := context.WithTimeout(ctx, fetchTimeout)
 	defer cancel()
 	done := func(topic string, partition int32) {
 		if _, ok := ends[topic][partition]; ok {
@@ -572,8 +574,8 @@ func fetch(
 			left--
 		}
 	}
-	for left > 0 && ctx.Err() == nil {
-		fetches := cl.PollFetches(ctx)
+	for left > 0 && fetchCtx.Err() == nil {
+		fetches := cl.PollFetches(fetchCtx)
 		fetches.EachError(func(topic string, partition int32, err error) {
 			if errors.Is(err, context.Canceled) ||
 				errors.Is(err, context.DeadlineExceeded) {
@@ -596,6 +598,17 @@ func fetch(
 				done(r.Topic, r.Partition)
 			}
 		})
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	for topic, partitions := range ends {
+		if len(partitions) > 0 && errs[topic] == nil {
+			errs[topic] = errors.Newf(
+				"The cluster did not send every record within %s.",
+				fetchTimeout,
+			)
+		}
 	}
 	return errs, nil
 }
