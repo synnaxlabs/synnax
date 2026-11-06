@@ -92,7 +92,9 @@ export const { useResult: useResultForUser } = Flux.createRetrieve<
     watchRoles();
     const detachParents = client.ontology.parents.onChange(parentsQuery(key), () => {
       watchRoles();
-      void retrieveForUser(client, key).then(handler);
+      retrieveForUser(client, key).then(handler, (error: unknown) =>
+        console.error(`failed to retrieve the roles of user ${key}`, error),
+      );
     });
     return () => {
       detachParents();
