@@ -403,6 +403,7 @@ export abstract class Retriever<
    * @throws {NotFoundError} if a single-record query matches nothing, the record was
    * deleted, or a key in a bare key list has no record.
    * @throws {MultipleFoundError} if a single-record query matches more than one record.
+   * @throws {zod.ParseError} if no schema of the domain accepts the params.
    */
   retrieve(
     params: Shortcut | SingleInput | OneInput<Z>,
