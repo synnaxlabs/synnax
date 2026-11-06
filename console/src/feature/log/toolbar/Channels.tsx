@@ -127,7 +127,11 @@ const ChannelRow = ({
       <Flex.Box x align="center">
         {showNumeric && (
           <>
-            <Notation.Select value={notation} onChange={handleNotationChange} />
+            <Notation.Select
+              value={notation}
+              onChange={handleNotationChange}
+              disabled={disabled}
+            />
             <Input.Numeric
               value={precision}
               onChange={handlePrecisionChange}
@@ -156,12 +160,14 @@ const ChannelRow = ({
             <Telem.SelectTimestampFormat
               value={timestamp.format}
               onChange={handleFormatChange}
+              disabled={disabled}
               triggerProps={SHADOW_TRIGGER_PROPS}
             />
             <Telem.SelectTimeZone
               className={CSS.BE("log", "channel-tz")}
               value={timestamp.tz}
               onChange={handleTzChange}
+              disabled={disabled}
             />
           </>
         )}
@@ -169,6 +175,7 @@ const ChannelRow = ({
           value={hasCustomColor ? config.color : undefined}
           fallback={defaultColor}
           onChange={handleColorChange}
+          disabled={disabled}
           size="small"
         />
       </Flex.Box>
@@ -177,7 +184,7 @@ const ChannelRow = ({
 };
 
 const SELECT_CHANNEL_INITIAL_QUERY: Channel.ListQuery = {
-  internal: IS_DEV ? undefined : false,
+  where: { internal: IS_DEV ? undefined : { eq: false } },
 };
 
 const ADD_CHANNEL_TRIGGER_PROPS: Select.SingleTriggerProps = {

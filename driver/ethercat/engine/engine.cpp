@@ -341,7 +341,7 @@ x::errors::Error Engine::start_locked(const x::telem::Rate rate) {
             if (!err) break;
             this->master->deactivate();
         }
-        if (!retry.wait(err)) {
+        if (err.matches(errors::STATE_CHANGE_REFUSED) || !retry.wait(err)) {
             retry.stop();
             return err;
         }

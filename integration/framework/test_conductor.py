@@ -26,8 +26,9 @@ from types import FrameType
 from pydantic import JsonValue
 
 import synnax as sy
-from framework import failure_report, run_dir, server_log
+from framework import cores, failure_report, resources, run_dir, server_log
 from framework.config_client import ConfigClient, Sequence, TestDefinition
+from framework.cores import Core
 from framework.execution_client import ExecutionClient
 from framework.log_client import LogClient, LogMode, SynnaxChannelSink
 from framework.models import DEFAULT_OPTIONS, RunOptions, SynnaxConnection, Test
@@ -61,9 +62,16 @@ class _TestConductor:
         server_log_path: Path,
         name: str | None = None,
         synnax_connection: SynnaxConnection | None = None,
+        cores_extra: int = 0,
+        core_binary: Path | None = None,
+        browsers: int | None = None,
     ) -> None:
         """
         Initialize test conductor with connection parameters.
+
+        :param cores_extra: Cores to start beside the Core under test, from
+            core_binary.
+        :param browsers: Most Console tests that run at once. None means no limit.
         """
 
         # Generate or validate name
@@ -134,11 +142,35 @@ class _TestConductor:
             get_should_stop=lambda: self.should_stop,
         )
 
+        self.report_client = ReportClient(
+            tests=self.tests,
+            tests_lock=self.tests_lock,
+            test_definitions=self.test_definitions,
+            active_tests=self.active_tests,
+            active_tests_lock=self.active_tests_lock,
+            log=self.log,
+        )
+
+        # main stops these Cores only once this returns, so no step after them can
+        # fail.
+        self.core_processes: list[cores.Process] = []
+        if cores_extra > 0:
+            if core_binary is None:
+                raise ValueError("--cores above 1 needs --core-binary")
+            self.log(f"Starting {cores_extra} more Cores from {core_binary}")
+            self.core_processes = cores.start(
+                binary=core_binary,
+                first=self.synnax_connection,
+                count=cores_extra,
+                log_dir=self.run_dir / "cores",
+            )
+        first = Core(connection=self.synnax_connection, log_path=server_log_path)
+
         self.execution_client = ExecutionClient(
             config_client=self.config_client,
-            synnax_connection=self.synnax_connection,
+            cores=[first, *(p.core for p in self.core_processes)],
+            resources=resources.Resources({resources.BROWSER: browsers}),
             options=options,
-            server_log_path=server_log_path,
             run_dir=self.run_dir,
             client=self.client,
             conductor_range=self.range,
@@ -149,15 +181,6 @@ class _TestConductor:
             log=self.log,
             on_status_change=self._notify_status_change,
             on_test_ran=self.telemetry_client.increment_tests_ran,
-        )
-
-        self.report_client = ReportClient(
-            tests=self.tests,
-            tests_lock=self.tests_lock,
-            test_definitions=self.test_definitions,
-            active_tests=self.active_tests,
-            active_tests_lock=self.active_tests_lock,
-            log=self.log,
         )
 
         signal.signal(signal.SIGINT, self._signal_handler)
@@ -211,8 +234,14 @@ class _TestConductor:
         self.execution_client.stop()
         self.wait_for_completion()
 
+        self.stop_cores()
         self.log("Shutdown complete\n")
         self.log_client.close()
+
+    def stop_cores(self) -> None:
+        """Stops the Cores the conductor started."""
+        cores.stop(self.core_processes)
+        self.core_processes = []
 
     def add_status_callback(self, callback: Callable[[Test], None]) -> None:
         """Add a callback function to be called when test status changes."""
@@ -290,6 +319,7 @@ class _TestConductor:
                 "started_at": _iso(t.started_at),
                 "ended_at": _iso(t.ended_at),
                 "duration_s": _duration(t.started_at, t.ended_at),
+                "core": t.core,
                 "error_message": t.error_message,
                 "skip_reason": t.skip_reason,
                 "bundle_dir": (
@@ -400,6 +430,16 @@ def _monitor_test_execution(conductor: _TestConductor) -> None:
         sy.sleep(1)
 
 
+def _positive(value: str) -> int:
+    try:
+        number = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"{value!r} is not a number") from None
+    if number < 1:
+        raise argparse.ArgumentTypeError(f"{value} is not at least 1")
+    return number
+
+
 def main() -> None:
     """Main entry point for the test conductor."""
 
@@ -484,6 +524,25 @@ All matching is case-insensitive substring.
         action="store_true",
         help=("Stream test case logs as they happen instead of only after a failure"),
     )
+    parser.add_argument(
+        "--cores",
+        type=_positive,
+        default=1,
+        help=(
+            "Run sequences on this many Cores at once. The conductor starts the Cores "
+            "past the first on the ports after --port, from --core-binary."
+        ),
+    )
+    parser.add_argument(
+        "--core-binary",
+        type=Path,
+        help="Core binary that starts the Cores that --cores adds",
+    )
+    parser.add_argument(
+        "--browsers",
+        type=_positive,
+        help="Most Console tests that run at once (default: no limit)",
+    )
 
     args = parser.parse_args()
 
@@ -513,6 +572,9 @@ All matching is case-insensitive substring.
         server_log_path=server_log_path,
         name=args.name,
         synnax_connection=connection,
+        cores_extra=args.cores - 1,
+        core_binary=args.core_binary,
+        browsers=args.browsers,
     )
 
     try:
@@ -555,6 +617,7 @@ All matching is case-insensitive substring.
             except Exception as e:
                 conductor.log(f"Warning: Failed to finalize conductor range: {e}")
 
+        conductor.stop_cores()
         conductor.finalize_bundle()
 
         conductor.log("Fin.")

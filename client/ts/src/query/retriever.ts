@@ -33,13 +33,20 @@ const soleMember = (value: Record<string, unknown>): [string, unknown] | null =>
   return set.length === 1 ? set[0] : null;
 };
 
-/** @returns the keys of a filter that only matches keys in a list, or null. */
-const whereKeys = (where: unknown): unknown[] | null => {
+/** @returns the list of a filter that only matches field against a list, or null. */
+const whereIn = (where: unknown, field: string): unknown[] | null => {
   if (!isObject(where)) return null;
   const line = soleMember(where);
-  if (line?.[0] !== "key" || !isObject(line[1])) return null;
+  if (line?.[0] !== field || !isObject(line[1])) return null;
   const op = soleMember(line[1]);
   return op?.[0] === "in" && Array.isArray(op[1]) ? op[1] : null;
+};
+
+/** @returns the keys of a request whose only field is a `where` on keys, or null. */
+const whereKeys = (query: unknown): unknown[] | null => {
+  if (!isObject(query)) return null;
+  const field = soleMember(query);
+  return field?.[0] === "where" ? whereIn(field[1], "key") : null;
 };
 
 /**
@@ -49,30 +56,41 @@ const whereKeys = (where: unknown): unknown[] | null => {
  * request fetch. Returns null for any other request.
  */
 const keysOnly = (query: unknown): unknown[] | null => {
-  if (!isObject(query)) return null;
+  const keys = whereKeys(query);
+  if (keys != null || !isObject(query)) return keys;
   const field = soleMember(query);
-  if (field?.[0] === "where") return whereKeys(field[1]);
   if (field?.[0] !== "keys" || !Array.isArray(field[1]) || field[1].length === 0)
     return null;
   return field[1];
 };
 
 /**
- * The params a request schema accepts. A recursive `where` schema infers no input type,
- * so `where` takes its output type, which the schema also accepts.
+ * The query objects a request schema accepts. It leaves out a bare key list, which each
+ * overload takes on its own, and a plain `key` value, which addresses one record. A
+ * recursive `where` schema infers no input type, so `where` takes its output type,
+ * which the schema also accepts.
  */
-type RequestInput<Z extends z.ZodType> =
+export type RequestInput<Z extends z.ZodType> =
   z.input<Z> extends infer I
-    ? I extends unknown
-      ? "where" extends keyof I
+    ? I extends readonly unknown[]
+      ? never
+      : "where" extends keyof I
         ? Omit<I, "where"> & Pick<Extract<z.output<Z>, { where?: unknown }>, "where">
-        : I
-      : never
+        : "key" extends keyof I
+          ? Omit<I, "key"> & { key?: Exclude<I["key"], record.Key> }
+          : I
     : never;
 
 /** True for params that are a bare record key rather than a query object. */
 const isBareKey = (params: unknown): params is record.Key =>
   typeof params === "string" || typeof params === "number";
+
+/**
+ * True for params that address one record: a bare key, or an object whose `key` is a
+ * plain value. A list or an operator on `key` is a filter.
+ */
+const addressesKey = (params: unknown): boolean =>
+  isBareKey(params) || (isObject(params) && isBareKey(params.key));
 
 /**
  * Request schema arm reading a bare key list as `{ keys }`. Union it onto a domain's
@@ -139,8 +157,11 @@ export type RetrieverParams<
      * declared mode.
      */
     fetch: (query: z.output<Z>, options?: FetchOptions) => Promise<V[]>;
-    /** Rule 2: whether a record satisfies the query. Pure; no network. */
-    matches?: (record: V, query: z.output<Z>) => boolean;
+    /**
+     * Rule 2: whether a record satisfies the query. Pure; no network. Null when the
+     * client cannot decide the record, which refetches the query.
+     */
+    matches?: (record: V, query: z.output<Z>) => boolean | null;
     /** Overrides {@link DEFAULT_SERVER_FIELDS} for this request shape. */
     serverFields?: readonly string[];
     /** Rule 3: whether only the server can evaluate the query, such as a regex. */
@@ -189,10 +210,11 @@ export abstract class Retriever<
   Z extends z.ZodType<Params>,
   K extends record.Key,
   V extends Keyed<K>,
-  D extends Data = V,
+  D extends Keyed<K> = V,
   SingleInput = { key: K },
   SingleQuery extends Params = K,
 > {
+  private readonly name: string;
   private readonly singleSpace: Retrieves<Params, D | D[]>;
   private readonly requestSpace: Retrieves<Params, D | D[]>;
   private readonly trySingle: (params: unknown) => { query: SingleQuery } | null;
@@ -210,6 +232,7 @@ export abstract class Retriever<
       compose = (record: V) => record as unknown as D,
       single,
     } = params;
+    this.name = name;
     const {
       schema,
       fetch,
@@ -240,12 +263,12 @@ export abstract class Retriever<
     if (single != null) {
       this.singleSpace = single.space as Retrieves<Params, D | D[]>;
       const singleSchema = single.schema;
-      // Params carrying `key` that fail the single schema are malformed single queries;
-      // falling through would silently fetch every record.
+      // Params addressing a key that fail the single schema are malformed single
+      // queries; falling through would silently fetch every record.
       this.trySingle = (p) => {
         const res = singleSchema.safeParse(p);
         if (res.success) return { query: res.data };
-        if (isBareKey(p) || (typeof p === "object" && p !== null && "key" in p)) {
+        if (addressesKey(p)) {
           const cause = new zod.ParseError({
             issues: res.error.issues,
             input: p,
@@ -278,9 +301,12 @@ export abstract class Retriever<
       }) as Retrieves<Params, D | D[]>;
       this.trySingle = (p) => {
         if (isBareKey(p)) return { query: p as Params as SingleQuery };
-        return typeof p === "object" && p !== null && "key" in p
-          ? { query: (p as { key: K }).key as Params as SingleQuery }
-          : null;
+        if (!isObject(p) || !isBareKey(p.key)) return null;
+        if (soleMember(p)?.[0] === "key")
+          return { query: p.key as Params as SingleQuery };
+        throw new ValidationError(
+          `${name} params address a single key but hold other fields.`,
+        );
       };
     }
   }
@@ -309,11 +335,13 @@ export abstract class Retriever<
    * Reads the record the params address, or every record matching them. Serves the
    * cache when the answer is fresh, fetching otherwise. A bare key is shorthand for `{
    * key }`; a bare key list is accepted by domains whose request schema unions in
-   * {@link keysRequestZ} or {@link keyListZ}.
-   * @throws {NotFoundError} if a single-record query matches nothing or the record was
-   * deleted.
-   * @throws {ValidationError} if params contain `key` (or are a bare key) but fail the
-   * single-query schema.
+   * {@link keysRequestZ} or {@link keyListZ}. A bare key list read through
+   * {@link keysRequestZ} returns each record once, in the order its key first appears.
+   * A filter on keys returns the records that exist.
+   * @throws {NotFoundError} if a single-record query matches nothing, the record was
+   * deleted, or a key in a bare key list has no record.
+   * @throws {ValidationError} if params address a single key (a bare key, or a plain
+   * `key` value) but fail the single-query schema.
    */
   retrieve(params: K | SingleInput, options?: FetchOptions): Promise<D>;
   retrieve(params: K[] | RequestInput<Z>, options?: FetchOptions): Promise<D[]>;
@@ -322,7 +350,20 @@ export abstract class Retriever<
     options?: FetchOptions,
   ): Promise<D | D[]> {
     const [space, query] = this.route(params);
-    return await space.retrieve(query, options);
+    const res = await space.retrieve(query, options);
+    const keys = Array.isArray(params) ? (whereKeys(query) as K[] | null) : null;
+    return keys == null ? res : this.inKeyOrder(keys, res as D[]);
+  }
+
+  private inKeyOrder(keys: K[], records: D[]): D[] {
+    const byKey = new Map<K, D>(records.map((r) => [r.key, r]));
+    const unique = [...new Set(keys)];
+    const missing = unique.filter((k) => !byKey.has(k));
+    if (missing.length === 1)
+      throw new NotFoundError(`${this.name} with key ${missing[0]} not found`);
+    if (missing.length > 1)
+      throw new NotFoundError(`${this.name} with keys ${missing.join(", ")} not found`);
+    return unique.map((k) => byKey.get(k) as D);
   }
 
   /**
