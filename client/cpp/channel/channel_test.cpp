@@ -161,15 +161,15 @@ TEST(TestChannel, testRetrieveByNameNotFound) {
     );
 }
 
-/// @brief it should reject a name pattern that matches more than one channel.
-TEST(TestChannel, testRetrieveByNameMultipleFound) {
+/// @brief it should read a name pattern as an exact name and find no channel.
+TEST(TestChannel, testRetrieveByNamePattern) {
     const auto client = new_test_client();
-    const auto prefix = make_unique_channel_name("retrieve_by_name_multiple");
+    const auto prefix = make_unique_channel_name("retrieve_by_name_pattern");
     ASSERT_NIL_P(client.channels.create(prefix + "_a", x::telem::FLOAT64_T, true));
     ASSERT_NIL_P(client.channels.create(prefix + "_b", x::telem::FLOAT64_T, true));
     ASSERT_OCCURRED_AS_P(
         client.channels.retrieve(prefix + "_.*"),
-        x::errors::MULTIPLE_RESULTS
+        x::errors::NOT_FOUND
     );
 }
 
