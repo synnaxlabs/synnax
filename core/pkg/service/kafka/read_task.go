@@ -90,7 +90,7 @@ type readTask struct {
 	// status is the authority on this instance's current status.
 	status *driver.StatusHandler
 	groups map[string]*readGroup
-	// writer writes every group's channels, nil while stopped.
+	// writer writes every group's channels, nil once the consumer exits.
 	writer *framer.Writer
 	// client is the consumer, nil while stopped.
 	client *kgo.Client
@@ -366,7 +366,12 @@ func (t *readTask) start(ctx context.Context, cmdKey string) error {
 	}
 	t.setStatus(ctx, cmdKey, status.VariantSuccess, true, "Started task", "")
 	// The consumer writes statuses too, so it starts after this one to not be replaced.
-	t.sCtx.Go(t.consume, signal.RecoverWithErrOnPanic(), signal.CancelOnFail())
+	t.sCtx.Go(
+		t.consume,
+		signal.RecoverWithErrOnPanic(),
+		signal.CancelOnFail(),
+		signal.DeferErr(t.closeWriter),
+	)
 	return nil
 }
 
@@ -470,7 +475,7 @@ func (t *readTask) open(ctx context.Context) (err error) {
 		signal.WithInstrumentation(t.factoryCfg.Instrumentation),
 	)
 	// The writer outlives the start command and sCtx: a stop cancels sCtx, and the
-	// consumer must finish its write.
+	// consumer must finish its write. The consumer closes it on exit.
 	if t.writer, err = t.openWriter(context.Background()); err != nil {
 		cancel()
 		return err
@@ -515,7 +520,15 @@ func (t *readTask) checkCommitted(ctx context.Context, cl *kgo.Client) error {
 	return nil
 }
 
-// closeClient commits the marked offsets, closes the consumer, and closes the writers.
+// closeWriter releases the task's channels. It runs as the consumer exits, for any
+// reason, once no write is in progress.
+func (t *readTask) closeWriter() error {
+	err := t.writer.Close()
+	t.writer = nil
+	return err
+}
+
+// closeClient commits the marked offsets and closes the consumer.
 func (t *readTask) closeClient() (err error) {
 	ctx, cancel := context.WithTimeout(
 		context.Background(), t.factoryCfg.PingTimeout.Duration(),
@@ -523,8 +536,6 @@ func (t *readTask) closeClient() (err error) {
 	defer cancel()
 	err = t.client.CommitMarkedOffsets(ctx)
 	t.client.Close()
-	err = errors.Join(err, t.writer.Close())
-	t.writer = nil
 	return err
 }
 

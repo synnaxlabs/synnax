@@ -350,6 +350,7 @@ var _ = Describe("Read task", func() {
 				writing = make(chan struct{})
 				resume  = make(chan struct{})
 				hold    = sync.OnceFunc(func() {
+					GinkgoHelper()
 					defer GinkgoRecover()
 					close(writing)
 					Eventually(resume).WithTimeout(40 * time.Second).Should(BeClosed())
@@ -548,6 +549,36 @@ var _ = Describe("Read task", func() {
 			Expect(stat.Details.Running).To(BeTrue())
 			produceJSON(ctx, producer, topic, "", map[string]any{"ts": 30e9, "v": 3.0})
 			Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{3}))
+		},
+		Entry("failed fetch", failFetch),
+		Entry("failed write", failWrite),
+	)
+
+	DescribeTable("Should release its channels when the consumer fails",
+		func(ctx SpecContext, fail func(context.Context, string)) {
+			index, data := createIndexed(ctx, telem.Float64T)
+			dev := createDevice(ctx, clusterProperties())
+			topic := newTopic()
+			dt, t := configure(ctx, kafka.ReadConfig{
+				Device:  dev.Key,
+				Topic:   topic,
+				Records: single(stampedFields(index, data)),
+			})
+			start(ctx, dt, t)
+			fail(ctx, topic)
+			Eventually(func() error {
+				w, err := framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:              channel.Keys{index.Key(), data.Key()},
+					Start:             telem.Now(),
+					ErrOnUnauthorized: new(true),
+				})
+				if err != nil {
+					return err
+				}
+				return w.Close()
+			}).WithTimeout(15 * time.Second).Should(Succeed())
+			dropRecords(ctx, topic)
+			start(ctx, dt, t)
 		},
 		Entry("failed fetch", failFetch),
 		Entry("failed write", failWrite),
