@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/encoding/json"
-	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	xhttp "github.com/synnaxlabs/x/http"
 	"github.com/synnaxlabs/x/override"
@@ -67,7 +66,7 @@ func NewUnaryClient[RQ, RS freighter.Payload](
 ) (freighter.UnaryClient[RQ, RS], error) {
 	cfg, err := config.New(UnaryClientConfig{
 		Encoder:  json.Codec,
-		Decoders: []xhttp.Decoder{json.Codec, msgpack.Codec},
+		Decoders: []xhttp.Decoder{json.Codec},
 	}, configs...)
 	if err != nil {
 		return nil, err

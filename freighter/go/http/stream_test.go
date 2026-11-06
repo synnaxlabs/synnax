@@ -73,9 +73,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 			func() {
 				report := server.Report()
 				Expect(report["protocol"]).To(Equal("websocket"))
-				Expect(report["encodings"]).To(Equal([]string{
-					"application/json", "application/msgpack",
-				}))
+				Expect(report["encodings"]).To(Equal([]string{"application/json"}))
 			},
 		)
 	})
@@ -86,6 +84,23 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 			func(ctx context.Context) {
 				headers := http.Header{}
 				headers.Set(fiber.HeaderContentType, "application/x-no-such-codec")
+				_, res, err := (&ws.Dialer{}).DialContext(
+					ctx,
+					"ws://"+addr.String()+"/",
+					headers,
+				)
+				Expect(err).To(MatchError(ws.ErrBadHandshake))
+				Expect(res).ToNot(BeNil())
+				DeferCleanup(func() { Expect(res.Body.Close()).To(Succeed()) })
+				Expect(res.StatusCode).To(Equal(http.StatusUnsupportedMediaType))
+			},
+		)
+
+		It(
+			"should return 415 Unsupported Media Type when the upgrade request advertises msgpack",
+			func(ctx context.Context) {
+				headers := http.Header{}
+				headers.Set(fiber.HeaderContentType, "application/msgpack")
 				_, res, err := (&ws.Dialer{}).DialContext(
 					ctx,
 					"ws://"+addr.String()+"/",

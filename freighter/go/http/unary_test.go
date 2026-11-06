@@ -37,6 +37,7 @@ var (
 	unaryServer                 freighter.UnaryServer[testutil.Request, testutil.Response]
 	unaryServerJSONOnly         freighter.UnaryServer[testutil.Request, testutil.Response]
 	unaryServerMsgpackOnly      freighter.UnaryServer[testutil.Request, testutil.Response]
+	unaryServerTwoEncoders      freighter.UnaryServer[testutil.Request, testutil.Response]
 	unaryServerFailingEncoder   freighter.UnaryServer[testutil.Request, testutil.Response]
 	unaryServerStreaming        freighter.UnaryServer[testutil.Request, testutil.Response]
 	unaryServerClosing          freighter.UnaryServer[testutil.Request, *closingResponse]
@@ -195,6 +196,10 @@ var _ = BeforeSuite(func() {
 		fhttp.WithRequestDecoders(msgpack.Codec),
 		fhttp.WithResponseEncoders(msgpack.Codec),
 	)
+	unaryServerTwoEncoders = router.NewUnaryServer[testutil.Request, testutil.Response](
+		"/two-encoders",
+		fhttp.WithResponseEncoders(msgpack.Codec, json.Codec),
+	)
 	unaryServerFailingEncoder = router.NewUnaryServer[testutil.Request, testutil.Response](
 		"/encode-failure",
 		fhttp.WithRequestDecoders(json.Codec),
@@ -296,65 +301,63 @@ var _ = Describe("Unary", func() {
 		}
 
 		It(
-			"should decode JSON request and encode msgpack response when Accept asks for msgpack",
+			"should return 406 Not Acceptable when Accept asks only for msgpack",
 			func(ctx context.Context) {
 				bindEcho()
 				req := testutil.Request{ID: 7, Message: "hello"}
 				body := MustSucceed(json.Codec.Encode(ctx, req))
-				httpRes, respBody := roundTrip(
+				httpRes, _ := roundTrip(
 					ctx,
 					"application/json",
 					"application/msgpack",
 					body,
 				)
-				Expect(httpRes.StatusCode).To(Equal(http.StatusOK))
-				Expect(
-					httpRes.Header.Get(fiber.HeaderContentType),
-				).To(Equal("application/msgpack"))
-				var got testutil.Response
-				Expect(msgpack.Codec.Decode(ctx, respBody, &got)).To(Succeed())
-				Expect(got).To(Equal(testutil.Response(req)))
+				Expect(httpRes.StatusCode).To(Equal(http.StatusNotAcceptable))
 			},
 		)
 
 		It(
-			"should decode msgpack request and encode JSON response when Accept asks for JSON",
+			"should return 415 Unsupported Media Type for a msgpack request",
 			func(ctx context.Context) {
 				bindEcho()
 				req := testutil.Request{ID: 8, Message: "world"}
 				body := MustSucceed(msgpack.Codec.Encode(ctx, req))
-				httpRes, respBody := roundTrip(
+				httpRes, _ := roundTrip(
 					ctx,
 					"application/msgpack",
 					"application/json",
 					body,
 				)
-				Expect(httpRes.StatusCode).To(Equal(http.StatusOK))
-				Expect(
-					httpRes.Header.Get(fiber.HeaderContentType),
-				).To(Equal("application/json"))
-				var got testutil.Response
-				Expect(json.Codec.Decode(ctx, respBody, &got)).To(Succeed())
-				Expect(got).To(Equal(testutil.Response(req)))
+				Expect(httpRes.StatusCode).To(Equal(http.StatusUnsupportedMediaType))
 			},
 		)
 
 		It(
 			"should honor q-values and pick the highest-quality offer",
 			func(ctx context.Context) {
-				bindEcho()
-				req := testutil.Request{ID: 1, Message: "q"}
-				body := MustSucceed(json.Codec.Encode(ctx, req))
-				httpRes, respBody := roundTrip(
-					ctx, "application/json",
-					"application/json, application/msgpack;q=0.5",
-					body,
+				unaryServerTwoEncoders.BindHandler(
+					func(_ context.Context, req testutil.Request) (testutil.Response, error) {
+						return testutil.Response(req), nil
+					},
 				)
+				req := testutil.Request{ID: 1, Message: "q"}
+				httpReq := MustSucceed(http.NewRequestWithContext(
+					ctx, http.MethodPost, "http://"+unaryAddr.String()+"/two-encoders",
+					bytes.NewReader(MustSucceed(json.Codec.Encode(ctx, req))),
+				))
+				httpReq.Header.Set(fiber.HeaderContentType, "application/json")
+				httpReq.Header.Set(
+					fiber.HeaderAccept,
+					"application/json, application/msgpack;q=0.5",
+				)
+				httpRes := MustSucceed((&http.Client{}).Do(httpReq))
+				DeferCleanup(func() { Expect(httpRes.Body.Close()).To(Succeed()) })
 				Expect(httpRes.StatusCode).To(Equal(http.StatusOK))
 				Expect(
 					httpRes.Header.Get(fiber.HeaderContentType),
 				).To(Equal("application/json"))
 				var got testutil.Response
+				respBody := MustSucceed(io.ReadAll(httpRes.Body))
 				Expect(json.Codec.Decode(ctx, respBody, &got)).To(Succeed())
 				Expect(got).To(Equal(testutil.Response(req)))
 			},
@@ -365,8 +368,8 @@ var _ = Describe("Unary", func() {
 			func(ctx context.Context) {
 				bindEcho()
 				req := testutil.Request{ID: 2, Message: "no-accept"}
-				body := MustSucceed(msgpack.Codec.Encode(ctx, req))
-				httpRes, respBody := roundTrip(ctx, "application/msgpack", "", body)
+				body := MustSucceed(json.Codec.Encode(ctx, req))
+				httpRes, respBody := roundTrip(ctx, "application/json", "", body)
 				Expect(httpRes.StatusCode).To(Equal(http.StatusOK))
 				Expect(
 					httpRes.Header.Get(fiber.HeaderContentType),
@@ -415,10 +418,10 @@ var _ = Describe("Unary", func() {
 			func(ctx context.Context) {
 				bindError()
 				req := testutil.Request{ID: 5, Message: "err"}
-				body := MustSucceed(msgpack.Codec.Encode(ctx, req))
+				body := MustSucceed(json.Codec.Encode(ctx, req))
 				httpRes, respBody := roundTrip(
 					ctx,
-					"application/msgpack",
+					"application/json",
 					"application/json",
 					body,
 				)
@@ -503,41 +506,6 @@ var _ = Describe("Unary", func() {
 				Expect(
 					string(respBody),
 				).To(ContainSubstring(errFailingEncoderEncodeFail.Error()))
-			},
-		)
-
-		It(
-			"should encode handler errors with the default encoder the request accepts",
-			func(ctx context.Context) {
-				unaryServerFailingEncoder.BindHandler(
-					func(_ context.Context, _ testutil.Request) (testutil.Response, error) {
-						return testutil.Response{}, testutil.ErrCustom
-					},
-				)
-				body := MustSucceed(
-					json.Codec.Encode(ctx, testutil.Request{ID: 11, Message: "err"}),
-				)
-				httpReq := MustSucceed(http.NewRequestWithContext(
-					ctx,
-					http.MethodPost,
-					"http://"+unaryAddr.String()+"/encode-failure",
-					bytes.NewReader(body),
-				))
-				httpReq.Header.Set(fiber.HeaderContentType, "application/json")
-				httpReq.Header.Set(
-					fiber.HeaderAccept,
-					"application/x-fail, application/msgpack",
-				)
-				httpRes := MustSucceed((&http.Client{}).Do(httpReq))
-				DeferCleanup(func() { Expect(httpRes.Body.Close()).To(Succeed()) })
-				Expect(httpRes.StatusCode).To(Equal(http.StatusBadRequest))
-				Expect(
-					httpRes.Header.Get(fiber.HeaderContentType),
-				).To(Equal("application/msgpack"))
-				var pld errors.Payload
-				respBody := MustSucceed(io.ReadAll(httpRes.Body))
-				Expect(msgpack.Codec.Decode(ctx, respBody, &pld)).To(Succeed())
-				Expect(errors.Decode(ctx, pld)).To(MatchError(testutil.ErrCustom))
 			},
 		)
 
@@ -653,18 +621,18 @@ var _ = Describe("Unary", func() {
 		It(
 			"should restrict the request decoders to the codecs passed via WithRequestDecoders",
 			func(ctx context.Context) {
-				unaryServerJSONOnly.BindHandler(
+				unaryServerMsgpackOnly.BindHandler(
 					func(_ context.Context, req testutil.Request) (testutil.Response, error) {
 						return testutil.Response(req), nil
 					},
 				)
-				req := testutil.Request{ID: 1, Message: "json-only"}
+				req := testutil.Request{ID: 1, Message: "msgpack-only"}
 				httpReq := MustSucceed(http.NewRequestWithContext(
-					ctx, http.MethodPost, "http://"+unaryAddr.String()+"/json-only",
-					bytes.NewReader(MustSucceed(msgpack.Codec.Encode(ctx, req))),
+					ctx, http.MethodPost, "http://"+unaryAddr.String()+"/msgpack-only",
+					bytes.NewReader(MustSucceed(json.Codec.Encode(ctx, req))),
 				))
-				httpReq.Header.Set(fiber.HeaderContentType, "application/msgpack")
-				httpReq.Header.Set(fiber.HeaderAccept, "application/json")
+				httpReq.Header.Set(fiber.HeaderContentType, "application/json")
+				httpReq.Header.Set(fiber.HeaderAccept, "application/msgpack")
 				httpRes := MustSucceed((&http.Client{}).Do(httpReq))
 				DeferCleanup(func() { Expect(httpRes.Body.Close()).To(Succeed()) })
 				Expect(httpRes.StatusCode).To(Equal(http.StatusUnsupportedMediaType))
@@ -910,12 +878,12 @@ var _ = Describe("Unary", func() {
 			func() {
 				report := unaryServer.Report()
 				Expect(report["protocol"]).To(Equal("http"))
-				Expect(report["acceptedContentTypes"]).To(Equal([]string{
-					"application/json", "application/msgpack",
-				}))
-				Expect(report["emittedContentTypes"]).To(Equal([]string{
-					"application/json", "application/msgpack",
-				}))
+				Expect(
+					report["acceptedContentTypes"],
+				).To(Equal([]string{"application/json"}))
+				Expect(
+					report["emittedContentTypes"],
+				).To(Equal([]string{"application/json"}))
 			},
 		)
 
@@ -938,9 +906,9 @@ var _ = Describe("Unary", func() {
 				report := unaryClient.Report()
 				Expect(report["protocol"]).To(Equal("http"))
 				Expect(report["sentContentType"]).To(Equal("application/json"))
-				Expect(report["acceptedContentTypes"]).To(Equal([]string{
-					"application/json", "application/msgpack",
-				}))
+				Expect(
+					report["acceptedContentTypes"],
+				).To(Equal([]string{"application/json"}))
 			},
 		)
 
