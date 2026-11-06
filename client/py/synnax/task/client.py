@@ -26,10 +26,11 @@ from synnax.device import Client as DeviceClient
 from synnax.device import Device
 from synnax.exceptions import NotFoundError
 from synnax.framer import Client as FrameClient
+from synnax.framer import Frame
 from synnax.ontology.payload import ID
 from synnax.rack import Client as RackClient
 from synnax.rack import Rack
-from synnax.status import VARIANT_INFO, VARIANT_SUCCESS
+from synnax.status import VARIANT_INFO, VARIANT_LOADING, VARIANT_SUCCESS
 from synnax.task.types_gen import (
     Command,
     Key,
@@ -207,13 +208,14 @@ class Task:
         args: Mapping[str, object] | None = None,
         timeout: CrudeTimeSpan = 5,
     ) -> Status:
-        """Executes a command on the task and waits for the driver to acknowledge the
-        command with a state.
+        """Executes a command on the task and waits for the final status that the
+        driver sends for it. A loading status acknowledges the command, and the wait
+        goes on until a status that is not loading.
 
         :param type_: The type of command to execute.
         :param args: The arguments to pass to the command.
-        :param timeout: The maximum time to wait for the driver to acknowledge the
-        command before a timeout occurs.
+        :param timeout: How long to wait for the driver to acknowledge the command.
+        Once it does, the wait lasts until the final status.
         :raises TimeoutError: If the timeout passes before the driver acknowledges the
         command.
         :raises RuntimeError: If the rack of the task reports that its driver is down
@@ -224,11 +226,18 @@ class Task:
         with self._frame_client.open_streamer([_TASK_STATE_CHANNEL]) as s:
             key = self.execute_command(type_, args=args)
             timer = Timer()
+            acknowledged = False
             while True:
-                # The channel carries every status in the cluster, so the wait is a
-                # deadline: a frame answering some other command must not renew it.
+                # The channel carries every status in the cluster, so the wait for an
+                # acknowledgment is a deadline: a frame answering some other command
+                # must not renew it.
                 remaining = span - timer.elapsed()
-                frame = s.read(timeout=remaining) if remaining > TimeSpan.ZERO else None
+                if acknowledged:
+                    frame: Frame | None = s.read()
+                elif remaining > TimeSpan.ZERO:
+                    frame = s.read(timeout=remaining)
+                else:
+                    frame = None
                 if frame is None:
                     raise TimeoutError(
                         f"timed out waiting for driver to acknowledge {type_} command"
@@ -249,8 +258,11 @@ class Task:
                         # validation failures are expected and should be skipped.
                         _raise_if_rack_down(sample, rack_key)
                         continue
-                    if status.details is not None and status.details.cmd == key:
+                    if status.details is None or status.details.cmd != key:
+                        continue
+                    if status.variant != VARIANT_LOADING:
                         return status
+                    acknowledged = True
 
 
 def _raise_if_rack_down(sample: object, rack_key: str | None) -> None:
@@ -302,21 +314,27 @@ class StarterStopperMixin:
     _internal: Task
 
     def start(self, *, timeout: CrudeTimeSpan = 5) -> None:
-        """Starts the task and blocks until the Synnax cluster has acknowledged the
-        command or the specified timeout has elapsed.
+        """Starts the task and blocks until the driver sends the final status of the
+        start.
 
-        :raises TimeoutError: If the timeout is reached before the Synnax cluster
-            acknowledges the command.
+        :param timeout: How long to wait for the driver to acknowledge the start. Once
+            it does, the wait lasts until the final status.
+        :raises TimeoutError: If the timeout is reached before the driver acknowledges
+            the start.
+        :raises RuntimeError: If the driver of the task goes down during the wait.
         :raises Exception: If the Synnax cluster fails to start the task correctly.
         """
         self._internal.execute_command_sync("start", timeout=timeout)
 
     def stop(self, *, timeout: CrudeTimeSpan = 5) -> None:
-        """Stops the task and blocks until the Synnax cluster has acknowledged the
-        command or the specified timeout has elapsed.
+        """Stops the task and blocks until the driver sends the final status of the
+        stop.
 
-        :raises TimeoutError: If the timeout is reached before the Synnax cluster
-            acknowledges the command.
+        :param timeout: How long to wait for the driver to acknowledge the stop. Once
+            it does, the wait lasts until the final status.
+        :raises TimeoutError: If the timeout is reached before the driver acknowledges
+            the stop.
+        :raises RuntimeError: If the driver of the task goes down during the wait.
         :raises Exception: If the Synnax cluster fails to stop the task correctly.
         """
         self._internal.execute_command_sync("stop", timeout=timeout)
