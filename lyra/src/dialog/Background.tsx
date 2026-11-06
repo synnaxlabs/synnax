@@ -18,6 +18,12 @@ export interface BackgroundProps extends Flex.BoxProps {
 
 export const BACKGROUND_CLASS = CSS.BE("dialog", "bg");
 
+/** Whether the element sits in the modal on top, the last one opened. */
+export const inTopModal = (el: Element): boolean => {
+  const backgrounds = document.getElementsByClassName(BACKGROUND_CLASS);
+  return backgrounds[backgrounds.length - 1]?.contains(el) === true;
+};
+
 /** The backdrop behind a modal {@link Dialog}. It closes the dialog when clicked. */
 export const Background = ({
   children,

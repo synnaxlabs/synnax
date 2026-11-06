@@ -1,0 +1,127 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# How Sedosaur reviews pull requests. A review reads this file, `prompt.md`, and the
+# rules from the base branch, so a pull request cannot change its own review.
+
+model = "claude-opus-5-5"
+effort = "high"
+# The tools the reviewer can use. The review runs in Claude Code's restricted mode, so a
+# tool that runs code is off unless this list names it.
+tools = ["Read", "Grep", "Glob"]
+# Git globs of files the review leaves out of the diff.
+excluded = ["**/pnpm-lock.yaml", "**/uv.lock", "**/go.sum", "**/MODULE.bazel.lock"]
+# The diff is cut at a file boundary past this many characters. The reviewer reads the
+# files it leaves out.
+diff_chars = 300_000
+
+# The highest score a review can give while it has a finding of the severity.
+[caps]
+P0 = 2
+P1 = 4
+
+# Documents of the repository that the reviewer applies. A document with `paths` applies
+# only when the pull request changes a file that matches one of its globs. Rules written
+# for the reviewer go in `rules/*.md`, with `description` and `paths` in TOML front
+# matter between `+++` lines.
+[[context]]
+path = "CONTRIBUTING.md"
+description = "Review tiers, pull request rules, and the dark-launch lane"
+
+[[context]]
+path = "AGENTS.md"
+description = "Code style and architectural principles for every language"
+
+[[context]]
+path = "docs/claude/architecture.md"
+description = "System design, layering, and data flow"
+
+[[context]]
+path = "docs/claude/testing.md"
+description = "Testing rules across languages"
+
+[[context]]
+path = "docs/claude/toolchains/go.md"
+description = "Go rules"
+paths = ["**/*.go"]
+
+[[context]]
+path = "docs/claude/toolchains/typescript.md"
+description = "TypeScript rules"
+paths = ["**/*.ts", "**/*.tsx"]
+
+[[context]]
+path = "docs/claude/toolchains/python.md"
+description = "Python rules"
+paths = ["**/*.py"]
+
+[[context]]
+path = "docs/claude/toolchains/cpp.md"
+description = "C++ rules"
+paths = ["**/*.cpp", "**/*.h"]
+
+[[context]]
+path = "docs/claude/toolchains/css.md"
+description = "CSS rules"
+paths = ["**/*.css", "**/*.scss"]
+
+[[context]]
+path = "docs/claude/ux.md"
+description = "How the Console, Lyra, Pluto, and the docs site look and behave"
+paths = ["console/**", "pluto/**", "lyra/**", "site/**"]
+
+[[context]]
+path = "docs/claude/integration-test.md"
+description = "Integration test rules"
+paths = ["integration/**"]
+
+[[context]]
+path = "site/docs/CONTRIBUTING.md"
+description = "Docs site writing rules"
+paths = ["site/docs/**"]
+
+[[context]]
+path = "core/AGENTS.md"
+description = "The Core"
+paths = ["core/**"]
+
+[[context]]
+path = "console/AGENTS.md"
+description = "The Console"
+paths = ["console/**"]
+
+[[context]]
+path = "pluto/AGENTS.md"
+description = "Pluto"
+paths = ["pluto/**"]
+
+[[context]]
+path = "lyra/AGENTS.md"
+description = "Lyra"
+paths = ["lyra/**"]
+
+[[context]]
+path = "driver/AGENTS.md"
+description = "The Driver"
+paths = ["driver/**"]
+
+[[context]]
+path = "arc/AGENTS.md"
+description = "Arc"
+paths = ["arc/**"]
+
+[[context]]
+path = "oracle/AGENTS.md"
+description = "Oracle and its schemas"
+paths = ["oracle/**", "schemas/**"]
+
+[[context]]
+path = "scripts/AGENTS.md"
+description = "Repository scripts"
+paths = ["scripts/**"]

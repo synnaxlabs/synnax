@@ -118,6 +118,8 @@ export class Store {
   private readonly newest = new Map<channel.Key, number>();
   // epochs counts the changes to the series of each channel's raw blocks.
   private readonly epochs = new Map<channel.Key, number>();
+  // streamed holds the newest streamed series of each channel with no stored samples.
+  private readonly streamed = new Map<channel.Key, Series>();
   private bytes = 0;
   private readonly calculated = new Set<channel.Key>();
   // leaseholders holds the node of each stored channel.
@@ -352,6 +354,22 @@ export class Store {
     return this.epochs.get(ch) ?? 0;
   }
 
+  /**
+   * Records a series the stream carried for the channel. A series older than the one
+   * held is dropped, so a request whose lookup settles late cannot put back an older
+   * sample.
+   */
+  recordStreamed(ch: channel.Key, s: Series): void {
+    const held = this.streamed.get(ch);
+    if (held != null && s.timeRange.end.before(held.timeRange.end)) return;
+    this.streamed.set(ch, s);
+  }
+
+  /** @returns the newest series the stream carried for the channel, if any. */
+  newestStreamed(ch: channel.Key): Series | null {
+    return this.streamed.get(ch) ?? null;
+  }
+
   /** @returns the block the stream is writing the channel's samples into, if any. */
   open(ch: channel.Key): RawBlock | null {
     return this.live.get(ch)?.block ?? null;
@@ -443,6 +461,7 @@ export class Store {
     this.entries.clear();
     this.dataTypes.clear();
     this.newest.clear();
+    this.streamed.clear();
     this.bytes = 0;
   }
 

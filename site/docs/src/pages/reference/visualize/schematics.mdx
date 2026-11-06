@@ -240,8 +240,7 @@ custom symbol has **State overrides**. See
 | Staleness | Timeout          | The time with no new sample before the symbol is stale. Default 5 s, minimum 1 s.     |
 
 <Note.Note variant="info">
-  A symbol is stale only after data arrives and then stops. A channel that writes only
-  when its value changes can pass the timeout while it is healthy. Give it a timeout
+  A symbol is stale when no new sample has arrived within the timeout. Give it a timeout
   longer than the longest gap you expect between changes.
 </Note.Note>
 

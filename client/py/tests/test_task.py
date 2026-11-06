@@ -16,6 +16,8 @@ import pytest
 from pydantic import BaseModel, Field
 
 import synnax as sy
+from synnax import task
+from x import filter
 from x.testutil import assert_eventually
 
 
@@ -116,7 +118,7 @@ class TestTaskClient:
         assert [t.key for t in res] == [task.key]
 
     def test_retrieve_single_with_status(self, client: sy.Synnax) -> None:
-        """Should return one task when a key, name, or type is given."""
+        """Should return one task when a key or name is given."""
         name = str(uuid4())
         task = client.tasks.create(name=name, type="pagerduty_alert")
         by_key = client.tasks.retrieve(key=task.key, include_status=True)
@@ -125,9 +127,19 @@ class TestTaskClient:
         by_name = client.tasks.retrieve(name=name, include_status=True)
         assert_type(by_name, sy.Task)
         assert by_name.key == task.key
-        by_type = client.tasks.retrieve(type="pagerduty_alert", include_status=True)
-        assert_type(by_type, sy.Task)
-        assert by_type.type == "pagerduty_alert"
+
+    def test_retrieve_single_multiple_found(self, client: sy.Synnax) -> None:
+        """Should raise when more than one task has the name or type."""
+        name = str(uuid4())
+        for _ in range(2):
+            client.tasks.create(name=name, type="pagerduty_alert")
+        with pytest.raises(
+            sy.MultipleFoundError,
+            match=f"Expected one Task matching {name}, but found 2",
+        ):
+            client.tasks.retrieve(name=name)
+        with pytest.raises(sy.MultipleFoundError):
+            client.tasks.retrieve(type="pagerduty_alert")
 
     def test_retrieve_no_filters(self, client: sy.Synnax) -> None:
         """Should return a list of every task when no filter is given."""
@@ -152,6 +164,33 @@ class TestTaskClient:
         assert client.tasks.retrieve(rack=rack.key, snapshot=True) == []
         res = client.tasks.retrieve(rack=rack.key, internal=False, snapshot=False)
         assert [t.key for t in res] == [task.key]
+
+    def test_retrieve_where(self, client: sy.Synnax) -> None:
+        """Should keep tasks that match a filter tree and the other filters."""
+        rack = client.racks.create(name=str(uuid4()))
+        tasks = [
+            client.tasks.create(name=f"t{i}", type="pagerduty_alert", rack=rack.key)
+            for i in range(3)
+        ]
+        where = task.Where(
+            or_=[
+                task.Where(name=filter.String(eq="t0")),
+                task.Where(key=filter.Set[UUID](eq=tasks[1].key)),
+            ]
+        )
+        res = client.tasks.retrieve(where=where, rack=rack.key)
+        assert {t.key for t in res} == {tasks[0].key, tasks[1].key}
+
+    def test_retrieve_missing_key(self, client: sy.Synnax) -> None:
+        """Should treat a missing key as a non-match in a list retrieve."""
+        t = client.tasks.create(name=str(uuid4()), type="pagerduty_alert")
+        res = client.tasks.retrieve(keys=[t.key, uuid4()])
+        assert [x.key for x in res] == [t.key]
+
+    def test_retrieve_not_found(self, client: sy.Synnax) -> None:
+        """Should raise when a single task is requested and none matches."""
+        with pytest.raises(sy.NotFoundError):
+            client.tasks.retrieve(uuid4())
 
     def test_retrieve_with_limit_and_offset(self, client: sy.Synnax) -> None:
         """Should page through the tasks on a rack."""

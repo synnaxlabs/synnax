@@ -27,8 +27,6 @@ resource_type_to_pb(const std::string &cpp) {
         kMap = {
             {RESOURCE_TYPE_ARC, ::service::ontology::pb::RESOURCE_TYPE_ARC},
             {RESOURCE_TYPE_BUILTIN, ::service::ontology::pb::RESOURCE_TYPE_BUILTIN},
-            {RESOURCE_TYPE_CERTIFICATE,
-             ::service::ontology::pb::RESOURCE_TYPE_CERTIFICATE},
             {RESOURCE_TYPE_CHANNEL, ::service::ontology::pb::RESOURCE_TYPE_CHANNEL},
             {RESOURCE_TYPE_DEVICE, ::service::ontology::pb::RESOURCE_TYPE_DEVICE},
             {RESOURCE_TYPE_FRAMER, ::service::ontology::pb::RESOURCE_TYPE_FRAMER},
@@ -48,7 +46,6 @@ resource_type_to_pb(const std::string &cpp) {
             {RESOURCE_TYPE_SCHEMATIC, ::service::ontology::pb::RESOURCE_TYPE_SCHEMATIC},
             {RESOURCE_TYPE_SCHEMATIC_SYMBOL,
              ::service::ontology::pb::RESOURCE_TYPE_SCHEMATIC_SYMBOL},
-            {RESOURCE_TYPE_SECRET, ::service::ontology::pb::RESOURCE_TYPE_SECRET},
             {RESOURCE_TYPE_STATUS, ::service::ontology::pb::RESOURCE_TYPE_STATUS},
             {RESOURCE_TYPE_TABLE, ::service::ontology::pb::RESOURCE_TYPE_TABLE},
             {RESOURCE_TYPE_TASK, ::service::ontology::pb::RESOURCE_TYPE_TASK},
@@ -69,6 +66,11 @@ resource_type_to_pb(const std::string &cpp) {
             {RESOURCE_TYPE_NI_DEVICE, ::service::ontology::pb::RESOURCE_TYPE_NI_DEVICE},
             {RESOURCE_TYPE_OPCUA_SERVER,
              ::service::ontology::pb::RESOURCE_TYPE_OPCUA_SERVER},
+            {RESOURCE_TYPE_ARC_DIRECTORY,
+             ::service::ontology::pb::RESOURCE_TYPE_ARC_DIRECTORY},
+            {RESOURCE_TYPE_SECRET, ::service::ontology::pb::RESOURCE_TYPE_SECRET},
+            {RESOURCE_TYPE_CERTIFICATE,
+             ::service::ontology::pb::RESOURCE_TYPE_CERTIFICATE},
     };
     auto it = kMap.find(cpp);
     if (it == kMap.end())
@@ -83,8 +85,6 @@ resource_type_from_pb(::service::ontology::pb::ResourceType pb) {
             return {RESOURCE_TYPE_ARC, x::errors::NIL};
         case ::service::ontology::pb::RESOURCE_TYPE_BUILTIN:
             return {RESOURCE_TYPE_BUILTIN, x::errors::NIL};
-        case ::service::ontology::pb::RESOURCE_TYPE_CERTIFICATE:
-            return {RESOURCE_TYPE_CERTIFICATE, x::errors::NIL};
         case ::service::ontology::pb::RESOURCE_TYPE_CHANNEL:
             return {RESOURCE_TYPE_CHANNEL, x::errors::NIL};
         case ::service::ontology::pb::RESOURCE_TYPE_DEVICE:
@@ -119,8 +119,6 @@ resource_type_from_pb(::service::ontology::pb::ResourceType pb) {
             return {RESOURCE_TYPE_SCHEMATIC, x::errors::NIL};
         case ::service::ontology::pb::RESOURCE_TYPE_SCHEMATIC_SYMBOL:
             return {RESOURCE_TYPE_SCHEMATIC_SYMBOL, x::errors::NIL};
-        case ::service::ontology::pb::RESOURCE_TYPE_SECRET:
-            return {RESOURCE_TYPE_SECRET, x::errors::NIL};
         case ::service::ontology::pb::RESOURCE_TYPE_STATUS:
             return {RESOURCE_TYPE_STATUS, x::errors::NIL};
         case ::service::ontology::pb::RESOURCE_TYPE_TABLE:
@@ -147,6 +145,12 @@ resource_type_from_pb(::service::ontology::pb::ResourceType pb) {
             return {RESOURCE_TYPE_NI_DEVICE, x::errors::NIL};
         case ::service::ontology::pb::RESOURCE_TYPE_OPCUA_SERVER:
             return {RESOURCE_TYPE_OPCUA_SERVER, x::errors::NIL};
+        case ::service::ontology::pb::RESOURCE_TYPE_ARC_DIRECTORY:
+            return {RESOURCE_TYPE_ARC_DIRECTORY, x::errors::NIL};
+        case ::service::ontology::pb::RESOURCE_TYPE_SECRET:
+            return {RESOURCE_TYPE_SECRET, x::errors::NIL};
+        case ::service::ontology::pb::RESOURCE_TYPE_CERTIFICATE:
+            return {RESOURCE_TYPE_CERTIFICATE, x::errors::NIL};
         default:
             return {"", x::errors::Error("unrecognized ResourceType protobuf value")};
     }
