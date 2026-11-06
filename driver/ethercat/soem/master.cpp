@@ -410,10 +410,63 @@ x::errors::Error Master::activate(
             hex
         );
     }
+    this->diag = std::jthread([this](const std::stop_token &stop) {
+        const auto hex = [](std::span<const uint8_t> b) {
+            std::string s;
+            for (const auto v: b)
+                s += std::format("{:02x}", v);
+            return s;
+        };
+        for (int k = 1; k <= 10; ++k) {
+            for (int w = 0; w < 100; ++w) {
+                if (stop.stop_requested()) return;
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            }
+            for (int i = 1; i <= this->api->slave_count(); ++i) {
+                const auto pos = static_cast<uint16_t>(i);
+                if (this->api->slave_group(pos) != ENABLED_GROUP) continue;
+                std::array<uint8_t, 4> al{};
+                std::array<uint8_t, 2> code{};
+                std::array<uint8_t, 8> sm3{};
+                std::array<uint8_t, 48> fmmu{};
+                std::array<uint8_t, 1> act{};
+                std::array<uint8_t, 2> eep{};
+                const int w1 = this->api->read_register(pos, 0x0130, al, 2000);
+                this->api->read_register(pos, 0x0134, code, 2000);
+                this->api->read_register(pos, 0x0818, sm3, 2000);
+                this->api->read_register(pos, 0x0600, fmmu, 2000);
+                this->api->read_register(pos, 0x0981, act, 2000);
+                this->api->read_register(pos, 0x0500, eep, 2000);
+                const auto *in = this->api->slave_inputs(pos);
+                const auto n = std::min<size_t>(
+                    (this->api->slave_Ibits(pos) + 7) / 8,
+                    16
+                );
+                LOG(INFO) << std::format(
+                    "[ethercat] diag {}s slave {} wkc {} AL {} code {} SM3 {} FMMU {} "
+                    "0981 {} 0500 {} inputs {}",
+                    k,
+                    i,
+                    w1,
+                    hex(al),
+                    hex(code),
+                    hex(sm3),
+                    hex(fmmu),
+                    hex(act),
+                    hex(eep),
+                    in == nullptr ? "-" : hex({in, n})
+                );
+            }
+        }
+    });
     return x::errors::NIL;
 }
 
 void Master::deactivate() {
+    if (this->diag.joinable()) {
+        this->diag.request_stop();
+        this->diag.join();
+    }
     if (this->activated) {
         this->request_state(EC_STATE_INIT, STATE_CHANGE_TIMEOUT);
         // INIT leaves the DC activation as it is.

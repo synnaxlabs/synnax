@@ -17,6 +17,7 @@
 #include <set>
 #include <span>
 #include <string>
+#include <thread>
 #include <unordered_map>
 #include <vector>
 
@@ -76,6 +77,8 @@ class Master final : public master::Master {
     int expected_wkc;
     /// @brief whether the enabled slaves' frames carry the reference clock time.
     bool has_dc = false;
+    /// @brief logs slave registers and inputs once per second after OP.
+    std::jthread diag;
 
 public:
     /// @brief constructs a SOEM master with injected API and interface name.
