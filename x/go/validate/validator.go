@@ -13,7 +13,6 @@ import (
 	"reflect"
 	"unicode/utf8"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/types"
@@ -21,31 +20,41 @@ import (
 
 type Validator struct {
 	scope string
-	err   error
+	errs  []error
 }
 
 func New(scope string) *Validator { return &Validator{scope: scope} }
 
 // Error returns the accumulated validation errors.
-func (v *Validator) Error() error { return v.err }
+func (v *Validator) Error() error { return errors.Join(v.errs...) }
 
-// Exec runs a function and joins any error it returns with the accumulated errors.
-func (v *Validator) Exec(fn func() error) { v.err = errors.Join(v.err, fn()) }
+// Exec runs a function and adds any error it returns to the accumulated errors.
+func (v *Validator) Exec(fn func() error) {
+	if err := fn(); err != nil {
+		v.errs = append(v.errs, err)
+	}
+}
 
 // Ternary adds the error with the given message to the validator if the condition is
 // true.
 func (v *Validator) Ternary(path string, cond bool, msg string) bool {
 	v.Exec(func() error {
-		return lo.Ternary(cond, PathedError(errors.New(msg), path), nil)
+		if !cond {
+			return nil
+		}
+		return PathedError(errors.New(msg), path)
 	})
-	return v.Error() != nil
+	return len(v.errs) > 0
 }
 
 func (v *Validator) Ternaryf(field string, cond bool, format string, args ...any) bool {
 	v.Exec(func() error {
-		return lo.Ternary(cond, PathedError(errors.Newf(format, args...), field), nil)
+		if !cond {
+			return nil
+		}
+		return PathedError(errors.Newf(format, args...), field)
 	})
-	return v.Error() != nil
+	return len(v.errs) > 0
 }
 
 // NotNil returns true and attaches an error to v if the value is nil.
