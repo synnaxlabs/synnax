@@ -37,6 +37,12 @@ report() {
                 && pnpm exec turbo build --filter='@synnaxlabs/client^...' >&2 \
                 && client/ts/scripts/surface.sh
             ;;
+        client-py-cli)
+            uv run --project client/py python scripts/surface_py_cli.py
+            ;;
+        client-py-state)
+            uv run --project client/py python scripts/surface_py_state.py
+            ;;
         client-py)
             uv run --project scripts scripts/surface_py.py client/py synnax
             ;;
