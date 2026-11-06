@@ -47,7 +47,10 @@ jobs:
 
   surface:
     name: Compare ${{ matrix.surface }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os || 'ubuntu-latest' }}
+    defaults:
+      run:
+        shell: bash
     # The proxy drops streams at times, so a failed fetch falls back to the source.
     env:
       GOPROXY: https://proxy.golang.org|direct
@@ -66,6 +69,11 @@ jobs:
             uv: true
           - surface: core
             paths: core x/go
+            go: core/go.mod
+          # The Core builds its service commands for Windows only.
+          - surface: core-windows
+            os: windows-latest
+            paths: core/cmd
             go: core/go.mod
           - surface: driver
             paths: driver client/cpp scripts/surface_driver.py

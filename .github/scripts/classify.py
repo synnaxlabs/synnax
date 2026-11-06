@@ -54,6 +54,7 @@ SURFACES = {
     "client-ts": "TypeScript client API",
     "client-py": "Python client API",
     "core": "Core flags and config keys",
+    "core-windows": "Core commands and flags on Windows",
     "driver": "Driver commands and config keys",
 }
 STATUS_TEXT = {"same": "No change", "changed": "Changed", "error": "Report failed"}
