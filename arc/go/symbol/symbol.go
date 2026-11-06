@@ -540,8 +540,8 @@ func (s *Symbol) Root() *Symbol {
 // an alias-prefixed form because the symbol tree itself has already
 // resolved aliases via Target indirection.
 func (s *Symbol) QualifiedName() string {
-	if s.Parent != nil && s.Parent.Kind == KindModule {
-		return s.Parent.Name + "." + s.Name
+	if p := s.Parent; p != nil && (p.Kind == KindModule || p.UserDefined) {
+		return p.Name + "." + s.Name
 	}
 	return s.Name
 }

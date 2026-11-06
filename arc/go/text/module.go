@@ -93,6 +93,7 @@ func (l *Loader) load(ctx context.Context, path string) (*symbol.Symbol, error) 
 		ambient = l.cfg.Ambient()
 	}
 	root := symbol.NewRoot(l.cfg.Channels, ambient, symbol.WithModules(l))
+	root.Name, root.UserDefined = path, true
 	i, diag := AnalyzeModule(ctx, parsed, root, l.cfg.Config)
 	if diag != nil && !diag.Ok() {
 		if slices.Contains(l.cycle, path) {
@@ -101,8 +102,7 @@ func (l *Loader) load(ctx context.Context, path string) (*symbol.Symbol, error) 
 		return nil, errors.Newf("module %q does not compile", path)
 	}
 	mod := i.Symbols
-	mod.Kind, mod.Name, mod.AST = symbol.KindModule, path, parsed.AST
-	mod.UserDefined = true
+	mod.Kind, mod.AST = symbol.KindModule, parsed.AST
 	return mod, nil
 }
 

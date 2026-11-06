@@ -38,10 +38,17 @@ import (
 type keyGenerator struct {
 	occurrences map[string]int
 	synthFuncs  *ir.Functions
+	// prefix is the import path of the module being lowered, empty for an
+	// automation. It keeps a module's keys apart from its importer's.
+	prefix string
 }
 
-func newKeyGenerator(synthFuncs *ir.Functions) *keyGenerator {
-	return &keyGenerator{occurrences: make(map[string]int), synthFuncs: synthFuncs}
+func newKeyGenerator(synthFuncs *ir.Functions, prefix string) *keyGenerator {
+	return &keyGenerator{
+		occurrences: make(map[string]int),
+		synthFuncs:  synthFuncs,
+		prefix:      prefix,
+	}
 }
 
 func (kg *keyGenerator) generate(role, name string) string {
@@ -51,7 +58,11 @@ func (kg *keyGenerator) generate(role, name string) string {
 	}
 	count := kg.occurrences[base]
 	kg.occurrences[base]++
-	return fmt.Sprintf("%s_%d", base, count)
+	key := fmt.Sprintf("%s_%d", base, count)
+	if kg.prefix != "" {
+		return kg.prefix + "." + key
+	}
+	return key
 }
 
 // seqFrame tracks state for a single sequential Scope that is currently being
@@ -1066,7 +1077,7 @@ func analyzeNamedRef(
 	shell *shellBuilder,
 ) (transitionIntent, bool) {
 	if sym.Root() != ctx.Scope.Root() {
-		key := parser.IdentifierName(ctx.AST)
+		key := sym.QualifiedName()
 		if shell.jumps == nil {
 			// Phase 3 compiles module scopes into the importer. Until then a
 			// top-level activation has no scope to bind to, so it is rejected
@@ -1093,7 +1104,7 @@ func analyzeNamedRef(
 				return transitionIntent{}, false
 			}
 		}
-		return transitionIntent{activateKey: sym.Name}, true
+		return transitionIntent{activateKey: sym.QualifiedName()}, true
 	}
 	ctx.Diagnostics.Add(diagnostics.Errorf(
 		ctx.AST,
@@ -1299,14 +1310,13 @@ func tryAnalyzeFmtStrLiteral(
 	}
 	key := kg.generate("fmt", "")
 	synthKey := compiler.FmtStrSyntheticPrefix + key
-	// Renamed so the compiler resolves the synthetic's scope by function key.
-	sym.Name = synthKey
 	*kg.synthFuncs = append(*kg.synthFuncs, ir.Function{
 		Key:      synthKey,
 		Body:     ir.Body{Raw: body},
 		Inputs:   sym.Type.Inputs,
 		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outputType}},
 		Channels: sym.Channels.Copy(),
+		Symbol:   sym,
 	})
 	n := ir.Node{
 		Key:      key,
@@ -1383,7 +1393,7 @@ func lowerSynthNode[T antlr.ParserRuleContext](
 	outputType := ctx.Constraints.ApplySubstitutions(freshType.Outputs[0].Type)
 	n := ir.Node{
 		Key:      key,
-		Type:     sym.Name,
+		Type:     sym.QualifiedName(),
 		Channels: sym.Channels.Copy(),
 		Inputs:   freshType.Inputs,
 		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outputType}},
@@ -1503,14 +1513,15 @@ func analyze(
 			bodyAst = fnDecl.Block()
 		}
 		i.Functions = append(i.Functions, ir.Function{
-			Key:      c.Name,
+			Key:      c.QualifiedName(),
 			Body:     ir.Body{Raw: bodyAst.GetText(), AST: bodyAst},
 			Inputs:   c.Type.Inputs,
 			Outputs:  c.Type.Outputs,
 			Channels: c.Channels,
+			Symbol:   c,
 		})
 	}
-	kg := newKeyGenerator(&i.Functions)
+	kg := newKeyGenerator(&i.Functions, root.Name)
 	shell := newShellBuilder(collectSynthByAST(aCtx.Scope.Root()))
 	collectVarNodes(aCtx.Scope.Root(), kg, shell)
 
@@ -2350,7 +2361,7 @@ func analyzeSequence(
 	if !ok {
 		return ir.Scope{}, nil, nil, false
 	}
-	seqName := seqScope.Name
+	seqName := seqScope.QualifiedName()
 	liveness := ir.LivenessAlways
 	if ctx.AST.IDENTIFIER() != nil {
 		liveness = ir.LivenessGated
@@ -2527,7 +2538,7 @@ func analyzeTopLevelStage(
 	if !ok {
 		return ir.Scope{}, nil, nil, false
 	}
-	scope.Key = stageSym.Name
+	scope.Key = stageSym.QualifiedName()
 	scope.Transitions = jumps
 	return scope, nodes, edges, true
 }

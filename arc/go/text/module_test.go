@@ -240,6 +240,23 @@ sequence main {
 				},
 			)
 
+			It("Should key an activation by the module path, not the alias", func(
+				ctx SpecContext,
+			) {
+				i, diag := analyzeIR(ctx, `
+import m as mm
+
+sequence main {
+    stage b { trig > 0 => mm.s }
+}
+`)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+				main := findTopLevelScope(i, "main")
+				Expect(main.Transitions[0].Target.Variant).To(
+					Equal(ir.ScopeTarget{Key: "m.s"}),
+				)
+			})
+
 			It(
 				"Should not activate a local scope of the same name",
 				func(ctx SpecContext) {
@@ -271,6 +288,71 @@ sequence main {
 			diag := analyze(ctx, "import nope\n\ntrig -> nope.f() -> out")
 			Expect(diag.String()).To(ContainSubstring(`unknown module "nope"`))
 		})
+	})
+
+	Describe("Keys", func() {
+		// A loaded module lowers with its import path on every key it owns.
+		analyzeAt := func(ctx context.Context, path, source string) ir.IR {
+			GinkgoHelper()
+			root := newRoot()
+			root.Name, root.UserDefined = path, true
+			i, diag := text.AnalyzeModule(ctx, parse(source), root)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			return i
+		}
+
+		It("Should key a function by the module path", func(ctx SpecContext) {
+			i := analyzeAt(ctx, "lib.m", `export func f() i64 { return 1 }`)
+			Expect(i.Functions).To(HaveLen(1))
+			Expect(i.Functions[0].Key).To(Equal("lib.m.f"))
+			Expect(i.Functions[0].Symbol).To(Equal(i.Symbols.FindChild("f")))
+		})
+
+		It("Should key a call node's type by the module path", func(ctx SpecContext) {
+			i := analyzeAt(ctx, "lib.m", `
+func f() i64 { return 1 }
+export sequence s { stage a { trig -> f() -> out } }
+`)
+			var nodeTypes []string
+			for _, n := range i.Nodes {
+				nodeTypes = append(nodeTypes, n.Type)
+			}
+			Expect(nodeTypes).To(ContainElement("lib.m.f"))
+		})
+
+		It("Should prefix every node key with the module path", func(ctx SpecContext) {
+			i := analyzeAt(ctx, "lib.m", `
+export sequence s { stage a { trig -> out8 } }
+export stage t { trig -> out8 }
+`)
+			Expect(i.Nodes).ToNot(BeEmpty())
+			for _, n := range i.Nodes {
+				Expect(n.Key).To(HavePrefix("lib.m."), n.Key)
+			}
+		})
+
+		It("Should key top-level scopes by the module path", func(ctx SpecContext) {
+			i := analyzeAt(ctx, "lib.m", `
+export sequence s { stage a { trig -> out8 } }
+export stage t { trig -> out8 }
+`)
+			Expect(findTopLevelScope(i, "lib.m.s").Steps[0].Key()).To(Equal("a"))
+			Expect(findTopLevelScope(i, "lib.m.t").Key).To(Equal("lib.m.t"))
+		})
+
+		It(
+			"Should keep a sibling activation on the module path",
+			func(ctx SpecContext) {
+				i := analyzeAt(ctx, "lib.m", `
+export sequence s { stage a { trig > 0 => t } }
+sequence t { stage b { trig -> out8 } }
+`)
+				s := findTopLevelScope(i, "lib.m.s")
+				Expect(s.Transitions[0].Target.Variant).To(
+					Equal(ir.ScopeTarget{Key: "lib.m.t"}),
+				)
+			},
+		)
 	})
 
 	Describe("Module rules", func() {
