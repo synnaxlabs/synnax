@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type rack, type Synnax, type task } from "@synnaxlabs/client";
+import { type ethercat, type rack, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
+import { id } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeAll, describe, expect, it } from "vitest";
 import { type z } from "zod";
@@ -334,6 +335,135 @@ describe("Write", () => {
     expect(rebound.cmdChannel).toBe(bound.cmdChannel);
     expect(rebound.stateChannel).not.toBe(bound.stateChannel);
     expect(rebound.stateChannel).not.toBe(0);
+  });
+
+  const deploySlave = async (identifier: string) => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier,
+      network: "eth0",
+      pdos: createPDOs(),
+    });
+    const { container, draft, unmount } = await renderWrite({
+      ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
+      channels: [createEntryWriteChannel(slave.key, CONTROL_ENTRY)],
+    });
+    const deployed = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      EtherCAT.Task.WRITE_SCHEMAS,
+    );
+    unmount();
+    const updated = await client.devices.retrieve({
+      key: slave.key,
+      schemas: EtherCAT.Device.SLAVE_SCHEMAS,
+    });
+    return { slave: updated, channel: deployed.config.channels[0] };
+  };
+
+  it("should reuse the channels of a deleted slave with the same identifier", async () => {
+    const identifier = createIdentifier();
+    const first = await deploySlave(identifier);
+    await client.devices.delete(first.slave.key);
+    const second = await deploySlave(identifier);
+    expect(second.channel.cmdChannel).toBe(first.channel.cmdChannel);
+    expect(second.channel.stateChannel).toBe(first.channel.stateChannel);
+    expect(second.slave.properties.writeStateIndex).toBe(
+      first.slave.properties.writeStateIndex,
+    );
+  });
+
+  it("should reuse a deleted slave's channels when a non-slave EtherCAT device exists", async () => {
+    const coupler = await client.devices.create({
+      key: id.create(),
+      name: uniqueName("ecat_coupler"),
+      rack: testRack.key,
+      location: "test-location",
+      make: EtherCAT.Device.MAKE,
+      model: "EK1100",
+      properties: {},
+    });
+    try {
+      const identifier = createIdentifier();
+      const first = await deploySlave(identifier);
+      await client.devices.delete(first.slave.key);
+      const second = await deploySlave(identifier);
+      expect(second.channel.cmdChannel).toBe(first.channel.cmdChannel);
+    } finally {
+      await client.devices.delete(coupler.key);
+    }
+  });
+
+  it("should reject a custom command name that a live slave's channel holds", async () => {
+    const cmdChannelName = uniqueName("ecat_cmd");
+    const renderSlave = async () => {
+      const slave = await createSlaveDevice(client, testRack.key, {
+        identifier: createIdentifier(),
+        network: "eth0",
+        pdos: createPDOs(),
+      });
+      return await renderWrite({
+        ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
+        channels: [
+          createEntryWriteChannel(slave.key, CONTROL_ENTRY, { cmdChannelName }),
+        ],
+      });
+    };
+    const owner = await renderSlave();
+    await deployAndAwaitTask(
+      client,
+      owner.container,
+      owner.draft.key,
+      EtherCAT.Task.WRITE_SCHEMAS,
+    );
+    owner.unmount();
+    const { container, statuses } = await renderSlave();
+    await clickDeploy(container);
+    await awaitStatus(
+      statuses,
+      new RegExp(
+        `A channel named ${cmdChannelName} already exists\\. Give the channel ` +
+          "another name\\.",
+      ),
+    );
+  });
+
+  it("should reject a default command name that a live slave's channel holds", async () => {
+    const base = createIdentifier();
+    const deploy = async (
+      identifier: string,
+      entry: ethercat.PDOEntry,
+      overrides: Partial<ethercat.EntryWriteChannel> = {},
+    ) => {
+      const slave = await createSlaveDevice(client, testRack.key, {
+        identifier,
+        network: "eth0",
+        pdos: { inputs: [], outputs: [entry] },
+      });
+      return await renderWrite({
+        ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
+        channels: [createEntryWriteChannel(slave.key, entry, overrides)],
+      });
+    };
+    const owner = await deploy(base, { ...CONTROL_ENTRY, name: "x Control" });
+    await deployAndAwaitTask(
+      client,
+      owner.container,
+      owner.draft.key,
+      EtherCAT.Task.WRITE_SCHEMAS,
+    );
+    owner.unmount();
+    const { container, statuses } = await deploy(`${base}_x`, CONTROL_ENTRY, {
+      stateChannelName: uniqueName("ecat_state"),
+    });
+    await clickDeploy(container);
+    await awaitStatus(
+      statuses,
+      new RegExp(
+        `A channel named ${base}_x_Control_cmd already exists\\. Give the channel ` +
+          "another name\\.",
+      ),
+    );
   });
 
   it("should surface an error when slaves are on different networks", async () => {
