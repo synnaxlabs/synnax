@@ -558,9 +558,13 @@ export class Client extends query.Retriever<
     return this.createKVClient(range);
   }
 
-  /** Returns the parent of the given range, or null when it has none. */
+  /**
+   * Returns the parent of the given range, or null when it has none. Throws a
+   * NotFoundError when the range does not exist.
+   */
   async retrieveParent(range: Key): Promise<Range | null> {
-    return await (await this.retrieve(range)).retrieveParent();
+    await this.retrieve(range);
+    return await this.parent.retrieve(range);
   }
 
   async retrieveAlias(range: Key, channel: channel.Key): Promise<string> {

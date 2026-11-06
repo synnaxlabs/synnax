@@ -929,6 +929,12 @@ describe("cached reads", () => {
       );
     });
 
+    it("throws a NotFoundError for a range that does not exist", async () => {
+      await expect(client.ranges.retrieveParent(uuid.create())).rejects.toThrow(
+        NotFoundError,
+      );
+    });
+
     it("moves a subscribed parent answer when the child moves", async () => {
       const [first, second] = await Promise.all([createRange(), createRange()]);
       const child = await createRange(client, { parent: first.key });
@@ -947,6 +953,25 @@ describe("cached reads", () => {
             return query.isLive(cached) ? cached?.key : undefined;
           })
           .toEqual(second.key);
+      } finally {
+        off();
+      }
+    });
+
+    it("updates a subscribed parent answer when the parent is renamed", async () => {
+      const parent = await createRange();
+      const child = await createRange(client, { parent: parent.key });
+      const off = client.ranges.parent.onChange(child.key, vi.fn());
+      try {
+        await client.ranges.parent.retrieve(child.key);
+        const name = `renamed-${id.create()}`;
+        await client.ranges.rename(parent.key, name);
+        await expect
+          .poll(() => {
+            const cached = client.ranges.parent.getCached(child.key);
+            return query.isLive(cached) ? cached?.name : undefined;
+          })
+          .toEqual(name);
       } finally {
         off();
       }
