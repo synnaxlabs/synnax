@@ -33,6 +33,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -43,6 +44,18 @@ var (
 	certificateType = ontology.ID{Type: ontology.ResourceTypeCertificate}
 	all             = access.AllActions
 )
+
+func whereKeys(keys ...secret.Key) apisecret.RetrieveRequest {
+	return apisecret.RetrieveRequest{
+		Where: &secret.Where{Key: &filter.Set[secret.Key]{In: keys}},
+	}
+}
+
+func whereKeysWithUses(keys ...secret.Key) apisecret.RetrieveRequest {
+	req := whereKeys(keys...)
+	req.IncludeUses = true
+	return req
+}
 
 func createSecret(ctx SpecContext, name, value string) secret.Secret {
 	GinkgoHelper()
@@ -320,11 +333,27 @@ var _ = Describe("Service", func() {
 				secretType,
 			)
 			s := createSecret(ctx, "Password", "hunter2")
-			res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u),
-				apisecret.RetrieveRequest{Keys: []secret.Key{s.Base().Key}},
-			))
+			res := MustSucceed(
+				apiSvc.Retrieve(AuthedCtx(ctx, u), whereKeys(s.Base().Key)),
+			)
 			Expect(res.Secrets).To(HaveLen(1))
 			Expect(res.Secrets[0].Base().Name).To(Equal("Password"))
+		})
+		It("Should leave out a key that no secret has", func(ctx SpecContext) {
+			u := createUser(ctx)
+			allow(
+				ctx,
+				u.OntologyID(),
+				[]access.Action{access.ActionRetrieve},
+				secretType,
+			)
+			s := createSecret(ctx, "Password", "hunter2")
+			res := MustSucceed(apiSvc.Retrieve(
+				AuthedCtx(ctx, u),
+				whereKeys(s.Base().Key, uuid.New()),
+			))
+			Expect(res.Secrets).To(HaveLen(1))
+			Expect(res.Secrets[0].Base().Key).To(Equal(s.Base().Key))
 		})
 		Describe("IncludeUses", func() {
 			var (
@@ -351,12 +380,9 @@ var _ = Describe("Service", func() {
 						[]access.Action{access.ActionRetrieve},
 						certificateType,
 					)
-					res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u),
-						apisecret.RetrieveRequest{
-							Keys:        []secret.Key{key},
-							IncludeUses: true,
-						},
-					))
+					res := MustSucceed(
+						apiSvc.Retrieve(AuthedCtx(ctx, u), whereKeysWithUses(key)),
+					)
 					Expect(res.Secrets).To(HaveLen(1))
 					Expect(res.Secrets[0].Base().Uses).
 						To(Equal([]ontology.ID{cert.OntologyID()}))
@@ -364,12 +390,9 @@ var _ = Describe("Service", func() {
 			)
 			It("Should leave out the uses that the caller cannot read",
 				func(ctx SpecContext) {
-					res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u),
-						apisecret.RetrieveRequest{
-							Keys:        []secret.Key{key},
-							IncludeUses: true,
-						},
-					))
+					res := MustSucceed(
+						apiSvc.Retrieve(AuthedCtx(ctx, u), whereKeysWithUses(key)),
+					)
 					Expect(res.Secrets).To(HaveLen(1))
 					Expect(res.Secrets[0].Base().Uses).To(Equal([]ontology.ID{}))
 				},
@@ -377,11 +400,9 @@ var _ = Describe("Service", func() {
 			It("Should return empty uses for a secret that nothing uses",
 				func(ctx SpecContext) {
 					s := createSecret(ctx, "Password", "hunter2")
-					res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u),
-						apisecret.RetrieveRequest{
-							Keys:        []secret.Key{s.Base().Key},
-							IncludeUses: true,
-						},
+					res := MustSucceed(apiSvc.Retrieve(
+						AuthedCtx(ctx, u),
+						whereKeysWithUses(s.Base().Key),
 					))
 					Expect(res.Secrets).To(HaveLen(1))
 					Expect(res.Secrets[0].Base().Uses).To(Equal([]ontology.ID{}))
@@ -389,9 +410,9 @@ var _ = Describe("Service", func() {
 			)
 			It("Should leave uses nil when the request does not ask for them",
 				func(ctx SpecContext) {
-					res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u),
-						apisecret.RetrieveRequest{Keys: []secret.Key{key}},
-					))
+					res := MustSucceed(
+						apiSvc.Retrieve(AuthedCtx(ctx, u), whereKeys(key)),
+					)
 					Expect(res.Secrets).To(HaveLen(1))
 					Expect(res.Secrets[0].Base().Uses).To(BeNil())
 				},
@@ -400,9 +421,8 @@ var _ = Describe("Service", func() {
 		It("Should deny a user without retrieve access", func(ctx SpecContext) {
 			u := createUser(ctx)
 			s := createSecret(ctx, "Password", "hunter2")
-			Expect(apiSvc.Retrieve(AuthedCtx(ctx, u),
-				apisecret.RetrieveRequest{Keys: []secret.Key{s.Base().Key}},
-			)).Error().To(MatchError(access.ErrDenied))
+			Expect(apiSvc.Retrieve(AuthedCtx(ctx, u), whereKeys(s.Base().Key))).
+				Error().To(MatchError(access.ErrDenied))
 		})
 	})
 

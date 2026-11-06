@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/secret"
+import "schemas/x/filter"
 import "schemas/x/telem"
 
 @go output "core/pkg/service/certificate"
@@ -49,6 +50,7 @@ Base struct {
     }
     name string {
         @doc value         "is a human-readable name for the certificate."
+        @search
         @validate required
     }
 
@@ -84,12 +86,19 @@ Certificate union on source secret.Source extends Base {
         @doc value "is a certificate in files on the computer that uses it."
     }
 
-    @doc value       """
+    @doc value     """
         is a public certificate that a device uses to secure a connection, with the
         private key that proves it when there is one.
     """
     @go marshal
     @go migrate
-    @ontology type   "certificate"
-    @retrieve custom
+    @ontology type "certificate"
+    @retrieve
+}
+
+Where filter Certificate {
+    key
+
+    @doc value         "is a filter that selects certificates."
+    @go request_output "core/pkg/api/certificate"
 }

@@ -9,12 +9,20 @@
 
 from typing import overload
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
-from synnax.exceptions import NotFoundError, ValidationError
+from synnax.exceptions import ValidationError
 from synnax.secret.payload import New, NewFile, NewStored
-from synnax.secret.types_gen import Key, Secret
+from synnax.secret.types_gen import (
+    Key,
+    RetrieveRequest,
+    RetrieveResponse,
+    Secret,
+    Where,
+)
+from synnax.util import one
+from x import filter
 from x.lists import normalize
 
 
@@ -33,18 +41,6 @@ class _RenameRequest(BaseModel):
 
 class _DeleteRequest(BaseModel):
     keys: list[Key]
-
-
-class _RetrieveRequest(BaseModel):
-    keys: list[Key] | None = None
-    search_term: str | None = None
-    limit: int | None = None
-    offset: int | None = None
-    include_uses: bool = False
-
-
-class _RetrieveResponse(BaseModel):
-    secrets: list[Secret] = Field(default_factory=list)
 
 
 class Client:
@@ -131,10 +127,11 @@ class Client:
     def retrieve(
         self,
         *,
+        where: Where | None = None,
         keys: list[Key] | None = None,
-        search_term: str | None = None,
+        search_term: str = "",
         limit: int | None = None,
-        offset: int | None = None,
+        offset: int = 0,
         include_uses: bool = False,
     ) -> list[Secret]: ...
 
@@ -142,36 +139,44 @@ class Client:
         self,
         *,
         key: Key | None = None,
+        where: Where | None = None,
         keys: list[Key] | None = None,
-        search_term: str | None = None,
+        search_term: str = "",
         limit: int | None = None,
-        offset: int | None = None,
+        offset: int = 0,
         include_uses: bool = False,
     ) -> Secret | list[Secret]:
         """Retrieves secrets, without their values.
 
+        :param key: The key of the one secret to retrieve.
+        :param where: A filter that selects the secrets, combined with ``keys``.
+        :param keys: The keys of the secrets to retrieve. A key that no secret has is
+            left out.
+        :param search_term: Keeps the secrets whose names match, closest match first.
+        :param limit: The most secrets to return.
+        :param offset: The number of matching secrets to skip.
         :param include_uses: Whether to fill each secret's uses with the ontology IDs of
             the resources that use it and that the caller can read. Secrets come back
             with no uses when false.
-        :raises NotFoundError: If a key is given and no secret has it.
+        :returns: The secret when ``key`` is given, otherwise a list.
+        :raises NotFoundError: If ``key`` is given and no secret has it.
         :raises AccessDenied: If the caller cannot retrieve one of the secrets.
         """
         is_single = key is not None
         if key is not None:
             keys = [key]
+        flat = Where(key=None if keys is None else filter.Set[Key](in_=keys))
         res = self._client.send(
             "/secret/retrieve",
-            _RetrieveRequest(
-                keys=keys,
+            RetrieveRequest(
+                where=filter.merge(where, flat),
                 search_term=search_term,
                 limit=limit,
                 offset=offset,
                 include_uses=include_uses,
             ),
-            _RetrieveResponse,
+            RetrieveResponse,
         )
-        if not is_single:
-            return res.secrets
-        if len(res.secrets) == 0:
-            raise NotFoundError("Secret not found")
-        return res.secrets[0]
+        if is_single:
+            return one("Secret", key, res.secrets)
+        return res.secrets
