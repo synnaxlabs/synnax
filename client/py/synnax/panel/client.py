@@ -21,7 +21,7 @@ from synnax.panel.types_gen import (
     RetrieveResponse,
     Where,
 )
-from synnax.util import one
+from synnax.util import sole
 from x import filter
 from x.lists import normalize
 
@@ -185,5 +185,5 @@ class Client:
         )
         panels = res.panels
         if is_single:
-            return one("Panel", key, panels)
+            return sole("Panel", key, panels)
         return panels

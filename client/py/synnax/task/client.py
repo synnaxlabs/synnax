@@ -39,7 +39,7 @@ from synnax.task.types_gen import (
     ontology_id,
 )
 from synnax.telem import CrudeTimeSpan, TimeSpan
-from synnax.util import one
+from synnax.util import sole
 from x import filter, lists
 from x.lists import all_none
 from x.timing import Timer
@@ -556,7 +556,7 @@ class Client:
         sug = self.sugar(res.tasks)
         if not is_single:
             return sug
-        return one("Task", next(v for v in (key, name, type) if v is not None), sug)
+        return sole("Task", next(v for v in (key, name, type) if v is not None), sug)
 
     def sugar(self, tasks: list[Payload]) -> list[Task]:
         return [

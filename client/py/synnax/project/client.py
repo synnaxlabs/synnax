@@ -21,7 +21,7 @@ from synnax.project.types_gen import (
     RetrieveResponse,
     Where,
 )
-from synnax.util import one
+from synnax.util import sole
 from x import filter
 from x.fs import FilePath
 from x.lists import normalize
@@ -215,5 +215,5 @@ class Client:
         )
         projects = res.projects
         if is_single:
-            return one("Project", key, projects)
+            return sole("Project", key, projects)
         return projects

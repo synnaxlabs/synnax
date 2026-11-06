@@ -21,7 +21,7 @@ from synnax.schematic.types_gen import (
     Schematic,
     Where,
 )
-from synnax.util import one
+from synnax.util import sole
 from x import filter
 from x.lists import normalize
 
@@ -151,7 +151,7 @@ class Client:
         )
         if not is_single:
             return res.schematics
-        return one("Schematic", key, res.schematics)
+        return sole("Schematic", key, res.schematics)
 
     def rename(self, key: Key, name: str) -> None:
         """Renames a schematic.

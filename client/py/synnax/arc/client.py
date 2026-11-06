@@ -28,7 +28,7 @@ from synnax.arc.types_gen import (
     ontology_id,
 )
 from synnax.ontology.payload import ID
-from synnax.util import one
+from synnax.util import sole
 from x import filter
 from x.lists import normalize
 from x.uuid import NIL
@@ -213,7 +213,7 @@ class Client:
         arcs = self._sugar(res.arcs)
         if not is_single:
             return arcs
-        return one("Arc", key if key is not None else name, arcs)
+        return sole("Arc", key if key is not None else name, arcs)
 
     def delete(self, keys: Key | list[Key]) -> None:
         self._client.send("/arc/delete", _DeleteRequest(keys=normalize(keys)), Empty)

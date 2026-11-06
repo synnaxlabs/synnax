@@ -14,7 +14,7 @@ from pydantic import BaseModel
 from freighter import Empty, UnaryClient
 from synnax import project as project_
 from synnax.log.types_gen import Key, Log, RetrieveRequest, RetrieveResponse, Where
-from synnax.util import one
+from synnax.util import sole
 from x import filter
 from x.lists import normalize
 
@@ -125,7 +125,7 @@ class Client:
         )
         if not is_single:
             return res.logs
-        return one("Log", key, res.logs)
+        return sole("Log", key, res.logs)
 
     def rename(self, key: Key, name: str) -> None:
         """Rename a log.

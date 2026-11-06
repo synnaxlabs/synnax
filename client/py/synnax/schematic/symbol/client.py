@@ -21,7 +21,7 @@ from synnax.schematic.symbol.types_gen import (
     Symbol,
     Where,
 )
-from synnax.util import one
+from synnax.util import sole
 from x import filter
 from x.lists import normalize
 
@@ -129,7 +129,7 @@ class Client:
         )
         if not is_single:
             return res.symbols
-        return one("Symbol", key, res.symbols)
+        return sole("Symbol", key, res.symbols)
 
     def rename(self, key: Key, name: str) -> None:
         """Renames a symbol.
