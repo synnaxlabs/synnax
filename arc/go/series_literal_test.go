@@ -110,27 +110,36 @@ var _ = Describe("Typed series literals", func() {
 	})
 
 	DescribeTable("Should accept an empty series of any element type",
-		func(ctx SpecContext, element string) {
-			for _, body := range []string{
-				"y series " + element + " := []\nreturn len(y)",
-				"y series " + element + " := []\ny = []\nreturn len(y)",
-			} {
-				got := first(ctx, types.I64(), telem.Int64T, body)
-				Expect(got.Unmarshal[int64]()[0]).To(Equal(int64(0)), body)
-			}
+		func(ctx SpecContext, body string) {
+			got := first(ctx, types.I64(), telem.Int64T, body)
+			Expect(got.Unmarshal[int64]()[0]).To(Equal(int64(0)))
 		},
-		Entry("bool", "bool"),
-		Entry("f32", "f32"),
-		Entry("f64", "f64"),
-		Entry("i8", "i8"),
-		Entry("i16", "i16"),
-		Entry("i32", "i32"),
-		Entry("i64", "i64"),
-		Entry("u8", "u8"),
-		Entry("u16", "u16"),
-		Entry("u32", "u32"),
-		Entry("u64", "u64"),
-		Entry("timestamp", "i64 ns"),
+		Entry("declared bool", "y series bool := []\nreturn len(y)"),
+		Entry("reassigned bool", "y series bool := []\ny = []\nreturn len(y)"),
+		Entry("declared f32", "y series f32 := []\nreturn len(y)"),
+		Entry("reassigned f32", "y series f32 := []\ny = []\nreturn len(y)"),
+		Entry("declared f64", "y series f64 := []\nreturn len(y)"),
+		Entry("reassigned f64", "y series f64 := []\ny = []\nreturn len(y)"),
+		Entry("declared i8", "y series i8 := []\nreturn len(y)"),
+		Entry("reassigned i8", "y series i8 := []\ny = []\nreturn len(y)"),
+		Entry("declared i16", "y series i16 := []\nreturn len(y)"),
+		Entry("reassigned i16", "y series i16 := []\ny = []\nreturn len(y)"),
+		Entry("declared i32", "y series i32 := []\nreturn len(y)"),
+		Entry("reassigned i32", "y series i32 := []\ny = []\nreturn len(y)"),
+		Entry("declared i64", "y series i64 := []\nreturn len(y)"),
+		Entry("reassigned i64", "y series i64 := []\ny = []\nreturn len(y)"),
+		Entry("declared u8", "y series u8 := []\nreturn len(y)"),
+		Entry("reassigned u8", "y series u8 := []\ny = []\nreturn len(y)"),
+		Entry("declared u16", "y series u16 := []\nreturn len(y)"),
+		Entry("reassigned u16", "y series u16 := []\ny = []\nreturn len(y)"),
+		Entry("declared u32", "y series u32 := []\nreturn len(y)"),
+		Entry("reassigned u32", "y series u32 := []\ny = []\nreturn len(y)"),
+		Entry("declared u64", "y series u64 := []\nreturn len(y)"),
+		Entry("reassigned u64", "y series u64 := []\ny = []\nreturn len(y)"),
+		Entry("declared timestamp", "y series i64 ns := []\nreturn len(y)"),
+		Entry("reassigned timestamp", "y series i64 ns := []\ny = []\nreturn len(y)"),
+		Entry("untyped", "y := []\nreturn len(y)"),
+		Entry("untyped reassigned", "y := []\ny = []\nreturn len(y)"),
 	)
 
 	DescribeTable("Should read a u8 element",

@@ -420,8 +420,9 @@ func inferSeriesLiteralType(
 	exprList := ctx.AST.ExpressionList()
 	if exprList == nil || len(exprList.AllExpression()) == 0 {
 		// An empty literal has no element to constrain its type, so the declared type
-		// can be any element type, numeric or not.
+		// can be any element type, numeric or not. Undeclared, it is f64.
 		elemType := types.Variable(ctx.ScopedKey("series_elem", ctx.AST), nil)
+		ctx.Constraints.AddDefault(elemType, types.F64())
 		t := types.Series(elemType)
 		ctx.TypeMap[ctx.AST] = t
 		return t
