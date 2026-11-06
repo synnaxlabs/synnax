@@ -88,11 +88,6 @@ TEST(stateTests, Nominal) {
     };
     ASSERT_NIL(rack.tasks.create(task));
     auto hb = driver::rack::status::Task::configure(ctx, task);
-    auto cmd = synnax::task::Command{
-        .task = task.key,
-        .type = "start",
-    };
-    hb->exec(cmd);
     x::defer::defer stop([&hb]() { hb->stop(false); });
     auto streamer = ASSERT_NIL_P(client->telem.open_streamer(
         synnax::framer::StreamerConfig{
@@ -109,6 +104,58 @@ TEST(stateTests, Nominal) {
     EXPECT_EQ(j["details"]["rack"], rack.key);
     EXPECT_EQ(j["variant"], synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(j["message"], "Driver is running");
+    ASSERT_NIL(streamer.close());
+}
+
+/// @brief it should answer a command with an error, so a client waiting for the reply
+/// does not wait forever.
+TEST(stateTests, AnswersCommandsWithAnError) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
+    auto ch = ASSERT_NIL_P(
+        client->channels.retrieve(synnax::status::STATUS_SET_CHANNEL_NAME)
+    );
+    auto ctx = std::make_shared<driver::task::SynnaxContext>(
+        client,
+        std::make_shared<driver::task::StatusCache>(client->statuses)
+    );
+    auto task = synnax::task::Task{
+        .name = "state",
+        .type = driver::rack::status::TASK_TYPE,
+        .internal = true,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    auto streamer = ASSERT_NIL_P(client->telem.open_streamer(
+        synnax::framer::StreamerConfig{.channels = {ch.key}}
+    ));
+    auto hb = driver::rack::status::Task::configure(ctx, task);
+    ASSERT_NE(hb, nullptr);
+    x::defer::defer stop([&hb]() { hb->stop(false); });
+    auto cmd = synnax::task::Command{
+        .task = task.key,
+        .type = synnax::task::START_CMD_TYPE,
+        .key = "start-cmd",
+    };
+    hb->exec(cmd);
+    const auto key = synnax::task::status_key(task);
+    bool answered = false;
+    for (int i = 0; i < 50 && !answered; i++) {
+        auto frm = ASSERT_NIL_P(streamer.read());
+        for (size_t c = 0; c < frm.size(); c++)
+            for (const auto &raw: frm.series->at(c).strings()) {
+                const auto j = x::json::json::parse(raw);
+                if (j["key"] != key || j["details"]["cmd"] != "start-cmd") continue;
+                EXPECT_EQ(j["variant"], synnax::status::VARIANT_ERROR);
+                EXPECT_EQ(j["message"], "Failed to execute command");
+                EXPECT_EQ(
+                    j["description"],
+                    "The rack status task does not accept commands."
+                );
+                EXPECT_EQ(j["details"]["running"], true);
+                answered = true;
+            }
+    }
+    EXPECT_TRUE(answered);
     ASSERT_NIL(streamer.close());
 }
 

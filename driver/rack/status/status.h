@@ -136,6 +136,8 @@ public:
 /// @brief a task that periodically
 /// to indicate that the driver is still alive.
 class Task final : public driver::task::Task {
+    const std::shared_ptr<task::Context> ctx;
+    const synnax::task::Task task;
     Source pipe;
 
 public:
@@ -144,12 +146,31 @@ public:
         const synnax::task::Task &task,
         const std::shared_ptr<task::Context> &ctx
     ):
-        pipe(rack, task, ctx) {
+        ctx(ctx), task(task), pipe(rack, task, ctx) {
         this->pipe.start();
     }
 
     /// @brief implements driver::task::Task.
     std::string name() const override { return TASK_NAME; }
+
+    /// @brief answers every command with an error, because the task takes none.
+    void exec(synnax::task::Command &cmd) override {
+        synnax::task::Status stat{
+            .key = synnax::task::status_key(this->task),
+            .name = this->task.name,
+            .variant = ::synnax::status::VARIANT_ERROR,
+            .message = "Failed to execute command",
+            .description = "The rack status task does not accept commands.",
+            .time = x::telem::TimeStamp::now(),
+            .details = synnax::task::StatusDetails{
+                .task = this->task.key,
+                .running = this->pipe.running(),
+                .cmd = cmd.key,
+                .config_hash = this->task.config_hash,
+            }
+        };
+        this->ctx->set_status(stat);
+    }
 
     /// @brief stop the heartbeat process
     void stop(bool will_reconfigure) override { this->pipe.stop(); }
