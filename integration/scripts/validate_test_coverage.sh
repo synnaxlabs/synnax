@@ -25,13 +25,15 @@ TESTS_DIR="integration/tests"
 EXEMPT="example"
 
 # Matrix definition (single source of truth)
-# Format: "name:target:hosted" where target can be comma-separated file prefixes.
+# Format: "name:target:hosted:args" where target can be comma-separated file prefixes.
 # hosted is true when the suite runs on a GitHub-hosted runner. A suite that needs NI
-# software, the timer precision of a test bot, or more than 4 CPUs is not hosted.
+# software, the timer precision of a test bot, or more than 4 CPUs is not hosted. args
+# are more flags for the test conductor. The Driver suite waits on its devices more
+# than it computes, so it runs its sequences on four Cores at once.
 MATRIX_ENTRIES=(
-    "arc:arc,control:true"
-    "console:console:false"
-    "driver:driver,latency:false"
+    "arc:arc,control:true:"
+    "console:console:false:"
+    "driver:driver,latency:false:--cores 4 --browsers 1"
 )
 
 covered=""
@@ -89,13 +91,14 @@ fi
 json='{"include":['
 first=true
 for entry in "${MATRIX_ENTRIES[@]}"; do
-    IFS=: read -r name target hosted <<< "$entry"
+    IFS=: read -r name target hosted args <<< "$entry"
     if [ "$first" = true ]; then
         first=false
     else
         json+=","
     fi
-    json+="{\"name\":\"$name\",\"target\":\"$target\",\"hosted\":$hosted}"
+    json+="{\"name\":\"$name\",\"target\":\"$target\",\"hosted\":$hosted,"
+    json+="\"args\":\"$args\"}"
 done
 json+=']}'
 
