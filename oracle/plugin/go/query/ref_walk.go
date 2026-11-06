@@ -409,14 +409,9 @@ type nestedRef struct {
 
 // renderer writes the Go code that walks the sites of one reference.
 type renderer struct {
-	table *resolution.Table
-	r     *resolver.Resolver
-	ctx   *resolver.Context
-	info  refInfo
-	// zero is the Go expression of the leaf's zero value.
-	zero string
-	// elem is the Go type of one target key.
-	elem       string
+	r          *resolver.Resolver
+	ctx        *resolver.Context
+	info       refInfo
 	vars       int
 	usesSlices bool
 }
@@ -552,7 +547,7 @@ func (rd *renderer) targetsBody(ref *walkedRef) string {
 				b,
 				"if %s != %s {\ntargets = append(targets, %s)\n}\n",
 				expr,
-				rd.zeroOperand(),
+				rd.info.ZeroOperand(),
 				rd.target(expr),
 			)
 		case leafOptional:
@@ -577,9 +572,9 @@ func (rd *renderer) targetsBody(ref *walkedRef) string {
 	return b.String()
 }
 
-// detachBody returns the code that removes the target t from e, and false when the
+// detachBody returns the code that removes the target t from e, or nothing when the
 // sites of ref hold no array to remove a required field's element from.
-func (rd *renderer) detachBody(ref *walkedRef) (string, bool, error) {
+func (rd *renderer) detachBody(ref *walkedRef) (string, error) {
 	var b strings.Builder
 	mode := ref.sites[0].mode
 	if mode != leafRequired {
@@ -595,7 +590,7 @@ func (rd *renderer) detachBody(ref *walkedRef) (string, bool, error) {
 					"if %s == t {\n%s = %s\n}\n",
 					rd.target(expr),
 					expr,
-					rd.zero,
+					rd.info.Zero,
 				)
 			case leafOptional:
 				fmt.Fprintf(
@@ -614,12 +609,12 @@ func (rd *renderer) detachBody(ref *walkedRef) (string, bool, error) {
 					expr,
 					expr,
 					k,
-					rd.elem,
+					rd.info.ElemGoType,
 					rd.target(k),
 				)
 			}
 		})
-		return b.String(), true, nil
+		return b.String(), nil
 	}
 	// A required field drops with the element of the nearest array that holds it, so
 	// every site needs an array and the same path to it.
@@ -635,7 +630,7 @@ func (rd *renderer) detachBody(ref *walkedRef) (string, bool, error) {
 			}
 		}
 		if at < 0 {
-			return "", false, nil
+			return "", nil
 		}
 		head := s.steps[:at]
 		if i == 0 {
@@ -643,7 +638,7 @@ func (rd *renderer) detachBody(ref *walkedRef) (string, bool, error) {
 		} else if !slices.EqualFunc(prefix, head, func(a, b refStep) bool {
 			return a.id() == b.id()
 		}) {
-			return "", false, errors.Newf(
+			return "", errors.Newf(
 				"@ref field %s reaches its arrays through different paths, so it "+
 					"cannot detach",
 				ref.path,
@@ -683,16 +678,7 @@ func (rd *renderer) detachBody(ref *walkedRef) (string, bool, error) {
 			b.WriteString("return false\n})\n")
 		},
 	)
-	return b.String(), true, nil
-}
-
-// zeroOperand returns the zero value as an operand of a comparison, where a composite
-// literal needs parentheses.
-func (rd *renderer) zeroOperand() string {
-	if strings.HasSuffix(rd.zero, "{}") {
-		return "(" + rd.zero + ")"
-	}
-	return rd.zero
+	return b.String(), nil
 }
 
 // extractNestedRefs returns the references a @retrieve references type holds.
@@ -730,24 +716,9 @@ func extractNestedRefs(
 		if err != nil {
 			return nil, err
 		}
-		elemRef := field.Type
-		if mode == leafSlice {
-			elemRef = elemRef.TypeArgs[0]
-		}
-		rd := &renderer{
-			table: table,
-			r:     r,
-			ctx:   ctx,
-			info:  info,
-			elem:  info.ElemGoType,
-		}
-		if mode == leafZero {
-			rd.zero = zeroValue(elemRef, table, func() string {
-				return r.ResolveTypeRef(elemRef, ctx)
-			})
-		}
+		rd := &renderer{r: r, ctx: ctx, info: info}
 		nr := nestedRef{refInfo: info, TargetsBody: rd.targetsBody(ref)}
-		detach, _, err := rd.detachBody(ref)
+		detach, err := rd.detachBody(ref)
 		if err != nil {
 			return nil, errors.Wrap(err, typ.QualifiedName)
 		}
