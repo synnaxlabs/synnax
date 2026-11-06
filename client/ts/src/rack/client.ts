@@ -28,7 +28,7 @@ import {
   statusZ,
 } from "@/rack/types.gen";
 import { LINES } from "@/rack/where";
-import { matches, retrieveInputZ, serverComputed } from "@/rack/where.gen";
+import { matches, retrieveInputZ, serverComputed, shortcutZ } from "@/rack/where.gen";
 import { type status } from "@/status";
 import { type task } from "@/task";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
@@ -37,7 +37,6 @@ export const SET_CHANNEL_NAME = "sy_rack_set";
 export const DELETE_CHANNEL_NAME = "sy_rack_delete";
 
 const retrieveMultiParamsZ = z.union([
-  query.keysRequestZ(keyZ),
   retrieveRequestZ,
   retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
 ]);
@@ -116,7 +115,8 @@ export class Client extends query.Retriever<
   Omit<Payload, "status">,
   Rack,
   RetrieveSingleParams,
-  SingleQuery
+  SingleQuery,
+  Key | string
 > {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Omit<Payload, "status">>;
@@ -156,6 +156,7 @@ export class Client extends query.Retriever<
     super(cache, {
       name: "rack",
       table: store,
+      shortcut: shortcutZ,
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => (await this.fetchThrough(req)).map(stripStatus),

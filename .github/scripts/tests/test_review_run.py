@@ -61,6 +61,12 @@ def config(**kw: Any) -> Config:
     return Config(**(fields | kw))
 
 
+NEW_COMMITS = (
+    "commit " + "c" * 40 + "\n\nFix the reader\n\n"
+    "diff --git a/core/a.go b/core/a.go\n@@ -1 +1 @@\n-broken\n+fixed\n"
+)
+
+
 def pull(**kw: Any) -> PullRequest:
     fields: dict[str, Any] = {
         "number": 7,
@@ -248,6 +254,20 @@ class TestPrompt:
         review(workdir=tmp_path)
         assert list(tmp_path.iterdir()) == []
 
+    def test_should_show_the_commits_since_the_last_review(self) -> None:
+        stdin = review(pr=pull(new=NEW_COMMITS)).stdin
+        assert "# Commits since your last review\n\nReview these" in stdin
+        assert NEW_COMMITS in stdin
+        assert stdin.index("+fixed") < stdin.index("# Rules")
+
+    def test_should_put_new_commits_too_long_to_show_in_a_file(
+        self, tmp_path: Path
+    ) -> None:
+        stdin = review(config(diff_chars=150), pull(new=NEW_COMMITS), tmp_path).stdin
+        assert "+fixed" not in stdin
+        assert "Read all of `new.diff` first." in stdin
+        assert (tmp_path / "new.diff").read_text() == NEW_COMMITS
+
 
 class TestCommand:
     """Tests the command that runs Claude Code."""
@@ -364,9 +384,10 @@ def git(cwd: Path, *args: str) -> str:
 class TestMain:
     """Tests the `run` command with fake `gh` and `claude` executables."""
 
-    def test_should_review_the_head_with_the_policy_checkout(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    @pytest.fixture
+    def env(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, str]:
+        """Sets the environment of a review. The fake `gh` logs each call to
+        `gh.log`, and the fake `claude` writes its prompt to `prompt.txt`."""
         home = tmp_path / "policy" / ".sedosaur"
         (home / "rules").mkdir(parents=True)
         (home / "config.toml").write_text(
@@ -387,6 +408,7 @@ class TestMain:
         bindir.mkdir()
         executable(
             bindir / "gh",
+            f"open({str(tmp_path / 'gh.log')!r}, 'a').write(' '.join(sys.argv))\n"
             "if 'graphql' not in sys.argv:\n"
             "    print(json.dumps({'title': 'Fix A', 'body': 'Fixes A.'}))\n",
         )
@@ -417,16 +439,22 @@ class TestMain:
         }
         for k, v in env.items():
             monkeypatch.setenv(k, v)
+        return env
+
+    def test_should_review_the_head_with_the_policy_checkout(
+        self, tmp_path: Path, env: dict[str, str]
+    ) -> None:
         out = tmp_path / "review.json"
         main(["run", str(out)])
-        text = prompt.read_text()
+        assert "reviewThreads" in (tmp_path / "gh.log").read_text()
+        text = (tmp_path / "prompt.txt").read_text()
         assert text.startswith("Use the trusted policy.\n\n# Pull request #7: Fix A")
         assert "     2 +two" in text
         record = json.loads(out.read_text())
         assert record["at"].endswith("+00:00")
         assert record["pr"] == 7
         assert record["head"] == env["HEAD_SHA"]
-        assert record["base"] == base
+        assert record["base"] == env["BASE_SHA"]
         assert record["policy"] == "policy"
         assert record["review"]["score"] == 5
         assert record["usage"] == {
@@ -439,3 +467,64 @@ class TestMain:
             "cache_creation_tokens": 6,
             "limits": {},
         }
+
+    def test_should_replay_without_the_open_threads_or_a_check_run(
+        self, tmp_path: Path, env: dict[str, str], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("REPLAY", "true")
+        monkeypatch.delenv("CHECK_RUN")
+        out = tmp_path / "review.json"
+        main(["run", str(out)])
+        assert "reviewThreads" not in (tmp_path / "gh.log").read_text()
+        assert json.loads(out.read_text())["review"]["score"] == 5
+
+    @staticmethod
+    def prompt_after_reviews_of(tmp_path: Path, *commits: str) -> str:
+        """Runs a review whose pull request body says that Sedosaur reviewed the
+        commits, newest first, and returns the section of new commits in the prompt."""
+        edits = "".join(
+            json.dumps(
+                {
+                    "editor": {"__typename": "Bot", "login": "sedosaur"},
+                    "diff": "<!-- sedosaur_comment -->\n[c](https://github.com/o/r/"
+                    f"commit/{c})\n<!-- /sedosaur_comment -->",
+                }
+            )
+            + "\n"
+            for c in commits
+        )
+        executable(
+            tmp_path / "bin" / "gh",
+            "if 'graphql' not in sys.argv:\n"
+            "    print(json.dumps({'title': 'Fix A', 'body': 'Fixes A.'}))\n"
+            "elif any('userContentEdits' in a for a in sys.argv):\n"
+            f"    print({edits!r}, end='')\n",
+        )
+        main(["run", str(tmp_path / "review.json")])
+        text = (tmp_path / "prompt.txt").read_text()
+        _, found, new = text.partition("# Commits since your last review")
+        return new.split("# Rules")[0] if found else ""
+
+    def test_should_show_the_commits_since_the_last_review(
+        self, tmp_path: Path, env: dict[str, str]
+    ) -> None:
+        new = self.prompt_after_reviews_of(tmp_path, env["BASE_SHA"])
+        assert f"commit {env['HEAD_SHA']}\n\nhead\n" in new
+        assert "+two" in new
+
+    def test_should_show_the_commits_since_the_review_before_one_of_the_head(
+        self, tmp_path: Path, env: dict[str, str]
+    ) -> None:
+        new = self.prompt_after_reviews_of(tmp_path, env["HEAD_SHA"], env["BASE_SHA"])
+        assert f"commit {env['HEAD_SHA']}\n\nhead\n" in new
+
+    def test_should_skip_a_reviewed_commit_that_a_force_push_dropped(
+        self, tmp_path: Path, env: dict[str, str]
+    ) -> None:
+        new = self.prompt_after_reviews_of(tmp_path, "d" * 40, env["BASE_SHA"])
+        assert f"commit {env['HEAD_SHA']}\n\nhead\n" in new
+
+    def test_should_show_no_new_commits_without_an_earlier_review(
+        self, tmp_path: Path, env: dict[str, str]
+    ) -> None:
+        assert self.prompt_after_reviews_of(tmp_path, env["HEAD_SHA"]) == ""

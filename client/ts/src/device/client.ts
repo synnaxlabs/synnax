@@ -27,7 +27,7 @@ import { matches, retrieveInputZ, serverComputed } from "@/device/where.gen";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { type status } from "@/status";
-import { checkForMultipleOrNoResults, singleQueryError } from "@/util/retrieve";
+import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_device_set";
 export const DELETE_CHANNEL_NAME = "sy_device_delete";
@@ -62,6 +62,11 @@ const retrieveMultiParamsZ = z.union([
   retrieveRequestZ,
   filterParamsZ,
 ]);
+
+type OneParams = query.OneInput<typeof retrieveMultiParamsZ>;
+
+const isOneParams = (params: object): params is RetrieveSingleParams | OneParams =>
+  query.addressesOne(params);
 
 const retrieveResZ = <
   Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
@@ -226,10 +231,11 @@ export class Client extends query.Retriever<
     Make extends z.ZodType<string>,
     Model extends z.ZodType<string>,
   >(
-    params: RetrieveSingleParams & RetrieveSchemas<Properties, Make, Model>,
+    params: (RetrieveSingleParams | OneParams) &
+      RetrieveSchemas<Properties, Make, Model>,
   ): Promise<Device<Properties, Make, Model>>;
 
-  async retrieve(params: Key | RetrieveSingleParams): Promise<Device>;
+  async retrieve(params: Key | RetrieveSingleParams | OneParams): Promise<Device>;
 
   async retrieve<
     Properties extends z.ZodType<record.Unknown>,
@@ -246,21 +252,20 @@ export class Client extends query.Retriever<
 
   async retrieve(
     rawParams:
-      Key | Key[] | ((RetrieveParams | FilterParams) & { schemas?: DeviceSchemas }),
+      | Key
+      | Key[]
+      | ((RetrieveParams | OneParams | FilterParams) & { schemas?: DeviceSchemas }),
   ): Promise<Device | Array<Device>> {
     if (Array.isArray(rawParams)) return await super.retrieve(rawParams);
     const params = typeof rawParams === "string" ? { key: rawParams } : rawParams;
     const { schemas, ...rest } = params;
-    const isSingle = z.validate(singleRetrieveParamsZ, rest);
+    const isSingle = isOneParams(rest);
     // Schemas are not hashable, so schema-typed retrieves bypass the query
     // cache and hit the network, still writing records through.
     if (schemas != null) {
-      if (!isSingle && "key" in rest && typeof rest.key === "string") {
-        const res = singleQueryZ.safeParse(rest);
-        if (!res.success) throw singleQueryError("device", rest, res.error);
-      }
-      const devices = await this.fetchThrough(rest, schemas);
-      checkForMultipleOrNoResults("Device", rest, devices, isSingle);
+      const request = query.dropOne(rest);
+      const devices = await this.fetchThrough(request, schemas);
+      checkForMultipleOrNoResults("Device", request, devices, isSingle);
       return isSingle ? devices[0] : devices;
     }
     if (isSingle) return await super.retrieve(rest);
@@ -394,7 +399,7 @@ export class Client extends query.Retriever<
   }
 
   private async execRetrieve(
-    params: RetrieveParams | FilterParams,
+    params: RetrieveParams | OneParams | FilterParams,
     schemas?: DeviceSchemas,
   ): Promise<Device[]> {
     const res = await this.cfg.unary.send(
@@ -407,7 +412,7 @@ export class Client extends query.Retriever<
   }
 
   private async fetchThrough(
-    req: RetrieveParams | FilterParams,
+    req: RetrieveParams | OneParams | FilterParams,
     schemas?: DeviceSchemas,
   ): Promise<Device[]> {
     const since = this.store.stamp();
