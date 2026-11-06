@@ -21,40 +21,53 @@ import (
 )
 
 var _ = Describe("Value", func() {
-	DescribeTable("Should round trip a float through proto and msgpack",
-		func(ctx SpecContext, value float64, t types.Type) {
-			param := types.Param{Name: "a", Type: t, Value: types.EncodeFloat(value)}
-			codec := msgpack.Codec
-			var fromMsgpack types.Param
-			Expect(codec.Decode(
-				ctx, MustSucceed(codec.Encode(ctx, param)), &fromMsgpack,
-			)).To(Succeed())
-			fromProto := MustSucceed(pb.ParamFromPB(MustSucceed(pb.ParamToPB(param))))
-			for _, p := range []types.Param{fromMsgpack, fromProto} {
-				decoded := types.DecodeValue(p.Value, t)
-				var got float64
-				switch v := decoded.(type) {
-				case float32:
-					Expect(t.Kind).To(Equal(types.KindF32))
-					got = float64(v)
-				case float64:
-					got = v
-				default:
-					Fail("value did not decode to a float")
-				}
-				if math.IsNaN(value) {
-					Expect(math.IsNaN(got)).To(BeTrue())
-				} else {
-					Expect(got).To(Equal(value))
-				}
-			}
-		},
+	floats := []TableEntry{
 		Entry("f32 NaN", math.NaN(), types.F32()),
 		Entry("f32 +Inf", math.Inf(1), types.F32()),
 		Entry("f64 NaN", math.NaN(), types.F64()),
 		Entry("f64 +Inf", math.Inf(1), types.F64()),
 		Entry("f64 -Inf", math.Inf(-1), types.F64()),
 		Entry("f64 finite", 1.5, types.F64()),
+	}
+
+	expectFloat := func(p types.Param, value float64, t types.Type) {
+		GinkgoHelper()
+		var got float64
+		switch v := types.DecodeValue(p.Value, t).(type) {
+		case float32:
+			Expect(t.Kind).To(Equal(types.KindF32))
+			got = float64(v)
+		case float64:
+			got = v
+		default:
+			Fail("value did not decode to a float")
+		}
+		if math.IsNaN(value) {
+			Expect(math.IsNaN(got)).To(BeTrue())
+		} else {
+			Expect(got).To(Equal(value))
+		}
+	}
+
+	DescribeTable("Should round trip a float through msgpack",
+		func(ctx SpecContext, value float64, t types.Type) {
+			param := types.Param{Name: "a", Type: t, Value: types.EncodeFloat(value)}
+			var decoded types.Param
+			Expect(msgpack.Codec.Decode(
+				ctx, MustSucceed(msgpack.Codec.Encode(ctx, param)), &decoded,
+			)).To(Succeed())
+			expectFloat(decoded, value, t)
+		},
+		floats,
+	)
+
+	DescribeTable("Should round trip a float through proto",
+		func(value float64, t types.Type) {
+			param := types.Param{Name: "a", Type: t, Value: types.EncodeFloat(value)}
+			decoded := MustSucceed(pb.ParamFromPB(MustSucceed(pb.ParamToPB(param))))
+			expectFloat(decoded, value, t)
+		},
+		floats,
 	)
 
 	It("Should keep the exact encoding of a finite value", func() {
