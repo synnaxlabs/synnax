@@ -84,7 +84,7 @@ func EncodeBundle(p Panel, refs map[resource.ID]string) (imex.Envelope, error) {
 // bundle tree holds a member path, the returned tree holds the resource.ID refs maps
 // that path to; a path refs does not hold is a validation error naming it. A version
 // above versions.Latest is a path-scoped validation error. The returned panel carries
-// no key or parent; the caller assigns both.
+// no key or project; the caller assigns both.
 func DecodeBundle(
 	ctx context.Context,
 	env imex.Envelope,
