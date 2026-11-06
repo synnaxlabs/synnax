@@ -33,12 +33,16 @@ const int STATE_CHANGE_TIMEOUT = static_cast<int>(
 const int PROCESSDATA_TIMEOUT = static_cast<int>(x::telem::MILLISECOND.microseconds());
 /// Time between state reads while slaves move to a requested state.
 const auto STATE_POLL_INTERVAL = x::telem::MILLISECOND;
-/// AL status codes of timing faults, which can clear on a new start.
-constexpr std::array<uint16_t, 11> TIMING_FAULTS = {
+/// AL status codes of faults that a new start can clear. The start takes every slave
+/// back through INIT with an acknowledgment.
+constexpr std::array<uint16_t, 16> TRANSIENT_FAULTS = {
     0x0018, // No valid inputs available
     0x0019, // No valid outputs
     0x001A, // Synchronization error
     0x001B, // Sync manager watchdog
+    0x0021, // Slave needs INIT
+    0x0022, // Slave needs PREOP
+    0x0023, // Slave needs SAFEOP
     0x002A, // Background watchdog
     0x002B, // No valid inputs and outputs
     0x002C, // Fatal sync error
@@ -46,6 +50,8 @@ constexpr std::array<uint16_t, 11> TIMING_FAULTS = {
     0x0032, // PLL error
     0x0033, // DC sync IO error
     0x0034, // DC sync timeout error
+    0x0052, // External hardware not ready
+    0x0060, // Slave restarted locally
 };
 /// Timeout for one recovery step on a slave in microseconds.
 const int RECOVERY_TIMEOUT = static_cast<int>(
@@ -975,7 +981,7 @@ Master::state_error(const std::vector<uint16_t> &failed, const uint16_t state) {
         if (!this->al_error(pos)) continue;
         const auto code = this->api->slave_ALstatuscode(pos);
         refused |= this->refuses(pos, state) &&
-                   std::ranges::find(TIMING_FAULTS, code) == TIMING_FAULTS.end();
+                   std::ranges::find(TRANSIENT_FAULTS, code) == TRANSIENT_FAULTS.end();
         msg += ": " + std::string(ec_ALstatuscode2string(code));
     }
     return x::errors::Error(

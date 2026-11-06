@@ -50,7 +50,7 @@ const x::errors::Error CYCLE_OVERRUN = BASE_ERROR.sub("cycle_overrun");
 /// @brief error returned when a state machine transition fails.
 const x::errors::Error STATE_CHANGE_ERROR = BASE_ERROR.sub("state_change");
 /// @brief error returned when a slave refuses a state change with an AL status code
-/// that is not a timing fault. The same configuration gets the same refusal, so
+/// that a new start cannot clear. The same configuration gets the same refusal, so
 /// retrying does not help.
 const x::errors::Error STATE_CHANGE_REFUSED = STATE_CHANGE_ERROR.sub("refused");
 /// @brief error returned when the latest bus cycle failed and its inputs were dropped.

@@ -166,8 +166,8 @@ private:
     void recover(uint16_t pos);
 
     /// @brief builds the error for enabled slaves that did not reach a state. It is a
-    /// refusal when a slave refuses the state with an AL status code that is not a
-    /// timing fault.
+    /// refusal when a slave refuses the state with an AL status code that a new start
+    /// cannot clear.
     x::errors::Error state_error(const std::vector<uint16_t> &failed, uint16_t state);
 };
 

@@ -349,6 +349,24 @@ TEST_F(SOEMMasterTest, ActivateOpTimingFaultIsNotARefusal) {
     EXPECT_EQ(this->mock->readstate_count, 3);
 }
 
+/// @brief it should not count a slave that asks to go back to PRE-OP as a refusal,
+/// because the retry takes it back through INIT.
+TEST_F(SOEMMasterTest, ActivateSafeOpRestartRequestIsNotARefusal) {
+    this->initialize_with_slave();
+    this->mock->obytes = 2;
+    this->mock->ibytes = 4;
+    this->mock->statecheck_overrides[EC_STATE_SAFE_OP] = EC_STATE_PRE_OP +
+                                                         EC_STATE_ERROR;
+    this->mock->slave_infos[0].ALstatuscode = 0x0022;
+    const auto err = this->master->activate();
+    ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_ERROR);
+    EXPECT_FALSE(err.matches(errors::STATE_CHANGE_REFUSED));
+    EXPECT_EQ(
+        err.data,
+        "failed to reach SAFE-OP: slave 1 (TestSlave) is in PRE-OP: Slave needs PREOP"
+    );
+}
+
 TEST_F(SOEMMasterTest, ActivateOpTransitionFails) {
     this->initialize_with_slave();
     this->mock->obytes = 2;
