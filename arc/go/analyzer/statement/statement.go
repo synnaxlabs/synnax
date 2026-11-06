@@ -261,7 +261,7 @@ func analyzeVariableDeclarationType[ASTNode antlr.ParserRuleContext](
 					}
 				} else {
 					isLiteral := isLiteralExpression(ctx.Child(expression))
-					if (isLiteral && !atypes.LiteralAssignmentCompatible(varType, exprType)) ||
+					if (isLiteral && !atypes.LiteralAssignmentCompatible(ctx.Constraints, varType, exprType, ctx.AST)) ||
 						(!isLiteral && !atypes.Compatible(varType, exprType)) {
 						ctx.Diagnostics.Add(diagnostics.Errorf(
 							ctx.AST,
@@ -878,8 +878,10 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 				isLiteral := isLiteralExpression(ctx.Child(returnExpr))
 				if isLiteral {
 					if !atypes.LiteralAssignmentCompatible(
+						ctx.Constraints,
 						expectedReturnType,
 						actualReturnType,
+						ctx.AST,
 					) {
 						ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
 							"cannot return %s from '%s': expected %s",
@@ -1040,7 +1042,7 @@ func analyzeChannelAssignment(
 		}
 	} else {
 		isLiteral := isLiteralExpression(ctx.Child(expr))
-		if (isLiteral && !atypes.LiteralAssignmentCompatible(chanValueType, exprType)) ||
+		if (isLiteral && !atypes.LiteralAssignmentCompatible(ctx.Constraints, chanValueType, exprType, ctx.AST)) ||
 			(!isLiteral && !atypes.Compatible(chanValueType, exprType)) {
 			channelName := ctx.AST.IDENTIFIER().GetText()
 			ctx.Diagnostics.Add(diagnostics.Errorf(
@@ -1109,7 +1111,7 @@ func analyzeIndexedAssignment(
 	}
 
 	isLiteral := isLiteralExpression(ctx.Child(valueExpr))
-	if (isLiteral && !atypes.LiteralAssignmentCompatible(elemType, exprType)) ||
+	if (isLiteral && !atypes.LiteralAssignmentCompatible(ctx.Constraints, elemType, exprType, ctx.AST)) ||
 		(!isLiteral && !atypes.Compatible(elemType, exprType)) {
 		ctx.Diagnostics.Add(diagnostics.Errorf(
 			ctx.AST,
@@ -1189,7 +1191,7 @@ func analyzeIndexedCompoundAssignment(
 	}
 
 	isLiteral := isLiteralExpression(ctx.Child(expr))
-	if (isLiteral && !atypes.LiteralAssignmentCompatible(elemType, exprType)) ||
+	if (isLiteral && !atypes.LiteralAssignmentCompatible(ctx.Constraints, elemType, exprType, ctx.AST)) ||
 		(!isLiteral && !atypes.Compatible(elemType, exprType)) {
 		ctx.Diagnostics.Add(diagnostics.Errorf(
 			ctx.AST,
@@ -1263,7 +1265,7 @@ func analyzeSeriesCompoundAssignment(
 		}
 	} else {
 		isLiteral := isLiteralExpression(ctx.Child(expr))
-		if (isLiteral && !atypes.LiteralAssignmentCompatible(elemType, exprType)) ||
+		if (isLiteral && !atypes.LiteralAssignmentCompatible(ctx.Constraints, elemType, exprType, ctx.AST)) ||
 			(!isLiteral && !atypes.Compatible(elemType, exprType)) {
 			ctx.Diagnostics.Add(diagnostics.Errorf(
 				ctx.AST,
@@ -1433,8 +1435,10 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) {
 		return
 	}
 
-	// If either type is a type variable, add a constraint instead of checking directly
-	if exprType.Kind == types.KindVariable || varType.Kind == types.KindVariable {
+	// If either type is a type variable, add a constraint instead of checking directly.
+	// A series literal holds its variable in the element type.
+	if exprType.Unwrap().Kind == types.KindVariable ||
+		varType.Kind == types.KindVariable {
 		if err := atypes.Check(
 			ctx.Constraints,
 			varType,

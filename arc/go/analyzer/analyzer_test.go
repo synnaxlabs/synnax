@@ -367,8 +367,11 @@ var _ = Describe("Analyzer Integration", func() {
 					return s + [undefined_var]
 				}
 				`, nil)
-				Expect(*ctx.Diagnostics).To(HaveLen(1))
+				Expect(*ctx.Diagnostics).To(HaveLen(2))
 				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(
+					"undefined symbol: undefined_var",
+				))
+				Expect((*ctx.Diagnostics)[1].Message).To(ContainSubstring(
 					"cannot return series invalid from 'test': expected series i64",
 				))
 			},

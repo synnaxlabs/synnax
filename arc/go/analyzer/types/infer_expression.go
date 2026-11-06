@@ -456,6 +456,16 @@ func inferSeriesLiteralType(
 				))
 			}
 		}
+		if elemType.Kind == types.KindVariable || nextType.Kind == types.KindVariable {
+			if err := ctx.Constraints.AddCompatible(
+				elemType,
+				nextType,
+				exprs[i],
+				"series element type",
+			); err != nil {
+				ctx.Diagnostics.Add(diagnostics.Error(err, exprs[i]))
+			}
+		}
 		if elemType.Kind == types.KindVariable && nextType.Kind != types.KindVariable {
 			elemType = nextType
 		}
