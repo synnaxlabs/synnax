@@ -262,7 +262,7 @@ void Engine::run() {
                 timer = x::loop::Timer(sched->rate.period());
                 if (const auto sync = this->master->dc_sync())
                     phase.emplace(
-                        sched->rate.period(),
+                        sched->rate,
                         x::telem::TimeSpan(sync->sync0_cycle),
                         master::DC_EPOCH + x::telem::TimeSpan(sync->sync0_shift)
                     );
