@@ -730,7 +730,7 @@ describe("Answers", () => {
       expect(fetch).toHaveBeenCalledTimes(1);
     });
 
-    it("tears down after the grace window and reconfirms on the next remount", async () => {
+    it("tears down after the grace window and reconfirms a changed answer on the next remount", async () => {
       const table = newTable();
       const fetch = vi.fn(async () => {
         table.set("a", rec("a", 5));
@@ -742,8 +742,55 @@ describe("Answers", () => {
       off();
       // The sweep runs at half-grace cadence; well past the window by now.
       await wait(120);
+      table.set("b", rec("b", 1));
       answers.onChange({ min: 3 }, vi.fn());
       await expect.poll(() => fetch.mock.calls.length).toBe(2);
+    });
+
+    it("leaves an idle answer stale instead of refetching it", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => []);
+      const answers = new Space<{ searchTerm: string }, Rec[], string, Rec>(
+        {
+          name: "things",
+          table,
+          fetch,
+          compose: (records) => records,
+          serverFields: ["searchTerm"],
+        },
+        { teardownGrace: TimeSpan.seconds(5) },
+      );
+      const off = answers.onChange({ searchTerm: "x" }, vi.fn());
+      await answers.retrieve({ searchTerm: "x" });
+      off();
+      table.set("a", rec("a", 1));
+      // Past the refetch debounce: a scheduled refetch would have landed.
+      await wait(150);
+      expect(fetch).toHaveBeenCalledTimes(1);
+      answers.onChange({ searchTerm: "x" }, vi.fn());
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
+    });
+
+    it("refetches a stale idle answer on read", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => []);
+      const answers = new Space<{ searchTerm: string }, Rec[], string, Rec>(
+        {
+          name: "things",
+          table,
+          fetch,
+          compose: (records) => records,
+          serverFields: ["searchTerm"],
+        },
+        { teardownGrace: TimeSpan.seconds(5) },
+      );
+      const off = answers.onChange({ searchTerm: "x" }, vi.fn());
+      await answers.retrieve({ searchTerm: "x" });
+      off();
+      table.set("a", rec("a", 1));
+      await wait(150);
+      await answers.retrieve({ searchTerm: "x" });
+      expect(fetch).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -1167,6 +1214,24 @@ describe("Answers", () => {
       expect(await answers.retrieve({ min: 3 })).toEqual([]);
       unsubscribe();
       members = [rec("a", 5)];
+      table.set(members);
+      answers.onChange({ min: 3 }, vi.fn());
+      await expect.poll(() => answers.getCached({ min: 3 })).toEqual([rec("a", 5)]);
+    });
+
+    // Regression: a plain read settles an answer that no maintenance watched, so a
+    // member that appeared before the first subscriber was missing from its answer.
+    it("refetches an answer read before the first subscriber", async () => {
+      const table = newTable();
+      let members: Rec[] = [];
+      const fetch = vi.fn(async () => {
+        table.set(members);
+        return members.map(({ key }) => key);
+      });
+      const answers = listSpace(table, fetch);
+      expect(await answers.retrieve({ min: 3 })).toEqual([]);
+      members = [rec("a", 5)];
+      table.set(members);
       answers.onChange({ min: 3 }, vi.fn());
       await expect.poll(() => answers.getCached({ min: 3 })).toEqual([rec("a", 5)]);
     });
@@ -1183,6 +1248,7 @@ describe("Answers", () => {
       expect(await answers.retrieve({ min: 3 })).toEqual([]);
       unsubscribe();
       members = [rec("a", 5)];
+      table.set(members);
       answers.onChange({ min: 3 }, vi.fn());
       expect(await answers.retrieve({ min: 3 })).toEqual([rec("a", 5)]);
     });
@@ -1202,12 +1268,62 @@ describe("Answers", () => {
       const unsubscribe = answers.onChange({ min: 3 }, vi.fn());
       await answers.retrieve({ min: 3 });
       unsubscribe();
+      table.set("b", rec("b", 1));
       const handler = vi.fn();
       answers.onChange({ min: 3 }, handler);
       expect(await answers.retrieve({ min: 3 })).toEqual([rec("a", 5)]);
       expect(fetch).toHaveBeenCalledTimes(2);
       expect(answers.getCached({ min: 3 })).toEqual([rec("a", 5)]);
       expect(handler).toHaveBeenLastCalledWith([rec("a", 5)]);
+    });
+
+    it("fetches once when nothing changed between the read and the first subscriber", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => {
+        table.set("a", rec("a", 5));
+        return ["a"];
+      });
+      const answers = listSpace(table, fetch);
+      await answers.retrieve({ min: 3 });
+      answers.onChange({ min: 3 }, vi.fn());
+      // Past the refetch debounce: a scheduled reconfirm would have landed.
+      await wait(150);
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("refetches an answer a watched table changed before the first subscriber", async () => {
+      const table = newTable();
+      const foreign = newTable();
+      const fetch = vi.fn(async () => {
+        table.set("a", rec("a", 5));
+        return ["a"];
+      });
+      const answers = new Space<ListQ, Rec[], string, Rec>({
+        name: "things",
+        table,
+        fetch,
+        compose: (records) => records,
+        matches: (r, q) => r.value >= q.min,
+        watch: [query.watch(foreign, () => "refetch")],
+      });
+      await answers.retrieve({ min: 3 });
+      foreign.set("f", rec("f", 1));
+      answers.onChange({ min: 3 }, vi.fn());
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
+    });
+
+    it("refetches an answer that settled before change delivery was live", async () => {
+      const table = newTable();
+      let epoch = 0;
+      const fetch = vi.fn(async () => {
+        table.set("a", rec("a", 5));
+        return ["a"];
+      });
+      const answers = listSpace(table, fetch, { epoch: () => epoch });
+      await answers.retrieve({ min: 3 });
+      epoch = 1;
+      answers.onChange({ min: 3 }, vi.fn());
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
     });
 
     // Regression: membership is patched only on a ready query, so a record that
@@ -1812,6 +1928,7 @@ describe("Answers", () => {
       expect(await answers.retrieve({ searchTerm: "x" })).toEqual([]);
       unsubscribe();
       members = ["a"];
+      table.set("a", rec("a", 1));
       answers.onChange({ searchTerm: "x" }, vi.fn());
       await expect
         .poll(() => answers.getCached({ searchTerm: "x" }))

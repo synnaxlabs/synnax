@@ -199,6 +199,7 @@ export class Cache {
     const space = new Space(config, {
       ensureStreaming: async () => await this.ensureStreaming(),
       onEpoch: (callback) => this.onEpoch(callback),
+      epoch: () => this.epochCount,
       maintained: () => !this.unmaintained && this.params.openStreamer != null,
       onError: this.onError,
     });
