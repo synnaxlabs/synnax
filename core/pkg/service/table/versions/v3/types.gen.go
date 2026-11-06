@@ -12,10 +12,13 @@
 package v3
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"strconv"
 
 	v2 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v2"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // Key is a unique identifier for a table, represented as a UUID.
@@ -76,6 +79,28 @@ func (r *Row) ApplyDefaults() {
 	}
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (r *Row) SetDefaults() {
+	r.Size = 36
+}
+
+// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
+// omits takes its default and an explicit zero value stays.
+func (r *Row) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain Row
+	*r = Row{}
+	r.SetDefaults()
+	return json.UnmarshalDecode(dec, (*plain)(r))
+}
+
+// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+func (r *Row) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain Row
+	*r = Row{}
+	r.SetDefaults()
+	return dec.Decode((*plain)(r))
+}
+
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (r Row) Validate() error {
@@ -98,6 +123,28 @@ func (c *Column) ApplyDefaults() {
 	if c.Size == 0 {
 		c.Size = 72
 	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (c *Column) SetDefaults() {
+	c.Size = 72
+}
+
+// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
+// omits takes its default and an explicit zero value stays.
+func (c *Column) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain Column
+	*c = Column{}
+	c.SetDefaults()
+	return json.UnmarshalDecode(dec, (*plain)(c))
+}
+
+// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+func (c *Column) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain Column
+	*c = Column{}
+	c.SetDefaults()
+	return dec.Decode((*plain)(c))
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // TabKey uniquely identifies a tab within a panel.
@@ -362,6 +363,31 @@ func (p *Panel) ApplyDefaults() {
 		v0 := LeafNode{}
 		p.Root.Variant = v0
 	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (p *Panel) SetDefaults() {
+	{
+		v0 := LeafNode{}
+		p.Root.Variant = v0
+	}
+}
+
+// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
+// omits takes its default and an explicit zero value stays.
+func (p *Panel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain Panel
+	*p = Panel{}
+	p.SetDefaults()
+	return json.UnmarshalDecode(dec, (*plain)(p))
+}
+
+// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+func (p *Panel) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain Panel
+	*p = Panel{}
+	p.SetDefaults()
+	return dec.Decode((*plain)(p))
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

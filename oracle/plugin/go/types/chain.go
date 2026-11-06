@@ -154,7 +154,10 @@ func memberGoPath(
 // for the rest. Frozen packages are persisted-only: they render exactly what the
 // version files record.
 func chainFrozenFiles(
-	ctx context.Context, req *plugin.Request, fileName string,
+	ctx context.Context,
+	req *plugin.Request,
+	fileName string,
+	embedded set.Set[string],
 ) ([]plugin.File, error) {
 	entries, err := chainEntries(ctx, req)
 	if err != nil {
@@ -167,7 +170,9 @@ func chainFrozenFiles(
 			if k >= e.version {
 				break
 			}
-			file, err := frozenFile(ctx, req, origPath, e.livePath, k, fileName)
+			file, err := frozenFile(
+				ctx, req, origPath, e.livePath, k, fileName, embedded,
+			)
 			if err != nil {
 				return nil, err
 			}
@@ -241,6 +246,7 @@ func frozenFile(
 	origPath, livePath string,
 	k int,
 	fileName string,
+	embedded set.Set[string],
 ) (plugin.File, error) {
 	f, err := req.Versions.File(ctx, livePath, k)
 	if err != nil {
@@ -295,6 +301,7 @@ func frozenFile(
 	content, err := generateGoFile(
 		vkPath, structs, enums, typedefs, unions,
 		table, req.RepoRoot, pred, nil, PersistedClosure(table), false, order, nil,
+		embedded,
 	)
 	if err != nil {
 		return plugin.File{}, errors.Wrapf(err, "frozen package %s", vkPath)
@@ -478,4 +485,32 @@ func withGoExpr(t *resolution.Type, expr resolution.Expression) {
 	dom.Expressions = exprs
 	domains["go"] = dom
 	t.Domains = domains
+}
+
+// allEmbeddedTypes returns the embeddedTypes of the live table, the current version
+// table, and every frozen version table, since a later version can embed a type that
+// an earlier package declares.
+func allEmbeddedTypes(
+	ctx context.Context,
+	req *plugin.Request,
+	current *resolution.Table,
+) (set.Set[string], error) {
+	tables := []*resolution.Table{req.Resolutions, current}
+	entries, err := chainEntries(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	for origPath, e := range entries {
+		for _, k := range e.chain.Numbers {
+			if k >= e.version {
+				break
+			}
+			table, _, err := ChainFrozenTable(ctx, req, origPath, e.livePath, k)
+			if err != nil {
+				return nil, err
+			}
+			tables = append(tables, table)
+		}
+	}
+	return embeddedTypes(tables...), nil
 }

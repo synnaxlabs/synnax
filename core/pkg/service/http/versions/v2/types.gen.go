@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // Method is the HTTP method used when requesting an endpoint.
@@ -139,6 +140,28 @@ func (r *ReadField) ApplyDefaults() {
 	}
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (r *ReadField) SetDefaults() {
+	r.DataType = "float64"
+}
+
+// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
+// omits takes its default and an explicit zero value stays.
+func (r *ReadField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain ReadField
+	*r = ReadField{}
+	r.SetDefaults()
+	return json.UnmarshalDecode(dec, (*plain)(r))
+}
+
+// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+func (r *ReadField) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain ReadField
+	*r = ReadField{}
+	r.SetDefaults()
+	return dec.Decode((*plain)(r))
+}
+
 // ReadEndpoint is a single HTTP endpoint polled by a read task.
 type ReadEndpoint struct {
 	// Key uniquely identifies the endpoint within the task.
@@ -170,6 +193,28 @@ func (r *ReadEndpoint) ApplyDefaults() {
 	}
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (r *ReadEndpoint) SetDefaults() {
+	r.Method = MethodGet
+}
+
+// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
+// omits takes its default and an explicit zero value stays.
+func (r *ReadEndpoint) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain ReadEndpoint
+	*r = ReadEndpoint{}
+	r.SetDefaults()
+	return json.UnmarshalDecode(dec, (*plain)(r))
+}
+
+// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+func (r *ReadEndpoint) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain ReadEndpoint
+	*r = ReadEndpoint{}
+	r.SetDefaults()
+	return dec.Decode((*plain)(r))
+}
+
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (r ReadEndpoint) Validate() error {
@@ -198,6 +243,28 @@ func (r *ReadConfig) ApplyDefaults() {
 	for i := range r.Endpoints {
 		r.Endpoints[i].ApplyDefaults()
 	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (r *ReadConfig) SetDefaults() {
+	r.Rate = 1
+}
+
+// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
+// omits takes its default and an explicit zero value stays.
+func (r *ReadConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain ReadConfig
+	*r = ReadConfig{}
+	r.SetDefaults()
+	return json.UnmarshalDecode(dec, (*plain)(r))
+}
+
+// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+func (r *ReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain ReadConfig
+	*r = ReadConfig{}
+	r.SetDefaults()
+	return dec.Decode((*plain)(r))
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -286,6 +353,29 @@ func (c *ChannelField) ApplyDefaults() {
 	}
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (c *ChannelField) SetDefaults() {
+	c.JSONType = JSONTypeNumber
+	c.DataType = "float64"
+}
+
+// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
+// omits takes its default and an explicit zero value stays.
+func (c *ChannelField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain ChannelField
+	*c = ChannelField{}
+	c.SetDefaults()
+	return json.UnmarshalDecode(dec, (*plain)(c))
+}
+
+// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+func (c *ChannelField) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain ChannelField
+	*c = ChannelField{}
+	c.SetDefaults()
+	return dec.Decode((*plain)(c))
+}
+
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (c ChannelField) Validate() error {
@@ -328,6 +418,11 @@ type StaticWriteField struct {
 
 func (StaticWriteField) isWriteFieldVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (s *StaticWriteField) SetDefaults() {
+	s.JSONType = JSONTypeNumber
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *StaticWriteField) ApplyDefaults() {
 	if s.JSONType == "" {
@@ -353,6 +448,11 @@ type GeneratedWriteField struct {
 }
 
 func (GeneratedWriteField) isWriteFieldVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (g *GeneratedWriteField) SetDefaults() {
+	g.Generator = GeneratorTypeUUID
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (g *GeneratedWriteField) ApplyDefaults() {
@@ -420,6 +520,7 @@ func (u *WriteField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type WriteFieldType `json:"type"`
 			StaticWriteField
 		}
+		v.StaticWriteField.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -429,6 +530,7 @@ func (u *WriteField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type WriteFieldType `json:"type"`
 			GeneratedWriteField
 		}
+		v.GeneratedWriteField.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -535,6 +637,29 @@ func (w *WriteEndpoint) ApplyDefaults() {
 	}
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (w *WriteEndpoint) SetDefaults() {
+	w.Channel.SetDefaults()
+	w.Method = MethodPost
+}
+
+// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
+// omits takes its default and an explicit zero value stays.
+func (w *WriteEndpoint) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain WriteEndpoint
+	*w = WriteEndpoint{}
+	w.SetDefaults()
+	return json.UnmarshalDecode(dec, (*plain)(w))
+}
+
+// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+func (w *WriteEndpoint) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain WriteEndpoint
+	*w = WriteEndpoint{}
+	w.SetDefaults()
+	return dec.Decode((*plain)(w))
+}
+
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (w WriteEndpoint) Validate() error {
@@ -582,4 +707,26 @@ type ScanConfig struct {
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *ScanConfig) ApplyDefaults() {
 	s.ScanConfig.ApplyDefaults()
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (s *ScanConfig) SetDefaults() {
+	s.ScanConfig.SetDefaults()
+}
+
+// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
+// omits takes its default and an explicit zero value stays.
+func (s *ScanConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain ScanConfig
+	*s = ScanConfig{}
+	s.SetDefaults()
+	return json.UnmarshalDecode(dec, (*plain)(s))
+}
+
+// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+func (s *ScanConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain ScanConfig
+	*s = ScanConfig{}
+	s.SetDefaults()
+	return dec.Decode((*plain)(s))
 }

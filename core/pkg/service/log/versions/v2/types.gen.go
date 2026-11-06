@@ -12,6 +12,8 @@
 package v2
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
@@ -20,6 +22,7 @@ import (
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // Key is a unique identifier for a log, represented as a UUID.
@@ -73,6 +76,31 @@ func (c *ChannelEntry) ApplyDefaults() {
 	if c.Timestamp.Tz == "" {
 		c.Timestamp.Tz = "local"
 	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (c *ChannelEntry) SetDefaults() {
+	c.Notation = "standard"
+	c.Precision = -1
+	c.Timestamp.Format = "preciseDate"
+	c.Timestamp.Tz = "local"
+}
+
+// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
+// omits takes its default and an explicit zero value stays.
+func (c *ChannelEntry) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain ChannelEntry
+	*c = ChannelEntry{}
+	c.SetDefaults()
+	return json.UnmarshalDecode(dec, (*plain)(c))
+}
+
+// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+func (c *ChannelEntry) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain ChannelEntry
+	*c = ChannelEntry{}
+	c.SetDefaults()
+	return dec.Decode((*plain)(c))
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

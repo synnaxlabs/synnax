@@ -26,6 +26,7 @@ import (
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 	text "github.com/synnaxlabs/x/text/versions/v0"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // Key is a unique identifier for a schematic, represented as a UUID.
@@ -476,6 +477,32 @@ func (l *LabelConfig) ApplyDefaults() {
 	}
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (l *LabelConfig) SetDefaults() {
+	l.Level = text.LevelH5
+	l.Orientation = spatial.LocationTop
+	l.Direction = spatial.DirectionX
+	l.MaxInlineSize = 150
+	l.Align = FlexAlignmentCenter
+}
+
+// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
+// omits takes its default and an explicit zero value stays.
+func (l *LabelConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain LabelConfig
+	*l = LabelConfig{}
+	l.SetDefaults()
+	return json.UnmarshalDecode(dec, (*plain)(l))
+}
+
+// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+func (l *LabelConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain LabelConfig
+	*l = LabelConfig{}
+	l.SetDefaults()
+	return dec.Decode((*plain)(l))
+}
+
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (l LabelConfig) Validate() error {
@@ -503,6 +530,12 @@ func (l *LabeledConfig) ApplyDefaults() {
 	l.Label.ApplyDefaults()
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (l *LabeledConfig) SetDefaults() {
+	l.Label.SetDefaults()
+	l.Orientation = spatial.OuterLocationLeft
+}
+
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (l LabeledConfig) Validate() error {
@@ -525,6 +558,11 @@ func (s *ScaledConfig) ApplyDefaults() {
 	}
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (s *ScaledConfig) SetDefaults() {
+	s.Scale = 1
+}
+
 // StalenessConfig is the staleness detection shared by every symbol that reads a
 // channel.
 type StalenessConfig struct {
@@ -540,6 +578,11 @@ func (s *StalenessConfig) ApplyDefaults() {
 	if s.StalenessTimeout == 0 {
 		s.StalenessTimeout = 5
 	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (s *StalenessConfig) SetDefaults() {
+	s.StalenessTimeout = 5
 }
 
 // NumericTelemConfig is the numeric read and formatting shared by symbols that display
@@ -563,6 +606,12 @@ func (n *NumericTelemConfig) ApplyDefaults() {
 	if n.Notation == "" {
 		n.Notation = "standard"
 	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (n *NumericTelemConfig) SetDefaults() {
+	n.Precision = 2
+	n.Notation = "standard"
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -594,6 +643,28 @@ func (c *ControlStateConfig) ApplyDefaults() {
 	if c.Orientation == "" {
 		c.Orientation = spatial.LocationBottom
 	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (c *ControlStateConfig) SetDefaults() {
+	c.Orientation = spatial.LocationBottom
+}
+
+// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
+// omits takes its default and an explicit zero value stays.
+func (c *ControlStateConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain ControlStateConfig
+	*c = ControlStateConfig{}
+	c.SetDefaults()
+	return json.UnmarshalDecode(dec, (*plain)(c))
+}
+
+// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+func (c *ControlStateConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain ControlStateConfig
+	*c = ControlStateConfig{}
+	c.SetDefaults()
+	return dec.Decode((*plain)(c))
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -630,6 +701,13 @@ func (t *ToggleConfig) ApplyDefaults() {
 	}
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (t *ToggleConfig) SetDefaults() {
+	t.LabeledConfig.SetDefaults()
+	t.ScaledConfig.SetDefaults()
+	t.StalenessConfig.SetDefaults()
+}
+
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (t ToggleConfig) Validate() error {
@@ -655,6 +733,12 @@ func (s *StaticSymbolConfig) ApplyDefaults() {
 	s.ScaledConfig.ApplyDefaults()
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (s *StaticSymbolConfig) SetDefaults() {
+	s.LabeledConfig.SetDefaults()
+	s.ScaledConfig.SetDefaults()
+}
+
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (s StaticSymbolConfig) Validate() error {
@@ -674,6 +758,11 @@ type ToggleSymbolConfig struct {
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (t *ToggleSymbolConfig) ApplyDefaults() {
 	t.ToggleConfig.ApplyDefaults()
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (t *ToggleSymbolConfig) SetDefaults() {
+	t.ToggleConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -702,6 +791,12 @@ type DummyToggleSymbolConfig struct {
 func (d *DummyToggleSymbolConfig) ApplyDefaults() {
 	d.LabeledConfig.ApplyDefaults()
 	d.ScaledConfig.ApplyDefaults()
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (d *DummyToggleSymbolConfig) SetDefaults() {
+	d.LabeledConfig.SetDefaults()
+	d.ScaledConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -758,6 +853,16 @@ func (s *ScaleIndicatorConfig) ApplyDefaults() {
 	}
 	s.NumericTelemConfig.ApplyDefaults()
 	s.StalenessConfig.ApplyDefaults()
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (s *ScaleIndicatorConfig) SetDefaults() {
+	s.NumericTelemConfig.SetDefaults()
+	s.StalenessConfig.SetDefaults()
+	s.Bounds.Upper = 100
+	s.Side = spatial.OuterLocationRight
+	s.CaretSide = spatial.OuterLocationRight
+	s.Level = text.LevelSmall
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1071,6 +1176,11 @@ type CapNodeConfig struct {
 
 func (CapNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CapNodeConfig) SetDefaults() {
+	c.StaticSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CapNodeConfig) ApplyDefaults() {
 	c.StaticSymbolConfig.ApplyDefaults()
@@ -1089,6 +1199,11 @@ type FilterNodeConfig struct {
 }
 
 func (FilterNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FilterNodeConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (f *FilterNodeConfig) ApplyDefaults() {
@@ -1109,6 +1224,11 @@ type FlowStraightenerNodeConfig struct {
 
 func (FlowStraightenerNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowStraightenerNodeConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (f *FlowStraightenerNodeConfig) ApplyDefaults() {
 	f.StaticSymbolConfig.ApplyDefaults()
@@ -1127,6 +1247,11 @@ type HeaterElementNodeConfig struct {
 }
 
 func (HeaterElementNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (h *HeaterElementNodeConfig) SetDefaults() {
+	h.StaticSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (h *HeaterElementNodeConfig) ApplyDefaults() {
@@ -1147,6 +1272,11 @@ type IsoCapNodeConfig struct {
 
 func (IsoCapNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (i *IsoCapNodeConfig) SetDefaults() {
+	i.StaticSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (i *IsoCapNodeConfig) ApplyDefaults() {
 	i.StaticSymbolConfig.ApplyDefaults()
@@ -1165,6 +1295,11 @@ type IsoFilterNodeConfig struct {
 }
 
 func (IsoFilterNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (i *IsoFilterNodeConfig) SetDefaults() {
+	i.StaticSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (i *IsoFilterNodeConfig) ApplyDefaults() {
@@ -1185,6 +1320,11 @@ type NozzleNodeConfig struct {
 
 func (NozzleNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (n *NozzleNodeConfig) SetDefaults() {
+	n.StaticSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (n *NozzleNodeConfig) ApplyDefaults() {
 	n.StaticSymbolConfig.ApplyDefaults()
@@ -1203,6 +1343,11 @@ type OrificeNodeConfig struct {
 }
 
 func (OrificeNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (o *OrificeNodeConfig) SetDefaults() {
+	o.StaticSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (o *OrificeNodeConfig) ApplyDefaults() {
@@ -1223,6 +1368,11 @@ type OrificePlateNodeConfig struct {
 
 func (OrificePlateNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (o *OrificePlateNodeConfig) SetDefaults() {
+	o.StaticSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (o *OrificePlateNodeConfig) ApplyDefaults() {
 	o.StaticSymbolConfig.ApplyDefaults()
@@ -1241,6 +1391,11 @@ type StrainerNodeConfig struct {
 }
 
 func (StrainerNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (s *StrainerNodeConfig) SetDefaults() {
+	s.StaticSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *StrainerNodeConfig) ApplyDefaults() {
@@ -1261,6 +1416,11 @@ type StrainerConeNodeConfig struct {
 
 func (StrainerConeNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (s *StrainerConeNodeConfig) SetDefaults() {
+	s.StaticSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *StrainerConeNodeConfig) ApplyDefaults() {
 	s.StaticSymbolConfig.ApplyDefaults()
@@ -1279,6 +1439,11 @@ type ThrusterNodeConfig struct {
 }
 
 func (ThrusterNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (t *ThrusterNodeConfig) SetDefaults() {
+	t.ToggleSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (t *ThrusterNodeConfig) ApplyDefaults() {
@@ -1299,6 +1464,11 @@ type VentNodeConfig struct {
 
 func (VentNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (ve *VentNodeConfig) SetDefaults() {
+	ve.StaticSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (ve *VentNodeConfig) ApplyDefaults() {
 	ve.StaticSymbolConfig.ApplyDefaults()
@@ -1317,6 +1487,11 @@ type FlowmeterGeneralNodeConfig struct {
 }
 
 func (FlowmeterGeneralNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowmeterGeneralNodeConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (f *FlowmeterGeneralNodeConfig) ApplyDefaults() {
@@ -1337,6 +1512,11 @@ type FlowmeterElectromagneticNodeConfig struct {
 
 func (FlowmeterElectromagneticNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowmeterElectromagneticNodeConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (f *FlowmeterElectromagneticNodeConfig) ApplyDefaults() {
 	f.StaticSymbolConfig.ApplyDefaults()
@@ -1355,6 +1535,11 @@ type FlowmeterVariableAreaNodeConfig struct {
 }
 
 func (FlowmeterVariableAreaNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowmeterVariableAreaNodeConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (f *FlowmeterVariableAreaNodeConfig) ApplyDefaults() {
@@ -1375,6 +1560,11 @@ type FlowmeterCoriolisNodeConfig struct {
 
 func (FlowmeterCoriolisNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowmeterCoriolisNodeConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (f *FlowmeterCoriolisNodeConfig) ApplyDefaults() {
 	f.StaticSymbolConfig.ApplyDefaults()
@@ -1393,6 +1583,11 @@ type FlowmeterNozzleNodeConfig struct {
 }
 
 func (FlowmeterNozzleNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowmeterNozzleNodeConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (f *FlowmeterNozzleNodeConfig) ApplyDefaults() {
@@ -1413,6 +1608,11 @@ type FlowmeterVenturiNodeConfig struct {
 
 func (FlowmeterVenturiNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowmeterVenturiNodeConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (f *FlowmeterVenturiNodeConfig) ApplyDefaults() {
 	f.StaticSymbolConfig.ApplyDefaults()
@@ -1431,6 +1631,11 @@ type FlowmeterRingPistonNodeConfig struct {
 }
 
 func (FlowmeterRingPistonNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowmeterRingPistonNodeConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (f *FlowmeterRingPistonNodeConfig) ApplyDefaults() {
@@ -1451,6 +1656,11 @@ type FlowmeterPositiveDisplacementNodeConfig struct {
 
 func (FlowmeterPositiveDisplacementNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowmeterPositiveDisplacementNodeConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (f *FlowmeterPositiveDisplacementNodeConfig) ApplyDefaults() {
 	f.StaticSymbolConfig.ApplyDefaults()
@@ -1469,6 +1679,11 @@ type FlowmeterTurbineNodeConfig struct {
 }
 
 func (FlowmeterTurbineNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowmeterTurbineNodeConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (f *FlowmeterTurbineNodeConfig) ApplyDefaults() {
@@ -1489,6 +1704,11 @@ type FlowmeterPulseNodeConfig struct {
 
 func (FlowmeterPulseNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowmeterPulseNodeConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (f *FlowmeterPulseNodeConfig) ApplyDefaults() {
 	f.StaticSymbolConfig.ApplyDefaults()
@@ -1508,6 +1728,11 @@ type FlowmeterFloatSensorNodeConfig struct {
 
 func (FlowmeterFloatSensorNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowmeterFloatSensorNodeConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (f *FlowmeterFloatSensorNodeConfig) ApplyDefaults() {
 	f.StaticSymbolConfig.ApplyDefaults()
@@ -1526,6 +1751,11 @@ type FlowmeterOrificeNodeConfig struct {
 }
 
 func (FlowmeterOrificeNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowmeterOrificeNodeConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (f *FlowmeterOrificeNodeConfig) ApplyDefaults() {
@@ -1556,6 +1786,15 @@ type BoxNodeConfig struct {
 }
 
 func (BoxNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (b *BoxNodeConfig) SetDefaults() {
+	b.LabeledConfig.SetDefaults()
+	b.Dimensions.Width = 125
+	b.Dimensions.Height = 200
+	b.BorderRadius = 3
+	b.StrokeWidth = 2
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (b *BoxNodeConfig) ApplyDefaults() {
@@ -1603,6 +1842,13 @@ type ButtonNodeConfig struct {
 
 func (ButtonNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (b *ButtonNodeConfig) SetDefaults() {
+	b.LabeledConfig.SetDefaults()
+	b.Size = ComponentSizeMedium
+	b.Mode = ButtonModeFire
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (b *ButtonNodeConfig) ApplyDefaults() {
 	if b.Size == "" {
@@ -1645,6 +1891,13 @@ type CircleNodeConfig struct {
 
 func (CircleNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CircleNodeConfig) SetDefaults() {
+	c.LabeledConfig.SetDefaults()
+	c.Radius = 20
+	c.StrokeWidth = 2
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CircleNodeConfig) ApplyDefaults() {
 	if c.Radius == 0 {
@@ -1686,6 +1939,19 @@ type GaugeNodeConfig struct {
 }
 
 func (GaugeNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (g *GaugeNodeConfig) SetDefaults() {
+	g.LabeledConfig.SetDefaults()
+	g.NumericTelemConfig.SetDefaults()
+	g.StalenessConfig.SetDefaults()
+	g.Bounds.Upper = 100
+	g.BarWidth = 10
+	g.Location.X = spatial.XCenterLocationLeft
+	g.Location.Y = spatial.YCenterLocationCenter
+	g.Units = "RPM"
+	g.Level = text.LevelH5
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (g *GaugeNodeConfig) ApplyDefaults() {
@@ -1744,6 +2010,12 @@ type InputNodeConfig struct {
 
 func (InputNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (i *InputNodeConfig) SetDefaults() {
+	i.LabeledConfig.SetDefaults()
+	i.Size = ComponentSizeMedium
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (i *InputNodeConfig) ApplyDefaults() {
 	if i.Size == "" {
@@ -1784,6 +2056,13 @@ type LightNodeConfig struct {
 
 func (LightNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (l *LightNodeConfig) SetDefaults() {
+	l.LabeledConfig.SetDefaults()
+	l.ScaledConfig.SetDefaults()
+	l.StalenessConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (l *LightNodeConfig) ApplyDefaults() {
 	l.LabeledConfig.ApplyDefaults()
@@ -1813,6 +2092,12 @@ type LineNodeConfig struct {
 
 func (LineNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (l *LineNodeConfig) SetDefaults() {
+	l.End.X = 100
+	l.StrokeWidth = 2
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (l *LineNodeConfig) ApplyDefaults() {
 	if l.End.X == 0 {
@@ -1836,6 +2121,12 @@ type OffPageReferenceNodeConfig struct {
 }
 
 func (OffPageReferenceNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (o *OffPageReferenceNodeConfig) SetDefaults() {
+	o.LabeledConfig.SetDefaults()
+	o.Orientation = spatial.OuterLocationRight
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (o *OffPageReferenceNodeConfig) ApplyDefaults() {
@@ -1877,6 +2168,14 @@ type PolygonNodeConfig struct {
 }
 
 func (PolygonNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (p *PolygonNodeConfig) SetDefaults() {
+	p.LabeledConfig.SetDefaults()
+	p.NumSides = 6
+	p.SideLength = 20
+	p.StrokeWidth = 2
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (p *PolygonNodeConfig) ApplyDefaults() {
@@ -1923,6 +2222,13 @@ type SelectNodeConfig struct {
 
 func (SelectNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (s *SelectNodeConfig) SetDefaults() {
+	s.LabeledConfig.SetDefaults()
+	s.Size = ComponentSizeMedium
+	s.InlineSize = 100
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *SelectNodeConfig) ApplyDefaults() {
 	if s.Size == "" {
@@ -1961,6 +2267,15 @@ type ScaleNodeConfig struct {
 }
 
 func (ScaleNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (s *ScaleNodeConfig) SetDefaults() {
+	s.LabeledConfig.SetDefaults()
+	s.ScaleIndicatorConfig.SetDefaults()
+	s.Orientation = spatial.OuterLocationTop
+	s.Dimensions.Width = 34
+	s.Dimensions.Height = 160
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *ScaleNodeConfig) ApplyDefaults() {
@@ -2010,6 +2325,13 @@ type SetpointNodeConfig struct {
 
 func (SetpointNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (s *SetpointNodeConfig) SetDefaults() {
+	s.LabeledConfig.SetDefaults()
+	s.Size = ComponentSizeMedium
+	s.Units = "mV"
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *SetpointNodeConfig) ApplyDefaults() {
 	if s.Size == "" {
@@ -2054,6 +2376,14 @@ type StateIndicatorNodeConfig struct {
 
 func (StateIndicatorNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (s *StateIndicatorNodeConfig) SetDefaults() {
+	s.LabeledConfig.SetDefaults()
+	s.StalenessConfig.SetDefaults()
+	s.InlineSize = 100
+	s.Size = ComponentSizeMedium
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *StateIndicatorNodeConfig) ApplyDefaults() {
 	if s.InlineSize == 0 {
@@ -2095,6 +2425,14 @@ type StringDisplayNodeConfig struct {
 
 func (StringDisplayNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (s *StringDisplayNodeConfig) SetDefaults() {
+	s.LabeledConfig.SetDefaults()
+	s.StalenessConfig.SetDefaults()
+	s.InlineSize = 100
+	s.Level = text.LevelH4
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *StringDisplayNodeConfig) ApplyDefaults() {
 	if s.InlineSize == 0 {
@@ -2121,6 +2459,11 @@ type SwitchNodeConfig struct {
 }
 
 func (SwitchNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (s *SwitchNodeConfig) SetDefaults() {
+	s.ToggleSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *SwitchNodeConfig) ApplyDefaults() {
@@ -2153,6 +2496,15 @@ type TextBoxNodeConfig struct {
 }
 
 func (TextBoxNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (t *TextBoxNodeConfig) SetDefaults() {
+	t.LabeledConfig.SetDefaults()
+	t.Width = 75
+	t.Align = FlexAlignmentCenter
+	t.Level = text.LevelP
+	t.Value = "Text box"
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (t *TextBoxNodeConfig) ApplyDefaults() {
@@ -2211,6 +2563,18 @@ type ValueNodeConfig struct {
 
 func (ValueNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (va *ValueNodeConfig) SetDefaults() {
+	va.LabeledConfig.SetDefaults()
+	va.NumericTelemConfig.SetDefaults()
+	va.StalenessConfig.SetDefaults()
+	va.Units = "psi"
+	va.InlineSize = 70
+	va.Level = text.LevelH4
+	va.Location.X = spatial.XCenterLocationLeft
+	va.Location.Y = spatial.YCenterLocationCenter
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (va *ValueNodeConfig) ApplyDefaults() {
 	if va.Units == "" {
@@ -2250,6 +2614,11 @@ type AgitatorNodeConfig struct {
 
 func (AgitatorNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AgitatorNodeConfig) SetDefaults() {
+	a.ToggleSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AgitatorNodeConfig) ApplyDefaults() {
 	a.ToggleSymbolConfig.ApplyDefaults()
@@ -2268,6 +2637,11 @@ type CrossBeamAgitatorNodeConfig struct {
 }
 
 func (CrossBeamAgitatorNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CrossBeamAgitatorNodeConfig) SetDefaults() {
+	c.ToggleSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CrossBeamAgitatorNodeConfig) ApplyDefaults() {
@@ -2288,6 +2662,11 @@ type FlatBladeAgitatorNodeConfig struct {
 
 func (FlatBladeAgitatorNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlatBladeAgitatorNodeConfig) SetDefaults() {
+	f.ToggleSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (f *FlatBladeAgitatorNodeConfig) ApplyDefaults() {
 	f.ToggleSymbolConfig.ApplyDefaults()
@@ -2306,6 +2685,11 @@ type HeatExchangerGeneralNodeConfig struct {
 }
 
 func (HeatExchangerGeneralNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (h *HeatExchangerGeneralNodeConfig) SetDefaults() {
+	h.StaticSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (h *HeatExchangerGeneralNodeConfig) ApplyDefaults() {
@@ -2326,6 +2710,11 @@ type HeatExchangerMNodeConfig struct {
 
 func (HeatExchangerMNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (h *HeatExchangerMNodeConfig) SetDefaults() {
+	h.StaticSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (h *HeatExchangerMNodeConfig) ApplyDefaults() {
 	h.StaticSymbolConfig.ApplyDefaults()
@@ -2344,6 +2733,11 @@ type HeatExchangerStraightTubeNodeConfig struct {
 }
 
 func (HeatExchangerStraightTubeNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (h *HeatExchangerStraightTubeNodeConfig) SetDefaults() {
+	h.StaticSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (h *HeatExchangerStraightTubeNodeConfig) ApplyDefaults() {
@@ -2364,6 +2758,11 @@ type HelicalAgitatorNodeConfig struct {
 
 func (HelicalAgitatorNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (h *HelicalAgitatorNodeConfig) SetDefaults() {
+	h.ToggleSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (h *HelicalAgitatorNodeConfig) ApplyDefaults() {
 	h.ToggleSymbolConfig.ApplyDefaults()
@@ -2382,6 +2781,11 @@ type PaddleAgitatorNodeConfig struct {
 }
 
 func (PaddleAgitatorNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (p *PaddleAgitatorNodeConfig) SetDefaults() {
+	p.ToggleSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (p *PaddleAgitatorNodeConfig) ApplyDefaults() {
@@ -2402,6 +2806,11 @@ type PropellerAgitatorNodeConfig struct {
 
 func (PropellerAgitatorNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (p *PropellerAgitatorNodeConfig) SetDefaults() {
+	p.ToggleSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (p *PropellerAgitatorNodeConfig) ApplyDefaults() {
 	p.ToggleSymbolConfig.ApplyDefaults()
@@ -2420,6 +2829,11 @@ type RotaryMixerNodeConfig struct {
 }
 
 func (RotaryMixerNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (r *RotaryMixerNodeConfig) SetDefaults() {
+	r.ToggleSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (r *RotaryMixerNodeConfig) ApplyDefaults() {
@@ -2440,6 +2854,11 @@ type StaticMixerNodeConfig struct {
 
 func (StaticMixerNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (s *StaticMixerNodeConfig) SetDefaults() {
+	s.StaticSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *StaticMixerNodeConfig) ApplyDefaults() {
 	s.StaticSymbolConfig.ApplyDefaults()
@@ -2458,6 +2877,11 @@ type CavityPumpNodeConfig struct {
 }
 
 func (CavityPumpNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CavityPumpNodeConfig) SetDefaults() {
+	c.ToggleSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CavityPumpNodeConfig) ApplyDefaults() {
@@ -2478,6 +2902,11 @@ type CentrifugalCompressorNodeConfig struct {
 
 func (CentrifugalCompressorNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CentrifugalCompressorNodeConfig) SetDefaults() {
+	c.ToggleSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CentrifugalCompressorNodeConfig) ApplyDefaults() {
 	c.ToggleSymbolConfig.ApplyDefaults()
@@ -2496,6 +2925,11 @@ type CompressorNodeConfig struct {
 }
 
 func (CompressorNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CompressorNodeConfig) SetDefaults() {
+	c.ToggleSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CompressorNodeConfig) ApplyDefaults() {
@@ -2516,6 +2950,11 @@ type DiaphragmPumpNodeConfig struct {
 
 func (DiaphragmPumpNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (d *DiaphragmPumpNodeConfig) SetDefaults() {
+	d.ToggleSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (d *DiaphragmPumpNodeConfig) ApplyDefaults() {
 	d.ToggleSymbolConfig.ApplyDefaults()
@@ -2534,6 +2973,11 @@ type EjectionPumpNodeConfig struct {
 }
 
 func (EjectionPumpNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (e *EjectionPumpNodeConfig) SetDefaults() {
+	e.ToggleSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (e *EjectionPumpNodeConfig) ApplyDefaults() {
@@ -2554,6 +2998,11 @@ type EjectorCompressorNodeConfig struct {
 
 func (EjectorCompressorNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (e *EjectorCompressorNodeConfig) SetDefaults() {
+	e.ToggleSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (e *EjectorCompressorNodeConfig) ApplyDefaults() {
 	e.ToggleSymbolConfig.ApplyDefaults()
@@ -2572,6 +3021,11 @@ type LiquidRingCompressorNodeConfig struct {
 }
 
 func (LiquidRingCompressorNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (l *LiquidRingCompressorNodeConfig) SetDefaults() {
+	l.ToggleSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (l *LiquidRingCompressorNodeConfig) ApplyDefaults() {
@@ -2592,6 +3046,11 @@ type PistonPumpNodeConfig struct {
 
 func (PistonPumpNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (p *PistonPumpNodeConfig) SetDefaults() {
+	p.ToggleSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (p *PistonPumpNodeConfig) ApplyDefaults() {
 	p.ToggleSymbolConfig.ApplyDefaults()
@@ -2610,6 +3069,11 @@ type PumpNodeConfig struct {
 }
 
 func (PumpNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (p *PumpNodeConfig) SetDefaults() {
+	p.ToggleSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (p *PumpNodeConfig) ApplyDefaults() {
@@ -2630,6 +3094,11 @@ type RollerVaneCompressorNodeConfig struct {
 
 func (RollerVaneCompressorNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (r *RollerVaneCompressorNodeConfig) SetDefaults() {
+	r.ToggleSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (r *RollerVaneCompressorNodeConfig) ApplyDefaults() {
 	r.ToggleSymbolConfig.ApplyDefaults()
@@ -2648,6 +3117,11 @@ type ScrewPumpNodeConfig struct {
 }
 
 func (ScrewPumpNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (s *ScrewPumpNodeConfig) SetDefaults() {
+	s.ToggleSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *ScrewPumpNodeConfig) ApplyDefaults() {
@@ -2668,6 +3142,11 @@ type TurboCompressorNodeConfig struct {
 
 func (TurboCompressorNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (t *TurboCompressorNodeConfig) SetDefaults() {
+	t.ToggleSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (t *TurboCompressorNodeConfig) ApplyDefaults() {
 	t.ToggleSymbolConfig.ApplyDefaults()
@@ -2686,6 +3165,11 @@ type VacuumPumpNodeConfig struct {
 }
 
 func (VacuumPumpNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (va *VacuumPumpNodeConfig) SetDefaults() {
+	va.ToggleSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (va *VacuumPumpNodeConfig) ApplyDefaults() {
@@ -2706,6 +3190,11 @@ type BurstDiscNodeConfig struct {
 
 func (BurstDiscNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (b *BurstDiscNodeConfig) SetDefaults() {
+	b.StaticSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (b *BurstDiscNodeConfig) ApplyDefaults() {
 	b.StaticSymbolConfig.ApplyDefaults()
@@ -2724,6 +3213,11 @@ type FlameArrestorNodeConfig struct {
 }
 
 func (FlameArrestorNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlameArrestorNodeConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (f *FlameArrestorNodeConfig) ApplyDefaults() {
@@ -2744,6 +3238,11 @@ type FlameArrestorDetonationNodeConfig struct {
 
 func (FlameArrestorDetonationNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlameArrestorDetonationNodeConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (f *FlameArrestorDetonationNodeConfig) ApplyDefaults() {
 	f.StaticSymbolConfig.ApplyDefaults()
@@ -2762,6 +3261,11 @@ type FlameArrestorExplosionNodeConfig struct {
 }
 
 func (FlameArrestorExplosionNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlameArrestorExplosionNodeConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (f *FlameArrestorExplosionNodeConfig) ApplyDefaults() {
@@ -2782,6 +3286,11 @@ type FlameArrestorFireResNodeConfig struct {
 
 func (FlameArrestorFireResNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlameArrestorFireResNodeConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (f *FlameArrestorFireResNodeConfig) ApplyDefaults() {
 	f.StaticSymbolConfig.ApplyDefaults()
@@ -2800,6 +3309,11 @@ type FlameArrestorFireResDetonationNodeConfig struct {
 }
 
 func (FlameArrestorFireResDetonationNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlameArrestorFireResDetonationNodeConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (f *FlameArrestorFireResDetonationNodeConfig) ApplyDefaults() {
@@ -2820,6 +3334,11 @@ type IsoBurstDiscNodeConfig struct {
 
 func (IsoBurstDiscNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (i *IsoBurstDiscNodeConfig) SetDefaults() {
+	i.StaticSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (i *IsoBurstDiscNodeConfig) ApplyDefaults() {
 	i.StaticSymbolConfig.ApplyDefaults()
@@ -2838,6 +3357,11 @@ type AngledValveNodeConfig struct {
 }
 
 func (AngledValveNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AngledValveNodeConfig) SetDefaults() {
+	a.ToggleSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AngledValveNodeConfig) ApplyDefaults() {
@@ -2858,6 +3382,11 @@ type AngledReliefValveNodeConfig struct {
 
 func (AngledReliefValveNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AngledReliefValveNodeConfig) SetDefaults() {
+	a.DummyToggleSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AngledReliefValveNodeConfig) ApplyDefaults() {
 	a.DummyToggleSymbolConfig.ApplyDefaults()
@@ -2876,6 +3405,11 @@ type AngledSpringLoadedReliefValveNodeConfig struct {
 }
 
 func (AngledSpringLoadedReliefValveNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AngledSpringLoadedReliefValveNodeConfig) SetDefaults() {
+	a.DummyToggleSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AngledSpringLoadedReliefValveNodeConfig) ApplyDefaults() {
@@ -2896,6 +3430,11 @@ type BallValveNodeConfig struct {
 
 func (BallValveNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (b *BallValveNodeConfig) SetDefaults() {
+	b.ToggleSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (b *BallValveNodeConfig) ApplyDefaults() {
 	b.ToggleSymbolConfig.ApplyDefaults()
@@ -2914,6 +3453,11 @@ type BreatherValveNodeConfig struct {
 }
 
 func (BreatherValveNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (b *BreatherValveNodeConfig) SetDefaults() {
+	b.DummyToggleSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (b *BreatherValveNodeConfig) ApplyDefaults() {
@@ -2934,6 +3478,11 @@ type ButterflyValveOneNodeConfig struct {
 
 func (ButterflyValveOneNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (b *ButterflyValveOneNodeConfig) SetDefaults() {
+	b.ToggleSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (b *ButterflyValveOneNodeConfig) ApplyDefaults() {
 	b.ToggleSymbolConfig.ApplyDefaults()
@@ -2952,6 +3501,11 @@ type ButterflyValveTwoNodeConfig struct {
 }
 
 func (ButterflyValveTwoNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (b *ButterflyValveTwoNodeConfig) SetDefaults() {
+	b.ToggleSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (b *ButterflyValveTwoNodeConfig) ApplyDefaults() {
@@ -2972,6 +3526,11 @@ type CheckValveNodeConfig struct {
 
 func (CheckValveNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CheckValveNodeConfig) SetDefaults() {
+	c.StaticSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CheckValveNodeConfig) ApplyDefaults() {
 	c.StaticSymbolConfig.ApplyDefaults()
@@ -2990,6 +3549,11 @@ type CheckValveWithArrowNodeConfig struct {
 }
 
 func (CheckValveWithArrowNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CheckValveWithArrowNodeConfig) SetDefaults() {
+	c.StaticSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CheckValveWithArrowNodeConfig) ApplyDefaults() {
@@ -3010,6 +3574,11 @@ type ElectricRegulatorNodeConfig struct {
 
 func (ElectricRegulatorNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (e *ElectricRegulatorNodeConfig) SetDefaults() {
+	e.StaticSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (e *ElectricRegulatorNodeConfig) ApplyDefaults() {
 	e.StaticSymbolConfig.ApplyDefaults()
@@ -3028,6 +3597,11 @@ type ElectricRegulatorMotorizedNodeConfig struct {
 }
 
 func (ElectricRegulatorMotorizedNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (e *ElectricRegulatorMotorizedNodeConfig) SetDefaults() {
+	e.StaticSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (e *ElectricRegulatorMotorizedNodeConfig) ApplyDefaults() {
@@ -3048,6 +3622,11 @@ type FourWayValveNodeConfig struct {
 
 func (FourWayValveNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FourWayValveNodeConfig) SetDefaults() {
+	f.ToggleSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (f *FourWayValveNodeConfig) ApplyDefaults() {
 	f.ToggleSymbolConfig.ApplyDefaults()
@@ -3066,6 +3645,11 @@ type GateValveNodeConfig struct {
 }
 
 func (GateValveNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (g *GateValveNodeConfig) SetDefaults() {
+	g.ToggleSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (g *GateValveNodeConfig) ApplyDefaults() {
@@ -3086,6 +3670,11 @@ type IsoCheckValveNodeConfig struct {
 
 func (IsoCheckValveNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (i *IsoCheckValveNodeConfig) SetDefaults() {
+	i.StaticSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (i *IsoCheckValveNodeConfig) ApplyDefaults() {
 	i.StaticSymbolConfig.ApplyDefaults()
@@ -3104,6 +3693,11 @@ type ManualValveNodeConfig struct {
 }
 
 func (ManualValveNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (m *ManualValveNodeConfig) SetDefaults() {
+	m.DummyToggleSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (m *ManualValveNodeConfig) ApplyDefaults() {
@@ -3124,6 +3718,11 @@ type NeedleValveNodeConfig struct {
 
 func (NeedleValveNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (n *NeedleValveNodeConfig) SetDefaults() {
+	n.DummyToggleSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (n *NeedleValveNodeConfig) ApplyDefaults() {
 	n.DummyToggleSymbolConfig.ApplyDefaults()
@@ -3142,6 +3741,11 @@ type RegulatorNodeConfig struct {
 }
 
 func (RegulatorNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (r *RegulatorNodeConfig) SetDefaults() {
+	r.StaticSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (r *RegulatorNodeConfig) ApplyDefaults() {
@@ -3162,6 +3766,11 @@ type RegulatorManualNodeConfig struct {
 
 func (RegulatorManualNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (r *RegulatorManualNodeConfig) SetDefaults() {
+	r.StaticSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (r *RegulatorManualNodeConfig) ApplyDefaults() {
 	r.StaticSymbolConfig.ApplyDefaults()
@@ -3180,6 +3789,11 @@ type ReliefValveNodeConfig struct {
 }
 
 func (ReliefValveNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (r *ReliefValveNodeConfig) SetDefaults() {
+	r.DummyToggleSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (r *ReliefValveNodeConfig) ApplyDefaults() {
@@ -3203,6 +3817,11 @@ type SolenoidValveNodeConfig struct {
 
 func (SolenoidValveNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (s *SolenoidValveNodeConfig) SetDefaults() {
+	s.ToggleSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *SolenoidValveNodeConfig) ApplyDefaults() {
 	s.ToggleSymbolConfig.ApplyDefaults()
@@ -3221,6 +3840,11 @@ type SpringLoadedReliefValveNodeConfig struct {
 }
 
 func (SpringLoadedReliefValveNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (s *SpringLoadedReliefValveNodeConfig) SetDefaults() {
+	s.DummyToggleSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *SpringLoadedReliefValveNodeConfig) ApplyDefaults() {
@@ -3241,6 +3865,11 @@ type ThreeWayValveNodeConfig struct {
 
 func (ThreeWayValveNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (t *ThreeWayValveNodeConfig) SetDefaults() {
+	t.ToggleSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (t *ThreeWayValveNodeConfig) ApplyDefaults() {
 	t.ToggleSymbolConfig.ApplyDefaults()
@@ -3259,6 +3888,11 @@ type ThreeWayBallValveNodeConfig struct {
 }
 
 func (ThreeWayBallValveNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (t *ThreeWayBallValveNodeConfig) SetDefaults() {
+	t.ToggleSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (t *ThreeWayBallValveNodeConfig) ApplyDefaults() {
@@ -3279,6 +3913,11 @@ type ValveNodeConfig struct {
 
 func (ValveNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (va *ValveNodeConfig) SetDefaults() {
+	va.ToggleSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (va *ValveNodeConfig) ApplyDefaults() {
 	va.ToggleSymbolConfig.ApplyDefaults()
@@ -3297,6 +3936,11 @@ type CrossJunctionNodeConfig struct {
 }
 
 func (CrossJunctionNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CrossJunctionNodeConfig) SetDefaults() {
+	c.StaticSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CrossJunctionNodeConfig) ApplyDefaults() {
@@ -3326,6 +3970,14 @@ type CylinderNodeConfig struct {
 }
 
 func (CylinderNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CylinderNodeConfig) SetDefaults() {
+	c.LabeledConfig.SetDefaults()
+	c.ScaledConfig.SetDefaults()
+	c.Dimensions.Width = 66
+	c.Dimensions.Height = 181
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CylinderNodeConfig) ApplyDefaults() {
@@ -3399,6 +4051,28 @@ type TankNodeConfig struct {
 }
 
 func (TankNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (t *TankNodeConfig) SetDefaults() {
+	t.LabeledConfig.SetDefaults()
+	t.Precision = 2
+	t.Notation = "standard"
+	t.StalenessTimeout = 5
+	t.Bounds.Upper = 100
+	t.CaretSide = spatial.OuterLocationRight
+	t.Level = text.LevelSmall
+	t.Dimensions.Width = 125
+	t.Dimensions.Height = 200
+	t.BorderRadius.TopLeft.X = 50
+	t.BorderRadius.TopLeft.Y = 10
+	t.BorderRadius.TopRight.X = 50
+	t.BorderRadius.TopRight.Y = 10
+	t.BorderRadius.BottomLeft.X = 50
+	t.BorderRadius.BottomLeft.Y = 10
+	t.BorderRadius.BottomRight.X = 50
+	t.BorderRadius.BottomRight.Y = 10
+	t.Side = spatial.OuterLocationLeft
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (t *TankNodeConfig) ApplyDefaults() {
@@ -3474,6 +4148,11 @@ type TJunctionNodeConfig struct {
 
 func (TJunctionNodeConfig) isNodeConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (t *TJunctionNodeConfig) SetDefaults() {
+	t.StaticSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (t *TJunctionNodeConfig) ApplyDefaults() {
 	t.StaticSymbolConfig.ApplyDefaults()
@@ -3498,6 +4177,11 @@ type CustomActuatorNodeConfig struct {
 }
 
 func (CustomActuatorNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CustomActuatorNodeConfig) SetDefaults() {
+	c.ToggleConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CustomActuatorNodeConfig) ApplyDefaults() {
@@ -3524,6 +4208,12 @@ type CustomStaticNodeConfig struct {
 }
 
 func (CustomStaticNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CustomStaticNodeConfig) SetDefaults() {
+	c.LabeledConfig.SetDefaults()
+	c.ScaledConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CustomStaticNodeConfig) ApplyDefaults() {
@@ -4111,6 +4801,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			CapNodeConfig
 		}
+		v.CapNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4120,6 +4811,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			FilterNodeConfig
 		}
+		v.FilterNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4129,6 +4821,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			FlowStraightenerNodeConfig
 		}
+		v.FlowStraightenerNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4138,6 +4831,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			HeaterElementNodeConfig
 		}
+		v.HeaterElementNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4147,6 +4841,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			IsoCapNodeConfig
 		}
+		v.IsoCapNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4156,6 +4851,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			IsoFilterNodeConfig
 		}
+		v.IsoFilterNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4165,6 +4861,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			NozzleNodeConfig
 		}
+		v.NozzleNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4174,6 +4871,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			OrificeNodeConfig
 		}
+		v.OrificeNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4183,6 +4881,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			OrificePlateNodeConfig
 		}
+		v.OrificePlateNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4192,6 +4891,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			StrainerNodeConfig
 		}
+		v.StrainerNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4201,6 +4901,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			StrainerConeNodeConfig
 		}
+		v.StrainerConeNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4210,6 +4911,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			ThrusterNodeConfig
 		}
+		v.ThrusterNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4219,6 +4921,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			VentNodeConfig
 		}
+		v.VentNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4228,6 +4931,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			FlowmeterGeneralNodeConfig
 		}
+		v.FlowmeterGeneralNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4237,6 +4941,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			FlowmeterElectromagneticNodeConfig
 		}
+		v.FlowmeterElectromagneticNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4246,6 +4951,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			FlowmeterVariableAreaNodeConfig
 		}
+		v.FlowmeterVariableAreaNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4255,6 +4961,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			FlowmeterCoriolisNodeConfig
 		}
+		v.FlowmeterCoriolisNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4264,6 +4971,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			FlowmeterNozzleNodeConfig
 		}
+		v.FlowmeterNozzleNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4273,6 +4981,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			FlowmeterVenturiNodeConfig
 		}
+		v.FlowmeterVenturiNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4282,6 +4991,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			FlowmeterRingPistonNodeConfig
 		}
+		v.FlowmeterRingPistonNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4291,6 +5001,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			FlowmeterPositiveDisplacementNodeConfig
 		}
+		v.FlowmeterPositiveDisplacementNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4300,6 +5011,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			FlowmeterTurbineNodeConfig
 		}
+		v.FlowmeterTurbineNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4309,6 +5021,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			FlowmeterPulseNodeConfig
 		}
+		v.FlowmeterPulseNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4318,6 +5031,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			FlowmeterFloatSensorNodeConfig
 		}
+		v.FlowmeterFloatSensorNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4327,6 +5041,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			FlowmeterOrificeNodeConfig
 		}
+		v.FlowmeterOrificeNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4336,6 +5051,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			BoxNodeConfig
 		}
+		v.BoxNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4345,6 +5061,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			ButtonNodeConfig
 		}
+		v.ButtonNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4354,6 +5071,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			CircleNodeConfig
 		}
+		v.CircleNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4363,6 +5081,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			GaugeNodeConfig
 		}
+		v.GaugeNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4372,6 +5091,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			InputNodeConfig
 		}
+		v.InputNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4381,6 +5101,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			LightNodeConfig
 		}
+		v.LightNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4390,6 +5111,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			LineNodeConfig
 		}
+		v.LineNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4399,6 +5121,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			OffPageReferenceNodeConfig
 		}
+		v.OffPageReferenceNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4408,6 +5131,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			PolygonNodeConfig
 		}
+		v.PolygonNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4417,6 +5141,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			SelectNodeConfig
 		}
+		v.SelectNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4426,6 +5151,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			ScaleNodeConfig
 		}
+		v.ScaleNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4435,6 +5161,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			SetpointNodeConfig
 		}
+		v.SetpointNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4444,6 +5171,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			StateIndicatorNodeConfig
 		}
+		v.StateIndicatorNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4453,6 +5181,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			StringDisplayNodeConfig
 		}
+		v.StringDisplayNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4462,6 +5191,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			SwitchNodeConfig
 		}
+		v.SwitchNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4471,6 +5201,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			TextBoxNodeConfig
 		}
+		v.TextBoxNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4480,6 +5211,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			ValueNodeConfig
 		}
+		v.ValueNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4489,6 +5221,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			AgitatorNodeConfig
 		}
+		v.AgitatorNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4498,6 +5231,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			CrossBeamAgitatorNodeConfig
 		}
+		v.CrossBeamAgitatorNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4507,6 +5241,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			FlatBladeAgitatorNodeConfig
 		}
+		v.FlatBladeAgitatorNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4516,6 +5251,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			HeatExchangerGeneralNodeConfig
 		}
+		v.HeatExchangerGeneralNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4525,6 +5261,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			HeatExchangerMNodeConfig
 		}
+		v.HeatExchangerMNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4534,6 +5271,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			HeatExchangerStraightTubeNodeConfig
 		}
+		v.HeatExchangerStraightTubeNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4543,6 +5281,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			HelicalAgitatorNodeConfig
 		}
+		v.HelicalAgitatorNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4552,6 +5291,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			PaddleAgitatorNodeConfig
 		}
+		v.PaddleAgitatorNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4561,6 +5301,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			PropellerAgitatorNodeConfig
 		}
+		v.PropellerAgitatorNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4570,6 +5311,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			RotaryMixerNodeConfig
 		}
+		v.RotaryMixerNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4579,6 +5321,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			StaticMixerNodeConfig
 		}
+		v.StaticMixerNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4588,6 +5331,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			CavityPumpNodeConfig
 		}
+		v.CavityPumpNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4597,6 +5341,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			CentrifugalCompressorNodeConfig
 		}
+		v.CentrifugalCompressorNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4606,6 +5351,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			CompressorNodeConfig
 		}
+		v.CompressorNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4615,6 +5361,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			DiaphragmPumpNodeConfig
 		}
+		v.DiaphragmPumpNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4624,6 +5371,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			EjectionPumpNodeConfig
 		}
+		v.EjectionPumpNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4633,6 +5381,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			EjectorCompressorNodeConfig
 		}
+		v.EjectorCompressorNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4642,6 +5391,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			LiquidRingCompressorNodeConfig
 		}
+		v.LiquidRingCompressorNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4651,6 +5401,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			PistonPumpNodeConfig
 		}
+		v.PistonPumpNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4660,6 +5411,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			PumpNodeConfig
 		}
+		v.PumpNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4669,6 +5421,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			RollerVaneCompressorNodeConfig
 		}
+		v.RollerVaneCompressorNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4678,6 +5431,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			ScrewPumpNodeConfig
 		}
+		v.ScrewPumpNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4687,6 +5441,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			TurboCompressorNodeConfig
 		}
+		v.TurboCompressorNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4696,6 +5451,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			VacuumPumpNodeConfig
 		}
+		v.VacuumPumpNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4705,6 +5461,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			BurstDiscNodeConfig
 		}
+		v.BurstDiscNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4714,6 +5471,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			FlameArrestorNodeConfig
 		}
+		v.FlameArrestorNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4723,6 +5481,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			FlameArrestorDetonationNodeConfig
 		}
+		v.FlameArrestorDetonationNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4732,6 +5491,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			FlameArrestorExplosionNodeConfig
 		}
+		v.FlameArrestorExplosionNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4741,6 +5501,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			FlameArrestorFireResNodeConfig
 		}
+		v.FlameArrestorFireResNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4750,6 +5511,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			FlameArrestorFireResDetonationNodeConfig
 		}
+		v.FlameArrestorFireResDetonationNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4759,6 +5521,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			IsoBurstDiscNodeConfig
 		}
+		v.IsoBurstDiscNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4768,6 +5531,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			AngledValveNodeConfig
 		}
+		v.AngledValveNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4777,6 +5541,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			AngledReliefValveNodeConfig
 		}
+		v.AngledReliefValveNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4786,6 +5551,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			AngledSpringLoadedReliefValveNodeConfig
 		}
+		v.AngledSpringLoadedReliefValveNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4795,6 +5561,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			BallValveNodeConfig
 		}
+		v.BallValveNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4804,6 +5571,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			BreatherValveNodeConfig
 		}
+		v.BreatherValveNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4813,6 +5581,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			ButterflyValveOneNodeConfig
 		}
+		v.ButterflyValveOneNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4822,6 +5591,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			ButterflyValveTwoNodeConfig
 		}
+		v.ButterflyValveTwoNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4831,6 +5601,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			CheckValveNodeConfig
 		}
+		v.CheckValveNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4840,6 +5611,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			CheckValveWithArrowNodeConfig
 		}
+		v.CheckValveWithArrowNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4849,6 +5621,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			ElectricRegulatorNodeConfig
 		}
+		v.ElectricRegulatorNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4858,6 +5631,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			ElectricRegulatorMotorizedNodeConfig
 		}
+		v.ElectricRegulatorMotorizedNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4867,6 +5641,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			FourWayValveNodeConfig
 		}
+		v.FourWayValveNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4876,6 +5651,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			GateValveNodeConfig
 		}
+		v.GateValveNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4885,6 +5661,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			IsoCheckValveNodeConfig
 		}
+		v.IsoCheckValveNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4894,6 +5671,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			ManualValveNodeConfig
 		}
+		v.ManualValveNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4903,6 +5681,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			NeedleValveNodeConfig
 		}
+		v.NeedleValveNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4912,6 +5691,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			RegulatorNodeConfig
 		}
+		v.RegulatorNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4921,6 +5701,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			RegulatorManualNodeConfig
 		}
+		v.RegulatorManualNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4930,6 +5711,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			ReliefValveNodeConfig
 		}
+		v.ReliefValveNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4939,6 +5721,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			SolenoidValveNodeConfig
 		}
+		v.SolenoidValveNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4948,6 +5731,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			SpringLoadedReliefValveNodeConfig
 		}
+		v.SpringLoadedReliefValveNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4957,6 +5741,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			ThreeWayValveNodeConfig
 		}
+		v.ThreeWayValveNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4966,6 +5751,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			ThreeWayBallValveNodeConfig
 		}
+		v.ThreeWayBallValveNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4975,6 +5761,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			ValveNodeConfig
 		}
+		v.ValveNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4984,6 +5771,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			CrossJunctionNodeConfig
 		}
+		v.CrossJunctionNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4993,6 +5781,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			CylinderNodeConfig
 		}
+		v.CylinderNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -5002,6 +5791,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			TankNodeConfig
 		}
+		v.TankNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -5011,6 +5801,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			TJunctionNodeConfig
 		}
+		v.TJunctionNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -5020,6 +5811,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			CustomActuatorNodeConfig
 		}
+		v.CustomActuatorNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -5029,6 +5821,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			CustomStaticNodeConfig
 		}
+		v.CustomStaticNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -5862,6 +6655,11 @@ type CapElementConfig struct {
 
 func (CapElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CapElementConfig) SetDefaults() {
+	c.StaticSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CapElementConfig) ApplyDefaults() {
 	c.StaticSymbolConfig.ApplyDefaults()
@@ -5880,6 +6678,11 @@ type FilterElementConfig struct {
 }
 
 func (FilterElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FilterElementConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (f *FilterElementConfig) ApplyDefaults() {
@@ -5900,6 +6703,11 @@ type FlowStraightenerElementConfig struct {
 
 func (FlowStraightenerElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowStraightenerElementConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (f *FlowStraightenerElementConfig) ApplyDefaults() {
 	f.StaticSymbolConfig.ApplyDefaults()
@@ -5918,6 +6726,11 @@ type HeaterElementElementConfig struct {
 }
 
 func (HeaterElementElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (h *HeaterElementElementConfig) SetDefaults() {
+	h.StaticSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (h *HeaterElementElementConfig) ApplyDefaults() {
@@ -5938,6 +6751,11 @@ type IsoCapElementConfig struct {
 
 func (IsoCapElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (i *IsoCapElementConfig) SetDefaults() {
+	i.StaticSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (i *IsoCapElementConfig) ApplyDefaults() {
 	i.StaticSymbolConfig.ApplyDefaults()
@@ -5956,6 +6774,11 @@ type IsoFilterElementConfig struct {
 }
 
 func (IsoFilterElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (i *IsoFilterElementConfig) SetDefaults() {
+	i.StaticSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (i *IsoFilterElementConfig) ApplyDefaults() {
@@ -5976,6 +6799,11 @@ type NozzleElementConfig struct {
 
 func (NozzleElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (n *NozzleElementConfig) SetDefaults() {
+	n.StaticSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (n *NozzleElementConfig) ApplyDefaults() {
 	n.StaticSymbolConfig.ApplyDefaults()
@@ -5994,6 +6822,11 @@ type OrificeElementConfig struct {
 }
 
 func (OrificeElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (o *OrificeElementConfig) SetDefaults() {
+	o.StaticSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (o *OrificeElementConfig) ApplyDefaults() {
@@ -6014,6 +6847,11 @@ type OrificePlateElementConfig struct {
 
 func (OrificePlateElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (o *OrificePlateElementConfig) SetDefaults() {
+	o.StaticSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (o *OrificePlateElementConfig) ApplyDefaults() {
 	o.StaticSymbolConfig.ApplyDefaults()
@@ -6032,6 +6870,11 @@ type StrainerElementConfig struct {
 }
 
 func (StrainerElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (s *StrainerElementConfig) SetDefaults() {
+	s.StaticSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *StrainerElementConfig) ApplyDefaults() {
@@ -6052,6 +6895,11 @@ type StrainerConeElementConfig struct {
 
 func (StrainerConeElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (s *StrainerConeElementConfig) SetDefaults() {
+	s.StaticSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *StrainerConeElementConfig) ApplyDefaults() {
 	s.StaticSymbolConfig.ApplyDefaults()
@@ -6070,6 +6918,11 @@ type ThrusterElementConfig struct {
 }
 
 func (ThrusterElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (t *ThrusterElementConfig) SetDefaults() {
+	t.ToggleSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (t *ThrusterElementConfig) ApplyDefaults() {
@@ -6090,6 +6943,11 @@ type VentElementConfig struct {
 
 func (VentElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (ve *VentElementConfig) SetDefaults() {
+	ve.StaticSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (ve *VentElementConfig) ApplyDefaults() {
 	ve.StaticSymbolConfig.ApplyDefaults()
@@ -6108,6 +6966,11 @@ type FlowmeterGeneralElementConfig struct {
 }
 
 func (FlowmeterGeneralElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowmeterGeneralElementConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (f *FlowmeterGeneralElementConfig) ApplyDefaults() {
@@ -6128,6 +6991,11 @@ type FlowmeterElectromagneticElementConfig struct {
 
 func (FlowmeterElectromagneticElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowmeterElectromagneticElementConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (f *FlowmeterElectromagneticElementConfig) ApplyDefaults() {
 	f.StaticSymbolConfig.ApplyDefaults()
@@ -6146,6 +7014,11 @@ type FlowmeterVariableAreaElementConfig struct {
 }
 
 func (FlowmeterVariableAreaElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowmeterVariableAreaElementConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (f *FlowmeterVariableAreaElementConfig) ApplyDefaults() {
@@ -6166,6 +7039,11 @@ type FlowmeterCoriolisElementConfig struct {
 
 func (FlowmeterCoriolisElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowmeterCoriolisElementConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (f *FlowmeterCoriolisElementConfig) ApplyDefaults() {
 	f.StaticSymbolConfig.ApplyDefaults()
@@ -6184,6 +7062,11 @@ type FlowmeterNozzleElementConfig struct {
 }
 
 func (FlowmeterNozzleElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowmeterNozzleElementConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (f *FlowmeterNozzleElementConfig) ApplyDefaults() {
@@ -6204,6 +7087,11 @@ type FlowmeterVenturiElementConfig struct {
 
 func (FlowmeterVenturiElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowmeterVenturiElementConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (f *FlowmeterVenturiElementConfig) ApplyDefaults() {
 	f.StaticSymbolConfig.ApplyDefaults()
@@ -6222,6 +7110,11 @@ type FlowmeterRingPistonElementConfig struct {
 }
 
 func (FlowmeterRingPistonElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowmeterRingPistonElementConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (f *FlowmeterRingPistonElementConfig) ApplyDefaults() {
@@ -6242,6 +7135,11 @@ type FlowmeterPositiveDisplacementElementConfig struct {
 
 func (FlowmeterPositiveDisplacementElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowmeterPositiveDisplacementElementConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (f *FlowmeterPositiveDisplacementElementConfig) ApplyDefaults() {
 	f.StaticSymbolConfig.ApplyDefaults()
@@ -6260,6 +7158,11 @@ type FlowmeterTurbineElementConfig struct {
 }
 
 func (FlowmeterTurbineElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowmeterTurbineElementConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (f *FlowmeterTurbineElementConfig) ApplyDefaults() {
@@ -6280,6 +7183,11 @@ type FlowmeterPulseElementConfig struct {
 
 func (FlowmeterPulseElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowmeterPulseElementConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (f *FlowmeterPulseElementConfig) ApplyDefaults() {
 	f.StaticSymbolConfig.ApplyDefaults()
@@ -6299,6 +7207,11 @@ type FlowmeterFloatSensorElementConfig struct {
 
 func (FlowmeterFloatSensorElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowmeterFloatSensorElementConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (f *FlowmeterFloatSensorElementConfig) ApplyDefaults() {
 	f.StaticSymbolConfig.ApplyDefaults()
@@ -6317,6 +7230,11 @@ type FlowmeterOrificeElementConfig struct {
 }
 
 func (FlowmeterOrificeElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowmeterOrificeElementConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (f *FlowmeterOrificeElementConfig) ApplyDefaults() {
@@ -6347,6 +7265,15 @@ type BoxElementConfig struct {
 }
 
 func (BoxElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (b *BoxElementConfig) SetDefaults() {
+	b.LabeledConfig.SetDefaults()
+	b.Dimensions.Width = 125
+	b.Dimensions.Height = 200
+	b.BorderRadius = 3
+	b.StrokeWidth = 2
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (b *BoxElementConfig) ApplyDefaults() {
@@ -6394,6 +7321,13 @@ type ButtonElementConfig struct {
 
 func (ButtonElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (b *ButtonElementConfig) SetDefaults() {
+	b.LabeledConfig.SetDefaults()
+	b.Size = ComponentSizeMedium
+	b.Mode = ButtonModeFire
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (b *ButtonElementConfig) ApplyDefaults() {
 	if b.Size == "" {
@@ -6436,6 +7370,13 @@ type CircleElementConfig struct {
 
 func (CircleElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CircleElementConfig) SetDefaults() {
+	c.LabeledConfig.SetDefaults()
+	c.Radius = 20
+	c.StrokeWidth = 2
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CircleElementConfig) ApplyDefaults() {
 	if c.Radius == 0 {
@@ -6477,6 +7418,19 @@ type GaugeElementConfig struct {
 }
 
 func (GaugeElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (g *GaugeElementConfig) SetDefaults() {
+	g.LabeledConfig.SetDefaults()
+	g.NumericTelemConfig.SetDefaults()
+	g.StalenessConfig.SetDefaults()
+	g.Bounds.Upper = 100
+	g.BarWidth = 10
+	g.Location.X = spatial.XCenterLocationLeft
+	g.Location.Y = spatial.YCenterLocationCenter
+	g.Units = "RPM"
+	g.Level = text.LevelH5
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (g *GaugeElementConfig) ApplyDefaults() {
@@ -6535,6 +7489,12 @@ type InputElementConfig struct {
 
 func (InputElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (i *InputElementConfig) SetDefaults() {
+	i.LabeledConfig.SetDefaults()
+	i.Size = ComponentSizeMedium
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (i *InputElementConfig) ApplyDefaults() {
 	if i.Size == "" {
@@ -6575,6 +7535,13 @@ type LightElementConfig struct {
 
 func (LightElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (l *LightElementConfig) SetDefaults() {
+	l.LabeledConfig.SetDefaults()
+	l.ScaledConfig.SetDefaults()
+	l.StalenessConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (l *LightElementConfig) ApplyDefaults() {
 	l.LabeledConfig.ApplyDefaults()
@@ -6604,6 +7571,12 @@ type LineElementConfig struct {
 
 func (LineElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (l *LineElementConfig) SetDefaults() {
+	l.End.X = 100
+	l.StrokeWidth = 2
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (l *LineElementConfig) ApplyDefaults() {
 	if l.End.X == 0 {
@@ -6627,6 +7600,12 @@ type OffPageReferenceElementConfig struct {
 }
 
 func (OffPageReferenceElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (o *OffPageReferenceElementConfig) SetDefaults() {
+	o.LabeledConfig.SetDefaults()
+	o.Orientation = spatial.OuterLocationRight
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (o *OffPageReferenceElementConfig) ApplyDefaults() {
@@ -6668,6 +7647,14 @@ type PolygonElementConfig struct {
 }
 
 func (PolygonElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (p *PolygonElementConfig) SetDefaults() {
+	p.LabeledConfig.SetDefaults()
+	p.NumSides = 6
+	p.SideLength = 20
+	p.StrokeWidth = 2
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (p *PolygonElementConfig) ApplyDefaults() {
@@ -6714,6 +7701,13 @@ type SelectElementConfig struct {
 
 func (SelectElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (s *SelectElementConfig) SetDefaults() {
+	s.LabeledConfig.SetDefaults()
+	s.Size = ComponentSizeMedium
+	s.InlineSize = 100
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *SelectElementConfig) ApplyDefaults() {
 	if s.Size == "" {
@@ -6752,6 +7746,15 @@ type ScaleElementConfig struct {
 }
 
 func (ScaleElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (s *ScaleElementConfig) SetDefaults() {
+	s.LabeledConfig.SetDefaults()
+	s.ScaleIndicatorConfig.SetDefaults()
+	s.Orientation = spatial.OuterLocationTop
+	s.Dimensions.Width = 34
+	s.Dimensions.Height = 160
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *ScaleElementConfig) ApplyDefaults() {
@@ -6801,6 +7804,13 @@ type SetpointElementConfig struct {
 
 func (SetpointElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (s *SetpointElementConfig) SetDefaults() {
+	s.LabeledConfig.SetDefaults()
+	s.Size = ComponentSizeMedium
+	s.Units = "mV"
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *SetpointElementConfig) ApplyDefaults() {
 	if s.Size == "" {
@@ -6845,6 +7855,14 @@ type StateIndicatorElementConfig struct {
 
 func (StateIndicatorElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (s *StateIndicatorElementConfig) SetDefaults() {
+	s.LabeledConfig.SetDefaults()
+	s.StalenessConfig.SetDefaults()
+	s.InlineSize = 100
+	s.Size = ComponentSizeMedium
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *StateIndicatorElementConfig) ApplyDefaults() {
 	if s.InlineSize == 0 {
@@ -6886,6 +7904,14 @@ type StringDisplayElementConfig struct {
 
 func (StringDisplayElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (s *StringDisplayElementConfig) SetDefaults() {
+	s.LabeledConfig.SetDefaults()
+	s.StalenessConfig.SetDefaults()
+	s.InlineSize = 100
+	s.Level = text.LevelH4
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *StringDisplayElementConfig) ApplyDefaults() {
 	if s.InlineSize == 0 {
@@ -6912,6 +7938,11 @@ type SwitchElementConfig struct {
 }
 
 func (SwitchElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (s *SwitchElementConfig) SetDefaults() {
+	s.ToggleSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *SwitchElementConfig) ApplyDefaults() {
@@ -6944,6 +7975,15 @@ type TextBoxElementConfig struct {
 }
 
 func (TextBoxElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (t *TextBoxElementConfig) SetDefaults() {
+	t.LabeledConfig.SetDefaults()
+	t.Width = 75
+	t.Align = FlexAlignmentCenter
+	t.Level = text.LevelP
+	t.Value = "Text box"
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (t *TextBoxElementConfig) ApplyDefaults() {
@@ -7002,6 +8042,18 @@ type ValueElementConfig struct {
 
 func (ValueElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (va *ValueElementConfig) SetDefaults() {
+	va.LabeledConfig.SetDefaults()
+	va.NumericTelemConfig.SetDefaults()
+	va.StalenessConfig.SetDefaults()
+	va.Units = "psi"
+	va.InlineSize = 70
+	va.Level = text.LevelH4
+	va.Location.X = spatial.XCenterLocationLeft
+	va.Location.Y = spatial.YCenterLocationCenter
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (va *ValueElementConfig) ApplyDefaults() {
 	if va.Units == "" {
@@ -7041,6 +8093,11 @@ type AgitatorElementConfig struct {
 
 func (AgitatorElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AgitatorElementConfig) SetDefaults() {
+	a.ToggleSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AgitatorElementConfig) ApplyDefaults() {
 	a.ToggleSymbolConfig.ApplyDefaults()
@@ -7059,6 +8116,11 @@ type CrossBeamAgitatorElementConfig struct {
 }
 
 func (CrossBeamAgitatorElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CrossBeamAgitatorElementConfig) SetDefaults() {
+	c.ToggleSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CrossBeamAgitatorElementConfig) ApplyDefaults() {
@@ -7079,6 +8141,11 @@ type FlatBladeAgitatorElementConfig struct {
 
 func (FlatBladeAgitatorElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlatBladeAgitatorElementConfig) SetDefaults() {
+	f.ToggleSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (f *FlatBladeAgitatorElementConfig) ApplyDefaults() {
 	f.ToggleSymbolConfig.ApplyDefaults()
@@ -7097,6 +8164,11 @@ type HeatExchangerGeneralElementConfig struct {
 }
 
 func (HeatExchangerGeneralElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (h *HeatExchangerGeneralElementConfig) SetDefaults() {
+	h.StaticSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (h *HeatExchangerGeneralElementConfig) ApplyDefaults() {
@@ -7117,6 +8189,11 @@ type HeatExchangerMElementConfig struct {
 
 func (HeatExchangerMElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (h *HeatExchangerMElementConfig) SetDefaults() {
+	h.StaticSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (h *HeatExchangerMElementConfig) ApplyDefaults() {
 	h.StaticSymbolConfig.ApplyDefaults()
@@ -7135,6 +8212,11 @@ type HeatExchangerStraightTubeElementConfig struct {
 }
 
 func (HeatExchangerStraightTubeElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (h *HeatExchangerStraightTubeElementConfig) SetDefaults() {
+	h.StaticSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (h *HeatExchangerStraightTubeElementConfig) ApplyDefaults() {
@@ -7155,6 +8237,11 @@ type HelicalAgitatorElementConfig struct {
 
 func (HelicalAgitatorElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (h *HelicalAgitatorElementConfig) SetDefaults() {
+	h.ToggleSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (h *HelicalAgitatorElementConfig) ApplyDefaults() {
 	h.ToggleSymbolConfig.ApplyDefaults()
@@ -7173,6 +8260,11 @@ type PaddleAgitatorElementConfig struct {
 }
 
 func (PaddleAgitatorElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (p *PaddleAgitatorElementConfig) SetDefaults() {
+	p.ToggleSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (p *PaddleAgitatorElementConfig) ApplyDefaults() {
@@ -7193,6 +8285,11 @@ type PropellerAgitatorElementConfig struct {
 
 func (PropellerAgitatorElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (p *PropellerAgitatorElementConfig) SetDefaults() {
+	p.ToggleSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (p *PropellerAgitatorElementConfig) ApplyDefaults() {
 	p.ToggleSymbolConfig.ApplyDefaults()
@@ -7211,6 +8308,11 @@ type RotaryMixerElementConfig struct {
 }
 
 func (RotaryMixerElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (r *RotaryMixerElementConfig) SetDefaults() {
+	r.ToggleSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (r *RotaryMixerElementConfig) ApplyDefaults() {
@@ -7231,6 +8333,11 @@ type StaticMixerElementConfig struct {
 
 func (StaticMixerElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (s *StaticMixerElementConfig) SetDefaults() {
+	s.StaticSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *StaticMixerElementConfig) ApplyDefaults() {
 	s.StaticSymbolConfig.ApplyDefaults()
@@ -7249,6 +8356,11 @@ type CavityPumpElementConfig struct {
 }
 
 func (CavityPumpElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CavityPumpElementConfig) SetDefaults() {
+	c.ToggleSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CavityPumpElementConfig) ApplyDefaults() {
@@ -7269,6 +8381,11 @@ type CentrifugalCompressorElementConfig struct {
 
 func (CentrifugalCompressorElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CentrifugalCompressorElementConfig) SetDefaults() {
+	c.ToggleSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CentrifugalCompressorElementConfig) ApplyDefaults() {
 	c.ToggleSymbolConfig.ApplyDefaults()
@@ -7287,6 +8404,11 @@ type CompressorElementConfig struct {
 }
 
 func (CompressorElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CompressorElementConfig) SetDefaults() {
+	c.ToggleSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CompressorElementConfig) ApplyDefaults() {
@@ -7307,6 +8429,11 @@ type DiaphragmPumpElementConfig struct {
 
 func (DiaphragmPumpElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (d *DiaphragmPumpElementConfig) SetDefaults() {
+	d.ToggleSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (d *DiaphragmPumpElementConfig) ApplyDefaults() {
 	d.ToggleSymbolConfig.ApplyDefaults()
@@ -7325,6 +8452,11 @@ type EjectionPumpElementConfig struct {
 }
 
 func (EjectionPumpElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (e *EjectionPumpElementConfig) SetDefaults() {
+	e.ToggleSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (e *EjectionPumpElementConfig) ApplyDefaults() {
@@ -7345,6 +8477,11 @@ type EjectorCompressorElementConfig struct {
 
 func (EjectorCompressorElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (e *EjectorCompressorElementConfig) SetDefaults() {
+	e.ToggleSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (e *EjectorCompressorElementConfig) ApplyDefaults() {
 	e.ToggleSymbolConfig.ApplyDefaults()
@@ -7363,6 +8500,11 @@ type LiquidRingCompressorElementConfig struct {
 }
 
 func (LiquidRingCompressorElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (l *LiquidRingCompressorElementConfig) SetDefaults() {
+	l.ToggleSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (l *LiquidRingCompressorElementConfig) ApplyDefaults() {
@@ -7383,6 +8525,11 @@ type PistonPumpElementConfig struct {
 
 func (PistonPumpElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (p *PistonPumpElementConfig) SetDefaults() {
+	p.ToggleSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (p *PistonPumpElementConfig) ApplyDefaults() {
 	p.ToggleSymbolConfig.ApplyDefaults()
@@ -7401,6 +8548,11 @@ type PumpElementConfig struct {
 }
 
 func (PumpElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (p *PumpElementConfig) SetDefaults() {
+	p.ToggleSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (p *PumpElementConfig) ApplyDefaults() {
@@ -7421,6 +8573,11 @@ type RollerVaneCompressorElementConfig struct {
 
 func (RollerVaneCompressorElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (r *RollerVaneCompressorElementConfig) SetDefaults() {
+	r.ToggleSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (r *RollerVaneCompressorElementConfig) ApplyDefaults() {
 	r.ToggleSymbolConfig.ApplyDefaults()
@@ -7439,6 +8596,11 @@ type ScrewPumpElementConfig struct {
 }
 
 func (ScrewPumpElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (s *ScrewPumpElementConfig) SetDefaults() {
+	s.ToggleSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *ScrewPumpElementConfig) ApplyDefaults() {
@@ -7459,6 +8621,11 @@ type TurboCompressorElementConfig struct {
 
 func (TurboCompressorElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (t *TurboCompressorElementConfig) SetDefaults() {
+	t.ToggleSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (t *TurboCompressorElementConfig) ApplyDefaults() {
 	t.ToggleSymbolConfig.ApplyDefaults()
@@ -7477,6 +8644,11 @@ type VacuumPumpElementConfig struct {
 }
 
 func (VacuumPumpElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (va *VacuumPumpElementConfig) SetDefaults() {
+	va.ToggleSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (va *VacuumPumpElementConfig) ApplyDefaults() {
@@ -7497,6 +8669,11 @@ type BurstDiscElementConfig struct {
 
 func (BurstDiscElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (b *BurstDiscElementConfig) SetDefaults() {
+	b.StaticSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (b *BurstDiscElementConfig) ApplyDefaults() {
 	b.StaticSymbolConfig.ApplyDefaults()
@@ -7515,6 +8692,11 @@ type FlameArrestorElementConfig struct {
 }
 
 func (FlameArrestorElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlameArrestorElementConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (f *FlameArrestorElementConfig) ApplyDefaults() {
@@ -7535,6 +8717,11 @@ type FlameArrestorDetonationElementConfig struct {
 
 func (FlameArrestorDetonationElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlameArrestorDetonationElementConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (f *FlameArrestorDetonationElementConfig) ApplyDefaults() {
 	f.StaticSymbolConfig.ApplyDefaults()
@@ -7553,6 +8740,11 @@ type FlameArrestorExplosionElementConfig struct {
 }
 
 func (FlameArrestorExplosionElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlameArrestorExplosionElementConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (f *FlameArrestorExplosionElementConfig) ApplyDefaults() {
@@ -7573,6 +8765,11 @@ type FlameArrestorFireResElementConfig struct {
 
 func (FlameArrestorFireResElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlameArrestorFireResElementConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (f *FlameArrestorFireResElementConfig) ApplyDefaults() {
 	f.StaticSymbolConfig.ApplyDefaults()
@@ -7591,6 +8788,11 @@ type FlameArrestorFireResDetonationElementConfig struct {
 }
 
 func (FlameArrestorFireResDetonationElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlameArrestorFireResDetonationElementConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (f *FlameArrestorFireResDetonationElementConfig) ApplyDefaults() {
@@ -7611,6 +8813,11 @@ type IsoBurstDiscElementConfig struct {
 
 func (IsoBurstDiscElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (i *IsoBurstDiscElementConfig) SetDefaults() {
+	i.StaticSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (i *IsoBurstDiscElementConfig) ApplyDefaults() {
 	i.StaticSymbolConfig.ApplyDefaults()
@@ -7629,6 +8836,11 @@ type AngledValveElementConfig struct {
 }
 
 func (AngledValveElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AngledValveElementConfig) SetDefaults() {
+	a.ToggleSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AngledValveElementConfig) ApplyDefaults() {
@@ -7649,6 +8861,11 @@ type AngledReliefValveElementConfig struct {
 
 func (AngledReliefValveElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AngledReliefValveElementConfig) SetDefaults() {
+	a.DummyToggleSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AngledReliefValveElementConfig) ApplyDefaults() {
 	a.DummyToggleSymbolConfig.ApplyDefaults()
@@ -7667,6 +8884,11 @@ type AngledSpringLoadedReliefValveElementConfig struct {
 }
 
 func (AngledSpringLoadedReliefValveElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AngledSpringLoadedReliefValveElementConfig) SetDefaults() {
+	a.DummyToggleSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AngledSpringLoadedReliefValveElementConfig) ApplyDefaults() {
@@ -7687,6 +8909,11 @@ type BallValveElementConfig struct {
 
 func (BallValveElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (b *BallValveElementConfig) SetDefaults() {
+	b.ToggleSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (b *BallValveElementConfig) ApplyDefaults() {
 	b.ToggleSymbolConfig.ApplyDefaults()
@@ -7705,6 +8932,11 @@ type BreatherValveElementConfig struct {
 }
 
 func (BreatherValveElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (b *BreatherValveElementConfig) SetDefaults() {
+	b.DummyToggleSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (b *BreatherValveElementConfig) ApplyDefaults() {
@@ -7725,6 +8957,11 @@ type ButterflyValveOneElementConfig struct {
 
 func (ButterflyValveOneElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (b *ButterflyValveOneElementConfig) SetDefaults() {
+	b.ToggleSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (b *ButterflyValveOneElementConfig) ApplyDefaults() {
 	b.ToggleSymbolConfig.ApplyDefaults()
@@ -7743,6 +8980,11 @@ type ButterflyValveTwoElementConfig struct {
 }
 
 func (ButterflyValveTwoElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (b *ButterflyValveTwoElementConfig) SetDefaults() {
+	b.ToggleSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (b *ButterflyValveTwoElementConfig) ApplyDefaults() {
@@ -7763,6 +9005,11 @@ type CheckValveElementConfig struct {
 
 func (CheckValveElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CheckValveElementConfig) SetDefaults() {
+	c.StaticSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CheckValveElementConfig) ApplyDefaults() {
 	c.StaticSymbolConfig.ApplyDefaults()
@@ -7781,6 +9028,11 @@ type CheckValveWithArrowElementConfig struct {
 }
 
 func (CheckValveWithArrowElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CheckValveWithArrowElementConfig) SetDefaults() {
+	c.StaticSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CheckValveWithArrowElementConfig) ApplyDefaults() {
@@ -7801,6 +9053,11 @@ type ElectricRegulatorElementConfig struct {
 
 func (ElectricRegulatorElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (e *ElectricRegulatorElementConfig) SetDefaults() {
+	e.StaticSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (e *ElectricRegulatorElementConfig) ApplyDefaults() {
 	e.StaticSymbolConfig.ApplyDefaults()
@@ -7819,6 +9076,11 @@ type ElectricRegulatorMotorizedElementConfig struct {
 }
 
 func (ElectricRegulatorMotorizedElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (e *ElectricRegulatorMotorizedElementConfig) SetDefaults() {
+	e.StaticSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (e *ElectricRegulatorMotorizedElementConfig) ApplyDefaults() {
@@ -7839,6 +9101,11 @@ type FourWayValveElementConfig struct {
 
 func (FourWayValveElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FourWayValveElementConfig) SetDefaults() {
+	f.ToggleSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (f *FourWayValveElementConfig) ApplyDefaults() {
 	f.ToggleSymbolConfig.ApplyDefaults()
@@ -7857,6 +9124,11 @@ type GateValveElementConfig struct {
 }
 
 func (GateValveElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (g *GateValveElementConfig) SetDefaults() {
+	g.ToggleSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (g *GateValveElementConfig) ApplyDefaults() {
@@ -7877,6 +9149,11 @@ type IsoCheckValveElementConfig struct {
 
 func (IsoCheckValveElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (i *IsoCheckValveElementConfig) SetDefaults() {
+	i.StaticSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (i *IsoCheckValveElementConfig) ApplyDefaults() {
 	i.StaticSymbolConfig.ApplyDefaults()
@@ -7895,6 +9172,11 @@ type ManualValveElementConfig struct {
 }
 
 func (ManualValveElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (m *ManualValveElementConfig) SetDefaults() {
+	m.DummyToggleSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (m *ManualValveElementConfig) ApplyDefaults() {
@@ -7915,6 +9197,11 @@ type NeedleValveElementConfig struct {
 
 func (NeedleValveElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (n *NeedleValveElementConfig) SetDefaults() {
+	n.DummyToggleSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (n *NeedleValveElementConfig) ApplyDefaults() {
 	n.DummyToggleSymbolConfig.ApplyDefaults()
@@ -7933,6 +9220,11 @@ type RegulatorElementConfig struct {
 }
 
 func (RegulatorElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (r *RegulatorElementConfig) SetDefaults() {
+	r.StaticSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (r *RegulatorElementConfig) ApplyDefaults() {
@@ -7953,6 +9245,11 @@ type RegulatorManualElementConfig struct {
 
 func (RegulatorManualElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (r *RegulatorManualElementConfig) SetDefaults() {
+	r.StaticSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (r *RegulatorManualElementConfig) ApplyDefaults() {
 	r.StaticSymbolConfig.ApplyDefaults()
@@ -7971,6 +9268,11 @@ type ReliefValveElementConfig struct {
 }
 
 func (ReliefValveElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (r *ReliefValveElementConfig) SetDefaults() {
+	r.DummyToggleSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (r *ReliefValveElementConfig) ApplyDefaults() {
@@ -7994,6 +9296,11 @@ type SolenoidValveElementConfig struct {
 
 func (SolenoidValveElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (s *SolenoidValveElementConfig) SetDefaults() {
+	s.ToggleSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *SolenoidValveElementConfig) ApplyDefaults() {
 	s.ToggleSymbolConfig.ApplyDefaults()
@@ -8012,6 +9319,11 @@ type SpringLoadedReliefValveElementConfig struct {
 }
 
 func (SpringLoadedReliefValveElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (s *SpringLoadedReliefValveElementConfig) SetDefaults() {
+	s.DummyToggleSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *SpringLoadedReliefValveElementConfig) ApplyDefaults() {
@@ -8032,6 +9344,11 @@ type ThreeWayValveElementConfig struct {
 
 func (ThreeWayValveElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (t *ThreeWayValveElementConfig) SetDefaults() {
+	t.ToggleSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (t *ThreeWayValveElementConfig) ApplyDefaults() {
 	t.ToggleSymbolConfig.ApplyDefaults()
@@ -8050,6 +9367,11 @@ type ThreeWayBallValveElementConfig struct {
 }
 
 func (ThreeWayBallValveElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (t *ThreeWayBallValveElementConfig) SetDefaults() {
+	t.ToggleSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (t *ThreeWayBallValveElementConfig) ApplyDefaults() {
@@ -8070,6 +9392,11 @@ type ValveElementConfig struct {
 
 func (ValveElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (va *ValveElementConfig) SetDefaults() {
+	va.ToggleSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (va *ValveElementConfig) ApplyDefaults() {
 	va.ToggleSymbolConfig.ApplyDefaults()
@@ -8088,6 +9415,11 @@ type CrossJunctionElementConfig struct {
 }
 
 func (CrossJunctionElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CrossJunctionElementConfig) SetDefaults() {
+	c.StaticSymbolConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CrossJunctionElementConfig) ApplyDefaults() {
@@ -8117,6 +9449,14 @@ type CylinderElementConfig struct {
 }
 
 func (CylinderElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CylinderElementConfig) SetDefaults() {
+	c.LabeledConfig.SetDefaults()
+	c.ScaledConfig.SetDefaults()
+	c.Dimensions.Width = 66
+	c.Dimensions.Height = 181
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CylinderElementConfig) ApplyDefaults() {
@@ -8190,6 +9530,28 @@ type TankElementConfig struct {
 }
 
 func (TankElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (t *TankElementConfig) SetDefaults() {
+	t.LabeledConfig.SetDefaults()
+	t.Precision = 2
+	t.Notation = "standard"
+	t.StalenessTimeout = 5
+	t.Bounds.Upper = 100
+	t.CaretSide = spatial.OuterLocationRight
+	t.Level = text.LevelSmall
+	t.Dimensions.Width = 125
+	t.Dimensions.Height = 200
+	t.BorderRadius.TopLeft.X = 50
+	t.BorderRadius.TopLeft.Y = 10
+	t.BorderRadius.TopRight.X = 50
+	t.BorderRadius.TopRight.Y = 10
+	t.BorderRadius.BottomLeft.X = 50
+	t.BorderRadius.BottomLeft.Y = 10
+	t.BorderRadius.BottomRight.X = 50
+	t.BorderRadius.BottomRight.Y = 10
+	t.Side = spatial.OuterLocationLeft
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (t *TankElementConfig) ApplyDefaults() {
@@ -8265,6 +9627,11 @@ type TJunctionElementConfig struct {
 
 func (TJunctionElementConfig) isElementConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (t *TJunctionElementConfig) SetDefaults() {
+	t.StaticSymbolConfig.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (t *TJunctionElementConfig) ApplyDefaults() {
 	t.StaticSymbolConfig.ApplyDefaults()
@@ -8289,6 +9656,11 @@ type CustomActuatorElementConfig struct {
 }
 
 func (CustomActuatorElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CustomActuatorElementConfig) SetDefaults() {
+	c.ToggleConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CustomActuatorElementConfig) ApplyDefaults() {
@@ -8315,6 +9687,12 @@ type CustomStaticElementConfig struct {
 }
 
 func (CustomStaticElementConfig) isElementConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CustomStaticElementConfig) SetDefaults() {
+	c.LabeledConfig.SetDefaults()
+	c.ScaledConfig.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CustomStaticElementConfig) ApplyDefaults() {
@@ -9035,6 +10413,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			CapElementConfig
 		}
+		v.CapElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9044,6 +10423,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			FilterElementConfig
 		}
+		v.FilterElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9053,6 +10433,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			FlowStraightenerElementConfig
 		}
+		v.FlowStraightenerElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9062,6 +10443,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			HeaterElementElementConfig
 		}
+		v.HeaterElementElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9071,6 +10453,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			IsoCapElementConfig
 		}
+		v.IsoCapElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9080,6 +10463,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			IsoFilterElementConfig
 		}
+		v.IsoFilterElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9089,6 +10473,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			NozzleElementConfig
 		}
+		v.NozzleElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9098,6 +10483,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			OrificeElementConfig
 		}
+		v.OrificeElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9107,6 +10493,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			OrificePlateElementConfig
 		}
+		v.OrificePlateElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9116,6 +10503,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			StrainerElementConfig
 		}
+		v.StrainerElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9125,6 +10513,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			StrainerConeElementConfig
 		}
+		v.StrainerConeElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9134,6 +10523,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			ThrusterElementConfig
 		}
+		v.ThrusterElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9143,6 +10533,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			VentElementConfig
 		}
+		v.VentElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9152,6 +10543,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			FlowmeterGeneralElementConfig
 		}
+		v.FlowmeterGeneralElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9161,6 +10553,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			FlowmeterElectromagneticElementConfig
 		}
+		v.FlowmeterElectromagneticElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9170,6 +10563,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			FlowmeterVariableAreaElementConfig
 		}
+		v.FlowmeterVariableAreaElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9179,6 +10573,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			FlowmeterCoriolisElementConfig
 		}
+		v.FlowmeterCoriolisElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9188,6 +10583,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			FlowmeterNozzleElementConfig
 		}
+		v.FlowmeterNozzleElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9197,6 +10593,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			FlowmeterVenturiElementConfig
 		}
+		v.FlowmeterVenturiElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9206,6 +10603,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			FlowmeterRingPistonElementConfig
 		}
+		v.FlowmeterRingPistonElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9215,6 +10613,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			FlowmeterPositiveDisplacementElementConfig
 		}
+		v.FlowmeterPositiveDisplacementElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9224,6 +10623,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			FlowmeterTurbineElementConfig
 		}
+		v.FlowmeterTurbineElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9233,6 +10633,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			FlowmeterPulseElementConfig
 		}
+		v.FlowmeterPulseElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9242,6 +10643,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			FlowmeterFloatSensorElementConfig
 		}
+		v.FlowmeterFloatSensorElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9251,6 +10653,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			FlowmeterOrificeElementConfig
 		}
+		v.FlowmeterOrificeElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9260,6 +10663,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			BoxElementConfig
 		}
+		v.BoxElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9269,6 +10673,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			ButtonElementConfig
 		}
+		v.ButtonElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9278,6 +10683,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			CircleElementConfig
 		}
+		v.CircleElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9287,6 +10693,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			GaugeElementConfig
 		}
+		v.GaugeElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9296,6 +10703,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			InputElementConfig
 		}
+		v.InputElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9305,6 +10713,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			LightElementConfig
 		}
+		v.LightElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9314,6 +10723,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			LineElementConfig
 		}
+		v.LineElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9323,6 +10733,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			OffPageReferenceElementConfig
 		}
+		v.OffPageReferenceElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9332,6 +10743,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			PolygonElementConfig
 		}
+		v.PolygonElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9341,6 +10753,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			SelectElementConfig
 		}
+		v.SelectElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9350,6 +10763,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			ScaleElementConfig
 		}
+		v.ScaleElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9359,6 +10773,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			SetpointElementConfig
 		}
+		v.SetpointElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9368,6 +10783,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			StateIndicatorElementConfig
 		}
+		v.StateIndicatorElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9377,6 +10793,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			StringDisplayElementConfig
 		}
+		v.StringDisplayElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9386,6 +10803,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			SwitchElementConfig
 		}
+		v.SwitchElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9395,6 +10813,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			TextBoxElementConfig
 		}
+		v.TextBoxElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9404,6 +10823,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			ValueElementConfig
 		}
+		v.ValueElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9413,6 +10833,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			AgitatorElementConfig
 		}
+		v.AgitatorElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9422,6 +10843,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			CrossBeamAgitatorElementConfig
 		}
+		v.CrossBeamAgitatorElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9431,6 +10853,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			FlatBladeAgitatorElementConfig
 		}
+		v.FlatBladeAgitatorElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9440,6 +10863,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			HeatExchangerGeneralElementConfig
 		}
+		v.HeatExchangerGeneralElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9449,6 +10873,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			HeatExchangerMElementConfig
 		}
+		v.HeatExchangerMElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9458,6 +10883,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			HeatExchangerStraightTubeElementConfig
 		}
+		v.HeatExchangerStraightTubeElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9467,6 +10893,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			HelicalAgitatorElementConfig
 		}
+		v.HelicalAgitatorElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9476,6 +10903,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			PaddleAgitatorElementConfig
 		}
+		v.PaddleAgitatorElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9485,6 +10913,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			PropellerAgitatorElementConfig
 		}
+		v.PropellerAgitatorElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9494,6 +10923,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			RotaryMixerElementConfig
 		}
+		v.RotaryMixerElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9503,6 +10933,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			StaticMixerElementConfig
 		}
+		v.StaticMixerElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9512,6 +10943,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			CavityPumpElementConfig
 		}
+		v.CavityPumpElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9521,6 +10953,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			CentrifugalCompressorElementConfig
 		}
+		v.CentrifugalCompressorElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9530,6 +10963,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			CompressorElementConfig
 		}
+		v.CompressorElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9539,6 +10973,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			DiaphragmPumpElementConfig
 		}
+		v.DiaphragmPumpElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9548,6 +10983,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			EjectionPumpElementConfig
 		}
+		v.EjectionPumpElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9557,6 +10993,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			EjectorCompressorElementConfig
 		}
+		v.EjectorCompressorElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9566,6 +11003,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			LiquidRingCompressorElementConfig
 		}
+		v.LiquidRingCompressorElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9575,6 +11013,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			PistonPumpElementConfig
 		}
+		v.PistonPumpElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9584,6 +11023,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			PumpElementConfig
 		}
+		v.PumpElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9593,6 +11033,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			RollerVaneCompressorElementConfig
 		}
+		v.RollerVaneCompressorElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9602,6 +11043,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			ScrewPumpElementConfig
 		}
+		v.ScrewPumpElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9611,6 +11053,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			TurboCompressorElementConfig
 		}
+		v.TurboCompressorElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9620,6 +11063,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			VacuumPumpElementConfig
 		}
+		v.VacuumPumpElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9629,6 +11073,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			BurstDiscElementConfig
 		}
+		v.BurstDiscElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9638,6 +11083,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			FlameArrestorElementConfig
 		}
+		v.FlameArrestorElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9647,6 +11093,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			FlameArrestorDetonationElementConfig
 		}
+		v.FlameArrestorDetonationElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9656,6 +11103,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			FlameArrestorExplosionElementConfig
 		}
+		v.FlameArrestorExplosionElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9665,6 +11113,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			FlameArrestorFireResElementConfig
 		}
+		v.FlameArrestorFireResElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9674,6 +11123,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			FlameArrestorFireResDetonationElementConfig
 		}
+		v.FlameArrestorFireResDetonationElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9683,6 +11133,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			IsoBurstDiscElementConfig
 		}
+		v.IsoBurstDiscElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9692,6 +11143,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			AngledValveElementConfig
 		}
+		v.AngledValveElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9701,6 +11153,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			AngledReliefValveElementConfig
 		}
+		v.AngledReliefValveElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9710,6 +11163,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			AngledSpringLoadedReliefValveElementConfig
 		}
+		v.AngledSpringLoadedReliefValveElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9719,6 +11173,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			BallValveElementConfig
 		}
+		v.BallValveElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9728,6 +11183,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			BreatherValveElementConfig
 		}
+		v.BreatherValveElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9737,6 +11193,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			ButterflyValveOneElementConfig
 		}
+		v.ButterflyValveOneElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9746,6 +11203,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			ButterflyValveTwoElementConfig
 		}
+		v.ButterflyValveTwoElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9755,6 +11213,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			CheckValveElementConfig
 		}
+		v.CheckValveElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9764,6 +11223,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			CheckValveWithArrowElementConfig
 		}
+		v.CheckValveWithArrowElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9773,6 +11233,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			ElectricRegulatorElementConfig
 		}
+		v.ElectricRegulatorElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9782,6 +11243,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			ElectricRegulatorMotorizedElementConfig
 		}
+		v.ElectricRegulatorMotorizedElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9791,6 +11253,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			FourWayValveElementConfig
 		}
+		v.FourWayValveElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9800,6 +11263,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			GateValveElementConfig
 		}
+		v.GateValveElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9809,6 +11273,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			IsoCheckValveElementConfig
 		}
+		v.IsoCheckValveElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9818,6 +11283,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			ManualValveElementConfig
 		}
+		v.ManualValveElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9827,6 +11293,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			NeedleValveElementConfig
 		}
+		v.NeedleValveElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9836,6 +11303,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			RegulatorElementConfig
 		}
+		v.RegulatorElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9845,6 +11313,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			RegulatorManualElementConfig
 		}
+		v.RegulatorManualElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9854,6 +11323,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			ReliefValveElementConfig
 		}
+		v.ReliefValveElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9863,6 +11333,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			SolenoidValveElementConfig
 		}
+		v.SolenoidValveElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9872,6 +11343,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			SpringLoadedReliefValveElementConfig
 		}
+		v.SpringLoadedReliefValveElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9881,6 +11353,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			ThreeWayValveElementConfig
 		}
+		v.ThreeWayValveElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9890,6 +11363,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			ThreeWayBallValveElementConfig
 		}
+		v.ThreeWayBallValveElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9899,6 +11373,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			ValveElementConfig
 		}
+		v.ValveElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9908,6 +11383,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			CrossJunctionElementConfig
 		}
+		v.CrossJunctionElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9917,6 +11393,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			CylinderElementConfig
 		}
+		v.CylinderElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9926,6 +11403,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			TankElementConfig
 		}
+		v.TankElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9935,6 +11413,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			TJunctionElementConfig
 		}
+		v.TJunctionElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9944,6 +11423,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			CustomActuatorElementConfig
 		}
+		v.CustomActuatorElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9953,6 +11433,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			CustomStaticElementConfig
 		}
+		v.CustomStaticElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}

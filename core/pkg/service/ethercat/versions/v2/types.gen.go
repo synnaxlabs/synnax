@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // BaseReadChannel carries the fields every EtherCAT read channel shares.
@@ -339,6 +340,28 @@ func (r *ReadConfig) ApplyDefaults() {
 	r.ReadConfig.ApplyDefaults()
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (r *ReadConfig) SetDefaults() {
+	r.ReadConfig.SetDefaults()
+}
+
+// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
+// omits takes its default and an explicit zero value stays.
+func (r *ReadConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain ReadConfig
+	*r = ReadConfig{}
+	r.SetDefaults()
+	return json.UnmarshalDecode(dec, (*plain)(r))
+}
+
+// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+func (r *ReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain ReadConfig
+	*r = ReadConfig{}
+	r.SetDefaults()
+	return dec.Decode((*plain)(r))
+}
+
 // WriteConfig configures an EtherCAT write task. Each channel addresses a PDO entry on
 // its own slave; all slaves must share one network interface.
 type WriteConfig struct {
@@ -359,6 +382,29 @@ func (w *WriteConfig) ApplyDefaults() {
 	if w.ExecutionRate == 0 {
 		w.ExecutionRate = 1000
 	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (w *WriteConfig) SetDefaults() {
+	w.StateRate = 25
+	w.ExecutionRate = 1000
+}
+
+// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
+// omits takes its default and an explicit zero value stays.
+func (w *WriteConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain WriteConfig
+	*w = WriteConfig{}
+	w.SetDefaults()
+	return json.UnmarshalDecode(dec, (*plain)(w))
+}
+
+// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+func (w *WriteConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain WriteConfig
+	*w = WriteConfig{}
+	w.SetDefaults()
+	return dec.Decode((*plain)(w))
 }
 
 // ScanConfig configures an EtherCAT scan task.

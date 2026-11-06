@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // Key is a unique identifier for a line plot, represented as a UUID.
@@ -269,6 +270,30 @@ func (l *LinePlot) ApplyDefaults() {
 	for i := range l.Rules {
 		l.Rules[i].ApplyDefaults()
 	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (l *LinePlot) SetDefaults() {
+	l.Title.SetDefaults()
+	l.Legend.SetDefaults()
+	l.Axes.SetDefaults()
+}
+
+// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
+// omits takes its default and an explicit zero value stays.
+func (l *LinePlot) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain LinePlot
+	*l = LinePlot{}
+	l.SetDefaults()
+	return json.UnmarshalDecode(dec, (*plain)(l))
+}
+
+// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+func (l *LinePlot) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain LinePlot
+	*l = LinePlot{}
+	l.SetDefaults()
+	return dec.Decode((*plain)(l))
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

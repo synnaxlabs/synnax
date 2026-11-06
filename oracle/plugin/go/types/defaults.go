@@ -11,6 +11,7 @@ package types
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -27,6 +28,7 @@ import (
 const (
 	validateImportPath = "github.com/synnaxlabs/x/validate"
 	strconvImportPath  = "strconv"
+	msgpackImportPath  = "github.com/vmihailenco/msgpack/v5"
 )
 
 // defaultFillData describes a single field assignment emitted by a generated
@@ -922,4 +924,68 @@ func groupMember(
 		return defaultFillData{GoName: name, ZeroLit: `""`}, true
 	}
 	return defaultFillData{}, false
+}
+
+// typeSetsDefaults reports whether ref names a struct that emits SetDefaults: one with
+// a field that has a static default, or with a required struct field or embedded
+// parent whose type emits SetDefaults. A union never does, since its zero value holds
+// no variant. visited guards against cycles in recursive types.
+func typeSetsDefaults(
+	ref resolution.TypeRef,
+	data *templateData,
+	visited set.Set[string],
+) bool {
+	if ref.IsTypeParam() || ref.Name == "Array" || ref.Name == "Map" ||
+		visited.Contains(ref.Name) {
+		return false
+	}
+	visited.Add(ref.Name)
+	resolved, ok := ref.Resolve(data.table)
+	if !ok {
+		return false
+	}
+	form, ok := resolved.Form.(resolution.StructForm)
+	if !ok || form.IsGeneric() {
+		return false
+	}
+	probe := probeData(data)
+	return lo.SomeBy(
+		resolution.UnifiedFields(resolved, data.table),
+		func(f resolution.Field) bool {
+			return defaultsHasOwn(f, probe) ||
+				(!f.Optional && typeSetsDefaults(f.Type, data, visited))
+		},
+	)
+}
+
+// setDefaultsSteps returns the SetDefaults calls a generated SetDefaults makes into
+// embedded types and required struct fields. Optional, slice, and map fields hold no
+// value until the input supplies one, so their own decode hooks default them.
+func setDefaultsSteps(
+	embeds []embeddedType,
+	fields []resolution.Field,
+	data *templateData,
+) []recurseStepData {
+	var steps []recurseStepData
+	for _, e := range embeds {
+		if typeSetsDefaults(e.ref, data, set.New[string]()) {
+			steps = append(steps, recurseStepData{GoName: embedFieldName(e.rendered)})
+		}
+	}
+	for _, f := range fields {
+		if !f.Optional && typeSetsDefaults(f.Type, data, set.New[string]()) {
+			steps = append(steps, recurseStepData{GoName: naming.GetFieldName(f)})
+		}
+	}
+	return steps
+}
+
+// allFills returns fills followed by the fills of every group. SetDefaults assigns
+// each one, since a decode overwrites whatever the input supplies.
+func allFills(fills []defaultFillData, groups []defaultGroupData) []defaultFillData {
+	all := slices.Clone(fills)
+	for _, g := range groups {
+		all = append(all, g.Fills...)
+	}
+	return all
 }

@@ -72,6 +72,18 @@ var _ = Describe("Reduction", func() {
 			)).To(MatchError(ContainSubstring(`unknown object member name "extra"`)))
 		})
 
+		It("Should give a member the input omits its default", func() {
+			var decoded telem.Reduction
+			Expect(json.Unmarshal(
+				[]byte(`{"variant":"limit","point_limit":8}`),
+				&decoded,
+			)).To(Succeed())
+			Expect(decoded.Variant).To(Equal(telem.LimitReduction{
+				Aggregation: telem.AggregationMinMax,
+				PointLimit:  8,
+			}))
+		})
+
 		It("Should reject an unknown variant", func() {
 			var decoded telem.Reduction
 			Expect(json.Unmarshal([]byte(`{"variant":"median"}`), &decoded)).

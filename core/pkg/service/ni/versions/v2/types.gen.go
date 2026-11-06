@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // Units enumerates the engineering units for NI analog channel values.
@@ -762,6 +763,13 @@ type LinearScale struct {
 
 func (LinearScale) isScaleVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (l *LinearScale) SetDefaults() {
+	l.Slope = 1
+	l.PreScaledUnits = UnitsVolts
+	l.ScaledUnits = "Volts"
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (l *LinearScale) ApplyDefaults() {
 	if l.Slope == 0 {
@@ -801,6 +809,14 @@ type MapScale struct {
 
 func (MapScale) isScaleVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (m *MapScale) SetDefaults() {
+	m.PreScaledUnits = UnitsVolts
+	m.ScaledUnits = "Volts"
+	m.PreScaledMax = 1
+	m.ScaledMax = 1
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (m *MapScale) ApplyDefaults() {
 	if m.PreScaledUnits == "" {
@@ -839,6 +855,12 @@ type TableScale struct {
 
 func (TableScale) isScaleVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (t *TableScale) SetDefaults() {
+	t.PreScaledUnits = UnitsVolts
+	t.ScaledUnits = "Volts"
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (t *TableScale) ApplyDefaults() {
 	if t.PreScaledUnits == "" {
@@ -870,6 +892,12 @@ type PolynomialScale struct {
 }
 
 func (PolynomialScale) isScaleVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (p *PolynomialScale) SetDefaults() {
+	p.PreScaledUnits = UnitsVolts
+	p.ScaledUnits = "Volts"
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (p *PolynomialScale) ApplyDefaults() {
@@ -960,6 +988,7 @@ func (u *Scale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ScaleType `json:"type"`
 			LinearScale
 		}
+		v.LinearScale.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -969,6 +998,7 @@ func (u *Scale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ScaleType `json:"type"`
 			MapScale
 		}
+		v.MapScale.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -978,6 +1008,7 @@ func (u *Scale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ScaleType `json:"type"`
 			TableScale
 		}
+		v.TableScale.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -987,6 +1018,7 @@ func (u *Scale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ScaleType `json:"type"`
 			PolynomialScale
 		}
+		v.PolynomialScale.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -1077,6 +1109,11 @@ func (m *MinMaxVal) ApplyDefaults() {
 	}
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (m *MinMaxVal) SetDefaults() {
+	m.MaxVal = 1
+}
+
 // Terminal configures the terminal wiring of an analog input channel.
 type Terminal struct {
 	// TerminalConfig selects the terminal configuration (RSE, NRSE, Diff, ...).
@@ -1088,6 +1125,11 @@ func (t *Terminal) ApplyDefaults() {
 	if t.TerminalConfig == "" {
 		t.TerminalConfig = TerminalConfigCfgDefault
 	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (t *Terminal) SetDefaults() {
+	t.TerminalConfig = TerminalConfigCfgDefault
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1119,6 +1161,11 @@ func (c *CurrentExcitation) ApplyDefaults() {
 	}
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CurrentExcitation) SetDefaults() {
+	c.CurrentExcitSource = ExcitationSourceInternal
+}
+
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (c CurrentExcitation) Validate() error {
@@ -1140,6 +1187,11 @@ func (vo *VoltageExcitation) ApplyDefaults() {
 	if vo.VoltageExcitSource == "" {
 		vo.VoltageExcitSource = ExcitationSourceInternal
 	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (vo *VoltageExcitation) SetDefaults() {
+	vo.VoltageExcitSource = ExcitationSourceInternal
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1168,6 +1220,12 @@ func (b *Bridge) ApplyDefaults() {
 	}
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (b *Bridge) SetDefaults() {
+	b.BridgeConfig = BridgeConfigFullBridge
+	b.NominalBridgeResistance = 1
+}
+
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (b Bridge) Validate() error {
@@ -1193,6 +1251,11 @@ func (b *BridgePolynomial) ApplyDefaults() {
 	}
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (b *BridgePolynomial) SetDefaults() {
+	b.ElectricalUnits = ElectricalUnitsMVoltsPerVolt
+}
+
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (b BridgePolynomial) Validate() error {
@@ -1212,6 +1275,11 @@ func (r *Resistance) ApplyDefaults() {
 	if r.ResistanceConfig == "" {
 		r.ResistanceConfig = ResistanceConfigWire2
 	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (r *Resistance) SetDefaults() {
+	r.ResistanceConfig = ResistanceConfigWire2
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1237,6 +1305,11 @@ func (t *Table) ApplyDefaults() {
 	if t.ElectricalUnits == "" {
 		t.ElectricalUnits = ElectricalUnitsMVoltsPerVolt
 	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (t *Table) SetDefaults() {
+	t.ElectricalUnits = ElectricalUnitsMVoltsPerVolt
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1275,6 +1348,13 @@ func (t *TwoPointLin) ApplyDefaults() {
 	}
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (t *TwoPointLin) SetDefaults() {
+	t.ElectricalUnits = ElectricalUnitsMVoltsPerVolt
+	t.SecondElectricalVal = 1
+	t.SecondPhysicalVal = 1
+}
+
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (t TwoPointLin) Validate() error {
@@ -1295,6 +1375,11 @@ func (c *CustomScale) ApplyDefaults() {
 		c.CustomScale.Variant = NoneScale{}
 	}
 	c.CustomScale.ApplyDefaults()
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CustomScale) SetDefaults() {
+	c.CustomScale.Variant = NoneScale{}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1411,6 +1496,13 @@ type AIVoltageChannel struct {
 
 func (AIVoltageChannel) isAIChannelVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AIVoltageChannel) SetDefaults() {
+	a.MinMaxVal.SetDefaults()
+	a.Terminal.SetDefaults()
+	a.CustomScale.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIVoltageChannel) ApplyDefaults() {
 	a.MinMaxVal.ApplyDefaults()
@@ -1442,6 +1534,16 @@ type AIAccelChannel struct {
 }
 
 func (AIAccelChannel) isAIChannelVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AIAccelChannel) SetDefaults() {
+	a.MinMaxVal.SetDefaults()
+	a.Terminal.SetDefaults()
+	a.CurrentExcitation.SetDefaults()
+	a.CustomScale.SetDefaults()
+	a.Units = AccelUnitsG
+	a.SensitivityUnits = AccelSensitivityUnitsMVoltsPerG
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIAccelChannel) ApplyDefaults() {
@@ -1482,6 +1584,15 @@ type AIBridgeChannel struct {
 
 func (AIBridgeChannel) isAIChannelVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AIBridgeChannel) SetDefaults() {
+	a.MinMaxVal.SetDefaults()
+	a.Bridge.SetDefaults()
+	a.VoltageExcitation.SetDefaults()
+	a.CustomScale.SetDefaults()
+	a.Units = ElectricalUnitsMVoltsPerVolt
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIBridgeChannel) ApplyDefaults() {
 	if a.Units == "" {
@@ -1517,6 +1628,15 @@ type AICurrentChannel struct {
 }
 
 func (AICurrentChannel) isAIChannelVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AICurrentChannel) SetDefaults() {
+	a.MinMaxVal.SetDefaults()
+	a.Terminal.SetDefaults()
+	a.CustomScale.SetDefaults()
+	a.ShuntResistorLoc = ShuntResistorLocationDefault
+	a.ExtShuntResistorVal = 1
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AICurrentChannel) ApplyDefaults() {
@@ -1556,6 +1676,17 @@ type AIForceBridgeTableChannel struct {
 }
 
 func (AIForceBridgeTableChannel) isAIChannelVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AIForceBridgeTableChannel) SetDefaults() {
+	a.MinMaxVal.SetDefaults()
+	a.Bridge.SetDefaults()
+	a.VoltageExcitation.SetDefaults()
+	a.Table.SetDefaults()
+	a.CustomScale.SetDefaults()
+	a.Units = ForceUnitsNewtons
+	a.PhysicalUnits = ForceUnitsNewtons
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIForceBridgeTableChannel) ApplyDefaults() {
@@ -1602,6 +1733,17 @@ type AIForceBridgeTwoPointLinChannel struct {
 
 func (AIForceBridgeTwoPointLinChannel) isAIChannelVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AIForceBridgeTwoPointLinChannel) SetDefaults() {
+	a.MinMaxVal.SetDefaults()
+	a.Bridge.SetDefaults()
+	a.VoltageExcitation.SetDefaults()
+	a.TwoPointLin.SetDefaults()
+	a.CustomScale.SetDefaults()
+	a.Units = ForceUnitsNewtons
+	a.PhysicalUnits = ForceUnitsNewtons
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIForceBridgeTwoPointLinChannel) ApplyDefaults() {
 	if a.Units == "" {
@@ -1646,6 +1788,16 @@ type AIForceIEPEChannel struct {
 
 func (AIForceIEPEChannel) isAIChannelVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AIForceIEPEChannel) SetDefaults() {
+	a.MinMaxVal.SetDefaults()
+	a.Terminal.SetDefaults()
+	a.CurrentExcitation.SetDefaults()
+	a.CustomScale.SetDefaults()
+	a.Units = ForceUnitsNewtons
+	a.SensitivityUnits = ForceSensitivityUnitsMVoltsPerNewton
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIForceIEPEChannel) ApplyDefaults() {
 	if a.Units == "" {
@@ -1686,6 +1838,13 @@ type AIMicrophoneChannel struct {
 
 func (AIMicrophoneChannel) isAIChannelVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AIMicrophoneChannel) SetDefaults() {
+	a.Terminal.SetDefaults()
+	a.CurrentExcitation.SetDefaults()
+	a.CustomScale.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIMicrophoneChannel) ApplyDefaults() {
 	a.Terminal.ApplyDefaults()
@@ -1718,6 +1877,17 @@ type AIPressureBridgeTableChannel struct {
 }
 
 func (AIPressureBridgeTableChannel) isAIChannelVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AIPressureBridgeTableChannel) SetDefaults() {
+	a.MinMaxVal.SetDefaults()
+	a.Bridge.SetDefaults()
+	a.VoltageExcitation.SetDefaults()
+	a.Table.SetDefaults()
+	a.CustomScale.SetDefaults()
+	a.Units = PressureUnitsPoundsPerSquareInch
+	a.PhysicalUnits = PressureUnitsPoundsPerSquareInch
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIPressureBridgeTableChannel) ApplyDefaults() {
@@ -1764,6 +1934,17 @@ type AIPressureBridgeTwoPointLinChannel struct {
 
 func (AIPressureBridgeTwoPointLinChannel) isAIChannelVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AIPressureBridgeTwoPointLinChannel) SetDefaults() {
+	a.MinMaxVal.SetDefaults()
+	a.Bridge.SetDefaults()
+	a.VoltageExcitation.SetDefaults()
+	a.TwoPointLin.SetDefaults()
+	a.CustomScale.SetDefaults()
+	a.Units = PressureUnitsPoundsPerSquareInch
+	a.PhysicalUnits = PressureUnitsPoundsPerSquareInch
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIPressureBridgeTwoPointLinChannel) ApplyDefaults() {
 	if a.Units == "" {
@@ -1803,6 +1984,14 @@ type AIResistanceChannel struct {
 
 func (AIResistanceChannel) isAIChannelVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AIResistanceChannel) SetDefaults() {
+	a.MinMaxVal.SetDefaults()
+	a.Resistance.SetDefaults()
+	a.CurrentExcitation.SetDefaults()
+	a.CustomScale.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIResistanceChannel) ApplyDefaults() {
 	a.MinMaxVal.ApplyDefaults()
@@ -1836,6 +2025,15 @@ type AIRTDChannel struct {
 }
 
 func (AIRTDChannel) isAIChannelVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AIRTDChannel) SetDefaults() {
+	a.MinMaxVal.SetDefaults()
+	a.Resistance.SetDefaults()
+	a.CurrentExcitation.SetDefaults()
+	a.Units = TemperatureUnitsDegC
+	a.RtdType = RTDTypePt3750
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIRTDChannel) ApplyDefaults() {
@@ -1883,6 +2081,14 @@ type AIStrainGaugeChannel struct {
 
 func (AIStrainGaugeChannel) isAIChannelVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AIStrainGaugeChannel) SetDefaults() {
+	a.MinMaxVal.SetDefaults()
+	a.VoltageExcitation.SetDefaults()
+	a.CustomScale.SetDefaults()
+	a.StrainConfig = StrainConfigFullBridgeI
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIStrainGaugeChannel) ApplyDefaults() {
 	if a.StrainConfig == "" {
@@ -1921,6 +2127,11 @@ type AITempBuiltinChannel struct {
 
 func (AITempBuiltinChannel) isAIChannelVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AITempBuiltinChannel) SetDefaults() {
+	a.Units = TemperatureUnitsDegC
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AITempBuiltinChannel) ApplyDefaults() {
 	if a.Units == "" {
@@ -1949,6 +2160,14 @@ type AIThermocoupleChannel struct {
 }
 
 func (AIThermocoupleChannel) isAIChannelVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AIThermocoupleChannel) SetDefaults() {
+	a.MinMaxVal.SetDefaults()
+	a.Units = TemperatureUnitsDegC
+	a.ThermocoupleType = ThermocoupleTypeJ
+	a.Cjc.Variant = BuiltInCJC{}
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIThermocoupleChannel) ApplyDefaults() {
@@ -1988,6 +2207,17 @@ type AITorqueBridgeTableChannel struct {
 }
 
 func (AITorqueBridgeTableChannel) isAIChannelVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AITorqueBridgeTableChannel) SetDefaults() {
+	a.MinMaxVal.SetDefaults()
+	a.Bridge.SetDefaults()
+	a.VoltageExcitation.SetDefaults()
+	a.Table.SetDefaults()
+	a.CustomScale.SetDefaults()
+	a.Units = TorqueUnitsNewtonMeters
+	a.PhysicalUnits = TorqueUnitsNewtonMeters
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AITorqueBridgeTableChannel) ApplyDefaults() {
@@ -2034,6 +2264,17 @@ type AITorqueBridgeTwoPointLinChannel struct {
 
 func (AITorqueBridgeTwoPointLinChannel) isAIChannelVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AITorqueBridgeTwoPointLinChannel) SetDefaults() {
+	a.MinMaxVal.SetDefaults()
+	a.Bridge.SetDefaults()
+	a.VoltageExcitation.SetDefaults()
+	a.TwoPointLin.SetDefaults()
+	a.CustomScale.SetDefaults()
+	a.Units = TorqueUnitsNewtonMeters
+	a.PhysicalUnits = TorqueUnitsNewtonMeters
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AITorqueBridgeTwoPointLinChannel) ApplyDefaults() {
 	if a.Units == "" {
@@ -2077,6 +2318,16 @@ type AIVelocityIEPEChannel struct {
 }
 
 func (AIVelocityIEPEChannel) isAIChannelVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AIVelocityIEPEChannel) SetDefaults() {
+	a.MinMaxVal.SetDefaults()
+	a.Terminal.SetDefaults()
+	a.CurrentExcitation.SetDefaults()
+	a.CustomScale.SetDefaults()
+	a.Units = VelocityUnitsMetersPerSecond
+	a.SensitivityUnits = VelocitySensitivityUnitsMVoltsPerMmPerSecond
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIVelocityIEPEChannel) ApplyDefaults() {
@@ -2124,6 +2375,16 @@ type AIAccel4WireDCVoltageChannel struct {
 
 func (AIAccel4WireDCVoltageChannel) isAIChannelVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AIAccel4WireDCVoltageChannel) SetDefaults() {
+	a.MinMaxVal.SetDefaults()
+	a.Terminal.SetDefaults()
+	a.VoltageExcitation.SetDefaults()
+	a.CustomScale.SetDefaults()
+	a.Units = AccelUnitsG
+	a.SensitivityUnits = AccelSensitivityUnitsMVoltsPerG
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIAccel4WireDCVoltageChannel) ApplyDefaults() {
 	if a.Units == "" {
@@ -2165,6 +2426,15 @@ type AIAccelChargeChannel struct {
 
 func (AIAccelChargeChannel) isAIChannelVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AIAccelChargeChannel) SetDefaults() {
+	a.MinMaxVal.SetDefaults()
+	a.Terminal.SetDefaults()
+	a.CustomScale.SetDefaults()
+	a.Units = AccelUnitsG
+	a.SensitivityUnits = AccelChargeSensitivityUnitsPicoCoulombsPerG
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIAccelChargeChannel) ApplyDefaults() {
 	if a.Units == "" {
@@ -2201,6 +2471,14 @@ type AIChargeChannel struct {
 
 func (AIChargeChannel) isAIChannelVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AIChargeChannel) SetDefaults() {
+	a.MinMaxVal.SetDefaults()
+	a.Terminal.SetDefaults()
+	a.CustomScale.SetDefaults()
+	a.Units = ChargeUnitsCoulombs
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIChargeChannel) ApplyDefaults() {
 	if a.Units == "" {
@@ -2234,6 +2512,15 @@ type AICurrentRMSChannel struct {
 }
 
 func (AICurrentRMSChannel) isAIChannelVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AICurrentRMSChannel) SetDefaults() {
+	a.MinMaxVal.SetDefaults()
+	a.Terminal.SetDefaults()
+	a.CustomScale.SetDefaults()
+	a.ShuntResistorLoc = ShuntResistorLocationDefault
+	a.ExtShuntResistorVal = 1
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AICurrentRMSChannel) ApplyDefaults() {
@@ -2273,6 +2560,17 @@ type AIForceBridgePolynomialChannel struct {
 }
 
 func (AIForceBridgePolynomialChannel) isAIChannelVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AIForceBridgePolynomialChannel) SetDefaults() {
+	a.MinMaxVal.SetDefaults()
+	a.Bridge.SetDefaults()
+	a.VoltageExcitation.SetDefaults()
+	a.BridgePolynomial.SetDefaults()
+	a.CustomScale.SetDefaults()
+	a.Units = ForceUnitsNewtons
+	a.PhysicalUnits = ForceUnitsNewtons
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIForceBridgePolynomialChannel) ApplyDefaults() {
@@ -2315,6 +2613,12 @@ type AIFreqVoltageChannel struct {
 
 func (AIFreqVoltageChannel) isAIChannelVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AIFreqVoltageChannel) SetDefaults() {
+	a.MinMaxVal.SetDefaults()
+	a.CustomScale.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIFreqVoltageChannel) ApplyDefaults() {
 	a.MinMaxVal.ApplyDefaults()
@@ -2345,6 +2649,17 @@ type AIPressureBridgePolynomialChannel struct {
 }
 
 func (AIPressureBridgePolynomialChannel) isAIChannelVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AIPressureBridgePolynomialChannel) SetDefaults() {
+	a.MinMaxVal.SetDefaults()
+	a.Bridge.SetDefaults()
+	a.VoltageExcitation.SetDefaults()
+	a.BridgePolynomial.SetDefaults()
+	a.CustomScale.SetDefaults()
+	a.Units = PressureUnitsPoundsPerSquareInch
+	a.PhysicalUnits = PressureUnitsPoundsPerSquareInch
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIPressureBridgePolynomialChannel) ApplyDefaults() {
@@ -2392,6 +2707,14 @@ type AIThermistorIexChannel struct {
 
 func (AIThermistorIexChannel) isAIChannelVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AIThermistorIexChannel) SetDefaults() {
+	a.MinMaxVal.SetDefaults()
+	a.Resistance.SetDefaults()
+	a.CurrentExcitation.SetDefaults()
+	a.Units = TemperatureUnitsDegC
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIThermistorIexChannel) ApplyDefaults() {
 	if a.Units == "" {
@@ -2432,6 +2755,14 @@ type AIThermistorVexChannel struct {
 
 func (AIThermistorVexChannel) isAIChannelVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AIThermistorVexChannel) SetDefaults() {
+	a.MinMaxVal.SetDefaults()
+	a.Resistance.SetDefaults()
+	a.VoltageExcitation.SetDefaults()
+	a.Units = TemperatureUnitsDegC
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIThermistorVexChannel) ApplyDefaults() {
 	if a.Units == "" {
@@ -2468,6 +2799,17 @@ type AITorqueBridgePolynomialChannel struct {
 }
 
 func (AITorqueBridgePolynomialChannel) isAIChannelVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AITorqueBridgePolynomialChannel) SetDefaults() {
+	a.MinMaxVal.SetDefaults()
+	a.Bridge.SetDefaults()
+	a.VoltageExcitation.SetDefaults()
+	a.BridgePolynomial.SetDefaults()
+	a.CustomScale.SetDefaults()
+	a.Units = TorqueUnitsNewtonMeters
+	a.PhysicalUnits = TorqueUnitsNewtonMeters
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AITorqueBridgePolynomialChannel) ApplyDefaults() {
@@ -2507,6 +2849,13 @@ type AIVoltageRMSChannel struct {
 
 func (AIVoltageRMSChannel) isAIChannelVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AIVoltageRMSChannel) SetDefaults() {
+	a.MinMaxVal.SetDefaults()
+	a.Terminal.SetDefaults()
+	a.CustomScale.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIVoltageRMSChannel) ApplyDefaults() {
 	a.MinMaxVal.ApplyDefaults()
@@ -2538,6 +2887,15 @@ type AIVoltageWithExcitChannel struct {
 }
 
 func (AIVoltageWithExcitChannel) isAIChannelVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AIVoltageWithExcitChannel) SetDefaults() {
+	a.MinMaxVal.SetDefaults()
+	a.Terminal.SetDefaults()
+	a.VoltageExcitation.SetDefaults()
+	a.CustomScale.SetDefaults()
+	a.BridgeConfig = BridgeConfigFullBridge
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIVoltageWithExcitChannel) ApplyDefaults() {
@@ -2752,6 +3110,7 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type AIChannelType `json:"type"`
 			AIVoltageChannel
 		}
+		v.AIVoltageChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -2761,6 +3120,7 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type AIChannelType `json:"type"`
 			AIAccelChannel
 		}
+		v.AIAccelChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -2770,6 +3130,7 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type AIChannelType `json:"type"`
 			AIBridgeChannel
 		}
+		v.AIBridgeChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -2779,6 +3140,7 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type AIChannelType `json:"type"`
 			AICurrentChannel
 		}
+		v.AICurrentChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -2788,6 +3150,7 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type AIChannelType `json:"type"`
 			AIForceBridgeTableChannel
 		}
+		v.AIForceBridgeTableChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -2797,6 +3160,7 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type AIChannelType `json:"type"`
 			AIForceBridgeTwoPointLinChannel
 		}
+		v.AIForceBridgeTwoPointLinChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -2806,6 +3170,7 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type AIChannelType `json:"type"`
 			AIForceIEPEChannel
 		}
+		v.AIForceIEPEChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -2815,6 +3180,7 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type AIChannelType `json:"type"`
 			AIMicrophoneChannel
 		}
+		v.AIMicrophoneChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -2824,6 +3190,7 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type AIChannelType `json:"type"`
 			AIPressureBridgeTableChannel
 		}
+		v.AIPressureBridgeTableChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -2833,6 +3200,7 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type AIChannelType `json:"type"`
 			AIPressureBridgeTwoPointLinChannel
 		}
+		v.AIPressureBridgeTwoPointLinChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -2842,6 +3210,7 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type AIChannelType `json:"type"`
 			AIResistanceChannel
 		}
+		v.AIResistanceChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -2851,6 +3220,7 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type AIChannelType `json:"type"`
 			AIRTDChannel
 		}
+		v.AIRTDChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -2860,6 +3230,7 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type AIChannelType `json:"type"`
 			AIStrainGaugeChannel
 		}
+		v.AIStrainGaugeChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -2869,6 +3240,7 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type AIChannelType `json:"type"`
 			AITempBuiltinChannel
 		}
+		v.AITempBuiltinChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -2878,6 +3250,7 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type AIChannelType `json:"type"`
 			AIThermocoupleChannel
 		}
+		v.AIThermocoupleChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -2887,6 +3260,7 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type AIChannelType `json:"type"`
 			AITorqueBridgeTableChannel
 		}
+		v.AITorqueBridgeTableChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -2896,6 +3270,7 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type AIChannelType `json:"type"`
 			AITorqueBridgeTwoPointLinChannel
 		}
+		v.AITorqueBridgeTwoPointLinChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -2905,6 +3280,7 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type AIChannelType `json:"type"`
 			AIVelocityIEPEChannel
 		}
+		v.AIVelocityIEPEChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -2914,6 +3290,7 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type AIChannelType `json:"type"`
 			AIAccel4WireDCVoltageChannel
 		}
+		v.AIAccel4WireDCVoltageChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -2923,6 +3300,7 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type AIChannelType `json:"type"`
 			AIAccelChargeChannel
 		}
+		v.AIAccelChargeChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -2932,6 +3310,7 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type AIChannelType `json:"type"`
 			AIChargeChannel
 		}
+		v.AIChargeChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -2941,6 +3320,7 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type AIChannelType `json:"type"`
 			AICurrentRMSChannel
 		}
+		v.AICurrentRMSChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -2950,6 +3330,7 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type AIChannelType `json:"type"`
 			AIForceBridgePolynomialChannel
 		}
+		v.AIForceBridgePolynomialChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -2959,6 +3340,7 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type AIChannelType `json:"type"`
 			AIFreqVoltageChannel
 		}
+		v.AIFreqVoltageChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -2968,6 +3350,7 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type AIChannelType `json:"type"`
 			AIPressureBridgePolynomialChannel
 		}
+		v.AIPressureBridgePolynomialChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -2977,6 +3360,7 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type AIChannelType `json:"type"`
 			AIThermistorIexChannel
 		}
+		v.AIThermistorIexChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -2986,6 +3370,7 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type AIChannelType `json:"type"`
 			AIThermistorVexChannel
 		}
+		v.AIThermistorVexChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -2995,6 +3380,7 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type AIChannelType `json:"type"`
 			AITorqueBridgePolynomialChannel
 		}
+		v.AITorqueBridgePolynomialChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -3004,6 +3390,7 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type AIChannelType `json:"type"`
 			AIVoltageRMSChannel
 		}
+		v.AIVoltageRMSChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -3013,6 +3400,7 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type AIChannelType `json:"type"`
 			AIVoltageWithExcitChannel
 		}
+		v.AIVoltageWithExcitChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -3531,6 +3919,11 @@ func (z *ZIndex) ApplyDefaults() {
 	}
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (z *ZIndex) SetDefaults() {
+	z.ZIndexPhase = ZIndexPhaseAHighBHigh
+}
+
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (z ZIndex) Validate() error {
@@ -3609,6 +4002,19 @@ type CIFrequencyChannel struct {
 
 func (CIFrequencyChannel) isCIChannelVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CIFrequencyChannel) SetDefaults() {
+	c.CustomScale.SetDefaults()
+	c.MinMaxVal.SetDefaults()
+	c.Units = CIFreqUnitsHz
+	c.Edge = CIEdgeRising
+	c.MeasMethod = CIMeasMethodDynamicAvg
+	c.MeasTime = 6e-06
+	c.Divisor = 4
+	c.MinVal = 2
+	c.MaxVal = 100
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CIFrequencyChannel) ApplyDefaults() {
 	if c.Units == "" {
@@ -3660,6 +4066,12 @@ type CIEdgeCountChannel struct {
 
 func (CIEdgeCountChannel) isCIChannelVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CIEdgeCountChannel) SetDefaults() {
+	c.ActiveEdge = CIEdgeRising
+	c.CountDirection = CICountDirectionCountUp
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CIEdgeCountChannel) ApplyDefaults() {
 	if c.ActiveEdge == "" {
@@ -3699,6 +4111,19 @@ type CIPeriodChannel struct {
 }
 
 func (CIPeriodChannel) isCIChannelVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CIPeriodChannel) SetDefaults() {
+	c.CustomScale.SetDefaults()
+	c.MinMaxVal.SetDefaults()
+	c.Units = CITimeUnitsSeconds
+	c.StartingEdge = CIEdgeRising
+	c.MeasMethod = CIMeasMethodDynamicAvg
+	c.MeasTime = 0.001
+	c.Divisor = 4
+	c.MinVal = 1e-06
+	c.MaxVal = 0.1
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CIPeriodChannel) ApplyDefaults() {
@@ -3751,6 +4176,16 @@ type CIPulseWidthChannel struct {
 
 func (CIPulseWidthChannel) isCIChannelVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CIPulseWidthChannel) SetDefaults() {
+	c.CustomScale.SetDefaults()
+	c.MinMaxVal.SetDefaults()
+	c.Units = CITimeUnitsSeconds
+	c.StartingEdge = CIEdgeRising
+	c.MinVal = 1e-06
+	c.MaxVal = 0.1
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CIPulseWidthChannel) ApplyDefaults() {
 	if c.Units == "" {
@@ -3789,6 +4224,15 @@ type CISemiPeriodChannel struct {
 }
 
 func (CISemiPeriodChannel) isCIChannelVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CISemiPeriodChannel) SetDefaults() {
+	c.CustomScale.SetDefaults()
+	c.MinMaxVal.SetDefaults()
+	c.Units = CITimeUnitsSeconds
+	c.MinVal = 1e-06
+	c.MaxVal = 0.1
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CISemiPeriodChannel) ApplyDefaults() {
@@ -3830,6 +4274,17 @@ type CITwoEdgeSepChannel struct {
 }
 
 func (CITwoEdgeSepChannel) isCIChannelVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CITwoEdgeSepChannel) SetDefaults() {
+	c.CustomScale.SetDefaults()
+	c.MinMaxVal.SetDefaults()
+	c.Units = CITimeUnitsSeconds
+	c.FirstEdge = CIEdgeRising
+	c.SecondEdge = CIEdgeFalling
+	c.MinVal = 1e-06
+	c.MaxVal = 1
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CITwoEdgeSepChannel) ApplyDefaults() {
@@ -3880,6 +4335,16 @@ type CIVelocityLinearChannel struct {
 
 func (CIVelocityLinearChannel) isCIChannelVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CIVelocityLinearChannel) SetDefaults() {
+	c.CustomScale.SetDefaults()
+	c.MinMaxVal.SetDefaults()
+	c.Units = CILinearVelocityUnitsMPerS
+	c.DecodingType = CIDecodingTypeX4
+	c.DistPerPulse = 0.001
+	c.MaxVal = 1
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CIVelocityLinearChannel) ApplyDefaults() {
 	if c.Units == "" {
@@ -3926,6 +4391,16 @@ type CIVelocityAngularChannel struct {
 }
 
 func (CIVelocityAngularChannel) isCIChannelVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CIVelocityAngularChannel) SetDefaults() {
+	c.CustomScale.SetDefaults()
+	c.MinMaxVal.SetDefaults()
+	c.Units = CIAngularVelocityUnitsRpm
+	c.DecodingType = CIDecodingTypeX4
+	c.PulsesPerRev = 24
+	c.MaxVal = 1
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CIVelocityAngularChannel) ApplyDefaults() {
@@ -3976,6 +4451,15 @@ type CIPositionLinearChannel struct {
 
 func (CIPositionLinearChannel) isCIChannelVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CIPositionLinearChannel) SetDefaults() {
+	c.CustomScale.SetDefaults()
+	c.ZIndex.SetDefaults()
+	c.Units = CILinearPositionUnitsMeters
+	c.DecodingType = CIDecodingTypeX4
+	c.DistPerPulse = 1e-06
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CIPositionLinearChannel) ApplyDefaults() {
 	if c.Units == "" {
@@ -4023,6 +4507,15 @@ type CIPositionAngularChannel struct {
 
 func (CIPositionAngularChannel) isCIChannelVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CIPositionAngularChannel) SetDefaults() {
+	c.CustomScale.SetDefaults()
+	c.ZIndex.SetDefaults()
+	c.Units = CIAngularPositionUnitsDegrees
+	c.DecodingType = CIDecodingTypeX4
+	c.PulsesPerRev = 24
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CIPositionAngularChannel) ApplyDefaults() {
 	if c.Units == "" {
@@ -4061,6 +4554,15 @@ type CIDutyCycleChannel struct {
 }
 
 func (CIDutyCycleChannel) isCIChannelVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CIDutyCycleChannel) SetDefaults() {
+	c.CustomScale.SetDefaults()
+	c.MinMaxVal.SetDefaults()
+	c.ActiveEdge = CIEdgeRising
+	c.MinVal = 2
+	c.MaxVal = 10000
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CIDutyCycleChannel) ApplyDefaults() {
@@ -4180,6 +4682,7 @@ func (u *CIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type CIChannelType `json:"type"`
 			CIFrequencyChannel
 		}
+		v.CIFrequencyChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4189,6 +4692,7 @@ func (u *CIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type CIChannelType `json:"type"`
 			CIEdgeCountChannel
 		}
+		v.CIEdgeCountChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4198,6 +4702,7 @@ func (u *CIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type CIChannelType `json:"type"`
 			CIPeriodChannel
 		}
+		v.CIPeriodChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4207,6 +4712,7 @@ func (u *CIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type CIChannelType `json:"type"`
 			CIPulseWidthChannel
 		}
+		v.CIPulseWidthChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4216,6 +4722,7 @@ func (u *CIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type CIChannelType `json:"type"`
 			CISemiPeriodChannel
 		}
+		v.CISemiPeriodChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4225,6 +4732,7 @@ func (u *CIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type CIChannelType `json:"type"`
 			CITwoEdgeSepChannel
 		}
+		v.CITwoEdgeSepChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4234,6 +4742,7 @@ func (u *CIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type CIChannelType `json:"type"`
 			CIVelocityLinearChannel
 		}
+		v.CIVelocityLinearChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4243,6 +4752,7 @@ func (u *CIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type CIChannelType `json:"type"`
 			CIVelocityAngularChannel
 		}
+		v.CIVelocityAngularChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4252,6 +4762,7 @@ func (u *CIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type CIChannelType `json:"type"`
 			CIPositionLinearChannel
 		}
+		v.CIPositionLinearChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4261,6 +4772,7 @@ func (u *CIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type CIChannelType `json:"type"`
 			CIPositionAngularChannel
 		}
+		v.CIPositionAngularChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4270,6 +4782,7 @@ func (u *CIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type CIChannelType `json:"type"`
 			CIDutyCycleChannel
 		}
+		v.CIDutyCycleChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4522,6 +5035,12 @@ type AOCurrentChannel struct {
 
 func (AOCurrentChannel) isAOChannelVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AOCurrentChannel) SetDefaults() {
+	a.MinMaxVal.SetDefaults()
+	a.CustomScale.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AOCurrentChannel) ApplyDefaults() {
 	a.MinMaxVal.ApplyDefaults()
@@ -4551,6 +5070,11 @@ type AOFuncGenChannel struct {
 
 func (AOFuncGenChannel) isAOChannelVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AOFuncGenChannel) SetDefaults() {
+	a.WaveType = WaveTypeSine
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AOFuncGenChannel) ApplyDefaults() {
 	if a.WaveType == "" {
@@ -4574,6 +5098,12 @@ type AOVoltageChannel struct {
 }
 
 func (AOVoltageChannel) isAOChannelVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AOVoltageChannel) SetDefaults() {
+	a.MinMaxVal.SetDefaults()
+	a.CustomScale.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AOVoltageChannel) ApplyDefaults() {
@@ -4645,6 +5175,7 @@ func (u *AOChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type AOChannelType `json:"type"`
 			AOCurrentChannel
 		}
+		v.AOCurrentChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4654,6 +5185,7 @@ func (u *AOChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type AOChannelType `json:"type"`
 			AOFuncGenChannel
 		}
+		v.AOFuncGenChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4663,6 +5195,7 @@ func (u *AOChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type AOChannelType `json:"type"`
 			AOVoltageChannel
 		}
+		v.AOVoltageChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4802,6 +5335,28 @@ func (a *AnalogReadConfig) ApplyDefaults() {
 	}
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AnalogReadConfig) SetDefaults() {
+	a.ReadConfig.SetDefaults()
+}
+
+// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
+// omits takes its default and an explicit zero value stays.
+func (a *AnalogReadConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain AnalogReadConfig
+	*a = AnalogReadConfig{}
+	a.SetDefaults()
+	return json.UnmarshalDecode(dec, (*plain)(a))
+}
+
+// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+func (a *AnalogReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain AnalogReadConfig
+	*a = AnalogReadConfig{}
+	a.SetDefaults()
+	return dec.Decode((*plain)(a))
+}
+
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (a AnalogReadConfig) Validate() error {
@@ -4828,6 +5383,28 @@ func (c *CounterReadConfig) ApplyDefaults() {
 	}
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CounterReadConfig) SetDefaults() {
+	c.ReadConfig.SetDefaults()
+}
+
+// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
+// omits takes its default and an explicit zero value stays.
+func (c *CounterReadConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain CounterReadConfig
+	*c = CounterReadConfig{}
+	c.SetDefaults()
+	return json.UnmarshalDecode(dec, (*plain)(c))
+}
+
+// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+func (c *CounterReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain CounterReadConfig
+	*c = CounterReadConfig{}
+	c.SetDefaults()
+	return dec.Decode((*plain)(c))
+}
+
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (c CounterReadConfig) Validate() error {
@@ -4852,6 +5429,11 @@ func (w *WriteConfig) ApplyDefaults() {
 	}
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (w *WriteConfig) SetDefaults() {
+	w.StateRate = 10
+}
+
 // AnalogWriteConfig configures an NI analog write task.
 type AnalogWriteConfig struct {
 	WriteConfig
@@ -4865,6 +5447,28 @@ func (a *AnalogWriteConfig) ApplyDefaults() {
 	for i := range a.Channels {
 		a.Channels[i].ApplyDefaults()
 	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AnalogWriteConfig) SetDefaults() {
+	a.WriteConfig.SetDefaults()
+}
+
+// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
+// omits takes its default and an explicit zero value stays.
+func (a *AnalogWriteConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain AnalogWriteConfig
+	*a = AnalogWriteConfig{}
+	a.SetDefaults()
+	return json.UnmarshalDecode(dec, (*plain)(a))
+}
+
+// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+func (a *AnalogWriteConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain AnalogWriteConfig
+	*a = AnalogWriteConfig{}
+	a.SetDefaults()
+	return dec.Decode((*plain)(a))
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -4891,6 +5495,28 @@ func (d *DigitalReadConfig) ApplyDefaults() {
 	d.ReadConfig.ApplyDefaults()
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (d *DigitalReadConfig) SetDefaults() {
+	d.ReadConfig.SetDefaults()
+}
+
+// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
+// omits takes its default and an explicit zero value stays.
+func (d *DigitalReadConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain DigitalReadConfig
+	*d = DigitalReadConfig{}
+	d.SetDefaults()
+	return json.UnmarshalDecode(dec, (*plain)(d))
+}
+
+// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+func (d *DigitalReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain DigitalReadConfig
+	*d = DigitalReadConfig{}
+	d.SetDefaults()
+	return dec.Decode((*plain)(d))
+}
+
 // DigitalWriteConfig configures an NI digital write task.
 type DigitalWriteConfig struct {
 	WriteConfig
@@ -4901,6 +5527,28 @@ type DigitalWriteConfig struct {
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (d *DigitalWriteConfig) ApplyDefaults() {
 	d.WriteConfig.ApplyDefaults()
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (d *DigitalWriteConfig) SetDefaults() {
+	d.WriteConfig.SetDefaults()
+}
+
+// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
+// omits takes its default and an explicit zero value stays.
+func (d *DigitalWriteConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain DigitalWriteConfig
+	*d = DigitalWriteConfig{}
+	d.SetDefaults()
+	return json.UnmarshalDecode(dec, (*plain)(d))
+}
+
+// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+func (d *DigitalWriteConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain DigitalWriteConfig
+	*d = DigitalWriteConfig{}
+	d.SetDefaults()
+	return dec.Decode((*plain)(d))
 }
 
 // ScanConfig configures the NI device scanner task.
@@ -4916,4 +5564,27 @@ func (s *ScanConfig) ApplyDefaults() {
 		s.IgnoredModels = []string{"^cRIO.*", "^nown.*"}
 	}
 	s.ScanConfig.ApplyDefaults()
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (s *ScanConfig) SetDefaults() {
+	s.ScanConfig.SetDefaults()
+	s.IgnoredModels = []string{"^cRIO.*", "^nown.*"}
+}
+
+// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
+// omits takes its default and an explicit zero value stays.
+func (s *ScanConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain ScanConfig
+	*s = ScanConfig{}
+	s.SetDefaults()
+	return json.UnmarshalDecode(dec, (*plain)(s))
+}
+
+// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+func (s *ScanConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain ScanConfig
+	*s = ScanConfig{}
+	s.SetDefaults()
+	return dec.Decode((*plain)(s))
 }

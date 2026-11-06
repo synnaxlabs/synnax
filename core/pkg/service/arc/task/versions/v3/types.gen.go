@@ -12,9 +12,13 @@
 package v3
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+
 	arc "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v3"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // ExecutionMode selects how the Arc runtime loop schedules execution.
@@ -68,6 +72,30 @@ func (c *Config) ApplyDefaults() {
 	if c.CPUAffinity == 0 {
 		c.CPUAffinity = -1
 	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (c *Config) SetDefaults() {
+	c.ExecutionMode = ExecutionModeAuto
+	c.RtPriority = 47
+	c.CPUAffinity = -1
+}
+
+// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
+// omits takes its default and an explicit zero value stays.
+func (c *Config) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain Config
+	*c = Config{}
+	c.SetDefaults()
+	return json.UnmarshalDecode(dec, (*plain)(c))
+}
+
+// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+func (c *Config) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain Config
+	*c = Config{}
+	c.SetDefaults()
+	return dec.Decode((*plain)(c))
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

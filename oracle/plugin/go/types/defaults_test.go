@@ -1272,3 +1272,239 @@ var _ = Describe("Default group generation", func() {
 		},
 	)
 })
+
+var _ = Describe("Decode-time default generation", func() {
+	var (
+		loader   *MockFileLoader
+		goPlugin *types.Plugin
+	)
+	BeforeEach(func() {
+		loader = NewMockFileLoader()
+		goPlugin = types.New(types.DefaultOptions())
+	})
+
+	It(
+		"Should set every default without a zero guard and decode over the defaults",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Cfg struct {
+				rolling int32 = 1
+				name    string = "untitled"
+			}
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				`"encoding/json/jsontext"`,
+				`vmsgpack "github.com/vmihailenco/msgpack/v5"`,
+				"func (c *Cfg) SetDefaults() {\n\tc.Rolling = 1\n"+
+					"\tc.Name = \"untitled\"\n}",
+				"func (c *Cfg) UnmarshalJSONFrom(dec *jsontext.Decoder) error {\n"+
+					"\ttype plain Cfg\n\t*c = Cfg{}\n\tc.SetDefaults()\n"+
+					"\treturn json.UnmarshalDecode(dec, (*plain)(c))\n}",
+				"func (c *Cfg) DecodeMsgpack(dec *vmsgpack.Decoder) error {\n"+
+					"\ttype plain Cfg\n\t*c = Cfg{}\n\tc.SetDefaults()\n"+
+					"\treturn dec.Decode((*plain)(c))\n}",
+			)
+		},
+	)
+
+	It(
+		"Should set only the non-zero leaves of a struct default",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Bounds struct {
+				lower float64
+				upper float64
+			}
+
+			Cfg struct {
+				bounds Bounds = { lower = 0, upper = 100 }
+			}
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain("func (c *Cfg) SetDefaults() {\n\tc.Bounds.Upper = 100\n}").
+				ToNotContain("func (b *Bounds) SetDefaults()", "c.Bounds.Lower =")
+		},
+	)
+
+	It(
+		"Should set the defaults of a required nested struct but not of an optional, "+
+			"slice, or map one",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Inner struct { rolling int32 = 1 }
+			Outer struct {
+				inner  Inner
+				maybe  Inner?
+				list   Inner[]
+				byName map<string, Inner>
+			}
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain(
+					"func (o *Outer) SetDefaults() {\n\to.Inner.SetDefaults()\n}",
+					"func (i *Inner) UnmarshalJSONFrom(",
+					"func (o *Outer) UnmarshalJSONFrom(",
+				).
+				ToNotContain(
+					"o.Maybe.SetDefaults()",
+					"o.List[i].SetDefaults()",
+					"value.SetDefaults()",
+				)
+		},
+	)
+
+	It(
+		"Should emit no SetDefaults on a struct that reaches defaults only in a slice",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Inner struct { rolling int32 = 1 }
+			Outer struct { list Inner[] }
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain("func (i *Inner) SetDefaults() {").
+				ToNotContain(
+					"func (o *Outer) SetDefaults()",
+					"func (o *Outer) UnmarshalJSONFrom(",
+				)
+		},
+	)
+
+	It(
+		"Should give an embedded parent no decode hooks and set its defaults from the "+
+			"embedder",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Base struct { rate float64 = 0.2 }
+			Cfg struct extends Base { mode string = "auto" }
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain(
+					"func (b *Base) SetDefaults() {\n\tb.Rate = 0.2\n}",
+					"func (c *Cfg) SetDefaults() {\n\tc.Base.SetDefaults()\n"+
+						"\tc.Mode = \"auto\"\n}",
+					"func (c *Cfg) UnmarshalJSONFrom(",
+				).
+				ToNotContain(
+					"func (b *Base) UnmarshalJSONFrom(",
+					"func (b *Base) DecodeMsgpack(",
+				)
+		},
+	)
+
+	It(
+		"Should give decode hooks to a @create struct, whose New Go omits",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Doc struct {
+				name string = "untitled"
+
+				@create
+			}
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain("func (d *Doc) UnmarshalJSONFrom(").
+				ToNotContain("type New ")
+		},
+	)
+
+	It(
+		"Should set every member of a default group",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Cfg struct {
+				lower float64 = 0 { @default group "range" }
+				upper float64 = 1 { @default group "range" }
+			}
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain("func (c *Cfg) SetDefaults() {\n\tc.Upper = 1\n}")
+		},
+	)
+
+	It(
+		"Should scope the setup of a union literal default in its own block",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Leaf struct {}
+			Split struct { size int32 }
+			Node union on variant {
+				leaf  Leaf
+				split Split
+			}
+			Panel struct { root Node = leaf }
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"func (p *Panel) SetDefaults() {\n\tp.Root.Variant = LeafNode{}\n}",
+			)
+		},
+	)
+
+	Describe("Union variants", func() {
+		const source = `
+			@go output "core/pkg/service/x"
+
+			LinearParams struct { slope int32 = 1 }
+			NoneParams struct {}
+
+			Scale union on type {
+				linear LinearParams
+				none   NoneParams
+			}
+		`
+
+		It(
+			"Should give a variant SetDefaults but no decode hooks",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").
+					ToContain(
+						"func (l *LinearScale) SetDefaults() {\n"+
+							"\tl.LinearParams.SetDefaults()\n}",
+						"func (l *LinearParams) SetDefaults() {\n\tl.Slope = 1\n}",
+					).
+					ToNotContain(
+						"func (l *LinearScale) UnmarshalJSONFrom(",
+						"func (l *LinearParams) UnmarshalJSONFrom(",
+						"func (n *NoneScale) SetDefaults()",
+					)
+			},
+		)
+
+		It(
+			"Should decode a variant over its defaults",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					"\t\t\tLinearScale\n\t\t}\n\t\tv.LinearScale.SetDefaults()\n"+
+						"\t\tif err := json.Unmarshal(data, &v, opts); err != nil {",
+					"\t\t\tNoneScale\n\t\t}\n"+
+						"\t\tif err := json.Unmarshal(data, &v, opts); err != nil {",
+				)
+			},
+		)
+	})
+})

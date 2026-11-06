@@ -107,6 +107,10 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		return nil, err
 	}
 	closure := PersistedClosure(rewritten)
+	embedded, err := allEmbeddedTypes(context.Background(), req, rewritten)
+	if err != nil {
+		return nil, err
+	}
 	versionedGen := &framework.Generator{
 		Domain:      "go",
 		FilePattern: p.Options.FileNamePattern,
@@ -117,6 +121,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			closure:  closure,
 			members:  members,
 			pins:     pins,
+			embedded: embedded,
 		},
 		PathFilter:      currentPaths.Contains,
 		MergeByName:     false,
@@ -133,7 +138,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	unversionedGen := &framework.Generator{
 		Domain:        "go",
 		FilePattern:   p.Options.FileNamePattern,
-		FileGenerator: &goFileGenerator{},
+		FileGenerator: &goFileGenerator{embedded: embedded},
 		PathFilter: func(outputPath string) bool {
 			_, versioned := pathMap[outputPath]
 			return !versioned
@@ -152,7 +157,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	// frozen packages still need regeneration.
 	if len(pathMap) == 0 {
 		frozen, err := chainFrozenFiles(
-			context.Background(), req, p.Options.FileNamePattern,
+			context.Background(), req, p.Options.FileNamePattern, embedded,
 		)
 		if err != nil {
 			return nil, err
@@ -173,6 +178,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			pathMap:  pathMap,
 			closure:  closure,
 			members:  members,
+			embedded: embedded,
 		},
 		PathFilter: pathFilter,
 		FilterEnums: func(enums []resolution.Type, outputPath string) []resolution.Type {
@@ -231,7 +237,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	}
 	resp.Files = append(resp.Files, selectorResp.Files...)
 	frozen, err := chainFrozenFiles(
-		context.Background(), req, p.Options.FileNamePattern,
+		context.Background(), req, p.Options.FileNamePattern, embedded,
 	)
 	if err != nil {
 		return nil, err
@@ -285,6 +291,8 @@ type goFileGenerator struct {
 	// pins resolves a stored reference to the dependency version its version file
 	// imports.
 	pins versioning.Pins
+	// embedded holds the embedKey of every type that a generated struct embeds.
+	embedded set.Set[string]
 }
 
 // fileLivePath returns the live schema path of the declarations ctx renders.
@@ -311,7 +319,7 @@ func (g *goFileGenerator) GenerateFile(ctx *framework.GenerateContext) (string, 
 	content, err := generateGoFile(
 		ctx.OutputPath, ctx.Structs, ctx.Enums, ctx.TypeDefs, ctx.Unions,
 		ctx.Table, ctx.RepoRoot, g.preds[ctx.OutputPath], latest, g.closure,
-		transient, nil, pinned,
+		transient, nil, pinned, g.embedded,
 	)
 	if err != nil {
 		return "", err
@@ -447,10 +455,11 @@ func generateGoFile(
 	transientPass bool,
 	order map[string]int,
 	pinned func(resolution.Type) (string, bool),
+	embedded set.Set[string],
 ) ([]byte, error) {
 	content, conflicts, err := renderGoFile(
 		outputPath, structs, enums, typeDefs, unions, table, repoRoot,
-		pred, latest, closure, transientPass, order, pinned, nil,
+		pred, latest, closure, transientPass, order, pinned, embedded, nil,
 	)
 	if err != nil || len(conflicts) == 0 {
 		return content, err
@@ -466,7 +475,7 @@ func generateGoFile(
 	)
 	content, conflicts, err = renderGoFile(
 		outputPath, structs, enums, typeDefs, unions, table, repoRoot,
-		pred, latest, closure, transientPass, order, pinned, overrides,
+		pred, latest, closure, transientPass, order, pinned, embedded, overrides,
 	)
 	if err != nil {
 		return nil, err
@@ -496,6 +505,7 @@ func renderGoFile(
 	transientPass bool,
 	order map[string]int,
 	pinned func(resolution.Type) (string, bool),
+	embedded set.Set[string],
 	aliasOverrides map[string]string,
 ) ([]byte, map[string][]string, error) {
 	namespace := ""
@@ -551,6 +561,7 @@ func renderGoFile(
 		probeResolver:  probeResolver,
 		ctx:            ctx,
 		aliasOverrides: aliasOverrides,
+		embedded:       embedded,
 	}
 
 	// Transient declarations — outside the persisted closure of a marshal-rooted
@@ -851,6 +862,16 @@ func processStruct(entry resolution.Type, data *templateData) (structData, error
 	}
 	if genMethods {
 		sd.DefaultGroups = goDefaultGroups(fields, data)
+		sd.SetSteps = setDefaultsSteps(embeds, fields, data)
+	}
+	sd.SetFills = allFills(sd.DefaultFills, sd.DefaultGroups)
+	sd.DecodeHooks = (len(sd.SetSteps) > 0 || len(sd.SetFills) > 0) &&
+		!data.embedded.Contains(embedKey(data.OutputPath, naming.GetGoName(entry)))
+	if sd.DecodeHooks {
+		data.AddExternal("encoding/json/v2")
+		data.AddExternal("encoding/json/jsontext")
+		// The alias keeps clear of x's msgpack package and of a v5 version package.
+		data.AddInternal("vmsgpack", msgpackImportPath)
 	}
 	if len(sd.EnumChecks) > 0 || len(sd.ConstraintChecks) > 0 ||
 		len(sd.ValidateRecurse) > 0 {
@@ -1074,11 +1095,13 @@ type templateData struct {
 	// aliasOverrides remaps specific output paths to explicit import aliases
 	// during the conflict re-render pass.
 	aliasOverrides map[string]string
-	Package        string
-	OutputPath     string
-	Namespace      string
-	repoRoot       string
-	Decls          []declData
+	// embedded holds the embedKey of every type that a generated struct embeds.
+	embedded   set.Set[string]
+	Package    string
+	OutputPath string
+	Namespace  string
+	repoRoot   string
+	Decls      []declData
 }
 
 // importAlias returns the import alias for a cross-package reference,
@@ -1103,17 +1126,24 @@ type declData struct {
 }
 
 type structData struct {
-	Name             string
-	Doc              string
-	AliasOf          string
-	Receiver         string
-	Fields           []fieldData
-	TypeParams       []typeParamData
-	ExtendsTypes     []string
-	ExtraFields      []string
-	DefaultFills     []defaultFillData
-	DefaultGroups    []defaultGroupData
-	DefaultRecurse   []recurseStepData
+	Name           string
+	Doc            string
+	AliasOf        string
+	Receiver       string
+	Fields         []fieldData
+	TypeParams     []typeParamData
+	ExtendsTypes   []string
+	ExtraFields    []string
+	DefaultFills   []defaultFillData
+	DefaultGroups  []defaultGroupData
+	DefaultRecurse []recurseStepData
+	// SetSteps and SetFills are the nested SetDefaults calls and the assignments of
+	// the generated SetDefaults.
+	SetSteps []recurseStepData
+	SetFills []defaultFillData
+	// DecodeHooks marks a struct that decodes JSON and msgpack over its defaults. A
+	// type that some struct embeds takes none: its embedder sets its defaults.
+	DecodeHooks      bool
 	EnumChecks       []enumCheckData
 	ConstraintChecks []constraintCheckData
 	ValidateRecurse  []recurseStepData
@@ -1122,6 +1152,24 @@ type structData struct {
 	HasExtends       bool
 	// ToAny is set by @go to_any: the struct gets a ToAny method.
 	ToAny bool
+}
+
+// setDefaultsView is the template view of a generated SetDefaults method.
+type setDefaultsView struct {
+	Receiver string
+	Name     string
+	Steps    []recurseStepData
+	Fills    []defaultFillData
+}
+
+// SetDefaultsView returns the view of the struct's SetDefaults method.
+func (s structData) SetDefaultsView() setDefaultsView {
+	return setDefaultsView{
+		Receiver: s.Receiver,
+		Name:     s.Name,
+		Steps:    s.SetSteps,
+		Fills:    s.SetFills,
+	}
 }
 
 // Instance renders the struct instantiated with its own type parameters.
@@ -1425,6 +1473,26 @@ func ({{$s.Receiver}} *{{$s.Name}}) ApplyDefaults() {
 {{- end}}
 }
 {{- end}}
+{{- template "setDefaults" .SetDefaultsView}}
+{{- if .DecodeHooks}}
+
+// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
+// omits takes its default and an explicit zero value stays.
+func ({{$s.Receiver}} *{{$s.Name}}) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain {{$s.Name}}
+	*{{$s.Receiver}} = {{$s.Name}}{}
+	{{$s.Receiver}}.SetDefaults()
+	return json.UnmarshalDecode(dec, (*plain)({{$s.Receiver}}))
+}
+
+// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+func ({{$s.Receiver}} *{{$s.Name}}) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain {{$s.Name}}
+	*{{$s.Receiver}} = {{$s.Name}}{}
+	{{$s.Receiver}}.SetDefaults()
+	return dec.Decode((*plain)({{$s.Receiver}}))
+}
+{{- end}}
 {{- if or .EnumChecks .ConstraintChecks .ValidateRecurse}}
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1539,6 +1607,7 @@ type {{.TypeName}} struct {
 }
 
 func ({{.TypeName}}) {{$u.Marker}}() {}
+{{- template "setDefaults" .SetDefaultsView}}
 {{- $vt := .}}
 {{- if .NeedsApplyDefaults}}
 
@@ -1687,6 +1756,9 @@ func (u *{{.Name}}) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type {{$u.DiscType}} ` + "`" + `json:"{{$u.DiscJSONName}}"` + "`" + `
 			{{.TypeName}}
 		}
+{{- if or .SetSteps .SetFills}}
+		v.{{.TypeName}}.SetDefaults()
+{{- end}}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -1772,6 +1844,30 @@ func (u *{{.Name}}) SetBase(base {{.Base}}) {
 	}
 }
 {{- end}}
+{{- end}}
+{{- end}}
+{{- define "setDefaults"}}
+{{- if or .Steps .Fills}}
+
+// SetDefaults sets every field that has a schema default to that default.
+func ({{.Receiver}} *{{.Name}}) SetDefaults() {
+{{- $r := .Receiver}}
+{{- range .Steps}}
+	{{$r}}.{{.GoName}}.SetDefaults()
+{{- end}}
+{{- range .Fills}}
+{{- if .Setup}}
+	{
+{{- range .Setup}}
+		{{.}}
+{{- end}}
+		{{$r}}.{{.GoName}} = {{.Expr}}
+	}
+{{- else}}
+	{{$r}}.{{.GoName}} = {{.Expr}}
+{{- end}}
+{{- end}}
+}
 {{- end}}
 {{- end}}
 `),

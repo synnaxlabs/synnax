@@ -22,6 +22,7 @@ import (
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	text "github.com/synnaxlabs/x/text/versions/v0"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // Key is a unique identifier for a table, represented as a UUID.
@@ -86,6 +87,13 @@ type TextCellConfig struct {
 
 func (TextCellConfig) isCellConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (t *TextCellConfig) SetDefaults() {
+	t.Level = text.LevelH5
+	t.Weight = 400
+	t.Align = FlexAlignmentCenter
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (t *TextCellConfig) ApplyDefaults() {
 	if t.Level == "" {
@@ -142,6 +150,14 @@ type ValueCellConfig struct {
 }
 
 func (ValueCellConfig) isCellConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (va *ValueCellConfig) SetDefaults() {
+	va.RollingAverage = 1
+	va.Notation = notation.NotationStandard
+	va.Level = text.LevelH5
+	va.StalenessTimeout = 5
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (va *ValueCellConfig) ApplyDefaults() {
@@ -221,6 +237,7 @@ func (u *CellConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type CellConfigType `json:"variant"`
 			TextCellConfig
 		}
+		v.TextCellConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -230,6 +247,7 @@ func (u *CellConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type CellConfigType `json:"variant"`
 			ValueCellConfig
 		}
+		v.ValueCellConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -285,6 +303,28 @@ func (r *Row) ApplyDefaults() {
 	}
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (r *Row) SetDefaults() {
+	r.Size = 36
+}
+
+// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
+// omits takes its default and an explicit zero value stays.
+func (r *Row) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain Row
+	*r = Row{}
+	r.SetDefaults()
+	return json.UnmarshalDecode(dec, (*plain)(r))
+}
+
+// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+func (r *Row) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain Row
+	*r = Row{}
+	r.SetDefaults()
+	return dec.Decode((*plain)(r))
+}
+
 // Column is a single column in a table, with width.
 type Column struct {
 	// Size is the width of the column in pixels.
@@ -296,6 +336,28 @@ func (c *Column) ApplyDefaults() {
 	if c.Size == 0 {
 		c.Size = 72
 	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (c *Column) SetDefaults() {
+	c.Size = 72
+}
+
+// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
+// omits takes its default and an explicit zero value stays.
+func (c *Column) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain Column
+	*c = Column{}
+	c.SetDefaults()
+	return json.UnmarshalDecode(dec, (*plain)(c))
+}
+
+// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+func (c *Column) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain Column
+	*c = Column{}
+	c.SetDefaults()
+	return dec.Decode((*plain)(c))
 }
 
 // Table is a tabular data display component for viewing structured telemetry data.

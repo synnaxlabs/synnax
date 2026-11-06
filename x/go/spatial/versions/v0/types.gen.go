@@ -11,7 +11,13 @@
 
 package v0
 
-import "github.com/synnaxlabs/x/validate"
+import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+
+	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
+)
 
 // OuterLocation is a position indicator for elements anchored to the outer edge of a
 // container. Used for orientation and positioning of UI elements.
@@ -196,6 +202,31 @@ func (s *StickyXY) ApplyDefaults() {
 	}
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (s *StickyXY) SetDefaults() {
+	s.Root.X = XLocationLeft
+	s.Root.Y = YLocationTop
+	s.Units.X = StickyUnitPx
+	s.Units.Y = StickyUnitPx
+}
+
+// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
+// omits takes its default and an explicit zero value stays.
+func (s *StickyXY) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain StickyXY
+	*s = StickyXY{}
+	s.SetDefaults()
+	return json.UnmarshalDecode(dec, (*plain)(s))
+}
+
+// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+func (s *StickyXY) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain StickyXY
+	*s = StickyXY{}
+	s.SetDefaults()
+	return dec.Decode((*plain)(s))
+}
+
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (s StickyXY) Validate() error {
@@ -226,6 +257,28 @@ func (vi *Viewport) ApplyDefaults() {
 	if vi.Zoom == 0 {
 		vi.Zoom = 1
 	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (vi *Viewport) SetDefaults() {
+	vi.Zoom = 1
+}
+
+// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
+// omits takes its default and an explicit zero value stays.
+func (vi *Viewport) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain Viewport
+	*vi = Viewport{}
+	vi.SetDefaults()
+	return json.UnmarshalDecode(dec, (*plain)(vi))
+}
+
+// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+func (vi *Viewport) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain Viewport
+	*vi = Viewport{}
+	vi.SetDefaults()
+	return dec.Decode((*plain)(vi))
 }
 
 // Location is a position indicator covering the four outer edges of a container and its
