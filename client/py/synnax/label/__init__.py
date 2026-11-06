@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.label.client import ONTOLOGY_TYPE, Client, ontology_id
-from synnax.label.types_gen import Key, Label, Where
+from synnax.label.types_gen import Key, Label, Where, WhereInput
 
 __all__ = [
     "ONTOLOGY_TYPE",
@@ -16,5 +16,6 @@ __all__ = [
     "Key",
     "Label",
     "Where",
+    "WhereInput",
     "ontology_id",
 ]

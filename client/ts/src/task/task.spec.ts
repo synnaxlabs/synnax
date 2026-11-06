@@ -183,6 +183,16 @@ describe("Task", async () => {
     });
   });
   describe("retrieve", () => {
+    it("retrieves a task by its name", async () => {
+      const created = await testRack.createTask({
+        name: `named-task-${id.create()}`,
+        config: { routingKey: ROUTING_KEY },
+        type: "pagerduty_alert",
+      });
+      const retrieved = await client.tasks.retrieve(created.name);
+      expect(retrieved.key).toEqual(created.key);
+    });
+
     it("coalesces concurrent single retrieves into one request", async () => {
       const created = [
         await testRack.createTask({
@@ -278,18 +288,20 @@ describe("Task", async () => {
       );
     });
 
-    it("should reject a plain key beside other fields", async () => {
-      const key = uuid.create();
+    it("should return one task for a plain key beside other fields", async () => {
+      const t = await testRack.createTask({
+        name: "t",
+        config: { routingKey: ROUTING_KEY },
+        type: "pagerduty_alert",
+      });
+      const retrieved: task.Task = await client.tasks.retrieve({
+        key: t.key,
+        internal: false,
+      });
+      expect(retrieved.key).toBe(t.key);
       await expect(
-        // @ts-expect-error - a plain key addresses one task, so it takes no filter.
-        client.tasks.retrieve({ key, internal: false }),
-      ).rejects.toThrow(
-        new ValidationError(
-          "task params address a single key but do not match the single-query " +
-            "schema.\nFailed to parse task single query params (1 issue)\n\n  {\n" +
-            `    "key": "${key}",\n  ✗ "internal": false  × unexpected key\n  }`,
-        ),
-      );
+        client.tasks.retrieve({ key: t.key, internal: true }),
+      ).rejects.toThrow(NotFoundError);
     });
 
     it("should retrieve a task by its name", async () => {
@@ -1023,21 +1035,42 @@ describe("Task", async () => {
       expect(retrieved.config.routingKey).toBe(ROUTING_KEY);
     });
 
-    it("should reject a plain key beside other fields with schemas", async () => {
-      const schemas = {
-        type: z.literal("ni"),
-        config: z.object({}),
-        statusData: z.unknown(),
-      };
-      const key = uuid.create();
-      const params = { key, internal: false, schemas };
-      await expect(client.tasks.retrieve(params)).rejects.toThrow(
-        new ValidationError(
-          "task params address a single key but do not match the single-query " +
-            "schema.\nFailed to parse task single query params (1 issue)\n\n  {\n" +
-            `    "key": "${key}",\n  ✗ "internal": false  × unexpected key\n  }`,
-        ),
+    it("should return one task for a filter that sets one", async () => {
+      const prefix = `one-option-${id.create()}`;
+      await testRack.createTask(
+        {
+          name: `${prefix}-a`,
+          type: "pagerduty_alert",
+          config: { routingKey: ROUTING_KEY, autoStart: false, alerts: [] },
+        },
+        schemas,
       );
+      const retrieved = await client.tasks.retrieve({
+        name: { startsWith: prefix },
+        one: true,
+        schemas,
+      });
+      expect(retrieved.config.routingKey).toBe(ROUTING_KEY);
+    });
+
+    it("should return one task for a plain key beside other fields", async () => {
+      const t = await testRack.createTask(
+        {
+          name: "one-schema",
+          type: "pagerduty_alert",
+          config: { routingKey: OTHER_ROUTING_KEY, autoStart: false, alerts: [] },
+        },
+        schemas,
+      );
+      const retrieved = await client.tasks.retrieve({
+        key: t.key,
+        internal: false,
+        schemas,
+      });
+      expect(retrieved.config.routingKey).toBe(OTHER_ROUTING_KEY);
+      await expect(
+        client.tasks.retrieve({ key: t.key, internal: true, schemas }),
+      ).rejects.toThrow(NotFoundError);
     });
 
     it("should reject a malformed key with or without schemas", async () => {
@@ -1057,7 +1090,7 @@ describe("Task", async () => {
       ).rejects.toThrow(err);
     });
 
-    it("should retrieve one task by type and rack with its status", async () => {
+    it("should retrieve one task by type and rack when one is set", async () => {
       const schemas = {
         type: z.literal("modbus_scan"),
         config: z.object({ rate: z.number() }),
@@ -1072,34 +1105,33 @@ describe("Task", async () => {
         type: "modbus_scan",
         rack: r.key,
         includeStatus: true,
+        one: true,
         schemas,
       });
       expect(retrieved.key).toBe(created.key);
     });
 
-    it("should retrieve task by type with schemas", async () => {
+    it("should retrieve the tasks of a type and rack as a list", async () => {
       const customSchemas = {
         type: z.literal("modbus_scan"),
         config: z.object({ rate: z.number() }),
         statusData: z.unknown(),
       };
-
-      await testRack.createTask(
-        {
-          name: "type-filter-test",
-          type: "modbus_scan",
-          config: { rate: 42 },
-        },
+      const r = await client.racks.create({ name: "type-list" });
+      const created = await client.tasks.create(
+        [42, 43].map((rate) => ({
+          name: `type-list-${rate}`,
+          type: "modbus_scan" as const,
+          rack: r.key,
+          config: { rate },
+        })),
         customSchemas,
       );
-
-      const retrieved = await client.tasks.retrieve({
-        type: "modbus_scan",
-        rack: testRack.key,
-        schemas: customSchemas,
-      });
-      expect(retrieved.type).toBe("modbus_scan");
-      expect(retrieved.config.rate).toBe(42);
+      const params = { type: "modbus_scan", rack: r.key };
+      const typed = await client.tasks.retrieve({ ...params, schemas: customSchemas });
+      expect(typed.map((t) => t.config.rate).sort()).toEqual([42, 43]);
+      const cached = await client.tasks.retrieve(params);
+      expect(cached.map((t) => t.key).sort()).toEqual(created.map((t) => t.key).sort());
     });
   });
 
