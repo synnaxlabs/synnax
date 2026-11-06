@@ -268,7 +268,7 @@ func (s *Service) NewEnforcer(tx gorp.Tx) *Enforcer {
 
 // Enforce allows the request when the policies of the subject's roles cover every
 // object for the action, and returns an error wrapping access.ErrDenied otherwise. A
-// subject that does not exist is denied.
+// subject that does not exist holds no policies.
 func (e *Enforcer) Enforce(ctx context.Context, req access.Request) error {
 	v, err := e.retrievePolicies(ctx, req.Subject)
 	if err != nil {

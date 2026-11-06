@@ -86,13 +86,12 @@ class Client:
         roles: list[UUID] | None = None,
         internal: bool | None = None,
     ) -> list[Policy]:
-        """Retrieve policies matching every given filter.
+        """Retrieves the policies that match every given filter.
 
-        Args:
-            keys: Keeps only the policies with these keys.
-            subjects: Keeps only the policies of the roles these subjects hold.
-            roles: Keeps only the policies of these roles.
-            internal: Keeps only built-in policies when true, and others when false.
+        :param keys: Keeps only the policies with these keys.
+        :param subjects: Keeps only the policies of the roles these subjects hold.
+        :param roles: Keeps only the policies of these roles.
+        :param internal: Keeps only built-in policies when true, and others when false.
         """
         res = self._client.send(
             "/access/policy/retrieve",

@@ -11,6 +11,7 @@ package builtin
 
 import (
 	"context"
+	"slices"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
@@ -107,6 +108,7 @@ func provisionRole(
 	policySvc *policy.Service,
 	roleSvc *role.Service,
 ) (role.Key, error) {
+	policies = slices.Clone(policies)
 	desired := rol
 	if err := roleSvc.NewRetrieve().
 		Where(role.MatchNames(storedNames(rol.Name)...)).

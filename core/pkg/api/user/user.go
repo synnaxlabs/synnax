@@ -116,8 +116,8 @@ type (
 )
 
 // Create registers the new users with the provided credentials. If successful, Create
-// returns a slice of the new users. Giving a new user roles also takes the update
-// action on users.
+// returns a slice of the new users. Creating a user with roles also requires update
+// access on users.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,

@@ -85,7 +85,7 @@ func (w Writer) ChangeName(ctx context.Context, key Key, name string) error {
 }
 
 // SetRoles sets the roles of the users with the given keys. It returns a validation
-// error when a role does not exist.
+// error when a role does not exist, and query.ErrNotFound when a user does not exist.
 func (w Writer) SetRoles(ctx context.Context, roles []role.Key, keys ...Key) error {
 	return w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, User](keys...)).

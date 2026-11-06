@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/query"
@@ -587,6 +588,20 @@ var _ = Describe("Service", func() {
 			}
 			Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, req)).To(Succeed())
 			Expect(userSvc.NewWriter(tx).Delete(ctx, userKey(subject))).To(Succeed())
+			Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, req)).
+				To(MatchError(access.ErrDenied))
+		})
+
+		It("Should deny a rack that was deleted", func(ctx SpecContext) {
+			r := &rack.Rack{Name: "doomed"}
+			Expect(rackSvc.NewWriter(tx).Create(ctx, r)).To(Succeed())
+			req := access.Request{
+				Subject: r.ResourceID(),
+				Objects: []resource.ID{{Type: resource.TypeDevice, Key: "d1"}},
+				Action:  access.ActionRetrieve,
+			}
+			Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, req)).To(Succeed())
+			Expect(rackSvc.NewWriter(tx).Delete(ctx, nil, r.Key)).To(Succeed())
 			Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, req)).
 				To(MatchError(access.ErrDenied))
 		})

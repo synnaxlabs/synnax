@@ -124,8 +124,12 @@ class Client:
         self.client.send("/user/rename", _ChangeNameRequest(key=key, name=name), Empty)
 
     def set_roles(self, keys: UUID | list[UUID], *, roles: list[UUID]) -> None:
-        """Set the roles of the users with the given keys, replacing the roles they
-        hold."""
+        """Sets the roles of the users with the given keys, replacing the roles they
+        hold.
+
+        :param keys: The keys of the users.
+        :param roles: The keys of the roles the users hold after the call.
+        """
         self.client.send(
             "/user/set-roles",
             _SetRolesRequest(keys=normalize(keys), roles=roles),

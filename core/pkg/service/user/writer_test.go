@@ -126,6 +126,12 @@ var _ = Describe("Writer", func() {
 				MatchError(ContainSubstring("does not exist")),
 			))
 		})
+		It("Should return not found for a user that does not exist", func(
+			ctx SpecContext,
+		) {
+			Expect(w.SetRoles(ctx, []role.Key{createRole(ctx)}, uuid.New())).
+				To(MatchError(query.ErrNotFound))
+		})
 		It("Should assign a role to a user once", func(ctx SpecContext) {
 			held, r := createRole(ctx), createRole(ctx)
 			u := MustSucceed(w.Create(ctx, user.User{

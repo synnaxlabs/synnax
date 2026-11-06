@@ -62,8 +62,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	apiSvc = MustSucceed(apiaccess.NewService(apiaccess.ServiceConfig{RBAC: rbacSvc}))
 })
 
-// rootCtx returns a context whose subject is the root user, which holds the Owner
-// role.
+// rootCtx returns a context whose subject is the root user, which holds the Owner role.
 func rootCtx(ctx SpecContext) freighter.Context {
 	fctx := freighter.Context{Context: ctx, Params: freighter.Params{}}
 	fctx.Set("Subject", root.ResourceID())

@@ -28,11 +28,9 @@ import (
 // Migration re-encodes each stored policy with an empty role.
 var Migration = migrate.NewEntry("v61_add_role", autoMigratePolicy)
 
-// RoleMigration sets the role of each stored policy from the parent edges that point
-// at it from stored roles, then deletes every parent edge from a role to a policy. A
-// policy under more than one role gets a copy under each role after the first, keyed
-// by CopyKey. A policy under no stored role grants nothing, so the migration deletes
-// it.
+// RoleMigration moves each policy's parent role edge into its role field and deletes
+// the edge. A policy under several roles is copied under each extra role with CopyKey,
+// and a policy under no role is deleted.
 var RoleMigration = migrate.New("v61_policy_role", migrateRoles)
 
 // copyNamespace is the UUIDv5 namespace of the keys that CopyKey derives. Changing it
