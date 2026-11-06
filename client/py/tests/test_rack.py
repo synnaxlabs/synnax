@@ -93,7 +93,10 @@ class TestRackClient:
             location="dev1",
             properties={"foo": "bar"},
         )
-        with pytest.raises(sy.ValidationError, match="references it through rack"):
+        with pytest.raises(
+            sy.ValidationError,
+            match="cannot delete rack test because device test uses it as its rack",
+        ):
             client.racks.delete([rack.key])
 
     def test_delete_task_attached(self, client: sy.Synnax) -> None:
