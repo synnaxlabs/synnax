@@ -24,31 +24,37 @@ const SYMBOL_SIZE = 10;
 interface SymbolProps {
   position: xy.XY;
   direction: direction.Direction;
+  strokeWidth: number;
 }
 
-const PneumaticSymbol = ({ position, direction }: SymbolProps): ReactElement => {
+const PneumaticSymbol = ({
+  position,
+  direction,
+  strokeWidth,
+}: SymbolProps): ReactElement => {
+  const size = SYMBOL_SIZE + strokeWidth - Base.DEFAULT_STROKE_WIDTH;
   const pos = { ...position };
-  if (direction === "x") pos.y += SYMBOL_SIZE / 3;
-  else pos.x -= SYMBOL_SIZE / 3;
-  let pointTwo = xy.translateX(pos, -10);
+  if (direction === "x") pos.y += size / 3;
+  else pos.x -= size / 3;
+  let pointTwo = xy.translateX(pos, -size);
   let rotate = 45;
   if (direction === "y") {
-    pointTwo = xy.translateY(pos, -10);
+    pointTwo = xy.translateY(pos, -size);
     rotate += 90;
   }
   return (
     <>
       <path
-        d={`M0,0 L0,-${SYMBOL_SIZE}`}
+        d={`M0,0 L0,-${size}`}
         fill="none"
-        strokeWidth={2}
+        strokeWidth={strokeWidth}
         transform={`translate(${pos.x},${pos.y}) rotate(${rotate})`}
         strokeLinecap="round"
       />
       <path
-        d={`M0,0 L0,-${SYMBOL_SIZE}`}
+        d={`M0,0 L0,-${size}`}
         fill="none"
-        strokeWidth={2}
+        strokeWidth={strokeWidth}
         transform={`translate(${pointTwo.x},${pointTwo.y}) rotate(${rotate})`}
         strokeLinecap="round"
       />
@@ -60,14 +66,24 @@ const Line = ({
   points,
   crossings,
   color: colorVal,
+  strokeWidth,
 }: Segmented.PathProps): ReactElement => {
   const symbolStyle = { [Primitive.SYMBOL_COLOR]: color.rgbaString(colorVal) };
   return (
     <g className={CSS.symbolColored} style={symbolStyle}>
-      <Base.Base path={Path.rounded(points, crossings)} color={colorVal} />
+      <Base.Base
+        path={Path.rounded(points, crossings)}
+        color={colorVal}
+        strokeWidth={strokeWidth}
+      />
       {Path.computeSymbolPositions(points, SYMBOL_INTERVAL).map(
         ({ position, direction }, i) => (
-          <PneumaticSymbol key={i} position={position} direction={direction} />
+          <PneumaticSymbol
+            key={i}
+            position={position}
+            direction={direction}
+            strokeWidth={strokeWidth}
+          />
         ),
       )}
     </g>

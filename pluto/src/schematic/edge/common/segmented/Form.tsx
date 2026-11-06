@@ -12,17 +12,42 @@ import "@/schematic/edge/common/segmented/Segmented.css";
 import { Color } from "@synnaxlabs/lyra/color";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as Base } from "@synnaxlabs/lyra/form";
+import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { type color, deep } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement } from "react";
 
 import { CSS } from "@/css";
+import { Base as EdgeBase } from "@/schematic/edge/common/base";
 import { type Variant } from "@/schematic/edge/registry";
 
-const path = deep.path<{ strokeColor?: color.Color; variant: Variant }>();
+const path = deep.path<{
+  strokeColor?: color.Color;
+  strokeWidth?: number;
+  variant: Variant;
+}>();
 
 const SELECT_STYLE: CSSProperties = { width: "25rem" };
+
+const STROKE_WIDTH_BOUNDS = { lower: 1, upper: 21 };
+const STROKE_WIDTH_DRAG_SCALE = { y: 0.1, x: 0.02 };
+
+const StrokeWidthField = (): ReactElement => {
+  const value = Base.useFieldValue(path.strokeWidth, { optional: true });
+  const { set } = Base.useContext();
+  return (
+    <Input.Item label="Stroke width" padHelpText={false}>
+      <Input.Numeric
+        value={value ?? EdgeBase.DEFAULT_STROKE_WIDTH}
+        onChange={(v) => set(path.strokeWidth, v)}
+        bounds={STROKE_WIDTH_BOUNDS}
+        dragScale={STROKE_WIDTH_DRAG_SCALE}
+        endContent="px"
+      />
+    </Input.Item>
+  );
+};
 
 interface SelectVariantProps extends Omit<
   Select.SingleSimpleProps<Variant>,
@@ -50,6 +75,7 @@ export const Form = (): ReactElement => {
         label="Stroke"
         fallback={theme.colors.gray.l11}
       />
+      <StrokeWidthField />
       <Base.Field path={path.variant} label="Variant" padHelpText={false}>
         {(p) => <SelectVariant {...p} />}
       </Base.Field>

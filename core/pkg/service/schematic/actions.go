@@ -14,7 +14,7 @@ import (
 	"encoding/json/v2"
 	"slices"
 
-	v10 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v10"
+	v11 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v11"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/patch"
@@ -194,7 +194,7 @@ func (p *SetNodePayload) fromRaw(raw rawSetNodePayload) error {
 	if raw.Config == nil {
 		return nil
 	}
-	cfg, err := v10.DecodeWithDefaults(raw.Config)
+	cfg, err := v11.DecodeWithDefaults(raw.Config)
 	if err != nil {
 		return err
 	}
@@ -222,7 +222,7 @@ func (p *SetConfigPayload) UnmarshalMsgpack(data []byte) error {
 }
 
 func (p *SetConfigPayload) fromRaw(raw rawSetConfigPayload) error {
-	cfg, err := v10.DecodeWithDefaults(raw.Config)
+	cfg, err := v11.DecodeWithDefaults(raw.Config)
 	if err != nil {
 		return err
 	}

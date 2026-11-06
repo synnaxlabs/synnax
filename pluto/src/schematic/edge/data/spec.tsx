@@ -19,33 +19,45 @@ import { type Spec } from "@/schematic/edge/spec";
 
 const SYMBOL_INTERVAL = 40;
 
+const SYMBOL_RADIUS_RATIO = 1.5;
+
 interface SymbolProps {
   position: xy.XY;
   direction: direction.Direction;
+  strokeWidth: number;
 }
 
-const DataSymbol = ({ position }: SymbolProps): ReactElement => (
+const DataSymbol = ({ position, strokeWidth }: SymbolProps): ReactElement => (
   <circle
     cx={position.x}
     cy={position.y}
-    r={3}
+    r={strokeWidth * SYMBOL_RADIUS_RATIO}
     fill="var(--pluto-gray-l0)"
-    strokeWidth={2}
+    strokeWidth={strokeWidth}
   />
 );
 
 export const spec: Spec<"data", schematic.DataEdgeConfig> = Segmented.createSpec(
   "data",
   "Data",
-  ({ points, crossings, color: colorVal }) => (
+  ({ points, crossings, color: colorVal, strokeWidth }) => (
     <g
       className={CSS.B("symbol-colored")}
       style={{ [CSS.variable("symbol-color")]: color.rgbaString(colorVal) }}
     >
-      <Base.Base path={Path.rounded(points, crossings)} color={colorVal} />
+      <Base.Base
+        path={Path.rounded(points, crossings)}
+        color={colorVal}
+        strokeWidth={strokeWidth}
+      />
       {Path.computeSymbolPositions(points, SYMBOL_INTERVAL).map(
         ({ position, direction }, i) => (
-          <DataSymbol key={i} position={position} direction={direction} />
+          <DataSymbol
+            key={i}
+            position={position}
+            direction={direction}
+            strokeWidth={strokeWidth}
+          />
         ),
       )}
     </g>

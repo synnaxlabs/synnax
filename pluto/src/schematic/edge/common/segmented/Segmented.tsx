@@ -17,8 +17,9 @@ import { type ReactFlowState, useReactFlow, useStore } from "@xyflow/react";
 import { type FC, Fragment, type ReactElement, useRef, useState } from "react";
 
 import { CSS } from "@/css";
-import { type Base } from "@/schematic/edge/common/base";
+import { Base } from "@/schematic/edge/common/base";
 import { Jumps } from "@/schematic/edge/common/jumps";
+import { type Path as EdgePath } from "@/schematic/edge/common/path";
 import {
   type Config,
   createConfigZ,
@@ -40,9 +41,13 @@ interface CurrentlyDragging {
   index: number;
 }
 
-export interface PathProps extends Omit<Base.BaseProps, "path" | "points"> {
+export interface PathProps extends Omit<
+  Base.BaseProps,
+  "path" | "points" | "strokeWidth"
+> {
   points: xy.XY[];
-  crossings: xy.XY[];
+  crossings: EdgePath.Crossing[];
+  strokeWidth: number;
 }
 
 const useNodeBox = (key: string): box.Box =>
@@ -59,7 +64,11 @@ const create = (Path: FC<PathProps>): Edge => {
     sourceNode,
     targetNode,
     selected = false,
-    config: { segments: middleSegments, strokeColor },
+    config: {
+      segments: middleSegments,
+      strokeColor,
+      strokeWidth = Base.DEFAULT_STROKE_WIDTH,
+    },
     onChange,
   }): ReactElement | null => {
     const flow = useReactFlow();
@@ -127,7 +136,12 @@ const create = (Path: FC<PathProps>): Edge => {
 
     return (
       <>
-        <Path points={points} crossings={crossings} color={strokeColor} />
+        <Path
+          points={points}
+          crossings={crossings}
+          color={strokeColor}
+          strokeWidth={strokeWidth}
+        />
         {selected &&
           calcMidPoints(points).map((p, i) => {
             const dir = segments[i].direction;

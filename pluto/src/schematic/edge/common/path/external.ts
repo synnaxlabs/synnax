@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export { rounded } from "@/schematic/edge/common/path/calc";
+export { type Crossing, rounded } from "@/schematic/edge/common/path/calc";
 export {
   computeSymbolPositions,
   type SymbolPosition,

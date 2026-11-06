@@ -21,10 +21,11 @@ export const spec: Spec<"electric", schematic.ElectricEdgeConfig> =
   Segmented.createSpec(
     "electric",
     "Electric signal",
-    ({ points, crossings, color }) => (
+    ({ points, crossings, color, strokeWidth }) => (
       <Base.Base
         path={Path.rounded(points, crossings)}
         color={color}
+        strokeWidth={strokeWidth}
         className={CSS.B("schematic-edge-electric")}
       />
     ),

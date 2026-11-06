@@ -36,11 +36,31 @@ describe("Path.rounded", () => {
   // off-line jump snaps onto the run (the polyline is reconstructed from the flow store
   // and can sit slightly off the drawn line).
   it.each([
-    { name: "on the line", jump: { x: 50, y: 50 } },
-    { name: "a few pixels off the line", jump: { x: 50, y: 54 } },
+    { name: "on the line", jump: { x: 50, y: 50, radius: 5 } },
+    { name: "a few pixels off the line", jump: { x: 50, y: 54, radius: 5 } },
   ])("hops up over a jump $name on a horizontal run", ({ jump }) => {
     expect(Path.rounded(HORIZONTAL, [jump])).toContain(
       "L43,50Q45,50 45,48A5,5 0 0 1 55,48Q55,50 57,50L100,50",
+    );
+  });
+
+  it("draws a hop at the crossing's radius", () => {
+    expect(Path.rounded(HORIZONTAL, [{ x: 50, y: 50, radius: 8 }])).toContain(
+      "L40,50Q42,50 42,48A8,8 0 0 1 58,48Q58,50 60,50L100,50",
+    );
+  });
+
+  it("keeps wide hops from overlapping on a run", () => {
+    const path = Path.rounded(HORIZONTAL, [
+      { x: 40, y: 50, radius: 8 },
+      { x: 55, y: 50, radius: 8 },
+    ]);
+    expect(path.match(/A/g)).toHaveLength(1);
+  });
+
+  it("ignores a wide hop that does not fit on a run", () => {
+    expect(Path.rounded(HORIZONTAL, [{ x: 8, y: 50, radius: 8 }])).toEqual(
+      "M0,50L100,50",
     );
   });
 
@@ -51,14 +71,14 @@ describe("Path.rounded", () => {
           { x: 0, y: 0 },
           { x: 0, y: 100 },
         ],
-        [{ x: 0, y: 50 }],
+        [{ x: 0, y: 50, radius: 5 }],
       ),
     ).toContain("L0,43Q0,45 -2,45A5,5 0 0 0 -2,55Q0,55 0,57L0,100");
   });
 
   it.each([
-    { name: "is not on the path", jump: { x: 50, y: 50 } },
-    { name: "is too close to a run's end", jump: { x: 2, y: 0 } },
+    { name: "is not on the path", jump: { x: 50, y: 50, radius: 5 } },
+    { name: "is too close to a run's end", jump: { x: 2, y: 0, radius: 5 } },
   ])("ignores a jump that $name", ({ jump }) => {
     expect(
       Path.rounded(

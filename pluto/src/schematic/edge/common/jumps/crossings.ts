@@ -9,12 +9,19 @@
 
 import { type xy } from "@synnaxlabs/x";
 
-/// @brief an edge's polyline and render order; higher order paints on top.
+import { type Path } from "@/schematic/edge/common/path";
+
+/// @brief an edge's polyline, stroke width, and render order; higher order paints on
+/// top.
 export interface Polyline {
   key: string;
   points: xy.XY[];
   order: number;
+  strokeWidth: number;
 }
+
+/// @brief gap between a hop's arc and the crossed line.
+const HOP_CLEARANCE = 3;
 
 /// @brief clearance a crossing needs from the ends of the hop-bearing segment, so the arc
 /// fits clear of that segment's corners.
@@ -29,13 +36,14 @@ const AXIS_EPSILON = 0.5;
 interface Span {
   key: string;
   order: number;
+  strokeWidth: number;
   cross: number;
   lo: number;
   hi: number;
 }
 
 const pushSpans = (
-  { key, points, order }: Polyline,
+  { key, points, order, strokeWidth }: Polyline,
   horizontal: Span[],
   vertical: Span[],
 ): void => {
@@ -48,6 +56,7 @@ const pushSpans = (
       horizontal.push({
         key,
         order,
+        strokeWidth,
         cross: a.y,
         lo: Math.min(a.x, b.x),
         hi: Math.max(a.x, b.x),
@@ -56,6 +65,7 @@ const pushSpans = (
       vertical.push({
         key,
         order,
+        strokeWidth,
         cross: a.x,
         lo: Math.min(a.y, b.y),
         hi: Math.max(a.y, b.y),
@@ -66,11 +76,11 @@ const pushSpans = (
 /// @brief returns the hop points per edge: where a horizontal run of one edge crosses a
 /// vertical run of another, assigned to the edge on top. Crossings near a segment's ends
 /// are dropped; collinear overlaps and self-crossings are ignored by construction.
-export const findCrossings = (polylines: Polyline[]): Map<string, xy.XY[]> => {
+export const findCrossings = (polylines: Polyline[]): Map<string, Path.Crossing[]> => {
   const horizontal: Span[] = [];
   const vertical: Span[] = [];
   for (const p of polylines) pushSpans(p, horizontal, vertical);
-  const result = new Map<string, xy.XY[]>();
+  const result = new Map<string, Path.Crossing[]>();
   for (const h of horizontal)
     for (const v of vertical) {
       if (h.key === v.key) continue;
@@ -85,8 +95,9 @@ export const findCrossings = (polylines: Polyline[]): Map<string, xy.XY[]> => {
       if (y <= v.lo + vBuf || y >= v.hi - vBuf) continue;
       const winner = hWins ? h.key : v.key;
       const existing = result.get(winner);
-      if (existing == null) result.set(winner, [{ x, y }]);
-      else existing.push({ x, y });
+      const radius = (h.strokeWidth + v.strokeWidth) / 2 + HOP_CLEARANCE;
+      if (existing == null) result.set(winner, [{ x, y, radius }]);
+      else existing.push({ x, y, radius });
     }
   return result;
 };
