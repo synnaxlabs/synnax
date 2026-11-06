@@ -36,7 +36,7 @@ const RIGHT = "2";
 const UNITS = "mbar";
 const WIDE_UNITS = "mbar per square second";
 const RIGHT_HANDLE = `.react-flow__node[data-id="a"] [data-handleid="${RIGHT}"]`;
-const RING_RADIUS = 4.5;
+const RING_PROBE_RATIO = 0.8;
 const ZOOMS = [0.5, 0.75, 1, 1.5];
 const COLOR = color.construct("#00ff00");
 
@@ -218,8 +218,11 @@ describe("value symbol connection points", () => {
     const x = (left + right) / 2;
     const y = (top + bottom) / 2;
     const handle = queryElement(RIGHT_HANDLE);
-    expect(document.elementFromPoint(x, y - RING_RADIUS + 1)).toBe(handle);
-    expect(document.elementFromPoint(x + RING_RADIUS - 1, y)).toBe(handle);
+    const ringWidth = parseFloat(getComputedStyle(handle, "::before").width);
+    expect(ringWidth).toBeGreaterThan(0);
+    const probe = (ringWidth / 2) * RING_PROBE_RATIO;
+    expect(document.elementFromPoint(x, y - probe)).toBe(handle);
+    expect(document.elementFromPoint(x + probe, y)).toBe(handle);
   });
 
   it("should keep a level pipe straight when the value widens at a new zoom", async () => {
