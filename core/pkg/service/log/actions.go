@@ -110,9 +110,9 @@ func (p SetChannelValueFormatPayload) Handle(state Log) (Log, error) {
 
 // Handle sets the time zone of the values of the timestamp channel. No-op when no
 // entry references it.
-func (p SetChannelValueTzPayload) Handle(state Log) (Log, error) {
+func (p SetChannelValueTimeZonePayload) Handle(state Log) (Log, error) {
 	if i := channelEntryIndex(state.Channels, p.Channel); i != -1 {
-		state.Channels[i].ValueFormat.Tz = p.Tz
+		state.Channels[i].ValueFormat.TimeZone = p.TimeZone
 	}
 	return state, nil
 }
@@ -149,8 +149,8 @@ func (p SetTimestampsHiddenPayload) Handle(state Log) (Log, error) {
 }
 
 // Handle sets the time zone of the line times and day rows.
-func (p SetTzPayload) Handle(state Log) (Log, error) {
-	state.Tz = p.Tz
+func (p SetTimeZonePayload) Handle(state Log) (Log, error) {
+	state.TimeZone = p.TimeZone
 	return state, nil
 }
 

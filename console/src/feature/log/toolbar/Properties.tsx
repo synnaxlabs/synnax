@@ -24,13 +24,14 @@ export const Properties = (): ReactElement => {
   const channelNamesHidden = Log.useIsHidingChannelNames();
   const timestampsHidden = Log.useIsHidingTimestamps();
   const timestampPrecision = Log.useTimestampPrecision();
-  const tz = Log.useTz();
+  const timeZone = Log.useTimeZone();
   const hasEditPermission = Access.useUpdateGranted(log.ontologyID(key));
 
   const handlePrecisionChange = (timestampPrecision: number) =>
     dispatch(log.setTimestampPrecision({ timestampPrecision }));
 
-  const handleTzChange = (tz: TimeZone) => dispatch(log.setTz({ tz }));
+  const handleTimeZoneChange = (timeZone: TimeZone) =>
+    dispatch(log.setTimeZone({ timeZone }));
 
   const handleShowChannelNamesChange = (visible: boolean) =>
     dispatch(log.setChannelNamesHidden({ channelNamesHidden: !visible }));
@@ -60,8 +61,8 @@ export const Properties = (): ReactElement => {
       </Input.Item>
       <Input.Item label="Time zone">
         <Telem.SelectTimeZone
-          value={tz}
-          onChange={handleTzChange}
+          value={timeZone}
+          onChange={handleTimeZoneChange}
           disabled={!hasEditPermission || timestampsHidden}
         />
       </Input.Item>

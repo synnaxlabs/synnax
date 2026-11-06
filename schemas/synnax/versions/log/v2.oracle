@@ -16,13 +16,13 @@ Key = v0.Key
 
 TimestampConfig struct {
     format telem.TimestampFormat {
-        @doc value "is the format of the values of a timestamp channel."
+        @doc value "controls how channel timestamps are rendered."
     }
     tz     telem.TimeZone        {
-        @doc value "is the time zone of the values of a timestamp channel."
+        @doc value "is the time zone used when rendering timestamps."
     }
 
-    @doc value  "is how a timestamp channel shows its values."
+    @doc value  "is per-channel timestamp display configuration."
     @go marshal
 }
 

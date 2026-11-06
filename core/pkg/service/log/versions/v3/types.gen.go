@@ -26,7 +26,21 @@ import (
 type Key = v2.Key
 
 // TimestampConfig is how a timestamp channel shows its values.
-type TimestampConfig = v2.TimestampConfig
+type TimestampConfig struct {
+	// Format is the format of the values of a timestamp channel.
+	Format telem.TimestampFormat `json:"format" msgpack:"format"`
+	// TimeZone is the time zone of the values of a timestamp channel.
+	TimeZone telem.TimeZone `json:"time_zone" msgpack:"time_zone"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (t TimestampConfig) Validate() error {
+	v := validate.New("TimestampConfig")
+	v.Ternaryf("format", !t.Format.IsValid(), "invalid format: %v", t.Format)
+	v.Ternaryf("time_zone", !t.TimeZone.IsValid(), "invalid time_zone: %v", t.TimeZone)
+	return v.Error()
+}
 
 // ChannelEntry is a per-channel display configuration entry within a log.
 type ChannelEntry struct {
@@ -53,8 +67,8 @@ func (c *ChannelEntry) ApplyDefaults() {
 	if c.ValueFormat.Format == "" {
 		c.ValueFormat.Format = "preciseDate"
 	}
-	if c.ValueFormat.Tz == "" {
-		c.ValueFormat.Tz = "local"
+	if c.ValueFormat.TimeZone == "" {
+		c.ValueFormat.TimeZone = "local"
 	}
 }
 
@@ -87,14 +101,14 @@ type Log struct {
 	ChannelNamesHidden bool `json:"channel_names_hidden" msgpack:"channel_names_hidden"`
 	// TimestampsHidden is true when entry timestamps are hidden.
 	TimestampsHidden bool `json:"timestamps_hidden" msgpack:"timestamps_hidden"`
-	// Tz is the time zone of the line times and day rows of the log.
-	Tz telem.TimeZone `json:"tz" msgpack:"tz"`
+	// TimeZone is the time zone of the line times and day rows of the log.
+	TimeZone telem.TimeZone `json:"time_zone" msgpack:"time_zone"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (l *Log) ApplyDefaults() {
-	if l.Tz == "" {
-		l.Tz = "local"
+	if l.TimeZone == "" {
+		l.TimeZone = "local"
 	}
 	for i := range l.Channels {
 		l.Channels[i].ApplyDefaults()
@@ -105,7 +119,7 @@ func (l *Log) ApplyDefaults() {
 // schema constraints.
 func (l Log) Validate() error {
 	v := validate.New("Log")
-	v.Ternaryf("tz", !l.Tz.IsValid(), "invalid tz: %v", l.Tz)
+	v.Ternaryf("time_zone", !l.TimeZone.IsValid(), "invalid time_zone: %v", l.TimeZone)
 	v.NotEmptyString("name", l.Name)
 	v.LessThanEq("timestamp_precision", l.TimestampPrecision, 3)
 	for i := range l.Channels {

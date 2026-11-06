@@ -25,6 +25,26 @@ import (
 )
 
 var _ = Describe("Migration", func() {
+	localFormat := v3.TimestampConfig{TimeZone: telem.TimeZoneLocal}
+
+	DescribeTable("Should map the v2 tz to time_zone",
+		func(ctx SpecContext, tz, expected telem.TimeZone) {
+			got := MustSucceed(v3.MigrateChannelEntry(ctx, v2.ChannelEntry{
+				Timestamp: v2.TimestampConfig{
+					Format: telem.TimestampFormatISO,
+					Tz:     tz,
+				},
+			}))
+			Expect(got.ValueFormat).To(Equal(v3.TimestampConfig{
+				Format:   telem.TimestampFormatISO,
+				TimeZone: expected,
+			}))
+		},
+		Entry("Should keep UTC", telem.TimeZoneUTC, telem.TimeZoneUTC),
+		Entry("Should keep local", telem.TimeZoneLocal, telem.TimeZoneLocal),
+		Entry("Should fill an empty zone", telem.TimeZone(""), telem.TimeZoneLocal),
+	)
+
 	DescribeTable("MigrateChannelEntry",
 		func(ctx SpecContext, precision int32, expected *uint8) {
 			old := v2.ChannelEntry{Channel: 1, Precision: precision}
@@ -69,8 +89,8 @@ var _ = Describe("Migration", func() {
 		got := MustSucceed(v3.MigrateLog(ctx, old))
 		Expect(got.Name).To(Equal("log"))
 		Expect(got.Channels).To(Equal([]v3.ChannelEntry{
-			{Channel: 1},
-			{Channel: 2, Precision: new(uint8(5))},
+			{Channel: 1, ValueFormat: localFormat},
+			{Channel: 2, Precision: new(uint8(5)), ValueFormat: localFormat},
 		}))
 	})
 
@@ -86,8 +106,8 @@ var _ = Describe("Migration", func() {
 			},
 		}))
 		Expect(got.Channels).To(Equal([]v3.ChannelEntry{
-			{Channel: 1, Alias: "first"},
-			{Channel: 2},
+			{Channel: 1, Alias: "first", ValueFormat: localFormat},
+			{Channel: 2, ValueFormat: localFormat},
 		}))
 	})
 
@@ -129,15 +149,18 @@ var _ = Describe("Migration", func() {
 		Expect(got.TimestampPrecision).To(Equal(uint8(stored.TimestampPrecision)))
 		Expect(got.ChannelNamesHidden).To(BeTrue())
 		Expect(got.TimestampsHidden).To(BeTrue())
-		Expect(got.Tz).To(BeEquivalentTo(telem.TimeZoneLocal))
+		Expect(got.TimeZone).To(BeEquivalentTo(telem.TimeZoneLocal))
 		Expect(got.Channels).To(Equal([]v3.ChannelEntry{
 			{
-				Channel:     7,
-				Notation:    notation.NotationScientific,
-				Alias:       "pressure",
-				ValueFormat: stored.Channels[0].Timestamp,
+				Channel:  7,
+				Notation: notation.NotationScientific,
+				Alias:    "pressure",
+				ValueFormat: v3.TimestampConfig{
+					Format:   telem.TimestampFormatPreciseDate,
+					TimeZone: telem.TimeZoneUTC,
+				},
 			},
-			{Channel: 8, Precision: new(uint8(3))},
+			{Channel: 8, Precision: new(uint8(3)), ValueFormat: localFormat},
 		}))
 	})
 })

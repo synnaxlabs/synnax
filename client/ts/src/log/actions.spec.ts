@@ -191,9 +191,9 @@ describe("log reducer", () => {
         expected: "time",
       },
       {
-        name: "setChannelValueTz",
-        action: log.setChannelValueTz({ channel: 5, tz: "UTC" }),
-        read: (e) => e.valueFormat.tz,
+        name: "setChannelValueTimeZone",
+        action: log.setChannelValueTimeZone({ channel: 5, timeZone: "UTC" }),
+        read: (e) => e.valueFormat.timeZone,
         expected: "UTC",
       },
     ];
@@ -333,17 +333,21 @@ describe("log reducer", () => {
     });
   });
 
-  describe("setTz", () => {
+  describe("setTimeZone", () => {
     it("should set the time zone and round-trip it", () => {
-      const state = createEmpty({ tz: "local" });
-      expect(apply(state, log.setTz({ tz: "UTC" })).tz).toEqual("UTC");
-      expect(roundTrip(state, log.setTz({ tz: "UTC" })).tz).toEqual("local");
+      const state = createEmpty({ timeZone: "local" });
+      expect(apply(state, log.setTimeZone({ timeZone: "UTC" })).timeZone).toEqual(
+        "UTC",
+      );
+      expect(roundTrip(state, log.setTimeZone({ timeZone: "UTC" })).timeZone).toEqual(
+        "local",
+      );
     });
     it("should target the log key", () => {
       const state = createEmpty({ key: "11111111-1111-4111-8111-111111111111" });
-      expect(log.reduceAll(state, [log.setTz({ tz: "UTC" })]).targets).toEqual([
-        state.key,
-      ]);
+      expect(
+        log.reduceAll(state, [log.setTimeZone({ timeZone: "UTC" })]).targets,
+      ).toEqual([state.key]);
     });
   });
 
