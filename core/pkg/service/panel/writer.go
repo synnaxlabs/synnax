@@ -119,28 +119,32 @@ func (w Writer) create(
 // SetGroup moves the panels with keys into g, or out of their group when g is nil. A
 // panel in a group belongs to the project that holds the group.
 func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
-	p, err := project.GroupProject(ctx, w.tx, g, resource.TypePanel)
-	if err != nil {
-		return err
-	}
-	if err = setGroup(w.table, g, keys...).Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	w.notifyGroup(ctx, g, keys)
-	if p == nil {
-		return nil
-	}
-	return w.setProject(ctx, *p, keys...)
+	return w.inTx(ctx, func(w Writer) error {
+		p, err := project.GroupProject(ctx, w.tx, g, resource.TypePanel)
+		if err != nil {
+			return err
+		}
+		if err = setGroup(w.table, g, keys...).Exec(ctx, w.tx); err != nil {
+			return err
+		}
+		w.notifyGroup(ctx, g, keys)
+		if p == nil {
+			return nil
+		}
+		return w.setProject(ctx, *p, keys...)
+	})
 }
 
 // SetProject moves the panels with keys out of their group and into the project p. It
 // returns a validation error when a panel belongs to a range.
 func (w Writer) SetProject(ctx context.Context, p project.Key, keys ...Key) error {
-	if err := setGroup(w.table, nil, keys...).Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	w.notifyGroup(ctx, nil, keys)
-	return w.setProject(ctx, p, keys...)
+	return w.inTx(ctx, func(w Writer) error {
+		if err := setGroup(w.table, nil, keys...).Exec(ctx, w.tx); err != nil {
+			return err
+		}
+		w.notifyGroup(ctx, nil, keys)
+		return w.setProject(ctx, p, keys...)
+	})
 }
 
 // setProject moves the panels with keys into the project p, and notifies a project

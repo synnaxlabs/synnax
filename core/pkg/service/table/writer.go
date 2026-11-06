@@ -124,28 +124,32 @@ func (w Writer) create(ctx context.Context, t *Table) error {
 // SetGroup moves the tables with keys into g, or out of their group when g is nil. A
 // table in a group belongs to the project that holds the group.
 func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
-	p, err := project.GroupProject(ctx, w.tx, g, resource.TypeTable)
-	if err != nil {
-		return err
-	}
-	if err = setGroup(w.tbl, g, keys...).Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	w.notifyGroup(ctx, g, keys)
-	if p == nil {
-		return nil
-	}
-	return w.setProject(ctx, *p, keys...)
+	return w.inTx(ctx, func(w Writer) error {
+		p, err := project.GroupProject(ctx, w.tx, g, resource.TypeTable)
+		if err != nil {
+			return err
+		}
+		if err = setGroup(w.tbl, g, keys...).Exec(ctx, w.tx); err != nil {
+			return err
+		}
+		w.notifyGroup(ctx, g, keys)
+		if p == nil {
+			return nil
+		}
+		return w.setProject(ctx, *p, keys...)
+	})
 }
 
 // SetProject moves the tables with keys out of their group and into the project p. It
 // returns a validation error when a table belongs to a range.
 func (w Writer) SetProject(ctx context.Context, p project.Key, keys ...Key) error {
-	if err := setGroup(w.tbl, nil, keys...).Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	w.notifyGroup(ctx, nil, keys)
-	return w.setProject(ctx, p, keys...)
+	return w.inTx(ctx, func(w Writer) error {
+		if err := setGroup(w.tbl, nil, keys...).Exec(ctx, w.tx); err != nil {
+			return err
+		}
+		w.notifyGroup(ctx, nil, keys)
+		return w.setProject(ctx, p, keys...)
+	})
 }
 
 // setProject moves the tables with keys into the project p, and notifies a project

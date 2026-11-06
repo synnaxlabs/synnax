@@ -10,18 +10,23 @@
 package lineplot_test
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"sync/atomic"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -245,6 +250,157 @@ var _ = Describe("Writer with no transaction", func() {
 			})
 			wg.Wait()
 			Expect(retrieveGroup()).To(Equal(&groups[len(groups)-1].Key))
+		},
+	)
+
+	It(
+		"Should keep a line plot in the project of its group during concurrent moves",
+		func(ctx SpecContext) {
+			dest := project.Project{Name: "destination"}
+			Expect(projectSvc.NewWriter(nil).Create(ctx, &dest)).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(projectSvc.NewWriter(nil).Delete(ctx, dest.Key)).To(Succeed())
+			})
+			projects := []project.Key{proj.Key, dest.Key}
+			groups := make([]group.Group, len(projects))
+			for i, p := range projects {
+				groups[i] = group.Group{
+					Name:   "moving",
+					Parent: new(project.ResourceID(p)),
+				}
+				Expect(groupSvc.NewWriter(nil).Create(ctx, &groups[i])).To(Succeed())
+			}
+			DeferCleanup(func(ctx SpecContext) {
+				for _, g := range groups {
+					Expect(groupSvc.NewWriter(nil).Delete(ctx, g.Key)).To(Succeed())
+				}
+			})
+			moving := lineplot.LinePlot{Name: "moving", Project: &proj.Key}
+			Expect(svc.NewWriter(nil).Create(ctx, &moving)).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(svc.NewWriter(nil).Delete(ctx, moving.Key)).To(Succeed())
+			})
+			groupProject := map[group.Key]project.Key{
+				groups[0].Key: proj.Key,
+				groups[1].Key: dest.Key,
+			}
+			var (
+				wg   sync.WaitGroup
+				done atomic.Bool
+			)
+			wg.Go(func() {
+				defer GinkgoRecover()
+				for i := 0; !done.Load(); i++ {
+					g := groups[i%len(groups)].Key
+					Expect(svc.NewWriter(nil).SetGroup(ctx, &g, moving.Key)).
+						To(Succeed())
+				}
+			})
+			wg.Go(func() {
+				defer GinkgoRecover()
+				for i := 0; !done.Load(); i++ {
+					p := projects[i%len(projects)]
+					Expect(svc.NewWriter(nil).SetProject(ctx, p, moving.Key)).
+						To(Succeed())
+				}
+			})
+			wg.Go(func() {
+				defer GinkgoRecover()
+				defer done.Store(true)
+				for range 200 {
+					var res lineplot.LinePlot
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewRetrieve().
+							Where(lineplot.MatchKeys(moving.Key)).
+							Entry(&res).
+							Exec(ctx, tx)
+					})).To(Succeed())
+					if res.Group != nil {
+						Expect(res.Project).To(Equal(new(groupProject[*res.Group])))
+					}
+				}
+			})
+			wg.Wait()
+		},
+	)
+	It(
+		"Should keep the line plots of a group in its project during concurrent moves",
+		func(ctx SpecContext) {
+			moveDB := DeferClose(gorp.Wrap(memkv.New()))
+			moveOtg := MustOpen(ontology.Open(ctx, ontology.Config{DB: moveDB}))
+			var plots *lineplot.Service
+			groups := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+				DB:       moveDB,
+				Ontology: moveOtg,
+				MoveMembers: func(
+					ctx context.Context,
+					tx gorp.Tx,
+					keys []group.Key,
+					top *resource.ID,
+				) error {
+					return plots.MoveGroups(ctx, tx, keys, top)
+				},
+			}))
+			projects := MustOpen(project.OpenService(ctx, project.ServiceConfig{
+				DB:       moveDB,
+				Ontology: moveOtg,
+			}))
+			plots = MustOpen(lineplot.OpenService(ctx, lineplot.ServiceConfig{
+				DB:       moveDB,
+				Ontology: moveOtg,
+				ImEx:     imex.NewService(),
+			}))
+			tops := make([]resource.ID, 2)
+			for i := range tops {
+				p := project.Project{Name: "top"}
+				Expect(projects.NewWriter(nil).Create(ctx, &p)).To(Succeed())
+				tops[i] = project.ResourceID(p.Key)
+			}
+			g := group.Group{Name: "moving", Parent: &tops[0]}
+			Expect(groups.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+			lp := lineplot.LinePlot{Name: "member", Group: &g.Key}
+			Expect(plots.NewWriter(nil).Create(ctx, &lp)).To(Succeed())
+			var (
+				wg   sync.WaitGroup
+				done atomic.Bool
+			)
+			wg.Go(func() {
+				defer GinkgoRecover()
+				for i := 0; !done.Load(); i++ {
+					top := tops[i%len(tops)]
+					if i%4 < 2 {
+						Expect(groups.NewWriter(nil).SetParent(ctx, &top, g.Key)).
+							To(Succeed())
+						continue
+					}
+					moved := group.Group{Key: g.Key, Name: g.Name, Parent: &top}
+					Expect(groups.NewWriter(nil).Create(ctx, &moved)).To(Succeed())
+				}
+			})
+			wg.Go(func() {
+				defer GinkgoRecover()
+				defer done.Store(true)
+				for range 200 {
+					var (
+						stored group.Group
+						res    lineplot.LinePlot
+					)
+					Expect(moveDB.WithTx(ctx, func(tx gorp.Tx) error {
+						if err := groups.NewRetrieve().
+							Where(group.MatchKeys(g.Key)).
+							Entry(&stored).
+							Exec(ctx, tx); err != nil {
+							return err
+						}
+						return plots.NewRetrieve().
+							Where(lineplot.MatchKeys(lp.Key)).
+							Entry(&res).
+							Exec(ctx, tx)
+					})).To(Succeed())
+					Expect(project.ResourceID(*res.Project)).To(Equal(*stored.Parent))
+				}
+			})
+			wg.Wait()
 		},
 	)
 })

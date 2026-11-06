@@ -16,6 +16,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
@@ -245,6 +246,77 @@ var _ = Describe("Writer with no transaction", func() {
 			})
 			wg.Wait()
 			Expect(retrieveGroup()).To(Equal(&groups[len(groups)-1].Key))
+		},
+	)
+
+	It(
+		"Should keep a log in the project of its group during concurrent moves",
+		func(ctx SpecContext) {
+			dest := project.Project{Name: "destination"}
+			Expect(projectSvc.NewWriter(nil).Create(ctx, &dest)).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(projectSvc.NewWriter(nil).Delete(ctx, dest.Key)).To(Succeed())
+			})
+			projects := []project.Key{proj.Key, dest.Key}
+			groups := make([]group.Group, len(projects))
+			for i, p := range projects {
+				groups[i] = group.Group{
+					Name:   "moving",
+					Parent: new(project.ResourceID(p)),
+				}
+				Expect(groupSvc.NewWriter(nil).Create(ctx, &groups[i])).To(Succeed())
+			}
+			DeferCleanup(func(ctx SpecContext) {
+				for _, g := range groups {
+					Expect(groupSvc.NewWriter(nil).Delete(ctx, g.Key)).To(Succeed())
+				}
+			})
+			moving := log.Log{Name: "moving", Project: &proj.Key}
+			Expect(svc.NewWriter(nil).Create(ctx, &moving)).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(svc.NewWriter(nil).Delete(ctx, moving.Key)).To(Succeed())
+			})
+			groupProject := map[group.Key]project.Key{
+				groups[0].Key: proj.Key,
+				groups[1].Key: dest.Key,
+			}
+			var (
+				wg   sync.WaitGroup
+				done atomic.Bool
+			)
+			wg.Go(func() {
+				defer GinkgoRecover()
+				for i := 0; !done.Load(); i++ {
+					g := groups[i%len(groups)].Key
+					Expect(svc.NewWriter(nil).SetGroup(ctx, &g, moving.Key)).
+						To(Succeed())
+				}
+			})
+			wg.Go(func() {
+				defer GinkgoRecover()
+				for i := 0; !done.Load(); i++ {
+					p := projects[i%len(projects)]
+					Expect(svc.NewWriter(nil).SetProject(ctx, p, moving.Key)).
+						To(Succeed())
+				}
+			})
+			wg.Go(func() {
+				defer GinkgoRecover()
+				defer done.Store(true)
+				for range 200 {
+					var res log.Log
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewRetrieve().
+							Where(log.MatchKeys(moving.Key)).
+							Entry(&res).
+							Exec(ctx, tx)
+					})).To(Succeed())
+					if res.Group != nil {
+						Expect(res.Project).To(Equal(new(groupProject[*res.Group])))
+					}
+				}
+			})
+			wg.Wait()
 		},
 	)
 })

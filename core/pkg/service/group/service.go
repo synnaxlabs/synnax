@@ -293,6 +293,12 @@ func (w Writer) create(ctx context.Context, g *Group) error {
 // device, or project cannot move under a new top parent. A move under a new top parent
 // runs the MoveMembers hook.
 func (w Writer) SetParent(ctx context.Context, parent *resource.ID, keys ...Key) error {
+	return w.inTx(ctx, func(w Writer) error {
+		return w.setParent(ctx, parent, keys...)
+	})
+}
+
+func (w Writer) setParent(ctx context.Context, parent *resource.ID, keys ...Key) error {
 	var scope resource.Type
 	if parent != nil {
 		var err error
