@@ -59,6 +59,34 @@ func chainPredecessors(
 	return preds, nil
 }
 
+// chainOrders maps every current version package to its version file's declaration
+// order. A frozen package renders in that order, so a current package renders in it too
+// and a freeze never moves a declaration.
+func chainOrders(
+	ctx context.Context, req *plugin.Request,
+) (map[string]map[string]int, error) {
+	orders := make(map[string]map[string]int)
+	entries, err := chainEntries(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	for origPath, e := range entries {
+		if e.ended {
+			continue
+		}
+		f, err := req.Versions.File(ctx, e.livePath, e.version)
+		if err != nil {
+			return nil, err
+		}
+		order := make(map[string]int, len(f.Order))
+		for i, name := range f.Order {
+			order[e.resource+"."+name] = i
+		}
+		orders[versioning.VersionedPath(origPath, e.version)] = order
+	}
+	return orders, nil
+}
+
 // chainEntry pairs a versioned Go output path with its resource and chain.
 type chainEntry struct {
 	resource string
@@ -151,10 +179,13 @@ func memberGoPath(
 // chainFrozenFiles regenerates every frozen version package of every chain: for each
 // version k below current, the package at <path>/versions/vk is emitted from the
 // chain's surface at k — full declarations for types defined at k, predecessor aliases
-// for the rest. Frozen packages are persisted-only: they render exactly what the
-// version files record.
+// for the rest. A frozen package renders what the same version rendered as current, so
+// a mint moves nothing in it.
 func chainFrozenFiles(
-	ctx context.Context, req *plugin.Request, fileName string,
+	ctx context.Context,
+	req *plugin.Request,
+	fileName string,
+	closure set.Set[string],
 ) ([]plugin.File, error) {
 	entries, err := chainEntries(ctx, req)
 	if err != nil {
@@ -167,7 +198,15 @@ func chainFrozenFiles(
 			if k >= e.version {
 				break
 			}
-			file, err := frozenFile(ctx, req, origPath, e.livePath, k, fileName)
+			file, err := frozenFile(
+				ctx,
+				req,
+				origPath,
+				e.livePath,
+				k,
+				fileName,
+				closure,
+			)
 			if err != nil {
 				return nil, err
 			}
@@ -223,12 +262,25 @@ func ChainFrozenTable(
 	origPath, livePath string,
 	k int,
 ) (*resolution.Table, string, error) {
+	return chainFrozenTable(ctx, req, origPath, livePath, k, true)
+}
+
+// chainFrozenTable builds a frozen package's table. With pinned false, dependency types
+// resolve to their root packages instead of their versions/vN directories.
+func chainFrozenTable(
+	ctx context.Context,
+	req *plugin.Request,
+	origPath, livePath string,
+	k int,
+	pinned bool,
+) (*resolution.Table, string, error) {
 	ns := versions.DepNS(livePath, k)
 	table := resolution.NewTable()
 	if err := req.Versions.SurfaceInto(ctx, table, livePath, k, ns); err != nil {
 		return nil, "", err
 	}
-	if err := annotateOutputs(ctx, req, table, origPath, livePath); err != nil {
+	err := annotateOutputs(ctx, req, table, origPath, livePath, pinned)
+	if err != nil {
 		return nil, "", err
 	}
 	return table, ns, nil
@@ -241,6 +293,7 @@ func frozenFile(
 	origPath, livePath string,
 	k int,
 	fileName string,
+	liveClosure set.Set[string],
 ) (plugin.File, error) {
 	f, err := req.Versions.File(ctx, livePath, k)
 	if err != nil {
@@ -263,6 +316,11 @@ func frozenFile(
 			pred.aliased.Add(ns + "." + name)
 		}
 	}
+	shared, err := sharedMembers(ctx, req, livePath, f.Chain, k)
+	if err != nil {
+		return plugin.File{}, err
+	}
+	used := referencedAt(table, ns)
 	var structs, enums, typedefs, unions []resolution.Type
 	// The frozen surface table registers sorted, so the version file's declaration
 	// order passes to the generator explicitly.
@@ -273,6 +331,12 @@ func frozenFile(
 	for _, name := range f.Order {
 		t, ok := table.Get(ns + "." + name)
 		if !ok || t.Synthetic || omit.IsSkipped(t, "go") {
+			continue
+		}
+		// A current package drops a live-omitted declaration, unless something uses it.
+		live, has := liveType(req, livePath, name)
+		if has && omit.IsType(live, "go") && shared.Contains(name) &&
+			!used.Contains(t.QualifiedName) {
 			continue
 		}
 		switch t.Form.(type) {
@@ -292,9 +356,24 @@ func frozenFile(
 	if len(structs)+len(enums)+len(typedefs)+len(unions) == 0 {
 		return plugin.File{}, nil
 	}
+	latest, _, err := chainFrozenTable(ctx, req, origPath, livePath, k, false)
+	if err != nil {
+		return plugin.File{}, err
+	}
+	if err = withLiveMethods(ctx, req, latest, ns, livePath, f.Chain, k); err != nil {
+		return plugin.File{}, err
+	}
+	// Another resource's codec can reach a declaration its own chain does not, so a
+	// frozen package splits its pinned references on the closure a current one uses.
+	closure := PersistedClosure(table)
+	for _, name := range f.Order {
+		if liveClosure.Contains(f.Chain.Resource + "." + name) {
+			closure.Add(ns + "." + name)
+		}
+	}
 	content, err := generateGoFile(
 		vkPath, structs, enums, typedefs, unions,
-		table, req.RepoRoot, pred, nil, PersistedClosure(table), false, order, nil,
+		table, req.RepoRoot, pred, latest, closure, false, order, nil,
 	)
 	if err != nil {
 		return plugin.File{}, errors.Wrapf(err, "frozen package %s", vkPath)
@@ -302,10 +381,78 @@ func frozenFile(
 	return plugin.File{Path: vkPath + "/" + fileName, Content: content}, nil
 }
 
+// sharedMembers returns the names that version k and the chain's current version
+// resolve to the same definition.
+func sharedMembers(
+	ctx context.Context,
+	req *plugin.Request,
+	livePath string,
+	chain versions.Chain,
+	k int,
+) (set.Set[string], error) {
+	current, err := req.Versions.Surface(ctx, livePath, chain.Current())
+	if err != nil {
+		return nil, err
+	}
+	frozen, err := req.Versions.Surface(ctx, livePath, k)
+	if err != nil {
+		return nil, err
+	}
+	shared := make(set.Set[string])
+	for name, def := range current {
+		if at, member := frozen[name]; member && at.Version == def.Version {
+			shared.Add(name)
+		}
+	}
+	return shared, nil
+}
+
+// referencedAt returns the qualified names that the declarations in ns reference. An
+// enum's extends copies its members, so the extended enum does not count.
+func referencedAt(table *resolution.Table, ns string) set.Set[string] {
+	used := make(set.Set[string])
+	var walk func(ref resolution.TypeRef)
+	walk = func(ref resolution.TypeRef) {
+		for _, arg := range ref.TypeArgs {
+			walk(arg)
+		}
+		if t, ok := ref.Resolve(table); ok {
+			used.Add(t.QualifiedName)
+		}
+	}
+	for _, t := range table.TypesInNamespace(ns) {
+		switch form := t.Form.(type) {
+		case resolution.StructForm:
+			for _, ext := range form.Extends {
+				walk(ext)
+			}
+			for _, field := range form.Fields {
+				walk(field.Type)
+			}
+		case resolution.UnionForm:
+			if form.BorrowsEnum() {
+				walk(form.Enum)
+			}
+			for _, ext := range form.Extends {
+				walk(ext)
+			}
+			for _, v := range form.Variants {
+				walk(v.Type)
+			}
+		case resolution.AliasForm:
+			walk(form.Target)
+		case resolution.DistinctForm:
+			walk(form.Base)
+		}
+	}
+	return used
+}
+
 // withLiveMethods copies the live file's @validate rules, @default groups, and @go
-// to_any markers onto the version k types that the chain's current version aliases,
-// and onto the inline variant payloads of those unions. The current package's alias is
-// the frozen type, so the frozen methods are the ones the live surface calls.
+// to_any, fields, and imports onto the version k surface members that the chain's
+// current version aliases, and onto the inline variant payloads of those unions. The
+// current package's alias is the frozen type, so the live surface uses its methods and
+// fields.
 func withLiveMethods(
 	ctx context.Context,
 	req *plugin.Request,
@@ -314,15 +461,13 @@ func withLiveMethods(
 	chain versions.Chain,
 	k int,
 ) error {
-	surf, err := req.Versions.Surface(ctx, livePath, chain.Current())
+	shared, err := sharedMembers(ctx, req, livePath, chain, k)
 	if err != nil {
 		return err
 	}
-	aliased := make(set.Set[string])
-	for name, def := range surf {
-		if def.Version == k {
-			aliased.Add(ns + "." + name)
-		}
+	aliased := make(set.Set[string], len(shared))
+	for name := range shared {
+		aliased.Add(ns + "." + name)
 	}
 	for _, t := range table.Types {
 		u, isUnion := t.Form.(resolution.UnionForm)
@@ -370,8 +515,10 @@ func withLiveMethods(
 		}
 		form.Fields = fields
 		t.Form = form
-		if toAny, has := live.Domains["go"].Expressions.Find("to_any"); has {
-			withGoExpr(t, toAny)
+		for _, name := range []string{"to_any", "fields", "imports"} {
+			if expr, has := live.Domains["go"].Expressions.Find(name); has {
+				withGoExpr(t, expr)
+			}
 		}
 	}
 	return nil
@@ -385,6 +532,7 @@ func annotateOutputs(
 	req *plugin.Request,
 	table *resolution.Table,
 	origPath, ownLive string,
+	pinned bool,
 ) error {
 	for i := range table.Types {
 		t := &table.Types[i]
@@ -392,8 +540,8 @@ func annotateOutputs(
 		if !ok {
 			continue
 		}
-		goRoot := origPath
-		if lp != ownLive {
+		goRoot, dependency := origPath, lp != ownLive
+		if dependency {
 			var err error
 			if goRoot, ok, err = versionedGoRoot(ctx, req, lp); err != nil {
 				return err
@@ -415,6 +563,10 @@ func annotateOutputs(
 					withGoName(t, n)
 				}
 			}
+		}
+		if dependency && !pinned {
+			withGoOutput(t, goRoot)
+			continue
 		}
 		withGoOutput(t, versioning.VersionedPath(goRoot, v))
 	}
