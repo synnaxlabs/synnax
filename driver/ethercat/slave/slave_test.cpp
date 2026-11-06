@@ -9,6 +9,8 @@
 
 #include "gtest/gtest.h"
 
+#include "x/cpp/testutil/testutil.h"
+
 #include "driver/ethercat/slave/slave.h"
 
 namespace driver::ethercat::slave {
@@ -285,5 +287,237 @@ TEST(PropertiesToJson, OmitsPaddingEntries) {
     const auto j = props.to_json();
     ASSERT_EQ(j["pdos"]["inputs"].size(), 2);
     EXPECT_EQ(j["pdos"]["inputs"][1]["sub_index"], 17);
+}
+
+/// @brief parses a startup parameter and returns it with the first field error, or an
+/// empty path and message when parsing succeeds.
+std::tuple<StartupParameter, std::string, std::string>
+parse_parameter(const x::json::json &json) {
+    x::json::Parser parser(json);
+    const auto param = StartupParameter::parse(parser);
+    if (parser.ok()) return {param, "", ""};
+    const auto err = parser.error_json()["errors"][0];
+    return {param, err["path"], err["message"]};
+}
+
+/// @brief it should parse each field of a startup parameter.
+TEST(StartupParameter, ParsesEachField) {
+    const auto [param, path, message] = parse_parameter(
+        {{"index", 0x8000},
+         {"sub_index", 0x15},
+         {"data_type", "uint16"},
+         {"value", 3},
+         {"name", "Filter"}}
+    );
+    EXPECT_EQ(path, "");
+    EXPECT_EQ(
+        param,
+        (StartupParameter{
+            .index = 0x8000,
+            .sub_index = 0x15,
+            .data_type = x::telem::UINT16_T,
+            .value = 3,
+            .name = "Filter",
+        })
+    );
+}
+
+/// @brief it should reject an index that does not fit in 16 bits.
+TEST(StartupParameter, RejectsAnIndexAboveSixteenBits) {
+    const auto [param, path, message] = parse_parameter(
+        {{"index", 0x10000}, {"sub_index", 1}, {"data_type", "uint8"}, {"value", 1}}
+    );
+    EXPECT_EQ(path, "index");
+    EXPECT_EQ(message, "must be a whole number from 0x0000 to 0xFFFF");
+}
+
+/// @brief it should reject a sub-index that does not fit in 8 bits.
+TEST(StartupParameter, RejectsASubIndexAboveEightBits) {
+    const auto [param, path, message] = parse_parameter(
+        {{"index", 0x8000}, {"sub_index", 256}, {"data_type", "uint8"}, {"value", 1}}
+    );
+    EXPECT_EQ(path, "sub_index");
+    EXPECT_EQ(message, "must be a whole number from 0 to 255");
+}
+
+/// @brief it should reject a data type that is not numeric.
+TEST(StartupParameter, RejectsANonNumericDataType) {
+    const auto [param, path, message] = parse_parameter(
+        {{"index", 0x8000}, {"sub_index", 1}, {"data_type", "string"}, {"value", 1}}
+    );
+    EXPECT_EQ(path, "data_type");
+    EXPECT_EQ(message, "unsupported data type string");
+}
+
+/// @brief it should reject a value outside the range of its data type.
+TEST(StartupParameter, RejectsAValueOutsideTheDataType) {
+    const auto [param, path, message] = parse_parameter(
+        {{"index", 0x8000}, {"sub_index", 1}, {"data_type", "uint8"}, {"value", 300}}
+    );
+    EXPECT_EQ(path, "value");
+    EXPECT_EQ(message, "must be a whole number from 0 to 255");
+}
+
+/// @brief it should reject a fractional value for an integer data type.
+TEST(StartupParameter, RejectsAFractionForAnIntegerType) {
+    const auto [param, path, message] = parse_parameter(
+        {{"index", 0x8000}, {"sub_index", 1}, {"data_type", "int16"}, {"value", 1.5}}
+    );
+    EXPECT_EQ(path, "value");
+    EXPECT_EQ(message, "must be a whole number from -32768 to 32767");
+}
+
+/// @brief it should reject a sub-index with a fraction instead of truncating it.
+TEST(StartupParameter, RejectsAFractionalSubIndex) {
+    const auto [param, path, message] = parse_parameter(
+        {{"index", 0x8000}, {"sub_index", 21.9}, {"data_type", "uint8"}, {"value", 1}}
+    );
+    EXPECT_EQ(path, "sub_index");
+    EXPECT_EQ(message, "must be a whole number from 0 to 255");
+}
+
+/// @brief it should reject an int64 value of 2^53 or more, which a double may have
+/// rounded.
+TEST(StartupParameter, RejectsAnInt64ThatADoubleRounds) {
+    const auto [param, path, message] = parse_parameter(
+        {{"index", 0x8000},
+         {"sub_index", 1},
+         {"data_type", "int64"},
+         {"value", 9007199254740993}}
+    );
+    EXPECT_EQ(path, "value");
+    EXPECT_EQ(
+        message,
+        "must be a whole number from -9007199254740991 to 9007199254740991"
+    );
+}
+
+/// @brief it should accept the largest int64 magnitude that a double holds exactly.
+TEST(StartupParameter, AcceptsTheLargestExactInt64) {
+    const auto [param, path, message] = parse_parameter(
+        {{"index", 0x8000},
+         {"sub_index", 1},
+         {"data_type", "int64"},
+         {"value", -9007199254740991}}
+    );
+    EXPECT_EQ(path, "");
+    EXPECT_EQ(param.value, -9007199254740991.0);
+}
+
+/// @brief it should reject a uint64 value of 2^53 or more, which a double may have
+/// rounded.
+TEST(StartupParameter, RejectsAUint64ThatADoubleRounds) {
+    const auto [param, path, message] = parse_parameter(
+        {{"index", 0x8000},
+         {"sub_index", 1},
+         {"data_type", "uint64"},
+         {"value", 18446744073709551615ULL}}
+    );
+    EXPECT_EQ(path, "value");
+    EXPECT_EQ(message, "must be a whole number from 0 to 9007199254740991");
+}
+
+/// @brief it should reject a value above the float32 maximum.
+TEST(StartupParameter, RejectsAValueAboveTheFloat32Maximum) {
+    const auto [param, path, message] = parse_parameter(
+        {{"index", 0x8000}, {"sub_index", 1}, {"data_type", "float32"}, {"value", 1e39}}
+    );
+    EXPECT_EQ(path, "value");
+    EXPECT_EQ(message, "1e+39 does not fit in float32");
+}
+
+/// @brief it should encode the value as the little-endian bytes of its data type.
+TEST(StartupParameter, EncodesLittleEndianBytesOfItsType) {
+    EXPECT_EQ(
+        (StartupParameter{.data_type = x::telem::UINT16_T, .value = 0x1234}).bytes(),
+        (std::vector<uint8_t>{0x34, 0x12})
+    );
+    EXPECT_EQ(
+        (StartupParameter{.data_type = x::telem::INT32_T, .value = -2}).bytes(),
+        (std::vector<uint8_t>{0xFE, 0xFF, 0xFF, 0xFF})
+    );
+    EXPECT_EQ(
+        (StartupParameter{.data_type = x::telem::FLOAT32_T, .value = 1}).bytes(),
+        (std::vector<uint8_t>{0x00, 0x00, 0x80, 0x3F})
+    );
+}
+
+/// @brief it should parse the startup parameters of a slave.
+TEST(Properties, ParsesStartupParameters) {
+    x::json::Parser parser(
+        x::json::json{
+            {"serial", 1},
+            {"vendor_id", 2},
+            {"product_code", 3},
+            {"revision", 4},
+            {"name", "EL3102"},
+            {"position", 0},
+            {"enabled", true},
+            {"pdos",
+             {{"inputs", x::json::json::array()}, {"outputs", x::json::json::array()}}},
+            {"startup_parameters",
+             {{{"index", 0x8000},
+               {"sub_index", 0x15},
+               {"data_type", "uint16"},
+               {"value", 3}}}},
+        }
+    );
+    const auto props = Properties::parse(parser);
+    ASSERT_NIL(parser.error());
+    ASSERT_EQ(props.startup_parameters.size(), 1);
+    EXPECT_EQ(props.startup_parameters[0].index, 0x8000);
+    EXPECT_FALSE(props.to_json().contains("startup_parameters"));
+}
+
+/// @brief it should report a field error for each invalid startup parameter.
+TEST(Properties, ReportsEveryInvalidStartupParameter) {
+    x::json::Parser parser(
+        x::json::json{
+            {"serial", 1},
+            {"vendor_id", 2},
+            {"product_code", 3},
+            {"revision", 4},
+            {"name", "EL3102"},
+            {"position", 0},
+            {"enabled", true},
+            {"pdos",
+             {{"inputs", x::json::json::array()}, {"outputs", x::json::json::array()}}},
+            {"startup_parameters",
+             {{{"index", 0x8000},
+               {"sub_index", 0x15},
+               {"data_type", "uint8"},
+               {"value", 300}},
+              {{"index", 0x8000},
+               {"sub_index", 0x19},
+               {"data_type", "uint16"},
+               {"value", 70000}}}},
+        }
+    );
+    Properties::parse(parser);
+    const auto errors = parser.error_json()["errors"];
+    ASSERT_EQ(errors.size(), 2);
+    EXPECT_EQ(errors[0]["path"], "startup_parameters.0.value");
+    EXPECT_EQ(errors[1]["path"], "startup_parameters.1.value");
+    EXPECT_EQ(errors[1]["message"], "must be a whole number from 0 to 65535");
+}
+
+/// @brief it should parse a slave that has no startup parameters field.
+TEST(Properties, ParsesWithoutStartupParameters) {
+    x::json::Parser parser(
+        x::json::json{
+            {"serial", 1},
+            {"vendor_id", 2},
+            {"product_code", 3},
+            {"revision", 4},
+            {"name", "EL3102"},
+            {"position", 0},
+            {"enabled", true},
+            {"pdos",
+             {{"inputs", x::json::json::array()}, {"outputs", x::json::json::array()}}},
+        }
+    );
+    const auto props = Properties::parse(parser);
+    ASSERT_NIL(parser.error());
+    EXPECT_TRUE(props.startup_parameters.empty());
 }
 }

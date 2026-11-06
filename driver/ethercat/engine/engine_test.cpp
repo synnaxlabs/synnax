@@ -461,11 +461,23 @@ TEST_F(EngineTest, RejectedEntryLeavesTheRunningBusUp) {
 /// the process image.
 TEST_F(EngineTest, DisabledSlaveIsNotMapped) {
     this->master->add_slave(io_slave(1));
-    this->engine->set_slave_enabled(1, false);
+    this->engine->set_slave_config(1, {.enabled = false});
     ASSERT_OCCURRED_AS_P(
         this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1),
         errors::PDO_MAPPING_ERROR
     );
+}
+
+/// @brief it should pass the startup parameters of a slave config to the master.
+TEST_F(EngineTest, StartupParametersReachTheMaster) {
+    const std::vector<slave::StartupParameter> params{
+        {.index = 0x8000,
+         .sub_index = 0x15,
+         .data_type = x::telem::UINT16_T,
+         .value = 3}
+    };
+    this->engine->set_slave_config(0, {.startup_parameters = params});
+    EXPECT_EQ(this->master->startup_parameters(0), params);
 }
 
 /// @brief it should return the error that kept the master from initializing once the
@@ -681,7 +693,7 @@ TEST_F(EngineTest, BusSlowsDownWhenAFasterTaskCloses) {
 /// slaves.
 TEST_F(EngineTest, HealthReportsEachEnabledSlave) {
     this->master->add_slave(io_slave(1));
-    this->engine->set_slave_enabled(1, false);
+    this->engine->set_slave_config(1, {.enabled = false});
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
     );
@@ -704,7 +716,7 @@ TEST_F(EngineTest, FaultedSlaveReturnsToOpWhileTheBusRuns) {
         .position = 0,
         .state = slave::State::SAFE_OP,
         .faulted = true,
-        .al_status = "Sync manager watchdog",
+        .fault = "Sync manager watchdog",
     };
     ASSERT_EVENTUALLY_TRUE(
         !this->engine->health().empty() && this->engine->health()[0] == faulted
