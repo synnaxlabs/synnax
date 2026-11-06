@@ -111,14 +111,58 @@ TEST(TestArc, testRetrieveRejectsPage) {
     const auto client = new_test_client();
     for (const auto &options:
          {RetrieveOptions{.limit = 1}, RetrieveOptions{.offset = 1}}) {
-        const auto [_, err] = client.arcs.retrieve("arc", options);
-        ASSERT_MATCHES(err, x::errors::VALIDATION);
-        ASSERT_EQ(
-            err.data,
-            "a query for one record takes no limit or offset, since a page could "
-            "hide a second match"
-        );
+        for (const auto &err:
+             {client.arcs.retrieve("arc", options).second,
+              client.arcs.retrieve({.name = "arc"}, x::filter::one, options).second}) {
+            ASSERT_MATCHES(err, x::errors::VALIDATION);
+            ASSERT_EQ(
+                err.data,
+                "a query for one record takes no limit or offset, since a page could "
+                "hide a second match"
+            );
+        }
     }
+}
+
+/// @brief it should retrieve the one Arc program that a filter matches.
+TEST(TestArc, testRetrieveOneWhere) {
+    const auto client = new_test_client();
+    Arc created = AutomationArc{{.name = random_arc_name("one_where")}};
+    ASSERT_NIL(client.arcs.create(created));
+    const auto got = ASSERT_NIL_P(
+        client.arcs.retrieve({.name = base(created).name}, x::filter::one)
+    );
+    ASSERT_EQ(base(got).key, base(created).key);
+}
+
+/// @brief it should name the filter in the error when no Arc program matches it.
+TEST(TestArc, testRetrieveOneWhereNotFound) {
+    const auto client = new_test_client();
+    const auto name = random_arc_name("none_where");
+    const auto [_, err] = client.arcs.retrieve({.name = name}, x::filter::one);
+    ASSERT_MATCHES(err, x::errors::NOT_FOUND);
+    ASSERT_EQ(
+        err.data,
+        R"(Arc matching {"name":{"case_insensitive":false,"eq":")" + name +
+            R"("}} not found.)"
+    );
+}
+
+/// @brief it should return an error when more than one Arc program matches a filter.
+TEST(TestArc, testRetrieveOneWhereMultipleFound) {
+    const auto client = new_test_client();
+    auto arcs = std::vector<Arc>{
+        AutomationArc{{.name = random_arc_name("twice_where_a")}},
+        AutomationArc{{.name = random_arc_name("twice_where_b")}},
+    };
+    ASSERT_NIL(client.arcs.create(arcs));
+    ASSERT_OCCURRED_AS_P(
+        client.arcs.retrieve(
+            {.name = {base(arcs[0]).name, base(arcs[1]).name}},
+            x::filter::one
+        ),
+        x::errors::MULTIPLE_RESULTS
+    );
 }
 
 /// @brief it should retrieve multiple Arc programs by names.
