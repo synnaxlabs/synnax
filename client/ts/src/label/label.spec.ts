@@ -10,7 +10,7 @@
 import { color, id, sleep, TimeSpan, uuid } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import { NotFoundError, ValidationError } from "@/errors";
+import { NotFoundError } from "@/errors";
 import { label } from "@/label";
 import { query } from "@/query";
 import {
@@ -118,12 +118,26 @@ describe("Label", () => {
       const labels = await client.labels.retrieve({ key: [lbl.key, uuid.create()] });
       expect(labels.map((l) => l.key)).toEqual([lbl.key]);
     });
-    it("should reject a plain key beside other fields", async () => {
-      await expect(
-        // @ts-expect-error - a plain key addresses one record, so it takes no filter.
-        client.labels.retrieve({ key: uuid.create(), name: "Label" }),
-      ).rejects.toThrow(
-        new ValidationError("label params address a single key but hold other fields."),
+    it("should return one label for a plain name beside other fields", async () => {
+      const prefix = `one-label-${id.create()}`;
+      const [item, attached] = await client.labels.create([
+        { name: `${prefix}-item`, color: "#E774D0" },
+        { name: `${prefix}-attached`, color: "#E774D0" },
+      ]);
+      await client.labels.label(label.ontologyID(item.key), [attached.key]);
+      const retrieved: label.Label = await client.labels.retrieve({
+        name: attached.name,
+        for: label.ontologyID(item.key),
+      });
+      expect(retrieved.key).toEqual(attached.key);
+    });
+    it("should throw a NotFoundError when a plain key and name match nothing", async () => {
+      const lbl = await client.labels.create({ name: "Label", color: "#E774D0" });
+      const name = `other-${id.create()}`;
+      await expect(client.labels.retrieve({ key: lbl.key, name })).rejects.toThrow(
+        new NotFoundError(
+          `label not found matching {"where":{"key":{"eq":"${lbl.key}"},"name":{"eq":"${name}"}}}`,
+        ),
       );
     });
     it("should throw a NotFoundError for a missing key in a key list", async () => {

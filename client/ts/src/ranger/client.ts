@@ -304,8 +304,9 @@ const CHILDREN_SERVER_FIELDS = ["limit", "offset"] as const;
 const normalizeChildren = (params: ChildrenParams): ChildrenRequest =>
   typeof params === "string" ? { key: params } : params;
 
-const isKeyParams = (params: object): params is { key: Key } =>
-  "key" in params && typeof params.key === "string";
+type OneParams = query.OneInput<typeof retrieveMultiParamsZ>;
+
+const isOneParams = (params: object): params is OneParams => query.addressesOne(params);
 
 const isParentChange = (rel: ontology.Relationship, id: ontology.ID): boolean =>
   ontology.matchRelationship(rel, {
@@ -658,7 +659,7 @@ export class Client extends query.Retriever<
     drop();
   }
 
-  async retrieve(params: Key | Name | { key: Key }): Promise<Range>;
+  async retrieve(params: Key | Name | OneParams): Promise<Range>;
   async retrieve(
     params: Name[] | CrudeTimeRange | query.RequestInput<typeof retrieveMultiParamsZ>,
   ): Promise<Range[]>;
@@ -666,13 +667,13 @@ export class Client extends query.Retriever<
     params:
       | Key
       | Name
-      | { key: Key }
+      | OneParams
       | Name[]
       | CrudeTimeRange
       | query.RequestInput<typeof retrieveMultiParamsZ>,
   ): Promise<Range | Range[]> {
     // The branches narrow params onto different base overloads.
-    if (typeof params === "string" || isKeyParams(params))
+    if (typeof params === "string" || isOneParams(params))
       return await super.retrieve(params);
     return await super.retrieve(params);
   }

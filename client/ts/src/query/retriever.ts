@@ -81,10 +81,10 @@ const keysOnly = (query: unknown): unknown[] | null => {
 };
 
 /**
- * The query objects a request schema accepts. It leaves out a bare key list, which each
- * overload takes on its own, and a plain `key` value, which addresses one record. A
- * recursive `where` schema infers no input type, so `where` takes its output type,
- * which the schema also accepts.
+ * The query objects a request schema accepts that return a list. It leaves out a bare
+ * key list, which each overload takes on its own, and a plain `key` or `name` value,
+ * which returns one record. A recursive `where` schema infers no input type, so `where`
+ * takes its output type, which the schema also accepts.
  */
 export type RequestInput<Z extends z.ZodType> =
   z.input<Z> extends infer I
@@ -92,9 +92,30 @@ export type RequestInput<Z extends z.ZodType> =
       ? never
       : "where" extends keyof I
         ? Omit<I, "where"> & Pick<Extract<z.output<Z>, { where?: unknown }>, "where">
-        : "key" extends keyof I
-          ? Omit<I, "key"> & { key?: Exclude<I["key"], record.Key> }
-          : I
+        : Omit<I, "key" | "name"> & {
+            [F in ("key" | "name") & keyof I]?: Exclude<
+              I[F],
+              F extends "key" ? record.Key : string
+            >;
+          }
+    : never;
+
+/**
+ * The query objects a request schema accepts that return one record: those with a plain
+ * `key` or `name` value beside any other fields but a limit or an offset, since a page
+ * could hide a second match.
+ */
+export type OneInput<Z extends z.ZodType> =
+  z.input<Z> extends infer I
+    ? I extends readonly unknown[]
+      ? never
+      : "where" extends keyof I
+        ? never
+        : {
+            [F in ("key" | "name") & keyof I]: Omit<I, F | "limit" | "offset"> & {
+              [P in F]: Extract<I[P], P extends "key" ? record.Key : string>;
+            } & { limit?: never; offset?: never };
+          }[("key" | "name") & keyof I]
     : never;
 
 /** True for params that are a bare record key rather than a query object. */
@@ -102,9 +123,14 @@ const isBareKey = (params: unknown): params is record.Key =>
   typeof params === "string" || typeof params === "number";
 
 /**
- * True for params that address one record: a bare key, or an object whose `key` is a
- * plain value. A list or an operator on `key` is a filter.
+ * True for params that return one record: a bare key or name, or an object with a plain
+ * `key` or `name` value. A list or an operator on those fields returns a list.
  */
+export const addressesOne = (params: unknown): boolean =>
+  isBareKey(params) ||
+  (isObject(params) && (isBareKey(params.key) || typeof params.name === "string"));
+
+/** True for params that are a bare key or an object with a plain `key` value. */
 const addressesKey = (params: unknown): boolean =>
   isBareKey(params) || (isObject(params) && isBareKey(params.key));
 
@@ -305,7 +331,22 @@ export abstract class Retriever<
       watch,
       single: true,
     }) as Retrieves<Params, D | D[]>;
-    this.normalizeRequest = (p) => zod.parse(schema, p, { label: `${name} query` });
+    const singleSchema = single?.schema;
+    this.normalizeRequest = (p) => {
+      const res = schema.safeParse(p);
+      if (res.success) return res.data;
+      // A key the single schema rejects is the likely cause, and the request union
+      // reports only its strict arm, which calls the key an unexpected field.
+      const one =
+        singleSchema != null && addressesKey(p) ? singleSchema.safeParse(p) : null;
+      if (one?.success === false) throw singleQueryError(name, p, one.error);
+      throw new zod.ParseError({
+        issues: res.error.issues,
+        input: p,
+        label: `${name} query`,
+        cause: res.error,
+      });
+    };
     this.readShortcut =
       shortcut == null
         ? null
@@ -313,13 +354,9 @@ export abstract class Retriever<
     if (single != null) {
       this.singleSpace = single.space as Retrieves<Params, D | D[]>;
       const singleSchema = single.schema;
-      // Params addressing a key that fail the single schema are malformed single
-      // queries; falling through would silently fetch every record.
       this.trySingle = (p) => {
         const res = singleSchema.safeParse(p);
-        if (res.success) return { query: res.data };
-        if (addressesKey(p)) throw singleQueryError(name, p, res.error);
-        return null;
+        return res.success ? { query: res.data } : null;
       };
     } else {
       // The default path binds SingleQuery = K: `{ key }` params resolve through the
@@ -339,12 +376,9 @@ export abstract class Retriever<
       }) as Retrieves<Params, D | D[]>;
       this.trySingle = (p) => {
         if (isBareKey(p)) return { query: p as Params as SingleQuery };
-        if (!isObject(p) || !isBareKey(p.key)) return null;
-        if (soleMember(p)?.[0] === "key")
-          return { query: p.key as Params as SingleQuery };
-        throw new ValidationError(
-          `${name} params address a single key but hold other fields.`,
-        );
+        if (!isObject(p) || !isBareKey(p.key) || soleMember(p)?.[0] !== "key")
+          return null;
+        return { query: p.key as Params as SingleQuery };
       };
     }
   }
@@ -374,30 +408,39 @@ export abstract class Retriever<
         return [this.oneSpace, this.normalizeRequest(request)];
     }
     const single = this.trySingle(params);
-    return single != null
-      ? [this.singleSpace, single.query]
-      : [this.requestSpace, this.normalizeRequest(params)];
+    if (single != null) return [this.singleSpace, single.query];
+    const request = this.normalizeRequest(params);
+    if (!addressesOne(params)) return [this.requestSpace, request];
+    if (isObject(params) && (params.limit != null || params.offset != null))
+      throw new ValidationError(
+        "a query for one record takes no limit or offset, since a page could hide a " +
+          "second match",
+      );
+    return [this.oneSpace, request];
   }
 
   /**
    * Reads the record the params address, or every record matching them. Serves the
-   * cache when the answer is fresh, fetching otherwise. A bare key is shorthand for
-   * `{ key }`. In a domain with a shortcut, a bare name returns the one record with
-   * that name, and a list of names returns the records with those names. A domain
-   * accepts a bare key list when it sets a shortcut or its request schema unions in
-   * {@link keysRequestZ} or {@link keyListZ}. Read through either of the first two, the
-   * list returns each record once, in the order its key first appears. A filter on keys
-   * returns the records that exist.
+   * cache when the answer is fresh, fetching otherwise. A plain `key` or `name` value
+   * returns one record, even beside other fields, and a list or an operator on them
+   * returns a list. A bare key is shorthand for `{ key }`, and in a domain with a
+   * shortcut, a bare name is shorthand for `{ name }`. A domain accepts a bare key list
+   * when it sets a shortcut or its request schema unions in {@link keysRequestZ} or
+   * {@link keyListZ}. Read through either of the first two, the list returns each
+   * record once, in the order its key first appears. A filter on keys returns the
+   * records that exist.
    * @throws {NotFoundError} if a single-record query matches nothing, the record was
    * deleted, or a key in a bare key list has no record.
-   * @throws {MultipleFoundError} if a bare name matches more than one record.
-   * @throws {ValidationError} if params address a single key (a bare key, or a plain
-   * `key` value) but fail the single-query schema.
+   * @throws {MultipleFoundError} if a single-record query matches more than one record.
+   * @throws {zod.ParseError} if no schema of the domain accepts the params.
    */
-  retrieve(params: Shortcut | SingleInput, options?: FetchOptions): Promise<D>;
+  retrieve(
+    params: Shortcut | SingleInput | OneInput<Z>,
+    options?: FetchOptions,
+  ): Promise<D>;
   retrieve(params: Shortcut[] | RequestInput<Z>, options?: FetchOptions): Promise<D[]>;
   async retrieve(
-    params: Shortcut | Shortcut[] | SingleInput | RequestInput<Z>,
+    params: Shortcut | Shortcut[] | SingleInput | OneInput<Z> | RequestInput<Z>,
     options?: FetchOptions,
   ): Promise<D | D[]> {
     const [space, query] = this.route(params);
@@ -422,7 +465,7 @@ export abstract class Retriever<
    * every change or deletion. Returns a destructor that unsubscribes.
    */
   onChange(
-    params: Shortcut | SingleInput,
+    params: Shortcut | SingleInput | OneInput<Z>,
     handler: ChangeHandler<D>,
   ): destructor.Destructor;
   onChange(
@@ -430,7 +473,7 @@ export abstract class Retriever<
     handler: ChangeHandler<D[]>,
   ): destructor.Destructor;
   onChange(
-    params: Shortcut | Shortcut[] | SingleInput | RequestInput<Z>,
+    params: Shortcut | Shortcut[] | SingleInput | OneInput<Z> | RequestInput<Z>,
     handler: ChangeHandler<D> | ChangeHandler<D[]>,
   ): destructor.Destructor {
     const [space, query] = this.route(params);
@@ -441,10 +484,10 @@ export abstract class Retriever<
    * Returns the cached answer to the given query without touching the network, or
    * undefined when nothing is cached. May be stale for unsubscribed queries.
    */
-  getCached(params: Shortcut | SingleInput): Cached<D> | undefined;
+  getCached(params: Shortcut | SingleInput | OneInput<Z>): Cached<D> | undefined;
   getCached(params: Shortcut[] | RequestInput<Z>): Cached<D[]> | undefined;
   getCached(
-    params: Shortcut | Shortcut[] | SingleInput | RequestInput<Z>,
+    params: Shortcut | Shortcut[] | SingleInput | OneInput<Z> | RequestInput<Z>,
   ): Cached<D> | Cached<D[]> | undefined {
     const [space, query] = this.route(params);
     return space.getCached(query) as Cached<D> | Cached<D[]> | undefined;

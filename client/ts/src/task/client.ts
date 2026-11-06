@@ -381,6 +381,10 @@ const retrieveMultiParamsZ = z.union([
   filterParamsZ.transform(({ includeStatus: _, ...rest }) => rest),
 ]);
 
+type OneParams = query.OneInput<typeof retrieveMultiParamsZ>;
+
+const isOneParams = (params: object): params is OneParams => query.addressesOne(params);
+
 interface RetrieveSchemas<S extends Schemas = Schemas> {
   schemas?: S;
 }
@@ -644,9 +648,9 @@ export class Client extends query.Retriever<
   }
 
   async retrieve<S extends Schemas = Schemas>(
-    params: RetrieveSingleParams & RetrieveSchemas<S>,
+    params: (RetrieveSingleParams | OneParams) & RetrieveSchemas<S>,
   ): Promise<Task<S>>;
-  async retrieve(params: Key | RetrieveSingleParams): Promise<Task>;
+  async retrieve(params: Key | RetrieveSingleParams | OneParams): Promise<Task>;
   async retrieve<S extends Schemas = Schemas>(
     params: (RetrieveMultipleParams | FilterParams) & RetrieveSchemas<S>,
   ): Promise<Task<S>[]>;
@@ -654,18 +658,19 @@ export class Client extends query.Retriever<
     params: Key[] | query.RequestInput<typeof retrieveMultiParamsZ>,
   ): Promise<Task[]>;
   async retrieve<S extends Schemas = Schemas>(
-    rawParams: Key | Key[] | ((RetrieveParams | FilterParams) & RetrieveSchemas<S>),
+    rawParams:
+      Key | Key[] | ((RetrieveParams | OneParams | FilterParams) & RetrieveSchemas<S>),
   ): Promise<Task<S> | Task<S>[]> {
     if (Array.isArray(rawParams))
       return (await super.retrieve(rawParams)) as unknown as Task<S>[];
     if (typeof rawParams === "string")
       return (await super.retrieve(rawParams)) as Task<S>;
     const { schemas, ...params } = rawParams;
-    const isSingle = z.validate(singleRetrieveParamsZ, params);
+    const isSingle = z.validate(singleRetrieveParamsZ, params) || isOneParams(params);
     // Schema-parametrized retrieves validate config/status for one caller;
     // their results are not shared through the cache.
     if (schemas != null) {
-      if (!isSingle && "key" in params && typeof params.key === "string") {
+      if (isOneParams(params) && !z.validate(retrieveParamsZ, params)) {
         const res = singleQueryZ.safeParse(params);
         if (!res.success) throw singleQueryError("task", params, res.error);
       }
@@ -705,7 +710,7 @@ export class Client extends query.Retriever<
   }
 
   private async execRetrieve<S extends Schemas = Schemas>(
-    params: RetrieveParams | FilterParams,
+    params: RetrieveParams | OneParams | FilterParams,
     schemas?: S,
   ): Promise<Task<S>[]> {
     const res = await this.cfg.unary.send(
