@@ -361,7 +361,8 @@ func (s *scanner) sample(ctx context.Context, args sampleArgs) (sampleResult, er
 			}
 			held += len(payload)
 			msg := sampledMessage{Time: telem.Now(), Retained: m.Retained()}
-			msg.Format, msg.Payload = driver.Display(payload, samplePayloadLimit)
+			msg.Format = driver.FormatOf(payload)
+			msg.Payload = driver.Display(payload, msg.Format, samplePayloadLimit)
 			by[m.Topic()] = append(
 				messages,
 				heardMessage{sampledMessage: msg, payload: payload},

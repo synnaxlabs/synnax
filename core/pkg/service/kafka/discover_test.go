@@ -140,7 +140,7 @@ var _ = Describe("Discover", func() {
 				j.Newest,
 			).To(BeNumerically(">=", before-telem.TimeStamp(telem.Millisecond)))
 			Expect(named(topics, srTopic).Format).
-				To(Equal(driver.FormatSchemaRegistry))
+				To(Equal(driver.Format("schema_registry")))
 			empty := named(topics, emptyTopic)
 			Expect(empty.Records).To(BeZero())
 			Expect(empty.Format).To(BeEmpty())

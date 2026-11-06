@@ -45,6 +45,17 @@ const (
 	samplePayloadLimit = 16 << 10
 )
 
+// formatSchemaRegistry is a Confluent Schema Registry payload: a zero byte, a 4-byte
+// schema ID, and the encoded value.
+const formatSchemaRegistry driver.Format = "schema_registry"
+
+func formatOf(value []byte) driver.Format {
+	if len(value) >= 5 && value[0] == 0 {
+		return formatSchemaRegistry
+	}
+	return driver.FormatOf(value)
+}
+
 // browsedTopic is one topic of a cluster, as a browse sees it.
 type browsedTopic struct {
 	// Name is the name of the topic.
@@ -159,7 +170,7 @@ func browseTopics(ctx context.Context, props Properties) ([]browsedTopic, error)
 		t := &topics[i]
 		for _, r := range records[t.Name] {
 			if ts := telem.NewTimeStamp(r.Timestamp); ts > t.Newest {
-				t.Newest, t.Format = ts, driver.FormatOf(r.Value)
+				t.Newest, t.Format = ts, formatOf(r.Value)
 			}
 		}
 	}
@@ -407,7 +418,8 @@ func newSampledRecord(r *kgo.Record) sampledRecord {
 		Time:      telem.NewTimeStamp(r.Timestamp),
 		Headers:   make([]header, len(r.Headers)),
 	}
-	s.Format, s.Payload = driver.Display(r.Value, samplePayloadLimit)
+	s.Format = formatOf(r.Value)
+	s.Payload = driver.Display(r.Value, s.Format, samplePayloadLimit)
 	for i, h := range r.Headers {
 		s.Headers[i] = header{
 			Key:   h.Key,

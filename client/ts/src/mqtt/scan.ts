@@ -11,7 +11,13 @@ import { json, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { device } from "@/device";
-import { driver } from "@/driver";
+
+/** The encodings of a message payload. */
+export const FORMATS = ["json", "text", "binary"] as const;
+
+export const formatZ = z.enum(FORMATS);
+
+export type Format = z.infer<typeof formatZ>;
 
 const millisecondsZ = TimeSpan.z.transform((span) => span.milliseconds);
 
@@ -40,7 +46,7 @@ export const browsedTopicZ = z.object({
   /** payload is the start of the last payload. Empty when it is not text. */
   payload: z.string(),
   /** format is the format of the whole last payload. */
-  format: driver.formatZ,
+  format: formatZ,
   /** retained is true when the last message was a retained message. */
   retained: z.boolean(),
 });
@@ -77,7 +83,7 @@ export interface SampleArgs extends z.input<typeof sampleArgsZ> {}
 export const sampledMessageZ = z.object({
   time: TimeStamp.z,
   /** format is the format of the whole payload. */
-  format: driver.formatZ,
+  format: formatZ,
   /**
    * payload is the start of the payload, from at most 16 KiB: text when format is json
    * or text, and hex digits otherwise.

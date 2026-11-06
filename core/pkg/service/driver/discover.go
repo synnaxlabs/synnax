@@ -113,9 +113,6 @@ type Format string
 const (
 	// FormatJSON is one JSON value.
 	FormatJSON Format = "json"
-	// FormatSchemaRegistry is a Confluent Schema Registry payload: a zero byte, a
-	// 4-byte schema ID, and the encoded value.
-	FormatSchemaRegistry Format = "schema_registry"
 	// FormatText is UTF-8 text that is not JSON.
 	FormatText Format = "text"
 	// FormatBinary is any other payload.
@@ -127,8 +124,6 @@ func FormatOf(payload []byte) Format {
 	switch {
 	case jsontext.Value(payload).IsValid():
 		return FormatJSON
-	case len(payload) >= 5 && payload[0] == 0:
-		return FormatSchemaRegistry
 	case utf8.Valid(payload):
 		return FormatText
 	default:
@@ -136,15 +131,14 @@ func FormatOf(payload []byte) Format {
 	}
 }
 
-// Display returns the format of payload and the start of payload as an answer shows
-// it, from at most limit bytes. A JSON or text payload shows as text, cut at a rune
-// boundary. Any other payload shows as hex digits.
-func Display(payload []byte, limit int) (Format, string) {
-	format := FormatOf(payload)
+// Display returns the start of payload as an answer shows it, from at most limit
+// bytes. A payload whose format is JSON or text shows as text, cut at a rune boundary.
+// A payload of any other format shows as hex digits.
+func Display(payload []byte, format Format, limit int) string {
 	if format != FormatJSON && format != FormatText {
-		return format, hex.EncodeToString(payload[:min(len(payload), limit)])
+		return hex.EncodeToString(payload[:min(len(payload), limit)])
 	}
-	return format, CutText(payload, limit)
+	return CutText(payload, limit)
 }
 
 // CutText returns at most limit bytes from the start of text, cut at a rune boundary.

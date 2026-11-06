@@ -11,7 +11,13 @@ import { json, TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { device } from "@/device";
-import { driver } from "@/driver";
+
+/** The encodings of a record value. */
+export const FORMATS = ["json", "schema_registry", "text", "binary"] as const;
+
+export const formatZ = z.enum(FORMATS);
+
+export type Format = z.infer<typeof formatZ>;
 
 /** A topic of a cluster, as a browse command of the Kafka scan task sees it. */
 export const topicZ = z.object({
@@ -26,7 +32,7 @@ export const topicZ = z.object({
   /** newest is the time of the newest record. Zero when the topic holds none. */
   newest: TimeStamp.z,
   /** format is the format of the newest record. Undefined when the topic holds none. */
-  format: driver.formatZ.optional(),
+  format: formatZ.optional(),
   /** readable is false when the cluster does not let the Core read the topic. */
   readable: z.boolean(),
 });
@@ -67,7 +73,7 @@ export const sampledRecordZ = z.object({
   time: TimeStamp.z,
   headers: z.array(headerZ),
   /** format is the format of the whole record value. */
-  format: driver.formatZ,
+  format: formatZ,
   /**
    * payload is the start of the record value, from at most 16 KiB: text when format is
    * json or text, and hex digits otherwise.

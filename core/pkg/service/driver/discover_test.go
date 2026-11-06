@@ -130,57 +130,31 @@ var _ = Describe("Discover", func() {
 		},
 		Entry("a JSON object", []byte(`{"v":1}`), driver.FormatJSON),
 		Entry("a JSON number", []byte("12.5"), driver.FormatJSON),
-		Entry(
-			"a Schema Registry frame",
-			[]byte{0, 0, 0, 0, 1, 2},
-			driver.FormatSchemaRegistry,
-		),
 		Entry("text that is not JSON", []byte("ON"), driver.FormatText),
 		Entry("bytes that are not text", []byte{0xff, 0xfe, 0x01}, driver.FormatBinary),
 	)
 
 	DescribeTable(
 		"Display",
-		func(payload []byte, limit int, format driver.Format, shown string) {
-			f, s := driver.Display(payload, limit)
-			Expect(f).To(Equal(format))
-			Expect(s).To(Equal(shown))
+		func(payload []byte, format driver.Format, limit int, shown string) {
+			Expect(driver.Display(payload, format, limit)).To(Equal(shown))
 		},
+		Entry("JSON as text", []byte(`{"v":1}`), driver.FormatJSON, 16, `{"v":1}`),
+		Entry("the start of text", []byte("abcdef"), driver.FormatText, 4, "abcd"),
+		Entry("text cut at a rune boundary", []byte("ééé"), driver.FormatText, 5, "éé"),
 		Entry(
-			"a JSON payload as text",
-			[]byte(`{"v":1}`),
-			16,
-			driver.FormatJSON,
-			`{"v":1}`,
-		),
-		Entry(
-			"the start of a long text payload",
-			[]byte("abcdef"),
-			4,
-			driver.FormatText,
-			"abcd",
-		),
-		Entry("text cut at a rune boundary", []byte("ééé"), 5, driver.FormatText, "éé"),
-		Entry(
-			"a binary payload as hex",
+			"binary as hex",
 			[]byte{0xff, 0xfe, 0x01},
-			16,
 			driver.FormatBinary,
+			16,
 			"fffe01",
 		),
 		Entry(
-			"the start of a binary payload",
+			"the start of binary",
 			[]byte{0xff, 0xfe, 0x01},
-			2,
 			driver.FormatBinary,
+			2,
 			"fffe",
-		),
-		Entry(
-			"a Schema Registry frame as hex",
-			[]byte{0, 0, 0, 0, 1, 2},
-			16,
-			driver.FormatSchemaRegistry,
-			"000000000102",
 		),
 	)
 })
