@@ -557,6 +557,8 @@ public:
         return this->dc_groups.contains(group);
     }
 
+    void set_group_logstartaddr(uint8_t, uint32_t) override {}
+
     void set_group_dc(uint8_t group) override {
         if (this->dc_reference == 0)
             this->dc_groups.erase(group);

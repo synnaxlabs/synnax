@@ -346,6 +346,8 @@ x::errors::Error Master::activate(
     if (const auto err = this->clear_dc_activation()) return err;
 
     // The master requests SAFE-OP itself, after it sets up the DC sync of the slaves.
+    // Demo: map at logical address 0, as a single-group master does.
+    this->api->set_group_logstartaddr(ENABLED_GROUP, 0);
     this->api->set_manual_state_change(true);
     const int iomap_size = this->api->config_map_group(
         this->iomap.data(),

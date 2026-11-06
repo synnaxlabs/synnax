@@ -255,6 +255,9 @@ public:
     /// configdc does this only for the group of the reference slave. Call it after
     /// configdc.
     virtual void set_group_dc(uint8_t grp) = 0;
+
+    /// @brief sets the logical start address of a group's process data.
+    virtual void set_group_logstartaddr(uint8_t grp, uint32_t addr) = 0;
 };
 
 /// @brief production implementation of soem::API wrapping ecx_contextt.
@@ -545,6 +548,10 @@ public:
 
     [[nodiscard]] bool group_hasdc(uint8_t grp) const override {
         return this->context.grouplist[grp].hasdc;
+    }
+
+    void set_group_logstartaddr(uint8_t grp, uint32_t addr) override {
+        this->context.grouplist[grp].logstartaddr = addr;
     }
 
     void set_group_dc(uint8_t grp) override {
