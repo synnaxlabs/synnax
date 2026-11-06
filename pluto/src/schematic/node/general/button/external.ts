@@ -19,7 +19,6 @@ const NAME = "Button";
 export const spec: Spec<"button", schematic.ButtonNodeConfig> = {
   key: "button",
   name: NAME,
-  unwrapped: true,
   Form: ButtonForm,
   Node: Symbol,
   Preview: Button,

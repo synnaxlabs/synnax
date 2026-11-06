@@ -31,7 +31,7 @@ func migrateStored(ctx context.Context, old v10.Schematic) (Schematic, error) {
 
 // MigrateElementConfig lifts a v10 element config to v11. Every field that v11 makes
 // optional keeps its stored value. A button, input, select, or setpoint keeps its
-// rendered text size. A button loses its label wrap width, because a button rendered
+// rendered text size. A button takes a label wrap width of 0, because a button rendered
 // without wrapping whatever width it stored.
 func MigrateElementConfig(
 	ctx context.Context,
@@ -49,7 +49,7 @@ func MigrateElementConfig(
 		out.Variant = n
 	case v10.ButtonElementConfig:
 		n := out.Variant.(ButtonElementConfig)
-		n.Label.MaxInlineSize = nil
+		n.Label.MaxInlineSize = new(0.0)
 		n.Level = renderedLevel(o.Size)
 		if o.Level != nil {
 			n.Level = *o.Level

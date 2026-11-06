@@ -68,13 +68,9 @@ export const resolveSpec = (variant: string): Spec => {
 export const isConfig = (config: schematic.ElementConfig): config is Config =>
   config.variant in REGISTRY;
 
-/** The width in pixels a new label wraps at, unless its spec is unwrapped. */
-const WRAP_WIDTH = 150;
-
 /**
  * Builds a fresh config from the schema input. Every unset value comes from the
- * schema, except the label, which names the symbol and takes a wrap width unless the
- * input sets them.
+ * schema, except the label, which names the symbol unless the input sets it.
  * @param input - The variant plus any fields to set on top of the schema defaults.
  * @throws {NotFoundError} if no spec is registered for the variant.
  */
@@ -82,10 +78,8 @@ export const createConfig = <V extends Variant>(input: Input<V>): ConfigOf<V> =>
   const config = configZ.parse(input) as ConfigOf<V>;
   const spec = resolveSpec(input.variant);
   const labeled = input as { label?: { label?: string } };
-  if ("label" in config) {
-    if (labeled.label?.label == null) config.label.label = spec.label ?? spec.name;
-    if (spec.unwrapped !== true) config.label.maxInlineSize ??= WRAP_WIDTH;
-  }
+  if ("label" in config && labeled.label?.label == null)
+    config.label.label = spec.label ?? spec.name;
   return config;
 };
 
@@ -126,8 +120,7 @@ export const symbolKey = (config: Config): string =>
 
 /**
  * Changes the config to the variant the input names. Each field the new variant
- * accepts keeps its value, except the spec key and state overrides of a custom symbol,
- * and the wrap width of a symbol that changes to an unwrapped variant.
+ * accepts keeps its value, except the spec key and state overrides of a custom symbol.
  * @param config - The config to change.
  * @param input - The variant to change to, plus any fields to set on top.
  * @throws {NotFoundError} if no spec is registered for the variant.
@@ -135,17 +128,12 @@ export const symbolKey = (config: Config): string =>
 export const changeConfig = <V extends Variant>(
   config: Config,
   input: Input<V>,
-): ConfigOf<V> => {
-  const next = deep.overrideValidItems(
+): ConfigOf<V> =>
+  deep.overrideValidItems(
     createConfig(input),
     record.omit(config as record.Unknown, "specKey", "stateOverrides"),
     schematic.NODE_CONFIG_SCHEMAS[input.variant],
   );
-  const { unwrapped } = resolveSpec(input.variant);
-  if (config.variant !== input.variant && unwrapped === true && "label" in next)
-    next.label.maxInlineSize = undefined;
-  return next;
-};
 
 /// STATIC_SPECS lists every Spec in the registry that is NOT a custom-symbol
 /// variant. Used by the symbols toolbar to render the built-in catalog.

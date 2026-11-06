@@ -56,8 +56,6 @@ export interface Spec<
   name: string;
   /** The text written into the symbol's label on creation. Defaults to name. */
   label?: string;
-  /** Gives a new or changed symbol's label no wrap width. */
-  unwrapped?: boolean;
   Form: FC<FormProps>;
   Node: Node<Config>;
   Preview: FC<PreviewProps<Config>>;

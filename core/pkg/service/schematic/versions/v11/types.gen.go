@@ -480,7 +480,7 @@ type LabelConfig struct {
 	// Direction is the axis along which the label text flows.
 	Direction spatial.Direction `json:"direction" msgpack:"direction"`
 	// MaxInlineSize is the maximum inline size of the label in pixels before wrapping.
-	// Absent means the label does not wrap.
+	// Absent uses the default of 150. 0 means the label does not wrap.
 	MaxInlineSize *float64 `json:"max_inline_size,omitzero" msgpack:"max_inline_size,omitempty"`
 	// Align is the alignment of the label text within its box.
 	Align FlexAlignment `json:"align" msgpack:"align"`

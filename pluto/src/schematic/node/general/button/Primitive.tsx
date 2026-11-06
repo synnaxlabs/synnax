@@ -17,6 +17,7 @@ import { type CSSProperties, type MouseEventHandler, type ReactElement } from "r
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
+import { Label } from "@/schematic/node/common/label";
 import { Primitive } from "@/schematic/node/common/primitive";
 
 // A context menu swallows a secondary press's release, so momentary would stay pressed.
@@ -59,7 +60,7 @@ export const Button = ({
   const style: CSSProperties = {
     [Primitive.SYMBOL_COLOR]: symbolColor,
     textAlign: label?.align as CSSProperties["textAlign"],
-    maxInlineSize: label?.maxInlineSize,
+    maxInlineSize: Label.resolveMaxInlineSize(label?.maxInlineSize),
   };
   // The activation delay gates Base.Button's onClick, so single-shot actuation
   // (fire's release write, pulse's press write) routes through it. An undelayed

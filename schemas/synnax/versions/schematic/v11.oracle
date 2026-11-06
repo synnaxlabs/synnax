@@ -43,7 +43,7 @@ LabelConfig struct extends v9.LabelConfig {
     max_inline_size float64? {
         @doc value """
             is the maximum inline size of the label in pixels before wrapping. Absent
-            means the label does not wrap.
+            uses the default of 150. 0 means the label does not wrap.
         """
     }
 }

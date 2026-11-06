@@ -200,6 +200,20 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		))
 	})
 
+	It("Should stop the wrapping of each button in a v10 envelope", func(
+		ctx SpecContext,
+	) {
+		sch := decode(ctx, "testdata/import_v10_button.json")
+		for _, key := range []string{"n1", "n2"} {
+			Expect(sch.Configs[key].Variant).To(
+				HaveField("LabeledConfig.Label.MaxInlineSize", HaveValue(BeZero())),
+			)
+		}
+		Expect(sch.Configs["n3"].Variant).To(HaveField(
+			"LabeledConfig.Label.MaxInlineSize", HaveValue(BeEquivalentTo(150)),
+		))
+	})
+
 	It("Should reject a v8 envelope holding a config the union rejects", func(
 		ctx SpecContext,
 	) {

@@ -121,7 +121,7 @@ class LabelConfig(BaseModel):
         orientation: Is the placement of the label relative to the symbol.
         direction: Is the axis along which the label text flows.
         max_inline_size: Is the maximum inline size of the label in pixels before
-            wrapping. Absent means the label does not wrap.
+            wrapping. Absent uses the default of 150. 0 means the label does not wrap.
         align: Is the alignment of the label text within its box.
     """
 

@@ -15,7 +15,11 @@ import { type deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Direction } from "@/direction";
-import { type Config } from "@/schematic/node/common/label/Label";
+import {
+  type Config,
+  DEFAULT_MAX_INLINE_SIZE,
+  NO_WRAP,
+} from "@/schematic/node/common/label/Label";
 
 const LABEL_INPUT_FIELD_PROPS: Partial<Input.TextProps> = { selectOnFocus: true };
 const MULTILINE_INPUT_FIELD_PROPS: Partial<Input.TextProps> = {
@@ -42,10 +46,10 @@ const WrapWidthField = ({
   return (
     <Input.Item label="Wrap width" padHelpText={false}>
       <Input.Numeric
-        value={value ?? undefined}
+        value={value ?? DEFAULT_MAX_INLINE_SIZE}
         onChange={(v) => set(path, v)}
-        onClear={() => set(path, undefined)}
-        placeholder="None"
+        emptyValue={NO_WRAP}
+        placeholder="No wrapping"
         endContent="px"
         dragScale={WRAP_WIDTH_DRAG_SCALE}
       />

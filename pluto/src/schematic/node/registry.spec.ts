@@ -154,18 +154,6 @@ describe("Schematic.Node.createConfig", () => {
       SIZE_LEVELS.medium,
     ));
 
-  it("should start a new button with no wrap width", () =>
-    expect(createConfig({ variant: "button" }).label.maxInlineSize).toBeUndefined());
-
-  it("should start a new label at the default wrap width", () =>
-    expect(createConfig({ variant: "tank" }).label.maxInlineSize).toBe(150));
-
-  it("should keep a wrap width that the input sets", () =>
-    expect(
-      createConfig({ variant: "tank", label: { maxInlineSize: 80 } }).label
-        .maxInlineSize,
-    ).toBe(80));
-
   it("should reject an unknown variant", () => {
     expect(() => createConfig({ variant: "not-a-symbol" } as never)).toThrow();
   });
@@ -198,21 +186,9 @@ describe("Schematic.Node.symbolKey", () => {
 });
 
 describe("Schematic.Node.changeConfig", () => {
-  it("should drop the wrap width of a symbol that changes to a button", () => {
+  it("should keep the wrap width of a symbol that changes to a button", () => {
     const tank = createConfig({ variant: "tank", label: { maxInlineSize: 80 } });
     const changed = changeConfig(tank, { variant: "button" });
-    expect(changed.label.maxInlineSize).toBeUndefined();
-  });
-
-  it("should keep the unset wrap width of a button that changes to a labeled symbol", () => {
-    const button = createConfig({ variant: "button" });
-    const changed = changeConfig(button, { variant: "tank" });
-    expect(changed.label.maxInlineSize).toBeUndefined();
-  });
-
-  it("should keep the wrap width of a button that stays a button", () => {
-    const button = createConfig({ variant: "button", label: { maxInlineSize: 80 } });
-    const changed = changeConfig(button, { variant: "button" });
     expect(changed.label.maxInlineSize).toBe(80);
   });
 

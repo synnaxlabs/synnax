@@ -89,7 +89,7 @@ export const labelConfigZ = z.object({
   direction: spatial.directionZ.default("x"),
   /**
    * maxInlineSize is the maximum inline size of the label in pixels before wrapping.
-   * Absent means the label does not wrap.
+   * Absent uses the default of 150. 0 means the label does not wrap.
    */
   maxInlineSize: z.number().optional(),
   /** align is the alignment of the label text within its box. */

@@ -110,13 +110,13 @@ describe("ButtonForm label", () => {
     await waitFor(() => expect(value(path.label.maxInlineSize)).toBe(80));
   });
 
-  it("should show no wrap width until a user sets one", () => {
+  it("should show the default wrap width until a user sets one", () => {
     const { getByText } = renderStyleTab();
     const field = getByText("Wrap width").parentElement?.querySelector("input");
-    expect(field?.value).toBe("");
+    expect(field?.value).toBe("150");
   });
 
-  it("should clear the wrap width", async () => {
+  it("should stop wrapping when the wrap width is cleared", async () => {
     const { getByText, value } = renderForm(
       <ButtonForm tab="style" onTabChange={vi.fn()} />,
       createConfig({ variant: "button", label: { maxInlineSize: 80 } }),
@@ -127,7 +127,9 @@ describe("ButtonForm label", () => {
     if (field == null) throw new Error("expected a wrap width input");
     fireEvent.change(field, { target: { value: "" } });
     fireEvent.blur(field);
-    await waitFor(() => expect(value(path.label.maxInlineSize)).toBeUndefined());
+    await waitFor(() => expect(value(path.label.maxInlineSize)).toBe(0));
+    expect(field.value).toBe("");
+    expect(field.placeholder).toBe("No wrapping");
   });
 
   it("should set the alignment", async () => {
