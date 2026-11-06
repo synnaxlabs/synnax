@@ -18,6 +18,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/oracle/check"
 	"github.com/synnaxlabs/oracle/format"
+	"github.com/synnaxlabs/oracle/frozen"
 	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/pipeline"
 	"github.com/synnaxlabs/x/errors"
@@ -133,6 +134,11 @@ func runCheck(cmd *cobra.Command, _ []string) error {
 	})
 	if err != nil {
 		return errors.Wrap(err, "pipeline")
+	}
+	if result.Diagnostics.Ok() {
+		if err := frozen.Pin(ctx, result, repoRoot); err != nil {
+			return errors.Wrap(err, "pin frozen packages")
+		}
 	}
 
 	// Resource initialization is lazy because each gate has different dependencies and
