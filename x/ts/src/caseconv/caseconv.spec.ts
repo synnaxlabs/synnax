@@ -319,6 +319,83 @@ describe("caseconv", () => {
     });
   });
 
+  describe("encodeWith", () => {
+    const pairZ = caseconv.encodeWith(
+      z.tuple([z.number(), z.number()]),
+      ([a, b]) => `${a}:${b}`,
+    );
+    const schema = z.object({
+      fieldPair: pairZ,
+      optionalPair: pairZ.optional(),
+      pairList: z.array(pairZ),
+      nested: z.object({ innerPair: pairZ }),
+      plain: z.array(z.number()),
+      pairs: z.record(z.string(), pairZ),
+    });
+    const value = {
+      fieldPair: [1, 2],
+      optionalPair: [3, 4],
+      pairList: [[5, 6]],
+      nested: { innerPair: [7, 8] },
+      plain: [9],
+      pairs: { someKey: [10, 11] },
+    };
+
+    it("Should encode marked values when converting to snake case", () => {
+      expect(caseconv.camelToSnake(value, { schema })).toEqual({
+        field_pair: "1:2",
+        optional_pair: "3:4",
+        pair_list: ["5:6"],
+        nested: { inner_pair: "7:8" },
+        plain: [9],
+        pairs: { some_key: "10:11" },
+      });
+    });
+
+    it("Should leave marked values as they are when converting to camel case", () => {
+      expect(caseconv.snakeToCamel(value, { schema })).toEqual(value);
+    });
+
+    it("Should encode a marked value at the end of a path", () => {
+      const { path, convert } = caseconv.camelToSnakePath(["nested", "innerPair"], {
+        schema,
+      });
+      expect(path).toEqual(["nested", "inner_pair"]);
+      expect(convert([1, 2])).toEqual("1:2");
+    });
+
+    it("Should encode each marked value of a list at the end of a path", () => {
+      const { convert } = caseconv.camelToSnakePath(["pairList"], { schema });
+      expect(
+        convert([
+          [1, 2],
+          [3, 4],
+        ]),
+      ).toEqual(["1:2", "3:4"]);
+    });
+
+    it("Should encode a marked value at a path into a record", () => {
+      const { convert } = caseconv.camelToSnakePath(["pairs", "first"], {
+        schema: z.object({ pairs: z.record(z.string(), pairZ) }),
+      });
+      expect(convert([1, 2])).toEqual("1:2");
+    });
+
+    it("Should decode a marked value at the end of a camel case path", () => {
+      const decodablePairZ = caseconv.encodeWith(
+        z
+          .union([z.tuple([z.number(), z.number()]), z.string()])
+          .transform((v) => (typeof v === "string" ? v.split(":").map(Number) : v)),
+        ([a, b]) => `${a}:${b}`,
+      );
+      const { convert } = caseconv.snakeToCamelPath(["nested", "inner_pair"], {
+        schema: z.object({ nested: z.object({ innerPair: decodablePairZ }) }),
+      });
+      expect(convert("1:2")).toEqual([1, 2]);
+      expect(convert([3, 4])).toEqual([3, 4]);
+    });
+  });
+
   describe("preserveCase", () => {
     describe("with ZodRecord", () => {
       it("should preserve case for record keys marked with preserveCase", () => {

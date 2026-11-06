@@ -16,7 +16,6 @@ cc_library(
     hdrs = [
         "color.h",
         "json.gen.h",
-        "proto.gen.h",
         "types.gen.h",
     ],
     # GCC's libstdc++ <regex> trips a false-positive maybe-uninitialized warning when
@@ -41,6 +40,7 @@ cc_test(
     ],
     deps = [
         ":color",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

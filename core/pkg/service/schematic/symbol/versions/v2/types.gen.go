@@ -100,8 +100,6 @@ func (s *Spec) ApplyDefaults() {
 // schema constraints.
 func (s Spec) Validate() error {
 	v := validate.New("Spec")
-	v.NotEmptyString("svg", s.SVG)
-	v.NotEmptyString("variant", s.Variant)
 	for i := range s.Handles {
 		v.Exec(func() error { return validate.PathedError(s.Handles[i].Validate(), "handles", strconv.Itoa(i)) })
 	}
@@ -128,7 +126,6 @@ func (s *Symbol) ApplyDefaults() {
 // schema constraints.
 func (s Symbol) Validate() error {
 	v := validate.New("Symbol")
-	v.NotEmptyString("name", s.Name)
 	v.Exec(func() error { return validate.PathedError(s.Data.Validate(), "data") })
 	return v.Error()
 }

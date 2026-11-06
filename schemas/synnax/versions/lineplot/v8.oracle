@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/versions/channel/v0"
-import "schemas/synnax/versions/ranger/v1"
-import "schemas/x/versions/color/v0"
+import "schemas/synnax/versions/ranger/v2"
+import "schemas/x/versions/color/v2"
 
 Key = v0.Key
 
@@ -80,7 +80,7 @@ Line struct {
     @go marshal
 }
 
-Rule = v5.Rule
+Rule struct extends v5.Rule {}
 
 LinePlot struct {
     key      Key = create {

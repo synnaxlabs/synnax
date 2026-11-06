@@ -7,110 +7,111 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+
 import pytest
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from x.color import Color
 
 
 class TestColor:
-    def test_from_hex_6_char(self) -> None:
-        c = Color("#ff0000")
-        assert c.r == 255
-        assert c.g == 0
-        assert c.b == 0
-        assert c.a == 1.0
+    @pytest.mark.parametrize(
+        ("value", "expected"),
+        [
+            ("#ff0000", (255, 0, 0, 255)),
+            ("00ff00", (0, 255, 0, 255)),
+            ("#ff000080", (255, 0, 0, 128)),
+            ("#00000000", (0, 0, 0, 0)),
+            ({}, (0, 0, 0, 0)),
+            ([255, 0, 0], (255, 0, 0, 255)),
+            ([255, 0, 0, 0], (255, 0, 0, 0)),
+            ([255, 0, 0, 0.003], (255, 0, 0, 1)),
+            ([255, 0, 0, 0.5], (255, 0, 0, 128)),
+            ([255, 0, 0, 1], (255, 0, 0, 255)),
+            ([255, 0, 0, 1.5], (255, 0, 0, 255)),
+            ([255, 0, 0, 2], (255, 0, 0, 255)),
+            ([255, 0, 0, 2.4], (255, 0, 0, 2)),
+            ([255, 0, 0, 128], (255, 0, 0, 128)),
+            ((255, 0, 0), (255, 0, 0, 255)),
+            ({"rgba255": [122, 44, 38, 0.5]}, (122, 44, 38, 128)),
+            ({"rgba255": [5, 5, 5, 255]}, (5, 5, 5, 255)),
+            ({"rgba255": [5, 5, 5]}, (5, 5, 5, 255)),
+            ({"r": 255, "g": 128, "b": 0, "a": 64}, (255, 128, 0, 64)),
+            ({"r": 255, "g": 128, "b": 0}, (255, 128, 0, 255)),
+            ("rgb(255, 0, 0)", (255, 0, 0, 255)),
+            ("rgba(100, 200, 50, 0.5)", (100, 200, 50, 128)),
+            ("rgba(0, 0, 0, 0.3)", (0, 0, 0, 77)),
+            ("rgba(0, 0, 0, 0.7)", (0, 0, 0, 179)),
+        ],
+    )
+    def test_parse(self, value: object, expected: tuple[int, int, int, int]) -> None:
+        c = Color(value)
+        assert (c.r, c.g, c.b, c.a) == expected
 
-    def test_from_hex_8_char(self) -> None:
-        c = Color("#ff000080")
-        assert c.r == 255
-        assert c.g == 0
-        assert c.b == 0
-        assert abs(c.a - 128 / 255) < 0.01
+    def test_default_alpha_is_opaque(self) -> None:
+        assert Color(r=255, g=0, b=0).a == 255
 
-    def test_from_hex_without_hash(self) -> None:
-        c = Color("00ff00")
-        assert c.r == 0
-        assert c.g == 255
-        assert c.b == 0
+    def test_keyword_alpha_is_a_byte(self) -> None:
+        assert Color(r=255, g=0, b=0, a=1).a == 1
 
-    def test_from_array_rgb(self) -> None:
-        c = Color([255, 0, 0])
-        assert c.r == 255
-        assert c.a == 1.0
-
-    def test_from_array_rgba(self) -> None:
-        c = Color([255, 0, 0, 0.5])
-        assert c.r == 255
-        assert c.a == 0.5
-
-    def test_from_dict(self) -> None:
-        c = Color({"r": 255, "g": 128, "b": 0, "a": 1.0})
-        assert c.r == 255
-        assert c.g == 128
-        assert c.b == 0
-        assert c.a == 1.0
-
-    def test_from_rgb_string(self) -> None:
-        c = Color("rgb(255, 0, 0)")
-        assert c.r == 255
-        assert c.g == 0
-        assert c.b == 0
-        assert c.a == 1.0
-
-    def test_from_rgba_string(self) -> None:
-        c = Color("rgba(100, 200, 50, 0.5)")
-        assert c.r == 100
-        assert c.g == 200
-        assert c.b == 50
-        assert c.a == 0.5
+    @pytest.mark.parametrize("a", [0.5, 1.0, "1"])
+    def test_non_integer_keyword_alpha_rejected(self, a: object) -> None:
+        with pytest.raises(ValidationError):
+            Color(r=255, g=0, b=0, a=a)
 
     def test_rgb_string_to_hex(self) -> None:
         assert Color("rgb(255, 0, 0)").hex() == "#ff0000"
 
     def test_hex_output_no_alpha(self) -> None:
-        c = Color(r=255, g=0, b=0, a=1.0)
-        assert c.hex() == "#ff0000"
+        assert Color(r=255, g=0, b=0).hex() == "#ff0000"
 
     def test_hex_output_with_alpha(self) -> None:
-        c = Color(r=255, g=0, b=0, a=0.5)
-        h = c.hex()
-        assert h.startswith("#ff0000")
-        assert len(h) == 9
+        assert Color(r=255, g=0, b=0, a=128).hex() == "#ff000080"
 
     def test_is_zero(self) -> None:
         assert Color(r=0, g=0, b=0, a=0).is_zero
-        assert not Color().is_zero
-        assert not Color(r=1).is_zero
-        assert not Color(a=0.5).is_zero
+        assert Color().is_zero
+        assert not Color(r=1, a=0).is_zero
 
-    def test_round_trip_dict(self) -> None:
-        original = Color(r=100, g=200, b=50, a=0.75)
-        d = original.model_dump()
-        restored = Color(d)
-        assert restored == original
+    def test_serializes_to_eight_digit_hex(self) -> None:
+        assert Color(r=255, g=0, b=1).model_dump_json() == '"#ff0001ff"'
+        assert Color(r=1, g=2, b=3, a=4).model_dump_json() == '"#01020304"'
+        assert Color(r=0, g=0, b=0, a=0).model_dump_json() == '"#00000000"'
+
+    def test_serializes_nested_color_to_hex(self) -> None:
+        class Holder(BaseModel):
+            color: Color
+
+        assert Holder(color=Color("#ff0000")).model_dump() == {"color": "#ff0000ff"}
+
+    @pytest.mark.parametrize("a", range(256))
+    def test_round_trip_every_alpha(self, a: int) -> None:
+        original = Color(r=100, g=200, b=50, a=a)
+        assert Color(original.model_dump()) == original
+        assert Color.model_validate_json(original.model_dump_json()) == original
 
     def test_eq_hex(self) -> None:
-        assert Color(r=255, g=0, b=0, a=1.0) == "#ff0000"
+        assert Color(r=255, g=0, b=0) == "#ff0000"
 
     def test_eq_array_rgb(self) -> None:
-        assert Color(r=255, g=0, b=0, a=1.0) == [255, 0, 0]
+        assert Color(r=255, g=0, b=0) == [255, 0, 0]
 
     def test_eq_array_rgba(self) -> None:
-        assert Color(r=255, g=0, b=0, a=0.5) == [255, 0, 0, 0.5]
+        assert Color(r=255, g=0, b=0, a=128) == [255, 0, 0, 0.5]
 
     def test_eq_tuple(self) -> None:
-        assert Color(r=255, g=0, b=0, a=1.0) == (255, 0, 0)
+        assert Color(r=255, g=0, b=0) == (255, 0, 0)
 
     def test_neq_hex(self) -> None:
-        assert Color(r=255, g=0, b=0, a=1.0) != "#00ff00"
+        assert Color(r=255, g=0, b=0) != "#00ff00"
 
     def test_eq_invalid_returns_not_implemented(self) -> None:
-        assert Color(r=255, g=0, b=0, a=1.0) != 42
+        assert Color(r=255, g=0, b=0) != 42
 
-    def test_invalid_hex(self) -> None:
+    @pytest.mark.parametrize("value", ["#xyz", "#12345", "#gggggg"])
+    def test_invalid_hex(self, value: str) -> None:
         with pytest.raises(ValueError, match="Invalid hex color"):
-            Color("#xyz")
+            Color(value)
 
     @pytest.mark.parametrize("value", ["", "#"])
     def test_empty_hex(self, value: str) -> None:
@@ -121,55 +122,16 @@ class TestColor:
         with pytest.raises(ValueError, match="Invalid color array length: 2"):
             Color([1, 2])
 
-    def test_default_alpha_is_opaque(self) -> None:
-        c = Color(r=255, g=0, b=0)
-        assert c.a == 1.0
+    @pytest.mark.parametrize(
+        "value", [[255, 0, 0, 300], [255, 0, 0, -1], {"rgba255": [5, 5, 5, 256]}]
+    )
+    def test_alpha_outside_range_rejected(self, value: object) -> None:
+        with pytest.raises(ValueError, match="outside the 0-255 range"):
+            Color(value)
 
-    def test_legacy_alpha_255_in_array(self) -> None:
-        c = Color([28, 28, 28, 255])
-        assert c == Color(r=28, g=28, b=28, a=1.0)
-
-    def test_legacy_alpha_mid_range_in_array(self) -> None:
-        c = Color([255, 0, 0, 128])
-        assert abs(c.a - 128 / 255) < 0.001
-
-    def test_legacy_alpha_just_above_1_clamps_to_opaque(self) -> None:
-        c = Color([255, 0, 0, 1.5])
-        assert c.a == 1.0
-
-    def test_legacy_alpha_at_clamp_boundary(self) -> None:
-        c = Color([255, 0, 0, 2])
-        assert c.a == 1.0
-
-    def test_legacy_alpha_just_above_clamp_boundary_divides(self) -> None:
-        c = Color([255, 0, 0, 2.01])
-        assert abs(c.a - 2.01 / 255) < 0.001
-
-    def test_alpha_above_255_rejected(self) -> None:
-        with pytest.raises(ValueError, match="above the 0-255 scale"):
-            Color([255, 0, 0, 300])
-        with pytest.raises(ValueError, match="above the 0-255 scale"):
-            Color({"r": 5, "g": 5, "b": 5, "a": 300})
-
-    def test_alpha_1_stays_opaque(self) -> None:
-        c = Color([255, 0, 0, 1])
-        assert c.a == 1.0
-
-    def test_fractional_alpha_untouched(self) -> None:
-        c = Color([255, 0, 0, 0.25])
-        assert c.a == 0.25
-
-    def test_legacy_alpha_255_in_dict(self) -> None:
-        c = Color({"r": 5, "g": 5, "b": 5, "a": 255})
-        assert c == Color(r=5, g=5, b=5, a=1.0)
-
-    def test_legacy_rgba255_object(self) -> None:
-        c = Color({"rgba255": [5, 5, 5, 255]})
-        assert c == Color(r=5, g=5, b=5, a=1.0)
-
-    def test_legacy_rgba255_object_with_fractional_alpha(self) -> None:
-        c = Color({"rgba255": [122, 44, 38, 0.5]})
-        assert c == Color(r=122, g=44, b=38, a=0.5)
+    def test_rgba_string_alpha_above_1_rejected(self) -> None:
+        with pytest.raises(ValueError, match="rgba alpha must be 0-1"):
+            Color("rgba(1, 2, 3, 1.5)")
 
     @pytest.mark.parametrize(
         "value",

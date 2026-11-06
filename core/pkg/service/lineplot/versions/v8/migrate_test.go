@@ -23,6 +23,8 @@ import (
 	v7 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v7"
 	v8 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v8"
 	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
+	color "github.com/synnaxlabs/x/color/versions/v0"
+	colorv2 "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	. "github.com/synnaxlabs/x/testutil"
@@ -330,6 +332,36 @@ var _ = Describe("MigrateLine", func() {
 		Expect(v8.MigrateLine(ctx, v7.Line{Key: "l1"})).Error().
 			To(MatchError(ContainSubstring(`malformed v7 line key "l1"`)))
 	})
+
+	DescribeTable("Should store the line color alpha as a byte",
+		func(ctx SpecContext, a float64, expected uint8) {
+			l := MustSucceed(v8.MigrateLine(ctx, v7.Line{
+				Key: "y1---x1---a---10---5", Color: &color.Color{B: 3, A: a},
+			}))
+			Expect(l.Color).To(HaveValue(Equal(colorv2.Color{B: 3, A: expected})))
+		},
+		alphaEntries,
+	)
+})
+
+var alphaEntries = []TableEntry{
+	Entry("a transparent alpha", 0.0, uint8(0)),
+	Entry("a faint alpha", 0.003, uint8(1)),
+	Entry("a half alpha", 0.5, uint8(128)),
+	Entry("an opaque alpha", 1.0, uint8(255)),
+}
+
+var _ = Describe("MigrateRule", func() {
+	DescribeTable("Should store the rule color alpha as a byte",
+		func(ctx SpecContext, a float64, expected uint8) {
+			r := MustSucceed(v8.MigrateRule(ctx, v7.Rule{
+				Key: "r", Color: &color.Color{R: 9, A: a},
+			}))
+			Expect(r.Key).To(Equal("r"))
+			Expect(r.Color).To(HaveValue(Equal(colorv2.Color{R: 9, A: expected})))
+		},
+		alphaEntries,
+	)
 })
 
 var _ = Describe("RaiseStrokeWidths", func() {

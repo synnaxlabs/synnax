@@ -18,6 +18,8 @@ import (
 	"github.com/synnaxlabs/gorp"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v3"
+	color "github.com/synnaxlabs/x/color/versions/v0"
+	colorv2 "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -56,6 +58,18 @@ var _ = Describe("Migration", func() {
 		Entry("Should raise a negative value to 0", int32(-1), uint8(0)),
 		Entry("Should keep a value in range", int32(2), uint8(2)),
 		Entry("Should lower a value past 3", int32(9), uint8(3)),
+	)
+
+	DescribeTable("Should store the channel color alpha as a byte",
+		func(ctx SpecContext, a float64, expected uint8) {
+			old := v2.ChannelEntry{Channel: 1, Color: color.Color{R: 1, G: 2, A: a}}
+			Expect(MustSucceed(v3.MigrateChannelEntry(ctx, old)).Color).
+				To(Equal(colorv2.Color{R: 1, G: 2, A: expected}))
+		},
+		Entry("a transparent alpha", 0.0, uint8(0)),
+		Entry("a faint alpha", 0.003, uint8(1)),
+		Entry("a half alpha", 0.5, uint8(128)),
+		Entry("an opaque alpha", 1.0, uint8(255)),
 	)
 
 	It("Should lift every channel entry of a log", func(ctx SpecContext) {

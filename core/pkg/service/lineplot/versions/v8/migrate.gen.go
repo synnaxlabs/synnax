@@ -16,11 +16,18 @@ import (
 
 	"github.com/samber/lo"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v7"
+	color "github.com/synnaxlabs/x/color/versions/v2"
 )
 
 func autoMigrateLinePlot(ctx context.Context, old v7.LinePlot) (LinePlot, error) {
 	lines, err := lo.MapErr(old.Lines, func(v v7.Line, _ int) (Line, error) {
 		return MigrateLine(ctx, v)
+	})
+	if err != nil {
+		return LinePlot{}, err
+	}
+	rules, err := lo.MapErr(old.Rules, func(v v7.Rule, _ int) (Rule, error) {
+		return MigrateRule(ctx, v)
 	})
 	if err != nil {
 		return LinePlot{}, err
@@ -33,17 +40,46 @@ func autoMigrateLinePlot(ctx context.Context, old v7.LinePlot) (LinePlot, error)
 		Channels: old.Channels,
 		Axes:     old.Axes,
 		Lines:    lines,
-		Rules:    old.Rules,
+		Rules:    rules,
 	}, nil
 }
 
-func autoMigrateLine(_ context.Context, old v7.Line) (Line, error) {
+func autoMigrateLine(ctx context.Context, old v7.Line) (Line, error) {
+	var colorVal *color.Color
+	if old.Color != nil {
+		v, err := color.MigrateColor(ctx, *old.Color)
+		if err != nil {
+			return Line{}, err
+		}
+		colorVal = &v
+	}
 	return Line{
 		Key:         old.Key,
 		Label:       old.Label,
-		Color:       old.Color,
+		Color:       colorVal,
 		StrokeWidth: old.StrokeWidth,
 		Aggregation: old.Aggregation,
 		Detail:      old.Detail,
+	}, nil
+}
+
+func autoMigrateRule(ctx context.Context, old v7.Rule) (Rule, error) {
+	var colorVal *color.Color
+	if old.Color != nil {
+		v, err := color.MigrateColor(ctx, *old.Color)
+		if err != nil {
+			return Rule{}, err
+		}
+		colorVal = &v
+	}
+	return Rule{
+		Key:       old.Key,
+		Label:     old.Label,
+		Color:     colorVal,
+		Axis:      old.Axis,
+		LineWidth: old.LineWidth,
+		LineDash:  old.LineDash,
+		Units:     old.Units,
+		Position:  old.Position,
 	}, nil
 }

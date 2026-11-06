@@ -32,7 +32,7 @@ export const parseHexInput = (text: string, alpha: number): color.Color | undefi
   );
   if (parsed == null) return undefined;
   if (!HEX_WITHOUT_ALPHA.test(trimmed)) return parsed;
-  return color.setAlpha(parsed, alpha === 0 ? 1 : alpha);
+  return color.setOpacity(parsed, alpha === 0 ? 1 : alpha);
 };
 
 export interface HexTextProps extends Omit<

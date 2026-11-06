@@ -375,7 +375,7 @@ describe("log/aether/Log", () => {
       expect(parsed.channelNamesHidden).toBe(true);
       expect(parsed.timestampPrecision).toBe(2);
       expect(parsed.channels).toHaveLength(2);
-      expect(parsed.channels[0].color).toEqual([255, 0, 0, 1]);
+      expect(parsed.channels[0].color).toEqual([255, 0, 0, 255]);
       expect(parsed.channels[0].precision).toBe(3);
     });
   });

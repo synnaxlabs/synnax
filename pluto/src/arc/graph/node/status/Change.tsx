@@ -24,7 +24,7 @@ export const Symbol = ({ config: { message, variant } }: SymbolProps) => (
   <Base
     type="Change status"
     Icon={<Icon.Notification />}
-    color={color.cssString(color.setAlpha(RED_HEX, 0.2))}
+    color={color.cssString(color.setOpacity(RED_HEX, 0.2))}
     textColor={color.cssString(RED_HEX)}
     sinks={[{ key: "output", Icon: Icon.Value }]}
   >

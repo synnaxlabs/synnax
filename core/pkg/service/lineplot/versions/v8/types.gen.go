@@ -16,8 +16,8 @@ import (
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v7"
-	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
-	color "github.com/synnaxlabs/x/color/versions/v0"
+	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v2"
+	color "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -149,7 +149,40 @@ func (l Line) Validate() error {
 }
 
 // Rule is a horizontal or vertical annotation line drawn over the plot.
-type Rule = v7.Rule
+type Rule struct {
+	// Key is the unique rule identifier within the line plot.
+	Key string `json:"key" msgpack:"key"`
+	// Label is the human-readable label rendered alongside the rule.
+	Label string `json:"label" msgpack:"label"`
+	// Color is the display color of the rule. When null, the Console assigns a default
+	// at render time.
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
+	// Axis is the axis the rule is anchored to.
+	Axis AxisKey `json:"axis" msgpack:"axis"`
+	// LineWidth is the rule line width in pixels.
+	LineWidth float64 `json:"line_width" msgpack:"line_width"`
+	// LineDash is the dash length in pixels; 0 renders a solid line.
+	LineDash float64 `json:"line_dash" msgpack:"line_dash"`
+	// Units is the unit label displayed next to the position value.
+	Units string `json:"units" msgpack:"units"`
+	// Position is the value-space position of the rule along its anchored axis.
+	Position float64 `json:"position" msgpack:"position"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (r *Rule) ApplyDefaults() {
+	if r.LineWidth == 0 {
+		r.LineWidth = 1
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r Rule) Validate() error {
+	v := validate.New("Rule")
+	v.Ternaryf("axis", !r.Axis.IsValid(), "invalid axis: %v", r.Axis)
+	return v.Error()
+}
 
 // LinePlot is a time-series visualization component for plotting telemetry data. Line
 // plots support multiple channels, real-time streaming, and historical data display

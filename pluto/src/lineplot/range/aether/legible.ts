@@ -66,7 +66,7 @@ export const legible = (c: color.Color, t: theme.Theme): color.Color => {
 };
 
 /** @returns the color with its OKLCH lightness set, keeping its chroma and hue. */
-export const withLightness = (c: color.Color, l: number, alpha = 1): color.Color =>
+export const withLightness = (c: color.Color, l: number, alpha = 255): color.Color =>
   fromOKLCH({ ...toOKLCH(c), l }, alpha);
 
 /** @returns fg composited over bg at the given alpha, as an opaque color. */
@@ -74,5 +74,5 @@ export const over = (fg: color.Color, bg: color.Color, alpha: number): color.Col
   Math.round(fg[0] * alpha + bg[0] * (1 - alpha)),
   Math.round(fg[1] * alpha + bg[1] * (1 - alpha)),
   Math.round(fg[2] * alpha + bg[2] * (1 - alpha)),
-  1,
+  255,
 ];

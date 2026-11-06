@@ -15,8 +15,7 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 
-	"github.com/synnaxlabs/synnax/pkg/service/label"
-	labelv0 "github.com/synnaxlabs/synnax/pkg/service/label/versions/v0"
+	label "github.com/synnaxlabs/synnax/pkg/service/label/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v0"
 	color "github.com/synnaxlabs/x/color/versions/v0"
 	"github.com/synnaxlabs/x/errors"
@@ -49,14 +48,6 @@ type Range struct {
 	Parent *Range `json:"parent,omitzero" msgpack:"parent,omitempty"`
 }
 
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (r Range) Validate() error {
-	v := validate.New("Range")
-	v.NotEmptyString("name", r.Name)
-	return v.Error()
-}
-
 // Where is a filter that selects ranges.
 type Where struct {
 	// And matches when every child matches.
@@ -72,7 +63,7 @@ type Where struct {
 	// Overlaps matches ranges whose time range overlaps the given range.
 	Overlaps *telem.TimeRange `json:"overlaps,omitzero" msgpack:"overlaps,omitempty"`
 	// Labels matches ranges that have any of the given labels.
-	Labels []labelv0.Key `json:"labels,omitzero" msgpack:"labels,omitempty"`
+	Labels []label.Key `json:"labels,omitzero" msgpack:"labels,omitempty"`
 }
 
 // RefType is the "variant" value that selects a variant of Ref.

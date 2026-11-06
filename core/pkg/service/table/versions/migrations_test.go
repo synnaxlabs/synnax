@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/table/versions"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v2"
@@ -26,7 +27,7 @@ var _ = Describe("Migrations", func() {
 		"Should key the rows and columns of a table stored by a v2 Core",
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
-			v2Chain := versions.Migrations[:len(versions.Migrations)-1]
+			v2Chain := versions.Migrations[:len(versions.Migrations)-2]
 			MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v2.Key, v2.Table]{
 				DB:         db,
 				Migrations: v2Chain,
@@ -68,4 +69,20 @@ var _ = Describe("Migrations", func() {
 			Expect(got.Validate()).To(Succeed())
 		},
 	)
+	// Applied migrations are tracked by key, so renaming or reordering an entry
+	// re-runs or skips it on stores that already migrated. The chain is pinned
+	// verbatim; extend it for a new version, never edit shipped entries.
+	It("Should pin the migration chain keys in order", func() {
+		Expect(lo.Map(
+			versions.Migrations,
+			func(m gorp.Migration, _ int) string { return m.Key() },
+		)).To(Equal([]string{
+			"normalize_keys",
+			"msgpack_to_orc",
+			"v55_lift_typed_table",
+			"v2_typed_cell_configs",
+			"v3_row_and_column_keys",
+			"v61_color_alpha_byte",
+		}))
+	})
 })

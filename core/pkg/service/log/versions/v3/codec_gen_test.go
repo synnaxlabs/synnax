@@ -19,7 +19,7 @@ import (
 	. "github.com/onsi/gomega"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/log/versions/v3"
-	color "github.com/synnaxlabs/x/color/versions/v0"
+	color "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
@@ -44,7 +44,7 @@ var _ = Describe("Codec", func() {
 					R: 4,
 					G: 5,
 					B: 6,
-					A: 6.5,
+					A: 7,
 				},
 				Notation:  notation.Notation("standard"),
 				Precision: new(uint8(9)),
@@ -90,7 +90,7 @@ var _ = Describe("Codec", func() {
 							R: 7,
 							G: 8,
 							B: 9,
-							A: 9.5,
+							A: 10,
 						},
 						Notation:  notation.Notation("standard"),
 						Precision: new(uint8(12)),
@@ -135,7 +135,7 @@ func BenchmarkEncodeDecodeChannelEntry(b *testing.B) {
 			R: 4,
 			G: 5,
 			B: 6,
-			A: 6.5,
+			A: 7,
 		},
 		Notation:  notation.Notation("standard"),
 		Precision: new(uint8(9)),
@@ -171,7 +171,7 @@ func BenchmarkEncodeDecodeLog(b *testing.B) {
 					R: 7,
 					G: 8,
 					B: 9,
-					A: 9.5,
+					A: 10,
 				},
 				Notation:  notation.Notation("standard"),
 				Precision: new(uint8(12)),
@@ -210,7 +210,7 @@ func FuzzDecodeChannelEntry(f *testing.F) {
 				R: 4,
 				G: 5,
 				B: 6,
-				A: 6.5,
+				A: 7,
 			},
 			Notation:  notation.Notation("standard"),
 			Precision: new(uint8(9)),
@@ -280,7 +280,7 @@ func FuzzDecodeLog(f *testing.F) {
 						R: 7,
 						G: 8,
 						B: 9,
-						A: 9.5,
+						A: 10,
 					},
 					Notation:  notation.Notation("standard"),
 					Precision: new(uint8(12)),

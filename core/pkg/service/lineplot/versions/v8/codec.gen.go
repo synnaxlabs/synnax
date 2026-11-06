@@ -13,8 +13,8 @@ package v8
 
 import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
-	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
-	color "github.com/synnaxlabs/x/color/versions/v0"
+	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v2"
+	color "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -237,6 +237,70 @@ func (lp *LinePlot) DecodeOrc(r *orc.Reader) error {
 				}
 			}
 		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (rv Rule) EncodeOrc(w *orc.Writer) error {
+	w.String(rv.Key)
+	w.String(rv.Label)
+	if rv.Color != nil {
+		w.Bool(true)
+		if err := rv.Color.EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
+	w.String(string(rv.Axis))
+	w.Float64(float64(rv.LineWidth))
+	w.Float64(float64(rv.LineDash))
+	w.String(rv.Units)
+	w.Float64(float64(rv.Position))
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (rv *Rule) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if rv.Key, err = r.String(); err != nil {
+		return err
+	}
+	if rv.Label, err = r.String(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv color.Color
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			rv.Color = &hv
+		}
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		rv.Axis = AxisKey(rawV)
+	}
+	if rv.LineWidth, err = r.Float64(); err != nil {
+		return err
+	}
+	if rv.LineDash, err = r.Float64(); err != nil {
+		return err
+	}
+	if rv.Units, err = r.String(); err != nil {
+		return err
+	}
+	if rv.Position, err = r.Float64(); err != nil {
+		return err
 	}
 	return nil
 }

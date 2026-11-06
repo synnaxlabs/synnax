@@ -141,7 +141,7 @@ interface InputRowProps {
 }
 
 const InputRow = ({ value, onChange }: InputRowProps): ReactElement => {
-  const alpha = color.aValue(value);
+  const alpha = color.opacity(value);
   return (
     <Flex.Box x gap="small" align="center">
       <HexText
@@ -149,7 +149,7 @@ const InputRow = ({ value, onChange }: InputRowProps): ReactElement => {
         size="small"
         grow
         startContent="#"
-        text={color.hex(color.setAlpha(value, 1)).slice(1)}
+        text={color.hex(color.setOpacity(value, 1)).slice(1)}
         alpha={alpha}
         onChange={onChange}
       />
@@ -162,7 +162,7 @@ const InputRow = ({ value, onChange }: InputRowProps): ReactElement => {
         endContent="%"
         startContent={<Icon.Opacity />}
         showDragHandle={false}
-        onChange={(pct) => onChange(color.setAlpha(value, pct / 100))}
+        onChange={(pct) => onChange(color.setOpacity(value, pct / 100))}
       />
       <Button.Copy
         size="small"

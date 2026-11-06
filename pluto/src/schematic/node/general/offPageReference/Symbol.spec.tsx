@@ -36,7 +36,7 @@ describe("OffPageReference", () => {
       expect(arrow?.getAttribute("class")).toContain("lyra-symbol-colored");
       // The source var carries the alpha channel so transparency survives the transform.
       expect(arrow?.style.getPropertyValue("--pluto-symbol-color")).toBe(
-        `${color.rgbString("#3774d0")}, ${color.aValue("#3774d0")}`,
+        `${color.rgbString("#3774d0")}, ${color.opacity("#3774d0")}`,
       );
     });
 

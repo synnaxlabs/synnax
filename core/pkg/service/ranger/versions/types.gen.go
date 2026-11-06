@@ -11,37 +11,37 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
+import "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v2"
 
 // Key is a unique identifier for a range, represented as a UUID.
-type Key = v1.Key
+type Key = v2.Key
 
 // Range is a user-defined region of time in the Synnax cluster. Ranges act as a method
 // for labeling and categorizing telemetry data within specific time periods.
-type Range = v1.Range
+type Range = v2.Range
 
 // Where is a filter that selects ranges.
-type Where = v1.Where
+type Where = v2.Where
 
 // Ref is the range a visualization shows: a range saved in the Core, or an inline
 // window.
-type Ref = v1.Ref
+type Ref = v2.Ref
 
 // RefVariant is implemented by every Ref variant.
-type RefVariant = v1.RefVariant
+type RefVariant = v2.RefVariant
 
 // RefType is the "variant" value that selects a variant of Ref.
-type RefType = v1.RefType
+type RefType = v2.RefType
 
 const (
 	// KeyRefType is a range saved in the Core.
-	KeyRefType RefType = v1.KeyRefType
+	KeyRefType RefType = v2.KeyRefType
 	// WindowRefType is a window carried inline: rolling or fixed.
-	WindowRefType RefType = v1.WindowRefType
+	WindowRefType RefType = v2.WindowRefType
 )
 
 // KeyRef is a range saved in the Core.
-type KeyRef = v1.KeyRef
+type KeyRef = v2.KeyRef
 
 // WindowRef is a window carried inline: rolling or fixed.
-type WindowRef = v1.WindowRef
+type WindowRef = v2.WindowRef

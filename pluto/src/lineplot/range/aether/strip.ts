@@ -203,7 +203,7 @@ export const drawFills = (
     if (bar !== hovered && bar.enclosing) return;
     draw.container({
       region: box.construct({ x: bar.x0, y: top }, { x: bar.x1, y: bottom }),
-      backgroundColor: color.setAlpha(
+      backgroundColor: color.setOpacity(
         bar.display,
         bar === hovered ? fill * HOVERED_FILL_SCALE : fill,
       ),
@@ -212,7 +212,7 @@ export const drawFills = (
     });
   });
   shown.forEach((bar) => {
-    const stroke = color.setAlpha(
+    const stroke = color.setOpacity(
       bar.display,
       bar === hovered ? HOVERED_EDGE_ALPHA : EDGE_ALPHA,
     );
@@ -269,7 +269,7 @@ export const drawBars = (
       box.height(b) - 1,
       radii,
     );
-    ctx.strokeStyle = color.hex(color.setAlpha(bar.display, s.stroke));
+    ctx.strokeStyle = color.hex(color.setOpacity(bar.display, s.stroke));
     ctx.lineWidth = 1;
     ctx.setLineDash([]);
     ctx.stroke();

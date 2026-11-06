@@ -21,17 +21,15 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-// Schema is a zyn schema for parsing a color.
-var Schema = zyn.Object(map[string]zyn.Schema{
-	"r": zyn.Number().Uint8().Coerce(),
-	"g": zyn.Number().Uint8().Coerce(),
-	"b": zyn.Number().Uint8().Coerce(),
-	"a": zyn.Number().Float64().Coerce(),
-})
+// Schema is a zyn schema that dumps a color as its "#rrggbbaa" hex string.
+var Schema = zyn.String()
 
-// FromHex parses a hex color string into a Color. Supports 6 or 8 character hex
-// strings with or without a leading '#'.
+// FromHex parses a 6 or 8 digit hex color string, with or without a leading '#'. The
+// alpha of a 6 digit string is 255.
 func FromHex(s string) (Color, error) { return versions.FromHex(s) }
+
+// FromUint32 unpacks a color from its 0xRRGGBBAA form.
+func FromUint32(v uint32) Color { return versions.FromUint32(v) }
 
 // rgbPattern matches an rgb()/rgba() string with three 0-255 channels and an
 // optional alpha.
@@ -67,8 +65,9 @@ func FromCSS(s string) (Color, error) {
 }
 
 // parseAlpha validates the fn/fna pairing against the presence of a 4th channel
-// and parses it. fn is the base function name ("rgb" or "hsl").
-func parseAlpha(fn, name, raw, s string) (float64, error) {
+// and converts its 0-1 CSS alpha to a byte. fn is the base function name ("rgb" or
+// "hsl").
+func parseAlpha(fn, name, raw, s string) (uint8, error) {
 	hasAlpha := raw != ""
 	if name == fn && hasAlpha {
 		return 0, errors.Wrapf(
@@ -85,7 +84,7 @@ func parseAlpha(fn, name, raw, s string) (float64, error) {
 		)
 	}
 	if !hasAlpha {
-		return 1, nil
+		return 255, nil
 	}
 	a, err := strconv.ParseFloat(raw, 64)
 	if err != nil {
@@ -98,7 +97,7 @@ func parseAlpha(fn, name, raw, s string) (float64, error) {
 			fn, s,
 		)
 	}
-	return a, nil
+	return uint8(math.Round(a * 255)), nil
 }
 
 func fromRGBMatch(m []string, s string) (Color, error) {

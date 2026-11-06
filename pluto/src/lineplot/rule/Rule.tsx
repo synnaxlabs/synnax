@@ -120,7 +120,7 @@ export const Rule = ({
   const colorStyles = {
     tag: {
       borderColor,
-      backgroundColor: color.hex(color.setAlpha(colorVal, 0.75)),
+      backgroundColor: color.hex(color.setOpacity(colorVal, 0.75)),
       ...style,
     },
     divider: { borderColor },

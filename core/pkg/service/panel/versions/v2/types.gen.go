@@ -117,7 +117,6 @@ func (p *Panel) ApplyDefaults() {
 // schema constraints.
 func (p Panel) Validate() error {
 	v := validate.New("Panel")
-	v.NotEmptyString("name", p.Name)
 	v.Exec(func() error { return validate.PathedError(p.Root.Validate(), "root") })
 	if p.Parent != nil {
 		v.Exec(func() error { return validate.PathedError(p.Parent.Validate(), "parent") })

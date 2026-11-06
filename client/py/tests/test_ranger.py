@@ -60,7 +60,7 @@ class TestRangeColor:
             time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
             color="#00ff00",
         )
-        assert rng.color == sy.Color(r=0, g=255, b=0, a=1.0)
+        assert rng.color == sy.Color(r=0, g=255, b=0)
 
 
 class TestRangeNotCreated:
@@ -112,7 +112,7 @@ class TestRangeClient:
         )
         assert rng.name == "test"
         assert rng.key != ""
-        assert rng.color == sy.Color(r=255, g=0, b=0, a=1.0)
+        assert rng.color == sy.Color(r=255, g=0, b=0)
 
     def test_create_retrieve_without_color(self, client: sy.Synnax) -> None:
         """Should keep a missing color as None instead of coercing it to black."""
@@ -154,7 +154,7 @@ class TestRangeClient:
         rng = client.ranges.create(name=random_name(), time_range=tr, color="#FF0000")
         client.ranges.create(key=rng.key, name=rng.name, time_range=tr, color="#0000FF")
         retrieved = client.ranges.retrieve(key=rng.key)
-        assert retrieved.color == sy.Color(r=0, g=0, b=255, a=1.0)
+        assert retrieved.color == sy.Color(r=0, g=0, b=255)
         client.ranges.create(key=rng.key, name=rng.name, time_range=tr)
         assert client.ranges.retrieve(key=rng.key).color is None
 

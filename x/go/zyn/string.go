@@ -10,6 +10,7 @@
 package zyn
 
 import (
+	"encoding"
 	"reflect"
 	"strconv"
 	"uuid"
@@ -90,6 +91,7 @@ func UUID() StringZ { return String().UUID() }
 //   - string values
 //   - numeric values (converted to string)
 //   - boolean values (converted to string)
+//   - encoding.TextMarshaler values (converted with MarshalText)
 func (s StringZ) Dump(data any) (any, error) {
 	if data == nil {
 		if s.optional {
@@ -141,6 +143,13 @@ func (s StringZ) Dump(data any) (any, error) {
 	case reflect.Bool:
 		return strconv.FormatBool(val.Bool()), nil
 	default:
+	}
+	if m, ok := reflect.TypeAssert[encoding.TextMarshaler](val); ok {
+		text, err := m.MarshalText()
+		if err != nil {
+			return nil, err
+		}
+		return string(text), nil
 	}
 	return nil, invalidStringTypeError(val)
 }

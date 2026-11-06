@@ -82,10 +82,7 @@ var _ = Describe("Ontology", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 			res := MustSucceed(svc.RetrieveResource(ctx, p.Key.String(), tx))
 			Expect(res.Data).To(HaveKeyWithValue("icon", "valve"))
-			var got color.Color
-			Expect(color.Schema.Parse(res.Data.(map[string]any)["color"], &got)).
-				To(Succeed())
-			Expect(got).To(Equal(c))
+			Expect(res.Data).To(HaveKeyWithValue("color", "#dc136cff"))
 		})
 
 		It("Should omit an unset icon and color", func(ctx SpecContext) {

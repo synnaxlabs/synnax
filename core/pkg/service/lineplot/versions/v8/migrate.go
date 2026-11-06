@@ -262,3 +262,8 @@ var StrokeWidthMigration = migrate.NewEntry(
 	"v61_min_line_stroke_width",
 	RaiseStrokeWidths,
 )
+
+// MigrateRule lifts a v7 rule to v8.
+func MigrateRule(ctx context.Context, old v7.Rule) (Rule, error) {
+	return autoMigrateRule(ctx, old)
+}

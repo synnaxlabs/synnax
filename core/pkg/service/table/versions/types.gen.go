@@ -11,55 +11,55 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/table/versions/v3"
+import "github.com/synnaxlabs/synnax/pkg/service/table/versions/v4"
 
 // Key is a unique identifier for a table, represented as a UUID.
-type Key = v3.Key
+type Key = v4.Key
 
 // FlexAlignment is a flex alignment for laid-out content.
-type FlexAlignment = v3.FlexAlignment
+type FlexAlignment = v4.FlexAlignment
 
 const (
 	// FlexAlignmentStart aligns content to the start.
-	FlexAlignmentStart FlexAlignment = v3.FlexAlignmentStart
+	FlexAlignmentStart FlexAlignment = v4.FlexAlignmentStart
 	// FlexAlignmentCenter aligns content to the center.
-	FlexAlignmentCenter FlexAlignment = v3.FlexAlignmentCenter
+	FlexAlignmentCenter FlexAlignment = v4.FlexAlignmentCenter
 	// FlexAlignmentEnd aligns content to the end.
-	FlexAlignmentEnd FlexAlignment = v3.FlexAlignmentEnd
+	FlexAlignmentEnd FlexAlignment = v4.FlexAlignmentEnd
 	// FlexAlignmentStretch stretches content to fill the available space.
-	FlexAlignmentStretch FlexAlignment = v3.FlexAlignmentStretch
+	FlexAlignmentStretch FlexAlignment = v4.FlexAlignmentStretch
 )
 
 // CellConfig is the per-cell configuration stored in the table cells map. The variant
 // selects which Pluto cell component renders the cell.
-type CellConfig = v3.CellConfig
+type CellConfig = v4.CellConfig
 
 // CellConfigVariant is implemented by every CellConfig variant.
-type CellConfigVariant = v3.CellConfigVariant
+type CellConfigVariant = v4.CellConfigVariant
 
 // CellConfigType is the "variant" value that selects a variant of CellConfig.
-type CellConfigType = v3.CellConfigType
+type CellConfigType = v4.CellConfigType
 
 const (
 	// TextCellConfigType is the configuration for static text cells.
-	TextCellConfigType CellConfigType = v3.TextCellConfigType
+	TextCellConfigType CellConfigType = v4.TextCellConfigType
 	// ValueCellConfigType is the configuration for live telemetry value cells.
-	ValueCellConfigType CellConfigType = v3.ValueCellConfigType
+	ValueCellConfigType CellConfigType = v4.ValueCellConfigType
 )
 
 // TextCellConfig is the configuration for static text cells.
-type TextCellConfig = v3.TextCellConfig
+type TextCellConfig = v4.TextCellConfig
 
 // ValueCellConfig is the configuration for live telemetry value cells.
-type ValueCellConfig = v3.ValueCellConfig
+type ValueCellConfig = v4.ValueCellConfig
 
 // Row is a single row in a table, with a key, height, and ordered cell keys.
-type Row = v3.Row
+type Row = v4.Row
 
 // Column is a single column in a table, with a key and width.
-type Column = v3.Column
+type Column = v4.Column
 
 // Table is a tabular data display component for viewing structured telemetry data.
 // Tables support multiple columns, channel data sources, and customizable formatting
 // options.
-type Table = v3.Table
+type Table = v4.Table
