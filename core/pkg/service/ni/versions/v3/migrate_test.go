@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("ScanMigration", func() {
@@ -139,34 +140,76 @@ var _ = Describe("Port and line migrations", func() {
 	)
 
 	Describe("A value outside the new range", func() {
+		const reason = "outside the range"
 		It("Should reject a negative port", func(ctx SpecContext) {
 			Expect(v3.MigrateBaseAIChannel(ctx, v2.BaseAIChannel{Key: "a", Port: -1})).
-				Error().To(MatchError(ContainSubstring("outside the range")))
+				Error().To(And(
+				MatchError(ContainSubstring(reason)),
+				MatchError(validate.ErrValidation),
+			))
 		})
 		It("Should reject a port above 65535", func(ctx SpecContext) {
 			Expect(
 				v3.MigrateBaseCIChannel(ctx, v2.BaseCIChannel{Key: "a", Port: 65536}),
 			).
 				Error().
-				To(MatchError(ContainSubstring("outside the range")))
+				To(MatchError(ContainSubstring(reason)))
 		})
 		It("Should reject the highest stored port", func(ctx SpecContext) {
 			Expect(v3.MigrateBaseAOChannel(
 				ctx, v2.BaseAOChannel{Key: "a", Port: math.MaxInt32},
-			)).Error().To(MatchError(ContainSubstring("outside the range")))
+			)).Error().To(MatchError(ContainSubstring(reason)))
 		})
 		It("Should reject a negative CJC port", func(ctx SpecContext) {
 			Expect(v3.MigrateCJC(ctx, v2.CJC{Variant: v2.ChanCJC{Port: -1}})).
-				Error().To(MatchError(ContainSubstring("outside the range")))
+				Error().To(MatchError(ContainSubstring(reason)))
+		})
+		It("Should reject a digital input port above 65535", func(ctx SpecContext) {
+			Expect(v3.MigrateDIChannel(ctx, v2.DIChannel{Key: "a", Port: 65536})).
+				Error().To(MatchError(ContainSubstring(reason)))
 		})
 		It("Should reject a digital input line above 255", func(ctx SpecContext) {
 			Expect(v3.MigrateDIChannel(ctx, v2.DIChannel{Key: "a", Line: 256})).
-				Error().To(MatchError(ContainSubstring("outside the range")))
+				Error().To(MatchError(ContainSubstring(reason)))
 		})
 		It("Should reject a digital output port above 65535", func(ctx SpecContext) {
 			Expect(v3.MigrateDOChannel(ctx, v2.DOChannel{Key: "a", Port: 65536})).
-				Error().To(MatchError(ContainSubstring("outside the range")))
+				Error().To(MatchError(ContainSubstring(reason)))
 		})
+		It("Should reject a digital output line above 255", func(ctx SpecContext) {
+			Expect(v3.MigrateDOChannel(ctx, v2.DOChannel{Key: "a", Line: 256})).
+				Error().To(MatchError(ContainSubstring(reason)))
+		})
+		It("Should reject each config with such a channel", func(ctx SpecContext) {
+			Expect(v3.MigrateDigitalReadConfig(ctx, v2.DigitalReadConfig{
+				Channels: []v2.DIChannel{{Line: 256}},
+			})).Error().To(MatchError(ContainSubstring(reason)))
+			Expect(v3.MigrateDigitalWriteConfig(ctx, v2.DigitalWriteConfig{
+				Channels: []v2.DOChannel{{Line: 256}},
+			})).Error().To(MatchError(ContainSubstring(reason)))
+			Expect(v3.MigrateAnalogReadConfig(ctx, v2.AnalogReadConfig{
+				Channels: []v2.AIChannel{{Variant: v2.AIVoltageChannel{
+					BaseAIChannel: v2.BaseAIChannel{Port: -1},
+				}}},
+			})).Error().To(MatchError(ContainSubstring(reason)))
+			Expect(v3.MigrateAnalogWriteConfig(ctx, v2.AnalogWriteConfig{
+				Channels: []v2.AOChannel{{Variant: v2.AOVoltageChannel{
+					BaseAOChannel: v2.BaseAOChannel{Port: -1},
+				}}},
+			})).Error().To(MatchError(ContainSubstring(reason)))
+			Expect(v3.MigrateCounterReadConfig(ctx, v2.CounterReadConfig{
+				Channels: []v2.CIChannel{{Variant: v2.CIFrequencyChannel{
+					BaseCIChannel: v2.BaseCIChannel{Port: -1},
+				}}},
+			})).Error().To(MatchError(ContainSubstring(reason)))
+		})
+	})
+
+	It("Should keep each source of a cold-junction config", func(ctx SpecContext) {
+		Expect(v3.MigrateCJC(ctx, v2.CJC{Variant: v2.ChanCJC{Port: 9}})).
+			To(Equal(v3.CJC{Variant: v3.ChanCJC{Port: 9}}))
+		Expect(v3.MigrateCJC(ctx, v2.CJC{Variant: v2.ConstValCJC{Val: 25}})).
+			To(Equal(v3.CJC{Variant: v3.ConstValCJC{Val: 25}}))
 	})
 
 	It("Should keep the port of a stored analog write config", func(ctx SpecContext) {

@@ -34,6 +34,10 @@ var _ = Describe("Service", func() {
 			Expect(ni.OpenService(ctx, ni.ServiceConfig{})).Error().
 				To(MatchError(ContainSubstring("db: must be non-nil")))
 		})
+		It("Should reject a config missing the ontology", func(ctx SpecContext) {
+			Expect(ni.OpenService(ctx, ni.ServiceConfig{DB: db})).Error().
+				To(MatchError(ContainSubstring("ontology: must be non-nil")))
+		})
 	})
 
 	Describe("Stores", func() {

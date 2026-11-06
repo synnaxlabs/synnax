@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	taskv3 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // MigrateScanConfig lifts a v2 scan config to v3.
@@ -33,7 +34,9 @@ func narrow[T uint8 | uint16](name string, v int32) (T, error) {
 	if narrowed := T(v); int32(narrowed) == v {
 		return narrowed, nil
 	}
-	return 0, errors.Newf("%s %d is outside the range of %T", name, v, T(0))
+	return 0, errors.Wrapf(
+		validate.ErrValidation, "%s %d is outside the range of %T", name, v, T(0),
+	)
 }
 
 // MigrateCJC lifts a v2 cold-junction source. It returns an error when the source port
