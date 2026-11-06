@@ -45,8 +45,13 @@ import {
   retrieveRequestZ,
   statusZ,
 } from "@/channel/types.gen";
-import { LINES, serverComputed } from "@/channel/where";
-import { matches, retrieveInputZ } from "@/channel/where.gen";
+import { LINES } from "@/channel/where";
+import {
+  matches,
+  retrieveInputZ,
+  serverComputed,
+  shortcutZ,
+} from "@/channel/where.gen";
 import { type Writer } from "@/channel/writer";
 import { NotFoundError, ValidationError } from "@/errors";
 import { type framer } from "@/framer";
@@ -381,7 +386,7 @@ export class Client extends query.Retriever<
         schema: retrieveParamsZ,
         fetch: async (query) => await this.fetchRequest(query),
         matches: (ch, query) => matches(LINES, ch, query.where),
-        serverComputed: (query) => serverComputed(query.where),
+        serverComputed: (query) => serverComputed(LINES, query.where),
         watch: [
           query.watch(aliasStore, (event, query: RetrieveMultipleParams) => {
             if (query.rangeKey == null) return null;
@@ -555,10 +560,7 @@ export class Client extends query.Retriever<
     const rangeKey = options?.rangeKey;
     if (isSingle && variant === "keys")
       return await super.retrieve({ key: normalized[0] as Key, rangeKey });
-    const where =
-      variant === "keys"
-        ? { key: { in: normalized as Key[] } }
-        : { name: { in: normalized as string[] } };
+    const { where } = shortcutZ.parse(normalized);
     const res = await super.retrieve(
       rangeKey == null ? { where } : { where, rangeKey },
     );
