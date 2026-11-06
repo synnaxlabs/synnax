@@ -388,6 +388,45 @@ TEST_F(SOEMMasterTest, DisabledSlaveStaysOutOfStateTransitions) {
     EXPECT_EQ(this->mock->state_change_requests, expected);
 }
 
+/// @brief it should write zero to 0x0980 and then to 0x0981 on each enabled slave with
+/// a distributed clock, before it maps the slaves and so requests SAFE-OP.
+TEST_F(SOEMMasterTest, ActivateClearsDCActivationBeforeMapping) {
+    MockSlaveInfo dc;
+    dc.state = EC_STATE_PRE_OP;
+    dc.hasdc = true;
+    this->add_slave(dc);
+    MockSlaveInfo plain;
+    plain.state = EC_STATE_PRE_OP;
+    this->add_slave(plain);
+    this->add_slave(dc);
+    ASSERT_NIL(this->master->initialize());
+    this->master->set_slave_enabled(3, false);
+    this->mock->obytes = 2;
+    this->mock->ibytes = 4;
+    ASSERT_NIL(this->master->activate());
+    const std::vector<RegisterWrite> expected = {
+        {.slave = 1, .address = 0x0980, .data = {0}},
+        {.slave = 1, .address = 0x0981, .data = {0}},
+    };
+    EXPECT_EQ(this->mock->register_writes, expected);
+}
+
+/// @brief it should fail activation, before it maps the slaves, when a slave does not
+/// take the write that clears its DC activation.
+TEST_F(SOEMMasterTest, ActivateFailsWhenDCActivationCannotBeCleared) {
+    MockSlaveInfo dc;
+    dc.state = EC_STATE_PRE_OP;
+    dc.hasdc = true;
+    dc.name = "EL3104";
+    this->add_slave(dc);
+    ASSERT_NIL(this->master->initialize());
+    this->mock->write_register_return = 0;
+    const auto err = this->master->activate();
+    ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
+    EXPECT_EQ(err.data, "slave 1 (EL3104) did not take a write to DC register 0x0980");
+    EXPECT_EQ(this->mock->mapped_group, std::nullopt);
+}
+
 /// @brief it should send and receive process data for the group of enabled slaves only.
 TEST_F(SOEMMasterTest, CyclicExchangeUsesEnabledGroupOnly) {
     this->initialize_with_slave();
