@@ -10,6 +10,7 @@
 import { describe, expect, it } from "vitest";
 
 import { AccessDeniedError, NotFoundError } from "@/index";
+import { project } from "@/project";
 import { table } from "@/table";
 import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 
@@ -56,13 +57,25 @@ describe("table", () => {
     it("should allow the caller to create tables with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [table.resourceID("")],
-        actions: ["create"],
+        objects: [table.resourceID(""), project.TYPE_RESOURCE_ID],
+        actions: ["create", "update"],
       });
       const proj = await client.projects.create({
         name: "test",
       });
       await userClient.tables.create({ project: proj.key, name: "test" });
+    });
+
+    it("should deny creating a table in a project the caller cannot update", async () => {
+      const userClient = await createTestClientWithPolicy(client, {
+        name: "test",
+        objects: [table.resourceID("")],
+        actions: ["create"],
+      });
+      const proj = await client.projects.create({ name: "test" });
+      await expect(
+        userClient.tables.create({ project: proj.key, name: "test" }),
+      ).rejects.toSatisfy(AccessDeniedError.matches);
     });
 
     it("should deny access when no create policy exists", async () => {

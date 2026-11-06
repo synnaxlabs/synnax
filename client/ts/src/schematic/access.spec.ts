@@ -10,6 +10,7 @@
 import { describe, expect, it } from "vitest";
 
 import { AccessDeniedError, NotFoundError } from "@/index";
+import { project } from "@/project";
 import { schematic } from "@/schematic";
 import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 
@@ -56,13 +57,25 @@ describe("schematic", () => {
     it("should allow the caller to create schematics with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [schematic.resourceID("")],
-        actions: ["create"],
+        objects: [schematic.resourceID(""), project.TYPE_RESOURCE_ID],
+        actions: ["create", "update"],
       });
       const proj = await client.projects.create({
         name: "test",
       });
       await userClient.schematics.create({ project: proj.key, name: "test" });
+    });
+
+    it("should deny creating a schematic in a project the caller cannot update", async () => {
+      const userClient = await createTestClientWithPolicy(client, {
+        name: "test",
+        objects: [schematic.resourceID("")],
+        actions: ["create"],
+      });
+      const proj = await client.projects.create({ name: "test" });
+      await expect(
+        userClient.schematics.create({ project: proj.key, name: "test" }),
+      ).rejects.toSatisfy(AccessDeniedError.matches);
     });
 
     it("should deny access when no create policy exists", async () => {

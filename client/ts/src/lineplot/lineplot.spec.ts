@@ -77,8 +77,8 @@ describe("LinePlot", () => {
       const v = await client.lineplots.create({ project: proj.key, name: "Line Plot" });
       await client.batch.send([client.lineplots.setGroupRequest(v.key, g.key)]);
       await client.batch.send([client.lineplots.setProjectRequest(v.key, dest.key)]);
-      const [res] = await client.lineplots.retrieve({ keys: [v.key] });
-      expect(res.project).toEqual(dest.key);
+      const [res] = await client.lineplots.retrieve({ projects: [dest.key] });
+      expect(res.key).toEqual(v.key);
       expect(res.group).toBeUndefined();
     });
 
@@ -91,8 +91,8 @@ describe("LinePlot", () => {
       });
       const v = await client.lineplots.create({ project: proj.key, name: "Line Plot" });
       await client.batch.send([client.lineplots.setGroupRequest(v.key, g.key)]);
-      const [res] = await client.lineplots.retrieve({ keys: [v.key] });
-      expect(res.project).toEqual(dest.key);
+      const [res] = await client.lineplots.retrieve({ projects: [dest.key] });
+      expect(res.key).toEqual(v.key);
       expect(res.group).toEqual(g.key);
     });
 

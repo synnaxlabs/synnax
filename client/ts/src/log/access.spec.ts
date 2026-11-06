@@ -11,6 +11,7 @@ import { describe, expect, it } from "vitest";
 
 import { AccessDeniedError, NotFoundError } from "@/index";
 import { log } from "@/log";
+import { project } from "@/project";
 import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 
 const client = createTestClient();
@@ -46,11 +47,23 @@ describe("log", () => {
     it("should allow the caller to create logs with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
+        objects: [log.resourceID(""), project.TYPE_RESOURCE_ID],
+        actions: ["create", "update"],
+      });
+      const proj = await client.projects.create({ name: "test" });
+      await userClient.logs.create({ project: proj.key, name: "test" });
+    });
+
+    it("should deny creating a log in a project the caller cannot update", async () => {
+      const userClient = await createTestClientWithPolicy(client, {
+        name: "test",
         objects: [log.resourceID("")],
         actions: ["create"],
       });
       const proj = await client.projects.create({ name: "test" });
-      await userClient.logs.create({ project: proj.key, name: "test" });
+      await expect(
+        userClient.logs.create({ project: proj.key, name: "test" }),
+      ).rejects.toSatisfy(AccessDeniedError.matches);
     });
 
     it("should deny access when no create policy exists", async () => {
