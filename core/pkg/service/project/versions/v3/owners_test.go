@@ -15,15 +15,25 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
+	v3 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	schematic "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v11"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
+
+type vis struct {
+	Key     uuid.UUID
+	Project *uuid.UUID
+	Range   *uuid.UUID
+}
+
+func (v vis) GorpKey() uuid.UUID { return v.Key }
+
+func (vis) SetOptions() []any { return nil }
 
 func parentOf(from, to resource.ID) ontology.Relationship {
 	return ontology.Relationship{
@@ -33,13 +43,8 @@ func parentOf(from, to resource.ID) ontology.Relationship {
 	}
 }
 
-func schematicID(k uuid.UUID) resource.ID {
+func visID(k uuid.UUID) resource.ID {
 	return resource.ID{Type: resource.TypeSchematic, Key: k.String()}
-}
-
-func create[K gorp.Key, E gorp.Entry[K]](ctx context.Context, db *gorp.DB, es ...E) {
-	GinkgoHelper()
-	Expect(gorp.NewCreate[K, E]().Entries(&es).Exec(ctx, db)).To(Succeed())
 }
 
 func retrieveAll[K gorp.Key, E gorp.Entry[K]](ctx context.Context, db *gorp.DB) []E {
@@ -57,82 +62,111 @@ var _ = Describe("OwnersMigration", func() {
 		rng      = uuid.New()
 		projID   = resource.ID{Type: resource.TypeProject, Key: proj.String()}
 		rngID    = resource.ID{Type: resource.TypeRange, Key: rng.String()}
+		missing  = resource.ID{Type: resource.TypeProject, Key: uuid.New().String()}
 		owned    = uuid.New()
 		snapshot = uuid.New()
 		both     = uuid.New()
+		dangling = uuid.New()
+		fallback = uuid.New()
 		orphan   = uuid.New()
-		logKey   = uuid.New()
-		logID    = resource.ID{Type: resource.TypeLog, Key: logKey.String()}
+		logID    = resource.ID{Type: resource.TypeLog, Key: uuid.New().String()}
 	)
 
 	BeforeEach(func(ctx SpecContext) {
-		db = DeferClose(gorp.Wrap(memkv.New()))
-		create[schematic.Key](
-			ctx,
-			db,
-			schematic.Schematic{Key: owned, Name: "owned"},
-			schematic.Schematic{Key: snapshot, Name: "snapshot", Snapshot: true},
-			schematic.Schematic{Key: both, Name: "both"},
-			schematic.Schematic{Key: orphan, Name: "orphan"},
-		)
-		create[string](
-			ctx,
-			db,
-			parentOf(projID, schematicID(owned)),
-			parentOf(rngID, schematicID(snapshot)),
-			parentOf(rngID, schematicID(both)),
-			parentOf(projID, schematicID(both)),
-			parentOf(schematicID(orphan), logID),
-			parentOf(projID, logID),
-		)
-		create[string](
-			ctx,
-			db,
-			ontology.Resource{ID: schematicID(owned)},
-			ontology.Resource{ID: schematicID(orphan)},
-		)
-		tx := db.OpenTx()
-		Expect(schematic.OwnersMigration.Run(ctx, tx, alamos.Instrumentation{})).
+		db = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
+		entries := []vis{
+			{Key: owned},
+			{Key: snapshot},
+			{Key: both},
+			{Key: dangling},
+			{Key: fallback},
+			{Key: orphan},
+		}
+		Expect(gorp.NewCreate[uuid.UUID, vis]().Entries(&entries).Exec(ctx, db)).
 			To(Succeed())
-		Expect(tx.Commit(ctx)).To(Succeed())
-		Expect(tx.Close()).To(Succeed())
+		rels := []ontology.Relationship{
+			parentOf(projID, visID(owned)),
+			parentOf(rngID, visID(snapshot)),
+			parentOf(rngID, visID(both)),
+			parentOf(projID, visID(both)),
+			parentOf(missing, visID(dangling)),
+			parentOf(missing, visID(fallback)),
+			parentOf(rngID, visID(fallback)),
+			parentOf(visID(orphan), logID),
+			parentOf(projID, logID),
+		}
+		Expect(gorp.NewCreate[string, ontology.Relationship]().
+			Entries(&rels).
+			Exec(ctx, db)).To(Succeed())
+		resources := []ontology.Resource{
+			{ID: projID},
+			{ID: rngID},
+			{ID: visID(owned)},
+			{ID: visID(orphan)},
+		}
+		Expect(gorp.NewCreate[string, ontology.Resource]().
+			Entries(&resources).
+			Exec(ctx, db)).To(Succeed())
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:        db,
+			Namespace: "vis",
+			Migrations: []gorp.Migration{
+				v3.NewOwnersMigration(v3.OwnersConfig[uuid.UUID, vis]{
+					Name:  "owners",
+					Type:  resource.TypeSchematic,
+					Owned: func(v vis) bool { return v.Project != nil || v.Range != nil },
+					SetOwner: func(v *vis, p, r *uuid.UUID) {
+						v.Project, v.Range = p, r
+					},
+				}),
+			},
+		})).To(Succeed())
 	})
 
-	byKey := func(ctx context.Context) map[uuid.UUID]schematic.Schematic {
+	byKey := func(ctx context.Context) map[uuid.UUID]vis {
 		GinkgoHelper()
-		out := make(map[uuid.UUID]schematic.Schematic)
-		for _, s := range retrieveAll[schematic.Key, schematic.Schematic](ctx, db) {
-			out[s.Key] = s
+		out := make(map[uuid.UUID]vis)
+		for _, v := range retrieveAll[uuid.UUID, vis](ctx, db) {
+			out[v.Key] = v
 		}
 		return out
 	}
 
-	It("Should set the project of a schematic under a project", func(ctx SpecContext) {
-		s := byKey(ctx)[owned]
-		Expect(s.Project).To(HaveValue(Equal(proj)))
-		Expect(s.Range).To(BeNil())
-	})
+	DescribeTable("Should set the owner from the parent edge", func(
+		ctx SpecContext,
+		key *uuid.UUID,
+		project *uuid.UUID,
+		rng *uuid.UUID,
+	) {
+		Expect(byKey(ctx)).To(HaveKeyWithValue(*key, vis{
+			Key:     *key,
+			Project: project,
+			Range:   rng,
+		}))
+	},
+		Entry("a visualization under a project", &owned, &proj, nil),
+		Entry("a visualization under a range", &snapshot, nil, &rng),
+		Entry("a visualization under both a project and a range", &both, &proj, nil),
+		Entry("a visualization under a missing project and a range", &fallback, nil,
+			&rng),
+	)
 
-	It("Should set the range of a snapshot under a range", func(ctx SpecContext) {
-		s := byKey(ctx)[snapshot]
-		Expect(s.Range).To(HaveValue(Equal(rng)))
-		Expect(s.Project).To(BeNil())
-	})
-
-	It("Should prefer the project when both own a schematic", func(ctx SpecContext) {
-		s := byKey(ctx)[both]
-		Expect(s.Project).To(HaveValue(Equal(proj)))
-		Expect(s.Range).To(BeNil())
-	})
-
-	It("Should delete a schematic with no owner", func(ctx SpecContext) {
+	It("Should delete a visualization with no stored owner", func(ctx SpecContext) {
 		Expect(byKey(ctx)).ToNot(HaveKey(orphan))
+		Expect(byKey(ctx)).ToNot(HaveKey(dangling))
+	})
+
+	It("Should delete the ontology resource of a deleted visualization", func(
+		ctx SpecContext,
+	) {
 		Expect(retrieveAll[string, ontology.Resource](ctx, db)).To(ConsistOf(
-			ontology.Resource{ID: schematicID(owned)},
+			ontology.Resource{ID: projID},
+			ontology.Resource{ID: rngID},
+			ontology.Resource{ID: visID(owned)},
 		))
 	})
 
-	It("Should delete the converted edges and the edges of deleted schematics", func(
+	It("Should delete the converted edges and the edges of deleted visualizations", func(
 		ctx SpecContext,
 	) {
 		Expect(retrieveAll[string, ontology.Relationship](ctx, db)).To(ConsistOf(

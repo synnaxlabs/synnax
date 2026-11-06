@@ -281,6 +281,7 @@ var OwnersMigration = projectv3.NewOwnersMigration(
 	projectv3.OwnersConfig[Key, LinePlot]{
 		Name:     "v61_lineplot_owner",
 		Type:     resource.TypeLineplot,
+		Owned:    func(e LinePlot) bool { return e.Project != nil || e.Range != nil },
 		SetOwner: func(e *LinePlot, p, r *uuid.UUID) { e.Project, e.Range = p, r },
 	},
 )

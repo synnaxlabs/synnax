@@ -29,98 +29,109 @@ type OwnersConfig[K gorp.Key, E gorp.Entry[K]] struct {
 	Name string
 	// Type is the resource type of the visualizations.
 	Type resource.Type
+	// Owned reports whether e has a project or a range.
+	Owned func(e E) bool
 	// SetOwner sets the project or the range of e. Exactly one of them is non-nil.
 	SetOwner func(e *E, project, rng *uuid.UUID)
 }
 
 // NewOwnersMigration returns a migration that sets the owner of each visualization of
-// type cfg.Type from the parent edge that points at it from a project or a range. A
-// project edge wins over a range edge. The migration deletes the converted edges, and
-// deletes each visualization with no owner along with its ontology resource and edges.
+// type cfg.Type from the parent edge that points at it from a stored project or range.
+// A project edge wins over a range edge, and an edge from an owner that is not stored
+// counts as no edge. The migration deletes the converted edges, then deletes each
+// visualization with no owner along with its ontology resource and edges.
 func NewOwnersMigration[K gorp.Key, E gorp.Entry[K]](
 	cfg OwnersConfig[K, E],
 ) gorp.Migration {
+	fields := ontology.NewFieldMigration(ontology.FieldConfig[K, E]{
+		Name: cfg.Name,
+		Converts: func(rel ontology.Relationship) bool {
+			return rel.Type == ontology.RelationshipTypeParentOf &&
+				rel.To.Type == cfg.Type &&
+				(rel.From.Type == resource.TypeProject || rel.From.Type == resource.TypeRange)
+		},
+		Holder: func(rel ontology.Relationship) string { return rel.To.Key },
+		Set: func(
+			ctx context.Context,
+			tx gorp.Tx,
+			e *E,
+			rel ontology.Relationship,
+		) (bool, error) {
+			return setOwner(ctx, tx, cfg, e, rel)
+		},
+	})
 	return migrate.New(
 		cfg.Name,
-		func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
-			return migrateOwners(ctx, tx, cfg)
+		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
+			if err := fields.Run(ctx, tx, ins); err != nil {
+				return err
+			}
+			return deleteOrphans(ctx, tx, cfg)
 		},
 	)
 }
 
-func migrateOwners[K gorp.Key, E gorp.Entry[K]](
+func setOwner[K gorp.Key, E gorp.Entry[K]](
+	ctx context.Context,
+	tx gorp.Tx,
+	cfg OwnersConfig[K, E],
+	e *E,
+	rel ontology.Relationship,
+) (bool, error) {
+	if rel.From.Type == resource.TypeRange && cfg.Owned(*e) {
+		return false, nil
+	}
+	found, err := ontology.ResourceExists(ctx, tx, rel.From)
+	if !found || err != nil {
+		return false, err
+	}
+	owner, err := uuid.Parse(rel.From.Key)
+	if err != nil {
+		return false, errors.Wrapf(err, "owner of %s", rel.To)
+	}
+	if rel.From.Type == resource.TypeProject {
+		cfg.SetOwner(e, &owner, nil)
+	} else {
+		cfg.SetOwner(e, nil, &owner)
+	}
+	return true, nil
+}
+
+func deleteOrphans[K gorp.Key, E gorp.Entry[K]](
 	ctx context.Context,
 	tx gorp.Tx,
 	cfg OwnersConfig[K, E],
 ) error {
-	edges, err := collect[string, ontology.Relationship](
-		ctx,
-		tx,
-		func(r ontology.Relationship) bool {
-			return r.To.Type == cfg.Type || r.From.Type == cfg.Type
-		},
-	)
-	if err != nil {
+	var entries []E
+	if err := gorp.NewRetrieve[K, E]().Entries(&entries).Exec(ctx, tx); err != nil {
 		return err
 	}
 	var (
-		projects  = make(map[string]uuid.UUID)
-		ranges    = make(map[string]uuid.UUID)
-		converted []string
-	)
-	for _, e := range edges {
-		if e.Type != ontology.RelationshipTypeParentOf || e.To.Type != cfg.Type {
-			continue
-		}
-		owners := projects
-		switch e.From.Type {
-		case resource.TypeProject:
-		case resource.TypeRange:
-			owners = ranges
-		default:
-			continue
-		}
-		k, err := uuid.Parse(e.From.Key)
-		if err != nil {
-			return errors.Wrapf(err, "parent of %s", e.To)
-		}
-		owners[e.To.Key] = k
-		converted = append(converted, e.GorpKey())
-	}
-	entries, err := collect[K, E](ctx, tx, func(E) bool { return true })
-	if err != nil {
-		return err
-	}
-	var (
-		owned     = make([]E, 0, len(entries))
 		orphans   []K
 		resources []string
 		orphaned  = set.New[string]()
 	)
 	for _, e := range entries {
-		key := gorp.FormatKey(e.GorpKey())
-		if p, ok := projects[key]; ok {
-			cfg.SetOwner(&e, &p, nil)
-		} else if r, ok := ranges[key]; ok {
-			cfg.SetOwner(&e, nil, &r)
-		} else {
-			orphans = append(orphans, e.GorpKey())
-			resources = append(
-				resources,
-				resource.ID{Type: cfg.Type, Key: key}.String(),
-			)
-			orphaned.Add(key)
+		if cfg.Owned(e) {
 			continue
 		}
-		owned = append(owned, e)
+		key := gorp.FormatKey(e.GorpKey())
+		orphans = append(orphans, e.GorpKey())
+		resources = append(resources, resource.ID{Type: cfg.Type, Key: key}.String())
+		orphaned.Add(key)
 	}
-	for _, e := range edges {
-		if e.To.Type == cfg.Type && orphaned.Contains(e.To.Key) ||
-			e.From.Type == cfg.Type && orphaned.Contains(e.From.Key) {
-			converted = append(converted, e.GorpKey())
-		}
+	if len(orphans) == 0 {
+		return nil
 	}
-	if err = gorp.WrapWriter[K, E](tx).Set(ctx, owned...); err != nil {
+	rels, err := ontology.RetrieveRelationships(
+		ctx,
+		tx,
+		func(rel ontology.Relationship) bool {
+			return rel.To.Type == cfg.Type && orphaned.Contains(rel.To.Key) ||
+				rel.From.Type == cfg.Type && orphaned.Contains(rel.From.Key)
+		},
+	)
+	if err != nil {
 		return err
 	}
 	if err = gorp.WrapWriter[K, E](tx).Delete(ctx, orphans...); err != nil {
@@ -130,23 +141,5 @@ func migrateOwners[K gorp.Key, E gorp.Entry[K]](
 		Delete(ctx, resources...); err != nil {
 		return err
 	}
-	return gorp.WrapWriter[string, ontology.Relationship](tx).Delete(ctx, converted...)
-}
-
-func collect[K gorp.Key, E gorp.Entry[K]](
-	ctx context.Context,
-	tx gorp.Tx,
-	keep func(E) bool,
-) (out []E, err error) {
-	iter, err := gorp.WrapReader[K, E](tx).OpenIterator(gorp.IterOptions{})
-	if err != nil {
-		return nil, err
-	}
-	defer func() { err = errors.Combine(err, iter.Close()) }()
-	for iter.First(); iter.Valid(); iter.Next() {
-		if e := iter.Value(ctx); e != nil && keep(*e) {
-			out = append(out, *e)
-		}
-	}
-	return out, iter.Error()
+	return ontology.DeleteRelationships(ctx, tx, rels...)
 }

@@ -44,6 +44,7 @@ var OwnersMigration = projectv3.NewOwnersMigration(
 	projectv3.OwnersConfig[Key, Schematic]{
 		Name:     "v61_schematic_owner",
 		Type:     resource.TypeSchematic,
+		Owned:    func(e Schematic) bool { return e.Project != nil || e.Range != nil },
 		SetOwner: func(e *Schematic, p, r *uuid.UUID) { e.Project, e.Range = p, r },
 	},
 )

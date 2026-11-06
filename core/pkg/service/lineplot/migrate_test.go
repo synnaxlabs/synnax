@@ -73,6 +73,10 @@ var _ = Describe("Stored v7 line plots", func() {
 			Expect(gorp.NewCreate[string, ontology.Relationship]().
 				Entry(&owner).
 				Exec(ctx, db)).To(Succeed())
+			project := ontology.Resource{ID: owner.From}
+			Expect(gorp.NewCreate[string, ontology.Resource]().
+				Entry(&project).
+				Exec(ctx, db)).To(Succeed())
 			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 			MustOpen(lineplot.OpenService(ctx, lineplot.ServiceConfig{
 				DB:       db,

@@ -56,6 +56,10 @@ var _ = Describe("Migrations", func() {
 			Expect(gorp.NewCreate[string, ontology.Relationship]().
 				Entry(&owner).
 				Exec(ctx, db)).To(Succeed())
+			project := ontology.Resource{ID: owner.From}
+			Expect(gorp.NewCreate[string, ontology.Resource]().
+				Entry(&project).
+				Exec(ctx, db)).To(Succeed())
 			MustSucceed(
 				gorp.OpenTable(ctx, gorp.TableConfig[versions.Key, versions.Table]{
 					DB:         db,
