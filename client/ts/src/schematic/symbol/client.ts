@@ -89,7 +89,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Symbol>;
   /** Builds requests that move symbols between groups. */
-  readonly setGroupRequest: group.SetGroupRequest<Key>;
+  readonly setGroupRequest: group.MoveRequest<Key>;
 
   constructor(cfg: ClientConfig) {
     const { cache } = cfg;
@@ -113,7 +113,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
     });
     this.cfg = cfg;
     this.store = store;
-    this.setGroupRequest = group.createSetGroupRequest(
+    this.setGroupRequest = group.createMoveRequest(
       "/schematic/symbol/set-group",
       (keys, to) => group.moveCached(store, keys, to),
     );

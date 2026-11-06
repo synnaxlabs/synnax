@@ -76,9 +76,9 @@ describe("memberFilterZ", () => {
   });
 });
 
-describe("createSetGroupRequest", () => {
+describe("createMoveRequest", () => {
   const setGroupRequest = (table: query.Table<string, Doc>) =>
-    group.createSetGroupRequest<string>("/doc/set-group", (keys, to) =>
+    group.createMoveRequest<string>("/doc/set-group", (keys, to) =>
       group.moveCached(table, keys, to),
     );
 

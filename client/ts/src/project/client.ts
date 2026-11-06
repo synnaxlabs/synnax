@@ -82,7 +82,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pr
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Project>;
   /** Builds requests that move projects between groups. */
-  readonly setGroupRequest: group.SetGroupRequest<Key>;
+  readonly setGroupRequest: group.MoveRequest<Key>;
 
   constructor(cfg: ClientConfig) {
     const { cache } = cfg;
@@ -105,9 +105,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pr
     });
     this.cfg = cfg;
     this.store = store;
-    this.setGroupRequest = group.createSetGroupRequest(
-      "/project/set-group",
-      (keys, to) => group.moveCached(store, keys, to),
+    this.setGroupRequest = group.createMoveRequest("/project/set-group", (keys, to) =>
+      group.moveCached(store, keys, to),
     );
   }
 

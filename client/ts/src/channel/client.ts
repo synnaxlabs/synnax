@@ -382,7 +382,7 @@ export class Client extends query.Retriever<
   readonly writer: Writer;
   readonly store: query.Table<Key, Channel>;
   /** Builds requests that move channels between groups. */
-  readonly setGroupRequest: group.SetGroupRequest<Key>;
+  readonly setGroupRequest: group.MoveRequest<Key>;
   private readonly byName: query.LookupIndex<Key, Channel>;
 
   constructor(cfg: ClientConfig) {
@@ -463,13 +463,10 @@ export class Client extends query.Retriever<
     this.cfg = cfg;
     this.writer = writer;
     this.store = store;
-    this.setGroupRequest = group.createSetGroupRequest(
-      "/channel/set-group",
-      (keys, to) => {
-        const rollbacks = keys.map((key) => this.moveThrough(key, to));
-        return () => rollbacks.forEach((rollback) => rollback());
-      },
-    );
+    this.setGroupRequest = group.createMoveRequest("/channel/set-group", (keys, to) => {
+      const rollbacks = keys.map((key) => this.moveThrough(key, to));
+      return () => rollbacks.forEach((rollback) => rollback());
+    });
     this.byName = byName;
   }
 

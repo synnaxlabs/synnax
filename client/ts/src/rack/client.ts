@@ -143,7 +143,7 @@ export class Client extends query.Retriever<
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Omit<Payload, "status">>;
   /** Builds requests that move racks between groups. */
-  readonly setGroupRequest: group.SetGroupRequest<Key>;
+  readonly setGroupRequest: group.MoveRequest<Key>;
 
   constructor(cfg: ClientConfig) {
     const { cache, statuses } = cfg;
@@ -200,7 +200,7 @@ export class Client extends query.Retriever<
     });
     this.cfg = cfg;
     this.store = store;
-    this.setGroupRequest = group.createSetGroupRequest("/rack/set-group", (keys, to) =>
+    this.setGroupRequest = group.createMoveRequest("/rack/set-group", (keys, to) =>
       group.moveCached(store, keys, to),
     );
   }

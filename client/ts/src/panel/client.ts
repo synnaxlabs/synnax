@@ -80,7 +80,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Panel>;
   /** Builds requests that move panels between groups. */
-  readonly setGroupRequest: group.SetGroupRequest<Key>;
+  readonly setGroupRequest: group.MoveRequest<Key>;
   private readonly dispatcher: actions.Controller<Key, Panel, Action>;
 
   constructor(cfg: ClientConfig) {
@@ -133,7 +133,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
     });
     this.cfg = cfg;
     this.store = store;
-    this.setGroupRequest = group.createSetGroupRequest("/panel/set-group", (keys, to) =>
+    this.setGroupRequest = group.createMoveRequest("/panel/set-group", (keys, to) =>
       group.moveCached(store, keys, to),
     );
     this.dispatcher = dispatcher;

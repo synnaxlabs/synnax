@@ -186,7 +186,7 @@ export class Client extends query.Retriever<
    * Builds requests that move devices between groups. The group must sit under each
    * device's rack.
    */
-  readonly setGroupRequest: group.SetGroupRequest<Key>;
+  readonly setGroupRequest: group.MoveRequest<Key>;
 
   constructor(cfg: ClientConfig) {
     const { cache, statuses } = cfg;
@@ -246,9 +246,8 @@ export class Client extends query.Retriever<
     });
     this.cfg = cfg;
     this.store = store;
-    this.setGroupRequest = group.createSetGroupRequest(
-      "/device/set-group",
-      (keys, to) => group.moveCached(store, keys, to),
+    this.setGroupRequest = group.createMoveRequest("/device/set-group", (keys, to) =>
+      group.moveCached(store, keys, to),
     );
   }
 

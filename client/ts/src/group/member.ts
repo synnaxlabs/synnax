@@ -55,7 +55,7 @@ export interface MovePayload<K extends record.Key> {
  * Builds a request that moves the records into the group, or out of their group when it
  * is null or undefined. Its cache write moves the cached records.
  */
-export interface SetGroupRequest<K extends record.Key> {
+export interface MoveRequest<K extends record.Key> {
   (keys: K | K[], to?: Key | null): batch.Request<MovePayload<K>>;
 }
 
@@ -63,11 +63,11 @@ export interface SetGroupRequest<K extends record.Key> {
  * Returns a builder of set-group requests to the endpoint. A request's cache write
  * calls move with its keys and group, and move returns the rollback.
  */
-export const createSetGroupRequest =
+export const createMoveRequest =
   <K extends record.Key>(
     endpoint: string,
     move: (keys: K[], group?: Key) => destructor.Destructor,
-  ): SetGroupRequest<K> =>
+  ): MoveRequest<K> =>
   (keys, to) => {
     const payload = { keys: array.toArray(keys), group: to ?? undefined };
     return { endpoint, payload, apply: () => move(payload.keys, payload.group) };
