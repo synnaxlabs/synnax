@@ -33,6 +33,9 @@ import (
 // stageTimeout bounds one stage of a connection test.
 const stageTimeout = 5 * time.Second
 
+// defaultPort is the port of a seed broker whose address names none.
+const defaultPort = "9092"
+
 // The stages of a connection test.
 const (
 	stageDial     = "dial"
@@ -95,6 +98,7 @@ func dialSeed(ctx context.Context, brokers []string) (net.Conn, task.TestStep) {
 		failures []string
 	)
 	for _, addr := range brokers {
+		addr = withPort(addr)
 		dialCtx, cancel := context.WithTimeout(ctx, stageTimeout)
 		conn, err := dialer.DialContext(dialCtx, "tcp", addr)
 		cancel()
@@ -120,6 +124,15 @@ func dialSeed(ctx context.Context, brokers []string) (net.Conn, task.TestStep) {
 		strings.Join(failures, " ")+" Check the address and port of each broker, and "+
 			"that the network of the Core can reach them.",
 	)
+}
+
+// withPort returns addr with defaultPort when it names no port, as the Kafka client
+// reads a seed broker address.
+func withPort(addr string) string {
+	if _, _, err := net.SplitHostPort(addr); err == nil {
+		return addr
+	}
+	return net.JoinHostPort(strings.Trim(addr, "[]"), defaultPort)
 }
 
 // handshake runs the TLS handshake of props on conn, the connection to addr.

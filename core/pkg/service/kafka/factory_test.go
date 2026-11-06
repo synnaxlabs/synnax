@@ -306,6 +306,18 @@ var _ = Describe("Factory", func() {
 			Expect(stat.Description).To(HavePrefix("Could not reach " + addr))
 		})
 
+		It("Should dial the default port of a broker address with no port",
+			func(ctx SpecContext) {
+				stat := testConnection(
+					ctx,
+					kafka.Properties{Brokers: []string{"kafka.invalid"}},
+				)
+				expectFailedStep(stat, "Failed to reach broker", "dial:error")
+				Expect(stat.Description).
+					To(HavePrefix("Could not reach kafka.invalid:9092: "))
+			},
+		)
+
 		It("Should warn about a seed broker that does not answer",
 			func(ctx SpecContext) {
 				expectSuccess(
