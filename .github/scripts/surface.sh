@@ -15,8 +15,9 @@
 #
 # Each checkout makes its report with its own generator. The script writes
 # <out-dir>/status (same, changed, or error) and <out-dir>/diff (the unified diff of the
-# two reports, or the tail of the failed generator's output). It exits non-zero on
-# error.
+# two reports, or the tail of the failed generator's output). It exits non-zero when the
+# head report fails. A base can predate a report, so a failed base report records error
+# and exits zero.
 
 set -euo pipefail
 
@@ -37,6 +38,12 @@ report() {
                 && pnpm exec turbo build --filter='@synnaxlabs/client^...' >&2 \
                 && client/ts/scripts/surface.sh
             ;;
+        client-py-cli)
+            uv run --project scripts scripts/surface_py_cli.py
+            ;;
+        client-py-state)
+            uv run --project scripts scripts/surface_py_state.py
+            ;;
         client-py)
             uv run --project scripts scripts/surface_py.py client/py synnax
             ;;
@@ -53,7 +60,7 @@ report() {
     esac
 }
 
-for side in base head; do
+for side in head base; do
     dir=$base
     [ "$side" = head ] && dir=$head
     if ! (cd "$dir" && report "$dir") > "$out/$side.txt" 2> "$out/$side.log"; then
@@ -63,6 +70,7 @@ for side in base head; do
             tail -n 40 "$out/$side.log"
         } > "$out/diff"
         cat "$out/diff" >&2
+        [ "$side" = base ] && exit 0
         exit 1
     fi
 done

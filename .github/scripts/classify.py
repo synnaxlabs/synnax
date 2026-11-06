@@ -48,12 +48,16 @@ CLASSIFIER_PATHS = (
     "oracle/surface/",
     "scripts/surface_driver.py",
     "scripts/surface_py.py",
+    "scripts/surface_py_cli.py",
+    "scripts/surface_py_state.py",
 )
 MARKER = "<!-- review-classifier -->"
 SURFACES = {
     "oracle": "Oracle schemas",
     "client-ts": "TypeScript client API",
     "client-py": "Python client API",
+    "client-py-cli": "Python client CLI",
+    "client-py-state": "Python client saved state",
     "core": "Core flags and config keys",
     "core-windows": "Core commands and flags on Windows",
     "driver": "Driver commands and config keys",
