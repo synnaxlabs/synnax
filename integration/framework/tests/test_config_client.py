@@ -132,6 +132,43 @@ class TestConfigClient:
             "config_client_spec/slow (slow_2)": 12.5,
         }
 
+    def test_resources_of(self, cases_dir: Path) -> None:
+        """Should return the resources of a case, and none for a case that cannot
+        load."""
+        write_case(
+            cases_dir,
+            case="config_client_spec/held",
+            source=named_case("Held")
+            + "\n    @classmethod\n    def resources(cls) -> frozenset[str]:\n"
+            + '        return frozenset({"sim"})\n',
+        )
+        write_case(
+            cases_dir, case="config_client_spec/broken", source="raise ImportError\n"
+        )
+        client = config_client.ConfigClient(tests_dir=cases_dir)
+        held = config_client.TestDefinition(case="config_client_spec/held")
+        broken = config_client.TestDefinition(case="config_client_spec/broken")
+        assert client.resources_of(held) == frozenset({"sim"})
+        assert client.resources_of(broken) == frozenset()
+
+    def test_discovery_order(self, cases_dir: Path) -> None:
+        """Should load the found test files in name order."""
+        write_case(
+            cases_dir, case="config_client_spec/plain", source=named_case("Plain")
+        )
+        for name in ("b", "c", "a"):
+            sequence = {
+                "sequence_name": name,
+                "tests": [{"case": "config_client_spec/plain", "name": name}],
+            }
+            (cases_dir / f"{name}_tests.json").write_text(
+                json.dumps({"sequences": [sequence]})
+            )
+        sequences, _ = config_client.ConfigClient(tests_dir=cases_dir).load(
+            TargetFilter()
+        )
+        assert [s.name for s in sequences] == ["a", "b", "c"]
+
     @pytest.mark.parametrize(("isolated", "expected"), [(True, True), (None, False)])
     def test_isolated(
         self, cases_dir: Path, isolated: bool | None, expected: bool

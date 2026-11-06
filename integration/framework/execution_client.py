@@ -167,7 +167,10 @@ class ExecutionClient:
     def _fits(self, sequence: Sequence, core: Core) -> bool:
         if core is self._cores[0]:
             return True
-        return not any(resources.NI in self._resources_of(td) for td in sequence.tests)
+        return not any(
+            resources.NI in self._config_client.resources_of(td)
+            for td in sequence.tests
+        )
 
     def _run_sequence(self, sequence: Sequence, core: Core) -> None:
         if self.should_stop:
@@ -346,18 +349,10 @@ class ExecutionClient:
             self._tests.append(result)
         self._on_test_ran()
 
-    def _resources_of(self, test_def: TestDefinition) -> frozenset[str]:
-        try:
-            return self._config_client.load_test_class(test_def).resources()
-        except Exception:
-            # A case that cannot load holds nothing. It fails with the error when it
-            # runs.
-            return frozenset()
-
     def _test_runner_thread(
         self, test_def: TestDefinition, core: Core, future: Future[Test]
     ) -> None:
-        held = self._resources_of(test_def)
+        held = self._config_client.resources_of(test_def)
         start = time.monotonic()
         self._resources.acquire(held)
         waited = time.monotonic() - start
