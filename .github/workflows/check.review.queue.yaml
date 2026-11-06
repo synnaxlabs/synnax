@@ -8,26 +8,29 @@
 # included in the file licenses/APL.txt.
 
 # Reports the Review gate commit status of a merge group from the default branch, so the
-# queued commit cannot edit the steps that write it. GitHub writes the queue ref and the
-# commit in the event, and the checkout takes the scripts from the default branch.
+# queued commit cannot edit the steps that write it. Relay - Merge group passes the
+# queue ref and the commit, and the report trusts them only if GitHub's queue ref points
+# at that commit.
 
 name: Check - Review queue
 
 on:
-  workflow_run:
-    workflows:
-      - Relay - Merge group
-    types:
-      - completed
+  workflow_dispatch:
+    inputs:
+      queue_ref:
+        description: The branch of the merge group
+        required: true
+        type: string
+      sha:
+        description: The commit of the merge group
+        required: true
+        type: string
 
 permissions: {}
 
 jobs:
   gate:
-    # The ruleset matches check runs by name too, so a skipped job named Review gate
-    # would block the merge.
     name: Report queue review gate
-    if: github.event.workflow_run.event == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -35,7 +38,7 @@ jobs:
       statuses: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
           sparse-checkout: .github/scripts
@@ -43,6 +46,6 @@ jobs:
       - name: Report the review gate status
         env:
           GH_TOKEN: ${{ github.token }}
-          QUEUE_REF: ${{ github.event.workflow_run.head_branch }}
-          SHA: ${{ github.event.workflow_run.head_sha }}
+          QUEUE_REF: ${{ inputs.queue_ref }}
+          SHA: ${{ inputs.sha }}
         run: .github/scripts/report_queue_gate.sh "$QUEUE_REF" "$SHA"

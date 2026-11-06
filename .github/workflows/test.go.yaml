@@ -336,9 +336,11 @@ jobs:
         run: |
           suites=$(go list -f "$SUITE" ./... |
             awk -v n="$SHARDS" -v s="$SHARD" 'NF && ++i % n == s % n')
-          # shellcheck disable=SC2086 # Splits the flags and suites into arguments.
-          go run github.com/onsi/ginkgo/v2/ginkgo $FLAGS --randomize-suites \
-            --fail-on-empty --keep-going --trace --timeout=2h --github-output $suites
+          read -ra flags <<< "$FLAGS"
+          read -ra suites <<< "${suites//$'\n'/ }"
+          go run github.com/onsi/ginkgo/v2/ginkgo "${flags[@]}" --randomize-suites \
+            --fail-on-empty --keep-going --trace --timeout=2h --github-output \
+            "${suites[@]}"
         working-directory: ${{ inputs.directory }}
 
       # Each save holds every entry it restored, so stale builds pile up until their

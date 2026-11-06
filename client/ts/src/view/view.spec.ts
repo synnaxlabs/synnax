@@ -80,6 +80,15 @@ describe("View", () => {
       expect(retrieved).toEqual(created);
     });
 
+    it("should retrieve a view by its name", async () => {
+      const client = createTestClient();
+      const created = await client.views.create({
+        name: `named-view-${id.create()}`,
+        type: "range",
+      });
+      expect(await client.views.retrieve(created.name)).toEqual(created);
+    });
+
     it("should retrieve multiple views", async () => {
       const client = createTestClient();
       const created = await client.views.create([
