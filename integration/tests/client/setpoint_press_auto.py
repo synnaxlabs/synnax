@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
-from framework.test_case import TestCase
+from framework.test_case import TestCase, param
 
 
 class SetpointPressAuto(TestCase):
@@ -18,7 +18,7 @@ class SetpointPressAuto(TestCase):
 
     def setup(self) -> None:
         self.set_manual_timeout(60)
-        self.control_authority = self.params.get("control_authority", 101)
+        self.control_authority = param(self.params, "control_authority", 101)
 
         self.subscribe(
             [

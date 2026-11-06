@@ -12,7 +12,7 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { errors, primitive } from "@synnaxlabs/x";
+import { deep, errors, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { useFromConfig } from "@/feature/ni/device/queries";
@@ -36,12 +36,15 @@ import {
   AO_CHANNEL_TYPE_ICONS,
   AO_CHANNEL_TYPE_NAMES,
   type AOChannel,
-  type AOChannelType,
   deployAnalogWriteConfigZ,
 } from "@/feature/ni/task/types";
 import { Device as PlatformDevice } from "@/platform/device";
-import { Selector } from "@/platform/selector";
+import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
+
+const root = deep.path<Task.Values<AnalogWriteSchemas>>();
+
+const portOf = (c: AOChannel): string => c.port.toString();
 
 const Properties = () => (
   <>
@@ -54,9 +57,10 @@ const Properties = () => (
 
 const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
-  const path = `config.channels.${itemKey}`;
-  const item = PForm.useFieldValue<AOChannel>(path);
+  const entry = root.config.channels[itemKey];
+  const item = PForm.useFieldValue(entry);
   const device = useFromConfig();
+  const skipped = Task.useSkipped(root.config.channels, itemKey, portOf);
   if (item == null) return null;
   const { port, cmdChannel, stateChannel, type } = item;
   const Icon = AO_CHANNEL_TYPE_ICONS[type];
@@ -68,28 +72,30 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
       channel={cmdChannel}
       defaultName={device == null ? undefined : ANALOG_OUTPUT.name(item, device)}
       stateChannel={stateChannel}
+      skipped={skipped}
       stateDefaultName={
         device == null ? undefined : analogOutputStateName(item, device)
       }
       portMaxChars={2}
       canTare={false}
-      path={path}
+      path={entry}
       icon={{ icon: <Icon />, name: AO_CHANNEL_TYPE_NAMES[type] }}
     />
   );
 };
 
-const ChannelDetails = ({ path }: Task.Views.DetailsProps) => {
-  const type = PForm.useFieldValue<AOChannelType>(`${path}.type`);
-  return <AOChannelForm type={type} path={path} />;
+const ChannelDetails = ({ path }: Task.Views.DetailsProps<AOChannel>) => {
+  const type = PForm.useFieldValue(path.type);
+  return <AOChannelForm type={type} path={path} channelsPath={root.config.channels} />;
 };
 
 const channelDetails = Component.renderProp(ChannelDetails);
 
-const DetailsTitle = ({ path }: Task.Views.DetailsProps) => {
-  const value = PForm.useFieldValue<AOChannel>(path);
-  const channels = PForm.useFieldValue<AOChannel[]>("config.channels");
+const DetailsTitle = ({ path }: Task.Views.DetailsProps<AOChannel>) => {
+  const value = PForm.useFieldValue(path);
+  const channels = PForm.useFieldValue(root.config.channels);
   const device = useFromConfig();
+  const skipped = Task.useSkipped(root.config.channels, value.key, portOf);
   const Icon = AO_CHANNEL_TYPE_ICONS[value.type];
   return (
     <Title
@@ -100,8 +106,9 @@ const DetailsTitle = ({ path }: Task.Views.DetailsProps) => {
       }}
       type={{ icon: <Icon />, name: AO_CHANNEL_TYPE_NAMES[value.type] }}
       channel={value.cmdChannel}
-      namePath={`${path}.cmdChannelName`}
+      namePath={path.cmdChannelName}
       defaultName={device == null ? undefined : ANALOG_OUTPUT.name(value, device)}
+      skipped={skipped}
       model={device?.model}
     />
   );
@@ -112,7 +119,7 @@ const channelListItem = Component.renderProp(ChannelListItem);
 
 const Form: FC = () => {
   const dev = useFromConfig();
-  PForm.useCheck("config", analogWriteHardwareZ(dev));
+  PForm.useCheck(root.config, analogWriteHardwareZ(dev));
   const resolve = (ch: AOChannel) => {
     if (dev == null) return null;
     const pair =
@@ -123,7 +130,7 @@ const Form: FC = () => {
   const ports =
     dev?.properties.hardware == null
       ? undefined
-      : (props: Task.Views.PortsProps) => (
+      : (props: Task.Views.PortsProps<AOChannel>) => (
           <PortsView<AOChannel>
             {...props}
             kind={ANALOG_OUTPUT}
@@ -134,6 +141,7 @@ const Form: FC = () => {
         );
   return (
     <Task.Views.ListAndDetails<AOChannel>
+      path={root.config.channels}
       listItem={channelListItem}
       details={channelDetails}
       detailsTitle={detailsTitle}
@@ -187,12 +195,8 @@ const onConfigure: Task.OnConfigure<typeof analogWriteConfigZ> = async (
     }
     const commandsToCreate: AOChannel[] = [];
     const statesToCreate: AOChannel[] = [];
-    // Channels on one port share its data channel, named by an enabled one if any.
-    const seen = new Set<string>();
-    for (const channel of Task.enabledFirst(config.channels)) {
-      const key = channel.port.toString();
-      if (seen.has(key)) continue;
-      seen.add(key);
+    for (const channel of Task.firstPerPort(config.channels, portOf)) {
+      const key = portOf(channel);
       const exPair = dev.properties.analogOutput.channels[key];
       if (exPair == null) {
         commandsToCreate.push(channel);
@@ -278,9 +282,10 @@ export const useCreateAnalogWrite = Task.createUseCreate({
   deviceMake: MAKE,
 });
 
-export const AnalogWriteSelectable = Selector.createSelectable({
+export const AnalogWriteSelectable: Selector.Selectable = {
   type: ANALOG_WRITE_TYPE,
   title: "NI analog write task",
+  label: "Analog write",
   icon: <Icon.Logo.NI />,
   useOnSelect: useCreateAnalogWrite,
-});
+};

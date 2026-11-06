@@ -54,6 +54,7 @@ py: &py
   - uv.lock
 
 ts: &ts
+  - .github/actions/setup-browsers/**
   - .github/actions/setup-pnpm/**
   - .github/workflows/test.ts.yaml
   - configs/**
@@ -193,6 +194,8 @@ client_ts: &client_ts
   - *ts
   - *x_ts
   - client/ts/**
+  # The client's filter specs read the Core's shared filter cases.
+  - core/testdata/filter/**
 
 pluto: &pluto
   - *alamos_ts
@@ -403,6 +406,7 @@ ci_scripts:
   - .github/scripts/**
   - .github/workflows/ci.yaml
   - deploy/preview/**
+  - scripts/common/**
 
 scripts:
   - *py

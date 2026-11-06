@@ -7,16 +7,22 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any
+from collections.abc import Callable
+from typing import Literal, NotRequired, TypedDict
 
 from playwright.sync_api import Locator, Page, expect
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from pydantic import TypeAdapter
 
 import synnax as sy
 
 # A notification expires on its own after a few seconds, so a button that is still
 # attached resolves at once.
 _SILENCE_TIMEOUT = 1000
+
+# Short enough that a new toast is cleared well before it expires on its own.
+_CLICK_ATTEMPT_TIMEOUT = 1000
+_CLICK_TIMEOUT = 10 * sy.TimeSpan.SECOND
 
 _READ_JS = """(elements) => elements.map((el) => {
   const text = (selector) => el.querySelector(selector)?.innerText.trim();
@@ -34,11 +40,25 @@ _READ_JS = """(elements) => elements.map((el) => {
 })"""
 
 
+class Notification(TypedDict):
+    """A notification as the Console renders it."""
+
+    type: Literal["info", "error"]
+    count: NotRequired[str]
+    timestamp: NotRequired[str]
+    message: NotRequired[str]
+    description: NotRequired[str]
+
+
+_NOTIFICATIONS: TypeAdapter[list[Notification]] = TypeAdapter(list[Notification])
+
+
 class NotificationsClient:
     """Notifications management for Console UI automation."""
 
-    def __init__(self, page: Page):
+    def __init__(self, page: Page, *, new_timer: Callable[[], sy.Timer] = sy.Timer):
         self.page = page
+        self._new_timer = new_timer
 
     def _all(self) -> Locator:
         """All visible notifications. Each notification carries role=status."""
@@ -46,7 +66,7 @@ class NotificationsClient:
 
     def check(
         self, *, timeout: sy.CrudeTimeSpan = 200 * sy.TimeSpan.MILLISECOND
-    ) -> list[dict[str, Any]]:
+    ) -> list[Notification]:
         """Check for notifications in the bottom right corner.
 
         Polls every 50ms until notifications are found or timeout is reached.
@@ -61,7 +81,9 @@ class NotificationsClient:
         while timer.elapsed() < timeout_span:
             # One call reads every notification, so a toast that arrives mid-read cannot
             # shift the others.
-            notifications: list[dict[str, Any]] = self._all().evaluate_all(_READ_JS)
+            notifications = _NOTIFICATIONS.validate_python(
+                self._all().evaluate_all(_READ_JS)
+            )
             if len(notifications) > 0:
                 return notifications
             sy.sleep(poll_interval)
@@ -121,6 +143,25 @@ class NotificationsClient:
             expect(buttons).to_have_count(0, timeout=2000)
         except AssertionError:
             pass
+
+    def clear_and_click(self, target: Locator) -> None:
+        """Clear notifications and click a target that they can cover.
+
+        A toast can land after the clear and outlive a single click timeout, so this
+        repeats both steps until the click lands.
+
+        :param target: The element to click.
+        :raises PlaywrightTimeoutError: If the click does not land in about 10 seconds.
+        """
+        timer = self._new_timer()
+        while True:
+            self.close_all()
+            try:
+                target.click(timeout=_CLICK_ATTEMPT_TIMEOUT)
+                return
+            except PlaywrightTimeoutError:
+                if timer.elapsed() >= _CLICK_TIMEOUT:
+                    raise
 
     def close_connection(self) -> bool:
         """Close the 'Connected to...' notification if present.

@@ -10,8 +10,9 @@
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement } from "react";
+import { type ReactElement, useState } from "react";
 
 import {
   type Activation,
@@ -20,8 +21,9 @@ import {
   type Organization,
 } from "@/server/db/schema";
 import { deny } from "@/server/license/deny";
-import { channels, term } from "@/server/license/limits";
+import { channels, MAX_LABEL_LENGTH, term } from "@/server/license/limits";
 import { activatePath } from "@/shell";
+import { post } from "@/ui/api";
 import { Fact, Facts } from "@/ui/Facts";
 import {
   date,
@@ -36,6 +38,7 @@ import { StaffActions } from "@/ui/licenses/StaffActions";
 import { StatusTag } from "@/ui/licenses/StatusTag";
 import { Empty, Page, Section } from "@/ui/Page";
 import { Row, Table } from "@/ui/Table";
+import { useAction } from "@/ui/useAction";
 
 export interface LicenseProps {
   license: LicenseRecord;
@@ -45,21 +48,57 @@ export interface LicenseProps {
   /** actors is the name each Clerk user id in `events` reads as. */
   actors: Record<string, string>;
   staff: boolean;
+  /** admin is true for staff and the admins of the owning team. */
+  admin: boolean;
   now: Date;
+}
+
+const LABEL_ID = "license-label";
+
+interface Renamed {
+  event: (Omit<Event, "at"> & { at: string }) | null;
+  actor: string;
 }
 
 const MACHINE_COLUMNS = "minmax(0, 2fr) 14rem 14rem 6rem";
 
 /** License shows a license: its terms, the machines holding seats, and its history. */
 export const License = ({
-  license: lic,
+  license: stored,
   organization,
   activations,
-  events,
-  actors,
+  events: loadedEvents,
+  actors: loadedActors,
   staff,
+  admin,
   now,
 }: LicenseProps): ReactElement => {
+  const [label, setLabel] = useState(stored.label);
+  const [events, setEvents] = useState(loadedEvents);
+  const [actors, setActors] = useState(loadedActors);
+  const [renaming, setRenaming] = useState(false);
+  const lic = { ...stored, label };
+  const rename = useAction(async (next: string) => {
+    setLabel(next);
+    try {
+      const { event, actor } = await post<Renamed>(`/api/licenses/${lic.key}/label`, {
+        label: next,
+      });
+      if (event == null) return;
+      setEvents((prev) => [{ ...event, at: new Date(event.at) }, ...prev]);
+      setActors((prev) => ({ ...prev, [event.actor]: actor }));
+      document.title = document.title.replace(label, () => next);
+    } catch (err) {
+      setLabel(label);
+      throw err as Error;
+    }
+  });
+  const startRenaming = (): void => {
+    setRenaming(true);
+    Text.asyncEdit(LABEL_ID)
+      .catch(console.error)
+      .finally(() => setRenaming(false));
+  };
   const status = statusOf(lic, now);
   const held = activations.filter((a) => a.releasedAt == null);
   const released = activations.filter((a) => a.releasedAt != null);
@@ -70,7 +109,10 @@ export const License = ({
       : undefined;
   return (
     <Page
-      title={lic.label}
+      title={label}
+      titleID={LABEL_ID}
+      onTitleChange={renaming ? rename.run : undefined}
+      titleMaxLength={MAX_LABEL_LENGTH}
       parent={parent}
       subtitle={
         <Flex.Box x align="center" gap="small">
@@ -84,6 +126,16 @@ export const License = ({
       }
       actions={
         <>
+          {admin && lic.edition === "enterprise" && (
+            <Button.Button
+              variant="outlined"
+              onClick={startRenaming}
+              disabled={rename.loading}
+            >
+              <Icon.Rename />
+              Rename
+            </Button.Button>
+          )}
           {staff && (
             <StaffActions
               license={lic}
@@ -100,6 +152,9 @@ export const License = ({
         </>
       }
     >
+      {rename.error != null && (
+        <Status.Summary variant="error" level="small" message={rename.error} />
+      )}
       <LicenseFacts license={lic} held={held.length} />
       <Section title="Machines">
         {held.length === 0 ? (

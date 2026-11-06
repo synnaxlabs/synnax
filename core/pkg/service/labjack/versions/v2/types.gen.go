@@ -28,9 +28,12 @@ import (
 type TemperatureUnits string
 
 const (
-	TemperatureUnitsCelsius    TemperatureUnits = "C"
+	// TemperatureUnitsCelsius is degrees Celsius.
+	TemperatureUnitsCelsius TemperatureUnits = "C"
+	// TemperatureUnitsFahrenheit is degrees Fahrenheit.
 	TemperatureUnitsFahrenheit TemperatureUnits = "F"
-	TemperatureUnitsKelvin     TemperatureUnits = "K"
+	// TemperatureUnitsKelvin is kelvins.
+	TemperatureUnitsKelvin TemperatureUnits = "K"
 )
 
 // IsValid reports whether t is one of the defined TemperatureUnits
@@ -48,14 +51,23 @@ func (t TemperatureUnits) IsValid() bool {
 type ThermocoupleType string
 
 const (
+	// ThermocoupleTypeJ pairs iron with copper-nickel.
 	ThermocoupleTypeJ ThermocoupleType = "J"
+	// ThermocoupleTypeK pairs nickel-chromium with nickel-aluminum.
 	ThermocoupleTypeK ThermocoupleType = "K"
+	// ThermocoupleTypeN pairs nickel-chromium-silicon with nickel-silicon-magnesium.
 	ThermocoupleTypeN ThermocoupleType = "N"
+	// ThermocoupleTypeR pairs platinum-13% rhodium with platinum.
 	ThermocoupleTypeR ThermocoupleType = "R"
+	// ThermocoupleTypeS pairs platinum-10% rhodium with platinum.
 	ThermocoupleTypeS ThermocoupleType = "S"
+	// ThermocoupleTypeT pairs copper with copper-nickel.
 	ThermocoupleTypeT ThermocoupleType = "T"
+	// ThermocoupleTypeB pairs platinum-30% rhodium with platinum-6% rhodium.
 	ThermocoupleTypeB ThermocoupleType = "B"
+	// ThermocoupleTypeE pairs nickel-chromium with copper-nickel.
 	ThermocoupleTypeE ThermocoupleType = "E"
+	// ThermocoupleTypeC pairs tungsten-5% rhenium with tungsten-26% rhenium.
 	ThermocoupleTypeC ThermocoupleType = "C"
 )
 
@@ -70,14 +82,19 @@ func (t ThermocoupleType) IsValid() bool {
 	}
 }
 
+// ScaleType is the "type" value that selects a variant of Scale.
 type ScaleType string
 
 const (
+	// LinearScaleType maps raw values to engineering units with a slope and offset.
 	LinearScaleType ScaleType = "linear"
-	MapScaleType    ScaleType = "map"
-	NoneScaleType   ScaleType = "none"
+	// MapScaleType maps a raw range linearly onto a scaled range.
+	MapScaleType ScaleType = "map"
+	// NoneScaleType applies no scaling; the raw value is used directly.
+	NoneScaleType ScaleType = "none"
 )
 
+// ScaleVariant is implemented by every Scale variant.
 type ScaleVariant interface {
 	isScaleVariant()
 }
@@ -207,9 +224,26 @@ func (u *Scale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.NoneScale
 	default:
-		return errors.Newf("Scale: unknown type %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Scale: unknown type %q",
+			disc.Type,
+		)
 	}
 	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u Scale) Type() ScaleType {
+	switch u.Variant.(type) {
+	case LinearScale:
+		return LinearScaleType
+	case MapScale:
+		return MapScaleType
+	case NoneScale:
+		return NoneScaleType
+	}
+	return ""
 }
 
 // ApplyDefaults fills the active variant's zero-valued fields with their
@@ -239,14 +273,19 @@ type BaseReadChannel struct {
 	Port string `json:"port" msgpack:"port"`
 }
 
+// ReadChannelType is the "type" value that selects a variant of ReadChannel.
 type ReadChannelType string
 
 const (
-	AnalogReadChannelType       ReadChannelType = "analog"
-	DigitalReadChannelType      ReadChannelType = "digital"
+	// AnalogReadChannelType reads a voltage from an analog input port.
+	AnalogReadChannelType ReadChannelType = "analog"
+	// DigitalReadChannelType reads a digital input line.
+	DigitalReadChannelType ReadChannelType = "digital"
+	// ThermocoupleReadChannelType reads temperature from a thermocouple.
 	ThermocoupleReadChannelType ReadChannelType = "thermocouple"
 )
 
+// ReadChannelVariant is implemented by every ReadChannel variant.
 type ReadChannelVariant interface {
 	isReadChannelVariant()
 }
@@ -254,7 +293,8 @@ type ReadChannelVariant interface {
 // AnalogReadChannel reads a voltage from an analog input port.
 type AnalogReadChannel struct {
 	BaseReadChannel
-	// Range is the upper bound of the voltage input range, in Volts.
+	// Range is the largest voltage magnitude the channel reads, in Volts. The channel
+	// uses the smallest range of the device that covers it.
 	Range float64 `json:"range" msgpack:"range"`
 	// NegChan is the negative channel for differential readings on T7 devices. 199
 	// selects single-ended.
@@ -305,7 +345,8 @@ type ThermocoupleReadChannel struct {
 	// selects single-ended.
 	NegChan int32 `json:"neg_chan" msgpack:"neg_chan"`
 	// CjcSource selects the cold-junction-compensation source: the device sensor
-	// ('TEMPERATURE_DEVICE_K'), ambient air ('TEMPERATURE_AIR_K'), or an AIN port (e.g.
+	// ('TEMPERATURE_DEVICE_K', which on a T8 is the sensor at the thermocouple's own
+	// terminal), ambient air ('TEMPERATURE_AIR_K', not on a T8), or an AIN port (e.g.
 	// 'AIN2').
 	CjcSource string `json:"cjc_source" msgpack:"cjc_source"`
 	// CjcSlope is the CJC voltage-to-temperature slope, in Kelvin per Volt.
@@ -434,9 +475,26 @@ func (u *ReadChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.ThermocoupleReadChannel
 	default:
-		return errors.Newf("ReadChannel: unknown type %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"ReadChannel: unknown type %q",
+			disc.Type,
+		)
 	}
 	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u ReadChannel) Type() ReadChannelType {
+	switch u.Variant.(type) {
+	case AnalogReadChannel:
+		return AnalogReadChannelType
+	case DigitalReadChannel:
+		return DigitalReadChannelType
+	case ThermocoupleReadChannel:
+		return ThermocoupleReadChannelType
+	}
+	return ""
 }
 
 // ApplyDefaults fills the active variant's zero-valued fields with their
@@ -465,6 +523,36 @@ func (u ReadChannel) Validate() error {
 	return nil
 }
 
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u ReadChannel) Base() BaseReadChannel {
+	switch variant := u.Variant.(type) {
+	case AnalogReadChannel:
+		return variant.BaseReadChannel
+	case DigitalReadChannel:
+		return variant.BaseReadChannel
+	case ThermocoupleReadChannel:
+		return variant.BaseReadChannel
+	}
+	return BaseReadChannel{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *ReadChannel) SetBase(base BaseReadChannel) {
+	switch variant := u.Variant.(type) {
+	case AnalogReadChannel:
+		variant.BaseReadChannel = base
+		u.Variant = variant
+	case DigitalReadChannel:
+		variant.BaseReadChannel = base
+		u.Variant = variant
+	case ThermocoupleReadChannel:
+		variant.BaseReadChannel = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("ReadChannel: cannot set the base of variant %T", variant))
+	}
+}
+
 // BaseWriteChannel carries the fields every LabJack write channel shares.
 type BaseWriteChannel struct {
 	// Key uniquely identifies the channel within the task.
@@ -483,13 +571,17 @@ type BaseWriteChannel struct {
 	Port string `json:"port" msgpack:"port"`
 }
 
+// WriteChannelType is the "type" value that selects a variant of WriteChannel.
 type WriteChannelType string
 
 const (
-	AnalogWriteChannelType  WriteChannelType = "analog"
+	// AnalogWriteChannelType drives an analog output on a DAC port.
+	AnalogWriteChannelType WriteChannelType = "analog"
+	// DigitalWriteChannelType drives a digital output line on a DIO port.
 	DigitalWriteChannelType WriteChannelType = "digital"
 )
 
+// WriteChannelVariant is implemented by every WriteChannel variant.
 type WriteChannelVariant interface {
 	isWriteChannelVariant()
 }
@@ -587,9 +679,24 @@ func (u *WriteChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.DigitalWriteChannel
 	default:
-		return errors.Newf("WriteChannel: unknown type %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"WriteChannel: unknown type %q",
+			disc.Type,
+		)
 	}
 	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u WriteChannel) Type() WriteChannelType {
+	switch u.Variant.(type) {
+	case AnalogWriteChannel:
+		return AnalogWriteChannelType
+	case DigitalWriteChannel:
+		return DigitalWriteChannelType
+	}
+	return ""
 }
 
 // ApplyDefaults fills the active variant's zero-valued fields with their
@@ -602,6 +709,31 @@ func (u *WriteChannel) ApplyDefaults() {
 	case DigitalWriteChannel:
 		variant.ApplyDefaults()
 		u.Variant = variant
+	}
+}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u WriteChannel) Base() BaseWriteChannel {
+	switch variant := u.Variant.(type) {
+	case AnalogWriteChannel:
+		return variant.BaseWriteChannel
+	case DigitalWriteChannel:
+		return variant.BaseWriteChannel
+	}
+	return BaseWriteChannel{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *WriteChannel) SetBase(base BaseWriteChannel) {
+	switch variant := u.Variant.(type) {
+	case AnalogWriteChannel:
+		variant.BaseWriteChannel = base
+		u.Variant = variant
+	case DigitalWriteChannel:
+		variant.BaseWriteChannel = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("WriteChannel: cannot set the base of variant %T", variant))
 	}
 }
 

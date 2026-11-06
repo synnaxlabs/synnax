@@ -99,6 +99,18 @@ def clang_format(repo: Repo, *, body: str) -> None:
     repo.env["PATH"] = f"{bin}:{repo.env['PATH']}"
 
 
+def uv(repo: Repo) -> Path:
+    """Puts a uv on PATH that logs each call's arguments, and returns the log."""
+    bin = repo.path.parent / "bin"
+    bin.mkdir()
+    log = repo.path.parent / "uv.log"
+    exe = bin / "uv"
+    exe.write_text(f'#!/bin/bash\necho "$*" >> {log}\n')
+    exe.chmod(0o755)
+    repo.env["PATH"] = f"{bin}:{repo.env['PATH']}"
+    return log
+
+
 class TestFix:
     """Runs fix.sh in each of its modes."""
 
@@ -197,6 +209,14 @@ class TestFix:
         assert repo.fix("a b.cpp").returncode == 0
         assert (repo.path / "a b.cpp").read_text().endswith("// ok\n")
 
+    def test_should_keep_ruff_excludes_for_named_files(self, repo: Repo) -> None:
+        log = uv(repo)
+        repo.write("a.py", "a = 1\n")
+        assert repo.fix("a.py").returncode == 0
+        calls = log.read_text().splitlines()
+        assert len(calls) == 2
+        assert all("--force-exclude" in c and c.endswith("-- a.py") for c in calls)
+
     def test_should_fail_when_clang_format_fails(self, repo: Repo) -> None:
         clang_format(repo, body="exit 1")
         repo.write("a.cpp", "int a;\n")
@@ -206,6 +226,12 @@ class TestFix:
         repo.write("a.sh", "echo a\n")
         assert repo.fix("--staged").returncode == 0
         assert not repo.header("a.sh")
+
+    def test_should_pass_when_no_staged_file_needs_a_header(self, repo: Repo) -> None:
+        repo.write("a.md", "# a\n")
+        repo.git("add", "a.md")
+        assert repo.fix("--staged").returncode == 0
+        assert not repo.header("a.md")
 
 
 class TestPreCommitHook:

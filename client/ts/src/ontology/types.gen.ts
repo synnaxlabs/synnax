@@ -36,6 +36,15 @@ export const RESOURCE_TYPES = [
   "task",
   "user",
   "view",
+  "ethercat_master",
+  "ethercat_slave",
+  "http_server",
+  "labjack_device",
+  "modbus_server",
+  "ni_chassis",
+  "ni_device",
+  "opcua_server",
+  "arc_directory",
 ] as const;
 export const resourceTypeZ = z.enum(RESOURCE_TYPES);
 export type ResourceType = z.infer<typeof resourceTypeZ>;

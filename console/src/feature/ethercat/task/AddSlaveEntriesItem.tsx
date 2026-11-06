@@ -11,7 +11,7 @@ import { type ethercat } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
-import { primitive } from "@synnaxlabs/x";
+import { type deep, primitive } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { useResultSlave } from "@/feature/ethercat/device/queries";
@@ -25,11 +25,11 @@ import {
 } from "@/feature/ethercat/task/types";
 import { type Task } from "@/platform/task";
 
-const CHANNELS_PATH = "config.channels";
-
 export interface AddSlaveEntriesItemProps<
   C extends Channel,
 > extends Task.ContextMenuItemProps<C> {
+  /** The path of the task's channel list. */
+  path: deep.Target<C[]>;
   /** The entries to add: inputs for a read task, outputs for a write task. */
   pdoType: PDOType;
   /** Creates a channel bound to one entry of the slave with the given key. */
@@ -44,6 +44,7 @@ export interface AddSlaveEntriesItemProps<
 export const AddSlaveEntriesItem = <C extends Channel>({
   channels,
   keys,
+  path,
   pdoType,
   createChannel,
 }: AddSlaveEntriesItemProps<C>): ReactElement | null => {
@@ -51,8 +52,8 @@ export const AddSlaveEntriesItem = <C extends Channel>({
   const { data: slave } = useResultSlave(
     primitive.isZero(device) ? null : { key: device },
   );
-  const all = Form.useFieldValue<C[]>(CHANNELS_PATH);
-  const { push } = Form.useFieldListUtils<string, C>(CHANNELS_PATH);
+  const all = Form.useFieldValue(path);
+  const { push } = Form.useFieldListUtils(path);
   if (slave == null) return null;
   const used = new Set(
     all.flatMap((ch) => (ch.device === device && hasEntry(ch) ? [addressKey(ch)] : [])),

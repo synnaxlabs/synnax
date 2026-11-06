@@ -72,5 +72,23 @@ describe("group", () => {
         AccessDeniedError.matches,
       );
     });
+
+    it("should retrieve a page of children past a child the caller cannot read", async () => {
+      const parent = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: `test-${id.create()}`,
+      });
+      const parentID = group.ontologyID(parent.key);
+      await client.groups.create({ parent: parentID, name: "a" });
+      await client.groups.create({ parent: parentID, name: "b" });
+      const [first] = await client.groups.retrieve({ parent: parentID, limit: 1 });
+      const userClient = await createTestClientWithPolicy(client, {
+        name: "test",
+        objects: [group.ontologyID(first.key)],
+        actions: ["retrieve"],
+      });
+      const page = await userClient.groups.retrieve({ parent: parentID, limit: 1 });
+      expect(page).toEqual([first]);
+    });
   });
 });

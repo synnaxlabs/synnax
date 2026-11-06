@@ -65,6 +65,40 @@ var _ = Describe("Go Actions Plugin", func() {
 			})
 		})
 
+		Context("unions with actions", func() {
+			It("Should emit actions that reduce the union", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/shape"
+
+					Base struct {
+						key  uuid
+						name string
+					}
+
+					Shape union on type extends Base {
+						circle {
+							radius float64
+						}
+						square {}
+
+						action Rename {
+							name string
+						}
+					}
+				`
+				resp := MustGenerate(ctx, source, "shape", loader, p)
+				Expect(resp.Files).To(HaveLen(1))
+				ExpectContent(resp, "actions.gen.go").ToContain(
+					"package shape",
+					"\nconst ActionTypeRename = \"rename\"\n",
+					"type RenamePayload struct {",
+					"func Reduce(state Shape, actions ...Action) (Shape, error) {",
+					"state, err = a.Rename.Handle(state)",
+					"func NewRenameAction(p RenamePayload) Action {",
+				)
+			})
+		})
+
 		Context("structs with actions", func() {
 			It(
 				"Should emit a single action type constant on one line",

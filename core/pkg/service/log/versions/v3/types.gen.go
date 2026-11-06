@@ -37,7 +37,7 @@ type ChannelEntry struct {
 	Notation notation.Notation `json:"notation" msgpack:"notation"`
 	// Precision is the number of decimal digits to display. Absent shows each sample as
 	// it arrives; 17 is the maximum significant digits for a float64.
-	Precision *int32 `json:"precision,omitzero" msgpack:"precision,omitempty"`
+	Precision *uint8 `json:"precision,omitzero" msgpack:"precision,omitempty"`
 	// Alias is a human-readable alias displayed in place of the channel name.
 	Alias string `json:"alias" msgpack:"alias"`
 	// Timestamp is the per-channel timestamp display configuration.
@@ -63,16 +63,15 @@ func (c ChannelEntry) Validate() error {
 	v := validate.New("ChannelEntry")
 	v.Ternaryf("notation", !c.Notation.IsValid(), "invalid notation: %v", c.Notation)
 	if c.Precision != nil {
-		v.GreaterThanEq("precision", *c.Precision, 0)
 		v.LessThanEq("precision", *c.Precision, 17)
 	}
+	v.MaxLength("alias", c.Alias, 64)
 	v.Exec(func() error { return validate.PathedError(c.Timestamp.Validate(), "timestamp") })
 	return v.Error()
 }
 
-// Log is a timestamped event and message logging component. Logs display chronological
-// records of events, system messages, and audit trails with filtering and formatting
-// capabilities.
+// Log is a visualization that shows the samples of its channels as text, one line per
+// sample, in time order.
 type Log struct {
 	// Key is the unique identifier for this log.
 	Key Key `json:"key" msgpack:"key"`
@@ -81,11 +80,11 @@ type Log struct {
 	// Channels are the channels displayed in this log, in order.
 	Channels []ChannelEntry `json:"channels" msgpack:"channels"`
 	// TimestampPrecision is the precision of displayed timestamps (0-3).
-	TimestampPrecision int32 `json:"timestamp_precision" msgpack:"timestamp_precision"`
+	TimestampPrecision uint8 `json:"timestamp_precision" msgpack:"timestamp_precision"`
 	// ChannelNamesHidden is true when channel names are hidden.
 	ChannelNamesHidden bool `json:"channel_names_hidden" msgpack:"channel_names_hidden"`
-	// ReceiptTimestampHidden is true when the receipt timestamp column is hidden.
-	ReceiptTimestampHidden bool `json:"receipt_timestamp_hidden" msgpack:"receipt_timestamp_hidden"`
+	// TimestampsHidden is true when entry timestamps are hidden.
+	TimestampsHidden bool `json:"timestamps_hidden" msgpack:"timestamps_hidden"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -100,7 +99,6 @@ func (l *Log) ApplyDefaults() {
 func (l Log) Validate() error {
 	v := validate.New("Log")
 	v.NotEmptyString("name", l.Name)
-	v.GreaterThanEq("timestamp_precision", l.TimestampPrecision, 0)
 	v.LessThanEq("timestamp_precision", l.TimestampPrecision, 3)
 	for i := range l.Channels {
 		v.Exec(func() error { return validate.PathedError(l.Channels[i].Validate(), "channels", strconv.Itoa(i)) })

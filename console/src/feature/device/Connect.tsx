@@ -112,7 +112,7 @@ const Picker = ({ racks, rack: rackKey, onSelect }: PickerProps): ReactElement =
           rack: rackKey,
         });
   return (
-    <Modal.Frame className={CSS.B("device-connect")}>
+    <PlatformDevice.ConnectFrame className={CSS.B("device-connect")}>
       <Modal.Header icon={<Icon.Device />}>Device.Connect</Modal.Header>
       <Modal.Body gap="huge" justify="start">
         <Group
@@ -128,7 +128,7 @@ const Picker = ({ racks, rack: rackKey, onSelect }: PickerProps): ReactElement =
           onSelect={onSelect}
         />
       </Modal.Body>
-    </Modal.Frame>
+    </PlatformDevice.ConnectFrame>
   );
 };
 

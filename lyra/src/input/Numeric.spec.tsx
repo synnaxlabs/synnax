@@ -60,6 +60,22 @@ describe("Input.Numeric", () => {
       ]);
     });
 
+    it("should reset the value on a double click", () => {
+      const onChange = vi.fn();
+      const c = render(<Input.Numeric value={2} onChange={onChange} resetValue={0} />);
+      fireEvent.doubleClick(dragButtonOf(c));
+      expect(onChange).toHaveBeenCalledWith(0);
+    });
+
+    it("should not reset the value on a double click while disabled", () => {
+      const onChange = vi.fn();
+      const c = render(
+        <Input.Numeric value={2} onChange={onChange} resetValue={0} disabled />,
+      );
+      fireEvent.doubleClick(dragButtonOf(c));
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
     describe("onlyChangeOnBlur", () => {
       it("should not emit while the drag is in progress", () => {
         const onChange = vi.fn();
@@ -165,6 +181,29 @@ describe("Input.Numeric", () => {
       fireEvent.change(input, { target: { value: "" } });
       fireEvent.blur(input);
       expect(onChange).toHaveBeenCalledWith(-1);
+    });
+
+    it("should call onClear when the user empties a set value", () => {
+      const onChange = vi.fn();
+      const onClear = vi.fn();
+      const c = render(
+        <Input.Numeric value={7} onChange={onChange} onClear={onClear} />,
+      );
+      const input = c.getByRole("textbox");
+      fireEvent.change(input, { target: { value: "" } });
+      fireEvent.blur(input);
+      expect(onClear).toHaveBeenCalledTimes(1);
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("should revert an emptied set value without onClear", () => {
+      const onChange = vi.fn();
+      const c = render(<Input.Numeric value={7} onChange={onChange} />);
+      const input = c.getByRole("textbox") as HTMLInputElement;
+      fireEvent.change(input, { target: { value: "" } });
+      fireEvent.blur(input);
+      expect(onChange).not.toHaveBeenCalled();
+      expect(input.value).toEqual("7");
     });
 
     it("should emit a typed value from an absent one", () => {

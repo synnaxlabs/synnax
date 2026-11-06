@@ -14,8 +14,12 @@ import { type Input } from "@synnaxlabs/lyra/input";
 import { type position } from "@synnaxlabs/lyra/position";
 import { type Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/pluto";
-import { location } from "@synnaxlabs/x";
+import { deep, location } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
+
+import { getSelected } from "@/platform/status/filter/selected";
+
+const path = deep.path<{ where?: { variant?: status.Where["variant"] } }>();
 
 const TRIGGER_PROPS: Select.MultipleTriggerProps<status.Variant> = {
   hideTags: true,
@@ -27,9 +31,11 @@ const DIALOG_LOCATION: position.LocationPreference = {
   dialogCorner: location.TOP_LEFT,
 };
 
+type VariantSet = status.Where["variant"];
+
 export const MenuItem = (): ReactElement => (
-  <Form.Field<status.Variant[] | undefined, status.Variant[]>
-    path="query.variants"
+  <Form.Field<VariantSet>
+    path={deep.present(path.where).variant}
     showLabel={false}
     showHelpText={false}
   >
@@ -38,13 +44,13 @@ export const MenuItem = (): ReactElement => (
 );
 
 const selectVariantRenderProp = Component.renderProp(
-  ({
-    value,
-    onChange,
-  }: Input.Control<status.Variant[] | undefined, status.Variant[]>) => (
+  ({ value, onChange }: Input.Control<VariantSet>) => (
     <Status.SelectMultipleVariants
-      value={value ?? []}
-      onChange={onChange}
+      value={getSelected(value)}
+      // An empty in matches nothing, so no selection drops the line.
+      onChange={(variants) =>
+        onChange(variants.length === 0 ? undefined : { in: variants })
+      }
       location={DIALOG_LOCATION}
       triggerProps={TRIGGER_PROPS}
     />

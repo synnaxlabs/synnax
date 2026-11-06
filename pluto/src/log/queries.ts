@@ -69,8 +69,8 @@ export const useIsHidingChannelNames = Scope.bindHook(
   createSelector(({ channelNamesHidden }) => channelNamesHidden),
 );
 
-export const useIsHidingReceiptTimestamp = Scope.bindHook(
-  createSelector(({ receiptTimestampHidden }) => receiptTimestampHidden),
+export const useIsHidingTimestamps = Scope.bindHook(
+  createSelector(({ timestampsHidden }) => timestampsHidden),
 );
 
 export const {
