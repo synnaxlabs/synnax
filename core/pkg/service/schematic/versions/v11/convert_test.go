@@ -53,6 +53,18 @@ var _ = Describe("DecodeWithDefaults", func() {
 		Expect(cfg.StrokeWidth).To(BeEquivalentTo(6))
 	})
 
+	DescribeTable("Should reject an edge stroke width out of bounds",
+		func(strokeWidth float64) {
+			cfg := MustSucceed(v11.DecodeWithDefaults(msgpack.EncodedJSON{
+				"variant":      "pipe",
+				"stroke_width": strokeWidth,
+			}))
+			Expect(cfg.Validate()).To(MatchError(ContainSubstring("stroke_width")))
+		},
+		Entry("negative", -8.0),
+		Entry("above the maximum", 21.0),
+	)
+
 	It("Should fill the control state defaults when the config carries one", func() {
 		cfg := MustSucceed(v11.DecodeWithDefaults(msgpack.EncodedJSON{
 			"variant": "switch",

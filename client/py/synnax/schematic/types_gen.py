@@ -264,7 +264,7 @@ class SegmentedEdgeConfig(BaseModel):
     """
 
     stroke_color: color_.Color | None = None
-    stroke_width: float = 2
+    stroke_width: float = Field(default=2, ge=1, le=20)
     segments: list[Segment] = Field(default_factory=list)
 
 
