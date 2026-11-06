@@ -587,6 +587,13 @@ x::errors::Error Engine::ensure_initialized() {
     return this->master->initialize();
 }
 
+x::errors::Error Engine::rediscover() {
+    std::lock_guard lock(this->mu);
+    if (this->running()) return x::errors::NIL;
+    this->master->deactivate();
+    return this->master->initialize();
+}
+
 std::vector<slave::DiscoveryResult> Engine::slaves() const {
     std::lock_guard lock(this->mu);
     return this->master->slaves();

@@ -497,6 +497,18 @@ TEST_F(EngineTest, ActivationErrorPropagates) {
     EXPECT_FALSE(this->engine->running());
 }
 
+/// @brief it should discover the slaves again while the bus is stopped, and not while
+/// it runs.
+TEST_F(EngineTest, RediscoverOnlyWhileStopped) {
+    ASSERT_NIL(this->engine->rediscover());
+    EXPECT_EQ(this->master->call_count("deactivate"), 1);
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    ASSERT_NIL(this->engine->rediscover());
+    EXPECT_EQ(this->master->call_count("deactivate"), 1);
+}
+
 /// @brief it should return at once, without a retry, when a slave refuses a state
 /// change.
 TEST_F(EngineTest, StateChangeRefusalSkipsRetries) {

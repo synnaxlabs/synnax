@@ -39,7 +39,14 @@ protected:
     void SetUp() override {
         auto api = std::make_unique<MockAPI>();
         this->mock = api.get();
-        this->master = std::make_unique<Master>(std::move(api), "eth0");
+        this->master = std::make_unique<Master>(
+            std::move(api),
+            "eth0",
+            Config{
+                .pre_op_timeout = x::telem::MILLISECOND * 100,
+                .state_change_timeout = x::telem::MILLISECOND * 100,
+            }
+        );
         this->brk.start();
     }
 
