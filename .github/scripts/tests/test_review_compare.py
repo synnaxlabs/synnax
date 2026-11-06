@@ -116,13 +116,19 @@ def thread(
     up: int = 0,
     down: int = 0,
     replied: str | None = None,
+    reply: str = "Thanks.",
 ) -> dict[str, Any]:
     badge = '<img alt="P1" src="p1.svg">'
-    last = [{"author": {"login": login}, "createdAt": "2026-11-05T09:00:00Z"}]
+    opened = "2026-11-05T09:00:00Z"
+    last = [{"author": {"login": login}, "body": "", "createdAt": opened}]
     if replied is not None:
         last += [
-            {"author": {"login": "pat"}, "createdAt": replied},
-            {"author": {"login": "greptile-apps"}, "createdAt": "2026-11-05T23:00:00Z"},
+            {"author": {"login": "pat"}, "body": reply, "createdAt": replied},
+            {
+                "author": {"login": "greptile-apps"},
+                "body": "Fixed.",
+                "createdAt": "2026-11-05T23:00:00Z",
+            },
         ]
     return {
         "isResolved": resolved,
@@ -228,6 +234,7 @@ def t(**kw: Any) -> compare.Thread:
         "up": 0,
         "down": 0,
         "last_reply": None,
+        "fixed": False,
     }
     return compare.Thread(**(fields | kw))
 
@@ -266,6 +273,32 @@ class TestThreads:
         node["first"]["nodes"] = []
         assert compare.threads([node]) == []
 
+    def test_should_keep_a_thread_whose_commit_is_gone(self) -> None:
+        node = thread(101, "greptile-apps", "Leaks a handle", 10, HEAD)
+        node["first"]["nodes"][0]["originalCommit"] = None
+        assert compare.threads([node])[0].commit is None
+
+    def test_should_read_a_fix_from_a_reply_of_a_person(self) -> None:
+        reply = (
+            "*Emiliano + Claude: generated reply.*\n\nFixed in 1a2b3c, in a_test.go."
+        )
+        node = thread(
+            101,
+            "sedosaur",
+            "Leaks a handle",
+            10,
+            HEAD,
+            replied="2026-11-05T11:00:00Z",
+            reply=reply,
+        )
+        assert compare.threads([node])[0].fixed
+
+    def test_should_not_read_a_fix_from_a_reply_of_a_reviewer(self) -> None:
+        node = thread(
+            101, "sedosaur", "Leaks a handle", 10, HEAD, replied="2026-11-05T11:00:00Z"
+        )
+        assert not compare.threads([node])[0].fixed
+
 
 class TestVerdict:
     """Tests deciding whether a finding was real."""
@@ -283,6 +316,9 @@ class TestVerdict:
 
     def test_should_take_a_fix_as_real(self) -> None:
         assert compare.verdict(t(resolved=True), {"a.go"}) == compare.REAL
+
+    def test_should_take_a_reply_that_says_fixed_as_real(self) -> None:
+        assert compare.verdict(t(fixed=True), None) == compare.REAL
 
     def test_should_take_a_resolve_without_a_fix_as_noise(self) -> None:
         assert compare.verdict(t(resolved=True), {"b.go"}) == compare.NOISE
