@@ -328,6 +328,44 @@ const TEST_CASES: TestCase[] = [
 ];
 
 describe("stringifyNumber", () => {
+  it("should write a bigint past the float range as infinity", () => {
+    expect(notation.stringifyNumber(10n ** 309n, 2, "scientific")).toBe("∞");
+    expect(notation.stringifyNumber(-(10n ** 309n), 2, "engineering")).toBe("-∞");
+  });
+
+  describe("undefined precision", () => {
+    const CASES: Array<[number | bigint, notation.Notation, string]> = [
+      [1234.5, "standard", "1234.5"],
+      [1234.5, "scientific", "1.2345ᴇ3"],
+      [1234.5, "engineering", "1.2345ᴇ3"],
+      [12345.6, "engineering", "12.3456ᴇ3"],
+      [123456.7, "engineering", "123.4567ᴇ3"],
+      [1000, "engineering", "1ᴇ3"],
+      [10000, "engineering", "10ᴇ3"],
+      [100000, "engineering", "100ᴇ3"],
+      [0.00012, "scientific", "1.2ᴇ-4"],
+      [0.00012, "engineering", "120ᴇ-6"],
+      [-1234.5, "scientific", "-1.2345ᴇ3"],
+      [0.30000000000000004, "scientific", "3.0000000000000004ᴇ-1"],
+      [1.2345678901234567e30, "engineering", "1.2345678901234567ᴇ30"],
+      [0, "scientific", "0ᴇ0"],
+      [NaN, "scientific", "NaN"],
+      [Infinity, "engineering", "∞"],
+      [-Infinity, "scientific", "-∞"],
+      [0n, "scientific", "0ᴇ0"],
+      [1200n, "scientific", "1.2ᴇ3"],
+      [-1200n, "engineering", "-1.2ᴇ3"],
+      [9007199254740993n, "standard", "9007199254740993"],
+      [9007199254740993n, "scientific", "9.007199254740993ᴇ15"],
+      [18446744073709551615n, "engineering", "18.446744073709551615ᴇ18"],
+    ];
+    CASES.forEach(([value, n, expected]) =>
+      it(`should write ${value} in ${n} as ${expected}`, () => {
+        expect(notation.stringifyNumber(value, undefined, n)).toBe(expected);
+      }),
+    );
+  });
+
   TEST_CASES.forEach(({ number, precision, expected }) =>
     describe(`${typeof number === "bigint" ? "bigint " : ""}number: ${number}, precision: ${precision}`, () =>
       notation.NOTATIONS.forEach((n) =>

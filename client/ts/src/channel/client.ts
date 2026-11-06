@@ -46,7 +46,7 @@ import {
   statusZ,
 } from "@/channel/types.gen";
 import { LINES, serverComputed } from "@/channel/where";
-import { matches } from "@/channel/where.gen";
+import { matches, retrieveInputZ } from "@/channel/where.gen";
 import { type Writer } from "@/channel/writer";
 import { NotFoundError, ValidationError } from "@/errors";
 import { type framer } from "@/framer";
@@ -223,6 +223,11 @@ const retrieveMultipleParamsZ = retrieveRequestZ.extend({
  */
 export type RetrieveMultipleParams = RetrieveRequest & { rangeKey?: ranger.Key };
 
+const retrieveParamsZ = z.union([
+  retrieveMultipleParamsZ,
+  retrieveInputZ(retrieveMultipleParamsZ.omit({ where: true }).shape),
+]);
+
 const aliasedRetrieveRequestZ = z.object({
   request: retrieveRequestZ,
   rangeKey: rangerKeyZ.optional(),
@@ -239,6 +244,11 @@ const retrieveGroupResZ = z.object({ group: group.groupZ });
 
 /** Names one channel. Give a `rangeKey` to resolve its alias in that range. */
 export type RetrieveSingleParams = { key: Key; rangeKey?: ranger.Key };
+
+type OneParams = query.OneInput<typeof retrieveParamsZ>;
+
+const isOneParams = (params: object): params is RetrieveSingleParams | OneParams =>
+  query.addressesOne(params);
 
 /** Aliases and statuses are composed from their stores on read. */
 const stripComposed = ({ alias: _alias, status: _status, ...rest }: Payload): Payload =>
@@ -299,7 +309,7 @@ export interface ClientConfig {
  * read costs nothing.
  */
 export class Client extends query.Retriever<
-  typeof retrieveMultipleParamsZ,
+  typeof retrieveParamsZ,
   Key,
   Channel,
   Channel,
@@ -368,7 +378,7 @@ export class Client extends query.Retriever<
       name: "channel",
       table: store,
       request: {
-        schema: retrieveMultipleParamsZ,
+        schema: retrieveParamsZ,
         fetch: async (query) => await this.fetchRequest(query),
         matches: (ch, query) => matches(LINES, ch, query.where),
         serverComputed: (query) => serverComputed(query.where),
@@ -514,17 +524,27 @@ export class Client extends query.Retriever<
     options?: RetrieveOptions,
   ): Promise<Channel[]>;
 
-  async retrieve(params: RetrieveSingleParams): Promise<Channel>;
+  async retrieve(params: RetrieveSingleParams | OneParams): Promise<Channel>;
 
   /** Retrieves the channels that params selects. */
-  async retrieve(params: RetrieveMultipleParams): Promise<Channel[]>;
+  async retrieve(
+    params: query.RequestInput<typeof retrieveParamsZ>,
+  ): Promise<Channel[]>;
 
   async retrieve(
-    params: PrimitiveParams | Payload[] | RetrieveSingleParams | RetrieveMultipleParams,
+    params:
+      | PrimitiveParams
+      | Payload[]
+      | RetrieveSingleParams
+      | OneParams
+      | query.RequestInput<typeof retrieveParamsZ>,
     options?: RetrieveOptions,
   ): Promise<Channel | Channel[]> {
-    if (typeof params === "object" && !Array.isArray(params))
+    if (typeof params === "object" && !Array.isArray(params)) {
+      // The branches narrow params onto different base overloads.
+      if (isOneParams(params)) return await super.retrieve(params);
       return await super.retrieve(params);
+    }
     const isSingle = !Array.isArray(params);
     const { variant, normalized: rawNormalized } = analyzeParams(params);
     const normalized =

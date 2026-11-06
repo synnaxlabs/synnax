@@ -71,7 +71,7 @@ class AliasSynchronization(ConsoleCase):
         self.log("Setting up Line Plot with channel")
         plot = console.pages.create(Plot, f"Alias Test Plot {self.suffix}")
         self._cleanup_pages.append(plot.page_name)
-        plot.add_channels("Y1", [self.data_name])
+        plot.add_channels("y1", [self.data_name])
 
         self.log("Setting alias for channel")
         console.channels.set_alias(name=self.data_name, alias=self.alias_name)
@@ -92,7 +92,7 @@ class AliasSynchronization(ConsoleCase):
         )
 
         self.log("Verifying sync in Line Plot Toolbar")
-        assert plot.has_channel("Y1", self.alias_name), (
+        assert plot.has_channel("y1", self.alias_name), (
             f"Alias {self.alias_name} should appear in Line Plot toolbar"
         )
 
@@ -114,10 +114,10 @@ class AliasSynchronization(ConsoleCase):
         console.channels.hide_channels()
 
         self.log("Verifying alias removal in Line Plot Toolbar")
-        assert not plot.has_channel("Y1", self.alias_name), (
+        assert not plot.has_channel("y1", self.alias_name), (
             f"Alias {self.alias_name} should no longer appear in Line Plot toolbar"
         )
-        assert plot.has_channel("Y1", self.data_name), (
+        assert plot.has_channel("y1", self.data_name), (
             f"Original channel {self.data_name} should appear in Line Plot toolbar"
         )
 
