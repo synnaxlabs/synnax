@@ -34,8 +34,8 @@ namespace driver::ethercat::master {
 inline const x::telem::TimeStamp DC_EPOCH(x::telem::SECOND * 946684800);
 
 /// @brief returns the error for an entry on a slave that the bus started without.
-/// @param refusal why the slave is left out, such as "refused SAFE-OP: Invalid DC SYNC
-/// configuration".
+/// @param refusal why the slave is left out, such as "refused SAFE-OP: Inconsistent
+/// settings.".
 inline x::errors::Error left_out_error(
     const uint16_t position,
     const std::string &name,
@@ -44,7 +44,7 @@ inline x::errors::Error left_out_error(
     return x::errors::Error(
         errors::STATE_CHANGE_REFUSED,
         std::format(
-            "Slave {} ({}) is not on the network: it {}. Fix the device, then stop "
+            "Slave {} ({}) is not on the network: it {} Fix the device, then stop "
             "every task on the network to try it again.",
             position,
             name,
@@ -93,9 +93,10 @@ public:
     activate(x::telem::TimeSpan period, const std::function<void()> &start_cycle) = 0;
 
     /// @brief returns why each slave refused a state in the last activate(), such as
-    /// "refused SAFE-OP: Invalid DC SYNC configuration", keyed by position. Empty when
-    /// no slave refused, or when every enabled slave refused, as the bus cannot start
-    /// without all of them.
+    /// "refused SAFE-OP: Inconsistent settings.", keyed by position. A reason ends with
+    /// a period and can hold more sentences, such as advice. Empty when no slave
+    /// refused, or when every enabled slave refused, as the bus cannot start without
+    /// all of them.
     [[nodiscard]] virtual std::map<uint16_t, std::string> refusals() const = 0;
 
     /// @brief leaves each slave in slaves out of the next activate() as if it were

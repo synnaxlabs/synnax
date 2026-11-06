@@ -35,7 +35,7 @@ const pdo::Entry OUT_I24(0, 0x7000, 3, 24, false, x::telem::INT32_T);
 const pdo::Entry OUT_U4(0, 0x7000, 4, 4, false, x::telem::UINT8_T);
 
 /// @brief why a slave in the specs refuses SAFE-OP.
-const std::string REFUSAL = "refused SAFE-OP: Invalid DC SYNC configuration";
+const std::string REFUSAL = "refused SAFE-OP: Inconsistent settings.";
 
 /// @brief byte offsets of the entries of io_slave in its slave's part of the image.
 constexpr size_t I16_BYTE = 0;
@@ -665,8 +665,8 @@ TEST_F(EngineTest, ReaderOnALeftOutSlaveFails) {
     ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_REFUSED);
     EXPECT_EQ(
         err.data,
-        "Slave 1 (Slave1) is not on the network: it refused SAFE-OP: Invalid DC SYNC "
-        "configuration. Fix the device, then stop every task on the network to try it "
+        "Slave 1 (Slave1) is not on the network: it refused SAFE-OP: Inconsistent "
+        "settings. Fix the device, then stop every task on the network to try it "
         "again."
     );
     EXPECT_FALSE(this->engine->running());

@@ -127,7 +127,7 @@ public:
 
     /// @brief makes activate() fail with errors::STATE_CHANGE_REFUSED while the slave
     /// at position is on the bus, as when the slave refuses a state. reason is the
-    /// refusal, such as "refused SAFE-OP: Invalid DC SYNC configuration".
+    /// refusal, such as "refused SAFE-OP: Inconsistent settings.".
     void refuse(const uint16_t position, const std::string &reason) {
         std::lock_guard lock(this->mu);
         this->refusing[position] = reason;

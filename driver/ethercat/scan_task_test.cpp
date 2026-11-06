@@ -559,7 +559,7 @@ TEST_F(EtherCATScanStatusTest, LeftOutSlaveShowsFailedToStart) {
             .name = "Left Out Slave",
         }
     );
-    this->master->refuse(1, "refused SAFE-OP: Invalid DC SYNC configuration");
+    this->master->refuse(1, "refused SAFE-OP: Inconsistent settings.");
     const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
     const auto reader = ASSERT_NIL_P(
         engine->open_reader({this->entry}, x::telem::Rate(100), 1)
@@ -579,9 +579,49 @@ TEST_F(EtherCATScanStatusTest, LeftOutSlaveShowsFailedToStart) {
     EXPECT_EQ(status.message, "Failed to start");
     EXPECT_EQ(
         status.description,
-        "It refused SAFE-OP: Invalid DC SYNC configuration. The other devices on the "
-        "network started without it. The Driver tries it again the next time the "
-        "network starts."
+        "It refused SAFE-OP: Inconsistent settings. The other devices on the network "
+        "started without it. The Driver tries it again the next time the network "
+        "starts."
+    );
+}
+
+/// @brief it should show each sentence of the reason of a left-out slave, such as the
+/// advice after its AL status text.
+TEST_F(EtherCATScanStatusTest, LeftOutSlaveShowsTheAdviceInItsReason) {
+    this->master->add_slave(
+        slave::Properties{
+            .position = 1,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .serial = 54321,
+            .name = "Left Out Slave",
+        }
+    );
+    this->master->refuse(
+        1,
+        "refused SAFE-OP: Invalid DC SYNC configuration. Set the DC mode of the slave "
+        "in its device settings."
+    );
+    const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
+    const auto reader = ASSERT_NIL_P(
+        engine->open_reader({this->entry}, x::telem::Rate(100), 1)
+    );
+    ASSERT_EVENTUALLY_EQ(engine->health().size(), 2);
+    const auto devices = ASSERT_NIL_P(
+        this->scanner->scan(common::ScannerContext{.count = 1})
+    );
+    const auto dev = std::ranges::find(
+        devices,
+        "Left Out Slave",
+        &synnax::device::Device::name
+    );
+    ASSERT_NE(dev, devices.end());
+    const auto status = dev->status.value();
+    EXPECT_EQ(
+        status.description,
+        "It refused SAFE-OP: Invalid DC SYNC configuration. Set the DC mode of the "
+        "slave in its device settings. The other devices on the network started "
+        "without it. The Driver tries it again the next time the network starts."
     );
 }
 

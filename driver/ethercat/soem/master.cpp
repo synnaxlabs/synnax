@@ -1377,8 +1377,11 @@ Master::state_error(const std::vector<uint16_t> &failed, const uint16_t state) {
         const auto code = this->api->slave_ALstatuscode(pos);
         const std::string text = ec_ALstatuscode2string(code);
         if (this->refuses(pos, state) &&
-            std::ranges::find(TRANSIENT_FAULTS, code) == TRANSIENT_FAULTS.end())
-            refusing[pos] = "refused " + target + ": " + text;
+            std::ranges::find(TRANSIENT_FAULTS, code) == TRANSIENT_FAULTS.end()) {
+            auto &reason = refusing[pos];
+            reason = "refused " + target + ": " + text + ".";
+            if (code == AL_INVALID_DC_SYNC) reason.append(" ").append(DC_SYNC_ADVICE);
+        }
         dc_sync_refused |= code == AL_INVALID_DC_SYNC;
         msg += ": " + text;
     }
