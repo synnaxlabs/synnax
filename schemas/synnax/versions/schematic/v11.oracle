@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/versions/channel/v0"
+import "schemas/synnax/versions/symbol/v2"
+import "schemas/x/versions/border/v0"
 import "schemas/x/versions/color/v1"
+import "schemas/x/versions/spatial/v0"
+import "schemas/x/versions/text/v0"
 
 Key = v0.Key
 
@@ -42,7 +47,13 @@ ScaledConfig = v9.ScaledConfig
 
 StalenessConfig = v9.StalenessConfig
 
-NumericTelemConfig = v9.NumericTelemConfig
+NumericTelemConfig struct extends v9.NumericTelemConfig {
+    precision float64? {
+        @doc value """
+            is the number of decimal places shown. Absent shows the default of 2.
+        """
+    }
+}
 
 ControlStateConfig = v9.ControlStateConfig
 
@@ -54,7 +65,14 @@ ToggleSymbolConfig = v9.ToggleSymbolConfig
 
 DummyToggleSymbolConfig = v9.DummyToggleSymbolConfig
 
-ScaleIndicatorConfig = v9.ScaleIndicatorConfig
+ScaleIndicatorConfig struct extends v9.ScaleIndicatorConfig {
+    bounds spatial.Bounds? {
+        @doc value """
+            is the numeric range the indicator maps onto its extent. Absent maps 0 to
+            100.
+        """
+    }
+}
 
 StateMapping = v9.StateMapping
 
@@ -62,14 +80,65 @@ PageType = v9.PageType
 
 Page = v9.Page
 
-NodeConfig = v10.NodeConfig
-
-ElementConfig union on variant extends NodeConfig, EdgeConfig {
-    @doc value  """
-        is the per-element configuration stored in the schematic configs map: a node
-        config or an edge config, discriminated by variant.
-    """
-    @go marshal
+NodeConfig union on variant extends v10.NodeConfig {
+    box {
+        border_radius float64? {
+            @doc value """
+                is the uniform corner radius of the box in pixels. Absent draws the
+                default of 3.
+            """
+        }
+        stroke_width  float64? {
+            @doc value """
+                is the border stroke width in pixels. Absent draws the default of 2.
+            """
+        }
+    }
+    circle {
+        stroke_width float64? {
+            @doc value """
+                is the border stroke width in pixels. Absent draws the default of 2.
+            """
+        }
+    }
+    gauge {
+        bounds spatial.Bounds? {
+            @doc value """
+                is the numeric range displayed by the gauge. Absent displays 0 to 100.
+            """
+        }
+    }
+    line {
+        end          spatial.XY? {
+            @doc value """
+                is the second endpoint, offset from the node position. Absent places it
+                at { x = 100, y = 0 }.
+            """
+        }
+        stroke_width float64?    {
+            @doc value """
+                is the stroke width of the line in pixels. Absent draws the default of
+                2.
+            """
+        }
+    }
+    polygon {
+        stroke_width float64? {
+            @doc value """
+                is the border stroke width in pixels. Absent draws the default of 2.
+            """
+        }
+    }
+    tank {
+        border_radius border.Radius? {
+            @doc value """
+                is the corner radius of the tank. Absent rounds each corner by the
+                default of 50 by 10.
+            """
+        }
+    }
 }
+
+ElementConfig union on variant extends v10.ElementConfig {}
 
 Schematic struct extends v10.Schematic {}
