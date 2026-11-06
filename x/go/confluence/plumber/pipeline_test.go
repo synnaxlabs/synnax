@@ -58,7 +58,6 @@ func (s *sequentialSource) Flow(ctx signal.Context, opts ...confluence.Option) {
 	}, o.Signal...)
 }
 
-// panicSink panics in Flow.
 type panicSink struct{ confluence.UnarySink[int] }
 
 func (*panicSink) Flow(signal.Context, ...confluence.Option) { panic("bad flow") }
