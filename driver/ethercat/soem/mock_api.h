@@ -177,8 +177,15 @@ public:
         return this->recover_return;
     }
 
+    /// @brief for slave 0, also moves every slave to reqstate when it is reached, as
+    /// the bus does while ecx_statecheck waits.
     uint16_t statecheck(uint16_t slave, uint16_t reqstate, int) override {
         const uint16_t state = this->reach(slave, reqstate);
+        if (slave == 0 && state == reqstate)
+            for (auto &info: this->slave_infos) {
+                info.state = state;
+                info.bus_state.reset();
+            }
         if (slave > 0 && slave <= this->slave_infos.size()) {
             auto &info = this->slave_infos[slave - 1];
             info.state = state;

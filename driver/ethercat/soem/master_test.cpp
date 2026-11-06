@@ -179,7 +179,7 @@ TEST_F(SOEMMasterTest, CoEDiscoveryUsesEntryNamesAndDataTypes) {
 TEST_F(SOEMMasterTest, CoEDiscoveryWaitsForPreOp) {
     MockSlaveInfo slave;
     slave.state = EC_STATE_INIT;
-    slave.bus_state = EC_STATE_PRE_OP;
+    slave.bus_state = EC_STATE_INIT;
     slave.mbx_proto = ECT_MBXPROT_COE;
     this->add_slave(slave);
     this->mock->sdo_objects = {
