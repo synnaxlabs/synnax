@@ -51,6 +51,19 @@ func (g frozenGate) Run(
 			checkSum(&r, c, n, recorded)
 		}
 	}
+	orphans, err := frozen.Orphans(chains, env.RepoRoot)
+	if err != nil {
+		r.fail(Finding{Severity: SeverityError, Message: err.Error()})
+		return r
+	}
+	for _, sumFile := range orphans {
+		r.fail(Finding{
+			Path:     sumFile,
+			Severity: SeverityError,
+			Message:  "sum file belongs to no version chain",
+			FixHint:  "run `oracle sync`",
+		})
+	}
 	return r
 }
 

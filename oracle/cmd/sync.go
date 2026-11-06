@@ -131,8 +131,11 @@ func runSync(cmd *cobra.Command) error {
 	if err != nil {
 		return errors.Wrap(err, "compute frozen sums")
 	}
-	refreeze, _ := cmd.Flags().GetBool(syncRefreezeFlag)
-	if err := frozen.Update(chains, repoRoot, refreeze); err != nil {
+	refreeze, err := cmd.Flags().GetBool(syncRefreezeFlag)
+	if err != nil {
+		return err
+	}
+	if err :=frozen.Update(chains, repoRoot, refreeze); err != nil {
 		return errors.Wrap(err, "update frozen sums")
 	}
 

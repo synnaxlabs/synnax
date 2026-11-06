@@ -11,6 +11,7 @@ package frozen_test
 
 import (
 	"context"
+	"io/fs"
 	"os"
 	"path/filepath"
 
@@ -170,7 +171,10 @@ Doc struct {
 			Expect(os.Remove(
 				filepath.Join(root, "schemas/synnax/versions/doc/v1.oracle"),
 			)).To(Succeed())
-			Expect(frozen.Compute(ctx, res, root)).Error().To(HaveOccurred())
+			Expect(frozen.Compute(ctx, res, root)).Error().To(SatisfyAll(
+				MatchError(fs.ErrNotExist),
+				MatchError(ContainSubstring("v1.oracle")),
+			))
 		})
 	})
 
@@ -190,7 +194,7 @@ Doc struct {
 			func(content string) {
 				write(sumFile, content)
 				Expect(frozen.Read(sumFile, root)).Error().
-					To(MatchError(ContainSubstring("malformed")))
+					To(MatchError(frozen.ErrMalformed))
 			},
 			Entry("a short line", "v0 s\n"),
 			Entry("a conflict marker", "<<<<<<< HEAD\n"),
@@ -264,7 +268,36 @@ Doc struct {
 			write(sumFile, "broken\n")
 			Expect(frozen.Update(
 				[]frozen.Chain{chain(recorded)}, root, false,
-			)).To(MatchError(ContainSubstring("malformed")))
+			)).To(MatchError(frozen.ErrMalformed))
+		})
+
+		It("Should remove a sum file that no chain owns", func() {
+			const orphan = "schemas/synnax/frozen/gone.sum"
+			write(orphan, "v0 s o\n")
+			Expect(frozen.Update(
+				[]frozen.Chain{chain(recorded)}, root, false,
+			)).To(Succeed())
+			Expect(filepath.Join(root, orphan)).ToNot(BeAnExistingFile())
+			Expect(read()).To(Equal(recorded))
+		})
+	})
+
+	Describe("Orphans", func() {
+		owned := []frozen.Chain{{Path: sumFile}}
+
+		It("Should list the sum files that no chain owns", func() {
+			write(sumFile, "")
+			write("schemas/synnax/frozen/b.sum", "")
+			write("schemas/synnax/frozen/a.sum", "")
+			write("schemas/synnax/frozen/notes.txt", "")
+			Expect(MustSucceed(frozen.Orphans(owned, root))).To(Equal([]string{
+				"schemas/synnax/frozen/a.sum",
+				"schemas/synnax/frozen/b.sum",
+			}))
+		})
+
+		It("Should list nothing when no frozen directory exists", func() {
+			Expect(MustSucceed(frozen.Orphans(owned, root))).To(BeEmpty())
 		})
 	})
 })

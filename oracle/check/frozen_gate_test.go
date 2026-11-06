@@ -139,4 +139,14 @@ Doc struct {
 		Expect(r.Status).To(Equal(check.StatusFail))
 		Expect(r.Findings[0].Path).To(Equal(sumFile))
 	})
+
+	It("Should fail on a sum file that no chain owns", func(ctx SpecContext) {
+		const orphan = "schemas/synnax/frozen/gone.sum"
+		write(orphan, "v0 s o\n")
+		r := run(ctx, result(ctx, v0File, v1File))
+		Expect(r.Status).To(Equal(check.StatusFail))
+		Expect(r.Findings).To(HaveLen(1))
+		Expect(r.Findings[0].Path).To(Equal(orphan))
+		Expect(r.Findings[0].FixHint).To(Equal("run `oracle sync`"))
+	})
 })
