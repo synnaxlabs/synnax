@@ -79,11 +79,12 @@ class Master final : public master::Master {
     bool has_dc = false;
     /// @brief the process data frames that came back to the master.
     std::atomic<uint64_t> frames{0};
-    /// @brief host_dc_offset before a frame with a matching working counter carries the
-    /// DC time.
+    /// @brief last_dc_time and host_dc_offset before a frame carries a DC time.
     static constexpr int64_t NO_DC_FRAME = std::numeric_limits<int64_t>::min();
+    /// @brief the latest DC time that moved forward, in nanoseconds.
+    int64_t last_dc_time = NO_DC_FRAME;
     /// @brief the DC time minus the host steady clock time, in nanoseconds, at the
-    /// latest frame with a matching working counter.
+    /// frame that gave last_dc_time.
     std::atomic<int64_t> host_dc_offset{NO_DC_FRAME};
 
     /// @brief the DC registers of one slave that runs in a DC mode.
@@ -230,7 +231,7 @@ private:
 
     /// @brief sets the DC system time offset (0x0920) of a slave so that its clock
     /// matches the clock of another enabled DC slave in SAFE-OP or OP. Without one, the
-    /// clock continues the DC time of the latest frame with a matching working counter.
+    /// clock continues the latest DC time that moved forward.
     /// @returns errors::ACTIVATION_ERROR when no frame has carried the DC time, or the
     /// slave does not answer or take the write.
     x::errors::Error align_clock(uint16_t pos);

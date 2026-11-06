@@ -297,6 +297,7 @@ void Master::deactivate() {
         if (const auto err = this->clear_dc_activation())
             LOG(WARNING) << "[ethercat] " << err.data;
         this->dc_setups.clear();
+        this->last_dc_time = NO_DC_FRAME;
         this->host_dc_offset.store(NO_DC_FRAME, std::memory_order_relaxed);
         {
             std::lock_guard lock(this->mu);
@@ -335,11 +336,13 @@ x::errors::Error Master::receive() {
                 ", got " + std::to_string(wkc)
         );
 
-    if (this->has_dc)
-        this->host_dc_offset.store(
-            this->api->dc_time() - steady_now(),
-            std::memory_order_relaxed
-        );
+    // SOEM takes the DC time without the working counter of its datagram. A lost
+    // reference clock gives a frozen time, and a reset one goes back.
+    if (const int64_t dc = this->api->dc_time();
+        this->has_dc && dc > this->last_dc_time) {
+        this->last_dc_time = dc;
+        this->host_dc_offset.store(dc - steady_now(), std::memory_order_relaxed);
+    }
     return x::errors::NIL;
 }
 

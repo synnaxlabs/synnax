@@ -1346,6 +1346,23 @@ TEST_F(SOEMMasterTest, CheckRestoresTheOnlyDCSlaveFromTheDCTimeOfTheLatestFrame)
     EXPECT_TRUE(this->mock->state_change_requests.empty());
 }
 
+/// @brief it should keep the DC time of the latest frame when the only DC slave, which
+/// maps no PDOs, comes back from a power loss with its clock reset, since its frames
+/// keep a matching working counter.
+TEST_F(SOEMMasterTest, CheckIgnoresTheResetClockOfAReturningReferenceClock) {
+    this->initialize_with_dc_slave({DC_ONLY});
+    this->mock->hasdc = true;
+    this->mock->dc_time_value = 7'000'000'000;
+    this->activate_master();
+    this->mock->register_writes.clear();
+    this->mock->dc_time_value = 1'000;
+    this->mock->slave_infos[0].state = EC_STATE_INIT;
+    this->mock->register_values[{1, 0x0918}] = bytes<int64_t>(2'000);
+    this->check_while_cycling();
+    const auto error = this->written_offset(1) - (7'000'000'000 - 2'000);
+    EXPECT_LT(std::abs(error), x::telem::SECOND.nanoseconds());
+}
+
 /// @brief it should set the clock of every DC slave when the whole bus comes back from
 /// a power loss, and hold none of them in PRE-OP.
 TEST_F(SOEMMasterTest, CheckRestoresEveryDCSlaveAfterTheWholeBusLostPower) {
