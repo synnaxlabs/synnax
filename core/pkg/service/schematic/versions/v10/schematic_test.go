@@ -43,20 +43,29 @@ var _ = Describe("Schematic", func() {
 	})
 
 	Describe("Validate", func() {
+		newSchematic := func(align v10.FlexAlignment) v10.Schematic {
+			configs := make(map[string]v10.ElementConfig, 340)
+			for i := range 340 {
+				configs[fmt.Sprintf("element-%d", i)] = v10.ElementConfig{
+					Variant: v10.ValueElementConfig{},
+				}
+			}
+			configs["element-170"] = v10.ElementConfig{
+				Variant: v10.TextBoxElementConfig{Align: align},
+			}
+			s := v10.Schematic{Name: "schematic", Configs: configs}
+			s.ApplyDefaults()
+			return s
+		}
+
+		It("Should accept many valid configs", func() {
+			Expect(newSchematic("start").Validate()).To(Succeed())
+		})
+
 		It("Should format the error of one invalid config among many", func() {
 			// Map order sets how many valid configs follow the invalid one.
 			for range 5 {
-				configs := make(map[string]v10.ElementConfig, 340)
-				for i := range 340 {
-					configs[fmt.Sprintf("element-%d", i)] = v10.ElementConfig{
-						Variant: v10.ValueElementConfig{},
-					}
-				}
-				configs["element-170"] = v10.ElementConfig{
-					Variant: v10.TextBoxElementConfig{Align: "left"},
-				}
-				s := v10.Schematic{Configs: configs}
-				s.ApplyDefaults()
+				s := newSchematic("left")
 				formatted := make(chan string, 1)
 				go func() { formatted <- s.Validate().Error() }()
 				Eventually(formatted, 5*time.Second).Should(
