@@ -443,6 +443,27 @@ x::errors::Error Master::activate(
                 this->api->read_register(pos, 0x0600, fmmu, 2000);
                 this->api->read_register(pos, 0x0981, act, 2000);
                 this->api->read_register(pos, 0x0500, eep, 2000);
+                if (k == 2) {
+                    std::array<uint8_t, 48> smb{}, fmb{}, dcb{};
+                    std::array<uint8_t, 4> mask{}, ev{};
+                    std::array<uint8_t, 2> pdi{};
+                    this->api->read_register(pos, 0x0800, smb, 2000);
+                    this->api->read_register(pos, 0x0600, fmb, 2000);
+                    this->api->read_register(pos, 0x0980, dcb, 2000);
+                    this->api->read_register(pos, 0x0204, mask, 2000);
+                    this->api->read_register(pos, 0x0220, ev, 2000);
+                    this->api->read_register(pos, 0x0140, pdi, 2000);
+                    LOG(INFO) << std::format(
+                        "[ethercat] regs slave {} SM {} FMMU {} DC {} MASK {} EV {} PDI {}",
+                        i,
+                        hex(smb),
+                        hex(fmb),
+                        hex(dcb),
+                        hex(mask),
+                        hex(ev),
+                        hex(pdi)
+                    );
+                }
                 const auto *in = this->api->slave_inputs(pos);
                 const auto n = std::min<size_t>(
                     (this->api->slave_Ibits(pos) + 7) / 8,
