@@ -28,6 +28,10 @@ var (
 	ErrRangeNotFound = errors.Wrap(query.ErrNotFound, "time range not found")
 	// ErrDBClosed is returned when an operation is attempted on a closed DB.
 	ErrDBClosed = resource.NewClosedError("domain.db")
+	// ErrChanged is returned by Iterator.OpenReader when garbage collection moved the
+	// iterator's file and a delete changed its domain since the seek. A new seek clears
+	// it, so the caller can retry.
+	ErrChanged = errors.New("domain changed since the iterator reached it")
 )
 
 // NewRangeWriteConflictError creates a new error returned when existing data in the

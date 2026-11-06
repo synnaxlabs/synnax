@@ -52,6 +52,8 @@ type Iterator struct {
 	// currPtr stores the current domain that the iterator is pointing to. This value
 	// is only valid if the iterator is valid.
 	currPtr pointer
+	// rewrites is the GC rewrite count from before the iterator read currPtr.
+	rewrites uint64
 	// valid stores whether the iterator is currently valid.
 	valid bool
 	// closed stores whether the iterator is still open
@@ -164,7 +166,7 @@ func (i *Iterator) OpenReader(ctx context.Context) (*Reader, error) {
 	if i.closed {
 		return nil, ErrIteratorClosed
 	}
-	return i.db.newReader(ctx, i.currPtr)
+	return i.db.newReader(ctx, i.currPtr, i.rewrites)
 }
 
 // Size returns the number of bytes occupied by the telemetry in the current domain.
@@ -186,6 +188,7 @@ func (i *Iterator) reload() bool {
 		i.valid = false
 		return i.valid
 	}
+	rewrites := i.db.fc.rewrites.Load()
 	ptr, ok := i.db.idx.get(i.position)
 	if !ok || !ptr.OverlapsWith(i.Bounds) {
 		i.valid = false
@@ -193,6 +196,6 @@ func (i *Iterator) reload() bool {
 		// value of the iterator.
 		return i.valid
 	}
-	i.currPtr = ptr
+	i.currPtr, i.rewrites = ptr, rewrites
 	return i.valid
 }

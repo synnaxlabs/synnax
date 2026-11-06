@@ -125,19 +125,63 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					expectRead(MustSucceed(i.OpenReader(ctx)), data)
 				})
 
-				It("Should read only what remains after a tail delete", func(
-					ctx SpecContext,
-				) {
-					openOn(ctx, domain.Config{FS: fs})
-					Expect(db.Delete(
-						ctx,
-						(23 * telem.SecondTS).Range(second.End),
-						fixedOffset(3),
-						fixedOffset(6),
-					)).To(Succeed())
-					Expect(db.GarbageCollect(ctx)).To(Succeed())
-					expectRead(MustSucceed(i.OpenReader(ctx)), data[:3])
-				})
+				DescribeTable(
+					"Should fail after a delete changes the domain",
+					func(
+						ctx SpecContext,
+						start, end telem.TimeStamp,
+						startOffset, endOffset telem.Size,
+					) {
+						openOn(ctx, domain.Config{FS: fs})
+						Expect(db.Delete(
+							ctx,
+							start.Range(end),
+							fixedOffset(startOffset),
+							fixedOffset(endOffset),
+						)).To(Succeed())
+						Expect(db.GarbageCollect(ctx)).To(Succeed())
+						Expect(
+							i.OpenReader(ctx),
+						).Error().
+							To(MatchError(domain.ErrChanged))
+						Expect(i.Close()).To(Succeed())
+					},
+					Entry(
+						"Tail",
+						23*telem.SecondTS,
+						26*telem.SecondTS,
+						telem.Size(3),
+						telem.Size(6),
+					),
+					Entry(
+						"Head",
+						20*telem.SecondTS,
+						23*telem.SecondTS,
+						telem.Size(0),
+						telem.Size(3),
+					),
+					Entry(
+						"Whole",
+						20*telem.SecondTS,
+						26*telem.SecondTS,
+						telem.Size(0),
+						telem.Size(6),
+					),
+				)
+
+				It(
+					"Should read the old offset if no collection ran",
+					func(ctx SpecContext) {
+						openOn(ctx, domain.Config{FS: fs})
+						Expect(db.Delete(
+							ctx,
+							(23 * telem.SecondTS).Range(26*telem.SecondTS),
+							fixedOffset(3),
+							fixedOffset(6),
+						)).To(Succeed())
+						expectRead(MustSucceed(i.OpenReader(ctx)), data)
+					},
+				)
 
 				// Windows cannot rename a file with an open handle.
 				if fsName != "memFS" {
