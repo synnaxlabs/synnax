@@ -286,8 +286,8 @@ func produceInTransaction(ctx context.Context, topic string, count int) {
 	Expect(cl.EndTransaction(ctx, kgo.TryCommit)).To(Succeed())
 }
 
-// newSlowCluster starts a cluster that holds topic with one record and drops every
-// fetch.
+// newSlowCluster starts a cluster that holds topic with one record and holds every
+// fetch until the spec ends.
 func newSlowCluster(ctx context.Context, topic string) *kfake.Cluster {
 	GinkgoHelper()
 	slow := MustSucceed(
@@ -296,9 +296,12 @@ func newSlowCluster(ctx context.Context, topic string) *kfake.Cluster {
 	DeferCleanup(slow.Close)
 	cl := newKafkaClient(kgo.SeedBrokers(slow.ListenAddrs()...))
 	produceJSON(ctx, cl, topic, "", map[string]int{"v": 1})
+	release := make(chan struct{})
+	DeferCleanup(func() { close(release) })
 	slow.ControlKey(int16(kmsg.Fetch), func(kmsg.Request) (kmsg.Response, error, bool) {
 		slow.KeepControl()
-		return nil, errors.New("fetch cut"), true
+		slow.SleepControl(func() { <-release })
+		return nil, nil, false
 	})
 	return slow
 }

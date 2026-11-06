@@ -248,7 +248,7 @@ var _ = Describe("Factory", func() {
 			t  task.Task
 		)
 		BeforeEach(func(ctx SpecContext) {
-			t = newTask(kafka.ScanTaskType, map[string]any{"rate": 20})
+			t = newTask(kafka.ScanTaskType, map[string]any{"rate": 2})
 			dt = MustSucceed(f.ConfigureTask(ctx, t, driver.NoCommand))
 			DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
 		})
