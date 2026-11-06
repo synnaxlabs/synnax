@@ -21,6 +21,7 @@ FOR         : 'for';
 BREAK       : 'break';
 CONTINUE    : 'continue';
 IMPORT      : 'import';
+EXPORT      : 'export';
 AS          : 'as';
 
 // Sequencing keywords
