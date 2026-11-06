@@ -77,6 +77,23 @@ TEST(Select, ReturnsNoModeForAChosenSMMode) {
     EXPECT_EQ(ASSERT_NIL_P(select({DC_MODE, SM_MODE}, choice)), std::nullopt);
 }
 
+/// @brief it should reject a chosen cycle for a chosen SM mode, as SM does not run
+/// SYNC0.
+TEST(Select, RejectsAChosenCycleForAnSMMode) {
+    const Choice choice{
+        .index = 1,
+        .assign_activate = 0,
+        .cycles = {.sync0 = x::telem::MILLISECOND},
+    };
+    const auto err = select({DC_MODE, SM_MODE}, choice).second;
+    ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "mode \"SM-Synchron\" (AssignActivate 0x0000) does not run SYNC0, so it "
+        "cannot use a SYNC0 cycle of 1ms"
+    );
+}
+
 /// @brief it should reject a choice whose index or AssignActivate the slave does not
 /// list, and name the modes it lists.
 TEST(Select, RejectsAChoiceTheSlaveDoesNotList) {
@@ -169,6 +186,32 @@ TEST(Resolve, LeavesSYNC1OffWithoutAChosenSYNC1Cycle) {
     EXPECT_EQ(
         ASSERT_NIL_P(resolve(mode, x::telem::MILLISECOND, cycles)),
         (Registers{.assign_activate = 0x0300, .sync0_cycle = 2'000})
+    );
+}
+
+/// @brief it should reject a chosen SYNC0 cycle for a mode that does not run SYNC0.
+TEST(Resolve, RejectsAChosenSYNC0CycleForAModeWithoutSYNC0) {
+    const OpMode latch{.name = "DC-Latch", .assign_activate = 0x0100};
+    const Cycles cycles{.sync0 = x::telem::MILLISECOND};
+    const auto err = resolve(latch, x::telem::MILLISECOND, cycles).second;
+    ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "mode \"DC-Latch\" (AssignActivate 0x0100) does not run SYNC0, so it cannot "
+        "use a SYNC0 cycle of 1ms"
+    );
+}
+
+/// @brief it should reject a chosen SYNC1 cycle for a mode that does not run SYNC0.
+TEST(Resolve, RejectsAChosenSYNC1CycleForAModeWithoutSYNC0) {
+    const OpMode latch{.name = "DC-Latch", .assign_activate = 0x0100};
+    const Cycles cycles{.sync1 = x::telem::SECOND};
+    const auto err = resolve(latch, x::telem::MILLISECOND, cycles).second;
+    ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "mode \"DC-Latch\" (AssignActivate 0x0100) does not run SYNC0, so it cannot "
+        "use a SYNC1 cycle of 1s"
     );
 }
 
