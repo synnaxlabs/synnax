@@ -12,11 +12,11 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
-#include <numeric>
-#include <utility>
 #include <vector>
 
 #include "x/cpp/telem/telem.h"
+
+#include "driver/ethercat/dc/dc.h"
 
 namespace driver::ethercat::engine {
 /// @brief holds the bus cycle at a fixed phase of the distributed clock. The grid is
@@ -40,12 +40,9 @@ private:
     /// @brief the share of the summed phase error that each cycle corrects. It cancels
     /// the drift between the host and DC clocks.
     static constexpr double KI = 0.0001;
-    /// @brief how far in nanoseconds a multiple of the grid can be from the period. The
-    /// period of a rate such as 300 Hz is not a whole number of nanoseconds, and a
-    /// SYNC0 cycle made from that period is rounded.
-    static constexpr double TOLERANCE = 1;
     double period;
-    /// @brief the greatest common divisor of the SYNC0 cycles.
+    /// @brief a SYNC0 cycle in nanoseconds. The grid divides it, so phases reduce by it
+    /// in integers before the floating point math.
     int64_t cycle;
     double grid;
     /// @brief the longest span between SYNC0 events in a grid.
@@ -56,41 +53,23 @@ private:
     double integral = 0;
     bool held = false;
 
-    /// @brief returns the fraction with the smallest denominator in [lo, hi], as a
-    /// numerator and denominator. Requires 0 < lo <= hi.
-    static std::pair<double, double>
-    simplest_fraction(const double lo, const double hi) {
-        if (std::ceil(lo) <= hi) return {std::ceil(lo), 1};
-        const double whole = std::floor(lo);
-        const auto [num, den] = simplest_fraction(1 / (hi - whole), 1 / (lo - whole));
-        return {whole * num + den, num};
-    }
-
-    /// @brief returns the greatest common divisor of the SYNC0 cycles in nanoseconds.
-    static int64_t common_cycle(const std::vector<Sync0> &syncs) {
-        int64_t cycle = 0;
+    static double
+    grid_of(const x::telem::TimeSpan period, const std::vector<Sync0> &syncs) {
+        std::vector<x::telem::TimeSpan> cycles;
+        cycles.reserve(syncs.size());
         for (const auto &s: syncs)
-            cycle = std::gcd(cycle, s.cycle.nanoseconds());
-        return cycle;
-    }
-
-    /// @brief returns the largest span that divides sync0 a whole number of times and
-    /// divides period within TOLERANCE.
-    static double common_grid(const double period, const double sync0) {
-        // sync0 / n divides period within TOLERANCE when period / sync0 is within
-        // TOLERANCE / sync0 of a fraction m / n.
-        const double lo = (period - TOLERANCE) / sync0;
-        const double hi = (period + TOLERANCE) / sync0;
-        return sync0 / simplest_fraction(lo, hi).second;
+            cycles.push_back(s.cycle);
+        return dc::grid(period, cycles);
     }
 
 public:
     /// @param rate the bus rate.
-    /// @param syncs the SYNC0 events of each slave that runs SYNC0. Must not be empty.
+    /// @param syncs the SYNC0 events of each slave whose SYNC0 marks process data. Must
+    /// not be empty.
     PhaseLock(const x::telem::Rate rate, const std::vector<Sync0> &syncs):
-        period(static_cast<double>(x::telem::SECOND.nanoseconds()) / rate.hz()),
-        cycle(common_cycle(syncs)),
-        grid(common_grid(this->period, static_cast<double>(this->cycle))) {
+        period(static_cast<double>(rate.period().nanoseconds())),
+        cycle(syncs.front().cycle.nanoseconds()),
+        grid(grid_of(rate.period(), syncs)) {
         const auto first = syncs.front().event;
         std::vector<double> phases;
         for (const auto &s: syncs) {
