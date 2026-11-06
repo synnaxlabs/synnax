@@ -17,7 +17,7 @@ from synnax.channel.payload import (
     normalize_params,
 )
 from synnax.channel.retrieve import Retriever, retrieve_required
-from synnax.channel.types_gen import Operation, Payload, Where
+from synnax.channel.types_gen import Operation, Payload, Where, WhereInput
 from synnax.channel.writer import Writer
 
 __all__ = [
@@ -31,6 +31,7 @@ __all__ = [
     "Payload",
     "Retriever",
     "Where",
+    "WhereInput",
     "Writer",
     "has_params",
     "normalize_params",

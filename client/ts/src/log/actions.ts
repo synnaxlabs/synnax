@@ -166,7 +166,8 @@ const handlers: Handlers = {
 
   swapChannel: (state, payload) => {
     const idx = state.channels.findIndex((e) => e.channel === payload.from);
-    if (idx === -1) return actions.NO_OP_RESULT;
+    if (idx === -1 || state.channels.some((e) => e.channel === payload.to))
+      return actions.NO_OP_RESULT;
     state.channels[idx].channel = payload.to;
     return {
       inverse: [swapChannel({ from: payload.to, to: payload.from })],

@@ -112,6 +112,9 @@ type templateData struct {
 	Record string
 	// Lines are the lines of the filter definition.
 	Lines []lineData
+	// ShortcutKey is the Zod schema of the key that shortcutZ reads beside a name, and
+	// empty when the filter takes no name shortcut.
+	ShortcutKey string
 }
 
 type lineData struct {
@@ -190,7 +193,10 @@ func generateFile(
 		return fp.ProcessField(resolution.Field{Type: ref}, where).ZodType
 	}
 	form := where.Form.(resolution.StructForm)
+	var key *resolution.TypeRef
+	named, patterned := false, false
 	for _, line := range where.Filter.Lines {
+		patterned = patterned || line.Name == "name_patterns"
 		field := lo.Must(form.Field(line.Name))
 		ld := lineData{Name: tstypes.FieldName(line.Name), Doc: doc.Get(field.Domains)}
 		if line.HasType() {
@@ -254,8 +260,20 @@ func generateFile(
 			if len(opRef.TypeArgs) == 1 {
 				ld.Input += "(" + zodOf(opRef.TypeArgs[0]) + ")"
 			}
+			switch {
+			case line.Name == "key" && len(opRef.TypeArgs) == 1:
+				key = &opRef.TypeArgs[0]
+			case line.Name == "name" && op.QualifiedName == resolution.OperatorString:
+				named = true
+			}
 		}
 		data.Lines = append(data.Lines, ld)
+	}
+	// A name could look like a free-text key, so a name needs another key type. Clients
+	// send a bare name to name_patterns, when the filter has it, in hand-written code.
+	if key != nil && named && !patterned &&
+		resolution.PrimitiveBase(*key, table) != "string" {
+		data.ShortcutKey = zodOf(*key)
 	}
 
 	data.AddImport("zod", "z")
@@ -398,5 +416,18 @@ export const retrieveInputZ = <O extends z.core.$ZodShape>(options: O) =>
     .transform((input) =>
       filter.split(input, ["and", "or", "not"{{ range .Lines }}, "{{ .Name }}"{{ end }}]),
     );
+{{- with .ShortcutKey }}
+
+/**
+ * shortcutZ reads a key, a name, or a list of either into a request whose where holds
+ * it. A list reads as keys only when every member is a key.
+ */
+export const shortcutZ = z.union([
+  {{ . }}.transform((key) => ({ where: { key: { eq: key } } })),
+  z.string().transform((name) => ({ where: { name: { eq: name } } })),
+  {{ . }}.array().transform((keys) => ({ where: { key: { in: keys } } })),
+  z.string().array().transform((names) => ({ where: { name: { in: names } } })),
+]);
+{{- end }}
 `),
 )

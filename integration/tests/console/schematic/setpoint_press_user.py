@@ -50,7 +50,7 @@ class SetpointPressUser(SimDaqCase, ConsoleCase):
         )
         start_cmd.move(delta_x=-90, delta_y=-100)
         end_cmd = schematic.create_symbol(
-            Button(label="end_test_cmd", channel_name="end_test_cmd", mode="Fire")
+            Button(label="end_test_cmd", channel_name="end_test_cmd", mode="fire")
         )
         end_cmd.move(delta_x=90, delta_y=-100)
         press_valve = schematic.create_symbol(
