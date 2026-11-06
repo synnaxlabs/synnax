@@ -98,6 +98,10 @@ x::errors::Error Master::initialize() {
         );
     }
 
+    // config_init requests PRE-OP without waiting for it, and SOEM sends no mailbox
+    // request to a slave whose last read state is below PRE-OP.
+    this->api->statecheck(0, EC_STATE_PRE_OP, STATE_CHANGE_TIMEOUT);
+    this->api->readstate();
     this->populate_slaves();
     this->initialized = true;
     return x::errors::NIL;

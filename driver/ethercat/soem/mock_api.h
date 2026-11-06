@@ -198,7 +198,7 @@ public:
     }
 
     int SDOread(
-        uint16_t,
+        uint16_t slave,
         uint16_t index,
         uint8_t sub_index,
         int,
@@ -206,6 +206,9 @@ public:
         void *p,
         int
     ) override {
+        // SOEM sends no mailbox request to a slave whose last read state is below
+        // PRE-OP.
+        if ((this->slave_state(slave) & 0x0F) < EC_STATE_PRE_OP) return 0;
         const auto it = this->sdo_objects.find({index, sub_index});
         if (it == this->sdo_objects.end()) return 0;
         std::memcpy(p, &it->second, *psize);
