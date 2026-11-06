@@ -70,8 +70,8 @@ jobs:
         run: |
           base=$(git merge-base "$BASE" HEAD)
           echo "sha=$base" >> "$GITHUB_OUTPUT"
-          # shellcheck disable=SC2086
-          if git diff --quiet "$base" HEAD -- $PATHS; then
+          read -ra paths <<< "$PATHS"
+          if git diff --quiet "$base" HEAD -- "${paths[@]}"; then
             echo "touched=false" >> "$GITHUB_OUTPUT"
           else
             echo "touched=true" >> "$GITHUB_OUTPUT"
