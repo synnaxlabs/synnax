@@ -898,16 +898,17 @@ x::errors::Error Master::clear_dc_activation() {
             if (!this->disabled_slaves.contains(i) && this->api->slave_hasdc(i))
                 positions.push_back(static_cast<uint16_t>(i));
     }
+    // 0x0980 goes first: while it gives the sync unit to the PDI, the slave refuses
+    // writes to 0x0981.
     for (const auto pos: positions)
-        // 0x0980 goes first: while it gives the sync unit to the PDI, the slave refuses
-        // writes to 0x0981.
         for (const uint16_t address: {ECT_REG_DCCUC, ECT_REG_DCSYNCACT})
             if (this->api->write_register(pos, address, {0}, EC_TIMEOUTRET) != 1)
                 return x::errors::Error(
                     errors::ACTIVATION_ERROR,
                     std::format(
-                        "slave {} did not take a write to DC register 0x{:04X}",
+                        "slave {} ({}) did not take a write to DC register 0x{:04X}",
                         pos,
+                        this->api->slave_name(pos),
                         address
                     )
                 );

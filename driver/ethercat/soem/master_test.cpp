@@ -330,12 +330,13 @@ TEST_F(SOEMMasterTest, ActivateFailsWhenDCActivationCannotBeCleared) {
     MockSlaveInfo dc;
     dc.state = EC_STATE_PRE_OP;
     dc.hasdc = true;
+    dc.name = "EL3104";
     this->add_slave(dc);
     ASSERT_NIL(this->master->initialize());
     this->mock->write_register_return = 0;
     const auto err = this->master->activate();
     ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
-    EXPECT_EQ(err.data, "slave 1 did not take a write to DC register 0x0980");
+    EXPECT_EQ(err.data, "slave 1 (EL3104) did not take a write to DC register 0x0980");
     EXPECT_EQ(this->mock->mapped_group, std::nullopt);
 }
 
