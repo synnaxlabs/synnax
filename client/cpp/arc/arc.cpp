@@ -77,10 +77,7 @@ std::pair<Arc, x::errors::Error> Client::retrieve_by_name(
     const RetrieveOptions &options
 ) const {
     return this->retrieve_one(
-        {
-            .where = Where{.name = x::filter::String{.eq = name}},
-            .include_program = options.include_program,
-        },
+        RetrieveRequest::from(Where{.name = x::filter::String{.eq = name}}, options),
         "name " + name
     );
 }
@@ -90,10 +87,7 @@ std::pair<Arc, x::errors::Error> Client::retrieve_by_key(
     const RetrieveOptions &options
 ) const {
     return this->retrieve_one(
-        {
-            .where = Where{.key = x::filter::Set<Key>{.eq = key}},
-            .include_program = options.include_program,
-        },
+        RetrieveRequest::from(Where{.key = x::filter::Set<Key>{.eq = key}}, options),
         "key " + key.to_string()
     );
 }
@@ -102,20 +96,18 @@ std::pair<std::vector<Arc>, x::errors::Error> Client::retrieve(
     const std::vector<std::string> &names,
     const RetrieveOptions &options
 ) const {
-    return this->retrieve({
-        .where = Where{.name = x::filter::String{.in = names}},
-        .include_program = options.include_program,
-    });
+    return this->retrieve(
+        RetrieveRequest::from(Where{.name = x::filter::String{.in = names}}, options)
+    );
 }
 
 std::pair<std::vector<Arc>, x::errors::Error> Client::retrieve_by_keys(
     const std::vector<x::uuid::UUID> &keys,
     const RetrieveOptions &options
 ) const {
-    return this->retrieve({
-        .where = Where{.key = x::filter::Set<Key>{.in = keys}},
-        .include_program = options.include_program,
-    });
+    return this->retrieve(
+        RetrieveRequest::from(Where{.key = x::filter::Set<Key>{.in = keys}}, options)
+    );
 }
 
 std::pair<std::vector<Arc>, x::errors::Error>
@@ -133,6 +125,8 @@ Client::retrieve(const RetrieveRequest &req) const {
 
 std::pair<Arc, x::errors::Error>
 Client::retrieve_one(const RetrieveRequest &req, const std::string &query) const {
+    if (req.limit.has_value() || req.offset != 0)
+        return {Arc{}, errors::paged_one_error()};
     auto [arcs, err] = this->retrieve(req);
     if (err) return {Arc{}, err};
     if (arcs.empty()) return {Arc{}, errors::not_found_error("Arc", query)};

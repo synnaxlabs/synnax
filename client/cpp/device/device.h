@@ -65,14 +65,6 @@ inline std::string status_key(const Device &device) {
     return ontology_id(device.key).string();
 }
 
-/// @brief Options for retrieving devices.
-struct RetrieveOptions {
-    /// @brief Whether to include status information in the retrieved devices.
-    bool include_status = false;
-    /// @brief Whether to include parent ontology ID in the retrieved devices.
-    bool include_parent = false;
-};
-
 /// @brief Client for managing devices in a Synnax cluster.
 class Client {
 public:

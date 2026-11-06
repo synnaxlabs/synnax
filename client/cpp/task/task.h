@@ -70,12 +70,6 @@ inline std::ostream &operator<<(std::ostream &os, const Command &cmd) {
     return os << cmd.type << " (task=" << cmd.task << ",key=" << cmd.key << ")";
 }
 
-/// @brief Options for retrieving tasks.
-struct RetrieveOptions {
-    /// @brief Whether to include status information in the retrieved tasks.
-    bool include_status = false;
-};
-
 /// @brief Client for managing tasks on a specific rack.
 class Client {
 public:

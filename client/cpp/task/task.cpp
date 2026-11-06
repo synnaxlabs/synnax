@@ -20,10 +20,7 @@ std::pair<Task, x::errors::Error> Client::retrieve(const Key key) const {
 std::pair<Task, x::errors::Error>
 Client::retrieve(const Key key, const RetrieveOptions &options) const {
     return this->retrieve_one(
-        {
-            .where = Where{.key = x::filter::Set<Key>{.eq = key}},
-            .include_status = options.include_status,
-        },
+        RetrieveRequest::from(Where{.key = x::filter::Set<Key>{.eq = key}}, options),
         "key " + key.to_string()
     );
 }
@@ -35,10 +32,7 @@ std::pair<Task, x::errors::Error> Client::retrieve(const std::string &name) cons
 std::pair<Task, x::errors::Error>
 Client::retrieve(const std::string &name, const RetrieveOptions &options) const {
     return this->retrieve_one(
-        {
-            .where = Where{.name = x::filter::String{.eq = name}},
-            .include_status = options.include_status,
-        },
+        RetrieveRequest::from(Where{.name = x::filter::String{.eq = name}}, options),
         "name " + name
     );
 }
@@ -52,10 +46,9 @@ std::pair<std::vector<Task>, x::errors::Error> Client::retrieve(
     const std::vector<std::string> &names,
     const RetrieveOptions &options
 ) const {
-    return this->retrieve({
-        .where = Where{.name = x::filter::String{.in = names}},
-        .include_status = options.include_status,
-    });
+    return this->retrieve(
+        RetrieveRequest::from(Where{.name = x::filter::String{.in = names}}, options)
+    );
 }
 
 std::pair<Task, x::errors::Error>
@@ -68,10 +61,7 @@ std::pair<Task, x::errors::Error> Client::retrieve_by_type(
     const RetrieveOptions &options
 ) const {
     return this->retrieve_one(
-        {
-            .where = Where{.type = x::filter::String{.eq = type}},
-            .include_status = options.include_status,
-        },
+        RetrieveRequest::from(Where{.type = x::filter::String{.eq = type}}, options),
         "type " + type
     );
 }
@@ -85,10 +75,9 @@ std::pair<std::vector<Task>, x::errors::Error> Client::retrieve_by_type(
     const std::vector<std::string> &types,
     const RetrieveOptions &options
 ) const {
-    return this->retrieve({
-        .where = Where{.type = x::filter::String{.in = types}},
-        .include_status = options.include_status,
-    });
+    return this->retrieve(
+        RetrieveRequest::from(Where{.type = x::filter::String{.in = types}}, options)
+    );
 }
 
 std::pair<std::vector<Task>, x::errors::Error>
@@ -115,6 +104,8 @@ Client::retrieve(const RetrieveRequest &req) const {
 
 std::pair<Task, x::errors::Error>
 Client::retrieve_one(const RetrieveRequest &req, const std::string &query) const {
+    if (req.limit.has_value() || req.offset != 0)
+        return {Task{}, errors::paged_one_error()};
     auto [tasks, err] = this->retrieve(req);
     if (err) return {Task{}, err};
     if (tasks.empty()) return {Task{}, errors::not_found_error("task", query)};
@@ -151,6 +142,6 @@ std::pair<std::vector<Task>, x::errors::Error> Client::list() const {
 
 std::pair<std::vector<Task>, x::errors::Error>
 Client::list(const RetrieveOptions &options) const {
-    return this->retrieve({.include_status = options.include_status});
+    return this->retrieve(RetrieveRequest::from(Where{}, options));
 }
 }

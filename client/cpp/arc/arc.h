@@ -36,12 +36,6 @@ using RetrieveClient = freighter::
 using DeleteClient = freighter::
     UnaryClient<grpc::arc::DeleteRequest, google::protobuf::Empty>;
 
-/// @brief Options for retrieving Arc programs.
-struct RetrieveOptions {
-    /// @brief If true, the Core compiles each Arc and sets its program.
-    bool include_program = false;
-};
-
 /// @brief Client for managing Arc automation programs in a Synnax cluster.
 /// @details Provides methods to create, retrieve, and delete Arc programs.
 /// Arc programs can contain visual graph representations and/or text-based source code.

@@ -31,11 +31,7 @@ std::pair<Device, x::errors::Error> Client::retrieve(const std::string &key) con
 std::pair<Device, x::errors::Error>
 Client::retrieve(const std::string &key, const RetrieveOptions &options) const {
     return this->retrieve_one(
-        {
-            .where = Where{.key = x::filter::Set<Key>{.eq = key}},
-            .include_status = options.include_status,
-            .include_parent = options.include_parent,
-        },
+        RetrieveRequest::from(Where{.key = x::filter::Set<Key>{.eq = key}}, options),
         "key " + key
     );
 }
@@ -50,11 +46,9 @@ std::pair<std::vector<Device>, x::errors::Error> Client::retrieve(
     const std::vector<std::string> &keys,
     const RetrieveOptions &options
 ) const {
-    return this->retrieve({
-        .where = Where{.key = x::filter::Set<Key>{.in = keys}},
-        .include_status = options.include_status,
-        .include_parent = options.include_parent,
-    });
+    return this->retrieve(
+        RetrieveRequest::from(Where{.key = x::filter::Set<Key>{.in = keys}}, options)
+    );
 }
 
 std::pair<std::vector<Device>, x::errors::Error>
@@ -72,6 +66,8 @@ Client::retrieve(const RetrieveRequest &req) const {
 
 std::pair<Device, x::errors::Error>
 Client::retrieve_one(const RetrieveRequest &req, const std::string &query) const {
+    if (req.limit.has_value() || req.offset != 0)
+        return {Device{}, errors::paged_one_error()};
     auto [devices, err] = this->retrieve(req);
     if (err) return {Device{}, err};
     if (devices.empty()) return {Device{}, errors::not_found_error("device", query)};

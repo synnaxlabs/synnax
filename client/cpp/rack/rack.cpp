@@ -31,10 +31,7 @@ std::pair<Rack, x::errors::Error> Client::retrieve(const Key key) const {
 std::pair<Rack, x::errors::Error>
 Client::retrieve(const Key key, const RetrieveOptions &options) const {
     return this->retrieve_one(
-        {
-            .where = Where{.key = x::filter::Set<Key>{.eq = key}},
-            .include_status = options.include_status,
-        },
+        RetrieveRequest::from(Where{.key = x::filter::Set<Key>{.eq = key}}, options),
         "key " + std::to_string(key)
     );
 }
@@ -46,10 +43,7 @@ std::pair<Rack, x::errors::Error> Client::retrieve(const std::string &name) cons
 std::pair<Rack, x::errors::Error>
 Client::retrieve(const std::string &name, const RetrieveOptions &options) const {
     return this->retrieve_one(
-        {
-            .where = Where{.name = x::filter::String{.eq = name}},
-            .include_status = options.include_status,
-        },
+        RetrieveRequest::from(Where{.name = x::filter::String{.eq = name}}, options),
         "name " + name
     );
 }
@@ -71,6 +65,8 @@ Client::retrieve(const RetrieveRequest &req) const {
 
 std::pair<Rack, x::errors::Error>
 Client::retrieve_one(const RetrieveRequest &req, const std::string &query) const {
+    if (req.limit.has_value() || req.offset != 0)
+        return {Rack{}, errors::paged_one_error()};
     auto [racks, err] = this->retrieve(req);
     if (err) return {Rack{}, err};
     if (racks.empty()) return {Rack{}, errors::not_found_error("Rack", query)};
