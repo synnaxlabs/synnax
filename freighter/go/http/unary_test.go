@@ -704,12 +704,11 @@ var _ = Describe("Unary", func() {
 						},
 					),
 				)
-				_, err := client.Send(
+				Expect(client.Send(
 					ctx,
 					unaryAddr+"/msgpack-only",
 					testutil.Request{ID: 4, Message: "err"},
-				)
-				Expect(err).To(MatchError(testutil.ErrCustom))
+				)).Error().To(MatchError(testutil.ErrCustom))
 			},
 		)
 	})
