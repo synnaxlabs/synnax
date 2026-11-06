@@ -12,11 +12,10 @@
 package device
 
 import (
-	"regexp"
 	"strconv"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -54,102 +53,110 @@ func MatchWhere(w Where) (Filter, error) {
 		}
 	}
 	if l := w.Name; l != nil {
-		if l.Eq != nil {
-			fs = append(fs, MatchNames(*l.Eq))
+		text := *l
+		if !l.CaseInsensitive {
+			if l.Eq != nil {
+				fs = append(fs, MatchNames(*l.Eq))
+			}
+			if l.In != nil {
+				fs = append(fs, MatchNames(l.In...))
+			}
+			text.In = nil
+			text.Eq = nil
 		}
-		if l.In != nil {
-			fs = append(fs, MatchNames(l.In...))
-		}
-		if l.Regex != nil {
-			re, err := regexp.Compile(*l.Regex)
+		if text.CaseInsensitive || text.In != nil || text.Contains != nil ||
+			text.StartsWith != nil || text.Regex != nil {
+			match, err := filter.CompileString(text)
 			if err != nil {
-				return nil, validate.PathedError(
-					errors.Wrap(validate.ErrValidation, err.Error()),
-					"name",
-					"regex",
-				)
+				return nil, validate.PathedError(err, "name")
 			}
 			fs = append(fs, Match(func(
 				_ gorp.Context,
 				_ Retrieve,
 				e *Device,
 			) (bool, error) {
-				return re.MatchString(e.Name), nil
+				return match(e.Name), nil
 			}))
 		}
 	}
 	if l := w.Make; l != nil {
-		if l.Eq != nil {
-			fs = append(fs, MatchMakes(*l.Eq))
+		text := *l
+		if !l.CaseInsensitive {
+			if l.Eq != nil {
+				fs = append(fs, MatchMakes(*l.Eq))
+			}
+			if l.In != nil {
+				fs = append(fs, MatchMakes(l.In...))
+			}
+			text.In = nil
+			text.Eq = nil
 		}
-		if l.In != nil {
-			fs = append(fs, MatchMakes(l.In...))
-		}
-		if l.Regex != nil {
-			re, err := regexp.Compile(*l.Regex)
+		if text.CaseInsensitive || text.In != nil || text.Contains != nil ||
+			text.StartsWith != nil || text.Regex != nil {
+			match, err := filter.CompileString(text)
 			if err != nil {
-				return nil, validate.PathedError(
-					errors.Wrap(validate.ErrValidation, err.Error()),
-					"make",
-					"regex",
-				)
+				return nil, validate.PathedError(err, "make")
 			}
 			fs = append(fs, Match(func(
 				_ gorp.Context,
 				_ Retrieve,
 				e *Device,
 			) (bool, error) {
-				return re.MatchString(e.Make), nil
+				return match(e.Make), nil
 			}))
 		}
 	}
 	if l := w.Model; l != nil {
-		if l.Eq != nil {
-			fs = append(fs, MatchModels(*l.Eq))
+		text := *l
+		if !l.CaseInsensitive {
+			if l.Eq != nil {
+				fs = append(fs, MatchModels(*l.Eq))
+			}
+			if l.In != nil {
+				fs = append(fs, MatchModels(l.In...))
+			}
+			text.In = nil
+			text.Eq = nil
 		}
-		if l.In != nil {
-			fs = append(fs, MatchModels(l.In...))
-		}
-		if l.Regex != nil {
-			re, err := regexp.Compile(*l.Regex)
+		if text.CaseInsensitive || text.In != nil || text.Contains != nil ||
+			text.StartsWith != nil || text.Regex != nil {
+			match, err := filter.CompileString(text)
 			if err != nil {
-				return nil, validate.PathedError(
-					errors.Wrap(validate.ErrValidation, err.Error()),
-					"model",
-					"regex",
-				)
+				return nil, validate.PathedError(err, "model")
 			}
 			fs = append(fs, Match(func(
 				_ gorp.Context,
 				_ Retrieve,
 				e *Device,
 			) (bool, error) {
-				return re.MatchString(e.Model), nil
+				return match(e.Model), nil
 			}))
 		}
 	}
 	if l := w.Location; l != nil {
-		if l.Eq != nil {
-			fs = append(fs, MatchLocations(*l.Eq))
+		text := *l
+		if !l.CaseInsensitive {
+			if l.Eq != nil {
+				fs = append(fs, MatchLocations(*l.Eq))
+			}
+			if l.In != nil {
+				fs = append(fs, MatchLocations(l.In...))
+			}
+			text.In = nil
+			text.Eq = nil
 		}
-		if l.In != nil {
-			fs = append(fs, MatchLocations(l.In...))
-		}
-		if l.Regex != nil {
-			re, err := regexp.Compile(*l.Regex)
+		if text.CaseInsensitive || text.In != nil || text.Contains != nil ||
+			text.StartsWith != nil || text.Regex != nil {
+			match, err := filter.CompileString(text)
 			if err != nil {
-				return nil, validate.PathedError(
-					errors.Wrap(validate.ErrValidation, err.Error()),
-					"location",
-					"regex",
-				)
+				return nil, validate.PathedError(err, "location")
 			}
 			fs = append(fs, Match(func(
 				_ gorp.Context,
 				_ Retrieve,
 				e *Device,
 			) (bool, error) {
-				return re.MatchString(e.Location), nil
+				return match(e.Location), nil
 			}))
 		}
 	}

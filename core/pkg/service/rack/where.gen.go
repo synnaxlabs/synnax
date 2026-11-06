@@ -12,11 +12,10 @@
 package rack
 
 import (
-	"regexp"
 	"strconv"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -54,27 +53,29 @@ func MatchWhere(w Where) (Filter, error) {
 		}
 	}
 	if l := w.Name; l != nil {
-		if l.Eq != nil {
-			fs = append(fs, MatchNames(*l.Eq))
+		text := *l
+		if !l.CaseInsensitive {
+			if l.Eq != nil {
+				fs = append(fs, MatchNames(*l.Eq))
+			}
+			if l.In != nil {
+				fs = append(fs, MatchNames(l.In...))
+			}
+			text.In = nil
+			text.Eq = nil
 		}
-		if l.In != nil {
-			fs = append(fs, MatchNames(l.In...))
-		}
-		if l.Regex != nil {
-			re, err := regexp.Compile(*l.Regex)
+		if text.CaseInsensitive || text.In != nil || text.Contains != nil ||
+			text.StartsWith != nil || text.Regex != nil {
+			match, err := filter.CompileString(text)
 			if err != nil {
-				return nil, validate.PathedError(
-					errors.Wrap(validate.ErrValidation, err.Error()),
-					"name",
-					"regex",
-				)
+				return nil, validate.PathedError(err, "name")
 			}
 			fs = append(fs, Match(func(
 				_ gorp.Context,
 				_ Retrieve,
 				e *Rack,
 			) (bool, error) {
-				return re.MatchString(e.Name), nil
+				return match(e.Name), nil
 			}))
 		}
 	}
