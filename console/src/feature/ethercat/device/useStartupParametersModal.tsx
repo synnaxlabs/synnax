@@ -142,12 +142,13 @@ const StartupParameters = ({
           </Input.TableColumn>
           <Input.TableColumn name="Subindex" />
           <Input.TableColumn name="Data type" type="string">
-            {({ value, onChange, "aria-label": ariaLabel }) => (
+            {({ value, onChange, preview, variant, "aria-label": ariaLabel }) => (
               <Telem.SelectDataType
                 value={value}
                 onChange={onChange}
+                preview={preview}
                 hideDataTypes={HIDDEN_DATA_TYPES}
-                triggerProps={{ "aria-label": ariaLabel }}
+                triggerProps={{ "aria-label": ariaLabel, variant }}
               />
             )}
           </Input.TableColumn>
