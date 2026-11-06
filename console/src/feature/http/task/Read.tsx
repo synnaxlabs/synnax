@@ -16,6 +16,7 @@ import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
+import { Channel } from "@synnaxlabs/pluto";
 import { DataType, deep, id } from "@synnaxlabs/x";
 import { type FC } from "react";
 
@@ -79,18 +80,29 @@ const OPTIONAL_INPUT_PROPS = {
 interface FillValueFieldProps {
   path: deep.Path<ReadField>;
   value: unknown;
+  channel: channel.Key;
   dataType: string;
 }
 
 // The stored value is any JSON and the key can be absent, so Form.Field cannot bind it.
-const FillValueField: FC<FillValueFieldProps> = ({ path, value, dataType }) => {
+const FillValueField: FC<FillValueFieldProps> = ({
+  path,
+  value,
+  channel: key,
+  dataType,
+}) => {
+  const { data: channelDataType } = Channel.useResultDataType(
+    key === 0 ? null : { key },
+  );
   const { set } = PForm.useContext();
   const handleClear = () => set(path.fillValue, undefined);
   return (
     <Input.Item label="Fill value" padHelpText={false}>
-      {new DataType(dataType).equals(DataType.STRING) ? (
+      {DataType.STRING.equals(channelDataType ?? dataType) ? (
         <Input.Text
-          value={value == null ? "" : String(value)}
+          value={
+            typeof value === "string" || typeof value === "number" ? `${value}` : ""
+          }
           onChange={(next) => (next === "" ? handleClear() : set(path.fillValue, next))}
           placeholder="Required"
         />
@@ -272,7 +284,12 @@ const FieldPane: FC<FieldPaneProps> = ({ endpoint, path }) => {
             }}
           />
           {optional && (
-            <FillValueField path={path} value={fillValue} dataType={dataType} />
+            <FillValueField
+              path={path}
+              value={fillValue}
+              channel={fieldChannel}
+              dataType={dataType}
+            />
           )}
         </PForm.Section>
         <Task.Payload.EnumMappingSection path={path.enumValues} />

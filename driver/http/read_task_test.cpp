@@ -4041,6 +4041,38 @@ TEST(HTTPReadTask, AbsentStringFieldWritesFillValue) {
     }
 }
 
+/// @brief it should write the fill value of an integer channel when the value is
+/// missing.
+TEST(HTTPReadTask, AbsentIntegerFieldWritesFillValue) {
+    auto [fr, res] = read_shared_index_group(
+        R"({"p3": 1.5})",
+        x::telem::INT32_T,
+        false,
+        true,
+        static_cast<int32_t>(7)
+    );
+    ASSERT_NIL(res.error);
+    EXPECT_TRUE(res.warning.empty());
+    ASSERT_EQ(fr.size(), 3);
+    EXPECT_EQ(fr.at<int32_t>(2, 0), 7);
+}
+
+/// @brief it should write the fill value of a timestamp channel that is not an index
+/// when the value is missing.
+TEST(HTTPReadTask, AbsentTimestampFieldWritesFillValue) {
+    auto [fr, res] = read_shared_index_group(
+        R"({"p3": 1.5})",
+        x::telem::TIMESTAMP_T,
+        false,
+        true,
+        x::telem::TimeStamp(5)
+    );
+    ASSERT_NIL(res.error);
+    EXPECT_TRUE(res.warning.empty());
+    ASSERT_EQ(fr.size(), 3);
+    EXPECT_EQ(fr.at<int64_t>(2, 0), 5);
+}
+
 /// @brief it should write no fill value when a request fails, so an outage can never
 /// look like a real reading.
 TEST(HTTPReadTask, FailedRequestSkipsFillValue) {

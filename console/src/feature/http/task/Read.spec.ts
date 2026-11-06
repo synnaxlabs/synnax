@@ -9,6 +9,7 @@
 
 import { http, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { DataType } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { type z } from "zod";
@@ -320,6 +321,37 @@ describe("Read", () => {
       const { deploy } = await renderField({ optional: true, dataType: "string" });
       commitFieldInput(await findFillValue(), "off");
       expect((await deploy()).fillValue).toBe("off");
+    });
+
+    describe("bound to a channel", () => {
+      const createChannel = async (dataType: DataType) =>
+        await client.channels.create({
+          name: uniqueName("fill_value"),
+          dataType,
+          virtual: true,
+        });
+
+      it("should take text when the channel is a string channel", async () => {
+        const ch = await createChannel(DataType.STRING);
+        await renderField({ optional: true, channel: ch.key, dataType: "float64" });
+        const input = await screen.findByPlaceholderText<HTMLInputElement>("Required");
+        commitFieldInput(input, "off");
+        await waitFor(() => expect(input).toHaveProperty("value", "off"));
+      });
+
+      it("should take a number when the channel is a numeric channel", async () => {
+        const ch = await createChannel(DataType.INT32);
+        await renderField({ optional: true, channel: ch.key, dataType: "string" });
+        await screen.findByPlaceholderText("NaN");
+        expect(screen.queryByPlaceholderText("Required")).toBeNull();
+      });
+
+      it("should use the saved data type when the channel no longer exists", async () => {
+        const ch = await createChannel(DataType.INT32);
+        await client.channels.delete(ch.key);
+        await renderField({ optional: true, channel: ch.key, dataType: "string" });
+        await screen.findByPlaceholderText("Required");
+      });
     });
 
     it("should unset the fill value when the numeric input is emptied", async () => {

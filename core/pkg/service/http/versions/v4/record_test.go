@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
 	"github.com/synnaxlabs/x/encoding/orc"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("ReadField", func() {
@@ -31,8 +32,7 @@ var _ = Describe("ReadField", func() {
 			Expect(decoded.FillValue).ToNot(BeNil())
 			Expect(*decoded.FillValue).To(BeEquivalentTo(value))
 
-			encoded, err := json.Marshal(original)
-			Expect(err).ToNot(HaveOccurred())
+			encoded := MustSucceed(json.Marshal(original))
 			var parsed v4.ReadField
 			Expect(json.Unmarshal(encoded, &parsed)).To(Succeed())
 			Expect(parsed.FillValue).ToNot(BeNil())

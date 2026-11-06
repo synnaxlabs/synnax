@@ -161,10 +161,10 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
                 for (const auto &entry: field.enum_values)
                     enum_values.emplace(entry.label, entry.value);
                 auto [fill, fill_err] = x::json::to_sample_value(
-                    *field.fill_value,
+                    field.fill_value.value(),
                     dt,
                     field.time_format.has_value()
-                        ? x::json::parse_time_format(*field.time_format).first
+                        ? x::json::parse_time_format(field.time_format.value()).first
                         : x::json::TimeFormat::ISO8601,
                     enum_values.empty() ? nullptr : &enum_values
                 );
@@ -398,9 +398,13 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
             if (field.optional && is_absent(body, field.pointer, ch.data_type)) {
                 group_data.emplace_back(
                     field.channel,
-                    x::telem::Series(field.fill_value.value_or(
-                        ch.data_type.cast(std::numeric_limits<double>::quiet_NaN())
-                    ))
+                    x::telem::Series(
+                        field.fill_value.has_value()
+                            ? *field.fill_value
+                            : ch.data_type.cast(
+                                  std::numeric_limits<double>::quiet_NaN()
+                              )
+                    )
                 );
                 continue;
             }
