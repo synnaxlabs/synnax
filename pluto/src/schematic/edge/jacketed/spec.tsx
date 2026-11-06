@@ -27,12 +27,13 @@ export const spec: Spec<"jacketed", schematic.JacketedEdgeConfig> =
     "Jacketed",
     ({ points, crossings, color, strokeWidth }) => {
       const miters = xy.calculateMiters(points, JACKET_GAP + strokeWidth);
+      const snapMargin = strokeWidth - Base.DEFAULT_STROKE_WIDTH;
       const above = points.map((p, i) => xy.translate(p, miters[i]));
       const below = points.map((p, i) => xy.translate(p, xy.scale(miters[i], -1)));
       return (
         <>
           <Base.Base
-            path={Path.rounded(above, crossings)}
+            path={Path.rounded(above, crossings, snapMargin)}
             color={color}
             strokeWidth={strokeWidth}
             className={JACKET_CLASS}
@@ -43,7 +44,7 @@ export const spec: Spec<"jacketed", schematic.JacketedEdgeConfig> =
             strokeWidth={strokeWidth}
           />
           <Base.Base
-            path={Path.rounded(below, crossings)}
+            path={Path.rounded(below, crossings, snapMargin)}
             color={color}
             strokeWidth={strokeWidth}
             className={JACKET_CLASS}

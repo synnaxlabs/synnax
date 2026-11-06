@@ -11,8 +11,7 @@ import { render } from "@testing-library/react";
 import { type Node, ReactFlowProvider } from "@xyflow/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { Jumps } from "@/schematic/edge/common/jumps";
-import { resolveSpec, type Variant } from "@/schematic/edge/registry";
+import { Edge } from "@/schematic/edge";
 import { diagram } from "@/vis/diagram/aether";
 
 const SIZE = { width: 40, height: 40 };
@@ -22,7 +21,7 @@ const NODES: Node[] = [
   { id: "b", position: { x: 400, y: 0 }, measured: SIZE, data: {} },
 ];
 
-const VARIANTS: Variant[] = [
+const VARIANTS: Edge.Variant[] = [
   "pipe",
   "electric",
   "secondary",
@@ -32,11 +31,22 @@ const VARIANTS: Variant[] = [
   "data",
 ];
 
-const renderEdge = (variant: Variant, strokeWidth?: number): SVGElement => {
-  const spec = resolveSpec(variant);
+interface RenderOptions {
+  strokeWidth?: number;
+  crossings?: Edge.Path.Crossing[];
+}
+
+const renderEdge = (
+  variant: Edge.Variant,
+  { strokeWidth, crossings = [] }: RenderOptions = {},
+): SVGElement => {
+  const spec = Edge.resolveSpec(variant);
+  const jumps = Edge.Jumps.createStore();
+  jumps.commit(new Map([["edge", crossings]]));
+  const defaults = spec.defaultConfig();
   const { container } = render(
     <ReactFlowProvider defaultNodes={NODES}>
-      <Jumps.Context value={Jumps.createStore()}>
+      <Edge.Jumps.Context value={jumps}>
         <svg>
           <spec.Edge
             edgeKey="edge"
@@ -45,11 +55,11 @@ const renderEdge = (variant: Variant, strokeWidth?: number): SVGElement => {
             sourceNode="a"
             targetNode="b"
             selected={false}
-            config={{ ...spec.defaultConfig(), strokeWidth }}
+            config={{ ...defaults, strokeWidth: strokeWidth ?? defaults.strokeWidth }}
             onChange={vi.fn()}
           />
         </svg>
-      </Jumps.Context>
+      </Edge.Jumps.Context>
     </ReactFlowProvider>,
   );
   return container.querySelector("svg") as SVGElement;
@@ -67,7 +77,7 @@ const symbolWidths = (svg: SVGElement): Array<string | null> =>
 
 describe("edge registry", () => {
   it.each(VARIANTS)("should draw every %s line at the stroke width", (variant) => {
-    const widths = edgeWidths(renderEdge(variant, 6));
+    const widths = edgeWidths(renderEdge(variant, { strokeWidth: 6 }));
     expect(widths.length).toBeGreaterThan(0);
     expect(new Set(widths)).toEqual(new Set(["6"]));
   });
@@ -76,10 +86,10 @@ describe("edge registry", () => {
     expect(new Set(edgeWidths(renderEdge(variant)))).toEqual(new Set(["2"]));
   });
 
-  it.each(["hydraulic", "pneumatic", "data"] satisfies Variant[])(
+  it.each(["hydraulic", "pneumatic", "data"] satisfies Edge.Variant[])(
     "should draw the %s symbols at the stroke width",
     (variant) => {
-      const widths = symbolWidths(renderEdge(variant, 6));
+      const widths = symbolWidths(renderEdge(variant, { strokeWidth: 6 }));
       expect(widths.length).toBeGreaterThan(0);
       expect(new Set(widths)).toEqual(new Set(["6"]));
     },
@@ -88,7 +98,9 @@ describe("edge registry", () => {
   it("should keep the jacket clear of a wide core line", () => {
     const paths = (strokeWidth: number) =>
       Array.from(
-        renderEdge("jacketed", strokeWidth).querySelectorAll(".react-flow__edge-path"),
+        renderEdge("jacketed", { strokeWidth }).querySelectorAll(
+          ".react-flow__edge-path",
+        ),
       ).map((el) => el.getAttribute("d"));
     const [, atDefault] = paths(2);
     const [jacket, core] = paths(8);
@@ -99,5 +111,27 @@ describe("edge registry", () => {
   it("should keep the default jacket offset for an edge with no stroke width", () => {
     const jacket = renderEdge("jacketed").querySelector(".react-flow__edge-path");
     expect(jacket?.getAttribute("d")).toMatch(/^M\S*?,26L/);
+  });
+
+  it("should hop every jacketed line over a crossing at the widest stroke", () => {
+    const paths = renderEdge("jacketed", {
+      strokeWidth: 20,
+      crossings: [{ x: 200, y: 20, radius: 23 }],
+    }).querySelectorAll(".react-flow__edge-path");
+    expect(paths).toHaveLength(3);
+    paths.forEach((el) => expect(el.getAttribute("d")).toContain("A23,23"));
+  });
+
+  it("should keep data symbols apart at the widest stroke", () => {
+    const strokeWidth = 20;
+    const circles = Array.from(
+      renderEdge("data", { strokeWidth }).querySelectorAll("circle"),
+    );
+    expect(circles.length).toBeGreaterThan(1);
+    const diameter = 2 * Number(circles[0].getAttribute("r")) + strokeWidth;
+    const centers = circles.map((c) => Number(c.getAttribute("cx")));
+    centers
+      .slice(1)
+      .forEach((cx, i) => expect(cx - centers[i]).toBeGreaterThan(diameter));
   });
 });

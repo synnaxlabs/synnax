@@ -16,20 +16,24 @@ import (
 	v10 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v10"
 )
 
-// MigrateSchematic lifts a v10 schematic into the v11 shape. An edge carries no stroke
-// width, so it draws at the default. A field symbol carries no text level, so it keeps
-// its rendered size.
+// MigrateSchematic lifts a v10 schematic into the v11 shape. A field symbol carries no
+// text level, so it keeps its rendered size.
 func MigrateSchematic(ctx context.Context, old v10.Schematic) (Schematic, error) {
 	return autoMigrateSchematic(ctx, old)
 }
 
-// MigrateSegmentedEdgeConfig lifts a v10 edge config to v11 and leaves the stroke width
-// absent.
+// MigrateSegmentedEdgeConfig lifts a v10 edge config to v11, which fills the default
+// stroke width.
 func MigrateSegmentedEdgeConfig(
 	ctx context.Context,
 	old v10.SegmentedEdgeConfig,
 ) (SegmentedEdgeConfig, error) {
-	return autoMigrateSegmentedEdgeConfig(ctx, old)
+	out, err := autoMigrateSegmentedEdgeConfig(ctx, old)
+	if err != nil {
+		return SegmentedEdgeConfig{}, err
+	}
+	out.ApplyDefaults()
+	return out, nil
 }
 
 // MigrateElementConfig lifts a v10 element config to v11. A button loses its label wrap

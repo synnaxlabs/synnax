@@ -90,10 +90,8 @@ SegmentedEdgeConfig struct {
     stroke_color color.Color? {
         @doc value "is the stroke color of the edge."
     }
-    stroke_width float64?     {
-        @doc value """
-            is the stroke width of the edge in pixels. Absent draws the default of 2.
-        """
+    stroke_width float64 = 2 {
+        @doc value "is the stroke width of the edge in pixels."
     }
     segments     Segment[]    {
         @doc value """

@@ -38,11 +38,11 @@ var _ = Describe("DecodeWithDefaults", func() {
 		Expect(cfg.StrokeWidth).To(BeEquivalentTo(2))
 	})
 
-	It("Should leave an edge's stroke width absent when the config omits it", func() {
+	It("Should fill an edge's default stroke width when the config omits it", func() {
 		cfg := MustSucceed(v11.DecodeWithDefaults(msgpack.EncodedJSON{
 			"variant": "pipe",
 		})).Variant.(v11.PipeElementConfig)
-		Expect(cfg.StrokeWidth).To(BeNil())
+		Expect(cfg.StrokeWidth).To(BeEquivalentTo(2))
 	})
 
 	It("Should keep an edge's stroke width when the config carries one", func() {
@@ -50,7 +50,7 @@ var _ = Describe("DecodeWithDefaults", func() {
 			"variant":      "pipe",
 			"stroke_width": 6.0,
 		})).Variant.(v11.PipeElementConfig)
-		Expect(cfg.StrokeWidth).To(HaveValue(BeEquivalentTo(6)))
+		Expect(cfg.StrokeWidth).To(BeEquivalentTo(6))
 	})
 
 	It("Should fill the control state defaults when the config carries one", func() {

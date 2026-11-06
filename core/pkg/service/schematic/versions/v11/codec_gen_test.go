@@ -38,7 +38,7 @@ var (
 			B: 5,
 			A: 5.5,
 		}),
-		StrokeWidth: new(float64(6.5)),
+		StrokeWidth: 6.5,
 		Segments:    []v11.Segment{{Direction: spatial.Direction("x"), Length: 9.5}},
 	}
 	fullyPopulatedStaticSymbolConfig = v11.StaticSymbolConfig{
@@ -1733,7 +1733,7 @@ var _ = Describe("Codec", func() {
 			Entry("fully populated", fullyPopulatedSegmentedEdgeConfig),
 			Entry("zero values", v11.SegmentedEdgeConfig{
 				StrokeColor: nil,
-				StrokeWidth: nil,
+				StrokeWidth: 0,
 				Segments:    []v11.Segment{},
 			}),
 			Entry("empty collections", v11.SegmentedEdgeConfig{
@@ -1743,7 +1743,7 @@ var _ = Describe("Codec", func() {
 					B: 5,
 					A: 5.5,
 				}),
-				StrokeWidth: new(float64(6.5)),
+				StrokeWidth: 6.5,
 				Segments:    []v11.Segment{},
 			}),
 		)
@@ -5261,7 +5261,7 @@ func FuzzDecodeSegmentedEdgeConfig(f *testing.F) {
 	{
 		seed := v11.SegmentedEdgeConfig{
 			StrokeColor: nil,
-			StrokeWidth: nil,
+			StrokeWidth: 0,
 			Segments:    []v11.Segment{},
 		}
 		w := orc.NewWriter(0)
@@ -5278,7 +5278,7 @@ func FuzzDecodeSegmentedEdgeConfig(f *testing.F) {
 				B: 5,
 				A: 5.5,
 			}),
-			StrokeWidth: new(float64(6.5)),
+			StrokeWidth: 6.5,
 			Segments:    []v11.Segment{},
 		}
 		w := orc.NewWriter(0)
