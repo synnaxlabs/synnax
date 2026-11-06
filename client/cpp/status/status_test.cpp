@@ -139,27 +139,9 @@ TEST(StatusTest, RetrieveWhere) {
     }
     ASSERT_NIL(client.statuses.set(statuses));
     const auto retrieved = ASSERT_NIL_P(client.statuses.retrieve(
-        RetrieveRequest{
-            .where = Where{
-                .or_ =
-                    std::vector<Where>{
-                        Where{
-                            .variant = x::filter::Set<std::string>{.eq = VARIANT_ERROR}
-                        },
-                        Where{.key = x::filter::Set<Key>{.eq = statuses[2].key}},
-                    },
-                .not_ = x::mem::indirect<Where>(
-                    Where{.variant = x::filter::Set<std::string>{.eq = VARIANT_WARNING}}
-                ),
-                .key = x::filter::Set<Key>{
-                    .in = std::vector<Key>{
-                        statuses[0].key,
-                        statuses[1].key,
-                        statuses[2].key,
-                    },
-                },
-            },
-        }
+        (Where{.variant = VARIANT_ERROR} || Where{.key = statuses[2].key}) &&
+        !Where{.variant = VARIANT_WARNING} &&
+        Where{.key = {statuses[0].key, statuses[1].key, statuses[2].key}}
     ));
     ASSERT_EQ(retrieved.size(), 1);
     ASSERT_EQ(retrieved[0].key, statuses[1].key);
