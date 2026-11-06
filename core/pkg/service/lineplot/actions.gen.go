@@ -22,41 +22,91 @@ import (
 )
 
 const (
-	ActionTypeCreate                = "create"
-	ActionTypeRename                = "rename"
-	ActionTypeSetGroup              = "set_group"
-	ActionTypeSetTitleVisible       = "set_title_visible"
-	ActionTypeSetTitleLevel         = "set_title_level"
-	ActionTypeSetLegendHidden       = "set_legend_hidden"
-	ActionTypeSetLegendPosition     = "set_legend_position"
-	ActionTypeAddChannel            = "add_channel"
-	ActionTypeRemoveChannel         = "remove_channel"
-	ActionTypeSetChannels           = "set_channels"
-	ActionTypeSetXChannel           = "set_x_channel"
-	ActionTypeAddRange              = "add_range"
-	ActionTypeRemoveRange           = "remove_range"
-	ActionTypeSetRanges             = "set_ranges"
-	ActionTypeSetAxisLabel          = "set_axis_label"
+	// ActionTypeCreate is the Type of an Action that carries CreatePayload.
+	ActionTypeCreate = "create"
+	// ActionTypeRename is the Type of an Action that carries RenamePayload.
+	ActionTypeRename = "rename"
+	// ActionTypeSetGroup is the Type of an Action that carries SetGroupPayload.
+	ActionTypeSetGroup = "set_group"
+	// ActionTypeSetTitleVisible is the Type of an Action that carries
+	// SetTitleVisiblePayload.
+	ActionTypeSetTitleVisible = "set_title_visible"
+	// ActionTypeSetTitleLevel is the Type of an Action that carries
+	// SetTitleLevelPayload.
+	ActionTypeSetTitleLevel = "set_title_level"
+	// ActionTypeSetLegendHidden is the Type of an Action that carries
+	// SetLegendHiddenPayload.
+	ActionTypeSetLegendHidden = "set_legend_hidden"
+	// ActionTypeSetLegendPosition is the Type of an Action that carries
+	// SetLegendPositionPayload.
+	ActionTypeSetLegendPosition = "set_legend_position"
+	// ActionTypeAddChannel is the Type of an Action that carries AddChannelPayload.
+	ActionTypeAddChannel = "add_channel"
+	// ActionTypeRemoveChannel is the Type of an Action that carries
+	// RemoveChannelPayload.
+	ActionTypeRemoveChannel = "remove_channel"
+	// ActionTypeSetChannels is the Type of an Action that carries SetChannelsPayload.
+	ActionTypeSetChannels = "set_channels"
+	// ActionTypeSetXChannel is the Type of an Action that carries SetXChannelPayload.
+	ActionTypeSetXChannel = "set_x_channel"
+	// ActionTypeAddRange is the Type of an Action that carries AddRangePayload.
+	ActionTypeAddRange = "add_range"
+	// ActionTypeRemoveRange is the Type of an Action that carries RemoveRangePayload.
+	ActionTypeRemoveRange = "remove_range"
+	// ActionTypeSetRanges is the Type of an Action that carries SetRangesPayload.
+	ActionTypeSetRanges = "set_ranges"
+	// ActionTypeSetAxisLabel is the Type of an Action that carries SetAxisLabelPayload.
+	ActionTypeSetAxisLabel = "set_axis_label"
+	// ActionTypeSetAxisLabelDirection is the Type of an Action that carries
+	// SetAxisLabelDirectionPayload.
 	ActionTypeSetAxisLabelDirection = "set_axis_label_direction"
-	ActionTypeSetAxisLabelLevel     = "set_axis_label_level"
-	ActionTypeSetAxisBounds         = "set_axis_bounds"
-	ActionTypeSetAxisTickSpacing    = "set_axis_tick_spacing"
-	ActionTypeSetAxisType           = "set_axis_type"
-	ActionTypeSetLineLabel          = "set_line_label"
-	ActionTypeSetLineColor          = "set_line_color"
-	ActionTypeSetLineStrokeWidth    = "set_line_stroke_width"
-	ActionTypeSetLineAggregation    = "set_line_aggregation"
-	ActionTypeSetLineDetail         = "set_line_detail"
-	ActionTypeSetLine               = "set_line"
-	ActionTypeSetRule               = "set_rule"
-	ActionTypeSetRuleLabel          = "set_rule_label"
-	ActionTypeSetRuleColor          = "set_rule_color"
-	ActionTypeSetRuleAxis           = "set_rule_axis"
-	ActionTypeSetRuleLineWidth      = "set_rule_line_width"
-	ActionTypeSetRuleLineDash       = "set_rule_line_dash"
-	ActionTypeSetRuleUnits          = "set_rule_units"
-	ActionTypeSetRulePosition       = "set_rule_position"
-	ActionTypeRemoveRule            = "remove_rule"
+	// ActionTypeSetAxisLabelLevel is the Type of an Action that carries
+	// SetAxisLabelLevelPayload.
+	ActionTypeSetAxisLabelLevel = "set_axis_label_level"
+	// ActionTypeSetAxisBounds is the Type of an Action that carries
+	// SetAxisBoundsPayload.
+	ActionTypeSetAxisBounds = "set_axis_bounds"
+	// ActionTypeSetAxisTickSpacing is the Type of an Action that carries
+	// SetAxisTickSpacingPayload.
+	ActionTypeSetAxisTickSpacing = "set_axis_tick_spacing"
+	// ActionTypeSetAxisType is the Type of an Action that carries SetAxisTypePayload.
+	ActionTypeSetAxisType = "set_axis_type"
+	// ActionTypeSetLineLabel is the Type of an Action that carries SetLineLabelPayload.
+	ActionTypeSetLineLabel = "set_line_label"
+	// ActionTypeSetLineColor is the Type of an Action that carries SetLineColorPayload.
+	ActionTypeSetLineColor = "set_line_color"
+	// ActionTypeSetLineStrokeWidth is the Type of an Action that carries
+	// SetLineStrokeWidthPayload.
+	ActionTypeSetLineStrokeWidth = "set_line_stroke_width"
+	// ActionTypeSetLineAggregation is the Type of an Action that carries
+	// SetLineAggregationPayload.
+	ActionTypeSetLineAggregation = "set_line_aggregation"
+	// ActionTypeSetLineDetail is the Type of an Action that carries
+	// SetLineDetailPayload.
+	ActionTypeSetLineDetail = "set_line_detail"
+	// ActionTypeSetLine is the Type of an Action that carries SetLinePayload.
+	ActionTypeSetLine = "set_line"
+	// ActionTypeSetRule is the Type of an Action that carries SetRulePayload.
+	ActionTypeSetRule = "set_rule"
+	// ActionTypeSetRuleLabel is the Type of an Action that carries SetRuleLabelPayload.
+	ActionTypeSetRuleLabel = "set_rule_label"
+	// ActionTypeSetRuleColor is the Type of an Action that carries SetRuleColorPayload.
+	ActionTypeSetRuleColor = "set_rule_color"
+	// ActionTypeSetRuleAxis is the Type of an Action that carries SetRuleAxisPayload.
+	ActionTypeSetRuleAxis = "set_rule_axis"
+	// ActionTypeSetRuleLineWidth is the Type of an Action that carries
+	// SetRuleLineWidthPayload.
+	ActionTypeSetRuleLineWidth = "set_rule_line_width"
+	// ActionTypeSetRuleLineDash is the Type of an Action that carries
+	// SetRuleLineDashPayload.
+	ActionTypeSetRuleLineDash = "set_rule_line_dash"
+	// ActionTypeSetRuleUnits is the Type of an Action that carries SetRuleUnitsPayload.
+	ActionTypeSetRuleUnits = "set_rule_units"
+	// ActionTypeSetRulePosition is the Type of an Action that carries
+	// SetRulePositionPayload.
+	ActionTypeSetRulePosition = "set_rule_position"
+	// ActionTypeRemoveRule is the Type of an Action that carries RemoveRulePayload.
+	ActionTypeRemoveRule = "remove_rule"
 )
 
 // CreatePayload replaces the document with the given created state. Emitted by the Core

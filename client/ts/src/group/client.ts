@@ -8,11 +8,20 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, primitive, zod } from "@synnaxlabs/x";
+import { array, zod } from "@synnaxlabs/x";
 import z from "zod";
 
 import { type batch } from "@/batch";
-import { type Group, groupZ, type Key, keyZ } from "@/group/types.gen";
+import {
+  type Group,
+  groupZ,
+  type Key,
+  keyZ,
+  retrieveRequestZ,
+  retrieveResponseZ,
+} from "@/group/types.gen";
+import { LINES } from "@/group/where";
+import { matches, retrieveInputZ, serverComputed } from "@/group/where.gen";
 import { query } from "@/query";
 import { resource } from "@/resource";
 
@@ -34,51 +43,15 @@ const setParentReqZ = z.object({
 });
 const emptyResZ = z.object({});
 
-const retrieveReqZ = z.object({
-  keys: keyZ.array().optional(),
-  /** Keeps groups whose parent is any of these resources. */
-  parents: resource.idZ.array().optional(),
-  /** Keeps groups whose scope is any of these types. */
-  scopes: resource.typeZ.array().optional(),
-  /** Keeps groups with a parent when true, and top-level groups when false. */
-  nested: z.boolean().optional(),
-  searchTerm: z.string().optional(),
-  limit: z.int().optional(),
-  offset: z.int().optional(),
-});
-const retrieveMultiParamsZ = retrieveReqZ.or(query.keyListZ(keyZ));
-const wireRetrieveReqZ = retrieveReqZ.extend({ ancestors: z.boolean().optional() });
-const retrieveResZ = z.object({
-  groups: groupZ.array().default(() => []),
-  ancestors: groupZ.array().default(() => []),
-});
+const retrieveMultiParamsZ = z.union([
+  query.keysRequestZ(keyZ),
+  retrieveRequestZ,
+  retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+]);
+const retrieveAncestorsReqZ = z.object({ keys: keyZ.array() });
 
 export interface CreateParams extends z.input<typeof createReqZ> {}
-export type RetrieveRequest = z.input<typeof retrieveReqZ>;
-
-/**
- * Client-side matching for a request. Server-computed shapes (search, pagination) never
- * reach this filter; they refetch instead.
- */
-const requestFilter = (req: z.output<typeof retrieveReqZ>): ((g: Group) => boolean) => {
-  const keys = primitive.isNonZero(req.keys) ? new Set(req.keys) : null;
-  const parents = primitive.isNonZero(req.parents)
-    ? new Set(req.parents.map((id) => resource.idToString(id)))
-    : null;
-  const scopes = primitive.isNonZero(req.scopes) ? new Set(req.scopes) : null;
-  const { nested } = req;
-  return (g) => {
-    if (keys != null && !keys.has(g.key)) return false;
-    if (scopes != null && !scopes.has(g.scope)) return false;
-    if (nested != null && (g.parent != null) !== nested) return false;
-    if (
-      parents != null &&
-      (g.parent == null || !parents.has(resource.idToString(g.parent)))
-    )
-      return false;
-    return true;
-  };
-};
+export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 
 export interface ClientConfig {
   unary: UnaryClient;
@@ -95,7 +68,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Gr
     const { cache } = cfg;
     const store = cache.createTable<Key, Group>({
       name: "groups",
-      fetch: async (keys) => (await this.execRetrieve({ keys })).groups,
+      fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
       listen: [
         query.createSetListener(SET_CHANNEL_NAME, groupZ),
         query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
@@ -106,8 +79,9 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Gr
       table: store,
       request: {
         schema: retrieveMultiParamsZ,
-        fetch: async (req) => (await this.execRetrieve(req)).groups,
-        matches: (g, req) => requestFilter(req)(g),
+        fetch: async (req) => await this.execRetrieve(req),
+        matches: (g, req) => matches(LINES, g, req.where),
+        serverComputed: (req) => serverComputed(LINES, req.where),
       },
     });
     this.cfg = cfg;
@@ -220,12 +194,14 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Gr
    */
   async retrieveAncestors(keys: Key | Key[]): Promise<Group[]> {
     const since = this.store.stamp();
-    const res = await this.execRetrieve({
-      keys: array.toArray(keys),
-      ancestors: true,
-    });
-    this.store.ingest([...res.groups, ...res.ancestors], { since });
-    return res.ancestors;
+    const { groups } = await this.cfg.unary.send(
+      "/group/retrieve-ancestors",
+      { keys: array.toArray(keys) },
+      retrieveAncestorsReqZ,
+      retrieveResponseZ,
+    );
+    this.store.ingest(groups, { since });
+    return groups;
   }
 
   private async send<P>(
@@ -242,14 +218,13 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Gr
     apply?.();
   }
 
-  private async execRetrieve(
-    req: z.input<typeof wireRetrieveReqZ>,
-  ): Promise<z.infer<typeof retrieveResZ>> {
-    return await this.cfg.unary.send(
+  private async execRetrieve(req: z.input<typeof retrieveRequestZ>): Promise<Group[]> {
+    const res = await this.cfg.unary.send(
       "/group/retrieve",
       req,
-      wireRetrieveReqZ,
-      retrieveResZ,
+      retrieveRequestZ,
+      retrieveResponseZ,
     );
+    return res.groups;
   }
 }

@@ -12,12 +12,13 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access } from "@synnaxlabs/pluto";
 
 import { Arc } from "@/platform/arc";
-import { Selector } from "@/platform/selector";
+import { type Selector } from "@/platform/selector";
 
-export const Selectable = Selector.createSelectable({
+export const Selectable: Selector.Selectable = {
   title: "Arc automation",
   icon: <Icon.Arc />,
+  description: "Automate control",
   useOnSelect: Arc.useCreate,
   type: arc.TYPE_RESOURCE_ID.type,
   useVisible: () => Access.useCreateGranted(arc.TYPE_RESOURCE_ID),
-});
+};

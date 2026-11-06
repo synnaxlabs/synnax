@@ -8,18 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import {
-  array,
-  type destructor,
-  primitive,
-  scheduler,
-  TimeSpan,
-  uuid,
-} from "@synnaxlabs/x";
+import { array, type destructor, scheduler, TimeSpan, uuid } from "@synnaxlabs/x";
 import z from "zod";
 
 import { type batch } from "@/batch";
-import { label } from "@/label";
+import { ValidationError } from "@/errors";
+import { type label } from "@/label";
 import { type ontology } from "@/ontology";
 import { query } from "@/query";
 import { resource } from "@/resource";
@@ -29,9 +23,13 @@ import {
   keyZ,
   type New,
   resourceID,
+  type RetrieveRequest,
+  retrieveRequestZ,
   type Status,
   statusZ,
 } from "@/status/types.gen";
+import { LINES } from "@/status/where";
+import { matches, retrieveInputZ, serverComputed } from "@/status/where.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 const setReqZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
@@ -42,29 +40,32 @@ const deleteReqZ = z.object({ keys: keyZ.array() });
 const emptyResZ = z.object({});
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
-const retrieveRequestZ = z.object({
-  keys: keyZ.array().optional(),
-  owners: resource.idZ.array().optional(),
-  searchTerm: z.string().optional(),
-  offset: z.int().optional(),
-  limit: z.int().optional(),
-  hasLabels: label.keyZ.array().optional(),
-  variants: z.string().array().optional(),
-  ignoreNotFoundError: z.boolean().optional(),
-});
-const retrieveMultiParamsZ = retrieveRequestZ.or(query.keyListZ(keyZ));
+export type RetrieveMultipleParams = RetrieveRequest;
+
+const filterParamsZ = retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape);
+type FilterParams = z.input<typeof filterParamsZ>;
+
+const retrieveMultiParamsZ = z.union([
+  query.keysRequestZ(keyZ),
+  retrieveRequestZ,
+  filterParamsZ,
+]);
 
 const singleRetrieveParamsZ = z
   .object({ key: keyZ })
-  .transform(({ key }) => ({ keys: [key] }));
+  .transform(({ key }): RetrieveRequest => ({ where: { key: { eq: key } } }));
 
-const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveRequestZ]);
+const retrieveParamsZ = z.union([
+  singleRetrieveParamsZ,
+  retrieveRequestZ,
+  filterParamsZ,
+]);
 
-export type RetrieveParams = z.input<typeof retrieveParamsZ>;
 export type SingleRetrieveParams = z.input<typeof singleRetrieveParamsZ>;
-export type MultiRetrieveParams = z.input<typeof retrieveRequestZ>;
 
-interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
+const isSingleParams = (params: object): params is SingleRetrieveParams =>
+  "key" in params && typeof params.key === "string";
+export type RetrieveParams = SingleRetrieveParams | RetrieveMultipleParams;
 
 const retrieveResponseZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
   detailsSchema?: DetailsSchema,
@@ -103,7 +104,7 @@ export class Client extends query.Retriever<
     exec: async (requests) => {
       const owners = requests.flatMap(({ req }) => req);
       const since = this.store.stamp();
-      const statuses = await this.execRetrieve({ owners });
+      const statuses = await this.execRetrieve({ where: { owners } });
       this.store.ingest(statuses, { since });
       requests.forEach(({ req, resolve }) => {
         const wanted = new Set(resource.idToString(req));
@@ -117,7 +118,7 @@ export class Client extends query.Retriever<
     const owners = new query.LookupIndex<Key, Status, string>(ownerOf);
     const store = cache.createTable<Key, Status>({
       name: "statuses",
-      fetch: async (keys) => await this.execRetrieve({ keys }),
+      fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
       listen: [
         query.createSetListener(SET_CHANNEL_NAME, statusZ()),
         query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
@@ -130,7 +131,8 @@ export class Client extends query.Retriever<
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
-        matches: (status, req) => requestFilter(req)(status),
+        matches: (status, req) => matches(LINES, status, req.where),
+        serverComputed: (req) => serverComputed(LINES, req.where),
       },
     });
     this.cfg = cfg;
@@ -148,16 +150,27 @@ export class Client extends query.Retriever<
     params: SingleRetrieveParams & { detailsSchema?: DetailsSchema },
   ): Promise<Status<DetailsSchema>>;
   async retrieve(params: Key | SingleRetrieveParams): Promise<Status>;
-  async retrieve(params: MultiRetrieveParams): Promise<Status[]>;
+  async retrieve(
+    params: Key[] | query.RequestInput<typeof retrieveMultiParamsZ>,
+  ): Promise<Status[]>;
   async retrieve<DetailsSchema extends z.ZodType = z.ZodNever>(
-    rawParams: Key | (RetrieveParams & { detailsSchema?: DetailsSchema }),
+    rawParams:
+      | Key
+      | Key[]
+      | ((RetrieveParams | FilterParams) & { detailsSchema?: DetailsSchema }),
   ): Promise<Status<DetailsSchema> | Status<DetailsSchema>[]> {
+    if (Array.isArray(rawParams))
+      return (await super.retrieve(rawParams)) as Status<DetailsSchema>[];
     const params = typeof rawParams === "string" ? { key: rawParams } : rawParams;
     const { detailsSchema, ...rest } = params;
-    const isSingle = "key" in rest;
+    const isSingle = isSingleParams(rest);
     // Schema-parametrized retrieves validate details for one caller; their
     // results are not shared through the cache.
     if (detailsSchema != null) {
+      if (isSingle && Object.keys(rest).length > 1)
+        throw new ValidationError(
+          "status params address a single key but hold other fields.",
+        );
       const statuses = await this.execRetrieve<DetailsSchema>(params);
       checkForMultipleOrNoResults("Status", params, statuses, isSingle);
       return isSingle ? statuses[0] : statuses;
@@ -366,7 +379,7 @@ export class Client extends query.Retriever<
   }
 
   private async execRetrieve<DetailsSchema extends z.ZodType = z.ZodNever>(
-    params: RetrieveParams & { detailsSchema?: DetailsSchema },
+    params: (RetrieveParams | FilterParams) & { detailsSchema?: DetailsSchema },
   ): Promise<Status<DetailsSchema>[]> {
     const res = await this.cfg.unary.send(
       "/status/retrieve",
@@ -379,32 +392,3 @@ export class Client extends query.Retriever<
 }
 
 export interface SetOptions extends query.WriteOptions {}
-
-/**
- * Client-side matching for a request: key, owner, and variant sets and labels.
- * Server-computed shapes (search, limit/offset) never reach this filter; they refetch
- * instead.
- */
-const requestFilter = (req: RetrieveRequest): ((s: Status) => boolean) => {
-  const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
-  const ownerSet = primitive.isNonZero(req.owners)
-    ? new Set(resource.idToString(req.owners))
-    : undefined;
-  const variantSet = primitive.isNonZero(req.variants)
-    ? new Set(req.variants)
-    : undefined;
-  return (s) => {
-    if (keySet != null && !keySet.has(s.key)) return false;
-    if (variantSet != null && !variantSet.has(s.variant)) return false;
-    if (ownerSet != null) {
-      const owner = ownerOf(s);
-      if (owner == null || !ownerSet.has(owner)) return false;
-    }
-    if (
-      primitive.isNonZero(req.hasLabels) &&
-      !req.hasLabels.some((key) => s.labels.includes(key))
-    )
-      return false;
-    return true;
-  };
-};

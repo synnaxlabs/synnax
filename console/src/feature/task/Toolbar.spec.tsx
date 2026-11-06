@@ -13,10 +13,13 @@ import {
   type Synnax as Client,
   task,
 } from "@synnaxlabs/client";
-import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
+import {
+  createTestClient,
+  createTestClientWithRole,
+} from "@synnaxlabs/client/testutil";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, assert, describe, expect, it } from "vitest";
+import { afterEach, assert, describe, expect, it, onTestFinished } from "vitest";
 
 import { NI } from "@/feature/ni";
 import { Task } from "@/feature/task";
@@ -45,7 +48,6 @@ import {
 } from "@/testutil";
 
 const client = createTestClient();
-const roles = new RoleClients(client);
 
 interface CreateTaskOptions {
   config?: Record<string, unknown>;
@@ -102,12 +104,20 @@ const createTask = async ({
   return t;
 };
 
+// A client keeps its list answer after the list unmounts and serves it without a fetch.
+// A task created since sits past the rows that render, or outside a full page, so each
+// render takes a new client.
 const renderToolbar = async (
-  as: Client = client,
+  as: Client = createTestClient(),
   analytics: Analytics.Sink = Analytics.NOOP,
 ) => {
+  onTestFinished(async () => await as.close());
+  await as.connect();
   const { wrapper, store } = await createConsoleWrapper({ client: as });
   const created = await createSelectedPanel(store, client);
+  // The panel's create broadcast may not have reached `as`, and opening a tab reads it.
+  onTestFinished(as.panels.onChange(created.panelKey, () => {}));
+  await as.panels.retrieve(created.panelKey);
   render(
     <Analytics.Provider sink={analytics}>
       <Task.RegistryProvider registry={Task.REGISTRY}>
@@ -148,10 +158,7 @@ describe("task/Toolbar", () => {
 
   it("withholds the empty message until the task list answers", async () => {
     const t = await createTask();
-    // The task cache hangs off the client, so a client an earlier test left holding a
-    // live empty list would answer the toolbar before the fetch. A fresh client is
-    // cold, which is the cold-start state this guard exists for.
-    await renderToolbar(createTestClient());
+    await renderToolbar();
     expect(screen.queryByText("No tasks")).toBeNull();
     await screen.findByText(t.name);
   });
@@ -221,7 +228,7 @@ describe("task/Toolbar", () => {
 
     it("leaves the config unchanged when a viewer clicks the button", async () => {
       const t = await createTask({ config: { dataSavingDisabled: false } });
-      const viewer = await roles.get("Viewer");
+      const viewer = await createTestClientWithRole(client, "Viewer");
       await renderToolbar(viewer);
       await screen.findByText(t.name);
       fireEvent.click(
@@ -267,7 +274,7 @@ describe("task/Toolbar", () => {
     it("reports the type of a task it started", async () => {
       const t = await createTask({ running: false });
       const analytics = createTestSink();
-      await renderToolbar(client, analytics);
+      await renderToolbar(createTestClient(), analytics);
       await openContextMenuUntil(t.name, "Start");
       fireEvent.click(screen.getByText("Start"));
       await waitFor(() =>
@@ -423,7 +430,7 @@ describe("task/Toolbar", () => {
 
     it("withholds the start/stop button and its items from a viewer", async () => {
       const t = await createStoppedTask();
-      const viewer = await roles.get("Viewer");
+      const viewer = await createTestClientWithRole(client, "Viewer");
       await renderToolbar(viewer);
       await screen.findByText(t.name);
       expect(queryIconButton(document.body, "play")).toBeNull();
@@ -434,7 +441,7 @@ describe("task/Toolbar", () => {
 
     it("withholds Edit configuration from an operator", async () => {
       const t = await createStoppedTask();
-      const operator = await roles.get("Operator");
+      const operator = await createTestClientWithRole(client, "Operator");
       await renderToolbar(operator);
       await screen.findByText(t.name);
       await openContextMenuUntil(t.name, "Start");
@@ -443,7 +450,7 @@ describe("task/Toolbar", () => {
 
     it("offers the start/stop button and its items to an operator", async () => {
       const t = await createStoppedTask();
-      const operator = await roles.get("Operator");
+      const operator = await createTestClientWithRole(client, "Operator");
       await renderToolbar(operator);
       await screen.findByText(t.name);
       await waitFor(() =>

@@ -252,3 +252,30 @@ func (s *Service) NewRetrieve[D any]() Retrieve[D] {
 		indexes: s.indexes,
 	}
 }
+
+// Join returns the status that each resource in ids owns, in the same order. A resource
+// that owns no status gets nil.
+func (s *Service) Join[D any](
+	ctx context.Context,
+	tx gorp.Tx,
+	ids []resource.ID,
+) ([]*Status[D], error) {
+	var statuses []Status[D]
+	if err := s.NewRetrieve[D]().
+		Where(MatchOwners[D](ids...)).
+		Entries(&statuses).
+		Exec(ctx, tx); err != nil {
+		return nil, err
+	}
+	byOwner := make(map[resource.ID]*Status[D], len(statuses))
+	for i := range statuses {
+		if owner := statuses[i].Owner; owner != nil {
+			byOwner[*owner] = &statuses[i]
+		}
+	}
+	joined := make([]*Status[D], len(ids))
+	for i, id := range ids {
+		joined[i] = byOwner[id]
+	}
+	return joined, nil
+}

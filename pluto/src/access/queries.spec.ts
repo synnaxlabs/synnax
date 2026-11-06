@@ -16,6 +16,7 @@ import {
   query,
   ranger,
   type resource,
+  schematic,
   type Synnax,
   user,
 } from "@synnaxlabs/client";
@@ -41,7 +42,7 @@ const cachedPoliciesOf = (
   c: Synnax,
   subject: resource.ID = subjectOf(c),
 ): access.policy.Policy[] => {
-  const cached = c.access.policies.getCached({ for: subject });
+  const cached = c.access.policies.getCached({ where: { subjects: [subject] } });
   return query.isLive(cached) ? cached : [];
 };
 
@@ -249,7 +250,12 @@ describe("Access Queries", () => {
     it("should ignore relationship changes that cannot affect permissions", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: id.create(),
-        objects: [ranger.TYPE_RESOURCE_ID, project.TYPE_RESOURCE_ID, ...baseObjects],
+        objects: [
+          ranger.TYPE_RESOURCE_ID,
+          project.TYPE_RESOURCE_ID,
+          schematic.TYPE_RESOURCE_ID,
+          ...baseObjects,
+        ],
         actions: ["retrieve", "create"],
       });
       let renders = 0;
@@ -267,15 +273,14 @@ describe("Access Queries", () => {
         expect(result.current).toBe(true);
       });
       const rendersWhenSettled = renders;
-      // A project's group -> project link is not a role link, so the gate must
-      // drop it: no re-evaluation, no re-render.
-      const proj = await userClient.projects.create({
-        name: id.create(),
-      });
+      // A project -> schematic link is not a role link, so the gate must drop it: no
+      // re-evaluation, no re-render.
+      const proj = await userClient.projects.create({ name: id.create() });
+      const s = await userClient.schematics.create(proj.key, { name: id.create() });
       // Wait until the link reaches the cache (event delivered)...
       await waitFor(() => {
         const rels = userClient.ontology.cache.relationships.get(
-          (rel) => rel.to.type === "project" && rel.to.key === proj.key,
+          (rel) => rel.from.type === "project" && rel.to.key === s.key,
         );
         expect(rels.length).toBeGreaterThan(0);
       });

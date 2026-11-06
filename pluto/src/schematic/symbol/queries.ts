@@ -56,17 +56,11 @@ export const useResolved = (key: string | null): Resolved => {
 
 /** Lists the symbol groups, which are top-level groups of the symbol scope. */
 export const GROUP_QUERY = {
-  scopes: [schematic.symbol.TYPE_RESOURCE_ID.type],
+  scope: schematic.symbol.TYPE_RESOURCE_ID.type,
   nested: false,
-} satisfies group.RetrieveRequest;
+} satisfies group.RetrieveMultipleParams;
 
-export type ListQuery = {
-  keys?: string[];
-  groups?: group.Key[];
-  searchTerm?: string;
-  offset?: number;
-  limit?: number;
-};
+export type ListQuery = schematic.symbol.RetrieveMultipleParams;
 
 export const useList = Flux.createList<ListQuery, string, schematic.symbol.Symbol>({
   sort: (a, b) => a.name.localeCompare(b.name),

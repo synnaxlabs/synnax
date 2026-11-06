@@ -1,0 +1,58 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Starts the workflows that act on a pull request. Those hold write access or secrets,
+# so they run from the default branch through a dispatch, never from a pull request
+# event. This file runs from the pull request, and a token can dispatch only for a
+# branch of this repository, so a fork reaches none of them. CONTRIBUTING.md says what a
+# maintainer does for a fork.
+
+name: Relay - Pull request
+run-name: ${{ github.event.pull_request.number }}
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - edited
+      - ready_for_review
+      - converted_to_draft
+      - labeled
+      - unlabeled
+
+permissions: {}
+
+jobs:
+  relay:
+    name: Relay pull request
+    if:
+      github.event.pull_request.head.repo.full_name == github.repository && github.actor
+      != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    env:
+      GH_REPO: ${{ github.repository }}
+      GH_TOKEN: ${{ github.token }}
+      PR: ${{ github.event.pull_request.number }}
+      REF: ${{ github.event.repository.default_branch }}
+    steps:
+      - name: Start Check - Review
+        run: gh workflow run check.review.yaml --ref "$REF" -f pr="$PR"
+
+      - name: Start Merge - Auto
+        run: gh workflow run merge.auto.yaml --ref "$REF" -f pr="$PR"
+
+      - name: Start Agent - Shepherd
+        if:
+          github.event.action == 'unlabeled' && github.event.label.name ==
+          'agent/needs-human'
+        run: gh workflow run agent.shepherd.yaml --ref "$REF" -f pr="$PR"

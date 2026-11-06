@@ -15,13 +15,13 @@ from typing import Literal, TypeAlias
 from typing import override as _override
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from synnax import channel, ranger
 from synnax import group as group_
 from synnax.resource import ID
 from x import color as color_
-from x import spatial, text
+from x import filter, spatial, text
 
 AXIS_KEY_X1: Literal["x1"] = "x1"
 
@@ -207,6 +207,28 @@ class Rule(BaseModel):
     position: float
 
 
+class Where(BaseModel):
+    """Is a filter that selects line plots.
+
+    Attributes:
+        and_: Matches when every child matches.
+        or_: Matches when any child matches.
+        not_: Matches when the child does not match.
+        key: Selects by key.
+        groups: Matches the line plots in any of the given groups.
+        grouped: Matches the line plots in a group, or in no group when false.
+    """
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    and_: list[Where] | None = Field(default=None, alias="and")
+    or_: list[Where] | None = Field(default=None, alias="or")
+    not_: Where | None = Field(default=None, alias="not")
+    key: filter.Set[Key] | None = None
+    groups: list[group_.Key] | None = None
+    grouped: bool | None = None
+
+
 class Axis(BaseModel):
     """Is the configuration for a single plot axis.
 
@@ -234,6 +256,24 @@ class Axis(BaseModel):
     manual_bounds: ManualBounds = Field(default_factory=lambda: ManualBounds())
     tick_spacing: float = 75
     type: TickType | None = None
+
+
+class RetrieveRequest(BaseModel):
+    """Is a request to retrieve line plots.
+
+    Attributes:
+        where: Selects the line plots to retrieve. An absent where selects all of them.
+        search_term: Keeps the line plots that match the term, closest match first.
+        limit: Is the most line plots to return.
+        offset: Is the number of matching line plots to skip.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    where: Where | None = None
+    search_term: str = ""
+    limit: int | None = Field(default=None, ge=0, le=4294967295)
+    offset: int = Field(default=0, ge=0, le=4294967295)
 
 
 class Axes(BaseModel):
@@ -290,6 +330,19 @@ class LinePlot(BaseModel):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class RetrieveResponse(BaseModel):
+    """Holds the line plots a RetrieveRequest selects.
+
+    Attributes:
+        line_plots: Are the line plots the request selects.
+    """
+
+    line_plots: list[LinePlot] = Field(default_factory=list)
+
+
+Where.model_rebuild()
 
 
 TYPE_RESOURCE_ID = ID(type="lineplot")

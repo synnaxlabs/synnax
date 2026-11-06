@@ -20,7 +20,7 @@ import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { type Haul } from "@synnaxlabs/lyra/haul";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { uuid } from "@synnaxlabs/x";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Channel } from "@/feature/channel";
@@ -28,12 +28,24 @@ import { Device } from "@/feature/device";
 import { Group } from "@/feature/group";
 import { Project } from "@/feature/project";
 import { Rack } from "@/feature/rack";
+import { Tree } from "@/platform/tree";
 import {
   createResource,
+  createScopeTree,
+  findTreeRow,
+  itemName,
+  renderOntologyTree,
   renderTreeContextMenu,
   retrieveChildGroupKeys,
+  searchTree,
 } from "@/platform/tree/testutil";
-import { assertDefined, uniqueName } from "@/testutil";
+import {
+  assertDefined,
+  awaitTextEditingElement,
+  commitTextEdit,
+  uniqueName,
+  uniqueToken,
+} from "@/testutil";
 
 const client = createTestClient();
 const roles = new RoleClients(client);
@@ -186,6 +198,63 @@ describe("group ontology service", () => {
     expect((await client.channels.retrieve(ch.key)).group).toBe(parent.key);
   });
 
+  it("should move every child of an ungrouped group, not only the shown ones", async () => {
+    const parent = await createGroup();
+    const child = await createGroup(parent.key);
+    const shown = await createGroup(child.key);
+    const unshown = await createGroup(child.key);
+    // A search in the groups layout shows only the matching children.
+    const nodes: PTree.Node<string>[] = [
+      {
+        key: nodeKey(parent),
+        children: [{ key: nodeKey(child), children: [{ key: nodeKey(shown) }] }],
+      },
+    ];
+    const shape = PTree.flatten({
+      nodes,
+      expanded: [nodeKey(parent), nodeKey(child)],
+    });
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
+      client,
+      resources: [groupResource(parent), groupResource(child), groupResource(shown)],
+      selected: [group.resourceID(child.key)],
+      parentID: group.resourceID(parent.key),
+      stateOverrides: { nodes, shape },
+    });
+    fireEvent.click(await screen.findByText("Ungroup"));
+    await waitFor(async () =>
+      expect(
+        (await retrieveChildGroupKeys(client, group.resourceID(parent.key))).sort(),
+      ).toEqual([shown.key, unshown.key].sort()),
+    );
+  });
+
+  it("should ungroup a nested group shown at the top of flat search results", async () => {
+    const parent = await createGroup();
+    const child = await createGroup(parent.key);
+    const grandchild = await createGroup(child.key);
+    // Flat results show the match at the top, without its real parent.
+    const nodes: PTree.Node<string>[] = [
+      { key: nodeKey(child), children: [{ key: nodeKey(grandchild) }] },
+    ];
+    const shape = PTree.flatten({ nodes, expanded: [nodeKey(child)] });
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
+      client,
+      resources: [groupResource(child), groupResource(grandchild)],
+      selected: [group.resourceID(child.key)],
+      parentID: group.resourceID(parent.key),
+      stateOverrides: { nodes, shape },
+    });
+    fireEvent.click(await screen.findByText("Ungroup"));
+    await waitFor(async () =>
+      expect(
+        await retrieveChildGroupKeys(client, group.resourceID(parent.key)),
+      ).toEqual([grandchild.key]),
+    );
+  });
+
   it("should ungroup a top-level group, moving its groups and members to the top level", async () => {
     const parent = await createGroup();
     const child = await createGroup(parent.key);
@@ -228,6 +297,83 @@ describe("group ontology service", () => {
     expect(await screen.findByText("Rename")).toBeTruthy();
     expect(screen.getByText("Delete")).toBeTruthy();
     expect(screen.queryByText("Ungroup")).toBeNull();
+  });
+});
+
+describe("a group and its child selected in flat search results", () => {
+  // The item reads Delete until the group loads its children.
+  const UNGROUP = /^(Ungroup|Delete)$/;
+
+  const childKeysOf = async (key: group.Key): Promise<string[]> =>
+    await retrieveChildGroupKeys(client, group.resourceID(key));
+
+  const openMenu = async () => {
+    const tok = uniqueToken();
+    const root = await createGroup();
+    const outer = await client.groups.create({
+      parent: group.resourceID(root.key),
+      name: `${tok} outer`,
+    });
+    const outerID = group.resourceID(outer.key);
+    const inner = await client.groups.create({ parent: outerID, name: `${tok} inner` });
+    const sibling = await createGroup(outer.key);
+    await renderOntologyTree({
+      client,
+      root: channel.TYPE_RESOURCE_ID,
+      items: { group: Item },
+      listRoot: createScopeTree(root.key).listRoot,
+      search: Tree.createSearch({ noun: "groups" }),
+    });
+    searchTree(tok);
+    const innerRow = await findTreeRow(itemName(inner.name));
+    // The inner row shows the outer name as its group, so the ID finds the outer row.
+    const outerRow = document.querySelector(
+      `.lyra-tree:not(.console-tree--hidden) [id="${resource.idToString(outerID)}"]`,
+    );
+    assertDefined(outerRow);
+    fireEvent.click(innerRow);
+    // A Shift-click selects without opening the group.
+    fireEvent.keyDown(window, { key: "Shift", code: "ShiftLeft" });
+    fireEvent.click(outerRow);
+    fireEvent.keyUp(window, { key: "Shift", code: "ShiftLeft" });
+    await act(async () => {
+      fireEvent.contextMenu(outerRow);
+    });
+    return { root, outer, inner, sibling };
+  };
+
+  it("should offer to group and ungroup the selection", async () => {
+    await openMenu();
+    expect(await screen.findByText("Group selection")).toBeTruthy();
+    expect(screen.getByText(UNGROUP)).toBeTruthy();
+  });
+
+  it("should move the group alone into a new group", async () => {
+    const { root, outer, inner } = await openMenu();
+    fireEvent.click(await screen.findByText("Group selection"));
+    const editable = await awaitTextEditingElement();
+    const name = uniqueName("grp");
+    await act(async () => {
+      commitTextEdit(editable, name);
+    });
+    let created = "";
+    await waitFor(async () => {
+      const groups = await client.groups.retrieve({
+        parents: [group.resourceID(root.key)],
+      });
+      expect(groups.map((g) => g.name)).toEqual([name]);
+      created = groups[0].key;
+    });
+    await waitFor(async () => expect(await childKeysOf(created)).toEqual([outer.key]));
+    expect(await childKeysOf(outer.key)).toContain(inner.key);
+  });
+
+  it("should move what is left of the group to its parent", async () => {
+    const { root, sibling } = await openMenu();
+    fireEvent.click(await screen.findByText(UNGROUP));
+    await waitFor(async () =>
+      expect(await childKeysOf(root.key)).toEqual([sibling.key]),
+    );
   });
 });
 

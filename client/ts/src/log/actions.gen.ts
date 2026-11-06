@@ -106,7 +106,7 @@ export type SetChannelNotationPayload = z.infer<typeof setChannelNotationPayload
  */
 export const setChannelPrecisionPayloadZ = z.object({
   channel: channel.keyZ,
-  precision: z.int32().optional(),
+  precision: zod.uint8.optional(),
 });
 
 export type SetChannelPrecisionPayload = z.infer<typeof setChannelPrecisionPayloadZ>;
@@ -173,7 +173,7 @@ export type SwapChannelPayload = z.infer<typeof swapChannelPayloadZ>;
 
 /** SetTimestampPrecision sets the precision of displayed timestamps (0-3). */
 export const setTimestampPrecisionPayloadZ = z.object({
-  timestampPrecision: z.int32(),
+  timestampPrecision: zod.uint8,
 });
 
 export type SetTimestampPrecisionPayload = z.infer<

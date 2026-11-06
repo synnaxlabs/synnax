@@ -10,6 +10,7 @@
 import { type AriaAttributes } from "react";
 
 import { context } from "@/context";
+import { type KeyboardHandlers } from "@/select/useCursor";
 import { type Status } from "@/status";
 
 /** True inside a closed select dialog, whose children render into a detached node. */
@@ -31,6 +32,7 @@ export interface ButtonsContextValue extends Pick<
   AriaAttributes,
   "aria-invalid" | "aria-describedby"
 > {
+  disabled?: boolean;
   preview: boolean;
   variant: ButtonsVariant;
   status?: Status.Variant;
@@ -42,3 +44,17 @@ export const [ButtonsContext, useButtonsContext] =
     defaultValue: null,
     displayName: "Select.ButtonsContext",
   });
+
+const [KeyboardContext, useKeyboardContext] = context.create<KeyboardHandlers>({
+  displayName: "Select.KeyboardContext",
+  providerName: "Select.Frame",
+});
+export { KeyboardContext };
+
+/**
+ * Returns the key handlers that move the enclosing frame's selection. Spread them on
+ * the focusable element whose keys move it. Only a frame whose `cursor` is
+ * `"selection"` answers them.
+ */
+export const useKeyboard = (): KeyboardHandlers =>
+  useKeyboardContext("Select.useKeyboard");

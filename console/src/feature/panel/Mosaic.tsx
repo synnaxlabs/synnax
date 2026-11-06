@@ -191,7 +191,7 @@ const LiveContent = (): ReactElement => {
   const { Content } = useTab();
   // Background tabs stay mounted, so every tab answers a keystroke unless the ones the
   // user is not working in are switched off here.
-  const triggersActive = Session.Panel.useGetTabTriggersActive();
+  const triggersActive = Session.Panel.useGetTabIsFocused();
   return (
     // The box wraps the boundary rather than sitting inside it: the tab's size
     // belongs to the tab, not to whichever of content, loader, or tombstone is

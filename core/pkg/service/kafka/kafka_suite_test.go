@@ -12,6 +12,7 @@ package kafka_test
 import (
 	"context"
 	"encoding/json/v2"
+	"sync/atomic"
 	"testing"
 	"time"
 	"uuid"
@@ -36,6 +37,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/twmb/franz-go/pkg/kfake"
@@ -127,6 +130,32 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 })
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
+
+// gatedDB is a kv.DB that, once gated, holds the next commit until release closes.
+type gatedDB struct {
+	kv.DB
+	gated   atomic.Bool
+	held    chan struct{}
+	release chan struct{}
+}
+
+func (d *gatedDB) OpenTx() kv.Tx { return gatedTx{Tx: d.DB.OpenTx(), db: d} }
+
+type gatedTx struct {
+	kv.Tx
+	db *gatedDB
+}
+
+func (t gatedTx) Commit(ctx context.Context, opts ...any) error {
+	GinkgoHelper()
+	// A task commits on its own goroutine, where a failed assertion needs a recover.
+	defer GinkgoRecover()
+	if t.db.gated.CompareAndSwap(true, false) {
+		close(t.db.held)
+		Eventually(t.db.release).WithTimeout(15 * time.Second).Should(BeClosed())
+	}
+	return t.Tx.Commit(ctx, opts...)
+}
 
 // newFactory opens a Kafka factory over the suite's services.
 func newFactory(cfgs ...kafka.FactoryConfig) driver.Factory {
@@ -274,4 +303,20 @@ func topicID(ctx context.Context, cl *kgo.Client, topic string) [16]byte {
 	res := MustSucceed(req.RequestWith(ctx, cl))
 	Expect(res.Topics).To(HaveLen(1))
 	return res.Topics[0].TopicID
+}
+
+// cutConnections closes each connection that sends a request to broker until restore
+// runs. broker keeps its state, unlike a kfake.DataDir restart, which fails on Windows
+// because kfake renames its files while they are open.
+func cutConnections(broker *kfake.Cluster) (restore func()) {
+	var cut atomic.Bool
+	cut.Store(true)
+	broker.Control(func(kmsg.Request) (kmsg.Response, error, bool) {
+		broker.KeepControl()
+		if cut.Load() {
+			return nil, errors.New("connection cut"), true
+		}
+		return nil, nil, false
+	})
+	return func() { cut.Store(false) }
 }

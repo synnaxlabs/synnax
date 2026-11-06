@@ -13,6 +13,7 @@ package ontology
 
 import "github.com/synnaxlabs/synnax/pkg/service/ontology/versions"
 
+// RelationshipType is the kind of link between two resources.
 type RelationshipType = versions.RelationshipType
 
 // Resource is a resource in the ontology system with its identifier, name, and optional

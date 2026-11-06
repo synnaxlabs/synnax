@@ -10,6 +10,8 @@
 package status_test
 
 import (
+	"encoding/json/v2"
+	"math/rand/v2"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -18,8 +20,12 @@ import (
 	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -30,6 +36,128 @@ import (
 // statuses. Row-level grants must match the input key exactly; type-level grants
 // cover any input via the resource.ID IsType matching rule.
 var statusTypeOnly = resource.ID{Type: resource.TypeStatus}
+
+var _ = Describe("Service.Set", func() {
+	set := func(
+		ctx SpecContext,
+		statuses ...status.Status[any],
+	) (apistatus.SetResponse, error) {
+		GinkgoHelper()
+		return apiSvc.Set(
+			AuthedCtx(ctx, author), db, apistatus.SetRequest{Statuses: statuses},
+		)
+	}
+	newStatus := func(owner *resource.ID, details any) status.Status[any] {
+		return status.Status[any]{
+			Key:     uuid.New().String(),
+			Owner:   owner,
+			Time:    telem.Now(),
+			Variant: status.VariantInfo,
+			Details: details,
+		}
+	}
+	BeforeEach(func(ctx SpecContext) {
+		grantOn(ctx, author.ResourceID(),
+			[]access.Action{access.ActionCreate},
+			statusTypeOnly)
+	})
+
+	DescribeTable(
+		"Should reject details the owner cannot decode",
+		func(ctx SpecContext, owner resource.ID, details any) {
+			s := newStatus(&owner, details)
+			Expect(set(ctx, s)).Error().To(MatchError(
+				And(
+					ContainSubstring("statuses.0.details"),
+					HaveSuffix("validation error"),
+				),
+			))
+			Expect(statusSvc.NewRetrieve[any]().
+				Where(status.MatchKeys[any](s.Key)).
+				Entry(&status.Status[any]{}).
+				Exec(ctx, db)).To(MatchError(query.ErrNotFound))
+		},
+		Entry("rack string", rackOwner, "not an object"),
+		Entry("rack array", rackOwner, []any{"not", "an", "object"}),
+		Entry("device string", deviceOwner, "not an object"),
+		Entry("device field type", deviceOwner, map[string]any{"rack": "not a key"}),
+		Entry("task number", taskOwner, 12),
+		Entry("task field type", taskOwner, map[string]any{"running": "yes"}),
+		Entry("task data array", taskOwner, map[string]any{"data": []any{1, 2}}),
+		Entry("channel string", channelOwner, "not an object"),
+	)
+
+	DescribeTable(
+		"Should accept details the owner can decode",
+		func(ctx SpecContext, create func(SpecContext) resource.ID, details any) {
+			owner := create(ctx)
+			Expect(MustSucceed(set(ctx, newStatus(&owner, details))).Statuses).
+				To(HaveLen(1))
+		},
+		Entry("rack", createRack, map[string]any{}),
+		Entry("rack with no details", createRack, nil),
+		Entry("rack with extra fields", createRack, map[string]any{"rack": 65537}),
+		Entry("device", createDevice, map[string]any{
+			"rack": 65537, "data": map[string]any{"any": "thing"},
+		}),
+		Entry("task", createTask, map[string]any{
+			"running": true,
+			"data":    map[string]any{"a": 1},
+		}),
+	)
+
+	It(
+		"Should accept free-form details on a status with no owner",
+		func(ctx SpecContext) {
+			Expect(MustSucceed(
+				set(ctx, newStatus(nil, "free form")),
+			).Statuses).To(HaveLen(1))
+		},
+	)
+
+	It(
+		"Should write nothing when one status in a batch is invalid",
+		func(ctx SpecContext) {
+			valid := newStatus(nil, nil)
+			invalid := newStatus(&rackOwner, "not an object")
+			Expect(set(ctx, valid, invalid)).Error().To(MatchError(
+				ContainSubstring("statuses.1.details"),
+			))
+			Expect(statusSvc.NewRetrieve[any]().
+				Where(status.MatchKeys[any](valid.Key)).
+				Entry(&status.Status[any]{}).
+				Exec(ctx, db)).To(MatchError(query.ErrNotFound))
+		},
+	)
+})
+
+func createRack(ctx SpecContext) resource.ID {
+	GinkgoHelper()
+	r := rack.Rack{Key: rack.Key(65536 + rand.Uint32N(1<<16)), Name: "rack"}
+	Expect(racks.NewCreate().Entry(&r).Exec(ctx, db)).To(Succeed())
+	return r.ResourceID()
+}
+
+func createDevice(ctx SpecContext) resource.ID {
+	GinkgoHelper()
+	d := device.Device{Key: uuid.New().String(), Name: "device"}
+	Expect(devices.NewCreate().Entry(&d).Exec(ctx, db)).To(Succeed())
+	return d.ResourceID()
+}
+
+func createTask(ctx SpecContext) resource.ID {
+	GinkgoHelper()
+	t := task.Task{Key: uuid.New(), Name: "task"}
+	Expect(tasks.NewCreate().Entry(&t).Exec(ctx, db)).To(Succeed())
+	return t.ResourceID()
+}
+
+var (
+	rackOwner    = resource.ID{Type: resource.TypeRack, Key: "65537"}
+	deviceOwner  = resource.ID{Type: resource.TypeDevice, Key: "dev"}
+	taskOwner    = resource.ID{Type: resource.TypeTask, Key: uuid.New().String()}
+	channelOwner = resource.ID{Type: resource.TypeChannel, Key: "12"}
+)
 
 var _ = Describe("Service.SetByKeyOrName", func() {
 	Describe("authorized requests", func() {
@@ -242,60 +370,35 @@ func createStatus(ctx SpecContext, name string) status.Status[any] {
 }
 
 var _ = Describe("Service.Retrieve", func() {
-	It(
-		"Should omit missing keys from a multi-key retrieve instead of failing",
-		func(ctx SpecContext) {
-			s := createStatus(ctx, "api_partial_"+uuid.New().String())
-			grantOn(ctx, author.ResourceID(),
-				[]access.Action{access.ActionRetrieve},
-				statusTypeOnly)
+	BeforeEach(func(ctx SpecContext) {
+		grantOn(ctx, author.ResourceID(),
+			[]access.Action{access.ActionRetrieve},
+			statusTypeOnly)
+	})
 
-			res := MustSucceed(
-				apiSvc.Retrieve(
-					AuthedCtx(ctx, author),
-					apistatus.RetrieveRequest{
-						Keys:                []status.Key{s.Key, uuid.New().String()},
-						IgnoreNotFoundError: true,
-					},
-				),
-			)
-			Expect(res.Statuses).To(HaveLen(1))
-			Expect(res.Statuses[0].Key).To(Equal(s.Key))
-		},
-	)
+	It("Should omit a missing key instead of failing", func(ctx SpecContext) {
+		s := createStatus(ctx, "api_partial_"+uuid.New().String())
+		res := MustSucceed(apiSvc.Retrieve(
+			AuthedCtx(ctx, author),
+			apistatus.RetrieveRequest{Where: &status.Where{
+				Key: &filter.Set[status.Key]{
+					In: []status.Key{s.Key, uuid.New().String()},
+				},
+			}},
+		))
+		Expect(res.Statuses).To(HaveExactElements(HaveField("Key", s.Key)))
+	})
 
 	It(
 		"Should return an empty result when every requested key is missing",
 		func(ctx SpecContext) {
-			grantOn(ctx, author.ResourceID(),
-				[]access.Action{access.ActionRetrieve},
-				statusTypeOnly)
-
-			res := MustSucceed(
-				apiSvc.Retrieve(
-					AuthedCtx(ctx, author),
-					apistatus.RetrieveRequest{
-						Keys:                []status.Key{uuid.New().String()},
-						IgnoreNotFoundError: true,
-					},
-				),
-			)
+			res := MustSucceed(apiSvc.Retrieve(
+				AuthedCtx(ctx, author),
+				apistatus.RetrieveRequest{Where: &status.Where{
+					Key: &filter.Set[status.Key]{Eq: new(uuid.New().String())},
+				}},
+			))
 			Expect(res.Statuses).To(BeEmpty())
-		},
-	)
-
-	It(
-		"Should return a not found error for a missing key without the flag",
-		func(ctx SpecContext) {
-			grantOn(ctx, author.ResourceID(),
-				[]access.Action{access.ActionRetrieve},
-				statusTypeOnly)
-
-			Expect(
-				apiSvc.Retrieve(AuthedCtx(ctx, author), apistatus.RetrieveRequest{
-					Keys: []status.Key{uuid.New().String()},
-				}),
-			).Error().To(MatchError(query.ErrNotFound))
 		},
 	)
 
@@ -303,10 +406,6 @@ var _ = Describe("Service.Retrieve", func() {
 		"Should return the statuses whose name matches the search term",
 		func(ctx SpecContext) {
 			s := createStatus(ctx, "cryostat pressure")
-			grantOn(ctx, author.ResourceID(),
-				[]access.Action{access.ActionRetrieve},
-				statusTypeOnly)
-
 			res := MustSucceed(apiSvc.Retrieve(
 				AuthedCtx(ctx, author),
 				apistatus.RetrieveRequest{SearchTerm: "cryostat"},
@@ -314,6 +413,19 @@ var _ = Describe("Service.Retrieve", func() {
 			Expect(res.Statuses).To(HaveExactElements(HaveField("Key", s.Key)))
 		},
 	)
+
+	It("Should return a path error under where for an invalid where", func(
+		ctx SpecContext,
+	) {
+		Expect(apiSvc.Retrieve(AuthedCtx(ctx, author), apistatus.RetrieveRequest{
+			Where: &status.Where{
+				Variant: &filter.Set[status.Variant]{Eq: new(status.Variant("bogus"))},
+			},
+		})).Error().To(SatisfyAll(
+			BeAssignableToTypeOf(validate.PathError{}),
+			MatchError(`where.variant.eq: invalid variant "bogus": validation error`),
+		))
+	})
 })
 
 var _ = Describe("Service.Rename", func() {
@@ -389,4 +501,19 @@ var _ = Describe("Service.Rename", func() {
 		)).Error().To(MatchError(access.ErrDenied))
 		Expect(retrieveStatus(ctx, s.Key).Name).To(Equal("Before"))
 	})
+})
+
+var _ = Describe("RetrieveRequest", func() {
+	DescribeTable(
+		"Should reject a member that the request does not declare",
+		func(body string) {
+			var req apistatus.RetrieveRequest
+			Expect(json.Unmarshal([]byte(body), &req)).To(SatisfyAll(
+				MatchError(json.ErrUnknownName),
+				MatchError(ContainSubstring(`unknown object member name "keys"`)),
+			))
+		},
+		Entry("at the top", `{"keys":["status-a"]}`),
+		Entry("in a nested where", `{"where":{"or":[{"keys":[]}]}}`),
+	)
 })

@@ -17,30 +17,63 @@ import "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 type Type = v0.Type
 
 const (
-	TypeArc             Type = v0.TypeArc
-	TypeBuiltin         Type = v0.TypeBuiltin
-	TypeChannel         Type = v0.TypeChannel
-	TypeDevice          Type = v0.TypeDevice
-	TypeFramer          Type = v0.TypeFramer
-	TypeGroup           Type = v0.TypeGroup
-	TypeLabel           Type = v0.TypeLabel
-	TypeLineplot        Type = v0.TypeLineplot
-	TypeLog             Type = v0.TypeLog
-	TypeNode            Type = v0.TypeNode
-	TypePanel           Type = v0.TypePanel
-	TypePolicy          Type = v0.TypePolicy
-	TypeProject         Type = v0.TypeProject
-	TypeRack            Type = v0.TypeRack
-	TypeRange           Type = v0.TypeRange
-	TypeRangeAlias      Type = v0.TypeRangeAlias
-	TypeRole            Type = v0.TypeRole
-	TypeSchematic       Type = v0.TypeSchematic
+	// TypeArc identifies an Arc module.
+	TypeArc Type = v0.TypeArc
+	// TypeBuiltin identifies a resource that the Core defines.
+	TypeBuiltin Type = v0.TypeBuiltin
+	// TypeChannel identifies a channel.
+	TypeChannel Type = v0.TypeChannel
+	// TypeDevice identifies a device.
+	TypeDevice Type = v0.TypeDevice
+	// TypeFramer identifies the telemetry of a channel.
+	TypeFramer Type = v0.TypeFramer
+	// TypeGroup identifies a group of resources.
+	TypeGroup Type = v0.TypeGroup
+	// TypeLabel identifies a label.
+	TypeLabel Type = v0.TypeLabel
+	// TypeLineplot identifies a line plot.
+	TypeLineplot Type = v0.TypeLineplot
+	// TypeLog identifies a log.
+	TypeLog Type = v0.TypeLog
+	// TypeNode identifies a node of a cluster.
+	TypeNode Type = v0.TypeNode
+	// TypePanel identifies a panel.
+	TypePanel Type = v0.TypePanel
+	// TypePolicy identifies an access control policy.
+	TypePolicy Type = v0.TypePolicy
+	// TypeProject identifies a project.
+	TypeProject Type = v0.TypeProject
+	// TypeRack identifies a rack.
+	TypeRack Type = v0.TypeRack
+	// TypeRange identifies a range.
+	TypeRange Type = v0.TypeRange
+	// TypeRangeAlias identifies an alias of a channel on a range.
+	TypeRangeAlias Type = v0.TypeRangeAlias
+	// TypeRole identifies an access control role.
+	TypeRole Type = v0.TypeRole
+	// TypeSchematic identifies a schematic.
+	TypeSchematic Type = v0.TypeSchematic
+	// TypeSchematicSymbol identifies a schematic symbol.
 	TypeSchematicSymbol Type = v0.TypeSchematicSymbol
-	TypeStatus          Type = v0.TypeStatus
-	TypeTable           Type = v0.TypeTable
-	TypeTask            Type = v0.TypeTask
-	TypeUser            Type = v0.TypeUser
-	TypeView            Type = v0.TypeView
+	// TypeStatus identifies a status.
+	TypeStatus Type = v0.TypeStatus
+	// TypeTable identifies a table.
+	TypeTable Type = v0.TypeTable
+	// TypeTask identifies a task.
+	TypeTask Type = v0.TypeTask
+	// TypeUser identifies a user.
+	TypeUser Type = v0.TypeUser
+	// TypeView identifies a view.
+	TypeView           Type = v0.TypeView
+	TypeEthercatMaster Type = v0.TypeEthercatMaster
+	TypeEthercatSlave  Type = v0.TypeEthercatSlave
+	TypeHTTPServer     Type = v0.TypeHTTPServer
+	TypeLabjackDevice  Type = v0.TypeLabjackDevice
+	TypeModbusServer   Type = v0.TypeModbusServer
+	TypeNiChassis      Type = v0.TypeNiChassis
+	TypeNiDevice       Type = v0.TypeNiDevice
+	TypeOpcuaServer    Type = v0.TypeOpcuaServer
+	TypeArcDirectory   Type = v0.TypeArcDirectory
 )
 
 // ID is a unique identifier for a Resource. An example:

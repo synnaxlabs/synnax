@@ -10,6 +10,7 @@
 package status
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"slices"
@@ -23,7 +24,28 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
+	"github.com/vmihailenco/msgpack/v5"
 )
+
+// storedDetails carries the details of a stored status unchanged in either stored
+// encoding. Decoding JSON details as any would round numbers past float64 precision.
+type storedDetails struct{ value any }
+
+func (d storedDetails) MarshalJSON() ([]byte, error) { return json.Marshal(d.value) }
+
+func (d *storedDetails) UnmarshalJSON(b []byte) error {
+	d.value = json.RawMessage(bytes.Clone(b))
+	return nil
+}
+
+func (d storedDetails) EncodeMsgpack(e *msgpack.Encoder) error {
+	return e.Encode(d.value)
+}
+
+func (d *storedDetails) DecodeMsgpack(dec *msgpack.Decoder) (err error) {
+	d.value, err = dec.DecodeInterface()
+	return err
+}
 
 // Writer is used to create and update statuses within the DB. Every write touches both
 // the status entry and its ontology resource. A Writer with no transaction runs each
@@ -157,13 +179,13 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 	if err := v.Error(); err != nil {
 		return err
 	}
-	return w.update(ctx, key, func(s *Status[json.RawMessage]) { s.Name = name })
+	return w.update(ctx, key, func(s *Status[storedDetails]) { s.Name = name })
 }
 
 // AddLabels adds labels to the status with the given key. It returns
 // query.ErrNotFound if no status has the key.
 func (w Writer) AddLabels(ctx context.Context, key Key, labels []label.Key) error {
-	return w.update(ctx, key, func(s *Status[json.RawMessage]) {
+	return w.update(ctx, key, func(s *Status[storedDetails]) {
 		s.Labels = lo.Union(s.Labels, labels)
 	})
 }
@@ -171,7 +193,7 @@ func (w Writer) AddLabels(ctx context.Context, key Key, labels []label.Key) erro
 // ReplaceLabels makes labels the only labels of the status with the given key. It
 // returns query.ErrNotFound if no status has the key.
 func (w Writer) ReplaceLabels(ctx context.Context, key Key, labels []label.Key) error {
-	return w.update(ctx, key, func(s *Status[json.RawMessage]) {
+	return w.update(ctx, key, func(s *Status[storedDetails]) {
 		s.Labels = slices.Clone(labels)
 	})
 }
@@ -179,17 +201,17 @@ func (w Writer) ReplaceLabels(ctx context.Context, key Key, labels []label.Key) 
 // RemoveLabels removes labels from the status with the given key. It returns
 // query.ErrNotFound if no status has the key.
 func (w Writer) RemoveLabels(ctx context.Context, key Key, labels []label.Key) error {
-	return w.update(ctx, key, func(s *Status[json.RawMessage]) {
+	return w.update(ctx, key, func(s *Status[storedDetails]) {
 		s.Labels = lo.Without(s.Labels, labels...)
 	})
 }
 
-// update rewrites the status with the given key. Raw details round-trip byte for byte,
-// where decoding them as any would round numbers past float64 precision.
+// update rewrites the status with the given key. Its details round-trip unchanged in
+// either stored encoding.
 func (w Writer) update(
 	ctx context.Context,
 	key Key,
-	change func(*Status[json.RawMessage]),
+	change func(*Status[storedDetails]),
 ) error {
 	return w.inTx(ctx, func(w Writer) error {
 		s, err := w.retrieveRaw(ctx, key)
@@ -204,10 +226,10 @@ func (w Writer) update(
 func (w Writer) retrieveRaw(
 	ctx context.Context,
 	key Key,
-) (Status[json.RawMessage], error) {
-	var s Status[json.RawMessage]
-	err := gorp.NewRetrieve[Key, Status[json.RawMessage]]().
-		Where(gorp.MatchKeys[Key, Status[json.RawMessage]](key)).
+) (Status[storedDetails], error) {
+	var s Status[storedDetails]
+	err := gorp.NewRetrieve[Key, Status[storedDetails]]().
+		Where(gorp.MatchKeys[Key, Status[storedDetails]](key)).
 		Entry(&s).
 		Exec(ctx, w.tx)
 	return s, err

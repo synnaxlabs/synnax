@@ -37,4 +37,13 @@ constexpr const char *TYPE_TABLE = "table";
 constexpr const char *TYPE_TASK = "task";
 constexpr const char *TYPE_USER = "user";
 constexpr const char *TYPE_VIEW = "view";
+constexpr const char *TYPE_ETHERCAT_MASTER = "ethercat_master";
+constexpr const char *TYPE_ETHERCAT_SLAVE = "ethercat_slave";
+constexpr const char *TYPE_HTTP_SERVER = "http_server";
+constexpr const char *TYPE_LABJACK_DEVICE = "labjack_device";
+constexpr const char *TYPE_MODBUS_SERVER = "modbus_server";
+constexpr const char *TYPE_NI_CHASSIS = "ni_chassis";
+constexpr const char *TYPE_NI_DEVICE = "ni_device";
+constexpr const char *TYPE_OPCUA_SERVER = "opcua_server";
+constexpr const char *TYPE_ARC_DIRECTORY = "arc_directory";
 }

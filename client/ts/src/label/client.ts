@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, primitive, unique, zod } from "@synnaxlabs/x";
+import { array, type destructor, unique, zod } from "@synnaxlabs/x";
 import z from "zod";
 
 import { actions } from "@/actions";
@@ -20,7 +20,17 @@ import {
   dispatchResZ,
   scopedActionZ,
 } from "@/label/actions.gen";
-import { type Key, keyZ, type Label, labelZ, type New } from "@/label/types.gen";
+import {
+  type Key,
+  keyZ,
+  type Label,
+  labelZ,
+  type New,
+  type RetrieveRequest,
+  retrieveRequestZ,
+  retrieveResponseZ,
+} from "@/label/types.gen";
+import { matches, retrieveInputZ, serverComputed } from "@/label/where.gen";
 import { query } from "@/query";
 import { resource } from "@/resource";
 
@@ -43,24 +53,18 @@ export interface SetOptions extends Pick<SetReq, "replace"> {}
 const removeReqZ = setReqZ.omit({ replace: true });
 const emptyResZ = z.object({});
 
-const retrieveRequestZ = z.object({
-  keys: keyZ.array().optional(),
-  names: z.string().array().optional(),
-  searchTerm: z.string().optional(),
-  offset: z.int().optional(),
-  limit: z.int().optional(),
-  ignoreNotFoundError: z.boolean().optional(),
-});
-const retrieveMultiParamsZ = retrieveRequestZ.or(query.keyListZ(keyZ));
+const retrieveMultiParamsZ = z.union([
+  query.keysRequestZ(keyZ),
+  retrieveRequestZ,
+  retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+]);
 
 /** Names one label. */
 export type RetrieveSingleParams = { key: Key };
 /** Everything a multi-label retrieval can filter on. */
-export type RetrieveMultipleParams = z.input<typeof retrieveRequestZ>;
+export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 /** Params for a label retrieval, single or multiple. */
 export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
-
-interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
 
 /**
  * Changes the labels of the cached record under the key with update, and returns the
@@ -94,8 +98,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
     const { cache } = cfg;
     const store = cache.createTable<Key, Label>({
       name: "labels",
-      fetch: async (keys) =>
-        await this.execRetrieve({ keys, ignoreNotFoundError: true }),
+      fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
       listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
     });
     // Every write to a label reaches the client as actions.
@@ -115,7 +118,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
-        matches: (label, req) => requestFilter(req)(label),
+        matches: (label, req) => matches(label, req.where),
+        serverComputed: (req) => serverComputed(req.where),
       },
     });
     this.cfg = cfg;
@@ -245,7 +249,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
     drop();
   }
 
-  private async execRetrieve(params: RetrieveMultipleParams): Promise<Label[]> {
+  private async execRetrieve(params: RetrieveRequest): Promise<Label[]> {
     const res = await this.cfg.unary.send(
       "/label/retrieve",
       params,
@@ -255,19 +259,3 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
     return res.labels;
   }
 }
-
-const retrieveResponseZ = z.object({ labels: labelZ.array().default(() => []) });
-
-/**
- * Client-side matching for a request: key sets and names. Server-computed shapes
- * (search, limit/offset) never reach this filter; they refetch instead.
- */
-const requestFilter = (req: RetrieveRequest): ((l: Label) => boolean) => {
-  const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
-  const nameSet = primitive.isNonZero(req.names) ? new Set(req.names) : undefined;
-  return (l) => {
-    if (keySet != null && !keySet.has(l.key)) return false;
-    if (nameSet != null && !nameSet.has(l.name)) return false;
-    return true;
-  };
-};

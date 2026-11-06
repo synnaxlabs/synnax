@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, errors, primitive, zod } from "@synnaxlabs/x";
+import { array, type destructor, errors, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
@@ -29,27 +29,31 @@ import {
   type Panel,
   panelZ,
   resourceID,
+  type RetrieveRequest,
+  retrieveRequestZ,
+  retrieveResponseZ,
+  type Where,
 } from "@/panel/types.gen";
+import { matches, retrieveInputZ, serverComputed } from "@/panel/where.gen";
 import { query } from "@/query";
 import { resource } from "@/resource";
 
 export const SET_CHANNEL_NAME = "sy_panel_set";
 export const DELETE_CHANNEL_NAME = "sy_panel_delete";
 
-const retrieveReqZ = group.memberFilterZ.extend({
-  keys: keyZ.array().optional(),
+const parentRequestZ = retrieveRequestZ.extend({
   parent: resource.idZ.optional(),
-  searchTerm: z.string().optional(),
-  offset: z.int().optional(),
-  limit: z.int().optional(),
-  ignoreNotFoundError: z.boolean().optional(),
 });
-const retrieveMultiParamsZ = retrieveReqZ.or(query.keyListZ(keyZ));
-export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
+type Request = z.infer<typeof parentRequestZ>;
+const retrieveMultiParamsZ = z.union([
+  keyZ.array().transform((keys): Request => query.keysRequest(keys)),
+  parentRequestZ,
+  retrieveInputZ(parentRequestZ.omit({ where: true }).shape),
+]);
+export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 const createReqZ = z.object({ dispatchKey: z.string(), panels: panelZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
-const retrieveResZ = z.object({ panels: panelZ.array().default(() => []) });
 const createResZ = z.object({ panels: panelZ.array() });
 const emptyResZ = z.object({});
 
@@ -59,16 +63,6 @@ const isChildOf = (rel: ontology.Relationship, parent: resource.ID): boolean =>
     type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
     to: { type: "panel" },
   });
-
-/**
- * Client-side matching for a request: key and group sets. Server-computed shapes
- * (search, limit/offset) never reach this filter; they refetch instead.
- */
-const requestFilter = (req: RetrieveRequest): ((p: Panel) => boolean) => {
-  const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
-  const inGroup = group.createMemberMatcher(req);
-  return (p) => (keySet == null || keySet.has(p.key)) && inGroup(p);
-};
 
 export interface ClientConfig {
   unary: UnaryClient;
@@ -90,8 +84,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
     const store = cache.createTable<Key, Panel>({
       name: "panels",
       hydrate: "if-absent",
-      fetch: async (keys) =>
-        await this.execRetrieve({ keys, ignoreNotFoundError: true }),
+      fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
       listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
     });
     const dispatcher = new actions.Controller<Key, Panel, Action>({
@@ -110,24 +103,20 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.fetchRequest(req),
-        matches: (panel, req) => {
-          if (!requestFilter(req)(panel)) return false;
-          const parent = "parent" in req ? req.parent : undefined;
-          return parent == null || this.isCachedChild(parent, panel.key);
-        },
+        matches: (panel, req) =>
+          matches(group.MEMBER_LINES, panel, req.where) &&
+          (req.parent == null || this.isCachedChild(req.parent, panel.key)),
+        serverComputed: (req) => serverComputed(group.MEMBER_LINES, req.where),
         watch: [
-          query.watch(
-            ontologyClient.cache.relationships,
-            (event, req: RetrieveRequest) => {
-              if (req.parent == null) return null;
-              const rel =
-                event.variant === "set"
-                  ? event.value
-                  : ontology.relationshipZ.parse(event.key);
-              if (!isChildOf(rel, req.parent)) return null;
-              return [rel.to.key];
-            },
-          ),
+          query.watch(ontologyClient.cache.relationships, (event, req: Request) => {
+            if (req.parent == null) return null;
+            const rel =
+              event.variant === "set"
+                ? event.value
+                : ontology.relationshipZ.parse(event.key);
+            if (!isChildOf(rel, req.parent)) return null;
+            return [rel.to.key];
+          }),
         ],
       },
     });
@@ -305,25 +294,26 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
     const res = await this.cfg.unary.send(
       "/panel/retrieve",
       req,
-      retrieveReqZ,
-      retrieveResZ,
+      retrieveRequestZ,
+      retrieveResponseZ,
     );
     return res.panels;
   }
 
   // Parent queries resolve membership through the ontology graph, then fetch
   // the member panels; the panel retrieve endpoint knows nothing of parents.
-  private async fetchRequest(req: RetrieveRequest): Promise<Panel[]> {
-    const { parent, ...rest } = req;
-    if (parent != null) {
-      const children = await this.cfg.ontology.children.retrieve({
-        ids: parent,
-        types: ["panel"],
-      });
-      const keys = children.map(({ id }) => id.key);
-      if (keys.length === 0) return [];
-      rest.keys = keys;
-    }
-    return await this.execRetrieve(rest);
+  private async fetchRequest({ parent, ...req }: Request): Promise<Panel[]> {
+    if (parent == null) return await this.execRetrieve(req);
+    const children = await this.cfg.ontology.children.retrieve({
+      ids: parent,
+      types: ["panel"],
+    });
+    const keys = children.map(({ id }) => id.key);
+    if (keys.length === 0) return [];
+    const where: Where = { key: { in: keys } };
+    return await this.execRetrieve({
+      ...req,
+      where: req.where == null ? where : { and: [req.where, where] },
+    });
   }
 }

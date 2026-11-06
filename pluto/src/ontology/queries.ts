@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, resource, type Synnax as Client } from "@synnaxlabs/client";
+import { ontology, resource, type Synnax as Client } from "@synnaxlabs/client";
 import { type List } from "@synnaxlabs/lyra/list";
 import { useEffect } from "react";
 
@@ -114,16 +114,15 @@ export const { use: useChildren } = Flux.createRetrieve<
     client.ontology.children.getCached({ ids: id, ...options }),
 });
 
-type RetrieveResourceQuery = {
-  ids: resource.ID[];
-};
+export type RetrieveRootChildQuery = { name: string };
 
-export const { use: useResource } = Flux.createRetrieve<
-  RetrieveResourceQuery,
-  ontology.Resource[]
+export const { use: useRootChildID } = Flux.createRetrieve<
+  RetrieveRootChildQuery,
+  resource.ID | undefined
 >({
-  name: RESOURCE_RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.ontology.retrieve(query),
-  onChange: ({ client, query }, handler) => client.ontology.onChange(query, handler),
-  getCached: ({ client, query }) => client.ontology.getCached(query),
+  name: "root child",
+  retrieve: async ({ client, query: { name } }) => {
+    const res = await client.ontology.children.retrieve({ ids: ontology.ROOT_ID });
+    return res.find((r) => r.name === name)?.id;
+  },
 });

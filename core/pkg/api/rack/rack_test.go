@@ -10,9 +10,12 @@
 package rack_test
 
 import (
+	"encoding/json/v2"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apirack "github.com/synnaxlabs/synnax/pkg/api/rack"
+	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
@@ -20,9 +23,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 func retrieveRack(ctx SpecContext, key rack.Key) rack.Rack {
@@ -121,6 +126,16 @@ var _ = Describe("Create", func() {
 			SubjectCtx(ctx, r.ResourceID()), nil,
 			apirack.CreateRequest{Racks: []rack.Rack{r}},
 		))
+		Expect(res.Racks[0].Status.Message).To(Equal("Rack is running"))
+	})
+	It("Should reply with the new name of a renamed rack", func(ctx SpecContext) {
+		r := createRackWithStatus(ctx, "Old")
+		r.Name = "New"
+		res := MustSucceed(apiSvc.Create(
+			SubjectCtx(ctx, r.ResourceID()), nil,
+			apirack.CreateRequest{Racks: []rack.Rack{r}},
+		))
+		Expect(res.Racks[0].Status.Name).To(Equal("New"))
 		Expect(res.Racks[0].Status.Message).To(Equal("Rack is running"))
 	})
 	It("Should let a rack with the Driver role save itself", func(ctx SpecContext) {
@@ -244,7 +259,9 @@ var _ = Describe("Retrieve", func() {
 			withStatus.ResourceID(), withoutStatus.ResourceID(),
 		)
 		res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), apirack.RetrieveRequest{
-			Keys:          []rack.Key{withoutStatus.Key, withStatus.Key},
+			Where: &rack.Where{Key: &filter.Set[rack.Key]{
+				In: []rack.Key{withoutStatus.Key, withStatus.Key},
+			}},
 			IncludeStatus: true,
 		}))
 		Expect(res.Racks).To(HaveLen(2))
@@ -252,6 +269,76 @@ var _ = Describe("Retrieve", func() {
 		Expect(res.Racks[0].Status).To(BeNil())
 		Expect(res.Racks[1].Key).To(Equal(withStatus.Key))
 		Expect(res.Racks[1].Status.Owner).To(HaveValue(Equal(withStatus.ResourceID())))
+	})
+
+	It("Should treat a missing key as a non-match", func(ctx SpecContext) {
+		u := createUser(ctx)
+		r := rack.Rack{Name: "Present"}
+		Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+		grant(ctx, access.ActionRetrieve, u.ResourceID(), r.ResourceID())
+		res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), apirack.RetrieveRequest{
+			Where: &rack.Where{Key: &filter.Set[rack.Key]{
+				In: []rack.Key{r.Key, rack.NewKey(9, 9)},
+			}},
+		}))
+		Expect(res.Racks).To(HaveLen(1))
+		Expect(res.Racks[0].Key).To(Equal(r.Key))
+	})
+
+	It("Should return a path error for an invalid regex", func(ctx SpecContext) {
+		u := createUser(ctx)
+		Expect(apiSvc.Retrieve(AuthedCtx(ctx, u), apirack.RetrieveRequest{
+			Where: &rack.Where{Name: &filter.String{Regex: new("(a")}},
+		})).Error().To(SatisfyAll(
+			BeAssignableToTypeOf(validate.PathError{}),
+			MatchError(
+				"where.name.regex: error parsing regexp: missing closing ): `(a`: validation error",
+			),
+		))
+	})
+
+	It(
+		"Should not let the status API break the reads of a rack",
+		func(ctx SpecContext) {
+			u := createUser(ctx)
+			r := createRackWithStatus(ctx, "Target")
+			statusType := resource.ID{Type: resource.TypeStatus}
+			grant(ctx, access.ActionCreate, u.ResourceID(), statusType)
+			grant(ctx, access.ActionUpdate, u.ResourceID(), r.ResourceID())
+			grant(ctx, access.ActionRetrieve, u.ResourceID(), r.ResourceID())
+			Expect(statusAPI.Set(
+				AuthedCtx(ctx, u), nil,
+				apistatus.SetRequest{Statuses: []status.Status[any]{{
+					Owner:   new(r.ResourceID()),
+					Time:    telem.Now(),
+					Variant: status.VariantError,
+					Details: "not an object",
+				}}},
+			)).Error().To(MatchError(ContainSubstring("statuses.0.details")))
+			retrieved := MustSucceed(apiSvc.Retrieve(
+				AuthedCtx(ctx, u),
+				apirack.RetrieveRequest{
+					Where:         &rack.Where{Key: &filter.Set[rack.Key]{Eq: &r.Key}},
+					IncludeStatus: true,
+				},
+			))
+			Expect(retrieved.Racks[0].Status.Message).To(Equal("Rack is running"))
+			created := MustSucceed(apiSvc.Create(
+				AuthedCtx(ctx, u), nil,
+				apirack.CreateRequest{Racks: []rack.Rack{r}},
+			))
+			Expect(created.Racks[0].Status.Message).To(Equal("Rack is running"))
+		},
+	)
+})
+
+var _ = Describe("RetrieveRequest", func() {
+	It("Should reject a request member that it does not declare", func() {
+		var req apirack.RetrieveRequest
+		Expect(json.Unmarshal([]byte(`{"keys":[1]}`), &req)).To(SatisfyAll(
+			BeAssignableToTypeOf(&json.SemanticError{}),
+			MatchError(ContainSubstring(`unknown object member name "keys"`)),
+		))
 	})
 })
 

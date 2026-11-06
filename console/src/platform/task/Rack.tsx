@@ -33,7 +33,13 @@ const Content = ({ rackKey }: ContentProps): ReactElement => {
       <Text.Text level="small" color={10} weight={450}>
         Task is deployed to {name}
       </Text.Text>
-      <Text.Text className={CSS.B("rack-name")} level="small" color={9} weight={350}>
+      <Text.Text
+        className={CSS.B("rack-name")}
+        level="small"
+        color={9}
+        weight={350}
+        overflow="fade"
+      >
         <Icon.Rack />
         {name}
       </Text.Text>

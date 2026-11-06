@@ -16,20 +16,28 @@ import "github.com/synnaxlabs/synnax/pkg/service/table/versions/v4"
 // Key is a unique identifier for a table, represented as a UUID.
 type Key = v4.Key
 
-// FlexAlignment is a cross-axis flex alignment for laid-out content.
+// FlexAlignment is a flex alignment for laid-out content.
 type FlexAlignment = v4.FlexAlignment
 
 const (
-	FlexAlignmentStart   FlexAlignment = v4.FlexAlignmentStart
-	FlexAlignmentCenter  FlexAlignment = v4.FlexAlignmentCenter
-	FlexAlignmentEnd     FlexAlignment = v4.FlexAlignmentEnd
+	// FlexAlignmentStart aligns content to the start.
+	FlexAlignmentStart FlexAlignment = v4.FlexAlignmentStart
+	// FlexAlignmentCenter aligns content to the center.
+	FlexAlignmentCenter FlexAlignment = v4.FlexAlignmentCenter
+	// FlexAlignmentEnd aligns content to the end.
+	FlexAlignmentEnd FlexAlignment = v4.FlexAlignmentEnd
+	// FlexAlignmentStretch stretches content to fill the available space.
 	FlexAlignmentStretch FlexAlignment = v4.FlexAlignmentStretch
 )
 
 // CellConfig is the per-cell configuration stored in the table cells map. The variant
 // selects which Pluto cell component renders the cell.
 type CellConfig = v4.CellConfig
+
+// CellConfigVariant is implemented by every CellConfig variant.
 type CellConfigVariant = v4.CellConfigVariant
+
+// CellConfigType is the "variant" value that selects a variant of CellConfig.
 type CellConfigType = v4.CellConfigType
 
 const (

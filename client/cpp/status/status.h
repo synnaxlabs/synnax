@@ -22,6 +22,7 @@
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
 
+#include "core/pkg/api/status/pb/status.pb.h"
 #include "core/pkg/transport/grpc/status/status.pb.h"
 
 namespace synnax::status {
@@ -30,7 +31,7 @@ const std::string STATUS_SET_CHANNEL_NAME = "sy_status_set";
 
 /// @brief Freighter retrieve transport.
 using RetrieveClient = freighter::
-    UnaryClient<grpc::status::RetrieveRequest, grpc::status::RetrieveResponse>;
+    UnaryClient<grpc::status::RetrieveRequest, ::api::status::pb::RetrieveResponse>;
 
 /// @brief Freighter set transport.
 using SetClient = freighter::
@@ -156,9 +157,36 @@ public:
     [[nodiscard]] std::
         pair<std::vector<synnax::status::Status<Details>>, x::errors::Error>
         retrieve(const std::vector<std::string> &keys) const {
-        grpc::status::RetrieveRequest req;
-        req.mutable_keys()->Add(keys.begin(), keys.end());
-        return this->send_retrieve<Details>(req);
+        return this->retrieve<Details>(
+            RetrieveRequest{.where = Where{.key = x::filter::Set<Key>{.in = keys}}}
+        );
+    }
+
+    /// @brief Retrieves the statuses that req selects.
+    /// @tparam Details The type of custom details expected in the retrieved statuses.
+    /// @returns A pair containing the statuses and an error where ok() is false if the
+    /// statuses could not be retrieved.
+    template<typename Details = x::json::json>
+    [[nodiscard]] std::
+        pair<std::vector<synnax::status::Status<Details>>, x::errors::Error>
+        retrieve(const RetrieveRequest &req) const {
+        auto [pb_req, pb_err] = req.to_proto();
+        if (pb_err) return {std::vector<synnax::status::Status<Details>>(), pb_err};
+        grpc::status::RetrieveRequest grpc_req;
+        *grpc_req.mutable_request() = pb_req;
+        auto [res, err] = this->retrieve_client->send("/status/retrieve", grpc_req);
+        if (err) return {std::vector<synnax::status::Status<Details>>(), err};
+        std::vector<synnax::status::Status<Details>> statuses;
+        statuses.reserve(res.statuses_size());
+        for (const auto &pb_status: res.statuses()) {
+            auto [decoded, decode_err] = synnax::status::Status<Details>::from_proto(
+                pb_status
+            );
+            if (decode_err)
+                return {std::vector<synnax::status::Status<Details>>(), decode_err};
+            statuses.push_back(decoded);
+        }
+        return {statuses, x::errors::NIL};
     }
 
     /// @brief Retrieves the status that owner holds.
@@ -168,11 +196,9 @@ public:
     template<typename Details = x::json::json>
     [[nodiscard]] std::pair<synnax::status::Status<Details>, x::errors::Error>
     retrieve_by_owner(const synnax::resource::ID &owner) const {
-        auto [owner_pb, owner_err] = owner.to_proto();
-        if (owner_err) return {synnax::status::Status<Details>{}, owner_err};
-        grpc::status::RetrieveRequest req;
-        *req.add_owners() = owner_pb;
-        auto [statuses, err] = this->send_retrieve<Details>(req);
+        auto [statuses, err] = this->retrieve<Details>(
+            RetrieveRequest{.where = Where{.owners = std::vector{owner}}}
+        );
         if (err) return {synnax::status::Status<Details>{}, err};
         if (statuses.empty())
             return {
@@ -233,24 +259,6 @@ public:
     }
 
 private:
-    template<typename Details>
-    std::pair<std::vector<synnax::status::Status<Details>>, x::errors::Error>
-    send_retrieve(grpc::status::RetrieveRequest &req) const {
-        auto [res, err] = this->retrieve_client->send("/status/retrieve", req);
-        if (err) return {std::vector<synnax::status::Status<Details>>(), err};
-        std::vector<synnax::status::Status<Details>> statuses;
-        statuses.reserve(res.statuses_size());
-        for (const auto &pb_status: res.statuses()) {
-            auto [decoded, decode_err] = synnax::status::Status<Details>::from_proto(
-                pb_status
-            );
-            if (decode_err)
-                return {std::vector<synnax::status::Status<Details>>(), decode_err};
-            statuses.push_back(decoded);
-        }
-        return {statuses, x::errors::NIL};
-    }
-
     std::shared_ptr<RetrieveClient> retrieve_client;
     std::shared_ptr<SetClient> set_client;
     std::shared_ptr<DeleteClient> delete_client;

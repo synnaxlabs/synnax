@@ -137,7 +137,7 @@ public:
     ///   - The end of the time range is set to the nanosecond AFTER the last sample
     ///     in the array (exclusive).
     ///
-    TimeRange time_range = TimeRange();
+    TimeRange time_range;
     /// @brief alignment defines the location of the series relative to other series in
     /// a logical group. This is typically used to define the location of the series
     /// within a channel's data.
@@ -198,6 +198,18 @@ private:
         const auto cast_rhs = static_cast<SourceType>(rhs);
         for (size_t i = 0; i < size; i++)
             data_ptr[i] = op(data_ptr[i], cast_rhs);
+    }
+
+    template<typename T, typename F>
+#ifdef _MSC_VER
+    __declspec(noinline)
+#endif
+    void map_numeric(F f) const {
+        this->ensure_exclusive();
+        auto *data_ptr = reinterpret_cast<T *>(this->data_.get());
+        const auto size = this->size();
+        for (size_t i = 0; i < size; i++)
+            data_ptr[i] = static_cast<T>(f(static_cast<double>(data_ptr[i])));
     }
 
     template<typename T, typename Op>
@@ -1303,6 +1315,36 @@ public:
     void divide_inplace(const T &rhs) const {
         if (rhs == 0) throw std::runtime_error("division by zero");
         cast_and_apply_numeric_op(rhs, std::divides<T>());
+    }
+
+    /// @brief replaces each value v with f(v). f takes and returns a double, and the
+    /// result is cast back to the data type of the series.
+    /// @throws std::runtime_error if the data type of the series is not numeric.
+    template<typename F>
+    void map_inplace(F f) const {
+        const auto dt = this->data_type();
+        if (dt == FLOAT64_T)
+            map_numeric<double>(f);
+        else if (dt == FLOAT32_T)
+            map_numeric<float>(f);
+        else if (dt == INT64_T)
+            map_numeric<int64_t>(f);
+        else if (dt == INT32_T)
+            map_numeric<int32_t>(f);
+        else if (dt == INT16_T)
+            map_numeric<int16_t>(f);
+        else if (dt == INT8_T)
+            map_numeric<int8_t>(f);
+        else if (dt == UINT64_T)
+            map_numeric<uint64_t>(f);
+        else if (dt == UINT32_T)
+            map_numeric<uint32_t>(f);
+        else if (dt == UINT16_T)
+            map_numeric<uint16_t>(f);
+        else if (dt == UINT8_T)
+            map_numeric<uint8_t>(f);
+        else
+            throw std::runtime_error("cannot map a series of type " + dt.name());
     }
 
     /// @brief Series-Series addition operator. Returns a new Series.

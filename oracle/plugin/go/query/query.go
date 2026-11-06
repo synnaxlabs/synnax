@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin"
 	plugindomain "github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/imports"
+	"github.com/synnaxlabs/oracle/plugin/go/internal/matcher"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	goprimitives "github.com/synnaxlabs/oracle/plugin/go/primitives"
 	"github.com/synnaxlabs/oracle/plugin/go/types"
@@ -30,7 +31,6 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/pluralize"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -158,13 +158,15 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	return resp, nil
 }
 
-// filterInfo holds extracted data about a @filter-annotated field.
+// filterInfo holds extracted data about a field with a matcher.
 type filterInfo struct {
 	FieldName  string // oracle field name
 	GoName     string // PascalCase
+	Access     string // selector that reads the field from an entry
+	Func       string // matcher function name
 	GoType     string // resolved Go type (full type, including Array<...> if a slice)
 	ElemGoType string // resolved Go type of the slice element (only set when IsSlice)
-	IsScalar   bool   // the @filter field is a scalar or bool type
+	IsScalar   bool   // the matcher takes one value
 	IsBool     bool   // underlying primitive is bool
 	IsSlice    bool   // field is a slice/array; emit a contains-style filter
 	// IndexFieldName is the camelCase field name on the per-Retrieve indexes struct if
@@ -183,6 +185,7 @@ type filterInfo struct {
 type indexInfo struct {
 	FieldName   string // oracle field name (e.g. "created_at")
 	GoName      string // PascalCase field name (e.g. "CreatedAt")
+	Access      string // selector that reads the field from an entry
 	GoType      string // resolved Go type (e.g. "telem.TimeStamp")
 	StructField string // camelCase field on the indexes struct (e.g. "createdAt")
 	Kind        string // "lookup" or "sorted"
@@ -194,7 +197,7 @@ func (i indexInfo) IsSorted() bool { return i.Kind == "sorted" }
 
 // searchInfo holds extracted data about a @search-annotated field.
 type searchInfo struct {
-	GoName string // PascalCase field name
+	Access string // selector that reads the field from an entry
 	// IsString is false when the field's type is not the string primitive itself, so
 	// the generated code converts it.
 	IsString bool
@@ -204,18 +207,25 @@ type searchInfo struct {
 type retrieveInfo struct {
 	// TableName is the type's @resource type, which names its table for references.
 	TableName string
-	GoName    string
-	// EntryType is the Go type of a table entry: GoName, instantiated over any for each
-	// type parameter without a default.
-	EntryType string
-	KeyType   string
-	IsCustom  bool // user defines the struct (@retrieve custom)
-	// IndexesOnly is true when only the indexes are generated (@retrieve indexes).
+	// Name is the Go name of the retrieved type, with no type arguments.
+	Name string
+	// AnyArgs passes any for each type parameter of an indexes-only generic type, whose
+	// table holds records of every type argument.
+	AnyArgs string
+	// GoName is the Go type of a record in the table.
+	GoName   string
+	KeyType  string
+	IsCustom bool // user defines the struct (@retrieve custom)
+	// IndexesOnly is true under @retrieve indexes: the service writes its own Retrieve
+	// and matchers, so only the indexes are generated.
 	IndexesOnly bool
-	Filters     []filterInfo
-	Indexes     []indexInfo
-	Refs        []refInfo
-	Search      []searchInfo
+	// Filtered is true when a filter definition targets the table, whose generated
+	// Apply skips missing keys.
+	Filtered bool
+	Filters  []filterInfo
+	Indexes  []indexInfo
+	Refs     []refInfo
+	Search   []searchInfo
 }
 
 // HasSearch reports whether the retrieve declared any @search fields.
@@ -342,28 +352,25 @@ func extractRetrieveInfo(
 	r *resolver.Resolver,
 	ctx *resolver.Context,
 ) (*retrieveInfo, error) {
-	_, isUnion := typ.Form.(resolution.UnionForm)
-	if _, isStruct := typ.Form.(resolution.StructForm); !isStruct && !isUnion {
+	allFields, ok := resolution.RecordFields(typ, table)
+	if !ok {
 		return nil, nil
 	}
-	allFields := retrieveFields(typ, table)
+	matchers, err := matcher.List(typ, table)
+	if err != nil {
+		return nil, err
+	}
+	byField := lo.KeyBy(
+		matchers,
+		func(m matcher.Matcher) string { return m.Field.Name },
+	)
 
 	// Resolve the key type. A struct-level `@retrieve key "TypeName"` override takes
 	// precedence; this is useful when the entry type has a computed GorpKey that is not
 	// stored as a field on the struct (e.g. channel.Channel). Otherwise, fall back to
 	// the first field carrying `@key`.
 	var keyType string
-	if keyTypeName := plugindomain.GetStringFromType(
-		typ,
-		"retrieve",
-		"key",
-	); keyTypeName != "" {
-		qualified := keyTypeName
-		if typ.Namespace != "" && !strings.Contains(keyTypeName, ".") &&
-			!resolution.IsPrimitive(keyTypeName) {
-			qualified = typ.Namespace + "." + keyTypeName
-		}
-		keyRef := resolution.TypeRef{Name: qualified}
+	if keyRef, ok := resolution.RetrieveKey(typ); ok {
 		keyType = r.ResolveTypeRef(keyRef, ctx)
 	} else {
 		var keyField *resolution.Field
@@ -379,11 +386,11 @@ func extractRetrieveInfo(
 		keyType = r.ResolveTypeRef(keyField.Type, ctx)
 	}
 
-	goName := naming.GetGoName(typ)
+	name := naming.GetGoName(typ)
+	var anyArgs string
 
 	isCustom := plugindomain.HasExprFromType(typ, "retrieve", "custom")
 	indexesOnly := plugindomain.HasExprFromType(typ, "retrieve", "indexes")
-	entryType := goName
 	if form, ok := typ.Form.(resolution.StructForm); ok {
 		params := resolution.NonDefaultedTypeParams(form.TypeParams)
 		if len(params) > 0 {
@@ -393,11 +400,12 @@ func extractRetrieveInfo(
 					typ.QualifiedName,
 				)
 			}
+			// The table of a generic type holds records of every type argument.
 			args := make([]string, len(params))
 			for i := range args {
 				args[i] = "any"
 			}
-			entryType = goName + "[" + strings.Join(args, ", ") + "]"
+			anyArgs = "[" + strings.Join(args, ", ") + "]"
 		}
 	}
 
@@ -414,18 +422,28 @@ func extractRetrieveInfo(
 		ownTable = plugindomain.GetStringFromType(typ, resourceDomain, "type")
 	)
 	for _, field := range allFields {
-		hasFilter := plugindomain.HasDomainFromField(field, "filter")
+		if indexesOnly && (plugindomain.HasDomainFromField(field, "filter") ||
+			plugindomain.HasExprFromField(field, "index", "sorted")) {
+			return nil, errors.Newf(
+				"%s: @retrieve indexes generates no matchers or orderings, so field "+
+					"%s cannot take @filter or @index sorted",
+				typ.QualifiedName,
+				field.Name,
+			)
+		}
+		m, hasFilter := byField[field.Name]
+		// The service writes the matchers for the filter's bare lines.
+		hasFilter = hasFilter && !indexesOnly
 		hasIndex := plugindomain.HasDomainFromField(field, "index")
 		hasSearch := plugindomain.HasDomainFromField(field, "search")
 		hasRef := plugindomain.HasDomainFromField(field, "ref")
 		if !hasFilter && !hasIndex && !hasSearch && !hasRef {
 			continue
 		}
-		// A union entry holds its fields behind Variant, so generated code cannot read
-		// them.
-		if isUnion {
+		access, ok := matcher.Access(typ, field, table)
+		if !ok {
 			return nil, errors.Newf(
-				"%s: @filter, @index, @ref, and @search are not supported on union fields (%s)",
+				"%s: a variant drops field %s, so no index can read it",
 				typ.QualifiedName,
 				field.Name,
 			)
@@ -443,15 +461,22 @@ func extractRetrieveInfo(
 				)
 			}
 			search = append(search, searchInfo{
-				GoName:   naming.GetFieldName(field),
+				Access:   access,
 				IsString: textType.Name == "string",
 			})
 		}
 		if hasRef {
-			if hasIndex || hasFilter {
+			if hasIndex || plugindomain.HasDomainFromField(field, "filter") {
 				return nil, errors.Newf(
 					"%s: @ref field %s has its own index and filter, so it cannot "+
 						"carry @index or @filter",
+					typ.QualifiedName,
+					field.Name,
+				)
+			}
+			if _, isUnion := typ.Form.(resolution.UnionForm); isUnion {
+				return nil, errors.Newf(
+					"%s: @ref is not supported on union fields (%s)",
 					typ.QualifiedName,
 					field.Name,
 				)
@@ -464,6 +489,7 @@ func extractRetrieveInfo(
 			filters = append(filters, filterInfo{
 				FieldName:  field.Name,
 				GoName:     info.GoName,
+				Func:       matcher.RefFunc(info.GoName, info.IsSlice),
 				GoType:     info.ElemGoType,
 				ElemGoType: info.ElemGoType,
 				IsSlice:    info.IsSlice,
@@ -474,17 +500,7 @@ func extractRetrieveInfo(
 		if !hasFilter && !hasIndex {
 			continue
 		}
-		if hasFilter && indexesOnly {
-			return nil, errors.Newf(
-				"%s: @filter field %s needs a generated Retrieve, not @retrieve indexes",
-				typ.QualifiedName,
-				field.Name,
-			)
-		}
 
-		primitive := key.ResolvePrimitive(field.Type, table)
-		isBool := primitive == "bool"
-		isScalar := isBool || plugindomain.HasExprFromField(field, "filter", "scalar")
 		isSlice := field.Type.Name == "Array" && len(field.Type.TypeArgs) == 1
 
 		goType := r.ResolveTypeRef(field.Type, ctx)
@@ -506,6 +522,7 @@ func extractRetrieveInfo(
 			indexes = append(indexes, indexInfo{
 				FieldName:   field.Name,
 				GoName:      goFieldName,
+				Access:      access,
 				GoType:      goType,
 				StructField: structField,
 				Kind:        kind,
@@ -516,11 +533,13 @@ func extractRetrieveInfo(
 			filters = append(filters, filterInfo{
 				FieldName:      field.Name,
 				GoName:         goFieldName,
+				Access:         access,
+				Func:           m.Func,
 				GoType:         goType,
 				ElemGoType:     elemGoType,
-				IsScalar:       isScalar,
-				IsBool:         isBool,
-				IsSlice:        isSlice,
+				IsScalar:       m.Kind.Scalar(),
+				IsBool:         key.ResolvePrimitive(field.Type, table) == "bool",
+				IsSlice:        m.Kind == matcher.Element,
 				IndexFieldName: structField,
 			})
 		}
@@ -549,11 +568,13 @@ func extractRetrieveInfo(
 
 	info := &retrieveInfo{
 		TableName:   ownTable,
-		GoName:      goName,
-		EntryType:   entryType,
+		Name:        name,
+		AnyArgs:     anyArgs,
+		GoName:      name + anyArgs,
 		KeyType:     keyType,
 		IsCustom:    isCustom,
 		IndexesOnly: indexesOnly,
+		Filtered:    isFilterTarget(typ, table),
 		Filters:     filters,
 		Indexes:     indexes,
 		Refs:        refs,
@@ -568,20 +589,15 @@ func extractRetrieveInfo(
 	return info, nil
 }
 
-// retrieveFields returns a struct's fields, or the fields a union shares through its
-// base structs.
-func retrieveFields(typ resolution.Type, table *resolution.Table) []resolution.Field {
-	form, ok := typ.Form.(resolution.UnionForm)
-	if !ok {
-		return resolution.UnifiedFields(typ, table)
-	}
-	var fields []resolution.Field
-	for _, ext := range form.Extends {
-		if base, _, ok := resolution.Dealias(ext, table); ok {
-			fields = append(fields, resolution.UnifiedFields(base, table)...)
+// isFilterTarget reports whether a filter definition targets typ.
+func isFilterTarget(typ resolution.Type, table *resolution.Table) bool {
+	return lo.SomeBy(table.StructTypes(), func(t resolution.Type) bool {
+		if t.Filter == nil {
+			return false
 		}
-	}
-	return fields
+		target, _, ok := resolution.Dealias(t.Filter.Target, table)
+		return ok && target.QualifiedName == typ.QualifiedName
+	})
 }
 
 // fieldDecl names a field of a struct.
@@ -597,7 +613,8 @@ func addDeclared(
 	declared set.Set[fieldDecl],
 ) {
 	read := make(set.Set[string])
-	for _, f := range retrieveFields(retrieved, table) {
+	fields, _ := resolution.RecordFields(retrieved, table)
+	for _, f := range fields {
 		if plugindomain.HasDomainFromField(f, domainName) {
 			read.Add(f.Name)
 		}
@@ -636,41 +653,10 @@ type templateData struct {
 	Retrieves []retrieveInfo
 }
 
-// pluralizeDistinct returns the plural form of a name. If the plural is the
-// same as the singular (already-plural words like "Properties"), it appends
-// "List" to avoid name collisions.
-func pluralizeDistinct(name string) string {
-	plural := pluralize.String(name)
-	if plural == name {
-		return name + "List"
-	}
-	return plural
-}
-
-// singularize returns a best-effort singular form of a name. Handles the common English
-// plural endings (-ies, -ches/-shes/-xes/-ses, -s); leaves the input unchanged if no
-// rule matches. Suitable for deriving filter names from plural-noun field names (e.g.
-// "Integrations" → "Integration").
-func singularize(name string) string {
-	switch {
-	case strings.HasSuffix(name, "ies") && len(name) > 3:
-		return name[:len(name)-3] + "y"
-	case strings.HasSuffix(name, "ches"),
-		strings.HasSuffix(name, "shes"),
-		strings.HasSuffix(name, "xes"),
-		strings.HasSuffix(name, "ses"):
-		return name[:len(name)-2]
-	case strings.HasSuffix(name, "s") && !strings.HasSuffix(name, "ss") && len(name) > 1:
-		return name[:len(name)-1]
-	}
-	return name
-}
-
 var templateFuncs = template.FuncMap{
-	"toPascal":    naming.ToPascalCase,
-	"toLower":     strings.ToLower,
-	"pluralize":   pluralizeDistinct,
-	"singularize": singularize,
+	"toPascal":  naming.ToPascalCase,
+	"toLower":   strings.ToLower,
+	"pluralize": matcher.Plural,
 }
 
 var retrieveTemplate = template.Must(
@@ -698,7 +684,7 @@ import (
 {{- end}}
 {{range $ret := .Retrieves}}
 {{- if $ret.TableName}}
-// tableName names the {{$ret.GoName}} table for references. Pass it as
+// tableName names the {{$ret.Name}} table for references. Pass it as
 // gorp.TableConfig.Name.
 const tableName = "{{$ret.TableName}}"
 {{end}}
@@ -721,13 +707,13 @@ type Retrieve struct {
 // instead of relying on package-level state.
 type indexes struct {
 {{- range $idx := $ret.Indexes}}
-	{{$idx.StructField}} *gorp.{{if $idx.IsSorted}}SortedIndex{{else}}LookupIndex{{end}}[{{$ret.KeyType}}, {{$ret.EntryType}}, {{$idx.GoType}}]
+	{{$idx.StructField}} *gorp.{{if $idx.IsSorted}}SortedIndex{{else}}LookupIndex{{end}}[{{$ret.KeyType}}, {{$ret.GoName}}, {{$idx.GoType}}]
 {{- end}}
 {{- range $ref := $ret.Refs}}
-	{{$ref.StructField}} *{{$ref.GorpType $ret.KeyType $ret.EntryType}}
+	{{$ref.StructField}} *{{$ref.GorpType $ret.KeyType $ret.GoName}}
 {{- end}}
 {{- if $ret.HasSearch}}
-	search *gorp.SearchIndex[{{$ret.KeyType}}, {{$ret.EntryType}}]
+	search *gorp.SearchIndex[{{$ret.KeyType}}, {{$ret.GoName}}]
 {{- end}}
 }
 
@@ -737,13 +723,13 @@ type indexes struct {
 func newIndexes() indexes {
 	return indexes{
 {{- range $idx := $ret.Indexes}}
-		{{$idx.StructField}}: gorp.{{if $idx.IsSorted}}NewSortedIndex{{else}}NewLookupIndex{{end}}[{{$ret.KeyType}}, {{$ret.EntryType}}, {{$idx.GoType}}](
+		{{$idx.StructField}}: gorp.{{if $idx.IsSorted}}NewSortedIndex{{else}}NewLookupIndex{{end}}[{{$ret.KeyType}}, {{$ret.GoName}}, {{$idx.GoType}}](
 			"{{$idx.FieldName}}",
-			func(e *{{$ret.EntryType}}) {{$idx.GoType}} { return e.{{$idx.GoName}} },
+			func(e *{{$ret.GoName}}) {{$idx.GoType}} { return e.{{$idx.Access}} },
 		),
 {{- end}}
 {{- range $ref := $ret.Refs}}
-		{{$ref.StructField}}: {{$ref.Constructor $ret.KeyType $ret.EntryType}}{
+		{{$ref.StructField}}: {{$ref.Constructor $ret.KeyType $ret.GoName}}{
 			Name:     "{{$ref.FieldName}}",
 			{{$ref.TablesField}}
 			OnDelete: gorp.{{$ref.OnDelete}},
@@ -753,7 +739,7 @@ func newIndexes() indexes {
 {{- if $ref.Acyclic}}
 			Acyclic:  true,
 {{- end}}
-			Targets: func(e *{{$ret.EntryType}}) []{{$ref.TargetType}} {
+			Targets: func(e *{{$ret.GoName}}) []{{$ref.TargetType}} {
 {{- if and $ref.IsSlice (not $ref.IsID)}}
 				return e.{{$ref.GoName}}
 {{- else if $ref.IsSlice}}
@@ -778,25 +764,25 @@ func newIndexes() indexes {
 			},
 {{- if eq $ref.OnDelete "Detach"}}
 {{- if $ref.IsSlice}}
-			Detach: func(e *{{$ret.EntryType}}, t {{$ref.TargetType}}) {
+			Detach: func(e *{{$ret.GoName}}, t {{$ref.TargetType}}) {
 				e.{{$ref.GoName}} = slices.DeleteFunc(e.{{$ref.GoName}}, func(v {{$ref.ElemGoType}}) bool {
 					return {{$ref.TargetOf "v"}} == t
 				})
 			},
 {{- else if $ref.Zero}}
-			Detach: func(e *{{$ret.EntryType}}, _ {{$ref.TargetType}}) { e.{{$ref.GoName}} = {{$ref.Zero}} },
+			Detach: func(e *{{$ret.GoName}}, _ {{$ref.TargetType}}) { e.{{$ref.GoName}} = {{$ref.Zero}} },
 {{- else}}
-			Detach: func(e *{{$ret.EntryType}}, _ {{$ref.TargetType}}) { e.{{$ref.GoName}} = nil },
+			Detach: func(e *{{$ret.GoName}}, _ {{$ref.TargetType}}) { e.{{$ref.GoName}} = nil },
 {{- end}}
 {{- end}}
 		}),
 {{- end}}
 {{- if $ret.HasSearch}}
-		search: gorp.NewSearchIndex[{{$ret.KeyType}}, {{$ret.EntryType}}](
+		search: gorp.NewSearchIndex[{{$ret.KeyType}}, {{$ret.GoName}}](
 			"search",
-			func(e *{{$ret.EntryType}}) []string {
+			func(e *{{$ret.GoName}}) []string {
 				return []string{
-{{- range $i, $f := $ret.Search}}{{if $i}}, {{end}}{{if $f.IsString}}e.{{$f.GoName}}{{else}}string(e.{{$f.GoName}}){{end}}{{end -}}
+{{- range $i, $f := $ret.Search}}{{if $i}}, {{end}}{{if $f.IsString}}e.{{$f.Access}}{{else}}string(e.{{$f.Access}}){{end}}{{end -}}
 				}
 			},
 		),
@@ -806,8 +792,8 @@ func newIndexes() indexes {
 
 // all returns the indexes packaged as a heterogeneous slice for registration
 // via gorp.TableConfig.Indexes when opening the underlying table.
-func (i indexes) all() []gorp.Index[{{$ret.KeyType}}, {{$ret.EntryType}}] {
-	return []gorp.Index[{{$ret.KeyType}}, {{$ret.EntryType}}]{
+func (i indexes) all() []gorp.Index[{{$ret.KeyType}}, {{$ret.GoName}}] {
+	return []gorp.Index[{{$ret.KeyType}}, {{$ret.GoName}}]{
 {{- range $idx := $ret.Indexes}}
 		i.{{$idx.StructField}},
 {{- end}}
@@ -820,8 +806,8 @@ func (i indexes) all() []gorp.Index[{{$ret.KeyType}}, {{$ret.EntryType}}] {
 
 // references returns the references packaged for registration via
 // gorp.TableConfig.References when opening the underlying table.
-func (i indexes) references() []gorp.Reference[{{$ret.KeyType}}, {{$ret.EntryType}}] {
-	return []gorp.Reference[{{$ret.KeyType}}, {{$ret.EntryType}}]{
+func (i indexes) references() []gorp.Reference[{{$ret.KeyType}}, {{$ret.GoName}}] {
+	return []gorp.Reference[{{$ret.KeyType}}, {{$ret.GoName}}]{
 {{- range $ref := $ret.Refs}}
 		i.{{$ref.StructField}},
 {{- end}}
@@ -835,7 +821,17 @@ func resourceTarget(id {{$ret.IDGoType}}) gorp.Target {
 	return gorp.Target{Table: string(id.Type), Key: id.Key}
 }
 {{- end}}
-{{- if and $ret.HasSortedIndex (not $ret.IndexesOnly)}}
+{{- if $ret.HasSearch}}
+
+// MatchSearch matches the {{$ret.Name | toLower | pluralize}} whose text matches term.
+// The closest match comes first.
+func MatchSearch(term string) Filter{{$ret.AnyArgs}} {
+	return func(r Retrieve{{$ret.AnyArgs}}) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
+		return r.indexes.search.Filter(term)
+	}
+}
+{{- end}}
+{{- if $ret.HasSortedIndex}}
 
 // Order is a per-service sort handle that is bound to the Retrieve when
 // passed to OrderBy. Construct one via an OrderByX free function (e.g.
@@ -872,7 +868,6 @@ func OrderBy{{$idx.GoName}}(dir gorp.Direction, cursor ...{{$idx.GoType}}) Order
 {{- end}}
 {{- end}}
 {{- end}}
-
 {{- if not $ret.IndexesOnly}}
 
 // Filter is a per-service filter that is bound to the Retrieve when passed to
@@ -913,8 +908,7 @@ func (r Retrieve) Search(term string) Retrieve {
 	if term == "" {
 		return r
 	}
-	r.gorp = r.gorp.Where(r.indexes.search.Filter(term))
-	return r
+	return r.Where(MatchSearch(term))
 }
 {{end}}
 // MatchKeys returns a filter that restricts results to
@@ -929,10 +923,10 @@ func MatchKeys(keys ...{{$ret.KeyType}}) Filter {
 }
 {{range .Filters}}
 {{- if .Ref}}
-// Match{{.Ref.FilterName}} returns a filter for {{$ret.GoName | toLower | pluralize}}
+// {{.Func}} returns a filter for {{$ret.GoName | toLower | pluralize}}
 // whose {{.GoName}} {{if .IsSlice}}contains{{else}}matches{{end}} any of the provided
 // values.
-func Match{{.Ref.FilterName}}(vals ...{{.ElemGoType}}) Filter {
+func {{.Func}}(vals ...{{.ElemGoType}}) Filter {
 	return func(r Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
 {{- if .Ref.IsID}}
 		targets := make([]gorp.Target, len(vals))
@@ -973,55 +967,54 @@ func set{{.GoName}}(
 }
 {{- end}}
 {{else if .IsBool}}
-// Match{{.GoName}} returns a filter for {{$ret.GoName | toLower | pluralize}} by their
+// {{.Func}} returns a filter for {{$ret.GoName | toLower | pluralize}} by their
 // {{.GoName}} field.
-func Match{{.GoName}}(v bool) Filter {
+func {{.Func}}(v {{.GoType}}) Filter {
 	return func({{if .IndexFieldName}}r {{end}}Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
 {{- if .IndexFieldName}}
 		return r.indexes.{{.IndexFieldName}}.Filter(v)
 {{- else}}
 		return gorp.Match(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {
-			return e.{{.GoName}} == v, nil
+			return e.{{.Access}} == v, nil
 		})
 {{- end}}
 	}
 }
 {{else if .IsSlice}}
-// Match{{.GoName | singularize}} returns a filter for
-// {{$ret.GoName | toLower | pluralize}} whose {{.GoName}} contains the provided
-// value.
-func Match{{.GoName | singularize}}(v {{.ElemGoType}}) Filter {
+// {{.Func}} returns a filter for {{$ret.GoName | toLower | pluralize}} whose
+// {{.GoName}} contains the provided value.
+func {{.Func}}(v {{.ElemGoType}}) Filter {
 	return func(Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
 		return gorp.Match(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {
-			return slices.Contains(e.{{.GoName}}, v), nil
+			return slices.Contains(e.{{.Access}}, v), nil
 		})
 	}
 }
 {{else if .IsScalar}}
-// Match{{.GoName}} returns a filter for {{$ret.GoName | toLower | pluralize}} whose
+// {{.Func}} returns a filter for {{$ret.GoName | toLower | pluralize}} whose
 // {{.GoName}} matches the provided value.
-func Match{{.GoName}}(v {{.GoType}}) Filter {
+func {{.Func}}(v {{.GoType}}) Filter {
 	return func({{if .IndexFieldName}}r {{end}}Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
 {{- if .IndexFieldName}}
 		return r.indexes.{{.IndexFieldName}}.Filter(v)
 {{- else}}
 		return gorp.Match(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {
-			return e.{{.GoName}} == v, nil
+			return e.{{.Access}} == v, nil
 		})
 {{- end}}
 	}
 }
 {{else}}
-// Match{{.GoName | pluralize}} returns a filter for
+// {{.Func}} returns a filter for
 // {{$ret.GoName | toLower | pluralize}} whose {{.GoName}} matches any of the
 // provided values.
-func Match{{.GoName | pluralize}}(vals ...{{.GoType}}) Filter {
+func {{.Func}}(vals ...{{.GoType}}) Filter {
 	return func({{if .IndexFieldName}}r {{end}}Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
 {{- if .IndexFieldName}}
 		return r.indexes.{{.IndexFieldName}}.Filter(vals...)
 {{- else}}
 		return gorp.Match(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {
-			return slices.Contains(vals, e.{{.GoName}}), nil
+			return slices.Contains(vals, e.{{.Access}}), nil
 		})
 {{- end}}
 	}
@@ -1061,6 +1054,15 @@ func (r Retrieve) Offset(offset int) Retrieve {
 	r.gorp = r.gorp.Offset(offset)
 	return r
 }
+{{- if $ret.Filtered}}
+
+// SkipMissingKeys makes Exec treat a key with no {{$ret.GoName | toLower}} as a
+// non-match instead of returning query.ErrNotFound.
+func (r Retrieve) SkipMissingKeys() Retrieve {
+	r.gorp = r.gorp.SkipMissingKeys()
+	return r
+}
+{{- end}}
 // Exec executes the query against the provided transaction.
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	return r.gorp.Exec(ctx, gorp.OverrideTx(r.baseTX, tx))

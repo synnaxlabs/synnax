@@ -156,46 +156,16 @@ func (s *Service) Dispatch(
 		Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
 }
 
-type (
-	RetrieveRequest struct {
-		Keys                []table.Key `json:"keys"                   msgpack:"keys"`
-		IgnoreNotFoundError bool        `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
-		// Groups keeps only the tables in any of these groups.
-		Groups []group.Key `json:"groups" msgpack:"groups"`
-		// Grouped keeps only the tables in a group when true, and only the tables in no
-		// group when false. Nil applies no filter.
-		Grouped *bool `json:"grouped" msgpack:"grouped"`
-	}
-	RetrieveResponse struct {
-		Tables []table.Table `json:"tables" msgpack:"tables"`
-	}
-)
-
-// Retrieve returns the tables that match req. A request with no keys, groups, or
-// grouped filter matches nothing.
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
-	if len(req.Keys) == 0 && len(req.Groups) == 0 && req.Grouped == nil {
-		return RetrieveResponse{Tables: []table.Table{}}, nil
-	}
 	var res RetrieveResponse
-	q := s.internal.NewRetrieve()
-	if len(req.Keys) > 0 {
-		q = q.Where(table.MatchKeys(req.Keys...))
-	}
-	if len(req.Groups) > 0 {
-		q = q.Where(table.MatchGroups(req.Groups...))
-	}
-	if req.Grouped != nil {
-		q = q.Where(table.MatchHasGroup(*req.Grouped))
-	}
-	err := q.Entries(&res.Tables).Exec(ctx, nil)
-	if req.IgnoreNotFoundError && err != nil {
-		err = errors.Skip(err, query.ErrNotFound)
-	}
+	q, err := req.Apply(s.internal.NewRetrieve().Entries(&res.Tables))
 	if err != nil {
+		return RetrieveResponse{}, err
+	}
+	if err := q.Exec(ctx, nil); err != nil {
 		return RetrieveResponse{}, err
 	}
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{

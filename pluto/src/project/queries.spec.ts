@@ -80,13 +80,13 @@ describe("queries", () => {
       const { result } = renderHook(
         () =>
           Project.useList({
-            initialQuery: { keys },
+            initialQuery: { where: { key: { in: keys } } },
             filter: (p) => keys.includes(p.key),
           }),
         { wrapper },
       );
       act(() => {
-        result.current.retrieve({ limit: 2, offset: 1, keys });
+        result.current.retrieve({ limit: 2, offset: 1, where: { key: { in: keys } } });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data).toHaveLength(2);

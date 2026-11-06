@@ -21,11 +21,17 @@ import (
 type Variant = v0.Variant
 
 const (
-	VariantSuccess  Variant = v0.VariantSuccess
-	VariantInfo     Variant = v0.VariantInfo
-	VariantWarning  Variant = v0.VariantWarning
-	VariantError    Variant = v0.VariantError
-	VariantLoading  Variant = v0.VariantLoading
+	// VariantSuccess reports that an operation succeeded.
+	VariantSuccess Variant = v0.VariantSuccess
+	// VariantInfo reports general information.
+	VariantInfo Variant = v0.VariantInfo
+	// VariantWarning reports a condition that needs attention.
+	VariantWarning Variant = v0.VariantWarning
+	// VariantError reports a failure.
+	VariantError Variant = v0.VariantError
+	// VariantLoading reports an operation in progress.
+	VariantLoading Variant = v0.VariantLoading
+	// VariantDisabled reports that the subject is not active.
 	VariantDisabled Variant = v0.VariantDisabled
 )
 

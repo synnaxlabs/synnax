@@ -12,21 +12,31 @@
 package v2
 
 import (
+	"strconv"
+
 	label "github.com/synnaxlabs/synnax/pkg/service/label/versions/v0"
 	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/status/versions/v1"
+	filter "github.com/synnaxlabs/x/filter/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Variant is the severity or type of a status message.
 type Variant = v1.Variant
 
 const (
-	VariantSuccess  Variant = v1.VariantSuccess
-	VariantInfo     Variant = v1.VariantInfo
-	VariantWarning  Variant = v1.VariantWarning
-	VariantError    Variant = v1.VariantError
-	VariantLoading  Variant = v1.VariantLoading
+	// VariantSuccess reports that an operation succeeded.
+	VariantSuccess Variant = v1.VariantSuccess
+	// VariantInfo reports general information.
+	VariantInfo Variant = v1.VariantInfo
+	// VariantWarning reports a condition that needs attention.
+	VariantWarning Variant = v1.VariantWarning
+	// VariantError reports a failure.
+	VariantError Variant = v1.VariantError
+	// VariantLoading reports an operation in progress.
+	VariantLoading Variant = v1.VariantLoading
+	// VariantDisabled reports that the subject is not active.
 	VariantDisabled Variant = v1.VariantDisabled
 )
 
@@ -78,4 +88,41 @@ func (s Status[Details]) ToAny() Status[any] {
 		Labels:      s.Labels,
 		Owner:       s.Owner,
 	}
+}
+
+// Where is a filter that selects statuses.
+type Where struct {
+	// And matches when every child matches.
+	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	// Or matches when any child matches.
+	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	// Not matches when the child does not match.
+	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
+	// Key selects by key.
+	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
+	// Variant selects by variant.
+	Variant *filter.Set[Variant] `json:"variant,omitzero" msgpack:"variant,omitempty"`
+	// Labels matches statuses that have any of the given labels.
+	Labels []label.Key `json:"labels,omitzero" msgpack:"labels,omitempty"`
+	// Owners matches the statuses that the given resources own.
+	Owners []resource.ID `json:"owners,omitzero" msgpack:"owners,omitempty"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (w Where) Validate() error {
+	v := validate.New("Where")
+	for i := range w.And {
+		v.Exec(func() error { return validate.PathedError(w.And[i].Validate(), "and", strconv.Itoa(i)) })
+	}
+	for i := range w.Or {
+		v.Exec(func() error { return validate.PathedError(w.Or[i].Validate(), "or", strconv.Itoa(i)) })
+	}
+	if w.Not != nil {
+		v.Exec(func() error { return validate.PathedError(w.Not.Validate(), "not") })
+	}
+	for i := range w.Owners {
+		v.Exec(func() error { return validate.PathedError(w.Owners[i].Validate(), "owners", strconv.Itoa(i)) })
+	}
+	return v.Error()
 }

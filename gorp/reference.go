@@ -354,7 +354,9 @@ func (r *reference[K, E, T]) Filter(targets ...T) Filter[K, E] {
 func (r *reference[K, E, T]) FilterHolding(holding bool) Filter[K, E] {
 	return Filter[K, E]{
 		resolve: func(ctx context.Context, tx Tx) (resolved[K, E], error) {
-			if err := r.store.Wait(ctx); err != nil {
+			if err := r.store.Wait(ctx); errors.Is(err, ErrIndexInvalid) {
+				return resolved[K, E]{}, nil
+			} else if err != nil {
 				return resolved[K, E]{}, err
 			}
 			// eval drops the keys of a commit in flight that fails.
@@ -396,13 +398,6 @@ func (r *reference[K, E, T]) FilterAs[F Entry[K]](targets ...T) Filter[K, F] {
 					return true, nil
 				},
 			}, nil
-		},
-		eval: func(Context, *F, []byte, []byte) (bool, error) {
-			return false, errors.Wrapf(
-				ErrIndexInvalid,
-				"%q cannot scan entries",
-				r.name,
-			)
 		},
 	}
 }

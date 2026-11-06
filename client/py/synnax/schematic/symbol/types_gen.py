@@ -15,11 +15,11 @@ from typing import TypeAlias
 from typing import override as _override
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from synnax import group as group_
 from synnax.resource import ID
-from x import color, spatial
+from x import color, filter, spatial
 
 Key: TypeAlias = UUID
 
@@ -57,6 +57,28 @@ class Handle(BaseModel):
     orientation: spatial.OuterLocation
 
 
+class Where(BaseModel):
+    """Is a filter that selects schematic symbols.
+
+    Attributes:
+        and_: Matches when every child matches.
+        or_: Matches when any child matches.
+        not_: Matches when the child does not match.
+        key: Selects by key.
+        groups: Matches the symbols in any of the given groups.
+        grouped: Matches the symbols in a group, or in no group when false.
+    """
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    and_: list[Where] | None = Field(default=None, alias="and")
+    or_: list[Where] | None = Field(default=None, alias="or")
+    not_: Where | None = Field(default=None, alias="not")
+    key: filter.Set[Key] | None = None
+    groups: list[group_.Key] | None = None
+    grouped: bool | None = None
+
+
 class State(BaseModel):
     """Is a named visual state of a symbol with regional styling configurations.
 
@@ -69,6 +91,24 @@ class State(BaseModel):
     key: str
     name: str
     regions: list[Region] = Field(default_factory=list)
+
+
+class RetrieveRequest(BaseModel):
+    """Is a request to retrieve symbols.
+
+    Attributes:
+        where: Selects the symbols to retrieve. An absent where selects all of them.
+        search_term: Keeps the symbols that match the term, closest match first.
+        limit: Is the most symbols to return.
+        offset: Is the number of matching symbols to skip.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    where: Where | None = None
+    search_term: str = ""
+    limit: int | None = Field(default=None, ge=0, le=4294967295)
+    offset: int = Field(default=0, ge=0, le=4294967295)
 
 
 class Spec(BaseModel):
@@ -113,6 +153,19 @@ class Symbol(BaseModel):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class RetrieveResponse(BaseModel):
+    """Holds the symbols a RetrieveRequest selects.
+
+    Attributes:
+        symbols: Are the symbols the request selects.
+    """
+
+    symbols: list[Symbol] = Field(default_factory=list)
+
+
+Where.model_rebuild()
 
 
 TYPE_RESOURCE_ID = ID(type="schematic_symbol")

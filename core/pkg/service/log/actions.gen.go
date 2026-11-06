@@ -21,23 +21,51 @@ import (
 )
 
 const (
-	ActionTypeCreate                    = "create"
-	ActionTypeRename                    = "rename"
-	ActionTypeSetGroup                  = "set_group"
-	ActionTypeAddChannel                = "add_channel"
-	ActionTypeRemoveChannel             = "remove_channel"
-	ActionTypeSetChannelEntry           = "set_channel_entry"
-	ActionTypeSetChannelColor           = "set_channel_color"
-	ActionTypeSetChannelNotation        = "set_channel_notation"
-	ActionTypeSetChannelPrecision       = "set_channel_precision"
-	ActionTypeSetChannelAlias           = "set_channel_alias"
+	// ActionTypeCreate is the Type of an Action that carries CreatePayload.
+	ActionTypeCreate = "create"
+	// ActionTypeRename is the Type of an Action that carries RenamePayload.
+	ActionTypeRename = "rename"
+	// ActionTypeSetGroup is the Type of an Action that carries SetGroupPayload.
+	ActionTypeSetGroup = "set_group"
+	// ActionTypeAddChannel is the Type of an Action that carries AddChannelPayload.
+	ActionTypeAddChannel = "add_channel"
+	// ActionTypeRemoveChannel is the Type of an Action that carries
+	// RemoveChannelPayload.
+	ActionTypeRemoveChannel = "remove_channel"
+	// ActionTypeSetChannelEntry is the Type of an Action that carries
+	// SetChannelEntryPayload.
+	ActionTypeSetChannelEntry = "set_channel_entry"
+	// ActionTypeSetChannelColor is the Type of an Action that carries
+	// SetChannelColorPayload.
+	ActionTypeSetChannelColor = "set_channel_color"
+	// ActionTypeSetChannelNotation is the Type of an Action that carries
+	// SetChannelNotationPayload.
+	ActionTypeSetChannelNotation = "set_channel_notation"
+	// ActionTypeSetChannelPrecision is the Type of an Action that carries
+	// SetChannelPrecisionPayload.
+	ActionTypeSetChannelPrecision = "set_channel_precision"
+	// ActionTypeSetChannelAlias is the Type of an Action that carries
+	// SetChannelAliasPayload.
+	ActionTypeSetChannelAlias = "set_channel_alias"
+	// ActionTypeSetChannelTimestampFormat is the Type of an Action that carries
+	// SetChannelTimestampFormatPayload.
 	ActionTypeSetChannelTimestampFormat = "set_channel_timestamp_format"
-	ActionTypeSetChannelTimestampTz     = "set_channel_timestamp_tz"
-	ActionTypeSetChannels               = "set_channels"
-	ActionTypeSwapChannel               = "swap_channel"
-	ActionTypeSetTimestampPrecision     = "set_timestamp_precision"
-	ActionTypeSetChannelNamesHidden     = "set_channel_names_hidden"
-	ActionTypeSetTimestampsHidden       = "set_timestamps_hidden"
+	// ActionTypeSetChannelTimestampTz is the Type of an Action that carries
+	// SetChannelTimestampTzPayload.
+	ActionTypeSetChannelTimestampTz = "set_channel_timestamp_tz"
+	// ActionTypeSetChannels is the Type of an Action that carries SetChannelsPayload.
+	ActionTypeSetChannels = "set_channels"
+	// ActionTypeSwapChannel is the Type of an Action that carries SwapChannelPayload.
+	ActionTypeSwapChannel = "swap_channel"
+	// ActionTypeSetTimestampPrecision is the Type of an Action that carries
+	// SetTimestampPrecisionPayload.
+	ActionTypeSetTimestampPrecision = "set_timestamp_precision"
+	// ActionTypeSetChannelNamesHidden is the Type of an Action that carries
+	// SetChannelNamesHiddenPayload.
+	ActionTypeSetChannelNamesHidden = "set_channel_names_hidden"
+	// ActionTypeSetTimestampsHidden is the Type of an Action that carries
+	// SetTimestampsHiddenPayload.
+	ActionTypeSetTimestampsHidden = "set_timestamps_hidden"
 )
 
 // CreatePayload replaces the document with the given created state. Emitted by the Core
@@ -97,7 +125,7 @@ type SetChannelNotationPayload struct {
 // no entry references the channel.
 type SetChannelPrecisionPayload struct {
 	Channel   channel.Key `json:"channel" msgpack:"channel"`
-	Precision *int32      `json:"precision,omitzero" msgpack:"precision,omitempty"`
+	Precision *uint8      `json:"precision,omitzero" msgpack:"precision,omitempty"`
 }
 
 // SetChannelAliasPayload sets the human-readable alias of the entry identified by
@@ -138,7 +166,7 @@ type SwapChannelPayload struct {
 
 // SetTimestampPrecisionPayload sets the precision of displayed timestamps (0-3).
 type SetTimestampPrecisionPayload struct {
-	TimestampPrecision int32 `json:"timestamp_precision" msgpack:"timestamp_precision"`
+	TimestampPrecision uint8 `json:"timestamp_precision" msgpack:"timestamp_precision"`
 }
 
 // SetChannelNamesHiddenPayload sets whether channel names are hidden.

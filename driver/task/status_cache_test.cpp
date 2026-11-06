@@ -274,4 +274,44 @@ TEST(StatusCacheTest, SetRequiresOwner) {
     EXPECT_THROW((void) cache.set(ownerless), std::bad_optional_access);
     EXPECT_TRUE(transport->sent().empty());
 }
+
+/// @brief it should return the latest status of a task without its command key.
+TEST(StatusCacheTest, LatestReturnsTheLatestStatusWithNoCommandKey) {
+    const auto task = synnax::task::Task{.key = x::uuid::create(), .name = "failed"};
+    const auto transport = std::make_shared<HoldingSetClient>(synnax::resource::ID{});
+    StatusCache cache(synnax::status::Client(nullptr, transport, nullptr, nullptr));
+    synnax::task::Status configured{
+        .variant = synnax::status::VARIANT_SUCCESS,
+        .message = "Task configured",
+        .owner = synnax::task::resource_id(task.key),
+    };
+    synnax::task::Status failed{
+        .variant = synnax::status::VARIANT_ERROR,
+        .message = "Failed to configure task",
+        .details = {.cmd = "start-cmd"},
+        .owner = synnax::task::resource_id(task.key),
+    };
+    ASSERT_NIL(cache.set(configured));
+    ASSERT_NIL(cache.set(failed));
+    const auto latest = cache.latest(task.key);
+    ASSERT_TRUE(latest.has_value());
+    EXPECT_EQ(latest.value().message, "Failed to configure task");
+    EXPECT_TRUE(latest.value().details.cmd.empty());
+}
+
+/// @brief it should return no status for a task that left this Driver or never had one.
+TEST(StatusCacheTest, LatestReturnsNothingForADroppedOrUnknownTask) {
+    const auto task = synnax::task::Task{.key = x::uuid::create(), .name = "released"};
+    const auto transport = std::make_shared<HoldingSetClient>(synnax::resource::ID{});
+    StatusCache cache(synnax::status::Client(nullptr, transport, nullptr, nullptr));
+    synnax::task::Status configured{
+        .variant = synnax::status::VARIANT_SUCCESS,
+        .message = "Task configured",
+        .owner = synnax::task::resource_id(task.key),
+    };
+    ASSERT_NIL(cache.set(configured));
+    cache.drop(task.key);
+    EXPECT_FALSE(cache.latest(task.key).has_value());
+    EXPECT_FALSE(cache.latest(x::uuid::create()).has_value());
+}
 }
