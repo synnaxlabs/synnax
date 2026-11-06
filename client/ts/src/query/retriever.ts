@@ -20,7 +20,7 @@ import {
 } from "@/query/query";
 import { type Keyed, type Table } from "@/query/table";
 import { type Data, type FetchOptions, type Params } from "@/query/types";
-import { checkForMultipleOrNoResults } from "@/util/retrieve";
+import { checkForMultipleOrNoResults, singleQueryError } from "@/util/retrieve";
 
 /** Query fields only the server can evaluate, shared by most request shapes. */
 const DEFAULT_SERVER_FIELDS = ["searchTerm", "limit", "offset"] as const;
@@ -102,8 +102,8 @@ export type RequestInput<Z extends z.ZodType> =
 
 /**
  * The query objects a request schema accepts that return one record: those with a plain
- * `key` or `name` value beside any other fields, and those that set `one`. A query that
- * sets `one` takes no limit or offset, since a page could hide a second match.
+ * `key` or `name` value beside any other fields, and those that set `one`. Neither takes
+ * a limit or an offset, since a page could hide a second match.
  */
 export type OneInput<Z extends z.ZodType> =
   | (z.input<Z> extends infer I
@@ -112,9 +112,9 @@ export type OneInput<Z extends z.ZodType> =
         : "where" extends keyof I
           ? never
           : {
-              [F in ("key" | "name") & keyof I]: Omit<I, F> & {
+              [F in ("key" | "name") & keyof I]: Omit<I, F | "limit" | "offset"> & {
                 [P in F]: Extract<I[P], P extends "key" ? record.Key : string>;
-              };
+              } & { limit?: never; offset?: never };
             }[("key" | "name") & keyof I]
       : never)
   | (RequestInput<Z> extends infer R
@@ -143,18 +143,23 @@ export const addressesOne = (params: unknown): boolean =>
 
 /**
  * @returns params without the `one` option.
- * @throws {ValidationError} if params set `one` beside a limit or an offset.
+ * @throws {ValidationError} if params return one record beside a limit or an offset.
  */
 export const dropOne = <P>(params: P): P extends unknown ? Omit<P, "one"> : never => {
-  if (!isObject(params) || !("one" in params))
-    return params as P extends unknown ? Omit<P, "one"> : never;
-  const { one, ...rest } = params;
-  if (one === true && (rest.limit != null || rest.offset != null))
+  if (!isObject(params)) return params as P extends unknown ? Omit<P, "one"> : never;
+  if (addressesOne(params) && (params.limit != null || params.offset != null))
     throw new ValidationError(
-      "one rejects a limit or an offset, since a page could hide a second match",
+      "a query for one record takes no limit or offset, since a page could hide a " +
+        "second match",
     );
+  if (!("one" in params)) return params as P extends unknown ? Omit<P, "one"> : never;
+  const { one: _, ...rest } = params;
   return rest as P extends unknown ? Omit<P, "one"> : never;
 };
+
+/** True for params that are a bare key or an object with a plain `key` value. */
+const addressesKey = (params: unknown): boolean =>
+  isBareKey(params) || (isObject(params) && isBareKey(params.key));
 
 /**
  * Request schema arm reading a bare key list as `{ keys }`. Union it onto a domain's
@@ -353,7 +358,22 @@ export abstract class Retriever<
       watch,
       single: true,
     }) as Retrieves<Params, D | D[]>;
-    this.normalizeRequest = (p) => zod.parse(schema, p, { label: `${name} query` });
+    const singleSchema = single?.schema;
+    this.normalizeRequest = (p) => {
+      const res = schema.safeParse(p);
+      if (res.success) return res.data;
+      // A key the single schema rejects is the likely cause, and the request union
+      // reports only its strict arm, which calls the key an unexpected field.
+      const one =
+        singleSchema != null && addressesKey(p) ? singleSchema.safeParse(p) : null;
+      if (one?.success === false) throw singleQueryError(name, p, one.error);
+      throw new zod.ParseError({
+        issues: res.error.issues,
+        input: p,
+        label: `${name} query`,
+        cause: res.error,
+      });
+    };
     this.readShortcut =
       shortcut == null
         ? null

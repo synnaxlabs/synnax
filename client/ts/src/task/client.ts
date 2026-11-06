@@ -61,7 +61,7 @@ import {
   type Where,
 } from "@/task/types.gen";
 import { matches, retrieveInputZ, serverComputed, shortcutZ } from "@/task/where.gen";
-import { checkForMultipleOrNoResults } from "@/util/retrieve";
+import { checkForMultipleOrNoResults, singleQueryError } from "@/util/retrieve";
 
 export type { PayloadSchemas as Schemas } from "@/task/types.gen";
 
@@ -671,6 +671,10 @@ export class Client extends query.Retriever<
     // their results are not shared through the cache.
     if (schemas != null) {
       const request = query.dropOne(params);
+      if (isOneParams(request) && !z.validate(retrieveParamsZ, request)) {
+        const res = singleQueryZ.safeParse(request);
+        if (!res.success) throw singleQueryError("task", request, res.error);
+      }
       const sugared = await this.execRetrieve<S>(request, schemas);
       checkForMultipleOrNoResults("Task", request, sugared, isSingle);
       return isSingle ? sugared[0] : sugared;
