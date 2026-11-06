@@ -10,7 +10,6 @@
 package types
 
 import (
-	"fmt"
 	"strconv"
 
 	"github.com/antlr4-go/antlr/v4"
@@ -412,29 +411,15 @@ func inferSeriesLiteralType(
 	ctx context.Context[parser.ISeriesLiteralContext],
 ) types.Type {
 	exprList := ctx.AST.ExpressionList()
-	if exprList == nil {
-		line := ctx.AST.GetStart().GetLine()
-		col := ctx.AST.GetStart().GetColumn()
-		tvName := fmt.Sprintf("series_elem_%d_%d", line, col)
+	if exprList == nil || len(exprList.AllExpression()) == 0 {
 		constraint := types.NumericConstraint()
-		elemType := types.Variable(tvName, &constraint)
+		elemType := types.Variable(ctx.ScopedKey("series_elem", ctx.AST), &constraint)
 		t := types.Series(elemType)
 		ctx.TypeMap[ctx.AST] = t
 		return t
 	}
 
 	exprs := exprList.AllExpression()
-	if len(exprs) == 0 {
-		line := ctx.AST.GetStart().GetLine()
-		col := ctx.AST.GetStart().GetColumn()
-		tvName := fmt.Sprintf("series_elem_%d_%d", line, col)
-		constraint := types.NumericConstraint()
-		elemType := types.Variable(tvName, &constraint)
-		t := types.Series(elemType)
-		ctx.TypeMap[ctx.AST] = t
-		return t
-	}
-
 	firstExpr := exprs[0]
 	elemType := InferFromExpression(ctx.Child(firstExpr)).UnwrapChan()
 	allLiterals := parser.IsNumericLiteral(firstExpr)
@@ -579,9 +564,6 @@ func inferNumericLiteralType(
 	var (
 		floatLit = numLit.FLOAT_LITERAL()
 		isFloat  = floatLit != nil
-		line     = ctx.AST.GetStart().GetLine()
-		col      = ctx.AST.GetStart().GetColumn()
-		tvName   = fmt.Sprintf("lit_%d_%d", line, col)
 	)
 
 	var constraint types.Type
@@ -596,7 +578,7 @@ func inferNumericLiteralType(
 	} else {
 		constraint = types.IntegerConstraint()
 	}
-	tv := types.Variable(tvName, &constraint)
+	tv := types.Variable(ctx.ScopedKey("lit", ctx.AST), &constraint)
 
 	// Check for unit suffix (e.g., 5psi, 3s, 100Hz)
 	if unitID := numLit.IDENTIFIER(); unitID != nil {
