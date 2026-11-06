@@ -61,7 +61,7 @@ jobs:
       matrix: ${{ fromJSON(inputs.test_matrix) }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Force quit existing Synnax processes (Windows)
         if: runner.os == 'Windows'
@@ -89,7 +89,7 @@ jobs:
         run: integration/scripts/download_artifacts.sh
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.3.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version: latest-known
 
@@ -140,14 +140,23 @@ jobs:
         if: runner.os == 'Windows'
         id: test-conductor-win
         timeout-minutes: 30
+        # The self-hosted Windows test bots have no bash. !TC_ARGS! expands after cmd
+        # parses the line, so the flags cannot add commands.
         shell: cmd
         working-directory: integration
+        # The Cores that --cores starts read the license from the conductor.
         env:
           PYTHONIOENCODING: utf-8
           PAGERDUTY_ROUTING_KEY: ${{ secrets.PAGERDUTY_ROUTING_KEY }}
           PAGERDUTY_API_KEY: ${{ secrets.PAGERDUTY_API_KEY }}
-        run: >-
-          uv run test-conductor --name tc_win ${{ matrix.target || inputs.flags }}
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+          TC_ARGS:
+            ${{ matrix.target && format('{0} {1}', matrix.target, matrix.args) ||
+            inputs.flags }}
+        run: |
+          setlocal EnableDelayedExpansion
+          uv run test-conductor --name tc_win ^
+            --core-binary "%USERPROFILE%\synnax-binaries\synnax.exe" !TC_ARGS!
 
       - name: Test conductor (Ubuntu)
         if: runner.os == 'Linux'
@@ -157,8 +166,14 @@ jobs:
         env:
           PAGERDUTY_ROUTING_KEY: ${{ secrets.PAGERDUTY_ROUTING_KEY }}
           PAGERDUTY_API_KEY: ${{ secrets.PAGERDUTY_API_KEY }}
-        run: >-
-          uv run test-conductor --name tc_unix ${{ matrix.target || inputs.flags }}
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+          TC_ARGS:
+            ${{ matrix.target && format('{0} {1}', matrix.target, matrix.args) ||
+            inputs.flags }}
+        run: |
+          read -ra args <<< "$TC_ARGS"
+          uv run test-conductor --name tc_unix \
+            --core-binary "$HOME/synnax-binaries/synnax" "${args[@]}"
 
       # A failed measurement must not fail the tests it measured.
       - name: Report resource use
@@ -176,7 +191,7 @@ jobs:
       # sliced server.log, screenshots, exports). Uploading the bundle is the
       # single artifact CI and local devs share for debugging.
       - name: Upload test results
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: always()
         with:
           name: test-results-${{ inputs.os }}-${{ matrix.name }}

@@ -591,6 +591,7 @@ func retrieveResponse(
 			))
 			return resolution.Type{}, nil, false
 		}
+		target = override
 		if fields, ok = resolution.RecordFields(override, c.table); !ok {
 			c.report(diagnostics.Errorf(
 				def,
@@ -614,7 +615,26 @@ func retrieveResponse(
 		Domains: withDoc(domains, fmt.Sprintf(
 			"holds the %s a RetrieveRequest selects.", words,
 		)),
-	}, fields, true
+	}, withVariantFields(target, fields, c.table), true
+}
+
+// withVariantFields returns fields with the payload fields of each variant of a union
+// typ appended, keeping the first field of each name.
+func withVariantFields(
+	typ resolution.Type, fields []resolution.Field, table *resolution.Table,
+) []resolution.Field {
+	form, ok := typ.Form.(resolution.UnionForm)
+	if !ok {
+		return fields
+	}
+	for _, v := range form.Variants {
+		payload, _, ok := resolution.Dealias(v.Type, table)
+		if !ok {
+			continue
+		}
+		fields = append(fields, resolution.UnifiedFields(payload, table)...)
+	}
+	return lo.UniqBy(fields, func(f resolution.Field) string { return f.Name })
 }
 
 // atRequestOutput returns domains with the Go output replaced by the filter's `@go

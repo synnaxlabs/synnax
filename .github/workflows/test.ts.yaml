@@ -127,7 +127,7 @@ jobs:
           exit 1
 
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Start Core
         if: runner.os == 'Linux' && inputs.core_image != ''
@@ -157,15 +157,24 @@ jobs:
 
       - name: Check types
         if: matrix.lint && inputs.lint
-        run: pnpm check-types:${{ inputs.package }}
+        shell: bash
+        env:
+          PACKAGE: ${{ inputs.package }}
+        run: pnpm check-types:"$PACKAGE"
 
       - name: Check circular dependencies
         if: matrix.lint && inputs.lint
-        run: pnpm cycles:${{ inputs.package }}
+        shell: bash
+        env:
+          PACKAGE: ${{ inputs.package }}
+        run: pnpm cycles:"$PACKAGE"
 
       - name: Lint
         if: matrix.lint && inputs.lint
-        run: pnpm lint:${{ inputs.package }}
+        shell: bash
+        env:
+          PACKAGE: ${{ inputs.package }}
+        run: pnpm lint:"$PACKAGE"
 
       # Without a limit, a stuck mirror holds the merge queue for up to 6 hours.
       - name: Install browsers
@@ -178,20 +187,30 @@ jobs:
       - name: Test
         if: inputs.test
         # The reporters feed the coverage upload, which only vitest packages have.
-        run: >-
-          pnpm cov:${{ inputs.package }} -- ${{ inputs.coverage_flag != '' &&
-          '--coverage.reporter=text-summary --coverage.reporter=clover
-          --coverage.reporter=json' || '' }} ${{ inputs.shards > 1 &&
-          format('--shard={0}/{1}', matrix.shard, inputs.shards) || '' }} ${{
-          inputs.test_args }}
+        shell: bash
+        env:
+          PACKAGE: ${{ inputs.package }}
+          TEST_ARGS: ${{ inputs.test_args }}
+          COVERAGE_ARGS:
+            ${{ inputs.coverage_flag != '' && '--coverage.reporter=text-summary
+            --coverage.reporter=clover --coverage.reporter=json' || '' }}
+          SHARD_ARG:
+            ${{ inputs.shards > 1 && format('--shard={0}/{1}', matrix.shard,
+            inputs.shards) || '' }}
+        run: |
+          read -ra args <<< "$COVERAGE_ARGS $SHARD_ARG $TEST_ARGS"
+          pnpm cov:"$PACKAGE" -- "${args[@]}"
 
       - name: Test in WebKit
         if: inputs.test && inputs.browsers
-        run: pnpm test:${{ inputs.package }} -- --run --project webkit
+        shell: bash
+        env:
+          PACKAGE: ${{ inputs.package }}
+        run: pnpm test:"$PACKAGE" -- --run --project webkit
 
       - name: Upload coverage
         if: inputs.test && inputs.coverage_flag != ''
-        uses: codecov/codecov-action@v7
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7
         env:
           CURL_HOME: ${{ github.workspace }}/.github/codecov
         with:
