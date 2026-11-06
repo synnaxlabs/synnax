@@ -249,6 +249,25 @@ class TestMain:
         classify.main()
         assert [args[3] for args, _ in gh.writes] == [COMMENTS]
 
+    def test_reads_the_number_from_the_environment_first(
+        self, gh: FakeGH, tmp_path: Path
+    ) -> None:
+        (tmp_path / "pr").mkdir()
+        (tmp_path / "pr" / "number").write_text("99\n")
+        classify.main()
+        ((post, _),) = gh.writes
+        assert post == ("api", "-X", "POST", COMMENTS, "--input", "-")
+
+    def test_reads_the_number_from_the_results_when_the_environment_has_none(
+        self, gh: FakeGH, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        (tmp_path / "pr").mkdir()
+        (tmp_path / "pr" / "number").write_text("5\n")
+        monkeypatch.setenv("PR", "")
+        classify.main()
+        ((post, _),) = gh.writes
+        assert post == ("api", "-X", "POST", COMMENTS, "--input", "-")
+
     def test_refuses_a_number_that_is_not_an_integer(
         self, gh: FakeGH, monkeypatch: pytest.MonkeyPatch
     ) -> None:
