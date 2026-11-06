@@ -128,6 +128,10 @@ export class Latest {
   // stamps records each write until the channel turns out to have an index, since
   // streamed series can arrive before it is found.
   private stamps: Stamps | null;
+  // seedable is true for a channel the Core stores nothing of, null until known.
+  private seedable: boolean | null = null;
+  // The newest series streamed before the channel was known.
+  private pending: Series | null = null;
   // dedupe is how fresh finds repeated samples: by Core alignment for a stored channel,
   // and by time for one a calculation writes, whose alignments depend on how its inputs
   // split into series. A channel that only streams repeats no sample.
@@ -158,6 +162,10 @@ export class Latest {
     this.demand = props.streamer.demand([key], (frame) => {
       const series = frame.get(key);
       if (series == null) return;
+      const last = series.at(-1);
+      if (last != null && last.length > 0)
+        if (this.seedable === true) props.store.recordStreamed(key, last);
+        else if (this.seedable == null) this.pending = last;
       this.push(series, true);
       this.notify();
     });
@@ -463,8 +471,8 @@ export class Latest {
   }
 
   // Reads the newest stored samples after the stream acks the channel, so the stream
-  // delivers every sample the read misses. A virtual channel has none, so it only
-  // streams.
+  // delivers every sample the read misses. A virtual channel has none, so it starts
+  // from the newest series the stream carried for another request, and streams.
   private async load(run: Load): Promise<void> {
     const { signal } = run.abort;
     const { retrieveChannels, streamer, now } = this.props;
@@ -475,9 +483,14 @@ export class Latest {
         if (payload == null) throw new NotFoundError(`channel ${this.key} not found`);
         if (this.running === run) this.findTimeSource(payload);
         let read: Series[] = [];
+        let seed: Series | null = null;
         let times: Series[] = [];
         if (!payload.virtual) this.dedupe = "alignment";
         else this.dedupe = calculated(payload) ? "time" : null;
+        this.seedable = this.dedupe == null;
+        if (this.seedable && this.pending != null)
+          this.props.store.recordStreamed(this.key, this.pending);
+        this.pending = null;
         if (this.dedupe != null) {
           await streamer.waitAcked([this.key], signal);
           if (this.running !== run) return;
@@ -495,10 +508,14 @@ export class Latest {
           const frame = await this.read(index, tr);
           read = frame.get(this.key).series;
           if (index != null) times = frame.get(index).series;
+        } else if (this.total === 0) {
+          seed = this.props.store.newestStreamed(this.key);
+          if (seed != null) read = [seed];
         }
         if (this.running !== run) return;
         const stamps = this.indexStamps;
         this.land(read);
+        if (seed != null) this.stamps?.record(seed);
         stamps?.add(
           times,
           read.map((s) => s.alignmentBounds),

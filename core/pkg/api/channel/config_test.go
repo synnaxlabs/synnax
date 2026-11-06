@@ -15,7 +15,6 @@ import (
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 )
@@ -25,9 +24,8 @@ var _ = Describe("ServiceConfig", func() {
 		return apichannel.ServiceConfig{
 			RBAC:    &rbac.Service{},
 			Channel: &channel.Service{},
-			Ranger:  &ranger.Service{},
-			Alias:   &alias.Service{},
 			Status:  &status.Service{},
+			Alias:   &alias.Service{},
 		}
 	}
 
@@ -54,19 +52,14 @@ var _ = Describe("ServiceConfig", func() {
 				"channel: must be non-nil",
 			),
 			Entry(
-				"ranger",
-				func(c *apichannel.ServiceConfig) { c.Ranger = nil },
-				"ranger: must be non-nil",
+				"status",
+				func(c *apichannel.ServiceConfig) { c.Status = nil },
+				"status: must be non-nil",
 			),
 			Entry(
 				"alias",
 				func(c *apichannel.ServiceConfig) { c.Alias = nil },
 				"alias: must be non-nil",
-			),
-			Entry(
-				"status",
-				func(c *apichannel.ServiceConfig) { c.Status = nil },
-				"status: must be non-nil",
 			),
 		)
 	})
@@ -77,9 +70,8 @@ var _ = Describe("ServiceConfig", func() {
 			merged := apichannel.ServiceConfig{}.Override(cfg)
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 			Expect(merged.Channel).To(BeIdenticalTo(cfg.Channel))
-			Expect(merged.Ranger).To(BeIdenticalTo(cfg.Ranger))
-			Expect(merged.Alias).To(BeIdenticalTo(cfg.Alias))
 			Expect(merged.Status).To(BeIdenticalTo(cfg.Status))
+			Expect(merged.Alias).To(BeIdenticalTo(cfg.Alias))
 		})
 
 		It("Should keep the receiver's services when the other's are nil", func() {
@@ -87,9 +79,8 @@ var _ = Describe("ServiceConfig", func() {
 			merged := cfg.Override(apichannel.ServiceConfig{})
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 			Expect(merged.Channel).To(BeIdenticalTo(cfg.Channel))
-			Expect(merged.Ranger).To(BeIdenticalTo(cfg.Ranger))
-			Expect(merged.Alias).To(BeIdenticalTo(cfg.Alias))
 			Expect(merged.Status).To(BeIdenticalTo(cfg.Status))
+			Expect(merged.Alias).To(BeIdenticalTo(cfg.Alias))
 		})
 	})
 })

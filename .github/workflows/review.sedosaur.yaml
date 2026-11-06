@@ -184,9 +184,14 @@ jobs:
           git fetch --no-tags origin "$BASE_SHA" "$HEAD_SHA"
           git worktree add --detach "$RUNNER_TEMP/head" "$HEAD_SHA"
 
-      # A runner can stay stopped for weeks, so a review takes the latest Claude Code.
-      - name: Update Claude Code
-        run: sudo npm install -g @anthropic-ai/claude-code@latest
+      # A runner can stay stopped for weeks, so each review installs the latest Claude
+      # Code. The runners on one machine review at the same time, so each review gets
+      # its own copy in the temporary directory, which the runner empties after the job.
+      - name: Install Claude Code
+        run: |
+          npm install --no-save --prefix "$RUNNER_TEMP/claude" \
+            @anthropic-ai/claude-code@latest
+          echo "$RUNNER_TEMP/claude/node_modules/.bin" >> "$GITHUB_PATH"
 
       - name: Review
         working-directory: .github/scripts
@@ -194,9 +199,19 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           BOT: ${{ steps.app.outputs.app-slug }}
           POLICY_DIR: ${{ github.workspace }}
+          POLICY_SHA: ${{ github.sha }}
           HEAD_DIR: ${{ runner.temp }}/head
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.SEDOSAUR_CLAUDE_CODE_OAUTH_TOKEN }}
         run: python3 -m review run "$RUNNER_TEMP/review.json"
+
+      # The trial report compares these records with Greptile's reviews.
+      - name: Keep the record
+        uses: actions/upload-artifact@v7
+        with:
+          name: sedosaur-review
+          path: ${{ runner.temp }}/review.json
+          retention-days: 90
+          overwrite: true
 
       - name: Post the review
         working-directory: .github/scripts
