@@ -11,9 +11,9 @@
 # sedosaur GitHub App. The scripts and the policy in `.sedosaur/` come from the commit
 # that started this workflow, on the default branch, never from the pull request or its
 # base. Claude Code gets only read tools, a checkout of the head, and its OAuth token.
-# The App token reaches only the steps that write to GitHub. A replay reviews any
-# commit, posts nothing, and keeps only the record. It can take the prompt and rules of
-# another ref, so a new policy can be tried on old commits before it merges.
+# The App token reaches only the steps that write to GitHub. A replay reviews any commit
+# against any base, posts nothing, and keeps only the record. It can take the prompt and
+# rules of another ref, so a new policy can be tried on old commits before it merges.
 
 name: Review - Sedosaur
 run-name: ${{ inputs.pr }}${{ inputs.replay && ' replay' || '' }}
@@ -31,6 +31,10 @@ on:
         required: false
       head:
         description: "Commit to review, if not the head of the pull request"
+        type: string
+        required: false
+      base:
+        description: "Commit to diff against, if not the base of the pull request"
         type: string
         required: false
       replay:
@@ -74,22 +78,28 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ inputs.pr }}
           HEAD: ${{ inputs.head }}
+          BASE: ${{ inputs.base }}
           POLICY: ${{ inputs.policy }}
           REPLAY: ${{ inputs.replay }}
         run: |
-          if [ -n "$HEAD" ] && ! [[ "$HEAD" =~ ^[0-9a-f]{40}$ ]]; then
-            echo "::error::head must be a full commit SHA."
-            exit 1
-          fi
+          for sha in "$HEAD" "$BASE"; do
+            if [ -n "$sha" ] && ! [[ "$sha" =~ ^[0-9a-f]{40}$ ]]; then
+              echo "::error::head and base must be full commit SHAs."
+              exit 1
+            fi
+          done
           if [ -n "$POLICY" ] && { [ "$REPLAY" != true ] ||
             ! [[ "$POLICY" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]*$ ]]; }; then
             echo "::error::policy must name a branch or commit, and only for a replay."
             exit 1
           fi
           set -o pipefail
-          gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" | jq -r --arg head "$HEAD" '
-            "head=\(if $head == "" then .head.sha else $head end)", "base=\(.base.sha)",
-            "fork=\(.head.repo.full_name != .base.repo.full_name)"' >> "$GITHUB_OUTPUT"
+          gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" |
+            jq -r --arg head "$HEAD" --arg base "$BASE" '
+              "head=\(if $head == "" then .head.sha else $head end)",
+              "base=\(if $base == "" then .base.sha else $base end)",
+              "fork=\(.head.repo.full_name != .base.repo.full_name)"
+            ' >> "$GITHUB_OUTPUT"
 
       - name: Assume the runner start role
         if: steps.pr.outputs.fork == 'false'
