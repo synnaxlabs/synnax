@@ -10,7 +10,12 @@
 import { channel, ethercat, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { DataType, errors, primitive } from "@synnaxlabs/x";
 
-import { MAKE, SLAVE_SCHEMAS, type SlaveDevice } from "@/feature/ethercat/device/types";
+import {
+  MAKE,
+  SLAVE_MODEL,
+  SLAVE_SCHEMAS,
+  type SlaveDevice,
+} from "@/feature/ethercat/device/types";
 import {
   addressKey,
   DIRECTIONS,
@@ -295,8 +300,9 @@ export const bindOrphanedChannels = async <C extends EntryChannel>({
   mapKey = addressKey,
 }: BindOrphanedChannelsArgs<C>): Promise<C[]> => {
   const existing = await retrieveByName(client, names);
+  if (existing.size === 0) return channels;
   const others = await client.devices.retrieve({
-    where: { make: { eq: MAKE } },
+    where: { make: { eq: MAKE }, model: { eq: SLAVE_MODEL } },
     schemas: SLAVE_SCHEMAS,
   });
   const bound = new Set([
