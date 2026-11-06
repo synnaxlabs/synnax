@@ -42,7 +42,7 @@ on:
         type: boolean
         default: false
       policy:
-        description: "Ref whose policy a replay uses instead, except its tools"
+        description: "Ref whose prompt, rules, and model settings a replay uses instead"
         type: string
         required: false
 
@@ -216,10 +216,10 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
-      # A policy ref can change the prompt, the rules, and the config, but not the
-      # tools: those and the scripts stay those of this commit. The runner group runs
-      # only this workflow from the default branch, so a replay cannot start from the
-      # ref itself.
+      # A policy ref can change the prompt, the rules, and the settings of the config
+      # that do not reach outside the checkout: the tools, the context documents, and
+      # the scripts stay those of this commit. The runner group runs only this workflow
+      # from the default branch, so a replay cannot start from the ref itself.
       - name: Take the policy of the policy ref
         id: policy
         env:
@@ -235,11 +235,14 @@ jobs:
             .sedosaur/config.toml
           python3 - <<'EOF'
           import subprocess, sys, tomllib
-          def tools(ref):
+          def config(ref):
               show = ["git", "show", f"{ref}:.sedosaur/config.toml"]
-              return tomllib.loads(subprocess.check_output(show, text=True))["tools"]
-          if tools("HEAD") != tools("FETCH_HEAD"):
-              print("::error::A policy ref cannot change the tools.")
+              return tomllib.loads(subprocess.check_output(show, text=True))
+          allowed = {"model", "effort", "caps", "excluded", "diff_chars"}
+          ours, theirs = config("HEAD"), config("FETCH_HEAD")
+          if any(ours.get(k) != theirs.get(k) for k in ours.keys() | theirs.keys()
+                 if k not in allowed):
+              print("::error::A policy ref can change only", ", ".join(sorted(allowed)))
               sys.exit(1)
           EOF
           echo "sha=$(git rev-parse FETCH_HEAD)" >> "$GITHUB_OUTPUT"
