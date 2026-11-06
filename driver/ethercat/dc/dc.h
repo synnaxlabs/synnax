@@ -118,9 +118,9 @@ struct Choice {
 
     bool operator==(const Choice &) const = default;
 
-    /// @brief parses a choice from JSON.
+    /// @brief parses a choice from JSON, adding a field error for a negative cycle.
     static Choice parse(x::json::Parser parser) {
-        return {
+        Choice choice{
             .index = parser.field<uint16_t>("index"),
             .assign_activate = parser.field<uint16_t>("assign_activate"),
             .cycles = {
@@ -128,6 +128,11 @@ struct Choice {
                 .sync1 = x::telem::TimeSpan(parser.field<int64_t>("sync1_cycle", 0)),
             },
         };
+        if (choice.cycles.sync0 < 0)
+            parser.field_err("sync0_cycle", "must be 0 or more");
+        if (choice.cycles.sync1 < 0)
+            parser.field_err("sync1_cycle", "must be 0 or more");
+        return choice;
     }
 
     /// @brief serializes the choice to JSON.

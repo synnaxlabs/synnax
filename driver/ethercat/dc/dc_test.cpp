@@ -118,6 +118,25 @@ TEST(Choice, ParsesTheJSONItWrites) {
     ASSERT_NIL(bare.error());
 }
 
+/// @brief it should add a field error for each negative cycle.
+TEST(Choice, RejectsNegativeCycles) {
+    x::json::Parser parser(
+        nlohmann::json{
+            {"index", 1},
+            {"assign_activate", 0x0700},
+            {"sync0_cycle", -1},
+            {"sync1_cycle", -1000},
+        }
+    );
+    Choice::parse(parser);
+    const auto errors = parser.error_json()["errors"];
+    ASSERT_EQ(errors.size(), 2);
+    EXPECT_EQ(errors[0]["path"], "sync0_cycle");
+    EXPECT_EQ(errors[0]["message"], "must be 0 or more");
+    EXPECT_EQ(errors[1]["path"], "sync1_cycle");
+    EXPECT_EQ(errors[1]["message"], "must be 0 or more");
+}
+
 /// @brief it should use chosen SYNC0 and SYNC1 cycles in place of the cycles of the
 /// mode.
 TEST(Resolve, UsesTheChosenCycles) {
