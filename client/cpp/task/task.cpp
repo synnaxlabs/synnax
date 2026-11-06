@@ -118,6 +118,7 @@ Client::retrieve_one(const RetrieveRequest &req, const std::string &query) const
     auto [tasks, err] = this->retrieve(req);
     if (err) return {Task{}, err};
     if (tasks.empty()) return {Task{}, errors::not_found_error("task", query)};
+    if (tasks.size() > 1) return {Task{}, errors::multiple_found_error("tasks", query)};
     return {std::move(tasks[0]), x::errors::NIL};
 }
 

@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -142,8 +143,22 @@ private:
     /// enabled slave with a distributed clock.
     x::errors::Error clear_dc_activation();
 
-    /// @brief transitions all enabled slaves to the specified state.
-    x::errors::Error request_state(uint16_t state, int timeout);
+    /// @brief requests the state from all enabled slaves, then waits until they reach
+    /// it, one of them refuses it, or the timeout in microseconds passes. Calls
+    /// before_read, if set, before each read of the slave states.
+    x::errors::Error request_state(
+        uint16_t state,
+        int timeout,
+        const std::function<void()> &before_read = nullptr
+    );
+
+    /// @brief whether the slave has its AL error flag set and gives an AL status code.
+    [[nodiscard]] bool al_error(uint16_t pos) const;
+
+    /// @brief whether the slave refused the state: it stays below the state with an AL
+    /// error. A slave above the state can still show an error from before a request to
+    /// go down.
+    [[nodiscard]] bool refuses(uint16_t pos, uint16_t state) const;
 
     /// @brief transitions all enabled slaves to OP while exchanging process data, so
     /// slaves with a sync manager watchdog see valid outputs.
@@ -154,7 +169,9 @@ private:
     /// slave that lost power.
     void recover(uint16_t pos);
 
-    /// @brief builds the error for enabled slaves that did not reach a state.
+    /// @brief builds the error for enabled slaves that did not reach a state. It is a
+    /// refusal when a slave refuses the state with an AL status code that a new start
+    /// cannot clear.
     x::errors::Error state_error(const std::vector<uint16_t> &failed, uint16_t state);
 };
 

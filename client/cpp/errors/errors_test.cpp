@@ -51,7 +51,7 @@ TEST(ErrorsTest, MultipleFoundError) {
     ASSERT_MATCHES(err, x::errors::MULTIPLE_RESULTS);
     EXPECT_EQ(
         err.message(),
-        "[sy.query.multiple_results] Multiple channels matching name test not found."
+        "[sy.query.multiple_results] Multiple channels matching name test found."
     );
 }
 
@@ -61,7 +61,7 @@ TEST(ErrorsTest, MultipleFoundErrorRanges) {
     ASSERT_MATCHES(err, x::errors::MULTIPLE_RESULTS);
     EXPECT_EQ(
         err.message(),
-        "[sy.query.multiple_results] Multiple ranges matching name experiment-1 not found."
+        "[sy.query.multiple_results] Multiple ranges matching name experiment-1 found."
     );
 }
 

@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
-from synnax.exceptions import NotFoundError
+from synnax.util import one
 from synnax.view.types_gen import (
     Key,
     RetrieveRequest,
@@ -130,7 +130,5 @@ class Client:
         )
         views = res.views
         if is_single:
-            if len(views) == 0:
-                raise NotFoundError("View not found")
-            return views[0]
+            return one("View", key, views)
         return views
