@@ -11,10 +11,8 @@ package channel
 
 import "github.com/synnaxlabs/gorp"
 
-// indexReference returns the config of the reference from a data channel to the index
-// channel that holds its timestamps. A delete of an index fails while it keeps a data
-// channel that uses the index. Opening the service clears a missing index, and a
-// calculated channel whose index was deleted gets a new one on its next write.
+// indexReference returns the reference from a data channel to its index channel. A
+// delete of an index that a data channel uses fails.
 func indexReference() *gorp.KeyReference[Key, Channel, Key] {
 	return gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Channel, Key]{
 		Name:     "local_index",

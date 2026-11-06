@@ -16,24 +16,24 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	service "github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 )
 
-// ReadConfigReferences returns the references of ReadConfig.
-func ReadConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
+// readConfigReferences returns the references of ReadConfig.
+func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 	return []gorp.Reference[uuid.UUID, ReadConfig]{
-		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, ReadConfig, service.Key]{
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, ReadConfig, device.Key]{
 			Name:     "device",
 			Table:    "device",
 			OnDelete: gorp.Restrict,
-			Targets: func(e *ReadConfig) []service.Key {
-				var targets []service.Key
+			Targets: func(e *ReadConfig) []device.Key {
+				var targets []device.Key
 				if e.Device != "" {
 					targets = append(targets, e.Device)
 				}
 				return targets
 			},
-			Detach: func(e *ReadConfig, t service.Key) {
+			Detach: func(e *ReadConfig, t device.Key) {
 				if e.Device == t {
 					e.Device = ""
 				}
@@ -102,21 +102,21 @@ func ReadConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 	}
 }
 
-// WriteConfigReferences returns the references of WriteConfig.
-func WriteConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
+// writeConfigReferences returns the references of WriteConfig.
+func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 	return []gorp.Reference[uuid.UUID, WriteConfig]{
-		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, WriteConfig, service.Key]{
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, WriteConfig, device.Key]{
 			Name:     "device",
 			Table:    "device",
 			OnDelete: gorp.Restrict,
-			Targets: func(e *WriteConfig) []service.Key {
-				var targets []service.Key
+			Targets: func(e *WriteConfig) []device.Key {
+				var targets []device.Key
 				if e.Device != "" {
 					targets = append(targets, e.Device)
 				}
 				return targets
 			},
-			Detach: func(e *WriteConfig, t service.Key) {
+			Detach: func(e *WriteConfig, t device.Key) {
 				if e.Device == t {
 					e.Device = ""
 				}
@@ -181,21 +181,21 @@ func WriteConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 	}
 }
 
-// EdgeConfigReferences returns the references of EdgeConfig.
-func EdgeConfigReferences() []gorp.Reference[uuid.UUID, EdgeConfig] {
+// edgeConfigReferences returns the references of EdgeConfig.
+func edgeConfigReferences() []gorp.Reference[uuid.UUID, EdgeConfig] {
 	return []gorp.Reference[uuid.UUID, EdgeConfig]{
-		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, EdgeConfig, service.Key]{
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, EdgeConfig, device.Key]{
 			Name:     "device",
 			Table:    "device",
 			OnDelete: gorp.Restrict,
-			Targets: func(e *EdgeConfig) []service.Key {
-				var targets []service.Key
+			Targets: func(e *EdgeConfig) []device.Key {
+				var targets []device.Key
 				if e.Device != "" {
 					targets = append(targets, e.Device)
 				}
 				return targets
 			},
-			Detach: func(e *EdgeConfig, t service.Key) {
+			Detach: func(e *EdgeConfig, t device.Key) {
 				if e.Device == t {
 					e.Device = ""
 				}

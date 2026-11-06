@@ -117,6 +117,15 @@ var _ = Describe("DerivePackageAlias", func() {
 			naming.DerivePackageAlias("arc/go/types/versions/v1", "v2"),
 		).To(Equal("types"))
 	})
+
+	It("should alias only the version packages under a legacy directory", func() {
+		Expect(
+			naming.DerivePackageAlias("core/pkg/service/legacy/device", "modbus"),
+		).To(Equal("device"))
+		Expect(
+			naming.DerivePackageAlias("core/pkg/service/task/legacy/v1", "task"),
+		).To(Equal("task"))
+	})
 })
 
 var _ = Describe("DeriveVersionedAlias", func() {

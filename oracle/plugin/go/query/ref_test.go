@@ -522,7 +522,7 @@ var _ = Describe("@ref", func() {
 				rack rack.Key = 0 @ref on_delete restrict
 			`).
 				ToContain(
-					"func ReadConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig]",
+					"func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig]",
 					`Name:     "rack",`,
 					`Table:    "rack",`,
 					"OnDelete: gorp.Restrict,",
@@ -753,8 +753,8 @@ var _ = Describe("@ref", func() {
 				rack rack.Key = 0 @ref on_delete restrict
 			`), "modbus", loader, p)
 				ExpectContent(resp, "retrieve.gen.go").ToContain(
-					"func ReadConfigReferences()",
-					"func WriteConfigReferences()",
+					"func readConfigReferences()",
+					"func writeConfigReferences()",
 				)
 			},
 		)

@@ -771,6 +771,11 @@ type referencesInfo struct {
 	Refs    []nestedRef
 }
 
+// FuncName returns the name of the unexported function that returns the references.
+func (r referencesInfo) FuncName() string {
+	return naming.LowerFirst(r.GoName) + "References"
+}
+
 func (r referencesInfo) needsSlices() bool {
 	return slices.ContainsFunc(
 		r.Refs,

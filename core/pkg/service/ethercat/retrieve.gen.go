@@ -16,11 +16,11 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	service "github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 )
 
-// ReadConfigReferences returns the references of ReadConfig.
-func ReadConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
+// readConfigReferences returns the references of ReadConfig.
+func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 	return []gorp.Reference[uuid.UUID, ReadConfig]{
 		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, ReadConfig, channel.Key]{
 			Name:     "channels.channel",
@@ -59,12 +59,12 @@ func ReadConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 				}
 			},
 		}),
-		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, ReadConfig, service.Key]{
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, ReadConfig, device.Key]{
 			Name:     "channels.device",
 			Table:    "device",
 			OnDelete: gorp.Restrict,
-			Targets: func(e *ReadConfig) []service.Key {
-				var targets []service.Key
+			Targets: func(e *ReadConfig) []device.Key {
+				var targets []device.Key
 				for _, v1 := range e.Channels {
 					switch v2 := v1.Variant.(type) {
 					case EntryReadChannel:
@@ -79,7 +79,7 @@ func ReadConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 				}
 				return targets
 			},
-			Detach: func(e *ReadConfig, t service.Key) {
+			Detach: func(e *ReadConfig, t device.Key) {
 				for i3 := range e.Channels {
 					switch v4 := e.Channels[i3].Variant.(type) {
 					case EntryReadChannel:
@@ -99,8 +99,8 @@ func ReadConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 	}
 }
 
-// WriteConfigReferences returns the references of WriteConfig.
-func WriteConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
+// writeConfigReferences returns the references of WriteConfig.
+func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 	return []gorp.Reference[uuid.UUID, WriteConfig]{
 		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, WriteConfig, channel.Key]{
 			Name:     "channels.cmd_channel",
@@ -176,12 +176,12 @@ func WriteConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 				}
 			},
 		}),
-		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, WriteConfig, service.Key]{
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, WriteConfig, device.Key]{
 			Name:     "channels.device",
 			Table:    "device",
 			OnDelete: gorp.Restrict,
-			Targets: func(e *WriteConfig) []service.Key {
-				var targets []service.Key
+			Targets: func(e *WriteConfig) []device.Key {
+				var targets []device.Key
 				for _, v1 := range e.Channels {
 					switch v2 := v1.Variant.(type) {
 					case EntryWriteChannel:
@@ -196,7 +196,7 @@ func WriteConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 				}
 				return targets
 			},
-			Detach: func(e *WriteConfig, t service.Key) {
+			Detach: func(e *WriteConfig, t device.Key) {
 				for i3 := range e.Channels {
 					switch v4 := e.Channels[i3].Variant.(type) {
 					case EntryWriteChannel:

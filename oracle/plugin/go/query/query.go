@@ -1103,8 +1103,8 @@ func (r Retrieve) Exists(ctx context.Context, tx gorp.Tx) (bool, error) {
 {{- end}}
 {{end}}
 {{- range $root := .References}}
-// {{$root.GoName}}References returns the references of {{$root.GoName}}.
-func {{$root.GoName}}References() []gorp.Reference[{{$root.KeyType}}, {{$root.GoName}}] {
+// {{$root.FuncName}} returns the references of {{$root.GoName}}.
+func {{$root.FuncName}}() []gorp.Reference[{{$root.KeyType}}, {{$root.GoName}}] {
 	return []gorp.Reference[{{$root.KeyType}}, {{$root.GoName}}]{
 {{- range $ref := $root.Refs}}
 		{{$ref.Constructor $root.KeyType $root.GoName}}{

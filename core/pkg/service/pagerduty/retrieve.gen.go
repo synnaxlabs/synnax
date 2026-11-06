@@ -18,8 +18,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 )
 
-// TaskConfigReferences returns the references of TaskConfig.
-func TaskConfigReferences() []gorp.Reference[uuid.UUID, TaskConfig] {
+// taskConfigReferences returns the references of TaskConfig.
+func taskConfigReferences() []gorp.Reference[uuid.UUID, TaskConfig] {
 	return []gorp.Reference[uuid.UUID, TaskConfig]{
 		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, TaskConfig, status.Key]{
 			Name:     "alerts.status",

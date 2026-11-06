@@ -16,11 +16,11 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	service "github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 )
 
-// AnalogReadConfigReferences returns the references of AnalogReadConfig.
-func AnalogReadConfigReferences() []gorp.Reference[uuid.UUID, AnalogReadConfig] {
+// analogReadConfigReferences returns the references of AnalogReadConfig.
+func analogReadConfigReferences() []gorp.Reference[uuid.UUID, AnalogReadConfig] {
 	return []gorp.Reference[uuid.UUID, AnalogReadConfig]{
 		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, AnalogReadConfig, channel.Key]{
 			Name:     "channels.channel",
@@ -311,12 +311,12 @@ func AnalogReadConfigReferences() []gorp.Reference[uuid.UUID, AnalogReadConfig] 
 				}
 			},
 		}),
-		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, AnalogReadConfig, service.Key]{
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, AnalogReadConfig, device.Key]{
 			Name:     "channels.device",
 			Table:    "device",
 			OnDelete: gorp.Restrict,
-			Targets: func(e *AnalogReadConfig) []service.Key {
-				var targets []service.Key
+			Targets: func(e *AnalogReadConfig) []device.Key {
+				var targets []device.Key
 				for _, v1 := range e.Channels {
 					switch v2 := v1.Variant.(type) {
 					case AIVoltageChannel:
@@ -443,7 +443,7 @@ func AnalogReadConfigReferences() []gorp.Reference[uuid.UUID, AnalogReadConfig] 
 				}
 				return targets
 			},
-			Detach: func(e *AnalogReadConfig, t service.Key) {
+			Detach: func(e *AnalogReadConfig, t device.Key) {
 				for i3 := range e.Channels {
 					switch v4 := e.Channels[i3].Variant.(type) {
 					case AIVoltageChannel:
@@ -603,8 +603,8 @@ func AnalogReadConfigReferences() []gorp.Reference[uuid.UUID, AnalogReadConfig] 
 	}
 }
 
-// CounterReadConfigReferences returns the references of CounterReadConfig.
-func CounterReadConfigReferences() []gorp.Reference[uuid.UUID, CounterReadConfig] {
+// counterReadConfigReferences returns the references of CounterReadConfig.
+func counterReadConfigReferences() []gorp.Reference[uuid.UUID, CounterReadConfig] {
 	return []gorp.Reference[uuid.UUID, CounterReadConfig]{
 		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, CounterReadConfig, channel.Key]{
 			Name:     "channels.channel",
@@ -724,12 +724,12 @@ func CounterReadConfigReferences() []gorp.Reference[uuid.UUID, CounterReadConfig
 				}
 			},
 		}),
-		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, CounterReadConfig, service.Key]{
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, CounterReadConfig, device.Key]{
 			Name:     "channels.device",
 			Table:    "device",
 			OnDelete: gorp.Restrict,
-			Targets: func(e *CounterReadConfig) []service.Key {
-				var targets []service.Key
+			Targets: func(e *CounterReadConfig) []device.Key {
+				var targets []device.Key
 				for _, v1 := range e.Channels {
 					switch v2 := v1.Variant.(type) {
 					case CIFrequencyChannel:
@@ -780,7 +780,7 @@ func CounterReadConfigReferences() []gorp.Reference[uuid.UUID, CounterReadConfig
 				}
 				return targets
 			},
-			Detach: func(e *CounterReadConfig, t service.Key) {
+			Detach: func(e *CounterReadConfig, t device.Key) {
 				for i3 := range e.Channels {
 					switch v4 := e.Channels[i3].Variant.(type) {
 					case CIFrequencyChannel:
@@ -845,21 +845,21 @@ func CounterReadConfigReferences() []gorp.Reference[uuid.UUID, CounterReadConfig
 	}
 }
 
-// AnalogWriteConfigReferences returns the references of AnalogWriteConfig.
-func AnalogWriteConfigReferences() []gorp.Reference[uuid.UUID, AnalogWriteConfig] {
+// analogWriteConfigReferences returns the references of AnalogWriteConfig.
+func analogWriteConfigReferences() []gorp.Reference[uuid.UUID, AnalogWriteConfig] {
 	return []gorp.Reference[uuid.UUID, AnalogWriteConfig]{
-		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, AnalogWriteConfig, service.Key]{
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, AnalogWriteConfig, device.Key]{
 			Name:     "device",
 			Table:    "device",
 			OnDelete: gorp.Restrict,
-			Targets: func(e *AnalogWriteConfig) []service.Key {
-				var targets []service.Key
+			Targets: func(e *AnalogWriteConfig) []device.Key {
+				var targets []device.Key
 				if e.Device != "" {
 					targets = append(targets, e.Device)
 				}
 				return targets
 			},
-			Detach: func(e *AnalogWriteConfig, t service.Key) {
+			Detach: func(e *AnalogWriteConfig, t device.Key) {
 				if e.Device == t {
 					e.Device = ""
 				}
@@ -960,21 +960,21 @@ func AnalogWriteConfigReferences() []gorp.Reference[uuid.UUID, AnalogWriteConfig
 	}
 }
 
-// DigitalReadConfigReferences returns the references of DigitalReadConfig.
-func DigitalReadConfigReferences() []gorp.Reference[uuid.UUID, DigitalReadConfig] {
+// digitalReadConfigReferences returns the references of DigitalReadConfig.
+func digitalReadConfigReferences() []gorp.Reference[uuid.UUID, DigitalReadConfig] {
 	return []gorp.Reference[uuid.UUID, DigitalReadConfig]{
-		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, DigitalReadConfig, service.Key]{
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, DigitalReadConfig, device.Key]{
 			Name:     "device",
 			Table:    "device",
 			OnDelete: gorp.Restrict,
-			Targets: func(e *DigitalReadConfig) []service.Key {
-				var targets []service.Key
+			Targets: func(e *DigitalReadConfig) []device.Key {
+				var targets []device.Key
 				if e.Device != "" {
 					targets = append(targets, e.Device)
 				}
 				return targets
 			},
-			Detach: func(e *DigitalReadConfig, t service.Key) {
+			Detach: func(e *DigitalReadConfig, t device.Key) {
 				if e.Device == t {
 					e.Device = ""
 				}
@@ -1004,21 +1004,21 @@ func DigitalReadConfigReferences() []gorp.Reference[uuid.UUID, DigitalReadConfig
 	}
 }
 
-// DigitalWriteConfigReferences returns the references of DigitalWriteConfig.
-func DigitalWriteConfigReferences() []gorp.Reference[uuid.UUID, DigitalWriteConfig] {
+// digitalWriteConfigReferences returns the references of DigitalWriteConfig.
+func digitalWriteConfigReferences() []gorp.Reference[uuid.UUID, DigitalWriteConfig] {
 	return []gorp.Reference[uuid.UUID, DigitalWriteConfig]{
-		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, DigitalWriteConfig, service.Key]{
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, DigitalWriteConfig, device.Key]{
 			Name:     "device",
 			Table:    "device",
 			OnDelete: gorp.Restrict,
-			Targets: func(e *DigitalWriteConfig) []service.Key {
-				var targets []service.Key
+			Targets: func(e *DigitalWriteConfig) []device.Key {
+				var targets []device.Key
 				if e.Device != "" {
 					targets = append(targets, e.Device)
 				}
 				return targets
 			},
-			Detach: func(e *DigitalWriteConfig, t service.Key) {
+			Detach: func(e *DigitalWriteConfig, t device.Key) {
 				if e.Device == t {
 					e.Device = ""
 				}

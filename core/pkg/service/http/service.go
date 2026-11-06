@@ -73,7 +73,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if s.Read, err = config.OpenService(
 		ctx, config.ServiceConfig[ReadConfig]{
 			DB:                 cfg.DB,
-			References:         ReadConfigReferences(),
+			References:         readConfigReferences(),
 			Instrumentation:    cfg.Instrumentation,
 			Type:               "http_read",
 			Migrations:         versions.ReadMigrations,
@@ -90,7 +90,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if s.Write, err = config.OpenService(
 		ctx, config.ServiceConfig[WriteConfig]{
 			DB:                 cfg.DB,
-			References:         WriteConfigReferences(),
+			References:         writeConfigReferences(),
 			Instrumentation:    cfg.Instrumentation,
 			Type:               "http_write",
 			LegacyVersion:      legacy.LastVersion,
