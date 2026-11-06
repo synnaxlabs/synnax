@@ -292,6 +292,49 @@ TEST(WriterTests, testWriteErrOnUnauthorized) {
     ASSERT_TRUE(err.message().contains("test_writer_1"));
 }
 
+/// @brief it should return an error when two writers share only an index channel and
+/// err_on_unauthorized is true.
+TEST(WriterTests, testWriteErrOnUnauthorizedSharedIndex) {
+    auto client = new_test_client();
+    auto time = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("shared_index_time"),
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    ));
+    auto data_1 = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("shared_index_data_1"),
+        x::telem::UINT8_T,
+        time.key,
+        false
+    ));
+    auto data_2 = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("shared_index_data_2"),
+        x::telem::UINT8_T,
+        time.key,
+        false
+    ));
+    auto w1 = ASSERT_NIL_P(client.telem.open_writer(
+        synnax::framer::WriterConfig{
+            .channels = std::vector{time.key, data_1.key},
+            .start = x::telem::TimeStamp::now(),
+            .subject = x::control::Subject{"shared_index_w1"},
+            .err_on_unauthorized = true
+        }
+    ));
+    auto [w2, err] = client.telem.open_writer(
+        synnax::framer::WriterConfig{
+            .channels = std::vector{time.key, data_2.key},
+            .start = x::telem::TimeStamp::now(),
+            .subject = x::control::Subject{"shared_index_w2"},
+            .err_on_unauthorized = true
+        }
+    );
+    ASSERT_OCCURRED_AS(err, x::errors::UNAUTHORIZED);
+    ASSERT_TRUE(err.message().contains("shared_index_w1"));
+    ASSERT_NIL(w1.close());
+}
+
 /// @brief it should correctly change the authority of a writer.
 TEST(WriterTests, testSetAuthority) {
     auto client = new_test_client();
