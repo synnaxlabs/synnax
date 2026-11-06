@@ -19,6 +19,8 @@ from synnax.table.types_gen import (
     Table,
     TextCellConfig,
     ValueCellConfig,
+    Where,
+    WhereInput,
     ontology_id,
 )
 
@@ -34,5 +36,7 @@ __all__ = [
     "Table",
     "TextCellConfig",
     "ValueCellConfig",
+    "Where",
+    "WhereInput",
     "ontology_id",
 ]

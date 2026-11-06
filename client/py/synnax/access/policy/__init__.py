@@ -16,6 +16,7 @@ from synnax.access.policy.payload import (
     Policy,
     ontology_id,
 )
+from synnax.access.policy.types_gen import Where, WhereInput
 
 __all__ = [
     "ACTION_CREATE",
@@ -24,5 +25,7 @@ __all__ = [
     "ACTION_UPDATE",
     "Client",
     "Policy",
+    "Where",
+    "WhereInput",
     "ontology_id",
 ]

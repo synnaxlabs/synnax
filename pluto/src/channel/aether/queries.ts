@@ -27,9 +27,7 @@ export const retrieveDefinition: flux.Definition<RetrieveQuery, channel.Channel>
   getCached: ({ client, query }) => client.channels.getCached(query),
 };
 
-export type RetrieveMultipleQuery = channel.RetrieveOptions & {
-  keys: channel.Key[];
-};
+export type RetrieveMultipleQuery = channel.RetrieveMultipleParams;
 
 export const retrieveMultipleDefinition: flux.Definition<
   RetrieveMultipleQuery,

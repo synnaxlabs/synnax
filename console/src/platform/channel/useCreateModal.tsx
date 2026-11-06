@@ -26,7 +26,7 @@ import { Triggers } from "@/platform/triggers";
 
 const path = Channel.formPath;
 
-const INDEX_QUERY: Partial<Channel.RetrieveMultipleQuery> = { isIndex: true };
+const INDEX_QUERY: Channel.ListQuery = { where: { isIndex: { eq: true } } };
 
 type Kind = "data" | "index" | "virtual";
 
@@ -96,7 +96,7 @@ const Create = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
               <Channel.SelectSingle
                 value={value}
                 onChange={onChange}
-                initialQuery={INDEX_QUERY}
+                query={INDEX_QUERY}
                 allowNone={false}
                 zIndex={100}
               />

@@ -8,16 +8,25 @@
 // included in the file licenses/APL.txt.
 
 String struct {
-    eq    string?   {
+    eq               string?   {
         @doc value "matches a value equal to eq."
     }
-    in    string[]? {
+    in               string[]? {
         @doc value """
             matches a value equal to an element of in.
         """
     }
-    regex string?   {
-        @doc value "matches a value that the RE2 pattern regex matches."
+    contains         string?   {
+        @doc value "matches a value that holds contains."
+    }
+    starts_with      string?   {
+        @doc value "matches a value that begins with starts_with."
+    }
+    regex            string?   {
+        @doc value "matches a value that the unanchored RE2 pattern regex matches."
+    }
+    case_insensitive bool = false {
+        @doc value "makes every operator on the slot ignore case."
     }
 
     @doc value  "selects string values. A value must match every operator that is set."

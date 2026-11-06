@@ -47,7 +47,7 @@ var _ = DescribeTable("Pre-v0.54 key normalization",
 		Expect(chain[0].Key()).To(Equal("normalize_keys"))
 	},
 	Entry("alias", aliasversions.Migrations),
-	Entry("arc", arcversions.Migrations),
+	Entry("arc", arcversions.NewMigrations(arcversions.MigrationsConfig{})),
 	Entry("auth", authversions.Migrations),
 	Entry("channel", channelversions.Migrations),
 	Entry("device", deviceversions.NewMigrations(deviceversions.MigrationsConfig{})),

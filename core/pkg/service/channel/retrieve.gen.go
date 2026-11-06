@@ -130,6 +130,15 @@ func MatchKeys(keys ...Key) Filter {
 	}
 }
 
+// MatchNames returns a filter for
+// channels whose Name matches any of the
+// provided values.
+func MatchNames(vals ...Name) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Channel] {
+		return r.indexes.name.Filter(vals...)
+	}
+}
+
 // MatchLeaseholders returns a filter for
 // channels whose Leaseholder matches any of the
 // provided values.
@@ -203,6 +212,13 @@ func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); retu
 // return.
 func (r Retrieve) Offset(offset int) Retrieve {
 	r.gorp = r.gorp.Offset(offset)
+	return r
+}
+
+// SkipMissingKeys makes Exec treat a key with no channel as a
+// non-match instead of returning query.ErrNotFound.
+func (r Retrieve) SkipMissingKeys() Retrieve {
+	r.gorp = r.gorp.SkipMissingKeys()
 	return r
 }
 

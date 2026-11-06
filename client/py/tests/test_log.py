@@ -121,10 +121,39 @@ class TestClient:
         retrieved = client.logs.retrieve(keys=[log.key for log in created])
         assert {log.key for log in retrieved} == {log.key for log in created}
 
+    def test_retrieve_where(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should keep the logs that match the where and the other filters."""
+        a, b = client.logs.create(project.key, [sy.Log(name="A"), sy.Log(name="B")])
+        where = log.Where(not_=log.Where(key=sy.filter.Set[log.Key](eq=a.key)))
+        res = client.logs.retrieve(where=where, keys=[a.key, b.key, uuid4()])
+        assert [r.key for r in res] == [b.key]
+
     def test_retrieve_missing_raises(self, client: sy.Synnax) -> None:
         """Should raise NotFoundError when a log does not exist."""
         with pytest.raises(NotFoundError):
             client.logs.retrieve(key=uuid4())
+
+    def test_retrieve_key_list(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should return a list for a list of keys, even with one key."""
+        a = client.logs.create(project.key, sy.Log(name="A"))
+        res = client.logs.retrieve(key=[a.key])
+        assert [r.key for r in res] == [a.key]
+
+    def test_retrieve_plain_key_beside_fields(
+        self, client: sy.Synnax, project: sy.Project
+    ) -> None:
+        """Should return one log for a plain key beside other fields."""
+        a = client.logs.create(project.key, sy.Log(name="A"))
+        assert client.logs.retrieve(key=a.key, not_={"key": uuid4()}).key == a.key
+        with pytest.raises(NotFoundError, match=r"Log matching .* not found"):
+            client.logs.retrieve(key=a.key, not_={"key": a.key})
+
+    def test_retrieve_or(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should retrieve the logs that match any filter in or_."""
+        a = client.logs.create(project.key, sy.Log(name="A"))
+        b = client.logs.create(project.key, sy.Log(name="B"))
+        res = client.logs.retrieve(or_=[{"key": a.key}, {"key": [b.key]}])
+        assert {r.key for r in res} == {a.key, b.key}
 
     def test_rename(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should rename a log."""
@@ -145,8 +174,7 @@ class TestClient:
             project.key, [sy.Log(name="Delete 1"), sy.Log(name="Delete 2")]
         )
         client.logs.delete([log.key for log in logs])
-        with pytest.raises(NotFoundError):
-            client.logs.retrieve(keys=[log.key for log in logs])
+        assert client.logs.retrieve(keys=[log.key for log in logs]) == []
 
     def test_delete_missing(self, client: sy.Synnax) -> None:
         """Should not raise when deleting a log that does not exist."""

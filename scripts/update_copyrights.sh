@@ -578,7 +578,7 @@ echo ""
 
 echo -n "Counting files..."
 cd "$GIT_ROOT" || exit 1
-declare -a FILES_TO_UPDATE
+declare -a FILES_TO_UPDATE=()
 
 try_add_file() {
     local abs_file="$1"
