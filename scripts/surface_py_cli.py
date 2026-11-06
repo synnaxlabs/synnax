@@ -29,8 +29,12 @@ HELP_FIELDS = {"help", "short_help", "epilog"}
 def walk(info: dict[str, Any], *, path: str, out: list[str]) -> None:
     flags = "".join(f" {k}" for k in ("hidden", "deprecated") if info[k])
     out.append(f"{path} command{flags}")
+    position = 0
     for param in info["params"]:
         fields = {k: v for k, v in param.items() if k not in HELP_FIELDS}
+        if param["param_type_name"] == "argument":
+            fields["position"] = position
+            position += 1
         out.append(f"{path} {param['name']} {json.dumps(fields, sort_keys=True)}")
     for name, sub in info.get("commands", {}).items():
         walk(sub, path=f"{path} {name}", out=out)
