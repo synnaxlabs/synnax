@@ -17,13 +17,32 @@ import (
 	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
+	"go.uber.org/zap"
 )
 
-// ontologyDropMigration deletes every stored ontology resource and relationship. It
-// must run after every migration that reads the ontology.
+// ontologyDropMigration deletes every stored ontology resource and relationship, and
+// logs each label edge it deletes. It must run after every migration that reads the
+// ontology.
 var ontologyDropMigration = migrate.New(
 	"v61_drop_ontology",
-	func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
+	func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
+		labels, err := ontology.RetrieveRelationships(
+			ctx,
+			tx,
+			func(rel ontology.Relationship) bool {
+				return rel.Type == ontology.RelationshipTypeLabeledBy
+			},
+		)
+		if err != nil {
+			return err
+		}
+		for _, rel := range labels {
+			ins.L.Warn(
+				"dropped a label from a resource that cannot hold labels",
+				zap.Stringer("label", rel.To),
+				zap.Stringer("resource", rel.From),
+			)
+		}
 		return ontology.Drop(ctx, tx)
 	},
 )

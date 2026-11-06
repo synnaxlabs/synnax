@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
@@ -30,6 +31,9 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 func parentOf(from, to resource.ID) ontology.Relationship {
@@ -127,6 +131,37 @@ var _ = Describe("Ontology drop", func() {
 			Expect(relationships(ctx, node.DB)).To(BeEmpty())
 		},
 	)
+
+	It("Should log each label edge it drops", func(ctx SpecContext) {
+		node := testutil.NewNode(ctx)
+		legacyDB := gorp.Wrap(node.DB.KV(), gorp.WithCodec(msgpack.Codec))
+		labelID := resource.ID{Type: resource.TypeLabel, Key: uuid.New().String()}
+		taskID := resource.ID{Type: resource.TypeTask, Key: uuid.New().String()}
+		Expect(gorp.WrapWriter[string, ontology.Relationship](legacyDB).Set(
+			ctx,
+			ontology.Relationship{
+				From: taskID,
+				Type: ontology.RelationshipTypeLabeledBy,
+				To:   labelID,
+			},
+		)).To(Succeed())
+		core, logs := observer.New(zapcore.WarnLevel)
+		logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+			ZapLogger: zap.New(core),
+		}))
+		MustOpen(svctestutil.OpenLayer(ctx, node, service.LayerConfig{
+			Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
+		}))
+		dropped := logs.FilterMessage(
+			"dropped a label from a resource that cannot hold labels",
+		).All()
+		Expect(dropped).To(HaveLen(1))
+		Expect(dropped[0].ContextMap()).To(Equal(map[string]any{
+			"label":    labelID.String(),
+			"resource": taskID.String(),
+		}))
+		Expect(relationships(ctx, node.DB)).To(BeEmpty())
+	})
 
 	It("Should not run again on a later open", func(ctx SpecContext) {
 		node := testutil.NewNode(ctx)
