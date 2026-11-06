@@ -69,7 +69,7 @@ public:
         if (task.type != this->integration &&
             !task.type.starts_with(this->integration + "_"))
             return {nullptr, false};
-        // At boot, handle_config_err writes the error status only when auto_start is set.
+        // handle_config_err writes a boot error status only when auto_start is set.
         return common::handle_config_err(
             ctx,
             task,
