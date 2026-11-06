@@ -34,14 +34,15 @@ const (
 	keptBackups   = 3
 )
 
-// backupName matches a complete backup: the Unix seconds of the backup, padded so that
-// names sort by time, and the version of the data.
-var backupName = regexp.MustCompile(`^(\d{10})-(.+)$`)
+// backupFile matches the archive of a complete backup: the Unix seconds of the backup,
+// padded so that names sort by time, and the version of the data.
+var backupFile = regexp.MustCompile(`^((\d{10})-(.+))\.tar$`)
 
 // Backup is a copy of the metadata in a data directory: the key-value store and the
 // metadata of each Cesium channel. It holds no telemetry.
 type Backup struct {
-	// Name is the name of the backup directory in the backups directory.
+	// Name names the backup. Its archive in the backups directory is Name with a .tar
+	// extension.
 	Name string
 	// Time is when the backup was taken, to the second.
 	Time time.Time
@@ -128,25 +129,25 @@ func (b *Backups) List() ([]Backup, error) {
 	}
 	var backups []Backup
 	for _, info := range infos {
-		match := backupName.FindStringSubmatch(info.Name())
-		if !info.IsDir() || match == nil || strings.HasSuffix(match[2], partialSuffix) {
+		match := backupFile.FindStringSubmatch(info.Name())
+		if info.IsDir() || match == nil {
 			continue
 		}
-		seconds, err := strconv.ParseInt(match[1], 10, 64)
+		seconds, err := strconv.ParseInt(match[2], 10, 64)
 		if err != nil {
 			return nil, err
 		}
 		backups = append(backups, Backup{
-			Name:    info.Name(),
+			Name:    match[1],
 			Time:    time.Unix(seconds, 0),
-			Version: match[2],
+			Version: match[3],
 		})
 	}
 	return backups, nil
 }
 
-// create copies the metadata to a new backup labeled with version, then removes all but
-// the newest keptBackups backups.
+// create archives the metadata in a new backup labeled with version, then removes all
+// but the newest keptBackups backups.
 func (b *Backups) create(version string) (Backup, error) {
 	if err := b.removePartial(); err != nil {
 		return Backup{}, err
@@ -157,26 +158,35 @@ func (b *Backups) create(version string) (Backup, error) {
 		Time:    time.Unix(now.Unix(), 0),
 		Version: version,
 	}
-	partialDir := path.Join(backupsDir, backup.Name+partialSuffix)
-	partial, err := b.fs.Sub(partialDir)
-	if err != nil {
-		return Backup{}, err
-	}
-	if err = xfs.CopyDir(b.fs, partial, kvDir); err != nil {
-		return Backup{}, err
-	}
 	ts, err := b.fs.Sub(cesiumDir)
 	if err != nil {
 		return Backup{}, err
 	}
-	tsBackup, err := partial.Sub(cesiumDir)
+	metaFiles, err := cesium.MetaFiles(ts)
 	if err != nil {
 		return Backup{}, err
 	}
-	if err = cesium.BackupMeta(ts, tsBackup); err != nil {
+	files, err := listFiles(b.fs, kvDir)
+	if err != nil {
 		return Backup{}, err
 	}
-	if err = b.fs.Rename(partialDir, path.Join(backupsDir, backup.Name)); err != nil {
+	for _, file := range metaFiles {
+		files = append(files, path.Join(cesiumDir, file))
+	}
+	if _, err = b.fs.Sub(backupsDir); err != nil {
+		return Backup{}, err
+	}
+	archive := path.Join(backupsDir, backup.Name+archiveExt)
+	partial := archive + partialSuffix
+	if err = writeArchive(
+		b.fs,
+		partial,
+		[]string{kvDir, cesiumDir},
+		files,
+	); err != nil {
+		return Backup{}, err
+	}
+	if err = b.fs.Rename(partial, archive); err != nil {
 		return Backup{}, err
 	}
 	if err = b.prune(); err != nil {
@@ -211,7 +221,7 @@ func (b *Backups) prune() error {
 		return err
 	}
 	for _, old := range backups[:max(len(backups)-keptBackups, 0)] {
-		if err = b.fs.Remove(path.Join(backupsDir, old.Name)); err != nil {
+		if err = b.fs.Remove(path.Join(backupsDir, old.Name+archiveExt)); err != nil {
 			return err
 		}
 	}

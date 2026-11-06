@@ -10,6 +10,7 @@
 package update_test
 
 import (
+	"archive/tar"
 	"bytes"
 	"io"
 	"os"
@@ -31,10 +32,19 @@ var _ = Describe("Update", func() {
 
 	createBackup := func(name string) {
 		GinkgoHelper()
-		for _, part := range []string{"kv", "cesium"} {
-			Expect(os.MkdirAll(filepath.Join(dir, "backups", name, part), 0o700)).
-				To(Succeed())
+		backups := filepath.Join(dir, "backups")
+		Expect(os.MkdirAll(backups, 0o700)).To(Succeed())
+		f := MustSucceed(os.Create(filepath.Join(backups, name+".tar")))
+		w := tar.NewWriter(f)
+		for _, part := range []string{"kv/", "cesium/"} {
+			Expect(w.WriteHeader(&tar.Header{
+				Typeflag: tar.TypeDir,
+				Name:     part,
+				Mode:     0o700,
+			})).To(Succeed())
 		}
+		Expect(w.Close()).To(Succeed())
+		Expect(f.Close()).To(Succeed())
 	}
 
 	run := func(args ...string) (string, error) {

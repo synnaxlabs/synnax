@@ -10,10 +10,13 @@
 package storage_test
 
 import (
+	"archive/tar"
 	"context"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -85,11 +88,66 @@ func newBackups(dir string) *storage.Backups {
 	return MustSucceed(storage.NewBackups(storage.BackupsConfig{Dirname: dir}))
 }
 
+// onlyBackup returns the name of the one backup of the data directory dir.
 func onlyBackup(dir string) string {
 	GinkgoHelper()
 	backups := MustSucceed(newBackups(dir).List())
 	Expect(backups).To(HaveLen(1))
-	return filepath.Join(dir, "backups", backups[0].Name)
+	return backups[0].Name
+}
+
+func archiveFile(dir, name string) string {
+	return filepath.Join(dir, "backups", name+".tar")
+}
+
+type archiveEntry struct {
+	header *tar.Header
+	data   []byte
+}
+
+func readArchive(file string) []archiveEntry {
+	GinkgoHelper()
+	f := MustSucceed(os.Open(file))
+	defer func() { Expect(f.Close()).To(Succeed()) }()
+	r := tar.NewReader(f)
+	var read []archiveEntry
+	for {
+		header, err := r.Next()
+		if err == io.EOF {
+			return read
+		}
+		Expect(err).ToNot(HaveOccurred())
+		read = append(
+			read,
+			archiveEntry{header: header, data: MustSucceed(io.ReadAll(r))},
+		)
+	}
+}
+
+func archiveEntries(file string) []string {
+	GinkgoHelper()
+	var names []string
+	for _, e := range readArchive(file) {
+		names = append(names, e.header.Name)
+	}
+	return names
+}
+
+// dropFromArchive rewrites the archive file without the directory dir.
+func dropFromArchive(file, dir string) {
+	GinkgoHelper()
+	read := readArchive(file)
+	f := MustSucceed(os.Create(file))
+	w := tar.NewWriter(f)
+	for _, e := range read {
+		if strings.HasPrefix(e.header.Name, dir+"/") {
+			continue
+		}
+		Expect(w.WriteHeader(e.header)).To(Succeed())
+		MustSucceed(w.Write(e.data))
+	}
+	Expect(w.Close()).To(Succeed())
+	Expect(f.Close()).To(Succeed())
 }
 
 var _ = Describe("Backup", func() {
@@ -106,10 +164,19 @@ var _ = Describe("Backup", func() {
 			Expect(l.Close()).To(Succeed())
 			openAt(ctx, dir, "0.60.0")
 
-			backup := onlyBackup(dir)
-			Expect(entries(backup)).To(ConsistOf("kv", "cesium"))
-			Expect(entries(filepath.Join(backup, "kv"))).ToNot(BeEmpty())
-			Expect(entries(filepath.Join(backup, "cesium"))).To(HaveLen(2))
+			archived := archiveEntries(archiveFile(dir, onlyBackup(dir)))
+			Expect(archived).To(ContainElements(
+				"kv/",
+				"cesium/",
+				"cesium/1/meta.json",
+				"cesium/2/meta.json",
+			))
+			Expect(archived).To(ContainElement(MatchRegexp(`^kv/.+`)))
+			Expect(archived).To(HaveEach(Or(
+				Equal("cesium/"),
+				HavePrefix("kv/"),
+				HaveSuffix("/meta.json"),
+			)))
 		},
 	)
 
@@ -118,20 +185,22 @@ var _ = Describe("Backup", func() {
 		func(ctx SpecContext) {
 			openAt(ctx, dir, "0.0.0")
 			backups := filepath.Join(dir, "backups")
+			Expect(
+				os.MkdirAll(filepath.Join(backups, "orphaned-5"), 0o700),
+			).To(Succeed())
 			for _, name := range []string{
-				"0000000001-0.57.0",
-				"0000000002-0.58.0",
-				"0000000003-0.59.0",
-				"0000000004-0.59.1.partial",
-				"orphaned-5",
+				"0000000001-0.57.0.tar",
+				"0000000002-0.58.0.tar",
+				"0000000003-0.59.0.tar",
+				"0000000004-0.59.1.tar.partial",
 			} {
-				Expect(os.MkdirAll(filepath.Join(backups, name), 0o700)).To(Succeed())
+				writeFile(filepath.Join(backups, name), "")
 			}
 			openAt(ctx, dir, "0.60.0")
 			Expect(entries(backups)).To(ConsistOf(
-				"0000000002-0.58.0",
-				"0000000003-0.59.0",
-				HaveSuffix("-unknown"),
+				"0000000002-0.58.0.tar",
+				"0000000003-0.59.0.tar",
+				HaveSuffix("-unknown.tar"),
 				"orphaned-5",
 			))
 		},
@@ -141,8 +210,11 @@ var _ = Describe("Backup", func() {
 		"Should remove unfinished backups before it backs up again",
 		func(ctx SpecContext) {
 			openAt(ctx, dir, "0.59.0")
-			stale := filepath.Join(dir, "backups", "0000000001-0.58.0.partial")
-			Expect(os.MkdirAll(stale, 0o700)).To(Succeed())
+			Expect(os.MkdirAll(filepath.Join(dir, "backups"), 0o700)).To(Succeed())
+			writeFile(
+				filepath.Join(dir, "backups", "0000000001-0.58.0.tar.partial"),
+				"",
+			)
 			// A directory in place of a metadata file makes the copy fail.
 			Expect(os.MkdirAll(filepath.Join(dir, "cesium", "9", "meta.json"), 0o700)).
 				To(Succeed())
@@ -151,7 +223,7 @@ var _ = Describe("Backup", func() {
 				storage.LayerConfig{Dirname: dir, Version: "0.60.0"},
 			)).Error().To(MatchError(ContainSubstring("failed to back up metadata")))
 			Expect(entries(filepath.Join(dir, "backups"))).
-				To(ConsistOf(HaveSuffix("-0.59.0.partial")))
+				To(ConsistOf(HaveSuffix("-0.59.0.tar.partial")))
 		},
 	)
 })
@@ -177,16 +249,17 @@ var _ = Describe("Backups", func() {
 
 	It("Should list only complete backups, oldest first", func() {
 		backups := filepath.Join(dir, "backups")
-		for _, name := range []string{
-			"0000000002-0.60.0-rc.1",
-			"0000000001-unknown",
-			"0000000003-0.60.0.partial",
-			"orphaned-4",
-		} {
+		for _, name := range []string{"orphaned-4", "0000000005-0.61.0.tar"} {
 			Expect(os.MkdirAll(filepath.Join(backups, name), 0o700)).To(Succeed())
 		}
-		Expect(os.WriteFile(filepath.Join(backups, "0000000005-0.61.0"), nil, 0o600)).
-			To(Succeed())
+		for _, name := range []string{
+			"0000000002-0.60.0-rc.1.tar",
+			"0000000001-unknown.tar",
+			"0000000003-0.60.0.tar.partial",
+			"0000000004-0.60.0",
+		} {
+			writeFile(filepath.Join(backups, name), "")
+		}
 		Expect(MustSucceed(newBackups(dir).List())).To(Equal([]storage.Backup{
 			{Name: "0000000001-unknown", Time: time.Unix(1, 0), Version: "unknown"},
 			{
