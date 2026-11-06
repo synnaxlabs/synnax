@@ -227,6 +227,12 @@ class TestFix:
         assert repo.fix("--staged").returncode == 0
         assert not repo.header("a.sh")
 
+    def test_should_pass_when_no_staged_file_needs_a_header(self, repo: Repo) -> None:
+        repo.write("a.md", "# a\n")
+        repo.git("add", "a.md")
+        assert repo.fix("--staged").returncode == 0
+        assert not repo.header("a.md")
+
 
 class TestPreCommitHook:
     """Commits through the pre-commit hook."""

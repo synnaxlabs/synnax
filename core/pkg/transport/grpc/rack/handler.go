@@ -15,7 +15,9 @@ import (
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/rack/pb"
+	"github.com/synnaxlabs/synnax/pkg/api/rack/pb"
+	rackpb "github.com/synnaxlabs/synnax/pkg/service/rack/pb"
+	xpb "github.com/synnaxlabs/x/pb"
 	"github.com/synnaxlabs/x/unsafe"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -31,7 +33,7 @@ type (
 		rack.RetrieveRequest,
 		*RetrieveRequest,
 		rack.RetrieveResponse,
-		*RetrieveResponse,
+		*pb.RetrieveResponse,
 	]
 	deleteServer = grpc.UnaryServer[
 		rack.DeleteRequest,
@@ -50,18 +52,18 @@ type (
 )
 
 var (
-	_ grpc.Translator[rack.CreateRequest, *CreateRequest]       = createRequestTranslator{}
-	_ grpc.Translator[rack.CreateResponse, *CreateResponse]     = createResponseTranslator{}
-	_ grpc.Translator[rack.RetrieveRequest, *RetrieveRequest]   = retrieveRequestTranslator{}
-	_ grpc.Translator[rack.RetrieveResponse, *RetrieveResponse] = retrieveResponseTranslator{}
-	_ grpc.Translator[rack.DeleteRequest, *DeleteRequest]       = deleteRequestTranslator{}
+	_ grpc.Translator[rack.CreateRequest, *CreateRequest]          = createRequestTranslator{}
+	_ grpc.Translator[rack.CreateResponse, *CreateResponse]        = createResponseTranslator{}
+	_ grpc.Translator[rack.RetrieveRequest, *RetrieveRequest]      = retrieveRequestTranslator{}
+	_ grpc.Translator[rack.RetrieveResponse, *pb.RetrieveResponse] = retrieveResponseTranslator{}
+	_ grpc.Translator[rack.DeleteRequest, *DeleteRequest]          = deleteRequestTranslator{}
 )
 
 func (createRequestTranslator) Forward(
 	_ context.Context,
 	req rack.CreateRequest,
 ) (*CreateRequest, error) {
-	racks, err := pb.RacksToPB(req.Racks)
+	racks, err := rackpb.RacksToPB(req.Racks)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +74,7 @@ func (createRequestTranslator) Backward(
 	_ context.Context,
 	req *CreateRequest,
 ) (rack.CreateRequest, error) {
-	racks, err := pb.RacksFromPB(req.Racks)
+	racks, err := rackpb.RacksFromPB(req.Racks)
 	if err != nil {
 		return rack.CreateRequest{}, err
 	}
@@ -83,7 +85,7 @@ func (createResponseTranslator) Forward(
 	_ context.Context,
 	res rack.CreateResponse,
 ) (*CreateResponse, error) {
-	racks, err := pb.RacksToPB(res.Racks)
+	racks, err := rackpb.RacksToPB(res.Racks)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +96,7 @@ func (createResponseTranslator) Backward(
 	_ context.Context,
 	res *CreateResponse,
 ) (rack.CreateResponse, error) {
-	racks, err := pb.RacksFromPB(res.Racks)
+	racks, err := rackpb.RacksFromPB(res.Racks)
 	if err != nil {
 		return rack.CreateResponse{}, err
 	}
@@ -103,48 +105,39 @@ func (createResponseTranslator) Backward(
 
 func (retrieveRequestTranslator) Forward(
 	_ context.Context,
-	req rack.RetrieveRequest,
+	r rack.RetrieveRequest,
 ) (*RetrieveRequest, error) {
-	return &RetrieveRequest{
-		Keys:          unsafe.ReinterpretSlice[rack.Key, uint32](req.Keys),
-		Names:         req.Names,
-		Integration:   req.Integration,
-		IncludeStatus: req.IncludeStatus,
-	}, nil
+	req, err := pb.RetrieveRequestToPB(r)
+	if err != nil {
+		return nil, err
+	}
+	return &RetrieveRequest{Request: req}, nil
 }
 
 func (retrieveRequestTranslator) Backward(
 	_ context.Context,
-	req *RetrieveRequest,
+	r *RetrieveRequest,
 ) (rack.RetrieveRequest, error) {
-	return rack.RetrieveRequest{
-		Keys:          unsafe.ReinterpretSlice[uint32, rack.Key](req.Keys),
-		Names:         req.Names,
-		Integration:   req.Integration,
-		IncludeStatus: req.IncludeStatus,
-	}, nil
+	// A client older than the Core sends the reserved fields, which would otherwise
+	// select every rack.
+	if err := xpb.RejectUnknown(r); err != nil {
+		return rack.RetrieveRequest{}, err
+	}
+	return pb.RetrieveRequestFromPB(r.Request)
 }
 
 func (retrieveResponseTranslator) Forward(
 	_ context.Context,
 	res rack.RetrieveResponse,
-) (*RetrieveResponse, error) {
-	racks, err := pb.RacksToPB(res.Racks)
-	if err != nil {
-		return nil, err
-	}
-	return &RetrieveResponse{Racks: racks}, nil
+) (*pb.RetrieveResponse, error) {
+	return pb.RetrieveResponseToPB(res)
 }
 
 func (retrieveResponseTranslator) Backward(
 	_ context.Context,
-	res *RetrieveResponse,
+	res *pb.RetrieveResponse,
 ) (rack.RetrieveResponse, error) {
-	racks, err := pb.RacksFromPB(res.Racks)
-	if err != nil {
-		return rack.RetrieveResponse{}, err
-	}
-	return rack.RetrieveResponse{Racks: racks}, nil
+	return pb.RetrieveResponseFromPB(res)
 }
 
 func (deleteRequestTranslator) Forward(

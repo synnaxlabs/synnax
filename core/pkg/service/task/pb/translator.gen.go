@@ -15,14 +15,312 @@ import (
 	"encoding/json/v2"
 	"uuid"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/filter"
+	filterpb "github.com/synnaxlabs/x/filter/pb"
+	xpb "github.com/synnaxlabs/x/pb"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 )
+
+// UuidSetToPB converts filter.Set[uuid.UUID] to UuidSet.
+func UuidSetToPB(r filter.Set[uuid.UUID]) (*UuidSet, error) {
+	pb := &UuidSet{}
+	if r.Eq != nil {
+		v := r.Eq.String()
+		pb.Eq = &v
+	}
+	if r.In != nil {
+		pb.In = &UuidList{Values: lo.Map(r.In, func(u uuid.UUID, _ int) string { return uuid.UUID(u).String() })}
+	}
+	return pb, nil
+}
+
+// UuidSetFromPB converts UuidSet to filter.Set[uuid.UUID].
+func UuidSetFromPB(pb *UuidSet) (filter.Set[uuid.UUID], error) {
+	var r filter.Set[uuid.UUID]
+	if pb == nil {
+		return r, nil
+	}
+	if pb.Eq != nil {
+		v, err := uuid.Parse(*pb.Eq)
+		if err != nil {
+			return filter.Set[uuid.UUID]{}, err
+		}
+		r.Eq = &v
+	}
+	if pb.In != nil {
+		vals, err := func() ([]uuid.UUID, error) {
+			result := make([]uuid.UUID, len(pb.In.Values))
+			for i, s := range pb.In.Values {
+				parsed, err := uuid.Parse(s)
+				if err != nil {
+					return nil, err
+				}
+				result[i] = uuid.UUID(parsed)
+			}
+			return result, nil
+		}()
+		if err != nil {
+			return filter.Set[uuid.UUID]{}, err
+		}
+		r.In = xpb.ListValues(vals)
+	}
+	return r, nil
+}
+
+// UuidSetsToPB converts a slice of filter.Set[uuid.UUID] to UuidSet.
+func UuidSetsToPB(rs []filter.Set[uuid.UUID]) ([]*UuidSet, error) {
+	result := make([]*UuidSet, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = UuidSetToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// UuidSetsFromPB converts a slice of UuidSet to filter.Set[uuid.UUID].
+func UuidSetsFromPB(pbs []*UuidSet) ([]filter.Set[uuid.UUID], error) {
+	result := make([]filter.Set[uuid.UUID], len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = UuidSetFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// RackKeySetToPB converts filter.Set[rack.Key] to RackKeySet.
+func RackKeySetToPB(r filter.Set[rack.Key]) (*RackKeySet, error) {
+	pb := &RackKeySet{}
+	if r.Eq != nil {
+		v := uint32(*r.Eq)
+		pb.Eq = &v
+	}
+	if r.In != nil {
+		pb.In = &RackKeyList{Values: lo.Map(r.In, func(v rack.Key, _ int) uint32 { return uint32(v) })}
+	}
+	return pb, nil
+}
+
+// RackKeySetFromPB converts RackKeySet to filter.Set[rack.Key].
+func RackKeySetFromPB(pb *RackKeySet) (filter.Set[rack.Key], error) {
+	var r filter.Set[rack.Key]
+	if pb == nil {
+		return r, nil
+	}
+	if pb.Eq != nil {
+		v := rack.Key(*pb.Eq)
+		r.Eq = &v
+	}
+	if pb.In != nil {
+		r.In = xpb.ListValues(lo.Map(pb.In.Values, func(v uint32, _ int) rack.Key { return rack.Key(v) }))
+	}
+	return r, nil
+}
+
+// RackKeySetsToPB converts a slice of filter.Set[rack.Key] to RackKeySet.
+func RackKeySetsToPB(rs []filter.Set[rack.Key]) ([]*RackKeySet, error) {
+	result := make([]*RackKeySet, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = RackKeySetToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// RackKeySetsFromPB converts a slice of RackKeySet to filter.Set[rack.Key].
+func RackKeySetsFromPB(pbs []*RackKeySet) ([]filter.Set[rack.Key], error) {
+	result := make([]filter.Set[rack.Key], len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = RackKeySetFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// WhereToPB converts Where to Where.
+func WhereToPB(r task.Where) (*Where, error) {
+	pb := &Where{}
+	if r.And != nil {
+		vals, err := WheresToPB(r.And)
+		if err != nil {
+			return nil, err
+		}
+		pb.And = &WhereList{Values: vals}
+	}
+	if r.Or != nil {
+		vals, err := WheresToPB(r.Or)
+		if err != nil {
+			return nil, err
+		}
+		pb.Or = &WhereList{Values: vals}
+	}
+	if r.Not != nil {
+		var err error
+		pb.Not, err = WhereToPB(*r.Not)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Key != nil {
+		var err error
+		pb.Key, err = UuidSetToPB(*r.Key)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Name != nil {
+		var err error
+		pb.Name, err = filterpb.StringToPB(*r.Name)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Type != nil {
+		var err error
+		pb.Type, err = filterpb.StringToPB(*r.Type)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Rack != nil {
+		var err error
+		pb.Rack, err = RackKeySetToPB(*r.Rack)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Internal != nil {
+		var err error
+		pb.Internal, err = filterpb.BoolToPB(*r.Internal)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Snapshot != nil {
+		var err error
+		pb.Snapshot, err = filterpb.BoolToPB(*r.Snapshot)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return pb, nil
+}
+
+// WhereFromPB converts Where to Where.
+func WhereFromPB(pb *Where) (task.Where, error) {
+	var r task.Where
+	if pb == nil {
+		return r, nil
+	}
+	if pb.And != nil {
+		vals, err := WheresFromPB(pb.And.Values)
+		if err != nil {
+			return task.Where{}, err
+		}
+		r.And = xpb.ListValues(vals)
+	}
+	if pb.Or != nil {
+		vals, err := WheresFromPB(pb.Or.Values)
+		if err != nil {
+			return task.Where{}, err
+		}
+		r.Or = xpb.ListValues(vals)
+	}
+	if pb.Not != nil {
+		val, err := WhereFromPB(pb.Not)
+		if err != nil {
+			return task.Where{}, err
+		}
+		r.Not = &val
+	}
+	if pb.Key != nil {
+		val, err := UuidSetFromPB(pb.Key)
+		if err != nil {
+			return task.Where{}, err
+		}
+		r.Key = &val
+	}
+	if pb.Name != nil {
+		val, err := filterpb.StringFromPB(pb.Name)
+		if err != nil {
+			return task.Where{}, err
+		}
+		r.Name = &val
+	}
+	if pb.Type != nil {
+		val, err := filterpb.StringFromPB(pb.Type)
+		if err != nil {
+			return task.Where{}, err
+		}
+		r.Type = &val
+	}
+	if pb.Rack != nil {
+		val, err := RackKeySetFromPB(pb.Rack)
+		if err != nil {
+			return task.Where{}, err
+		}
+		r.Rack = &val
+	}
+	if pb.Internal != nil {
+		val, err := filterpb.BoolFromPB(pb.Internal)
+		if err != nil {
+			return task.Where{}, err
+		}
+		r.Internal = &val
+	}
+	if pb.Snapshot != nil {
+		val, err := filterpb.BoolFromPB(pb.Snapshot)
+		if err != nil {
+			return task.Where{}, err
+		}
+		r.Snapshot = &val
+	}
+	return r, nil
+}
+
+// WheresToPB converts a slice of Where to Where.
+func WheresToPB(rs []task.Where) ([]*Where, error) {
+	result := make([]*Where, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = WhereToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// WheresFromPB converts a slice of Where to Where.
+func WheresFromPB(pbs []*Where) ([]task.Where, error) {
+	result := make([]task.Where, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = WhereFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
 
 // CommandToPB converts Command to Command.
 func CommandToPB(r task.Command) (*Command, error) {

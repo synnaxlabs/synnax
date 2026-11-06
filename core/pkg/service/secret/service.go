@@ -121,7 +121,7 @@ type Service struct {
 	aead             cipher.AEAD
 	group            group.Group
 	table            *gorp.Table[Key, Secret]
-	search           *gorp.SearchIndex[Key, Secret]
+	indexes          indexes
 	closer           xio.MultiCloser
 	cfg              ServiceConfig
 	setChannelKey    channel.Key
@@ -132,7 +132,7 @@ type Service struct {
 // the encryption key cannot decrypt the secrets an earlier start stored. If the error
 // is nil, the Service must be closed with Close after use.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
-	s = &Service{search: newSearchIndex()}
+	s = &Service{indexes: newIndexes()}
 	if s.cfg, err = config.New(DefaultServiceConfig, cfgs...); err != nil {
 		return nil, err
 	}
@@ -150,7 +150,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Secret]{
 		DB:              s.cfg.DB,
-		Indexes:         []gorp.Index[Key, Secret]{s.search},
+		Indexes:         s.indexes.all(),
 		Instrumentation: s.cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
@@ -228,8 +228,8 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 // plain text.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		gorp:   s.table.NewRetrieve(),
-		baseTX: s.cfg.DB,
-		search: s.search,
+		gorp:    s.table.NewRetrieve(),
+		baseTX:  s.cfg.DB,
+		indexes: s.indexes,
 	}
 }

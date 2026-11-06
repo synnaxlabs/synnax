@@ -13,6 +13,7 @@ import pytest
 
 import synnax as sy
 from synnax import secret
+from x import filter
 from x.testutil import assert_eventually
 
 
@@ -92,6 +93,12 @@ class TestSecret:
         retrieved = client.secrets.retrieve(keys=[s.key for s in created])
         assert sorted(s.name for s in retrieved) == ["Multi 1", "Multi 2"]
 
+    def test_retrieve_by_where(self, client: sy.Synnax) -> None:
+        """Should leave out a key that no secret has."""
+        s = client.secrets.create(secret.NewStored(name="Kept", value="a"))
+        where = secret.Where(key=filter.Set[secret.Key](in_=[s.key, uuid4()]))
+        assert client.secrets.retrieve(where=where) == [s]
+
     def test_retrieve_with_search_term(self, client: sy.Synnax) -> None:
         """Should search for secrets by name."""
         name = f"searchable-secret-{uuid4()}"
@@ -105,7 +112,7 @@ class TestSecret:
     def test_retrieve_missing(self, client: sy.Synnax) -> None:
         """Should raise NotFoundError when no secret has the key."""
         key = uuid4()
-        with pytest.raises(sy.NotFoundError, match=rf"Secrets with keys \[{key}\]"):
+        with pytest.raises(sy.NotFoundError, match=rf"Secret matching {key} not found"):
             client.secrets.retrieve(key=key)
 
     def test_rename(self, client: sy.Synnax) -> None:
@@ -131,5 +138,5 @@ class TestSecret:
         )
         client.secrets.delete([s.key for s in secrets])
         key = secrets[0].key
-        with pytest.raises(sy.NotFoundError, match=rf"Secrets with keys \[{key}\]"):
+        with pytest.raises(sy.NotFoundError, match=rf"Secret matching {key} not found"):
             client.secrets.retrieve(key=key)

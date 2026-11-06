@@ -15,10 +15,10 @@ from typing import Annotated, Literal, TypeAlias
 from typing import override as _override
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from synnax.ontology.payload import ID
-from x import telem
+from x import filter, telem
 
 SOURCE_STORED: Literal["stored"] = "stored"
 
@@ -48,6 +48,24 @@ class Base(BaseModel):
         return hash(self.key)
 
 
+class Where(BaseModel):
+    """Is a filter that selects secrets.
+
+    Attributes:
+        and_: Matches when every child matches.
+        or_: Matches when any child matches.
+        not_: Matches when the child does not match.
+        key: Selects by key.
+    """
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    and_: list[Where] | None = Field(default=None, alias="and")
+    or_: list[Where] | None = Field(default=None, alias="or")
+    not_: Where | None = Field(default=None, alias="not")
+    key: filter.Set[Key] | None = None
+
+
 class StoredSecret(Base):
     """Is a secret whose value the Core stores."""
 
@@ -67,6 +85,37 @@ Secret = Annotated[
     StoredSecret | FileSecret,
     Field(discriminator="source"),
 ]
+
+
+class RetrieveRequest(BaseModel):
+    """Is a request to retrieve secrets.
+
+    Attributes:
+        where: Selects the secrets to retrieve. An absent where selects all of them.
+        search_term: Keeps the secrets that match the term, closest match first.
+        limit: Is the most secrets to return.
+        offset: Is the number of matching secrets to skip.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    where: Where | None = None
+    search_term: str = ""
+    limit: int | None = Field(default=None, ge=0, le=4294967295)
+    offset: int = Field(default=0, ge=0, le=4294967295)
+
+
+class RetrieveResponse(BaseModel):
+    """Holds the secrets a RetrieveRequest selects.
+
+    Attributes:
+        secrets: Are the secrets the request selects.
+    """
+
+    secrets: list[Secret] = Field(default_factory=list)
+
+
+Where.model_rebuild()
 
 
 ONTOLOGY_TYPE = ID(type="secret")
