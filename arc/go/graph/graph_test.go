@@ -186,6 +186,27 @@ var _ = Describe("Graph", func() {
 			Expect(firstNode.Channels.Read).To(HaveLen(1))
 		})
 
+		It("Should type the same call in two bodies apart", func(ctx SpecContext) {
+			check := func(key string, t types.Type) ir.Function {
+				return ir.Function{
+					Key:    key,
+					Inputs: types.Params{{Name: "value", Type: t}},
+					Outputs: types.Params{
+						{Name: ir.DefaultOutputParam, Type: types.Bool()},
+					},
+					Body: ir.Body{Raw: `{ return math.is_nan(value) }`},
+				}
+			}
+			g := MustSucceed(graph.Parse(arc.Graph{Functions: []ir.Function{
+				check("check_f32", types.F32()),
+				check("check_f64", types.F64()),
+			}}))
+			root := symbol.NewRoot(nil, stl.NewSymbols())
+			symbol.AutoImportModules(root)
+			_, diagnostics := graph.Analyze(ctx, g, root)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+		})
+
 		DescribeTable("Should reject a node that is not a flow function",
 			func(ctx SpecContext, nodeType string) {
 				nodes, inputs := buildNodes(nodeSpec{key: "n", typ: nodeType})
