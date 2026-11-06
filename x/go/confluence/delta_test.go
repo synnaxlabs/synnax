@@ -133,6 +133,85 @@ var _ = Describe("Delta", func() {
 			Eventually(outputOne.Outlet()).Should(BeClosed())
 		})
 
+		Describe("Stopping", func() {
+			var (
+				delta  *DynamicDeltaMultiplier[int]
+				ctx    signal.Context
+				cancel context.CancelFunc
+			)
+			BeforeEach(func() {
+				delta = NewDynamicDeltaMultiplier[int](0, Instrumentation("dev"))
+				delta.InFrom(inputOne)
+				ctx, cancel = signal.Isolated()
+				DeferCleanup(cancel)
+			})
+
+			It("Should close connected inlets and report that it stopped", func() {
+				delta.Flow(ctx)
+				delta.Connect(outputOne)
+				Consistently(delta.Stopped(), 10*time.Millisecond).ShouldNot(BeClosed())
+				cancel()
+				Eventually(delta.Stopped()).Should(BeClosed())
+				Eventually(outputOne.Outlet()).Should(BeClosed())
+			})
+
+			It("Should stop when its input closes", func() {
+				delta.Flow(ctx)
+				inputOne.Close()
+				Eventually(delta.Stopped()).Should(BeClosed())
+			})
+
+			It("Should close an inlet connected after it stopped", func() {
+				delta.Flow(ctx)
+				cancel()
+				Eventually(delta.Stopped()).Should(BeClosed())
+				connected := make(chan struct{})
+				go func() {
+					defer close(connected)
+					delta.Connect(outputOne)
+				}()
+				Eventually(connected).Should(BeClosed())
+				Eventually(outputOne.Outlet()).Should(BeClosed())
+			})
+
+			It("Should return from Disconnect after it stopped", func() {
+				delta.Flow(ctx)
+				delta.Connect(outputOne)
+				cancel()
+				Eventually(delta.Stopped()).Should(BeClosed())
+				disconnected := make(chan struct{})
+				go func() {
+					defer close(disconnected)
+					delta.Disconnect(outputOne)
+				}()
+				Eventually(disconnected).Should(BeClosed())
+			})
+
+			It("Should drop only the inlet that panics", func() {
+				delta.Flow(
+					ctx,
+					RecoverWithErrOnPanic(),
+					WithRetryOnPanic(),
+					func(o *Options) {
+						o.Signal = append(
+							o.Signal,
+							signal.WithBaseRetryInterval(time.Millisecond),
+							signal.WithRetryScale(1e6),
+						)
+					},
+				)
+				delta.Connect(outputOne, outputTwo)
+				outputTwo.Close()
+				for v := range 5 {
+					Eventually(inputOne.Inlet()).Should(BeSent(v))
+					Eventually(outputOne.Outlet()).Should(Receive(Equal(v)))
+				}
+				Expect(delta.Stopped()).ToNot(BeClosed())
+				cancel()
+				Eventually(delta.Stopped()).Should(BeClosed())
+			})
+		})
+
 		Describe("Timeout", func() {
 			It(
 				"Should allow the delta to operate normally if a consumer receives within the timeout",
