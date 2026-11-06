@@ -226,7 +226,7 @@ TEST_F(IGHMasterTest, ActivateFailsWhenSlaveRejectsStartupParameter) {
     this->initialize_with_slave();
     this->master_instance->set_slave_config(0, {.startup_parameters = {FILTER}});
     this->mock_api->set_sdo_download_abort(0x8000, 0x15, 0x06090031);
-    const auto err = this->master_instance->activate();
+    const auto err = this->master_instance->activate(no_cycle);
     ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
     EXPECT_EQ(
         err.data,
@@ -242,7 +242,7 @@ TEST_F(IGHMasterTest, ActivateFailsWhenSlaveDoesNotAnswerStartupParameter) {
     this->initialize_with_slave();
     this->master_instance->set_slave_config(0, {.startup_parameters = {FILTER}});
     this->mock_api->set_sdo_download_abort(0x8000, 0x15, 0);
-    const auto err = this->master_instance->activate();
+    const auto err = this->master_instance->activate(no_cycle);
     ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
     EXPECT_EQ(
         err.data,
@@ -256,7 +256,7 @@ TEST_F(IGHMasterTest, ActivateFailsWhenStartupParameterCannotBeConfigured) {
     this->initialize_with_slave();
     this->master_instance->set_slave_config(0, {.startup_parameters = {FILTER}});
     this->mock_api->set_config_sdo_fails(true);
-    const auto err = this->master_instance->activate();
+    const auto err = this->master_instance->activate(no_cycle);
     ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
     EXPECT_EQ(
         err.data,

@@ -964,7 +964,7 @@ TEST_F(SOEMMasterTest, ReplaceSlaveConfigsSetsWhichSlavesAreDisabled) {
     this->master->replace_slave_configs({{2, {.enabled = false}}});
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
-    ASSERT_NIL(this->master->activate());
+    ASSERT_NIL(this->master->activate(no_cycle));
     EXPECT_EQ(this->mock->slave_infos[0].group, 1);
     EXPECT_EQ(this->mock->slave_infos[1].group, 2);
 }
@@ -1208,7 +1208,7 @@ TEST_F(SOEMMasterTest, ActivateFailsWhenSlaveRejectsStartupParameter) {
     this->initialize_with_slave();
     this->master->set_slave_config(1, {.startup_parameters = {FILTER, RANGE}});
     this->mock->sdo_write_aborts[{0x8000, 0x15}] = 0x06090031;
-    const auto err = this->master->activate();
+    const auto err = this->master->activate(no_cycle);
     ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
     EXPECT_EQ(
         err.data,
@@ -1224,7 +1224,7 @@ TEST_F(SOEMMasterTest, ActivateFailsWhenStartupParameterGetsNoResponse) {
     this->initialize_with_slave();
     this->master->set_slave_config(1, {.startup_parameters = {RANGE}});
     this->mock->sdo_write_aborts[{0x8000, 0x19}] = 0;
-    const auto err = this->master->activate();
+    const auto err = this->master->activate(no_cycle);
     ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
     EXPECT_EQ(
         err.data,
@@ -1239,7 +1239,7 @@ TEST_F(SOEMMasterTest, StartupFailureIgnoresAbortsOfOtherObjects) {
     this->master->set_slave_config(1, {.startup_parameters = {RANGE}});
     this->mock->push_sdo_abort(1, 0x1C12, 0, 0x06020000);
     this->mock->sdo_write_aborts[{0x8000, 0x19}] = 0;
-    const auto err = this->master->activate();
+    const auto err = this->master->activate(no_cycle);
     ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
     EXPECT_EQ(
         err.data,
@@ -1305,7 +1305,7 @@ TEST_F(SOEMMasterTest, ActivateReadsLayoutThatStartupParametersAssign) {
     this->master->set_slave_config(1, {.startup_parameters = {assign_1a01}});
     this->mock->slave_infos[0].Ibits = 16;
     this->mock->ibytes = 2;
-    ASSERT_NIL(this->master->activate());
+    ASSERT_NIL(this->master->activate(no_cycle));
 
     const auto offset = ASSERT_NIL_P(
         this->master->pdo_offset(pdo::Entry(1, 0x6010, 1, 16, true, x::telem::INT16_T))
