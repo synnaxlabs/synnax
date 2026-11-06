@@ -22,22 +22,41 @@ import (
 )
 
 const (
-	ActionTypeCreate          = "create"
-	ActionTypeRename          = "rename"
-	ActionTypeSetNode         = "set_node"
+	// ActionTypeCreate is the Type of an Action that carries CreatePayload.
+	ActionTypeCreate = "create"
+	// ActionTypeRename is the Type of an Action that carries RenamePayload.
+	ActionTypeRename = "rename"
+	// ActionTypeSetNode is the Type of an Action that carries SetNodePayload.
+	ActionTypeSetNode = "set_node"
+	// ActionTypeSetNodePosition is the Type of an Action that carries
+	// SetNodePositionPayload.
 	ActionTypeSetNodePosition = "set_node_position"
-	ActionTypeSetNodeInputs   = "set_node_inputs"
-	ActionTypeRemoveNode      = "remove_node"
-	ActionTypeAddEdge         = "add_edge"
-	ActionTypeRemoveEdge      = "remove_edge"
-	ActionTypeReconnectEdge   = "reconnect_edge"
-	ActionTypeInsertChar      = "insert_char"
-	ActionTypeDeleteChar      = "delete_char"
-	ActionTypeForgetChars     = "forget_chars"
-	ActionTypeSet             = "set"
-	ActionTypeRemove          = "remove"
-	ActionTypeInsert          = "insert"
-	ActionTypeMove            = "move"
+	// ActionTypeSetNodeInputs is the Type of an Action that carries
+	// SetNodeInputsPayload.
+	ActionTypeSetNodeInputs = "set_node_inputs"
+	// ActionTypeRemoveNode is the Type of an Action that carries RemoveNodePayload.
+	ActionTypeRemoveNode = "remove_node"
+	// ActionTypeAddEdge is the Type of an Action that carries AddEdgePayload.
+	ActionTypeAddEdge = "add_edge"
+	// ActionTypeRemoveEdge is the Type of an Action that carries RemoveEdgePayload.
+	ActionTypeRemoveEdge = "remove_edge"
+	// ActionTypeReconnectEdge is the Type of an Action that carries
+	// ReconnectEdgePayload.
+	ActionTypeReconnectEdge = "reconnect_edge"
+	// ActionTypeInsertChar is the Type of an Action that carries InsertCharPayload.
+	ActionTypeInsertChar = "insert_char"
+	// ActionTypeDeleteChar is the Type of an Action that carries DeleteCharPayload.
+	ActionTypeDeleteChar = "delete_char"
+	// ActionTypeForgetChars is the Type of an Action that carries ForgetCharsPayload.
+	ActionTypeForgetChars = "forget_chars"
+	// ActionTypeSet is the Type of an Action that carries SetPayload.
+	ActionTypeSet = "set"
+	// ActionTypeRemove is the Type of an Action that carries RemovePayload.
+	ActionTypeRemove = "remove"
+	// ActionTypeInsert is the Type of an Action that carries InsertPayload.
+	ActionTypeInsert = "insert"
+	// ActionTypeMove is the Type of an Action that carries MovePayload.
+	ActionTypeMove = "move"
 )
 
 // CreatePayload replaces the document with the given created state. Emitted by the Core

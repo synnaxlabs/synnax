@@ -385,6 +385,24 @@ describe("Ontology", () => {
       expect(paths[ontology.idToString(leaf)]).toEqual([[mid]]);
     });
 
+    it("should take back a dropped parent link that another client adds", async () => {
+      const { top, leaf } = await createChain();
+      const side = await client.groups.create({ parent: top, name: randomName() });
+      await drainStream();
+      const stale: ontology.Relationship = {
+        from: group.ontologyID(side.key),
+        type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+        to: leaf,
+      };
+      const key = ontology.relationshipToString(stale);
+      const { relationships } = client.ontology.cache;
+      relationships.set(key, stale);
+      await client.ontology.ancestors.retrieve({ ids: leaf, root: top });
+      expect(relationships.status(key)).toBe("tombstoned");
+      await remote.ontology.addChildren(stale.from, leaf);
+      await expect.poll(() => relationships.status(key)).toBe("present");
+    });
+
     it("should keep a link deleted while the request is in flight", async () => {
       const { top, mid, leaf } = await createChain();
       const key = ontology.relationshipToString({

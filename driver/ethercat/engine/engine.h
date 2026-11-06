@@ -36,7 +36,7 @@ struct Config {
     /// handle->apply() instead of apply_config(rt).
     std::shared_ptr<x::thread::rt::Handle> rt_handle;
     /// @brief how the engine retries starting the bus before open_reader or open_writer
-    /// returns the error.
+    /// returns the error. A slave that refuses a state change fails the start at once.
     x::breaker::Config start_retry{
         .name = "ethercat_engine",
         .base_interval = x::telem::MILLISECOND * 100,
