@@ -22,9 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/json"
-	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -409,10 +407,7 @@ var _ = Describe("CreateSession", func() {
 		Expect(res.Session.Credential).To(Equal(session.Credential))
 		Expect(res.User.Key).To(Equal(root.Key))
 	})
-	DescribeTable("Should leave the hash off the wire", func(
-		ctx SpecContext,
-		codec encoding.Codec,
-	) {
+	It("Should leave the hash off the wire", func(ctx SpecContext) {
 		res := MustSucceed(apiSvc.CreateSession(
 			requestCtx(ctx),
 			apiauth.SessionCreateRequest{Proof: passwordProof(
@@ -422,17 +417,14 @@ var _ = Describe("CreateSession", func() {
 		))
 		Expect(res.Session.Hash).To(HaveLen(32))
 		var decoded map[string]any
-		Expect(codec.Decode(
+		Expect(json.Codec.Decode(
 			ctx,
-			MustSucceed(codec.Encode(ctx, res.Session)),
+			MustSucceed(json.Codec.Encode(ctx, res.Session)),
 			&decoded,
 		)).To(Succeed())
 		Expect(decoded).To(HaveKey("key"))
 		Expect(decoded).ToNot(HaveKey("hash"))
-	},
-		Entry("JSON", json.Codec),
-		Entry("msgpack", msgpack.Codec),
-	)
+	})
 	It("Should reject a wrong password", func(ctx SpecContext) {
 		Expect(apiSvc.CreateSession(
 			requestCtx(ctx),

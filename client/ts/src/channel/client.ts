@@ -245,6 +245,11 @@ const retrieveGroupResZ = z.object({ group: group.groupZ });
 /** Names one channel. Give a `rangeKey` to resolve its alias in that range. */
 export type RetrieveSingleParams = { key: Key; rangeKey?: ranger.Key };
 
+type OneParams = query.OneInput<typeof retrieveParamsZ>;
+
+const isOneParams = (params: object): params is RetrieveSingleParams | OneParams =>
+  query.addressesOne(params);
+
 /** Aliases and statuses are composed from their stores on read. */
 const stripComposed = ({ alias: _alias, status: _status, ...rest }: Payload): Payload =>
   rest;
@@ -519,7 +524,7 @@ export class Client extends query.Retriever<
     options?: RetrieveOptions,
   ): Promise<Channel[]>;
 
-  async retrieve(params: RetrieveSingleParams): Promise<Channel>;
+  async retrieve(params: RetrieveSingleParams | OneParams): Promise<Channel>;
 
   /** Retrieves the channels that params selects. */
   async retrieve(
@@ -531,11 +536,15 @@ export class Client extends query.Retriever<
       | PrimitiveParams
       | Payload[]
       | RetrieveSingleParams
+      | OneParams
       | query.RequestInput<typeof retrieveParamsZ>,
     options?: RetrieveOptions,
   ): Promise<Channel | Channel[]> {
-    if (typeof params === "object" && !Array.isArray(params))
+    if (typeof params === "object" && !Array.isArray(params)) {
+      // The branches narrow params onto different base overloads.
+      if (isOneParams(params)) return await super.retrieve(params);
       return await super.retrieve(params);
+    }
     const isSingle = !Array.isArray(params);
     const { variant, normalized: rawNormalized } = analyzeParams(params);
     const normalized =
