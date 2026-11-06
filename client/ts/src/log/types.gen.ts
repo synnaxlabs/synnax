@@ -15,12 +15,12 @@ import { z } from "zod";
 import { channel } from "@/channel";
 import { ontology } from "@/ontology";
 
-/** TimestampConfig is per-channel timestamp display configuration. */
+/** TimestampConfig is how a timestamp channel shows its values. */
 export const timestampConfigZ = z.object({
-  /** format controls how channel timestamps are rendered. */
+  /** format is the format of the values of a timestamp channel. */
   format: telem.timestampFormatZ,
-  /** tz is the time zone used when rendering timestamps. */
-  tz: telem.timeZoneZ,
+  /** timeZone is the time zone of the values of a timestamp channel. */
+  timeZone: telem.timeZoneZ,
 });
 export interface TimestampConfig extends z.infer<typeof timestampConfigZ> {}
 
@@ -42,8 +42,14 @@ export const channelEntryZ = z.object({
   precision: zod.uint8.max(17).optional(),
   /** alias is a human-readable alias displayed in place of the channel name. */
   alias: z.string().check(zod.maxLength(64)).default(""),
-  /** timestamp is the per-channel timestamp display configuration. */
-  timestamp: timestampConfigZ.prefault({ format: "preciseDate", tz: "local" }),
+  /**
+   * timestampConfig formats the values of a timestamp channel. It has no effect on line
+   * times.
+   */
+  timestampConfig: timestampConfigZ.prefault({
+    format: "preciseDate",
+    timeZone: "local",
+  }),
 });
 export interface ChannelEntry extends z.infer<typeof channelEntryZ> {}
 

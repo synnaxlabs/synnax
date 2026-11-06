@@ -41,8 +41,8 @@ func MigrateLog(ctx context.Context, old v2.Log) (Log, error) {
 }
 
 // MigrateChannelEntry lifts a v2 channel entry to v3. The v2 sentinel precision of -1
-// becomes an absent precision, a larger one clamps to 17, and an alias is cut to 64
-// characters.
+// becomes an absent precision, a larger one clamps to 17, an alias is cut to 64
+// characters, and an empty display field takes its schema default.
 func MigrateChannelEntry(
 	ctx context.Context,
 	old v2.ChannelEntry,
@@ -56,6 +56,11 @@ func MigrateChannelEntry(
 		out.Precision = &precision
 	}
 	out.Alias = cutToCharacters(old.Alias, 64)
+	out.TimestampConfig = TimestampConfig{
+		Format:   old.Timestamp.Format,
+		TimeZone: old.Timestamp.Tz,
+	}
+	out.ApplyDefaults()
 	return out, nil
 }
 

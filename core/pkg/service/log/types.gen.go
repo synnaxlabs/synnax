@@ -19,7 +19,7 @@ import (
 // Key is a unique identifier for a log, represented as a UUID.
 type Key = versions.Key
 
-// TimestampConfig is per-channel timestamp display configuration.
+// TimestampConfig is how a timestamp channel shows its values.
 type TimestampConfig = versions.TimestampConfig
 
 // ChannelEntry is a per-channel display configuration entry within a log.

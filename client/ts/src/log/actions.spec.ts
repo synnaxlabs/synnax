@@ -187,13 +187,13 @@ describe("log reducer", () => {
       {
         name: "setChannelTimestampFormat",
         action: log.setChannelTimestampFormat({ channel: 5, format: "time" }),
-        read: (e) => e.timestamp.format,
+        read: (e) => e.timestampConfig.format,
         expected: "time",
       },
       {
-        name: "setChannelTimestampTz",
-        action: log.setChannelTimestampTz({ channel: 5, tz: "UTC" }),
-        read: (e) => e.timestamp.tz,
+        name: "setChannelTimestampTimeZone",
+        action: log.setChannelTimestampTimeZone({ channel: 5, timeZone: "UTC" }),
+        read: (e) => e.timestampConfig.timeZone,
         expected: "UTC",
       },
     ];
@@ -218,6 +218,10 @@ describe("log reducer", () => {
 
     it.each(cases)("$name targets the channel", ({ action }) => {
       expect(log.reduceAll(withEntries(), [action]).targets).toEqual(["channel:5"]);
+    });
+
+    it.each(cases)("$name keys its undoable by channel", ({ action }) => {
+      expect(log.kindOf([action])).toEqual("channel:5");
     });
 
     it.each(cases)("$name is a no-op when the channel is absent", ({ action }) => {

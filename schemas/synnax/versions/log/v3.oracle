@@ -14,29 +14,41 @@ import "schemas/x/versions/telem/v0"
 
 Key = v0.Key
 
-TimestampConfig = v2.TimestampConfig
+TimestampConfig struct {
+    format    telem.TimestampFormat {
+        @doc value "is the format of the values of a timestamp channel."
+    }
+    time_zone telem.TimeZone        {
+        @doc value "is the time zone of the values of a timestamp channel."
+    }
+
+    @doc value  "is how a timestamp channel shows its values."
+    @go marshal
+}
 
 ChannelEntry struct {
-    channel   channel.Key       {
+    channel          channel.Key       {
         @doc value "is the channel this entry references."
     }
-    color     color.Color       {
+    color            color.Color       {
         @doc value "is the display color for the channel."
     }
-    notation  notation.Notation = "standard" {
+    notation         notation.Notation = "standard" {
         @doc value "is the numeric notation used to render samples."
     }
-    precision uint8?            {
+    precision        uint8?            {
         @doc value """
             is the number of decimal digits to display. Absent shows each sample as it
             arrives; 17 is the maximum significant digits for a float64.
         """
     }
-    alias     string = "" {
+    alias            string = "" {
         @doc value "is a human-readable alias displayed in place of the channel name."
     }
-    timestamp TimestampConfig = { format = "preciseDate", tz = "local" } {
-        @doc value "is the per-channel timestamp display configuration."
+    timestamp_config TimestampConfig = { format = "preciseDate", time_zone = "local" } {
+        @doc value """
+            formats the values of a timestamp channel. It has no effect on line times.
+        """
     }
 
     @doc value  "is a per-channel display configuration entry within a log."

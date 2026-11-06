@@ -74,8 +74,8 @@ const ChannelRow = ({
     dispatch(log.setChannelPrecision({ channel, precision }));
   const handleFormatChange = (format: TimestampFormat) =>
     dispatch(log.setChannelTimestampFormat({ channel, format }));
-  const handleTzChange = (tz: TimeZone) =>
-    dispatch(log.setChannelTimestampTz({ channel, tz }));
+  const handleTimeZoneChange = (timeZone: TimeZone) =>
+    dispatch(log.setChannelTimestampTimeZone({ channel, timeZone }));
   // The log stores a zero color for a channel that follows the theme.
   const handleColorChange = (c?: color.Color) =>
     dispatch(log.setChannelColor({ channel, color: c ?? color.ZERO }));
@@ -87,7 +87,7 @@ const ChannelRow = ({
         : log.swapChannel({ from: channel, to }),
     );
   if (config == null) return null;
-  const { alias, timestamp, precision, notation } = config;
+  const { alias, timestampConfig, precision, notation } = config;
   const hasCustomColor = !color.isZero(config.color);
   return (
     <List.Item
@@ -160,15 +160,15 @@ const ChannelRow = ({
         {showTimestamp && (
           <>
             <Telem.SelectTimestampFormat
-              value={timestamp.format}
+              value={timestampConfig.format}
               onChange={handleFormatChange}
               disabled={disabled}
               triggerProps={SHADOW_TRIGGER_PROPS}
             />
             <Telem.SelectTimeZone
               className={CSS.BE("log", "channel-tz")}
-              value={timestamp.tz}
-              onChange={handleTzChange}
+              value={timestampConfig.timeZone}
+              onChange={handleTimeZoneChange}
               disabled={disabled}
             />
           </>

@@ -32,7 +32,7 @@ func (ce ChannelEntry) EncodeOrc(w *orc.Writer) error {
 		w.Bool(false)
 	}
 	w.String(ce.Alias)
-	if err := ce.Timestamp.EncodeOrc(w); err != nil {
+	if err := ce.TimestampConfig.EncodeOrc(w); err != nil {
 		return err
 	}
 	return nil
@@ -74,7 +74,7 @@ func (ce *ChannelEntry) DecodeOrc(r *orc.Reader) error {
 	if ce.Alias, err = r.String(); err != nil {
 		return err
 	}
-	if err = ce.Timestamp.DecodeOrc(r); err != nil {
+	if err = ce.TimestampConfig.DecodeOrc(r); err != nil {
 		return err
 	}
 	return nil
@@ -142,6 +142,32 @@ func (lv *Log) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		lv.TimeZone = telem.TimeZone(rawV)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (tc TimestampConfig) EncodeOrc(w *orc.Writer) error {
+	w.String(string(tc.Format))
+	w.String(string(tc.TimeZone))
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (tc *TimestampConfig) DecodeOrc(r *orc.Reader) error {
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		tc.Format = telem.TimestampFormat(rawV)
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		tc.TimeZone = telem.TimeZone(rawV)
 	}
 	return nil
 }

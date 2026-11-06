@@ -212,9 +212,11 @@ var _ = Describe("ImEx", func() {
 				Expect(res.Channels[0].Precision).To(Equal(new(uint8(2))))
 				Expect(res.Channels[0].Alias).To(Equal("temp"))
 				Expect(
-					res.Channels[0].Timestamp.Format,
+					res.Channels[0].TimestampConfig.Format,
 				).To(Equal(telem.TimestampFormatISO))
-				Expect(res.Channels[0].Timestamp.Tz).To(Equal(telem.TimeZoneUTC))
+				Expect(
+					res.Channels[0].TimestampConfig.TimeZone,
+				).To(Equal(telem.TimeZoneUTC))
 				Expect(res.Channels[1].Channel).To(Equal(channel.Key(5)))
 			},
 		)
