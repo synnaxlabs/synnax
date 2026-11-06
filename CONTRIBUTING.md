@@ -48,13 +48,13 @@ refresh the gate on an idle pull request, run
 ## Review tiers
 
 The author picks the tier. `Label - Classify` raises a PR to `review/human` when a
-report of a user-facing interface changes. A reviewer can raise it by swapping the
+report that `Check - Classify` compares changes. A reviewer can raise it by swapping the
 label.
 
-| Label          | Review                          | Covers                                                                                                                                                                                                                                                                    |
-| -------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `review/human` | A human reads it, plus Greptile | A change to a user-facing interface: a new field or data structure (anything under `schemas/`, a stored shape, a migration), a Python, TypeScript, or C++ client interface, a CLI command, a Core or Driver config (flags, config files), or a Console design or feature. |
-| `review/bot`   | Greptile only                   | Everything else: bug fixes, internals, tests, lints, renames, formatting, and generated code.                                                                                                                                                                             |
+| Label          | Review                          | Covers                                                                                                                                                                                                                                               |
+| -------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `review/human` | A human reads it, plus Greptile | A change to a user-facing interface: a new field or data structure (anything under `schemas/`, a stored shape, a migration), a Python or TypeScript client interface, a Core or Driver config (flags, config files), or a Console design or feature. |
+| `review/bot`   | Greptile only                   | Everything else: bug fixes, internals, tests, lints, renames, formatting, and generated code.                                                                                                                                                        |
 
 A `review/human` reviewer reads the changed interface and its tests, approves or
 requests changes, and confirms a stored shape change carries a migration.
