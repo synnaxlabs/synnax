@@ -17,6 +17,7 @@ import {
 import {
   compare,
   type CrudeTimeSpan,
+  deep,
   type destructor,
   primitive,
   type record,
@@ -112,6 +113,11 @@ export interface UseListParams<
   K extends record.Key,
   E extends record.Keyed<K>,
 > {
+  /**
+   * The query that retrieves build on. When it changes by deep equality, the list reads
+   * the new query from its first page. Fields it does not name, such as a search term,
+   * stay. A list that has not retrieved waits for its first retrieve.
+   */
   initialQuery?: Query;
   filter?: (item: E) => boolean;
   sort?: compare.Comparator<E>;
@@ -150,6 +156,20 @@ const chainSetters =
   ): state.SetFunc<Query, Query | {}> =>
   (prev) =>
     state.executeSetter(second, state.executeSetter(first, prev));
+
+/** @returns the query moved from one caller query to the next, on its first page. */
+const rebaseQuery = <Query extends query.Params>(
+  current: Query | {},
+  from: Query | undefined,
+  to: Query | undefined,
+): Query => {
+  const prev = current as record.Unknown;
+  const next = { ...prev };
+  Object.keys(from ?? {}).forEach((field) => delete next[field]);
+  Object.assign(next, to);
+  if ("offset" in prev) next.offset = 0;
+  return next as Query;
+};
 
 /** One retrieved page: its query, answer keys, and live subscription. */
 interface Page<K extends record.Key> {
@@ -195,6 +215,8 @@ export const createList = <
     const queryRef = useRef<Query | null>(
       initialQuery != null ? normalized(initialQuery) : null,
     );
+    const callerQueryRef = useRef(initialQuery);
+    const retrievedRef = useRef(false);
     const pagesRef = useRef<Page<Key>[]>([]);
     const itemSubsRef = useInitializerRef<Map<Key, destructor.Destructor>>(
       () => new Map(),
@@ -360,6 +382,7 @@ export const createList = <
       options: AsyncListOptions,
     ): Promise<boolean> => {
       const { signal, mode = "replace" } = options;
+      retrievedRef.current = true;
 
       const query = normalized(
         state.executeSetter(paramsSetter, queryRef.current ?? {}),
@@ -586,6 +609,20 @@ export const createList = <
         );
       debouncedRetrieve();
     };
+
+    useEffect(() => {
+      const from = callerQueryRef.current;
+      if (deep.equal(from, initialQuery)) return;
+      callerQueryRef.current = initialQuery;
+      const rebase = (current: Query | {}) => rebaseQuery(current, from, initialQuery);
+      if (retrievedRef.current) return retrieveSync(rebase);
+      const next = normalized(rebase(queryRef.current ?? {}));
+      queryRef.current = next;
+      clearPages();
+      setResult(loadingResult<Key[]>(`retrieving ${name}`));
+      createCachedPage(next);
+      coverRecords();
+    }, [initialQuery]);
 
     return {
       retrieve: retrieveSync,
