@@ -74,7 +74,7 @@ func MatchWhere(w Where) (Filter, error) {
 				_ Retrieve,
 				e *Arc,
 			) (bool, error) {
-				return re.MatchString(e.Name), nil
+				return re.MatchString(e.Base().Name), nil
 			}))
 		}
 	}

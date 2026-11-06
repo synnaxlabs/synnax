@@ -184,9 +184,14 @@ jobs:
           git fetch --no-tags origin "$BASE_SHA" "$HEAD_SHA"
           git worktree add --detach "$RUNNER_TEMP/head" "$HEAD_SHA"
 
-      # A runner can stay stopped for weeks, so a review takes the latest Claude Code.
-      - name: Update Claude Code
-        run: sudo npm install -g @anthropic-ai/claude-code@latest
+      # A runner can stay stopped for weeks, so each review installs the latest Claude
+      # Code. The runners on one machine review at the same time, so each review gets
+      # its own copy in the temporary directory, which the runner empties after the job.
+      - name: Install Claude Code
+        run: |
+          npm install --no-save --prefix "$RUNNER_TEMP/claude" \
+            @anthropic-ai/claude-code@latest
+          echo "$RUNNER_TEMP/claude/node_modules/.bin" >> "$GITHUB_PATH"
 
       - name: Review
         working-directory: .github/scripts

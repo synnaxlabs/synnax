@@ -15,6 +15,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/graph"
+	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/gorp"
 	apiarc "github.com/synnaxlabs/synnax/pkg/api/arc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
@@ -24,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
@@ -43,6 +46,7 @@ var (
 	db       *gorp.DB
 	otg      *ontology.Ontology
 	rbacSvc  *rbac.Service
+	groupSvc *group.Service
 	arcSvc   *arc.Service
 	apiSvc   *apiarc.Service
 	author   user.User
@@ -59,6 +63,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	rbacSvc = svc.RBAC
 	arcSvc = svc.Arc
 	rackSvc = svc.Rack
+	groupSvc = svc.Group
 	apiSvc = MustSucceed(apiarc.NewService(apiarc.ServiceConfig{
 		RBAC:    rbacSvc,
 		Arc:     arcSvc,
@@ -107,4 +112,20 @@ func grantOn(
 func grantUpdateOn(ctx SpecContext, subject ontology.ID, objects ...ontology.ID) {
 	GinkgoHelper()
 	grantOn(ctx, subject, access.ActionUpdate, objects...)
+}
+
+// textOf returns the text of the text-mode Arc b, failing the spec otherwise.
+func textOf(b arc.Base) text.Text {
+	GinkgoHelper()
+	src, ok := b.Source.Variant.(arc.TextSource)
+	Expect(ok).To(BeTrue(), "expected a text source, got %T", b.Source.Variant)
+	return src.Text
+}
+
+// graphOf returns the graph of the graph-mode Arc b, failing the spec otherwise.
+func graphOf(b arc.Base) graph.Graph {
+	GinkgoHelper()
+	src, ok := b.Source.Variant.(arc.GraphSource)
+	Expect(ok).To(BeTrue(), "expected a graph source, got %T", b.Source.Variant)
+	return src.Graph
 }
