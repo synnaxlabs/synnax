@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
@@ -22,8 +23,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/log/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 func channelsOf(l log.Log) []channel.Key {
@@ -49,7 +50,7 @@ var _ = Describe("Channel references", func() {
 		l := log.Log{
 			Project:  &proj.Key,
 			Name:     "missing",
-			Channels: []log.ChannelEntry{{Channel: 5}, {Channel: 404}},
+			Channels: []log.ChannelEntry{{Channel: ch5}, {Channel: 404}},
 		}
 		Expect(svc.NewWriter(nil).Create(ctx, &l)).To(MatchError(
 			ContainSubstring("channels.channel: channel 404 does not exist"),
@@ -59,23 +60,24 @@ var _ = Describe("Channel references", func() {
 	It(
 		"Should remove the entry of a deleted channel and keep the others",
 		func(ctx SpecContext) {
-			Expect(channels.Create(ctx, 501, 502, 503)).To(Succeed())
+			keys := MustSucceed(channeltestutil.CreateVirtual(ctx, channelSvc, 3))
+			first, gone, third := keys[0], keys[1], keys[2]
 			l := log.Log{
 				Project: &proj.Key,
 				Name:    "detach",
 				Channels: []log.ChannelEntry{
-					{Channel: 501, Alias: "first"},
-					{Channel: 502},
-					{Channel: 503, Alias: "third"},
+					{Channel: first, Alias: "first"},
+					{Channel: gone},
+					{Channel: third, Alias: "third"},
 				},
 			}
 			Expect(svc.NewWriter(nil).Create(ctx, &l)).To(Succeed())
 			DeferCleanup(func(ctx SpecContext) {
 				Expect(svc.NewWriter(nil).Delete(ctx, l.Key)).To(Succeed())
 			})
-			Expect(channels.Delete(ctx, 502)).To(Succeed())
+			Expect(channelSvc.NewWriter(nil).Delete(ctx, gone, false)).To(Succeed())
 			res := retrieve(ctx, db, l.Key)
-			Expect(channelsOf(res)).To(Equal([]channel.Key{501, 503}))
+			Expect(channelsOf(res)).To(Equal([]channel.Key{first, third}))
 			Expect(res.Channels[0].Alias).To(Equal("first"))
 			Expect(res.Channels[1].Alias).To(Equal("third"))
 		},
@@ -84,15 +86,16 @@ var _ = Describe("Channel references", func() {
 	It(
 		"Should drop channels the Core does not hold from an imported log",
 		func(ctx SpecContext) {
-			Expect(channels.Create(ctx, 511, 512)).To(Succeed())
+			keys := MustSucceed(channeltestutil.CreateVirtual(ctx, channelSvc, 2))
+			kept, gone := keys[0], keys[1]
 			l := log.Log{
 				Project:  &proj.Key,
 				Name:     "export",
-				Channels: []log.ChannelEntry{{Channel: 511}, {Channel: 512}},
+				Channels: []log.ChannelEntry{{Channel: kept}, {Channel: gone}},
 			}
 			Expect(svc.NewWriter(nil).Create(ctx, &l)).To(Succeed())
 			env := MustSucceed(svc.Export(ctx, l.ResourceID()))
-			Expect(channels.Delete(ctx, 512)).To(Succeed())
+			Expect(channelSvc.NewWriter(nil).Delete(ctx, gone, false)).To(Succeed())
 			id := MustSucceed(imexSvc.Import(
 				ctx,
 				db,
@@ -100,34 +103,44 @@ var _ = Describe("Channel references", func() {
 				imex.ImportOptions{Parent: proj.ResourceID()},
 			))
 			res := retrieve(ctx, db, MustSucceed(uuid.Parse(id.Key)))
-			Expect(channelsOf(res)).To(Equal([]channel.Key{511}))
+			Expect(channelsOf(res)).To(Equal([]channel.Key{kept}))
 		},
 	)
 
 	It("Should drop channels the Core does not hold on open", func(ctx SpecContext) {
-		db := DeferClose(gorp.Wrap(memkv.New()))
+		node := testutil.NewNode(ctx)
+		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
+		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+			DB:       node.DB,
+			Ontology: otg,
+		}))
+		channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+			Channel:      node.Channel,
+			DB:           node.DB,
+			HostProvider: node.Cluster,
+			Ontology:     otg,
+			Status:       statusSvc,
+		}))
+		kept := MustSucceed(channeltestutil.CreateVirtual(ctx, channelSvc, 1))[0]
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-			DB:         db,
+			DB:         node.DB,
 			Namespace:  "Log",
 			Migrations: versions.Migrations,
 		})).To(Succeed())
-		channels := DeferClose(MustOpen(channeltestutil.OpenTable(ctx, db)))
-		Expect(channels.Create(ctx, 5)).To(Succeed())
 		stored := log.Log{
 			Key:      uuid.New(),
 			Name:     "log",
-			Channels: []log.ChannelEntry{{Channel: 6}, {Channel: 5}},
+			Channels: []log.ChannelEntry{{Channel: 6}, {Channel: kept}},
 		}
 		Expect(gorp.NewCreate[log.Key, log.Log]().
 			Entry(&stored).
-			Exec(ctx, db)).To(Succeed())
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+			Exec(ctx, node.DB)).To(Succeed())
 		MustOpen(log.OpenService(ctx, log.ServiceConfig{
-			DB:       db,
+			DB:       node.DB,
 			Ontology: otg,
 			ImEx:     imex.NewService(),
 		}))
-		Expect(channelsOf(retrieve(ctx, db, stored.Key))).
-			To(Equal([]channel.Key{5}))
+		Expect(channelsOf(retrieve(ctx, node.DB, stored.Key))).
+			To(Equal([]channel.Key{kept}))
 	})
 })

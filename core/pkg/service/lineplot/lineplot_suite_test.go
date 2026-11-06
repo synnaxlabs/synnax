@@ -15,14 +15,16 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 func TestLinePlot(t *testing.T) {
@@ -34,26 +36,56 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
 	db         *gorp.DB
-	channels   *channeltestutil.Table
+	channelSvc *channel.Service
 	groupSvc   *group.Service
 	otg        *ontology.Ontology
 	proj       project.Project
 	projectSvc *project.Service
 	svc        *lineplot.Service
 	imexSvc    *imex.Service
+	// ch1 through ch99 are channels that the specs plot.
+	ch1, ch2, ch3, ch4, ch5, ch6, ch7, ch9, ch10, ch20, ch42, ch43, ch99 channel.Key
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	db = DeferClose(gorp.Wrap(memkv.New()))
+	node := testutil.NewNode(ctx)
+	db = node.DB
 	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 	}))
-	channels = DeferClose(MustOpen(channeltestutil.OpenTable(ctx, db)))
-	Expect(channels.Create(ctx, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 20, 42, 43, 99)).
-		To(Succeed())
+	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+	}))
+	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+		Channel:      node.Channel,
+		DB:           db,
+		HostProvider: node.Cluster,
+		Ontology:     otg,
+		Status:       statusSvc,
+	}))
+	chs := []*channel.Key{
+		&ch1,
+		&ch2,
+		&ch3,
+		&ch4,
+		&ch5,
+		&ch6,
+		&ch7,
+		&ch9,
+		&ch10,
+		&ch20,
+		&ch42,
+		&ch43,
+		&ch99,
+	}
+	keys := MustSucceed(channeltestutil.CreateVirtual(ctx, channelSvc, len(chs)))
+	for i, ch := range chs {
+		*ch = keys[i]
+	}
 	imexSvc = imex.NewService()
 	projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
 		DB:       db,

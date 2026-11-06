@@ -14,8 +14,10 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"uuid"
 
@@ -27,6 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/http"
@@ -47,9 +50,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/x/set"
-	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 // asFloat normalizes any numeric type to float64. The fixtures decode from JSON as
@@ -315,15 +316,62 @@ var channelFields = set.New(
 	"command_channel",
 )
 
+// isChannelField reports whether the stored or legacy field k holds a channel key.
+func isChannelField(k string) bool {
+	sk := snakeKey(k)
+	if renamed, ok := legacyRenames[sk]; ok {
+		sk = renamed
+	}
+	return channelFields.Contains(sk)
+}
+
+// rekey replaces each nonzero channel key that v holds with its value in keys.
+func rekey(v any, keys map[float64]float64) {
+	GinkgoHelper()
+	switch v := v.(type) {
+	case map[string]any:
+		for k, f := range v {
+			key, ok := asFloat(f)
+			if !ok || !isChannelField(k) {
+				rekey(f, keys)
+				continue
+			}
+			if key != 0 {
+				Expect(keys).To(HaveKey(key))
+				v[k] = keys[key]
+			}
+		}
+	case []any:
+		for _, e := range v {
+			rekey(e, keys)
+		}
+	}
+}
+
+// rekeyed returns the JSON in raw with each nonzero channel key replaced by its value
+// in keys.
+func rekeyed(raw []byte, keys map[float64]float64) []byte {
+	GinkgoHelper()
+	var v any
+	Expect(json.Unmarshal(raw, &v)).To(Succeed())
+	rekey(v, keys)
+	return MustSucceed(json.Marshal(v))
+}
+
 // createFixtureTargets creates the channels, devices, and statuses that the stored
-// fixtures in testdata/legacy/expected reference, so an import keeps every key.
-func createFixtureTargets(ctx context.Context, targets *tasktestutil.Targets) {
+// fixtures in testdata/legacy/expected reference, so an import keeps every key. It
+// returns the key of the channel created for each channel key in the fixtures.
+func createFixtureTargets(
+	ctx context.Context,
+	channels *channel.Service,
+	targets *tasktestutil.Targets,
+) map[float64]float64 {
 	GinkgoHelper()
 	var (
-		channels []channel.Key
-		devices  = make(set.Set[device.Key])
-		statuses = make(set.Set[status.Key])
-		walk     func(v any)
+		fixtureChannels = make(set.Set[float64])
+		devices         = make(set.Set[device.Key])
+		statuses        = make(set.Set[status.Key])
+		walk            func(v any)
 	)
 	walk = func(v any) {
 		switch v := v.(type) {
@@ -332,7 +380,7 @@ func createFixtureTargets(ctx context.Context, targets *tasktestutil.Targets) {
 				switch key := f.(type) {
 				case float64:
 					if channelFields.Contains(k) && key != 0 {
-						channels = append(channels, channel.Key(key))
+						fixtureChannels.Add(key)
 					}
 				case string:
 					if k == "device" && key != "" {
@@ -358,13 +406,21 @@ func createFixtureTargets(ctx context.Context, targets *tasktestutil.Targets) {
 		Expect(json.Unmarshal(MustSucceed(os.ReadFile(path)), &stored)).To(Succeed())
 		walk(stored)
 	}
-	Expect(targets.Channels.Create(ctx, channels...)).To(Succeed())
+	fixtureKeys := slices.Sorted(maps.Keys(fixtureChannels))
+	created := MustSucceed(
+		channeltestutil.CreateVirtual(ctx, channels, len(fixtureKeys)),
+	)
+	keys := make(map[float64]float64, len(fixtureKeys))
+	for i, key := range fixtureKeys {
+		keys[key] = float64(created[i])
+	}
 	for d := range devices {
 		Expect(targets.CreateDevice(ctx, d)).To(Succeed())
 	}
 	for st := range statuses {
 		Expect(targets.CreateStatus(ctx, st)).To(Succeed())
 	}
+	return keys
 }
 
 var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
@@ -372,10 +428,14 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		svc     *task.Service
 		imexSvc *imex.Service
 		configs config.Registry
+		// toCreated maps each channel key in the fixtures to the key of the channel
+		// created for it, and toFixture maps it back.
+		toCreated, toFixture map[float64]float64
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		db := DeferClose(gorp.Wrap(memkv.New()))
+		node := testutil.NewNode(ctx)
+		db := node.DB
 		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
@@ -395,14 +455,11 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			Ontology: otg,
 		}))
 		rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-			DB:                  db,
-			Ontology:            otg,
-			HostProvider:        testutil.NewStaticHostProvider(1),
-			Status:              statusSvc,
-			HealthCheckInterval: 10 * telem.Millisecond,
-			DriverRole: MustSucceed(
-				racktestutil.CreateDriverRole(ctx, roleSvc),
-			),
+			DB:           db,
+			Ontology:     otg,
+			HostProvider: testutil.NewStaticHostProvider(1),
+			Status:       statusSvc,
+			DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
 		}))
 		deviceSvc := MustOpen(device.OpenService(ctx, device.ServiceConfig{
 			DB:       db,
@@ -419,15 +476,26 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 				Name: "arc_py",
 			},
 		}).Exec(ctx, db)).To(Succeed())
-		createFixtureTargets(ctx, MustOpen(tasktestutil.OpenTargets(
+		channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+			Channel:      node.Channel,
+			DB:           db,
+			HostProvider: node.Cluster,
+			Ontology:     otg,
+			Status:       statusSvc,
+		}))
+		toCreated = createFixtureTargets(
 			ctx,
-			tasktestutil.TargetsConfig{
-				DB:     db,
+			channelSvc,
+			tasktestutil.NewTargets(tasktestutil.TargetsConfig{
 				Device: deviceSvc,
 				Status: statusSvc,
 				Rack:   rackSvc.EmbeddedKey,
-			},
-		)))
+			}),
+		)
+		toFixture = make(map[float64]float64, len(toCreated))
+		for fixture, created := range toCreated {
+			toFixture[created] = fixture
+		}
 		var stores []config.Store
 		stores = append(
 			stores,
@@ -552,9 +620,9 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 
 	DescribeTable("preserves every field of a released Console export",
 		func(ctx SpecContext, fixture string) {
-			raw := MustSucceed(os.ReadFile(
+			raw := rekeyed(MustSucceed(os.ReadFile(
 				filepath.Join("testdata", "legacy", fixture+".json"),
-			))
+			)), toCreated)
 			env, imported := importFile(ctx, raw, fixture)
 			Expect(strings.HasPrefix(fixture, env.Type)).To(
 				BeTrue(), "fixture %q must be named for its type %q", fixture, env.Type,
@@ -607,6 +675,7 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 					canonical[k] = v
 				}
 			}
+			rekey(canonical, toFixture)
 			goldenPath := filepath.Join(
 				"testdata",
 				"legacy",
@@ -665,12 +734,13 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 	// record as importing the fixture, which the fixture's golden freezes.
 	DescribeTable("stores a released Core export as its Console fixture",
 		func(ctx SpecContext, release, fixture string) {
-			raw := MustSucceed(os.ReadFile(
+			raw := rekeyed(MustSucceed(os.ReadFile(
 				filepath.Join("testdata", "released", release, fixture+".json"),
-			))
+			)), toCreated)
 			_, imported := importFile(ctx, raw, fixture)
 			config := map[string]any(imported.Config)
 			delete(config, "key")
+			rekey(config, toFixture)
 			golden := MustSucceed(os.ReadFile(
 				filepath.Join("testdata", "legacy", "expected", fixture+".json"),
 			))

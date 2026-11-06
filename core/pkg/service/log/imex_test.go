@@ -11,12 +11,12 @@ package log_test
 
 import (
 	"encoding/json/v2"
+	"fmt"
 	"os"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
@@ -30,6 +30,14 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+// envelope unmarshals the wire-format envelope in raw.
+func envelope(raw string) imex.Envelope {
+	GinkgoHelper()
+	var env imex.Envelope
+	Expect(json.Unmarshal([]byte(raw), &env)).To(Succeed())
+	return env
+}
 
 var _ = Describe("ImEx", func() {
 	createLog := func(ctx SpecContext, l log.Log) log.Log {
@@ -62,7 +70,7 @@ var _ = Describe("ImEx", func() {
 					Name: "exported",
 					Channels: []log.ChannelEntry{
 						{
-							Channel: channel.Key(1),
+							Channel: ch1,
 							Color:   MustSucceed(color.FromHex("#ff0000")),
 						},
 					},
@@ -79,7 +87,7 @@ var _ = Describe("ImEx", func() {
 				Expect(decoded.TimestampPrecision).To(Equal(int32(2)))
 				Expect(decoded.ChannelNamesHidden).To(BeTrue())
 				Expect(decoded.Channels).To(HaveLen(1))
-				Expect(decoded.Channels[0].Channel).To(Equal(channel.Key(1)))
+				Expect(decoded.Channels[0].Channel).To(Equal(ch1))
 			},
 		)
 
@@ -110,19 +118,18 @@ var _ = Describe("ImEx", func() {
 	})
 
 	Describe("Import", func() {
-		const (
-			v0Fixture = "versions/testdata/import_v0.json"
-			v1Fixture = "versions/testdata/import_v1.json"
-			v2Fixture = "versions/testdata/import_v2.json"
-		)
+		const v2Fixture = "versions/testdata/import_v2.json"
 
-		importAndRetrieve := func(ctx SpecContext, path string) (resource.ID, log.Log) {
+		importAndRetrieve := func(
+			ctx SpecContext,
+			env imex.Envelope,
+		) (resource.ID, log.Log) {
 			GinkgoHelper()
 			id := MustSucceed(
 				imexSvc.Import(
 					ctx,
 					db,
-					LoadEnvelope(path),
+					env,
 					imex.ImportOptions{Parent: proj.ResourceID()},
 				),
 			)
@@ -139,12 +146,19 @@ var _ = Describe("ImEx", func() {
 		It(
 			"Should import a legacy v0 envelope, lifting bare channel keys forward",
 			func(ctx SpecContext) {
-				_, res := importAndRetrieve(ctx, v0Fixture)
+				_, res := importAndRetrieve(ctx, envelope(fmt.Sprintf(`{
+					"version": "0.0.0",
+					"type": "log",
+					"key": "660e8400-e29b-41d4-a716-446655440000",
+					"name": "Test Log V0",
+					"channels": [%d, %d, %d],
+					"remoteCreated": true
+				}`, ch1, ch2, ch3)))
 				Expect(res.Name).To(Equal("Test Log V0"))
 				Expect(res.Channels).To(HaveLen(3))
-				Expect(res.Channels[0].Channel).To(Equal(channel.Key(1)))
-				Expect(res.Channels[1].Channel).To(Equal(channel.Key(2)))
-				Expect(res.Channels[2].Channel).To(Equal(channel.Key(3)))
+				Expect(res.Channels[0].Channel).To(Equal(ch1))
+				Expect(res.Channels[1].Channel).To(Equal(ch2))
+				Expect(res.Channels[2].Channel).To(Equal(ch3))
 				Expect(res.Channels[0].Notation).To(Equal(notation.NotationStandard))
 			},
 		)
@@ -155,7 +169,12 @@ var _ = Describe("ImEx", func() {
 				id := MustSucceed(imexSvc.Import(
 					ctx,
 					db,
-					LoadEnvelope("versions/testdata/import_v0_state.json"),
+					envelope(fmt.Sprintf(`{
+						"version": "0.0.0",
+						"key": "770e8400-e29b-41d4-a716-446655440000",
+						"channels": [%d, %d],
+						"remoteCreated": false
+					}`, ch4, ch5)),
 					imex.ImportOptions{
 						FileName: "Legacy Log.json",
 						Parent:   proj.ResourceID(),
@@ -173,40 +192,91 @@ var _ = Describe("ImEx", func() {
 					To(Succeed())
 				Expect(res.Name).To(Equal("Legacy Log"))
 				Expect(res.Channels).To(HaveLen(2))
-				Expect(res.Channels[0].Channel).To(Equal(channel.Key(4)))
-				Expect(res.Channels[1].Channel).To(Equal(channel.Key(5)))
+				Expect(res.Channels[0].Channel).To(Equal(ch4))
+				Expect(res.Channels[1].Channel).To(Equal(ch5))
 			},
 		)
 
 		It(
 			"Should import a legacy v1 envelope carrying camelCase keys",
 			func(ctx SpecContext) {
-				_, res := importAndRetrieve(ctx, v1Fixture)
+				_, res := importAndRetrieve(ctx, envelope(fmt.Sprintf(`{
+					"version": "1.0.0",
+					"type": "log",
+					"key": "550e8400-e29b-41d4-a716-446655440000",
+					"name": "Test Log V1",
+					"channels": [
+						{
+							"channel": %d,
+							"color": "#ff0000",
+							"notation": "scientific",
+							"precision": 2,
+							"alias": "temp"
+						},
+						{
+							"channel": %d,
+							"color": "",
+							"notation": "standard",
+							"precision": -1,
+							"alias": ""
+						}
+					],
+					"remoteCreated": false,
+					"timestampPrecision": 1,
+					"showChannelNames": true,
+					"showReceiptTimestamp": false
+				}`, ch1, ch5)))
 				Expect(res.Name).To(Equal("Test Log V1"))
 				Expect(res.TimestampPrecision).To(Equal(int32(1)))
 				Expect(res.ChannelNamesHidden).To(BeFalse())
 				Expect(res.TimestampsHidden).To(BeTrue())
 				Expect(res.Channels).To(HaveLen(2))
-				Expect(res.Channels[0].Channel).To(Equal(channel.Key(1)))
+				Expect(res.Channels[0].Channel).To(Equal(ch1))
 				Expect(
 					res.Channels[0].Color,
 				).To(Equal(MustSucceed(color.FromHex("#ff0000"))))
 				Expect(res.Channels[0].Notation).To(Equal(notation.NotationScientific))
 				Expect(res.Channels[0].Precision).To(Equal(new(int32(2))))
 				Expect(res.Channels[0].Alias).To(Equal("temp"))
-				Expect(res.Channels[1].Channel).To(Equal(channel.Key(5)))
+				Expect(res.Channels[1].Channel).To(Equal(ch5))
 			},
 		)
 
 		It(
 			"Should import a v2 envelope carrying snake_case keys",
 			func(ctx SpecContext) {
-				_, res := importAndRetrieve(ctx, v2Fixture)
+				_, res := importAndRetrieve(ctx, envelope(fmt.Sprintf(`{
+					"version": 2,
+					"type": "log",
+					"key": "11111111-2222-3333-4444-555555555555",
+					"name": "Test Log V2",
+					"channels": [
+						{
+							"channel": %d,
+							"color": {"r": 127, "g": 29, "b": 29, "a": 1},
+							"notation": "scientific",
+							"precision": 2,
+							"alias": "temp",
+							"timestamp": {"format": "ISO", "tz": "UTC"}
+						},
+						{
+							"channel": %d,
+							"color": {"r": 0, "g": 0, "b": 0, "a": 0},
+							"notation": "standard",
+							"precision": -1,
+							"alias": "",
+							"timestamp": {"format": "", "tz": ""}
+						}
+					],
+					"timestamp_precision": 1,
+					"channel_names_hidden": false,
+					"receipt_timestamp_hidden": true
+				}`, ch1, ch5)))
 				Expect(res.Name).To(Equal("Test Log V2"))
 				Expect(res.TimestampPrecision).To(Equal(int32(1)))
 				Expect(res.ChannelNamesHidden).To(BeFalse())
 				Expect(res.Channels).To(HaveLen(2))
-				Expect(res.Channels[0].Channel).To(Equal(channel.Key(1)))
+				Expect(res.Channels[0].Channel).To(Equal(ch1))
 				Expect(
 					res.Channels[0].Color,
 				).To(Equal(MustSucceed(color.FromHex("#7f1d1d"))))
@@ -217,12 +287,12 @@ var _ = Describe("ImEx", func() {
 					res.Channels[0].Timestamp.Format,
 				).To(Equal(telem.TimestampFormatISO))
 				Expect(res.Channels[0].Timestamp.Tz).To(Equal(telem.TimeZoneUTC))
-				Expect(res.Channels[1].Channel).To(Equal(channel.Key(5)))
+				Expect(res.Channels[1].Channel).To(Equal(ch5))
 			},
 		)
 
 		It("Should register the imported log in the ontology", func(ctx SpecContext) {
-			id, _ := importAndRetrieve(ctx, v2Fixture)
+			id, _ := importAndRetrieve(ctx, LoadEnvelope(v2Fixture))
 			var resource ontology.Resource
 			Expect(otg.NewRetrieve().WhereIDs(id).Entry(&resource).Exec(ctx, db)).
 				To(Succeed())
@@ -232,7 +302,7 @@ var _ = Describe("ImEx", func() {
 		It(
 			"Should give the imported log the parent project from the options",
 			func(ctx SpecContext) {
-				_, l := importAndRetrieve(ctx, v2Fixture)
+				_, l := importAndRetrieve(ctx, LoadEnvelope(v2Fixture))
 				Expect(l.Project).To(HaveValue(Equal(proj.Key)))
 				Expect(l.Range).To(BeNil())
 			},
@@ -350,11 +420,11 @@ var _ = Describe("ImEx", func() {
 					Name: "round-trip",
 					Channels: []log.ChannelEntry{
 						{
-							Channel:   channel.Key(1),
+							Channel:   ch1,
 							Alias:     "first",
 							Precision: new(int32(4)),
 						},
-						{Channel: channel.Key(2), Alias: "second"},
+						{Channel: ch2, Alias: "second"},
 					},
 					TimestampPrecision: 1,
 					TimestampsHidden:   true,

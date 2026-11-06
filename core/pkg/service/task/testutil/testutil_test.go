@@ -15,13 +15,61 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
+
+// openTargets opens the device and status services on a fresh DB and returns them,
+// with the embedded rack and the Targets that create through them.
+func openTargets(ctx SpecContext) (
+	*device.Service,
+	*status.Service,
+	rack.Key,
+	*tasktestutil.Targets,
+) {
+	GinkgoHelper()
+	db := DeferClose(gorp.Wrap(memkv.New()))
+	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+	statuses := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+	}))
+	roles := MustOpen(role.OpenService(ctx, role.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+	}))
+	racks := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
+		DB:           db,
+		Ontology:     otg,
+		HostProvider: testutil.NewStaticHostProvider(1),
+		Status:       statuses,
+		DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, roles)),
+	}))
+	devices := MustOpen(device.OpenService(ctx, device.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		Status:   statuses,
+		Rack:     racks,
+	}))
+	return devices, statuses, racks.EmbeddedKey, tasktestutil.NewTargets(
+		tasktestutil.TargetsConfig{
+			Device: devices,
+			Status: statuses,
+			Rack:   racks.EmbeddedKey,
+		},
+	)
+}
 
 var _ = Describe("Tasks", func() {
 	var (
@@ -57,5 +105,33 @@ var _ = Describe("Tasks", func() {
 			"arc_key":     uuid.New().String(),
 			"performance": "BOGUS",
 		})).Error().To(MatchError(ContainSubstring("invalid performance: BOGUS")))
+	})
+})
+
+var _ = Describe("CreateDevice", func() {
+	It("Should create a device on the configured rack", func(ctx SpecContext) {
+		devices, _, rackKey, targets := openTargets(ctx)
+		Expect(targets.CreateDevice(ctx, "dev-1")).To(Succeed())
+		var d device.Device
+		Expect(devices.NewRetrieve().
+			Where(device.MatchKeys("dev-1")).
+			Entry(&d).
+			Exec(ctx, nil)).To(Succeed())
+		Expect(d.Rack).To(Equal(rackKey))
+		Expect(d.Name).To(Equal("dev-1"))
+	})
+})
+
+var _ = Describe("CreateStatus", func() {
+	It("Should create an info status named after its key", func(ctx SpecContext) {
+		_, statuses, _, targets := openTargets(ctx)
+		Expect(targets.CreateStatus(ctx, "status-1")).To(Succeed())
+		var s status.Status[any]
+		Expect(statuses.NewRetrieve[any]().
+			Where(status.MatchKeys[any]("status-1")).
+			Entry(&s).
+			Exec(ctx, nil)).To(Succeed())
+		Expect(s.Name).To(Equal("status-1"))
+		Expect(s.Variant).To(Equal(status.VariantInfo))
 	})
 })

@@ -20,6 +20,8 @@ import (
 	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -132,16 +134,24 @@ func openDevices(
 
 var _ = Describe("Service", func() {
 	var (
-		svc     *ethercat.Service
-		devices *device.Service
-		tasks   *tasktestutil.Tasks
+		svc        *ethercat.Service
+		devices    *device.Service
+		channelSvc *channel.Service
+		tasks      *tasktestutil.Tasks
 	)
 	BeforeEach(func(ctx SpecContext) {
-		db := DeferClose(gorp.Wrap(memkv.New()))
+		node := testutil.NewNode(ctx)
 		var tasksCfg tasktestutil.TasksConfig
-		devices, tasksCfg = openDevices(ctx, db)
+		devices, tasksCfg = openDevices(ctx, node.DB)
+		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+			Channel:      node.Channel,
+			DB:           node.DB,
+			HostProvider: node.Cluster,
+			Ontology:     tasksCfg.Ontology,
+			Status:       tasksCfg.Status,
+		}))
 		svc = MustOpen(ethercat.OpenService(ctx, ethercat.ServiceConfig{
-			DB:     db,
+			DB:     node.DB,
 			Device: devices,
 		}))
 		tasksCfg.Stores = svc.Stores()
@@ -320,14 +330,14 @@ var _ = Describe("Service", func() {
 		It("Should store a decoded read config under the given key", func(
 			ctx SpecContext,
 		) {
-			Expect(tasks.Channels.Create(ctx, 42)).To(Succeed())
+			ch := MustSucceed(channeltestutil.CreateVirtual(ctx, channelSvc, 1))[0]
 			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
 				"sample_rate": 25,
 				"channels": []any{map[string]any{
 					"type":      "entry",
 					"key":       "chan-1",
 					"device":    "slave",
-					"channel":   42,
+					"channel":   ch,
 					"index":     0x6000,
 					"sub_index": 1,
 					"data_type": "int16",

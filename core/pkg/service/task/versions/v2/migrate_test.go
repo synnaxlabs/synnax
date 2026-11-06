@@ -21,6 +21,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -165,11 +167,11 @@ var _ = Describe("Migrations", func() {
 		"Should decompose stored configs, rename types, and quarantine unknowns",
 		func(ctx SpecContext) {
 			// Legacy rows from released builds are msgpack-encoded, while the opened
-			// services run the production Orc codec. Seed through an msgpack view of
+			// services run the production Orc codec. Stage through an msgpack view of
 			// the same KV so the fixtures land in their real on-disk form.
-			kvDB := memkv.New()
-			seedDB := gorp.Wrap(kvDB, gorp.WithCodec(msgpack.Codec))
-			db := DeferClose(gorp.Wrap(kvDB))
+			node := testutil.NewNode(ctx)
+			db := node.DB
+			stageDB := gorp.Wrap(db.DB, gorp.WithCodec(msgpack.Codec))
 			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 			g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 				DB:       db,
@@ -197,22 +199,27 @@ var _ = Describe("Migrations", func() {
 			}))
 			testRack := &rack.Rack{Name: "Decompose Test Rack"}
 			Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
-			targets := MustOpen(
-				tasktestutil.OpenTargets(ctx, tasktestutil.TargetsConfig{
-					DB: db,
-					Device: MustOpen(device.OpenService(ctx, device.ServiceConfig{
-						DB:       db,
-						Ontology: otg,
-						Status:   stat,
-						Rack:     rackSvc,
-					})),
-					Status: stat,
-					Rack:   testRack.Key,
-				}),
-			)
+			targets := tasktestutil.NewTargets(tasktestutil.TargetsConfig{
+				Device: MustOpen(device.OpenService(ctx, device.ServiceConfig{
+					DB:       db,
+					Ontology: otg,
+					Status:   stat,
+					Rack:     rackSvc,
+				})),
+				Status: stat,
+				Rack:   testRack.Key,
+			})
 			Expect(targets.CreateDevice(ctx, "dev-ni")).To(Succeed())
 			Expect(targets.CreateDevice(ctx, "dev-lj")).To(Succeed())
-			Expect(targets.Channels.Create(ctx, 7, 8, 101, 102)).To(Succeed())
+			channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+				Channel:      node.Channel,
+				DB:           db,
+				HostProvider: node.Cluster,
+				Ontology:     otg,
+				Status:       stat,
+			}))
+			keys := MustSucceed(channeltestutil.CreateVirtual(ctx, channelSvc, 4))
+			cmdKey, stateKey, tcKey, freqKey := keys[0], keys[1], keys[2], keys[3]
 
 			MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
 			arcModule := arc.Arc{Key: uuid.New(), Name: "Stored Arc"}
@@ -285,7 +292,7 @@ var _ = Describe("Migrations", func() {
 					"channels": []any{
 						map[string]any{
 							"key":        "ch-ni-tc",
-							"channel":    float64(101),
+							"channel":    float64(tcKey),
 							"port":       float64(1),
 							"type":       "ai_thermocouple",
 							"units":      "DegC",
@@ -297,7 +304,7 @@ var _ = Describe("Migrations", func() {
 						},
 						map[string]any{
 							"key":          "ch-ni-freq",
-							"channel":      float64(102),
+							"channel":      float64(freqKey),
 							"port":         float64(2),
 							"type":         "ai_frequency_voltage",
 							"units":        "Hz",
@@ -322,8 +329,8 @@ var _ = Describe("Migrations", func() {
 						"type":      "DO",
 						"key":       "ch-do",
 						"port":      "DIO4",
-						"cmd_key":   float64(7),
-						"state_key": float64(8),
+						"cmd_key":   float64(cmdKey),
+						"state_key": float64(stateKey),
 						"enabled":   true,
 					}},
 				},
@@ -332,10 +339,10 @@ var _ = Describe("Migrations", func() {
 				Entries(&[]v1.Task{
 					pdTask, arcTask, bogusTask, ljTask, ljScanTask, niTask,
 				}).
-				Exec(ctx, seedDB)).To(Succeed())
+				Exec(ctx, stageDB)).To(Succeed())
 			Expect(gorp.NewCreate[v1.Key, v1.Task]().
 				Entries(&retiredTasks).
-				Exec(ctx, seedDB)).To(Succeed())
+				Exec(ctx, stageDB)).To(Succeed())
 
 			pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
 			at := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))
@@ -403,8 +410,8 @@ var _ = Describe("Migrations", func() {
 			Expect(ljChannels).To(HaveLen(1))
 			ljCh, ok := ljChannels[0].(map[string]any)
 			Expect(ok).To(BeTrue())
-			Expect(ljCh).To(HaveKeyWithValue("cmd_channel", BeEquivalentTo(7)))
-			Expect(ljCh).To(HaveKeyWithValue("state_channel", BeEquivalentTo(8)))
+			Expect(ljCh).To(HaveKeyWithValue("cmd_channel", BeEquivalentTo(cmdKey)))
+			Expect(ljCh).To(HaveKeyWithValue("state_channel", BeEquivalentTo(stateKey)))
 			Expect(ljCh).To(HaveKeyWithValue("disabled", false))
 			Expect(ljCh).ToNot(HaveKey("cmd_key"))
 			Expect(ljCh).ToNot(HaveKey("state_key"))

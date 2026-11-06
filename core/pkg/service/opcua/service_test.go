@@ -12,7 +12,11 @@ package opcua_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/opcua"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	. "github.com/synnaxlabs/x/testutil"
@@ -20,16 +24,31 @@ import (
 
 var _ = Describe("Service", func() {
 	var (
-		svc   *opcua.Service
-		tasks *tasktestutil.Tasks
+		svc        *opcua.Service
+		channelSvc *channel.Service
+		tasks      *tasktestutil.Tasks
 	)
 	BeforeEach(func(ctx SpecContext) {
+		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+		}))
+		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+			Channel:      node.Channel,
+			DB:           db,
+			HostProvider: node.Cluster,
+			Ontology:     otg,
+			Status:       statusSvc,
+		}))
 		svc = MustOpen(opcua.OpenService(ctx, opcua.ServiceConfig{
 			DB: db,
 		}))
 		tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
-			DB:     db,
-			Stores: svc.Stores(),
+			DB:       db,
+			Ontology: otg,
+			Status:   statusSvc,
+			Stores:   svc.Stores(),
 		}))
 	})
 
@@ -59,14 +78,14 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			Expect(tasks.CreateDevice(ctx, "dev-1")).To(Succeed())
-			Expect(tasks.Channels.Create(ctx, 42)).To(Succeed())
+			ch := MustSucceed(channeltestutil.CreateVirtual(ctx, channelSvc, 1))[0]
 			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
 				"device":      "dev-1",
 				"sample_rate": 25,
 				"channels": []any{map[string]any{
 					"key":     "chan-1",
 					"node_id": "NS=2;I=8",
-					"channel": 42,
+					"channel": ch,
 				}},
 			}))
 			data := MustSucceed(svc.Read.Read(ctx, nil, key))

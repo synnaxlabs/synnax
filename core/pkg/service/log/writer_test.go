@@ -39,7 +39,7 @@ var _ = Describe("Writer", func() {
 				Name:    "test",
 				Channels: []log.ChannelEntry{
 					{
-						Channel: channel.Key(1),
+						Channel: ch1,
 						Color:   MustSucceed(color.FromHex("#ff0000")),
 					},
 				},
@@ -64,7 +64,7 @@ var _ = Describe("Writer", func() {
 				l := log.Log{
 					Project:  &proj.Key,
 					Name:     "test",
-					Channels: []log.ChannelEntry{{Channel: 5, Precision: &precision}},
+					Channels: []log.ChannelEntry{{Channel: ch5, Precision: &precision}},
 				}
 				Expect(svc.NewWriter(tx).Create(ctx, &l)).
 					To(MatchError(ContainSubstring(msg)))
@@ -286,12 +286,12 @@ var _ = Describe("Writer", func() {
 					l := log.Log{Project: &proj.Key, Name: "test"}
 					Expect(svc.NewWriter(nil).Create(ctx, &l)).To(Succeed())
 					Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
-						log.NewAddChannelAction(log.AddChannelPayload{Channel: 42}),
+						log.NewAddChannelAction(log.AddChannelPayload{Channel: ch42}),
 					})).To(Succeed())
 					res := retrieve(ctx, l.Key)
 					Expect(res.Channels).To(HaveLen(1))
 					entry := res.Channels[0]
-					Expect(entry.Channel).To(Equal(channel.Key(42)))
+					Expect(entry.Channel).To(Equal(ch42))
 					Expect(entry.Notation).To(Equal(notation.NotationStandard))
 					Expect(entry.Precision).To(BeNil())
 					Expect(
@@ -305,8 +305,8 @@ var _ = Describe("Writer", func() {
 				l := log.Log{Project: &proj.Key, Name: "test"}
 				Expect(svc.NewWriter(nil).Create(ctx, &l)).To(Succeed())
 				Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
-					log.NewAddChannelAction(log.AddChannelPayload{Channel: 42}),
-					log.NewAddChannelAction(log.AddChannelPayload{Channel: 42}),
+					log.NewAddChannelAction(log.AddChannelPayload{Channel: ch42}),
+					log.NewAddChannelAction(log.AddChannelPayload{Channel: ch42}),
 				})).To(Succeed())
 				Expect(retrieve(ctx, l.Key).Channels).To(HaveLen(1))
 			})
@@ -315,13 +315,13 @@ var _ = Describe("Writer", func() {
 				l := log.Log{Project: &proj.Key, Name: "test"}
 				Expect(svc.NewWriter(nil).Create(ctx, &l)).To(Succeed())
 				Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
-					log.NewAddChannelAction(log.AddChannelPayload{Channel: 1}),
-					log.NewAddChannelAction(log.AddChannelPayload{Channel: 2}),
-					log.NewRemoveChannelAction(log.RemoveChannelPayload{Channel: 1}),
+					log.NewAddChannelAction(log.AddChannelPayload{Channel: ch1}),
+					log.NewAddChannelAction(log.AddChannelPayload{Channel: ch2}),
+					log.NewRemoveChannelAction(log.RemoveChannelPayload{Channel: ch1}),
 				})).To(Succeed())
 				res := retrieve(ctx, l.Key)
 				Expect(res.Channels).To(HaveLen(1))
-				Expect(res.Channels[0].Channel).To(Equal(channel.Key(2)))
+				Expect(res.Channels[0].Channel).To(Equal(ch2))
 			})
 
 			It(
@@ -331,10 +331,10 @@ var _ = Describe("Writer", func() {
 					Expect(svc.NewWriter(nil).Create(ctx, &l)).To(Succeed())
 					Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
 						log.NewSetChannelEntryAction(log.SetChannelEntryPayload{
-							Entry: entry(5, "first"),
+							Entry: entry(ch5, "first"),
 						}),
 						log.NewSetChannelEntryAction(log.SetChannelEntryPayload{
-							Entry: entry(5, "second"),
+							Entry: entry(ch5, "second"),
 						}),
 					})).To(Succeed())
 					res := retrieve(ctx, l.Key)
@@ -349,38 +349,38 @@ var _ = Describe("Writer", func() {
 					l := log.Log{
 						Project:  &proj.Key,
 						Name:     "test",
-						Channels: []log.ChannelEntry{{Channel: 5}},
+						Channels: []log.ChannelEntry{{Channel: ch5}},
 					}
 					Expect(svc.NewWriter(nil).Create(ctx, &l)).To(Succeed())
 					red := color.Color{R: 255, G: 0, B: 0, A: 1}
 					Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
 						log.NewSetChannelColorAction(
-							log.SetChannelColorPayload{Channel: 5, Color: red},
+							log.SetChannelColorPayload{Channel: ch5, Color: red},
 						),
 						log.NewSetChannelNotationAction(
 							log.SetChannelNotationPayload{
-								Channel:  5,
+								Channel:  ch5,
 								Notation: notation.NotationScientific,
 							},
 						),
 						log.NewSetChannelPrecisionAction(
 							log.SetChannelPrecisionPayload{
-								Channel:   5,
+								Channel:   ch5,
 								Precision: new(int32(4)),
 							},
 						),
 						log.NewSetChannelAliasAction(
-							log.SetChannelAliasPayload{Channel: 5, Alias: "volts"},
+							log.SetChannelAliasPayload{Channel: ch5, Alias: "volts"},
 						),
 						log.NewSetChannelTimestampFormatAction(
 							log.SetChannelTimestampFormatPayload{
-								Channel: 5,
+								Channel: ch5,
 								Format:  telem.TimestampFormatTime,
 							},
 						),
 						log.NewSetChannelTimestampTzAction(
 							log.SetChannelTimestampTzPayload{
-								Channel: 5,
+								Channel: ch5,
 								Tz:      telem.TimeZoneUTC,
 							},
 						),
@@ -401,12 +401,12 @@ var _ = Describe("Writer", func() {
 					l := log.Log{
 						Project:  &proj.Key,
 						Name:     "test",
-						Channels: []log.ChannelEntry{{Channel: 1}},
+						Channels: []log.ChannelEntry{{Channel: ch1}},
 					}
 					Expect(svc.NewWriter(nil).Create(ctx, &l)).To(Succeed())
 					Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
 						log.NewSetChannelAliasAction(
-							log.SetChannelAliasPayload{Channel: 99, Alias: "ignored"},
+							log.SetChannelAliasPayload{Channel: ch99, Alias: "ignored"},
 						),
 					})).To(Succeed())
 					res := retrieve(ctx, l.Key)
@@ -420,13 +420,13 @@ var _ = Describe("Writer", func() {
 					Project: &proj.Key,
 					Name:    "test",
 					Channels: []log.ChannelEntry{
-						{Channel: 5, Precision: new(int32(2))},
+						{Channel: ch5, Precision: new(int32(2))},
 					},
 				}
 				Expect(svc.NewWriter(nil).Create(ctx, &l)).To(Succeed())
 				Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
 					log.NewSetChannelPrecisionAction(
-						log.SetChannelPrecisionPayload{Channel: 5},
+						log.SetChannelPrecisionPayload{Channel: ch5},
 					),
 				})).To(Succeed())
 				Expect(retrieve(ctx, l.Key).Channels[0].Precision).To(BeNil())
@@ -437,12 +437,12 @@ var _ = Describe("Writer", func() {
 					l := log.Log{
 						Project:  &proj.Key,
 						Name:     "test",
-						Channels: []log.ChannelEntry{{Channel: 5}},
+						Channels: []log.ChannelEntry{{Channel: ch5}},
 					}
 					Expect(svc.NewWriter(nil).Create(ctx, &l)).To(Succeed())
 					Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
 						log.NewSetChannelPrecisionAction(log.SetChannelPrecisionPayload{
-							Channel:   5,
+							Channel:   ch5,
 							Precision: &precision,
 						}),
 					})).Error().To(MatchError(ContainSubstring("channels.0.precision")))
@@ -455,18 +455,18 @@ var _ = Describe("Writer", func() {
 				l := log.Log{
 					Project:  &proj.Key,
 					Name:     "test",
-					Channels: []log.ChannelEntry{{Channel: 1}},
+					Channels: []log.ChannelEntry{{Channel: ch1}},
 				}
 				Expect(svc.NewWriter(nil).Create(ctx, &l)).To(Succeed())
 				Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
 					log.NewSetChannelsAction(log.SetChannelsPayload{
-						Channels: []log.ChannelEntry{entry(2, ""), entry(3, "")},
+						Channels: []log.ChannelEntry{entry(ch2, ""), entry(ch3, "")},
 					}),
 				})).To(Succeed())
 				res := retrieve(ctx, l.Key)
 				Expect(res.Channels).To(HaveLen(2))
-				Expect(res.Channels[0].Channel).To(Equal(channel.Key(2)))
-				Expect(res.Channels[1].Channel).To(Equal(channel.Key(3)))
+				Expect(res.Channels[0].Channel).To(Equal(ch2))
+				Expect(res.Channels[1].Channel).To(Equal(ch3))
 			})
 
 			It(
@@ -476,20 +476,20 @@ var _ = Describe("Writer", func() {
 						Project: &proj.Key,
 						Name:    "test",
 						Channels: []log.ChannelEntry{
-							{Channel: 1},
-							{Channel: 2, Alias: "kept", Precision: new(int32(3))},
-							{Channel: 4},
+							{Channel: ch1},
+							{Channel: ch2, Alias: "kept", Precision: new(int32(3))},
+							{Channel: ch4},
 						},
 					}
 					Expect(svc.NewWriter(nil).Create(ctx, &l)).To(Succeed())
 					Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
 						log.NewSwapChannelAction(
-							log.SwapChannelPayload{From: 2, To: 5},
+							log.SwapChannelPayload{From: ch2, To: ch5},
 						),
 					})).To(Succeed())
 					res := retrieve(ctx, l.Key)
 					Expect(res.Channels).To(HaveLen(3))
-					Expect(res.Channels[1].Channel).To(Equal(channel.Key(5)))
+					Expect(res.Channels[1].Channel).To(Equal(ch5))
 					Expect(res.Channels[1].Alias).To(Equal("kept"))
 					Expect(res.Channels[1].Precision).To(Equal(new(int32(3))))
 				},
@@ -501,17 +501,17 @@ var _ = Describe("Writer", func() {
 					l := log.Log{
 						Project:  &proj.Key,
 						Name:     "test",
-						Channels: []log.ChannelEntry{{Channel: 1}},
+						Channels: []log.ChannelEntry{{Channel: ch1}},
 					}
 					Expect(svc.NewWriter(nil).Create(ctx, &l)).To(Succeed())
 					Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
 						log.NewSwapChannelAction(
-							log.SwapChannelPayload{From: 99, To: 5},
+							log.SwapChannelPayload{From: ch99, To: ch5},
 						),
 					})).To(Succeed())
 					res := retrieve(ctx, l.Key)
 					Expect(res.Channels).To(HaveLen(1))
-					Expect(res.Channels[0].Channel).To(Equal(channel.Key(1)))
+					Expect(res.Channels[0].Channel).To(Equal(ch1))
 				},
 			)
 
@@ -557,46 +557,52 @@ var _ = Describe("Writer", func() {
 			})
 
 			DescribeTable("Should reject an action that leaves the log invalid",
-				func(ctx SpecContext, act log.Action, path string) {
+				func(ctx SpecContext, act func() log.Action, path string) {
 					l := log.Log{Project: &proj.Key, Name: "test"}
 					Expect(svc.NewWriter(nil).Create(ctx, &l)).To(Succeed())
 					Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
-						log.NewAddChannelAction(log.AddChannelPayload{Channel: 5}),
+						log.NewAddChannelAction(log.AddChannelPayload{Channel: ch5}),
 					})).To(Succeed())
-					Expect(svc.Dispatch(ctx, l.Key, "d2", []log.Action{act})).
+					Expect(svc.Dispatch(ctx, l.Key, "d2", []log.Action{act()})).
 						To(MatchError(ContainSubstring(path)))
 					Expect(retrieve(ctx, l.Key).Channels).To(Equal([]log.ChannelEntry{
-						entry(5, ""),
+						entry(ch5, ""),
 					}))
 				},
 				Entry(
 					"empty timestamp format",
-					log.NewSetChannelTimestampFormatAction(
-						log.SetChannelTimestampFormatPayload{Channel: 5},
-					),
+					func() log.Action {
+						return log.NewSetChannelTimestampFormatAction(
+							log.SetChannelTimestampFormatPayload{Channel: ch5},
+						)
+					},
 					"channels.0.timestamp.format",
 				),
 				Entry(
 					"empty time zone",
-					log.NewSetChannelTimestampTzAction(
-						log.SetChannelTimestampTzPayload{Channel: 5},
-					),
+					func() log.Action {
+						return log.NewSetChannelTimestampTzAction(
+							log.SetChannelTimestampTzPayload{Channel: ch5},
+						)
+					},
 					"channels.0.timestamp.tz",
 				),
 				Entry(
 					"entry with no timestamp",
-					log.NewSetChannelEntryAction(
-						log.SetChannelEntryPayload{Entry: log.ChannelEntry{Channel: 5}},
-					),
+					func() log.Action {
+						return log.NewSetChannelEntryAction(log.SetChannelEntryPayload{
+							Entry: log.ChannelEntry{Channel: ch5},
+						})
+					},
 					"channels.0.timestamp",
 				),
 				Entry(
 					"channels with no timestamp",
-					log.NewSetChannelsAction(
-						log.SetChannelsPayload{
-							Channels: []log.ChannelEntry{{Channel: 5}},
-						},
-					),
+					func() log.Action {
+						return log.NewSetChannelsAction(log.SetChannelsPayload{
+							Channels: []log.ChannelEntry{{Channel: ch5}},
+						})
+					},
 					"channels.0.timestamp",
 				),
 			)
@@ -626,7 +632,7 @@ var _ = Describe("Writer", func() {
 				Expect(svc.NewWriter(nil).Create(ctx, &l)).To(Succeed())
 				Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
 					log.NewRenameAction(log.RenamePayload{Name: "batched"}),
-					log.NewAddChannelAction(log.AddChannelPayload{Channel: 10}),
+					log.NewAddChannelAction(log.AddChannelPayload{Channel: ch10}),
 					log.NewSetTimestampPrecisionAction(log.SetTimestampPrecisionPayload{
 						TimestampPrecision: 2,
 					}),
@@ -663,7 +669,7 @@ var _ = Describe("Writer", func() {
 					DeferCleanup(svc.OnAction(rec.Record))
 					actions := []log.Action{
 						log.NewRenameAction(log.RenamePayload{Name: "broadcast"}),
-						log.NewAddChannelAction(log.AddChannelPayload{Channel: 5}),
+						log.NewAddChannelAction(log.AddChannelPayload{Channel: ch5}),
 					}
 					Expect(
 						svc.Dispatch(ctx, l.Key, "client-xyz", actions),

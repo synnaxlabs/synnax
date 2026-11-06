@@ -106,7 +106,7 @@ var _ = Describe("Writer", func() {
 				plot := lineplot.LinePlot{
 					Project:  &proj.Key,
 					Name:     "test",
-					Channels: lineplot.Channels{X1: 10, Y1: []channel.Key{5, 6}},
+					Channels: lineplot.Channels{X1: ch10, Y1: []channel.Key{ch5, ch6}},
 					Ranges:   refs(rk1),
 				}
 				Expect(svc.NewWriter(tx).Create(ctx, &plot)).To(Succeed())
@@ -120,7 +120,7 @@ var _ = Describe("Writer", func() {
 					To(Succeed())
 				Expect(
 					lineKeysOf(res.Lines),
-				).To(ConsistOf(lk(plot.Key, 10, 5), lk(plot.Key, 10, 6)))
+				).To(ConsistOf(lk(plot.Key, ch10, ch5), lk(plot.Key, ch10, ch6)))
 			},
 		)
 
@@ -186,14 +186,14 @@ var _ = Describe("Writer", func() {
 				plot := lineplot.LinePlot{
 					Project:  &proj.Key,
 					Name:     "test",
-					Channels: lineplot.Channels{X1: 10},
+					Channels: lineplot.Channels{X1: ch10},
 					Ranges:   refs(rk1, rk2),
 				}
 				Expect(svc.NewWriter(nil).Create(ctx, &plot)).To(Succeed())
 				Expect(
 					svc.Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 						lineplot.NewAddChannelAction(lineplot.AddChannelPayload{
-							AxisKey: lineplot.YAxisKeyY1, Channel: 5,
+							AxisKey: lineplot.YAxisKeyY1, Channel: ch5,
 						}),
 					}),
 				).To(Succeed())
@@ -206,7 +206,7 @@ var _ = Describe("Writer", func() {
 				).
 					To(Succeed())
 				Expect(lineKeysOf(res.Lines)).
-					To(ConsistOf(lk(plot.Key, 10, 5)))
+					To(ConsistOf(lk(plot.Key, ch10, ch5)))
 			},
 		)
 
@@ -216,14 +216,14 @@ var _ = Describe("Writer", func() {
 				plot := lineplot.LinePlot{
 					Project:  &proj.Key,
 					Name:     "test",
-					Channels: lineplot.Channels{X1: 10},
+					Channels: lineplot.Channels{X1: ch10},
 					Ranges:   refs(rk1),
 				}
 				Expect(svc.NewWriter(nil).Create(ctx, &plot)).To(Succeed())
 				Expect(
 					svc.Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 						lineplot.NewAddChannelAction(lineplot.AddChannelPayload{
-							AxisKey: lineplot.YAxisKeyY1, Channel: 5,
+							AxisKey: lineplot.YAxisKeyY1, Channel: ch5,
 						}),
 					}),
 				).To(Succeed())
@@ -248,14 +248,14 @@ var _ = Describe("Writer", func() {
 				plot := lineplot.LinePlot{
 					Project:  &proj.Key,
 					Name:     "test",
-					Channels: lineplot.Channels{X1: 10, Y1: []channel.Key{5, 6}},
+					Channels: lineplot.Channels{X1: ch10, Y1: []channel.Key{ch5, ch6}},
 					Ranges:   refs(rk1),
 				}
 				Expect(svc.NewWriter(nil).Create(ctx, &plot)).To(Succeed())
 				Expect(
 					svc.Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 						lineplot.NewRemoveChannelAction(lineplot.RemoveChannelPayload{
-							AxisKey: lineplot.YAxisKeyY1, Channel: 5,
+							AxisKey: lineplot.YAxisKeyY1, Channel: ch5,
 						}),
 					}),
 				).To(Succeed())
@@ -267,7 +267,7 @@ var _ = Describe("Writer", func() {
 						Exec(ctx, db),
 				).
 					To(Succeed())
-				Expect(lineKeysOf(res.Lines)).To(ConsistOf(lk(plot.Key, 10, 6)))
+				Expect(lineKeysOf(res.Lines)).To(ConsistOf(lk(plot.Key, ch10, ch6)))
 			},
 		)
 
@@ -277,14 +277,14 @@ var _ = Describe("Writer", func() {
 				plot := lineplot.LinePlot{
 					Project:  &proj.Key,
 					Name:     "test",
-					Channels: lineplot.Channels{X1: 10, Y1: []channel.Key{5}},
+					Channels: lineplot.Channels{X1: ch10, Y1: []channel.Key{ch5}},
 					Ranges:   refs(rk1),
 				}
 				Expect(svc.NewWriter(nil).Create(ctx, &plot)).To(Succeed())
 				Expect(
 					svc.Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 						lineplot.NewSetXChannelAction(lineplot.SetXChannelPayload{
-							AxisKey: lineplot.XAxisKeyX1, Channel: 20,
+							AxisKey: lineplot.XAxisKeyX1, Channel: ch20,
 						}),
 					}),
 				).To(Succeed())
@@ -296,7 +296,7 @@ var _ = Describe("Writer", func() {
 						Exec(ctx, db),
 				).
 					To(Succeed())
-				Expect(lineKeysOf(res.Lines)).To(ConsistOf(lk(plot.Key, 20, 5)))
+				Expect(lineKeysOf(res.Lines)).To(ConsistOf(lk(plot.Key, ch20, ch5)))
 			},
 		)
 	})
@@ -501,10 +501,10 @@ var _ = Describe("Writer", func() {
 					Expect(
 						svc.Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 							lineplot.NewAddChannelAction(lineplot.AddChannelPayload{
-								AxisKey: lineplot.YAxisKeyY1, Channel: 42,
+								AxisKey: lineplot.YAxisKeyY1, Channel: ch42,
 							}),
 							lineplot.NewAddChannelAction(lineplot.AddChannelPayload{
-								AxisKey: lineplot.YAxisKeyY1, Channel: 43,
+								AxisKey: lineplot.YAxisKeyY1, Channel: ch43,
 							}),
 						}),
 					).To(Succeed())
@@ -518,7 +518,7 @@ var _ = Describe("Writer", func() {
 						To(Succeed())
 					Expect(
 						res.Channels.Y1,
-					).To(ConsistOf(channel.Key(42), channel.Key(43)))
+					).To(ConsistOf(ch42, ch43))
 				},
 			)
 
@@ -528,10 +528,10 @@ var _ = Describe("Writer", func() {
 				Expect(
 					svc.Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 						lineplot.NewAddChannelAction(lineplot.AddChannelPayload{
-							AxisKey: lineplot.YAxisKeyY2, Channel: 7,
+							AxisKey: lineplot.YAxisKeyY2, Channel: ch7,
 						}),
 						lineplot.NewAddChannelAction(lineplot.AddChannelPayload{
-							AxisKey: lineplot.YAxisKeyY2, Channel: 7,
+							AxisKey: lineplot.YAxisKeyY2, Channel: ch7,
 						}),
 					}),
 				).To(Succeed())
@@ -543,7 +543,7 @@ var _ = Describe("Writer", func() {
 						Exec(ctx, db),
 				).
 					To(Succeed())
-				Expect(res.Channels.Y2).To(ConsistOf(channel.Key(7)))
+				Expect(res.Channels.Y2).To(ConsistOf(ch7))
 			})
 
 			It(
@@ -556,7 +556,7 @@ var _ = Describe("Writer", func() {
 					Expect(
 						svc.Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 							lineplot.NewAddChannelAction(lineplot.AddChannelPayload{
-								AxisKey: lineplot.YAxisKey("x1"), Channel: 1,
+								AxisKey: lineplot.YAxisKey("x1"), Channel: ch1,
 							}),
 						}),
 					).Error().
@@ -570,13 +570,13 @@ var _ = Describe("Writer", func() {
 				Expect(
 					svc.Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 						lineplot.NewAddChannelAction(lineplot.AddChannelPayload{
-							AxisKey: lineplot.YAxisKeyY3, Channel: 1,
+							AxisKey: lineplot.YAxisKeyY3, Channel: ch1,
 						}),
 						lineplot.NewAddChannelAction(lineplot.AddChannelPayload{
-							AxisKey: lineplot.YAxisKeyY3, Channel: 2,
+							AxisKey: lineplot.YAxisKeyY3, Channel: ch2,
 						}),
 						lineplot.NewRemoveChannelAction(lineplot.RemoveChannelPayload{
-							AxisKey: lineplot.YAxisKeyY3, Channel: 1,
+							AxisKey: lineplot.YAxisKeyY3, Channel: ch1,
 						}),
 					}),
 				).To(Succeed())
@@ -588,7 +588,7 @@ var _ = Describe("Writer", func() {
 						Exec(ctx, db),
 				).
 					To(Succeed())
-				Expect(res.Channels.Y3).To(ConsistOf(channel.Key(2)))
+				Expect(res.Channels.Y3).To(ConsistOf(ch2))
 			})
 
 			It(
@@ -597,7 +597,7 @@ var _ = Describe("Writer", func() {
 					plot := lineplot.LinePlot{
 						Project:  &proj.Key,
 						Name:     "test",
-						Channels: lineplot.Channels{Y1: []channel.Key{1, 2, 3}},
+						Channels: lineplot.Channels{Y1: []channel.Key{ch1, ch2, ch3}},
 					}
 					Expect(
 						svc.NewWriter(nil).Create(ctx, &plot),
@@ -607,7 +607,7 @@ var _ = Describe("Writer", func() {
 							lineplot.NewSetChannelsAction(
 								lineplot.SetChannelsPayload{
 									AxisKey:  lineplot.YAxisKeyY1,
-									Channels: []channel.Key{2, 4},
+									Channels: []channel.Key{ch2, ch4},
 								},
 							),
 						}),
@@ -620,7 +620,7 @@ var _ = Describe("Writer", func() {
 							Exec(ctx, db),
 					).
 						To(Succeed())
-					Expect(res.Channels.Y1).To(Equal([]channel.Key{2, 4}))
+					Expect(res.Channels.Y1).To(Equal([]channel.Key{ch2, ch4}))
 				},
 			)
 
@@ -630,7 +630,7 @@ var _ = Describe("Writer", func() {
 					plot := lineplot.LinePlot{
 						Project:  &proj.Key,
 						Name:     "test",
-						Channels: lineplot.Channels{X1: 10, Y1: []channel.Key{5}},
+						Channels: lineplot.Channels{X1: ch10, Y1: []channel.Key{ch5}},
 						Ranges:   refs(rk1),
 					}
 					Expect(
@@ -641,7 +641,7 @@ var _ = Describe("Writer", func() {
 							lineplot.NewSetChannelsAction(
 								lineplot.SetChannelsPayload{
 									AxisKey:  lineplot.YAxisKeyY1,
-									Channels: []channel.Key{6},
+									Channels: []channel.Key{ch6},
 								},
 							),
 						}),
@@ -654,7 +654,7 @@ var _ = Describe("Writer", func() {
 							Exec(ctx, db),
 					).
 						To(Succeed())
-					Expect(lineKeysOf(res.Lines)).To(ConsistOf(lk(plot.Key, 10, 6)))
+					Expect(lineKeysOf(res.Lines)).To(ConsistOf(lk(plot.Key, ch10, ch6)))
 				},
 			)
 
@@ -662,16 +662,19 @@ var _ = Describe("Writer", func() {
 				"Should preserve styling of surviving channels under SetChannels",
 				func(ctx SpecContext) {
 					plot := lineplot.LinePlot{
-						Project:  &proj.Key,
-						Name:     "test",
-						Channels: lineplot.Channels{X1: 10, Y1: []channel.Key{5, 6}},
-						Ranges:   refs(rk1),
+						Project: &proj.Key,
+						Name:    "test",
+						Channels: lineplot.Channels{
+							X1: ch10,
+							Y1: []channel.Key{ch5, ch6},
+						},
+						Ranges: refs(rk1),
 					}
 					Expect(
 						svc.NewWriter(nil).Create(ctx, &plot),
 					).To(Succeed())
 					keep := lineplot.NewSetLineColorAction(lineplot.SetLineColorPayload{
-						Key:   lk(plot.Key, 10, 5),
+						Key:   lk(plot.Key, ch10, ch5),
 						Color: new(MustSucceed(color.FromHex("#ff0000"))),
 					})
 					Expect(
@@ -683,7 +686,7 @@ var _ = Describe("Writer", func() {
 							lineplot.NewSetChannelsAction(
 								lineplot.SetChannelsPayload{
 									AxisKey:  lineplot.YAxisKeyY1,
-									Channels: []channel.Key{5},
+									Channels: []channel.Key{ch5},
 								},
 							),
 						}),
@@ -715,7 +718,7 @@ var _ = Describe("Writer", func() {
 							lineplot.NewSetChannelsAction(
 								lineplot.SetChannelsPayload{
 									AxisKey:  lineplot.YAxisKey("x1"),
-									Channels: []channel.Key{1},
+									Channels: []channel.Key{ch1},
 								},
 							),
 						}),
@@ -735,7 +738,7 @@ var _ = Describe("Writer", func() {
 						svc.Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 							lineplot.NewSetXChannelAction(
 								lineplot.SetXChannelPayload{
-									AxisKey: lineplot.XAxisKeyX1, Channel: 99,
+									AxisKey: lineplot.XAxisKeyX1, Channel: ch99,
 								},
 							),
 						}),
@@ -748,7 +751,7 @@ var _ = Describe("Writer", func() {
 							Exec(ctx, db),
 					).
 						To(Succeed())
-					Expect(res.Channels.X1).To(BeEquivalentTo(99))
+					Expect(res.Channels.X1).To(Equal(ch99))
 				},
 			)
 
@@ -763,7 +766,7 @@ var _ = Describe("Writer", func() {
 						svc.Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 							lineplot.NewSetXChannelAction(
 								lineplot.SetXChannelPayload{
-									AxisKey: lineplot.XAxisKey("y1"), Channel: 1,
+									AxisKey: lineplot.XAxisKey("y1"), Channel: ch1,
 								},
 							),
 						}),
@@ -840,7 +843,7 @@ var _ = Describe("Writer", func() {
 					plot := lineplot.LinePlot{
 						Project:  &proj.Key,
 						Name:     "test",
-						Channels: lineplot.Channels{X1: 10, Y1: []channel.Key{5}},
+						Channels: lineplot.Channels{X1: ch10, Y1: []channel.Key{ch5}},
 						Ranges:   refs(rk1),
 					}
 					Expect(
@@ -861,7 +864,7 @@ var _ = Describe("Writer", func() {
 							Exec(ctx, db),
 					).
 						To(Succeed())
-					Expect(lineKeysOf(res.Lines)).To(ConsistOf(lk(plot.Key, 10, 5)))
+					Expect(lineKeysOf(res.Lines)).To(ConsistOf(lk(plot.Key, ch10, ch5)))
 				},
 			)
 
@@ -878,7 +881,7 @@ var _ = Describe("Writer", func() {
 					plot := lineplot.LinePlot{
 						Project:  &proj.Key,
 						Name:     "test",
-						Channels: lineplot.Channels{X1: 10, Y1: []channel.Key{5}},
+						Channels: lineplot.Channels{X1: ch10, Y1: []channel.Key{ch5}},
 						Ranges:   []ranger.Ref{window(telem.Minute)},
 					}
 					Expect(
@@ -1013,7 +1016,7 @@ var _ = Describe("Writer", func() {
 					Expect(
 						svc.Dispatch(ctx, plot.Key, "d0", []lineplot.Action{
 							lineplot.NewAddChannelAction(lineplot.AddChannelPayload{
-								AxisKey: lineplot.YAxisKeyY1, Channel: 1,
+								AxisKey: lineplot.YAxisKeyY1, Channel: ch1,
 							}),
 							lineplot.NewAddRangeAction(
 								lineplot.AddRangePayload{Range: keyRef(rk1)},
@@ -1103,7 +1106,7 @@ var _ = Describe("Writer", func() {
 					Expect(
 						svc.Dispatch(ctx, plot.Key, "d0", []lineplot.Action{
 							lineplot.NewAddChannelAction(lineplot.AddChannelPayload{
-								AxisKey: lineplot.YAxisKeyY1, Channel: 1,
+								AxisKey: lineplot.YAxisKeyY1, Channel: ch1,
 							}),
 							lineplot.NewAddRangeAction(
 								lineplot.AddRangePayload{Range: keyRef(rk1)},
@@ -1270,13 +1273,13 @@ var _ = Describe("Writer", func() {
 				Expect(
 					svc.Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 						lineplot.NewSetXChannelAction(lineplot.SetXChannelPayload{
-							AxisKey: lineplot.XAxisKeyX1, Channel: 1,
+							AxisKey: lineplot.XAxisKeyX1, Channel: ch1,
 						}),
 						lineplot.NewAddRangeAction(
 							lineplot.AddRangePayload{Range: keyRef(r)},
 						),
 						lineplot.NewAddChannelAction(lineplot.AddChannelPayload{
-							AxisKey: lineplot.YAxisKeyY1, Channel: 10,
+							AxisKey: lineplot.YAxisKeyY1, Channel: ch10,
 						}),
 					}),
 				).To(Succeed())
@@ -1288,9 +1291,9 @@ var _ = Describe("Writer", func() {
 						Exec(ctx, db),
 				).
 					To(Succeed())
-				Expect(res.Channels.X1).To(BeEquivalentTo(1))
+				Expect(res.Channels.X1).To(Equal(ch1))
 				Expect(res.Ranges).To(Equal(refs(r)))
-				Expect(res.Channels.Y1).To(ConsistOf(channel.Key(10)))
+				Expect(res.Channels.Y1).To(ConsistOf(ch10))
 			})
 
 			It(
@@ -1307,7 +1310,7 @@ var _ = Describe("Writer", func() {
 							lineplot.RenamePayload{Name: "broadcast"},
 						),
 						lineplot.NewSetXChannelAction(lineplot.SetXChannelPayload{
-							AxisKey: lineplot.XAxisKeyX1, Channel: 5,
+							AxisKey: lineplot.XAxisKeyX1, Channel: ch5,
 						}),
 					}
 					Expect(
@@ -1363,7 +1366,7 @@ var _ = Describe("Writer", func() {
 					Expect(
 						svc.Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 							lineplot.NewAddChannelAction(lineplot.AddChannelPayload{
-								AxisKey: lineplot.YAxisKey("x1"), Channel: 1,
+								AxisKey: lineplot.YAxisKey("x1"), Channel: ch1,
 							}),
 						}),
 					).Error().
