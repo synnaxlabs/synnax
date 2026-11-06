@@ -9,4 +9,6 @@
 
 package v3
 
+// CustomTypeName gives WriteConfig records a table prefix that cannot collide with the
+// identically named config types of other integrations.
 func (WriteConfig) CustomTypeName() string { return "ethercat_write_config" }
