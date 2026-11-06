@@ -61,6 +61,12 @@ def config(**kw: Any) -> Config:
     return Config(**(fields | kw))
 
 
+NEW_COMMITS = (
+    "commit " + "c" * 40 + "\n\nFix the reader\n\n"
+    "diff --git a/core/a.go b/core/a.go\n@@ -1 +1 @@\n-broken\n+fixed\n"
+)
+
+
 def pull(**kw: Any) -> PullRequest:
     fields: dict[str, Any] = {
         "number": 7,
@@ -247,6 +253,20 @@ class TestPrompt:
     def test_should_write_no_file_when_the_diff_fits(self, tmp_path: Path) -> None:
         review(workdir=tmp_path)
         assert list(tmp_path.iterdir()) == []
+
+    def test_should_show_the_commits_since_the_last_review(self) -> None:
+        stdin = review(pr=pull(new=NEW_COMMITS)).stdin
+        assert "# Commits since your last review\n\nReview these" in stdin
+        assert NEW_COMMITS in stdin
+        assert stdin.index("+fixed") < stdin.index("# Rules")
+
+    def test_should_put_new_commits_too_long_to_show_in_a_file(
+        self, tmp_path: Path
+    ) -> None:
+        stdin = review(config(diff_chars=150), pull(new=NEW_COMMITS), tmp_path).stdin
+        assert "+fixed" not in stdin
+        assert "Read all of `new.diff` first." in stdin
+        assert (tmp_path / "new.diff").read_text() == NEW_COMMITS
 
 
 class TestCommand:
