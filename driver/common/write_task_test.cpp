@@ -399,6 +399,52 @@ TEST(TestCommonWriteTask, StreamerOpenErrorFailsStart) {
     EXPECT_EQ(sink->stop_count, 1);
 }
 
+/// @brief it should report a failed start when the state writer fails to open after
+/// the command streamer opens.
+TEST(TestCommonWriteTask, StateWriterOpenErrorFailsStart) {
+    auto writer_factory = std::make_shared<pipeline::testutil::WriterFactory>(
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
+        std::vector{x::errors::Error(x::errors::UNAUTHORIZED, "no control authority")}
+    );
+    std::promise<void> open;
+    writer_factory->open_gate = open.get_future().share();
+    synnax::channel::Channel state;
+    state.key = 2;
+    state.data_type = x::telem::UINT8_T;
+    state.is_virtual = true;
+    synnax::task::Task task;
+    task.key = x::uuid::create();
+    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    WriteTask write_task(
+        task,
+        ctx,
+        x::breaker::default_config("cat"),
+        std::make_unique<MockSink>(
+            x::telem::HERTZ * 10,
+            std::vector<Sink::Output>{{1, state}},
+            false,
+            std::make_shared<x::sync::List<x::telem::Frame>>(),
+            std::make_shared<std::vector<x::errors::Error>>()
+        ),
+        writer_factory,
+        pipeline::testutil::simple_streamer_factory(
+            std::vector<synnax::channel::Key>{1},
+            std::make_shared<std::vector<x::telem::Frame>>()
+        )
+    );
+
+    ASSERT_TRUE(write_task.start("start_cmd"));
+    ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 1);
+    EXPECT_EQ(ctx->snapshot()[0].message, "Started task");
+    open.set_value();
+    ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 2);
+    const auto status = ctx->snapshot()[1];
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Failed to start task");
+    EXPECT_EQ(status.description, "no control authority");
+    write_task.stop("stop_cmd", true);
+}
+
 /// @brief a task whose sink has no state channels never starts the state pipeline.
 /// Stopping it must still release the sink, and must release it exactly once, so a
 /// sink that claims hardware on start does not hold it while the task is stopped.

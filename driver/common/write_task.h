@@ -157,13 +157,18 @@ class WriteTask final : public driver::task::Task {
         void stopped_with_err(const x::errors::Error &err) override {
             {
                 std::lock_guard lock(this->p.state_mu);
-                if (this->p.opening) {
+                if (this->p.opening || this->p.state_writer_opening)
                     this->p.state.error(err, "Failed to start task");
-                    this->p.answer_pending_starts();
-                } else
+                else
                     this->p.state.error(err, "Failed to write commands");
+                if (this->p.opening) this->p.answer_pending_starts();
             }
             this->p.stop("", true);
+        }
+
+        void writer_opened() override {
+            std::lock_guard lock(this->p.state_mu);
+            this->p.state_writer_opening = false;
         }
 
         // The start status waits for the streamer, so a client that waits for it can
@@ -207,6 +212,8 @@ class WriteTask final : public driver::task::Task {
     StatusHandler state;
     /// @brief true from a start until the command streamer opens or fails to open.
     bool opening = false;
+    /// @brief true from a start until the state writer opens.
+    bool state_writer_opening = false;
     /// @brief the start commands to answer once the command streamer opens.
     std::vector<std::string> pending_starts;
     /// @brief the hardware interface for writing data
@@ -315,6 +322,7 @@ public:
     /// status. The start is answered once the command streamer opens, so commands
     /// written after the answer reach the sink.
     bool start(const std::string &cmd_key) {
+        const auto has_state = !this->sink->internal->writer_config().channels.empty();
         {
             std::lock_guard lock(this->state_mu);
             if (this->cmd_write_pipe.running()) {
@@ -331,11 +339,11 @@ public:
                 return false;
             }
             this->opening = true;
+            this->state_writer_opening = has_state;
             this->pending_starts = {cmd_key};
         }
         this->cmd_write_pipe.start();
-        if (!this->sink->internal->writer_config().channels.empty())
-            this->state_write_pipe.start();
+        if (has_state) this->state_write_pipe.start();
         return true;
     }
 

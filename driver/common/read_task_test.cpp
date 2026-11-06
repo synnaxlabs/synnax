@@ -295,6 +295,31 @@ TEST(TestCommonReadTask, testErrorOnStart) {
     EXPECT_EQ(start_state.description, "start error");
 }
 
+/// @brief it should report a failed start when the writer fails to open.
+TEST(TestCommonReadTask, testWriterOpenErrorFailsStart) {
+    auto mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>(
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
+        std::vector{x::errors::Error(x::errors::UNAUTHORIZED, "no control authority")}
+    );
+    synnax::task::Task t;
+    t.key = x::uuid::create();
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    ReadTask read_task(
+        t,
+        ctx,
+        x::breaker::default_config("cat"),
+        std::make_unique<MockSource>(std::make_shared<std::vector<x::telem::Frame>>()),
+        mock_writer_factory
+    );
+    ASSERT_TRUE(read_task.start("start_cmd"));
+    ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 2);
+    const auto status = ctx->snapshot()[1];
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Failed to start task");
+    EXPECT_EQ(status.description, "no control authority");
+    read_task.stop("stop_cmd", true);
+}
+
 /// @brief it should report error status when source fails to stop.
 TEST(TestCommonReadTask, testErrorOnStop) {
     auto mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();

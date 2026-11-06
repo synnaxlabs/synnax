@@ -92,6 +92,7 @@ bool Acquisition::run_once() {
         this->breaker.stop();
         return false;
     }
+    this->source->writer_opened();
     x::errors::Error source_err;
     x::telem::Frame fr(0);
     Authorities authorities;
