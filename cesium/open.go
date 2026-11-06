@@ -140,6 +140,9 @@ func (db *DB) openUnary(ctx context.Context, ch Channel, fs fs.FS) error {
 			}
 		}
 		u.SetIndex(idxDB.Index())
+		if err = u.TruncateToIndex(ctx); err != nil {
+			return err
+		}
 	}
 	db.mu.dbs.unary[ch.Key] = *u
 	return nil
