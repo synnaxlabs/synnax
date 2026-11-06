@@ -192,8 +192,8 @@ struct Health {
     bool faulted = false;
     /// @brief true when the slave stopped responding.
     bool lost = false;
-    /// @brief description of the slave's AL status code, empty when it reports none or
-    /// the master cannot read it.
+    /// @brief description of the slave's AL status code, or why the master could not
+    /// restore its distributed clock. Empty when there is neither.
     std::string al_status;
 
     bool operator==(const Health &) const = default;

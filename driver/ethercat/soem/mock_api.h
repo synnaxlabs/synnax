@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <functional>
 #include <map>
 #include <optional>
 #include <set>
@@ -40,6 +41,8 @@ struct MockSlaveInfo {
     bool lost = false;
     /// @brief whether the slave has a distributed clock.
     bool hasdc = false;
+    /// @brief the propagation delay from the reference clock in nanoseconds.
+    int32_t pdelay = 0;
     /// @brief the state readstate() reports, or nullopt to report the current state.
     std::optional<uint16_t> bus_state;
     /// @brief the state last requested and not yet reached.
@@ -138,6 +141,12 @@ public:
     int configdc_count = 0;
     /// @brief the value dc_time returns.
     int64_t dc_time_value = 0;
+    /// @brief the number of latch_receive_times calls.
+    int latch_count = 0;
+    /// @brief the value latch_receive_times returns.
+    int latch_return = 1;
+    /// @brief PO2SOconfig hooks keyed by slave. reconfig_slave runs them.
+    std::map<uint16_t, std::function<void(uint16_t)>> po2so_configs;
 
 private:
     uint8_t *iomap_ptr = nullptr;
@@ -222,6 +231,19 @@ public:
 
     [[nodiscard]] int64_t dc_time() const override { return this->dc_time_value; }
 
+    int latch_receive_times(int) override {
+        this->latch_count++;
+        return this->latch_return;
+    }
+
+    void
+    set_PO2SOconfig(uint16_t slave, std::function<void(uint16_t)> config) override {
+        if (config == nullptr)
+            this->po2so_configs.erase(slave);
+        else
+            this->po2so_configs[slave] = std::move(config);
+    }
+
     int write_register(
         uint16_t slave,
         uint16_t address,
@@ -253,8 +275,12 @@ public:
         return this->read_register_return;
     }
 
+    /// @brief like ecx_reconfig_slave, runs the slave's PO2SOconfig hook in PRE-OP.
     int reconfig_slave(uint16_t slave, int) override {
         this->reconfigured_slaves.push_back(slave);
+        if (const auto it = this->po2so_configs.find(slave);
+            it != this->po2so_configs.end())
+            it->second(slave);
         return this->reconfig_return;
     }
 
@@ -437,6 +463,11 @@ public:
     [[nodiscard]] bool slave_hasdc(uint16_t pos) const override {
         if (pos == 0 || pos > this->slave_infos.size()) return false;
         return this->slave_infos[pos - 1].hasdc;
+    }
+
+    [[nodiscard]] int32_t slave_pdelay(uint16_t pos) const override {
+        if (pos == 0 || pos > this->slave_infos.size()) return 0;
+        return this->slave_infos[pos - 1].pdelay;
     }
 
     [[nodiscard]] bool slave_lost(uint16_t pos) const override {

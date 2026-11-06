@@ -86,6 +86,9 @@ class Master final : public master::Master {
     };
     /// @brief the DC setup of each enabled slave in a DC mode, set at activation.
     std::vector<DCSetup> dc_setups;
+    /// @brief why the master could not restore the distributed clock of a slave that
+    /// came back, keyed by position.
+    std::unordered_map<uint16_t, std::string> dc_restore_errors;
 
 public:
     /// @brief constructs a SOEM master with injected API, interface name, and config.
@@ -186,6 +189,10 @@ private:
     x::errors::Error
     read_dc_register(uint16_t pos, uint16_t address, std::span<uint8_t> data);
 
+    /// @brief turns SYNC off on a slave: writes zero to 0x0980, then to 0x0981.
+    /// @returns errors::ACTIVATION_ERROR when the slave does not take a write.
+    x::errors::Error clear_sync(uint16_t pos);
+
     /// @brief writes zero to the DC activation registers (0x0980 and 0x0981) of every
     /// enabled slave with a distributed clock, also after a slave fails a write.
     /// @returns errors::ACTIVATION_ERROR that names each slave that failed a write.
@@ -199,16 +206,32 @@ private:
     resolve_dc(x::telem::TimeSpan period) const;
 
     /// @brief waits until a frame carries the reference clock to the slaves, then until
-    /// the clock of each slave in dc_setups is within 10 µs of the reference clock.
+    /// the clock of each slave at positions is within 10 µs of the reference clock.
     /// @returns errors::ACTIVATION_ERROR when no frame comes back, a slave does not
     /// answer, or a clock does not settle within Config::dc_settle_timeout.
-    x::errors::Error wait_for_dc_settle();
+    x::errors::Error wait_for_dc_settle(const std::vector<uint16_t> &positions);
 
-    /// @brief starts SYNC0 on each slave in dc_setups, with its first SYNC0 event on a
-    /// whole SYNC0 cycle of DC time at least 100 ms after its system time. Call it
+    /// @brief starts SYNC0 on a slave, with its first SYNC0 event on a whole SYNC0
+    /// cycle of DC time at least 100 ms after its system time.
+    /// @returns errors::ACTIVATION_ERROR when the slave does not take a write.
+    x::errors::Error start_sync(const DCSetup &setup);
+
+    /// @brief starts SYNC0 on each slave in dc_setups once their clocks settle. Call it
     /// while the bus cycles and before SAFE-OP.
     /// @returns errors::ACTIVATION_ERROR when a slave does not take a write.
     x::errors::Error start_dc();
+
+    /// @brief sets the DC system time offset (0x0920) of a slave so that its clock
+    /// matches the clock of another enabled DC slave in SAFE-OP or OP.
+    /// @returns errors::ACTIVATION_ERROR when no such slave answers, or the slave does
+    /// not take the write.
+    x::errors::Error align_clock(uint16_t pos);
+
+    /// @brief sets up the distributed clock of a slave that came back to PRE-OP while
+    /// the bus cycles: its propagation delay, its offset, and SYNC0 when it runs in a
+    /// DC mode. Blocks until its clock settles.
+    /// @returns errors::ACTIVATION_ERROR when a step fails.
+    x::errors::Error restore_dc(uint16_t pos);
 
     /// @brief requests the state from all enabled slaves, then waits until they reach
     /// it, one of them refuses it, or the timeout in microseconds passes.

@@ -265,6 +265,20 @@ x::errors::Error Master::activate(
         );
     if (auto err = this->request_state(EC_STATE_OPERATIONAL, timeout)) return err;
     this->cache_pdo_offsets();
+    // Restores the clock of a slave that lost power. config_init removes the hooks.
+    for (int i = 1; i <= this->api->slave_count(); ++i)
+        if (this->api->slave_group(i) == ENABLED_GROUP && this->api->slave_hasdc(i))
+            this->api->set_PO2SOconfig(i, [this](const uint16_t pos) {
+                const auto err = this->restore_dc(pos);
+                std::lock_guard lock(this->mu);
+                if (err)
+                    this->dc_restore_errors[pos] = std::format(
+                        "Failed to restore the distributed clock: {}",
+                        err.data
+                    );
+                else
+                    this->dc_restore_errors.erase(pos);
+            });
     return x::errors::NIL;
 }
 
@@ -275,6 +289,10 @@ void Master::deactivate() {
         if (const auto err = this->clear_dc_activation())
             LOG(WARNING) << "[ethercat] " << err.data;
         this->dc_setups.clear();
+        {
+            std::lock_guard lock(this->mu);
+            this->dc_restore_errors.clear();
+        }
         this->activated = false;
         this->expected_wkc = 0;
         this->has_dc = false;
@@ -368,6 +386,14 @@ std::vector<slave::Health> Master::check(const x::breaker::Breaker &breaker) {
         );
         if (this->al_error(i))
             h.al_status = ec_ALstatuscode2string(this->api->slave_ALstatuscode(i));
+        {
+            std::lock_guard lock(this->mu);
+            if (const auto it = this->dc_restore_errors.find(i);
+                it != this->dc_restore_errors.end()) {
+                h.faulted = true;
+                h.al_status = it->second;
+            }
+        }
         if (breaker.running()) this->recover(static_cast<uint16_t>(i));
     }
     return health;
@@ -384,6 +410,12 @@ void Master::recover(const uint16_t pos) {
     } else if (state > EC_STATE_NONE && state != EC_STATE_OPERATIONAL) {
         if (this->api->reconfig_slave(pos, RECOVERY_TIMEOUT) >= EC_STATE_PRE_OP)
             this->api->set_slave_lost(pos, false);
+        std::lock_guard lock(this->mu);
+        // SOEM requests SAFE-OP even when the hook fails.
+        if (this->dc_restore_errors.contains(pos)) {
+            this->api->set_slave_state(pos, EC_STATE_PRE_OP);
+            this->api->writestate(pos);
+        }
     } else if (state == EC_STATE_NONE && !this->api->slave_lost(pos)) {
         this->api->statecheck(pos, EC_STATE_OPERATIONAL, EC_TIMEOUTRET);
         if (this->api->slave_state(pos) == EC_STATE_NONE)
@@ -1063,20 +1095,23 @@ x::errors::Error Master::read_dc_register(
     );
 }
 
+x::errors::Error Master::clear_sync(const uint16_t pos) {
+    // 0x0980 goes first: while it gives the sync unit to the PDI, the slave refuses
+    // writes to 0x0981.
+    for (const uint16_t address: {ECT_REG_DCCUC, ECT_REG_DCSYNCACT})
+        if (auto err = this->write_dc_register(pos, address, {0})) return err;
+    return x::errors::NIL;
+}
+
 x::errors::Error Master::clear_dc_activation() {
     std::string failed;
     for (int i = 1; i <= this->api->slave_count(); ++i) {
         if (this->api->slave_group(i) != ENABLED_GROUP || !this->api->slave_hasdc(i))
             continue;
-        const auto pos = static_cast<uint16_t>(i);
-        // 0x0980 goes first: while it gives the sync unit to the PDI, the slave refuses
-        // writes to 0x0981.
-        for (const uint16_t address: {ECT_REG_DCCUC, ECT_REG_DCSYNCACT})
-            if (const auto err = this->write_dc_register(pos, address, {0})) {
-                if (!failed.empty()) failed += "; ";
-                failed += err.data;
-                break;
-            }
+        if (const auto err = this->clear_sync(static_cast<uint16_t>(i))) {
+            if (!failed.empty()) failed += "; ";
+            failed += err.data;
+        }
     }
     if (failed.empty()) return x::errors::NIL;
     return x::errors::Error(errors::ACTIVATION_ERROR, failed);
@@ -1111,7 +1146,7 @@ Master::resolve_dc(const x::telem::TimeSpan period) const {
     return {setups, x::errors::NIL};
 }
 
-x::errors::Error Master::wait_for_dc_settle() {
+x::errors::Error Master::wait_for_dc_settle(const std::vector<uint16_t> &positions) {
     const auto deadline = std::chrono::steady_clock::now() +
                           this->cfg.dc_settle_timeout.chrono();
     // 0x092C keeps its old value until a frame carries the reference clock to the
@@ -1125,8 +1160,7 @@ x::errors::Error Master::wait_for_dc_settle() {
     while (true) {
         uint16_t worst_pos = 0;
         x::telem::TimeSpan worst(0);
-        for (const auto &setup: this->dc_setups) {
-            const auto pos = setup.position;
+        for (const auto pos: positions) {
             std::array<uint8_t, 4> raw{};
             if (auto err = this->read_dc_register(pos, ECT_REG_DCSYSDIFF, raw))
                 return err;
@@ -1159,55 +1193,111 @@ x::errors::Error Master::wait_for_dc_settle() {
 
 x::errors::Error Master::start_dc() {
     if (this->dc_setups.empty()) return x::errors::NIL;
-    if (auto err = this->wait_for_dc_settle()) return err;
-    for (const auto &[pos, regs]: this->dc_setups) {
-        const auto cuc = static_cast<uint8_t>(regs.assign_activate & 0xFF);
-        const auto act = static_cast<uint8_t>(regs.assign_activate >> 8);
-        if (auto err = this->write_dc_register(pos, ECT_REG_DCCUC, {cuc})) return err;
-        // While 0x0980 gives the sync unit to the PDI, the PDI sets it up.
-        if ((cuc & 0x01) != 0) continue;
-        std::array<uint8_t, 8> raw{};
-        if (auto err = this->read_dc_register(pos, ECT_REG_DCSYSTIME, raw)) return err;
-        const int64_t cycle = regs.sync0_cycle;
-        const int64_t shift = regs.sync0_shift;
-        const int64_t ahead = from_little_endian<int64_t>(raw) +
-                              DC_START_DELAY.nanoseconds();
-        // SYNC0 events fall on whole cycles of DC time plus the shift, the grid the
-        // cycle lock uses. The first one is at least DC_START_DELAY away.
-        int64_t start = ahead;
-        if (cycle > 0) start = ((ahead - shift) / cycle + 1) * cycle + shift;
-        if (auto err = this->write_dc_register(
-                pos,
-                ECT_REG_DCCYCLE0,
-                little_endian(regs.sync0_cycle)
-            ))
-            return err;
-        if (auto err = this->write_dc_register(
-                pos,
-                ECT_REG_DCCYCLE1,
-                little_endian(regs.sync1_cycle)
-            ))
-            return err;
-        if (auto err = this->write_dc_register(
-                pos,
-                ECT_REG_DCSTART0,
-                little_endian(start)
-            ))
-            return err;
-        if (auto err = this->write_dc_register(pos, ECT_REG_DCSYNCACT, {act}))
-            return err;
-        LOG(INFO) << std::format(
-            "[ethercat] slave {} ({}) runs DC sync: AssignActivate 0x{:04X}, SYNC0 "
-            "cycle {} ns, SYNC1 register {} ns, first SYNC0 at {} ns",
+    std::vector<uint16_t> positions;
+    positions.reserve(this->dc_setups.size());
+    for (const auto &setup: this->dc_setups)
+        positions.push_back(setup.position);
+    if (auto err = this->wait_for_dc_settle(positions)) return err;
+    for (const auto &setup: this->dc_setups)
+        if (auto err = this->start_sync(setup)) return err;
+    return x::errors::NIL;
+}
+
+x::errors::Error Master::start_sync(const DCSetup &setup) {
+    const auto &[pos, regs] = setup;
+    const auto cuc = static_cast<uint8_t>(regs.assign_activate & 0xFF);
+    const auto act = static_cast<uint8_t>(regs.assign_activate >> 8);
+    if (auto err = this->write_dc_register(pos, ECT_REG_DCCUC, {cuc})) return err;
+    // While 0x0980 gives the sync unit to the PDI, the PDI sets it up.
+    if ((cuc & 0x01) != 0) return x::errors::NIL;
+    std::array<uint8_t, 8> raw{};
+    if (auto err = this->read_dc_register(pos, ECT_REG_DCSYSTIME, raw)) return err;
+    const int64_t cycle = regs.sync0_cycle;
+    const int64_t shift = regs.sync0_shift;
+    const int64_t ahead = from_little_endian<int64_t>(raw) +
+                          DC_START_DELAY.nanoseconds();
+    // SYNC0 events fall on whole cycles of DC time plus the shift, the grid the cycle
+    // lock uses. The first one is at least DC_START_DELAY away.
+    int64_t start = ahead;
+    if (cycle > 0) start = ((ahead - shift) / cycle + 1) * cycle + shift;
+    if (auto err = this->write_dc_register(
             pos,
-            this->api->slave_name(pos),
-            regs.assign_activate,
-            regs.sync0_cycle,
-            regs.sync1_cycle,
-            start
+            ECT_REG_DCCYCLE0,
+            little_endian(regs.sync0_cycle)
+        ))
+        return err;
+    if (auto err = this->write_dc_register(
+            pos,
+            ECT_REG_DCCYCLE1,
+            little_endian(regs.sync1_cycle)
+        ))
+        return err;
+    if (auto err = this->write_dc_register(pos, ECT_REG_DCSTART0, little_endian(start)))
+        return err;
+    if (auto err = this->write_dc_register(pos, ECT_REG_DCSYNCACT, {act})) return err;
+    LOG(INFO) << std::format(
+        "[ethercat] slave {} ({}) runs DC sync: AssignActivate 0x{:04X}, SYNC0 "
+        "cycle {} ns, SYNC1 register {} ns, first SYNC0 at {} ns",
+        pos,
+        this->api->slave_name(pos),
+        regs.assign_activate,
+        regs.sync0_cycle,
+        regs.sync1_cycle,
+        start
+    );
+    return x::errors::NIL;
+}
+
+x::errors::Error Master::align_clock(const uint16_t pos) {
+    if (this->api->latch_receive_times(EC_TIMEOUTRET) < 1)
+        return x::errors::Error(
+            errors::ACTIVATION_ERROR,
+            "no slave latched its receive time"
+        );
+    std::array<uint8_t, 8> local{};
+    if (auto err = this->read_dc_register(pos, ECT_REG_DCSOF, local)) return err;
+    for (int i = 1; i <= this->api->slave_count(); ++i) {
+        const auto other = static_cast<uint16_t>(i);
+        // A slave in SAFE-OP or OP kept its clock since activation or its restore.
+        if (other == pos || this->api->slave_group(other) != ENABLED_GROUP ||
+            !this->api->slave_hasdc(other) || this->api->slave_lost(other) ||
+            (this->api->slave_state(other) & 0x0F) < EC_STATE_SAFE_OP)
+            continue;
+        std::array<uint8_t, 8> other_local{};
+        std::array<uint8_t, 8> other_offset{};
+        if (this->read_dc_register(other, ECT_REG_DCSOF, other_local) ||
+            this->read_dc_register(other, ECT_REG_DCSYSOFFSET, other_offset))
+            continue;
+        // Each slave latched its propagation delay after the reference clock.
+        const int64_t system = from_little_endian<int64_t>(other_local) +
+                               from_little_endian<int64_t>(other_offset) +
+                               this->api->slave_pdelay(pos) -
+                               this->api->slave_pdelay(other);
+        return this->write_dc_register(
+            pos,
+            ECT_REG_DCSYSOFFSET,
+            little_endian(system - from_little_endian<int64_t>(local))
         );
     }
-    return x::errors::NIL;
+    return x::errors::Error(
+        errors::ACTIVATION_ERROR,
+        "no other slave clock kept running to set the clock from. Restart the task."
+    );
+}
+
+x::errors::Error Master::restore_dc(const uint16_t pos) {
+    if (auto err = this->clear_sync(pos)) return err;
+    if (auto err = this->write_dc_register(
+            pos,
+            ECT_REG_DCSYSDELAY,
+            little_endian(this->api->slave_pdelay(pos))
+        ))
+        return err;
+    if (auto err = this->align_clock(pos)) return err;
+    if (auto err = this->wait_for_dc_settle({pos})) return err;
+    const auto setup = std::ranges::find(this->dc_setups, pos, &DCSetup::position);
+    if (setup == this->dc_setups.end()) return x::errors::NIL;
+    return this->start_sync(*setup);
 }
 
 x::errors::Error Master::request_state(const uint16_t state, const int timeout) {
