@@ -193,10 +193,10 @@ var _ = Describe("TS Filter Plugin", func() {
 				"name: filter.stringInputZ.exactOptional(),",
 				"createdAt: filter.orderedInputZ(z.int64()).exactOptional(),",
 				"tags: filter.containsInputZ(z.string()).exactOptional(),",
-				"export interface WhereInput extends filter.Input<typeof inputs> {\n"+
+				"export type WhereInput = filter.Input<typeof inputs> & {\n"+
 					"  and?: WhereInput[];\n"+
 					"  or?: WhereInput[];\n"+
-					"  not?: WhereInput;\n}",
+					"  not?: WhereInput;\n};",
 				"const whereInputZ: z.ZodType<Where, WhereInput> = z.strictObject({",
 				"return whereInputZ.array().exactOptional();",
 				"return whereInputZ.exactOptional();",
