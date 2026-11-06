@@ -23,8 +23,13 @@
 #include "driver/ethercat/telem/telem.h"
 
 namespace driver::ethercat::soem {
-/// Timeout for EtherCAT state transitions (INIT->PRE_OP->SAFE_OP->OP) in microseconds.
+/// Timeout for the SAFE-OP and OP transitions in microseconds. Some modules take up to
+/// 9 s.
 const int STATE_CHANGE_TIMEOUT = static_cast<int>(
+    (x::telem::SECOND * 10).microseconds()
+);
+/// Timeout for a return to SAFE-OP or INIT in microseconds.
+const int BACK_STATE_CHANGE_TIMEOUT = static_cast<int>(
     (x::telem::SECOND * 2).microseconds()
 );
 /// Timeout for cyclic process data exchange in microseconds.
@@ -169,11 +174,14 @@ x::errors::Error Master::activate() {
     if (err) {
         LOG(WARNING) << "OP transition failed: " << err.message()
                      << "; attempting recovery to SAFE_OP";
-        auto recovery_err = this->request_state(EC_STATE_SAFE_OP, STATE_CHANGE_TIMEOUT);
+        auto recovery_err = this->request_state(
+            EC_STATE_SAFE_OP,
+            BACK_STATE_CHANGE_TIMEOUT
+        );
         if (recovery_err) {
             LOG(ERROR) << "Recovery to SAFE_OP failed: " << recovery_err.message()
                        << "; forcing INIT state";
-            this->request_state(EC_STATE_INIT, STATE_CHANGE_TIMEOUT);
+            this->request_state(EC_STATE_INIT, BACK_STATE_CHANGE_TIMEOUT);
         }
         return err;
     }
@@ -185,7 +193,7 @@ x::errors::Error Master::activate() {
 
 void Master::deactivate() {
     if (this->activated) {
-        this->request_state(EC_STATE_INIT, STATE_CHANGE_TIMEOUT);
+        this->request_state(EC_STATE_INIT, BACK_STATE_CHANGE_TIMEOUT);
         this->activated = false;
         this->expected_wkc = 0;
         this->has_dc = false;

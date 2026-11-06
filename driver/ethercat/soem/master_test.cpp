@@ -305,6 +305,16 @@ TEST_F(SOEMMasterTest, ActivateOpRefusalReturnsAtOnce) {
     EXPECT_EQ(this->mock->readstate_count, 1);
 }
 
+/// @brief it should wait longer than 2 s for a slow slave to reach SAFE-OP.
+TEST_F(SOEMMasterTest, ActivateWaitsForASlowSlave) {
+    this->initialize_with_slave();
+    this->mock->obytes = 2;
+    this->mock->ibytes = 4;
+    // Each poll waits the 10 ms poll timeout, so 300 polls take 3 s.
+    this->mock->statecheck_pending_polls[EC_STATE_SAFE_OP] = 300;
+    ASSERT_NIL(this->master->activate());
+}
+
 TEST_F(SOEMMasterTest, ActivateOpTransitionFails) {
     this->initialize_with_slave();
     this->mock->obytes = 2;

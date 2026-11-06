@@ -10,10 +10,12 @@
 #pragma once
 
 #include <algorithm>
+#include <chrono>
 #include <cstring>
 #include <map>
 #include <optional>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "driver/ethercat/soem/api.h"
@@ -178,9 +180,13 @@ public:
         return this->recover_return;
     }
 
-    uint16_t statecheck(uint16_t slave, uint16_t reqstate, int) override {
+    /// @brief like ecx_statecheck, waits for the timeout when the slave does not reach
+    /// reqstate.
+    uint16_t statecheck(uint16_t slave, uint16_t reqstate, int timeout) override {
         this->statecheck_count++;
         const uint16_t state = this->reach(slave, reqstate);
+        if (state != reqstate)
+            std::this_thread::sleep_for(std::chrono::microseconds(timeout));
         if (slave > 0 && slave <= this->slave_infos.size()) {
             auto &info = this->slave_infos[slave - 1];
             info.state = state;
