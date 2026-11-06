@@ -26,7 +26,7 @@ from types import FrameType
 from pydantic import JsonValue
 
 import synnax as sy
-from framework import cores, failure_report, resources, run_dir, server_log
+from framework import cores, failure_report, resources, run_dir, server_log, shards
 from framework.config_client import ConfigClient, Sequence, TestDefinition
 from framework.cores import Core
 from framework.execution_client import ExecutionClient
@@ -65,6 +65,7 @@ class _TestConductor:
         cores_extra: int = 0,
         core_binary: Path | None = None,
         browsers: int | None = None,
+        shard: shards.Shard | None = None,
     ) -> None:
         """
         Initialize test conductor with connection parameters.
@@ -72,6 +73,7 @@ class _TestConductor:
         :param cores_extra: Cores to start beside the Core under test, from
             core_binary.
         :param browsers: Most Console tests that run at once. None means no limit.
+        :param shard: The part of the loaded suite to run. None runs all of it.
         """
 
         # Generate or validate name
@@ -122,6 +124,9 @@ class _TestConductor:
             raise RuntimeError("Failed to create range") from e
 
         self.config_client = ConfigClient(log=self.log)
+        self._shard = shard
+        self._cores = cores_extra + 1
+        self._browsers = browsers
 
         self.core_processes: list[cores.Process] = []
         if cores_extra > 0:
@@ -198,6 +203,24 @@ class _TestConductor:
         """Load test sequences using the config client."""
         self.state = _STATE.LOADING
         sequences, new_defs = self.config_client.load(target_filter)
+        if self._shard is not None:
+
+            def resources_of(test: TestDefinition) -> frozenset[str]:
+                return self.config_client.load_test_class(test).resources()
+
+            sequences = shards.select(
+                sequences,
+                self._shard,
+                durations=shards.load_durations(),
+                resources_of=resources_of,
+                cores=self._cores,
+                browsers=self._browsers,
+            )
+            new_defs = [t for s in sequences for t in s.tests]
+            self.log(
+                f"Shard {self._shard}: {len(new_defs)} tests across "
+                f"{len(sequences)} sequences"
+            )
         self.sequences = sequences
         self.test_definitions.clear()
         self.test_definitions.extend(new_defs)
@@ -531,6 +554,12 @@ All matching is case-insensitive substring.
         type=int,
         help="Most Console tests that run at once (default: no limit)",
     )
+    parser.add_argument(
+        "--shard",
+        type=shards.parse,
+        help="Run part index of count of the suite, as index/count. Give each part "
+        "the same other flags.",
+    )
 
     args = parser.parse_args()
 
@@ -563,6 +592,7 @@ All matching is case-insensitive substring.
         cores_extra=args.cores - 1,
         core_binary=args.core_binary,
         browsers=args.browsers,
+        shard=args.shard,
     )
 
     try:
