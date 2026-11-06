@@ -10,7 +10,6 @@
 """Splits a suite into shards that separate conductor runs execute."""
 
 import argparse
-import dataclasses
 import json
 import statistics
 from collections.abc import Callable, Mapping
@@ -119,7 +118,9 @@ def select(
     if not mine:
         raise ValueError(f"Shard {shard} has no sequences")
     return [
-        dataclasses.replace(s, tests=[t for j, t in enumerate(s.tests) if j in mine[i]])
+        s.model_copy(
+            update={"tests": [t for j, t in enumerate(s.tests) if j in mine[i]]}
+        )
         for i, s in enumerate(sequences)
         if i in mine
     ]

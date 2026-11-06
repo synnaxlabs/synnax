@@ -2018,6 +2018,108 @@ var _ = Describe("Python Types Plugin", func() {
 					)
 				})
 
+			It("Should read an ancestor package through its generated module",
+				func(ctx SpecContext) {
+					loader.Add("schemas/arc", `
+						@py output "client/py/synnax/arc"
+
+						Key = uuid
+					`)
+					source := `
+						import "schemas/arc"
+
+						@py output "client/py/synnax/arc/task"
+
+						Config struct {
+							arc_key arc.Key
+						}
+					`
+					resp := MustGenerate(ctx, source, "arc_task", loader, typesPlugin)
+					ExpectContent(resp, "arc/task/types_gen.py").ToContain(
+						`from synnax.arc import types_gen`,
+						`arc_key: types_gen.Key`,
+					)
+				})
+
+			It("Should alias a hand-written ancestor type that a declaration shadows",
+				func(ctx SpecContext) {
+					loader.Add("schemas/arc", `
+						@py output "client/py/synnax/arc"
+
+						Key struct {
+							value uuid
+							@py hand
+							@py include "client/py/synnax/arc/key"
+						}
+					`)
+					source := `
+						import "schemas/arc"
+
+						@py output "client/py/synnax/arc/task"
+
+						Key = string
+
+						Config struct {
+							arc_key arc.Key
+						}
+					`
+					resp := MustGenerate(ctx, source, "arc_task", loader, typesPlugin)
+					ExpectContent(resp, "arc/task/types_gen.py").ToContain(
+						`from synnax.arc.key import Key as Key_`,
+						`arc_key: Key_`,
+					)
+				})
+
+			It("Should read an ancestor package through the configured module name",
+				func(ctx SpecContext) {
+					loader.Add("schemas/arc", `
+						@py output "client/py/synnax/arc"
+
+						Key = uuid
+					`)
+					source := `
+						import "schemas/arc"
+
+						@py output "client/py/synnax/arc/task"
+
+						Config struct {
+							arc_key arc.Key
+						}
+					`
+					custom := types.New(types.Options{FileNamePattern: "models.py"})
+					resp := MustGenerate(ctx, source, "arc_task", loader, custom)
+					ExpectContent(resp, "arc/task/models.py").ToContain(
+						`from synnax.arc import models`,
+						`arc_key: models.Key`,
+					)
+				})
+
+			It("Should read a hand-written ancestor type from its include module",
+				func(ctx SpecContext) {
+					loader.Add("schemas/arc", `
+						@py output "client/py/synnax/arc"
+
+						Key struct {
+							value uuid
+							@py hand
+							@py include "client/py/synnax/arc/key"
+						}
+					`)
+					source := `
+						import "schemas/arc"
+
+						@py output "client/py/synnax/arc/task"
+
+						Config struct {
+							arc_key arc.Key
+						}
+					`
+					resp := MustGenerate(ctx, source, "arc_task", loader, typesPlugin)
+					ExpectContent(resp, "arc/task/types_gen.py").
+						ToContain(`from synnax.arc.key import Key`, `arc_key: Key`).
+						ToNotContain("from synnax import arc\n")
+				})
+
 			DescribeTable(
 				"Should bind a hand-written type apart from a generated import",
 				func(ctx SpecContext, name, imported, field string) {
