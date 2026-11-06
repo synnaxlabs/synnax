@@ -30,6 +30,10 @@ func (e *aggregateError) Error() string { return "aggregate" }
 
 func (e *aggregateError) Unwrap() []error { return e.errs }
 
+type panicError struct{}
+
+func (panicError) Error() string { panic("member failed") }
+
 //go:noinline
 func createFirstMember() error { return errors.New("err1") }
 
@@ -241,6 +245,35 @@ var _ = Describe("Is", func() {
 			Expect(fmt.Sprintf("%v", errors.Mark(joined, errors.New("mark")))).
 				To(Equal("err1\nerr2"))
 		})
+
+		DescribeTable("Should recover a panic in a member",
+			func(member error, want string) {
+				joined := errors.Join(member, errors.New("err2"))
+				Expect(joined.Error()).To(SatisfyAll(
+					ContainSubstring(want),
+					HaveSuffix("\nerr2"),
+				))
+				Expect(joined.Error()).To(ContainSubstring(want))
+			},
+			Entry("a typed nil", (*customError)(nil), "<nil>"),
+			Entry("a member that panics", panicError{}, "member failed"),
+		)
+
+		DescribeTable("Should render an empty member as the formatter does",
+			func(want string, messages ...string) {
+				var members []error
+				for _, message := range messages {
+					members = append(members, errors.New(message))
+				}
+				joined := errors.Join(members...)
+				Expect(joined.Error()).To(Equal(want))
+				payload := errors.Encode(context.Background(), joined, false)
+				Expect(payload.Data).To(Equal(want))
+			},
+			Entry("before one character", "z", "", "z"),
+			Entry("before a word", "\nerr2", "", "err2"),
+			Entry("between words", "err1\nerr3", "err1", "", "err3"),
+		)
 
 		It("Should keep the member stacks in the verbose format", func() {
 			joined := errors.Join(createFirstMember(), createSecondMember())

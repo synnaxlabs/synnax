@@ -11,8 +11,8 @@ package errors
 
 import (
 	stderrors "errors"
+	"fmt"
 	"reflect"
-	"strings"
 	"sync"
 
 	"github.com/cockroachdb/errors"
@@ -116,16 +116,7 @@ type joinError struct {
 }
 
 func (e *joinError) Error() string {
-	e.once.Do(func() {
-		var b strings.Builder
-		for i, member := range e.members {
-			if i > 0 {
-				b.WriteByte('\n')
-			}
-			b.WriteString(member.Error())
-		}
-		e.message = b.String()
-	})
+	e.once.Do(func() { e.message = fmt.Sprint(joinText(e.members)) })
 	return e.message
 }
 
@@ -134,6 +125,24 @@ func (e *joinError) Unwrap() []error { return e.members }
 // SafeFormatError returns nil so that the formatter elides the members it visited.
 func (e *joinError) SafeFormatError(p errors.Printer) error {
 	p.Print(e.Error())
+	return nil
+}
+
+// joinText renders the message of a joinError through the formatter, which recovers a
+// panic in a member. It hides its members from the formatter, so it visits each once.
+type joinText []error
+
+func (t joinText) Error() string { return fmt.Sprint(t) }
+
+func (t joinText) Format(s fmt.State, verb rune) { errors.FormatError(t, s, verb) }
+
+func (t joinText) SafeFormatError(p errors.Printer) error {
+	for i, member := range t {
+		if i > 0 {
+			p.Print("\n")
+		}
+		p.Print(member)
+	}
 	return nil
 }
 
