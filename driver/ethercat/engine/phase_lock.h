@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <utility>
 
 #include "x/cpp/telem/telem.h"
 
@@ -26,9 +27,9 @@ class PhaseLock {
     /// @brief the share of the summed phase error that each cycle corrects. It cancels
     /// the drift between the host and DC clocks.
     static constexpr double KI = 0.0001;
-    /// @brief the largest remainder in nanoseconds that still divides. The period of a
-    /// rate such as 300 Hz is not a whole number of nanoseconds, and a SYNC0 cycle made
-    /// from that period is rounded.
+    /// @brief how far in nanoseconds a multiple of the grid can be from the period. The
+    /// period of a rate such as 300 Hz is not a whole number of nanoseconds, and a
+    /// SYNC0 cycle made from that period is rounded.
     static constexpr double TOLERANCE = 1;
     double period;
     int64_t sync0;
@@ -38,18 +39,24 @@ class PhaseLock {
     double integral = 0;
     bool held = false;
 
+    /// @brief returns the fraction with the smallest denominator in [lo, hi], as a
+    /// numerator and denominator. Requires 0 < lo <= hi.
+    static std::pair<double, double>
+    simplest_fraction(const double lo, const double hi) {
+        if (std::ceil(lo) <= hi) return {std::ceil(lo), 1};
+        const double whole = std::floor(lo);
+        const auto [num, den] = simplest_fraction(1 / (hi - whole), 1 / (lo - whole));
+        return {whole * num + den, num};
+    }
+
     /// @brief returns the largest span that divides sync0 a whole number of times and
     /// divides period within TOLERANCE.
     static double common_grid(const double period, const double sync0) {
-        double a = std::max(period, sync0);
-        double b = std::min(period, sync0);
-        while (true) {
-            const double r = std::fmod(a, b);
-            if (r <= TOLERANCE || b - r <= TOLERANCE) break;
-            a = b;
-            b = r;
-        }
-        return sync0 / std::round(sync0 / b);
+        // sync0 / n divides period within TOLERANCE when period / sync0 is within
+        // TOLERANCE / sync0 of a fraction m / n.
+        const double lo = (period - TOLERANCE) / sync0;
+        const double hi = (period + TOLERANCE) / sync0;
+        return sync0 / simplest_fraction(lo, hi).second;
     }
 
 public:

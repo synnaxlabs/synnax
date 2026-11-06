@@ -75,6 +75,23 @@ TEST(PhaseLock, HoldsFramesMidwayWhenSYNC0IsTheRoundedPeriod) {
     EXPECT_FALSE(lock.locked());
 }
 
+/// @brief it should hold frames midway between SYNC0 events when the SYNC0 cycle is a
+/// multiple of the rounded period, which leaves it more than a nanosecond from that
+/// multiple of the exact period.
+TEST(PhaseLock, HoldsFramesMidwayWhenSYNC0IsAMultipleOfTheRoundedPeriod) {
+    PhaseLock lock(
+        x::telem::Rate(300),
+        x::telem::TimeSpan(13'333'332),
+        x::telem::TimeStamp(0)
+    );
+    lock.update(x::telem::TimeStamp(1'666'667));
+    EXPECT_TRUE(lock.locked());
+    lock.update(x::telem::TimeStamp(8'333'333));
+    EXPECT_TRUE(lock.locked());
+    lock.update(x::telem::TimeStamp(3'333'333));
+    EXPECT_FALSE(lock.locked());
+}
+
 /// @brief it should delay the cycle after an early frame and advance it after a late
 /// one, the short way around the period.
 TEST(PhaseLock, MovesEachFrameTheShortWayToTheTargetPhase) {
