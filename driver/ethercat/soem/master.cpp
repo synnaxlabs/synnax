@@ -66,6 +66,8 @@ constexpr uint32_t DC_SETTLED_DIFF = 10000;
 const auto DC_SETTLE_TIMEOUT = x::telem::SECOND * 2;
 /// Time between reads of the system time differences while the clocks settle.
 const auto DC_SETTLE_POLL_INTERVAL = x::telem::MILLISECOND * 10;
+/// Bus cycles the slaves take outputs in SAFE-OP before the master requests OP.
+constexpr int SAFE_OP_CYCLES = 5;
 /// Timeout for one recovery step on a slave in microseconds.
 const int RECOVERY_TIMEOUT = static_cast<int>(
     (x::telem::MILLISECOND * 500).microseconds()
@@ -362,6 +364,9 @@ x::errors::Error Master::activate(
 
     if (auto err = this->request_state(EC_STATE_SAFE_OP, STATE_CHANGE_TIMEOUT))
         return err;
+    // A slave that has not taken outputs in SAFE-OP refuses OP with a sync manager
+    // watchdog error.
+    std::this_thread::sleep_for((period * SAFE_OP_CYCLES).chrono());
     if (auto err = this->request_state(EC_STATE_OPERATIONAL, STATE_CHANGE_TIMEOUT))
         return err;
     this->cache_pdo_offsets();
@@ -1288,6 +1293,18 @@ x::errors::Error Master::start_dc(const std::vector<DCSetup> &setups) {
         }};
         for (const auto &[address, data]: writes)
             if (auto err = this->write_dc_register(pos, address, data)) return err;
+        std::array<uint8_t, 1> activation{};
+        this->api->read_register(pos, ECT_REG_DCSYNCACT, activation, EC_TIMEOUTRET);
+        LOG(INFO) << std::format(
+            "[ethercat] slave {} ({}) DC sync: SYNC0 cycle {} ns, SYNC1 register {} "
+            "ns, first SYNC0 at {} ns, 0x0981 reads 0x{:02X}",
+            pos,
+            this->api->slave_name(pos),
+            regs.sync0_cycle,
+            regs.sync1_cycle,
+            start,
+            activation[0]
+        );
     }
     return x::errors::NIL;
 }
