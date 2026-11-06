@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { log as clientLog } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { color, uuid } from "@synnaxlabs/x";
+import { uuid } from "@synnaxlabs/x";
 import { act, render, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren, Suspense } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -56,7 +55,6 @@ describe("Log", () => {
     const project = await client.projects.create({ name: `log_${uuid.create()}` });
     const created = await client.logs.create(project.key, {
       name: "display",
-      channels: [clientLog.channelEntryZ.parse({ channel: 0, color: color.ZERO })],
       timestampsHidden: true,
       channelNamesHidden: true,
       timestampPrecision: 2,
