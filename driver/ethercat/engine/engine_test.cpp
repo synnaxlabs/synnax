@@ -497,6 +497,21 @@ TEST_F(EngineTest, ActivationErrorPropagates) {
     EXPECT_FALSE(this->engine->running());
 }
 
+/// @brief it should return at once, without a retry, when a slave refuses a state
+/// change.
+TEST_F(EngineTest, StateChangeRefusalSkipsRetries) {
+    this->engine = std::make_shared<Engine>(this->master, quick_start_config());
+    this->master->inject_activate_error(
+        x::errors::Error(errors::STATE_CHANGE_REFUSED, "inconsistent settings")
+    );
+    const auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
+    ASSERT_OCCURRED_AS(res.second, errors::STATE_CHANGE_REFUSED);
+    EXPECT_EQ(res.second.data, "inconsistent settings");
+    EXPECT_EQ(this->master->call_count("activate"), 1);
+    EXPECT_EQ(this->master->call_count("deactivate"), 1);
+    EXPECT_FALSE(this->engine->running());
+}
+
 /// @brief it should retry activation of the master until it succeeds, then open the
 /// task.
 TEST_F(EngineTest, StartRetriesUntilActivationSucceeds) {
