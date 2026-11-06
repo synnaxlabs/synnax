@@ -28,7 +28,8 @@ func MigrateLog(ctx context.Context, old v2.Log) (Log, error) {
 }
 
 // MigrateChannelEntry lifts a v2 channel entry to v3. The v2 sentinel precision of -1
-// becomes an absent precision, and a larger one clamps to 17.
+// becomes an absent precision, a larger one clamps to 17, and an alias is cut to 64
+// characters.
 func MigrateChannelEntry(
 	ctx context.Context,
 	old v2.ChannelEntry,
@@ -41,7 +42,19 @@ func MigrateChannelEntry(
 		precision := uint8(min(old.Precision, 17))
 		out.Precision = &precision
 	}
+	out.Alias = cutToCharacters(old.Alias, 64)
 	return out, nil
+}
+
+func cutToCharacters(s string, n int) string {
+	count := 0
+	for i := range s {
+		if count == n {
+			return s[:i]
+		}
+		count++
+	}
+	return s
 }
 
 // Migration lifts stored logs from v2 to v3.

@@ -27,6 +27,7 @@ import { Text } from "@/text";
 import { Theming } from "@/theming";
 import { Tooltip } from "@/tooltip";
 import { Triggers } from "@/triggers";
+import { FOCUSABLE } from "@/util";
 
 /** The elements a Button can render as. `a` makes it a link, `label` a form control. */
 export type ElementType = "button" | "a" | "div" | "label" | "textarea";
@@ -92,9 +93,6 @@ const resolveTriggerIndicator = (
   if (triggerIndicator != null && triggerIndicator !== false) return triggerIndicator;
   return undefined;
 };
-
-const FOCUSABLE =
-  'a[href], button, input, select, textarea, [contenteditable="true"], [tabindex]';
 
 /**
  * The standard clickable. Renders as a `button` unless `el` names another

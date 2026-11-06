@@ -11,7 +11,13 @@
 
 package label
 
-import "github.com/synnaxlabs/synnax/pkg/service/label/versions"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/label/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/x/filter"
+	"github.com/synnaxlabs/x/validate"
+	"strconv"
+)
 
 // Key is a unique identifier for a label, represented as a UUID.
 type Key = versions.Key
@@ -19,3 +25,38 @@ type Key = versions.Key
 // Label is a tagging and categorization entity with a name and associated color. Labels
 // can be attached to resources like ranges for organization and filtering.
 type Label = versions.Label
+
+// Where is a filter that selects labels.
+type Where struct {
+	// And matches when every child matches.
+	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	// Or matches when any child matches.
+	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	// Not matches when the child does not match.
+	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
+	// Key selects by key.
+	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
+	// Name selects by name.
+	Name *filter.String `json:"name,omitzero" msgpack:"name,omitempty"`
+	// For matches the labels attached to the given resource.
+	For *ontology.ID `json:"for,omitzero" msgpack:"for,omitempty"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (w Where) Validate() error {
+	v := validate.New("Where")
+	for i := range w.And {
+		v.Exec(func() error { return validate.PathedError(w.And[i].Validate(), "and", strconv.Itoa(i)) })
+	}
+	for i := range w.Or {
+		v.Exec(func() error { return validate.PathedError(w.Or[i].Validate(), "or", strconv.Itoa(i)) })
+	}
+	if w.Not != nil {
+		v.Exec(func() error { return validate.PathedError(w.Not.Validate(), "not") })
+	}
+	if w.For != nil {
+		v.Exec(func() error { return validate.PathedError(w.For.Validate(), "for") })
+	}
+	return v.Error()
+}

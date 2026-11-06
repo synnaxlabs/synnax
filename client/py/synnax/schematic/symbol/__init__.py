@@ -16,6 +16,7 @@ from synnax.schematic.symbol.types_gen import (
     Spec,
     State,
     Symbol,
+    Where,
     ontology_id,
 )
 
@@ -28,5 +29,6 @@ __all__ = [
     "Spec",
     "State",
     "Symbol",
+    "Where",
     "ontology_id",
 ]

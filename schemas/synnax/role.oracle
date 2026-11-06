@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/x/filter"
+
 @go output "core/pkg/service/access/rbac/role"
 @py output "client/py/synnax/access/role"
 @ts output "client/ts/src/access/role"
@@ -48,4 +50,13 @@ Role struct {
     @go migrate
     @ontology type "role"
     @retrieve
+}
+
+Where filter Role {
+    key
+    name
+    internal
+
+    @doc value         "is a filter that selects roles."
+    @go request_output "core/pkg/api/access/role"
 }

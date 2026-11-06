@@ -13,6 +13,7 @@
 #include <string>
 #include <unordered_map>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "client/cpp/synnax.h"
@@ -86,20 +87,23 @@ public:
 /// @brief Compiles an Arc program via the Synnax client.
 inline arc::program::Program
 compile_text(const synnax::Synnax &client, const std::string &source) {
-    auto arc = synnax::arc::Arc{
-        .name = make_unique_channel_name("test_arc"),
-        .mode = synnax::arc::MODE_TEXT
+    synnax::arc::AutomationArc automation{
+        {.name = make_unique_channel_name("test_arc")}
     };
-    arc.text.raw = source;
+    automation.source = synnax::arc::TextSource{.text = {.raw = source}};
+    synnax::arc::Arc arc = automation;
     if (const auto create_err = client.arcs.create(arc))
         throw std::runtime_error("Failed to create arc: " + create_err.message());
 
     synnax::arc::RetrieveOptions opts;
-    opts.compile = true;
-    auto [compiled, err] = client.arcs.retrieve_by_key(arc.key, opts);
+    opts.include_program = true;
+    auto [compiled, err] = client.arcs.retrieve_by_key(
+        synnax::arc::base(arc).key,
+        opts
+    );
     if (err) throw std::runtime_error("Failed to compile arc: " + err.message());
-    if (!compiled.program.has_value())
-        throw std::runtime_error("Compiled arc has no program");
-    return *compiled.program;
+    const auto &program = std::get<synnax::arc::AutomationArc>(compiled).program;
+    if (!program.has_value()) throw std::runtime_error("Compiled arc has no program");
+    return *program;
 }
 }

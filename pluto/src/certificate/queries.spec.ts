@@ -38,7 +38,7 @@ describe("queries", () => {
       const second = await createCertificate("list 2");
       const { result } = renderHook(() => Certificate.useList(), { wrapper });
       await act(async () => {
-        await result.current.retrieveAsync({ keys: [first.key, second.key] });
+        await result.current.retrieveAsync({ key: [first.key, second.key] });
       });
       expect(result.current.data).toEqual([first.key, second.key]);
       expect(result.current.getItem(first.key)).toEqual(first);
@@ -123,7 +123,7 @@ describe("queries", () => {
       expect(result.current.variant).toEqual("success");
       await expect(
         createTestClient().certificates.retrieve(created.key),
-      ).rejects.toThrow(`Certificates with keys [${created.key}] not found`);
+      ).rejects.toThrow(`certificate with key ${created.key} not found`);
     });
 
     it("should run afterOptimistic before the delete commits", async () => {

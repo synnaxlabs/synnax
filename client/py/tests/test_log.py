@@ -121,6 +121,13 @@ class TestClient:
         retrieved = client.logs.retrieve(keys=[log.key for log in created])
         assert {log.key for log in retrieved} == {log.key for log in created}
 
+    def test_retrieve_where(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should keep the logs that match the where and the other filters."""
+        a, b = client.logs.create(project.key, [sy.Log(name="A"), sy.Log(name="B")])
+        where = log.Where(not_=log.Where(key=sy.filter.Set[log.Key](eq=a.key)))
+        res = client.logs.retrieve(where=where, keys=[a.key, b.key, uuid4()])
+        assert [r.key for r in res] == [b.key]
+
     def test_retrieve_missing_raises(self, client: sy.Synnax) -> None:
         """Should raise NotFoundError when a log does not exist."""
         with pytest.raises(NotFoundError):
@@ -145,8 +152,7 @@ class TestClient:
             project.key, [sy.Log(name="Delete 1"), sy.Log(name="Delete 2")]
         )
         client.logs.delete([log.key for log in logs])
-        with pytest.raises(NotFoundError):
-            client.logs.retrieve(keys=[log.key for log in logs])
+        assert client.logs.retrieve(keys=[log.key for log in logs]) == []
 
     def test_delete_missing(self, client: sy.Synnax) -> None:
         """Should not raise when deleting a log that does not exist."""

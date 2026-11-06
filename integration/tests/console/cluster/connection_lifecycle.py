@@ -21,12 +21,22 @@ class ConnectionLifecycle(ConsoleCase):
     machine, workspace survival, and post-reconnect reconciliation."""
 
     def setup(self) -> None:
-        super().setup()
         self.proxy = SeverableProxy(
             target_host=self.synnax_connection.server_address,
             target_port=self.synnax_connection.port,
         )
         self.recon_channel: str | None = None
+        super().setup()
+
+    def _goto_console(
+        self, query: str = "", host: str | None = None, port: int | None = None
+    ) -> None:
+        # A browser Console only talks to the Core that served it, so the page loads
+        # through the proxy. The dev server fallback reads the Core port from storage.
+        self.page.add_init_script(
+            f"localStorage.setItem('synnax-dev-connection-port', '{self.proxy.port}')"
+        )
+        super()._goto_console(query, host="127.0.0.1", port=self.proxy.port)
 
     def teardown(self) -> None:
         # Page and project cleanup drive the browser, which talks to the Core
@@ -53,7 +63,7 @@ class ConnectionLifecycle(ConsoleCase):
         self.test_reconnect_reconciles()
 
     def test_connect_through_proxy(self) -> None:
-        """Repoint the active cluster at the proxy through the connect modal."""
+        """The Console reaches the Core through the proxy that served it."""
         self.log("Connecting through the severable proxy")
         console = self.console
         console.pages.create(Schematic, self.page_name)
@@ -63,7 +73,6 @@ class ConnectionLifecycle(ConsoleCase):
         # action after reconnect.
         console.channels.show_channels()
 
-        console.cluster.edit_connection(host="127.0.0.1", port=self.proxy.port)
         console.cluster.open_badge()
         console.cluster.wait_for_status("Connected", timeout=20000)
         address = console.cluster.address()
