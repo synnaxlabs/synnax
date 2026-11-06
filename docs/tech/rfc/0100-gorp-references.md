@@ -87,8 +87,8 @@ Status struct {
 - `on_delete cascade | restrict | detach`: Required. `cascade` deletes the dependent.
   `restrict` refuses the delete while the dependent exists. `detach` keeps the dependent
   and removes the target: it clears an optional scalar, writes zero to a scalar with a
-  zero default, and removes an array element. Oracle refuses `detach` on any other
-  field.
+  zero default, and removes an array element. A required field in an array element
+  detaches by removing the element. Oracle refuses `detach` on any other field.
 - `types`: Required on a `resource.ID` field, and allowed only there.
 - `unique`: At most one dependent per target. A field that holds no target is exempt.
 - `acyclic`: A chain of references in one table must not come back to its start.
@@ -110,8 +110,13 @@ generates:
   service writer calls it, so each groupable type writes no move code.
 
 A generic type uses `@retrieve indexes`, which generates the references and no filters.
-This phase generates references on the top-level fields of a `@retrieve` type only.
-References nested in arrays and structs (`lineplot`, `log`, `panel`) come in Phase 9.
+Oracle also walks the arrays, optional structs, and unions of a `@retrieve` type, and
+puts each nested `@ref` in the same `indexes` struct, with no filter. A type that a
+generic table stores (a task config) uses `@retrieve references`, which generates only
+an unexported `<type>References()` function. The same zero and detach rules hold at
+every depth. Line plot channels and panel tabs keep hand-written references, because
+their detach rebuilds the record. `channel.index` does too, because an index channel
+holds no target.
 
 ### 4.1 Gorp
 
@@ -164,8 +169,10 @@ effect outside Gorp, such as a channel and its Cesium storage, is never a `casca
 target.
 
 **Errors**: A failed write check is a `validate.PathError` on the field, such as
-`rack: rack 1 does not exist`. A refused `restrict` is `validate.ErrValidation` with
-`cannot delete X because Y references it through F`.
+`rack: rack 1 does not exist`. A refused `restrict` is a `gorp.RestrictError`, a
+validation error that holds the target, the holder, and the reference. The API rewrites
+it with the names of the records: `cannot delete channel X because task Y uses it`. The
+task service maps a config record to its task.
 
 **Isolation** (`gorp/gorp.go`): Each `gorp.DB` holds one write lock. A transaction takes
 it when it opens and releases it at commit or close, before observers run, because an
@@ -294,9 +301,11 @@ One startup migration per table derives its reference fields from the old edges 
 
 These migrations read edges through the frozen types in
 `core/pkg/service/ontology/versions/v0`. A record can already hold a key whose target is
-gone, and its next write would fail the check. One shared migration
-(`gorp.DropDangling`) removes such keys from `detach` fields and zeroes them in task
-configs. After each service opens, one last migration drops both ontology tables and the
+gone, and its next write would fail the check. `gorp.DanglingMigration` runs
+`Table.DropDangling` on each entry of a table: it removes each missing target through
+the `Detach` of its reference. It keeps a missing target that its reference cannot
+remove, and logs it. An import runs `Table.DropDangling` on the record before it writes
+it. After each service opens, one last migration drops both ontology tables and the
 built-in groups. A visualization with no project and no range is deleted; no path
 reaches it today. The migration is one-way: a Core that ran it cannot go back to a
 release that reads the ontology.
@@ -369,8 +378,8 @@ before it.
 2. The default closure cap, from a measured worst case. A range can hold one alias per
    channel.
 3. Whether a reference can skip its reverse index. Phase 9 puts one over the channel
-   table, up to about a million entries, but with no index a delete cannot find
-   dependents.
+   table, up to about a million entries, in place of the `local_index` lookup index.
+   With no index, a delete cannot find dependents.
 4. The device chassis policy: `cascade` for discovered modules, or `detach` for
    hand-made chassis.
 5. Whether `group.scope` can go once each group has a parent or a member.
