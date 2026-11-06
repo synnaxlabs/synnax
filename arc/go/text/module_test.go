@@ -158,6 +158,19 @@ var _ = Describe("Loader", func() {
 			Expect(loads["d"]).To(Equal(1))
 		})
 
+		It("Should load a module that fails once", func(ctx SpecContext) {
+			sources["d"] = `export func h() i64 { return nope }`
+			sources["a"] = "import d\n\nexport func f() i64 { return d.h() }"
+			sources["b"] = "import d\n\nexport func g() i64 { return d.h() }"
+			diag := analyze(
+				ctx,
+				"import (a b)\n\ntrig -> a.f() -> out\ntrig -> b.g() -> out",
+			)
+			Expect(diag.String()).To(ContainSubstring(`module "a" does not compile`))
+			Expect(diag.String()).To(ContainSubstring(`module "b" does not compile`))
+			Expect(loads["d"]).To(Equal(1))
+		})
+
 		It("Should report an import cycle with its chain", func(ctx SpecContext) {
 			sources["a"] = "import b\n\nexport func f() i64 { return b.g() }"
 			sources["b"] = "import a\n\nexport func g() i64 { return a.f() }"

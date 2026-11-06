@@ -31,11 +31,12 @@ type LoaderConfig struct {
 	Config parser.Config
 }
 
-// Loader resolves import paths to analyzed modules for one root, each once. It is
-// not safe for concurrent use.
+// Loader resolves import paths to analyzed modules for one root. Each path loads
+// once, whether it succeeds or fails. It is not safe for concurrent use.
 type Loader struct {
 	cfg     LoaderConfig
 	modules map[string]*symbol.Symbol
+	failed  map[string]error
 	// stack holds the paths under analysis, outermost first.
 	stack []string
 	// cycle holds the chain of the first import cycle found. Every module on it
@@ -47,7 +48,11 @@ var _ symbol.Resolver = (*Loader)(nil)
 
 // NewLoader returns a Loader that reads modules through cfg.
 func NewLoader(cfg LoaderConfig) *Loader {
-	return &Loader{cfg: cfg, modules: make(map[string]*symbol.Symbol)}
+	return &Loader{
+		cfg:     cfg,
+		modules: make(map[string]*symbol.Symbol),
+		failed:  make(map[string]error),
+	}
 }
 
 // Resolve implements symbol.Resolver. A module's own imports resolve through the
@@ -56,10 +61,23 @@ func (l *Loader) Resolve(ctx context.Context, path string) (*symbol.Symbol, erro
 	if mod, ok := l.modules[path]; ok {
 		return mod, nil
 	}
+	if err, ok := l.failed[path]; ok {
+		return nil, err
+	}
 	if slices.Contains(l.stack, path) {
 		l.cycle = append(slices.Clone(l.stack), path)
 		return nil, l.cycleError()
 	}
+	mod, err := l.load(ctx, path)
+	if err != nil {
+		l.failed[path] = err
+		return nil, err
+	}
+	l.modules[path] = mod
+	return mod, nil
+}
+
+func (l *Loader) load(ctx context.Context, path string) (*symbol.Symbol, error) {
 	t, err := l.cfg.Source(ctx, path)
 	if err != nil {
 		return nil, err
@@ -85,7 +103,6 @@ func (l *Loader) Resolve(ctx context.Context, path string) (*symbol.Symbol, erro
 	mod := i.Symbols
 	mod.Kind, mod.Name, mod.AST = symbol.KindModule, path, parsed.AST
 	mod.UserDefined = true
-	l.modules[path] = mod
 	return mod, nil
 }
 

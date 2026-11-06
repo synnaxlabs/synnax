@@ -366,6 +366,30 @@ var _ = Describe("AST Utilities", func() {
 		})
 	})
 
+	Describe("IdentifierParts and IdentifierName", func() {
+		identifierOf := func(code string) parser.IIdentifierContext {
+			prog := MustSucceed(parser.Parse(code))
+			return prog.TopLevelItem(0).FlowStatement().FlowNode(1).Identifier()
+		}
+
+		It("Should return the bare name with an empty tail", func() {
+			head, tail := parser.IdentifierParts(identifierOf("trig -> out"))
+			Expect(head).To(Equal("out"))
+			Expect(tail).To(Equal(""))
+		})
+
+		It("Should split a qualified identifier", func() {
+			head, tail := parser.IdentifierParts(identifierOf("trig -> m.f"))
+			Expect(head).To(Equal("m"))
+			Expect(tail).To(Equal("f"))
+		})
+
+		It("Should join names only when a tail is present", func() {
+			Expect(parser.IdentifierName(identifierOf("trig -> out"))).To(Equal("out"))
+			Expect(parser.IdentifierName(identifierOf("trig -> m.f"))).To(Equal("m.f"))
+		})
+	})
+
 	Describe("PrimaryNameParts and PrimaryName", func() {
 		primaryOf := func(code string) parser.IPrimaryExpressionContext {
 			primary := parser.GetPrimaryExpression(parseExpr(code))
