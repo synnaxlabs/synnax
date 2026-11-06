@@ -1049,6 +1049,65 @@ TEST(DeviceTest, DiscardsLateReply) {
     slave.stop();
 }
 
+/// @brief it should wait for the late reply of a timed-out request before it retries,
+/// so the retry reads its own reply on the same socket.
+TEST(DeviceTest, RetriesAfterLateReply) {
+    testutil::SlaveConfig slave_config;
+    slave_config.port = 1682;
+    slave_config.holding_registers[0] = static_cast<uint16_t>(11);
+    testutil::Slave slave(slave_config);
+    ASSERT_NIL(slave.start());
+    Manager manager;
+    auto cfg = unit(1682, 1);
+    cfg.timeout = x::telem::MILLISECOND * 300;
+    auto dev = ASSERT_NIL_P(manager.acquire(cfg));
+    uint16_t reg = 0;
+    ASSERT_NIL(dev->read_registers(HoldingRegister, 1, 1, &reg));
+
+    slave.stall_next(1, std::chrono::milliseconds(450));
+    ASSERT_NIL(dev->read_registers(HoldingRegister, 0, 1, &reg));
+    EXPECT_EQ(reg, 11);
+    const auto stats = dev->stats();
+    EXPECT_EQ(stats.requests, 3U);
+    EXPECT_EQ(stats.retries, 1U);
+    EXPECT_EQ(stats.timeouts, 1U);
+    EXPECT_EQ(slave.unit_requests(1), 3);
+    EXPECT_EQ(slave.connections(), 1);
+    slave.stop();
+}
+
+/// @brief it should keep the socket of the other units on the connection when a late
+/// reply is still on its way.
+TEST(DeviceTest, LateReplyKeepsConnectionOfOtherUnits) {
+    testutil::SlaveConfig slave_config;
+    slave_config.port = 1683;
+    slave_config.holding_registers[0] = static_cast<uint16_t>(11);
+    slave_config.holding_registers[1] = static_cast<uint16_t>(22);
+    testutil::Slave slave(slave_config);
+    ASSERT_NIL(slave.start());
+    Manager manager;
+    const auto acquire = [&](const std::uint8_t id) {
+        auto cfg = unit(1683, id);
+        cfg.timeout = x::telem::MILLISECOND * 300;
+        cfg.retries = 0;
+        return manager.acquire(cfg);
+    };
+    auto slow = ASSERT_NIL_P(acquire(1));
+    auto other = ASSERT_NIL_P(acquire(2));
+    uint16_t reg = 0;
+    ASSERT_NIL(slow->read_registers(HoldingRegister, 0, 1, &reg));
+
+    slave.stall_next(1, std::chrono::milliseconds(450));
+    const auto err = slow->read_registers(HoldingRegister, 0, 1, &reg);
+    ASSERT_OCCURRED_AS(err, UNREACHABLE);
+    EXPECT_EQ(slow->stats().timeouts, 1U);
+    ASSERT_NIL(other->read_registers(HoldingRegister, 1, 1, &reg));
+    EXPECT_EQ(reg, 22);
+    EXPECT_EQ(other->stats().timeouts, 0U);
+    EXPECT_EQ(slave.connections(), 1);
+    slave.stop();
+}
+
 /// @brief it should send a waiting write before reads that waited longer.
 TEST(DeviceTest, WriteGoesBeforeWaitingReads) {
     testutil::SlaveConfig slave_config;
@@ -1101,17 +1160,22 @@ TEST(DeviceTest, CountsRequestsOfEachUnit) {
     testutil::Slave slave(slave_config);
     ASSERT_NIL(slave.start());
     Manager manager;
-    const auto acquire = [&](const std::uint8_t unit) {
+    const auto acquire = [&](const std::uint8_t unit,
+                             const x::telem::TimeSpan timeout) {
         ConnectionConfig cfg{"127.0.0.1", 1677};
         cfg.unit_id = unit;
-        cfg.timeout = x::telem::MILLISECOND * 50;
+        cfg.timeout = timeout;
         return manager.acquire(cfg);
     };
-    auto healthy = ASSERT_NIL_P(acquire(1));
-    auto gateway = ASSERT_NIL_P(acquire(2));
-    auto silent = ASSERT_NIL_P(acquire(3));
+    // A timeout runs from the send, so a slow accept counts against it. Only the silent
+    // unit may run out its timeout.
+    auto healthy = ASSERT_NIL_P(acquire(1, x::telem::SECOND * 10));
+    auto gateway = ASSERT_NIL_P(acquire(2, x::telem::SECOND * 10));
+    auto silent = ASSERT_NIL_P(acquire(3, x::telem::MILLISECOND * 50));
     uint16_t reg = 0;
-    slave.stall_next(1, std::chrono::milliseconds(30));
+    // Far longer than a scheduler delay on the later requests.
+    const auto stall = std::chrono::milliseconds(200);
+    slave.stall_next(1, stall);
     ASSERT_NIL(healthy->read_registers(HoldingRegister, 0, 1, &reg));
     ASSERT_NIL(healthy->read_registers(HoldingRegister, 0, 1, &reg));
     const uint8_t bit = 1;
@@ -1130,7 +1194,7 @@ TEST(DeviceTest, CountsRequestsOfEachUnit) {
     EXPECT_EQ(h.retries, 0U);
     EXPECT_EQ(h.timeouts, 0U);
     EXPECT_EQ(h.exceptions, 1U);
-    EXPECT_GE(h.max_response, x::telem::MILLISECOND * 30);
+    EXPECT_GE(h.max_response, x::telem::TimeSpan(stall));
     EXPECT_LT(h.last_response, h.max_response);
     const auto g = gateway->stats();
     EXPECT_EQ(g.requests, 2U);

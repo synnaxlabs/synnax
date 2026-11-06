@@ -64,7 +64,7 @@ jobs:
 
       - name: Assume the runner start role
         if: steps.pr.outputs.fork == 'false'
-        uses: aws-actions/configure-aws-credentials@v6
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6
         with:
           role-to-assume: ${{ vars.AGENT_RUNNER_ROLE_ARN }}
           aws-region: us-east-1
@@ -91,7 +91,7 @@ jobs:
       - name: Mint the GitHub App token
         id: app
         if: steps.pr.outputs.fork == 'false'
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
         with:
           app-id: ${{ secrets.SEDOSAUR_APP_ID }}
           private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
@@ -119,7 +119,7 @@ jobs:
     steps:
       - name: Mint the GitHub App token
         id: app
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
         with:
           app-id: ${{ secrets.SEDOSAUR_APP_ID }}
           private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
@@ -152,7 +152,7 @@ jobs:
     steps:
       - name: Mint the GitHub App token
         id: app
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
         with:
           app-id: ${{ secrets.SEDOSAUR_APP_ID }}
           private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
@@ -171,7 +171,7 @@ jobs:
       # The runner keeps the clone between jobs, so each fetch is small. This checkout
       # holds the scripts and the policy: the pull request and its base are not trusted.
       - name: Check out the scripts and the policy
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -184,9 +184,14 @@ jobs:
           git fetch --no-tags origin "$BASE_SHA" "$HEAD_SHA"
           git worktree add --detach "$RUNNER_TEMP/head" "$HEAD_SHA"
 
-      # A runner can stay stopped for weeks, so a review takes the latest Claude Code.
-      - name: Update Claude Code
-        run: sudo npm install -g @anthropic-ai/claude-code@latest
+      # A runner can stay stopped for weeks, so each review installs the latest Claude
+      # Code. The runners on one machine review at the same time, so each review gets
+      # its own copy in the temporary directory, which the runner empties after the job.
+      - name: Install Claude Code
+        run: |
+          npm install --no-save --prefix "$RUNNER_TEMP/claude" \
+            @anthropic-ai/claude-code@latest
+          echo "$RUNNER_TEMP/claude/node_modules/.bin" >> "$GITHUB_PATH"
 
       - name: Review
         working-directory: .github/scripts
@@ -194,9 +199,19 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           BOT: ${{ steps.app.outputs.app-slug }}
           POLICY_DIR: ${{ github.workspace }}
+          POLICY_SHA: ${{ github.sha }}
           HEAD_DIR: ${{ runner.temp }}/head
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.SEDOSAUR_CLAUDE_CODE_OAUTH_TOKEN }}
         run: python3 -m review run "$RUNNER_TEMP/review.json"
+
+      # The trial report compares these records with Greptile's reviews.
+      - name: Keep the record
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: sedosaur-review
+          path: ${{ runner.temp }}/review.json
+          retention-days: 90
+          overwrite: true
 
       - name: Post the review
         working-directory: .github/scripts
@@ -215,7 +230,7 @@ jobs:
     steps:
       - name: Mint the GitHub App token
         id: app
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
         with:
           app-id: ${{ secrets.SEDOSAUR_APP_ID }}
           private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}

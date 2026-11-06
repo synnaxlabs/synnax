@@ -13,7 +13,7 @@ import { z } from "zod";
 
 import { channel } from "@/channel";
 import { framer } from "@/framer";
-import { MultipleFoundError, NotFoundError } from "@/index";
+import { MultipleFoundError, NotFoundError, ValidationError } from "@/index";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { rack } from "@/rack";
@@ -246,6 +246,47 @@ describe("Task", async () => {
       expect(retrieved.type).toBe("pagerduty_alert");
     });
 
+    it("should retrieve tasks by a key list in key order", async () => {
+      const t1 = await testRack.createTask({
+        name: "t1",
+        config: { routingKey: "dog" },
+        type: "pagerduty_alert",
+      });
+      const t2 = await testRack.createTask({
+        name: "t2",
+        config: { routingKey: "dog" },
+        type: "pagerduty_alert",
+      });
+      const retrieved = await client.tasks.retrieve([t2.key, t1.key]);
+      expect(retrieved.map(({ key }) => key)).toEqual([t2.key, t1.key]);
+    });
+
+    it("should throw a NotFoundError for a missing key in a key list", async () => {
+      const t = await testRack.createTask({
+        name: "t",
+        config: { routingKey: "dog" },
+        type: "pagerduty_alert",
+      });
+      const missing = uuid.create();
+      await expect(client.tasks.retrieve([t.key, missing])).rejects.toThrow(
+        new NotFoundError(`task with key ${missing} not found`),
+      );
+    });
+
+    it("should reject a plain key beside other fields", async () => {
+      const key = uuid.create();
+      await expect(
+        // @ts-expect-error - a plain key addresses one task, so it takes no filter.
+        client.tasks.retrieve({ key, internal: false }),
+      ).rejects.toThrow(
+        new ValidationError(
+          "task params address a single key but do not match the single-query " +
+            "schema.\nFailed to parse task single query params (1 issue)\n\n  {\n" +
+            `    "key": "${key}",\n  ✗ "internal": false  × unexpected key\n  }`,
+        ),
+      );
+    });
+
     it("should retrieve a task by its name", async () => {
       const name = `test-${Date.now()}-${Math.random()}`;
       const m = await testRack.createTask({
@@ -440,6 +481,15 @@ describe("Task", async () => {
       it("should combine rack and type filters", async () => {
         const result = await client.tasks.retrieve({
           where: { rack: { eq: secondRack.key }, type: { in: ["labjack_scan"] } },
+        });
+        expect(result.length).toBeGreaterThanOrEqual(1);
+        expect(result.every((t) => t.type === "labjack_scan")).toBe(true);
+      });
+
+      it("should combine rack and type in a flat filter", async () => {
+        const result = await client.tasks.retrieve({
+          rack: secondRack.key,
+          type: ["labjack_scan"],
         });
         expect(result.length).toBeGreaterThanOrEqual(1);
         expect(result.every((t) => t.type === "labjack_scan")).toBe(true);
@@ -964,6 +1014,60 @@ describe("Task", async () => {
       expect(retrieved.config.routingKey).toBe("rk-500");
     });
 
+    it("should reject a plain key beside other fields with schemas", async () => {
+      const schemas = {
+        type: z.literal("ni"),
+        config: z.object({}),
+        statusData: z.unknown(),
+      };
+      const key = uuid.create();
+      const params = { key, internal: false, schemas };
+      await expect(client.tasks.retrieve(params)).rejects.toThrow(
+        new ValidationError(
+          "task params address a single key but do not match the single-query " +
+            "schema.\nFailed to parse task single query params (1 issue)\n\n  {\n" +
+            `    "key": "${key}",\n  ✗ "internal": false  × unexpected key\n  }`,
+        ),
+      );
+    });
+
+    it("should reject a malformed key with or without schemas", async () => {
+      const schemas = {
+        type: z.literal("ni"),
+        config: z.object({}),
+        statusData: z.unknown(),
+      };
+      const err = new ValidationError(
+        "task params address a single key but do not match the single-query " +
+          "schema.\nFailed to parse task single query params (1 issue)\n\n  {\n" +
+          '  ✗ "key": "not-a-uuid"  × expected uuid format\n  }',
+      );
+      await expect(client.tasks.retrieve({ key: "not-a-uuid" })).rejects.toThrow(err);
+      await expect(
+        client.tasks.retrieve({ key: "not-a-uuid", schemas }),
+      ).rejects.toThrow(err);
+    });
+
+    it("should retrieve one task by type and rack with its status", async () => {
+      const schemas = {
+        type: z.literal("modbus_scan"),
+        config: z.object({ rate: z.number() }),
+        statusData: z.unknown(),
+      };
+      const r = await client.racks.create({ name: "type-status" });
+      const created = await r.createTask(
+        { name: "type-status", type: "modbus_scan", config: { rate: 1 } },
+        schemas,
+      );
+      const retrieved = await client.tasks.retrieve({
+        type: "modbus_scan",
+        rack: r.key,
+        includeStatus: true,
+        schemas,
+      });
+      expect(retrieved.key).toBe(created.key);
+    });
+
     it("should retrieve task by type with schemas", async () => {
       const customSchemas = {
         type: z.literal("modbus_scan"),
@@ -1034,6 +1138,134 @@ describe("Task", async () => {
       .poll(() => client.statuses.store.get(stat.key)?.message)
       .toBe(stat.message);
   };
+
+  describe("executeCommandSync", () => {
+    // The wait opens its streamer before it sends the command, so once the command
+    // lands, the wait sees every status written after it.
+    const readCommand = async (
+      streamer: framer.Streamer,
+      key: task.Key,
+    ): Promise<task.Command> => {
+      while (true) {
+        const fr = await streamer.read();
+        const commands = fr.get(task.COMMAND_CHANNEL_NAME).parseJSON(task.commandZ);
+        const cmd = commands.find((c) => c.task === key);
+        if (cmd != null) return cmd;
+      }
+    };
+
+    const setDriverNotRunning = async (key: rack.Key) =>
+      await writer.statuses.set({
+        key: rack.statusKey(key),
+        name: "Rack Status",
+        variant: "warning",
+        message: "Driver not running",
+        description: "The Core has not heard from the Driver.",
+        time: TimeStamp.now(),
+        details: { rack: key },
+      });
+
+    it("should end the wait when the Driver of the task goes down", async () => {
+      const dying = await client.racks.create({ name: `dying-${id.create()}` });
+      const t = await dying.createTask({
+        name: `dying-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      onTestFinished(() => streamer.close());
+      const wait = t.executeCommandSync({ type: "scan", timeout: TimeSpan.minutes(1) });
+      // Handled before the outage, which can reject the wait before its write returns.
+      const ended = expect(wait).rejects.toMatchObject({
+        message: "Driver not running",
+        description: "The Core has not heard from the Driver.",
+      });
+      await readCommand(streamer, t.key);
+      await setDriverNotRunning(dying.key);
+      await ended;
+    });
+
+    it("should end the wait of a command sent through the client", async () => {
+      const dying = await client.racks.create({ name: `dying-${id.create()}` });
+      const t = await dying.createTask({
+        name: `dying-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      onTestFinished(() => streamer.close());
+      const wait = client.tasks.executeCommandSync({
+        commands: [{ task: t.key, type: "scan" }],
+        timeout: TimeSpan.minutes(1),
+        statusDataZ: z.unknown(),
+      });
+      const ended = expect(wait).rejects.toThrow("Driver not running");
+      await readCommand(streamer, t.key);
+      await setDriverNotRunning(dying.key);
+      await ended;
+    });
+
+    it("should end the wait of a batch that holds a deleted task", async () => {
+      const dying = await client.racks.create({ name: `dying-${id.create()}` });
+      const live = await dying.createTask({
+        name: `live-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const gone = await testRack.createTask({
+        name: `gone-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      await client.tasks.delete(gone.key);
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      onTestFinished(() => streamer.close());
+      const wait = client.tasks.executeCommandSync({
+        commands: [
+          { task: gone.key, type: "scan" },
+          { task: live.key, type: "scan" },
+        ],
+        timeout: TimeSpan.minutes(1),
+        statusDataZ: z.unknown(),
+      });
+      const ended = expect(wait).rejects.toThrow("Driver not running");
+      await readCommand(streamer, live.key);
+      await setDriverNotRunning(dying.key);
+      await ended;
+    });
+
+    it("should keep waiting through a healthy status of the rack", async () => {
+      const alive = await client.racks.create({ name: `alive-${id.create()}` });
+      const t = await alive.createTask({
+        name: `alive-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      onTestFinished(() => streamer.close());
+      const wait = t.executeCommandSync({ type: "scan", timeout: TimeSpan.minutes(1) });
+      const cmd = await readCommand(streamer, t.key);
+      await setRackStatus(alive.key, "success", "Driver is running");
+      const reply: task.Status = {
+        key: task.statusKey(t.key),
+        name: t.name,
+        variant: "success",
+        message: "Scan complete",
+        description: "",
+        time: TimeStamp.now(),
+        details: {
+          task: t.key,
+          running: true,
+          cmd: cmd.key,
+          configHash: "",
+          rack: alive.key,
+          data: {},
+        },
+      };
+      await writer.statuses.set(reply);
+      expect(await wait).toMatchObject({ message: "Scan complete" });
+    });
+  });
 
   describe("onChange", () => {
     it("merges a status keyed by details.task into a subscribed single query", async () => {

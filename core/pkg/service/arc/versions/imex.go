@@ -11,13 +11,19 @@ package versions
 
 import (
 	"context"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"uuid"
 
 	"github.com/synnaxlabs/synnax/pkg/service/arc/versions/legacy"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v3"
+	v4 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v4"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
+
+// FileType returns the type header of a file that holds an Arc of type t.
+func FileType(t Type) string { return v4.FileType(t) }
 
 // DecodeImExEnvelope materializes env's body as a current-version Arc, keyless and
 // named after the envelope. An unknown version is a path-scoped validation error.
@@ -27,7 +33,10 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Arc, error) {
 		err error
 	)
 	if env.Version > legacy.LastVersion {
-		a, err = autoDecodeEnvelope(ctx, env)
+		var typed imex.Envelope
+		if typed, err = withVariantType(ctx, env); err == nil {
+			a, err = autoDecodeEnvelope(ctx, typed)
+		}
 	} else {
 		var doc legacy.Document
 		if doc, err = decodeConsole(ctx, env); err == nil {
@@ -40,23 +49,44 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Arc, error) {
 	if err != nil {
 		return Arc{}, err
 	}
-	// Console-era files leave the mode blank when the Arc was never switched out of the
-	// graph editor.
-	if a.Mode == "" {
-		a.Mode = ModeGraph
-	}
+	b := a.Base()
 	// Importing always materializes a new resource, so any key on the wire is dropped
 	// and the importer mints a fresh one.
-	a.Key = uuid.Nil()
+	b.Key = uuid.Nil()
 	// The header is the resolved name: the body's name when present, or the file-name
 	// fallback the imex service applies. Console-era decodes drop it, so it is stamped
 	// here for every path.
-	a.Name = env.Name
+	b.Name = env.Name
+	a.SetBase(b)
 	return a, nil
 }
 
-// decodeConsole lifts either Console-written file shape into a Document. Both shapes
-// carry the graph at the top level, so the structural guard runs ahead of the split.
+// withVariantType replaces the file type in env's body with the Arc type it names, or
+// with automation when it names none.
+func withVariantType(ctx context.Context, env imex.Envelope) (imex.Envelope, error) {
+	t, ok := v4.TypeFromFileType(env.Type)
+	if !ok {
+		t = TypeAutomation
+	}
+	body, err := env.Decode[map[string]jsontext.Value](ctx)
+	if err != nil {
+		return imex.Envelope{}, err
+	}
+	if body["type"], err = json.Marshal(t); err != nil {
+		return imex.Envelope{}, err
+	}
+	raw, err := json.Marshal(body)
+	if err != nil {
+		return imex.Envelope{}, err
+	}
+	var typed imex.Envelope
+	if err = imex.Codec.Decode(ctx, raw, &typed); err != nil {
+		return imex.Envelope{}, err
+	}
+	typed.Type = env.Type
+	return typed, nil
+}
+
 func decodeConsole(ctx context.Context, env imex.Envelope) (legacy.Document, error) {
 	body, err := env.Decode[msgpack.EncodedJSON](ctx)
 	if err != nil {
