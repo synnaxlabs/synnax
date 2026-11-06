@@ -271,6 +271,17 @@ describe("log/aether/Log", () => {
       expect(log.state.scrolling).toBe(false);
     });
 
+    it("should resume the source when it resumes on its own", () => {
+      const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
+      const { source, updateState } = setup(entries);
+      updateState({ scrolling: false, empty: false });
+      updateState({ scrolling: true, empty: false, wheelPos: 0 });
+      updateState({ scrolling: true, empty: false, wheelPos: 300 });
+      expect(source.resumeCalls).toBe(0);
+      updateState({ scrolling: true, empty: false, wheelPos: 0 });
+      expect(source.resumeCalls).toBeGreaterThan(0);
+    });
+
     it("should stamp resumedAt only when it resumes on its own", () => {
       const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
       const { log, updateState } = setup(entries);
