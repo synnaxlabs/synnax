@@ -14,6 +14,7 @@ import { describe, expect, it } from "vitest";
 import { Button } from "@/schematic/node/general/button/Primitive";
 
 const LONG = "Open the main fuel valve on the upper stage";
+const UNBROKEN = "MAIN_FUEL_ISOLATION_VALVE_ON_THE_UPPER_STAGE";
 const TWO_LINES = "LAUNCH\nPUMP VC";
 
 const renderButton = async (
@@ -47,6 +48,15 @@ describe("button symbol layout", () => {
     const el = await renderButton({ label: LONG, maxInlineSize: 100 });
     expect(lineCount(el)).toBeGreaterThan(1);
     expect(el.getBoundingClientRect().width).toBeLessThanOrEqual(100);
+  });
+
+  it("should break an unbroken label inside the button", async () => {
+    const el = await renderButton({ label: UNBROKEN, maxInlineSize: 100 });
+    const { left, right } = el.getBoundingClientRect();
+    const rects = lineRects(el);
+    expect(lineCount(el)).toBeGreaterThan(1);
+    expect(Math.min(...rects.map((r) => r.left))).toBeGreaterThanOrEqual(left);
+    expect(Math.max(...rects.map((r) => r.right))).toBeLessThanOrEqual(right);
   });
 
   it("should start a new line at a newline", async () => {
