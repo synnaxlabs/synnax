@@ -107,9 +107,10 @@ record counts come from start and end offsets and read "about" on compacted topi
 topic the user cannot read shows so before any fetch (`kadm.WithAuthorizedOps`), and
 each topic is fetched alone, so one denied topic does not fail the rest.
 
-Browse labels each topic's format from its newest payloads: JSON, Schema Registry (the
-5-byte header that starts with a zero byte), or binary. A topic that is not JSON shows
-its raw bytes and cannot be mapped.
+Browse labels each topic's format from its newest payloads: JSON, text, or binary. Kafka
+also labels Schema Registry, the 5-byte header that starts with a zero byte. Sample
+sends a JSON or text payload as text, and any other payload as hex. A topic that is not
+JSON cannot be mapped.
 
 The Kafka scan task moves onto `driver.Scanner` in Phase 1. Phase 3 extends the MQTT
 `test_connection` and `browse` commands (`core/pkg/service/mqtt/scan_task.go:30,38`) in
@@ -238,7 +239,7 @@ both read configs without a migration. Phases 5 to 7 come after the ICD cutover 
 | ----- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
 | 1     | Move Kafka onto `x/go/json` and `driver.Scanner`      | `x/go/json`, `core/pkg/service/kafka`, `core/pkg/service/mqtt`                                                                                                                                                                              | -          |
 | 2     | Warn on bad records with counts                       | `core/pkg/service/driver`, `core/pkg/service/kafka`, `core/pkg/service/mqtt`                                                                                                                                                                | 1          |
-| 3     | Add test, browse, and sample commands with inference  | `x/go/json`, `x/ts/src/json`, `core/pkg/service/driver`, `core/pkg/service/kafka`, `core/pkg/service/mqtt`, `client/ts/src/driver`, `client/ts/src/kafka`, `client/ts/src/mqtt`, `console/src/feature/mqtt/task`                            | 1          |
+| 3     | Add test, browse, and sample commands with inference  | `x/go/json`, `x/ts/src/json`, `core/pkg/service/driver`, `core/pkg/service/kafka`, `core/pkg/service/mqtt`, `schemas/synnax/task.oracle`, `client/ts/src/kafka`, `client/ts/src/mqtt`, `console/src/feature/mqtt/task`                      | 1          |
 | 4     | Move the connect forms and Add data onto the commands | `core/pkg/service/mqtt`, `console/src/feature/kafka/device`, `console/src/feature/mqtt`, `console/src/platform/task`                                                                                                                        | 3          |
 | 5     | Add the Kafka Add data dialog with inferred fields    | `console/src/feature/kafka/task`, `console/src/feature/mqtt/task`, `console/src/platform/task`                                                                                                                                              | 4          |
 | 6     | Preview drafts through the task's own parsing         | `core/pkg/service/kafka`, `core/pkg/service/mqtt`, `client/ts/src/kafka`, `client/ts/src/mqtt`, `console/src/platform/task`                                                                                                                 | 2, 5       |
