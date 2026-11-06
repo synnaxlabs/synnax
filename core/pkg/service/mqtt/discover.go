@@ -69,8 +69,10 @@ type testConnectionArgs struct {
 // test tests a connection to the broker of args one stage at a time: dial, TLS, and
 // connect, where the broker checks the credentials. It stops after the first stage that
 // fails. A broker whose tasks hold a connection with the same settings reports that
-// connection instead. It returns a validation error when the properties of args are not
-// valid, and an error when a certificate file fails to load.
+// connection instead. A test does not connect with the client ID of a connection that
+// tasks hold, because the broker would drop that connection. It returns a validation
+// error when the properties of args are not valid, and an error when a certificate file
+// fails to load.
 func (s *scanner) test(
 	ctx context.Context,
 	args testConnectionArgs,
@@ -93,7 +95,8 @@ func (s *scanner) test(
 		return nil, err
 	}
 	addr := u.Host
-	if live, connected := s.pool.live(args.Device, cfg); live {
+	held, connected, inUse := s.pool.running(args.Device)
+	if inUse && held.equal(cfg) {
 		if !connected {
 			return []task.TestStep{failure(
 				stageConnect, addr, "Connection down",
@@ -129,6 +132,20 @@ func (s *scanner) test(
 	}
 	if steps[len(steps)-1].Variant == status.VariantError {
 		return steps, nil
+	}
+	if inUse && held.clientID == cfg.clientID {
+		return append(steps, task.TestStep{
+			Stage:   stageConnect,
+			Address: addr,
+			Variant: status.VariantWarning,
+			Message: "Login not tested",
+			Description: fmt.Sprintf(
+				"A running task of this broker connects with client ID %q, and the "+
+					"broker would drop that task to let the test log in with the "+
+					"same ID. Stop the tasks of this broker to test these settings.",
+				cfg.clientID,
+			),
+		}), nil
 	}
 	if err = probe(ctx, s.ins, cfg); err != nil {
 		return append(steps, connectFailure(addr, err)), nil

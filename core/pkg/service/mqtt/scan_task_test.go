@@ -378,6 +378,30 @@ var _ = Describe("Scan task", func() {
 			},
 		)
 
+		It("Should not log in with the client ID of a running task",
+			func(ctx SpecContext) {
+				broker := startBroker(0)
+				properties := msgpack.EncodedJSON{
+					"port": broker.port, "client_id": "line-9",
+				}
+				dev := createBrokerDevice(ctx, rackKey, 0, properties)
+				startRead(ctx, configureRead(ctx, dev))
+				Eventually(broker.clientCount).Should(Equal(1))
+				stat := test(ctx, msgpack.EncodedJSON{
+					"device": dev.Key,
+					"properties": msgpack.EncodedJSON{
+						"port": broker.port, "client_id": "line-9", "username": "ops",
+					},
+				})
+				expectSuccess(stat)
+				steps := stepsOf(stat)
+				Expect(stages(steps)).
+					To(Equal([]string{"dial:success", "connect:warning"}))
+				Expect(steps[1].Message).To(Equal("Login not tested"))
+				Expect(broker.connectedIDs()).To(Equal([]string{"line-9"}))
+			},
+		)
+
 		It("Should report a broker it cannot reach", func(ctx SpecContext) {
 			broker := startBroker(0)
 			port := broker.port
