@@ -22,16 +22,15 @@ func tabTarget(id resource.ID) gorp.Target {
 	return gorp.Target{Table: string(id.Type), Key: id.Key}
 }
 
-// tabsReference returns the config of the reference from a panel to the resources its
-// tabs display. Deleting a resource removes its tab and collapses the leaves the
-// removal empties.
-func tabsReference() gorp.ReferenceConfig[Key, Panel] {
+// tabsReference returns the reference from a panel to the resources its tabs display.
+// Deleting a resource removes its tab and collapses the leaves the removal empties.
+func tabsReference() *gorp.TargetReference[Key, Panel] {
 	tables := make([]string, 0, len(resourceTabTypes))
 	for t := range resourceTabTypes {
 		tables = append(tables, string(t))
 	}
 	slices.Sort(tables)
-	return gorp.ReferenceConfig[Key, Panel]{
+	return gorp.NewTargetReference(gorp.TargetReferenceConfig[Key, Panel]{
 		Name:     "root.tabs.resource",
 		Tables:   tables,
 		OnDelete: gorp.Detach,
@@ -49,7 +48,7 @@ func tabsReference() gorp.ReferenceConfig[Key, Panel] {
 			})
 			collapseEmptyLeaves(&p.Root)
 		},
-	}
+	})
 }
 
 // CompositionMigrations returns the panel migrations that the service layer runs after
@@ -61,7 +60,7 @@ func (s *Service) CompositionMigrations() []gorp.Migration {
 		migrate.DropDangling(
 			"v61_panel_dangling_tabs",
 			s.cfg.DB,
-			[]gorp.ReferenceConfig[Key, Panel]{tabsReference()},
+			[]gorp.Reference[Key, Panel]{tabsReference()},
 		),
 	)
 }

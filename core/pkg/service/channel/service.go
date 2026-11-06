@@ -142,13 +142,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			migrate.DropDangling(
 				"v61_dangling_index",
 				cfg.DB,
-				[]gorp.ReferenceConfig[Key, Channel]{indexReference()},
+				[]gorp.Reference[Key, Channel]{indexReference()},
 			),
 		),
 		Indexes: s.indexes.all(),
 		References: append(
 			s.indexes.references(),
-			gorp.NewReference(indexReference()),
+			indexReference(),
 		),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {

@@ -749,7 +749,8 @@ describe("Panel queries", () => {
       const tab = newTab();
       const resource = {
         type: "lineplot",
-        key: (await client.lineplots.create(defaultProject, { name: "plot" })).key,
+        key: (await client.lineplots.create({ name: "plot", project: defaultProject }))
+          .key,
       } as const;
       const { result } = await loadAndUse(created.key, () => ({
         retrieve: Panel.use({ key: created.key }),
@@ -1069,8 +1070,12 @@ describe("Panel queries", () => {
       const { created, ops } = await createTab(tab);
       const resource = {
         type: "schematic",
-        key: (await client.schematics.create(defaultProject, { name: "schematic" }))
-          .key,
+        key: (
+          await client.schematics.create({
+            name: "schematic",
+            project: defaultProject,
+          })
+        ).key,
       } as const;
 
       const type = await loadAndCount(created.key, () =>
@@ -1123,7 +1128,8 @@ describe("Panel queries", () => {
       const { created } = await createTab(tab);
       const resource = {
         type: "lineplot",
-        key: (await client.lineplots.create(defaultProject, { name: "plot" })).key,
+        key: (await client.lineplots.create({ name: "plot", project: defaultProject }))
+          .key,
       } as const;
 
       const composed = ({ children }: PropsWithChildren): ReactElement => {

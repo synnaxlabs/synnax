@@ -13,29 +13,30 @@ import (
 	"slices"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 const channelTable = string(resource.TypeChannel)
 
-// channelsReference returns the config of the reference from a log to the channels of
-// its entries. Deleting a channel removes its entry.
-func channelsReference() gorp.ReferenceConfig[Key, Log] {
-	return gorp.ReferenceConfig[Key, Log]{
+// channelsReference returns the reference from a log to the channels of its entries.
+// Deleting a channel removes its entry.
+func channelsReference() *gorp.KeyReference[Key, Log, channel.Key] {
+	return gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Log, channel.Key]{
 		Name:     "channels.channel",
-		Tables:   []string{channelTable},
+		Table:    channelTable,
 		OnDelete: gorp.Detach,
-		Targets: func(l *Log) []gorp.Target {
-			targets := make([]gorp.Target, len(l.Channels))
+		Targets: func(l *Log) []channel.Key {
+			keys := make([]channel.Key, len(l.Channels))
 			for i, e := range l.Channels {
-				targets[i] = gorp.To(channelTable, e.Channel)
+				keys[i] = e.Channel
 			}
-			return targets
+			return keys
 		},
-		Detach: func(l *Log, t gorp.Target) {
+		Detach: func(l *Log, t channel.Key) {
 			l.Channels = slices.DeleteFunc(l.Channels, func(e ChannelEntry) bool {
-				return gorp.To(channelTable, e.Channel) == t
+				return e.Channel == t
 			})
 		},
-	}
+	})
 }

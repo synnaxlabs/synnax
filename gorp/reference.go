@@ -153,7 +153,8 @@ type KeyReferenceConfig[K Key, E Entry[K], T Key] struct {
 	//
 	// [REQUIRED]
 	OnDelete OnDelete
-	// Detach removes the target with key target from e.
+	// Detach removes the target with key target from e. DropDangling calls it whatever
+	// OnDelete is.
 	//
 	// [REQUIRED] when OnDelete is Detach.
 	Detach func(e *E, target T)

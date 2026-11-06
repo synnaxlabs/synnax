@@ -75,7 +75,10 @@ describe("panel ontology", () => {
     const { key } = await client.projects.create({ name: uniqueName("project") });
     // The plot sits in another project, so only the panel lists it.
     const other = await client.projects.create({ name: uniqueName("project") });
-    const plot = await client.lineplots.create(other.key, { name: uniqueName("plot") });
+    const plot = await client.lineplots.create({
+      name: uniqueName("plot"),
+      project: other.key,
+    });
     const pan = await client.panels.create({
       name: uniqueName("panel"),
       project: key,

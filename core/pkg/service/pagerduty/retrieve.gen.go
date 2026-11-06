@@ -15,31 +15,32 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 )
 
-// TaskConfigReferences returns the reference configs of TaskConfig.
-func TaskConfigReferences() []gorp.ReferenceConfig[uuid.UUID, TaskConfig] {
-	return []gorp.ReferenceConfig[uuid.UUID, TaskConfig]{
-		{
+// TaskConfigReferences returns the references of TaskConfig.
+func TaskConfigReferences() []gorp.Reference[uuid.UUID, TaskConfig] {
+	return []gorp.Reference[uuid.UUID, TaskConfig]{
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, TaskConfig, status.Key]{
 			Name:     "alerts.status",
-			Tables:   []string{"status"},
+			Table:    "status",
 			OnDelete: gorp.Detach,
-			Targets: func(e *TaskConfig) []gorp.Target {
-				var targets []gorp.Target
+			Targets: func(e *TaskConfig) []status.Key {
+				var targets []status.Key
 				for _, v1 := range e.Alerts {
 					if v1.Status != "" {
-						targets = append(targets, gorp.To("status", v1.Status))
+						targets = append(targets, v1.Status)
 					}
 				}
 				return targets
 			},
-			Detach: func(e *TaskConfig, t gorp.Target) {
+			Detach: func(e *TaskConfig, t status.Key) {
 				for i2 := range e.Alerts {
-					if gorp.To("status", e.Alerts[i2].Status) == t {
+					if e.Alerts[i2].Status == t {
 						e.Alerts[i2].Status = ""
 					}
 				}
 			},
-		},
+		}),
 	}
 }

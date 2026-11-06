@@ -113,7 +113,7 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				data := MustSucceed(
 					svc.Config.Normalize(ctx, nil, 1, msgpack.EncodedJSON{
-						"arc_key":        uuid.New().String(),
+						"arc_key":        arcKey.String(),
 						"execution_mode": "BUSY_WAIT",
 						"rt_priority":    80,
 					}),
@@ -129,6 +129,7 @@ var _ = Describe("Service", func() {
 			data := MustSucceed(svc.Config.Normalize(ctx, nil,
 				versions.Latest,
 				msgpack.EncodedJSON{
+					"arc_key":        arcKey.String(),
 					"performance":    "low",
 					"execution_mode": "BUSY_WAIT",
 				},

@@ -52,7 +52,7 @@ func (s *Service) Import(
 		ctx,
 		gorp.OverrideTx(s.cfg.DB, tx),
 		s.cfg.DB,
-		[]gorp.ReferenceConfig[Key, Log]{channelsReference()},
+		[]gorp.Reference[Key, Log]{channelsReference()},
 		&l,
 	); err != nil {
 		return resource.ID{}, err

@@ -522,14 +522,14 @@ var _ = Describe("@ref", func() {
 				rack rack.Key = 0 @ref on_delete restrict
 			`).
 				ToContain(
-					"func ReadConfigReferences() []gorp.ReferenceConfig[uuid.UUID, ReadConfig]",
+					"func ReadConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig]",
 					`Name:     "rack",`,
-					`Tables:   []string{"rack"},`,
+					`Table:    "rack",`,
 					"OnDelete: gorp.Restrict,",
 					"if e.Rack != 0 {",
-					`targets = append(targets, gorp.To("rack", e.Rack))`,
-					"Detach: func(e *ReadConfig, t gorp.Target) {",
-					`if gorp.To("rack", e.Rack) == t {`,
+					`targets = append(targets, e.Rack)`,
+					"Detach: func(e *ReadConfig, t rack.Key) {",
+					`if e.Rack == t {`,
 					"e.Rack = 0",
 				).
 				ToNotContain(
@@ -537,7 +537,6 @@ var _ = Describe("@ref", func() {
 					"type indexes struct",
 					`"context"`,
 					`"slices"`,
-					`"github.com/synnaxlabs/synnax/core/pkg/service/rack"`,
 				)
 		})
 
@@ -565,9 +564,9 @@ var _ = Describe("@ref", func() {
 			`).
 				ToContain(
 					`Name:     "inner.channel",`,
-					`Tables:   []string{"channel"},`,
+					`Table:    "channel",`,
 					"if e.Inner.Channel != 0 {",
-					`if gorp.To("channel", e.Inner.Channel) == t {`,
+					`if e.Inner.Channel == t {`,
 					"e.Inner.Channel = 0",
 				)
 		})
@@ -596,7 +595,7 @@ var _ = Describe("@ref", func() {
 					"for _, v1 := range e.Entries {",
 					"if v1.Channel != 0 {",
 					"for i2 := range e.Entries {",
-					`if gorp.To("channel", e.Entries[i2].Channel) == t {`,
+					`if e.Entries[i2].Channel == t {`,
 					"e.Entries[i2].Channel = 0",
 				)
 		})
@@ -664,9 +663,9 @@ var _ = Describe("@ref", func() {
 						`"slices"`,
 						`Name:     "alerts.tag",`,
 						"OnDelete: gorp.Detach,",
-						`targets = append(targets, gorp.To("label", v1.Tag))`,
+						`targets = append(targets, v1.Tag)`,
 						"e.Alerts = slices.DeleteFunc(e.Alerts, func(v2 Alert) bool {",
-						`if gorp.To("label", v2.Tag) == t {`,
+						`if v2.Tag == t {`,
 						"return true",
 						"return false",
 					)
@@ -718,7 +717,7 @@ var _ = Describe("@ref", func() {
 				generate(ctx, "", `
 				rack rack.Key @ref on_delete restrict
 			`).
-					ToContain(`targets = append(targets, gorp.To("rack", e.Rack))`).
+					ToContain(`targets = append(targets, e.Rack)`).
 					ToNotContain("Detach:")
 			},
 		)
@@ -784,8 +783,8 @@ var _ = Describe("@ref", func() {
 					rack rack.Key @ref on_delete detach
 				}`,
 				`inner Inner`,
-				"@ref field inner.rack needs to be optional, an array, zero by default, "+
-					"or inside an array to detach",
+				"@ref field inner.rack needs to be optional, an array, or zero by "+
+					"default to detach",
 			),
 			Entry(
 				"an acyclic reference",

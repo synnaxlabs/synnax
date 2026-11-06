@@ -182,8 +182,9 @@ describe("Panel tab", () => {
       as: Client = client,
     ) => {
       const project = (await client.projects.create({ name: uniqueName("proj") })).key;
-      const { key: resourceKey } = await client.schematics.create(project, {
+      const { key: resourceKey } = await client.schematics.create({
         name: uniqueName("schematic"),
+        project,
       });
       const tabKey = uuid.create();
       const existing = await createServerPanel(client, {

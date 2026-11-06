@@ -1320,43 +1320,38 @@ var _ = Describe("DropDangling", func() {
 		db     *gorp.DB
 		racks  *gorp.Table[uint32, refRack]
 		labels *gorp.Table[string, refLabel]
-		refs   = func(rack func(d *refDevice) []gorp.Target) []gorp.ReferenceConfig[
-			string,
-			refDevice,
-		] {
-			return []gorp.ReferenceConfig[string, refDevice]{
-				{
+		refs   = func(
+			rack func(d *refDevice) []gorp.Target,
+			rackDetach func(d *refDevice, t gorp.Target),
+		) []gorp.Reference[string, refDevice] {
+			return []gorp.Reference[string, refDevice]{
+				gorp.NewTargetReference(gorp.TargetReferenceConfig[string, refDevice]{
 					Name:     "rack",
 					Tables:   []string{"rack"},
 					OnDelete: gorp.Restrict,
 					Targets:  rack,
-					Detach:   func(d *refDevice, _ gorp.Target) { d.Rack = 0 },
-				},
-				{
+					Detach:   rackDetach,
+				}),
+				gorp.NewKeyReference(gorp.KeyReferenceConfig[string, refDevice, string]{
 					Name:     "labels",
-					Tables:   []string{"label"},
+					Table:    "label",
 					OnDelete: gorp.Detach,
-					Targets: func(d *refDevice) []gorp.Target {
-						out := make([]gorp.Target, len(d.Labels))
-						for i, l := range d.Labels {
-							out[i] = gorp.To("label", l)
-						}
-						return out
-					},
-					Detach: func(d *refDevice, t gorp.Target) {
+					Targets:  func(d *refDevice) []string { return d.Labels },
+					Detach: func(d *refDevice, t string) {
 						d.Labels = slices.DeleteFunc(d.Labels, func(l string) bool {
-							return l == t.Key
+							return l == t
 						})
 					},
-				},
+				}),
 			}
 		}
 		rackTarget = func(d *refDevice) []gorp.Target {
 			if d.Rack == 0 {
 				return nil
 			}
-			return []gorp.Target{gorp.To("rack", d.Rack)}
+			return []gorp.Target{gorp.NewTarget("rack", d.Rack)}
 		}
+		clearRack = func(d *refDevice, _ gorp.Target) { d.Rack = 0 }
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec))
@@ -1380,14 +1375,14 @@ var _ = Describe("DropDangling", func() {
 
 	It("Should drop each missing target and keep the others", func(ctx SpecContext) {
 		d := refDevice{Key: "d", Rack: 2, Labels: []string{"a", "b"}}
-		Expect(gorp.DropDangling(ctx, db, db, refs(rackTarget), &d)).
+		Expect(gorp.DropDangling(ctx, db, db, refs(rackTarget, clearRack), &d)).
 			To(BeTrue())
 		Expect(d).To(Equal(refDevice{Key: "d", Labels: []string{"a"}}))
 	})
 
 	It("Should report false when every target exists", func(ctx SpecContext) {
 		d := refDevice{Key: "d", Rack: 1, Labels: []string{"a"}}
-		Expect(gorp.DropDangling(ctx, db, db, refs(rackTarget), &d)).
+		Expect(gorp.DropDangling(ctx, db, db, refs(rackTarget, clearRack), &d)).
 			To(BeFalse())
 		Expect(d).To(Equal(refDevice{Key: "d", Rack: 1, Labels: []string{"a"}}))
 	})
@@ -1397,7 +1392,7 @@ var _ = Describe("DropDangling", func() {
 		nonCanonical := func(*refDevice) []gorp.Target {
 			return []gorp.Target{{Table: "rack", Key: "01"}}
 		}
-		Expect(gorp.DropDangling(ctx, db, db, refs(nonCanonical), &d)).
+		Expect(gorp.DropDangling(ctx, db, db, refs(nonCanonical, clearRack), &d)).
 			To(BeTrue())
 		Expect(d.Rack).To(BeZero())
 	})
@@ -1405,10 +1400,8 @@ var _ = Describe("DropDangling", func() {
 	It(
 		"Should fail when a missing target's reference cannot drop it",
 		func(ctx SpecContext) {
-			cfgs := refs(rackTarget)
-			cfgs[0].Detach = nil
 			d := refDevice{Key: "d", Rack: 2}
-			Expect(gorp.DropDangling(ctx, db, db, cfgs, &d)).Error().
+			Expect(gorp.DropDangling(ctx, db, db, refs(rackTarget, nil), &d)).Error().
 				To(MatchError("[gorp] - rack 2 does not exist, and rack cannot drop it"))
 		},
 	)
@@ -1416,9 +1409,9 @@ var _ = Describe("DropDangling", func() {
 	It("Should fail when a target's table is not open", func(ctx SpecContext) {
 		d := refDevice{Key: "d"}
 		missingTable := func(*refDevice) []gorp.Target {
-			return []gorp.Target{gorp.To("channel", uint32(1))}
+			return []gorp.Target{gorp.NewTarget("channel", uint32(1))}
 		}
-		Expect(gorp.DropDangling(ctx, db, db, refs(missingTable), &d)).
+		Expect(gorp.DropDangling(ctx, db, db, refs(missingTable, clearRack), &d)).
 			Error().To(MatchError(`[gorp] - no open table is named "channel"`))
 	})
 })

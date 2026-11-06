@@ -51,7 +51,7 @@ var _ = Describe("Channel references", func() {
 			Name:     "missing",
 			Channels: []log.ChannelEntry{{Channel: 5}, {Channel: 404}},
 		}
-		Expect(svc.NewWriter(tx).Create(ctx, &l)).To(MatchError(
+		Expect(svc.NewWriter(nil).Create(ctx, &l)).To(MatchError(
 			ContainSubstring("channels.channel: channel 404 does not exist"),
 		))
 	})

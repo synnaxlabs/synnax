@@ -480,7 +480,7 @@ func extractRetrieveInfo(
 					field.Name,
 				)
 			}
-			info, err := extractRef(typ, field, ownTable, rt, table, r, ctx)
+			info, err := extractRef(typ, field, ownTable, false, rt, table, r, ctx)
 			if err != nil {
 				return nil, err
 			}
@@ -1103,26 +1103,26 @@ func (r Retrieve) Exists(ctx context.Context, tx gorp.Tx) (bool, error) {
 {{- end}}
 {{end}}
 {{- range $root := .References}}
-// {{$root.GoName}}References returns the reference configs of {{$root.GoName}}.
-func {{$root.GoName}}References() []gorp.ReferenceConfig[{{$root.KeyType}}, {{$root.GoName}}] {
-	return []gorp.ReferenceConfig[{{$root.KeyType}}, {{$root.GoName}}]{
+// {{$root.GoName}}References returns the references of {{$root.GoName}}.
+func {{$root.GoName}}References() []gorp.Reference[{{$root.KeyType}}, {{$root.GoName}}] {
+	return []gorp.Reference[{{$root.KeyType}}, {{$root.GoName}}]{
 {{- range $ref := $root.Refs}}
-		{
+		{{$ref.Constructor $root.KeyType $root.GoName}}{
 			Name:     "{{$ref.FieldName}}",
-			Tables:   []string{ {{- $ref.QuotedTables -}} },
+			{{$ref.TablesField}}
 			OnDelete: gorp.{{$ref.OnDelete}},
 {{- if $ref.Unique}}
 			Unique:   true,
 {{- end}}
-			Targets: func(e *{{$root.GoName}}) []gorp.Target {
+			Targets: func(e *{{$root.GoName}}) []{{$ref.TargetType}} {
 				{{$ref.TargetsBody}}
 			},
 {{- if $ref.DetachBody}}
-			Detach: func(e *{{$root.GoName}}, t gorp.Target) {
+			Detach: func(e *{{$root.GoName}}, t {{$ref.TargetType}}) {
 				{{$ref.DetachBody -}}
 			},
 {{- end}}
-		},
+		}),
 {{- end}}
 	}
 }

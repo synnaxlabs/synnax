@@ -56,7 +56,7 @@ func newMigrations(db *gorp.DB) []gorp.Migration {
 		migrate.DropDangling(
 			"v61_lineplot_dangling_channels",
 			db,
-			[]gorp.ReferenceConfig[Key, LinePlot]{channelsReference()},
+			[]gorp.Reference[Key, LinePlot]{channelsReference()},
 		),
 	)
 }

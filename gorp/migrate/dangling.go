@@ -22,7 +22,7 @@ import (
 func DropDangling[K gorp.Key, E gorp.Entry[K]](
 	key string,
 	db *gorp.DB,
-	refs []gorp.ReferenceConfig[K, E],
+	refs []gorp.Reference[K, E],
 ) gorp.Migration {
 	return New(
 		key,

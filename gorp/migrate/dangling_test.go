@@ -33,23 +33,16 @@ type labeled struct {
 func (l labeled) GorpKey() int32    { return l.Key }
 func (l labeled) SetOptions() []any { return nil }
 
-var labelsReference = gorp.ReferenceConfig[int32, labeled]{
-	Name:     "labels",
-	Tables:   []string{"label"},
-	OnDelete: gorp.Detach,
-	Targets: func(l *labeled) []gorp.Target {
-		targets := make([]gorp.Target, len(l.Labels))
-		for i, k := range l.Labels {
-			targets[i] = gorp.To("label", k)
-		}
-		return targets
-	},
-	Detach: func(l *labeled, t gorp.Target) {
-		l.Labels = slices.DeleteFunc(
-			l.Labels,
-			func(k string) bool { return k == t.Key },
-		)
-	},
+func labelsReference() gorp.Reference[int32, labeled] {
+	return gorp.NewKeyReference(gorp.KeyReferenceConfig[int32, labeled, string]{
+		Name:     "labels",
+		Table:    "label",
+		OnDelete: gorp.Detach,
+		Targets:  func(l *labeled) []string { return l.Labels },
+		Detach: func(l *labeled, t string) {
+			l.Labels = slices.DeleteFunc(l.Labels, func(k string) bool { return k == t })
+		},
+	})
 }
 
 var _ = Describe("DropDangling", func() {
@@ -73,7 +66,7 @@ var _ = Describe("DropDangling", func() {
 			Migrations: []gorp.Migration{migrate.DropDangling(
 				"drop_dangling",
 				db,
-				[]gorp.ReferenceConfig[int32, labeled]{labelsReference},
+				[]gorp.Reference[int32, labeled]{labelsReference()},
 			)},
 		})).To(Succeed())
 		var entries []labeled

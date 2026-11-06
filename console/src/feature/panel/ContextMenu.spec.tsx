@@ -65,8 +65,9 @@ const tabProject = await client.projects.create({ name: uniqueName("project") })
 
 // The Core refuses a panel tab whose resource it does not hold.
 const resourceTab = async (): Promise<panel.Tab> => {
-  const sch = await client.schematics.create(tabProject.key, {
+  const sch = await client.schematics.create({
     name: uniqueName("schematic"),
+    project: tabProject.key,
   });
   return {
     variant: "resource",

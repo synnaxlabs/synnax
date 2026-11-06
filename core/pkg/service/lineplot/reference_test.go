@@ -39,7 +39,7 @@ var _ = Describe("Channel references", func() {
 			Name:     "missing",
 			Channels: lineplot.Channels{Y1: []channel.Key{5, 404}},
 		}
-		Expect(svc.NewWriter(tx).Create(ctx, &plot)).
+		Expect(svc.NewWriter(nil).Create(ctx, &plot)).
 			To(MatchError(ContainSubstring("channels: channel 404 does not exist")))
 	})
 

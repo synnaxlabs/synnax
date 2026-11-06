@@ -38,7 +38,7 @@ var _ = Describe("Tab references", func() {
 	It("Should refuse a tab whose resource does not exist", func(ctx SpecContext) {
 		key := uuid.New()
 		p := panel.Panel{Name: "missing", Root: leafNode(tab(key)), Project: &proj.Key}
-		Expect(svc.NewWriter(tx).Create(ctx, &p)).To(MatchError(ContainSubstring(
+		Expect(svc.NewWriter(nil).Create(ctx, &p)).To(MatchError(ContainSubstring(
 			"root.tabs.resource: lineplot " + key.String() + " does not exist",
 		)))
 	})

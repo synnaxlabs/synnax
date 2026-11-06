@@ -39,8 +39,9 @@ import {
 const client = createTestClient();
 
 const createPanel = async (projectKey: project.Key): Promise<panel.Panel> => {
-  const sch = await client.schematics.create(projectKey, {
+  const sch = await client.schematics.create({
     name: uniqueName("schematic"),
+    project: projectKey,
   });
   return await client.panels.create({
     key: uuid.create(),

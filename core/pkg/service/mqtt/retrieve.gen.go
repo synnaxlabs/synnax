@@ -15,52 +15,54 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	service "github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 )
 
-// ReadConfigReferences returns the reference configs of ReadConfig.
-func ReadConfigReferences() []gorp.ReferenceConfig[uuid.UUID, ReadConfig] {
-	return []gorp.ReferenceConfig[uuid.UUID, ReadConfig]{
-		{
+// ReadConfigReferences returns the references of ReadConfig.
+func ReadConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
+	return []gorp.Reference[uuid.UUID, ReadConfig]{
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, ReadConfig, service.Key]{
 			Name:     "device",
-			Tables:   []string{"device"},
+			Table:    "device",
 			OnDelete: gorp.Restrict,
-			Targets: func(e *ReadConfig) []gorp.Target {
-				var targets []gorp.Target
+			Targets: func(e *ReadConfig) []service.Key {
+				var targets []service.Key
 				if e.Device != "" {
-					targets = append(targets, gorp.To("device", e.Device))
+					targets = append(targets, e.Device)
 				}
 				return targets
 			},
-			Detach: func(e *ReadConfig, t gorp.Target) {
-				if gorp.To("device", e.Device) == t {
+			Detach: func(e *ReadConfig, t service.Key) {
+				if e.Device == t {
 					e.Device = ""
 				}
 			},
-		},
-		{
+		}),
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, ReadConfig, channel.Key]{
 			Name:     "entries.fields.channel",
-			Tables:   []string{"channel"},
+			Table:    "channel",
 			OnDelete: gorp.Restrict,
-			Targets: func(e *ReadConfig) []gorp.Target {
-				var targets []gorp.Target
+			Targets: func(e *ReadConfig) []channel.Key {
+				var targets []channel.Key
 				for _, v1 := range e.Entries {
 					switch v2 := v1.Variant.(type) {
 					case PlainReadEntry:
 						for _, v3 := range v2.Fields {
 							if v3.Channel != 0 {
-								targets = append(targets, gorp.To("channel", v3.Channel))
+								targets = append(targets, v3.Channel)
 							}
 						}
 					}
 				}
 				return targets
 			},
-			Detach: func(e *ReadConfig, t gorp.Target) {
+			Detach: func(e *ReadConfig, t channel.Key) {
 				for i4 := range e.Entries {
 					switch v5 := e.Entries[i4].Variant.(type) {
 					case PlainReadEntry:
 						for i6 := range v5.Fields {
-							if gorp.To("channel", v5.Fields[i6].Channel) == t {
+							if v5.Fields[i6].Channel == t {
 								v5.Fields[i6].Channel = 0
 							}
 						}
@@ -68,178 +70,178 @@ func ReadConfigReferences() []gorp.ReferenceConfig[uuid.UUID, ReadConfig] {
 					}
 				}
 			},
-		},
-		{
+		}),
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, ReadConfig, channel.Key]{
 			Name:     "entries.channel",
-			Tables:   []string{"channel"},
+			Table:    "channel",
 			OnDelete: gorp.Restrict,
-			Targets: func(e *ReadConfig) []gorp.Target {
-				var targets []gorp.Target
+			Targets: func(e *ReadConfig) []channel.Key {
+				var targets []channel.Key
 				for _, v1 := range e.Entries {
 					switch v2 := v1.Variant.(type) {
 					case SparkplugReadEntry:
 						if v2.Channel != 0 {
-							targets = append(targets, gorp.To("channel", v2.Channel))
+							targets = append(targets, v2.Channel)
 						}
 					}
 				}
 				return targets
 			},
-			Detach: func(e *ReadConfig, t gorp.Target) {
+			Detach: func(e *ReadConfig, t channel.Key) {
 				for i3 := range e.Entries {
 					switch v4 := e.Entries[i3].Variant.(type) {
 					case SparkplugReadEntry:
-						if gorp.To("channel", v4.Channel) == t {
+						if v4.Channel == t {
 							v4.Channel = 0
 						}
 						e.Entries[i3].Variant = v4
 					}
 				}
 			},
-		},
+		}),
 	}
 }
 
-// WriteConfigReferences returns the reference configs of WriteConfig.
-func WriteConfigReferences() []gorp.ReferenceConfig[uuid.UUID, WriteConfig] {
-	return []gorp.ReferenceConfig[uuid.UUID, WriteConfig]{
-		{
+// WriteConfigReferences returns the references of WriteConfig.
+func WriteConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
+	return []gorp.Reference[uuid.UUID, WriteConfig]{
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, WriteConfig, service.Key]{
 			Name:     "device",
-			Tables:   []string{"device"},
+			Table:    "device",
 			OnDelete: gorp.Restrict,
-			Targets: func(e *WriteConfig) []gorp.Target {
-				var targets []gorp.Target
+			Targets: func(e *WriteConfig) []service.Key {
+				var targets []service.Key
 				if e.Device != "" {
-					targets = append(targets, gorp.To("device", e.Device))
+					targets = append(targets, e.Device)
 				}
 				return targets
 			},
-			Detach: func(e *WriteConfig, t gorp.Target) {
-				if gorp.To("device", e.Device) == t {
+			Detach: func(e *WriteConfig, t service.Key) {
+				if e.Device == t {
 					e.Device = ""
 				}
 			},
-		},
-		{
+		}),
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, WriteConfig, channel.Key]{
 			Name:     "targets.channel.channel",
-			Tables:   []string{"channel"},
+			Table:    "channel",
 			OnDelete: gorp.Restrict,
-			Targets: func(e *WriteConfig) []gorp.Target {
-				var targets []gorp.Target
+			Targets: func(e *WriteConfig) []channel.Key {
+				var targets []channel.Key
 				for _, v1 := range e.Targets {
 					switch v2 := v1.Variant.(type) {
 					case PlainWriteTarget:
 						if v2.Channel.Channel != 0 {
-							targets = append(targets, gorp.To("channel", v2.Channel.Channel))
+							targets = append(targets, v2.Channel.Channel)
 						}
 					}
 				}
 				return targets
 			},
-			Detach: func(e *WriteConfig, t gorp.Target) {
+			Detach: func(e *WriteConfig, t channel.Key) {
 				for i3 := range e.Targets {
 					switch v4 := e.Targets[i3].Variant.(type) {
 					case PlainWriteTarget:
-						if gorp.To("channel", v4.Channel.Channel) == t {
+						if v4.Channel.Channel == t {
 							v4.Channel.Channel = 0
 						}
 						e.Targets[i3].Variant = v4
 					}
 				}
 			},
-		},
-		{
+		}),
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, WriteConfig, channel.Key]{
 			Name:     "targets.channel",
-			Tables:   []string{"channel"},
+			Table:    "channel",
 			OnDelete: gorp.Restrict,
-			Targets: func(e *WriteConfig) []gorp.Target {
-				var targets []gorp.Target
+			Targets: func(e *WriteConfig) []channel.Key {
+				var targets []channel.Key
 				for _, v1 := range e.Targets {
 					switch v2 := v1.Variant.(type) {
 					case SparkplugWriteTarget:
 						if v2.Channel != 0 {
-							targets = append(targets, gorp.To("channel", v2.Channel))
+							targets = append(targets, v2.Channel)
 						}
 					}
 				}
 				return targets
 			},
-			Detach: func(e *WriteConfig, t gorp.Target) {
+			Detach: func(e *WriteConfig, t channel.Key) {
 				for i3 := range e.Targets {
 					switch v4 := e.Targets[i3].Variant.(type) {
 					case SparkplugWriteTarget:
-						if gorp.To("channel", v4.Channel) == t {
+						if v4.Channel == t {
 							v4.Channel = 0
 						}
 						e.Targets[i3].Variant = v4
 					}
 				}
 			},
-		},
+		}),
 	}
 }
 
-// EdgeConfigReferences returns the reference configs of EdgeConfig.
-func EdgeConfigReferences() []gorp.ReferenceConfig[uuid.UUID, EdgeConfig] {
-	return []gorp.ReferenceConfig[uuid.UUID, EdgeConfig]{
-		{
+// EdgeConfigReferences returns the references of EdgeConfig.
+func EdgeConfigReferences() []gorp.Reference[uuid.UUID, EdgeConfig] {
+	return []gorp.Reference[uuid.UUID, EdgeConfig]{
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, EdgeConfig, service.Key]{
 			Name:     "device",
-			Tables:   []string{"device"},
+			Table:    "device",
 			OnDelete: gorp.Restrict,
-			Targets: func(e *EdgeConfig) []gorp.Target {
-				var targets []gorp.Target
+			Targets: func(e *EdgeConfig) []service.Key {
+				var targets []service.Key
 				if e.Device != "" {
-					targets = append(targets, gorp.To("device", e.Device))
+					targets = append(targets, e.Device)
 				}
 				return targets
 			},
-			Detach: func(e *EdgeConfig, t gorp.Target) {
-				if gorp.To("device", e.Device) == t {
+			Detach: func(e *EdgeConfig, t service.Key) {
+				if e.Device == t {
 					e.Device = ""
 				}
 			},
-		},
-		{
+		}),
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, EdgeConfig, channel.Key]{
 			Name:     "tags.channel",
-			Tables:   []string{"channel"},
+			Table:    "channel",
 			OnDelete: gorp.Restrict,
-			Targets: func(e *EdgeConfig) []gorp.Target {
-				var targets []gorp.Target
+			Targets: func(e *EdgeConfig) []channel.Key {
+				var targets []channel.Key
 				for _, v1 := range e.Tags {
 					if v1.Channel != 0 {
-						targets = append(targets, gorp.To("channel", v1.Channel))
+						targets = append(targets, v1.Channel)
 					}
 				}
 				return targets
 			},
-			Detach: func(e *EdgeConfig, t gorp.Target) {
+			Detach: func(e *EdgeConfig, t channel.Key) {
 				for i2 := range e.Tags {
-					if gorp.To("channel", e.Tags[i2].Channel) == t {
+					if e.Tags[i2].Channel == t {
 						e.Tags[i2].Channel = 0
 					}
 				}
 			},
-		},
-		{
+		}),
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, EdgeConfig, channel.Key]{
 			Name:     "tags.command_channel",
-			Tables:   []string{"channel"},
+			Table:    "channel",
 			OnDelete: gorp.Restrict,
-			Targets: func(e *EdgeConfig) []gorp.Target {
-				var targets []gorp.Target
+			Targets: func(e *EdgeConfig) []channel.Key {
+				var targets []channel.Key
 				for _, v1 := range e.Tags {
 					if v1.CommandChannel != 0 {
-						targets = append(targets, gorp.To("channel", v1.CommandChannel))
+						targets = append(targets, v1.CommandChannel)
 					}
 				}
 				return targets
 			},
-			Detach: func(e *EdgeConfig, t gorp.Target) {
+			Detach: func(e *EdgeConfig, t channel.Key) {
 				for i2 := range e.Tags {
-					if gorp.To("channel", e.Tags[i2].CommandChannel) == t {
+					if e.Tags[i2].CommandChannel == t {
 						e.Tags[i2].CommandChannel = 0
 					}
 				}
 			},
-		},
+		}),
 	}
 }

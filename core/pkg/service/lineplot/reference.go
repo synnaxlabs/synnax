@@ -20,27 +20,21 @@ import (
 
 const channelTable = string(resource.TypeChannel)
 
-// channelsReference returns the config of the reference from a line plot to the
-// channels on its axes. Deleting a channel removes it from every axis and drops its
-// lines. Deleting the x channel plots the lines against time and keeps their styles.
-func channelsReference() gorp.ReferenceConfig[Key, LinePlot] {
-	return gorp.ReferenceConfig[Key, LinePlot]{
+// channelsReference returns the reference from a line plot to the channels on its axes.
+// Deleting a channel removes it from every axis and drops its lines. Deleting the x
+// channel plots the lines against time and keeps their styles.
+func channelsReference() *gorp.KeyReference[Key, LinePlot, channel.Key] {
+	return gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, LinePlot, channel.Key]{
 		Name:     "channels",
-		Tables:   []string{channelTable},
+		Table:    channelTable,
 		OnDelete: gorp.Detach,
-		Targets: func(p *LinePlot) []gorp.Target {
+		Targets: func(p *LinePlot) []channel.Key {
 			c := p.Channels
 			keys := slices.Concat([]channel.Key{c.X1, c.X2}, c.Y1, c.Y2, c.Y3, c.Y4)
-			targets := make([]gorp.Target, 0, len(keys))
-			for _, k := range keys {
-				if k != 0 {
-					targets = append(targets, gorp.To(channelTable, k))
-				}
-			}
-			return targets
+			return slices.DeleteFunc(keys, func(k channel.Key) bool { return k == 0 })
 		},
-		Detach: func(p *LinePlot, t gorp.Target) {
-			held := func(k channel.Key) bool { return gorp.To(channelTable, k) == t }
+		Detach: func(p *LinePlot, t channel.Key) {
+			held := func(k channel.Key) bool { return k == t }
 			c := &p.Channels
 			if held(c.X1) {
 				c.X1 = 0
@@ -58,5 +52,5 @@ func channelsReference() gorp.ReferenceConfig[Key, LinePlot] {
 			}
 			p.Lines = v8.ReconcileLines(p.Key, p.Channels, p.Lines)
 		},
-	}
+	})
 }

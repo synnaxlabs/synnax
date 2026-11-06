@@ -189,10 +189,13 @@ func newResourceTypes(table *resolution.Table) resourceTypes {
 // refExpressions are the expressions a @ref domain may hold.
 var refExpressions = set.New("on_delete", "types", "unique", "acyclic")
 
+// extractRef returns the reference that field of typ holds. inArray is true when a
+// detach can drop the array element that holds field.
 func extractRef(
 	typ resolution.Type,
 	field resolution.Field,
 	ownTable string,
+	inArray bool,
 	rt resourceTypes,
 	table *resolution.Table,
 	r *resolver.Resolver,
@@ -231,7 +234,7 @@ func extractRef(
 			return r.ResolveTypeRef(elem, ctx)
 		})
 	}
-	if onDelete == "Detach" && !isOptional && !isSlice && zero == "" {
+	if onDelete == "Detach" && !isOptional && !isSlice && zero == "" && !inArray {
 		return fail("needs to be optional, an array, or zero by default to detach")
 	}
 	types := refTypes(field)

@@ -15,92 +15,94 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	service "github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 )
 
-// ReadConfigReferences returns the reference configs of ReadConfig.
-func ReadConfigReferences() []gorp.ReferenceConfig[uuid.UUID, ReadConfig] {
-	return []gorp.ReferenceConfig[uuid.UUID, ReadConfig]{
-		{
+// ReadConfigReferences returns the references of ReadConfig.
+func ReadConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
+	return []gorp.Reference[uuid.UUID, ReadConfig]{
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, ReadConfig, service.Key]{
 			Name:     "device",
-			Tables:   []string{"device"},
+			Table:    "device",
 			OnDelete: gorp.Restrict,
-			Targets: func(e *ReadConfig) []gorp.Target {
-				var targets []gorp.Target
+			Targets: func(e *ReadConfig) []service.Key {
+				var targets []service.Key
 				if e.Device != "" {
-					targets = append(targets, gorp.To("device", e.Device))
+					targets = append(targets, e.Device)
 				}
 				return targets
 			},
-			Detach: func(e *ReadConfig, t gorp.Target) {
-				if gorp.To("device", e.Device) == t {
+			Detach: func(e *ReadConfig, t service.Key) {
+				if e.Device == t {
 					e.Device = ""
 				}
 			},
-		},
-		{
+		}),
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, ReadConfig, channel.Key]{
 			Name:     "channels.channel",
-			Tables:   []string{"channel"},
+			Table:    "channel",
 			OnDelete: gorp.Restrict,
-			Targets: func(e *ReadConfig) []gorp.Target {
-				var targets []gorp.Target
+			Targets: func(e *ReadConfig) []channel.Key {
+				var targets []channel.Key
 				for _, v1 := range e.Channels {
 					if v1.Channel != 0 {
-						targets = append(targets, gorp.To("channel", v1.Channel))
+						targets = append(targets, v1.Channel)
 					}
 				}
 				return targets
 			},
-			Detach: func(e *ReadConfig, t gorp.Target) {
+			Detach: func(e *ReadConfig, t channel.Key) {
 				for i2 := range e.Channels {
-					if gorp.To("channel", e.Channels[i2].Channel) == t {
+					if e.Channels[i2].Channel == t {
 						e.Channels[i2].Channel = 0
 					}
 				}
 			},
-		},
+		}),
 	}
 }
 
-// WriteConfigReferences returns the reference configs of WriteConfig.
-func WriteConfigReferences() []gorp.ReferenceConfig[uuid.UUID, WriteConfig] {
-	return []gorp.ReferenceConfig[uuid.UUID, WriteConfig]{
-		{
+// WriteConfigReferences returns the references of WriteConfig.
+func WriteConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
+	return []gorp.Reference[uuid.UUID, WriteConfig]{
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, WriteConfig, service.Key]{
 			Name:     "device",
-			Tables:   []string{"device"},
+			Table:    "device",
 			OnDelete: gorp.Restrict,
-			Targets: func(e *WriteConfig) []gorp.Target {
-				var targets []gorp.Target
+			Targets: func(e *WriteConfig) []service.Key {
+				var targets []service.Key
 				if e.Device != "" {
-					targets = append(targets, gorp.To("device", e.Device))
+					targets = append(targets, e.Device)
 				}
 				return targets
 			},
-			Detach: func(e *WriteConfig, t gorp.Target) {
-				if gorp.To("device", e.Device) == t {
+			Detach: func(e *WriteConfig, t service.Key) {
+				if e.Device == t {
 					e.Device = ""
 				}
 			},
-		},
-		{
+		}),
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, WriteConfig, channel.Key]{
 			Name:     "channels.cmd_channel",
-			Tables:   []string{"channel"},
+			Table:    "channel",
 			OnDelete: gorp.Restrict,
-			Targets: func(e *WriteConfig) []gorp.Target {
-				var targets []gorp.Target
+			Targets: func(e *WriteConfig) []channel.Key {
+				var targets []channel.Key
 				for _, v1 := range e.Channels {
 					if v1.CmdChannel != 0 {
-						targets = append(targets, gorp.To("channel", v1.CmdChannel))
+						targets = append(targets, v1.CmdChannel)
 					}
 				}
 				return targets
 			},
-			Detach: func(e *WriteConfig, t gorp.Target) {
+			Detach: func(e *WriteConfig, t channel.Key) {
 				for i2 := range e.Channels {
-					if gorp.To("channel", e.Channels[i2].CmdChannel) == t {
+					if e.Channels[i2].CmdChannel == t {
 						e.Channels[i2].CmdChannel = 0
 					}
 				}
 			},
-		},
+		}),
 	}
 }

@@ -70,9 +70,10 @@ const selectorTab = (): panel.Tab => ({
 const createPlots = async (tabs: panel.Tab[]): Promise<void> => {
   for (const tab of tabs)
     if (tab.variant === "resource")
-      await client.lineplots.create(defaultProject, {
+      await client.lineplots.create({
         key: tab.resource.key,
         name: `mosaic-${tab.resource.key}`,
+        project: defaultProject,
       });
 };
 
@@ -822,9 +823,10 @@ describe("Panel.Mosaic", () => {
       await waitFor(() => expect(utils.getByText(contentText(tab))).toBeTruthy());
 
       const resource = { type: "lineplot", key: uuid.create() } as const;
-      await client.lineplots.create(defaultProject, {
+      await client.lineplots.create({
         key: resource.key,
         name: `mosaic-${resource.key}`,
+        project: defaultProject,
       });
       await writer.panels.retrieve(p.key);
       await writer.panels.dispatch(p.key, [

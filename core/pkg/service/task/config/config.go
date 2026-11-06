@@ -185,9 +185,9 @@ func OpenService[E gorp.Entry[uuid.UUID]](
 		)
 	}
 	table, err := gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, E]{
-		DB:              cfg.DB,
-		Name:            cfg.Type + "_config",
-		Migrations:      migrations,
+		DB:         cfg.DB,
+		Name:       cfg.Type + "_config",
+		Migrations: migrations,
 		References: append(
 			[]gorp.Reference[uuid.UUID, E]{newTaskReference[E]()},
 			cfg.References...,

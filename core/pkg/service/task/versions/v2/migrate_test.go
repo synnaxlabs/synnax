@@ -203,7 +203,6 @@ var _ = Describe("Migrations", func() {
 					Device: MustOpen(device.OpenService(ctx, device.ServiceConfig{
 						DB:       db,
 						Ontology: otg,
-						Group:    g,
 						Status:   stat,
 						Rack:     rackSvc,
 					})),

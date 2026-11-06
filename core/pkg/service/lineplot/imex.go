@@ -54,7 +54,7 @@ func (s *Service) Import(
 		ctx,
 		gorp.OverrideTx(s.cfg.DB, tx),
 		s.cfg.DB,
-		[]gorp.ReferenceConfig[Key, LinePlot]{channelsReference()},
+		[]gorp.Reference[Key, LinePlot]{channelsReference()},
 		&lp,
 	); err != nil {
 		return resource.ID{}, err

@@ -103,10 +103,10 @@ describe("Range.useAddToActivePlot", () => {
     const skipped = await createTestRange(client);
     const inactive = await createConsoleWrapper({ client });
     const otherPlot = await createTestPlot();
-    const sch = await client.schematics.create(
-      (await client.projects.create({ name: uniqueName("proj") })).key,
-      { name: uniqueName("schematic") },
-    );
+    const sch = await client.schematics.create({
+      name: uniqueName("schematic"),
+      project: (await client.projects.create({ name: uniqueName("proj") })).key,
+    });
     const inactiveDoc = await createFocusedPanel(
       inactive.store,
       schematic.resourceID(sch.key),

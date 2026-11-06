@@ -15,1054 +15,1056 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	service "github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 )
 
-// AnalogReadConfigReferences returns the reference configs of AnalogReadConfig.
-func AnalogReadConfigReferences() []gorp.ReferenceConfig[uuid.UUID, AnalogReadConfig] {
-	return []gorp.ReferenceConfig[uuid.UUID, AnalogReadConfig]{
-		{
+// AnalogReadConfigReferences returns the references of AnalogReadConfig.
+func AnalogReadConfigReferences() []gorp.Reference[uuid.UUID, AnalogReadConfig] {
+	return []gorp.Reference[uuid.UUID, AnalogReadConfig]{
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, AnalogReadConfig, channel.Key]{
 			Name:     "channels.channel",
-			Tables:   []string{"channel"},
+			Table:    "channel",
 			OnDelete: gorp.Restrict,
-			Targets: func(e *AnalogReadConfig) []gorp.Target {
-				var targets []gorp.Target
+			Targets: func(e *AnalogReadConfig) []channel.Key {
+				var targets []channel.Key
 				for _, v1 := range e.Channels {
 					switch v2 := v1.Variant.(type) {
 					case AIVoltageChannel:
 						if v2.Channel != 0 {
-							targets = append(targets, gorp.To("channel", v2.Channel))
+							targets = append(targets, v2.Channel)
 						}
 					case AIAccelChannel:
 						if v2.Channel != 0 {
-							targets = append(targets, gorp.To("channel", v2.Channel))
+							targets = append(targets, v2.Channel)
 						}
 					case AIBridgeChannel:
 						if v2.Channel != 0 {
-							targets = append(targets, gorp.To("channel", v2.Channel))
+							targets = append(targets, v2.Channel)
 						}
 					case AICurrentChannel:
 						if v2.Channel != 0 {
-							targets = append(targets, gorp.To("channel", v2.Channel))
+							targets = append(targets, v2.Channel)
 						}
 					case AIForceBridgeTableChannel:
 						if v2.Channel != 0 {
-							targets = append(targets, gorp.To("channel", v2.Channel))
+							targets = append(targets, v2.Channel)
 						}
 					case AIForceBridgeTwoPointLinChannel:
 						if v2.Channel != 0 {
-							targets = append(targets, gorp.To("channel", v2.Channel))
+							targets = append(targets, v2.Channel)
 						}
 					case AIForceIEPEChannel:
 						if v2.Channel != 0 {
-							targets = append(targets, gorp.To("channel", v2.Channel))
+							targets = append(targets, v2.Channel)
 						}
 					case AIMicrophoneChannel:
 						if v2.Channel != 0 {
-							targets = append(targets, gorp.To("channel", v2.Channel))
+							targets = append(targets, v2.Channel)
 						}
 					case AIPressureBridgeTableChannel:
 						if v2.Channel != 0 {
-							targets = append(targets, gorp.To("channel", v2.Channel))
+							targets = append(targets, v2.Channel)
 						}
 					case AIPressureBridgeTwoPointLinChannel:
 						if v2.Channel != 0 {
-							targets = append(targets, gorp.To("channel", v2.Channel))
+							targets = append(targets, v2.Channel)
 						}
 					case AIResistanceChannel:
 						if v2.Channel != 0 {
-							targets = append(targets, gorp.To("channel", v2.Channel))
+							targets = append(targets, v2.Channel)
 						}
 					case AIRTDChannel:
 						if v2.Channel != 0 {
-							targets = append(targets, gorp.To("channel", v2.Channel))
+							targets = append(targets, v2.Channel)
 						}
 					case AIStrainGaugeChannel:
 						if v2.Channel != 0 {
-							targets = append(targets, gorp.To("channel", v2.Channel))
+							targets = append(targets, v2.Channel)
 						}
 					case AITempBuiltinChannel:
 						if v2.Channel != 0 {
-							targets = append(targets, gorp.To("channel", v2.Channel))
+							targets = append(targets, v2.Channel)
 						}
 					case AIThermocoupleChannel:
 						if v2.Channel != 0 {
-							targets = append(targets, gorp.To("channel", v2.Channel))
+							targets = append(targets, v2.Channel)
 						}
 					case AITorqueBridgeTableChannel:
 						if v2.Channel != 0 {
-							targets = append(targets, gorp.To("channel", v2.Channel))
+							targets = append(targets, v2.Channel)
 						}
 					case AITorqueBridgeTwoPointLinChannel:
 						if v2.Channel != 0 {
-							targets = append(targets, gorp.To("channel", v2.Channel))
+							targets = append(targets, v2.Channel)
 						}
 					case AIVelocityIEPEChannel:
 						if v2.Channel != 0 {
-							targets = append(targets, gorp.To("channel", v2.Channel))
+							targets = append(targets, v2.Channel)
 						}
 					case AIAccel4WireDCVoltageChannel:
 						if v2.Channel != 0 {
-							targets = append(targets, gorp.To("channel", v2.Channel))
+							targets = append(targets, v2.Channel)
 						}
 					case AIAccelChargeChannel:
 						if v2.Channel != 0 {
-							targets = append(targets, gorp.To("channel", v2.Channel))
+							targets = append(targets, v2.Channel)
 						}
 					case AIChargeChannel:
 						if v2.Channel != 0 {
-							targets = append(targets, gorp.To("channel", v2.Channel))
+							targets = append(targets, v2.Channel)
 						}
 					case AICurrentRMSChannel:
 						if v2.Channel != 0 {
-							targets = append(targets, gorp.To("channel", v2.Channel))
+							targets = append(targets, v2.Channel)
 						}
 					case AIForceBridgePolynomialChannel:
 						if v2.Channel != 0 {
-							targets = append(targets, gorp.To("channel", v2.Channel))
+							targets = append(targets, v2.Channel)
 						}
 					case AIFreqVoltageChannel:
 						if v2.Channel != 0 {
-							targets = append(targets, gorp.To("channel", v2.Channel))
+							targets = append(targets, v2.Channel)
 						}
 					case AIPressureBridgePolynomialChannel:
 						if v2.Channel != 0 {
-							targets = append(targets, gorp.To("channel", v2.Channel))
+							targets = append(targets, v2.Channel)
 						}
 					case AIThermistorIexChannel:
 						if v2.Channel != 0 {
-							targets = append(targets, gorp.To("channel", v2.Channel))
+							targets = append(targets, v2.Channel)
 						}
 					case AIThermistorVexChannel:
 						if v2.Channel != 0 {
-							targets = append(targets, gorp.To("channel", v2.Channel))
+							targets = append(targets, v2.Channel)
 						}
 					case AITorqueBridgePolynomialChannel:
 						if v2.Channel != 0 {
-							targets = append(targets, gorp.To("channel", v2.Channel))
+							targets = append(targets, v2.Channel)
 						}
 					case AIVoltageRMSChannel:
 						if v2.Channel != 0 {
-							targets = append(targets, gorp.To("channel", v2.Channel))
+							targets = append(targets, v2.Channel)
 						}
 					case AIVoltageWithExcitChannel:
 						if v2.Channel != 0 {
-							targets = append(targets, gorp.To("channel", v2.Channel))
+							targets = append(targets, v2.Channel)
 						}
 					}
 				}
 				return targets
 			},
-			Detach: func(e *AnalogReadConfig, t gorp.Target) {
+			Detach: func(e *AnalogReadConfig, t channel.Key) {
 				for i3 := range e.Channels {
 					switch v4 := e.Channels[i3].Variant.(type) {
 					case AIVoltageChannel:
-						if gorp.To("channel", v4.Channel) == t {
+						if v4.Channel == t {
 							v4.Channel = 0
 						}
 						e.Channels[i3].Variant = v4
 					case AIAccelChannel:
-						if gorp.To("channel", v4.Channel) == t {
+						if v4.Channel == t {
 							v4.Channel = 0
 						}
 						e.Channels[i3].Variant = v4
 					case AIBridgeChannel:
-						if gorp.To("channel", v4.Channel) == t {
+						if v4.Channel == t {
 							v4.Channel = 0
 						}
 						e.Channels[i3].Variant = v4
 					case AICurrentChannel:
-						if gorp.To("channel", v4.Channel) == t {
+						if v4.Channel == t {
 							v4.Channel = 0
 						}
 						e.Channels[i3].Variant = v4
 					case AIForceBridgeTableChannel:
-						if gorp.To("channel", v4.Channel) == t {
+						if v4.Channel == t {
 							v4.Channel = 0
 						}
 						e.Channels[i3].Variant = v4
 					case AIForceBridgeTwoPointLinChannel:
-						if gorp.To("channel", v4.Channel) == t {
+						if v4.Channel == t {
 							v4.Channel = 0
 						}
 						e.Channels[i3].Variant = v4
 					case AIForceIEPEChannel:
-						if gorp.To("channel", v4.Channel) == t {
+						if v4.Channel == t {
 							v4.Channel = 0
 						}
 						e.Channels[i3].Variant = v4
 					case AIMicrophoneChannel:
-						if gorp.To("channel", v4.Channel) == t {
+						if v4.Channel == t {
 							v4.Channel = 0
 						}
 						e.Channels[i3].Variant = v4
 					case AIPressureBridgeTableChannel:
-						if gorp.To("channel", v4.Channel) == t {
+						if v4.Channel == t {
 							v4.Channel = 0
 						}
 						e.Channels[i3].Variant = v4
 					case AIPressureBridgeTwoPointLinChannel:
-						if gorp.To("channel", v4.Channel) == t {
+						if v4.Channel == t {
 							v4.Channel = 0
 						}
 						e.Channels[i3].Variant = v4
 					case AIResistanceChannel:
-						if gorp.To("channel", v4.Channel) == t {
+						if v4.Channel == t {
 							v4.Channel = 0
 						}
 						e.Channels[i3].Variant = v4
 					case AIRTDChannel:
-						if gorp.To("channel", v4.Channel) == t {
+						if v4.Channel == t {
 							v4.Channel = 0
 						}
 						e.Channels[i3].Variant = v4
 					case AIStrainGaugeChannel:
-						if gorp.To("channel", v4.Channel) == t {
+						if v4.Channel == t {
 							v4.Channel = 0
 						}
 						e.Channels[i3].Variant = v4
 					case AITempBuiltinChannel:
-						if gorp.To("channel", v4.Channel) == t {
+						if v4.Channel == t {
 							v4.Channel = 0
 						}
 						e.Channels[i3].Variant = v4
 					case AIThermocoupleChannel:
-						if gorp.To("channel", v4.Channel) == t {
+						if v4.Channel == t {
 							v4.Channel = 0
 						}
 						e.Channels[i3].Variant = v4
 					case AITorqueBridgeTableChannel:
-						if gorp.To("channel", v4.Channel) == t {
+						if v4.Channel == t {
 							v4.Channel = 0
 						}
 						e.Channels[i3].Variant = v4
 					case AITorqueBridgeTwoPointLinChannel:
-						if gorp.To("channel", v4.Channel) == t {
+						if v4.Channel == t {
 							v4.Channel = 0
 						}
 						e.Channels[i3].Variant = v4
 					case AIVelocityIEPEChannel:
-						if gorp.To("channel", v4.Channel) == t {
+						if v4.Channel == t {
 							v4.Channel = 0
 						}
 						e.Channels[i3].Variant = v4
 					case AIAccel4WireDCVoltageChannel:
-						if gorp.To("channel", v4.Channel) == t {
+						if v4.Channel == t {
 							v4.Channel = 0
 						}
 						e.Channels[i3].Variant = v4
 					case AIAccelChargeChannel:
-						if gorp.To("channel", v4.Channel) == t {
+						if v4.Channel == t {
 							v4.Channel = 0
 						}
 						e.Channels[i3].Variant = v4
 					case AIChargeChannel:
-						if gorp.To("channel", v4.Channel) == t {
+						if v4.Channel == t {
 							v4.Channel = 0
 						}
 						e.Channels[i3].Variant = v4
 					case AICurrentRMSChannel:
-						if gorp.To("channel", v4.Channel) == t {
+						if v4.Channel == t {
 							v4.Channel = 0
 						}
 						e.Channels[i3].Variant = v4
 					case AIForceBridgePolynomialChannel:
-						if gorp.To("channel", v4.Channel) == t {
+						if v4.Channel == t {
 							v4.Channel = 0
 						}
 						e.Channels[i3].Variant = v4
 					case AIFreqVoltageChannel:
-						if gorp.To("channel", v4.Channel) == t {
+						if v4.Channel == t {
 							v4.Channel = 0
 						}
 						e.Channels[i3].Variant = v4
 					case AIPressureBridgePolynomialChannel:
-						if gorp.To("channel", v4.Channel) == t {
+						if v4.Channel == t {
 							v4.Channel = 0
 						}
 						e.Channels[i3].Variant = v4
 					case AIThermistorIexChannel:
-						if gorp.To("channel", v4.Channel) == t {
+						if v4.Channel == t {
 							v4.Channel = 0
 						}
 						e.Channels[i3].Variant = v4
 					case AIThermistorVexChannel:
-						if gorp.To("channel", v4.Channel) == t {
+						if v4.Channel == t {
 							v4.Channel = 0
 						}
 						e.Channels[i3].Variant = v4
 					case AITorqueBridgePolynomialChannel:
-						if gorp.To("channel", v4.Channel) == t {
+						if v4.Channel == t {
 							v4.Channel = 0
 						}
 						e.Channels[i3].Variant = v4
 					case AIVoltageRMSChannel:
-						if gorp.To("channel", v4.Channel) == t {
+						if v4.Channel == t {
 							v4.Channel = 0
 						}
 						e.Channels[i3].Variant = v4
 					case AIVoltageWithExcitChannel:
-						if gorp.To("channel", v4.Channel) == t {
+						if v4.Channel == t {
 							v4.Channel = 0
 						}
 						e.Channels[i3].Variant = v4
 					}
 				}
 			},
-		},
-		{
+		}),
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, AnalogReadConfig, service.Key]{
 			Name:     "channels.device",
-			Tables:   []string{"device"},
+			Table:    "device",
 			OnDelete: gorp.Restrict,
-			Targets: func(e *AnalogReadConfig) []gorp.Target {
-				var targets []gorp.Target
+			Targets: func(e *AnalogReadConfig) []service.Key {
+				var targets []service.Key
 				for _, v1 := range e.Channels {
 					switch v2 := v1.Variant.(type) {
 					case AIVoltageChannel:
 						if v2.Device != "" {
-							targets = append(targets, gorp.To("device", v2.Device))
+							targets = append(targets, v2.Device)
 						}
 					case AIAccelChannel:
 						if v2.Device != "" {
-							targets = append(targets, gorp.To("device", v2.Device))
+							targets = append(targets, v2.Device)
 						}
 					case AIBridgeChannel:
 						if v2.Device != "" {
-							targets = append(targets, gorp.To("device", v2.Device))
+							targets = append(targets, v2.Device)
 						}
 					case AICurrentChannel:
 						if v2.Device != "" {
-							targets = append(targets, gorp.To("device", v2.Device))
+							targets = append(targets, v2.Device)
 						}
 					case AIForceBridgeTableChannel:
 						if v2.Device != "" {
-							targets = append(targets, gorp.To("device", v2.Device))
+							targets = append(targets, v2.Device)
 						}
 					case AIForceBridgeTwoPointLinChannel:
 						if v2.Device != "" {
-							targets = append(targets, gorp.To("device", v2.Device))
+							targets = append(targets, v2.Device)
 						}
 					case AIForceIEPEChannel:
 						if v2.Device != "" {
-							targets = append(targets, gorp.To("device", v2.Device))
+							targets = append(targets, v2.Device)
 						}
 					case AIMicrophoneChannel:
 						if v2.Device != "" {
-							targets = append(targets, gorp.To("device", v2.Device))
+							targets = append(targets, v2.Device)
 						}
 					case AIPressureBridgeTableChannel:
 						if v2.Device != "" {
-							targets = append(targets, gorp.To("device", v2.Device))
+							targets = append(targets, v2.Device)
 						}
 					case AIPressureBridgeTwoPointLinChannel:
 						if v2.Device != "" {
-							targets = append(targets, gorp.To("device", v2.Device))
+							targets = append(targets, v2.Device)
 						}
 					case AIResistanceChannel:
 						if v2.Device != "" {
-							targets = append(targets, gorp.To("device", v2.Device))
+							targets = append(targets, v2.Device)
 						}
 					case AIRTDChannel:
 						if v2.Device != "" {
-							targets = append(targets, gorp.To("device", v2.Device))
+							targets = append(targets, v2.Device)
 						}
 					case AIStrainGaugeChannel:
 						if v2.Device != "" {
-							targets = append(targets, gorp.To("device", v2.Device))
+							targets = append(targets, v2.Device)
 						}
 					case AITempBuiltinChannel:
 						if v2.Device != "" {
-							targets = append(targets, gorp.To("device", v2.Device))
+							targets = append(targets, v2.Device)
 						}
 					case AIThermocoupleChannel:
 						if v2.Device != "" {
-							targets = append(targets, gorp.To("device", v2.Device))
+							targets = append(targets, v2.Device)
 						}
 					case AITorqueBridgeTableChannel:
 						if v2.Device != "" {
-							targets = append(targets, gorp.To("device", v2.Device))
+							targets = append(targets, v2.Device)
 						}
 					case AITorqueBridgeTwoPointLinChannel:
 						if v2.Device != "" {
-							targets = append(targets, gorp.To("device", v2.Device))
+							targets = append(targets, v2.Device)
 						}
 					case AIVelocityIEPEChannel:
 						if v2.Device != "" {
-							targets = append(targets, gorp.To("device", v2.Device))
+							targets = append(targets, v2.Device)
 						}
 					case AIAccel4WireDCVoltageChannel:
 						if v2.Device != "" {
-							targets = append(targets, gorp.To("device", v2.Device))
+							targets = append(targets, v2.Device)
 						}
 					case AIAccelChargeChannel:
 						if v2.Device != "" {
-							targets = append(targets, gorp.To("device", v2.Device))
+							targets = append(targets, v2.Device)
 						}
 					case AIChargeChannel:
 						if v2.Device != "" {
-							targets = append(targets, gorp.To("device", v2.Device))
+							targets = append(targets, v2.Device)
 						}
 					case AICurrentRMSChannel:
 						if v2.Device != "" {
-							targets = append(targets, gorp.To("device", v2.Device))
+							targets = append(targets, v2.Device)
 						}
 					case AIForceBridgePolynomialChannel:
 						if v2.Device != "" {
-							targets = append(targets, gorp.To("device", v2.Device))
+							targets = append(targets, v2.Device)
 						}
 					case AIFreqVoltageChannel:
 						if v2.Device != "" {
-							targets = append(targets, gorp.To("device", v2.Device))
+							targets = append(targets, v2.Device)
 						}
 					case AIPressureBridgePolynomialChannel:
 						if v2.Device != "" {
-							targets = append(targets, gorp.To("device", v2.Device))
+							targets = append(targets, v2.Device)
 						}
 					case AIThermistorIexChannel:
 						if v2.Device != "" {
-							targets = append(targets, gorp.To("device", v2.Device))
+							targets = append(targets, v2.Device)
 						}
 					case AIThermistorVexChannel:
 						if v2.Device != "" {
-							targets = append(targets, gorp.To("device", v2.Device))
+							targets = append(targets, v2.Device)
 						}
 					case AITorqueBridgePolynomialChannel:
 						if v2.Device != "" {
-							targets = append(targets, gorp.To("device", v2.Device))
+							targets = append(targets, v2.Device)
 						}
 					case AIVoltageRMSChannel:
 						if v2.Device != "" {
-							targets = append(targets, gorp.To("device", v2.Device))
+							targets = append(targets, v2.Device)
 						}
 					case AIVoltageWithExcitChannel:
 						if v2.Device != "" {
-							targets = append(targets, gorp.To("device", v2.Device))
+							targets = append(targets, v2.Device)
 						}
 					}
 				}
 				return targets
 			},
-			Detach: func(e *AnalogReadConfig, t gorp.Target) {
+			Detach: func(e *AnalogReadConfig, t service.Key) {
 				for i3 := range e.Channels {
 					switch v4 := e.Channels[i3].Variant.(type) {
 					case AIVoltageChannel:
-						if gorp.To("device", v4.Device) == t {
+						if v4.Device == t {
 							v4.Device = ""
 						}
 						e.Channels[i3].Variant = v4
 					case AIAccelChannel:
-						if gorp.To("device", v4.Device) == t {
+						if v4.Device == t {
 							v4.Device = ""
 						}
 						e.Channels[i3].Variant = v4
 					case AIBridgeChannel:
-						if gorp.To("device", v4.Device) == t {
+						if v4.Device == t {
 							v4.Device = ""
 						}
 						e.Channels[i3].Variant = v4
 					case AICurrentChannel:
-						if gorp.To("device", v4.Device) == t {
+						if v4.Device == t {
 							v4.Device = ""
 						}
 						e.Channels[i3].Variant = v4
 					case AIForceBridgeTableChannel:
-						if gorp.To("device", v4.Device) == t {
+						if v4.Device == t {
 							v4.Device = ""
 						}
 						e.Channels[i3].Variant = v4
 					case AIForceBridgeTwoPointLinChannel:
-						if gorp.To("device", v4.Device) == t {
+						if v4.Device == t {
 							v4.Device = ""
 						}
 						e.Channels[i3].Variant = v4
 					case AIForceIEPEChannel:
-						if gorp.To("device", v4.Device) == t {
+						if v4.Device == t {
 							v4.Device = ""
 						}
 						e.Channels[i3].Variant = v4
 					case AIMicrophoneChannel:
-						if gorp.To("device", v4.Device) == t {
+						if v4.Device == t {
 							v4.Device = ""
 						}
 						e.Channels[i3].Variant = v4
 					case AIPressureBridgeTableChannel:
-						if gorp.To("device", v4.Device) == t {
+						if v4.Device == t {
 							v4.Device = ""
 						}
 						e.Channels[i3].Variant = v4
 					case AIPressureBridgeTwoPointLinChannel:
-						if gorp.To("device", v4.Device) == t {
+						if v4.Device == t {
 							v4.Device = ""
 						}
 						e.Channels[i3].Variant = v4
 					case AIResistanceChannel:
-						if gorp.To("device", v4.Device) == t {
+						if v4.Device == t {
 							v4.Device = ""
 						}
 						e.Channels[i3].Variant = v4
 					case AIRTDChannel:
-						if gorp.To("device", v4.Device) == t {
+						if v4.Device == t {
 							v4.Device = ""
 						}
 						e.Channels[i3].Variant = v4
 					case AIStrainGaugeChannel:
-						if gorp.To("device", v4.Device) == t {
+						if v4.Device == t {
 							v4.Device = ""
 						}
 						e.Channels[i3].Variant = v4
 					case AITempBuiltinChannel:
-						if gorp.To("device", v4.Device) == t {
+						if v4.Device == t {
 							v4.Device = ""
 						}
 						e.Channels[i3].Variant = v4
 					case AIThermocoupleChannel:
-						if gorp.To("device", v4.Device) == t {
+						if v4.Device == t {
 							v4.Device = ""
 						}
 						e.Channels[i3].Variant = v4
 					case AITorqueBridgeTableChannel:
-						if gorp.To("device", v4.Device) == t {
+						if v4.Device == t {
 							v4.Device = ""
 						}
 						e.Channels[i3].Variant = v4
 					case AITorqueBridgeTwoPointLinChannel:
-						if gorp.To("device", v4.Device) == t {
+						if v4.Device == t {
 							v4.Device = ""
 						}
 						e.Channels[i3].Variant = v4
 					case AIVelocityIEPEChannel:
-						if gorp.To("device", v4.Device) == t {
+						if v4.Device == t {
 							v4.Device = ""
 						}
 						e.Channels[i3].Variant = v4
 					case AIAccel4WireDCVoltageChannel:
-						if gorp.To("device", v4.Device) == t {
+						if v4.Device == t {
 							v4.Device = ""
 						}
 						e.Channels[i3].Variant = v4
 					case AIAccelChargeChannel:
-						if gorp.To("device", v4.Device) == t {
+						if v4.Device == t {
 							v4.Device = ""
 						}
 						e.Channels[i3].Variant = v4
 					case AIChargeChannel:
-						if gorp.To("device", v4.Device) == t {
+						if v4.Device == t {
 							v4.Device = ""
 						}
 						e.Channels[i3].Variant = v4
 					case AICurrentRMSChannel:
-						if gorp.To("device", v4.Device) == t {
+						if v4.Device == t {
 							v4.Device = ""
 						}
 						e.Channels[i3].Variant = v4
 					case AIForceBridgePolynomialChannel:
-						if gorp.To("device", v4.Device) == t {
+						if v4.Device == t {
 							v4.Device = ""
 						}
 						e.Channels[i3].Variant = v4
 					case AIFreqVoltageChannel:
-						if gorp.To("device", v4.Device) == t {
+						if v4.Device == t {
 							v4.Device = ""
 						}
 						e.Channels[i3].Variant = v4
 					case AIPressureBridgePolynomialChannel:
-						if gorp.To("device", v4.Device) == t {
+						if v4.Device == t {
 							v4.Device = ""
 						}
 						e.Channels[i3].Variant = v4
 					case AIThermistorIexChannel:
-						if gorp.To("device", v4.Device) == t {
+						if v4.Device == t {
 							v4.Device = ""
 						}
 						e.Channels[i3].Variant = v4
 					case AIThermistorVexChannel:
-						if gorp.To("device", v4.Device) == t {
+						if v4.Device == t {
 							v4.Device = ""
 						}
 						e.Channels[i3].Variant = v4
 					case AITorqueBridgePolynomialChannel:
-						if gorp.To("device", v4.Device) == t {
+						if v4.Device == t {
 							v4.Device = ""
 						}
 						e.Channels[i3].Variant = v4
 					case AIVoltageRMSChannel:
-						if gorp.To("device", v4.Device) == t {
+						if v4.Device == t {
 							v4.Device = ""
 						}
 						e.Channels[i3].Variant = v4
 					case AIVoltageWithExcitChannel:
-						if gorp.To("device", v4.Device) == t {
+						if v4.Device == t {
 							v4.Device = ""
 						}
 						e.Channels[i3].Variant = v4
 					}
 				}
 			},
-		},
+		}),
 	}
 }
 
-// CounterReadConfigReferences returns the reference configs of CounterReadConfig.
-func CounterReadConfigReferences() []gorp.ReferenceConfig[uuid.UUID, CounterReadConfig] {
-	return []gorp.ReferenceConfig[uuid.UUID, CounterReadConfig]{
-		{
+// CounterReadConfigReferences returns the references of CounterReadConfig.
+func CounterReadConfigReferences() []gorp.Reference[uuid.UUID, CounterReadConfig] {
+	return []gorp.Reference[uuid.UUID, CounterReadConfig]{
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, CounterReadConfig, channel.Key]{
 			Name:     "channels.channel",
-			Tables:   []string{"channel"},
+			Table:    "channel",
 			OnDelete: gorp.Restrict,
-			Targets: func(e *CounterReadConfig) []gorp.Target {
-				var targets []gorp.Target
+			Targets: func(e *CounterReadConfig) []channel.Key {
+				var targets []channel.Key
 				for _, v1 := range e.Channels {
 					switch v2 := v1.Variant.(type) {
 					case CIFrequencyChannel:
 						if v2.Channel != 0 {
-							targets = append(targets, gorp.To("channel", v2.Channel))
+							targets = append(targets, v2.Channel)
 						}
 					case CIEdgeCountChannel:
 						if v2.Channel != 0 {
-							targets = append(targets, gorp.To("channel", v2.Channel))
+							targets = append(targets, v2.Channel)
 						}
 					case CIPeriodChannel:
 						if v2.Channel != 0 {
-							targets = append(targets, gorp.To("channel", v2.Channel))
+							targets = append(targets, v2.Channel)
 						}
 					case CIPulseWidthChannel:
 						if v2.Channel != 0 {
-							targets = append(targets, gorp.To("channel", v2.Channel))
+							targets = append(targets, v2.Channel)
 						}
 					case CISemiPeriodChannel:
 						if v2.Channel != 0 {
-							targets = append(targets, gorp.To("channel", v2.Channel))
+							targets = append(targets, v2.Channel)
 						}
 					case CITwoEdgeSepChannel:
 						if v2.Channel != 0 {
-							targets = append(targets, gorp.To("channel", v2.Channel))
+							targets = append(targets, v2.Channel)
 						}
 					case CIVelocityLinearChannel:
 						if v2.Channel != 0 {
-							targets = append(targets, gorp.To("channel", v2.Channel))
+							targets = append(targets, v2.Channel)
 						}
 					case CIVelocityAngularChannel:
 						if v2.Channel != 0 {
-							targets = append(targets, gorp.To("channel", v2.Channel))
+							targets = append(targets, v2.Channel)
 						}
 					case CIPositionLinearChannel:
 						if v2.Channel != 0 {
-							targets = append(targets, gorp.To("channel", v2.Channel))
+							targets = append(targets, v2.Channel)
 						}
 					case CIPositionAngularChannel:
 						if v2.Channel != 0 {
-							targets = append(targets, gorp.To("channel", v2.Channel))
+							targets = append(targets, v2.Channel)
 						}
 					case CIDutyCycleChannel:
 						if v2.Channel != 0 {
-							targets = append(targets, gorp.To("channel", v2.Channel))
+							targets = append(targets, v2.Channel)
 						}
 					}
 				}
 				return targets
 			},
-			Detach: func(e *CounterReadConfig, t gorp.Target) {
+			Detach: func(e *CounterReadConfig, t channel.Key) {
 				for i3 := range e.Channels {
 					switch v4 := e.Channels[i3].Variant.(type) {
 					case CIFrequencyChannel:
-						if gorp.To("channel", v4.Channel) == t {
+						if v4.Channel == t {
 							v4.Channel = 0
 						}
 						e.Channels[i3].Variant = v4
 					case CIEdgeCountChannel:
-						if gorp.To("channel", v4.Channel) == t {
+						if v4.Channel == t {
 							v4.Channel = 0
 						}
 						e.Channels[i3].Variant = v4
 					case CIPeriodChannel:
-						if gorp.To("channel", v4.Channel) == t {
+						if v4.Channel == t {
 							v4.Channel = 0
 						}
 						e.Channels[i3].Variant = v4
 					case CIPulseWidthChannel:
-						if gorp.To("channel", v4.Channel) == t {
+						if v4.Channel == t {
 							v4.Channel = 0
 						}
 						e.Channels[i3].Variant = v4
 					case CISemiPeriodChannel:
-						if gorp.To("channel", v4.Channel) == t {
+						if v4.Channel == t {
 							v4.Channel = 0
 						}
 						e.Channels[i3].Variant = v4
 					case CITwoEdgeSepChannel:
-						if gorp.To("channel", v4.Channel) == t {
+						if v4.Channel == t {
 							v4.Channel = 0
 						}
 						e.Channels[i3].Variant = v4
 					case CIVelocityLinearChannel:
-						if gorp.To("channel", v4.Channel) == t {
+						if v4.Channel == t {
 							v4.Channel = 0
 						}
 						e.Channels[i3].Variant = v4
 					case CIVelocityAngularChannel:
-						if gorp.To("channel", v4.Channel) == t {
+						if v4.Channel == t {
 							v4.Channel = 0
 						}
 						e.Channels[i3].Variant = v4
 					case CIPositionLinearChannel:
-						if gorp.To("channel", v4.Channel) == t {
+						if v4.Channel == t {
 							v4.Channel = 0
 						}
 						e.Channels[i3].Variant = v4
 					case CIPositionAngularChannel:
-						if gorp.To("channel", v4.Channel) == t {
+						if v4.Channel == t {
 							v4.Channel = 0
 						}
 						e.Channels[i3].Variant = v4
 					case CIDutyCycleChannel:
-						if gorp.To("channel", v4.Channel) == t {
+						if v4.Channel == t {
 							v4.Channel = 0
 						}
 						e.Channels[i3].Variant = v4
 					}
 				}
 			},
-		},
-		{
+		}),
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, CounterReadConfig, service.Key]{
 			Name:     "channels.device",
-			Tables:   []string{"device"},
+			Table:    "device",
 			OnDelete: gorp.Restrict,
-			Targets: func(e *CounterReadConfig) []gorp.Target {
-				var targets []gorp.Target
+			Targets: func(e *CounterReadConfig) []service.Key {
+				var targets []service.Key
 				for _, v1 := range e.Channels {
 					switch v2 := v1.Variant.(type) {
 					case CIFrequencyChannel:
 						if v2.Device != "" {
-							targets = append(targets, gorp.To("device", v2.Device))
+							targets = append(targets, v2.Device)
 						}
 					case CIEdgeCountChannel:
 						if v2.Device != "" {
-							targets = append(targets, gorp.To("device", v2.Device))
+							targets = append(targets, v2.Device)
 						}
 					case CIPeriodChannel:
 						if v2.Device != "" {
-							targets = append(targets, gorp.To("device", v2.Device))
+							targets = append(targets, v2.Device)
 						}
 					case CIPulseWidthChannel:
 						if v2.Device != "" {
-							targets = append(targets, gorp.To("device", v2.Device))
+							targets = append(targets, v2.Device)
 						}
 					case CISemiPeriodChannel:
 						if v2.Device != "" {
-							targets = append(targets, gorp.To("device", v2.Device))
+							targets = append(targets, v2.Device)
 						}
 					case CITwoEdgeSepChannel:
 						if v2.Device != "" {
-							targets = append(targets, gorp.To("device", v2.Device))
+							targets = append(targets, v2.Device)
 						}
 					case CIVelocityLinearChannel:
 						if v2.Device != "" {
-							targets = append(targets, gorp.To("device", v2.Device))
+							targets = append(targets, v2.Device)
 						}
 					case CIVelocityAngularChannel:
 						if v2.Device != "" {
-							targets = append(targets, gorp.To("device", v2.Device))
+							targets = append(targets, v2.Device)
 						}
 					case CIPositionLinearChannel:
 						if v2.Device != "" {
-							targets = append(targets, gorp.To("device", v2.Device))
+							targets = append(targets, v2.Device)
 						}
 					case CIPositionAngularChannel:
 						if v2.Device != "" {
-							targets = append(targets, gorp.To("device", v2.Device))
+							targets = append(targets, v2.Device)
 						}
 					case CIDutyCycleChannel:
 						if v2.Device != "" {
-							targets = append(targets, gorp.To("device", v2.Device))
+							targets = append(targets, v2.Device)
 						}
 					}
 				}
 				return targets
 			},
-			Detach: func(e *CounterReadConfig, t gorp.Target) {
+			Detach: func(e *CounterReadConfig, t service.Key) {
 				for i3 := range e.Channels {
 					switch v4 := e.Channels[i3].Variant.(type) {
 					case CIFrequencyChannel:
-						if gorp.To("device", v4.Device) == t {
+						if v4.Device == t {
 							v4.Device = ""
 						}
 						e.Channels[i3].Variant = v4
 					case CIEdgeCountChannel:
-						if gorp.To("device", v4.Device) == t {
+						if v4.Device == t {
 							v4.Device = ""
 						}
 						e.Channels[i3].Variant = v4
 					case CIPeriodChannel:
-						if gorp.To("device", v4.Device) == t {
+						if v4.Device == t {
 							v4.Device = ""
 						}
 						e.Channels[i3].Variant = v4
 					case CIPulseWidthChannel:
-						if gorp.To("device", v4.Device) == t {
+						if v4.Device == t {
 							v4.Device = ""
 						}
 						e.Channels[i3].Variant = v4
 					case CISemiPeriodChannel:
-						if gorp.To("device", v4.Device) == t {
+						if v4.Device == t {
 							v4.Device = ""
 						}
 						e.Channels[i3].Variant = v4
 					case CITwoEdgeSepChannel:
-						if gorp.To("device", v4.Device) == t {
+						if v4.Device == t {
 							v4.Device = ""
 						}
 						e.Channels[i3].Variant = v4
 					case CIVelocityLinearChannel:
-						if gorp.To("device", v4.Device) == t {
+						if v4.Device == t {
 							v4.Device = ""
 						}
 						e.Channels[i3].Variant = v4
 					case CIVelocityAngularChannel:
-						if gorp.To("device", v4.Device) == t {
+						if v4.Device == t {
 							v4.Device = ""
 						}
 						e.Channels[i3].Variant = v4
 					case CIPositionLinearChannel:
-						if gorp.To("device", v4.Device) == t {
+						if v4.Device == t {
 							v4.Device = ""
 						}
 						e.Channels[i3].Variant = v4
 					case CIPositionAngularChannel:
-						if gorp.To("device", v4.Device) == t {
+						if v4.Device == t {
 							v4.Device = ""
 						}
 						e.Channels[i3].Variant = v4
 					case CIDutyCycleChannel:
-						if gorp.To("device", v4.Device) == t {
+						if v4.Device == t {
 							v4.Device = ""
 						}
 						e.Channels[i3].Variant = v4
 					}
 				}
 			},
-		},
+		}),
 	}
 }
 
-// AnalogWriteConfigReferences returns the reference configs of AnalogWriteConfig.
-func AnalogWriteConfigReferences() []gorp.ReferenceConfig[uuid.UUID, AnalogWriteConfig] {
-	return []gorp.ReferenceConfig[uuid.UUID, AnalogWriteConfig]{
-		{
+// AnalogWriteConfigReferences returns the references of AnalogWriteConfig.
+func AnalogWriteConfigReferences() []gorp.Reference[uuid.UUID, AnalogWriteConfig] {
+	return []gorp.Reference[uuid.UUID, AnalogWriteConfig]{
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, AnalogWriteConfig, service.Key]{
 			Name:     "device",
-			Tables:   []string{"device"},
+			Table:    "device",
 			OnDelete: gorp.Restrict,
-			Targets: func(e *AnalogWriteConfig) []gorp.Target {
-				var targets []gorp.Target
+			Targets: func(e *AnalogWriteConfig) []service.Key {
+				var targets []service.Key
 				if e.Device != "" {
-					targets = append(targets, gorp.To("device", e.Device))
+					targets = append(targets, e.Device)
 				}
 				return targets
 			},
-			Detach: func(e *AnalogWriteConfig, t gorp.Target) {
-				if gorp.To("device", e.Device) == t {
+			Detach: func(e *AnalogWriteConfig, t service.Key) {
+				if e.Device == t {
 					e.Device = ""
 				}
 			},
-		},
-		{
+		}),
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, AnalogWriteConfig, channel.Key]{
 			Name:     "channels.cmd_channel",
-			Tables:   []string{"channel"},
+			Table:    "channel",
 			OnDelete: gorp.Restrict,
-			Targets: func(e *AnalogWriteConfig) []gorp.Target {
-				var targets []gorp.Target
+			Targets: func(e *AnalogWriteConfig) []channel.Key {
+				var targets []channel.Key
 				for _, v1 := range e.Channels {
 					switch v2 := v1.Variant.(type) {
 					case AOCurrentChannel:
 						if v2.CmdChannel != 0 {
-							targets = append(targets, gorp.To("channel", v2.CmdChannel))
+							targets = append(targets, v2.CmdChannel)
 						}
 					case AOFuncGenChannel:
 						if v2.CmdChannel != 0 {
-							targets = append(targets, gorp.To("channel", v2.CmdChannel))
+							targets = append(targets, v2.CmdChannel)
 						}
 					case AOVoltageChannel:
 						if v2.CmdChannel != 0 {
-							targets = append(targets, gorp.To("channel", v2.CmdChannel))
+							targets = append(targets, v2.CmdChannel)
 						}
 					}
 				}
 				return targets
 			},
-			Detach: func(e *AnalogWriteConfig, t gorp.Target) {
+			Detach: func(e *AnalogWriteConfig, t channel.Key) {
 				for i3 := range e.Channels {
 					switch v4 := e.Channels[i3].Variant.(type) {
 					case AOCurrentChannel:
-						if gorp.To("channel", v4.CmdChannel) == t {
+						if v4.CmdChannel == t {
 							v4.CmdChannel = 0
 						}
 						e.Channels[i3].Variant = v4
 					case AOFuncGenChannel:
-						if gorp.To("channel", v4.CmdChannel) == t {
+						if v4.CmdChannel == t {
 							v4.CmdChannel = 0
 						}
 						e.Channels[i3].Variant = v4
 					case AOVoltageChannel:
-						if gorp.To("channel", v4.CmdChannel) == t {
+						if v4.CmdChannel == t {
 							v4.CmdChannel = 0
 						}
 						e.Channels[i3].Variant = v4
 					}
 				}
 			},
-		},
-		{
+		}),
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, AnalogWriteConfig, channel.Key]{
 			Name:     "channels.state_channel",
-			Tables:   []string{"channel"},
+			Table:    "channel",
 			OnDelete: gorp.Restrict,
-			Targets: func(e *AnalogWriteConfig) []gorp.Target {
-				var targets []gorp.Target
+			Targets: func(e *AnalogWriteConfig) []channel.Key {
+				var targets []channel.Key
 				for _, v1 := range e.Channels {
 					switch v2 := v1.Variant.(type) {
 					case AOCurrentChannel:
 						if v2.StateChannel != 0 {
-							targets = append(targets, gorp.To("channel", v2.StateChannel))
+							targets = append(targets, v2.StateChannel)
 						}
 					case AOFuncGenChannel:
 						if v2.StateChannel != 0 {
-							targets = append(targets, gorp.To("channel", v2.StateChannel))
+							targets = append(targets, v2.StateChannel)
 						}
 					case AOVoltageChannel:
 						if v2.StateChannel != 0 {
-							targets = append(targets, gorp.To("channel", v2.StateChannel))
+							targets = append(targets, v2.StateChannel)
 						}
 					}
 				}
 				return targets
 			},
-			Detach: func(e *AnalogWriteConfig, t gorp.Target) {
+			Detach: func(e *AnalogWriteConfig, t channel.Key) {
 				for i3 := range e.Channels {
 					switch v4 := e.Channels[i3].Variant.(type) {
 					case AOCurrentChannel:
-						if gorp.To("channel", v4.StateChannel) == t {
+						if v4.StateChannel == t {
 							v4.StateChannel = 0
 						}
 						e.Channels[i3].Variant = v4
 					case AOFuncGenChannel:
-						if gorp.To("channel", v4.StateChannel) == t {
+						if v4.StateChannel == t {
 							v4.StateChannel = 0
 						}
 						e.Channels[i3].Variant = v4
 					case AOVoltageChannel:
-						if gorp.To("channel", v4.StateChannel) == t {
+						if v4.StateChannel == t {
 							v4.StateChannel = 0
 						}
 						e.Channels[i3].Variant = v4
 					}
 				}
 			},
-		},
+		}),
 	}
 }
 
-// DigitalReadConfigReferences returns the reference configs of DigitalReadConfig.
-func DigitalReadConfigReferences() []gorp.ReferenceConfig[uuid.UUID, DigitalReadConfig] {
-	return []gorp.ReferenceConfig[uuid.UUID, DigitalReadConfig]{
-		{
+// DigitalReadConfigReferences returns the references of DigitalReadConfig.
+func DigitalReadConfigReferences() []gorp.Reference[uuid.UUID, DigitalReadConfig] {
+	return []gorp.Reference[uuid.UUID, DigitalReadConfig]{
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, DigitalReadConfig, service.Key]{
 			Name:     "device",
-			Tables:   []string{"device"},
+			Table:    "device",
 			OnDelete: gorp.Restrict,
-			Targets: func(e *DigitalReadConfig) []gorp.Target {
-				var targets []gorp.Target
+			Targets: func(e *DigitalReadConfig) []service.Key {
+				var targets []service.Key
 				if e.Device != "" {
-					targets = append(targets, gorp.To("device", e.Device))
+					targets = append(targets, e.Device)
 				}
 				return targets
 			},
-			Detach: func(e *DigitalReadConfig, t gorp.Target) {
-				if gorp.To("device", e.Device) == t {
+			Detach: func(e *DigitalReadConfig, t service.Key) {
+				if e.Device == t {
 					e.Device = ""
 				}
 			},
-		},
-		{
+		}),
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, DigitalReadConfig, channel.Key]{
 			Name:     "channels.channel",
-			Tables:   []string{"channel"},
+			Table:    "channel",
 			OnDelete: gorp.Restrict,
-			Targets: func(e *DigitalReadConfig) []gorp.Target {
-				var targets []gorp.Target
+			Targets: func(e *DigitalReadConfig) []channel.Key {
+				var targets []channel.Key
 				for _, v1 := range e.Channels {
 					if v1.Channel != 0 {
-						targets = append(targets, gorp.To("channel", v1.Channel))
+						targets = append(targets, v1.Channel)
 					}
 				}
 				return targets
 			},
-			Detach: func(e *DigitalReadConfig, t gorp.Target) {
+			Detach: func(e *DigitalReadConfig, t channel.Key) {
 				for i2 := range e.Channels {
-					if gorp.To("channel", e.Channels[i2].Channel) == t {
+					if e.Channels[i2].Channel == t {
 						e.Channels[i2].Channel = 0
 					}
 				}
 			},
-		},
+		}),
 	}
 }
 
-// DigitalWriteConfigReferences returns the reference configs of DigitalWriteConfig.
-func DigitalWriteConfigReferences() []gorp.ReferenceConfig[uuid.UUID, DigitalWriteConfig] {
-	return []gorp.ReferenceConfig[uuid.UUID, DigitalWriteConfig]{
-		{
+// DigitalWriteConfigReferences returns the references of DigitalWriteConfig.
+func DigitalWriteConfigReferences() []gorp.Reference[uuid.UUID, DigitalWriteConfig] {
+	return []gorp.Reference[uuid.UUID, DigitalWriteConfig]{
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, DigitalWriteConfig, service.Key]{
 			Name:     "device",
-			Tables:   []string{"device"},
+			Table:    "device",
 			OnDelete: gorp.Restrict,
-			Targets: func(e *DigitalWriteConfig) []gorp.Target {
-				var targets []gorp.Target
+			Targets: func(e *DigitalWriteConfig) []service.Key {
+				var targets []service.Key
 				if e.Device != "" {
-					targets = append(targets, gorp.To("device", e.Device))
+					targets = append(targets, e.Device)
 				}
 				return targets
 			},
-			Detach: func(e *DigitalWriteConfig, t gorp.Target) {
-				if gorp.To("device", e.Device) == t {
+			Detach: func(e *DigitalWriteConfig, t service.Key) {
+				if e.Device == t {
 					e.Device = ""
 				}
 			},
-		},
-		{
+		}),
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, DigitalWriteConfig, channel.Key]{
 			Name:     "channels.cmd_channel",
-			Tables:   []string{"channel"},
+			Table:    "channel",
 			OnDelete: gorp.Restrict,
-			Targets: func(e *DigitalWriteConfig) []gorp.Target {
-				var targets []gorp.Target
+			Targets: func(e *DigitalWriteConfig) []channel.Key {
+				var targets []channel.Key
 				for _, v1 := range e.Channels {
 					if v1.CmdChannel != 0 {
-						targets = append(targets, gorp.To("channel", v1.CmdChannel))
+						targets = append(targets, v1.CmdChannel)
 					}
 				}
 				return targets
 			},
-			Detach: func(e *DigitalWriteConfig, t gorp.Target) {
+			Detach: func(e *DigitalWriteConfig, t channel.Key) {
 				for i2 := range e.Channels {
-					if gorp.To("channel", e.Channels[i2].CmdChannel) == t {
+					if e.Channels[i2].CmdChannel == t {
 						e.Channels[i2].CmdChannel = 0
 					}
 				}
 			},
-		},
-		{
+		}),
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, DigitalWriteConfig, channel.Key]{
 			Name:     "channels.state_channel",
-			Tables:   []string{"channel"},
+			Table:    "channel",
 			OnDelete: gorp.Restrict,
-			Targets: func(e *DigitalWriteConfig) []gorp.Target {
-				var targets []gorp.Target
+			Targets: func(e *DigitalWriteConfig) []channel.Key {
+				var targets []channel.Key
 				for _, v1 := range e.Channels {
 					if v1.StateChannel != 0 {
-						targets = append(targets, gorp.To("channel", v1.StateChannel))
+						targets = append(targets, v1.StateChannel)
 					}
 				}
 				return targets
 			},
-			Detach: func(e *DigitalWriteConfig, t gorp.Target) {
+			Detach: func(e *DigitalWriteConfig, t channel.Key) {
 				for i2 := range e.Channels {
-					if gorp.To("channel", e.Channels[i2].StateChannel) == t {
+					if e.Channels[i2].StateChannel == t {
 						e.Channels[i2].StateChannel = 0
 					}
 				}
 			},
-		},
+		}),
 	}
 }

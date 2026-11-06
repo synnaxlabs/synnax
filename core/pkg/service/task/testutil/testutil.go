@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -157,18 +156,9 @@ func (t *Tasks) openRack(ctx context.Context, cfg *TasksConfig) (err error) {
 }
 
 func (t *Tasks) openDevice(ctx context.Context, cfg *TasksConfig) (err error) {
-	groups, err := group.OpenService(ctx, group.ServiceConfig{
-		DB:       cfg.DB,
-		Ontology: cfg.Ontology,
-	})
-	if err != nil {
-		return err
-	}
-	t.closer = append(t.closer, groups)
 	if cfg.Device, err = device.OpenService(ctx, device.ServiceConfig{
 		DB:       cfg.DB,
 		Ontology: cfg.Ontology,
-		Group:    groups,
 		Status:   cfg.Status,
 		Rack:     cfg.Rack,
 	}); err != nil {

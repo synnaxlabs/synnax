@@ -84,6 +84,13 @@ type refSite struct {
 	mode  leafMode
 }
 
+// inArray reports whether the site reaches its field through an array.
+func (s refSite) inArray() bool {
+	return slices.ContainsFunc(s.steps, func(st refStep) bool {
+		return st.kind == stepArray
+	})
+}
+
 // walkedRef groups the sites that share a path, which make up one reference.
 type walkedRef struct {
 	path  string
@@ -530,7 +537,7 @@ func (rd *renderer) walk(
 
 func (rd *renderer) targetsBody(ref *walkedRef) string {
 	var b strings.Builder
-	b.WriteString("var targets []gorp.Target\n")
+	fmt.Fprintf(&b, "var targets []%s\n", rd.info.TargetType())
 	steps := make([][]refStep, len(ref.sites))
 	for i, s := range ref.sites {
 		steps[i] = s.steps
@@ -715,7 +722,11 @@ func extractNestedRefs(
 		}
 		named := field
 		named.Name = ref.path
-		info, err := extractRef(typ, named, "", rt, table, r, ctx)
+		inArray := mode == leafRequired && !slices.ContainsFunc(
+			ref.sites,
+			func(s refSite) bool { return !s.inArray() },
+		)
+		info, err := extractRef(typ, named, "", inArray, rt, table, r, ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -736,17 +747,9 @@ func extractNestedRefs(
 			})
 		}
 		nr := nestedRef{refInfo: info, TargetsBody: rd.targetsBody(ref)}
-		detach, ok, err := rd.detachBody(ref)
+		detach, _, err := rd.detachBody(ref)
 		if err != nil {
 			return nil, errors.Wrap(err, typ.QualifiedName)
-		}
-		if !ok && info.OnDelete == "Detach" {
-			return nil, errors.Newf(
-				"%s: @ref field %s needs to be optional, an array, zero by default, "+
-					"or inside an array to detach",
-				typ.QualifiedName,
-				ref.path,
-			)
 		}
 		nr.DetachBody, nr.usesSlices = detach, rd.usesSlices
 		out = append(out, nr)

@@ -15,17 +15,17 @@ import "github.com/synnaxlabs/gorp"
 // channel that holds its timestamps. A delete of an index fails while it keeps a data
 // channel that uses the index. Opening the service clears a missing index, and a
 // calculated channel whose index was deleted gets a new one on its next write.
-func indexReference() gorp.ReferenceConfig[Key, Channel] {
-	return gorp.ReferenceConfig[Key, Channel]{
+func indexReference() *gorp.KeyReference[Key, Channel, Key] {
+	return gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Channel, Key]{
 		Name:     "local_index",
-		Tables:   []string{tableName},
+		Table:    tableName,
 		OnDelete: gorp.Restrict,
-		Targets: func(c *Channel) []gorp.Target {
+		Targets: func(c *Channel) []Key {
 			if c.IsIndex || c.LocalIndex == 0 {
 				return nil
 			}
-			return []gorp.Target{gorp.To(tableName, c.Index())}
+			return []Key{c.Index()}
 		},
-		Detach: func(c *Channel, _ gorp.Target) { c.LocalIndex = 0 },
-	}
+		Detach: func(c *Channel, _ Key) { c.LocalIndex = 0 },
+	})
 }

@@ -87,7 +87,7 @@ func OpenService(
 		Indexes: s.indexes.all(),
 		References: append(
 			s.indexes.references(),
-			gorp.NewReference(tabsReference()),
+			tabsReference(),
 		),
 		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,

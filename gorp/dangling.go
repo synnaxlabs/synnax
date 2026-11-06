@@ -24,12 +24,12 @@ func DropDangling[K Key, E Entry[K]](
 	ctx context.Context,
 	tx Tx,
 	db *DB,
-	refs []ReferenceConfig[K, E],
+	refs []Reference[K, E],
 	e *E,
 ) (bool, error) {
 	dropped := false
 	for _, ref := range refs {
-		for _, target := range ref.Targets(e) {
+		for _, target := range ref.targets(e) {
 			table, err := db.registry.table(target.Table)
 			if err != nil {
 				return false, err
@@ -43,15 +43,14 @@ func DropDangling[K Key, E Entry[K]](
 					continue
 				}
 			}
-			if ref.Detach == nil {
+			if !ref.detachTarget(e, target) {
 				return false, errors.Newf(
 					"[gorp] - %s %s does not exist, and %s cannot drop it",
 					target.Table,
 					target.Key,
-					ref.Name,
+					ref.referenceName(),
 				)
 			}
-			ref.Detach(e, target)
 			dropped = true
 		}
 	}

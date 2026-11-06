@@ -110,7 +110,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		Indexes: s.indexes.all(),
 		References: append(
 			s.indexes.references(),
-			gorp.NewReference(channelsReference()),
+			channelsReference(),
 		),
 		Migrations:      newMigrations(cfg.DB),
 		Instrumentation: cfg.Instrumentation,
