@@ -11,6 +11,7 @@ import { type schematic } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
+import { SIZE_LEVELS } from "@/schematic/node/common/size";
 import { colorFallbacks, SetpointForm } from "@/schematic/node/general/setpoint/Form";
 import { Setpoint } from "@/schematic/node/general/setpoint/Primitive";
 import { Symbol } from "@/schematic/node/general/setpoint/Symbol";
@@ -31,6 +32,7 @@ const Preview = ({
 export const spec: Spec<"setpoint", schematic.SetpointNodeConfig> = {
   key: "setpoint",
   name: "Setpoint",
+  defaults: { level: SIZE_LEVELS.medium },
   Form: SetpointForm,
   Node: Symbol,
   Preview,

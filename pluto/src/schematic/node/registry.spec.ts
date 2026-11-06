@@ -147,6 +147,26 @@ describe("Schematic.Node.createConfig", () => {
   it("should start a new button on the medium text level", () =>
     expect(createConfig({ variant: "button" }).level).toBe(SIZE_LEVELS.medium));
 
+  it.each(["input", "select", "setpoint"] as const)(
+    "should start a new %s on the medium text level",
+    (variant) => {
+      const input = variant === "select" ? { variant, options: [] } : { variant };
+      expect(createConfig(input).level).toBe(SIZE_LEVELS.medium);
+    },
+  );
+
+  it("should start a new button with no wrap width", () =>
+    expect(createConfig({ variant: "button" }).label.maxInlineSize).toBeUndefined());
+
+  it("should start a new label at the default wrap width", () =>
+    expect(createConfig({ variant: "tank" }).label.maxInlineSize).toBe(150));
+
+  it("should keep a wrap width that the input sets", () =>
+    expect(
+      createConfig({ variant: "tank", label: { maxInlineSize: 80 } }).label
+        .maxInlineSize,
+    ).toBe(80));
+
   it("should let the input override a spec default", () =>
     expect(createConfig({ variant: "button", level: "h2" }).level).toBe("h2"));
 

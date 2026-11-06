@@ -63,6 +63,61 @@ var _ = Describe("MigrateSchematic", func() {
 		Expect(setpoint.InlineSize).To(BeEquivalentTo(100))
 	})
 
+	DescribeTable("Should clear the wrap width of a saved button",
+		func(ctx SpecContext, label map[string]any) {
+			out := MustSucceed(v11.MigrateSchematic(ctx, v10.Schematic{
+				Configs: map[string]v10.ElementConfig{
+					"n1": stored(msgpack.EncodedJSON{
+						"variant": "button",
+						"label":   label,
+					}),
+				},
+			}))
+			button := out.Configs["n1"].Variant.(v11.ButtonElementConfig)
+			Expect(button.Label.MaxInlineSize).To(BeNil())
+			Expect(button.Label.Label).To(Equal("Open"))
+		},
+		Entry("with the default", map[string]any{"label": "Open"}),
+		Entry("with a chosen width", map[string]any{
+			"label":           "Open",
+			"max_inline_size": 80.0,
+		}),
+	)
+
+	DescribeTable("Should keep the wrap width of a symbol that is not a button",
+		func(ctx SpecContext, label map[string]any, width float64) {
+			out := MustSucceed(v11.MigrateSchematic(ctx, v10.Schematic{
+				Configs: map[string]v10.ElementConfig{
+					"n1": stored(
+						msgpack.EncodedJSON{"variant": "value", "label": label},
+					),
+				},
+			}))
+			value := out.Configs["n1"].Variant.(v11.ValueElementConfig)
+			Expect(value.Label.MaxInlineSize).To(HaveValue(BeEquivalentTo(width)))
+		},
+		Entry("with the default", map[string]any{"label": "P1"}, 150.0),
+		Entry("with a chosen width", map[string]any{
+			"label":           "P1",
+			"max_inline_size": 80.0,
+		}, 80.0),
+	)
+
+	It("Should leave the text level of a field symbol absent", func(ctx SpecContext) {
+		out := MustSucceed(v11.MigrateSchematic(ctx, v10.Schematic{
+			Configs: map[string]v10.ElementConfig{
+				"n1": stored(msgpack.EncodedJSON{"variant": "input", "size": "large"}),
+				"n2": stored(msgpack.EncodedJSON{"variant": "select", "size": "large"}),
+				"n3": stored(
+					msgpack.EncodedJSON{"variant": "setpoint", "size": "large"},
+				),
+			},
+		}))
+		Expect(out.Configs["n1"].Variant.(v11.InputElementConfig).Level).To(BeNil())
+		Expect(out.Configs["n2"].Variant.(v11.SelectElementConfig).Level).To(BeNil())
+		Expect(out.Configs["n3"].Variant.(v11.SetpointElementConfig).Level).To(BeNil())
+	})
+
 	It("Should keep the schematic's identity", func(ctx SpecContext) {
 		key := uuid.New()
 		out := MustSucceed(v11.MigrateSchematic(ctx, v10.Schematic{
@@ -86,6 +141,9 @@ var _ = Describe("Migration", func() {
 				"e1": MustSucceed(v10.DecodeWithDefaults(msgpack.EncodedJSON{
 					"variant": "pipe",
 				})),
+				"n1": MustSucceed(v10.DecodeWithDefaults(msgpack.EncodedJSON{
+					"variant": "button",
+				})),
 			},
 		}
 		MustSucceed(
@@ -105,6 +163,8 @@ var _ = Describe("Migration", func() {
 		Expect(got.Name).To(Equal("Feed system"))
 		pipe := got.Configs["e1"].Variant.(v11.PipeElementConfig)
 		Expect(pipe.StrokeWidth).To(BeNil())
+		button := got.Configs["n1"].Variant.(v11.ButtonElementConfig)
+		Expect(button.Label.MaxInlineSize).To(BeNil())
 	})
 
 	It("Should not reuse a v10 migration key", func() {

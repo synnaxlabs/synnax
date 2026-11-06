@@ -11,6 +11,7 @@ import { type schematic } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
+import { SIZE_LEVELS } from "@/schematic/node/common/size";
 import { colorFallbacks, SelectForm } from "@/schematic/node/general/select/Form";
 import { Select } from "@/schematic/node/general/select/Primitive";
 import { Symbol } from "@/schematic/node/general/select/Symbol";
@@ -29,6 +30,7 @@ const Preview = ({ fillColor }: schematic.SelectNodeConfig): ReactElement => (
 export const spec: Spec<"select", schematic.SelectNodeConfig> = {
   key: "select",
   name: "Select",
+  defaults: { level: SIZE_LEVELS.medium },
   Form: SelectForm,
   Node: Symbol,
   Preview,

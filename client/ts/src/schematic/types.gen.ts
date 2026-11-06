@@ -89,8 +89,9 @@ export const labelConfigZ = z.object({
   direction: spatial.directionZ.default("x"),
   /**
    * maxInlineSize is the maximum inline size of the label in pixels before wrapping.
+   * Absent means the label does not wrap.
    */
-  maxInlineSize: z.number().default(150),
+  maxInlineSize: z.number().optional(),
   /** align is the alignment of the label text within its box. */
   align: flexAlignmentZ.default("center"),
 });
@@ -623,6 +624,10 @@ export const inputNodeConfigZ = labeledConfigZ.extend(stalenessConfigZ.shape).ex
   variant: z.literal("input"),
   /** size is the rendered size preset of the input. */
   size: componentSizeZ.default("medium"),
+  /**
+   * level is the text level of the input. Absent keeps the default level for the size.
+   */
+  level: text.levelZ.optional(),
   /** commandChannel is the channel submitted values are written to. */
   commandChannel: channel.keyZ.optional(),
   /** stateChannel is the channel that reports the value the device holds. */
@@ -717,6 +722,10 @@ export const selectNodeConfigZ = labeledConfigZ.extend(stalenessConfigZ.shape).e
   variant: z.literal("select"),
   /** size is the rendered size preset of the select. */
   size: componentSizeZ.default("medium"),
+  /**
+   * level is the text level of the select. Absent keeps the default level for the size.
+   */
+  level: text.levelZ.optional(),
   /** commandChannel is the channel the selected value is written to. */
   commandChannel: channel.keyZ.optional(),
   /** stateChannel is the channel that reports the state the device holds. */
@@ -763,6 +772,11 @@ export const setpointNodeConfigZ = labeledConfigZ
     variant: z.literal("setpoint"),
     /** size is the rendered size preset of the setpoint. */
     size: componentSizeZ.default("medium"),
+    /**
+     * level is the text level of the setpoint. Absent keeps the default level for the
+     * size.
+     */
+    level: text.levelZ.optional(),
     /** commandChannel is the channel submitted setpoints are written to. */
     commandChannel: channel.keyZ.optional(),
     /** stateChannel is the channel that reports the value the device holds. */
@@ -2017,6 +2031,10 @@ export const inputElementConfigZ = labeledConfigZ
     variant: z.literal("input"),
     /** size is the rendered size preset of the input. */
     size: componentSizeZ.default("medium"),
+    /**
+     * level is the text level of the input. Absent keeps the default level for the size.
+     */
+    level: text.levelZ.optional(),
     /** commandChannel is the channel submitted values are written to. */
     commandChannel: channel.keyZ.optional(),
     /** stateChannel is the channel that reports the value the device holds. */
@@ -2115,6 +2133,10 @@ export const selectElementConfigZ = labeledConfigZ
     variant: z.literal("select"),
     /** size is the rendered size preset of the select. */
     size: componentSizeZ.default("medium"),
+    /**
+     * level is the text level of the select. Absent keeps the default level for the size.
+     */
+    level: text.levelZ.optional(),
     /** commandChannel is the channel the selected value is written to. */
     commandChannel: channel.keyZ.optional(),
     /** stateChannel is the channel that reports the state the device holds. */
@@ -2161,6 +2183,11 @@ export const setpointElementConfigZ = labeledConfigZ
     variant: z.literal("setpoint"),
     /** size is the rendered size preset of the setpoint. */
     size: componentSizeZ.default("medium"),
+    /**
+     * level is the text level of the setpoint. Absent keeps the default level for the
+     * size.
+     */
+    level: text.levelZ.optional(),
     /** commandChannel is the channel submitted setpoints are written to. */
     commandChannel: channel.keyZ.optional(),
     /** stateChannel is the channel that reports the value the device holds. */

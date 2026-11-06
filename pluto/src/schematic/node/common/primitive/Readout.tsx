@@ -20,12 +20,29 @@ const HEIGHT_RATIO = 0.72;
 export const readoutHeight = (size: Component.Size): number =>
   Math.round(Component.HEIGHTS[size] * HEIGHT_RATIO);
 
-/** @returns the text level of a readout under a field of the given size. */
-export const readoutLevel = (size: Component.Size): text.Level =>
-  text.downLevel(Component.SIZE_TEXT_LEVELS[size]);
+// The largest level whose line height fits a readout on each rung of the standard scale.
+const READOUT_LEVELS: Record<Component.Size, text.Level> = {
+  tiny: "tiny",
+  small: "small",
+  medium: "p",
+  large: "h4",
+  huge: "h3",
+};
+
+/**
+ * @param size - The size of the field above the readout.
+ * @param level - The text level of the field. Absent keeps Lyra's default for the size.
+ * @returns the text level of a readout under the field.
+ */
+export const readoutLevel = (size: Component.Size, level?: text.Level): text.Level =>
+  level == null
+    ? text.downLevel(Component.SIZE_TEXT_LEVELS[size])
+    : READOUT_LEVELS[size];
 
 export interface ReadoutProps {
   size: Component.Size;
+  /** The text level of the field above the readout. */
+  level?: text.Level;
   value?: ReactNode;
   units?: string;
   color?: color.Color;
@@ -39,12 +56,13 @@ export interface ReadoutProps {
  */
 export const Readout = ({
   size,
+  level: fieldLevel,
   value,
   units,
   color,
   valueRef,
 }: ReadoutProps): ReactElement => {
-  const level = readoutLevel(size);
+  const level = readoutLevel(size, fieldLevel);
   return (
     <div
       className={CSS.BE("symbol-field", "readout")}

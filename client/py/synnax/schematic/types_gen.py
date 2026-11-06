@@ -121,7 +121,7 @@ class LabelConfig(BaseModel):
         orientation: Is the placement of the label relative to the symbol.
         direction: Is the axis along which the label text flows.
         max_inline_size: Is the maximum inline size of the label in pixels before
-            wrapping.
+            wrapping. Absent means the label does not wrap.
         align: Is the alignment of the label text within its box.
     """
 
@@ -129,7 +129,7 @@ class LabelConfig(BaseModel):
     level: text.Level = "h5"
     orientation: spatial.Location = "top"
     direction: spatial.Direction = "x"
-    max_inline_size: float = 150
+    max_inline_size: float | None = None
     align: FlexAlignment = "center"
 
 
@@ -588,6 +588,7 @@ class InputNodeConfig(LabeledConfig, StalenessConfig):
 
     variant: Literal["input"] = "input"
     size: ComponentSize = "medium"
+    level: text.Level | None = None
     command_channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     state_channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     dimensions: spatial.Dimensions | None = None
@@ -646,6 +647,7 @@ class SelectNodeConfig(LabeledConfig, StalenessConfig):
 
     variant: Literal["select"] = "select"
     size: ComponentSize = "medium"
+    level: text.Level | None = None
     command_channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     state_channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     fill_color: color_.Color | None = None
@@ -672,6 +674,7 @@ class SetpointNodeConfig(LabeledConfig, StalenessConfig):
 
     variant: Literal["setpoint"] = "setpoint"
     size: ComponentSize = "medium"
+    level: text.Level | None = None
     command_channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     state_channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     dimensions: spatial.Dimensions | None = None
@@ -1323,6 +1326,7 @@ class InputElementConfig(LabeledConfig, StalenessConfig):
 
     variant: Literal["input"] = "input"
     size: ComponentSize = "medium"
+    level: text.Level | None = None
     command_channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     state_channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     dimensions: spatial.Dimensions | None = None
@@ -1381,6 +1385,7 @@ class SelectElementConfig(LabeledConfig, StalenessConfig):
 
     variant: Literal["select"] = "select"
     size: ComponentSize = "medium"
+    level: text.Level | None = None
     command_channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     state_channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     fill_color: color_.Color | None = None
@@ -1407,6 +1412,7 @@ class SetpointElementConfig(LabeledConfig, StalenessConfig):
 
     variant: Literal["setpoint"] = "setpoint"
     size: ComponentSize = "medium"
+    level: text.Level | None = None
     command_channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     state_channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     dimensions: spatial.Dimensions | None = None

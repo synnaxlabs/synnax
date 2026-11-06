@@ -68,10 +68,13 @@ export const resolveSpec = (variant: string): Spec => {
 export const isConfig = (config: schematic.ElementConfig): config is Config =>
   config.variant in REGISTRY;
 
+/** The width in pixels a new label wraps at, unless its spec is unwrapped. */
+const WRAP_WIDTH = 150;
+
 /**
  * Builds a fresh config from the schema input. Every unset value comes from the
- * spec's defaults, then the schema, except the label, which names the symbol unless the
- * input sets it.
+ * spec's defaults, then the schema, except the label, which names the symbol and takes
+ * a wrap width unless the input sets them.
  * @param input - The variant plus any fields to set on top of the schema defaults.
  * @throws {NotFoundError} if no spec is registered for the variant.
  */
@@ -79,8 +82,10 @@ export const createConfig = <V extends Variant>(input: Input<V>): ConfigOf<V> =>
   const spec = resolveSpec(input.variant);
   const config = configZ.parse({ ...spec.defaults, ...input }) as ConfigOf<V>;
   const labeled = input as { label?: { label?: string } };
-  if ("label" in config && labeled.label?.label == null)
-    config.label.label = spec.label ?? spec.name;
+  if ("label" in config) {
+    if (labeled.label?.label == null) config.label.label = spec.label ?? spec.name;
+    if (spec.unwrapped !== true) config.label.maxInlineSize ??= WRAP_WIDTH;
+  }
   return config;
 };
 

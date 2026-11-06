@@ -189,8 +189,11 @@ LabelConfig struct {
     direction       spatial.Direction = spatial.DirectionX {
         @doc value "is the axis along which the label text flows."
     }
-    max_inline_size float64 = 150 {
-        @doc value "is the maximum inline size of the label in pixels before wrapping."
+    max_inline_size float64?          {
+        @doc value """
+            is the maximum inline size of the label in pixels before wrapping. Absent
+            means the label does not wrap.
+        """
     }
     align           FlexAlignment = FlexAlignmentCenter {
         @doc value "is the alignment of the label text within its box."
@@ -436,6 +439,12 @@ NodeConfig union on variant {
         size            ComponentSize = ComponentSizeMedium {
             @doc value "is the rendered size preset of the input."
         }
+        level           text.Level?         {
+            @doc value """
+                is the text level of the input. Absent keeps the default level for the
+                size.
+            """
+        }
         command_channel channel.Key?        {
             @doc value "is the channel submitted values are written to."
         }
@@ -547,6 +556,12 @@ NodeConfig union on variant {
         size            ComponentSize = ComponentSizeMedium {
             @doc value "is the rendered size preset of the select."
         }
+        level           text.Level?         {
+            @doc value """
+                is the text level of the select. Absent keeps the default level for the
+                size.
+            """
+        }
         command_channel channel.Key?        {
             @doc value "is the channel the selected value is written to."
         }
@@ -600,6 +615,12 @@ NodeConfig union on variant {
     setpoint extends LabeledConfig, StalenessConfig {
         size            ComponentSize = ComponentSizeMedium {
             @doc value "is the rendered size preset of the setpoint."
+        }
+        level           text.Level?         {
+            @doc value """
+                is the text level of the setpoint. Absent keeps the default level for
+                the size.
+            """
         }
         command_channel channel.Key?        {
             @doc value "is the channel submitted setpoints are written to."

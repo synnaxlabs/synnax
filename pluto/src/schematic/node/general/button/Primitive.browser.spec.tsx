@@ -37,7 +37,7 @@ const lineCount = (el: HTMLElement): number =>
   new Set(lineRects(el).map((r) => Math.round(r.top))).size;
 
 describe("button symbol layout", () => {
-  it("should keep a long label on one line at the default wrap width", async () => {
+  it("should keep a long label on one line with no wrap width", async () => {
     const el = await renderButton({ label: LONG });
     expect(lineCount(el)).toBe(1);
     expect(el.getBoundingClientRect().width).toBeGreaterThan(150);

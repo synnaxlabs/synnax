@@ -24,6 +24,64 @@ import (
 )
 
 // EncodeOrc writes the value to w in the Orc binary format.
+func (dtsc DummyToggleSymbolConfig) EncodeOrc(w *orc.Writer) error {
+	if err := dtsc.Label.EncodeOrc(w); err != nil {
+		return err
+	}
+	w.String(string(dtsc.Orientation))
+	w.Float64(float64(dtsc.Scale))
+	w.Bool(dtsc.Enabled)
+	w.Bool(dtsc.Clickable)
+	if dtsc.StrokeColor != nil {
+		w.Bool(true)
+		if err := dtsc.StrokeColor.EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (dtsc *DummyToggleSymbolConfig) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if err = dtsc.Label.DecodeOrc(r); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		dtsc.Orientation = spatial.OuterLocation(rawV)
+	}
+	if dtsc.Scale, err = r.Float64(); err != nil {
+		return err
+	}
+	if dtsc.Enabled, err = r.Bool(); err != nil {
+		return err
+	}
+	if dtsc.Clickable, err = r.Bool(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv color.Color
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			dtsc.StrokeColor = &hv
+		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
 func (ec EdgeConfig) EncodeOrc(w *orc.Writer) error {
 	switch v := ec.Variant.(type) {
 	case PipeEdgeConfig:
@@ -379,6 +437,12 @@ func (ec ElementConfig) EncodeOrc(w *orc.Writer) error {
 			return err
 		}
 		w.String(string(v.Size))
+		if v.Level != nil {
+			w.Bool(true)
+			w.String(string(*v.Level))
+		} else {
+			w.Bool(false)
+		}
 		if v.CommandChannel != nil {
 			w.Bool(true)
 			w.Uint32(uint32(*v.CommandChannel))
@@ -532,6 +596,12 @@ func (ec ElementConfig) EncodeOrc(w *orc.Writer) error {
 			return err
 		}
 		w.String(string(v.Size))
+		if v.Level != nil {
+			w.Bool(true)
+			w.String(string(*v.Level))
+		} else {
+			w.Bool(false)
+		}
 		if v.CommandChannel != nil {
 			w.Bool(true)
 			w.Uint32(uint32(*v.CommandChannel))
@@ -600,6 +670,12 @@ func (ec ElementConfig) EncodeOrc(w *orc.Writer) error {
 			return err
 		}
 		w.String(string(v.Size))
+		if v.Level != nil {
+			w.Bool(true)
+			w.String(string(*v.Level))
+		} else {
+			w.Bool(false)
+		}
 		if v.CommandChannel != nil {
 			w.Bool(true)
 			w.Uint32(uint32(*v.CommandChannel))
@@ -1690,6 +1766,23 @@ func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
+				var hv text.Level
+				{
+					rawV, err := r.String()
+					if err != nil {
+						return err
+					}
+					hv = text.Level(rawV)
+				}
+				v.Level = &hv
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
 				var hv channel.Key
 				{
 					rawV, err := r.Uint32()
@@ -1966,6 +2059,23 @@ func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
+				var hv text.Level
+				{
+					rawV, err := r.String()
+					if err != nil {
+						return err
+					}
+					hv = text.Level(rawV)
+				}
+				v.Level = &hv
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
 				var hv channel.Key
 				{
 					rawV, err := r.Uint32()
@@ -2087,6 +2197,23 @@ func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			v.Size = ComponentSize(rawV)
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv text.Level
+				{
+					rawV, err := r.String()
+					if err != nil {
+						return err
+					}
+					hv = text.Level(rawV)
+				}
+				v.Level = &hv
+			}
 		}
 		{
 			present, err := r.Bool()
@@ -3181,6 +3308,3147 @@ func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
 }
 
 // EncodeOrc writes the value to w in the Orc binary format.
+func (lc LabelConfig) EncodeOrc(w *orc.Writer) error {
+	w.String(lc.Label)
+	w.String(string(lc.Level))
+	w.String(string(lc.Orientation))
+	w.String(string(lc.Direction))
+	if lc.MaxInlineSize != nil {
+		w.Bool(true)
+		w.Float64(float64(*lc.MaxInlineSize))
+	} else {
+		w.Bool(false)
+	}
+	w.String(string(lc.Align))
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (lc *LabelConfig) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if lc.Label, err = r.String(); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		lc.Level = text.Level(rawV)
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		lc.Orientation = spatial.Location(rawV)
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		lc.Direction = spatial.Direction(rawV)
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv float64
+			if hv, err = r.Float64(); err != nil {
+				return err
+			}
+			lc.MaxInlineSize = &hv
+		}
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		lc.Align = FlexAlignment(rawV)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (lc LabeledConfig) EncodeOrc(w *orc.Writer) error {
+	if err := lc.Label.EncodeOrc(w); err != nil {
+		return err
+	}
+	w.String(string(lc.Orientation))
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (lc *LabeledConfig) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if err = lc.Label.DecodeOrc(r); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		lc.Orientation = spatial.OuterLocation(rawV)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
+	switch v := nc.Variant.(type) {
+	case CapNodeConfig:
+		w.String("cap")
+		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case FilterNodeConfig:
+		w.String("filter")
+		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case FlowStraightenerNodeConfig:
+		w.String("flow_straightener")
+		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case HeaterElementNodeConfig:
+		w.String("heater_element")
+		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case IsoCapNodeConfig:
+		w.String("iso_cap")
+		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case IsoFilterNodeConfig:
+		w.String("iso_filter")
+		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case NozzleNodeConfig:
+		w.String("nozzle")
+		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case OrificeNodeConfig:
+		w.String("orifice")
+		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case OrificePlateNodeConfig:
+		w.String("orifice_plate")
+		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case StrainerNodeConfig:
+		w.String("strainer")
+		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case StrainerConeNodeConfig:
+		w.String("strainer_cone")
+		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case ThrusterNodeConfig:
+		w.String("thruster")
+		if err := v.ToggleSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case VentNodeConfig:
+		w.String("vent")
+		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case FlowmeterGeneralNodeConfig:
+		w.String("flowmeter_general")
+		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case FlowmeterElectromagneticNodeConfig:
+		w.String("flowmeter_electromagnetic")
+		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case FlowmeterVariableAreaNodeConfig:
+		w.String("flowmeter_variable_area")
+		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case FlowmeterCoriolisNodeConfig:
+		w.String("flowmeter_coriolis")
+		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case FlowmeterNozzleNodeConfig:
+		w.String("flowmeter_nozzle")
+		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case FlowmeterVenturiNodeConfig:
+		w.String("flowmeter_venturi")
+		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case FlowmeterRingPistonNodeConfig:
+		w.String("flowmeter_ring_piston")
+		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case FlowmeterPositiveDisplacementNodeConfig:
+		w.String("flowmeter_positive_displacement")
+		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case FlowmeterTurbineNodeConfig:
+		w.String("flowmeter_turbine")
+		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case FlowmeterPulseNodeConfig:
+		w.String("flowmeter_pulse")
+		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case FlowmeterFloatSensorNodeConfig:
+		w.String("flowmeter_float_sensor")
+		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case FlowmeterOrificeNodeConfig:
+		w.String("flowmeter_orifice")
+		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case BoxNodeConfig:
+		w.String("box")
+		if err := v.LabeledConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+		if v.StrokeColor != nil {
+			w.Bool(true)
+			if err := v.StrokeColor.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+		if v.FillColor != nil {
+			w.Bool(true)
+			if err := v.FillColor.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+		if err := v.Dimensions.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.Float64(float64(v.BorderRadius))
+		w.Float64(float64(v.StrokeWidth))
+	case ButtonNodeConfig:
+		w.String("button")
+		if err := v.LabeledConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.String(string(v.Size))
+		if v.Level != nil {
+			w.Bool(true)
+			w.String(string(*v.Level))
+		} else {
+			w.Bool(false)
+		}
+		w.Float64(float64(v.OnClickDelay))
+		if v.CommandChannel != nil {
+			w.Bool(true)
+			w.Uint32(uint32(*v.CommandChannel))
+		} else {
+			w.Bool(false)
+		}
+		w.String(string(v.Mode))
+		if v.FillColor != nil {
+			w.Bool(true)
+			if err := v.FillColor.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+		if v.Control != nil {
+			w.Bool(true)
+			if err := v.Control.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+	case CircleNodeConfig:
+		w.String("circle")
+		if err := v.LabeledConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.Float64(float64(v.Radius))
+		if v.StrokeColor != nil {
+			w.Bool(true)
+			if err := v.StrokeColor.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+		if v.FillColor != nil {
+			w.Bool(true)
+			if err := v.FillColor.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+		w.Float64(float64(v.StrokeWidth))
+	case GaugeNodeConfig:
+		w.String("gauge")
+		if err := v.LabeledConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.NumericTelemConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.StalenessConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+		if v.Position != nil {
+			w.Bool(true)
+			if err := v.Position.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+		if v.StrokeColor != nil {
+			w.Bool(true)
+			if err := v.StrokeColor.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+		w.Float64(float64(v.Bounds.Lower))
+		w.Float64(float64(v.Bounds.Upper))
+		w.Float64(float64(v.BarWidth))
+		if err := v.Location.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.String(v.Units)
+		w.String(string(v.Level))
+	case InputNodeConfig:
+		w.String("input")
+		if err := v.LabeledConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.StalenessConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.String(string(v.Size))
+		if v.Level != nil {
+			w.Bool(true)
+			w.String(string(*v.Level))
+		} else {
+			w.Bool(false)
+		}
+		if v.CommandChannel != nil {
+			w.Bool(true)
+			w.Uint32(uint32(*v.CommandChannel))
+		} else {
+			w.Bool(false)
+		}
+		if v.StateChannel != nil {
+			w.Bool(true)
+			w.Uint32(uint32(*v.StateChannel))
+		} else {
+			w.Bool(false)
+		}
+		if v.Dimensions != nil {
+			w.Bool(true)
+			if err := v.Dimensions.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+		if v.FillColor != nil {
+			w.Bool(true)
+			if err := v.FillColor.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+		w.Bool(v.Disabled)
+		w.Float64(float64(v.InlineSize))
+		w.Float64(float64(v.OnClickDelay))
+		if v.Control != nil {
+			w.Bool(true)
+			if err := v.Control.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+	case LightNodeConfig:
+		w.String("light")
+		if err := v.LabeledConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.ScaledConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.StalenessConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+		if v.Channel != nil {
+			w.Bool(true)
+			w.Uint32(uint32(*v.Channel))
+		} else {
+			w.Bool(false)
+		}
+		if v.Threshold != nil {
+			w.Bool(true)
+			w.Float64(float64((*v.Threshold).Lower))
+			w.Float64(float64((*v.Threshold).Upper))
+		} else {
+			w.Bool(false)
+		}
+		if v.StrokeColor != nil {
+			w.Bool(true)
+			if err := v.StrokeColor.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+		if v.OnColor != nil {
+			w.Bool(true)
+			if err := v.OnColor.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+	case LineNodeConfig:
+		w.String("line")
+		if v.StrokeColor != nil {
+			w.Bool(true)
+			if err := v.StrokeColor.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+		if err := v.Start.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.End.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.Float64(float64(v.StrokeWidth))
+	case OffPageReferenceNodeConfig:
+		w.String("off_page_reference")
+		if err := v.LabeledConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+		if v.FillColor != nil {
+			w.Bool(true)
+			if err := v.FillColor.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+		if v.Page != nil {
+			w.Bool(true)
+			if err := v.Page.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+		w.Bool(v.DblClickNavDisabled)
+	case PolygonNodeConfig:
+		w.String("polygon")
+		if err := v.LabeledConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.Float64(float64(v.NumSides))
+		w.Float64(float64(v.SideLength))
+		w.Float64(float64(v.Rotation))
+		w.Float64(float64(v.CornerRounding))
+		if v.StrokeColor != nil {
+			w.Bool(true)
+			if err := v.StrokeColor.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+		if v.FillColor != nil {
+			w.Bool(true)
+			if err := v.FillColor.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+		w.Float64(float64(v.StrokeWidth))
+	case SelectNodeConfig:
+		w.String("select")
+		if err := v.LabeledConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.StalenessConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.String(string(v.Size))
+		if v.Level != nil {
+			w.Bool(true)
+			w.String(string(*v.Level))
+		} else {
+			w.Bool(false)
+		}
+		if v.CommandChannel != nil {
+			w.Bool(true)
+			w.Uint32(uint32(*v.CommandChannel))
+		} else {
+			w.Bool(false)
+		}
+		if v.StateChannel != nil {
+			w.Bool(true)
+			w.Uint32(uint32(*v.StateChannel))
+		} else {
+			w.Bool(false)
+		}
+		if v.FillColor != nil {
+			w.Bool(true)
+			if err := v.FillColor.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+		w.Float64(float64(v.InlineSize))
+		w.Bool(v.Options != nil)
+		if v.Options != nil {
+			w.Uint32(uint32(len(v.Options)))
+			for i := range v.Options {
+				if err := v.Options[i].EncodeOrc(w); err != nil {
+					return err
+				}
+			}
+		}
+		w.Bool(v.Disabled)
+		w.Float64(float64(v.OnClickDelay))
+		if v.Control != nil {
+			w.Bool(true)
+			if err := v.Control.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+	case ScaleNodeConfig:
+		w.String("scale")
+		if err := v.LabeledConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.ScaleIndicatorConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+		if v.Position != nil {
+			w.Bool(true)
+			if err := v.Position.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+		if err := v.Dimensions.EncodeOrc(w); err != nil {
+			return err
+		}
+	case SetpointNodeConfig:
+		w.String("setpoint")
+		if err := v.LabeledConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.StalenessConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.String(string(v.Size))
+		if v.Level != nil {
+			w.Bool(true)
+			w.String(string(*v.Level))
+		} else {
+			w.Bool(false)
+		}
+		if v.CommandChannel != nil {
+			w.Bool(true)
+			w.Uint32(uint32(*v.CommandChannel))
+		} else {
+			w.Bool(false)
+		}
+		if v.StateChannel != nil {
+			w.Bool(true)
+			w.Uint32(uint32(*v.StateChannel))
+		} else {
+			w.Bool(false)
+		}
+		if v.Dimensions != nil {
+			w.Bool(true)
+			if err := v.Dimensions.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+		if v.FillColor != nil {
+			w.Bool(true)
+			if err := v.FillColor.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+		w.String(v.Units)
+		w.Bool(v.Disabled)
+		w.Float64(float64(v.InlineSize))
+		w.Float64(float64(v.OnClickDelay))
+		if v.Control != nil {
+			w.Bool(true)
+			if err := v.Control.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+	case StateIndicatorNodeConfig:
+		w.String("state_indicator")
+		if err := v.LabeledConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.StalenessConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+		if v.Channel != nil {
+			w.Bool(true)
+			w.Uint32(uint32(*v.Channel))
+		} else {
+			w.Bool(false)
+		}
+		if v.StrokeColor != nil {
+			w.Bool(true)
+			if err := v.StrokeColor.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+		w.Float64(float64(v.InlineSize))
+		w.Bool(v.Options != nil)
+		if v.Options != nil {
+			w.Uint32(uint32(len(v.Options)))
+			for i := range v.Options {
+				if err := v.Options[i].EncodeOrc(w); err != nil {
+					return err
+				}
+			}
+		}
+		w.String(string(v.Size))
+	case StringDisplayNodeConfig:
+		w.String("string_display")
+		if err := v.LabeledConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.StalenessConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+		if v.StrokeColor != nil {
+			w.Bool(true)
+			if err := v.StrokeColor.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+		if v.TextColor != nil {
+			w.Bool(true)
+			if err := v.TextColor.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+		w.Bool(v.Tooltip != nil)
+		if v.Tooltip != nil {
+			w.Uint32(uint32(len(v.Tooltip)))
+			for i := range v.Tooltip {
+				w.String(v.Tooltip[i])
+			}
+		}
+		w.Float64(float64(v.InlineSize))
+		if v.Channel != nil {
+			w.Bool(true)
+			w.Uint32(uint32(*v.Channel))
+		} else {
+			w.Bool(false)
+		}
+		w.String(string(v.Level))
+	case SwitchNodeConfig:
+		w.String("switch")
+		if err := v.ToggleSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case TextBoxNodeConfig:
+		w.String("text_box")
+		if err := v.LabeledConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+		if v.TextColor != nil {
+			w.Bool(true)
+			if err := v.TextColor.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+		w.Float64(float64(v.Width))
+		w.String(string(v.Align))
+		w.Bool(v.AutoFitDisabled)
+		w.String(string(v.Level))
+		w.String(v.Value)
+	case ValueNodeConfig:
+		w.String("value")
+		if err := v.LabeledConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.NumericTelemConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.StalenessConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+		if v.Position != nil {
+			w.Bool(true)
+			if err := v.Position.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+		if v.StrokeColor != nil {
+			w.Bool(true)
+			if err := v.StrokeColor.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+		if v.TextColor != nil {
+			w.Bool(true)
+			if err := v.TextColor.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+		if v.FillColor != nil {
+			w.Bool(true)
+			if err := v.FillColor.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+		w.Bool(v.Tooltip != nil)
+		if v.Tooltip != nil {
+			w.Uint32(uint32(len(v.Tooltip)))
+			for i := range v.Tooltip {
+				w.String(v.Tooltip[i])
+			}
+		}
+		if err := v.Redline.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.String(v.Units)
+		w.Float64(float64(v.InlineSize))
+		w.String(string(v.Level))
+		if err := v.Location.EncodeOrc(w); err != nil {
+			return err
+		}
+	case AgitatorNodeConfig:
+		w.String("agitator")
+		if err := v.ToggleSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case CrossBeamAgitatorNodeConfig:
+		w.String("cross_beam_agitator")
+		if err := v.ToggleSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case FlatBladeAgitatorNodeConfig:
+		w.String("flat_blade_agitator")
+		if err := v.ToggleSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case HeatExchangerGeneralNodeConfig:
+		w.String("heat_exchanger_general")
+		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case HeatExchangerMNodeConfig:
+		w.String("heat_exchanger_m")
+		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case HeatExchangerStraightTubeNodeConfig:
+		w.String("heat_exchanger_straight_tube")
+		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case HelicalAgitatorNodeConfig:
+		w.String("helical_agitator")
+		if err := v.ToggleSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case PaddleAgitatorNodeConfig:
+		w.String("paddle_agitator")
+		if err := v.ToggleSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case PropellerAgitatorNodeConfig:
+		w.String("propeller_agitator")
+		if err := v.ToggleSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case RotaryMixerNodeConfig:
+		w.String("rotary_mixer")
+		if err := v.ToggleSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case StaticMixerNodeConfig:
+		w.String("static_mixer")
+		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case CavityPumpNodeConfig:
+		w.String("cavity_pump")
+		if err := v.ToggleSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case CentrifugalCompressorNodeConfig:
+		w.String("centrifugal_compressor")
+		if err := v.ToggleSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case CompressorNodeConfig:
+		w.String("compressor")
+		if err := v.ToggleSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case DiaphragmPumpNodeConfig:
+		w.String("diaphragm_pump")
+		if err := v.ToggleSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case EjectionPumpNodeConfig:
+		w.String("ejection_pump")
+		if err := v.ToggleSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case EjectorCompressorNodeConfig:
+		w.String("ejector_compressor")
+		if err := v.ToggleSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case LiquidRingCompressorNodeConfig:
+		w.String("liquid_ring_compressor")
+		if err := v.ToggleSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case PistonPumpNodeConfig:
+		w.String("piston_pump")
+		if err := v.ToggleSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case PumpNodeConfig:
+		w.String("pump")
+		if err := v.ToggleSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case RollerVaneCompressorNodeConfig:
+		w.String("roller_vane_compressor")
+		if err := v.ToggleSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case ScrewPumpNodeConfig:
+		w.String("screw_pump")
+		if err := v.ToggleSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case TurboCompressorNodeConfig:
+		w.String("turbo_compressor")
+		if err := v.ToggleSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case VacuumPumpNodeConfig:
+		w.String("vacuum_pump")
+		if err := v.ToggleSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case BurstDiscNodeConfig:
+		w.String("burst_disc")
+		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case FlameArrestorNodeConfig:
+		w.String("flame_arrestor")
+		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case FlameArrestorDetonationNodeConfig:
+		w.String("flame_arrestor_detonation")
+		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case FlameArrestorExplosionNodeConfig:
+		w.String("flame_arrestor_explosion")
+		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case FlameArrestorFireResNodeConfig:
+		w.String("flame_arrestor_fire_res")
+		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case FlameArrestorFireResDetonationNodeConfig:
+		w.String("flame_arrestor_fire_res_detonation")
+		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case IsoBurstDiscNodeConfig:
+		w.String("iso_burst_disc")
+		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case AngledValveNodeConfig:
+		w.String("angled_valve")
+		if err := v.ToggleSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case AngledReliefValveNodeConfig:
+		w.String("angled_relief_valve")
+		if err := v.DummyToggleSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case AngledSpringLoadedReliefValveNodeConfig:
+		w.String("angled_spring_loaded_relief_valve")
+		if err := v.DummyToggleSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case BallValveNodeConfig:
+		w.String("ball_valve")
+		if err := v.ToggleSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case BreatherValveNodeConfig:
+		w.String("breather_valve")
+		if err := v.DummyToggleSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case ButterflyValveOneNodeConfig:
+		w.String("butterfly_valve_one")
+		if err := v.ToggleSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case ButterflyValveTwoNodeConfig:
+		w.String("butterfly_valve_two")
+		if err := v.ToggleSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case CheckValveNodeConfig:
+		w.String("check_valve")
+		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case CheckValveWithArrowNodeConfig:
+		w.String("check_valve_with_arrow")
+		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case ElectricRegulatorNodeConfig:
+		w.String("electric_regulator")
+		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case ElectricRegulatorMotorizedNodeConfig:
+		w.String("electric_regulator_motorized")
+		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case FourWayValveNodeConfig:
+		w.String("four_way_valve")
+		if err := v.ToggleSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case GateValveNodeConfig:
+		w.String("gate_valve")
+		if err := v.ToggleSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case IsoCheckValveNodeConfig:
+		w.String("iso_check_valve")
+		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case ManualValveNodeConfig:
+		w.String("manual_valve")
+		if err := v.DummyToggleSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case NeedleValveNodeConfig:
+		w.String("needle_valve")
+		if err := v.DummyToggleSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case RegulatorNodeConfig:
+		w.String("regulator")
+		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case RegulatorManualNodeConfig:
+		w.String("regulator_manual")
+		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case ReliefValveNodeConfig:
+		w.String("relief_valve")
+		if err := v.DummyToggleSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case SolenoidValveNodeConfig:
+		w.String("solenoid_valve")
+		if err := v.ToggleSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.Bool(v.NormallyOpen)
+	case SpringLoadedReliefValveNodeConfig:
+		w.String("spring_loaded_relief_valve")
+		if err := v.DummyToggleSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case ThreeWayValveNodeConfig:
+		w.String("three_way_valve")
+		if err := v.ToggleSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case ThreeWayBallValveNodeConfig:
+		w.String("three_way_ball_valve")
+		if err := v.ToggleSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case ValveNodeConfig:
+		w.String("valve")
+		if err := v.ToggleSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case CrossJunctionNodeConfig:
+		w.String("cross_junction")
+		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case CylinderNodeConfig:
+		w.String("cylinder")
+		if err := v.LabeledConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.ScaledConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.Dimensions.EncodeOrc(w); err != nil {
+			return err
+		}
+		if v.BorderRadius != nil {
+			w.Bool(true)
+			if err := v.BorderRadius.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+		if v.StrokeColor != nil {
+			w.Bool(true)
+			if err := v.StrokeColor.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+		if v.FillColor != nil {
+			w.Bool(true)
+			if err := v.FillColor.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+	case TankNodeConfig:
+		w.String("tank")
+		if err := v.LabeledConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+		if v.Channel != nil {
+			w.Bool(true)
+			w.Uint32(uint32(*v.Channel))
+		} else {
+			w.Bool(false)
+		}
+		if v.RollingAverage != nil {
+			w.Bool(true)
+			w.Int32(int32(*v.RollingAverage))
+		} else {
+			w.Bool(false)
+		}
+		w.Float64(float64(v.Precision))
+		w.String(string(v.Notation))
+		w.Float64(float64(v.StalenessTimeout))
+		if v.StalenessColor != nil {
+			w.Bool(true)
+			if err := v.StalenessColor.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+		w.Float64(float64(v.Bounds.Lower))
+		w.Float64(float64(v.Bounds.Upper))
+		if v.LevelColor != nil {
+			w.Bool(true)
+			if err := v.LevelColor.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+		if v.AxisColor != nil {
+			w.Bool(true)
+			if err := v.AxisColor.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+		if v.TextColor != nil {
+			w.Bool(true)
+			if err := v.TextColor.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+		w.String(v.Units)
+		w.Bool(v.LevelHidden)
+		w.String(string(v.CaretSide))
+		w.String(string(v.Level))
+		if v.Position != nil {
+			w.Bool(true)
+			if err := v.Position.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+		if v.StrokeColor != nil {
+			w.Bool(true)
+			if err := v.StrokeColor.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+		if v.FillColor != nil {
+			w.Bool(true)
+			if err := v.FillColor.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+		if err := v.Dimensions.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.BorderRadius.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.Bool(v.CaretVisible)
+		w.Bool(v.ScaleVisible)
+		w.String(string(v.Side))
+	case TJunctionNodeConfig:
+		w.String("t_junction")
+		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case CustomActuatorNodeConfig:
+		w.String("custom_actuator")
+		if err := v.ToggleConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.String(v.SpecKey)
+		w.Bool(v.StateOverrides != nil)
+		if v.StateOverrides != nil {
+			w.Uint32(uint32(len(v.StateOverrides)))
+			for i := range v.StateOverrides {
+				if err := v.StateOverrides[i].EncodeOrc(w); err != nil {
+					return err
+				}
+			}
+		}
+	case CustomStaticNodeConfig:
+		w.String("custom_static")
+		if err := v.LabeledConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.ScaledConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.String(v.SpecKey)
+		w.Bool(v.StateOverrides != nil)
+		if v.StateOverrides != nil {
+			w.Uint32(uint32(len(v.StateOverrides)))
+			for i := range v.StateOverrides {
+				if err := v.StateOverrides[i].EncodeOrc(w); err != nil {
+					return err
+				}
+			}
+		}
+	case GroupBoxNodeConfig:
+		w.String("group_box")
+		w.Bool(v.Members != nil)
+		if v.Members != nil {
+			w.Uint32(uint32(len(v.Members)))
+			for i := range v.Members {
+				w.String(v.Members[i])
+			}
+		}
+		w.Bool(v.Locked)
+	default:
+		return errors.Newf("NodeConfig: nil or unknown variant %T", nc.Variant)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.String()
+	if err != nil {
+		return err
+	}
+	switch tag {
+	case "cap":
+		var v CapNodeConfig
+		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "filter":
+		var v FilterNodeConfig
+		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "flow_straightener":
+		var v FlowStraightenerNodeConfig
+		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "heater_element":
+		var v HeaterElementNodeConfig
+		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "iso_cap":
+		var v IsoCapNodeConfig
+		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "iso_filter":
+		var v IsoFilterNodeConfig
+		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "nozzle":
+		var v NozzleNodeConfig
+		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "orifice":
+		var v OrificeNodeConfig
+		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "orifice_plate":
+		var v OrificePlateNodeConfig
+		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "strainer":
+		var v StrainerNodeConfig
+		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "strainer_cone":
+		var v StrainerConeNodeConfig
+		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "thruster":
+		var v ThrusterNodeConfig
+		if err := v.ToggleSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "vent":
+		var v VentNodeConfig
+		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "flowmeter_general":
+		var v FlowmeterGeneralNodeConfig
+		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "flowmeter_electromagnetic":
+		var v FlowmeterElectromagneticNodeConfig
+		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "flowmeter_variable_area":
+		var v FlowmeterVariableAreaNodeConfig
+		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "flowmeter_coriolis":
+		var v FlowmeterCoriolisNodeConfig
+		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "flowmeter_nozzle":
+		var v FlowmeterNozzleNodeConfig
+		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "flowmeter_venturi":
+		var v FlowmeterVenturiNodeConfig
+		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "flowmeter_ring_piston":
+		var v FlowmeterRingPistonNodeConfig
+		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "flowmeter_positive_displacement":
+		var v FlowmeterPositiveDisplacementNodeConfig
+		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "flowmeter_turbine":
+		var v FlowmeterTurbineNodeConfig
+		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "flowmeter_pulse":
+		var v FlowmeterPulseNodeConfig
+		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "flowmeter_float_sensor":
+		var v FlowmeterFloatSensorNodeConfig
+		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "flowmeter_orifice":
+		var v FlowmeterOrificeNodeConfig
+		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "box":
+		var v BoxNodeConfig
+		if err := v.LabeledConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv color.Color
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.StrokeColor = &hv
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv color.Color
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.FillColor = &hv
+			}
+		}
+		if err = v.Dimensions.DecodeOrc(r); err != nil {
+			return err
+		}
+		if v.BorderRadius, err = r.Float64(); err != nil {
+			return err
+		}
+		if v.StrokeWidth, err = r.Float64(); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "button":
+		var v ButtonNodeConfig
+		if err := v.LabeledConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			rawV, err := r.String()
+			if err != nil {
+				return err
+			}
+			v.Size = ComponentSize(rawV)
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv text.Level
+				{
+					rawV, err := r.String()
+					if err != nil {
+						return err
+					}
+					hv = text.Level(rawV)
+				}
+				v.Level = &hv
+			}
+		}
+		if v.OnClickDelay, err = r.Float64(); err != nil {
+			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv channel.Key
+				{
+					rawV, err := r.Uint32()
+					if err != nil {
+						return err
+					}
+					hv = channel.Key(rawV)
+				}
+				v.CommandChannel = &hv
+			}
+		}
+		{
+			rawV, err := r.String()
+			if err != nil {
+				return err
+			}
+			v.Mode = ButtonMode(rawV)
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv color.Color
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.FillColor = &hv
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv ControlStateConfig
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.Control = &hv
+			}
+		}
+		nc.Variant = v
+	case "circle":
+		var v CircleNodeConfig
+		if err := v.LabeledConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		if v.Radius, err = r.Float64(); err != nil {
+			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv color.Color
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.StrokeColor = &hv
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv color.Color
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.FillColor = &hv
+			}
+		}
+		if v.StrokeWidth, err = r.Float64(); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "gauge":
+		var v GaugeNodeConfig
+		if err := v.LabeledConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err := v.NumericTelemConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err := v.StalenessConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv spatial.XY
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.Position = &hv
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv color.Color
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.StrokeColor = &hv
+			}
+		}
+		if v.Bounds.Lower, err = r.Float64(); err != nil {
+			return err
+		}
+		if v.Bounds.Upper, err = r.Float64(); err != nil {
+			return err
+		}
+		if v.BarWidth, err = r.Float64(); err != nil {
+			return err
+		}
+		if err = v.Location.DecodeOrc(r); err != nil {
+			return err
+		}
+		if v.Units, err = r.String(); err != nil {
+			return err
+		}
+		{
+			rawV, err := r.String()
+			if err != nil {
+				return err
+			}
+			v.Level = text.Level(rawV)
+		}
+		nc.Variant = v
+	case "input":
+		var v InputNodeConfig
+		if err := v.LabeledConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err := v.StalenessConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			rawV, err := r.String()
+			if err != nil {
+				return err
+			}
+			v.Size = ComponentSize(rawV)
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv text.Level
+				{
+					rawV, err := r.String()
+					if err != nil {
+						return err
+					}
+					hv = text.Level(rawV)
+				}
+				v.Level = &hv
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv channel.Key
+				{
+					rawV, err := r.Uint32()
+					if err != nil {
+						return err
+					}
+					hv = channel.Key(rawV)
+				}
+				v.CommandChannel = &hv
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv channel.Key
+				{
+					rawV, err := r.Uint32()
+					if err != nil {
+						return err
+					}
+					hv = channel.Key(rawV)
+				}
+				v.StateChannel = &hv
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv spatial.Dimensions
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.Dimensions = &hv
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv color.Color
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.FillColor = &hv
+			}
+		}
+		if v.Disabled, err = r.Bool(); err != nil {
+			return err
+		}
+		if v.InlineSize, err = r.Float64(); err != nil {
+			return err
+		}
+		if v.OnClickDelay, err = r.Float64(); err != nil {
+			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv ControlStateConfig
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.Control = &hv
+			}
+		}
+		nc.Variant = v
+	case "light":
+		var v LightNodeConfig
+		if err := v.LabeledConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err := v.ScaledConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err := v.StalenessConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv channel.Key
+				{
+					rawV, err := r.Uint32()
+					if err != nil {
+						return err
+					}
+					hv = channel.Key(rawV)
+				}
+				v.Channel = &hv
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv spatial.Bounds
+				if hv.Lower, err = r.Float64(); err != nil {
+					return err
+				}
+				if hv.Upper, err = r.Float64(); err != nil {
+					return err
+				}
+				v.Threshold = &hv
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv color.Color
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.StrokeColor = &hv
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv color.Color
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.OnColor = &hv
+			}
+		}
+		nc.Variant = v
+	case "line":
+		var v LineNodeConfig
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv color.Color
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.StrokeColor = &hv
+			}
+		}
+		if err = v.Start.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err = v.End.DecodeOrc(r); err != nil {
+			return err
+		}
+		if v.StrokeWidth, err = r.Float64(); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "off_page_reference":
+		var v OffPageReferenceNodeConfig
+		if err := v.LabeledConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv color.Color
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.FillColor = &hv
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv Page
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.Page = &hv
+			}
+		}
+		if v.DblClickNavDisabled, err = r.Bool(); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "polygon":
+		var v PolygonNodeConfig
+		if err := v.LabeledConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		if v.NumSides, err = r.Float64(); err != nil {
+			return err
+		}
+		if v.SideLength, err = r.Float64(); err != nil {
+			return err
+		}
+		if v.Rotation, err = r.Float64(); err != nil {
+			return err
+		}
+		if v.CornerRounding, err = r.Float64(); err != nil {
+			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv color.Color
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.StrokeColor = &hv
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv color.Color
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.FillColor = &hv
+			}
+		}
+		if v.StrokeWidth, err = r.Float64(); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "select":
+		var v SelectNodeConfig
+		if err := v.LabeledConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err := v.StalenessConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			rawV, err := r.String()
+			if err != nil {
+				return err
+			}
+			v.Size = ComponentSize(rawV)
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv text.Level
+				{
+					rawV, err := r.String()
+					if err != nil {
+						return err
+					}
+					hv = text.Level(rawV)
+				}
+				v.Level = &hv
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv channel.Key
+				{
+					rawV, err := r.Uint32()
+					if err != nil {
+						return err
+					}
+					hv = channel.Key(rawV)
+				}
+				v.CommandChannel = &hv
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv channel.Key
+				{
+					rawV, err := r.Uint32()
+					if err != nil {
+						return err
+					}
+					hv = channel.Key(rawV)
+				}
+				v.StateChannel = &hv
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv color.Color
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.FillColor = &hv
+			}
+		}
+		if v.InlineSize, err = r.Float64(); err != nil {
+			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				n, err := r.CollectionLen()
+				if err != nil {
+					return err
+				}
+				v.Options = make([]StateMapping, n)
+				for i := range v.Options {
+					if err = v.Options[i].DecodeOrc(r); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		if v.Disabled, err = r.Bool(); err != nil {
+			return err
+		}
+		if v.OnClickDelay, err = r.Float64(); err != nil {
+			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv ControlStateConfig
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.Control = &hv
+			}
+		}
+		nc.Variant = v
+	case "scale":
+		var v ScaleNodeConfig
+		if err := v.LabeledConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err := v.ScaleIndicatorConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv spatial.XY
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.Position = &hv
+			}
+		}
+		if err = v.Dimensions.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "setpoint":
+		var v SetpointNodeConfig
+		if err := v.LabeledConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err := v.StalenessConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			rawV, err := r.String()
+			if err != nil {
+				return err
+			}
+			v.Size = ComponentSize(rawV)
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv text.Level
+				{
+					rawV, err := r.String()
+					if err != nil {
+						return err
+					}
+					hv = text.Level(rawV)
+				}
+				v.Level = &hv
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv channel.Key
+				{
+					rawV, err := r.Uint32()
+					if err != nil {
+						return err
+					}
+					hv = channel.Key(rawV)
+				}
+				v.CommandChannel = &hv
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv channel.Key
+				{
+					rawV, err := r.Uint32()
+					if err != nil {
+						return err
+					}
+					hv = channel.Key(rawV)
+				}
+				v.StateChannel = &hv
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv spatial.Dimensions
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.Dimensions = &hv
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv color.Color
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.FillColor = &hv
+			}
+		}
+		if v.Units, err = r.String(); err != nil {
+			return err
+		}
+		if v.Disabled, err = r.Bool(); err != nil {
+			return err
+		}
+		if v.InlineSize, err = r.Float64(); err != nil {
+			return err
+		}
+		if v.OnClickDelay, err = r.Float64(); err != nil {
+			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv ControlStateConfig
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.Control = &hv
+			}
+		}
+		nc.Variant = v
+	case "state_indicator":
+		var v StateIndicatorNodeConfig
+		if err := v.LabeledConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err := v.StalenessConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv channel.Key
+				{
+					rawV, err := r.Uint32()
+					if err != nil {
+						return err
+					}
+					hv = channel.Key(rawV)
+				}
+				v.Channel = &hv
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv color.Color
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.StrokeColor = &hv
+			}
+		}
+		if v.InlineSize, err = r.Float64(); err != nil {
+			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				n, err := r.CollectionLen()
+				if err != nil {
+					return err
+				}
+				v.Options = make([]StateMapping, n)
+				for i := range v.Options {
+					if err = v.Options[i].DecodeOrc(r); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		{
+			rawV, err := r.String()
+			if err != nil {
+				return err
+			}
+			v.Size = ComponentSize(rawV)
+		}
+		nc.Variant = v
+	case "string_display":
+		var v StringDisplayNodeConfig
+		if err := v.LabeledConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err := v.StalenessConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv color.Color
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.StrokeColor = &hv
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv color.Color
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.TextColor = &hv
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				n, err := r.CollectionLen()
+				if err != nil {
+					return err
+				}
+				v.Tooltip = make([]string, n)
+				for i := range v.Tooltip {
+					if v.Tooltip[i], err = r.String(); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		if v.InlineSize, err = r.Float64(); err != nil {
+			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv channel.Key
+				{
+					rawV, err := r.Uint32()
+					if err != nil {
+						return err
+					}
+					hv = channel.Key(rawV)
+				}
+				v.Channel = &hv
+			}
+		}
+		{
+			rawV, err := r.String()
+			if err != nil {
+				return err
+			}
+			v.Level = text.Level(rawV)
+		}
+		nc.Variant = v
+	case "switch":
+		var v SwitchNodeConfig
+		if err := v.ToggleSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "text_box":
+		var v TextBoxNodeConfig
+		if err := v.LabeledConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv color.Color
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.TextColor = &hv
+			}
+		}
+		if v.Width, err = r.Float64(); err != nil {
+			return err
+		}
+		{
+			rawV, err := r.String()
+			if err != nil {
+				return err
+			}
+			v.Align = FlexAlignment(rawV)
+		}
+		if v.AutoFitDisabled, err = r.Bool(); err != nil {
+			return err
+		}
+		{
+			rawV, err := r.String()
+			if err != nil {
+				return err
+			}
+			v.Level = text.Level(rawV)
+		}
+		if v.Value, err = r.String(); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "value":
+		var v ValueNodeConfig
+		if err := v.LabeledConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err := v.NumericTelemConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err := v.StalenessConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv spatial.XY
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.Position = &hv
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv color.Color
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.StrokeColor = &hv
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv color.Color
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.TextColor = &hv
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv color.Color
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.FillColor = &hv
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				n, err := r.CollectionLen()
+				if err != nil {
+					return err
+				}
+				v.Tooltip = make([]string, n)
+				for i := range v.Tooltip {
+					if v.Tooltip[i], err = r.String(); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		if err = v.Redline.DecodeOrc(r); err != nil {
+			return err
+		}
+		if v.Units, err = r.String(); err != nil {
+			return err
+		}
+		if v.InlineSize, err = r.Float64(); err != nil {
+			return err
+		}
+		{
+			rawV, err := r.String()
+			if err != nil {
+				return err
+			}
+			v.Level = text.Level(rawV)
+		}
+		if err = v.Location.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "agitator":
+		var v AgitatorNodeConfig
+		if err := v.ToggleSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "cross_beam_agitator":
+		var v CrossBeamAgitatorNodeConfig
+		if err := v.ToggleSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "flat_blade_agitator":
+		var v FlatBladeAgitatorNodeConfig
+		if err := v.ToggleSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "heat_exchanger_general":
+		var v HeatExchangerGeneralNodeConfig
+		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "heat_exchanger_m":
+		var v HeatExchangerMNodeConfig
+		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "heat_exchanger_straight_tube":
+		var v HeatExchangerStraightTubeNodeConfig
+		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "helical_agitator":
+		var v HelicalAgitatorNodeConfig
+		if err := v.ToggleSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "paddle_agitator":
+		var v PaddleAgitatorNodeConfig
+		if err := v.ToggleSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "propeller_agitator":
+		var v PropellerAgitatorNodeConfig
+		if err := v.ToggleSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "rotary_mixer":
+		var v RotaryMixerNodeConfig
+		if err := v.ToggleSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "static_mixer":
+		var v StaticMixerNodeConfig
+		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "cavity_pump":
+		var v CavityPumpNodeConfig
+		if err := v.ToggleSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "centrifugal_compressor":
+		var v CentrifugalCompressorNodeConfig
+		if err := v.ToggleSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "compressor":
+		var v CompressorNodeConfig
+		if err := v.ToggleSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "diaphragm_pump":
+		var v DiaphragmPumpNodeConfig
+		if err := v.ToggleSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "ejection_pump":
+		var v EjectionPumpNodeConfig
+		if err := v.ToggleSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "ejector_compressor":
+		var v EjectorCompressorNodeConfig
+		if err := v.ToggleSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "liquid_ring_compressor":
+		var v LiquidRingCompressorNodeConfig
+		if err := v.ToggleSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "piston_pump":
+		var v PistonPumpNodeConfig
+		if err := v.ToggleSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "pump":
+		var v PumpNodeConfig
+		if err := v.ToggleSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "roller_vane_compressor":
+		var v RollerVaneCompressorNodeConfig
+		if err := v.ToggleSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "screw_pump":
+		var v ScrewPumpNodeConfig
+		if err := v.ToggleSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "turbo_compressor":
+		var v TurboCompressorNodeConfig
+		if err := v.ToggleSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "vacuum_pump":
+		var v VacuumPumpNodeConfig
+		if err := v.ToggleSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "burst_disc":
+		var v BurstDiscNodeConfig
+		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "flame_arrestor":
+		var v FlameArrestorNodeConfig
+		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "flame_arrestor_detonation":
+		var v FlameArrestorDetonationNodeConfig
+		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "flame_arrestor_explosion":
+		var v FlameArrestorExplosionNodeConfig
+		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "flame_arrestor_fire_res":
+		var v FlameArrestorFireResNodeConfig
+		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "flame_arrestor_fire_res_detonation":
+		var v FlameArrestorFireResDetonationNodeConfig
+		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "iso_burst_disc":
+		var v IsoBurstDiscNodeConfig
+		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "angled_valve":
+		var v AngledValveNodeConfig
+		if err := v.ToggleSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "angled_relief_valve":
+		var v AngledReliefValveNodeConfig
+		if err := v.DummyToggleSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "angled_spring_loaded_relief_valve":
+		var v AngledSpringLoadedReliefValveNodeConfig
+		if err := v.DummyToggleSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "ball_valve":
+		var v BallValveNodeConfig
+		if err := v.ToggleSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "breather_valve":
+		var v BreatherValveNodeConfig
+		if err := v.DummyToggleSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "butterfly_valve_one":
+		var v ButterflyValveOneNodeConfig
+		if err := v.ToggleSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "butterfly_valve_two":
+		var v ButterflyValveTwoNodeConfig
+		if err := v.ToggleSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "check_valve":
+		var v CheckValveNodeConfig
+		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "check_valve_with_arrow":
+		var v CheckValveWithArrowNodeConfig
+		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "electric_regulator":
+		var v ElectricRegulatorNodeConfig
+		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "electric_regulator_motorized":
+		var v ElectricRegulatorMotorizedNodeConfig
+		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "four_way_valve":
+		var v FourWayValveNodeConfig
+		if err := v.ToggleSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "gate_valve":
+		var v GateValveNodeConfig
+		if err := v.ToggleSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "iso_check_valve":
+		var v IsoCheckValveNodeConfig
+		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "manual_valve":
+		var v ManualValveNodeConfig
+		if err := v.DummyToggleSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "needle_valve":
+		var v NeedleValveNodeConfig
+		if err := v.DummyToggleSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "regulator":
+		var v RegulatorNodeConfig
+		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "regulator_manual":
+		var v RegulatorManualNodeConfig
+		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "relief_valve":
+		var v ReliefValveNodeConfig
+		if err := v.DummyToggleSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "solenoid_valve":
+		var v SolenoidValveNodeConfig
+		if err := v.ToggleSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		if v.NormallyOpen, err = r.Bool(); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "spring_loaded_relief_valve":
+		var v SpringLoadedReliefValveNodeConfig
+		if err := v.DummyToggleSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "three_way_valve":
+		var v ThreeWayValveNodeConfig
+		if err := v.ToggleSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "three_way_ball_valve":
+		var v ThreeWayBallValveNodeConfig
+		if err := v.ToggleSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "valve":
+		var v ValveNodeConfig
+		if err := v.ToggleSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "cross_junction":
+		var v CrossJunctionNodeConfig
+		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "cylinder":
+		var v CylinderNodeConfig
+		if err := v.LabeledConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err := v.ScaledConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err = v.Dimensions.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv border.Radius
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.BorderRadius = &hv
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv color.Color
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.StrokeColor = &hv
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv color.Color
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.FillColor = &hv
+			}
+		}
+		nc.Variant = v
+	case "tank":
+		var v TankNodeConfig
+		if err := v.LabeledConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv channel.Key
+				{
+					rawV, err := r.Uint32()
+					if err != nil {
+						return err
+					}
+					hv = channel.Key(rawV)
+				}
+				v.Channel = &hv
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv int32
+				if hv, err = r.Int32(); err != nil {
+					return err
+				}
+				v.RollingAverage = &hv
+			}
+		}
+		if v.Precision, err = r.Float64(); err != nil {
+			return err
+		}
+		{
+			rawV, err := r.String()
+			if err != nil {
+				return err
+			}
+			v.Notation = notation.Notation(rawV)
+		}
+		if v.StalenessTimeout, err = r.Float64(); err != nil {
+			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv color.Color
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.StalenessColor = &hv
+			}
+		}
+		if v.Bounds.Lower, err = r.Float64(); err != nil {
+			return err
+		}
+		if v.Bounds.Upper, err = r.Float64(); err != nil {
+			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv color.Color
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.LevelColor = &hv
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv color.Color
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.AxisColor = &hv
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv color.Color
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.TextColor = &hv
+			}
+		}
+		if v.Units, err = r.String(); err != nil {
+			return err
+		}
+		if v.LevelHidden, err = r.Bool(); err != nil {
+			return err
+		}
+		{
+			rawV, err := r.String()
+			if err != nil {
+				return err
+			}
+			v.CaretSide = spatial.OuterLocation(rawV)
+		}
+		{
+			rawV, err := r.String()
+			if err != nil {
+				return err
+			}
+			v.Level = text.Level(rawV)
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv spatial.XY
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.Position = &hv
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv color.Color
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.StrokeColor = &hv
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv color.Color
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.FillColor = &hv
+			}
+		}
+		if err = v.Dimensions.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err = v.BorderRadius.DecodeOrc(r); err != nil {
+			return err
+		}
+		if v.CaretVisible, err = r.Bool(); err != nil {
+			return err
+		}
+		if v.ScaleVisible, err = r.Bool(); err != nil {
+			return err
+		}
+		{
+			rawV, err := r.String()
+			if err != nil {
+				return err
+			}
+			v.Side = spatial.OuterLocation(rawV)
+		}
+		nc.Variant = v
+	case "t_junction":
+		var v TJunctionNodeConfig
+		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		nc.Variant = v
+	case "custom_actuator":
+		var v CustomActuatorNodeConfig
+		if err := v.ToggleConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		if v.SpecKey, err = r.String(); err != nil {
+			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				n, err := r.CollectionLen()
+				if err != nil {
+					return err
+				}
+				v.StateOverrides = make([]symbol.State, n)
+				for i := range v.StateOverrides {
+					if err = v.StateOverrides[i].DecodeOrc(r); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		nc.Variant = v
+	case "custom_static":
+		var v CustomStaticNodeConfig
+		if err := v.LabeledConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err := v.ScaledConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		if v.SpecKey, err = r.String(); err != nil {
+			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				n, err := r.CollectionLen()
+				if err != nil {
+					return err
+				}
+				v.StateOverrides = make([]symbol.State, n)
+				for i := range v.StateOverrides {
+					if err = v.StateOverrides[i].DecodeOrc(r); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		nc.Variant = v
+	case "group_box":
+		var v GroupBoxNodeConfig
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				n, err := r.CollectionLen()
+				if err != nil {
+					return err
+				}
+				v.Members = make([]string, n)
+				for i := range v.Members {
+					if v.Members[i], err = r.String(); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		if v.Locked, err = r.Bool(); err != nil {
+			return err
+		}
+		nc.Variant = v
+	default:
+		return errors.Newf("NodeConfig: unknown variant %q", tag)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
 func (s Schematic) EncodeOrc(w *orc.Writer) error {
 	w.Write(s.Key[:])
 	w.String(s.Name)
@@ -3363,6 +6631,327 @@ func (sec *SegmentedEdgeConfig) DecodeOrc(r *orc.Reader) error {
 					return err
 				}
 			}
+		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (ssc StaticSymbolConfig) EncodeOrc(w *orc.Writer) error {
+	if err := ssc.Label.EncodeOrc(w); err != nil {
+		return err
+	}
+	w.String(string(ssc.Orientation))
+	w.Float64(float64(ssc.Scale))
+	if ssc.StrokeColor != nil {
+		w.Bool(true)
+		if err := ssc.StrokeColor.EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (ssc *StaticSymbolConfig) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if err = ssc.Label.DecodeOrc(r); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		ssc.Orientation = spatial.OuterLocation(rawV)
+	}
+	if ssc.Scale, err = r.Float64(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv color.Color
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			ssc.StrokeColor = &hv
+		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (tc ToggleConfig) EncodeOrc(w *orc.Writer) error {
+	if err := tc.Label.EncodeOrc(w); err != nil {
+		return err
+	}
+	w.String(string(tc.Orientation))
+	w.Float64(float64(tc.Scale))
+	w.Float64(float64(tc.StalenessTimeout))
+	if tc.StalenessColor != nil {
+		w.Bool(true)
+		if err := tc.StalenessColor.EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
+	if tc.StateChannel != nil {
+		w.Bool(true)
+		w.Uint32(uint32(*tc.StateChannel))
+	} else {
+		w.Bool(false)
+	}
+	if tc.CommandChannel != nil {
+		w.Bool(true)
+		w.Uint32(uint32(*tc.CommandChannel))
+	} else {
+		w.Bool(false)
+	}
+	if tc.Control != nil {
+		w.Bool(true)
+		if err := tc.Control.EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
+	w.Float64(float64(tc.OnClickDelay))
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (tc *ToggleConfig) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if err = tc.Label.DecodeOrc(r); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		tc.Orientation = spatial.OuterLocation(rawV)
+	}
+	if tc.Scale, err = r.Float64(); err != nil {
+		return err
+	}
+	if tc.StalenessTimeout, err = r.Float64(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv color.Color
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			tc.StalenessColor = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv channel.Key
+			{
+				rawV, err := r.Uint32()
+				if err != nil {
+					return err
+				}
+				hv = channel.Key(rawV)
+			}
+			tc.StateChannel = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv channel.Key
+			{
+				rawV, err := r.Uint32()
+				if err != nil {
+					return err
+				}
+				hv = channel.Key(rawV)
+			}
+			tc.CommandChannel = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv ControlStateConfig
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			tc.Control = &hv
+		}
+	}
+	if tc.OnClickDelay, err = r.Float64(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (tsc ToggleSymbolConfig) EncodeOrc(w *orc.Writer) error {
+	if err := tsc.Label.EncodeOrc(w); err != nil {
+		return err
+	}
+	w.String(string(tsc.Orientation))
+	w.Float64(float64(tsc.Scale))
+	w.Float64(float64(tsc.StalenessTimeout))
+	if tsc.StalenessColor != nil {
+		w.Bool(true)
+		if err := tsc.StalenessColor.EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
+	if tsc.StateChannel != nil {
+		w.Bool(true)
+		w.Uint32(uint32(*tsc.StateChannel))
+	} else {
+		w.Bool(false)
+	}
+	if tsc.CommandChannel != nil {
+		w.Bool(true)
+		w.Uint32(uint32(*tsc.CommandChannel))
+	} else {
+		w.Bool(false)
+	}
+	if tsc.Control != nil {
+		w.Bool(true)
+		if err := tsc.Control.EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
+	w.Float64(float64(tsc.OnClickDelay))
+	if tsc.StrokeColor != nil {
+		w.Bool(true)
+		if err := tsc.StrokeColor.EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (tsc *ToggleSymbolConfig) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if err = tsc.Label.DecodeOrc(r); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		tsc.Orientation = spatial.OuterLocation(rawV)
+	}
+	if tsc.Scale, err = r.Float64(); err != nil {
+		return err
+	}
+	if tsc.StalenessTimeout, err = r.Float64(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv color.Color
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			tsc.StalenessColor = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv channel.Key
+			{
+				rawV, err := r.Uint32()
+				if err != nil {
+					return err
+				}
+				hv = channel.Key(rawV)
+			}
+			tsc.StateChannel = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv channel.Key
+			{
+				rawV, err := r.Uint32()
+				if err != nil {
+					return err
+				}
+				hv = channel.Key(rawV)
+			}
+			tsc.CommandChannel = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv ControlStateConfig
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			tsc.Control = &hv
+		}
+	}
+	if tsc.OnClickDelay, err = r.Float64(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv color.Color
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			tsc.StrokeColor = &hv
 		}
 	}
 	return nil

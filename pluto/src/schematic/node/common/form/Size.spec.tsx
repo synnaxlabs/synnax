@@ -1,0 +1,47 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { schematic } from "@synnaxlabs/client";
+import { deep } from "@synnaxlabs/x";
+import { fireEvent, waitFor } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
+
+import { ScaledSizeField } from "@/schematic/node/common/form/Size";
+import { renderForm } from "@/testutil";
+
+const path = deep.path<schematic.SetpointNodeConfig>();
+
+const SAVED = schematic.setpointNodeConfigZ.parse({
+  variant: "setpoint",
+  size: "large",
+});
+
+describe("ScaledSizeField", () => {
+  it("should leave a saved symbol without a level until a size is picked", () => {
+    const { value } = renderForm(
+      <ScaledSizeField />,
+      SAVED,
+      schematic.setpointNodeConfigZ,
+    );
+    expect(value(path.level)).toBeUndefined();
+  });
+
+  it("should set the standard level with the size", async () => {
+    const { getByText, value } = renderForm(
+      <ScaledSizeField />,
+      SAVED,
+      schematic.setpointNodeConfigZ,
+    );
+    fireEvent.click(getByText("XL"));
+    await waitFor(() => {
+      expect(value(path.size)).toBe("huge");
+      expect(value(path.level)).toBe("h2");
+    });
+  });
+});

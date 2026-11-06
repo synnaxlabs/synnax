@@ -112,6 +112,26 @@ describe("ButtonForm label", () => {
     await waitFor(() => expect(value(path.label.maxInlineSize)).toBe(80));
   });
 
+  it("should show no wrap width until a user sets one", () => {
+    const { getByText } = renderStyleTab();
+    const field = getByText("Wrap width").parentElement?.querySelector("input");
+    expect(field?.value).toBe("");
+  });
+
+  it("should clear the wrap width", async () => {
+    const { getByText, value } = renderForm(
+      <ButtonForm tab="style" onTabChange={vi.fn()} />,
+      createConfig({ variant: "button", label: { maxInlineSize: 80 } }),
+      schematic.buttonNodeConfigZ,
+      createSynnaxWrapper({ client: null }),
+    );
+    const field = getByText("Wrap width").parentElement?.querySelector("input");
+    if (field == null) throw new Error("expected a wrap width input");
+    fireEvent.change(field, { target: { value: "" } });
+    fireEvent.blur(field);
+    await waitFor(() => expect(value(path.label.maxInlineSize)).toBeUndefined());
+  });
+
   it("should set the alignment", async () => {
     const { container, value } = renderStyleTab();
     const start = container.querySelector("button#start");

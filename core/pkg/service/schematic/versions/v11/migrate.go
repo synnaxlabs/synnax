@@ -17,7 +17,8 @@ import (
 )
 
 // MigrateSchematic lifts a v10 schematic into the v11 shape. An edge carries no stroke
-// width, so it draws at the default.
+// width, so it draws at the default. A field symbol carries no text level, so it keeps
+// its rendered size.
 func MigrateSchematic(ctx context.Context, old v10.Schematic) (Schematic, error) {
 	return autoMigrateSchematic(ctx, old)
 }
@@ -31,6 +32,49 @@ func MigrateSegmentedEdgeConfig(
 	return autoMigrateSegmentedEdgeConfig(ctx, old)
 }
 
+// MigrateElementConfig lifts a v10 element config to v11. A button loses its label wrap
+// width, because a button rendered without wrapping whatever width it stored.
+func MigrateElementConfig(
+	ctx context.Context,
+	old v10.ElementConfig,
+) (ElementConfig, error) {
+	cfg, err := autoMigrateElementConfig(ctx, old)
+	if err != nil {
+		return ElementConfig{}, err
+	}
+	if button, ok := cfg.Variant.(ButtonElementConfig); ok {
+		button.Label.MaxInlineSize = nil
+		cfg.Variant = button
+	}
+	return cfg, nil
+}
+
+// MigrateLabelConfig lifts a v10 label config to v11 and keeps its wrap width.
+func MigrateLabelConfig(ctx context.Context, old v10.LabelConfig) (LabelConfig, error) {
+	cfg, err := autoMigrateLabelConfig(ctx, old)
+	if err != nil {
+		return LabelConfig{}, err
+	}
+	cfg.MaxInlineSize = &old.MaxInlineSize
+	return cfg, nil
+}
+
+// MigrateLabeledConfig lifts a v10 labeled config to v11.
+func MigrateLabeledConfig(
+	ctx context.Context,
+	old v10.LabeledConfig,
+) (LabeledConfig, error) {
+	return autoMigrateLabeledConfig(ctx, old)
+}
+
+// MigrateToggleConfig lifts a v10 toggle config to v11.
+func MigrateToggleConfig(
+	ctx context.Context,
+	old v10.ToggleConfig,
+) (ToggleConfig, error) {
+	return autoMigrateToggleConfig(ctx, old)
+}
+
 // Migration lifts stored schematics from v10 to v11, which adds a stroke width to every
-// segmented edge.
+// segmented edge, a text level to every field symbol, and an optional label wrap width.
 var Migration = migrate.NewEntry("v61_add_edge_stroke_width", MigrateSchematic)

@@ -38,6 +38,7 @@ export const Input = ({
   orientation = "left",
   fillColor,
   size,
+  level,
   onSend,
   disabled,
   onClickDelay,
@@ -77,11 +78,13 @@ export const Input = ({
           onChange={draft.edit}
           className={CSS.BE("symbol-field", "control")}
           size={size}
+          level={level}
           borderWidth={1}
           disabled={disabled}
         >
           <BaseButton.Button
             size={size}
+            level={level}
             variant="filled"
             onClick={() => {
               onSend?.(shown);

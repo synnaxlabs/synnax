@@ -81,7 +81,7 @@ describe("button symbol", () => {
       expect(getButton(container).style.maxInlineSize).toBe("80px");
     });
 
-    it("should leave the button uncapped at the default wrap width", () => {
+    it("should leave the button uncapped with no wrap width", () => {
       const { container } = render(<Button label={parseLabel({})} />);
       expect(getButton(container).style.maxInlineSize).toBe("");
     });

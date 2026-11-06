@@ -531,8 +531,10 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
         <Form.Section title="Label">
           <Input.Item label="Wrap width">
             <Input.Numeric
-              value={firstNodeLabel?.maxInlineSize ?? 150}
+              value={firstNodeLabel?.maxInlineSize}
               onChange={(v) => handleLabelProp("maxInlineSize", v)}
+              onClear={() => handleLabelProp("maxInlineSize", undefined)}
+              placeholder="None"
               endContent="px"
             />
           </Input.Item>

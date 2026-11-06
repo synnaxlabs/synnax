@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/versions/channel/v0"
+import "schemas/synnax/versions/symbol/v2"
+import "schemas/x/versions/border/v0"
 import "schemas/x/versions/color/v1"
+import "schemas/x/versions/spatial/v0"
+import "schemas/x/versions/text/v0"
 
 Key = v0.Key
 
@@ -36,9 +41,16 @@ ComponentSize = v9.ComponentSize
 
 ButtonMode = v9.ButtonMode
 
-LabelConfig = v9.LabelConfig
+LabelConfig struct extends v9.LabelConfig {
+    max_inline_size float64? {
+        @doc value """
+            is the maximum inline size of the label in pixels before wrapping. Absent
+            means the label does not wrap.
+        """
+    }
+}
 
-LabeledConfig = v9.LabeledConfig
+LabeledConfig struct extends v9.LabeledConfig {}
 
 ScaledConfig = v9.ScaledConfig
 
@@ -48,13 +60,13 @@ NumericTelemConfig = v9.NumericTelemConfig
 
 ControlStateConfig = v9.ControlStateConfig
 
-ToggleConfig = v9.ToggleConfig
+ToggleConfig struct extends v9.ToggleConfig {}
 
-StaticSymbolConfig = v9.StaticSymbolConfig
+StaticSymbolConfig struct extends v9.StaticSymbolConfig {}
 
-ToggleSymbolConfig = v9.ToggleSymbolConfig
+ToggleSymbolConfig struct extends v9.ToggleSymbolConfig {}
 
-DummyToggleSymbolConfig = v9.DummyToggleSymbolConfig
+DummyToggleSymbolConfig struct extends v9.DummyToggleSymbolConfig {}
 
 ScaleIndicatorConfig = v9.ScaleIndicatorConfig
 
@@ -64,7 +76,35 @@ PageType = v9.PageType
 
 Page = v9.Page
 
-NodeConfig = v10.NodeConfig
+NodeConfig union on variant extends v10.NodeConfig {
+    input {
+        size
+        level text.Level? {
+            @doc value """
+                is the text level of the input. Absent keeps the default level for the
+                size.
+            """
+        }
+    }
+    select {
+        size
+        level text.Level? {
+            @doc value """
+                is the text level of the select. Absent keeps the default level for the
+                size.
+            """
+        }
+    }
+    setpoint {
+        size
+        level text.Level? {
+            @doc value """
+                is the text level of the setpoint. Absent keeps the default level for
+                the size.
+            """
+        }
+    }
+}
 
 ElementConfig union on variant extends NodeConfig, EdgeConfig {
     @doc value  """
