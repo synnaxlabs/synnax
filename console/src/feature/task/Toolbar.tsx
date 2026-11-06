@@ -73,7 +73,7 @@ const Content = () => {
   const openSelector = useOpenSelector();
   const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
   const { data, getItem, subscribe, retrieve, answered } = Task.useList({
-    initialQuery: INITIAL_QUERY,
+    query: INITIAL_QUERY,
     filter,
   });
   const { fetchMore } = List.usePager({ retrieve, pageSize: 1e3 });

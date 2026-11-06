@@ -126,6 +126,39 @@ class TestArc:
         retrieved = client.arcs.retrieve(where=where, keys=keys)
         assert [arc.key for arc in retrieved] == [created[1].key]
 
+    def test_retrieve_name_operator(self, client: sy.Synnax) -> None:
+        """Should retrieve the Arcs whose name matches an operator."""
+        prefix = f"test-arc-op-{uuid4()}"
+        created = client.arcs.create(
+            [
+                sy.arc.Automation(name=f"{prefix}-a"),
+                sy.arc.Automation(name=f"{prefix}-b"),
+            ]
+        )
+        retrieved = client.arcs.retrieve(name={"starts_with": prefix})
+        assert {arc.key for arc in retrieved} == {arc.key for arc in created}
+
+    def test_retrieve_plain_key_beside_fields(self, client: sy.Synnax) -> None:
+        """Should return one Arc for a plain key beside other fields."""
+        name = f"test-arc-{uuid4()}"
+        created = client.arcs.create(name=name, mode="text")
+        found = client.arcs.retrieve(key=created.key, name={"in": [name]})
+        assert found.key == created.key
+        with pytest.raises(sy.NotFoundError):
+            client.arcs.retrieve(key=created.key, name="other")
+
+    def test_retrieve_one(self, client: sy.Synnax) -> None:
+        """Should return one Arc for any filter when one is set."""
+        name = f"test-arc-{uuid4()}"
+        created = client.arcs.create(name=name, mode="text")
+        found = client.arcs.retrieve(name={"starts_with": name}, one=True)
+        assert found.key == created.key
+
+    def test_retrieve_none_field(self, client: sy.Synnax) -> None:
+        """Should reject a field set to None, since it would select every Arc."""
+        with pytest.raises(sy.ValidationError, match="key is None"):
+            client.arcs.retrieve(key=None)  # type: ignore[call-overload]
+
     def test_retrieve_compiled(self, client: sy.Synnax) -> None:
         """Should return the compiled program when include_program is True."""
         created = client.arcs.create(

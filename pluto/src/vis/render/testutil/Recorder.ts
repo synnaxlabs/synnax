@@ -166,8 +166,8 @@ export class Recorder {
   private readonly restore2DHandlers = new Set<() => void>();
 
   readonly loop = {
-    set: (...args: unknown[]): void => {
-      this.loopCalls.push({ args });
+    set: (req: render.Request): void => {
+      this.loopCalls.push({ args: [req] });
     },
   };
 
