@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <condition_variable>
 #include <cstring>
+#include <map>
 #include <mutex>
 #include <set>
 #include <span>
@@ -229,12 +230,25 @@ public:
         this->bus_slaves = count;
     }
 
-    void set_slave_enabled(const uint16_t position, const bool enabled) override {
+    void set_slave_config(const uint16_t position, slave::Config config) override {
         std::lock_guard lock(this->mu);
-        if (enabled)
+        if (config.enabled)
             this->disabled_slaves.erase(position);
         else
             this->disabled_slaves.insert(position);
+    }
+
+    void replace_slave_configs(std::map<uint16_t, slave::Config> configs) override {
+        std::lock_guard lock(this->mu);
+        this->disabled_slaves.clear();
+        for (auto &[position, config]: configs)
+            if (!config.enabled) this->disabled_slaves.insert(position);
+    }
+
+    /// @brief returns whether the latest settings enable the slave at a position.
+    [[nodiscard]] bool slave_enabled(const uint16_t position) const {
+        std::lock_guard lock(this->mu);
+        return !this->disabled_slaves.contains(position);
     }
 
     x::errors::Error activate() override {

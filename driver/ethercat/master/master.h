@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <map>
 #include <memory>
 #include <optional>
 #include <span>
@@ -47,7 +48,11 @@ public:
 
     /// @brief sets whether a slave joins cyclic exchange. Takes effect at the next
     /// activate().
-    virtual void set_slave_enabled(uint16_t position, bool enabled) = 0;
+    virtual void set_slave_config(uint16_t position, slave::Config config) = 0;
+
+    /// @brief replaces the settings of every slave. A slave missing from configs goes
+    /// back to the defaults of slave::Config. Takes effect at the next activate().
+    virtual void replace_slave_configs(std::map<uint16_t, slave::Config> configs) = 0;
 
     /// @brief maps the process data of every enabled slave and transitions the enabled
     /// slaves to OP.

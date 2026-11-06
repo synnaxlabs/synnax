@@ -68,6 +68,12 @@ inline State from_al_state(const uint16_t al_state) {
     }
 }
 
+/// @brief the settings the master applies to a slave when the bus starts.
+struct Config {
+    /// @brief whether the slave joins cyclic exchange.
+    bool enabled = true;
+};
+
 /// @brief static properties of an EtherCAT slave device stored in device.properties.
 struct Properties {
     /// @brief network interface the slave is connected to.
@@ -96,6 +102,9 @@ struct Properties {
     bool coe_pdo_order_reliable{};
     /// @brief whether the device is enabled or not.
     bool enabled = true;
+
+    /// @brief returns the settings the master applies to the slave when the bus starts.
+    [[nodiscard]] Config config() const { return {.enabled = this->enabled}; }
 
     /// @brief returns the total number of discovered PDO entries.
     [[nodiscard]] size_t pdo_count() const {

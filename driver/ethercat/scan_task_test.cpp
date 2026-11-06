@@ -550,4 +550,83 @@ TEST_F(EtherCATScanStatusTest, SlaveLeavingOpShowsAWarning) {
     EXPECT_EQ(status.message, "In PRE-OP");
     EXPECT_EQ(status.description, "The Driver is returning the device to OP.");
 }
+
+/// @brief a scanner over a mock bus with one slave, for device set specs.
+class EtherCATScanDeviceSetTest : public EtherCATScanTest {
+protected:
+    std::shared_ptr<testutil::Master> master;
+    std::unique_ptr<Scanner> scanner;
+
+    void SetUp() override {
+        EtherCATScanTest::SetUp();
+        this->master = std::make_shared<testutil::Master>("eth0");
+        this->master->add_slave(slave::Properties{.position = 0, .name = "EL3102"});
+        auto manager = std::make_unique<testutil::Manager>();
+        manager->configure("eth0", this->master);
+        this->scanner = std::make_unique<Scanner>(
+            this->ctx,
+            this->scan_task(),
+            ScanTaskConfig{},
+            std::make_shared<engine::Pool>(std::move(manager))
+        );
+    }
+
+    /// @brief creates a slave device with the given enabled value.
+    synnax::device::Device create_slave(const x::json::json &enabled) {
+        synnax::device::Device dev{
+            .key = "ecat_device_set_" + std::to_string(this->rack.key),
+            .rack = this->rack.key,
+            .location = "eth0.Slot 0",
+            .make = INTEGRATION_NAME,
+            .model = SLAVE_DEVICE_MODEL,
+            .name = "EL3102",
+            .properties = {
+                {"serial", 0},
+                {"vendor_id", 0x2},
+                {"product_code", 0xC1E3052},
+                {"revision", 1},
+                {"name", "EL3102"},
+                {"network", "eth0"},
+                {"position", 0},
+                {"enabled", enabled},
+                {"pdos",
+                 {{"inputs", x::json::json::array()},
+                  {"outputs", x::json::json::array()}}},
+            },
+        };
+        const auto err = this->client->devices.create(dev);
+        EXPECT_FALSE(err) << err;
+        return dev;
+    }
+
+    [[nodiscard]] synnax::device::Status
+    status(const synnax::device::Device &dev) const {
+        return ASSERT_NIL_P(
+            this->client->statuses.retrieve<synnax::device::StatusDetails>(
+                synnax::device::status_key(dev)
+            )
+        );
+    }
+};
+
+/// @brief it should pass the enabled flag of a changed device to the master.
+TEST_F(EtherCATScanDeviceSetTest, PassesTheEnabledFlagToTheMaster) {
+    const auto dev = this->create_slave(false);
+    this->scanner->on_device_set(dev);
+    EXPECT_FALSE(this->master->slave_enabled(0));
+    EXPECT_EQ(this->status(dev).message, "Device disabled");
+}
+
+/// @brief it should leave the master settings unchanged and report an error status
+/// that names the invalid field.
+TEST_F(EtherCATScanDeviceSetTest, ReportsInvalidProperties) {
+    this->master->set_slave_config(0, {.enabled = false});
+    const auto dev = this->create_slave(nullptr);
+    this->scanner->on_device_set(dev);
+    EXPECT_FALSE(this->master->slave_enabled(0));
+    const auto status = this->status(dev);
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Invalid device properties");
+    EXPECT_EQ(status.description, "enabled: type must be boolean, but is null");
+}
 }
