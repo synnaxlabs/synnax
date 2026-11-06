@@ -1370,6 +1370,28 @@ Doc struct extends Base {
 }
 `,
 			}, "schemas/synnax/doc"),
+		Entry("when the live file adds Go fields to a declaration",
+			docV0, "schemas/synnax/versions/doc/v1.oracle", `
+Doc = v0.Doc
+`, map[string]string{
+				"schemas/synnax/versions/doc/v0.oracle": `
+Doc struct {
+	key uuid @key
+
+	@go marshal
+}
+`,
+				"schemas/synnax/doc.oracle": `
+@go output "core/pkg/service/doc"
+
+Doc struct {
+	key uuid @key
+
+	@go fields  "AST parser.IProgramContext ` + "`json:\\\"-\\\"`" + `"
+	@go imports "github.com/synnaxlabs/arc/parser"
+}
+`,
+			}, "schemas/synnax/doc"),
 		Entry("when an omitted field resolves a dependency",
 			docV0, "schemas/synnax/versions/doc/v1.oracle", `
 import "schemas/x/versions/color/v0"

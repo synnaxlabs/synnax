@@ -86,9 +86,9 @@ or generator logic and schemas disagree.
   files. In current and frozen packages alike, a stored reference resolves to the
   dependency version that the declaring version file imports, so a freeze never moves a
   generated import. A frozen type that the current version aliases also gets the live
-  `@validate` rules and `@go to_any` marker (a generated `ToAny` that copies a generic
-  struct into its `any` instantiation), since the current package's alias runs the
-  frozen methods. A mint leaves the demoted package's generated files byte-identical: a
+  `@validate` rules, `@go fields`, `@go imports`, and `@go to_any` marker (a generated
+  `ToAny` that copies a generic struct into its `any` instantiation), since the current
+  package's alias is the frozen type. A mint leaves the demoted package's generated files byte-identical: a
   frozen package keeps its version file's declaration order, the live file's `@go omit`,
   and root references for `@go marshal omit` fields. The one exception is a live rule on
   a type the new version redeclares, because that type stops being the live one. To keep

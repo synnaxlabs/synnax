@@ -446,9 +446,10 @@ func referencedAt(table *resolution.Table, ns string) set.Set[string] {
 }
 
 // withLiveMethods copies the live file's @validate rules, @default groups, and @go
-// to_any markers onto the version k surface members that the chain's current version
-// aliases, and onto the inline variant payloads of those unions. The current package's
-// alias is the frozen type, so the frozen methods are the ones the live surface calls.
+// to_any, fields, and imports onto the version k surface members that the chain's
+// current version aliases, and onto the inline variant payloads of those unions. The
+// current package's alias is the frozen type, so the live surface uses its methods and
+// fields.
 func withLiveMethods(
 	ctx context.Context,
 	req *plugin.Request,
@@ -511,8 +512,10 @@ func withLiveMethods(
 		}
 		form.Fields = fields
 		t.Form = form
-		if toAny, has := live.Domains["go"].Expressions.Find("to_any"); has {
-			withGoExpr(t, toAny)
+		for _, name := range []string{"to_any", "fields", "imports"} {
+			if expr, has := live.Domains["go"].Expressions.Find(name); has {
+				withGoExpr(t, expr)
+			}
 		}
 	}
 	return nil
