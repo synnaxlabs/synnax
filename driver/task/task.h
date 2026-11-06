@@ -100,6 +100,9 @@ public:
     /// the Driver could not reach the Core.
     /// @returns the first error of the writes. Call it again on error.
     [[nodiscard]] virtual x::errors::Error resend_statuses() = 0;
+
+    /// @brief returns true when a status write failed and no re-send has started since.
+    [[nodiscard]] virtual bool statuses_stale() = 0;
 };
 
 /// @brief a mock context that can be used for testing tasks.
@@ -119,6 +122,8 @@ public:
     }
 
     x::errors::Error resend_statuses() override { return x::errors::NIL; }
+
+    bool statuses_stale() override { return false; }
 
     /// @brief returns a copy of the statuses, safe to read while tasks send more.
     std::vector<synnax::task::Status> snapshot() {
@@ -163,6 +168,8 @@ public:
     }
 
     x::errors::Error resend_statuses() override { return this->statuses->resend(); }
+
+    bool statuses_stale() override { return this->statuses->stale(); }
 };
 
 /// @brief the cmd_key given to configure_task when no command drives the configure,
