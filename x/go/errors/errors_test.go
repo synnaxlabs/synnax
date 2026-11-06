@@ -249,11 +249,12 @@ var _ = Describe("Is", func() {
 		DescribeTable("Should recover a panic in a member",
 			func(member error, want string) {
 				joined := errors.Join(member, errors.New("err2"))
-				Expect(joined.Error()).To(SatisfyAll(
+				first := joined.Error()
+				Expect(first).To(SatisfyAll(
 					ContainSubstring(want),
 					HaveSuffix("\nerr2"),
 				))
-				Expect(joined.Error()).To(ContainSubstring(want))
+				Expect(joined.Error()).To(Equal(first))
 			},
 			Entry("a typed nil", (*customError)(nil), "<nil>"),
 			Entry("a member that panics", panicError{}, "member failed"),
