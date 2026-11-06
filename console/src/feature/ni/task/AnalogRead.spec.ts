@@ -14,6 +14,7 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { assert, describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
+import { analogReadHardwareZ } from "@/feature/ni/task/checks";
 import {
   awaitStatusDescription,
   createHardware,
@@ -507,26 +508,29 @@ describe("AnalogRead ports", () => {
     expect(await screen.findByText(message)).toBeTruthy();
   });
 
-  it.each<[string, Partial<NI.Task.AIChannel>, string, RegExp]>([
+  const fieldInvalid = (label: string): boolean =>
+    screen.getByLabelText(label).getAttribute("aria-invalid") === "true";
+
+  it.each<[string, Partial<NI.Task.AIChannel>, string, string]>([
     [
-      "a voltage above every range",
+      "the maximum of a voltage above every range",
       { minVal: 0, maxVal: 20 },
       "ai_voltage",
-      /no range from 0 to 20 V/,
+      "Maximum value",
     ],
     [
-      "a voltage below every range",
+      "the minimum of a voltage below every range",
       { minVal: -20, maxVal: 5 },
       "ai_voltage",
-      /no range from -20 to 5 V/,
+      "Minimum value",
     ],
     [
-      "a current outside every range",
+      "the maximum of a current outside every range",
       { minVal: 0, maxVal: 0.5 },
       "ai_current",
-      /no range from 0 to 0.5 A/,
+      "Maximum value",
     ],
-  ])("should mark %s", async (_, values, type, message) => {
+  ])("should mark %s", async (_, values, type, label) => {
     const dev = await createDevice();
     await renderWith([
       createChannel(type as NI.Task.AIChannelType, 0, {
@@ -536,7 +540,21 @@ describe("AnalogRead ports", () => {
       }),
     ]);
     fireEvent.click(await findChannelListItem("chan_ranged"));
-    expect(await screen.findByText(message)).toBeTruthy();
+    await waitFor(() => expect(fieldInvalid(label)).toBe(true));
+  });
+
+  it("should name the values that fit in no range", async () => {
+    const dev = await createDevice();
+    const config = {
+      ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
+      channels: [
+        createChannel("ai_voltage", 0, { device: dev.key, minVal: 0, maxVal: 20 }),
+      ],
+    };
+    const { error } = analogReadHardwareZ([dev]).safeParse(config);
+    expect(error?.issues.map(({ path, message }) => [path, message])).toEqual([
+      [["channels", 0, "maxVal"], "The device has no range from 0 to 20 V"],
+    ]);
   });
 
   it.each<[string, () => ni.Hardware, Partial<NI.Task.AIChannel>]>([
@@ -563,9 +581,17 @@ describe("AnalogRead ports", () => {
     ],
   ])("should not mark a channel %s", async (_, hardware, values) => {
     const dev = await createNIDevice(client, { properties: { hardware: hardware() } });
-    await renderWith([createChannel("ai_voltage", 0, { device: dev.key, ...values })]);
-    await screen.findByText("Ports");
-    expect(screen.queryByText(/The device has no range/)).toBeNull();
+    await renderWith([
+      createChannel("ai_voltage", 0, {
+        device: dev.key,
+        name: "chan_ranged",
+        ...values,
+      }),
+    ]);
+    fireEvent.click(await findChannelListItem("chan_ranged"));
+    await screen.findByLabelText("Maximum value");
+    expect(fieldInvalid("Minimum value")).toBe(false);
+    expect(fieldInvalid("Maximum value")).toBe(false);
   });
 
   it("should mark a channel on the negative input of a differential channel", async () => {

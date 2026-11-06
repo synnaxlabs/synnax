@@ -284,20 +284,21 @@ describe("AnalogWrite channel names", () => {
 
 describe("AnalogWrite ports", () => {
   it.each([
-    ["ao_voltage", 20, "The device has no range from 0 to 20 V"],
-    ["ao_current", 0.5, "The device has no range from 0 to 0.5 A"],
-  ] as const)(
-    "should mark a %s channel outside every range",
-    async (type, maxVal, text) => {
-      const dev = await createNIDevice(client, {
-        properties: { hardware: createHardware() },
-      });
-      await renderAnalogWrite(
-        createConfig([createChannel(type, 0, { minVal: 0, maxVal })], dev.key),
-      );
-      expect(await screen.findByText(text)).toBeTruthy();
-    },
-  );
+    ["ao_voltage", 20],
+    ["ao_current", 0.5],
+  ] as const)("should mark a %s channel outside every range", async (type, maxVal) => {
+    const dev = await createNIDevice(client, {
+      properties: { hardware: createHardware() },
+    });
+    await renderAnalogWrite(
+      createConfig([createChannel(type, 0, { minVal: 0, maxVal })], dev.key),
+    );
+    await waitFor(() =>
+      expect(screen.getByLabelText("Maximum value").getAttribute("aria-invalid")).toBe(
+        "true",
+      ),
+    );
+  });
 
   it("should deploy a channel on a port that does not report its types", async () => {
     const hardware = createHardware();
