@@ -34,8 +34,7 @@ EXEMPT="example driver latency"
 # sequences on four Cores at once.
 MATRIX_ENTRIES=(
     "arc:arc,control:true:1:"
-    "hb1:console:true:4:--browsers 1"
-    "hb2:console:true:2:--browsers 2"
+    "hc:console:true:5:--browsers 1"
 )
 
 covered=""
