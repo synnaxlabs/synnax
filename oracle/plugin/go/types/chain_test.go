@@ -1181,6 +1181,93 @@ Doc struct {
 	})
 })
 
+var _ = Describe("Frozen omitted field with a default", func() {
+	It("Should resolve the default against the same table as the field", func() {
+		root := GinkgoT().TempDir()
+		for rel, content := range map[string]string{
+			"schemas/x/versions/color/v0.oracle": `
+Mode enum {
+	light = "light"
+}
+`,
+			"schemas/x/versions/color/v1.oracle": `
+Mode enum {
+	light = "light"
+	dark  = "dark"
+}
+`,
+			"schemas/x/color.oracle": `
+@go output "x/go/color"
+
+Mode enum {
+	light = "light"
+	dark  = "dark"
+}
+`,
+			"schemas/synnax/versions/doc/v0.oracle": `
+import "schemas/x/versions/color/v0"
+
+Doc struct {
+	key uuid @key
+	mode color.Mode = light {
+		@go marshal omit
+	}
+
+	@go marshal
+}
+`,
+			"schemas/synnax/versions/doc/v1.oracle": `
+import "schemas/x/versions/color/v1"
+
+Doc struct {
+	key uuid @key
+	mode color.Mode = light {
+		@go marshal omit
+	}
+	name string
+
+	@go marshal
+}
+`,
+			"schemas/synnax/doc.oracle": `
+import "schemas/x/color"
+
+@go output "core/pkg/service/doc"
+
+Doc struct {
+	key uuid @key
+	mode color.Mode = light {
+		@go marshal omit
+	}
+	name string
+}
+`,
+		} {
+			full := filepath.Join(root, rel)
+			Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
+			Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
+		}
+		chains := MustSucceed(versions.Discover(root))
+		loader := analyzer.NewStandardFileLoader(root)
+		table, diag := analyzer.Analyze(
+			GinkgoT().Context(),
+			[]string{"schemas/x/color", "schemas/synnax/doc"},
+			loader,
+		)
+		Expect(diag.Ok()).To(BeTrue(), diag.String())
+		resp := MustSucceed(gotypes.New(gotypes.DefaultOptions()).Generate(
+			&plugin.Request{
+				Resolutions: table,
+				RepoRoot:    root,
+				Versions:    versions.NewResolver(chains, loader),
+			},
+		))
+		frozen := generatedFile(resp, "core/pkg/service/doc/versions/v0/types.gen.go")
+		Expect(frozen).To(ContainSubstring("Mode color.Mode"))
+		Expect(frozen).To(ContainSubstring("= color.ModeLight"))
+	})
+})
+
 var _ = Describe("Minting on top of a version", func() {
 	generate := func(files map[string]string, live []string) *plugin.Response {
 		GinkgoHelper()
