@@ -25,16 +25,28 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// pausedFS holds an armed read open of a domain file after the file opens, until resume
-// closes.
+// pausedFS holds an armed read open of a domain file after the file opens, and an armed
+// rename before it runs, until resume closes.
 type pausedFS struct {
 	fs.FS
-	opened chan struct{}
-	resume chan struct{}
-	armed  atomic.Bool
+	opened      chan struct{}
+	renaming    chan struct{}
+	resume      chan struct{}
+	armed       atomic.Bool
+	renameArmed atomic.Bool
+}
+
+func newPausedFS(base fs.FS) *pausedFS {
+	return &pausedFS{
+		FS:       base,
+		opened:   make(chan struct{}, 1),
+		renaming: make(chan struct{}, 1),
+		resume:   make(chan struct{}),
+	}
 }
 
 func (p *pausedFS) Open(name string, flag int) (fs.File, error) {
+	GinkgoHelper()
 	f, err := p.FS.Open(name, flag)
 	if err == nil && flag == os.O_RDONLY && name == "1.domain" &&
 		p.armed.CompareAndSwap(true, false) {
@@ -42,6 +54,15 @@ func (p *pausedFS) Open(name string, flag int) (fs.File, error) {
 		Eventually(p.resume).Should(BeClosed())
 	}
 	return f, err
+}
+
+func (p *pausedFS) Rename(oldName, newName string) error {
+	GinkgoHelper()
+	if p.renameArmed.CompareAndSwap(true, false) {
+		p.renaming <- struct{}{}
+		Eventually(p.resume).Should(BeClosed())
+	}
+	return p.FS.Rename(oldName, newName)
 }
 
 var _ = Describe("Garbage Collection", Ordered, func() {
@@ -115,25 +136,53 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					expectRead(MustSucceed(i.OpenReader(ctx)), data[:3])
 				})
 
-				It("Should not keep a handle opened before the collection", func(
-					ctx SpecContext,
-				) {
-					paused := &pausedFS{
-						FS:     fs,
-						opened: make(chan struct{}, 1),
-						resume: make(chan struct{}),
-					}
-					openOn(ctx, domain.Config{FS: paused})
-					paused.armed.Store(true)
+				// Windows cannot rename a file with an open handle.
+				if fsName != "memFS" {
+					return
+				}
+
+				readAsync := func(ctx SpecContext) chan *domain.Reader {
 					readers := make(chan *domain.Reader, 1)
 					go func() {
 						defer GinkgoRecover()
 						readers <- MustSucceed(i.OpenReader(ctx))
 					}()
+					return readers
+				}
+
+				It("Should not keep a handle opened before the collection", func(
+					ctx SpecContext,
+				) {
+					paused := newPausedFS(fs)
+					openOn(ctx, domain.Config{FS: paused})
+					paused.armed.Store(true)
+					readers := readAsync(ctx)
 					Eventually(paused.opened).Should(Receive())
 					Expect(db.GarbageCollect(ctx)).To(Succeed())
 					Expect(MustSucceed(fs.Stat("1.domain")).Size()).To(Equal(int64(6)))
 					close(paused.resume)
+					var r *domain.Reader
+					Eventually(readers).Should(Receive(&r))
+					expectRead(r, data)
+				})
+
+				It("Should not keep a handle opened during the collection", func(
+					ctx SpecContext,
+				) {
+					paused := newPausedFS(fs)
+					openOn(ctx, domain.Config{FS: paused})
+					paused.renameArmed.Store(true)
+					collected := make(chan error, 1)
+					go func() {
+						defer GinkgoRecover()
+						collected <- db.GarbageCollect(ctx)
+					}()
+					Eventually(paused.renaming).Should(Receive())
+					paused.armed.Store(true)
+					readers := readAsync(ctx)
+					Eventually(paused.opened).Should(Receive())
+					close(paused.resume)
+					Eventually(collected).Should(Receive(Succeed()))
 					var r *domain.Reader
 					Eventually(readers).Should(Receive(&r))
 					expectRead(r, data)
