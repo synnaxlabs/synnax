@@ -197,6 +197,9 @@ x::errors::Error Master::activate() {
 
     if (const auto err = this->clear_dc_activation()) return err;
 
+    // SOEM keeps the SII length of a sync manager whose PDO assignment is empty or that
+    // 0x1C00 does not list, and turns it on. A slave can refuse SAFE-OP for that.
+    this->api->clear_process_data_sms(ENABLED_GROUP);
     const int iomap_size = this->api->config_map_group(
         this->iomap.data(),
         ENABLED_GROUP
