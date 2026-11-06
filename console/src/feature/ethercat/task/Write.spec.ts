@@ -10,6 +10,7 @@
 import { type ethercat, type rack, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
+import { id } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeAll, describe, expect, it } from "vitest";
 import { type z } from "zod";
@@ -336,39 +337,61 @@ describe("Write", () => {
     expect(rebound.stateChannel).not.toBe(0);
   });
 
+  const deploySlave = async (identifier: string) => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier,
+      network: "eth0",
+      pdos: createPDOs(),
+    });
+    const { container, draft, unmount } = await renderWrite({
+      ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
+      channels: [createEntryWriteChannel(slave.key, CONTROL_ENTRY)],
+    });
+    const deployed = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      EtherCAT.Task.WRITE_SCHEMAS,
+    );
+    unmount();
+    const updated = await client.devices.retrieve({
+      key: slave.key,
+      schemas: EtherCAT.Device.SLAVE_SCHEMAS,
+    });
+    return { slave: updated, channel: deployed.config.channels[0] };
+  };
+
   it("should reuse the channels of a deleted slave with the same identifier", async () => {
     const identifier = createIdentifier();
-    const deploySlave = async () => {
-      const slave = await createSlaveDevice(client, testRack.key, {
-        identifier,
-        network: "eth0",
-        pdos: createPDOs(),
-      });
-      const { container, draft, unmount } = await renderWrite({
-        ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
-        channels: [createEntryWriteChannel(slave.key, CONTROL_ENTRY)],
-      });
-      const deployed = await deployAndAwaitTask(
-        client,
-        container,
-        draft.key,
-        EtherCAT.Task.WRITE_SCHEMAS,
-      );
-      unmount();
-      const updated = await client.devices.retrieve({
-        key: slave.key,
-        schemas: EtherCAT.Device.SLAVE_SCHEMAS,
-      });
-      return { slave: updated, channel: deployed.config.channels[0] };
-    };
-    const first = await deploySlave();
+    const first = await deploySlave(identifier);
     await client.devices.delete(first.slave.key);
-    const second = await deploySlave();
+    const second = await deploySlave(identifier);
     expect(second.channel.cmdChannel).toBe(first.channel.cmdChannel);
     expect(second.channel.stateChannel).toBe(first.channel.stateChannel);
     expect(second.slave.properties.writeStateIndex).toBe(
       first.slave.properties.writeStateIndex,
     );
+  });
+
+  it("should reuse a deleted slave's channels when a non-slave EtherCAT device exists", async () => {
+    const coupler = await client.devices.create({
+      key: id.create(),
+      name: uniqueName("ecat_coupler"),
+      rack: testRack.key,
+      location: "test-location",
+      make: EtherCAT.Device.MAKE,
+      model: "EK1100",
+      properties: {},
+    });
+    try {
+      const identifier = createIdentifier();
+      const first = await deploySlave(identifier);
+      await client.devices.delete(first.slave.key);
+      const second = await deploySlave(identifier);
+      expect(second.channel.cmdChannel).toBe(first.channel.cmdChannel);
+    } finally {
+      await client.devices.delete(coupler.key);
+    }
   });
 
   it("should reject a custom command name that a live slave's channel holds", async () => {
