@@ -227,7 +227,7 @@ const formatNumber = (
   const type = new DataType(dataType);
   if (type.isInteger && INTEGER.test(value))
     return notation.stringifyNumber(BigInt(value), precision, valueNotation);
-  if (!type.isFloat) return value;
+  if (!type.isFloat || value.trim() === "") return value;
   const number = Number(value);
   if (Number.isNaN(number)) return value;
   return notation.stringifyNumber(number, precision, valueNotation);

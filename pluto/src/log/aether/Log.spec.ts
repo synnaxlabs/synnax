@@ -1226,6 +1226,10 @@ describe("log/aether/Log", () => {
       expect(shown("12 volts", "float32", { precision: 2 })).toBe("12 volts");
     });
 
+    it("should keep a blank line of a channel that became a float", () => {
+      expect(shown("  ", "float32", { precision: 2 })).toBe("  ");
+    });
+
     it("should show the raw value before the data type loads", () => {
       expect(shown("3.14159", undefined, { precision: 2 })).toBe("3.14159");
     });
