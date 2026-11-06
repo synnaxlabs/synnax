@@ -4446,6 +4446,7 @@ var _ = Describe("Writer Behavior", func() {
 						// index commits before the conflicting one.
 						conflict := MatchError(domain.ErrWriteConflict)
 						healthyCommittedFirst := func() bool {
+							GinkgoHelper()
 							var (
 								healthy     = GenerateChannelKey()
 								conflicting = GenerateChannelKey()
