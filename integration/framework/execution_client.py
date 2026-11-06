@@ -19,6 +19,7 @@ import synnax as sy
 from framework import server_log
 from framework.config_client import ConfigClient, Sequence, TestDefinition
 from framework.models import STATUS, Log, RunOptions, SynnaxConnection, Test
+from framework.resources import Resources, Unavailable
 from framework.test_case import TestCase
 from framework.watchdog import Slots, Timeout, Watchdog, interrupt
 
@@ -42,6 +43,9 @@ _COLORS: list[str] = [
 # it.
 _TIMEOUT_GRACE = 60.0
 
+# Seconds a test can wait for its resources before the conductor logs the wait.
+_WAIT_LOGGED = 1.0
+
 
 class ExecutionClient:
     """Executes test sequences with timeout monitoring and thread management."""
@@ -51,6 +55,7 @@ class ExecutionClient:
         *,
         config_client: ConfigClient,
         synnax_connection: SynnaxConnection,
+        resources: Resources,
         options: RunOptions,
         server_log_path: Path,
         run_dir: Path,
@@ -68,6 +73,7 @@ class ExecutionClient:
     ) -> None:
         self._config_client = config_client
         self._synnax_connection = synnax_connection
+        self._resources = resources
         self._options = options
         self._server_log_path = server_log_path
         self._run_dir = run_dir
@@ -218,6 +224,8 @@ class ExecutionClient:
             t.start()
             while t.is_alive() and not self._watchdog.abandoned(t):
                 t.join(timeout=1.0)
+            if t.is_alive():
+                self._resources.abandon(t, str(test_def))
 
             self._collect_result(test_def, future)
 
@@ -277,6 +285,7 @@ class ExecutionClient:
                 if self._watchdog.abandoned(t):
                     if slots is not None:
                         slots.free(t)
+                    self._resources.abandon(t, str(td))
                     self._collect_result(td, ft)
                 elif not t.is_alive():
                     self._collect_result(td, ft)
@@ -308,11 +317,48 @@ class ExecutionClient:
             self._tests.append(result)
         self._on_test_ran()
 
+    def _resources_of(self, test_def: TestDefinition) -> frozenset[str]:
+        try:
+            return self._config_client.load_test_class(test_def).resources()
+        except Exception:
+            # A case that cannot load holds nothing. It fails with the error when it
+            # runs.
+            return frozenset()
+
     def _test_runner_thread(
         self, test_def: TestDefinition, future: Future[Test]
     ) -> None:
-        result = self._execute_single_test(test_def)
-        future.set_result(result)
+        held = self._resources_of(test_def)
+        start = time.monotonic()
+        try:
+            self._resources.acquire(held)
+        except Unavailable as e:
+            future.set_result(
+                Test(
+                    test_name=test_def.case,
+                    name=test_def.display_name,
+                    status=STATUS.FAILED,
+                    error_message=str(e),
+                )
+            )
+            return
+        waited = time.monotonic() - start
+        if waited > _WAIT_LOGGED:
+            self._log(f"{test_def} waited {waited:.1f}s for {', '.join(sorted(held))}")
+        try:
+            if self.should_stop:
+                future.set_result(
+                    Test(
+                        test_name=test_def.case,
+                        name=test_def.display_name,
+                        status=STATUS.KILLED,
+                        error_message="The run stopped before the test started",
+                    )
+                )
+                return
+            future.set_result(self._execute_single_test(test_def))
+        finally:
+            self._resources.free(threading.current_thread())
 
     def _execute_single_test(self, test_def: TestDefinition) -> Test:
         self._watchdog.watch(threading.current_thread(), timeout=test_def.timeout)

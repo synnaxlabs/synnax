@@ -26,7 +26,7 @@ from types import FrameType
 from pydantic import JsonValue
 
 import synnax as sy
-from framework import failure_report, run_dir, server_log
+from framework import failure_report, resources, run_dir, server_log
 from framework.config_client import ConfigClient, Sequence, TestDefinition
 from framework.execution_client import ExecutionClient
 from framework.log_client import LogClient, LogMode, SynnaxChannelSink
@@ -61,9 +61,12 @@ class _TestConductor:
         server_log_path: Path,
         name: str | None = None,
         synnax_connection: SynnaxConnection | None = None,
+        browsers: int | None = None,
     ) -> None:
         """
         Initialize test conductor with connection parameters.
+
+        :param browsers: Most Console tests that run at once. None means no limit.
         """
 
         # Generate or validate name
@@ -137,6 +140,7 @@ class _TestConductor:
         self.execution_client = ExecutionClient(
             config_client=self.config_client,
             synnax_connection=self.synnax_connection,
+            resources=resources.Resources({resources.BROWSER: browsers}),
             options=options,
             server_log_path=server_log_path,
             run_dir=self.run_dir,
@@ -400,6 +404,16 @@ def _monitor_test_execution(conductor: _TestConductor) -> None:
         sy.sleep(1)
 
 
+def _positive(value: str) -> int:
+    try:
+        number = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"{value!r} is not a number") from None
+    if number < 1:
+        raise argparse.ArgumentTypeError(f"{value} is not at least 1")
+    return number
+
+
 def main() -> None:
     """Main entry point for the test conductor."""
 
@@ -484,6 +498,11 @@ All matching is case-insensitive substring.
         action="store_true",
         help=("Stream test case logs as they happen instead of only after a failure"),
     )
+    parser.add_argument(
+        "--browsers",
+        type=_positive,
+        help="Most Console tests that run at once (default: no limit)",
+    )
 
     args = parser.parse_args()
 
@@ -513,6 +532,7 @@ All matching is case-insensitive substring.
         server_log_path=server_log_path,
         name=args.name,
         synnax_connection=connection,
+        browsers=args.browsers,
     )
 
     try:
