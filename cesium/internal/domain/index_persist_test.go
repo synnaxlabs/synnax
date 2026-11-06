@@ -406,6 +406,58 @@ var _ = Describe("Index Persist", Ordered, func() {
 					},
 				)
 
+				writeSecond := func(ctx SpecContext, second int) error {
+					start := telem.TimeStamp(second) * telem.SecondTS
+					return testutil.WriteDomain(
+						ctx,
+						db,
+						start.Range(start+1),
+						[]byte{byte(second)},
+					)
+				}
+				secondRanges := func(seconds ...int) []telem.TimeRange {
+					ranges := make([]telem.TimeRange, len(seconds))
+					for i, second := range seconds {
+						start := telem.TimeStamp(second) * telem.SecondTS
+						ranges[i] = start.Range(start + 1)
+					}
+					return ranges
+				}
+
+				It(
+					"Should write only the pointers after the last persist",
+					func(ctx SpecContext) {
+						var written []int
+						hooked.writeAt = func(p []byte) error {
+							written = append(written, len(p))
+							return nil
+						}
+						for second := 1; second <= 4; second++ {
+							Expect(writeSecond(ctx, second)).To(Succeed())
+						}
+						hooked.writeAt = nil
+						Expect(written).To(HaveLen(4))
+						Expect(written).To(HaveEach(written[0]))
+						expectDomains(
+							ctx,
+							[]byte{1, 2, 3, 4},
+							secondRanges(1, 2, 3, 4)...,
+						)
+					},
+				)
+
+				It(
+					"Should rewrite the pointers a failed write left out",
+					func(ctx SpecContext) {
+						Expect(writeSecond(ctx, 1)).To(Succeed())
+						hooked.writeAt = func([]byte) error { return ErrFault }
+						Expect(writeSecond(ctx, 2)).To(MatchError(ErrFault))
+						hooked.writeAt = nil
+						Expect(writeSecond(ctx, 3)).To(Succeed())
+						expectDomains(ctx, []byte{1, 2, 3}, secondRanges(1, 2, 3)...)
+					},
+				)
+
 				It(
 					"Should persist a shorter index than the last write",
 					func(ctx SpecContext) {

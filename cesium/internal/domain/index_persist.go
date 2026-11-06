@@ -39,10 +39,17 @@ func (ip *indexPersist) load() ([]pointer, error) {
 	return ip.p.load()
 }
 
-// prepare encodes the pointers from start on, so the returned write can run after the
-// pointers change. Prepared writes run in the order they prepare, so the caller must
-// hold idx.mu and must run the returned write.
+// prepare encodes the pointers from start or from the first unpersisted pointer, if
+// earlier, so the returned write can run after the pointers change. Prepared writes run
+// in the order they prepare, so the caller must hold idx.mu for writing and must run
+// the returned write.
 func (ip *indexPersist) prepare(start int) preparedWrite {
+	start = min(start, ip.idx.persistHead)
+	// A failed write can leave any range of the file stale.
+	if ip.p.failed.Swap(false) {
+		start = 0
+	}
+	ip.idx.persistHead = len(ip.idx.mu.pointers)
 	buf, ok := ip.p.buffers.Get().(*[]byte)
 	if !ok {
 		buf = new([]byte)
@@ -66,10 +73,15 @@ type preparedWrite struct {
 	ticket uint64
 }
 
-func (w preparedWrite) run() error {
+func (w preparedWrite) run() (err error) {
 	defer w.p.buffers.Put(w.buf)
 	w.p.Lock()
 	defer w.p.Unlock()
+	defer func() {
+		if err != nil {
+			w.p.failed.Store(true)
+		}
+	}()
 	for w.p.nextTicket != w.ticket {
 		w.p.ticketDone.Wait()
 	}
@@ -80,7 +92,7 @@ func (w preparedWrite) run() error {
 	if err := w.p.Truncate(int64(w.count) * pointerByteSize); err != nil {
 		return err
 	}
-	_, err := w.p.WriteAt(*w.buf, int64(w.start*pointerByteSize))
+	_, err = w.p.WriteAt(*w.buf, int64(w.start*pointerByteSize))
 	return err
 }
 
@@ -99,6 +111,8 @@ type pointerPersist struct {
 	tickets    atomic.Uint64
 	ticketDone sync.Cond
 	nextTicket uint64
+	// failed is set when a write fails, so the next prepare rewrites every pointer.
+	failed atomic.Bool
 }
 
 func openPointerPersist(fs fs.FS) (*pointerPersist, error) {
