@@ -21,13 +21,6 @@
 #include "driver/ethercat/telem/telem.h"
 
 namespace driver::ethercat::soem {
-/// Timeout for the SAFE-OP, OP, and INIT transitions in microseconds.
-const int STATE_CHANGE_TIMEOUT = static_cast<int>(
-    (x::telem::SECOND * 2).microseconds()
-);
-/// Timeout for the slaves to reach PRE-OP after discovery in microseconds. It stays
-/// at the PreopTimeout of the ESI files.
-const int PRE_OP_TIMEOUT = static_cast<int>((x::telem::SECOND * 2).microseconds());
 /// Timeout for cyclic process data exchange in microseconds.
 const int PROCESSDATA_TIMEOUT = static_cast<int>(x::telem::MILLISECOND.microseconds());
 /// Time between state reads while slaves move to OP.
@@ -36,6 +29,13 @@ const auto OP_POLL_INTERVAL = x::telem::MILLISECOND;
 const int RECOVERY_TIMEOUT = static_cast<int>(
     (x::telem::MILLISECOND * 500).microseconds()
 );
+namespace {
+/// @brief converts a span to the microseconds that SOEM timeouts take.
+int micros(const x::telem::TimeSpan span) {
+    return static_cast<int>(span.microseconds());
+}
+}
+
 /// The distributed clock epoch, 2000-01-01, as a Unix timestamp.
 const x::telem::TimeStamp DC_EPOCH(x::telem::SECOND * 946684800);
 
@@ -63,9 +63,10 @@ constexpr uint16_t RXPDO_MAPPING_END = 0x17FF;
 
 /// @}
 
-Master::Master(std::unique_ptr<API> api, std::string interface_name):
+Master::Master(std::unique_ptr<API> api, std::string interface_name, const Config cfg):
     iface_name(std::move(interface_name)),
     api(std::move(api)),
+    cfg(cfg),
     iomap(DEFAULT_IOMAP_SIZE, 0),
     input_sz(0),
     output_sz(0),
@@ -103,7 +104,7 @@ x::errors::Error Master::initialize() {
 
     // config_init requests PRE-OP without waiting for it, and SOEM sends no mailbox
     // request to a slave whose last read state is below PRE-OP.
-    this->api->statecheck(0, EC_STATE_PRE_OP, PRE_OP_TIMEOUT);
+    this->api->statecheck(0, EC_STATE_PRE_OP, micros(this->cfg.pre_op_timeout));
     this->api->readstate();
     this->populate_slaves();
     this->initialized = true;
@@ -163,18 +164,24 @@ x::errors::Error Master::activate() {
     this->expected_wkc = (this->api->group_outputsWKC(ENABLED_GROUP) * 2) +
                          this->api->group_inputsWKC(ENABLED_GROUP);
 
-    auto err = this->request_state(EC_STATE_SAFE_OP, STATE_CHANGE_TIMEOUT);
+    auto err = this->request_state(
+        EC_STATE_SAFE_OP,
+        micros(this->cfg.state_change_timeout)
+    );
     if (err) return err;
 
     err = this->request_operational();
     if (err) {
         LOG(WARNING) << "OP transition failed: " << err.message()
                      << "; attempting recovery to SAFE_OP";
-        auto recovery_err = this->request_state(EC_STATE_SAFE_OP, STATE_CHANGE_TIMEOUT);
+        auto recovery_err = this->request_state(
+            EC_STATE_SAFE_OP,
+            micros(this->cfg.state_change_timeout)
+        );
         if (recovery_err) {
             LOG(ERROR) << "Recovery to SAFE_OP failed: " << recovery_err.message()
                        << "; forcing INIT state";
-            this->request_state(EC_STATE_INIT, STATE_CHANGE_TIMEOUT);
+            this->request_state(EC_STATE_INIT, micros(this->cfg.state_change_timeout));
         }
         return err;
     }
@@ -186,7 +193,7 @@ x::errors::Error Master::activate() {
 
 void Master::deactivate() {
     if (this->activated) {
-        this->request_state(EC_STATE_INIT, STATE_CHANGE_TIMEOUT);
+        this->request_state(EC_STATE_INIT, micros(this->cfg.state_change_timeout));
         this->activated = false;
         this->expected_wkc = 0;
         this->has_dc = false;
@@ -917,7 +924,7 @@ x::errors::Error Master::request_operational() {
         this->api->writestate(i);
     }
     const auto deadline = std::chrono::steady_clock::now() +
-                          std::chrono::microseconds(STATE_CHANGE_TIMEOUT);
+                          this->cfg.state_change_timeout.chrono();
     while (true) {
         this->api->send_processdata(ENABLED_GROUP);
         this->api->receive_processdata(ENABLED_GROUP, PROCESSDATA_TIMEOUT);
