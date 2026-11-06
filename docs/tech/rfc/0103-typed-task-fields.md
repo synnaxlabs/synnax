@@ -8,10 +8,10 @@
 ## 0 Summary
 
 HTTP, Kafka, and MQTT tasks describe a JSON value with flat fields and an `any` value.
-Most mixes mean nothing, the Core stores them all, and each runtime handles them
-differently. Numbers are `float64`, so they lose digits past 2^53 on 64-bit channels.
-HTTP rejects JSON, UUID, and bytes channels. OPC UA `array_size` and Modbus
-`string_length` have the same shape problem.
+The Core stores any mix, and each runtime handles a bad one differently. Numbers are
+`float64`, so they lose digits past 2^53 on 64-bit channels. HTTP rejects JSON, UUID,
+and bytes channels. OPC UA `array_size` and Modbus `string_length` have the same shape
+problem.
 
 Each field becomes a union on a shared `Kind`, in a new X package, `payload`. The Core
 checks each kind against the channel on write. No schema holds `any`.
@@ -46,9 +46,8 @@ BooleanRead   struct { enum_values BooleanEntry[]  fill bool? }
 TimestampRead struct { time_format TimeFormat  fill telem.TimeStamp? }
 WriteField union on type Kind extends BaseWriteField {
     float { value float64 }  integer { value Integer }  unsigned { value Unsigned }
-    string { value string }  boolean { value bool }
-    timestamp { time_format TimeFormat = iso8601 }
-    json { value string }  uuid {}  bytes { value string }
+    string { value string }  boolean { value bool }  json { value string }  uuid {}
+    timestamp { time_format TimeFormat = iso8601 }  bytes { value string }
 }
 ```
 
@@ -79,12 +78,11 @@ ChannelField union on type payload.Kind extends BaseChannelField {
 channel field with `enum_values` writes a value's label. `string` writes the value as
 text, and `boolean` as true or false.
 
-OPC UA v2 replaces `array_mode` and `array_size`. Modbus v3 replaces `string_length`,
-and its `WriteChannel` stays an alias.
+OPC UA v2 replaces `array_mode` and `array_size` with `sampling Sampling = unary`.
+Modbus v3 replaces `string_length`, and its `WriteChannel` stays an alias.
 
 ```
 Sampling union on type { unary {}  array { size int32 = 1 } }
-ReadConfig struct extends task.ReadConfig { sampling Sampling = unary ... }
 RegisterString struct { length int32  bytes_swapped bool? }
 ReadChannel gains holding_register_string and input_register_string extends RegisterString
 ```
@@ -98,10 +96,9 @@ are distinct types with the JSON string form of `telem.TimeStamp` and `telem.Ali
 `int64` range are shape errors, and `Unsigned` holds up to 2^64 - 1 at every layer.
 `nan` exists only on `FloatFill`.
 
-Go uses `int64` and `uint64` with hand methods in `x/go/payload`. C++ `Parser` reads
-digits from a string (`json.h:591`). TypeScript holds a decimal `string`, so forms hold
-no `bigint`, and the Console uses a text input that checks digits, then the range with
-`BigInt`. Python uses an `int` subclass that dumps a string, as `TimeStamp` does.
+Go has hand methods in `x/go/payload`. C++ `Parser` reads digits from a string
+(`json.h:591`). TypeScript holds a decimal `string`, and the Console uses a text input
+that checks range with `BigInt`. Python uses an `int` subclass that dumps a string.
 
 JSON numbers parse exactly today in Go and C++. Phase 3 fixes the three inexact places:
 `xjson.Enum.Value` and `x::json::EnumMap` hold a float, `Encoder.Append` compares enums
@@ -117,13 +114,13 @@ the only enabled field of its endpoint, record, or entry. A raw channel field is
 whole payload, and on Kafka this is an empty `value_pointer`.
 
 - **`x/go/json`**: `NewDecoder` rejects `BytesT`, and `Encoder` quotes raw bytes.
-- **Kafka**: `read_task.go:159` and `write_task.go:261` reject an empty pointer. They
-  keep rejecting it on each kind but `bytes`.
+- **Kafka**: `read_task.go:159` and `write_task.go:261` allow an empty pointer on
+  `bytes`.
 - **MQTT and HTTP**: A `bytes` field with an empty pointer skips `readTopic.extract` and
   the body parse. `driver/http/read_task.cpp:112` drops its rejection.
-- **`x/cpp`**: `to_sample_value` needs `BYTES_T`, and `x::base64::decode` needs a strict
-  form. `Series(string, DataType)` and `at<std::string>` reject `BYTES_T`.
-  `variable_samples` (`driver/opcua/telem/telem.cpp:99`) moves to `Series`.
+- **`x/cpp`**: `to_sample_value` and `Series` take `BYTES_T`, and `x::base64::decode`
+  gets a strict form. `variable_samples` (`driver/opcua/telem/telem.cpp:99`) moves to
+  `Series`.
 
 OPC UA has bytes and UUID through `data_type`. Modbus, NI, LabJack, and EtherCAT stay.
 
@@ -142,7 +139,7 @@ OPC UA has bytes and UUID through `data_type`. Modbus, NI, LabJack, and EtherCAT
 A numeric kind still takes a JSON boolean as 0 or 1, and an enum label. `data_type` is
 optional: with channel 0 it states the width for a new channel. A field with no fill is
 required. The absent rule stays as #4594 has it: no value at the pointer, `null`, or an
-empty string on a non-string channel. `json`, `uuid`, and `bytes` reads take no fill.
+empty string on a non-string channel.
 
 ## 5 Rules by layer
 
@@ -166,23 +163,22 @@ which the conversions reject today. JSON and UUID samples are strings
 (`driver/opcua/telem/telem.h:36`), so a new `Series(SampleValue, DataType)` keeps the
 channel's type. `Series::at` throws on `UUID_T`, so the write path reads `uuids()`.
 
-**Console**: The data type select sets the kind, and each variant shows its own inputs.
-`DataTypeField` stops hiding JSON, UUID, and bytes. `Task.configureReadChannels` derives
-`dataType` from the kind. Phase 12 is atomic across four languages, so a Console adapter
-keeps it near 400 lines, and Phase 14 deletes the adapter.
+**Console**: The data type select sets the kind, each variant shows its own inputs, and
+`DataTypeField` stops hiding JSON, UUID, and bytes. Phase 12 is atomic across four
+languages, so a Console adapter keeps it near 400 lines. Phase 14 deletes it.
 
 ## 6 Migration
 
-`MigrateReadField` is pure, for the envelope ladder, and uses the stored `data_type`.
-Float stays `float`. Signed and unsigned become `integer` and `unsigned`. `boolean`
-entries become `value != 0`. `string` drops its entries, as no conversion read them.
-`timestamp` with no `time_format` takes `iso8601`. JSON, UUID, and bytes keep their
-kind.
+`MigrateReadField` is pure, for the envelope ladder, and uses the stored `data_type`. A
+numeric type picks its kind. `boolean` entries become `value != 0`. `string` drops its
+entries, as no conversion read them. `timestamp` with no `time_format` takes `iso8601`.
 
 - **Entries**: A `float64` entry converts when it is whole and fits the kind. Others
   drop with a warning, as they failed at run time.
-- **#4594 fill**: `optional` with no fill is `nan`. A number is `value`, and an enum
-  label is `label`.
+- **#4594 fill**: A number is `value`, and an enum label is `label`. `optional` with no
+  fill is `nan` on `float`. On each other kind the Driver rejected it, so it was never a
+  working config: it becomes no fill, the field warns as usual, and the migration logs
+  it.
 - **Channel field**: A stored `timestamp` data type wins. `json_type: string` with
   entries, or `number`, becomes the numeric kind. `string` with no entries stays
   `string`.
@@ -194,9 +190,9 @@ kind.
 
 `Reconcile` corrects a field from its channel, because the Driver never read the stored
 `data_type`, and the HTTP default is `float64`. It sets the kind from §4 and clears
-`data_type`. Between numeric kinds it converts entries and fills, by the same rule. For
-other kinds it drops them. It logs one warning per corrected field, which also names a
-foreign key that matched an unrelated local channel.
+`data_type`. Between numeric kinds it converts entries and fills, by the same rules, so
+a `nan` fill becomes no fill. For other kinds it drops them. It logs one warning per
+corrected field, which also names a foreign key that matched an unrelated local channel.
 
 - **Boot**: `versions.ReadMigrations` becomes `NewReadMigrations(channels)`, as
   `ethercat/versions/v2/resolve.go` does. The Channel service opens first
@@ -207,8 +203,7 @@ foreign key that matched an unrelated local channel.
   migration quarantines the task. Client writes do not reconcile.
 
 OPC UA v1 `array_mode: true` lifts to `array`. A Modbus `string` data type lifts to the
-string variant. A released Core keeps reading v2, v3, and v0.58 to v0.59 envelopes,
-because frozen packages do not change. Dev Cores are not owed a migration.
+string variant. A released Core keeps reading v2, v3, and v0.58 to v0.59 envelopes.
 
 ## 7 Implementation phases
 
@@ -216,11 +211,16 @@ because frozen packages do not change. Dev Cores are not owed a migration.
 1 to 15 has landed. Phase 13 removes `EnumEntry`, `JSONType`, and `GeneratorType`.
 
 No schema or test uses a qualified variant `extends` or borrowed discriminator. Phase 1
-tests both, and the fallbacks are `integer payload.IntegerRead` and one `Kind` per
-integration. Phase 2 moves Kafka, MQTT, and http v4 together, because a lagging pin
-fails `oracle/check/versions_gate.go`. An older Driver reads an absent `array_mode` as
-false and runs an array task as unary with no error, so the Core and the Driver must
-upgrade together for these shapes.
+tests both, with `integer payload.IntegerRead` and one `Kind` per integration as
+fallbacks.
+
+The embedded Driver ships inside the Core (`core/pkg/driver`), so it always matches.
+Only a standalone Driver on a remote rack can lag, and it fails silently on three
+shapes, while the others fail loudly: an absent `array_mode` reads as false and runs an
+array task as unary, an absent `json_type` reads as `number` and sends a number for a
+`string` or `boolean` channel field, and an enum entry past 2^53 rounds. Upgrade
+standalone Drivers with the Core for these shapes, and the release notes for the release
+that ends the hold must say so.
 
 | Phase | Scope                                                 | Touches                                                                                                               | Depends on         |
 | ----- | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------------ |
