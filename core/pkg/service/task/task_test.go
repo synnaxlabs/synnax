@@ -60,6 +60,7 @@ var _ = Describe("Task", Ordered, func() {
 		stat        *status.Service
 		rangeSvc    *ranger.Service
 		configs     config.Registry
+		testArc     arc.Key
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
@@ -92,6 +93,11 @@ var _ = Describe("Task", Ordered, func() {
 			Group:    g,
 		}))
 		pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
+		MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
+		a := arc.Arc{Key: uuid.New(), Name: "Test Arc"}
+		Expect(gorp.NewCreate[arc.Key, arc.Arc]().Entry(&a).Exec(ctx, db)).
+			To(Succeed())
+		testArc = a.Key
 		at := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))
 		lj := MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{DB: db}))
 		configs = MustSucceed(config.NewRegistry(
@@ -815,7 +821,7 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   arctask.Type,
 				Rack:   testRack.Key,
 				Name:   "Arc",
-				Config: msgpack.EncodedJSON{"arc_key": uuid.New().String()},
+				Config: msgpack.EncodedJSON{"arc_key": testArc.String()},
 			}
 			createCommitted(ctx, arcTask)
 			Expect(svc.Dispatch(ctx, arcTask.Key, "dk", []task.Action{
@@ -910,7 +916,7 @@ var _ = Describe("Task", Ordered, func() {
 					Rack: testRack.Key,
 					Name: "Arc",
 					Config: msgpack.EncodedJSON{
-						"arc_key":     uuid.New().String(),
+						"arc_key":     testArc.String(),
 						"performance": "high",
 					},
 				}

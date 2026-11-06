@@ -661,6 +661,14 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Kafka) {
 		return nil, err
 	}
+	// Arc task configs reference Arcs, and the task migrations write them.
+	arcTable, err := arc.OpenTable(ctx, arc.TableConfig{
+		Instrumentation: cfg.Child("arc"),
+		DB:              cfg.Distribution.DB,
+	})
+	if !ok(err, arcTable) {
+		return nil, err
+	}
 	if l.ArcTask, err = arctask.OpenService(ctx, arctask.ServiceConfig{
 		Instrumentation: cfg.Child("arc_task"),
 		DB:              cfg.Distribution.DB,
@@ -715,6 +723,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		arc.ServiceConfig{
 			Instrumentation: cfg.Child("arc"),
 			DB:              cfg.Distribution.DB,
+			Table:           arcTable,
 			Ontology:        l.Ontology,
 			Channel:         l.Channel,
 			Task:            l.Task,

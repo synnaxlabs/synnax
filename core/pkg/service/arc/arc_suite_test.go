@@ -88,6 +88,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DriverRole:          MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
 	}))
 	imexSvc = imex.NewService()
+	arcTable := MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
 	arcTaskSvc = MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{
 		DB: db,
 	}))
@@ -105,6 +106,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	Expect(rackSvc.NewWriter(db).Create(ctx, testRack)).To(Succeed())
 	svc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
 		DB:                  db,
+		Table:               arcTable,
 		Ontology:            otg,
 		Channel:             channelSvc,
 		Task:                taskSvc,

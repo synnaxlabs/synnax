@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
@@ -186,7 +187,11 @@ var _ = Describe("Migrations", func() {
 			testRack := &rack.Rack{Name: "Decompose Test Rack"}
 			Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
 
-			arcModuleKey := uuid.New().String()
+			MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
+			arcModule := arc.Arc{Key: uuid.New(), Name: "Stored Arc"}
+			Expect(gorp.NewCreate[arc.Key, arc.Arc]().Entry(&arcModule).Exec(ctx, db)).
+				To(Succeed())
+			arcModuleKey := arcModule.Key.String()
 			pdTask := v1.Task{
 				Key:  v1.Key(uint64(testRack.Key)<<32 | 1),
 				Name: "Stored PD Task",

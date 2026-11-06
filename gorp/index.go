@@ -139,37 +139,6 @@ func indexFilter[K Key, E Entry[K], V comparable](
 	}
 }
 
-// filterAs returns a Filter on entries of type F that matches the keys store maps to
-// any of values. It leaves out the commits in flight, and it fails with ErrIndexInvalid
-// in place of a scan, since an F may not hold the indexed field.
-func filterAs[K Key, F Entry[K], V comparable](
-	name string,
-	store indexStore[K, V],
-	values []V,
-) Filter[K, F] {
-	captured := slices.Clone(values)
-	return Filter[K, F]{
-		resolve: func(ctx context.Context, tx Tx) (resolved[K, F], error) {
-			if err := store.Wait(ctx); err != nil {
-				return resolved[K, F]{}, err
-			}
-			keys, err := store.Get(scopeOf(tx), captured...)
-			if err != nil {
-				return resolved[K, F]{}, err
-			}
-			return resolved[K, F]{
-				keys: keyset.Hashed(keys),
-				eval: func(Context, *F, []byte, []byte) (bool, error) {
-					return true, nil
-				},
-			}, nil
-		},
-		eval: func(Context, *F, []byte, []byte) (bool, error) {
-			return false, errors.Wrapf(ErrIndexInvalid, "%q cannot scan entries", name)
-		},
-	}
-}
-
 // holdsValue returns a predicate reporting whether the field that extract reads is any
 // of values.
 func holdsValue[E any, V comparable](extract func(e *E) V) func(*E, []V) bool {
@@ -256,15 +225,6 @@ func (l *LookupIndex[K, E, V]) Get(
 // queries continue to return correct results at scan cost.
 func (l *LookupIndex[K, E, V]) Filter(values ...V) Filter[K, E] {
 	return indexFilter[K, E](l.store, holdsValue(l.extract), values)
-}
-
-// FilterAs returns a Filter on entries of type F that matches the entries whose indexed
-// field is any of values. Use it to read another table that stores entries under the
-// same keys. It sees the changes staged in the transaction it runs in. Unlike Filter,
-// it leaves out the commits in flight, and it fails with ErrIndexInvalid instead of a
-// scan when the index failed to populate.
-func (l *LookupIndex[K, E, V]) FilterAs[F Entry[K]](values ...V) Filter[K, F] {
-	return filterAs[K, F](l.name, l.store, values)
 }
 
 // SortedIndex is an ordered in-memory index on a field of type V extracted from entries

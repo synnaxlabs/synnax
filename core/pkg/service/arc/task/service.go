@@ -75,7 +75,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Instrumentation:    cfg.Instrumentation,
 			Type:               Type,
 			Migrations:         versions.Migrations,
-			Indexes:            s.indexes.all(),
+			References:         s.indexes.references(),
 			LegacyVersion:      legacy.LastVersion,
 			Ladder:             versions.ConfigLadder,
 			Legacy:             &legacy.Config,

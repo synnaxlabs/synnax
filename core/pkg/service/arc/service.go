@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/ranges"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -47,6 +46,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
+	// Table stores the Arcs. The caller opens it, and closes it after the Service.
+	//
+	// [REQUIRED]
+	Table *Table
 	// Ontology is used to define relationships between Arcs and other entities in the
 	// Synnax resource graph.
 	//
@@ -108,6 +111,7 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
+	c.Table = override.Nil(c.Table, other.Table)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Channel = override.Nil(c.Channel, other.Channel)
@@ -133,6 +137,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("arc")
 	v.NotNil("db", c.DB)
+	v.NotNil("table", c.Table)
 	v.NotNil("ontology", c.Ontology)
 	v.NotNil("channel", c.Channel)
 	v.NotNil("task", c.Task)
@@ -248,7 +253,8 @@ func OpenService(
 	s = &Service{
 		cfg:     cfg,
 		state:   actions.NewState[Key, Action](cfg.DB),
-		indexes: newIndexes(),
+		table:   cfg.Table.table,
+		indexes: cfg.Table.indexes,
 		sweeper: newTextSweeper(
 			cfg.Now,
 			cfg.TextSweepQuiescence,
@@ -257,14 +263,6 @@ func OpenService(
 	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Arc]{
-		DB:              cfg.DB,
-		Indexes:         s.indexes.all(),
-		Migrations:      versions.Migrations,
-		Instrumentation: cfg.Instrumentation,
-	}); !ok(err, s.table) {
-		return nil, err
-	}
 	if s.taskSync, err = debounce.NewKeyed(debounce.KeyedConfig[Key]{
 		Delay:    cfg.TaskSyncDebounce.Duration(),
 		MaxDelay: cfg.TaskSyncDebounce.Duration() * 4,

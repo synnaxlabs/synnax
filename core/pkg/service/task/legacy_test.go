@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -340,6 +341,15 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			Status:   statusSvc,
 			Rack:     rackSvc,
 		}))
+		MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
+		// The Arcs the Arc fixtures run.
+		Expect(gorp.NewCreate[arc.Key, arc.Arc]().Entries(&[]arc.Arc{
+			{Key: uuid.MustParse("3f5b0f65-40f5-4b2e-9c3a-8f4de1c07a42"), Name: "arc"},
+			{
+				Key:  uuid.MustParse("9e2d61c8-7a13-4f0b-b5d9-1c6f2a84e357"),
+				Name: "arc_py",
+			},
+		}).Exec(ctx, db)).To(Succeed())
 		var stores []config.Store
 		stores = append(
 			stores,

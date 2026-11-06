@@ -183,6 +183,8 @@ var _ = Describe("Writer", func() {
 		It("Should delete child tasks when deleting an Arc", func(ctx SpecContext) {
 			a := arc.Arc{Name: "arc-with-task", Mode: arc.ModeText}
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
+			b := arc.Arc{Name: "other-arc", Mode: arc.ModeText}
+			Expect(svc.NewWriter(tx).Create(ctx, &b)).To(Succeed())
 
 			t := &task.Task{
 				Rack:   testRack.Key,
@@ -194,7 +196,7 @@ var _ = Describe("Writer", func() {
 				Rack:   testRack.Key,
 				Name:   "other-arc-task",
 				Type:   arc.TaskType,
-				Config: msgpack.EncodedJSON{"arc_key": uuid.New().String()},
+				Config: msgpack.EncodedJSON{"arc_key": b.Key.String()},
 			}
 			Expect(taskSvc.NewWriter(tx).Create(ctx, t)).To(Succeed())
 			Expect(taskSvc.NewWriter(tx).Create(ctx, other)).To(Succeed())

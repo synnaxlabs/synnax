@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -24,11 +25,17 @@ import (
 
 var _ = Describe("Tasks", func() {
 	var (
-		svc   *arctask.Service
-		tasks *tasktestutil.Tasks
+		svc    *arctask.Service
+		tasks  *tasktestutil.Tasks
+		arcKey arc.Key
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
+		a := arc.Arc{Key: uuid.New(), Name: "arc"}
+		Expect(gorp.NewCreate[arc.Key, arc.Arc]().Entry(&a).Exec(ctx, db)).
+			To(Succeed())
+		arcKey = a.Key
 		svc = MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))
 		tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
 			DB:     db,
@@ -37,7 +44,6 @@ var _ = Describe("Tasks", func() {
 	})
 
 	It("Should create a task whose config lives in the store", func(ctx SpecContext) {
-		arcKey := uuid.New()
 		key := MustSucceed(tasks.Create(ctx, svc.Config, msgpack.EncodedJSON{
 			"arc_key": arcKey.String(),
 		}))

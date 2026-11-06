@@ -103,6 +103,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
 	}))
 	pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
+	arcTable := MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
 	arcTaskSvc := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))
 	taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:       db,
@@ -126,6 +127,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	arcSvc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
 		DB:         db,
+		Table:      arcTable,
 		Ontology:   otg,
 		Channel:    channelSvc,
 		Task:       taskSvc,

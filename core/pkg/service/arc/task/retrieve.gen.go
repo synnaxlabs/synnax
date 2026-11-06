@@ -23,7 +23,7 @@ import (
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	arcKey *gorp.LookupIndex[uuid.UUID, Config, arc.Key]
+	arcKey *gorp.KeyReference[uuid.UUID, Config, arc.Key]
 }
 
 // newIndexes constructs a fresh indexes value, allocating one instance of each
@@ -31,17 +31,27 @@ type indexes struct {
 // Service struct.
 func newIndexes() indexes {
 	return indexes{
-		arcKey: gorp.NewLookupIndex[uuid.UUID, Config, arc.Key](
-			"arc_key",
-			func(e *Config) arc.Key { return e.ArcKey },
-		),
+		arcKey: gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, Config, arc.Key]{
+			Name:     "arc_key",
+			Table:    "arc",
+			OnDelete: gorp.Restrict,
+			Targets: func(e *Config) []arc.Key {
+				return []arc.Key{e.ArcKey}
+			},
+		}),
 	}
 }
 
 // all returns the indexes packaged as a heterogeneous slice for registration
 // via gorp.TableConfig.Indexes when opening the underlying table.
 func (i indexes) all() []gorp.Index[uuid.UUID, Config] {
-	return []gorp.Index[uuid.UUID, Config]{
+	return []gorp.Index[uuid.UUID, Config]{}
+}
+
+// references returns the references packaged for registration via
+// gorp.TableConfig.References when opening the underlying table.
+func (i indexes) references() []gorp.Reference[uuid.UUID, Config] {
+	return []gorp.Reference[uuid.UUID, Config]{
 		i.arcKey,
 	}
 }

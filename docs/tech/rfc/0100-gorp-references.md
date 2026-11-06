@@ -183,7 +183,7 @@ within one node (§8).
 | `device.rack rack.Key`         | restrict         | field and `parent` edge   |
 | `device.parent device.Key?`    | cascade, acyclic | `parent` edge             |
 | `task.rack rack.Key`           | cascade          | field                     |
-| Arc task `arc_key`             | cascade          | field and `parent` edge   |
+| Arc task `arc_key`             | restrict         | field and `parent` edge   |
 | `range.parent ranger.Key?`     | cascade, acyclic | `parent` edge             |
 | `<labeled>.labels label.Key[]` | detach           | `labeled_by` edge         |
 | `status.owner resource.ID?`    | cascade, unique  | text in the status key    |
@@ -206,7 +206,9 @@ visualization: schematic, line plot, log, table, and panel. A visualization hold
 exactly one of `project` and `range`, and one shared validator checks it. Alias and
 key-value pairs keep their composite keys, which Oracle derives from the `@key` fields.
 A task config refuses the delete of a channel or device it reads or writes, so a running
-task never loses one. A detach from a line plot also clears the lines of that channel.
+task never loses one. The `arc_key` reference sits on the config record, where a cascade
+would delete only the config, so the Arc writer deletes the tasks of an Arc first. A
+detach from a line plot also clears the lines of that channel.
 
 ### 4.3 Groups
 

@@ -27,8 +27,8 @@ Performance enum {
 
 Config struct extends task.PersistConfig {
     arc_key     arc.Key     {
-        @doc value    "is the key of the Arc module the task executes."
-        @index lookup
+        @doc value     "is the key of the Arc module the task executes."
+        @ref on_delete restrict
     }
     hash        string = "" {
         @doc value "is the semantic hash of the Arc module at deploy time."

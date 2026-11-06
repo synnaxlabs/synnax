@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/task/versions"
 	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
@@ -25,11 +26,17 @@ import (
 
 var _ = Describe("Service", func() {
 	var (
-		svc   *arctask.Service
-		tasks *tasktestutil.Tasks
+		svc    *arctask.Service
+		tasks  *tasktestutil.Tasks
+		arcKey arc.Key
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
+		a := arc.Arc{Key: uuid.New(), Name: "arc"}
+		Expect(gorp.NewCreate[arc.Key, arc.Arc]().Entry(&a).Exec(ctx, db)).
+			To(Succeed())
+		arcKey = a.Key
 		svc = MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{
 			DB: db,
 		}))
@@ -60,7 +67,6 @@ var _ = Describe("Service", func() {
 		It("Should store a decoded config under the given key", func(
 			ctx SpecContext,
 		) {
-			arcKey := uuid.New()
 			key := MustSucceed(tasks.Create(ctx, svc.Config, msgpack.EncodedJSON{
 				"arc_key":     arcKey.String(),
 				"performance": "high",
@@ -73,10 +79,19 @@ var _ = Describe("Service", func() {
 
 		It("Should apply schema defaults to absent fields", func(ctx SpecContext) {
 			key := MustSucceed(tasks.Create(ctx, svc.Config, msgpack.EncodedJSON{
-				"arc_key": uuid.New().String(),
+				"arc_key": arcKey.String(),
 			}))
 			data := MustSucceed(svc.Config.Read(ctx, nil, key))
 			Expect(data["performance"]).To(Equal("auto"))
+		})
+
+		It("Should reject a config whose Arc does not exist", func(ctx SpecContext) {
+			missing := uuid.New()
+			Expect(tasks.Create(ctx, svc.Config, msgpack.EncodedJSON{
+				"arc_key": missing.String(),
+			})).Error().To(MatchError(ContainSubstring(
+				"arc_key: arc " + missing.String() + " does not exist",
+			)))
 		})
 
 		It(
