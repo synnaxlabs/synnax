@@ -36,9 +36,9 @@ export const useOpen = (): ((resource: resource.Resource) => void) => {
   const store = Session.useStore();
   const handleError = Status.useErrorHandler();
   const { capture } = Analytics.use();
-  return (resource) => {
+  return (item) => {
     if (client == null) return;
-    const channelKey = Number(resource.id.key);
+    const channelKey = Number(item.id.key);
     handleError(async () => {
       const virtual = isPlainVirtual(await client.channels.retrieve(channelKey));
       const focusedTab = getFocusedTab();

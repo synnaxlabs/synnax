@@ -61,11 +61,12 @@ class Client:
         :param term: The text that a resource must match. An empty term matches every
             resource.
         :param types: Limits the search to resources of these types.
-        :param limit: The maximum number of resources to return. Defaults to 100.
-        :param offset: The number of closest matches to skip.
+        :param limit: The maximum number of resources to return, at most 1000.
+            Defaults to 100.
+        :param offset: The number of closest matches to skip, at most 10000.
         :returns: The matching resources, closest match first.
-        :raises ValidationError: If a type is unknown, or the limit or offset is
-            negative.
+        :raises ValidationError: If a type is unknown, or the limit or offset is out of
+            bounds.
         """
         req = _SearchRequest(term=term, types=types, limit=limit, offset=offset)
         return self._client.send("/resource/search", req, _Response).resources

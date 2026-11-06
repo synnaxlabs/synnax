@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor } from "@synnaxlabs/x";
+import { array, type destructor, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { query } from "@/query";
@@ -28,9 +28,9 @@ const searchReqZ = z.object({
   term: z.string(),
   /** Limits the search to resources of these types. Empty searches every type. */
   types: typeZ.array().optional(),
-  /** The maximum number of resources to return. Zero returns at most 100. */
+  /** The maximum number of resources to return, at most 1000. Zero returns 100. */
   limit: z.int().optional(),
-  /** The number of closest matches to skip. */
+  /** The number of closest matches to skip, at most 10000. */
   offset: z.int().optional(),
 });
 /** Selects the resources that {@link Client.search} returns. */
@@ -40,14 +40,19 @@ export interface SearchParams extends z.input<typeof searchReqZ> {}
 type Search = {
   term?: string;
   types?: Type[];
-  limit?: number;
+  limit: number;
   offset?: number;
 };
 
+/** The number of resources that the Core returns for a search that sets no limit. */
+const DEFAULT_LIMIT = 100;
+
+// A search with no limit still has the Core's cap, so the cache must know it to fill a
+// slot that a delete empties.
 const normalize = ({ term, types, limit, offset }: SearchParams): Search => ({
   ...(term !== "" && { term }),
   ...(types != null && types.length > 0 && { types }),
-  ...(limit != null && limit > 0 && { limit }),
+  limit: limit != null && limit > 0 ? limit : DEFAULT_LIMIT,
   ...(offset != null && offset > 0 && { offset }),
 });
 
@@ -71,8 +76,11 @@ export interface Channels {
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
-  /** The change channels of each type whose searches stay current. */
-  channels: Partial<Record<Type, Channels>>;
+  /**
+   * The change channels of each type. The searches of a type with null channels do not
+   * stay current.
+   */
+  channels: Record<Type, Channels | null>;
 }
 
 /**
@@ -92,9 +100,9 @@ export class Client {
     this.table = cache.createTable<string, Resource>({
       name: "resources",
       fetch: async (keys) => await this.execRetrieve(keys.map((k) => parseID(k))),
-      listen: Object.entries(channels).flatMap(([type, ch]) =>
-        this.listeners(type as Type, ch),
-      ),
+      listen: record
+        .entries(channels)
+        .flatMap(([type, ch]) => (ch == null ? [] : this.listeners(type, ch))),
     });
     this.searches = cache.queries<Search, Resource[], string, Resource>({
       name: "resources",
@@ -114,7 +122,8 @@ export class Client {
   /**
    * @returns the resources whose text matches the term, closest match first. An empty
    * term lists the resources in order of type.
-   * @throws {ValidationError} if a type is unknown, or the limit or offset is negative.
+   * @throws {ValidationError} if a type is unknown, or the limit or offset is out of
+   * bounds.
    */
   async search(params: SearchParams): Promise<Resource[]> {
     return await this.searches.retrieve(normalize(params));

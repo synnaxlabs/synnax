@@ -181,11 +181,11 @@ describe("Resource", () => {
     });
 
     it("should throw a NotFoundError when a single ID names no resource", async () => {
-      await expect(
-        client.resources.retrieve(
-          label.resourceID("00000000-0000-0000-0000-000000000000"),
-        ),
-      ).rejects.toThrow(NotFoundError);
+      const read = client.resources.retrieve(
+        label.resourceID("00000000-0000-0000-0000-000000000000"),
+      );
+      await expect(read).rejects.toThrow(NotFoundError);
+      await expect(read).rejects.toThrow(/Resource not found matching/);
     });
   });
 });

@@ -73,14 +73,16 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 type (
 	// SearchRequest selects the resources that Search returns.
 	SearchRequest struct {
-		// Term is the text that a resource must match.
+		// Term is the text that a resource must match. An empty term lists resources in
+		// order of type.
 		Term string `json:"term" msgpack:"term"`
 		// Types limits the search to resources of these types. Empty searches every
 		// type.
 		Types []resource.Type `json:"types" msgpack:"types"`
-		// Limit is the maximum number of resources to return. Zero returns at most 100.
+		// Limit is the maximum number of resources to return, at most 1000. Zero
+		// returns at most 100.
 		Limit int `json:"limit" msgpack:"limit"`
-		// Offset is the number of closest matches to skip.
+		// Offset is the number of closest matches to skip, at most 10000.
 		Offset int `json:"offset" msgpack:"offset"`
 	}
 	// SearchResponse holds the resources that match a SearchRequest, closest match

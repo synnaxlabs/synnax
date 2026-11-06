@@ -116,9 +116,13 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	return &Service{cfg: cfg, types: slices.Sorted(maps.Keys(cfg.Providers))}, nil
 }
 
-// defaultSearchLimit is the number of resources that Search returns when a SearchQuery
-// sets no Limit.
-const defaultSearchLimit = 100
+const (
+	// defaultSearchLimit is the number of resources that Search returns when a
+	// SearchQuery sets no Limit.
+	defaultSearchLimit = 100
+	maxSearchLimit     = 1000
+	maxSearchOffset    = 10000
+)
 
 // SearchQuery selects the resources that Service.Search returns.
 type SearchQuery struct {
@@ -127,16 +131,17 @@ type SearchQuery struct {
 	Term string
 	// Types limits the search to resources of these types. Empty searches every type.
 	Types []Type
-	// Limit is the maximum number of resources to return. Zero returns at most 100.
+	// Limit is the maximum number of resources to return, at most 1000. Zero returns
+	// at most 100.
 	Limit int
-	// Offset is the number of closest matches to skip.
+	// Offset is the number of closest matches to skip, at most 10000.
 	Offset int
 }
 
 // Search returns the resources that match q, closest match first. For an empty term,
 // it lists the resources in order of type, then in the order of each Provider. Search
 // reads the changes staged against tx, falling back to the database when tx is nil. A
-// negative limit or offset, or a type with no Provider, is a validation error.
+// limit or offset out of bounds, or a type with no Provider, is a validation error.
 func (s *Service) Search(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -144,7 +149,9 @@ func (s *Service) Search(
 ) ([]Resource, error) {
 	v := validate.New("resource.search")
 	v.GreaterThanEq("limit", q.Limit, 0)
+	v.LessThanEq("limit", q.Limit, maxSearchLimit)
 	v.GreaterThanEq("offset", q.Offset, 0)
+	v.LessThanEq("offset", q.Offset, maxSearchOffset)
 	for _, t := range q.Types {
 		s.validateType(v, "types", t)
 	}
@@ -183,7 +190,7 @@ func (s *Service) list(
 	types []Type,
 	offset, limit int,
 ) ([]Resource, error) {
-	resources := make([]Resource, 0, offset+limit)
+	resources := make([]Resource, 0, limit)
 	for _, t := range s.types {
 		if len(resources) >= offset+limit {
 			break

@@ -366,6 +366,16 @@ var _ = Describe("Service", func() {
 			))
 		})
 
+		It("Should refuse a limit or offset past its bound", func(ctx SpecContext) {
+			Expect(svc.Search(ctx, nil, resource.SearchQuery{
+				Limit:  1001,
+				Offset: 10001,
+			})).Error().To(MatchError(
+				"limit: must be less than or equal to 1000\n" +
+					"offset: must be less than or equal to 10000",
+			))
+		})
+
 		It("Should panic when a Provider returns an ID of a type with no Provider",
 			func(ctx SpecContext) {
 				users := provider[channelEntry]{

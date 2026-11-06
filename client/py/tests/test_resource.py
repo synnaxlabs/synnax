@@ -32,7 +32,10 @@ def _create_label(client: sy.Synnax, name: str) -> sy.resource.ID:
 
 @pytest.mark.resource
 class TestSearch:
+    """Tests for searching the resources of every type."""
+
     def test_merges_types_closest_match_first(self, client: sy.Synnax) -> None:
+        """Should merge the matches of every type, closest match first."""
         token = _token()
         exact = _create_group(client, token)
         partial = _create_label(client, f"{token} pump")
@@ -46,6 +49,7 @@ class TestSearch:
         assert_eventually(check)
 
     def test_searches_only_the_given_types(self, client: sy.Synnax) -> None:
+        """Should search only the resources of the given types."""
         token = _token()
         _create_group(client, token)
         label = _create_label(client, token)
@@ -57,6 +61,7 @@ class TestSearch:
         assert_eventually(check)
 
     def test_pages_with_a_limit_and_an_offset(self, client: sy.Synnax) -> None:
+        """Should page through the matches with a limit and an offset."""
         token = _token()
         for suffix in ["a", "b", "c"]:
             _create_group(client, f"{token} {suffix}")
@@ -68,6 +73,7 @@ class TestSearch:
         assert len(client.resources.search(token, limit=2, offset=2)) == 1
 
     def test_refuses_a_type_the_core_cannot_search(self, client: sy.Synnax) -> None:
+        """Should raise a ValidationError for a type the Core cannot search."""
         with pytest.raises(
             sy.ValidationError, match='types: unknown resource type "builtin"'
         ):
@@ -76,12 +82,16 @@ class TestSearch:
 
 @pytest.mark.resource
 class TestRetrieve:
+    """Tests for retrieving the names of resources by ID."""
+
     def test_retrieves_a_single_resource(self, client: sy.Synnax) -> None:
+        """Should retrieve the name of a single resource."""
         name = _token()
         id = _create_label(client, name)
         assert client.resources.retrieve(id) == sy.resource.Resource(id=id, name=name)
 
     def test_retrieves_mixed_types_in_order(self, client: sy.Synnax) -> None:
+        """Should retrieve resources of several types in the order of the IDs."""
         group_name, label_name = _token(), _token()
         group = _create_group(client, group_name)
         label = _create_label(client, label_name)
@@ -91,13 +101,15 @@ class TestRetrieve:
         ]
 
     def test_leaves_out_an_id_that_names_no_resource(self, client: sy.Synnax) -> None:
+        """Should leave out an ID that names no resource."""
         name = _token()
         label = _create_label(client, name)
         res = client.resources.retrieve([MISSING_LABEL, label])
         assert [r.name for r in res] == [name]
 
     def test_raises_not_found_for_a_missing_single_id(self, client: sy.Synnax) -> None:
-        with pytest.raises(sy.NotFoundError):
+        """Should raise a NotFoundError when a single ID names no resource."""
+        with pytest.raises(sy.NotFoundError, match="Resource .* not found"):
             client.resources.retrieve(MISSING_LABEL)
 
 

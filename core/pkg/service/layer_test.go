@@ -91,6 +91,39 @@ var _ = Describe("Layer", func() {
 		))
 	})
 
+	It("Should search every type that names records", func(ctx SpecContext) {
+		layer := MustOpen(svctestutil.OpenLayer(ctx, testutil.NewNode(ctx)))
+		for _, t := range []resource.Type{
+			resource.TypeArc,
+			resource.TypeChannel,
+			resource.TypeDevice,
+			resource.TypeGroup,
+			resource.TypeLabel,
+			resource.TypeLineplot,
+			resource.TypeLog,
+			resource.TypeNode,
+			resource.TypePanel,
+			resource.TypePolicy,
+			resource.TypeProject,
+			resource.TypeRack,
+			resource.TypeRange,
+			resource.TypeRangeAlias,
+			resource.TypeRole,
+			resource.TypeSchematic,
+			resource.TypeSchematicSymbol,
+			resource.TypeStatus,
+			resource.TypeTable,
+			resource.TypeTask,
+			resource.TypeUser,
+			resource.TypeView,
+		} {
+			Expect(layer.Resource.Search(ctx, nil, resource.SearchQuery{
+				Term:  "pump",
+				Types: []resource.Type{t},
+			})).Error().ToNot(HaveOccurred(), "type %s", t)
+		}
+	})
+
 	It("Should put a stored snapshot in its stored range", func(ctx SpecContext) {
 		node := testutil.NewNode(ctx)
 		legacyDB := gorp.Wrap(node.DB.KV(), gorp.WithCodec(msgpack.Codec))

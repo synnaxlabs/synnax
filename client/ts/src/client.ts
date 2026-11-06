@@ -129,19 +129,24 @@ const authorityOf = ({
 
 const changes = (set: string, del: string): resource.Channels => ({ set, delete: del });
 
-const RESOURCE_CHANNELS: Partial<Record<resource.Type, resource.Channels>> = {
+// A null entry is a type with no change channels, whose searches do not stay current.
+const RESOURCE_CHANNELS: Record<resource.Type, resource.Channels | null> = {
   arc: changes(arc.SET_CHANNEL_NAME, arc.DELETE_CHANNEL_NAME),
+  builtin: null,
   channel: changes(channel.SET_CHANNEL_NAME, channel.DELETE_CHANNEL_NAME),
   device: changes(device.SET_CHANNEL_NAME, device.DELETE_CHANNEL_NAME),
+  framer: null,
   group: changes(group.SET_CHANNEL_NAME, group.DELETE_CHANNEL_NAME),
   label: changes(label.ACTION_CHANNEL_NAME, label.DELETE_CHANNEL_NAME),
   lineplot: changes(lineplot.SET_CHANNEL_NAME, lineplot.DELETE_CHANNEL_NAME),
   log: changes(log.SET_CHANNEL_NAME, log.DELETE_CHANNEL_NAME),
+  node: null,
   panel: changes(panel.SET_CHANNEL_NAME, panel.DELETE_CHANNEL_NAME),
   policy: changes(access.policy.SET_CHANNEL_NAME, access.policy.DELETE_CHANNEL_NAME),
   project: changes(project.SET_CHANNEL_NAME, project.DELETE_CHANNEL_NAME),
   rack: changes(rack.SET_CHANNEL_NAME, rack.DELETE_CHANNEL_NAME),
   range: changes(ranger.ACTION_CHANNEL_NAME, ranger.DELETE_CHANNEL_NAME),
+  "range-alias": null,
   role: changes(access.role.SET_CHANNEL_NAME, access.role.DELETE_CHANNEL_NAME),
   schematic: changes(schematic.SET_CHANNEL_NAME, schematic.DELETE_CHANNEL_NAME),
   schematic_symbol: changes(
