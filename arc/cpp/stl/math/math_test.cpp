@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <cmath>
 #include <limits>
 #include <string>
 #include <utility>
@@ -305,8 +306,8 @@ TEST(MathAvgTest, WeightedAverageWithUnequalBatchSizes) {
     EXPECT_NEAR(checker.output(0)->at<double>(0), 23.333, 0.01);
 }
 
-/// @brief the instruction sequences the Arc compiler emits for the float
-/// checks. They use no host function, so wasmtime alone runs them.
+/// @brief the instruction sequences the Arc compiler emits for the float checks and
+/// constants. They use no host function, so wasmtime alone runs them.
 constexpr auto FLOAT_WAT = R"((module
   (func (export "is_nan_f32") (param f32) (result i32)
     local.get 0 f32.abs f32.const inf f32.le i32.eqz)
@@ -320,6 +321,10 @@ constexpr auto FLOAT_WAT = R"((module
     local.get 0 f32.abs f32.const inf f32.lt)
   (func (export "is_finite_f64") (param f64) (result i32)
     local.get 0 f64.abs f64.const inf f64.lt)
+  (func (export "nan_f32") (result f32) f32.const nan)
+  (func (export "nan_f64") (result f64) f64.const nan:0x8000000000001)
+  (func (export "neg_inf_f32") (result f32) f32.const inf f32.neg)
+  (func (export "neg_inf_f64") (result f64) f64.const inf f64.neg)
 ))";
 
 struct FloatFixture {
@@ -368,6 +373,16 @@ TEST(MathFloatTest, ChecksClassifyNaNInfinityAndNumbers) {
     EXPECT_FALSE(f.check_both("is_finite", inf));
     EXPECT_FALSE(f.check_both("is_finite", -inf));
     EXPECT_TRUE(f.check_both("is_finite", 1.5));
+}
+
+TEST(MathFloatTest, ConstantsHaveTheirFloatWidth) {
+    FloatFixture f;
+    EXPECT_TRUE(std::isnan(f.func("nan_f32").call(f.store, {}).unwrap()[0].f32()));
+    EXPECT_TRUE(std::isnan(f.func("nan_f64").call(f.store, {}).unwrap()[0].f64()));
+    const auto neg_f32 = f.func("neg_inf_f32").call(f.store, {}).unwrap()[0].f32();
+    EXPECT_EQ(neg_f32, -std::numeric_limits<float>::infinity());
+    const auto neg_f64 = f.func("neg_inf_f64").call(f.store, {}).unwrap()[0].f64();
+    EXPECT_EQ(neg_f64, -std::numeric_limits<double>::infinity());
 }
 
 TEST(MathAvgTest, ResetsWithCountInput) {

@@ -31,11 +31,13 @@ const (
 	countInputParam      = "count"
 	derivativeSymbolName = "derivative"
 	durationInputParam   = "duration"
+	infSymbolName        = "inf"
 	isFiniteSymbolName   = "is_finite"
 	isInfSymbolName      = "is_inf"
 	isNaNSymbolName      = "is_nan"
 	maxSymbolName        = "max"
 	minSymbolName        = "min"
+	nanSymbolName        = "nan"
 	powSymbolName        = "pow"
 	resetInputParam      = "reset"
 )
@@ -154,6 +156,20 @@ var (
 		doc.Divider(),
 		doc.Code("arc", "not math.is_finite(pump_speed) or pump_speed < 15 => next"),
 	)
+	nanDoc = doc.New(
+		doc.Paragraph(
+			"The f32 or f64 NaN value. NaN fails every comparison, so test for it with math.is_nan.",
+		),
+		doc.Divider(),
+		doc.Code("arc", "last f64 $= math.nan"),
+	)
+	infDoc = doc.New(
+		doc.Paragraph(
+			"The f32 or f64 positive infinity value. Negate it for -math.inf.",
+		),
+		doc.Divider(),
+		doc.Code("arc", "lowest f64 $= math.inf"),
+	)
 	moduleDoc = doc.New(
 		doc.Paragraph(
 			"Numerical primitives: running averages, running min/max, derivatives, float checks, and arithmetic helpers.",
@@ -174,6 +190,17 @@ func newFloatCheckSymbol(name string, doc doc.Doc) *symbol.Symbol {
 		}),
 		Trigger: symbol.TriggerOnly,
 		Doc:     doc,
+	}
+}
+
+func newFloatConstant(name string, value float64, doc doc.Doc) *symbol.Symbol {
+	return &symbol.Symbol{
+		Name:         name,
+		Kind:         symbol.KindConstant,
+		Exec:         symbol.ExecBoth,
+		Type:         types.Variable("T", &floatConstraint),
+		DefaultValue: value,
+		Doc:          doc,
 	}
 }
 
@@ -239,6 +266,8 @@ func NewSymbols() []*symbol.Symbol {
 		newFloatCheckSymbol(isNaNSymbolName, isNaNDoc),
 		newFloatCheckSymbol(isInfSymbolName, isInfDoc),
 		newFloatCheckSymbol(isFiniteSymbolName, isFiniteDoc),
+		newFloatConstant(nanSymbolName, math.NaN(), nanDoc),
+		newFloatConstant(infSymbolName, math.Inf(1), infDoc),
 	)
 	avgBare := *avg
 	avgBare.Deprecated = avg

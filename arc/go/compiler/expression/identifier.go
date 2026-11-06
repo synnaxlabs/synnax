@@ -86,6 +86,8 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 		}
 		emitChannelRead(ctx, scope.Type)
 		return scope.Type.Unwrap(), nil
+	case symbol.KindConstant:
+		return compileFloatConstant(ctx, scope)
 	default:
 		return types.Type{}, errors.Newf(
 			"unsupported symbol kind: %v for '%s'",

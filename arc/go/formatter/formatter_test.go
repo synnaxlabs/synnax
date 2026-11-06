@@ -763,6 +763,11 @@ var _ = Describe("Formatter", func() {
 			"func f() {\n    for i, x := data {\n        if x > peak {\n            peak = x\n            peak_idx = i\n        }\n    }\n}\n",
 		),
 		Entry(
+			"module constants and float checks keep their dots",
+			"func f() {x f64} bool {\n    return  math.is_nan( x ) or x<-math.inf\n}",
+			"func f() {x f64} bool {\n    return math.is_nan(x) or x < -math.inf\n}\n",
+		),
+		Entry(
 			"long call in a func body stays on its line",
 			"func f() {x f64} f64 {\n    return math.clamp(x, "+
 				"lower_bound_of_the_allowed_range, upper_bound_of_the_allowed_range)\n}",

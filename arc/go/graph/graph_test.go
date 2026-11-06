@@ -196,6 +196,7 @@ var _ = Describe("Graph", func() {
 				Expect(diagnostics.Ok()).To(BeFalse())
 				Expect(diagnostics.String()).To(ContainSubstring("not a flow function"))
 			},
+			Entry("constant", "math.nan"),
 			Entry("WASM-only function", "math.is_nan"),
 		)
 

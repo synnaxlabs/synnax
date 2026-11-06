@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/units"
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
 	"go.lsp.dev/protocol"
@@ -327,6 +328,9 @@ func inferPrimaryType(
 		if err != nil {
 			return types.Type{}
 		}
+		if resolved.Kind == symbol.KindConstant {
+			return inferConstantType(ctx, resolved)
+		}
 		return resolved.Type
 	}
 	if id := ctx.AST.IDENTIFIER(); id != nil {
@@ -359,6 +363,30 @@ func inferPrimaryType(
 		}
 	}
 	return types.Type{}
+}
+
+// inferConstantType gives each reference to a module constant its own type variable,
+// so one program can use the same constant as both f32 and f64.
+func inferConstantType(
+	ctx context.Context[parser.IPrimaryExpressionContext],
+	sym *symbol.Symbol,
+) types.Type {
+	start := ctx.AST.GetStart()
+	tv := types.Freshen(
+		sym.Type,
+		fmt.Sprintf("const_%d_%d", start.GetLine(), start.GetColumn()),
+	)
+	if err := ctx.Constraints.AddEquality(
+		tv,
+		tv,
+		ctx.AST,
+		"constant type variable",
+	); err != nil {
+		zap.S().
+			DPanicf("unexpected error registering type variable with itself: %v", err)
+	}
+	ctx.TypeMap[ctx.AST] = tv
+	return tv
 }
 
 func inferLiteralType(ctx context.Context[parser.ILiteralContext]) types.Type {
