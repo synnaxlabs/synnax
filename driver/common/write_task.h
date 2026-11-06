@@ -189,12 +189,16 @@ class WriteTask final : public driver::task::Task {
         WriteTask &p;
 
     public:
-        /// @brief whether the writer opened since the task last started.
+        /// @brief whether the writer opened since the task last started. Guarded by
+        /// state_mu.
         bool writer_open = false;
 
         explicit StateSource(WriteTask &p): p(p) {}
 
-        void writer_opened() override { this->writer_open = true; }
+        void writer_opened() override {
+            std::lock_guard lock(this->p.state_mu);
+            this->writer_open = true;
+        }
 
         void stopped_with_err(const x::errors::Error &err) override {
             {
