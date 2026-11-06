@@ -19,7 +19,14 @@ import threading
 from collections.abc import Callable
 from pathlib import Path
 
-from pydantic import BaseModel, Field, JsonValue, ValidationInfo, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    JsonValue,
+    ValidationInfo,
+    field_validator,
+)
 
 from framework.target_filter import TargetFilter
 from framework.test_case import TestCase
@@ -68,6 +75,8 @@ class TestDefinition(BaseModel):
 
 class Sequence(BaseModel):
     """A named group of test definitions with an execution order."""
+
+    model_config = ConfigDict(populate_by_name=True)
 
     name: str = Field(default="", validation_alias="sequence_name")
     order: str = Field(default="sequential", validation_alias="sequence_order")

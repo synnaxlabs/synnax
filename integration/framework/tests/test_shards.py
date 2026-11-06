@@ -21,8 +21,8 @@ def sequence(
 ) -> config_client.Sequence:
     tests = [config_client.TestDefinition(case=c) for c in cases]
     return config_client.Sequence(
-        sequence_name=name,
-        sequence_order="asynchronous",
+        name=name,
+        order="asynchronous",
         pool_size=3,
         tests=tests,
         isolated=isolated,
