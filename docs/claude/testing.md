@@ -93,6 +93,7 @@ The `-tags=console` build tag activates `core/pkg/console/enabled.go`
   holds NI runs on the first Core, and an `isolated` sequence runs alone at the end.
 - `--shard <k>/<n>` runs part k of n of the selected tests. Shards split whole sequences
   by the test times in `tests/durations.json`, so give each shard the same other flags.
+  A sequence marked `independent` splits into single tests.
   `scripts/update_durations.py` rebuilds the file from CI test results.
 
 ### Organization

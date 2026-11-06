@@ -78,6 +78,8 @@ class Sequence:
     isolated: bool = False
     """Runs on the first Core after every other sequence ends, with nothing else
     running, as a timing test needs."""
+    independent: bool = False
+    """No test needs another test of the sequence, so shards can split it."""
 
 
 class _TestEntry(BaseModel):
@@ -97,6 +99,7 @@ class _SequenceEntry(BaseModel):
     sequence_order: str = "sequential"
     pool_size: int = -1
     isolated: bool = False
+    independent: bool = False
     tests: list[_TestEntry] = Field(default_factory=list)
 
 
@@ -274,6 +277,7 @@ class ConfigClient:
                     pool_size=pool_size,
                     tests=expanded_tests,
                     isolated=seq_dict.isolated,
+                    independent=seq_dict.independent,
                 )
                 sequences.append(seq)
 
