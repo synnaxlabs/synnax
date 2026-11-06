@@ -753,6 +753,24 @@ var _ = Describe("Rack", Ordered, func() {
 				))
 			},
 		)
+
+		It("Should leave out an ID that names no rack", func(ctx SpecContext) {
+			r := rack.Rack{Name: "present rack"}
+			Expect(writer.Create(ctx, &r)).To(Succeed())
+			Expect(svc.Resources().Retrieve(
+				ctx,
+				tx,
+				[]resource.ID{rack.Key(4294967295).ResourceID(), r.ResourceID()},
+			)).To(Equal([]resource.Resource{{ID: r.ResourceID(), Name: r.Name}}))
+		})
+
+		It("Should list each rack by its name", func(ctx SpecContext) {
+			r := rack.Rack{Name: "listed rack"}
+			Expect(writer.Create(ctx, &r)).To(Succeed())
+			Expect(svc.Resources().List(ctx, tx, 10000, nil)).To(ContainElement(
+				resource.Resource{ID: r.ResourceID(), Name: r.Name},
+			))
+		})
 	})
 
 	Describe("Create with Integrations", func() {

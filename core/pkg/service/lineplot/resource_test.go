@@ -10,6 +10,8 @@
 package lineplot_test
 
 import (
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
@@ -35,6 +37,27 @@ var _ = Describe("Resources", func() {
 		)).Error().To(And(
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring(`invalid lineplot key "pump"`)),
+		))
+	})
+
+	It("Should leave out an ID that names no line plot", func(ctx SpecContext) {
+		tx := DeferClose(db.OpenTx())
+		lp := lineplot.LinePlot{Project: &proj.Key, Name: "listed-lineplot"}
+		Expect(svc.NewWriter(tx).Create(ctx, &lp)).To(Succeed())
+		missing := resource.ID{Type: resource.TypeLineplot, Key: uuid.New().String()}
+		Expect(svc.Resources().Retrieve(
+			ctx,
+			tx,
+			[]resource.ID{missing, lp.ResourceID()},
+		)).To(Equal([]resource.Resource{{ID: lp.ResourceID(), Name: lp.Name}}))
+	})
+
+	It("Should list each line plot by its name", func(ctx SpecContext) {
+		tx := DeferClose(db.OpenTx())
+		lp := lineplot.LinePlot{Project: &proj.Key, Name: "listed-lineplot"}
+		Expect(svc.NewWriter(tx).Create(ctx, &lp)).To(Succeed())
+		Expect(svc.Resources().List(ctx, tx, 10000, nil)).To(ContainElement(
+			resource.Resource{ID: lp.ResourceID(), Name: lp.Name},
 		))
 	})
 })

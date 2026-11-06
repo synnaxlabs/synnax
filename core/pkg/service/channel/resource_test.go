@@ -83,4 +83,21 @@ var _ = Describe("Resources", func() {
 			MatchError(ContainSubstring("pump is not a valid channel key")),
 		))
 	})
+
+	It("Should leave out an ID that names no channel", func(ctx SpecContext) {
+		ch := create(ctx, "oxidizer", false)
+		missing := resource.ID{Type: resource.TypeChannel, Key: "4294967295"}
+		Expect(svc.Resources().Retrieve(
+			ctx,
+			db,
+			[]resource.ID{missing, ch.ResourceID()},
+		)).To(Equal([]resource.Resource{{ID: ch.ResourceID(), Name: ch.Name}}))
+	})
+
+	It("Should list each channel by its name", func(ctx SpecContext) {
+		ch := create(ctx, "oxidizer", false)
+		Expect(svc.Resources().List(ctx, db, 10000, nil)).To(ContainElement(
+			resource.Resource{ID: ch.ResourceID(), Name: ch.Name},
+		))
+	})
 })

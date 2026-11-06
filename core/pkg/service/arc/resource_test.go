@@ -10,6 +10,8 @@
 package arc_test
 
 import (
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
@@ -35,6 +37,27 @@ var _ = Describe("Resources", func() {
 		)).Error().To(And(
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring(`invalid arc key "pump"`)),
+		))
+	})
+
+	It("Should leave out an ID that names no Arc", func(ctx SpecContext) {
+		tx := DeferClose(db.OpenTx())
+		a := arc.Arc{Name: "listed-arc", Mode: arc.ModeText}
+		Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
+		missing := resource.ID{Type: resource.TypeArc, Key: uuid.New().String()}
+		Expect(svc.Resources().Retrieve(
+			ctx,
+			tx,
+			[]resource.ID{missing, a.ResourceID()},
+		)).To(Equal([]resource.Resource{{ID: a.ResourceID(), Name: a.Name}}))
+	})
+
+	It("Should list each Arc by its name", func(ctx SpecContext) {
+		tx := DeferClose(db.OpenTx())
+		a := arc.Arc{Name: "listed-arc", Mode: arc.ModeText}
+		Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
+		Expect(svc.Resources().List(ctx, tx, 10000, nil)).To(ContainElement(
+			resource.Resource{ID: a.ResourceID(), Name: a.Name},
 		))
 	})
 })

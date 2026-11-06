@@ -10,6 +10,8 @@
 package group_test
 
 import (
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
@@ -51,5 +53,23 @@ var _ = Describe("Resources", func() {
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring(`invalid group key "pump"`)),
 		))
+	})
+
+	It("Should leave out an ID that names no group", func(ctx SpecContext) {
+		g := group.Group{Name: "Sensors", Scope: resource.TypeChannel}
+		Expect(svc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+		missing := resource.ID{Type: resource.TypeGroup, Key: uuid.New().String()}
+		Expect(svc.Resources().Retrieve(
+			ctx,
+			db,
+			[]resource.ID{missing, g.ResourceID()},
+		)).To(Equal([]resource.Resource{{ID: g.ResourceID(), Name: g.Name}}))
+	})
+
+	It("Should list each group by its name", func(ctx SpecContext) {
+		g := group.Group{Name: "Sensors", Scope: resource.TypeChannel}
+		Expect(svc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+		Expect(svc.Resources().List(ctx, db, 10, nil)).
+			To(Equal([]resource.Resource{{ID: g.ResourceID(), Name: g.Name}}))
 	})
 })

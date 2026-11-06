@@ -10,6 +10,8 @@
 package label_test
 
 import (
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
@@ -58,5 +60,23 @@ var _ = Describe("Resources", func() {
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring(`invalid label key "pump"`)),
 		))
+	})
+
+	It("Should leave out an ID that names no label", func(ctx SpecContext) {
+		l := label.Label{Name: "Nominal", Color: MustSucceed(color.FromHex("#00FF00"))}
+		Expect(svc.NewWriter(nil).Create(ctx, &l)).To(Succeed())
+		missing := resource.ID{Type: resource.TypeLabel, Key: uuid.New().String()}
+		Expect(svc.Resources().Retrieve(
+			ctx,
+			db,
+			[]resource.ID{missing, l.ResourceID()},
+		)).To(Equal([]resource.Resource{{ID: l.ResourceID(), Name: l.Name}}))
+	})
+
+	It("Should list each label by its name", func(ctx SpecContext) {
+		l := label.Label{Name: "Nominal", Color: MustSucceed(color.FromHex("#00FF00"))}
+		Expect(svc.NewWriter(nil).Create(ctx, &l)).To(Succeed())
+		Expect(svc.Resources().List(ctx, db, 10, nil)).
+			To(Equal([]resource.Resource{{ID: l.ResourceID(), Name: l.Name}}))
 	})
 })

@@ -1416,6 +1416,38 @@ var _ = Describe("Device", func() {
 			Expect(svc.Resources().Retrieve(ctx, tx, []resource.ID{d.ResourceID()})).
 				To(Equal([]resource.Resource{{ID: d.ResourceID(), Name: d.Name}}))
 		})
+
+		It("Should leave out an ID that names no device", func(ctx SpecContext) {
+			d := device.Device{
+				Key:      "present-device",
+				Rack:     rackSvc.EmbeddedKey,
+				Location: "dev1",
+				Name:     "Cat",
+				Make:     "Test Make",
+				Model:    "Test Model",
+			}
+			Expect(w.Create(ctx, &d)).To(Succeed())
+			Expect(svc.Resources().Retrieve(
+				ctx,
+				tx,
+				[]resource.ID{device.ResourceID("missing-device"), d.ResourceID()},
+			)).To(Equal([]resource.Resource{{ID: d.ResourceID(), Name: d.Name}}))
+		})
+
+		It("Should list each device by its name", func(ctx SpecContext) {
+			d := device.Device{
+				Key:      "listed-device",
+				Rack:     rackSvc.EmbeddedKey,
+				Location: "dev1",
+				Name:     "Bird",
+				Make:     "Test Make",
+				Model:    "Test Model",
+			}
+			Expect(w.Create(ctx, &d)).To(Succeed())
+			Expect(svc.Resources().List(ctx, tx, 10000, nil)).To(ContainElement(
+				resource.Resource{ID: d.ResourceID(), Name: d.Name},
+			))
+		})
 	})
 })
 

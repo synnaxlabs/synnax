@@ -10,6 +10,8 @@
 package view_test
 
 import (
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -42,6 +44,27 @@ var _ = Describe("Resources", func() {
 		)).Error().To(And(
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring(`invalid view key "pump"`)),
+		))
+	})
+
+	It("Should leave out an ID that names no view", func(ctx SpecContext) {
+		tx := DeferClose(db.OpenTx())
+		v := rangeView("Listed")
+		Expect(svc.NewWriter(tx).Create(ctx, &v)).To(Succeed())
+		missing := resource.ID{Type: resource.TypeView, Key: uuid.New().String()}
+		Expect(svc.Resources().Retrieve(
+			ctx,
+			tx,
+			[]resource.ID{missing, v.ResourceID()},
+		)).To(Equal([]resource.Resource{{ID: v.ResourceID(), Name: "Listed"}}))
+	})
+
+	It("Should list each view by its name", func(ctx SpecContext) {
+		tx := DeferClose(db.OpenTx())
+		v := rangeView("Listed")
+		Expect(svc.NewWriter(tx).Create(ctx, &v)).To(Succeed())
+		Expect(svc.Resources().List(ctx, tx, 10000, nil)).To(ContainElement(
+			resource.Resource{ID: v.ResourceID(), Name: "Listed"},
 		))
 	})
 })

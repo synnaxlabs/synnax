@@ -10,6 +10,8 @@
 package symbol_test
 
 import (
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -31,6 +33,26 @@ var _ = Describe("Resources", func() {
 		)).Error().To(And(
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring(`invalid schematic_symbol key "pump"`)),
+		))
+	})
+
+	It("Should leave out an ID that names no symbol", func(ctx SpecContext) {
+		sym := createSymbol(ctx, createGroup(ctx, nil))
+		missing := resource.ID{
+			Type: resource.TypeSchematicSymbol,
+			Key:  uuid.New().String(),
+		}
+		Expect(svc.Resources().Retrieve(
+			ctx,
+			db,
+			[]resource.ID{missing, sym.ResourceID()},
+		)).To(Equal([]resource.Resource{{ID: sym.ResourceID(), Name: sym.Name}}))
+	})
+
+	It("Should list each symbol by its name", func(ctx SpecContext) {
+		sym := createSymbol(ctx, createGroup(ctx, nil))
+		Expect(svc.Resources().List(ctx, db, 10000, nil)).To(ContainElement(
+			resource.Resource{ID: sym.ResourceID(), Name: sym.Name},
 		))
 	})
 })

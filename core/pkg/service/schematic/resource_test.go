@@ -10,6 +10,8 @@
 package schematic_test
 
 import (
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -35,6 +37,27 @@ var _ = Describe("Resources", func() {
 		)).Error().To(And(
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring(`invalid schematic key "pump"`)),
+		))
+	})
+
+	It("Should leave out an ID that names no schematic", func(ctx SpecContext) {
+		tx := DeferClose(db.OpenTx())
+		s := schematic.Schematic{Project: &proj.Key, Name: "listed-schematic"}
+		Expect(svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
+		missing := resource.ID{Type: resource.TypeSchematic, Key: uuid.New().String()}
+		Expect(svc.Resources().Retrieve(
+			ctx,
+			tx,
+			[]resource.ID{missing, s.ResourceID()},
+		)).To(Equal([]resource.Resource{{ID: s.ResourceID(), Name: s.Name}}))
+	})
+
+	It("Should list each schematic by its name", func(ctx SpecContext) {
+		tx := DeferClose(db.OpenTx())
+		s := schematic.Schematic{Project: &proj.Key, Name: "listed-schematic"}
+		Expect(svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
+		Expect(svc.Resources().List(ctx, tx, 10000, nil)).To(ContainElement(
+			resource.Resource{ID: s.ResourceID(), Name: s.Name},
 		))
 	})
 })

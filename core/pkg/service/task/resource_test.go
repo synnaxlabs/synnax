@@ -10,6 +10,8 @@
 package task_test
 
 import (
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
@@ -49,6 +51,17 @@ var _ = Describe("Resources", Ordered, func() {
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring(`invalid task key "pump"`)),
 		))
+	})
+
+	It("Should leave out an ID that names no task", func(ctx SpecContext) {
+		tx := DeferClose(s.db.OpenTx())
+		t := create(ctx, tx, "Page on-call", false)
+		missing := resource.ID{Type: resource.TypeTask, Key: uuid.New().String()}
+		Expect(s.task.Resources().Retrieve(
+			ctx,
+			tx,
+			[]resource.ID{missing, t.ResourceID()},
+		)).To(Equal([]resource.Resource{{ID: t.ResourceID(), Name: "Page on-call"}}))
 	})
 
 	It("Should leave internal tasks out of a search", func(ctx SpecContext) {

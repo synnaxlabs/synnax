@@ -498,5 +498,38 @@ var _ = Describe("Alias", Ordered, func() {
 				))
 			},
 		)
+
+		It("Should leave out an ID that names no alias", func(ctx SpecContext) {
+			ch := createChannel(ctx)
+			tx := DeferClose(db.OpenTx())
+			r := ranger.Range{
+				Name:      "Burn",
+				TimeRange: telem.SecondTS.SpanRange(telem.Second),
+			}
+			Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
+			Expect(aliasSvc.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "Tank pressure")).
+				To(Succeed())
+			id := alias.ResourceID(r.Key, ch.Key())
+			Expect(aliasSvc.Resources().Retrieve(
+				ctx,
+				tx,
+				[]resource.ID{alias.ResourceID(uuid.New(), ch.Key()), id},
+			)).To(Equal([]resource.Resource{{ID: id, Name: "Tank pressure"}}))
+		})
+
+		It("Should list each alias by its alias text", func(ctx SpecContext) {
+			ch := createChannel(ctx)
+			tx := DeferClose(db.OpenTx())
+			r := ranger.Range{
+				Name:      "Burn",
+				TimeRange: telem.SecondTS.SpanRange(telem.Second),
+			}
+			Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
+			Expect(aliasSvc.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "Listed alias")).
+				To(Succeed())
+			id := alias.ResourceID(r.Key, ch.Key())
+			Expect(aliasSvc.Resources().List(ctx, tx, 10000, nil)).
+				To(ContainElement(resource.Resource{ID: id, Name: "Listed alias"}))
+		})
 	})
 })

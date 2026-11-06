@@ -28,6 +28,14 @@ var _ = Describe("Resources", func() {
 		}))
 	})
 
+	It("Should leave out a node that is not in the cluster", func(ctx SpecContext) {
+		Expect(testSvc.Resources().Retrieve(
+			ctx,
+			nil,
+			[]resource.ID{node.ResourceID(999), node.ResourceID(2)},
+		)).To(Equal([]resource.Resource{{ID: node.ResourceID(2), Name: "Node 2"}}))
+	})
+
 	It("Should return a validation error for a malformed key", func(ctx SpecContext) {
 		Expect(testSvc.Resources().Retrieve(
 			ctx,
@@ -38,4 +46,29 @@ var _ = Describe("Resources", func() {
 			MatchError(ContainSubstring(`invalid node key "pump"`)),
 		))
 	})
+
+	DescribeTable("Should list the nodes in the cluster in order of key",
+		func(
+			ctx SpecContext,
+			limit int,
+			except func(resource.ID) bool,
+			expected []resource.Resource,
+		) {
+			Expect(testSvc.Resources().List(ctx, nil, limit, except)).
+				To(Equal(expected))
+		},
+		Entry("every node", 10, nil, []resource.Resource{
+			{ID: node.ResourceID(1), Name: "Node 1"},
+			{ID: node.ResourceID(2), Name: "Node 2"},
+		}),
+		Entry("at most the limit", 1, nil, []resource.Resource{
+			{ID: node.ResourceID(1), Name: "Node 1"},
+		}),
+		Entry(
+			"without the excepted nodes",
+			1,
+			func(id resource.ID) bool { return id == node.ResourceID(1) },
+			[]resource.Resource{{ID: node.ResourceID(2), Name: "Node 2"}},
+		),
+	)
 })

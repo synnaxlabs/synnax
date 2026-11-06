@@ -10,6 +10,8 @@
 package user_test
 
 import (
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -34,6 +36,25 @@ var _ = Describe("Resources", func() {
 		)).Error().To(And(
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring(`invalid user key "pump"`)),
+		))
+	})
+
+	It("Should leave out an ID that names no user", func(ctx SpecContext) {
+		tx := DeferClose(db.OpenTx())
+		u := MustSucceed(svc.NewWriter(tx).Create(ctx, user.User{Name: "Sandy Cheeks"}))
+		missing := resource.ID{Type: resource.TypeUser, Key: uuid.New().String()}
+		Expect(svc.Resources().Retrieve(
+			ctx,
+			tx,
+			[]resource.ID{missing, u.ResourceID()},
+		)).To(Equal([]resource.Resource{{ID: u.ResourceID(), Name: u.Name}}))
+	})
+
+	It("Should list each user by its name", func(ctx SpecContext) {
+		tx := DeferClose(db.OpenTx())
+		u := MustSucceed(svc.NewWriter(tx).Create(ctx, user.User{Name: "Sandy Cheeks"}))
+		Expect(svc.Resources().List(ctx, tx, 10000, nil)).To(ContainElement(
+			resource.Resource{ID: u.ResourceID(), Name: u.Name},
 		))
 	})
 })

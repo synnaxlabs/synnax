@@ -10,6 +10,8 @@
 package table_test
 
 import (
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -35,6 +37,27 @@ var _ = Describe("Resources", func() {
 		)).Error().To(And(
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring(`invalid table key "pump"`)),
+		))
+	})
+
+	It("Should leave out an ID that names no table", func(ctx SpecContext) {
+		tx := DeferClose(db.OpenTx())
+		t := table.Table{Project: &proj.Key, Name: "listed-table"}
+		Expect(svc.NewWriter(tx).Create(ctx, &t)).To(Succeed())
+		missing := resource.ID{Type: resource.TypeTable, Key: uuid.New().String()}
+		Expect(svc.Resources().Retrieve(
+			ctx,
+			tx,
+			[]resource.ID{missing, t.ResourceID()},
+		)).To(Equal([]resource.Resource{{ID: t.ResourceID(), Name: t.Name}}))
+	})
+
+	It("Should list each table by its name", func(ctx SpecContext) {
+		tx := DeferClose(db.OpenTx())
+		t := table.Table{Project: &proj.Key, Name: "listed-table"}
+		Expect(svc.NewWriter(tx).Create(ctx, &t)).To(Succeed())
+		Expect(svc.Resources().List(ctx, tx, 10000, nil)).To(ContainElement(
+			resource.Resource{ID: t.ResourceID(), Name: t.Name},
 		))
 	})
 })

@@ -10,6 +10,8 @@
 package log_test
 
 import (
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
@@ -35,6 +37,27 @@ var _ = Describe("Resources", func() {
 		)).Error().To(And(
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring(`invalid log key "pump"`)),
+		))
+	})
+
+	It("Should leave out an ID that names no log", func(ctx SpecContext) {
+		tx := DeferClose(db.OpenTx())
+		l := log.Log{Project: &proj.Key, Name: "listed-log"}
+		Expect(svc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
+		missing := resource.ID{Type: resource.TypeLog, Key: uuid.New().String()}
+		Expect(svc.Resources().Retrieve(
+			ctx,
+			tx,
+			[]resource.ID{missing, l.ResourceID()},
+		)).To(Equal([]resource.Resource{{ID: l.ResourceID(), Name: l.Name}}))
+	})
+
+	It("Should list each log by its name", func(ctx SpecContext) {
+		tx := DeferClose(db.OpenTx())
+		l := log.Log{Project: &proj.Key, Name: "listed-log"}
+		Expect(svc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
+		Expect(svc.Resources().List(ctx, tx, 10000, nil)).To(ContainElement(
+			resource.Resource{ID: l.ResourceID(), Name: l.Name},
 		))
 	})
 })
