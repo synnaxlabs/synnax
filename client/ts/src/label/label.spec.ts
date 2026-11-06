@@ -151,6 +151,14 @@ describe("Label", () => {
         ),
       );
     });
+    it("should not take a one that widens to a boolean", async () => {
+      const params = {
+        name: { startsWith: `missing-${id.create()}` },
+        one: true as boolean,
+      };
+      // @ts-expect-error - a widened one could return one label or a list.
+      await expect(client.labels.retrieve(params)).rejects.toThrow(NotFoundError);
+    });
     it("should throw a NotFoundError when a plain key and name match nothing", async () => {
       const lbl = await client.labels.create({ name: "Label", color: "#E774D0" });
       const name = `other-${id.create()}`;

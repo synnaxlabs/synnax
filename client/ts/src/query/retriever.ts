@@ -82,22 +82,22 @@ const keysOnly = (query: unknown): unknown[] | null => {
 
 /**
  * The query objects a request schema accepts that return a list. It leaves out a bare
- * key list, which each overload takes on its own, and a plain `key` or `name` value,
- * which returns one record. A recursive `where` schema infers no input type, so `where`
- * takes its output type, which the schema also accepts.
+ * key list, which each overload takes on its own, a plain `key` or `name` value, and
+ * `one: true`, which each return one record. A recursive `where` schema infers no input
+ * type, so `where` takes its output type, which the schema also accepts.
  */
 export type RequestInput<Z extends z.ZodType> =
   z.input<Z> extends infer I
     ? I extends readonly unknown[]
       ? never
-      : "where" extends keyof I
-        ? Omit<I, "where"> & Pick<Extract<z.output<Z>, { where?: unknown }>, "where">
-        : Omit<I, "key" | "name"> & {
-            [F in ("key" | "name") & keyof I]?: Exclude<
-              I[F],
-              F extends "key" ? record.Key : string
-            >;
-          }
+      : { one?: false } & ("where" extends keyof I
+          ? Omit<I, "where"> & Pick<Extract<z.output<Z>, { where?: unknown }>, "where">
+          : Omit<I, "key" | "name"> & {
+              [F in ("key" | "name") & keyof I]?: Exclude<
+                I[F],
+                F extends "key" ? record.Key : string
+              >;
+            })
     : never;
 
 /**
@@ -119,7 +119,11 @@ export type OneInput<Z extends z.ZodType> =
       : never)
   | (RequestInput<Z> extends infer R
       ? R extends unknown
-        ? Omit<R, "limit" | "offset"> & { one: true; limit?: never; offset?: never }
+        ? Omit<R, "one" | "limit" | "offset"> & {
+            one: true;
+            limit?: never;
+            offset?: never;
+          }
         : never
       : never);
 
