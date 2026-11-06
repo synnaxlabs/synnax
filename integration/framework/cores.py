@@ -22,6 +22,8 @@ from framework.models import SynnaxConnection
 
 _READY_TIMEOUT = 60.0
 _STOP_TIMEOUT = 15.0
+# A licensed Core logs this once its embedded Driver has started.
+_READY_LINE = b"Synnax is running and available at"
 
 
 @dataclass(frozen=True)
@@ -56,11 +58,10 @@ class Process:
         )
 
     def wait_ready(self) -> None:
-        """Blocks until the Core accepts connections.
+        """Blocks until the Core and its Driver are running.
 
-        :raises RuntimeError: If the Core exits or does not listen in time.
+        :raises RuntimeError: If the Core exits or does not start in time.
         """
-        conn = self.core.connection
         deadline = time.monotonic() + _READY_TIMEOUT
         while time.monotonic() < deadline:
             if self._popen.poll() is not None:
@@ -68,27 +69,28 @@ class Process:
                     f"Core at {self.core.address} exited with code "
                     f"{self._popen.returncode}. See {self.core.log_path}"
                 )
-            if _listening(conn.server_address, conn.port):
+            if _READY_LINE in self.core.log_path.read_bytes():
                 return
             time.sleep(0.5)
         raise RuntimeError(
-            f"Core at {self.core.address} did not listen within {_READY_TIMEOUT}s. "
+            f"Core at {self.core.address} did not start within {_READY_TIMEOUT}s. "
             f"See {self.core.log_path}"
         )
 
-    def stop(self) -> None:
-        """Interrupts the Core so it stops its Driver, and kills it if it does not
-        exit in time."""
-        if self._popen.poll() is None:
-            if sys.platform == "win32":
-                self._popen.send_signal(signal.CTRL_BREAK_EVENT)
-            else:
-                self._popen.send_signal(signal.SIGINT)
-            try:
-                self._popen.wait(timeout=_STOP_TIMEOUT)
-            except subprocess.TimeoutExpired:
-                self._popen.kill()
-                self._popen.wait()
+    def _interrupt(self) -> None:
+        if self._popen.poll() is not None:
+            return
+        if sys.platform == "win32":
+            self._popen.send_signal(signal.CTRL_BREAK_EVENT)
+        else:
+            self._popen.send_signal(signal.SIGINT)
+
+    def _wait_stopped(self) -> None:
+        try:
+            self._popen.wait(timeout=_STOP_TIMEOUT)
+        except subprocess.TimeoutExpired:
+            self._popen.kill()
+            self._popen.wait()
         self._log.close()
         shutil.rmtree(self._data, ignore_errors=True)
 
@@ -97,7 +99,7 @@ def start(
     *, binary: Path, first: SynnaxConnection, count: int, log_dir: Path
 ) -> list[Process]:
     """Starts count Cores on the ports after the first Core's port, and waits until
-    each accepts connections. Each Core keeps its data in memory.
+    each runs. Each Core keeps its data in memory.
 
     :raises RuntimeError: If a port is taken, or a Core does not start.
     """
@@ -115,10 +117,18 @@ def start(
         for p in processes:
             p.wait_ready()
     except BaseException:
-        for p in processes:
-            p.stop()
+        stop(processes)
         raise
     return processes
+
+
+def stop(processes: list[Process]) -> None:
+    """Interrupts each Core so it stops its Driver, then kills a Core that does not
+    exit in time."""
+    for p in processes:
+        p._interrupt()
+    for p in processes:
+        p._wait_stopped()
 
 
 def _listening(host: str, port: int) -> bool:

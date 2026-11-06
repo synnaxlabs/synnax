@@ -238,8 +238,7 @@ class _TestConductor:
 
     def stop_cores(self) -> None:
         """Stops the Cores the conductor started."""
-        for p in self.core_processes:
-            p.stop()
+        cores.stop(self.core_processes)
         self.core_processes = []
 
     def add_status_callback(self, callback: Callable[[Test], None]) -> None:
