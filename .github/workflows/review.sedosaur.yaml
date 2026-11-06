@@ -11,10 +11,11 @@
 # sedosaur GitHub App. The scripts and the policy in `.sedosaur/` come from the commit
 # that started this workflow, on the default branch, never from the pull request or its
 # base. Claude Code gets only read tools, a checkout of the head, and its OAuth token.
-# The App token reaches only the steps that write to GitHub.
+# The App token reaches only the steps that write to GitHub. A replay reviews any commit
+# with the policy of the ref it starts on, posts nothing, and keeps only the record.
 
 name: Review - Sedosaur
-run-name: ${{ inputs.pr }}
+run-name: ${{ inputs.pr }}${{ inputs.replay && ' replay' || '' }}
 
 on:
   workflow_dispatch:
@@ -27,6 +28,14 @@ on:
         description: "Comment that asked for the review, to react to"
         type: string
         required: false
+      head:
+        description: "Commit to review, if not the head of the pull request"
+        type: string
+        required: false
+      replay:
+        description: "Review without posting, and keep only the record"
+        type: boolean
+        default: false
 
 permissions: {}
 
@@ -34,9 +43,11 @@ env:
   RUN_URL:
     ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
-# One review of a pull request at a time. A newer request replaces a queued one.
+# One review of a pull request at a time. A newer request replaces a queued one. Replays
+# post nothing, so each runs apart.
 concurrency:
-  group: review-sedosaur-${{ inputs.pr }}
+  group:
+    review-sedosaur-${{ inputs.pr }}-${{ inputs.replay && github.run_id || 'live' }}
   cancel-in-progress: false
 
 jobs:
@@ -57,9 +68,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ inputs.pr }}
+          HEAD: ${{ inputs.head }}
         run: |
-          gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" --jq '
-            "head=\(.head.sha)", "base=\(.base.sha)",
+          if [ -n "$HEAD" ] && ! [[ "$HEAD" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::head must be a full commit SHA."
+            exit 1
+          fi
+          gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" | jq -r --arg head "$HEAD" '
+            "head=\(if $head == "" then .head.sha else $head end)", "base=\(.base.sha)",
             "fork=\(.head.repo.full_name != .base.repo.full_name)"' >> "$GITHUB_OUTPUT"
 
       - name: Assume the runner start role
@@ -100,7 +116,7 @@ jobs:
       # The check run shows on the pull request while the runner boots.
       - name: Queue the check run
         id: check
-        if: steps.pr.outputs.fork == 'false'
+        if: steps.pr.outputs.fork == 'false' && !inputs.replay
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
           HEAD_SHA: ${{ steps.pr.outputs.head }}
@@ -162,6 +178,7 @@ jobs:
           permission-pull-requests: write
 
       - name: Start the check run
+        if: ${{ !inputs.replay }}
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
         run: |
@@ -195,6 +212,7 @@ jobs:
           BOT: ${{ steps.app.outputs.app-slug }}
           POLICY_DIR: ${{ github.workspace }}
           POLICY_SHA: ${{ github.sha }}
+          REPLAY: ${{ inputs.replay }}
           HEAD_DIR: ${{ runner.temp }}/head
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.SEDOSAUR_CLAUDE_CODE_OAUTH_TOKEN }}
         run: python3 -m review run "$RUNNER_TEMP/review.json"
@@ -203,12 +221,13 @@ jobs:
       - name: Keep the record
         uses: actions/upload-artifact@v7
         with:
-          name: sedosaur-review
+          name: ${{ inputs.replay && 'sedosaur-replay' || 'sedosaur-review' }}
           path: ${{ runner.temp }}/review.json
           retention-days: 90
           overwrite: true
 
       - name: Post the review
+        if: ${{ !inputs.replay }}
         working-directory: .github/scripts
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}

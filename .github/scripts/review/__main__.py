@@ -16,8 +16,9 @@
 Run it from `.github/scripts`. Environment: GH_TOKEN, GITHUB_REPOSITORY, PR, HEAD_SHA,
 BASE_SHA, CHECK_RUN, RUN_URL, and BOT, the slug of the GitHub App the review posts as.
 `run` also takes POLICY_DIR, a trusted checkout that holds `.sedosaur/`, and POLICY_SHA,
-its commit; HEAD_DIR, a checkout of the head; and CLAUDE_CODE_OAUTH_TOKEN, the only
-variable that reaches Claude Code.
+its commit; HEAD_DIR, a checkout of the head; REPLAY, `true` for a review that posts
+nothing; and CLAUDE_CODE_OAUTH_TOKEN, the only variable that reaches Claude Code. A
+replay needs no CHECK_RUN.
 
 `run` writes a record of the review: when it ran, the pull request, the commits, the
 policy commit, the usage, and the review. `post` posts the review in a record. `compare`
@@ -67,7 +68,7 @@ def claude(args: list[str], stdin: str, cwd: Path) -> str:
         ).stdout
 
 
-def review(target: Target, path: Path) -> None:
+def review(target: Target, path: Path, *, replay: bool) -> None:
     config = load(Path(os.environ["POLICY_DIR"]))
     head = Path(os.environ["HEAD_DIR"]).resolve()
     excluded = [f":(glob,exclude){g}" for g in config.excluded]
@@ -94,7 +95,8 @@ def review(target: Target, path: Path) -> None:
         body=meta["body"],
         head=head,
         diff=diff,
-        open=open_findings(target, gh),
+        # A replay of an old commit must not see the threads that came after it.
+        open=set() if replay else open_findings(target, gh),
     )
     with tempfile.TemporaryDirectory() as workdir:
         result, usage = run(config, pr, claude=claude, workdir=Path(workdir))
@@ -126,13 +128,13 @@ def main(argv: list[str]) -> None:
         pr=int(env["PR"]),
         head=env["HEAD_SHA"],
         base=env["BASE_SHA"],
-        check_run=int(env["CHECK_RUN"]),
+        check_run=int(env["CHECK_RUN"]) if env.get("CHECK_RUN") else None,
         run_url=env["RUN_URL"],
         bot=env["BOT"],
     )
     path = Path(argv[1])
     if argv[0] == "run":
-        review(target, path)
+        review(target, path, replay=env.get("REPLAY") == "true")
     else:
         post(parse(json.loads(path.read_text())["review"]), target=target, gh=gh)
 
