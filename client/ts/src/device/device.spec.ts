@@ -838,6 +838,27 @@ describe("Device", async () => {
         expect(retrieved[0].properties.rate).toBe(100);
       });
 
+      it("should return one device for a key list that sets one", async () => {
+        const d = await client.devices.create(
+          {
+            key: id.create(),
+            rack: testRack.key,
+            location: "Dev1",
+            name: "one-option",
+            make: "ni",
+            model: "pxi",
+            properties: { rate: 200, channels: [] },
+          },
+          schemas,
+        );
+        const retrieved = await client.devices.retrieve({
+          key: [d.key],
+          one: true,
+          schemas,
+        });
+        expect(retrieved.properties.rate).toBe(200);
+      });
+
       it("should return one device for a plain key beside other fields", async () => {
         const d = await client.devices.create(
           {

@@ -257,6 +257,50 @@ describe("Retriever", () => {
       );
     });
 
+    it("returns one record for a query that sets one", async () => {
+      const fetchRequest = vi.fn(async () => [thing("a", 3)]);
+      const client = new Client(newCache(), async () => [], fetchRequest);
+      const result: Thing = await client.retrieve({ minSize: 2, one: true });
+      expect(result).toEqual(thing("a", 3));
+      expect(fetchRequest).toHaveBeenCalledWith({ minSize: 2 });
+    });
+
+    it("throws a MultipleFoundError when a query that sets one matches two", async () => {
+      const client = new Client(
+        newCache(),
+        async () => [],
+        async () => [thing("a", 3), thing("b", 4)],
+      );
+      await expect(client.retrieve({ minSize: 2, one: true })).rejects.toThrow(
+        new MultipleFoundError(
+          'Expected one thing matching {"minSize":2}, but found 2',
+        ),
+      );
+    });
+
+    it("routes a plain key that sets one through the single space", async () => {
+      const fetchKeys = vi.fn(async (keys: string[]) => keys.map((k) => thing(k)));
+      const fetchRequest = vi.fn(async () => []);
+      const client = new Client(newCache(), fetchKeys, fetchRequest);
+      expect(await client.retrieve({ key: "a", one: true })).toEqual(thing("a"));
+      expect(fetchKeys).toHaveBeenCalledWith(["a"]);
+      expect(fetchRequest).not.toHaveBeenCalled();
+    });
+
+    it("rejects a query that sets one beside an offset", async () => {
+      const fetchRequest = vi.fn(async () => []);
+      const client = new Client(newCache(), async () => [], fetchRequest);
+      await expect(
+        client.retrieve({ minSize: 2, one: true, offset: 1 } as never),
+      ).rejects.toThrow(
+        new ValidationError(
+          "a query for one record takes no limit or offset, since a page could " +
+            "hide a second match",
+        ),
+      );
+      expect(fetchRequest).not.toHaveBeenCalled();
+    });
+
     it("delivers deletion through onChange and flips retrieve to not-found", async () => {
       const client = new Client(
         newCache(),

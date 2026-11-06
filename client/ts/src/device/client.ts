@@ -263,8 +263,9 @@ export class Client extends query.Retriever<
     // Schemas are not hashable, so schema-typed retrieves bypass the query
     // cache and hit the network, still writing records through.
     if (schemas != null) {
-      const devices = await this.fetchThrough(rest, schemas);
-      checkForMultipleOrNoResults("Device", rest, devices, isSingle);
+      const request = query.dropOne(rest);
+      const devices = await this.fetchThrough(request, schemas);
+      checkForMultipleOrNoResults("Device", request, devices, isSingle);
       return isSingle ? devices[0] : devices;
     }
     if (isSingle) return await super.retrieve(rest);

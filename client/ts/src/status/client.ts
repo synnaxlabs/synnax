@@ -203,8 +203,9 @@ export class Client extends query.Retriever<
     // Schema-parametrized retrieves validate details for one caller; their
     // results are not shared through the cache.
     if (detailsSchema != null) {
-      const statuses = await this.execRetrieve(rest, detailsSchema);
-      checkForMultipleOrNoResults("Status", rest, statuses, isSingle);
+      const request = query.dropOne(rest);
+      const statuses = await this.execRetrieve(request, detailsSchema);
+      checkForMultipleOrNoResults("Status", request, statuses, isSingle);
       return isSingle ? statuses[0] : statuses;
     }
     if (isSingle) return (await super.retrieve(rest)) as Status<DetailsSchema>;
