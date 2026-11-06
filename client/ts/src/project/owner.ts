@@ -45,38 +45,61 @@ export const createOwnerMatcher = (
 };
 
 /** Schema of a set-project request for visualizations keyed by the given schema. */
-export const setProjectReqZ = <K extends z.ZodType<record.Key>>(key: K) =>
+export const moveReqZ = <K extends z.ZodType<record.Key>>(key: K) =>
   z.object({ keys: key.array(), project: keyZ });
 
 /** Payload of a set-project request. */
-export interface SetProjectPayload<K extends record.Key> {
+export interface MovePayload<K extends record.Key> {
   keys: K[];
   project: Key;
 }
 
-/** Builds a set-project request that moves the visualizations into the project. */
-export const setProjectRequest = <K extends record.Key>(
-  endpoint: string,
-  keys: K | K[],
-  project: Key,
-): batch.Request<SetProjectPayload<K>> => ({
-  endpoint,
-  payload: { keys: array.toArray(keys), project },
-});
+/**
+ * Builds a request that moves the visualizations out of their group and into the
+ * project. Its cache write moves the cached visualizations.
+ */
+export interface MoveRequest<K extends record.Key> {
+  (keys: K | K[], to: Key): batch.Request<MovePayload<K>>;
+}
 
 /**
- * Sets the project of each cached visualization under keys, skipping keys the table
- * does not hold. Returns a rollback that restores only the project field.
+ * Returns a builder of set-project requests to the endpoint. A request's cache write
+ * calls move with its keys and project, and move returns the rollback.
  */
-export const setCachedProject = <K extends record.Key, V extends Owned>(
+export const createMoveRequest =
+  <K extends record.Key>(
+    endpoint: string,
+    move: (keys: K[], project: Key) => destructor.Destructor,
+  ): MoveRequest<K> =>
+  (keys, to) => {
+    const payload = { keys: array.toArray(keys), project: to };
+    return { endpoint, payload, apply: () => move(payload.keys, payload.project) };
+  };
+
+/** A visualization that can sit in a group. */
+export interface Movable extends Owned {
+  group?: string;
+}
+
+/**
+ * Moves each cached visualization under keys out of its group and into the project,
+ * skipping keys the table does not hold. Returns a rollback that restores only the
+ * project and group fields.
+ */
+export const moveCached = <K extends record.Key, V extends Movable>(
   table: query.Table<K, V>,
   keys: K[],
   project: Key,
 ): destructor.Destructor => {
-  const prev = keys.map((key) => [key, table.get(key)?.project] as const);
-  keys.forEach((key) => query.partialUpdate(table, key, { project } as Partial<V>));
+  const prev = keys.map((key) => {
+    const cached = table.get(key);
+    return [key, { project: cached?.project, group: cached?.group }] as const;
+  });
+  keys.forEach((key) =>
+    query.partialUpdate(table, key, { project, group: undefined } as Partial<V>),
+  );
   return () =>
-    prev.forEach(([key, p]) =>
-      query.partialUpdate(table, key, { project: p } as Partial<V>),
+    prev.forEach(([key, fields]) =>
+      query.partialUpdate(table, key, fields as Partial<V>),
     );
 };

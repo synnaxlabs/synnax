@@ -82,12 +82,12 @@ export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement 
     setSiblings([]);
     if (client == null || schematicKey == null) return;
     handleError(async () => {
-      const children = await Project.retrieveChildren(client, {
+      const retrieved = await Project.retrieveSiblings(client, {
         resourceID: schematic.resourceID(schematicKey),
         types: [...schematic.PAGE_TYPES],
       });
       setSiblings(
-        children.flatMap(({ key, name, type }) => {
+        retrieved.flatMap(({ key, name, type }) => {
           const pageType = schematic.pageTypeZ.safeParse(type);
           if (!pageType.success) return [];
           const PageIcon = PAGE_ICONS[pageType.data];

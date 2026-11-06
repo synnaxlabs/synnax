@@ -218,10 +218,8 @@ export const create = async (client: Synnax, programs: Programs): Promise<void> 
   // Overwriting an existing schematic or line plot keeps its project and group, and the
   // user can have moved either one. Both go back to the top of the sample project.
   await client.batch.send([
-    schematic.setProjectRequest(KEYS.schematic, KEYS.project),
-    lineplot.setProjectRequest(KEYS.linePlot, KEYS.project),
-    client.schematics.setGroupRequest(KEYS.schematic),
-    client.lineplots.setGroupRequest(KEYS.linePlot),
+    client.schematics.setProjectRequest(KEYS.schematic, KEYS.project),
+    client.lineplots.setProjectRequest(KEYS.linePlot, KEYS.project),
   ]);
   await client.arcs.create([
     {

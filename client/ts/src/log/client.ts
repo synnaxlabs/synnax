@@ -56,11 +56,6 @@ const createReqZ = z.object({
 const createResZ = z.object({ logs: logZ.array() });
 
 const emptyResZ = z.object({});
-const setProjectReqZ = project.setProjectReqZ(keyZ);
-
-/** Builds a request that moves the logs into the project. */
-export const setProjectRequest = (keys: Key | Key[], to: project.Key) =>
-  project.setProjectRequest("/log/set-project", keys, to);
 
 /** Client-side matching for a request: key and group sets. */
 const requestFilter = (req: RetrieveRequest): ((l: Log) => boolean) => {
@@ -81,6 +76,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Lo
   private readonly store: query.Table<Key, Log>;
   /** Builds requests that move logs between groups. */
   readonly setGroupRequest: group.MoveRequest<Key>;
+  /** Builds requests that move logs out of their group and into a project. */
+  readonly setProjectRequest: project.MoveRequest<Key>;
   private readonly dispatcher: actions.Controller<Key, Log, Action>;
 
   constructor(cfg: ClientConfig) {
@@ -117,6 +114,9 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Lo
     this.store = store;
     this.setGroupRequest = group.createMoveRequest("/log/set-group", (keys, to) =>
       group.moveCached(store, keys, to),
+    );
+    this.setProjectRequest = project.createMoveRequest("/log/set-project", (keys, to) =>
+      project.moveCached(store, keys, to),
     );
     this.dispatcher = dispatcher;
   }
@@ -245,24 +245,6 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Lo
         ),
     });
     drop();
-  }
-
-  /** Moves the logs into the project. */
-  async setProject(
-    keys: Key | Key[],
-    to: project.Key,
-    opts: query.WriteOptions = {},
-  ): Promise<void> {
-    const { endpoint, payload } = setProjectRequest(keys, to);
-    const move = () =>
-      project.setCachedProject(this.store, payload.keys, payload.project);
-    await query.optimistic({
-      rollbacks: [move()],
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.cfg.unary.send(endpoint, payload, setProjectReqZ, emptyResZ),
-    });
-    move();
   }
 
   /** Subscribes to every log delete delivered to the cache. */

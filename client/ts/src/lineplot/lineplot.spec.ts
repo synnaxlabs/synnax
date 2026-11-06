@@ -12,6 +12,7 @@ import { describe, expect, it, test, vi } from "vitest";
 
 import { NotFoundError } from "@/index";
 import { lineplot } from "@/lineplot";
+import { project } from "@/project";
 import { query } from "@/query";
 import { createTestClient, expectDeleted } from "@/testutil";
 
@@ -61,9 +62,38 @@ describe("LinePlot", () => {
       const proj = await client.projects.create({ name: "Line Plot" });
       const dest = await client.projects.create({ name: "Line Plot" });
       const v = await client.lineplots.create({ project: proj.key, name: "Line Plot" });
-      await client.lineplots.setProject(v.key, dest.key);
+      await client.batch.send([client.lineplots.setProjectRequest(v.key, dest.key)]);
       const res = await client.lineplots.retrieve({ keys: [v.key] });
       expect(res[0].project).toEqual(dest.key);
+    });
+
+    test("move out of its group into another project", async () => {
+      const proj = await client.projects.create({ name: "Line Plot" });
+      const dest = await client.projects.create({ name: "Line Plot" });
+      const g = await client.groups.create({
+        parent: project.resourceID(proj.key),
+        name: "Line Plot",
+      });
+      const v = await client.lineplots.create({ project: proj.key, name: "Line Plot" });
+      await client.batch.send([client.lineplots.setGroupRequest(v.key, g.key)]);
+      await client.batch.send([client.lineplots.setProjectRequest(v.key, dest.key)]);
+      const [res] = await client.lineplots.retrieve({ keys: [v.key] });
+      expect(res.project).toEqual(dest.key);
+      expect(res.group).toBeUndefined();
+    });
+
+    test("move into the project of its group", async () => {
+      const proj = await client.projects.create({ name: "Line Plot" });
+      const dest = await client.projects.create({ name: "Line Plot" });
+      const g = await client.groups.create({
+        parent: project.resourceID(dest.key),
+        name: "Line Plot",
+      });
+      const v = await client.lineplots.create({ project: proj.key, name: "Line Plot" });
+      await client.batch.send([client.lineplots.setGroupRequest(v.key, g.key)]);
+      const [res] = await client.lineplots.retrieve({ keys: [v.key] });
+      expect(res.project).toEqual(dest.key);
+      expect(res.group).toEqual(g.key);
     });
 
     test("delete with its project", async () => {

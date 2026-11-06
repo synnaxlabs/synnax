@@ -38,10 +38,6 @@ export const { use, useEnsure, useInvalidate, useResult, createSelector } =
 
 export type RetrieveKeysByProjectQuery = { project: project.Key };
 
-const childrenOf = (projectKey: project.Key): panel.RetrieveRequest => ({
-  projects: [projectKey],
-});
-
 const keysOf = (panels: panel.Panel[]): panel.Key[] => panels.map(({ key }) => key);
 
 // The answer carries keys alone: consumers read each panel's own fields, so a rename
@@ -52,13 +48,13 @@ export const { use: useKeysByProject } = Flux.createRetrieve<
 >({
   name: PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query: { project: projectKey } }) =>
-    keysOf(await client.panels.retrieve(childrenOf(projectKey))),
+    keysOf(await client.panels.retrieve({ projects: [projectKey] })),
   onChange: ({ client, query: { project: projectKey } }, handler) =>
-    client.panels.onChange(childrenOf(projectKey), (result) =>
+    client.panels.onChange({ projects: [projectKey] }, (result) =>
       handler(query.isLive(result) ? keysOf(result) : undefined),
     ),
   getCached: ({ client, query: { project: projectKey } }) => {
-    const cached = client.panels.getCached(childrenOf(projectKey));
+    const cached = client.panels.getCached({ projects: [projectKey] });
     return query.isLive(cached) ? keysOf(cached) : undefined;
   },
   equal: (prev, next) => compare.primitiveArrays(prev, next) === compare.EQUAL,

@@ -8,18 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import {
-  type batch,
-  group,
   imex,
   lineplot,
   log,
   type ontology,
-  panel,
   project,
-  resource,
+  type resource,
   schematic,
   type Synnax as Client,
   table,
+  UnexpectedError,
 } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -188,80 +186,7 @@ const useOnSelect = (): ((resource: ontology.Resource) => void) => {
   };
 };
 
-type Visualization = "schematic" | "lineplot" | "log" | "table" | "panel";
-
-interface VisualizationSpec {
-  source: (client: Client, project: project.Key) => Tree.Source;
-  inGroups: (client: Client, groups: group.Key[]) => Promise<string[]>;
-  setProject: (keys: string[], to: project.Key) => batch.Request;
-}
-
-const keysOf = (records: Array<{ key: string }>): string[] =>
-  records.map(({ key }) => key);
-
-const VISUALIZATIONS: Record<Visualization, VisualizationSpec> = {
-  schematic: {
-    source: (client, key) =>
-      Tree.createSource(
-        client.schematics,
-        { projects: [key], grouped: false },
-        Tree.toResource("schematic"),
-      ),
-    inGroups: async (client, groups) =>
-      keysOf(await client.schematics.retrieve({ groups })),
-    setProject: schematic.setProjectRequest,
-  },
-  lineplot: {
-    source: (client, key) =>
-      Tree.createSource(
-        client.lineplots,
-        { projects: [key], grouped: false },
-        Tree.toResource("lineplot"),
-      ),
-    inGroups: async (client, groups) =>
-      keysOf(await client.lineplots.retrieve({ groups })),
-    setProject: lineplot.setProjectRequest,
-  },
-  log: {
-    source: (client, key) =>
-      Tree.createSource(
-        client.logs,
-        { projects: [key], grouped: false },
-        Tree.toResource("log"),
-      ),
-    inGroups: async (client, groups) => keysOf(await client.logs.retrieve({ groups })),
-    setProject: log.setProjectRequest,
-  },
-  table: {
-    source: (client, key) =>
-      Tree.createSource(
-        client.tables,
-        { projects: [key], grouped: false },
-        Tree.toResource("table"),
-      ),
-    inGroups: async (client, groups) =>
-      keysOf(await client.tables.retrieve({ groups })),
-    setProject: table.setProjectRequest,
-  },
-  panel: {
-    source: (client, key) =>
-      Tree.createSource(
-        client.panels,
-        { projects: [key], grouped: false },
-        Tree.toResource("panel"),
-      ),
-    inGroups: async (client, groups) =>
-      keysOf(await client.panels.retrieve({ groups })),
-    setProject: panel.setProjectRequest,
-  },
-};
-
-const VISUALIZATION_TYPES = Object.keys(VISUALIZATIONS) as Visualization[];
-
-const isVisualization = (type: resource.Type): type is Visualization =>
-  type in VISUALIZATIONS;
-
-const DROPPABLE_TYPES = new Set<resource.Type>([...VISUALIZATION_TYPES, "group"]);
+const DROPPABLE_TYPES = new Set<resource.Type>([...Base.VISUALIZATION_TYPES, "group"]);
 
 /** Lists the projects that sit in a group. */
 export const GROUP_MEMBER: Group.Member = {
@@ -282,66 +207,31 @@ export const listTreeRoot = (client: Client): Tree.Source[] => [
 
 const children: Tree.Children = ({ client, id }) => [
   Tree.createSource(client.groups, { parents: [id] }, Tree.toResource("group")),
-  ...VISUALIZATION_TYPES.map((type) => VISUALIZATIONS[type].source(client, id.key)),
+  ...Base.VISUALIZATION_TYPES.map((type) =>
+    Tree.createSource(
+      Base.VISUALIZATIONS[type](client),
+      { projects: [id.key], grouped: false },
+      Tree.toResource(type),
+    ),
+  ),
 ];
 
-const descendantGroups = async (
-  client: Client,
-  roots: group.Key[],
-): Promise<group.Key[]> => {
-  const out = [...roots];
-  let frontier = roots;
-  while (frontier.length > 0) {
-    const next = await client.groups.retrieve({ parents: group.resourceID(frontier) });
-    frontier = next.map(({ key }) => key);
-    out.push(...frontier);
-  }
-  return out;
-};
-
-// A visualization from another project changes project, and so does every visualization
-// inside a group from another project.
-const setProjectRequests = async (
-  client: Client,
-  items: Tree.Dropped[],
-  destination: project.Key,
-): Promise<batch.Request[]> => {
-  const foreign = items.filter(({ ancestors }) => {
-    const source = ancestors.find(
-      (id) => id.type === "project" && !resource.idsEqual(id, project.TYPE_RESOURCE_ID),
-    );
-    return source != null && source.key !== destination;
-  });
-  const byType = new Map<Visualization, string[]>();
-  const add = (type: Visualization, keys: string[]) =>
-    byType.set(type, [...(byType.get(type) ?? []), ...keys]);
-  foreign.forEach(({ id }) => {
-    if (isVisualization(id.type)) add(id.type, [id.key]);
-  });
-  const groups = foreign
-    .filter(({ id }) => id.type === "group")
-    .map(({ id }) => id.key);
-  if (groups.length > 0) {
-    const nested = await descendantGroups(client, groups);
-    await Promise.all(
-      VISUALIZATION_TYPES.map(async (type) =>
-        add(type, await VISUALIZATIONS[type].inGroups(client, nested)),
-      ),
-    );
-  }
-  return [...byType]
-    .filter(([, keys]) => keys.length > 0)
-    .map(([type, keys]) => VISUALIZATIONS[type].setProject(keys, destination));
-};
-
+// A dropped visualization leaves its group. The Core moves the visualizations in a
+// dropped group along with it.
 const drop: Tree.Drop = async ({ client, destination, items }) => {
+  const groups: resource.ID[] = [];
+  const byType = new Map<Base.VisualizationType, string[]>();
+  items.forEach(({ id }) => {
+    if (id.type === "group") groups.push(id);
+    else if (Base.isVisualizationType(id.type))
+      byType.set(id.type, [...(byType.get(id.type) ?? []), id.key]);
+    else throw new UnexpectedError(`a ${id.type} does not belong to a project`);
+  });
   await client.batch.send([
-    ...Group.moveRequests(
-      client,
-      items.map(({ id }) => id),
-      destination.id,
+    ...Group.moveRequests(client, groups, destination.id),
+    ...[...byType].map(([type, keys]) =>
+      Base.VISUALIZATIONS[type](client).setProjectRequest(keys, destination.id.key),
     ),
-    ...(await setProjectRequests(client, items, destination.id.key)),
   ]);
 };
 

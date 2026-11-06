@@ -79,11 +79,6 @@ const createResZ = z.object({ schematics: schematicZ.array() });
 
 const copyResZ = z.object({ schematic: schematicZ });
 const emptyResZ = z.object({});
-const setProjectReqZ = project.setProjectReqZ(keyZ);
-
-/** Builds a request that moves the schematics into the project. */
-export const setProjectRequest = (keys: Key | Key[], to: project.Key) =>
-  project.setProjectRequest("/schematic/set-project", keys, to);
 
 /**
  * Client-side matching for a request: key, group, owner, and snapshot. Server-computed
@@ -118,6 +113,8 @@ export class Client extends query.Retriever<
   private readonly store: query.Table<Key, Schematic>;
   /** Builds requests that move schematics between groups. */
   readonly setGroupRequest: group.MoveRequest<Key>;
+  /** Builds requests that move schematics out of their group and into a project. */
+  readonly setProjectRequest: project.MoveRequest<Key>;
   private readonly dispatcher: actions.Controller<Key, Schematic, Action>;
 
   constructor(cfg: ClientConfig) {
@@ -161,6 +158,10 @@ export class Client extends query.Retriever<
     this.store = store;
     this.setGroupRequest = group.createMoveRequest("/schematic/set-group", (keys, to) =>
       group.moveCached(store, keys, to),
+    );
+    this.setProjectRequest = project.createMoveRequest(
+      "/schematic/set-project",
+      (keys, to) => project.moveCached(store, keys, to),
     );
     this.dispatcher = dispatcher;
   }
@@ -295,24 +296,6 @@ export class Client extends query.Retriever<
         ),
     });
     drop();
-  }
-
-  /** Moves the schematics into the project. */
-  async setProject(
-    keys: Key | Key[],
-    to: project.Key,
-    opts: query.WriteOptions = {},
-  ): Promise<void> {
-    const { endpoint, payload } = setProjectRequest(keys, to);
-    const move = () =>
-      project.setCachedProject(this.store, payload.keys, payload.project);
-    await query.optimistic({
-      rollbacks: [move()],
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.cfg.unary.send(endpoint, payload, setProjectReqZ, emptyResZ),
-    });
-    move();
   }
 
   /** Subscribes to every schematic delete delivered to the cache. */

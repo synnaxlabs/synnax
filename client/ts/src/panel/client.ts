@@ -51,11 +51,6 @@ const deleteReqZ = z.object({ keys: keyZ.array() });
 const retrieveResZ = z.object({ panels: panelZ.array().default(() => []) });
 const createResZ = z.object({ panels: panelZ.array() });
 const emptyResZ = z.object({});
-const setProjectReqZ = project.setProjectReqZ(keyZ);
-
-/** Builds a request that moves the panels into the project. */
-export const setProjectRequest = (keys: Key | Key[], to: project.Key) =>
-  project.setProjectRequest("/panel/set-project", keys, to);
 
 /**
  * Client-side matching for a request: key, group, and owner sets. Server-computed
@@ -79,6 +74,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
   private readonly store: query.Table<Key, Panel>;
   /** Builds requests that move panels between groups. */
   readonly setGroupRequest: group.MoveRequest<Key>;
+  /** Builds requests that move panels out of their group and into a project. */
+  readonly setProjectRequest: project.MoveRequest<Key>;
   private readonly dispatcher: actions.Controller<Key, Panel, Action>;
 
   constructor(cfg: ClientConfig) {
@@ -115,6 +112,10 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
     this.store = store;
     this.setGroupRequest = group.createMoveRequest("/panel/set-group", (keys, to) =>
       group.moveCached(store, keys, to),
+    );
+    this.setProjectRequest = project.createMoveRequest(
+      "/panel/set-project",
+      (keys, to) => project.moveCached(store, keys, to),
     );
     this.dispatcher = dispatcher;
   }
@@ -255,24 +256,6 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
         ),
     });
     drop();
-  }
-
-  /** Moves the panels into the project. */
-  async setProject(
-    keys: Key | Key[],
-    to: project.Key,
-    opts: query.WriteOptions = {},
-  ): Promise<void> {
-    const { endpoint, payload } = setProjectRequest(keys, to);
-    const move = () =>
-      project.setCachedProject(this.store, payload.keys, payload.project);
-    await query.optimistic({
-      rollbacks: [move()],
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.cfg.unary.send(endpoint, payload, setProjectReqZ, emptyResZ),
-    });
-    move();
   }
 
   /** Subscribes to every panel delete delivered to the cache. */

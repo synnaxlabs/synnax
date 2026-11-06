@@ -63,11 +63,6 @@ const createReqZ = z.object({
 const createResZ = z.object({ tables: tableZ.array() });
 
 const emptyResZ = z.object({});
-const setProjectReqZ = project.setProjectReqZ(keyZ);
-
-/** Builds a request that moves the tables into the project. */
-export const setProjectRequest = (keys: Key | Key[], to: project.Key) =>
-  project.setProjectRequest("/table/set-project", keys, to);
 
 /** Client-side matching for a request: key and group sets. */
 const requestFilter = (req: RetrieveRequest): ((t: Table) => boolean) => {
@@ -88,6 +83,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ta
   private readonly store: query.Table<Key, Table>;
   /** Builds requests that move tables between groups. */
   readonly setGroupRequest: group.MoveRequest<Key>;
+  /** Builds requests that move tables out of their group and into a project. */
+  readonly setProjectRequest: project.MoveRequest<Key>;
   private readonly dispatcher: actions.Controller<Key, Table, Action>;
 
   constructor(cfg: ClientConfig) {
@@ -125,6 +122,10 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ta
     this.store = store;
     this.setGroupRequest = group.createMoveRequest("/table/set-group", (keys, to) =>
       group.moveCached(store, keys, to),
+    );
+    this.setProjectRequest = project.createMoveRequest(
+      "/table/set-project",
+      (keys, to) => project.moveCached(store, keys, to),
     );
     this.dispatcher = dispatcher;
   }
@@ -253,24 +254,6 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ta
         ),
     });
     drop();
-  }
-
-  /** Moves the tables into the project. */
-  async setProject(
-    keys: Key | Key[],
-    to: project.Key,
-    opts: query.WriteOptions = {},
-  ): Promise<void> {
-    const { endpoint, payload } = setProjectRequest(keys, to);
-    const move = () =>
-      project.setCachedProject(this.store, payload.keys, payload.project);
-    await query.optimistic({
-      rollbacks: [move()],
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.cfg.unary.send(endpoint, payload, setProjectReqZ, emptyResZ),
-    });
-    move();
   }
 
   /** Subscribes to every table delete delivered to the cache. */

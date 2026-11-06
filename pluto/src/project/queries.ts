@@ -8,13 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import {
+  type group,
   project,
   query,
   type resource,
   type Synnax,
   UnexpectedError,
 } from "@synnaxlabs/client";
-import { array, deep, type record, verbs } from "@synnaxlabs/x";
+import { array, deep, type destructor, type record, verbs } from "@synnaxlabs/x";
 import type z from "zod";
 
 import { Flux } from "@/flux";
@@ -101,64 +102,85 @@ export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
   },
 });
 
-interface Owned extends record.KeyedNamed {
-  project?: project.Key;
+/** A record type that belongs to a project. */
+export type VisualizationType = "schematic" | "lineplot" | "log" | "table" | "panel";
+
+/** A visualization of any type. */
+export interface Visualization extends record.KeyedNamed<string>, project.Movable {}
+
+/** The retrieve request fields that every visualization client takes. */
+export interface VisualizationQuery extends project.OwnerFilter {
+  keys?: string[];
+  groups?: group.Key[];
+  grouped?: boolean;
 }
 
-type ChildRetriever = (
-  client: Synnax,
-  request: project.OwnerFilter & { keys?: string[] },
-) => Promise<Owned[]>;
+/** The calls that every visualization client answers. */
+export interface VisualizationClient {
+  retrieve(query: VisualizationQuery): Promise<Visualization[]>;
+  onChange(
+    key: string,
+    handler: query.ChangeHandler<Visualization>,
+  ): destructor.Destructor;
+  onChange(
+    query: VisualizationQuery,
+    handler: query.ChangeHandler<Visualization[]>,
+  ): destructor.Destructor;
+  getCached(key: string): query.Cached<Visualization> | undefined;
+  getCached(query: VisualizationQuery): query.Cached<Visualization[]> | undefined;
+  readonly setProjectRequest: project.MoveRequest<string>;
+}
 
-/** A resource type that belongs to a project. */
-export type ChildType = "schematic" | "lineplot" | "log" | "table" | "panel";
-
-const CHILD_RETRIEVERS: Record<ChildType, ChildRetriever> = {
-  schematic: async (client, request) => await client.schematics.retrieve(request),
-  lineplot: async (client, request) => await client.lineplots.retrieve(request),
-  log: async (client, request) => await client.logs.retrieve(request),
-  table: async (client, request) => await client.tables.retrieve(request),
-  panel: async (client, request) => await client.panels.retrieve(request),
+/** Returns the client of each visualization type. */
+export const VISUALIZATIONS: Record<
+  VisualizationType,
+  (client: Synnax) => VisualizationClient
+> = {
+  schematic: (client) => client.schematics,
+  lineplot: (client) => client.lineplots,
+  log: (client) => client.logs,
+  table: (client) => client.tables,
+  panel: (client) => client.panels,
 };
 
-export type RetrieveChildrenQuery = {
+export const VISUALIZATION_TYPES = Object.keys(VISUALIZATIONS) as VisualizationType[];
+
+export const isVisualizationType = (type: resource.Type): type is VisualizationType =>
+  type in VISUALIZATIONS;
+
+export type RetrieveSiblingsQuery = {
   resourceID?: resource.ID;
-  types: ChildType[];
+  types: VisualizationType[];
 };
 
-export interface Child extends record.KeyedNamed {
-  type: ChildType;
+export interface Sibling extends record.KeyedNamed<string> {
+  type: VisualizationType;
 }
-
-const retrieverOf = (type: resource.Type): ChildRetriever => {
-  if (!(type in CHILD_RETRIEVERS))
-    throw new UnexpectedError(`a ${type} does not belong to a project`);
-  return CHILD_RETRIEVERS[type as ChildType];
-};
 
 /**
- * Retrieves the resources of the given types that share the queried resource's
- * project, excluding the resource itself. Returns an empty list when the resource
- * belongs to no project.
+ * Retrieves the visualizations of the given types that share the queried
+ * visualization's project, excluding the visualization itself. Returns an empty list
+ * when the visualization belongs to no project.
+ * @throws if the resource is not a visualization.
  */
-export const retrieveChildren = async (
+export const retrieveSiblings = async (
   client: Synnax,
-  { resourceID, types }: RetrieveChildrenQuery,
-): Promise<Child[]> => {
+  { resourceID, types }: RetrieveSiblingsQuery,
+): Promise<Sibling[]> => {
   if (resourceID == null) return [];
-  const [owner] = await retrieverOf(resourceID.type)(client, {
+  if (!isVisualizationType(resourceID.type))
+    throw new UnexpectedError(`a ${resourceID.type} does not belong to a project`);
+  const [source] = await VISUALIZATIONS[resourceID.type](client).retrieve({
     keys: [resourceID.key],
   });
-  if (owner?.project == null) return [];
-  const projects = [owner.project];
-  const children = await Promise.all(
+  if (source?.project == null) return [];
+  const projects = [source.project];
+  const siblings = await Promise.all(
     types.map(async (type) =>
-      (await CHILD_RETRIEVERS[type](client, { projects })).map(({ key, name }) => ({
-        key,
-        name,
-        type,
-      })),
+      (await VISUALIZATIONS[type](client).retrieve({ projects })).map(
+        ({ key, name }) => ({ key, name, type }),
+      ),
     ),
   );
-  return children.flat().filter(({ key }) => key !== resourceID.key);
+  return siblings.flat().filter(({ key }) => key !== resourceID.key);
 };

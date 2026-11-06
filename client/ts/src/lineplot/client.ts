@@ -63,11 +63,6 @@ const createReqZ = z.object({
 const createResZ = z.object({ linePlots: linePlotZ.array() });
 
 const emptyResZ = z.object({});
-const setProjectReqZ = project.setProjectReqZ(keyZ);
-
-/** Builds a request that moves the line plots into the project. */
-export const setProjectRequest = (keys: Key | Key[], to: project.Key) =>
-  project.setProjectRequest("/lineplot/set-project", keys, to);
 
 /** Client-side matching for a request: key and group sets. */
 const requestFilter = (req: RetrieveRequest): ((p: LinePlot) => boolean) => {
@@ -92,6 +87,8 @@ export class Client extends query.Retriever<
   private readonly store: query.Table<Key, LinePlot>;
   /** Builds requests that move line plots between groups. */
   readonly setGroupRequest: group.MoveRequest<Key>;
+  /** Builds requests that move line plots out of their group and into a project. */
+  readonly setProjectRequest: project.MoveRequest<Key>;
   private readonly dispatcher: actions.Controller<Key, LinePlot, Action>;
 
   constructor(cfg: ClientConfig) {
@@ -128,6 +125,10 @@ export class Client extends query.Retriever<
     this.store = store;
     this.setGroupRequest = group.createMoveRequest("/lineplot/set-group", (keys, to) =>
       group.moveCached(store, keys, to),
+    );
+    this.setProjectRequest = project.createMoveRequest(
+      "/lineplot/set-project",
+      (keys, to) => project.moveCached(store, keys, to),
     );
     this.dispatcher = dispatcher;
   }
@@ -259,24 +260,6 @@ export class Client extends query.Retriever<
         ),
     });
     drop();
-  }
-
-  /** Moves the line plots into the project. */
-  async setProject(
-    keys: Key | Key[],
-    to: project.Key,
-    opts: query.WriteOptions = {},
-  ): Promise<void> {
-    const { endpoint, payload } = setProjectRequest(keys, to);
-    const move = () =>
-      project.setCachedProject(this.store, payload.keys, payload.project);
-    await query.optimistic({
-      rollbacks: [move()],
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.cfg.unary.send(endpoint, payload, setProjectReqZ, emptyResZ),
-    });
-    move();
   }
 
   /** Subscribes to every line plot delete delivered to the cache. */
