@@ -72,6 +72,8 @@ inline State from_al_state(const uint16_t al_state) {
 struct Config {
     /// @brief whether the slave joins cyclic exchange.
     bool enabled = true;
+
+    bool operator==(const Config &) const = default;
 };
 
 /// @brief static properties of an EtherCAT slave device stored in device.properties.

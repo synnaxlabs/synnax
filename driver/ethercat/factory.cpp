@@ -7,7 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
+#include <format>
 #include <map>
+#include <string>
 
 #include "absl/log/log.h"
 
@@ -73,7 +76,8 @@ namespace {
 /// ones saved on the rack for that network. A task can start the bus before the scanner
 /// first runs, and a cached engine must not keep the settings of a deleted device.
 /// Returns errors::SLAVE_CONFIG_ERROR when a slave on the network has invalid
-/// properties, since the bus starts every slave on it.
+/// properties, since the bus starts every slave on it, or when two devices at one
+/// position have different settings.
 std::pair<std::shared_ptr<engine::Engine>, x::errors::Error> acquire_engine(
     engine::Pool &pool,
     const std::shared_ptr<synnax::Synnax> &client,
@@ -91,6 +95,7 @@ std::pair<std::shared_ptr<engine::Engine>, x::errors::Error> acquire_engine(
     });
     if (dev_err) return {nullptr, dev_err};
     std::map<uint16_t, slave::Config> configs;
+    std::map<uint16_t, std::string> labels;
     for (const auto &dev: devices) {
         auto parser = x::json::Parser(dev.properties);
         const auto props = slave::Properties::parse(parser);
@@ -106,7 +111,32 @@ std::pair<std::shared_ptr<engine::Engine>, x::errors::Error> acquire_engine(
                         common::config_err_description(parser.error())
                 )
             };
-        configs[props.position] = props.config();
+        const auto label = props.serial == 0
+                             ? dev.name
+                             : std::format("{} (serial {})", dev.name, props.serial);
+        const auto config = props.config();
+        const auto [it, added] = configs.emplace(props.position, config);
+        if (added) {
+            labels[props.position] = label;
+            continue;
+        }
+        if (it->second == config) continue;
+        const auto [first, second] = std::minmax(labels[props.position], label);
+        return {
+            nullptr,
+            x::errors::Error(
+                errors::SLAVE_CONFIG_ERROR,
+                std::format(
+                    "{} and {} are both saved at position {} on {} with different "
+                    "settings. Give them the same settings, or delete the device that "
+                    "is no longer on the bus.",
+                    first,
+                    second,
+                    props.position,
+                    network
+                )
+            )
+        };
     }
     eng->replace_slave_configs(std::move(configs));
     return {eng, x::errors::NIL};

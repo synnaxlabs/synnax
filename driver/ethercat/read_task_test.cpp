@@ -845,6 +845,47 @@ TEST_F(EtherCATReadTest, ConfigureFailsWhenASlaveOnTheNetworkIsInvalid) {
     );
 }
 
+/// @brief it should fail to configure, naming both devices, when two devices at one
+/// position have different settings, and configure once their settings match.
+TEST_F(EtherCATReadTest, ConfigureFailsWhenDevicesAtAPositionDisagree) {
+    auto removed = this->create_configured_slave(NETWORK_INTERFACE, 1, false);
+    removed.name = "EL3102";
+    ASSERT_NIL(this->client->devices.create(removed));
+    auto replacement = this->create_configured_slave(NETWORK_INTERFACE, 1, true);
+    replacement.key += "_replacement";
+    replacement.name = "EL3102";
+    replacement.properties["serial"] = 54321;
+    ASSERT_NIL(this->client->devices.create(replacement));
+    const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        this->create_input_channel_config(data_ch, 0x6000, 1, "int16")
+    );
+    auto manager = std::make_unique<testutil::Manager>();
+    manager->configure(NETWORK_INTERFACE, this->mock_master);
+    Factory factory(std::move(manager));
+    const synnax::task::Task task{
+        .rack = this->rack.key,
+        .name = "read",
+        .type = READ_TASK_TYPE,
+        .config = cfg,
+    };
+    auto [read_task, ok] = factory.configure_task(this->ctx, task, "start");
+    ASSERT_TRUE(ok);
+    EXPECT_EQ(read_task, nullptr);
+    ASSERT_EQ(this->ctx->statuses.size(), 1);
+    EXPECT_EQ(
+        this->ctx->statuses[0].description,
+        "EL3102 (serial 12345) and EL3102 (serial 54321) are both saved at position 1 "
+        "on eth0 with different settings. Give them the same settings, or delete the "
+        "device that is no longer on the bus."
+    );
+    replacement.properties["enabled"] = false;
+    ASSERT_NIL(this->client->devices.create(replacement));
+    ASSERT_NE(factory.configure_task(this->ctx, task, "").first, nullptr);
+    EXPECT_FALSE(this->mock_master->slave_enabled(1));
+}
+
 TEST_F(EtherCATReadTest, SourceReturnsEmptyFrameWhenBreakerStopped) {
     auto data_ch = ASSERT_NIL_P(this->client->channels.create(
         make_unique_channel_name("analog"),
