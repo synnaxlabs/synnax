@@ -61,6 +61,11 @@ describe("Box.Symbol", () => {
     expect(frame(container)?.getAttribute("rx")).toBe("12");
   });
 
+  it("should use the default corner radius when the config has none", () => {
+    const { container } = renderSymbol();
+    expect(frame(container)?.getAttribute("rx")).toBe("3");
+  });
+
   it("should put the frame inside the drag handle so the border drags the node", () => {
     const { container } = renderSymbol();
     expect(

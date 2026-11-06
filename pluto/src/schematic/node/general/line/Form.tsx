@@ -26,8 +26,9 @@ export const LineForm = (): ReactElement => (
   <Base.Sections x>
     <Base.Section title="Appearance">
       <Form.ColorField path={path.strokeColor} label="Stroke" />
-      <Base.NumericField
+      <Form.NumericField
         path={path.strokeWidth}
+        fallback={Form.DEFAULT_STROKE_WIDTH}
         label="Stroke width"
         padHelpText={false}
         inputProps={WIDTH_INPUT_PROPS}

@@ -214,5 +214,23 @@ var _ = Describe("ImEx", func() {
 				Expect(res.Edges).To(Equal(original.Edges))
 			},
 		)
+
+		It("Should keep every config field set to 0", func(ctx SpecContext) {
+			original := schematic.Schematic{Name: "zeros", Configs: zeroConfigs()}
+			Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &original)).To(Succeed())
+			env := MustSucceed(svc.Export(ctx, schematic.OntologyID(original.Key)))
+			id := MustSucceed(imexSvc.Import(
+				ctx,
+				db,
+				WireRoundTrip(env),
+				imex.ImportOptions{Parent: proj.OntologyID()},
+			))
+			var res schematic.Schematic
+			Expect(svc.NewRetrieve().
+				Where(schematic.MatchKeys(MustSucceed(uuid.Parse(id.Key)))).
+				Entry(&res).
+				Exec(ctx, db)).To(Succeed())
+			expectZeros(res.Configs)
+		})
 	})
 })
