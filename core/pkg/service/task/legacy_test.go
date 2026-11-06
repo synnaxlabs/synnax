@@ -50,6 +50,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -455,11 +456,14 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			Ontology: otg,
 		}))
 		rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-			DB:           db,
-			Ontology:     otg,
-			HostProvider: testutil.NewStaticHostProvider(1),
-			Status:       statusSvc,
-			DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
+			DB:                  db,
+			Ontology:            otg,
+			HostProvider:        testutil.NewStaticHostProvider(1),
+			Status:              statusSvc,
+			HealthCheckInterval: 10 * telem.Millisecond,
+			DriverRole: MustSucceed(
+				racktestutil.CreateDriverRole(ctx, roleSvc),
+			),
 		}))
 		deviceSvc := MustOpen(device.OpenService(ctx, device.ServiceConfig{
 			DB:       db,
