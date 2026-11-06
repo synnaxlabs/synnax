@@ -41,13 +41,16 @@ const CHAR_REGEX = /[a-zA-Z0-9_]/;
 
 const VALID_NAME_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 
+/** @returns whether name is a valid channel name. */
+export const isValidName = (name: string): boolean => VALID_NAME_PATTERN.test(name);
+
 /**
  * Rewrites a channel name into a valid identifier, replacing every other character with
  * an underscore and prefixing a leading digit.
  */
 export const escapeInvalidName = (name: string, changeEmptyToUnderscore = false) => {
   if (name === "") return changeEmptyToUnderscore ? "_" : "";
-  if (name.match(VALID_NAME_PATTERN)) return name;
+  if (isValidName(name)) return name;
   // if it doesn't match, convert non-alphanumeric characters to underscores and prepend
   // an underscore if the first character is a digit
   let result = "";

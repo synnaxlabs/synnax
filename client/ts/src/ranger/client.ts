@@ -23,7 +23,7 @@ import { z } from "zod";
 
 import { actions } from "@/actions";
 import { type channel } from "@/channel";
-import { AccessDeniedError, QueryError } from "@/errors";
+import { AccessDeniedError } from "@/errors";
 import { type framer } from "@/framer";
 import { label } from "@/label";
 import { ontology } from "@/ontology";
@@ -50,7 +50,12 @@ import {
   retrieveResponseZ,
 } from "@/ranger/types.gen";
 import { createLines, labelChangeAdmits } from "@/ranger/where";
-import { type Lines, matches, serverComputed } from "@/ranger/where.gen";
+import {
+  type Lines,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+} from "@/ranger/where.gen";
 import { Writer } from "@/ranger/writer";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
@@ -195,9 +200,14 @@ export class Range {
     return r;
   }
 
+  /**
+   * Sets the alias of a channel in the range.
+   * @throws {NotFoundError} if no channel has the given key or name.
+   * @throws {MultipleFoundError} if more than one channel has the given name.
+   */
   async setAlias(channel: channel.Key | Name, alias: string): Promise<void> {
     const ch = await this.channels(channel);
-    if (ch.length === 0) throw new QueryError(`Channel ${channel} does not exist`);
+    checkForMultipleOrNoResults("channel", channel, ch, true);
     await this.rangeClient.setAlias(this.key, ch[0].key, alias);
   }
 
@@ -209,6 +219,10 @@ export class Range {
     return await this.aliaser.list();
   }
 
+  /**
+   * @returns the key of the channel with the given alias in the range.
+   * @throws {NotFoundError} if no channel has the alias.
+   */
   async resolveAlias(alias: string): Promise<channel.Key> {
     return await this.aliaser.resolve(alias);
   }
@@ -272,6 +286,7 @@ const retrieveMultiParamsZ = z.union([
     where: { overlaps },
   })),
   callerRequestZ,
+  retrieveInputZ(callerRequestZ.omit({ where: true }).shape),
 ]);
 
 /**
@@ -292,6 +307,9 @@ const CHILDREN_SERVER_FIELDS = ["limit", "offset"] as const;
 
 const normalizeChildren = (params: ChildrenParams): ChildrenRequest =>
   typeof params === "string" ? { key: params } : params;
+
+const isKeyParams = (params: object): params is { key: Key } =>
+  "key" in params && typeof params.key === "string";
 
 const isParentChange = (rel: ontology.Relationship, id: ontology.ID): boolean =>
   ontology.matchRelationship(rel, {
@@ -407,7 +425,7 @@ export class Client extends query.Retriever<
   Key,
   Range,
   Range,
-  Key | Name
+  Key | Name | { key: Key }
 > {
   readonly type: string = "range";
   /** The range alias table; injected into sibling clients at wiring. */
@@ -498,7 +516,13 @@ export class Client extends query.Retriever<
         ],
       },
       compose: (r) => this.composeOne(r),
-      single: { schema: z.string(), space: single },
+      single: {
+        schema: z.union([
+          z.string(),
+          z.strictObject({ key: keyZ }).transform(({ key }) => key),
+        ]),
+        space: single,
+      },
     });
     this.cfg = cfg;
     this.lines = createLines((r, keys) =>
@@ -638,15 +662,22 @@ export class Client extends query.Retriever<
     drop();
   }
 
-  async retrieve(params: Key | Name): Promise<Range>;
+  async retrieve(params: Key | Name | { key: Key }): Promise<Range>;
   async retrieve(
-    params: Key[] | Name[] | CrudeTimeRange | RetrieveMultipleParams,
+    params: Name[] | CrudeTimeRange | query.RequestInput<typeof retrieveMultiParamsZ>,
   ): Promise<Range[]>;
   async retrieve(
-    params: Key | Name | Key[] | Name[] | CrudeTimeRange | RetrieveMultipleParams,
+    params:
+      | Key
+      | Name
+      | { key: Key }
+      | Name[]
+      | CrudeTimeRange
+      | query.RequestInput<typeof retrieveMultiParamsZ>,
   ): Promise<Range | Range[]> {
     // The branches narrow params onto different base overloads.
-    if (typeof params === "string") return await super.retrieve(params);
+    if (typeof params === "string" || isKeyParams(params))
+      return await super.retrieve(params);
     return await super.retrieve(params);
   }
 

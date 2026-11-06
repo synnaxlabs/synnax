@@ -984,12 +984,9 @@ TEST_F(SessionLimitPoolTest, TimeoutClosesChannel) {
     const auto client = conn.shared();
     types::ReadRequestBuilder builder;
     builder.add_node(UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_SERVERSTATUS_CURRENTTIME));
-    server_->probe_delay = x::telem::SECOND;
-    // The server answers this read, then waits before it handles the next one.
-    ASSERT_NIL_P(conn.read(builder.build()));
+    server_->stall(x::telem::SECOND);
     ASSERT_OCCURRED_AS_P(conn.read(builder.build()), errors::UNREACHABLE);
     ASSERT_OCCURRED_AS(lost(conn.get()), errors::NO_CONNECTION);
-    server_->probe_delay = x::telem::TimeSpan();
     std::this_thread::sleep_for(std::chrono::milliseconds(1100));
     conn = Pool::Connection(nullptr, nullptr, "");
     conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));

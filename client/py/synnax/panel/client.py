@@ -13,7 +13,6 @@ from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
 from synnax import ontology
-from synnax.exceptions import NotFoundError
 from synnax.panel.types_gen import (
     ONTOLOGY_TYPE,
     Key,
@@ -22,6 +21,7 @@ from synnax.panel.types_gen import (
     RetrieveResponse,
     Where,
 )
+from synnax.util import one
 from x import filter
 from x.lists import normalize
 
@@ -185,7 +185,5 @@ class Client:
         )
         panels = res.panels
         if is_single:
-            if len(panels) == 0:
-                raise NotFoundError("Panel not found")
-            return panels[0]
+            return one("Panel", key, panels)
         return panels
