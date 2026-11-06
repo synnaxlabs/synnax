@@ -1831,6 +1831,40 @@ describe("list", () => {
       expect(result.current.data).toEqual([2]);
     });
 
+    it("should apply an answer that arrived while its retrieve ran", async () => {
+      let deliver!: (answer: record.Keyed<number>[]) => void;
+      const subscribe = vi.fn((_, handler: typeof deliver) => {
+        deliver = handler;
+        return () => {};
+      });
+      let release!: (items: record.Keyed<number>[]) => void;
+      const retrieve = vi.fn(
+        async () =>
+          await new Promise<record.Keyed<number>[]>((resolve) => (release = resolve)),
+      );
+      const { result } = renderHook(
+        () =>
+          Flux.createList<{}, number, record.Keyed<number>>({
+            name: "Resource",
+            retrieve,
+            retrieveByKey: async ({ key }) => ({ key }),
+            onChange: subscribe,
+          })(),
+        { wrapper },
+      );
+      let retrieved!: Promise<void>;
+      act(() => {
+        retrieved = result.current.retrieveAsync({});
+      });
+      await waitFor(() => expect(retrieve).toHaveBeenCalled());
+      deliver([{ key: 1 }, { key: 2 }]);
+      await act(async () => {
+        release([{ key: 1 }]);
+        await retrieved;
+      });
+      expect(result.current.data).toEqual([1, 2]);
+    });
+
     it("should subscribe to an item when retrieving it before any list", async () => {
       const onChangeByKey = vi.fn().mockReturnValue(() => {});
       const retrieveByKey = vi.fn().mockResolvedValue({ key: 1 });
