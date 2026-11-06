@@ -205,9 +205,10 @@ export interface SpaceConfig<
   /**
    * Marks a space whose answer addresses one record and cannot compose an empty
    * membership: rule-2 eviction of the last member flips the query to deleted (when the
-   * entry tombstoned) or invalidates it, instead of composing []. Admitting a second
-   * member also invalidates it, so the next read asks the Core again. Leave unset for
-   * spaces where [] is a valid answer.
+   * entry tombstoned) or invalidates it, instead of composing []. A record that then
+   * matches revives a deleted answer. Admitting a second member invalidates the query,
+   * so the next read asks the Core again. Leave unset for spaces where [] is a valid
+   * answer.
    */
   single?: boolean;
 }
@@ -875,18 +876,21 @@ export class Space<
    * Applies membership rechecks for the given keys against the table's current entries,
    * without notifying. Admissions append in iteration order up to the query's limit. In
    * a single space, evicting the last member flips the query to deleted or unfetched,
-   * and admitting a second member flips it to unfetched. Returns whether the answer
-   * changed: membership moved, or a member's content was touched.
+   * and admitting a second member flips it to unfetched. A deleted answer admits like an
+   * empty one. Returns whether the answer changed: membership moved, or a member's
+   * content was touched.
    */
   private applyRechecks(query: Query<P, K, D, V>, keys: Iterable<K>): boolean {
-    if (query.state.variant === "loading") {
+    const { state } = query;
+    if (state.variant === "loading") {
       const pending = (query.pendingRechecks ??= new Set<K>());
       for (const key of keys) pending.add(key);
       return false;
     }
-    if (query.state.variant !== "ready") return false;
+    if (state.variant !== "ready" && state.variant !== "deleted") return false;
     const { table, matches, single } = this.config;
-    const memberSet = new Set(query.state.keys);
+    const members = state.variant === "ready" ? state.keys : [];
+    const memberSet = new Set(members);
     const admitted: K[] = [];
     let lastEvicted: K | null = null;
     let touched = false;
@@ -907,7 +911,7 @@ export class Space<
     }
     if (admitted.length === 0 && lastEvicted == null) return touched;
     const limit = this.limitOf(query.params);
-    const kept = query.state.keys.filter((k) => memberSet.has(k));
+    const kept = members.filter((k) => memberSet.has(k));
     const room = limit == null ? admitted.length : limit - kept.length;
     if (lastEvicted == null && room <= 0) return touched;
     const next = [...kept, ...admitted.slice(0, room)];
@@ -915,7 +919,7 @@ export class Space<
     if (
       limit != null &&
       next.length < limit &&
-      (query.vacated === true || query.state.keys.length >= limit)
+      (query.vacated === true || members.length >= limit)
     ) {
       query.vacated = true;
       this.scheduleRefetch(query);
