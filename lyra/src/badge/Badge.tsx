@@ -12,12 +12,12 @@ import "@/badge/Badge.css";
 import { type ComponentPropsWithoutRef, type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { type Variant } from "@/status/status";
+import { type Status } from "@/status";
 
 /** Props for the {@link Badge} component. */
 export interface BadgeProps extends ComponentPropsWithoutRef<"span"> {
   /** tints the badge with the color of a status variant. Without one, it is gray. */
-  status?: Variant;
+  status?: Status.Variant;
 }
 
 /**
