@@ -150,13 +150,18 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
             failures.insert(err.data);
             continue;
         }
-        if (std::ranges::none_of(slaves, pdo_discovery_failed))
+        const auto health = this->pool->health(key);
+        bool rediscovery_needed = false;
+        for (const auto &slave: slaves) {
+            auto dev = this->create_slave_device(slave, health, key, scan_ctx);
+            rediscovery_needed |= pdo_discovery_failed(slave) &&
+                                  dev.properties.at("enabled").get<bool>();
+            devices.push_back(std::move(dev));
+        }
+        if (!rediscovery_needed)
             this->next_rediscoveries.erase(key);
         else if (!scheduled || rediscover)
             this->next_rediscoveries[key] = scan_ctx.count + PDO_REDISCOVERY_INTERVAL;
-        const auto health = this->pool->health(key);
-        for (const auto &slave: slaves)
-            devices.push_back(this->create_slave_device(slave, health, key, scan_ctx));
     }
 
     if (failures.empty()) return {devices, x::errors::NIL};

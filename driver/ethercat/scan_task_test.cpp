@@ -445,6 +445,20 @@ TEST_F(EtherCATScanStatusTest, FailedPDODiscoveryRediscoversEverySixthScan) {
     EXPECT_EQ(this->master->call_count("deactivate"), 2);
 }
 
+/// @brief it should not discover the slaves again for a disabled slave whose PDO
+/// discovery failed.
+TEST_F(EtherCATScanStatusTest, DisabledSlaveIsNotRediscovered) {
+    this->master->fail_pdo_discovery(0, "no PDO objects found in object dictionary");
+    auto dev = ASSERT_NIL_P(this->scanner->scan({.count = 0})).at(0);
+    dev.properties["enabled"] = false;
+    const std::unordered_map<std::string, synnax::device::Device> devices{
+        {dev.key, dev}
+    };
+    for (size_t i = 1; i < 13; ++i)
+        ASSERT_NIL_P(this->scanner->scan({.count = i, .devices = &devices}));
+    EXPECT_EQ(this->master->call_count("deactivate"), 0);
+}
+
 /// @brief it should not discover the slaves again while every slave has its PDOs.
 TEST_F(EtherCATScanStatusTest, DiscoveredSlavesAreNotRediscovered) {
     for (size_t i = 0; i < 13; ++i)
