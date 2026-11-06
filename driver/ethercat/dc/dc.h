@@ -141,7 +141,8 @@ grid(const x::telem::TimeSpan period, const std::vector<x::telem::TimeSpan> &cyc
 struct Cycles {
     /// @brief the SYNC0 cycle, or zero for the cycle of the mode.
     x::telem::TimeSpan sync0{0};
-    /// @brief the time between SYNC1 events, or zero for the cycle of the mode.
+    /// @brief the time between SYNC1 events, or zero for the cycle of the mode. A
+    /// nonzero cycle turns SYNC1 on in a mode that leaves it off.
     x::telem::TimeSpan sync1{0};
 
     bool operator==(const Cycles &) const = default;
@@ -266,7 +267,8 @@ inline std::pair<Registers, x::errors::Error> resolve(
             REGISTER_LIMIT.to_string()
         );
     regs.sync0_cycle = static_cast<uint32_t>(sync0.nanoseconds());
-    if ((mode.assign_activate & SYNC1_ACTIVE) == 0) return {regs, x::errors::NIL};
+    if (cycles.sync1 != 0) regs.assign_activate |= SYNC1_ACTIVE;
+    if ((regs.assign_activate & SYNC1_ACTIVE) == 0) return {regs, x::errors::NIL};
     auto sync1 = sync0;
     if (mode.sync1_factor > 0) sync1 = sync0 * mode.sync1_factor;
     if (mode.sync1_factor < 0) sync1 = period * -mode.sync1_factor;

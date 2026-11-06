@@ -146,6 +146,32 @@ TEST(Resolve, UsesTheChosenCycles) {
     EXPECT_EQ(regs.sync1_cycle, 999'999'000U);
 }
 
+/// @brief it should turn SYNC1 on for a chosen SYNC1 cycle in a mode that leaves it
+/// off.
+TEST(Resolve, TurnsSYNC1OnForAChosenSYNC1Cycle) {
+    const OpMode mode{.name = "DC", .assign_activate = 0x0300, .sync0_cycle = 1'000};
+    const Cycles cycles{.sync1 = x::telem::SECOND};
+    EXPECT_EQ(
+        ASSERT_NIL_P(resolve(mode, x::telem::MILLISECOND, cycles)),
+        (Registers{
+            .assign_activate = 0x0700,
+            .sync0_cycle = 1'000,
+            .sync1_cycle = 999'999'000,
+        })
+    );
+}
+
+/// @brief it should leave SYNC1 off in a mode that leaves it off when the choice gives
+/// no SYNC1 cycle.
+TEST(Resolve, LeavesSYNC1OffWithoutAChosenSYNC1Cycle) {
+    const OpMode mode{.name = "DC", .assign_activate = 0x0300, .sync0_cycle = 1'000};
+    const Cycles cycles{.sync0 = x::telem::MICROSECOND * 2};
+    EXPECT_EQ(
+        ASSERT_NIL_P(resolve(mode, x::telem::MILLISECOND, cycles)),
+        (Registers{.assign_activate = 0x0300, .sync0_cycle = 2'000})
+    );
+}
+
 /// @brief it should reject a chosen SYNC1 cycle that is not a multiple of the SYNC0
 /// cycle.
 TEST(Resolve, RejectsAChosenSYNC1ThatIsNotAMultipleOfSYNC0) {
