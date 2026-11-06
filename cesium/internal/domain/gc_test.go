@@ -13,6 +13,7 @@ import (
 	"math"
 	"os"
 	"sync/atomic"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -29,10 +30,12 @@ import (
 // rename before it runs, until resume closes.
 type pausedFS struct {
 	fs.FS
-	opened      chan struct{}
-	renaming    chan struct{}
-	resume      chan struct{}
-	armed       atomic.Bool
+	opened   chan struct{}
+	renaming chan struct{}
+	resume   chan struct{}
+	armed    atomic.Bool
+	// renameTo is the armed rename's new name. Set it before renameArmed.
+	renameTo    string
 	renameArmed atomic.Bool
 }
 
@@ -58,7 +61,7 @@ func (p *pausedFS) Open(name string, flag int) (fs.File, error) {
 
 func (p *pausedFS) Rename(oldName, newName string) error {
 	GinkgoHelper()
-	if p.renameArmed.CompareAndSwap(true, false) {
+	if newName == p.renameTo && p.renameArmed.CompareAndSwap(true, false) {
 		p.renaming <- struct{}{}
 		Eventually(p.resume).Should(BeClosed())
 	}
@@ -166,11 +169,34 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					expectRead(r, data)
 				})
 
+				It("Should wait for a collection that has moved the file away", func(
+					ctx SpecContext,
+				) {
+					paused := newPausedFS(fs)
+					openOn(ctx, domain.Config{FS: paused})
+					paused.renameTo = "1.domain"
+					paused.renameArmed.Store(true)
+					collected := make(chan error, 1)
+					go func() {
+						defer GinkgoRecover()
+						collected <- db.GarbageCollect(ctx)
+					}()
+					Eventually(paused.renaming).Should(Receive())
+					readers := readAsync(ctx)
+					Consistently(readers, 100*time.Millisecond).ShouldNot(Receive())
+					close(paused.resume)
+					Eventually(collected).Should(Receive(Succeed()))
+					var r *domain.Reader
+					Eventually(readers).Should(Receive(&r))
+					expectRead(r, data)
+				})
+
 				It("Should not keep a handle opened during the collection", func(
 					ctx SpecContext,
 				) {
 					paused := newPausedFS(fs)
 					openOn(ctx, domain.Config{FS: paused})
+					paused.renameTo = "1.domain_temp"
 					paused.renameArmed.Store(true)
 					collected := make(chan error, 1)
 					go func() {

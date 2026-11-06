@@ -323,22 +323,26 @@ func (fc *fileController) newReader(
 	for {
 		rewrites := fc.rewrites.Load()
 		file, err := fc.FS.Open(fileKeyToName(key), os.O_RDONLY)
+		// GC holds fc.readers while it rewrites a file, so this waits out a rewrite
+		// that
+		// the open overlapped. The open may have missed the file, or found the old one.
+		fc.readers.Lock()
+		if fc.rewrites.Load() != rewrites {
+			fc.readers.Unlock()
+			if err == nil {
+				if err = file.Close(); err != nil {
+					return nil, span.Error(err)
+				}
+			}
+			continue
+		}
 		if err != nil {
+			fc.readers.Unlock()
 			return nil, span.Error(err)
 		}
 		r := controlledReader{
 			ReaderAtCloser:  file,
 			controllerEntry: newPoolEntry(key, fc.release, fc.Instrumentation),
-		}
-		// GC holds fc.readers while it rewrites a file, so a rewrite that this open
-		// could have missed shows here. Its handle may be on the old file.
-		fc.readers.Lock()
-		if fc.rewrites.Load() != rewrites {
-			fc.readers.Unlock()
-			if err = file.Close(); err != nil {
-				return nil, span.Error(err)
-			}
-			continue
 		}
 		f, ok := fc.readers.files[key]
 		if !ok {
