@@ -9,6 +9,7 @@
 
 from typing import Literal, Unpack
 
+import synnax as sy
 from console.layout import LayoutClient
 from console.task.channels.counter import Counter, Options
 
@@ -34,7 +35,7 @@ class LinearVelocity(Counter):
         name: str,
         device: str,
         *,
-        units: Literal["m/s", "in/s"] | None = None,
+        units: sy.ni.CILinearVelocityUnits | None = None,
         decoding_type: Literal["X1", "X2", "X4", "Two pulse"] | None = None,
         dist_per_pulse: float | None = None,
         terminal_a: str | None = None,

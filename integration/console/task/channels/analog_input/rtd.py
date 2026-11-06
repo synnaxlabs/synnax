@@ -9,6 +9,7 @@
 
 from typing import Literal, Unpack
 
+import synnax as sy
 from console.layout import LayoutClient
 from console.task.channels.analog import Analog, Options
 
@@ -42,13 +43,9 @@ class RTD(Analog):
         temperature_units: (
             Literal["Celsius", "Fahrenheit", "Kelvin", "Rankine"] | None
         ) = None,
-        rtd_type: (
-            Literal["Pt3750", "Pt3851", "Pt3911", "Pt3916", "Pt3920", "Pt3928"] | None
-        ) = None,
+        rtd_type: (sy.ni.RTDType | None) = None,
         resistance_configuration: Literal["2-Wire", "3-Wire", "4-Wire"] | None = None,
-        current_excitation_source: (
-            Literal["Internal", "External", "None"] | None
-        ) = None,
+        current_excitation_source: (sy.ni.ExcitationSource | None) = None,
         current_excitation_value: float | None = None,
         r0_resistance: float | None = None,
         **kwargs: Unpack[Options],

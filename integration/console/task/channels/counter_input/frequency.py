@@ -9,6 +9,7 @@
 
 from typing import Literal, Unpack
 
+import synnax as sy
 from console.layout import LayoutClient
 from console.task.channels.counter import Counter, Options
 
@@ -35,8 +36,8 @@ class Frequency(Counter):
         name: str,
         device: str,
         *,
-        edge: Literal["Rising", "Falling"] | None = None,
-        units: Literal["Hz", "Ticks", "Custom"] | None = None,
+        edge: sy.ni.CIEdge | None = None,
+        units: sy.ni.CIFreqUnits | Literal["Custom"] | None = None,
         terminal: str | None = None,
         meas_method: Literal[
             "One counter (low frequency)",

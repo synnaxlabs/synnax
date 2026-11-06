@@ -9,6 +9,7 @@
 
 from typing import Literal, Unpack
 
+import synnax as sy
 from console.layout import LayoutClient
 from console.task.channels.analog import Analog, Options
 
@@ -41,9 +42,7 @@ class Thermocouple(Analog):
         temperature_units: (
             Literal["Celsius", "Fahrenheit", "Kelvin", "Rankine"] | None
         ) = None,
-        thermocouple_type: (
-            Literal["B", "E", "J", "K", "N", "R", "S", "T"] | None
-        ) = None,
+        thermocouple_type: (sy.ni.ThermocoupleType | None) = None,
         cjc_source: Literal["Built in", "Constant value", "Channel"] | None = None,
         cjc_value: float | None = None,
         cjc_port: int | None = None,

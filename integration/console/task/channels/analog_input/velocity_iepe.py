@@ -9,6 +9,7 @@
 
 from typing import Literal, Unpack
 
+import synnax as sy
 from console.layout import LayoutClient
 from console.task.channels.analog import Analog, Options
 
@@ -41,9 +42,7 @@ class VelocityIEPE(Analog):
         velocity_units: Literal["m/s", "in/s"] | None = None,
         sensitivity: float | None = None,
         sensitivity_units: Literal["mV/mm/s", "mV/in/s"] | None = None,
-        current_excitation_source: (
-            Literal["Internal", "External", "None"] | None
-        ) = None,
+        current_excitation_source: (sy.ni.ExcitationSource | None) = None,
         current_excitation_value: float | None = None,
         **kwargs: Unpack[Options],
     ) -> None:
