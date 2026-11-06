@@ -42,7 +42,7 @@ const useOnSelect = (): ((resource: Tree.Resource) => void) => {
 };
 
 const haulItems = (resource: Tree.Resource): Haul.Item[] => {
-  const payload = resource.data as ranger.Payload | null | undefined;
+  const payload = resource.data as ranger.Payload | undefined;
   if (payload == null) return [];
   return [Ranger.createHaulItem(payload)];
 };

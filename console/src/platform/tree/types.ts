@@ -17,9 +17,8 @@ import { type Panel } from "@/platform/panel";
 import { type Session } from "@/session";
 
 /** A record that a tree shows: its resource ID and name, and the record itself. */
-export interface Resource<T extends record.Unknown = record.Unknown>
-  extends resource.Resource {
-  data?: T | null;
+export interface Resource extends resource.Resource {
+  data?: record.Unknown;
 }
 
 export interface GetResource {
