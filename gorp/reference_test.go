@@ -668,14 +668,21 @@ var _ = Describe("Reference", func() {
 			func(ctx SpecContext) {
 				createRack(ctx, 1)
 				Expect(createDevice(ctx, refDevice{Key: "d1", Rack: 1})).To(Succeed())
-				Expect(racks.NewDelete().
+				err := racks.NewDelete().
 					Where(gorp.MatchKeys[uint32, refRack](1)).
-					Exec(ctx, db)).To(And(
-					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring(
-						"cannot delete rack 1 because device d1 references it through rack",
-					)),
+					Exec(ctx, db)
+				Expect(err).To(MatchError(validate.ErrValidation))
+				Expect(err).To(MatchError(
+					"cannot delete rack 1 because device d1 references it through rack: " +
+						"validation error",
 				))
+				var restrict gorp.RestrictError
+				Expect(errors.As(err, &restrict)).To(BeTrue())
+				Expect(restrict).To(Equal(gorp.RestrictError{
+					Target:    gorp.NewTarget("rack", uint32(1)),
+					Holder:    gorp.NewTarget("device", "d1"),
+					Reference: "rack",
+				}))
 				Expect(rackExists(ctx, 1)).To(BeTrue())
 			},
 		)

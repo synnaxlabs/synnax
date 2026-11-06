@@ -161,6 +161,18 @@ var _ = Describe("Task", Ordered, func() {
 			},
 		)
 	})
+	Describe("ConfigTask", func() {
+		It("Should return the task whose config record a target names", func() {
+			key := uuid.New()
+			Expect(MustBeOk(svc.ConfigTask(gorp.NewTarget("labjack_read_config", key)))).
+				To(Equal(task.ResourceID(key)))
+		})
+
+		It("Should return false for a table that holds no config records", func() {
+			_, ok := svc.ConfigTask(gorp.NewTarget("task", uuid.New()))
+			Expect(ok).To(BeFalse())
+		})
+	})
 	Describe("StatusDetails msgpack round-trip", func() {
 		It("Should round-trip the details", func(ctx SpecContext) {
 			original := task.StatusDetails{

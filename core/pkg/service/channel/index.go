@@ -15,7 +15,7 @@ import "github.com/synnaxlabs/gorp"
 // delete of an index that a data channel uses fails.
 func indexReference() *gorp.KeyReference[Key, Channel, Key] {
 	return gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Channel, Key]{
-		Name:     "local_index",
+		Name:     "index",
 		Table:    tableName,
 		OnDelete: gorp.Restrict,
 		Targets: func(c *Channel) []Key {

@@ -132,8 +132,8 @@ describe("device/ontology", () => {
         expect.objectContaining({
           message: "Failed to delete device",
           description:
-            `cannot delete device ${dev.key} because modbus_read_config ` +
-            `${task.key} references it through device: validation error`,
+            `cannot delete device ${dev.name} because task ${task.name} uses it: ` +
+            "validation error",
         }),
       ),
     );

@@ -10,10 +10,9 @@
 package service_test
 
 import (
-	"fmt"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -78,12 +77,11 @@ var _ = Describe("References", Ordered, func() {
 			ctx SpecContext,
 		) {
 			Expect(layer.Channel.NewWriter(nil).Delete(ctx, ch.Key(), false)).To(
-				MatchError(ContainSubstring(fmt.Sprintf(
-					"cannot delete channel %d because modbus_read_config %s "+
-						"references it through channels.channel",
-					ch.Key(),
-					tsk.Key,
-				))),
+				MatchError(gorp.RestrictError{
+					Target:    gorp.NewTarget("channel", ch.Key()),
+					Holder:    gorp.NewTarget("modbus_read_config", tsk.Key),
+					Reference: "channels.channel",
+				}),
 			)
 		})
 
@@ -91,12 +89,11 @@ var _ = Describe("References", Ordered, func() {
 			ctx SpecContext,
 		) {
 			Expect(layer.Device.NewWriter(nil).Delete(ctx, dev.Key)).To(
-				MatchError(ContainSubstring(fmt.Sprintf(
-					"cannot delete device %s because modbus_read_config %s "+
-						"references it through device",
-					dev.Key,
-					tsk.Key,
-				))),
+				MatchError(gorp.RestrictError{
+					Target:    gorp.NewTarget("device", dev.Key),
+					Holder:    gorp.NewTarget("modbus_read_config", tsk.Key),
+					Reference: "device",
+				}),
 			)
 		})
 

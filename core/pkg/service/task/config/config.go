@@ -178,7 +178,7 @@ func OpenService[E gorp.Entry[uuid.UUID]](
 	}
 	table, err := gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, E]{
 		DB:   cfg.DB,
-		Name: cfg.Type + "_config",
+		Name: TableName(cfg.Type),
 		Migrations: append(
 			slices.Clone(cfg.Migrations),
 			gorp.DanglingMigration("v61_dangling_references"),
@@ -194,6 +194,9 @@ func OpenService[E gorp.Entry[uuid.UUID]](
 	}
 	return &Service[E]{cfg: cfg, table: table}, nil
 }
+
+// TableName returns the name of the table that stores the config records of taskType.
+func TableName(taskType string) string { return taskType + "_config" }
 
 // newTaskReference returns the reference from a record to the task that shares its key.
 func newTaskReference[E gorp.Entry[uuid.UUID]]() *gorp.KeyReference[uuid.UUID, E, uuid.UUID] {

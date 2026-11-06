@@ -387,9 +387,8 @@ class TestChannel:
         with pytest.raises(
             sy.ValidationError,
             match=(
-                f"cannot delete channel {virtual_channel.key} because "
-                f"modbus_read_config {task.key} references it through "
-                "channels.channel"
+                f"cannot delete channel {virtual_channel.name} because task "
+                f"{task.name} uses it"
             ),
         ):
             client.channels.delete(virtual_channel.key)

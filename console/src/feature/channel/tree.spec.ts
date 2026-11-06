@@ -254,8 +254,8 @@ describe("channel/ontology", () => {
           expect.objectContaining({
             message: "Failed to delete channel",
             description:
-              `cannot delete channel ${ch.key} because modbus_read_config ` +
-              `${task.key} references it through channels.channel: validation error`,
+              `cannot delete channel ${ch.name} because task ${task.name} uses it: ` +
+              "validation error",
           }),
         ),
       );

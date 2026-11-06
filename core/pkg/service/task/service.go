@@ -288,6 +288,17 @@ func (s *Service) ActionChannelKey() channel.Key {
 
 func (s *Service) Close() error { return s.closer.Close() }
 
+// ConfigTask returns the ID of the task whose config record target names, and false
+// when target names no config record.
+func (s *Service) ConfigTask(target gorp.Target) (resource.ID, bool) {
+	for _, typ := range s.cfg.Configs.Types() {
+		if config.TableName(typ) == target.Table {
+			return resource.ID{Type: resource.TypeTask, Key: target.Key}, true
+		}
+	}
+	return resource.ID{}, false
+}
+
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{

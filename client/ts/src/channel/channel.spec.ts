@@ -320,12 +320,34 @@ describe("Channel", () => {
       });
       await expect(client.channels.delete(channel.key)).rejects.toThrow(
         new ValidationError(
-          `cannot delete channel ${channel.key} because modbus_read_config ` +
-            `${task.key} references it through channels.channel: validation error`,
+          `cannot delete channel ${channel.name} because task ${task.name} uses it: ` +
+            "validation error",
         ),
       );
       await client.tasks.delete(task.key);
       await client.channels.delete(channel.key);
+    });
+    test("refuse an index that a data channel uses", async () => {
+      const index = await client.channels.create({
+        name: id.create(),
+        leaseholder: 1,
+        isIndex: true,
+        dataType: DataType.TIMESTAMP,
+      });
+      const data = await client.channels.create({
+        name: id.create(),
+        leaseholder: 1,
+        index: index.key,
+        dataType: DataType.FLOAT32,
+      });
+      await expect(client.channels.delete(index.key)).rejects.toThrow(
+        new ValidationError(
+          `cannot delete channel ${index.name} because channel ${data.name} uses ` +
+            "it as its index: validation error",
+        ),
+      );
+      await client.channels.delete(data.key);
+      await client.channels.delete(index.key);
     });
   });
   describe("rename", async () => {

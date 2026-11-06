@@ -11,6 +11,7 @@ package gorp
 
 import (
 	"context"
+	"fmt"
 	"slices"
 
 	"github.com/samber/lo"
@@ -134,6 +135,32 @@ func (s *referenceSpec) fieldErr(format string, args ...any) error {
 		s.name,
 	)
 }
+
+// RestrictError is the validation error of a delete that a Restrict reference refuses.
+type RestrictError struct {
+	// Target is the entry the delete would remove.
+	Target Target
+	// Holder is the entry that holds Target and that the delete would keep.
+	Holder Target
+	// Reference is the name of the reference through which Holder holds Target.
+	Reference string
+}
+
+// Error implements error.
+func (e RestrictError) Error() string {
+	return fmt.Sprintf(
+		"cannot delete %s %s because %s %s references it through %s: %s",
+		e.Target.Table,
+		e.Target.Key,
+		e.Holder.Table,
+		e.Holder.Key,
+		e.Reference,
+		validate.ErrValidation,
+	)
+}
+
+// Unwrap returns validate.ErrValidation.
+func (RestrictError) Unwrap() error { return validate.ErrValidation }
 
 // KeyReferenceConfig configures a KeyReference.
 type KeyReferenceConfig[K Key, E Entry[K], T Key] struct {

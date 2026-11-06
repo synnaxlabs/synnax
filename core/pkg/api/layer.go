@@ -297,11 +297,15 @@ func (l *Layer) BindTo(t Transport) {
 		instrumentation = lo.Must(
 			alamos.Middleware(alamos.Config{Instrumentation: l.config.Instrumentation}),
 		)
-		rec                = recovery.Middleware(l.config.Instrumentation)
-		gate               = license.Middleware(l.config.Service.License)
+		rec      = recovery.Middleware(l.config.Instrumentation)
+		gate     = license.Middleware(l.config.Service.License)
+		restrict = restrictMiddleware(
+			l.config.Service.Resource,
+			l.config.Service.Task,
+		)
 		insecureMiddleware = []freighter.Middleware{rec, instrumentation}
 		secureMiddleware   = append(slices.Clone(insecureMiddleware), tk)
-		gatedMiddleware    = append(slices.Clone(secureMiddleware), gate)
+		gatedMiddleware    = append(slices.Clone(secureMiddleware), gate, restrict)
 	)
 
 	freighter.UseOnAll(

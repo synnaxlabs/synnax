@@ -1153,12 +1153,11 @@ var _ = Describe("Writer", func() {
 				"Should not allow deletion of index channel with dependent channels",
 				func(ctx SpecContext) {
 					Expect(channelWriter.Delete(ctx, idxCh.Key(), true)).To(
-						MatchError(ContainSubstring(fmt.Sprintf(
-							"cannot delete channel %d because channel %d references "+
-								"it through local_index",
-							idxCh.Key(),
-							ch.Key(),
-						))),
+						MatchError(gorp.RestrictError{
+							Target:    gorp.NewTarget("channel", idxCh.Key()),
+							Holder:    gorp.NewTarget("channel", ch.Key()),
+							Reference: "index",
+						}),
 					)
 				},
 			)
@@ -1209,7 +1208,7 @@ var _ = Describe("Writer", func() {
 					calc.LocalIndex = 99999
 					Expect(channelWriter.Create(ctx, &calc)).To(MatchError(
 						ContainSubstring(fmt.Sprintf(
-							"local_index: channel %d does not exist",
+							"index: channel %d does not exist",
 							distchannel.NewKey(node.KeyFree, 99999),
 						)),
 					))

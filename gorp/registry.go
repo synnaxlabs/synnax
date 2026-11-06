@@ -262,15 +262,11 @@ func (r *registry) plan(
 		restricted   = set.New[Target]()
 	)
 	refuse := func(rs restriction) error {
-		return errors.Wrapf(
-			validate.ErrValidation,
-			"cannot delete %s %s because %s %s references it through %s",
-			rs.target.Table,
-			rs.target.Key,
-			rs.dependent.Table,
-			rs.dependent.Key,
-			rs.ref.referenceName(),
-		)
+		return RestrictError{
+			Target:    rs.target,
+			Holder:    rs.dependent,
+			Reference: rs.ref.referenceName(),
+		}
 	}
 	for len(queue) > 0 {
 		target := queue[0]
