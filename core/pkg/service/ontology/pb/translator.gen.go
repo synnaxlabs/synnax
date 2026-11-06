@@ -137,6 +137,8 @@ func ResourceTypeToPB(v ontology.ResourceType) (ResourceType, error) {
 		return ResourceType_RESOURCE_TYPE_NI_DEVICE, nil
 	case ontology.ResourceTypeOpcuaServer:
 		return ResourceType_RESOURCE_TYPE_OPCUA_SERVER, nil
+	case ontology.ResourceTypeArcDirectory:
+		return ResourceType_RESOURCE_TYPE_ARC_DIRECTORY, nil
 	default:
 		return 0, errors.Newf("unrecognized ontology.ResourceType value: %v", v)
 	}
@@ -209,6 +211,8 @@ func ResourceTypeFromPB(v ResourceType) (ontology.ResourceType, error) {
 		return ontology.ResourceTypeNiDevice, nil
 	case ResourceType_RESOURCE_TYPE_OPCUA_SERVER:
 		return ontology.ResourceTypeOpcuaServer, nil
+	case ResourceType_RESOURCE_TYPE_ARC_DIRECTORY:
+		return ontology.ResourceTypeArcDirectory, nil
 	default:
 		return ontology.ResourceType(""), errors.Newf("unrecognized ResourceType value: %v", v)
 	}
