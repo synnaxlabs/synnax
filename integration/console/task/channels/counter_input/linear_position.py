@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Literal, Unpack
+from typing import Unpack
 
 import synnax as sy
 from console.layout import LayoutClient
@@ -21,12 +21,12 @@ class LinearPosition(Counter):
     Kwargs:
         port (int): Physical port number
         units (str): "Meters", "Inches", or "Ticks"
-        decoding_type (str): "X1", "X2", "X4", or "Two pulse"
+        decoding_type (str): "X1", "X2", "X4", or "TwoPulse"
         dist_per_pulse (float): Distance per pulse
         initial_pos (float): Initial position value
         z_index_enabled (bool): Enable Z index
         z_index_val (float): Z index value
-        z_index_phase (str): "A high B high", "A high B low", "A low B high", or
+        z_index_phase (str): "AHighBHigh", "AHighBLow", "ALowBHigh", or
             "A low B low"
         terminal_a (str): Input Terminal A
         terminal_b (str): Input Terminal B
@@ -40,15 +40,12 @@ class LinearPosition(Counter):
         device: str,
         *,
         units: sy.ni.CILinearPositionUnits | None = None,
-        decoding_type: Literal["X1", "X2", "X4", "Two pulse"] | None = None,
+        decoding_type: sy.ni.CIDecodingType | None = None,
         dist_per_pulse: float | None = None,
         initial_pos: float | None = None,
         z_index_enabled: bool | None = None,
         z_index_val: float | None = None,
-        z_index_phase: (
-            Literal["A high B high", "A high B low", "A low B high", "A low B low"]
-            | None
-        ) = None,
+        z_index_phase: sy.ni.ZIndexPhase | None = None,
         terminal_a: str | None = None,
         terminal_b: str | None = None,
         terminal_z: str | None = None,

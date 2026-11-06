@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Literal, Unpack
+from typing import Unpack
 
 import synnax as sy
 from console.layout import LayoutClient
@@ -23,7 +23,7 @@ class AngularVelocity(Counter):
         min_val (float): Minimum value
         max_val (float): Maximum value
         units (str): "RPM", "Radians/s", or "Degrees/s"
-        decoding_type (str): "X1", "X2", "X4", or "Two pulse"
+        decoding_type (str): "X1", "X2", "X4", or "TwoPulse"
         pulses_per_rev (int): Pulses per revolution
         terminal_a (str): Input Terminal A
         terminal_b (str): Input Terminal B
@@ -36,7 +36,7 @@ class AngularVelocity(Counter):
         device: str,
         *,
         units: sy.ni.CIAngularVelocityUnits | None = None,
-        decoding_type: Literal["X1", "X2", "X4", "Two pulse"] | None = None,
+        decoding_type: sy.ni.CIDecodingType | None = None,
         pulses_per_rev: int | None = None,
         terminal_a: str | None = None,
         terminal_b: str | None = None,

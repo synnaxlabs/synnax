@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Literal, Unpack
+from typing import Unpack
 
 import synnax as sy
 from console.layout import LayoutClient
@@ -21,12 +21,12 @@ class AngularPosition(Counter):
     Kwargs:
         port (int): Physical port number
         units (str): "Degrees", "Radians", or "Ticks"
-        decoding_type (str): "X1", "X2", "X4", or "Two pulse"
+        decoding_type (str): "X1", "X2", "X4", or "TwoPulse"
         pulses_per_rev (int): Pulses per revolution
         initial_angle (float): Initial angle value
         z_index_enabled (bool): Enable Z index
         z_index_val (float): Z index value
-        z_index_phase (str): "A high B high", "A high B low", "A low B high", or
+        z_index_phase (str): "AHighBHigh", "AHighBLow", "ALowBHigh", or
             "A low B low"
         terminal_a (str): Input Terminal A
         terminal_b (str): Input Terminal B
@@ -40,15 +40,12 @@ class AngularPosition(Counter):
         device: str,
         *,
         units: sy.ni.CIAngularPositionUnits | None = None,
-        decoding_type: Literal["X1", "X2", "X4", "Two pulse"] | None = None,
+        decoding_type: sy.ni.CIDecodingType | None = None,
         pulses_per_rev: int | None = None,
         initial_angle: float | None = None,
         z_index_enabled: bool | None = None,
         z_index_val: float | None = None,
-        z_index_phase: (
-            Literal["A high B high", "A high B low", "A low B high", "A low B low"]
-            | None
-        ) = None,
+        z_index_phase: sy.ni.ZIndexPhase | None = None,
         terminal_a: str | None = None,
         terminal_b: str | None = None,
         terminal_z: str | None = None,

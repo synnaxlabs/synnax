@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Literal, Unpack
+from typing import Unpack
 
 import synnax as sy
 from console.layout import LayoutClient
@@ -19,19 +19,19 @@ class RTD(Analog):
     RTD channel type for NI analog read tasks.
 
     Supported kwargs (in addition to Analog base kwargs):
-        temperature_units (str): "Celsius", "Fahrenheit", "Kelvin", "Rankine"
+        temperature_units (str): "DegC", "DegF", "Kelvins", "DegR"
         rtd_type (str): "Pt3750", "Pt3851", "Pt3911", "Pt3916", "Pt3920", "Pt3928"
-        resistance_configuration (str): "2-Wire", "3-Wire", "4-Wire"
+        resistance_configuration (str): "2Wire", "3Wire", "4Wire"
         current_excitation_source (str): "Internal", "External", "None"
         current_excitation_value (float): Current excitation value
         r0_resistance (float): R0 resistance value
 
     Base kwargs from Analog:
         port (int): Physical port number
-        terminal_config (str): "Default", "Differential", etc.
+        terminal_config (str): "Cfg_Default", "Diff", etc.
         min_val (float): Minimum value
         max_val (float): Maximum value
-        custom_scale (str): "None", "Linear", "Map", "Table"
+        custom_scale (str): "none", "linear", "map", "table"
     """
 
     def __init__(
@@ -40,12 +40,10 @@ class RTD(Analog):
         name: str,
         device: str,
         *,
-        temperature_units: (
-            Literal["Celsius", "Fahrenheit", "Kelvin", "Rankine"] | None
-        ) = None,
-        rtd_type: (sy.ni.RTDType | None) = None,
-        resistance_configuration: Literal["2-Wire", "3-Wire", "4-Wire"] | None = None,
-        current_excitation_source: (sy.ni.ExcitationSource | None) = None,
+        temperature_units: sy.ni.TemperatureUnits | None = None,
+        rtd_type: sy.ni.RTDType | None = None,
+        resistance_configuration: sy.ni.ResistanceConfig | None = None,
+        current_excitation_source: sy.ni.ExcitationSource | None = None,
         current_excitation_value: float | None = None,
         r0_resistance: float | None = None,
         **kwargs: Unpack[Options],

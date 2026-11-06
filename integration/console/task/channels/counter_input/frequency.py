@@ -25,7 +25,7 @@ class Frequency(Counter):
         edge (str): "Rising" or "Falling"
         units (str): "Hz", "Ticks", or "Custom"
         terminal (str): Input terminal (e.g., "PFI0", "PFI1", etc.)
-        meas_method (str): "One counter (low frequency)",
+        meas_method (str): "LowFreq1Ctr",
             "Two counters (high frequency)", "Two counters (large range)",
             "Dynamic averaging"
     """
@@ -39,13 +39,7 @@ class Frequency(Counter):
         edge: sy.ni.CIEdge | None = None,
         units: sy.ni.CIFreqUnits | Literal["Custom"] | None = None,
         terminal: str | None = None,
-        meas_method: Literal[
-            "One counter (low frequency)",
-            "Two counters (high frequency)",
-            "Two counters (large range)",
-            "Dynamic averaging",
-        ]
-        | None = None,
+        meas_method: sy.ni.CIMeasMethod | None = None,
         **kwargs: Unpack[Options],
     ) -> None:
         """Initialize frequency channel with configuration."""

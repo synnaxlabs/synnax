@@ -27,7 +27,7 @@ class Current(Analog):
         terminal_config (str): "Default", "Differential", etc.
         min_val (float): Minimum value
         max_val (float): Maximum value
-        custom_scale (str): "None", "Linear", "Map", "Table"
+        custom_scale (str): "none", "Linear", "Map", "Table"
     """
 
     def __init__(

@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Literal, Unpack
+from typing import Unpack
 
 import synnax as sy
 from console.layout import LayoutClient
@@ -34,8 +34,7 @@ class EdgeCount(Counter):
         device: str,
         *,
         active_edge: sy.ni.CIEdge | None = None,
-        count_direction: Literal["Count up", "Count down", "Externally controlled"]
-        | None = None,
+        count_direction: sy.ni.CICountDirection | None = None,
         terminal: str | None = None,
         initial_count: int | None = None,
         **kwargs: Unpack[Options],
