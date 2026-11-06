@@ -160,6 +160,43 @@ TEST(TestReadChannelParse, testAIChanZeroRange) {
     EXPECT_EQ(p.errors->at(0)["message"], "Max voltage must be greater than 0");
 }
 
+/// @brief it should reject an analog channel with an invalid scale.
+TEST(TestReadChannelParse, testAIChanInvalidScale) {
+    const x::json::json cfg{
+        {"port", "AIN0"},
+        {"channel", 1},
+        {"type", "analog"},
+        {"range", 10},
+        {"scale", {{"type", "polynomial"}, {"coeffs", x::json::json::array()}}},
+    };
+    auto p = x::json::Parser(cfg);
+    parse_input_chan(p);
+    ASSERT_EQ(p.errors->size(), 1);
+    EXPECT_EQ(p.errors->at(0)["path"], "scale.coeffs");
+}
+
+/// @brief it should reject a thermocouple channel with an invalid scale.
+TEST(TestReadChannelParse, testTCChanInvalidScale) {
+    const x::json::json cfg{
+        {"port", "AIN0"},
+        {"channel", 1},
+        {"type", "thermocouple"},
+        {"thermocouple_type", "K"},
+        {"neg_chan", 1},
+        {"units", "C"},
+        {"cjc_source", "TEMPERATURE_DEVICE_K"},
+        {"cjc_slope", 1},
+        {"cjc_offset", 0},
+        {"scale",
+         {{"type", "table"}, {"pre_scaled_vals", {0, 1}}, {"scaled_vals", {0}}}},
+    };
+    auto p = x::json::Parser(cfg);
+    parse_input_chan(p);
+    ASSERT_EQ(p.errors->size(), 2);
+    EXPECT_EQ(p.errors->at(0)["path"], "scale.pre_scaled_vals");
+    EXPECT_EQ(p.errors->at(1)["path"], "scale.scaled_vals");
+}
+
 /// @brief it should read an AIN CJC source on its own port, on every model.
 TEST(TestReadChannelParse, testTCChanAINCJCSource) {
     const auto chan = parse_thermocouple("AIN0", "AIN2");
