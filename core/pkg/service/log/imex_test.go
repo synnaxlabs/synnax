@@ -292,7 +292,7 @@ var _ = Describe("ImEx", func() {
 
 		It("Should retrieve the imported log as a resource", func(ctx SpecContext) {
 			id, l := importAndRetrieve(ctx, LoadEnvelope(v2Fixture))
-			Expect(svc.Resources().Retrieve(ctx, nil, []resource.ID{id})).
+			Expect(svc.Resources().Retrieve(ctx, db, []resource.ID{id})).
 				To(ConsistOf(resource.Resource{ID: id, Name: l.Name}))
 		})
 

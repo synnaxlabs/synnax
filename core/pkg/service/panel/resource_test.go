@@ -94,7 +94,10 @@ var _ = Describe("Resource", func() {
 		It("Should error when a resource ID key is not a UUID", func() {
 			Expect(panel.KeysFromResourceIDs([]resource.ID{{
 				Type: resource.TypePanel, Key: "not-a-uuid",
-			}})).Error().To(MatchError(ContainSubstring("invalid uuid")))
+			}})).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(`invalid panel key "not-a-uuid"`)),
+			))
 		})
 	})
 

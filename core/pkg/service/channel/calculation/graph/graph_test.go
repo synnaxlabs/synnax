@@ -1091,13 +1091,13 @@ var _ = Describe("Graph", func() {
 				openGraph(ctx)
 				calc := createBrokenCalc(ctx, "st_resource", "st_resource_dep")
 				id := status.ResourceID(expectStatus(ctx, calc.Key()).Key)
-				Expect(statusSvc.Resources().Retrieve(ctx, nil, []resource.ID{id})).
+				Expect(statusSvc.Resources().Retrieve(ctx, db, []resource.ID{id})).
 					To(HaveLen(1))
 
 				By("Restoring the dependency so the graph clears the status")
 				createDep(ctx, "st_resource_dep")
 				eventuallyExpectNoStatus(ctx, calc.Key())
-				Expect(statusSvc.Resources().Retrieve(ctx, nil, []resource.ID{id})).
+				Expect(statusSvc.Resources().Retrieve(ctx, db, []resource.ID{id})).
 					To(BeEmpty())
 			},
 		)

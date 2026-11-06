@@ -432,7 +432,7 @@ var _ = Describe("Writer", func() {
 						).To(Succeed())
 						Expect(newCh.Key()).ToNot(Equal(originalKey))
 
-						Expect(svc.Resources().Retrieve(ctx, nil, []resource.ID{
+						Expect(svc.Resources().Retrieve(ctx, dist.DB, []resource.ID{
 							channel.ResourceID(originalKey),
 							channel.ResourceID(newCh.Key()),
 						})).To(ConsistOf(resource.Resource{

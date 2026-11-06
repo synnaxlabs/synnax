@@ -113,6 +113,7 @@ var _ = Describe("RetrieveResources", func() {
 	It(
 		"Should leave out the child ranges a parent delete cascaded to",
 		func(ctx SpecContext) {
+			openTx()
 			tr := telem.TimeRange{
 				Start: telem.TimeStamp(5 * telem.Second),
 				End:   telem.TimeStamp(10 * telem.Second),
