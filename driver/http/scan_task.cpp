@@ -171,6 +171,17 @@ void Scanner::process_health_response(
     const Response &resp,
     const x::errors::Error &err
 ) const {
+    // A status code means the server answered before the transfer failed.
+    if (err && resp.status_code != 0) {
+        this->set_device_status(
+            dev,
+            true,
+            synnax::status::VARIANT_ERROR,
+            "Health check failed",
+            err.data
+        );
+        return;
+    }
     if (err) {
         this->set_device_status(
             dev,

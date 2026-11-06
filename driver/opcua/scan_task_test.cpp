@@ -741,6 +741,7 @@ TEST_F(TestScanTask, testHealthCheckCertificateMismatch) {
     const auto &status = scanned[0].status.value();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(status.message, "Server certificate not trusted");
+    EXPECT_TRUE(status.details.connected);
     EXPECT_EQ(
         status.description,
         "The server presented the certificate " + server_id.certificate.thumbprint() +
@@ -786,6 +787,7 @@ TEST_F(TestScanTask, testHealthCheckDriverCertificateRejected) {
     const auto &status = scanned[0].status.value();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(status.message, "Server rejected the Driver certificate");
+    EXPECT_TRUE(status.details.connected);
     EXPECT_EQ(
         status.description,
         "The server rejected the connection's security checks "

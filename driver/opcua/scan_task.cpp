@@ -57,6 +57,15 @@ std::string failure_message(
     return fallback;
 }
 
+/// @returns true when err is a reply from the server, such as a rejected login or
+/// certificate.
+bool server_answered(const x::errors::Error &err) {
+    return err.matches(errors::SESSION_REJECTED) ||
+           err.matches(errors::SERVER_CERTIFICATE_UNTRUSTED) ||
+           err.matches(errors::SERVER_CERTIFICATE_TIME_INVALID) ||
+           err.matches(errors::CLIENT_CERTIFICATE_REJECTED);
+}
+
 /// @returns an error status for the reply to cmd, which each handler fills in.
 synnax::task::Status
 command_status(const synnax::task::Task &task, const synnax::task::Command &cmd) {
@@ -184,7 +193,7 @@ x::errors::Error Scanner::check_device_health(synnax::device::Device &dev) {
                                ? synnax::status::VARIANT_ERROR
                                : synnax::status::VARIANT_WARNING;
             status.description = conn_err.data;
-            status.details.connected = false;
+            status.details.connected = server_answered(conn_err);
             dev.status = status;
             return x::errors::NIL;
         }

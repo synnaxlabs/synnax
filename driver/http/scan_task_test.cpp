@@ -547,6 +547,47 @@ TEST(HTTPScanTask, ScanRepeatedScans) {
     EXPECT_FALSE(result[0].status.value().details.connected);
 }
 
+/// @brief it should keep a server that answers and then stalls connected.
+TEST(HTTPScanTask, ScanServerThatStallsAfterHeaders) {
+    testutil::Server server(
+        testutil::ServerConfig{
+            .routes = {{
+                .method = Method::GET,
+                .path = "/health",
+                .response_body = "{}",
+                .body_delay = x::telem::SECOND * 5,
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+
+    auto dev = make_device(
+        host_port_from_url(server.base_url()),
+        {{"timeout_ms", 500}}
+    );
+
+    std::unordered_map<std::string, synnax::device::Device> devices;
+    devices[dev.key] = dev;
+    common::ScannerContext scan_ctx{.devices = &devices};
+
+    synnax::task::Task task;
+    task.key = x::uuid::create();
+    task.rack = 1;
+    task.name = "HTTP Scanner";
+
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto processor = std::make_shared<Processor>();
+    Scanner scanner(ctx, task, processor);
+
+    const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
+    ASSERT_EQ(result.size(), 1);
+    EXPECT_EQ(result[0].status.value().variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(result[0].status.value().message, "Health check failed");
+    EXPECT_TRUE(result[0].status.value().details.connected);
+
+    server.stop();
+}
+
 TEST(HTTPScanTask, ScanUnreachableDevice) {
     auto dev = make_device("127.0.0.1:1", {{"timeout_ms", 500}});
 
