@@ -202,52 +202,28 @@ func (s *Service) Create(
 	return res, nil
 }
 
-// RetrieveRequest selects the certificates to retrieve.
-type RetrieveRequest struct {
-	// SearchTerm filters the certificates by name.
-	SearchTerm string `json:"search_term" msgpack:"search_term"`
-	// Keys selects certificates by key.
-	Keys []Key `json:"keys" msgpack:"keys"`
-	// Limit is the maximum number of certificates to return.
-	Limit int `json:"limit" msgpack:"limit"`
-	// Offset is the number of certificates to skip.
-	Offset int `json:"offset" msgpack:"offset"`
-}
-
-// RetrieveResponse holds the retrieved certificates.
-type RetrieveResponse struct {
-	// Certificates are the certificates that the request selects.
-	Certificates []Certificate `json:"certificates" msgpack:"certificates"`
-}
-
 // Retrieve returns the certificates the request selects. It requires retrieve access on
 // each of them.
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
-	q := s.internal.NewRetrieve().Search(req.SearchTerm)
-	if req.Limit != 0 {
-		q = q.Limit(req.Limit)
-	}
-	if req.Offset != 0 {
-		q = q.Offset(req.Offset)
-	}
-	if len(req.Keys) != 0 {
-		q = q.Where(certificate.MatchKeys(req.Keys...))
-	}
-	var certs []Certificate
-	if err := q.Entries(&certs).Exec(ctx, nil); err != nil {
+	var res RetrieveResponse
+	q, err := req.Apply(s.internal.NewRetrieve().Entries(&res.Certificates))
+	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
+	if err = q.Exec(ctx, nil); err != nil {
+		return RetrieveResponse{}, err
+	}
+	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: certificate.OntologyIDsFromCertificates(certs),
+		Objects: certificate.OntologyIDsFromCertificates(res.Certificates),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
-	return RetrieveResponse{Certificates: certs}, nil
+	return res, nil
 }
 
 // RenameRequest names the certificate to rename and its new name.

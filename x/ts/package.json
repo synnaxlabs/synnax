@@ -31,9 +31,13 @@
     "zod": "catalog:"
   },
   "peerDependencies": {
+    "undici": "catalog:",
     "vitest": "catalog:"
   },
   "peerDependenciesMeta": {
+    "undici": {
+      "optional": true
+    },
     "vitest": {
       "optional": true
     }
@@ -46,6 +50,7 @@
     "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
     "typescript": "catalog:",
+    "undici": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:"
   },
@@ -68,6 +73,10 @@
     "./testutil": {
       "types": "./dist/testutil/index.d.ts",
       "default": "./dist/testutil/index.js"
+    },
+    "./testutil/keepAlive": {
+      "types": "./dist/testutil/keepAlive.d.ts",
+      "default": "./dist/testutil/keepAlive.js"
     },
     "./dist/*": "./dist/*"
   }

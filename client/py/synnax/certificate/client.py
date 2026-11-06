@@ -9,12 +9,19 @@
 
 from typing import overload
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
 from synnax.certificate.payload import New
-from synnax.certificate.types_gen import Certificate, Key
-from synnax.exceptions import NotFoundError
+from synnax.certificate.types_gen import (
+    Certificate,
+    Key,
+    RetrieveRequest,
+    RetrieveResponse,
+    Where,
+)
+from synnax.util import one
+from x import filter
 from x.lists import normalize
 
 
@@ -33,17 +40,6 @@ class _RenameRequest(BaseModel):
 
 class _DeleteRequest(BaseModel):
     keys: list[Key]
-
-
-class _RetrieveRequest(BaseModel):
-    keys: list[Key] | None = None
-    search_term: str | None = None
-    limit: int | None = None
-    offset: int | None = None
-
-
-class _RetrieveResponse(BaseModel):
-    certificates: list[Certificate] = Field(default_factory=list)
 
 
 class Client:
@@ -103,38 +99,51 @@ class Client:
     def retrieve(
         self,
         *,
+        where: Where | None = None,
         keys: list[Key] | None = None,
-        search_term: str | None = None,
+        search_term: str = "",
         limit: int | None = None,
-        offset: int | None = None,
+        offset: int = 0,
     ) -> list[Certificate]: ...
 
     def retrieve(
         self,
         *,
         key: Key | None = None,
+        where: Where | None = None,
         keys: list[Key] | None = None,
-        search_term: str | None = None,
+        search_term: str = "",
         limit: int | None = None,
-        offset: int | None = None,
+        offset: int = 0,
     ) -> Certificate | list[Certificate]:
         """Retrieves certificates.
 
+        :param key: The key of the one certificate to retrieve.
+        :param where: A filter that selects the certificates, combined with ``keys``.
+        :param keys: The keys of the certificates to retrieve. A key that no
+            certificate has is left out.
+        :param search_term: Keeps the certificates whose names match, closest match
+            first.
+        :param limit: The most certificates to return.
+        :param offset: The number of matching certificates to skip.
+        :returns: The certificate when ``key`` is given, otherwise a list.
         :raises NotFoundError: If key is given and no certificate has it.
         :raises AccessDenied: If the caller may not retrieve a matching certificate.
         """
         is_single = key is not None
         if key is not None:
             keys = [key]
+        flat = Where(key=None if keys is None else filter.Set[Key](in_=keys))
         res = self._client.send(
             "/certificate/retrieve",
-            _RetrieveRequest(
-                keys=keys, search_term=search_term, limit=limit, offset=offset
+            RetrieveRequest(
+                where=filter.merge(where, flat),
+                search_term=search_term,
+                limit=limit,
+                offset=offset,
             ),
-            _RetrieveResponse,
+            RetrieveResponse,
         )
-        if not is_single:
-            return res.certificates
-        if len(res.certificates) == 0:
-            raise NotFoundError("Certificate not found")
-        return res.certificates[0]
+        if is_single:
+            return one("Certificate", key, res.certificates)
+        return res.certificates

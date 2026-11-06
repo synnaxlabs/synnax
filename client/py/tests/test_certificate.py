@@ -7,10 +7,13 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from uuid import uuid4
+
 import pytest
 
 import synnax as sy
 from synnax import certificate, secret
+from x import filter
 
 # A self-signed P-256 certificate valid until 2126, its key, and an unrelated key.
 PEM = """-----BEGIN CERTIFICATE-----
@@ -104,6 +107,12 @@ class TestCertificate:
         c = client.certificates.create(certificate.NewStored(name="Retrieve", pem=PEM))
         assert client.certificates.retrieve(key=c.key) == c
 
+    def test_retrieve_by_where(self, client: sy.Synnax) -> None:
+        """Should leave out a key that no certificate has."""
+        c = client.certificates.create(certificate.NewStored(name="Kept", pem=PEM))
+        where = certificate.Where(key=filter.Set[certificate.Key](in_=[c.key, uuid4()]))
+        assert client.certificates.retrieve(where=where) == [c]
+
     def test_rename(self, client: sy.Synnax) -> None:
         """Should rename a certificate."""
         c = client.certificates.create(certificate.NewStored(name="Before", pem=PEM))
@@ -115,7 +124,7 @@ class TestCertificate:
         c = client.certificates.create(certificate.NewStored(name="Delete", pem=PEM))
         client.certificates.delete(c.key)
         with pytest.raises(
-            sy.NotFoundError, match=rf"Certificates with keys \[{c.key}\]"
+            sy.NotFoundError, match=rf"Certificate matching {c.key} not found"
         ):
             client.certificates.retrieve(key=c.key)
 

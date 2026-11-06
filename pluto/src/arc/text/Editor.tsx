@@ -25,8 +25,8 @@ export interface EditorProps extends Pick<
 
 const bootstrap = (client: Client | null, key: arc.Key): CollabText | null => {
   const cached = client?.arcs.getCached(key);
-  if (!query.isLive(cached)) return null;
-  const doc = cached.text.doc;
+  if (!query.isLive(cached) || cached.source.mode !== "text") return null;
+  const doc = cached.source.text.doc;
   return doc != null ? CollabText.bootstrap(doc) : null;
 };
 
@@ -52,8 +52,8 @@ export const Editor = ({ autoFocus = false, extraMenuItems }: EditorProps) => {
   const connect = (handle: Code.EditorHandle | null) => {
     if (handle == null || text == null || client == null) return;
     return client.arcs.onChange(resourceKey, (cached) => {
-      if (!query.isLive(cached)) return;
-      text.sync(cached.text.doc);
+      if (!query.isLive(cached) || cached.source.mode !== "text") return;
+      text.sync(cached.source.text.doc);
       handle.setValue(text.value());
     });
   };

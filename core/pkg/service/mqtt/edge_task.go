@@ -142,8 +142,9 @@ func (h edgeHealth) err() error {
 type edgeNode struct {
 	ins alamos.Instrumentation
 	// broker is the key of the broker device, whose edits the edge node follows.
-	broker  device.Key
-	devices *device.Service
+	broker    device.Key
+	devices   *device.Service
+	newClient clientFactory
 	// command is the topic of the NCMD messages to the edge node.
 	command   string
 	tags      map[channel.Key][]publishedTag
@@ -372,7 +373,8 @@ func (e *edgeSession) run(ctx context.Context, settle func()) {
 
 func (e *edgeSession) connect(ctx context.Context, settle func()) {
 	reconnect(ctx, e.ins, reconnectHooks{
-		options: func(lost chan<- error) *paho.ClientOptions {
+		newClient: e.newClient,
+		options: func() *paho.ClientOptions {
 			will, err := e.death()
 			if err != nil {
 				e.ins.L.DPanic("failed to encode the NDEATH message", zap.Error(err))
@@ -383,8 +385,7 @@ func (e *edgeSession) connect(ctx context.Context, settle func()) {
 			return newClientOptions(cfg).
 				SetBinaryWill(will.Topic, will.Payload, will.QoS, will.Retained).
 				SetOrderMatters(true).
-				SetDefaultPublishHandler(e.onMessage).
-				SetConnectionLostHandler(reportLost(lost))
+				SetDefaultPublishHandler(e.onMessage)
 		},
 		serve: func(ctx context.Context, client paho.Client, lost <-chan error) {
 			defer e.endSession()

@@ -35,7 +35,7 @@ func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, er
 		return imex.Envelope{}, err
 	}
 	env := imex.Envelope{
-		Version: versions.Latest, Type: string(s.Type()), Name: v.Name,
+		Version: versions.Latest, Type: string(s.Type()), Name: v.Base().Name,
 	}
 	if err = env.Encode(v); err != nil {
 		return imex.Envelope{}, err

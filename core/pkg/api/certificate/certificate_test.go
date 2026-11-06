@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
+	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -54,6 +55,12 @@ func newPair() (string, string) {
 	keyDER := MustSucceed(x509.MarshalPKCS8PrivateKey(key))
 	return string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})),
 		string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyDER}))
+}
+
+func whereKeys(keys ...certificate.Key) apicertificate.RetrieveRequest {
+	return apicertificate.RetrieveRequest{
+		Where: &certificate.Where{Key: &filter.Set[certificate.Key]{In: keys}},
+	}
 }
 
 func createCertificate(ctx SpecContext, name string) certificate.Certificate {
@@ -305,18 +312,33 @@ var _ = Describe("Service", func() {
 				certificateType,
 			)
 			c := createCertificate(ctx, "Plant")
-			res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u),
-				apicertificate.RetrieveRequest{Keys: []certificate.Key{c.Base().Key}},
-			))
+			res := MustSucceed(
+				apiSvc.Retrieve(AuthedCtx(ctx, u), whereKeys(c.Base().Key)),
+			)
 			Expect(res.Certificates).To(HaveLen(1))
 			Expect(res.Certificates[0].Base().Name).To(Equal("Plant"))
+		})
+		It("Should leave out a key that no certificate has", func(ctx SpecContext) {
+			u := createUser(ctx)
+			grant(
+				ctx,
+				u.OntologyID(),
+				[]access.Action{access.ActionRetrieve},
+				certificateType,
+			)
+			c := createCertificate(ctx, "Plant")
+			res := MustSucceed(apiSvc.Retrieve(
+				AuthedCtx(ctx, u),
+				whereKeys(c.Base().Key, uuid.New()),
+			))
+			Expect(res.Certificates).To(HaveLen(1))
+			Expect(res.Certificates[0].Base().Key).To(Equal(c.Base().Key))
 		})
 		It("Should deny a user without retrieve access", func(ctx SpecContext) {
 			u := createUser(ctx)
 			c := createCertificate(ctx, "Plant")
-			Expect(apiSvc.Retrieve(AuthedCtx(ctx, u),
-				apicertificate.RetrieveRequest{Keys: []certificate.Key{c.Base().Key}},
-			)).Error().To(MatchError(access.ErrDenied))
+			Expect(apiSvc.Retrieve(AuthedCtx(ctx, u), whereKeys(c.Base().Key))).
+				Error().To(MatchError(access.ErrDenied))
 		})
 	})
 
