@@ -24,11 +24,10 @@ import {
   statusZ,
 } from "@/device/types.gen";
 import { matches, retrieveInputZ, serverComputed } from "@/device/where.gen";
-import { ValidationError } from "@/errors";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { type status } from "@/status";
-import { checkForMultipleOrNoResults } from "@/util/retrieve";
+import { checkForMultipleOrNoResults, singleQueryError } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_device_set";
 export const DELETE_CHANNEL_NAME = "sy_device_delete";
@@ -256,10 +255,10 @@ export class Client extends query.Retriever<
     // Schemas are not hashable, so schema-typed retrieves bypass the query
     // cache and hit the network, still writing records through.
     if (schemas != null) {
-      if (!isSingle && "key" in rest && typeof rest.key === "string")
-        throw new ValidationError(
-          "device params address a single key but hold other fields.",
-        );
+      if (!isSingle && "key" in rest && typeof rest.key === "string") {
+        const res = singleQueryZ.safeParse(rest);
+        if (!res.success) throw singleQueryError("device", rest, res.error);
+      }
       const devices = await this.fetchThrough(rest, schemas);
       checkForMultipleOrNoResults("Device", rest, devices, isSingle);
       return isSingle ? devices[0] : devices;

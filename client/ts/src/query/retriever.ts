@@ -20,6 +20,7 @@ import {
 } from "@/query/query";
 import { type Keyed, type Table } from "@/query/table";
 import { type Data, type FetchOptions, type Params } from "@/query/types";
+import { singleQueryError } from "@/util/retrieve";
 
 /** Query fields only the server can evaluate, shared by most request shapes. */
 const DEFAULT_SERVER_FIELDS = ["searchTerm", "limit", "offset"] as const;
@@ -265,19 +266,7 @@ export abstract class Retriever<
       this.trySingle = (p) => {
         const res = singleSchema.safeParse(p);
         if (res.success) return { query: res.data };
-        if (addressesKey(p)) {
-          const cause = new zod.ParseError({
-            issues: res.error.issues,
-            input: p,
-            label: `${name} single query params`,
-            cause: res.error,
-          });
-          throw new ValidationError(
-            `${name} params address a single key but do not match the ` +
-              `single-query schema.\n${cause.message}`,
-            { cause },
-          );
-        }
+        if (addressesKey(p)) throw singleQueryError(name, p, res.error);
         return null;
       };
     } else {

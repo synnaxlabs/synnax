@@ -25,7 +25,6 @@ import {
 import { z } from "zod";
 
 import { actions } from "@/actions";
-import { ValidationError } from "@/errors";
 import { type framer } from "@/framer";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
@@ -61,7 +60,7 @@ import {
   type Where,
 } from "@/task/types.gen";
 import { matches, retrieveInputZ, serverComputed } from "@/task/where.gen";
-import { checkForMultipleOrNoResults } from "@/util/retrieve";
+import { checkForMultipleOrNoResults, singleQueryError } from "@/util/retrieve";
 
 export type { PayloadSchemas as Schemas } from "@/task/types.gen";
 
@@ -658,10 +657,10 @@ export class Client extends query.Retriever<
     // Schema-parametrized retrieves validate config/status for one caller;
     // their results are not shared through the cache.
     if (schemas != null) {
-      if (!isSingle && "key" in params && typeof params.key === "string")
-        throw new ValidationError(
-          "task params address a single key but hold other fields.",
-        );
+      if (!isSingle && "key" in params && typeof params.key === "string") {
+        const res = singleQueryZ.safeParse(params);
+        if (!res.success) throw singleQueryError("task", params, res.error);
+      }
       const sugared = await this.execRetrieve<S>(params, schemas);
       checkForMultipleOrNoResults("Task", params, sugared, isSingle);
       return isSingle ? sugared[0] : sugared;

@@ -832,10 +832,12 @@ describe("Device", async () => {
       });
 
       it("should reject a plain key beside other fields", async () => {
-        const params = { key: id.create(), make: "ni", schemas };
+        const params = { key: "device", make: "ni", schemas };
         await expect(client.devices.retrieve(params)).rejects.toThrow(
           new ValidationError(
-            "device params address a single key but hold other fields.",
+            "device params address a single key but do not match the single-query " +
+              "schema.\nFailed to parse device single query params (1 issue)\n\n  {\n" +
+              '    "key": "device",\n  ✗ "make": "ni"  × unexpected key\n  }',
           ),
         );
       });

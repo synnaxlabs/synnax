@@ -1020,10 +1020,32 @@ describe("Task", async () => {
         config: z.object({}),
         statusData: z.unknown(),
       };
-      const params = { key: uuid.create(), type: "ni", schemas };
+      const key = uuid.create();
+      const params = { key, internal: false, schemas };
       await expect(client.tasks.retrieve(params)).rejects.toThrow(
-        new ValidationError("task params address a single key but hold other fields."),
+        new ValidationError(
+          "task params address a single key but do not match the single-query " +
+            "schema.\nFailed to parse task single query params (1 issue)\n\n  {\n" +
+            `    "key": "${key}",\n  ✗ "internal": false  × unexpected key\n  }`,
+        ),
       );
+    });
+
+    it("should reject a malformed key with or without schemas", async () => {
+      const schemas = {
+        type: z.literal("ni"),
+        config: z.object({}),
+        statusData: z.unknown(),
+      };
+      const err = new ValidationError(
+        "task params address a single key but do not match the single-query " +
+          "schema.\nFailed to parse task single query params (1 issue)\n\n  {\n" +
+          '  ✗ "key": "not-a-uuid"  × expected uuid format\n  }',
+      );
+      await expect(client.tasks.retrieve({ key: "not-a-uuid" })).rejects.toThrow(err);
+      await expect(
+        client.tasks.retrieve({ key: "not-a-uuid", schemas }),
+      ).rejects.toThrow(err);
     });
 
     it("should retrieve one task by type and rack with its status", async () => {
