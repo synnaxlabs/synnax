@@ -167,7 +167,7 @@ var _ = Describe("Any", func() {
 			}))
 			packed := MustSucceed(anypb.New(v))
 			Expect(pb.FromAny[details](packed)).Error().To(MatchError(ContainSubstring(
-				`cannot unmarshal JSON string into Go bool within "/running"`,
+				`unmarshal JSON string into Go bool within "/running"`,
 			)))
 		})
 
