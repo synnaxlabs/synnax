@@ -155,7 +155,6 @@ export const changeConfig = <V extends Variant>(
   )
     (next as { level?: text.Level }).level = undefined;
   return next;
-  return next;
 };
 
 /// STATIC_SPECS lists every Spec in the registry that is NOT a custom-symbol
