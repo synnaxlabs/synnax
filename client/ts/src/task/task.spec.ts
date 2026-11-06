@@ -1026,6 +1026,24 @@ describe("Task", async () => {
       expect(retrieved.config.routingKey).toBe("rk-500");
     });
 
+    it("should return one task for a filter that sets one", async () => {
+      const prefix = `one-option-${id.create()}`;
+      await testRack.createTask(
+        {
+          name: `${prefix}-a`,
+          type: "pagerduty_alert",
+          config: { routingKey: "rk-700", autoStart: false, alerts: [] },
+        },
+        schemas,
+      );
+      const retrieved = await client.tasks.retrieve({
+        name: { startsWith: prefix },
+        one: true,
+        schemas,
+      });
+      expect(retrieved.config.routingKey).toBe("rk-700");
+    });
+
     it("should return one task for a plain key beside other fields", async () => {
       const t = await testRack.createTask(
         {

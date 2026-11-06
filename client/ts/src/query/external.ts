@@ -29,6 +29,7 @@ export {
 } from "@/query/query";
 export {
   addressesOne,
+  dropOne,
   keyListZ,
   keysRequest,
   keysRequestZ,

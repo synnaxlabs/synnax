@@ -779,6 +779,25 @@ describe("Status", () => {
       );
     });
 
+    it("should return one status for a key list that sets one", async () => {
+      const detailsSchema = z.object({ count: z.number() });
+      const key = `one-option-${id.create()}`;
+      await client.statuses.set<typeof detailsSchema>({
+        name: "one",
+        key,
+        variant: "error",
+        message: "one",
+        time: TimeStamp.now(),
+        details: { count: 4 },
+      });
+      const retrieved = await client.statuses.retrieve({
+        key: [key],
+        one: true,
+        detailsSchema,
+      });
+      expect(retrieved.details.count).toEqual(4);
+    });
+
     it("should filter statuses by a tree of filters", async () => {
       const prefix = `variant-tree-${Date.now()}`;
       const keys = [`${prefix}-info`, `${prefix}-error`, `${prefix}-success`];

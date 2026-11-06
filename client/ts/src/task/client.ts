@@ -663,8 +663,9 @@ export class Client extends query.Retriever<
     // Schema-parametrized retrieves validate config/status for one caller;
     // their results are not shared through the cache.
     if (schemas != null) {
-      const sugared = await this.execRetrieve<S>(params, schemas);
-      checkForMultipleOrNoResults("Task", params, sugared, isSingle);
+      const request = query.dropOne(params);
+      const sugared = await this.execRetrieve<S>(request, schemas);
+      checkForMultipleOrNoResults("Task", request, sugared, isSingle);
       return isSingle ? sugared[0] : sugared;
     }
     if (isSingle) return (await super.retrieve(params)) as Task<S>;

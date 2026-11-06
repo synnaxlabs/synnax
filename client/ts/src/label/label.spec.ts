@@ -10,7 +10,7 @@
 import { color, id, uuid } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import { NotFoundError } from "@/errors";
+import { MultipleFoundError, NotFoundError, ValidationError } from "@/errors";
 import { label } from "@/label";
 import { query } from "@/query";
 import { createTestClient, expectDeleted, expectLive, spyOnSend } from "@/testutil";
@@ -121,6 +121,35 @@ describe("Label", () => {
         for: label.ontologyID(item.key),
       });
       expect(retrieved.key).toEqual(attached.key);
+    });
+    it("should return one label for a filter that sets one", async () => {
+      const prefix = `one-option-${id.create()}`;
+      const lbl = await client.labels.create({ name: `${prefix}-a`, color: "#E774D0" });
+      const retrieved: label.Label = await client.labels.retrieve({
+        name: { startsWith: prefix },
+        one: true,
+      });
+      expect(retrieved.key).toEqual(lbl.key);
+    });
+    it("should throw a MultipleFoundError when a filter that sets one matches two labels", async () => {
+      const prefix = `one-option-${id.create()}`;
+      await client.labels.create([
+        { name: `${prefix}-a`, color: "#E774D0" },
+        { name: `${prefix}-b`, color: "#E774D0" },
+      ]);
+      await expect(
+        client.labels.retrieve({ name: { startsWith: prefix }, one: true }),
+      ).rejects.toThrow(MultipleFoundError);
+    });
+    it("should reject a filter that sets one beside a limit", async () => {
+      await expect(
+        // @ts-expect-error - a page could hide a second match.
+        client.labels.retrieve({ name: { startsWith: "x" }, one: true, limit: 1 }),
+      ).rejects.toThrow(
+        new ValidationError(
+          "one rejects a limit or an offset, since a page could hide a second match",
+        ),
+      );
     });
     it("should throw a NotFoundError when a plain key and name match nothing", async () => {
       const lbl = await client.labels.create({ name: "Label", color: "#E774D0" });

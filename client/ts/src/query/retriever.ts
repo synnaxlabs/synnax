@@ -10,7 +10,7 @@
 import { type destructor, type record, zod } from "@synnaxlabs/x";
 import z from "zod";
 
-import { NotFoundError } from "@/errors";
+import { NotFoundError, ValidationError } from "@/errors";
 import { type Cache } from "@/query/cache";
 import {
   type Cached,
@@ -105,32 +105,55 @@ export type RequestInput<Z extends z.ZodType> =
 
 /**
  * The query objects a request schema accepts that return one record: those with a plain
- * `key` or `name` value beside any other fields.
+ * `key` or `name` value beside any other fields, and those that set `one`. A query that
+ * sets `one` takes no limit or offset, since a page could hide a second match.
  */
 export type OneInput<Z extends z.ZodType> =
-  z.input<Z> extends infer I
-    ? I extends readonly unknown[]
-      ? never
-      : "where" extends keyof I
+  | (z.input<Z> extends infer I
+      ? I extends readonly unknown[]
         ? never
-        : {
-            [F in keyof Plain & keyof I]: Omit<I, F> & {
-              [P in F]: Extract<I[P], Plain[P]>;
-            };
-          }[keyof Plain & keyof I]
-    : never;
+        : "where" extends keyof I
+          ? never
+          : {
+              [F in keyof Plain & keyof I]: Omit<I, F> & {
+                [P in F]: Extract<I[P], Plain[P]>;
+              };
+            }[keyof Plain & keyof I]
+      : never)
+  | (RequestInput<Z> extends infer R
+      ? R extends unknown
+        ? Omit<R, "limit" | "offset"> & { one: true; limit?: never; offset?: never }
+        : never
+      : never);
 
 /** True for params that are a bare record key rather than a query object. */
 const isBareKey = (params: unknown): params is record.Key =>
   typeof params === "string" || typeof params === "number";
 
 /**
- * True for params that return one record: a bare key or name, or an object with a plain
- * `key` or `name` value. A list or an operator on those fields returns a list.
+ * True for params that return one record: a bare key or name, an object with a plain
+ * `key` or `name` value, or an object that sets `one`. A list or an operator on those
+ * fields returns a list.
  */
 export const addressesOne = (params: unknown): boolean =>
   isBareKey(params) ||
-  (isObject(params) && (isBareKey(params.key) || typeof params.name === "string"));
+  (isObject(params) &&
+    (params.one === true || isBareKey(params.key) || typeof params.name === "string"));
+
+/**
+ * @returns params without the `one` option.
+ * @throws {ValidationError} if params set `one` beside a limit or an offset.
+ */
+export const dropOne = <P>(params: P): P extends unknown ? Omit<P, "one"> : never => {
+  if (!isObject(params) || !("one" in params))
+    return params as P extends unknown ? Omit<P, "one"> : never;
+  const { one, ...rest } = params;
+  if (one === true && (rest.limit != null || rest.offset != null))
+    throw new ValidationError(
+      "one rejects a limit or an offset, since a page could hide a second match",
+    );
+  return rest as P extends unknown ? Omit<P, "one"> : never;
+};
 
 /**
  * Request schema arm reading a bare key list as `{ keys }`. Union it onto a domain's
@@ -387,25 +410,27 @@ export abstract class Retriever<
       if (whereKey(request) === undefined)
         return [this.oneSpace, this.normalizeRequest(request)];
     }
-    const single = this.trySingle(params);
+    const one = addressesOne(params);
+    const request = dropOne(params);
+    const single = this.trySingle(request);
     if (single != null) return [this.singleSpace, single.query];
-    const space = addressesOne(params) ? this.oneSpace : this.requestSpace;
-    return [space, this.normalizeRequest(params)];
+    return [one ? this.oneSpace : this.requestSpace, this.normalizeRequest(request)];
   }
 
   /**
    * Reads the record the params address, or every record matching them. Serves the
    * cache when the answer is fresh, fetching otherwise. A plain `key` or `name` value
    * returns one record, even beside other fields, and a list or an operator on them
-   * returns a list. A bare key is shorthand for `{ key }`, and in a domain with a
-   * shortcut, a bare name is shorthand for `{ name }`. A domain accepts a bare key list
-   * when it sets a shortcut or its request schema unions in {@link keysRequestZ} or
-   * {@link keyListZ}. Read through either of the first two, the list returns each
-   * record once, in the order its key first appears. A filter on keys returns the
-   * records that exist.
+   * returns a list. Any other query returns a list unless it sets `one`. A bare key is
+   * shorthand for `{ key }`, and in a domain with a shortcut, a bare name is shorthand
+   * for `{ name }`. A domain accepts a bare key list when it sets a shortcut or its
+   * request schema unions in {@link keysRequestZ} or {@link keyListZ}. Read through
+   * either of the first two, the list returns each record once, in the order its key
+   * first appears. A filter on keys returns the records that exist.
    * @throws {NotFoundError} if a single-record query matches nothing, the record was
    * deleted, or a key in a bare key list has no record.
    * @throws {MultipleFoundError} if a single-record query matches more than one record.
+   * @throws {ValidationError} if params set `one` beside a limit or an offset.
    */
   retrieve(
     params: Shortcut | SingleInput | OneInput<Z>,
