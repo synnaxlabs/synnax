@@ -13,7 +13,7 @@ import { assert, describe, expect, it, vi } from "vitest";
 import z from "zod";
 
 import { type framer } from "@/framer";
-import { MultipleFoundError, NotFoundError } from "@/index";
+import { MultipleFoundError, NotFoundError, ValidationError } from "@/index";
 import { query } from "@/query";
 
 interface Thing extends record.Keyed<string> {
@@ -696,7 +696,7 @@ describe("Retriever", () => {
         }
       }
 
-      it("rejects key-bearing params that no schema accepts", async () => {
+      it("rejects key-bearing params that fail the single schema", async () => {
         const fetchRequest = vi.fn(async () => []);
         const client = new StrictSingleClient(
           newCache(),
@@ -707,12 +707,13 @@ describe("Retriever", () => {
           .retrieve({ key: "a", detailsSchema: undefined } as never)
           .then(() => null)
           .catch((exc: unknown) => exc);
-        assert(err instanceof zod.ParseError);
+        assert(err instanceof ValidationError);
         expect(err.message).toBe(
-          "Failed to parse thing query (2 issues)\n\n  {\n" +
-            '  ✗ "key": "a",                     × unexpected key\n' +
-            '  ✗ "detailsSchema": "[undefined]"  × unexpected key\n  }',
+          "thing params address a single key but do not match the single-query " +
+            "schema.\nFailed to parse thing single query params (1 issue)\n\n  {\n" +
+            '    "key": "a",\n  ✗ "detailsSchema": "[undefined]"  × unexpected key\n  }',
         );
+        expect(err.cause).toBeInstanceOf(zod.ParseError);
         expect(fetchRequest).not.toHaveBeenCalled();
       });
 
@@ -795,9 +796,11 @@ describe("Retriever", () => {
           .retrieve("a")
           .then(() => null)
           .catch((exc: unknown) => exc);
-        assert(err instanceof zod.ParseError);
+        assert(err instanceof ValidationError);
         expect(err.message).toBe(
-          'Failed to parse thing query (1 issue)\n\n  × expected object, received "a"',
+          "thing params address a single key but do not match the single-query " +
+            "schema.\nFailed to parse thing single query params (1 issue)\n\n" +
+            '  × expected object, received "a"',
         );
         expect(fetchRequest).not.toHaveBeenCalled();
       });

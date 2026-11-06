@@ -10,7 +10,7 @@
 import { type destructor, type record, zod } from "@synnaxlabs/x";
 import z from "zod";
 
-import { NotFoundError } from "@/errors";
+import { NotFoundError, ValidationError } from "@/errors";
 import { type Cache } from "@/query/cache";
 import {
   type Cached,
@@ -20,7 +20,7 @@ import {
 } from "@/query/query";
 import { type Keyed, type Table } from "@/query/table";
 import { type Data, type FetchOptions, type Params } from "@/query/types";
-import { checkForMultipleOrNoResults } from "@/util/retrieve";
+import { checkForMultipleOrNoResults, singleQueryError } from "@/util/retrieve";
 
 /** Query fields only the server can evaluate, shared by most request shapes. */
 const DEFAULT_SERVER_FIELDS = ["searchTerm", "limit", "offset"] as const;
@@ -102,7 +102,8 @@ export type RequestInput<Z extends z.ZodType> =
 
 /**
  * The query objects a request schema accepts that return one record: those with a plain
- * `key` or `name` value beside any other fields.
+ * `key` or `name` value beside any other fields but a limit or an offset, since a page
+ * could hide a second match.
  */
 export type OneInput<Z extends z.ZodType> =
   z.input<Z> extends infer I
@@ -111,9 +112,9 @@ export type OneInput<Z extends z.ZodType> =
       : "where" extends keyof I
         ? never
         : {
-            [F in ("key" | "name") & keyof I]: Omit<I, F> & {
+            [F in ("key" | "name") & keyof I]: Omit<I, F | "limit" | "offset"> & {
               [P in F]: Extract<I[P], P extends "key" ? record.Key : string>;
-            };
+            } & { limit?: never; offset?: never };
           }[("key" | "name") & keyof I]
     : never;
 
@@ -128,6 +129,10 @@ const isBareKey = (params: unknown): params is record.Key =>
 export const addressesOne = (params: unknown): boolean =>
   isBareKey(params) ||
   (isObject(params) && (isBareKey(params.key) || typeof params.name === "string"));
+
+/** True for params that are a bare key or an object with a plain `key` value. */
+const addressesKey = (params: unknown): boolean =>
+  isBareKey(params) || (isObject(params) && isBareKey(params.key));
 
 /**
  * Request schema arm reading a bare key list as `{ keys }`. Union it onto a domain's
@@ -326,7 +331,22 @@ export abstract class Retriever<
       watch,
       single: true,
     }) as Retrieves<Params, D | D[]>;
-    this.normalizeRequest = (p) => zod.parse(schema, p, { label: `${name} query` });
+    const singleSchema = single?.schema;
+    this.normalizeRequest = (p) => {
+      const res = schema.safeParse(p);
+      if (res.success) return res.data;
+      // A key the single schema rejects is the likely cause, and the request union
+      // reports only its strict arm, which calls the key an unexpected field.
+      const one =
+        singleSchema != null && addressesKey(p) ? singleSchema.safeParse(p) : null;
+      if (one?.success === false) throw singleQueryError(name, p, one.error);
+      throw new zod.ParseError({
+        issues: res.error.issues,
+        input: p,
+        label: `${name} query`,
+        cause: res.error,
+      });
+    };
     this.readShortcut =
       shortcut == null
         ? null
@@ -389,8 +409,14 @@ export abstract class Retriever<
     }
     const single = this.trySingle(params);
     if (single != null) return [this.singleSpace, single.query];
-    const space = addressesOne(params) ? this.oneSpace : this.requestSpace;
-    return [space, this.normalizeRequest(params)];
+    const request = this.normalizeRequest(params);
+    if (!addressesOne(params)) return [this.requestSpace, request];
+    if (isObject(params) && (params.limit != null || params.offset != null))
+      throw new ValidationError(
+        "a query for one record takes no limit or offset, since a page could hide a " +
+          "second match",
+      );
+    return [this.oneSpace, request];
   }
 
   /**
