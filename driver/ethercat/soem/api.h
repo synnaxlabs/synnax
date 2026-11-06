@@ -13,6 +13,7 @@
 #include <cstring>
 #include <functional>
 #include <optional>
+#include <span>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -103,6 +104,19 @@ public:
         std::vector<uint8_t> data,
         int timeout
     ) = 0;
+
+    /// @brief reads a register of a slave into data with a timeout in microseconds,
+    /// returning the working counter, which is 1 when the slave answered.
+    virtual int read_register(
+        uint16_t slave,
+        uint16_t address,
+        std::span<uint8_t> data,
+        int timeout
+    ) = 0;
+
+    /// @brief sets whether the master requests each state change itself. When it is
+    /// false, config_init requests PRE-OP and config_map_group requests SAFE-OP.
+    virtual void set_manual_state_change(bool manual) = 0;
 
     /// @brief reads from slave object dictionary via SDO.
     virtual int SDOread(
@@ -320,6 +334,26 @@ public:
             data.data(),
             timeout
         );
+    }
+
+    int read_register(
+        uint16_t slave,
+        uint16_t address,
+        std::span<uint8_t> data,
+        int timeout
+    ) override {
+        return ecx_FPRD(
+            &this->context.port,
+            this->context.slavelist[slave].configadr,
+            address,
+            static_cast<uint16_t>(data.size()),
+            data.data(),
+            timeout
+        );
+    }
+
+    void set_manual_state_change(const bool manual) override {
+        this->context.manualstatechange = manual ? 1 : 0;
     }
 
     int reconfig_slave(uint16_t slave, int timeout) override {

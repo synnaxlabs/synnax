@@ -205,6 +205,9 @@ struct Config {
     bool enabled = true;
     /// @brief CoE objects written to the slave before each move to SAFE-OP.
     std::vector<StartupParameter> startup_parameters;
+    /// @brief the index in the slave's op_modes of the synchronization mode the master
+    /// sets up. When unset, dc::select picks it.
+    std::optional<uint16_t> dc_mode;
 };
 
 /// @brief static properties of an EtherCAT slave device stored in device.properties.
@@ -240,12 +243,16 @@ struct Properties {
     /// @brief CoE objects written to the slave before each move to SAFE-OP. Set by the
     /// user, so to_json leaves them out and a scan keeps them.
     std::vector<StartupParameter> startup_parameters;
+    /// @brief the index in op_modes of the synchronization mode the master sets up, or
+    /// unset to let dc::select pick it. Set by the user, so to_json leaves it out.
+    std::optional<uint16_t> dc_mode;
 
     /// @brief returns the settings the master applies to the slave when the bus starts.
     [[nodiscard]] Config config() const {
         return {
             .enabled = this->enabled,
-            .startup_parameters = this->startup_parameters
+            .startup_parameters = this->startup_parameters,
+            .dc_mode = this->dc_mode,
         };
     }
 
@@ -280,6 +287,7 @@ struct Properties {
                 props.startup_parameters.push_back(StartupParameter::parse(param));
             });
         props.op_modes = parser.field<std::vector<dc::OpMode>>("op_modes", {});
+        if (parser.has("dc_mode")) props.dc_mode = parser.field<uint16_t>("dc_mode");
         const auto pdos_parser = parser.child("pdos");
         if (!pdos_parser.error()) {
             pdos_parser.iter("inputs", [&props](x::json::Parser &pdo) {

@@ -57,6 +57,15 @@ constexpr std::array<uint16_t, 16> TRANSIENT_FAULTS = {
     0x0052, // External hardware not ready
     0x0060, // Slave restarted locally
 };
+/// Time from the read of a slave's DC system time to its first SYNC0 event, so the
+/// slave takes the start time before the event passes.
+const auto DC_START_DELAY = x::telem::MILLISECOND * 100;
+/// System time difference (0x092C) in nanoseconds under which a slave clock is settled.
+constexpr uint32_t DC_SETTLED_DIFF = 10000;
+/// How long activation waits for the clocks of the DC slaves to settle.
+const auto DC_SETTLE_TIMEOUT = x::telem::SECOND * 2;
+/// Time between reads of the system time differences while the clocks settle.
+const auto DC_SETTLE_POLL_INTERVAL = x::telem::MILLISECOND * 10;
 /// Timeout for one recovery step on a slave in microseconds.
 const int RECOVERY_TIMEOUT = static_cast<int>(
     (x::telem::MILLISECOND * 500).microseconds()
@@ -98,6 +107,36 @@ constexpr uint16_t RXPDO_MAPPING_END = 0x17FF;
 /// @}
 
 namespace {
+template<typename T>
+std::vector<uint8_t> little_endian(const T value) {
+    std::vector<uint8_t> bytes(sizeof(T));
+    for (size_t i = 0; i < sizeof(T); ++i)
+        bytes[i] = static_cast<uint8_t>(static_cast<uint64_t>(value) >> (8 * i));
+    return bytes;
+}
+
+template<typename T, size_t N>
+T from_little_endian(const std::array<uint8_t, N> &bytes) {
+    uint64_t value = 0;
+    for (size_t i = 0; i < N; ++i)
+        value |= static_cast<uint64_t>(bytes[i]) << (8 * i);
+    return static_cast<T>(value);
+}
+
+std::string describe_modes(const std::vector<dc::OpMode> &modes) {
+    if (modes.empty()) return "It lists no synchronization modes.";
+    std::string msg = "Its modes are";
+    for (size_t i = 0; i < modes.size(); ++i)
+        msg += std::format(
+            "{} {} ({}, AssignActivate 0x{:04X})",
+            i == 0 ? "" : ",",
+            i,
+            modes[i].name.empty() ? "unnamed" : modes[i].name,
+            modes[i].assign_activate
+        );
+    return msg + ".";
+}
+
 std::string no_slaves_message(API &api, const std::string &iface) {
     const auto found = "no EtherCAT slaves found on " + iface + ". ";
     if (!api.dewesoft_filter_bound(iface.c_str()))
@@ -195,15 +234,21 @@ void Master::set_slave_config(const uint16_t position, slave::Config config) {
     else
         this->disabled_slaves.insert(position);
     this->startup_parameters[position] = std::move(config.startup_parameters);
+    if (config.dc_mode)
+        this->dc_modes[position] = *config.dc_mode;
+    else
+        this->dc_modes.erase(position);
 }
 
 void Master::replace_slave_configs(std::map<uint16_t, slave::Config> configs) {
     std::lock_guard lock(this->mu);
     this->disabled_slaves.clear();
     this->startup_parameters.clear();
+    this->dc_modes.clear();
     for (auto &[position, config]: configs) {
         if (!config.enabled) this->disabled_slaves.insert(position);
         this->startup_parameters[position] = std::move(config.startup_parameters);
+        if (config.dc_mode) this->dc_modes[position] = *config.dc_mode;
     }
 }
 
@@ -237,7 +282,10 @@ void Master::write_startup_parameters(
         this->startup_failures[pos] = failure;
 }
 
-x::errors::Error Master::activate(const std::function<void()> &start_cycle) {
+x::errors::Error Master::activate(
+    const x::telem::TimeSpan period,
+    const std::function<void()> &start_cycle
+) {
     if (!this->initialized)
         return x::errors::Error(errors::ACTIVATION_ERROR, "master not initialized");
     if (this->activated)
@@ -265,10 +313,13 @@ x::errors::Error Master::activate(const std::function<void()> &start_cycle) {
 
     if (const auto err = this->clear_dc_activation()) return err;
 
+    // The master requests SAFE-OP itself, after it sets up the DC sync of the slaves.
+    this->api->set_manual_state_change(true);
     const int iomap_size = this->api->config_map_group(
         this->iomap.data(),
         ENABLED_GROUP
     );
+    this->api->set_manual_state_change(false);
 
     if (iomap_size <= 0)
         return x::errors::Error(
@@ -293,6 +344,9 @@ x::errors::Error Master::activate(const std::function<void()> &start_cycle) {
         this->slave_list[pos - 1] = std::move(result);
     }
 
+    auto [dc_setups, dc_err] = this->resolve_dc(period);
+    if (dc_err) return dc_err;
+
     this->api->configdc();
     this->api->set_group_dc(ENABLED_GROUP);
     this->has_dc = this->api->group_hasdc(ENABLED_GROUP);
@@ -304,6 +358,7 @@ x::errors::Error Master::activate(const std::function<void()> &start_cycle) {
                          this->api->group_inputsWKC(ENABLED_GROUP);
     this->activated = true;
     start_cycle();
+    if (auto err = this->start_dc(dc_setups)) return err;
 
     if (auto err = this->request_state(EC_STATE_SAFE_OP, STATE_CHANGE_TIMEOUT))
         return err;
@@ -316,6 +371,9 @@ x::errors::Error Master::activate(const std::function<void()> &start_cycle) {
 void Master::deactivate() {
     if (this->activated) {
         this->request_state(EC_STATE_INIT, STATE_CHANGE_TIMEOUT);
+        // INIT leaves the DC activation as it is.
+        if (const auto err = this->clear_dc_activation())
+            LOG(WARNING) << "[ethercat] " << err.data;
         this->activated = false;
         this->expected_wkc = 0;
         this->has_dc = false;
@@ -1085,24 +1143,151 @@ bool Master::scan_object_dictionary_for_pdos(
     return found_any;
 }
 
+x::errors::Error Master::write_dc_register(
+    const uint16_t pos,
+    const uint16_t address,
+    std::vector<uint8_t> data
+) {
+    if (this->api->write_register(pos, address, std::move(data), EC_TIMEOUTRET) == 1)
+        return x::errors::NIL;
+    return x::errors::Error(
+        errors::ACTIVATION_ERROR,
+        std::format(
+            "slave {} ({}) did not take a write to DC register 0x{:04X}",
+            pos,
+            this->api->slave_name(pos),
+            address
+        )
+    );
+}
+
 x::errors::Error Master::clear_dc_activation() {
     for (int i = 1; i <= this->api->slave_count(); ++i) {
         if (this->api->slave_group(i) != ENABLED_GROUP || !this->api->slave_hasdc(i))
             continue;
-        const auto pos = static_cast<uint16_t>(i);
         // 0x0980 goes first: while it gives the sync unit to the PDI, the slave refuses
         // writes to 0x0981.
         for (const uint16_t address: {ECT_REG_DCCUC, ECT_REG_DCSYNCACT})
-            if (this->api->write_register(pos, address, {0}, EC_TIMEOUTRET) != 1)
-                return x::errors::Error(
-                    errors::ACTIVATION_ERROR,
+            if (auto err = this->write_dc_register(
+                    static_cast<uint16_t>(i),
+                    address,
+                    {0}
+                ))
+                return err;
+    }
+    return x::errors::NIL;
+}
+
+std::pair<std::vector<Master::DCSetup>, x::errors::Error>
+Master::resolve_dc(const x::telem::TimeSpan period) {
+    const auto fail = [](const slave::Properties &props, const std::string &msg) {
+        return std::pair{
+            std::vector<DCSetup>{},
+            x::errors::Error(
+                errors::SLAVE_CONFIG_ERROR,
+                std::format("slave {} ({}) {}", props.position, props.name, msg)
+            )
+        };
+    };
+    std::vector<DCSetup> setups;
+    std::lock_guard lock(this->mu);
+    for (const auto &slave: this->slave_list) {
+        const auto &props = slave.properties;
+        if (this->disabled_slaves.contains(props.position)) continue;
+        std::optional<dc::OpMode> mode;
+        if (const auto it = this->dc_modes.find(props.position);
+            it != this->dc_modes.end()) {
+            if (it->second >= props.op_modes.size())
+                return fail(
+                    props,
                     std::format(
-                        "slave {} ({}) did not take a write to DC register 0x{:04X}",
-                        pos,
-                        this->api->slave_name(pos),
-                        address
+                        "has no synchronization mode {}. {}",
+                        it->second,
+                        describe_modes(props.op_modes)
                     )
                 );
+            mode = props.op_modes[it->second];
+        } else
+            mode = dc::select(props.op_modes);
+        if (!mode || mode->assign_activate == 0) continue;
+        auto [regs, err] = dc::resolve(*mode, period);
+        if (err)
+            return fail(
+                props,
+                std::format(
+                    "cannot run mode {} at a bus cycle of {}: {}",
+                    mode->name,
+                    period.to_string(),
+                    err.data
+                )
+            );
+        setups.push_back({.position = props.position, .registers = regs});
+    }
+    return {setups, x::errors::NIL};
+}
+
+void Master::wait_for_dc_settle(const std::vector<DCSetup> &setups) {
+    const auto deadline = std::chrono::steady_clock::now() + DC_SETTLE_TIMEOUT.chrono();
+    while (true) {
+        uint32_t worst = 0;
+        for (const auto &setup: setups) {
+            std::array<uint8_t, 4> raw{};
+            if (this->api->read_register(
+                    setup.position,
+                    ECT_REG_DCSYSDIFF,
+                    raw,
+                    EC_TIMEOUTRET
+                ) != 1) {
+                worst = UINT32_MAX;
+                continue;
+            }
+            // Bit 31 is the sign. The rest is the difference in nanoseconds.
+            worst = std::max(worst, from_little_endian<uint32_t>(raw) & 0x7FFFFFFF);
+        }
+        if (worst < DC_SETTLED_DIFF) return;
+        if (std::chrono::steady_clock::now() >= deadline) {
+            LOG(WARNING) << "[ethercat] DC clocks on " << this->iface_name
+                         << " did not settle within " << DC_SETTLE_TIMEOUT
+                         << ". The largest difference is " << worst << " ns.";
+            return;
+        }
+        std::this_thread::sleep_for(DC_SETTLE_POLL_INTERVAL.chrono());
+    }
+}
+
+x::errors::Error Master::start_dc(const std::vector<DCSetup> &setups) {
+    if (setups.empty()) return x::errors::NIL;
+    this->wait_for_dc_settle(setups);
+    for (const auto &[pos, regs]: setups) {
+        const auto cuc = static_cast<uint8_t>(regs.assign_activate & 0xFF);
+        const auto act = static_cast<uint8_t>(regs.assign_activate >> 8);
+        if (auto err = this->write_dc_register(pos, ECT_REG_DCCUC, {cuc})) return err;
+        // While 0x0980 gives the sync unit to the PDI, the PDI sets it up.
+        if ((cuc & 0x01) != 0) continue;
+        std::array<uint8_t, 8> raw{};
+        if (this->api->read_register(pos, ECT_REG_DCSYSTIME, raw, EC_TIMEOUTRET) != 1)
+            return x::errors::Error(
+                errors::ACTIVATION_ERROR,
+                std::format(
+                    "slave {} ({}) did not answer a read of its DC system time",
+                    pos,
+                    this->api->slave_name(pos)
+                )
+            );
+        const int64_t cycle = regs.sync0_cycle;
+        const int64_t ahead = from_little_endian<int64_t>(raw) +
+                              DC_START_DELAY.nanoseconds();
+        // SYNC0 events fall on whole cycles of DC time, the grid the cycle lock uses.
+        const int64_t start = (cycle > 0 ? (ahead / cycle + 1) * cycle : ahead) +
+                              regs.sync0_shift;
+        const std::array<std::pair<uint16_t, std::vector<uint8_t>>, 4> writes = {{
+            {ECT_REG_DCCYCLE0, little_endian(regs.sync0_cycle)},
+            {ECT_REG_DCCYCLE1, little_endian(regs.sync1_cycle)},
+            {ECT_REG_DCSTART0, little_endian(start)},
+            {ECT_REG_DCSYNCACT, {act}},
+        }};
+        for (const auto &[address, data]: writes)
+            if (auto err = this->write_dc_register(pos, address, data)) return err;
     }
     return x::errors::NIL;
 }

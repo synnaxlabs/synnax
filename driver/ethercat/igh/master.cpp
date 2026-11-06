@@ -172,7 +172,8 @@ void Master::replace_slave_configs(std::map<uint16_t, slave::Config> configs) {
     }
 }
 
-x::errors::Error Master::activate(const std::function<void()> &start_cycle) {
+x::errors::Error
+Master::activate(x::telem::TimeSpan, const std::function<void()> &start_cycle) {
     if (!this->initialized)
         return x::errors::Error(errors::ACTIVATION_ERROR, "not initialized");
     if (this->activated) {

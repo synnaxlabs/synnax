@@ -277,7 +277,8 @@ public:
 
     /// @brief maps the slaves, then moves them to OP once the cycle sends a frame, as
     /// slaves with outputs need. Logs "op" when the slaves reach OP.
-    x::errors::Error activate(const std::function<void()> &start_cycle) override {
+    x::errors::Error
+    activate(x::telem::TimeSpan, const std::function<void()> &start_cycle) override {
         size_t sent = 0;
         {
             std::lock_guard lock(this->mu);

@@ -550,5 +550,29 @@ TEST(Properties, ParsesWithoutStartupParameters) {
     const auto props = Properties::parse(parser);
     ASSERT_NIL(parser.error());
     EXPECT_TRUE(props.startup_parameters.empty());
+    EXPECT_EQ(props.config().dc_mode, std::nullopt);
+}
+
+/// @brief it should parse the synchronization mode set for a slave and pass it to the
+/// master, without writing it back with the discovered properties.
+TEST(Properties, ParsesTheDCMode) {
+    x::json::Parser parser(
+        x::json::json{
+            {"serial", 1},
+            {"vendor_id", 2},
+            {"product_code", 3},
+            {"revision", 4},
+            {"name", "EL3102"},
+            {"position", 0},
+            {"enabled", true},
+            {"pdos",
+             {{"inputs", x::json::json::array()}, {"outputs", x::json::json::array()}}},
+            {"dc_mode", 1},
+        }
+    );
+    const auto props = Properties::parse(parser);
+    ASSERT_NIL(parser.error());
+    EXPECT_EQ(props.config().dc_mode, 1);
+    EXPECT_FALSE(props.to_json().contains("dc_mode"));
 }
 }

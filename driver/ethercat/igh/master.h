@@ -94,7 +94,10 @@ public:
 
     void replace_slave_configs(std::map<uint16_t, slave::Config> configs) override;
 
-    x::errors::Error activate(const std::function<void()> &start_cycle) override;
+    x::errors::Error activate(
+        x::telem::TimeSpan period,
+        const std::function<void()> &start_cycle
+    ) override;
 
     void deactivate() override;
 

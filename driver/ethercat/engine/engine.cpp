@@ -366,7 +366,7 @@ x::errors::Error Engine::start_locked(const x::telem::Rate rate) {
     while (true) {
         auto err = this->master->initialize();
         if (!err) {
-            err = this->master->activate(start_cycle);
+            err = this->master->activate(rate.period(), start_cycle);
             if (!err) break;
             if (this->bus.running())
                 this->stop_locked();

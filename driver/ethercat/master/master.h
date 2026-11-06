@@ -59,11 +59,14 @@ public:
     virtual void replace_slave_configs(std::map<uint16_t, slave::Config> configs) = 0;
 
     /// @brief maps the process data of every enabled slave, calls start_cycle once
-    /// send() and receive() work, then moves the enabled slaves to OP while the caller
-    /// cycles the bus. After an error, the caller stops the cycle it started before it
-    /// calls deactivate().
+    /// send() and receive() work, sets up the distributed clock sync of each slave in
+    /// DC mode for a bus cycle of period, then moves the enabled slaves to OP while the
+    /// caller cycles the bus. After an error, the caller stops the cycle it started
+    /// before it calls deactivate().
+    /// @returns errors::SLAVE_CONFIG_ERROR when a slave's DC mode is missing or gives
+    /// values its registers cannot hold at the period.
     [[nodiscard]] virtual x::errors::Error
-    activate(const std::function<void()> &start_cycle) = 0;
+    activate(x::telem::TimeSpan period, const std::function<void()> &start_cycle) = 0;
 
     /// @brief deactivates the master and stops cyclic communication.
     virtual void deactivate() = 0;
