@@ -117,9 +117,11 @@ yet.
   Starting or stopping one task does not interrupt the others.
 - **Start and stop** -> The network starts when the first task on the port starts, and
   stops when the last task stops.
-- **Every module must start** -> With the built-in master, the network starts only when
-  every enabled module on the port reaches OP. If one module does not, no task on the
-  port starts. To run the other modules, [disable](#disable-a-device) that module.
+- **A module that refuses to start** -> With the built-in master, the network starts
+  without a module that refuses SAFE-OP or OP. The device status of the module shows
+  why, and a task that uses the module does not start. The other tasks start. The Driver
+  tries the module again the next time the network starts. If every module refuses, or a
+  module does not reach OP in time, no task on the port starts.
 - **DC sync** -> The Driver runs a module in SM sync when the module lists an SM sync
   mode. With the built-in master, it runs a module that lists only DC sync modes in DC
   sync, and starts SYNC0 and SYNC1 before the module goes to SAFE-OP. A module that is
@@ -326,13 +328,19 @@ the reason, such as no raw Ethernet access. See
 
 ### "failed to reach SAFE-OP" or "failed to reach OP"
 
-A module did not move to SAFE-OP or OP when the network started, so no task on the port
-starts. The error names each of these modules and its state. When a module refuses the
-change, the error also gives the error text of the module, such as "Invalid output
-configuration".
+A module did not move to SAFE-OP or OP in time when the network started, or every module
+refused the change, so no task on the port starts. The error names each of these modules
+and its state. When a module refuses the change, the error also gives the error text of
+the module, such as "Invalid output configuration".
 
 Check the error text in the documentation of the module. To run the other modules now,
 [disable](#disable-a-device) the module, then start the tasks again.
+
+### "Slave ... is not on the network"
+
+A task shows this error when it uses a module that refused SAFE-OP or OP. The network
+started without the module, and the error gives the error text of the module. Fix the
+module, then stop every task on the port and start them again.
 
 ### "failed to reach SAFE-OP: ... Invalid DC SYNC configuration"
 
@@ -344,8 +352,8 @@ that is set to DC sync and also lists an SM sync mode does not start.
   a new mode after a power cycle. The
   [Dewesoft manual for third-party EtherCAT masters](https://downloads.dewesoft.com/manuals/dewesoft-3rd-party-ethercat-masters-manual.pdf)
   lists the modes of each model and how to set them.
-- **Disable the module** -> [Disable](#disable-a-device) it, so that the other modules
-  on the port can run.
+- **Disable the module** -> [Disable](#disable-a-device) it, so that the Driver stops
+  trying to start it.
 
 ### "slave ... cannot run its DC mode at a bus cycle of ..."
 

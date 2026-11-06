@@ -66,6 +66,9 @@ class Master final : public master::Master {
     /// @brief the mode the user chose for each slave that has a choice, keyed by
     /// position.
     std::map<uint16_t, dc::Choice> chosen_modes;
+    /// @brief why the bus starts without each slave that leave_out() names, keyed by
+    /// position.
+    std::map<uint16_t, std::string> left_out;
     /// @brief protects slave state queries and configuration.
     mutable std::mutex mu;
     /// @brief whether the master has been initialized.
@@ -98,6 +101,12 @@ public:
         x::telem::TimeSpan period,
         const std::function<void()> &start_cycle
     ) override;
+
+    /// @brief returns no refusals, since the IgH master moves the slaves to OP on its
+    /// own after activate() returns.
+    std::map<uint16_t, std::string> refusals() const override { return {}; }
+
+    void leave_out(std::map<uint16_t, std::string> slaves) override;
 
     void deactivate() override;
 

@@ -34,6 +34,9 @@ const pdo::Entry OUT_I32(0, 0x7000, 2, 32, false, x::telem::INT32_T);
 const pdo::Entry OUT_I24(0, 0x7000, 3, 24, false, x::telem::INT32_T);
 const pdo::Entry OUT_U4(0, 0x7000, 4, 4, false, x::telem::UINT8_T);
 
+/// @brief why a slave in the specs refuses SAFE-OP.
+const std::string REFUSAL = "refused SAFE-OP: Invalid DC SYNC configuration";
+
 /// @brief byte offsets of the entries of io_slave in its slave's part of the image.
 constexpr size_t I16_BYTE = 0;
 constexpr size_t I32_BYTE = 2;
@@ -638,6 +641,52 @@ TEST_F(EngineTest, StateChangeRefusalSkipsRetries) {
     EXPECT_FALSE(this->engine->running());
 }
 
+/// @brief it should start the bus again without a slave that refuses a state.
+TEST_F(EngineTest, StartsWithoutASlaveThatRefusesAState) {
+    this->master->add_slave(io_slave(1));
+    this->master->refuse(1, REFUSAL);
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    EXPECT_EQ(this->master->call_count("activate"), 2);
+    EXPECT_EQ(this->read_times(*reader, 1).size(), 1);
+}
+
+/// @brief it should fail a reader on a slave that the bus started without, and stop the
+/// bus that the reader started.
+TEST_F(EngineTest, ReaderOnALeftOutSlaveFails) {
+    this->master->add_slave(io_slave(1));
+    this->master->refuse(1, REFUSAL);
+    const auto [reader, err] = this->engine->open_reader(
+        {on_slave(IN_I16, 1)},
+        x::telem::Rate(100),
+        1
+    );
+    ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_REFUSED);
+    EXPECT_EQ(
+        err.data,
+        "Slave 1 (Slave1) is not on the network: it refused SAFE-OP: Invalid DC SYNC "
+        "configuration. Fix the device, then stop every task on the network to try it "
+        "again."
+    );
+    EXPECT_FALSE(this->engine->running());
+}
+
+/// @brief it should try a left-out slave again the next time the bus starts.
+TEST_F(EngineTest, TriesALeftOutSlaveAgainAtTheNextStart) {
+    this->master->add_slave(io_slave(1));
+    this->master->refuse(1, REFUSAL);
+    auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    reader.reset();
+    this->master->clear_injected_errors();
+    const auto other = ASSERT_NIL_P(
+        this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
+    );
+    EXPECT_EQ(this->read_times(*other, 1).size(), 1);
+}
+
 /// @brief it should cycle the bus while the slaves move to OP.
 TEST_F(EngineTest, StartCyclesTheBusBeforeTheSlavesReachOP) {
     const auto reader = ASSERT_NIL_P(
@@ -915,6 +964,21 @@ TEST_F(EngineTest, HealthReportsEachEnabledSlave) {
     EXPECT_EQ(
         this->engine->health()[0],
         (slave::Health{.position = 0, .state = slave::State::OP})
+    );
+}
+
+/// @brief it should report a left-out slave in its health with why the bus started
+/// without it.
+TEST_F(EngineTest, HealthReportsALeftOutSlave) {
+    this->master->add_slave(io_slave(1));
+    this->master->refuse(1, REFUSAL);
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    ASSERT_EVENTUALLY_EQ(this->engine->health().size(), 2);
+    EXPECT_EQ(
+        this->engine->health()[1],
+        (slave::Health{.position = 1, .refusal = REFUSAL})
     );
 }
 

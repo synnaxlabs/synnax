@@ -227,6 +227,10 @@ x::errors::Error Master::activate(
         return x::errors::Error(errors::ACTIVATION_ERROR, "master not initialized");
     if (this->activated)
         return x::errors::Error(errors::ACTIVATION_ERROR, "master already activated");
+    {
+        std::lock_guard lock(this->mu);
+        this->start_refusals.clear();
+    }
     auto [dc_setups, dc_err] = this->resolve_dc(period);
     if (dc_err) return dc_err;
     this->dc_setups = std::move(dc_setups);
@@ -236,7 +240,9 @@ x::errors::Error Master::activate(
         for (int i = 1; i <= this->api->slave_count(); ++i)
             this->api->set_slave_group(
                 i,
-                this->disabled_slaves.contains(i) ? DISABLED_GROUP : ENABLED_GROUP
+                this->disabled_slaves.contains(i) || this->left_out.contains(i)
+                    ? DISABLED_GROUP
+                    : ENABLED_GROUP
             );
     }
 
@@ -284,6 +290,16 @@ x::errors::Error Master::activate(
     return x::errors::NIL;
 }
 
+std::map<uint16_t, std::string> Master::refusals() const {
+    std::lock_guard lock(this->mu);
+    return this->start_refusals;
+}
+
+void Master::leave_out(std::map<uint16_t, std::string> slaves) {
+    std::lock_guard lock(this->mu);
+    this->left_out = std::move(slaves);
+}
+
 void Master::deactivate() {
     if (this->activated) {
         this->request_state(EC_STATE_INIT, micros(this->cfg.state_change_timeout));
@@ -297,7 +313,7 @@ void Master::deactivate() {
         this->input_sz = 0;
         this->output_sz = 0;
         this->pdo_offsets.clear();
-        this->layout_errors.clear();
+        this->slave_errors.clear();
     }
 
     if (this->initialized) {
@@ -365,8 +381,8 @@ std::span<uint8_t> Master::output_data() {
 std::pair<pdo::Offset, x::errors::Error>
 Master::pdo_offset(const pdo::Entry &entry) const {
     std::lock_guard lock(this->mu);
-    if (const auto it = this->layout_errors.find(entry.slave_position);
-        it != this->layout_errors.end())
+    if (const auto it = this->slave_errors.find(entry.slave_position);
+        it != this->slave_errors.end())
         return {{}, it->second};
     return pdo::find_offset(this->pdo_offsets, entry);
 }
@@ -394,6 +410,9 @@ std::vector<slave::Health> Master::check(const x::breaker::Breaker &breaker) {
             h.al_status = ec_ALstatuscode2string(this->api->slave_ALstatuscode(i));
         if (breaker.running()) this->recover(static_cast<uint16_t>(i));
     }
+    std::lock_guard lock(this->mu);
+    for (const auto &[pos, reason]: this->left_out)
+        health.push_back({.position = pos, .refusal = reason});
     return health;
 }
 
@@ -448,7 +467,7 @@ void Master::populate_slaves() {
 void Master::cache_pdo_offsets() {
     std::lock_guard lock(this->mu);
     this->pdo_offsets.clear();
-    this->layout_errors.clear();
+    this->slave_errors.clear();
 
     for (const auto &slave: this->slave_list) {
         const auto &props = slave.properties;
@@ -494,7 +513,7 @@ void Master::cache_pdo_offsets() {
                 )
             );
             LOG(WARNING) << err.message();
-            this->layout_errors.emplace(props.position, std::move(err));
+            this->slave_errors.emplace(props.position, std::move(err));
             continue;
         }
 
@@ -518,6 +537,11 @@ void Master::cache_pdo_offsets() {
             slave_output_offset
         );
     }
+    for (const auto &[pos, reason]: this->left_out)
+        this->slave_errors.insert_or_assign(
+            pos,
+            master::left_out_error(pos, this->api->slave_name(pos), reason)
+        );
 }
 
 /// Timeout for SDO (Service Data Object) reads during PDO discovery in microseconds.
@@ -1114,7 +1138,9 @@ Master::resolve_dc(const x::telem::TimeSpan period) const {
     std::lock_guard lock(this->mu);
     for (const auto &slave: this->slave_list) {
         const auto &props = slave.properties;
-        if (this->disabled_slaves.contains(props.position)) continue;
+        if (this->disabled_slaves.contains(props.position) ||
+            this->left_out.contains(props.position))
+            continue;
         std::optional<dc::Choice> choice;
         if (const auto it = this->chosen_modes.find(props.position);
             it != this->chosen_modes.end())
@@ -1338,7 +1364,7 @@ x::errors::Error
 Master::state_error(const std::vector<uint16_t> &failed, const uint16_t state) {
     const auto target = slave::slave_state_to_string(slave::from_al_state(state));
     std::string msg;
-    bool refused = false;
+    std::map<uint16_t, std::string> refusing;
     bool dc_sync_refused = false;
     for (const auto pos: failed) {
         if (!msg.empty()) msg += "; ";
@@ -1349,14 +1375,23 @@ Master::state_error(const std::vector<uint16_t> &failed, const uint16_t state) {
                );
         if (!this->al_error(pos)) continue;
         const auto code = this->api->slave_ALstatuscode(pos);
-        refused |= this->refuses(pos, state) &&
-                   std::ranges::find(TRANSIENT_FAULTS, code) == TRANSIENT_FAULTS.end();
+        const std::string text = ec_ALstatuscode2string(code);
+        if (this->refuses(pos, state) &&
+            std::ranges::find(TRANSIENT_FAULTS, code) == TRANSIENT_FAULTS.end())
+            refusing[pos] = "refused " + target + ": " + text;
         dc_sync_refused |= code == AL_INVALID_DC_SYNC;
-        msg += ": " + std::string(ec_ALstatuscode2string(code));
+        msg += ": " + text;
     }
     if (dc_sync_refused) msg.append(". ").append(DC_SYNC_ADVICE);
+    std::size_t enabled = 0;
+    for (int i = 1; i <= this->api->slave_count(); ++i)
+        enabled += this->api->slave_group(i) == ENABLED_GROUP ? 1 : 0;
+    if (refusing.size() < enabled) {
+        std::lock_guard lock(this->mu);
+        this->start_refusals = refusing;
+    }
     return x::errors::Error(
-        refused ? errors::STATE_CHANGE_REFUSED : errors::STATE_CHANGE_ERROR,
+        refusing.empty() ? errors::STATE_CHANGE_ERROR : errors::STATE_CHANGE_REFUSED,
         "failed to reach " + target + ": " + msg
     );
 }

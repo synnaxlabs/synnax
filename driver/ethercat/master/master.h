@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include <cstdint>
+#include <format>
 #include <functional>
 #include <map>
 #include <memory>
@@ -23,12 +25,33 @@
 #include "x/cpp/telem/telem.h"
 
 #include "driver/ethercat/dc/dc.h"
+#include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/pdo/pdo.h"
 #include "driver/ethercat/slave/slave.h"
 
 namespace driver::ethercat::master {
 /// @brief the distributed clock epoch, 2000-01-01, as a Unix timestamp.
 inline const x::telem::TimeStamp DC_EPOCH(x::telem::SECOND * 946684800);
+
+/// @brief returns the error for an entry on a slave that the bus started without.
+/// @param refusal why the slave is left out, such as "refused SAFE-OP: Invalid DC SYNC
+/// configuration".
+inline x::errors::Error left_out_error(
+    const uint16_t position,
+    const std::string &name,
+    const std::string &refusal
+) {
+    return x::errors::Error(
+        errors::STATE_CHANGE_REFUSED,
+        std::format(
+            "Slave {} ({}) is not on the network: it {}. Fix the device, then stop "
+            "every task on the network to try it again.",
+            position,
+            name,
+            refusal
+        )
+    );
+}
 
 /// @brief information about an available EtherCAT master or network.
 struct Info {
@@ -64,9 +87,22 @@ public:
     /// the bus. After an error, the caller stops the cycle it started before it calls
     /// deactivate().
     /// @returns errors::SLAVE_CONFIG_ERROR when the DC mode of a slave gives values its
-    /// registers cannot hold at the period.
+    /// registers cannot hold at the period, or errors::STATE_CHANGE_REFUSED when a
+    /// slave refuses SAFE-OP or OP.
     [[nodiscard]] virtual x::errors::Error
     activate(x::telem::TimeSpan period, const std::function<void()> &start_cycle) = 0;
+
+    /// @brief returns why each slave refused a state in the last activate(), such as
+    /// "refused SAFE-OP: Invalid DC SYNC configuration", keyed by position. Empty when
+    /// no slave refused, or when every enabled slave refused, as the bus cannot start
+    /// without all of them.
+    [[nodiscard]] virtual std::map<uint16_t, std::string> refusals() const = 0;
+
+    /// @brief leaves each slave in slaves out of the next activate() as if it were
+    /// disabled, with why the bus starts without it. Until the activate() after that,
+    /// pdo_offset() returns left_out_error() for an entry on a left-out slave, and
+    /// check() reports the slave with the reason.
+    virtual void leave_out(std::map<uint16_t, std::string> slaves) = 0;
 
     /// @brief deactivates the master and stops cyclic communication.
     virtual void deactivate() = 0;
@@ -104,9 +140,9 @@ public:
     [[nodiscard]] virtual std::vector<slave::DiscoveryResult> slaves() const = 0;
 
     /// @brief reads the condition of each enabled slave and asks each slave that left
-    /// OP to return to it. Takes no further recovery step once breaker stops. Safe to
-    /// call from one thread while another runs receive() and send(). Valid between
-    /// activate() and deactivate().
+    /// OP to return to it. Reports each left-out slave with its reason. Takes no
+    /// further recovery step once breaker stops. Safe to call from one thread while
+    /// another runs receive() and send(). Valid between activate() and deactivate().
     /// @returns the condition of each enabled slave before any recovery step.
     [[nodiscard]] virtual std::vector<slave::Health>
     check(const x::breaker::Breaker &breaker) = 0;

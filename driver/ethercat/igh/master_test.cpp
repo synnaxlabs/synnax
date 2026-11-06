@@ -172,6 +172,32 @@ TEST_F(IGHMasterTest, ActivateSkipsDisabledSlave) {
     EXPECT_EQ(this->mock_api->slave_config_count(), 1u);
 }
 
+/// @brief it should not configure a left-out slave, should return why the bus started
+/// without it for an entry on it, and should report it with the reason.
+TEST_F(IGHMasterTest, ActivateLeavesOutASlave) {
+    this->mock_api->add_slave(0, 0x1111, 0x2222, 1, 1, "S0");
+    this->mock_api->add_slave(1, 0x3333, 0x4444, 1, 2, "S1");
+    ASSERT_NIL(this->master_instance->initialize());
+    this->master_instance->leave_out({{1, "refused SAFE-OP: Inconsistent settings"}});
+    this->activate_with_domains();
+    EXPECT_EQ(this->mock_api->slave_config_count(), 1u);
+    const auto err = this->master_instance
+                         ->pdo_offset(
+                             pdo::Entry(1, 0x6000, 1, 16, true, x::telem::INT16_T)
+                         )
+                         .second;
+    ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_REFUSED);
+    EXPECT_EQ(
+        err.data,
+        "Slave 1 (S1) is not on the network: it refused SAFE-OP: Inconsistent "
+        "settings. Fix the device, then stop every task on the network to try it "
+        "again."
+    );
+    const auto health = this->master_instance->check(this->brk);
+    ASSERT_EQ(health.size(), 2);
+    EXPECT_EQ(health[1].refusal, "refused SAFE-OP: Inconsistent settings");
+}
+
 /// @brief it should disable a slave the replacement configs disable and enable one they
 /// leave out.
 TEST_F(IGHMasterTest, ReplaceSlaveConfigsSetsWhichSlavesAreDisabled) {

@@ -547,6 +547,44 @@ TEST_F(EtherCATScanStatusTest, LostSlaveShowsNotResponding) {
     EXPECT_EQ(status.description, "Check the power and cabling of the device.");
 }
 
+/// @brief it should show a slave that the bus started without as an error that tells
+/// why.
+TEST_F(EtherCATScanStatusTest, LeftOutSlaveShowsFailedToStart) {
+    this->master->add_slave(
+        slave::Properties{
+            .position = 1,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .serial = 54321,
+            .name = "Left Out Slave",
+        }
+    );
+    this->master->refuse(1, "refused SAFE-OP: Invalid DC SYNC configuration");
+    const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
+    const auto reader = ASSERT_NIL_P(
+        engine->open_reader({this->entry}, x::telem::Rate(100), 1)
+    );
+    ASSERT_EVENTUALLY_EQ(engine->health().size(), 2);
+    const auto devices = ASSERT_NIL_P(
+        this->scanner->scan(common::ScannerContext{.count = 1})
+    );
+    const auto dev = std::ranges::find(
+        devices,
+        "Left Out Slave",
+        &synnax::device::Device::name
+    );
+    ASSERT_NE(dev, devices.end());
+    const auto status = dev->status.value();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Failed to start");
+    EXPECT_EQ(
+        status.description,
+        "It refused SAFE-OP: Invalid DC SYNC configuration. The other devices on the "
+        "network started without it. The Driver tries it again the next time the "
+        "network starts."
+    );
+}
+
 /// @brief it should show a slave that left OP as a warning while the Driver returns it
 /// to OP.
 TEST_F(EtherCATScanStatusTest, SlaveLeavingOpShowsAWarning) {

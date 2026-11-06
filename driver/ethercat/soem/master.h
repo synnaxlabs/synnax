@@ -60,9 +60,9 @@ class Master final : public master::Master {
     size_t output_sz;
     /// @brief cached PDO offsets computed at activation time.
     pdo::Offsets pdo_offsets;
-    /// @brief why each slave whose discovered layout disagrees with what SOEM mapped
-    /// has no offsets, keyed by position.
-    std::unordered_map<uint16_t, x::errors::Error> layout_errors;
+    /// @brief why each slave has no offsets, keyed by position: its discovered layout
+    /// disagrees with what SOEM mapped, or the bus started without it.
+    std::unordered_map<uint16_t, x::errors::Error> slave_errors;
     /// @brief cached slave information populated during initialization.
     std::vector<slave::DiscoveryResult> slave_list;
     /// @brief slave positions that are disabled (excluded from cyclic exchange).
@@ -70,6 +70,11 @@ class Master final : public master::Master {
     /// @brief the mode the user chose for each slave that has a choice, keyed by
     /// position.
     std::map<uint16_t, dc::Choice> chosen_modes;
+    /// @brief why the bus starts without each slave that leave_out() names, keyed by
+    /// position.
+    std::map<uint16_t, std::string> left_out;
+    /// @brief why each slave refused a state in the last activate(), keyed by position.
+    std::map<uint16_t, std::string> start_refusals;
     /// @brief protects slave state queries.
     mutable std::mutex mu;
     /// @brief whether the master has been initialized.
@@ -112,6 +117,10 @@ public:
         x::telem::TimeSpan period,
         const std::function<void()> &start_cycle
     ) override;
+
+    [[nodiscard]] std::map<uint16_t, std::string> refusals() const override;
+
+    void leave_out(std::map<uint16_t, std::string> slaves) override;
 
     void deactivate() override;
 
@@ -243,7 +252,8 @@ private:
 
     /// @brief builds the error for enabled slaves that did not reach a state. It is a
     /// refusal when a slave refuses the state with an AL status code that a new start
-    /// cannot clear.
+    /// cannot clear. Records each such slave for refusals() unless every enabled slave
+    /// refused.
     x::errors::Error state_error(const std::vector<uint16_t> &failed, uint16_t state);
 };
 

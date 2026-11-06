@@ -349,6 +349,7 @@ void Engine::supervise() {
     while (this->bus.running()) {
         auto health = this->master->check(this->bus);
         for (const auto &h: health) {
+            if (!h.refusal.empty()) continue;
             const auto prev = std::ranges::find(
                 last,
                 h.position,
@@ -387,9 +388,12 @@ x::errors::Error Engine::start_locked(const uint64_t mhz) {
         this->bus.start();
         this->cycle_thread = std::thread(&Engine::run, this);
     };
+    const auto iface = this->master->interface_name();
+    std::map<uint16_t, std::string> left_out;
     x::breaker::Breaker retry(this->config.start_retry);
     retry.start();
     while (true) {
+        this->master->leave_out(left_out);
         auto err = this->master->initialize();
         if (!err) {
             err = this->master->activate(
@@ -397,10 +401,18 @@ x::errors::Error Engine::start_locked(const uint64_t mhz) {
                 start_cycle
             );
             if (!err) break;
+            const auto refused = this->master->refusals();
             if (this->bus.running())
                 this->stop_locked();
             else
                 this->master->deactivate();
+            if (!refused.empty()) {
+                for (const auto &[pos, reason]: refused)
+                    LOG(WARNING) << "[ethercat] starting " << iface << " without slave "
+                                 << pos << ": it " << reason;
+                left_out.insert(refused.begin(), refused.end());
+                continue;
+            }
         }
         // A retry cannot clear a refused state or a slave config that cannot run.
         if (err.matches(errors::STATE_CHANGE_REFUSED) ||

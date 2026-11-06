@@ -11,7 +11,9 @@
 #include <chrono>
 #include <cstdint>
 #include <functional>
+#include <map>
 #include <optional>
+#include <string>
 #include <thread>
 #include <vector>
 
@@ -170,6 +172,38 @@ protected:
         cycling = false;
         if (cycle.joinable()) cycle.join();
         return err;
+    }
+
+    /// @brief initializes the master with a slave that stays in PRE-OP without an error
+    /// and a slave that refuses SAFE-OP with "Inconsistent settings".
+    void add_pending_and_refusing_slaves() {
+        MockSlaveInfo pending;
+        pending.state = EC_STATE_PRE_OP;
+        pending.name = "PendingSlave";
+        this->add_slave(pending);
+        MockSlaveInfo refusing;
+        refusing.state = EC_STATE_PRE_OP;
+        refusing.name = "RefusingSlave";
+        refusing.ALstatuscode = 0x0026;
+        this->add_slave(refusing);
+        ASSERT_NIL(this->master->initialize());
+        this->mock->obytes = 2;
+        this->mock->ibytes = 4;
+        this->mock->statecheck_overrides[EC_STATE_SAFE_OP] = EC_STATE_PRE_OP +
+                                                             EC_STATE_ERROR;
+    }
+
+    /// @brief initializes the master with two slaves in PRE-OP named First and Second.
+    void add_two_slaves() {
+        for (const auto *name: {"First", "Second"}) {
+            MockSlaveInfo slave;
+            slave.state = EC_STATE_PRE_OP;
+            slave.name = name;
+            this->add_slave(slave);
+        }
+        ASSERT_NIL(this->master->initialize());
+        this->mock->obytes = 2;
+        this->mock->ibytes = 4;
     }
 
     void activate_master() {
@@ -552,20 +586,7 @@ TEST_F(SOEMMasterTest, ActivateSafeOpTimeoutIsNotARefusal) {
 /// @brief it should name only the slave that refused SAFE-OP, from one read of the
 /// slave states.
 TEST_F(SOEMMasterTest, ActivateNamesOnlyTheRefusingSlave) {
-    MockSlaveInfo pending;
-    pending.state = EC_STATE_PRE_OP;
-    pending.name = "PendingSlave";
-    this->add_slave(pending);
-    MockSlaveInfo refusing;
-    refusing.state = EC_STATE_PRE_OP;
-    refusing.name = "RefusingSlave";
-    refusing.ALstatuscode = 0x0026;
-    this->add_slave(refusing);
-    ASSERT_NIL(this->master->initialize());
-    this->mock->obytes = 2;
-    this->mock->ibytes = 4;
-    this->mock->statecheck_overrides[EC_STATE_SAFE_OP] = EC_STATE_PRE_OP +
-                                                         EC_STATE_ERROR;
+    this->add_pending_and_refusing_slaves();
     this->mock->readstate_count = 0;
     const auto err = this->activate();
     ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_REFUSED);
@@ -575,6 +596,41 @@ TEST_F(SOEMMasterTest, ActivateNamesOnlyTheRefusingSlave) {
         "settings"
     );
     EXPECT_EQ(this->mock->readstate_count, 1);
+}
+
+/// @brief it should record why a slave refused SAFE-OP when another slave did not
+/// refuse it.
+TEST_F(SOEMMasterTest, ActivateRecordsEachSlaveThatRefusesAState) {
+    this->add_pending_and_refusing_slaves();
+    ASSERT_OCCURRED_AS(this->activate(), errors::STATE_CHANGE_REFUSED);
+    const std::map<uint16_t, std::string> expected = {
+        {2, "refused SAFE-OP: Inconsistent settings"},
+    };
+    EXPECT_EQ(this->master->refusals(), expected);
+}
+
+/// @brief it should record no refusals when every enabled slave refuses a state.
+TEST_F(SOEMMasterTest, ActivateRecordsNoRefusalsWhenEverySlaveRefuses) {
+    this->initialize_with_slave();
+    this->mock->obytes = 2;
+    this->mock->ibytes = 4;
+    this->mock->statecheck_overrides[EC_STATE_SAFE_OP] = EC_STATE_PRE_OP +
+                                                         EC_STATE_ERROR;
+    this->mock->slave_infos[0].ALstatuscode = 0x001D;
+    ASSERT_OCCURRED_AS(this->activate(), errors::STATE_CHANGE_REFUSED);
+    EXPECT_TRUE(this->master->refusals().empty());
+}
+
+/// @brief it should forget the refusals of the last start when a new start begins.
+TEST_F(SOEMMasterTest, ActivateForgetsTheRefusalsOfTheLastStart) {
+    this->add_pending_and_refusing_slaves();
+    ASSERT_OCCURRED_AS(this->activate(), errors::STATE_CHANGE_REFUSED);
+    this->master->deactivate();
+    ASSERT_NIL(this->master->initialize());
+    this->master->leave_out({{2, "refused SAFE-OP: Inconsistent settings"}});
+    this->mock->slave_infos[0].ALstatuscode = 0x001D;
+    ASSERT_OCCURRED_AS(this->activate(), errors::STATE_CHANGE_REFUSED);
+    EXPECT_TRUE(this->master->refusals().empty());
 }
 
 /// @brief it should add the DC sync advice once when slaves refuse SAFE-OP with
@@ -760,6 +816,55 @@ TEST_F(SOEMMasterTest, DisabledSlaveStaysOutOfStateTransitions) {
     EXPECT_EQ(this->mock->state_change_requests, expected);
 }
 
+/// @brief it should keep a left-out slave out of the cyclic exchange and the state
+/// changes.
+TEST_F(SOEMMasterTest, ActivateLeavesOutASlave) {
+    this->add_two_slaves();
+    this->master->leave_out({{2, "refused SAFE-OP: Inconsistent settings"}});
+    ASSERT_NIL(this->activate());
+    EXPECT_EQ(this->mock->slave_infos[1].group, 2);
+    const std::vector<std::pair<uint16_t, uint16_t>> expected = {
+        {1, EC_STATE_SAFE_OP},
+        {1, EC_STATE_OPERATIONAL},
+    };
+    EXPECT_EQ(this->mock->state_change_requests, expected);
+}
+
+/// @brief it should return why the bus started without a slave for an entry on it.
+TEST_F(SOEMMasterTest, PdoOffsetReturnsTheErrorOfALeftOutSlave) {
+    this->add_two_slaves();
+    this->master->leave_out({{2, "refused SAFE-OP: Inconsistent settings"}});
+    ASSERT_NIL(this->activate());
+    const auto err = this->master
+                         ->pdo_offset(
+                             pdo::Entry(2, 0x6000, 1, 16, true, x::telem::INT16_T)
+                         )
+                         .second;
+    ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_REFUSED);
+    EXPECT_EQ(
+        err.data,
+        "Slave 2 (Second) is not on the network: it refused SAFE-OP: Inconsistent "
+        "settings. Fix the device, then stop every task on the network to try it "
+        "again."
+    );
+}
+
+/// @brief it should report a left-out slave with why the bus started without it.
+TEST_F(SOEMMasterTest, CheckReportsALeftOutSlave) {
+    this->add_two_slaves();
+    this->master->leave_out({{2, "refused SAFE-OP: Inconsistent settings"}});
+    ASSERT_NIL(this->activate());
+    const auto health = this->master->check(this->brk);
+    ASSERT_EQ(health.size(), 2);
+    EXPECT_EQ(
+        health[1],
+        (slave::Health{
+            .position = 2,
+            .refusal = "refused SAFE-OP: Inconsistent settings",
+        })
+    );
+}
+
 /// @brief it should write zero to 0x0980 and then to 0x0981 on each enabled slave with
 /// a distributed clock, before it maps the slaves and so requests SAFE-OP.
 TEST_F(SOEMMasterTest, ActivateClearsDCActivationBeforeMapping) {
@@ -863,6 +968,19 @@ TEST_F(SOEMMasterTest, ActivateLeavesSyncOffOnASlaveWithAnSMMode) {
 TEST_F(SOEMMasterTest, ActivateLeavesSyncOffOnADisabledSlave) {
     this->initialize_with_dc_slave({DC_ONLY});
     this->master->set_slave_config(1, {.enabled = false});
+    ASSERT_NIL(this->activate());
+    EXPECT_TRUE(this->mock->register_writes.empty());
+}
+
+/// @brief it should leave DC sync off on a left-out slave, even when the slave cannot
+/// use its chosen mode.
+TEST_F(SOEMMasterTest, ActivateLeavesSyncOffOnALeftOutSlave) {
+    this->initialize_with_dc_slave({DC_ONLY});
+    this->master->set_slave_config(
+        1,
+        {.op_mode = dc::Choice{.assign_activate = 0x0700}}
+    );
+    this->master->leave_out({{1, "refused SAFE-OP: Invalid DC SYNC configuration"}});
     ASSERT_NIL(this->activate());
     EXPECT_TRUE(this->mock->register_writes.empty());
 }

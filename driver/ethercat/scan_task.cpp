@@ -47,6 +47,15 @@ void set_live_status(const slave::Health &health, synnax::device::Status &status
         status.message = "Operational";
         return;
     }
+    if (!health.refusal.empty()) {
+        status.variant = synnax::status::VARIANT_ERROR;
+        status.message = "Failed to start";
+        status.description = "It " + health.refusal +
+                             ". The other devices on the network started without it. "
+                             "The Driver tries it again the next time the network "
+                             "starts.";
+        return;
+    }
     if (health.lost) {
         status.variant = synnax::status::VARIANT_ERROR;
         status.message = "Not responding";

@@ -214,6 +214,9 @@ struct Health {
     /// @brief description of the slave's AL status code, empty when it reports none or
     /// the master cannot read it.
     std::string al_status;
+    /// @brief why the bus started without the slave, such as "refused SAFE-OP: Invalid
+    /// DC SYNC configuration". Empty when the slave is on the bus.
+    std::string refusal;
 
     bool operator==(const Health &) const = default;
 
