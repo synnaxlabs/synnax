@@ -1755,6 +1755,116 @@ describe("list", () => {
       });
     });
 
+    it("should subscribe to the query before its retrieve lands", async () => {
+      const subscribe = vi.fn().mockReturnValue(() => {});
+      let release!: (items: record.Keyed<number>[]) => void;
+      const retrieve = vi.fn(
+        async () =>
+          await new Promise<record.Keyed<number>[]>((resolve) => (release = resolve)),
+      );
+      const { result } = renderHook(
+        () =>
+          Flux.createList<{}, number, record.Keyed<number>>({
+            name: "Resource",
+            retrieve,
+            retrieveByKey: async ({ key }) => ({ key }),
+            onChange: subscribe,
+          })(),
+        { wrapper },
+      );
+      let retrieved!: Promise<void>;
+      act(() => {
+        retrieved = result.current.retrieveAsync({});
+      });
+      await waitFor(() => expect(retrieve).toHaveBeenCalled());
+      expect(subscribe).toHaveBeenCalledTimes(1);
+      await act(async () => {
+        release([{ key: 1 }]);
+        await retrieved;
+      });
+      expect(subscribe).toHaveBeenCalledTimes(1);
+      expect(result.current.data).toEqual([1]);
+    });
+
+    it("should keep one live page when two retrieves of one query overlap", async () => {
+      const closed: boolean[] = [];
+      const subscribe = vi.fn(() => {
+        const index = closed.push(false) - 1;
+        return () => {
+          closed[index] = true;
+        };
+      });
+      const releases: Array<(items: record.Keyed<number>[]) => void> = [];
+      const retrieve = vi.fn(
+        async () =>
+          await new Promise<record.Keyed<number>[]>((resolve) =>
+            releases.push(resolve),
+          ),
+      );
+      const { result } = renderHook(
+        () =>
+          Flux.createList<{}, number, record.Keyed<number>>({
+            name: "Resource",
+            retrieve,
+            retrieveByKey: async ({ key }) => ({ key }),
+            onChange: subscribe,
+          })(),
+        { wrapper },
+      );
+      const q = {};
+      let first!: Promise<void>;
+      let second!: Promise<void>;
+      act(() => {
+        first = result.current.retrieveAsync(q);
+        second = result.current.retrieveAsync(q);
+      });
+      await waitFor(() => expect(retrieve).toHaveBeenCalledTimes(2));
+      await act(async () => {
+        releases[0]([{ key: 1 }]);
+        await first;
+      });
+      await act(async () => {
+        releases[1]([{ key: 2 }]);
+        await second;
+      });
+      expect(closed).toEqual([true, false]);
+      expect(result.current.data).toEqual([2]);
+    });
+
+    it("should apply an answer that arrived while its retrieve ran", async () => {
+      let deliver!: (answer: record.Keyed<number>[]) => void;
+      const subscribe = vi.fn((_, handler: typeof deliver) => {
+        deliver = handler;
+        return () => {};
+      });
+      let release!: (items: record.Keyed<number>[]) => void;
+      const retrieve = vi.fn(
+        async () =>
+          await new Promise<record.Keyed<number>[]>((resolve) => (release = resolve)),
+      );
+      const { result } = renderHook(
+        () =>
+          Flux.createList<{}, number, record.Keyed<number>>({
+            name: "Resource",
+            retrieve,
+            retrieveByKey: async ({ key }) => ({ key }),
+            onChange: subscribe,
+          })(),
+        { wrapper },
+      );
+      let retrieved!: Promise<void>;
+      act(() => {
+        retrieved = result.current.retrieveAsync({});
+      });
+      await waitFor(() => expect(retrieve).toHaveBeenCalled());
+      deliver([{ key: 1 }, { key: 2 }]);
+      await act(async () => {
+        release([{ key: 1 }]);
+        await retrieved;
+      });
+      expect(result.current.data).toEqual([1, 2]);
+    });
+
     it("should subscribe to an item when retrieving it before any list", async () => {
       const onChangeByKey = vi.fn().mockReturnValue(() => {});
       const retrieveByKey = vi.fn().mockResolvedValue({ key: 1 });
