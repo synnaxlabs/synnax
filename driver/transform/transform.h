@@ -15,6 +15,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <ranges>
 #include <string>
 #include <unordered_set>
 #include <variant>
@@ -201,8 +202,8 @@ public:
             );
         series.map_inplace([this](const double v) {
             double result = 0;
-            for (auto c = this->coeffs.rbegin(); c != this->coeffs.rend(); ++c)
-                result = result * v + *c;
+            for (const double c: std::views::reverse(this->coeffs))
+                result = result * v + c;
             return result;
         });
         return x::errors::NIL;
@@ -245,8 +246,7 @@ private:
         if (v <= this->pre_scaled.front()) return this->scaled.front();
         if (v >= this->pre_scaled.back()) return this->scaled.back();
         const auto hi = static_cast<size_t>(
-            std::upper_bound(this->pre_scaled.begin(), this->pre_scaled.end(), v) -
-            this->pre_scaled.begin()
+            std::ranges::upper_bound(this->pre_scaled, v) - this->pre_scaled.begin()
         );
         const auto lo = hi - 1;
         const double t = (v - this->pre_scaled[lo]) /
@@ -288,11 +288,8 @@ inline void validate_scale(
         parser.field_err(pre_path, "At least two points are required");
         return;
     }
-    if (std::adjacent_find(
-            t->pre_scaled_vals.begin(),
-            t->pre_scaled_vals.end(),
-            std::greater_equal<>()
-        ) != t->pre_scaled_vals.end())
+    if (std::ranges::adjacent_find(t->pre_scaled_vals, std::greater_equal<>()) !=
+        t->pre_scaled_vals.end())
         parser.field_err(pre_path, "Pre-scaled values must be in increasing order");
 }
 
