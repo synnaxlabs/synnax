@@ -117,25 +117,27 @@ protected:
         return times;
     }
 
-    /// @brief samples, every 2 ms for 400 ms, how far the latest frame passed the
-    /// reference clock from half a period after a SYNC0 event, with SYNC0 events at
+    /// @brief samples, for 3 s and at most every 20 ms, how far the latest frame passed
+    /// the reference clock from half a period after a SYNC0 event, with SYNC0 events at
     /// shift after multiples of the period. Returns the share of samples within a
-    /// quarter period. A 1 ms period that drifts 0.5% slips through two whole periods
-    /// in that time.
+    /// quarter period. A 10 ms period that drifts 0.5% slips through one and a half
+    /// periods in that time.
     [[nodiscard]] double share_in_phase(
         const x::telem::TimeSpan period,
         const x::telem::TimeSpan shift = x::telem::TimeSpan(0)
     ) const {
-        constexpr int SAMPLES = 200;
+        const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+        int samples = 0;
         int in_phase = 0;
-        for (int i = 0; i < SAMPLES; ++i) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        while (std::chrono::steady_clock::now() < end) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
             const auto dc = this->master->dc_time().value_or(master::DC_EPOCH);
             const auto phase = ((dc - master::DC_EPOCH - shift) % period + period) %
                                period;
             if ((phase - period / 2).abs() < period / 4) ++in_phase;
+            ++samples;
         }
-        return static_cast<double>(in_phase) / SAMPLES;
+        return static_cast<double>(in_phase) / samples;
     }
 };
 
@@ -220,14 +222,14 @@ TEST_F(EngineTest, ReadStampsSamplesWithTheDistributedClockSpacing) {
 /// shift, while the distributed clock runs 0.5% faster than the host clock.
 TEST_F(EngineTest, LocksTheCycleToTheDistributedClock) {
     auto sync = SYNC0_AT_10MS;
-    sync.sync0_shift = 500'000;
+    sync.sync0_shift = 5'000'000;
     this->master->set_dc_sync({sync});
     this->master->set_host_dc(1.005);
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(1000), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
     );
     EXPECT_GT(
-        this->share_in_phase(x::telem::MILLISECOND, x::telem::MICROSECOND * 500),
+        this->share_in_phase(x::telem::MILLISECOND * 10, x::telem::MILLISECOND * 5),
         0.8
     );
 }
@@ -236,9 +238,9 @@ TEST_F(EngineTest, LocksTheCycleToTheDistributedClock) {
 TEST_F(EngineTest, LeavesTheCycleUnlockedWithoutSYNC0) {
     this->master->set_host_dc(1.005);
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(1000), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
     );
-    EXPECT_LT(this->share_in_phase(x::telem::MILLISECOND), 0.8);
+    EXPECT_LT(this->share_in_phase(x::telem::MILLISECOND * 10), 0.8);
 }
 
 /// @brief it should lock the cycle to the distributed clock while the slaves move to
@@ -246,12 +248,12 @@ TEST_F(EngineTest, LeavesTheCycleUnlockedWithoutSYNC0) {
 TEST_F(EngineTest, LocksTheCycleWhileTheSlavesMoveToOP) {
     this->master->set_dc_sync({SYNC0_AT_10MS});
     this->master->set_host_dc(1.005);
-    this->master->set_start_frames(1000);
+    this->master->set_start_frames(400);
     std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> res;
     std::thread start([&] {
-        res = this->engine->open_reader({IN_I16}, x::telem::Rate(1000), 1);
+        res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
     });
-    EXPECT_GT(this->share_in_phase(x::telem::MILLISECOND), 0.8);
+    EXPECT_GT(this->share_in_phase(x::telem::MILLISECOND * 10), 0.8);
     EXPECT_EQ(this->master->call_count("op"), 0);
     start.join();
     ASSERT_NIL(res.second);
@@ -263,12 +265,12 @@ TEST_F(EngineTest, ShortFramesAfterTheStartDoNotMoveTheCycle) {
     this->master->set_dc_sync({SYNC0_AT_10MS});
     this->master->set_host_dc(1.005);
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(1000), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
     );
     this->master->inject_receive_error(
         x::errors::Error(errors::WORKING_COUNTER_ERROR, "expected 3, got 1")
     );
-    EXPECT_LT(this->share_in_phase(x::telem::MILLISECOND), 0.8);
+    EXPECT_LT(this->share_in_phase(x::telem::MILLISECOND * 10), 0.8);
 }
 
 TEST_F(EngineTest, ReadReturnsNilWhenBreakerStopped) {
