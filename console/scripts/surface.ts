@@ -9,7 +9,15 @@
 
 import { z } from "zod";
 
-import { type Persist } from "@/session/persist";
+type SliceSchemas = Record<string, z.ZodType>;
+
+export interface Scopes {
+  global: SliceSchemas;
+  core: SliceSchemas;
+  project: SliceSchemas;
+  window: SliceSchemas;
+  transient: string[];
+}
 
 const flatten = (value: unknown, path: string): string[] => {
   if (Array.isArray(value) && value.every((v) => typeof v !== "object"))
@@ -33,12 +41,12 @@ const describeSlice = (path: string, schema: z.ZodType): string[] => {
  * @returns the shape of each stored slice as sorted lines, one per field of its JSON
  * schema, so the reports of two revisions differ only when saved state does.
  */
-export const report = <S extends object>(scopes: Persist.Scopes<S>): string => {
+export const report = (scopes: Scopes): string => {
   const { transient, ...stored } = scopes;
   const lines = [
     ...transient.map((slice) => `transient ${slice}`),
     ...Object.entries(stored).flatMap(([scope, slices]) =>
-      Object.entries(slices as Record<string, z.ZodType>).flatMap(([slice, schema]) =>
+      Object.entries(slices).flatMap(([slice, schema]) =>
         describeSlice(`${scope}.${slice}`, schema),
       ),
     ),
