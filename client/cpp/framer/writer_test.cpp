@@ -322,7 +322,7 @@ TEST(WriterTests, testWriteErrOnUnauthorizedSharedIndex) {
             .err_on_unauthorized = true
         }
     ));
-    auto [w2, err] = client.telem.open_writer(
+    const auto res = client.telem.open_writer(
         synnax::framer::WriterConfig{
             .channels = std::vector{time.key, data_2.key},
             .start = x::telem::TimeStamp::now(),
@@ -330,8 +330,8 @@ TEST(WriterTests, testWriteErrOnUnauthorizedSharedIndex) {
             .err_on_unauthorized = true
         }
     );
-    ASSERT_OCCURRED_AS(err, x::errors::UNAUTHORIZED);
-    ASSERT_TRUE(err.message().contains("shared_index_w1"));
+    ASSERT_OCCURRED_AS_P(res, x::errors::UNAUTHORIZED);
+    ASSERT_TRUE(res.second.message().contains("shared_index_w1"));
     ASSERT_NIL(w1.close());
 }
 

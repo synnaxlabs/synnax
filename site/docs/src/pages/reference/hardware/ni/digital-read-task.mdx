@@ -30,10 +30,11 @@ and line numbers. The device manual lists the ports and lines.
 The Driver reads the lines on the computer clock, at the **Sample rate**. See
 [timing](/reference/hardware/tasks#timing).
 
-Only one running digital read task can use a device at a time. All of these tasks on a
-device write to one index channel, and only one writer can hold an index channel. A
-second task on the same device stops right after it starts, with an error that names the
-task that is running. This limit applies even when the two tasks use different lines.
+The Console gives the digital read tasks of a device one index channel, and only one
+writer can hold an index channel. So only one of these tasks can run on a device at a
+time, even when the tasks use different lines. A second task stops right after it
+starts, with an error that names the running task. Tasks from a client library have this
+limit only when they share an index channel.
 
 <Divider.Divider x />
 
@@ -166,8 +167,7 @@ Change the port or the line of one of them.
 <Problem.Item message={"... has no control authority - it is currently held by ..."}>
 <Problem.Cause>
 
-Another running task on the same device writes to the shared index channel. The error
-names that task.
+Another running task writes to the same index channel. The error names that task.
 
 </Problem.Cause>
 <Problem.Fix>
