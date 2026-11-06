@@ -62,6 +62,42 @@ var _ = Describe("Analyzer", func() {
 			Expect(diag.String()).To(ContainSubstring("unresolved type: channel.Key"))
 		})
 
+		It("Should reject a name that a loaded import does not hold", func(
+			ctx SpecContext,
+		) {
+			loader.Files["schemas/x/color"] = `
+				Gradient struct {
+					stops int32
+				}
+			`
+			source := `
+				import "schemas/x/color"
+				@go output "out"
+				Entry struct {
+					stroke color.Color
+				}
+			`
+			_, diag := Analyze(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring("unresolved type: color.Color"))
+		})
+
+		It("Should not bind a filter name to a local type", func(ctx SpecContext) {
+			source := `
+				@go output "out"
+				Key uuid
+				Entry struct {
+					key filter.Key
+				}
+			`
+			table, diag := Analyze(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			Expect(diag.String()).To(ContainSubstring("unresolved type: filter.Key"))
+			entry := MustBeOk(table.Get("test.Entry"))
+			field := entry.Form.(resolution.StructForm).Fields[0]
+			Expect(field.Type.Name).To(Equal("filter.Key"))
+		})
+
 		It("Should keep a warning for an import with no loaded types", func(
 			ctx SpecContext,
 		) {

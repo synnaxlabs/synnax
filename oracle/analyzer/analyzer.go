@@ -1779,7 +1779,7 @@ func resolveTypeRef(
 	}
 
 	_, isVersion := paths.Version(ns)
-	otherResource := len(parts) == 2 && !isVersion && ns != resolution.FilterNamespace
+	otherResource := len(parts) == 2 && !isVersion
 
 	if (resolution.IsPrimitive(name) || resolution.IsConstraint(name)) &&
 		len(parts) == 1 {
@@ -1792,7 +1792,7 @@ func resolveTypeRef(
 			params[i].Optional && !params[i].HasDefault(); i++ {
 			ref.TypeArgs = append(ref.TypeArgs, resolution.TypeRef{Name: "nil"})
 		}
-	} else if otherResource && !importsNamespace(c, ns) {
+	} else if otherResource && namespaceSettled(c, ns) {
 		c.report(diagnostics.Errorf(nil, "unresolved type: %s", ref.Name))
 	} else {
 		d := diagnostics.Warningf(nil, "unresolved type: %s", ref.Name)
@@ -1804,16 +1804,23 @@ func resolveTypeRef(
 	}
 }
 
-// importsNamespace reports whether the file imports namespace. A file can import a
-// namespace whose types are absent, because the LSP analyzes one file at a time.
-func importsNamespace(c *analysisCtx, namespace string) bool {
+// namespaceSettled reports whether a name missing from namespace is a schema error. It
+// is not when the namespace is available but holds no types: the LSP analyzes one file
+// at a time, and the filter namespace needs no import.
+func namespaceSettled(c *analysisCtx, namespace string) bool {
+	if len(c.table.TypesInNamespace(namespace)) > 0 {
+		return true
+	}
+	if namespace == resolution.FilterNamespace {
+		return false
+	}
 	for _, imp := range c.ast.AllImportStmt() {
 		path := strings.Trim(imp.STRING_LIT().GetText(), `"`)
 		if paths.DeriveNamespace(path) == namespace {
-			return true
+			return false
 		}
 	}
-	return false
+	return true
 }
 
 // lookupRef resolves a reference. A name in another resource must exist in that
