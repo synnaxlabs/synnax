@@ -19,8 +19,8 @@ import { Readout } from "@/schematic/node/common/primitive/Readout";
 import { SIZE_LEVELS } from "@/schematic/node/common/size";
 import { Button } from "@/schematic/node/general/button/Primitive";
 import { Input } from "@/schematic/node/general/input/Primitive";
-import { Select } from "@/schematic/node/general/select/Primitive";
 import { spec as selectSpec } from "@/schematic/node/general/select/external";
+import { Select } from "@/schematic/node/general/select/Primitive";
 import { Setpoint } from "@/schematic/node/general/setpoint/Primitive";
 
 interface SymbolProps {

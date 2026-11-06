@@ -214,6 +214,33 @@ describe("Schematic.Node.changeConfig", () => {
     expect(changed.label.maxInlineSize).toBeUndefined();
   });
 
+  it("should keep a saved field off the standard scale when it changes", () => {
+    const saved = schematic.inputNodeConfigZ.parse({ variant: "input", size: "small" });
+    const changed = changeConfig(saved, { variant: "setpoint" });
+    expect(changed.size).toBe("small");
+    expect(changed.level).toBeUndefined();
+  });
+
+  it("should keep the level of a field that changes", () => {
+    const input = createConfig({ variant: "input", size: "small", level: "h5" });
+    const changed = changeConfig(input, { variant: "setpoint" });
+    expect(changed.level).toBe("h5");
+  });
+
+  it("should give a symbol with no size the default level", () => {
+    const changed = changeConfig(createConfig({ variant: "tank" }), {
+      variant: "setpoint",
+    });
+    expect(changed.level).toBe(SIZE_LEVELS.medium);
+  });
+
+  it("should keep a schema level default on a variant with no spec level", () => {
+    const saved = schematic.inputNodeConfigZ.parse({ variant: "input", size: "small" });
+    expect(changeConfig(saved, { variant: "value" }).level).toBe(
+      createConfig({ variant: "value" }).level,
+    );
+  });
+
   it("should keep the wrap width of a button that stays a button", () => {
     const button = createConfig({ variant: "button", label: { maxInlineSize: 80 } });
     const changed = changeConfig(button, { variant: "button" });
