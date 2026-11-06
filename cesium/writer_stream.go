@@ -430,6 +430,14 @@ func (w *streamWriter) commit(ctx context.Context) (telem.TimeStamp, error) {
 			maxTS = ts
 		}
 	}
+	for _, chW := range w.virtual.internal {
+		if err := chW.Authorize(); err != nil {
+			if !errors.Is(err, xcontrol.ErrUnauthorized) {
+				return 0, err
+			}
+			unauthorized = err
+		}
+	}
 	if unauthorized != nil {
 		return 0, unauthorized
 	}

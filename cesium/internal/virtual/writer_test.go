@@ -71,6 +71,29 @@ var _ = Describe("Write", func() {
 			)
 		})
 
+		Describe("Authorize", func() {
+			It(
+				"Should return ErrUnauthorized once another writer takes control",
+				func(ctx SpecContext) {
+					low, _ := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
+						Start:     10 * telem.SecondTS,
+						Authority: 1,
+						Subject:   control.Subject{Key: "low"},
+					}))
+					Expect(low.Authorize()).To(Succeed())
+					high, _ := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
+						Start:     10 * telem.SecondTS,
+						Authority: 2,
+						Subject:   control.Subject{Key: "high"},
+					}))
+					Expect(low.Authorize()).To(MatchError(control.ErrUnauthorized))
+					MustSucceed(high.Close())
+					Expect(low.Authorize()).To(Succeed())
+					MustSucceed(low.Close())
+				},
+			)
+		})
+
 		Describe("Write", func() {
 			It(
 				"Should return an unauthorized error when the write is not authorized",

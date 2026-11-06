@@ -524,8 +524,9 @@ var _ = Describe("Writer", func() {
 				// A peer opens its writer after OpenWriter returns.
 				MustCommit(holder)
 				for range 2 {
-					_, authorized := MustSucceed2(w.Commit())
+					end, authorized := MustSucceed2(w.Commit())
 					Expect(authorized).To(BeFalse())
+					Expect(end).To(BeZero())
 				}
 				Expect(holder.Close()).To(Succeed())
 				Expect(w.Write(frameAt(11))).To(BeTrue())

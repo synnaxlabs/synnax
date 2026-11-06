@@ -147,6 +147,14 @@ func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 	return a, nil
 }
 
+// Authorize returns control.ErrUnauthorized if the writer does not have control of its
+// channel.
+func (w *Writer) Authorize() error {
+	return w.wrapError(
+		w.control.Authorize(func(*controlResource) error { return nil }),
+	)
+}
+
 func (w *Writer) SetAuthority(a xcontrol.Authority) control.Transfer {
 	return w.control.SetAuthority(a)
 }

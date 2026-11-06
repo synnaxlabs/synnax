@@ -380,6 +380,30 @@ var _ = Describe("Control", func() {
 					},
 				)
 				It(
+					"Should report commits on a virtual channel without control",
+					func(ctx SpecContext) {
+						cmd := GenerateChannelKey()
+						Expect(
+							db.CreateChannel(ctx, virtualChannel(cmd, "Command")),
+						).To(Succeed())
+						fr := telem.UnaryFrame(cmd, telem.NewSeriesV[int64](1))
+						low := open(ctx, "low", 1, cmd)
+						Expect(low.Write(fr)).To(BeTrue())
+						MustCommit(low)
+						high := open(ctx, "high", 2, cmd)
+						Expect(low.Write(fr)).To(BeFalse())
+						for range 2 {
+							end, authorized := MustSucceed2(low.Commit())
+							Expect(authorized).To(BeFalse())
+							Expect(end).To(BeZero())
+						}
+						Expect(high.Close()).To(Succeed())
+						Expect(low.Write(fr)).To(BeTrue())
+						MustCommit(low)
+						Expect(low.Close()).To(Succeed())
+					},
+				)
+				It(
 					"Should report a writer that never had control",
 					func(ctx SpecContext) {
 						high := open(ctx, "high", 2, idx)

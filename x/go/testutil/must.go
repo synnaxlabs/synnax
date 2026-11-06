@@ -77,9 +77,9 @@ func MustSucceed2[A, B any](a A, b B, err error) (A, B) {
 // MustCommit is a test helper that commits the writer, asserts that the commit succeeds
 // with control authority, and returns the end of the commit.
 func MustCommit[T any](w interface{ Commit() (T, bool, error) }) T {
-	end, authorized, err := w.Commit()
-	gomega.ExpectWithOffset(1, err).ToNot(gomega.HaveOccurred())
-	gomega.ExpectWithOffset(1, authorized).To(gomega.BeTrue())
+	ginkgo.GinkgoHelper()
+	end, authorized := MustSucceed2(w.Commit())
+	gomega.Expect(authorized).To(gomega.BeTrue())
 	return end
 }
 
