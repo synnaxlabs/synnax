@@ -91,11 +91,13 @@ TEST(ColorParse, ParsesHexString) {
     expect_parsed("#00000000", 0, 0, 0, 0);
 }
 
+/// @brief it should parse the legacy struct form.
 TEST(ColorParse, ParsesLegacyStructForm) {
     expect_parsed({{"r", 255}, {"g", 128}, {"b", 0}, {"a", 0.5}}, 255, 128, 0, 128);
     expect_parsed({{"r", 255}, {"g", 128}, {"b", 0}}, 255, 128, 0, 255);
 }
 
+/// @brief it should parse legacy arrays.
 TEST(ColorParse, ParsesLegacyArrays) {
     expect_parsed(x::json::json::array({122, 44, 38}), 122, 44, 38, 255);
     expect_parsed(x::json::json::array({122, 44, 38, 0.5}), 122, 44, 38, 128);
@@ -106,12 +108,14 @@ TEST(ColorParse, ParsesLegacyRGBA255Object) {
     expect_parsed({{"rgba255", {122, 44, 38}}}, 122, 44, 38, 255);
 }
 
+/// @brief it should parse null, an empty string, and an empty object as zero.
 TEST(ColorParse, ParsesNullEmptyStringAndEmptyObjectAsZero) {
     expect_parsed(nullptr, 0, 0, 0, 0);
     expect_parsed("", 0, 0, 0, 0);
     expect_parsed(x::json::json::object(), 0, 0, 0, 0);
 }
 
+/// @brief it should convert a legacy 0-1 alpha to a byte.
 TEST(ColorParse, ConvertsLegacyAlphaToAByte) {
     expect_parsed(x::json::json::array({255, 0, 0, 0}), 255, 0, 0, 0);
     expect_parsed(x::json::json::array({255, 0, 0, 0.003}), 255, 0, 0, 1);
@@ -158,12 +162,14 @@ TEST(ColorParse, AccumulatesErrorOnBadInput) {
     EXPECT_EQ(bad_hex.errors->at(0)["message"], "invalid hex color length: #xyz");
 }
 
+/// @brief it should write a color as an eight digit hex string.
 TEST(ColorJSON, WritesAnEightDigitHexString) {
     const Color c{.r = 255, .g = 128, .b = 1, .a = 64};
     EXPECT_EQ(c.to_json(), x::json::json("#ff800140"));
     EXPECT_EQ(Color{}.to_json(), x::json::json("#00000000"));
 }
 
+/// @brief it should round trip every alpha through JSON.
 TEST(ColorJSON, RoundTripsEveryAlpha) {
     for (int a = 0; a < 256; a++) {
         const Color c{.r = 100, .g = 200, .b = 50, .a = static_cast<std::uint8_t>(a)};
@@ -171,6 +177,7 @@ TEST(ColorJSON, RoundTripsEveryAlpha) {
     }
 }
 
+/// @brief it should pack a color into one proto field.
 TEST(ColorProto, PacksTheColorIntoOneField) {
     const Color c{.r = 0x12, .g = 0x34, .b = 0x56, .a = 0x78};
     auto [pb, err] = c.to_proto();
@@ -178,6 +185,7 @@ TEST(ColorProto, PacksTheColorIntoOneField) {
     EXPECT_EQ(pb.rgba(), 0x12345678u);
 }
 
+/// @brief it should round trip every alpha through the proto wire form.
 TEST(ColorProto, RoundTripsEveryAlphaThroughTheWire) {
     for (int a = 0; a < 256; a++) {
         const Color c{.r = 10, .g = 20, .b = 30, .a = static_cast<std::uint8_t>(a)};
