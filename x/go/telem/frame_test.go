@@ -235,8 +235,8 @@ var _ = Describe("Frame", func() {
 			}
 			filtered := telem.MultiFrame(keys, series).KeepKeys(kept)
 			Expect(filtered.KeysSlice()).To(Equal(keys))
-			Expect(cap(filtered.RawKeys())).To(Equal(130))
-			Expect(cap(filtered.RawSeries())).To(Equal(130))
+			Expect(filtered.RawKeys()).To(HaveCap(130))
+			Expect(filtered.RawSeries()).To(HaveCap(130))
 		})
 
 		It("Should correctly filter a frame multiple times", func() {
@@ -366,8 +366,8 @@ var _ = Describe("Frame", func() {
 			}
 			filtered := telem.MultiFrame(keys, series).ExcludeKeys([]int32{0})
 			Expect(filtered.KeysSlice()).To(Equal(keys[1:]))
-			Expect(cap(filtered.RawKeys())).To(Equal(130))
-			Expect(cap(filtered.RawSeries())).To(Equal(130))
+			Expect(filtered.RawKeys()).To(HaveCap(130))
+			Expect(filtered.RawSeries()).To(HaveCap(130))
 		})
 
 		It("Should correctly exclude keys from a frame multiple times", func() {
