@@ -28,22 +28,22 @@ shipped, so Modbus gets a v3 and does not hold releases.
 ```
 Kind enum { float integer unsigned string boolean timestamp json uuid bytes }
 TimeFormat enum { iso8601 unix_sec unix_ms unix_us unix_ns }
+Float    float64 { @go hand  @ts hand  @py hand  @cpp hand }
 Integer  int64  { @ts type "string"  @py hand }
 Unsigned uint64 { @ts type "string"  @py hand }
-FloatEntry    struct { label string  value float64 }
+FloatEntry    struct { label string  value Float }
 IntegerEntry  struct { label string  value Integer }
 UnsignedEntry struct { label string  value Unsigned }
 StringEntry   struct { label string  value string }
 BooleanEntry  struct { label string  value bool }
-FloatFill    union on type { nan {}  value { value float64 } }
-FloatRead     struct { data_type telem.DataType?  enum_values FloatEntry[]  fill FloatFill? }
+FloatRead     struct { data_type telem.DataType?  enum_values FloatEntry[]  fill Float? }
 IntegerRead   struct { data_type telem.DataType?  enum_values IntegerEntry[]  fill Integer? }
 UnsignedRead  struct { data_type telem.DataType?  enum_values UnsignedEntry[]  fill Unsigned? }
 StringRead    struct { enum_values StringEntry[]  fill string? }
 BooleanRead   struct { enum_values BooleanEntry[]  fill bool? }
 TimestampRead struct { time_format TimeFormat  fill telem.TimeStamp? }
 WriteField union on type Kind extends BaseWriteField {
-    float { value float64 }  integer { value Integer }  unsigned { value Unsigned }
+    float { value Float }  integer { value Integer }  unsigned { value Unsigned }
     string { value string }  boolean { value bool }  json { value string }  uuid {}
     timestamp { time_format TimeFormat = iso8601 }  bytes { value string }
 }
@@ -75,7 +75,7 @@ ChannelField union on type payload.Kind extends BaseChannelField {
 `BaseReadField` holds `key`, `name`, `disabled`, `channel`, and `pointer`.
 `BaseChannelField` holds `pointer`, `channel`, `name`, and `data_type?`. A channel field
 writes the label of an entry that matches the value. Otherwise `string` writes text, and
-`boolean` true or false. Integer fills are plain values: one variant needs no union.
+`boolean` true or false.
 
 OPC UA v2 replaces `array_mode` and `array_size` with `sampling Sampling = unary`.
 Modbus v3 replaces `string_length`, and its `WriteChannel` stays an alias.
@@ -86,17 +86,21 @@ RegisterString struct { length int32  bytes_swapped bool? }
 ReadChannel gains holding_register_string and input_register_string extends RegisterString
 ```
 
-## 2 Integers
+## 2 Numbers
 
-A raw `int64` does not survive: each config passes through `msgpack.EncodedJSON`, a
-`map[string]any`, where a JSON number becomes a `float64`. So `Integer` and `Unsigned`
-are distinct types with the JSON string form of `telem.TimeStamp` and `telem.Alignment`
-(`MarshalStringInt64To`, `MarshalStringUint64To`). A negative `uint64` and a value above
-`int64` range are shape errors, and `Unsigned` holds up to 2^64 - 1 at every layer.
-`nan` exists only on `FloatFill`. Go has hand methods in `x/go/payload`. C++ `Parser`
-reads digits from a string (`json.h:591`). TypeScript holds a decimal `string`, and the
-Console uses a text input that checks range with `BigInt`. Python uses an `int` subclass
-that dumps a string.
+A raw `int64` does not survive `msgpack.EncodedJSON`, a `map[string]any`, where a JSON
+number becomes a `float64`. So `Integer` and `Unsigned` are distinct types stored as
+decimal strings, like `telem.TimeStamp` and `telem.Alignment`. A negative `uint64` and a
+value above `int64` range are shape errors. `Float` is a `float64` stored as a JSON
+number when finite, and as `"NaN"`, `"Infinity"`, or `"-Infinity"` otherwise, as Arc IR
+values are in #4699 (`types.DecodeValue`, C++ `to_sample_value`). NaN and infinities fit
+a `float32` channel, so a non-finite fill needs a float channel by construction.
+
+All three have hand codecs: Go in `x/go/payload`, C++ through `Parser`, which reads
+digits from a string (`json.h:591`), TypeScript as a decimal `string` and a `number`,
+and Python as an `int` subclass and a `float` that dump text. The Console checks integer
+range with `BigInt`, and its float fill input in `console/src/platform/task/payload`
+takes the three texts.
 
 JSON numbers parse exactly today in Go and C++. Phase 3 fixes the three inexact places:
 `xjson.Enum.Value` and `x::json::EnumMap` hold a float, `Encoder.Append` compares enums
@@ -108,9 +112,8 @@ enums: `Encoder.Append` quotes a string sample and writes a boolean with no look
 ## 3 Bytes
 
 With a pointer, bytes are base64 text, as `AppendSampleText` writes. An empty pointer
-stays the JSON root value on other kinds, so a bare `99.0` body stays valid. Only on
-`bytes` does it mean a raw payload that is not JSON. A raw field is the only enabled
-field of its endpoint, record, entry, or target. On Kafka, a raw write is an empty
+stays the JSON root value on other kinds. Only on `bytes` is it a raw, non-JSON payload,
+and then the field is the only one enabled. On Kafka, a raw write is an empty
 `value_pointer`.
 
 - **`x/go/json`**: `NewDecoder` accepts `BytesT` as base64 text, and `Encoder` writes it
@@ -136,10 +139,9 @@ OPC UA has bytes and UUID through `data_type`. Modbus, NI, LabJack, and EtherCAT
 | `boolean`         | `boolean`            | `boolean`, `unsigned`, `string` |
 | Other             | Same name            | Same name                       |
 
-A numeric kind still takes a JSON boolean as 0 or 1, and an enum label. `data_type` is
-optional: with channel 0 it states the width for a new channel. A field with no fill is
-required. The absent rule stays as #4594 has it: no value at the pointer, `null`, or an
-empty string on a non-string channel.
+A numeric kind takes a JSON boolean as 0 or 1, and an enum label. With channel 0,
+`data_type` states the width for a new channel. A field with no fill is required, and
+the #4594 absent rule stays: no value, `null`, or `""` on a non-string channel.
 
 ## 5 Rules by layer
 
@@ -156,12 +158,11 @@ enabled field.
 **Kafka and MQTT** run in the Core. The `ch.DataType` check at task configure becomes a
 kind check. Both gain fill: Kafka skips an absent value today (`read_task.go:767`).
 
-**Driver**: It keeps the kind against `ch.data_type`, a float for `nan`, the index rule,
-and `check_from_sample_value`, because channels drift. It removes time format errors,
-fill-needs-optional, `json_type` errors, and enum shape checks. It adds `BOOLEAN_T`,
-which the conversions reject today. JSON and UUID samples are strings
-(`driver/opcua/telem/telem.h:36`), so a new `Series(SampleValue, DataType)` keeps the
-channel's type. `Series::at` throws on `UUID_T`, so the write path reads `uuids()`.
+**Driver**: It keeps the kind against `ch.data_type`, a float for a non-finite fill, the
+index rule, and `check_from_sample_value`, because channels drift. It removes time
+format, fill-needs-optional, `json_type`, and enum shape errors, and adds `BOOLEAN_T`.
+JSON and UUID samples are strings (`driver/opcua/telem/telem.h:36`), so a new
+`Series(SampleValue, DataType)` keeps the channel's type, and writes read `uuids()`.
 
 **Console**: The data type select sets the kind, each variant shows its own inputs, and
 `DataTypeField` stops hiding JSON, UUID, and bytes. Phase 12 is atomic across four
@@ -176,7 +177,7 @@ entries, as no conversion read them. `timestamp` with no `time_format` takes `is
 - **Entries**: A `float64` entry converts when it is whole and fits the kind. Others
   drop with a warning, as they failed at run time.
 - **#4594 fill**: A number is `value`. An enum label resolves once to its entry's value,
-  or is logged and dropped when no entry has it. `optional` with no fill is `nan` on
+  or is logged and dropped when no entry has it. `optional` with no fill is `"NaN"` on
   `float`. On each other kind the Driver rejected it, so it was never a working config:
   it becomes no fill, the field warns as usual, and the migration logs it.
 - **Channel field**: A stored `timestamp` data type wins. `json_type: string` with
@@ -188,11 +189,11 @@ entries, as no conversion read them. `timestamp` with no `time_format` takes `is
   boolean keeps its kind. Others, `null` included, become `json` text. A generator
   becomes `uuid` or `timestamp`.
 
-`Reconcile` corrects a field from its channel, because the Driver never read the stored
-`data_type`, and the HTTP default is `float64`. It sets the kind from §4 and clears
-`data_type`. Between numeric kinds it converts entries and fills, by the same rules, so
-a `nan` fill becomes no fill. For other kinds it drops them. It logs one warning per
-corrected field, which also names a foreign key that matched an unrelated local channel.
+`Reconcile` sets the kind from §4 and clears `data_type`, because the Driver never read
+it and the HTTP default is `float64`. Between numeric kinds it converts entries and
+fills by the same rules, so a non-finite fill becomes no fill, and it drops them on
+other kinds. It logs each change, naming a foreign key that matched an unrelated local
+channel.
 
 - **Boot**: `versions.ReadMigrations` becomes `NewReadMigrations(channels)`, as
   `ethercat/versions/v2/resolve.go` does. The Channel service opens first
@@ -214,14 +215,14 @@ No schema or test uses a qualified variant `extends` or borrowed discriminator. 
 tests both, with `integer payload.IntegerRead` and one `Kind` per integration as
 fallbacks.
 
-The embedded Driver ships inside the Core (`core/pkg/driver`), so it always matches.
-Only a standalone Driver on a remote rack can lag, and it fails silently on three
-shapes, while the others fail loudly: an absent `array_mode` reads as false and runs an
-array task as unary, an absent `json_type` reads as `number` and sends a number for a
-`string` or `boolean` channel field, and an enum entry past 2^53 rounds. Upgrade
-standalone Drivers with the Core for these shapes, and the release notes for the release
-that ends the hold must say so. PR #4493 would reject a lagging Driver, but this RFC
-does not depend on it.
+The embedded Driver ships inside the Core (`core/pkg/driver`) and always matches. A
+standalone Driver on a remote rack can lag, and fails silently on three shapes: an
+absent `array_mode` runs an array task as unary, an absent `json_type` sends a number
+for a `string` or `boolean` channel field, and an enum entry past 2^53 rounds. The rest
+fail loudly. Upgrade standalone Drivers with the Core, and say so in the notes of the
+release that ends the hold. PR #4493 would reject a lagging Driver, but this RFC does
+not depend on it. Every path that carries a config keeps the `Float` text form; check
+C++ `to_json`.
 
 | Phase | Scope                                                 | Touches                                                                                                                   | Depends on         |
 | ----- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------ |
