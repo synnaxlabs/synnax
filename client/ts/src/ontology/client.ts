@@ -155,7 +155,7 @@ const normalizeDependents = (
 };
 
 const retrieveRequestZ = z
-  .object({
+  .strictObject({
     ids: idZ.array().optional(),
     excludeFieldData: z.boolean().optional(),
     types: resourceTypeZ.array().optional(),

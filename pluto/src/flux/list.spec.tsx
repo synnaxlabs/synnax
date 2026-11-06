@@ -13,7 +13,7 @@ import { List } from "@synnaxlabs/lyra/list";
 import { type record, TimeRange, TimeSpan, uuid } from "@synnaxlabs/x";
 import { expectAlways } from "@synnaxlabs/x/testutil";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
-import { memo, type PropsWithChildren, type ReactElement } from "react";
+import { memo, type PropsWithChildren, type ReactElement, useEffect } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Flux } from "@/flux";
@@ -936,6 +936,431 @@ describe("list", () => {
     });
   });
 
+  describe("query changes", () => {
+    type TestQuery = List.PagerParams & { group?: string; region?: string };
+
+    interface TestItem extends record.Keyed<number> {
+      group: string;
+    }
+
+    const GROUPS: Record<string, TestItem[]> = {
+      a: [
+        { key: 1, group: "a" },
+        { key: 2, group: "a" },
+      ],
+      b: [
+        { key: 3, group: "b" },
+        { key: 4, group: "b" },
+      ],
+    };
+
+    const createRetrieve = () =>
+      vi.fn(async ({ query }: { query: TestQuery }) => GROUPS[query.group ?? "a"]);
+
+    const createUseList = (retrieve: ReturnType<typeof createRetrieve>) =>
+      Flux.createList<TestQuery, number, TestItem>({
+        name: "Resource",
+        retrieve,
+        retrieveByKey: async ({ key }) =>
+          Object.values(GROUPS)
+            .flat()
+            .find((item) => item.key === key),
+      });
+
+    const renderList = (
+      useList: ReturnType<typeof createUseList>,
+      query?: TestQuery,
+    ) => {
+      const useTest = (props: { query?: TestQuery }) => {
+        const list = useList(props);
+        const { fetchMore, search } = List.usePager({
+          retrieve: list.retrieve,
+        });
+        return { ...list, fetchMore, search };
+      };
+      return renderHook(useTest, { wrapper, initialProps: { query } });
+    };
+
+    it("should re-fetch and replace the data when the query changes", async () => {
+      const retrieve = createRetrieve();
+      const { result, rerender } = renderList(createUseList(retrieve), { group: "a" });
+      act(() => result.current.fetchMore());
+      await waitFor(() => expect(result.current.data).toEqual([1, 2]));
+
+      rerender({ query: { group: "b" } });
+
+      await waitFor(() => expect(result.current.data).toEqual([3, 4]));
+      expect(result.current.variant).toEqual("success");
+    });
+
+    it("should not re-fetch for a new object that is deeply equal", async () => {
+      const retrieve = createRetrieve();
+      const query = { group: "a", region: "x" };
+      const { result, rerender } = renderList(createUseList(retrieve), query);
+      act(() => result.current.fetchMore());
+      await waitFor(() => expect(result.current.data).toEqual([1, 2]));
+
+      for (let i = 0; i < 5; i++) rerender({ query: { ...query } });
+
+      await expectAlways(() => expect(retrieve).toHaveBeenCalledTimes(1));
+    });
+
+    it("should keep the search term and rewind to the first page", async () => {
+      const retrieve = createRetrieve();
+      const { result, rerender } = renderList(createUseList(retrieve), { group: "a" });
+      act(() => result.current.fetchMore());
+      await waitFor(() => expect(retrieve).toHaveBeenCalledTimes(1));
+      act(() => result.current.search("term"));
+      await waitFor(() => expect(retrieve).toHaveBeenCalledTimes(2));
+      act(() => result.current.fetchMore());
+      await waitFor(() => expect(retrieve).toHaveBeenCalledTimes(3));
+      expect(retrieve.mock.lastCall?.[0].query.offset).toEqual(10);
+
+      rerender({ query: { group: "b" } });
+
+      await waitFor(() => expect(retrieve).toHaveBeenCalledTimes(4));
+      expect(retrieve.mock.lastCall?.[0].query).toEqual({
+        group: "b",
+        searchTerm: "term",
+        offset: 0,
+        limit: 10,
+      });
+    });
+
+    it("should page the new query on a later fetch for more", async () => {
+      const retrieve = createRetrieve();
+      const { result, rerender } = renderList(createUseList(retrieve), { group: "a" });
+      act(() => result.current.fetchMore());
+      await waitFor(() => expect(result.current.data).toEqual([1, 2]));
+      rerender({ query: { group: "b" } });
+      await waitFor(() => expect(result.current.data).toEqual([3, 4]));
+
+      act(() => result.current.fetchMore());
+
+      await waitFor(() => expect(retrieve).toHaveBeenCalledTimes(3));
+      expect(retrieve.mock.lastCall?.[0].query).toEqual({
+        group: "b",
+        searchTerm: "",
+        offset: 10,
+        limit: 10,
+      });
+    });
+
+    it("should drop a field that the new query no longer has", async () => {
+      const retrieve = createRetrieve();
+      const { result, rerender } = renderList(createUseList(retrieve), {
+        group: "a",
+        region: "x",
+      });
+      act(() => result.current.fetchMore());
+      await waitFor(() => expect(result.current.data).toEqual([1, 2]));
+
+      rerender({ query: { group: "b" } });
+
+      await waitFor(() => expect(retrieve).toHaveBeenCalledTimes(2));
+      expect(retrieve.mock.lastCall?.[0].query).not.toHaveProperty("region");
+    });
+
+    it("should keep its query when the caller removes the query", async () => {
+      const retrieve = createRetrieve();
+      const { result, rerender } = renderList(createUseList(retrieve), { group: "b" });
+      act(() => result.current.fetchMore());
+      await waitFor(() => expect(result.current.data).toEqual([3, 4]));
+
+      rerender({ query: undefined });
+
+      await expectAlways(() => expect(retrieve).toHaveBeenCalledTimes(1));
+      expect(result.current.data).toEqual([3, 4]);
+    });
+
+    it("should use the new query's search term over the old one", async () => {
+      const retrieve = createRetrieve();
+      const { result, rerender } = renderList(createUseList(retrieve), {
+        searchTerm: "old",
+      });
+      act(() => result.current.fetchMore());
+      await waitFor(() => expect(retrieve).toHaveBeenCalledTimes(1));
+
+      rerender({ query: { searchTerm: "new" } });
+
+      await waitFor(() => expect(retrieve).toHaveBeenCalledTimes(2));
+      expect(retrieve.mock.lastCall?.[0].query).toEqual({
+        searchTerm: "new",
+        offset: 0,
+        limit: 10,
+      });
+    });
+
+    it("should not add a pager to a list that has none", async () => {
+      const retrieve = createRetrieve();
+      const { result, rerender } = renderList(createUseList(retrieve), { group: "a" });
+      act(() => result.current.retrieve((p) => p));
+      await waitFor(() => expect(result.current.data).toEqual([1, 2]));
+
+      rerender({ query: { group: "b" } });
+
+      await waitFor(() => expect(retrieve).toHaveBeenCalledTimes(2));
+      expect(retrieve.mock.lastCall?.[0].query).toEqual({ group: "b" });
+    });
+
+    it("should not re-apply an unchanged query over a retrieve's query", async () => {
+      const retrieve = createRetrieve();
+      const { result, rerender } = renderList(createUseList(retrieve), { group: "a" });
+      act(() => result.current.retrieve((p) => ({ ...p, group: "b" })));
+      await waitFor(() => expect(result.current.data).toEqual([3, 4]));
+
+      rerender({ query: { group: "a" } });
+
+      await expectAlways(() => expect(retrieve).toHaveBeenCalledTimes(1));
+      expect(result.current.data).toEqual([3, 4]);
+    });
+
+    it("should ignore the answer to the old query when it lands late", async () => {
+      const old = Promise.withResolvers<TestItem[]>();
+      const retrieve = vi.fn(async ({ query }: { query: TestQuery }) =>
+        query.group === "a" ? await old.promise : GROUPS.b,
+      );
+      const { result, rerender } = renderList(createUseList(retrieve), { group: "a" });
+      act(() => result.current.fetchMore());
+      await waitFor(() => expect(retrieve).toHaveBeenCalledTimes(1));
+
+      rerender({ query: { group: "b" } });
+      await waitFor(() => expect(result.current.data).toEqual([3, 4]));
+
+      await act(async () => old.resolve(GROUPS.a));
+      await expectAlways(() => expect(result.current.data).toEqual([3, 4]));
+    });
+
+    it("should run one read for a change and a retrieve in one commit", async () => {
+      const retrieve = createRetrieve();
+      const useList = createUseList(retrieve);
+      const { result, rerender } = renderHook(
+        ({ group }: { group: string }) => {
+          const list = useList({ query: { group } });
+          const { retrieve: run } = list;
+          useEffect(() => run({ group }), [group]);
+          return list;
+        },
+        { wrapper, initialProps: { group: "a" } },
+      );
+      await waitFor(() => expect(result.current.data).toEqual([1, 2]));
+      expect(retrieve).toHaveBeenCalledTimes(1);
+
+      rerender({ group: "b" });
+
+      await waitFor(() => expect(result.current.data).toEqual([3, 4]));
+      await expectAlways(() => expect(retrieve).toHaveBeenCalledTimes(2));
+    });
+
+    it("should keep an item a consumer reads after it leaves the results", async () => {
+      const retrieve = createRetrieve();
+      const useList = createUseList(retrieve);
+      const { result, rerender } = renderHook(
+        ({ query }: { query: TestQuery }) => {
+          const list = useList({ query });
+          const { subscribe, getItem } = list;
+          const item = Flux.useListItem<number, TestItem>({
+            subscribe,
+            getItem,
+            key: 1,
+          });
+          return { ...list, item };
+        },
+        { wrapper, initialProps: { query: { group: "a" } } },
+      );
+      act(() => result.current.retrieve((p) => p));
+      await waitFor(() => expect(result.current.data).toEqual([1, 2]));
+
+      rerender({ query: { group: "b" } });
+
+      await waitFor(() => expect(result.current.data).toEqual([3, 4]));
+      expect(result.current.item).toEqual(GROUPS.a[0]);
+    });
+
+    it("should read an item outside the results under the new query", async () => {
+      const retrieve = createRetrieve();
+      const retrieveByKey = vi.fn(async ({ key }: { key: number }) => ({
+        key,
+        group: "read again",
+      }));
+      const onChangeByKey = vi.fn(() => () => {});
+      const useList = Flux.createList<TestQuery, number, TestItem>({
+        name: "Resource",
+        retrieve,
+        retrieveByKey,
+        onChangeByKey,
+      });
+      const { result, rerender } = renderHook(
+        ({ query }: { query: TestQuery }) => {
+          const list = useList({ query });
+          const { subscribe, getItem } = list;
+          const item = Flux.useListItem<number, TestItem>({
+            subscribe,
+            getItem,
+            key: 1,
+          });
+          return { ...list, item };
+        },
+        { wrapper, initialProps: { query: { group: "a" } } },
+      );
+      act(() => result.current.retrieve((p) => p));
+      await waitFor(() => expect(result.current.item).toEqual(GROUPS.a[0]));
+
+      rerender({ query: { group: "b" } });
+
+      await waitFor(() => expect(result.current.item?.group).toEqual("read again"));
+      expect(retrieveByKey).toHaveBeenLastCalledWith(
+        expect.objectContaining({ query: { group: "b" } }),
+      );
+      expect(onChangeByKey).toHaveBeenLastCalledWith(
+        expect.objectContaining({ query: { group: "b" } }),
+        expect.any(Function),
+      );
+    });
+
+    it("should read a selection under the new query before any fetch", async () => {
+      const retrieveByKey = vi.fn(async ({ key }: { key: number }) => ({
+        key,
+        group: "read again",
+      }));
+      const useList = Flux.createList<TestQuery, number, TestItem>({
+        name: "Resource",
+        retrieve: createRetrieve(),
+        retrieveByKey,
+        onChangeByKey: () => () => {},
+      });
+      const { result, rerender } = renderHook(
+        ({ query }: { query: TestQuery }) => {
+          const { subscribe, getItem } = useList({ query });
+          return Flux.useListItem<number, TestItem>({ subscribe, getItem, key: 1 });
+        },
+        { wrapper, initialProps: { query: { group: "a" } } },
+      );
+      await waitFor(() => expect(result.current?.group).toEqual("read again"));
+      retrieveByKey.mockClear();
+
+      rerender({ query: { group: "b" } });
+
+      await waitFor(() => expect(retrieveByKey).toHaveBeenCalled());
+      expect(retrieveByKey).toHaveBeenLastCalledWith(
+        expect.objectContaining({ query: { group: "b" } }),
+      );
+    });
+
+    it("should ignore an item read for an old query that lands late", async () => {
+      const reads = new Map<string, PromiseWithResolvers<TestItem>>();
+      const retrieveByKey = vi.fn(({ query }: { query: Partial<TestQuery> }) => {
+        const read = Promise.withResolvers<TestItem>();
+        reads.set(query.group ?? "", read);
+        return read.promise;
+      });
+      const useList = Flux.createList<TestQuery, number, TestItem>({
+        name: "Resource",
+        retrieve: createRetrieve(),
+        retrieveByKey,
+        onChangeByKey: () => () => {},
+      });
+      const { result, rerender } = renderHook(
+        ({ query }: { query: TestQuery }) => {
+          const { subscribe, getItem } = useList({ query });
+          return Flux.useListItem<number, TestItem>({ subscribe, getItem, key: 1 });
+        },
+        { wrapper, initialProps: { query: { group: "a" } } },
+      );
+      await waitFor(() => expect(reads.has("a")).toBe(true));
+      await act(async () => reads.get("a")?.resolve({ key: 1, group: "a" }));
+      await waitFor(() => expect(result.current?.group).toEqual("a"));
+
+      rerender({ query: { group: "b" } });
+      await waitFor(() => expect(reads.has("b")).toBe(true));
+      rerender({ query: { group: "c" } });
+      await waitFor(() => expect(reads.has("c")).toBe(true));
+
+      await act(async () => reads.get("c")?.resolve({ key: 1, group: "c" }));
+      await waitFor(() => expect(result.current?.group).toEqual("c"));
+      await act(async () => reads.get("b")?.resolve({ key: 1, group: "b" }));
+      await expectAlways(() => expect(result.current?.group).toEqual("c"));
+    });
+
+    it("should read an item again when a query change drops its read", async () => {
+      const reads = new Map<string, PromiseWithResolvers<TestItem>>();
+      const retrieveByKey = vi.fn(({ query }: { query: Partial<TestQuery> }) => {
+        const read = Promise.withResolvers<TestItem>();
+        reads.set(query.group ?? "", read);
+        return read.promise;
+      });
+      const useList = Flux.createList<TestQuery, number, TestItem>({
+        name: "Resource",
+        retrieve: createRetrieve(),
+        retrieveByKey,
+        onChangeByKey: () => () => {},
+      });
+      const { result, rerender } = renderHook(
+        ({ query }: { query: TestQuery }) => {
+          const { subscribe, getItem } = useList({ query });
+          return Flux.useListItem<number, TestItem>({ subscribe, getItem, key: 1 });
+        },
+        { wrapper, initialProps: { query: { group: "a" } } },
+      );
+      await waitFor(() => expect(reads.has("a")).toBe(true));
+
+      rerender({ query: { group: "b" } });
+
+      await waitFor(() => expect(reads.has("b")).toBe(true));
+      await act(async () => reads.get("b")?.resolve({ key: 1, group: "b" }));
+      await waitFor(() => expect(result.current?.group).toEqual("b"));
+    });
+
+    it("should not fetch until something asks for the list", async () => {
+      const retrieve = createRetrieve();
+      const { result, rerender } = renderList(createUseList(retrieve), { group: "a" });
+
+      rerender({ query: { group: "b" } });
+      await expectAlways(() => expect(retrieve).not.toHaveBeenCalled());
+
+      act(() => result.current.fetchMore());
+      await waitFor(() => expect(result.current.data).toEqual([3, 4]));
+      expect(retrieve.mock.lastCall?.[0].query.group).toEqual("b");
+    });
+
+    it("should drop cached data that the new query does not answer", () => {
+      const useList = Flux.createList<TestQuery, number, TestItem>({
+        name: "Resource",
+        retrieve: async () => [],
+        retrieveByKey: async ({ key }) => ({ key, group: "a" }),
+        getCached: ({ query }) => (query.group === "a" ? changed(GROUPS.a) : undefined),
+      });
+      const { result, rerender } = renderHook(
+        (props: { query: TestQuery }) => useList(props),
+        { wrapper, initialProps: { query: { group: "a" } } },
+      );
+      expect(result.current.data).toEqual([1, 2]);
+
+      rerender({ query: { group: "b" } });
+
+      expect(result.current.data).toEqual([]);
+      expect(result.current.answered).toBe(false);
+    });
+
+    it("should fill an unfetched list from the cache of the new query", () => {
+      const useList = Flux.createList<TestQuery, number, TestItem>({
+        name: "Resource",
+        retrieve: async () => [],
+        retrieveByKey: async ({ key }) => ({ key, group: "a" }),
+        getCached: ({ query }) => changed(GROUPS[query.group ?? "a"]),
+      });
+      const { result, rerender } = renderHook(
+        (props: { query: TestQuery }) => useList(props),
+        { wrapper, initialProps: { query: { group: "a" } } },
+      );
+      expect(result.current.data).toEqual([1, 2]);
+
+      rerender({ query: { group: "b" } });
+
+      expect(result.current.data).toEqual([3, 4]);
+    });
+  });
+
   describe("getCached", () => {
     it("should use cached data as initial state when available", () => {
       const cachedItems = [
@@ -1041,7 +1466,7 @@ describe("list", () => {
             retrieve: async () => [],
             retrieveByKey: async ({ key }) => ({ key }),
             getCached,
-          })({ initialQuery: { searchTerm: "test" } }),
+          })({ query: { searchTerm: "test" } }),
         { wrapper },
       );
 
@@ -1528,7 +1953,7 @@ describe("list", () => {
             retrieve,
             retrieveByKey: async ({ key }) => ({ key }),
             onChangeByKey,
-          })({ initialQuery: { filter: "active" } }),
+          })({ query: { filter: "active" } }),
         { wrapper },
       );
 
@@ -1779,7 +2204,7 @@ describe("list", () => {
       const { result } = renderHook(
         () => {
           const { getItem, subscribe } = useRangeList({
-            initialQuery: { where: { key: { in: [rng.key] } } },
+            query: { where: { key: { in: [rng.key] } } },
           });
           return Flux.useListItem<ranger.Key, ranger.Range>({
             subscribe,
@@ -1801,7 +2226,7 @@ describe("list", () => {
       const { result } = renderHook(
         () => {
           const { getItem, subscribe } = useRangeList({
-            initialQuery: { where: { name: { in: [name] } } },
+            query: { where: { name: { in: [name] } } },
           });
           return Flux.useListItem<ranger.Key, ranger.Range>({
             subscribe,
@@ -1822,7 +2247,7 @@ describe("list", () => {
       const { result } = renderHook(
         () => {
           const { getItem, subscribe } = useRangeList({
-            initialQuery: { where: { key: { in: [rng.key] } } },
+            query: { where: { key: { in: [rng.key] } } },
           });
           return Flux.useListItem<ranger.Key, ranger.Range>({
             subscribe,
@@ -1846,7 +2271,7 @@ describe("list", () => {
         const { result, rerender } = renderHook(
           ({ key }: { key: ranger.Key }) => {
             const { getItem, subscribe, retrieveAsync } = useRangeList({
-              initialQuery: { where: { key: { in: [rng.key, other.key] } } },
+              query: { where: { key: { in: [rng.key, other.key] } } },
             });
             const value = Flux.useListItem<ranger.Key, ranger.Range>({
               subscribe,
@@ -1877,7 +2302,7 @@ describe("list", () => {
       const { result } = renderHook(
         () => {
           const { getItem, subscribe, retrieveAsync } = useRangeList({
-            initialQuery: { where: { key: { in: [rng.key, other.key] } } },
+            query: { where: { key: { in: [rng.key, other.key] } } },
           });
           const value = Flux.useListItem<ranger.Key, ranger.Range>({
             subscribe,

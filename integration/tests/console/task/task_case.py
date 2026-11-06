@@ -25,7 +25,7 @@ from tests.driver.task import (
 from x import random_name
 
 PageT = TypeVar("PageT", bound=TaskPage)
-REJECTED_LEVELS = ("error", "warning")
+REJECTED_VARIANTS: tuple[sy.status.Variant, ...] = ("error", "warning")
 
 
 def _keys_in(value: JsonValue) -> set[int]:
@@ -173,9 +173,9 @@ class ConsoleTaskCase(SimulatorCase, ConsoleCase):
 
     def assert_not_deployed(self, page: TaskPage, *, label: str) -> None:
         status = page.status()
-        assert status["level"] == "disabled", (
+        assert status.variant == "disabled", (
             f"Task should not be deployed ({label}), "
-            f"but the status is '{status['level']}': '{status['msg']}'"
+            f"but the status is '{status.variant}': '{status.message}'"
         )
 
     def assert_device_required(self, page: TaskPage, *, label: str) -> None:
@@ -209,8 +209,8 @@ class ConsoleTaskCase(SimulatorCase, ConsoleCase):
     def assert_driver_rejects(self, page: TaskPage, *, label: str) -> None:
         """Deploy; the Driver rejects the task with an error or warning status."""
         page.deploy(expect=None)
-        status = page.wait_for_status_level(REJECTED_LEVELS)
-        self.log(f"  Correctly rejected ({label}): {status['msg']}")
+        status = page.wait_for_status_variant(REJECTED_VARIANTS)
+        self.log(f"  Correctly rejected ({label}): {status.message}")
 
     def _delete_tasks_and_channels(self) -> None:
         keys: set[int] = set()

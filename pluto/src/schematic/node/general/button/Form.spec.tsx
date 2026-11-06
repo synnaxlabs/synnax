@@ -85,7 +85,7 @@ describe("ButtonForm size", () => {
 });
 
 describe("ButtonForm label", () => {
-  const renderStyleTab = (): ReturnType<typeof renderForm> =>
+  const renderStyleTab = (): RenderFormResult =>
     renderForm(
       <ButtonForm tab="style" onTabChange={vi.fn()} />,
       createConfig({ variant: "button" }),

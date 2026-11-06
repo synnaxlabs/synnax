@@ -8,7 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 from collections.abc import Callable
-from typing import Literal, NotRequired, TypedDict
 
 from playwright.sync_api import Locator, Page, expect
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
@@ -25,32 +24,15 @@ _CLICK_ATTEMPT_TIMEOUT = 1000
 _CLICK_TIMEOUT = 10 * sy.TimeSpan.SECOND
 
 _READ_JS = """(elements) => elements.map((el) => {
-  const text = (selector) => el.querySelector(selector)?.innerText.trim();
-  const fields = {
-    count: text(".lyra-text--tiny"),
-    timestamp: text(".lyra-notification__time"),
+  const text = (selector) => el.querySelector(selector)?.innerText.trim() ?? "";
+  return {
     message: text(".lyra-notification__message"),
     description: text(".lyra-notification__description"),
+    variant: el.querySelector("svg[color*='error']") == null ? "info" : "error",
   };
-  const read = Object.fromEntries(
-    Object.entries(fields).filter(([, value]) => value != null),
-  );
-  read.type = el.querySelector("svg[color*='error']") == null ? "info" : "error";
-  return read;
 })"""
 
-
-class Notification(TypedDict):
-    """A notification as the Console renders it."""
-
-    type: Literal["info", "error"]
-    count: NotRequired[str]
-    timestamp: NotRequired[str]
-    message: NotRequired[str]
-    description: NotRequired[str]
-
-
-_NOTIFICATIONS: TypeAdapter[list[Notification]] = TypeAdapter(list[Notification])
+_NOTIFICATIONS: TypeAdapter[list[sy.Status]] = TypeAdapter(list[sy.Status])
 
 
 class NotificationsClient:
@@ -66,13 +48,13 @@ class NotificationsClient:
 
     def check(
         self, *, timeout: sy.CrudeTimeSpan = 200 * sy.TimeSpan.MILLISECOND
-    ) -> list[Notification]:
+    ) -> list[sy.Status]:
         """Check for notifications in the bottom right corner.
 
         Polls every 50ms until notifications are found or timeout is reached.
 
         :param timeout: Maximum time to wait for notifications.
-        :returns: List of notification dictionaries with details.
+        :returns: The notifications, each with its variant, message, and description.
         """
         timer = sy.Timer()
         timeout_span = sy.TimeSpan.from_seconds(timeout)

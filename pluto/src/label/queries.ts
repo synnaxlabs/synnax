@@ -45,11 +45,10 @@ export const { useResult: useResultLabelsOf } = Flux.createRetrieve<
 >({
   name: PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query: { id } }) =>
-    await client.labels.retrieve({ where: { for: id } }),
+    await client.labels.retrieve({ for: id }),
   onChange: ({ client, query: { id } }, handler) =>
-    client.labels.onChange({ where: { for: id } }, handler),
-  getCached: ({ client, query: { id } }) =>
-    client.labels.getCached({ where: { for: id } }),
+    client.labels.onChange({ for: id }, handler),
+  getCached: ({ client, query: { id } }) => client.labels.getCached({ for: id }),
 });
 
 export interface EditForParams {
@@ -149,7 +148,7 @@ export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRet
 >({
   name: PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query: { keys } }) =>
-    await client.labels.retrieve({ where: { key: { in: keys } } }),
+    await client.labels.retrieve({ key: keys }),
   onChange: ({ client, query: { keys } }, handler) =>
     client.labels.onChange(keys, handler),
   getCached: ({ client, query: { keys } }) => client.labels.getCached(keys),

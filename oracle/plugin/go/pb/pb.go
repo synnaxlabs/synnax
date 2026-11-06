@@ -292,13 +292,11 @@ func (p *Plugin) generateFile(
 		Translators:           make([]translatorData, 0, len(structs)),
 		GenericTranslators:    make([]genericTranslatorData, 0),
 		EnumTranslators:       make([]enumTranslatorData, 0),
-		AnyHelpers:            make([]anyHelperData, 0),
 		DelegationTranslators: make([]delegationTranslatorData, 0),
 		Manager:               imports.NewManager(),
 		repoRoot:              req.RepoRoot,
 		table:                 req.Resolutions,
 		usedEnums:             make(map[string]*resolution.Type),
-		generatedAnyHelpers:   make(set.Set[string]),
 		instances:             make(set.Set[string]),
 	}
 
@@ -1601,11 +1599,14 @@ func (p *Plugin) typeArgConverters(
 		}
 		arg, _, ok := resolution.Dealias(typeArg, data.table)
 		if ok && isStructForm(arg) {
-			// The Any helpers translate the struct an alias stands for.
-			argGoName := naming.GetGoName(arg)
-			p.ensureAnyHelper(arg, data)
-			forward = append(forward, argGoName+"ToPBAny")
-			backward = append(backward, argGoName+"FromPBAny")
+			// The converters translate the struct an alias stands for.
+			argType := p.resolveGoTypeLiteral(
+				resolution.TypeRef{Name: arg.QualifiedName},
+				data,
+			)
+			data.AddInternal("xpb", "github.com/synnaxlabs/x/pb")
+			forward = append(forward, "xpb.ToAny["+argType+"]")
+			backward = append(backward, "xpb.FromAny["+argType+"]")
 			goTypes = append(goTypes, p.resolveGoTypeLiteral(typeArg, data))
 			continue
 		}
@@ -1621,30 +1622,6 @@ func (p *Plugin) typeArgConverters(
 		goTypes = append(goTypes, "any")
 	}
 	return forward, backward, goTypes
-}
-
-func (p *Plugin) ensureAnyHelper(s resolution.Type, data *templateData) {
-	key := s.QualifiedName
-	if data.generatedAnyHelpers.Contains(key) {
-		return
-	}
-	data.generatedAnyHelpers.Add(key)
-
-	data.AddExternal("google.golang.org/protobuf/types/known/anypb")
-	data.AddExternal("google.golang.org/protobuf/types/known/structpb")
-	data.AddExternal("google.golang.org/protobuf/encoding/protojson")
-	data.AddExternal("google.golang.org/protobuf/proto")
-	data.AddExternal("encoding/json/v2")
-
-	prefix, pbName := p.resolvePBTranslatorInfo(s, data)
-	data.AnyHelpers = append(data.AnyHelpers, anyHelperData{
-		TypeName: naming.GetGoName(s),
-		GoType: p.resolveGoTypeLiteral(
-			resolution.TypeRef{Name: s.QualifiedName},
-			data,
-		),
-		PBType: prefix + pbName,
-	})
 }
 
 func (p *Plugin) generateEnumConversion(
@@ -2301,7 +2278,6 @@ type templateData struct {
 	usedEnums map[string]*resolution.Type
 	table     *resolution.Table
 	*imports.Manager
-	generatedAnyHelpers   set.Set[string]
 	instances             set.Set[string]
 	ParentGoPath          string
 	Package               string
@@ -2310,7 +2286,6 @@ type templateData struct {
 	repoRoot              string
 	parentAlias           string
 	DelegationTranslators []delegationTranslatorData
-	AnyHelpers            []anyHelperData
 	EnumTranslators       []enumTranslatorData
 	GenericTranslators    []genericTranslatorData
 	Translators           []translatorData
@@ -2427,18 +2402,6 @@ type typeParamData struct {
 	Name string
 	// Constraint is the Go type constraint (e.g., "any").
 	Constraint string
-}
-
-// anyHelperData holds data for ToPBAny/FromPBAny helper functions. These are generated
-// for concrete types that are used as type arguments to generic structs.
-type anyHelperData struct {
-	// TypeName is the unqualified type name (e.g., "StatusDetails").
-	TypeName string
-	// GoType is the fully qualified Go type (e.g., "rack.StatusDetails").
-	GoType string
-	// PBType is the protobuf message type, which also names its ToPB and FromPB
-	// translators (e.g., "rackpb.StatusDetails").
-	PBType string
 }
 
 // delegationTranslatorData holds data for translators that delegate to an underlying

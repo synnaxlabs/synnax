@@ -11,6 +11,7 @@ import "schemas/synnax/versions/channel/v0"
 import "schemas/synnax/versions/symbol/v2"
 import "schemas/x/versions/border/v0"
 import "schemas/x/versions/color/v1"
+import "schemas/x/versions/notation/v0"
 import "schemas/x/versions/spatial/v0"
 import "schemas/x/versions/text/v0"
 
@@ -55,7 +56,7 @@ ScaledConfig = v9.ScaledConfig
 StalenessConfig = v9.StalenessConfig
 
 NumericTelemConfig struct extends v9.NumericTelemConfig {
-    precision float64? {
+    precision uint8? {
         @doc value """
             is the number of decimal places shown. Absent shows the default of 2.
         """

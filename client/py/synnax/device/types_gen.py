@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias
+from typing import TypeAlias, TypedDict
 from typing import override as _override
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
@@ -67,6 +67,24 @@ class Where(BaseModel):
     location: filter.String | None = None
     rack: filter.Set[rack_.Key] | None = None
 
+
+# WhereInput is a Where written as a partial record.
+# A plain value or a list stands for an operator.
+WhereInput = TypedDict(
+    "WhereInput",
+    {
+        "and": list["WhereInput"],
+        "or": list["WhereInput"],
+        "not": "WhereInput",
+        "key": filter.SetInput[Key],
+        "name": filter.StringInput,
+        "make": filter.StringInput,
+        "model": filter.StringInput,
+        "location": filter.StringInput,
+        "rack": filter.SetInput[rack_.Key],
+    },
+    total=False,
+)
 
 Status: TypeAlias = status_.Status[StatusDetails]
 
