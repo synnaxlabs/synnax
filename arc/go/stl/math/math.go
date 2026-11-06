@@ -158,7 +158,7 @@ var (
 	)
 	nanDoc = doc.New(
 		doc.Paragraph(
-			"The f32 or f64 NaN value. NaN fails every comparison, so test for it with math.is_nan.",
+			"The f32 or f64 NaN value. NaN fails every comparison except !=. Test for it with math.is_nan.",
 		),
 		doc.Divider(),
 		doc.Code("arc", "last f64 $= math.nan"),

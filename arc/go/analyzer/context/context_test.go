@@ -69,9 +69,7 @@ var _ = Describe("Context", func() {
 		DescribeTable("Should return the value",
 			func(specCtx SpecContext, code string, expected float64) {
 				ctx := newContext(specCtx, code)
-				value, ok := ctx.FloatConstant(ctx.AST)
-				Expect(ok).To(BeTrue())
-				Expect(value).To(Equal(expected))
+				Expect(MustBeOk(ctx.FloatConstant(ctx.AST))).To(Equal(expected))
 			},
 			Entry("a constant", "math.inf", math.Inf(1)),
 			Entry("a negated constant", "-math.inf", math.Inf(-1)),
@@ -81,9 +79,7 @@ var _ = Describe("Context", func() {
 
 		It("Should return NaN for math.nan", func(specCtx SpecContext) {
 			ctx := newContext(specCtx, "-(math.nan)")
-			value, ok := ctx.FloatConstant(ctx.AST)
-			Expect(ok).To(BeTrue())
-			Expect(math.IsNaN(value)).To(BeTrue())
+			Expect(math.IsNaN(MustBeOk(ctx.FloatConstant(ctx.AST)))).To(BeTrue())
 		})
 
 		DescribeTable("Should return false",
