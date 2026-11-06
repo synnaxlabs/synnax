@@ -117,14 +117,54 @@ TEST_F(SOEMMasterTest, InitializeInitFails) {
     EXPECT_TRUE(this->mock->close_called);
 }
 
-/// @brief it should return a no slaves error and close the socket when no slave
-/// answers.
+/// @brief it should return a no slaves error that asks for a cable and power check, and
+/// close the socket, when no slave answers.
 TEST_F(SOEMMasterTest, InitializeReportsAnInterfaceWithNoSlaves) {
     this->mock->config_init_return = 0;
     const auto err = this->master->initialize();
     ASSERT_OCCURRED_AS(err, errors::NO_SLAVES_FOUND);
-    EXPECT_EQ(err.data, "no EtherCAT slaves found on eth0");
+    EXPECT_EQ(
+        err.data,
+        "no EtherCAT slaves found on eth0. Check the cable and the power of the first "
+        "device."
+    );
     EXPECT_TRUE(this->mock->close_called);
+}
+
+/// @brief it should name the DewesoftX filter and the Windows name of the adapter when
+/// the filter is bound to an interface with no slaves.
+TEST_F(SOEMMasterTest, InitializeNamesTheDewesoftFilterOnAnInterfaceWithNoSlaves) {
+    this->mock->config_init_return = 0;
+    this->mock->filtered_interfaces.insert("eth0");
+    this->mock->adapter_names["eth0"] = "Ethernet 2";
+    const auto err = this->master->initialize();
+    ASSERT_OCCURRED_AS(err, errors::NO_SLAVES_FOUND);
+    EXPECT_EQ(
+        err.data,
+        "no EtherCAT slaves found on eth0. The DewesoftX \"EthercatDAQ Filter\" is on "
+        "adapter \"Ethernet 2\". After DewesoftX starts, the filter blocks EtherCAT "
+        "replies, also after DewesoftX closes. Clear it in the properties of "
+        "\"Ethernet 2\" (Settings > Network & internet > Advanced network settings > "
+        "More network adapter options, then right-click the adapter > Properties)."
+    );
+    EXPECT_TRUE(this->mock->close_called);
+}
+
+/// @brief it should name the interface when the Windows name of an adapter with the
+/// DewesoftX filter cannot be read.
+TEST_F(SOEMMasterTest, InitializeNamesTheInterfaceWhenTheFilteredAdapterHasNoName) {
+    this->mock->config_init_return = 0;
+    this->mock->filtered_interfaces.insert("eth0");
+    const auto err = this->master->initialize();
+    ASSERT_OCCURRED_AS(err, errors::NO_SLAVES_FOUND);
+    EXPECT_EQ(
+        err.data,
+        "no EtherCAT slaves found on eth0. The DewesoftX \"EthercatDAQ Filter\" is on "
+        "adapter \"eth0\". After DewesoftX starts, the filter blocks EtherCAT replies, "
+        "also after DewesoftX closes. Clear it in the properties of \"eth0\" (Settings "
+        "> Network & internet > Advanced network settings > More network adapter "
+        "options, then right-click the adapter > Properties)."
+    );
 }
 
 /// @brief it should return the number of slaves that answer on the bus.
@@ -237,6 +277,25 @@ TEST_F(SOEMMasterTest, SIIDiscoveryUsesEntryDataTypes) {
     EXPECT_EQ(inputs[1].data_type, x::telem::FLOAT32_T);
 }
 
+/// @brief it should give the EEPROM back to the slave after it reads PDOs from the SII.
+TEST_F(SOEMMasterTest, SIIDiscoveryGivesTheEEPROMBackToTheSlave) {
+    MockSlaveInfo slave;
+    slave.state = EC_STATE_PRE_OP;
+    this->add_slave(slave);
+    constexpr uint16_t start = 0x40;
+    this->mock->sii_categories = {{ECT_SII_PDO, start}};
+    // One TxPDO, 0x1A00, with entry 0x6000:01 (INTEGER16).
+    const std::vector<uint8_t> category =
+        {8, 0, 0x00, 0x1A, 1, 3, 0, 0, 0, 0, 0x00, 0x60, 1, 0, 0x03, 16, 0, 0};
+    for (size_t i = 0; i < category.size(); ++i)
+        this->mock->sii_bytes[start + i] = category[i];
+
+    ASSERT_NIL(this->master->initialize());
+
+    ASSERT_EQ(this->master->slaves()[0].properties.input_pdos.size(), 1);
+    EXPECT_TRUE(this->mock->eeprom_held.empty());
+}
+
 ////////////////////// Activation //////////////////////
 
 TEST_F(SOEMMasterTest, ActivateHappyPath) {
@@ -260,7 +319,29 @@ TEST_F(SOEMMasterTest, ActivateConfigMapFails) {
     ASSERT_OCCURRED_AS(this->master->activate(), errors::ACTIVATION_ERROR);
 }
 
-TEST_F(SOEMMasterTest, ActivateSafeOpTransitionFails) {
+/// @brief it should return a refusal with the AL status as soon as a slave refuses
+/// SAFE-OP, without waiting for the state change timeout.
+TEST_F(SOEMMasterTest, ActivateSafeOpRefusalReturnsAtOnce) {
+    this->initialize_with_slave();
+    this->mock->obytes = 2;
+    this->mock->ibytes = 4;
+    this->mock->statecheck_overrides[EC_STATE_SAFE_OP] = EC_STATE_PRE_OP +
+                                                         EC_STATE_ERROR;
+    this->mock->slave_infos[0].ALstatuscode = 0x001D;
+    this->mock->readstate_count = 0;
+    const auto err = this->master->activate();
+    ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_REFUSED);
+    EXPECT_EQ(
+        err.data,
+        "failed to reach SAFE-OP: slave 1 (TestSlave) is in PRE-OP: Invalid output "
+        "configuration"
+    );
+    EXPECT_EQ(this->mock->readstate_count, 1);
+}
+
+/// @brief it should not report a refusal or its AL status when a slave stays in PRE-OP
+/// without the error flag, even if an old AL status code remains.
+TEST_F(SOEMMasterTest, ActivateSafeOpTimeoutIsNotARefusal) {
     this->initialize_with_slave();
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
@@ -268,10 +349,144 @@ TEST_F(SOEMMasterTest, ActivateSafeOpTransitionFails) {
     this->mock->slave_infos[0].ALstatuscode = 0x001D;
     const auto err = this->master->activate();
     ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_ERROR);
+    EXPECT_FALSE(err.matches(errors::STATE_CHANGE_REFUSED));
+    EXPECT_EQ(err.data, "failed to reach SAFE-OP: slave 1 (TestSlave) is in PRE-OP");
+}
+
+/// @brief it should name only the slave that refused SAFE-OP, from one read of the
+/// slave states.
+TEST_F(SOEMMasterTest, ActivateNamesOnlyTheRefusingSlave) {
+    MockSlaveInfo pending;
+    pending.state = EC_STATE_PRE_OP;
+    pending.name = "PendingSlave";
+    this->add_slave(pending);
+    MockSlaveInfo refusing;
+    refusing.state = EC_STATE_PRE_OP;
+    refusing.name = "RefusingSlave";
+    refusing.ALstatuscode = 0x0026;
+    this->add_slave(refusing);
+    ASSERT_NIL(this->master->initialize());
+    this->mock->obytes = 2;
+    this->mock->ibytes = 4;
+    this->mock->statecheck_overrides[EC_STATE_SAFE_OP] = EC_STATE_PRE_OP +
+                                                         EC_STATE_ERROR;
+    this->mock->readstate_count = 0;
+    const auto err = this->master->activate();
+    ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_REFUSED);
     EXPECT_EQ(
         err.data,
-        "failed to reach SAFE-OP: slave 1 (TestSlave) is in PRE-OP: Invalid output "
-        "configuration"
+        "failed to reach SAFE-OP: slave 2 (RefusingSlave) is in PRE-OP: Inconsistent "
+        "settings"
+    );
+    EXPECT_EQ(this->mock->readstate_count, 1);
+}
+
+/// @brief it should add the DC sync advice once when slaves refuse SAFE-OP with
+/// "Invalid DC SYNC configuration".
+TEST_F(SOEMMasterTest, ActivateDCSyncRefusalAddsAdvice) {
+    MockSlaveInfo first;
+    first.state = EC_STATE_PRE_OP;
+    first.name = "FirstSlave";
+    first.ALstatuscode = 0x0030;
+    this->add_slave(first);
+    MockSlaveInfo second = first;
+    second.name = "SecondSlave";
+    this->add_slave(second);
+    ASSERT_NIL(this->master->initialize());
+    this->mock->obytes = 2;
+    this->mock->ibytes = 4;
+    this->mock->statecheck_overrides[EC_STATE_SAFE_OP] = EC_STATE_PRE_OP +
+                                                         EC_STATE_ERROR;
+    const auto err = this->master->activate();
+    ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_REFUSED);
+    EXPECT_EQ(
+        err.data,
+        "failed to reach SAFE-OP: slave 1 (FirstSlave) is in PRE-OP: Invalid DC SYNC "
+        "configuration; slave 2 (SecondSlave) is in PRE-OP: Invalid DC SYNC "
+        "configuration. A slave that reports \"Invalid DC SYNC configuration\" needs "
+        "DC sync, which the Driver does not support yet. If the slave has an SM sync "
+        "mode, set it (in DewesoftX for Dewesoft modules). If not, disable the slave "
+        "so the rest of the bus can run."
+    );
+}
+
+/// @brief it should return a refusal as soon as a slave refuses OP.
+TEST_F(SOEMMasterTest, ActivateOpRefusalReturnsAtOnce) {
+    this->initialize_with_slave();
+    this->mock->obytes = 2;
+    this->mock->ibytes = 4;
+    this->mock->statecheck_overrides[EC_STATE_OPERATIONAL] = EC_STATE_SAFE_OP +
+                                                             EC_STATE_ERROR;
+    this->mock->slave_infos[0].ALstatuscode = 0x0025;
+    this->mock->readstate_count = 0;
+    const auto err = this->master->activate();
+    ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_REFUSED);
+    EXPECT_EQ(
+        err.data,
+        "failed to reach OP: slave 1 (TestSlave) is in SAFE-OP: Invalid output mapping"
+    );
+    // One read each for SAFE-OP, OP, and the recovery to SAFE-OP.
+    EXPECT_EQ(this->mock->readstate_count, 3);
+}
+
+/// @brief it should recover a slave that refused OP to SAFE-OP without forcing INIT,
+/// although its error flag stays set.
+TEST_F(SOEMMasterTest, ActivateOpRefusalRecoversToSafeOp) {
+    this->initialize_with_slave();
+    this->mock->obytes = 2;
+    this->mock->ibytes = 4;
+    this->mock->statecheck_overrides[EC_STATE_SAFE_OP] = EC_STATE_SAFE_OP +
+                                                         EC_STATE_ERROR;
+    this->mock->statecheck_overrides[EC_STATE_OPERATIONAL] = EC_STATE_SAFE_OP +
+                                                             EC_STATE_ERROR;
+    this->mock->slave_infos[0].ALstatuscode = 0x0025;
+    this->mock->state_change_requests.clear();
+    ASSERT_OCCURRED_AS(this->master->activate(), errors::STATE_CHANGE_REFUSED);
+    EXPECT_EQ(
+        this->mock->state_change_requests,
+        (std::vector<std::pair<uint16_t, uint16_t>>{
+            {1, EC_STATE_SAFE_OP},
+            {1, EC_STATE_OPERATIONAL},
+            {1, EC_STATE_SAFE_OP},
+        })
+    );
+}
+
+/// @brief it should return a timing fault at once, with its AL status, as an error that
+/// is not a refusal, so that the start is retried.
+TEST_F(SOEMMasterTest, ActivateOpTimingFaultIsNotARefusal) {
+    this->initialize_with_slave();
+    this->mock->obytes = 2;
+    this->mock->ibytes = 4;
+    this->mock->statecheck_overrides[EC_STATE_OPERATIONAL] = EC_STATE_SAFE_OP +
+                                                             EC_STATE_ERROR;
+    this->mock->slave_infos[0].ALstatuscode = 0x001B;
+    this->mock->readstate_count = 0;
+    const auto err = this->master->activate();
+    ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_ERROR);
+    EXPECT_FALSE(err.matches(errors::STATE_CHANGE_REFUSED));
+    EXPECT_EQ(
+        err.data,
+        "failed to reach OP: slave 1 (TestSlave) is in SAFE-OP: Sync manager watchdog"
+    );
+    EXPECT_EQ(this->mock->readstate_count, 3);
+}
+
+/// @brief it should not count a slave that asks to go back to PRE-OP as a refusal,
+/// because the retry takes it back through INIT.
+TEST_F(SOEMMasterTest, ActivateSafeOpRestartRequestIsNotARefusal) {
+    this->initialize_with_slave();
+    this->mock->obytes = 2;
+    this->mock->ibytes = 4;
+    this->mock->statecheck_overrides[EC_STATE_SAFE_OP] = EC_STATE_PRE_OP +
+                                                         EC_STATE_ERROR;
+    this->mock->slave_infos[0].ALstatuscode = 0x0022;
+    const auto err = this->master->activate();
+    ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_ERROR);
+    EXPECT_FALSE(err.matches(errors::STATE_CHANGE_REFUSED));
+    EXPECT_EQ(
+        err.data,
+        "failed to reach SAFE-OP: slave 1 (TestSlave) is in PRE-OP: Slave needs PREOP"
     );
 }
 
@@ -334,6 +549,45 @@ TEST_F(SOEMMasterTest, DisabledSlaveStaysOutOfStateTransitions) {
         {1, EC_STATE_OPERATIONAL},
     };
     EXPECT_EQ(this->mock->state_change_requests, expected);
+}
+
+/// @brief it should write zero to 0x0980 and then to 0x0981 on each enabled slave with
+/// a distributed clock, before it maps the slaves and so requests SAFE-OP.
+TEST_F(SOEMMasterTest, ActivateClearsDCActivationBeforeMapping) {
+    MockSlaveInfo dc;
+    dc.state = EC_STATE_PRE_OP;
+    dc.hasdc = true;
+    this->add_slave(dc);
+    MockSlaveInfo plain;
+    plain.state = EC_STATE_PRE_OP;
+    this->add_slave(plain);
+    this->add_slave(dc);
+    ASSERT_NIL(this->master->initialize());
+    this->master->set_slave_enabled(3, false);
+    this->mock->obytes = 2;
+    this->mock->ibytes = 4;
+    ASSERT_NIL(this->master->activate());
+    const std::vector<RegisterWrite> expected = {
+        {.slave = 1, .address = 0x0980, .data = {0}},
+        {.slave = 1, .address = 0x0981, .data = {0}},
+    };
+    EXPECT_EQ(this->mock->register_writes, expected);
+}
+
+/// @brief it should fail activation, before it maps the slaves, when a slave does not
+/// take the write that clears its DC activation.
+TEST_F(SOEMMasterTest, ActivateFailsWhenDCActivationCannotBeCleared) {
+    MockSlaveInfo dc;
+    dc.state = EC_STATE_PRE_OP;
+    dc.hasdc = true;
+    dc.name = "EL3104";
+    this->add_slave(dc);
+    ASSERT_NIL(this->master->initialize());
+    this->mock->write_register_return = 0;
+    const auto err = this->master->activate();
+    ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
+    EXPECT_EQ(err.data, "slave 1 (EL3104) did not take a write to DC register 0x0980");
+    EXPECT_EQ(this->mock->mapped_group, std::nullopt);
 }
 
 /// @brief it should send and receive process data for the group of enabled slaves only.
@@ -590,6 +844,20 @@ TEST_F(SOEMMasterTest, DeactivateRequestsInitState) {
     for (const auto &[pos, state]: this->mock->state_change_requests)
         if (state == EC_STATE_INIT) found_init = true;
     EXPECT_TRUE(found_init);
+}
+
+/// @brief it should wait for INIT when a slave still shows the error flag of a fault in
+/// SAFE-OP after the INIT request.
+TEST_F(SOEMMasterTest, DeactivateWaitsForInitAfterFault) {
+    this->initialize_with_slave();
+    this->activate_master();
+    this->mock->slave_infos[0].state = EC_STATE_SAFE_OP + EC_STATE_ERROR;
+    this->mock->slave_infos[0].ALstatuscode = 0x001B;
+    this->mock->statecheck_pending_polls[EC_STATE_INIT] = 2;
+    this->mock->readstate_count = 0;
+    this->master->deactivate();
+    EXPECT_EQ(this->mock->slave_infos[0].state, EC_STATE_INIT);
+    EXPECT_EQ(this->mock->readstate_count, 3);
 }
 
 TEST_F(SOEMMasterTest, DeactivateNotInitializedIsNoop) {

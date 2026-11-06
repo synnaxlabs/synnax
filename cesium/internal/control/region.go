@@ -45,6 +45,10 @@ type region[R Resource] struct {
 	// does not get decremented.
 	// [not safe for unprotected concurrent access]
 	counter uint
+	// opening is non-nil from when the region is created until its resource opens or
+	// fails to, and closes at that point. A region that is opening has no gates and no
+	// resource. Guarded by controller.mu.
+	opening chan struct{}
 	// use serializes access to resource by authorized gates.
 	use sync.Mutex
 	// RWMutex locks access to the region's state. Only specified fields in a region are
@@ -110,11 +114,11 @@ func (r *region[R]) open(cfg GateConfig[R]) (g *Gate[R], t Transfer, err error) 
 }
 
 // state returns the control State of the gate in control, or nil when the region is
-// bounded.
+// bounded or still opening.
 func (r *region[R]) state() *State {
 	r.RLock()
 	defer r.RUnlock()
-	if r.bounded {
+	if r.bounded || r.curr == nil {
 		return nil
 	}
 	return r.curr.state()
@@ -124,11 +128,15 @@ func (r *region[R]) state() *State {
 func (r *region[R]) overlapError(tr telem.TimeRange) error {
 	r.RLock()
 	defer r.RUnlock()
+	holder := "a writer that is opening"
+	if r.curr != nil {
+		holder = "writer " + r.curr.Subject().String()
+	}
 	return errors.Wrapf(
 		validate.ErrValidation,
-		"cannot write to time range %v because writer %v holds it",
+		"cannot write to time range %v because %s holds it",
 		tr.Intersection(r.timeRange),
-		r.curr.Subject(),
+		holder,
 	)
 }
 

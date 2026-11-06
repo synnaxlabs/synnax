@@ -14,6 +14,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -1554,6 +1555,245 @@ var _ = Describe("Control", func() {
 			res, t = j.Release()
 			Expect(t.IsRelease()).To(BeTrue())
 			Expect(res).To(BeIdenticalTo(second))
+		})
+	})
+
+	Describe("Opening a resource", func() {
+		type opened struct {
+			err error
+			g   *control.Gate[testResource]
+			t   control.Transfer
+		}
+		var (
+			regionA = (0 * telem.SecondTS).Range(10 * telem.SecondTS)
+			regionB = (20 * telem.SecondTS).Range(30 * telem.SecondTS)
+		)
+		gateCfg := func(
+			key string,
+			tr telem.TimeRange,
+			value int,
+		) control.GateConfig[testResource] {
+			cfg, _ := baseConfig(value)
+			cfg.Subject.Key = key
+			cfg.TimeRange = tr
+			return cfg
+		}
+		openAsync := func(cfg control.GateConfig[testResource]) <-chan opened {
+			result := make(chan opened, 1)
+			go func() {
+				defer GinkgoRecover()
+				g, t, err := c.OpenGate(cfg)
+				result <- opened{g: g, t: t, err: err}
+			}()
+			return result
+		}
+		receive := func(result <-chan opened) (
+			*control.Gate[testResource],
+			control.Transfer,
+			error,
+		) {
+			GinkgoHelper()
+			var o opened
+			Eventually(result).Should(Receive(&o))
+			return o.g, o.t, o.err
+		}
+		// openBlocked opens a gate on tr and returns once its OpenResource is running.
+		// OpenResource returns the error sent on finish.
+		openBlocked := func(
+			tr telem.TimeRange,
+			bounded bool,
+		) (result <-chan opened, finish chan<- error) {
+			GinkgoHelper()
+			var (
+				cfg     = gateCfg("blocked", tr, 1)
+				entered = make(chan struct{})
+				errs    = make(chan error, 1)
+			)
+			cfg.Bounded = new(bounded)
+			cfg.OpenResource = func() (testResource, error) {
+				close(entered)
+				var err error
+				Eventually(errs, 10*time.Second).Should(Receive(&err))
+				if err != nil {
+					return testResource{}, err
+				}
+				return testResource{value: 1}, nil
+			}
+			result = openAsync(cfg)
+			Eventually(entered).Should(BeClosed())
+			DeferCleanup(func() {
+				select {
+				case errs <- nil:
+				default:
+				}
+			})
+			return result, errs
+		}
+		expectReturns := func(f func()) {
+			GinkgoHelper()
+			done := make(chan struct{})
+			go func() {
+				defer GinkgoRecover()
+				defer close(done)
+				f()
+			}()
+			Eventually(done).Should(BeClosed())
+		}
+
+		It("Should not block the release of a gate on another region", func() {
+			held, _ := MustSucceed2(c.OpenGate(gateCfg("held", regionA, 2)))
+			openBlocked(regionB, false)
+			expectReturns(func() { held.Release() })
+		})
+
+		It("Should hide the region from LeadingState until it opens", func() {
+			opening, finish := openBlocked(regionB, false)
+			expectReturns(func() { Expect(c.LeadingState()).To(BeNil()) })
+			finish <- nil
+			_, t := MustSucceed2(receive(opening))
+			Expect(t.IsAcquire()).To(BeTrue())
+			Expect(c.LeadingState()).ToNot(BeNil())
+		})
+
+		It("Should make ResourceAt wait for the region to open", func() {
+			opening, finish := openBlocked(regionB, false)
+			found := make(chan testResource, 1)
+			go func() {
+				defer GinkgoRecover()
+				found <- MustBeOk(c.ResourceAt(regionB))
+			}()
+			Consistently(found, 50*time.Millisecond).ShouldNot(Receive())
+			finish <- nil
+			Eventually(found).Should(Receive(Equal(testResource{value: 1})))
+			MustSucceed2(receive(opening))
+		})
+
+		It("Should not make ResourceAt wait with a ready bounded region", func() {
+			cfg := gateCfg("bounded", regionB, 2)
+			cfg.Bounded = new(true)
+			MustSucceed2(c.OpenGate(cfg))
+			openBlocked((10 * telem.SecondTS).Range(40*telem.SecondTS), false)
+			expectReturns(func() {
+				Expect(
+					MustBeOk(c.ResourceAt(regionB)),
+				).To(Equal(testResource{value: 2}))
+			})
+		})
+
+		It("Should make ResourceAt wait for an opening bounded region", func() {
+			opening, finish := openBlocked(regionB, true)
+			unbounded := (10 * telem.SecondTS).Range(40 * telem.SecondTS)
+			MustSucceed2(c.OpenGate(gateCfg("unbounded", unbounded, 2)))
+			found := make(chan testResource, 1)
+			go func() {
+				defer GinkgoRecover()
+				found <- MustBeOk(c.ResourceAt(regionB))
+			}()
+			Consistently(found, 50*time.Millisecond).ShouldNot(Receive())
+			finish <- nil
+			Eventually(found).Should(Receive(Equal(testResource{value: 1})))
+			MustSucceed2(receive(opening))
+		})
+
+		It("Should report no resource at a region that fails to open", func() {
+			opening, finish := openBlocked(regionB, false)
+			found := make(chan bool, 1)
+			go func() {
+				defer GinkgoRecover()
+				_, ok := c.ResourceAt(regionB)
+				found <- ok
+			}()
+			Consistently(found, 50*time.Millisecond).ShouldNot(Receive())
+			openErr := errors.New("open failed")
+			finish <- openErr
+			Eventually(found).Should(Receive(BeFalse()))
+			Expect(receive(opening)).Error().To(MatchError(openErr))
+		})
+
+		It("Should make a gate wait for the region opening on its time range", func() {
+			opening, finish := openBlocked(regionB, false)
+			cfg := gateCfg("waiting", regionB, 2)
+			cfg.Authority = xcontrol.AuthorityAbsolute - 1
+			waiting := openAsync(cfg)
+			Consistently(waiting, 50*time.Millisecond).ShouldNot(Receive())
+			finish <- nil
+			first, _ := MustSucceed2(receive(opening))
+			second, t := MustSucceed2(receive(waiting))
+			Expect(t.Occurred()).To(BeFalse())
+			Expect(second.PeekResource()).To(Equal(first.PeekResource()))
+		})
+
+		It("Should open one resource for gates racing for a time range", func() {
+			const gates = 32
+			var (
+				count atomic.Int32
+				wg    sync.WaitGroup
+			)
+			open := make([]*control.Gate[testResource], gates)
+			for i := range gates {
+				wg.Go(func() {
+					defer GinkgoRecover()
+					cfg := gateCfg(fmt.Sprintf("gate-%d", i), regionA, i)
+					cfg.OpenResource = func() (testResource, error) {
+						return testResource{value: int(count.Add(1))}, nil
+					}
+					open[i], _ = MustSucceed2(c.OpenGate(cfg))
+				})
+			}
+			wg.Wait()
+			Expect(count.Load()).To(Equal(int32(1)))
+			for _, g := range open {
+				Expect(g.PeekResource()).To(Equal(testResource{value: 1}))
+			}
+		})
+
+		It("Should let a waiting gate open the resource after a failed open", func() {
+			opening, finish := openBlocked(regionB, false)
+			waiting := openAsync(gateCfg("waiting", regionB, 2))
+			Consistently(waiting, 50*time.Millisecond).ShouldNot(Receive())
+			openErr := errors.New("open failed")
+			finish <- openErr
+			Expect(receive(opening)).Error().To(MatchError(openErr))
+			g, t := MustSucceed2(receive(waiting))
+			Expect(t.IsAcquire()).To(BeTrue())
+			Expect(g.PeekResource()).To(Equal(testResource{value: 2}))
+		})
+
+		It("Should let a waiting gate open the resource after a panic", func() {
+			var (
+				cfg       = gateCfg("panics", regionB, 1)
+				entered   = make(chan struct{})
+				proceed   = make(chan struct{})
+				recovered = make(chan any, 1)
+			)
+			cfg.OpenResource = func() (testResource, error) {
+				close(entered)
+				Eventually(proceed).Should(BeClosed())
+				panic("open failed")
+			}
+			go func() {
+				defer func() { recovered <- recover() }()
+				MustSucceed2(c.OpenGate(cfg))
+			}()
+			Eventually(entered).Should(BeClosed())
+			waiting := openAsync(gateCfg("waiting", regionB, 2))
+			Consistently(waiting, 50*time.Millisecond).ShouldNot(Receive())
+			close(proceed)
+			Eventually(recovered).Should(Receive(Equal("open failed")))
+			g, t := MustSucceed2(receive(waiting))
+			Expect(t.IsAcquire()).To(BeTrue())
+			Expect(g.PeekResource()).To(Equal(testResource{value: 2}))
+		})
+
+		It("Should fail a reach into the region", func() {
+			held, _ := MustSucceed2(c.OpenGate(gateCfg("held", regionA, 2)))
+			openBlocked(regionB, false)
+			expectReturns(func() {
+				Expect(held.Reach(25 * telem.SecondTS)).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("a writer that is opening")),
+				))
+			})
 		})
 	})
 
