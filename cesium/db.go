@@ -180,7 +180,8 @@ func (db *DB) Metrics() Metrics {
 
 // Close closes the database.
 //
-// Close is not safe to call with any other DB methods concurrently.
+// Close waits for OpenWriter calls in progress. An OpenWriter that starts after Close
+// returns ErrDBClosed. Close is not safe to call concurrently with any other DB method.
 //
 // Note that if this method is called while writers are still open on channels in the
 // database, a deadlock is caused since the signal context is closed while the writers
