@@ -30,15 +30,30 @@ THREADS = """query($o: String!, $r: String!, $p: Int!, $endCursor: String) {
     }
   }
 }"""
+EDITS = """query($o: String!, $r: String!, $p: Int!, $endCursor: String) {
+  repository(owner: $o, name: $r) {
+    pullRequest(number: $p) {
+      userContentEdits(first: 100, after: $endCursor) {
+        pageInfo { hasNextPage endCursor }
+        nodes { editor { __typename login } diff }
+      }
+    }
+  }
+}"""
 OPEN_THREADS = (
     ".data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved | not)"
     " | {path, first: .comments.nodes[0]} | tojson"
 )
 
 
+_SUMMARY = re.compile(
+    f"{re.escape(render.SUMMARY_START)}.*?{re.escape(render.SUMMARY_END)}", re.S
+)
+
+
 def gh(*args: str, stdin: str | None = None) -> str:
     return subprocess.run(
-        ["gh", *args], input=stdin, capture_output=True, text=True, check=True
+        ["gh", *args], input=stdin, stdout=subprocess.PIPE, text=True, check=True
     ).stdout
 
 
@@ -50,8 +65,9 @@ class Target:
     pr: int
     head: str
     base: str
-    check_run: int
-    """The check run that the review completes."""
+    check_run: int | None
+    """The check run that the review completes, or None for a replay, which posts
+    nothing."""
     run_url: str
     bot: str
     """The slug of the GitHub App the review posts as."""
@@ -67,7 +83,7 @@ def post(review: Review, *, target: Target, gh: GH) -> None:
     blob = f"https://github.com/{t.repo}/blob/{t.head}"
     diff = _diff_lines(t, gh)
     inline = [f for f in review.findings if set(f.lines) <= diff.get(f.path, set())]
-    posted = _open_threads(t, gh)
+    posted = open_findings(t, gh)
     fresh = [f for f in inline if (f.path, f.title) not in posted]
     if fresh:
         comments = [_anchor(f) | {"body": render.comment(f, blob=blob)} for f in fresh]
@@ -88,6 +104,7 @@ def post(review: Review, *, target: Target, gh: GH) -> None:
         commit=f"https://github.com/{t.repo}/commit/{t.head}",
         message=message,
         run_url=t.run_url,
+        blob=blob,
     )
     body = render.splice(body.removesuffix("\n"), block)
     _write(gh, "PATCH", f"repos/{t.repo}/pulls/{t.pr}", {"body": body})
@@ -127,7 +144,8 @@ def _diff_lines(t: Target, gh: GH) -> dict[str, set[int]]:
     return {f["filename"]: _commentable(f["patch"] or "") for f in files}
 
 
-def _open_threads(t: Target, gh: GH) -> set[tuple[str, str]]:
+def open_findings(t: Target, gh: GH) -> set[tuple[str, str]]:
+    """Returns the path and title of each finding in an unresolved thread of the bot."""
     owner, name = t.repo.split("/")
     out = gh(
         "api",
@@ -153,6 +171,37 @@ def _open_threads(t: Target, gh: GH) -> set[tuple[str, str]]:
         if title := render.title(first["body"]):
             keys.add((node["path"], title))
     return keys
+
+
+def reviewed(t: Target, gh: GH) -> list[str]:
+    """Returns each commit that the bot reviewed, newest first, from the revisions of
+    the pull request body."""
+    owner, name = t.repo.split("/")
+    out = gh(
+        "api",
+        "graphql",
+        "--paginate",
+        "-f",
+        f"query={EDITS}",
+        "-f",
+        f"o={owner}",
+        "-f",
+        f"r={name}",
+        "-F",
+        f"p={t.pr}",
+        "--jq",
+        ".data.repository.pullRequest.userContentEdits.nodes[] | tojson",
+    )
+    commits: list[str] = []
+    for line in out.splitlines():
+        e = json.loads(line)
+        block = _SUMMARY.search(e["diff"] or "")
+        if (e["editor"] or {}).get("login") != t.bot or block is None:
+            continue
+        found = re.findall(r"/commit/([0-9a-f]{40})", block[0])
+        if found and found[-1] not in commits:
+            commits.append(found[-1])
+    return commits
 
 
 def _anchor(f: Finding) -> dict[str, Any]:

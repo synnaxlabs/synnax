@@ -79,16 +79,24 @@ type ScanTaskConfig struct {
 	//
 	// [REQUIRED]
 	Task task.Task
-	// Interval is the time between checks, and the time limit of one check.
+	// Interval is the time between checks.
 	//
 	// [OPTIONAL] - Defaults to 5s.
 	Interval time.Duration
+	// CheckTimeout is the time limit of one round of checks. A round that takes longer
+	// than Interval delays the next round.
+	//
+	// [OPTIONAL] - Defaults to 5s.
+	CheckTimeout time.Duration
 }
 
 var (
 	_ config.Config[ScanTaskConfig] = ScanTaskConfig{}
 	// DefaultScanTaskConfig is the default configuration for a ScanTask.
-	DefaultScanTaskConfig = ScanTaskConfig{Interval: 5 * time.Second}
+	DefaultScanTaskConfig = ScanTaskConfig{
+		Interval:     5 * time.Second,
+		CheckTimeout: 5 * time.Second,
+	}
 )
 
 // Override implements config.Config.
@@ -107,6 +115,7 @@ func (c ScanTaskConfig) Override(other ScanTaskConfig) ScanTaskConfig {
 		c.Task = other.Task
 	}
 	c.Interval = override.Numeric(c.Interval, other.Interval)
+	c.CheckTimeout = override.Numeric(c.CheckTimeout, other.CheckTimeout)
 	return c
 }
 
@@ -122,6 +131,7 @@ func (c ScanTaskConfig) Validate() error {
 	v.NotEmptyString("unreachable_message", c.UnreachableMessage)
 	v.Ternary("task", c.Task.Key == uuid.Nil(), "must have a key")
 	v.Positive("interval", c.Interval)
+	v.Positive("check_timeout", c.CheckTimeout)
 	return v.Error()
 }
 
@@ -313,7 +323,7 @@ func (t *ScanTask) scan(ctx context.Context) error {
 		return err
 	}
 	results := make([]health, len(devices))
-	checkCtx, cancel := context.WithTimeout(ctx, t.cfg.Interval)
+	checkCtx, cancel := context.WithTimeout(ctx, t.cfg.CheckTimeout)
 	defer cancel()
 	var wg sync.WaitGroup
 	for i, dev := range devices {

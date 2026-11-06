@@ -89,6 +89,9 @@ private:
     std::shared_ptr<engine::Pool> pool;
     /// @brief the scan count at which to probe again each interface that had no slaves.
     std::unordered_map<std::string, size_t> next_probes;
+    /// @brief the scan count at which to discover again each interface with an enabled
+    /// slave whose PDO discovery failed.
+    std::unordered_map<std::string, size_t> next_rediscoveries;
 
     /// @brief creates a slave device for the given slave. The status reflects the
     /// slave's live state when health holds an entry for it.

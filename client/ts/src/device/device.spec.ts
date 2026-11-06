@@ -15,7 +15,13 @@ import { device } from "@/device";
 import { NotFoundError } from "@/index";
 import { query } from "@/query";
 import { status } from "@/status";
-import { createTestClient, expectLive, spyOnSend, waitForStreamLive } from "@/testutil";
+import {
+  createTestClient,
+  expectLive,
+  holdResponses,
+  spyOnSend,
+  waitForStreamLive,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -247,6 +253,24 @@ describe("Device", async () => {
         model: "dog",
         properties: { cat: "dog" },
       });
+    it("should keep a rename that lands before an older fetch", async () => {
+      const d = await createDevice(`device-${id.create()}`);
+      const local = createTestClient();
+      await local.connect();
+      await waitForStreamLive(local.connection);
+      await local.devices.retrieve(d.key);
+      const { responded, release } = holdResponses(local, "/device/retrieve");
+      const fetching = local.devices.retrieve({ where: { name: { eq: d.name } } });
+      await responded;
+      const name = `device-renamed-${id.create()}`;
+      await client.devices.rename(d.key, name);
+      await expect
+        .poll(() => expectLive(local.devices.getCached(d.key)).name)
+        .toBe(name);
+      release();
+      await fetching;
+      expect(expectLive(local.devices.getCached(d.key)).name).toBe(name);
+    });
     it("should rename a device and keep its properties", async () => {
       const d = await createDevice("device-rename");
       await client.devices.rename(d.key, "device-renamed");
@@ -362,11 +386,79 @@ describe("Device", async () => {
         properties: { cat: "dog" },
       });
       const retrieved = await client.devices.retrieve({
-        keys: [d1.key, d2.key],
+        where: { key: { in: [d1.key, d2.key] } },
       });
       expect(retrieved.length).toBe(2);
       expect(retrieved[0].key).toBe(d1.key);
       expect(retrieved[1].key).toBe(d2.key);
+    });
+
+    it("should retrieve devices by a key list in key order", async () => {
+      const [d1, d2] = await client.devices.create(
+        ["Dev1", "Dev2"].map((location) => ({
+          key: id.create(),
+          rack: testRack.key,
+          location,
+          name: location,
+          make: "ni",
+          model: "dog",
+          properties: {},
+        })),
+      );
+      const retrieved = await client.devices.retrieve([d2.key, d1.key]);
+      expect(retrieved.map(({ key }) => key)).toEqual([d2.key, d1.key]);
+    });
+
+    it("should throw a NotFoundError for a missing key in a key list", async () => {
+      const d = await client.devices.create({
+        key: id.create(),
+        rack: testRack.key,
+        location: "Dev1",
+        name: "test",
+        make: "ni",
+        model: "dog",
+        properties: {},
+      });
+      const missing = id.create();
+      await expect(client.devices.retrieve([d.key, missing])).rejects.toThrow(
+        new NotFoundError(`device with key ${missing} not found`),
+      );
+    });
+
+    it("should return one device for a plain key beside other fields", async () => {
+      const d = await client.devices.create({
+        key: id.create(),
+        rack: testRack.key,
+        location: "Dev1",
+        name: "test",
+        make: "ni",
+        model: "dog",
+        properties: {},
+      });
+      const retrieved: device.Device = await client.devices.retrieve({
+        key: d.key,
+        make: "ni",
+      });
+      expect(retrieved.key).toEqual(d.key);
+      await expect(
+        client.devices.retrieve({ key: d.key, make: "labjack" }),
+      ).rejects.toThrow(NotFoundError);
+    });
+
+    it("should treat a missing key as a non-match", async () => {
+      const d = await client.devices.create({
+        key: id.create(),
+        rack: testRack.key,
+        location: "Dev1",
+        name: "present",
+        make: "ni",
+        model: "dog",
+        properties: {},
+      });
+      const retrieved = await createTestClient().devices.retrieve({
+        where: { key: { in: [d.key, id.create()] } },
+      });
+      expect(retrieved.map(({ key }) => key)).toEqual([d.key]);
     });
 
     describe("status", () => {
@@ -521,7 +613,7 @@ describe("Device", async () => {
         await expect
           .poll(async () => {
             const retrievedDevices = await client.devices.retrieve({
-              keys: [d1.key, d2.key],
+              where: { key: { in: [d1.key, d2.key] } },
               includeStatus: true,
             });
             if (retrievedDevices.length !== 2) return false;
@@ -593,7 +685,7 @@ describe("Device", async () => {
 
       it("should retrieve devices by names", async () => {
         const result = await client.devices.retrieve({
-          names: ["sensor1", "actuator1"],
+          where: { name: { in: ["sensor1", "actuator1"] } },
         });
         expect(result.length).toBeGreaterThanOrEqual(2);
         expect(unique.unique(result.map((d) => d.name).sort())).toEqual([
@@ -604,7 +696,7 @@ describe("Device", async () => {
 
       it("should retrieve devices by makes", async () => {
         const result = await client.devices.retrieve({
-          makes: ["ni"],
+          where: { make: { eq: "ni" } },
         });
         expect(result.length).toBeGreaterThanOrEqual(2);
         expect(result.every((d) => d.make === "ni")).toBe(true);
@@ -612,7 +704,7 @@ describe("Device", async () => {
 
       it("should retrieve devices by models", async () => {
         const result = await client.devices.retrieve({
-          models: ["pxi-6281", "t7"],
+          where: { model: { in: ["pxi-6281", "t7"] } },
         });
         expect(result.length).toBeGreaterThanOrEqual(2);
         expect(unique.unique(result.map((d) => d.model).sort())).toEqual([
@@ -623,7 +715,7 @@ describe("Device", async () => {
 
       it("should retrieve devices by locations", async () => {
         const result = await client.devices.retrieve({
-          locations: ["Lab1"],
+          where: { location: { eq: "Lab1" } },
         });
         expect(result.length).toBeGreaterThanOrEqual(2);
         expect(result.every((d) => d.location === "Lab1")).toBe(true);
@@ -631,7 +723,7 @@ describe("Device", async () => {
 
       it("should retrieve devices by racks", async () => {
         const result = await client.devices.retrieve({
-          racks: [testRack.key],
+          where: { rack: { eq: testRack.key } },
         });
         expect(result.length).toBeGreaterThanOrEqual(5);
         expect(result.every((d) => d.rack === testRack.key)).toBe(true);
@@ -649,14 +741,14 @@ describe("Device", async () => {
 
       it("should support pagination with limit and offset", async () => {
         const firstPage = await client.devices.retrieve({
-          racks: [testRack.key],
+          where: { rack: { eq: testRack.key } },
           limit: 2,
           offset: 0,
         });
         expect(firstPage).toHaveLength(2);
 
         const secondPage = await client.devices.retrieve({
-          racks: [testRack.key],
+          where: { rack: { eq: testRack.key } },
           limit: 2,
           offset: 2,
         });
@@ -669,8 +761,7 @@ describe("Device", async () => {
 
       it("should support combined filters", async () => {
         const result = await client.devices.retrieve({
-          makes: ["ni"],
-          locations: ["Lab1", "Lab2"],
+          where: { make: { eq: "ni" }, location: { in: ["Lab1", "Lab2"] } },
           includeStatus: true,
         });
         expect(result.length).toBeGreaterThanOrEqual(1);
@@ -681,8 +772,7 @@ describe("Device", async () => {
         await expect
           .poll(async () => {
             const devices = await client.devices.retrieve({
-              makes: ["ni"],
-              locations: ["Lab1", "Lab2"],
+              where: { make: { eq: "ni" }, location: { in: ["Lab1", "Lab2"] } },
               includeStatus: true,
             });
             return devices.every((d) => d.status !== undefined);
@@ -723,6 +813,74 @@ describe("Device", async () => {
         });
         expect(retrieved.properties.rate).toBe(1000);
         expect(retrieved.properties.channels).toEqual(["ai0", "ai1"]);
+      });
+
+      it("should retrieve devices by a flat filter with schemas", async () => {
+        const location = `flat-${id.create()}`;
+        const d = await client.devices.create(
+          {
+            key: id.create(),
+            rack: testRack.key,
+            location,
+            name: "flat-schema",
+            make: "ni",
+            model: "pxi",
+            properties: { rate: 100, channels: ["ch1"] },
+          },
+          schemas,
+        );
+        const retrieved = await client.devices.retrieve({
+          location,
+          make: "ni",
+          schemas,
+        });
+        expect(retrieved.map(({ key }) => key)).toEqual([d.key]);
+        expect(retrieved[0].properties.rate).toBe(100);
+      });
+
+      it("should return one device for a key list that sets one", async () => {
+        const d = await client.devices.create(
+          {
+            key: id.create(),
+            rack: testRack.key,
+            location: "Dev1",
+            name: "one-option",
+            make: "ni",
+            model: "pxi",
+            properties: { rate: 200, channels: [] },
+          },
+          schemas,
+        );
+        const retrieved = await client.devices.retrieve({
+          key: [d.key],
+          one: true,
+          schemas,
+        });
+        expect(retrieved.properties.rate).toBe(200);
+      });
+
+      it("should return one device for a plain key beside other fields", async () => {
+        const d = await client.devices.create(
+          {
+            key: id.create(),
+            rack: testRack.key,
+            location: "Dev1",
+            name: "one-schema",
+            make: "ni",
+            model: "pxi",
+            properties: { rate: 100, channels: ["ch1"] },
+          },
+          schemas,
+        );
+        const retrieved = await client.devices.retrieve({
+          key: d.key,
+          make: "ni",
+          schemas,
+        });
+        expect(retrieved.properties.rate).toBe(100);
+        await expect(
+          client.devices.retrieve({ key: d.key, make: "labjack", schemas }),
+        ).rejects.toThrow(NotFoundError);
       });
 
       it("should create and retrieve with typed make and model", async () => {
@@ -775,7 +933,7 @@ describe("Device", async () => {
         );
 
         const retrieved = await client.devices.retrieve({
-          keys: [d1.key, d2.key],
+          where: { key: { in: [d1.key, d2.key] } },
           schemas,
         });
         expect(retrieved).toHaveLength(2);
@@ -832,7 +990,7 @@ describe("Device", async () => {
         model: "dog",
         properties: {},
       });
-      const params = { makes: [make], includeStatus: true };
+      const params = { where: { make: { eq: make } }, includeStatus: true };
       const off = client.devices.onChange(params, vi.fn());
       try {
         await client.devices.retrieve(params);
@@ -878,10 +1036,12 @@ describe("Device", async () => {
         model: "dog",
         properties: {},
       });
-      await client.devices.retrieve({ keys: [d1.key, d2.key] });
+      await client.devices.retrieve({ where: { key: { in: [d1.key, d2.key] } } });
       // Fetched records in the store do not answer a filter query that was
       // never fetched itself.
-      expect(client.devices.getCached({ makes: [make] })).toBeUndefined();
+      expect(
+        client.devices.getCached({ where: { make: { eq: make } } }),
+      ).toBeUndefined();
     });
 
     it("returns undefined for unfetched server-computed query shapes", async () => {
@@ -895,8 +1055,10 @@ describe("Device", async () => {
         model: "dog",
         properties: {},
       });
-      await client.devices.retrieve({ keys: [dev.key] });
-      expect(client.devices.getCached({ makes: [make], limit: 1 })).toBeUndefined();
+      await client.devices.retrieve({ where: { key: { in: [dev.key] } } });
+      expect(
+        client.devices.getCached({ where: { make: { eq: make } }, limit: 1 }),
+      ).toBeUndefined();
       expect(client.devices.getCached({ searchTerm: make })).toBeUndefined();
     });
   });

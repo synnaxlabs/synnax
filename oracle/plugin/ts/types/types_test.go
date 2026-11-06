@@ -105,6 +105,16 @@ var _ = Describe("TS Types Plugin", func() {
 				ToNotContain(".default(0)", "optional.Optional")
 		})
 
+		It("Should leave the defaulted fields of an operator type to the Core", func(
+			ctx SpecContext,
+		) {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ctx, ThingFilter, "thing", loader, typesPlugin)
+			ExpectContent(resp, "filter/types.gen.ts").
+				ToContain("caseInsensitive: z.boolean().optional(),").
+				ToNotContain(".default(false)")
+		})
+
 		Context("field-level omit", func() {
 			It("Should leave out an inherited field the parent omits", func(
 				ctx SpecContext,

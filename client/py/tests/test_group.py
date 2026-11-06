@@ -7,11 +7,12 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
 import synnax as sy
+from x import filter
 
 
 @pytest.mark.group
@@ -45,10 +46,38 @@ class TestGroupClient:
         groups = client.groups.retrieve(keys=[g1.key, g2.key])
         assert sorted(g.name for g in groups) == sorted([g1.name, g2.name])
 
+    def test_retrieve_where(self, client: sy.Synnax) -> None:
+        """Should keep groups that match a filter tree and the given keys."""
+        g1 = client.groups.create(sy.ontology.ROOT_ID, str(uuid4()))
+        g2 = client.groups.create(sy.ontology.ROOT_ID, str(uuid4()))
+        where = sy.group.Where(not_=sy.group.Where(key=filter.Set[UUID](eq=g1.key)))
+        groups = client.groups.retrieve(where=where, keys=[g1.key, g2.key, uuid4()])
+        assert [g.key for g in groups] == [g2.key]
+
     def test_retrieve_not_found(self, client: sy.Synnax) -> None:
         """Should raise NotFoundError when the group does not exist."""
         with pytest.raises(sy.NotFoundError):
             client.groups.retrieve(uuid4())
+
+    def test_retrieve_key_list(self, client: sy.Synnax) -> None:
+        """Should return a list for a list of keys, even with one key."""
+        a = client.groups.create(sy.ontology.ROOT_ID, str(uuid4()))
+        res = client.groups.retrieve(key=[a.key])
+        assert [r.key for r in res] == [a.key]
+
+    def test_retrieve_plain_key_beside_fields(self, client: sy.Synnax) -> None:
+        """Should return one group for a plain key beside other fields."""
+        a = client.groups.create(sy.ontology.ROOT_ID, str(uuid4()))
+        assert client.groups.retrieve(key=a.key, not_={"key": uuid4()}).key == a.key
+        with pytest.raises(sy.NotFoundError, match=r"Group matching .* not found"):
+            client.groups.retrieve(key=a.key, not_={"key": a.key})
+
+    def test_retrieve_or(self, client: sy.Synnax) -> None:
+        """Should retrieve the groups that match any filter in or_."""
+        a = client.groups.create(sy.ontology.ROOT_ID, str(uuid4()))
+        b = client.groups.create(sy.ontology.ROOT_ID, str(uuid4()))
+        res = client.groups.retrieve(or_=[{"key": a.key}, {"key": [b.key]}])
+        assert {r.key for r in res} == {a.key, b.key}
 
     def test_rename(self, client: sy.Synnax) -> None:
         """Should rename an existing group."""

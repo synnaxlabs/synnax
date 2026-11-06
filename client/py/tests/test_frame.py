@@ -162,6 +162,75 @@ class TestFrameToDF:
         assert list(df.columns) == ["big", "dog"]
         assert list(df["big"]) == [1, 2]
 
+    def test_join_on_alignment(self) -> None:
+        """Should place a channel with fewer samples than its index by alignment."""
+        stamps = sy.Series(
+            [1, 2, 3, 4, 5],
+            data_type=sy.DataType.TIMESTAMP,
+            alignment=sy.Alignment(2, 10),
+        )
+        data = sy.Series(
+            [7.5, 8.5], data_type=sy.DataType.FLOAT64, alignment=sy.Alignment(2, 12)
+        )
+        f = sy.Frame({1: stamps, 2: data})
+        f.names = {1: "time", 2: "dog"}
+        f.indexes = {1: 1, 2: 1}
+        df = f.to_df()
+        assert list(df.index.astype("int64")) == [1, 2, 3, 4, 5]
+        assert df["dog"].isna().tolist() == [True, True, False, False, True]
+        assert df["dog"].dropna().tolist() == [7.5, 8.5]
+
+    def test_join_on_alignment_multiple(self) -> None:
+        """Should step through alignments by the multiple of a strided series."""
+        stamps = sy.Series(
+            [1, 2, 3],
+            data_type=sy.DataType.TIMESTAMP,
+            alignment=sy.Alignment(0, 0),
+            alignment_multiple=2,
+        )
+        data = sy.Series(
+            [9.5],
+            data_type=sy.DataType.FLOAT64,
+            alignment=sy.Alignment(0, 4),
+            alignment_multiple=2,
+        )
+        f = sy.Frame({1: stamps, 2: data})
+        f.names = {1: "time", 2: "dog"}
+        f.indexes = {1: 1, 2: 1}
+        assert f.to_df()["dog"].dropna().index.astype("int64").tolist() == [3]
+
+    def test_equal_lengths_at_other_alignments(self) -> None:
+        """Should fail when equal length series are at different alignments."""
+        stamps = sy.Series(
+            [18, 19, 20],
+            data_type=sy.DataType.TIMESTAMP,
+            alignment=sy.Alignment(0, 17),
+        )
+        data = sy.Series(
+            [1.5, 2.5, 3.5],
+            data_type=sy.DataType.FLOAT64,
+            alignment=sy.Alignment(0, 0),
+        )
+        f = sy.Frame({1: stamps, 2: data})
+        f.names = {1: "time", 2: "dog"}
+        f.indexes = {1: 1, 2: 1}
+        with pytest.raises(ValueError, match="alignments"):
+            f.to_df()
+
+    def test_alignment_outside_index(self) -> None:
+        """Should fail when a channel has a sample its index does not hold."""
+        stamps = sy.Series(
+            [1, 2, 3], data_type=sy.DataType.TIMESTAMP, alignment=sy.Alignment(0, 0)
+        )
+        data = sy.Series(
+            [9.5], data_type=sy.DataType.FLOAT64, alignment=sy.Alignment(1, 0)
+        )
+        f = sy.Frame({1: stamps, 2: data})
+        f.names = {1: "time", 2: "dog"}
+        f.indexes = {1: 1, 2: 1}
+        with pytest.raises(ValueError, match="alignments"):
+            f.to_df()
+
     def test_key_fallback(self) -> None:
         """Should use the channel key when the frame does not know the name."""
         f = sy.Frame({1: sy.Series([1, 2]), 2: sy.Series([3, 4])})
@@ -675,6 +744,24 @@ class TestReadFrameAdapter:
         assert adapter.keys == []
         assert adapter.codec is not None
 
+    def test_update_virtual_without_index(
+        self, client: sy.Synnax, channels: tuple[sy.Channel, sy.Channel, sy.Channel]
+    ) -> None:
+        """Should not read an index for a virtual channel."""
+        ch1, _, _ = channels
+        adapter = ReadFrameAdapter(client.channels._retriever, timestamps_included=True)
+        adapter.update([ch1.key])
+        assert adapter.keys == [ch1.key]
+
+    def test_update_includes_index(
+        self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]
+    ) -> None:
+        """Should add the index of a channel after the requested channels."""
+        idx_ch, data_ch = indexed_pair
+        adapter = ReadFrameAdapter(client.channels._retriever, timestamps_included=True)
+        adapter.update([data_ch.name])
+        assert adapter.keys == [data_ch.key, idx_ch.key]
+
     def test_update_with_keys(
         self, client: sy.Synnax, channels: tuple[sy.Channel, sy.Channel, sy.Channel]
     ) -> None:
@@ -698,9 +785,12 @@ class TestReadFrameAdapter:
         assert adapter.keys == [ch1.key, ch2.key]
 
     def test_update_with_nonexistent_channel(self, client: sy.Synnax) -> None:
-        """Should raise KeyError when updating with a nonexistent channel name."""
+        """Should raise NotFoundError when updating with a nonexistent channel name."""
         adapter = ReadFrameAdapter(client.channels._retriever)
-        with pytest.raises(KeyError):
+        with pytest.raises(
+            sy.NotFoundError,
+            match=r'channels not found matching \["nonexistent_channel_name_12345"\]',
+        ):
             adapter.update(["nonexistent_channel_name_12345"])
 
     def test_adapt_with_keys_no_conversion(

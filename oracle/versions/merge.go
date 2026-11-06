@@ -564,6 +564,9 @@ func extractLive(source string) (*liveContent, error) {
 				for _, d := range body.AllDomain() {
 					liveOwned(d, name, addType)
 				}
+				for _, ad := range body.AllActionDef() {
+					ex.actionBlocks = append(ex.actionBlocks, text(ad))
+				}
 				ignore := func(string) {}
 				for _, v := range body.AllUnionVariant() {
 					switch uv := v.(type) {
