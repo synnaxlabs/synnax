@@ -83,12 +83,20 @@ func openUpdate(fsys fs.FS) (update, error) {
 }
 
 // sendUpdateManifest sends the release manifest with each platform URL pointing at the
-// host that the request names.
+// host that the request names. An X-Forwarded-Proto header sets the scheme, so a Core
+// behind a TLS proxy names the scheme of the proxy.
 func (c *Console) sendUpdateManifest(ctx fiber.Ctx) error {
 	if len(c.update.files) == 0 {
 		return fiber.ErrNotFound
 	}
-	base := c.scheme + "://" + ctx.Host() + updatePath
+	scheme := c.scheme
+	if proto := ctx.Get(
+		fiber.HeaderXForwardedProto,
+	); proto == "http" ||
+		proto == "https" {
+		scheme = proto
+	}
+	base := scheme + "://" + ctx.Host() + updatePath
 	served := c.update.manifest
 	served.Platforms = make(map[string]platform, len(c.update.manifest.Platforms))
 	for target, p := range c.update.manifest.Platforms {

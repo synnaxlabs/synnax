@@ -98,9 +98,14 @@ var _ = Describe("Update", func() {
 		return MustSucceed(app.Test(req))
 	}
 
-	getManifest := func(app *fiber.App, host string) manifest {
+	getManifest := func(app *fiber.App, host, forwardedProto string) manifest {
 		GinkgoHelper()
-		res := get(app, host, "/console/update/latest.json")
+		req := httptest.NewRequest(http.MethodGet, "/console/update/latest.json", nil)
+		req.Host = host
+		if forwardedProto != "" {
+			req.Header.Set(fiber.HeaderXForwardedProto, forwardedProto)
+		}
+		res := MustSucceed(app.Test(req))
 		Expect(res.StatusCode).To(Equal(http.StatusOK))
 		var served manifest
 		Expect(json.NewDecoder(res.Body).Decode(&served)).To(Succeed())
@@ -109,8 +114,8 @@ var _ = Describe("Update", func() {
 
 	Describe("Manifest", func() {
 		DescribeTable("Should point each platform at the Core that the request names",
-			func(insecure bool, host, base string) {
-				served := getManifest(open(updateFS, insecure), host)
+			func(insecure bool, host, forwardedProto, base string) {
+				served := getManifest(open(updateFS, insecure), host, forwardedProto)
 				urls := make(map[string]string, len(served.Platforms))
 				for target, p := range served.Platforms {
 					urls[target] = p.URL
@@ -127,18 +132,34 @@ var _ = Describe("Update", func() {
 				"over HTTP",
 				true,
 				"192.168.1.20:9090",
+				"",
 				"http://192.168.1.20:9090/console/update/",
 			),
 			Entry(
 				"over HTTPS",
 				false,
 				"synnax.example.com",
+				"",
 				"https://synnax.example.com/console/update/",
+			),
+			Entry(
+				"behind a proxy that ends TLS",
+				true,
+				"synnax.example.com",
+				"https",
+				"https://synnax.example.com/console/update/",
+			),
+			Entry(
+				"with an unknown forwarded scheme",
+				true,
+				"synnax.example.com",
+				"ftp",
+				"http://synnax.example.com/console/update/",
 			),
 		)
 
 		It("Should keep the version, notes, publish date, and signatures", func() {
-			served := getManifest(open(updateFS, false), "synnax.example.com")
+			served := getManifest(open(updateFS, false), "synnax.example.com", "")
 			Expect(served.Version).To(Equal(release.Version))
 			Expect(served.Notes).To(Equal(release.Notes))
 			Expect(served.PubDate).To(Equal(release.PubDate))
@@ -156,7 +177,7 @@ var _ = Describe("Update", func() {
 		})
 
 		It("Should drop a platform whose file the Core does not embed", func() {
-			served := getManifest(open(updateFS, false), "synnax.example.com")
+			served := getManifest(open(updateFS, false), "synnax.example.com", "")
 			Expect(served.Platforms).ToNot(HaveKey("darwin-x86_64"))
 			Expect(served.Platforms).To(HaveLen(len(release.Platforms) - 1))
 		})
