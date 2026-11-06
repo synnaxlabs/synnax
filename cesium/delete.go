@@ -219,8 +219,7 @@ func (db *DB) removeChannel(ch ChannelKey) error {
 // of them indexes. New opens on those channels wait until the caller runs the returned
 // function, which also unlocks db.mu. lockForDelete waits for an open with db.mu
 // unlocked, so a blocked open stops only the caller, and returns ctx's error if ctx
-// ends
-// first.
+// ends first.
 func (db *DB) lockForDelete(
 	ctx context.Context,
 	chs []ChannelKey,

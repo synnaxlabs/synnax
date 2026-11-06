@@ -166,7 +166,7 @@ var _ = Describe("Writer open", func() {
 				deleted <- db.DeleteTimeRange(
 					ctx,
 					[]cesium.ChannelKey{idxKey},
-					telem.TimeRangeMax,
+					(10 * telem.SecondTS).Range(20*telem.SecondTS),
 				)
 			}()
 			Consistently(deleted, 200*time.Millisecond).ShouldNot(Receive())
@@ -177,10 +177,7 @@ var _ = Describe("Writer open", func() {
 				DataType: telem.TimestampT,
 			})).To(Succeed())
 			gate.open()
-			Eventually(deleted, stallTimeout).Should(Receive(SatisfyAny(
-				Succeed(),
-				MatchError(control.ErrUnauthorized),
-			)))
+			Eventually(deleted, stallTimeout).Should(Receive(Succeed()))
 		})
 
 		It("Should report control states", func() {
