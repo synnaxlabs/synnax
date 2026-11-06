@@ -551,7 +551,57 @@ TEST_F(TaskManagerTest, Command) {
     auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
         return s.details.cmd == "cmd1";
     });
+    EXPECT_EQ(s.variant, synnax::status::VARIANT_SUCCESS);
     ASSERT_EQ((s.details.data.value())["msg"], "hi");
+}
+
+/// @brief a start should be acknowledged with a loading status before the task
+/// configures, so a client knows that the Driver has the command.
+TEST_F(TaskManagerTest, StartIsAcknowledgedBeforeConfigure) {
+    auto factory = std::make_unique<TimeoutTaskFactory>();
+    auto *f = factory.get();
+    start_manager(std::move(factory));
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task);
+    auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.details.cmd == "start-cmd";
+    });
+    f->release_all();
+    EXPECT_EQ(s.variant, synnax::status::VARIANT_LOADING);
+    EXPECT_EQ(s.message, "Starting task");
+    EXPECT_EQ(s.name, task.name);
+    EXPECT_TRUE(s.details.running);
+    EXPECT_EQ(s.details.config_hash, task.config_hash);
+    EXPECT_EQ(s.details.rack, rack.key);
+}
+
+/// @brief a start of a live task should be acknowledged before the task answers it.
+TEST_F(TaskManagerTest, StartOfLiveTaskIsAcknowledgedFirst) {
+    start_manager(std::make_unique<EchoTaskFactory>());
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task, "s1");
+    WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.details.cmd == "s1" && s.variant == synnax::status::VARIANT_SUCCESS;
+    });
+    send_start(client, task, "s2");
+    auto ack = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.details.cmd == "s2";
+    });
+    EXPECT_EQ(ack.variant, synnax::status::VARIANT_LOADING);
+    EXPECT_EQ(ack.message, "Starting task");
+    WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.details.cmd == "s2" && s.variant == synnax::status::VARIANT_SUCCESS;
+    });
 }
 
 TEST_F(TaskManagerTest, IgnoresForeignRack) {
@@ -935,7 +985,7 @@ TEST_F(TaskManagerTest, PinnedStartWithStaleHashKeepsRunningStatus) {
     ASSERT_NIL(rack.tasks.create(task));
     send_start(client, task, "s1");
     WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
-        return s.details.cmd == "s1" && s.details.running;
+        return s.details.cmd == "s1" && s.variant == synnax::status::VARIANT_SUCCESS;
     });
     const auto deployed_hash = task.config_hash;
 

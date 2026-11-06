@@ -523,6 +523,7 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
         case Op::Type::DEPLOY: {
             this->statuses->claim(op.task_key);
             auto tsk = op.task;
+            bool live = false;
             // An op without the task body needs the fetch, done here to keep
             // the streamer loop off the network.
             if (tsk.key.is_nil()) {
@@ -590,14 +591,16 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                 // The fetch is authoritative: a live instance already built
                 // from this revision only needs the command executed, not a
                 // rebuild.
-                if (!deployed.empty() && deployed == tsk.config_hash &&
-                    entry->instance != nullptr) {
-                    auto cmd = op.cmd;
-                    LOG(INFO) << "executing command " << cmd << " on task "
-                              << entry->instance->name();
-                    entry->instance->exec(cmd);
-                    break;
-                }
+                live = !deployed.empty() && deployed == tsk.config_hash &&
+                       entry->instance != nullptr;
+            }
+            this->acknowledge_start(op, entry);
+            if (live) {
+                auto cmd = op.cmd;
+                LOG(INFO) << "executing command " << cmd << " on task "
+                          << entry->instance->name();
+                entry->instance->exec(cmd);
+                break;
             }
             if (entry->instance != nullptr) {
                 entry->instance->stop(true);
@@ -650,6 +653,7 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                 LOG(WARNING) << "no task for command " << op.task_key;
                 return;
             }
+            this->acknowledge_start(op, entry);
             auto cmd = op.cmd;
             LOG(INFO) << "executing command " << cmd << " on task "
                       << entry->instance->name();
@@ -693,6 +697,25 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
             break;
         }
     }
+}
+
+void Manager::acknowledge_start(const Op &op, const std::shared_ptr<Entry> &entry) {
+    if (op.cmd.type != synnax::task::START_CMD_TYPE) return;
+    synnax::task::Status status;
+    status.key = synnax::task::ontology_id(op.task_key).string();
+    status.variant = synnax::status::VARIANT_LOADING;
+    status.message = "Starting task";
+    status.details.task = op.task_key;
+    status.details.cmd = op.cmd.key;
+    // The Core marks only running tasks when their Driver goes down, and a start that
+    // dies with the Driver must not stay loading.
+    status.details.running = true;
+    {
+        std::lock_guard entry_lock{entry->mu};
+        status.name = entry->row.name;
+        status.details.config_hash = entry->op_config_hash;
+    }
+    this->ctx->set_status(status);
 }
 
 void Manager::refuse_pinned_start(
