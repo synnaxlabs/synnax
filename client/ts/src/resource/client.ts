@@ -91,9 +91,7 @@ export interface ClientConfig {
 export class Client {
   private readonly client: UnaryClient;
   private readonly table: query.Table<string, Resource>;
-  private readonly searches: query.Retrieves<Search, Resource[]>;
-  /** The types of each subscribed search. Undefined covers every type. */
-  private readonly subscribed = new Map<symbol, Type[] | undefined>();
+  private readonly searches: query.Space<Search, Resource[], string, Resource>;
 
   constructor({ unary, cache, channels }: ClientConfig) {
     this.client = unary;
@@ -138,14 +136,7 @@ export class Client {
     params: SearchParams,
     handler: query.ChangeHandler<Resource[]>,
   ): destructor.Destructor {
-    const q = normalize(params);
-    const token = Symbol("search");
-    this.subscribed.set(token, q.types);
-    const off = this.searches.onChange(q, handler);
-    return () => {
-      off();
-      this.subscribed.delete(token);
-    };
+    return this.searches.onChange(normalize(params), handler);
   }
 
   /**
@@ -172,14 +163,14 @@ export class Client {
       bind: (table): query.Listener<typeof keyedZ> => ({
         channel: set,
         schema: keyedZ,
-        // A set re-reads names only while a subscribed search covers the type, so
-        // frequent writes cost nothing when no search is open.
+        // The caller may not be able to read a record that the table does not hold,
+        // so the searches that cover its type refetch instead of reading it.
         onChange: async (changed) => {
-          if (!this.covers(type)) return;
-          await table.retrieve(
-            changed.map(({ key }) => toKey(key)),
-            { refresh: true },
-          );
+          const keys = changed.map(({ key }) => toKey(key));
+          const held = keys.filter((k) => table.has(k));
+          if (held.length < keys.length)
+            this.searches.refetchMatching((q) => q.types?.includes(type) ?? true);
+          if (held.length > 0) await table.retrieve(held, { refresh: true });
         },
       }),
     };
@@ -189,12 +180,6 @@ export class Client {
         key: toKey,
       }),
     ];
-  }
-
-  private covers(type: Type): boolean {
-    for (const types of this.subscribed.values())
-      if (types == null || types.includes(type)) return true;
-    return false;
   }
 
   private async execSearch(q: Search): Promise<Resource[]> {

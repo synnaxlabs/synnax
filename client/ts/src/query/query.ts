@@ -437,6 +437,18 @@ export class Space<
   }
 
   /**
+   * Refetches each maintained answer whose params satisfy the predicate. An answer with
+   * no subscriber refetches on its next read or subscribe instead.
+   */
+  refetchMatching(predicate: (params: P) => boolean): void {
+    this.queries.forEach((query) => {
+      if (query.teardown == null || !predicate(query.params)) return;
+      if (query.handlers.size === 0) query.stale = true;
+      else this.scheduleRefetch(query);
+    });
+  }
+
+  /**
    * Resets every answer to unfetched and notifies subscribers that their answer was
    * invalidated, so the next read refetches. Maintenance subscriptions stay mounted.
    * Called by the cache when the cluster behind the connection is replaced.

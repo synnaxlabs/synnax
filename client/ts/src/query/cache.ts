@@ -20,7 +20,7 @@ import type z from "zod";
 import { AccessDeniedError, isConnectionError } from "@/errors";
 import { type framer } from "@/framer";
 import { bindDerived, type DeriveParams } from "@/query/derived";
-import { type Retrieves, Space, type SpaceConfig } from "@/query/query";
+import { Space, type SpaceConfig } from "@/query/query";
 import { createStreamer, type Listener, type Streamer } from "@/query/streamer";
 import { type Keyed, type ListenerSpec, Table, type TableParams } from "@/query/table";
 import { type Data, type Params } from "@/query/types";
@@ -185,7 +185,7 @@ export class Cache {
     D extends Data,
     K extends record.Key = record.Key,
     V extends state.State = state.State,
-  >(config: SpaceConfig<Q, D, K, V>): Retrieves<Q, D> {
+  >(config: SpaceConfig<Q, D, K, V>): Space<Q, D, K, V> {
     const space = new Space(config, {
       ensureStreaming: async () => await this.ensureStreaming(),
       onEpoch: (callback) => this.onEpoch(callback),

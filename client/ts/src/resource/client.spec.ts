@@ -139,6 +139,41 @@ describe("Resource", () => {
         .toEqual(`${token} renamed`);
     });
 
+    // Two seconds stays inside the five second grace window after an unsubscribe.
+    const GRACE_POLL = { timeout: 2_000 };
+
+    const subscribeThenLeave = async (params: resource.SearchParams): Promise<void> => {
+      const off = client.resources.onChange(params, () => {});
+      await client.resources.search(params);
+      off();
+    };
+
+    it("should show a rename made after the last unsubscribe", async () => {
+      const token = randomToken();
+      const proj = await client.projects.create({ name: randomToken() });
+      const plot = await client.lineplots.create({ project: proj.key, name: token });
+      await awaitIndexed(token, 1);
+      const params: resource.SearchParams = { searchTerm: token, types: ["lineplot"] };
+      await subscribeThenLeave(params);
+      await client.lineplots.rename(plot.key, `${token} renamed`);
+      await expect
+        .poll(async () => (await client.resources.search(params))[0]?.name, GRACE_POLL)
+        .toEqual(`${token} renamed`);
+    });
+
+    it("should show a resource created after the last unsubscribe", async () => {
+      const token = randomToken();
+      const params: resource.SearchParams = { searchTerm: token, types: ["label"] };
+      await subscribeThenLeave(params);
+      const l = await createLabel(token);
+      await expect
+        .poll(
+          async () => (await client.resources.search(params)).map((r) => r.id),
+          GRACE_POLL,
+        )
+        .toEqual([l]);
+    });
+
     it("should drop a deleted resource from a subscribed search", async () => {
       const token = randomToken();
       const proj = await client.projects.create({ name: randomToken() });

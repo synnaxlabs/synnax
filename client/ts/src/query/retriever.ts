@@ -171,7 +171,12 @@ export abstract class Retriever<
       serverFields = DEFAULT_SERVER_FIELDS,
       watch,
     } = request;
-    this.requestSpace = cache.queries<z.output<Z>, D[], K, V>({
+    const requestSpace: Retrieves<z.output<Z>, D[]> = cache.queries<
+      z.output<Z>,
+      D[],
+      K,
+      V
+    >({
       name,
       table,
       fetch: async (query, options) => {
@@ -187,7 +192,8 @@ export abstract class Retriever<
       matches,
       serverFields,
       watch,
-    }) as Retrieves<Params, D | D[]>;
+    });
+    this.requestSpace = requestSpace as Retrieves<Params, D | D[]>;
     this.normalizeRequest = (p) => zod.parse(schema, p, { label: `${name} query` });
     if (single != null) {
       this.singleSpace = single.space as Retrieves<Params, D | D[]>;
@@ -215,7 +221,7 @@ export abstract class Retriever<
     } else {
       // The default path binds SingleQuery = K: `{ key }` params resolve through the
       // table's fetch. The casts are the one seam the defaults can't prove.
-      this.singleSpace = cache.queries<K, D, K, V>({
+      const singleSpace: Retrieves<K, D> = cache.queries<K, D, K, V>({
         name,
         table,
         fetch: async (key) => {
@@ -227,7 +233,8 @@ export abstract class Retriever<
         compose: (records, q) => compose(records[0], q),
         keyOf: (query) => query,
         single: true,
-      }) as Retrieves<Params, D | D[]>;
+      });
+      this.singleSpace = singleSpace as Retrieves<Params, D | D[]>;
       this.trySingle = (p) => {
         if (isBareKey(p)) return { query: p as Params as SingleQuery };
         return typeof p === "object" && p !== null && "key" in p

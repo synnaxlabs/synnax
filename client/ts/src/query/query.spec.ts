@@ -794,6 +794,62 @@ describe("Answers", () => {
     });
   });
 
+  describe("refetchMatching", () => {
+    type SearchQ = { searchTerm: string };
+    const searchSpace = (
+      table: query.Table<string, Rec>,
+      fetch: (query: SearchQ) => Promise<string[]>,
+    ) =>
+      new Space<SearchQ, Rec[], string, Rec>(
+        {
+          name: "things",
+          table,
+          fetch,
+          compose: (records) => records,
+          serverFields: ["searchTerm"],
+        },
+        { teardownGrace: TimeSpan.seconds(5) },
+      );
+
+    it("refetches only the subscribed answers that match", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async (_: SearchQ): Promise<string[]> => []);
+      const answers = searchSpace(table, fetch);
+      answers.onChange({ searchTerm: "x" }, vi.fn());
+      answers.onChange({ searchTerm: "y" }, vi.fn());
+      await answers.retrieve({ searchTerm: "x" });
+      await answers.retrieve({ searchTerm: "y" });
+      answers.refetchMatching((q) => q.searchTerm === "x");
+      await expect.poll(() => fetch.mock.calls.length).toBe(3);
+      await wait(150);
+      expect(fetch.mock.calls.map(([q]) => q.searchTerm)).toEqual(["x", "y", "x"]);
+    });
+
+    it("refetches an idle answer on its next read", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => []);
+      const answers = searchSpace(table, fetch);
+      const off = answers.onChange({ searchTerm: "x" }, vi.fn());
+      await answers.retrieve({ searchTerm: "x" });
+      off();
+      answers.refetchMatching(() => true);
+      await wait(150);
+      expect(fetch).toHaveBeenCalledTimes(1);
+      await answers.retrieve({ searchTerm: "x" });
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
+    it("leaves an answer that nothing maintains alone", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => []);
+      const answers = searchSpace(table, fetch);
+      await answers.retrieve({ searchTerm: "x" });
+      answers.refetchMatching(() => true);
+      await wait(150);
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe("entry coverage (covers)", () => {
     const coveringSpace = (
       table: query.Table<string, Rec>,
