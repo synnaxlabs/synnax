@@ -67,7 +67,8 @@ export type SetChannelEntryPayload = z.infer<typeof setChannelEntryPayloadZ>;
 
 /**
  * SetChannelColor sets the display color of the entry identified by channel. The zero
- * color resets it to the theme text color. No-op when no entry references the channel.
+ * color resets it to the text color of the log. No-op when no entry references the
+ * channel.
  */
 export const setChannelColorPayloadZ = z.object({
   channel: channel.keyZ,
@@ -112,29 +113,29 @@ export const setChannelAliasPayloadZ = z.object({
 export type SetChannelAliasPayload = z.infer<typeof setChannelAliasPayloadZ>;
 
 /**
- * SetChannelValueFormat sets the format of the values of the timestamp channel
+ * SetChannelTimestampFormat sets the format of the values of the timestamp channel
  * identified by channel. No-op when no entry references the channel.
  */
-export const setChannelValueFormatPayloadZ = z.object({
+export const setChannelTimestampFormatPayloadZ = z.object({
   channel: channel.keyZ,
   format: telem.timestampFormatZ,
 });
 
-export type SetChannelValueFormatPayload = z.infer<
-  typeof setChannelValueFormatPayloadZ
+export type SetChannelTimestampFormatPayload = z.infer<
+  typeof setChannelTimestampFormatPayloadZ
 >;
 
 /**
- * SetChannelValueTimeZone sets the time zone of the values of the timestamp channel
+ * SetChannelTimestampTimeZone sets the time zone of the values of the timestamp channel
  * identified by channel. No-op when no entry references the channel.
  */
-export const setChannelValueTimeZonePayloadZ = z.object({
+export const setChannelTimestampTimeZonePayloadZ = z.object({
   channel: channel.keyZ,
   timeZone: telem.timeZoneZ,
 });
 
-export type SetChannelValueTimeZonePayload = z.infer<
-  typeof setChannelValueTimeZonePayloadZ
+export type SetChannelTimestampTimeZonePayload = z.infer<
+  typeof setChannelTimestampTimeZonePayloadZ
 >;
 
 /**
@@ -192,12 +193,12 @@ export type Action =
   | { type: "set_channel_precision"; setChannelPrecision: SetChannelPrecisionPayload }
   | { type: "set_channel_alias"; setChannelAlias: SetChannelAliasPayload }
   | {
-      type: "set_channel_value_format";
-      setChannelValueFormat: SetChannelValueFormatPayload;
+      type: "set_channel_timestamp_format";
+      setChannelTimestampFormat: SetChannelTimestampFormatPayload;
     }
   | {
-      type: "set_channel_value_time_zone";
-      setChannelValueTimeZone: SetChannelValueTimeZonePayload;
+      type: "set_channel_timestamp_time_zone";
+      setChannelTimestampTimeZone: SetChannelTimestampTimeZonePayload;
     }
   | { type: "swap_channel"; swapChannel: SwapChannelPayload }
   | {
@@ -237,12 +238,12 @@ export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
     setChannelAlias: setChannelAliasPayloadZ,
   }),
   z.object({
-    type: z.literal("set_channel_value_format"),
-    setChannelValueFormat: setChannelValueFormatPayloadZ,
+    type: z.literal("set_channel_timestamp_format"),
+    setChannelTimestampFormat: setChannelTimestampFormatPayloadZ,
   }),
   z.object({
-    type: z.literal("set_channel_value_time_zone"),
-    setChannelValueTimeZone: setChannelValueTimeZonePayloadZ,
+    type: z.literal("set_channel_timestamp_time_zone"),
+    setChannelTimestampTimeZone: setChannelTimestampTimeZonePayloadZ,
   }),
   z.object({ type: z.literal("swap_channel"), swapChannel: swapChannelPayloadZ }),
   z.object({
@@ -335,21 +336,21 @@ export const setChannelAlias = (
   }),
 });
 
-export const setChannelValueFormat = (
-  payload: z.input<typeof setChannelValueFormatPayloadZ>,
+export const setChannelTimestampFormat = (
+  payload: z.input<typeof setChannelTimestampFormatPayloadZ>,
 ): Action => ({
-  type: "set_channel_value_format",
-  setChannelValueFormat: zod.parse(setChannelValueFormatPayloadZ, payload, {
-    label: "log set_channel_value_format action payload",
+  type: "set_channel_timestamp_format",
+  setChannelTimestampFormat: zod.parse(setChannelTimestampFormatPayloadZ, payload, {
+    label: "log set_channel_timestamp_format action payload",
   }),
 });
 
-export const setChannelValueTimeZone = (
-  payload: z.input<typeof setChannelValueTimeZonePayloadZ>,
+export const setChannelTimestampTimeZone = (
+  payload: z.input<typeof setChannelTimestampTimeZonePayloadZ>,
 ): Action => ({
-  type: "set_channel_value_time_zone",
-  setChannelValueTimeZone: zod.parse(setChannelValueTimeZonePayloadZ, payload, {
-    label: "log set_channel_value_time_zone action payload",
+  type: "set_channel_timestamp_time_zone",
+  setChannelTimestampTimeZone: zod.parse(setChannelTimestampTimeZonePayloadZ, payload, {
+    label: "log set_channel_timestamp_time_zone action payload",
   }),
 });
 
@@ -423,13 +424,13 @@ export interface Handlers {
     state: Draft<Log>,
     payload: SetChannelAliasPayload,
   ) => HandlerResult;
-  setChannelValueFormat: (
+  setChannelTimestampFormat: (
     state: Draft<Log>,
-    payload: SetChannelValueFormatPayload,
+    payload: SetChannelTimestampFormatPayload,
   ) => HandlerResult;
-  setChannelValueTimeZone: (
+  setChannelTimestampTimeZone: (
     state: Draft<Log>,
-    payload: SetChannelValueTimeZonePayload,
+    payload: SetChannelTimestampTimeZonePayload,
   ) => HandlerResult;
   swapChannel: (state: Draft<Log>, payload: SwapChannelPayload) => HandlerResult;
   setTimestampPrecision: (
@@ -468,10 +469,16 @@ export const createReduceAll = (handlers: Handlers) =>
         return handlers.setChannelPrecision(state, action.setChannelPrecision);
       case "set_channel_alias":
         return handlers.setChannelAlias(state, action.setChannelAlias);
-      case "set_channel_value_format":
-        return handlers.setChannelValueFormat(state, action.setChannelValueFormat);
-      case "set_channel_value_time_zone":
-        return handlers.setChannelValueTimeZone(state, action.setChannelValueTimeZone);
+      case "set_channel_timestamp_format":
+        return handlers.setChannelTimestampFormat(
+          state,
+          action.setChannelTimestampFormat,
+        );
+      case "set_channel_timestamp_time_zone":
+        return handlers.setChannelTimestampTimeZone(
+          state,
+          action.setChannelTimestampTimeZone,
+        );
       case "swap_channel":
         return handlers.swapChannel(state, action.swapChannel);
       case "set_timestamp_precision":

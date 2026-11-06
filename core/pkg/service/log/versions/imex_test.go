@@ -57,8 +57,8 @@ var _ = Describe("DecodeImExEnvelope", func() {
 
 	It("Should map the tz of a v2 envelope to time_zone", func(ctx SpecContext) {
 		l := decode(ctx, "testdata/import_v2.json")
-		Expect(l.Channels[0].ValueFormat.TimeZone).To(Equal(telem.TimeZoneUTC))
-		Expect(l.Channels[1].ValueFormat.TimeZone).To(Equal(telem.TimeZoneLocal))
+		Expect(l.Channels[0].TimestampConfig.TimeZone).To(Equal(telem.TimeZoneUTC))
+		Expect(l.Channels[1].TimestampConfig.TimeZone).To(Equal(telem.TimeZoneLocal))
 	})
 
 	It("Should decode a v3 envelope", func(ctx SpecContext) {

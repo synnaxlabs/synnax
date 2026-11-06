@@ -34,31 +34,33 @@ TimestampConfig struct {
 }
 
 ChannelEntry struct {
-    channel      channel.Key       {
+    channel          channel.Key       {
         @doc value         "is the channel this entry references."
         @validate required
     }
-    color        color.Color       {
+    color            color.Color       {
         @doc value "is the display color for the channel."
     }
-    notation     notation.Notation = "standard" {
+    notation         notation.Notation = "standard" {
         @doc value "is the numeric notation used to render samples."
     }
-    precision    uint8?            {
+    precision        uint8?            {
         @doc value    """
             is the number of digits after the decimal point, from 0 to 17. Absent shows
             each sample as it arrives.
         """
         @validate max 17
     }
-    alias        string = "" {
+    alias            string = "" {
         @doc value           """
             is a human-readable alias displayed in place of the channel name.
         """
         @validate max_length 64
     }
-    value_format TimestampConfig = { format = "preciseDate", time_zone = "local" } {
-        @doc value "is the format of the values of a timestamp channel."
+    timestamp_config TimestampConfig = { format = "preciseDate", time_zone = "local" } {
+        @doc value """
+            formats the values of a timestamp channel. It has no effect on line times.
+        """
     }
 
     @doc value  "is a per-channel display configuration entry within a log."
@@ -142,7 +144,7 @@ Log struct {
 
         @doc value """
             sets the display color of the entry identified by channel. The zero color
-            resets it to the theme text color. No-op when no entry references the
+            resets it to the text color of the log. No-op when no entry references the
             channel.
         """
     }
@@ -179,7 +181,7 @@ Log struct {
         """
     }
 
-    action SetChannelValueFormat {
+    action SetChannelTimestampFormat {
         channel channel.Key
         format  telem.TimestampFormat
 
@@ -189,7 +191,7 @@ Log struct {
         """
     }
 
-    action SetChannelValueTimeZone {
+    action SetChannelTimestampTimeZone {
         channel   channel.Key
         time_zone telem.TimeZone
 
