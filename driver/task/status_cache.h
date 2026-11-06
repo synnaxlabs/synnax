@@ -47,6 +47,8 @@ class StatusCache {
     /// absent. Returns null for a released task.
     std::shared_ptr<Entry> entry_for(const synnax::task::Status &status);
 
+    x::errors::Error write(synnax::task::Status &status);
+
 public:
     explicit StatusCache(synnax::status::Client client);
 
@@ -60,10 +62,11 @@ public:
     /// the latest status, so a failed write is repaired too. Writes one task at a time,
     /// so a task waits on at most one re-send write.
     /// @returns the first error of the writes. An error does not stop the writes of the
-    /// other tasks.
+    /// other tasks, and leaves the cache stale.
     [[nodiscard]] x::errors::Error resend();
 
-    /// @brief returns true when a write failed and no re-send has started since.
+    /// @brief returns true when a write failed, a re-send included, and no re-send has
+    /// started since.
     [[nodiscard]] bool stale() const { return this->stale_; }
 
     /// @brief returns the latest status of the task, with no command key, or nullopt

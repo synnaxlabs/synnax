@@ -7,8 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
+#include <atomic>
+#include <chrono>
 #include <future>
+#include <mutex>
+#include <string>
+#include <thread>
+#include <vector>
 
+#include "absl/base/log_severity.h"
+#include "absl/log/log_entry.h"
+#include "absl/log/log_sink.h"
+#include "absl/log/log_sink_registry.h"
 #include "gtest/gtest.h"
 
 #include "x/cpp/defer/defer.h"
@@ -90,6 +101,88 @@ public:
         this->stopping = true;
         this->released.wait();
         return this->inner->stop();
+    }
+};
+
+/// @brief a source that returns each result in order, then repeats the last one.
+class ScriptedSource final : public Source {
+    const std::vector<ReadResult> script;
+
+public:
+    std::atomic<size_t> reads = 0;
+
+    explicit ScriptedSource(std::vector<ReadResult> script):
+        script(std::move(script)) {}
+
+    [[nodiscard]] synnax::framer::WriterConfig writer_config() const override {
+        return synnax::framer::WriterConfig();
+    }
+
+    [[nodiscard]] std::vector<synnax::channel::Channel> channels() const override {
+        return {};
+    }
+
+    ReadResult read(x::breaker::Breaker &breaker, x::telem::Frame &data) override {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        const auto i = std::min(this->reads.load(), this->script.size() - 1);
+        this->reads++;
+        return this->script[i];
+    }
+};
+
+/// @brief captures the text of every warning line while in scope.
+class WarningSink final : public absl::LogSink {
+    std::mutex mu;
+    std::vector<std::string> lines;
+
+public:
+    WarningSink() { absl::AddLogSink(this); }
+
+    ~WarningSink() override { absl::RemoveLogSink(this); }
+
+    void Send(const absl::LogEntry &entry) override {
+        if (entry.log_severity() != absl::LogSeverity::kWarning) return;
+        std::lock_guard lock(this->mu);
+        this->lines.emplace_back(entry.text_message());
+    }
+
+    /// @brief returns the number of captured lines that contain text.
+    size_t count(const std::string &text) {
+        std::lock_guard lock(this->mu);
+        return std::ranges::count_if(this->lines, [&](const std::string &line) {
+            return line.contains(text);
+        });
+    }
+};
+
+const Warning FIRST_WARNING{.message = "Bad read", .description = "first warning"};
+const Warning SECOND_WARNING{.message = "Bad read", .description = "second warning"};
+
+/// @brief a read task that runs a scripted source.
+struct ScriptedRead {
+    ScriptedSource *source;
+    std::unique_ptr<ReadTask> task;
+
+    explicit ScriptedRead(std::vector<ReadResult> script) {
+        auto scripted = std::make_unique<ScriptedSource>(std::move(script));
+        this->source = scripted.get();
+        auto breaker_config = x::breaker::default_config("cat");
+        breaker_config.base_interval = 10 * x::telem::MILLISECOND;
+        this->task = std::make_unique<ReadTask>(
+            synnax::task::Task{.key = x::uuid::create()},
+            std::make_shared<task::MockContext>(nullptr),
+            breaker_config,
+            std::move(scripted),
+            std::make_shared<pipeline::testutil::WriterFactory>()
+        );
+    }
+
+    /// @brief starts the task, waits for the given number of reads, and stops it.
+    void run(const size_t reads) const {
+        const auto target = this->source->reads.load() + reads;
+        this->task->start("start_cmd");
+        ASSERT_EVENTUALLY_GE(this->source->reads.load(), target);
+        this->task->stop("stop_cmd", true);
     }
 };
 
@@ -667,6 +760,53 @@ TEST(TestCommonReadTask, testRemovalSendsNoQueuedStatus) {
 }
 
 /// @brief it should parse valid base read task configuration.
+/// @brief it should log a warning that repeats only once.
+TEST(TestCommonReadTask, testRepeatedWarningLogsOnce) {
+    WarningSink sink;
+    ScriptedRead({{.warning = FIRST_WARNING}}).run(5);
+    EXPECT_EQ(sink.count(FIRST_WARNING.description), 1);
+}
+
+/// @brief it should log a warning again when its description changes.
+TEST(TestCommonReadTask, testChangedWarningLogs) {
+    WarningSink sink;
+    ScriptedRead(
+        {{.warning = FIRST_WARNING},
+         {.warning = SECOND_WARNING},
+         {.warning = FIRST_WARNING}}
+    ).run(5);
+    EXPECT_EQ(sink.count(FIRST_WARNING.description), 2);
+    EXPECT_EQ(sink.count(SECOND_WARNING.description), 1);
+}
+
+/// @brief it should log a warning again when it returns after a clean read.
+TEST(TestCommonReadTask, testWarningLogsAfterRecovery) {
+    WarningSink sink;
+    ScriptedRead({{.warning = FIRST_WARNING}, {}, {.warning = FIRST_WARNING}}).run(5);
+    EXPECT_EQ(sink.count(FIRST_WARNING.description), 2);
+}
+
+/// @brief it should log a warning again when it returns after a temporary error.
+TEST(TestCommonReadTask, testWarningLogsAfterTemporaryError) {
+    WarningSink sink;
+    ScriptedRead(
+        {{.warning = FIRST_WARNING},
+         {.error = errors::TEMPORARY_HARDWARE_ERROR},
+         {.warning = FIRST_WARNING}}
+    ).run(5);
+    EXPECT_EQ(sink.count(FIRST_WARNING.description), 2);
+}
+
+/// @brief it should log a warning once in each run.
+TEST(TestCommonReadTask, testWarningLogsOnceEachRun) {
+    WarningSink sink;
+    const ScriptedRead read({{.warning = FIRST_WARNING}});
+    read.run(3);
+    EXPECT_EQ(sink.count(FIRST_WARNING.description), 1);
+    read.run(3);
+    EXPECT_EQ(sink.count(FIRST_WARNING.description), 2);
+}
+
 TEST(BaseReadTaskConfigTest, testValidConfig) {
     const x::json::json j{
         {"data_saving_disabled", true},

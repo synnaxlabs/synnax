@@ -189,6 +189,28 @@ TEST(StatusCacheTest, FailedWriteIsStaleUntilResend) {
     EXPECT_EQ(transport->sent().size(), 2);
 }
 
+/// @brief it should stay stale after a failed re-send, until a re-send succeeds.
+TEST(StatusCacheTest, FailedResendStaysStale) {
+    const auto task = synnax::task::Task{.key = x::uuid::create(), .name = "lost"};
+    const auto transport = std::make_shared<HoldingSetClient>(
+        synnax::task::status_key(task)
+    );
+    StatusCache cache(synnax::status::Client(nullptr, transport, nullptr, nullptr));
+    synnax::task::Status status{
+        .key = synnax::task::status_key(task),
+        .variant = synnax::status::VARIANT_WARNING,
+        .details = {.task = task.key},
+    };
+    transport->release(freighter::UNREACHABLE);
+    ASSERT_OCCURRED_AS(cache.set(status), freighter::UNREACHABLE);
+    transport->release(freighter::UNREACHABLE);
+    ASSERT_OCCURRED_AS(cache.resend(), freighter::UNREACHABLE);
+    EXPECT_TRUE(cache.stale());
+    ASSERT_NIL(cache.resend());
+    EXPECT_FALSE(cache.stale());
+    EXPECT_EQ(transport->sent().size(), 3);
+}
+
 /// @brief it should write the status of a task while the re-send of another task's
 /// status hangs.
 TEST(StatusCacheTest, WriteDoesNotWaitOnResendOfAnotherTask) {

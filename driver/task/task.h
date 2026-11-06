@@ -101,7 +101,8 @@ public:
     /// @returns the first error of the writes. Call it again on error.
     [[nodiscard]] virtual x::errors::Error resend_statuses() = 0;
 
-    /// @brief returns true when a status write failed and no re-send has started since.
+    /// @brief returns true when a status write failed, a re-send included, and no
+    /// re-send has started since.
     [[nodiscard]] virtual bool statuses_stale() = 0;
 };
 

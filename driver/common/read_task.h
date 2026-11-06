@@ -135,6 +135,9 @@ class ReadTask final : public driver::task::Task {
         InternalSource(ReadTask &p, std::unique_ptr<common::Source> internal):
             p(p), internal(std::move(internal)) {}
 
+        /// @brief forgets the logged warning, so the next run logs it again.
+        void reset() { this->logged_warning.clear(); }
+
         void stopped_with_err(const x::errors::Error &err) override {
             this->p.state.error(err, "Failed to read data");
             this->p.stop("", true);
@@ -153,6 +156,7 @@ class ReadTask final : public driver::task::Task {
             // 2. We have a critical error, in which case we return it directly.
             // 3. We have a warning, in which case we communicate it and return nil.
             if (err) {
+                this->logged_warning.clear();
                 if (err.matches(errors::TEMPORARY_HARDWARE_ERROR)) {
                     auto description = err.data;
                     if (const auto retry = breaker.next_retry(); !retry.empty()) {
@@ -266,6 +270,7 @@ public:
             return false;
         }
         this->state.reset();
+        this->source->reset();
         const auto start_ok = !this->state.error(
             this->source->internal->start(),
             "Failed to start task"
