@@ -31,11 +31,11 @@ class TimestampConfig(BaseModel):
 
     Attributes:
         format: Is the format of the values of a timestamp channel.
-        tz: Is the time zone of the values of a timestamp channel.
+        time_zone: Is the time zone of the values of a timestamp channel.
     """
 
     format: telem.TimestampFormat
-    tz: telem.TimeZone
+    time_zone: telem.TimeZone
 
 
 class Where(BaseModel):
@@ -75,7 +75,7 @@ class ChannelEntry(BaseModel):
     precision: int | None = Field(default=None, ge=0, le=17)
     alias: str = Field(max_length=64, default="")
     value_format: TimestampConfig = Field(
-        default_factory=lambda: TimestampConfig(format="preciseDate", tz="local")
+        default_factory=lambda: TimestampConfig(format="preciseDate", time_zone="local")
     )
 
 
@@ -108,7 +108,7 @@ class Log(BaseModel):
         timestamp_precision: Is the precision of displayed timestamps (0-3).
         channel_names_hidden: Is true when channel names are hidden.
         timestamps_hidden: Is true when entry timestamps are hidden.
-        tz: Is the time zone of the line times and day rows of the log.
+        time_zone: Is the time zone of the line times and day rows of the log.
     """
 
     key: Key = Field(default_factory=uuid4)
@@ -117,7 +117,7 @@ class Log(BaseModel):
     timestamp_precision: int = Field(default=0, ge=0, le=3)
     channel_names_hidden: bool = False
     timestamps_hidden: bool = False
-    tz: telem.TimeZone = "local"
+    time_zone: telem.TimeZone = "local"
 
     @_override
     def __hash__(self) -> int:

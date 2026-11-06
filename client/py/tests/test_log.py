@@ -27,7 +27,7 @@ class TestLog:
         assert entry.precision is None
         assert entry.notation == "standard"
         assert entry.value_format == log.TimestampConfig(
-            format="preciseDate", tz="local"
+            format="preciseDate", time_zone="local"
         )
         assert log.Log.model_validate_json(lg.model_dump_json()) == lg
 
@@ -87,7 +87,7 @@ class TestClient:
             channel=virtual_channel.key,
             color=sy.Color("#FF0000"),
             alias="pressure",
-            value_format=sy.log.TimestampConfig(format="ISO", tz="UTC"),
+            value_format=sy.log.TimestampConfig(format="ISO", time_zone="UTC"),
         )
         log = client.logs.create(
             project.key,
@@ -107,7 +107,9 @@ class TestClient:
         entry = sy.log.ChannelEntry(channel=virtual_channel.key, color=sy.Color())
         log = client.logs.create(project.key, sy.Log(name="Default", channels=[entry]))
         value_format = client.logs.retrieve(key=log.key).channels[0].value_format
-        assert value_format == sy.log.TimestampConfig(format="preciseDate", tz="local")
+        assert value_format == sy.log.TimestampConfig(
+            format="preciseDate", time_zone="local"
+        )
 
     def test_retrieve_by_key(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should retrieve a log by key."""

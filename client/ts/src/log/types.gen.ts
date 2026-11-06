@@ -19,8 +19,8 @@ import { ontology } from "@/ontology";
 export const timestampConfigZ = z.object({
   /** format is the format of the values of a timestamp channel. */
   format: telem.timestampFormatZ,
-  /** tz is the time zone of the values of a timestamp channel. */
-  tz: telem.timeZoneZ,
+  /** timeZone is the time zone of the values of a timestamp channel. */
+  timeZone: telem.timeZoneZ,
 });
 export interface TimestampConfig extends z.infer<typeof timestampConfigZ> {}
 
@@ -43,7 +43,7 @@ export const channelEntryZ = z.object({
   /** alias is a human-readable alias displayed in place of the channel name. */
   alias: z.string().check(zod.maxLength(64)).default(""),
   /** valueFormat is the format of the values of a timestamp channel. */
-  valueFormat: timestampConfigZ.prefault({ format: "preciseDate", tz: "local" }),
+  valueFormat: timestampConfigZ.prefault({ format: "preciseDate", timeZone: "local" }),
 });
 export interface ChannelEntry extends z.infer<typeof channelEntryZ> {}
 
@@ -88,8 +88,8 @@ export const logZ = z.object({
   channelNamesHidden: z.boolean().default(false),
   /** timestampsHidden is true when entry timestamps are hidden. */
   timestampsHidden: z.boolean().default(false),
-  /** tz is the time zone of the line times and day rows of the log. */
-  tz: telem.timeZoneZ.default("local"),
+  /** timeZone is the time zone of the line times and day rows of the log. */
+  timeZone: telem.timeZoneZ.default("local"),
 });
 export interface Log extends z.infer<typeof logZ> {}
 

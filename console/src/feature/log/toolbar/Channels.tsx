@@ -74,8 +74,8 @@ const ChannelRow = ({
     dispatch(log.setChannelPrecision({ channel, precision }));
   const handleFormatChange = (format: TimestampFormat) =>
     dispatch(log.setChannelValueFormat({ channel, format }));
-  const handleTzChange = (tz: TimeZone) =>
-    dispatch(log.setChannelValueTz({ channel, tz }));
+  const handleTimeZoneChange = (timeZone: TimeZone) =>
+    dispatch(log.setChannelValueTimeZone({ channel, timeZone }));
   // The log stores a zero color for a channel that follows the theme.
   const handleColorChange = (c?: color.Color) =>
     dispatch(log.setChannelColor({ channel, color: c ?? color.ZERO }));
@@ -167,8 +167,8 @@ const ChannelRow = ({
             />
             <Telem.SelectTimeZone
               className={CSS.BE("log", "channel-tz")}
-              value={valueFormat.tz}
-              onChange={handleTzChange}
+              value={valueFormat.timeZone}
+              onChange={handleTimeZoneChange}
               disabled={disabled}
             />
           </>

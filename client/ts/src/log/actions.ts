@@ -25,10 +25,10 @@ import {
   setChannelPrecision,
   setChannels,
   setChannelValueFormat,
-  setChannelValueTz,
+  setChannelValueTimeZone,
   setTimestampPrecision,
   setTimestampsHidden,
-  setTz,
+  setTimeZone,
   swapChannel,
 } from "@/log/actions.gen";
 import { channelEntryZ } from "@/log/types.gen";
@@ -146,13 +146,16 @@ const handlers: Handlers = {
     return { inverse, targets: [`channel:${payload.channel}`] };
   },
 
-  setChannelValueTz: (state, payload) => {
+  setChannelValueTimeZone: (state, payload) => {
     const entry = state.channels.find((e) => e.channel === payload.channel);
     if (entry == null) return actions.NO_OP_RESULT;
     const inverse = [
-      setChannelValueTz({ channel: payload.channel, tz: entry.valueFormat.tz }),
+      setChannelValueTimeZone({
+        channel: payload.channel,
+        timeZone: entry.valueFormat.timeZone,
+      }),
     ];
-    entry.valueFormat.tz = payload.tz;
+    entry.valueFormat.timeZone = payload.timeZone;
     return { inverse, targets: [`channel:${payload.channel}`] };
   },
 
@@ -203,10 +206,13 @@ const handlers: Handlers = {
     };
   },
 
-  setTz: (state, payload) => {
-    const oldTz = state.tz;
-    state.tz = payload.tz;
-    return { inverse: [setTz({ tz: oldTz })], targets: [state.key] };
+  setTimeZone: (state, payload) => {
+    const oldTimeZone = state.timeZone;
+    state.timeZone = payload.timeZone;
+    return {
+      inverse: [setTimeZone({ timeZone: oldTimeZone })],
+      targets: [state.key],
+    };
   },
 };
 
@@ -242,8 +248,8 @@ export const kindOf = (actions: Action[]): string => {
       return `channel:${a.setChannelAlias.channel}`;
     case "set_channel_value_format":
       return `channel:${a.setChannelValueFormat.channel}`;
-    case "set_channel_value_tz":
-      return `channel:${a.setChannelValueTz.channel}`;
+    case "set_channel_value_time_zone":
+      return `channel:${a.setChannelValueTimeZone.channel}`;
     default:
       return a.type;
   }

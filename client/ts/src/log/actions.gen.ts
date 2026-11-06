@@ -126,15 +126,17 @@ export type SetChannelValueFormatPayload = z.infer<
 >;
 
 /**
- * SetChannelValueTz sets the time zone of the values of the timestamp channel
+ * SetChannelValueTimeZone sets the time zone of the values of the timestamp channel
  * identified by channel. No-op when no entry references the channel.
  */
-export const setChannelValueTzPayloadZ = z.object({
+export const setChannelValueTimeZonePayloadZ = z.object({
   channel: channel.keyZ,
-  tz: telem.timeZoneZ,
+  timeZone: telem.timeZoneZ,
 });
 
-export type SetChannelValueTzPayload = z.infer<typeof setChannelValueTzPayloadZ>;
+export type SetChannelValueTimeZonePayload = z.infer<
+  typeof setChannelValueTimeZonePayloadZ
+>;
 
 /**
  * SetChannels replaces the entire ordered list of channel entries. Used for bulk
@@ -183,12 +185,12 @@ export const setTimestampsHiddenPayloadZ = z.object({
 
 export type SetTimestampsHiddenPayload = z.infer<typeof setTimestampsHiddenPayloadZ>;
 
-/** SetTz sets the time zone of the line times and day rows of the log. */
-export const setTzPayloadZ = z.object({
-  tz: telem.timeZoneZ,
+/** SetTimeZone sets the time zone of the line times and day rows of the log. */
+export const setTimeZonePayloadZ = z.object({
+  timeZone: telem.timeZoneZ,
 });
 
-export type SetTzPayload = z.infer<typeof setTzPayloadZ>;
+export type SetTimeZonePayload = z.infer<typeof setTimeZonePayloadZ>;
 
 export type Action =
   | { type: "create"; create: CreatePayload }
@@ -204,7 +206,10 @@ export type Action =
       type: "set_channel_value_format";
       setChannelValueFormat: SetChannelValueFormatPayload;
     }
-  | { type: "set_channel_value_tz"; setChannelValueTz: SetChannelValueTzPayload }
+  | {
+      type: "set_channel_value_time_zone";
+      setChannelValueTimeZone: SetChannelValueTimeZonePayload;
+    }
   | { type: "set_channels"; setChannels: SetChannelsPayload }
   | { type: "swap_channel"; swapChannel: SwapChannelPayload }
   | {
@@ -216,7 +221,7 @@ export type Action =
       setChannelNamesHidden: SetChannelNamesHiddenPayload;
     }
   | { type: "set_timestamps_hidden"; setTimestampsHidden: SetTimestampsHiddenPayload }
-  | { type: "set_tz"; setTz: SetTzPayload };
+  | { type: "set_time_zone"; setTimeZone: SetTimeZonePayload };
 
 export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
   z.object({ type: z.literal("create"), create: createPayloadZ }),
@@ -248,8 +253,8 @@ export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
     setChannelValueFormat: setChannelValueFormatPayloadZ,
   }),
   z.object({
-    type: z.literal("set_channel_value_tz"),
-    setChannelValueTz: setChannelValueTzPayloadZ,
+    type: z.literal("set_channel_value_time_zone"),
+    setChannelValueTimeZone: setChannelValueTimeZonePayloadZ,
   }),
   z.object({ type: z.literal("set_channels"), setChannels: setChannelsPayloadZ }),
   z.object({ type: z.literal("swap_channel"), swapChannel: swapChannelPayloadZ }),
@@ -265,7 +270,7 @@ export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
     type: z.literal("set_timestamps_hidden"),
     setTimestampsHidden: setTimestampsHiddenPayloadZ,
   }),
-  z.object({ type: z.literal("set_tz"), setTz: setTzPayloadZ }),
+  z.object({ type: z.literal("set_time_zone"), setTimeZone: setTimeZonePayloadZ }),
 ]);
 
 export const create = (payload: z.input<typeof createPayloadZ>): Action => ({
@@ -352,12 +357,12 @@ export const setChannelValueFormat = (
   }),
 });
 
-export const setChannelValueTz = (
-  payload: z.input<typeof setChannelValueTzPayloadZ>,
+export const setChannelValueTimeZone = (
+  payload: z.input<typeof setChannelValueTimeZonePayloadZ>,
 ): Action => ({
-  type: "set_channel_value_tz",
-  setChannelValueTz: zod.parse(setChannelValueTzPayloadZ, payload, {
-    label: "log set_channel_value_tz action payload",
+  type: "set_channel_value_time_zone",
+  setChannelValueTimeZone: zod.parse(setChannelValueTimeZonePayloadZ, payload, {
+    label: "log set_channel_value_time_zone action payload",
   }),
 });
 
@@ -402,10 +407,10 @@ export const setTimestampsHidden = (
   }),
 });
 
-export const setTz = (payload: z.input<typeof setTzPayloadZ>): Action => ({
-  type: "set_tz",
-  setTz: zod.parse(setTzPayloadZ, payload, {
-    label: "log set_tz action payload",
+export const setTimeZone = (payload: z.input<typeof setTimeZonePayloadZ>): Action => ({
+  type: "set_time_zone",
+  setTimeZone: zod.parse(setTimeZonePayloadZ, payload, {
+    label: "log set_time_zone action payload",
   }),
 });
 
@@ -442,9 +447,9 @@ export interface Handlers {
     state: Draft<Log>,
     payload: SetChannelValueFormatPayload,
   ) => HandlerResult;
-  setChannelValueTz: (
+  setChannelValueTimeZone: (
     state: Draft<Log>,
-    payload: SetChannelValueTzPayload,
+    payload: SetChannelValueTimeZonePayload,
   ) => HandlerResult;
   setChannels: (state: Draft<Log>, payload: SetChannelsPayload) => HandlerResult;
   swapChannel: (state: Draft<Log>, payload: SwapChannelPayload) => HandlerResult;
@@ -460,7 +465,7 @@ export interface Handlers {
     state: Draft<Log>,
     payload: SetTimestampsHiddenPayload,
   ) => HandlerResult;
-  setTz: (state: Draft<Log>, payload: SetTzPayload) => HandlerResult;
+  setTimeZone: (state: Draft<Log>, payload: SetTimeZonePayload) => HandlerResult;
 }
 
 export const createReduceAll = (handlers: Handlers) =>
@@ -486,8 +491,8 @@ export const createReduceAll = (handlers: Handlers) =>
         return handlers.setChannelAlias(state, action.setChannelAlias);
       case "set_channel_value_format":
         return handlers.setChannelValueFormat(state, action.setChannelValueFormat);
-      case "set_channel_value_tz":
-        return handlers.setChannelValueTz(state, action.setChannelValueTz);
+      case "set_channel_value_time_zone":
+        return handlers.setChannelValueTimeZone(state, action.setChannelValueTimeZone);
       case "set_channels":
         return handlers.setChannels(state, action.setChannels);
       case "swap_channel":
@@ -498,8 +503,8 @@ export const createReduceAll = (handlers: Handlers) =>
         return handlers.setChannelNamesHidden(state, action.setChannelNamesHidden);
       case "set_timestamps_hidden":
         return handlers.setTimestampsHidden(state, action.setTimestampsHidden);
-      case "set_tz":
-        return handlers.setTz(state, action.setTz);
+      case "set_time_zone":
+        return handlers.setTimeZone(state, action.setTimeZone);
     }
   });
 

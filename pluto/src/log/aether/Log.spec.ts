@@ -956,7 +956,7 @@ describe("log/aether/Log", () => {
         const entry = clientLog.channelEntryZ.parse({
           channel: 1,
           color: color.ZERO,
-          valueFormat: { format: "ISO", tz: "UTC" },
+          valueFormat: { format: "ISO", timeZone: "UTC" },
         });
         expect(copied([entry])).toBe(new TimeStamp(NANOS).toString("ISO", "UTC"));
       });
@@ -1406,7 +1406,7 @@ describe("log/aether/Log", () => {
     describe("time zone", () => {
       it("should split day rows at midnight in UTC", () => {
         const entries = [entry("2026-11-03T23:00:00Z"), entry("2026-11-04T01:00:00Z")];
-        const { log, recorder } = setup(entries, REGION_500, { tz: "UTC" });
+        const { log, recorder } = setup(entries, REGION_500, { timeZone: "UTC" });
         log.render();
         const texts = shown(recorder);
         expect(texts).toContain("Tue, Nov 3, 2026");
@@ -1415,7 +1415,7 @@ describe("log/aether/Log", () => {
 
       it("should show one day row for entries of one UTC day", () => {
         const entries = [entry("2026-11-04T01:00:00Z"), entry("2026-11-04T23:00:00Z")];
-        const { log, recorder } = setup(entries, REGION_500, { tz: "UTC" });
+        const { log, recorder } = setup(entries, REGION_500, { timeZone: "UTC" });
         log.render();
         expect(shown(recorder).filter((t) => t.includes("2026"))).toEqual([
           "Wed, Nov 4, 2026",
@@ -1424,7 +1424,7 @@ describe("log/aether/Log", () => {
 
       it("should show line times and copied dates in UTC", () => {
         const { log } = setup([entry("2026-01-05T01:02:03Z")], REGION_500, {
-          tz: "UTC",
+          timeZone: "UTC",
           selectionStart: 0,
           selectionEnd: 0,
         });
@@ -1438,7 +1438,7 @@ describe("log/aether/Log", () => {
           selectionEnd: 0,
         });
         log.render();
-        expect(log.state.tz).toBe("local");
+        expect(log.state.timeZone).toBe("local");
         expect(log.state.selectedLines[0].text).toMatch(/^2026-01-05 01:02:03/);
       });
     });

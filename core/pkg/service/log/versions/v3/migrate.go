@@ -29,7 +29,7 @@ func MigrateLog(ctx context.Context, old v2.Log) (Log, error) {
 	}
 	out.TimestampPrecision = uint8(min(max(old.TimestampPrecision, 0), 3))
 	out.TimestampsHidden = old.ReceiptTimestampHidden
-	out.Tz = telem.TimeZoneLocal
+	out.TimeZone = telem.TimeZoneLocal
 	out.Channels = lo.UniqBy(
 		lo.Reject(
 			out.Channels,
@@ -41,8 +41,8 @@ func MigrateLog(ctx context.Context, old v2.Log) (Log, error) {
 }
 
 // MigrateChannelEntry lifts a v2 channel entry to v3. The v2 sentinel precision of -1
-// becomes an absent precision, a larger one clamps to 17, and an alias is cut to 64
-// characters.
+// becomes an absent precision, a larger one clamps to 17, an alias is cut to 64
+// characters, and an empty time zone becomes local.
 func MigrateChannelEntry(
 	ctx context.Context,
 	old v2.ChannelEntry,
@@ -56,7 +56,13 @@ func MigrateChannelEntry(
 		out.Precision = &precision
 	}
 	out.Alias = cutToCharacters(old.Alias, 64)
-	out.ValueFormat = old.Timestamp
+	out.ValueFormat = TimestampConfig{
+		Format:   old.Timestamp.Format,
+		TimeZone: old.Timestamp.Tz,
+	}
+	if out.ValueFormat.TimeZone == "" {
+		out.ValueFormat.TimeZone = telem.TimeZoneLocal
+	}
 	return out, nil
 }
 
