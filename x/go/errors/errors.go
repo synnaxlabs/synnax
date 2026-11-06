@@ -12,6 +12,8 @@ package errors
 import (
 	stderrors "errors"
 	"reflect"
+	"strings"
+	"sync"
 
 	"github.com/cockroachdb/errors"
 )
@@ -101,12 +103,42 @@ func Join(errs ...error) error {
 			members = append(members, unwrapJoin(err)...)
 		}
 	}
-	return errors.Join(members...)
+	return WithStackDepth(&joinError{members: members}, 1)
+}
+
+// joinError caches its message. A cockroachdb wrapper formats its cause through a
+// formatter that also visits every member, so without the cache a join under a wrapper
+// under a join costs 2^depth to format.
+type joinError struct {
+	members []error
+	once    sync.Once
+	message string
+}
+
+func (e *joinError) Error() string {
+	e.once.Do(func() {
+		var b strings.Builder
+		for i, member := range e.members {
+			if i > 0 {
+				b.WriteByte('\n')
+			}
+			b.WriteString(member.Error())
+		}
+		e.message = b.String()
+	})
+	return e.message
+}
+
+func (e *joinError) Unwrap() []error { return e.members }
+
+// SafeFormatError returns nil so that the formatter elides the members it visited.
+func (e *joinError) SafeFormatError(p errors.Printer) error {
+	p.Print(e.Error())
+	return nil
 }
 
 var (
 	stackType      = reflect.TypeOf(errors.WithStack(errors.New("")))
-	joinType       = reflect.TypeOf(errors.UnwrapOnce(errors.Join(errors.New(""))))
 	stdlibJoinType = reflect.TypeOf(stderrors.Join(errors.New("")))
 )
 
@@ -117,7 +149,10 @@ func unwrapJoin(err error) []error {
 	if reflect.TypeOf(err) == stackType {
 		bare = errors.UnwrapOnce(err)
 	}
-	if t := reflect.TypeOf(bare); t == joinType || t == stdlibJoinType {
+	if join, ok := bare.(*joinError); ok {
+		return join.members
+	}
+	if reflect.TypeOf(bare) == stdlibJoinType {
 		return bare.(multiCause).Unwrap()
 	}
 	return []error{err}
