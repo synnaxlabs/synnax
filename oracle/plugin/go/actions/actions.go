@@ -53,20 +53,21 @@ func (p *Plugin) Name() string       { return "go/actions" }
 func (p *Plugin) Domains() []string  { return []string{"go"} }
 func (p *Plugin) Requires() []string { return []string{"go/types"} }
 
-// Generate emits one actions.gen.go per output package containing structs that
-// declare actions. Structs without actions are skipped.
+// Generate emits one actions.gen.go per output package containing a struct or union
+// that declares actions. Types without actions are skipped.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{}
-	for _, typ := range req.Resolutions.StructTypes() {
-		form, ok := typ.Form.(resolution.StructForm)
-		if !ok || len(form.Actions) == 0 {
+	types := append(req.Resolutions.StructTypes(), req.Resolutions.UnionTypes()...)
+	for _, typ := range types {
+		actions := typ.Actions()
+		if len(actions) == 0 {
 			continue
 		}
 		outputPath := output.GetPath(typ, "go")
 		if outputPath == "" {
 			continue
 		}
-		content, err := p.generateFile(typ, form, outputPath, req)
+		content, err := p.generateFile(typ, actions, outputPath, req)
 		if err != nil {
 			return nil, err
 		}
@@ -80,7 +81,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 
 func (p *Plugin) generateFile(
 	typ resolution.Type,
-	form resolution.StructForm,
+	actions []resolution.Action,
 	outputPath string,
 	req *plugin.Request,
 ) ([]byte, error) {
@@ -110,7 +111,7 @@ func (p *Plugin) generateFile(
 		Manager:    mgr,
 	}
 
-	for _, action := range form.Actions {
+	for _, action := range actions {
 		ad := actionData{
 			Name:     naming.ToPascalCase(action.Name),
 			TypeName: casing.TypeSnake(action.Name),

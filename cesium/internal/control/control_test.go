@@ -11,6 +11,8 @@ package control_test
 
 import (
 	"fmt"
+	"runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -32,6 +34,34 @@ type testResource struct {
 var _ control.Resource = (*testResource)(nil)
 
 func (t testResource) ChannelKey() channel.Key { return channel.Key(0) }
+
+// hookedResource calls onChannelKey from ChannelKey, which a region calls while it
+// holds its lock.
+type hookedResource struct {
+	onChannelKey func()
+}
+
+var _ control.Resource = (*hookedResource)(nil)
+
+func (h *hookedResource) ChannelKey() channel.Key {
+	if h.onChannelKey != nil {
+		h.onChannelKey()
+	}
+	return channel.Key(0)
+}
+
+// parkedInOpenGate returns true if a goroutine in Controller.OpenGate waits on a lock.
+func parkedInOpenGate() bool {
+	buf := make([]byte, 1<<20)
+	buf = buf[:runtime.Stack(buf, true)]
+	for g := range strings.SplitSeq(string(buf), "\n\n") {
+		state, _, _ := strings.Cut(g, "\n")
+		if strings.Contains(state, "[sync.") && strings.Contains(g, ").OpenGate") {
+			return true
+		}
+	}
+	return false
+}
 
 func createResourceNoErr(value int) (func() (t testResource, err error), func() int) {
 	var count int
@@ -1479,6 +1509,51 @@ var _ = Describe("Control", func() {
 					"Deadlock detected: concurrent open/close did not complete within 10 seconds",
 				)
 			}
+		})
+	})
+
+	Describe("Releasing the last gate", func() {
+		It("Should not let a new gate join the region", func() {
+			var (
+				c      = MustSucceed(control.New[*hookedResource](cfg))
+				first  = &hookedResource{}
+				second = &hookedResource{}
+				joined = make(chan *control.Gate[*hookedResource], 1)
+				once   sync.Once
+			)
+			gateCfg := func(
+				key string,
+				r *hookedResource,
+			) control.GateConfig[*hookedResource] {
+				return control.GateConfig[*hookedResource]{
+					Subject:      xcontrol.Subject{Key: key},
+					TimeRange:    telem.TimeRangeMax,
+					Authority:    xcontrol.AuthorityAbsolute,
+					OpenResource: func() (*hookedResource, error) { return r, nil },
+				}
+			}
+			g, _ := MustSucceed2(c.OpenGate(gateCfg("first", first)))
+			// Runs under the region lock, so the new gate is already waiting when the
+			// release lets go of that lock.
+			first.onChannelKey = func() {
+				once.Do(func() {
+					go func() {
+						defer GinkgoRecover()
+						j, _ := MustSucceed2(c.OpenGate(gateCfg("second", second)))
+						joined <- j
+					}()
+					Eventually(parkedInOpenGate).Should(BeTrue())
+				})
+			}
+			res, t := g.Release()
+			Expect(t.IsRelease()).To(BeTrue())
+			Expect(res).To(BeIdenticalTo(first))
+			var j *control.Gate[*hookedResource]
+			Eventually(joined).Should(Receive(&j))
+			Expect(j.PeekResource()).To(BeIdenticalTo(second))
+			res, t = j.Release()
+			Expect(t.IsRelease()).To(BeTrue())
+			Expect(res).To(BeIdenticalTo(second))
 		})
 	})
 

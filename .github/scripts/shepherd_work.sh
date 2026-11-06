@@ -32,9 +32,15 @@ if [ "$STATE" = dirty ]; then
 fi
 
 RUNS="repos/${REPO}/actions/workflows/ci.yaml/runs"
-RUN=$(gh api "${RUNS}?head_sha=${SHA}&event=pull_request&per_page=1" \
-    --jq '.workflow_runs[0] | select(.conclusion == "failure") | .id')
-if [ -n "$RUN" ]; then
+QUERY="head_sha=${SHA}&event=pull_request&per_page=1"
+read -r RUN CONCLUSION < <(gh api "${RUNS}?${QUERY}" \
+    --jq '.workflow_runs[0] | "\(.id) \(.conclusion)"')
+# CI wakes the shepherd from inside the run, once its OK job fails.
+if [ "$RUN" != null ] && [ "$CONCLUSION" = null ]; then
+    CONCLUSION=$(gh api "repos/${REPO}/actions/runs/${RUN}/jobs?per_page=100" \
+        --paginate --jq '.jobs[] | select(.name == "OK") | .conclusion')
+fi
+if [ "$CONCLUSION" = failure ]; then
     echo "ci $RUN"
 fi
 
