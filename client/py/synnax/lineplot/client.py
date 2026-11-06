@@ -13,7 +13,6 @@ from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
 from synnax import project as project_
-from synnax.exceptions import NotFoundError
 from synnax.lineplot.types_gen import (
     Key,
     LinePlot,
@@ -21,6 +20,7 @@ from synnax.lineplot.types_gen import (
     RetrieveResponse,
     Where,
 )
+from synnax.util import one
 from x import filter
 from x.lists import normalize
 
@@ -133,9 +133,7 @@ class Client:
         )
         if not is_single:
             return res.line_plots
-        if len(res.line_plots) == 0:
-            raise NotFoundError(f"Line plot {key} not found")
-        return res.line_plots[0]
+        return one("Line plot", key, res.line_plots)
 
     def rename(self, key: Key, name: str) -> None:
         """Rename a line plot.

@@ -13,7 +13,6 @@ from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
 from synnax import group
-from synnax.exceptions import NotFoundError
 from synnax.ontology import ID, CrudeID
 from synnax.schematic.symbol.types_gen import (
     Key,
@@ -22,6 +21,7 @@ from synnax.schematic.symbol.types_gen import (
     Symbol,
     Where,
 )
+from synnax.util import one
 from x import filter
 from x.lists import normalize
 
@@ -129,9 +129,7 @@ class Client:
         )
         if not is_single:
             return res.symbols
-        if len(res.symbols) == 0:
-            raise NotFoundError(f"Symbol {key} not found")
-        return res.symbols[0]
+        return one("Symbol", key, res.symbols)
 
     def rename(self, key: Key, name: str) -> None:
         """Renames a symbol.
