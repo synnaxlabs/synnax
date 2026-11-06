@@ -30,7 +30,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -118,12 +117,8 @@ var _ = Describe("Calculation", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		dist = testutil.NewNode(ctx)
-		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB: dist.DB,
-		}))
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:    dist.DB,
-			Group: groupSvc,
+			DB: dist.DB,
 		}))
 		statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB: dist.DB,

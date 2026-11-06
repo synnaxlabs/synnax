@@ -85,8 +85,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		ImEx: imex.NewService(),
 	}))
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:    db,
-		Group: groupSvc,
+		DB: db,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB: db,

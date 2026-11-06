@@ -48,8 +48,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB: node.DB,
 	}))
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:    node.DB,
-		Group: groupSvc,
+		DB: node.DB,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB: node.DB,
@@ -73,8 +72,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		ChannelGraph: channelGraph,
 	}))
 	userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB:    node.DB,
-		Group: groupSvc,
+		DB: node.DB,
 	}))
 	rbacSvc := MustOpen(rbactestutil.Open(ctx, rbactestutil.Config{
 		DB:     node.DB,

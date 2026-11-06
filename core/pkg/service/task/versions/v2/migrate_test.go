@@ -24,7 +24,6 @@ import (
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/labjack"
@@ -60,12 +59,8 @@ var _ = Describe("Migrations", func() {
 		"Should migrate a legacy uint64-keyed task and its status to a UUID key",
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
-			g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-				DB: db,
-			}))
 			MustOpen(label.OpenService(ctx, label.ServiceConfig{
-				DB:    db,
-				Group: g,
+				DB: db,
 			}))
 			stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 				DB: db,
@@ -170,12 +165,8 @@ var _ = Describe("Migrations", func() {
 			node := testutil.NewNode(ctx)
 			db := node.DB
 			stageDB := gorp.Wrap(db.DB, gorp.WithCodec(msgpack.Codec))
-			g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-				DB: db,
-			}))
 			MustOpen(label.OpenService(ctx, label.ServiceConfig{
-				DB:    db,
-				Group: g,
+				DB: db,
 			}))
 			stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 				DB: db,

@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	. "github.com/synnaxlabs/x/testutil"
@@ -46,12 +45,8 @@ var (
 // channel).
 func newFramerConfig(ctx context.Context, n testutil.Node) framer.ServiceConfig {
 	GinkgoHelper()
-	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB: n.DB,
-	}))
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:    n.DB,
-		Group: groupSvc,
+		DB: n.DB,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB: n.DB,

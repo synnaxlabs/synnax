@@ -45,8 +45,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB: dist.DB,
 	}))
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:    dist.DB,
-		Group: groupSvc,
+		DB: dist.DB,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB: dist.DB,

@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	racktask "github.com/synnaxlabs/synnax/pkg/service/rack/task"
@@ -63,12 +62,8 @@ var _ = Describe("NewMigration", func() {
 	BeforeEach(func(ctx SpecContext) {
 		memDB = memkv.New()
 		db = DeferClose(gorp.Wrap(memDB))
-		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB: db,
-		}))
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:    db,
-			Group: g,
+			DB: db,
 		}))
 		statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB: db,

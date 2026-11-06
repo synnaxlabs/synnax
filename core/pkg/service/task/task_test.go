@@ -68,8 +68,7 @@ var _ = Describe("Task", Ordered, func() {
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:    db,
-			Group: g,
+			DB: db,
 		}))
 		stat = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB: db,
@@ -1785,12 +1784,8 @@ var _ = Describe("Writer with no transaction", func() {
 	}
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
-		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB: db,
-		}))
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:    db,
-			Group: g,
+			DB: db,
 		}))
 		stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB: db,

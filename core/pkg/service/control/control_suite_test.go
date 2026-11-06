@@ -19,7 +19,6 @@ import (
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/control"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -41,12 +40,8 @@ var (
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	dist = testutil.NewNode(ctx)
-	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB: dist.DB,
-	}))
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:    dist.DB,
-		Group: groupSvc,
+		DB: dist.DB,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB: dist.DB,

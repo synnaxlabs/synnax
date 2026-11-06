@@ -37,7 +37,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
@@ -76,12 +75,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	core := cluster.Provision(ctx)
 	host, peer = core.Cluster.HostKey(), cluster.Provision(ctx).Cluster.HostKey()
 	db = core.DB
-	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB: db,
-	}))
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:    db,
-		Group: groupSvc,
+		DB: db,
 	}))
 	statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB: db,

@@ -16,7 +16,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
@@ -96,12 +95,8 @@ var _ = Describe("OpenService", func() {
 
 	It("Should wire up signals when a provider is configured", func(ctx SpecContext) {
 		node := testutil.NewNode(ctx)
-		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB: node.DB,
-		}))
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:    node.DB,
-			Group: groupSvc,
+			DB: node.DB,
 		}))
 		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB: node.DB,

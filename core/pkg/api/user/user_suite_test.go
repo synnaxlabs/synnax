@@ -22,7 +22,6 @@ import (
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
@@ -49,9 +48,6 @@ var (
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	db = DeferClose(gorp.Wrap(memkv.New()))
-	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB: db,
-	}))
 	passwordSvc = MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 	authSvc := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
 		DB: db,
@@ -60,8 +56,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		},
 	}))
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB:    db,
-		Group: groupSvc,
+		DB: db,
 	}))
 	MustSucceed2(
 		user.ProvisionRoot(

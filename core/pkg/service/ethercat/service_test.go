@@ -24,7 +24,6 @@ import (
 	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v1"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -45,12 +44,8 @@ func openDevices(
 	db *gorp.DB,
 ) (*device.Service, tasktestutil.TasksConfig) {
 	GinkgoHelper()
-	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB: db,
-	}))
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:    db,
-		Group: groupSvc,
+		DB: db,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB: db,

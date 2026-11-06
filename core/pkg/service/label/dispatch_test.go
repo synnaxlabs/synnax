@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/query"
@@ -36,12 +35,8 @@ var _ = Describe("Dispatch", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
-		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB: db,
-		}))
 		svc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:    db,
-			Group: g,
+			DB: db,
 		}))
 		nominal = label.Label{
 			Name:  "Nominal",

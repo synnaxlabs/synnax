@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	. "github.com/synnaxlabs/x/testutil"
@@ -39,12 +38,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	mockNode = testutil.NewNode(ctx)
 
-	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB: mockNode.DB,
-	}))
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:    mockNode.DB,
-		Group: groupSvc,
+		DB: mockNode.DB,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB: mockNode.DB,

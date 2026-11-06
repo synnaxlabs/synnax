@@ -42,7 +42,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB: db,
 	}))
 	labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB: db, Group: g,
+		DB: db,
 	}))
 	svc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
 		DB: db, Group: g,

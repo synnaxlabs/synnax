@@ -38,8 +38,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB: db,
 	}))
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB:    db,
-		Group: g,
+		DB: db,
 	}))
 	svc = MustOpen(role.OpenService(ctx, role.ServiceConfig{
 		DB: db,

@@ -18,7 +18,6 @@ import (
 	gorptestutil "github.com/synnaxlabs/gorp/testutil"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
@@ -40,12 +39,8 @@ var _ = Describe("Pre-v0.54 task key normalization", func() {
 		func(ctx SpecContext) {
 			kvDB := memkv.New()
 			db := DeferClose(gorp.Wrap(kvDB))
-			g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-				DB: db,
-			}))
 			MustOpen(label.OpenService(ctx, label.ServiceConfig{
-				DB:    db,
-				Group: g,
+				DB: db,
 			}))
 			stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 				DB: db,

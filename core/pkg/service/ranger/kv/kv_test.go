@@ -39,8 +39,7 @@ var _ = Describe("KV", Ordered, func() {
 			DB: db,
 		}))
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:    db,
-			Group: g,
+			DB: db,
 		}))
 		rangerSvc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
 			DB:    db,

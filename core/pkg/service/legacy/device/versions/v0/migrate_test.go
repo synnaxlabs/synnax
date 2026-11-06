@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	gorptestutil "github.com/synnaxlabs/gorp/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -35,12 +34,8 @@ var _ = Describe("Migration", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
-		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB: db,
-		}))
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:    db,
-			Group: groupSvc,
+			DB: db,
 		}))
 		statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB: db,

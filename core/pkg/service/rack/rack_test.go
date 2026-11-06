@@ -67,8 +67,7 @@ func openStack(ctx context.Context, db *gorp.DB, cfg rack.ServiceConfig) stack {
 		DB: db,
 	}))
 	lbl := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
-		DB:    db,
-		Group: g,
+		DB: db,
 	}))
 	stat := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
 		DB: db,

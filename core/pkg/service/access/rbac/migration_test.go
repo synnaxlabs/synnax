@@ -29,7 +29,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	roleversions "github.com/synnaxlabs/synnax/pkg/service/access/rbac/role/versions"
 	rolev0 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/role/versions/v0"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	ontologyv0 "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	rackversions "github.com/synnaxlabs/synnax/pkg/service/rack/versions"
@@ -146,13 +145,9 @@ var _ = Describe("Migration chain", func() {
 			[]gorp.Migration{migrate.New("v0.permission_assignment", nil)},
 		)
 
-		groups := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB: db,
-		}))
 		roles := MustOpen(rbac.OpenRoles(ctx, rbac.RolesConfig{DB: db}))
 		users := MustOpen(user.OpenService(ctx, user.ServiceConfig{
-			DB:    db,
-			Group: groups,
+			DB: db,
 		}))
 		statuses := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB: db,

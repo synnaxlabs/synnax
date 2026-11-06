@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	. "github.com/synnaxlabs/gorp/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	statusv2 "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
@@ -33,12 +32,8 @@ var _ = Describe("Migration", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
-		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB: db,
-		}))
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:    db,
-			Group: groupSvc,
+			DB: db,
 		}))
 		statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB: db,
@@ -120,12 +115,8 @@ var _ = Describe("Status backfill", func() {
 		"Should read a status whose task key was stored as float64",
 		func(ctx SpecContext) {
 			db := DeferClose(OpenGorpMsgpackDB())
-			groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-				DB: db,
-			}))
 			MustOpen(label.OpenService(ctx, label.ServiceConfig{
-				DB:    db,
-				Group: groupSvc,
+				DB: db,
 			}))
 			statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 				DB: db,

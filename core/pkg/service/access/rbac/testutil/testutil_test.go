@@ -16,7 +16,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -27,12 +26,8 @@ import (
 var _ = Describe("Grant", func() {
 	It("Should let the user take the actions on the objects", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
-		groups := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB: db,
-		}))
 		users := MustOpen(user.OpenService(ctx, user.ServiceConfig{
-			DB:    db,
-			Group: groups,
+			DB: db,
 		}))
 		statuses := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB: db,

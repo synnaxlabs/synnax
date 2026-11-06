@@ -335,7 +335,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.Label, err = label.OpenService(ctx, label.ServiceConfig{
 		Instrumentation: cfg.Child("label"),
 		DB:              cfg.Distribution.DB,
-		Group:           l.Group,
 	}); !ok(err, l.Label) {
 		return nil, err
 	}
@@ -471,7 +470,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.User, err = user.OpenService(ctx, user.ServiceConfig{
 		Instrumentation: cfg.Child("user"),
 		DB:              cfg.Distribution.DB,
-		Group:           l.Group,
 		Signals:         l.Signals,
 	}); !ok(err, l.User) {
 		return nil, err

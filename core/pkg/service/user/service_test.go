@@ -25,8 +25,7 @@ var _ = Describe("ServiceConfig", func() {
 	var cfg user.ServiceConfig
 	BeforeEach(func() {
 		cfg = user.ServiceConfig{
-			DB:    db,
-			Group: groupSvc,
+			DB: db,
 		}
 	})
 	Describe("Override", func() {
@@ -35,7 +34,6 @@ var _ = Describe("ServiceConfig", func() {
 			func() {
 				result := user.ServiceConfig{}.Override(cfg)
 				Expect(result.DB).To(Equal(db))
-				Expect(result.Group).To(Equal(groupSvc))
 			},
 		)
 		It(
@@ -43,7 +41,6 @@ var _ = Describe("ServiceConfig", func() {
 			func() {
 				result := cfg.Override(user.ServiceConfig{})
 				Expect(result.DB).To(Equal(db))
-				Expect(result.Group).To(Equal(groupSvc))
 			},
 		)
 	})
@@ -61,11 +58,6 @@ var _ = Describe("ServiceConfig", func() {
 				"db",
 				func(c *user.ServiceConfig) { c.DB = nil },
 				"db: must be non-nil",
-			),
-			Entry(
-				"group",
-				func(c *user.ServiceConfig) { c.Group = nil },
-				"group: must be non-nil",
 			),
 		)
 	})

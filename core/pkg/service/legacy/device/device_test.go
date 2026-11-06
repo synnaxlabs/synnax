@@ -52,8 +52,7 @@ var _ = Describe("Device", func() {
 			DB: db,
 		}))
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:    db,
-			Group: groupSvc,
+			DB: db,
 		}))
 		stat = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB: db,
@@ -1176,12 +1175,8 @@ var _ = Describe("Device", func() {
 	Describe("Observe", func() {
 		It("Should notify when a device is created", func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
-			groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-				DB: db,
-			}))
 			MustOpen(label.OpenService(ctx, label.ServiceConfig{
-				DB:    db,
-				Group: groupSvc,
+				DB: db,
 			}))
 			stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 				DB: db,
@@ -1228,12 +1223,8 @@ var _ = Describe("Device", func() {
 			"Should propagate rack warning status to devices on that rack",
 			func(ctx SpecContext) {
 				db := DeferClose(gorp.Wrap(memkv.New()))
-				groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-					DB: db,
-				}))
 				MustOpen(label.OpenService(ctx, label.ServiceConfig{
-					DB:    db,
-					Group: groupSvc,
+					DB: db,
 				}))
 				stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 					DB: db,

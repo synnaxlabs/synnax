@@ -25,7 +25,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -59,15 +58,11 @@ var _ = Describe("Legacy Permission Migration", func() {
 			kvDB := DeferClose(memkv.New())
 			db := gorp.Wrap(kvDB)
 			legacyDB := gorp.Wrap(kvDB, gorp.WithCodec(msgpack.Codec))
-			groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-				DB: db,
-			}))
 			passwordSvc := MustOpen(
 				password.OpenService(ctx, password.ServiceConfig{DB: db}),
 			)
 			userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
-				DB:    db,
-				Group: groupSvc,
+				DB: db,
 			}))
 			MustSucceed2(
 				user.ProvisionRoot(
@@ -190,15 +185,11 @@ var _ = Describe("Legacy Permission Migration", func() {
 
 	It("Should be idempotent across repeated runs", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
-		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB: db,
-		}))
 		passwordSvc := MustOpen(
 			password.OpenService(ctx, password.ServiceConfig{DB: db}),
 		)
 		userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
-			DB:    db,
-			Group: groupSvc,
+			DB: db,
 		}))
 		MustSucceed2(
 			user.ProvisionRoot(
@@ -240,15 +231,11 @@ var _ = Describe("Legacy Permission Migration", func() {
 		ctx SpecContext,
 	) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
-		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB: db,
-		}))
 		passwordSvc := MustOpen(
 			password.OpenService(ctx, password.ServiceConfig{DB: db}),
 		)
 		userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
-			DB:    db,
-			Group: groupSvc,
+			DB: db,
 		}))
 		MustSucceed2(
 			user.ProvisionRoot(

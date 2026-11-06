@@ -47,8 +47,7 @@ func newBenchEnv(b *testing.B) *benchEnv {
 	}
 
 	labelSvc := MustSucceed(label.OpenService(b.Context(), label.ServiceConfig{
-		DB:    node.DB,
-		Group: groupSvc,
+		DB: node.DB,
 	}))
 	statusSvc := MustSucceed(status.OpenService(b.Context(), status.ServiceConfig{
 		DB: node.DB,

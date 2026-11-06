@@ -31,7 +31,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/http"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -436,12 +435,8 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		ShouldNotLeakGoroutines()
 		node := testutil.NewNode(ctx)
 		db := node.DB
-		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB: db,
-		}))
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:    db,
-			Group: groupSvc,
+			DB: db,
 		}))
 		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB: db,
