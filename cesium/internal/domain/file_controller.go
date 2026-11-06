@@ -323,9 +323,8 @@ func (fc *fileController) newReader(
 	for {
 		rewrites := fc.rewrites.Load()
 		file, err := fc.FS.Open(fileKeyToName(key), os.O_RDONLY)
-		// GC holds fc.readers while it rewrites a file, so this waits out a rewrite
-		// that
-		// the open overlapped. The open may have missed the file or found the old one.
+		// GC holds fc.readers during a rewrite, so this waits out any rewrite that the
+		// open overlapped. The open may have missed the file or found the old one.
 		fc.readers.Lock()
 		if fc.rewrites.Load() != rewrites {
 			fc.readers.Unlock()
