@@ -22,10 +22,14 @@ import (
 type Performance string
 
 const (
-	PerformanceAuto   Performance = "auto"
-	PerformanceLow    Performance = "low"
+	// PerformanceAuto spins the timer for the default time of the platform.
+	PerformanceAuto Performance = "auto"
+	// PerformanceLow never spins the timer.
+	PerformanceLow Performance = "low"
+	// PerformanceMedium spins the timer for up to 1 millisecond before a deadline.
 	PerformanceMedium Performance = "medium"
-	PerformanceHigh   Performance = "high"
+	// PerformanceHigh spins the timer for the whole of each wait.
+	PerformanceHigh Performance = "high"
 )
 
 // IsValid reports whether p is one of the defined Performance

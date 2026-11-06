@@ -51,8 +51,6 @@ RESOURCE_TYPE_SCHEMATIC: Literal["schematic"] = "schematic"
 
 RESOURCE_TYPE_SCHEMATIC_SYMBOL: Literal["schematic_symbol"] = "schematic_symbol"
 
-RESOURCE_TYPE_SECRET: Literal["secret"] = "secret"
-
 RESOURCE_TYPE_STATUS: Literal["status"] = "status"
 
 RESOURCE_TYPE_TABLE: Literal["table"] = "table"
@@ -79,6 +77,10 @@ RESOURCE_TYPE_NI_DEVICE: Literal["ni_device"] = "ni_device"
 
 RESOURCE_TYPE_OPCUA_SERVER: Literal["opcua_server"] = "opcua_server"
 
+RESOURCE_TYPE_ARC_DIRECTORY: Literal["arc_directory"] = "arc_directory"
+
+RESOURCE_TYPE_SECRET: Literal["secret"] = "secret"
+
 
 ResourceType = Literal[
     "arc",
@@ -100,7 +102,6 @@ ResourceType = Literal[
     "role",
     "schematic",
     "schematic_symbol",
-    "secret",
     "status",
     "table",
     "task",
@@ -114,4 +115,6 @@ ResourceType = Literal[
     "ni_chassis",
     "ni_device",
     "opcua_server",
+    "arc_directory",
+    "secret",
 ]

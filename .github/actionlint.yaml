@@ -10,6 +10,7 @@
 self-hosted-runner:
   labels:
     - macos-build-bot
+    - review
     - ubuntu-agent-bot
     - ubuntu-build-bot
     - ubuntu-test-bot

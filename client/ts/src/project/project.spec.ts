@@ -59,18 +59,19 @@ describe("Project", () => {
         })
         .toEqual(names);
     });
-    test("omit missing keys when ignoring not found", async () => {
+    test("throw a NotFoundError for a missing key in a key list", async () => {
+      const proj = await client.projects.create({ name: "survivor" });
+      const missing = uuid.create();
+      await expect(client.projects.retrieve([proj.key, missing])).rejects.toThrow(
+        new NotFoundError(`project with key ${missing} not found`),
+      );
+    });
+    test("omit missing keys from a filter on keys", async () => {
       const proj = await client.projects.create({ name: "survivor" });
       const res = await client.projects.retrieve({
-        keys: [proj.key, uuid.create()],
-        ignoreNotFoundError: true,
+        where: { key: { in: [proj.key, uuid.create()] } },
       });
       expect(res.map(({ key }) => key)).toEqual([proj.key]);
-    });
-    test("throw on a missing key when not ignoring not found", async () => {
-      await expect(client.projects.retrieve({ keys: [uuid.create()] })).rejects.toThrow(
-        NotFoundError,
-      );
     });
   });
   describe("export", () => {

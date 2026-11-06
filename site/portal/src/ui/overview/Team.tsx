@@ -18,7 +18,7 @@ import { type Invited } from "@/server/invitation";
 import { type Held } from "@/server/license/list";
 import { activatePath, scoped } from "@/shell";
 import { Fact, Facts } from "@/ui/Facts";
-import { date, standing, statusOf } from "@/ui/format";
+import { expiry, standing, statusOf } from "@/ui/format";
 import { Invitations } from "@/ui/invitations";
 import { Licenses } from "@/ui/licenses";
 import { Empty, Page, Section } from "@/ui/Page";
@@ -68,7 +68,7 @@ export const Team = ({
         <Fact label="Machines" value={`${seats} of ${capacity} seats in use`} />
         <Fact
           label="Next expiry"
-          value={nextExpiry == null ? "None" : date(nextExpiry)}
+          value={nextExpiry == null ? "None" : expiry(nextExpiry)}
         />
       </Facts>
       <Section

@@ -73,54 +73,86 @@ export const scanConfigZ = task.scanConfigZ.extend({
 });
 export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
 
-/** LinearScale maps raw values to engineering units with a slope and offset. */
-export const linearScaleZ = z.object({
-  type: z.literal("linear"),
-  /** slope is the multiplier applied to the raw value. */
-  slope: z.number().default(1),
-  /** offset is the offset added after scaling. */
-  offset: z.number().default(0),
+/** AnalogReadChannel reads a voltage from an analog input port. */
+export const analogReadChannelZ = baseReadChannelZ.extend({
+  type: z.literal("analog"),
+  port: z.string().default("AIN0"),
+  /**
+   * range is the largest voltage magnitude the channel reads, in Volts. The channel
+   * uses the smallest range of the device that covers it.
+   */
+  range: z.number().default(10),
+  /**
+   * negChan is the negative channel for differential readings on T7 devices. 199
+   * selects single-ended.
+   */
+  negChan: z.int32().default(199),
+  /** scale is the scale applied to raw samples after acquisition. */
+  scale: task.scaleZ.prefault({ type: "none" }),
 });
-export interface LinearScale extends z.infer<typeof linearScaleZ> {}
+export interface AnalogReadChannel extends z.infer<typeof analogReadChannelZ> {}
 
-/** MapScale maps a raw range linearly onto a scaled range. */
-export const mapScaleZ = z.object({
-  type: z.literal("map"),
-  /** preScaledMin is the lower bound of the raw input range. */
-  preScaledMin: z.number().default(0),
-  /** preScaledMax is the upper bound of the raw input range. */
-  preScaledMax: z.number().default(1),
-  /** scaledMin is the lower bound of the scaled output range. */
-  scaledMin: z.number().default(0),
-  /** scaledMax is the upper bound of the scaled output range. */
-  scaledMax: z.number().default(1),
+/** DigitalReadChannel reads a digital input line. */
+export const digitalReadChannelZ = baseReadChannelZ.extend({
+  type: z.literal("digital"),
+  port: z.string().default("DIO4"),
 });
-export interface MapScale extends z.infer<typeof mapScaleZ> {}
+export interface DigitalReadChannel extends z.infer<typeof digitalReadChannelZ> {}
 
-/** NoneScale applies no scaling; the raw value is used directly. */
-export const noneScaleZ = z.object({
-  type: z.literal("none"),
+/** ThermocoupleReadChannel reads temperature from a thermocouple. */
+export const thermocoupleReadChannelZ = baseReadChannelZ.extend({
+  type: z.literal("thermocouple"),
+  /** port is the AIN port the thermocouple's positive lead is wired to. */
+  port: z.string().default("AIN0"),
+  /** thermocoupleType selects the thermocouple alloy type. */
+  thermocoupleType: thermocoupleTypeZ.default("K"),
+  /**
+   * negChan is the AIN port of the thermocouple's negative lead on T7 devices. 199
+   * selects single-ended.
+   */
+  negChan: z.int32().default(199),
+  /**
+   * cjcSource selects the cold-junction-compensation source: the device sensor
+   * ('TEMPERATURE_DEVICE_K', which on a T8 is the sensor at the thermocouple's own
+   * terminal), ambient air ('TEMPERATURE_AIR_K', not on a T8), or an AIN port (e.g.
+   * 'AIN2').
+   */
+  cjcSource: z.string().default("TEMPERATURE_DEVICE_K"),
+  /** cjcSlope is the CJC voltage-to-temperature slope, in Kelvin per Volt. */
+  cjcSlope: z.number().default(1),
+  /** cjcOffset is the CJC temperature offset, in Kelvins. */
+  cjcOffset: z.number().default(0),
+  /** units are the units of the temperature measurement. */
+  units: temperatureUnitsZ.default("K"),
+  /** scale is the scale applied to raw samples after acquisition. */
+  scale: task.scaleZ.prefault({ type: "none" }),
 });
-export interface NoneScale extends z.infer<typeof noneScaleZ> {}
+export interface ThermocoupleReadChannel extends z.infer<
+  typeof thermocoupleReadChannelZ
+> {}
 
-export const SCALE_TYPES = ["linear", "map", "none"] as const;
-export const scaleTypeZ = z.enum(SCALE_TYPES);
-export type ScaleType = z.infer<typeof scaleTypeZ>;
+export const READ_CHANNEL_TYPES = ["analog", "digital", "thermocouple"] as const;
+export const readChannelTypeZ = z.enum(READ_CHANNEL_TYPES);
+export type ReadChannelType = z.infer<typeof readChannelTypeZ>;
 
-/** Scale determines how raw sensor values are transformed to engineering units. */
-export const scaleZ = z.discriminatedUnion("type", [
-  linearScaleZ,
-  mapScaleZ,
-  noneScaleZ,
+/**
+ * ReadChannel is a single LabJack read channel. The type field selects the input mode
+ * and the fields that accompany it.
+ */
+export const readChannelZ = z.discriminatedUnion("type", [
+  analogReadChannelZ,
+  digitalReadChannelZ,
+  thermocoupleReadChannelZ,
 ]);
-export type Scale = LinearScale | MapScale | NoneScale;
+export type ReadChannel =
+  AnalogReadChannel | DigitalReadChannel | ThermocoupleReadChannel;
 
-export const SCALE_SCHEMAS: {
-  [K in ScaleType]: z.ZodType<Extract<Scale, { type: K }>>;
+export const READ_CHANNEL_SCHEMAS: {
+  [K in ReadChannelType]: z.ZodType<Extract<ReadChannel, { type: K }>>;
 } = {
-  linear: linearScaleZ,
-  map: mapScaleZ,
-  none: noneScaleZ,
+  analog: analogReadChannelZ,
+  digital: digitalReadChannelZ,
+  thermocouple: thermocoupleReadChannelZ,
 };
 
 /** AnalogWriteChannel drives an analog output on a DAC port. */
@@ -158,94 +190,6 @@ export const WRITE_CHANNEL_SCHEMAS: {
   digital: digitalWriteChannelZ,
 };
 
-/** AnalogReadChannel reads a voltage from an analog input port. */
-export const analogReadChannelZ = baseReadChannelZ.extend({
-  type: z.literal("analog"),
-  port: z.string().default("AIN0"),
-  /**
-   * range is the largest voltage magnitude the channel reads, in Volts. The channel
-   * uses the smallest range of the device that covers it.
-   */
-  range: z.number().default(10),
-  /**
-   * negChan is the negative channel for differential readings on T7 devices. 199
-   * selects single-ended.
-   */
-  negChan: z.int32().default(199),
-  /** scale is the scale applied to raw samples after acquisition. */
-  scale: scaleZ.prefault({ type: "none" }),
-});
-export interface AnalogReadChannel extends z.infer<typeof analogReadChannelZ> {}
-
-/** DigitalReadChannel reads a digital input line. */
-export const digitalReadChannelZ = baseReadChannelZ.extend({
-  type: z.literal("digital"),
-  port: z.string().default("DIO4"),
-});
-export interface DigitalReadChannel extends z.infer<typeof digitalReadChannelZ> {}
-
-/** ThermocoupleReadChannel reads temperature from a thermocouple. */
-export const thermocoupleReadChannelZ = baseReadChannelZ.extend({
-  type: z.literal("thermocouple"),
-  /** port is the AIN port the thermocouple's positive lead is wired to. */
-  port: z.string().default("AIN0"),
-  /** thermocoupleType selects the thermocouple alloy type. */
-  thermocoupleType: thermocoupleTypeZ.default("K"),
-  /**
-   * negChan is the AIN port of the thermocouple's negative lead on T7 devices. 199
-   * selects single-ended.
-   */
-  negChan: z.int32().default(199),
-  /**
-   * cjcSource selects the cold-junction-compensation source: the device sensor
-   * ('TEMPERATURE_DEVICE_K', which on a T8 is the sensor at the thermocouple's own
-   * terminal), ambient air ('TEMPERATURE_AIR_K', not on a T8), or an AIN port (e.g.
-   * 'AIN2').
-   */
-  cjcSource: z.string().default("TEMPERATURE_DEVICE_K"),
-  /** cjcSlope is the CJC voltage-to-temperature slope, in Kelvin per Volt. */
-  cjcSlope: z.number().default(1),
-  /** cjcOffset is the CJC temperature offset, in Kelvins. */
-  cjcOffset: z.number().default(0),
-  /** units are the units of the temperature measurement. */
-  units: temperatureUnitsZ.default("K"),
-  /** scale is the scale applied to raw samples after acquisition. */
-  scale: scaleZ.prefault({ type: "none" }),
-});
-export interface ThermocoupleReadChannel extends z.infer<
-  typeof thermocoupleReadChannelZ
-> {}
-
-export const READ_CHANNEL_TYPES = ["analog", "digital", "thermocouple"] as const;
-export const readChannelTypeZ = z.enum(READ_CHANNEL_TYPES);
-export type ReadChannelType = z.infer<typeof readChannelTypeZ>;
-
-/**
- * ReadChannel is a single LabJack read channel. The type field selects the input mode
- * and the fields that accompany it.
- */
-export const readChannelZ = z.discriminatedUnion("type", [
-  analogReadChannelZ,
-  digitalReadChannelZ,
-  thermocoupleReadChannelZ,
-]);
-export type ReadChannel =
-  AnalogReadChannel | DigitalReadChannel | ThermocoupleReadChannel;
-
-export const READ_CHANNEL_SCHEMAS: {
-  [K in ReadChannelType]: z.ZodType<Extract<ReadChannel, { type: K }>>;
-} = {
-  analog: analogReadChannelZ,
-  digital: digitalReadChannelZ,
-  thermocouple: thermocoupleReadChannelZ,
-};
-
-export const writeConfigZ = task.writeConfigZ.extend({
-  stateRate: z.number().default(10),
-  channels: writeChannelZ.array().default(() => []),
-});
-export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
-
 export const readConfigZ = task.readConfigZ.extend({
   device: device.keyZ.default(""),
   channels: readChannelZ.array().default(() => []),
@@ -253,3 +197,9 @@ export const readConfigZ = task.readConfigZ.extend({
   ljmScanBacklogWarnOnCount: z.uint32().default(0),
 });
 export interface ReadConfig extends z.infer<typeof readConfigZ> {}
+
+export const writeConfigZ = task.writeConfigZ.extend({
+  stateRate: z.number().default(10),
+  channels: writeChannelZ.array().default(() => []),
+});
+export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
