@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { group, ontology, rack, status, task } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, holdRequests } from "@synnaxlabs/client/testutil";
 import { deep, id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
@@ -910,6 +910,9 @@ describe("queries", () => {
     it("should keep a local edit over a whole write from another client", async () => {
       const t = await createTask();
       const { result } = await renderForm(t.key);
+      // The edit sends once its coalesce window ends, which can come before the remote
+      // write on a slow machine. The hold keeps the Core from applying it first.
+      const { release } = holdRequests(client, "/task/dispatch");
       act(() => result.current.form.set(path.config.routingKey, "local"));
       await act(async () => {
         await createTestClient().tasks.create({ ...t.payload, name: "renamed" });
@@ -918,6 +921,7 @@ describe("queries", () => {
         expect(result.current.form.get(path.name).value).toEqual("renamed"),
       );
       expect(result.current.form.get(path.config.routingKey).value).toEqual("local");
+      release();
       await act(async () => expect(await result.current.flush()).toBe(true));
       const stored = await createTestClient().tasks.retrieve(t.key);
       expect(stored.name).toEqual("renamed");
