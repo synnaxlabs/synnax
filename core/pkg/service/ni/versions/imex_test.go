@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 type decoder func(context.Context, msgpack.EncodedJSON) (any, error)
@@ -59,6 +60,29 @@ var _ = Describe("Ladders", func() {
 		),
 		Entry("scan", "ni.ScanConfig", decodeV2(versions.ScanConfigLadder)),
 	}
+
+	It("Should keep the port and line of a v2 body", func(ctx SpecContext) {
+		cfg := MustSucceed(versions.DigitalReadConfigLadder.Decode(
+			ctx,
+			v2.Version,
+			msgpack.EncodedJSON{"channels": []any{
+				map[string]any{"key": "a", "port": 2, "line": 5},
+			}},
+		))
+		Expect(cfg.Channels).To(HaveLen(1))
+		Expect(cfg.Channels[0].Port).To(Equal(uint16(2)))
+		Expect(cfg.Channels[0].Line).To(Equal(uint8(5)))
+	})
+
+	It("Should reject a v2 body with a line out of range", func(ctx SpecContext) {
+		Expect(versions.DigitalReadConfigLadder.Decode(
+			ctx,
+			v2.Version,
+			msgpack.EncodedJSON{"channels": []any{
+				map[string]any{"key": "a", "port": 2, "line": 300},
+			}},
+		)).Error().To(MatchError(validate.ErrValidation))
+	})
 
 	DescribeTable(
 		"Should decode a v2 body",
