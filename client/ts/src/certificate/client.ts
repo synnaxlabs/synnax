@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, primitive } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
@@ -18,8 +18,12 @@ import {
   type Key,
   keyZ,
   ontologyID,
+  type RetrieveRequest,
+  retrieveRequestZ,
+  retrieveResponseZ,
   storedCertificateZ,
 } from "@/certificate/types.gen";
+import { matches, retrieveInputZ, serverComputed } from "@/certificate/where.gen";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 
@@ -47,27 +51,14 @@ const deleteReqZ = z.object({ keys: keyZ.array() });
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const emptyResZ = z.object({});
 
-const retrieveRequestZ = z.object({
-  keys: keyZ.array().optional(),
-  searchTerm: z.string().optional(),
-  offset: z.number().optional(),
-  limit: z.number().optional(),
-});
-const retrieveMultiParamsZ = retrieveRequestZ.or(query.keyListZ(keyZ));
+const retrieveMultiParamsZ = z.union([
+  query.keysRequestZ(keyZ),
+  retrieveRequestZ,
+  retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+]);
 
 export type RetrieveSingleParams = { key: Key };
-export interface RetrieveMultipleParams extends z.input<typeof retrieveRequestZ> {}
-
-interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
-
-const retrieveResponseZ = z.object({
-  certificates: certificateZ.array().default(() => []),
-});
-
-const requestFilter = (req: RetrieveRequest): ((c: Certificate) => boolean) => {
-  const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
-  return (c) => keySet == null || keySet.has(c.key);
-};
+export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 
 export interface ClientConfig {
   unary: UnaryClient;
@@ -87,7 +78,7 @@ export class Client extends query.Retriever<
     const { cache } = cfg;
     const store = cache.createTable<Key, Certificate>({
       name: "certificates",
-      fetch: async (keys) => await this.execRetrieve({ keys }),
+      fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
       listen: [
         query.createSetListener(SET_CHANNEL_NAME, certificateZ),
         query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
@@ -99,7 +90,8 @@ export class Client extends query.Retriever<
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
-        matches: (certificate, req) => requestFilter(req)(certificate),
+        matches: (certificate, req) => matches(certificate, req.where),
+        serverComputed: (req) => serverComputed(req.where),
       },
     });
     this.cfg = cfg;
@@ -178,10 +170,10 @@ export class Client extends query.Retriever<
     drop();
   }
 
-  private async execRetrieve(params: RetrieveMultipleParams): Promise<Certificate[]> {
+  private async execRetrieve(req: RetrieveRequest): Promise<Certificate[]> {
     const res = await this.cfg.unary.send(
       "/certificate/retrieve",
-      params,
+      req,
       retrieveRequestZ,
       retrieveResponseZ,
     );

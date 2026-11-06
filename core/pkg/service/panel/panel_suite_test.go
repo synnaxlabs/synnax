@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -97,10 +98,14 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Signals:  sigs,
 	}))
 	writer = svc.NewWriter(nil)
+	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{
+		DB: node.DB,
+	}))
 	userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
 		DB:       node.DB,
 		Ontology: otg,
 		Group:    groupSvc,
+		Password: passwordSvc,
 	}))
 	parent := MustSucceed(
 		userSvc.NewWriter(nil).Create(ctx, user.User{Name: "panel-parent"}),

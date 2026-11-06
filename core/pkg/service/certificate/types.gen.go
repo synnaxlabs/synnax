@@ -11,7 +11,10 @@
 
 package certificate
 
-import "github.com/synnaxlabs/synnax/pkg/service/certificate/versions"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/certificate/versions"
+	"github.com/synnaxlabs/x/filter"
+)
 
 // Key is a unique identifier for a certificate.
 type Key = versions.Key
@@ -34,3 +37,15 @@ type StoredCertificate = versions.StoredCertificate
 
 // FileCertificate is a certificate in files on the computer that uses it.
 type FileCertificate = versions.FileCertificate
+
+// Where is a filter that selects certificates.
+type Where struct {
+	// And matches when every child matches.
+	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	// Or matches when any child matches.
+	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	// Not matches when the child does not match.
+	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
+	// Key selects by key.
+	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
+}

@@ -103,8 +103,21 @@ describe("Secret", () => {
         { name: "Multi 2", source: "stored", value: "b" },
       ]);
       const keys = created.map((s) => s.key);
-      const retrieved = await createTestClient().secrets.retrieve({ keys });
+      const retrieved = await createTestClient().secrets.retrieve(keys);
       expect(retrieved.map((s) => s.name).sort()).toEqual(["Multi 1", "Multi 2"]);
+    });
+
+    it("should leave out a key that no secret has in a filter", async () => {
+      const client = createTestClient();
+      const s = await client.secrets.create({
+        name: "Kept",
+        source: "stored",
+        value: "a",
+      });
+      const retrieved = await createTestClient().secrets.retrieve({
+        key: [s.key, uuid.create()],
+      });
+      expect(retrieved.map((r) => r.key)).toEqual([s.key]);
     });
 
     it("should retrieve empty uses for a secret that nothing uses", async () => {
@@ -115,7 +128,7 @@ describe("Secret", () => {
         value: "abc",
       });
       const [retrieved] = await client.secrets.retrieve({
-        keys: [s.key],
+        key: [s.key],
         includeUses: true,
       });
       expect(retrieved.uses).toEqual([]);
@@ -255,7 +268,7 @@ describe("Secret", () => {
       const key = uuid.create();
       const res = createTestClient().secrets.retrieve(key);
       await expect(res).rejects.toThrow(NotFoundError);
-      await expect(res).rejects.toThrow(`Secrets with keys [${key}] not found`);
+      await expect(res).rejects.toThrow(`secret with key ${key} not found`);
     });
   });
 
@@ -314,7 +327,7 @@ describe("Secret", () => {
       await client.secrets.delete(keys);
       const res = createTestClient().secrets.retrieve(keys[0]);
       await expect(res).rejects.toThrow(NotFoundError);
-      await expect(res).rejects.toThrow(`Secrets with keys [${keys[0]}] not found`);
+      await expect(res).rejects.toThrow(`secret with key ${keys[0]} not found`);
     });
 
     it("should deliver the deletion of a secret read with its uses", async () => {

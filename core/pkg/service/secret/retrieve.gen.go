@@ -17,6 +17,52 @@ import (
 	"github.com/synnaxlabs/gorp"
 )
 
+// Retrieve is used to retrieve Secret records from the database using a
+// builder pattern for constructing queries.
+type Retrieve struct {
+	baseTX  gorp.Tx
+	gorp    gorp.Retrieve[Key, Secret]
+	indexes indexes
+}
+
+// indexes bundles the per-Service secondary indexes registered on the
+// Secret table. Each index is constructed via newIndexes and threaded
+// onto the Retrieve so filter functions can resolve them off r.indexes
+// instead of relying on package-level state.
+type indexes struct {
+	search *gorp.SearchIndex[Key, Secret]
+}
+
+// newIndexes constructs a fresh indexes value, allocating one instance of each
+// index. Call once per Service in OpenService and store the result on the
+// Service struct.
+func newIndexes() indexes {
+	return indexes{
+		search: gorp.NewSearchIndex[Key, Secret](
+			"search",
+			func(e *Secret) []string {
+				return []string{e.Base().Name}
+			},
+		),
+	}
+}
+
+// all returns the indexes packaged as a heterogeneous slice for registration
+// via gorp.TableConfig.Indexes when opening the underlying table.
+func (i indexes) all() []gorp.Index[Key, Secret] {
+	return []gorp.Index[Key, Secret]{
+		i.search,
+	}
+}
+
+// MatchSearch matches the secrets whose text matches term.
+// The closest match comes first.
+func MatchSearch(term string) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Secret] {
+		return r.indexes.search.Filter(term)
+	}
+}
+
 // Filter is a per-service filter that is bound to the Retrieve when passed to
 // Where. Pure filters ignore the Retrieve argument; service-bound filters read
 // from it (e.g. r.indexes, r.label, r.hostProvider) to evaluate. Use Match to
@@ -47,6 +93,15 @@ func Or(fs ...Filter) Filter {
 // Not returns a filter that inverts the provided filter.
 func Not(f Filter) Filter {
 	return gorp.NotBound[Retrieve, Key, Secret](f)
+}
+
+// Search filters the secrets to those whose text matches
+// term, closest match first. An empty term adds no filter.
+func (r Retrieve) Search(term string) Retrieve {
+	if term == "" {
+		return r
+	}
+	return r.Where(MatchSearch(term))
 }
 
 // MatchKeys returns a filter that restricts results to
@@ -91,6 +146,13 @@ func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); retu
 // return.
 func (r Retrieve) Offset(offset int) Retrieve {
 	r.gorp = r.gorp.Offset(offset)
+	return r
+}
+
+// SkipMissingKeys makes Exec treat a key with no secret as a
+// non-match instead of returning query.ErrNotFound.
+func (r Retrieve) SkipMissingKeys() Retrieve {
+	r.gorp = r.gorp.SkipMissingKeys()
 	return r
 }
 

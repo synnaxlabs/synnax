@@ -220,8 +220,9 @@ describe("project/Splash", () => {
       const { wrapper, store } = await createConsoleWrapper({ client });
       render(
         <Triggers.Provider>
-          <Project.Splash />
-          <Modals.Stack />
+          <Modals.Stack>
+            <Project.Splash />
+          </Modals.Stack>
         </Triggers.Provider>,
         { wrapper },
       );
@@ -244,10 +245,9 @@ describe("project/Splash", () => {
     it("should open the create modal and activate the created project", async () => {
       const { wrapper, store } = await createConsoleWrapper({ client });
       render(
-        <>
+        <Modals.Stack>
           <Project.Splash />
-          <Modals.Stack />
-        </>,
+        </Modals.Stack>,
         { wrapper },
       );
       const name = `proj-${id.create()}`;

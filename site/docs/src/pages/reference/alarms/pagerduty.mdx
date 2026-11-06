@@ -162,7 +162,9 @@ const routingKey = await client.secrets.create({
   source: "stored",
   value: "<your-32-character-integration-key>",
 });
-const [rack] = await client.racks.retrieve({ integration: "pagerduty" });
+const [rack] = await client.racks.retrieve({
+  where: { integrations: { any: ["pagerduty"] } },
+});
 const alertTask = await client.tasks.create({
   name: "Engine alerts",
   rack: rack.key,

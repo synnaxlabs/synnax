@@ -12,10 +12,14 @@
 package pb
 
 import (
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	controlpb "github.com/synnaxlabs/x/control/pb"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/filter"
+	filterpb "github.com/synnaxlabs/x/filter/pb"
+	xpb "github.com/synnaxlabs/x/pb"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -147,6 +151,350 @@ func ChannelsFromPB(pbs []*Channel) ([]channel.Channel, error) {
 	for i, pb := range pbs {
 		var err error
 		result[i], err = ChannelFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// KeySetToPB converts filter.Set[channel.Key] to KeySet.
+func KeySetToPB(r filter.Set[channel.Key]) (*KeySet, error) {
+	pb := &KeySet{}
+	if r.Eq != nil {
+		v := uint32(*r.Eq)
+		pb.Eq = &v
+	}
+	if r.In != nil {
+		pb.In = &KeyList{Values: lo.Map(r.In, func(v channel.Key, _ int) uint32 { return uint32(v) })}
+	}
+	return pb, nil
+}
+
+// KeySetFromPB converts KeySet to filter.Set[channel.Key].
+func KeySetFromPB(pb *KeySet) (filter.Set[channel.Key], error) {
+	var r filter.Set[channel.Key]
+	if pb == nil {
+		return r, nil
+	}
+	if pb.Eq != nil {
+		v := channel.Key(*pb.Eq)
+		r.Eq = &v
+	}
+	if pb.In != nil {
+		r.In = xpb.ListValues(lo.Map(pb.In.Values, func(v uint32, _ int) channel.Key { return channel.Key(v) }))
+	}
+	return r, nil
+}
+
+// KeySetsToPB converts a slice of filter.Set[channel.Key] to KeySet.
+func KeySetsToPB(rs []filter.Set[channel.Key]) ([]*KeySet, error) {
+	result := make([]*KeySet, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = KeySetToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// KeySetsFromPB converts a slice of KeySet to filter.Set[channel.Key].
+func KeySetsFromPB(pbs []*KeySet) ([]filter.Set[channel.Key], error) {
+	result := make([]filter.Set[channel.Key], len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = KeySetFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// NodeKeySetToPB converts filter.Set[node.Key] to NodeKeySet.
+func NodeKeySetToPB(r filter.Set[node.Key]) (*NodeKeySet, error) {
+	pb := &NodeKeySet{}
+	if r.Eq != nil {
+		v := uint32(*r.Eq)
+		pb.Eq = &v
+	}
+	if r.In != nil {
+		pb.In = &NodeKeyList{Values: lo.Map(r.In, func(v node.Key, _ int) uint32 { return uint32(v) })}
+	}
+	return pb, nil
+}
+
+// NodeKeySetFromPB converts NodeKeySet to filter.Set[node.Key].
+func NodeKeySetFromPB(pb *NodeKeySet) (filter.Set[node.Key], error) {
+	var r filter.Set[node.Key]
+	if pb == nil {
+		return r, nil
+	}
+	if pb.Eq != nil {
+		v := node.Key(*pb.Eq)
+		r.Eq = &v
+	}
+	if pb.In != nil {
+		r.In = xpb.ListValues(lo.Map(pb.In.Values, func(v uint32, _ int) node.Key { return node.Key(v) }))
+	}
+	return r, nil
+}
+
+// NodeKeySetsToPB converts a slice of filter.Set[node.Key] to NodeKeySet.
+func NodeKeySetsToPB(rs []filter.Set[node.Key]) ([]*NodeKeySet, error) {
+	result := make([]*NodeKeySet, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = NodeKeySetToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// NodeKeySetsFromPB converts a slice of NodeKeySet to filter.Set[node.Key].
+func NodeKeySetsFromPB(pbs []*NodeKeySet) ([]filter.Set[node.Key], error) {
+	result := make([]filter.Set[node.Key], len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = NodeKeySetFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// TelemDataTypeSetToPB converts filter.Set[telem.DataType] to TelemDataTypeSet.
+func TelemDataTypeSetToPB(r filter.Set[telem.DataType]) (*TelemDataTypeSet, error) {
+	pb := &TelemDataTypeSet{}
+	if r.Eq != nil {
+		v := string(*r.Eq)
+		pb.Eq = &v
+	}
+	if r.In != nil {
+		pb.In = &TelemDataTypeList{Values: lo.Map(r.In, func(v telem.DataType, _ int) string { return string(v) })}
+	}
+	return pb, nil
+}
+
+// TelemDataTypeSetFromPB converts TelemDataTypeSet to filter.Set[telem.DataType].
+func TelemDataTypeSetFromPB(pb *TelemDataTypeSet) (filter.Set[telem.DataType], error) {
+	var r filter.Set[telem.DataType]
+	if pb == nil {
+		return r, nil
+	}
+	if pb.Eq != nil {
+		v := telem.DataType(*pb.Eq)
+		r.Eq = &v
+	}
+	if pb.In != nil {
+		r.In = xpb.ListValues(lo.Map(pb.In.Values, func(v string, _ int) telem.DataType { return telem.DataType(v) }))
+	}
+	return r, nil
+}
+
+// TelemDataTypeSetsToPB converts a slice of filter.Set[telem.DataType] to TelemDataTypeSet.
+func TelemDataTypeSetsToPB(rs []filter.Set[telem.DataType]) ([]*TelemDataTypeSet, error) {
+	result := make([]*TelemDataTypeSet, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = TelemDataTypeSetToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// TelemDataTypeSetsFromPB converts a slice of TelemDataTypeSet to filter.Set[telem.DataType].
+func TelemDataTypeSetsFromPB(pbs []*TelemDataTypeSet) ([]filter.Set[telem.DataType], error) {
+	result := make([]filter.Set[telem.DataType], len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = TelemDataTypeSetFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// WhereToPB converts Where to Where.
+func WhereToPB(r channel.Where) (*Where, error) {
+	pb := &Where{}
+	if r.And != nil {
+		vals, err := WheresToPB(r.And)
+		if err != nil {
+			return nil, err
+		}
+		pb.And = &WhereList{Values: vals}
+	}
+	if r.Or != nil {
+		vals, err := WheresToPB(r.Or)
+		if err != nil {
+			return nil, err
+		}
+		pb.Or = &WhereList{Values: vals}
+	}
+	if r.Not != nil {
+		var err error
+		pb.Not, err = WhereToPB(*r.Not)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Key != nil {
+		var err error
+		pb.Key, err = KeySetToPB(*r.Key)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Name != nil {
+		var err error
+		pb.Name, err = filterpb.StringToPB(*r.Name)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Leaseholder != nil {
+		var err error
+		pb.Leaseholder, err = NodeKeySetToPB(*r.Leaseholder)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.DataType != nil {
+		var err error
+		pb.DataType, err = TelemDataTypeSetToPB(*r.DataType)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.IsIndex != nil {
+		var err error
+		pb.IsIndex, err = filterpb.BoolToPB(*r.IsIndex)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Internal != nil {
+		var err error
+		pb.Internal, err = filterpb.BoolToPB(*r.Internal)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Virtual != nil {
+		pb.Virtual = r.Virtual
+	}
+	if r.NamePatterns != nil {
+		pb.NamePatterns = &StringList{Values: r.NamePatterns}
+	}
+	return pb, nil
+}
+
+// WhereFromPB converts Where to Where.
+func WhereFromPB(pb *Where) (channel.Where, error) {
+	var r channel.Where
+	if pb == nil {
+		return r, nil
+	}
+	if pb.And != nil {
+		vals, err := WheresFromPB(pb.And.Values)
+		if err != nil {
+			return channel.Where{}, err
+		}
+		r.And = xpb.ListValues(vals)
+	}
+	if pb.Or != nil {
+		vals, err := WheresFromPB(pb.Or.Values)
+		if err != nil {
+			return channel.Where{}, err
+		}
+		r.Or = xpb.ListValues(vals)
+	}
+	if pb.Not != nil {
+		val, err := WhereFromPB(pb.Not)
+		if err != nil {
+			return channel.Where{}, err
+		}
+		r.Not = &val
+	}
+	if pb.Key != nil {
+		val, err := KeySetFromPB(pb.Key)
+		if err != nil {
+			return channel.Where{}, err
+		}
+		r.Key = &val
+	}
+	if pb.Name != nil {
+		val, err := filterpb.StringFromPB(pb.Name)
+		if err != nil {
+			return channel.Where{}, err
+		}
+		r.Name = &val
+	}
+	if pb.Leaseholder != nil {
+		val, err := NodeKeySetFromPB(pb.Leaseholder)
+		if err != nil {
+			return channel.Where{}, err
+		}
+		r.Leaseholder = &val
+	}
+	if pb.DataType != nil {
+		val, err := TelemDataTypeSetFromPB(pb.DataType)
+		if err != nil {
+			return channel.Where{}, err
+		}
+		r.DataType = &val
+	}
+	if pb.IsIndex != nil {
+		val, err := filterpb.BoolFromPB(pb.IsIndex)
+		if err != nil {
+			return channel.Where{}, err
+		}
+		r.IsIndex = &val
+	}
+	if pb.Internal != nil {
+		val, err := filterpb.BoolFromPB(pb.Internal)
+		if err != nil {
+			return channel.Where{}, err
+		}
+		r.Internal = &val
+	}
+	if pb.Virtual != nil {
+		r.Virtual = pb.Virtual
+	}
+	if pb.NamePatterns != nil {
+		r.NamePatterns = xpb.ListValues(pb.NamePatterns.Values)
+	}
+	return r, nil
+}
+
+// WheresToPB converts a slice of Where to Where.
+func WheresToPB(rs []channel.Where) ([]*Where, error) {
+	result := make([]*Where, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = WhereToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// WheresFromPB converts a slice of Where to Where.
+func WheresFromPB(pbs []*Where) ([]channel.Where, error) {
+	result := make([]channel.Where, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = WhereFromPB(pb)
 		if err != nil {
 			return nil, err
 		}

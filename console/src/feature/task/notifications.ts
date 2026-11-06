@@ -48,10 +48,7 @@ export const createNotificationRule = (scanners: Scanner[]): Notifications.Rule 
     if (!tsk.internal) return true;
     const make = scanners.find(({ scanType }) => scanType === tsk.type)?.make;
     if (make == null) return true;
-    const devices = await args.client.devices.retrieve({
-      racks: [tsk.rack],
-      makes: [make],
-    });
+    const devices = await args.client.devices.retrieve({ make, rack: tsk.rack });
     return devices.some(({ configured }) => configured);
   },
   warningsDelayed: true,
