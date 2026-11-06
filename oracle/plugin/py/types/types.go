@@ -235,6 +235,9 @@ func generatePyFile(
 			if err != nil {
 				return nil, err
 			}
+			if err := addFilterInput(typ, &sd, table, data); err != nil {
+				return nil, err
+			}
 			// The alias keeps a field named override from shadowing the decorator in
 			// the class body.
 			if sd.KeyField != "" && !sd.Skip && !sd.IsAlias {
@@ -2135,6 +2138,10 @@ type structData struct {
 	HasExtends   bool
 	// ModelConfig is the pydantic model_config of the class, or empty for none.
 	ModelConfig string
+	// Validators is the validator methods at the end of the class body, or empty.
+	Validators string
+	// After is the declarations that follow the class, or empty.
+	After string
 }
 
 // modelConfig returns the model_config of a class whose fields have keyword aliases and
@@ -2388,6 +2395,10 @@ class {{ .PyName }}({{ range $i, $n := .ExtendsNames }}{{ if $i }}, {{ end }}{{ 
     def __hash__(self) -> int:
         return hash(self.{{ .KeyField }})
 {{- end }}
+{{- if .Validators }}
+
+{{ .Validators }}
+{{- end }}
 {{- else if not (hasDocumentation .) }}
     pass
 {{- end }}
@@ -2410,6 +2421,10 @@ class {{ .PyName }}(BaseModel, Generic[{{ range $i, $p := .TypeParams }}{{ if $i
     def __hash__(self) -> int:
         return hash(self.{{ .KeyField }})
 {{- end }}
+{{- if .Validators }}
+
+{{ .Validators }}
+{{- end }}
 {{- else }}
 
 
@@ -2429,9 +2444,18 @@ class {{ .PyName }}(BaseModel):
     def __hash__(self) -> int:
         return hash(self.{{ .KeyField }})
 {{- end }}
+{{- if .Validators }}
+
+{{ .Validators }}
+{{- end }}
 {{- if and (not .Fields) (not .KeyField) (not (hasDocumentation .)) (not .ModelConfig) }}
     pass
 {{- end }}
+{{- end }}
+{{- if .After }}
+
+
+{{ .After }}
 {{- end }}
 {{- end }}
 {{- end }}

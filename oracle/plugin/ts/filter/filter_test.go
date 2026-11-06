@@ -208,6 +208,66 @@ var _ = Describe("TS Filter Plugin", func() {
 			)
 		})
 
+		It("Should read a key, a name, or a list of either as a shortcut", func(
+			ctx SpecContext,
+		) {
+			resp := MustGenerate(ctx, thing+`
+				Where filter Thing {
+					key
+					name
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "where.gen.ts").ToContain(
+				"export const shortcutZ = z.union([",
+				"z.uuid().transform((key) => ({ where: { key: { eq: key } } })),",
+				"z.string().transform((name) => ({ where: { name: { eq: name } } "+
+					"})),",
+				"z.uuid().array().transform((keys) => ({ where: { key: { in: keys } "+
+					"} })),",
+				"z.string().array().transform((names) => ({ where: { name: { in: "+
+					"names } } })),",
+			)
+		})
+
+		It("Should take no shortcut without a name line", func(ctx SpecContext) {
+			resp := MustGenerate(ctx, thing+`
+				Where filter Thing {
+					key
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "where.gen.ts").ToNotContain("shortcutZ")
+		})
+
+		It("Should take no shortcut beside name patterns", func(ctx SpecContext) {
+			resp := MustGenerate(ctx, thing+`
+				Where filter Thing {
+					key
+					name
+					name_patterns string[]
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "where.gen.ts").ToNotContain("shortcutZ")
+		})
+
+		It("Should take no shortcut for a free-text key", func(ctx SpecContext) {
+			resp := MustGenerate(ctx, `
+				import "schemas/x/filter"
+
+				@ts output "client/ts/src/thing"
+
+				Key = string
+				Thing struct {
+					key  Key    { @key }
+					name string
+				}
+				Where filter Thing {
+					key
+					name
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "where.gen.ts").ToNotContain("shortcutZ")
+		})
+
 		It("Should read a typed line as its type, or a list from a value", func(
 			ctx SpecContext,
 		) {

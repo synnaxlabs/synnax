@@ -62,6 +62,7 @@ func (c *ChannelEntry) ApplyDefaults() {
 func (c ChannelEntry) Validate() error {
 	v := validate.New("ChannelEntry")
 	v.Ternaryf("notation", !c.Notation.IsValid(), "invalid notation: %v", c.Notation)
+	v.NonZero("channel", c.Channel)
 	if c.Precision != nil {
 		v.LessThanEq("precision", *c.Precision, 17)
 	}
