@@ -19,6 +19,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/synnax/cmd/instrumentation"
+	"github.com/synnaxlabs/synnax/cmd/start"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/errors"
 )
@@ -47,6 +48,7 @@ func NewCmd() *cobra.Command {
 		PreRunE: bindFlags,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
+			start.DisablePermissionBits()
 			ins := instrumentation.Configure()
 			defer instrumentation.Cleanup(cmd.Context(), ins)
 			backups, err := storage.NewBackups(buildBackupsConfig(ins))

@@ -15,6 +15,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -30,7 +31,7 @@ var _ = Describe("Update", func() {
 		DeferCleanup(func() { Expect(os.RemoveAll(dir)).To(Succeed()) })
 	})
 
-	createBackup := func(name string) {
+	createBackup := func(name string, files ...string) {
 		GinkgoHelper()
 		backups := filepath.Join(dir, "backups")
 		Expect(os.MkdirAll(backups, 0o700)).To(Succeed())
@@ -41,6 +42,13 @@ var _ = Describe("Update", func() {
 				Typeflag: tar.TypeDir,
 				Name:     part,
 				Mode:     0o700,
+			})).To(Succeed())
+		}
+		for _, file := range files {
+			Expect(w.WriteHeader(&tar.Header{
+				Typeflag: tar.TypeReg,
+				Name:     file,
+				Mode:     0o600,
 			})).To(Succeed())
 		}
 		Expect(w.Close()).To(Succeed())
@@ -93,6 +101,16 @@ var _ = Describe("Update", func() {
 			))
 			Expect(os.ReadFile(filepath.Join(dir, "VERSION"))).
 				To(BeEquivalentTo("0.59.0"))
+		})
+
+		It("Should give other users no permission on the restored files", func() {
+			if runtime.GOOS == "windows" {
+				Skip("Windows has no permission bits for other users")
+			}
+			createBackup("0000000001-0.59.0", "kv/MANIFEST")
+			MustSucceed(run("undo"))
+			info := MustSucceed(os.Stat(filepath.Join(dir, "kv", "MANIFEST")))
+			Expect(info.Mode().Perm() & 0o007).To(BeZero())
 		})
 
 		It("Should restore the named backup", func() {

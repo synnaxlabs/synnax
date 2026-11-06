@@ -205,7 +205,7 @@ func BootupCore(
 
 	// Any data stored on the node is considered sensitive, so we need to set the
 	// permission mask for all files appropriately.
-	disablePermissionBits()
+	DisablePermissionBits()
 
 	var closer xio.MultiCloser
 
