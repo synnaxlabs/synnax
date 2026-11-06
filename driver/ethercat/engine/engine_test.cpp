@@ -234,6 +234,19 @@ TEST_F(EngineTest, LocksTheCycleToTheDistributedClock) {
     );
 }
 
+/// @brief it should lock the cycle to SYNC0 events of 100 us or more, and not to a
+/// faster SYNC0 that clocks hardware in a slave.
+TEST_F(EngineTest, LocksTheCycleOnlyToSYNC0EventsThatMarkData) {
+    this->master->set_dc_sync(
+        {SYNC0_AT_10MS, {.assign_activate = 0x0300, .sync0_cycle = 1'000}}
+    );
+    this->master->set_host_dc(1.005);
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    EXPECT_GT(this->share_in_phase(x::telem::MILLISECOND * 10), 0.8);
+}
+
 /// @brief it should leave the cycle unlocked when no slave runs SYNC0.
 TEST_F(EngineTest, LeavesTheCycleUnlockedWithoutSYNC0) {
     this->master->set_host_dc(1.005);
