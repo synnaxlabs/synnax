@@ -593,7 +593,7 @@ var _ = Describe("Writer", func() {
 					Sync:  new(true),
 				}))
 				// A peer opens its writer after OpenWriter returns.
-				MustSucceed(live.Commit())
+				MustCommit(live)
 				fill := MustSucceed(gw.Framer.NewStreamWriter(ctx, writer.Config{
 					Keys:             keys,
 					Start:            1 * telem.SecondTS,
