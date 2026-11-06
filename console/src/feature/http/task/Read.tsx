@@ -121,6 +121,7 @@ const FillValueField: FC<FillValueFieldProps> = ({
         onChange={handleChange}
         onlyChangeOnBlur
         placeholder={isString ? "Required" : "NaN"}
+        className={CSS.B("fill-value")}
       />
     </Input.Item>
   );
@@ -268,7 +269,7 @@ const FieldPane: FC<FieldPaneProps> = ({ endpoint, path }) => {
   const defaultName = useDefaultChannelName(endpoint, pointer);
   return (
     <Flex.Box y grow empty className={CSS.B("endpoint-details")}>
-      <PForm.Sections className={CSS.B("endpoint-form")}>
+      <PForm.Sections className={CSS.cls(CSS.B("endpoint-form"), CSS.B("field-form"))}>
         <PForm.Section title="Field">
           <PForm.TextField
             path={path.pointer}
@@ -283,22 +284,24 @@ const FieldPane: FC<FieldPaneProps> = ({ endpoint, path }) => {
             defaultName={defaultName}
             skipped={disabled}
           />
-          <PForm.CheckboxField
-            path={path.optional}
-            label="Optional"
-            inputProps={OPTIONAL_INPUT_PROPS}
-            onChange={(next, { set }) => {
-              if (!next) set(path.fillValue, undefined);
-            }}
-          />
-          {optional && (
-            <FillValueField
-              path={path}
-              value={fillValue}
-              channel={fieldChannel}
-              dataType={dataType}
+          <Flex.Box x grow wrap>
+            <PForm.CheckboxField
+              path={path.optional}
+              label="Optional"
+              inputProps={OPTIONAL_INPUT_PROPS}
+              onChange={(next, { set }) => {
+                if (!next) set(path.fillValue, undefined);
+              }}
             />
-          )}
+            {optional && (
+              <FillValueField
+                path={path}
+                value={fillValue}
+                channel={fieldChannel}
+                dataType={dataType}
+              />
+            )}
+          </Flex.Box>
         </PForm.Section>
         <Task.Payload.EnumMappingSection path={path.enumValues} />
       </PForm.Sections>
