@@ -22,7 +22,7 @@ import {
   type Role,
   roleZ,
 } from "@/access/role/types.gen";
-import { matches, serverComputed } from "@/access/role/where.gen";
+import { matches, retrieveInputZ, serverComputed } from "@/access/role/where.gen";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { user } from "@/user";
@@ -30,7 +30,11 @@ import { user } from "@/user";
 export const SET_CHANNEL_NAME = "sy_role_set";
 export const DELETE_CHANNEL_NAME = "sy_role_delete";
 
-const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), retrieveRequestZ]);
+const retrieveMultiParamsZ = z.union([
+  query.keysRequestZ(keyZ),
+  retrieveRequestZ,
+  retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+]);
 
 const singleCreateParamsZ = roleZ.transform((r) => ({ roles: [r] }));
 export type SingleCreateParams = z.input<typeof singleCreateParamsZ>;
@@ -43,7 +47,7 @@ export type CreateParams = z.input<typeof createParamsZ>;
 const createResZ = z.object({ roles: roleZ.array() });
 
 export type RetrieveSingleParams = { key: Key };
-export type RetrieveMultipleParams = RetrieveRequest;
+export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 
 const deleteResZ = z.object({});
