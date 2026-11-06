@@ -15,34 +15,20 @@ from typing import Annotated, Literal, TypeAlias
 from typing import override as _override
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
-from synnax import label, status
+from synnax import ranger, status
 from synnax.ontology.payload import ID
+from x import filter
+
+TYPE_RANGE: Literal["range"] = "range"
+
+TYPE_STATUS: Literal["status"] = "status"
+
+
+Type = Literal["range", "status"]
 
 Key: TypeAlias = UUID
-
-
-class RangeQuery(BaseModel):
-    """Filters the ranges shown by a range view.
-
-    Attributes:
-        has_labels: Restricts the view to ranges carrying any of these labels.
-    """
-
-    has_labels: list[label.Key] = Field(default_factory=list)
-
-
-class StatusQuery(BaseModel):
-    """Filters the statuses shown by a status view.
-
-    Attributes:
-        has_labels: Restricts the view to statuses carrying any of these labels.
-        variants: Restricts the view to statuses of these variants.
-    """
-
-    has_labels: list[label.Key] = Field(default_factory=list)
-    variants: list[status.Variant] = Field(default_factory=list)
 
 
 class Base(BaseModel):
@@ -61,26 +47,79 @@ class Base(BaseModel):
         return hash(self.key)
 
 
+class Where(BaseModel):
+    """Is a filter that selects views.
+
+    Attributes:
+        and_: Matches when every child matches.
+        or_: Matches when any child matches.
+        not_: Matches when the child does not match.
+        key: Selects by key.
+        name: Selects by name.
+        type: Selects by type.
+    """
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    and_: list[Where] | None = Field(default=None, alias="and")
+    or_: list[Where] | None = Field(default=None, alias="or")
+    not_: Where | None = Field(default=None, alias="not")
+    key: filter.Set[Key] | None = None
+    name: filter.String | None = None
+    type: filter.Set[Type] | None = None
+
+
 class RangeView(Base):
     """Is a saved view of ranges."""
 
     type: Literal["range"] = "range"
-    query: RangeQuery
+    where: ranger.Where | None = None
 
 
 class StatusView(Base):
     """Is a saved view of statuses."""
 
     type: Literal["status"] = "status"
-    query: StatusQuery
+    where: status.Where | None = None
 
 
 # Is a saved, named filter over a list of resources. The type selects the resource
-# the view lists and the shape of its query.
+# the view lists and the shape of its where.
 View = Annotated[
     RangeView | StatusView,
     Field(discriminator="type"),
 ]
+
+
+class RetrieveRequest(BaseModel):
+    """Is a request to retrieve views.
+
+    Attributes:
+        where: Selects the views to retrieve. An absent where selects all of them.
+        search_term: Keeps the views that match the term, closest match first.
+        limit: Is the most views to return.
+        offset: Is the number of matching views to skip.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    where: Where | None = None
+    search_term: str = ""
+    limit: int | None = Field(default=None, ge=0, le=4294967295)
+    offset: int = Field(default=0, ge=0, le=4294967295)
+
+
+class RetrieveResponse(BaseModel):
+    """Holds the views a RetrieveRequest selects.
+
+    Attributes:
+        views: Are the views the request selects.
+    """
+
+    views: list[View] = Field(default_factory=list)
+
+
+Where.model_rebuild()
 
 
 ONTOLOGY_TYPE = ID(type="view")

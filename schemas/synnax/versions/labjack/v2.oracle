@@ -13,23 +13,47 @@ import "schemas/synnax/versions/task/v2"
 import "schemas/x/versions/telem/v0"
 
 TemperatureUnits enum {
-    celsius    = "C"
-    fahrenheit = "F"
-    kelvin     = "K"
+    celsius    = "C" {
+        @doc value "is degrees Celsius."
+    }
+    fahrenheit = "F" {
+        @doc value "is degrees Fahrenheit."
+    }
+    kelvin     = "K" {
+        @doc value "is kelvins."
+    }
 
     @doc value "are the engineering units for a temperature measurement."
 }
 
 ThermocoupleType enum {
-    j = "J"
-    k = "K"
-    n = "N"
-    r = "R"
-    s = "S"
-    t = "T"
-    b = "B"
-    e = "E"
-    c = "C"
+    j = "J" {
+        @doc value "pairs iron with copper-nickel."
+    }
+    k = "K" {
+        @doc value "pairs nickel-chromium with nickel-aluminum."
+    }
+    n = "N" {
+        @doc value "pairs nickel-chromium-silicon with nickel-silicon-magnesium."
+    }
+    r = "R" {
+        @doc value "pairs platinum-13% rhodium with platinum."
+    }
+    s = "S" {
+        @doc value "pairs platinum-10% rhodium with platinum."
+    }
+    t = "T" {
+        @doc value "pairs copper with copper-nickel."
+    }
+    b = "B" {
+        @doc value "pairs platinum-30% rhodium with platinum-6% rhodium."
+    }
+    e = "E" {
+        @doc value "pairs nickel-chromium with copper-nickel."
+    }
+    c = "C" {
+        @doc value "pairs tungsten-5% rhenium with tungsten-26% rhenium."
+    }
 
     @doc value "selects the thermocouple alloy type."
 }

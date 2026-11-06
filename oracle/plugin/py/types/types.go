@@ -11,6 +11,7 @@ package types
 
 import (
 	"bytes"
+	"cmp"
 	"fmt"
 	"slices"
 	"strings"
@@ -239,12 +240,16 @@ func generatePyFile(
 			if sd.KeyField != "" && !sd.Skip && !sd.IsAlias {
 				data.imports.addTyping("override as _override")
 			}
-			for _, f := range sd.Fields {
-				if f.Alias != "" {
-					sd.HasKeywordAlias = true
-					data.imports.addPydantic("ConfigDict")
-					break
-				}
+			hasAlias := lo.SomeBy(
+				sd.Fields,
+				func(f fieldData) bool { return f.Alias != "" },
+			)
+			sd.ModelConfig = modelConfig(
+				hasAlias,
+				resolution.InFilterRequest(typ, table),
+			)
+			if sd.ModelConfig != "" {
+				data.imports.addPydantic("ConfigDict")
 			}
 			data.SortedDecls = append(data.SortedDecls, sortedDeclData{
 				IsStruct: true,
@@ -982,6 +987,7 @@ func processField(
 			fieldConstraints = append(fieldConstraints, "le="+bounds.max)
 		}
 	}
+	orderBounds(fieldConstraints)
 
 	// Check if this field should be excluded from serialization (Pydantic v2)
 	isExcluded := lo.Contains(excludedFields, field.Name)
@@ -1024,6 +1030,24 @@ func processField(
 	)
 
 	return fd
+}
+
+// orderBounds moves ge and le to the end of constraints, so the output does not depend
+// on which bounds a schema states and which its type implies.
+func orderBounds(constraints []string) {
+	rank := func(c string) int {
+		switch {
+		case strings.HasPrefix(c, "ge="):
+			return 1
+		case strings.HasPrefix(c, "le="):
+			return 2
+		default:
+			return 0
+		}
+	}
+	slices.SortStableFunc(constraints, func(a, b string) int {
+		return cmp.Compare(rank(a), rank(b))
+	})
 }
 
 // ensureDefaultFactory appends a default_factory constraint unless one is already
@@ -2097,19 +2121,36 @@ type typeVarData struct {
 }
 
 type structData struct {
-	Name            string
-	Doc             string
-	PyName          string
-	AliasOf         string
-	KeyField        string
-	Fields          []fieldData
-	TypeParams      []typeParamData
-	ExtendsNames    []string
-	Skip            bool
-	IsAlias         bool
-	IsGeneric       bool
-	HasExtends      bool
-	HasKeywordAlias bool
+	Name         string
+	Doc          string
+	PyName       string
+	AliasOf      string
+	KeyField     string
+	Fields       []fieldData
+	TypeParams   []typeParamData
+	ExtendsNames []string
+	Skip         bool
+	IsAlias      bool
+	IsGeneric    bool
+	HasExtends   bool
+	// ModelConfig is the pydantic model_config of the class, or empty for none.
+	ModelConfig string
+}
+
+// modelConfig returns the model_config of a class whose fields have keyword aliases and
+// that decodes strictly.
+func modelConfig(hasAlias, strict bool) string {
+	var opts []string
+	if hasAlias {
+		opts = append(opts, "populate_by_name=True")
+	}
+	if strict {
+		opts = append(opts, `extra="forbid"`)
+	}
+	if len(opts) == 0 {
+		return ""
+	}
+	return "ConfigDict(" + strings.Join(opts, ", ") + ")"
 }
 
 type fieldData struct {
@@ -2334,8 +2375,8 @@ class {{ .PyName }}({{ range $i, $n := .ExtendsNames }}{{ if $i }}, {{ end }}{{ 
 {{- if hasDocumentation . }}
 {{ formatGoogleDocstring . }}
 {{- end }}
-{{- if .HasKeywordAlias }}
-    model_config = ConfigDict(populate_by_name=True)
+{{- if .ModelConfig }}
+    model_config = {{ .ModelConfig }}
 {{ end }}
 {{- if or .Fields .KeyField }}
 {{- range .Fields }}
@@ -2357,8 +2398,8 @@ class {{ .PyName }}(BaseModel, Generic[{{ range $i, $p := .TypeParams }}{{ if $i
 {{- if hasDocumentation . }}
 {{ formatGoogleDocstring . }}
 {{- end }}
-{{- if .HasKeywordAlias }}
-    model_config = ConfigDict(populate_by_name=True)
+{{- if .ModelConfig }}
+    model_config = {{ .ModelConfig }}
 {{ end }}
 {{- range .Fields }}
     {{ .Name }}: {{ .PyType }}{{ .Default }}
@@ -2376,8 +2417,8 @@ class {{ .PyName }}(BaseModel):
 {{- if hasDocumentation . }}
 {{ formatGoogleDocstring . }}
 {{- end }}
-{{- if .HasKeywordAlias }}
-    model_config = ConfigDict(populate_by_name=True)
+{{- if .ModelConfig }}
+    model_config = {{ .ModelConfig }}
 {{ end }}
 {{- range .Fields }}
     {{ .Name }}: {{ .PyType }}{{ .Default }}
@@ -2388,7 +2429,7 @@ class {{ .PyName }}(BaseModel):
     def __hash__(self) -> int:
         return hash(self.{{ .KeyField }})
 {{- end }}
-{{- if and (not .Fields) (not .KeyField) (not (hasDocumentation .)) (not .HasKeywordAlias) }}
+{{- if and (not .Fields) (not .KeyField) (not (hasDocumentation .)) (not .ModelConfig) }}
     pass
 {{- end }}
 {{- end }}

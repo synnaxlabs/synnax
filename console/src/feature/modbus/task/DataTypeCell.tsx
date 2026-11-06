@@ -13,7 +13,7 @@ import { Telem } from "@synnaxlabs/pluto";
 import { DataType, deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { SHADOW_TRIGGER_PROPS } from "@/feature/modbus/task/Register";
+import { SHADOW_TRIGGER_PROPS } from "@/feature/modbus/device/Option";
 import {
   BIT_BOUNDS,
   type Channel,
@@ -114,7 +114,7 @@ export const DataTypeCell = ({
         <NumberField
           path={deep.present(fields.stringLength)}
           label="String length"
-          prefix="Length"
+          prefix=""
           bounds={STRING_LENGTH_BOUNDS}
         />
       )}

@@ -34,10 +34,10 @@ class ForceIEPE(Analog):
 
     def __init__(
         self,
-        *,
         layout: LayoutClient,
         name: str,
         device: str,
+        *,
         force_units: Literal["Newtons", "Pounds"] | None = None,
         sensitivity: float | None = None,
         sensitivity_units: Literal["mV/N", "mV/lb"] | None = None,

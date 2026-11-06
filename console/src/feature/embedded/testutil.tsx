@@ -8,7 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { Synnax as Client } from "@synnaxlabs/client";
-import { TEST_CLIENT_PARAMS, TEST_CREDENTIALS } from "@synnaxlabs/client/testutil";
+import {
+  createTestClient,
+  createTestClientWithRole,
+  TEST_CLIENT_PARAMS,
+} from "@synnaxlabs/client/testutil";
 import { Synnax } from "@synnaxlabs/pluto";
 import { scheduler } from "@synnaxlabs/x";
 import { emit } from "@tauri-apps/api/event";
@@ -43,14 +47,28 @@ export const RUNNING: Status = {
   },
 };
 
-/** A running Core at the address of the test Core, with its credentials. */
-export const LIVE: Status = {
-  state: "running",
-  connection: {
-    host: TEST_CLIENT_PARAMS.host,
-    port: Number(TEST_CLIENT_PARAMS.port),
-    ...TEST_CREDENTIALS,
-  },
+export interface DesktopUser {
+  /** Logs in as the user. */
+  client: Client;
+  /** A running Core at the address of the test Core, with the user's credentials. */
+  live: Status;
+}
+
+/**
+ * Creates a user for one spec file. API keys belong to their user, so specs on one Core
+ * cannot see or delete each other's keys.
+ */
+export const createDesktopUser = async (): Promise<DesktopUser> => {
+  const client = await createTestClientWithRole(createTestClient(), "Owner");
+  const { username = "", password = "" } = client.params;
+  const { host, port } = TEST_CLIENT_PARAMS;
+  return {
+    client,
+    live: {
+      state: "running",
+      connection: { host, port: Number(port), username, password },
+    },
+  };
 };
 
 /** Deletes the API keys of the client's user that the test creates, once it ends. */

@@ -31,10 +31,10 @@ class Period(Counter):
 
     def __init__(
         self,
-        *,
         layout: LayoutClient,
         name: str,
         device: str,
+        *,
         starting_edge: Literal["Rising", "Falling"] | None = None,
         units: Literal["Seconds", "Ticks", "Custom"] | None = None,
         terminal: str | None = None,

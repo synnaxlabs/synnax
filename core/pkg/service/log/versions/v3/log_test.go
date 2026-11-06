@@ -11,6 +11,7 @@ package v3_test
 
 import (
 	"io"
+	"strings"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -79,7 +80,7 @@ var _ = Describe("Log", func() {
 		})
 
 		DescribeTable("Should accept a precision in range",
-			func(precision int32) {
+			func(precision uint8) {
 				l := v3.Log{
 					Name:     "valid",
 					Channels: []v3.ChannelEntry{{Precision: new(precision)}},
@@ -87,12 +88,12 @@ var _ = Describe("Log", func() {
 				l.ApplyDefaults()
 				Expect(l.Validate()).To(Succeed())
 			},
-			Entry("lower bound", int32(0)),
-			Entry("upper bound", int32(17)),
+			Entry("lower bound", uint8(0)),
+			Entry("upper bound", uint8(17)),
 		)
 
 		DescribeTable("Should reject a precision out of range",
-			func(precision int32) {
+			func(precision uint8) {
 				l := v3.Log{
 					Name:     "valid",
 					Channels: []v3.ChannelEntry{{Precision: new(precision)}},
@@ -102,9 +103,26 @@ var _ = Describe("Log", func() {
 					l.Validate(),
 				).To(MatchError(ContainSubstring("channels.0.precision")))
 			},
-			Entry("negative", int32(-1)),
-			Entry("above the maximum", int32(18)),
+			Entry("above the maximum", uint8(18)),
 		)
+
+		It("Should accept an alias at the maximum length", func() {
+			l := v3.Log{
+				Name:     "valid",
+				Channels: []v3.ChannelEntry{{Alias: strings.Repeat("a", 64)}},
+			}
+			l.ApplyDefaults()
+			Expect(l.Validate()).To(Succeed())
+		})
+
+		It("Should reject an alias past the maximum length", func() {
+			l := v3.Log{
+				Name:     "valid",
+				Channels: []v3.ChannelEntry{{Alias: strings.Repeat("a", 65)}},
+			}
+			l.ApplyDefaults()
+			Expect(l.Validate()).To(MatchError(ContainSubstring("channels.0.alias")))
+		})
 
 		It("Should reject an empty name and an invalid timestamp precision", func() {
 			l := v3.Log{TimestampPrecision: 4}
@@ -132,7 +150,7 @@ var _ = Describe("Log", func() {
 				Channels: []v3.ChannelEntry{{
 					Channel:   channel.Key(1),
 					Notation:  "standard",
-					Precision: new(int32(3)),
+					Precision: new(uint8(3)),
 					Alias:     "alias",
 					Timestamp: v3.TimestampConfig{Format: "ISO", Tz: "UTC"},
 				}},
@@ -141,8 +159,8 @@ var _ = Describe("Log", func() {
 			return w.Bytes()
 		}
 
-		It("Should encode the truncation fixture in 82 bytes", func() {
-			Expect(encode()).To(HaveLen(82))
+		It("Should encode the truncation fixture in 76 bytes", func() {
+			Expect(encode()).To(HaveLen(76))
 		})
 
 		DescribeTable("Should reject a log truncated inside a field",
@@ -164,11 +182,11 @@ var _ = Describe("Log", func() {
 			Entry("channel notation", 36),
 			Entry("channel precision presence", 48),
 			Entry("channel precision", 49),
-			Entry("channel alias", 53),
-			Entry("channel timestamp", 62),
-			Entry("timestamp precision", 76),
-			Entry("channel names hidden", 80),
-			Entry("receipt timestamp hidden", 81),
+			Entry("channel alias", 50),
+			Entry("channel timestamp", 59),
+			Entry("timestamp precision", 73),
+			Entry("channel names hidden", 74),
+			Entry("timestamps hidden", 75),
 		)
 	})
 })

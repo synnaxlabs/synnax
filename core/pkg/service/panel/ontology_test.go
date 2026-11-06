@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -134,7 +135,8 @@ var _ = Describe("Ontology", func() {
 			DeferCleanup(func(ctx SpecContext) {
 				Expect(writer.Delete(ctx, p.Key)).To(Succeed())
 			})
-			Expect(MustSucceed(svc.Search(ctx, db, "turbopump", 10)).Keys).
+			q := search.Query[ontology.ID]{Term: "turbopump", Limit: 10}
+			Expect(MustSucceed(svc.Search(ctx, db, q)).Keys).
 				To(Equal([]ontology.ID{p.OntologyID()}))
 		})
 	})

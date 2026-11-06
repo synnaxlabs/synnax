@@ -27,6 +27,7 @@ import (
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/search"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -452,6 +453,158 @@ var _ = Describe("Device", func() {
 					Exec(ctx, tx)).To(Succeed())
 				Expect(preserved.Variant).To(Equal(status.VariantSuccess))
 				Expect(preserved.Message).To(Equal("Device is connected"))
+			},
+		)
+
+		DescribeTable(
+			"Should keep the stored status when an update sends none",
+			func(ctx SpecContext, change func(context.Context, *device.Device)) {
+				d := device.Device{
+					Key:      "keep-status-device",
+					Rack:     rackSvc.EmbeddedKey,
+					Location: "keep-loc",
+					Name:     "Keep Device",
+					Make:     "Test Make",
+					Model:    "Test Model",
+				}
+				Expect(w.Create(ctx, &d)).To(Succeed())
+				live := device.Status{
+					Key:     d.OntologyID().String(),
+					Name:    d.Name,
+					Time:    telem.Now(),
+					Variant: status.VariantSuccess,
+					Message: "Device is connected",
+					Details: device.StatusDetails{Rack: d.Rack, Device: d.Key},
+				}
+				Expect(stat.NewWriter(tx).Set(ctx, &live)).To(Succeed())
+
+				updated := device.Device{
+					Key:      d.Key,
+					Rack:     d.Rack,
+					Location: d.Location,
+					Name:     d.Name,
+					Make:     d.Make,
+					Model:    d.Model,
+				}
+				change(ctx, &updated)
+				Expect(w.Create(ctx, &updated)).To(Succeed())
+
+				var stored device.Status
+				Expect(stat.NewRetrieve[device.StatusDetails]().
+					Where(status.MatchKeys[device.StatusDetails](live.Key)).
+					Entry(&stored).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(stored.Variant).To(Equal(status.VariantSuccess))
+				Expect(stored.Message).To(Equal("Device is connected"))
+				Expect(stored.Time).To(Equal(live.Time))
+				Expect(stored.Name).To(Equal(updated.Name))
+				Expect(stored.Details.Rack).To(Equal(updated.Rack))
+				Expect(updated.Status.Message).To(Equal("Device is connected"))
+			},
+			Entry(
+				"renamed",
+				func(_ context.Context, d *device.Device) { d.Name = "Renamed Device" },
+			),
+			Entry("sent with a parent", func(_ context.Context, d *device.Device) {
+				parent := d.Rack.OntologyID()
+				d.Parent = &parent
+			}),
+			Entry(
+				"renamed with a parent",
+				func(_ context.Context, d *device.Device) {
+					parent := d.Rack.OntologyID()
+					d.Name = "Renamed Device"
+					d.Parent = &parent
+				},
+			),
+			Entry(
+				"moved to another rack",
+				func(ctx context.Context, d *device.Device) {
+					GinkgoHelper()
+					r := rack.Rack{Name: "Destination Rack"}
+					Expect(rackSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
+					d.Rack = r.Key
+				},
+			),
+		)
+
+		It(
+			"Should keep a status row stored before the device existed",
+			func(ctx SpecContext) {
+				d := device.Device{
+					Key:      "early-status-device",
+					Rack:     rackSvc.EmbeddedKey,
+					Location: "early-loc",
+					Name:     "Early Device",
+					Make:     "Test Make",
+					Model:    "Test Model",
+				}
+				Expect(stat.NewWriter(tx).Set(ctx, &device.Status{
+					Key:     d.OntologyID().String(),
+					Name:    d.Name,
+					Time:    telem.Now(),
+					Variant: status.VariantSuccess,
+					Message: "Device is connected",
+					Details: device.StatusDetails{Rack: d.Rack, Device: d.Key},
+				})).To(Succeed())
+				Expect(w.Create(ctx, &d)).To(Succeed())
+				Expect(d.Status.Message).To(Equal("Device is connected"))
+			},
+		)
+
+		It(
+			"Should write a provided status when renaming a device",
+			func(ctx SpecContext) {
+				d := device.Device{
+					Key:      "rename-provided-device",
+					Rack:     rackSvc.EmbeddedKey,
+					Location: "rename-loc",
+					Name:     "Original Name",
+					Make:     "Test Make",
+					Model:    "Test Model",
+				}
+				Expect(w.Create(ctx, &d)).To(Succeed())
+
+				d.Parent = nil
+				d.Name = "New Name"
+				d.Status = &device.Status{
+					Variant: status.VariantSuccess,
+					Message: "Device is connected",
+					Time:    telem.Now(),
+				}
+				Expect(w.Create(ctx, &d)).To(Succeed())
+
+				var stored device.Status
+				Expect(stat.NewRetrieve[device.StatusDetails]().
+					Where(status.MatchKeys[device.StatusDetails](d.OntologyID().String())).
+					Entry(&stored).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(stored.Message).To(Equal("Device is connected"))
+				Expect(stored.Name).To(Equal("New Name"))
+			},
+		)
+
+		It(
+			"Should return the stored status when a no-op update drops a provided one",
+			func(ctx SpecContext) {
+				d := device.Device{
+					Key:      "noop-provided-device",
+					Rack:     rackSvc.EmbeddedKey,
+					Location: "noop-loc",
+					Name:     "Noop Device",
+					Make:     "Test Make",
+					Model:    "Test Model",
+				}
+				Expect(w.Create(ctx, &d)).To(Succeed())
+
+				d.Parent = nil
+				d.Status = &device.Status{
+					Variant: status.VariantSuccess,
+					Message: "Device is connected",
+					Time:    telem.Now(),
+				}
+				Expect(w.Create(ctx, &d)).To(Succeed())
+				Expect(d.Status.Message).To(Equal("Device status unknown"))
 			},
 		)
 
@@ -1148,9 +1301,11 @@ var _ = Describe("Device", func() {
 			func(ctx SpecContext) {
 				a := create(ctx, "a", "turbopump test")
 				b := create(ctx, "b", "turbopump")
-				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", 0)).Keys).
+				q := search.Query[ontology.ID]{Term: "turbopump"}
+				Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
 					To(Equal([]ontology.ID{b, a}))
-				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", 1)).Keys).
+				q.Limit = 1
+				Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
 					To(Equal([]ontology.ID{b}))
 			},
 		)
@@ -1158,7 +1313,8 @@ var _ = Describe("Device", func() {
 		DescribeTable("Should match a device by its",
 			func(ctx SpecContext, term string) {
 				id := create(ctx, "igniter", "igniter")
-				Expect(MustSucceed(svc.Search(ctx, tx, term, 0)).Keys).
+				q := search.Query[ontology.ID]{Term: term}
+				Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
 					To(Equal([]ontology.ID{id}))
 			},
 			Entry("name", "igniter"),
@@ -1171,9 +1327,8 @@ var _ = Describe("Device", func() {
 			"Should not match a staged device outside its transaction",
 			func(ctx SpecContext) {
 				create(ctx, "injector", "injector")
-				Expect(
-					MustSucceed(svc.Search(ctx, db, "injector", 0)).Keys,
-				).To(BeEmpty())
+				q := search.Query[ontology.ID]{Term: "injector"}
+				Expect(MustSucceed(svc.Search(ctx, db, q)).Keys).To(BeEmpty())
 			},
 		)
 	})

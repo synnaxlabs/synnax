@@ -12,8 +12,10 @@ package analyzer
 import (
 	"slices"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/key"
 	"github.com/synnaxlabs/oracle/domain/omit"
+	"github.com/synnaxlabs/oracle/domain/validation"
 	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/diagnostics"
@@ -194,6 +196,23 @@ func validateImex(c *analysisCtx, types []resolution.Type) {
 		}
 		c.report(diagnostics.Errorf(nil,
 			"%s has a malformed @go imex; the marker takes no argument or body",
+			t.QualifiedName,
+		))
+	}
+}
+
+// validateKeyTypes errors on a type-level @key outside a distinct type. Filters read
+// the mark through aliases to the distinct type, so it means nothing elsewhere.
+func validateKeyTypes(c *analysisCtx, types []resolution.Type) {
+	for _, t := range types {
+		if _, ok := t.Domains["key"]; !ok {
+			continue
+		}
+		if _, ok := t.Form.(resolution.DistinctForm); ok {
+			continue
+		}
+		c.report(diagnostics.Errorf(nil,
+			"%s has @key, which marks only a distinct type such as Key uint32",
 			t.QualifiedName,
 		))
 	}
@@ -403,4 +422,36 @@ func getPath(t resolution.Type, lang string) string {
 		return ""
 	}
 	return expr.Values[0].StringValue
+}
+
+// validateLengthRules errors on a min_length or max_length rule on a field whose type
+// is not a string, such as a uuid, a number, or an array.
+func validateLengthRules(table *resolution.Table, diag *diagnostics.Files) {
+	for _, t := range table.Types {
+		form, ok := t.Form.(resolution.StructForm)
+		if !ok {
+			continue
+		}
+		for _, f := range form.Fields {
+			rules := validation.Parse(f.Domains["validate"])
+			if rules.MinLength == nil && rules.MaxLength == nil {
+				continue
+			}
+			typeRef := f.Type
+			if !f.HasType() {
+				unified := resolution.UnifiedFields(t, table)
+				if inherited, ok := lo.Find(unified, func(u resolution.Field) bool {
+					return u.Name == f.Name
+				}); ok {
+					typeRef = inherited.Type
+				}
+			}
+			if resolution.PrimitiveBase(typeRef, table) != "string" {
+				diag.Report(t.Namespace+".oracle", diagnostics.Errorf(nil,
+					"%s.%s has a length rule, but its type is not a string",
+					t.QualifiedName, f.Name,
+				))
+			}
+		}
+	}
 }

@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type rack, type Synnax, type task } from "@synnaxlabs/client";
+import { channel, type rack, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeAll, describe, expect, it } from "vitest";
 import { type z } from "zod";
 
@@ -30,6 +30,7 @@ import {
   clickDeploy,
   createWithHook,
   deployAndAwaitTask,
+  findChannelListItem,
   renderTaskFormTab,
 } from "@/platform/task/testutil";
 import { uniqueName } from "@/testutil";
@@ -148,7 +149,9 @@ describe("Read", () => {
     fireEvent.click(await screen.findByRole("option", { name: /0x6000:01/ }));
     fireEvent.click(await screen.findByRole("button", { name: /^Entry/ }));
     await waitFor(() =>
-      expect(screen.getAllByRole("option", { name: /Value/ })).toHaveLength(1),
+      expect(
+        within(screen.getByRole("dialog")).getAllByRole("option", { name: /Value/ }),
+      ).toHaveLength(1),
     );
     expect(screen.queryByText("Compact › Value")).toBeNull();
   });
@@ -568,11 +571,61 @@ describe("Read", () => {
     await awaitStatus(statuses, /is not configured/);
   });
 
+  it("should surface an error when a slave no longer exists", async () => {
+    const createSlave = async () =>
+      await createSlaveDevice(client, testRack.key, {
+        identifier: createIdentifier(),
+        network: "eth0",
+        pdos: createPDOs(),
+      });
+    const slave = await createSlave();
+    const deleted = await createSlave();
+    await client.devices.delete(deleted.key);
+    const { container, statuses } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [
+        createEntryReadChannel(slave.key, STATUS_ENTRY),
+        createEntryReadChannel(deleted.key, STATUS_ENTRY),
+      ],
+    });
+    await clickDeploy(container);
+    await awaitStatus(
+      statuses,
+      new RegExp(`^Found no device with key ${deleted.key}$`),
+    );
+  });
+
   it("should create the task with one channel", async () => {
     const tsk = await createWithHook(
       EtherCAT.Task.useCreateRead,
       EtherCAT.Task.READ_SCHEMAS,
     );
     expect(tsk.config.channels).toHaveLength(1);
+  });
+});
+
+describe("Read channel names", () => {
+  const renderStatus = async (overrides: { disabled?: boolean } = {}) => {
+    const identifier = createIdentifier();
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier,
+      network: "eth0",
+      pdos: createPDOs(),
+    });
+    await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [createEntryReadChannel(slave.key, STATUS_ENTRY, overrides)],
+    });
+    return await findChannelListItem(channel.escapeInvalidName(`${identifier}_Status`));
+  };
+
+  it("should show the name deploying gives a channel in the list", async () => {
+    const item = await renderStatus();
+    expect(within(item).getByRole("img", { name: "New channel" })).toBeTruthy();
+  });
+
+  it("should not mark a disabled channel as new", async () => {
+    const item = await renderStatus({ disabled: true });
+    expect(within(item).queryByRole("img", { name: "New channel" })).toBeNull();
   });
 });

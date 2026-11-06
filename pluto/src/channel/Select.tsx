@@ -49,8 +49,10 @@ export interface SelectMultipleProps
 const isChannel = (entry: unknown): entry is channel.Channel =>
   entry != null && typeof entry === "object" && "payload" in entry;
 
+// A selection with no channel, such as a fixed item, shows the select's own icon.
 const renderTriggerIcon = (entry: unknown): Icon.ReactElement | undefined => {
-  const Resolved = resolveIcon(isChannel(entry) ? entry.payload : undefined);
+  if (!isChannel(entry)) return undefined;
+  const Resolved = resolveIcon(entry.payload);
   return <Resolved />;
 };
 

@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/oracle/versions"
 	gotesterrors "github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 func TestGoTypes(t *testing.T) {
@@ -94,6 +95,18 @@ var _ = Describe("Go Types Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		It("Should generate the recursive Where of a filter", func(ctx SpecContext) {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ctx, ThingFilter, "thing", loader, goPlugin)
+			ExpectContent(resp, "thing/types.gen.go").
+				ToBeValidGoSource().
+				ToContain(
+					"And []Where `json:\"and,omitzero\" msgpack:\"and,omitempty\"`",
+					"Or []Where `json:\"or,omitzero\" msgpack:\"or,omitempty\"`",
+					"Not *Where `json:\"not,omitzero\" msgpack:\"not,omitempty\"`",
+				)
+		})
+
 		Context("field-level omit", func() {
 			It("Should keep a wire-omitted field out of JSON and msgpack", func(
 				ctx SpecContext,
@@ -2926,6 +2939,9 @@ Entry struct {
 							"type ScaleType = versions.ScaleType",
 							"type LinearScale = versions.LinearScale",
 							"LinearScaleType ScaleType = versions.LinearScaleType",
+							"// ScaleVariant is implemented by every Scale variant.",
+							`// ScaleType is the "type" value that selects a variant of Scale.`,
+							"// LinearScaleType selects the LinearScale variant.",
 						)
 				},
 			)
@@ -3112,6 +3128,107 @@ var _ = Describe("Go Union Generation", func() {
 	)
 
 	It(
+		"Should generate a method for the tag",
+		func(ctx SpecContext) {
+			source := `
+			@go output "out"
+
+			Base struct { name string }
+
+			View union on type extends Base {
+				first { size int32 }
+				second { count int32 }
+			}
+		`
+			resp := MustGenerate(ctx, source, "view", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain(
+					`// Type returns the type of the active variant, or an empty type when there is none.
+func (u View) Type() ViewType {
+	switch u.Variant.(type) {
+	case FirstView:
+		return FirstViewType
+	case SecondView:
+		return SecondViewType
+	}
+	return ""
+}`,
+				)
+		},
+	)
+
+	It(
+		"Should generate no method for a base that a variant drops a field from",
+		func(ctx SpecContext) {
+			source := `
+			@go output "out"
+
+			Base struct {
+				name string
+				size int32
+			}
+
+			View union on type extends Base {
+				first { -size }
+			}
+		`
+			resp := MustGenerate(ctx, source, "view", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain("func (u View) Type() ViewType").
+				ToNotContain("func (u View) Base() Base")
+		},
+	)
+
+	It(
+		"Should generate no tag method that collides with the Variant field",
+		func(ctx SpecContext) {
+			source := `
+			@go output "out"
+
+			Base struct { name string }
+
+			Config union on variant extends Base {
+				first { size int32 }
+			}
+		`
+			resp := MustGenerate(ctx, source, "view", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain("func (u Config) Base() Base").
+				ToNotContain("func (u Config) Variant()")
+		},
+	)
+
+	DescribeTable(
+		"Should reject a union getter that has the name of another union method",
+		func(ctx SpecContext, source, msg string) {
+			table, diag := Analyze(ctx, source, "view", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			req := &plugin.Request{Resolutions: table}
+			Expect(goPlugin.Generate(req)).Error().To(MatchError(
+				"failed to generate out: view.Shape: " + msg,
+			))
+		},
+		Entry("when the tag getter has the name of the base getter", `
+			@go output "out"
+
+			Detail struct { name string }
+
+			Shape union on base extends Detail {
+				first { size int32 }
+			}
+		`, "the getter for the discriminator base has the name of another union "+
+			"method; rename the discriminator"),
+		Entry("when the tag getter has the name of a method every union declares", `
+			@go output "out"
+
+			Shape union on validate {
+				first { size int32 }
+			}
+		`, "the getter for the discriminator validate has the name of another union "+
+			"method; rename the discriminator"),
+	)
+
+	It(
 		"Should emit a single discriminator constant on one line",
 		func(ctx SpecContext) {
 			source := `
@@ -3127,6 +3244,58 @@ var _ = Describe("Go Union Generation", func() {
 			ExpectContent(resp, "types.gen.go").
 				ToContain(`type ScaleType string`, "\nconst LinearScaleType ScaleType = \"linear\"\n").
 				ToNotContain("const (\n\tLinearScaleType")
+		},
+	)
+
+	It(
+		"Should document the exported union declarations and not the marker",
+		func(ctx SpecContext) {
+			source := `
+			@go output "out"
+
+			LinearParams struct { slope float64 }
+			NoneParams struct {}
+
+			Scale union on kind {
+				linear LinearParams {
+					@doc value "scales a value along a line."
+				}
+				none NoneParams
+			}
+		`
+			resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToBeValidGoSource().
+				ToContain(
+					`// ScaleType is the "kind" value that selects a variant of Scale.`,
+					"// LinearScaleType scales a value along a line.",
+					"// NoneScaleType selects the NoneScale variant.",
+					"// ScaleVariant is implemented by every Scale variant.",
+				).
+				ToNotContain("// isScaleVariant")
+		},
+	)
+
+	It(
+		"Should wrap an unknown discriminator in a validation error",
+		func(ctx SpecContext) {
+			source := `
+			@go output "out"
+
+			LinearParams struct { slope float64 }
+
+			Scale union on type {
+				linear LinearParams
+			}
+		`
+			resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToBeValidGoSource().
+				ToContain(
+					`"github.com/synnaxlabs/x/validate"`,
+					"validate.ErrValidation,",
+					`"Scale: unknown type %q",`,
+				)
 		},
 	)
 
@@ -3181,7 +3350,6 @@ var _ = Describe("Go Union Generation", func() {
 					`case LinearScale:`,
 					`}{Type: LinearScaleType, LinearScale: v})`,
 					`func (u *Scale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {`,
-					`Type ScaleType `+"`"+`json:"type"`+"`",
 					`case LinearScaleType:`,
 					`json.RejectUnknownMembers(false)`,
 					"LinearScale\n\t\t}",
@@ -3323,6 +3491,121 @@ var _ = Describe("Go Union Generation", func() {
 					`VoltageFields`,
 				)
 		},
+	)
+
+	It(
+		"Should generate Base and SetBase for a union whose variants share one base",
+		func(ctx SpecContext) {
+			source := `
+			@go output "out"
+
+			BaseAIChan struct { port int32 }
+			VoltageFields struct { minVal float64 }
+
+			AIChannel union on type extends BaseAIChan {
+				ai_voltage VoltageFields
+				ai_current { units string }
+			}
+		`
+			resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain(
+					"func (u AIChannel) Base() BaseAIChan {\n"+
+						"\tswitch variant := u.Variant.(type) {\n"+
+						"\tcase AIVoltageChannel:\n"+
+						"\t\treturn variant.BaseAIChan\n"+
+						"\tcase AICurrentChannel:\n"+
+						"\t\treturn variant.BaseAIChan\n"+
+						"\t}\n"+
+						"\treturn BaseAIChan{}\n"+
+						"}",
+					"func (u *AIChannel) SetBase(base BaseAIChan) {\n"+
+						"\tswitch variant := u.Variant.(type) {\n"+
+						"\tcase AIVoltageChannel:\n"+
+						"\t\tvariant.BaseAIChan = base\n"+
+						"\t\tu.Variant = variant\n"+
+						"\tcase AICurrentChannel:\n"+
+						"\t\tvariant.BaseAIChan = base\n"+
+						"\t\tu.Variant = variant\n"+
+						"\tdefault:\n"+
+						"\t\tpanic(errors.Newf(\"AIChannel: cannot set the base of "+
+						"variant %T\", variant))\n"+
+						"\t}\n"+
+						"}",
+				)
+		},
+	)
+
+	It(
+		"Should qualify the Base return type of a base from another namespace",
+		func(ctx SpecContext) {
+			loader.Add("schemas/common", `
+			@go output "core/common"
+
+			BaseAIChan struct { port int32 }
+		`)
+			source := `
+			import "schemas/common"
+
+			@go output "core/ni"
+
+			AIChannel union on type extends common.BaseAIChan {
+				ai_voltage { minVal float64 }
+			}
+		`
+			resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+			ExpectContent(resp, "ni/types.gen.go").
+				ToContain(
+					"func (u AIChannel) Base() common.BaseAIChan {",
+					"\t\treturn variant.BaseAIChan\n",
+					"\treturn common.BaseAIChan{}\n",
+					"func (u *AIChannel) SetBase(base common.BaseAIChan) {",
+					"\t\tvariant.BaseAIChan = base\n",
+				)
+		},
+	)
+
+	DescribeTable(
+		"Should not generate Base or SetBase without one base every variant shares",
+		func(ctx SpecContext, source string) {
+			resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain("type AIChannel struct {").
+				ToNotContain(") Base() ", ") SetBase(")
+		},
+		Entry("no base", `
+			@go output "out"
+
+			AIChannel union on type {
+				ai_voltage { minVal float64 }
+			}
+		`),
+		Entry("two bases", `
+			@go output "out"
+
+			BaseAIChan struct { port int32 }
+			Range struct { minVal float64 }
+
+			AIChannel union on type extends BaseAIChan, Range {
+				ai_voltage {}
+			}
+		`),
+		Entry("a variant that omits a base field", `
+			@go output "out"
+
+			BaseAIChan struct {
+				port int32
+				enabled bool
+			}
+
+			AIChannel union on type extends BaseAIChan {
+				ai_voltage { minVal float64 }
+				ai_temp_builtin {
+					-port
+					units string
+				}
+			}
+		`),
 	)
 
 	It(
@@ -3523,7 +3806,11 @@ func (u *rtScale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.rtLinearScale
 	default:
-		return gotesterrors.Newf("rtScale: unknown type %q", disc.Type)
+		return gotesterrors.Wrapf(
+			validate.ErrValidation,
+			"rtScale: unknown type %q",
+			disc.Type,
+		)
 	}
 	return nil
 }
@@ -3603,6 +3890,18 @@ var _ = Describe("Union codec round trip", func() {
 			To(Succeed())
 		Expect(out.Variant.(rtLinearScale).Slope).To(Equal(2.0))
 	})
+
+	DescribeTable("Should reject an invalid discriminator as a validation error",
+		func(data, value string) {
+			var out rtScale
+			Expect(json.Unmarshal([]byte(data), &out)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("rtScale: unknown type "+value)),
+			))
+		},
+		Entry("unknown", `{"type":"bogus"}`, `"bogus"`),
+		Entry("missing", `{"slope":2}`, `""`),
+	)
 
 	It("Should reject an unknown member of a union variant", func() {
 		data := []byte(`{"type":"linear","slope":2,"offset":1}`)
