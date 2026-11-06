@@ -135,7 +135,7 @@ func runSync(cmd *cobra.Command) error {
 	if err != nil {
 		return err
 	}
-	if err :=frozen.Update(chains, repoRoot, refreeze); err != nil {
+	if err := frozen.Update(chains, repoRoot, refreeze); err != nil {
 		return errors.Wrap(err, "update frozen sums")
 	}
 

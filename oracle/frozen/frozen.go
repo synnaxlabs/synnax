@@ -215,9 +215,9 @@ func Orphans(chains []Chain, repoRoot string) ([]string, error) {
 	return orphans, nil
 }
 
-// Update rewrites the sum file of every chain and removes the orphans. A frozen package whose schema did not
-// change keeps its recorded sum, so the `frozen` gate reports the change. With refreeze
-// set, it takes the new sum instead.
+// Update rewrites the sum file of every chain and removes the orphans. A frozen package
+// whose schema did not change keeps its recorded sum, so the `frozen` gate reports the
+// change. With refreeze set, it takes the new sum instead.
 func Update(chains []Chain, repoRoot string, refreeze bool) error {
 	for _, c := range chains {
 		recorded, err := Read(c.Path, repoRoot)
