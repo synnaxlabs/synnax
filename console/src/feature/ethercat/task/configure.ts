@@ -280,8 +280,8 @@ export interface BindOrphanedChannelsArgs<C extends EntryChannel> {
  * writes to it.
  *
  * @returns the channels that still need a Synnax channel.
- * @throws {Error} if a channel on another index holds a name, or if an orphaned
- * channel holds another data type.
+ * @throws {Error} if a channel on another index or a channel the device already maps
+ * holds a name, or if an orphaned channel holds another data type.
  */
 export const bindOrphanedChannels = async <C extends EntryChannel>({
   client,
@@ -292,16 +292,18 @@ export const bindOrphanedChannels = async <C extends EntryChannel>({
   mapKey = addressKey,
 }: BindOrphanedChannelsArgs<C>): Promise<C[]> => {
   const existing = await retrieveByName(client, names);
+  const bound = new Set(Object.values(map));
   return channels.filter((ch, i) => {
     const orphan = existing.get(names[i]);
     if (orphan == null) return true;
     const expected = index(i);
-    if (expected == null || orphan.index !== expected)
+    if (expected == null || orphan.index !== expected || bound.has(orphan.key))
       throw new Error(
         `A channel named ${orphan.name} already exists. Give the channel another name.`,
       );
     checkDataType(orphan, ch.dataType);
     map[mapKey(ch)] = orphan.key;
+    bound.add(orphan.key);
     return false;
   });
 };

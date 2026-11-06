@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type rack, type Synnax, type task } from "@synnaxlabs/client";
+import { type ethercat, type rack, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
@@ -461,6 +461,46 @@ describe("Read", () => {
     });
   });
 
+  it("should reject a custom name that the slave maps to another entry", async () => {
+    const identifier = createIdentifier();
+    const second = { ...STATUS_ENTRY, name: "Counter", subIndex: 2 };
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier,
+      network: "eth0",
+      pdos: { inputs: [STATUS_ENTRY, second], outputs: [] },
+    });
+    const first = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [createEntryReadChannel(slave.key, STATUS_ENTRY)],
+    });
+    await deployAndAwaitTask(
+      client,
+      first.container,
+      first.draft.key,
+      EtherCAT.Task.READ_SCHEMAS,
+    );
+    first.unmount();
+    const { container, statuses } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [
+        createEntryReadChannel(slave.key, second, { name: `${identifier}_Status` }),
+      ],
+    });
+    await clickDeploy(container);
+    await awaitStatus(
+      statuses,
+      new RegExp(
+        `A channel named ${identifier}_Status already exists\\. Give the channel ` +
+          "another name\\.",
+      ),
+    );
+    const updated = await client.devices.retrieve({
+      key: slave.key,
+      schemas: EtherCAT.Device.SLAVE_SCHEMAS,
+    });
+    expect(updated.properties.read.channels[`${0x6000}_2`]).toBeUndefined();
+  });
+
   it("should reuse the existing index and channels when redeployed", async () => {
     const slave = await createSlaveDevice(client, testRack.key, {
       identifier: createIdentifier(),
@@ -568,6 +608,40 @@ describe("Read", () => {
       expect(second.channel).toBe(first.channel);
       expect(second.slave.properties.readIndex).toBe(first.slave.properties.readIndex);
       expect(second.slave.properties.read.channels[`${0x6000}_1`]).toBe(first.channel);
+    });
+
+    it("should reject two entries that share the name of a deleted slave's channel", async () => {
+      const identifier = createIdentifier();
+      const name = uniqueName("ecat_shared");
+      const second = { ...STATUS_ENTRY, name: "Counter", subIndex: 2 };
+      const pdos = { inputs: [STATUS_ENTRY, second], outputs: [] };
+      const render = async (entries: ethercat.PDOEntry[]) => {
+        const slave = await createSlaveDevice(client, testRack.key, {
+          identifier,
+          network: "eth0",
+          pdos,
+        });
+        const rendered = await renderRead({
+          ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+          channels: entries.map((e) => createEntryReadChannel(slave.key, e, { name })),
+        });
+        return { slave, ...rendered };
+      };
+      const first = await render([STATUS_ENTRY]);
+      await deployAndAwaitTask(
+        client,
+        first.container,
+        first.draft.key,
+        EtherCAT.Task.READ_SCHEMAS,
+      );
+      first.unmount();
+      await client.devices.delete(first.slave.key);
+      const { container, statuses } = await render([STATUS_ENTRY, second]);
+      await clickDeploy(container);
+      await awaitStatus(
+        statuses,
+        new RegExp(`A channel named ${name} already exists\\.`),
+      );
     });
 
     it("should reject an identifier that gives the channel names of a live slave", async () => {
