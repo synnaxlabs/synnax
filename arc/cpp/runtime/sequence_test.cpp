@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <iterator>
 #include <limits>
@@ -244,6 +245,85 @@ std::vector<std::uint8_t> run(const double speed) {
     h.push("speed", x::telem::Series(speed));
     return collect<std::uint8_t>(h.flush(), h.key("passed"));
 }
+}
+
+namespace float_constant {
+/// @brief compiles one program that writes math.nan and -math.inf as T, and returns
+/// the two values written.
+template<typename T>
+std::pair<T, T> run(const x::telem::DataType &dt) {
+    const std::string type = dt == x::telem::FLOAT32_T ? "f32" : "f64";
+    Sequence h(
+        "import math\nfunc nan_of() {v " + type + "} " + type +
+            " {\n    return math.nan\n}\nfunc low() {v " + type + "} " + type +
+            " {\n    return -math.inf\n}\n%x% -> nan_of() -> %a%\n"
+            "%x% -> low() -> %b%\n",
+        {{"x", dt}, {"a", dt}, {"b", dt}}
+    );
+    h.push("x", x::telem::Series(T(1.5)));
+    const auto out = h.flush();
+    return {last<T>(out, h.key("a")), last<T>(out, h.key("b"))};
+}
+
+template<typename T>
+void expect_values(const x::telem::DataType &dt) {
+    const auto [nan, low] = run<T>(dt);
+    EXPECT_TRUE(std::isnan(nan));
+    EXPECT_EQ(low, -std::numeric_limits<T>::infinity());
+}
+}
+
+/// @brief it should write NaN and negative infinity at f32 width.
+TEST(FloatConstantTest, WritesF32Values) {
+    float_constant::expect_values<float>(x::telem::FLOAT32_T);
+}
+
+/// @brief it should write NaN and negative infinity at f64 width.
+TEST(FloatConstantTest, WritesF64Values) {
+    float_constant::expect_values<double>(x::telem::FLOAT64_T);
+}
+
+namespace float_check {
+/// @brief compiles one program that writes is_nan + 2 * is_infinite + 4 * is_finite
+/// for each value on x, and returns the codes in order.
+template<typename T>
+std::vector<std::uint8_t>
+run(const x::telem::DataType &dt, const std::vector<T> &values) {
+    const std::string type = dt == x::telem::FLOAT32_T ? "f32" : "f64";
+    Sequence h(
+        "import math\nfunc check() {v " + type +
+            "} u8 {\n    return u8(math.is_nan(v)) + 2 * u8(math.is_infinite(v)) + "
+            "4 * u8(math.is_finite(v))\n}\n%x% -> check() -> %out%\n",
+        {{"x", dt}, {"out", x::telem::UINT8_T}}
+    );
+    std::vector<std::uint8_t> out;
+    for (const auto v: values) {
+        h.push("x", x::telem::Series(v));
+        const auto written = collect<std::uint8_t>(h.flush(), h.key("out"));
+        out.insert(out.end(), written.begin(), written.end());
+    }
+    return out;
+}
+
+template<typename T>
+void expect_codes(const x::telem::DataType &dt) {
+    const auto nan = std::numeric_limits<T>::quiet_NaN();
+    const auto inf = std::numeric_limits<T>::infinity();
+    EXPECT_EQ(
+        run<T>(dt, {nan, inf, -inf, T(1.5)}),
+        (std::vector<std::uint8_t>{1, 2, 2, 4})
+    );
+}
+}
+
+/// @brief it should classify NaN, infinity, and numbers in compiled f32 checks.
+TEST(FloatCheckTest, ClassifiesF32Values) {
+    float_check::expect_codes<float>(x::telem::FLOAT32_T);
+}
+
+/// @brief it should classify NaN, infinity, and numbers in compiled f64 checks.
+TEST(FloatCheckTest, ClassifiesF64Values) {
+    float_check::expect_codes<double>(x::telem::FLOAT64_T);
 }
 
 /// @brief it should pass the guarded transition when the value is NaN.
