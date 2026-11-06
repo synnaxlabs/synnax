@@ -543,8 +543,8 @@ export class Table<
 
   /**
    * Deletes entries and notifies subscribers. Deleted values are retained as tombstones
-   * until a subsequent set for the key. In a table with a fetch, {@link mirrorSet}
-   * skips a deleted key until the change stream delivers its delete.
+   * until a subsequent set for the key. {@link mirrorSet} skips a deleted key until the
+   * change stream delivers its delete.
    * @param key - The key(s) to delete or a filter function
    * @returns A rollback that restores the deleted entries, then fetches them again: an
    * entry misses every change made while it was deleted.
@@ -611,10 +611,9 @@ export class Table<
         this.applyDelete(k);
         if (removal !== "evict" && value != null) {
           this.tombstones.set(k, new Deleted(value, TimeStamp.now()));
-          // The Core sends no delete for a key it already lost. Only the reconcile of a
-          // table with a fetch finds such a key and clears its mark.
-          if (removal === "local" && this.fetchEntries != null)
-            this.pendingDeletes.add(k);
+          // The Core sends no delete for a key it already lost. Its mark then holds
+          // until the stream reopens, or until a reconcile finds the key gone.
+          if (removal === "local") this.pendingDeletes.add(k);
         }
         // A repeat marks the delete as committed, so it also counts as a write.
         if (removal !== "evict" && this.tombstones.has(k))
