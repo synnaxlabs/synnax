@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -69,33 +70,22 @@ func (w Writer) setParent(ctx context.Context, d Device) error {
 	)
 }
 
-func (w Writer) defineStatus(ctx context.Context, d Device) error {
+func (w Writer) setStatus(ctx context.Context, d Device) error {
 	key := d.OntologyID().String()
-	exists, err := gorp.NewRetrieve[status.Key, Status]().
-		Where(gorp.MatchKeys[status.Key, Status](key)).
-		Exists(ctx, w.tx)
-	if err != nil {
-		return err
-	}
-	if exists {
-		return w.syncStatus(ctx, d)
-	}
-	return w.status.Set(ctx, &Status{
-		Key:     key,
-		Name:    d.Name,
-		Time:    telem.Now(),
-		Variant: status.VariantWarning,
-		Message: "Status unknown",
-		Details: StatusDetails{Rack: d.Rack, Device: d.Key},
-	})
-}
-
-func (w Writer) syncStatus(ctx context.Context, d Device) error {
 	var s Status
-	if err := gorp.NewRetrieve[status.Key, Status]().
-		Where(gorp.MatchKeys[status.Key, Status](d.OntologyID().String())).
+	err := gorp.NewRetrieve[status.Key, Status]().
+		Where(gorp.MatchKeys[status.Key, Status](key)).
 		Entry(&s).
-		Exec(ctx, w.tx); err != nil {
+		Exec(ctx, w.tx)
+	if errors.Is(err, query.ErrNotFound) {
+		s = Status{
+			Key:     key,
+			Time:    telem.Now(),
+			Variant: status.VariantWarning,
+			Message: "Status unknown",
+			Details: StatusDetails{Device: d.Key},
+		}
+	} else if err != nil {
 		return err
 	}
 	s.Name = d.Name
@@ -123,15 +113,16 @@ func (w Writer) Create(ctx context.Context, d *Device) error {
 		if err := w.setParent(ctx, *d); err != nil {
 			return err
 		}
-		return w.defineStatus(ctx, *d)
+		return w.setStatus(ctx, *d)
 	})
 }
 
 // Update applies change to the device stored under key and stores the result, so a
 // caller changes one field group and keeps the other as stored. The status and parent
-// edge follow the device. It returns an error wrapping query.ErrNotFound when no device
-// is stored under key and a validation error when the result is invalid. A transaction
-// that commits between the read and the write of this one is overwritten.
+// edge follow the device, and a missing status is written as unknown. It returns an
+// error wrapping query.ErrNotFound when no device is stored under key and a validation
+// error when the result is invalid. A transaction that commits between the read and the
+// write of this one is overwritten.
 func (w Writer) Update(
 	ctx context.Context,
 	key Key,
@@ -163,7 +154,7 @@ func (w Writer) Update(
 			return err
 		}
 		if next.Name != prev.Name || next.Rack != prev.Rack {
-			if err := w.syncStatus(ctx, next); err != nil {
+			if err := w.setStatus(ctx, next); err != nil {
 				return err
 			}
 		}
