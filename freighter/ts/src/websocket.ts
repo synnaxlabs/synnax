@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type binary, errors, sleep, TimeSpan, url, zod } from "@synnaxlabs/x";
+import { type binary, errors, sleep, TimeSpan, url } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { EOF, ReceiveOverflow, StreamClosed } from "@/errors";
@@ -15,11 +15,31 @@ import { CONTENT_TYPE_HEADER_KEY, FREIGHTER_METADATA_PREFIX } from "@/http";
 import { type Context, MiddlewareCollector } from "@/middleware";
 import { type Stream, type StreamClient } from "@/stream";
 
-const wsMessageZ = z.object({
-  type: z.enum(["data", "close", "open"]),
-  payload: z.unknown(),
+const controlMessageZ = z.object({
+  type: z.enum(["close", "open"]),
   error: z.optional(errors.payloadZ),
 });
+
+type ControlMessage = z.infer<typeof controlMessageZ>;
+
+type Message<P> = { type: "data"; payload: P } | ControlMessage;
+
+const wireMessageZ = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("data"), payload: z.unknown() }),
+  controlMessageZ,
+]);
+
+// The codec applies this schema, so a codec that builds typed payloads itself skips
+// parsing them.
+const messageZ = <RS extends z.ZodType>(payload: RS) =>
+  wireMessageZ.transform((msg, ctx): Message<z.infer<RS>> => {
+    if (msg.type !== "data") return msg;
+    const res = payload.safeParse(msg.payload);
+    if (res.success) return { type: "data", payload: res.data };
+    for (const issue of res.error.issues)
+      ctx.addIssue({ ...issue, path: ["payload", ...issue.path] });
+    return z.NEVER;
+  });
 
 export type WebsocketMessage<P = unknown> = {
   type: "data" | "close" | "open";
@@ -44,7 +64,7 @@ const DEFAULT_FLOW_CONTROL: FlowControl = {
 const DRAIN_POLL_INTERVAL = TimeSpan.milliseconds(5);
 
 // Data messages stay raw until receive decodes them.
-type QueuedMessage = ArrayBuffer | WebsocketMessage;
+type QueuedMessage = ArrayBuffer | ControlMessage;
 
 type ReceiveCallbacksQueue = Array<{
   resolve: (msg: QueuedMessage) => void;
@@ -58,7 +78,7 @@ class WebSocketStream<
 > implements Stream<RQ, RS> {
   private readonly codec: binary.Codec;
   private readonly reqSchema: RQ;
-  private readonly resSchema: RS;
+  private readonly messageZ: ReturnType<typeof messageZ<RS>>;
   private readonly ws: WebSocket;
   private serverClosed: Error | null;
   private sendClosed: boolean;
@@ -80,7 +100,7 @@ class WebSocketStream<
     this.flowControl = flowControl;
     this.resLabel = `${target} response`;
     this.reqSchema = reqSchema;
-    this.resSchema = resSchema;
+    this.messageZ = messageZ(resSchema);
     this.ws = ws;
     this.sendClosed = false;
     this.serverClosed = null;
@@ -90,6 +110,7 @@ class WebSocketStream<
   async receiveOpenAck(): Promise<void> {
     const msg = await this.receiveMsg();
     if (msg.type === "open") return;
+    if (msg.type === "data") throw new Error("Unexpected open-ack message type: data");
     if (msg.error == null) throw new Error("Message error must be defined");
     const err = errors.decode(msg.error);
     throw err ?? new Error(`Unexpected open-ack message type: ${msg.type}`);
@@ -111,13 +132,12 @@ class WebSocketStream<
   async receive(): Promise<z.infer<RS>> {
     if (this.serverClosed != null) throw this.serverClosed;
     const msg = await this.receiveMsg();
-    if (msg.type === "close") {
-      if (msg.error == null) throw new Error("Message error must be defined");
-      this.serverClosed = errors.decode(msg.error);
-      if (this.serverClosed == null) throw new Error("Message error must be defined");
-      throw this.serverClosed;
-    }
-    return zod.parse(this.resSchema, msg.payload, { label: this.resLabel });
+    if (msg.type === "data") return msg.payload;
+    if (msg.type === "open") throw new Error("Unexpected open message");
+    if (msg.error == null) throw new Error("Message error must be defined");
+    this.serverClosed = errors.decode(msg.error);
+    if (this.serverClosed == null) throw new Error("Message error must be defined");
+    throw this.serverClosed;
   }
 
   /** Implements the Stream protocol */
@@ -137,7 +157,7 @@ class WebSocketStream<
     return undefined;
   }
 
-  private async receiveMsg(): Promise<WebsocketMessage> {
+  private async receiveMsg(): Promise<Message<z.infer<RS>>> {
     const queued = this.receiveDataQueue.shift();
     if (queued != null && !("type" in queued))
       this.receiveQueueBytes -= queued.byteLength;
@@ -147,7 +167,7 @@ class WebSocketStream<
         this.receiveCallbacksQueue.push({ resolve, reject }),
       ));
     if ("type" in msg) return msg;
-    return this.codec.decode(msg, wsMessageZ);
+    return this.codec.decode(msg, this.messageZ, { label: this.resLabel });
   }
 
   private addMessage(msg: QueuedMessage): void {
