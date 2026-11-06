@@ -104,6 +104,23 @@ export doubled := i64(trig) * 2
 		Expect(last(out, fnOut).Unmarshal[int64]()).To(Equal([]int64{2}))
 	})
 
+	It("Should read a dependency's expression variable from a module stage", func(
+		ctx SpecContext,
+	) {
+		h := newModuleRuntimeHarness(ctx, `
+import a
+
+trig == 1 => a.s
+`, map[string]string{
+			"a": "import b\n\nexport stage s { b.doubled -> fn_out }",
+			"b": "export doubled := i64(trig) * 2",
+		}, resolver, digests...)
+		defer h.Close(ctx)
+		out := run(ctx, h, 2)
+		vals := last(out, fnOut).Unmarshal[int64]()
+		Expect(vals[len(vals)-1]).To(Equal(int64(2)))
+	})
+
 	It("Should run an exported function that formats a channel it reads", func(
 		ctx SpecContext,
 	) {

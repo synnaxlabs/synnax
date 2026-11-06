@@ -496,7 +496,7 @@ func analyzeIdentifierByRole(
 		}
 		return flowNodeResult{transition: &intent}, true
 	default:
-		if isSink && sym.Root().UserDefined {
+		if isSink && sym.Root().UserDefined && sym.Root() != ctx.Scope.Root() {
 			ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
 				"cannot write to '%s': it belongs to an imported module", name))
 			return flowNodeResult{}, false
@@ -1532,12 +1532,17 @@ func analyzeUnit(
 	kg := newKeyGenerator(&i.Functions, root.Name)
 	shell := newShellBuilder(collectSynthByAST(aCtx.Scope.Root()))
 	collectVarNodes(aCtx.Scope.Root(), kg, shell)
-	var units []*unit
-	if l := loaderOf(root); l != nil && !module {
-		units = l.loaded()
+	// Every unit reads the variable nodes of the modules loaded before it. Only an
+	// automation links their code.
+	var deps, units []*unit
+	if l := loaderOf(root); l != nil {
+		deps = l.loaded()
 	}
-	for _, u := range units {
+	for _, u := range deps {
 		maps.Copy(shell.varNodes, u.varNodes)
+	}
+	if !module {
+		units = deps
 	}
 
 	// The root scope is always parallel and always-live.
@@ -1601,10 +1606,11 @@ func analyzeUnit(
 	// still registers in the program's global node and edge lists.
 	i.Nodes = append(i.Nodes, shell.inlineNodes...)
 
-	// A reassigned variable's dispatcher gains its union channel triggers.
+	// A reassigned variable's dispatcher gains its union channel triggers. A
+	// loaded module's dispatchers already carry theirs.
 	disps := make([]*dispatcher, 0, len(shell.varNodes))
-	for _, e := range shell.varNodes {
-		if e.disp != nil {
+	for sym, e := range shell.varNodes {
+		if e.disp != nil && sym.Root() == root {
 			disps = append(disps, e.disp)
 		}
 	}
@@ -1679,15 +1685,30 @@ func analyzeUnit(
 	}
 
 	if len(i.Nodes) > 0 {
-		if !analyzer.ResolveNodeTypes(
+		// A module's edges reach the variable nodes of the modules it imports,
+		// so it is checked beside them and keeps only its own nodes after.
+		own, ownEdges := len(i.Nodes), len(i.Edges)
+		if module {
+			for _, u := range deps {
+				i.Nodes = append(i.Nodes, u.ir.Nodes...)
+				i.Edges = append(i.Edges, u.ir.Edges...)
+			}
+		}
+		ok := analyzer.ResolveNodeTypes(
 			i.Nodes,
 			i.Edges,
 			aCtx.Constraints,
 			aCtx.Diagnostics,
-		) {
+		)
+		var d *diagnostics.Diagnostics
+		if ok {
+			d = stratifier.Stratify(ctx, &i, aCtx.Diagnostics)
+		}
+		i.Nodes, i.Edges = i.Nodes[:own:own], i.Edges[:ownEdges:ownEdges]
+		if !ok {
 			return unit{ir: i}, aCtx.Diagnostics
 		}
-		if d := stratifier.Stratify(ctx, &i, aCtx.Diagnostics); d != nil && !d.Ok() {
+		if d != nil && !d.Ok() {
 			return unit{ir: i}, d
 		}
 	}

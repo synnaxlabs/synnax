@@ -31,14 +31,17 @@ class TestArcDirectory:
         client.arcs.directories.delete(d.key)
 
     def test_rename(self, client: sy.Synnax) -> None:
-        """Should rename a directory."""
-        root = client.arcs.directories.root()
-        d = client.arcs.directories.create(f"dir_{uuid4().hex}", parent=root)
+        """Should rename a directory so its old name is free and its new one taken."""
+        dirs = client.arcs.directories
+        root = dirs.root()
+        name = f"dir_{uuid4().hex}"
+        d = dirs.create(name, parent=root)
         renamed = f"dir_{uuid4().hex}"
-        client.arcs.directories.rename(d.key, renamed)
-        children = client.ontology.retrieve_children(sy.arc.directory.ontology_id(root))
-        assert sy.arc.directory.ontology_id(d.key) in children
-        client.arcs.directories.delete(d.key)
+        dirs.rename(d.key, renamed)
+        with pytest.raises(sy.ValidationError):
+            dirs.create(renamed, parent=root)
+        freed = dirs.create(name, parent=root)
+        dirs.delete([d.key, freed.key])
 
     def test_move_module_into_directory(self, client: sy.Synnax) -> None:
         """Should move a module from the root into a directory and back."""

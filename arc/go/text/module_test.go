@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
@@ -23,6 +24,7 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 )
 
 var _ = Describe("Loader", func() {
@@ -556,6 +558,49 @@ trig > 0 => m.s
 			Expect(diag.String()).To(ContainSubstring(
 				"cannot write to top-level variable 'm.k'",
 			))
+		})
+
+		It("Should let a module write its own sequence variable", func(
+			ctx SpecContext,
+		) {
+			sources["m"] = `
+export sequence s {
+	total u8 $= 0
+	stage a { trig -> total }
+}`
+			diag := analyze(ctx, "import m\n\ntrig > 0 => m.s")
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+		})
+
+		It("Should read a dependency's expression variable from a module", func(
+			ctx SpecContext,
+		) {
+			sources["b"] = `export c := trig + 1`
+			sources["a"] = "import b\n\nexport stage s { b.c -> out8 }"
+			i, diag := analyzeIR(ctx, "import a\n\ntrig > 0 => a.s")
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			var sources []string
+			for _, e := range i.Edges {
+				if e.Target.Node == "a.write_out8_0" {
+					sources = append(sources, e.Source.Node)
+				}
+			}
+			Expect(sources).To(ConsistOf(HavePrefix("b.var_c")))
+			Expect(i.Nodes).To(HaveLen(len(set.New(lo.Map(i.Nodes,
+				func(n ir.Node, _ int) string { return n.Key })...))))
+		})
+
+		It("Should link a module's reassigned variable once", func(ctx SpecContext) {
+			sources["m"] = `
+export sequence s {
+	k := trig + 1
+	stage a { k = trig + 2 }
+	stage b { k -> out8 }
+}`
+			i, diag := analyzeIR(ctx, "import m\n\ntrig > 0 => m.s")
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			keys := functionKeys(i)
+			Expect(keys).To(HaveLen(len(set.New(keys...))))
 		})
 	})
 

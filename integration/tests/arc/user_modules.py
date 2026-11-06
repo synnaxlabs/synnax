@@ -34,15 +34,21 @@ export func describe() str { return f"Data: {um_data}" }
 
 # A chain of three modules, one directory level deeper each. Each one imports the
 # next by the path load_module gave it, binds the last segment, and adds one to
-# its value.
+# its value. The first one's stage reads the second one's channel-backed variable.
 CHAIN_A_SOURCE = Template("""
 import $inner
 
 export func value() {t u8} i64 { return $inner_name.value() + 1 }
+
+export stage relay {
+    $inner_name.doubled -> um_var_out
+}
 """)
 
 CHAIN_B_SOURCE = Template("""
 import $inner
+
+export doubled := um_data * 2
 
 export func value() i64 { return $inner_name.value() + 1 }
 """)
@@ -62,6 +68,7 @@ um_start == 1 => $library.seq
 um_start == 1 => $library.stg
 $reactive.describe() -> um_text_out
 um_start -> $chain_name.value() -> um_chain_out
+um_start == 1 => $chain_name.relay
 """)
 
 
@@ -80,7 +87,8 @@ class UserModules(ArcCase):
        channel-reading function's value to a channel, and calls down the chain.
     3. The start trigger produces the function's value, both scope writes, and the
        chain's value.
-    4. A write to ``um_data`` shows up formatted on ``um_text_out``.
+    4. A write to ``um_data`` shows up formatted on ``um_text_out`` and doubled on
+       ``um_var_out`` through the chain's stage.
     """
 
     arc_source = AUTOMATION_SOURCE.template
@@ -92,6 +100,7 @@ class UserModules(ArcCase):
         "um_stage_state",
         "um_text_out",
         "um_chain_out",
+        "um_var_out",
     ]
 
     def setup(self) -> None:
@@ -103,6 +112,7 @@ class UserModules(ArcCase):
         create_virtual_channel(self.client, "um_data", data_type=sy.DataType.INT64)
         create_virtual_channel(self.client, "um_text_out", data_type=sy.DataType.STRING)
         create_virtual_channel(self.client, "um_chain_out", data_type=sy.DataType.INT64)
+        create_virtual_channel(self.client, "um_var_out", data_type=sy.DataType.INT64)
         super().setup()
         self.set_manual_timeout(60)
 
@@ -147,3 +157,5 @@ class UserModules(ArcCase):
         self.log("Writing um_data=42; the text function must format it")
         self.writer.write("um_data", 42)
         self.wait_for_eq("um_text_out", "Data: 42", timeout=5 * sy.TimeSpan.SECOND)
+        self.log("Waiting for the chain stage to double it")
+        self.wait_for_eq("um_var_out", 84, timeout=5 * sy.TimeSpan.SECOND)
