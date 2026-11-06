@@ -84,6 +84,17 @@ interface FillValueFieldProps {
   dataType: string;
 }
 
+const formatFillValue = (value: unknown): string => {
+  if (value == null) return "";
+  return typeof value === "string" ? value : JSON.stringify(value);
+};
+
+// A numeric channel also takes text, such as an enum label, which the Driver validates.
+const parseNumericFillValue = (text: string): number | string => {
+  const parsed = Number(text);
+  return text.trim() === "" || !Number.isFinite(parsed) ? text : parsed;
+};
+
 // The stored value is any JSON and the key can be absent, so Form.Field cannot bind it.
 const FillValueField: FC<FillValueFieldProps> = ({
   path,
@@ -95,25 +106,22 @@ const FillValueField: FC<FillValueFieldProps> = ({
     key === 0 ? null : { key },
   );
   const { set } = PForm.useContext();
-  const handleClear = () => set(path.fillValue, undefined);
+  const isString = DataType.STRING.equals(channelDataType ?? dataType);
+  const text = formatFillValue(value);
+  const handleChange = (next: string) => {
+    // A blur reports unedited text too, which must not retype the stored value.
+    if (next === text) return;
+    if (next === "") set(path.fillValue, undefined);
+    else set(path.fillValue, isString ? next : parseNumericFillValue(next));
+  };
   return (
     <Input.Item label="Fill value" padHelpText={false}>
-      {DataType.STRING.equals(channelDataType ?? dataType) ? (
-        <Input.Text
-          value={
-            typeof value === "string" || typeof value === "number" ? `${value}` : ""
-          }
-          onChange={(next) => (next === "" ? handleClear() : set(path.fillValue, next))}
-          placeholder="Required"
-        />
-      ) : (
-        <Input.Numeric
-          value={typeof value === "number" ? value : undefined}
-          onChange={(next) => set(path.fillValue, next)}
-          onClear={handleClear}
-          placeholder="NaN"
-        />
-      )}
+      <Input.Text
+        value={text}
+        onChange={handleChange}
+        onlyChangeOnBlur
+        placeholder={isString ? "Required" : "NaN"}
+      />
     </Input.Item>
   );
 };

@@ -323,6 +323,60 @@ describe("Read", () => {
       expect((await deploy()).fillValue).toBe("off");
     });
 
+    it("should store digits as text on a string channel", async () => {
+      const { deploy } = await renderField({ optional: true, dataType: "string" });
+      commitFieldInput(await findFillValue(), "5");
+      expect((await deploy()).fillValue).toBe("5");
+    });
+
+    it("should store an enum label as text on a numeric channel", async () => {
+      const { deploy } = await renderField({ optional: true });
+      commitFieldInput(await findFillValue(), "off");
+      expect((await deploy()).fillValue).toBe("off");
+    });
+
+    it("should hold a partial number until the input commits", async () => {
+      const { deploy } = await renderField({ optional: true });
+      const input = await findFillValue();
+      fireEvent.change(input, { target: { value: "1." } });
+      expect(input.value).toBe("1.");
+      commitFieldInput(input, "1.5");
+      expect((await deploy()).fillValue).toBe(1.5);
+    });
+
+    it.each([
+      { stored: "off", dataType: "float64", text: "off" },
+      { stored: false, dataType: "string", text: "false" },
+      { stored: true, dataType: "float64", text: "true" },
+    ])(
+      "should show and clear a stored $stored on a $dataType channel",
+      async ({ stored, dataType, text }) => {
+        const { deploy } = await renderField({
+          optional: true,
+          dataType,
+          fillValue: stored,
+        });
+        const input = await findFillValue();
+        await waitFor(() => expect(input.value).toBe(text));
+        commitFieldInput(input, "");
+        await waitFor(() => expect(input.value).toBe(""));
+        expect((await deploy()).fillValue).toBeUndefined();
+      },
+    );
+
+    it("should keep the stored type when the input blurs with no edit", async () => {
+      const { deploy } = await renderField({
+        optional: true,
+        dataType: "string",
+        fillValue: false,
+      });
+      const input = await findFillValue();
+      await waitFor(() => expect(input.value).toBe("false"));
+      fireEvent.focus(input);
+      fireEvent.blur(input);
+      expect((await deploy()).fillValue).toBe(false);
+    });
+
     describe("bound to a channel", () => {
       const createChannel = async (dataType: DataType) =>
         await client.channels.create({
@@ -344,6 +398,18 @@ describe("Read", () => {
         await renderField({ optional: true, channel: ch.key, dataType: "string" });
         await screen.findByPlaceholderText("NaN");
         expect(screen.queryByPlaceholderText("Required")).toBeNull();
+      });
+
+      it("should show a string fill value on a numeric channel", async () => {
+        const ch = await createChannel(DataType.INT32);
+        await renderField({
+          optional: true,
+          channel: ch.key,
+          dataType: "string",
+          fillValue: "off",
+        });
+        const input = await findFillValue();
+        await waitFor(() => expect(input.value).toBe("off"));
       });
 
       it("should use the saved data type when the channel no longer exists", async () => {
