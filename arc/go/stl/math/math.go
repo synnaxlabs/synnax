@@ -140,19 +140,28 @@ var (
 	isNaNDoc = doc.New(
 		doc.Paragraph("Returns true if a float value is NaN."),
 		doc.Divider(),
-		doc.Code("arc", "math.is_nan(pump_speed) => abort"),
+		doc.Code(
+			"arc",
+			"func clean() {x f64} f64 {\n    if math.is_nan(x) {\n        return 0.0\n    }\n    return x\n}",
+		),
 	)
 	isInfiniteDoc = doc.New(
 		doc.Paragraph(
 			"Returns true if a float value is positive or negative infinity.",
 		),
 		doc.Divider(),
-		doc.Code("arc", "math.is_infinite(temp_a) => abort"),
+		doc.Code(
+			"arc",
+			"func capped() {x f64} f64 {\n    if math.is_infinite(x) {\n        return 0.0\n    }\n    return x\n}",
+		),
 	)
 	isFiniteDoc = doc.New(
 		doc.Paragraph("Returns true if a float value is not NaN and not infinite."),
 		doc.Divider(),
-		doc.Code("arc", "not math.is_finite(pump_speed) or pump_speed < 15 => next"),
+		doc.Code(
+			"arc",
+			"sequence main {\n    stage spin_down {\n        not math.is_finite(pump_speed) or pump_speed < 15 => next\n    }\n    stage stopped {\n        1 -> pump_stopped\n    }\n}",
+		),
 	)
 	moduleDoc = doc.New(
 		doc.Paragraph(
