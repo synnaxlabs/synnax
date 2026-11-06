@@ -27,3 +27,9 @@ func indexReference() *gorp.KeyReference[Key, Channel, Key] {
 		Detach: func(c *Channel, _ Key) { c.LocalIndex = 0 },
 	})
 }
+
+// MatchIndexes returns a filter for the data channels whose index is any of indexes. An
+// index channel does not match its own key.
+func (s *Service) MatchIndexes(indexes ...Key) Filter {
+	return func(Retrieve) gorp.Filter[Key, Channel] { return s.index.Filter(indexes...) }
+}

@@ -255,7 +255,7 @@ func (s *Service) newCalculationTransform(
 		var owners []channel.Channel
 		if err := s.cfg.Channel.NewRetrieve().
 			Where(channel.MatchCalculated()).
-			Where(channel.MatchIndexes(freeIndexes...)).
+			Where(s.cfg.Channel.MatchIndexes(freeIndexes...)).
 			Entries(&owners).
 			Exec(ctx, nil); err != nil {
 			return nil, nil, err

@@ -121,8 +121,7 @@ Channel struct {
         @doc value "is the locally-unique portion of this channel's key."
     }
     local_index LocalKey            {
-        @doc value    "is the locally-unique portion of the index channel's key."
-        @index lookup
+        @doc value "is the locally-unique portion of the index channel's key."
     }
     virtual     bool                {
         @doc value """
