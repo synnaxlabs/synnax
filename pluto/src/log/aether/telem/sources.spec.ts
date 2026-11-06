@@ -824,7 +824,8 @@ describe("StreamMultiChannelLog", () => {
       const held = entriesOf(log).length;
       log.loadOlder();
       await expect.poll(() => log.live, POLL).toBe(false);
-      expect(valuesOf(entriesOf(log), a)[0]).toBe(textOf(core, a, held + 1_000)[0]);
+      // The page holds half of what the log keeps after an eviction.
+      expect(valuesOf(entriesOf(log), a)[0]).toBe(textOf(core, a, held + 900)[0]);
       expectRun(core, a, log);
     });
 
@@ -1063,6 +1064,21 @@ describe("StreamMultiChannelLog", () => {
       expect(newest.filter((value) => !seen.has(value))).toEqual([]);
     });
 
+    it("should keep the view when an older page outgrows the log", async () => {
+      const core = createCore({
+        now: START.add(TimeSpan.seconds(STORED / 10)),
+        text: (i) => Array(5).fill(i).join("\n"),
+      });
+      const [a] = core.data.map((c) => c.key);
+      core.retype(a, DataType.STRING);
+      const log = open(core, connect(core), { channels: [a] }, undefined, 2_000);
+      await expect.poll(() => entriesOf(log).length, POLL).toBeGreaterThan(0);
+      const [oldest] = valuesOf(entriesOf(log), a);
+      log.loadOlder();
+      await expect.poll(() => log.live, POLL).toBe(false);
+      expect(valuesOf(entriesOf(log), a)).toContain(oldest);
+    });
+
     it("should stay live when it resumes during an older read", async () => {
       const core = deep();
       const [a] = core.data.map((c) => c.key);
@@ -1110,17 +1126,17 @@ describe("StreamMultiChannelLog", () => {
       stamped = false;
       vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
       try {
-        const deadline = performance.now() + 25_000;
-        while (!log.live && performance.now() < deadline) {
-          log.loadNewer();
-          await new Promise((resolve) => setTimeout(resolve, 5));
-          await vi.advanceTimersByTimeAsync(PAST_WAIT_LIMIT.milliseconds);
-        }
+        await until(
+          () => {
+            log.loadNewer();
+            vi.advanceTimersByTime(PAST_WAIT_LIMIT.milliseconds);
+          },
+          () => log.live,
+        );
       } finally {
         vi.useRealTimers();
       }
-      expect(log.live).toBe(true);
-    }, 30_000);
+    });
 
     it("should return to the newest samples when it resumes", async () => {
       const core = deep();

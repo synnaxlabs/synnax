@@ -362,7 +362,7 @@ export class StreamMultiChannelLog
     );
     // The entries keep this many lines after an eviction, so a longer read would evict
     // lines of its own before they show. Skipped lines count, since they join in time.
-    const kept = this.maxEntries - Math.floor(this.maxEntries * EVICTION_HEADROOM);
+    const kept = this.keptLines;
     const { skipped } = this;
     // A pull adds its groups one channel at a time.
     skipped.sort((a, b) => compareTimes(a[0], b[0]));
@@ -400,6 +400,11 @@ export class StreamMultiChannelLog
     this.evict();
     if (live) this.rejoin(tail);
     this.notify();
+  }
+
+  // The lines the entries keep after an eviction.
+  private get keptLines(): number {
+    return this.maxEntries - Math.floor(this.maxEntries * EVICTION_HEADROOM);
   }
 
   // Pulls the samples of a span the log only counted again, now that it is live.
@@ -454,6 +459,14 @@ export class StreamMultiChannelLog
           items.push({ meta, p, group: toEntries(key, p, p.time) });
     });
     items.sort((x, y) => compareTimes(x.group[0], y.group[0]));
+    // An eviction keeps the oldest lines, so a page longer than half of them could
+    // evict the lines the view sits on. The next page reads what this one leaves out.
+    const limit = Math.floor(this.keptLines / 2);
+    let start = items.length - 1;
+    let lines = items.at(-1)?.group.length ?? 0;
+    while (start > 0 && lines + items[start - 1].group.length <= limit)
+      lines += items[--start].group.length;
+    items.splice(0, start);
     metas.forEach(([, meta], i) => {
       const { samples, full, missed } = read[i];
       const own = items.filter((item) => item.meta === meta);
