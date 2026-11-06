@@ -59,6 +59,14 @@ overrides:
   '@codingame/monaco-vscode-api>dompurify': 3.4.17
   # GHSA-mrhx-c7xc-m3w5. Lift when @vercel/oidc moves past @vercel/cli-config 0.3.1.
   '@vercel/cli-config>zod': ^4.6.7
+  # GHSA-g3hv-75wg-m249. glob 13 breaks on minimatch 11, so glob moves to 14 as well.
+  # Lift when eslint, typescript-estree, vsce, and vscode-languageclient move to it.
+  '@vercel/nft>glob': ^14.0.3
+  minimatch@10: ^11.0.4
+
+# Replaces makeRe(), which minimatch 11 removes. Lift with the minimatch override.
+patchedDependencies:
+  vscode-languageclient@10.1.2: patches/npm/vscode-languageclient@10.1.2.patch
 
 catalogMode: strict
 catalogPrune: true
@@ -222,6 +230,7 @@ catalog:
   turbo: ^2.11.9
   typescript: ^7.0.2
   typescript-eslint: ^8.71.2
+  undici: ^8.12.2
   use-sync-external-store: ^1.7.0
   uuid: ^14.0.3
   vite: ^8.3.4

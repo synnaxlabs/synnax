@@ -131,3 +131,11 @@ func FromAny[T any](a *anypb.Any) (T, error) {
 	err = json.Unmarshal(b, &v)
 	return v, err
 }
+
+// NilToPBAny converts the value of a nil type argument to *anypb.Any. A nil type
+// argument holds no value, so it returns nil.
+func NilToPBAny(struct{}) (*anypb.Any, error) { return nil, nil }
+
+// NilFromPBAny converts *anypb.Any to the value of a nil type argument. A nil type
+// argument holds no value, so it ignores a.
+func NilFromPBAny(*anypb.Any) (struct{}, error) { return struct{}{}, nil }

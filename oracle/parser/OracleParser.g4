@@ -51,12 +51,14 @@ fileDomain
 // Definitions
 // =============================================================================
 
-// Top-level definitions are structs, enums, type definitions, or discriminated unions
+// Top-level definitions are structs, enums, type definitions, discriminated unions, or
+// filters
 definition
     : structDef
     | enumDef
     | typeDefDef
     | unionDef
+    | filterDef
     ;
 
 // =============================================================================
@@ -379,9 +381,9 @@ unionDef
     : IDENT UNION IDENT IDENT typeRef? (EXTENDS typeRefList)? nl* LBRACE nl* unionBody RBRACE
     ;
 
-// Union body contains variants and/or union-level domains
+// Union body contains variants, actions, and/or union-level domains
 unionBody
-    : ((unionVariant | domain) nl*)*
+    : ((actionDef | unionVariant | domain) nl*)*
     ;
 
 // Single variant: discriminator value + struct type + optional per-variant domains
@@ -396,10 +398,10 @@ unionBody
 //   }
 //   empty {}
 //
-// variantName accepts IDENT or any Oracle keyword so that discriminator string
-// values that collide with reserved words (e.g. "map" in NI's Scale union)
-// can be expressed without quoting. The value carried is always the raw
-// token text.
+// variantName accepts IDENT or any Oracle keyword except `action`, which starts an
+// action in a union body, so that discriminator string values that collide with
+// reserved words (e.g. "map" in NI's Scale union) can be expressed without quoting.
+// The value carried is always the raw token text.
 unionVariant
     : variantName typeRef unionVariantBody?                               # NamedVariant
     | variantName (EXTENDS typeRefList)? nl* LBRACE nl* structBody RBRACE # InlineVariant
@@ -413,10 +415,32 @@ variantName
     | ENUM
     | EXTENDS
     | IMPORT
-    | ACTION
     ;
 
 // Optional body for union variants (domains only)
 unionVariantBody
     : nl* LBRACE nl* (domain nl*)* RBRACE
+    ;
+
+// =============================================================================
+// Filter Definitions
+// =============================================================================
+
+// Name-first filter definition over a target struct or union:
+//   Where filter Range {
+//       key
+//       name
+//       overlaps telem.TimeRange
+//   }
+//
+// A bare line names a field of the target. A typed line declares a matcher written by
+// hand, with the type of its argument. `filter` is a soft keyword validated by the
+// analyzer, as `on` is for unions, so schemas may keep fields named `filter`.
+filterDef
+    : IDENT IDENT typeRef nl* LBRACE nl* filterBody RBRACE
+    ;
+
+// Filter body contains lines and/or filter-level domains
+filterBody
+    : ((fieldDef | domain) nl*)*
     ;

@@ -286,67 +286,6 @@ func (rc *ReadConfig) DecodeOrc(r *orc.Reader) error {
 }
 
 // EncodeOrc writes the value to w in the Orc binary format.
-func (s Scale) EncodeOrc(w *orc.Writer) error {
-	switch v := s.Variant.(type) {
-	case LinearScale:
-		w.String("linear")
-		w.Float64(float64(v.Slope))
-		w.Float64(float64(v.Offset))
-	case MapScale:
-		w.String("map")
-		w.Float64(float64(v.PreScaledMin))
-		w.Float64(float64(v.PreScaledMax))
-		w.Float64(float64(v.ScaledMin))
-		w.Float64(float64(v.ScaledMax))
-	case NoneScale:
-		w.String("none")
-	default:
-		return errors.Newf("Scale: nil or unknown variant %T", s.Variant)
-	}
-	return nil
-}
-
-// DecodeOrc reads the value from r in the Orc binary format.
-func (s *Scale) DecodeOrc(r *orc.Reader) error {
-	tag, err := r.String()
-	if err != nil {
-		return err
-	}
-	switch tag {
-	case "linear":
-		var v LinearScale
-		if v.Slope, err = r.Float64(); err != nil {
-			return err
-		}
-		if v.Offset, err = r.Float64(); err != nil {
-			return err
-		}
-		s.Variant = v
-	case "map":
-		var v MapScale
-		if v.PreScaledMin, err = r.Float64(); err != nil {
-			return err
-		}
-		if v.PreScaledMax, err = r.Float64(); err != nil {
-			return err
-		}
-		if v.ScaledMin, err = r.Float64(); err != nil {
-			return err
-		}
-		if v.ScaledMax, err = r.Float64(); err != nil {
-			return err
-		}
-		s.Variant = v
-	case "none":
-		var v NoneScale
-		s.Variant = v
-	default:
-		return errors.Newf("Scale: unknown variant %q", tag)
-	}
-	return nil
-}
-
-// EncodeOrc writes the value to w in the Orc binary format.
 func (sc ScanConfig) EncodeOrc(w *orc.Writer) error {
 	w.Write(sc.Key[:])
 	w.Float64(float64(sc.Rate))

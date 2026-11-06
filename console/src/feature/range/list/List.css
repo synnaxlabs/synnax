@@ -17,11 +17,6 @@
     }
 }
 
-/* Tightens the gutter so the reveal checkbox sits close to the row edge. */
-.lyra-list__item.console-range__list-item {
-    padding-left: 1rem;
-}
-
 .console-range-list-search {
     padding: 1.5rem;
 }

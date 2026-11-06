@@ -15,7 +15,6 @@ import {
   deep,
   type destructor,
   errors,
-  primitive,
   type Series,
   TimeRange,
   zod,
@@ -24,7 +23,7 @@ import { z } from "zod";
 
 import { actions } from "@/actions";
 import { type channel } from "@/channel";
-import { AccessDeniedError, QueryError } from "@/errors";
+import { AccessDeniedError } from "@/errors";
 import { type framer } from "@/framer";
 import { label } from "@/label";
 import { ontology } from "@/ontology";
@@ -47,8 +46,16 @@ import {
   type New,
   ontologyID,
   type Payload,
-  payloadZ,
+  retrieveRequestZ,
+  retrieveResponseZ,
 } from "@/ranger/types.gen";
+import { createLines, labelChangeAdmits } from "@/ranger/where";
+import {
+  type Lines,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+} from "@/ranger/where.gen";
 import { Writer } from "@/ranger/writer";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
@@ -106,6 +113,7 @@ const createTables = (
 
   const aliases = cache.createTable<string, alias.Alias>({
     name: "range_aliases",
+    revivable: true,
     listen: [
       query.createSetListener(alias.SET_CHANNEL_NAME, alias.aliasZ, {
         key: (changed) => alias.createKey(changed),
@@ -192,9 +200,14 @@ export class Range {
     return r;
   }
 
+  /**
+   * Sets the alias of a channel in the range.
+   * @throws {NotFoundError} if no channel has the given key or name.
+   * @throws {MultipleFoundError} if more than one channel has the given name.
+   */
   async setAlias(channel: channel.Key | Name, alias: string): Promise<void> {
     const ch = await this.channels(channel);
-    if (ch.length === 0) throw new QueryError(`Channel ${channel} does not exist`);
+    checkForMultipleOrNoResults("channel", channel, ch, true);
     await this.rangeClient.setAlias(this.key, ch[0].key, alias);
   }
 
@@ -206,6 +219,10 @@ export class Range {
     return await this.aliaser.list();
   }
 
+  /**
+   * @returns the key of the channel with the given alias in the range.
+   * @throws {NotFoundError} if no channel has the alias.
+   */
   async resolveAlias(alias: string): Promise<channel.Key> {
     return await this.aliaser.resolve(alias);
   }
@@ -232,7 +249,7 @@ export class Range {
   }
 
   async retrieveLabels(): Promise<label.Label[]> {
-    return await this.labelClient.retrieve({ for: ontologyID(this.key) });
+    return await this.labelClient.retrieve({ where: { for: ontologyID(this.key) } });
   }
 
   async addLabel(...labels: label.Key[]): Promise<void> {
@@ -248,49 +265,29 @@ export class Range {
   }
 }
 
-const retrieveRequestZ = z.object({
-  keys: keyZ.array().optional(),
-  names: z.string().array().optional(),
-  searchTerm: z.string().optional(),
-  overlapsWith: TimeRange.z.optional(),
-  hasLabels: label.keyZ.array().optional(),
-  limit: z.int().optional(),
-  offset: z.int().optional(),
-  includeLabels: z.boolean().optional(),
-  includeParent: z.boolean().optional(),
-  ignoreNotFoundError: z.boolean().optional(),
+// Every retrieve includes labels and parents, so callers cannot set either flag.
+const callerRequestZ = retrieveRequestZ.omit({
+  includeLabels: true,
+  includeParent: true,
 });
+export type RetrieveMultipleParams = z.infer<typeof callerRequestZ>;
 
-/** Everything a range retrieval can filter on. */
-export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
-
-const retrieveParamsZ = retrieveRequestZ
-  .or(keyZ.array().transform((keys) => ({ keys })))
-  .or(keyZ.transform((key) => ({ keys: [key] })))
-  .or(z.string().transform((name) => ({ names: [name] })))
-  .or(
-    z
-      .string()
-      .array()
-      .transform((names) => ({ names })),
-  )
-  .or(TimeRange.z.transform((timeRange) => ({ overlapsWith: timeRange })));
-
-/** Params for a range retrieval. A bare key, name, or time range is shorthand. */
-export type RetrieveParams = z.input<typeof retrieveParamsZ>;
-
-/** Canonicalizes every retrieve shape addressing more than one range. */
-const retrieveMultiParamsZ = retrieveRequestZ
-  .or(keyZ.array().transform((keys) => ({ keys })))
-  .or(
-    z
-      .string()
-      .array()
-      .transform((names) => ({ names })),
-  )
-  .or(TimeRange.z.transform((timeRange) => ({ overlapsWith: timeRange })));
-
-const retrieveResZ = z.object({ ranges: payloadZ.array().default(() => []) });
+/**
+ * Canonicalizes every retrieve shape addressing more than one range. The time range arm
+ * comes before the request, which would read a time range as an empty request.
+ */
+const retrieveMultiParamsZ = z.union([
+  query.keysRequestZ(keyZ),
+  z
+    .string()
+    .array()
+    .transform((names): RetrieveMultipleParams => ({ where: { name: { in: names } } })),
+  TimeRange.z.transform((overlaps): RetrieveMultipleParams => ({
+    where: { overlaps },
+  })),
+  callerRequestZ,
+  retrieveInputZ(callerRequestZ.omit({ where: true }).shape),
+]);
 
 /**
  * Request addressing a range's children. With an `offset`, it addresses a page in
@@ -311,20 +308,8 @@ const CHILDREN_SERVER_FIELDS = ["limit", "offset"] as const;
 const normalizeChildren = (params: ChildrenParams): ChildrenRequest =>
   typeof params === "string" ? { key: params } : params;
 
-/** The base flags applied to every composed range fetch. */
-const BASE_REQUEST: Partial<RetrieveRequest> = {
-  includeLabels: true,
-  includeParent: true,
-};
-
-const isKeysOnly = (req: RetrieveRequest): req is RetrieveRequest & { keys: Key[] } =>
-  primitive.isNonZero(req.keys) &&
-  req.names == null &&
-  req.searchTerm == null &&
-  req.overlapsWith == null &&
-  req.hasLabels == null &&
-  req.limit == null &&
-  req.offset == null;
+const isKeyParams = (params: object): params is { key: Key } =>
+  "key" in params && typeof params.key === "string";
 
 const isParentChange = (rel: ontology.Relationship, id: ontology.ID): boolean =>
   ontology.matchRelationship(rel, {
@@ -374,22 +359,22 @@ const seenKeys = (
 
 /**
  * Projects relationship events onto the range keys a filtered query must recheck. Only
- * a label added under `hasLabels` can add an unseen range to the answer, so every other
- * event skips unseen ranges instead of fetching them.
+ * a label change that a `labels` line admits can add an unseen range to the answer, so
+ * every other event skips unseen ranges instead of fetching them.
  */
 const watchRequestRelationships = (
   relationships: query.Table<string, ontology.Relationship>,
   ranges: query.Table<Key, Range>,
-): query.Watch<RetrieveRequest, Key> =>
-  query.watch<RetrieveRequest, Key, string, ontology.Relationship>(
+): query.Watch<RetrieveMultipleParams, Key> =>
+  query.watch<RetrieveMultipleParams, Key, string, ontology.Relationship>(
     relationships,
     (event, req) => {
       const rel = relOfEvent(event);
       const keys = affectedRangeKeys(rel);
       if (
-        event.variant === "set" &&
-        primitive.isNonZero(req.hasLabels) &&
-        rel.type === label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE
+        rel.type === label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE &&
+        req.where != null &&
+        labelChangeAdmits(req.where, event.variant === "delete")
       )
         return keys;
       return seenKeys(ranges, keys);
@@ -416,8 +401,8 @@ const watchLabels = (
   labels: query.Table<label.Key, label.Label>,
   cache: ontology.Cache,
   ranges: query.Table<Key, Range>,
-): query.Watch<RetrieveRequest, Key> =>
-  query.watch<RetrieveRequest, Key, label.Key, label.Label>(labels, (event) =>
+): query.Watch<RetrieveMultipleParams, Key> =>
+  query.watch<RetrieveMultipleParams, Key, label.Key, label.Label>(labels, (event) =>
     seenKeys(ranges, rangesWithLabel(cache, event.key)),
   );
 
@@ -440,7 +425,7 @@ export class Client extends query.Retriever<
   Key,
   Range,
   Range,
-  Key | Name
+  Key | Name | { key: Key }
 > {
   readonly type: string = "range";
   /** The range alias table; injected into sibling clients at wiring. */
@@ -459,6 +444,7 @@ export class Client extends query.Retriever<
   private readonly store: query.Table<Key, Range>;
   private readonly dispatcher: actions.Controller<Key, Range, Action>;
   private readonly kvPairs: query.Table<string, kv.Pair>;
+  private readonly lines: Lines;
 
   constructor(cfg: ClientConfig) {
     const { labels: labelClient, ontology: ontologyClient, cache } = cfg;
@@ -522,16 +508,26 @@ export class Client extends query.Retriever<
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (query) => await this.fetchRequest(query),
-        matches: (r, query) => this.requestMatches(r, query),
+        matches: (r, query) => matches(this.lines, r.payload, query.where),
+        serverComputed: (query) => serverComputed(this.lines, query.where),
         watch: [
           watchRequestRelationships(relationships, ranges),
           watchLabels(labels, ontologyClient.cache, ranges),
         ],
       },
       compose: (r) => this.composeOne(r),
-      single: { schema: z.string(), space: single },
+      single: {
+        schema: z.union([
+          z.string(),
+          z.strictObject({ key: keyZ }).transform(({ key }) => key),
+        ]),
+        space: single,
+      },
     });
     this.cfg = cfg;
+    this.lines = createLines((r, keys) =>
+      label.cachedLabeledByAny(ontologyClient.cache, ontologyID(r.key), keys),
+    );
     this.writer = new Writer(cfg.unary);
     this.store = ranges;
     this.dispatcher = dispatcher;
@@ -666,22 +662,31 @@ export class Client extends query.Retriever<
     drop();
   }
 
-  async retrieve(params: Key | Name): Promise<Range>;
+  async retrieve(params: Key | Name | { key: Key }): Promise<Range>;
   async retrieve(
-    params: Key[] | Name[] | CrudeTimeRange | RetrieveRequest,
+    params: Name[] | CrudeTimeRange | query.RequestInput<typeof retrieveMultiParamsZ>,
   ): Promise<Range[]>;
-  async retrieve(params: RetrieveParams): Promise<Range | Range[]> {
+  async retrieve(
+    params:
+      | Key
+      | Name
+      | { key: Key }
+      | Name[]
+      | CrudeTimeRange
+      | query.RequestInput<typeof retrieveMultiParamsZ>,
+  ): Promise<Range | Range[]> {
     // The branches narrow params onto different base overloads.
-    if (typeof params === "string") return await super.retrieve(params);
+    if (typeof params === "string" || isKeyParams(params))
+      return await super.retrieve(params);
     return await super.retrieve(params);
   }
 
-  private async execRetrieve(params: RetrieveParams): Promise<Range[]> {
+  private async execRetrieve(req: RetrieveMultipleParams): Promise<Range[]> {
     const { ranges } = await this.cfg.unary.send(
       "/range/retrieve",
-      params,
-      retrieveParamsZ,
-      retrieveResZ,
+      { ...req, includeLabels: true, includeParent: true },
+      retrieveRequestZ,
+      retrieveResponseZ,
     );
     return this.sugarMany(ranges);
   }
@@ -783,11 +788,7 @@ export class Client extends query.Retriever<
    */
   private async fetchThrough(keys: Key[]): Promise<Range[]> {
     const since = this.store.stamp();
-    const ranges = await this.execRetrieve({
-      ...BASE_REQUEST,
-      keys,
-      ignoreNotFoundError: true,
-    });
+    const ranges = await this.execRetrieve(query.keysRequest(keys));
     this.hydrateMany(ranges, since);
     return ranges;
   }
@@ -801,7 +802,7 @@ export class Client extends query.Retriever<
       return this.composeOne(ranges[0]);
     }
     const since = this.store.stamp();
-    const ranges = await this.execRetrieve({ ...BASE_REQUEST, names: [query] });
+    const ranges = await this.execRetrieve({ where: { name: { eq: query } } });
     checkForMultipleOrNoResults("Range", query, ranges, true);
     this.hydrateMany(ranges, since);
     return ranges[0];
@@ -824,33 +825,11 @@ export class Client extends query.Retriever<
     }
   }
 
-  private async fetchRequest(query: RetrieveRequest): Promise<Range[]> {
-    if (isKeysOnly(query)) return await this.store.retrieve(query.keys);
+  private async fetchRequest(query: RetrieveMultipleParams): Promise<Range[]> {
     const since = this.store.stamp();
-    const ranges = await this.execRetrieve({ ...BASE_REQUEST, ...query });
+    const ranges = await this.execRetrieve(query);
     this.hydrateMany(ranges, since);
     return ranges;
-  }
-
-  /** Exact client-side evaluation of a request against a cached range. */
-  private requestMatches(r: Range, req: RetrieveRequest): boolean {
-    if (primitive.isNonZero(req.keys) && !req.keys.includes(r.key)) return false;
-    if (primitive.isNonZero(req.names) && !req.names.includes(r.name)) return false;
-    if (
-      req.overlapsWith != null &&
-      !new TimeRange(req.overlapsWith).overlapsWith(r.timeRange)
-    )
-      return false;
-    if (primitive.isNonZero(req.hasLabels)) {
-      const labels = label.cachedLabelsOf(
-        this.cfg.ontology.cache,
-        this.cfg.labels.store,
-        ontologyID(r.key),
-      );
-      const wanted = new Set(req.hasLabels);
-      if (!labels.some((l) => wanted.has(l.key))) return false;
-    }
-    return true;
   }
 
   private async fetchChildren(query: ChildrenRequest): Promise<Range[]> {

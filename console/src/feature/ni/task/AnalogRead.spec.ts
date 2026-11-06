@@ -439,6 +439,24 @@ describe("AnalogRead", () => {
     );
     expect(tsk.config.channels.map(({ device }) => device)).toEqual([dev.key]);
   });
+
+  it("should surface an error when a device no longer exists", async () => {
+    const dev = await createNIDevice(client);
+    const deleted = await createNIDevice(client);
+    await client.devices.delete(deleted.key);
+    const { statuses, container } = await renderAnalogRead({
+      ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
+      channels: [
+        createChannel("ai_voltage", 0, { device: dev.key }),
+        createChannel("ai_voltage", 1, { device: deleted.key }),
+      ],
+    });
+    await clickDeploy(container);
+    await awaitStatusDescription(
+      statuses,
+      new RegExp(`^Found no device with key ${deleted.key}$`),
+    );
+  });
 });
 
 describe("AnalogRead ports", () => {
@@ -627,7 +645,7 @@ describe("AnalogRead ports", () => {
       "ai10",
       "free",
       false,
-      "ai10 is free",
+      "Add a channel on ai10",
     ],
     [
       "mark a differential pair as a conflict when another channel holds a port",

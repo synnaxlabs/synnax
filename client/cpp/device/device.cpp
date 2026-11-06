@@ -25,65 +25,57 @@ Client::Client(
     device_delete_client(std::move(device_delete_client)) {}
 
 std::pair<Device, x::errors::Error> Client::retrieve(const std::string &key) const {
-    auto req = grpc::device::RetrieveRequest();
-    req.add_keys(key);
-    auto [res, err] = device_retrieve_client->send("/device/retrieve", req);
-    if (err) return {Device(), err};
-    if (res.devices_size() == 0)
-        return {Device(), errors::not_found_error("device", "key " + key)};
-    auto [pld, proto_err] = Device::from_proto(res.devices(0));
-    if (proto_err) return {Device(), proto_err};
-    return {Device(std::move(pld)), x::errors::NIL};
+    return this->retrieve(key, RetrieveOptions{});
 }
 
 std::pair<Device, x::errors::Error>
 Client::retrieve(const std::string &key, const RetrieveOptions &options) const {
-    auto req = grpc::device::RetrieveRequest();
-    req.add_keys(key);
-    req.set_include_status(options.include_status);
-    req.set_include_parent(options.include_parent);
-    auto [res, err] = device_retrieve_client->send("/device/retrieve", req);
-    if (err) return {Device(), err};
-    if (res.devices_size() == 0)
-        return {Device(), errors::not_found_error("device", "key " + key)};
-    auto [pld, proto_err] = Device::from_proto(res.devices(0));
-    if (proto_err) return {Device(), proto_err};
-    return {Device(std::move(pld)), x::errors::NIL};
+    return this->retrieve_one(
+        {
+            .where = Where{.key = x::filter::Set<Key>{.eq = key}},
+            .include_status = options.include_status,
+            .include_parent = options.include_parent,
+        },
+        "key " + key
+    );
 }
 
 std::pair<std::vector<Device>, x::errors::Error>
 Client::retrieve(const std::vector<std::string> &keys) const {
     if (keys.empty()) return {std::vector<Device>(), x::errors::NIL};
-    RetrieveRequest req;
-    req.keys = keys;
-    return retrieve(req);
+    return this->retrieve(keys, RetrieveOptions{});
 }
 
 std::pair<std::vector<Device>, x::errors::Error> Client::retrieve(
     const std::vector<std::string> &keys,
     const RetrieveOptions &options
 ) const {
-    RetrieveRequest req;
-    req.keys = keys;
-    req.include_status = options.include_status;
-    req.include_parent = options.include_parent;
-    return retrieve(req);
+    return this->retrieve({
+        .where = Where{.key = x::filter::Set<Key>{.in = keys}},
+        .include_status = options.include_status,
+        .include_parent = options.include_parent,
+    });
 }
 
 std::pair<std::vector<Device>, x::errors::Error>
-Client::retrieve(RetrieveRequest &req) const {
-    auto api_req = grpc::device::RetrieveRequest();
-    req.to_proto(api_req);
-    auto [res, err] = device_retrieve_client->send("/device/retrieve", api_req);
+Client::retrieve(const RetrieveRequest &req) const {
+    auto [pb_req, pb_err] = req.to_proto();
+    if (pb_err) return {std::vector<Device>(), pb_err};
+    grpc::device::RetrieveRequest grpc_req;
+    *grpc_req.mutable_request() = pb_req;
+    auto [res, err] = device_retrieve_client->send("/device/retrieve", grpc_req);
     if (err) return {std::vector<Device>(), err};
-    std::vector<Device> devices;
-    devices.reserve(res.devices_size());
-    for (const auto &d: res.devices()) {
-        auto [pld, proto_err] = Device::from_proto(d);
-        if (proto_err) return {std::vector<Device>(), proto_err};
-        devices.emplace_back(std::move(pld));
-    }
-    return {devices, x::errors::NIL};
+    auto [decoded, proto_err] = RetrieveResponse::from_proto(res);
+    if (proto_err) return {std::vector<Device>(), proto_err};
+    return {std::move(decoded.devices), x::errors::NIL};
+}
+
+std::pair<Device, x::errors::Error>
+Client::retrieve_one(const RetrieveRequest &req, const std::string &query) const {
+    auto [devices, err] = this->retrieve(req);
+    if (err) return {Device{}, err};
+    if (devices.empty()) return {Device{}, errors::not_found_error("device", query)};
+    return {std::move(devices[0]), x::errors::NIL};
 }
 
 x::errors::Error Client::create(Device &device) const {
