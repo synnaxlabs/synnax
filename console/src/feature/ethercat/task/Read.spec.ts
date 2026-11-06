@@ -10,6 +10,7 @@
 import { type ethercat, type rack, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
+import { id } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeAll, describe, expect, it } from "vitest";
 import { type z } from "zod";
@@ -501,6 +502,55 @@ describe("Read", () => {
     expect(updated.properties.read.channels[`${0x6000}_2`]).toBeUndefined();
   });
 
+  it("should reject a default name that a renamed slave's channel holds", async () => {
+    const identifier = createIdentifier();
+    const pdos = { inputs: [STATUS_ENTRY], outputs: [] };
+    const renamed = await createSlaveDevice(client, testRack.key, {
+      identifier,
+      network: "eth0",
+      pdos,
+    });
+    const first = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [createEntryReadChannel(renamed.key, STATUS_ENTRY)],
+    });
+    await deployAndAwaitTask(
+      client,
+      first.container,
+      first.draft.key,
+      EtherCAT.Task.READ_SCHEMAS,
+    );
+    first.unmount();
+    const deployed = await client.devices.retrieve({
+      key: renamed.key,
+      schemas: EtherCAT.Device.SLAVE_SCHEMAS,
+    });
+    await client.devices.create(
+      {
+        ...deployed,
+        properties: { ...deployed.properties, identifier: createIdentifier() },
+      },
+      EtherCAT.Device.SLAVE_SCHEMAS,
+    );
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier,
+      network: "eth0",
+      pdos,
+    });
+    const { container, statuses } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [createEntryReadChannel(slave.key, STATUS_ENTRY)],
+    });
+    await clickDeploy(container);
+    await awaitStatus(
+      statuses,
+      new RegExp(
+        `A channel named ${identifier}_Status already exists\\. Give the channel ` +
+          "another name\\.",
+      ),
+    );
+  });
+
   it("should reuse the existing index and channels when redeployed", async () => {
     const slave = await createSlaveDevice(client, testRack.key, {
       identifier: createIdentifier(),
@@ -608,6 +658,27 @@ describe("Read", () => {
       expect(second.channel).toBe(first.channel);
       expect(second.slave.properties.readIndex).toBe(first.slave.properties.readIndex);
       expect(second.slave.properties.read.channels[`${0x6000}_1`]).toBe(first.channel);
+    });
+
+    it("should reuse a deleted slave's channels when a non-slave EtherCAT device exists", async () => {
+      const coupler = await client.devices.create({
+        key: id.create(),
+        name: uniqueName("ecat_coupler"),
+        rack: testRack.key,
+        location: "test-location",
+        make: EtherCAT.Device.MAKE,
+        model: "EK1100",
+        properties: {},
+      });
+      try {
+        const identifier = createIdentifier();
+        const first = await deploySlave(identifier);
+        await client.devices.delete(first.slave.key);
+        const second = await deploySlave(identifier);
+        expect(second.channel).toBe(first.channel);
+      } finally {
+        await client.devices.delete(coupler.key);
+      }
     });
 
     it("should reject two entries that share the name of a deleted slave's channel", async () => {

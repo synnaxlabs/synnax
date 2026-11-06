@@ -294,8 +294,10 @@ export const bindOrphanedChannels = async <C extends EntryChannel>({
   mapKey = addressKey,
 }: BindOrphanedChannelsArgs<C>): Promise<C[]> => {
   const existing = await retrieveByName(client, names);
+  if (existing.size === 0) return channels;
   const others = await client.devices.retrieve({
     makes: [Device.MAKE],
+    models: [Device.SLAVE_MODEL],
     schemas: Device.SLAVE_SCHEMAS,
   });
   const bound = new Set([
