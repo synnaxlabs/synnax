@@ -309,7 +309,7 @@ The checks take `f32` or `f64`. A typed integer argument is a compile error. An 
 literal is read as a float. The constants act like a float literal: they fit `f32` or
 `f64`, default to `f64`, and do not fit an integer type. Use them in expressions and in
 `func` bodies. A flow variable initializer and a function input value must be literals,
-and the constants are not literals.
+and the constants are not literals. `==` or `!=` with `math.nan` gives warning ARC2004.
 
 ```arc
 import math

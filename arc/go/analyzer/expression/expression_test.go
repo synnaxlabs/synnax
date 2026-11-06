@@ -15,14 +15,18 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/analyzer"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/testutil"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/diagnostics"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.lsp.dev/protocol"
 )
 
 // expectOperatorTypeError validates that code fails with an error mentioning
@@ -1959,6 +1963,44 @@ var _ = Describe("Expressions", func() {
 			Entry("i32 comparison", "a := n < math.inf", "not compatible with i32"),
 			Entry("a call", "a := math.inf()", "cannot call non-function"),
 			Entry("a member that does not exist", "a := math.nope", "undefined symbol"),
+		)
+
+		DescribeTable("Should warn on equality with math.nan",
+			func(ctx SpecContext, expr, message string) {
+				ast := MustSucceed(parser.Parse(body("a := " + expr)))
+				aCtx := context.NewRoot(ctx, ast, buildExpressionRoot(extras))
+				analyzer.AnalyzeProgram(aCtx)
+				Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
+				warnings := lo.Filter(
+					*aCtx.Diagnostics,
+					func(d diagnostics.Diagnostic, _ int) bool {
+						return d.Code == codes.NaNComparison
+					},
+				)
+				if message == "" {
+					Expect(warnings).To(BeEmpty())
+					return
+				}
+				Expect(warnings).To(HaveLen(1))
+				Expect(
+					warnings[0].Severity,
+				).To(Equal(protocol.DiagnosticSeverityWarning))
+				Expect(warnings[0].Message).To(ContainSubstring(message))
+				Expect(warnings[0].Message).To(ContainSubstring("math.is_nan"))
+			},
+			Entry("==", "v == math.nan", "always false"),
+			Entry("!=", "v != math.nan", "always true"),
+			Entry("left side", "math.nan == w", "always false"),
+			Entry("parentheses on the left", "(math.nan) == v", "always false"),
+			Entry("parentheses on the right", "v == (math.nan)", "always false"),
+			Entry("nested parentheses", "v != ((math.nan))", "always true"),
+			Entry("negated", "v == -math.nan", "always false"),
+			Entry("negated in parentheses", "(-(math.nan)) == v", "always false"),
+			Entry("not on is_nan", "math.is_nan(v)", ""),
+			Entry("not on math.inf", "v == math.inf", ""),
+			Entry("not on -math.inf", "(v) == -(math.inf)", ""),
+			Entry("not on a channel named nan", "v == nan", ""),
+			Entry("not on v != v", "v != v", ""),
 		)
 	})
 

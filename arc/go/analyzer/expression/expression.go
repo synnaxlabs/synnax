@@ -13,8 +13,11 @@ package expression
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/analyzer/units"
@@ -302,6 +305,20 @@ func analyzeEquality(ctx context.Context[parser.IEqualityExpressionContext]) {
 		types.InferRelational,
 		isAny,
 	)
+	if len(relExpressions) > 1 && lo.SomeBy(
+		relExpressions,
+		func(rel parser.IRelationalExpressionContext) bool {
+			value, ok := ctx.FloatConstant(rel)
+			return ok && math.IsNaN(value)
+		},
+	) {
+		ctx.Diagnostics.Add(diagnostics.Warningf(
+			ctx.AST,
+			"%s with math.nan is always %t, use math.is_nan instead",
+			getEqualityOperator(ctx.AST),
+			len(ctx.AST.AllNEQ()) > 0,
+		).WithCode(codes.NaNComparison))
+	}
 }
 
 func analyzeRelational(ctx context.Context[parser.IRelationalExpressionContext]) {

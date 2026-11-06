@@ -23,6 +23,8 @@ const (
 	// TypeConstraintViolation indicates a type doesn't satisfy a type variable's
 	// constraint.
 	TypeConstraintViolation diagnostics.ErrorCode = "ARC2003"
+	// NaNComparison indicates == or != with a NaN constant, which has a fixed result.
+	NaNComparison diagnostics.ErrorCode = "ARC2004"
 
 	// FuncArgCount indicates wrong number of arguments in a function call.
 	FuncArgCount diagnostics.ErrorCode = "ARC3001"

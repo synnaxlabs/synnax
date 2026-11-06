@@ -187,6 +187,29 @@ func (c Context[AST]) ResolveQualified(head, tail string) (*symbol.Symbol, error
 	return tailSym, nil
 }
 
+// FloatConstant returns the value of the float module constant that node reduces to,
+// such as math.nan, with parentheses and negation applied.
+func (c Context[AST]) FloatConstant(node antlr.Tree) (float64, bool) {
+	primary, negated := parser.SoleOperand(node)
+	if primary == nil || primary.QualifiedIdentifier() == nil {
+		return 0, false
+	}
+	head, tail := parser.QualifiedNameParts(primary.QualifiedIdentifier())
+	headSym, err := c.Scope.Resolve(c, head)
+	if err != nil {
+		return 0, false
+	}
+	sym, err := headSym.Resolve(c, tail)
+	if err != nil || sym.Kind != symbol.KindConstant {
+		return 0, false
+	}
+	value, ok := sym.DefaultValue.(float64)
+	if negated {
+		value = -value
+	}
+	return value, ok
+}
+
 func (c Context[AST]) warnIfDeprecated(name string, sym *symbol.Symbol) {
 	if sym == nil || sym.Deprecated == nil {
 		return
