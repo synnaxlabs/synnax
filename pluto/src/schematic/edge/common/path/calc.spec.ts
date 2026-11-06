@@ -71,6 +71,15 @@ describe("Path.rounded", () => {
     expect(Path.rounded(HORIZONTAL, [{ x, y: 50, radius: 12 }])).toContain("A10,10");
   });
 
+  it("shrinks a wide hop to clear the hop before it", () => {
+    const path = Path.rounded(HORIZONTAL, [
+      { x: 16, y: 50, radius: 23 },
+      { x: 50, y: 50, radius: 23 },
+    ]);
+    expect(path).toContain("A14,14");
+    expect(path).toContain("A16,16");
+  });
+
   it("ignores a wide hop with less room than a default hop", () => {
     expect(Path.rounded(HORIZONTAL, [{ x: 6, y: 50, radius: 12 }])).toEqual(
       "M0,50L100,50",
