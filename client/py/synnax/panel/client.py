@@ -142,6 +142,7 @@ class Client:
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
         where: Where | None = ...,
+        keys: list[Key] | None = ...,
         parent: ontology.ID | None = ...,
         search_term: str = ...,
         one: Literal[True],
@@ -209,8 +210,6 @@ class Client:
                 if child.key is None:
                     raise ValueError(f"panel child of {parent} has no key")
                 keys.append(Key(child.key))
-            if len(keys) == 0:
-                return sole("Panel", fields, []) if single else []
         flat = Where(key=None if keys is None else filter.Set[Key](in_=keys))
         req = RetrieveRequest(
             where=request_where(Where, filter.merge(where, flat), fields),

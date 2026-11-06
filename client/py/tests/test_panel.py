@@ -204,6 +204,13 @@ class TestClient:
         with pytest.raises(NotFoundError, match=r"Panel matching .* not found"):
             client.panels.retrieve(parent=parent, one=True)
 
+    def test_retrieve_none_field_by_parent_without_children(
+        self, client: sy.Synnax, parent: sy.ontology.ID
+    ) -> None:
+        """Should reject a field set to None beside a parent with no panels."""
+        with pytest.raises(ValidationError, match="key is None"):
+            client.panels.retrieve(parent=parent, key=None)  # type: ignore[call-overload]
+
     def test_rename(self, client: sy.Synnax, parent: sy.ontology.ID) -> None:
         """Should rename a panel."""
         p = client.panels.create(name="Before Rename", parent=parent)
