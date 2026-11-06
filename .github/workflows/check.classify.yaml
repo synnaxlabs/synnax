@@ -30,21 +30,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  pr:
-    name: Record the pull request
-    runs-on: ubuntu-latest
-    steps:
-      - name: Write the number
-        env:
-          NUMBER: ${{ github.event.pull_request.number }}
-        run: mkdir pr && echo "$NUMBER" > pr/number
-
-      - name: Upload the number
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
-        with:
-          name: pr
-          path: pr
-
   surface:
     name: Compare ${{ matrix.surface }}
     runs-on: ubuntu-latest
@@ -153,9 +138,7 @@ jobs:
   # Runs last, so Label - Classify finds every result.
   relay:
     name: Relay the results
-    needs:
-      - pr
-      - surface
+    needs: surface
     if:
       ${{ !cancelled() && github.event.pull_request.head.repo.full_name ==
       github.repository && github.actor != 'dependabot[bot]' }}
@@ -169,6 +152,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          PR: ${{ github.event.pull_request.number }}
           REF: ${{ github.event.repository.default_branch }}
         run: |
           state=$(gh api "repos/$GH_REPO/actions/workflows/label.classify.yaml" \
@@ -179,4 +163,4 @@ jobs:
           fi
           gh workflow run label.classify.yaml --ref "$REF" \
             -f group="$GH_REPO-$HEAD_REF" -f run_id="$GITHUB_RUN_ID" \
-            -f head_sha="$HEAD_SHA"
+            -f head_sha="$HEAD_SHA" -f pr="$PR"

@@ -34,8 +34,8 @@ on:
         required: true
         type: string
       pr:
-        description: The pull request, when the results cannot be trusted to name it
-        required: false
+        description: The pull request that run classified
+        required: true
         type: string
 
 permissions: {}

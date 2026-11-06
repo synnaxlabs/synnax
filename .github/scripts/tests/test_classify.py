@@ -196,8 +196,6 @@ class TestMain:
 
     @pytest.fixture
     def gh(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> FakeGH:
-        (tmp_path / "pr").mkdir()
-        (tmp_path / "pr" / "number").write_text("5\n")
         for name in ("oracle", "client-ts", "client-py", "core", "driver"):
             d = tmp_path / f"surface-{name}"
             d.mkdir()
@@ -207,6 +205,7 @@ class TestMain:
         monkeypatch.setattr(sys, "argv", ["classify.py", str(tmp_path)])
         monkeypatch.setenv("GITHUB_REPOSITORY", REPO)
         monkeypatch.setenv("HEAD_SHA", "abc")
+        monkeypatch.setenv("PR", "5")
         return fake
 
     def test_adds_no_label_and_posts_a_comment_when_nothing_changed(
@@ -250,14 +249,20 @@ class TestMain:
         classify.main()
         assert [args[3] for args, _ in gh.writes] == [COMMENTS]
 
-    def test_reads_the_number_from_the_environment_first(
-        self, gh: FakeGH, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    def test_refuses_a_number_that_is_not_an_integer(
+        self, gh: FakeGH, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        (tmp_path / "pr" / "number").write_text("99\n")
-        monkeypatch.setenv("PR", "5")
+        monkeypatch.setenv("PR", "5/../../9")
+        with pytest.raises(ValueError, match="invalid literal"):
+            classify.main()
+        assert gh.writes == []
+
+    def test_writes_nothing_when_the_number_names_another_head(
+        self, gh: FakeGH
+    ) -> None:
+        gh.heads = ["def"]
         classify.main()
-        ((post, _),) = gh.writes
-        assert post == ("api", "-X", "POST", COMMENTS, "--input", "-")
+        assert gh.writes == []
 
     def test_leaves_an_unchanged_comment_alone(self, gh: FakeGH) -> None:
         classify.main()
