@@ -1,0 +1,77 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/x/versions/color/v1"
+
+Key = v0.Key
+
+Node = v8.Node
+
+Handle = v7.Handle
+
+Edge = v7.Edge
+
+Segment = v9.Segment
+
+SegmentedEdgeConfig struct extends v9.SegmentedEdgeConfig {
+    stroke_color
+    stroke_width float64? {
+        @doc value """
+            is the stroke width of the edge in pixels. Absent draws the default of 2.
+        """
+    }
+}
+
+EdgeConfig union on variant extends v9.EdgeConfig {}
+
+FlexAlignment = v9.FlexAlignment
+
+ComponentSize = v9.ComponentSize
+
+ButtonMode = v9.ButtonMode
+
+LabelConfig = v9.LabelConfig
+
+LabeledConfig = v9.LabeledConfig
+
+ScaledConfig = v9.ScaledConfig
+
+StalenessConfig = v9.StalenessConfig
+
+NumericTelemConfig = v9.NumericTelemConfig
+
+ControlStateConfig = v9.ControlStateConfig
+
+ToggleConfig = v9.ToggleConfig
+
+StaticSymbolConfig = v9.StaticSymbolConfig
+
+ToggleSymbolConfig = v9.ToggleSymbolConfig
+
+DummyToggleSymbolConfig = v9.DummyToggleSymbolConfig
+
+ScaleIndicatorConfig = v9.ScaleIndicatorConfig
+
+StateMapping = v9.StateMapping
+
+PageType = v9.PageType
+
+Page = v9.Page
+
+NodeConfig = v10.NodeConfig
+
+ElementConfig union on variant extends NodeConfig, EdgeConfig {
+    @doc value  """
+        is the per-element configuration stored in the schematic configs map: a node
+        config or an edge config, discriminated by variant.
+    """
+    @go marshal
+}
+
+Schematic struct extends v10.Schematic {}

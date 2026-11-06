@@ -200,6 +200,11 @@ export const segmentedEdgeConfigZ = z.object({
   /** strokeColor is the stroke color of the edge. */
   strokeColor: color.colorZ.optional(),
   /**
+   * strokeWidth is the stroke width of the edge in pixels. Absent draws the default of
+   * 2.
+   */
+  strokeWidth: z.number().optional(),
+  /**
    * segments is the ordered list of orthogonal runs that trace the connector path from
    * the source handle to the target handle.
    */
