@@ -17,6 +17,7 @@ import {
   deep,
   type destructor,
   errors,
+  filter,
   type MultiSeries,
   primitive,
   type TypedArray,
@@ -223,10 +224,10 @@ const retrieveMultipleParamsZ = retrieveRequestZ.extend({
  */
 export type RetrieveMultipleParams = RetrieveRequest & { rangeKey?: ranger.Key };
 
-const retrieveParamsZ = z.union([
+const retrieveParamsZ = filter.requestInputZ(
   retrieveMultipleParamsZ,
   retrieveInputZ(retrieveMultipleParamsZ.omit({ where: true }).shape),
-]);
+);
 
 const aliasedRetrieveRequestZ = z.object({
   request: retrieveRequestZ,

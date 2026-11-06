@@ -15,6 +15,7 @@ import {
   deep,
   type destructor,
   errors,
+  filter,
   type Series,
   TimeRange,
   zod,
@@ -281,8 +282,10 @@ const retrieveMultiParamsZ = z.union([
   TimeRange.z.transform((overlaps): RetrieveMultipleParams => ({
     where: { overlaps },
   })),
-  callerRequestZ,
-  retrieveInputZ(callerRequestZ.omit({ where: true }).shape),
+  filter.requestInputZ(
+    callerRequestZ,
+    retrieveInputZ(callerRequestZ.omit({ where: true }).shape),
+  ),
 ]);
 
 /**

@@ -150,6 +150,12 @@ describe("Label", () => {
         client.labels.retrieve({ name: { startsWith: prefix }, one: true }),
       ).rejects.toThrow(MultipleFoundError);
     });
+    it("should name the operator at fault in a where tree", async () => {
+      await expect(
+        // @ts-expect-error - a name operator takes a string.
+        client.labels.retrieve({ where: { name: { eq: 5 } } }),
+      ).rejects.toThrow(/at where\.name\n.*\n\s*✗ "eq": 5 {2}× expected string/);
+    });
     it("should reject a filter that sets one beside a limit", async () => {
       await expect(
         // @ts-expect-error - a page could hide a second match.
