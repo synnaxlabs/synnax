@@ -67,6 +67,11 @@ class TestRequestWhere:
             and_=[tree, sy.label.Where(name=sy.filter.String(starts_with="b"))]
         )
 
+    def test_empty_tree(self) -> None:
+        """Should return the fields alone when the tree has no lines."""
+        got = request_where(sy.label.Where, sy.label.Where(), {"name": "a"})
+        assert got == sy.label.Where(name=sy.filter.String(eq="a"))
+
     def test_none(self) -> None:
         """Should reject a field set to None."""
         with pytest.raises(sy.ValidationError, match="name is None"):
