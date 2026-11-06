@@ -27,10 +27,12 @@ from synnax.framer.frame import K
 from synnax.ontology import Client as OntologyClient
 from synnax.ranger import alias as alias_
 from synnax.ranger import kv
-from synnax.ranger.retrieve import Request, Retriever
+from synnax.ranger.retrieve import Retriever
 from synnax.ranger.types_gen import (
     Key,
     Payload,
+    RetrieveRequest,
+    Where,
     resource_id,
 )
 from synnax.ranger.writer import Writer
@@ -46,8 +48,9 @@ from synnax.telem import (
     SampleValue,
     TimeRange,
 )
+from synnax.util import one
 from x import color as color_
-from x import lists
+from x import filter, lists
 from x.interop import ArrayOperators
 from x.lists import all_none, normalize
 from x.params import require_named_params
@@ -441,9 +444,7 @@ class Range(Payload):
         for ch, alias in channel.items():
             if isinstance(ch, str):
                 res = self._channel_retriever.retrieve(ch)
-                if len(res) == 0:
-                    raise NotFoundError(f"Channel {ch} not found")
-                corrected[res[0].key] = alias
+                corrected[one("Channel", ch, res).key] = alias
             else:
                 corrected[ch] = alias
         self._aliaser.set(corrected)
@@ -688,14 +689,15 @@ class Client:
     def retrieve(
         self,
         *,
+        where: Where | None = None,
         names: list[str] | tuple[str, ...] | None = None,
         keys: list[Key] | tuple[Key, ...] | None = None,
-        search_term: str | None = None,
+        search_term: str = "",
         overlaps_with: TimeRange | None = None,
         has_labels: list[label.Key] | None = None,
         parents: list[Key] | None = None,
         limit: int | None = None,
-        offset: int | None = None,
+        offset: int = 0,
     ) -> list[Range]: ...
 
     @require_named_params(example_params=("name", "My Range"))
@@ -704,20 +706,22 @@ class Client:
         *,
         key: Key | None = None,
         name: str | None = None,
+        where: Where | None = None,
         names: list[str] | tuple[str, ...] | None = None,
         keys: list[Key] | tuple[Key, ...] | None = None,
-        search_term: str | None = None,
+        search_term: str = "",
         overlaps_with: TimeRange | None = None,
         has_labels: list[label.Key] | None = None,
         parents: list[Key] | None = None,
         limit: int | None = None,
-        offset: int | None = None,
+        offset: int = 0,
     ) -> Range | list[Range]:
         """Retrieves one range by key or name, or a list of ranges that match the
-        given filters. A filter left as None does not filter.
+        given filters. A filter left at its default does not filter.
 
         :param key: The key of one range to retrieve.
         :param name: The name of one range to retrieve.
+        :param where: Keeps ranges that match this filter tree.
         :param names: Keeps ranges with one of these names.
         :param keys: Keeps ranges with one of these keys.
         :param search_term: Fuzzy matches range names.
@@ -727,38 +731,43 @@ class Client:
         :param limit: The maximum number of ranges to return.
         :param offset: The number of matching ranges to skip.
         :returns: The range for a key or name, else a list of the matching ranges.
-        :raises NotFoundError: If no range matches a key or name.
-        :raises MultipleFoundError: If more than one range matches a key or name.
+        :raises NotFoundError: If no range matches the key or name.
+        :raises MultipleFoundError: If more than one range matches the name.
         :raises ValueError: If key and name are both given, or either is combined with
             a list filter.
         """
         is_single = key is not None or name is not None
         if key is not None and name is not None:
             raise ValueError("key and name cannot be combined; use keys or names")
-        if is_single and not all_none(
-            keys, names, search_term, overlaps_with, has_labels, parents, limit, offset
+        if is_single and (
+            search_term
+            or offset
+            or not all_none(
+                where, keys, names, overlaps_with, has_labels, parents, limit
+            )
         ):
             raise ValueError(
                 "key and name cannot be combined with list filters; use keys or names"
             )
-        req = Request(
-            keys=lists.override(key, keys),
-            names=lists.override(name, names),
-            search_term=search_term,
-            overlaps_with=overlaps_with,
-            has_labels=has_labels,
+        keys = lists.override(key, keys)
+        names = lists.override(name, names)
+        flat = Where(
+            key=None if keys is None else filter.Set[Key](in_=keys),
+            name=None if names is None else filter.String(in_=names),
+            overlaps=overlaps_with,
+            labels=has_labels,
             parents=parents,
+        )
+        req = RetrieveRequest(
+            where=filter.merge(where, flat),
+            search_term=search_term,
             limit=limit,
             offset=offset,
         )
         sug = self._sugar(self._retriever.retrieve(req))
         if not is_single:
             return sug
-        if len(sug) == 0:
-            raise NotFoundError(f"Range {key or name} not found")
-        if len(sug) > 1:
-            raise MultipleFoundError(f"Multiple ranges matching {key or name} found")
-        return sug[0]
+        return one("Range", key or name, sug)
 
     def delete(
         self,
@@ -778,7 +787,7 @@ class Client:
         self,
         term: str,
     ) -> list[Range]:
-        return self._sugar(self._retriever.retrieve(Request(search_term=term)))
+        return self._sugar(self._retriever.retrieve(RetrieveRequest(search_term=term)))
 
     def _sugar(self, ranges: list[Payload]) -> list[Range]:
         result: list[Range] = []

@@ -13,7 +13,106 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/resolution"
+	. "github.com/synnaxlabs/x/testutil"
 )
+
+var _ = Describe("RetrieveKey", func() {
+	withKey := func(name string) resolution.Type {
+		return resolution.Type{
+			Namespace: "rack",
+			Domains: map[string]resolution.Domain{"retrieve": {
+				Name: "retrieve",
+				Expressions: resolution.Expressions{{
+					Name: "key",
+					Values: []resolution.ExpressionValue{{
+						Kind:        resolution.ValueKindString,
+						StringValue: name,
+					}},
+				}},
+			}},
+		}
+	}
+
+	It("Should return false for a type with no @retrieve key", func() {
+		_, ok := resolution.RetrieveKey(resolution.Type{Namespace: "rack"})
+		Expect(ok).To(BeFalse())
+	})
+
+	It("Should qualify an unqualified name with the type's namespace", func() {
+		Expect(MustBeOk(resolution.RetrieveKey(withKey("Key")))).
+			To(Equal(resolution.TypeRef{Name: "rack.Key"}))
+	})
+
+	It("Should keep a qualified name as written", func() {
+		Expect(MustBeOk(resolution.RetrieveKey(withKey("channel.Key")))).
+			To(Equal(resolution.TypeRef{Name: "channel.Key"}))
+	})
+})
+
+var _ = Describe("InFilterRequest", func() {
+	var table *resolution.Table
+	BeforeEach(func() {
+		table = resolution.NewTable()
+		add := func(namespace, name string, filter *resolution.Filter) {
+			GinkgoHelper()
+			Expect(table.Add(resolution.Type{
+				Name:          name,
+				QualifiedName: namespace + "." + name,
+				Namespace:     namespace,
+				Form:          resolution.StructForm{},
+				Filter:        filter,
+			})).To(Succeed())
+		}
+		add("t", "Thing", nil)
+		add("t", "Where", &resolution.Filter{
+			Target:   resolution.TypeRef{Name: "t.Thing"},
+			Request:  "t.RetrieveRequest",
+			Response: "t.RetrieveResponse",
+		})
+		add("t", "RetrieveRequest", nil)
+		add("t", "RetrieveResponse", nil)
+		add(resolution.FilterNamespace, "Set", nil)
+	})
+
+	DescribeTable("Should report whether a type is part of a filter request",
+		func(name string, in bool) {
+			typ := MustBeOk(table.Get(name))
+			Expect(resolution.InFilterRequest(typ, table)).To(Equal(in))
+		},
+		Entry("a filter", "t.Where", true),
+		Entry("the request derived from a filter", "t.RetrieveRequest", true),
+		Entry("an operator type", resolution.OperatorSet, true),
+		Entry("the response derived from a filter", "t.RetrieveResponse", false),
+		Entry("a plain struct", "t.Thing", false),
+	)
+})
+
+var _ = Describe("OperatorMembers", func() {
+	DescribeTable(
+		"Should return the members of an operator type",
+		func(op string, members []string) {
+			Expect(MustBeOk(resolution.OperatorMembers(op))).To(Equal(members))
+		},
+		Entry("a set", resolution.OperatorSet, []string{"eq", "in"}),
+		Entry(
+			"a string",
+			resolution.OperatorString,
+			[]string{
+				"eq",
+				"in",
+				"contains",
+				"starts_with",
+				"regex",
+				"case_insensitive",
+			},
+		),
+	)
+
+	It("Should return false for a type that is not an operator", func() {
+		_, ok := resolution.OperatorMembers("filter.Thing")
+		Expect(ok).To(BeFalse())
+	})
+})
 
 var _ = Describe("CollectionKind", func() {
 	var table *resolution.Table
@@ -478,5 +577,24 @@ var _ = Describe("MergeOverrideField", func() {
 		})
 		Expect(merged.Domains).To(HaveKey("go"))
 		Expect(merged.Domains).ToNot(HaveKey("doc"))
+	})
+})
+
+var _ = Describe("Type.Actions", func() {
+	rename := resolution.Action{Name: "Rename"}
+	It("Should return the actions of a struct", func() {
+		typ := resolution.Type{Form: resolution.StructForm{
+			Actions: []resolution.Action{rename},
+		}}
+		Expect(typ.Actions()).To(Equal([]resolution.Action{rename}))
+	})
+	It("Should return the actions of a union", func() {
+		typ := resolution.Type{Form: resolution.UnionForm{
+			Actions: []resolution.Action{rename},
+		}}
+		Expect(typ.Actions()).To(Equal([]resolution.Action{rename}))
+	})
+	It("Should return no actions for any other form", func() {
+		Expect(resolution.Type{Form: resolution.EnumForm{}}.Actions()).To(BeEmpty())
 	})
 })

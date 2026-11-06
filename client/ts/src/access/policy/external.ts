@@ -9,3 +9,4 @@
 
 export * from "@/access/policy/client";
 export * from "@/access/policy/types.gen";
+export { type WhereInput } from "@/access/policy/where.gen";

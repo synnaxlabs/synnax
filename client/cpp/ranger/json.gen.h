@@ -11,12 +11,14 @@
 
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
 #include "client/cpp/label/json.gen.h"
 #include "client/cpp/ranger/types.gen.h"
 #include "x/cpp/color/color.h"
+#include "x/cpp/filter/json.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/types.gen.h"
 
@@ -37,7 +39,7 @@ inline Range Range::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Range::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["key"] = this->key.to_json();
     j["name"] = this->name;
     j["time_range"] = this->time_range.to_json();
@@ -49,6 +51,74 @@ inline x::json::json Range::to_json() const {
         j["labels"] = arr;
     }
     if (this->parent.has_value()) j["parent"] = this->parent->to_json();
+    return j;
+}
+
+inline Where Where::parse(x::json::Parser parser) {
+    return Where{
+        .and_ = parser.field<std::optional<std::vector<Where>>>("and"),
+        .or_ = parser.field<std::optional<std::vector<Where>>>("or"),
+        .not_ = parser.field<x::mem::indirect<Where>>("not"),
+        .key = parser.field<std::optional<::x::filter::Set<Key>>>("key"),
+        .name = parser.field<std::optional<::x::filter::String>>("name"),
+        .overlaps = parser.field<std::optional<::x::telem::TimeRange>>("overlaps"),
+        .labels = parser.field<std::optional<std::vector<::synnax::label::Key>>>(
+            "labels"
+        ),
+        .parents = parser.field<std::optional<std::vector<Key>>>("parents"),
+    };
+}
+
+inline x::json::json Where::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->and_.has_value()) j["and"] = x::json::to_array(*this->and_);
+    if (this->or_.has_value()) j["or"] = x::json::to_array(*this->or_);
+    if (this->not_.has_value()) j["not"] = this->not_->to_json();
+    if (this->key.has_value()) j["key"] = this->key->to_json();
+    if (this->name.has_value()) j["name"] = this->name->to_json();
+    if (this->overlaps.has_value()) j["overlaps"] = this->overlaps->to_json();
+    if (this->labels.has_value()) {
+        auto arr = x::json::json::array();
+        for (const auto &item: *this->labels)
+            arr.push_back(item.to_json());
+        j["labels"] = arr;
+    }
+    if (this->parents.has_value()) {
+        auto arr = x::json::json::array();
+        for (const auto &item: *this->parents)
+            arr.push_back(item.to_json());
+        j["parents"] = arr;
+    }
+    return j;
+}
+
+inline RetrieveRequest RetrieveRequest::parse(x::json::Parser parser) {
+    return RetrieveRequest{
+        .where = parser.field<std::optional<Where>>("where"),
+        .search_term = parser.field<std::string>("search_term", ""),
+        .limit = parser.field<std::optional<std::uint32_t>>("limit"),
+        .offset = parser.field<std::uint32_t>("offset", 0),
+    };
+}
+
+inline x::json::json RetrieveRequest::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->where.has_value()) j["where"] = this->where->to_json();
+    j["search_term"] = this->search_term;
+    if (this->limit.has_value()) j["limit"] = *this->limit;
+    j["offset"] = this->offset;
+    return j;
+}
+
+inline RetrieveResponse RetrieveResponse::parse(x::json::Parser parser) {
+    return RetrieveResponse{
+        .ranges = parser.field<std::vector<Range>>("ranges", std::vector<Range>{}),
+    };
+}
+
+inline x::json::json RetrieveResponse::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["ranges"] = x::json::to_array(this->ranges);
     return j;
 }
 

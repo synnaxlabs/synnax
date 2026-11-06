@@ -36,6 +36,24 @@ const selectItem = Component.renderProp(
 
 const resolve = () => null;
 
+const map = ({ onSelect }: Task.Views.PortsProps<Channel>) => (
+  <button type="button" onClick={() => onSelect(["a"])}>
+    pick-a
+  </button>
+);
+
+const renderWithMap = () =>
+  renderInTaskForm(
+    <Task.Views.List<Channel>
+      path={path.config.channels}
+      createChannel={() => null}
+      listItem={selectItem}
+      resolve={resolve}
+      map={map}
+    />,
+    { values: { config: { channels: [{ key: "a", disabled: false }] } } },
+  );
+
 describe("layouts.List", () => {
   it("should render an item for each seeded channel", async () => {
     await renderInTaskForm(
@@ -177,6 +195,21 @@ describe("layouts.List", () => {
     fireEvent.contextMenu(await screen.findByText("item-a"));
     await screen.findByText("Remove");
     expect(screen.queryByText("Duplicate")).toBeNull();
+  });
+
+  it("should show a map under the title, with no view switch", async () => {
+    await renderWithMap();
+    expect(await screen.findByText("pick-a")).toBeTruthy();
+    expect(screen.getByText("Channels")).toBeTruthy();
+    expect(screen.queryByText("Ports")).toBeNull();
+  });
+
+  it("should select the channel the map picks", async () => {
+    await renderWithMap();
+    fireEvent.click(await screen.findByText("pick-a"));
+    await waitFor(() =>
+      expect(screen.getByRole("option").getAttribute("aria-selected")).toBe("true"),
+    );
   });
 
   it("should hide the add button when the form is in preview", async () => {

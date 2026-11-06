@@ -121,6 +121,24 @@ func TypeToPB(v resource.Type) (Type, error) {
 		return Type_TYPE_USER, nil
 	case resource.TypeView:
 		return Type_TYPE_VIEW, nil
+	case resource.TypeEthercatMaster:
+		return Type_TYPE_ETHERCAT_MASTER, nil
+	case resource.TypeEthercatSlave:
+		return Type_TYPE_ETHERCAT_SLAVE, nil
+	case resource.TypeHTTPServer:
+		return Type_TYPE_HTTP_SERVER, nil
+	case resource.TypeLabjackDevice:
+		return Type_TYPE_LABJACK_DEVICE, nil
+	case resource.TypeModbusServer:
+		return Type_TYPE_MODBUS_SERVER, nil
+	case resource.TypeNiChassis:
+		return Type_TYPE_NI_CHASSIS, nil
+	case resource.TypeNiDevice:
+		return Type_TYPE_NI_DEVICE, nil
+	case resource.TypeOpcuaServer:
+		return Type_TYPE_OPCUA_SERVER, nil
+	case resource.TypeArcDirectory:
+		return Type_TYPE_ARC_DIRECTORY, nil
 	default:
 		return 0, errors.Newf("unrecognized resource.Type value: %v", v)
 	}
@@ -177,6 +195,24 @@ func TypeFromPB(v Type) (resource.Type, error) {
 		return resource.TypeUser, nil
 	case Type_TYPE_VIEW:
 		return resource.TypeView, nil
+	case Type_TYPE_ETHERCAT_MASTER:
+		return resource.TypeEthercatMaster, nil
+	case Type_TYPE_ETHERCAT_SLAVE:
+		return resource.TypeEthercatSlave, nil
+	case Type_TYPE_HTTP_SERVER:
+		return resource.TypeHTTPServer, nil
+	case Type_TYPE_LABJACK_DEVICE:
+		return resource.TypeLabjackDevice, nil
+	case Type_TYPE_MODBUS_SERVER:
+		return resource.TypeModbusServer, nil
+	case Type_TYPE_NI_CHASSIS:
+		return resource.TypeNiChassis, nil
+	case Type_TYPE_NI_DEVICE:
+		return resource.TypeNiDevice, nil
+	case Type_TYPE_OPCUA_SERVER:
+		return resource.TypeOpcuaServer, nil
+	case Type_TYPE_ARC_DIRECTORY:
+		return resource.TypeArcDirectory, nil
 	default:
 		return resource.Type(""), errors.Newf("unrecognized Type value: %v", v)
 	}

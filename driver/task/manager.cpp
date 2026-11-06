@@ -122,18 +122,15 @@ x::errors::Error Manager::configure_initial_tasks() {
     auto initial_tasks = this->factory->configure_initial_tasks(this->ctx, this->rack);
     {
         std::lock_guard<std::mutex> lock(this->mu);
+        // The streamer opens after this, so a task created here gets no set event and
+        // needs its entry now, even with no instance.
         for (auto &[sy_task, driver_task]: initial_tasks) {
-            if (driver_task == nullptr)
-                LOG(WARNING) << "unexpected nullptr returned by factory for "
-                                "initial task"
-                             << sy_task;
-            else {
-                const auto entry = this->entry_for(sy_task.key);
-                entry->instance = std::move(driver_task);
-                std::lock_guard entry_lock{entry->mu};
-                entry->row = sy_task;
-                entry->deployed_hash = sy_task.config_hash;
-            }
+            const auto entry = this->entry_for(sy_task.key);
+            std::lock_guard entry_lock{entry->mu};
+            entry->row = sy_task;
+            if (driver_task == nullptr) continue;
+            entry->instance = std::move(driver_task);
+            entry->deployed_hash = sy_task.config_hash;
         }
     }
     VLOG(1) << "queued " << queued << " initial tasks";
@@ -645,6 +642,7 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
         case Op::Type::COMMAND: {
             if (entry->instance == nullptr) {
                 LOG(WARNING) << "no task for command " << op.task_key;
+                if (!op.cmd.key.empty()) this->refuse_command(op);
                 return;
             }
             auto cmd = op.cmd;
@@ -719,6 +717,25 @@ void Manager::refuse_pinned_start(
         status.details.running = stored.details.running;
         status.details.config_hash = stored.details.config_hash;
     }
+    this->ctx->set_status(status);
+}
+
+void Manager::refuse_command(const Op &op) {
+    // Only a Driver that tried to deploy the task holds a status for it. After a rack
+    // move, another Driver may still run the task and answer.
+    auto latest = this->statuses->latest(op.task_key);
+    if (!latest.has_value()) return;
+    auto status = std::move(*latest);
+    // A latest error, such as a failed configure, says why the task is not running.
+    if (status.variant != synnax::status::VARIANT_ERROR) {
+        status.variant = synnax::status::VARIANT_ERROR;
+        status.message = "Task is not running";
+        status.description = "The task did not start on this Driver. Deploy the task "
+                             "again, then retry.";
+    }
+    status.time = x::telem::TimeStamp::now();
+    status.details.running = false;
+    status.details.cmd = op.cmd.key;
     this->ctx->set_status(status);
 }
 

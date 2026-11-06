@@ -17,48 +17,37 @@ import "github.com/synnaxlabs/synnax/pkg/service/labjack/versions/v2"
 type TemperatureUnits = v2.TemperatureUnits
 
 const (
-	TemperatureUnitsCelsius    TemperatureUnits = v2.TemperatureUnitsCelsius
+	// TemperatureUnitsCelsius is degrees Celsius.
+	TemperatureUnitsCelsius TemperatureUnits = v2.TemperatureUnitsCelsius
+	// TemperatureUnitsFahrenheit is degrees Fahrenheit.
 	TemperatureUnitsFahrenheit TemperatureUnits = v2.TemperatureUnitsFahrenheit
-	TemperatureUnitsKelvin     TemperatureUnits = v2.TemperatureUnitsKelvin
+	// TemperatureUnitsKelvin is kelvins.
+	TemperatureUnitsKelvin TemperatureUnits = v2.TemperatureUnitsKelvin
 )
 
 // ThermocoupleType selects the thermocouple alloy type.
 type ThermocoupleType = v2.ThermocoupleType
 
 const (
+	// ThermocoupleTypeJ pairs iron with copper-nickel.
 	ThermocoupleTypeJ ThermocoupleType = v2.ThermocoupleTypeJ
+	// ThermocoupleTypeK pairs nickel-chromium with nickel-aluminum.
 	ThermocoupleTypeK ThermocoupleType = v2.ThermocoupleTypeK
+	// ThermocoupleTypeN pairs nickel-chromium-silicon with nickel-silicon-magnesium.
 	ThermocoupleTypeN ThermocoupleType = v2.ThermocoupleTypeN
+	// ThermocoupleTypeR pairs platinum-13% rhodium with platinum.
 	ThermocoupleTypeR ThermocoupleType = v2.ThermocoupleTypeR
+	// ThermocoupleTypeS pairs platinum-10% rhodium with platinum.
 	ThermocoupleTypeS ThermocoupleType = v2.ThermocoupleTypeS
+	// ThermocoupleTypeT pairs copper with copper-nickel.
 	ThermocoupleTypeT ThermocoupleType = v2.ThermocoupleTypeT
+	// ThermocoupleTypeB pairs platinum-30% rhodium with platinum-6% rhodium.
 	ThermocoupleTypeB ThermocoupleType = v2.ThermocoupleTypeB
+	// ThermocoupleTypeE pairs nickel-chromium with copper-nickel.
 	ThermocoupleTypeE ThermocoupleType = v2.ThermocoupleTypeE
+	// ThermocoupleTypeC pairs tungsten-5% rhenium with tungsten-26% rhenium.
 	ThermocoupleTypeC ThermocoupleType = v2.ThermocoupleTypeC
 )
-
-// Scale determines how raw sensor values are transformed to engineering units.
-type Scale = v2.Scale
-type ScaleVariant = v2.ScaleVariant
-type ScaleType = v2.ScaleType
-
-const (
-	// LinearScaleType maps raw values to engineering units with a slope and offset.
-	LinearScaleType ScaleType = v2.LinearScaleType
-	// MapScaleType maps a raw range linearly onto a scaled range.
-	MapScaleType ScaleType = v2.MapScaleType
-	// NoneScaleType applies no scaling; the raw value is used directly.
-	NoneScaleType ScaleType = v2.NoneScaleType
-)
-
-// LinearScale maps raw values to engineering units with a slope and offset.
-type LinearScale = v2.LinearScale
-
-// MapScale maps a raw range linearly onto a scaled range.
-type MapScale = v2.MapScale
-
-// NoneScale applies no scaling; the raw value is used directly.
-type NoneScale = v2.NoneScale
 
 // BaseReadChannel carries the fields every LabJack read channel shares.
 type BaseReadChannel = v2.BaseReadChannel
@@ -66,7 +55,11 @@ type BaseReadChannel = v2.BaseReadChannel
 // ReadChannel is a single LabJack read channel. The type field selects the input mode
 // and the fields that accompany it.
 type ReadChannel = v2.ReadChannel
+
+// ReadChannelVariant is implemented by every ReadChannel variant.
 type ReadChannelVariant = v2.ReadChannelVariant
+
+// ReadChannelType is the "type" value that selects a variant of ReadChannel.
 type ReadChannelType = v2.ReadChannelType
 
 const (
@@ -93,7 +86,11 @@ type BaseWriteChannel = v2.BaseWriteChannel
 // WriteChannel is a single LabJack write channel. The type field selects the output
 // mode.
 type WriteChannel = v2.WriteChannel
+
+// WriteChannelVariant is implemented by every WriteChannel variant.
 type WriteChannelVariant = v2.WriteChannelVariant
+
+// WriteChannelType is the "type" value that selects a variant of WriteChannel.
 type WriteChannelType = v2.WriteChannelType
 
 const (

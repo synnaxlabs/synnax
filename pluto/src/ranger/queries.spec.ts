@@ -163,7 +163,7 @@ describe("queries", () => {
       const { result } = renderHook(() => Ranger.useList(), { wrapper });
       act(() => {
         result.current.retrieve(
-          { keys: [childRange.key] },
+          { where: { key: { in: [childRange.key] } } },
           { signal: controller.signal },
         );
       });
@@ -183,12 +183,15 @@ describe("queries", () => {
         keys.push(range.key);
       }
 
-      const { result } = renderHook(() => Ranger.useList({ initialQuery: { keys } }), {
-        wrapper,
-      });
+      const { result } = renderHook(
+        () => Ranger.useList({ initialQuery: { where: { key: { in: keys } } } }),
+        {
+          wrapper,
+        },
+      );
       act(() => {
         result.current.retrieve(
-          { limit: 2, offset: 1, keys },
+          { limit: 2, offset: 1, where: { key: { in: keys } } },
           { signal: controller.signal },
         );
       });
@@ -278,12 +281,12 @@ describe("queries", () => {
       });
       await client.labels.label(ranger.resourceID(r.key), [label.key]);
       const { result } = renderHook(
-        () => Ranger.useList({ initialQuery: { hasLabels: [label.key] } }),
+        () => Ranger.useList({ initialQuery: { where: { labels: [label.key] } } }),
         { wrapper },
       );
       act(() => {
         result.current.retrieve(
-          { hasLabels: [label.key] },
+          { where: { labels: [label.key] } },
           { signal: controller.signal },
         );
       });
@@ -297,7 +300,7 @@ describe("queries", () => {
       });
       act(() => {
         result.current.retrieve(
-          { hasLabels: [label.key] },
+          { where: { labels: [label.key] } },
           { signal: controller.signal },
         );
       });
@@ -310,7 +313,7 @@ describe("queries", () => {
       await client.labels.label(ranger.resourceID(r3.key), [label.key]);
       act(() => {
         result.current.retrieve(
-          { hasLabels: [label.key] },
+          { where: { labels: [label.key] } },
           { signal: controller.signal },
         );
       });
@@ -388,7 +391,7 @@ describe("queries", () => {
       const { result } = renderHook(() => Ranger.useList(), { wrapper });
       act(() => {
         result.current.retrieve(
-          { keys: [testRange.key] },
+          { where: { key: { in: [testRange.key] } } },
           { signal: controller.signal },
         );
       });

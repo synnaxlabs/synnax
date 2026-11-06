@@ -277,6 +277,16 @@ class TestClient:
         retrieved = client.schematics.retrieve(keys=[s1.key, s2.key])
         assert {s.key for s in retrieved} == {s1.key, s2.key}
 
+    def test_retrieve_where(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should keep the schematics that match the where and the other filters."""
+        a = client.schematics.create(project.key, name="A")
+        b = client.schematics.create(project.key, name="B")
+        where = schematic.Where(
+            not_=schematic.Where(key=sy.filter.Set[schematic.Key](eq=a.key))
+        )
+        res = client.schematics.retrieve(where=where, keys=[a.key, b.key, uuid4()])
+        assert [r.key for r in res] == [b.key]
+
     def test_retrieve_not_found(self, client: sy.Synnax) -> None:
         """Should raise NotFoundError when the key does not exist."""
         with pytest.raises(NotFoundError):
@@ -315,8 +325,7 @@ class TestClient:
         s1 = client.schematics.create(project.key, name="Delete 1")
         s2 = client.schematics.create(project.key, name="Delete 2")
         client.schematics.delete([s1.key, s2.key])
-        with pytest.raises(NotFoundError):
-            client.schematics.retrieve(keys=[s1.key, s2.key])
+        assert client.schematics.retrieve(keys=[s1.key, s2.key]) == []
 
 
 def _symbol(name: str) -> symbol.Symbol:
@@ -367,6 +376,17 @@ class TestSymbolClient:
         )
         retrieved = client.schematics.symbols.retrieve(keys=[s1.key, s2.key])
         assert {s.key for s in retrieved} == {s1.key, s2.key}
+
+    def test_retrieve_where(self, client: sy.Synnax, parent: ID) -> None:
+        """Should keep the symbols that match the where and the other filters."""
+        a, b = client.schematics.symbols.create(
+            [_symbol("A"), _symbol("B")], parent=parent
+        )
+        where = symbol.Where(not_=symbol.Where(key=sy.filter.Set[symbol.Key](eq=a.key)))
+        res = client.schematics.symbols.retrieve(
+            where=where, keys=[a.key, b.key, uuid4()]
+        )
+        assert [r.key for r in res] == [b.key]
 
     def test_retrieve_with_search_term(self, client: sy.Synnax, parent: ID) -> None:
         """Should search for symbols by name."""

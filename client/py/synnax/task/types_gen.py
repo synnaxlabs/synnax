@@ -11,17 +11,17 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias
+from typing import Annotated, Literal, TypeAlias
 from typing import override as _override
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field, JsonValue
+from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from synnax import device as device_
 from synnax import rack as rack_
 from synnax import status as status_
 from synnax.resource import ID
-from x import telem
+from x import filter, telem
 
 Key: TypeAlias = UUID
 
@@ -57,6 +57,84 @@ class KeyedConfig(BaseModel):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class LinearScale(BaseModel):
+    """Maps raw values to engineering units with a slope and offset."""
+
+    type: Literal["linear"] = "linear"
+    slope: float = 1
+    offset: float = 0
+
+
+class MapScale(BaseModel):
+    """Maps a raw range linearly onto a scaled range."""
+
+    type: Literal["map"] = "map"
+    pre_scaled_min: float = 0
+    pre_scaled_max: float = 1
+    scaled_min: float = 0
+    scaled_max: float = 1
+
+
+class PolynomialScale(BaseModel):
+    """Maps raw values to engineering units with a polynomial."""
+
+    type: Literal["polynomial"] = "polynomial"
+    coeffs: list[float] = Field(default_factory=list)
+
+
+class TableScale(BaseModel):
+    """Maps raw values to engineering units by linear interpolation between the
+    breakpoints, and clips raw values outside the table to its first or last scaled
+    value.
+    """
+
+    type: Literal["table"] = "table"
+    pre_scaled_vals: list[float] = Field(default_factory=list)
+    scaled_vals: list[float] = Field(default_factory=list)
+
+
+class NoneScale(BaseModel):
+    """Applies no scaling; the raw value is used directly."""
+
+    type: Literal["none"] = "none"
+
+
+# Determines how the raw values of a hardware read channel are transformed to
+# engineering units.
+Scale = Annotated[
+    LinearScale | MapScale | PolynomialScale | TableScale | NoneScale,
+    Field(discriminator="type"),
+]
+
+
+class Where(BaseModel):
+    """Is a filter that selects tasks.
+
+    Attributes:
+        and_: Matches when every child matches.
+        or_: Matches when any child matches.
+        not_: Matches when the child does not match.
+        key: Selects by key.
+        name: Selects by name.
+        type: Selects by type.
+        rack: Selects by rack.
+        internal: Selects by internal.
+        snapshot: Selects by snapshot.
+    """
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    and_: list[Where] | None = Field(default=None, alias="and")
+    or_: list[Where] | None = Field(default=None, alias="or")
+    not_: Where | None = Field(default=None, alias="not")
+    key: filter.Set[Key] | None = None
+    name: filter.String | None = None
+    type: filter.String | None = None
+    rack: filter.Set[rack_.Key] | None = None
+    internal: filter.Bool | None = None
+    snapshot: filter.Bool | None = None
 
 
 class Command(BaseModel):
@@ -115,6 +193,26 @@ class ScanConfig(KeyedConfig):
         return hash(self.key)
 
 
+class RetrieveRequest(BaseModel):
+    """Is a request to retrieve tasks.
+
+    Attributes:
+        where: Selects the tasks to retrieve. An absent where selects all of them.
+        search_term: Keeps the tasks that match the term, closest match first.
+        limit: Is the most tasks to return.
+        offset: Is the number of matching tasks to skip.
+        include_status: Includes the status of each record.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    where: Where | None = None
+    search_term: str = ""
+    limit: int | None = Field(default=None, ge=0, le=4294967295)
+    offset: int = Field(default=0, ge=0, le=4294967295)
+    include_status: bool = False
+
+
 class Payload(BaseModel):
     """Is an executable unit of work in the Driver system. Tasks represent specific
     hardware operations such as reading sensor data, writing control signals, or
@@ -166,6 +264,16 @@ class PersistConfig(StartConfig):
         return hash(self.key)
 
 
+class RetrieveResponse(BaseModel):
+    """Holds the tasks a RetrieveRequest selects.
+
+    Attributes:
+        tasks: Are the tasks the request selects.
+    """
+
+    tasks: list[Payload] = Field(default_factory=list)
+
+
 class ReadConfig(PersistConfig):
     """Carries the configuration fields shared by hardware acquisition tasks.
 
@@ -194,6 +302,9 @@ class WriteConfig(PersistConfig):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+Where.model_rebuild()
 
 
 TYPE_RESOURCE_ID = ID(type="task")

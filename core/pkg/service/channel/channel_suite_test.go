@@ -38,27 +38,31 @@ func TestChannel(t *testing.T) {
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
-// serviceConfig builds a channel ServiceConfig for the node, opening the ontology,
-// group, label, and status services the channel service depends on.
-func serviceConfig(ctx context.Context, node testutil.Node) channel.ServiceConfig {
+// serviceConfig builds a channel ServiceConfig for the node on db, opening the
+// ontology, group, label, and status services the channel service depends on.
+func serviceConfig(
+	ctx context.Context,
+	node testutil.Node,
+	db *gorp.DB,
+) channel.ServiceConfig {
 	GinkgoHelper()
-	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
+	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB:       node.DB,
+		DB:       db,
 		Ontology: otg,
 	}))
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:       node.DB,
+		DB:       db,
 		Ontology: otg,
 		Group:    groupSvc,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		DB:       node.DB,
+		DB:       db,
 		Ontology: otg,
 	}))
 	return channel.ServiceConfig{
 		Channel:      node.Channel,
-		DB:           node.DB,
+		DB:           db,
 		HostProvider: node.Cluster,
 		Ontology:     otg,
 		Group:        groupSvc,
@@ -76,7 +80,7 @@ func openService(
 	cfgs ...channel.ServiceConfig,
 ) (*channel.Service, *ontology.Ontology) {
 	GinkgoHelper()
-	cfg := serviceConfig(ctx, node)
+	cfg := serviceConfig(ctx, node, node.DB)
 	channelSvc := MustOpen(channel.OpenService(
 		ctx,
 		append([]channel.ServiceConfig{cfg}, cfgs...)...,

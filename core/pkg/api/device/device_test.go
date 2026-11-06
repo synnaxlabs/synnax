@@ -11,6 +11,7 @@ package device_test
 
 import (
 	"context"
+	"encoding/json/v2"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -20,9 +21,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 func createDevice(ctx SpecContext, key string) device.Device {
@@ -221,7 +224,9 @@ var _ = Describe("Retrieve", func() {
 		res := MustSucceed(apiSvc.Retrieve(
 			AuthedCtx(ctx, u),
 			apidevice.RetrieveRequest{
-				Keys:          []device.Key{withoutStatus.Key, withStatus.Key},
+				Where: &device.Where{Key: &filter.Set[device.Key]{
+					In: []device.Key{withoutStatus.Key, withStatus.Key},
+				}},
 				IncludeStatus: true,
 			},
 		))
@@ -232,5 +237,43 @@ var _ = Describe("Retrieve", func() {
 		Expect(
 			res.Devices[1].Status.Owner,
 		).To(HaveValue(Equal(withStatus.ResourceID())))
+	})
+
+	It("Should treat a missing key as a non-match", func(ctx SpecContext) {
+		u := createUser(ctx)
+		d := createDevice(ctx, "present_device")
+		grant(ctx, access.ActionRetrieve, u.ResourceID(), d.ResourceID())
+		res := MustSucceed(apiSvc.Retrieve(
+			AuthedCtx(ctx, u),
+			apidevice.RetrieveRequest{
+				Where: &device.Where{Key: &filter.Set[device.Key]{
+					In: []device.Key{d.Key, "missing_device"},
+				}},
+			},
+		))
+		Expect(res.Devices).To(HaveLen(1))
+		Expect(res.Devices[0].Key).To(Equal(d.Key))
+	})
+
+	It("Should return a path error for an invalid regex", func(ctx SpecContext) {
+		u := createUser(ctx)
+		Expect(apiSvc.Retrieve(AuthedCtx(ctx, u), apidevice.RetrieveRequest{
+			Where: &device.Where{Make: &filter.String{Regex: new("(a")}},
+		})).Error().To(SatisfyAll(
+			BeAssignableToTypeOf(validate.PathError{}),
+			MatchError(
+				"where.make.regex: error parsing regexp: missing closing ): `(a`: validation error",
+			),
+		))
+	})
+})
+
+var _ = Describe("RetrieveRequest", func() {
+	It("Should reject a request member that it does not declare", func() {
+		var req apidevice.RetrieveRequest
+		Expect(json.Unmarshal([]byte(`{"keys":["dev1"]}`), &req)).To(SatisfyAll(
+			BeAssignableToTypeOf(&json.SemanticError{}),
+			MatchError(ContainSubstring(`unknown object member name "keys"`)),
+		))
 	})
 })

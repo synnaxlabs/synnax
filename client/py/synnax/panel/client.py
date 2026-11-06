@@ -9,12 +9,20 @@
 
 from typing import Literal, overload
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
 from synnax import ontology, resource
-from synnax.exceptions import NotFoundError
-from synnax.panel.types_gen import TYPE_RESOURCE_ID, Key, Panel
+from synnax.panel.types_gen import (
+    TYPE_RESOURCE_ID,
+    Key,
+    Panel,
+    RetrieveRequest,
+    RetrieveResponse,
+    Where,
+)
+from synnax.util import one
+from x import filter
 from x.lists import normalize
 
 
@@ -43,17 +51,6 @@ class _DispatchRequest(BaseModel):
     key: Key
     dispatch_key: str = ""
     actions: list[_RenameAction]
-
-
-class _RetrieveRequest(BaseModel):
-    keys: list[Key] | None = None
-    search_term: str | None = None
-    limit: int | None = None
-    offset: int | None = None
-
-
-class _RetrieveResponse(BaseModel):
-    panels: list[Panel] = Field(default_factory=list)
 
 
 class Client:
@@ -129,10 +126,11 @@ class Client:
         self,
         *,
         keys: list[Key] | None = None,
+        where: Where | None = None,
         parent: resource.ID | None = None,
-        search_term: str | None = None,
+        search_term: str = "",
         limit: int | None = None,
-        offset: int | None = None,
+        offset: int = 0,
     ) -> list[Panel]: ...
 
     def retrieve(
@@ -140,23 +138,25 @@ class Client:
         *,
         key: Key | None = None,
         keys: list[Key] | None = None,
+        where: Where | None = None,
         parent: resource.ID | None = None,
-        search_term: str | None = None,
+        search_term: str = "",
         limit: int | None = None,
-        offset: int | None = None,
+        offset: int = 0,
     ) -> Panel | list[Panel]:
         """Retrieve one or more panels.
 
         :param key: The key of a single panel to retrieve. When provided, a single
             panel is returned and NotFoundError is raised if it does not exist.
         :param keys: The keys of the panels to retrieve.
+        :param where: A filter that the panels must also match.
         :param parent: The resource ID of a resource, such as a project. Only the
             panels that are children of this resource are returned. Replaces ``keys``.
         :param search_term: A fuzzy search term matched against panel names.
         :param limit: The maximum number of panels to return.
         :param offset: The number of panels to skip before returning results.
         :returns: The matching panel when ``key`` is provided, otherwise a list of
-            matching panels.
+            matching panels. The list leaves out keys that do not exist.
         :raises NotFoundError: If ``key`` is provided and no panel exists for it.
         """
         is_single = key is not None
@@ -172,19 +172,18 @@ class Client:
                 keys.append(Key(child.key))
             if len(keys) == 0:
                 return []
+        flat = Where(key=None if keys is None else filter.Set[Key](in_=keys))
         res = self._client.send(
             "/panel/retrieve",
-            _RetrieveRequest(
-                keys=keys,
+            RetrieveRequest(
+                where=filter.merge(where, flat),
                 search_term=search_term,
                 limit=limit,
                 offset=offset,
             ),
-            _RetrieveResponse,
+            RetrieveResponse,
         )
         panels = res.panels
         if is_single:
-            if len(panels) == 0:
-                raise NotFoundError("Panel not found")
-            return panels[0]
+            return one("Panel", key, panels)
         return panels
