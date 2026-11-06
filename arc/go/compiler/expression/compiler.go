@@ -289,6 +289,9 @@ func compileFunctionCallExpr[T antlr.ParserRuleContext](
 	if target.Deprecated != nil {
 		target = target.Deprecated
 	}
+	if check, ok := floatChecks[target.QualifiedName()]; ok {
+		return emitFloatCheck(ctx, check, concreteInputs[0].Type)
+	}
 	ctx.Resolver.EmitCall(ctx.Writer, ctx.WriterID, target, concreteType)
 	defaultOutput, hasDefault := concreteOutputs.Get(ir.DefaultOutputParam)
 	if hasDefault {

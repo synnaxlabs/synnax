@@ -186,6 +186,19 @@ var _ = Describe("Graph", func() {
 			Expect(firstNode.Channels.Read).To(HaveLen(1))
 		})
 
+		DescribeTable("Should reject a node that is not a flow function",
+			func(ctx SpecContext, nodeType string) {
+				nodes, inputs := buildNodes(nodeSpec{key: "n", typ: nodeType})
+				g := arc.Graph{Nodes: nodes, Inputs: inputs}
+				root := symbol.NewRoot(nil, stl.NewSymbols())
+				symbol.AutoImportModules(root)
+				_, diagnostics := graph.Analyze(ctx, g, root)
+				Expect(diagnostics.Ok()).To(BeFalse())
+				Expect(diagnostics.String()).To(ContainSubstring("not a flow function"))
+			},
+			Entry("WASM-only function", "math.is_nan"),
+		)
+
 		Describe("Polymorphic Stages", func() {
 			It(
 				"Should correctly infer types for polymorphic stages from F32 inputs",

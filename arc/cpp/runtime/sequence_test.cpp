@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <iterator>
+#include <limits>
 #include <ostream>
 #include <string>
 #include <string_view>
@@ -211,6 +212,87 @@ Sequence new_h() {
 void push_src(Sequence &h, const float v) {
     h.push("rx_src", x::telem::Series(v));
 }
+}
+
+namespace float_guard {
+const std::string SRC = R"(
+import math
+
+sequence main {
+    stage wait {
+        not math.is_finite(%speed%) or %speed% < 15 => done
+    }
+    stage done {
+        1 -> %passed%
+    }
+}
+%start_cmd% => main
+)";
+
+Sequence new_h() {
+    return Sequence(
+        SRC,
+        {{"start_cmd", x::telem::UINT8_T},
+         {"speed", x::telem::FLOAT64_T},
+         {"passed", x::telem::UINT8_T}}
+    );
+}
+
+std::vector<std::uint8_t> run(const double speed) {
+    auto h = new_h();
+    h.trigger("start_cmd");
+    h.push("speed", x::telem::Series(speed));
+    return collect<std::uint8_t>(h.flush(), h.key("passed"));
+}
+}
+
+TEST(FloatGuardTest, PassesATransitionOnNaN) {
+    EXPECT_EQ(
+        float_guard::run(std::numeric_limits<double>::quiet_NaN()),
+        std::vector<std::uint8_t>{1}
+    );
+}
+
+TEST(FloatGuardTest, PassesATransitionOnInfinity) {
+    EXPECT_EQ(
+        float_guard::run(std::numeric_limits<double>::infinity()),
+        std::vector<std::uint8_t>{1}
+    );
+}
+
+TEST(FloatGuardTest, HoldsATransitionOverTheLimit) {
+    EXPECT_TRUE(float_guard::run(20).empty());
+}
+
+namespace nan_equality {
+/// @brief runs expr on two channels that both carry NaN and returns the result.
+template<typename T>
+bool run(const std::string &expr, const x::telem::DataType &dt) {
+    const std::string type = dt == x::telem::FLOAT32_T ? "f32" : "f64";
+    Sequence h(
+        "func check() {v " + type + "} u8 {\n    y := %right%\n    return u8(" + expr +
+            ")\n}\n%left% -> check() -> %out%\n",
+        {{"left", dt}, {"right", dt}, {"out", x::telem::UINT8_T}}
+    );
+    const auto nan = std::numeric_limits<T>::quiet_NaN();
+    h.ingest("right", x::telem::Series(nan));
+    h.push("left", x::telem::Series(nan));
+    return collect<std::uint8_t>(h.flush(), h.key("out")).at(0) != 0;
+}
+}
+
+TEST(NaNEqualityTest, FollowsIEEE754ForF32) {
+    using namespace nan_equality;
+    EXPECT_FALSE(run<float>("v == y", x::telem::FLOAT32_T));
+    EXPECT_TRUE(run<float>("v != y", x::telem::FLOAT32_T));
+    EXPECT_TRUE(run<float>("v != v", x::telem::FLOAT32_T));
+}
+
+TEST(NaNEqualityTest, FollowsIEEE754ForF64) {
+    using namespace nan_equality;
+    EXPECT_FALSE(run<double>("v == y", x::telem::FLOAT64_T));
+    EXPECT_TRUE(run<double>("v != y", x::telem::FLOAT64_T));
+    EXPECT_TRUE(run<double>("v != v", x::telem::FLOAT64_T));
 }
 
 TEST(ReactiveReExpressionTest, JumpsToAReExpressionReachedBySkippingEarlierStages) {

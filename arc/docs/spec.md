@@ -293,6 +293,31 @@ chars := len(msg) // 5 (i64)
 current := now() // current timestamp (i64 ns)
 ```
 
+## NaN and infinity
+
+A float can hold NaN or infinity. NaN fails every comparison except `!=`, so `x != x` is
+true only for NaN. The `math` module has these checks.
+
+- `math.is_nan(x)` - Returns `true` if `x` is NaN
+- `math.is_inf(x)` - Returns `true` if `x` is positive or negative infinity
+- `math.is_finite(x)` - Returns `true` if `x` is not NaN and not infinite
+
+The checks take `f32` or `f64`. A typed integer argument is a compile error. An integer
+literal is read as a float.
+
+```arc
+import math
+
+sequence main {
+    stage spin_down {
+        not math.is_finite(pump_speed) or pump_speed < 15 => next
+    }
+    stage stopped {
+        1 -> pump_stopped
+    }
+}
+```
+
 ## Functions
 
 Arc has two execution contexts with different function syntax:
