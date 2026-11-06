@@ -9,7 +9,9 @@
 
 #include <cmath>
 #include <memory>
+#include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "gtest/gtest.h"
@@ -172,19 +174,34 @@ TEST(HTTPReadTask, ParseConfigQueryParamMissingValueDefaultsEmpty) {
     EXPECT_EQ(cfg.endpoints[0].query_params.at(0).value, "");
 }
 
-/// @brief it should reject an optional field on a channel that cannot hold NaN.
-TEST(HTTPReadTask, ParseConfigOptionalIntegerErrors) {
+namespace {
+/// @brief a data channel and its index on a live Core.
+struct FieldChannels {
+    std::shared_ptr<synnax::Synnax> client;
+    synnax::channel::Channel index;
+    synnax::channel::Channel data;
+};
+
+/// @brief creates an indexed channel of the given data type.
+/// @param data_type the data type of the data channel.
+/// @returns the client and the created channels.
+FieldChannels create_field_channels(const x::telem::DataType &data_type) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    auto idx = ASSERT_NIL_P(
+    auto index = ASSERT_NIL_P(
         client->channels
             .create(make_unique_channel_name("idx"), x::telem::TIMESTAMP_T, 0, true)
     );
-    auto ch = ASSERT_NIL_P(client->channels.create(
-        make_unique_channel_name("value"),
-        x::telem::INT32_T,
-        idx.key,
-        false
-    ));
+    auto data = ASSERT_NIL_P(
+        client->channels
+            .create(make_unique_channel_name("value"), data_type, index.key, false)
+    );
+    return {std::move(client), std::move(index), std::move(data)};
+}
+
+/// @brief creates a read task with one field on one endpoint.
+/// @param field the JSON config of the field.
+/// @returns the task.
+synnax::task::Task create_field_task(const x::json::json &field) {
     synnax::task::Task task;
     task.config = {
         {"device", "dev-001"},
@@ -193,16 +210,157 @@ TEST(HTTPReadTask, ParseConfigOptionalIntegerErrors) {
          {{
              {"method", "GET"},
              {"path", "/api/data"},
-             {"fields",
-              {{
-                  {"pointer", "/value"},
-                  {"channel", ch.key},
-                  {"optional", true},
-              }}},
+             {"fields", x::json::json::array({field})},
          }}},
     };
+    return task;
+}
+
+/// @brief asserts that a task with the given field fails to parse.
+/// @param client the client that the parse retrieves channels with.
+/// @param field the JSON config of the field.
+/// @param message text that the error must hold.
+void expect_field_rejected(
+    const std::shared_ptr<synnax::Synnax> &client,
+    const x::json::json &field,
+    const std::string &message
+) {
     auto ctx = std::make_shared<task::MockContext>(client);
-    ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
+    auto [_, err] = ReadTaskConfig::parse(ctx, create_field_task(field));
+    ASSERT_TRUE(err.matches(x::errors::VALIDATION));
+    EXPECT_NE(err.data.find(message), std::string::npos) << err.data;
+}
+}
+
+/// @brief it should reject a fill value on a field that is not optional.
+TEST(HTTPReadTask, ParseConfigFillValueWithoutOptionalErrors) {
+    expect_field_rejected(
+        nullptr,
+        {{"pointer", "/value"}, {"channel", 1}, {"fill_value", 0}},
+        "needs an optional field"
+    );
+}
+
+/// @brief it should reject an optional non-float field with no fill value.
+TEST(HTTPReadTask, ParseConfigOptionalIntegerNeedsFillValue) {
+    const auto [client, _, data] = create_field_channels(x::telem::INT32_T);
+    expect_field_rejected(
+        client,
+        {{"pointer", "/value"}, {"channel", data.key}, {"optional", true}},
+        "needs a fill value"
+    );
+}
+
+/// @brief it should reject an optional string field with no fill value.
+TEST(HTTPReadTask, ParseConfigOptionalStringNeedsFillValue) {
+    const auto [client, _, data] = create_field_channels(x::telem::STRING_T);
+    expect_field_rejected(
+        client,
+        {{"pointer", "/value"}, {"channel", data.key}, {"optional", true}},
+        "needs a fill value"
+    );
+}
+
+/// @brief it should reject a fill value that does not convert to the channel type.
+TEST(HTTPReadTask, ParseConfigFillValueUnconvertibleErrors) {
+    const auto [client, _, data] = create_field_channels(x::telem::INT32_T);
+    expect_field_rejected(
+        client,
+        {{"pointer", "/value"},
+         {"channel", data.key},
+         {"optional", true},
+         {"fill_value", "OFF"}},
+        "cannot convert"
+    );
+}
+
+/// @brief it should reject an optional index channel, even with a fill value, because
+/// a filled timestamp would corrupt the index.
+TEST(HTTPReadTask, ParseConfigOptionalIndexErrors) {
+    const auto [client, index, _] = create_field_channels(x::telem::FLOAT64_T);
+    expect_field_rejected(
+        client,
+        {{"pointer", "/time"},
+         {"channel", index.key},
+         {"time_format", "unix_sec"},
+         {"optional", true},
+         {"fill_value", 0}},
+        "index channel"
+    );
+}
+
+/// @brief it should accept an optional float field that sets no fill value.
+TEST(HTTPReadTask, ParseConfigOptionalFloatNeedsNoFillValue) {
+    const auto [client, _, data] = create_field_channels(x::telem::FLOAT64_T);
+    auto ctx = std::make_shared<task::MockContext>(client);
+    const auto cfg = ASSERT_NIL_P(
+        ReadTaskConfig::parse(
+            ctx,
+            create_field_task(
+                {{"pointer", "/value"}, {"channel", data.key}, {"optional", true}}
+            )
+        )
+    );
+    EXPECT_TRUE(cfg.fill_values.empty());
+}
+
+/// @brief it should convert a fill value of 0 to the data type of the channel.
+TEST(HTTPReadTask, ParseConfigFillValueConverts) {
+    const auto [client, _, data] = create_field_channels(x::telem::FLOAT32_T);
+    auto ctx = std::make_shared<task::MockContext>(client);
+    const auto cfg = ASSERT_NIL_P(
+        ReadTaskConfig::parse(
+            ctx,
+            create_field_task(
+                {{"pointer", "/value"},
+                 {"channel", data.key},
+                 {"optional", true},
+                 {"fill_value", 0}}
+            )
+        )
+    );
+    EXPECT_EQ(std::get<float>(cfg.fill_values.at(data.key)), 0.0F);
+}
+
+/// @brief it should accept an enum label as a fill value.
+TEST(HTTPReadTask, ParseConfigFillValueEnumLabel) {
+    const auto [client, _, data] = create_field_channels(x::telem::UINT8_T);
+    auto ctx = std::make_shared<task::MockContext>(client);
+    const auto cfg = ASSERT_NIL_P(
+        ReadTaskConfig::parse(
+            ctx,
+            create_field_task(
+                {{"pointer", "/value"},
+                 {"channel", data.key},
+                 {"optional", true},
+                 {"fill_value", "OFF"},
+                 {"enum_values", {{{"label", "OFF"}, {"value", 3}}}}}
+            )
+        )
+    );
+    EXPECT_EQ(std::get<uint8_t>(cfg.fill_values.at(data.key)), 3);
+}
+
+/// @brief it should convert a fill value with the time format of the field.
+TEST(HTTPReadTask, ParseConfigFillValueTimeFormat) {
+    const auto [client, _, data] = create_field_channels(x::telem::TIMESTAMP_T);
+    auto ctx = std::make_shared<task::MockContext>(client);
+    const auto cfg = ASSERT_NIL_P(
+        ReadTaskConfig::parse(
+            ctx,
+            create_field_task(
+                {{"pointer", "/value"},
+                 {"channel", data.key},
+                 {"time_format", "unix_sec"},
+                 {"optional", true},
+                 {"fill_value", 2}}
+            )
+        )
+    );
+    EXPECT_EQ(
+        std::get<x::telem::TimeStamp>(cfg.fill_values.at(data.key)),
+        x::telem::TimeStamp(2 * x::telem::SECOND)
+    );
 }
 
 /// @brief it should fail when an enum_values entry is missing the label field.
@@ -3645,12 +3803,14 @@ namespace {
 /// @param p2_type the data type of the p2 channel.
 /// @param filled whether NaN fill is enabled.
 /// @param optional whether the p2 field is optional.
+/// @param fill the fill value of the p2 field.
 /// @returns the frame and the read result.
 std::pair<x::telem::Frame, common::ReadResult> read_shared_index_group(
     const std::string &body,
     const x::telem::DataType &p2_type,
     const bool filled,
-    const bool optional = false
+    const bool optional = false,
+    const std::optional<x::telem::SampleValue> &fill = std::nullopt
 ) {
     testutil::Server server(
         testutil::ServerConfig{
@@ -3691,6 +3851,7 @@ std::pair<x::telem::Frame, common::ReadResult> read_shared_index_group(
     cfg.channels[3] =
         {.key = 3, .name = "p3", .data_type = x::telem::FLOAT64_T, .index = 100};
     cfg.software_timed_indexes[100] = 0;
+    if (fill.has_value()) cfg.fill_values[2] = *fill;
 
     auto [source, processor] = make_source(cfg, server.base_url());
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
@@ -3796,6 +3957,169 @@ TEST(HTTPReadTask, InvalidOptionalFieldWarns) {
     ASSERT_NIL(res.error);
     EXPECT_TRUE(res.warning.description.starts_with("Failed to convert /p2"));
     EXPECT_EQ(fr.size(), 0);
+}
+
+/// @brief it should write the fill value with no warning for an optional field whose
+/// value is missing, null, or an empty string.
+TEST(HTTPReadTask, AbsentOptionalFieldWritesFillValue) {
+    for (const auto *body:
+         {R"({"p3": 1.5})", R"({"p2": null, "p3": 1.5})", R"({"p2": "", "p3": 1.5})"}) {
+        auto [fr, res] = read_shared_index_group(
+            body,
+            x::telem::FLOAT64_T,
+            false,
+            true,
+            0.0
+        );
+        ASSERT_NIL(res.error);
+        EXPECT_TRUE(res.warning.empty());
+        ASSERT_EQ(fr.size(), 3);
+        EXPECT_EQ(fr.at<double>(2, 0), 0.0);
+        EXPECT_EQ(fr.at<double>(3, 0), 1.5);
+    }
+}
+
+/// @brief it should prefer a value that is present over the fill value.
+TEST(HTTPReadTask, PresentOptionalFieldIgnoresFillValue) {
+    auto [fr, res] = read_shared_index_group(
+        R"({"p2": 2.5, "p3": 1.5})",
+        x::telem::FLOAT64_T,
+        false,
+        true,
+        0.0
+    );
+    ASSERT_NIL(res.error);
+    EXPECT_TRUE(res.warning.empty());
+    EXPECT_EQ(fr.at<double>(2, 0), 2.5);
+}
+
+/// @brief it should still warn and skip the group when a field with a fill value holds
+/// a value that does not convert.
+TEST(HTTPReadTask, InvalidFieldWithFillValueWarns) {
+    auto [fr, res] = read_shared_index_group(
+        R"({"p2": "INVALID", "p3": 1.5})",
+        x::telem::FLOAT64_T,
+        false,
+        true,
+        0.0
+    );
+    ASSERT_NIL(res.error);
+    EXPECT_TRUE(res.warning.description.starts_with("Failed to convert /p2"));
+    EXPECT_EQ(fr.size(), 0);
+}
+
+/// @brief it should keep an empty string on a string channel as a real value.
+TEST(HTTPReadTask, EmptyStringIsPresentOnStringChannel) {
+    auto [fr, res] = read_shared_index_group(
+        R"({"p2": "", "p3": 1.5})",
+        x::telem::STRING_T,
+        false,
+        true,
+        std::string("off")
+    );
+    ASSERT_NIL(res.error);
+    EXPECT_TRUE(res.warning.empty());
+    ASSERT_EQ(fr.size(), 3);
+    EXPECT_EQ(std::get<std::string>(fr.at(2, 0)), "");
+}
+
+/// @brief it should write the fill value of a string channel when the value is missing
+/// or null.
+TEST(HTTPReadTask, AbsentStringFieldWritesFillValue) {
+    for (const auto *body: {R"({"p3": 1.5})", R"({"p2": null, "p3": 1.5})"}) {
+        auto [fr, res] = read_shared_index_group(
+            body,
+            x::telem::STRING_T,
+            false,
+            true,
+            std::string("off")
+        );
+        ASSERT_NIL(res.error);
+        EXPECT_TRUE(res.warning.empty());
+        ASSERT_EQ(fr.size(), 3);
+        EXPECT_EQ(std::get<std::string>(fr.at(2, 0)), "off");
+    }
+}
+
+/// @brief it should write no fill value when a request fails, so an outage can never
+/// look like a real reading.
+TEST(HTTPReadTask, FailedRequestSkipsFillValue) {
+    for (const auto &[status, body]: std::vector<std::pair<int, std::string>>{
+             {500, "{}"},
+             {200, "not json"},
+         }) {
+        testutil::Server server(
+            testutil::ServerConfig{
+                .routes = {
+                    {
+                        .method = Method::GET,
+                        .path = "/api/down",
+                        .status_code = status,
+                        .response_body = body,
+                    },
+                    {
+                        .method = Method::GET,
+                        .path = "/api/up",
+                        .status_code = 200,
+                        .response_body = R"({"up": 1.5})",
+                    },
+                },
+            }
+        );
+        ASSERT_NIL(server.start());
+        x::defer::defer stop_server([&server] { server.stop(); });
+
+        ReadTaskConfig cfg;
+        cfg.device = "test-device";
+        cfg.data_saving_disabled = true;
+        cfg.auto_start = false;
+        cfg.rate = x::telem::Rate(10000);
+
+        ReadField down;
+        down.pointer = "/speed";
+        down.channel = 2;
+        down.optional = true;
+        ReadEndpoint down_ep;
+        down_ep.method = "GET";
+        down_ep.path = "/api/down";
+        down_ep.fields = {down};
+
+        ReadField up;
+        up.pointer = "/up";
+        up.channel = 3;
+        ReadEndpoint up_ep;
+        up_ep.method = "GET";
+        up_ep.path = "/api/up";
+        up_ep.fields = {up};
+        cfg.endpoints = {down_ep, up_ep};
+
+        cfg.channels[2] = {
+            .key = 2,
+            .name = "speed",
+            .data_type = x::telem::FLOAT64_T,
+            .index = 100,
+        };
+        cfg.channels[3] = {
+            .key = 3,
+            .name = "up",
+            .data_type = x::telem::FLOAT64_T,
+            .index = 101,
+        };
+        cfg.software_timed_indexes[100] = 0;
+        cfg.software_timed_indexes[101] = 1;
+        cfg.fill_values[2] = 0.0;
+
+        auto [source, processor] = make_source(cfg, server.base_url());
+        auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
+        breaker.start();
+        x::telem::Frame fr;
+        auto res = source->read(breaker, fr);
+        breaker.stop();
+        ASSERT_NIL(res.error);
+        EXPECT_FALSE(res.warning.empty());
+        EXPECT_FALSE(fr.contains(2));
+        EXPECT_EQ(fr.at<double>(3, 0), 1.5);
+    }
 }
 
 /// @brief it should skip the whole group when a non-float field is invalid, even when

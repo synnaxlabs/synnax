@@ -73,6 +73,7 @@ inline ReadField ReadField::parse(x::json::Parser parser) {
         .name = parser.field<std::string>("name", ""),
         .disabled = parser.field<bool>("disabled", false),
         .optional = parser.field<bool>("optional", false),
+        .fill_value = parser.field<std::optional<x::json::json>>("fill_value"),
         .channel = parser.field<::synnax::channel::Key>(
             "channel",
             ::synnax::channel::Key(0)
@@ -96,6 +97,7 @@ inline x::json::json ReadField::to_json() const {
     j["name"] = this->name;
     j["disabled"] = this->disabled;
     j["optional"] = this->optional;
+    if (this->fill_value.has_value()) j["fill_value"] = *this->fill_value;
     j["channel"] = this->channel;
     j["pointer"] = this->pointer;
     j["data_type"] = this->data_type;

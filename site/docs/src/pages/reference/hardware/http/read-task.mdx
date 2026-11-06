@@ -184,12 +184,29 @@ A field has these settings:
 | Channel <small>`channel`</small>          |           | The channel that records the value.             |
 | Enum mapping <small>`enum_values`</small> | None      | Maps text labels in the response to numbers.    |
 | Optional <small>`optional`</small>        | Off       | See below.                                      |
+| Fill value <small>`fill_value`</small>    | None      | See below.                                      |
 
-Turn on **Optional** for a field whose value can be missing, `null`, or an empty string
-as a normal state of the device, such as a sensor that is off. The task then writes
-`NaN` and sends no warning, so the other fields that share its index channel keep
-writing. A wrong pointer on an optional field also sends no warning. Optional fields
-need a float channel. Other invalid values still warn.
+Turn on **Optional** for a field whose value can be missing as a normal state of the
+device, such as a sensor that is off. A value is missing when its pointer is absent, or
+when it is `null` or an empty string. On a string channel, an empty string is a real
+value.
+
+The task then writes the **Fill value** and sends no warning, so the other fields that
+share its index channel keep writing. The fill value is a number, a string, or a boolean
+that converts to the data type of the channel. With no fill value, the task writes
+`NaN`, so a field on a non-float channel needs a fill value. An index channel cannot be
+optional.
+
+`NaN` fails every comparison. `NaN < 15` is false, and `NaN > 300` is also false. A
+sequence that waits on such a check can hang. When an Arc reads the channel, set a fill
+value that gives the check the result you want. For example, set `0` on a pump speed so
+that `speed < 15` passes. Keep `NaN` on a temperature so that `temp > 300` keeps
+waiting.
+
+A wrong pointer on an optional field also sends no warning. Other invalid values still
+warn. The task uses the fill value only when the endpoint answers and the response
+parses. A failed request skips the field, so an outage does not look like a real
+reading.
 
 <Divider.Divider x />
 

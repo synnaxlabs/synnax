@@ -265,6 +265,98 @@ describe("Read", () => {
     await screen.findByRole("treeitem", { name: /\/seeded/ });
   });
 
+  describe("fill value", () => {
+    const renderField = async (overrides: Partial<HTTP.Task.ReadField>) => {
+      const dev = await createHTTPDevice(client);
+      const draft = await createDraft(
+        client,
+        createReadConfig(dev.key, [
+          {
+            ...http.readEndpointZ.parse({}),
+            key: "ep1",
+            path: "/data",
+            fields: [createReadField("f1", "/value", overrides)],
+          },
+        ]),
+      );
+      const { container } = await renderRead({ client, taskKey: draft.key });
+      fireEvent.click(await screen.findByRole("treeitem", { name: /\/value/ }));
+      const deploy = async (): Promise<HTTP.Task.ReadField> => {
+        const created = await deployAndAwaitTask(
+          client,
+          container,
+          draft.key,
+          HTTP.Task.READ_SCHEMAS,
+        );
+        return created.config.endpoints[0].fields[0];
+      };
+      return { deploy };
+    };
+
+    const findFillValue = async (): Promise<HTMLInputElement> =>
+      await screen.findByRole<HTMLInputElement>("textbox", { name: "Fill value" });
+
+    it("should show the input only when the field is optional", async () => {
+      await renderField({});
+      const optional = await waitFor(() => getLabeledInput("Optional"));
+      expect(screen.queryByRole("textbox", { name: "Fill value" })).toBeNull();
+      fireEvent.click(optional);
+      await findFillValue();
+      fireEvent.click(optional);
+      await waitFor(() =>
+        expect(screen.queryByRole("textbox", { name: "Fill value" })).toBeNull(),
+      );
+    });
+
+    it("should store a numeric fill value of 0", async () => {
+      const { deploy } = await renderField({ optional: true });
+      commitFieldInput(await findFillValue(), "0");
+      const field = await deploy();
+      expect(field.optional).toBe(true);
+      expect(field.fillValue).toBe(0);
+    });
+
+    it("should store text on a string channel", async () => {
+      const { deploy } = await renderField({ optional: true, dataType: "string" });
+      commitFieldInput(await findFillValue(), "off");
+      expect((await deploy()).fillValue).toBe("off");
+    });
+
+    it("should unset the fill value when the numeric input is emptied", async () => {
+      const { deploy } = await renderField({ optional: true, fillValue: 5 });
+      const input = await findFillValue();
+      await waitFor(() => expect(input.value).toBe("5"));
+      commitFieldInput(input, "");
+      await waitFor(() => expect(input.value).toBe(""));
+      expect((await deploy()).fillValue).toBeUndefined();
+    });
+
+    it("should unset the fill value when the string input is emptied", async () => {
+      const { deploy } = await renderField({
+        optional: true,
+        dataType: "string",
+        fillValue: "off",
+      });
+      const input = await findFillValue();
+      await waitFor(() => expect(input.value).toBe("off"));
+      commitFieldInput(input, "");
+      await waitFor(() => expect(input.value).toBe(""));
+      expect((await deploy()).fillValue).toBeUndefined();
+    });
+
+    it("should unset the fill value when Optional turns off", async () => {
+      const { deploy } = await renderField({ optional: true, fillValue: 5 });
+      await findFillValue();
+      fireEvent.click(getLabeledInput("Optional"));
+      await waitFor(() =>
+        expect(screen.queryByRole("textbox", { name: "Fill value" })).toBeNull(),
+      );
+      const field = await deploy();
+      expect(field.optional).toBe(false);
+      expect(field.fillValue).toBeUndefined();
+    });
+  });
+
   it("should toggle the NaN fill switch", async () => {
     await renderRead();
     const toggle = getLabeledInput("NaN fill");

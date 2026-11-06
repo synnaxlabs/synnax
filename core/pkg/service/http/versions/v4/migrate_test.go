@@ -62,6 +62,7 @@ var _ = Describe("Migration", func() {
 			Expect(got.Endpoints[0].Fields[0].Channel).To(BeEquivalentTo(7))
 			Expect(got.Endpoints[0].Fields[0].Pointer).To(Equal("/p"))
 			Expect(got.Endpoints[0].Fields[0].Optional).To(BeFalse())
+			Expect(got.Endpoints[0].Fields[0].FillValue).To(BeNil())
 		},
 	)
 })

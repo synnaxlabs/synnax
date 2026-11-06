@@ -12,6 +12,8 @@
 package v4
 
 import (
+	"encoding/json/v2"
+
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
@@ -205,6 +207,18 @@ func (rf ReadField) EncodeOrc(w *orc.Writer) error {
 	w.String(rf.Name)
 	w.Bool(rf.Disabled)
 	w.Bool(rf.Optional)
+	if rf.FillValue != nil {
+		w.Bool(true)
+		{
+			b, err := json.Marshal(rf.FillValue)
+			if err != nil {
+				return err
+			}
+			w.WriteWithLen(b)
+		}
+	} else {
+		w.Bool(false)
+	}
 	w.Uint32(uint32(rf.Channel))
 	w.String(rf.Pointer)
 	w.String(string(rf.DataType))
@@ -240,6 +254,23 @@ func (rf *ReadField) DecodeOrc(r *orc.Reader) error {
 	}
 	if rf.Optional, err = r.Bool(); err != nil {
 		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			{
+				b, err := r.ReadWithLen()
+				if err != nil {
+					return err
+				}
+				if err = json.Unmarshal(b, &rf.FillValue); err != nil {
+					return err
+				}
+			}
+		}
 	}
 	{
 		rawV, err := r.Uint32()

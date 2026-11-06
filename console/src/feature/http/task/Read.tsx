@@ -72,8 +72,39 @@ const useDefaultChannelName = (endpoint: deep.Path<ReadEndpoint>, pointer: strin
 const POINTER_INPUT_PROPS = { placeholder: "/temperature" } as const;
 
 const OPTIONAL_INPUT_PROPS = {
-  tooltip: "Write NaN with no warning when the value is missing or empty",
+  tooltip:
+    "Write the fill value with no warning when the value is missing. With no fill value, write NaN",
 } as const;
+
+interface FillValueFieldProps {
+  path: deep.Path<ReadField>;
+  value: unknown;
+  dataType: string;
+}
+
+// The stored value is any JSON and the key can be absent, so Form.Field cannot bind it.
+const FillValueField: FC<FillValueFieldProps> = ({ path, value, dataType }) => {
+  const { set } = PForm.useContext();
+  const handleClear = () => set(path.fillValue, undefined);
+  return (
+    <Input.Item label="Fill value" padHelpText={false}>
+      {new DataType(dataType).equals(DataType.STRING) ? (
+        <Input.Text
+          value={value == null ? "" : String(value)}
+          onChange={(next) => (next === "" ? handleClear() : set(path.fillValue, next))}
+          placeholder="Required"
+        />
+      ) : (
+        <Input.Numeric
+          value={typeof value === "number" ? value : undefined}
+          onChange={(next) => set(path.fillValue, next)}
+          onClear={handleClear}
+          placeholder="NaN"
+        />
+      )}
+    </Input.Item>
+  );
+};
 
 const MethodSelect: FC<{ path: deep.Path<ReadEndpoint> }> = ({ path }) => {
   const { set } = PForm.useContext();
@@ -206,7 +237,14 @@ interface FieldPaneProps {
 }
 
 const FieldPane: FC<FieldPaneProps> = ({ endpoint, path }) => {
-  const { channel: fieldChannel, pointer, disabled } = PForm.useFieldValue(path);
+  const {
+    channel: fieldChannel,
+    pointer,
+    disabled,
+    optional,
+    fillValue,
+    dataType,
+  } = PForm.useFieldValue(path);
   const defaultName = useDefaultChannelName(endpoint, pointer);
   return (
     <Flex.Box y grow empty className={CSS.B("endpoint-details")}>
@@ -229,7 +267,13 @@ const FieldPane: FC<FieldPaneProps> = ({ endpoint, path }) => {
             path={path.optional}
             label="Optional"
             inputProps={OPTIONAL_INPUT_PROPS}
+            onChange={(next, { set }) => {
+              if (!next) set(path.fillValue, undefined);
+            }}
           />
+          {optional && (
+            <FillValueField path={path} value={fillValue} dataType={dataType} />
+          )}
         </PForm.Section>
         <Task.Payload.EnumMappingSection path={path.enumValues} />
       </PForm.Sections>

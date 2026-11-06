@@ -10,10 +10,39 @@
 package v4_test
 
 import (
+	"encoding/json/v2"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
+	"github.com/synnaxlabs/x/encoding/orc"
 )
+
+var _ = Describe("ReadField", func() {
+	DescribeTable("Should keep a fill value that is a zero value",
+		func(value any) {
+			original := v4.ReadField{Optional: true, FillValue: &value}
+			w := orc.NewWriter(0)
+			Expect(original.EncodeOrc(w)).To(Succeed())
+			r := orc.NewReader(nil)
+			r.ResetBytes(w.Bytes())
+			var decoded v4.ReadField
+			Expect(decoded.DecodeOrc(r)).To(Succeed())
+			Expect(decoded.FillValue).ToNot(BeNil())
+			Expect(*decoded.FillValue).To(BeEquivalentTo(value))
+
+			encoded, err := json.Marshal(original)
+			Expect(err).ToNot(HaveOccurred())
+			var parsed v4.ReadField
+			Expect(json.Unmarshal(encoded, &parsed)).To(Succeed())
+			Expect(parsed.FillValue).ToNot(BeNil())
+			Expect(*parsed.FillValue).To(BeEquivalentTo(value))
+		},
+		Entry("a number", float64(0)),
+		Entry("a string", ""),
+		Entry("a bool", false),
+	)
+})
 
 var _ = Describe("ReadConfig", func() {
 	Describe("CustomTypeName", func() {
