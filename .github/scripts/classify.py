@@ -13,11 +13,11 @@
 
 A pull request needs review/human when a surface report differs between its base and
 head, a report is missing, or a trust check fails. A branch older than a report does not
-compare it, and that alone does not raise the tier. Otherwise the author picks the tier, so the script adds no
-label. The script only raises: it never removes review/human. It reads the pull request
-number from PR, or else <artifacts-dir>/pr/number, and refuses it unless the pull
-request's head is HEAD_SHA. Environment: GH_TOKEN, GITHUB_REPOSITORY, HEAD_SHA, and
-optionally PR.
+compare it, and that alone does not raise the tier. Otherwise the author picks the tier,
+so the script adds no label. The script only raises: it never removes review/human. It
+reads the pull request number from PR, or else <artifacts-dir>/pr/number, and refuses it
+unless the pull request's head is HEAD_SHA. Environment: GH_TOKEN, GITHUB_REPOSITORY,
+HEAD_SHA, and optionally PR.
 """
 
 import json
