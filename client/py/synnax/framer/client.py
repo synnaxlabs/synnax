@@ -377,16 +377,10 @@ class Client:
         normal = channel.normalize_params(channels)
         aggregate = Frame()
         if n > 0:
-            # Each channel reads its own tail, so an index tail is not the timestamps
-            # of a data tail and stays out of the frame.
-            adapter = ReadFrameAdapter(self._channels)
-            adapter.update(channels)
-            with Iterator(
+            with self.open_iterator(
                 tr=TimeRange.MAX,
-                adapter=adapter,
-                client=self._stream_client,
+                channels=channels,
                 chunk_size=n,
-                instrumentation=self.instrumentation,
             ) as i:
                 i.seek_last()
                 i.prev(AUTO_SPAN)
