@@ -74,7 +74,7 @@ const POINTER_INPUT_PROPS = { placeholder: "/temperature" } as const;
 
 const OPTIONAL_INPUT_PROPS = {
   tooltip:
-    "Write the fill value with no warning when the value is missing. With no fill value, write NaN",
+    "Write the fill value with no warning when the value is missing. A float channel with no fill value writes NaN.",
 } as const;
 
 interface FillValueFieldProps {
