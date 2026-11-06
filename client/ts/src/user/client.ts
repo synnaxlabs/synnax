@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type observe, primitive } from "@synnaxlabs/x";
+import { array, type observe, primitive, unique } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { role } from "@/access/role";
@@ -63,8 +63,28 @@ const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const renameResZ = z.object({});
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const deleteResZ = z.object({});
-const setRolesReqZ = z.object({ keys: keyZ.array(), roles: role.keyZ.array() });
+const setRolesReqZ = z.object({
+  keys: keyZ.array(),
+  add: role.keyZ.array(),
+  remove: role.keyZ.array(),
+});
 const setRolesResZ = z.object({});
+
+/** The roles that {@link Client.setRoles} adds to and removes from users. */
+export interface RoleChange {
+  /** The roles to add. Each one goes ahead of the roles a user keeps. */
+  add?: role.Key[];
+  /** The roles to remove. */
+  remove?: role.Key[];
+}
+
+const mergeRoles = (
+  held: role.Key[],
+  { add = [], remove = [] }: RoleChange,
+): role.Key[] => {
+  const kept = held.filter((r) => !remove.includes(r));
+  return [...unique.unique(add).filter((r) => !kept.includes(r)), ...kept];
+};
 
 export const SET_CHANNEL_NAME = "sy_user_set";
 export const DELETE_CHANNEL_NAME = "sy_user_delete";
@@ -201,20 +221,29 @@ export class Client extends query.Retriever<
     });
   }
 
-  /** Sets the roles of the users with the given keys, replacing the roles they hold. */
+  /**
+   * Removes the roles in `change.remove` from the users with the given keys, then adds
+   * the roles in `change.add` that each user does not hold. The Core applies both in
+   * one transaction, and a role in both lists is held after the call.
+   */
   async setRoles(
     keys: Key | Key[],
-    roles: role.Key[],
+    change: RoleChange,
     opts: query.WriteOptions = {},
   ): Promise<void> {
     const keysArr = array.toArray(keys);
+    const { add = [], remove = [] } = change;
     await query.optimistic({
-      rollbacks: keysArr.map((key) => query.partialUpdate(this.store, key, { roles })),
+      rollbacks: keysArr.map((key) =>
+        this.store.set(key, (u) =>
+          u == null ? undefined : { ...u, roles: mergeRoles(u.roles, change) },
+        ),
+      ),
       onOptimistic: opts.onOptimistic,
       commit: async () =>
         await this.cfg.unary.send(
           "/user/set-roles",
-          { keys: keysArr, roles },
+          { keys: keysArr, add, remove },
           setRolesReqZ,
           setRolesResZ,
         ),

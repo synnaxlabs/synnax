@@ -49,8 +49,9 @@ describe("Access.PermissionsBoundary", () => {
     const user = await client.users.current.retrieve();
     const roles = await root.access.roles.retrieve({});
     const operator = roles.find(({ name }) => name === "Operator");
-    if (operator == null) throw new Error("no Operator role");
-    await root.users.setRoles(user.key, [operator.key]);
+    const driver = roles.find(({ name }) => name === "Driver");
+    if (operator == null || driver == null) throw new Error("no built-in role");
+    await root.users.setRoles(user.key, { add: [operator.key], remove: [driver.key] });
     await act(async () => {
       fireEvent.click(retry);
     });

@@ -167,13 +167,11 @@ export const useChangeRoleForm = Flux.createForm<
   }),
   update: async ({ client, value }) => {
     const { key: userKey, role: newRoleKey } = value();
-    const { roles } = await client.users.retrieve(userKey);
-    const [oldRoleKey, ...others] = roles;
+    const oldRoleKey = await retrieveUserRole(client, userKey);
     if (oldRoleKey === newRoleKey) return;
-    // The new role replaces the first role, which the form shows.
-    await client.users.setRoles(userKey, [
-      newRoleKey,
-      ...others.filter((r) => r !== newRoleKey),
-    ]);
+    await client.users.setRoles(userKey, {
+      add: [newRoleKey],
+      remove: oldRoleKey == null ? [] : [oldRoleKey],
+    });
   },
 });

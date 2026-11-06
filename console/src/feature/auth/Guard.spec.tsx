@@ -323,7 +323,10 @@ describe("connection guard permissions", () => {
     // The denial renders the calm surface, not the crash fallback.
     expect(screen.queryByText("Stack trace")).toBeNull();
     expect(screen.queryByText("authenticated content")).toBeNull();
-    await client.users.setRoles(key, [await roleKey(client, "Operator")]);
+    await client.users.setRoles(key, {
+      add: [await roleKey(client, "Operator")],
+      remove: [await roleKey(client, "Driver")],
+    });
     await act(async () => fireEvent.click(findButton("Retry")));
     expect(
       await screen.findByText("authenticated content", {}, { timeout: 10000 }),

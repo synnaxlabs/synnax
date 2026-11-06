@@ -219,7 +219,7 @@ describe("queries", () => {
         description: "Assigned role",
       });
       const u = await createUser("for-user");
-      await client.users.setRoles(u.key, [role.key]);
+      await client.users.setRoles(u.key, { add: [role.key] });
 
       const { result } = renderHook(() => Role.useResultForUser({ user: u.key }), {
         wrapper,
@@ -250,7 +250,7 @@ describe("queries", () => {
         name: `late-${id.create()}`,
         description: "Late role",
       });
-      await remote.users.setRoles(u.key, [role.key]);
+      await remote.users.setRoles(u.key, { add: [role.key] });
       await waitFor(() => expect(result.current.data).toHaveLength(1));
       expect(result.current.data?.[0].key).toEqual(role.key);
     });
@@ -262,7 +262,7 @@ describe("queries", () => {
         description: "Before",
       });
       const u = await createUser("role-edit");
-      await client.users.setRoles(u.key, [role.key]);
+      await client.users.setRoles(u.key, { add: [role.key] });
 
       const { result } = renderHook(() => Role.useResultForUser({ user: u.key }), {
         wrapper,
@@ -372,7 +372,7 @@ describe("queries", () => {
         name: "Test User",
         password: "password123",
       });
-      await client.users.setRoles(testUser.key, [role.key]);
+      await client.users.setRoles(testUser.key, { add: [role.key] });
 
       const { result } = await renderHookSuspended(
         () => Role.useChangeRoleForm({ query: { key: testUser.key } }),
@@ -413,7 +413,7 @@ describe("queries", () => {
         name: "Change Role",
         password: "password123",
       });
-      await client.users.setRoles(testUser.key, [role1.key]);
+      await client.users.setRoles(testUser.key, { add: [role1.key] });
 
       const { result } = await renderHookSuspended(
         () => Role.useChangeRoleForm({ query: { key: testUser.key } }),
@@ -435,6 +435,37 @@ describe("queries", () => {
 
       const stored = await createTestClient().users.retrieve(testUser.key);
       expect(stored.roles).toEqual([role2.key]);
+    });
+
+    it("should keep the other roles of a user when saved", async () => {
+      const [from, other, to] = await client.access.roles.create([
+        { name: `keepFrom-${id.create()}`, description: "Shown role" },
+        { name: `keepOther-${id.create()}`, description: "Other role" },
+        { name: `keepTo-${id.create()}`, description: "New role" },
+      ]);
+      const testUser = await client.users.create({
+        username: `keep-roles-${id.create()}`,
+        name: "Keep Roles",
+        password: "password123",
+        roles: [from.key, other.key],
+      });
+
+      const { result } = await renderHookSuspended(
+        () => Role.useChangeRoleForm({ query: { key: testUser.key } }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+
+      act(() => {
+        result.current.form.set(path.role, to.key);
+      });
+      await act(async () => {
+        result.current.save();
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+
+      const stored = await createTestClient().users.retrieve(testUser.key);
+      expect(stored.roles).toEqual([to.key, other.key]);
     });
 
     it("should assign a role to a user with no previous role", async () => {

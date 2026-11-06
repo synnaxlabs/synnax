@@ -53,7 +53,8 @@ class _ChangeNameRequest(BaseModel):
 
 class _SetRolesRequest(BaseModel):
     keys: list[UUID]
-    roles: list[UUID]
+    add: list[UUID]
+    remove: list[UUID]
 
 
 class Client:
@@ -123,16 +124,25 @@ class Client:
     def change_name(self, key: UUID, *, name: str) -> None:
         self.client.send("/user/rename", _ChangeNameRequest(key=key, name=name), Empty)
 
-    def set_roles(self, keys: UUID | list[UUID], *, roles: list[UUID]) -> None:
-        """Sets the roles of the users with the given keys, replacing the roles they
-        hold.
+    def set_roles(
+        self,
+        keys: UUID | list[UUID],
+        *,
+        add: list[UUID] | None = None,
+        remove: list[UUID] | None = None,
+    ) -> None:
+        """Removes roles from the users with the given keys, then adds roles to them.
+        The Core applies both in one transaction, and a role in both lists is held
+        after the call.
 
         :param keys: The keys of the users.
-        :param roles: The keys of the roles the users hold after the call.
+        :param add: The keys of the roles to add. Each one goes ahead of the roles a
+            user keeps.
+        :param remove: The keys of the roles to remove.
         """
         self.client.send(
             "/user/set-roles",
-            _SetRolesRequest(keys=normalize(keys), roles=roles),
+            _SetRolesRequest(keys=normalize(keys), add=add or [], remove=remove or []),
             Empty,
         )
 

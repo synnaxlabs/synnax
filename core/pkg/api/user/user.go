@@ -321,13 +321,16 @@ func (s *Service) Delete(
 		DeleteFor(ctx, user.ResourceIDsFromKeys(req.Keys)...)
 }
 
-// SetRolesRequest sets the roles of the users with Keys to Roles.
+// SetRolesRequest removes the roles in Remove from the users with Keys, then adds the
+// roles in Add.
 type SetRolesRequest struct {
-	Keys  []user.Key `json:"keys"  msgpack:"keys"`
-	Roles []role.Key `json:"roles" msgpack:"roles"`
+	Keys   []user.Key `json:"keys"   msgpack:"keys"`
+	Add    []role.Key `json:"add"    msgpack:"add"`
+	Remove []role.Key `json:"remove" msgpack:"remove"`
 }
 
-// SetRoles sets the roles of the users with the provided keys.
+// SetRoles removes and adds roles on the users with the provided keys in one
+// transaction. It returns a validation error when a user is a root user.
 func (s *Service) SetRoles(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -340,5 +343,6 @@ func (s *Service) SetRoles(
 	}); err != nil {
 		return struct{}{}, err
 	}
-	return struct{}{}, s.internal.NewWriter(tx).SetRoles(ctx, req.Roles, req.Keys...)
+	return struct{}{}, s.internal.NewWriter(tx).
+		SetRoles(ctx, req.Add, req.Remove, req.Keys...)
 }

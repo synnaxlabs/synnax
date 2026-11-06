@@ -108,28 +108,65 @@ var _ = Describe("Writer", func() {
 				MatchError(ContainSubstring("does not exist")),
 			))
 		})
-		It("Should replace the roles of each user", func(ctx SpecContext) {
-			old, next := createRole(ctx), createRole(ctx)
+		It("Should remove and add roles on each user", func(ctx SpecContext) {
+			old, kept, next := createRole(ctx), createRole(ctx), createRole(ctx)
 			a := MustSucceed(w.Create(ctx, user.User{
 				Name:  "a",
-				Roles: []role.Key{old},
+				Roles: []role.Key{old, kept},
 			}))
 			b := MustSucceed(w.Create(ctx, user.User{Name: "b"}))
-			Expect(w.SetRoles(ctx, []role.Key{next}, a.Key, b.Key)).To(Succeed())
-			Expect(rolesOf(ctx, a.Key)).To(Equal([]role.Key{next}))
+			Expect(w.SetRoles(
+				ctx,
+				[]role.Key{next},
+				[]role.Key{old},
+				a.Key,
+				b.Key,
+			)).To(Succeed())
+			Expect(rolesOf(ctx, a.Key)).To(Equal([]role.Key{next, kept}))
 			Expect(rolesOf(ctx, b.Key)).To(Equal([]role.Key{next}))
 		})
-		It("Should refuse to set a role that does not exist", func(ctx SpecContext) {
+		It("Should not add a role that a user holds", func(ctx SpecContext) {
+			held, r := createRole(ctx), createRole(ctx)
+			u := MustSucceed(w.Create(ctx, user.User{
+				Name:  "a",
+				Roles: []role.Key{held, r},
+			}))
+			Expect(w.SetRoles(ctx, []role.Key{r, r}, nil, u.Key)).To(Succeed())
+			Expect(rolesOf(ctx, u.Key)).To(Equal([]role.Key{held, r}))
+		})
+		It("Should hold a role that is in both lists", func(ctx SpecContext) {
+			r := createRole(ctx)
+			u := MustSucceed(w.Create(ctx, user.User{Name: "a", Roles: []role.Key{r}}))
+			Expect(w.SetRoles(ctx, []role.Key{r}, []role.Key{r}, u.Key)).
+				To(Succeed())
+			Expect(rolesOf(ctx, u.Key)).To(Equal([]role.Key{r}))
+		})
+		It("Should refuse to add a role that does not exist", func(ctx SpecContext) {
 			u := MustSucceed(w.Create(ctx, user.User{Name: "a"}))
-			Expect(w.SetRoles(ctx, []role.Key{uuid.New()}, u.Key)).To(SatisfyAll(
+			Expect(w.SetRoles(ctx, []role.Key{uuid.New()}, nil, u.Key)).To(SatisfyAll(
 				BeAssignableToTypeOf(validate.PathError{}),
 				MatchError(ContainSubstring("does not exist")),
 			))
 		})
+		It("Should refuse to change the roles of a root user", func(ctx SpecContext) {
+			var root user.User
+			Expect(svc.NewRetrieve().
+				Where(user.MatchRootUser(true)).
+				Entry(&root).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(w.SetRoles(ctx, []role.Key{createRole(ctx)}, nil, root.Key)).
+				To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(
+						ContainSubstring("cannot change the roles of root user"),
+					),
+				))
+			Expect(rolesOf(ctx, root.Key)).To(Equal(root.Roles))
+		})
 		It("Should return not found for a user that does not exist", func(
 			ctx SpecContext,
 		) {
-			Expect(w.SetRoles(ctx, []role.Key{createRole(ctx)}, uuid.New())).
+			Expect(w.SetRoles(ctx, []role.Key{createRole(ctx)}, nil, uuid.New())).
 				To(MatchError(query.ErrNotFound))
 		})
 		It("Should assign a role to a user once", func(ctx SpecContext) {
@@ -140,7 +177,7 @@ var _ = Describe("Writer", func() {
 			}))
 			Expect(w.AssignRole(ctx, r, u.Key)).To(Succeed())
 			Expect(w.AssignRole(ctx, r, u.Key)).To(Succeed())
-			Expect(rolesOf(ctx, u.Key)).To(Equal([]role.Key{held, r}))
+			Expect(rolesOf(ctx, u.Key)).To(Equal([]role.Key{r, held}))
 		})
 		It("Should retrieve the users that hold a role", func(ctx SpecContext) {
 			r := createRole(ctx)

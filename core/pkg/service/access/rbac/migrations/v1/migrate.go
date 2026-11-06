@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/set"
 )
 
 // MigrationConfig is the configuration for NewMigration.
@@ -75,7 +74,7 @@ func assignRoles(
 		byKey[stored[i].Key] = &stored[i]
 	}
 	roles := gorp.WrapReader[role.Key, role.Role](tx)
-	changed := make(set.Set[user.Key])
+	w := gorp.WrapWriter[user.Key, user.User](tx)
 	for _, e := range edges {
 		r, err := uuid.Parse(e.From.Key)
 		if err != nil {
@@ -95,11 +94,7 @@ func assignRoles(
 			return err
 		}
 		u.Roles = append(u.Roles, r)
-		changed.Add(k)
-	}
-	w := users.NewWriter(tx)
-	for k := range changed {
-		if err := w.SetRoles(ctx, byKey[k].Roles, k); err != nil {
+		if err = w.Set(ctx, *u); err != nil {
 			return err
 		}
 	}

@@ -342,8 +342,12 @@ var _ = Describe("Service", func() {
 				}
 				Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, req)).To(Succeed())
 
-				Expect(userSvc.NewWriter(tx).SetRoles(ctx, nil, userKey(subject))).
-					To(Succeed())
+				Expect(userSvc.NewWriter(tx).SetRoles(
+					ctx,
+					nil,
+					[]role.Key{r.Key},
+					userKey(subject),
+				)).To(Succeed())
 				Expect(
 					rbacSvc.NewEnforcer(tx).Enforce(ctx, req),
 				).To(MatchError(access.ErrDenied))

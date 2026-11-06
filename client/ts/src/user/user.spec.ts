@@ -16,6 +16,7 @@ import {
   createTestClient,
   expectDeleted,
   holdResponses,
+  TEST_CREDENTIALS,
   waitForStreamLive,
 } from "@/testutil";
 import { type user } from "@/user";
@@ -256,14 +257,36 @@ describe("User", () => {
       });
       expect(u.roles).toEqual([r.key]);
     });
-    test("set the roles of users", async () => {
-      const r = await client.access.roles.create({ name: `role-${id.create()}` });
-      const a = await client.users.create({ username: id.create(), password: "test" });
+    test("remove and add the roles of users", async () => {
+      const [old, kept, next] = await client.access.roles.create([
+        { name: `old-${id.create()}` },
+        { name: `kept-${id.create()}` },
+        { name: `next-${id.create()}` },
+      ]);
+      const a = await client.users.create({
+        username: id.create(),
+        password: "test",
+        roles: [old.key, kept.key],
+      });
       const b = await client.users.create({ username: id.create(), password: "test" });
-      await client.users.setRoles([a.key, b.key], [r.key]);
+      await client.users.setRoles([a.key, b.key], {
+        add: [next.key],
+        remove: [old.key],
+      });
       const fresh = createTestClient();
       const stored = await fresh.users.retrieve({ keys: [a.key, b.key] });
-      expect(stored.map((u) => u.roles)).toEqual([[r.key], [r.key]]);
+      expect(stored.map((u) => u.roles)).toEqual([[next.key, kept.key], [next.key]]);
+    });
+    test("refuse to change the roles of the root user", async () => {
+      const r = await client.access.roles.create({ name: `role-${id.create()}` });
+      const root = await client.users.retrieve({
+        username: TEST_CREDENTIALS.username,
+      });
+      await expect(client.users.setRoles(root.key, { add: [r.key] })).rejects.toThrow(
+        "cannot change the roles of root user",
+      );
+      const fresh = createTestClient();
+      expect((await fresh.users.retrieve(root.key)).roles).not.toContain(r.key);
     });
     test("retrieve the users that hold a role", async () => {
       const r = await client.access.roles.create({ name: `role-${id.create()}` });
@@ -278,9 +301,9 @@ describe("User", () => {
     });
     test("refuse a role that does not exist", async () => {
       const u = await client.users.create({ username: id.create(), password: "test" });
-      await expect(client.users.setRoles(u.key, [uuid.create()])).rejects.toThrow(
-        "does not exist",
-      );
+      await expect(
+        client.users.setRoles(u.key, { add: [uuid.create()] }),
+      ).rejects.toThrow("does not exist");
     });
   });
   describe("Delete", () => {

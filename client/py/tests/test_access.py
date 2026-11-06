@@ -229,14 +229,20 @@ class TestRoleClient:
         assert client.users.retrieve(key=user.key).roles == [two_roles[0].key]
 
     def test_set_roles(self, two_roles: list[sy.Role], client: sy.Synnax) -> None:
-        """Should replace the roles of a user."""
+        """Should remove and add the roles of a user."""
+        kept = client.access.roles.create(sy.Role(name="Kept"))
         user = client.users.create(
             username=str(uuid.uuid4()),
             password="testpass",
-            roles=[two_roles[0].key],
+            roles=[two_roles[0].key, kept.key],
         )
-        client.users.set_roles(user.key, roles=[two_roles[1].key])
-        assert client.users.retrieve(key=user.key).roles == [two_roles[1].key]
+        client.users.set_roles(
+            user.key, add=[two_roles[1].key], remove=[two_roles[0].key]
+        )
+        assert client.users.retrieve(key=user.key).roles == [
+            two_roles[1].key,
+            kept.key,
+        ]
 
     def test_retrieve_users_by_role(self, client: sy.Synnax) -> None:
         """Should retrieve the users that hold a role."""

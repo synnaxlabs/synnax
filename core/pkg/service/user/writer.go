@@ -14,6 +14,7 @@ import (
 	"slices"
 	"uuid"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -84,30 +85,51 @@ func (w Writer) ChangeName(ctx context.Context, key Key, name string) error {
 		}).Exec(ctx, w.tx)
 }
 
-// SetRoles sets the roles of the users with the given keys. It returns a validation
-// error when a role does not exist, and query.ErrNotFound when a user does not exist.
-func (w Writer) SetRoles(ctx context.Context, roles []role.Key, keys ...Key) error {
+// SetRoles removes the roles in remove from each user with the given keys, then puts
+// each role in add that the user does not hold ahead of the roles it keeps. A role in
+// both lists is held after the call. SetRoles returns a validation error when a role in
+// add does not exist or a user is a root user, and query.ErrNotFound when a user does
+// not exist.
+func (w Writer) SetRoles(
+	ctx context.Context,
+	add, remove []role.Key,
+	keys ...Key,
+) error {
+	return w.table.NewUpdate().
+		Where(gorp.MatchKeys[Key, User](keys...)).
+		ChangeErr(func(_ gorp.Context, u User) (User, error) {
+			if u.RootUser {
+				return u, errors.Wrapf(
+					validate.ErrValidation,
+					"cannot change the roles of root user %s",
+					u.Name,
+				)
+			}
+			u.Roles = mergeRoles(u.Roles, add, remove)
+			return u, nil
+		}).
+		Exec(ctx, w.tx)
+}
+
+// AssignRole puts the role r ahead of the roles of each user with the given keys that
+// does not hold it, root users included. It returns a validation error when r does not
+// exist.
+func (w Writer) AssignRole(ctx context.Context, r role.Key, keys ...Key) error {
 	return w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, User](keys...)).
 		Change(func(_ gorp.Context, u User) User {
-			u.Roles = slices.Clone(roles)
+			u.Roles = mergeRoles(u.Roles, []role.Key{r}, nil)
 			return u
 		}).
 		Exec(ctx, w.tx)
 }
 
-// AssignRole adds the role r to each user with the given keys that does not hold it. It
-// returns a validation error when r does not exist.
-func (w Writer) AssignRole(ctx context.Context, r role.Key, keys ...Key) error {
-	return w.table.NewUpdate().
-		Where(gorp.MatchKeys[Key, User](keys...)).
-		Change(func(_ gorp.Context, u User) User {
-			if !slices.Contains(u.Roles, r) {
-				u.Roles = append(slices.Clone(u.Roles), r)
-			}
-			return u
-		}).
-		Exec(ctx, w.tx)
+func mergeRoles(held, add, remove []role.Key) []role.Key {
+	kept := lo.Without(held, remove...)
+	added := lo.Reject(lo.Uniq(add), func(r role.Key, _ int) bool {
+		return slices.Contains(kept, r)
+	})
+	return append(added, kept...)
 }
 
 func (w Writer) setRootUser(ctx context.Context, key Key, root bool) error {

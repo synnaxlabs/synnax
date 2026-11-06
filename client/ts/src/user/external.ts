@@ -14,6 +14,7 @@ export {
   resourceID,
   type RetrieveParams,
   type RetrieveRequest,
+  type RoleChange,
   SET_CHANNEL_NAME,
   TYPE_RESOURCE_ID,
   type UsernameRetrieveRequest,
