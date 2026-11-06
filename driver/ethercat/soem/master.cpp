@@ -1404,7 +1404,11 @@ x::errors::Error Master::start_dc(const std::vector<DCSetup> &setups) {
                     this->api->slave_name(pos)
                 )
             );
-        const int64_t cycle = regs.sync0_cycle;
+        int64_t cycle = regs.sync0_cycle;
+        // With SYNC1 on, the start falls on a whole SYNC1 period, as SOEM's dcsync01
+        // does. Some slaves only sample when SYNC1 lands on that grid.
+        if ((act & 0x04) != 0 && cycle > 0)
+            cycle *= static_cast<int64_t>(regs.sync1_cycle) / cycle + 1;
         const int64_t ahead = from_little_endian<int64_t>(raw) +
                               DC_START_DELAY.nanoseconds();
         // SYNC0 events fall on whole cycles of DC time, the grid the cycle lock uses.
