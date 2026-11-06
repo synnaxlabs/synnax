@@ -312,9 +312,9 @@ constexpr auto FLOAT_WAT = R"((module
     local.get 0 f32.abs f32.const inf f32.le i32.eqz)
   (func (export "is_nan_f64") (param f64) (result i32)
     local.get 0 f64.abs f64.const inf f64.le i32.eqz)
-  (func (export "is_inf_f32") (param f32) (result i32)
+  (func (export "is_infinite_f32") (param f32) (result i32)
     local.get 0 f32.abs f32.const inf f32.eq)
-  (func (export "is_inf_f64") (param f64) (result i32)
+  (func (export "is_infinite_f64") (param f64) (result i32)
     local.get 0 f64.abs f64.const inf f64.eq)
   (func (export "is_finite_f32") (param f32) (result i32)
     local.get 0 f32.abs f32.const inf f32.lt)
@@ -361,10 +361,10 @@ TEST(MathFloatTest, ChecksClassifyNaNInfinityAndNumbers) {
     EXPECT_TRUE(f.check_both("is_nan", nan));
     EXPECT_FALSE(f.check_both("is_nan", inf));
     EXPECT_FALSE(f.check_both("is_nan", 1.5));
-    EXPECT_FALSE(f.check_both("is_inf", nan));
-    EXPECT_TRUE(f.check_both("is_inf", inf));
-    EXPECT_TRUE(f.check_both("is_inf", -inf));
-    EXPECT_FALSE(f.check_both("is_inf", 1.5));
+    EXPECT_FALSE(f.check_both("is_infinite", nan));
+    EXPECT_TRUE(f.check_both("is_infinite", inf));
+    EXPECT_TRUE(f.check_both("is_infinite", -inf));
+    EXPECT_FALSE(f.check_both("is_infinite", 1.5));
     EXPECT_FALSE(f.check_both("is_finite", nan));
     EXPECT_FALSE(f.check_both("is_finite", inf));
     EXPECT_FALSE(f.check_both("is_finite", -inf));

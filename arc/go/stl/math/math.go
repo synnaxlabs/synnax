@@ -32,7 +32,7 @@ const (
 	derivativeSymbolName = "derivative"
 	durationInputParam   = "duration"
 	isFiniteSymbolName   = "is_finite"
-	isInfSymbolName      = "is_inf"
+	isInfiniteSymbolName = "is_infinite"
 	isNaNSymbolName      = "is_nan"
 	maxSymbolName        = "max"
 	minSymbolName        = "min"
@@ -142,12 +142,12 @@ var (
 		doc.Divider(),
 		doc.Code("arc", "math.is_nan(pump_speed) => abort"),
 	)
-	isInfDoc = doc.New(
+	isInfiniteDoc = doc.New(
 		doc.Paragraph(
 			"Returns true if a float value is positive or negative infinity.",
 		),
 		doc.Divider(),
-		doc.Code("arc", "math.is_inf(temp_a) => abort"),
+		doc.Code("arc", "math.is_infinite(temp_a) => abort"),
 	)
 	isFiniteDoc = doc.New(
 		doc.Paragraph("Returns true if a float value is not NaN and not infinite."),
@@ -237,7 +237,7 @@ func NewSymbols() []*symbol.Symbol {
 		max,
 		derivative,
 		newFloatCheckSymbol(isNaNSymbolName, isNaNDoc),
-		newFloatCheckSymbol(isInfSymbolName, isInfDoc),
+		newFloatCheckSymbol(isInfiniteSymbolName, isInfiniteDoc),
 		newFloatCheckSymbol(isFiniteSymbolName, isFiniteDoc),
 	)
 	avgBare := *avg

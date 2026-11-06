@@ -77,10 +77,10 @@ var _ = Describe("NaN and infinity", func() {
 		Entry("is_nan of NaN", "math.is_nan(v)", nan, true),
 		Entry("is_nan of +Inf", "math.is_nan(v)", inf, false),
 		Entry("is_nan of a number", "math.is_nan(v)", 1.5, false),
-		Entry("is_inf of NaN", "math.is_inf(v)", nan, false),
-		Entry("is_inf of +Inf", "math.is_inf(v)", inf, true),
-		Entry("is_inf of -Inf", "math.is_inf(v)", -inf, true),
-		Entry("is_inf of a number", "math.is_inf(v)", 1.5, false),
+		Entry("is_infinite of NaN", "math.is_infinite(v)", nan, false),
+		Entry("is_infinite of +Inf", "math.is_infinite(v)", inf, true),
+		Entry("is_infinite of -Inf", "math.is_infinite(v)", -inf, true),
+		Entry("is_infinite of a number", "math.is_infinite(v)", 1.5, false),
 		Entry("is_finite of NaN", "math.is_finite(v)", nan, false),
 		Entry("is_finite of +Inf", "math.is_finite(v)", inf, false),
 		Entry("is_finite of -Inf", "math.is_finite(v)", -inf, false),
@@ -90,11 +90,87 @@ var _ = Describe("NaN and infinity", func() {
 		Entry("v != v of a number", "v != v", 1.5, false),
 		Entry("is_finite of a float literal", "math.is_finite(1.0)", 0.0, true),
 		Entry("is_nan of an integer literal", "math.is_nan(3)", 0.0, false),
-		Entry("is_inf of an integer literal", "math.is_inf(3)", 0.0, false),
+		Entry("is_infinite of an integer literal", "math.is_infinite(3)", 0.0, false),
 		Entry("is_finite of an integer literal", "math.is_finite(3)", 0.0, true),
 		Entry("is_finite of a negated integer", "math.is_finite(-3)", 0.0, true),
 		Entry("is_finite of integer arithmetic", "math.is_finite(1 + 2)", 0.0, true),
 	)
+
+	Describe("Mixed float and integer literals", func() {
+		run := func(ctx SpecContext, dt types.Type, expr string) telem.Series {
+			GinkgoHelper()
+			dataType := telem.Float64T
+			if dt.Kind == types.KindF32 {
+				dataType = telem.Float32T
+			}
+			h := newRuntimeHarness(ctx, `
+			func check() {v `+dt.String()+`} `+dt.String()+` {
+				r `+dt.String()+` := `+expr+`
+				return r
+			}
+			x -> check() -> out`, channelSymbols(map[string]channelDef{
+				"x":   {dt, 100},
+				"out": {dt, 200},
+			}),
+				channels.Digest{Key: 100, DataType: dataType},
+				channels.Digest{Key: 200, DataType: dataType},
+			)
+			defer h.Close(ctx)
+			h.Ingest(100, telem.NewSeriesFromAny(1.0, dataType))
+			h.Tick(ctx, telem.Millisecond)
+			out, _ := h.Flush()
+			return out.Get(200).Series[0]
+		}
+
+		DescribeTable("Should give the exact f64 value",
+			func(ctx SpecContext, expr string, expected float64) {
+				Expect(
+					run(ctx, types.F64(), expr).Unmarshal[float64]()[0],
+				).To(Equal(expected))
+			},
+			Entry("float first", "3.2 + 2", 5.2),
+			Entry("integer first", "2 + 3.2", 5.2),
+			Entry("three operands", "2 + 3.2 + 1", 6.2),
+		)
+
+		DescribeTable("Should give the exact f32 value",
+			func(ctx SpecContext, expr string, expected float32) {
+				Expect(
+					run(ctx, types.F32(), expr).Unmarshal[float32]()[0],
+				).To(Equal(expected))
+			},
+			Entry("float first", "3.2 + 2", float32(5.2)),
+			Entry("integer first", "2 + 3.2", float32(5.2)),
+			Entry("three operands", "2 + 3.2 + 1", float32(6.2)),
+		)
+
+		DescribeTable("Should infer f64 without a declared type",
+			func(ctx SpecContext, expr string, expected float64) {
+				h := newRuntimeHarness(ctx, `
+				func check() {v f64} f64 {
+					r := `+expr+`
+					return r
+				}
+				x -> check() -> out`, channelSymbols(map[string]channelDef{
+					"x":   {types.F64(), 100},
+					"out": {types.F64(), 200},
+				}),
+					channels.Digest{Key: 100, DataType: telem.Float64T},
+					channels.Digest{Key: 200, DataType: telem.Float64T},
+				)
+				defer h.Close(ctx)
+				h.Ingest(100, telem.NewSeriesV(1.0))
+				h.Tick(ctx, telem.Millisecond)
+				out, _ := h.Flush()
+				Expect(
+					out.Get(200).Series[0].Unmarshal[float64]()[0],
+				).To(Equal(expected))
+			},
+			Entry("float first", "3.2 + 2", 5.2),
+			Entry("integer first", "2 + 3.2", 5.2),
+			Entry("three operands", "2 + 3.2 + 1", 6.2),
+		)
+	})
 
 	Describe("Equality of two NaN channels", func() {
 		compare := func(

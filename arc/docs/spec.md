@@ -299,7 +299,7 @@ A float can hold NaN or infinity. NaN fails every comparison except `!=`, so `x 
 true only for NaN. The `math` module has these checks.
 
 - `math.is_nan(x)` - Returns `true` if `x` is NaN
-- `math.is_inf(x)` - Returns `true` if `x` is positive or negative infinity
+- `math.is_infinite(x)` - Returns `true` if `x` is positive or negative infinity
 - `math.is_finite(x)` - Returns `true` if `x` is not NaN and not infinite
 
 The checks take `f32` or `f64`. A typed integer argument is a compile error. An integer

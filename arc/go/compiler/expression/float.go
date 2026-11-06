@@ -27,9 +27,9 @@ type floatCheck struct {
 
 // floatChecks compile inline, so they need no host function in either runtime.
 var floatChecks = map[string]floatCheck{
-	"math.is_nan":    {op: "<=", negated: true},
-	"math.is_inf":    {op: "=="},
-	"math.is_finite": {op: "<"},
+	"math.is_nan":      {op: "<=", negated: true},
+	"math.is_infinite": {op: "=="},
+	"math.is_finite":   {op: "<"},
 }
 
 func emitFloatCheck[T antlr.ParserRuleContext](

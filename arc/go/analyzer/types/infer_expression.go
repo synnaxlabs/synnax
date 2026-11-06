@@ -110,6 +110,13 @@ func inferBinaryType(elemType, nextElem types.Type) (types.Type, bool) {
 	if elemType.Kind == types.KindVariable && nextElem.Kind != types.KindVariable {
 		elemType = nextElem
 	}
+	// An integer literal takes the type of a float literal beside it.
+	if elemType.Kind == types.KindVariable && nextElem.Kind == types.KindVariable &&
+		elemType.Constraint != nil && nextElem.Constraint != nil &&
+		elemType.Constraint.Kind == types.KindIntegerConstant &&
+		nextElem.Constraint.Kind == types.KindFloatConstant {
+		elemType = nextElem
+	}
 	// Only early-return on incompatibility when both types are concrete.
 	// When either is a type variable (literal), we must keep iterating
 	// to discover later concrete types that determine the actual type.
