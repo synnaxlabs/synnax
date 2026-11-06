@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import { type log } from "@synnaxlabs/client";
+import { type log, UnexpectedError } from "@synnaxlabs/client";
 import { type Drift } from "@synnaxlabs/drift";
 import z from "zod";
 
@@ -89,11 +89,17 @@ export const { actions, reducer } = createSlice({
         state.hold = hold ?? !state.hold;
       },
     ),
-    setPosition: withSelectedState<SetPositionPayload, SliceState>(
-      (state, { payload: { position } }) => {
-        state.position = position;
-      },
-    ),
+    // A deleted log unmounts after its document goes, which must not bring it back. A
+    // log on hold always has a document.
+    setPosition: (state, { payload, type }: PayloadAction<SetPositionPayload>) => {
+      const { windowKey, key, position } = payload;
+      if (windowKey == null)
+        throw new UnexpectedError(
+          `expected windowKey to be defined in ${type} payload`,
+        );
+      const doc = state.windows[windowKey]?.[key];
+      if (doc != null) doc.position = position;
+    },
     remove: (state, { payload }: PayloadAction<RemovePayload>) => {
       Window.removeDocuments(state, payload.keys);
     },

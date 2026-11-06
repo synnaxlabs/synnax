@@ -125,6 +125,15 @@ describe("Log Slice", () => {
       });
       expect(docOf()?.position).toBe("42");
     });
+
+    it("should not bring back a removed log", () => {
+      act(() => {
+        store.dispatch(Log.create({ key: KEY }));
+        store.dispatch(Log.remove({ keys: [KEY] }));
+        store.dispatch(Log.setPosition({ key: KEY, position: "42" }));
+      });
+      expect(docOf()).toBeUndefined();
+    });
   });
 
   describe("remove", () => {
