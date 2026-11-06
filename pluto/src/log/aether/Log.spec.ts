@@ -794,6 +794,95 @@ describe("log/aether/Log", () => {
     });
   });
 
+  describe("position", () => {
+    const entries = Array.from({ length: 200 }, (_, i) => makeEntry(i));
+    const positionOf = ({ timestamp }: LogEntry): string =>
+      timestamp.valueOf().toString();
+
+    it("should return a log that mounts paused to its position", () => {
+      const { log, source } = setup(entries, REGION_500, {
+        scrolling: true,
+        position: positionOf(entries[120]),
+      });
+      source.notify();
+      expect(log.scrollState).toMatchObject({ offset: 121, tail: 0 });
+    });
+
+    it("should stay at the last entry of a time that entries share", () => {
+      const shared = [...entries.slice(0, 121), makeEntry(120), ...entries.slice(121)];
+      const { log, source } = setup(shared, REGION_500, {
+        scrolling: true,
+        position: positionOf(entries[120]),
+      });
+      source.notify();
+      expect(log.scrollState.offset).toBe(122);
+    });
+
+    it("should load older entries until they reach the position", () => {
+      const { log, source } = setup(entries.slice(50), REGION_500, {
+        scrolling: true,
+        position: positionOf(entries[100]),
+      });
+      source.setEntries(entries.slice(150));
+      source.notify();
+      expect(source.loadOlderCalls).toBeGreaterThan(0);
+      source.setEntries([...entries]);
+      source.notify();
+      expect(log.scrollState.offset).toBe(101);
+    });
+
+    it("should show the oldest entries when no stored sample reaches back", () => {
+      const { log, source } = setup(entries.slice(150), REGION_500, {
+        scrolling: true,
+        position: positionOf(entries[100]),
+      });
+      source.exhausted = true;
+      source.notify();
+      log.render();
+      const bottom = log.state.rowEntries.at(-1) ?? -1;
+      expect(log.state.position).toBe(positionOf(entries[150 + bottom]));
+    });
+
+    it("should leave the view to a wheel that moves while the log waits", () => {
+      const { h, log, source } = setup(entries.slice(150), REGION_500, {
+        scrolling: true,
+        position: positionOf(entries[100]),
+      });
+      source.notify();
+      h.setState((s) => ({ ...s, wheelPos: s.wheelPos - log.lineHeight }));
+      source.setEntries([...entries]);
+      source.notify();
+      expect(log.scrollState.offset).not.toBe(101);
+    });
+
+    it("should ignore the position of a log that is not paused", () => {
+      const { log, source } = setup(entries, REGION_500, {
+        position: positionOf(entries[120]),
+      });
+      source.notify();
+      log.render();
+      expect(log.state.rowEntries.at(-1)).toBe(199);
+      expect(log.state.position).toBe("");
+    });
+
+    it("should report the entry at the bottom of a paused view", () => {
+      const { h, log } = setup(entries);
+      h.setState((s) => ({ ...s, scrolling: true }));
+      h.setState((s) => ({ ...s, wheelPos: s.wheelPos + log.lineHeight * 3 }));
+      log.render();
+      expect(log.state.position).toBe(positionOf(entries[196]));
+    });
+
+    it("should clear the position when the log resumes", () => {
+      const { h, log } = setup(entries);
+      h.setState((s) => ({ ...s, scrolling: true }));
+      log.render();
+      h.setState((s) => ({ ...s, scrolling: false }));
+      log.render();
+      expect(log.state.position).toBe("");
+    });
+  });
+
   describe("after the 2D canvases are restored", () => {
     it("should request a render until deleted", () => {
       const { h, recorder } = setup([makeEntry(1)]);

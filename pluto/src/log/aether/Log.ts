@@ -58,6 +58,9 @@ export const logStateZ = log.logZ
     font: text.levelZ.default("p"),
     color: color.colorZ.default(color.ZERO),
     overshoot: xy.xyZ.default({ x: 0, y: 0 }),
+    // position is the time of the entry at the bottom of a paused view: a decimal count
+    // of nanoseconds, since a number cannot hold it exactly. Empty while live.
+    position: z.string().default(""),
     selectionStart: z.number().default(-1),
     selectionEnd: z.number().default(-1),
     visibleStart: z.number().default(0),
@@ -265,6 +268,8 @@ export class Log
   // A source change can insert or evict entries before the anchors, so their positions
   // are found again by identity.
   private anchors: Anchors = {};
+  // The position to return to, until the entries reach it.
+  private seeking: bigint | null = null;
   private readonly wideRows = new WeakMap<
     LogEntry,
     { columns: number; starts: number[] }
@@ -293,7 +298,11 @@ export class Log
     });
     i.theme = theming.use(ctx);
     i.draw2d = new Draw2D(i.render[CANVAS], i.theme);
-    if (this.renderKey === "") this.renderKey = `${this.type}-${this.key}`;
+    if (this.renderKey === "") {
+      this.renderKey = `${this.type}-${this.key}`;
+      if (this.state.scrolling && this.state.position !== "")
+        this.seeking = BigInt(this.state.position);
+    }
 
     if (color.isZero(this.state.color)) i.textColor = i.theme.colors.gray.l11;
     else i.textColor = this.state.color;
@@ -358,6 +367,7 @@ export class Log
     // Scrollback: snapshot the current position when the user first pauses scrolling.
     const justEnteredScrollback = this.state.scrolling && !this.prevState.scrolling;
     if (justEnteredScrollback) {
+      this.seeking = null;
       const off = this.entries.length;
       this.scrollState = {
         offset: off,
@@ -370,6 +380,7 @@ export class Log
       // Adjust viewport offset based on wheel delta from the snapshot reference.
       const { scrollState } = this;
       const dist = Math.ceil((wheelPos - scrollState.scrollRef) / lh);
+      if (dist !== scrollState.moved) this.seeking = null;
       this.moveView(dist - scrollState.moved, lh);
       scrollState.moved = dist;
       // Clamp: if scrolled to top, lock wheel position to prevent over-scroll.
@@ -621,14 +632,18 @@ export class Log
     const rows = this.layoutRows(end, tail, lh);
     const sliceStart = rows.length > 0 ? rows[0].entry : end;
     const rowEntries = rows.map((row) => row.entry);
+    const shown = this.seeking ?? this.entries[end - 1]?.timestamp.valueOf() ?? "";
+    const position = this.state.scrolling ? shown.toString() : "";
 
     if (
+      this.state.position !== position ||
       this.state.visibleStart !== sliceStart ||
       this.state.computedLineHeight !== lh ||
       !sameEntries(this.state.rowEntries, rowEntries)
     )
       this.setState((s) => ({
         ...s,
+        position,
         visibleStart: sliceStart,
         computedLineHeight: lh,
         rowEntries,
@@ -750,7 +765,8 @@ export class Log
   // evicted anchor maps to the oldest entry.
   private reanchor(): void {
     const { start, end, scroll } = this.anchors;
-    if (scroll != null && this.state.scrolling) {
+    if (this.seeking != null && this.state.scrolling) this.seek(this.seeking);
+    else if (scroll != null && this.state.scrolling) {
       const offset = Math.max(
         this.calcMinOffset(this.internal.lineHeight),
         this.locate(scroll) + 1,
@@ -775,6 +791,28 @@ export class Log
     this.setAnchors(nextStart, nextEnd);
     if (nextStart === selectionStart && nextEnd === selectionEnd) return;
     this.setState((s) => ({ ...s, selectionStart: nextStart, selectionEnd: nextEnd }));
+  }
+
+  // Waits at the oldest entry while older pages can still reach the time. When no stored
+  // sample does, the view stays there. Entries that share the time all show.
+  private seek(time: bigint): void {
+    const { lineHeight, telem } = this.internal;
+    this.moveView(0, lineHeight);
+    if (this.entries.length === 0) return;
+    const reached = time >= this.entries[0].timestamp.valueOf();
+    if (!reached && telem.wrapped.exhausted === false) return;
+    if (reached) {
+      let [lo, hi] = [0, this.entries.length];
+      while (lo < hi) {
+        const mid = (lo + hi) >>> 1;
+        if (this.entries[mid].timestamp.valueOf() <= time) lo = mid + 1;
+        else hi = mid;
+      }
+      this.scrollState.offset = Math.max(this.calcMinOffset(lineHeight), lo);
+      this.scrollState.tail = 0;
+    }
+    this.seeking = null;
+    this.anchors.scroll = this.entries[this.scrollState.offset - 1];
   }
 
   private renderSelection(draw2d: Draw2D, rowEntries: number[], lh: number): void {
