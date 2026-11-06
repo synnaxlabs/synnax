@@ -234,10 +234,11 @@ func (i *Domain) AppendSegments(
 	}
 }
 
-// Coverage returns the end of the run of continuous domains that holds tr.Start. When
-// tr ends after the run, it also returns the number of samples in the run at or after
-// tr.Start. Otherwise, the count is zero, and Coverage does not read the index from
-// disk. It returns zero values when no domain holds tr.Start.
+// Coverage walks the run of continuous domains that holds tr.Start. When the run
+// reaches tr.End, Coverage stops there. It returns the end of the domain that reaches
+// tr.End and a count of zero, and it does not read the index from disk. Otherwise, it
+// returns the end of the run and the number of samples in the run at or after tr.Start.
+// It returns zero values when no domain holds tr.Start.
 func (i *Domain) Coverage(
 	ctx context.Context,
 	tr telem.TimeRange,
@@ -253,14 +254,13 @@ func (i *Domain) Coverage(
 	}
 	first := iter.TimeRange().Start
 	for {
+		if end = iter.TimeRange().End; tr.End <= end {
+			return end, 0, nil
+		}
 		count += sampleCount(iter.Size())
-		end = iter.TimeRange().End
 		if !iter.Next() || iter.TimeRange().Start != end {
 			break
 		}
-	}
-	if tr.End <= end {
-		return end, 0, nil
 	}
 	if tr.Start > first && iter.SeekFirst(ctx) {
 		var pos int64
