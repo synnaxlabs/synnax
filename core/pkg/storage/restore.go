@@ -54,7 +54,11 @@ func (b *Backups) Restore(name string) (res Restored, err error) {
 	if err != nil {
 		return Restored{}, err
 	}
-	defer func() { err = errors.Combine(err, lock.Close()) }()
+	defer func() {
+		if err = errors.Combine(err, lock.Close()); err != nil {
+			res = Restored{}
+		}
+	}()
 	backups, err := b.List()
 	if err != nil {
 		return Restored{}, err
