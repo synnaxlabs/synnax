@@ -769,6 +769,33 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 		)
 
 		It(
+			"Should check string lengths with the validator methods",
+			func(ctx SpecContext) {
+				source := `
+				@go output "core/pkg/service/x"
+
+				Cfg struct {
+					name string {
+						@validate {
+							min_length 2
+							max_length 64
+						}
+					}
+					alias string? {
+						@validate max_length 64
+					}
+				}
+			`
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					`v.MinLength("name", c.Name, 2)`,
+					`v.MaxLength("name", c.Name, 64)`,
+					`v.MaxLength("alias", *c.Alias, 64)`,
+				)
+			},
+		)
+
+		It(
 			"Should recurse into a nested type that only has a constraint",
 			func(ctx SpecContext) {
 				source := `
@@ -906,8 +933,7 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 			func(ctx SpecContext) {
 				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
 				ExpectContent(resp, "types.gen.go").ToContain(
-					`v.Ternaryf("name", len(s.Name) < 2, ` +
-						`"must be at least 2 characters long")`,
+					`v.MinLength("name", s.Name, 2)`,
 				)
 			},
 		)

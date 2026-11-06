@@ -47,7 +47,7 @@ var _ = Describe("Codec", func() {
 					A: 6.5,
 				},
 				Notation:  notation.Notation("standard"),
-				Precision: new(int32(9)),
+				Precision: new(uint8(9)),
 				Alias:     "test_9",
 				Timestamp: v3.TimestampConfig{
 					Format: telem.TimestampFormat("ISO"),
@@ -93,7 +93,7 @@ var _ = Describe("Codec", func() {
 							A: 9.5,
 						},
 						Notation:  notation.Notation("standard"),
-						Precision: new(int32(12)),
+						Precision: new(uint8(12)),
 						Alias:     "test_12",
 						Timestamp: v3.TimestampConfig{
 							Format: telem.TimestampFormat("ISO"),
@@ -135,7 +135,7 @@ func BenchmarkEncodeDecodeChannelEntry(b *testing.B) {
 			A: 6.5,
 		},
 		Notation:  notation.Notation("standard"),
-		Precision: new(int32(9)),
+		Precision: new(uint8(9)),
 		Alias:     "test_9",
 		Timestamp: v3.TimestampConfig{
 			Format: telem.TimestampFormat("ISO"),
@@ -171,7 +171,7 @@ func BenchmarkEncodeDecodeLog(b *testing.B) {
 					A: 9.5,
 				},
 				Notation:  notation.Notation("standard"),
-				Precision: new(int32(12)),
+				Precision: new(uint8(12)),
 				Alias:     "test_12",
 				Timestamp: v3.TimestampConfig{
 					Format: telem.TimestampFormat("ISO"),
@@ -209,7 +209,7 @@ func FuzzDecodeChannelEntry(f *testing.F) {
 				A: 6.5,
 			},
 			Notation:  notation.Notation("standard"),
-			Precision: new(int32(9)),
+			Precision: new(uint8(9)),
 			Alias:     "test_9",
 			Timestamp: v3.TimestampConfig{
 				Format: telem.TimestampFormat("ISO"),
@@ -279,7 +279,7 @@ func FuzzDecodeLog(f *testing.F) {
 						A: 9.5,
 					},
 					Notation:  notation.Notation("standard"),
-					Precision: new(int32(12)),
+					Precision: new(uint8(12)),
 					Alias:     "test_12",
 					Timestamp: v3.TimestampConfig{
 						Format: telem.TimestampFormat("ISO"),

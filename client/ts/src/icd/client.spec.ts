@@ -266,9 +266,7 @@ describe("icd", () => {
 
     it("should retrieve multiple ICDs by key", async () => {
       const ics = await client.icds.create([createNew("A"), createNew("B")]);
-      const retrieved = await client.icds.retrieve({
-        keys: ics.map((i) => i.key),
-      });
+      const retrieved = await client.icds.retrieve(ics.map((i) => i.key));
       expect(retrieved.map((i) => i.name).sort()).toEqual(["A", "B"]);
     });
 
@@ -432,7 +430,7 @@ describe("icd", () => {
       const ics = await client.icds.create([createNew("A"), createNew("B")]);
       const keys = ics.map((i) => i.key);
       await client.icds.delete(keys);
-      await expect(client.icds.retrieve({ keys })).rejects.toThrow(NotFoundError);
+      await expect(client.icds.retrieve(keys)).rejects.toThrow(NotFoundError);
     });
   });
 });

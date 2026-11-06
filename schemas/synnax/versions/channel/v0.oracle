@@ -18,6 +18,7 @@ Key uint32 {
         assignment while maintaining global uniqueness.
     """
     @go hand
+    @key
 }
 
 LocalKey uint20 {
@@ -38,11 +39,21 @@ Name = string {
 }
 
 OperationType enum {
-    min        = "min"
-    max        = "max"
-    avg        = "avg"
-    none       = "none"
-    derivative = "derivative"
+    min        = "min" {
+        @doc value "keeps the lowest sample since the last reset."
+    }
+    max        = "max" {
+        @doc value "keeps the highest sample since the last reset."
+    }
+    avg        = "avg" {
+        @doc value "keeps the mean of the samples since the last reset."
+    }
+    none       = "none" {
+        @doc value "applies no aggregation."
+    }
+    derivative = "derivative" {
+        @doc value "computes the rate of change of the samples."
+    }
 
     @doc value """
         is the type of aggregation operation to apply to channel data over time.

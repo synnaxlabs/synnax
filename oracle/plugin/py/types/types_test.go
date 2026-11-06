@@ -52,6 +52,146 @@ var _ = Describe("Python Types Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		It("Should generate the recursive Where of a filter", func(ctx SpecContext) {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ctx, ThingFilter, "thing", loader, typesPlugin)
+			ExpectContent(resp, "thing/types_gen.py").ToContain(
+				`and_: list[Where] | None = Field(default=None, alias="and")`,
+				`or_: list[Where] | None = Field(default=None, alias="or")`,
+				`not_: Where | None = Field(default=None, alias="not")`,
+				"Where.model_rebuild()",
+			)
+		})
+
+		It("Should forbid unknown keys only in a filter request", func(
+			ctx SpecContext,
+		) {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ctx, ThingFilter, "thing", loader, typesPlugin)
+			strict := `model_config = ConfigDict(populate_by_name=True, extra="forbid")`
+			ExpectContent(resp, "thing/types_gen.py").
+				ToContain(
+					"class Where(BaseModel):",
+					strict,
+					"class RetrieveRequest(BaseModel):",
+					`model_config = ConfigDict(extra="forbid")`,
+					"class Thing(BaseModel):\n    key: ",
+				).
+				ToPreserveOrder("class Where(BaseModel):", strict)
+			ExpectContent(resp, "filter/types_gen.py").ToContain(strict)
+		})
+
+		It("Should keep the defaults of a filter request", func(ctx SpecContext) {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ctx, ThingFilter, "thing", loader, typesPlugin)
+			ExpectContent(resp, "thing/types_gen.py").ToContain(
+				"limit: int | None = Field(default=None, ge=0, le=4294967295)",
+				"offset: int = Field(default=0, ge=0, le=4294967295)",
+			)
+		})
+
+		Context("filter input", func() {
+			const thing = `
+				import "schemas/x/filter"
+
+				@py output "client/py/synnax/thing"
+
+				Span struct {
+					start int64
+				}
+				Thing struct {
+					key        uuid     { @key }
+					name       string
+					created_at int64
+					tags       string[]
+					active     bool
+				}
+			`
+
+			BeforeEach(func() { AddFilterSchema(loader) })
+
+			It("Should read each operator from a plain value or a list", func(
+				ctx SpecContext,
+			) {
+				resp := MustGenerate(ctx, ThingFilter, "thing", loader, typesPlugin)
+				ExpectContent(resp, "filter/types_gen.py").ToContain(
+					"from x.filter import shorthand",
+					"    @model_validator(mode=\"before\")\n"+
+						"    @classmethod\n"+
+						"    def _read_shorthand(cls, value: Any) -> Any:\n"+
+						"        return shorthand.read_set(value, cls)",
+					"return shorthand.read_bool(value, cls)",
+					"return shorthand.read_contains(value, cls)",
+				)
+			})
+
+			It("Should declare the dict form and the input of each operator", func(
+				ctx SpecContext,
+			) {
+				resp := MustGenerate(ctx, ThingFilter, "thing", loader, typesPlugin)
+				ExpectContent(resp, "filter/types_gen.py").ToContain(
+					"StringDict = TypedDict(\n"+
+						"    \"StringDict\",\n"+
+						"    {\"eq\": str, \"in\": list[str], \"contains\": str, "+
+						"\"starts_with\": str, \"regex\": str, "+
+						"\"case_insensitive\": bool},\n"+
+						"    total=False,\n)",
+					"type StringInput = str | list[str] | StringDict | String",
+					"class BoolDict(TypedDict, total=False):\n    eq: bool",
+					"type BoolInput = bool | BoolDict | Bool",
+					"{\"eq\": T, \"in\": list[T]},  # type: ignore[valid-type]",
+					"type SetInput[T] = T | list[T] | SetDict[T] | Set[T]",
+					"class ContainsDict(TypedDict, Generic[T], total=False):\n"+
+						"    any: list[T]",
+					"type ContainsInput[T] = T | list[T] | ContainsDict[T] | "+
+						"Contains[T]",
+				)
+			})
+
+			It("Should declare the partial record of a filter", func(ctx SpecContext) {
+				resp := MustGenerate(ctx, thing+`
+					Where filter Thing {
+						key
+						name
+						created_at
+						tags
+						active
+					}
+				`, "thing", loader, typesPlugin)
+				ExpectContent(resp, "thing/types_gen.py").
+					ToContain(
+						"WhereInput = TypedDict(\n    \"WhereInput\",\n    {" +
+							"\"and\": list[\"WhereInput\"], " +
+							"\"or\": list[\"WhereInput\"], " +
+							"\"not\": \"WhereInput\", " +
+							"\"key\": filter.SetInput[UUID], " +
+							"\"name\": filter.StringInput, " +
+							"\"created_at\": filter.OrderedInput[int], " +
+							"\"tags\": filter.ContainsInput[str], " +
+							"\"active\": filter.BoolInput},",
+					).
+					ToNotContain("field_validator")
+			})
+
+			It("Should read a typed list line from one value", func(ctx SpecContext) {
+				resp := MustGenerate(ctx, thing+`
+					Where filter Thing {
+						key
+						overlaps Span
+						spans    Span[]
+					}
+				`, "thing", loader, typesPlugin)
+				ExpectContent(resp, "thing/types_gen.py").ToContain(
+					"from x.filter import shorthand",
+					"    @field_validator(\"spans\", mode=\"before\")\n"+
+						"    @classmethod\n"+
+						"    def _read_lists(cls, value: Any) -> Any:\n"+
+						"        return shorthand.read_list(value)",
+					"\"overlaps\": Span, \"spans\": Span | list[Span]},",
+				)
+			})
+		})
+
 		Context("field-level omit", func() {
 			It("Should leave out a field omitted in py", func(ctx SpecContext) {
 				source := `
@@ -293,6 +433,35 @@ var _ = Describe("Python Types Plugin", func() {
 					content,
 				).To(ContainSubstring(`name: str = Field(min_length=1, max_length=255)`))
 				Expect(content).To(ContainSubstring(`age: int = Field(ge=0, le=150)`))
+			},
+		)
+
+		It(
+			"Should emit native Field length constraints, which count code points",
+			func(ctx SpecContext) {
+				source := `
+				@py output "out"
+
+				User struct {
+					name string @validate {
+						min_length 2
+						max_length 64
+					}
+					alias string? @validate max_length 64
+				}
+			`
+				table, diag := Analyze(ctx, source, "user", loader)
+				Expect(diag.Ok()).To(BeTrue())
+				resp := MustSucceed(typesPlugin.Generate(&plugin.Request{
+					Resolutions: table,
+				}))
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring(
+					`name: str = Field(min_length=2, max_length=64)`,
+				))
+				Expect(content).To(ContainSubstring(
+					`alias: str | None = Field(default=None, max_length=64)`,
+				))
 			},
 		)
 

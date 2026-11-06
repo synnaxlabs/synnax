@@ -30,7 +30,7 @@ from freighter.websocket import (
     WebsocketClient,
 )
 from freighter.websocket import Message as WebsocketMessage
-from x.codec import Codec, JSONCodec, MessagePackCodec
+from x.codec import Codec, JSONCodec
 
 from .interface import Error, Message, create_registry
 
@@ -59,7 +59,7 @@ class MyVerySpecialCustomCodec(Codec):
 def async_client(endpoint: URL) -> AsyncWebsocketClient:
     ws_endpoint = endpoint.child("stream")
     return AsyncWebsocketClient(
-        encoder=MessagePackCodec(), registry=create_registry(), base_url=ws_endpoint
+        encoder=JSONCodec(), registry=create_registry(), base_url=ws_endpoint
     )
 
 
@@ -67,7 +67,7 @@ def async_client(endpoint: URL) -> AsyncWebsocketClient:
 def sync_client(endpoint: URL) -> WebsocketClient:
     ws_endpoint = endpoint.child("stream")
     return WebsocketClient(
-        encoder=MessagePackCodec(), registry=create_registry(), base_url=ws_endpoint
+        encoder=JSONCodec(), registry=create_registry(), base_url=ws_endpoint
     )
 
 

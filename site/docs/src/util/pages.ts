@@ -24,6 +24,7 @@ export interface Page {
   title: string;
   description?: string;
   published?: string;
+  flag?: string;
 }
 
 // Astro does not route files that start with an underscore.
@@ -44,13 +45,17 @@ const toRoute = (file: string): string =>
 export const PAGES: Page[] = Object.entries(FRONTMATTER)
   .map(([file, frontmatter]) => ({ route: toRoute(file), ...frontmatter }))
   .filter(({ flag }) => flag == null || enabled(flag))
-  .map(({ route, title, heading, description, published }) => ({
+  .map(({ route, title, heading, description, published, flag }) => ({
     route,
     title: (heading ?? title).replace(/`/g, ""),
     description,
     published,
+    flag,
   }))
   .sort((a, b) => a.route.localeCompare(b.route));
+
+/** Every page a prerendered route can rewrite to. A flagged page renders per request. */
+export const PRERENDERED_PAGES: Page[] = PAGES.filter(({ flag }) => flag == null);
 
 /** The blog posts, newest first. */
 export const POSTS: Page[] = PAGES.filter(({ route }) =>

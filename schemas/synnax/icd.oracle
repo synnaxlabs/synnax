@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/x/filter"
 import "schemas/x/patch"
 
 @go output "core/pkg/service/icd"
@@ -319,4 +320,11 @@ ICD struct {
     @go migrate
     @ontology type "icd"
     @retrieve
+}
+
+Where filter ICD {
+    key
+
+    @doc value         "is a filter that selects ICDs."
+    @go request_output "core/pkg/api/icd"
 }

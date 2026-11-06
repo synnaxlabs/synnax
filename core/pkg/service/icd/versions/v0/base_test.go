@@ -11,7 +11,6 @@ package v0_test
 
 import (
 	"encoding/json/v2"
-	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -19,75 +18,6 @@ import (
 )
 
 var _ = Describe("Base", func() {
-	Describe("TextField", func() {
-		DescribeTable("Should get and set the base of each encoding",
-			func(variant v0.TextFieldVariant) {
-				f := v0.TextField{Variant: variant}
-				b := v0.BaseField{Key: uuid.New(), Name: "rpm", Scale: 2}
-				f.SetBase(b)
-				Expect(f.Base()).To(Equal(b))
-				Expect(f.Variant).To(BeAssignableToTypeOf(variant))
-			},
-			Entry("delimited", v0.DelimitedTextField{Position: 2}),
-			Entry("tagged", v0.TaggedTextField{Tag: "T="}),
-		)
-
-		It("Should keep the rest of the variant when setting the base", func() {
-			f := v0.TextField{Variant: v0.TaggedTextField{Tag: "T="}}
-			f.SetBase(v0.BaseField{Name: "temp"})
-			Expect(f.Variant.(v0.TaggedTextField).Tag).To(Equal("T="))
-		})
-
-		It("Should return a zero base for a field with no encoding", func() {
-			Expect(v0.TextField{}.Base()).To(Equal(v0.BaseField{}))
-		})
-
-		It("Should panic when setting the base of a field with no encoding", func() {
-			Expect(func() { (&v0.TextField{}).SetBase(v0.BaseField{}) }).
-				To(PanicWith(MatchError("text field has no encoding: <nil>")))
-		})
-	})
-
-	Describe("JSONField", func() {
-		DescribeTable("Should get and set the base of each type",
-			func(variant v0.JSONFieldVariant) {
-				f := v0.JSONField{Variant: variant}
-				b := v0.JSONBaseField{
-					Key:     uuid.New(),
-					Name:    "rpm",
-					Scale:   2,
-					Pointer: "/rpm",
-				}
-				f.SetBase(b)
-				Expect(f.Base()).To(Equal(b))
-				Expect(f.Variant).To(BeAssignableToTypeOf(variant))
-			},
-			Entry("number", v0.NumberJSONField{}),
-			Entry("string", v0.StringJSONField{}),
-			Entry("boolean", v0.BooleanJSONField{}),
-			Entry("timestamp", v0.TimestampJSONField{Format: v0.TimeFormatUnixMs}),
-		)
-
-		It("Should keep the rest of the variant when setting the base", func() {
-			f := v0.JSONField{
-				Variant: v0.TimestampJSONField{Format: v0.TimeFormatUnixMs},
-			}
-			f.SetBase(v0.JSONBaseField{Pointer: "/t"})
-			Expect(
-				f.Variant.(v0.TimestampJSONField).Format,
-			).To(Equal(v0.TimeFormatUnixMs))
-		})
-
-		It("Should return a zero base for a field with no type", func() {
-			Expect(v0.JSONField{}.Base()).To(Equal(v0.JSONBaseField{}))
-		})
-
-		It("Should panic when setting the base of a field with no type", func() {
-			Expect(func() { (&v0.JSONField{}).SetBase(v0.JSONBaseField{}) }).
-				To(PanicWith(MatchError("JSON field has no type: <nil>")))
-		})
-	})
-
 	Describe("Payload", func() {
 		binary := v0.Payload{Variant: v0.BinaryPayload{Fields: []v0.BinaryField{
 			{Name: "rpm"},

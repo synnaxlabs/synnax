@@ -11,7 +11,10 @@
 
 package icd
 
-import "github.com/synnaxlabs/synnax/pkg/service/icd/versions"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/icd/versions"
+	"github.com/synnaxlabs/x/filter"
+)
 
 // Key is a unique identifier for an ICD.
 type Key = versions.Key
@@ -43,7 +46,11 @@ const (
 
 // Identifier selects which frames on a bus belong to a binary message.
 type Identifier = versions.Identifier
+
+// IdentifierVariant is implemented by every Identifier variant.
 type IdentifierVariant = versions.IdentifierVariant
+
+// IdentifierType is the "type" value that selects a variant of Identifier.
 type IdentifierType = versions.IdentifierType
 
 const (
@@ -67,7 +74,11 @@ type BinaryField = versions.BinaryField
 
 // TextField is a field read from a text line.
 type TextField = versions.TextField
+
+// TextFieldVariant is implemented by every TextField variant.
 type TextFieldVariant = versions.TextFieldVariant
+
+// TextFieldType is the "encoding" value that selects a variant of TextField.
 type TextFieldType = versions.TextFieldType
 
 const (
@@ -88,7 +99,11 @@ type JSONBaseField = versions.JSONBaseField
 
 // JSONField is a field read from a JSON document.
 type JSONField = versions.JSONField
+
+// JSONFieldVariant is implemented by every JSONField variant.
 type JSONFieldVariant = versions.JSONFieldVariant
+
+// JSONFieldType is the "type" value that selects a variant of JSONField.
 type JSONFieldType = versions.JSONFieldType
 
 const (
@@ -116,7 +131,11 @@ type TimestampJSONField = versions.TimestampJSONField
 
 // Payload is the layout of a message's payload.
 type Payload = versions.Payload
+
+// PayloadVariant is implemented by every Payload variant.
 type PayloadVariant = versions.PayloadVariant
+
+// PayloadType is the "format" value that selects a variant of Payload.
 type PayloadType = versions.PayloadType
 
 const (
@@ -143,3 +162,15 @@ type Message = versions.Message
 // ICD is an interface control document: the messages a system sends and receives, and
 // how to parse each one.
 type ICD = versions.ICD
+
+// Where is a filter that selects ICDs.
+type Where struct {
+	// And matches when every child matches.
+	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	// Or matches when any child matches.
+	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	// Not matches when the child does not match.
+	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
+	// Key selects by key.
+	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
+}

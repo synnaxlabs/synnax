@@ -349,4 +349,85 @@ describe("Ontology Queries", () => {
       await waitFor(() => expect(result.current).toHaveLength(2));
     });
   });
+
+  describe("useRootChildID", () => {
+    it("should resolve a root child by name", async () => {
+      const name = `root-child-${id.create()}`;
+      const created = await client.groups.create({ parent: ontology.ROOT_ID, name });
+      const { result } = await renderHookSuspended(
+        () => Ontology.useRootChildID({ name }),
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(result.current).toEqual(group.ontologyID(created.key)),
+      );
+    });
+
+    it("should return undefined when the root has no child with the name", async () => {
+      const name = `missing-${id.create()}`;
+      const { result } = await renderHookSuspended(
+        () => Ontology.useRootChildID({ name }),
+        { wrapper },
+      );
+      expect(result.current).toBeUndefined();
+    });
+  });
+
+  describe("useResultAncestors", () => {
+    it("should return the path above each ID and follow a move", async () => {
+      const top = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: id.create(),
+      });
+      const topID = group.ontologyID(top.key);
+      const left = await client.groups.create({ parent: topID, name: id.create() });
+      const right = await client.groups.create({ parent: topID, name: id.create() });
+      const leftID = group.ontologyID(left.key);
+      const rightID = group.ontologyID(right.key);
+      const leaf = await client.groups.create({ parent: leftID, name: id.create() });
+      const leafID = group.ontologyID(leaf.key);
+      const { result } = renderHook(
+        () => Ontology.useResultAncestors({ ids: [leafID], root: topID }),
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(result.current.data?.paths[ontology.idToString(leafID)]).toEqual([
+          [leftID],
+        ]),
+      );
+      await client.ontology.moveChildren(leftID, rightID, leafID);
+      await waitFor(() =>
+        expect(result.current.data?.paths[ontology.idToString(leafID)]).toEqual([
+          [rightID],
+        ]),
+      );
+    });
+  });
+
+  describe("useResultResources", () => {
+    it("should search only under the root", async () => {
+      const name = `rr${Math.random().toString(36).slice(2)}`;
+      const top = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: id.create(),
+      });
+      const inside = await client.groups.create({
+        parent: group.ontologyID(top.key),
+        name,
+      });
+      await client.groups.create({ parent: ontology.ROOT_ID, name });
+      const { result } = renderHook(
+        () =>
+          Ontology.useResultResources({
+            searchTerm: name,
+            root: group.ontologyID(top.key),
+            types: ["group"],
+          }),
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(result.current.data?.map((r) => r.id.key)).toEqual([inside.key]),
+      );
+    });
+  });
 });

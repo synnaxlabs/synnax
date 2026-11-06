@@ -1018,6 +1018,44 @@ describe("Answers", () => {
       expect(fetch).toHaveBeenCalledTimes(2);
     });
 
+    it("invalidates and refetches when a second record matches", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => {
+        table.set("a", rec("a", 1));
+        return ["a"];
+      });
+      const answers = evictingSpace(table, fetch);
+      const handler = vi.fn();
+      answers.onChange(qA, handler);
+      await answers.retrieve(qA);
+      table.set("b", rec("b", 2));
+      expect(handler).toHaveBeenLastCalledWith(undefined);
+      expect(answers.getCached(qA)).toBeUndefined();
+      await answers.retrieve(qA);
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
+    // Regression: a second match that raced the fetch left the answer unfetched, and
+    // the fetch returned its stale key, so the caller never saw the ambiguity.
+    it("refetches when a second record matches while the fetch is in flight", async () => {
+      const table = newTable();
+      let release = (_: string[]): void => {};
+      const fetch = vi.fn(async (_: Q): Promise<string[]> => {
+        throw new Error("found 2 things");
+      });
+      fetch.mockImplementationOnce(async () => {
+        table.set("a", rec("a", 1));
+        return await new Promise<string[]>((resolve) => (release = resolve));
+      });
+      const answers = evictingSpace(table, fetch);
+      answers.onChange(qA, vi.fn());
+      const pending = answers.retrieve(qA);
+      table.set("b", rec("b", 2));
+      release(["a"]);
+      await expect(pending).rejects.toThrow("found 2 things");
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
     it("flips to deleted when the last member's entry is tombstoned", async () => {
       const table = newTable();
       const answers = evictingSpace(table, async () => {
@@ -1029,6 +1067,23 @@ describe("Answers", () => {
       await answers.retrieve(qA);
       table.delete("a");
       expect(expectDeleted(handler.mock.lastCall?.[0]).corpse).toEqual(6);
+    });
+
+    it("revives a deleted answer when a new record matches", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => {
+        table.set("a", rec("a", 6));
+        return ["a"];
+      });
+      const answers = evictingSpace(table, fetch);
+      const handler = vi.fn();
+      answers.onChange(qA, handler);
+      await answers.retrieve(qA);
+      table.delete("a");
+      table.set("b", rec("b", 7));
+      expect(handler).toHaveBeenLastCalledWith(7);
+      expect(await answers.retrieve(qA)).toEqual(7);
+      expect(fetch).toHaveBeenCalledTimes(1);
     });
 
     it("does not notify while the query is unfetched", () => {
@@ -1072,6 +1127,48 @@ describe("Answers", () => {
       expect(handler).toHaveBeenLastCalledWith([rec("a", 5), rec("b", 4)]);
     });
 
+    it("refetches for a record that matches cannot decide", async () => {
+      const table = newTable();
+      let members: Rec[] = [];
+      const fetch = vi.fn(async () => {
+        table.set(members);
+        return members.map(({ key }) => key);
+      });
+      const answers = new Space<ListQ, Rec[], string, Rec>({
+        name: "things",
+        table,
+        fetch,
+        compose: (records) => records,
+        matches: (r, q) => (r.value < 0 ? null : r.value >= q.min),
+      });
+      answers.onChange({ min: 3 }, vi.fn());
+      await answers.retrieve({ min: 3 });
+      members = [rec("a", -1)];
+      table.set("a", rec("a", -1));
+      expect(answers.getCached({ min: 3 })).toEqual([]);
+      await expect.poll(() => answers.getCached({ min: 3 })).toEqual([rec("a", -1)]);
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
+    it("notifies an edit to a member that matches cannot decide", async () => {
+      const table = newTable();
+      const answers = new Space<ListQ, Rec[], string, Rec>({
+        name: "things",
+        table,
+        fetch: async () => {
+          table.set("a", rec("a", 5));
+          return ["a"];
+        },
+        compose: (records) => records,
+        matches: (r, q) => (r.value < 0 ? null : r.value >= q.min),
+      });
+      const handler = vi.fn();
+      answers.onChange({ min: 3 }, handler);
+      await answers.retrieve({ min: 3 });
+      table.set("a", rec("a", -1));
+      expect(handler).toHaveBeenLastCalledWith([rec("a", -1)]);
+    });
+
     // Regression: membership is patched from table events, and an unmaintained
     // query received none, so a member that appeared during the gap is missing
     // from the answer a remount is served.
@@ -1089,6 +1186,45 @@ describe("Answers", () => {
       members = [rec("a", 5)];
       answers.onChange({ min: 3 }, vi.fn());
       await expect.poll(() => answers.getCached({ min: 3 })).toEqual([rec("a", 5)]);
+    });
+
+    it("fetches a read that beats the refetch after an unmaintained gap", async () => {
+      const table = newTable();
+      let members: Rec[] = [];
+      const fetch = vi.fn(async () => {
+        table.set(members);
+        return members.map(({ key }) => key);
+      });
+      const answers = listSpace(table, fetch, { teardownGrace: TimeSpan.ZERO });
+      const unsubscribe = answers.onChange({ min: 3 }, vi.fn());
+      expect(await answers.retrieve({ min: 3 })).toEqual([]);
+      unsubscribe();
+      members = [rec("a", 5)];
+      answers.onChange({ min: 3 }, vi.fn());
+      expect(await answers.retrieve({ min: 3 })).toEqual([rec("a", 5)]);
+    });
+
+    it("cancels the refetch after an unmaintained gap when a read fetches", async () => {
+      const table = newTable();
+      const fetch = vi
+        .fn<() => Promise<string[]>>()
+        .mockResolvedValueOnce([])
+        .mockImplementationOnce(async () => {
+          await wait(250);
+          table.set([rec("a", 5)]);
+          return ["a"];
+        })
+        .mockRejectedValue(new Error("refetch failed"));
+      const answers = listSpace(table, fetch, { teardownGrace: TimeSpan.ZERO });
+      const unsubscribe = answers.onChange({ min: 3 }, vi.fn());
+      await answers.retrieve({ min: 3 });
+      unsubscribe();
+      const handler = vi.fn();
+      answers.onChange({ min: 3 }, handler);
+      expect(await answers.retrieve({ min: 3 })).toEqual([rec("a", 5)]);
+      expect(fetch).toHaveBeenCalledTimes(2);
+      expect(answers.getCached({ min: 3 })).toEqual([rec("a", 5)]);
+      expect(handler).toHaveBeenLastCalledWith([rec("a", 5)]);
     });
 
     // Regression: membership is patched only on a ready query, so a record that
@@ -1421,6 +1557,17 @@ describe("Answers", () => {
       expect(fetch).toHaveBeenCalledTimes(1);
     });
 
+    it("refetches a full page with a zero offset on a new match", async () => {
+      const table = newTable();
+      const fetch = fetchOf(table, [rec("a", 5), rec("b", 4)]);
+      const answers = limitSpace(table, fetch);
+      answers.onChange({ min: 3, limit: 2, offset: 0 }, vi.fn());
+      await answers.retrieve({ min: 3, limit: 2, offset: 0 });
+      table.set("c", rec("c", 6));
+      await wait(150);
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
     it("admits matches only up to the limit", async () => {
       const table = newTable();
       const fetch = fetchOf(table, [rec("a", 5)]);
@@ -1618,6 +1765,20 @@ describe("Answers", () => {
       expect(handler).not.toHaveBeenCalled();
     });
 
+    it("refetches an empty search term on a new record", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => {
+        table.set("a", rec("a", 1));
+        return ["a"];
+      });
+      const answers = searchSpace(table, fetch);
+      answers.onChange({ searchTerm: "" }, vi.fn());
+      await answers.retrieve({ searchTerm: "" });
+      table.set("z", rec("z", 9));
+      await wait(150);
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
     it("refetches wholesale after a debounced table change", async () => {
       const table = newTable();
       const fetch = vi.fn(async () => {
@@ -1629,6 +1790,26 @@ describe("Answers", () => {
       answers.onChange({ searchTerm: "x" }, handler);
       await answers.retrieve({ searchTerm: "x" });
       expect(fetch).toHaveBeenCalledTimes(1);
+      table.set("z", rec("z", 9));
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
+    });
+
+    it("refetches wholesale when serverComputed holds", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => {
+        table.set("a", rec("a", 1));
+        return ["a"];
+      });
+      const answers = new Space<{ regex?: string }, Rec[], string, Rec>({
+        name: "things",
+        table,
+        fetch,
+        compose: (records) => records,
+        matches: () => true,
+        serverComputed: (q) => q.regex != null,
+      });
+      answers.onChange({ regex: "^a" }, vi.fn());
+      await answers.retrieve({ regex: "^a" });
       table.set("z", rec("z", 9));
       await expect.poll(() => fetch.mock.calls.length).toBe(2);
     });

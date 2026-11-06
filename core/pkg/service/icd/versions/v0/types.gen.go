@@ -71,13 +71,17 @@ func (t TimeFormat) IsValid() bool {
 	}
 }
 
+// IdentifierType is the "type" value that selects a variant of Identifier.
 type IdentifierType string
 
 const (
-	CanIdentifierType   IdentifierType = "can"
+	// CanIdentifierType matches a CAN frame by arbitration identifier.
+	CanIdentifierType IdentifierType = "can"
+	// FieldIdentifierType matches a binary frame by the raw value of one of its fields.
 	FieldIdentifierType IdentifierType = "field"
 )
 
+// IdentifierVariant is implemented by every Identifier variant.
 type IdentifierVariant interface {
 	isIdentifierVariant()
 }
@@ -173,9 +177,24 @@ func (u *Identifier) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.FieldIdentifier
 	default:
-		return errors.Newf("Identifier: unknown type %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Identifier: unknown type %q",
+			disc.Type,
+		)
 	}
 	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u Identifier) Type() IdentifierType {
+	switch u.Variant.(type) {
+	case CanIdentifier:
+		return CanIdentifierType
+	case FieldIdentifier:
+		return FieldIdentifierType
+	}
+	return ""
 }
 
 // BaseField carries the parts every message field shares.
@@ -258,13 +277,17 @@ func (b BinaryField) Validate() error {
 	return v.Error()
 }
 
+// TextFieldType is the "encoding" value that selects a variant of TextField.
 type TextFieldType string
 
 const (
+	// DelimitedTextFieldType is a field read from one item of a delimited text line.
 	DelimitedTextFieldType TextFieldType = "delimited"
-	TaggedTextFieldType    TextFieldType = "tagged"
+	// TaggedTextFieldType is a field read from the text that follows a tag.
+	TaggedTextFieldType TextFieldType = "tagged"
 )
 
+// TextFieldVariant is implemented by every TextField variant.
 type TextFieldVariant interface {
 	isTextFieldVariant()
 }
@@ -377,9 +400,25 @@ func (u *TextField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.TaggedTextField
 	default:
-		return errors.Newf("TextField: unknown encoding %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"TextField: unknown encoding %q",
+			disc.Type,
+		)
 	}
 	return nil
+}
+
+// Encoding returns the encoding of the active variant, or an empty encoding when there
+// is none.
+func (u TextField) Encoding() TextFieldType {
+	switch u.Variant.(type) {
+	case DelimitedTextField:
+		return DelimitedTextFieldType
+	case TaggedTextField:
+		return TaggedTextFieldType
+	}
+	return ""
 }
 
 // ApplyDefaults fills the active variant's zero-valued fields with their
@@ -407,6 +446,31 @@ func (u TextField) Validate() error {
 	return nil
 }
 
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u TextField) Base() BaseField {
+	switch variant := u.Variant.(type) {
+	case DelimitedTextField:
+		return variant.BaseField
+	case TaggedTextField:
+		return variant.BaseField
+	}
+	return BaseField{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *TextField) SetBase(base BaseField) {
+	switch variant := u.Variant.(type) {
+	case DelimitedTextField:
+		variant.BaseField = base
+		u.Variant = variant
+	case TaggedTextField:
+		variant.BaseField = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("TextField: cannot set the base of variant %T", variant))
+	}
+}
+
 // JSONBaseField carries the parts every JSON field shares.
 type JSONBaseField struct {
 	BaseField
@@ -428,15 +492,21 @@ func (j JSONBaseField) Validate() error {
 	return v.Error()
 }
 
+// JSONFieldType is the "type" value that selects a variant of JSONField.
 type JSONFieldType string
 
 const (
-	NumberJSONFieldType    JSONFieldType = "number"
-	StringJSONFieldType    JSONFieldType = "string"
-	BooleanJSONFieldType   JSONFieldType = "boolean"
+	// NumberJSONFieldType is a JSON number.
+	NumberJSONFieldType JSONFieldType = "number"
+	// StringJSONFieldType is a JSON string.
+	StringJSONFieldType JSONFieldType = "string"
+	// BooleanJSONFieldType is a JSON boolean.
+	BooleanJSONFieldType JSONFieldType = "boolean"
+	// TimestampJSONFieldType is a timestamp held in a JSON number or string.
 	TimestampJSONFieldType JSONFieldType = "timestamp"
 )
 
+// JSONFieldVariant is implemented by every JSONField variant.
 type JSONFieldVariant interface {
 	isJSONFieldVariant()
 }
@@ -616,9 +686,28 @@ func (u *JSONField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.TimestampJSONField
 	default:
-		return errors.Newf("JSONField: unknown type %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"JSONField: unknown type %q",
+			disc.Type,
+		)
 	}
 	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u JSONField) Type() JSONFieldType {
+	switch u.Variant.(type) {
+	case NumberJSONField:
+		return NumberJSONFieldType
+	case StringJSONField:
+		return StringJSONFieldType
+	case BooleanJSONField:
+		return BooleanJSONFieldType
+	case TimestampJSONField:
+		return TimestampJSONFieldType
+	}
+	return ""
 }
 
 // ApplyDefaults fills the active variant's zero-valued fields with their
@@ -656,14 +745,54 @@ func (u JSONField) Validate() error {
 	return nil
 }
 
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u JSONField) Base() JSONBaseField {
+	switch variant := u.Variant.(type) {
+	case NumberJSONField:
+		return variant.JSONBaseField
+	case StringJSONField:
+		return variant.JSONBaseField
+	case BooleanJSONField:
+		return variant.JSONBaseField
+	case TimestampJSONField:
+		return variant.JSONBaseField
+	}
+	return JSONBaseField{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *JSONField) SetBase(base JSONBaseField) {
+	switch variant := u.Variant.(type) {
+	case NumberJSONField:
+		variant.JSONBaseField = base
+		u.Variant = variant
+	case StringJSONField:
+		variant.JSONBaseField = base
+		u.Variant = variant
+	case BooleanJSONField:
+		variant.JSONBaseField = base
+		u.Variant = variant
+	case TimestampJSONField:
+		variant.JSONBaseField = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("JSONField: cannot set the base of variant %T", variant))
+	}
+}
+
+// PayloadType is the "format" value that selects a variant of Payload.
 type PayloadType string
 
 const (
+	// BinaryPayloadType is a payload of raw bytes.
 	BinaryPayloadType PayloadType = "binary"
-	TextPayloadType   PayloadType = "text"
-	JSONPayloadType   PayloadType = "json"
+	// TextPayloadType is a payload of one text line.
+	TextPayloadType PayloadType = "text"
+	// JSONPayloadType is a payload of one JSON document.
+	JSONPayloadType PayloadType = "json"
 )
 
+// PayloadVariant is implemented by every Payload variant.
 type PayloadVariant interface {
 	isPayloadVariant()
 }
@@ -835,9 +964,27 @@ func (u *Payload) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.JSONPayload
 	default:
-		return errors.Newf("Payload: unknown format %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Payload: unknown format %q",
+			disc.Type,
+		)
 	}
 	return nil
+}
+
+// Format returns the format of the active variant, or an empty format when there is
+// none.
+func (u Payload) Format() PayloadType {
+	switch u.Variant.(type) {
+	case BinaryPayload:
+		return BinaryPayloadType
+	case TextPayload:
+		return TextPayloadType
+	case JSONPayload:
+		return JSONPayloadType
+	}
+	return ""
 }
 
 // ApplyDefaults fills the active variant's zero-valued fields with their

@@ -61,6 +61,8 @@ const mockOverride: Form.ContextValue = {
   clearStatus: () => {},
   clearStatuses: () => {},
   addCheck: () => () => {},
+  focus: () => {},
+  addFocusHandler: () => () => {},
   setCurrentStateAsInitialValues: () => {},
   getStatuses: () => [],
 };

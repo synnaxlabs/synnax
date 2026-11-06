@@ -29,18 +29,15 @@ export type RetrieveQuery = {
 export const { use, useResult, useEnsure, useTombstone, createSelector } =
   Flux.createRetrieve<RetrieveQuery, icd.ICD>({
     name: RESOURCE_NAME,
-    retrieve: async ({ client, query }) => await client.icds.retrieve(query),
-    onChange: ({ client, query }, handler) => client.icds.onChange(query, handler),
-    getCached: ({ client, query }) => client.icds.getCached(query),
+    retrieve: async ({ client, query }) => await client.icds.retrieve(query.key),
+    onChange: ({ client, query }, handler) => client.icds.onChange(query.key, handler),
+    getCached: ({ client, query }) => client.icds.getCached(query.key),
     awaitCreation: true,
   });
 
 export const useName = createSelector(({ name }) => name);
 
-export type ListQuery = Pick<
-  icd.RetrieveRequest,
-  "keys" | "searchTerm" | "offset" | "limit"
->;
+export type ListQuery = icd.RetrieveMultipleParams;
 
 export const useList = Flux.createList<ListQuery, icd.Key, icd.ICD>({
   name: PLURAL_RESOURCE_NAME,

@@ -21,6 +21,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -80,7 +81,9 @@ var _ = Describe("ICD", func() {
 			grantOn(ctx, u.OntologyID(), access.ActionRetrieve, ic.OntologyID())
 			res := MustSucceed(apiSvc.Retrieve(
 				AuthedCtx(ctx, u),
-				apiicd.RetrieveRequest{Keys: []icd.Key{ic.Key}},
+				apiicd.RetrieveRequest{
+					Where: &icd.Where{Key: &filter.Set[icd.Key]{In: []icd.Key{ic.Key}}},
+				},
 			))
 			Expect(res.ICDs).To(HaveExactElements(HaveField("Name", "Engine")))
 		})
@@ -89,7 +92,9 @@ var _ = Describe("ICD", func() {
 			ic := createICD(ctx, "Hidden")
 			Expect(apiSvc.Retrieve(
 				AuthedCtx(ctx, createUser(ctx)),
-				apiicd.RetrieveRequest{Keys: []icd.Key{ic.Key}},
+				apiicd.RetrieveRequest{
+					Where: &icd.Where{Key: &filter.Set[icd.Key]{In: []icd.Key{ic.Key}}},
+				},
 			)).Error().To(MatchError(access.ErrDenied))
 		})
 	})

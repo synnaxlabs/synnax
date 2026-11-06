@@ -25,10 +25,7 @@ const PLURAL_KV_RESOURCE_NAME = "metadata";
 const PLURAL_CHILDREN_RESOURCE_NAME = "child ranges";
 const PARENT_RESOURCE_NAME = "parent range";
 
-export type RetrieveQuery = Pick<
-  ranger.RetrieveRequest,
-  "includeLabels" | "includeParent"
-> & {
+export type RetrieveQuery = {
   key: ranger.Key;
 };
 
@@ -101,7 +98,8 @@ export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRet
   ranger.Range[]
 >({
   name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query: { keys } }) => await client.ranges.retrieve(keys),
+  retrieve: async ({ client, query: { keys } }) =>
+    await client.ranges.retrieve({ key: keys }),
   onChange: ({ client, query: { keys } }, handler) =>
     client.ranges.onChange(keys, handler),
   getCached: ({ client, query: { keys } }) => client.ranges.getCached(keys),

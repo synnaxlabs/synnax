@@ -20,11 +20,8 @@ import { Select } from "@/feature/ni/device/Select";
 import { MAKE, SCHEMAS } from "@/feature/ni/device/types";
 import { digitalHardwareZ } from "@/feature/ni/task/checks";
 import { createNextDIChannel } from "@/feature/ni/task/createChannel";
-import {
-  DigitalChannelList,
-  type DigitalNameComponentProps,
-} from "@/feature/ni/task/DigitalChannelList";
 import { getDigitalChannelDeviceKey } from "@/feature/ni/task/getDigitalChannelDeviceKey";
+import { PORT_LINE_COLUMNS, PortLineCells } from "@/feature/ni/task/PortLine";
 import { digitalInputName } from "@/feature/ni/task/ports";
 import { LinesView } from "@/feature/ni/task/PortsView";
 import {
@@ -36,7 +33,7 @@ import {
   type DigitalReadSchemas,
 } from "@/feature/ni/task/types";
 import { Device as PlatformDevice } from "@/platform/device";
-import { Selector } from "@/platform/selector";
+import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const root = deep.path<Task.Values<DigitalReadSchemas>>();
@@ -51,18 +48,30 @@ const Properties = () => (
   </>
 );
 
-interface NameComponentProps extends DigitalNameComponentProps<DIChannel> {}
+const ChannelListItem = ({ itemKey, ...rest }: Task.ChannelListItemProps) => {
+  const entry = root.config.channels[itemKey];
+  const ch = PForm.useFieldValue(entry);
+  const device = useFromConfig();
+  const skipped = Task.useSkipped(
+    root.config.channels,
+    itemKey,
+    getDigitalChannelDeviceKey,
+  );
+  return (
+    <Task.Views.ListChannelItem
+      {...rest}
+      itemKey={itemKey}
+      path={entry}
+      channel={ch.channel}
+      defaultName={device == null ? undefined : digitalInputName(ch, device)}
+      skipped={skipped}
+    >
+      <PortLineCells path={entry} />
+    </Task.Views.ListChannelItem>
+  );
+};
 
-const NameComponent = ({ channel, itemKey, path }: NameComponentProps) => (
-  <Task.ChannelName
-    channel={channel}
-    id={Task.getChannelNameID(itemKey)}
-    level="p"
-    namePath={path.name}
-  />
-);
-
-const name = Component.renderProp(NameComponent);
+const listItem = Component.renderProp(ChannelListItem);
 
 const Form: FC = () => {
   const dev = useFromConfig();
@@ -74,28 +83,30 @@ const Form: FC = () => {
           channel:
             dev.properties.digitalInput.channels[getDigitalChannelDeviceKey(ch)] ?? 0,
         };
+  const map =
+    dev?.properties.hardware == null
+      ? undefined
+      : (props: Task.Views.PortsProps<DIChannel>) => (
+          <LinesView<DIChannel>
+            {...props}
+            device={dev}
+            direction="input"
+            create={(channels, placement) =>
+              createNextDIChannel(channels, placement, dev)
+            }
+            name={digitalInputName}
+          />
+        );
   return (
-    <DigitalChannelList<DIChannel>
+    <Task.Views.List<DIChannel>
       path={root.config.channels}
       createChannel={(channels) => createNextDIChannel(channels, {}, dev)}
-      name={name}
+      listItem={listItem}
+      columns={PORT_LINE_COLUMNS}
+      checkable
       contextMenuItems={Task.readChannelContextMenuItem}
       resolve={resolve}
-      ports={
-        dev?.properties.hardware == null
-          ? undefined
-          : (props) => (
-              <LinesView<DIChannel>
-                {...props}
-                device={dev}
-                direction="input"
-                create={(channels, placement) =>
-                  createNextDIChannel(channels, placement, dev)
-                }
-                name={digitalInputName}
-              />
-            )
-      }
+      map={map}
     />
   );
 };
@@ -141,12 +152,11 @@ const onConfigure: Task.OnConfigure<typeof digitalReadConfigZ> = async (
       dev.properties.digitalInput.channels = {};
     }
     const toCreate: DIChannel[] = [];
-    // Channels on one port share its data channel, named by an enabled one if any.
-    const seen = new Set<string>();
-    for (const channel of Task.enabledFirst(config.channels)) {
+    for (const channel of Task.firstPerPort(
+      config.channels,
+      getDigitalChannelDeviceKey,
+    )) {
       const key = getDigitalChannelDeviceKey(channel);
-      if (seen.has(key)) continue;
-      seen.add(key);
       const exKey = dev.properties.digitalInput.channels[key];
       if (primitive.isZero(exKey)) toCreate.push(channel);
       else
@@ -161,9 +171,7 @@ const onConfigure: Task.OnConfigure<typeof digitalReadConfigZ> = async (
       modified = true;
       const channels = await client.channels.create(
         toCreate.map((c) => ({
-          name: primitive.isNonZero(c.name)
-            ? c.name
-            : `${identifier}_di_${c.port}_${c.line}`,
+          name: digitalInputName(c, dev),
           dataType: "uint8",
           index: dev.properties.digitalInput.index,
         })),
@@ -197,9 +205,10 @@ export const useCreateDigitalRead = Task.createUseCreate({
   deviceMake: MAKE,
 });
 
-export const DigitalReadSelectable = Selector.createSelectable({
+export const DigitalReadSelectable: Selector.Selectable = {
   type: DIGITAL_READ_TYPE,
   title: "NI digital read task",
+  label: "Digital read",
   icon: <Icon.Logo.NI />,
   useOnSelect: useCreateDigitalRead,
-});
+};

@@ -11,15 +11,17 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias
+from typing import Any, TypeAlias, TypedDict
 from typing import override as _override
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from synnax import ontology
 from synnax.access import action
 from synnax.ontology.payload import ID
+from x import filter
+from x.filter import shorthand
 
 Key: TypeAlias = UUID
 
@@ -46,6 +48,80 @@ class Policy(BaseModel):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class Where(BaseModel):
+    """Is a filter that selects policies.
+
+    Attributes:
+        and_: Matches when every child matches.
+        or_: Matches when any child matches.
+        not_: Matches when the child does not match.
+        key: Selects by key.
+        internal: Selects by internal.
+        subjects: Matches the policies of the roles that any of the given subjects hold.
+    """
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    and_: list[Where] | None = Field(default=None, alias="and")
+    or_: list[Where] | None = Field(default=None, alias="or")
+    not_: Where | None = Field(default=None, alias="not")
+    key: filter.Set[Key] | None = None
+    internal: filter.Bool | None = None
+    subjects: list[ontology.ID] | None = None
+
+    @field_validator("subjects", mode="before")
+    @classmethod
+    def _read_lists(cls, value: Any) -> Any:
+        return shorthand.read_list(value)
+
+
+# WhereInput is a Where written as a partial record.
+# A plain value or a list stands for an operator.
+WhereInput = TypedDict(
+    "WhereInput",
+    {
+        "and": list["WhereInput"],
+        "or": list["WhereInput"],
+        "not": "WhereInput",
+        "key": filter.SetInput[Key],
+        "internal": filter.BoolInput,
+        "subjects": ontology.ID | list[ontology.ID],
+    },
+    total=False,
+)
+
+
+class RetrieveResponse(BaseModel):
+    """Holds the policies a RetrieveRequest selects.
+
+    Attributes:
+        policies: Are the policies the request selects.
+    """
+
+    policies: list[Policy] = Field(default_factory=list)
+
+
+class RetrieveRequest(BaseModel):
+    """Is a request to retrieve policies.
+
+    Attributes:
+        where: Selects the policies to retrieve. An absent where selects all of them.
+        search_term: Keeps the policies that match the term, closest match first.
+        limit: Is the most policies to return.
+        offset: Is the number of matching policies to skip.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    where: Where | None = None
+    search_term: str = ""
+    limit: int | None = Field(default=None, ge=0, le=4294967295)
+    offset: int = Field(default=0, ge=0, le=4294967295)
+
+
+Where.model_rebuild()
 
 
 ONTOLOGY_TYPE = ID(type="policy")

@@ -7,14 +7,23 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Literal, overload
+from typing import Any, Literal, overload
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
-from synnax.exceptions import NotFoundError
-from synnax.icd.types_gen import ICD, Key, Message
+from synnax.icd.types_gen import (
+    ICD,
+    Key,
+    Message,
+    RetrieveRequest,
+    RetrieveResponse,
+    Where,
+    WhereInput,
+)
+from synnax.util import request_where, returns_one, sole
+from x import filter
 from x.lists import normalize
 
 
@@ -76,17 +85,6 @@ class _ImportRequest(BaseModel):
 
 class _ImportResponse(BaseModel):
     icd: ICD
-
-
-class _RetrieveRequest(BaseModel):
-    keys: list[Key] | None = None
-    search_term: str | None = None
-    limit: int | None = None
-    offset: int | None = None
-
-
-class _RetrieveResponse(BaseModel):
-    icds: list[ICD] = Field(default_factory=list)
 
 
 class Client:
@@ -187,54 +185,88 @@ class Client:
         return self._client.send("/icd/import", req, _ImportResponse).icd
 
     @overload
-    def retrieve(self, *, key: Key) -> ICD: ...
+    def retrieve(
+        self,
+        *,
+        key: Key,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        search_term: str = ...,
+        one: bool = ...,
+    ) -> ICD: ...
 
     @overload
     def retrieve(
         self,
         *,
-        keys: list[Key] | None = None,
-        search_term: str | None = None,
-        limit: int | None = None,
-        offset: int | None = None,
+        key: filter.SetInput[Key] = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        keys: list[Key] | None = ...,
+        search_term: str = ...,
+        one: Literal[True],
+    ) -> ICD: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        keys: list[Key] | None = ...,
+        search_term: str = ...,
+        limit: int | None = ...,
+        offset: int = ...,
+        one: Literal[False] = ...,
     ) -> list[ICD]: ...
 
     def retrieve(
         self,
         *,
-        key: Key | None = None,
+        where: Where | None = None,
         keys: list[Key] | None = None,
-        search_term: str | None = None,
+        search_term: str = "",
         limit: int | None = None,
-        offset: int | None = None,
+        offset: int = 0,
+        one: bool = False,
+        **fields: Any,
     ) -> ICD | list[ICD]:
-        """Retrieve one or more ICDs.
+        """Retrieves ICDs. With no arguments, retrieves every ICD.
 
-        :param key: The key of a single ICD to retrieve. When provided, a single ICD is
-            returned.
-        :param keys: The keys of the ICDs to retrieve.
+        Each filter field takes a value, a list of values, or an operator, and an ICD
+        must match every field. A plain ``key`` returns one ICD.
+
+        :param key: Keeps ICDs with this key.
+        :param and_: Keeps ICDs that match every filter in the list.
+        :param or_: Keeps ICDs that match any filter in the list.
+        :param not_: Keeps ICDs that do not match the filter.
+        :param where: A filter tree that the ICDs must also match.
+        :param keys: Keeps ICDs with one of these keys.
         :param search_term: A fuzzy search term matched against ICD names.
-        :param limit: The maximum number of ICDs to return.
-        :param offset: The number of ICDs to skip before returning results.
-        :returns: The matching ICD when ``key`` is provided, otherwise a list of
-            matching ICDs.
-        :raises NotFoundError: If a requested key has no ICD.
+        :param limit: The maximum number of ICDs to retrieve.
+        :param offset: The number of ICDs to skip.
+        :param one: Returns one ICD for any filter.
+        :returns: One ICD for a plain ``key`` or when ``one`` is set, otherwise a list
+            of ICDs. The list leaves out keys that do not exist.
+        :raises NotFoundError: If one ICD is wanted and none matches.
+        :raises MultipleFoundError: If one ICD is wanted and more than one matches.
+        :raises ValidationError: If a filter field is None, or if one ICD is wanted
+            beside a limit or an offset.
         """
-        is_single = key is not None
-        if key is not None:
-            keys = [key]
-        res = self._client.send(
-            "/icd/retrieve",
-            _RetrieveRequest(
-                keys=keys,
-                search_term=search_term,
-                limit=limit,
-                offset=offset,
-            ),
-            _RetrieveResponse,
+        single = returns_one(fields, one, limit, offset)
+        flat = Where(key=None if keys is None else filter.Set[Key](in_=keys))
+        req = RetrieveRequest(
+            where=request_where(Where, filter.merge(where, flat), fields),
+            search_term=search_term,
+            limit=limit,
+            offset=offset,
         )
-        if is_single:
-            if len(res.icds) == 0:
-                raise NotFoundError("ICD not found")
-            return res.icds[0]
-        return res.icds
+        res = self._client.send("/icd/retrieve", req, RetrieveResponse)
+        return sole("ICD", fields, res.icds) if single else res.icds

@@ -25,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           sparse-checkout: .github/scripts
 
@@ -40,7 +40,7 @@ jobs:
 
       - name: Post the report to Slack
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_AGENT_REPORT_WEBHOOK_URL }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NIGHTLY_WEBHOOK_URL }}
         run: |
           jq --null-input --rawfile text "$RUNNER_TEMP/report.txt" '{text: $text}' |
             curl --fail --silent --show-error \

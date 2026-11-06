@@ -78,6 +78,7 @@ var _ = Describe("Legacy Permission Migration", func() {
 				DB:       db,
 				Ontology: otg,
 				Group:    groupSvc,
+				Password: passwordSvc,
 			}))
 			MustSucceed2(
 				user.ProvisionRoot(
@@ -240,6 +241,7 @@ var _ = Describe("Legacy Permission Migration", func() {
 			DB:       db,
 			Ontology: otg,
 			Group:    groupSvc,
+			Password: passwordSvc,
 		}))
 		MustSucceed2(
 			user.ProvisionRoot(
@@ -297,6 +299,7 @@ var _ = Describe("Legacy Permission Migration", func() {
 			DB:       db,
 			Ontology: otg,
 			Group:    groupSvc,
+			Password: passwordSvc,
 		}))
 		MustSucceed2(
 			user.ProvisionRoot(

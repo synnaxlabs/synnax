@@ -151,12 +151,13 @@ export const watch = <
  * 1. exact-key — `keyOf` returns a key: track that entry; deletion flips the
  *    answer to deleted.
  * 2. client-checkable — `matches` compares a record against the query:
- *    admit/evict exactly, no network. A positive `limit` keeps rule 2: below the
- *    limit the answer holds every match; at the limit it holds some `limit` of
- *    them, not necessarily the server's first. A full answer that loses a member
- *    refetches to fill the slot.
+ *    admit/evict exactly, no network. A record `matches` cannot decide refetches. A
+ *    positive `limit` keeps rule 2: below the limit the answer holds every match; at
+ *    the limit it holds some `limit` of them, not necessarily the server's first. A
+ *    full answer that loses a member refetches to fill the slot.
  * 3. server-computed — any other field named in `serverFields` is set on the
- *    query (or neither `keyOf` nor `matches` applies): debounced wholesale refetch.
+ *    query, `serverComputed` holds, or neither `keyOf` nor `matches` applies:
+ *    debounced wholesale refetch.
  */
 export interface SpaceConfig<
   P extends Params,
@@ -189,21 +190,28 @@ export interface SpaceConfig<
    * subscribe, so a fully cached key set never fetches.
    */
   keysOf?: (params: P) => K[] | null;
-  /** Rule 2: whether a record satisfies the query. Pure; no network. */
-  matches?: (record: V, params: P) => boolean;
+  /**
+   * Rule 2: whether a record satisfies the query. Pure; no network. Null when the
+   * client cannot decide the record, which refetches the query.
+   */
+  matches?: (record: V, params: P) => boolean | null;
   /**
    * Query fields only the server can evaluate (searchTerm, limit, offset).
    * A query instance with any of them set is maintained by rule 3, except a
    * positive `limit` alone (see rule 2).
    */
   serverFields?: readonly string[];
+  /** Rule 3: whether only the server can evaluate the query, such as a regex. */
+  serverComputed?: (params: P) => boolean;
   /** Foreign tables whose events affect this space's answers. */
   watch?: Watch<P, K>[];
   /**
-   * Marks a space whose answer addresses one record and cannot compose an
-   * empty membership: rule-2 eviction of the last member flips the query to
-   * deleted (when the entry tombstoned) or invalidates it, instead of
-   * composing []. Leave unset for spaces where [] is a valid answer.
+   * Marks a space whose answer addresses one record and cannot compose an empty
+   * membership: rule-2 eviction of the last member flips the query to deleted (when the
+   * entry tombstoned) or invalidates it, instead of composing []. A record that then
+   * matches revives a deleted answer. Admitting a second member invalidates the query,
+   * so the next read asks the Core again. Leave unset for spaces where [] is a valid
+   * answer.
    */
   single?: boolean;
 }
@@ -251,7 +259,8 @@ interface Query<
   handlers: Set<ChangeHandler<D>>;
   /** Rule teardown; present exactly while the query is maintained. */
   teardown?: destructor.Destructor[];
-  /** Set when maintenance ends: changes since then went unobserved. */
+  /** Set from when maintenance ends until a maintained fetch confirms the answer: the
+   *  query may have missed changes. */
   unmaintained?: boolean;
   /** Keys whose membership a fetch in flight deferred; drained on settle. */
   pendingRechecks?: Set<K>;
@@ -325,7 +334,11 @@ export class Space<
     const query = this.ensure(params);
     const { state } = query;
     if (state.variant === "loading") return state.promise;
-    if (query.teardown != null && this.hooks.maintained?.() !== false)
+    if (
+      query.teardown != null &&
+      query.unmaintained !== true &&
+      this.hooks.maintained?.() !== false
+    )
       switch (state.variant) {
         case "ready":
           return Promise.resolve(this.composedOf(query, state.keys));
@@ -613,8 +626,7 @@ export class Space<
   ): void {
     // A late promise resolution must not clobber a maintenance update.
     if (query.state !== expected) return;
-    query.state = next;
-    query.vacated = false;
+    this.confirm(query, next);
     this.drainRechecks(query);
     if (next.variant === "error") {
       query.refetchOnSettle = false;
@@ -625,6 +637,13 @@ export class Space<
       if (query.teardown != null) this.scheduleRefetch(query);
     }
     this.touch(query);
+  }
+
+  /** Publishes a fetch's answer, which covers every change before the fetch ran. */
+  private confirm(query: Query<P, K, D, V>, next: QueryState<K, D>): void {
+    query.state = next;
+    query.vacated = false;
+    if (query.teardown != null) query.unmaintained = false;
   }
 
   /**
@@ -641,6 +660,12 @@ export class Space<
   }
 
   private fetch(query: Query<P, K, D, V>, options?: FetchOptions): Promise<D> {
+    // This fetch covers what a pending refetch would confirm, and a refetch that fails
+    // during this fetch would replace its loading state.
+    if (query.refetchTimer != null) {
+      clearTimeout(query.refetchTimer);
+      query.refetchTimer = undefined;
+    }
     const promise = this.config.fetch(query.params, options).then(
       (keys) => {
         const { table, single, name } = this.config;
@@ -656,8 +681,10 @@ export class Space<
         }
         this.settle(query, loading, { variant: "ready", keys });
         // The settle drains membership changes that raced the fetch, so the answer
-        // comes off the query: the keys the fetch returned are already stale.
+        // comes off the query: the keys the fetch returned are already stale. A drain
+        // that leaves the query unfetched asks the server again.
         const { state } = query;
+        if (state.variant === "unfetched") return this.fetch(query, options);
         return this.composedOf(query, state.variant === "ready" ? state.keys : keys);
       },
       (reason: unknown) => {
@@ -698,8 +725,7 @@ export class Space<
     // Only apply if maintenance hasn't been torn down and no newer fetch
     // superseded this one.
     if (query.state !== before) return;
-    query.state = { variant: "ready", keys };
-    query.vacated = false;
+    this.confirm(query, { variant: "ready", keys });
     this.touch(query);
   }
 
@@ -719,7 +745,8 @@ export class Space<
   }
 
   private isServerComputed(params: P): boolean {
-    const { serverFields } = this.config;
+    const { serverFields, serverComputed } = this.config;
+    if (serverComputed?.(params) === true) return true;
     if (serverFields == null || serverFields.length === 0) return false;
     if (typeof params !== "object" || params === null) return false;
     const limited = this.limitOf(params) != null;
@@ -753,7 +780,7 @@ export class Space<
       keyOf?.(params) == null
     )
       this.scheduleRefetch(query);
-    query.unmaintained = false;
+    else query.unmaintained = false;
 
     // A keys-only query whose members the table already holds seeds a ready answer:
     // rules 2 and 3 gate notifications on a ready state, so without the seed an
@@ -866,26 +893,35 @@ export class Space<
 
   /**
    * Applies membership rechecks for the given keys against the table's current entries,
-   * without notifying. Admissions append in iteration order up to the query's limit;
-   * evicting a single space's last member flips the query to deleted or unfetched.
-   * Returns whether the answer changed: membership moved, or a member's content was
-   * touched.
+   * without notifying. Admissions append in iteration order up to the query's limit. In
+   * a single space, evicting the last member flips the query to deleted or unfetched,
+   * and admitting a second member flips it to unfetched. A deleted answer admits like an
+   * empty one. Returns whether the answer changed: membership moved, or a member's
+   * content was touched.
    */
   private applyRechecks(query: Query<P, K, D, V>, keys: Iterable<K>): boolean {
-    if (query.state.variant === "loading") {
+    const { state } = query;
+    if (state.variant === "loading") {
       const pending = (query.pendingRechecks ??= new Set<K>());
       for (const key of keys) pending.add(key);
       return false;
     }
-    if (query.state.variant !== "ready") return false;
+    if (state.variant !== "ready" && state.variant !== "deleted") return false;
     const { table, matches, single } = this.config;
-    const memberSet = new Set(query.state.keys);
+    const members = state.variant === "ready" ? state.keys : [];
+    const memberSet = new Set(members);
     const admitted: K[] = [];
     let lastEvicted: K | null = null;
     let touched = false;
+    let undecided = false;
     for (const key of new Set(keys)) {
       const entry = table.get(key);
-      const matched = entry != null && matches!(entry, query.params);
+      const matched = entry == null ? false : matches!(entry, query.params);
+      if (matched == null) {
+        undecided = true;
+        touched ||= memberSet.has(key);
+        continue;
+      }
       if (matched === memberSet.has(key)) {
         touched ||= matched;
         continue;
@@ -898,9 +934,10 @@ export class Space<
         lastEvicted = key;
       }
     }
+    if (undecided) this.scheduleRefetch(query);
     if (admitted.length === 0 && lastEvicted == null) return touched;
     const limit = this.limitOf(query.params);
-    const kept = query.state.keys.filter((k) => memberSet.has(k));
+    const kept = members.filter((k) => memberSet.has(k));
     const room = limit == null ? admitted.length : limit - kept.length;
     if (lastEvicted == null && room <= 0) return touched;
     const next = [...kept, ...admitted.slice(0, room)];
@@ -908,7 +945,7 @@ export class Space<
     if (
       limit != null &&
       next.length < limit &&
-      (query.vacated === true || query.state.keys.length >= limit)
+      (query.vacated === true || members.length >= limit)
     ) {
       query.vacated = true;
       this.scheduleRefetch(query);
@@ -918,6 +955,7 @@ export class Space<
         table.status(lastEvicted) === "tombstoned"
           ? { variant: "deleted", key: lastEvicted }
           : { variant: "unfetched" };
+    else if (single === true && next.length > 1) query.state = { variant: "unfetched" };
     else query.state = { variant: "ready", keys: next };
     return true;
   }

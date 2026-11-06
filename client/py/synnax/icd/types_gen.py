@@ -11,13 +11,14 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, TypeAlias
+from typing import Annotated, Literal, TypeAlias, TypedDict
 from typing import override as _override
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from synnax.ontology.payload import ID
+from x import filter
 
 BYTE_ORDER_LITTLE_ENDIAN: Literal["little_endian"] = "little_endian"
 
@@ -44,6 +45,38 @@ Key: TypeAlias = UUID
 MessageKey: TypeAlias = UUID
 
 FieldKey: TypeAlias = UUID
+
+
+class Where(BaseModel):
+    """Is a filter that selects ICDs.
+
+    Attributes:
+        and_: Matches when every child matches.
+        or_: Matches when any child matches.
+        not_: Matches when the child does not match.
+        key: Selects by key.
+    """
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    and_: list[Where] | None = Field(default=None, alias="and")
+    or_: list[Where] | None = Field(default=None, alias="or")
+    not_: Where | None = Field(default=None, alias="not")
+    key: filter.Set[Key] | None = None
+
+
+# WhereInput is a Where written as a partial record.
+# A plain value or a list stands for an operator.
+WhereInput = TypedDict(
+    "WhereInput",
+    {
+        "and": list["WhereInput"],
+        "or": list["WhereInput"],
+        "not": "WhereInput",
+        "key": filter.SetInput[Key],
+    },
+    total=False,
+)
 
 
 class BaseField(BaseModel):
@@ -94,6 +127,24 @@ Identifier = Annotated[
     CanIdentifier | FieldIdentifier,
     Field(discriminator="type"),
 ]
+
+
+class RetrieveRequest(BaseModel):
+    """Is a request to retrieve icds.
+
+    Attributes:
+        where: Selects the icds to retrieve. An absent where selects all of them.
+        search_term: Keeps the icds that match the term, closest match first.
+        limit: Is the most icds to return.
+        offset: Is the number of matching icds to skip.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    where: Where | None = None
+    search_term: str = ""
+    limit: int | None = Field(default=None, ge=0, le=4294967295)
+    offset: int = Field(default=0, ge=0, le=4294967295)
 
 
 class BinaryField(BaseField):
@@ -249,6 +300,19 @@ class ICD(BaseModel):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class RetrieveResponse(BaseModel):
+    """Holds the icds a RetrieveRequest selects.
+
+    Attributes:
+        icds: Are the icds the request selects.
+    """
+
+    icds: list[ICD] = Field(default_factory=list)
+
+
+Where.model_rebuild()
 
 
 ONTOLOGY_TYPE = ID(type="icd")

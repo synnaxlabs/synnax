@@ -130,47 +130,27 @@ func (s *Service) Dispatch(
 	return struct{}{}, s.internal.Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
 }
 
-type RetrieveRequest struct {
-	SearchTerm string `json:"search_term" msgpack:"search_term"`
-	Keys       []Key  `json:"keys"        msgpack:"keys"`
-	Limit      int    `json:"limit"       msgpack:"limit"`
-	Offset     int    `json:"offset"      msgpack:"offset"`
-}
-
-type RetrieveResponse struct {
-	ICDs []ICD `json:"icds" msgpack:"icds"`
-}
-
-// Retrieve retrieves ICDs by key or by a fuzzy search on their names.
+// Retrieve returns the ICDs that a request selects.
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
-	q := s.internal.NewRetrieve()
-	if req.SearchTerm != "" {
-		q = q.Search(req.SearchTerm)
+	var res RetrieveResponse
+	q, err := req.Apply(s.internal.NewRetrieve().Entries(&res.ICDs))
+	if err != nil {
+		return RetrieveResponse{}, err
 	}
-	if req.Limit != 0 {
-		q = q.Limit(req.Limit)
-	}
-	if req.Offset != 0 {
-		q = q.Offset(req.Offset)
-	}
-	if len(req.Keys) != 0 {
-		q = q.Where(icd.MatchKeys(req.Keys...))
-	}
-	var ics []ICD
-	if err := q.Entries(&ics).Exec(ctx, nil); err != nil {
+	if err := q.Exec(ctx, nil); err != nil {
 		return RetrieveResponse{}, err
 	}
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: icd.OntologyIDsFromICDs(ics),
+		Objects: icd.OntologyIDsFromICDs(res.ICDs),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
-	return RetrieveResponse{ICDs: ics}, nil
+	return res, nil
 }
 
 type CheckRequest struct {

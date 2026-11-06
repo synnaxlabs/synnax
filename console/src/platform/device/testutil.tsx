@@ -11,22 +11,44 @@ import { device, type ontology, rack, status, type Synnax } from "@synnaxlabs/cl
 import { Form } from "@synnaxlabs/lyra/form";
 import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
 import { Errors } from "@synnaxlabs/pluto";
-import { deep, id } from "@synnaxlabs/x";
-import { act, render, type RenderResult } from "@testing-library/react";
+import { deep, id, TimeSpan } from "@synnaxlabs/x";
+import {
+  act,
+  render,
+  type RenderOptions,
+  type RenderResult,
+} from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 import { z } from "zod";
 
 import { Modals } from "@/platform/modals";
 import { createResource } from "@/platform/tree/testutil";
 import { Session } from "@/session";
-import { createConsoleWrapper, type TestStore, uniqueName } from "@/testutil";
+import {
+  createConsoleWrapper,
+  renderSuspended,
+  type TestStore,
+  uniqueName,
+} from "@/testutil";
 
 const path = deep.path<z.infer<typeof deviceFormSchema>>();
 
 export interface CreateTestDeviceOptions extends Partial<
   Pick<device.New, "name" | "configured" | "properties" | "make" | "model" | "rack">
 > {}
+
+const reportRackRunning = async (client: Synnax, r: rack.Rack): Promise<void> => {
+  await client.statuses.set(
+    status.create<typeof rack.statusDetailsZ>({
+      key: rack.statusKey(r.key),
+      name: r.name,
+      variant: "success",
+      message: "Driver is running",
+      details: { rack: r.key },
+    }),
+  );
+};
 
 /**
  * Creates a rack on the live Core whose Driver reports as running with the integration.
@@ -41,16 +63,23 @@ export const createRunningRack = async (
     name: uniqueName("rack"),
     integrations: [integration],
   });
-  await client.statuses.set(
-    status.create<typeof rack.statusDetailsZ>({
-      key: rack.statusKey(r.key),
-      name: r.name,
-      variant: "success",
-      message: "Driver is running",
-      details: { rack: r.key },
-    }),
-  );
+  await reportRackRunning(client, r);
   return r;
+};
+
+const HEARTBEAT_PERIOD = TimeSpan.seconds(1);
+
+/** Reports the rack as running at the rate of a Driver until the test ends. */
+export const startRackHeartbeat = async (
+  client: Synnax,
+  r: rack.Rack,
+): Promise<void> => {
+  await reportRackRunning(client, r);
+  const interval = setInterval(
+    () => void reportRackRunning(client, r),
+    HEARTBEAT_PERIOD.milliseconds,
+  );
+  onTestFinished(() => clearInterval(interval));
 };
 
 /**
@@ -170,17 +199,20 @@ interface DeviceFormFixtureProps extends PropsWithChildren {
   deviceKey: string;
   selectableKey?: string;
   channels?: unknown[];
+  mode?: Form.Mode;
 }
 
 const DeviceFormFixture = ({
   deviceKey,
   selectableKey,
   channels = [],
+  mode,
   children,
 }: DeviceFormFixtureProps): ReactElement => {
   const methods = Form.use({
     schema: deviceFormSchema,
     values: { config: { device: deviceKey, channels } },
+    mode,
   });
   return (
     <Form.Form<typeof deviceFormSchema> {...methods}>
@@ -195,7 +227,10 @@ const DeviceFormFixture = ({
 };
 DeviceFormFixture.displayName = "DeviceFormFixture";
 
-export interface RenderWithDeviceFormOptions {
+export interface RenderWithDeviceFormOptions extends Pick<
+  RenderOptions,
+  "onCaughtError"
+> {
   deviceKey: string;
   /**
    * When set, the fixture renders a "select device" button that writes this key into
@@ -204,6 +239,8 @@ export interface RenderWithDeviceFormOptions {
   selectableKey?: string;
   /** The form's config.channels. Defaults to none. */
   channels?: unknown[];
+  /** Renders the form read-only with "preview". Defaults to "normal". */
+  mode?: Form.Mode;
   client?: Synnax | null;
 }
 
@@ -214,18 +251,26 @@ export interface RenderWithDeviceFormOptions {
  */
 export const renderWithDeviceForm = async (
   ui: ReactElement,
-  { deviceKey, selectableKey, channels, client = null }: RenderWithDeviceFormOptions,
+  {
+    deviceKey,
+    selectableKey,
+    channels,
+    mode,
+    client = null,
+    onCaughtError,
+  }: RenderWithDeviceFormOptions,
 ): Promise<RenderResult & { store: TestStore }> => {
   const { wrapper, store } = await createConsoleWrapper({ client });
-  const rendered = render(
+  const rendered = await renderSuspended(
     <DeviceFormFixture
       deviceKey={deviceKey}
       selectableKey={selectableKey}
       channels={channels}
+      mode={mode}
     >
       {ui}
     </DeviceFormFixture>,
-    { wrapper },
+    { wrapper, onCaughtError },
   );
   return { ...rendered, store };
 };

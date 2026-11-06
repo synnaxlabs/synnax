@@ -256,7 +256,7 @@ class RangeLifecycle(ConsoleCase):
         plot_name = f"TestPlot_{self.rand_suffix}"
         plot = self.console.pages.create(Plot, plot_name)
         self._cleanup_pages.append(plot.page_name)
-        plot.add_channels("Y1", "sy_node_1_metrics_cpu_percentage")
+        plot.add_channels("y1", "sy_node_1_metrics_cpu_percentage")
         self.console.layout.hide_visualization_toolbar()
         self.console.ranges.toolbar.add_to_active_plot(self.range_name)
         self.console.layout.close_tab(plot_name)
@@ -518,7 +518,7 @@ class RangeLifecycle(ConsoleCase):
 
         self.console.ranges.overview.copy_python_code()
         notifications = self.console.notifications.check(timeout=10)
-        messages = [n.get("message", "") for n in notifications]
+        messages = [n.message for n in notifications]
         assert "Copied Python code to clipboard" in messages, (
             "Should show Python code copied notification"
         )
@@ -534,7 +534,7 @@ class RangeLifecycle(ConsoleCase):
 
         self.console.ranges.overview.copy_typescript_code()
         notifications = self.console.notifications.check(timeout=2)
-        messages = [n.get("message", "") for n in notifications]
+        messages = [n.message for n in notifications]
         assert "Copied TypeScript code to clipboard" in messages, (
             "Should show TypeScript code copied notification"
         )
@@ -550,7 +550,7 @@ class RangeLifecycle(ConsoleCase):
 
         self.console.ranges.overview.copy_link()
         notifications = self.console.notifications.check(timeout=2)
-        messages = [n.get("message", "") for n in notifications]
+        messages = [n.message for n in notifications]
         assert "Copied link to clipboard" in messages, (
             "Should show link copied notification"
         )

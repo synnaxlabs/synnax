@@ -9,77 +9,7 @@
 
 package v0
 
-import (
-	"slices"
-
-	"github.com/synnaxlabs/x/errors"
-)
-
-// Base returns the parts every text field encoding shares, or the zero BaseField when f
-// has no encoding.
-func (f TextField) Base() BaseField {
-	switch v := f.Variant.(type) {
-	case DelimitedTextField:
-		return v.BaseField
-	case TaggedTextField:
-		return v.BaseField
-	default:
-		return BaseField{}
-	}
-}
-
-// SetBase replaces the parts every text field encoding shares. It panics when f has no
-// encoding.
-func (f *TextField) SetBase(b BaseField) {
-	switch v := f.Variant.(type) {
-	case DelimitedTextField:
-		v.BaseField = b
-		f.Variant = v
-	case TaggedTextField:
-		v.BaseField = b
-		f.Variant = v
-	default:
-		panic(errors.Newf("text field has no encoding: %T", v))
-	}
-}
-
-// Base returns the parts every JSON field type shares, or the zero JSONBaseField when f
-// has no type.
-func (f JSONField) Base() JSONBaseField {
-	switch v := f.Variant.(type) {
-	case NumberJSONField:
-		return v.JSONBaseField
-	case StringJSONField:
-		return v.JSONBaseField
-	case BooleanJSONField:
-		return v.JSONBaseField
-	case TimestampJSONField:
-		return v.JSONBaseField
-	default:
-		return JSONBaseField{}
-	}
-}
-
-// SetBase replaces the parts every JSON field type shares. It panics when f has no
-// type.
-func (f *JSONField) SetBase(b JSONBaseField) {
-	switch v := f.Variant.(type) {
-	case NumberJSONField:
-		v.JSONBaseField = b
-		f.Variant = v
-	case StringJSONField:
-		v.JSONBaseField = b
-		f.Variant = v
-	case BooleanJSONField:
-		v.JSONBaseField = b
-		f.Variant = v
-	case TimestampJSONField:
-		v.JSONBaseField = b
-		f.Variant = v
-	default:
-		panic(errors.Newf("JSON field has no type: %T", v))
-	}
-}
+import "slices"
 
 // FieldBases returns the parts every field of p shares, in field order, with a zero
 // BaseField for a text field with no encoding or a JSON field with no type. It returns

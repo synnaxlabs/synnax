@@ -50,7 +50,7 @@ const createCore = () => {
     streamer,
     retrieveChannels: async (keys) => await core.retrieveChannels(keys),
     now: core.now,
-    readLatest: async (key, count, tr) => core.readLatest([key], count, tr).get(key),
+    readLatest: async (keys, count, tr) => core.readLatest(keys, count, tr),
   };
   return { core, props, close: async () => await streamer.close() };
 };

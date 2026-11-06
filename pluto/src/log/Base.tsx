@@ -9,6 +9,7 @@
 
 import "@/log/Log.css";
 
+import { clipboard } from "@synnaxlabs/lyra/clipboard";
 import { type Flex } from "@synnaxlabs/lyra/flex";
 import { useCombinedRefs } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -38,6 +39,22 @@ const TRIGGER_CONFIG: Triggers.ModeConfig<Mode> = {
 };
 
 const FLATTENED_TRIGGERS = Triggers.flattenConfig(TRIGGER_CONFIG);
+
+const toText = (lines: log.Line[]): string => lines.map((l) => l.text).join("\n");
+
+const toTextBlob = (lines: log.Line[]): Blob =>
+  new Blob([toText(lines)], { type: "text/plain" });
+
+const toHTMLBlob = (lines: log.Line[]): Blob => {
+  const body = lines.map((l) => {
+    const escaped = strings.escapeHTML(l.text);
+    if (l.color.length === 0) return escaped;
+    // Preserve color and font when pasting into rich text editors.
+    return `<span style="color: ${strings.escapeHTML(l.color)}">${escaped}</span>`;
+  });
+  const html = `<pre style="font-family: monospace">${body.join("\n")}</pre>`;
+  return new Blob([html], { type: "text/html" });
+};
 
 const EMPTY_CONTENT = (
   <Status.Summary center level="h3" variant="disabled" hideIcon>
@@ -70,10 +87,12 @@ export const Base = ({
   enableTriggers,
   hold,
   onHold,
+  position,
+  onLeave,
   children,
   ...rest
 }: BaseProps): ReactElement | null => {
-  const { state, setState } = use({
+  const { state, setState, methods } = use({
     aetherKey,
     font,
     visible,
@@ -85,16 +104,21 @@ export const Base = ({
     telem,
     hold,
     onHold,
+    position,
+    onLeave,
   });
 
   const {
     scrolling,
     empty,
-    selectedText,
-    selectedLines,
+    loading,
+    blank,
+    selectionStart,
+    selectionEnd,
     region,
     visibleStart,
     computedLineHeight,
+    rowEntries,
   } = state;
 
   const setHold = (hold: boolean) => {
@@ -112,7 +136,8 @@ export const Base = ({
     if (computedLineHeight <= 0) return 0;
     const localY = clientY - box.top(region);
     const lineIndex = Math.floor((localY - 6) / computedLineHeight);
-    return Math.max(0, visibleStart + lineIndex);
+    if (rowEntries.length === 0) return Math.max(0, visibleStart + lineIndex);
+    return rowEntries[Math.min(Math.max(0, lineIndex), rowEntries.length - 1)];
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -138,34 +163,30 @@ export const Base = ({
     draggingRef.current = false;
   };
 
-  const buildCopyHTML = (): string => {
-    const lines = selectedLines.map((l) => {
-      const escaped = strings.escapeHTML(l.text);
-      if (l.color.length === 0) return escaped;
-      // Preserve color and font when pasting into rich text editors.
-      return `<span style="color: ${strings.escapeHTML(l.color)}">${escaped}</span>`;
-    });
-    return `<pre style="font-family: monospace">${lines.join("\n")}</pre>`;
-  };
-
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
-  const notifyCopied = (count: number) =>
-    addStatus({
-      variant: "success",
-      message: `Copied ${count} ${count === 1 ? "line" : "lines"} to clipboard`,
-    });
 
+  // The worker formats the lines only now, so a large selection costs nothing until a
+  // copy. The write must start inside the user gesture, so the item holds promises. An
+  // insecure context has no ClipboardItem, so it copies plain text once the lines
+  // arrive, and a browser refuses that copy if the gesture has expired.
   const copyToClipboard = () => {
-    if (selectedText.length === 0) return;
-    const item = new ClipboardItem({
-      "text/html": new Blob([buildCopyHTML()], { type: "text/html" }),
-      "text/plain": new Blob([selectedText], { type: "text/plain" }),
-    });
-    const count = selectedLines.length;
+    const lines = methods.selectedLines();
     handleError(async () => {
-      await navigator.clipboard.write([item]);
-      notifyCopied(count);
+      if (typeof ClipboardItem === "undefined")
+        await clipboard.writeText(toText(await lines));
+      else
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            "text/html": lines.then(toHTMLBlob),
+            "text/plain": lines.then(toTextBlob),
+          }),
+        ]);
+      const { length } = await lines;
+      addStatus({
+        variant: "success",
+        message: `Copied ${length} ${length === 1 ? "line" : "lines"} to clipboard`,
+      });
     }, "Failed to copy to clipboard");
   };
 
@@ -182,18 +203,14 @@ export const Base = ({
           selectionEnd: log.SELECT_ALL_END,
         }));
       else if (mode === "clearSelection")
-        setState((s) => ({
-          ...s,
-          selectionStart: -1,
-          selectionEnd: -1,
-          selectedText: "",
-        }));
+        setState((s) => ({ ...s, selectionStart: -1, selectionEnd: -1 }));
       else if (mode === "togglePause") setHold(!scrolling);
     },
   });
 
   const { className: menuClassName, ...menuProps } = Menu.useContextMenu();
-  const hasSelection = selectedText.length > 0;
+  const hasSelection =
+    selectionStart >= 0 && selectionEnd >= 0 && rowEntries.length > 0;
 
   const handleMenuSelect = (key: string) => {
     if (key === "copy") copyToClipboard();
@@ -239,15 +256,24 @@ export const Base = ({
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onCopy={(e) => {
-          if (selectedText.length === 0) return;
+          if (!hasSelection) return;
           e.preventDefault();
-          e.clipboardData.setData("text/plain", selectedText);
-          e.clipboardData.setData("text/html", buildCopyHTML());
-          notifyCopied(selectedLines.length);
+          copyToClipboard();
         }}
         onContextMenu={menuProps.open}
         {...rest}
       >
+        {blank && (
+          <Status.Loading
+            aria-label="Loading entries"
+            className={CSS.BE("log", "blank")}
+          >
+            <Status.Orbital />
+          </Status.Loading>
+        )}
+        {loading && !blank && (
+          <Icon.Loading aria-label="Loading" className={CSS.BE("log", "loading")} />
+        )}
         {empty ? emptyContent : children}
       </div>
     </Menu.ContextMenu>

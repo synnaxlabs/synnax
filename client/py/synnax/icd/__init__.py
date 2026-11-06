@@ -35,6 +35,8 @@ from synnax.icd.types_gen import (
     TextPayload,
     TimeFormat,
     TimestampJSONField,
+    Where,
+    WhereInput,
     ontology_id,
 )
 
@@ -68,5 +70,7 @@ __all__ = [
     "TextPayload",
     "TimeFormat",
     "TimestampJSONField",
+    "Where",
+    "WhereInput",
     "ontology_id",
 ]

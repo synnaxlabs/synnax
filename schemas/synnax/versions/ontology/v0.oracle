@@ -8,36 +8,96 @@
 // included in the file licenses/APL.txt.
 
 ResourceType enum {
-    arc              = "arc"
-    builtin          = "builtin"
-    channel          = "channel"
-    device           = "device"
-    framer           = "framer"
-    group            = "group"
-    label            = "label"
-    lineplot         = "lineplot"
-    log              = "log"
-    node             = "node"
-    panel            = "panel"
-    policy           = "policy"
-    project          = "project"
-    rack             = "rack"
-    range            = "range"
-    range_alias      = "range-alias"
-    role             = "role"
-    schematic        = "schematic"
-    schematic_symbol = "schematic_symbol"
-    status           = "status"
-    table            = "table"
-    task             = "task"
-    user             = "user"
-    view             = "view"
-    icd              = "icd"
+    arc              = "arc" {
+        @doc value "identifies an Arc module."
+    }
+    builtin          = "builtin" {
+        @doc value "identifies a resource that the Core defines."
+    }
+    channel          = "channel" {
+        @doc value "identifies a channel."
+    }
+    device           = "device" {
+        @doc value "identifies a device."
+    }
+    framer           = "framer" {
+        @doc value "identifies the telemetry of a channel."
+    }
+    group            = "group" {
+        @doc value "identifies a group of resources."
+    }
+    label            = "label" {
+        @doc value "identifies a label."
+    }
+    lineplot         = "lineplot" {
+        @doc value "identifies a line plot."
+    }
+    log              = "log" {
+        @doc value "identifies a log."
+    }
+    node             = "node" {
+        @doc value "identifies a node of a cluster."
+    }
+    panel            = "panel" {
+        @doc value "identifies a panel."
+    }
+    policy           = "policy" {
+        @doc value "identifies an access control policy."
+    }
+    project          = "project" {
+        @doc value "identifies a project."
+    }
+    rack             = "rack" {
+        @doc value "identifies a rack."
+    }
+    range            = "range" {
+        @doc value "identifies a range."
+    }
+    range_alias      = "range-alias" {
+        @doc value "identifies an alias of a channel on a range."
+    }
+    role             = "role" {
+        @doc value "identifies an access control role."
+    }
+    schematic        = "schematic" {
+        @doc value "identifies a schematic."
+    }
+    schematic_symbol = "schematic_symbol" {
+        @doc value "identifies a schematic symbol."
+    }
+    status           = "status" {
+        @doc value "identifies a status."
+    }
+    table            = "table" {
+        @doc value "identifies a table."
+    }
+    task             = "task" {
+        @doc value "identifies a task."
+    }
+    user             = "user" {
+        @doc value "identifies a user."
+    }
+    view             = "view" {
+        @doc value "identifies a view."
+    }
+    ethercat_master  = "ethercat_master"
+    ethercat_slave   = "ethercat_slave"
+    http_server      = "http_server"
+    labjack_device   = "labjack_device"
+    modbus_server    = "modbus_server"
+    ni_chassis       = "ni_chassis"
+    ni_device        = "ni_device"
+    opcua_server     = "opcua_server"
+    arc_directory    = "arc_directory"
+    icd              = "icd" {
+        @doc value "identifies an interface control document."
+    }
 
     @doc value "is the type of the resource."
 }
 
 RelationshipType string {
+    @doc value "is the kind of link between two resources."
     @go hand
 }
 

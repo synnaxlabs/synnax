@@ -61,6 +61,9 @@ on:
         required: false
         type: boolean
         default: false
+    secrets:
+      CODECOV_TOKEN:
+        required: false
   workflow_dispatch:
     inputs: *inputs
 
@@ -84,7 +87,7 @@ jobs:
         goos: [linux, windows, darwin]
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       # The Ubuntu image ships toolchains lint never uses, and the restored cache plus a
       # compile overflows the disk they leave free.
@@ -95,7 +98,7 @@ jobs:
           df -h /
 
       - name: Set up Go
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: ${{ inputs.directory }}/go.mod
           cache: false
@@ -120,7 +123,7 @@ jobs:
       # cache of the module.
       - name: Restore the Go caches
         id: cache
-        uses: actions/cache/restore@v6
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: &lint-cache |
             ~/.cache/go-build
@@ -132,10 +135,12 @@ jobs:
             ${{ steps.key.outputs.module }}
 
       - name: Download the Go modules
-        run: .github/scripts/go_mod_download.sh ${{ inputs.directory }}
+        env:
+          DIRECTORY: ${{ inputs.directory }}
+        run: .github/scripts/go_mod_download.sh "$DIRECTORY"
 
       - name: Build the custom golangci-lint binary
-        uses: golangci/golangci-lint-action@v9
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9
         with:
           version: v2.15.0
           working-directory: ${{ inputs.directory }}
@@ -173,7 +178,7 @@ jobs:
       # passing lint on main saves.
       - name: Save the Go caches
         if: ${{ success() && github.ref == 'refs/heads/main' }}
-        uses: actions/cache/save@v6
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: *lint-cache
           key: ${{ steps.cache.outputs.cache-primary-key }}
@@ -208,7 +213,7 @@ jobs:
           exit 1
 
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       # Go keeps its caches and build scratch on the OS disk (C:), whose ~14GB of
       # free space a --race --cover build of a large module overflows. RUNNER_TEMP
@@ -234,7 +239,7 @@ jobs:
           df -h /
 
       - name: Set up Go
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: ${{ inputs.directory }}/go.mod
           cache: false
@@ -262,7 +267,7 @@ jobs:
       # cache of the module.
       - name: Restore the Go caches
         id: cache
-        uses: actions/cache/restore@v6
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: |
             ${{ steps.key.outputs.build }}
@@ -274,7 +279,9 @@ jobs:
 
       - name: Download the Go modules
         shell: bash
-        run: .github/scripts/go_mod_download.sh ${{ inputs.directory }}
+        env:
+          DIRECTORY: ${{ inputs.directory }}
+        run: .github/scripts/go_mod_download.sh "$DIRECTORY"
 
       - name: Install stringer
         if: matrix.codegen
@@ -288,14 +295,19 @@ jobs:
 
       - name: Verify `go generate` is up to date
         if: matrix.codegen
-        run: scripts/check_go_generate.sh ${{ inputs.directory }}
+        env:
+          DIRECTORY: ${{ inputs.directory }}
+        run: scripts/check_go_generate.sh "$DIRECTORY"
 
       # go test reuses a result only while each file the test read keeps its
       # modification time, which a checkout resets. Runs after go generate, which
       # rewrites files.
       - name: Pin the modification times
         if: inputs.cached
-        run: python3 -I .github/scripts/pin_mtimes.py ${{ inputs.directory }}
+        shell: bash
+        env:
+          DIRECTORY: ${{ inputs.directory }}
+        run: python3 -I .github/scripts/pin_mtimes.py "$DIRECTORY"
 
       # macOS skips race and cover until it runs on stronger machines.
       - name: Test
@@ -324,9 +336,11 @@ jobs:
         run: |
           suites=$(go list -f "$SUITE" ./... |
             awk -v n="$SHARDS" -v s="$SHARD" 'NF && ++i % n == s % n')
-          # shellcheck disable=SC2086 # Splits the flags and suites into arguments.
-          go run github.com/onsi/ginkgo/v2/ginkgo $FLAGS --randomize-suites \
-            --fail-on-empty --keep-going --trace --timeout=2h --github-output $suites
+          read -ra flags <<< "$FLAGS"
+          read -ra suites <<< "${suites//$'\n'/ }"
+          go run github.com/onsi/ginkgo/v2/ginkgo "${flags[@]}" --randomize-suites \
+            --fail-on-empty --keep-going --trace --timeout=2h --github-output \
+            "${suites[@]}"
         working-directory: ${{ inputs.directory }}
 
       # Each save holds every entry it restored, so stale builds pile up until their
@@ -355,7 +369,7 @@ jobs:
       # saves.
       - name: Save the Go caches
         if: ${{ !cancelled() && github.ref == 'refs/heads/main' && matrix.shard == 1 }}
-        uses: actions/cache/save@v6
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: |
             ${{ steps.key.outputs.build }}
@@ -364,7 +378,9 @@ jobs:
 
       - name: Upload coverage
         if: runner.os != 'macOS'
-        uses: codecov/codecov-action@v7
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7
+        env:
+          CURL_HOME: ${{ github.workspace }}/.github/codecov
         with:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}

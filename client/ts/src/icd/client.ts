@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, errors, primitive, zod } from "@synnaxlabs/x";
+import { array, type destructor, errors, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
@@ -20,21 +20,30 @@ import {
   scopedActionZ,
   set,
 } from "@/icd/actions.gen";
-import { type ICD, icdZ, type Key, keyZ, type New, ontologyID } from "@/icd/types.gen";
+import {
+  type ICD,
+  icdZ,
+  type Key,
+  keyZ,
+  type New,
+  ontologyID,
+  type RetrieveRequest,
+  retrieveRequestZ,
+  retrieveResponseZ,
+} from "@/icd/types.gen";
+import { matches, retrieveInputZ, serverComputed } from "@/icd/where.gen";
 import { type ontology } from "@/ontology";
 import { query } from "@/query";
 
 export const ACTION_CHANNEL_NAME = "sy_icd_action_set";
 export const DELETE_CHANNEL_NAME = "sy_icd_delete";
 
-const retrieveReqZ = z.object({
-  keys: keyZ.array().optional(),
-  searchTerm: z.string().optional(),
-  offset: z.int().optional(),
-  limit: z.int().optional(),
-});
-const retrieveMultiParamsZ = retrieveReqZ.or(query.keyListZ(keyZ));
-export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
+const retrieveMultiParamsZ = z.union([
+  query.keysRequestZ(keyZ),
+  retrieveRequestZ,
+  retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+]);
+export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 
 const createReqZ = z.object({ icds: icdZ.array(), dispatchKey: z.string() });
 const createResZ = z.object({ icds: icdZ.array() });
@@ -53,7 +62,6 @@ export interface Problem extends z.infer<typeof problemZ> {}
 const checkReqZ = z.object({ icd: icdZ });
 const checkResZ = z.object({ problems: problemZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
-const retrieveResZ = z.object({ icds: icdZ.array().default(() => []) });
 const emptyResZ = z.object({});
 
 /** The file formats an interface control document is imported from. */
@@ -80,15 +88,6 @@ const encodeBase64 = (data: Uint8Array): string => {
   return btoa(binary);
 };
 
-/**
- * Client-side matching for a request: key sets. Server-computed shapes (search,
- * limit/offset) never reach this filter; they refetch instead.
- */
-const requestFilter = (req: RetrieveRequest): ((i: ICD) => boolean) => {
-  const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
-  return (i) => keySet == null || keySet.has(i.key);
-};
-
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
@@ -104,7 +103,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, IC
     const { cache } = cfg;
     const store = cache.createTable<Key, ICD>({
       name: "icds",
-      fetch: async (keys) => await this.execRetrieve({ keys }),
+      fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
       listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
     });
     // Every write to an ICD reaches the client as actions.
@@ -124,7 +123,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, IC
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
-        matches: (icd, req) => requestFilter(req)(icd),
+        matches: (icd, req) => matches(icd, req.where),
+        serverComputed: (req) => serverComputed(req.where),
       },
     });
     this.cfg = cfg;
@@ -279,8 +279,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, IC
     const res = await this.cfg.unary.send(
       "/icd/retrieve",
       req,
-      retrieveReqZ,
-      retrieveResZ,
+      retrieveRequestZ,
+      retrieveResponseZ,
     );
     return res.icds;
   }

@@ -75,8 +75,8 @@ private:
     std::string der_bytes;
     std::string subject_name;
     std::string uri;
-    x::telem::TimeStamp valid_from{};
-    x::telem::TimeStamp valid_to{};
+    x::telem::TimeStamp valid_from;
+    x::telem::TimeStamp valid_to;
 };
 
 /// @brief a certificate and the private key that signs for it.

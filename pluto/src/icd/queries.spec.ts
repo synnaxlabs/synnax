@@ -51,7 +51,7 @@ describe("ICD queries", () => {
     it("should list ICDs by key", async () => {
       const [a, b] = await Promise.all([createICD(), createICD()]);
       const { result } = renderHook(() => ICD.useList(), { wrapper });
-      act(() => result.current.retrieve({ keys: [a.key, b.key] }));
+      act(() => result.current.retrieve({ where: { key: { in: [a.key, b.key] } } }));
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect([...result.current.data].sort()).toEqual([a.key, b.key].sort());
     });

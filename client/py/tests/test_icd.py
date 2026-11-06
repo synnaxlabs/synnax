@@ -281,8 +281,7 @@ class TestICD:
         icds = client.icds.create([create_icd("A"), create_icd("B")])
         keys = [ic.key for ic in icds]
         client.icds.delete(keys)
-        with pytest.raises(sy.NotFoundError):
-            client.icds.retrieve(keys=keys)
+        assert client.icds.retrieve(keys=keys) == []
 
     def test_import_dbc(self, client: sy.Synnax) -> None:
         """Should import the messages of a DBC file."""
