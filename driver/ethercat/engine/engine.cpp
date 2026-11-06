@@ -19,6 +19,7 @@
 
 #include "driver/ethercat/engine/clock.h"
 #include "driver/ethercat/engine/engine.h"
+#include "driver/ethercat/engine/phase_lock.h"
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/telem/telem.h"
 
@@ -206,6 +207,8 @@ void Engine::run() {
     std::shared_ptr<const Schedule> sched;
     uint64_t version = 0;
     x::loop::Timer timer;
+    std::optional<PhaseLock> phase;
+    uint64_t late_frames = 0;
     uint64_t receive_failures = 0;
     uint64_t send_failures = 0;
     x::telem::TimeStamp sent_at{};
@@ -240,6 +243,7 @@ void Engine::run() {
                           << sched->rate;
                 this->apply_rt(sched->rate.period());
                 timer = x::loop::Timer(sched->rate.period());
+                phase.emplace(sched->rate.period(), master::DC_EPOCH);
                 // Moves each reader's next sample to the first cycle at or after the
                 // time it was due.
                 if (prev > x::telem::Rate(0))
@@ -259,12 +263,21 @@ void Engine::run() {
         // The slaves latched these inputs when the previous cycle's frame passed.
         auto latched_at = sent_at;
         const auto err = this->master->receive();
+        const bool starting = this->starting.load(std::memory_order_acquire);
+        const bool short_count = err.matches(errors::WORKING_COUNTER_ERROR);
         // The working counter falls short until the slaves reach OP.
-        const bool shortfall = this->starting.load(std::memory_order_acquire) &&
-                               err.matches(errors::WORKING_COUNTER_ERROR);
+        const bool shortfall = starting && short_count;
+        // A frame with a short working counter still carries the DC time.
+        const auto dc = (!err || short_count) ? this->master->dc_time() : std::nullopt;
+        if (dc && phase) {
+            timer.shift(phase->update(*dc));
+            if (!starting && !phase->locked() && late_frames++ == 0)
+                LOG(WARNING) << "[ethercat] cycles on " << iface
+                             << " run late: a frame passed the reference clock within "
+                                "a quarter period of SYNC0";
+        }
         if (!err) {
-            if (const auto dc = this->master->dc_time())
-                latched_at = clock.map(*dc, sent_at);
+            if (dc) latched_at = clock.map(*dc, sent_at);
             if (receive_failures > 0) {
                 LOG(INFO) << "[ethercat] cycles recovered on " << iface << " after "
                           << receive_failures << " failures";
@@ -298,6 +311,9 @@ void Engine::run() {
     if (const auto err = this->master->receive())
         LOG(WARNING) << "[ethercat] last cycle failed on " << iface << ": "
                      << err.message();
+    if (late_frames > 0)
+        LOG(WARNING) << "[ethercat] " << late_frames << " frames on " << iface
+                     << " passed the reference clock within a quarter period of SYNC0";
     LOG(INFO) << "[ethercat] bus stopped on " << iface;
 }
 
