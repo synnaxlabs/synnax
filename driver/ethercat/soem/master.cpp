@@ -337,6 +337,12 @@ x::errors::Error Master::activate(
         }
     }
 
+    // Demo: some slaves stop updating inputs after the SDO information reads of
+    // discovery until they pass through INIT.
+    if (auto err = this->request_state(EC_STATE_INIT, STATE_CHANGE_TIMEOUT)) return err;
+    if (auto err = this->request_state(EC_STATE_PRE_OP, STATE_CHANGE_TIMEOUT))
+        return err;
+    LOG(INFO) << "[ethercat] took the enabled slaves through INIT before mapping";
     if (const auto err = this->clear_dc_activation()) return err;
 
     // The master requests SAFE-OP itself, after it sets up the DC sync of the slaves.
