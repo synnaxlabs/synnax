@@ -13,17 +13,23 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Telem } from "@synnaxlabs/pluto";
 import { DataType } from "@synnaxlabs/x";
 import { useState } from "react";
 
 import {
+  mergeStartupParameters,
+  parseStartupCommands,
+} from "@/feature/ethercat/device/esi";
+import {
   useSlave,
   useUpdateStartupParameters,
 } from "@/feature/ethercat/device/queries";
 import { formatIndex, type StartupParameter } from "@/feature/ethercat/device/types";
 import { Modals } from "@/platform/modals";
+import { Runtime } from "@/platform/runtime";
 import { Triggers } from "@/platform/triggers";
 
 const SUPPORTED_DATA_TYPES = [
@@ -53,6 +59,8 @@ const toRows = (params: StartupParameter[]): Input.TableCell[][] =>
     value,
     name,
   ]);
+
+const IMPORT_LABEL = "Import ESI file";
 
 const createRow = (): Input.TableCell[] => ["", 0, DataType.UINT8.toString(), 0, ""];
 
@@ -88,6 +96,28 @@ const StartupParameters = ({
   const slave = useSlave({ key: deviceKey });
   const [rows, setRows] = useState(() => toRows(slave.properties.startupParameters));
   const [error, setError] = useState<string | null>(null);
+  const [imported, setImported] = useState<string | null>(null);
+  const handleError = Status.useErrorHandler();
+  const handleImport = () =>
+    handleError(async () => {
+      const file = await Runtime.pickFiles({ title: IMPORT_LABEL, extension: "xml" });
+      if (file == null) return;
+      const xml = new TextDecoder().decode(await Runtime.toBytes(await file.read()));
+      const parsed = parseRows(rows);
+      if (typeof parsed === "string") return setError(parsed);
+      const { device, parameters, skipped } = parseStartupCommands(
+        xml,
+        slave.properties,
+      );
+      setError(null);
+      setRows(toRows(mergeStartupParameters(parsed, parameters)));
+      const skippedNote =
+        skipped > 0 ? ` Skipped ${skipped} that the Driver cannot write.` : "";
+      setImported(
+        `Imported ${parameters.length} startup commands for ${device} from ` +
+          `${file.path}.${skippedNote}`,
+      );
+    }, "Failed to import the ESI file");
   const { update, variant } = useUpdateStartupParameters({
     afterSuccess: () => close(),
   });
@@ -126,9 +156,16 @@ const StartupParameters = ({
             {(p) => <Input.Text {...p} placeholder="Filter settings" />}
           </Input.TableColumn>
         </Input.Table>
+        {imported != null && <Text.Text color={9}>{imported}</Text.Text>}
         {error != null && <Text.Text status="error">{error}</Text.Text>}
       </Modal.Body>
       <Modal.Footer>
+        <Nav.Bar.Start>
+          <Button.Button onClick={handleImport} variant="text">
+            <Icon.Import />
+            {IMPORT_LABEL}
+          </Button.Button>
+        </Nav.Bar.Start>
         <Nav.Bar.End>
           <Button.Button
             status={status.keepVariants(variant, "loading")}
