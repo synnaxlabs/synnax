@@ -308,6 +308,15 @@ export const createList = <
     const clearPages = () => closePages(() => true);
     useEffect(() => clearPages, [clearPages]);
 
+    // An answer that arrives after unmount would open a feed that nothing closes.
+    const mountedRef = useRef(false);
+    useEffect(() => {
+      mountedRef.current = true;
+      return () => {
+        mountedRef.current = false;
+      };
+    }, []);
+
     const clearItemSubs = () => {
       itemSubsRef.current.forEach((unsub) => unsub());
       itemSubsRef.current.clear();
@@ -386,7 +395,8 @@ export const createList = <
           client,
           query,
         });
-        if (signal?.aborted || queryRef.current !== query) return false;
+        if (signal?.aborted || queryRef.current !== query || !mountedRef.current)
+          return false;
         value = value.filter(filterRef.current);
         if (sortRef.current != null) value = [...value].sort(sortRef.current);
 
@@ -413,7 +423,8 @@ export const createList = <
       try {
         return await apply();
       } catch (error) {
-        if (signal?.aborted || queryRef.current !== query) return false;
+        if (signal?.aborted || queryRef.current !== query || !mountedRef.current)
+          return false;
         setResult(errorResult(`retrieve ${name}`, error));
         return false;
       }
@@ -493,7 +504,7 @@ export const createList = <
           key,
           query: queryRef.current ?? {},
         });
-        if (signal?.aborted || item == null) return;
+        if (signal?.aborted || item == null || !mountedRef.current) return;
         openItemSub(key);
         if (!filterRef.current(item)) {
           dataRef.current.set(key, null);
@@ -505,7 +516,7 @@ export const createList = <
       try {
         await apply();
       } catch (error) {
-        if (signal?.aborted) return;
+        if (signal?.aborted || !mountedRef.current) return;
         dataRef.current.set(key, null);
         setResult(errorResult(`retrieve ${name}`, error));
       }
