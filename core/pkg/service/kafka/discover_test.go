@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	"github.com/synnaxlabs/x/errors"
 	xjson "github.com/synnaxlabs/x/json"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -41,6 +40,7 @@ type browsedTopic struct {
 	Newest     telem.TimeStamp `json:"newest"`
 	Format     driver.Format   `json:"format"`
 	Readable   bool            `json:"readable"`
+	Error      string          `json:"error"`
 }
 
 // sampledTopic is one topic of the data that answers a sample.
@@ -156,6 +156,48 @@ var _ = Describe("Discover", func() {
 				t := named(browse(ctx, clusterProperties()), topic)
 				Expect(t.Format).To(Equal(driver.FormatJSON))
 				Expect(t.Newest).ToNot(BeZero())
+			},
+		)
+
+		It("Should report a topic whose newest record does not arrive in time",
+			func(ctx SpecContext) {
+				topic := uniqueTopic()
+				slow := newSlowCluster(ctx, topic)
+				t := named(
+					browse(ctx, kafka.Properties{Brokers: slow.ListenAddrs()}),
+					topic,
+				)
+				Expect(t.Records).To(Equal(int64(1)))
+				Expect(t.Format).To(BeEmpty())
+				Expect(t.Error).
+					To(Equal("The cluster did not send every record within 3s."))
+			},
+		)
+
+		It("Should read the newest record of more than 1,000 partitions",
+			func(ctx SpecContext) {
+				wide := MustSucceed(kfake.NewCluster(
+					kfake.NumBrokers(1),
+					kfake.SeedTopics(1000, "a"),
+					kfake.SeedTopics(1, "b"),
+				))
+				DeferCleanup(wide.Close)
+				cl := newKafkaClient(
+					kgo.SeedBrokers(wide.ListenAddrs()...),
+					kgo.RecordPartitioner(kgo.ManualPartitioner()),
+				)
+				records := make([]*kgo.Record, 0, 1001)
+				for p := range int32(1000) {
+					records = append(
+						records,
+						&kgo.Record{Topic: "a", Partition: p, Value: []byte("1")},
+					)
+				}
+				records = append(records, &kgo.Record{Topic: "b", Value: []byte("1")})
+				Expect(cl.ProduceSync(ctx, records...).FirstErr()).To(Succeed())
+				topics := browse(ctx, kafka.Properties{Brokers: wide.ListenAddrs()})
+				Expect(named(topics, "b").Format).To(Equal(driver.FormatJSON))
+				Expect(named(topics, "b").Error).To(BeEmpty())
 			},
 		)
 
@@ -335,25 +377,7 @@ var _ = Describe("Discover", func() {
 		It("Should report a topic whose records do not arrive in time",
 			func(ctx SpecContext) {
 				topic := uniqueTopic()
-				slow := MustSucceed(kfake.NewCluster(
-					kfake.NumBrokers(1),
-					kfake.SeedTopics(1, topic),
-				))
-				DeferCleanup(slow.Close)
-				produceJSON(
-					ctx,
-					newKafkaClient(kgo.SeedBrokers(slow.ListenAddrs()...)),
-					topic,
-					"",
-					map[string]int{"v": 1},
-				)
-				slow.ControlKey(
-					int16(kmsg.Fetch),
-					func(kmsg.Request) (kmsg.Response, error, bool) {
-						slow.KeepControl()
-						return nil, errors.New("fetch cut"), true
-					},
-				)
+				slow := newSlowCluster(ctx, topic)
 				var res struct {
 					Topics []sampledTopic `json:"topics"`
 				}

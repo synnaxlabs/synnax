@@ -33,11 +33,9 @@ const (
 	// fetchMaxWait is the longest that a broker holds a fetch with no new records.
 	fetchMaxWait = 250 * time.Millisecond
 	// rateWindow is the time over which a browse measures the rate of a topic.
-	rateWindow = time.Minute
-	// browsePartitionLimit is the most partitions whose newest record a browse reads.
-	browsePartitionLimit = 1000
-	defaultSampleCount   = 100
-	maxSampleCount       = 1000
+	rateWindow         = time.Minute
+	defaultSampleCount = 100
+	maxSampleCount     = 1000
 	// sampleWindows is the most windows, spread back in time, that a sample reads from
 	// one partition.
 	sampleWindows = 3
@@ -78,6 +76,9 @@ type browsedTopic struct {
 	Format driver.Format `json:"format,omitempty" msgpack:"format,omitempty"`
 	// Readable is false when the cluster does not let the client read the topic.
 	Readable bool `json:"readable" msgpack:"readable"`
+	// Error says why the browse could not read the newest record of each partition of
+	// the topic. Empty when it read them.
+	Error string `json:"error" msgpack:"error"`
 }
 
 // browseResult is the data that answers a browse.
@@ -158,7 +159,7 @@ func browseTopics(ctx context.Context, props Properties) ([]browsedTopic, error)
 			t.Rate += float64(end.Offset-after.Offset) / rateWindow.Seconds()
 			// In a topic written in transactions, the last offset holds the control
 			// record that commits the newest records.
-			if end.Offset > start.Offset && len(newest) < browsePartitionLimit {
+			if end.Offset > start.Offset {
 				newest = append(newest, fetchRange{
 					topic:     end.Topic,
 					partition: end.Partition,
@@ -171,13 +172,17 @@ func browseTopics(ctx context.Context, props Properties) ([]browsedTopic, error)
 			t.Compacted = compacted(rc)
 		}
 	}
-	if _, err := fetch(ctx, props, newest, func(r *kgo.Record) {
+	errs, err := fetch(ctx, props, newest, func(r *kgo.Record) {
 		t := &topics[index[r.Topic]]
 		if ts := telem.NewTimeStamp(r.Timestamp); ts > t.Newest {
 			t.Newest, t.Format = ts, formatOf(r.Value)
 		}
-	}); err != nil {
+	})
+	if err != nil {
 		return nil, err
+	}
+	for topic, err := range errs {
+		topics[index[topic]].Error = err.Error()
 	}
 	return topics, nil
 }

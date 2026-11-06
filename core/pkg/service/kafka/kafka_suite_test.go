@@ -286,6 +286,23 @@ func produceInTransaction(ctx context.Context, topic string, count int) {
 	Expect(cl.EndTransaction(ctx, kgo.TryCommit)).To(Succeed())
 }
 
+// newSlowCluster starts a cluster that holds topic with one record and drops every
+// fetch.
+func newSlowCluster(ctx context.Context, topic string) *kfake.Cluster {
+	GinkgoHelper()
+	slow := MustSucceed(
+		kfake.NewCluster(kfake.NumBrokers(1), kfake.SeedTopics(1, topic)),
+	)
+	DeferCleanup(slow.Close)
+	cl := newKafkaClient(kgo.SeedBrokers(slow.ListenAddrs()...))
+	produceJSON(ctx, cl, topic, "", map[string]int{"v": 1})
+	slow.ControlKey(int16(kmsg.Fetch), func(kmsg.Request) (kmsg.Response, error, bool) {
+		slow.KeepControl()
+		return nil, errors.New("fetch cut"), true
+	})
+	return slow
+}
+
 // stepsOf returns the steps of the connection test that stat answers.
 func stepsOf(stat task.Status) []task.TestStep {
 	GinkgoHelper()

@@ -35,6 +35,11 @@ export const topicZ = z.object({
   format: formatZ.optional(),
   /** readable is false when the cluster does not let the Core read the topic. */
   readable: z.boolean(),
+  /**
+   * error says why the browse could not read the newest record of each partition of the
+   * topic. Empty when it read them.
+   */
+  error: z.string(),
 });
 
 export interface Topic extends z.infer<typeof topicZ> {}
