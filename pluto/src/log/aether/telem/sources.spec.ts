@@ -1101,6 +1101,33 @@ describe("StreamMultiChannelLog", () => {
       expect(log.exhausted).toBe(true);
     });
 
+    it("should not be exhausted while stored samples wait for their times", async () => {
+      const core = createCore();
+      const [a] = core.data.map((c) => c.key);
+      const { promise: released, resolve: release } = Promise.withResolvers<void>();
+      let calls = 0;
+      const client = connect(core, {
+        readLatest: async (keys, count, tr) => {
+          calls++;
+          if (keys.includes(a))
+            return core.readLatest(
+              keys.filter((key) => key !== core.index.key),
+              count,
+              tr,
+            );
+          await released;
+          return core.readLatest(keys, count, tr);
+        },
+      });
+      const log = open(core, client, { channels: [a] });
+      log.value();
+      await expect.poll(() => calls, POLL).toBe(2);
+      expect(log.exhausted).toBe(false);
+      release();
+      await settle(log, HISTORY);
+      expect(log.exhausted).toBe(true);
+    });
+
     it("should not be exhausted while older samples are stored", async () => {
       const core = deep();
       const [a] = core.data.map((c) => c.key);

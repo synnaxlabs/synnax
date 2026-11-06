@@ -244,7 +244,9 @@ export class StreamMultiChannelLog
   /** Whether the entries hold the oldest stored sample of each channel. */
   get exhausted(): boolean {
     const metas = [...this.metas.values()];
-    return metas.length > 0 && metas.every(({ exhausted }) => exhausted);
+    return (
+      metas.length > 0 && metas.every((m) => m.exhausted && m.pending.length === 0)
+    );
   }
 
   /** Whether the entries end at the newest samples, so that new samples join them. */
