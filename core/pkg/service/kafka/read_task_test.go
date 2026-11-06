@@ -437,9 +437,11 @@ var _ = Describe("Read task", func() {
 			index, data := createIndexed(ctx, telem.Float64T)
 			dev := createDevice(ctx, clusterProperties())
 			topic := newTopic()
+			group := "group-" + topic
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device:  dev.Key,
 				Topic:   topic,
+				Group:   group,
 				Records: single(stampedFields(index, data)),
 			})
 			start(ctx, dt, t)
@@ -455,6 +457,9 @@ var _ = Describe("Read task", func() {
 			release()
 			Eventually(stopped).WithTimeout(15 * time.Second).Should(Receive(Succeed()))
 			Expect(floats(stored(ctx, data.Key()))).To(Equal([]float64{2.5}))
+			res := MustSucceed(kadm.NewClient(producer).
+				FetchOffsetsForTopics(ctx, group, topic))
+			Expect(MustBeOk(res.Lookup(topic, 0)).At).To(Equal(int64(1)))
 		},
 	)
 
