@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import math
 import re
 from typing import override
 
@@ -109,6 +110,11 @@ def _parse_channel(v: object) -> int:
     return int(v)
 
 
+def _round(v: float) -> int:
+    """Round a non-negative value half away from zero, as Go, TypeScript and C++ do."""
+    return math.floor(v + 0.5)
+
+
 def _legacy_alpha(a: float) -> int:
     """Convert a legacy alpha, written on the 0-1 scale, to a byte. Old Consoles wrote
     a 0-255 alpha into the same slot, so a value above 2 is taken as a byte. A value in
@@ -117,10 +123,10 @@ def _legacy_alpha(a: float) -> int:
     if not 0 <= a <= 255:
         raise ValueError(f"alpha {a} is outside the 0-255 range")
     if a <= 1:
-        return round(a * 255)
+        return _round(a * 255)
     if a <= 2:
         return 255
-    return round(a)
+    return _round(a)
 
 
 def _from_hex(s: str) -> dict[str, int]:
@@ -143,7 +149,7 @@ def _from_rgb(s: str) -> dict[str, int]:
     a = float(vals[3]) if len(vals) >= 4 else 1.0
     if not 0 <= a <= 1:
         raise ValueError(f"rgba alpha must be 0-1: {s}")
-    return {"r": r, "g": g, "b": b, "a": round(a * 255)}
+    return {"r": r, "g": g, "b": b, "a": _round(a * 255)}
 
 
 Crude = Color | str | list[int] | tuple[int, ...]

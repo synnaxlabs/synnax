@@ -156,6 +156,7 @@ var _ = Describe("Migrate functions", func() {
 		Entry(
 			"MigrateDummyToggleSymbolConfig",
 			func(ctx context.Context) *colorv2.Color {
+				GinkgoHelper()
 				return MustSucceed(v11.MigrateDummyToggleSymbolConfig(
 					ctx, v10.DummyToggleSymbolConfig{StrokeColor: half()},
 				)).StrokeColor

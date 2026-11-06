@@ -40,6 +40,8 @@ class TestColor:
             ({"r": 255, "g": 128, "b": 0}, (255, 128, 0, 255)),
             ("rgb(255, 0, 0)", (255, 0, 0, 255)),
             ("rgba(100, 200, 50, 0.5)", (100, 200, 50, 128)),
+            ("rgba(0, 0, 0, 0.3)", (0, 0, 0, 77)),
+            ("rgba(0, 0, 0, 0.7)", (0, 0, 0, 179)),
         ],
     )
     def test_parse(self, value: object, expected: tuple[int, int, int, int]) -> None:
