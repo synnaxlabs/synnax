@@ -938,6 +938,20 @@ describe("MQTT Scan Task", () => {
     expect(MQTT.Task.SCAN_SCHEMAS.statusData.parse(data)).toEqual(data);
   });
 
+  it("should accept the status data of a sample reply", () => {
+    const data = {
+      topics: [
+        {
+          topic: "plant/temp",
+          messages: [{ time: 0, format: "json", payload: "21.5", retained: false }],
+        },
+      ],
+      shapes: [],
+      truncated: false,
+    };
+    expect(z.validate(MQTT.Task.SCAN_SCHEMAS.statusData, data)).toBe(true);
+  });
+
   it("should reject a browse reply with no truncated flag", () => {
     expect(z.validate(MQTT.Task.SCAN_SCHEMAS.statusData, { topics: [] })).toBe(false);
   });
