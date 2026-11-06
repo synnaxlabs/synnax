@@ -109,7 +109,7 @@ class TestRetrieve:
 
     def test_raises_not_found_for_a_missing_single_id(self, client: sy.Synnax) -> None:
         """Should raise a NotFoundError when a single ID names no resource."""
-        with pytest.raises(sy.NotFoundError, match="Resource .* not found"):
+        with pytest.raises(sy.NotFoundError, match=r"Resource .* not found"):
             client.resources.retrieve(MISSING_LABEL)
 
 
