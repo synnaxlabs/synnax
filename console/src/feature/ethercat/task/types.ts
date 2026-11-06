@@ -177,6 +177,32 @@ export const createReadChannel = (channels: ReadChannel[]): ReadChannel => {
   });
 };
 
+/** @returns a read channel bound to an entry of the slave with the given key. */
+export const createEntryReadChannel = (
+  device: string,
+  { index, subIndex, dataType }: ethercat.PDOEntry,
+): EntryReadChannel =>
+  READ_CHANNEL_SCHEMAS.entry.parse({
+    type: "entry",
+    device,
+    index,
+    subIndex,
+    dataType,
+  });
+
+/** @returns a write channel bound to an entry of the slave with the given key. */
+export const createEntryWriteChannel = (
+  device: string,
+  { index, subIndex, dataType }: ethercat.PDOEntry,
+): EntryWriteChannel =>
+  WRITE_CHANNEL_SCHEMAS.entry.parse({
+    type: "entry",
+    device,
+    index,
+    subIndex,
+    dataType,
+  });
+
 /** Creates a new write channel, copying the slave of the last channel if available. */
 export const createWriteChannel = (channels: WriteChannel[]): WriteChannel => {
   const base = channels.length === 0 ? {} : channels[channels.length - 1];

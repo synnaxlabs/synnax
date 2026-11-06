@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, type rack, type Synnax, type task } from "@synnaxlabs/client";
+import {
+  channel,
+  type ethercat,
+  type rack,
+  type Synnax,
+  type task,
+} from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -17,7 +23,6 @@ import { type z } from "zod";
 import { EtherCAT } from "@/feature/ethercat";
 import {
   CONTROL_ENTRY,
-  createEntryWriteChannel,
   createIdentifier,
   createPDOs,
   createRepeatedNamePDOs,
@@ -94,7 +99,7 @@ describe("Write", () => {
     await renderWrite({
       ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
       channels: [
-        createEntryWriteChannel(slave.key, CONTROL_ENTRY),
+        EtherCAT.Task.createEntryWriteChannel(slave.key, CONTROL_ENTRY),
         createUnresolvedWriteChannel(slave.key, "Output"),
       ],
     });
@@ -107,7 +112,7 @@ describe("Write", () => {
     const { outputs } = createRepeatedNamePDOs();
     await renderWrite({
       ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
-      channels: [createEntryWriteChannel(slave.key, outputs[3])],
+      channels: [EtherCAT.Task.createEntryWriteChannel(slave.key, outputs[3])],
     });
     fireEvent.click(await screen.findByRole("option", { name: /0x7030:01/ }));
     expect(await screen.findByText("Channel 4 › Output · 0x7030:01")).toBeTruthy();
@@ -120,7 +125,7 @@ describe("Write", () => {
     const { outputs } = createRepeatedNamePDOs();
     const { container, draft } = await renderWrite({
       ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
-      channels: outputs.map((e) => createEntryWriteChannel(slave.key, e)),
+      channels: outputs.map((e) => EtherCAT.Task.createEntryWriteChannel(slave.key, e)),
     });
     const created = await deployAndAwaitTask(
       client,
@@ -165,8 +170,8 @@ describe("Write", () => {
     const { container, statuses } = await renderWrite({
       ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
       channels: [
-        createEntryWriteChannel(slave.key, outputs[3]),
-        createEntryWriteChannel(slave.key, outputs[3]),
+        EtherCAT.Task.createEntryWriteChannel(slave.key, outputs[3]),
+        EtherCAT.Task.createEntryWriteChannel(slave.key, outputs[3]),
       ],
     });
     await clickDeploy(container);
@@ -196,6 +201,31 @@ describe("Write", () => {
     );
   });
 
+  it("should add a channel for every unused output of a slave from the context menu", async () => {
+    const setpoint: ethercat.PDOEntry = {
+      name: "Setpoint",
+      index: 0x7000,
+      subIndex: 2,
+      bitLength: 16,
+      dataType: "int16",
+    };
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: { inputs: [], outputs: [CONTROL_ENTRY, setpoint] },
+    });
+    await renderWrite({
+      ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryWriteChannel(slave.key, CONTROL_ENTRY)],
+    });
+    fireEvent.contextMenu(await screen.findByRole("option", { name: /0x7000:01/ }));
+    fireEvent.click(await screen.findByText(`Add every output of ${slave.name}`));
+    await waitFor(() =>
+      expect(screen.getByRole("option", { name: /0x7000:02/ })).toBeTruthy(),
+    );
+    expect(screen.getAllByRole("option", { name: /0x7000:01/ })).toHaveLength(1);
+  });
+
   it("should create command and state channels, update the slave, and save the task", async () => {
     const identifier = createIdentifier();
     const slave = await createSlaveDevice(client, testRack.key, {
@@ -205,7 +235,7 @@ describe("Write", () => {
     });
     const { container, draft } = await renderWrite({
       ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
-      channels: [createEntryWriteChannel(slave.key, CONTROL_ENTRY)],
+      channels: [EtherCAT.Task.createEntryWriteChannel(slave.key, CONTROL_ENTRY)],
     });
     const created = await deployAndAwaitTask(
       client,
@@ -253,10 +283,11 @@ describe("Write", () => {
     const { container, draft } = await renderWrite({
       ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
       channels: [
-        createEntryWriteChannel(slave.key, CONTROL_ENTRY, {
+        {
+          ...EtherCAT.Task.createEntryWriteChannel(slave.key, CONTROL_ENTRY),
           cmdChannelName: cmdName,
           stateChannelName: stateName,
-        }),
+        },
       ],
     });
     const created = await deployAndAwaitTask(
@@ -280,7 +311,7 @@ describe("Write", () => {
     });
     const config = {
       ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
-      channels: [createEntryWriteChannel(slave.key, CONTROL_ENTRY)],
+      channels: [EtherCAT.Task.createEntryWriteChannel(slave.key, CONTROL_ENTRY)],
     };
     const first = await renderWrite(config);
     const firstTask = await deployAndAwaitTask(
@@ -312,7 +343,7 @@ describe("Write", () => {
     });
     const config = {
       ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
-      channels: [createEntryWriteChannel(slave.key, CONTROL_ENTRY)],
+      channels: [EtherCAT.Task.createEntryWriteChannel(slave.key, CONTROL_ENTRY)],
     };
     const first = await renderWrite(config);
     const firstTask = await deployAndAwaitTask(
@@ -352,8 +383,8 @@ describe("Write", () => {
     const { container, statuses } = await renderWrite({
       ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
       channels: [
-        createEntryWriteChannel(slaveA.key, CONTROL_ENTRY),
-        createEntryWriteChannel(slaveB.key, CONTROL_ENTRY),
+        EtherCAT.Task.createEntryWriteChannel(slaveA.key, CONTROL_ENTRY),
+        EtherCAT.Task.createEntryWriteChannel(slaveB.key, CONTROL_ENTRY),
       ],
     });
     await clickDeploy(container);
@@ -369,7 +400,7 @@ describe("Write", () => {
     });
     const { container, statuses } = await renderWrite({
       ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
-      channels: [createEntryWriteChannel(slave.key, CONTROL_ENTRY)],
+      channels: [EtherCAT.Task.createEntryWriteChannel(slave.key, CONTROL_ENTRY)],
     });
     await clickDeploy(container);
     await awaitStatus(statuses, /Failed to/);
@@ -395,7 +426,7 @@ describe("Write channel names", () => {
     });
     await renderWrite({
       ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
-      channels: [createEntryWriteChannel(slave.key, CONTROL_ENTRY)],
+      channels: [EtherCAT.Task.createEntryWriteChannel(slave.key, CONTROL_ENTRY)],
     });
     const base = channel.escapeInvalidName(`${identifier}_Control`);
     const item = await findChannelListItem(`${base}_cmd`);
