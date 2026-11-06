@@ -56,7 +56,7 @@ class LinePlot(ConsoleCase):
 
         plot = self.console.pages.create(Plot, f"Line Plot Test {suffix}")
         self._shared_plot_name = plot.page_name
-        plot.add_channels("Y1", data_name)
+        plot.add_channels("y1", data_name)
 
         # General
         self.test_set_line_thickness(plot)
@@ -133,10 +133,10 @@ class LinePlot(ConsoleCase):
         """Test adding a channel to Y2 axis."""
         self.log("Testing move channel between axes")
 
-        plot.add_channels("Y2", data_name)
+        plot.add_channels("y2", data_name)
 
-        assert data_name in plot.data["Y1"], f"Channel {data_name} should be on Y1"
-        assert data_name in plot.data["Y2"], f"Channel {data_name} should be on Y2"
+        assert data_name in plot.data["y1"], f"Channel {data_name} should be on Y1"
+        assert data_name in plot.data["y2"], f"Channel {data_name} should be on Y2"
 
     def test_set_line_thickness(self, plot: Plot) -> None:
         """Test adjusting line thickness via Lines tab."""
@@ -174,15 +174,15 @@ class LinePlot(ConsoleCase):
         the plot in its original state for downstream tests.
         """
         self.log("Testing undo/redo for add channel")
-        assert plot.has_channel("Y2", data_name), (
+        assert plot.has_channel("y2", data_name), (
             "Setup precondition: previous test should have added channel to Y2"
         )
         plot.undo()
-        assert not plot.has_channel("Y2", data_name), (
+        assert not plot.has_channel("y2", data_name), (
             f"Undo should remove {data_name} from Y2"
         )
         plot.redo()
-        assert plot.has_channel("Y2", data_name), (
+        assert plot.has_channel("y2", data_name), (
             f"Redo should re-add {data_name} to Y2"
         )
 
@@ -191,8 +191,8 @@ class LinePlot(ConsoleCase):
         self.log("Testing live data")
 
         live_channel = "line_plot_uptime"
-        plot.add_channels("Y1", live_channel)
-        assert live_channel in plot.data["Y1"], (
+        plot.add_channels("y1", live_channel)
+        assert live_channel in plot.data["y1"], (
             f"Channel {live_channel} should be on Y1"
         )
 
@@ -202,15 +202,15 @@ class LinePlot(ConsoleCase):
 
         channel = "line_plot_state"
         plot.drag_channel_to_canvas(channel, channels=self.console.channels)
-        assert channel in plot.data["Y1"], f"Channel {channel} should be on Y1"
+        assert channel in plot.data["y1"], f"Channel {channel} should be on Y1"
 
     def test_drag_channel_to_toolbar(self, plot: Plot) -> None:
         """Test dragging a channel from sidebar onto the toolbar data section."""
         self.log("Testing drag channel to toolbar")
 
         channel = "line_plot_time"
-        plot.drag_channel_to_toolbar(channel, channels=self.console.channels, axis="Y2")
-        assert channel in plot.data["Y2"], f"Channel {channel} should be on Y2"
+        plot.drag_channel_to_toolbar(channel, channels=self.console.channels, axis="y2")
+        assert channel in plot.data["y2"], f"Channel {channel} should be on Y2"
 
     def test_download_csv(self, plot: Plot, *, data_name: str) -> None:
         """Test downloading the plot data as a CSV file."""
@@ -305,13 +305,10 @@ class LinePlot(ConsoleCase):
         assert_envelope(
             exported, envelope_type="lineplot", min_version=1, name=plot.page_name
         )
-        channels = exported.get("channels")
-        assert isinstance(channels, dict), "Exported JSON should contain 'channels'"
-        y1_channels = channels.get("y1")
-        assert isinstance(y1_channels, list), "Channels should include 'y1' axis"
+        channels = sy.lineplot.Channels.model_validate(exported.get("channels"))
 
         data_channel = self.client.channels.retrieve(data_name)
-        assert data_channel.key in y1_channels, (
+        assert data_channel.key in channels.y1, (
             f"Y1 should contain channel key {data_channel.key}"
         )
 
@@ -369,7 +366,7 @@ class LinePlot(ConsoleCase):
         assert_envelope(
             exported, envelope_type="lineplot", min_version=1, name=self.ctx_plot_name
         )
-        assert "channels" in exported, "Exported JSON should contain 'channels'"
+        sy.lineplot.Channels.model_validate(exported.get("channels"))
 
         self.log("Testing rename plot via context menu")
         new_name = f"Renamed Plot {self.suffix}"
