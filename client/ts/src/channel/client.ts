@@ -45,8 +45,8 @@ import {
   retrieveRequestZ,
   statusZ,
 } from "@/channel/types.gen";
-import { LINES } from "@/channel/where";
-import { matches, serverComputed } from "@/channel/where.gen";
+import { LINES, serverComputed } from "@/channel/where";
+import { matches } from "@/channel/where.gen";
 import { type Writer } from "@/channel/writer";
 import { NotFoundError, ValidationError } from "@/errors";
 import { type framer } from "@/framer";
@@ -350,7 +350,11 @@ export class Client extends query.Retriever<
           : this.composeAlias(records[0].payload, query.rangeKey),
       keyOf: (query) => query.key,
       // Status-free fetches and the stream cache calculated channels with no status.
-      covers: (ch) => !ch.isCalculated || ch.status != null,
+      // No alias entry under the range means the alias may exist but was never fetched.
+      covers: (ch, { key, rangeKey }) =>
+        (!ch.isCalculated || ch.status != null) &&
+        (rangeKey == null ||
+          aliasStore.has(createKey({ range: rangeKey, channel: key }))),
       single: true,
       watch: [
         query.watch(aliasStore, (event, query: RetrieveSingleParams) => {
@@ -367,7 +371,7 @@ export class Client extends query.Retriever<
         schema: retrieveMultipleParamsZ,
         fetch: async (query) => await this.fetchRequest(query),
         matches: (ch, query) => matches(LINES, ch, query.where),
-        serverComputed: (query) => serverComputed(LINES, query.where),
+        serverComputed: (query) => serverComputed(query.where),
         watch: [
           query.watch(aliasStore, (event, query: RetrieveMultipleParams) => {
             if (query.rangeKey == null) return null;
