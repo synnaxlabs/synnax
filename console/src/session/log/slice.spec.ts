@@ -126,6 +126,15 @@ describe("Log Slice", () => {
       expect(docOf()?.position).toBe("42");
     });
 
+    it("should clear the position when the hold ends", () => {
+      act(() => {
+        store.dispatch(Log.create({ key: KEY, hold: true }));
+        store.dispatch(Log.setPosition({ key: KEY, position: "42" }));
+        store.dispatch(Log.setHold({ key: KEY, hold: false }));
+      });
+      expect(docOf()?.position).toBe("");
+    });
+
     it("should not bring back a removed log", () => {
       act(() => {
         store.dispatch(Log.create({ key: KEY }));

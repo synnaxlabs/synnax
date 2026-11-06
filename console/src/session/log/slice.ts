@@ -87,6 +87,7 @@ export const { actions, reducer } = createSlice({
     setHold: withSelectedState<SetHoldPayload, SliceState>(
       (state, { payload: { hold } }) => {
         state.hold = hold ?? !state.hold;
+        if (!state.hold) state.position = "";
       },
     ),
     // A deleted log unmounts after its document goes, which must not bring it back. A
