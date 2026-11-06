@@ -1133,6 +1133,45 @@ describe("Answers", () => {
       await expect.poll(() => answers.getCached({ min: 3 })).toEqual([rec("a", 5)]);
     });
 
+    it("fetches a read that beats the refetch after an unmaintained gap", async () => {
+      const table = newTable();
+      let members: Rec[] = [];
+      const fetch = vi.fn(async () => {
+        table.set(members);
+        return members.map(({ key }) => key);
+      });
+      const answers = listSpace(table, fetch, { teardownGrace: TimeSpan.ZERO });
+      const unsubscribe = answers.onChange({ min: 3 }, vi.fn());
+      expect(await answers.retrieve({ min: 3 })).toEqual([]);
+      unsubscribe();
+      members = [rec("a", 5)];
+      answers.onChange({ min: 3 }, vi.fn());
+      expect(await answers.retrieve({ min: 3 })).toEqual([rec("a", 5)]);
+    });
+
+    it("cancels the refetch after an unmaintained gap when a read fetches", async () => {
+      const table = newTable();
+      const fetch = vi
+        .fn<() => Promise<string[]>>()
+        .mockResolvedValueOnce([])
+        .mockImplementationOnce(async () => {
+          await wait(250);
+          table.set([rec("a", 5)]);
+          return ["a"];
+        })
+        .mockRejectedValue(new Error("refetch failed"));
+      const answers = listSpace(table, fetch, { teardownGrace: TimeSpan.ZERO });
+      const unsubscribe = answers.onChange({ min: 3 }, vi.fn());
+      await answers.retrieve({ min: 3 });
+      unsubscribe();
+      const handler = vi.fn();
+      answers.onChange({ min: 3 }, handler);
+      expect(await answers.retrieve({ min: 3 })).toEqual([rec("a", 5)]);
+      expect(fetch).toHaveBeenCalledTimes(2);
+      expect(answers.getCached({ min: 3 })).toEqual([rec("a", 5)]);
+      expect(handler).toHaveBeenLastCalledWith([rec("a", 5)]);
+    });
+
     // Regression: membership is patched only on a ready query, so a record that
     // started matching while the first fetch was in flight was dropped, and the
     // settling fetch then wrote its own keys over the answer.
