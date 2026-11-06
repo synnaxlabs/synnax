@@ -131,8 +131,8 @@ class TestArc:
         prefix = f"test-arc-op-{uuid4()}"
         created = client.arcs.create(
             [
-                sy.Arc(name=f"{prefix}-a", mode="text"),
-                sy.Arc(name=f"{prefix}-b", mode="text"),
+                sy.arc.Automation(name=f"{prefix}-a"),
+                sy.arc.Automation(name=f"{prefix}-b"),
             ]
         )
         retrieved = client.arcs.retrieve(name={"starts_with": prefix})
