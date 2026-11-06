@@ -652,11 +652,7 @@ export class Client extends query.Retriever<
   ): Promise<void> {
     const keysArr = array.toArray(keys);
     const namesArr = array.toArray(names);
-    const rename = () =>
-      keysArr.flatMap((key, i) => {
-        const name = namesArr[i];
-        return [this.renameThrough(key, name)];
-      });
+    const rename = () => keysArr.map((key, i) => this.renameThrough(key, namesArr[i]));
     await query.optimistic({
       rollbacks: rename(),
       onOptimistic: opts.onOptimistic,

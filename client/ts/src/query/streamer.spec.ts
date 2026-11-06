@@ -638,8 +638,8 @@ describe("openStreamer", () => {
       const executionOrder: string[] = [];
       const listeners: Record<string, Mock> = {};
       const channels = [
-        "relationship_create",
-        "relationship_delete",
+        "sy_range_set",
+        "sy_range_delete",
         "user_delete",
         "user_update",
         "permission_delete",
@@ -678,53 +678,37 @@ describe("openStreamer", () => {
       const deleteChannels = executionOrder.slice(0, 3);
       const nonDeleteChannels = executionOrder.slice(3);
 
-      expect(deleteChannels).toContain("relationship_delete");
+      expect(deleteChannels).toContain("sy_range_delete");
       expect(deleteChannels).toContain("user_delete");
       expect(deleteChannels).toContain("permission_delete");
 
-      expect(nonDeleteChannels).toContain("relationship_create");
+      expect(nonDeleteChannels).toContain("sy_range_set");
       expect(nonDeleteChannels).toContain("user_update");
       expect(nonDeleteChannels).toContain("permission_grant");
 
       await closeStreamer();
     });
 
-    it("should correctly handle relationship changes (delete then create)", async () => {
+    it("should apply a delete and a re-create of one record in order", async () => {
       const operations: Array<{ channel: string; data: unknown }> = [];
       const deleteListener = vi.fn().mockImplementation((changed) => {
-        operations.push({ channel: "relationship_delete", data: changed });
+        operations.push({ channel: "sy_range_delete", data: changed });
       });
-      const createListener = vi.fn().mockImplementation((changed) => {
-        operations.push({ channel: "relationship_create", data: changed });
+      const setListener = vi.fn().mockImplementation((changed) => {
+        operations.push({ channel: "sy_range_set", data: changed });
       });
 
-      const relationshipSchema = z.object({
-        parentId: z.number(),
-        childId: z.number(),
-        type: z.string(),
-      });
+      const rangeSchema = z.object({ key: z.string(), name: z.string() });
 
       const listeners: query.Listener[] = [
-        {
-          channel: "relationship_create",
-          schema: relationshipSchema,
-          onChange: createListener,
-        },
-        {
-          channel: "relationship_delete",
-          schema: relationshipSchema,
-          onChange: deleteListener,
-        },
+        { channel: "sy_range_set", schema: rangeSchema, onChange: setListener },
+        { channel: "sy_range_delete", schema: rangeSchema, onChange: deleteListener },
       ];
 
       const frames = [
         new framer.Frame({
-          relationship_create: new Series([
-            { parentId: 1, childId: 2, type: "updated" },
-          ]),
-          relationship_delete: new Series([
-            { parentId: 1, childId: 2, type: "original" },
-          ]),
+          sy_range_set: new Series([{ key: "a", name: "recreated" }]),
+          sy_range_delete: new Series([{ key: "a", name: "original" }]),
         }),
       ];
 
@@ -737,15 +721,11 @@ describe("openStreamer", () => {
 
       await expect.poll(() => operations.length).toBe(2);
 
-      expect(operations[0].channel).toBe("relationship_delete");
-      expect(operations[0].data).toEqual([
-        { parentId: 1, childId: 2, type: "original" },
-      ]);
+      expect(operations[0].channel).toBe("sy_range_delete");
+      expect(operations[0].data).toEqual([{ key: "a", name: "original" }]);
 
-      expect(operations[1].channel).toBe("relationship_create");
-      expect(operations[1].data).toEqual([
-        { parentId: 1, childId: 2, type: "updated" },
-      ]);
+      expect(operations[1].channel).toBe("sy_range_set");
+      expect(operations[1].data).toEqual([{ key: "a", name: "recreated" }]);
 
       await closeStreamer();
     });

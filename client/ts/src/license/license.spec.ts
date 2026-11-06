@@ -11,6 +11,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { connection } from "@/connection";
 import { AccessDeniedError, InvalidLicenseError } from "@/index";
+import { label } from "@/label";
 import { license } from "@/license";
 import { query } from "@/query";
 import { createTestClient, createTestClientWithPolicy } from "@/testutil";
@@ -104,7 +105,7 @@ describe("license", () => {
     it("should deny the license without a grant on its ID", async () => {
       const denied = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [{ type: "label", key: "" }],
+        objects: [label.TYPE_RESOURCE_ID],
         actions: ["retrieve"],
       });
       await expect(denied.license.retrieve()).rejects.toThrow(AccessDeniedError);
