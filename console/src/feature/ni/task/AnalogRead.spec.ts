@@ -581,7 +581,7 @@ describe("AnalogRead ports", () => {
           preScaledUnits: "Volts",
           scaledUnits: "Volts",
         },
-      } as Partial<NI.Task.AIChannel>,
+      },
     ],
   ])("should not mark a channel %s", async (_, hardware, values) => {
     const dev = await createNIDevice(client, { properties: { hardware: hardware() } });
