@@ -10,7 +10,7 @@
 import json
 import sys
 import threading
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any, cast
 
@@ -133,6 +133,7 @@ def client(
     cores: int = 2,
     browsers: int | None = None,
     active: list[tuple[Any, ...]] | None = None,
+    on_test_ran: Callable[[], None] = lambda: None,
 ) -> tuple[ExecutionClient, list[Sequence], list[models.Test]]:
     """Returns a client for the sequences, with the sequences to run and the list it
     records results in."""
@@ -161,7 +162,7 @@ def client(
         active_tests_lock=threading.Lock(),
         log=lambda message, /, *, use_name=True: None,
         on_status_change=lambda _: None,
-        on_test_ran=lambda: None,
+        on_test_ran=on_test_ran,
     )
     return execution, loaded, results
 
@@ -281,3 +282,15 @@ class TestExecutionClient:
             (STATUS.KILLED, "Test was manually killed"),
             (STATUS.KILLED, "The run stopped before the test started"),
         ]
+
+    def test_lane_error(self, cases_dir: Path) -> None:
+        """Should raise an error from a lane after the lanes end."""
+
+        def on_test_ran() -> None:
+            raise RuntimeError("telemetry is down")
+
+        execution, loaded, _ = client(
+            cases_dir, sequence("a", "plain"), on_test_ran=on_test_ran
+        )
+        with pytest.raises(RuntimeError, match=r"^telemetry is down$"):
+            execution.run(loaded)

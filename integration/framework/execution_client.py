@@ -140,15 +140,19 @@ class ExecutionClient:
         runs the isolated sequences one at a time."""
         pending = [s for s in sequences if not s.isolated]
         lock = threading.Lock()
+        errors: list[BaseException] = []
 
         def lane(core: Core) -> None:
-            while not self.should_stop:
-                with lock:
-                    seq = next((s for s in pending if self._fits(s, core)), None)
-                    if seq is None:
-                        return
-                    pending.remove(seq)
-                self._run_sequence(seq, core)
+            try:
+                while not self.should_stop and not errors:
+                    with lock:
+                        seq = next((s for s in pending if self._fits(s, core)), None)
+                        if seq is None:
+                            return
+                        pending.remove(seq)
+                    self._run_sequence(seq, core)
+            except BaseException as e:
+                errors.append(e)
 
         lanes = [
             threading.Thread(target=lane, args=(core,), name=f"lane {core.address}")
@@ -159,6 +163,8 @@ class ExecutionClient:
         for t in lanes:
             while t.is_alive():
                 t.join(timeout=1.0)
+        if errors:
+            raise errors[0]
 
         for seq in sequences:
             if seq.isolated and not self.should_stop:
