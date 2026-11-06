@@ -65,6 +65,10 @@ class TestResources:
         pool = Resources({resources.BROWSER: 2})
         names = frozenset({resources.BROWSER})
         holders = [Holder(pool, names) for _ in range(3)]
+        deadline = time.monotonic() + WAIT
+        while sum(h.acquired.is_set() for h in holders) < 2:
+            assert time.monotonic() < deadline
+            time.sleep(0.01)
         time.sleep(SETTLE)
         assert sum(h.acquired.is_set() for h in holders) == 2
         for h in holders:
