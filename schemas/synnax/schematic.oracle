@@ -893,6 +893,7 @@ Schematic struct {
     }
     snapshot bool = false {
         @doc value "is true if this schematic is an immutable snapshot copy."
+        @filter
     }
     nodes    Node[] = [] {
         @doc value "contains all diagram nodes in the schematic."

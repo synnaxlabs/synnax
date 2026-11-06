@@ -50,6 +50,10 @@ const copyReqZ = z.object({
 
 const retrieveReqZ = group.memberFilterZ.extend(project.ownerFilterZ.shape).extend({
   keys: keyZ.array().optional(),
+  /** Keeps only snapshots when true, and only editable schematics when false. */
+  snapshot: z.boolean().optional(),
+  offset: z.int().optional(),
+  limit: z.int().optional(),
   ignoreNotFoundError: z.boolean().optional(),
 });
 const retrieveMultiParamsZ = retrieveReqZ.or(query.keyListZ(keyZ));
@@ -81,12 +85,19 @@ const setProjectReqZ = project.setProjectReqZ(keyZ);
 export const setProjectRequest = (keys: Key | Key[], to: project.Key) =>
   project.setProjectRequest("/schematic/set-project", keys, to);
 
-/** Client-side matching for a request: key and group sets. */
+/**
+ * Client-side matching for a request: key, group, owner, and snapshot. Server-computed
+ * shapes (limit/offset) never reach this filter; they refetch instead.
+ */
 const requestFilter = (req: RetrieveRequest): ((s: Schematic) => boolean) => {
   const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
   const inGroup = group.createMemberMatcher(req);
   const owned = project.createOwnerMatcher(req);
-  return (s) => (keySet == null || keySet.has(s.key)) && inGroup(s) && owned(s);
+  return (s) =>
+    (keySet == null || keySet.has(s.key)) &&
+    (req.snapshot == null || s.snapshot === req.snapshot) &&
+    inGroup(s) &&
+    owned(s);
 };
 
 export interface ClientConfig {

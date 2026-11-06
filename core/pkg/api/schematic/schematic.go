@@ -176,6 +176,13 @@ type (
 		Projects []project.Key `json:"projects" msgpack:"projects"`
 		// Ranges keeps only the schematics owned by any of these ranges.
 		Ranges []ranger.Key `json:"ranges" msgpack:"ranges"`
+		// Snapshot keeps only snapshots when true, and only editable schematics when
+		// false. Nil applies no filter.
+		Snapshot *bool `json:"snapshot" msgpack:"snapshot"`
+		// Limit caps the number of schematics returned. Zero applies no cap.
+		Limit int `json:"limit" msgpack:"limit"`
+		// Offset skips that many matching schematics.
+		Offset int `json:"offset" msgpack:"offset"`
 	}
 	RetrieveResponse struct {
 		Schematics []schematic.Schematic `json:"schematics" msgpack:"schematics"`
@@ -211,6 +218,15 @@ func (s *Service) Retrieve(
 	}
 	if len(req.Ranges) > 0 {
 		q = q.Where(schematic.MatchRanges(req.Ranges...))
+	}
+	if req.Snapshot != nil {
+		q = q.Where(schematic.MatchSnapshot(*req.Snapshot))
+	}
+	if req.Limit > 0 {
+		q = q.Limit(req.Limit)
+	}
+	if req.Offset > 0 {
+		q = q.Offset(req.Offset)
 	}
 	err := q.Entries(&res.Schematics).Exec(ctx, nil)
 	if req.IgnoreNotFoundError && err != nil {

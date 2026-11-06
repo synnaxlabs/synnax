@@ -162,6 +162,16 @@ func MatchKeys(keys ...Key) Filter {
 	}
 }
 
+// MatchSnapshot returns a filter for schematics by their
+// Snapshot field.
+func MatchSnapshot(v bool) Filter {
+	return func(Retrieve) gorp.Filter[Key, Schematic] {
+		return gorp.Match(func(_ gorp.Context, e *Schematic) (bool, error) {
+			return e.Snapshot == v, nil
+		})
+	}
+}
+
 // MatchGroups returns a filter for schematics
 // whose Group matches any of the provided
 // values.

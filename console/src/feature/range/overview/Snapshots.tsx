@@ -103,14 +103,17 @@ export const Snapshots: FC<SnapshotsProps> = ({ rangeKey }) => {
   const taskList = Task.useList({
     initialQuery: { ranges: [rangeKey], snapshot: true },
   });
-  const schematicList = Schematic.useList({ initialQuery: { ranges: [rangeKey] } });
+  const schematicList = Schematic.useList({
+    initialQuery: { ranges: [rangeKey], snapshot: true },
+  });
   const tasks = useResources(task.TYPE_RESOURCE_ID.type, taskList, (t) => t.payload);
   const schematics = useResources(
     schematic.TYPE_RESOURCE_ID.type,
     schematicList,
     (s) => s,
   );
-  const { fetchMore } = List.usePager({ retrieve: taskList.retrieve });
+  const taskPager = List.usePager({ retrieve: taskList.retrieve });
+  const schematicPager = List.usePager({ retrieve: schematicList.retrieve });
   const combined = List.useCombinedData<string, ontology.Resource>({
     first: tasks,
     second: schematics,
@@ -118,8 +121,8 @@ export const Snapshots: FC<SnapshotsProps> = ({ rangeKey }) => {
   if (taskList.status.variant === "error" || schematicList.status.variant === "error")
     return null;
   const handleFetchMore = () => {
-    fetchMore();
-    schematicList.retrieve((q) => q);
+    taskPager.fetchMore();
+    schematicPager.fetchMore();
   };
   return (
     <Flex.Box y>
