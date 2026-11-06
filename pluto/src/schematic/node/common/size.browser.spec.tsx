@@ -20,6 +20,7 @@ import { SIZE_LEVELS } from "@/schematic/node/common/size";
 import { Button } from "@/schematic/node/general/button/Primitive";
 import { Input } from "@/schematic/node/general/input/Primitive";
 import { Select } from "@/schematic/node/general/select/Primitive";
+import { spec as selectSpec } from "@/schematic/node/general/select/external";
 import { Setpoint } from "@/schematic/node/general/setpoint/Primitive";
 
 interface SymbolProps {
@@ -104,6 +105,18 @@ describe("symbol text scale", () => {
       <Text.Text level={SIZE_LEVELS[size]}>Label</Text.Text>,
     );
     expect(fontSize(getByText("Label").element())).toBeCloseTo(px, 0);
+  });
+
+  it("should render the select preview at the medium level", async () => {
+    const { Preview } = selectSpec;
+    const config = schematic.selectNodeConfigZ.parse({
+      variant: "select",
+      level: "h4",
+    });
+    const { container } = await renderThemed(<Preview {...config} />);
+    const trigger = container.querySelector(".lyra-btn");
+    if (trigger == null) throw new Error("expected a select trigger");
+    expect(fontSize(trigger)).toBeCloseTo(16, 0);
   });
 
   describe("readout", () => {

@@ -202,6 +202,24 @@ describe("Schematic.Node.symbolKey", () => {
 });
 
 describe("Schematic.Node.changeConfig", () => {
+  it("should drop the wrap width of a symbol that changes to a button", () => {
+    const tank = createConfig({ variant: "tank", label: { maxInlineSize: 80 } });
+    const changed = changeConfig(tank, { variant: "button" });
+    expect(changed.label.maxInlineSize).toBeUndefined();
+  });
+
+  it("should keep the unset wrap width of a button that changes to a labeled symbol", () => {
+    const button = createConfig({ variant: "button" });
+    const changed = changeConfig(button, { variant: "tank" });
+    expect(changed.label.maxInlineSize).toBeUndefined();
+  });
+
+  it("should keep the wrap width of a button that stays a button", () => {
+    const button = createConfig({ variant: "button", label: { maxInlineSize: 80 } });
+    const changed = changeConfig(button, { variant: "button" });
+    expect(changed.label.maxInlineSize).toBe(80);
+  });
+
   it("should keep each field the new variant accepts", () => {
     const valve = createConfig({
       variant: "valve",

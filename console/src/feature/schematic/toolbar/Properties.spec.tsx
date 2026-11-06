@@ -583,6 +583,36 @@ describe("Schematic toolbar Properties", () => {
         .toMatchObject({ maxInlineSize: 200 });
     });
 
+    it("shows no wrap width until a symbol has one", async () => {
+      const { result } = await renderProperties({
+        nodeKeys: ["n1", "n2"],
+        createConfig: () => PSchematic.Node.createConfig({ variant: "button" }),
+      });
+      await screen.findByText("Align");
+      expect(getInputByItemLabel(result.container, "Wrap width").value).toBe("");
+    });
+
+    it("clears the label wrap width of every selected symbol", async () => {
+      const { key, result } = await renderProperties({
+        nodeKeys: ["n1", "n2"],
+        createConfig: () =>
+          PSchematic.Node.createConfig({
+            variant: "tank",
+            label: { maxInlineSize: 80 },
+          }),
+      });
+      await screen.findByText("Align");
+      const input = getInputByItemLabel(result.container, "Wrap width");
+      fireEvent.change(input, { target: { value: "" } });
+      fireEvent.blur(input);
+      await expect
+        .poll(async () => (await retrieveConfig(key, "n1")).label)
+        .not.toHaveProperty("maxInlineSize");
+      expect((await retrieveConfig(key, "n2")).label).not.toHaveProperty(
+        "maxInlineSize",
+      );
+    });
+
     it("rotates the whole selection, still rotating orientations when layout fails", async () => {
       const { key, result } = await renderProperties({ nodeKeys: ["n1", "n2"] });
       await screen.findByText("Align");

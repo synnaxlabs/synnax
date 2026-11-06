@@ -58,7 +58,7 @@ export interface Spec<
   label?: string;
   /** Values a new symbol takes where the schema default does not apply. */
   defaults?: Partial<Config>;
-  /** Starts a new symbol's label with no wrap width. */
+  /** Gives a new or changed symbol's label no wrap width. */
   unwrapped?: boolean;
   Form: FC<FormProps>;
   Node: Node<Config>;
