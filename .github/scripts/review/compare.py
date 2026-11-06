@@ -39,7 +39,7 @@ stdout."""
 GREPTILE = "greptile-apps"
 SEDOSAUR = "sedosaur"
 ARTIFACT = "sedosaur-review"
-NEAR = 5
+NEAR = 20
 """Findings on one file match when their lines are at most this far apart."""
 
 REAL, NOISE, OPEN = "real", "noise", "open"
@@ -379,6 +379,10 @@ def _pull(
         g: list[Item] = []
         for severity, title, d in found:
             t = by_id.get(d) if d is not None else None
+            # Greptile lists the open threads of earlier commits again, so each finding
+            # counts only on the commit it was found on.
+            if t is not None and t.commit is not None and t.commit != head:
+                continue
             g.append(
                 Item(
                     severity=severity,

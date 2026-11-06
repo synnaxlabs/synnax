@@ -357,7 +357,7 @@ class TestMatch:
 
     def test_should_not_pair_other_files_or_far_lines(self) -> None:
         a = [item("a.go", 10), item("a.go", 30), item(None, None)]
-        b = [item("b.go", 10), item("a.go", 40), item(None, None)]
+        b = [item("b.go", 10), item("a.go", 51), item(None, None)]
         assert compare.match(a, b) == []
 
 
@@ -442,11 +442,22 @@ class TestPairs:
     def test_should_keep_open_a_thread_on_a_commit_outside_the_history(
         self, repo: Repo
     ) -> None:
-        gh = FakeGH(repo.head)
-        gh.threads[0] = thread(101, "greptile-apps", "Leaks a handle", 10, "e" * 40)
+        gone = "e" * 40
+        gh = FakeGH(gone)
         gh.threads[0]["isResolved"] = True
-        [p] = compare.pairs(gh, repo.git, REPO, [record(repo.head)])
+        [p] = compare.pairs(gh, repo.git, REPO, [record(gone)])
         assert p.greptile[0].verdict == compare.OPEN
+
+    def test_should_count_a_finding_only_on_the_commit_it_was_found_on(
+        self, repo: Repo
+    ) -> None:
+        first = repo.head
+        later = repo.commit({"c.go": "2\n"})
+        gh = FakeGH(first)
+        gh.edits = [edit(greptile_block(4, later)), edit(greptile_block(4, first))]
+        one, two = compare.pairs(gh, repo.git, REPO, [record(first), record(later)])
+        assert [i.title for i in one.greptile] == ["Leaks a handle", "Reads a secret"]
+        assert [i.title for i in two.greptile] == ["Reads a secret"]
 
     def test_should_judge_each_review_by_its_own_thread(self, repo: Repo) -> None:
         later = repo.commit({"c.go": "2\n"})
