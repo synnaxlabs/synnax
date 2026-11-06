@@ -9,3 +9,4 @@
 
 export * from "@/schematic/symbol/client";
 export * from "@/schematic/symbol/types.gen";
+export { type WhereInput } from "@/schematic/symbol/where.gen";

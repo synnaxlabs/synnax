@@ -34,6 +34,7 @@ class Harness:
             "GH_API_RETRY_DELAY": "0",
         }
         self.gh.serve("api */statuses/*")
+        self.gh.serve("api */git/ref/heads/*", {"object": {"sha": SHA}})
         self.gh.serve(
             "api */commits/head/check-runs*",
             {"check_runs": [{"name": "Greptile Review", "conclusion": "success"}]},
@@ -128,6 +129,20 @@ class TestFailure:
         post = harness.statuses()[0]
         assert "state=failure" in post
         assert "description=could not judge pull request 42" in post
+
+    def test_posts_a_failure_when_the_ref_points_at_another_commit(
+        self, harness: Harness
+    ) -> None:
+        harness.gh.serve("api */git/ref/heads/*", {"object": {"sha": BASE}})
+        assert harness.run().returncode != 0
+        post = harness.statuses()[0]
+        assert "state=failure" in post
+        assert "description=could not judge pull request 42" in post
+
+    def test_posts_a_failure_when_the_ref_is_gone(self, harness: Harness) -> None:
+        harness.gh.fail("api */git/ref/heads/*", "gh: Not Found (HTTP 404)")
+        assert harness.run().returncode != 0
+        assert "state=failure" in harness.statuses()[0]
 
     @pytest.mark.parametrize(
         "ref",

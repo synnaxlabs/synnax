@@ -88,7 +88,8 @@ export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRet
   status.Status[]
 >({
   name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query: { keys } }) => await client.statuses.retrieve(keys),
+  retrieve: async ({ client, query: { keys } }) =>
+    await client.statuses.retrieve({ where: { key: { in: keys } } }),
   onChange: ({ client, query: { keys } }, handler) =>
     client.statuses.onChange(keys, handler),
   getCached: ({ client, query: { keys } }) => client.statuses.getCached(keys),
