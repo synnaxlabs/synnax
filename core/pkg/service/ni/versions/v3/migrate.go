@@ -63,8 +63,10 @@ func MigrateBaseAIChannel(
 	if err != nil {
 		return BaseAIChannel{}, err
 	}
-	ch.Port, err = narrow[uint16]("port", old.Port)
-	return ch, err
+	if ch.Port, err = narrow[uint16]("port", old.Port); err != nil {
+		return BaseAIChannel{}, err
+	}
+	return ch, nil
 }
 
 // MigrateBaseCIChannel lifts the fields every v2 counter input channel shares. It
@@ -77,8 +79,10 @@ func MigrateBaseCIChannel(
 	if err != nil {
 		return BaseCIChannel{}, err
 	}
-	ch.Port, err = narrow[uint16]("port", old.Port)
-	return ch, err
+	if ch.Port, err = narrow[uint16]("port", old.Port); err != nil {
+		return BaseCIChannel{}, err
+	}
+	return ch, nil
 }
 
 // MigrateBaseAOChannel lifts the fields every v2 analog output channel shares. It
@@ -91,8 +95,10 @@ func MigrateBaseAOChannel(
 	if err != nil {
 		return BaseAOChannel{}, err
 	}
-	ch.Port, err = narrow[uint16]("port", old.Port)
-	return ch, err
+	if ch.Port, err = narrow[uint16]("port", old.Port); err != nil {
+		return BaseAOChannel{}, err
+	}
+	return ch, nil
 }
 
 // MigrateDIChannel lifts a v2 digital input channel. It returns an error when the port
@@ -105,8 +111,10 @@ func MigrateDIChannel(ctx context.Context, old v2.DIChannel) (DIChannel, error) 
 	if ch.Port, err = narrow[uint16]("port", old.Port); err != nil {
 		return DIChannel{}, err
 	}
-	ch.Line, err = narrow[uint8]("line", old.Line)
-	return ch, err
+	if ch.Line, err = narrow[uint8]("line", old.Line); err != nil {
+		return DIChannel{}, err
+	}
+	return ch, nil
 }
 
 // MigrateDOChannel lifts a v2 digital output channel. It returns an error when the port
@@ -119,8 +127,10 @@ func MigrateDOChannel(ctx context.Context, old v2.DOChannel) (DOChannel, error) 
 	if ch.Port, err = narrow[uint16]("port", old.Port); err != nil {
 		return DOChannel{}, err
 	}
-	ch.Line, err = narrow[uint8]("line", old.Line)
-	return ch, err
+	if ch.Line, err = narrow[uint8]("line", old.Line); err != nil {
+		return DOChannel{}, err
+	}
+	return ch, nil
 }
 
 // MigrateAnalogReadConfig lifts a v2 analog read config to v3.

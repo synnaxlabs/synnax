@@ -107,5 +107,8 @@ func encodeRecord[I any](record I) (msgpack.EncodedJSON, error) {
 		return nil, err
 	}
 	var config msgpack.EncodedJSON
-	return config, json.Unmarshal(b, &config)
+	if err := json.Unmarshal(b, &config); err != nil {
+		return nil, err
+	}
+	return config, nil
 }

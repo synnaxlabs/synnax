@@ -10,7 +10,6 @@
 package v3_test
 
 import (
-	"context"
 	"encoding/json/v2"
 	"math"
 	"uuid"
@@ -139,34 +138,78 @@ var _ = Describe("Port and line migrations", func() {
 		},
 	)
 
-	DescribeTable("Should reject a value outside the new range",
-		func(ctx SpecContext, migrate func(context.Context) error) {
-			Expect(migrate(ctx)).To(MatchError(ContainSubstring("outside the range")))
-		},
-		Entry("negative port", func(ctx context.Context) error {
-			_, err := v3.MigrateBaseAIChannel(ctx, v2.BaseAIChannel{Port: -1})
-			return err
-		}),
-		Entry("port above 65535", func(ctx context.Context) error {
-			_, err := v3.MigrateBaseCIChannel(ctx, v2.BaseCIChannel{Port: 65536})
-			return err
-		}),
-		Entry("maximum port", func(ctx context.Context) error {
-			_, err := v3.MigrateBaseAOChannel(
-				ctx,
-				v2.BaseAOChannel{Port: math.MaxInt32},
-			)
-			return err
-		}),
-		Entry("negative CJC port", func(ctx context.Context) error {
-			_, err := v3.MigrateCJC(ctx, v2.CJC{Variant: v2.ChanCJC{Port: -1}})
-			return err
-		}),
-		Entry("line above 255", func(ctx context.Context) error {
-			_, err := v3.MigrateDIChannel(ctx, v2.DIChannel{Line: 256})
-			return err
-		}),
-	)
+	Describe("A value outside the new range", func() {
+		It("Should reject a negative port", func(ctx SpecContext) {
+			Expect(v3.MigrateBaseAIChannel(ctx, v2.BaseAIChannel{Key: "a", Port: -1})).
+				Error().To(MatchError(ContainSubstring("outside the range")))
+		})
+		It("Should reject a port above 65535", func(ctx SpecContext) {
+			Expect(
+				v3.MigrateBaseCIChannel(ctx, v2.BaseCIChannel{Key: "a", Port: 65536}),
+			).
+				Error().
+				To(MatchError(ContainSubstring("outside the range")))
+		})
+		It("Should reject the highest stored port", func(ctx SpecContext) {
+			Expect(v3.MigrateBaseAOChannel(
+				ctx, v2.BaseAOChannel{Key: "a", Port: math.MaxInt32},
+			)).Error().To(MatchError(ContainSubstring("outside the range")))
+		})
+		It("Should reject a negative CJC port", func(ctx SpecContext) {
+			Expect(v3.MigrateCJC(ctx, v2.CJC{Variant: v2.ChanCJC{Port: -1}})).
+				Error().To(MatchError(ContainSubstring("outside the range")))
+		})
+		It("Should reject a digital input line above 255", func(ctx SpecContext) {
+			Expect(v3.MigrateDIChannel(ctx, v2.DIChannel{Key: "a", Line: 256})).
+				Error().To(MatchError(ContainSubstring("outside the range")))
+		})
+		It("Should reject a digital output port above 65535", func(ctx SpecContext) {
+			Expect(v3.MigrateDOChannel(ctx, v2.DOChannel{Key: "a", Port: 65536})).
+				Error().To(MatchError(ContainSubstring("outside the range")))
+		})
+	})
+
+	It("Should keep the port of a stored analog write config", func(ctx SpecContext) {
+		stored := v2.AnalogWriteConfig{Channels: []v2.AOChannel{
+			{Variant: v2.AOVoltageChannel{
+				BaseAOChannel: v2.BaseAOChannel{Key: "a", Port: 12},
+				CustomScale: v2.CustomScale{
+					CustomScale: v2.Scale{Variant: v2.NoneScale{}},
+				},
+			}},
+		}}
+		stored.Key = uuid.New()
+		Expect(gorp.NewCreate[uuid.UUID, v2.AnalogWriteConfig]().Entry(&stored).
+			Exec(ctx, db)).To(Succeed())
+		run(ctx, "ni_analog_write_config", v3.NewAnalogWriteMigration(otg))
+		var got v3.AnalogWriteConfig
+		Expect(gorp.NewRetrieve[uuid.UUID, v3.AnalogWriteConfig]().
+			Where(gorp.MatchKeys[uuid.UUID, v3.AnalogWriteConfig](stored.Key)).
+			Entry(&got).Exec(ctx, db)).To(Succeed())
+		Expect(got.Channels[0].Variant.(v3.AOVoltageChannel).Port).To(Equal(uint16(12)))
+	})
+
+	It("Should keep the port of a stored counter read config", func(ctx SpecContext) {
+		stored := v2.CounterReadConfig{Channels: []v2.CIChannel{
+			{Variant: v2.CIFrequencyChannel{
+				BaseCIChannel: v2.BaseCIChannel{Key: "a", Port: 3},
+				CustomScale: v2.CustomScale{
+					CustomScale: v2.Scale{Variant: v2.NoneScale{}},
+				},
+			}},
+		}}
+		stored.Key = uuid.New()
+		Expect(gorp.NewCreate[uuid.UUID, v2.CounterReadConfig]().Entry(&stored).
+			Exec(ctx, db)).To(Succeed())
+		run(ctx, "ni_counter_read_config", v3.NewCounterReadMigration(otg))
+		var got v3.CounterReadConfig
+		Expect(gorp.NewRetrieve[uuid.UUID, v3.CounterReadConfig]().
+			Where(gorp.MatchKeys[uuid.UUID, v3.CounterReadConfig](stored.Key)).
+			Entry(&got).Exec(ctx, db)).To(Succeed())
+		Expect(
+			got.Channels[0].Variant.(v3.CIFrequencyChannel).Port,
+		).To(Equal(uint16(3)))
+	})
 
 	It("Should quarantine a config outside the range and keep the others",
 		func(ctx SpecContext) {
