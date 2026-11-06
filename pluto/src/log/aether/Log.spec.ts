@@ -953,7 +953,7 @@ describe("log/aether/Log", () => {
           selectionEnd: 0,
         });
         log.render();
-        return log.state.selectedText;
+        return log.selectedLines()[0].text;
       };
 
       it("should format the value with the channel's value format", () => {
