@@ -21,10 +21,13 @@
 #include "driver/ethercat/telem/telem.h"
 
 namespace driver::ethercat::soem {
-/// Timeout for EtherCAT state transitions (INIT->PRE_OP->SAFE_OP->OP) in microseconds.
+/// Timeout for the SAFE-OP, OP, and INIT transitions in microseconds.
 const int STATE_CHANGE_TIMEOUT = static_cast<int>(
     (x::telem::SECOND * 2).microseconds()
 );
+/// Timeout for the slaves to reach PRE-OP after discovery in microseconds. It stays
+/// at the PreopTimeout of the ESI files.
+const int PRE_OP_TIMEOUT = static_cast<int>((x::telem::SECOND * 2).microseconds());
 /// Timeout for cyclic process data exchange in microseconds.
 const int PROCESSDATA_TIMEOUT = static_cast<int>(x::telem::MILLISECOND.microseconds());
 /// Time between state reads while slaves move to OP.
@@ -98,6 +101,10 @@ x::errors::Error Master::initialize() {
         );
     }
 
+    // config_init requests PRE-OP without waiting for it, and SOEM sends no mailbox
+    // request to a slave whose last read state is below PRE-OP.
+    this->api->statecheck(0, EC_STATE_PRE_OP, PRE_OP_TIMEOUT);
+    this->api->readstate();
     this->populate_slaves();
     this->initialized = true;
     return x::errors::NIL;

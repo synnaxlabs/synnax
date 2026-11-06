@@ -508,7 +508,8 @@ class TaskCase(TestCase, Generic[TaskT]):
     """Base class for driver task lifecycle tests.
 
     Provides setup/cleanup, channel key extraction, and generic assertions.
-    Subclasses must set task_name and device_name as class attributes.
+    Subclasses must set task_name, and device_name unless they override
+    retrieve_device.
     """
 
     task_name: str
@@ -529,14 +530,15 @@ class TaskCase(TestCase, Generic[TaskT]):
     ) -> TaskT:
         """Factory method to create protocol-specific task."""
 
+    def retrieve_device(self) -> sy.Device:
+        """Return the device that the task reads from or writes to."""
+        return self.client.devices.retrieve(name=self.device_name)
+
     def setup(self) -> None:
         """Create and configure task."""
-        # Get device
-        device = self.client.devices.retrieve(name=self.device_name)
-
         # Create task using child implementation
         self.tsk = self.create(
-            device=device,
+            device=self.retrieve_device(),
             task_name=self.task_name,
             sample_rate=self.SAMPLE_RATE,
             stream_rate=self.STREAM_RATE,
