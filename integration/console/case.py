@@ -24,6 +24,7 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 import synnax as sy
 from console.console import Console
+from framework import resources
 from framework.models import STATUS
 from framework.test_case import Config, TestCase, param
 
@@ -44,6 +45,10 @@ class ConsoleCase(TestCase):
     default_timeout: int
     default_nav_timeout: int
     console: Console
+
+    @classmethod
+    def resources(cls) -> frozenset[str]:
+        return super().resources() | {resources.BROWSER}
 
     def __init__(self, **kwargs: Unpack[Config]) -> None:
         super().__init__(**kwargs)
@@ -120,6 +125,10 @@ class ConsoleCase(TestCase):
         # A plain request finds the Console's port without a page load in the browser.
         with urlopen(f"http://{host}:{port}/", timeout=5) as res:
             if b"core built without embedded console" in res.read().lower():
+                # The dev Console connects to the Core whose port this key holds.
+                self.page.add_init_script(
+                    f"localStorage.setItem('synnax-dev-connection-port', '{port}')"
+                )
                 port = 5173
         self.page.goto(f"http://{host}:{port}/{query}", timeout=20000)
 
