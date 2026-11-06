@@ -108,6 +108,8 @@ type Context[AST antlr.ParserRuleContext] struct {
 	InTypeInferenceMode bool
 	// Config carries per-parse language settings (e.g. dashed channel names).
 	Config parser.Config
+	// Module analyzes the program as a module, under the module rules.
+	Module bool
 }
 
 // WithScope returns a new context with an updated scope. The original context is
@@ -117,6 +119,12 @@ type Context[AST antlr.ParserRuleContext] struct {
 // body or block statement.
 func (c Context[AST]) WithScope(scope *symbol.Symbol) Context[AST] {
 	c.Scope = scope
+	return c
+}
+
+// WithModule returns a new context that analyzes the program as a module.
+func (c Context[AST]) WithModule(module bool) Context[AST] {
+	c.Module = module
 	return c
 }
 
@@ -270,5 +278,6 @@ func (ctx Context[P]) Child[N antlr.ParserRuleContext](next N) Context[N] {
 		TypeHint:            ctx.TypeHint,
 		InTypeInferenceMode: ctx.InTypeInferenceMode,
 		Config:              ctx.Config,
+		Module:              ctx.Module,
 	}
 }
