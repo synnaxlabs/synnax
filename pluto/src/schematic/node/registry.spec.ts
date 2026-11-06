@@ -227,8 +227,8 @@ describe("Schematic.Node.changeConfig", () => {
     expect(changed.level).toBe("h5");
   });
 
-  it("should give a symbol with no size the default level", () => {
-    const changed = changeConfig(createConfig({ variant: "tank" }), {
+  it("should give a symbol with no size or level the default level", () => {
+    const changed = changeConfig(createConfig({ variant: "valve" }), {
       variant: "setpoint",
     });
     expect(changed.level).toBe(SIZE_LEVELS.medium);
@@ -257,11 +257,16 @@ describe("Schematic.Node.changeConfig", () => {
     expect(changed.level).toBeUndefined();
   });
 
-  it("should give a symbol with no size the default button level", () => {
-    const changed = changeConfig(createConfig({ variant: "tank" }), {
+  it("should give a symbol with no size or level the default button level", () => {
+    const changed = changeConfig(createConfig({ variant: "valve" }), {
       variant: "button",
     });
     expect(changed.level).toBe(SIZE_LEVELS.medium);
+  });
+
+  it("should keep the level of a symbol with no size", () => {
+    const value = createConfig({ variant: "value", level: "h2" });
+    expect(changeConfig(value, { variant: "button" }).level).toBe("h2");
   });
 
   it("should keep each field the new variant accepts", () => {

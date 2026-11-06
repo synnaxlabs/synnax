@@ -128,9 +128,8 @@ export const symbolKey = (config: Config): string =>
 /**
  * Changes the config to the variant the input names. Each field the new variant
  * accepts keeps its value, except the spec key and state overrides of a custom symbol,
- * and the wrap width of a symbol that changes to an unwrapped variant. On a variant
- * with a default text level, a sized symbol keeps its level, even an absent one, so it
- * keeps its rendered text size. Any other symbol takes the default.
+ * and the wrap width of a symbol that changes to an unwrapped variant. A sized symbol
+ * with no level takes no default level, so it keeps its rendered text size.
  * @param config - The config to change.
  * @param input - The variant to change to, plus any fields to set on top.
  * @throws {NotFoundError} if no spec is registered for the variant.
@@ -147,11 +146,15 @@ export const changeConfig = <V extends Variant>(
   const spec = resolveSpec(input.variant);
   if (config.variant !== input.variant && spec.unwrapped === true && "label" in next)
     next.label.maxInlineSize = undefined;
-  if (spec.defaults != null && "level" in spec.defaults) {
-    const old = config as { size?: Component.Size; level?: text.Level };
-    (next as { level?: text.Level }).level =
-      old.size == null ? spec.defaults.level : old.level;
-  }
+  const { size, level } = config as { size?: Component.Size; level?: text.Level };
+  if (
+    spec.defaults != null &&
+    "level" in spec.defaults &&
+    size != null &&
+    level == null
+  )
+    (next as { level?: text.Level }).level = undefined;
+  return next;
   return next;
 };
 
