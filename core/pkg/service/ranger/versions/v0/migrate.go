@@ -79,10 +79,11 @@ func newMigration(cfg MigrationConfig) gorp.Migration {
 				return err
 			}
 
-			topEdges, err := outgoingParentEdges(ctx, tx, topLevelGroup.ResourceID())
+			edges, err := parentEdgesByFrom(ctx, tx)
 			if err != nil {
 				return err
 			}
+			topEdges := edges[topLevelGroup.ResourceID()]
 			var groupKeys []uuid.UUID
 			for _, e := range topEdges {
 				if e.To.Type != resource.TypeGroup {
@@ -116,10 +117,7 @@ func newMigration(cfg MigrationConfig) gorp.Migration {
 			}
 
 			for _, g := range groups {
-				childEdges, err := outgoingParentEdges(ctx, tx, g.ResourceID())
-				if err != nil {
-					return err
-				}
+				childEdges := edges[g.ResourceID()]
 				var childRanges []Range
 				for _, e := range childEdges {
 					if e.To.Type != resource.TypeRange {
@@ -193,14 +191,24 @@ func newMigration(cfg MigrationConfig) gorp.Migration {
 	)
 }
 
-func outgoingParentEdges(
+// parentEdgesByFrom returns every parent edge, keyed by the resource it comes from.
+func parentEdgesByFrom(
 	ctx context.Context,
 	tx gorp.Tx,
-	from resource.ID,
-) ([]ontology.Relationship, error) {
-	return ontology.RetrieveRelationships(ctx, tx, func(r ontology.Relationship) bool {
-		return r.From == from && r.Type == ontology.RelationshipTypeParentOf
-	})
+) (map[resource.ID][]ontology.Relationship, error) {
+	edges, err := ontology.RetrieveRelationships(
+		ctx,
+		tx,
+		func(r ontology.Relationship) bool {
+			return r.Type == ontology.RelationshipTypeParentOf
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	return lo.GroupBy(edges, func(r ontology.Relationship) resource.ID {
+		return r.From
+	}), nil
 }
 
 // alreadyMigrated reports whether a Core up to v0.53 already folded the store's legacy
