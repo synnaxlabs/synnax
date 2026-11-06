@@ -41,13 +41,14 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:       db,
 		Ontology: otg,
 	}))
-	svc = MustOpen(policy.OpenService(ctx, policy.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-	}))
 	roleSvc = MustOpen(role.OpenService(ctx, role.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
+	}))
+	svc = MustOpen(policy.OpenService(ctx, policy.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		Role:     roleSvc,
 	}))
 	owner = role.Role{Name: "owner"}
 	Expect(roleSvc.NewWriter(nil, true).Create(ctx, &owner)).To(Succeed())

@@ -30,6 +30,12 @@ func ResourceID(k Key) resource.ID {
 	return resource.ID{Type: resource.TypeRole, Key: k.String()}
 }
 
+// ResourceIDs constructs a slice of unique resource.IDs for the Roles with the given
+// keys.
+func ResourceIDs(keys []Key) []resource.ID {
+	return lo.Map(keys, func(k Key, _ int) resource.ID { return ResourceID(k) })
+}
+
 // ResourceIDsFromRoles constructs a slice of unique resource.IDs for the given Roles.
 func ResourceIDsFromRoles(roles []Role) []resource.ID {
 	return lo.Map(roles, func(r Role, _ int) resource.ID { return r.ResourceID() })

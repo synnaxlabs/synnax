@@ -63,9 +63,12 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 })
 
 // rootCtx returns a context whose subject is the root user, which holds the Owner role.
-func rootCtx(ctx SpecContext) freighter.Context {
+func rootCtx(ctx SpecContext) freighter.Context { return userCtx(ctx, root) }
+
+// userCtx returns a context whose subject is u.
+func userCtx(ctx SpecContext, u user.User) freighter.Context {
 	fctx := freighter.Context{Context: ctx, Params: freighter.Params{}}
-	fctx.Set("Subject", root.ResourceID())
+	fctx.Set("Subject", u.ResourceID())
 	return fctx
 }
 

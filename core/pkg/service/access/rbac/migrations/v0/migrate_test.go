@@ -117,13 +117,14 @@ var _ = Describe("Legacy Permission Migration", func() {
 			Expect(writer.Set(ctx, adminPolicy)).To(Succeed())
 			Expect(writer.Set(ctx, schematicPolicy)).To(Succeed())
 
-			policySvc := MustOpen(policy.OpenService(ctx, policy.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-			}))
 			roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
+			}))
+			policySvc := MustOpen(policy.OpenService(ctx, policy.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+				Role:     roleSvc,
 			}))
 			builtinRoles := MustSucceed(builtin.Provision(ctx, db, policySvc, roleSvc))
 			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
@@ -218,13 +219,14 @@ var _ = Describe("Legacy Permission Migration", func() {
 			),
 		)
 
-		policySvc := MustOpen(policy.OpenService(ctx, policy.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-		}))
 		roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
+		}))
+		policySvc := MustOpen(policy.OpenService(ctx, policy.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Role:     roleSvc,
 		}))
 		run := func() error {
 			builtinRoles, err := builtin.Provision(ctx, db, policySvc, roleSvc)
@@ -272,13 +274,14 @@ var _ = Describe("Legacy Permission Migration", func() {
 				auth.Credentials{Username: "root", Password: "p"},
 			),
 		)
-		policySvc := MustOpen(policy.OpenService(ctx, policy.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-		}))
 		roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
+		}))
+		policySvc := MustOpen(policy.OpenService(ctx, policy.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Role:     roleSvc,
 		}))
 		builtinRoles := MustSucceed(builtin.Provision(ctx, db, policySvc, roleSvc))
 		// Cores up to v0.53 converted permissions to roles and set this flag.

@@ -11,7 +11,9 @@ package access
 
 import (
 	"context"
+	"uuid"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -20,7 +22,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -70,15 +74,42 @@ type (
 	CreatePolicyResponse = CreatePolicyRequest
 )
 
+// CreatePolicy creates or overwrites the policies in the request. It requires create
+// access on policies, and update access on the role of each policy and on the stored
+// role of each policy it overwrites.
 func (s *Service) CreatePolicy(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreatePolicyRequest,
 ) (CreatePolicyResponse, error) {
-	if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
+	enforcer := s.internal.NewEnforcer(tx)
+	subject := auth.GetSubject(ctx)
+	if err := enforcer.Enforce(ctx, access.Request{
+		Subject: subject,
 		Objects: []resource.ID{{Type: resource.TypePolicy}},
 		Action:  access.ActionCreate,
+	}); err != nil {
+		return CreatePolicyRequest{}, err
+	}
+	keys := make([]policy.Key, 0, len(req.Policies))
+	roles := make([]role.Key, 0, len(req.Policies))
+	for _, p := range req.Policies {
+		if p.Key != uuid.Nil() {
+			keys = append(keys, p.Key)
+		}
+		roles = append(roles, p.Role)
+	}
+	stored, err := s.retrievePolicies(ctx, tx, keys)
+	if err != nil {
+		return CreatePolicyRequest{}, err
+	}
+	for _, p := range stored {
+		roles = append(roles, p.Role)
+	}
+	if err := enforcer.Enforce(ctx, access.Request{
+		Subject: subject,
+		Objects: role.ResourceIDs(lo.Uniq(roles)),
+		Action:  access.ActionUpdate,
 	}); err != nil {
 		return CreatePolicyRequest{}, err
 	}
@@ -87,6 +118,24 @@ func (s *Service) CreatePolicy(
 		return CreatePolicyRequest{}, err
 	}
 	return CreatePolicyResponse(req), nil
+}
+
+// retrievePolicies returns the stored policies with the given keys, skipping keys that
+// no policy holds.
+func (s *Service) retrievePolicies(
+	ctx context.Context,
+	tx gorp.Tx,
+	keys []policy.Key,
+) ([]policy.Policy, error) {
+	if len(keys) == 0 {
+		return nil, nil
+	}
+	var stored []policy.Policy
+	err := s.internal.Policy.NewRetrieve().
+		Where(policy.MatchKeys(keys...)).
+		Entries(&stored).
+		Exec(ctx, tx)
+	return stored, errors.Skip(err, query.ErrNotFound)
 }
 
 type RetrievePolicyRequest struct {
@@ -152,15 +201,33 @@ type DeletePolicyRequest struct {
 	Keys []policy.Key `json:"keys" msgpack:"keys"`
 }
 
+// DeletePolicy deletes the policies with the keys in the request. It requires delete
+// access on the policies and update access on their roles.
 func (s *Service) DeletePolicy(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeletePolicyRequest,
 ) (struct{}, error) {
-	if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
+	enforcer := s.internal.NewEnforcer(tx)
+	subject := auth.GetSubject(ctx)
+	if err := enforcer.Enforce(ctx, access.Request{
+		Subject: subject,
 		Objects: policy.ResourceIDs(req.Keys),
 		Action:  access.ActionDelete,
+	}); err != nil {
+		return struct{}{}, err
+	}
+	stored, err := s.retrievePolicies(ctx, tx, req.Keys)
+	if err != nil {
+		return struct{}{}, err
+	}
+	roles := lo.Uniq(lo.Map(stored, func(p policy.Policy, _ int) role.Key {
+		return p.Role
+	}))
+	if err := enforcer.Enforce(ctx, access.Request{
+		Subject: subject,
+		Objects: role.ResourceIDs(roles),
+		Action:  access.ActionUpdate,
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -252,13 +319,9 @@ func (s *Service) DeleteRole(
 	tx gorp.Tx,
 	req DeleteRoleRequest,
 ) (struct{}, error) {
-	roleIDs := make([]resource.ID, len(req.Keys))
-	for i, key := range req.Keys {
-		roleIDs[i] = role.ResourceID(key)
-	}
 	if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
-		Objects: roleIDs,
+		Objects: role.ResourceIDs(req.Keys),
 		Action:  access.ActionDelete,
 	}); err != nil {
 		return struct{}{}, err

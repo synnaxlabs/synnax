@@ -122,6 +122,7 @@ func OpenService(
 		DB:              cfg.DB,
 		Signals:         cfg.Signals,
 		Ontology:        cfg.Ontology,
+		Role:            s.Role,
 	}); !ok(err, s.Policy) {
 		return nil, err
 	}

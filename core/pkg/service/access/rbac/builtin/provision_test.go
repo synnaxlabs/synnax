@@ -32,13 +32,14 @@ var _ = Describe("Provision", func() {
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		policySvc = MustOpen(policy.OpenService(ctx, policy.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-		}))
 		roleSvc = MustOpen(role.OpenService(ctx, role.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
+		}))
+		policySvc = MustOpen(policy.OpenService(ctx, policy.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Role:     roleSvc,
 		}))
 	})
 	provision := func(ctx context.Context) builtin.ProvisionResult {
