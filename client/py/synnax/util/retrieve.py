@@ -53,7 +53,7 @@ def request_where[W: BaseModel](
     and holds a value, a list, or an operator, as in a partial record.
 
     :param model: The Where type of the entity.
-    :param tree: The tree the caller passed, or None.
+    :param tree: The tree the caller passed, or None. A tree with no lines adds nothing.
     :param fields: The filter fields, keyed by their Python names.
     :returns: The joined tree, or None when there is neither a tree nor a field.
     :raises ValidationError: If a field is None, since dropping it would select every
@@ -68,7 +68,9 @@ def request_where[W: BaseModel](
     if not fields:
         return tree
     read = model.model_validate(fields)
-    return read if tree is None else model.model_validate({"and": [tree, read]})
+    if tree is None or tree == model():
+        return read
+    return model.model_validate({"and": [tree, read]})
 
 
 def returns_one(
