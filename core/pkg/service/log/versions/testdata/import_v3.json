@@ -15,7 +15,7 @@
       "notation": "scientific",
       "precision": 2,
       "alias": "temp",
-      "value_format": {
+      "timestamp_config": {
         "format": "ISO",
         "time_zone": "UTC"
       }
@@ -30,7 +30,7 @@
       },
       "notation": "standard",
       "alias": "",
-      "value_format": {
+      "timestamp_config": {
         "format": "",
         "time_zone": ""
       }

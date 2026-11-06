@@ -250,7 +250,7 @@ var _ = Describe("Writer", func() {
 				Channel:  ch,
 				Alias:    alias,
 				Notation: notation.NotationStandard,
-				ValueFormat: log.TimestampConfig{
+				TimestampConfig: log.TimestampConfig{
 					Format:   telem.TimestampFormatPreciseDate,
 					TimeZone: telem.TimeZoneLocal,
 				},
@@ -302,9 +302,11 @@ var _ = Describe("Writer", func() {
 					Expect(entry.Notation).To(Equal(notation.NotationStandard))
 					Expect(entry.Precision).To(BeNil())
 					Expect(
-						entry.ValueFormat.Format,
+						entry.TimestampConfig.Format,
 					).To(Equal(telem.TimestampFormatPreciseDate))
-					Expect(entry.ValueFormat.TimeZone).To(Equal(telem.TimeZoneLocal))
+					Expect(
+						entry.TimestampConfig.TimeZone,
+					).To(Equal(telem.TimeZoneLocal))
 				},
 			)
 
@@ -378,14 +380,14 @@ var _ = Describe("Writer", func() {
 						log.NewSetChannelAliasAction(
 							log.SetChannelAliasPayload{Channel: 5, Alias: "volts"},
 						),
-						log.NewSetChannelValueFormatAction(
-							log.SetChannelValueFormatPayload{
+						log.NewSetChannelTimestampFormatAction(
+							log.SetChannelTimestampFormatPayload{
 								Channel: 5,
 								Format:  telem.TimestampFormatTime,
 							},
 						),
-						log.NewSetChannelValueTimeZoneAction(
-							log.SetChannelValueTimeZonePayload{
+						log.NewSetChannelTimestampTimeZoneAction(
+							log.SetChannelTimestampTimeZonePayload{
 								Channel:  5,
 								TimeZone: telem.TimeZoneUTC,
 							},
@@ -397,9 +399,9 @@ var _ = Describe("Writer", func() {
 					Expect(entry.Precision).To(Equal(new(uint8(4))))
 					Expect(entry.Alias).To(Equal("volts"))
 					Expect(
-						entry.ValueFormat.Format,
+						entry.TimestampConfig.Format,
 					).To(Equal(telem.TimestampFormatTime))
-					Expect(entry.ValueFormat.TimeZone).To(Equal(telem.TimeZoneUTC))
+					Expect(entry.TimestampConfig.TimeZone).To(Equal(telem.TimeZoneUTC))
 				},
 			)
 
@@ -588,24 +590,24 @@ var _ = Describe("Writer", func() {
 				},
 				Entry(
 					"empty timestamp format",
-					log.NewSetChannelValueFormatAction(
-						log.SetChannelValueFormatPayload{Channel: 5},
+					log.NewSetChannelTimestampFormatAction(
+						log.SetChannelTimestampFormatPayload{Channel: 5},
 					),
-					"channels.0.value_format.format",
+					"channels.0.timestamp_config.format",
 				),
 				Entry(
 					"empty time zone",
-					log.NewSetChannelValueTimeZoneAction(
-						log.SetChannelValueTimeZonePayload{Channel: 5},
+					log.NewSetChannelTimestampTimeZoneAction(
+						log.SetChannelTimestampTimeZonePayload{Channel: 5},
 					),
-					"channels.0.value_format.time_zone",
+					"channels.0.timestamp_config.time_zone",
 				),
 				Entry(
 					"entry with no timestamp",
 					log.NewSetChannelEntryAction(
 						log.SetChannelEntryPayload{Entry: log.ChannelEntry{Channel: 5}},
 					),
-					"channels.0.value_format",
+					"channels.0.timestamp_config",
 				),
 				Entry(
 					"added channel of 0",
@@ -626,7 +628,7 @@ var _ = Describe("Writer", func() {
 							Channels: []log.ChannelEntry{{Channel: 5}},
 						},
 					),
-					"channels.0.value_format",
+					"channels.0.timestamp_config",
 				),
 			)
 

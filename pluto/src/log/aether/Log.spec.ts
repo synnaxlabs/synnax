@@ -956,11 +956,11 @@ describe("log/aether/Log", () => {
         return log.selectedLines()[0].text;
       };
 
-      it("should format the value with the channel's value format", () => {
+      it("should format the value with the channel's timestamp config", () => {
         const entry = clientLog.channelEntryZ.parse({
           channel: 1,
           color: color.ZERO,
-          valueFormat: { format: "ISO", timeZone: "UTC" },
+          timestampConfig: { format: "ISO", timeZone: "UTC" },
         });
         expect(copied([entry])).toBe(new TimeStamp(NANOS).toString("ISO", "UTC"));
       });
