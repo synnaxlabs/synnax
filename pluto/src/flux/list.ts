@@ -218,6 +218,7 @@ export const createList = <
     const callerQueryRef = useRef(initialQuery);
     const retrievedRef = useRef(false);
     const recordsStaleRef = useRef(false);
+    const callerQueryChangesRef = useRef(0);
     const pagesRef = useRef<Page<Key>[]>([]);
     const itemSubsRef = useInitializerRef<Map<Key, destructor.Destructor>>(
       () => new Map(),
@@ -360,6 +361,9 @@ export const createList = <
       options: query.FetchOptions = {},
     ): Promise<void> => {
       const { signal } = options;
+      const changes = callerQueryChangesRef.current;
+      const outdated = () =>
+        signal?.aborted === true || callerQueryChangesRef.current !== changes;
       // The compiler rejects `?.`, `??`, and `?:` in a try, so the body is a closure.
       const apply = async (): Promise<void> => {
         if (client == null || primitive.isZero(key)) return;
@@ -368,7 +372,7 @@ export const createList = <
           key,
           query: queryRef.current ?? {},
         });
-        if (signal?.aborted || item == null) return;
+        if (outdated() || item == null) return;
         openItemSub(key);
         if (!filterRef.current(item)) {
           dataRef.current.set(key, null);
@@ -380,7 +384,7 @@ export const createList = <
       try {
         await apply();
       } catch (error) {
-        if (signal?.aborted) return;
+        if (outdated()) return;
         dataRef.current.set(key, null);
         setResult(errorResult(`retrieve ${name}`, error));
       }
@@ -393,7 +397,10 @@ export const createList = <
     const refreshRecords = () => {
       clearItemSubs();
       coverRecords();
-      itemSubsRef.current.forEach((_, key) => void retrieveSingle(key));
+      const paged = new Set(pagesRef.current.flatMap((page) => page.keys));
+      listItemListenersRef.current.forEach((_, key) => {
+        if (!paged.has(key)) void retrieveSingle(key);
+      });
     };
 
     const openPage = (q: Query, keys: Key[], cached = false): void => {
@@ -627,6 +634,7 @@ export const createList = <
       const from = callerQueryRef.current;
       if (deep.equal(from, initialQuery)) return;
       callerQueryRef.current = initialQuery;
+      callerQueryChangesRef.current += 1;
       const next = normalized(rebaseQuery(queryRef.current ?? {}, from, initialQuery));
       queryRef.current = next;
       if (retrievedRef.current) {
