@@ -13,6 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
+	arclang "github.com/synnaxlabs/arc"
 	arctransport "github.com/synnaxlabs/arc/lsp/transport"
 	"github.com/synnaxlabs/arc/parser"
 	arctext "github.com/synnaxlabs/arc/text"
@@ -140,7 +141,7 @@ func (s *Service) Create(
 		return CreateResponse{}, err
 	}
 	for i := range req.Arcs {
-		req.Arcs[i].Text = req.Arcs[i].Text.Materialize()
+		req.Arcs[i] = materialize(req.Arcs[i])
 	}
 	return CreateResponse{Arcs: req.Arcs}, nil
 }
@@ -273,7 +274,7 @@ func (s *Service) Retrieve(
 	// before compilation and for clients that read the source text directly rather than
 	// reconstructing the document.
 	for i := range res.Arcs {
-		res.Arcs[i].Text = res.Arcs[i].Text.Materialize()
+		res.Arcs[i] = materialize(res.Arcs[i])
 		if req.IncludeProgram {
 			if err := s.compile(ctx, &res.Arcs[i]); err != nil {
 				return RetrieveResponse{}, err
@@ -301,22 +302,62 @@ func (s *Service) LSP(
 	})
 }
 
-// compile compiles the Arc text to a module containing IR and WASM bytecode. Returns an
-// error if parsing, analysis, or compilation fails.
-func (s *Service) compile(ctx context.Context, arc *Arc) error {
-	cfg := parser.Config{AllowDashedNames: s.internal.AllowDashedNames()}
-	parsed, diag := arctext.Parse(arc.Text, cfg)
-	if diag != nil && !diag.Ok() {
-		return CompileError{Diagnostics: diag.Error()}
+// materialize returns a with the raw text of a text-mode Arc derived from its document.
+func materialize(a Arc) Arc {
+	b := a.Base()
+	src, ok := b.Source.Variant.(arc.TextSource)
+	if !ok {
+		return a
 	}
-	ir, diag := arctext.Analyze(ctx, parsed, s.internal.NewRoot(nil), cfg)
-	if diag != nil && !diag.Ok() {
-		return CompileError{Diagnostics: diag.Error()}
+	src.Text = src.Text.Materialize()
+	b.Source.Variant = src
+	a.SetBase(b)
+	return a
+}
+
+// compile compiles the source of an automation into its program and leaves a module as
+// is. Returns an error if parsing, analysis, or compilation fails.
+func (s *Service) compile(ctx context.Context, a *Arc) error {
+	automation, ok := a.Variant.(arc.AutomationArc)
+	if !ok {
+		return nil
 	}
-	mod, err := arctext.Compile(ctx, ir)
+	var (
+		prog arclang.Program
+		err  error
+	)
+	switch src := automation.Source.Variant.(type) {
+	case arc.TextSource:
+		prog, err = s.compileText(ctx, src.Text)
+	case arc.GraphSource:
+		prog, err = arclang.CompileGraph(
+			ctx,
+			src.Graph,
+			s.internal.NewRoot(nil),
+			arclang.WithAllowDashedNames(s.internal.AllowDashedNames()),
+		)
+	}
 	if err != nil {
 		return err
 	}
-	arc.Program = &mod
+	automation.Program = &prog
+	a.Variant = automation
 	return nil
+}
+
+// compileText compiles t, reporting parse and analysis failures as a CompileError.
+func (s *Service) compileText(
+	ctx context.Context,
+	t arctext.Text,
+) (arclang.Program, error) {
+	cfg := parser.Config{AllowDashedNames: s.internal.AllowDashedNames()}
+	parsed, diag := arctext.Parse(t, cfg)
+	if diag != nil && !diag.Ok() {
+		return arclang.Program{}, CompileError{Diagnostics: diag.Error()}
+	}
+	ir, diag := arctext.Analyze(ctx, parsed, s.internal.NewRoot(nil), cfg)
+	if diag != nil && !diag.Ok() {
+		return arclang.Program{}, CompileError{Diagnostics: diag.Error()}
+	}
+	return arctext.Compile(ctx, ir)
 }

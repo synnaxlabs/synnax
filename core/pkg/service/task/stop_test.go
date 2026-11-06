@@ -160,13 +160,12 @@ var _ = Describe("Stopper", func() {
 				DataType:   telem.Uint8T,
 				LocalIndex: index.LocalKey,
 			})
-			a := arc.Arc{
+			a := arc.Arc{Variant: arc.AutomationArc{Base: arc.Base{
 				Name: "stopper-" + uuid.New().String(),
-				Mode: arc.ModeText,
-				Text: text.Text{
+				Source: arc.Source{Variant: arc.TextSource{Text: text.Text{
 					Raw: fmt.Sprintf("interval(period=10ms) -> %s", data.Name),
-				},
-			}
+				}}},
+			}}}
 			Expect(svc.Arc.NewWriter(nil).Create(ctx, &a)).To(Succeed())
 			var coreRack rack.Rack
 			Expect(svc.Rack.NewRetrieve().
@@ -175,9 +174,9 @@ var _ = Describe("Stopper", func() {
 				Exec(ctx, nil)).To(Succeed())
 			t := task.Task{
 				Rack:   coreRack.Key,
-				Name:   a.Name,
+				Name:   a.Base().Name,
 				Type:   arc.TaskType,
-				Config: msgpack.EncodedJSON{"arc_key": a.Key.String()},
+				Config: msgpack.EncodedJSON{"arc_key": a.Base().Key.String()},
 			}
 			Expect(svc.Task.NewWriter(nil).Create(ctx, &t)).To(Succeed())
 			cmdKey := svc.Task.CommandChannelKey()

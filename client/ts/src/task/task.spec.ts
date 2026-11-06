@@ -614,7 +614,8 @@ describe("Task", async () => {
       await waitForStreamLive(client.connection);
       const { key: arcKey } = await client.arcs.create({
         name: `dispatch-default-${id.create()}`,
-        mode: "text",
+        type: "automation",
+        source: { mode: "text" },
       });
       const t = await testRack.createTask({
         name: `dispatch-default-${id.create()}`,

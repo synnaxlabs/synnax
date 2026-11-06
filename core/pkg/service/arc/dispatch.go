@@ -48,12 +48,21 @@ func (s *Service) Dispatch(
 				ChangeErr(func(_ gorp.Context, a Arc) (Arc, error) {
 					sweep = nil
 					var dead []crdt.ID
-					if s.sweeper.quiet(key) {
-						dead = s.sweeper.forgettable(a.Text.Doc)
+					src, isText := a.Base().Source.Variant.(TextSource)
+					if isText && s.sweeper.quiet(key) {
+						dead = s.sweeper.forgettable(src.Text.Doc)
 					}
+					name := a.Base().Name
 					a, err := Reduce(a, acts...)
 					if err != nil {
 						return a, err
+					}
+					if renamed := a.Base().Name; renamed != name {
+						if err = s.NewWriter(tx).validateName(
+							ctx, OntologyID(key), renamed, a.Type() == TypeModule,
+						); err != nil {
+							return Arc{}, err
+						}
 					}
 					if len(dead) > 0 {
 						sweep = []Action{
@@ -102,7 +111,7 @@ func (s *Service) resyncTask(ctx context.Context, key Key) {
 					Exec(ctx, tx); err != nil {
 					return err
 				}
-				return s.NewWriter(tx).syncTask(ctx, a, taskKey)
+				return s.NewWriter(tx).syncTask(ctx, a.Base(), taskKey)
 			},
 		), query.ErrNotFound)
 	}
