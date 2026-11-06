@@ -45,9 +45,38 @@ jobs:
           name: pr
           path: pr
 
+  # A Windows runner is slow to start and clone, so the core-windows job takes one only
+  # when it has a build to run.
+  windows-runner:
+    name: Pick the Windows runner
+    runs-on: ubuntu-latest
+    outputs:
+      os: ${{ steps.pick.outputs.os }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Pick the runner
+        id: pick
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          base=$(git merge-base "$BASE" HEAD)
+          if git diff --quiet "$base" HEAD -- core/cmd .github/scripts/surface.sh; then
+            echo "os=ubuntu-latest" >> "$GITHUB_OUTPUT"
+          else
+            echo "os=windows-latest" >> "$GITHUB_OUTPUT"
+          fi
+
   surface:
     name: Compare ${{ matrix.surface }}
-    runs-on: ${{ matrix.os || 'ubuntu-latest' }}
+    needs: windows-runner
+    runs-on:
+      ${{ matrix.surface == 'core-windows' && needs.windows-runner.outputs.os ||
+      'ubuntu-latest' }}
     defaults:
       run:
         shell: bash
@@ -72,7 +101,6 @@ jobs:
             go: core/go.mod
           # The Core builds its service commands for Windows only.
           - surface: core-windows
-            os: windows-latest
             paths: core/cmd
             go: core/go.mod
           - surface: driver
