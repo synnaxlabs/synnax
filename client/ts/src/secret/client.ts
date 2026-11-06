@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, primitive } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { ontology } from "@/ontology";
@@ -18,10 +18,14 @@ import {
   type Key,
   keyZ,
   ontologyID,
+  type RetrieveRequest,
+  retrieveRequestZ,
+  retrieveResponseZ,
   type Secret,
   secretZ,
   storedSecretZ,
 } from "@/secret/types.gen";
+import { matches, retrieveInputZ, serverComputed } from "@/secret/where.gen";
 
 export const SET_CHANNEL_NAME = "sy_secret_set";
 export const DELETE_CHANNEL_NAME = "sy_secret_delete";
@@ -52,25 +56,14 @@ const grantCreateReqZ = z.object({ subject: ontology.idZ, secrets: keyZ.array() 
 export interface GrantParams extends z.input<typeof grantCreateReqZ> {}
 const grantCreateResZ = z.object({ grant: grantKeyZ });
 
-const retrieveRequestZ = z.object({
-  keys: keyZ.array().optional(),
-  searchTerm: z.string().optional(),
-  offset: z.number().optional(),
-  limit: z.number().optional(),
-});
-const retrieveMultiParamsZ = retrieveRequestZ.or(query.keyListZ(keyZ));
+const retrieveMultiParamsZ = z.union([
+  query.keysRequestZ(keyZ),
+  retrieveRequestZ,
+  retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+]);
 
 export type RetrieveSingleParams = { key: Key };
-export interface RetrieveMultipleParams extends z.input<typeof retrieveRequestZ> {}
-
-interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
-
-const retrieveResponseZ = z.object({ secrets: secretZ.array().default(() => []) });
-
-const requestFilter = (req: RetrieveRequest): ((s: Secret) => boolean) => {
-  const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
-  return (s) => keySet == null || keySet.has(s.key);
-};
+export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 
 export interface ClientConfig {
   unary: UnaryClient;
@@ -86,7 +79,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Se
     const { cache } = cfg;
     const store = cache.createTable<Key, Secret>({
       name: "secrets",
-      fetch: async (keys) => await this.execRetrieve({ keys }),
+      fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
       listen: [
         query.createSetListener(SET_CHANNEL_NAME, secretZ),
         query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
@@ -98,7 +91,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Se
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
-        matches: (secret, req) => requestFilter(req)(secret),
+        matches: (secret, req) => matches(secret, req.where),
+        serverComputed: (req) => serverComputed(req.where),
       },
     });
     this.cfg = cfg;
@@ -196,10 +190,10 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Se
     return res.grant;
   }
 
-  private async execRetrieve(params: RetrieveMultipleParams): Promise<Secret[]> {
+  private async execRetrieve(req: RetrieveRequest): Promise<Secret[]> {
     const res = await this.cfg.unary.send(
       "/secret/retrieve",
-      params,
+      req,
       retrieveRequestZ,
       retrieveResponseZ,
     );
