@@ -732,6 +732,7 @@ export class TimeSpan
 {
   constructor(value: CrudeTimeSpan) {
     if (typeof value === "number") value = Math.trunc(value.valueOf());
+    else if (typeof value === "object" && value instanceof Rate) value = value.period;
     if (primitive.isCrudeValueExtension<bigint>(value)) value = value.value;
     super(BigInt(value.valueOf()));
   }

@@ -19,7 +19,9 @@ import { CSS } from "@/platform/css";
 import { Framer } from "@/platform/framer";
 import { Task } from "@/platform/task";
 
-const INITIAL_RACK_QUERY: rack.RetrieveParams = { integration: "arc" };
+const INITIAL_RACK_QUERY: rack.RetrieveMultipleParams = {
+  where: { integrations: { any: ["arc"] } },
+};
 const RACK_TRIGGER_PROPS = {
   className: CSS.BE("rack-select", "trigger"),
   collapsible: true,
@@ -29,6 +31,7 @@ const RACK_DIALOG_PROPS = { className: CSS.BE("rack-select", "dialog") };
 export const TaskControls = () => {
   const key = Arc.useKey();
   const name = Arc.useName();
+  const type = Arc.useType();
   const captureDeploy = PlatformArc.useCaptureDeploy();
   const { running, taskRack, taskPerformance, taskStatus, onStart, onStop } =
     Arc.useTaskControls(key, name, { afterSuccess: captureDeploy });
@@ -36,6 +39,7 @@ export const TaskControls = () => {
   const canControl = Framer.useCanCommand();
   const { update: updateTask } = Arc.useUpdateTask();
   const bound = primitive.isNonZero(taskRack);
+  if (type === "module") return null;
 
   const handleRackChange = (rackKey: rack.Key) => updateTask({ key, rack: rackKey });
   const handlePerformanceChange = (performance: arc.task.Performance) =>
@@ -58,7 +62,7 @@ export const TaskControls = () => {
             value={bound ? taskRack : undefined}
             onChange={handleRackChange}
             location="top"
-            initialQuery={INITIAL_RACK_QUERY}
+            query={INITIAL_RACK_QUERY}
             triggerProps={RACK_TRIGGER_PROPS}
             dialogProps={RACK_DIALOG_PROPS}
           />

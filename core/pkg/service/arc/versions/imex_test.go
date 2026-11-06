@@ -26,46 +26,52 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		return MustSucceed(versions.DecodeImExEnvelope(ctx, LoadEnvelope(path)))
 	}
 
-	inputs := func(a versions.Arc, node string) map[string]any {
+	inputs := func(a versions.Base, node string) map[string]any {
 		GinkgoHelper()
 		var out map[string]any
-		Expect(a.Graph.Inputs[node].Unmarshal(&out)).To(Succeed())
+		Expect(graphOf(a).Inputs[node].Unmarshal(&out)).To(Succeed())
 		return out
 	}
 
 	It("Should decode a server-exported envelope", func(ctx SpecContext) {
-		a := decode(ctx, "testdata/import_v3.json")
-		Expect(a.Mode).To(Equal(versions.ModeGraph))
-		Expect(a.Graph.Nodes).To(HaveLen(1))
-		Expect(a.Graph.Nodes[0].Key).To(Equal("n1"))
-		Expect(a.Graph.Edges[0].Source).To(Equal(ir.Handle{Node: "n1", Param: "out"}))
-		Expect(a.Graph.Edges[0].Kind).To(Equal(ir.EdgeKindContinuous))
+		a := decode(ctx, "testdata/import_v3.json").Base()
+		Expect(a.Source.Mode()).To(Equal(versions.ModeGraph))
+		Expect(graphOf(a).Nodes).To(HaveLen(1))
+		Expect(graphOf(a).Nodes[0].Key).To(Equal("n1"))
+		Expect(
+			graphOf(a).Edges[0].Source,
+		).To(Equal(ir.Handle{Node: "n1", Param: "out"}))
+		Expect(graphOf(a).Edges[0].Kind).To(Equal(ir.EdgeKindContinuous))
 		Expect(inputs(a, "n1")).To(HaveKeyWithValue("type", "constant"))
 	})
 
 	It("Should decode the versionless Console export", func(ctx SpecContext) {
-		a := decode(ctx, "testdata/import_typed_console.json")
-		Expect(a.Mode).To(Equal(versions.ModeGraph))
-		Expect(a.Graph.Nodes).To(HaveLen(2))
-		Expect(a.Graph.Nodes[0].Key).To(Equal("n9"))
-		Expect(a.Graph.Functions).To(HaveLen(1))
-		Expect(a.Graph.Edges[0].Source).To(Equal(ir.Handle{Node: "n9", Param: "out"}))
+		a := decode(ctx, "testdata/import_typed_console.json").Base()
+		Expect(a.Source.Mode()).To(Equal(versions.ModeGraph))
+		Expect(graphOf(a).Nodes).To(HaveLen(2))
+		Expect(graphOf(a).Nodes[0].Key).To(Equal("n9"))
+		Expect(graphOf(a).Functions).To(HaveLen(1))
+		Expect(
+			graphOf(a).Edges[0].Source,
+		).To(Equal(ir.Handle{Node: "n9", Param: "out"}))
 		// The Console wrote keyless edges; the graph lift mints one.
-		Expect(a.Graph.Edges[0].Key).ToNot(BeEmpty())
+		Expect(graphOf(a).Edges[0].Key).ToNot(BeEmpty())
 		Expect(inputs(a, "n9")).To(HaveKeyWithValue("keyOrName", "kept"))
 	})
 
 	// Consoles 0.46 through 0.53 stamped "0.0.0" on the Arc itself, so an export of a
 	// closed Arc carries a version header over the typed server payload.
 	It("Should decode a version-stamped Console export", func(ctx SpecContext) {
-		a := decode(ctx, "testdata/import_typed_console_stamped.json")
-		Expect(a.Mode).To(Equal(versions.ModeGraph))
-		Expect(a.Graph.Nodes).To(HaveLen(2))
-		Expect(a.Graph.Nodes[0].Key).To(Equal("n1"))
-		Expect(a.Graph.Edges[0].Source).To(Equal(ir.Handle{Node: "n1", Param: "out"}))
-		Expect(a.Graph.Edges[0].Target).To(Equal(ir.Handle{Node: "n2", Param: "in"}))
+		a := decode(ctx, "testdata/import_typed_console_stamped.json").Base()
+		Expect(a.Source.Mode()).To(Equal(versions.ModeGraph))
+		Expect(graphOf(a).Nodes).To(HaveLen(2))
+		Expect(graphOf(a).Nodes[0].Key).To(Equal("n1"))
+		Expect(
+			graphOf(a).Edges[0].Source,
+		).To(Equal(ir.Handle{Node: "n1", Param: "out"}))
+		Expect(graphOf(a).Edges[0].Target).To(Equal(ir.Handle{Node: "n2", Param: "in"}))
 		// The payload had no kind field, and every edge it wrote was continuous.
-		Expect(a.Graph.Edges[0].Kind).To(Equal(ir.EdgeKindContinuous))
+		Expect(graphOf(a).Edges[0].Kind).To(Equal(ir.EdgeKindContinuous))
 		Expect(inputs(a, "n1")).To(SatisfyAll(
 			HaveKeyWithValue("type", "constant"),
 			HaveKeyWithValue("keyOrName", "sensor_1"),
@@ -75,9 +81,9 @@ var _ = Describe("DecodeImExEnvelope", func() {
 	It("Should keep node configs on an edgeless version-stamped export", func(
 		ctx SpecContext,
 	) {
-		a := decode(ctx, "testdata/import_typed_console_stamped_edgeless.json")
-		Expect(a.Graph.Nodes).To(HaveLen(1))
-		Expect(a.Graph.Edges).To(BeEmpty())
+		a := decode(ctx, "testdata/import_typed_console_stamped_edgeless.json").Base()
+		Expect(graphOf(a).Nodes).To(HaveLen(1))
+		Expect(graphOf(a).Edges).To(BeEmpty())
 		Expect(inputs(a, "n1")).To(SatisfyAll(
 			HaveKeyWithValue("type", "constant"),
 			HaveKeyWithValue("keyOrName", "sensor_1"),
@@ -87,12 +93,12 @@ var _ = Describe("DecodeImExEnvelope", func() {
 	It(
 		"Should lift a v0 Console state, nesting edges and renaming set_status",
 		func(ctx SpecContext) {
-			a := decode(ctx, "testdata/import_v0_state.json")
-			Expect(a.Mode).To(Equal(versions.ModeGraph))
-			Expect(a.Graph.Nodes).To(HaveLen(2))
-			Expect(a.Graph.Edges[0].Source).
+			a := decode(ctx, "testdata/import_v0_state.json").Base()
+			Expect(a.Source.Mode()).To(Equal(versions.ModeGraph))
+			Expect(graphOf(a).Nodes).To(HaveLen(2))
+			Expect(graphOf(a).Edges[0].Source).
 				To(Equal(ir.Handle{Node: "n1", Param: "out"}))
-			Expect(a.Graph.Edges[0].Target).
+			Expect(graphOf(a).Edges[0].Target).
 				To(Equal(ir.Handle{Node: "n2", Param: "in"}))
 			Expect(inputs(a, "n1")).To(SatisfyAll(
 				HaveKeyWithValue("type", "status.set"),
@@ -100,19 +106,17 @@ var _ = Describe("DecodeImExEnvelope", func() {
 				HaveKeyWithValue("variant", "warning"),
 				HaveKeyWithValue("message", "hi"),
 			))
-			// Console-era text lifts through the bracket swap, which seeds the
-			// document.
-			Expect(a.Text.Materialize().Raw).To(Equal("a = b"))
-			Expect(a.Text.Raw).To(BeEmpty())
 		},
 	)
 
 	It("Should lift a v2 Console state without rewriting props", func(
 		ctx SpecContext,
 	) {
-		a := decode(ctx, "testdata/import_v2_state.json")
-		Expect(a.Mode).To(Equal(versions.ModeText))
-		Expect(a.Graph.Edges[0].Source).To(Equal(ir.Handle{Node: "n1", Param: "out"}))
+		a := decode(ctx, "testdata/import_v2_state.json").Base()
+		Expect(a.Source.Mode()).To(Equal(versions.ModeGraph))
+		Expect(
+			graphOf(a).Edges[0].Source,
+		).To(Equal(ir.Handle{Node: "n1", Param: "out"}))
 		Expect(inputs(a, "n1")).To(SatisfyAll(
 			HaveKeyWithValue("type", "status.set"),
 			HaveKeyWithValue("key_or_name", "st2"),
@@ -121,75 +125,92 @@ var _ = Describe("DecodeImExEnvelope", func() {
 
 	// The fixtures below are Arcs a shipped Console exported.
 	It("Should lift a graph-mode Console export", func(ctx SpecContext) {
-		a := decode(ctx, "testdata/import_console_v0_graph.json")
-		Expect(a.Mode).To(Equal(versions.ModeGraph))
-		Expect(a.Graph.Nodes).To(HaveLen(2))
-		Expect(a.Graph.Nodes[0].Key).To(Equal("Etvr8fqkCw7"))
-		Expect(a.Graph.Nodes[0].Position.X).To(Equal(467.0))
-		Expect(a.Graph.Inputs).To(HaveLen(2))
+		a := decode(ctx, "testdata/import_console_v0_graph.json").Base()
+		Expect(a.Source.Mode()).To(Equal(versions.ModeGraph))
+		Expect(graphOf(a).Nodes).To(HaveLen(2))
+		Expect(graphOf(a).Nodes[0].Key).To(Equal("Etvr8fqkCw7"))
+		Expect(graphOf(a).Nodes[0].Position.X).To(Equal(467.0))
+		Expect(graphOf(a).Inputs).To(HaveLen(2))
 	})
 
 	It("Should lift a text-mode Console export with no source yet", func(
 		ctx SpecContext,
 	) {
-		a := decode(ctx, "testdata/import_console_v0_text.json")
-		Expect(a.Mode).To(Equal(versions.ModeText))
-		Expect(a.Text.Materialize().Raw).To(BeEmpty())
-		Expect(a.Graph.Nodes).To(BeEmpty())
+		a := decode(ctx, "testdata/import_console_v0_text.json").Base()
+		Expect(a.Source.Mode()).To(Equal(versions.ModeText))
+		Expect(textOf(a).Materialize().Raw).To(BeEmpty())
 	})
 
 	It("Should rewrite the text of a Console export written before the swap", func(
 		ctx SpecContext,
 	) {
-		a := decode(ctx, "testdata/import_console_v0_text_source.json")
-		Expect(a.Mode).To(Equal(versions.ModeText))
-		Expect(a.Text.Materialize().Raw).To(Equal("sensor -> scale(factor=2.0) -> out"))
+		a := decode(ctx, "testdata/import_console_v0_text_source.json").Base()
+		Expect(a.Source.Mode()).To(Equal(versions.ModeText))
+		Expect(
+			textOf(a).Materialize().Raw,
+		).To(Equal("sensor -> scale(factor=2.0) -> out"))
 	})
 
 	It("Should rewrite the text of a v3 export", func(ctx SpecContext) {
-		a := decode(ctx, "testdata/import_v3_text.json")
-		Expect(a.Mode).To(Equal(versions.ModeText))
-		Expect(a.Text.Materialize().Raw).To(Equal("sensor -> scale(factor=2.0) -> out"))
-		Expect(a.Text.Raw).To(BeEmpty())
+		a := decode(ctx, "testdata/import_v3_text.json").Base()
+		Expect(a.Source.Mode()).To(Equal(versions.ModeText))
+		Expect(
+			textOf(a).Materialize().Raw,
+		).To(Equal("sensor -> scale(factor=2.0) -> out"))
+		Expect(textOf(a).Raw).To(BeEmpty())
 	})
 
 	// The writer seeds the document of a current export, so decode carries the raw
 	// source alone.
 	It("Should decode a v4 export as written", func(ctx SpecContext) {
-		a := decode(ctx, "testdata/import_v4.json")
-		Expect(a.Mode).To(Equal(versions.ModeText))
-		Expect(a.Text.Raw).To(Equal("sensor -> scale(factor=2.0) -> out"))
-		Expect(a.Text.Doc.Inserts).To(BeEmpty())
+		a := decode(ctx, "testdata/import_v4.json").Base()
+		Expect(a.Source.Mode()).To(Equal(versions.ModeText))
+		Expect(textOf(a).Raw).To(Equal("sensor -> scale(factor=2.0) -> out"))
+		Expect(textOf(a).Doc.Inserts).To(BeEmpty())
 	})
 
 	It("Should lift the Console state that added graph selection", func(
 		ctx SpecContext,
 	) {
-		a := decode(ctx, "testdata/import_v1_state.json")
-		Expect(a.Mode).To(Equal(versions.ModeGraph))
-		Expect(a.Graph.Nodes).To(HaveLen(2))
-		Expect(a.Graph.Nodes[0].Key).To(Equal("nA"))
-		Expect(a.Graph.Edges).To(HaveLen(1))
-		Expect(a.Graph.Inputs).To(HaveLen(2))
+		a := decode(ctx, "testdata/import_v1_state.json").Base()
+		Expect(a.Source.Mode()).To(Equal(versions.ModeGraph))
+		Expect(graphOf(a).Nodes).To(HaveLen(2))
+		Expect(graphOf(a).Nodes[0].Key).To(Equal("nA"))
+		Expect(graphOf(a).Edges).To(HaveLen(1))
+		Expect(graphOf(a).Inputs).To(HaveLen(2))
 	})
 
 	DescribeTable(
 		"Should default an Arc with no mode to graph",
 		func(ctx SpecContext, path string) {
-			Expect(decode(ctx, path).Mode).To(Equal(versions.ModeGraph))
+			Expect(decode(ctx, path).Base().Source.Mode()).To(Equal(versions.ModeGraph))
 		},
 		Entry("Console state", "testdata/import_v1_state_modeless.json"),
 		Entry("exported Arc", "testdata/import_v3_modeless.json"),
 	)
 
+	It("Should take the type from the header", func(ctx SpecContext) {
+		Expect(decode(ctx, "testdata/import_v4_module.json").Type()).
+			To(Equal(versions.TypeModule))
+	})
+
+	DescribeTable(
+		"Should default the type of an export whose header names none",
+		func(ctx SpecContext, path string) {
+			Expect(decode(ctx, path).Type()).To(Equal(versions.TypeAutomation))
+		},
+		Entry("v3", "testdata/import_v3.json"),
+		Entry("v4 before the type", "testdata/import_v4.json"),
+	)
+
 	It("Should drop the key on the wire", func(ctx SpecContext) {
-		Expect(decode(ctx, "testdata/import_v3.json").Key).To(Equal(uuid.Nil()))
+		Expect(decode(ctx, "testdata/import_v3.json").Base().Key).To(Equal(uuid.Nil()))
 	})
 
 	It("Should take the name from the envelope header", func(ctx SpecContext) {
 		env := LoadEnvelope("testdata/import_v0_state.json")
 		env.Name = "Renamed"
-		Expect(MustSucceed(versions.DecodeImExEnvelope(ctx, env)).Name).
+		Expect(MustSucceed(versions.DecodeImExEnvelope(ctx, env)).Base().Name).
 			To(Equal("Renamed"))
 	})
 

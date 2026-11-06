@@ -12,7 +12,7 @@ from uuid import uuid4
 import pytest
 
 import synnax as sy
-from synnax import ranger, status
+from synnax import ranger, status, view
 from synnax.view import RangeView, StatusView
 from x.testutil import assert_eventually
 
@@ -116,17 +116,59 @@ class TestView:
 
         assert_eventually(check)
 
-    def test_retrieve_by_type(self, client: sy.Synnax) -> None:
-        """Should retrieve views filtered by type."""
+    def test_retrieve_by_where(self, client: sy.Synnax) -> None:
+        """Should retrieve views filtered by a where."""
         views = client.views.create(
             [
                 RangeView(name="Range"),
                 StatusView(name="Status"),
             ]
         )
-        res = client.views.retrieve(keys=[v.key for v in views], types=["status"])
+        res = client.views.retrieve(
+            keys=[v.key for v in views],
+            where=view.Where(type=sy.filter.Set[view.Type](eq="status")),
+        )
         assert len(res) == 1
         assert res[0].name == "Status"
+
+    def test_retrieve_by_types(self, client: sy.Synnax) -> None:
+        """Should retrieve only the views of the given types."""
+        views = client.views.create(
+            [
+                RangeView(name="Range"),
+                StatusView(name="Status"),
+            ]
+        )
+        res = client.views.retrieve(keys=[v.key for v in views], types=["range"])
+        assert len(res) == 1
+        assert res[0].name == "Range"
+
+    def test_retrieve_by_name(self, client: sy.Synnax) -> None:
+        """Should return one view for a plain name."""
+        v = client.views.create(RangeView(name=str(uuid4())))
+        assert client.views.retrieve(name=v.name) == v
+
+    def test_retrieve_type_list(self, client: sy.Synnax) -> None:
+        """Should return a list for a list of types, even with one type."""
+        views = client.views.create(
+            [RangeView(name="Range"), StatusView(name="Status")]
+        )
+        res = client.views.retrieve(key=[v.key for v in views], type=["status"])
+        assert [r.name for r in res] == ["Status"]
+
+    def test_retrieve_plain_key_beside_fields(self, client: sy.Synnax) -> None:
+        """Should return one view for a plain key beside other fields."""
+        v = client.views.create(RangeView(name=str(uuid4())))
+        assert client.views.retrieve(key=v.key, type="range") == v
+        with pytest.raises(sy.NotFoundError, match=r"View matching .* not found"):
+            client.views.retrieve(key=v.key, type="status")
+
+    def test_retrieve_or(self, client: sy.Synnax) -> None:
+        """Should retrieve the views that match any filter in or_."""
+        a = client.views.create(RangeView(name=str(uuid4())))
+        b = client.views.create(StatusView(name=str(uuid4())))
+        res = client.views.retrieve(or_=[{"name": a.name}, {"key": [b.key]}])
+        assert {r.key for r in res} == {a.key, b.key}
 
     def test_delete(self, client: sy.Synnax) -> None:
         """Should delete a view."""
@@ -140,5 +182,4 @@ class TestView:
         v1 = client.views.create(RangeView(name="Delete 1"))
         v2 = client.views.create(StatusView(name="Delete 2"))
         client.views.delete([v1.key, v2.key])
-        with pytest.raises(sy.NotFoundError):
-            client.views.retrieve(keys=[v1.key, v2.key])
+        assert client.views.retrieve(keys=[v1.key, v2.key]) == []

@@ -51,8 +51,8 @@ var _ = Describe("View", func() {
 
 	Describe("Type", func() {
 		It("Should return the type of each variant", func() {
-			Expect(ranges.Type()).To(Equal(v2.RangeViewType))
-			Expect(status.Type()).To(Equal(v2.StatusViewType))
+			Expect(ranges.Type()).To(Equal(v2.TypeRange))
+			Expect(status.Type()).To(Equal(v2.TypeStatus))
 		})
 		It("Should return an empty type for a view with no variant", func() {
 			Expect(v2.View{}.Type()).To(BeEmpty())

@@ -11,15 +11,16 @@
 
 from __future__ import annotations
 
-from typing import Literal, TypeAlias
+from typing import Any, Literal, TypeAlias, TypedDict
 from typing import override as _override
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from synnax import node
 from synnax import status as status_
 from synnax.ontology.payload import ID
-from x import control, telem
+from x import control, filter, telem
+from x.filter import shorthand
 
 Key: TypeAlias = int
 
@@ -59,6 +60,67 @@ class Operation(BaseModel):
     duration: telem.TimeSpan = Field(
         default=telem.TimeSpan(0), ge=-9223372036854775808, le=9223372036854775807
     )
+
+
+class Where(BaseModel):
+    """Is a filter that selects channels.
+
+    Attributes:
+        and_: Matches when every child matches.
+        or_: Matches when any child matches.
+        not_: Matches when the child does not match.
+        key: Selects by key.
+        name: Selects by name.
+        leaseholder: Selects by leaseholder.
+        data_type: Selects by data_type.
+        is_index: Selects by is_index.
+        internal: Selects by internal.
+        virtual: Matches virtual channels that are not calculated, or every other
+            channel when false.
+        name_patterns: Matches channels whose name matches any of the given patterns. A
+            valid channel name matches exactly, and any other pattern is a regular
+            expression, anchored when unanchored.
+    """
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    and_: list[Where] | None = Field(default=None, alias="and")
+    or_: list[Where] | None = Field(default=None, alias="or")
+    not_: Where | None = Field(default=None, alias="not")
+    key: filter.Set[Key] | None = None
+    name: filter.String | None = None
+    leaseholder: filter.Set[node.Key] | None = None
+    data_type: filter.Set[telem.DataType] | None = None
+    is_index: filter.Bool | None = None
+    internal: filter.Bool | None = None
+    virtual: bool | None = None
+    name_patterns: list[str] | None = None
+
+    @field_validator("name_patterns", mode="before")
+    @classmethod
+    def _read_lists(cls, value: Any) -> Any:
+        return shorthand.read_list(value)
+
+
+# WhereInput is a Where written as a partial record.
+# A plain value or a list stands for an operator.
+WhereInput = TypedDict(
+    "WhereInput",
+    {
+        "and": list["WhereInput"],
+        "or": list["WhereInput"],
+        "not": "WhereInput",
+        "key": filter.SetInput[Key],
+        "name": filter.StringInput,
+        "leaseholder": filter.SetInput[node.Key],
+        "data_type": filter.SetInput[telem.DataType],
+        "is_index": filter.BoolInput,
+        "internal": filter.BoolInput,
+        "virtual": bool,
+        "name_patterns": str | list[str],
+    },
+    total=False,
+)
 
 
 class Payload(BaseModel):
@@ -109,6 +171,39 @@ class Payload(BaseModel):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class RetrieveRequest(BaseModel):
+    """Is a request to retrieve channels.
+
+    Attributes:
+        where: Selects the channels to retrieve. An absent where selects all of them.
+        search_term: Keeps the channels that match the term, closest match first.
+        limit: Is the most channels to return.
+        offset: Is the number of matching channels to skip.
+        include_status: Includes the status of each record.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    where: Where | None = None
+    search_term: str = ""
+    limit: int | None = Field(default=None, ge=0, le=4294967295)
+    offset: int = Field(default=0, ge=0, le=4294967295)
+    include_status: bool = False
+
+
+class RetrieveResponse(BaseModel):
+    """Holds the channels a RetrieveRequest selects.
+
+    Attributes:
+        channels: Are the channels the request selects.
+    """
+
+    channels: list[Payload] = Field(default_factory=list)
+
+
+Where.model_rebuild()
 
 
 ONTOLOGY_TYPE = ID(type="channel")

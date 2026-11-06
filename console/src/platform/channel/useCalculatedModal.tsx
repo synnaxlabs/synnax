@@ -36,8 +36,8 @@ export interface CalculatedModalParams {
   channelKey?: channel.Key;
 }
 
-const BOOLEAN_QUERY: Partial<Channel.RetrieveMultipleQuery> = {
-  dataTypes: [DataType.BOOLEAN],
+const BOOLEAN_QUERY: Channel.ListQuery = {
+  where: { dataType: { eq: DataType.BOOLEAN } },
 };
 
 const NAME_INPUT_PROPS: Partial<Input.TextProps> = {
@@ -141,7 +141,7 @@ const Calculated = ({
                     <Channel.SelectSingle
                       value={value}
                       onChange={(v: channel.Key | undefined) => onChange(v ?? 0)}
-                      initialQuery={BOOLEAN_QUERY}
+                      query={BOOLEAN_QUERY}
                       grow
                       allowNone
                     />
