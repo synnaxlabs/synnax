@@ -103,11 +103,10 @@ func migrateConfigsToRecords(
 	ins alamos.Instrumentation,
 	cfg MigrationConfig,
 ) error {
-	tasks, err := collectEntries(
-		ctx,
-		gorp.WrapReader[v2.Key, v2.Task](tx),
-		func(v2.Task) bool { return true },
-	)
+	var tasks []v2.Task
+	err := gorp.NewRetrieve[v2.Key, v2.Task]().
+		Entries(&tasks).
+		Exec(ctx, tx)
 	if err != nil || len(tasks) == 0 {
 		return err
 	}
@@ -264,25 +263,4 @@ func retire(
 		zap.String("type", t.Type),
 	)
 	return nil
-}
-
-// collectEntries drains a reader into a slice of the entries matching keep.
-// Mutating a gorp table while iterating it is unsafe, so callers gather first and
-// write after.
-func collectEntries[K gorp.Key, E gorp.Entry[K]](
-	ctx context.Context,
-	r gorp.Reader[K, E],
-	keep func(E) bool,
-) (out []E, err error) {
-	iter, err := r.OpenIterator(gorp.IterOptions{})
-	if err != nil {
-		return nil, err
-	}
-	defer func() { err = errors.Combine(err, iter.Close()) }()
-	for iter.First(); iter.Valid(); iter.Next() {
-		if e := iter.Value(ctx); e != nil && keep(*e) {
-			out = append(out, *e)
-		}
-	}
-	return out, iter.Error()
 }

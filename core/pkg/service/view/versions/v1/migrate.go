@@ -29,8 +29,10 @@ import (
 var Migration = migrate.New(
 	"v60_typed_views",
 	func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
-		olds, err := collect(ctx, tx)
-		if err != nil {
+		var olds []v0.View
+		if err := gorp.NewRetrieve[Key, v0.View]().
+			Entries(&olds).
+			Exec(ctx, tx); err != nil {
 			return err
 		}
 		var (
@@ -56,7 +58,7 @@ var Migration = migrate.New(
 		if len(deleted) == 0 {
 			return nil
 		}
-		if err = writer.Delete(ctx, deleted...); err != nil {
+		if err := writer.Delete(ctx, deleted...); err != nil {
 			return err
 		}
 		ids := make([]resource.ID, len(deleted))
@@ -91,17 +93,4 @@ func lift(old v0.View) (View, error) {
 		return View{Variant: StatusView{Base: base, Query: q}}, nil
 	}
 	return View{}, errors.Newf("unsupported type %q", old.Type)
-}
-
-func collect(ctx context.Context, tx gorp.Tx) ([]v0.View, error) {
-	reader := gorp.WrapReader[Key, v0.View](tx)
-	views, closer, err := reader.OpenNexter(ctx)
-	if err != nil {
-		return nil, err
-	}
-	var olds []v0.View
-	for v := range views {
-		olds = append(olds, v)
-	}
-	return olds, closer.Close()
 }

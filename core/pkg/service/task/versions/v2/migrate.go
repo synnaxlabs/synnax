@@ -86,11 +86,10 @@ func hashConfig(config msgpack.EncodedJSON) (string, error) {
 // LegacyKeyKVPrefix for the panel migration. The whole re-key runs in one migration
 // transaction, so it commits atomically.
 func migrateKeysToUUID(ctx context.Context, tx gorp.Tx, cfg MigrationConfig) error {
-	stale, err := collectEntries(
-		ctx,
-		gorp.WrapReader[v1.Key, v1.Task](tx),
-		func(v1.Task) bool { return true },
-	)
+	var stale []v1.Task
+	err := gorp.NewRetrieve[v1.Key, v1.Task]().
+		Entries(&stale).
+		Exec(ctx, tx)
 	if err != nil || len(stale) == 0 {
 		return err
 	}
@@ -219,18 +218,15 @@ func rewriteStatuses(
 // status resource to the re-keyed status key.
 func rewriteResources(ctx context.Context, tx gorp.Tx, keys map[v1.Key]Key) error {
 	statusKeyPrefix := string(resource.TypeTask) + ":"
-	stale, err := collectEntries(
-		ctx,
-		gorp.WrapReader[string, ontology.Resource](tx),
-		func(r ontology.Resource) bool {
-			if r.ID.Type == resource.TypeTask {
-				return true
-			}
-			return r.ID.Type == resource.TypeStatus &&
-				strings.HasPrefix(r.ID.Key, statusKeyPrefix)
-		},
-	)
-	if err != nil {
+	var stale []ontology.Resource
+	if err := gorp.NewRetrieve[string, ontology.Resource]().
+		Where(gorp.Match(func(_ gorp.Context, r *ontology.Resource) (bool, error) {
+			return r.ID.Type == resource.TypeTask ||
+				r.ID.Type == resource.TypeStatus &&
+					strings.HasPrefix(r.ID.Key, statusKeyPrefix), nil
+		})).
+		Entries(&stale).
+		Exec(ctx, tx); err != nil {
 		return err
 	}
 	w := gorp.WrapWriter[string, ontology.Resource](tx)
@@ -292,9 +288,9 @@ func rewriteRelationships(ctx context.Context, tx gorp.Tx, keys map[v1.Key]Key) 
 		}
 		return id, true
 	}
-	stale, err := collectEntries(
+	stale, err := ontology.RetrieveRelationships(
 		ctx,
-		gorp.WrapReader[string, ontology.Relationship](tx),
+		tx,
 		func(rel ontology.Relationship) bool {
 			_, from := rewriteEndpoint(rel.From)
 			_, to := rewriteEndpoint(rel.To)
@@ -317,26 +313,6 @@ func rewriteRelationships(ctx context.Context, tx gorp.Tx, keys map[v1.Key]Key) 
 		}
 	}
 	return nil
-}
-
-// collectEntries drains a reader into a slice of the entries matching keep. Mutating a
-// Gorp table while iterating it is unsafe, so callers gather first and write after.
-func collectEntries[K gorp.Key, E gorp.Entry[K]](
-	ctx context.Context,
-	r gorp.Reader[K, E],
-	keep func(E) bool,
-) (out []E, err error) {
-	iter, err := r.OpenIterator(gorp.IterOptions{})
-	if err != nil {
-		return nil, err
-	}
-	defer func() { err = errors.Combine(err, iter.Close()) }()
-	for iter.First(); iter.Valid(); iter.Next() {
-		if e := iter.Value(ctx); e != nil && keep(*e) {
-			out = append(out, *e)
-		}
-	}
-	return out, iter.Error()
 }
 
 // NameMigration names each stored task that has an empty name "<type> <key>", where
