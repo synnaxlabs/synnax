@@ -976,6 +976,13 @@ const waitFor = async (
     run();
   });
 
+const ABORTED_PAGE: Page = {
+  samples: [],
+  full: false,
+  missed: false,
+  status: telem.SUCCESS_STATUS,
+};
+
 // Reads the newest count stored samples of the channel in the range, and returns those
 // that keep accepts. A sample that gets no time is left out. An aborted read returns an
 // empty page.
@@ -996,7 +1003,7 @@ const readPage = async (
   const data = await settled(subscription, key, signal);
   if (data == null) {
     subscription.close();
-    return { samples: [], full: false, missed: false, status: telem.SUCCESS_STATUS };
+    return ABORTED_PAGE;
   }
   const read: Array<Omit<Sample, "receivedAt">> = [];
   for (const s of data.series.series)
@@ -1014,6 +1021,10 @@ const readPage = async (
     signal,
     recheckInterval,
   );
+  if (signal.aborted) {
+    subscription.close();
+    return ABORTED_PAGE;
+  }
   const samples: Page["samples"] = [];
   let missed = false;
   for (const p of read) {
