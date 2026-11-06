@@ -70,7 +70,6 @@ const retrieveParamsZ = z
 
 export type SingleRetrieveParams = z.input<typeof singleRetrieveParamsZ>;
 
-/** True for params that address one status by a plain key. */
 const isSingleParams = (params: object): params is SingleRetrieveParams =>
   "key" in params && typeof params.key === "string";
 export type RetrieveParams = SingleRetrieveParams | RetrieveMultipleParams;
