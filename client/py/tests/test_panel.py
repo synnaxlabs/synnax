@@ -108,7 +108,10 @@ class TestClient:
 
     def test_create_without_project_raises(self, client: sy.Synnax) -> None:
         """Should raise ValidationError when a panel has no project."""
-        with pytest.raises(ValidationError):
+        with pytest.raises(
+            ValidationError,
+            match="must belong to exactly one of a project and a range",
+        ):
             client.panels.create(sy.Panel(name="Orphan"))
 
     def test_retrieve_by_key(self, client: sy.Synnax, project: sy.project.Key) -> None:
@@ -142,6 +145,19 @@ class TestClient:
     ) -> None:
         """Should return no panels when the project owns none."""
         assert client.panels.retrieve(projects=[project]) == []
+
+    def test_retrieve_by_range(
+        self, client: sy.Synnax, project: sy.project.Key
+    ) -> None:
+        """Should retrieve only the panels the range owns."""
+        rng = client.ranges.create(
+            name="Panel Range",
+            time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
+        )
+        owned = client.panels.create(sy.Panel(name="Range Owned", range=rng.key))
+        client.panels.create(name="Project Owned", project=project)
+        panels = client.panels.retrieve(ranges=[rng.key])
+        assert [p.key for p in panels] == [owned.key]
 
     def test_retrieve_with_search_term(
         self, client: sy.Synnax, project: sy.project.Key

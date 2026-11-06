@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 
 from freighter import Empty, UnaryClient
 from synnax import project as project_
+from synnax import ranger
 from synnax.exceptions import NotFoundError
 from synnax.panel.types_gen import Key, Panel
 from x.lists import normalize
@@ -48,6 +49,7 @@ class _DispatchRequest(BaseModel):
 class _RetrieveRequest(BaseModel):
     keys: list[Key] | None = None
     projects: list[project_.Key] | None = None
+    ranges: list[ranger.Key] | None = None
     search_term: str | None = None
     limit: int | None = None
     offset: int | None = None
@@ -128,6 +130,7 @@ class Client:
         *,
         keys: list[Key] | None = None,
         projects: list[project_.Key] | None = None,
+        ranges: list[ranger.Key] | None = None,
         search_term: str | None = None,
         limit: int | None = None,
         offset: int | None = None,
@@ -139,6 +142,7 @@ class Client:
         key: Key | None = None,
         keys: list[Key] | None = None,
         projects: list[project_.Key] | None = None,
+        ranges: list[ranger.Key] | None = None,
         search_term: str | None = None,
         limit: int | None = None,
         offset: int | None = None,
@@ -149,6 +153,8 @@ class Client:
             panel is returned and NotFoundError is raised if it does not exist.
         :param keys: The keys of the panels to retrieve.
         :param projects: The keys of projects. Only the panels these projects own are
+            returned.
+        :param ranges: The keys of ranges. Only the panels these ranges own are
             returned.
         :param search_term: A fuzzy search term matched against panel names.
         :param limit: The maximum number of panels to return.
@@ -165,6 +171,7 @@ class Client:
             _RetrieveRequest(
                 keys=keys,
                 projects=projects,
+                ranges=ranges,
                 search_term=search_term,
                 limit=limit,
                 offset=offset,
