@@ -10,10 +10,13 @@
 package task_test
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apitask "github.com/synnaxlabs/synnax/pkg/api/task"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 )
@@ -21,9 +24,11 @@ import (
 var _ = Describe("ServiceConfig", func() {
 	full := func() apitask.ServiceConfig {
 		return apitask.ServiceConfig{
-			Task:   &task.Service{},
-			Status: &status.Service{},
-			RBAC:   &rbac.Service{},
+			Task:        &task.Service{},
+			Status:      &status.Service{},
+			RBAC:        &rbac.Service{},
+			Framer:      &framer.Service{},
+			StopTimeout: time.Second,
 		}
 	}
 
@@ -54,6 +59,16 @@ var _ = Describe("ServiceConfig", func() {
 				func(c *apitask.ServiceConfig) { c.RBAC = nil },
 				"rbac: must be non-nil",
 			),
+			Entry(
+				"framer",
+				func(c *apitask.ServiceConfig) { c.Framer = nil },
+				"framer: must be non-nil",
+			),
+			Entry(
+				"stop timeout",
+				func(c *apitask.ServiceConfig) { c.StopTimeout = 0 },
+				"stop_timeout: must be positive",
+			),
 		)
 	})
 
@@ -64,6 +79,8 @@ var _ = Describe("ServiceConfig", func() {
 			Expect(merged.Task).To(BeIdenticalTo(cfg.Task))
 			Expect(merged.Status).To(BeIdenticalTo(cfg.Status))
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
+			Expect(merged.Framer).To(BeIdenticalTo(cfg.Framer))
+			Expect(merged.StopTimeout).To(Equal(cfg.StopTimeout))
 		})
 
 		It("Should keep the receiver's services when the other's are nil", func() {
@@ -72,6 +89,8 @@ var _ = Describe("ServiceConfig", func() {
 			Expect(merged.Task).To(BeIdenticalTo(cfg.Task))
 			Expect(merged.Status).To(BeIdenticalTo(cfg.Status))
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
+			Expect(merged.Framer).To(BeIdenticalTo(cfg.Framer))
+			Expect(merged.StopTimeout).To(Equal(cfg.StopTimeout))
 		})
 	})
 })

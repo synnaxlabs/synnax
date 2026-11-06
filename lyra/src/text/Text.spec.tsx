@@ -260,6 +260,115 @@ describe("Text", () => {
     });
   });
 
+  describe("highlight", () => {
+    const marks = (el: HTMLElement): string[] =>
+      Array.from(el.querySelectorAll("mark")).map((m) => m.textContent);
+
+    it("should tint the start of each word a token begins", () => {
+      const c = render(
+        <Text.Text highlight="pre ox">pressure_sensor oxygen.press</Text.Text>,
+      );
+      const el = c.getByText((_, node) => node?.tagName === "P");
+      expect(marks(el)).toEqual(["pre", "ox", "pre"]);
+      expect(el.textContent).toBe("pressure_sensor oxygen.press");
+    });
+
+    it("should tint a separator between two whole tinted words", () => {
+      const c = render(
+        <Text.Text highlight="press_pt_0">press_pt_02 pt_x_pt</Text.Text>,
+      );
+      const el = c.getByText((_, node) => node?.tagName === "P");
+      expect(marks(el)).toEqual(["press_pt_0", "pt", "pt"]);
+      expect(el.textContent).toBe("press_pt_02 pt_x_pt");
+    });
+
+    it("should not tint a separator after a partly tinted word", () => {
+      const c = render(<Text.Text highlight="pre sen">pressure_sensor</Text.Text>);
+      const el = c.getByText((_, node) => node?.tagName === "P");
+      expect(marks(el)).toEqual(["pre", "sen"]);
+    });
+
+    it("should match without regard to case", () => {
+      const c = render(<Text.Text highlight="PRESS">Pressure</Text.Text>);
+      expect(marks(c.getByText((_, node) => node?.tagName === "P"))).toEqual(["Press"]);
+    });
+
+    it("should tint the longest token that begins a word", () => {
+      const c = render(<Text.Text highlight="p pres">pressure</Text.Text>);
+      expect(marks(c.getByText((_, node) => node?.tagName === "P"))).toEqual(["pres"]);
+    });
+
+    it("should not tint a token inside a word", () => {
+      const c = render(<Text.Text highlight="sure">pressure</Text.Text>);
+      const el = c.getByText("pressure");
+      expect(el.querySelector("mark")).toBeNull();
+    });
+
+    it("should render the children unchanged when nothing matches", () => {
+      const c = render(<Text.Text highlight="valve">pressure</Text.Text>);
+      expect(c.getByText("pressure").childNodes).toHaveLength(1);
+    });
+
+    it("should leave children that are not a string alone", () => {
+      const c = render(
+        <Text.Text highlight="press">
+          <span>pressure</span>
+        </Text.Text>,
+      );
+      expect(c.getByText("pressure").querySelector("mark")).toBeNull();
+    });
+
+    describe("Editable", () => {
+      const editable = (c: ReturnType<typeof render>): HTMLElement =>
+        c.getByText((_, node) => node?.tagName === "P");
+
+      it("should tint the value while not editing", () => {
+        const c = render(
+          <Text.Editable value="pressure" highlight="pre" onChange={vitest.fn()} />,
+        );
+        expect(marks(editable(c))).toEqual(["pre"]);
+      });
+
+      it("should edit plain text and commit it", () => {
+        const onChange = vitest.fn();
+        const c = render(
+          <Text.Editable value="pressure" highlight="pre" onChange={onChange} />,
+        );
+        const el = editable(c);
+        fireEvent.dblClick(el);
+        expect(el.querySelector("mark")).toBeNull();
+        expect(window.getSelection()?.toString()).toBe("pressure");
+        el.innerText = "preheat";
+        fireEvent.keyDown(el, { key: "Enter" });
+        expect(onChange).toHaveBeenCalledWith("preheat");
+        expect(marks(el)).toEqual(["pre"]);
+        expect(el.textContent).toBe("preheat");
+      });
+
+      it("should tint again after an edit is cancelled", () => {
+        const c = render(
+          <Text.Editable value="pressure" highlight="pre" onChange={vitest.fn()} />,
+        );
+        const el = editable(c);
+        fireEvent.dblClick(el);
+        el.innerText = "pressed";
+        fireEvent.keyDown(el, { key: "Escape" });
+        expect(marks(el)).toEqual(["pre"]);
+        expect(el.textContent).toBe("pressure");
+      });
+
+      it("should follow a change to the term", () => {
+        const c = render(
+          <Text.Editable value="pressure" highlight="pre" onChange={vitest.fn()} />,
+        );
+        c.rerender(
+          <Text.Editable value="pressure" highlight="press" onChange={vitest.fn()} />,
+        );
+        expect(marks(editable(c))).toEqual(["press"]);
+      });
+    });
+  });
+
   describe("Editable", () => {
     it("should focus and select the text when double clicked", () => {
       const c = render(

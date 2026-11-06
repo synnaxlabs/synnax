@@ -17,6 +17,7 @@ import { type ReactElement } from "react";
 export interface ContextMenuItemProps extends Omit<Menu.ItemProps, "itemKey"> {
   ids: ontology.ID[];
   rootID: ontology.ID;
+  parentID: ontology.ID | null;
   shape: Tree.Shape;
 }
 
@@ -24,10 +25,16 @@ export const ContextMenuItem = ({
   ids,
   shape,
   rootID,
+  parentID,
   ...rest
 }: ContextMenuItemProps): ReactElement | null => {
   const hasCreatePermission = Access.useCreateGranted(group.TYPE_ONTOLOGY_ID);
-  if (!hasCreatePermission || !canGroupSelection(ids, shape, rootID)) return null;
+  if (
+    !hasCreatePermission ||
+    parentID == null ||
+    !canGroupSelection(ids, shape, rootID)
+  )
+    return null;
   return (
     <Menu.Item itemKey="group" {...rest}>
       <Icon.Group />

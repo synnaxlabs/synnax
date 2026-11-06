@@ -109,6 +109,14 @@ using ReadChannel = std::variant<EntryReadChannel, UnresolvedReadChannel>;
 ReadChannel parse_read_channel(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const ReadChannel &value);
 
+/// @brief returns the fields every variant of the union shares.
+[[nodiscard]] inline const BaseReadChannel &base(const ReadChannel &value) {
+    return std::visit(
+        [](const auto &v) -> const BaseReadChannel & { return v; },
+        value
+    );
+}
+
 /// @brief EntryWriteChannel addresses a PDO entry by its CoE index and sub-index.
 struct EntryWriteChannel : public BaseWriteChannel {
     std::string type = "entry";
@@ -143,6 +151,14 @@ using WriteChannel = std::variant<EntryWriteChannel, UnresolvedWriteChannel>;
 
 WriteChannel parse_write_channel(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const WriteChannel &value);
+
+/// @brief returns the fields every variant of the union shares.
+[[nodiscard]] inline const BaseWriteChannel &base(const WriteChannel &value) {
+    return std::visit(
+        [](const auto &v) -> const BaseWriteChannel & { return v; },
+        value
+    );
+}
 
 /// @brief ReadConfig configures an EtherCAT read task. Each channel addresses a PDO
 /// entry on its own slave; all slaves must share one network interface.

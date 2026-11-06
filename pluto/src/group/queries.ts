@@ -29,7 +29,6 @@ export const { useUpdate: useCreate } = Flux.createUpdate<CreateParams>({
 
 export type ListQuery = {
   parent?: ontology.ID;
-  searchTerm?: string;
   offset?: number;
   limit?: number;
 };

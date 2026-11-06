@@ -22,9 +22,9 @@ import (
 type Retrieve[D any] struct {
 	baseTX gorp.Tx
 	gorp   gorp.Retrieve[Key, Status[D]]
-	// search indexes the table, whose entries hold details of any type.
-	search *gorp.SearchIndex[Key, Status[any]]
-	label  *label.Service
+	// indexes are over the table, whose entries hold details of any type.
+	indexes indexes
+	label   *label.Service
 }
 
 // Filter is a per-service filter that is bound to the Retrieve when passed to Where.
@@ -40,6 +40,35 @@ func Match[D any](
 		return gorp.Match(func(ctx gorp.Context, s *Status[D]) (bool, error) {
 			return f(ctx, r, s)
 		})
+	}
+}
+
+// And returns a filter that matches when all provided filters match.
+func And[D any](fs ...Filter[D]) Filter[D] {
+	return func(r Retrieve[D]) gorp.Filter[Key, Status[D]] {
+		inner := make([]gorp.Filter[Key, Status[D]], len(fs))
+		for i, f := range fs {
+			inner[i] = f(r)
+		}
+		return gorp.And(inner...)
+	}
+}
+
+// Or returns a filter that matches when any provided filter matches.
+func Or[D any](fs ...Filter[D]) Filter[D] {
+	return func(r Retrieve[D]) gorp.Filter[Key, Status[D]] {
+		inner := make([]gorp.Filter[Key, Status[D]], len(fs))
+		for i, f := range fs {
+			inner[i] = f(r)
+		}
+		return gorp.Or(inner...)
+	}
+}
+
+// Not returns a filter that inverts the provided filter.
+func Not[D any](f Filter[D]) Filter[D] {
+	return func(r Retrieve[D]) gorp.Filter[Key, Status[D]] {
+		return gorp.Not(f(r))
 	}
 }
 
@@ -59,6 +88,13 @@ func (r Retrieve[D]) Limit(limit int) Retrieve[D] {
 // Offset sets the number of results that Retrieve will skip before returning results.
 func (r Retrieve[D]) Offset(offset int) Retrieve[D] {
 	r.gorp = r.gorp.Offset(offset)
+	return r
+}
+
+// SkipMissingKeys makes Exec treat a key with no status as a non-match instead of
+// returning query.ErrNotFound.
+func (r Retrieve[D]) SkipMissingKeys() Retrieve[D] {
+	r.gorp = r.gorp.SkipMissingKeys()
 	return r
 }
 
@@ -90,15 +126,6 @@ func MatchNames[D any](names ...string) Filter[D] {
 		return gorp.Match(func(_ gorp.Context, s *Status[D]) (bool, error) {
 			return slices.Contains(names, s.Name), nil
 		})
-	}
-}
-
-// MatchSearch returns a filter for statuses whose name matches term, closest match
-// first. An empty term matches no status. Only a Retrieve[any] can search, because the
-// search index holds details of any type.
-func MatchSearch(term string) Filter[any] {
-	return func(r Retrieve[any]) gorp.Filter[Key, Status[any]] {
-		return r.search.Filter(term)
 	}
 }
 

@@ -8,8 +8,10 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/feature/opcua/device/Browser";
+export { useDriverCertificateModal } from "@/feature/opcua/device/Certificate";
 export * from "@/feature/opcua/device/commands";
 export * from "@/feature/opcua/device/ContextMenuItems";
+export * from "@/feature/opcua/device/haul";
 export * from "@/feature/opcua/device/network";
 export * from "@/feature/opcua/device/queries";
 export * from "@/feature/opcua/device/Select";

@@ -58,7 +58,6 @@ class ConnectSerial(ModbusCase):
         layout = self.console.layout
         layout.click_btn("Parity")
         layout.select_from_dropdown("None", exact=True)
-        devices.modal.get_by_role("tab", name="Unit", exact=True).click(timeout=5000)
         devices.modal.get_by_label(re.compile(r"^Unit ID\b")).fill("2")
         devices.fill_connect_serial(name=name, serial_port=ModbusSerialSim.serial_port)
         devices.modal.wait_for(state="hidden", timeout=15000)

@@ -19,17 +19,13 @@ std::pair<Task, x::errors::Error> Client::retrieve(const Key key) const {
 
 std::pair<Task, x::errors::Error>
 Client::retrieve(const Key key, const RetrieveOptions &options) const {
-    auto req = grpc::task::RetrieveRequest();
-    req.set_rack(rack);
-    req.add_keys(key.to_string());
-    req.set_include_status(options.include_status);
-    auto [res, err] = task_retrieve_client->send("/task/retrieve", req);
-    if (err) return {Task(), err};
-    if (res.tasks_size() == 0)
-        return {Task(), errors::not_found_error("task", "key " + key.to_string())};
-    auto [payload, proto_err] = Task::from_proto(res.tasks(0));
-    if (proto_err) return {Task(), proto_err};
-    return {Task(std::move(payload)), x::errors::NIL};
+    return this->retrieve_one(
+        {
+            .where = Where{.key = x::filter::Set<Key>{.eq = key}},
+            .include_status = options.include_status,
+        },
+        "key " + key.to_string()
+    );
 }
 
 std::pair<Task, x::errors::Error> Client::retrieve(const std::string &name) const {
@@ -38,17 +34,13 @@ std::pair<Task, x::errors::Error> Client::retrieve(const std::string &name) cons
 
 std::pair<Task, x::errors::Error>
 Client::retrieve(const std::string &name, const RetrieveOptions &options) const {
-    auto req = grpc::task::RetrieveRequest();
-    req.set_rack(rack);
-    req.add_names(name);
-    req.set_include_status(options.include_status);
-    auto [res, err] = task_retrieve_client->send("/task/retrieve", req);
-    if (err) return {Task(), err};
-    if (res.tasks_size() == 0)
-        return {Task(), errors::not_found_error("task", "name " + name)};
-    auto [payload, proto_err] = Task::from_proto(res.tasks(0));
-    if (proto_err) return {Task(), proto_err};
-    return {Task(std::move(payload)), x::errors::NIL};
+    return this->retrieve_one(
+        {
+            .where = Where{.name = x::filter::String{.eq = name}},
+            .include_status = options.include_status,
+        },
+        "name " + name
+    );
 }
 
 std::pair<std::vector<Task>, x::errors::Error>
@@ -60,20 +52,10 @@ std::pair<std::vector<Task>, x::errors::Error> Client::retrieve(
     const std::vector<std::string> &names,
     const RetrieveOptions &options
 ) const {
-    auto req = grpc::task::RetrieveRequest();
-    req.set_rack(rack);
-    req.mutable_names()->Add(names.begin(), names.end());
-    req.set_include_status(options.include_status);
-    auto [res, err] = task_retrieve_client->send("/task/retrieve", req);
-    if (err) return {std::vector<Task>(), err};
-    std::vector<Task> tasks;
-    tasks.reserve(res.tasks_size());
-    for (const auto &t: res.tasks()) {
-        auto [payload, proto_err] = Task::from_proto(t);
-        if (proto_err) return {std::vector<Task>(), proto_err};
-        tasks.emplace_back(std::move(payload));
-    }
-    return {tasks, x::errors::NIL};
+    return this->retrieve({
+        .where = Where{.name = x::filter::String{.in = names}},
+        .include_status = options.include_status,
+    });
 }
 
 std::pair<Task, x::errors::Error>
@@ -85,17 +67,13 @@ std::pair<Task, x::errors::Error> Client::retrieve_by_type(
     const std::string &type,
     const RetrieveOptions &options
 ) const {
-    auto req = grpc::task::RetrieveRequest();
-    req.set_rack(rack);
-    req.add_types(type);
-    req.set_include_status(options.include_status);
-    auto [res, err] = task_retrieve_client->send("/task/retrieve", req);
-    if (err) return {Task(), err};
-    if (res.tasks_size() == 0)
-        return {Task(), errors::not_found_error("task", "type " + type)};
-    auto [payload, proto_err] = Task::from_proto(res.tasks(0));
-    if (proto_err) return {Task(), proto_err};
-    return {Task(std::move(payload)), x::errors::NIL};
+    return this->retrieve_one(
+        {
+            .where = Where{.type = x::filter::String{.eq = type}},
+            .include_status = options.include_status,
+        },
+        "type " + type
+    );
 }
 
 std::pair<std::vector<Task>, x::errors::Error>
@@ -107,20 +85,40 @@ std::pair<std::vector<Task>, x::errors::Error> Client::retrieve_by_type(
     const std::vector<std::string> &types,
     const RetrieveOptions &options
 ) const {
-    auto req = grpc::task::RetrieveRequest();
-    req.set_rack(rack);
-    req.mutable_types()->Add(types.begin(), types.end());
-    req.set_include_status(options.include_status);
-    auto [res, err] = task_retrieve_client->send("/task/retrieve", req);
-    if (err) return {std::vector<Task>(), err};
-    std::vector<Task> tasks;
-    tasks.reserve(res.tasks_size());
-    for (const auto &t: res.tasks()) {
-        auto [payload, proto_err] = Task::from_proto(t);
-        if (proto_err) return {std::vector<Task>(), proto_err};
-        tasks.emplace_back(std::move(payload));
+    return this->retrieve({
+        .where = Where{.type = x::filter::String{.in = types}},
+        .include_status = options.include_status,
+    });
+}
+
+std::pair<std::vector<Task>, x::errors::Error>
+Client::retrieve(const RetrieveRequest &req) const {
+    auto scoped = req;
+    if (this->rack != 0) {
+        const auto on_rack = Where{
+            .rack = x::filter::Set<rack::Key>{.eq = this->rack},
+        };
+        scoped.where = scoped.where.has_value()
+                         ? Where{.and_ = std::vector<Where>{*scoped.where, on_rack}}
+                         : on_rack;
     }
-    return {tasks, x::errors::NIL};
+    auto [pb_req, pb_err] = scoped.to_proto();
+    if (pb_err) return {std::vector<Task>(), pb_err};
+    grpc::task::RetrieveRequest grpc_req;
+    *grpc_req.mutable_request() = pb_req;
+    auto [res, err] = task_retrieve_client->send("/task/retrieve", grpc_req);
+    if (err) return {std::vector<Task>(), err};
+    auto [decoded, proto_err] = RetrieveResponse::from_proto(res);
+    if (proto_err) return {std::vector<Task>(), proto_err};
+    return {std::move(decoded.tasks), x::errors::NIL};
+}
+
+std::pair<Task, x::errors::Error>
+Client::retrieve_one(const RetrieveRequest &req, const std::string &query) const {
+    auto [tasks, err] = this->retrieve(req);
+    if (err) return {Task{}, err};
+    if (tasks.empty()) return {Task{}, errors::not_found_error("task", query)};
+    return {std::move(tasks[0]), x::errors::NIL};
 }
 
 x::errors::Error Client::create(Task &task) const {
@@ -152,18 +150,6 @@ std::pair<std::vector<Task>, x::errors::Error> Client::list() const {
 
 std::pair<std::vector<Task>, x::errors::Error>
 Client::list(const RetrieveOptions &options) const {
-    auto req = grpc::task::RetrieveRequest();
-    req.set_rack(rack);
-    req.set_include_status(options.include_status);
-    auto [res, err] = task_retrieve_client->send("/task/retrieve", req);
-    if (err) return {std::vector<Task>(), err};
-    std::vector<Task> tasks;
-    tasks.reserve(res.tasks_size());
-    for (const auto &t: res.tasks()) {
-        auto [payload, proto_err] = Task::from_proto(t);
-        if (proto_err) return {std::vector<Task>(), proto_err};
-        tasks.emplace_back(std::move(payload));
-    }
-    return {tasks, x::errors::NIL};
+    return this->retrieve({.include_status = options.include_status});
 }
 }

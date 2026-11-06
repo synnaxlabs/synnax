@@ -200,6 +200,134 @@ func (x *Channel) GetStatus() *pb2.Status {
 	return nil
 }
 
+// RetrieveRequest is a request to retrieve channels.
+type RetrieveRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// where selects the channels to retrieve. An absent where selects all of them.
+	Where *pb.Where `protobuf:"bytes,1,opt,name=where,proto3,oneof" json:"where,omitempty"`
+	// search_term keeps the channels that match the term, closest match first.
+	SearchTerm string `protobuf:"bytes,2,opt,name=search_term,json=searchTerm,proto3" json:"search_term,omitempty"`
+	// limit is the most channels to return.
+	Limit *uint32 `protobuf:"varint,3,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
+	// offset is the number of matching channels to skip.
+	Offset uint32 `protobuf:"varint,4,opt,name=offset,proto3" json:"offset,omitempty"`
+	// include_status includes the status of each record.
+	IncludeStatus bool `protobuf:"varint,5,opt,name=include_status,json=includeStatus,proto3" json:"include_status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RetrieveRequest) Reset() {
+	*x = RetrieveRequest{}
+	mi := &file_core_pkg_api_channel_pb_channel_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RetrieveRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RetrieveRequest) ProtoMessage() {}
+
+func (x *RetrieveRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_api_channel_pb_channel_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RetrieveRequest.ProtoReflect.Descriptor instead.
+func (*RetrieveRequest) Descriptor() ([]byte, []int) {
+	return file_core_pkg_api_channel_pb_channel_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *RetrieveRequest) GetWhere() *pb.Where {
+	if x != nil {
+		return x.Where
+	}
+	return nil
+}
+
+func (x *RetrieveRequest) GetSearchTerm() string {
+	if x != nil {
+		return x.SearchTerm
+	}
+	return ""
+}
+
+func (x *RetrieveRequest) GetLimit() uint32 {
+	if x != nil && x.Limit != nil {
+		return *x.Limit
+	}
+	return 0
+}
+
+func (x *RetrieveRequest) GetOffset() uint32 {
+	if x != nil {
+		return x.Offset
+	}
+	return 0
+}
+
+func (x *RetrieveRequest) GetIncludeStatus() bool {
+	if x != nil {
+		return x.IncludeStatus
+	}
+	return false
+}
+
+// RetrieveResponse holds the channels a RetrieveRequest selects.
+type RetrieveResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// channels are the channels the request selects.
+	Channels      []*Channel `protobuf:"bytes,1,rep,name=channels,proto3" json:"channels,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RetrieveResponse) Reset() {
+	*x = RetrieveResponse{}
+	mi := &file_core_pkg_api_channel_pb_channel_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RetrieveResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RetrieveResponse) ProtoMessage() {}
+
+func (x *RetrieveResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_api_channel_pb_channel_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RetrieveResponse.ProtoReflect.Descriptor instead.
+func (*RetrieveResponse) Descriptor() ([]byte, []int) {
+	return file_core_pkg_api_channel_pb_channel_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *RetrieveResponse) GetChannels() []*Channel {
+	if x != nil {
+		return x.Channels
+	}
+	return nil
+}
+
 var File_core_pkg_api_channel_pb_channel_proto protoreflect.FileDescriptor
 
 const file_core_pkg_api_channel_pb_channel_proto_rawDesc = "" +
@@ -225,7 +353,18 @@ const file_core_pkg_api_channel_pb_channel_proto_rawDesc = "" +
 	"\vconcurrency\x18\f \x01(\x0e2\x19.x.control.pb.ConcurrencyR\vconcurrency\x126\n" +
 	"\x06status\x18\r \x01(\v2\x19.service.status.pb.StatusH\x01R\x06status\x88\x01\x01B\b\n" +
 	"\x06_aliasB\t\n" +
-	"\a_statusB\xad\x01\n" +
+	"\a_status\"\xd6\x01\n" +
+	"\x0fRetrieveRequest\x124\n" +
+	"\x05where\x18\x01 \x01(\v2\x19.service.channel.pb.WhereH\x00R\x05where\x88\x01\x01\x12\x1f\n" +
+	"\vsearch_term\x18\x02 \x01(\tR\n" +
+	"searchTerm\x12\x19\n" +
+	"\x05limit\x18\x03 \x01(\rH\x01R\x05limit\x88\x01\x01\x12\x16\n" +
+	"\x06offset\x18\x04 \x01(\rR\x06offset\x12%\n" +
+	"\x0einclude_status\x18\x05 \x01(\bR\rincludeStatusB\b\n" +
+	"\x06_whereB\b\n" +
+	"\x06_limit\"G\n" +
+	"\x10RetrieveResponse\x123\n" +
+	"\bchannels\x18\x01 \x03(\v2\x17.api.channel.pb.ChannelR\bchannelsB\xad\x01\n" +
 	"\x12com.api.channel.pbB\fChannelProtoP\x01Z/github.com/synnaxlabs/synnax/pkg/api/channel/pb\xa2\x02\x03ACP\xaa\x02\x0eApi.Channel.Pb\xca\x02\x0eApi\\Channel\\Pb\xe2\x02\x1aApi\\Channel\\Pb\\GPBMetadata\xea\x02\x10Api::Channel::Pbb\x06proto3"
 
 var (
@@ -240,22 +379,27 @@ func file_core_pkg_api_channel_pb_channel_proto_rawDescGZIP() []byte {
 	return file_core_pkg_api_channel_pb_channel_proto_rawDescData
 }
 
-var file_core_pkg_api_channel_pb_channel_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_core_pkg_api_channel_pb_channel_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_core_pkg_api_channel_pb_channel_proto_goTypes = []any{
-	(*Channel)(nil),      // 0: api.channel.pb.Channel
-	(*pb.Operation)(nil), // 1: service.channel.pb.Operation
-	(pb1.Concurrency)(0), // 2: x.control.pb.Concurrency
-	(*pb2.Status)(nil),   // 3: service.status.pb.Status
+	(*Channel)(nil),          // 0: api.channel.pb.Channel
+	(*RetrieveRequest)(nil),  // 1: api.channel.pb.RetrieveRequest
+	(*RetrieveResponse)(nil), // 2: api.channel.pb.RetrieveResponse
+	(*pb.Operation)(nil),     // 3: service.channel.pb.Operation
+	(pb1.Concurrency)(0),     // 4: x.control.pb.Concurrency
+	(*pb2.Status)(nil),       // 5: service.status.pb.Status
+	(*pb.Where)(nil),         // 6: service.channel.pb.Where
 }
 var file_core_pkg_api_channel_pb_channel_proto_depIdxs = []int32{
-	1, // 0: api.channel.pb.Channel.operations:type_name -> service.channel.pb.Operation
-	2, // 1: api.channel.pb.Channel.concurrency:type_name -> x.control.pb.Concurrency
-	3, // 2: api.channel.pb.Channel.status:type_name -> service.status.pb.Status
-	3, // [3:3] is the sub-list for method output_type
-	3, // [3:3] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	3, // 0: api.channel.pb.Channel.operations:type_name -> service.channel.pb.Operation
+	4, // 1: api.channel.pb.Channel.concurrency:type_name -> x.control.pb.Concurrency
+	5, // 2: api.channel.pb.Channel.status:type_name -> service.status.pb.Status
+	6, // 3: api.channel.pb.RetrieveRequest.where:type_name -> service.channel.pb.Where
+	0, // 4: api.channel.pb.RetrieveResponse.channels:type_name -> api.channel.pb.Channel
+	5, // [5:5] is the sub-list for method output_type
+	5, // [5:5] is the sub-list for method input_type
+	5, // [5:5] is the sub-list for extension type_name
+	5, // [5:5] is the sub-list for extension extendee
+	0, // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_api_channel_pb_channel_proto_init() }
@@ -264,13 +408,14 @@ func file_core_pkg_api_channel_pb_channel_proto_init() {
 		return
 	}
 	file_core_pkg_api_channel_pb_channel_proto_msgTypes[0].OneofWrappers = []any{}
+	file_core_pkg_api_channel_pb_channel_proto_msgTypes[1].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_api_channel_pb_channel_proto_rawDesc), len(file_core_pkg_api_channel_pb_channel_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   1,
+			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

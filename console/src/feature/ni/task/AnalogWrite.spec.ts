@@ -271,7 +271,7 @@ describe("AnalogWrite", () => {
 });
 
 describe("AnalogWrite channel names", () => {
-  it("should show the names configuring gives each channel in the list", async () => {
+  it("should show the names deploying gives each channel in the list", async () => {
     const dev = await createNIDevice(client);
     const { identifier } = dev.properties;
     await renderAnalogWrite(

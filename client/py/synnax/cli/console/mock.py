@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Generic, TextIO
+from typing import Any, Generic, TextIO, override
 
 from pydantic import BaseModel
 
@@ -158,5 +158,6 @@ class Mock(MockPrint, MockPrompt):
         MockPrint.__init__(self, output=output, verbose=verbose)
         MockPrompt.__init__(self, output=output, responses=responses or [])
 
+    @override
     def _(self) -> Console:
         return self

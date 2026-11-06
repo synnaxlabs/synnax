@@ -59,7 +59,7 @@ export const Base = ({
   className,
   visible,
   channelNamesHidden,
-  receiptTimestampHidden,
+  timestampsHidden,
   timestampPrecision,
   channels,
   emptyContent = EMPTY_CONTENT,
@@ -78,7 +78,7 @@ export const Base = ({
     font,
     visible,
     channelNamesHidden,
-    receiptTimestampHidden,
+    timestampsHidden,
     timestampPrecision,
     channels,
     color,
@@ -90,11 +90,14 @@ export const Base = ({
   const {
     scrolling,
     empty,
+    loading,
+    blank,
     selectedText,
     selectedLines,
     region,
     visibleStart,
     computedLineHeight,
+    rowEntries,
   } = state;
 
   const setHold = (hold: boolean) => {
@@ -112,7 +115,8 @@ export const Base = ({
     if (computedLineHeight <= 0) return 0;
     const localY = clientY - box.top(region);
     const lineIndex = Math.floor((localY - 6) / computedLineHeight);
-    return Math.max(0, visibleStart + lineIndex);
+    if (rowEntries.length === 0) return Math.max(0, visibleStart + lineIndex);
+    return rowEntries[Math.min(Math.max(0, lineIndex), rowEntries.length - 1)];
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -248,6 +252,17 @@ export const Base = ({
         onContextMenu={menuProps.open}
         {...rest}
       >
+        {blank && (
+          <Status.Loading
+            aria-label="Loading entries"
+            className={CSS.BE("log", "blank")}
+          >
+            <Status.Orbital />
+          </Status.Loading>
+        )}
+        {loading && !blank && (
+          <Icon.Loading aria-label="Loading" className={CSS.BE("log", "loading")} />
+        )}
         {empty ? emptyContent : children}
       </div>
     </Menu.ContextMenu>

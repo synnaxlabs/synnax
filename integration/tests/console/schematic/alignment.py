@@ -8,13 +8,14 @@
 #  included in the file licenses/APL.txt.
 
 import math
-from typing import Literal
 
 from playwright.sync_api import FloatRect
 
 import synnax as sy
 from console.case import ConsoleCase
 from console.schematic import (
+    AlignmentType,
+    DistributionType,
     Schematic,
     Setpoint,
     Symbol,
@@ -30,12 +31,9 @@ from console.schematic.symbol import (
     box_right,
     box_top,
 )
+from x.spatial import AngularDirection
 
 CHANNEL_NAME = "alignment_command_channel"
-
-AlignmentType = Literal["vertical", "horizontal", "left", "right", "top", "bottom"]
-DistributionType = Literal["horizontal", "vertical"]
-RotationType = Literal["clockwise", "counterclockwise"]
 
 ALIGNMENT_EXTRACTORS = {
     "left": box_left,
@@ -147,7 +145,7 @@ def assert_rotation(
     symbols: list[Symbol],
     *,
     initial_positions: list[FloatRect],
-    direction: RotationType,
+    direction: AngularDirection,
     group: bool = False,
     tolerance: float = 5.0,
 ) -> None:
@@ -322,7 +320,7 @@ def _assert_group_rotation_transform(
     symbols: list[Symbol],
     initial_positions: list[FloatRect],
     current_positions: list[FloatRect],
-    direction: RotationType,
+    direction: AngularDirection,
     tolerance: float,
 ) -> None:
     """Assert that group rotation correctly transformed symbol positions.

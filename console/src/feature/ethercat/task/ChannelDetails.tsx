@@ -11,8 +11,8 @@ import { ethercat } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Telem } from "@synnaxlabs/pluto";
-import { primitive } from "@synnaxlabs/x";
-import { type FC } from "react";
+import { deep, primitive } from "@synnaxlabs/x";
+import { type FC, type ReactNode } from "react";
 import { type z } from "zod";
 
 import { useResultSlave } from "@/feature/ethercat/device/queries";
@@ -27,7 +27,9 @@ import {
   hasEntry,
   type PDOType,
   READ_CHANNEL_SCHEMAS,
+  type ReadChannel,
   WRITE_CHANNEL_SCHEMAS,
+  type WriteChannel,
 } from "@/feature/ethercat/task/types";
 import { Task } from "@/platform/task";
 
@@ -37,47 +39,64 @@ const renderSelectDataType = Component.renderProp(
   ),
 );
 
-export interface ChannelDetailsProps extends Task.Views.DetailsProps {
+export interface ChannelDetailsProps {
+  path: deep.Path<Channel>;
   pdoType: PDOType;
   schema: z.ZodType<EntryChannel>;
+  /** fields shown after the data type when the channel has an entry. */
+  children?: ReactNode;
 }
 
-const ChannelDetails: FC<ChannelDetailsProps> = ({ path, pdoType, schema }) => {
-  const ch = PForm.useFieldValue<Channel>(path);
+const ChannelDetails: FC<ChannelDetailsProps> = ({
+  path,
+  pdoType,
+  schema,
+  children,
+}) => {
+  const ch = PForm.useFieldValue(path);
   return (
     <PForm.Sections>
       <PForm.Section title="Source">
-        <SelectSlave path={`${path}.device`} />
+        <SelectSlave path={path.device} />
       </PForm.Section>
       <PForm.Section title="Entry">
         <SelectEntryField path={path} pdoType={pdoType} schema={schema} />
         {hasEntry(ch) && (
-          <PForm.Field<string> path={`${path}.dataType`} label="Data type">
+          <PForm.Field
+            path={deep.variant(path, "type", "entry").dataType}
+            label="Data type"
+          >
             {renderSelectDataType}
           </PForm.Field>
         )}
-        {hasEntry(ch) && pdoType === "outputs" && (
-          <PForm.NumericField path={`${path}.stopValue`} label="Stop value" />
-        )}
+        {hasEntry(ch) && children}
       </PForm.Section>
     </PForm.Sections>
   );
 };
 
-export const ReadChannelDetails: FC<Task.Views.DetailsProps> = (props) => (
+export const ReadChannelDetails: FC<Task.Views.DetailsProps<ReadChannel>> = (props) => (
   <ChannelDetails {...props} pdoType="inputs" schema={READ_CHANNEL_SCHEMAS.entry} />
 );
 
-export const WriteChannelDetails: FC<Task.Views.DetailsProps> = (props) => (
-  <ChannelDetails {...props} pdoType="outputs" schema={WRITE_CHANNEL_SCHEMAS.entry} />
+export const WriteChannelDetails: FC<Task.Views.DetailsProps<WriteChannel>> = ({
+  path,
+}) => (
+  <ChannelDetails path={path} pdoType="outputs" schema={WRITE_CHANNEL_SCHEMAS.entry}>
+    <PForm.NumericField
+      path={deep.variant(path, "type", "entry").stopValue}
+      label="Stop value"
+    />
+  </ChannelDetails>
 );
 
-interface DetailsTitleProps extends Task.Views.DetailsProps {
+interface DetailsTitleProps {
+  path: deep.Target<Channel>;
   pdoType: PDOType;
 }
 
 const DetailsTitle: FC<DetailsTitleProps> = ({ path, pdoType }) => {
-  const ch = PForm.useFieldValue<Channel>(path);
+  const ch = PForm.useFieldValue(path);
   const { data: slave } = useResultSlave(
     primitive.isZero(ch.device) ? null : { key: ch.device },
   );
@@ -90,10 +109,10 @@ const DetailsTitle: FC<DetailsTitleProps> = ({ path, pdoType }) => {
   return <Task.Views.ItemLabel kind="PDO">{title}</Task.Views.ItemLabel>;
 };
 
-export const ReadDetailsTitle: FC<Task.Views.DetailsProps> = (props) => (
+export const ReadDetailsTitle: FC<Task.Views.DetailsProps<ReadChannel>> = (props) => (
   <DetailsTitle {...props} pdoType="inputs" />
 );
 
-export const WriteDetailsTitle: FC<Task.Views.DetailsProps> = (props) => (
+export const WriteDetailsTitle: FC<Task.Views.DetailsProps<WriteChannel>> = (props) => (
   <DetailsTitle {...props} pdoType="outputs" />
 );

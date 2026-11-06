@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type rack, type Synnax, type task } from "@synnaxlabs/client";
+import { channel, type rack, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeAll, describe, expect, it } from "vitest";
 import { type z } from "zod";
 
@@ -30,6 +30,7 @@ import {
   clickDeploy,
   createWithHook,
   deployAndAwaitTask,
+  findChannelListItem,
   renderTaskFormTab,
 } from "@/platform/task/testutil";
 import { uniqueName } from "@/testutil";
@@ -404,5 +405,23 @@ describe("Write", () => {
       EtherCAT.Task.WRITE_SCHEMAS,
     );
     expect(tsk.config.channels).toHaveLength(1);
+  });
+});
+
+describe("Write channel names", () => {
+  it("should show the names deploying gives the command and state channels", async () => {
+    const identifier = createIdentifier();
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier,
+      network: "eth0",
+      pdos: createPDOs(),
+    });
+    await renderWrite({
+      ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
+      channels: [createEntryWriteChannel(slave.key, CONTROL_ENTRY)],
+    });
+    const base = channel.escapeInvalidName(`${identifier}_Control`);
+    const item = await findChannelListItem(`${base}_cmd`);
+    expect(within(item).getByText(`${base}_state`)).toBeTruthy();
   });
 });

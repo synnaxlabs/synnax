@@ -16,7 +16,16 @@ import pytest
 from pydantic import BaseModel, Field
 
 import synnax as sy
+from synnax import task
+from x import filter
 from x.testutil import assert_eventually
+
+
+def _device(rack: int) -> sy.Device:
+    key = str(uuid4())
+    return sy.Device(
+        key=key, name=key, rack=rack, location="dev", make="modbus", model="test"
+    )
 
 
 @pytest.mark.task
@@ -144,6 +153,33 @@ class TestTaskClient:
         assert client.tasks.retrieve(rack=rack.key, snapshot=True) == []
         res = client.tasks.retrieve(rack=rack.key, internal=False, snapshot=False)
         assert [t.key for t in res] == [task.key]
+
+    def test_retrieve_where(self, client: sy.Synnax) -> None:
+        """Should keep tasks that match a filter tree and the other filters."""
+        rack = client.racks.create(name=str(uuid4()))
+        tasks = [
+            client.tasks.create(name=f"t{i}", type="pagerduty_alert", rack=rack.key)
+            for i in range(3)
+        ]
+        where = task.Where(
+            or_=[
+                task.Where(name=filter.String(eq="t0")),
+                task.Where(key=filter.Set[UUID](eq=tasks[1].key)),
+            ]
+        )
+        res = client.tasks.retrieve(where=where, rack=rack.key)
+        assert {t.key for t in res} == {tasks[0].key, tasks[1].key}
+
+    def test_retrieve_missing_key(self, client: sy.Synnax) -> None:
+        """Should treat a missing key as a non-match in a list retrieve."""
+        t = client.tasks.create(name=str(uuid4()), type="pagerduty_alert")
+        res = client.tasks.retrieve(keys=[t.key, uuid4()])
+        assert [x.key for x in res] == [t.key]
+
+    def test_retrieve_not_found(self, client: sy.Synnax) -> None:
+        """Should raise when a single task is requested and none matches."""
+        with pytest.raises(sy.NotFoundError):
+            client.tasks.retrieve(uuid4())
 
     def test_retrieve_with_limit_and_offset(self, client: sy.Synnax) -> None:
         """Should page through the tasks on a rack."""
@@ -315,6 +351,45 @@ class TestTaskClient:
         client.tasks.configure(tsk)
         res = client.tasks.retrieve(key=tsk.key)
         assert res.config["routing_key"] == "rk-2"
+
+    def test_configure_puts_task_on_rack_of_device(self, client: sy.Synnax) -> None:
+        """Should configure a task with no rack onto the rack of its device."""
+        rack = client.racks.create(name=str(uuid4()))
+        dev = client.devices.create(_device(rack.key))
+        tsk = sy.Task(name="test", type="modbus_read", config={"device": dev.key})
+        client.tasks.configure(tsk)
+        assert tsk.rack == rack.key
+        assert client.tasks.retrieve(key=tsk.key).rack == rack.key
+
+    def test_configure_puts_task_without_device_on_embedded_rack(
+        self, client: sy.Synnax
+    ) -> None:
+        """Should configure a task whose config names no device onto the embedded
+        rack."""
+        tsk = sy.Task(
+            name="test", type="pagerduty_alert", config={"routing_key": "rk-e"}
+        )
+        client.tasks.configure(tsk)
+        assert tsk.rack == client.racks.retrieve_embedded_rack().key
+
+    def test_configure_keeps_set_rack(self, client: sy.Synnax) -> None:
+        """Should keep a rack set on the task over the rack of its device."""
+        dev = client.devices.create(_device(client.racks.create(name="a").key))
+        rack = client.racks.create(name=str(uuid4()))
+        tsk = sy.Task(
+            name="test",
+            type="modbus_read",
+            rack=rack.key,
+            config={"device": dev.key},
+        )
+        client.tasks.configure(tsk)
+        assert tsk.rack == rack.key
+
+    def test_configure_rejects_missing_device(self, client: sy.Synnax) -> None:
+        """Should raise when the config names a device that does not exist."""
+        tsk = sy.Task(name="test", type="modbus_read", config={"device": "missing"})
+        with pytest.raises(sy.NotFoundError, match=r"(?i)not found"):
+            client.tasks.configure(tsk)
 
     def test_list_tasks(self, client: sy.Synnax) -> None:
         """Should list all tasks on the default rack."""

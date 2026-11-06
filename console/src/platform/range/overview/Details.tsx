@@ -15,10 +15,8 @@ import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Label as PLabel, Ranger } from "@synnaxlabs/pluto";
-import { type NumericTimeRange } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
 import { Core } from "@/platform/core";
@@ -28,6 +26,8 @@ import { Framer } from "@/platform/framer";
 import { Label } from "@/platform/label";
 import { Panel } from "@/platform/panel";
 import { FavoriteButton } from "@/platform/range/FavoriteButton";
+
+const path = Ranger.formPath;
 
 interface ParentRangeButtonProps {
   rangeKey: string;
@@ -106,10 +106,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
     mode: canEdit ? "normal" : "preview",
   });
 
-  const handleError = Status.useErrorHandler();
-  const name = Form.useFieldValue<string, string, typeof Ranger.formSchema>("name", {
-    ctx: form,
-  });
+  const name = Form.useFieldValue(path.name, { ctx: form });
 
   const getPythonCode = () =>
     `
@@ -122,7 +119,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
       const rng = await client.ranges.retrieve("${rangeKey}")
     `;
 
-  const promptDownloadCSVModal = Framer.useDownloadCSVModal();
+  const openDownloadCSVModal = Framer.useDownloadCSVModal();
 
   return (
     <Form.Form<typeof Ranger.formSchema> {...form}>
@@ -130,7 +127,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
         <Flex.Box x justify="between" className={CSS.B("header")}>
           <Flex.Box y grow>
             <Form.TextField
-              path="name"
+              path={path.name}
               showLabel={false}
               inputProps={{
                 variant: "text",
@@ -171,14 +168,12 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
               variant="text"
               textColor={9}
               onClick={() =>
-                handleError(async () => {
-                  await promptDownloadCSVModal({
-                    timeRange: form.get<NumericTimeRange>("timeRange").value,
-                    name,
-                    channels: [],
-                    icon: <Icon.Range />,
-                  });
-                }, "Failed to download CSV")
+                openDownloadCSVModal({
+                  timeRange: form.get(path.timeRange).value,
+                  name,
+                  channels: [],
+                  icon: <Icon.Range />,
+                })
               }
             >
               <Icon.CSV />
@@ -194,11 +189,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
             <FavoriteButton range={range} size="medium" />
           </Flex.Box>
         </Flex.Box>
-        <Form.Field<NumericTimeRange>
-          path="timeRange"
-          padHelpText={false}
-          showLabel={false}
-        >
+        <Form.Field path={path.timeRange} padHelpText={false} showLabel={false}>
           {(p) => (
             <Ranger.Timeline
               level="h4"
