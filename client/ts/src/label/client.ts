@@ -32,7 +32,13 @@ import {
   retrieveResponseZ,
   type Where,
 } from "@/label/types.gen";
-import { type Lines, matches, retrieveInputZ, serverComputed } from "@/label/where.gen";
+import {
+  type Lines,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+  shortcutZ,
+} from "@/label/where.gen";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 
@@ -56,7 +62,6 @@ const removeReqZ = setReqZ.omit({ replace: true });
 const emptyResZ = z.object({});
 
 const retrieveMultiParamsZ = z.union([
-  query.keysRequestZ(keyZ),
   retrieveRequestZ,
   retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
 ]);
@@ -137,6 +142,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
     super(cache, {
       name: "label",
       table: store,
+      shortcut: shortcutZ,
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => {

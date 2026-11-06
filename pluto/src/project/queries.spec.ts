@@ -80,7 +80,7 @@ describe("queries", () => {
       const { result } = renderHook(
         () =>
           Project.useList({
-            initialQuery: { where: { key: { in: keys } } },
+            query: { where: { key: { in: keys } } },
             filter: (p) => keys.includes(p.key),
           }),
         { wrapper },
