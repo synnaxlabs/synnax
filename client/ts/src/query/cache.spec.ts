@@ -294,6 +294,19 @@ describe("Cache", () => {
       expect(onError).not.toHaveBeenCalled();
     });
 
+    it("should not refetch per caller after a batch fails on a close", async () => {
+      const held = Promise.withResolvers<Doc[]>();
+      const fetch = vi.fn(async () => await held.promise);
+      const { cache, table } = setup(fetch);
+      const retrieves = [table.retrieve(["k1"]), table.retrieve(["k2"])];
+      await expect.poll(() => fetch.mock.calls.length).toBe(1);
+      await cache.close();
+      held.reject(new NotFoundError("gone"));
+      await Promise.allSettled(retrieves);
+      await sleep.sleep(TimeSpan.milliseconds(30));
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
     it("should keep the failure of a fetch that ends a reconcile", async () => {
       const held = Promise.withResolvers<Doc[]>();
       const fetch = vi.fn(async () => await held.promise);

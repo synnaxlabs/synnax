@@ -245,7 +245,8 @@ export class Table<
               } catch (exc) {
                 const strict =
                   NotFoundError.matches(exc) || AccessDeniedError.matches(exc);
-                if (!strict || requests.length === 1) throw errors.fromUnknown(exc);
+                if (!strict || requests.length === 1 || this.closed)
+                  throw errors.fromUnknown(exc);
                 // A strict fetch rejects the whole batch when any caller's key has
                 // vanished or is denied. Refetch per caller so each settles exactly as
                 // its own request would have, keeping the batch transparent.
