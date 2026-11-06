@@ -17,6 +17,8 @@
 #
 # Outputs (GitHub Actions):
 #   TEST_MATRIX — JSON object consumable by strategy.matrix via fromJSON()
+#   BOT_MATRIX — the same suites for a run with no hosted runners. A hosted entry is
+#   one job there with no args, as its shards and args fit a hosted runner.
 
 set -euo pipefail
 
@@ -25,15 +27,18 @@ TESTS_DIR="integration/tests"
 EXEMPT="example"
 
 # Matrix definition (single source of truth)
-# Format: "name:target:hosted:args" where target can be comma-separated file prefixes.
-# hosted is true when the suite runs on a GitHub-hosted runner. A suite that needs NI
-# software, the timer precision of a test bot, or more than 4 CPUs is not hosted. args
-# are more flags for the test conductor. The Driver suite waits on its devices more
-# than it computes, so it runs its sequences on four Cores at once.
+# Format: "name:target:hosted:shards:args" where target can be comma-separated file
+# prefixes. hosted is true when the suite runs on a GitHub-hosted runner. A suite that
+# needs NI software, the timer precision of a test bot, or more than 4 CPUs is not
+# hosted. An entry with more than one shard becomes the jobs name-1 to name-N, each
+# running its part of target. args are more flags for the test conductor. The Driver
+# suite waits on its devices more than it computes, so it runs its sequences on four
+# Cores at once. A hosted runner has the CPU for one browser, so the Console suite
+# runs as shards.
 MATRIX_ENTRIES=(
-    "arc:arc,control:true:"
-    "console:console:false:"
-    "driver:driver,latency:false:--cores 4 --browsers 1"
+    "arc:arc,control:true:1:"
+    "console:console:true:5:--browsers 1"
+    "driver:driver,latency:false:1:--cores 4 --browsers 1"
 )
 
 covered=""
@@ -88,22 +93,40 @@ if [ -n "$EXEMPT" ]; then
 fi
 
 # Build Matrix Output
-json='{"include":['
-first=true
-for entry in "${MATRIX_ENTRIES[@]}"; do
-    IFS=: read -r name target hosted args <<< "$entry"
-    if [ "$first" = true ]; then
-        first=false
-    else
-        json+=","
-    fi
-    json+="{\"name\":\"$name\",\"target\":\"$target\",\"hosted\":$hosted,"
-    json+="\"args\":\"$args\"}"
-done
-json+=']}'
+job() {
+    printf '{"name":"%s","target":"%s","hosted":%s,"args":"%s"}' "$@"
+}
 
-echo "Matrix: $json"
+test_jobs=()
+bot_jobs=()
+for entry in "${MATRIX_ENTRIES[@]}"; do
+    IFS=: read -r name target hosted shards args <<< "$entry"
+    if [ "$hosted" = true ]; then
+        bot_jobs+=("$(job "$name" "$target" "$hosted" "")")
+    else
+        bot_jobs+=("$(job "$name" "$target" "$hosted" "$args")")
+    fi
+    if [ "$shards" -eq 1 ]; then
+        test_jobs+=("$(job "$name" "$target" "$hosted" "$args")")
+        continue
+    fi
+    for shard in $(seq 1 "$shards"); do
+        shard_args="$args --shard $shard/$shards"
+        test_jobs+=("$(job "$name-$shard" "$target" "$hosted" "$shard_args")")
+    done
+done
+
+matrix() {
+    local IFS=,
+    echo "{\"include\":[$*]}"
+}
+test_matrix=$(matrix "${test_jobs[@]}")
+bot_matrix=$(matrix "${bot_jobs[@]}")
+
+echo "Matrix: $test_matrix"
+echo "Bot matrix: $bot_matrix"
 
 if [ -n "${GITHUB_OUTPUT:-}" ]; then
-    echo "TEST_MATRIX=$json" >> "$GITHUB_OUTPUT"
+    echo "TEST_MATRIX=$test_matrix" >> "$GITHUB_OUTPUT"
+    echo "BOT_MATRIX=$bot_matrix" >> "$GITHUB_OUTPUT"
 fi

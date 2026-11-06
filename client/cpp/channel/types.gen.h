@@ -23,6 +23,7 @@
 #include "client/cpp/status/types.gen.h"
 #include "x/cpp/control/types.gen.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/filter/field.h"
 #include "x/cpp/filter/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/mem/indirect.h"
@@ -63,24 +64,49 @@ struct Where {
     /// @brief not_ matches when the child does not match.
     x::mem::indirect<Where> not_;
     /// @brief key selects by key.
-    std::optional<::x::filter::Set<Key>> key;
+    ::x::filter::Field<::x::filter::Set<Key>> key;
     /// @brief name selects by name.
-    std::optional<::x::filter::String> name;
+    ::x::filter::Field<::x::filter::String> name;
     /// @brief leaseholder selects by leaseholder.
-    std::optional<::x::filter::Set<::synnax::node::Key>> leaseholder;
+    ::x::filter::Field<::x::filter::Set<::synnax::node::Key>> leaseholder;
     /// @brief data_type selects by data_type.
-    std::optional<::x::filter::Set<::x::telem::DataType>> data_type;
+    ::x::filter::Field<::x::filter::Set<::x::telem::DataType>> data_type;
     /// @brief is_index selects by is_index.
-    std::optional<::x::filter::Bool> is_index;
+    ::x::filter::Field<::x::filter::Bool> is_index;
     /// @brief internal selects by internal.
-    std::optional<::x::filter::Bool> internal;
+    ::x::filter::Field<::x::filter::Bool> internal;
     /// @brief virtual_ matches virtual channels that are not calculated, or every other
     /// channel when false.
     std::optional<bool> virtual_;
     /// @brief name_patterns matches channels whose name matches any of the given
     /// patterns. A valid channel name matches exactly, and any other pattern is a
     /// regular expression, anchored when unanchored.
-    std::optional<std::vector<std::string>> name_patterns;
+    ::x::filter::List<std::string> name_patterns;
+
+    /// @brief returns a filter that matches when both a and b match.
+    friend Where operator&&(Where a, Where b) {
+        Where w;
+        w.and_.emplace();
+        w.and_->push_back(std::move(a));
+        w.and_->push_back(std::move(b));
+        return w;
+    }
+
+    /// @brief returns a filter that matches when a or b matches.
+    friend Where operator||(Where a, Where b) {
+        Where w;
+        w.or_.emplace();
+        w.or_->push_back(std::move(a));
+        w.or_->push_back(std::move(b));
+        return w;
+    }
+
+    /// @brief returns a filter that matches when a does not match.
+    friend Where operator!(Where a) {
+        Where w;
+        w.not_ = std::move(a);
+        return w;
+    }
 
     static Where parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
