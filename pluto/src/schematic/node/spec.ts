@@ -56,8 +56,6 @@ export interface Spec<
   name: string;
   /** The text written into the symbol's label on creation. Defaults to name. */
   label?: string;
-  /** Values a new symbol takes where the schema default does not apply. */
-  defaults?: Partial<Config>;
   /** Gives a new or changed symbol's label no wrap width. */
   unwrapped?: boolean;
   Form: FC<FormProps>;

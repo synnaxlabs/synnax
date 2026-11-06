@@ -45,7 +45,7 @@ export const ScaledSizeField = (
 );
 
 // A click on the selected size reports null. It must still apply the level, because a
-// saved symbol has none.
+// saved symbol's level can differ from the one its size gives.
 const SelectScaledSize = ({
   value,
   onChange,

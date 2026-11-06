@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { type Component } from "@synnaxlabs/lyra/component";
+import { Component } from "@synnaxlabs/lyra/component";
 import { renderThemed } from "@synnaxlabs/lyra/styletest";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type text } from "@synnaxlabs/x";
@@ -92,9 +92,12 @@ describe("symbol text scale", () => {
     );
 
     it.each(SAVED_PX)(
-      "should keep a saved %s at %i px without a level",
+      "should keep a saved %s at %i px at its migrated level",
       async (size, px) => {
-        const sizes = await measure(symbol, { size });
+        const sizes = await measure(symbol, {
+          size,
+          level: Component.SIZE_TEXT_LEVELS[size],
+        });
         sizes.forEach((measured) => expect(measured).toBeCloseTo(px, 0));
       },
     );
@@ -120,11 +123,16 @@ describe("symbol text scale", () => {
   });
 
   describe("readout", () => {
-    it.each(STANDARD_PX)(
-      "should fit %s text inside the readout on the standard scale",
-      async (size) => {
+    const SCALES = Component.SIZES.flatMap((size): [Component.Size, text.Level][] => [
+      [size, SIZE_LEVELS[size]],
+      [size, Component.SIZE_TEXT_LEVELS[size]],
+    ]);
+
+    it.each(SCALES)(
+      "should fit %s text inside the readout at field level %s",
+      async (size, level) => {
         const { container } = await renderThemed(
-          <Readout size={size} level={SIZE_LEVELS[size]} value="100.0" />,
+          <Readout size={size} level={level} value="100.0" />,
         );
         const readout = container.querySelector<HTMLElement>(
           ".pluto-symbol-field__readout",

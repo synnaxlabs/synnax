@@ -32,7 +32,7 @@ interface ReadbackProps {
   position?: xy.XY;
   channel: channel.Key;
   size: Component.Size;
-  level?: text.Level;
+  level: text.Level;
   units?: string;
   stalenessColor?: color.Color;
   stalenessTimeout?: number;

@@ -144,16 +144,15 @@ describe("Schematic.Node.createConfig", () => {
     expect(config.stateOverrides).toEqual([]);
   });
 
-  it("should start a new button on the medium text level", () =>
-    expect(createConfig({ variant: "button" }).level).toBe(SIZE_LEVELS.medium));
-
-  it.each(["input", "select", "setpoint"] as const)(
+  it.each(["button", "input", "setpoint"] as const)(
     "should start a new %s on the medium text level",
-    (variant) => {
-      const input = variant === "select" ? { variant, options: [] } : { variant };
-      expect(createConfig(input).level).toBe(SIZE_LEVELS.medium);
-    },
+    (variant) => expect(createConfig({ variant }).level).toBe(SIZE_LEVELS.medium),
   );
+
+  it("should start a new select on the medium text level", () =>
+    expect(createConfig({ variant: "select", options: [] }).level).toBe(
+      SIZE_LEVELS.medium,
+    ));
 
   it("should start a new button with no wrap width", () =>
     expect(createConfig({ variant: "button" }).label.maxInlineSize).toBeUndefined());
@@ -166,9 +165,6 @@ describe("Schematic.Node.createConfig", () => {
       createConfig({ variant: "tank", label: { maxInlineSize: 80 } }).label
         .maxInlineSize,
     ).toBe(80));
-
-  it("should let the input override a spec default", () =>
-    expect(createConfig({ variant: "button", level: "h2" }).level).toBe("h2"));
 
   it("should reject an unknown variant", () => {
     expect(() => createConfig({ variant: "not-a-symbol" } as never)).toThrow();
@@ -214,59 +210,39 @@ describe("Schematic.Node.changeConfig", () => {
     expect(changed.label.maxInlineSize).toBeUndefined();
   });
 
-  it("should keep a saved field off the standard scale when it changes", () => {
-    const saved = schematic.inputNodeConfigZ.parse({ variant: "input", size: "small" });
-    const changed = changeConfig(saved, { variant: "setpoint" });
-    expect(changed.size).toBe("small");
-    expect(changed.level).toBeUndefined();
-  });
-
-  it("should keep the level of a field that changes", () => {
-    const input = createConfig({ variant: "input", size: "small", level: "h5" });
-    const changed = changeConfig(input, { variant: "setpoint" });
-    expect(changed.level).toBe("h5");
-  });
-
-  it("should give a symbol with no size or level the default level", () => {
-    const changed = changeConfig(createConfig({ variant: "valve" }), {
-      variant: "setpoint",
-    });
-    expect(changed.level).toBe(SIZE_LEVELS.medium);
-  });
-
-  it("should keep a schema level default on a variant with no spec level", () => {
-    const saved = schematic.inputNodeConfigZ.parse({ variant: "input", size: "small" });
-    expect(changeConfig(saved, { variant: "value" }).level).toBe(
-      createConfig({ variant: "value" }).level,
-    );
-  });
-
   it("should keep the wrap width of a button that stays a button", () => {
     const button = createConfig({ variant: "button", label: { maxInlineSize: 80 } });
     const changed = changeConfig(button, { variant: "button" });
     expect(changed.label.maxInlineSize).toBe(80);
   });
 
-  it("should keep a sized symbol with no level off the button scale", () => {
-    const setpoint = schematic.setpointNodeConfigZ.parse({
-      variant: "setpoint",
-      size: "large",
-    });
-    const changed = changeConfig(setpoint, { variant: "button" });
+  it("should keep the size and level of a field that changes", () => {
+    const input = createConfig({ variant: "input", size: "large", level: "h5" });
+    const changed = changeConfig(input, { variant: "button" });
     expect(changed.size).toBe("large");
-    expect(changed.level).toBeUndefined();
+    expect(changed.level).toBe("h5");
   });
 
-  it("should give a symbol with no size or level the default button level", () => {
+  it("should keep the level of a value that changes to a button", () => {
+    const value = createConfig({ variant: "value", level: "h2" });
+    const changed = changeConfig(value, { variant: "button" });
+    expect(changed.size).toBe("medium");
+    expect(changed.level).toBe("h2");
+  });
+
+  it("should carry a tank's scale level onto a button", () => {
+    const changed = changeConfig(createConfig({ variant: "tank" }), {
+      variant: "button",
+    });
+    expect(changed.size).toBe("medium");
+    expect(changed.level).toBe("small");
+  });
+
+  it("should give a symbol with no level the medium text level", () => {
     const changed = changeConfig(createConfig({ variant: "valve" }), {
       variant: "button",
     });
     expect(changed.level).toBe(SIZE_LEVELS.medium);
-  });
-
-  it("should keep the level of a symbol with no size", () => {
-    const value = createConfig({ variant: "value", level: "h2" });
-    expect(changeConfig(value, { variant: "button" }).level).toBe("h2");
   });
 
   it("should keep each field the new variant accepts", () => {

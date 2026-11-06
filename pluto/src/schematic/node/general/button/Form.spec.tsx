@@ -64,6 +64,7 @@ describe("ButtonForm size", () => {
     variant: "button",
     label: { label: "Saved" },
     size: "large",
+    level: "h5",
   });
 
   it.each([
@@ -81,9 +82,6 @@ describe("ButtonForm size", () => {
       expect(value(path.level)).toBe(level);
     });
   });
-
-  it("should leave a saved button without a level until a size is picked", () =>
-    expect(renderStyle(SAVED).value(path.level)).toBeUndefined());
 });
 
 describe("ButtonForm label", () => {

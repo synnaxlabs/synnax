@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError, schematic } from "@synnaxlabs/client";
-import { type Component } from "@synnaxlabs/lyra/component";
-import { deep, record, type text } from "@synnaxlabs/x";
+import { deep, record } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import {
@@ -74,14 +73,14 @@ const WRAP_WIDTH = 150;
 
 /**
  * Builds a fresh config from the schema input. Every unset value comes from the
- * spec's defaults, then the schema, except the label, which names the symbol and takes
- * a wrap width unless the input sets them.
+ * schema, except the label, which names the symbol and takes a wrap width unless the
+ * input sets them.
  * @param input - The variant plus any fields to set on top of the schema defaults.
  * @throws {NotFoundError} if no spec is registered for the variant.
  */
 export const createConfig = <V extends Variant>(input: Input<V>): ConfigOf<V> => {
+  const config = configZ.parse(input) as ConfigOf<V>;
   const spec = resolveSpec(input.variant);
-  const config = configZ.parse({ ...spec.defaults, ...input }) as ConfigOf<V>;
   const labeled = input as { label?: { label?: string } };
   if ("label" in config) {
     if (labeled.label?.label == null) config.label.label = spec.label ?? spec.name;
@@ -128,8 +127,7 @@ export const symbolKey = (config: Config): string =>
 /**
  * Changes the config to the variant the input names. Each field the new variant
  * accepts keeps its value, except the spec key and state overrides of a custom symbol,
- * and the wrap width of a symbol that changes to an unwrapped variant. A sized symbol
- * with no level takes no default level, so it keeps its rendered text size.
+ * and the wrap width of a symbol that changes to an unwrapped variant.
  * @param config - The config to change.
  * @param input - The variant to change to, plus any fields to set on top.
  * @throws {NotFoundError} if no spec is registered for the variant.
@@ -143,17 +141,9 @@ export const changeConfig = <V extends Variant>(
     record.omit(config as record.Unknown, "specKey", "stateOverrides"),
     schematic.NODE_CONFIG_SCHEMAS[input.variant],
   );
-  const spec = resolveSpec(input.variant);
-  if (config.variant !== input.variant && spec.unwrapped === true && "label" in next)
+  const { unwrapped } = resolveSpec(input.variant);
+  if (config.variant !== input.variant && unwrapped === true && "label" in next)
     next.label.maxInlineSize = undefined;
-  const { size, level } = config as { size?: Component.Size; level?: text.Level };
-  if (
-    spec.defaults != null &&
-    "level" in spec.defaults &&
-    size != null &&
-    level == null
-  )
-    (next as { level?: text.Level }).level = undefined;
   return next;
 };
 

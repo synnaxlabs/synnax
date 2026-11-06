@@ -20,18 +20,10 @@ const path = deep.path<schematic.SetpointNodeConfig>();
 const SAVED = schematic.setpointNodeConfigZ.parse({
   variant: "setpoint",
   size: "large",
+  level: "h5",
 });
 
 describe("ScaledSizeField", () => {
-  it("should leave a saved symbol without a level until a size is picked", () => {
-    const { value } = renderForm(
-      <ScaledSizeField />,
-      SAVED,
-      schematic.setpointNodeConfigZ,
-    );
-    expect(value(path.level)).toBeUndefined();
-  });
-
   it("should apply the standard level when the selected size is clicked", async () => {
     const { getByText, value } = renderForm(
       <ScaledSizeField />,

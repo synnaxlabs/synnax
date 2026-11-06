@@ -11,7 +11,6 @@ import { type schematic } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { SIZE_LEVELS } from "@/schematic/node/common/size";
 import { colorFallbacks, InputForm } from "@/schematic/node/general/input/Form";
 import { Input } from "@/schematic/node/general/input/Primitive";
 import { Symbol } from "@/schematic/node/general/input/Symbol";
@@ -37,7 +36,6 @@ const Preview = ({
 export const spec: Spec<"input", schematic.InputNodeConfig> = {
   key: "input",
   name: "Text input",
-  defaults: { level: SIZE_LEVELS.medium },
   Form: InputForm,
   Node: Symbol,
   Preview,

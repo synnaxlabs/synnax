@@ -28,7 +28,7 @@ interface ReadbackProps {
   nodeKey: string;
   channel: channel.Key;
   size: Component.Size;
-  level?: text.Level;
+  level: text.Level;
   options: schematic.SelectNodeConfig["options"];
   stalenessColor?: color.Color;
   stalenessTimeout?: number;

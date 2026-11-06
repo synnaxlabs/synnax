@@ -15,8 +15,12 @@ import { readoutLevel } from "@/schematic/node/common/primitive/Readout";
 import { SIZE_LEVELS } from "@/schematic/node/common/size";
 
 describe("readoutLevel", () => {
-  it.each(Component.SIZES)("should keep a saved %s field at its level", (size) =>
-    expect(readoutLevel(size)).toBe(text.downLevel(Component.SIZE_TEXT_LEVELS[size])),
+  it.each(Component.SIZES)(
+    "should keep a saved %s field at its readout level",
+    (size) =>
+      expect(readoutLevel(size, Component.SIZE_TEXT_LEVELS[size])).toBe(
+        text.downLevel(Component.SIZE_TEXT_LEVELS[size]),
+      ),
   );
 
   it.each([
@@ -25,7 +29,7 @@ describe("readoutLevel", () => {
     ["medium", "p"],
     ["large", "h4"],
     ["huge", "h3"],
-  ] as const)("should step a standard %s field down to %s", (size, level) =>
+  ] as const)("should fit a standard %s field's readout at %s", (size, level) =>
     expect(readoutLevel(size, SIZE_LEVELS[size])).toBe(level),
   );
 });
