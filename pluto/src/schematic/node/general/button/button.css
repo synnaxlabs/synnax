@@ -22,4 +22,10 @@
     --pluto-hover-border-color: oklch(from var(--pluto-symbol-display) l c h / 85%);
     --pluto-active-border-color: oklch(from var(--pluto-symbol-display) l c h / 70%);
     --pluto-btn-text-color: var(--pluto-symbol-contrast);
+
+    /* Text breaks at its newlines and at the wrap width. A max-content width keeps it
+       on one line until a wrap width caps the button. */
+    width: max-content;
+    white-space: pre-line;
+    overflow-wrap: break-word;
 }

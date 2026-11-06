@@ -16,7 +16,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { ButtonForm } from "@/schematic/node/general/button/Form";
 import { createConfig } from "@/schematic/node/registry";
-import { createAsyncSynnaxWrapper, renderForm } from "@/testutil";
+import { createAsyncSynnaxWrapper, createSynnaxWrapper, renderForm } from "@/testutil";
 
 const path = deep.path<schematic.ButtonNodeConfig>();
 
@@ -44,5 +44,40 @@ describe("ButtonForm", () => {
     );
     fireEvent.click(await findByLabelText(`Clear ${ch.name}`));
     await waitFor(() => expect(value(path.commandChannel)).toBeUndefined());
+  });
+});
+
+describe("ButtonForm label", () => {
+  const renderStyleTab = (): ReturnType<typeof renderForm> =>
+    renderForm(
+      <ButtonForm tab="style" onTabChange={vi.fn()} />,
+      createConfig({ variant: "button" }),
+      schematic.buttonNodeConfigZ,
+      createSynnaxWrapper({ client: null }),
+    );
+
+  it("should keep a newline in the label", async () => {
+    const { container, value } = renderStyleTab();
+    const field = container.querySelector("textarea");
+    if (field == null) throw new Error("expected a text area");
+    fireEvent.change(field, { target: { value: "LAUNCH\nPUMP VC" } });
+    await waitFor(() => expect(value(path.label.label)).toBe("LAUNCH\nPUMP VC"));
+  });
+
+  it("should set the wrap width", async () => {
+    const { getByText, value } = renderStyleTab();
+    const field = getByText("Wrap width").parentElement?.querySelector("input");
+    if (field == null) throw new Error("expected a wrap width input");
+    fireEvent.change(field, { target: { value: "80" } });
+    fireEvent.blur(field);
+    await waitFor(() => expect(value(path.label.maxInlineSize)).toBe(80));
+  });
+
+  it("should set the alignment", async () => {
+    const { container, value } = renderStyleTab();
+    const start = container.querySelector("button#start");
+    if (start == null) throw new Error("expected a start alignment button");
+    fireEvent.click(start);
+    await waitFor(() => expect(value(path.label.align)).toBe("start"));
   });
 });
