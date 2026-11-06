@@ -74,7 +74,7 @@ export type Synchronizers<S, A extends Action> = Synchronizer<S, A>[];
 export interface Removable<K extends record.Key> {
   onDelete: (handler: (key: K) => void) => destructor.Destructor;
   /** Retrieves the records that match a filter on keys. */
-  retrieve: (params: { where: { key: { in: K[] } } }) => Promise<record.Keyed<K>[]>;
+  retrieve: (params: { key: K[] }) => Promise<record.Keyed<K>[]>;
 }
 
 export interface RemoverParams<S, A extends Action, K extends record.Key> {
@@ -103,7 +103,7 @@ export const createRemover = <S, A extends Action, K extends record.Key = string
     reconcile: async ({ client, store }) => {
       const keys = selectKeys(store.getState());
       if (keys.length === 0) return;
-      const found = await domain(client).retrieve({ where: { key: { in: keys } } });
+      const found = await domain(client).retrieve({ key: keys });
       const existing = new Set(found.map(({ key }) => key));
       const missing = keys.filter((key) => !existing.has(key));
       if (missing.length > 0) store.dispatch(remove(missing));

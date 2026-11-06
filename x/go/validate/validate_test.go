@@ -10,6 +10,8 @@
 package validate_test
 
 import (
+	"runtime"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/errors"
@@ -27,6 +29,42 @@ var _ = Describe("Validate", func() {
 
 	BeforeEach(func() {
 		v = validate.New("test")
+	})
+
+	Describe("Exec", func() {
+		It("Should accumulate no error for a passing check", func() {
+			v.Exec(func() error { return nil })
+			Expect(v.Error()).To(Succeed())
+		})
+
+		It("Should return a sole failure unchanged", func() {
+			err := errors.New("failure")
+			v.Exec(func() error { return err })
+			v.Exec(func() error { return nil })
+			Expect(v.Error()).To(BeIdenticalTo(err))
+		})
+
+		It("Should flatten joined failures", func() {
+			v.Exec(func() error {
+				return errors.Join(errors.New("first"), errors.New("second"))
+			})
+			v.Exec(func() error { return errors.New("third") })
+			Expect(errors.UnwrapMulti(v.Error())).To(HaveLen(3))
+			Expect(v.Error()).To(MatchError("first\nsecond\nthird"))
+		})
+
+		It("Should allocate in linear proportion to the number of failures", func() {
+			var before, after runtime.MemStats
+			runtime.ReadMemStats(&before)
+			for range 20000 {
+				v.Exec(func() error { return validate.ErrRequired })
+			}
+			runtime.ReadMemStats(&after)
+			Expect(after.TotalAlloc - before.TotalAlloc).To(
+				BeNumerically("<", 256<<20),
+			)
+			Expect(errors.UnwrapMulti(v.Error())).To(HaveLen(20000))
+		})
 	})
 
 	Describe("Ternary", func() {

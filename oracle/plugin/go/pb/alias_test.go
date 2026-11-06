@@ -202,10 +202,8 @@ var _ = Describe("Go PB aliases", func() {
 				status Status<Details>
 			}
 		`,
-			"StatusToPB(r.Status, DetailsToPBAny)",
-			"func DetailsToPBAny(v base.Details) (*anypb.Any, error) {",
-			"pb, err := basepb.DetailsToPB(v)",
-			"var pb basepb.Details",
+			"StatusToPB(r.Status, xpb.ToAny[base.Details])",
+			"StatusFromPB(pb.Status, xpb.FromAny[base.Details])",
 		),
 		Entry("a nested array's element", `
 			Members = Member[]
