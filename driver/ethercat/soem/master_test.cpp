@@ -202,6 +202,75 @@ TEST_F(SOEMMasterTest, SIIDiscoveryUsesEntryDataTypes) {
     EXPECT_EQ(inputs[1].data_type, x::telem::FLOAT32_T);
 }
 
+/// @brief it should read the synchronization modes a slave lists in its SII DC
+/// category, in SII order.
+TEST_F(SOEMMasterTest, InitializeReadsOpModesFromSII) {
+    MockSlaveInfo slave;
+    slave.state = EC_STATE_PRE_OP;
+    this->add_slave(slave);
+    constexpr uint16_t start = 0x200;
+    this->mock->sii_categories = {{60, start}};
+    // The DC category of a slave on the test bench: SM, DC with a 1 s SYNC0, and DC
+    // with a 1 us SYNC0 and a SYNC1 of 1000 bus cycles.
+    const std::vector<uint8_t> category = {
+        36, 0, 0,    0,    0, 0,    0,    0, 0, 0, 0, 0,    0,    0,    0,
+        0,  0, 0,    1,    0, 3,    0,    0, 0, 0, 0, 0,    0xCA, 0x9A, 0x3B,
+        0,  0, 0,    0,    0, 0,    0,    0, 0, 0, 0, 0x07, 0,    0,    4,
+        0,  0, 0,    0,    0, 0xE8, 0x03, 0, 0, 0, 0, 0,    0,    0,    0,
+        0,  0, 0x18, 0xFC, 0, 0x07, 0,    0, 5, 0, 0, 0,    0,    0,
+    };
+    for (size_t i = 0; i < category.size(); ++i)
+        this->mock->sii_bytes[start + i] = category[i];
+    this->mock->sii_strings = {{3, "SM-Synchron"}, {4, "DC"}, {5, "DC-bus1"}};
+
+    ASSERT_NIL(this->master->initialize());
+
+    const std::vector<dc::OpMode> expected = {
+        {.name = "SM-Synchron", .sync0_factor = 1},
+        {.name = "DC", .assign_activate = 0x0700, .sync0_cycle = 1000000000},
+        {.name = "DC-bus1",
+         .assign_activate = 0x0700,
+         .sync0_cycle = 1000,
+         .sync1_factor = -1000},
+    };
+    EXPECT_EQ(this->master->slaves()[0].properties.op_modes, expected);
+}
+
+/// @brief it should read negative shift times and leave the name of a mode empty when
+/// the SII gives none.
+TEST_F(SOEMMasterTest, InitializeReadsSignedShiftsAndUnnamedOpModes) {
+    MockSlaveInfo slave;
+    slave.state = EC_STATE_PRE_OP;
+    this->add_slave(slave);
+    constexpr uint16_t start = 0x200;
+    this->mock->sii_categories = {{60, start}};
+    // One DC mode: SYNC0 = bus cycle, SYNC0 shift -100 us, SYNC1 shift 25 us, no name.
+    const std::vector<uint8_t> category = {
+        12, 0,    0,    0,    0,    0,    0x60, 0x79, 0xFE, 0xFF, 0xA8, 0x61, 0,
+        0,  0x01, 0x00, 0x00, 0x03, 0x01, 0x00, 0,    0,    0,    0,    0,    0,
+    };
+    for (size_t i = 0; i < category.size(); ++i)
+        this->mock->sii_bytes[start + i] = category[i];
+
+    ASSERT_NIL(this->master->initialize());
+
+    const std::vector<dc::OpMode> expected = {{
+        .assign_activate = 0x0300,
+        .sync0_factor = 1,
+        .sync0_shift = -100000,
+        .sync1_factor = 1,
+        .sync1_shift = 25000,
+    }};
+    EXPECT_EQ(this->master->slaves()[0].properties.op_modes, expected);
+}
+
+/// @brief it should give a slave no synchronization modes when its SII has no DC
+/// category.
+TEST_F(SOEMMasterTest, InitializeGivesNoOpModesWithoutDCCategory) {
+    this->initialize_with_slave();
+    EXPECT_TRUE(this->master->slaves()[0].properties.op_modes.empty());
+}
+
 ////////////////////// Activation //////////////////////
 
 TEST_F(SOEMMasterTest, ActivateHappyPath) {
