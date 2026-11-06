@@ -75,39 +75,28 @@ Identifier union on type {
 }
 
 BaseField struct {
-    key              FieldKey = create {
+    key    FieldKey = create {
         @doc value "is the unique identifier for the field within its message."
     }
-    name             string    {
+    name   string   {
         @doc value "is the name of the field, unique within its message."
     }
-    scale            float64 = 1 {
+    scale  float64 = 1 {
         @doc value "multiplies the raw value on decode."
     }
-    offset           float64 = 0 {
+    offset float64 = 0 {
         @doc value "is added to the scaled value on decode."
     }
-    units            string = "" {
+    units  string = "" {
         @doc value "is the engineering unit of the decoded value."
     }
-    multiplexor      FieldKey? {
-        @doc value """
-            is the key of the field that selects whether this field is present. When
-            absent the field is always present.
-        """
-    }
-    multiplex_values int32[] = [] {
-        @doc value """
-            are the raw values of the multiplexor for which this field is present.
-        """
-    }
-    min              float64?  {
+    min    float64? {
         @doc value """
             is the smallest decoded value a write task accepts. When absent the field's
             encoding sets the limit.
         """
     }
-    max              float64?  {
+    max    float64? {
         @doc value """
             is the largest decoded value a write task accepts. When absent the field's
             encoding sets the limit.
@@ -119,25 +108,36 @@ BaseField struct {
 }
 
 BinaryField struct extends BaseField {
-    start_bit  uint16 = 0 {
+    start_bit        uint16 = 0 {
         @doc value """
             is the bit where the field starts, numbered as in a DBC file: the least
             significant bit for little-endian fields and the most significant bit for
             big-endian fields.
         """
     }
-    bit_length uint8 = 8 {
+    bit_length       uint8 = 8 {
         @doc value "is the number of bits in the field, from 1 to 64."
     }
-    byte_order ByteOrder = little_endian {
+    byte_order       ByteOrder = little_endian {
         @doc value "is the byte order of the field."
     }
-    signed     bool = false {
+    signed           bool = false {
         @doc value "is true when the raw value is two's complement."
     }
-    float      bool = false {
+    float            bool = false {
         @doc value """
             is true when the raw bits are an IEEE 754 float of 32 or 64 bits.
+        """
+    }
+    multiplexor      FieldKey? {
+        @doc value """
+            is the key of the field that selects whether this field is present. When
+            absent the field is always present.
+        """
+    }
+    multiplex_values int32[] = [] {
+        @doc value """
+            are the raw values of the multiplexor for which this field is present.
         """
     }
 

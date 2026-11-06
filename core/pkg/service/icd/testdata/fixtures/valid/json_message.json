@@ -16,7 +16,6 @@
               "scale": 0.1,
               "offset": -40,
               "units": "degC",
-              "multiplex_values": [],
               "pointer": "/sensors/0/temp",
               "type": "number",
               "min": -40,
@@ -28,7 +27,6 @@
               "scale": 1,
               "offset": 0,
               "units": "",
-              "multiplex_values": [],
               "pointer": "/state",
               "type": "string"
             },
@@ -38,7 +36,6 @@
               "scale": 1,
               "offset": 0,
               "units": "",
-              "multiplex_values": [],
               "pointer": "/armed",
               "type": "boolean"
             },
@@ -48,7 +45,6 @@
               "scale": 1,
               "offset": 0,
               "units": "",
-              "multiplex_values": [],
               "pointer": "/ts",
               "type": "timestamp",
               "format": "unix_ms"
@@ -59,7 +55,6 @@
               "scale": 1,
               "offset": 0,
               "units": "",
-              "multiplex_values": [],
               "pointer": "/a~1b/c~0d",
               "type": "number"
             }

@@ -23,19 +23,6 @@ func (bf BaseField) EncodeOrc(w *orc.Writer) error {
 	w.Float64(float64(bf.Scale))
 	w.Float64(float64(bf.Offset))
 	w.String(bf.Units)
-	if bf.Multiplexor != nil {
-		w.Bool(true)
-		w.Write((*bf.Multiplexor)[:])
-	} else {
-		w.Bool(false)
-	}
-	w.Bool(bf.MultiplexValues != nil)
-	if bf.MultiplexValues != nil {
-		w.Uint32(uint32(len(bf.MultiplexValues)))
-		for i := range bf.MultiplexValues {
-			w.Int32(int32(bf.MultiplexValues[i]))
-		}
-	}
 	if bf.Min != nil {
 		w.Bool(true)
 		w.Float64(float64(*bf.Min))
@@ -75,37 +62,6 @@ func (bf *BaseField) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var hv FieldKey
-			if _, err := r.Read(hv[:]); err != nil {
-				return err
-			}
-			bf.Multiplexor = &hv
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			bf.MultiplexValues = make([]int32, n)
-			for i := range bf.MultiplexValues {
-				if bf.MultiplexValues[i], err = r.Int32(); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
 			var hv float64
 			if hv, err = r.Float64(); err != nil {
 				return err
@@ -136,19 +92,6 @@ func (bf BinaryField) EncodeOrc(w *orc.Writer) error {
 	w.Float64(float64(bf.Scale))
 	w.Float64(float64(bf.Offset))
 	w.String(bf.Units)
-	if bf.Multiplexor != nil {
-		w.Bool(true)
-		w.Write((*bf.Multiplexor)[:])
-	} else {
-		w.Bool(false)
-	}
-	w.Bool(bf.MultiplexValues != nil)
-	if bf.MultiplexValues != nil {
-		w.Uint32(uint32(len(bf.MultiplexValues)))
-		for i := range bf.MultiplexValues {
-			w.Int32(int32(bf.MultiplexValues[i]))
-		}
-	}
 	if bf.Min != nil {
 		w.Bool(true)
 		w.Float64(float64(*bf.Min))
@@ -166,6 +109,19 @@ func (bf BinaryField) EncodeOrc(w *orc.Writer) error {
 	w.String(string(bf.ByteOrder))
 	w.Bool(bf.Signed)
 	w.Bool(bf.Float)
+	if bf.Multiplexor != nil {
+		w.Bool(true)
+		w.Write((*bf.Multiplexor)[:])
+	} else {
+		w.Bool(false)
+	}
+	w.Bool(bf.MultiplexValues != nil)
+	if bf.MultiplexValues != nil {
+		w.Uint32(uint32(len(bf.MultiplexValues)))
+		for i := range bf.MultiplexValues {
+			w.Int32(int32(bf.MultiplexValues[i]))
+		}
+	}
 	return nil
 }
 
@@ -186,37 +142,6 @@ func (bf *BinaryField) DecodeOrc(r *orc.Reader) error {
 	}
 	if bf.Units, err = r.String(); err != nil {
 		return err
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var hv FieldKey
-			if _, err := r.Read(hv[:]); err != nil {
-				return err
-			}
-			bf.Multiplexor = &hv
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			bf.MultiplexValues = make([]int32, n)
-			for i := range bf.MultiplexValues {
-				if bf.MultiplexValues[i], err = r.Int32(); err != nil {
-					return err
-				}
-			}
-		}
 	}
 	{
 		present, err := r.Bool()
@@ -262,6 +187,37 @@ func (bf *BinaryField) DecodeOrc(r *orc.Reader) error {
 	}
 	if bf.Float, err = r.Bool(); err != nil {
 		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv FieldKey
+			if _, err := r.Read(hv[:]); err != nil {
+				return err
+			}
+			bf.Multiplexor = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			bf.MultiplexValues = make([]int32, n)
+			for i := range bf.MultiplexValues {
+				if bf.MultiplexValues[i], err = r.Int32(); err != nil {
+					return err
+				}
+			}
+		}
 	}
 	return nil
 }
@@ -394,19 +350,6 @@ func (jsonbf JSONBaseField) EncodeOrc(w *orc.Writer) error {
 	w.Float64(float64(jsonbf.Scale))
 	w.Float64(float64(jsonbf.Offset))
 	w.String(jsonbf.Units)
-	if jsonbf.Multiplexor != nil {
-		w.Bool(true)
-		w.Write((*jsonbf.Multiplexor)[:])
-	} else {
-		w.Bool(false)
-	}
-	w.Bool(jsonbf.MultiplexValues != nil)
-	if jsonbf.MultiplexValues != nil {
-		w.Uint32(uint32(len(jsonbf.MultiplexValues)))
-		for i := range jsonbf.MultiplexValues {
-			w.Int32(int32(jsonbf.MultiplexValues[i]))
-		}
-	}
 	if jsonbf.Min != nil {
 		w.Bool(true)
 		w.Float64(float64(*jsonbf.Min))
@@ -440,37 +383,6 @@ func (jsonbf *JSONBaseField) DecodeOrc(r *orc.Reader) error {
 	}
 	if jsonbf.Units, err = r.String(); err != nil {
 		return err
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var hv FieldKey
-			if _, err := r.Read(hv[:]); err != nil {
-				return err
-			}
-			jsonbf.Multiplexor = &hv
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			jsonbf.MultiplexValues = make([]int32, n)
-			for i := range jsonbf.MultiplexValues {
-				if jsonbf.MultiplexValues[i], err = r.Int32(); err != nil {
-					return err
-				}
-			}
-		}
 	}
 	{
 		present, err := r.Bool()

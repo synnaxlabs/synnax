@@ -23,7 +23,6 @@
               "scale": 1,
               "offset": 0,
               "units": "",
-              "multiplex_values": [],
               "pointer": "/t",
               "type": "timestamp",
               "format": "unix_days"

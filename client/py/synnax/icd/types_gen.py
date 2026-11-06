@@ -55,10 +55,6 @@ class BaseField(BaseModel):
         scale: Multiplies the raw value on decode.
         offset: Is added to the scaled value on decode.
         units: Is the engineering unit of the decoded value.
-        multiplexor: Is the key of the field that selects whether this field is present.
-            When absent the field is always present.
-        multiplex_values: Are the raw values of the multiplexor for which this field is
-            present.
         min: Is the smallest decoded value a write task accepts. When absent the field's
             encoding sets the limit.
         max: Is the largest decoded value a write task accepts. When absent the field's
@@ -70,8 +66,6 @@ class BaseField(BaseModel):
     scale: float = 1
     offset: float = 0
     units: str = ""
-    multiplexor: FieldKey | None = None
-    multiplex_values: list[int] = Field(default_factory=list)
     min: float | None = None
     max: float | None = None
 
@@ -113,6 +107,10 @@ class BinaryField(BaseField):
         byte_order: Is the byte order of the field.
         signed: Is true when the raw value is two's complement.
         float: Is true when the raw bits are an IEEE 754 float of 32 or 64 bits.
+        multiplexor: Is the key of the field that selects whether this field is present.
+            When absent the field is always present.
+        multiplex_values: Are the raw values of the multiplexor for which this field is
+            present.
     """
 
     start_bit: int = Field(default=0, ge=0, le=65535)
@@ -120,6 +118,8 @@ class BinaryField(BaseField):
     byte_order: ByteOrder = "little_endian"
     signed: bool = False
     float: bool = False
+    multiplexor: FieldKey | None = None
+    multiplex_values: list[int] = Field(default_factory=list)
 
 
 class JSONBaseField(BaseField):

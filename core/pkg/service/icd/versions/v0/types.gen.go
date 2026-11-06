@@ -190,12 +190,6 @@ type BaseField struct {
 	Offset float64 `json:"offset" msgpack:"offset"`
 	// Units is the engineering unit of the decoded value.
 	Units string `json:"units" msgpack:"units"`
-	// Multiplexor is the key of the field that selects whether this field is present.
-	// When absent the field is always present.
-	Multiplexor *FieldKey `json:"multiplexor,omitzero" msgpack:"multiplexor,omitempty"`
-	// MultiplexValues are the raw values of the multiplexor for which this field is
-	// present.
-	MultiplexValues []int32 `json:"multiplex_values" msgpack:"multiplex_values"`
 	// Min is the smallest decoded value a write task accepts. When absent the field's
 	// encoding sets the limit.
 	Min *float64 `json:"min,omitzero" msgpack:"min,omitempty"`
@@ -234,6 +228,12 @@ type BinaryField struct {
 	Signed bool `json:"signed" msgpack:"signed"`
 	// Float is true when the raw bits are an IEEE 754 float of 32 or 64 bits.
 	Float bool `json:"float" msgpack:"float"`
+	// Multiplexor is the key of the field that selects whether this field is present.
+	// When absent the field is always present.
+	Multiplexor *FieldKey `json:"multiplexor,omitzero" msgpack:"multiplexor,omitempty"`
+	// MultiplexValues are the raw values of the multiplexor for which this field is
+	// present.
+	MultiplexValues []int32 `json:"multiplex_values" msgpack:"multiplex_values"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.

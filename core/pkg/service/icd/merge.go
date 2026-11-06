@@ -9,6 +9,8 @@
 
 package icd
 
+import "slices"
+
 // merge returns existing with its messages replaced by imported. An imported message
 // that matches an existing message by name keeps the existing key, and each of its
 // fields keeps the key of the existing field with its name. Each existing message and
@@ -63,12 +65,19 @@ func remap(
 	m Message,
 	fieldKeys map[FieldKey]FieldKey,
 ) Message {
-	m.Payload.UpdateFieldBases(func(b *BaseField) {
-		if b.Multiplexor != nil {
-			if key, ok := fieldKeys[*b.Multiplexor]; ok {
-				b.Multiplexor = &key
-			}
+	p, ok := m.Payload.Variant.(BinaryPayload)
+	if !ok {
+		return m
+	}
+	p.Fields = slices.Clone(p.Fields)
+	for i, f := range p.Fields {
+		if f.Multiplexor == nil {
+			continue
 		}
-	})
+		if key, ok := fieldKeys[*f.Multiplexor]; ok {
+			p.Fields[i].Multiplexor = &key
+		}
+	}
+	m.Payload.Variant = p
 	return m
 }

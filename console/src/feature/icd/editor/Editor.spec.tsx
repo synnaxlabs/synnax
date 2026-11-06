@@ -84,7 +84,6 @@ const createJSONField = (name: string, pointer: string): icd.JSONField => ({
   scale: 1,
   offset: 0,
   units: "",
-  multiplexValues: [],
 });
 
 const createJSONMessage = (fields: icd.JSONField[]): icd.Message => ({

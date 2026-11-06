@@ -65,21 +65,25 @@ func (c *checker) checkMessage(path []string, m Message) {
 	path = pathOf(path, "payload")
 	var (
 		bases = m.Payload.FieldBases()
-		// binary holds the binary fields by key. untyped holds the indices of fields
-		// with no encoding or type, whose bases are zero values, and unscaled the
-		// indices of fields that hold no number.
-		binary       = make(map[FieldKey]BinaryField)
-		untyped      = make(set.Set[int])
-		unscaled     = make(set.Set[int])
-		bp, isBinary = m.Payload.Variant.(BinaryPayload)
+		// untyped holds the indices of fields with no encoding or type, whose bases are
+		// zero values, and unscaled the indices of fields that hold no number.
+		untyped  = make(set.Set[int])
+		unscaled = make(set.Set[int])
 	)
 	switch p := m.Payload.Variant.(type) {
 	case BinaryPayload:
+		binary := make(map[FieldKey]BinaryField, len(p.Fields))
 		for i, f := range p.Fields {
 			c.checkBinaryField(pathOf(path, "fields", strconv.Itoa(i)), p, f)
 			binary[f.Key] = f
 		}
+		for i, f := range p.Fields {
+			if f.Multiplexor != nil {
+				c.checkMultiplexor(pathOf(path, "fields", strconv.Itoa(i)), f, binary)
+			}
+		}
 		c.checkOverlaps(pathOf(path, "fields"), p.Fields)
+		c.checkIdentifier(path, p, binary)
 	case TextPayload:
 		for i, f := range p.Fields {
 			fieldPath := pathOf(path, "fields", strconv.Itoa(i))
@@ -119,17 +123,6 @@ func (c *checker) checkMessage(path []string, m Message) {
 		} else {
 			c.checkScaling(p, b)
 		}
-		if b.Multiplexor == nil {
-			continue
-		}
-		if !isBinary {
-			c.Addf(pathOf(p, "multiplexor"), "only binary fields can be multiplexed")
-			continue
-		}
-		c.checkMultiplexor(p, b, binary)
-	}
-	if isBinary {
-		c.checkIdentifier(path, bp, binary)
 	}
 }
 
@@ -224,7 +217,7 @@ func (c *checker) checkScaling(path []string, b BaseField) {
 
 func (c *checker) checkMultiplexor(
 	path []string,
-	b BaseField,
+	b BinaryField,
 	binary map[FieldKey]BinaryField,
 ) {
 	mux, ok := binary[*b.Multiplexor]

@@ -18,7 +18,6 @@
               "scale": 1,
               "offset": 0,
               "units": "V",
-              "multiplex_values": [],
               "encoding": "delimited",
               "position": 1
             },
@@ -28,7 +27,6 @@
               "scale": 0.001,
               "offset": 0,
               "units": "",
-              "multiplex_values": [],
               "encoding": "delimited",
               "position": 2
             }
@@ -49,7 +47,6 @@
               "scale": 1,
               "offset": 0,
               "units": "",
-              "multiplex_values": [],
               "encoding": "tagged",
               "tag": "CODE="
             }

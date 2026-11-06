@@ -23,7 +23,6 @@
               "scale": 1,
               "offset": 0,
               "units": "",
-              "multiplex_values": [],
               "pointer": "/v",
               "type": "number"
             },
@@ -33,7 +32,6 @@
               "scale": 1,
               "offset": 0,
               "units": "",
-              "multiplex_values": [],
               "pointer": "/v",
               "type": "number"
             }

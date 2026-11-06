@@ -50,19 +50,6 @@ export const baseFieldZ = z.object({
   /** units is the engineering unit of the decoded value. */
   units: z.string().default(""),
   /**
-   * multiplexor is the key of the field that selects whether this field is present.
-   * When absent the field is always present.
-   */
-  multiplexor: fieldKeyZ.optional(),
-  /**
-   * multiplexValues are the raw values of the multiplexor for which this field is
-   * present.
-   */
-  multiplexValues: z
-    .int32()
-    .array()
-    .default(() => []),
-  /**
    * min is the smallest decoded value a write task accepts. When absent the field's
    * encoding sets the limit.
    */
@@ -128,6 +115,11 @@ export const binaryFieldZ = baseFieldZ.extend({
   byteOrder: byteOrderZ.default("little_endian"),
   signed: z.boolean().default(false),
   float: z.boolean().default(false),
+  multiplexor: fieldKeyZ.optional(),
+  multiplexValues: z
+    .int32()
+    .array()
+    .default(() => []),
 });
 export interface BinaryField extends z.infer<typeof binaryFieldZ> {}
 

@@ -35,7 +35,6 @@
               "scale": 2,
               "offset": 1,
               "units": "",
-              "multiplex_values": [],
               "pointer": "/v",
               "type": "string",
               "min": 0,

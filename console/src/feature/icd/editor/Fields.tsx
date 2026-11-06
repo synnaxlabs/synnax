@@ -75,13 +75,13 @@ const units = <F extends Field>(): Column<F> => ({
   set: (f, cell) => ({ ...f, units: String(cell) }),
 });
 
-const multiplexor = <F extends Field>(): Column<F> => ({
+const multiplexor: Column<icd.BinaryField> = {
   name: "Multiplexor",
   render: "multiplexor",
   width: 18,
   get: ({ multiplexor }) => multiplexor ?? NONE,
   set: (f, cell) => ({ ...f, multiplexor: cell === NONE ? undefined : String(cell) }),
-});
+};
 
 const parseIntegers = (text: string): number[] =>
   text
@@ -90,13 +90,13 @@ const parseIntegers = (text: string): number[] =>
     .map(Number)
     .filter(Number.isInteger);
 
-const multiplexValues = <F extends Field>(): Column<F> => ({
+const multiplexValues: Column<icd.BinaryField> = {
   name: "Multiplex values",
   render: "text",
   width: 21,
   get: ({ multiplexValues }) => multiplexValues.join(", "),
   set: (f, cell) => ({ ...f, multiplexValues: parseIntegers(String(cell)) }),
-});
+};
 
 const conversion = <F extends Field>(): Column<F>[] => [scale(), offset(), units()];
 
@@ -138,7 +138,7 @@ const jsonTypeOf = (field: icd.JSONField): JSONType =>
 /** Only a number field scales, so a new type drops the scale and offset. */
 const withJSONType = (field: icd.JSONField, type: JSONType): icd.JSONField => {
   const { key, name, pointer, units } = field;
-  const base = { key, name, pointer, units, scale: 1, offset: 0, multiplexValues: [] };
+  const base = { key, name, pointer, units, scale: 1, offset: 0 };
   if (type === "number" || type === "string" || type === "boolean")
     return { ...base, type };
   return { ...base, type: "timestamp", format: type };
@@ -176,8 +176,8 @@ const COLUMNS: { [E in Encoding]: Column<FieldOf<E>>[] } = {
       set: (f, cell) => ({ ...f, signed: cell === "signed", float: cell === "float" }),
     },
     ...conversion<icd.BinaryField>(),
-    multiplexor(),
-    multiplexValues(),
+    multiplexor,
+    multiplexValues,
   ],
   delimited: [
     name(),
@@ -221,14 +221,7 @@ const COLUMNS: { [E in Encoding]: Column<FieldOf<E>>[] } = {
 };
 
 const createField = (encoding: Encoding, name: string = ""): Field => {
-  const base = {
-    key: uuid.create(),
-    name,
-    scale: 1,
-    offset: 0,
-    units: "",
-    multiplexValues: [],
-  };
+  const base = { key: uuid.create(), name, scale: 1, offset: 0, units: "" };
   switch (encoding) {
     case "binary":
       return {
@@ -238,6 +231,7 @@ const createField = (encoding: Encoding, name: string = ""): Field => {
         byteOrder: "little_endian",
         signed: false,
         float: false,
+        multiplexValues: [],
       };
     case "delimited":
       return { ...base, encoding, position: 0 };
