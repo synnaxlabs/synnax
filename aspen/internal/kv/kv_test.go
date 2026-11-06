@@ -479,9 +479,12 @@ var _ = Describe("txn", func() {
 			MustOpen(builder.New(ctx, kv.Config{}, cluster.Config{}))
 			for _, c := range builder.ClusterAPIs {
 				builder.RecoveryNet.StreamServer(c.Host().Address).BindHandler(func(
-					context.Context,
-					freighter.ServerStream[kv.RecoveryRequest, kv.RecoveryResponse],
+					_ context.Context,
+					stream freighter.ServerStream[kv.RecoveryRequest, kv.RecoveryResponse],
 				) error {
+					if _, err := stream.Receive(); err != nil {
+						return err
+					}
 					return context.Canceled
 				})
 			}
