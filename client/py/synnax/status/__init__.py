@@ -24,8 +24,8 @@ from synnax.status.types_gen import (
 
 __all__ = [
     "DELETE_CHANNEL",
-    "TYPE_RESOURCE_ID",
     "SET_CHANNEL",
+    "TYPE_RESOURCE_ID",
     "VARIANT_DISABLED",
     "VARIANT_ERROR",
     "VARIANT_INFO",
