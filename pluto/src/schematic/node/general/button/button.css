@@ -27,5 +27,5 @@
        on one line until a wrap width caps the button. */
     width: max-content;
     white-space: pre-line;
-    overflow-wrap: break-word;
+    overflow-wrap: anywhere;
 }
