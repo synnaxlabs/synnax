@@ -478,6 +478,24 @@ func analyzeIdentifierByRole(
 	}
 
 	switch sym.Kind {
+	case symbol.KindConstant:
+		value, ok := sym.DefaultValue.(float64)
+		if !ok {
+			ctx.Diagnostics.Add(diagnostics.Errorf(
+				ctx.AST, "constant %s has no float value", name,
+			))
+			return flowNodeResult{}, false
+		}
+		t := ctx.TypeMap[ctx.AST]
+		n := newConstNode(
+			kg.generate("const", sym.Name),
+			t,
+			t,
+			types.EncodeFloat(value),
+		)
+		return flowNodeResult{
+			node: newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam),
+		}, true
 	case symbol.KindSequence, symbol.KindStage:
 		intent, ok := analyzeNamedRef(ctx, sym, shell)
 		if !ok {
