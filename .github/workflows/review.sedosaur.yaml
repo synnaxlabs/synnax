@@ -11,8 +11,9 @@
 # sedosaur GitHub App. The scripts and the policy in `.sedosaur/` come from the commit
 # that started this workflow, on the default branch, never from the pull request or its
 # base. Claude Code gets only read tools, a checkout of the head, and its OAuth token.
-# The App token reaches only the steps that write to GitHub. A replay reviews any commit
-# with the policy of the ref it starts on, posts nothing, and keeps only the record.
+# The App token reaches only the steps that write to GitHub. A replay reviews any commit,
+# posts nothing, and keeps only the record. It can take the prompt and rules of another
+# ref, so a new policy can be tried on old commits before it merges.
 
 name: Review - Sedosaur
 run-name: ${{ inputs.pr }}${{ inputs.replay && ' replay' || '' }}
@@ -36,6 +37,10 @@ on:
         description: "Review without posting, and keep only the record"
         type: boolean
         default: false
+      policy:
+        description: "Ref whose prompt and rules a replay uses instead"
+        type: string
+        required: false
 
 permissions: {}
 
@@ -69,9 +74,16 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ inputs.pr }}
           HEAD: ${{ inputs.head }}
+          POLICY: ${{ inputs.policy }}
+          REPLAY: ${{ inputs.replay }}
         run: |
           if [ -n "$HEAD" ] && ! [[ "$HEAD" =~ ^[0-9a-f]{40}$ ]]; then
             echo "::error::head must be a full commit SHA."
+            exit 1
+          fi
+          if [ -n "$POLICY" ] && { [ "$REPLAY" != true ] ||
+            ! [[ "$POLICY" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]*$ ]]; }; then
+            echo "::error::policy must name a branch or commit, and only for a replay."
             exit 1
           fi
           gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" | jq -r --arg head "$HEAD" '
@@ -193,6 +205,23 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
+      # Only the text of another policy is taken: the tools, the model, the documents,
+      # and the scripts stay those of this commit. The runner group runs only this
+      # workflow from the default branch, so a replay cannot start from the ref itself.
+      - name: Take the prompt and rules of the policy ref
+        id: policy
+        env:
+          POLICY: ${{ inputs.policy }}
+        run: |
+          if [ -z "$POLICY" ]; then
+            echo "sha=$(git log -1 --format=%H -- .sedosaur)" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git fetch --no-tags origin "$POLICY"
+          rm -r .sedosaur/rules
+          git checkout FETCH_HEAD -- .sedosaur/prompt.md .sedosaur/rules
+          echo "sha=$(git rev-parse FETCH_HEAD)" >> "$GITHUB_OUTPUT"
+
       # The diff needs the base commit. The runner empties its temporary directory after
       # each job, so prune drops the checkout of the last review.
       - name: Check out the head
@@ -211,7 +240,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           BOT: ${{ steps.app.outputs.app-slug }}
           POLICY_DIR: ${{ github.workspace }}
-          POLICY_SHA: ${{ github.sha }}
+          POLICY_SHA: ${{ steps.policy.outputs.sha }}
           REPLAY: ${{ inputs.replay }}
           HEAD_DIR: ${{ runner.temp }}/head
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.SEDOSAUR_CLAUDE_CODE_OAUTH_TOKEN }}

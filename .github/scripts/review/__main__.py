@@ -16,9 +16,9 @@
 Run it from `.github/scripts`. Environment: GH_TOKEN, GITHUB_REPOSITORY, PR, HEAD_SHA,
 BASE_SHA, CHECK_RUN, RUN_URL, and BOT, the slug of the GitHub App the review posts as.
 `run` also takes POLICY_DIR, a trusted checkout that holds `.sedosaur/`, and POLICY_SHA,
-its commit; HEAD_DIR, a checkout of the head; REPLAY, `true` for a review that posts
-nothing; and CLAUDE_CODE_OAUTH_TOKEN, the only variable that reaches Claude Code. A
-replay needs no CHECK_RUN.
+the commit its policy comes from; HEAD_DIR, a checkout of the head; REPLAY, `true` for a
+review that posts nothing; and CLAUDE_CODE_OAUTH_TOKEN, the only variable that reaches
+Claude Code. A replay needs no CHECK_RUN.
 
 `run` writes a record of the review: when it ran, the pull request, the commits, the
 policy commit, the usage, and the review. `post` posts the review in a record. `compare`
