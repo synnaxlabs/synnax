@@ -137,7 +137,12 @@ TC_STATES = {
 # Matrix jobs append their runner and any shard, as in "console / Test (ubuntu-latest,
 # 1/3)"; single jobs do not. The runner's OS comes from the job's labels either way.
 JOB_NAME = re.compile(r"^([a-z0-9-]+) / Test(?: \(.+\))?$")
-TC_JOB_NAME = re.compile(r"^integration / Test \((\w+)\) / (\w+)$")
+# A shard of a suite runs as the job <target>-<index>, as in "console-2".
+TC_JOB_NAME = re.compile(r"^integration / Test \((\w+)\) / ([\w-]+)$")
+# test-results-<runner>-<job>, as in test-results-windows-test-bot-console-2.
+TC_ARTIFACT = re.compile(
+    r"^test-results-(?P<runner>.+)-(?P<job>(?P<target>[a-z]+)(?:-\d+)?)$"
+)
 
 CI_WORKFLOW = ".github/workflows/ci.yaml"
 # Nightly and Release call CI as a job named "CI", which prefixes its job names.
@@ -527,18 +532,19 @@ def main() -> None:
             check=True,
         )
         for art in sorted(Path(tmp).iterdir()):
-            # test-results-<runner>-<target>, e.g. test-results-ubuntu-build-bot-arc
-            target = art.name.rsplit("-", 1)[1]
-            runner_os = os_of(art.name.removeprefix("test-results-"))
+            m = TC_ARTIFACT.match(art.name)
+            if m is None:
+                raise ValueError(f"unknown test results artifact: {art.name}")
+            runner_os = os_of(m["runner"])
             summaries = sorted(art.glob("run-*/summary.json"))
             if not summaries:
                 continue
             summary = json.loads(summaries[-1].read_text())
-            job = tc_jobs[(runner_os, target)]
+            job = tc_jobs[(runner_os, m["job"])]
             suites.append(
                 {
-                    "job": f"integration-{target}",
-                    "product": TARGETS[target],
+                    "job": f"integration-{m['job']}",
+                    "product": TARGETS[m["target"]],
                     "lang": "py",
                     "kind": "system",
                     "tags": ["e2e"],

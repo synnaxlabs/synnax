@@ -39,6 +39,8 @@ type mapScanner struct {
 	// unreachable holds the check error of each device that is not reachable.
 	unreachable map[device.Key]error
 	checks      map[device.Key]int
+	// delay is the time that each check takes. A spec sets it before the task starts.
+	delay time.Duration
 	// release ends one wait command.
 	release chan struct{}
 	// waiting and peak count the wait commands that run now and at most.
@@ -69,7 +71,14 @@ func (s *mapScanner) checkCount(key device.Key) int {
 	return s.checks[key]
 }
 
-func (s *mapScanner) Check(_ context.Context, dev device.Device) error {
+func (s *mapScanner) Check(ctx context.Context, dev device.Device) error {
+	if s.delay > 0 {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(s.delay):
+		}
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.checks[dev.Key]++
@@ -132,10 +141,11 @@ func (t *refusingTx) Commit(ctx context.Context, opts ...any) error {
 
 var _ = Describe("ScanTask", func() {
 	var (
-		t          task.Task
-		scanner    *mapScanner
-		rackKey    rack.Key
-		deviceMake string
+		t            task.Task
+		scanner      *mapScanner
+		rackKey      rack.Key
+		deviceMake   string
+		checkTimeout time.Duration
 	)
 
 	BeforeEach(func(ctx SpecContext) {
@@ -150,6 +160,7 @@ var _ = Describe("ScanTask", func() {
 			Rack: rackKey,
 		}
 		scanner = newMapScanner()
+		checkTimeout = 0
 	})
 
 	openOn := func(statusDB *gorp.DB, interval time.Duration) *driver.ScanTask {
@@ -163,6 +174,7 @@ var _ = Describe("ScanTask", func() {
 			UnreachableMessage: "Failed to reach broker",
 			Task:               t,
 			Interval:           interval,
+			CheckTimeout:       checkTimeout,
 		}))
 		DeferCleanup(func() { Expect(st.Stop(false)).To(Succeed()) })
 		return st
@@ -290,6 +302,34 @@ var _ = Describe("ScanTask", func() {
 					stat := deviceStatus(ctx, dev)
 					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
 					g.Expect(stat.Description).To(Equal("connection reset"))
+				}).Should(Succeed())
+			},
+		)
+
+		It("Should allow a check to take longer than the interval",
+			func(ctx SpecContext) {
+				scanner.delay = 50 * time.Millisecond
+				dev := createDevice(ctx, deviceMake)
+				st := open(5 * time.Millisecond)
+				Expect(st.Start(ctx, driver.NoCommand)).To(Succeed())
+				Eventually(func(g Gomega) {
+					g.Expect(deviceStatus(ctx, dev).Variant).
+						To(Equal(status.VariantSuccess))
+				}).Should(Succeed())
+			},
+		)
+
+		It("Should report a device whose check passes the time limit as unreachable",
+			func(ctx SpecContext) {
+				scanner.delay = time.Hour
+				checkTimeout = 5 * time.Millisecond
+				dev := createDevice(ctx, deviceMake)
+				st := open(time.Hour)
+				Expect(st.Start(ctx, driver.NoCommand)).To(Succeed())
+				Eventually(func(g Gomega) {
+					stat := deviceStatus(ctx, dev)
+					g.Expect(stat.Message).To(Equal("Failed to reach broker"))
+					g.Expect(stat.Description).To(Equal("context deadline exceeded"))
 				}).Should(Succeed())
 			},
 		)
