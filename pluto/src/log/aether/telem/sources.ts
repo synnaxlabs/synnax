@@ -396,6 +396,11 @@ export class StreamMultiChannelLog
     )
       lines += skipped[joined++].length;
     if (middle > span.start && lines > kept) return split();
+    counts.forEach(([key], i) => {
+      const meta = this.metas.get(key);
+      if (meta == null) return;
+      for (const p of read[i].samples) meta.oldest = older(meta.oldest, p, p.time);
+    });
     this.unread.shift();
     // Only the span of streamed samples is left. Reading it would never catch a fast
     // stream, so the subscription gives it back once it fits in the entries and in the
@@ -900,7 +905,7 @@ const toMeta = (ch: channel.Channel): Meta => {
 
 const older = (
   oldest: Oldest | undefined,
-  { alignment }: Sample,
+  { alignment }: Pick<Sample, "alignment">,
   time: TimeStamp,
 ): Oldest | undefined => {
   const t = time.valueOf();
