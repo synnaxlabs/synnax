@@ -9,7 +9,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { CDN } from "@/components/media/cdn";
+import { CDN_ROOT } from "@/components/media/url";
 import { createFetcher } from "@/util/checks/fetch";
 
 const LINK = "https://example.com/page";
@@ -77,7 +77,7 @@ describe("createFetcher", () => {
 
   it("should fail a CDN object that answers 403", async () => {
     stub(403);
-    const url = `${CDN.ROOT}/missing.png`;
+    const url = `${CDN_ROOT}/missing.png`;
     const result = fetcher()(url);
     await vi.advanceTimersByTimeAsync(3_000);
     expect(await result).toBe(`${url}: HTTP 403`);

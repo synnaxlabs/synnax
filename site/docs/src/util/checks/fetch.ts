@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { CDN } from "@/components/media/cdn";
+import { CDN_ROOT } from "@/components/media/url";
 import { type Context } from "@/util/checks/check";
 
 // Some hosts reject non-browser user agents outright.
@@ -62,7 +62,7 @@ interface Probe {
 }
 
 // The CDN answers 403 for a missing object, so its 403 is no bot wall.
-const CDN_HOST = new URL(CDN.ROOT).host;
+const CDN_HOST = new URL(CDN_ROOT).host;
 
 const provesDead = (url: string, status: number): boolean =>
   status < 500 && (status !== 403 || new URL(url).host === CDN_HOST);
