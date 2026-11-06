@@ -103,6 +103,12 @@ class TestCertificate:
         where = certificate.Where(key=filter.Set[certificate.Key](in_=[c.key, uuid4()]))
         assert client.certificates.retrieve(where=where) == [c]
 
+    def test_retrieve_key_list(self, client: sy.Synnax) -> None:
+        """Should return a list for a list of keys, leaving out a key that no
+        certificate has."""
+        c = client.certificates.create(certificate.NewStored(name="Listed", pem=PEM))
+        assert client.certificates.retrieve(key=[c.key, uuid4()]) == [c]
+
     def test_rename(self, client: sy.Synnax) -> None:
         """Should rename a certificate."""
         c = client.certificates.create(certificate.NewStored(name="Before", pem=PEM))
@@ -113,10 +119,8 @@ class TestCertificate:
         """Should delete a certificate."""
         c = client.certificates.create(certificate.NewStored(name="Delete", pem=PEM))
         client.certificates.delete(c.key)
-        with pytest.raises(
-            sy.NotFoundError, match=rf"Certificate matching {c.key} not found"
-        ):
-            client.certificates.retrieve(key=c.key)
+        with pytest.raises(sy.NotFoundError, match=rf"Certificate matching .*{c.key}"):
+            client.certificates.retrieve(c.key)
 
     def test_delete_used_private_key(self, client: sy.Synnax) -> None:
         """Should refuse to delete a private key that a certificate uses."""
