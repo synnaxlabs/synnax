@@ -12,7 +12,7 @@ import { writeFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { PERSIST_SCOPES } from "@/session/store";
+import { Session } from "@/session";
 
 import { report } from "./surface.ts";
 
@@ -64,8 +64,8 @@ describe("report", () => {
   });
 
   it("should give the same report of the Console on each run", () => {
-    const text = report(PERSIST_SCOPES);
-    expect(text).toEqual(report(PERSIST_SCOPES));
+    const text = report(Session.PERSIST_SCOPES);
+    expect(text).toEqual(report(Session.PERSIST_SCOPES));
     const out = process.env.SURFACE_OUT;
     if (out != null) writeFileSync(out, text);
   });
