@@ -14,6 +14,10 @@
 #include "driver/ethercat/dc/dc.h"
 
 namespace driver::ethercat::dc {
+namespace {
+const OpMode SM_MODE{.name = "SM-Synchron"};
+const OpMode DC_MODE{.name = "DC", .assign_activate = 0x0700, .sync0_factor = 1};
+}
 
 /// @brief it should give back the same mode after a JSON round trip, negative factors
 /// and shifts included.
@@ -46,9 +50,11 @@ TEST(OpMode, ParseReportsAMissingField) {
 
 /// @brief it should leave a slave that lists an SM mode, or no mode, without DC.
 TEST(Select, ReturnsNoModeForASlaveThatListsSM) {
-    EXPECT_EQ(select({}), std::nullopt);
+    EXPECT_EQ(ASSERT_NIL_P(select({})), std::nullopt);
     EXPECT_EQ(
-        select({OpMode{.assign_activate = 0x0700}, OpMode{.assign_activate = 0}}),
+        ASSERT_NIL_P(
+            select({OpMode{.assign_activate = 0x0700}, OpMode{.assign_activate = 0}})
+        ),
         std::nullopt
     );
 }
@@ -56,7 +62,84 @@ TEST(Select, ReturnsNoModeForASlaveThatListsSM) {
 /// @brief it should choose the first DC mode of a slave that lists no SM mode.
 TEST(Select, ReturnsTheFirstDCMode) {
     const OpMode first{.name = "DC", .assign_activate = 0x0300};
-    EXPECT_EQ(select({first, OpMode{.assign_activate = 0x0700}}), first);
+    EXPECT_EQ(ASSERT_NIL_P(select({first, OpMode{.assign_activate = 0x0700}})), first);
+}
+
+/// @brief it should use the chosen DC mode of a slave that also lists an SM mode.
+TEST(Select, UsesTheChosenDCMode) {
+    const Choice choice{.index = 1, .assign_activate = 0x0700};
+    EXPECT_EQ(ASSERT_NIL_P(select({SM_MODE, DC_MODE}, choice)), DC_MODE);
+}
+
+/// @brief it should leave a slave without DC when the chosen mode is an SM mode.
+TEST(Select, ReturnsNoModeForAChosenSMMode) {
+    const Choice choice{.index = 1, .assign_activate = 0};
+    EXPECT_EQ(ASSERT_NIL_P(select({DC_MODE, SM_MODE}, choice)), std::nullopt);
+}
+
+/// @brief it should reject a choice whose index or AssignActivate the slave does not
+/// list, and name the modes it lists.
+TEST(Select, RejectsAChoiceTheSlaveDoesNotList) {
+    for (const auto &choice:
+         {Choice{.index = 2, .assign_activate = 0x0700},
+          Choice{.index = 1, .assign_activate = 0x0300}}) {
+        const auto err = select({SM_MODE, DC_MODE}, choice).second;
+        ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
+        EXPECT_EQ(
+            err.data,
+            std::format(
+                "the slave does not list mode {} with AssignActivate 0x{:04X}. It lists "
+                "0 \"SM-Synchron\" (AssignActivate 0x0000), 1 \"DC\" (AssignActivate "
+                "0x0700).",
+                choice.index,
+                choice.assign_activate
+            )
+        );
+    }
+    EXPECT_EQ(
+        select({}, Choice{}).second.data,
+        "the slave does not list mode 0 with AssignActivate 0x0000. It lists no modes."
+    );
+}
+
+/// @brief it should parse a choice from the JSON it writes, with zero cycles when the
+/// JSON gives none.
+TEST(Choice, ParsesTheJSONItWrites) {
+    const Choice choice{
+        .index = 1,
+        .assign_activate = 0x0700,
+        .cycles = {.sync0 = x::telem::MICROSECOND, .sync1 = x::telem::SECOND},
+    };
+    x::json::Parser parser(choice.to_json());
+    EXPECT_EQ(Choice::parse(parser), choice);
+    ASSERT_NIL(parser.error());
+    x::json::Parser bare(nlohmann::json{{"index", 1}, {"assign_activate", 0x0700}});
+    EXPECT_EQ(Choice::parse(bare).cycles, Cycles{});
+    ASSERT_NIL(bare.error());
+}
+
+/// @brief it should use chosen SYNC0 and SYNC1 cycles in place of the cycles of the
+/// mode.
+TEST(Resolve, UsesTheChosenCycles) {
+    const Cycles cycles{.sync0 = x::telem::MICROSECOND, .sync1 = x::telem::SECOND};
+    const auto regs = ASSERT_NIL_P(resolve(DC_MODE, x::telem::MILLISECOND, cycles));
+    EXPECT_EQ(regs.sync0_cycle, 1'000U);
+    EXPECT_EQ(regs.sync1_cycle, 999'999'000U);
+}
+
+/// @brief it should reject a chosen SYNC1 cycle that is not a multiple of the SYNC0
+/// cycle.
+TEST(Resolve, RejectsAChosenSYNC1ThatIsNotAMultipleOfSYNC0) {
+    const auto sync0 = x::telem::MILLISECOND * 3;
+    const auto sync1 = x::telem::MILLISECOND * 10;
+    const Cycles cycles{.sync0 = sync0, .sync1 = sync1};
+    const auto err = resolve(DC_MODE, x::telem::MILLISECOND, cycles).second;
+    ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "SYNC1 cycle of " + sync1.to_string() +
+            " is not a multiple of the SYNC0 cycle of " + sync0.to_string()
+    );
 }
 
 /// @brief it should use a fixed SYNC0 cycle at any bus period.

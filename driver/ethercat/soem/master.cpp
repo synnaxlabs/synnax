@@ -1092,7 +1092,7 @@ Master::resolve_dc(const x::telem::TimeSpan period) const {
     for (const auto &slave: this->slave_list) {
         const auto &props = slave.properties;
         if (this->disabled_slaves.contains(props.position)) continue;
-        const auto mode = dc::select(props.op_modes);
+        const auto mode = dc::select(props.op_modes).first;
         if (!mode) continue;
         auto [regs, err] = dc::resolve(*mode, period);
         if (err)

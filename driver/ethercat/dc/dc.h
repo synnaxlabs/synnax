@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <format>
 #include <limits>
 #include <optional>
 #include <string>
@@ -96,21 +97,99 @@ struct Registers {
     bool operator==(const Registers &) const = default;
 };
 
-/// @brief returns the mode a slave runs in when no mode is chosen for it: its first DC
-/// mode, or nullopt when it lists an SM mode or no mode.
-inline std::optional<OpMode> select(const std::vector<OpMode> &modes) {
-    const auto sm = [](const OpMode &m) { return m.assign_activate == 0; };
-    if (modes.empty() || std::ranges::any_of(modes, sm)) return std::nullopt;
-    return modes.front();
+/// @brief SYNC0 and SYNC1 cycles that replace the cycles a mode gives.
+struct Cycles {
+    /// @brief the SYNC0 cycle, or zero for the cycle of the mode.
+    x::telem::TimeSpan sync0{0};
+    /// @brief the time between SYNC1 events, or zero for the cycle of the mode.
+    x::telem::TimeSpan sync1{0};
+
+    bool operator==(const Cycles &) const = default;
+};
+
+/// @brief the mode that a user chose for a slave.
+struct Choice {
+    /// @brief the index of the mode in the modes of the slave.
+    uint16_t index = 0;
+    /// @brief the AssignActivate of the mode, which shows that the index is stale when
+    /// the slave lists other modes.
+    uint16_t assign_activate = 0;
+    Cycles cycles;
+
+    bool operator==(const Choice &) const = default;
+
+    /// @brief parses a choice from JSON.
+    static Choice parse(x::json::Parser parser) {
+        return {
+            .index = parser.field<uint16_t>("index"),
+            .assign_activate = parser.field<uint16_t>("assign_activate"),
+            .cycles = {
+                .sync0 = x::telem::TimeSpan(parser.field<int64_t>("sync0_cycle", 0)),
+                .sync1 = x::telem::TimeSpan(parser.field<int64_t>("sync1_cycle", 0)),
+            },
+        };
+    }
+
+    /// @brief serializes the choice to JSON.
+    [[nodiscard]] nlohmann::json to_json() const {
+        return {
+            {"index", this->index},
+            {"assign_activate", this->assign_activate},
+            {"sync0_cycle", this->cycles.sync0.nanoseconds()},
+            {"sync1_cycle", this->cycles.sync1.nanoseconds()},
+        };
+    }
+};
+
+/// @brief returns the DC mode a slave runs in, or nullopt for SM sync. With no choice,
+/// it is the first DC mode of a slave that lists no SM mode.
+/// @returns errors::SLAVE_CONFIG_ERROR, with the modes of the slave, when modes has no
+/// mode at the index of choice with its AssignActivate.
+inline std::pair<std::optional<OpMode>, x::errors::Error>
+select(const std::vector<OpMode> &modes, const std::optional<Choice> &choice = {}) {
+    if (!choice) {
+        const auto sm = [](const OpMode &m) { return m.assign_activate == 0; };
+        if (modes.empty() || std::ranges::any_of(modes, sm))
+            return {std::nullopt, x::errors::NIL};
+        return {modes.front(), x::errors::NIL};
+    }
+    if (choice->index < modes.size() &&
+        modes[choice->index].assign_activate == choice->assign_activate) {
+        const auto &mode = modes[choice->index];
+        if (mode.assign_activate == 0) return {std::nullopt, x::errors::NIL};
+        return {mode, x::errors::NIL};
+    }
+    std::string listed;
+    for (size_t i = 0; i < modes.size(); ++i) {
+        listed += std::format("{}{} ", listed.empty() ? "" : ", ", i);
+        if (!modes[i].name.empty()) listed += std::format("\"{}\" ", modes[i].name);
+        listed += std::format("(AssignActivate 0x{:04X})", modes[i].assign_activate);
+    }
+    return {
+        std::nullopt,
+        x::errors::Error(
+            errors::SLAVE_CONFIG_ERROR,
+            std::format(
+                "the slave does not list mode {} with AssignActivate 0x{:04X}. {}",
+                choice->index,
+                choice->assign_activate,
+                listed.empty() ? "It lists no modes." : "It lists " + listed + "."
+            )
+        )
+    };
 }
 
-/// @brief returns the DC register values of the mode at the bus period.
+/// @brief returns the DC register values of the mode at the bus period. A nonzero cycle
+/// in cycles replaces the cycle that the mode gives.
 /// @returns errors::SLAVE_CONFIG_ERROR, with the value and its limit, when the mode
 /// gives no SYNC0 cycle, a SYNC0 cycle that is not a whole number of nanoseconds, a
 /// SYNC1 cycle that is not a multiple of the SYNC0 cycle, a SYNC1 shift that puts
 /// SYNC1 before SYNC0, or a cycle that a register cannot hold.
-inline std::pair<Registers, x::errors::Error>
-resolve(const OpMode &mode, const x::telem::TimeSpan period) {
+inline std::pair<Registers, x::errors::Error> resolve(
+    const OpMode &mode,
+    const x::telem::TimeSpan period,
+    const Cycles &cycles = {}
+) {
     const auto fail = [](const std::string &msg) {
         return std::pair{
             Registers{},
@@ -123,6 +202,7 @@ resolve(const OpMode &mode, const x::telem::TimeSpan period) {
     };
     if ((mode.assign_activate & SYNC0_ACTIVE) == 0) return {regs, x::errors::NIL};
     x::telem::TimeSpan sync0(mode.sync0_cycle);
+    if (cycles.sync0 != 0) sync0 = cycles.sync0;
     if (sync0 == 0 && mode.sync0_factor > 0) sync0 = period * mode.sync0_factor;
     if (sync0 == 0 && mode.sync0_factor < 0) {
         const int64_t divisor = -mode.sync0_factor;
@@ -144,6 +224,7 @@ resolve(const OpMode &mode, const x::telem::TimeSpan period) {
     auto sync1 = sync0;
     if (mode.sync1_factor > 0) sync1 = sync0 * mode.sync1_factor;
     if (mode.sync1_factor < 0) sync1 = period * -mode.sync1_factor;
+    if (cycles.sync1 != 0) sync1 = cycles.sync1;
     if (sync1 % sync0 != 0)
         return fail(
             "SYNC1 cycle of " + sync1.to_string() +
