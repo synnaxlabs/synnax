@@ -91,6 +91,9 @@ The `-tags=console` build tag activates `core/pkg/console/enabled.go`
 - `--cores <n> --core-binary <path>` runs sequences on n Cores at once. The conductor
   starts the extra Cores on the ports after `--port` and stops them at exit. A test that
   holds NI runs on the first Core, and an `isolated` sequence runs alone at the end.
+- `--shard <k>/<n>` runs part k of n of the selected tests. Shards split whole sequences
+  by the test times in `tests/durations.json`, so give each shard the same other flags.
+  `scripts/update_durations.py` rebuilds the file from CI test results.
 
 ### Organization
 
