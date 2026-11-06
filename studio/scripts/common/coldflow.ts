@@ -107,7 +107,7 @@ export const operationsLayout = async (
   client: ReturnType<typeof fixtures.connect>,
 ): Promise<Layout> => {
   const resources = await client.resources.search({
-    term: "",
+    searchTerm: "",
     types: ["panel", "lineplot", "schematic", "table", "log"],
   });
   const id = (name: string): resource.ID => {

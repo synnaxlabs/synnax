@@ -112,7 +112,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     // Set before the log first mounts: a log that changes channels while open skips
     // the first frame of each one.
     const logs = await client.resources.search({
-      term: "Sequence Logs",
+      searchTerm: "Sequence Logs",
       types: ["log"],
     });
     const resource = logs.find((r) => r.name === "Sequence Logs");
