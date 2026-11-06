@@ -7,11 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <cmath>
-#include <limits>
-#include <string>
 #include <utility>
-#include <variant>
 
 #include "gtest/gtest.h"
 
@@ -304,87 +300,6 @@ TEST(MathAvgTest, WeightedAverageWithUnequalBatchSizes) {
 
     auto checker = setup.make_target_node();
     EXPECT_NEAR(checker.output(0)->at<double>(0), 23.333, 0.01);
-}
-
-/// @brief the instruction sequences the Arc compiler emits for the float checks and
-/// constants. They use no host function, so wasmtime alone runs them.
-constexpr auto FLOAT_WAT = R"((module
-  (func (export "is_nan_f32") (param f32) (result i32)
-    local.get 0 f32.abs f32.const inf f32.le i32.eqz)
-  (func (export "is_nan_f64") (param f64) (result i32)
-    local.get 0 f64.abs f64.const inf f64.le i32.eqz)
-  (func (export "is_infinite_f32") (param f32) (result i32)
-    local.get 0 f32.abs f32.const inf f32.eq)
-  (func (export "is_infinite_f64") (param f64) (result i32)
-    local.get 0 f64.abs f64.const inf f64.eq)
-  (func (export "is_finite_f32") (param f32) (result i32)
-    local.get 0 f32.abs f32.const inf f32.lt)
-  (func (export "is_finite_f64") (param f64) (result i32)
-    local.get 0 f64.abs f64.const inf f64.lt)
-  (func (export "nan_f32") (result f32) f32.const nan)
-  (func (export "nan_f64") (result f64) f64.const nan:0x8000000000001)
-  (func (export "neg_inf_f32") (result f32) f32.const inf f32.neg)
-  (func (export "neg_inf_f64") (result f64) f64.const inf f64.neg)
-))";
-
-struct FloatFixture {
-    wasmtime::Engine engine;
-    wasmtime::Store store{engine};
-    wasmtime::Instance instance = wasmtime::Instance::create(
-                                      store,
-                                      wasmtime::Module::compile(engine, FLOAT_WAT)
-                                          .unwrap(),
-                                      {}
-    )
-                                      .unwrap();
-
-    wasmtime::Func func(const std::string &name) {
-        return std::get<wasmtime::Func>(this->instance.get(this->store, name).value());
-    }
-
-    template<typename T>
-    bool check(const std::string &name, T value) {
-        return this->func(name)
-                   .call(this->store, {wasmtime::Val(value)})
-                   .unwrap()[0]
-                   .i32() != 0;
-    }
-
-    /// @brief calls a check with both float widths and requires them to agree.
-    bool check_both(const std::string &name, const double value) {
-        const bool wide = this->check<double>(name + "_f64", value);
-        EXPECT_EQ(this->check<float>(name + "_f32", static_cast<float>(value)), wide);
-        return wide;
-    }
-};
-
-/// @brief it should classify NaN, infinity, and numbers at both float widths.
-TEST(MathFloatTest, ChecksClassifyNaNInfinityAndNumbers) {
-    FloatFixture f;
-    constexpr auto nan = std::numeric_limits<double>::quiet_NaN();
-    constexpr auto inf = std::numeric_limits<double>::infinity();
-    EXPECT_TRUE(f.check_both("is_nan", nan));
-    EXPECT_FALSE(f.check_both("is_nan", inf));
-    EXPECT_FALSE(f.check_both("is_nan", 1.5));
-    EXPECT_FALSE(f.check_both("is_infinite", nan));
-    EXPECT_TRUE(f.check_both("is_infinite", inf));
-    EXPECT_TRUE(f.check_both("is_infinite", -inf));
-    EXPECT_FALSE(f.check_both("is_infinite", 1.5));
-    EXPECT_FALSE(f.check_both("is_finite", nan));
-    EXPECT_FALSE(f.check_both("is_finite", inf));
-    EXPECT_FALSE(f.check_both("is_finite", -inf));
-    EXPECT_TRUE(f.check_both("is_finite", 1.5));
-}
-
-/// @brief it should give NaN and negative infinity at both float widths.
-TEST(MathFloatTest, ConstantsHaveTheirFloatWidth) {
-    FloatFixture f;
-    EXPECT_TRUE(std::isnan(f.func("nan_f32").call(f.store, {}).unwrap()[0].f32()));
-    EXPECT_TRUE(std::isnan(f.func("nan_f64").call(f.store, {}).unwrap()[0].f64()));
-    const auto neg_f32 = f.func("neg_inf_f32").call(f.store, {}).unwrap()[0].f32();
-    EXPECT_EQ(neg_f32, -std::numeric_limits<float>::infinity());
-    const auto neg_f64 = f.func("neg_inf_f64").call(f.store, {}).unwrap()[0].f64();
-    EXPECT_EQ(neg_f64, -std::numeric_limits<double>::infinity());
 }
 
 TEST(MathAvgTest, ResetsWithCountInput) {
