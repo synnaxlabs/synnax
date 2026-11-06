@@ -13,6 +13,7 @@ import {
   bounds,
   box,
   color,
+  DataType,
   type destructor,
   notation,
   text,
@@ -210,6 +211,20 @@ const wrapStarts = (value: string, columns: number): number[] => {
     used += width;
   }
   return starts;
+};
+
+// Returns the sample in the number format of its channel. A sample of a channel that
+// holds no numbers, or whose data type has not loaded, shows as it arrives.
+const formatNumber = (
+  value: string,
+  dataType: string | undefined,
+  { precision, notation: valueNotation }: log.ChannelEntry,
+): string => {
+  if (dataType == null) return value;
+  const type = new DataType(dataType);
+  if (!type.isNumeric) return value;
+  const number = type.isInteger ? BigInt(value) : parseFloat(value);
+  return notation.stringifyNumber(number, precision, valueNotation);
 };
 
 const sameEntries = (a: number[], b: number[]): boolean =>
@@ -812,11 +827,8 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
       } catch {
         // Leave value as-is if it can't be parsed as a bigint.
       }
-    } else if (cfg != null && (cfg.precision != null || cfg.notation !== "standard")) {
-      const num = parseFloat(value);
-      if (!isNaN(num))
-        value = notation.stringifyNumber(num, cfg.precision ?? 0, cfg.notation);
-    }
+    } else if (cfg != null && (cfg.precision != null || cfg.notation !== "standard"))
+      value = formatNumber(value, channelDataTypes[chKeyStr], cfg);
     const { displayNames, namePadding } = this.internal;
     const name = displayNames[chKeyStr] ?? chKeyStr;
     const pad = namePadding[chKeyStr] ?? "";

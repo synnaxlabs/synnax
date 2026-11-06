@@ -9,11 +9,42 @@
 
 import { type Notation } from "@/notation/types.gen";
 
+// Returns the digits of the value's shortest decimal form, and the exponent of the
+// first digit.
+const decompose = (
+  value: number | bigint,
+): { sign: string; digits: string; exp: number } => {
+  if (typeof value === "number") {
+    const [mantissa, exp] = value.toExponential().split("e");
+    const sign = mantissa.startsWith("-") ? "-" : "";
+    return { sign, digits: mantissa.replace(/[-.]/g, ""), exp: Number(exp) };
+  }
+  const sign = value < 0n ? "-" : "";
+  const magnitude = value.toString().slice(sign.length);
+  return {
+    sign,
+    digits: magnitude.replace(/(?!^)0+$/, ""),
+    exp: magnitude.length - 1,
+  };
+};
+
+// Moves the decimal point in the digits, so no float rounding touches them.
+const stringifyAllDigits = (value: number | bigint, notation: Notation): string => {
+  if (notation === "standard") return value.toString();
+  const { sign, digits, exp } = decompose(value);
+  const shift = notation === "engineering" ? ((exp % 3) + 3) % 3 : 0;
+  const whole = digits.slice(0, shift + 1).padEnd(shift + 1, "0");
+  const fraction = digits.slice(shift + 1);
+  const mantissa = fraction.length > 0 ? `${whole}.${fraction}` : whole;
+  return `${sign}${mantissa}ᴇ${exp - shift}`;
+};
+
 /**
  * Converts a number to a string representation with a specified precision and notation.
  *
  * @param value - The number to be converted.
- * @param precision - The number of decimal places to include in the output. Must be between 0 and 20.
+ * @param precision - The number of decimal places to include in the output. Must be
+ * between 0 and 20. When undefined, the output keeps every digit of the value.
  * @param notation - The notation to use for the conversion. Can be "standard", "scientific", or "engineering".
  * @returns The string representation of the number.
  *
@@ -37,22 +68,25 @@ import { type Notation } from "@/notation/types.gen";
  * stringifyNumber(NaN, 2, "standard"); // "NaN"
  * stringifyNumber(Infinity, 2, "standard"); // "∞"
  * stringifyNumber(-Infinity, 2, "standard"); // "-∞"
+ * stringifyNumber(1234.5, undefined, "scientific"); // "1.2345ᴇ3"
+ * stringifyNumber(2n ** 64n, undefined, "engineering"); // "18.446744073709551616ᴇ18"
  * ```
  */
 export const stringifyNumber = (
   value: number | bigint,
-  precision: number,
+  precision: number | undefined,
   notation: Notation,
 ): string => {
+  if (Number.isNaN(value)) return "NaN";
+  if (value === Infinity) return "∞";
+  if (value === -Infinity) return "-∞";
+  if (precision == null) return stringifyAllDigits(value, notation);
   // Standard notation on bigint must preserve full integer precision; coercing through
   // Number() would quantize values above 2^53. All other branches are float-mantissa
   // truncated by definition, so coercing bigint to number is safe.
   if (typeof value === "bigint" && notation === "standard")
     return precision === 0 ? value.toString() : `${value}.${"0".repeat(precision)}`;
   if (typeof value === "bigint") value = Number(value);
-  if (Number.isNaN(value)) return "NaN";
-  if (value === Infinity) return "∞";
-  if (value === -Infinity) return "-∞";
   if (notation === "standard") return value.toFixed(precision);
   if (value === 0) {
     if (precision === 0) return "0ᴇ0";
