@@ -400,6 +400,8 @@ x::errors::Error Master::activate(
     // A slave that has not taken outputs in SAFE-OP refuses OP with a sync manager
     // watchdog error.
     std::this_thread::sleep_for((period * SAFE_OP_CYCLES).chrono());
+    // Demo: some slaves start their sampling task during SAFE-OP.
+    std::this_thread::sleep_for(std::chrono::seconds(1));
     if (auto err = this->request_state(EC_STATE_OPERATIONAL, STATE_CHANGE_TIMEOUT))
         return err;
     this->cache_pdo_offsets();
