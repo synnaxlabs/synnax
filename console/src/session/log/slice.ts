@@ -23,6 +23,8 @@ const toolbarStateZ = z.object({
 
 const stateZ = z.object({
   hold: z.boolean().default(false),
+  /** Where the log stood when it last unmounted. A remount reads it while on hold. */
+  position: z.string().default(""),
   toolbar: toolbarStateZ.prefault({}),
 });
 export interface State extends z.infer<typeof stateZ> {}
@@ -61,6 +63,10 @@ export interface SetHoldPayload extends KeyedPayload {
   hold?: boolean;
 }
 
+export interface SetPositionPayload extends KeyedPayload {
+  position: string;
+}
+
 export interface RemovePayload {
   keys: string[];
 }
@@ -83,6 +89,11 @@ export const { actions, reducer } = createSlice({
         state.hold = hold ?? !state.hold;
       },
     ),
+    setPosition: withSelectedState<SetPositionPayload, SliceState>(
+      (state, { payload: { position } }) => {
+        state.position = position;
+      },
+    ),
     remove: (state, { payload }: PayloadAction<RemovePayload>) => {
       Window.removeDocuments(state, payload.keys);
     },
@@ -90,10 +101,15 @@ export const { actions, reducer } = createSlice({
   extraReducers: Window.handleRemoved,
 });
 
-export const { create, setSelectedToolbarTab, setHold, remove } = actions;
+export const { create, setSelectedToolbarTab, setHold, setPosition, remove } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 
 export const MIDDLEWARE = [
-  Window.createInjectKeyMiddleware([create, setSelectedToolbarTab, setHold]),
+  Window.createInjectKeyMiddleware([
+    create,
+    setSelectedToolbarTab,
+    setHold,
+    setPosition,
+  ]),
 ];

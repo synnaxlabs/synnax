@@ -117,6 +117,16 @@ describe("Log Slice", () => {
     });
   });
 
+  describe("setPosition", () => {
+    it("should set the position", () => {
+      act(() => {
+        store.dispatch(Log.create({ key: KEY }));
+        store.dispatch(Log.setPosition({ key: KEY, position: "42" }));
+      });
+      expect(docOf()?.position).toBe("42");
+    });
+  });
+
   describe("remove", () => {
     it("should remove a log by key", () => {
       act(() => {

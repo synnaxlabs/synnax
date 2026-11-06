@@ -25,6 +25,7 @@ const Internal: Panel.Content = () => {
   const channelKeys = Base.useChannelKeys();
   const hasChannels = channelKeys.some((k) => !primitive.isZero(k));
   const hold = Session.Log.useSelectHold();
+  const position = Session.Log.useSelectPosition();
 
   const handleDoubleClick = () => {
     dispatch(Session.Nav.showBottom({}));
@@ -36,12 +37,16 @@ const Internal: Panel.Content = () => {
   };
 
   const handleHold = (hold: boolean) => dispatch(Session.Log.setHold({ key, hold }));
+  const handleLeave = (position: string) =>
+    dispatch(Session.Log.setPosition({ key, position }));
 
   return (
     <Base.Log
       onDoubleClick={handleDoubleClick}
       hold={hold}
       onHold={handleHold}
+      position={position}
+      onLeave={handleLeave}
       extraContextMenuItems={EXTRA_CONTEXT_MENU_ITEMS}
       emptyContent={
         <Empty.Action

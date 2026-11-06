@@ -164,6 +164,23 @@ describe("log/Base", () => {
     });
   });
 
+  describe("onLeave", () => {
+    it("should report the last position when the log unmounts", () => {
+      setupAether({ position: "42" });
+      const onLeave = vi.fn();
+      const { unmount } = renderLog({ onLeave });
+      expect(onLeave).not.toHaveBeenCalled();
+      unmount();
+      expect(onLeave).toHaveBeenCalledExactlyOnceWith("42");
+    });
+
+    it("should start the log at the position prop", () => {
+      setupAether();
+      renderLog({ position: "42" });
+      expect(mockAetherUse.mock.calls[0][0].initialState.position).toBe("42");
+    });
+  });
+
   describe("hold", () => {
     const scrollingResults = (
       setState: ReturnType<typeof vi.fn>,

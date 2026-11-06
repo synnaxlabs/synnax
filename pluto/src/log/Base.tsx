@@ -70,6 +70,8 @@ export const Base = ({
   enableTriggers,
   hold,
   onHold,
+  position,
+  onLeave,
   children,
   ...rest
 }: BaseProps): ReactElement | null => {
@@ -85,6 +87,8 @@ export const Base = ({
     telem,
     hold,
     onHold,
+    position,
+    onLeave,
   });
 
   const {
