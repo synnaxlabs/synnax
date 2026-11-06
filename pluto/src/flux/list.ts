@@ -120,7 +120,7 @@ export interface UseListParams<
    * and page size of the old query stay, unless the new query names them. A list that
    * has not retrieved waits for its first retrieve. Removing it changes nothing.
    */
-  initialQuery?: Query;
+  query?: Query;
   filter?: (item: E) => boolean;
   sort?: compare.Comparator<E>;
   retrieveDebounce?: CrudeTimeSpan;
@@ -204,7 +204,7 @@ export const createList = <
     const {
       filter = defaultFilter,
       sort,
-      initialQuery,
+      query: callerQuery,
       retrieveDebounce = DEFAULT_RETRIEVE_DEBOUNCE,
       useCachedList = true,
     } = params;
@@ -216,9 +216,9 @@ export const createList = <
       () => new Map(),
     );
     const queryRef = useRef<Query | null>(
-      initialQuery != null ? normalized(initialQuery) : null,
+      callerQuery != null ? normalized(callerQuery) : null,
     );
-    const callerQueryRef = useRef(initialQuery);
+    const callerQueryRef = useRef(callerQuery);
     const retrievedRef = useRef(false);
     const recordsStaleRef = useRef(false);
     const callerQueryChangesRef = useRef(0);
@@ -634,11 +634,11 @@ export const createList = <
     };
 
     useEffect(() => {
-      if (initialQuery == null || deep.equal(callerQueryRef.current, initialQuery))
+      if (callerQuery == null || deep.equal(callerQueryRef.current, callerQuery))
         return;
-      callerQueryRef.current = initialQuery;
+      callerQueryRef.current = callerQuery;
       callerQueryChangesRef.current += 1;
-      const rebase = (current: Query | {}) => rebaseQuery(current, initialQuery);
+      const rebase = (current: Query | {}) => rebaseQuery(current, callerQuery);
       const next = normalized(rebase(queryRef.current ?? {}));
       queryRef.current = next;
       if (retrievedRef.current) {
@@ -649,7 +649,7 @@ export const createList = <
       setResult(loadingResult<Key[]>(`retrieving ${name}`));
       createCachedPage(next);
       refreshRecords();
-    }, [initialQuery]);
+    }, [callerQuery]);
 
     return {
       retrieve: retrieveSync,
