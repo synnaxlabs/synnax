@@ -125,6 +125,8 @@ class ReadTask final : public driver::task::Task {
     class InternalSource final : public driver::pipeline::Source {
         /// @brief the parent read task.
         ReadTask &p;
+        /// @brief the description of the warning last written to the log.
+        std::string logged_warning;
 
     public:
         /// @brief the wrapped, hardware-specific source.
@@ -165,11 +167,15 @@ class ReadTask final : public driver::task::Task {
                 return err;
             }
             if (!warning.empty()) {
-                LOG(WARNING) << this->p.name() << ": " << warning.message << ": "
-                             << warning.description;
+                if (warning.description != this->logged_warning)
+                    LOG(WARNING) << this->p.name() << ": " << warning.message << ": "
+                                 << warning.description;
+                this->logged_warning = warning.description;
                 this->p.state.send_warning(warning.message, warning.description);
-            } else
+            } else {
+                this->logged_warning.clear();
                 this->p.state.clear_warning();
+            }
             return this->p.tare.transform(fr);
         }
 
