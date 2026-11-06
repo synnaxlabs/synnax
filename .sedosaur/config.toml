@@ -11,7 +11,7 @@
 # rules from the base branch, so a pull request cannot change its own review.
 
 model = "claude-opus-5-5"
-effort = "high"
+effort = "max"
 # The tools the reviewer can use. The review runs in Claude Code's restricted mode, so a
 # tool that runs code is off unless this list names it.
 tools = ["Read", "Grep", "Glob"]
