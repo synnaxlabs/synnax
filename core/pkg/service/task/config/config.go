@@ -17,7 +17,6 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config/legacy"
@@ -61,10 +60,10 @@ type Store interface {
 	// query.ErrNotFound when from does not exist.
 	Copy(ctx context.Context, tx gorp.Tx, from, to uuid.UUID) error
 	// Normalize converts a config blob at the given version to the current stored
-	// shape with defaults applied, and drops each target of the blob's references
-	// that does not exist in tx. A version that predates the type's ladder runs the
-	// type's legacy rewrite first. It returns a validation error when data does not
-	// decode at version or version is newer than the store's.
+	// shape with defaults applied, and drops each target of the blob's references that
+	// does not exist in tx and that its reference can drop. A version that predates the
+	// type's ladder runs the type's legacy rewrite first. It returns a validation error
+	// when data does not decode at version or version is newer than the store's.
 	Normalize(
 		ctx context.Context,
 		tx gorp.Tx,
@@ -177,17 +176,13 @@ func OpenService[E gorp.Entry[uuid.UUID]](
 	if err != nil {
 		return nil, err
 	}
-	migrations := cfg.Migrations
-	if len(cfg.References) > 0 {
-		migrations = append(
-			slices.Clone(migrations),
-			migrate.DropDangling("v61_dangling_references", cfg.DB, cfg.References),
-		)
-	}
 	table, err := gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, E]{
-		DB:         cfg.DB,
-		Name:       cfg.Type + "_config",
-		Migrations: migrations,
+		DB:   cfg.DB,
+		Name: cfg.Type + "_config",
+		Migrations: append(
+			slices.Clone(cfg.Migrations),
+			gorp.DanglingMigration("v61_dangling_references"),
+		),
 		References: append(
 			[]gorp.Reference[uuid.UUID, E]{newTaskReference[E]()},
 			cfg.References...,
@@ -354,13 +349,7 @@ func (s *Service[E]) Normalize(
 	if s.cfg.ApplyEntryDefaults != nil {
 		s.cfg.ApplyEntryDefaults(&e)
 	}
-	if _, err := gorp.DropDangling(
-		ctx,
-		gorp.OverrideTx(s.cfg.DB, tx),
-		s.cfg.DB,
-		s.cfg.References,
-		&e,
-	); err != nil {
+	if _, err := s.table.DropDangling(ctx, gorp.OverrideTx(s.cfg.DB, tx), &e); err != nil {
 		return nil, err
 	}
 	return encode(e)

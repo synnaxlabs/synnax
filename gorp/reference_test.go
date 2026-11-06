@@ -19,6 +19,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
+	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/x/change"
@@ -31,6 +32,7 @@ import (
 	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap/zapcore"
 )
 
 type refRack struct{ Key uint32 }
@@ -1317,10 +1319,8 @@ var _ = Describe("Reference migrations", func() {
 
 var _ = Describe("DropDangling", func() {
 	var (
-		db     *gorp.DB
-		racks  *gorp.Table[uint32, refRack]
-		labels *gorp.Table[string, refLabel]
-		refs   = func(
+		db   *gorp.DB
+		refs = func(
 			rack func(d *refDevice) []gorp.Target,
 			rackDetach func(d *refDevice, t gorp.Target),
 		) []gorp.Reference[string, refDevice] {
@@ -1352,14 +1352,26 @@ var _ = Describe("DropDangling", func() {
 			return []gorp.Target{gorp.NewTarget("rack", d.Rack)}
 		}
 		clearRack = func(d *refDevice, _ gorp.Target) { d.Rack = 0 }
+		open      = func(
+			ctx SpecContext,
+			refs []gorp.Reference[string, refDevice],
+			migrations ...gorp.Migration,
+		) *gorp.Table[string, refDevice] {
+			return MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, refDevice]{
+				DB:         db,
+				Name:       "device",
+				References: refs,
+				Migrations: migrations,
+			}))
+		}
 	)
 	BeforeEach(func(ctx SpecContext) {
-		db = gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec))
-		racks = MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[uint32, refRack]{
+		db = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
+		racks := MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[uint32, refRack]{
 			DB:   db,
 			Name: "rack",
 		}))
-		labels = MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[string, refLabel]{
+		labels := MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, refLabel]{
 			DB:   db,
 			Name: "label",
 		}))
@@ -1367,51 +1379,135 @@ var _ = Describe("DropDangling", func() {
 		Expect(labels.NewCreate().Entry(&refLabel{Key: "a"}).Exec(ctx, db)).
 			To(Succeed())
 	})
-	AfterEach(func() {
-		Expect(labels.Close()).To(Succeed())
-		Expect(racks.Close()).To(Succeed())
-		Expect(db.Close()).To(Succeed())
+
+	Describe("Table", func() {
+		It("Should drop each missing target and keep the others", func(ctx SpecContext) {
+			devices := open(ctx, refs(rackTarget, clearRack))
+			d := refDevice{Key: "d", Rack: 2, Labels: []string{"a", "b"}}
+			Expect(devices.DropDangling(ctx, db, &d)).To(BeTrue())
+			Expect(d).To(Equal(refDevice{Key: "d", Labels: []string{"a"}}))
+		})
+
+		It("Should report false when every target exists", func(ctx SpecContext) {
+			devices := open(ctx, refs(rackTarget, clearRack))
+			d := refDevice{Key: "d", Rack: 1, Labels: []string{"a"}}
+			Expect(devices.DropDangling(ctx, db, &d)).To(BeFalse())
+			Expect(d).To(Equal(refDevice{Key: "d", Rack: 1, Labels: []string{"a"}}))
+		})
+
+		It("Should drop a target whose key is not in text form", func(ctx SpecContext) {
+			nonCanonical := func(*refDevice) []gorp.Target {
+				return []gorp.Target{{Table: "rack", Key: "01"}}
+			}
+			devices := open(ctx, refs(nonCanonical, clearRack))
+			d := refDevice{Key: "d", Rack: 1}
+			Expect(devices.DropDangling(ctx, db, &d)).To(BeTrue())
+			Expect(d.Rack).To(BeZero())
+		})
+
+		It(
+			"Should keep a missing target whose reference cannot drop it",
+			func(ctx SpecContext) {
+				devices := open(ctx, refs(rackTarget, nil))
+				d := refDevice{Key: "d", Rack: 2, Labels: []string{"b"}}
+				Expect(devices.DropDangling(ctx, db, &d)).To(BeTrue())
+				Expect(d).To(Equal(refDevice{Key: "d", Rack: 2, Labels: []string{}}))
+			},
+		)
+
+		It("Should fail when a target's table is not open", func(ctx SpecContext) {
+			missingTable := func(*refDevice) []gorp.Target {
+				return []gorp.Target{gorp.NewTarget("channel", uint32(1))}
+			}
+			devices := open(ctx, refs(missingTable, clearRack))
+			d := refDevice{Key: "d"}
+			Expect(devices.DropDangling(ctx, db, &d)).
+				Error().To(MatchError(`[gorp] - no open table is named "channel"`))
+		})
 	})
 
-	It("Should drop each missing target and keep the others", func(ctx SpecContext) {
-		d := refDevice{Key: "d", Rack: 2, Labels: []string{"a", "b"}}
-		Expect(gorp.DropDangling(ctx, db, db, refs(rackTarget, clearRack), &d)).
-			To(BeTrue())
-		Expect(d).To(Equal(refDevice{Key: "d", Labels: []string{"a"}}))
-	})
+	Describe("Migration", func() {
+		It(
+			"Should drop the missing targets of every entry when the table opens",
+			func(ctx SpecContext) {
+				w := gorp.WrapWriter[string, refDevice](db)
+				Expect(w.Set(ctx, refDevice{Key: "d1", Rack: 2, Labels: []string{"a"}})).
+					To(Succeed())
+				Expect(w.Set(ctx, refDevice{Key: "d2", Rack: 1, Labels: []string{"b"}})).
+					To(Succeed())
+				devices := open(
+					ctx,
+					refs(rackTarget, clearRack),
+					gorp.DanglingMigration("drop_dangling"),
+				)
+				var entries []refDevice
+				Expect(devices.NewRetrieve().Entries(&entries).Exec(ctx, db)).
+					To(Succeed())
+				Expect(entries).To(ConsistOf(
+					refDevice{Key: "d1", Labels: []string{"a"}},
+					refDevice{Key: "d2", Rack: 1, Labels: []string{}},
+				))
+			},
+		)
 
-	It("Should report false when every target exists", func(ctx SpecContext) {
-		d := refDevice{Key: "d", Rack: 1, Labels: []string{"a"}}
-		Expect(gorp.DropDangling(ctx, db, db, refs(rackTarget, clearRack), &d)).
-			To(BeFalse())
-		Expect(d).To(Equal(refDevice{Key: "d", Rack: 1, Labels: []string{"a"}}))
-	})
+		It(
+			"Should log each missing target that its reference cannot drop",
+			func(ctx SpecContext) {
+				Expect(gorp.WrapWriter[string, refDevice](db).
+					Set(ctx, refDevice{Key: "d", Rack: 2})).To(Succeed())
+				ins, logs := ObservedInstrumentation(zapcore.WarnLevel)
+				devices := MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, refDevice]{
+					DB:              db,
+					Name:            "device",
+					References:      refs(rackTarget, nil),
+					Migrations:      []gorp.Migration{gorp.DanglingMigration("drop")},
+					Instrumentation: ins,
+				}))
+				var d refDevice
+				Expect(devices.NewRetrieve().
+					Where(gorp.MatchKeys[string, refDevice]("d")).
+					Entry(&d).
+					Exec(ctx, db)).To(Succeed())
+				Expect(d.Rack).To(Equal(uint32(2)))
+				kept := logs.FilterMessage(
+					"kept a missing target that its reference cannot drop",
+				).All()
+				Expect(kept).To(HaveLen(1))
+				Expect(kept[0].ContextMap()).To(Equal(map[string]any{
+					"migration": "drop",
+					"table":     "device",
+					"entry":     "d",
+					"reference": "rack",
+					"target":    "rack 2",
+				}))
+			},
+		)
 
-	It("Should drop a target whose key is not in text form", func(ctx SpecContext) {
-		d := refDevice{Key: "d", Rack: 1}
-		nonCanonical := func(*refDevice) []gorp.Target {
-			return []gorp.Target{{Table: "rack", Key: "01"}}
-		}
-		Expect(gorp.DropDangling(ctx, db, db, refs(nonCanonical, clearRack), &d)).
-			To(BeTrue())
-		Expect(d.Rack).To(BeZero())
-	})
+		It("Should run on an open table", func(ctx SpecContext) {
+			devices := open(ctx, refs(rackTarget, clearRack))
+			Expect(gorp.WrapWriter[string, refDevice](db).
+				Set(ctx, refDevice{Key: "d", Rack: 2})).To(Succeed())
+			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+				DB:         db,
+				Namespace:  "dangling",
+				Migrations: []gorp.Migration{devices.DanglingMigration("drop")},
+			})).To(Succeed())
+			var d refDevice
+			Expect(devices.NewRetrieve().
+				Where(gorp.MatchKeys[string, refDevice]("d")).
+				Entry(&d).
+				Exec(ctx, db)).To(Succeed())
+			Expect(d).To(Equal(refDevice{Key: "d"}))
+		})
 
-	It(
-		"Should fail when a missing target's reference cannot drop it",
-		func(ctx SpecContext) {
-			d := refDevice{Key: "d", Rack: 2}
-			Expect(gorp.DropDangling(ctx, db, db, refs(rackTarget, nil), &d)).Error().
-				To(MatchError("[gorp] - rack 2 does not exist, and rack cannot drop it"))
-		},
-	)
-
-	It("Should fail when a target's table is not open", func(ctx SpecContext) {
-		d := refDevice{Key: "d"}
-		missingTable := func(*refDevice) []gorp.Target {
-			return []gorp.Target{gorp.NewTarget("channel", uint32(1))}
-		}
-		Expect(gorp.DropDangling(ctx, db, db, refs(missingTable, clearRack), &d)).
-			Error().To(MatchError(`[gorp] - no open table is named "channel"`))
+		It("Should fail outside the config of its table", func(ctx SpecContext) {
+			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+				DB:         db,
+				Namespace:  "dangling",
+				Migrations: []gorp.Migration{gorp.DanglingMigration("drop")},
+			})).To(MatchError(ContainSubstring(
+				"[gorp] - dangling migration drop runs only in the config of its table",
+			)))
+		})
 	})
 })

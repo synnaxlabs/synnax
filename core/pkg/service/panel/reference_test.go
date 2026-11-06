@@ -16,12 +16,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
-	"github.com/synnaxlabs/synnax/pkg/service/panel/versions"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 var _ = Describe("Tab references", func() {
@@ -73,23 +70,8 @@ var _ = Describe("Tab references", func() {
 	It(
 		"Should remove the tabs of resources the Core does not hold on migration",
 		func(ctx SpecContext) {
-			db := DeferClose(gorp.Wrap(memkv.New()))
-			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-				DB:         db,
-				Namespace:  "Composition",
-				Migrations: versions.CompositionMigrations,
-			})).To(Succeed())
-			plots := DeferClose(MustSucceed(gorp.OpenTable(
-				ctx,
-				gorp.TableConfig[lineplot.Key, lineplot.LinePlot]{
-					DB:   db,
-					Name: "lineplot",
-				},
-			)))
 			kept := uuid.New()
-			Expect(plots.NewCreate().
-				Entry(&lineplot.LinePlot{Key: kept}).
-				Exec(ctx, db)).To(Succeed())
+			createPlot(ctx, nil, kept)
 			stored := panel.Panel{
 				Key:  uuid.New(),
 				Name: "stored",
@@ -99,14 +81,19 @@ var _ = Describe("Tab references", func() {
 					leafNode(tab(uuid.New())),
 					leafNode(tab(kept)),
 				),
+				Project: &proj.Key,
 			}
 			Expect(gorp.NewCreate[panel.Key, panel.Panel]().
 				Entry(&stored).
 				Exec(ctx, db)).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(writer.Delete(ctx, stored.Key)).To(Succeed())
+			})
+			migrations := svc.CompositionMigrations()
 			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 				DB:         db,
-				Namespace:  "Composition",
-				Migrations: panel.CompositionMigrations(db),
+				Namespace:  "panel_dangling",
+				Migrations: migrations[len(migrations)-1:],
 			})).To(Succeed())
 			leaf := MustBeOk(asLeaf(retrieve(ctx, db, stored.Key).Root))
 			Expect(leaf.Tabs).To(HaveLen(1))

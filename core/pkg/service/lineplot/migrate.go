@@ -48,16 +48,12 @@ var unknownRangesMigration = migrate.New(
 )
 
 // newMigrations returns the line plot version chain followed by the migrations that
-// drop unknown ranges and missing channels.
-func newMigrations(db *gorp.DB) []gorp.Migration {
+// drop unknown ranges and missing targets.
+func newMigrations() []gorp.Migration {
 	return append(
 		slices.Clone(versions.Migrations),
 		unknownRangesMigration,
-		migrate.DropDangling(
-			"v61_lineplot_dangling_channels",
-			db,
-			[]gorp.Reference[Key, LinePlot]{channelsReference()},
-		),
+		gorp.DanglingMigration("v61_dangling_references"),
 	)
 }
 

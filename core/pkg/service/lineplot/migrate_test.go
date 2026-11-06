@@ -22,7 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v7"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	projectv3 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/telem"
@@ -67,10 +67,13 @@ var _ = Describe("Stored v7 line plots", func() {
 			}
 			Expect(gorp.NewCreate[v7.Key, v7.LinePlot]().
 				Entry(&old).Exec(ctx, db)).To(Succeed())
-			proj := projectv3.Project{Key: uuid.New(), Name: "Project"}
-			Expect(gorp.NewCreate[projectv3.Key, projectv3.Project]().
-				Entry(&proj).
-				Exec(ctx, db)).To(Succeed())
+			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+			projects := MustOpen(project.OpenService(ctx, project.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+			}))
+			proj := project.Project{Name: "Project"}
+			Expect(projects.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
 			owner := ontology.Relationship{
 				From: resource.ID{Type: resource.TypeProject, Key: proj.Key.String()},
 				Type: ontology.RelationshipTypeParentOf,
@@ -81,7 +84,6 @@ var _ = Describe("Stored v7 line plots", func() {
 				Exec(ctx, db)).To(Succeed())
 			channels := DeferClose(MustOpen(channeltestutil.OpenTable(ctx, db)))
 			Expect(channels.Create(ctx, 5)).To(Succeed())
-			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 			MustOpen(lineplot.OpenService(ctx, lineplot.ServiceConfig{
 				DB:       db,
 				Ontology: otg,

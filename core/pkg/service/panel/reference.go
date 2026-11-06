@@ -13,7 +13,6 @@ import (
 	"slices"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/panel/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
@@ -57,10 +56,6 @@ func tabsReference() *gorp.TargetReference[Key, Panel] {
 func (s *Service) CompositionMigrations() []gorp.Migration {
 	return append(
 		versions.CompositionMigrations(s.table),
-		migrate.DropDangling(
-			"v61_panel_dangling_tabs",
-			s.cfg.DB,
-			[]gorp.Reference[Key, Panel]{tabsReference()},
-		),
+		s.table.DanglingMigration("v61_dangling_references"),
 	)
 }

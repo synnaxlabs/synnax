@@ -17,7 +17,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
@@ -106,17 +105,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Log]{
-		DB:      cfg.DB,
-		Name:    tableName,
-		Indexes: s.indexes.all(),
+		DB:         cfg.DB,
+		Name:       tableName,
+		Indexes:    s.indexes.all(),
 		References: s.indexes.references(),
 		Migrations: append(
 			slices.Clone(versions.Migrations),
-			migrate.DropDangling(
-				"v61_log_dangling_channels",
-				cfg.DB,
-				[]gorp.Reference[Key, Log]{s.indexes.channelsChannel},
-			),
+			gorp.DanglingMigration("v61_dangling_references"),
 		),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {

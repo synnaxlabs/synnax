@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/versions"
@@ -139,11 +138,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		Name: tableName,
 		Migrations: append(
 			slices.Clone(versions.Migrations),
-			migrate.DropDangling(
-				"v61_dangling_index",
-				cfg.DB,
-				[]gorp.Reference[Key, Channel]{indexReference()},
-			),
+			gorp.DanglingMigration("v61_dangling_references"),
 		),
 		Indexes: s.indexes.all(),
 		References: append(

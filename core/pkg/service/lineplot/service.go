@@ -112,7 +112,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			s.indexes.references(),
 			channelsReference(),
 		),
-		Migrations:      newMigrations(cfg.DB),
+		Migrations:      newMigrations(),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err

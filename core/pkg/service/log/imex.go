@@ -47,16 +47,11 @@ func (s *Service) Import(
 	if err != nil {
 		return resource.ID{}, err
 	}
-	l.Group, l.Project, l.Range = opts.Group, &proj, nil
-	if _, err = gorp.DropDangling(
-		ctx,
-		gorp.OverrideTx(s.cfg.DB, tx),
-		s.cfg.DB,
-		[]gorp.Reference[Key, Log]{s.indexes.channelsChannel},
-		&l,
-	); err != nil {
+	l.Group, l.Project, l.Range = nil, nil, nil
+	if _, err = s.table.DropDangling(ctx, gorp.OverrideTx(s.cfg.DB, tx), &l); err != nil {
 		return resource.ID{}, err
 	}
+	l.Group, l.Project = opts.Group, &proj
 	if err = s.NewWriter(tx).Create(ctx, &l); err != nil {
 		return resource.ID{}, err
 	}
