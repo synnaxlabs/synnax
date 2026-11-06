@@ -111,8 +111,13 @@ def skip_initializers(src: str, *, start: int) -> int:
         rest = src[i:].lstrip()
         if not rest or rest[0] not in ",{":
             return i
-        brace = src.find("{", i)
-        i = closing(src, start=brace) + 1
+        while src[i] != "{":
+            if src[i] == "(":
+                i = closing(src, start=i)
+            elif src[i] in "\"'":
+                i = after_text(src, start=i) - 1
+            i += 1
+        i = closing(src, start=i) + 1
 
 
 def scan(src: str, *, scope: str, public: bool, out: list[str]) -> None:

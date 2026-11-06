@@ -139,6 +139,20 @@ class TestReport:
             tmp_path, "class A {\npublic:\n    friend class Other;\n};"
         )
 
+    def test_skips_an_initializer_with_a_brace_inside_parentheses(
+        self, tmp_path: Path
+    ) -> None:
+        text = run(
+            tmp_path,
+            'struct A {\n    A(int a): b{a}, c(Bar{a}), d("{") {}\n'
+            "    int get() const { return 1; }\n};",
+        )
+        assert text.splitlines() == [
+            "client/cpp/thing/thing.h struct A {}",
+            "client/cpp/thing/thing.h A:: A(int a)",
+            "client/cpp/thing/thing.h A:: int get() const",
+        ]
+
     def test_reports_a_changed_signature(self, tmp_path: Path) -> None:
         edited = HEADER.replace("int limit = {}", "int limit = 5")
         assert run(tmp_path, edited) != run(tmp_path, HEADER)
