@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -24,6 +25,9 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 var _ = Describe("MigrateKey", func() {
@@ -85,13 +89,33 @@ var _ = Describe("Migration", func() {
 		Expect(gorp.WrapWriter[string, ontology.Relationship](db).
 			Set(ctx, rels...)).To(Succeed())
 	}
+	var logs *observer.ObservedLogs
 	migrate := func(ctx SpecContext) {
 		GinkgoHelper()
+		var core zapcore.Core
+		core, logs = observer.New(zapcore.WarnLevel)
+		logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+			ZapLogger: zap.New(core),
+		}))
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-			DB:         db,
-			Namespace:  "Status",
-			Migrations: v2.Migrations,
+			Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
+			DB:              db,
+			Namespace:       "Status",
+			Migrations:      v2.Migrations,
 		})).To(Succeed())
+	}
+	relationships := func(ctx SpecContext) []ontology.Relationship {
+		GinkgoHelper()
+		var rels []ontology.Relationship
+		Expect(gorp.NewRetrieve[string, ontology.Relationship]().
+			Entries(&rels).
+			Exec(ctx, db)).To(Succeed())
+		return rels
+	}
+	dropLogs := func() []observer.LoggedEntry {
+		return logs.FilterMessage(
+			"dropped the parent of a status that cannot become its owner",
+		).All()
 	}
 	get := func(ctx SpecContext, key string) v2.Status[json.RawMessage] {
 		GinkgoHelper()
@@ -262,4 +286,120 @@ var _ = Describe("Migration", func() {
 			}))
 		},
 	)
+	Describe("Parent", func() {
+		parentOf := func(parent resource.ID, key string) ontology.Relationship {
+			return ontology.Relationship{
+				From: parent,
+				Type: ontology.RelationshipTypeParentOf,
+				To:   statusID(key),
+			}
+		}
+
+		It("Should make the parent of a status its owner", func(ctx SpecContext) {
+			ch := resource.ID{Type: resource.TypeChannel, Key: "12"}
+			define(ctx, ch)
+			write(ctx, stored("Alarm", "alarm", `{"channel":12}`))
+			relate(ctx, parentOf(ch, "alarm"))
+			migrate(ctx)
+			got := get(ctx, "alarm")
+			Expect(got.Owner).To(HaveValue(Equal(ch)))
+			Expect(got.Details).To(MatchJSON(`{"channel":12}`))
+			Expect(relationships(ctx)).To(BeEmpty())
+			Expect(dropLogs()).To(BeEmpty())
+		})
+
+		It(
+			"Should keep a status under a built-in group free of an owner",
+			func(ctx SpecContext) {
+				statuses := resource.ID{
+					Type: resource.TypeGroup,
+					Key:  uuid.New().String(),
+				}
+				root := ontology.Relationship{
+					From: ontology.RootID,
+					Type: ontology.RelationshipTypeParentOf,
+					To:   statuses,
+				}
+				write(ctx, stored("Alarm", "alarm", `null`))
+				relate(ctx, root, parentOf(statuses, "alarm"))
+				migrate(ctx)
+				Expect(get(ctx, "alarm").Owner).To(BeNil())
+				Expect(
+					relationships(ctx),
+				).To(ConsistOf(root, parentOf(statuses, "alarm")))
+				Expect(dropLogs()).To(BeEmpty())
+			},
+		)
+
+		DescribeTable(
+			"Should log a parent that cannot become the owner",
+			func(ctx SpecContext, parent resource.ID, defined bool, reason string) {
+				if defined {
+					define(ctx, parent)
+				}
+				write(ctx, stored("Alarm", "alarm", `null`))
+				relate(ctx, parentOf(parent, "alarm"))
+				migrate(ctx)
+				Expect(get(ctx, "alarm").Owner).To(BeNil())
+				Expect(relationships(ctx)).To(ConsistOf(parentOf(parent, "alarm")))
+				entries := dropLogs()
+				Expect(entries).To(HaveLen(1))
+				Expect(entries[0].ContextMap()).To(And(
+					HaveKeyWithValue("status", "alarm"),
+					HaveKeyWithValue("parent", parent.String()),
+					HaveKeyWithValue("reason", reason),
+				))
+			},
+			Entry(
+				"a type that cannot own a status",
+				resource.ID{Type: resource.TypeRange, Key: uuid.New().String()},
+				true,
+				"a range cannot own a status",
+			),
+			Entry(
+				"a parent that does not exist",
+				resource.ID{Type: resource.TypeDevice, Key: "dev-9"},
+				false,
+				"the parent does not exist",
+			),
+		)
+
+		It(
+			"Should log a parent that owns another status",
+			func(ctx SpecContext) {
+				ch := resource.ID{Type: resource.TypeChannel, Key: "12"}
+				define(ctx, ch)
+				write(
+					ctx,
+					stored("Channel", ch.String(), `null`),
+					stored("Alarm", "alarm", `null`),
+				)
+				relate(ctx, parentOf(ch, "alarm"))
+				migrate(ctx)
+				key, _ := v2.MigrateKey(ch.String())
+				Expect(get(ctx, key).Owner).To(HaveValue(Equal(ch)))
+				Expect(get(ctx, "alarm").Owner).To(BeNil())
+				entries := dropLogs()
+				Expect(entries).To(HaveLen(1))
+				Expect(entries[0].ContextMap()).To(
+					HaveKeyWithValue("reason", "the parent owns another status"),
+				)
+			},
+		)
+
+		It(
+			"Should give a parent to only one of the statuses under it",
+			func(ctx SpecContext) {
+				ch := resource.ID{Type: resource.TypeChannel, Key: "12"}
+				define(ctx, ch)
+				write(ctx, stored("A", "a", `null`), stored("B", "b", `null`))
+				relate(ctx, parentOf(ch, "a"), parentOf(ch, "b"))
+				migrate(ctx)
+				Expect(get(ctx, "a").Owner).To(HaveValue(Equal(ch)))
+				Expect(get(ctx, "b").Owner).To(BeNil())
+				Expect(relationships(ctx)).To(ConsistOf(parentOf(ch, "b")))
+				Expect(dropLogs()).To(HaveLen(1))
+			},
+		)
+	})
 })
