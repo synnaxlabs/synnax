@@ -10,7 +10,7 @@
       "sequence_order": "sequential",
       "tests": [
         { "case": "latency/driver_ni_digital_write" },
-        { "case": "latency/driver_ni_state_wake" }
+        { "case": "latency/driver_state_wake" }
       ]
     },
     {

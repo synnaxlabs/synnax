@@ -130,7 +130,7 @@ TEST(TestCommonWriteTask, ReadWakesForCommandSetBeforeWait) {
     state.key = 3;
     state.data_type = x::telem::UINT8_T;
     state.index = 2;
-    for (const double hz: {1.0, 10.0, 100.0}) {
+    for (const float hz: {1.0F, 10.0F, 100.0F}) {
         const auto rate = x::telem::HERTZ * hz;
         SCOPED_TRACE(std::to_string(hz) + " Hz");
         MockSink sink(

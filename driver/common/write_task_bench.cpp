@@ -19,7 +19,7 @@
 #include "driver/common/write_task.h"
 
 namespace {
-using steady_clock = std::chrono::steady_clock;
+using std::chrono::steady_clock;
 
 class Sink final : public driver::common::Sink {
 public:
@@ -41,7 +41,7 @@ void spin_for(const std::chrono::nanoseconds d) {
 /// rate in Hz. Arg 1 is the time in microseconds that the state loop spends writing
 /// each state frame to the Core. Commands arrive at random points in the state period.
 static void BM_CommandToState(benchmark::State &state) {
-    const auto rate = x::telem::HERTZ * static_cast<double>(state.range(0));
+    const auto rate = x::telem::HERTZ * static_cast<float>(state.range(0));
     const auto write_cost = std::chrono::microseconds(state.range(1));
     const auto period = rate.period().chrono();
     synnax::channel::Channel state_ch;
@@ -65,6 +65,7 @@ static void BM_CommandToState(benchmark::State &state) {
             spin_for(write_cost);
         }
     });
+    // NOLINTNEXTLINE(bugprone-random-generator-seed): repeatable command offsets.
     std::mt19937 rng(42);
     std::uniform_int_distribution<int64_t> offset_ns(0, period.count());
     std::vector<double> latencies_ms;
