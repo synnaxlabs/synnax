@@ -148,7 +148,7 @@ TEST(TestFactory, TestConfigureInitialFactoryTasks_ExistingTask) {
     ASSERT_TRUE(factory->configured_tasks.empty());
 }
 
-/// @brief it should return empty tasks list when configuration fails.
+/// @brief it should return the created task with no instance when configuration fails.
 TEST(TestFactory, TestConfigureInitialFactoryTasks_ConfigurationFailure) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
@@ -163,7 +163,10 @@ TEST(TestFactory, TestConfigureInitialFactoryTasks_ConfigurationFailure) {
         SYNTHETIC_TASK_TYPE,
         "test_integration"
     );
-    ASSERT_TRUE(tasks.empty());
+    ASSERT_EQ(tasks.size(), 1);
+    EXPECT_EQ(tasks[0].first.name, "test_task");
+    EXPECT_EQ(tasks[0].first.rack, rack.key);
+    EXPECT_EQ(tasks[0].second, nullptr);
     ASSERT_EQ(factory->configured_tasks.size(), 1);
 }
 

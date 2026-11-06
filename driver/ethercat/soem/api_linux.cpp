@@ -39,4 +39,12 @@ x::errors::Error ProdAPI::check_socket(const char *ifname) {
             std::generic_category().message(errno)
     );
 }
+
+bool ProdAPI::dewesoft_filter_bound(const char *) {
+    return false;
+}
+
+std::optional<std::string> ProdAPI::adapter_name(const char *) {
+    return std::nullopt;
+}
 }

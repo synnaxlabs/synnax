@@ -42,7 +42,7 @@ func newIndexes() indexes {
 		search: gorp.NewSearchIndex[Key, Arc](
 			"search",
 			func(e *Arc) []string {
-				return []string{e.Name}
+				return []string{e.Base().Name}
 			},
 		),
 	}
@@ -122,7 +122,7 @@ func MatchKeys(keys ...Key) Filter {
 func MatchNames(vals ...string) Filter {
 	return func(Retrieve) gorp.Filter[Key, Arc] {
 		return gorp.Match(func(_ gorp.Context, e *Arc) (bool, error) {
-			return slices.Contains(vals, e.Name), nil
+			return slices.Contains(vals, e.Base().Name), nil
 		})
 	}
 }
