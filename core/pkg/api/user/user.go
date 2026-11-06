@@ -330,7 +330,8 @@ type SetRolesRequest struct {
 }
 
 // SetRoles removes and adds roles on the users with the provided keys in one
-// transaction. It returns a validation error when a user is a root user.
+// transaction. It returns access.ErrDenied unless the subject can update the users and
+// every added and removed role, and a validation error when a user is a root user.
 func (s *Service) SetRoles(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -339,7 +340,11 @@ func (s *Service) SetRoles(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: user.ResourceIDsFromKeys(req.Keys),
+		Objects: slices.Concat(
+			user.ResourceIDsFromKeys(req.Keys),
+			role.ResourceIDs(req.Add),
+			role.ResourceIDs(req.Remove),
+		),
 	}); err != nil {
 		return struct{}{}, err
 	}

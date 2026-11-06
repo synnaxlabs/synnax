@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/freighter"
 	apiuser "github.com/synnaxlabs/synnax/pkg/api/user"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -61,6 +62,36 @@ func grantOnUsers(ctx SpecContext, u user.User, action access.Action) {
 		[]access.Action{action},
 		resource.ID{Type: resource.TypeUser},
 	))
+}
+
+// grantRoleChange grants update on every user and on the roles to u through a new
+// role.
+func grantRoleChange(ctx SpecContext, u user.User, roles ...role.Key) {
+	GinkgoHelper()
+	MustSucceed(rbactestutil.Grant(
+		ctx,
+		rbacSvc,
+		userSvc,
+		u.Key,
+		[]access.Action{access.ActionUpdate},
+		append([]resource.ID{{Type: resource.TypeUser}}, role.ResourceIDs(roles)...)...,
+	))
+}
+
+// createRole creates a role that holds no policies.
+func createRole(ctx SpecContext) role.Key {
+	GinkgoHelper()
+	r := &role.Role{Name: "role-" + uuid.New().String()}
+	Expect(rbacSvc.Role.NewWriter(nil, true).Create(ctx, r)).To(Succeed())
+	return r.Key
+}
+
+// beDeniedUpdateOn matches the error that denies the subject update on the role.
+func beDeniedUpdateOn(r role.Key) types.GomegaMatcher {
+	return SatisfyAll(
+		MatchError(access.ErrDenied),
+		MatchError(ContainSubstring("cannot update %s", role.ResourceID(r))),
+	)
 }
 
 func rolesOf(ctx SpecContext, key user.Key) []role.Key {
@@ -396,10 +427,55 @@ var _ = Describe("Service", func() {
 			},
 		)
 		It(
-			"Should refuse to change the roles of the root user",
+			"Should deny adding a role the subject cannot update",
 			func(ctx SpecContext) {
 				fctx, u := nonRootCtx(ctx)
 				grantOnUsers(ctx, u, access.ActionUpdate)
+				target := createUser(ctx, "add-role-"+uuid.New().String())
+				r := createRole(ctx)
+				Expect(apiSvc.SetRoles(fctx, db, apiuser.SetRolesRequest{
+					Keys: []user.Key{target.Key},
+					Add:  []role.Key{r},
+				})).Error().To(beDeniedUpdateOn(r))
+				Expect(rolesOf(ctx, target.Key)).To(BeEmpty())
+			},
+		)
+		It(
+			"Should deny removing a role the subject cannot update",
+			func(ctx SpecContext) {
+				fctx, u := nonRootCtx(ctx)
+				grantOnUsers(ctx, u, access.ActionUpdate)
+				target := createUser(ctx, "remove-role-"+uuid.New().String())
+				r := createRole(ctx)
+				Expect(writer.AssignRole(ctx, r, target.Key)).To(Succeed())
+				Expect(apiSvc.SetRoles(fctx, db, apiuser.SetRolesRequest{
+					Keys:   []user.Key{target.Key},
+					Remove: []role.Key{r},
+				})).Error().To(beDeniedUpdateOn(r))
+				Expect(rolesOf(ctx, target.Key)).To(Equal([]role.Key{r}))
+			},
+		)
+		It(
+			"Should change roles when the subject can update the user and the roles",
+			func(ctx SpecContext) {
+				fctx, u := nonRootCtx(ctx)
+				added, removed := createRole(ctx), createRole(ctx)
+				grantRoleChange(ctx, u, added, removed)
+				target := createUser(ctx, "change-role-"+uuid.New().String())
+				Expect(writer.AssignRole(ctx, removed, target.Key)).To(Succeed())
+				Expect(apiSvc.SetRoles(fctx, db, apiuser.SetRolesRequest{
+					Keys:   []user.Key{target.Key},
+					Add:    []role.Key{added},
+					Remove: []role.Key{removed},
+				})).Error().ToNot(HaveOccurred())
+				Expect(rolesOf(ctx, target.Key)).To(Equal([]role.Key{added}))
+			},
+		)
+		It(
+			"Should refuse to change the roles of the root user",
+			func(ctx SpecContext) {
+				fctx, u := nonRootCtx(ctx)
+				grantRoleChange(ctx, u, rbacSvc.Builtin.OwnerKey)
 				Expect(apiSvc.SetRoles(fctx, db, apiuser.SetRolesRequest{
 					Keys:   []user.Key{root.Key},
 					Remove: []role.Key{rbacSvc.Builtin.OwnerKey},
@@ -418,7 +494,7 @@ var _ = Describe("Service", func() {
 			"Should allow removing Owner from a user that is not the root user",
 			func(ctx SpecContext) {
 				fctx, u := nonRootCtx(ctx)
-				grantOnUsers(ctx, u, access.ActionUpdate)
+				grantRoleChange(ctx, u, rbacSvc.Builtin.OwnerKey)
 				owner := createUser(ctx, "owner-"+uuid.New().String())
 				Expect(writer.AssignRole(ctx, rbacSvc.Builtin.OwnerKey, owner.Key)).
 					To(Succeed())
