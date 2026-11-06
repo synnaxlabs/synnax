@@ -191,7 +191,10 @@ var _ = Describe("Migration", func() {
 			"label":   map[string]any{"max_inline_size": 80.0},
 		}))).To(SatisfyAll(
 			HaveField("Level", Equal(text.LevelSmall)),
-			HaveField("LabeledConfig.Label.MaxInlineSize", HaveValue(BeEquivalentTo(80))),
+			HaveField(
+				"LabeledConfig.Label.MaxInlineSize",
+				HaveValue(BeEquivalentTo(80)),
+			),
 		))
 	})
 
@@ -268,12 +271,15 @@ var _ = Describe("Migration", func() {
 
 	DescribeTable("Should keep the rendered text size of a saved symbol",
 		func(ctx SpecContext, size string, level text.Level) {
+			sized := func(variant string) v10.ElementConfig {
+				return stored(msgpack.EncodedJSON{"variant": variant, "size": size})
+			}
 			out := MustSucceed(v11.MigrateSchematic(ctx, v10.Schematic{
 				Configs: map[string]v10.ElementConfig{
-					"button":   stored(msgpack.EncodedJSON{"variant": "button", "size": size}),
-					"input":    stored(msgpack.EncodedJSON{"variant": "input", "size": size}),
-					"select":   stored(msgpack.EncodedJSON{"variant": "select", "size": size}),
-					"setpoint": stored(msgpack.EncodedJSON{"variant": "setpoint", "size": size}),
+					"button":   sized("button"),
+					"input":    sized("input"),
+					"select":   sized("select"),
+					"setpoint": sized("setpoint"),
 				},
 			}))
 			c := out.Configs
