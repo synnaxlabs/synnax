@@ -9,6 +9,7 @@
 
 import "@/log/Log.css";
 
+import { clipboard } from "@synnaxlabs/lyra/clipboard";
 import { type Flex } from "@synnaxlabs/lyra/flex";
 import { useCombinedRefs } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -39,8 +40,10 @@ const TRIGGER_CONFIG: Triggers.ModeConfig<Mode> = {
 
 const FLATTENED_TRIGGERS = Triggers.flattenConfig(TRIGGER_CONFIG);
 
+const toText = (lines: log.Line[]): string => lines.map((l) => l.text).join("\n");
+
 const toTextBlob = (lines: log.Line[]): Blob =>
-  new Blob([lines.map((l) => l.text).join("\n")], { type: "text/plain" });
+  new Blob([toText(lines)], { type: "text/plain" });
 
 const toHTMLBlob = (lines: log.Line[]): Blob => {
   const body = lines.map((l) => {
@@ -160,15 +163,21 @@ export const Base = ({
   const handleError = Status.useErrorHandler();
 
   // The worker formats the lines only now, so a large selection costs nothing until a
-  // copy. The write must start inside the user gesture, so the item holds promises.
+  // copy. The write must start inside the user gesture, so the item holds promises. An
+  // insecure context has no ClipboardItem, so it copies plain text once the lines
+  // arrive, and a browser refuses that copy if the gesture has expired.
   const copyToClipboard = () => {
     const lines = methods.selectedLines();
-    const item = new ClipboardItem({
-      "text/html": lines.then(toHTMLBlob),
-      "text/plain": lines.then(toTextBlob),
-    });
     handleError(async () => {
-      await navigator.clipboard.write([item]);
+      if (typeof ClipboardItem === "undefined")
+        await clipboard.writeText(toText(await lines));
+      else
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            "text/html": lines.then(toHTMLBlob),
+            "text/plain": lines.then(toTextBlob),
+          }),
+        ]);
       const { length } = await lines;
       addStatus({
         variant: "success",

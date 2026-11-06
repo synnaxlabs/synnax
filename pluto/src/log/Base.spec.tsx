@@ -9,6 +9,7 @@
 
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
+import { stubClipboardUnavailable, stubCopyCommand } from "@synnaxlabs/lyra/testutil";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { box } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen } from "@testing-library/react";
@@ -469,6 +470,31 @@ describe("log/Base", () => {
       const html = await (await item.data["text/html"]).text();
       expect(html).toContain("&lt;one&gt;");
       expect(html).toContain('<span style="color: #ff0000">two</span>');
+    });
+
+    it("should copy plain text in a context with no clipboard API", async () => {
+      Reflect.deleteProperty(globalThis, "ClipboardItem");
+      stubClipboardUnavailable();
+      const copied = stubCopyCommand();
+      setupAether({ ...SELECTED, selectionEnd: 1 });
+      const { container } = renderLog({ children: <Messages /> });
+      await act(async () => {
+        expect(fireEvent.copy(getLogDiv(container))).toBe(false);
+      });
+      expect(copied).toHaveBeenCalledWith("<one>\ntwo");
+      expect(await screen.findByText("Copied 2 lines to clipboard")).toBeDefined();
+    });
+
+    it("should report a copy the browser refuses", async () => {
+      Reflect.deleteProperty(globalThis, "ClipboardItem");
+      stubClipboardUnavailable();
+      stubCopyCommand(false);
+      setupAether({ ...SELECTED, selectionEnd: 1 });
+      const { container } = renderLog({ children: <Messages /> });
+      await act(async () => {
+        fireEvent.copy(getLogDiv(container));
+      });
+      expect(await screen.findByText("Failed to copy to clipboard")).toBeDefined();
     });
 
     it("should report the count of copied lines", async () => {
