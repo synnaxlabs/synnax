@@ -1759,7 +1759,9 @@ var _ = Describe("Task", Ordered, func() {
 			func(ctx SpecContext) {
 				create(ctx, "injector")
 				q := search.Query[resource.ID]{Term: "injector"}
-				Expect(MustSucceed(svc.Resources().Search(ctx, db, q)).Keys).To(BeEmpty())
+				Expect(
+					MustSucceed(svc.Resources().Search(ctx, db, q)).Keys,
+				).To(BeEmpty())
 			},
 		)
 	})

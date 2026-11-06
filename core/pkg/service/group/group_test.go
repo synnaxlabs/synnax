@@ -352,7 +352,10 @@ var _ = Describe("Group", Ordered, func() {
 
 	Describe("BuiltinDeleteMigration", func() {
 		It("Should delete every group with the builtin scope", func(ctx SpecContext) {
-			builtin := group.Group{Name: "builtin-to-delete", Scope: resource.TypeBuiltin}
+			builtin := group.Group{
+				Name:  "builtin-to-delete",
+				Scope: resource.TypeBuiltin,
+			}
 			Expect(w.Create(ctx, &builtin)).To(Succeed())
 			kept := create(ctx, "kept-by-builtin-delete", nil)
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -411,7 +414,9 @@ var _ = Describe("Group", Ordered, func() {
 			func(ctx SpecContext) {
 				createIn(ctx, "injector")
 				q := search.Query[resource.ID]{Term: "injector"}
-				Expect(MustSucceed(svc.Resources().Search(ctx, db, q)).Keys).To(BeEmpty())
+				Expect(
+					MustSucceed(svc.Resources().Search(ctx, db, q)).Keys,
+				).To(BeEmpty())
 			},
 		)
 	})
