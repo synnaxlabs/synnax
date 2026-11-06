@@ -148,7 +148,8 @@ export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRet
   label.Label[]
 >({
   name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query: { keys } }) => await client.labels.retrieve(keys),
+  retrieve: async ({ client, query: { keys } }) =>
+    await client.labels.retrieve({ where: { key: { in: keys } } }),
   onChange: ({ client, query: { keys } }, handler) =>
     client.labels.onChange(keys, handler),
   getCached: ({ client, query: { keys } }) => client.labels.getCached(keys),

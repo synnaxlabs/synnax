@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -18,6 +19,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "x/cpp/telem/telem.h"
+
 #include "driver/ethercat/dc/dc.h"
 #include "driver/ethercat/master/master.h"
 #include "driver/ethercat/pdo/pdo.h"
@@ -25,12 +28,23 @@
 #include "driver/ethercat/telem/telem.h"
 
 namespace driver::ethercat::soem {
+/// @brief how long the master waits for slaves to change state.
+struct Config {
+    /// @brief how long the slaves get to reach PRE-OP after discovery. The default is
+    /// the PreopTimeout of the ESI files.
+    x::telem::TimeSpan pre_op_timeout = x::telem::SECOND * 2;
+    /// @brief how long the slaves get to reach SAFE-OP, OP, or INIT.
+    x::telem::TimeSpan state_change_timeout = x::telem::SECOND * 2;
+};
+
 /// @brief SOEM-based implementation of the Master interface.
 class Master final : public master::Master {
     /// @brief the network interface name (e.g., "eth0", "enp3s0").
     std::string iface_name;
     /// @brief API abstraction for SOEM operations.
     std::unique_ptr<API> api;
+    /// @brief how long the master waits for slaves to change state.
+    Config cfg;
     /// @brief IOmap buffer for PDO exchange.
     std::vector<uint8_t> iomap;
     /// @brief input size in bytes (TxPDO, slave->master).
@@ -58,8 +72,8 @@ class Master final : public master::Master {
     bool has_dc = false;
 
 public:
-    /// @brief constructs a SOEM master with injected API and interface name.
-    Master(std::unique_ptr<API> api, std::string interface_name);
+    /// @brief constructs a SOEM master with injected API, interface name, and config.
+    Master(std::unique_ptr<API> api, std::string interface_name, Config cfg = {});
 
     ~Master() override;
 
@@ -143,8 +157,26 @@ private:
     bool
     scan_object_dictionary_for_pdos(uint16_t slave_pos, slave::DiscoveryResult &slave);
 
-    /// @brief transitions all enabled slaves to the specified state.
-    x::errors::Error request_state(uint16_t state, int timeout);
+    /// @brief writes zero to the DC activation registers (0x0980 and 0x0981) of every
+    /// enabled slave with a distributed clock.
+    x::errors::Error clear_dc_activation();
+
+    /// @brief requests the state from all enabled slaves, then waits until they reach
+    /// it, one of them refuses it, or the timeout in microseconds passes. Calls
+    /// before_read, if set, before each read of the slave states.
+    x::errors::Error request_state(
+        uint16_t state,
+        int timeout,
+        const std::function<void()> &before_read = nullptr
+    );
+
+    /// @brief whether the slave has its AL error flag set and gives an AL status code.
+    [[nodiscard]] bool al_error(uint16_t pos) const;
+
+    /// @brief whether the slave refused the state: it stays below the state with an AL
+    /// error. A slave above the state can still show an error from before a request to
+    /// go down.
+    [[nodiscard]] bool refuses(uint16_t pos, uint16_t state) const;
 
     /// @brief transitions all enabled slaves to OP while exchanging process data, so
     /// slaves with a sync manager watchdog see valid outputs.
@@ -155,7 +187,9 @@ private:
     /// slave that lost power.
     void recover(uint16_t pos);
 
-    /// @brief builds the error for enabled slaves that did not reach a state.
+    /// @brief builds the error for enabled slaves that did not reach a state. It is a
+    /// refusal when a slave refuses the state with an AL status code that a new start
+    /// cannot clear.
     x::errors::Error state_error(const std::vector<uint16_t> &failed, uint16_t state);
 };
 

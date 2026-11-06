@@ -76,6 +76,16 @@ class TestRackClient:
         finally:
             client.racks.rename(rack.key, rack.name)
 
+    def test_retrieve_by_name_multiple_found(self, client: sy.Synnax) -> None:
+        """Should raise when more than one rack has the name"""
+        name = str(uuid4())
+        client.racks.create([rack.Rack(name=name), rack.Rack(name=name)])
+        with pytest.raises(
+            sy.MultipleFoundError,
+            match=f"Expected one Rack matching {name}, but found 2",
+        ):
+            client.racks.retrieve(name=name)
+
     def test_delete(self, client: sy.Synnax) -> None:
         """Should delete a rack"""
         rack = client.racks.create(name="test")
