@@ -32,6 +32,7 @@ export interface ButtonsContextValue extends Pick<
   AriaAttributes,
   "aria-invalid" | "aria-describedby"
 > {
+  disabled?: boolean;
   preview: boolean;
   variant: ButtonsVariant;
   status?: Status.Variant;
